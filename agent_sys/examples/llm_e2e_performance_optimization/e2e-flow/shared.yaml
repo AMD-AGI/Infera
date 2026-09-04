@@ -113,7 +113,20 @@ env:
   # An absolute path rather than a file inside the package: the whole package is
   # copied into every attempt's zone, and a trace is megabytes. A cluster fact,
   # so it carries a default — unlike the six node facts, which do not.
-  E2E_AIPERF_TRACE: '${aiperf_trace:-/shared_nfs/yihou/agent_sys_debug/ws2/profiling/trace/conversation_trace.jsonl}'
+  # **No default, on purpose.** This used to default to
+  # `/shared_nfs/yihou/agent_sys_debug/ws2/profiling/trace/conversation_trace.jsonl`
+  # — a site-specific absolute path in a spec, which M2.1 and CONTRACT §6
+  # forbid, and a *debugging* workspace besides. m5 caught it from the other
+  # end: their consumer is `assets/accept/measure.sh:119`, `'${E2E_AIPERF_TRACE:?}'`,
+  # so an operator who passes no `--var aiperf_trace=…` gets a loud failure
+  # naming the variable instead of a replay silently driven by somebody's
+  # scratch trace. Empty is what makes that guard reachable.
+  #
+  # Found because `check_agent_env.py` flagged m5's empty default as diverging
+  # from this one — and **the checker was pointing the wrong way**: the natural
+  # fix would have copied this path into four more files. m5's point, and the
+  # reason a checker needs a direction as well as a rule.
+  E2E_AIPERF_TRACE: '${aiperf_trace:-}'
   # Replay the first three minutes of trace time. Measured on this cluster: 721
   # requests, which saturates the deployment and is short enough that a
   # debugging round is minutes.

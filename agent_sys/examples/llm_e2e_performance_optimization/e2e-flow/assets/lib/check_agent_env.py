@@ -52,6 +52,18 @@ import sys
 #: The one authority. Every other block is measured against this agent's.
 AUTHORITY = "runner"
 
+#: `(agent, variable)` pairs that differ from `runner` **on purpose**, each with
+#: the reason. An exception carrying no reason is indistinguishable from drift,
+#: which is the thing this file exists to prevent — so the reason is the entry.
+DELIBERATE: dict[tuple[str, str], str] = {
+    ("e2e_integrator", "E2E_TRACE_END_MS"): (
+        "m5 measures TWICE. Two arms at the package's 180000 ms do not fit the "
+        "CLI's 1800 s settle budget, and work finishing outside it is discarded. "
+        "A one-armed and a two-armed stage cannot share a duration default — "
+        "m5, 2026-09-04, and this is the reason rather than an exemption."
+    ),
+}
+
 #: Names referenced by assets. Matches the shell and python spellings alike —
 #: `$E2E_X`, `${E2E_X}`, `${E2E_X:-d}`, `os.environ["E2E_X"]`, `getenv('E2E_X')`.
 _REF = re.compile(r"\bE2E_[A-Z0-9_]+")
@@ -154,6 +166,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     problems: list[str] = []
+    notes: list[str] = []
     checked = 0
 
     for step in sorted((pkg / "steps").glob("*.yaml")):
@@ -165,14 +178,19 @@ def main(argv: list[str] | None = None) -> int:
             name = str(agent.get("name"))
             declared = _e2e(agent)
 
-            # 1. divergence
+            # 1. divergence — **only where both declare a name.**
+            #
+            # A stage-specific knob is not a violation. m5 declares eight —
+            # `E2E_NEEDLE_DEPTHS`, `E2E_GSM8K_DATA` and friends — that no other
+            # stage has any use for, and requiring them on `runner` would make
+            # eight false failures and grow `runner` by eight names one stage
+            # reads. Their question before this landed, and they were right.
             for key, value in sorted(declared.items()):
                 if key not in authority:
-                    problems.append(
-                        f"{step.name}: {name} declares {key} which `{AUTHORITY}` does not. "
-                        f"One of the two is the authority and it is not this one."
-                    )
-                elif authority[key] != value:
+                    continue
+                if (name, key) in DELIBERATE:
+                    continue
+                if authority[key] != value:
                     problems.append(
                         f"{step.name}: {name} declares {key}={value!r} but `{AUTHORITY}` "
                         f"has {authority[key]!r}. Two declarations of one default is how "
@@ -196,7 +214,17 @@ def main(argv: list[str] | None = None) -> int:
                 if key in declared:
                     continue
                 if key not in authority:
-                    continue  # a name nothing declares is a separate problem
+                    # **Reported, not failed, and not silent.** A name no spec
+                    # declares is usually one the body sets for itself —
+                    # `E2E_KIT_RUN_TAG`, `E2E_ARM`, `E2E_OUTPUT_DIR`. But not
+                    # always: `E2E_MEASURE_GPU` is m3's and m4 reads it, which
+                    # is a real cross-owner gap. Failing on all of them is
+                    # noise; skipping all of them silently is how the gap hides.
+                    notes.append(
+                        f"{step.name}: {name} reads {key}, which no spec declares "
+                        f"({refs[key].split('/e2e-flow/')[-1]}). Body-set, or a gap?"
+                    )
+                    continue
                 problems.append(
                     f"{step.name}: {name} does NOT declare {key}, which its own assets "
                     f"read ({refs[key].split('/e2e-flow/')[-1]}). A `kind: ai` agent "
@@ -204,6 +232,8 @@ def main(argv: list[str] | None = None) -> int:
                     f"body silently takes whatever default it wrote."
                 )
 
+    for line in notes:
+        print(f"check_agent_env: note: {line}", file=sys.stderr)
     for line in problems:
         print(f"check_agent_env: {line}", file=sys.stderr)
     if problems:
