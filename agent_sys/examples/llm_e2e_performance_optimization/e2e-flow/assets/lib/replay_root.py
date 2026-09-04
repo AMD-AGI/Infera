@@ -434,7 +434,19 @@ def produced_for_real(run: pathlib.Path, kind: str, hid: str) -> bool | None:
     spec = PRODUCER.get(kind)
     if spec is None:
         return None
-    closure, real_agent = spec
+    # **Compared against the MOCK spec, not the real one, and the difference is
+    # a decision rather than a shortcut.** The obvious form is
+    # `agent_spec == real_agent`, and it is wrong: a stage run with a *different*
+    # real agent — anyone passing `--var m1_agent=<something else>` — really did
+    # execute, and equality against the package default would call it mocked.
+    # There is exactly one value that means "not this stage", and it is
+    # `runner`, because that is the value the mock is selected with.
+    #
+    # So the second element of `PRODUCER` is documentation of what real looks
+    # like, deliberately not the comparison. Pyright flagged it unused (the
+    # leader relayed it); it is unused *on purpose* and this comment is why,
+    # rather than the field being deleted and the reader losing the default.
+    closure = spec[0]
     store = run / "store" / "task"
     if not store.is_dir():
         return None
@@ -572,8 +584,20 @@ def stability(rows: list[dict], threshold: int) -> tuple[bool, str]:
     if unknown:
         prov += f", {len(unknown)} with no recorded discriminator"
     if not rows:
+        # **"cannot tell" and "did not happen" are different sentences**, and
+        # the message used to give the second for both. The leader caught it:
+        # for `profiling_mode_off.bench_result` *no run executed this for real*
+        # is true — but true because rung 2b exited before sealing, **not
+        # because the discriminator said so**. A reader skimming would take an
+        # inference for a measurement, which is T49 in a new place, in a tool
+        # whose whole subject is telling those apart.
+        #
+        # So: only claim the conclusion where a discriminator produced it.
+        if unknown and not mocked:
+            why = f"cannot tell — {len(unknown)} run(s) with no recorded discriminator"
+            return False, f"{why}{live_note}"
         why = ("no run executed this stage for real"
-               if mocked or unknown else "no finished run produced this kind")
+               if mocked else "no finished run produced this kind")
         return False, f"{why}{live_note}{prov}"
 
     passing = [r for r in rows if r["all_passed"]]
