@@ -134,8 +134,48 @@ doc = yaml.safe_load(open(sys.argv[1]))
 fixed = doc.get("fixed") or {}
 for key in ("node", "image", "image_id", "model_name", "served_model_name", "tp_size"):
     print(f"KIT_{key.upper()}={shlex.quote(str(fixed.get(key, '')))}")
+# `gpu_devices` is a **list** in the record and a comma string to the kit.
+devs = fixed.get("gpu_devices") or []
+if not isinstance(devs, (list, tuple)):
+    devs = [devs]
+print(f"KIT_GPU_DEVICES={shlex.quote(','.join(str(d) for d in devs))}")
 PY
 )"
+
+# **Which cards — the seventh kit variable, and the one that was missing.**
+#
+# m1's kit defaults `: "${E2E_KIT_GPU_DEVICES:=0,1,2,3}"`, a hardcoded literal,
+# and **nothing in the kit reads a card**: no `rocm-smi`, no selection logic,
+# and its preflight covers ports and container names only. Until this block m2
+# exported the other six kit variables and not this one, so **both bring-ups
+# took cards 0–3 whatever was actually free.** On a node where 0–3 are held by a
+# co-tenant that is an OOM after a full bring-up — 249 was such a node this
+# morning, and 235 became one four minutes after a hold landed on it.
+#
+# **The escape hatch that saved rung 1 does not exist here.** m1 could route
+# "take only 4–7" through `E2E_INSTRUCTION` because their leaf is an agent that
+# reads prose. This leaf is a program. That makes RUN-PLAN's *"no `--var` names
+# a GPU set, only a count"* strictly worse one stage over, and it is why this
+# needs a variable rather than a note.
+#
+# Precedence, and the middle rule is the one worth arguing for:
+#   1. `$E2E_GPU_DEVICES` when it names a list — the operator said which, and
+#      `none` means "choose freely" rather than "no cards" (`shared.yaml`).
+#   2. otherwise **the set the kit records having taken**. m2 measures the
+#      deployment m1 described, so m1's own cards are the right default: that
+#      field is deliberately *what was taken* and not *what was free*, because
+#      free-at-preflight is a measurement of a moment and stale when read.
+#   3. otherwise leave it unset and let the kit decide — today's behaviour, and
+#      no worse than it was.
+if [ "${E2E_GPU_DEVICES:-none}" != "none" ] && [ -n "${E2E_GPU_DEVICES:-}" ]; then
+  export E2E_KIT_GPU_DEVICES="$E2E_GPU_DEVICES"
+  say "cards: $E2E_KIT_GPU_DEVICES (from --var gpu_devices)"
+elif [ -n "${KIT_GPU_DEVICES:-}" ]; then
+  export E2E_KIT_GPU_DEVICES="$KIT_GPU_DEVICES"
+  say "cards: $E2E_KIT_GPU_DEVICES (the set the deploy_kit records taking)"
+else
+  say "cards: not named here; the kit's own default applies"
+fi
 
 # A mismatch here means this line is about to measure a machine the kit does not
 # describe, and every number it produces would be filed under the wrong
