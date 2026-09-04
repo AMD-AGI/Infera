@@ -52,15 +52,29 @@ def verdict(r: dict, need: int, need_disk: int, need_root: int) -> tuple[str, st
     # would reject is worth knowing about before the hold, not during rung 3.
     if r.get("mounts") == "denied":
         return "NO", "spur-authz refuses this flow's mounts"
+    # **`SERVABLE` outranks `BUILDABLE` and the gap is a four-minute build.**
+    # An image whose `infera.engine.sglang` and `infera.server` import can be
+    # brought up as-is; 006 and 037 were both in that state and neither needed
+    # a build. Reported as its own tier because the caller's next action
+    # differs, which is the only thing a tier is for.
+    serve = [b["image"] for b in r["bases"] if b.get("servable")]
+    if serve:
+        return "SERVABLE", f"cards {r['free']} free, {r['disk_gb']}G, serves now from {serve[0]}"
     ok = [b["image"] for b in r["bases"] if b["anchor"] == ANCHOR_OK]
     if ok:
-        return "READY", f"cards {r['free']} free, {r['disk_gb']}G, base {ok[0]}"
+        # **`BUILDABLE`, not `READY`** — m1's correction, 2026-09-04, and it
+        # changes what a caller may promise. A base carrying the anchor means
+        # `Dockerfile.sglang` *will build* here; it does **not** mean a servable
+        # image exists. `006` had one only because a co-tenant left it behind.
+        # The old label invited "ready to launch", which is a four-minute build
+        # away from true.
+        return "BUILDABLE", f"cards {r['free']} free, {r['disk_gb']}G, builds from {ok[0]}"
     seen = ", ".join(f"{b['image'].split('/')[-1]}={b['anchor']}" for b in r["bases"])
     why = seen or "no sglang image local"
     return "USABLE", f"cards {r['free']} free, {r['disk_gb']}G, needs a base pulled ({why})"
 
 
-ORDER = {"READY": 0, "USABLE": 1, "NO": 2, "?": 3}
+ORDER = {"SERVABLE": 0, "BUILDABLE": 1, "USABLE": 2, "NO": 3, "?": 4}
 
 
 def main() -> int:
@@ -96,14 +110,24 @@ def main() -> int:
             table.append((n, v, why))
     table.sort(key=lambda t: (ORDER[t[1]], t[0]))
 
-    print(f"{'='*100}\nevery node checked, and what each one is\n{'='*100}")
+    # **Timestamp the table, because a reader acts on it minutes later.**
+    # The leader picked 235 over 006 on a reading that was true when taken and
+    # false four minutes on: a co-tenant took all eight cards. A node is clean
+    # at the moment you measure it and not afterwards, so the table says when.
+    import datetime as _dt
+    rows_mtime = _dt.datetime.fromtimestamp(p.stat().st_mtime).strftime("%H:%M:%S") if p.is_file() else "?"
+    print(f"{'='*100}\nevery node checked, and what each one is"
+          f"   — last row written {rows_mtime}, "
+          f"rendered {_dt.datetime.now().strftime('%H:%M:%S')}\n{'='*100}")
+    print("  A node is clean at the moment it was measured and not afterwards.")
     print(f"  {'node':<22} {'verdict':<8} reason")
     print(f"  {'-'*22} {'-'*8} {'-'*62}")
     for n, v, why in table:
         print(f"  {n:<22} {v:<8} {why}")
 
-    for tier, blurb in (("READY", "free half, disk, and a local base carrying m1's anchor"),
-                        ("USABLE", "free half and disk — costs one image pull")):
+    for tier, blurb in (("SERVABLE", "brings up as-is — no build; the state 006 and 037 were in"),
+                        ("BUILDABLE", "free half, disk, and a local base to build from — NOT a servable image"),
+                        ("USABLE", "free half and disk — costs one image pull, then a build")):
         got = [n for n, v, _ in table if v == tier]
         print(f"\n  {tier}: {len(got)} — {blurb}")
         if got:

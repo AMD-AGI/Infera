@@ -64,8 +64,18 @@ imgs="$(d image ls --format '{{.Repository}}:{{.Tag}}' | grep -Ei 'sgl-dev|sglan
 anchor_rows=""
 while read -r img; do
   [ -n "$img" ] || continue
-  got="$(timeout 240 docker run --rm --entrypoint /bin/bash "$img" \
-           -lc "grep -A1 '$ANCHOR_KEY' '$ANCHOR_FILE' 2>/dev/null" 2>/dev/null)"
+  # **Both questions in one container start.** The anchor asks *can this build*;
+  # `infera.engine.sglang` and `infera.server` importing asks *can this serve
+  # right now*, and they are different answers with a four-minute build between
+  # them — m1's correction: a base carrying the anchor does **not** mean a
+  # servable image exists. Measured 2026-09-04 on `crsuse2-m2m-037`, where both
+  # `infera/engine-sglang` images answered `servable` and the node needed no
+  # build at all, exactly as `006` had not. Two greps, one `docker run`, because
+  # the container start is the whole cost.
+  got="$(timeout 240 docker run --rm --entrypoint /bin/bash "$img" -lc \
+           "grep -A1 '$ANCHOR_KEY' '$ANCHOR_FILE' 2>/dev/null;
+            python3 -c 'import infera.engine.sglang, infera.server' 2>/dev/null \
+              && echo E2E_SERVABLE" 2>/dev/null)"
   # A following line naming require_reasoning means Dockerfile.sglang can build
   # against this base; a bare `)` means it cannot. Absent file / failed run is
   # neither, and is reported as such rather than folded into "no".
@@ -73,7 +83,10 @@ while read -r img; do
   elif grep -q "$ANCHOR_WANT" <<< "$got";      then verdict="yes"
   else                                              verdict="no"
   fi
-  anchor_rows="${anchor_rows}${anchor_rows:+,}{\"image\":\"${img}\",\"anchor\":\"${verdict}\"}"
+  # The two modules the kit's `start_worker.sh` and `start_router.sh` exec, so
+  # this is the same reading the leader took by hand on 006 before spending it.
+  servable=false; grep -q E2E_SERVABLE <<< "$got" && servable=true
+  anchor_rows="${anchor_rows}${anchor_rows:+,}{\"image\":\"${img}\",\"anchor\":\"${verdict}\",\"servable\":${servable}}"
 done <<< "$imgs"
 
 # --- 3. disk, BOTH filesystems -----------------------------------------------
