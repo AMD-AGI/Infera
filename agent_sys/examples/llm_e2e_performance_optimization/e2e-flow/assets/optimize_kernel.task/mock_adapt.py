@@ -46,6 +46,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent / "steps"))
 
 import _lib as lib  # noqa: E402
+import _fragment_patch as fragpatch  # noqa: E402
 
 
 #: `"$VAR"/a/b` -> `"$VAR/a/b"`. The closing quote moves to the far side of the
@@ -114,6 +115,50 @@ def _hash_from_image(container_path: str, image: str) -> str | None:
         return None
     digest = (out or "").strip().splitlines()[-1].strip() if (out or "").strip() else ""
     return digest if len(digest) == 64 and all(c in "0123456789abcdef" for c in digest) else None
+
+
+def _stock_from_image(container_path: str, image: str, scratch: Path) -> str | None:
+    """The stock file's **text**, out of the image. `None` if it cannot be had.
+
+    **A shared destination, not a stream, and not a login-node tempdir.**
+    `_hash_from_image` streams through `sha256sum` because a digest is all it
+    needs and streaming removes the locality question entirely. A diff needs the
+    *bytes*, so there is something to transport and the question comes back —
+    and the first version of `_hash_from_image` got it wrong by writing to a
+    `tempfile.TemporaryDirectory()` created here while `docker cp` runs on the
+    **node** (*invalid output path*). So `scratch` must be a path both hosts
+    mount; the caller passes one under the run root, which is NFS.
+
+    Streaming the content back through `nodecall.on` was the alternative and is
+    worse: the payload crosses `spur exec bash -lc` and a shell re-parse, and a
+    30 KB Python file is exactly the kind of thing that survives that in testing
+    and mangles on the one line that matters.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+    try:
+        import nodecall
+        import patchkit
+    except ImportError:
+        return None
+    inside = patchkit.expand(container_path)
+    scratch.mkdir(parents=True, exist_ok=True)
+    dest = scratch / "stock.src"
+    script = "\n".join([
+        "set -e",
+        f"CID=$(docker create '{image}' true)",
+        "trap 'docker rm -f $CID >/dev/null 2>&1' EXIT",
+        f"docker cp \"$CID:{inside}\" '{dest}'",
+    ])
+    try:
+        nodecall.on(script)
+    except Exception:
+        return None
+    if not dest.is_file():
+        return None
+    try:
+        return dest.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
 
 
 def _ensure_impl_entry(packup: Path, workset_root: Path, operator: dict) -> str | None:
@@ -362,8 +407,60 @@ def main() -> int:
         base_sha256, sha_source = "0" * 64, "nothing (NO ENGINE TREE AND NO KERNEL)"
         sha_from = {"method": "replacement_fallback", "image": None}
 
+    # **A `call_site_fragment` operator is installed as a diff, not as a file.**
+    # `apply.py:643-659` has run `patch -p1` all along and the producer could
+    # never ask for it: the enum had one value, so the only shape m4 could emit
+    # was a whole-file overlay, which drops the target's entire public surface
+    # and is what m5's applier refuses by name. Leader's ruling, 2026-09-04.
+    #
+    # **The mock's diff inserts only the marker.** There is no campaign here and
+    # the sealed kernel is a standalone module rather than an edited
+    # `sampler.py`, so there is no fragment edit to carry — and a marker-only
+    # diff is applyable, non-empty, exercises the whole path, and is honest:
+    # the mock's optimisation *is* a no-op. The token says so
+    # (`M4_MARKER_ONLY_NO_OPTIMISATION`) because a green `check_patch_live` on a
+    # patch that optimises nothing must not read as evidence of one.
+    patch_rel = None
+    runtime_marker = None
+    apply_mode = "overlay_files"
+    fragment = str(integration.get("substitution") or "") == "call_site_fragment"
+    if fragment and container_path and image:
+        entry_function = str((operator.get("edit_target") or {}).get("entry_function") or "")
+        if not entry_function:
+            lib.die("this operator is `call_site_fragment` but declares no "
+                    "`edit_target.entry_function`, so there is nowhere to anchor the marker")
+        stock_text = _stock_from_image(container_path, image, packup / "apply" / ".stock")
+        if stock_text is None:
+            lib.die(
+                f"this operator is `call_site_fragment`, so it must be installed as a diff, and "
+                f"the stock {target_files[0]} could not be read out of {image}. Without it there "
+                "is nothing to cut a patch against -- and the whole-file overlay that used to be "
+                "emitted here is the shape m5's applier refuses by name"
+            )
+        # **The diff is cut in the CONTAINER frame, not the workset's.**
+        # `apply.py:637` does `split_placeholder(container_path)` and extracts
+        # into `tree/<rel>`, so `rel` is `srt/layers/sampler.py` — while the
+        # workset's `target_files[0]` is `python/sglang/srt/layers/sampler.py`,
+        # repo-relative. A diff headed with the workset's path made `patch -p1`
+        # say **"No file to patch. Skipping patch."** and exit 1 having changed
+        # nothing. Same two-frame problem `check_optimization_shape._same_file`
+        # exists for, arriving in a third place.
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+        import patchkit  # noqa: E402 — the path insert above is what makes it importable
+
+        _root, patch_rel_path = patchkit.split_placeholder(container_path)
+        diff_text, runtime_marker = fragpatch.build(
+            stock_text, patch_rel_path, entry_function, operator_id, "mock0",
+            no_optimisation=True,
+        )
+        patch_rel = f"{operator_id}.patch"
+        patches = packup / "apply" / "patches"
+        patches.mkdir(parents=True, exist_ok=True)
+        (patches / patch_rel).write_text(diff_text, encoding="utf-8")
+        apply_mode = "patch_in_place"
+
     apply_block = {
-        "apply_mode": "overlay_files",
+        "apply_mode": apply_mode,
         "manifest": lib.APPLY_MANIFEST,
         "image": ((run_env.get("fixed") or {}).get("image")),
         "logical_operator": operator_id,
@@ -386,13 +483,23 @@ def main() -> int:
                 # fallback. m5 prints this in `apply.py`'s mismatch refusal.
                 "base_sha256_from": sha_from,
                 "change": "modify",
-                "replacement": "results/optimized_kernel.py",
+                # One of the two, never both: `patchkit` requires exactly one.
+                **({"patch": patch_rel} if patch_rel else
+                   {"replacement": "results/optimized_kernel.py"}),
             }]
-            if kernel.is_file() and container_path else []
+            if (patch_rel or kernel.is_file()) and container_path else []
         ),
         "revert": "Remove the overlay and restart the engine.",
     }
-    if integration.get("public_symbol"):
+    if runtime_marker is not None:
+        # **The marker the diff installed, not one derived from a symbol.** A
+        # `call_site_fragment` operator has no `public_symbol` -- that is the
+        # definition of the case -- so the marker cannot be derived, and
+        # synthesising a symbol to get one was refused by m4 and m5 both. A diff
+        # that edits a line can add a line, so the thing that proves execution
+        # is the thing that was installed.
+        apply_block["runtime_marker"] = runtime_marker
+    elif integration.get("public_symbol"):
         apply_block["runtime_marker"] = {
             "first_call": re.escape(str(integration["public_symbol"])) + r"\s*\("
         }

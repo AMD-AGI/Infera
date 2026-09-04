@@ -34,6 +34,7 @@ Two properties the inserted line must have, and a comment satisfies neither:
 
 from __future__ import annotations
 
+import ast
 import difflib
 import re
 
@@ -66,31 +67,68 @@ def first_call_regex(operator_id: str, rev: str, *, no_optimisation: bool) -> st
     return rf"{token}\s+{re.escape(operator_id)}\s+{re.escape(rev)}"
 
 
-def build(stock_text: str, rel_path: str, anchor: str, operator_id: str, rev: str,
-          *, no_optimisation: bool, replacement_fragment: str | None = None) -> tuple[str, dict]:
+def entry_body_line(stock_text: str, entry_function: str) -> tuple[int, str]:
+    """`(0-based line of the first statement, its indent)` for `Class.method`.
+
+    **Located by AST, never by `entry_function_line`.** The workset records
+    `183` and the statement is at `207` in the image the patch is cut against —
+    the analysis was sglang 0.5.14, the deployment is 0.5.16. A line number is
+    precise, plausible and 24 lines wrong, which is worse than an absent field
+    because it invites use.
+
+    **And not by an anchor string either**, which is what this first tried:
+    the workset declares no fragment text. The nearest thing is prose inside
+    `integration.invariants` — *"the call site is `logits[:] = …`"* — and
+    parsing a sentence for the thing a patch will be cut against is the kind of
+    dependency that works until someone rewords a comment. Asking m3 to declare
+    a fragment field would be the alternative, and it is not needed: **the
+    marker has to prove the function was ENTERED, so the top of its body is
+    exactly the right place** and needs nothing the workset does not already
+    say.
+    """
+    want = entry_function.split(".")
+    tree = ast.parse(stock_text)
+
+    def find(nodes, path):
+        head, rest = path[0], path[1:]
+        for node in nodes:
+            if getattr(node, "name", None) != head:
+                continue
+            if not rest:
+                return node
+            return find(node.body, rest)
+        return None
+
+    node = find(tree.body, want)
+    if node is None or not getattr(node, "body", None):
+        raise SystemExit(
+            f"`edit_target.entry_function` is {entry_function!r} and no such function is defined "
+            "in the file extracted from the image. The workset's `entry_function_line` is NOT a "
+            "fallback: it is recorded against the version analysed, not the version deployed "
+            "(measured: 183 recorded, 207 actual)"
+        )
+    first = node.body[0]
+    # A docstring is the body's first statement and the marker belongs after it,
+    # or the diff moves the docstring and `help()` shows a log line.
+    if (isinstance(first, ast.Expr) and isinstance(getattr(first, "value", None), ast.Constant)
+            and isinstance(first.value.value, str) and len(node.body) > 1):
+        first = node.body[1]
+    at = first.lineno - 1
+    indent = re.match(r"[ \t]*", stock_text.splitlines(keepends=True)[at]).group(0)
+    return at, indent
+
+
+def build(stock_text: str, rel_path: str, entry_function: str, operator_id: str, rev: str,
+          *, no_optimisation: bool) -> tuple[str, dict]:
     """`(unified diff, runtime_marker)` — or raise with the reason.
 
-    `anchor` is the fragment's source text, taken from the workset rather than
-    reconstructed. `replacement_fragment` replaces it when a campaign produced
-    one; `None` keeps it and inserts only the marker, which is the mock.
+    The marker is inserted at the top of `entry_function`'s body. A campaign's
+    own edits do not come through here: for the real path the diff is
+    `stock` against the file forge edited in place, and this adds the marker to
+    that instead of replacing it.
     """
     lines = stock_text.splitlines(keepends=True)
-    hits = [i for i, line in enumerate(lines) if anchor in line]
-    if not hits:
-        raise SystemExit(
-            f"the fragment {anchor!r} is not in {rel_path} as extracted from the image. "
-            "The workset's `entry_function_line` is NOT a fallback -- it is recorded against "
-            "the version analysed, which is not necessarily the version deployed (measured: "
-            "183 recorded, 207 actual). A patch cut against a file that does not contain the "
-            "fragment would apply somewhere else or not at all"
-        )
-    if len(hits) > 1:
-        raise SystemExit(
-            f"the fragment {anchor!r} appears {len(hits)} times in {rel_path}; a diff would be "
-            "ambiguous about which call site it edits. The workset must name a unique fragment"
-        )
-    at = hits[0]
-    indent = re.match(r"[ \t]*", lines[at]).group(0)
+    at, indent = entry_body_line(stock_text, entry_function)
 
     # **`splitlines(keepends=True)`, because `difflib` prefixes list ELEMENTS.**
     # Passing the three-line marker as one element produced a diff whose first
@@ -99,10 +137,7 @@ def build(stock_text: str, rel_path: str, anchor: str, operator_id: str, rev: st
     # `Hunk #1 FAILED at 204`. Caught by applying it rather than by reading it.
     body = marker_line(operator_id, rev, indent, no_optimisation=no_optimisation).splitlines(keepends=True)
     patched = list(lines)
-    if replacement_fragment is None:
-        patched[at:at] = body                          # marker, then the untouched call site
-    else:
-        patched[at:at + 1] = body + [replacement_fragment]
+    patched[at:at] = body
 
     diff = "".join(difflib.unified_diff(
         lines, patched, fromfile=f"a/{rel_path}", tofile=f"b/{rel_path}", n=3

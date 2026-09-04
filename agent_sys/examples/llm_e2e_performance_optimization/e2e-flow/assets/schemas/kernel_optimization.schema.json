@@ -180,7 +180,8 @@
       "description": "M5.1.1: \u4f18\u5316\u6210\u679c\u662f\u5982\u4f55 apply \u56de sglang\uff0c\u662f\u5e94\u8be5\u4e25\u683c\u9075\u5faa 3 \u7684 handoff \u7684.\n\n**This block is patchkit's manifest, in patchkit's own vocabulary.** m5's `apply_patch` reads `apply/manifest.json` and is a program precisely because it reads rather than judges, so m4 emits the fields that program already takes \u2014 `container_path`, `base_sha256`, `change`, `replacement` \u2014 rather than a second spelling of the same four facts that somebody has to translate. The full contract is the `CONTRACT` constant in `assets/apply_patch.task/apply.py`, and a missing block makes it print itself.\n\nWhat this block adds over that manifest is `integration_point`: the workset's **declared** `edit_target`, so that the apply is provably written against what m3 published and not against whatever file the optimiser happened to open. `check_optimization_shape` compares the two and checks each `container_path` resolves to the declared source file. That comparison is the whole of M5.1.1 and it is the reason this is not simply a pointer at the manifest.",
       "properties": {
         "apply_mode": {
-          "const": "overlay_files",
+          "enum": ["overlay_files", "patch_in_place"],
+          "$comment": "`patch_in_place` added 2026-09-04: a `call_site_fragment` operator is installed as a diff, which `apply.py:643` has always been able to run and no producer could ever ask for. `overlay_files` stays correct when the replacement genuinely is the module.",
           "description": "One value, and the alternative is deferred rather than unimagined: M5.3 says the mechanism should hack sglang's registry or the import machinery rather than replace whole files, and then says \u4f46\u73b0\u5728\u5c31\u8fd9\u6837\u5427 (`todo.md` T5). A second mode would mean two proofs that the patch is live, and the proof is the expensive half.\n\nNamed `apply_mode` and not `mode` because that is what patchkit calls it. One vocabulary."
         },
         "manifest": {
@@ -299,7 +300,8 @@
               },
               "patch": {
                 "type": "string",
-                "pattern": "^apply/patches/[A-Za-z0-9_.-]+\\.patch$",
+                "pattern": "^[A-Za-z0-9_.-]+\\.patch$",
+                "$comment": "A BARE FILENAME, not a packup-relative path, and it differs from its sibling `replacement` on purpose. This required the `apply/patches/` prefix until 2026-09-04 -- but apply.py:409 and :643 both do `apply_dir / \"patches\" / entry[\"patch\"]`, so a prefixed value resolves to apply/patches/apply/patches/x.patch. Producer and consumer disagreed and nothing noticed, because no producer had ever emitted a `patch` entry; the first one to do so failed here and would have failed the applier the other way. Narrowed to match the consumer, whose own refusal at :411 reads \"names X, which is not in apply/patches/\" -- a message that only makes sense for a bare name.",
                 "description": "The alternative to `replacement`: a unified diff under `apply/patches/`. Legal, and not the path m4 normally takes."
               }
             }
