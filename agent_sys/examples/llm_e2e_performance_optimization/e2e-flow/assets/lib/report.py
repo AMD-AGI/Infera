@@ -68,9 +68,17 @@ def verdict(r: dict, need: int, need_disk: int, need_root: int) -> tuple[str, st
     # brought up as-is; 006 and 037 were both in that state and neither needed
     # a build. Reported as its own tier because the caller's next action
     # differs, which is the only thing a tier is for.
-    serve = [b["image"] for b in r["bases"] if b.get("servable")]
+    serve = [b for b in r["bases"] if b.get("servable")]
     if serve:
-        return "SERVABLE", f"cards {r['free']} free, {r['disk_gb']}G, serves now from {serve[0]}"
+        # The config class is reported beside the image, never gated on. m5's
+        # check answers "can this image read *these* weights", which is
+        # independent of "can this image serve": measured on 217,
+        # `rocm/atom-dev:sglang-latest` reads `Qwen3_5Config` fine and has no
+        # `infera` at all, so a config check alone would have promoted an image
+        # that cannot serve at any version.
+        cfg = serve[0].get("model_config") or "config unread"
+        return "SERVABLE", (f"cards {r['free']} free, {r['disk_gb']}G, "
+                            f"serves now from {serve[0]['image']} ({cfg})")
     ok = [b["image"] for b in r["bases"] if b["anchor"] == ANCHOR_OK]
     if ok:
         # **`BUILDABLE`, not `READY`** — m1's correction, 2026-09-04, and it

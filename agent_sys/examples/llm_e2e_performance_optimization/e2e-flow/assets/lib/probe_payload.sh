@@ -52,6 +52,31 @@ while IFS=, read -r card pct _rest; do
 done <<< "$mem"
 nfree=0; [ -n "$free_cards" ] && nfree="$(awk -F, '{print NF}' <<< "$free_cards")"
 
+# --- 1a. is the shared filesystem here, and are the weights on it ------------
+# **The tier the first two do not cover, and it cost a hold to learn.** m5 took
+# `crsuse2-m2m-037` on a SERVABLE verdict and released it again: the node has
+# **no `/shared_nfs` at all**. A servable image cannot tell you the node is
+# missing the filesystem the weights live on — the image is a fact about the
+# node's docker, the mount is a fact about the node.
+#
+# It is also what `require_visible_on_node` needs (`assets/lib/remote.sh:170`):
+# this package runs bodies on the node by absolute path and exchanges files
+# through the zone, so **both hosts must mount the run root**. A node without
+# the shared filesystem fails that three layers from its symptom.
+#
+# Two readings, because they fail separately: the mount can be present while
+# the model path is not, which is the same distinction as image-present versus
+# image-servable one directory over.
+shared_mnt=false; mount 2>/dev/null | grep -q ' /shared_nfs ' && shared_mnt=true
+model_ok=false
+[ -n "${E2E_MODEL_PATH:-}" ] || E2E_MODEL_PATH=/shared_nfs/yihou/models/Qwen3.6-27B
+[ -d "$E2E_MODEL_PATH" ] && model_ok=true
+# Only mount what exists. A `-v /shared_nfs:/shared_nfs` on a node without it
+# **succeeds** — docker creates the source directory — which is how the old
+# mount check reported `ok` for a node that had no shared filesystem at all.
+MOUNT_ARG=""
+[ "$shared_mnt" = true ] && MOUNT_ARG="-v /shared_nfs:/shared_nfs"
+
 # --- 2. the base image and m1's anchor ---------------------------------------
 # **Local images only — this never pulls.** A probe that pulls a multi-gigabyte
 # base to answer "is this node worth taking" costs more than the question, and
@@ -72,10 +97,17 @@ while read -r img; do
   # `infera/engine-sglang` images answered `servable` and the node needed no
   # build at all, exactly as `006` had not. Two greps, one `docker run`, because
   # the container start is the whole cost.
-  got="$(timeout 240 docker run --rm --entrypoint /bin/bash "$img" -lc \
+  # **Three facts, one container start**, because the start is the whole cost.
+  # `$MOUNT_ARG` is empty when this node has no `/shared_nfs`, so the weights
+  # check simply does not fire rather than the whole probe failing on a bad `-v`.
+  got="$(timeout 300 docker run --rm $MOUNT_ARG --entrypoint /bin/bash "$img" -lc \
            "grep -A1 '$ANCHOR_KEY' '$ANCHOR_FILE' 2>/dev/null;
             python3 -c 'import infera.engine.sglang, infera.server' 2>/dev/null \
-              && echo E2E_SERVABLE" 2>/dev/null)"
+              && echo E2E_SERVABLE;
+            python3 -c \"from transformers import AutoConfig; \
+              print(type(AutoConfig.from_pretrained('$E2E_MODEL_PATH', \
+              trust_remote_code=True)).__name__)\" 2>/dev/null \
+              | sed 's/^/E2E_CONFIG=/'" 2>/dev/null)"
   # A following line naming require_reasoning means Dockerfile.sglang can build
   # against this base; a bare `)` means it cannot. Absent file / failed run is
   # neither, and is reported as such rather than folded into "no".
@@ -86,7 +118,14 @@ while read -r img; do
   # The two modules the kit's `start_worker.sh` and `start_router.sh` exec, so
   # this is the same reading the leader took by hand on 006 before spending it.
   servable=false; grep -q E2E_SERVABLE <<< "$got" && servable=true
-  anchor_rows="${anchor_rows}${anchor_rows:+,}{\"image\":\"${img}\",\"anchor\":\"${verdict}\",\"servable\":${servable}}"
+  # **m5's check, and it is the one that separates shape from substance.** An
+  # image can carry `infera` and still not load *this* model: m1 measured a
+  # config that passed in shape and failed in substance on 249. Reported as the
+  # class name the image resolved (`Qwen3_5Config`), or empty when it could not
+  # — never folded into `servable`, because "cannot serve" and "cannot read
+  # these weights" send you to different places.
+  cfg="$(grep -m1 '^E2E_CONFIG=' <<< "$got" | cut -d= -f2-)"
+  anchor_rows="${anchor_rows}${anchor_rows:+,}{\"image\":\"${img}\",\"anchor\":\"${verdict}\",\"servable\":${servable},\"model_config\":\"${cfg}\"}"
 done <<< "$imgs"
 
 # --- 3. disk, BOTH filesystems -----------------------------------------------
@@ -97,26 +136,6 @@ done <<< "$imgs"
 # called that node fine. Two filesystems, two gates.
 disk_gb="$(df -BG --output=avail /mnt/m2m_nobackup 2>/dev/null | tail -1 | tr -dc '0-9')"
 root_gb="$(df -BG --output=avail / 2>/dev/null | tail -1 | tr -dc '0-9')"
-
-# --- 3a. is the shared filesystem here, and are the weights on it ------------
-# **The tier the first two do not cover, and it cost a hold to learn.** m5 took
-# `crsuse2-m2m-037` on a SERVABLE verdict and released it again: the node has
-# **no `/shared_nfs` at all**. A servable image cannot tell you the node is
-# missing the filesystem the weights live on — the image is a fact about the
-# node's docker, the mount is a fact about the node.
-#
-# It is also what `require_visible_on_node` needs (`assets/lib/remote.sh:170`):
-# this package runs bodies on the node by absolute path and exchanges files
-# through the zone, so **both hosts must mount the run root**. A node without
-# the shared filesystem fails that three layers from its symptom.
-#
-# Two readings, because they fail separately: the mount can be present while
-# the model path is not, which is the same distinction as image-present versus
-# image-servable one directory over.
-shared_mnt=false; mount 2>/dev/null | grep -q ' /shared_nfs ' && shared_mnt=true
-model_ok=false
-[ -n "${E2E_MODEL_PATH:-}" ] || E2E_MODEL_PATH=/shared_nfs/yihou/models/Qwen3.6-27B
-[ -d "$E2E_MODEL_PATH" ] && model_ok=true
 
 # --- 3b. can this node run OUR container -------------------------------------
 # **There is an authorization plugin on the daemon**, and its refusal names
