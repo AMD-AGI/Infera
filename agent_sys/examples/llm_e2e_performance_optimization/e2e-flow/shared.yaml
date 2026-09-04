@@ -216,7 +216,15 @@ env:
   # m3's five. `E2E_SNR_THRESHOLD` has two producers — `scaffold.py:304` into
   # `gates.snr_db` and `rank.py:302` into the worklist — so it belongs here
   # regardless of any one agent's block.
-  E2E_MEASURE_GPU: '${measure_gpu:-4}'
+  # **Empty, not `4`.** It was `${measure_gpu:-4}` for one commit, copied from
+  # m3's body default. m4 refused to declare it on that basis and they were
+  # right: a **real card** as a package default makes a consumer's
+  # refuse-when-empty guard unreachable and picks a card silently on a shared
+  # host — the outcome the guard exists to prevent, arriving through a fallback
+  # instead of a decision. m3's own body still does `: "${E2E_MEASURE_GPU:=4}"`,
+  # so nothing about m3 changes; what changes is that the package no longer
+  # asserts a card on everyone's behalf.
+  E2E_MEASURE_GPU: '${measure_gpu:-}'
   E2E_SNR_THRESHOLD: '${snr_threshold:-30.0}'
   E2E_WORKSET_ID: '${workset_id:-workset}'
   # **A literal `unknown` is what every workset this stage ever produced

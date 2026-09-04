@@ -214,6 +214,22 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
     pkg = pathlib.Path(a.package).resolve()
 
+    # **Exit 2 when the checker could not run, never 1.** m4, 2026-09-04:
+    # run from the repo root without `--package` this died `FileNotFoundError`
+    # and still exited 1, so a CI line keying on the code cannot tell *"a
+    # declaration is missing"* from *"the checker never ran"*. Worse, they
+    # nearly reported m4 clean from exactly that: grepped the output of a run
+    # that had crashed before reading a single agent, found no rows, and was
+    # one step from telling the leader it passed. **§4.4 face 2, on the
+    # instrument built to catch §4.4.**
+    if not (pkg / "shared.yaml").is_file():
+        print(
+            f"check_agent_env: DID NOT RUN — no shared.yaml at {pkg}. "
+            f"Pass --package <the e2e-flow directory>. Exit 2 means the check "
+            f"never happened; it does not mean the package is clean.",
+            file=sys.stderr,
+        )
+        return 2
     shared = yaml.safe_load((pkg / "shared.yaml").read_text())
     authority: dict[str, str] = {}
     for agent in _agents(shared):
