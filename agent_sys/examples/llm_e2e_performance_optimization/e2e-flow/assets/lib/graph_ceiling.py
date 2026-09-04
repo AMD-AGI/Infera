@@ -159,12 +159,20 @@ def ceiling_from_argv(argv_path: pathlib.Path) -> tuple[int | None, str]:
         if not nums:
             return None, f"{flag} is present with no numeric value"
         return max(nums), f"{flag} -> {nums if len(nums) > 1 else nums[0]}"
-    return None, (f"none of {list(FLAG_ALIASES)} in the engine's command line — the engine "
-                  "captured no decode graph. **Correct and expected for a "
-                  "`profiling_mode_on` capture**, where CUDA graph is off by design "
-                  "(CONTRACT §1.1: a graph launch hides the kernels the profiler exists to "
-                  "see) — do not point this bar at that line. Anywhere else it means either "
-                  "graphs are genuinely disabled or the flag was renamed again")
+    # **The `profiling_mode_on` sentence used to live here and has moved up into
+    # the `--disable-cuda-graph` branch, which is the branch that now receives
+    # that case.** Landing the branch without moving it left two `None` returns
+    # each claiming to be the mode_on explanation, and the wrong one was the
+    # fallback — the one a reader reaches by default. m1 predicted that before
+    # the branch landed and m5 agreed both should change together; the branch
+    # went in additively (`982a4d5`), so this is the other half.
+    #
+    # What reaches here now is narrower and genuinely puzzling: an argv with
+    # **neither** a ceiling flag **nor** `--disable-cuda-graph`.
+    return None, (f"none of {list(FLAG_ALIASES)} in the engine's command line, and no "
+                  "`--disable-cuda-graph` either — so graphs are off for a reason this "
+                  "module cannot see, or the flag was renamed again. Not a pass: the "
+                  "question was not answered")
 
 
 def decode_concurrency(aiperf: dict) -> tuple[float | None, str]:

@@ -50,6 +50,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
+import graph_ceiling  # noqa: E402 — m5/m2's module, adopted not re-implemented
 import schema as schema_lib  # noqa: E402
 import zone  # noqa: E402
 from workset_io import arg_num  # noqa: E402 — CONTRACT §4.2, the one numeric-arg reader
@@ -233,7 +234,21 @@ def judge_load(summary: dict, accept: dict, load_shape: dict) -> list[str]:
     # What the summariser itself could not find. Surfaced rather than inferred
     # from an absent key: "AIPerf did not report it" and "I looked in the wrong
     # place" are different faults and only one of them is the deployment's.
-    for name in summary.get("missing") or []:
+    # **An absent key and an empty list are different facts and this line used to
+    # conflate them.** `.get()` returns `None` when the emitter did not write the
+    # field at all and `[]` when it wrote "nothing was missing"; `or []` collapsed
+    # both to silence. So a rename on the emitter's side — m2 is renaming this
+    # very key to `missing_wanted` — would have stopped these messages appearing
+    # with no error and no trace, and a run with a genuinely complete summary
+    # looks identical. Same *unset versus not listed* conflation `mock.sh` had,
+    # in a line written to surface a distinction.
+    reported = summary.get("missing")
+    if reported is None:
+        print("check_deploy_serves: WARNING: the summary carries no `missing` field at all. "
+              "That is the emitter not telling me, which is not the same as it telling me "
+              "nothing was missing — check summarise.py's contract before reading the "
+              "metrics below as complete")
+    for name in reported or []:
         print(f"check_deploy_serves: AIPerf reported no {name!r}")
 
     count = (metrics.get("request_count") or {}).get("avg")
@@ -601,6 +616,72 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
             ]
         Path("load_summary.json").write_text(json.dumps(summary, indent=2))
         faults += judge_load(summary, load["accept"], load)
+
+        # ---- 3b. did the graph ceiling actually cover this load? -------------
+        # **`e390abb` made "ceiling >= the load's concurrency" a criterion in the
+        # brief and left it checked by nobody.** This is the half that catches a
+        # violation instead of asking for compliance: four real bring-ups shipped
+        # 16, 16, 8 and 32, and the one that shipped 8 against a concurrency-16
+        # load ran decode eager and was 4.5x slower — invisible to every field the
+        # environment record carries, which is why a cross-input comparison
+        # cannot see it (`todo.md` T55).
+        #
+        # **Adopted, not re-implemented.** `assets/lib/graph_ceiling.py` is m5's
+        # and m2's, validated against four real artefacts including both sides of
+        # the flag. Writing a second copy here is `todo.md` T56 committed by the
+        # person who filed it. It is read the way it asks to be read: `None` is
+        # **not a pass**, and `--disable-cuda-graph` means *not applicable*
+        # rather than *ceiling zero* (`982a4d5`) — a caller that treats graphs-off
+        # as a low ceiling refuses valid deployments.
+        #
+        # **Both inputs are read from the world, not from what we asked for.**
+        # The ceiling comes off the engine's own `/proc/<pid>/cmdline` — m5's
+        # `serve/round.sh:174` idiom — because a launch flag we passed is not
+        # evidence of a flag the engine took. The concurrency comes from the
+        # aiperf export's `effective_decode_concurrency`, and **not** from this
+        # summary's `effective_concurrency`, which is a different number (15.35
+        # against 15.98 on one measured pair) and is not what the module was
+        # validated on. Substituting the nearby available value for the intended
+        # one is this package's most-repeated defect.
+        try:
+            argv_local = Path("engine_argv.txt")
+            argv_local.write_text(on(
+                f"docker exec {shlex.quote(deployment['container'])} sh -c "
+                + shlex.quote("tr '\\0' '\\n' < /proc/$(pgrep -f 'infera.engine.sglang' "
+                              "| head -1)/cmdline"),
+                transport,
+                timeout=120,
+            ))
+            aiperf_local = Path("profile_export_aiperf.json")
+            aiperf_local.write_text(on(
+                f"cat {shlex.quote(f'{load_out}/{tag}/profile_export_aiperf.json')}",
+                transport,
+                timeout=120,
+            ))
+            verdict = graph_ceiling.check(argv_local, aiperf_local, "deploy_serves")
+        except (NodeError, OSError, ValueError) as exc:
+            # **Announced, never silent.** Failing to *read* the ceiling is not
+            # evidence that the ceiling was wrong, and it must not become a
+            # refusal — but a validator that quietly drops a bar it advertises is
+            # the shape this whole effort is about.
+            print(f"check_deploy_serves: WARNING: could not evaluate the graph ceiling "
+                  f"({exc.__class__.__name__}: {exc}). The bar was NOT applied — this run "
+                  f"says nothing about whether decode fitted the captured graph")
+        else:
+            _why = (verdict.get("reason") or verdict.get("unavailable_because")
+                    or f"ceiling {verdict.get('ceiling')} vs decode concurrency "
+                       f"{verdict.get('decode_concurrency')} ({verdict.get('ceiling_source')})")
+            print(f"check_deploy_serves: graph ceiling: {_why}")
+            if verdict.get("ok") is False:
+                faults.append(
+                    f"the CUDA graph ceiling did not cover this load — {_why}. "
+                    f"Decode above the ceiling runs eager, which was measured at 4.5x slower "
+                    f"and is invisible to every other field this validator reads, so a kit "
+                    f"that ships it looks identical to one that does not"
+                )
+            elif verdict.get("ok") is None:
+                print("check_deploy_serves: WARNING: the graph ceiling was NOT evaluated "
+                      "(reported above). Not a pass — nothing here shows decode fitted.")
 
     finally:
         # ---- 4. teardown, on every path -------------------------------------
