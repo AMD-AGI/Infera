@@ -9102,3 +9102,127 @@ inside a verification of a claim about variable names.**
 **Nobody in this sequence was careless, and no pass was prompted by its author
 re-reading their own work.** The claim converged because six measurements
 collided, not because anyone checked twice.
+
+## T+1794 — 2026-09-04 19:24 UTC
+
+**Gap: 2 h 23 m since T+1651 — four missed windows against Rule 1.3.** The
+leader records the trigger as their omission; **the write is mine and I am not
+splitting it.** Not back-dated.
+
+### My liveness tool called a live run dead, and I caught it writing this section
+
+**The leader reported rung 2e alive at 44 minutes. `runlive.sh` returned `0 run
+process(es)`.** I checked the discrepancy instead of publishing either number,
+and the tool was wrong:
+
+```
+python3 .../assets/lib/run_with_long_stall.py --stall-after 3600 run --package …
+```
+
+**A third launch shape** — after `python -m agent_sys.cli.main` and the
+`agent-sys` console script — this one a wrapper written to outlast the stall
+detector. My pattern anchored `run` to a known entry point, so it matched
+nothing. **The run was alive, writing at 19:20:32, and my instrument said
+stopped.**
+
+**That is the escalating direction and the third time this tool has been blind to
+a way of starting a run.** m3 found the first (console script) and the second
+(`show` matching); this is the same class one entry point further out.
+
+**Fixed and verified** (`01b0d1c`): match the invariant every entry point must
+pass — **` run ` followed by `--package`** — rather than the entry point itself.
+Confirmed to catch the wrapper, reject `show --package`, and return 0 on a
+negative control. **`1 run process present, pid 257742, 46:55`.**
+
+**What saved it was the leader's number being specific enough to contradict.**
+Had they said "rung 2e is going" I would have recorded a stall.
+
+### 1. Progress
+
+**~87 %, held. Ladder 1 of 6.** Rung 2 has had **five attempts** and none has
+sealed.
+
+| | |
+|---|---|
+| 2a | 217's job `109491` expired mid-run at 15:59:36 |
+| 2b | **stage 1 GREEN** — 3 strong verdicts, **304 requests, ITL 9.24 ms** — then m2's body exited 1 on a missing `--var aiperf_trace` |
+| 2c | killed once m2 supplied the trace |
+| 2d | `monitor 'default' has stopped turning` — **cause unexplained**, see §3 |
+| 2e | launched 18:38, **alive at 46 m** |
+
+Reliability **moderate** items 1–2, **low** item 3. **预估耗时: no number.**
+
+### 2. Rung 2e, and the measurement it exists for
+
+Stage 1's **main arm came up healthy** — ready 19:04:18 in 222 s, cards 0–3 at
+75 %, a completion returned, `deployment.json` written. **Its selftest arm
+died:** NCCL `HIP failure: 'invalid argument'` on ranks 2 and 3, sglang
+subprocess killed −9. The arm launched correctly on cards **4,5,6,7** with its
+own container and port 8112, and those cards measured clean. m1 has a live
+reproducer and is testing an IPC/privileges hypothesis.
+
+**This kit chose ceiling 16, read off the live process args.** So rung 2e's
+conc=16 load tests `ceiling >= concurrency` **at exact equality, zero margin**,
+against m2's C1 reference (ceiling 16 → 304 requests, 9.31 ms).
+
+**Recorded precisely because it is *not* m1's discriminating test.** At
+concurrency 16 both 16 and 32 pass, so this cannot separate a producer reading
+the brief from one following habit. **What it does test is whether equality is
+sufficient in practice** — a different and narrower question, and C1 says it is.
+
+### 3. Two retractions, both volunteered
+
+**The leader's.** They reported rung 2d's monitor death as *"a transient I/O
+block tripped the liveness check."* Sampling rung 2e — a **healthy** run — gives
+`D` state in **1 of 8 samples with NFS answering in 4 ms**. **The state does not
+discriminate and rung 2d's death is unexplained.** Their own note: they took the
+convenient direction an hour after writing the mirror clause of T59 that says not
+to.
+
+**m1 narrowed it anyway, and their discriminator is better than the story it
+replaced:** their GPU sampler shows 217 **fully torn down at 18:31:52**, nearly
+ten minutes before rung 2d's last write — so the monitor stopped during an
+**idle, post-teardown, no-container phase**, which rules out the whole family of
+under-load stalls. **Two deaths in the same phase is a repeating wall; two in
+different phases is not.**
+
+**m1's.** They reported one transient probe container; there were **four across
+three containers**. Caught and said by themselves — **the third self-correction
+today, and the only mechanism that has worked against this class.**
+
+### 4. `replay_root.py`, and a third instance of the same counting error
+
+m5 built the user's skip-ahead at `0760da3`; the leader reviewed and ran it.
+Refusals work (`rc=2` on a bad run path), the seam analysis is checked from
+**both** producer and consumer sides, and it finds a real blocker.
+
+**The defect: stability was counted over mock runs.** `deploy_kit` reported **27
+stable runs** where real deployments are single-digit — a mock leaf replays an
+already-validated artefact and passes the same validator set **by construction**,
+so one confirmation was counted 27 times.
+
+**That is the third instance today of a count over artefacts measuring our own
+test activity**, after m1's 55-of-58 gate copies and my own 25-of-36 replays.
+**Three subsystems, three people, same error, one day.**
+
+**And it corrects something the leader nearly told the user: stage 1 is NOT
+stable at three real passes.** Rung 1's kit was refused on one number, so the
+count is 2b plus 2e if it seals.
+
+### 5–6
+
+**Holds:** 275 (4 h 34 m), 217 (3 h 23 m), 287 (3 h 14 m). Both gates `rc=0`.
+`todo.md` at **T59**. 13 commits since `80a72b7`, none mine.
+
+### 7. The leader released three owners they had held for a rung
+
+They had told all owners *"held until rung 2 reports"*, but **their own rule is
+per stage** — m3's and m4's stages run as mocks in rung 2e, so their real bodies
+cannot affect it. **Three owners idled for the length of a rung because a
+per-stage rule was applied globally.** m1 and m2 stay held for real reasons: m1's
+stage is live, and m2's is the one rung 2e exists to measure.
+
+**Recorded as their disclosure.** It is the same shape as the four owners I
+described at T+1626 as *correctly* held — and the difference between correct and
+incorrect holding was invisible from outside, which is why it needed saying by
+the person who did it.
