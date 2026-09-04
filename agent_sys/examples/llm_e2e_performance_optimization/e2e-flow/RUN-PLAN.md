@@ -983,3 +983,69 @@ real card and cannot fail in a mock:**
 at a node whose kit records a different `fixed.node` and `line.sh` must abort
 before bringing anything up. If it proceeds, the whole agreement above is about
 an environment nobody recorded.
+
+---
+
+# The control experiment for module 5, and its predictions written first
+
+**Two overlays, neither an optimisation.** `check_patch_live` and six other
+validators have never spoken, because the patched arm has never come up: m4's
+seed drops twelve public names and the engine dies at import, and the real
+optimisation is blocked on M5.1.1 (this operator has no installable symbol —
+m3's `4d5a6e6`). **Making something slower needs no installable symbol**, so a
+control experiment is available today even though an optimisation is not.
+
+| overlay | what it is | expected verdict |
+|---|---|---|
+| **null** | the stock `sampler.py` plus a marker constant | `same`, or `uninterpretable` on a metric whose floor exceeds its bar |
+| **degraded** | the stock `sampler.py` plus a real 2 ms cost in `Sampler.forward` | **`REGRESSED`** on throughput and inter-token latency |
+
+**A null overlay alone would be half a control.** *Known-no-effect in, no effect
+out* is a negative control; a gate validated only against it has never been
+shown to **detect** anything on a real deployment. The tamper batteries show the
+logic detects, but they are offline over hand-edited reports and cannot show a
+real difference surviving bring-up, mounting, measurement and reduction.
+
+**And the null overlay defeats `require_difference` by construction**, which is
+the one thing a later reader would never reconstruct. That check exists to catch
+*"a patch that applies cleanly and changes nothing"* and it is implemented as a
+**hash** comparison — a marker changes the hash and nothing else. It is
+satisfied here by a marker rather than by a change. **Said here because the
+artefact must carry it, not a message.**
+
+## The numbers this is predicted against
+
+Measured on crsuse2-m2m-047, idle, stock arm, 123 requests:
+
+```
+inter_token_latency_ms  avg 10.02  std 0.66   -> per-request rsd 6.6%
+ttft_ms                 avg 140.45 std 250.94 -> rsd 179%, one 1764 ms outlier, p50 87.58
+output_token_throughput_tps 448.82
+```
+
+## Predictions, before the run
+
+1. **ITL can be resolved and TTFT cannot.** Noise floor `1.96·√2·rsd/√n` at
+   n=123: **ITL ≈ 1.7%**, comfortably under its 10% bar; **TTFT ≈ 45%**, far over
+   it. So **TTFT is predicted `uninterpretable` on both arms** and ITL is
+   predicted decisive on both. If TTFT comes back with a verdict instead, its
+   dispersion did not repeat — which is a fact about the deployment, not a bug.
+2. **Null arm: `same` on throughput and ITL.** Identical semantics, so the only
+   difference is noise, and the floor says noise is ~1.7% against a 10% bar.
+3. **Degraded arm: `REGRESSED` on both.** 2 ms added per decode step against a
+   10.02 ms ITL is **+20%**, over the 10% latency bar; throughput follows at
+   about **−17%**, over the 5% bar.
+
+**If the degraded arm comes back `same`, that is a finding about the gate and
+not about the overlay** — and the only reason that distinction is available
+afterwards is that this paragraph was written before the run.
+
+## What a green pair does and does not license
+
+**Does:** the plumbing works end to end — two bring-ups, the mount, the
+patch-live evidence, the ordering, the comparison, the packup — and the
+instrument responds correctly to *both* no-effect and a real effect.
+
+**Does not:** anything about an optimisation. **No optimisation is claimed, none
+was installed, and a green null run must never be quoted as "module 5 works".**
+It is "the plumbing works and the gate does not hallucinate a difference".
