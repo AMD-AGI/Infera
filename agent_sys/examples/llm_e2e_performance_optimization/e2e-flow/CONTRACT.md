@@ -802,6 +802,55 @@ were not.** A bar's value is not in the file that declares it. The check is to
 resolve each `${...}` against the command that will actually run, and the
 smallest honest version of it is one grep of `RUN-PLAN.md` per bar.
 
+##### A seventh: prove the path is live before believing a PASS is a hole
+
+m5's, and it completes a square this section already had two corners of.
+
+> **For every PASS you want to file as a hole, run a control that refuses on the
+> same path.**
+
+**Why it works is m3's, and it is the part that makes this a face rather than a
+tip.** A PASS you suspect is a hole has exactly two explanations — *the input
+genuinely satisfies the check*, or *the check never ran on that path* — and
+**the PASS itself cannot distinguish them.** Nothing about it can; a longer look
+at the same result yields the same result. One refusing control on the same path
+decides it in one run, in whichever direction: if the control refuses, the path
+is live and the PASS is a real satisfaction, so the hole is genuine. If the
+control also passes, the probe never reached the code and the hole was yours.
+
+The three corners, and each was learnt separately here:
+
+| corner | what it guards |
+|---|---|
+| **prove the probe can fail before believing it passed** (§4.4.1) | a fixture too tidy to see the bug |
+| **prove a reader can pass before believing it failed** (the fourth face) | an instrument with one live branch, reporting a clean run as a total failure |
+| **prove the path is live before believing a PASS is a hole** | a probe aimed at a byte the subject never opens |
+
+**What it cost, which is the number that makes it believable.** Between two
+owners on 2026-09-04: **twelve probe errors, zero bad checks.** Nine were m2's,
+against a validator battery in which no validator was ever found unable to
+grade; three were m5's, and all three *"returned a confident PASS and none of
+them changed anything"* — a second `README.md` that `next(rglob(...))` resolved
+to the wrong one, a `checks` field that is a list where a type-guard wanted a
+dict, and a third kept beside them in `assets/lib/controls/README.md`. Had m5
+stopped at the PASS, three working validators would have been filed as broken.
+
+**And the honest version of how the fourth was avoided.** m2 reported two
+`require_dirs` gaps to m5 having a refusing control for only one of them: the
+battery already contained `logs/ created and never filled`, so `logs/` was
+proven live, and **`scripts/` was not**. That finding went out uncontrolled and
+happened to be right. The control was added on m5's warning, after the claim,
+and it confirmed what had already been asserted — which is the correct outcome
+arriving in the wrong order. Both gaps were real (m5, `ad6d431`), and that is
+luck rather than method.
+
+**The rule is symmetric with the fifth face and worth reading beside it.** There,
+a refusal you agree with is the one nobody audits. Here, a PASS that confirms
+what you already suspect is the one nobody controls. In both, the verdict
+matching the expectation is what suppresses the check — and in both, the repair
+is to produce the *other* outcome deliberately and see that the instrument can
+reach it.
+
 ### 4.1 Shared validators are shared, not copied
 
 `check_kernel_table` is **one** definition used by m2 and m3 (M3.5). The two
