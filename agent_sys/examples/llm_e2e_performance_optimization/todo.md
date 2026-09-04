@@ -1697,9 +1697,33 @@ thing to notice is m5, two stages later.
 separately.** That is the sharper form and it is not covered by the three
 instances above, where a single field's name misdescribes a single field's
 source. Here every field is individually honest and the *combination* is the
-lie. `if/then` in JSON Schema can express it — m3 used exactly that to bind
-`substitution` to `public_symbol` — so the gap is that nobody looked for the
-constraint, not that it was inexpressible.
+lie. **Some of these are expressible in JSON Schema and some are not, and the
+difference decides where the rule belongs.** `if/then` relates a value to a
+*constant*: `substitution: module_symbol` implies `public_symbol` is a
+non-empty string, which m3 bound exactly that way. It cannot relate a value to a
+*sibling's value* — `len(gpu_devices) <= gpu_count` needs `$data`, an Ajv
+extension absent from draft 2020-12, and `spec_loader/validate.py` runs a stock
+`Draft202012Validator`. **So "nobody looked" is the wrong diagnosis for half of
+them**; m1 looked, found it inexpressible in the schema, and put it in
+`deploy_kit.layout.yaml`'s invariants with a gate fault behind it (`53bc783`).
+Corrected here after I asserted the general form and was wrong — see the
+carrier case below, which is what actually survived.
+
+**The sharpest sub-case: a constraint enforced for one carrier of a document
+that fifteen carry.** CONTRACT §2 puts the *same* `environment.yaml` in all
+fifteen kinds. `count_of: fixed.gpu_devices / at_most: fixed.gpu_count` is
+enforced in `deploy_kit`'s layout — **for `deploy_kit` only**. Meanwhile
+`check_environment` is wired at fourteen sites across all five modules, loads
+that same record, and mentions `gpu_devices` **zero times**. So a
+`profiling_evidence` or an `operator_workset` may carry `gpu_count: 4` beside
+eight devices and validate cleanly.
+
+**That is worse than an unexpressed constraint and reads better.** The rule
+exists, is written down, has a fault number, and is *demonstrably enforced* — so
+a reader who finds it reasonably concludes the document is checked. It is
+checked in one of fifteen places it travels. **A rule enforced at one carrier of
+a shared document is indistinguishable, from the artefact, from a rule enforced
+everywhere.**
 
 **Written and switched off** at
 `check_optimization_shape.validator/check.py:_substitution_matches_apply_mode`,
