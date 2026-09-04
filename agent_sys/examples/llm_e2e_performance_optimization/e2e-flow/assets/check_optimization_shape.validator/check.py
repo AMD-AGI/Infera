@@ -44,6 +44,7 @@ honestly absent.
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 import sys
@@ -159,6 +160,100 @@ def _same_file(expected: str, actual: str) -> bool:
     return longer.endswith("/" + shorter)
 
 
+#: **Written and deliberately switched off.** Flip to `True` to arm the check
+#: below. See `_substitution_matches_apply_mode` for what it refuses and why it
+#: is not armed yet.
+_ENFORCE_SUBSTITUTION_PAIR = False
+
+
+def _substitution_matches_apply_mode(packup, operator: dict, doc: dict,
+                                     problems: list[str], notes: list[str]) -> None:
+    """Refuse an `apply` block the workset's own two fields make impossible.
+
+    **`substitution` and `apply_mode` are a pair with illegal combinations, and
+    nothing anywhere knows they are a pair.** Each validates fine alone — both
+    are strings from their enum — so a schema that checks them separately cannot
+    see it, and m4 emits the impossible combination in silence.
+
+    The case, measured on rung 0's own workset, 2026-09-04::
+
+        substitution:   call_site_fragment      # the edit is INSIDE Sampler.forward
+        apply_mode:     overlay_files           # replace the whole file
+        public_symbol:  null                    # there is no module symbol to swap
+        module_symbols: 9   (Sampler, create_sampler, …)
+        replacement defines: sampler_softmax, run     -> intersection: ZERO
+
+    Overlaying `sampler.py` with a standalone kernel module deletes every symbol
+    the engine imports. **The seed cannot be fixed to satisfy both readers**: a
+    file that could replace `sampler.py` is not a file m3's harness can `exec`
+    and call `run` on. That is M5.1.1 as a proof rather than a design question.
+
+    **Why this is off.** m5's `check_patch_live` and six sibling validators have
+    never seen an artefact the graph produced. Refusing here would stop the flow
+    at stage 4 and keep it that way — buying an earlier message at the cost of
+    the only chance to exercise them on something nobody chose. A gate that has
+    never fired is not a gate, and that argument applies to *theirs* before it
+    applies to mine. Leader's ruling, 2026-09-04: let rung 0 reach m5, then arm
+    this so the failure names the operator's own declaration instead of arriving
+    two stages downstream.
+
+    **Written now and left inert on purpose**, because *"once they have spoken,
+    the gate belongs at m4"* is the kind of intention that dies when the day
+    ends. Written-and-disabled survives a handover; a note does not.
+
+    **To arm it:** set `_ENFORCE_SUBSTITUTION_PAIR = True`. Nothing else.
+    """
+    if not _ENFORCE_SUBSTITUTION_PAIR:
+        return
+    integration = operator.get("integration") or {}
+    substitution = str(integration.get("substitution") or "")
+    apply_block = doc.get("apply") or {}
+    apply_mode = str(apply_block.get("apply_mode") or integration.get("apply_mode") or "")
+    if substitution != "call_site_fragment" or apply_mode != "overlay_files":
+        return
+
+    declared_symbols = [str(s) for s in (integration.get("module_symbols") or [])]
+    if not declared_symbols:
+        return
+
+    # What the replacement actually defines, read rather than assumed.
+    defined: set[str] = set()
+    for entry in apply_block.get("files") or []:
+        relative = str((entry or {}).get("replacement") or "")
+        if not relative:
+            continue
+        candidate = Path(packup) / relative
+        if not candidate.is_file():
+            continue
+        try:
+            tree = ast.parse(candidate.read_text(encoding="utf-8"))
+        except (OSError, SyntaxError) as error:
+            notes.append(f"could not read {relative} to compare its symbols: {error}")
+            continue
+        defined |= {
+            node.name for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        }
+    if not defined:
+        return
+
+    kept = sorted(set(declared_symbols) & defined)
+    if kept:
+        return
+    dropped = sorted(set(declared_symbols) - defined)
+    problems.append(
+        "the workset's own declaration is self-contradictory for this operator, and the "
+        f"`apply` block cannot satisfy both halves: `integration.substitution` is "
+        f"'{substitution}' — the edit lives INSIDE an existing function — while "
+        f"`apply_mode` is '{apply_mode}', which replaces the whole file. The replacement "
+        f"defines {sorted(defined)} and keeps NONE of the {len(declared_symbols)} symbols "
+        f"`integration.module_symbols` says the file exports: {dropped}. This is not a bad "
+        "replacement; a file that could stand in for the target is not a file the "
+        "performance harness can exec and call `run` on, so no seed satisfies both. The "
+        "workset is what has to change (M5.1.1)"
+    )
+
+
 def _same_path(label: str, expected, actual, problems: list[str]) -> None:
     if not _same_file(expected, actual):
         problems.append(
@@ -168,7 +263,8 @@ def _same_path(label: str, expected, actual, problems: list[str]) -> None:
         )
 
 
-def _check_against_snapshot(doc: dict, snapshot: dict, problems: list[str]) -> None:
+def _check_against_snapshot(doc: dict, snapshot: dict, problems: list[str],
+                            packup: Path, notes: list[str]) -> None:
     """Every field the document copied from the workset must still be the workset's.
 
     This is the half of the gate a schema cannot do. A schema can say `apply`
@@ -211,6 +307,7 @@ def _check_against_snapshot(doc: dict, snapshot: dict, problems: list[str]) -> N
           declared.get("entry_function"), point.get("entry_function"), problems)
     _same_path("apply.integration_point.source_file",
                declared.get("source_file"), point.get("source_file"), problems)
+    _substitution_matches_apply_mode(packup, operator, doc, problems, notes)
 
     performance = (doc.get("evidence") or {}).get("performance") or {}
     _same("evidence.performance.protocol", snapshot.get("protocol"), performance.get("protocol"), problems)
@@ -395,7 +492,7 @@ def _check(content: Path, args: dict, problems: list[str], notes: list[str]) -> 
                     snapshot = None
 
     if doc is not None and snapshot is not None:
-        _check_against_snapshot(doc, snapshot, problems)
+        _check_against_snapshot(doc, snapshot, problems, packup, notes)
         _cross_check(doc, snapshot, notes, problems)
     if doc is not None:
         _check_arithmetic(doc, problems)

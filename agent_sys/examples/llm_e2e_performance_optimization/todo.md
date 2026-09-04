@@ -1677,6 +1677,30 @@ to be true for this name to be accurate, and did anything check it?* For
 `run_environment` the answer was "somebody observed the container", and nothing
 had.
 
+**The fourth instance is a *pair*, and it generalises past the other three.**
+`integration.substitution` and `apply_mode` are two fields with legal and
+illegal combinations — `call_site_fragment` says the edit lives inside an
+existing function, `overlay_files` says replace the whole file — and **no code
+anywhere knows they are a pair.** Each validates alone: both are strings from
+their enum. So m4 emits an impossible `apply` block in silence and the first
+thing to notice is m5, two stages later.
+
+**A constraint between two fields is invisible to a schema that validates them
+separately.** That is the sharper form and it is not covered by the three
+instances above, where a single field's name misdescribes a single field's
+source. Here every field is individually honest and the *combination* is the
+lie. `if/then` in JSON Schema can express it — m3 used exactly that to bind
+`substitution` to `public_symbol` — so the gap is that nobody looked for the
+constraint, not that it was inexpressible.
+
+**Written and switched off** at
+`check_optimization_shape.validator/check.py:_substitution_matches_apply_mode`,
+behind `_ENFORCE_SUBSTITUTION_PAIR`. Left inert deliberately so rung 0 can reach
+m5 and exercise seven validators that have never seen a graph-produced artefact;
+a gate that has never fired is not a gate, and that argument applies to theirs
+before it applies to this one. Demonstrated firing against the real artefact
+before being switched off.
+
 **Cross-reference: checkpoint's table is this disease from the other end** — *an
 instrument reads a real thing and answers a different question*, eleven
 instances. Theirs is the instrument form, this is the artefact form. Neither is
