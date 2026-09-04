@@ -4382,3 +4382,263 @@ in `README.md:40` and `CONTRACT.md:763` is being fixed. And `8b87f41` touching
 there. Worth keeping visible — a fifth "the thing reported one state and was in
 another", and the reason my ownership check flags non-module paths rather than
 judging them.
+
+## T+977 — 2026-09-04 05:47 UTC
+
+**Missing: 04:34 → 05:47, 73 minutes, two sections' worth.** My last reading was
+T+876 and its three addenda, the last at 04:34. The leader states the gap is
+theirs — tasking stopped and the team went idle. I record that as their account,
+because from here idle and working are indistinguishable, and I am not
+back-dating a reading I did not take.
+
+### The number that matters, and it now spans two roots
+
+**10 of 21 validators have ever produced a recorded verdict — unchanged through
+the largest commit interval of the effort.** First-hand at 05:45, and **this is
+the first tally that unions both run roots**, as addendum 2 said it must:
+
+| root | runs | verdicts |
+|---|---|---|
+| `/shared_nfs/…/ws_handoff_refine/runroot/runs` (frozen, `ro`) | 38 | 231 |
+| `/home/yihou/agent_sys_runroot/runs` (live) | 1 | 18 |
+| **union** | **39** | **249** |
+
+| validator | verdicts | pass | fail |
+|---|---|---|---|
+| `check_environment` | 82 | 68 | 14 |
+| `check_deploy_kit` | 37 | 27 | 10 |
+| `check_deploy_serves` | 37 | 13 | 24 |
+| `check_command_parses` | 30 | 30 | 0 |
+| `check_bench_result` | 22 | 22 | 0 |
+| `check_kernel_table` | 9 | 9 | 0 |
+| `check_trace_coverage` | 9 | 9 | 0 |
+| `check_worklist_shape` | 8 | 7 | 1 |
+| `check_profiling_evidence` | 8 | 8 | 0 |
+| `check_identity_resolved` | 7 | 7 | 0 |
+
+**Trajectory: 15:00=5 · 15:14=9 · 15:40=10 · … · 17:16=10 · 04:06=10 ·
+05:45=10.** Had I not unioned, this section would have read **0 runs, 0
+verdicts** and I would have reported the graph dead. The instrument moved; the
+number did not.
+
+**The single live run is the best result the effort has produced, and it needs
+both halves said.** Run `20260904T041742`: **18 verdicts, 18 pass, 0 fail** — a
+clean sweep of every judgeable validator, including `check_deploy_kit`,
+`check_environment` and `check_deploy_serves` green over an **agent-authored**
+kit, redeployed by the validator under a different tag, band and work root. Rung
+0 could not test that. Handoffs: 8 `valid`, `operator_workset` **`generating`**,
+2 `created` — the identical shape and the identical stop at `build_workset`.
+
+**And the other half:** the leader reports four `--var`s were inert for that
+run — `tp`, `image`, `instruction`, `mock_stages` — so it passed while
+uninstructed. m1's framing is the one to keep: **we measured the reference
+implementation.** I can corroborate it from the artefact rather than the report.
+The run's own `environment.yaml` reads:
+
+```
+node: crsuse2-m2m-249
+tp_size: 1
+gpu_count: 8
+```
+
+**`tp_size: 1` on a node where four GPUs were free and eight were declared.**
+`tp_size: 1` is the sealed kit's default, not a decision — exactly as reported.
+
+### The thing I can add: the record is false and nothing can see it
+
+`gpu_count: 8` was written on `crsuse2-m2m-249` at a time I had measured cards
+0–3 at 96–98 % VRAM under another tenant. **Four GPUs were available and the
+handoff says eight.** All 18 validators passed.
+
+This is my own retracted claim arriving at its real destination. In addendum 3 I
+checked which fields `check_environment` compares and found `gpu_count` in
+**neither** `require_fixed` nor `compare_fixed_across_inputs` — it is required by
+`environment.schema.json` (`fixed.required`) and judged by nothing. I recorded
+that as reassurance, as the reason no collision existed. **It is the same fact
+read the other way: a field that cannot refuse you also cannot correct you.** The
+first all-green run in this effort carries an untrue environment record, and the
+mechanism that let it through is the mechanism I cited to close a worry.
+
+I am not proposing that `gpu_count` be compared — the four cross-input fields are
+deliberately four, and widening a bar to catch this is the move the DELIVERY-NOTE
+forbids. The finding is narrower and I think it is the right size: **`fixed` is
+promised as "可固化环境" and one of its required fields is currently decorative.**
+Owner's call whether that is acceptable.
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | **clean** |
+| (b) per-commit ownership | **clean across all 33.** No commit touches two `steps/m*` files; `shared.yaml` touched only by leader-prefixed commits; nobody but me touched this file. Sixth consecutive clean interval |
+| (c) `todo.md` | **22 items**, **+4** — T19, T20, T21, T22, all filed by owners |
+| holds | **one**: `108976`, `crsuse2-m2m-243`, ends **13:14:30** — 7 h 27 m |
+| `/home` | **1.6 T free (85 %)** — **down 400 GB in 1 h 41 m.** See §4 |
+| `/shared_nfs` | `ro` on login, `rw` on node. Unchanged |
+
+### 1. Progress
+
+**~72 %, and I am moving it *down* one point rather than up.** Elapsed 977 m.
+
+**Reliability: low**, unchanged. The leader carries ~73 % and asked for my own
+number; the disagreement is one point and the reasoning matters more than the
+figure:
+
+- **Up:** a full mock walk with **every judgeable validator green**, over an
+  agent-authored kit, is the strongest single artefact the effort has. The env
+  defect that caused the inert vars is **largely repaired already** (§3).
+- **Down, and it dominates:** rung 1 did not prove what it appeared to prove.
+  Progress previously credited to it was partly illusory, and it must be re-run.
+  A percentage that only ratchets upward is not measuring anything.
+
+**Estimated remaining: still no defensible figure, and the reason has changed
+again.** It is no longer the image seam and no longer unknown-dominated. It is
+**hardware volatility**: three holds have now ended early (§4), and the ladder
+needs five more rungs each of which wants a live node. I can bound one side —
+1 of 6 rungs attempted, 0 clean — and that is all the arithmetic the evidence
+supports.
+
+### 2. Current state
+
+**33 commits since my T+876 section**, 142 since the freeze. This is the largest
+interval of the effort by a wide margin, and it is concentrated: 04:16–04:53 and
+05:17–05:28.
+
+- **m1-deploy** — 4: a GPU set is a bound identifier with no variable (T19); the
+  ai agent declared no env and four `--var`s did nothing; a container left on a
+  node we no longer hold (T20); the completion probe claimed a discrimination it
+  does not make (T21); plus the two-name declaration with T22.
+- **m4** — 7, the most active owner: the ai agent got 1 of 36 `E2E_` vars and the
+  one it had was the one it cannot use; forge edits the engine tree not the
+  workset copy; m4 execs into m1's container rather than starting one; and
+  **`7028275`, which caught the leader's own regression**.
+- **m5** — 5: the exemption that made the terminal handoff unsealable; the two
+  arms could be measured on two machines and nothing saw it; a knob that does
+  nothing is worse than no knob.
+- **m3** — 2: the agent read eleven variables it was never given; one primary
+  shape is not three performance shapes.
+- **leader** — the `shared.yaml` and `contract` commits, plus `8b87f41`.
+- **m2** — **no commits in this interval.** Unknown, not scored. m2 is now the
+  only silent owner, having been active earlier; that is a change of state and
+  I want it visible.
+
+### 3. Code problems
+
+**The headline is not a code defect in this package, and I verified it rather
+than transcribing it.** `agent_sys/env_mgr/material.py:96` is
+`env.update(_declared_env(agent_spec))`, and `_declared_env` (`:109`) reads the
+`env` dict **off the agent spec that is running**. `shared.yaml:33-37` declares
+`module: agent / name: runner / kind: program` and hangs all 36 `E2E_*` names
+under it. **A `kind: ai` agent therefore receives none of them.** Survey when
+found, per the leader: `runner` 36 · `e2e_deployer` 0 · `workset_builder` 0 ·
+`e2e_kernel_optimizer` 1 · `e2e_integrator` 32.
+
+**Current state, measured by running the owners' own checker just now:**
+
+```
+check_agent_env: 1 problem(s) across 4 `kind: ai` agent(s)
+```
+
+One live gap remains — **`e2e_integrator` does not declare `E2E_REMOTE_HOME`,
+which `assets/lib/remote.sh` reads**, so it arrives empty and the body silently
+takes its own default. Plus 14 `note:` lines for names read but declared nowhere
+(`E2E_KIT_*`, `E2E_ARM`, `E2E_OUTPUT_*`), correctly left as questions rather than
+asserted as gaps. **From 36/0/0/1/32 to one problem in about an hour** is the
+fastest repair of the effort.
+
+**Three tools built today carried the flaw they were built against.** Reported by
+the leader, and it is the sharpest instance of the day's class: the env checker's
+omission half read `task:` as a path, found no assets and passed every agent; its
+divergence rule pointed the wrong way; and it could not see `E2E_MOCK_STAGES` —
+*the variable whose absence is rung 1's bug* — because `mock.sh` lives outside
+the directory it grepped. **A checker that cannot see the bug it was written for
+is the purest form of the thing this file has been counting.**
+
+**And one shipped.** The leader's `60bd848` declared `E2E_STAGE` with an empty
+default, which stopped `setdefault` from firing and **broke the one stage that
+was stamping `warnings[].stage` correctly** — levelling it down to the twenty-one
+that were not. Caught by m4 (`7028275`) running the new checker against their own
+agent instead of assuming it passed. That is the second time today a leader
+change was caught by an owner measuring rather than trusting, and both times the
+owner was doing something optional.
+
+**The `build_workset` stall detector is unchanged and is now the binding
+constraint on the mock deliverable.** The 04:17 run is green on everything it
+reaches and stops in the same place for the same reason.
+
+### 4. Non-code problems
+
+**Three holds have now ended early, and this is the dominant risk of the
+effort.** `106250`/`106253` at ~5 h of 8; **`108891` at ~1 h 21 m of 8** — I
+watched that one: I recorded it at 04:06 with an end time of 11:52:01, and it is
+gone. The leader reports both cancelled alongside 17 other jobs in one second.
+Current hold: **`108976`, `crsuse2-m2m-243`, to 13:14:30.**
+
+My T+876 consequence is now three-for-three and I will keep restating it:
+**a hold is not a budget.** 7 h 27 m on the board should be planned as
+substantially less.
+
+**Slurm's idle view is not GPU truth here.** Co-tenants run through the host
+docker daemon, outside Slurm's accounting. This is the leader's framing and it
+retro-explains my own 4-GPU measurement on 249: Slurm would have called that node
+free.
+
+**`/home` lost 400 GB in 101 minutes and it is not us.** 2.0 T free at 04:06,
+**1.6 T (85 %) at 05:47.** Our footprint: `agent_sys_runroot` **2.7 G**,
+`/home/yihou` **12 G** total — a rounding error. So the drain is another tenant,
+on the volume that **hit 100 % earlier today** and now carries both the run root
+and this record. At the observed rate the headroom is hours, not days. Nothing to
+do about it; everything to plan around it.
+
+**A container m1 created may be left on 249**, which now belongs to another user.
+Filed as **T20**, correctly as a debt rather than a task — we no longer hold the
+node and the core principle forbids removing what we did not create on a machine
+we do not own.
+
+### 5. Open questions
+
+- **Why do holds die?** Three instances, no cause. `sacct -j` does not answer
+  here. This is now the largest unquantified risk and it is above the code.
+- **Does the mock deliverable clear without the stall-detector bug being fixed?**
+  The 04:17 run is green on all ten and stops at `build_workset` regardless.
+- **Should `gpu_count` be judged by anything?** Raised above, not answered, not
+  mine.
+- **m2** — silent this interval after being active. Not scored.
+- **What is consuming `/home`?** Not us. Not answerable from here.
+
+### 6. New commits
+
+**33 since `1ee95c7`** (142 since `9646910`, counting from the corrected base I
+established at T+876). m4 7 · m5 5 · m1 5 · checkpoint 3 · m3 2 · leader the
+`shared.yaml`/`contract` set · m2 0.
+
+Ownership **clean across all 33**: no commit touches two `steps/m*` files,
+`shared.yaml` is touched only by leader-prefixed commits, and the only commits
+against this file are my own three addenda.
+
+### 7. Anything else
+
+**The interval's finding and the interval's failures are the same shape, and it
+is worth naming once at full strength.** No `E2E_*` reached a `kind: ai` agent;
+rung 1 passed anyway, because the sealed defaults happened to be survivable and
+the free half of the node happened to be the half the kit wanted. Then the
+checker written to catch that could not see the variable that caused it. Then the
+fix for the checker shipped a regression that broke the one stage doing it right.
+**At every layer the thing reported success while being wrong, and at every layer
+what caught it was somebody running the tool against a case that could fail** —
+m4 against their own agent, m1 against a second kit, m3 against a fixture.
+
+**My own instrument was one of those layers this interval, and it is the reason
+the top table has two rows.** Had I greped the old root alone, I would have
+published "0 runs, 0 verdicts, the graph is dead" on the morning the graph
+produced its first all-green walk — a *stopped* reading over a *growing* reality,
+the exact inversion the three-state distinction exists to prevent. I flagged the
+hazard at 04:22 and it would still have caught me if I had not written the union
+into the file rather than into my intention.
+
+**And the `gpu_count` finding is the same lesson pointed at my last retraction.**
+I closed a worry by observing that a field is compared by nothing. That
+observation was correct and my use of it was too comfortable: *judged by nothing*
+resolved a false alarm and simultaneously described a real hole, and I only saw
+the second half because a run finally wrote a value I knew to be untrue. **A fact
+that reassures you is the one to turn over.**
