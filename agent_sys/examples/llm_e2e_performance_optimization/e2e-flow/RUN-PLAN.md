@@ -85,11 +85,72 @@ site fact nothing validates.**
 
 `expect_ranks` is the one to watch: it is a fact about **the artefact being
 graded**, not about the run. The sealed capture is TP-2, so rungs 0 and 1 need
-`2`; at rung 2 the trace comes from a **real TP-8 bring-up**, and passing `2`
-makes `check_trace_coverage` refuse a perfectly good eight-rank capture **after
-a full bring-up and a three-minute load**. It fails loudly, so it costs a run
-rather than a wrong number — which is the good version of this mistake and still
-a run.
+`2`; at rung 2 the trace comes from the real bring-up, and passing `2` makes
+`check_trace_coverage` refuse a perfectly good capture **after a full bring-up
+and a three-minute load**. It fails loudly, so it costs a run rather than a
+wrong number — which is the good version of this mistake and still a run.
+
+***Corrected 2026-09-04 by m2, the var's owner: this paragraph said "a real TP-8
+bring-up" and the sentence above it, added the same day, said 4.* The document
+contradicted itself about the one number it exists to get right, and both
+spellings were written as facts. Neither is: **the rung-2 value is whatever
+`tp_size` the rung-1 kit recorded**, because m1 sizes the bring-up from the
+cards that were free — `env.sh:230 _pick_gpus` takes every free card — and that
+is a property of the node on the day. 249 left four free and gave `tp_size: 4`;
+235 was measured 8/8 free. **Do not carry a number between rungs or between
+nodes; read it.** The command below does.*
+
+## The rung-2 launch line, as a whole command
+
+**Written out rather than left as a delta, because every launch-line failure
+today came from someone assembling a command from the table above** — and the
+table is a diff, which is the one shape that cannot be pasted. Owner: m2, since
+the var that changes is `expect_ranks`.
+
+**First read the number from the artefact.** `expect_ranks` describes the
+capture m2 is about to take, which is sized by the deployment rung 1 recorded:
+
+```sh
+RUN=<the rung-1 run directory under /home/yihou/agent_sys_runroot/runs/>
+grep -E '^  (tp_size|node|image):' \
+  "$(find "$RUN" -path '*items/codes/environment.yaml' | head -1)"
+```
+
+Then the run, with `tp_size`'s value as `expect_ranks` and `image` as `image`:
+
+```sh
+python3 -m agent_sys.cli.main run \
+  --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+  --demo-root /home/yihou/agent_sys_runroot \
+  --var jobid=<the hold> --var node=<the node> --var node_ip=<its IP> \
+  --var model_name=Qwen/Qwen3.6-27B \
+  --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
+  --var image=<the image the rung-1 kit records> \
+  --var mock_stages=m3,m4,m5 \
+  --var m3_agent=runner --var m4_agent=runner --var m5_agent=runner \
+  --var expect_ranks=<the kit's tp_size> \
+  --var adhoc_cases=0 \
+  --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR
+```
+
+**Four things about it that are easy to get wrong and each cost a run once:**
+
+- **`m2_agent=runner` is absent, and that absence is the promotion.** A rung is
+  promoted by *removing* a var, so a rung-2 command that still carries it is a
+  rung-1 command that looks like a rung-2 command and will report a clean mock.
+- **`m3/m4/m5_agent=runner` all stay.** m3 is `kind: ai`; drop its var and a
+  model gets called at rung 2.
+- **`transport_env` on every rung**, and it must expand — `$SPUR_CONTROLLER_ADDR`
+  is set in the login shell (`http://crs-m2m-cpu-spur-005…:6817`). Unset, the
+  refusal arrives in one second and reads exactly like a deployment failure.
+- **`--demo-root`**, since `/shared_nfs` is mounted `ro` on the login node.
+
+**Verified to load, not merely written**: this exact form, with rung 1's own
+values substituted, returns `6 tasks in the graph; nothing was dispatched` from
+`agent-sys show` — which is the whole of the check a launch line can be given
+before it costs a node. A `${NAME}` with no default is a load-time fault naming
+the file, the line and the variable, so `show` is the difference between finding
+a missing var in under a second and finding it after a bring-up.
 
 ## Rung 0 cannot complete on the login node, and that is by design
 
