@@ -32,6 +32,32 @@ LOG="$WORKDIR/mix_up.log"
 
 say() { printf '[%s] %s\n' "$ARM" "$*"; }
 
+# **The neighbour's occupancy, sampled per step.** T32, as m5 refined it: m3's
+# `gpu.txt` below is a `rocm-smi` *product-info* dump taken once, so the card
+# **set** survives and the **occupancy during the measurement** does not — and
+# that second thing is what separates "the artefact is wrong" from "the
+# producer's card had a neighbour". Two of 2026-09-04's worst numbers needed it
+# and neither was recoverable afterwards: the DELIVERY-NOTE refusal blamed a
+# patch for a neighbour, and the sealed arms' `probe` read 2062 s against 37 s
+# on the same budget, 56x, on a contended chassis.
+#
+# One `rocm-smi` per step, both columns from one invocation — two calls would
+# sample two moments and report them as one. `assets/lib/neighbour.py` shapes it
+# into the `neighbour` field `round_noise.py` already reads, so m5's judging half
+# and this collecting half agree by construction rather than by agreement.
+#
+# **Never fatal.** A missing sample is a gap in evidence about the environment;
+# refusing the round over it would discard a real measurement to protect a
+# record of the conditions it was taken under.
+NEIGHBOUR_LOG="$WORKDIR/neighbour.jsonl"
+sample_neighbour() {
+  local step="$1"
+  on "rocm-smi --showmemuse --showuse --csv" 2>/dev/null \
+    | python3 "$PKG/assets/lib/neighbour.py" --ours "${E2E_GPU_DEVICES:-}" \
+        --step "$step" --append "$NEIGHBOUR_LOG" 2>/dev/null \
+    || say "neighbour sample at '$step' failed; continuing without it"
+}
+
 say "node=$E2E_NODE ip=$E2E_NODE_IP jobid=$E2E_JOBID"
 say "model=$E2E_MODEL_PATH tp=$E2E_TP cuda_graph=1 container=$CTR"
 
@@ -98,6 +124,7 @@ else
   say "$(python3 -c "import json,sys; print(len(json.load(open(sys.argv[1]))['mounts']))" "$OVERLAY") patch mount(s) deliberately NOT applied"
 fi
 say "preconditions ok"
+sample_neighbour preconditions
 
 # ---- 3. bring the stack up --------------------------------------------------
 say "deploying (cold-starts the engine; first load off NFS took 819s, later ones ~243s)"
@@ -117,10 +144,12 @@ if [ "$up_rc" != "0" ] || ! grep -q MIX_UP_OK "$LOG"; then
   tail -40 "$LOG" >&2
   exit 1
 fi
+sample_neighbour deployed
 say "deployment up at $R"
 
 # ---- 4. evidence ------------------------------------------------------------
 say "collecting evidence"
+sample_neighbour evidence
 # The environment is passed explicitly, not inherited: `srun --export=ALL` copies
 # this process's environment, which carries the IT_* block but none of the names
 # mix_smoke.sh reads.
@@ -182,6 +211,7 @@ fi
 # `reproducible` requires `result` and `env`, plus one of `script` / `command`.
 # Item keys are exactly those names -- a directory here is `result`, not
 # `results`; check_items rejects any top-level item the type never declared.
+sample_neighbour assemble
 say "assembling handoff -> $OUT"
 ITEMS="$OUT/items"
 rm -rf "$ITEMS"; mkdir -p "$ITEMS/result" "$ITEMS/env" "$ITEMS/logs"
@@ -190,6 +220,11 @@ cp "$WORKDIR/smoke.txt" "$WORKDIR/workers.json" "$WORKDIR/models.json" \
    "$WORKDIR/health.txt" "$ITEMS/result/"
 cp "$WORKDIR/gpu.txt" "$WORKDIR/rocm.txt" "$WORKDIR/image.txt" \
    "$WORKDIR/engine_argv.txt" "$WORKDIR/router_cmd.txt" "$ITEMS/env/"
+# **Copied only if a sample was taken.** An absent `neighbour.jsonl` says the
+# sampling did not run, which is a different statement from an empty one saying
+# nothing was next to us — and a `cp` that fails on the first would abort a round
+# over a record of the conditions rather than over the measurement.
+[ -s "$NEIGHBOUR_LOG" ] && cp "$NEIGHBOUR_LOG" "$ITEMS/env/neighbour.jsonl"
 cp "$WORKDIR/docker_mounts.json" "$WORKDIR/container_hashes.tsv" \
    "$WORKDIR/marker_hits.tsv" "$ITEMS/env/"
 
