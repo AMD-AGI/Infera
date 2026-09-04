@@ -1141,14 +1141,14 @@
             "baseline",
             "candidate"
           ],
-          "description": "`baseline` when `--impl` was absent. This field is the whole reason the format is shared."
+          "description": "Which implementation produced these numbers. `candidate` **iff** `--impl` was given, and `impl_path` names it; `baseline` iff it was not, and `impl_path` is null. Bound by `allOf` below in both directions — a report claiming `candidate` with a null path is a measurement of something it cannot name, and it validated until m4's schema sweep found it. The harness sets the pair from one expression (`_common.py`: `\"candidate\" if args.impl else \"baseline\"`), so the producer could not disagree; the *contract* was silent, and a second producer would not have been caught."
         },
         "impl_path": {
           "type": [
             "string",
             "null"
           ],
-          "description": "What `--impl` pointed at, or null."
+          "description": "The path `--impl` pointed at, or null. Non-null exactly when `impl` is `candidate`; see that field. Per the `--impl` contract in `entrypoints.performance.impl_contract`, this is a self-contained Python source file defining a top-level `run`."
         },
         "passed": {
           "type": "boolean",
@@ -1243,7 +1243,51 @@
             }
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "impl": {
+                "const": "candidate"
+              }
+            },
+            "required": [
+              "impl"
+            ]
+          },
+          "then": {
+            "required": [
+              "impl_path"
+            ],
+            "properties": {
+              "impl_path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "impl": {
+                "const": "baseline"
+              }
+            },
+            "required": [
+              "impl"
+            ]
+          },
+          "then": {
+            "properties": {
+              "impl_path": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
     },
     "performance_report": {
       "type": "object",
@@ -1283,13 +1327,15 @@
           "enum": [
             "baseline",
             "candidate"
-          ]
+          ],
+          "description": "Which implementation produced these numbers. `candidate` **iff** `--impl` was given, and `impl_path` names it; `baseline` iff it was not, and `impl_path` is null. Bound by `allOf` below in both directions — a report claiming `candidate` with a null path is a measurement of something it cannot name, and it validated until m4's schema sweep found it. The harness sets the pair from one expression (`_common.py`: `\"candidate\" if args.impl else \"baseline\"`), so the producer could not disagree; the *contract* was silent, and a second producer would not have been caught."
         },
         "impl_path": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The path `--impl` pointed at, or null. Non-null exactly when `impl` is `candidate`; see that field. Per the `--impl` contract in `entrypoints.performance.impl_contract`, this is a self-contained Python source file defining a top-level `run`."
         },
         "protocol": {
           "$ref": "#/$defs/protocol"
@@ -1396,7 +1442,51 @@
             }
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "impl": {
+                "const": "candidate"
+              }
+            },
+            "required": [
+              "impl"
+            ]
+          },
+          "then": {
+            "required": [
+              "impl_path"
+            ],
+            "properties": {
+              "impl_path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "impl": {
+                "const": "baseline"
+              }
+            },
+            "required": [
+              "impl"
+            ]
+          },
+          "then": {
+            "properties": {
+              "impl_path": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }
