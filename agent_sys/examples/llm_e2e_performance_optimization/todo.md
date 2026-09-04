@@ -783,6 +783,33 @@ recording and the next person attributing a card is back to PID matching. **T19
 is the field; this is the three things that have to be true for the field to mean
 anything.**
 
+#### Item 1 has been met once, unprompted — recorded because the run that did it produced no verdict
+
+m1's 2026-09-04 standalone on 217 was killed before any validator ran, so it has
+no verdict and is not a pass. **Three facts survive it, read from artefacts, and
+this is the one that belongs here:**
+
+```
+docker inspect …_sgl_e2e-main-20260904
+  Config.Env   HIP_VISIBLE_DEVICES=0,1,2,3     <- the CONTAINER, not just the worker
+  a new process inside: torch.cuda.device_count() -> 4
+```
+
+**The first kit whose container is pinned rather than only its worker process**,
+and the operator's `--var gpu_devices=0,1,2,3` was obeyed exactly — the
+*obey-or-stop* branch running for the first time, with the value landing in
+`fixed.gpu_devices`. The two kits before it pinned the worker only, which is why
+`docker inspect` showed no restriction on the container that took eight cards.
+
+**It was immediately load-bearing rather than cosmetic.** m4 was about to `docker
+exec` in, assumed they would land on the free 4–7 because those read 0%, and
+would have landed on **0–3 beside a live engine** — the pin is what made that
+knowable in advance instead of a confusing measurement afterwards.
+
+*No producer instruction asked for this; the agent did it on its own. So item 1
+is demonstrated possible and still unspecified — a brief that required it would
+make it reliable rather than fortunate.*
+
 #### Item 4, added 2026-09-04 after the entry above was demonstrated on a live node
 
 **The pick must come from the probe, not sit beside it.**
