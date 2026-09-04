@@ -1505,6 +1505,56 @@ a number.
 campaign: `30_run_forge.sh` writes `degraded` and says the analysis is
 static-only. A rung-4 result at 2.0 is not a rung-4 result.
 
+## 2a. What the first campaign must capture, for the real `patch` path
+
+**The producer emits a diff for a `call_site_fragment` operator. The mock's is
+marker-only; the real one is the campaign's edit.** Building the real one was
+deferred because *where the stock bytes live after forge edits in place* looked
+undecidable — a backup, a recoverable checkout, or nothing preserved, three
+shapes implying three different implementations.
+
+**Measured 2026-09-04 and it is not three shapes. It is one boolean.**
+
+```
+/sgl-workspace/sglang           is a GIT REPO, at 2948168546, target present
+git -C <SGLANG_ROOT> diff --relative -- srt/layers/sampler.py
+        ->  --- a/srt/layers/sampler.py
+            +++ b/srt/layers/sampler.py
+```
+
+**That is exactly the frame `apply.py` needs** — `apply.py:637` splits
+`@SGLANG_ROOT@/srt/layers/sampler.py` and extracts into `tree/<rel>`, so `rel`
+is `srt/layers/sampler.py`. `git diff` from the **repo root** gives
+`python/sglang/srt/...`, the workset's frame, which is the one that made `patch`
+say *"No file to patch"*. **`--relative` from `@SGLANG_ROOT@` is the difference
+between the two**, and it costs a flag rather than a design.
+
+So no backup is needed, no re-extraction from the image, and no assumption about
+what forge preserves.
+
+### The one thing to capture, and it is a yes/no
+
+**Does forge COMMIT its edits in the engine tree?** `30_run_forge.sh` says
+*"Forge commits its keeps"* — but that is about `$RUN`, the copy of the
+*workset*, which is why that script `git init`s it. Whether it also commits in
+`/sgl-workspace/sglang` is unknown and decides one line:
+
+| forge leaves the edit… | the producer runs |
+|---|---|
+| uncommitted in the working tree | `git -C <root> diff --relative -- <rel>` |
+| committed | `git -C <root> diff --relative <base>..HEAD -- <rel>`, and `<base>` must be captured **before** the campaign starts |
+
+**So: record `git -C /sgl-workspace/sglang rev-parse HEAD` before the campaign
+and again after**, plus `git -C /sgl-workspace/sglang status --porcelain`. Three
+commands, and they must be run *inside the container the campaign ran in*,
+before it is torn down — the engine tree does not outlive it.
+
+**Two more worth having while someone is watching**, because they are free then
+and expensive later: whether the edit is confined to the target file
+(`git diff --stat` names every file forge touched — the producer assumes one),
+and whether `forge_result.json` lists the changed files, which would make the
+`git` questions redundant for a future run.
+
 ## 3. What has no source yet — and it is blocking
 
 **`forge-loop` is not installed anywhere this run can reach.** Measured
