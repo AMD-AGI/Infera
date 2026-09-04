@@ -205,6 +205,43 @@ def _check_reports(content: Path, document: dict, args: dict, problems: list[str
     return list(perf.get("operators") or [])
 
 
+def _transport_env(args: dict) -> dict[str, str]:
+    """`os.environ` plus what `spur` needs and a validation zone strips.
+
+    **The bug that cost four rung-0 runs and three of my own non-reproductions.**
+    A validator declares no agent, so it runs in a closed environment: no
+    `SPUR_CONTROLLER_ADDR`, and a `PATH` that `sh` fills in as `/usr/bin:/bin`
+    while `spur` lives in `/usr/local/bin`. The re-measurement then dies with
+
+        1: tcp connect error | 2: tcp connect error | 3: Connection refused
+
+    which `require_visible_on_node` reported as *"the workset is not visible on
+    the node"* — a filesystem claim for a missing environment variable.
+
+    **Why I could not reproduce it three times:** my shell has
+    `SPUR_CONTROLLER_ADDR`. Every hand-invocation inherited it. I even stripped
+    `E2E_JOBID`, `E2E_NODE`, `E2E_TRANSPORT` and `E2E_MEASURE_GPU` to imitate
+    the zone and **kept the one that mattered**, because it is not an `E2E_*`
+    name and nothing pointed at it. A fixture more convenient than production
+    (§4.4), where the convenience was my own login shell.
+
+    m1 solved this for `check_deploy_serves` (`check.py:95-111`) and
+    `RUN-PLAN.md`'s var table already recorded it as costing three rung-0 runs
+    and two wrong attributions — **in m1's stage**. This is the same hole in
+    mine, and the parameters are theirs by name so one `--var` drives both.
+    """
+    env = dict(os.environ)
+    extra = str(args.get("transport_path") or "")
+    if extra:
+        parts = [p for p in env.get("PATH", "").split(":") if p]
+        env["PATH"] = ":".join(parts + [p for p in extra.split(":") if p and p not in parts])
+    for pair in str(args.get("transport_env") or "").split():
+        name, _, value = pair.partition("=")
+        if name and value:
+            env[name] = value
+    return env
+
+
 def _reverify(content: Path, document: dict, recorded: list[dict], args: dict,  # noqa: PLR0913
               problems: list[str], notes: list[str]) -> None:
     """Re-measure `reverify_shapes` shapes here, and compare.
@@ -275,6 +312,7 @@ def _reverify(content: Path, document: dict, recorded: list[dict], args: dict,  
             try:
                 finished = subprocess.run(  # noqa: S603 — the command comes from the artefact under test
                     command, cwd=where, capture_output=True, text=True,
+                    env=_transport_env(args),
                     timeout=int(entry.get("timeout_s") or 1800),
                 )
             except subprocess.TimeoutExpired:
