@@ -1257,3 +1257,157 @@ would have said the opposite.
 `09:32:08 → 09:42:29`, **10m21s** for deploy_kit + both lines against a stub, of
 which the clean line's load is the sealed 180 s window. **A real-engine run will
 be longer by two model loads and is still unmeasured.**
+
+---
+
+# The rung-5 launch line, as a whole command
+
+**Owner: m5.** Written now, while rung 1 is in flight, because the rungs are
+serial and the alternative is improvising it at the moment a node frees. The
+rung-2 section above is the shape this follows.
+
+**Rung 5 is `--var mock_stages=none`: every stage real, in one run.** So unlike
+rung 2, it does not consume rung 4's *artefacts* — it produces its own. What it
+takes from rung 4 is the **launch-line values**, and the distinction matters
+because those are read by a person, not by the graph.
+
+## 1. Read these from rung 4's run before typing anything
+
+```sh
+RUN=<the rung-4 run directory under /home/yihou/agent_sys_runroot/runs/>
+grep -E '^  (tp_size|node|image|image_id|model_path):' \
+  "$(find "$RUN" -path '*items/codes/environment.yaml' | head -1)"
+```
+
+`image` and `tp` should match what rung 4 ran on, **not because the graph checks
+it, but because rung 5's whole output is a comparison** — two arms measured
+against each other and the stock arm against m2's numbers
+(`stock_vs_m2_tolerance`, default 0.10). Change the deployment between rungs and
+the comparison is still computed, still passes its bars, and means less than it
+appears to.
+
+## 2. The command
+
+```sh
+python3 -m agent_sys.cli.main run \
+  --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+  --demo-root /home/yihou/agent_sys_runroot \
+  --var jobid=<the hold> --var node=<the node> --var node_ip=<MEASURED> \
+  --var model_name=Qwen/Qwen3.6-27B \
+  --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
+  --var image=<the image rung 4 recorded> \
+  --var tp=<the kit's tp_size> \
+  --var mock_stages=none \
+  --var measure_gpu=<free GPUs on the node, see below> \
+  --var bench_rounds=3 \
+  --var work_root=/mnt/m2m_nobackup/yihou/e2e_flow \
+  --var container=yihou_e2e_flow \
+  --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR
+```
+
+**Verified to load, not merely written**: this exact form, with the placeholders
+filled by representative values, returns `6 tasks in the graph; nothing was
+dispatched` from `agent-sys show`, 2026-09-04.
+
+**Every `m<N>_agent=runner` is gone, and that absence is the whole rung.** Five
+of them, not one. A rung-5 command carrying any is a lower rung wearing rung 5's
+name, and it will report a clean mock for the stage it silently kept.
+
+**`node_ip` is measured, never derived** — `spur exec <job> hostname -I`. There
+is no pattern: `-061` → `10.245.159.129`, `-031` → `10.245.144.239`, `-006` →
+`10.245.151.128`. Deriving it cost a bring-up.
+
+## 3. What `show` cannot catch, which is most of what will go wrong here
+
+`show` catches one class only: a `${NAME}` with no default and no value. Every
+item below loads clean and fails later, so this list is the check.
+
+| var | rungs 0–4 | rung 5 | if it is wrong |
+|---|---|---|---|
+| `adhoc_cases` | `0` (or `1`) | **omit — default 3** | `check_acceptance`'s ad-hoc arm passes on zero cases |
+| `m<N>_agent` | `runner` | **all five absent** | that stage runs mocked and reports green |
+| `transport_env` | required | required | refuses in 1 s, looking exactly like a deployment failure |
+| `integration_min_requests` | n/a | **omit — default 50** | see below |
+| `expect_ranks` | `2` | omit (defaults 8) or track `tp` | m2's, listed so it is not carried in |
+
+**`transport_env` is not a package variable at all** — it is consumed by the
+runner, so it appears in no yaml and `show` is structurally unable to see it
+missing. That is why it cost three rung-0 runs.
+
+## 4. Three values that are m5's, and each is a finding rather than a choice
+
+### `adhoc_cases` — rung 5 is the first run that may not lower it
+
+Every launch line to date passes it below the floor: three pass `0` and one
+passes `1`. **At `0` the producer generates no cases and the validator's floor is
+`0`** — both are `'${adhoc_cases:-3}'` (`E2E_ADHOC_CASES` and
+`min_adhoc_cases`), so the arm grades nothing and passes.
+
+That was **forced, not lazy**: the cases are invented by m5's `kind: ai` agent,
+and at rungs 0–4 `m5_agent=runner` means there is no agent to invent them. Rung 5
+is the first rung where the knob *can* be honoured, which makes it the first
+where lowering it is a choice.
+
+**So if rung 5 also lowers it, `check_acceptance`'s ad-hoc arm will have been
+read-but-never-exercised for the entire effort** — the same shape as a bar that
+is printed and never applied. Omit the var.
+
+### `require_runtime_marker` — rung 5 may not be runnable at all yet
+
+The default is `true` (mine, flipped 2026-09-04 on measured evidence: a
+hash-perfect overlay that never executed measured identical to stock). With it
+true, an overlay declaring no `runtime_marker` is refused by `check_patch_live`.
+
+`mock_adapt` writes a marker only when the workset declares a `public_symbol`,
+and **a `call_site_fragment` operator has none** — so for the current workset
+there is no legal path through that check. This is M5.1.1 reaching the same wall
+from a second direction, and it is **with the user**.
+
+**Say this before the node is held, not on it.** If M5.1.1 is unresolved when a
+rung-5 window opens, the options are: resolve it; or run with `--var
+require_runtime_marker=false` and **record in the run that the patched arm's
+numbers cannot distinguish *executed* from *mounted and never entered*** — which
+is precisely the distinction that validator exists to draw, so it is a
+documented downgrade and not a workaround.
+
+### `integration_min_requests` — new as of `47db1fc`, and rung 5 is where it bites
+
+It was `min_requests`, shared with m2's `check_bench_result`. Split because the
+override was shared while the reason to override is stage-local. **Rung 5 is the
+first run where getting it wrong is expensive**: `--var min_requests=0` no longer
+touches stage 5, and `--var integration_min_requests=0` no longer touches
+stage 2. Omit both; the default is 50 on each side.
+
+## 5. Values with no recorded source, which is a finding now and a block later
+
+Named because a value rung 4 does not record is one somebody invents on the node.
+
+- **`measure_gpu`** (default 4) — how many cards each arm takes. **Nothing in any
+  sealed artefact records how many GPUs were free**, and the two rung-5 arms need
+  their own cards beside whatever the host already carries. Measured on 217 the
+  hard way: GPUs 0–3 held by another tenant's non-docker processes. **Read it
+  from the node at hold time and write it into the run's notes**; do not carry a
+  number between rungs or between nodes.
+- **`bench_rounds`** (default 1) — the command above says `3`, and that is a
+  judgement, not a measurement. One round cannot separate a real change from
+  run-to-run spread; the noise floor is `1.96·√2·rsd/√n`, so `n` is the only term
+  the launch line controls. **Three is the smallest `n` that makes the floor
+  reportable at all**, and `check_no_regression` will mark the comparison
+  `uninterpretable` rather than pass it if the floor exceeds the bar. If a
+  rung-5 window is short, cutting rounds is the first thing to cut and the
+  `uninterpretable` verdict is the honest consequence.
+- **`measure_container`** (default empty) — the two arms name themselves from it.
+  No source, and it is an identifier bound on a shared host, so leaving it
+  defaulted on a busy node is how two runs collide.
+
+## 6. What rung 5 proves that rung 4 did not, stated so a green cannot overclaim
+
+Rung 5 is the only rung where **`integrate_and_verify` runs**, and with it the
+two-arm bring-up, `check_acceptance` on generated cases, and
+`check_no_regression` on numbers nobody chose.
+
+Three things will still be untested after a green rung 5, and they should be
+named in whatever reports it: `apply.py`'s **generic dropped-names refusal** and
+its **no-op gate** (gates 8 and 9, never reached — a run that gets past
+`apply_patch` is a run where neither fired), and every refusal path of the seven
+m5 validators that a passing run by construction does not take.
