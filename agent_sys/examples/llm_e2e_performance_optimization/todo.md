@@ -1590,3 +1590,77 @@ dumped the process table) and not at all on the other four.
 already fixed or recorded. Filed because `T31` says naming a class is not
 sweeping for it, and this is the sweep condition for a class that has produced
 at least four instances across two owners in one day.
+
+### T42 — a validation zone is not a normal process environment, and anything read from it that names a host path is suspect
+
+**A validator does not run in the environment you think it does.** The zone
+rewrites variables a body would take for granted, and every one of them named a
+host path that turned out to be somewhere else. Four instances on 2026-09-04,
+each found only by something failing:
+
+| variable | what the zone makes it | what it cost |
+|---|---|---|
+| `HOME` | `<zone>/home` | m4's ephemeral container mounted a *subdirectory of the zone* instead of the run root, and rung 0 died on `./run_performance.sh: No such file or directory` — a container that came up perfectly and could not see its own script |
+| `PATH` | `/usr/bin:/bin` | `spur` lives in `/usr/local/bin`, so the transport is simply absent |
+| `SPUR_CONTROLLER_ADDR` | **unset** | m3 lost three non-reproductions to it, because their own login shell had it |
+| `TMPDIR` | `<zone>/tmp` | forced by the zone as an invariant (`validator/environment.py:233,86`), so a producer's `env` cannot reach it — and on this cluster's NFS a `TMPDIR` there SIGSEGVs every HIP kernel launch |
+
+**The general rule, which is the point of the entry:** *anything read from a
+validation zone's environment that names a host path is suspect.* Not "`HOME` is
+redefined" — that is one instance and covers nothing else. The four above were
+found one at a time, by four different people, each paying separately, because
+each was treated as a fact about that variable rather than as a fact about the
+zone.
+
+**What follows operationally.** A validator that needs a host path must take it
+from an **argument** (`--var`), from the **artefact**, or by **asking the node** —
+never from its own environment. Where a variable is unavoidable, it is passed in
+explicitly: `transport_path` and `transport_env` exist for exactly this, and are
+the shape to copy.
+
+**And the inverse, which bit hardest:** a path that *is* correct here may be
+correct nowhere else. `$HOME` was a perfectly good value — it just did not name
+what the reader assumed. **A wrong value announces itself; a right value that
+answers a different question does not.**
+
+### T43 — the artefact is honest about provenance and dishonest about meaning
+
+**Three instances on 2026-09-04, one shape.** A field carries something
+faithfully — the copy is exact, the producer did nothing wrong — and the field's
+*name* says it is something else. Every field validates; the document is false.
+
+- **`premise.run_environment`** — `10_read_inputs.py:137` fills it with
+  `lib.load_environment()`: m1's `deploy_kit` record, verbatim, no observation
+  anywhere. A field named for *the environment m4 ran in* is m4 repeating m1's
+  claim. m1 then measured a record whose `started_at` was 09:03:51 against a
+  container reporting `Created == StartedAt == 09:37:18` with `RestartCount: 0`
+  — **a different container wearing the same name, every field valid** (T34).
+- **m1's *"by construction"*** in T27 item 1 — the kit was said to make record
+  and runtime agree by construction; the pin is an **environment variable**, and
+  `docker exec -e HIP_VISIBLE_DEVICES=…` overrides it. Convention described as
+  enforcement. m1 corrected their own entry.
+- **`protocol.timing: event`** — declared in `workset.yaml`, read by nothing;
+  `run_performance.sh:44-55` is `perf_counter` around a
+  `torch.cuda.synchronize()`. Copied into `kernel_optimization` by
+  `check_optimization_shape`'s field-for-field comparison.
+
+**Why one entry and not three.** The *fix* differs every time — observe beside
+the claim, change the mechanism, change the word — and the *failure* does not.
+That is exactly when a class beats its instances.
+
+**Why it evades the existing rules.** *Read the artefact, not the exit code*
+governs results, and these are not results. `items_schema` cannot see it: the
+value is well-formed and of the right type. And a reviewer reading the producer
+sees a faithful copy and correctly approves it — **the defect is not visible
+from either end, only in the join between the name and the source.**
+
+**The diagnostic question,** cheap enough to ask of any field: *what would have
+to be true for this name to be accurate, and did anything check it?* For
+`run_environment` the answer was "somebody observed the container", and nothing
+had.
+
+**Cross-reference: checkpoint's table is this disease from the other end** — *an
+instrument reads a real thing and answers a different question*, eleven
+instances. Theirs is the instrument form, this is the artefact form. Neither is
+a superset; they should point at each other rather than become two vocabularies
+for one failure.
