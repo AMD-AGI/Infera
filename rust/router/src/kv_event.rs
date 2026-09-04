@@ -22,7 +22,7 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use crate::hasher::{hash_chunk, ROUTER_SEED};
-use crate::pool::Worker;
+use crate::pool::{DisaggMode, Worker};
 
 const TOPIC: &[u8] = b"kv-events";
 const INITIAL_BACKOFF_MS: u64 = 100;
@@ -172,12 +172,103 @@ pub struct KvEventClient {
     /// socket per worker. Registration still happens per worker -- the views
     /// need a block size to be written into -- but no socket is opened.
     nats_fed: bool,
+    /// Workers `on_worker_added` has already decided about, including the ones
+    /// it declined to track, each against the fields the decision was made
+    /// from. Without this the decline is not recorded anywhere -- the ZMQ path
+    /// keys off `threads` and the NATS path off `state`, and a declined worker
+    /// is in neither -- so `sync` re-runs the decision on every discovery
+    /// snapshot and re-logs its ERROR forever. An operator cannot tell a line
+    /// that repeats every few seconds from one that means the fleet changed.
+    ///
+    /// Keyed by *decision inputs*, not by worker id alone. `sync` only
+    /// re-decides workers that **left**, and a worker can change the fields
+    /// this decision is made from without ever leaving: a stop that skips the
+    /// SIGTERM handler (SIGKILL, OOM, node loss) never clears the Pod
+    /// annotation `discovery_k8s` keys departures off, the Pod keeps
+    /// `phase: Running` across the container restart, and the replacement
+    /// process republishes the same `worker_id` with the fresh
+    /// `free_tcp_port()` its `kv_events_endpoint` just took. Under a bare id
+    /// that update is swallowed -- the new endpoint is dropped, and the KV view
+    /// built while the old engine was warm outlives the cache it describes, so
+    /// the router scores hits that cannot exist. Comparing the inputs
+    /// re-decides exactly when the answer could have changed, and stays silent
+    /// (the whole point of this map) when nothing did.
+    ///
+    /// See `a_killed_worker_re_registers_in_place` for the live confirmation
+    /// that such an update reaches `on_worker_added` as an update rather than
+    /// as a departure.
+    decided: Mutex<HashMap<String, DecisionKey>>,
+}
+
+/// The `Worker` fields `on_worker_added` branches on. Everything it reads to
+/// reach a decision belongs here; anything else would re-subscribe the fleet on
+/// an unrelated discovery change.
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct DecisionKey {
+    endpoint: Option<String>,
+    block_size: Option<i64>,
+    dp_size: Option<i64>,
+    dp_rank: Option<i64>,
+}
+
+impl DecisionKey {
+    fn of(w: &Worker) -> Self {
+        Self {
+            endpoint: w.kv_events_endpoint.clone(),
+            block_size: w.kv_block_size,
+            dp_size: w.dp_size,
+            dp_rank: w.dp_rank,
+        }
+    }
 }
 
 impl Default for KvEventClient {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Block size to build this worker's KV view at, or `None` to leave it
+/// untracked.
+///
+/// A missing block size is not a 1. Registering 1 builds a view the engine's
+/// events -- paged at 64 -- can never match: every event is rejected, kv-aware
+/// silently degrades to load balancing, and the router looks healthy the whole
+/// time. Leaving the worker out of the view is the honest outcome and costs the
+/// same routing.
+///
+/// Shared by the NATS and per-worker-socket paths deliberately. They used to
+/// disagree -- NATS refused to track, ZMQ registered the 1 -- so the same
+/// worker got opposite treatment depending on how events happened to reach the
+/// router, and only half the fleet benefited from the severity split below.
+fn resolve_block_size(w: &Worker, transport: &str) -> Option<usize> {
+    if let Some(bs) = w.kv_block_size.filter(|bs| *bs > 0) {
+        return Some(bs as usize);
+    }
+    // Severity depends on the role, not on the symptom. A PD decode leg is
+    // SUPPOSED to arrive without a block size: it runs --no-enable-kv-events, so
+    // the engine leaves kv_block_size unset by design, and kv-aware routing never
+    // applies to the decode pool anyway (prefix affinity is decided on the
+    // prefill side; disagg dispatch picks decode by load). ERROR-ing on every
+    // startup trains people to ignore a line that is real for every OTHER role.
+    // Prefill/mixed without one IS a fault -- usually an unresolved --page-size --
+    // and stays at ERROR.
+    if w.disagg_mode == DisaggMode::Decode {
+        tracing::debug!(
+            worker = %w.worker_id,
+            transport,
+            "kv events: not tracking decode worker (no kv_block_size; expected -- \
+             kv-aware routing does not apply to the decode pool)"
+        );
+    } else {
+        tracing::error!(
+            worker = %w.worker_id,
+            transport,
+            "kv events: NOT tracking -- it registered no kv_block_size, so kv-aware \
+             routing is off for this worker"
+        );
+    }
+    None
 }
 
 impl KvEventClient {
@@ -187,6 +278,7 @@ impl KvEventClient {
             state: Arc::new(Mutex::new(HashMap::new())),
             threads: Mutex::new(HashMap::new()),
             nats_fed: false,
+            decided: Mutex::new(HashMap::new()),
         }
     }
 
@@ -346,21 +438,34 @@ impl KvEventClient {
     }
 
     pub fn on_worker_added(&self, w: &Worker) {
+        let key = DecisionKey::of(w);
+        // Re-registered with different inputs? Tear the old decision down
+        // before making a new one: on the ZMQ path `threads` still holds a
+        // socket for the previous endpoint, and its `contains_key` guard below
+        // would otherwise keep it and drop the new endpoint on the floor.
+        // `on_worker_removed` takes the same lock, so the guard ends here.
+        let stale = match self
+            .decided
+            .lock()
+            .expect("kv decided mutex poisoned")
+            .get(&w.worker_id)
+        {
+            // Same inputs, same answer. Nothing to redo, nothing to log.
+            Some(prev) if *prev == key => return,
+            Some(_) => true,
+            None => false,
+        };
+        if stale {
+            self.on_worker_removed(&w.worker_id);
+        }
+        self.decided
+            .lock()
+            .expect("kv decided mutex poisoned")
+            .insert(w.worker_id.clone(), key);
         if self.nats_fed {
             // No per-worker socket: ingestion is the one global subscription.
-            // A missing block size is not a 1 -- that produces a view which
-            // never matches and hides the fault -- so the worker is left
-            // untracked and kv-aware routing simply skips it.
-            let block_size = match w.kv_block_size {
-                Some(bs) if bs > 0 => bs as usize,
-                _ => {
-                    tracing::error!(
-                        worker = %w.worker_id,
-                        "kv events (nats): NOT tracking -- it registered no kv_block_size, \
-                         so kv-aware routing is off for this worker"
-                    );
-                    return;
-                }
+            let Some(block_size) = resolve_block_size(w, "nats") else {
+                return;
             };
             let mut state = self.state.lock().expect("kv view mutex poisoned");
             state
@@ -378,7 +483,9 @@ impl KvEventClient {
             if t.contains_key(&w.worker_id) {
                 return;
             }
-            let block_size = w.kv_block_size.unwrap_or(1).max(1) as usize;
+            let Some(block_size) = resolve_block_size(w, "zmq") else {
+                return;
+            };
             self.state
                 .lock()
                 .expect("kv view mutex poisoned")
@@ -413,6 +520,10 @@ impl KvEventClient {
     }
 
     pub fn on_worker_removed(&self, worker_id: &str) {
+        self.decided
+            .lock()
+            .expect("kv decided mutex poisoned")
+            .remove(worker_id);
         let entry = self
             .threads
             .lock()
@@ -437,10 +548,19 @@ impl KvEventClient {
     pub fn sync(&self, workers: &[Arc<Worker>]) {
         use std::collections::HashSet;
         let current: HashSet<&str> = workers.iter().map(|w| w.worker_id.as_str()).collect();
+        // Departures come from `decided`, not from `threads`. `threads` holds
+        // only workers with a ZMQ socket open, so under NATS -- where there is
+        // no per-worker socket -- it is permanently empty and this loop found
+        // nothing to remove: `state` and `decided` both grew for the lifetime of
+        // the process, one entry per worker ever seen, and a worker that left
+        // and came back was never re-decided. `decided` is the right key because
+        // `on_worker_added` writes it before branching, and nothing else creates
+        // a `state` entry (ingestion does `get_mut` and drops the event when the
+        // worker is gone), so it is a superset of both.
         let known: Vec<String> = self
-            .threads
+            .decided
             .lock()
-            .expect("kv threads mutex poisoned")
+            .expect("kv decided mutex poisoned")
             .keys()
             .cloned()
             .collect();
@@ -1552,6 +1672,183 @@ mod tests {
     /// anchored view into the bucket, and `seed_rank_view` keeps replacing this
     /// one from it. Flushing there would discard the worker's real GPU prefix
     /// cache to fix an index that is already being kept current.
+    /// Under NATS there is no per-worker socket, so `threads` is permanently
+    /// empty -- and `sync` used to derive departures from it. Every worker the
+    /// router ever saw stayed in `state` and `decided` for the life of the
+    /// process. The leak is small (an id and a view), but the second half is
+    /// not: a worker that left and came back was never re-decided, so it kept
+    /// whatever block size it first registered with.
+    #[test]
+    fn a_departed_nats_worker_is_forgotten() {
+        let c = KvEventClient::nats_fed();
+        c.on_worker_added(&worker("w1", None, 4, None));
+        c.on_worker_added(&worker("w2", None, 4, None));
+        c.seed_rank_view("w1", 0, vec![1, 2, 3]);
+        assert_eq!(c.total_blocks("w1"), 3);
+
+        c.sync(&[Arc::new(worker("w2", None, 4, None))]);
+
+        assert_eq!(c.total_blocks("w1"), 0, "its view must not outlive it");
+        assert!(
+            !c.decided
+                .lock()
+                .expect("kv decided mutex poisoned")
+                .contains_key("w1"),
+            "and it must be re-decidable if it comes back"
+        );
+        assert_eq!(c.total_blocks("w2"), 0, "w2 is still tracked, just empty");
+        c.seed_rank_view("w2", 0, vec![9]);
+        assert_eq!(
+            c.total_blocks("w2"),
+            1,
+            "the surviving worker was untouched"
+        );
+    }
+
+    /// A worker `on_worker_added` DECLINED is in neither `threads` nor `state`.
+    /// Keying departures off `decided` is what lets it be reconsidered after it
+    /// leaves -- otherwise a worker that registered without a block size, was
+    /// restarted, and came back with one would never be tracked.
+    #[test]
+    fn a_declined_worker_is_reconsidered_after_it_leaves() {
+        let c = KvEventClient::nats_fed();
+        c.on_worker_added(&worker("w1", None, 0, None)); // no block size: declined
+        assert_eq!(c.total_blocks("w1"), 0);
+
+        c.sync(&[]); // it goes away
+        c.sync(&[Arc::new(worker("w1", None, 4, None))]); // and comes back fixed
+
+        c.seed_rank_view("w1", 0, vec![1, 2]);
+        assert_eq!(
+            c.total_blocks("w1"),
+            2,
+            "the second registration must have been acted on"
+        );
+    }
+
+    /// The same worker, still in the fleet, re-registering with the field that
+    /// was missing the first time.
+    ///
+    /// `decided` used to be keyed on the worker id alone and written *before*
+    /// the branch that declines, so a worker that registered before its engine
+    /// advertised `kv_events_endpoint` (or a block size) was declined once and
+    /// never looked at again: `sync` only re-decides workers that LEFT, and
+    /// this one never leaves. Its KV view is then never built, every request
+    /// scores zero hits against it, and nothing logs -- the ERROR the decline
+    /// printed is exactly the line `decided` exists to print only once.
+    #[test]
+    fn a_worker_that_re_registers_with_the_missing_field_is_re_decided() {
+        let c = KvEventClient::nats_fed();
+        c.on_worker_added(&worker("w1", None, 0, None)); // no block size: declined
+        assert_eq!(c.total_blocks("w1"), 0);
+
+        // In place, no departure -- a discovery snapshot that still lists it.
+        c.sync(&[Arc::new(worker("w1", None, 4, None))]);
+
+        c.seed_rank_view("w1", 0, vec![1, 2]);
+        assert_eq!(
+            c.total_blocks("w1"),
+            2,
+            "the corrected registration must have been acted on"
+        );
+    }
+
+    /// The other half of the same key: re-deciding on every snapshot is what
+    /// `decided` exists to prevent.
+    #[test]
+    fn an_unchanged_worker_is_not_re_decided_on_every_snapshot() {
+        let c = KvEventClient::nats_fed();
+        let w = Arc::new(worker("w1", None, 4, None));
+        c.on_worker_added(&w);
+        c.seed_rank_view("w1", 0, vec![1, 2, 3]);
+
+        for _ in 0..3 {
+            c.sync(std::slice::from_ref(&w));
+        }
+
+        assert_eq!(
+            c.total_blocks("w1"),
+            3,
+            "a re-decision would have thrown the view away and re-seeded it empty"
+        );
+    }
+
+    /// The same thing, driven by a record copied verbatim off a running Pod
+    /// (`infera.amd.com/worker-info` on
+    /// `infera-glm53-pd-1p1d-stable-zbxsc-role1`), because what makes this
+    /// reachable is the shape of a real deployment rather than a contrived
+    /// input.
+    ///
+    /// Which restarts reach it is worth being exact about, because the obvious
+    /// answer is wrong. A *graceful* stop does not: the worker's SIGTERM path
+    /// runs `K8sRegistrationClient.deregister`, which clears the annotation,
+    /// and `discovery_k8s` treats a missing annotation as a departure. That is
+    /// what the two real restarts of the sibling decode Pod did -- the router
+    /// logged `removed` then `registered`, i.e. the departure path, which
+    /// `on_worker_removed` already re-decides correctly.
+    ///
+    /// A stop that skips that handler -- SIGKILL, an OOM kill, a node loss --
+    /// does reach it:
+    ///
+    ///   * the annotation is never cleared, and the Pod keeps `phase: Running`
+    ///     across a container restart, so `discovery_k8s` (which drops a worker
+    ///     only on Pod deletion, a cleared annotation, or a non-Running phase)
+    ///     never sees a departure;
+    ///   * `kv_events_endpoint` takes a fresh `free_tcp_port()` on every
+    ///     `SglangWorker.start()`, so the replacement process republishes the
+    ///     same `worker_id` carrying a different endpoint;
+    ///   * `unchanged` compares the parsed `Worker`, so that arrives as an
+    ///     update and `sync` hands it to `on_worker_added`.
+    ///
+    /// Confirmed against the live fleet by rewriting that one annotation field
+    /// on the running Pod: the router logged
+    /// `k8s: worker 10.245.157.128:30000 updated` while `phase` stayed
+    /// `Running` and `restartCount` stayed 0.
+    ///
+    /// The stale view is the sharp end: the engine came back with an empty
+    /// prefix cache, and a view carried over from before the restart makes the
+    /// router score hits that cannot exist.
+    #[test]
+    fn a_killed_worker_re_registers_in_place() {
+        const ROLE1: &str = r#"{"worker_id": "10.245.157.128:30000",
+            "url": "http://10.245.157.128:30000", "model_name": "glm-5.3",
+            "engine": "sglang", "disagg_mode": "prefill",
+            "disagg_meta": {"protocol": "sglang-bootstrap",
+                            "params": {"bootstrap_addr": "10.245.157.128:30001"}},
+            "kv_events_endpoint": "tcp://10.245.157.128:52613", "kv_block_size": 64,
+            "dp_rank": null, "dp_size": null, "request_transport": "http"}"#;
+        let role1 = || -> Worker { serde_json::from_str(ROLE1).expect("production record") };
+
+        let c = KvEventClient::nats_fed();
+        let before = role1();
+        assert_eq!(before.kv_block_size, Some(64));
+        c.on_worker_added(&before);
+        c.seed_rank_view(&before.worker_id, 0, vec![11, 22, 33]);
+        assert_eq!(
+            c.total_blocks(&before.worker_id),
+            3,
+            "the warm engine's view"
+        );
+
+        // Same Pod, same phase, same worker_id, annotation never cleared --
+        // only the port the replacement process picked differs.
+        let mut after = role1();
+        after.kv_events_endpoint = Some("tcp://10.245.157.128:41907".to_string());
+        c.sync(&[Arc::new(after.clone())]);
+
+        assert_eq!(
+            c.total_blocks(&after.worker_id),
+            0,
+            "a view built before the restart outlives the cache it describes"
+        );
+        c.seed_rank_view(&after.worker_id, 0, vec![44]);
+        assert_eq!(
+            c.total_blocks(&after.worker_id),
+            1,
+            "and the worker is still tracked afterwards"
+        );
+    }
+
     #[test]
     fn a_rank_the_bucket_is_mirroring_does_not_ask_for_a_flush() {
         let c = KvEventClient::nats_fed();

@@ -65,3 +65,7 @@ class Policy(ABC):
     @property
     def kv_client(self) -> KvEventClient | None:
         return None
+
+    def count_input_tokens(self, request: dict) -> int | None:
+        """Token count for a request body, or None when this policy cannot count."""
+        return None

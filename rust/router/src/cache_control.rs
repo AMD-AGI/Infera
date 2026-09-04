@@ -15,6 +15,8 @@
 use serde_json::Value;
 use xxhash_rust::xxh3::xxh3_64;
 
+const INTERNAL_HINTS_KEY: &str = "_infera_cache_hints";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Retention {
     // Ordinal order matters: None < Short < Long so `max` gives the strongest.
@@ -67,6 +69,39 @@ const MM_BLOCK_TYPES: &[&str] = &[
     "audio",
 ];
 
+/// Retention from an edge-attached hint; multimodal from the hashed body.
+///
+/// `/v1/messages` stamps Anthropic `cache_control` onto `_infera_cache_hints`
+/// before translation, and that spelling is not on the OpenAI body.
+/// `/v1/responses` images live on `input`; an attached hint parsed from the
+/// raw body reports text-only, so multimodal must be re-read from `base`.
+pub fn hints_for_hashed_body(request: &Value, base: &Value) -> CacheHints {
+    let parsed = parse_cache_hints(base);
+    // Retention lives on the protocol edge: a `/v1/responses` body carries
+    // `prompt_cache_retention` on `request`, and `to_chat_body` rebuilds a
+    // chat object that does not copy those fields. `/v1/messages` stamps
+    // Anthropic `cache_control` onto `_infera_cache_hints` after translation.
+    // Multimodal is always re-read from `base` (Responses images are on
+    // `input` until conversion).
+    let edge = request
+        .as_object()
+        .and_then(|o| parse_internal_hints(o.get(INTERNAL_HINTS_KEY)))
+        .unwrap_or_else(|| parse_cache_hints(request));
+    CacheHints {
+        retention: edge.retention,
+        session_id: edge.session_id,
+        explicit_hint_seen: edge.explicit_hint_seen,
+        has_multimodal_content: parsed.has_multimodal_content,
+    }
+}
+
+/// Drop a client-supplied internal hint so routing cannot be steered by it.
+pub fn strip_internal_hints(body: &mut Value) {
+    if let Some(obj) = body.as_object_mut() {
+        obj.remove(INTERNAL_HINTS_KEY);
+    }
+}
+
 pub fn parse_cache_hints(body: &Value) -> CacheHints {
     let obj = match body.as_object() {
         Some(o) => o,
@@ -100,6 +135,51 @@ pub fn parse_cache_hints(body: &Value) -> CacheHints {
         explicit_hint_seen: anthropic_seen || openai_retention.is_some(),
         has_multimodal_content: has_mm,
     }
+}
+
+/// Attach pre-translation cache hints to a router-only request value.
+///
+/// The encoded worker body is kept separate by `proxy::dispatch_routed`, so
+/// this metadata affects routing without becoming an engine request field.
+pub fn attach_cache_hints(body: &mut Value, hints: &CacheHints) {
+    let Some(obj) = body.as_object_mut() else {
+        return;
+    };
+    obj.insert(
+        INTERNAL_HINTS_KEY.to_string(),
+        serde_json::json!({
+            "retention": hints.retention.as_str(),
+            "session_id": hints.session_id,
+            "explicit_hint_seen": hints.explicit_hint_seen,
+            "has_multimodal_content": hints.has_multimodal_content,
+        }),
+    );
+}
+
+/// Decode cache hints preserved by an edge protocol adapter.
+fn parse_internal_hints(value: Option<&Value>) -> Option<CacheHints> {
+    let obj = value?.as_object()?;
+    let retention = match obj.get("retention").and_then(Value::as_str)? {
+        "none" => Retention::None,
+        "short" => Retention::Short,
+        "long" => Retention::Long,
+        _ => return None,
+    };
+    Some(CacheHints {
+        retention,
+        session_id: obj
+            .get("session_id")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        explicit_hint_seen: obj
+            .get("explicit_hint_seen")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        has_multimodal_content: obj
+            .get("has_multimodal_content")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+    })
 }
 
 fn coerce_session_id(v: &Value) -> Option<String> {
@@ -371,6 +451,67 @@ mod tests {
         let h = parse_cache_hints(&body);
         assert_eq!(h.retention, Retention::Long); // 1h(system) beats ephemeral-default(short)
         assert!(h.explicit_hint_seen);
+    }
+
+    #[test]
+    fn hashed_body_keeps_attached_retention_and_rereads_multimodal() {
+        let openai = json!({
+            "model": "m",
+            "messages": [{"role": "user", "content": [
+                {"type": "text", "text": "what is this"},
+                {"type": "image_url", "image_url": {"url": "https://x/cat.png"}}
+            ]}]
+        });
+        let mut request = openai.clone();
+        attach_cache_hints(
+            &mut request,
+            &CacheHints {
+                retention: Retention::Long,
+                session_id: None,
+                explicit_hint_seen: true,
+                has_multimodal_content: false,
+            },
+        );
+        // Structural parse ignores the stamp; MM is on the OpenAI body.
+        assert!(parse_cache_hints(&request).has_multimodal_content);
+        assert_eq!(parse_cache_hints(&openai).retention, Retention::None);
+
+        let hints = hints_for_hashed_body(&request, &openai);
+        assert_eq!(hints.retention, Retention::Long);
+        assert!(hints.explicit_hint_seen);
+        assert!(hints.has_multimodal_content);
+    }
+
+    #[test]
+    fn responses_retention_is_read_from_the_raw_body() {
+        let request = json!({
+            "model": "m",
+            "input": "hi",
+            "prompt_cache_retention": "24h",
+            "prompt_cache_key": "sess",
+        });
+        let base = json!({"model": "m", "messages": [{"role": "user", "content": "hi"}]});
+        let hints = hints_for_hashed_body(&request, &base);
+        assert_eq!(hints.retention, Retention::Long);
+        assert_eq!(hints.session_id.as_deref(), Some("sess"));
+        assert!(hints.explicit_hint_seen);
+        assert!(!hints.has_multimodal_content);
+    }
+
+    #[test]
+    fn a_client_supplied_internal_hint_does_not_parse_as_retention() {
+        let body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "_infera_cache_hints": {
+                "retention": "long",
+                "explicit_hint_seen": true,
+                "has_multimodal_content": false,
+            },
+        });
+        assert_eq!(parse_cache_hints(&body).retention, Retention::None);
+        let mut stripped = body.clone();
+        strip_internal_hints(&mut stripped);
+        assert!(stripped.get("_infera_cache_hints").is_none());
     }
 
     #[test]

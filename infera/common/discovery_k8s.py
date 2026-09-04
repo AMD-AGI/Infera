@@ -290,7 +290,8 @@ class KubernetesRegistry:
                 )
                 return
 
-        existed = self._pool.get(info.worker_id) is not None
+        previous = self._pool.get(info.worker_id)
+        existed = previous is not None
         self._pod_to_worker[pod_name] = info.worker_id
         self._pool.add(info)
         logger.info(
@@ -304,7 +305,13 @@ class KubernetesRegistry:
             info.kv_events_endpoint,
             "yes" if info.kv is not None else "no",
         )
-        if not existed and self._on_added is not None:
+        # Also fires when the annotation changed in place. A container
+        # restart that skips the SIGTERM handler never clears the annotation,
+        # so the Pod never departs and the replacement process republishes the
+        # same worker_id with a fresh `kv_events_endpoint`; keyed on first
+        # sight alone the router keeps the dead one. Subscribers compare the
+        # fields they act on, so a heartbeat republish is a no-op for them.
+        if (not existed or previous != info) and self._on_added is not None:
             try:
                 self._on_added(info)
             except Exception:

@@ -45,6 +45,11 @@ def _args(**overrides) -> argparse.Namespace:
         breaker_max_cooldown_s=60.0,
         enable_profiling=False,
         router_tokenizer_path=None,
+        kv_overlap_weight=1.0,
+        kv_prefill_overlap_weight=None,
+        kv_decode_overlap_weight=None,
+        kv_default_chat_template_kwargs=None,
+        kv_per_worker_template_kwargs=True,
     )
     base.update(overrides)
     return argparse.Namespace(**base)
@@ -148,3 +153,43 @@ def test_etcd_without_an_endpoint_is_refused(monkeypatch):
     with pytest.raises(SystemExit) as exc:
         exec_rust(_args(discovery_backend="etcd", etcd_endpoint=""))
     assert "--etcd-endpoint" in str(exc.value)
+
+
+def test_a_default_kv_aware_run_passes_no_template_kwargs_flags(monkeypatch):
+    """Both new flags default to the same thing on both sides, so a default run
+    must not name them.
+
+    This is a compatibility property, not tidiness. The launcher and the binary
+    ship in one image today, but nothing enforces that -- a mounted binary, a
+    staged rollout, a debug build -- and an argument the binary does not know is
+    not a degraded feature, it is clap refusing to start the router. Passing a
+    default explicitly buys nothing and spends exactly that.
+    """
+    argv = _argv(monkeypatch, router_policy="kv-aware")
+    assert "--kv-per-worker-template-kwargs" not in argv
+    assert "--kv-default-chat-template-kwargs" not in argv
+    assert _value_of(argv, "--kv-overlap-weight") == "1.0"
+
+
+def test_turning_per_worker_template_kwargs_off_is_forwarded(monkeypatch):
+    """The half that must still reach the binary. Off is a deliberate
+    non-default, and a binary too old to understand it would silently ignore the
+    request -- there, failing to start is the honest outcome."""
+    argv = _argv(monkeypatch, router_policy="kv-aware", kv_per_worker_template_kwargs=False)
+    assert _value_of(argv, "--kv-per-worker-template-kwargs") == "false"
+
+
+def test_fleet_template_kwargs_are_forwarded_verbatim(monkeypatch):
+    """The JSON is validated upstream in args.py; the launcher must not reshape
+    it, because the router re-parses this exact string."""
+    blob = '{"reasoning_effort": "high"}'
+    argv = _argv(monkeypatch, router_policy="kv-aware", kv_default_chat_template_kwargs=blob)
+    assert _value_of(argv, "--kv-default-chat-template-kwargs") == blob
+
+
+def test_the_new_kv_flags_stay_inside_the_kv_aware_gate(monkeypatch):
+    """A round-robin router does not get kv-aware arguments even when the
+    namespace carries them -- the gate is what keeps the two policies' argv
+    surfaces independent."""
+    argv = _argv(monkeypatch, kv_per_worker_template_kwargs=False)
+    assert "--kv-per-worker-template-kwargs" not in argv

@@ -5,13 +5,217 @@
 ###############################################################################
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
 from infera.common.worker_pool import EngineType
+from infera.router.kv_event import responses_input
 from infera.router.kv_event.hasher import hash_request
 
 logger = logging.getLogger(__name__)
+
+
+def _normalise_history(messages: list) -> list:
+    """Messages the way `serving_chat` hands them to the template.
+
+    Three rewrites, all unconditional in the engine, all invisible when wrong.
+
+    `tool_calls[].function.arguments`: OpenAI puts them on the wire as a JSON
+    *string*. Templates disagree about that -- GLM-5.3's iterates it as a
+    mapping (`{%- for k, v in _args.items() %}`) and raises on a string, Qwen3's
+    has an explicit verbatim branch for one -- but the engine settles it before
+    either can matter, parsing every one of them at serving_chat.py:1153-1157.
+    So the router must parse too, and must parse identically, which is why this
+    prefers the engine's own function over a re-implementation.
+
+    `content: null`: serving_chat.py:1424-1425 rewrites it to `""`. GLM-5.3's
+    template does `content.strip()` and raises on the null, taking the whole
+    prompt with it.
+
+    Tool-role list content: serving_chat.py:1438 flattens
+    `[{"type":"text","text":"a"},{"type":"text","text":"b"}]` on a `tool`
+    message to the plain string `"a b"` -- joined with a single space, and only
+    when every part is a pure OpenAI text part. Codex and every other client
+    that returns tool output as content parts sends exactly this shape, so
+    without it a template that does `content.strip()` raises on the list and
+    the whole conversation renders to nothing.
+
+    Without any of the three, every conversation that has called a tool renders
+    to nothing and routes on load. That is most of an agentic workload after the
+    first turn.
+    """
+    try:
+        from sglang.srt.entrypoints.openai.serving_chat import (
+            normalize_assistant_tool_call_arguments,
+        )
+    except Exception:
+        normalize_assistant_tool_call_arguments = _normalize_assistant_tool_call_arguments
+    try:
+        from sglang.srt.entrypoints.openai.serving_chat import normalize_tool_content
+    except Exception:
+        normalize_tool_content = _normalize_tool_content
+
+    out = []
+    for message in messages:
+        if not isinstance(message, dict):
+            out.append(message)
+            continue
+        needs_content = message.get("content", "") is None
+        has_calls = isinstance(message.get("tool_calls"), list)
+        # `normalize_tool_content` is a no-op for anything but a `tool` message
+        # whose content is a list, so gate on that rather than calling it for
+        # every message on the hot path.
+        needs_tool_flatten = message.get("role") == "tool" and isinstance(
+            message.get("content"), list
+        )
+        if not (needs_content or has_calls or needs_tool_flatten):
+            out.append(message)
+            continue
+        copied = dict(message)
+        if needs_content:
+            copied["content"] = ""
+        if needs_tool_flatten:
+            copied["content"] = normalize_tool_content(copied.get("role"), copied.get("content"))
+        if has_calls:
+            # Normalise on a throwaway and adopt only on success. The engine's
+            # function assigns `function["arguments"]` in place, per tool call,
+            # and re-raises on the first bad one -- so normalising `copied`
+            # directly and swallowing the error appends a message with call #1
+            # parsed to a dict and call #2 still a string. That hybrid is a
+            # shape neither the engine nor any client produces, and the render
+            # usually SUCCEEDS on it, so the comment's promise of falling
+            # through to load-only routing was the opposite of what happened: a
+            # wrong prefix, hashed and cached.
+            #
+            # Leaving the message untouched also settles `strict`, which the
+            # engine passes as `chat_encoding_spec != "kimi_k3"` and this call
+            # cannot see. A strict engine 400s the request, so whatever we hash
+            # for it is never served; a lenient one (kimi_k3 -- the fleet this
+            # module's Responses work targets) renders the string verbatim,
+            # which is exactly what an untouched message gives us. Both agree.
+            attempt = dict(copied)
+            attempt["tool_calls"] = [
+                {**tc, "function": dict(tc["function"])}
+                if isinstance(tc, dict) and isinstance(tc.get("function"), dict)
+                else dict(tc)
+                if isinstance(tc, dict)
+                else tc
+                for tc in attempt["tool_calls"]
+            ]
+            try:
+                normalize_assistant_tool_call_arguments(attempt)
+            except ValueError:
+                pass
+            else:
+                copied = attempt
+        out.append(copied)
+    return _project(out)
+
+
+def _tool_model_dump(tools: list) -> list[dict] | None:
+    """`[Tool(**t).model_dump() for t in tools]` without sglang.
+
+    Kept deliberately literal against `protocol.Tool` / `Function`: the whole
+    point is the defaults pydantic materialises for keys the client omitted, so
+    any cleverness here is a divergence. Mirrors `tool_model_dump` in
+    `rust/router/src/block_hasher.rs`, which is the same list for the same
+    reason. Returns None for a shape the model would reject, so the caller
+    routes on load rather than hashing a guess.
+    """
+    out: list[dict] = []
+    for tool in tools:
+        if not isinstance(tool, dict):
+            return None
+        fn = tool.get("function")
+        if not isinstance(fn, dict) or "name" not in fn:
+            return None
+        out.append(
+            {
+                "type": tool.get("type", "function"),
+                "function": {
+                    "name": fn["name"],
+                    "description": fn.get("description"),
+                    "parameters": fn.get("parameters"),
+                    "strict": fn.get("strict", False),
+                },
+                # A `Tool` field, not a `Function` one.
+                "defer_loading": tool.get("defer_loading"),
+            }
+        )
+    return out
+
+
+def _project(messages: list) -> list:
+    """`[msg.model_dump() for msg in request.messages]` (serving_chat.py:1322).
+
+    The engine parses every message into its pydantic model and dumps it back
+    before it picks an encoder, with no `exclude_unset`/`exclude_none`. That is
+    not tidying -- it changes the dict the template reads, in both directions:
+
+    * fields the client omitted are MATERIALISED as null. A generic message
+      gains `tool_call_id`, `name`, `reasoning_content`, `tools`; each
+      `ToolCall` gains `index`.
+    * keys the model does not declare are DROPPED (a `name` on a user message,
+      a bare `reasoning`).
+
+    A template that tests presence rather than truthiness -- `'tool_calls' in
+    message`, `message.name is defined`, `{% for k, v in tool_call.items() %}`,
+    `tool_call.index` -- therefore renders differently against the client dict
+    than against the engine's. Silently, from the first tool-carrying turn on.
+
+    `_normalise_tools` already does exactly this round-trip for tools, and for
+    the same reason; messages were the half left out. `encoding_k3`'s
+    `project_message` is the Rust port's equivalent for the K3 encoder.
+
+    Returns `messages` unchanged when sglang is not importable -- the router
+    then renders the client's dict, which is what it did before this existed.
+    """
+    try:
+        from sglang.srt.entrypoints.openai.protocol import ChatCompletionRequest
+    except Exception:
+        return messages
+    try:
+        request = ChatCompletionRequest(model="_", messages=messages)
+        return [m.model_dump() for m in request.messages]
+    except Exception as exc:
+        # A body the engine would 422. Rendering the client's dict instead
+        # would hash a prefix for a request that never runs.
+        logger.debug("kv-aware: messages not projectable (%s); rendering as sent", exc)
+        return messages
+
+
+def _normalize_tool_content(role: str, content: Any) -> Any:
+    """Fallback for a router host without sglang installed. Literal against
+    sglang's `serving_chat.normalize_tool_content`, including the single-space
+    join and the "only when ALL parts are pure text" gate -- a list carrying
+    anything else is left alone because some templates iterate it on purpose."""
+    if role != "tool" or not isinstance(content, list):
+        return content
+    is_openai_text_parts = all(
+        (isinstance(p, dict) and p.get("type") == "text") or isinstance(p, str) for p in content
+    )
+    if not is_openai_text_parts:
+        return content
+    return " ".join(p.get("text", "") if isinstance(p, dict) else p for p in content)
+
+
+def _normalize_assistant_tool_call_arguments(message: dict) -> None:
+    """Fallback for a router host without sglang installed. Kept deliberately
+    literal against sglang's `serving_chat.normalize_assistant_tool_call_arguments`
+    -- any cleverness here is a divergence."""
+    if message.get("role") != "assistant" or not isinstance(message.get("tool_calls"), list):
+        return
+    for item in message["tool_calls"]:
+        function = item.get("function") if isinstance(item, dict) else None
+        if not isinstance(function, dict):
+            continue
+        if isinstance(function.get("arguments"), str):
+            parsed = json.loads(function["arguments"])
+            if not isinstance(parsed, dict):
+                raise ValueError("Assistant tool call function.arguments must be a JSON object.")
+            function["arguments"] = parsed
+
 
 # "thinking" drifts one token against the engine when the last assistant turn
 # carries a tool_call, so the router renders chat prompts in "chat" mode.
@@ -40,17 +244,48 @@ class BlockHasher:
         self._dsv4_thinking_mode = dsv4_thinking_mode
         self._tokenizers: dict[tuple[Any, str], Any] = {}
         self._hf_configs: dict[str, Any] = {}
+        self._effort_kwargs: dict[str, str | None] = {}
 
     def hash_for(
         self, body: dict, *, block_size: int, engine: EngineType | None = None
     ) -> list[int]:
-        model_id = body.get("model")
-        if not model_id or block_size <= 0:
+        if block_size <= 0:
             return []
+        token_ids = self.token_ids_for(body, engine=engine)
+        if token_ids is None:
+            return []
+        return hash_request(token_ids, block_size)
+
+    def token_ids_for(self, body: dict, *, engine: EngineType | None = None) -> list[int] | None:
+        """The prompt the engine would build for `body`, tokenised.
+
+        None means "cannot be reproduced" -- the caller routes on load. This is
+        the layer the render probe compares against `/v1/tokenize`, which is why
+        it is separate from the hashing above: block hashes only start differing
+        once a divergence crosses a block boundary, whereas token ids pinpoint
+        the exact position where our render stopped being the engine's.
+        """
+        model_id = body.get("model")
+        if not model_id:
+            return None
+
+        # `/v1/responses` carries its conversation in `input`. Everything below
+        # keys off `messages`, so without this the whole endpoint hashes to
+        # nothing and routes on load -- which on an agentic fleet is most of the
+        # traffic. See responses_input.
+        if responses_input.is_responses_body(body):
+            chat = responses_input.to_chat_body(body)
+            if chat is None:
+                logger.debug(
+                    "kv-aware: Responses body not reproducible for model=%s; routing on load",
+                    model_id,
+                )
+                return None
+            body = chat
 
         tokenizer = self._get_tokenizer(model_id, engine)
         if tokenizer is None:
-            return []
+            return None
 
         # Tokenisation failure (e.g. apply_chat_template on a base model
         # without a chat template, or encode on an unexpected body type)
@@ -64,14 +299,17 @@ class BlockHasher:
                 if token_ids is not None:
                     encoder = "sglang-dsv4"
                 else:
-                    text = tokenizer.apply_chat_template(
-                        messages, tokenize=False, add_generation_prompt=True
+                    template_kwargs = self._template_kwargs(body, tokenizer)
+                    if template_kwargs is None:
+                        return None
+                    text = self._apply_chat_template(
+                        tokenizer, _normalise_history(messages), template_kwargs
                     )
             elif (prompt := body.get("prompt")) is not None:
                 encoder = "prompt"
                 text = prompt
             else:
-                return []
+                return None
             if token_ids is None:
                 # The chat template / prompt already carries any leading special
                 # token as text, so don't let the tokenizer add another (matches
@@ -79,7 +317,7 @@ class BlockHasher:
                 token_ids = tokenizer.encode(text, add_special_tokens=False)
         except Exception as exc:
             logger.warning("kv-aware: tokenisation failed for model=%s: %s", model_id, exc)
-            return []
+            return None
 
         # A prefix that disagrees with the engine's is silent: no error, just a
         # permanent 0% hit rate. TODO: compare this count against the engine's
@@ -88,7 +326,159 @@ class BlockHasher:
         logger.debug(
             "kv-aware: model=%s encoder=%s prompt_tokens=%d", model_id, encoder, len(token_ids)
         )
-        return hash_request(token_ids, block_size)
+        return token_ids
+
+    @staticmethod
+    def _apply_chat_template(tokenizer: Any, messages: list, template_kwargs: dict) -> str:
+        """`serving_chat`'s two-attempt render (serving_chat.py:1306-1338).
+
+        On *any* failure the engine retries once with the tools flattened out of
+        their OpenAI ``{"type": "function", "function": {...}}`` wrapper, which
+        is what Mistral-style templates expect. Only then does it give up. A
+        router that stops after the first attempt renders nothing for a model
+        the engine renders fine, so every tool-carrying request to it routes on
+        load -- silently, as always.
+        """
+        try:
+            return tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True, **template_kwargs
+            )
+        except Exception:
+            tools = template_kwargs.get("tools")
+            if not tools:
+                raise
+            flat = [t.get("function", t) if isinstance(t, dict) else t for t in tools]
+            return tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+                **{**template_kwargs, "tools": flat},
+            )
+
+    def _template_kwargs(self, body: dict, tokenizer: Any = None) -> dict | None:
+        """Everything besides `messages` that the engine puts in scope.
+
+        None means "this request cannot be reproduced" -- the caller must route
+        it on load rather than render an approximation.
+
+        `serving_chat` calls::
+
+            apply_chat_template(msgs, tokenize=False, add_generation_prompt=True,
+                                tools=tools, return_dict=False, **extra_template_kwargs)
+
+        where `extra_template_kwargs` is `reasoning_effort` (when the request set
+        one) updated with `chat_template_kwargs`. Passing only `messages` is not a
+        small omission: a template reads whatever names it likes off the context,
+        and the ones it cannot see are simply undefined -- no error, no warning,
+        just a different prompt. GLM-5.3's opens with
+
+            {%- set effective_reasoning_effort = reasoning_effort if reasoning_effort
+               is defined and reasoning_effort in ['low','high'] else 'high' -%}
+            <|system|>Reasoning Effort: {{ effective_reasoning_effort | capitalize }}
+
+        so a `reasoning_effort: "low"` request diverges from the engine in the
+        FIRST block of the prompt, and every block after it chains off that hash.
+        Tools land there too, ahead of the conversation. That is a permanent 0%
+        hit rate on a fleet that reports itself healthy.
+
+        Not modelled: the engine's `--default-chat-template-kwargs`, which
+        `serving_chat` merges server-side. The router is never told that flag, so
+        setting it re-breaks kv-aware -- see the router's own hasher notes.
+        """
+        kwargs: dict = {}
+        tools, ok = self._chat_tools(body)
+        if not ok:
+            return None
+        if tools is not None:
+            kwargs["tools"] = tools
+        effort = body.get("reasoning_effort")
+        if effort is not None:
+            kwargs["reasoning_effort"] = effort
+        extra = body.get("chat_template_kwargs")
+        if isinstance(extra, dict):
+            kwargs.update(extra)
+        # serving_chat.py:1283-1293 -- for the handful of templates that spell
+        # reasoning as a boolean toggle, `reasoning_effort: "low"` is remapped
+        # onto that variable (and every other value is dropped with a warning).
+        # `setdefault`, so an explicit chat_template_kwargs still wins. sglang
+        # derives the name from the template text rather than from a flag, so
+        # this is reproducible here -- see `_effort_kwarg`.
+        if effort == "low" and (model_id := body.get("model")):
+            kwarg = self._effort_kwarg(model_id, tokenizer)
+            if kwarg is not None:
+                kwargs.setdefault(kwarg, True)
+        return kwargs
+
+    def _effort_kwarg(self, model_id: str, tokenizer: Any = None) -> str | None:
+        """sglang's `reasoning_config.effort_kwarg` for this model's template.
+
+        Ported from `parser/template_detection.py`, where exactly one rule sets
+        the field (`nemotron_3_super_low_effort`) and keys off two literals in
+        the template text -- hence a substring test rather than a parser. If
+        upstream adds a rule this quietly goes back to being wrong for that
+        model; the render probe is what catches that.
+
+        Takes the tokenizer the caller already loaded rather than looking one up.
+        The lookup it replaced keyed the cache `(None, source)` while
+        `_get_tokenizer` fills it under `(engine, source)`, so in production --
+        where an engine is always known -- it missed every time and fell through
+        to reading `chat_template.jinja` off what is usually a bare HF model id,
+        not a path. The remap was therefore never applied to a live request, and
+        nothing said so: it is only reachable on `reasoning_effort: "low"`, and
+        the only symptom is a hit rate that should have been higher.
+        """
+        if model_id in self._effort_kwargs:
+            return self._effort_kwargs[model_id]
+        kwarg = None
+        template = getattr(tokenizer, "chat_template", None) if tokenizer is not None else None
+        if not isinstance(template, str):
+            template = self._read_chat_template(self._source(model_id))
+        if template and "low_effort" in template and "truncate_history_thinking" in template:
+            kwarg = "low_effort"
+        self._effort_kwargs[model_id] = kwarg
+        return kwarg
+
+    @staticmethod
+    def _read_chat_template(source: str) -> str | None:
+        import pathlib
+
+        for name in ("chat_template.jinja", "chat_template.json"):
+            path = pathlib.Path(source) / name
+            try:
+                return path.read_text()
+            except OSError:
+                continue
+        return None
+
+    def _chat_tools(self, body: dict) -> tuple[list[dict] | None, bool]:
+        """`serving_chat`'s `tools` argument, plus whether we could build it.
+
+        Returns `(tools, True)` on success -- `tools` is None exactly when the
+        engine would also pass none. Returns `(None, False)` when the request
+        carries tools we cannot reproduce: for the same reason as the dsv4 path,
+        a guessed tool shape shifts the prefix with no error, and rendering
+        without the tools is just as wrong, so the caller routes on load.
+
+        Mirrors `serving_chat`'s two gates: `tool_choice == "none"` suppresses
+        tools entirely, and a `{"type": "function", "function": {"name": ...}}`
+        choice narrows the list to that one function.
+        """
+        tools = body.get("tools")
+        if not tools:
+            return None, True
+        if body.get("tool_choice") == "none":
+            return None, True
+        normalised = self._normalise_tools(tools)
+        if normalised is None:
+            return None, False
+        choice = body.get("tool_choice")
+        if isinstance(choice, dict):
+            wanted = (choice.get("function") or {}).get("name")
+            if wanted:
+                normalised = [
+                    t for t in normalised if (t.get("function") or {}).get("name") == wanted
+                ]
+        return normalised, True
 
     def _encode_via_sglang_dsv4(
         self, tokenizer: Any, model_id: str, messages: list, body: dict
@@ -120,7 +510,16 @@ class BlockHasher:
         if spec != "dsv4":
             return None
 
-        rendered = [dict(m) for m in messages]
+        # The engine applies its pre-template rewrites BEFORE it chooses an
+        # encoder (serving_chat.py:1322-1326), and the dsv4 branch then adds the
+        # null-content rewrite of its own (1339-1340). Taking the raw messages
+        # here meant every agentic turn on a DeepSeek-V4 fleet reached
+        # `encode_messages` with `arguments` still a JSON string, `content` still
+        # null, and tool output still a content-part list -- a different prompt
+        # from the engine's, or an exception inside the encoder. Only the
+        # tool_choice narrowing is deliberately skipped: the engine's dsv4 branch
+        # reads `request.tools` directly (serving_chat.py:1383) and ignores it too.
+        rendered = [dict(m) for m in _normalise_history(messages)]
         if rendered[0].get("role") != "system":
             # The engine prepends an empty system message and hangs the tools off
             # it (serving_chat); tools are never passed to the encoder directly.
@@ -141,15 +540,26 @@ class BlockHasher:
         """The engine renders tools from a full pydantic ``Tool.model_dump()``,
         which materialises defaults the client never sent (``strict``,
         ``defer_loading``); hashing the raw request dicts shifts the prefix by a
-        few tokens with no error at all, so skip dsv4 rather than guess."""
+        few tokens with no error at all, so reproduce the dump.
+
+        Falls back to a literal local copy of those defaults when sglang is not
+        importable. A router host without sglang is a supported deployment --
+        this module already ships that fallback for the two message rewrites --
+        and without one here the failure was silent and total: `_chat_tools`
+        turned the `None` into "cannot reproduce", so EVERY tools-carrying chat
+        request and every `/v1/responses` request hashed to nothing and routed
+        on load, with no log line, while tool-free chat kept the hit-rate metric
+        looking plausible. The Rust port has no such gap; it hand-builds
+        `tool_model_dump` with no sglang dependency.
+        """
         try:
             from sglang.srt.entrypoints.openai.protocol import Tool
         except Exception:
-            return None
+            return _tool_model_dump(tools)
         try:
             return [Tool(**tool).model_dump() for tool in tools]
         except Exception as exc:
-            logger.debug("kv-aware: tools not normalisable for the dsv4 encoder: %s", exc)
+            logger.debug("kv-aware: tools not normalisable: %s", exc)
             return None
 
     def _get_hf_config(self, model_id: str) -> Any | None:
@@ -186,9 +596,42 @@ class BlockHasher:
         if key in self._tokenizers:
             return self._tokenizers[key]
         tok = self._load(source, engine)
-        if tok is not None:
-            self._tokenizers[key] = tok
+        # Cache the failure too. This used to store only successes, so a model
+        # whose tokenizer cannot load re-ran `_load` on EVERY request -- an
+        # import plus a `get_tokenizer` that may reach the filesystem or the HF
+        # hub, on the routing hot path, and a WARNING line per request on top.
+        # The load result is a property of (engine, source), not of the request.
+        #
+        # The cost of caching is that a genuinely transient failure -- the hub
+        # down for a minute -- pins kv-aware off for this model until the router
+        # restarts. Accepted: the failures actually seen here are permanent
+        # (engine not installed on the router host, wrong path, base model with
+        # no chat template), and the alternative bills every request for the
+        # retry. The Rust router has the stronger form of the same rule: it
+        # decides once at startup and exposes it as `is_enabled`.
+        self._tokenizers[key] = tok
+        if tok is None:
+            logger.error(
+                "kv-aware: no tokenizer for model=%s (engine=%s, source=%s). Requests for "
+                "it are hashed to nothing and routed on load, and this is not retried until "
+                "the router restarts. Pass --router-tokenizer-path to point at the files the "
+                "workers use.",
+                model_id,
+                engine,
+                source,
+            )
         return tok
+
+    def can_render(self, model_id: str, engine: EngineType | None = None) -> bool:
+        """Whether a tokenizer for this model has already been ruled out.
+
+        Cheap and non-committal by design: it answers from the cache and never
+        triggers a load, so it is safe to call from a discovery hook. True for a
+        model nothing has tried yet -- "not known to be broken", not "known to
+        work". Callers use it to avoid re-paying for a model already proven
+        unrenderable, not as a guarantee.
+        """
+        return self._tokenizers.get((engine, self._source(model_id)), True) is not None
 
     def _load(self, source: str, engine: EngineType | None) -> Any | None:
         """Load ``source`` the way the serving engine does, falling back to a

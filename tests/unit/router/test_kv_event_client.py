@@ -462,3 +462,79 @@ async def test_subscriber_decode_error_does_not_kill_loop():
         pub.close(linger=0)
         ctx.term()
         await client.aclose()
+
+
+# ---- re-registration in place ---------------------------------------------
+#
+# `sync`/discovery only report a departure when the worker actually leaves. A
+# stop that skips the SIGTERM handler -- SIGKILL, OOM, node loss -- never runs
+# `deregister`, so the k8s annotation is never cleared, the Pod holds
+# `phase: Running` across the container restart, and the replacement process
+# republishes the same worker_id with the fresh `free_tcp_port()` its
+# `kv_events_endpoint` just took. Confirmed live on the 1P1D GLM-5.3 fleet:
+# rewriting that one annotation field logged `k8s: worker ... updated`, never
+# `removed`. Mirror of `a_killed_worker_re_registers_in_place` in
+# rust/router/src/kv_event.rs.
+
+
+def _w(endpoint: str | None = "tcp://10.0.0.1:5557", block_size: int | None = 64) -> WorkerInfo:
+    return WorkerInfo(
+        worker_id="10.0.0.1:30000",
+        url="http://10.0.0.1:30000",
+        model_name="m",
+        engine=EngineType.SGLANG,
+        status=WorkerStatus.ACTIVE,
+        disagg_mode=DisaggMode.PREFILL,
+        kv_events_endpoint=endpoint,
+        kv_block_size=block_size,
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_replacement_process_on_the_same_worker_id_is_resubscribed():
+    c = KvEventClient()
+    try:
+        c.on_worker_added(_w())
+        c._subs["10.0.0.1:30000"].view_for(0).update({11, 22, 33})
+        assert len(c.cache_view("10.0.0.1:30000")) == 3, "the warm engine's view"
+
+        # Same Pod, same worker_id, new port -- no departure in between.
+        c.on_worker_added(_w(endpoint="tcp://10.0.0.1:41907"))
+
+        assert c._subs["10.0.0.1:30000"].endpoint == "tcp://10.0.0.1:41907", (
+            "the dead socket must not outlive the process that opened it"
+        )
+        assert c.cache_view("10.0.0.1:30000") == set(), (
+            "the engine restarted with an empty prefix cache; a view carried over "
+            "from before it makes the router score hits that cannot exist"
+        )
+    finally:
+        await c.aclose()
+
+
+@pytest.mark.asyncio
+async def test_an_unchanged_republish_keeps_the_view():
+    """Discovery republishes on every heartbeat annotation refresh. Re-deciding
+    then would throw the KV view away several times a minute."""
+    c = KvEventClient()
+    try:
+        c.on_worker_added(_w())
+        c._subs["10.0.0.1:30000"].view_for(0).update({1, 2, 3, 4, 5})
+        for _ in range(5):
+            c.on_worker_added(_w())
+        assert len(c.cache_view("10.0.0.1:30000")) == 5
+    finally:
+        await c.aclose()
+
+
+@pytest.mark.asyncio
+async def test_a_corrected_block_size_is_picked_up_in_place():
+    """A worker declined for having no block size, then fixed without leaving."""
+    c = KvEventClient()
+    try:
+        c.on_worker_added(_w(block_size=None))
+        assert "10.0.0.1:30000" not in c._subs
+        c.on_worker_added(_w(block_size=64))
+        assert c._subs["10.0.0.1:30000"].block_size == 64
+    finally:
+        await c.aclose()

@@ -30,12 +30,12 @@ import logging
 
 import pytest
 
-from infera.common.worker_pool import EngineType, WorkerInfo
+from infera.common.worker_pool import DisaggMode, EngineType, WorkerInfo
 from infera.router.kv_event.client import KvEventClient
 from infera.router.kv_event.events import BlockStored
 
 
-def _worker(block_size):
+def _worker(block_size, disagg_mode=DisaggMode.MIXED):
     return WorkerInfo(
         worker_id="w1:30000",
         url="http://w1:30000",
@@ -43,6 +43,7 @@ def _worker(block_size):
         engine=EngineType.VLLM,
         kv_events_endpoint="tcp://w1:5555",
         kv_block_size=block_size,
+        disagg_mode=disagg_mode,
     )
 
 
@@ -155,3 +156,55 @@ async def test_view_follows_the_tokens_and_the_map_follows_agreement(tokens, has
     client._handle_event(sub, _stored(tokens=tokens, hashes=hashes, block_size=4), rank=0)
     assert len(sub.view_for(0)) == view
     assert len(sub.map_for(0)) == mapped
+
+
+@pytest.mark.parametrize("transport", ["zmq", "nats"])
+def test_a_decode_leg_without_a_block_size_is_not_an_error(caplog, transport):
+    """Refusing to track is right for every role; ERROR is right for only some.
+
+    kv-aware routing never applies to the decode pool — the prefix hit is
+    decided on the prefill side and disagg dispatch picks decode by load — so a
+    decode leg arriving without a block size costs nothing. Logging it at ERROR
+    on every PD startup is how a line that IS real for prefill gets filtered
+    into the noise.
+
+    Parametrised across both transports because they used to disagree, and the
+    disagreement was invisible: the same worker got opposite treatment depending
+    on how its events happened to reach the router. Asserting on one client
+    would have passed throughout the window where the other was wrong.
+    """
+    client = _client_for(transport)
+    with caplog.at_level(logging.DEBUG):
+        client.on_worker_added(_worker(None, DisaggMode.DECODE))
+
+    assert client._subs == {}, "still refused — only the severity changes"
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR], (
+        "a decode leg with no block size is expected, not a fault"
+    )
+    assert any("decode" in r.getMessage() for r in caplog.records), (
+        "silence would leave no way to tell this apart from a worker we missed"
+    )
+
+
+@pytest.mark.parametrize("transport", ["zmq", "nats"])
+@pytest.mark.parametrize("mode", [DisaggMode.MIXED, DisaggMode.PREFILL])
+def test_every_other_role_without_a_block_size_still_errors(caplog, transport, mode):
+    """The half of the split that has to keep working. A prefill leg without a
+    block size is an unresolved page size, and kv-aware is off for the pool that
+    decides the hit."""
+    client = _client_for(transport)
+    with caplog.at_level(logging.DEBUG):
+        client.on_worker_added(_worker(None, mode))
+
+    assert client._subs == {}
+    assert [r for r in caplog.records if r.levelno >= logging.ERROR], (
+        f"{mode} with no block size is a fault and must stay loud"
+    )
+
+
+def _client_for(transport):
+    if transport == "zmq":
+        return KvEventClient()
+    from infera.router.kv_event.nats_client import NatsKvEventClient
+
+    return NatsKvEventClient(nats_url="nats://127.0.0.1:4222")

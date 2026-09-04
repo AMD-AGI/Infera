@@ -90,6 +90,10 @@ class _IdentityHasher:
     """Treat ``body["token_ids"]`` as already tokenized, so request/worker
     alignment is controlled by the test rather than by a tokenizer."""
 
+    # BlockHasher's gate for `spawn_probe`; these doubles always render.
+    def can_render(self, model_id, engine=None) -> bool:
+        return True
+
     def hash_for(self, body: dict, *, block_size: int, engine=None) -> list[int]:
         from infera.router.kv_event.hasher import hash_request
 

@@ -137,9 +137,32 @@ async def _maybe_start_kv_plane(
         f"http://{advertise_host}:{args.kv_snapshot_port}"
     )
 
-    # SGLang's KV page size lives on server_args; defaults to 1 on ROCm
-    # AITER and we honor whatever the operator chose.
-    engine_block_size = int(getattr(args.server_args, "page_size", 1) or 1)
+    # The KV page size the engine actually settled on. `SglangEngine.start`
+    # reads it back from the subprocess's /get_server_info once it is serving,
+    # because `server_args.page_size` is only what the operator typed and stays
+    # None whenever they left the choice to the engine.
+    #
+    # When neither is known we register None. Registering 1 instead is worse
+    # than registering nothing: the router accepts the value, builds a KV view
+    # at block_size 1, then rejects every event the engine emits at 64 and
+    # silently drops to round-robin. Seen on GLM-5.3-Flash
+    # (attention_backend=dsa), where the router logged
+    #
+    #   kv events ... are paged at block_size=64 but this worker registered 1
+    #
+    # for both legs. None makes the router skip the worker and say so once.
+    engine_block_size = getattr(engine, "resolved_page_size", None) or getattr(
+        args.server_args, "page_size", None
+    )
+    if engine_block_size:
+        engine_block_size = int(engine_block_size)
+    else:
+        engine_block_size = None
+        logger.warning(
+            "KV page size is unresolved (engine did not report one and --page-size "
+            "is unset); registering engine_block_size=None. kv-aware routing will "
+            "skip this worker. Pass --page-size explicitly to pin it."
+        )
 
     # Locate the RadixCache. SGLang exposes it on its scheduler, which
     # the launch_server thread keeps alive — but it isn't reliably
@@ -181,7 +204,7 @@ async def _maybe_start_kv_plane(
 
     logger.info(
         "KV plane up: events_bind=%s events_advertise=%s snapshot=%s "
-        "engine_block_size=%d index_block_size=%d",
+        "engine_block_size=%s index_block_size=%d",
         args.kv_events_bind,
         events_advertise,
         snapshot_advertise,
@@ -338,20 +361,33 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
         # SGLang --dp-size multiplexes DP ranks on base_port + r; relay tails
         # each. Single-rank (dp_size None/1) stays rank 0.
         _dp = config.dp_size or 1
-        kv_relay = KvEventNatsRelay(
-            worker_id=f"{config.host}:{config.port}",
-            engine_zmq_endpoint=config.kv_events_endpoint,
-            engine=config.engine,
-            block_size=config.kv_block_size or 1,
-            dp_size=_dp,
-            multiplexed=_dp > 1,
-            nats_url=args.nats_server,
-        )
-        try:
-            await kv_relay.start()
-        except Exception:
-            logger.exception("KV NATS relay failed to start; continuing without it")
-            kv_relay = None
+        if config.kv_block_size:
+            kv_relay = KvEventNatsRelay(
+                worker_id=f"{config.host}:{config.port}",
+                engine_zmq_endpoint=config.kv_events_endpoint,
+                engine=config.engine,
+                block_size=config.kv_block_size,
+                dp_size=_dp,
+                multiplexed=_dp > 1,
+                nats_url=args.nats_server,
+            )
+        else:
+            # A missing block size is not a 1. Relaying events stamped
+            # block_size=1 makes the router build a view the engine's real
+            # events -- paged at 64 -- can never match: every one is rejected,
+            # kv-aware degrades to load balancing, and nothing reports an
+            # error. Not relaying at all costs the same routing and says so.
+            logger.error(
+                "KV NATS relay disabled: this worker resolved no KV page size, so its "
+                "events cannot be indexed. kv-aware routing is off for it. Usually an "
+                "unresolved --page-size; check /get_server_info."
+            )
+        if kv_relay is not None:
+            try:
+                await kv_relay.start()
+            except Exception:
+                logger.exception("KV NATS relay failed to start; continuing without it")
+                kv_relay = None
 
     # --- Optional NATS request transport: run a consumer that proxies requests
     # from this worker's per-instance subject to the local engine HTTP. Advertise
