@@ -1778,20 +1778,33 @@ class InferencePerformanceProjector:
             t_mixed = max(t_mixed, floor)
             t_mixed_ttft = max(t_mixed_ttft, floor)
 
+        # Under attention-DP a mixed step carries one prefill chunk *per rank*,
+        # each for a different request, and the step is priced unsharded
+        # because a rank under DP holds every head of its own chunk. So one
+        # step of that length admits ``dp`` requests' chunks, not one: charging
+        # every request the full chunk count against the longer step bills the
+        # same prefill ``dp`` times over. The request's own service time is
+        # still ``n_chunks`` such steps -- that is what TTFT sees below -- but
+        # the shared window they ride holds ``dp`` of them at once.
+        from .kv_cache import attention_dp_size
+
+        _dp = attention_dp_size(self.cfg)
+        n_mixed = (n_chunks / _dp) if _dp > 1 else n_chunks
+
         # Pure steps per request needed to make up the decode tokens the mixed
         # steps did not cover.
-        mixed_tokens = n_chunks * (C - 1) * tok_per_step
+        mixed_tokens = n_mixed * (C - 1) * tok_per_step
         n_pure = max(0.0, (OSL - mixed_tokens) / (C * tok_per_step))
-        window_ms = n_pure * t_pure + n_chunks * t_mixed
+        window_ms = n_pure * t_pure + n_mixed * t_mixed
         if window_ms <= 0:
             window_ms = t_pure
 
         tpot_ms = C * window_ms / OSL
         system_tps = 1000.0 * OSL / window_ms
         decode_total_ms = tpot_ms * OSL
-        total_steps = n_pure + n_chunks
-        mixed_fraction = (n_chunks / total_steps) if total_steps > 0 else 0.0
-        pollution_pct = (n_chunks * t_mixed / window_ms * 100.0) if window_ms > 0 else 0.0
+        total_steps = n_pure + n_mixed
+        mixed_fraction = (n_mixed / total_steps) if total_steps > 0 else 0.0
+        pollution_pct = (n_mixed * t_mixed / window_ms * 100.0) if window_ms > 0 else 0.0
 
         return {
             "tpot_ms": tpot_ms,
@@ -2148,8 +2161,20 @@ class InferencePerformanceProjector:
         m = self._continuous_decode_metrics(input_len, output_len, concurrency) if continuous else None
         if continuous:
             prefill_service_ms = max(m["prefill_chunks"] * m["mixed_step_ttft_ms"], 0.0)
+            # Under attention-DP each rank owns a subset of the requests and
+            # runs its own prefill queue over them, so a prompt waits behind
+            # its rank's share rather than the whole fleet's. The service time
+            # above is already the per-rank one -- a rank under DP holds every
+            # head of its own requests -- so charging the global concurrency
+            # against it counts the same contention a second time. Same
+            # per-replica reasoning the memory model applies under
+            # disaggregation.
+            from .kv_cache import attention_dp_size
+
+            dp = attention_dp_size(self.cfg)
+            queued_clients = max(1, math.ceil(concurrency / dp)) if dp > 1 else concurrency
             ttft = self._closed_loop_wait_ms(prefill_service_ms, m["decode_total_ms"],
-                                             concurrency, m["prefill_demand_ms"])
+                                             queued_clients, m["prefill_demand_ms"])
             prefill_full_ms = self.prefill_latency_ms(batch, input_len)
         else:
             ttft = prefill_full_ms = self.prefill_latency_ms(batch, input_len)
