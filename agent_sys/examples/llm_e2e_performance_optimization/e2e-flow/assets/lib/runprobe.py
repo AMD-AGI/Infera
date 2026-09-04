@@ -243,6 +243,29 @@ def probe(run: pathlib.Path) -> int:
         print("      Any 20 s without a task-table change ends the run, even with a leaf working.")
 
     # ---- 2. what triggered each chain ---------------------------------------
+    #
+    # **An escalation's `why` is the symptom, not the cause.** It says what the
+    # monitor could not do — *"nothing to push: the executor is a program body"*
+    # — which is a fact about the monitor. The cause is in the event immediately
+    # before it on the same task, and **that event's attributes are where the
+    # explanation actually lives.**
+    #
+    # Measured 2026-09-04, and it is why this prints everything: four runs died
+    # at `build_workset` and three people spent a day reasoning about the body,
+    # the card and the detector. The whole answer was sitting in the store —
+    #
+    #     detail        exit 0
+    #     exit_status   finished
+    #     seal_refused  content/README.md: required section 'Interface' is missing
+    #
+    # — on the `output_absent` event, in every one of the four runs. The body had
+    # exited **0**. The seal refused the output. Nobody read past `message`, and
+    # **this tool was reading that store and printing only `message`.**
+    #
+    # So: dump every attribute of the triggering event, and never special-case a
+    # key. `seal_refused` is not privileged here — the next hidden reason will
+    # arrive under a name nobody has thought of, and a printer that knows the
+    # names in advance cannot show it.
     print("\n2. what triggered them")
     if not escalations:
         print("   nothing has escalated.")
@@ -252,6 +275,25 @@ def probe(run: pathlib.Path) -> int:
         print(f"   {mark}  {_when(entry)}  {_elapsed(started, _when(entry))}  "
               f"{name(entry.get('task_id'))}")
         print(f"            why: {attrs.get('why') or '(none recorded)'}")
+
+        # The last event on this task strictly before the escalation.
+        prior = [e for e in events
+                 if e.get("task_id") == entry.get("task_id") and _when(e) < _when(entry)]
+        if not prior:
+            continue
+        cause = prior[-1]
+        print(f"            preceded by {cause.get('kind')} at {_when(cause)[11:23]}:")
+        for key, value in sorted((cause.get("attributes") or {}).items()):
+            text = str(value)
+            # Long values are the interesting ones -- a refusal reason is long.
+            # Wrapped rather than truncated to a stub.
+            head = f"              {key:14} "
+            print(head + text[:96])
+            for pos in range(96, len(text), 96):
+                print(" " * len(head) + text[pos:pos + 96])
+        for field in ("exception_type", "exception_message"):
+            if cause.get(field):
+                print(f"              {field:14} {str(cause[field])[:96]}")
 
     # ---- 3. when, against the task table ------------------------------------
     print("\n3. when, against what the graph was doing")
