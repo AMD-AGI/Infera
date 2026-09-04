@@ -143,10 +143,25 @@ CLAMPED=$("$PY" -c 'import sys; print(max(1.0, float(sys.argv[1])))' "$KFO_MAX_H
 if [ "$CLAMPED" != "$KFO_MAX_HOURS" ]; then
   echo "note: KFO_MAX_HOURS=$KFO_MAX_HOURS is below the enforced floor; clamped to $CLAMPED" >&2
 fi
-# At or below 2.0 forge SILENTLY drops Analysis to static-only and the
-# implementer turn cap falls 500 -> 100 (`cli.py:1391`, strictly greater than
-# `SHORT_FORGE_MAX_HOURS` at `cli.py:47`). Nothing warns you. Recorded so the
-# handoff can say `degraded: true` and the README can say SMOKE.
+# At or below 2.0 forge SILENTLY drops two things. Read from the source
+# 2026-09-04, correcting an earlier note here that named a constant this
+# checkout does not have:
+#
+#   `LONG_HORIZON_THRESHOLD_HOURS = 2.0`  (cli.py:55)
+#   `_is_long_horizon(h) = h > 2.0`       (cli.py:378) -- strictly greater
+#
+# and it gates EXACTLY two flags, `critic_enabled` (cli.py:997) and
+# `profiling_enabled` (cli.py:1157). The option's own help says the same:
+# "Budgets >2 hours enable Analysis profiling and, for single-lane rounds,
+# Plan Critic review."
+#
+# **The implementer turn cap is NOT among them.** `config.max_turns` is set
+# once from `FORGE_IMPLEMENTER_TURN_BACKSTOP` (cli.py:1706) with no dependence
+# on `max_hours`; the "500 -> 100" recorded here before was wrong.
+#
+# Nothing warns you either way, which is why this is measured rather than
+# trusted. Recorded so the handoff can say `degraded: true` and the README can
+# say SMOKE.
 DEGRADED=$("$PY" -c 'import sys; print("true" if float(sys.argv[1]) <= 2.0 else "false")' "$CLAMPED")
 echo "$DEGRADED" > "$WORKDIR/degraded"
 [ "$DEGRADED" = "true" ] && echo "note: max_hours $CLAMPED <= 2.0 -- this is a SMOKE TEST, analysis will be static-only" >&2
@@ -174,13 +189,26 @@ for candidate in "$RUN/forge_experiments/forge_result.json" "$WORKDIR/forge_resu
 done
 [ -f "$WORKDIR/forge_result.json" ] || { echo "the campaign wrote no forge_result.json" >&2; exit 1; }
 
-# **The engine tree, not `$RUN`.** Forge edits the sources its invocation spec
-# names, and m3 generates that spec with `image_repo_path: @SGLANG_ROOT@` and
-# `sources` under it — the container's sglang checkout. `$RUN` is a copy of the
-# *workset* (driver, cases, one-liner), which is what forge is run FROM and not
-# what it edits. Resolving here against `$RUN` looked right and would have failed
-# after the campaign hours with "the campaign left no kernel at …", which is the
-# expensive way to find a path bug.
+# **Which tree forge edited is not a property of forge.** An earlier note here
+# said "the engine tree, not `$RUN`", on the reasoning that forge edits the
+# sources the invocation spec names via m3's `image_repo_path: @SGLANG_ROOT@`.
+# Read from KernelForge 2026-09-04, that is wrong twice: `image_repo_path`
+# appears NOWHERE in its source (it is m3's template variable, and the spec is
+# the *measurement* contract — cases and driver — not an edit target), and the
+# loop stages and commits with `cwd=self.ic.workspace_dir`
+# (`loop/runner.py:1600`), which is `--workspace` (`cli.py:725`,
+# `required=True`) and nothing else.
+#
+# So forge edits and commits in whatever checkout it is handed, and **this step
+# hands it none**: the `$ONELINE` invocation below passes no `--workspace`, and
+# m3's wrapper refuses that by construction (`assets/lib/forge_export.py:147`,
+# exit 2 — the workset describes an operator, not a checkout). The real path
+# therefore stops before `kernel-agents` is invoked at all.
+#
+# Choosing between `$RUN` and the container's sglang checkout is a ruling, not
+# a lookup: one leaves the engine tree pristine and gives forge none of the
+# sources it exists to optimise, the other puts forge's commits inside a
+# running container's checkout. Left open deliberately rather than defaulted.
 KERNEL=$("$PY" "$(dirname "$0")/resolve_source.py" --inputs "$INPUTS" --what "the optimised kernel") || exit 1
 [ -f "$KERNEL" ] || { echo "the campaign left no kernel at $KERNEL" >&2; exit 1; }
 cp "$KERNEL" "$WORKDIR/optimized_kernel.py"
