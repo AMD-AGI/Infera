@@ -122,9 +122,23 @@ worse than one whose edges are known.
   run's zone, and it was the one check in this repository that could see
   `env_mgr`'s isolation property — *load the copy, not the source* — break for
   every package that ever shipped one. The route is deleted, so the property has
-  no subject here. **It is not covered elsewhere in this package**, and saying so
-  is the point of this bullet: if an in-process route ever returns, this check
-  has to return with it.
+  no subject here, and **it is not covered elsewhere in this package** — no
+  validator in `env_checker` observes where a placed file was loaded from,
+  because nothing here is loaded any more.
+
+  **What guards the return is a test, not this sentence:**
+
+      agent_sys/tests/env_mgr/test_agent_assets.py
+        test_nothing_under_tools_is_ever_imported_into_the_supervisor
+
+  It places files under a `.claude/tools/` that raise at module scope, proves
+  they reached the zone, and proves nothing imported them — so it goes red the
+  moment an in-process route returns. That is a stronger guarantee than row 6b
+  gave *while it holds*: row 6b asked *which copy was loaded*, this asks whether
+  anything is loaded at all. It is also a weaker one the instant it stops
+  holding, because it says nothing about which copy. **Whoever turns that test
+  green again owes this bullet a replacement**, and the test failing is what
+  will tell them.
 
 - **A registry search that is no longer needed, recorded because its absence is
   a change.** `mcp_external`'s artefact used to live at

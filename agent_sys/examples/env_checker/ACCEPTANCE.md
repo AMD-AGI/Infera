@@ -143,9 +143,31 @@ no boundary that can fail closed. Serena stays section **7**.
   repository that could see `env_mgr`'s *load the copy, not the source*
   isolation property break for **every package that ever shipped a tooldef**.
   That is `e1b9f54`'s bug. With the route deleted the property has no subject,
-  so nothing is currently unguarded; **if an in-process route ever returns, this
-  row has to return with it**, and that sentence is why the deletion is recorded
-  here rather than simply removed.
+  so nothing is currently unguarded.
+
+  **A check enforces the return, and it is not this package's.** The sentence
+  here used to be *"if an in-process route ever returns, this row has to return
+  with it"* — a paragraph asking a future reader to remember, which is the same
+  species of non-check this package spends its length arguing against. It is now
+  a test:
+
+      agent_sys/tests/env_mgr/test_agent_assets.py
+        test_nothing_under_tools_is_ever_imported_into_the_supervisor
+
+  It places two files under `<agent assets>/.claude/tools/` — one of them with
+  the deleted route's own `.tooldef.py` suffix — that **raise at module scope**,
+  asserts both reached the zone, and asserts nothing imported either. So it
+  **goes red the moment an in-process route returns**, and it fails by dying at
+  the import rather than by a later assertion, which is what stops it degrading
+  into a wrong message. Re-enabling any such route therefore forces whoever does
+  it to confront this row, and to re-establish the narrower placed-vs-source
+  property that row 6b owned — the test says *nothing is imported*, which is
+  strictly stronger while it holds and says nothing at all about *which copy*
+  once it stops.
+
+  Named by path rather than described, so the pointer either resolves or does
+  not. A prose reference to a test rots silently, and this round was bitten twice
+  by references to things that no longer existed.
   `check_capabilities_genuine`'s readme carries the same note under *What it
   cannot catch*, because that is where a reader checks before quoting a PASS.
 
