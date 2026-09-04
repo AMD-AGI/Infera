@@ -1264,30 +1264,33 @@ Claude Code's canonical form (`agent` spec §4.5); converting between harness
 formats is an independent module that does not exist (`agent` design §3.5). A file
 is placed, not read.
 
-### 11.5a Per-agent components — the three origins, and why they are not a fourth loop
+### 11.5a Per-agent material — recipes and one copied tree, and why they are not a fourth loop
 
-Three more agent-spec keys arrived — `assets`, `recipes`, `agent_plugins` — and they
-did **not** fit §11.5's sentence. `rules` / `hooks` / `skills` are lists of
-*files*, and a Claude Code component is a *tree*: a skill is a directory, a plugin
-marketplace is a directory of directories, an MCP server is a process to register.
-So `agent_assets.py` exists and `material.py` calls it.
+Two more agent-spec keys arrived — `assets` and `recipes` — and they did **not**
+fit §11.5's sentence. `rules` / `hooks` / `skills` are lists of *files*, and a
+Claude Code component is a *tree*: a skill is a directory, a plugin marketplace
+is a directory of directories, an MCP server is a process to register. So
+`agent_assets.py` exists and `material.py` calls it.
 
-| owner | what | declared how | resolved against |
-|---|---|---|---|
-| upstream | serena, a marketplace plugin, an apt/pip tool | `recipes: [...]` | the staged package, then `env_mgr/recipes/<name>.yaml` |
-| this repository | the agent plugins `agent_sys` ships | `agent_plugins: [...]`, or a recipe item carrying `tags: [internal]` | `agent_sys/env_mgr/addons/<name>/` |
-| one task package | what it carries for one agent | **undeclared** | `<staged package>/<assets>/.claude/` |
+`docs/spec.provisioning.md` is normative for this and supersedes the L1/L2/L3
+vocabulary **and** the three-origins table that replaced it:
 
-Three **origins**, not three levels: the numbers named nothing the table does
-not, and each document that repeated them repeated them slightly differently.
-`tags` needed no schema change — the field, its exclusion from `Item.spec`, the
-`--tag` flag and the tag-intersection filter in `runner.py` all already exist.
+| what | how | resolved against |
+|---|---|---|
+| anything upstream ships, and anything `agent_sys` ships under `env_mgr/addons/` | a recipe — the default layer, the package layer, or `recipes: [...]` | the staged package, then `env_mgr/recipes/<name>.yaml`; an add-on by importing `env_mgr` |
+| what one task package carries for one agent | **undeclared** — copied | `<staged package>/<assets>/.claude/` |
 
-**The last two have one on-disk shape and one installer.** Promoting a component
-from a package to the shipped directory is moving a directory; there is no second
-format and nothing to convert. **A package's own material is undeclared** because
-a declaration would be a second statement of what the directory already says, and
-two statements of one fact drift (§1's rule, one layer out).
+**There was a third row and a key that reached it.** `agent_plugins: [...]`
+named a directory under `env_mgr/addons/`, and it is deleted: the key, its schema
+property, `isolation/policy.py::addon_grants` and the exported
+`AGENT_SYS_ADDONS_ROOT`. Add-ons are installed by recipe only. `tags: [internal]`
+on a recipe item still marks provenance, and needed no schema change — the field,
+its exclusion from `Item.spec`, the `--tag` flag and the tag-intersection filter
+in `runner.py` all already exist.
+
+**A package's own material is undeclared** because a declaration would be a
+second statement of what the directory already says, and two statements of one
+fact drift (§1's rule, one layer out).
 
 **Order is upstream → this repository → the package**, so the package's own copy
 wins a name collision —
@@ -1387,10 +1390,10 @@ Claude Code puts *installed* plugins). A directory the harness invents next year
 is placed the day it appears.
 
 The same ruling fixes a latent one: a bundled `tools/*.mcp.py` is now registered
-at its **placed** path. It used to be registered at its source, which worked for
-a package's own material only because the staged package is inside the zone — the
-identical agent plugin would have named a path under `ADDONS_ROOT`,
-outside every grant.
+at its **placed** path. It used to be registered at its source, which worked only
+because the staged package is inside the zone — and being readable is not the
+same as being the tree `CLAUDE_CONFIG_DIR` names, which is the path the harness
+actually reads.
 
 **A marketplace name is validated before anything is copied.** `manifest["name"]`
 is author-controlled and was joined straight into a path with the check running
@@ -1408,13 +1411,13 @@ derives `PATH` at step 2 and that directory does not exist until step 6b. A
 pass-through would start a server with a literal `${...}` in its argv, and the
 symptom is *a server with no tools*: no error, no cause.
 
-**Two more exported names, and one of them needed a grant.**
+**Two more exported names, and neither needs a grant.**
 `AGENT_SYS_INSTALL_REPORT` points at `<zone>/logs/agent_assets.install.json` and
-is inside the zone, so it needs none. `AGENT_SYS_ADDONS_ROOT` is **outside**
-it, so `isolation/policy.py::addon_grants` composes a `READ_EXEC` grant on
-the same condition that emits the name — a spec declaring `agent_plugins:`. Read,
-not execute-from: a component is copied into the zone before anything runs it,
-and if that ever stops being true the answer is another copy, not a wider grant.
+`AGENT_SYS_AGENT_ASSETS` at the staged copy; both are inside the zone, which
+`prepare` grants recursively. `AGENT_SYS_ADDONS_ROOT` was a third, **outside**
+the zone, held legitimate by `isolation/policy.py::addon_grants` composing a
+`READ_EXEC` grant under the same condition that emitted the name. It went with
+`agent_plugins:`, and with it the last exported out-of-zone path.
 
 ### 11.5b Recipes come in three layers, and the layer is where the file is
 

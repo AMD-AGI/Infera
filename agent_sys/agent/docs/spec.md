@@ -106,11 +106,14 @@ spec** — the two are declared together in a closure.
 | `rules` / `hooks` / `skills` | Configuration, stored in canonical form. §4.5 |
 | `assets` | **Filled by `spec_loader`, not written.** This agent's own directory under the package's `assets/`, found by the same three folder spellings a body lookup uses — `X`, `X.agent`, `agent.X`. Two matching directories is `SpecInconsistent`; an explicit binding is legal and warns. §4.5a |
 | `recipes` | The **agent layer** of three recipe layers; `env_mgr` recipe YAMLs by name or package-relative path. §4.5a |
-| `agent_plugins` | Bare names under `agent_sys/env_mgr/addons/` — the agent plugins this repository ships. §4.5a |
 
-Nine keys became twelve, and the three additions are one thing: **an agent may
-now carry components, not only files.** §4.5a is why that needed new keys instead
-of a longer `skills` list.
+Nine keys became eleven, and both additions are one thing: **an agent may now
+carry components, not only files.** §4.5a is why that needed new keys instead of
+a longer `skills` list.
+
+**There was a third, `agent_plugins:`, and it is deleted** —
+`docs/spec.provisioning.md` §4: what this repository ships under
+`env_mgr/addons/` is installed by a recipe, and no declaration key reaches it.
 
 ### 3.2 Permissions are not here
 
@@ -404,28 +407,27 @@ a skill is a directory, a plugin marketplace is a directory of directories, and
 an MCP server is a process to register rather than a file to place. Naming every
 file would make a package author restate a layout the harness already fixes.
 
-Three **origins**, not three levels: what differs between them is who owns the
-directory, and the numbering was a vocabulary each document restated slightly
-differently while carrying no ordering the table does not already give.
+**Two routes, and only one copies a tree.** `docs/spec.provisioning.md` is
+normative here and supersedes both the L1/L2/L3 numbering and the three-origins
+table that replaced it.
 
-| owner | what | declared how |
-|---|---|---|
-| upstream | serena, a marketplace plugin, an apt/pip tool | `recipes: [...]` |
-| this repository | the agent plugins `agent_sys` ships | `agent_plugins: [...]`, or a recipe item carrying `tags: [internal]` |
-| one task package | what it carries for one agent | **undeclared** — `<assets>/.claude/` |
+| what | declared how |
+|---|---|
+| anything upstream ships, and anything `agent_sys` ships under `env_mgr/addons/` | `recipes: [...]`, or the package/default recipe layer; `tags: [internal]` marks an item as ours |
+| what one task package carries for one agent | **undeclared** — `<assets>/.claude/`, copied |
 
-**The last two have one on-disk shape**, in Claude Code's canonical layout:
+**The copied tree is in Claude Code's canonical layout**:
 `settings.json`, `skills/<name>/`, `plugins/` (a local marketplace),
-`.mcp.json`, and `tools/*.mcp.py`. One shape means one installer and means
-promoting a component is moving a directory. (A `tools/*.tooldef.py` was a
-fourth member until 2026-09-04, when the in-process route it used was deleted —
+`.mcp.json`, and `tools/*.mcp.py`. It is the harness's own layout rather than
+ours, so a file is placed and not converted. (A `tools/*.tooldef.py` was a fourth
+member until 2026-09-04, when the in-process route it used was deleted —
 `docs/spec.provisioning.md` §6.)
 
 **A package's own material is undeclared on purpose.** A declaration would be a
 second statement of what the directory already says, and the two would drift the
 first time somebody moved it without editing the YAML.
 
-`env_mgr/agent_assets.py` installs all three; `env_mgr/docs/design.md` §11.5a is
+`env_mgr/agent_assets.py` installs both; `env_mgr/docs/design.md` §11.5a is
 the mechanism, including the measured ordering constraint that decides when
 `settings.json` is written, the marketplace copy probe F forced, and why a
 recipe runs the shipped machinery as a subprocess. What reaches this package

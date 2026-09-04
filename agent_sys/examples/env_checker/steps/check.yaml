@@ -89,28 +89,32 @@
   # else's network without measuring anything the first does not.
   recipes: [serena]
 
-  # **The agent plugins this repository ships**, resolved under
-  # `agent_sys/env_mgr/addons/<name>/`. Two, and they are here for different
-  # reasons:
+  # **There is no `agent_plugins:` key any more, and its absence is the design.**
+  # The owner ruled that only an agent's own `assets/.claude/` tree may be
+  # installed by copying a tree, and everything else is installed by declaring
+  # it in a recipe. So the two servers this package used to name here are now
+  # declared where every other MCP server is declared — in this agent's own
+  # `.claude/.mcp.json` — and the one payload that has to be *placed*
+  # (`envchk-baseline`'s server) is copied in by the package-layer recipe at
+  # `assets/main.env_recipe.yaml`, which nothing declares because `env_mgr`
+  # auto-detects it.
   #
-  # - `envchk-baseline` **is** capability 4: one external MCP server, declared
-  #   through a component's `.mcp.json`. If that section fails, the
-  #   agent-plugin route failed.
-  # - `serena` is the **declaration half of capability 7**, and it is here
-  #   because of a measured bug rather than a preference. Run 1 (2026-09-03)
-  #   installed serena cleanly — `ok | ran: uv tool install …` — and the agent
-  #   reported `No such tool available` for every `mcp__serena__*` call, because
-  #   **nothing in the package declared serena as an MCP server**. The
-  #   invocation existed only in a comment in `env_mgr/recipes/serena.yaml`, and
-  #   a comment is not a declaration.
+  # **What that changes about capability 7, and it is worth stating rather than
+  # letting a reader notice the key is gone.** Install and declaration are still
+  # two halves and neither implies the other — run 1 (2026-09-03) installed
+  # serena cleanly and the agent got `No such tool available` for every
+  # `mcp__serena__*` call, because nothing declared it. `recipes: [serena]` above
+  # is still the install; the declaration is now the `serena` entry in
+  # `.claude/.mcp.json`. The split survives; only the second half moved.
   #
-  # **`recipes: [serena]` and `agent_plugins: [serena]` are both required and that
-  # is not redundant.** Install and declaration are two halves; neither implies
-  # the other, and run 1 is what proved it. Capability 7 is therefore
-  # **installed by a recipe and declared as an agent plugin** — a genuine
-  # split, written down in
-  # `ACCEPTANCE.md` row 7 rather than smoothed over.
-  agent_plugins: [envchk-baseline, serena]
+  # serena stays a **per-agent** stdio server because `--project` differs per
+  # agent and has no environment-variable equivalent (`grep -c envvar=
+  # serena/cli.py` -> 0). Measured 2026-09-04: concurrent instances do not
+  # collide given their own `--project` and their own `HOME` — the dashboard
+  # port search was observed live at four instances on this host. `HOME` and not
+  # `SERENA_HOME`: the entry that was measured, and the one this agent now
+  # carries, sets `"env": {"HOME": "${TMPDIR}"}`, and `TMPDIR` is per-zone
+  # (`env_mgr/material.py:168`).
 
   # **`skills:` is absent, and its absence is the test.** The one capability
   # `agent_sys` already delivered was `skills`, by declaration

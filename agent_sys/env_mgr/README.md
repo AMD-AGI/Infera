@@ -725,7 +725,6 @@ object, and a second function returning them would be one act split in two.
 | `AGENT_SYS_MY_LOGS` | `<zone>/logs` | — (`等等`) |
 | `AGENT_SYS_AGENT_ASSETS` | `<zone>/package/<AgentSpec.assets>` | — (added with per-agent components) |
 | `AGENT_SYS_INSTALL_REPORT` | `<zone>/logs/agent_assets.install.json` | — (ditto) |
-| `AGENT_SYS_ADDONS_ROOT` | `agent_sys/env_mgr/addons/` — **only when the spec declares `agent_plugins:`** | — (ditto) |
 | `<any of the above>_REMOTE` | the same path under `sync.remote_root(zone, mapping)` | `*_romote` |
 
 `AGENT_SYS_AGENT_ASSETS` is **the one name in the family whose value is not a
@@ -735,12 +734,15 @@ the staged package is inside the zone and `prepare` grants the zone recursively.
 It is not derived from `AGENT_SYS_TASK_PACKAGE` by a body, because the relative
 part is the agent spec's and a body has no route to an agent spec.
 
-`AGENT_SYS_ADDONS_ROOT` is **the one exported path outside the zone**, and
-it is not a counter-example to the four refused `*_root` names — it is the same
-rule run the other way. `isolation/policy.py::addon_grants` composes a
-`READ_EXEC` grant on it, under the *identical* condition that emits the name, so
-exported-and-granted still agree by construction. Read-only on purpose: a
-component is copied into the zone before anything executes it.
+**Every name in this table is a path inside the zone**, and that is now
+without exception. `AGENT_SYS_ADDONS_ROOT` used to be here, naming
+`agent_sys/env_mgr/addons/` and defended as *the same rule run the other way* —
+`isolation/policy.py::addon_grants` composed a `READ_EXEC` grant on it under the
+identical condition that emitted the name. It went with the `agent_plugins:`
+declaration key (`docs/spec.provisioning.md` §4): an add-on is installed by a
+recipe, the recipe runs unconfined and copies what it needs into the zone, and
+nothing confined reaches back out. Deleting the last exported out-of-zone path
+is what the removal was for.
 
 A name whose directory does not exist is **not exported**: the zone's
 subdirectories are one per registered domain kind, so a run with no `PLAYGROUND`

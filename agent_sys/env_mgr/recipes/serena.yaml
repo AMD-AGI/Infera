@@ -6,9 +6,16 @@
 # `agent_sys` itself ships, and every item here installs a third party's code
 # from `git+https://github.com/oraios/serena` or from PyPI. Tagging it internal
 # would make the tag mean "a recipe we wrote" rather than "a component we own",
-# which is the distinction it exists to draw. The declaration half of serena —
-# the `.mcp.json` that registers the server — IS ours and lives in
-# `agent_sys/env_mgr/addons/serena/`, reached by `agent_plugins: [serena]`.
+# which is the distinction it exists to draw.
+#
+# **This recipe installs serena and declares nothing.** The other half — the
+# `.mcp.json` entry that registers the MCP server — belongs to whichever agent
+# wants serena, in its own `assets/<agent>.agent/.claude/.mcp.json`, because
+# `--project` differs per agent. `agent_sys/env_mgr/addons/serena/` used to hold
+# a shared copy and is deleted: it emptied when the `.mcp.json` moved, and there
+# is no declaration key that would have reached it anyway
+# (`agent_sys/docs/spec.provisioning.md` §4). The invocation is recorded at the
+# bottom of this file so it lives beside the install that produces the binary.
 #
 # `recipes: [serena]` on an agent spec resolves here
 # (`env_mgr/agent_assets.py::_recipe_paths`: a package-relative path first, then
@@ -108,7 +115,7 @@ items:
   # `~/.claude`, which the zone's relocated `CLAUDE_CONFIG_DIR` then hides — so
   # it would modify host state *and* have no effect. serena reaches the session
   # the way every other MCP server in this design does: as an entry on
-  # `Prepared.mcp_servers`. See the note below for the invocation.
+  # `Prepared.mcp_servers`. See the note below for where the invocation lives.
   - installer: uv
     importance: suggested
     tool: "git+https://github.com/oraios/serena"
@@ -118,22 +125,18 @@ items:
 # --------------------------------------------------------------------------- #
 # The MCP entry this recipe does NOT write, and why it is here anyway.
 #
-# `Prepared.mcp_servers` is assembled by `env_mgr` from a component's
-# `.mcp.json`, never by a recipe, so the entry below belongs to whichever
-# component wants serena — today `addons/serena/`. It is recorded here so that the invocation lives
-# beside the install that produces the binary rather than in a message.
-# Measured working, probe E — `initialize` + `tools/list` returned
-# `Serena 1.28.1` and 21 tools:
+# `Prepared.mcp_servers` is assembled by `env_mgr` from an AGENT's own
+# `.claude/.mcp.json`, never by a recipe, so the entry belongs to whichever agent
+# wants serena. The working example is
+# `examples/env_checker/assets/env_probe.agent/.claude/.mcp.json`.
 #
-#   {
-#     "type": "stdio",
-#     "command": "${UV_TOOL_BIN_DIR}/serena",
-#     "args": ["start-mcp-server",
-#              "--context", "claude-code",
-#              "--project", "${AGENT_SYS_MY_WORKSPACE}",
-#              "--transport", "stdio"],
-#     "env": {"HOME": "${AGENT_SYS_MY_PLAYGROUND}"}
-#   }
+# **This file names that path and does not restate the entry.** It used to carry
+# a copy, and the copy had already drifted: it read `"env": {"HOME":
+# "${AGENT_SYS_MY_PLAYGROUND}"}` while the entry actually shipped —
+# `addons/serena/.claude/.mcp.json`, now moved — read `"${TMPDIR}"`. One fact,
+# two writers, and the one nobody ran is the one that was wrong. Measured
+# working, probe E: `initialize` + `tools/list` returned `Serena 1.28.1` and 21
+# tools.
 #
 # `agent_assets._expand` resolves every `${VAR}` in that against the zone
 # environment and **refuses an unresolved one**, so a typo is an error rather
@@ -148,8 +151,8 @@ items:
 # composed at `prepare` step 2, while `material.deploy` installs nothing until
 # step 6b — so `$UV_TOOL_BIN_DIR` does not exist when `PATH` is computed and
 # would not appear on it even unconfined. The absolute form is also what probe E
-# measured. Naming the variable rather than a literal path is the rule
-# `addons/envchk-baseline/.claude/.mcp.json` already follows with
+# measured. Naming the variable rather than a literal path is the rule the
+# `envchk_baseline` entry in the same file already follows with
 # `${CLAUDE_CONFIG_DIR}`: the variable, not the literal, and not the search path.
 #
 # **`HOME` is set for this subprocess and must NOT be hoisted to the agent's

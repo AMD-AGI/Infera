@@ -1,136 +1,124 @@
-# `agent_sys/env_mgr/addons/` — the agent plugins this repository ships
+# `agent_sys/env_mgr/addons/` — what this repository ships for agents
 
-An **agent plugin** is a bundle of Claude Code capabilities — plugins, hooks,
-tools, an MCP server — that this repository defines once, so that more than one
-task package does not carry a private copy. An agent asks for one by name:
+An **add-on** is a capability `agent_sys` defines once — an MCP server, a skill,
+a hook — so that more than one task package does not carry a private copy.
 
-```yaml
-  agent_plugins: [envchk-baseline]
-```
-
-The name is the directory name here. There is no registry file and nothing to
-register.
-
-## Where this sits, and what changed
-
-**There is no "L2" any more.** This directory used to be the middle rung of a
-three-level install hierarchy (L1 industry / L2 repository / L3 package), and the
-levels were a vocabulary three documents each restated slightly differently. What
-actually differs between the rungs is **who owns the directory**, so that is what
-is named now:
-
-| what | who owns it | how an agent asks |
-|---|---|---|
-| something the industry ships — serena, a marketplace plugin, an apt/pip tool | upstream | `recipes:` → an `env_mgr` recipe |
-| something **this repository** ships | us | `agent_plugins:` → a directory here, **or** an `env_mgr` recipe carrying `tags: [internal]` |
-| something **one task package** carries for one agent | that package | nothing — auto-detected at `<agent assets>/.claude/` |
-
-The last two have the **same on-disk shape**, and that is the point of the split
-rather than an accident of it: a bundle is promoted from a package to this
-directory by moving it, and demoted by moving it back. Nothing is converted and
-there is no second format to keep in step.
-
-### Internal origin, in a recipe, as a tag
-
-Where the thing to install is an *install* rather than a `.claude/` tree, an
-`env_mgr` recipe declares that it is ours with an ordinary tag:
+**There is no declaration key, and that is the design rather than a gap.**
+`agent_sys/docs/spec.provisioning.md` §4 is normative: an add-on is installed by
+**declaring it in a recipe**, like everything else that is not the agent's own
+`.claude/` tree. A recipe finds this directory by importing `env_mgr` —
 
 ```yaml
-items:
-  - installer: uv
+  - installer: embed
     importance: required
-    tags: [internal]
-    tool: ...
+    name: envchk-baseline-server
+    tags: [internal, envchk]
+    run: |
+      set -eu
+      src="$(python3 -c 'import env_mgr, os; print(os.path.join(os.path.dirname(env_mgr.__file__), "addons"))')"
+      ...
 ```
 
-Nothing was added for this. Verified first-hand against the tree, not recalled:
+— which works from a git checkout and from a wheel alike, because `addons/` is
+`package-data` **inside** `env_mgr` (`pyproject.toml`) and because
+`agent_assets._child_env` pins `PYTHONPATH` to the package root, which
+`installers/base.py::run_cmd` inherits.
+
+## What changed, and why the previous shape is gone
+
+There used to be an `agent_plugins: [<name>]` key on the agent spec that named a
+directory here and copied its whole `.claude/` tree into the zone. It is
+deleted — the key, its JSON-schema property, `isolation/policy.py::addon_grants`
+and the exported `AGENT_SYS_ADDONS_ROOT`.
+
+**Deleting the grant was the point.** `AGENT_SYS_ADDONS_ROOT` was the only path
+`env_mgr` exported that pointed *outside* the zone, and it needed a `READ_EXEC`
+grant to be usable at all. A recipe needs neither: installs run at `prepare`
+step 6b, before any confinement is applied, so a recipe reads this directory
+unconfined and **copies what it needs into the zone**. Nothing the confined body
+touches is outside it.
+
+| what | how an agent asks | where it lands |
+|---|---|---|
+| something the industry ships — serena, a marketplace plugin, an apt/pip tool | `recipes:`, or the package / default recipe layer | wherever the installer puts it |
+| something **this repository** ships — a directory here | the same: a recipe, whose item carries `tags: [internal]` to mark it ours | wherever that recipe copies it |
+| something **one task package** carries for one agent | nothing — auto-detected at `<agent assets>/.claude/` and copied | the zone's `config/` |
+
+Only the third row is a tree copy. `spec.provisioning.md` §3.
+
+### `tags: [internal]` marks provenance and does nothing else
+
+Nothing was added for it. Verified first-hand against the tree, not recalled:
 `Item.tags` exists (`env_mgr/recipe.py`), `tags` is in `_CLI_KEYS` so it is
 excluded from `Item.spec` and cannot leak into an installer's arguments,
 `--tag` is already a CLI flag (`env_mgr/cli.py`), and `env_mgr/runner.py`
 selects on tag intersection. So `env-mgr install --tag internal` works today
 with no schema change.
 
-**What a tag does not do:** it marks provenance and nothing else. It does not
-place a `.claude/` tree, it does not change grants, and no installer reads it.
-An agent plugin in this directory is still reached by `agent_plugins:`.
+**What the tag does not do:** it does not place a file, it does not change
+grants, and no installer reads it.
 
 ## The contract
 
 ```
 agent_sys/env_mgr/addons/<name>/
-├── README.md            what this gives an agent, and what it costs
-├── recipe.yaml          OPTIONAL — anything that must be installed first
-└── .claude/             REQUIRED — Claude Code's own canonical layout
-    ├── settings.json        hooks, and any other user-scope setting
+├── README.md            what this gives an agent, what it costs, and what it does NOT do
+└── .claude/             the payload, in Claude Code's own canonical layout
+    ├── servers/*.py         a server a recipe copies into the zone
     ├── skills/<skill>/      SKILL.md
-    ├── plugins/             a local marketplace: .claude-plugin/marketplace.json
-    ├── .mcp.json            {"mcpServers": {...}} — external MCP servers
-    └── tools/
-        ├── *.mcp.py         a bundled stdio MCP server, auto-registered
-        └── *.tooldef.py     module-level `TOOLS` -> in-process `mcp__env_mgr__<tool>`
+    └── hooks/               …
 ```
 
-Two rules, and both exist because this is read by a machine before it is read by
-a person:
+**`.claude/` is Claude Code's format, not ours.** A file here is placed by a
+recipe, not parsed — `env_mgr/material.py`'s own words. Anything needing a
+conversion step is in the wrong format. Keeping the harness's layout is what
+lets the recipe's `cp` be a `cp`.
 
-1. **`.claude/` is Claude Code's format, not ours.** A file is placed, not
-   parsed — `env_mgr/material.py`'s own words. Anything that needs a conversion
-   step is in the wrong format.
-2. **`recipe.yaml` is for what must exist *before* `.claude/` means anything** —
-   the binary an `.mcp.json` entry names, the language server a skill assumes.
-   It is the same recipe format `env_mgr/recipes/*.yaml` uses
-   (`env_mgr/recipe.py`: `target` + `items`, each item naming an `installer` and
-   an `importance`).
+**An `.mcp.json` does not belong here.** A stdio server is spawned by the
+harness from an entry in the *agent's* `.claude/.mcp.json`
+(`spec.provisioning.md` §5), and that entry names `--project`, `HOME` and other
+values that differ per agent. Both add-ons' `.mcp.json` files were moved into
+`examples/env_checker/assets/env_probe.agent/.claude/.mcp.json` for exactly that
+reason. What stays here is the **payload** the entry points at.
+
+**There is no `recipe.yaml` here either.** It used to be found beside `.claude/`
+and run by `agent_assets`; the key that found the add-on is gone, so an add-on's
+prerequisites are declared in whichever recipe installs it.
 
 ## Paths inside one
 
-The `.claude/` tree is copied into the zone before it is used, so **nothing in it
-may name a path outside itself**. Where it has to point at one of its own files —
-an `.mcp.json` naming the server it ships — it does so through
-`${CLAUDE_CONFIG_DIR}`, which `env_mgr` has already redirected at the zone's
-`config/` directory (`env_mgr/material.py`). A hard-coded `/home/<someone>/...`
+A payload is copied into the zone before it is used, so **nothing in it may name
+a path outside itself**. Where a declaration has to point at one of these files
+it does so through `${CLAUDE_CONFIG_DIR}`, which `env_mgr` has already redirected
+at the zone's `config/` (`env_mgr/material.py`). A hard-coded `/home/<someone>/…`
 works on exactly one machine and fails silently on the next, because an MCP
-server that cannot start is reported as a server with no tools rather than as an
-error.
-
-**Copying is the default and the exceptions are enumerated**
-(`env_mgr/agent_assets.py::_place_tree` and `_NOT_PLACED`). Every member of
-`.claude/` is copied into the zone config directory except three, and each of
-those is *read* or *relocated* rather than skipped: `settings.json` is **merged**
-into the zone's own, `.mcp.json` is **read** and its `${VAR}`s expanded against
-the zone environment — it does **not** land in the zone at all — and `plugins/`
-is **relocated** to `marketplaces/` because `claude plugin install` writes
-`<config>/plugins/` itself. So `servers/`, `hooks/`, `skills/` and `tools/` land
-where a `${CLAUDE_CONFIG_DIR}`-relative path expects them, and the two files that
-configure rather than ship are not there at all.
-
-**Do not reference `${AGENT_SYS_ADDONS_ROOT}` from inside one.** That path
-is outside the zone; a server registered at it installs cleanly, reports success,
-and then cannot be read under confinement. Copy-into-the-zone is one rule for a
-repository plugin and a package's own material alike — a package's
-`tools/*.mcp.py` used to be registered at its source path and worked only because
-that path happened to lie inside the staged package.
+server that cannot start is reported as **a server with no tools** rather than as
+an error.
 
 ## What is here
 
-| plugin | gives an agent | costs |
+| add-on | gives an agent | costs |
 |---|---|---|
-| [`envchk-baseline`](envchk-baseline/) | one **external MCP server**, declared through `.mcp.json`, whose single tool returns a nonce-derived token | one `python3` subprocess for the life of the session; no network |
-| [`serena`](serena/) | the **declaration** half of serena — the `.mcp.json` entry that registers the MCP server. It does **not** install serena; that is `recipes: [serena]` | nothing on its own; useless without the install |
+| [`envchk-baseline`](envchk-baseline/) | one **stdio MCP server** whose single tool returns a nonce-derived token | one `python3` subprocess for the life of the session; no network |
 
 `envchk-baseline` exists to be this directory's worked example, and it is a real
-one rather than a stub: `examples/env_checker` declares it, runs it, and its
-`check_capabilities_genuine` validator re-starts the server itself and compares
-the token the agent reported against the token the server actually produces.
+one rather than a stub: `examples/env_checker` installs it from
+`assets/main.env_recipe.yaml`, declares it in its agent's `.mcp.json`, runs it,
+and its `check_capabilities_genuine` validator re-starts the server itself and
+compares the token the agent reported against the token the server produces.
+
+`serena/` was here too and is deleted: it held only the `.mcp.json` that
+registers the server, and that moved to the agent that wants it. The **install**
+is `env_mgr/recipes/serena.yaml`, which is a recipe and not an add-on.
 
 ## Adding one
 
-1. `mkdir agent_sys/env_mgr/addons/<name>/.claude` and put the capability in it,
-   in Claude Code's layout.
+1. `mkdir agent_sys/env_mgr/addons/<name>/.claude` and put the payload in it, in
+   Claude Code's layout.
 2. Write `README.md`: what an agent gets, what it costs to install, and what it
    does **not** do. The third is the one a reader cannot reconstruct.
 3. Add a row to the table above.
-4. If it needs something installed first, add `recipe.yaml` beside `.claude/`.
-
-There is no registry file to edit and no name to register: the directory name
-**is** the name `agent_plugins: [<name>]` resolves.
+4. Write the recipe item that installs it, and **check `pyproject.toml`'s
+   `package-data`** — a leading dot is not matched by `*`, so a new dot-file at
+   the leaf of `.claude/` ships only if a glob names it. Count the wheel's
+   members; do not read the build's exit code.

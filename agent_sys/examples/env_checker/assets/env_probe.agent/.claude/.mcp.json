@@ -1,5 +1,13 @@
 {
   "mcpServers": {
+    "envchk_baseline": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["${CLAUDE_CONFIG_DIR}/servers/envchk_baseline_server.py"],
+      "env": {
+        "ENVCHK_NONCE": "${ENVCHK_NONCE}"
+      }
+    },
     "serena": {
       "type": "stdio",
       "command": "${UV_TOOL_BIN_DIR}/serena",

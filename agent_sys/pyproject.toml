@@ -103,10 +103,17 @@ env_mgr = [
     "addons/README.md",
     "addons/*/README.md",
     "addons/*/.claude/**/*",
-    # `**/*` matched `.claude/servers/x.py` and **not** `.claude/.mcp.json`:
-    # the glob crosses a dot-DIRECTORY but will not match a dot-FILENAME at the
-    # leaf. Measured by listing the wheel's members — the first build shipped 4
-    # of 6 addon files and looked fine until they were counted.
+    # `**/*` crosses a dot-DIRECTORY but will not match a dot-FILENAME at the
+    # leaf: measured, `.claude/servers/x.py` shipped and `.claude/.mcp.json` did
+    # not, so that build carried 4 of the 6 addon files there were then and
+    # looked fine until they were counted.
+    #
+    # **This glob matches nothing today and is kept anyway.** Both `.mcp.json`s
+    # moved out of `addons/` when stdio declarations moved to the agent that
+    # wants them (`docs/spec.provisioning.md` §5), so the line ships no member —
+    # it stands as the rule for the next dot-file at a leaf, which would
+    # otherwise be dropped in silence. Re-measured 2026-09-04 after the move:
+    # 3 addon members on disk, 3 in the wheel.
     "addons/*/.claude/.mcp.json",
 ]
 

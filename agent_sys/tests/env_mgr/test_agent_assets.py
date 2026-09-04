@@ -38,14 +38,14 @@ import stat
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, NamedTuple, get_type_hints
+from typing import Any, NamedTuple
 
 import pytest
 
 from env_mgr import agent_assets, material
 from env_mgr.agent_assets import AgentMaterial, install
 from env_mgr.paths import AGENT_ASSETS_ENV_VAR
-from env_mgr.protocols import Mode, PrepareRefused
+from env_mgr.protocols import PrepareRefused
 
 #: `.mcp.json`, spelled once. Two literals of a filename in one file is how the
 #: second one gets missed by a rename.
@@ -263,52 +263,84 @@ def test_a_spec_declaring_assets_that_are_not_in_the_staged_copy_refuses(
 
 
 # --------------------------------------------------------------------------- #
-# The agent plugins this repository ships — declared by name
+# There is exactly one copy route, and this is the assertion that it is one
 
 
-def test_a_bare_name_resolves_under_the_repositorys_agent_plugins_directory(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """``agent_plugins: [<name>]`` is a name and never a path, so this can only
-    reach a directory we ship."""
-    shipped = tmp_path / "agent_plugins"
-    _write(shipped / "envchk" / ".claude" / "skills" / "chk" / "SKILL.md", "# chk\n")
-    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
+def test_the_agents_own_assets_are_the_only_tree_that_is_copied(tmp_path: Path) -> None:
+    """`spec.provisioning.md` §3: *the copy route is for row three only.*
+
+    An add-on this repository ships is installed **by a recipe**, and there is no
+    declaration key that reaches `env_mgr/addons/` — the `agent_plugins:` key,
+    its schema property, its grant and its exported `AGENT_SYS_ADDONS_ROOT`
+    were all deleted together, because the grant was the one exported path
+    pointing outside the zone.
+
+    **Asserted through `_addon_trees`, not through the absence of a key.** A test
+    that only said ``"agent_plugins" not in AgentSpec.model_fields`` would pass
+    just as happily if `install` had kept a second, differently-named route into
+    the same directory. This names what the function returns: at most the one
+    tree, and it is the package's own.
+
+    The positive control is in the same call — the package's tree *is* found and
+    *is* copied — so the test cannot pass by nothing being installed at all.
+    """
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
+    _write(assets / ".claude" / "skills" / "chk" / "SKILL.md", "# chk\n")
     config = tmp_path / "config"
 
-    got = install(_spec(agent_plugins=["envchk"]), staged_package=None, config_dir=str(config))
+    got = install(
+        # A spec still carrying the deleted key must not resurrect the route.
+        # `_get` reads whatever mapping it is handed, so this is the strongest
+        # form available: the key is present in the input and reaches nothing.
+        _spec(assets="assets/forge.agent", agent_plugins=["envchk"]),
+        staged_package=str(pkg),
+        config_dir=str(config),
+    )
 
+    origins = [
+        origin
+        for origin, _ in agent_assets._addon_trees(
+            _spec(assets="assets/forge.agent", agent_plugins=["envchk"]),
+            staged_package=str(pkg),
+        )
+    ]
+    assert origins == ["the package's own assets"], origins
+    # Positive control: the one route that remains really did place a file.
     assert (config / "skills" / "chk" / "SKILL.md").exists()
     assert _levels(got.report) == ["ok"]
 
 
-def test_a_declared_component_that_does_not_exist_refuses(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """`material.py`'s declared-and-absent rule, for an agent plugin.
+def test_nothing_reaches_the_addons_directory_by_declaration(tmp_path: Path) -> None:
+    """The deleted key, deleted everywhere a declaration is read.
 
-    The failure it prevents is the measured one: skip the install silently and
-    the agent meets ``Unknown skill`` hours later from inside its own session,
-    with nothing in the zone, the events or the logs naming the cause.
+    Three writers had to agree for `agent_plugins:` to work — `AgentSpec`, the
+    JSON schema and `isolation/policy.py`'s grant — so three are asserted. A
+    negative assertion on one of them alone would stay green while another kept
+    the route open.
+
+    **Each half carries a positive control on the same object**, because *"the
+    attribute is absent"* is also true of a module that failed to import or a
+    schema whose properties block was emptied: `recipes` is the sibling key that
+    survived, `agent_cli_grants` the sibling grant.
     """
-    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(tmp_path / "agent_plugins"))
-    with pytest.raises(PrepareRefused, match="declares component 'nope'"):
-        install(_spec(agent_plugins=["nope"]), staged_package=None, config_dir=str(tmp_path / "c"))
+    import json as _json
 
+    from agent.spec import AgentSpec
+    from env_mgr.isolation import policy
 
-def test_a_component_with_no_dot_claude_directory_refuses(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """`addons/README.md` marks `.claude/` REQUIRED, and a component that
-    installs nothing is indistinguishable from one whose contents were
-    forgotten."""
-    shipped = tmp_path / "agent_plugins"
-    (shipped / "hollow").mkdir(parents=True)
-    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
-    with pytest.raises(PrepareRefused, match="has no .claude/ directory"):
-        install(
-            _spec(agent_plugins=["hollow"]), staged_package=None, config_dir=str(tmp_path / "c")
-        )
+    assert "agent_plugins" not in AgentSpec.model_fields
+    assert "recipes" in AgentSpec.model_fields
+
+    schema = _json.loads(
+        (Path(__file__).parents[2] / "spec_loader" / "schemas" / "agent.schema.json").read_text()
+    )
+    properties = schema["properties"]
+    assert "agent_plugins" not in properties
+    assert "recipes" in properties
+
+    assert not hasattr(policy, "addon_grants")
+    assert hasattr(policy, "agent_cli_grants")
 
 
 # --------------------------------------------------------------------------- #
@@ -406,9 +438,7 @@ def test_a_child_that_produces_no_report_is_a_failure_and_not_a_success(
 # Capabilities, one per test
 
 
-def test_settings_are_merged_across_levels_and_written_before_any_install(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_claude: FakeCli
-) -> None:
+def test_settings_are_written_before_any_install(tmp_path: Path, fake_claude: FakeCli) -> None:
     """The measured ordering, asserted as an ordering rather than as a file.
 
     ``claude plugin marketplace add`` *merges* into an existing ``settings.json``
@@ -417,33 +447,34 @@ def test_settings_are_merged_across_levels_and_written_before_any_install(
     not commutative with creating, so the file has to exist first. The fake
     `claude` records what it saw of ``CLAUDE_CONFIG_DIR``, and the settings file
     is asserted to be on disk **by the time it ran**.
-    """
-    shipped = tmp_path / "agent_plugins"
-    _write(
-        shipped / "base" / ".claude" / "settings.json",
-        json.dumps({"hooks": {"PreToolUse": ["a"]}, "model": "from-l2"}),
-    )
-    _write(
-        shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
-        json.dumps({"name": "mp", "owner": "us", "plugins": [{"name": "p1"}, {"name": "p2"}]}),
-    )
-    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
 
+    **This test used to assert a merge across two `.claude/` trees, and that
+    property no longer exists rather than having become untested.** There is one
+    copy route now (`spec.provisioning.md` §3), so `install` reads at most one
+    `settings.json` and `_merge`'s two-document case is reachable only from its
+    own unit test. What is left here is the half that is still a property of
+    this function: the document is on disk before the first child runs.
+    """
     pkg = tmp_path / "staged"
     assets = _package(pkg)
-    _write(assets / ".claude" / "settings.json", json.dumps({"model": "from-l3"}))
+    _write(
+        assets / ".claude" / "settings.json",
+        json.dumps({"hooks": {"PreToolUse": ["a"]}, "model": "from-the-package"}),
+    )
+    _write(
+        assets / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
+        json.dumps({"name": "mp", "owner": "us", "plugins": [{"name": "p1"}, {"name": "p2"}]}),
+    )
     config = tmp_path / "config"
 
     got = install(
-        _spec(agent_plugins=["base"], assets="assets/forge.agent"),
+        _spec(assets="assets/forge.agent"),
         staged_package=str(pkg),
         config_dir=str(config),
         agent_cli=fake_claude.path,
     )
 
-    # The package's own copy wins the collision; the agent plugin's untouched
-    # key survives the merge.
-    assert got.settings == {"hooks": {"PreToolUse": ["a"]}, "model": "from-l3"}
+    assert got.settings == {"hooks": {"PreToolUse": ["a"]}, "model": "from-the-package"}
     on_disk = json.loads((config / "settings.json").read_text())
     assert on_disk == got.settings
 
@@ -464,21 +495,21 @@ def test_settings_are_merged_across_levels_and_written_before_any_install(
 
 
 def test_a_failing_plugin_install_is_a_named_outcome_and_not_a_silent_skip(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failing_claude: str
+    tmp_path: Path, failing_claude: str
 ) -> None:
-    """rc and output land in the report. A component whose plugin did not install
+    """rc and output land in the report. An agent whose plugin did not install
     is a run that will behave differently, and the only place that can be seen
     is here."""
-    shipped = tmp_path / "agent_plugins"
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
     _write(
-        shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
+        assets / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
         json.dumps({"name": "mp", "owner": "us", "plugins": [{"name": "p1"}]}),
     )
-    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
 
     got = install(
-        _spec(agent_plugins=["base"]),
-        staged_package=None,
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
         config_dir=str(tmp_path / "config"),
         agent_cli=failing_claude,
     )
@@ -589,36 +620,6 @@ def test_a_tools_directory_file_with_no_recognised_suffix_is_left_alone(
     # it is not imported, which is the narrowing under test.
     assert _installs(got.report) == []
     assert got.tools == ()
-
-
-def test_a_later_level_wins_an_mcp_name_collision_and_the_collision_is_reported(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Upstream -> this repository -> the package, so the package's own copy
-    wins — `material.deploy`'s
-    precedence, *an author saying so outranks a default*. Reported either way,
-    because a silently replaced server is different tools than the ones someone
-    wrote."""
-    shipped = tmp_path / "agent_plugins"
-    _write(
-        shipped / "base" / ".claude" / MCP_REL,
-        json.dumps({"mcpServers": {"shared": {"type": "http", "url": "l2"}}}),
-    )
-    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
-    pkg = tmp_path / "staged"
-    assets = _package(pkg)
-    _write(
-        assets / ".claude" / MCP_REL,
-        json.dumps({"mcpServers": {"shared": {"type": "http", "url": "l3"}}}),
-    )
-
-    got = install(
-        _spec(agent_plugins=["base"], assets="assets/forge.agent"),
-        staged_package=str(pkg),
-        config_dir=str(tmp_path / "config"),
-    )
-    assert got.mcp_servers["shared"]["url"] == "l3"
-    assert [o.level for o in got.report if "redeclared" in o.message] == ["warn"]
 
 
 def test_a_settings_file_that_does_not_parse_refuses(tmp_path: Path) -> None:
@@ -857,7 +858,7 @@ def test_an_unresolved_variable_in_a_declared_server_refuses(tmp_path: Path) -> 
 
 
 def test_the_marketplace_is_copied_into_the_zone_before_it_is_registered(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_claude: FakeCli
+    tmp_path: Path, fake_claude: FakeCli
 ) -> None:
     """Probe F, and it is a correctness requirement rather than hygiene.
 
@@ -865,22 +866,22 @@ def test_the_marketplace_is_copied_into_the_zone_before_it_is_registered(
     directory as the **marketplace source path** — `settings.json` records
     ``extraKnownMarketplaces: {<mp>: {source: {path: <dir>}}}`` and the plugin is
     read from there at run time. Nothing is copied by the install. So registering
-    `agent_sys/env_mgr/addons/<name>/.claude/plugins` in place would install cleanly,
-    report success, and then fail to load under confinement, because that path is
-    outside every grant.
+    the staged package's `.claude/plugins` in place would install cleanly, report
+    success, and then fail to load — the staged copy sits several directories
+    from the session's `cwd` and is not the tree `CLAUDE_CONFIG_DIR` points at.
     """
-    shipped = tmp_path / "agent_plugins"
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
     _write(
-        shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
+        assets / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
         json.dumps({"name": "mp", "owner": "us", "plugins": [{"name": "p1"}]}),
     )
-    _write(shipped / "base" / ".claude" / "plugins" / "p1" / "skills" / "s" / "SKILL.md", "# s")
-    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
+    _write(assets / ".claude" / "plugins" / "p1" / "skills" / "s" / "SKILL.md", "# s")
     config = tmp_path / "config"
 
     install(
-        _spec(agent_plugins=["base"]),
-        staged_package=None,
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
         config_dir=str(config),
         agent_cli=fake_claude.path,
     )
@@ -890,7 +891,7 @@ def test_the_marketplace_is_copied_into_the_zone_before_it_is_registered(
     (add_line,) = [ln for ln in fake_claude.log.read_text().splitlines() if "marketplace add" in ln]
     assert add_line.endswith(str(registered)), add_line
     # And the source is untouched — the copy is a copy.
-    assert (shipped / "base" / ".claude" / "plugins" / "p1").is_dir()
+    assert (assets / ".claude" / "plugins" / "p1").is_dir()
 
 
 # --------------------------------------------------------------------------- #
@@ -925,44 +926,40 @@ def test_the_install_report_is_written_into_the_zone_and_its_path_exported(
     assert [o["level"] for o in document["outcomes"]] == ["ok"]
 
 
-def test_the_agent_plugins_root_is_exported_only_when_components_are_declared(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The export and the grant fire on the identical condition.
+def test_install_exports_no_path_outside_the_zone(tmp_path: Path) -> None:
+    """`paths.py`'s rule, and the deleted export is why it is asserted as a set.
 
-    `paths.py` exports only paths that are granted — the four `*_root` names are
-    absent from it because they measured `EACCES`. `agent_sys/env_mgr/addons/` is
-    outside the zone, so exporting it unconditionally would reintroduce exactly
-    that: a body failing on our own instruction. `addon_grants` reads the
-    same key, so the pair cannot fall out of step.
+    The rule is that this module exports only paths the policy grants — the four
+    `*_root` names are absent from `paths.py` because they measured `EACCES`, and
+    an exported-but-ungranted path is *"the body failing on our own instruction"*.
+    ``AGENT_SYS_ADDONS_ROOT`` was the one exception, allowed because
+    `addon_grants` granted it; deleting the declaration key deleted the grant,
+    which deleted the last reason for the exception.
+
+    **A set, not a `not in`, and that is the point.** ``"AGENT_SYS_ADDONS_ROOT"
+    not in got.env`` is equally true of an `install` that exports nothing at all,
+    and it would stay green if some *other* out-of-zone name were added tomorrow.
+    Naming the whole set makes any new export fail here, and the two names it
+    does contain are the positive control that the mapping is really populated.
+
+    Both are inside the zone: `AGENT_SYS_AGENT_ASSETS` is the staged package's
+    copy and `AGENT_SYS_INSTALL_REPORT` is under `<zone>/logs`.
     """
-    shipped = tmp_path / "agent_plugins"
-    _write(shipped / "base" / ".claude" / "settings.json", "{}")
-    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
+    _write(assets / ".claude" / "skills" / "s" / "SKILL.md", "# s")
+    zone = tmp_path / "zone"
 
-    declared = install(
-        _spec(agent_plugins=["base"]), staged_package=None, config_dir=str(tmp_path / "c1")
+    got = install(
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
+        config_dir=str(zone / "config"),
+        logs_dir=str(zone / "logs"),
     )
-    assert declared.env["AGENT_SYS_ADDONS_ROOT"] == str(shipped)
 
-    plain = install(_spec(), staged_package=None, config_dir=str(tmp_path / "c2"))
-    assert "AGENT_SYS_ADDONS_ROOT" not in plain.env
-
-
-def test_the_grant_and_the_export_agree_on_the_same_condition() -> None:
-    """The other half of the pair, from `isolation/policy.py`.
-
-    Asserted together with the export above rather than in a policy test of its
-    own, because the property is a *relation between two modules* — either one
-    alone can be right while the pair is wrong.
-    """
-    from env_mgr.isolation.policy import addon_grants
-
-    assert addon_grants(_spec()) == ()
-    assert addon_grants(None) == ()
-    (granted,) = addon_grants(_spec(agent_plugins=["base"]))
-    assert granted.path == agent_assets.ADDONS_ROOT
-    assert granted.mode is Mode.READ_EXEC
+    assert set(got.env) == {"AGENT_SYS_AGENT_ASSETS", "AGENT_SYS_INSTALL_REPORT"}, got.env
+    for name, value in got.env.items():
+        assert Path(value).is_relative_to(tmp_path), f"{name} points outside the run: {value}"
 
 
 def test_a_tooldef_using_a_dataclass_imports(tmp_path: Path) -> None:
@@ -1105,7 +1102,7 @@ def test_the_recipe_timeout_is_a_parameter_with_a_stated_default() -> None:
 
 
 def test_plugin_installs_run_the_pinned_cli_and_never_the_bare_name(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_claude: FakeCli
+    tmp_path: Path, fake_claude: FakeCli
 ) -> None:
     """**Name the binary, do not search for it.**
 
@@ -1121,16 +1118,16 @@ def test_plugin_installs_run_the_pinned_cli_and_never_the_bare_name(
     nothing on `PATH` a bare name would answer rc 127 and this assertion would
     pass for the wrong reason.
     """
-    shipped = tmp_path / "agent_plugins"
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
     _write(
-        shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
+        assets / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
         json.dumps({"name": "mp", "owner": "us", "plugins": [{"name": "p1"}]}),
     )
-    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
 
     install(
-        _spec(agent_plugins=["base"]),
-        staged_package=None,
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
         config_dir=str(tmp_path / "config"),
         agent_cli=fake_claude.path,
     )
@@ -1149,8 +1146,8 @@ def test_plugin_installs_run_the_pinned_cli_and_never_the_bare_name(
     )
 
 
-def test_a_component_with_plugins_and_no_pinned_cli_fails_rather_than_guessing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_claude: FakeCli
+def test_an_agent_with_plugins_and_no_pinned_cli_fails_rather_than_guessing(
+    tmp_path: Path, fake_claude: FakeCli
 ) -> None:
     """Absent CLI: **a `fail` outcome, not a fallback and not a raise.**
 
@@ -1163,16 +1160,16 @@ def test_a_component_with_plugins_and_no_pinned_cli_fails_rather_than_guessing(
     `fake_claude` is requested so that a bare `claude` *would* have worked: this
     asserts a refusal to guess, not an absence of options.
     """
-    shipped = tmp_path / "agent_plugins"
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
     _write(
-        shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
+        assets / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
         json.dumps({"name": "mp", "owner": "us", "plugins": [{"name": "p1"}]}),
     )
-    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
 
     got = install(
-        _spec(agent_plugins=["base"]),
-        staged_package=None,
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
         config_dir=str(tmp_path / "config"),
         agent_cli=None,
     )
@@ -1394,18 +1391,18 @@ def test_a_marketplace_name_that_climbs_out_of_the_zone_copies_nothing(
     The assertion is therefore about the filesystem, not only about the outcome:
     nothing may appear at the escaped location.
     """
-    shipped = tmp_path / "agent_plugins"
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
     escape = tmp_path / "ESCAPED"
     _write(
-        shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
+        assets / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
         json.dumps({"name": "../../../ESCAPED", "owner": "us", "plugins": []}),
     )
-    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
     config = tmp_path / "deep" / "zone" / "config"
 
     got = install(
-        _spec(agent_plugins=["base"]),
-        staged_package=None,
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
         config_dir=str(config),
         agent_cli=fake_claude.path,
     )
@@ -1479,86 +1476,61 @@ def test_a_components_marketplace_never_lands_on_the_harnesss_own_name(
     placed like every other member. The `_NOT_PLACED` table states it; this is
     what keeps it true.
     """
-    shipped = tmp_path / "agent_plugins"
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
     _write(
-        shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
+        assets / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
         json.dumps({"name": "mp", "owner": "us", "plugins": []}),
     )
-    _write(shipped / "base" / ".claude" / "plugins" / "SENTINEL", "the component's own copy")
-    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
+    _write(assets / ".claude" / "plugins" / "SENTINEL", "the agent's own copy")
     config = tmp_path / "config"
 
     install(
-        _spec(agent_plugins=["base"]),
-        staged_package=None,
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
         config_dir=str(config),
         agent_cli=fake_claude.path,
     )
 
     assert (config / agent_assets.MARKETPLACES_DIRNAME / "mp" / "SENTINEL").exists()
     assert not (config / "plugins" / "SENTINEL").exists(), (
-        "the component's marketplace was copied into the directory the CLI owns"
+        "the agent's marketplace was copied into the directory the CLI owns"
     )
 
 
-def test_a_tooldef_is_imported_from_the_zone_copy_not_the_component_source(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_a_tooldef_is_imported_from_the_zone_copy_not_the_source_tree(
+    tmp_path: Path,
 ) -> None:
     """The same rule as the bundled MCP server, one function over.
 
-    For an **agent plugin** the source is
-    `agent_sys/env_mgr/addons/<name>/.claude/tools/…`, so
-    importing it read the repository rather than the copy this attempt was
-    pinned to — the bare-`claude` defect's class, two consumers with one of them
-    reading a path the run does not own. It also wrote `__pycache__` into the
-    repository during `prepare`.
+    The source is the **staged package**, which sits several directories from
+    the agent's `cwd` and is not what `CLAUDE_CONFIG_DIR` points at, so importing
+    it in place read a path the placed configuration does not describe — the
+    bare-`claude` defect's class, two consumers with one of them reading a copy
+    the run does not own. It also wrote `__pycache__` into the source tree during
+    `prepare`.
 
     Asserted through the module's own `__file__`, which is the only thing that
     can tell the two copies apart once the tools are loaded.
     """
-    shipped = tmp_path / "agent_plugins"
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
     _write(
-        shipped / "base" / ".claude" / "tools" / "t.tooldef.py",
+        assets / ".claude" / "tools" / "t.tooldef.py",
         "class T:\n    def __init__(self, name): self.name = name\nTOOLS = [T('probe')]\n",
     )
-    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
     config = tmp_path / "config"
 
-    got = install(_spec(agent_plugins=["base"]), staged_package=None, config_dir=str(config))
+    got = install(
+        _spec(assets="assets/forge.agent"), staged_package=str(pkg), config_dir=str(config)
+    )
 
     (tool,) = got.tools
     loaded = Path(sys.modules[type(tool).__module__].__file__)
     assert loaded == config / "tools" / "t.tooldef.py", loaded
-    assert not (shipped / "base" / ".claude" / "tools" / "__pycache__").exists(), (
-        "importing the source wrote __pycache__ into the agent plugins directory"
+    assert not (assets / ".claude" / "tools" / "__pycache__").exists(), (
+        "importing the source wrote __pycache__ into the staged package"
     )
-
-
-def test_two_components_shipping_tooldefs_do_not_double_register(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Why the enumeration stays on the **source** tree.
-
-    `<config>/tools/` accumulates every level's files as each is placed, so
-    listing *it* would re-import the earlier component's module under the later
-    component's name and register its tools twice. The source names exactly one
-    component's files; the placed path is only where each is read from.
-    """
-    shipped = tmp_path / "agent_plugins"
-    for name, tool in (("a", "alpha"), ("b", "beta")):
-        _write(
-            shipped / name / ".claude" / "tools" / f"{name}.tooldef.py",
-            f"class T:\n    def __init__(self, name): self.name = name\nTOOLS = [T({tool!r})]\n",
-        )
-    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
-
-    got = install(
-        _spec(agent_plugins=["a", "b"]),
-        staged_package=None,
-        config_dir=str(tmp_path / "config"),
-    )
-
-    assert sorted(t.name for t in got.tools) == ["alpha", "beta"]
 
 
 def test_a_recipe_item_runs_a_binary_reachable_only_through_base_env(
@@ -1616,7 +1588,7 @@ def test_a_recipe_item_runs_a_binary_reachable_only_through_base_env(
 
 @pytest.mark.parametrize("market", ["..", ".", "a/..", "sub/mp", "/abs", ""])
 def test_a_marketplace_name_that_is_not_a_single_directory_name_is_refused(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_claude: FakeCli, market: str
+    tmp_path: Path, fake_claude: FakeCli, market: str
 ) -> None:
     """**"Is it a single name" is a different question from "does it stay inside".**
 
@@ -1637,19 +1609,19 @@ def test_a_marketplace_name_that_is_not_a_single_directory_name_is_refused(
     parametrised here so that the two guards cannot both be removed and leave a
     hole between them.
     """
-    shipped = tmp_path / "agent_plugins"
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
     _write(
-        shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
+        assets / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
         json.dumps({"name": market, "owner": "us", "plugins": [{"name": "p1"}]}),
     )
-    _write(shipped / "base" / ".claude" / "plugins" / "SENTINEL", "component copy")
-    _write(shipped / "base" / ".claude" / "settings.json", json.dumps({"model": "m"}))
-    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
+    _write(assets / ".claude" / "plugins" / "SENTINEL", "the agent's own copy")
+    _write(assets / ".claude" / "settings.json", json.dumps({"model": "m"}))
     config = tmp_path / "config"
 
     got = install(
-        _spec(agent_plugins=["base"]),
-        staged_package=None,
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
         config_dir=str(config),
         agent_cli=fake_claude.path,
     )
@@ -1667,107 +1639,89 @@ def test_a_marketplace_name_that_is_not_a_single_directory_name_is_refused(
     assert (config / "settings.json").exists()
 
 
-def test_two_components_shipping_the_SAME_tooldef_filename_stay_separate(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The regression `99d3aea` introduced, and the case its sibling cannot see.
+def _placing_recipe(pkg: Path, *, relative: str) -> None:
+    """A package-layer recipe that writes one file into ``$CLAUDE_CONFIG_DIR``.
 
-    `test_two_components_shipping_tooldefs_do_not_double_register` uses
-    **distinct** filenames, so it is blind to this: moving the *load* to the
-    placed copy took the module name with it, and the placed path is
-    ``<config>/tools/<basename>`` — identical for every component shipping the
-    same file name.
-
-    Measured before the fix: one module name twice, the second import replacing
-    the first in `sys.modules`, and `get_type_hints` on the **first**
-    component's tool raising ``NameError: name 'AlphaArgs' is not defined``
-    because its annotations resolved against the other component's namespace.
-    Four `ok`s in the report and nothing said anything — exactly the state the
-    `sys.modules` registration exists to prevent, one component later.
-
-    `from __future__ import annotations` plus a forward-referenced annotation is
-    what makes the corruption observable; without them both modules would look
-    fine and the test would pass either way.
+    **The remaining way two writers can reach one path in the zone.** Recipes run
+    before `_install_tree` (`install`'s own order), so an add-on installed by
+    recipe — which `spec.provisioning.md` §4 says is the only way an add-on is
+    installed — can land a file that the agent's own `.claude/` tree then
+    replaces. Before the refactor the two writers were two copied trees; the
+    collision they produced is the same one, and this is how it is still driven.
     """
-    shipped = tmp_path / "agent_plugins"
-    for name, tool in (("a", "alpha"), ("b", "beta")):
-        _write(
-            shipped / name / ".claude" / "tools" / "util.tooldef.py",
-            "from __future__ import annotations\n"
-            "from dataclasses import dataclass\n"
-            f"class {tool.capitalize()}Args: pass\n"
-            "@dataclass\n"
-            "class T:\n"
-            "    name: str\n"
-            f"    args: {tool.capitalize()}Args | None = None\n"
-            f"TOOLS = [T({tool!r})]\n",
-        )
-    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
-
-    got = install(
-        _spec(agent_plugins=["a", "b"]),
-        staged_package=None,
-        config_dir=str(tmp_path / "config"),
+    _write(
+        pkg / "assets" / "main.env_recipe.yaml",
+        "version: 1\n"
+        f"target: {{kind: repo, name: t, path: {pkg}}}\n"
+        "items:\n"
+        "  - installer: embed\n"
+        "    importance: required\n"
+        "    name: place\n"
+        "    run: |\n"
+        f'      mkdir -p "$(dirname "$CLAUDE_CONFIG_DIR/{relative}")"\n'
+        f'      printf %s "# from the recipe" > "$CLAUDE_CONFIG_DIR/{relative}"\n',
     )
 
-    assert sorted(t.name for t in got.tools) == ["alpha", "beta"]
-    modules = [type(t).__module__ for t in got.tools]
-    assert len(set(modules)) == 2, f"one module name for two agent plugins: {modules}"
-    for tool in got.tools:
-        # Resolves each class's annotations through `sys.modules[__module__]`,
-        # which is the lookup that returned the wrong component's namespace.
-        assert list(get_type_hints(type(tool))) == ["name", "args"], tool.name
 
-
-def test_one_component_replacing_anothers_placed_file_is_reported(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_the_agents_own_tree_replacing_a_recipe_placed_file_is_reported(
+    tmp_path: Path,
 ) -> None:
-    """The overwrite underneath that bug, which was silent.
+    """The overwrite that used to be silent, driven the way it can still happen.
 
-    Origins install in order and `copy_out` merges, so a member two components
-    both ship ends up holding only the later one's bytes — which is how one
-    component's artefact can be absent from the zone while its own report says
-    `ok`. `_mcp_servers` already warns about this for a server *name*; it was
-    unreported for a *file*.
+    `copy_out` merges, so a member both a recipe and the agent's `.claude/` tree
+    write ends up holding only the later one's bytes — which is how an add-on's
+    artefact can be absent from the zone while its own report says `ok`. It was
+    reported for an MCP server *name* and unreported for a *file*.
 
-    Precedence is unchanged: later wins, which is the origin order's rule. Only the
-    silence changed. And the unit is a **file**: two components both shipping
-    `skills/` must not warn unless they ship the same skill.
+    Precedence is unchanged — the agent's own tree runs last and wins, which is
+    `install`'s order. Only the silence changed. And the unit is a **file**: an
+    add-on and an agent both populating `skills/` must not warn unless they
+    write the same skill, which is the control below.
     """
-    shipped = tmp_path / "agent_plugins"
-    _write(shipped / "a" / ".claude" / "skills" / "shared" / "SKILL.md", "# from a")
-    _write(shipped / "a" / ".claude" / "skills" / "only-a" / "SKILL.md", "# a only")
-    _write(shipped / "b" / ".claude" / "skills" / "shared" / "SKILL.md", "# from b")
-    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
+    _placing_recipe(pkg, relative="skills/shared/SKILL.md")
+    _write(assets / ".claude" / "skills" / "shared" / "SKILL.md", "# from the agent")
+    _write(assets / ".claude" / "skills" / "only-mine" / "SKILL.md", "# agent only")
     config = tmp_path / "config"
 
-    got = install(_spec(agent_plugins=["a", "b"]), staged_package=None, config_dir=str(config))
-
-    (warned,) = [o for o in got.report if o.level == "warn"]
-    assert "component 'b' replaces 1 already-placed file(s)" in warned.message
-    assert warned.details["files"] == [os.path.join("shared", "SKILL.md")]
-    assert (config / "skills" / "shared" / "SKILL.md").read_text() == "# from b"
-    assert (config / "skills" / "only-a" / "SKILL.md").read_text() == "# a only"
-
-
-def test_components_that_share_no_file_do_not_warn(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The control for the warning above. Two components both shipping
-    `skills/` is the ordinary case and must stay quiet — a warning that fires on
-    every second component is one nobody reads."""
-    shipped = tmp_path / "agent_plugins"
-    _write(shipped / "a" / ".claude" / "skills" / "one" / "SKILL.md", "# a")
-    _write(shipped / "b" / ".claude" / "skills" / "two" / "SKILL.md", "# b")
-    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
-
     got = install(
-        _spec(agent_plugins=["a", "b"]),
-        staged_package=None,
-        config_dir=str(tmp_path / "config"),
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
+        config_dir=str(config),
     )
 
-    assert [o.level for o in got.report] == ["ok", "ok"], got.report
+    (warned,) = [o for o in got.report if o.level == "warn"]
+    assert "the package's own assets replaces 1 already-placed file(s)" in warned.message
+    assert warned.details["files"] == [os.path.join("shared", "SKILL.md")]
+    assert (config / "skills" / "shared" / "SKILL.md").read_text() == "# from the agent"
+    assert (config / "skills" / "only-mine" / "SKILL.md").read_text() == "# agent only"
+
+
+def test_writers_that_share_no_file_do_not_warn(tmp_path: Path) -> None:
+    """The control for the warning above. A recipe and an agent both populating
+    `skills/` is the ordinary case and must stay quiet — a warning that fires on
+    every second writer is one nobody reads.
+
+    **It is a real control and not a restatement**: the recipe genuinely runs and
+    genuinely writes into the zone, asserted on disk, so the quiet verdict is
+    about the collision rule rather than about nothing having happened.
+    """
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
+    _placing_recipe(pkg, relative="skills/one/SKILL.md")
+    _write(assets / ".claude" / "skills" / "two" / "SKILL.md", "# b")
+    config = tmp_path / "config"
+
+    got = install(
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
+        config_dir=str(config),
+    )
+
+    assert (config / "skills" / "one" / "SKILL.md").read_text() == "# from the recipe"
+    assert (config / "skills" / "two" / "SKILL.md").exists()
+    assert "warn" not in _levels(got.report), got.report
 
 
 @pytest.mark.parametrize("where", ["toplevel.txt", "nested/inner.txt"])

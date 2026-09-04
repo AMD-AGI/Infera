@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import Any, NamedTuple
+from typing import NamedTuple
 
 from env_mgr.fs.path import contained, resolve_strict
 from env_mgr.fs.zone import Zone
@@ -28,7 +28,6 @@ __all__ = [
     "Policy",
     "agent_cli_grants",
     "anchor_zone_root",
-    "addon_grants",
     "executable_path",
     "interpreter_grants",
 ]
@@ -180,59 +179,6 @@ def agent_cli_grants(agent_cli: str | None) -> tuple[Granted, ...]:
             f"rather than discovered on purpose — see `Context.agent_cli`."
         )
     return (Granted(os.path.dirname(os.path.dirname(resolved)), Mode.READ_EXEC),)
-
-
-def addon_grants(agent_spec: Any) -> tuple[Granted, ...]:
-    """`agent_sys/env_mgr/addons/`, read-only, **iff this agent declares any.**
-
-    `agent_cli_grants`' shape and its reason, one row down: *a grant every run
-    needs, written once per caller, is a grant one caller forgets.* This one is
-    needed by every run whose agent names an agent plugin, and by no other.
-
-    **Conditional, and the condition is the same one that exports the name.**
-    `agent_assets.install` emits ``AGENT_SYS_ADDONS_ROOT`` under
-    ``if _sequence(agent_spec, "agent_plugins")`` and this emits the grant under the
-    identical test, so `paths.py`'s rule — exported and granted agree by
-    construction — cannot be broken by one of the two becoming unconditional. A
-    run declaring no component gets neither, which is every package in the tree
-    but one.
-
-    **`READ_EXEC`, not `READ_WRITE`, and read is the ceiling on purpose.** A
-    component is *read* from here and **every member of its `.claude/` tree is
-    copied into the zone** before anything names it —
-    `agent_assets._place_tree`, whose rule is *place by default* with three
-    named exceptions, each of which is a read or a relocation. A marketplace is
-    copied before it is registered (probe F, ``claude`` 2.1.246), and a bundled MCP server is
-    launched from its **placed** path under the supervisor's own interpreter.
-
-    **That clause used to say less than it appeared to.** It read *"skills are
-    copied … and a bundled MCP server is launched by absolute path"*, which is
-    true of the launch and quietly silent about the copy — and at the time
-    `hooks/` and `servers/` were copied by nothing, so a component's server was
-    reported installed and its file was not there (`reviewer`, 2026-09-03). A
-    docstring asserting a copy nobody looked for is this repository's own
-    standing obligation turned inward.
-
-    If something ever has to execute out of this directory the answer is to copy
-    that component into the zone as well, not to widen this.
-
-    Returns `()` for a spec that is `None` or declares nothing, so the caller
-    composes it unconditionally and never branches.
-    """
-    if agent_spec is None:
-        return ()
-    declared = agent_spec.get("agent_plugins") if isinstance(agent_spec, dict) else None
-    if declared is None:
-        declared = getattr(agent_spec, "agent_plugins", None)
-    if not declared:
-        return ()
-    # Imported at use time rather than at module scope: `env_mgr.agent_assets`
-    # is above this package in the graph and importing it here would be an edge
-    # from `isolation/` to a module that reads agent specs. The name is the
-    # dependency (`engineer_principle.md` §1's last row).
-    from env_mgr.agent_assets import ADDONS_ROOT  # noqa: PLC0415
-
-    return (Granted(ADDONS_ROOT, Mode.READ_EXEC, optional=True),)
 
 
 def anchor_zone_root(proposed: str | None, zone: Zone) -> str:

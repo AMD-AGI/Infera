@@ -57,7 +57,6 @@ from env_mgr.isolation.policy import (
     Mode,
     Policy,
     agent_cli_grants,
-    addon_grants,
     executable_path,
 )
 from env_mgr.isolation.probe import Availability, probe, select
@@ -426,12 +425,14 @@ def prepare(
         *grants.resolve_all(task, execution, ctx, enforce=enforcing),  # 2
         *ctx.interpreter_grants,  # 3
         *agent_cli_grants(ctx.agent_cli),
-        # **Conditional, and paired with an export.** `agent_assets` emits
-        # `AGENT_SYS_ADDONS_ROOT` under the same test, so `paths.py`'s rule —
-        # exported and granted agree by construction — holds without either side
-        # checking the other. Read-only: a component is read from here and copied
-        # into the zone before anything runs it.
-        *addon_grants(agent_spec),
+        # **Nothing grants `env_mgr/addons/` and nothing needs to.** A read grant
+        # on it used to sit here, paired with an exported `AGENT_SYS_ADDONS_ROOT`
+        # so that `paths.py`'s rule — exported and granted agree by construction —
+        # kept holding. Both went with the `agent_plugins:` key
+        # (`spec.provisioning.md` §4): an add-on is installed by a recipe, which
+        # runs unconfined at step 6b and copies what it needs into the zone, so
+        # the confined body never reaches back out. This was the only grant on a
+        # path outside the zone that a task could cause to exist.
     )
 
     # 4. **No `repos` is passed, and that is a gap rather than a decision.**

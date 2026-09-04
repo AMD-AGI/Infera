@@ -1,4 +1,4 @@
-# `envchk-baseline` — one external MCP server, as an agent plugin
+# `envchk-baseline` — one stdio MCP server, shipped as an add-on
 
 ## What an agent gets
 
@@ -29,8 +29,14 @@ full and closes it for this component by re-running the server itself.
 One `python3` subprocess for the life of the session. No network, no wheel, no
 `pip install`: the server speaks JSON-RPC over stdin/stdout out of the standard
 library, so it starts in milliseconds and cannot fail on a package index being
-unreachable. There is no `recipe.yaml` beside `.claude/` for the same reason —
-there is nothing to install first.
+unreachable.
+
+**Installing it is one `cp`**, and a recipe does it —
+`examples/env_checker/assets/main.env_recipe.yaml`, an `embed` item that locates
+this directory by importing `env_mgr` and copies `servers/envchk_baseline_server.py`
+into `$CLAUDE_CONFIG_DIR/servers/`. The item is `required`, because the agent's
+`.mcp.json` names that exact path and a missing server is reported by Claude Code
+as a server with **no tools** rather than as an error.
 
 ## What it does not do
 
@@ -46,18 +52,25 @@ there is nothing to install first.
   turn a diagnosable mismatch into an MCP server that reports no tools, which is
   the harder of the two to read.
 
-## Why "external"
+## Who declares it, and why not this directory
 
-**"External" names the declaration route, not the vendor.** This server reaches
-the session through `.claude/.mcp.json` → `Prepared.mcp_servers` →
-`ClaudeAgentOptions.mcp_servers`, which is the same route
-`npx -y @modelcontextprotocol/server-filesystem` would take and a different one
-from `.claude/tools/*.mcp.py`, where the file's location is the declaration.
+**The declaration lives with the agent, not with the payload.** This server
+reaches a session through the *agent's own* `.claude/.mcp.json` →
+`Prepared.mcp_servers` → `ClaudeAgentOptions.mcp_servers`, which is the route
+`spec.provisioning.md` §5 assigns to every stdio server: the harness spawns it,
+so the harness has to be told about it in a file it reads.
+
+There used to be a copy of that entry in `.claude/.mcp.json` **here**, reached by
+an `agent_plugins: [envchk-baseline]` key. Both are gone. What is left in this
+directory is the payload and nothing that configures anything —
+`examples/env_checker/assets/env_probe.agent/.claude/.mcp.json` is the one
+declaration.
+
 Shipping the server ourselves is what makes a run of `examples/env_checker`
 hermetic — no registry, no network, nothing to be unavailable on the day — and
 it changes nothing about the route being exercised.
 
-## The path in `.mcp.json`
+## The path the declaration names
 
 ```json
 "type": "stdio",
@@ -70,26 +83,18 @@ entry shape measured working through `ClaudeAgentOptions.mcp_servers` on
 and a component is not the place to rely on a default that a probe did not
 cover.
 
-`${CLAUDE_CONFIG_DIR}` and not an absolute path, because
-`.claude/servers/envchk_baseline_server.py` is **copied into the zone** before
-the server is started, and `env_mgr` has already pointed that variable at the
-zone's `config/` (`env_mgr/material.py`). An absolute path here would work on
-the machine it was written on and fail on the next one **as a server with no
-tools rather than as an error**, which is the failure mode this whole example
-package exists to make impossible.
+`${CLAUDE_CONFIG_DIR}` and not an absolute path, because the recipe **copies**
+`servers/envchk_baseline_server.py` into the zone before the server is started,
+and `env_mgr` has already pointed that variable at the zone's `config/`
+(`env_mgr/material.py`). An absolute path here would work on the machine it was
+written on and fail on the next one **as a server with no tools rather than as
+an error**, which is the failure mode this whole example package exists to make
+impossible.
 
-**Copying is the default, not a special case for `servers/`.**
-`env_mgr/agent_assets.py::_place_tree` copies every member of a `.claude/` tree
-into the zone config directory except a closed set — and the three exceptions
-are *read* or *relocated*, never skipped:
-
-| member | what happens to it | so |
-|---|---|---|
-| `settings.json` | **read and merged** into the zone's own | it does not land as a file of yours |
-| `.mcp.json` | **read**, `${VAR}` expanded against the zone environment, entries handed to `Prepared.mcp_servers` | likewise — and this is why an unresolved `${VAR}` is an error rather than a literal |
-| `plugins/` | **relocated** to `<config>/marketplaces/`, because `claude plugin install` writes `<config>/plugins/` itself and a component's source marketplace on that name is a collision | probe A |
-| everything else — `servers/`, `hooks/`, `skills/`, `tools/` | **copied** as-is | the path a `${CLAUDE_CONFIG_DIR}`-relative reference names is there |
-
-So this component's `.mcp.json` never becomes a file in the zone, and the server
-it names does. Both halves matter: the first is why the entry is data rather
-than a path to a config file, and the second is why the path in it resolves.
+**The variable is what makes the recipe and the declaration agree.** Both name
+`$CLAUDE_CONFIG_DIR/servers/envchk_baseline_server.py` — the recipe as the
+destination of its `cp`, the agent's `.mcp.json` as the argument of its
+`python3`. Two writers of one path is the risk, and the variable is what keeps
+them from drifting onto two different machines' answers; the item being
+`required` is what turns a mismatch into a named failure instead of a silent
+one.
