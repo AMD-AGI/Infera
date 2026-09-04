@@ -4601,3 +4601,229 @@ Three, all `2026-09-04`, all signed off, all with explicit pathspecs.
   that does not.
 - The owner has checked out a new branch and pushed round 1 themselves; round 1
   needs nothing further from us. Lead-reported; not verified by me.
+
+---
+
+## T+66 — 2026-09-04 07:20 UTC
+
+**The block broke.** Five of the eight decisions A–H are settled, one of them by
+being withdrawn as the lead's own error. This is the first window of the round in
+which the constraint on progress was not "waiting on the owner".
+
+### 1. Progress
+
+**Effort: ~12 %.** Elapsed 66 minutes. Estimated remaining: unknown, but for the
+first time this round the *uncertainty* has moved rather than the *number*.
+
+| workstream | est. % | basis |
+|---|---|---|
+| review comments gathered and read | **100 %** | unchanged |
+| research (both researchers) | **100 % of what was asked** | unchanged; 1,488 lines on disk |
+| decisions A–H | **5 of 8** | (C)(E)(F) ruled, (G) withdrawn, (H) returned to the lead and made. **(A)(B)(D) open** |
+| task book (`CLAUDE.md`) for this round | **100 %** | measured: `diff -q` against the backup now reports **DIFFERENT**; new file 8,646 bytes, mtime 07:04. I read its first 30 lines |
+| plan | **100 % exists** | `PLAN.md`, 6.4 kB, 06:29, at the workspace root. I confirmed the file; I did not read it |
+| docs / spec / bug records | **5 items** | 4 commits now: `engineer_principle.md`, `TODO.md` 4g+4h, `spec.md` §9.1, and the 134-line bug record |
+| probe: `_present_names` | **complete, with an open tail** | `probe_claude_plugin_list/README.md` read in full — verdict reached, three candidate fixes still tied |
+| **production code for this round** | **~0 %, measured** | `git status --short` names **three untracked files and nothing else**. No shipped source file has changed. `bc1a284`'s test fix remains the only repo change from a researcher |
+| PR 155 comments answered on GitHub | **0 % observable** | not checked this window either |
+
+**Reliability: still low on the number, but the *kind* of doubt has changed and
+that is the reportable event.** At T+39 I could not size the work because five
+decisions were unmade. Now three of the five turned out to cost little — (F) in
+particular resolves to *use a mechanism that already ships* (§2) — and only (A)
+gates the shipped tree. **That is a change in confidence, not progress**, and I
+am stating it as the lead asked rather than converting it into percentage points.
+7 % → 12 % reflects four commits and five decisions, not a line of the change set.
+
+The honest summary of 66 minutes: **the round has finished deciding what to build
+and has not started building it.**
+
+### 2. Current state
+
+Branch `dev.yihou.aiopt.task_with_agent_config`, HEAD **`30e958b`** (was `c136d1c`).
+
+`git status --short` — **three untracked entries, nothing modified, nothing
+staged**:
+
+```
+?? CLAUDE.envchecker.20260904-0614.md.bak
+?? CLAUDE.kernel_opt.20260903-0813.md.bak
+?? progress.bar.for.user.md
+```
+
+The `MM` hazard on my own file is gone and has not returned.
+
+**`CLAUDE.md` has been replaced — the T+2/T+39 open window is closed.** Verified
+by me: `diff -q CLAUDE.md CLAUDE.envchecker.20260904-0614.md.bak` now reports the
+files **differ**; the new book is 8,646 bytes at 07:04 and opens
+*"# Task — act on PR 155's review: remove the parallel concept, keep one
+mechanism"*. It states the branch, **16 review comments** with the parenthetical
+*"count verified against the API, not remembered — an earlier claim of 15 was
+wrong"*, and names the gap as the task: *"the review and the principle now agree
+and the code does not."* The closing condition I recorded at T+39 — *closed when
+the plan lands* — was met; `PLAN.md` is dated 06:29 and the book 07:04, in that
+order.
+
+**Scratch workspace** — one new top-level directory since T+39:
+
+| path | size | mtime |
+|---|---|---|
+| `PLAN.md` | 6.4 kB | 06:29 |
+| `probe_claude_plugin_list/` | — | 06:58 |
+| `probe_claude_plugin_list/README.md` | 6.6 kB | 06:59 |
+| `research/*` (4 md + broken yaml) | 1,488 lines | unchanged, 06:19–06:36 |
+| `logs/poll_notes.md` | 11 kB | 06:53 |
+| `scratch/` | **still empty** | 06:14 |
+
+**Teammates — all three stood down or idle, none blocked on each other.**
+`researcher-core` was **stood down cleanly at ~07:01** with a handoff:
+`bc1a284` its only repo change, `core.md` + `core-changeset.md` apply-ready, the
+probe README carrying the verdict. *Nothing speculative was started in the
+shipped tree* — which `git status` corroborates, since it is clean. `researcher-pkg`
+and I are idle.
+
+**The `tags` measurement — I verified all four sites myself**, because it decides
+whether (F) is a change or a declaration:
+
+| site | what I read |
+|---|---|
+| `agent_sys/env_mgr/recipe.py:18` | `_CLI_KEYS = {"installer", "importance", "layer", "tags", "version"}` — so `tags` is excluded from `Item.spec` and cannot reach an installer |
+| `agent_sys/env_mgr/recipe.py:38` | `tags: list[str] = field(default_factory=list)` on `Item` |
+| `agent_sys/env_mgr/cli.py:29` | `s.add_argument("--tag", action="append", default=[], dest="tags")` |
+| `agent_sys/env_mgr/runner.py:34` | `if filters.tags and not (set(filters.tags) & set(it.tags)): continue` |
+
+**Selection by tag intersection already runs.** The owner's *"作为一个 tag 或者
+独立的 key"* resolves to **tag, at zero schema cost**, and `env-mgr install --tag
+internal` works today. This is the one thing in this section I did not take on
+report — the lead measured it first and I re-read the same four lines.
+
+### 3. Code problems — fixed / not fixed
+
+**Fixed this window: none.** No source file changed.
+
+**Documented this window — one, and it is a defect record, not a repair:**
+
+- `agent_sys/env_mgr/installers/claude.py::_present_names` — `30e958b` adds a
+  134-line bug record. Root cause as recorded: **two green tests on a format the
+  CLI does not produce**, plus a second wrongness around disabled plugins. The
+  three candidate fixes are recorded as an **open tie**, not a resolution. Repair
+  still blocked by decision (A).
+
+**Not fixed — carried unchanged:** the 16 review comments; `env_mgr/layer.py`'s
+false docstring; criterion 22's byte-identity pin over the whole `installers/`
+directory.
+
+### 4. Non-code problems
+
+- **A convention the lead checked rather than assumed, and it is the kind that
+  bites silently.** `temp/` is gitignored — I confirmed it at `.gitignore:50`,
+  alongside `CLAUDE.md` — **yet all five existing bug records are tracked.** So
+  bug records are force-added, and anyone who writes one and trusts `git status`
+  will believe it is committed when it is not. `30e958b` did force-add.
+- **Five consecutive empty poll ticks were recorded before the block broke.** The
+  lead put three options to the owner at 07:01 — decide, pause the cadences, or
+  keep recording empties — and **did not act unilaterally**, on the grounds that
+  the cadences are a mechanism the owner asked for. Recording the restraint as
+  well as the emptiness: the alternative, silently pausing an instrument because
+  it keeps reporting nothing, is how an instrument stops being one.
+- **The `system` layer's first real member is PR 154's `agentsview`**, which
+  deepens a dependency `TODO.md` 4h already carries. Two of this round's items now
+  wait on 154 rather than one.
+- The `CLAUDE.md` window from T+2/T+39 is **closed** (§2). The two stale `.bak`
+  files and the stale progress bar remain untracked at the repo root, unchanged.
+
+### 5. Open questions, not yet characterised
+
+**Suspend, don't conclude.**
+
+- **(A), (B), (D) remain open and are now the only block.** The owner asked for
+  all three to be *explained concretely* rather than ruled on, and the lead reports
+  having done so. (A) is the byte-identity pin; (B) is `sglang.repo.yaml` having no
+  honest level; (D) is the level having no runtime reader. I have not read the
+  three explanations.
+- **The three candidate `_present_names` fixes tie on all four real inputs**, and
+  the probe README says so in its own words: the case that would separate `fix_b`
+  from `fix_c` is a metadata line containing an `@`, *"no such line was observed in
+  any capture, and I did not construct one"*. **Recorded as open by its author** —
+  which is the right disposition and worth noting as such, because constructing
+  the input would have produced a tidier verdict resting on a fabricated sample.
+- Whether the research artefacts *answer* the owner. Unchanged from T+39: I have
+  read structure, not arguments.
+- `import httpx2` — still uninvestigated, three windows running.
+- Whether PR 155 has a 17th comment or any reply. Still not checked.
+- `PLAN.md` exists and I have not read it. Its 6.4 kB is the closest thing to a
+  denominator this round has, and I am not quoting a number out of a file I have
+  only stat'd.
+
+### 6. New commits
+
+One since T+39.
+
+- **`30e958b`** 07:00 — `docs(bugs): the claude plugin check cannot pass, and its
+  tests keep it that way`. One file, **+134**, under
+  `examples/.../temp/bugs/`, force-added past `.gitignore:50`. Records the root
+  cause (two green tests on a format the CLI never produces), the disabled-plugin
+  second wrongness, the measurement provenance, and the three-candidate tie as
+  **open**.
+
+`c136d1c` (my T+39 checkpoint) is now one commit behind HEAD and was verified by
+the lead: 1425 insertions / 0 deletions, one file, signed off.
+
+### 7. Anything else worth recording
+
+- **Five owner rulings, quoted, because this is the round's turning point.**
+  - **(C) RULED** — *"system 层就是个概念层，保留，可以为空，也可以像 pr 154 那样，
+    声明一个 agent_sys 的依赖，在 env_mgr 启动时，检查不存在就安装。"* So `system`
+    is agent_sys's own dependencies, checked at env_mgr startup, installed if
+    absent.
+  - **(E) RULED** — *"可以放在 asset 里."* Discovery scoped to `assets/`.
+  - **(F) RULED, and it reshapes the round** — *"component 文件夹放的是 agent_sys
+    自己定义的一些环境依赖，主要是 ai agent 的 plugins。比如 tools、hook。L2 不该
+    存在，而是在 recipe 里声明来源是内部，作为一个 tag 或者独立的 key. components
+    名字也换一下，叫这个和语义不太一致。"* No L2 level; internal origin declared as
+    a tag; the directory renamed.
+  - **(G) DISSOLVED by (F)** — see the correction below.
+  - **(H) RETURNED** — *"为什么要问我。"*
+- **Three corrections the lead issued against themselves, recorded as corrections
+  and attributed to them.**
+  1. **(G) was their error and the owner caught it.** They had written that
+     removing L2 leaves `env_checker` proving *six* routes not seven. The owner:
+     *"啊？根据 F 的解答，不矛盾吧."* Correct — removing the **level** does not
+     remove the **route**; the material still exists and is still installed, only
+     the declaration moves from a `components:` key to a tag. **Seven capabilities
+     remain seven.** (G) is **withdrawn, not resolved** — the distinction matters,
+     because a withdrawn item leaves no residue and a resolved one does.
+  2. **(H) should never have reached the owner.** *"为什么要问我"* is recorded by
+     the lead as a fair rebuke: a design choice with measured evidence on both
+     sides and no user-facing consequence is exactly the routine judgement call
+     they are meant to make. Now made — keep our own `.mcp.json`, because the
+     official plugin has no `--project` and `--project` has no env-var equivalent
+     (`grep -c "envvar=" serena/cli.py` → **0**) — and swap `HOME` → `SERENA_HOME`.
+     **Escalating it cost the owner a decision slot for nothing.**
+  3. **Their (C) finding was true and its sentence was too broad.** They had
+     reported that *under system = OS-provided, we do not declare it*, no recipe
+     item can be `system`. That holds **under that definition** — and they had
+     treated their own definition as the only one available. The owner supplied a
+     different one under which the level has members. **The measurement was not
+     wrong; the sentence built on it was broader than what had been checked** —
+     which is a species already in this round's record, now recurring in a new
+     place.
+- **The probe's own discipline is worth keeping.** `probe_claude_plugin_list/README.md`,
+  which I read in full, labels `populated2.tty.stdout` **`DECOY — do not build on
+  it`** and states why: `base.py:31` uses `capture_output=True`, so the CLI never
+  sees a tty in production, and the tty form differs in ANSI escapes, line endings
+  and a trailing blob. It also states *how* the real captures were taken —
+  `claude plugin list > <file>` — with the reason spelled out: *"a reader should
+  not have to infer this from the absence of escape codes."* Provenance is given
+  as `claude` **2.1.246** at `/home/yihou/.local/bin/claude`, resolved via `PATH`
+  because `base.py:31` uses `shell=True`, **explicitly not the SDK bundle** — which
+  is last round's probe-provenance lesson applied without being asked. The README
+  further claims `~/.claude/plugins` hashed identically before and after every
+  probe; I read that claim, I did not re-run the hash.
+- **`populated.stdout` is marked NON-DISCRIMINATING by its own author** — one
+  entry cannot distinguish a per-entry bullet from a selection cursor — and round 2
+  went and got a three-plugin sample to settle it. A sample retired for being
+  unable to discriminate, rather than kept because it produced an answer, is the
+  same instinct this file has been tracking all round.
+- The owner has pushed round 1 onto a new branch themselves; the new `CLAUDE.md`
+  states *"nothing further is owed to it."*
