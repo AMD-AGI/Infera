@@ -31,6 +31,8 @@ liked: `require_served_name_not_a_path`, `require_mode_readback`,
 
 from __future__ import annotations
 
+import contextlib
+import io
 import os
 import re
 import shutil
@@ -126,6 +128,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 import schema as schema_lib  # noqa: E402 — the path insert above is what makes it importable
 import zone  # noqa: E402
+import workset_io  # noqa: E402 — for `write_report`, the shared one; see main()
 
 #: A markdown fence, opening or closing.
 FENCE = re.compile(r"\A\s*(?:```|~~~)")
@@ -732,25 +735,68 @@ def main() -> int:
     except Exception as exc:
         # A layout this body cannot read is not a kit that passes. Refusing every
         # input is the only honest verdict, and it names the file.
+        #
+        # **The crash half of the report's crash/refusal split.** This is an
+        # instrument failure, not a judgement about any kit, and the report says
+        # so — otherwise a reader finds every input refused and looks for what
+        # was wrong with the artefacts.
         print(f"check_deploy_kit: cannot load layout {path}: {exc}", file=sys.stderr)
+        _report({hid: ([f"CRASH: cannot load layout {path}: {exc}"], []) for hid in zone.inputs()})
         zone.write_verdict({hid: False for hid in zone.inputs()})
         return 1
 
     results: dict[str, bool] = {}
+    findings: dict[str, tuple[list[str], list[str]]] = {}
     for hid in zone.inputs():
         content = zone.content_of(hid)
         if content is None:
             results[hid] = False
+            findings[hid] = (["no staged content"], [])
             print(f"check_deploy_kit: {hid}: no staged content")
             continue
-        faults, why = check_kit(content, layout)
+        # **The notes this validator prints are the ones worth keeping**, and
+        # they are the ones a zone loses: the replayed-kit skip, `on_absent`,
+        # every "checked X, not Y" that explains a *pass*. `check_entry` and
+        # `check_invariant` print them directly, so they are captured here rather
+        # than by threading a return value through six functions — and they are
+        # still echoed, so a person watching the run sees exactly what they did.
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            faults, why = check_kit(content, layout)
+        captured = buffer.getvalue()
+        sys.stdout.write(captured)
+        notes = [why] + [line.strip() for line in captured.splitlines() if line.strip()]
         results[hid] = not faults
+        findings[hid] = (faults, notes)
         print(f"check_deploy_kit: {hid}: {why}")
         for fault in faults:
             print(f"check_deploy_kit: {hid}: FAIL: {fault}")
+    # **Before `write_verdict`, deliberately** — m3's third property. A crash in
+    # the writer must not be able to take the reasons with it, and the verdict is
+    # the thing the phase reads, so it goes last.
+    _report(findings)
     zone.write_verdict(results)
     print(f"check_deploy_kit: {results}")
     return 0
+
+
+def _report(findings: dict[str, tuple[list[str], list[str]]]) -> None:
+    """`workset_io.write_report`, and **never a second implementation of it.**
+
+    Six owners each met "a verdict without its reasons" and six fixed it in their
+    own stage; m3 wrote the shared one and m4 was the first to reuse rather than
+    re-derive. This is the seventh instance and the second reuse — measured on
+    2026-09-04, when `check_deploy_kit` refused a kit on 047 and its zone held no
+    report, so the cause had to be inferred from `docker images`.
+
+    Wrapped only so that a failure to write the report cannot fail the
+    validation: the report is evidence *about* a verdict and must never become a
+    reason there is none.
+    """
+    try:
+        workset_io.write_report("check_deploy_kit", findings)
+    except Exception as exc:  # noqa: BLE001 — see the docstring
+        print(f"check_deploy_kit: could not write the validator report: {exc}", file=sys.stderr)
 
 
 if __name__ == "__main__":
