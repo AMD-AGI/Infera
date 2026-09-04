@@ -27,6 +27,52 @@
 set -eu
 PKG="${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one of these}}"
 
+# --------------------------------------------------------------------------- #
+# **Keep this body's output, because the runner only keeps it when we fail.**
+#
+# Measured across five failures on 2026-09-04: a body that exits **non-zero**
+# has its stdout captured into the `output_absent` event's `detail`, and we
+# have read real causes out of it. A body that exits **0** has its output
+# discarded entirely — which is precisely the case where something went wrong
+# quietly, and it is the case that cost the 047 investigation two runs and most
+# of an hour. The reason existed; nothing kept it.
+#
+# The three properties are `dff2bcb`'s, which earned them on the validator side
+# within an hour and which m1 and m4 have since adopted:
+#
+# * **written always**, not only on failure — a body that succeeds while doing
+#   only part of its work looks identical to one that succeeded, and the log is
+#   the only thing that distinguishes them;
+# * **written before anything that can fail**, so a crash cannot take the
+#   record with it — this is the first statement after `PKG`;
+# * **`tee`, not a redirect**, so the runner's own capture keeps working. This
+#   adds a reader; it removes none.
+#
+# POSIX, because `/bin/sh` here is dash: no `pipefail` and no process
+# substitution, so the body re-execs itself once through `tee` and carries its
+# real exit status out through a temp file. `E2E_BODY_LOG_ACTIVE` is what stops
+# that being a fork bomb, and it is exported so the child sees it.
+if [ -z "${E2E_BODY_LOG_ACTIVE:-}" ]; then
+  _dir="$(pwd)"
+  [ -d "$_dir/logs" ] && _dir="$_dir/logs"
+  _log="$_dir/build_workset.body.log"
+  _st="$(mktemp 2>/dev/null || echo /tmp/m3_body_status.$$)"
+  E2E_BODY_LOG_ACTIVE=1
+  export E2E_BODY_LOG_ACTIVE
+  # **`set +e` inside the braces**, and this file already warned me: the
+  # comment twenty lines down says *"under `set -e` a simple command exiting
+  # non-zero kills the script before the assignment runs"*. Written without
+  # it, a body exiting 7 produced a wrapper exiting 2 — the subshell died
+  # before `echo $?` and `_rc` was empty. The pipeline puts these braces in
+  # a subshell, so the relaxation cannot leak back into the real body.
+  { set +e; /bin/sh "$0" "$@" 2>&1; echo $? > "$_st"; } | tee -a "$_log"
+  _rc="$(cat "$_st" 2>/dev/null || echo 1)"
+  rm -f "$_st"
+  echo "build_workset: body output kept at $_log (exit ${_rc})" >&2
+  exit "${_rc}"
+fi
+
+
 # `|| rc=$?` and not `; rc=$?`: under `set -e` a simple command exiting non-zero
 # kills the script before the assignment runs, so the branch below is never
 # reached and a real-mode task dies with the mock's status. A `||` puts it in a
