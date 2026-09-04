@@ -31,10 +31,12 @@
       "properties": {
         "node": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "The host the deployment ran ON, as the scheduler names it (crsuse2-m2m-006). Not an address: node_ip may change or be absent, this may not."
         },
         "node_ip": {
-          "type": "string"
+          "type": "string",
+          "description": "The routable address of `node`. Present so a consumer on ANOTHER host can reach the deployment; a consumer on the same host does not need it."
         },
         "gpu_arch": {
           "type": "string",
@@ -48,7 +50,8 @@
         },
         "image": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "The image REFERENCE used, tag included (infera/engine-sglang:test-local). A tag is not an identity -- it is re-pointed in place, and two nodes carried different images under the same tag today. image_id is the identity; this field records what was asked for."
         },
         "image_id": {
           "type": "string",
@@ -63,13 +66,16 @@
           "description": "Path to the Dockerfile *inside this handoff*, or null when the image was pulled rather than built. A path outside the handoff is a path that will not exist for the reproducer."
         },
         "rocm": {
-          "type": "string"
+          "type": "string",
+          "description": "ROCm version as reported INSIDE the container. Compared across stages as a warning, never a refusal: a mismatch changes numbers but does not invalidate them."
         },
         "driver": {
-          "type": "string"
+          "type": "string",
+          "description": "Kernel driver version on the HOST. Not settable from inside a container, so a mismatch here means a different node, not a different image."
         },
         "torch": {
-          "type": "string"
+          "type": "string",
+          "description": "torch version inside the container, as `torch.__version__` prints it. Warning-level like rocm."
         },
         "model_name": {
           "type": "string",
@@ -78,14 +84,17 @@
         },
         "model_path": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "The path the engine LOADED FROM, as the container saw it. Mounted read-only, and identity-mapped, so the same string resolves on host and inside."
         },
         "served_model_name": {
-          "type": "string"
+          "type": "string",
+          "description": "The name the ENDPOINT answers to, which the request body must carry. Frequently not equal to model_name -- a deployment may serve `Qwen/Qwen3.6-27B` under the name `default`."
         },
         "tp_size": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "Tensor-parallel degree the engine was STARTED with. Distinct from gpu_count (cards on the node) and from len(gpu_devices) (cards this deployment took), though tp_size == len(gpu_devices) in every deployment seen so far."
         },
         "deploy_mode": {
           "type": "string",
@@ -93,11 +102,13 @@
             "mix",
             "pd",
             "1p1d"
-          ]
+          ],
+          "description": "How the engine was brought up (sglang, vllm, ...). Records WHAT was run, so a consumer can tell whether an engine-specific flag or log format applies."
         },
         "context_length": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "The context window the engine was started with. A measurement at a shape longer than this did not run the shape it claims."
         },
         "scripts": {
           "type": "object",
@@ -120,7 +131,8 @@
                 "type": "string"
               }
             }
-          }
+          },
+          "description": "Where the entrypoints that produced this deployment live, and at what commit. The provenance of the RUN, not of the artefact -- so a later reader can re-run the same bring-up rather than reconstruct it."
         },
         "gpu_devices": {
           "type": "array",
@@ -144,7 +156,8 @@
       ],
       "properties": {
         "slurm_jobid": {
-          "type": "string"
+          "type": "string",
+          "description": "The hold under which this ran. Recorded because a cancelled hold does NOT reclaim the containers -- they belong to the host daemon -- so this identifies the hold, not the lifetime of what it started."
         },
         "container": {
           "type": "string",
@@ -157,11 +170,13 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 65535
-          }
+          },
+          "description": "Host ports this deployment BOUND. Host-wide on a shared box, so these are the numbers a co-tenant would collide with, and the ones a leak probe can read without matching itself."
         },
         "endpoint": {
           "type": "string",
-          "pattern": "^https?://"
+          "pattern": "^https?://",
+          "description": "The URL a CONSUMER ON ANOTHER HOST uses. Must be built from node_ip, never from 127.0.0.1 or localhost: a loopback address is correct for the producer and useless to every consumer, and both forms pass every check that only asks for a string. NOT YET ENFORCED -- see todo."
         },
         "transport": {
           "type": "string",
@@ -169,14 +184,17 @@
             "spur",
             "srun",
             "local"
-          ]
+          ],
+          "description": "How a caller reaches `node` to act on this deployment (spur, ssh, local). The endpoint says where the service is; this says how to get to the machine at all."
         },
         "started_at": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "description": "When the CONTAINER started, RFC3339, read from `docker inspect -f '{{.State.StartedAt}}'` -- NOT when the agent decided to write the record, and NOT when the service became ready. Read it, do not compose it: an agent-written value has been 34 min early and 5 min late on two runs with zero restarts, and both validated. Readiness is a different fact; if a consumer needs it, it needs its own field."
         },
         "notes": {
-          "type": "string"
+          "type": "string",
+          "description": "Free text for a human. Nothing may parse this -- anything a consumer must read gets its own field."
         }
       }
     },
