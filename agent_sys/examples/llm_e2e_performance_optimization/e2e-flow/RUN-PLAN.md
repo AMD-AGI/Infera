@@ -149,16 +149,44 @@ python3 -m agent_sys.cli.main run \
   --var m3_agent=runner --var m4_agent=runner --var m5_agent=runner \
   --var expect_ranks=<the kit's tp_size> \
   --var adhoc_cases=0 \
+  --var measure_gpu=<a card nodeprobe reports free> \
   --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR
 ```
 
-**Four things about it that are easy to get wrong and each cost a run once:**
+**Five things about it that are easy to get wrong and each cost a run once:**
 
-- **`m2_agent=runner` is absent, and that absence is the promotion.** A rung is
-  promoted by *removing* a var, so a rung-2 command that still carries it is a
-  rung-1 command that looks like a rung-2 command and will report a clean mock.
+- **`m2` is absent from `mock_stages`, and *that* absence is the promotion — not
+  an agent var.** This bullet used to say *"`m2_agent=runner` is absent, and that
+  absence is the promotion"*, **which was false**: `grep -rn m2_agent` finds it
+  in no yaml at all. m2's three closures are `agent: runner` **literally**
+  (`steps/m2_profiling.yaml:285,302,329`), never `${m2_agent:-…}`, because this
+  stage has no `kind: ai` body to swap — m1, m3, m4 and m5 each do, which is
+  where the pattern comes from. `RUN-PLAN.md:1139` had it right all along and
+  this section contradicted it; the wrong copy was the one in the paste-from
+  block. Found while auditing this stage for the promotion question.
+
+  Two live launch lines here (`:612`, `:984`) still pass `--var m2_agent=runner`.
+  **Both are correct anyway**, because each also names m2 in `mock_stages`
+  (`all` and `m2,m3,m4,m5`) — the token is a no-op sitting beside the thing that
+  actually works. Left in place rather than stripped, because the hazard is not
+  the tokens: **an unrecognised `--var` is accepted silently.** Measured —
+  `--var totally_made_up_var=xyz` returns `6 tasks in the graph` and `rc=0`, no
+  warning anywhere. So a launch-line var is indistinguishable from a working
+  knob whether or not the package has ever heard of it, and the only check is
+  to grep the yaml for the name. CONTRACT.md §4.4, sixth face, rung 2.
 - **`m3/m4/m5_agent=runner` all stay.** m3 is `kind: ai`; drop its var and a
   model gets called at rung 2.
+- **`measure_gpu` is needed even though nothing in *this* stage measures**, and
+  it is the one var on this line whose reason lives entirely in someone else's
+  file. `m3_agent=runner` puts m3 on its `entry.sh`, which mocks the workset at
+  `:87` and then **still runs `measure_in_container.sh` at `:168`** — deliberately,
+  because a mock that skipped the measurement would leave `check_workset_runs`
+  grading an artefact nothing ever ran. That script refuses on an empty card
+  (`measure_in_container.sh:142`, `FIX: pass --var measure_gpu=<n>`), and
+  `${measure_gpu:-}` defaults to empty, so the omission stops the run rather
+  than quietly measuring on a card nobody chose. Found by m3, routed here.
+  The value is not a constant: five owners share these nodes, so read it from
+  `assets/lib/nodeprobe.sh` rather than reusing yesterday's number.
 - **`transport_env` on every rung**, and it must expand — `$SPUR_CONTROLLER_ADDR`
   is set in the login shell (`http://crs-m2m-cpu-spur-005…:6817`). Unset, the
   refusal arrives in one second and reads exactly like a deployment failure.
