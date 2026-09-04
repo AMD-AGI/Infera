@@ -6186,3 +6186,199 @@ sentence as m2's *"the column can say live and has never been observed to say
 dead"*, and the same as my own process check before it was validated in the
 positive direction. **Third instance today of a check that has only ever seen the
 passing case**, and the first where someone caught it before the check shipped.
+
+## T+1259 — 2026-09-04 10:29 UTC
+
+### Contract 8a now binds this file, and I applied it before writing this
+
+`8b1057d` establishes that `git commit -- <path>` commits the **working tree**,
+so on a file two owners are editing it takes the other owner's uncommitted edits
+too. The pathspec rule protects *other* files and gives no protection where the
+contention is. **`work.checkpoint.summary.md` is exactly that shape.**
+
+Run before appending a single line of this section:
+
+```
+$ git status --porcelain -- work.checkpoint.summary.md
+(empty)
+$ git log aaefcba..HEAD -- work.checkpoint.summary.md
+(empty)
+```
+
+Clean, and the new check is now part of the procedure.
+
+**It also exposes that my standing check (b) was the wrong instrument.** I have
+reported *"nobody but me touched this file"* every section, verified with
+`git log` **after** committing. That is **detection, not prevention** — it would
+have told me afterwards that I had swept someone's edit into a commit titled
+"checkpoint", which is precisely the damage m1 hit. The `git status` check
+prevents it. Both stay: one before, one after.
+
+**And the leader is right that this is my `--amend` finding again.** Both are
+cases where *"my last commit"* and *"my file"* have no true referent in a
+worktree six agents write to. That is now two rules from one root, and the root
+is worth stating plainly: **in this workspace, every git verb with an implicit
+object is unsafe.** `--amend` has an implicit commit; `commit -- <path>` has an
+implicit working tree.
+
+### The number that matters
+
+| | runs | invocations | judgements | **distinct** |
+|---|---|---|---|---|
+| union at 10:28 | **62** | **519** | **582** | **14** |
+
+**Distinct held at 14 for the second interval** — the seven that have never
+spoken are still exactly m5's seven.
+
+**But something moved inside the fourteen, and it is the interval's best number:**
+
+| validator | was (09:40) | now |
+|---|---|---|
+| `check_optimization_shape` | 1 inv, **0** pass | **3 inv, 1 pass** |
+| `check_speedup_substantiated` | 1 inv, 0 pass | 3 inv, **0** pass |
+| `check_workset_runs` | 7 / 1 | **9 / 3** |
+| `check_workset_shape` | 7 / 5 | 9 / 7 |
+
+**`check_optimization_shape` passed for the first time.** m4's stage now has one
+green gate and one that still refuses — the same shape/measurement split that
+m3's pair showed an hour ago, which is what a stage looks like while it is being
+brought up rather than while it is broken.
+
+**Two run processes present at 10:29:41** — pid 267995 (25 m 13 s) and pid
+600210 (1 m 59 s, the 10:28 relaunch).
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | clean |
+| (b0) **pre-commit `git status` on this file** | **clean — new, passed first application** |
+| (b) per-commit ownership | clean across 29 |
+| (c) `todo.md` | **37 items**, +8 |
+| holds | **three, none lost since 06:47**: 006 m1, 217 rung 0, 047 m5 |
+| `/home` | 1.6 T free (85 %), flat since 05:47 |
+| run process | two present at 10:29:41 |
+
+### 1. Progress
+
+**~78 %, up two.** Elapsed 1 259 m.
+
+**Reliability: low→moderate, held.** The raise is on artefact change, not
+reporting: `check_optimization_shape` green for the first time, and **rung 0
+walked stages 1, 2 and 3 in one run** (`20260904T101432-b4e595`, 217, ~6 min,
+eleven handoffs). Last interval I held at 76 because only the narrative moved;
+this one the artefacts moved, so it goes up. **What keeps it to two points: the
+distinct count is flat for the second interval and m5 is still unreached.**
+
+**预估耗时: no number.** Held.
+
+### 2. Current state
+
+**Rung 0's furthest walk**, per the leader and consistent with what I can read:
+stage 1 sealed, both cuda-graph arms and the merge succeeded, `rank` succeeded,
+**stage 4 produced a handoff `a22fc40f` and refused in `output_validating`**,
+stage 5 `waiting_handoff`.
+
+**m4's three rung-0 fixes all cleared and none fired** — `entry_function`, the
+`dtype` copy, the `--impl run` shim. The refusal was a fourth thing:
+`check_speedup_substantiated` could not create its re-measurement scratch
+directory, **because a validator runs on the login node and `/mnt/m2m_nobackup`
+is not there.** Relaunched 10:28 with `e747653`.
+
+### 3. Code problems
+
+- **FIXED — one variable asked for two directories** (`e747653`). The leader
+  records their own half-right instruction: the **ROCm temp** must be created on
+  the far side; the **staging tree must not**, because the process reads the
+  report back to compute medians. **Had m4 done as told, the next failure would
+  have been the report read, one run later.** The fix puts the tree in the zone,
+  which resolves identically on login node, node and container — m3's answer,
+  evidenced by their `recorded 0.0415, re-measured 0.0415`.
+- **FIXED — 18 fields in the `environment` schema were required or consumed with
+  no definition at all** (`113373e`). **m1 found two and called them the third;
+  the count was eighteen.** This is the first time today someone named a class
+  and then **actually swept for it** — the answer to m3's *"naming a class is not
+  sweeping for it"*, arriving three hours later. I have named four classes and
+  swept for none.
+- **FIXED — `started_at` was undefined** (`2c03c0f`), and the symptom is worth
+  keeping: it produced a value **34 min early on one run and 5 min late on
+  another, with zero restarts, both validating.** Now read from `docker inspect`,
+  **read not composed**.
+- **FIXED — a body that exits 0 has its output discarded** (`cff4571`), *"which
+  is the case that hurts"*. This is the **fifth-instance gap finally attacked**
+  rather than routed around.
+- **FIXED — an unguarded `mkdir` made the validator raise instead of refuse**
+  (`8e0be6a`); **`2>/dev/null >&2` emptied a container listing** (`f103fe0`) —
+  the second time today a redirection hid the evidence someone had just added.
+- **OPEN — `check_speedup_substantiated`**, 0 of 3.
+
+### 4. Non-code problems
+
+- **Three holds, none lost since 06:47.** Second consecutive clean interval and
+  the longest stable stretch of the effort.
+- **Two `keep3` jobs still pending** from the non-team session.
+- **`f867a62` — two owners picked the same next `todo.md` integer, twice.** The
+  leader logged it at the time as a numbering problem and now records that as
+  **the symptom rather than the thing**: it was the same working-tree race that
+  `8b1057d` fixes. `todo.md` stays unserialised on purpose — `25d9c01` exists so
+  the finder records in the moment.
+
+### 5. Open questions
+
+- **`check_speedup_substantiated`'s remaining refusal**, after the scratch fix.
+- **The seven m5 validators** — unchanged, and now the only thing between this
+  metric and 21.
+- **M5.1.1** — can state the substitution case, cannot install the fragment case.
+- **m5's control experiment result** — predictions committed at 09:38:06; I still
+  cannot order them against the run from the repository (T+1210).
+- Why holds are cancelled; how much co-tenant load is corpses.
+
+### 6. New commits
+
+**29 since `aaefcba`** — the largest interval of the effort. m4 12 · m1 8 · m3 4 ·
+m2 3 · leader/schema 2.
+
+Grouped, since twenty-nine one-liners would bury the four that matter:
+
+- **m4 (12)** — rung 0's two refusals (`08c1f3d`), the sealed candidate predating
+  the `--impl` contract (`2dd93b1`), T34/T35/T36 (`a02f9a9`, `df78ed1`,
+  `2d521c1`), an exec taking a card the container never had (`834b719`), the pin
+  refusal met against a real pinned deployment (`c149a28`), the two-directory fix
+  (`e747653`), and `f103fe0`/`8e0be6a`/`a8fd10f`/`7014261`.
+- **m1 (8)** — `kit_status` (`d736b86`), the mount list missing node-local
+  scratch (`a32f06d`), T27 item 1 met unprompted (`ba4dc2d`), `started_at`
+  (`2c03c0f`), *"keep both — the T27 correction would itself have caused a
+  regression"* (`c8406fa`), and `c1c10ba`/`8a07e3c`.
+- **m3 (4)** — the exit-0 discard (`cff4571`), a sample that never moves is a
+  census of one member (`7eba786`), and the citation correction (`eb11438`).
+- **m2 (3)** — the standalone execution correcting two things written an hour
+  earlier (`1408da8`), neighbour occupancy per step (`7e3e13f`), replay in the
+  watchout (`9dbad96`).
+- **schema/contract (2)** — `113373e`, `8b1057d`.
+
+### 7. Anything else
+
+**The leader's second self-correction is the sharpest epistemic point of the day
+and it lands on me.** They called m4's 006 reading stale; it was **accurate when
+taken and became stale** — container created 10:16:46, measurement 10:18:19.
+*"Misread the node"* and *"reading aged"* are different failures **and only one
+is a lesson.**
+
+**Every number in this file is the second kind.** My tally is a snapshot: I
+publish "14 distinct" at a timestamp, and it is true then. Twice now the count
+has been flat across an interval while real movement happened *inside* it —
+`check_optimization_shape` going 0-pass to 1-pass is invisible in "14". I have
+been treating a flat headline as evidence of a flat interval, which is the
+aggregate-read-as-specific error I named this morning, committed by me, in the
+number I most rely on. **From here the ceiling table carries the per-validator
+deltas whenever the headline does not move**, which is what this section does
+above.
+
+**And `c8406fa` deserves the last word: *"keep both — the T27 correction would
+itself have caused a regression."*** m1 wrote a correction, then found their own
+correction was wrong in a second-order way, and kept both records rather than
+replacing one with the other. Combined with `ba4dc2d` — *"T27 item 1 has been met
+once, unprompted; recorded before the run that did it is forgotten"* — that is
+someone treating the record as evidence that decays if unwritten, not as a
+summary written at the end. **That is the behaviour this file exists to make
+possible, and it is now happening in owners' files without anyone asking.**
