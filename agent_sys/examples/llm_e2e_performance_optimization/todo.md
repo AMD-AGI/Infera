@@ -1604,6 +1604,32 @@ dumped the process table) and not at all on the other four.
 - `readlink /proc/<pid>/exe || continue` — an unreadable `exe` dropped silently,
   so "cannot decide" and "nothing there" produced identical output (`01f768c`).
 
+**Sharpening, m3, 2026-09-04 — which control failure to spend the extra minute
+on when you cannot afford both.**
+
+> **A broken positive control wastes your own time. A broken negative control
+> spends someone else's correctness.**
+
+The rule above is about whether a probe *could have succeeded*. This is about
+**direction, and who pays for the error**, which the rule does not say.
+
+**A broken positive control refuses, and a refusal makes you look at it.** m3's
+three schema fixtures were this shape — an unresolvable `$ref`, a bad
+`gpu_arch`, a `kernel_id` pattern miss — each looked exactly like a working
+probe, and each cost an hour of **their own**.
+
+**A broken negative control passes, and its output is a claim about somebody
+else's artefact: *"your binding is toothless."*** m4 had one within the hour: a
+dict merge that re-added the key it was meant to strip, printing `NOT CAUGHT`
+for the `impl`/`impl_path` binding m3 had just landed. **They rebuilt the probe
+before concluding anything.** Had they not, the claim would have travelled to m3
+as evidence, and **the action it invites is weakening a correct contract.**
+
+So the two failures are not the same size. One is self-limiting; the other
+propagates, propagates *as evidence*, and reaches someone with no access to the
+instrument that produced it. **When you can only afford to verify one control,
+verify the negative one** — its false output is the one that leaves your hands.
+
 **Not blocking.** It is a habit, not a defect, and the four instances above are
 already fixed or recorded. Filed because `T31` says naming a class is not
 sweeping for it, and this is the sweep condition for a class that has produced
@@ -1884,3 +1910,43 @@ have to differ", go and make that true once, on purpose, before shipping.
 **Distinct from `T40`**, which is about probes and whether a null in a control
 slot gets questioned. This is about **fixes**: the code is not an instrument, the
 result is not being read, and nothing about the slot prompts suspicion.
+
+### T47 — a pathspec commit is scoped to your file, not to your change
+
+**The team rule is *commit by pathspec, never `git add`*, adopted because the
+index is shared with four other owners.** It does protect the index. **It does
+not protect the file**, and everyone had assumed it did.
+
+`git commit -- <path>` commits the **working-tree** state of that path. Not
+HEAD plus your edit — whatever is in the file when you run it, including edits a
+co-owner made in the window since you last looked.
+
+**Measured, 2026-09-04.** `d4a7212` was filed as *"T46 — a fix verified correct
+is not a fix verified reached"* and is 74 insertions: **24 of them are m3's
+addendum to T45**, written in the same minutes, sitting unstaged in the working
+tree. They went in under m4's commit message and m4's sign-off, saying much the
+same thing sixty lines further up. m3 spotted it and cut theirs to a pointer
+(`7f642f7`); nothing was lost, and nothing needed undoing.
+
+**This is the leader's `4c2d5bf` precondition one tool over.** They established
+`git status --short -- <package>` before `agent-sys run`, because **a run stages
+the working tree**. A pathspec commit does exactly the same thing, and nobody
+had said so. Both owners had checked `git status` before *starting* their edit
+and found it clean — **neither check covers the other person editing in the
+window between.**
+
+**Why it matters beyond tidiness.** The commit message stops describing the
+commit, so archaeology attributes one owner's reasoning to another's entry. And
+the failure is unbounded in the bad direction: had the co-owner been mid-edit on
+something broken, it would have been committed **under a message asserting
+otherwise** — the same shape as T43, an artefact honest in provenance and wrong
+in meaning.
+
+**The check, and it is cheaper than `git status`:** run `git diff -- <path>`
+immediately before committing and read it. `git status` tells you the file is
+dirty; **the diff tells you whose changes are in it.** If it contains lines you
+did not write, stop and coordinate. One command, and it is the only one that
+distinguishes *my edit* from *the file*.
+
+**Most acute on shared prose.** `todo.md` has five writers and no locking, so it
+is where this will keep happening; source files are usually one owner's.
