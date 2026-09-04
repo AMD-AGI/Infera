@@ -564,7 +564,7 @@ python3 -m agent_sys.cli.main run \
   --var work_root=/mnt/m2m_nobackup/yihou/m5_solo \
   --var aiperf_trace=/shared_nfs/yihou/agent_sys/debugging/profiling/conversation_trace.jsonl \
   --var gsm8k_data=<a local GSM8K jsonl> \
-  --var eval_max_tokens=256 --var eval_examples=5 \
+  --var eval_max_tokens=1024 --var eval_examples=5 \
   --var needle_tokens=2000 --var trace_end_ms=30000 \
   --var bench_rounds=1 --var adhoc_cases=1
 ```
@@ -606,7 +606,7 @@ Measured per arm, from the sealed arms' own `env/steps.json`:
 | serve | 480 s | 240 s | no — bring-up is irreducible |
 | smoke | 271 s | 220 s | no |
 | needle | 200 s | 194 s | yes, `needle_tokens` |
-| **probe** | **2062 s** | **2001 s** | **yes, `eval_max_tokens` — and this is the whole problem** |
+| **probe** | **2062 s** | **2001 s** | **no — see the correction below** |
 | lm_eval | 23 s | 428 s | yes, `eval_examples` |
 | bench_r1 | 44 s | 161 s | yes, `trace_end_ms` |
 | **total** | **3080 s** | **3244 s** | **~105 min for the pair** |
@@ -616,11 +616,47 @@ set.** `measure.sh:149,157` reads `E2E_EVAL_MAX_TOKENS` and `E2E_EVAL_THREADS`
 and **nothing declared either**, so the `:-2048` fallback always won. Now
 declared on `e2e_integrator`; `runner` should mirror them.
 
-**The reduced total is an estimate and is labelled as one.** `serve`, `smoke`
-and `bench` are measured; the effect of `eval_max_tokens=256` on `probe` is an
-extrapolation nobody has taken. **Do not quote a reduced wall time as measured
-until one run has produced it** — that is the mistake this package keeps
-cataloguing, and predicting it here would be a fourth entry.
+### Corrected 2026-09-04 by measuring it: probe is not the problem, and 256 breaks it
+
+The two paragraphs this replaces said `probe` was two thirds of an arm and that
+`eval_max_tokens` was the knob that would shrink it. **Measured on
+crsuse2-m2m-047, an idle node, against the same deployment:**
+
+| `--max-tokens` | probe | verdict |
+|---|---|---|
+| 256 | 28 s | **FAIL** |
+| 512 | 34 s | pass |
+| 1024 | 38 s | pass |
+| **2048** — the sealed run's own budget | **37 s** | pass |
+
+**2062 s → 37 s at the identical budget.** The knob barely moves the cost; **the
+2062 s was the contended chassis**, the same one that read 193 tok/s beside an
+idle neighbour and 47 beside a busy one. So the ~105-minute two-arm total is a
+property of a busy machine and not of this module, and it should not be quoted
+as module 5's cost.
+
+**And `eval_max_tokens=256`, which the command above used to say, is wrong.**
+It fails probe, and not on the deployment:
+
+```
+multiply  expected 391 -> "23"   completion_tokens [256,256,256]  finish_reason "length"
+natalia   serial 72,72,72  but batched 48,48,72,72,48,48,72,48
+```
+
+The model was still reasoning when the budget ran out and the extractor took a
+number out of the middle of the working; the batched instability is the same
+cause. **The floor is between 256 and 512**, and since 512 costs 34 s against
+2048's 37 s there is no reason to run below **1024**, which is what the command
+now passes.
+
+**The whole reduced suite ran in 102 s** on that node — smoke 9, needle 4, probe
+28, lm_eval 14, bench_r1 47 — against baselines of 271/200/2062/23/44. **The
+bring-up is the only large cost left**, and it is irreducible.
+
+**What is still an estimate:** a *full-scale* arm on an idle node. needle at
+31 000 tokens and lm_eval at 100 examples have not been measured here, so no
+full-scale total is quoted. One extrapolation per section is the limit, and this
+section already spent its correction on the last one.
 
 ## 4. The smallest honest proof
 
