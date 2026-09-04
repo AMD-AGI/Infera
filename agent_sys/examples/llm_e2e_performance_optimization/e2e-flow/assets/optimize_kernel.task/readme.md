@@ -59,6 +59,41 @@ ROCm stack, the two measurements need torch, and STEP 6 hashes the stock engine
 file out of the container tree. STEPs 1, 2 and 7 read JSON and run fine either
 side.
 
+## `$W` — set this first, and it is not free
+
+Every step below writes under `$W`, and until 2026-09-04 **this file used it in
+eight command lines and defined it nowhere.** Set it from the run's own work
+root:
+
+```sh
+W="${E2E_WORK_ROOT:?}/m4/$(date -u +%Y%m%dT%H%M%S)"
+mkdir -p "$W/state" "$W/forge"
+```
+
+**`E2E_WORK_ROOT` is the launch line's `--var work_root`** (`shared.yaml:113`),
+and **every other stage already reads it** — `deploy_and_prove/readme.md:32`
+documents it, `load/line.sh:42`, `analyze/scan.sh:243`, `apply_patch/apply.py:458`
+and `accept/measure.sh:34` all take it. This task was the only one that did not,
+so a var on the rung-4 command line *looked* like it placed this stage's workdir
+and did not, while `$W` was chosen unguided.
+
+**It is not cosmetic, because `$W` is where three load-bearing files live**:
+`forge/engine_src` (a 110 MB copy of the engine tree), `forge/engine.patch` and
+`forge/engine_baseline.sha`. `run_in_container.sh` refuses a workdir outside
+`/shared_nfs`, `/home/<user>` or `/mnt/m2m_nobackup/<user>`, so `$W` cannot land
+somewhere the container cannot see — **but it can land somewhere different every
+run, and STEP 6 reads an absent `engine.patch` as a mock** (see STEP 6). A lost
+workspace and a mocked campaign produce the same handoff, which is the one
+outcome this stage cannot interpret.
+
+Node-local (`/mnt/m2m_nobackup/yihou/...`) is the right default and is also
+faster: measured 2026-09-04, copying the engine tree is **0 s node-local against
+17 s on `/shared_nfs`**, with the `git init && add -A && commit` a further 34 s
+on NFS. Nothing needs `$W` to outlive the node — the packup is sealed into the
+run tree under `--demo-root` — only to outlive the *container*.
+
+## The container wrapper
+
 Use the wrapper, which reads the container out of the same record every other
 step reads:
 
@@ -181,6 +216,12 @@ incumbent m5 overlays onto, and the commit is load-bearing rather than tidy:
 **Acceptance:** exit 0 and `forge/forge_result.json` exists. `improved: false`
 is a legitimate result and is **not** a failure of this step, and neither is an
 empty `forge/engine.patch` — that is what reverting every candidate looks like.
+
+**One thing STEP 6 cannot distinguish, so check it here:** an `engine.patch`
+that is *absent* is read as "a mock, or STEP 3 never ran" and yields a
+`replacement` entry. So a `$W` that moved between steps produces the same
+handoff as a mocked campaign. Confirm `forge/engine.patch` exists after a real
+campaign — its being empty is a result, its being missing is a fault.
 
 `KFO_MOCK=1` skips the campaign; the step then copies the seed to
 `forge/optimized_kernel.py` behind a banner saying so and writes a

@@ -1653,6 +1653,30 @@ which waits on rung 2 — this is about which file to read when the time comes, 
 a licence to skip. m5 added that sentence to theirs for the same reason and it is
 worth repeating rather than cross-referencing.
 
+**"Reached m1" means m1 finished bring-up, not that m1 started — and there is no
+command here that tells you which.** Dry-run 2026-09-04 16:20, every run under
+the runroot newest-first:
+
+```
+20260904T160847-ae7ef4  (rung 2b, LIVE)   <none>
+20260904T160500-a182de                    <none>
+20260904T154946-a5ff12                    <none>
+20260904T143952-bec7da                    …/9fbfa44f…/v1/…/environment.yaml
+```
+
+**Four runs back.** `kit_env.sh` resolves to exactly one path or refuses — never
+a tie-break, which is m2's fix holding — but the three newest all refuse, and
+the live one refuses while its engine is up and loading a model. Its `deploy_kit`
+has **`v0` and `v1` and zero `environment.yaml`**: m1 writes the record at the
+*end* of bring-up.
+
+So `kit_env.sh`'s own *"works before the handoff seals"* is true — the record is
+readable about an hour before the seal — but the window opens later than the
+phase does, and **the refusal is correct while being unactionable**: it cannot
+tell you whether to wait five minutes or walk back four runs. That is a property
+of the shared helper, which m2, m3 and m5's sections all now depend on, not of
+this section. Walk back until one resolves.
+
 **Read, not carried:** `image`, `tp_size`, `model_name`, `model_path`. They are
 m1's to mint and rung 4 mints them again — reading rung 3's is how the two runs
 stay comparable, not how they are wired.
