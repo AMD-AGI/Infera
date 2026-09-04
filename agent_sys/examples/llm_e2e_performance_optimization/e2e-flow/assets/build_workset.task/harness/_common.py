@@ -173,6 +173,31 @@ def setup(what: str) -> Ctx:
               f"Pass {flags['environment']} <path to this run's environment.yaml>, or place one "
               f"beside the entrypoints. The workset claims {fixed.get('gpu_arch')!r} / "
               f"tp {fixed.get('tp_size')!r}; nothing here confirmed it.", file=sys.stderr)
+    elif record == ground["environment"]:
+        # **The resolved record IS the workset's own, so the loops below compare
+        # a document with itself and agree by construction.**
+        #
+        # Found by m4 in review, in the fallback rather than in the flag: the
+        # record beside this module is the one `ground_truth.environment` was
+        # copied from. Their reading, and it is the right one — this file's own
+        # "a paragraph asserting a behaviour is not one", one layer out. A field
+        # asserting `checked` for a run that checked nothing is that sentence
+        # with a JSON key instead of a docstring.
+        #
+        # **This is a legitimate state, not a fault**, and the wording says so
+        # in both places deliberately. m3's own measurement resolves here and is
+        # *correct* in doing so: it measures where the workset was built, on the
+        # node the record names, so the record beside it genuinely is the one
+        # the evidence comes from. What is wrong is only the reporting — naming
+        # a path reads as two documents. So `premise_checked_against` says
+        # `self` and carries no path, and a consumer wanting the two-document
+        # comparison passes the flag (m4's two callers do).
+        origin = "self (not independently confirmed)"
+        print(f"note: this run's environment record is the workset's own, so "
+              f"{', '.join(ground['abort_on_mismatch'])} agree by construction and were not "
+              f"independently confirmed. That is expected when a workset is measured where it "
+              f"was built. Pass {flags['environment']} <this run's environment.yaml> for a "
+              f"comparison between two documents.", file=sys.stderr)
     for field in ground["abort_on_mismatch"]:
         seen = _observed(record, field)
         if seen is not None and str(seen) != str(fixed.get(field)):

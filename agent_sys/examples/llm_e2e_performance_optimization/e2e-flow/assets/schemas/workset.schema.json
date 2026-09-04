@@ -155,7 +155,7 @@
             "shape": {"type": "string", "default": "--shape"},
             "impl": {"type": "string", "default": "--impl"},
             "report": {"type": "string", "default": "--json"},
-            "environment": {"type": "string", "default": "--environment", "description": "Path to **this run's** `environment.yaml`, which the entrypoint checks `ground_truth.environment` against before measuring anything. Omitting it makes the run's premise unchecked rather than confirmed, and the entrypoint says so on stderr and records `environment.premise_checked_against: null` in the report."}
+            "environment": {"type": "string", "default": "--environment", "description": "Path to **this run's** `environment.yaml`, which the entrypoint checks `ground_truth.environment` against before measuring anything. Omitting it makes the run's premise unchecked rather than confirmed, and the entrypoint says so on stderr and records `environment.premise_checked_against: null` in the report. **Omitting it does not fall back to a second opinion**: the record beside the entrypoint is the one `ground_truth.environment` was copied from, so the comparison would be a document against itself and would agree by construction. That case reports `premise_checked_against: \"self (not independently confirmed)\"` and carries no path, because naming one reads as two documents. It is a legitimate state — a workset measured where it was built is in it — and not a failure."}
           }
         },
         "timeout_s": {"type": "integer", "minimum": 1},
