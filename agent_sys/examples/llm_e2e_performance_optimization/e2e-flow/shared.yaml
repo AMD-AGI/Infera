@@ -88,6 +88,22 @@ env:
   # work right now. A body writes `: "${VAR:=…}"`, never `export VAR=`, and
   # **never `docker rm -f` a name it did not create**.
   E2E_CONTAINER: '${container:-yihou_e2e_flow}'
+  # **These three are NOT where a consumer learns the endpoint.** A kit picks its
+  # own base -- a caller may pass `E2E_KIT_PORT_BASE` -- and records what it bound
+  # in the handshake `deployment.json`, which `deploy_kit.layout.yaml`'s
+  # `runtime_contract.handshake` makes the one authority. Rung 1 on 2026-09-04
+  # bound **8114-8117** while these still read 8101-8103, and both are correct:
+  # the defaults describe what an unconfigured bring-up would take, the handshake
+  # describes what this one did.
+  #
+  # `check_deploy_serves` gets it right -- `check.py:314,362` reads the handshake
+  # and takes `deployment["endpoint"]`. The trap is for the NEXT consumer, and the
+  # leader walked into the reader's half of it within the hour: probing 8101-8103
+  # against a serving engine returns `000`, which is exactly what a dead engine
+  # returns. Nothing was wrong; the probe was aimed by a default.
+  #
+  # So: **read the handshake. Use these only to CONFIGURE a bring-up, never to
+  # find one.** m3 flagged the hazard for a future prober in their own stage.
   E2E_PORT_ROUTER: '${port_router:-8101}'
   E2E_PORT_WORKER: '${port_worker:-8102}'
   E2E_PORT_ETCD: '${port_etcd:-8103}'
