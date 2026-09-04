@@ -101,9 +101,44 @@ bank_partial() {
   return 0
 }
 
+# **Per ROUND, not per step, and that difference is the whole point.** m2's
+# `7e3e13f` samples the neighbour at `round.sh`'s four step boundaries —
+# preconditions, deployed, evidence, assemble — all of which are *outside* the
+# window these measurements run in. T7 asks what the neighbour was doing *while
+# the numbers were being taken*, and only a sample inside this file answers it.
+# m2 flagged the gap rather than papering over it and left the line to me,
+# because `accept/measure.sh` is m5's.
+#
+# Two of 2026-09-04's worst numbers needed exactly this and could not be
+# recovered afterwards: the DELIVERY-NOTE refusal blamed a patch for a
+# neighbour, and the sealed arms' `probe` read 2062 s where the same budget
+# re-measured at 37 s on an idle chassis — 56x, and nothing in either artefact
+# said the chassis was busy.
+#
+# `--ours "${E2E_GPU_DEVICES:-}"` so the label describes the *neighbour* and not
+# this deployment. On TP-8 every card is ours and the honest label is `unknown`
+# rather than a false `busy` — which is the shape m2 chose after measuring that
+# a per-card dict crashes `round_noise.summarise`, whose `conditions` is a set.
+#
+# **Never fatal.** Refusing a round over the record of its conditions would
+# discard a real measurement to protect its metadata. An absent
+# `neighbour.jsonl` means sampling did not run, which is a different statement
+# from an empty one.
+NEIGHBOUR_LOG="$WORKDIR/neighbour.jsonl"
+sample_neighbour() {
+  on "rocm-smi --showmemuse --showuse --csv" 2>/dev/null \
+    | "${AGENT_SYS_DEMO_PYTHON:-python3}" "$PKG/assets/lib/neighbour.py" \
+        --ours "${E2E_GPU_DEVICES:-}" --step "$1" --append "$NEIGHBOUR_LOG" 2>/dev/null \
+    || say "  neighbour sample at '$1' failed; continuing without it"
+  return 0
+}
+
 run_step() {
   local name="$1"; shift
   local t0 t1 rc
+  # Sampled at the START of the step, so the record describes the conditions the
+  # measurement ran under rather than the ones it left behind.
+  sample_neighbour "$name"
   t0=$(date +%s)
   say "step $name"
   on "$*" > "$WORKDIR/logs/$name.log" 2>&1
@@ -207,6 +242,10 @@ emit_common_env() {
   local dest="$1"
   mkdir -p "$dest"
   cp "$WORKDIR/steps.json" "$dest/"
+  # The per-round neighbour record, if sampling ran. Copied rather than required:
+  # its absence means sampling did not happen, which is a different and honest
+  # statement from an empty file, and neither is a reason to fail an arm.
+  [ -f "$NEIGHBOUR_LOG" ] && cp "$NEIGHBOUR_LOG" "$dest/" 2>/dev/null
   python3 - "$dest/context.json" <<PYEOF
 import json, sys
 json.dump({
