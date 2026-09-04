@@ -288,7 +288,7 @@ def _check_integration(operator: dict, problems: list[str]) -> None:
         )
 
 
-def _check_target_paths(operator: dict, problems: list[str]) -> None:
+def _check_target_paths(operator: dict, problems: list[str], notes: list[str]) -> None:
     """The two file paths inside one operator name the same file.
 
     **Why an operator has two of them at all.** `scaffold.py` derives
@@ -327,6 +327,39 @@ def _check_target_paths(operator: dict, problems: list[str]) -> None:
     source_file = edit_target.get("source_file") or ""
     integration = operator.get("integration") or {}
     target_files = [str(p) for p in (integration.get("target_files") or [])]
+
+    # **Against the identity, without the identity being here.** m5 found a
+    # workset naming `mixed_moe_gemm_2stage.py` where the identity said
+    # `moe_gemm_2stage.py`, and that comparison is not available to a validator
+    # in this graph: no phase stages both kinds, so a two-kind validator binds
+    # to nothing (written and measured 2026-09-04, selected nowhere).
+    # `scaffold.py` therefore records what it derived from, and this compares
+    # the pair inside one artefact — `base_sha256`'s move, one level up.
+    provenance = edit_target.get("from_identity")
+    if isinstance(provenance, dict):
+        recorded = [str(p) for p in (provenance.get("source_file_path") or [])]
+        if not recorded:
+            notes.append(
+                f"{label}: edit_target.from_identity carries no source_file_path, so "
+                f"{source_file!r} is UNVERIFIED — identify resolved no file for this operator"
+            )
+        elif source_file != recorded[0]:
+            problems.append(
+                f"{label}: edit_target.source_file is {source_file!r} but the identity this "
+                f"workset was scaffolded from said {recorded[0]!r} (from_identity.source_file_path "
+                f"{recorded}). The scaffold derives one from the other, so they disagree only if "
+                f"something wrote the field afterwards — and m4 optimises what this names"
+            )
+    elif provenance is None and "from_identity" in edit_target:
+        notes.append(
+            f"{label}: edit_target.from_identity is null — no identity described this operator, "
+            f"so {source_file!r} is UNVERIFIED rather than wrong. Not a pass of the comparison"
+        )
+    else:
+        notes.append(
+            f"{label}: edit_target has no from_identity, so nothing here confirms {source_file!r} "
+            f"against the identity. A workset scaffolded before 2026-09-04 — UNVERIFIED"
+        )
 
     editable = [str(p) for p in (edit_target.get("editable_sources") or [])]
     if source_file and editable and source_file not in editable:
@@ -403,7 +436,7 @@ def _check_forge(root: Path, operator: dict, problems: list[str]) -> None:
             _exists(root, forge[key], label, problems)
 
 
-def _check(content: Path, args: dict, problems: list[str]) -> bool:
+def _check(content: Path, args: dict, problems: list[str], notes: list[str]) -> bool:
     root = W.workset_root(content)
     if not root.is_dir():
         problems.append("items/codes is not a directory")
@@ -476,7 +509,7 @@ def _check(content: Path, args: dict, problems: list[str]) -> bool:
         operator.pop("_ground_dtypes", None)
         _check_shapes(content, root, operator, args, problems)
         _check_integration(operator, problems)
-        _check_target_paths(operator, problems)
+        _check_target_paths(operator, problems, notes)
         _check_forge(root, operator, problems)
         if operator["reference"]["kind"] == "written":
             _exists(root, operator["reference"]["path"], f"{label}.reference", problems)
@@ -658,13 +691,19 @@ def main() -> int:
     findings: dict[str, tuple[list[str], list[str]]] = {}
     for hid in zone.inputs():
         problems: list[str] = []
+        # **A notes channel, which this validator has never had** — it wrote
+        # `(problems, [])` and threw away everything that was not a fault. The
+        # UNVERIFIED statements the provenance check produces are exactly what
+        # `write_report`'s second slot is for: a reader needs to know a
+        # comparison was skipped, and an empty notes list says the opposite.
+        notes: list[str] = []
         content = zone.content_of(hid)
         if content is None:
             problems.append("the phase staged no content for this handoff")
             verdicts[hid] = False
         else:
             try:
-                verdicts[hid] = _check(content, args, problems)
+                verdicts[hid] = _check(content, args, problems, notes)
             except Exception as error:  # noqa: BLE001 — see below
                 # **A crash and a refusal are not the same event, and only the
                 # second is a judgement.** Measured 2026-09-04: a
@@ -696,7 +735,7 @@ def main() -> int:
                 Path(_CRASH_FILE).write_text(
                     f"{hid}\n{detail}\n\n{traceback.format_exc()}", encoding="utf-8")
                 verdicts[hid] = False
-        findings[hid] = (problems, [])
+        findings[hid] = (problems, notes)
         for problem in problems:
             print(f"{hid}: {problem}")
     # §4.4: fix the convenience everywhere it appears, not only where it bit.

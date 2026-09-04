@@ -539,6 +539,28 @@
                 "type": "string"
               },
               "description": "Stated uncertainties about facts the schema has no slot for. The stage-3 half's worked example is worth keeping in mind: the source file `operator_identity` declared for one kernel was **wrong**, and editing it would have changed a different kernel while every measurement continued to look plausible."
+            },
+            "from_identity": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": true,
+              "properties": {
+                "source_file_path": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "kernel_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "description": "**What the identity said, recorded here so a single artefact can be checked against it.** `scaffold.py` derives `source_file` from `operator_identity`'s `source_file_path[0]`, and until 2026-09-04 nothing could confirm it had stayed derived: `check_workset_shape` declares `inputs: [operator_workset]`, `zone.materials()` is written per-validator (one handoff each, measured), and **no phase in this graph stages the identity and the workset together** \u2014 `operator_identity` is an intermediate, an output of `identify` and an input of `build_workset`. A two-kind validator was written and bound to nothing.\\n\\nSo this is the same move `base_sha256` and `module_symbols` make, one level up: *a recorded value turns a question that needs another artefact into one that needs a comparison*.\\n\\n**Written by the scaffold, and not to be edited.** At rung 3 `build_workset` is `kind: ai`: the agent runs the scaffold at STEP 2 and then edits the workset, and the task readme tells it to read `edit_target` rather than write it with nothing enforcing that (`todo.md` T51, aimed at a field). Editing `source_file` without editing this makes the divergence visible; editing both is a deliberate act rather than a slip.\\n\\n**`null` means no identity described this operator** \u2014 the mock's `sampler_vocab_softmax` is not in the sealed identity, whose operators are the two `moe_gemm_*`. Null downgrades the check to UNVERIFIED and says so, exactly as a null `module_symbols` does; it never passes silently.\\n\\nThe honest limit, stated rather than left to be discovered: an agent that edits both fields defeats this. It buys *verifiable within one artefact* over *unverifiable*, not proof. Proof needs a phase that stages both kinds, which is a contract change."
             }
           }
         },

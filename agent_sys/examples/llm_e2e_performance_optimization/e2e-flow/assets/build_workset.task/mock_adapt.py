@@ -590,7 +590,15 @@ def main() -> int:
                           "rationale": "torch.softmax evaluated at float64. Imported rather than written: a hand-written float64 softmax must reproduce the max-subtraction trick or overflow at V=151936, and if it reproduces it then it is the same algorithm under test. The wrapper casts and writes into `out`; the algorithm is torch's."},
             "baseline": {"kind": "imported", "module": "torch", "symbol": "softmax",
                          "rationale": "The incumbent. sglang's sampler.py:183 is literally `logits[:] = torch.softmax(logits, dim=-1)`."},
-            "edit_target": {"source_owner": "sglang", "repo_root_var": "@SGLANG_ROOT@",
+            # `from_identity: None`, and it is the truthful record rather than
+            # a gap. This operator is `sampler_vocab_softmax`, assembled from the
+            # two sealed halves; the sealed `operator_identity` describes the two
+            # `moe_gemm_*` operators and has never mentioned this one. So no
+            # identity resolved this file, and saying so downgrades
+            # `check_workset_shape`'s comparison to UNVERIFIED instead of letting
+            # the mock manufacture its own provenance and agree with itself.
+            "edit_target": {"from_identity": None,
+                            "source_owner": "sglang", "repo_root_var": "@SGLANG_ROOT@",
                             "source_file": "python/sglang/srt/layers/sampler.py",
                             "editable_sources": ["python/sglang/srt/layers/sampler.py"],
                             "entry_function": "Sampler.forward",

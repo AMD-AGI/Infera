@@ -290,6 +290,22 @@ def main() -> int:
                 "entry_function": (entry.get("target_kernel_functions") or [""])[0],
                 "source_resolution_method": entry.get("source_resolution_method"),
                 "resolution_evidence": entry.get("resolution_evidence") or entry.get("resolution_hint") or "",
+                # **What the identity said, recorded beside what was derived
+                # from it.** `source_file` above is `source_file_path[0]`
+                # verbatim, and nothing could confirm it had stayed that way:
+                # no phase in this graph stages the identity and the workset
+                # together, so a validator comparing them binds to nothing
+                # (measured 2026-09-04 — the two-kind validator was written and
+                # selected nowhere). Recording the source turns a question that
+                # needs a second handoff into one that needs a comparison,
+                # which is what `base_sha256` already does for the image.
+                #
+                # It matters because at rung 3 this scaffold is not the author:
+                # the agent runs it at STEP 2 and edits afterwards.
+                "from_identity": {
+                    "source_file_path": list(entry.get("source_file_path") or []),
+                    "kernel_id": entry.get("kernel_id"),
+                },
             },
             # M5.1.1. Scaffolded from `edit_target` because the *file* is
             # already known; `public_symbol` and `invariants` are the agent's,
