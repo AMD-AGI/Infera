@@ -177,6 +177,38 @@ Say what rung 0 covered in those terms, not as "the mock passed".
 3. **`agent-sys show`** — under a second.
 4. **The node's state, before and after**: `docker ps` and the port band. Every identifier this package binds carries a run tag; **check the tag before killing anything.** Measured 2026-09-03: a validator's teardown crashed and warned that ports might be held, and the ports that were held belonged to *a different owner's run in flight*. Killing them would have destroyed live work.
 
+### How to stop a run, in order — because killing the orchestrator does not stop it
+
+Measured 2026-09-04 (`todo.md` **T26**). The orchestrator was killed at 06:47;
+its `deploy_and_prove` agent **kept working for 44 more minutes**, brought up two
+further deployments, and took every free card on the node. A run is three things
+and stopping it means stopping all three, outermost first:
+
+1. **the orchestrator** — the `agent-sys` process you launched;
+2. **the agents it dispatched** — *these are not in its process tree.* Find them
+   by **cwd**, not by name:
+
+   ```sh
+   ls -l /proc/*/cwd 2>/dev/null | grep agent_sys_runroot
+   ```
+
+   **Do not grep for `agent_sys.cli.main`.** Two people did, both got an empty
+   result, and both reported "no agent is alive" while one was. A dispatched
+   agent is a `claude` binary under `~/.local/share/claude/versions/`, which that
+   pattern cannot match — *a cwd is a property of the process, a command line is
+   a property of how it was invoked* (m4). An empty grep and no agent look
+   identical, which is the same failure as `mock.sh` not distinguishing *unset*
+   from *not listed*;
+3. **the containers, by label** — `infera_e2e_kit_run` / `infera_e2e_run` carry
+   the run tag. They talk to the **host** daemon, so they are outside the job's
+   cgroup and survive both the agent and the Slurm allocation (item 2 above).
+   `docker stop` then `docker rm`, never `-f`, and **check the label rather than
+   the name**: three ownership errors were made today by reasoning from names.
+
+**Confirm rather than assume at each step**, and confirm the *whole* thing at the
+end: no process with a run-tree cwd, no container carrying the run's label, and
+the cards back at 0%.
+
 ## The three things a real run can do that a mock cannot
 
 **1. Call a model.** Four leaves are `kind: ai`. `--var m<N>_agent=runner` is what keeps them off that path, and **the default is the real agent** — so a rung is promoted by *removing* a var, and forgetting one is how a model gets called by accident. It has already happened once: the first full mock sat at `deploy_and_prove: running` while an AI deployment agent prepared to bring a model up for real on the node in `--var`.

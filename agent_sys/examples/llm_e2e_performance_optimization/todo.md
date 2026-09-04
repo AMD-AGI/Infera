@@ -728,3 +728,97 @@ to `wc -l` and the empty result read as zero. A check that could not fail.
 What worked instead was opening a file and counting its entries — **a file you
 have opened cannot lie to you about whether it exists.** CONTRACT §4.4, in the
 instrument built to catch §4.4.
+
+### T27 — a default that takes everything free is not a default
+*m1, 2026-09-04. **T19's third direction, and the one that stopped being an
+argument and became an incident.** Three items, one cause; they belong together
+because fixing any two leaves the third failure available.*
+
+**What happened.** The orphaned `deploy_and_prove` agent (`T26`) re-ran its own
+kit's `deploy.sh` at 06:57:38 **without the two safety variables its earlier
+invocation had passed** — no `E2E_KIT_NAME_PREFIX`, no `E2E_KIT_GPU_DEVICES`.
+`env.sh:230`:
+
+```sh
+: "${E2E_KIT_GPU_DEVICES:=$(_pick_gpus)}"
+```
+
+`_pick_gpus` returned **every free card**, the worker took all eight, and it
+collided with a container that had *already named its own four*.
+
+**The victim was the well-behaved container.** Of the three deployments on that
+node, the selftest pair was the only one that had declared `HIP_VISIBLE_DEVICES`
+— and it is the one that got stepped on. That is the strongest argument for
+pinning there is: **declaring your cards protects you from nothing if the next
+process declares nothing**, because "nothing" means "all of them".
+
+#### The three items
+
+**1. Pin the container, not the worker process.** `mix_worker.sh:89` sets
+`HIP_VISIBLE_DEVICES="$GPUS"` inline on the `exec`, so it binds the processes
+that carry it and nothing else. `docker inspect` on such a container shows no
+device restriction at all — which is exactly how this one was first read as
+"unpinned and greedy" when its *worker* was in fact pinned. Pin at `docker run`
+and **the record and the runtime agree by construction rather than by the worker
+remembering.**
+
+**2. Bound `_pick_gpus` to `tp_size`.** A picker asked for a deployment of width
+N should return N cards. Returning everything free is not a conservative default,
+it is a land grab that happens to be quiet on an empty node and hostile on a
+shared one. Note the shape: **it is `E2E_DSA_ARGS`'s trap inverted** — there the
+danger was a value that is wrong and does not error; here it is an *absent* value
+that is filled in maximally and does not error.
+
+**3. Record what was picked** — *m3's item, and the one that makes the other two
+checkable.* `fixed.gpu_count` records **how many** and cannot record **which**,
+so two runs on disjoint halves of one node produce identical records. The cost is
+not hypothetical: reconstructing who owned which card today required
+`rocm-smi --showpids` and PID matching, twice, by two different people. Whatever
+`_pick_gpus` decides must land in `fixed.gpu_devices`.
+
+**Why all three.** Pin without bounding and a caller who passes no list still
+grabs the node — pinned, but pinned to everything. Bound without pinning and the
+container still sees cards the worker was told to avoid. Do both without
+recording and the next person attributing a card is back to PID matching. **T19
+is the field; this is the three things that have to be true for the field to mean
+anything.**
+
+### T28 — T21's bar, measured: 7 characters against 526
+*m1, 2026-09-04. T21 said "do not invent the number". The number exists now.*
+
+Both engines were alive on `006` at the same moment — the kit-launched one with
+`--reasoning-parser qwen3`, the agent's earlier ad-hoc one without — so the A/B
+is one model, one node, one image, two `curl`s.
+
+| | parsed (`:8101`) | unparsed (`:8118`) |
+|---|---|---|
+| `finish_reason` | `stop` | `stop` |
+| **`len(content)`** | **7** — `'\n\nParis'` | **526** |
+| `reasoning_content` | 554 chars | `null` |
+| `reasoning_tokens` | **157** | **0** |
+| `completion_tokens` | 160 | 151 |
+
+**Both pass today's probe.** T21 demonstrated rather than argued.
+
+**`completion_tokens` is not the discriminating axis** — 160 vs 151, the wrong
+way round and inside noise. Had the rule been written against it, it would have
+been a check that cannot fail, in the validator whose blindness it was written to
+fix. That is CONTRACT §4.4's third face, caught before it was written instead of
+after.
+
+**The rule, now with numbers behind it:** `usage.reasoning_tokens > 0` **OR**
+`len(content) <= 200`. Parsed passes on the first clause (157); unparsed fails
+both (0, and 526). The separation is a factor of 75, so the bound is chosen with
+room rather than fitted to one observation.
+
+**The caveat, and it ships with the bar rather than after it:** *two points, one
+model. A verbose non-reasoning model answering a one-word question in three
+sentences fails a 200-character bound, and `reasoning_tokens > 0` does not
+protect it, because such a model reports 0 too.* The bound is defensible and not
+proven general, and this entry is where it says which.
+
+**Not implemented yet, deliberately.** It needs two new things in
+`probes.yaml`/`probe_runner.py` — a length assertion and a disjunction — and
+**rung 1 was live in `check_deploy_serves`'s path when the measurement landed.**
+Editing a validator whose body is being copied into a zone mid-run is how a run
+gets a fault nobody can attribute. It goes in after the rung, not during it.
