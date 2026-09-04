@@ -27,6 +27,7 @@ __all__ = [
     "PERFORMANCE_FLOOR",
     "PERFORMANCE_ROLES",
     "IMPL_CONTRACT",
+    "CRASH_MARKER",
     "VALIDATOR_REPORT",
     "write_report",
     "absolute_paths_in",
@@ -170,6 +171,18 @@ def assign_roles(shapes: list[dict], floor: int = PERFORMANCE_FLOOR) -> list[str
 #: Where a validator leaves its reasoning, beside `verdict.json`.
 VALIDATOR_REPORT = "validator_report.txt"
 
+#: The prefix a validator writes when it **could not run**, as opposed to when
+#: it refused. `write_report` keys the section heading on it, so a crash reads
+#: as a crash rather than as a judgement.
+#:
+#: A constant rather than a convention: five validators across three owners
+#: already write this exact sentence, having copied it, and a heading that
+#: silently stops matching when someone rewords their message is worse than no
+#: heading. Spotted by m2 while adopting the helper — the heading said
+#: `REFUSED` while the text below it said the artefact had not been graded,
+#: which is the contradiction the crash/refusal split exists to remove.
+CRASH_MARKER = "THIS VALIDATOR DID NOT RUN"
+
 #: **What `--impl PATH` must be**, as data rather than prose.
 #:
 #: Undeclared until 2026-09-04, when m4's STEP 4 reached the harness and got
@@ -252,7 +265,9 @@ def write_report(validator: str, findings: dict[str, tuple[list[str], list[str]]
     """
     lines = [f"# {validator}"]
     for hid, (problems, notes) in findings.items():
-        lines.append(f"\n## {hid}: {'REFUSED' if problems else 'passed'}")
+        crashed = any(CRASH_MARKER in p for p in problems)
+        verdict = "DID NOT RUN" if crashed else ("REFUSED" if problems else "passed")
+        lines.append(f"\n## {hid}: {verdict}")
         lines += [f"  note:    {n}" for n in notes]
         lines += [f"  PROBLEM: {p}" for p in problems]
         if not problems and not notes:
