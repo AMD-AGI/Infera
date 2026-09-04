@@ -182,6 +182,36 @@ class Runner:
             self._attempts.pop(task_id, None)
         on_stopped(task_id)
 
+    def shutdown(self) -> None:
+        """Release every attempt when the process-level run is over.
+
+        Attempts outlive their worker thread on purpose: a monitor can wake a
+        parked task or submit to the same executor again while the run exists.
+        Once all monitors have stopped and the CLI has produced its report,
+        there is no remaining owner for those executors. Keeping them in
+        `_attempts` leaked each Claude SDK reader task and subprocess transport
+        until interpreter teardown.
+
+        The map is emptied before any potentially blocking backend shutdown, so
+        no concurrent observer can acquire an executor whose disposal started.
+        Every attempt is given a chance to stop even when one backend raises;
+        the first error is re-raised after all worker threads have been joined.
+        """
+        with self._lock:
+            attempts = tuple(self._attempts.values())
+            self._attempts.clear()
+
+        first_error: Exception | None = None
+        for attempt in attempts:
+            try:
+                attempt.halt()
+            except Exception as exc:  # cleanup all owners before reporting one failure
+                first_error = first_error or exc
+        for attempt in attempts:
+            attempt.join(HANDOVER_GRACE)
+        if first_error is not None:
+            raise first_error
+
     # ---- the monitor's two entrances, not on the protocol ----------------- #
 
     # `Runner.resume` is gone. `carry_on` subsumed it, `monitor`'s Protocol
@@ -560,9 +590,12 @@ class TaskAttempt:
         """`Runner.stop`: end the executor and the thread."""
         with self._own:
             self._halted = True
-        if self.executor is not None:
-            self.executor.stop()
-        self._wake.set()
+        try:
+            if self.executor is not None:
+                self.executor.stop()
+        finally:
+            # A backend cleanup error must not leave the attempt parked forever.
+            self._wake.set()
 
     def join(self, timeout: float | None = None) -> None:
         """For a caller that wants the thread settled. Tests, and `demo`."""
