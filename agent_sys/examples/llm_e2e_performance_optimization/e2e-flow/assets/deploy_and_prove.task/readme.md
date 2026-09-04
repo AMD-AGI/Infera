@@ -122,8 +122,29 @@ on "ss -ltn | awk 'NR>1{print \$4}' | sed 's/.*://' | sort -n | uniq"
   against your allocation before starting one**, and say in `notes.md` how long
   it took, because the next person's budget depends on it;
 - the weights directory lists shards and its size is plausible for the model;
+- **`fixed.gpu_count` is the number of devices that `rocm-smi` call LISTS** —
+  `card<N>` keys in the `--json` form, `Device` rows in the table form. Count
+  them. **Do not compute it from `$E2E_TP`, and do not reduce it by what a
+  co-tenant is holding**: `environment.schema.json` defines the field as *cards
+  PRESENT on the node, not cards this deployment could use*, so **a node with
+  four cards busy still records 8.**
+
+  This criterion exists because there was none. STEP 1 named a command for the
+  digest and a command for the arch, and produced a device *index* — never a
+  total — so `fixed.gpu_count` was the one required field no instruction
+  generated. Rung 1 recorded `8` with four cards held by another tenant, and
+  under this reading that was **correct**; it went in unchecked, and *that* is
+  what this fixes, not the value (`todo.md` **T23**);
 - free VRAM per device exceeds the checkpoint size with room for the KV and any
-  state pools, and you can say which device index you are taking;
+  state pools, and **you can say which device indices you are taking**.
+
+  **That is a different number from the one above, and on a shared host it is
+  the smaller one.** The record has nowhere to put it yet — `fixed.gpu_devices`
+  is `todo.md` **T19**, unbuilt — so a conforming record today can say *eight
+  present* and cannot say *four usable, one taken*. Put both into
+  `$KIT/results/preflight.json`: the count you recorded, and the indices you
+  actually took. Then the day T19 lands the number is already written down
+  instead of having to be re-derived from a log;
 - **the ports you intend to bind are not in that list.** They are shared with
   every other tenant on this node. If one is taken, move — do not wait for it.
 
