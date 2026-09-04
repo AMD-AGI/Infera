@@ -147,16 +147,67 @@ CONTAINER=$(_field runtime.container)
 # docker problem rather than as "the record describes a bring-up that is gone".
 # Mirrors m3's image-presence check and for the same reason: the record is the
 # claim, and this checks the claim against the machine.
-if ! on "docker inspect -f '{{.State.Running}}' '$CONTAINER' 2>/dev/null | grep -qx true"; then
-  echo "run_in_container: the record names container" >&2
-  echo "    $CONTAINER" >&2
-  echo "  and it is not running on ${E2E_NODE:-the node}. Modules 1-4 share ONE container and" >&2
-  echo "  m1 owns its lifetime; m4 does not start one (CONTRACT section 5)." >&2
-  echo "  Containers that ARE running there:" >&2
-  on "docker ps --format '    {{.Names}}   {{.Image}}'" >&2 || true
-  echo "  Either m1's bring-up has not run for this record, or it has been torn down." >&2
-  exit 1
-fi
+#
+# **A sentinel in stdout, not the exit status, and this file had the bug the
+# sentinel exists to prevent.** `remote.sh:require_visible_on_node` was rewritten
+# earlier the same day because `on "test -e …"` read any non-zero as absence, so
+# a dead allocation and a missing path produced one sentence — and that sentence
+# blamed the wrong thing and cost a rung. This check was written after that fix
+# and repeated its shape: `on "docker inspect … | grep -qx true"` is non-zero
+# both when the node answers "no such container" and when the node is never
+# reached, and the message below then tells the reader m1 tore their container
+# down. Reproduced 2026-09-04 against m1's real record for
+# `yihou_e2e_flow_sgl_e2e-main-20260904` on `crsuse2-m2m-217`, twice, once with
+# `SPUR_CONTROLLER_ADDR` present and once with `env -i` stripping it: **byte
+# for byte the same six lines**, though only the first had tested anything. The
+# stripped case is not exotic — `remote.sh:92-97` records that the closed
+# validator environment is exactly where that variable is absent.
+#
+# Only the far side can print `E2E_STATE=`, so its presence is what separates
+# "the node answered" from "nothing was asked".
+CSTATE="$(on "docker inspect -f 'E2E_STATE={{.State.Running}} E2E_ID={{.Id}} E2E_CREATED={{.Created}} E2E_STARTED={{.State.StartedAt}} E2E_RESTARTS={{.RestartCount}}' '$CONTAINER' 2>/dev/null || echo E2E_STATE=absent" 2>/dev/null)" || true
+case "$CSTATE" in
+  *E2E_STATE=true*) ;;
+  *E2E_STATE=*)
+    echo "run_in_container: the record names container" >&2
+    echo "    $CONTAINER" >&2
+    echo "  and ${E2E_NODE:-the node} answered that it is not running there. Modules 1-4 share" >&2
+    echo "  ONE container and m1 owns its lifetime; m4 does not start one (CONTRACT section 5)." >&2
+    echo "  Containers that ARE running there:" >&2
+    on "docker ps --format '    {{.Names}}   {{.Image}}'" 2>/dev/null >&2 || true
+    echo "  Either m1's bring-up has not run for this record, or it has been torn down." >&2
+    exit 1
+    ;;
+  *)
+    echo "run_in_container: could not reach ${E2E_NODE:-the node}, so NOTHING was learned" >&2
+    echo "  about container '$CONTAINER'. This is not evidence that m1's bring-up is gone." >&2
+    echo "  transport='${E2E_TRANSPORT:-}' jobid='${E2E_JOBID:-}' node='${E2E_NODE:-}'" >&2
+    if [ -n "${SPUR_CONTROLLER_ADDR:-}" ]; then _addr="set"; else _addr="UNSET -- the usual cause"; fi
+    echo "  SPUR_CONTROLLER_ADDR is $_addr; a closed" >&2
+    echo "  environment does not carry it (remote.sh:92-97)." >&2
+    exit 2
+    ;;
+esac
+
+# **What the record claims and what is on the node are two different facts, and
+# the join between them was unchecked.** m1 found the case on 2026-09-04: their
+# record said `runtime.started_at: 2026-09-04T09:03:51Z` while docker reported
+# `Created == StartedAt == 09:37:18Z` with `RestartCount: 0` — a restart keeps
+# its creation time and bumps the counter, so this was a *different container
+# wearing the same name*. `_agree_or_die` above compares node, jobid and
+# transport and they were all still true; the container is looked up by name and
+# the name resolved. Every field validated and the join was still wrong.
+#
+# For the exec it does not bite — the name reached a live container of the right
+# image on the right node. For provenance it does, and this stage's handoff
+# carries `premise.run_environment`, which `10_read_inputs.py:137` fills with
+# `lib.load_environment()`: m1's record, verbatim, no observation. So the one
+# line below is the only place in m4 where the container that actually ran the
+# work identifies itself. Printed rather than folded into the handoff, because
+# `run_environment`'s reader is the premise gate and changing what that field
+# means is a contract decision, not a wrapper's.
+echo "run_in_container: observed $(printf '%s' "$CSTATE" | tr ' ' '\n' | grep -E '^E2E_(ID|CREATED|STARTED|RESTARTS)=' | tr '\n' ' ')" >&2
+echo "run_in_container: record claims started_at=$(_field runtime.started_at)" >&2
 
 # **Single-quote for the shell that will re-parse this, escaping embedded
 # quotes.** `on` hands its argument to a `bash -lc`, so everything assembled
