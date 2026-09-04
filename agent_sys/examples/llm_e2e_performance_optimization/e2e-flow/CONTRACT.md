@@ -263,8 +263,25 @@ unset            environment.setdefault("E2E_STAGE", "m4")  ->  'm4'
 declared empty   environment.setdefault("E2E_STAGE", "m4")  ->  ''
 ```
 
-`setdefault` fills a **missing** key and leaves a present-but-empty one alone.
-Same for `${VAR:=…}`.
+**Which forms are hazardous, measured — and the first version of this section
+named the wrong one.** m5 checked it rather than accepting it, in both shells
+and Python:
+
+```
+bash/dash   unset V; : "${V:=filled}"   ->  filled      SAFE
+bash/dash   V=;     : "${V:=filled}"    ->  filled      SAFE — the colon form fills empty too
+bash/dash   V=;     : "${V=filled}"     ->  (empty)     HAZARD
+python      V=''; environ.setdefault    ->  ''          HAZARD
+```
+
+**`${VAR:=…}` is safe. The hazards are `${VAR=…}` — no colon — and Python's
+`setdefault`.** This section originally said the opposite, which would have sent
+every owner grepping for the harmless form and past the dangerous one. It is the
+exact sibling of `c69c813` above: **same colon, opposite direction**, and the
+leader got it backwards while writing the section about getting it backwards.
+
+So the grep before adding a name to `shared.yaml` is `setdefault("<name>"` and
+`${<name>=` — **not** `${<name>:=`.
 
 **And it hit the only stage that was doing the right thing.** m4 was the sole
 caller in the package setting `E2E_STAGE` at all — 21 other callers of
@@ -274,7 +291,7 @@ not.** Found by m4 running the leader's own new checker against their own agent
 rather than assuming it passed; fixed in `7028275` by guarding on truthiness.
 
 So: **before adding a name to `shared.yaml`, grep for `setdefault("<name>"` and
-`${<name>:=` in `assets/`.** Coping-with-absence is a contract a declaration
+`${<name>=` in `assets/` — no colon on the second.** Coping-with-absence is a contract a declaration
 breaks, and it breaks it silently and in the direction of the code that was
 already correct.
 
