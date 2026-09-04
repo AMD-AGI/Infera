@@ -466,6 +466,33 @@ runtime_contract:
         from the engine's because the router and the worker are different
         processes with different flag sets, and passing one's flags to the other
         is an error the engine reports and the router does not.
+    # The seventh, added 2026-09-04 after a kit without it took a co-tenant's
+    # cards. m2 found the consumer half; this is the producer half.
+    - name: E2E_KIT_GPU_DEVICES
+      brief: >-
+        Which device indices this deployment takes, comma-separated — **the one
+        identifier the kit binds that had no parameter.** Container names, ports
+        and the workdir have had one since the first kit; the cards did not, and
+        a card is the same kind of thing: a slot in a namespace shared with every
+        other tenant of the host. **Required here because the alternative is a
+        default, and every default a kit has chosen so far has been wrong on some
+        node** — one kit picked *every free card* (`_pick_gpus`), the next
+        hardcoded *the first four*, and neither read the machine before binding.
+        Both were written by agents following the same brief, which is the point:
+        **without this entry the device policy is not a property of this package
+        at all, it is whatever that day's kit author decided.** A contracted
+        parameter is what makes it the package's.
+        Two consequences worth stating because they are what the contract buys.
+        A caller that names cards **must be obeyed**: an operator naming a subset
+        is usually avoiding a co-tenant, and substituting a different free card
+        defeats the only mechanism that fact has. And a second copy of the kit
+        must be able to take *different* cards from the first — the same property
+        `E2E_KIT_PORT_BASE` exists for, applied to the resource that is scarcer.
+        **A prose instruction cannot replace it.** m1 routed "take only 4-7"
+        through `E2E_INSTRUCTION` at rung 1 and it worked only because the leaf
+        was an agent that could read prose; m2's consumer is a **program**, and a
+        site fact carried in prose cannot reach a shell script. See `todo.md`
+        **T19** and **T27**.
   # The work root must be **writable from inside the engine container, at the
   # same path**. Not a new parameter — a property of one that already exists.
   #

@@ -863,6 +863,44 @@ measurement must carry **when it was taken**. A reading without a timestamp
 cannot be known to be stale, which on this cluster — where a card reading is true
 for seconds — makes it indistinguishable from a guess.
 
+> **⚠ The paragraph above is wrong, and the table above it has one wrong row.
+> Corrected by m1 within the hour, before anything was built on it.**
+>
+> **`captured_at` is not absent. The file carries `measured_at`, at the top
+> level, and its value is `2026-09-04T07:26:58Z`.** I searched the document for
+> the key name I expected instead of listing the keys it has, which is the third
+> time today a search for an anticipated string returned the wrong answer where
+> opening the data returned the right one.
+>
+> **This makes the finding simpler and worse, not weaker.** 07:26:58 is *after*
+> the co-tenant arrived at 07:19:39 — so the `gpu_cards[]` array is **correct for
+> the moment the file declares**, and the prose contradicts numbers captured at
+> that same declared moment. It is not two readings in one file with nothing to
+> tell them apart; it is **one honest reading and a conclusion that ignores it.**
+>
+> **So item 5 as scoped is void — the timestamp was already there and did not
+> help.** The defect it was aimed at is real and needs a different fix:
+>
+> **Item 5, restated: nothing compares a document's conclusion to its own
+> numbers.** `check_deploy_kit` validates `environment.yaml` against a schema and
+> counts files in `results/`; it never opens `preflight.json`, and no rule
+> anywhere reads a prose field against a structured one beside it. The `results/`
+> floor asks for two non-empty `.json` files, **which this file satisfies while
+> contradicting itself.**
+>
+> **And it is not expressible as an evidence rule today**, which is the honest
+> obstacle rather than an excuse. The existing rules are regexes over a
+> directory (`forbid`, `require_each`, `require_together`); *"this sentence
+> disagrees with that array"* is not a regex. Tested before claiming it: a
+> directory-level "some file carries a `*_at`" rule passes **both** the sealed
+> kit (5 of 14 files) and this one (1 of 1), so it discriminates nothing.
+>
+> What would actually catch it is narrower and belongs to the producer: **STEP 1
+> should require the rationale to cite the numbers it rests on** — free VRAM per
+> card, quoted from the same reading — so that a stale premise is visible in the
+> sentence rather than only in the array two keys above it. A conclusion that
+> restates its evidence cannot silently outlive it.
+
 ### T28 — T21's bar, measured: 7 characters against 526
 *m1, 2026-09-04. T21 said "do not invent the number". The number exists now.*
 
