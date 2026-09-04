@@ -546,8 +546,50 @@ reading was "someone's commit regressed it". It had not: the leader had passed
 renders, and the validator refused correctly. Believing that failure would have
 sent two owners auditing their commits for a defect that was in a command line.
 
+4. **An instrument with no input at all reads PASS.** m3's, 2026-09-04, and it
+   is the one nobody had a name for. `harness/_common.py` derived seven
+   `E2E_<FIELD>` names for its `abort_on_mismatch` / `warn_on_mismatch` loops.
+   **Not one of the seven was declared anywhere in the package**, so `_observed`
+   returned `None` every time and **neither loop had ever been able to fire** —
+   including the abort that stops a measurement being taken on a machine the
+   workset's evidence did not come from, which is M4.3.5's premise.
+
+   Faces 1–3 are all about a *fixture*: benign, missing, or self-matching.
+   **Here there was no fixture of any kind** — the instrument read a channel
+   that did not exist, and silence from a channel that does not exist is
+   indistinguishable from silence meaning agreement. Its own docstring said so
+   and made it sound safe: *"an unset variable means unknown, and unknown is
+   not a mismatch."* Unknown was always.
+
+   **And a second defect would have made the first meaningless even if it had
+   fired.** The report's `environment` block took `gpu_arch`, `gpu_count`,
+   `tp_size`, `container` and `image_id` **from the workset's own claim**,
+   copied into the block whose whole job is to say where the run happened. A
+   working abort would have compared a premise against a report that agreed
+   with it by construction.
+
 **Whichever face it wears, ask what the instrument would report if the subject
 were fine — and make sure that is a different answer from the one you got.**
+
+#### A paragraph asserting a behaviour is not one
+
+m3's, and it is the cheapest signal in the codebase because it costs nothing to
+look. `harness/_common.py`'s docstring read:
+
+> *the abort is a behaviour, not a paragraph.*
+
+**It was a paragraph** — and the sentence denying it had been read many times by
+its own author. The same shape appeared twice more the same day: `redact.py`'s
+error text telling m5 *"these absolute paths would still be refused by the
+seal"* when the store does not call the seal's check, and `probes.yaml`'s
+`direction` claiming the completion probe discriminates a case it is
+structurally blind to.
+
+**Three files, three owners, one failure: prose in a tool asserting a property
+the code does not have, read past by everyone including the person who wrote
+it.** The remedy is the same question §4.4 already asks and none of the three
+authors asked of their own text: *what would this report if the subject were
+broken?*
 
 ### 4.1 Shared validators are shared, not copied
 
