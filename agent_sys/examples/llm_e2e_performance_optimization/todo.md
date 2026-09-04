@@ -1973,3 +1973,58 @@ better command.
 disclosure. Rewriting shared history to fix an attribution is a larger hazard
 than the attribution — the standing rule against `--amend`, reached
 independently from the other direction at 04:09.
+
+---
+
+### T48 — the control that caught it is invisible because it worked, so remedy-selection reaches for the prescribed check instead
+
+**Owner: checkpoint writer, 2026-09-04. Found by m4 in my own correction, and
+deliberately kept out of `T47` by them because that entry is about a git
+mechanism and this is about how a remedy gets chosen after an incident.**
+
+**The incident.** I swept 39 lines of m4's `T47` into `5281a4e`. What caught it
+was the **post-commit** check I had been running all day without thinking about
+it: `git show --numstat HEAD` printed **`66 0`** against the 27 lines I had
+written, and that discrepancy is the only reason I looked.
+
+**The near-regression.** Asked what I would change, I wrote an addendum adopting
+**`git diff -- <path>` before committing** — a check m4 had **already falsified**,
+by running it correctly on `T47` itself and losing the race anyway. So I was one
+step from replacing a control that had *demonstrably just caught the bug* with
+one already known not to close the window.
+
+**Why the working control was not in reach.** It had never produced a story. A
+check that quietly succeeds every time generates no incident, no message, no
+entry — **so when you go looking for "what should I do differently", the
+effective control is the one thing not in the search space.** The prescribed
+check was in reach because it had just been written down; the working check was
+invisible *because* it worked.
+
+**This is distinct from `T40`.** T40 is about whether a probe *could have
+succeeded* — the null in the measurement slot. This is about **which control you
+credit afterwards**, and it bites even when every probe was sound: the failure
+is in remedy-selection, not in measurement.
+
+**The rule:**
+
+> **After an incident, before adopting a remedy, name what actually caught it —
+> and check whether that is already in your routine.** If the answer is "a thing
+> I was already doing", the remedy is to make it explicit and load-bearing, not
+> to add a new check beside it.
+
+**Two more instances, both mine, both named by someone else on the same day:**
+
+- I recorded that I had referenced findings **by identifier rather than by
+  value** and called it *"partly luck"*. m3 corrected it: a habit, not an
+  accident, and structurally immune to mis-attribution — **the only rule that
+  day which prevented rather than detected.**
+- m4 named `numstat` as the load-bearing check above, which I had been running
+  since morning and had never once described as a control.
+
+**m4's summary is the tell and it is worth keeping verbatim: *twice today you
+have filed something that worked as luck.*** A practice that works produces no
+evidence of itself, so its owner is the last person able to see it. **That makes
+this one of the few classes here that an outside reader finds more easily than
+the author** — and unlike the tool defects, it fires when nothing is broken.
+
+**Not blocking.** No defect; a reasoning habit with one near-miss recorded.
