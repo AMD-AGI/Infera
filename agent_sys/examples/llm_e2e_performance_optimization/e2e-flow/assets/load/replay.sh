@@ -191,6 +191,26 @@ TRACE_END_MS=$E2E_TRACE_END_MS MAX_CONC=$E2E_MAX_CONC WORKERS=$E2E_WORKERS \\
 BLOCK_SIZE=$E2E_BLOCK_SIZE REQ_TIMEOUT=$E2E_REQ_TIMEOUT \\
 bash "\$SCRIPTS/aiperf_replay.sh"
 EOF
+
+# **The qualification travels with the numbers.** A replayed kit gives real
+# scripts and a re-rendered record, so what comes out proves the capture path
+# works and is *not* a measurement of the deployment the kit first described.
+# That sentence is true in a chat message for an hour and true in `items/watchout`
+# for as long as the artefact exists, and only one of those is where a reader
+# meets the number.
+note_if_replayed() {
+  [ -n "${KIT_REPLAYED_FROM:-}" ] || return 0
+  cat >> "$1" <<WEOF
+
+PROVENANCE: the deploy_kit behind this round was REPLAYED, not produced by a
+bring-up on this node -- runtime.replayed_from = $KIT_REPLAYED_FROM. Its
+scripts/ are m1's real ones and its environment record was re-rendered for this
+run, so these numbers are evidence that the measurement path works. They are NOT
+comparable to the deployment the kit originally described, and they are not that
+deployment's numbers. env/environment.yaml carries the same fact as a field.
+WEOF
+}
+
 chmod +x "$A_ITEMS/command"
 
 gzip -9 -c "$WORKDIR/aiperf.log" > "$A_ITEMS/logs/replay.log.gz"
@@ -211,6 +231,7 @@ ignore_eos is sent, so output length follows the trace rather than the model's
 own stopping. That makes decode numbers here incomparable to a benchmark that
 lets the model stop.
 EOF
+note_if_replayed "$A_ITEMS/watchout"
 
 cat > "$OUT_AIPERF/README.md" <<EOF
 # $ROUND.bench_result
@@ -363,6 +384,7 @@ identical across the pair, so stacks do not change what is measured -- but at
 record_shapes is true in both windows, and Magpie's Input Shapes column exists
 only because of it.
 EOF
+note_if_replayed "$T_ITEMS/watchout"
 
   cat > "$OUT_TRACE/README.md" <<EOF
 # $ROUND.profile_result

@@ -139,6 +139,14 @@ devs = fixed.get("gpu_devices") or []
 if not isinstance(devs, (list, tuple)):
     devs = [devs]
 print(f"KIT_GPU_DEVICES={shlex.quote(','.join(str(d) for d in devs))}")
+# **Provenance, carried into the numbers rather than into a message.** A kit
+# whose `runtime.replayed_from` is set was replayed rather than produced by a
+# bring-up on this node, so the scripts are real and the record was re-rendered.
+# The distinction decides whether a number here is comparable to the deployment
+# the kit originally described, and a reader meets the number long after the
+# message that qualified it.
+rt = doc.get("runtime") or {}
+print(f"KIT_REPLAYED_FROM={shlex.quote(str(rt.get('replayed_from') or ''))}")
 PY
 )"
 
@@ -195,6 +203,8 @@ fi
 : "${E2E_SERVED_NAME:=${KIT_SERVED_MODEL_NAME:-$E2E_MODEL_NAME}}"
 export E2E_SERVED_NAME
 say "kit: node=$KIT_NODE image=$KIT_IMAGE tp=$KIT_TP_SIZE served=$E2E_SERVED_NAME"
+export KIT_REPLAYED_FROM
+[ -n "${KIT_REPLAYED_FROM:-}" ] && say "kit was REPLAYED from $KIT_REPLAYED_FROM — numbers prove the path, not that deployment"
 say "this line: run_tag=$E2E_KIT_RUN_TAG port_base=$E2E_KIT_PORT_BASE"
 say "  engine argv += '${E2E_KIT_ENGINE_EXTRA_ARGS:-<none>}'"
 say "  engine env  += '${E2E_KIT_ENGINE_EXTRA_ENV:-<none>}'"
