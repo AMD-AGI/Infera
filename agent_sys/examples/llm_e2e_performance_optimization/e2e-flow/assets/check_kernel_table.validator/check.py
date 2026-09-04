@@ -333,7 +333,7 @@ def main() -> int:
         for reason in reasons:
             print(f"  - {reason}")
     # Before the verdict, so a crash in the writer cannot take the reasons with it.
-    W.write_report("check_kernel_table", findings)
+    W.write_report("check_kernel_table", findings, results)
     zone.write_verdict(results)
     return 0
 

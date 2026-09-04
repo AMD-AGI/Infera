@@ -326,7 +326,7 @@ def main() -> int:
             print(f"  - {reason}")
     # Before the verdict, so a crash in the writer cannot take the reasons with
     # it, and always rather than only on failure.
-    W.write_report("check_trace_coverage", findings)
+    W.write_report("check_trace_coverage", findings, results)
     zone.write_verdict(results)
     return 0
 

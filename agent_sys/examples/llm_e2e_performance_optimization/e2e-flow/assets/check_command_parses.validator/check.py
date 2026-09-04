@@ -204,7 +204,7 @@ def main() -> int:
         hid = line.split(":", 1)[0]
         by_hid.setdefault(hid if hid in verdict else "", ([], []))[0].append(line)
     # Before the verdict, so a crash in the writer cannot take the reasons with it.
-    W.write_report("check_command_parses", by_hid)
+    W.write_report("check_command_parses", by_hid, verdict)
     zone.write_verdict(verdict)
     return 0 if all(verdict.values()) else 1
 
