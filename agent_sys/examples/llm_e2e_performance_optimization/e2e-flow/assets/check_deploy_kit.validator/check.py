@@ -774,14 +774,32 @@ def main() -> int:
     # **Before `write_verdict`, deliberately** — m3's third property. A crash in
     # the writer must not be able to take the reasons with it, and the verdict is
     # the thing the phase reads, so it goes last.
-    _report(findings)
+    _report(findings, results)
     zone.write_verdict(results)
     print(f"check_deploy_kit: {results}")
     return 0
 
 
-def _report(findings: dict[str, tuple[list[str], list[str]]]) -> None:
+def _report(
+    findings: dict[str, tuple[list[str], list[str]]],
+    verdicts: dict[str, bool] | None = None,
+) -> None:
     """`workset_io.write_report`, and **never a second implementation of it.**
+
+    **`verdicts` is passed rather than omitted**, so the report's heading comes
+    from the same value `zone.write_verdict` receives instead of being *inferred*
+    from `problems` being non-empty. m3's change, routed rather than landed for
+    me because whether it bites depends on the caller: m2's body kept
+    informational lines among `problems` and headed a **passing** artefact
+    `REFUSED`.
+
+    **Checked before adopting: it does not bite here.** This body puts genuine
+    faults in `problems` and everything else in `notes`, so the inference was
+    already correct — the report and the verdict have never disagreed. Adopting
+    it anyway removes the *possibility* of disagreement rather than fixing an
+    instance of it, which is worth one argument: the next person to add an
+    informational line to `faults` would otherwise turn a green kit's report red
+    and never know.
 
     Six owners each met "a verdict without its reasons" and six fixed it in their
     own stage; m3 wrote the shared one and m4 was the first to reuse rather than
