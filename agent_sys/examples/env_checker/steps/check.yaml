@@ -51,7 +51,7 @@
   # §8.2's PRODUCER row, whose environment is `Prepared.environment`, and
   # `env_mgr.material.deploy` merges this block into that.
   #
-  # **`${uv_root}` is the second required variable, and it exists to keep an L1
+  # **`${uv_root}` is the second required variable, and it exists to keep a recipe's
   # install off the host.** serena is installed with `uv tool install`, and uv's
   # defaults write `~/.local/share/uv` and `~/.cache/uv` — host state outside
   # any zone, shared with every other tenant of this machine, and not ours to
@@ -70,20 +70,21 @@
   # serena's own state also wants redirecting, and probe E did that by pointing
   # `HOME` at a scratch directory *for the server subprocess* — overriding
   # `HOME` for the whole agent session would move Claude Code's own state too.
-  # That redirection belongs to the L1 recipe's `env`, not to this block.
+  # That redirection belongs to the serena recipe's `env`, not to this block.
   env:
     ENVCHK_NONCE: '${nonce}'
     UV_TOOL_DIR: '${uv_root}/tools'
     UV_TOOL_BIN_DIR: '${uv_root}/bin'
     UV_CACHE_DIR: '${uv_root}/cache'
 
-  # **L1 — an industry component, installed by an `env_mgr` recipe.** serena is
+  # **Installed from upstream, by an `env_mgr` recipe.** serena is
   # a real third-party language server bundle; `recipes:` is the existing recipe
   # machinery (`env_mgr/recipe.py` + `installers/`), which until this round was
   # reachable only from the `env-mgr` CLI and never ran during a task at all.
   # This is the first package to name one.
   #
-  # It is one name and not two on purpose. The point of L1 here is the *route*,
+  # It is one name and not two on purpose. The point of the recipe route here
+  # is the *route*,
   # and a second recipe would add a second way for the run to fail on somebody
   # else's network without measuring anything the first does not.
   recipes: [serena]
@@ -93,7 +94,8 @@
   # reasons:
   #
   # - `envchk-baseline` **is** capability 4: one external MCP server, declared
-  #   through a component's `.mcp.json`. If that section fails, L2 failed.
+  #   through a component's `.mcp.json`. If that section fails, the
+  #   agent-plugin route failed.
   # - `serena` is the **declaration half of capability 7**, and it is here
   #   because of a measured bug rather than a preference. Run 1 (2026-09-03)
   #   installed serena cleanly — `ok | ran: uv tool install …` — and the agent
@@ -105,16 +107,19 @@
   # **`recipes: [serena]` and `agent_plugins: [serena]` are both required and that
   # is not redundant.** Install and declaration are two halves; neither implies
   # the other, and run 1 is what proved it. Capability 7 is therefore
-  # **installed at L1 and declared at L2** — a genuine split, written down in
+  # **installed by a recipe and declared as an agent plugin** — a genuine
+  # split, written down in
   # `ACCEPTANCE.md` row 7 rather than smoothed over.
   agent_plugins: [envchk-baseline, serena]
 
   # **`skills:` is absent, and its absence is the test.** The one capability
   # `agent_sys` already delivered was `skills`, by declaration
   # (`env_mgr/material.py:MATERIAL_KEYS`). This agent's skill arrives instead
-  # through **L3**: `assets/env_probe.agent/.claude/skills/envchk-probe/`,
+  # through **the package's own material**:
+  # `assets/env_probe.agent/.claude/skills/envchk-probe/`,
   # auto-detected because of where it is. Declaring it as well would make the
-  # run pass whether or not L3 works, which is the shape of a test that cannot
+  # run pass whether or not that material works, which is the shape of a test
+  # that cannot
   # fail. The same reasoning keeps `hooks:` out — a declared hook lands at
   # `<zone>/config/hooks/<basename>` and is read by nobody, and this package
   # exists to tell a hook that is *declared* from a hook that *fires*.
@@ -161,7 +166,7 @@
     # empty sections are not a document.
     min_readme_lines: 10
     # How many entries `install_report` must carry. **One per declared install,
-    # at least**: this run declares one recipe (L1) and one component (L2), and
+    # at least**: this run declares one recipe and one agent plugin, and
     # a report naming neither is a report that never looked.
     min_install_report_entries: 2
   tags:

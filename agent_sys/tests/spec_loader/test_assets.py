@@ -411,7 +411,8 @@ def test_every_folder_spelling_names_an_agents_assets(builder: PackageBuilder, f
 def test_an_agent_with_no_directory_resolves_to_nothing_and_that_is_not_an_error(
     builder: PackageBuilder,
 ) -> None:
-    """L3 is **undeclared** and auto-detected (`env_mgr/agent_assets.py`), so an
+    """A package's own component material is **undeclared** and auto-detected
+    (`env_mgr/agent_assets.py`), so an
     agent that carries no components has no directory and that is its normal
     shape. `resolve`'s `None` for the same reason one level up."""
     assert AssetIndex(builder.root / "assets").resolve_folder(name="forge", type_="agent") is None

@@ -165,13 +165,13 @@ def _placed(report: tuple[Any, ...]) -> list[str]:
 
 
 # --------------------------------------------------------------------------- #
-# L3 — undeclared, auto-detected
+# What a task package carries for one agent — undeclared, auto-detected
 
 
-def test_l3_is_found_at_the_agent_assets_dot_claude_and_nothing_declares_it(
+def test_a_packages_own_material_is_found_at_the_agent_assets_dot_claude_undeclared(
     tmp_path: Path,
 ) -> None:
-    """The level with no declaration. Detection **is** the interface.
+    """The origin with no declaration. Detection **is** the interface.
 
     A second statement of what the directory already says is a second writer of
     one fact, and the two would drift the first time somebody moved the
@@ -194,7 +194,8 @@ def test_l3_is_found_at_the_agent_assets_dot_claude_and_nothing_declares_it(
 def test_an_agent_that_carries_nothing_installs_nothing_and_does_not_complain(
     tmp_path: Path,
 ) -> None:
-    """Undeclared **and absent** is simply absent, and that is L3's normal shape.
+    """Undeclared **and absent** is simply absent, and that is the normal shape
+    for a package that carries nothing.
 
     The counterpart to every refusal below, and it is the case that keeps them
     honest: `material.py:62-86`'s declared-and-absent rule is only defensible
@@ -234,15 +235,15 @@ def test_a_spec_declaring_assets_that_are_not_in_the_staged_copy_refuses(
 
 
 # --------------------------------------------------------------------------- #
-# L2 — declared by name
+# The agent plugins this repository ships — declared by name
 
 
-def test_l2_resolves_a_bare_name_under_the_repositorys_components_directory(
+def test_a_bare_name_resolves_under_the_repositorys_agent_plugins_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """``agent_plugins: [<name>]`` is a name and never a path, so this can only
     reach a directory we ship."""
-    shipped = tmp_path / "components"
+    shipped = tmp_path / "agent_plugins"
     _write(shipped / "envchk" / ".claude" / "skills" / "chk" / "SKILL.md", "# chk\n")
     monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
     config = tmp_path / "config"
@@ -256,13 +257,13 @@ def test_l2_resolves_a_bare_name_under_the_repositorys_components_directory(
 def test_a_declared_component_that_does_not_exist_refuses(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`material.py`'s declared-and-absent rule, at L2.
+    """`material.py`'s declared-and-absent rule, for an agent plugin.
 
     The failure it prevents is the measured one: skip the install silently and
     the agent meets ``Unknown skill`` hours later from inside its own session,
     with nothing in the zone, the events or the logs naming the cause.
     """
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(tmp_path / "components"))
+    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(tmp_path / "agent_plugins"))
     with pytest.raises(PrepareRefused, match="declares component 'nope'"):
         install(_spec(agent_plugins=["nope"]), staged_package=None, config_dir=str(tmp_path / "c"))
 
@@ -273,7 +274,7 @@ def test_a_component_with_no_dot_claude_directory_refuses(
     """`agent_plugins/README.md` marks `.claude/` REQUIRED, and a component that
     installs nothing is indistinguishable from one whose contents were
     forgotten."""
-    shipped = tmp_path / "components"
+    shipped = tmp_path / "agent_plugins"
     (shipped / "hollow").mkdir(parents=True)
     monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
     with pytest.raises(PrepareRefused, match="has no .claude/ directory"):
@@ -283,10 +284,10 @@ def test_a_component_with_no_dot_claude_directory_refuses(
 
 
 # --------------------------------------------------------------------------- #
-# L1 — recipes
+# Recipes
 
 
-def test_l1_runs_a_package_relative_recipe_and_reports_its_status(tmp_path: Path) -> None:
+def test_a_package_relative_recipe_runs_and_reports_its_status(tmp_path: Path) -> None:
     """A recipe resolved against the **staged** package.
 
     The item is a shell `oneline` writing a file, so the assertion is that the
@@ -389,7 +390,7 @@ def test_settings_are_merged_across_levels_and_written_before_any_install(
     `claude` records what it saw of ``CLAUDE_CONFIG_DIR``, and the settings file
     is asserted to be on disk **by the time it ran**.
     """
-    shipped = tmp_path / "components"
+    shipped = tmp_path / "agent_plugins"
     _write(
         shipped / "base" / ".claude" / "settings.json",
         json.dumps({"hooks": {"PreToolUse": ["a"]}, "model": "from-l2"}),
@@ -412,7 +413,8 @@ def test_settings_are_merged_across_levels_and_written_before_any_install(
         agent_cli=fake_claude.path,
     )
 
-    # L3 wins the collision; L2's untouched key survives the merge.
+    # The package's own copy wins the collision; the agent plugin's untouched
+    # key survives the merge.
     assert got.settings == {"hooks": {"PreToolUse": ["a"]}, "model": "from-l3"}
     on_disk = json.loads((config / "settings.json").read_text())
     assert on_disk == got.settings
@@ -439,7 +441,7 @@ def test_a_failing_plugin_install_is_a_named_outcome_and_not_a_silent_skip(
     """rc and output land in the report. A component whose plugin did not install
     is a run that will behave differently, and the only place that can be seen
     is here."""
-    shipped = tmp_path / "components"
+    shipped = tmp_path / "agent_plugins"
     _write(
         shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
         json.dumps({"name": "mp", "owner": "us", "plugins": [{"name": "p1"}]}),
@@ -480,9 +482,11 @@ def test_external_and_bundled_mcp_servers_arrive_in_one_mapping(tmp_path: Path) 
     )
     assert got.mcp_servers["weather"] == {"type": "http", "url": "http://x"}
     assert got.mcp_servers["envchk"]["type"] == "stdio"
-    # **The PLACED path, not the source.** Registering the source worked for L3
+    # **The PLACED path, not the source.** Registering the source worked for a
+    # package's own tree
     # only because the staged package happens to be inside the zone; the same
-    # file in an L2 component would have named a path under `AGENT_PLUGINS_ROOT`,
+    # only by luck; the same file in an agent plugin would have named a path
+    # under `AGENT_PLUGINS_ROOT`,
     # outside every grant — probe F's failure one directory over.
     assert got.mcp_servers["envchk"]["args"] == [str(config / "tools" / "envchk.mcp.py")]
 
@@ -562,11 +566,12 @@ def test_a_tools_directory_file_with_no_recognised_suffix_is_left_alone(
 def test_a_later_level_wins_an_mcp_name_collision_and_the_collision_is_reported(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """L1 -> L2 -> L3, so the package's own copy wins — `material.deploy`'s
+    """Upstream -> this repository -> the package, so the package's own copy
+    wins — `material.deploy`'s
     precedence, *an author saying so outranks a default*. Reported either way,
     because a silently replaced server is different tools than the ones someone
     wrote."""
-    shipped = tmp_path / "components"
+    shipped = tmp_path / "agent_plugins"
     _write(
         shipped / "base" / ".claude" / MCP_REL,
         json.dumps({"mcpServers": {"shared": {"type": "http", "url": "l2"}}}),
@@ -836,7 +841,7 @@ def test_the_marketplace_is_copied_into_the_zone_before_it_is_registered(
     report success, and then fail to load under confinement, because that path is
     outside every grant.
     """
-    shipped = tmp_path / "components"
+    shipped = tmp_path / "agent_plugins"
     _write(
         shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
         json.dumps({"name": "mp", "owner": "us", "plugins": [{"name": "p1"}]}),
@@ -903,7 +908,7 @@ def test_the_agent_plugins_root_is_exported_only_when_components_are_declared(
     that: a body failing on our own instruction. `agent_plugin_grants` reads the
     same key, so the pair cannot fall out of step.
     """
-    shipped = tmp_path / "components"
+    shipped = tmp_path / "agent_plugins"
     _write(shipped / "base" / ".claude" / "settings.json", "{}")
     monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
 
@@ -1016,7 +1021,7 @@ def test_the_tooldef_module_stays_in_sys_modules_after_the_install(tmp_path: Pat
 
 
 def test_a_recipe_child_that_overruns_is_killed_and_reported(tmp_path: Path) -> None:
-    """The bound that only exists because L1 is a child process.
+    """The bound that only exists because a recipe runs as a child process.
 
     `installers/base.py::run_cmd` is `subprocess.run(shell=True)` with **no
     timeout**, so before the subprocess route a networked install that went wrong
@@ -1088,7 +1093,7 @@ def test_plugin_installs_run_the_pinned_cli_and_never_the_bare_name(
     nothing on `PATH` a bare name would answer rc 127 and this assertion would
     pass for the wrong reason.
     """
-    shipped = tmp_path / "components"
+    shipped = tmp_path / "agent_plugins"
     _write(
         shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
         json.dumps({"name": "mp", "owner": "us", "plugins": [{"name": "p1"}]}),
@@ -1130,7 +1135,7 @@ def test_a_component_with_plugins_and_no_pinned_cli_fails_rather_than_guessing(
     `fake_claude` is requested so that a bare `claude` *would* have worked: this
     asserts a refusal to guess, not an absence of options.
     """
-    shipped = tmp_path / "components"
+    shipped = tmp_path / "agent_plugins"
     _write(
         shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
         json.dumps({"name": "mp", "owner": "us", "plugins": [{"name": "p1"}]}),
@@ -1361,7 +1366,7 @@ def test_a_marketplace_name_that_climbs_out_of_the_zone_copies_nothing(
     The assertion is therefore about the filesystem, not only about the outcome:
     nothing may appear at the escaped location.
     """
-    shipped = tmp_path / "components"
+    shipped = tmp_path / "agent_plugins"
     escape = tmp_path / "ESCAPED"
     _write(
         shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
@@ -1446,7 +1451,7 @@ def test_a_components_marketplace_never_lands_on_the_harnesss_own_name(
     placed like every other member. The `_NOT_PLACED` table states it; this is
     what keeps it true.
     """
-    shipped = tmp_path / "components"
+    shipped = tmp_path / "agent_plugins"
     _write(
         shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
         json.dumps({"name": "mp", "owner": "us", "plugins": []}),
@@ -1473,7 +1478,8 @@ def test_a_tooldef_is_imported_from_the_zone_copy_not_the_component_source(
 ) -> None:
     """The same rule as the bundled MCP server, one function over.
 
-    For **L2** the source is `agent_sys/agent_plugins/<name>/.claude/tools/…`, so
+    For an **agent plugin** the source is
+    `agent_sys/agent_plugins/<name>/.claude/tools/…`, so
     importing it read the repository rather than the copy this attempt was
     pinned to — the bare-`claude` defect's class, two consumers with one of them
     reading a path the run does not own. It also wrote `__pycache__` into the
@@ -1482,7 +1488,7 @@ def test_a_tooldef_is_imported_from_the_zone_copy_not_the_component_source(
     Asserted through the module's own `__file__`, which is the only thing that
     can tell the two copies apart once the tools are loaded.
     """
-    shipped = tmp_path / "components"
+    shipped = tmp_path / "agent_plugins"
     _write(
         shipped / "base" / ".claude" / "tools" / "t.tooldef.py",
         "class T:\n    def __init__(self, name): self.name = name\nTOOLS = [T('probe')]\n",
@@ -1496,7 +1502,7 @@ def test_a_tooldef_is_imported_from_the_zone_copy_not_the_component_source(
     loaded = Path(sys.modules[type(tool).__module__].__file__)
     assert loaded == config / "tools" / "t.tooldef.py", loaded
     assert not (shipped / "base" / ".claude" / "tools" / "__pycache__").exists(), (
-        "importing the source wrote __pycache__ into the components registry"
+        "importing the source wrote __pycache__ into the agent plugins directory"
     )
 
 
@@ -1510,7 +1516,7 @@ def test_two_components_shipping_tooldefs_do_not_double_register(
     component's name and register its tools twice. The source names exactly one
     component's files; the placed path is only where each is read from.
     """
-    shipped = tmp_path / "components"
+    shipped = tmp_path / "agent_plugins"
     for name, tool in (("a", "alpha"), ("b", "beta")):
         _write(
             shipped / name / ".claude" / "tools" / f"{name}.tooldef.py",
@@ -1603,7 +1609,7 @@ def test_a_marketplace_name_that_is_not_a_single_directory_name_is_refused(
     parametrised here so that the two guards cannot both be removed and leave a
     hole between them.
     """
-    shipped = tmp_path / "components"
+    shipped = tmp_path / "agent_plugins"
     _write(
         shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
         json.dumps({"name": market, "owner": "us", "plugins": [{"name": "p1"}]}),
@@ -1655,7 +1661,7 @@ def test_two_components_shipping_the_SAME_tooldef_filename_stay_separate(
     what makes the corruption observable; without them both modules would look
     fine and the test would pass either way.
     """
-    shipped = tmp_path / "components"
+    shipped = tmp_path / "agent_plugins"
     for name, tool in (("a", "alpha"), ("b", "beta")):
         _write(
             shipped / name / ".claude" / "tools" / "util.tooldef.py",
@@ -1678,7 +1684,7 @@ def test_two_components_shipping_the_SAME_tooldef_filename_stay_separate(
 
     assert sorted(t.name for t in got.tools) == ["alpha", "beta"]
     modules = [type(t).__module__ for t in got.tools]
-    assert len(set(modules)) == 2, f"one module name for two components: {modules}"
+    assert len(set(modules)) == 2, f"one module name for two agent plugins: {modules}"
     for tool in got.tools:
         # Resolves each class's annotations through `sys.modules[__module__]`,
         # which is the lookup that returned the wrong component's namespace.
@@ -1690,17 +1696,17 @@ def test_one_component_replacing_anothers_placed_file_is_reported(
 ) -> None:
     """The overwrite underneath that bug, which was silent.
 
-    Levels install in order and `copy_out` merges, so a member two components
+    Origins install in order and `copy_out` merges, so a member two components
     both ship ends up holding only the later one's bytes — which is how one
     component's artefact can be absent from the zone while its own report says
     `ok`. `_mcp_servers` already warns about this for a server *name*; it was
     unreported for a *file*.
 
-    Precedence is unchanged: later wins, which is L1 → L2 → L3's rule. Only the
+    Precedence is unchanged: later wins, which is the origin order's rule. Only the
     silence changed. And the unit is a **file**: two components both shipping
     `skills/` must not warn unless they ship the same skill.
     """
-    shipped = tmp_path / "components"
+    shipped = tmp_path / "agent_plugins"
     _write(shipped / "a" / ".claude" / "skills" / "shared" / "SKILL.md", "# from a")
     _write(shipped / "a" / ".claude" / "skills" / "only-a" / "SKILL.md", "# a only")
     _write(shipped / "b" / ".claude" / "skills" / "shared" / "SKILL.md", "# from b")
@@ -1722,7 +1728,7 @@ def test_components_that_share_no_file_do_not_warn(
     """The control for the warning above. Two components both shipping
     `skills/` is the ordinary case and must stay quiet — a warning that fires on
     every second component is one nobody reads."""
-    shipped = tmp_path / "components"
+    shipped = tmp_path / "agent_plugins"
     _write(shipped / "a" / ".claude" / "skills" / "one" / "SKILL.md", "# a")
     _write(shipped / "b" / ".claude" / "skills" / "two" / "SKILL.md", "# b")
     monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
