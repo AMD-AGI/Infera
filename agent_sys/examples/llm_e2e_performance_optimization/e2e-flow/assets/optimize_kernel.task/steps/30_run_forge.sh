@@ -257,6 +257,11 @@ if [ ! -d "$WS/.git" ]; then
     && git add -A \
     && git commit -qm "baseline: the engine tree as this container runs it" )
 fi
+# **Recorded to a file, not held in a variable.** The block above is guarded on
+# `$WS/.git`, so a re-entry skips it — and a variable set only inside it would
+# be empty exactly when the workspace already exists, which is the resume case.
+[ -f "$WORKDIR/engine_baseline.sha" ] || \
+  ( cd "$WS" && git rev-parse HEAD ) > "$WORKDIR/engine_baseline.sha"
 
 KFO_MAX_HOURS="$CLAMPED"; export KFO_MAX_HOURS
 KFO_FORGE_WORKDIR="$WORKDIR"; export KFO_FORGE_WORKDIR
@@ -295,12 +300,35 @@ KERNEL="$WS/$SRC_REL"
 [ -f "$KERNEL" ] || { echo "the campaign left no kernel at $KERNEL" >&2; exit 1; }
 cp "$KERNEL" "$WORKDIR/optimized_kernel.py"
 
-# **The diff, in `apply.py`'s frame with nothing done to it.** This is what the
-# init at `SGLANG_ROOT`'s level bought: `git diff HEAD` from `$WS` heads its
-# hunks `a/srt/layers/sampler.py`, which is exactly `split_placeholder`'s tail.
-# Empty is a legitimate outcome — forge reverting every candidate is `improved:
-# false`, not a failure — so it is written either way and never gated on size.
-( cd "$WS" && git diff HEAD ) > "$WORKDIR/engine.patch"
+# **Against the BASELINE, not against `HEAD`.** This line said `git diff HEAD`
+# when it was written and that is empty on every successful campaign — measured
+# on 275, 2026-09-04, driving the whole chain with a hand edit standing in for
+# forge:
+#
+#     git diff HEAD          0 lines
+#     git diff $BASELINE     9 lines, the marker
+#
+# because **forge commits its keeps** (`runner.py:1600`), so `HEAD` has already
+# moved to include them and the working tree matches it. The failure would have
+# been silent and it would have looked exactly like `improved: false` — an empty
+# patch from a campaign that worked. The one outcome this stage cannot tell
+# apart from a plumbing bug, produced by a plumbing bug.
+#
+# `git diff <commit>` compares that commit to the **working tree**, so this
+# carries forge's keeps and anything it left uncommitted, in one diff. A file
+# forge created and never committed is the gap: `git diff` does not show
+# untracked paths, and only the `commit_new_paths` allowlist gets them staged.
+#
+# **The frame is right and that was measured too**: hunks head
+# `a/srt/layers/sampler.py`, which is exactly `split_placeholder`'s tail. That
+# is what the `git init` at `SGLANG_ROOT`'s level bought.
+#
+# Empty is still a legitimate outcome — forge reverting every candidate is
+# `improved: false` — so it is written either way and never gated on size.
+BASE=$(cat "$WORKDIR/engine_baseline.sha" 2>/dev/null || true)
+[ -n "$BASE" ] || { echo "no baseline sha at $WORKDIR/engine_baseline.sha; refusing to" >&2
+                    echo "  diff against HEAD, which is empty once forge has committed" >&2; exit 1; }
+( cd "$WS" && git diff "$BASE" ) > "$WORKDIR/engine.patch"
 
 # `improved: false` is a legitimate outcome and is not a failure of this step.
 echo "ok: campaign finished; kernel at $WORKDIR/optimized_kernel.py"
