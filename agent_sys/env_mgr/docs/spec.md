@@ -76,7 +76,7 @@ internally.
 | 5 | **Work on a copy** | An agent copies a handoff into its playground and works there. §6.3 |
 | 6 | **A mechanism, not a manager** | §1.1 |
 | 7 | **Reuse what shipped** | The recipe, layer, and installer machinery is not rewritten. §9 |
-| 8 | **Shared by default; per-agent only for what the harness reads** | A declared install lands in one shared root. The exception is agent-facing material — a `.claude/` tree — which lands in that agent's zone. §9.1 |
+| 8 | **Adopt Claude Code's user/project split; invent no levels of our own** | Non-AI installs go system-wide. AI material splits exactly as the harness already splits it: package-declared is *user level*, agent-declared is *project level*. There is no layer field and no layer vocabulary. §9.1 |
 
 ---
 
@@ -461,15 +461,38 @@ superseded by §6.1; the other two stand.
 
 ### 9.1 Where an installed thing lands
 
-Two destinations, and the rule that picks between them is one question.
+**There is no layer field and no level vocabulary.** An earlier revision of this
+design had five, then four; both were removed, because the destination is
+*derived* and an author restating it is a second writer of a fact the file path
+already carries. The derivation is two questions.
 
-| destination | what goes there |
-|---|---|
-| **the shared root** | everything else: binaries, language packages, OS packages, a tool an agent shells out to |
-| **the agent's zone** | only material an agent harness reads as its own configuration — a `.claude/` tree: skills, hooks, `settings.json`, an MCP declaration |
+> **1. Is it AI material — a `.claude/` tree the agent harness reads as its own
+> configuration?** If not, it installs **system-wide**, once, for everyone.
+> **2. If it is: did the *agent* declare it?** If yes, **project level**.
+> If it was declared by the task package, **user level**.
 
-> **The test: would two agents in the same run need different copies of it?**
-> If no, it is shared and is installed once.
+| what | where | Claude Code calls it |
+|---|---|---|
+| binaries, language packages, OS packages, any tool an agent shells out to | system-wide. Where the installer accepts a prefix, **the agent_sys root**; where it does not (`apt`, a system interpreter), wherever it lands | — |
+| a `.claude/` tree declared in `main.yaml` or `default.yaml` | the agent_sys root's Claude config | **user level** |
+| a `.claude/` tree under an agent's own asset directory | the agent's workspace root | **project level** |
+
+**The second and third rows are not our invention — they are Claude Code's own
+two scopes**, and adopting them is the whole point: a harness that already
+distinguishes user-scope from project-scope does not need a parallel hierarchy
+laid over it. Question 2 is answered by *which directory the file was found in*,
+so nothing has to be declared.
+
+Two consequences that follow from the rows above and are stated because they are
+behaviour changes, not restatements:
+
+- **User level is shared across the agents of a run.** A skill declared in
+  `main.yaml` is visible to every agent, not copied per agent. That is what user
+  scope means; if a skill must be one agent's only, the agent declares it.
+- **User level outlives a run.** The agent_sys root is deliberately not under a
+  run root (PR 154: a resident daemon has to outlive any single run), so
+  package-declared material persists into the next run. **Left as measured, not
+  designed around** — see `../../docs/TODO.md`.
 
 `serena` is the worked example, because it is both: the **binary** is one
 installation every agent uses, and the `.mcp.json` that names it — with that
