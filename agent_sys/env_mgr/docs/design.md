@@ -1497,3 +1497,14 @@ The spec set is agreed and a design does not amend it. Each of these is reported
 | **O5** | **Whether executors nest as processes decides whether task depth is capped at 16.** §8.4 chooses supervisor-spawned executors, which avoids the cap. Nothing outside this document records that the choice has that consequence, and `task_graph` treats depth as unbounded |
 | **O6** | **§9.3 detects a conflict and refuses; it does not resolve one.** Refusing is right for a one-shot sync at task start. It is not right for whatever eventually wants to sync mid-task, and that caller does not exist yet |
 | **O7** | **Remote execution is less isolated than local, and now says so.** §10.4 reports it per side rather than resolving it. The moment a validation runs remotely, criterion 13 stops being enforced by anything this document specifies |
+
+## 17. o11y
+
+Side-cars that watch a run. **The rule that outranks every feature here: o11y
+may never fail the thing it observes.** Every failure is one `log.warning` and a
+skip, and there is a test per mode holding that line.
+
+One component today. Its design is **`../o11y/agentsview/design.md`** — the
+panel, the five gates that keep it to `agent_sys`'s own sessions, one project
+per run, and the measurements each of those rests on. It lives beside the code
+rather than here because it is a component's design, not the module's.

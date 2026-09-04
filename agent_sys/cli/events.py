@@ -22,7 +22,7 @@ from typing import Any, NamedTuple
 
 __all__ = ["SCHEMA_VERSION", "Event", "EventKind"]
 
-SCHEMA_VERSION = "1.3"
+SCHEMA_VERSION = "1.4"
 """The schema of the machine-readable stream.
 
 Criterion 14 makes this an interface: **bump it on any change to `EventKind`,
@@ -68,6 +68,16 @@ dropped check that simply vanishes from the output is indistinguishable from
 one that was never declared, and the difference is the whole claim the run is
 making.
 
+**1.4** — `O11Y_PANEL`. The AgentsView panel's URL, and the notice that its
+binary was fetched for the first time, were `log.info` calls. **Nothing in this
+repository configures `logging`**, so the root logger sits at `WARNING` with no
+handler and both lines were discarded — while the o11y failure paths, being
+`log.warning`, reached stderr through `logging.lastResort`. Failures were
+visible and successes were not, and the tests did not notice because
+`caplog.at_level("INFO")` forces the level from pytest's side. A fact the user
+is meant to read belongs in the stream, which is the thing in this package
+whose job is being read; `logging` here is for the operator's diary.
+
 `docs/interfaces.md` §5.7: once the whole-system CLI wants the same stream,
 two artefacts share this constant with no bump policy. That is open.
 """
@@ -96,6 +106,7 @@ class EventKind(str, Enum):
     PERMISSIONS_DISABLED = "permissions_disabled"
     ZONE_PREPARED = "zone_prepared"
     ACCESS_DENIED = "access_denied"
+    O11Y_PANEL = "o11y_panel"
 
     # what this run did NOT check, and why. Absent is not the same as dropped.
     VALIDATION_DROPPED = "validation_dropped"

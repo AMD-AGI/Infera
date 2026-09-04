@@ -1,0 +1,185 @@
+# The verdict, and the deliverable.
+#
+# `compare` is the only task that sees both arms; `packup` is the only one that
+# has to look like something a human was handed. They are separate because
+# deciding and assembling are different jobs and because their validators check
+# different things -- one recomputes an argument, the other counts substance.
+
+# --------------------------------------------------------------------------- #
+
+# **This validator does not read the report's `verdict` field.**
+#
+# It recomputes every comparison from the raw numbers the report carries and
+# fails when its own answer disagrees with the one the report states. That is the
+# difference between checking a claim and reading it: `compare` is a program in
+# this package and a bug in it would otherwise produce a report that passes its
+# own validation. `usability` because what it is judging is whether the report
+# can be used to make the accept/reject decision it was built for.
+#
+# The four lines it recomputes:
+#
+#   llm-eval    a Newcombe interval on the difference of two Wilson intervals.
+#               Regression means the interval excludes zero and the delta is
+#               negative -- not "the score went down", which two runs of the same
+#               deployment do routinely at 200 questions.
+#   needle      a regression is a depth the stock arm retrieved and the patched
+#               arm did not. Both failing is not a regression; it is a property
+#               of the model at that length, and the frontier run is there
+#               precisely because the stock arm fails it.
+#   smoke       any check that passed on stock and failed on patched.
+#   performance relative change per metric, compared round-for-round only.
+- module: validator
+  name: check_no_regression
+  version: '1'
+  brief: Recompute every arm-to-arm comparison from the raw numbers and agree with the stated verdict
+  dimension: usability
+  strength: strong
+  inputs: [integration_report]
+  args:
+    # No measured basis for this number yet: it wants the natural run-to-run
+    # spread of one arm, which the first full run will produce. Until then, 5% is
+    # a placeholder wide enough not to fire on noise and narrow enough to catch
+    # something real. Recorded as an open question in DESIGN.md section 11.
+    max_throughput_regression: '${max_throughput_regression:-0.05}'
+    max_ttft_regression: '${max_ttft_regression:-0.10}'
+    # The eval comparison is interval-based, so there is no threshold to set --
+    # only the confidence level, and 95% is what summarise_eval.py uses.
+    eval_confidence: 0.95
+    require_arms: [stock, patched]
+    # A report whose stated verdict differs from the recomputation is a failure
+    # even when the recomputation says "accepted": the disagreement means one of
+    # the two is wrong and neither can be trusted until that is resolved.
+    require_verdict_agreement: true
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [integration-demo, verdict]
+
+# --------------------------------------------------------------------------- #
+
+# `structured_text`, and `report.md` is declared explicitly in the schema.
+#
+# `check_items` computes `unknown = set(items) - known - declared`, where
+# `declared` is the properties of `items_schema` -- so a top-level item the
+# content type never heard of is admitted as long as the kind names it.
+# `analyze-demo`'s `kernel_worklist` carries `worklist.csv` the same way. The
+# machine-readable form and the human-readable one are the same content and
+# should not be in two handoffs.
+- module: handoff
+  name: integration_report
+  version: '1'
+  description: The two arms side by side, with the accept-or-reject argument and the numbers behind it.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json', schema, 'report.md']
+    properties:
+      'text.json': {type: string}
+      schema: {type: string}
+      'report.md': {type: string}
+  validators: [check_no_regression]
+
+# --------------------------------------------------------------------------- #
+
+- module: task
+  name: compare
+  description: Put the two arms side by side and state whether the patch is accepted.
+  agent: runner
+  handoffs: [acceptance_stock, bench_stock, acceptance_patched, bench_patched, kernel_patch, integration_report]
+  validators: [check_no_regression]
+  task:
+    goal: Decide whether the patched arm regressed against the stock arm.
+    version: '1'
+    inputs: [acceptance_stock, bench_stock, acceptance_patched, bench_patched, kernel_patch]
+    outputs: [integration_report]
+    permissions:
+      grants:
+        - {path: handoffs/integration_report, access: write, kind: integration_report}
+        - {path: handoffs/acceptance_stock, access: read, kind: acceptance_stock}
+        - {path: handoffs/bench_stock, access: read, kind: bench_stock}
+        - {path: handoffs/acceptance_patched, access: read, kind: acceptance_patched}
+        - {path: handoffs/bench_patched, access: read, kind: bench_patched}
+        - {path: handoffs/kernel_patch, access: read, kind: kernel_patch}
+
+# --------------------------------------------------------------------------- #
+
+- module: validator
+  name: check_packup_shape
+  version: '1'
+  brief: The packup has every file the layout requires, with substance rather than placeholders
+  dimension: completeness
+  strength: strong
+  inputs: [integration_packup]
+  # Arg names are the ported body's, not this file's invention. Substance is
+  # counted in CONTENT lines rather than bytes, because the layout reference
+  # ships templates and a packup holding every mandated file with nothing in
+  # them is exactly what a lazy producer emits.
+  args:
+    require_files: [README.md, REPRODUCE.md, environment.md, notes.md]
+    require_dirs: [results, logs, scripts]
+    min_content_lines:
+      README.md: 20
+      REPRODUCE.md: 15
+      environment.md: 12
+      notes.md: 8
+    # REPRODUCE.md is measured in commands instead of prose: it is the one file
+    # a reproducer executes.
+    min_command_lines: 8
+    # Two arms, two summaries, the report and the eval index at a minimum.
+    min_result_files: 4
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [integration-demo, packup]
+
+# --------------------------------------------------------------------------- #
+
+# `code` and not `reproducible`, for the reason `single_real_task` gives: laying
+# a packup into `reproducible` renames `results/` to `items/result` and leaves
+# `REPRODUCE.md` with no item to be, which destroys the thing
+# `check_packup_shape` exists to check. `code`'s `codes` item is unconstrained
+# inside, so the layout survives intact.
+- module: handoff
+  name: integration_packup
+  version: '1'
+  description: The integration stage's deliverable, in the experiment-result-packup layout.
+  content_type: code
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [codes, watchout]
+    properties:
+      codes: {type: string}
+      watchout: {type: string}
+  validators: [check_packup_shape]
+
+# --------------------------------------------------------------------------- #
+
+- module: task
+  name: packup
+  description: Assemble the deliverable in the experiment-result-packup layout.
+  agent: runner
+  handoffs: [kernel_patch, patch_overlay, deployment_stock, acceptance_stock, bench_stock, deployment_patched, acceptance_patched, bench_patched, integration_report, integration_packup]
+  validators: [check_packup_shape]
+  task:
+    goal: Assemble the integration stage's deliverable.
+    version: '1'
+    inputs: [kernel_patch, patch_overlay, deployment_stock, acceptance_stock, bench_stock, deployment_patched, acceptance_patched, bench_patched, integration_report]
+    outputs: [integration_packup]
+    permissions:
+      grants:
+        - {path: handoffs/integration_packup, access: write, kind: integration_packup}
+        - {path: handoffs/kernel_patch, access: read, kind: kernel_patch}
+        - {path: handoffs/patch_overlay, access: read, kind: patch_overlay}
+        - {path: handoffs/deployment_stock, access: read, kind: deployment_stock}
+        - {path: handoffs/acceptance_stock, access: read, kind: acceptance_stock}
+        - {path: handoffs/bench_stock, access: read, kind: bench_stock}
+        - {path: handoffs/deployment_patched, access: read, kind: deployment_patched}
+        - {path: handoffs/acceptance_patched, access: read, kind: acceptance_patched}
+        - {path: handoffs/bench_patched, access: read, kind: bench_patched}
+        - {path: handoffs/integration_report, access: read, kind: integration_report}
+        - {path: /usr/bin, access: read}
+        - {path: /data/agent_sys_integration, access: write}

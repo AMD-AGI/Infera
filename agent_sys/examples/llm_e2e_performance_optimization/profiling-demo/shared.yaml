@@ -1,0 +1,158 @@
+# The one agent every task in this package runs under, and the only place the
+# package's variables are named.
+#
+# `kind: program`, because every leaf here is a shell script driving a cluster:
+# bring a container up, wait for a health endpoint, send a load, cut a profiler
+# window, run an analyser. None of that is a judgement call, and all of it has to
+# be byte-identical between runs for the numbers to mean anything. The design
+# note is in DESIGN.md section 11: the one place AI earns its place in this
+# package is `check_reproduces`, which judges a reproduction kit rather than
+# produces a measurement.
+#
+# **The `env` block is the only route by which a package may name its own
+# variables** (`agent.schema.json`), so every `${...}` this package takes on the
+# command line is listed here and reaches the bodies as a `PD_*` environment
+# variable. Nothing here is a secret.
+#
+# **Four carry no default, on purpose.** A Slurm job id, which node it holds,
+# that node's IP and where the weights are, are facts about one allocation on one
+# cluster; a default would be one machine's answer shipped as everyone's, and
+# would go stale the moment the job ends. `${NAME}` with no `:-` is a load-time
+# fault naming the file, the line and the variable, so the package says what it
+# needs instead of failing later as something else:
+#
+#     agent-sys run --package agent_sys/examples/llm_e2e_performance_optimization/profiling-demo \
+#       --var jobid=28080 --var node=smci355-ccs-aus-n04-33 \
+#       --var node_ip=10.235.192.139 \
+#       --var model_path=/apps/qiongzhu/models/GLM-5.3-Flash-FP8
+module: agent
+name: runner
+kind: program
+version: '1'
+description: Runs a task's entry.sh. No model call.
+env:
+  # --- the allocation ---------------------------------------------------------
+  PD_JOBID: '${jobid}'
+  PD_NODE: '${node}'
+  PD_NODE_IP: '${node_ip}'
+  # How a body reaches that node. `auto` probes: `spur` wherever the binary
+  # exists, otherwise `srun --overlap`. It is a variable because it is a fact
+  # about the cluster rather than about this package -- on the AMD crsuse2-m2m
+  # (spur) cluster `srun` exists but is NOT Slurm's, so probing for the srun
+  # binary would pick the wrong one. `assets/lib/remote.sh` dispatches on it and
+  # `assets/kit/render.py` reads it to describe the transport in REPRODUCE.md.
+  PD_TRANSPORT: '${transport:-auto}'
+
+  # --- what to serve ----------------------------------------------------------
+  PD_MODEL: '${model_path}'
+  PD_SERVED: '${served_name:-glm5.3-flash}'
+  PD_IMAGE: '${image:-infera/engine-sglang:glm53-flash}'
+  PD_ETCD_IMAGE: '${etcd_image:-quay.io/coreos/etcd:v3.5.14}'
+  PD_TP: '${tp:-8}'
+  # --- the two model-specific engine flag groups ------------------------------
+  # Defaults are byte-for-byte the strings that used to be hard-coded in
+  # `assets/serve/mix_worker.sh`, so the GLM-5.3-Flash path is unchanged.
+  #
+  # They are variables for the reason the four names above are: `model_path`,
+  # `image`, `served_name` and `tp` being parameters made "point this package at
+  # another model" look supported, while these two lines quietly prevented it.
+  # A model with no DSA attention path does not take `--dsa-*-backend`, and the
+  # wrong `--reasoning-parser` does not error -- it yields an empty `content`
+  # for every request while the request still succeeds.
+  #
+  # **Pass the literal `none` for a model that wants neither.** agent_sys's
+  # variable syntax has no way to spell an empty default, so an empty `--var`
+  # would be indistinguishable from an unset one. Same design as
+  # `integration-demo/shared.yaml`; the two copies are kept identical.
+  PD_DSA_ARGS: '${dsa_args:---dsa-prefill-backend tilelang --dsa-decode-backend tilelang}'
+  PD_PARSER_ARGS: '${parser_args:---reasoning-parser glm45 --tool-call-parser glm47}'
+  # The engine's context window. A variable because it is the one flag in
+  # `mix_worker.sh` that a model substitution cannot survive by luck: the round
+  # that proved Qwen3.6-27B works here worked because its
+  # `max_position_embeddings` is *exactly* the 262144 that used to be
+  # hard-coded. A model with a shorter context fails at startup, and before this
+  # there was no `--var` to reach it.
+  PD_CTX: '${context_length:-262144}'
+
+  # --- identifiers bound on the host ------------------------------------------
+  # The engine container's name, and by derivation `${name}_etcd`. **This is a
+  # host-wide identifier on a box `docker ps` shows every tenant's containers
+  # on**, so it is a parameter for the same reason the ports are: two runs of
+  # this package on one node otherwise tear each other's engine down, and a name
+  # carrying neither the owner nor the module cannot be cleaned up mechanically.
+  # Default unchanged, so the original cluster sees no difference.
+  PD_CTR: '${container_name:-glm53_mix}'
+
+  # --- ports ------------------------------------------------------------------
+  # PD_ETCD_PORT is not 2379 and must not be: these nodes run a Kubernetes
+  # control plane whose own etcd holds 2379 over TLS on both localhost and the
+  # node IP. See DESIGN.md section 8.
+  PD_ROUTER_PORT: '${router_port:-8100}'
+  PD_WORKER_PORT: '${worker_port:-30000}'
+  PD_ETCD_PORT: '${etcd_port:-12379}'
+
+  # --- node-local work area ---------------------------------------------------
+  # Local disk, not /apps: one capture is ~462 MB and /apps is 93% full.
+  PD_WORK_ROOT: '${work_root:-/data/agent_sys_profiling}'
+
+  # --- the load ---------------------------------------------------------------
+  # AIPerf runs in its own container: the engine image ships Python 3.10 and
+  # AIPerf needs >= 3.11 (this image is 3.13).
+  PD_AIPERF_IMAGE: '${aiperf_image:-nvcr.io/nvidia/ai-dynamo/aiperf:0.12.0}'
+  # An absolute path rather than a file inside the package: the whole package is
+  # copied into every attempt's zone, and a trace is megabytes.
+  PD_AIPERF_TRACE: '${aiperf_trace:-/apps/tas/yaoc/research/topic/infera-with-hyperloom/Infera/examples/sglang_1p1d_glm5.2/aiperf_trace/conversation_trace.jsonl}'
+  # Replay the first two minutes of trace time. Measured: 346 requests, enough to
+  # saturate this deployment, and short enough that a debugging round is minutes.
+  PD_TRACE_END_MS: '${trace_end_ms:-120000}'
+  # A CEILING, not a target -- fixed-schedule sends at the recorded timestamps
+  # regardless. Measured p90 of effective concurrency at this value: 256, i.e.
+  # the deployment is saturated by this trace and the latency percentiles
+  # describe a queue.
+  PD_MAX_CONC: '${max_conc:-256}'
+  # AIPerf worker processes. Matters here because AIPerf shares the node with the
+  # engine; 16 of the allocation's 256 cores.
+  PD_WORKERS: '${workers_max:-16}'
+  PD_BLOCK_SIZE: '${block_size:-512}'
+  PD_REQ_TIMEOUT: '${req_timeout:-900}'
+
+  # --- the profiler window ----------------------------------------------------
+  # 30 + 15 rather than the 1P1D kit's 60 + 20: the replay window is 120 s of
+  # trace time, so the larger pair would leave 40 s of margin. The load keeps
+  # draining after the window closes, so the real margin is wider than that.
+  PD_WARMUP_S: '${warmup_s:-30}'
+  PD_WINDOW_S: '${window_s:-15}'
+
+  # --- the stack window -------------------------------------------------------
+  # A second, short window with `with_stack` on, taken right after the
+  # measurement window and inside the same load. It is what lets `kernel_scan`
+  # name the Python frame that launched each ranked kernel, which is the only
+  # evidence that answers "which file do I edit" for a TileLang or Triton symbol
+  # -- those names are compilation artefacts and a grep over them cannot.
+  #
+  # **3 seconds, and it is short because stacks are expensive rather than
+  # because 3 is enough of anything else.** Measured on
+  # smci355-ccs-aus-n04-29 on 2026-09-01: the same workload profiled with and
+  # without stacks came to 13.1x the uncompressed bytes and 16.5x gzipped, at
+  # identical kernel counts and kernel time. At this package's measured 60.5 MB
+  # per rank for 15 s, stacks on across the measurement window would be roughly
+  # 1 GB per rank and 8 GB for the round.
+  #
+  # What resolution actually needs is a few launches per kernel:
+  # `assets/analyze/launchers.py` votes over three probes and reads two rank
+  # files. Under this trace the engine is saturated, so three seconds is
+  # thousands of launches per hot kernel. Set to 0 to skip the window entirely,
+  # which costs the launcher block and nothing else.
+  PD_STACK_WINDOW_S: '${stack_window_s:-3}'
+  # Rank files from the stack window carried in the handoff. Every rank runs the
+  # same Python, so one resolves everything resolvable and the second is
+  # corroboration; Hyperloom's own resolver caps at two for the same reason.
+  PD_STACK_RANKS: '${stack_ranks:-2}'
+
+  # --- analysis ---------------------------------------------------------------
+  PD_MAGPIE_ROOT: '${magpie_root:-/apps/tas/yaoc/research/topic/infera-with-hyperloom/Magpie}'
+  # Kernels whose launcher is resolved, taken by self CUDA time. Generous against
+  # what the next stage selects: `analyze-demo`'s `rank` picks its top N from the
+  # routable bucket only, and collectives held 79% of GPU time in the sample
+  # profile, so a routable winner can sit well down the raw ranking.
+  PD_LAUNCHER_TOP_N: '${launcher_top_n:-50}'

@@ -60,6 +60,7 @@ from env_mgr.isolation.policy import (
     executable_path,
 )
 from env_mgr.isolation.probe import Availability, probe, select
+from env_mgr.prefix import Prefix, agent_environment
 from env_mgr.protocols import Confinement, Context, NoConfinement, PrepareRefused, SyncReport
 from env_mgr.remote import tools as _tools
 from env_mgr.sync import Direction
@@ -465,7 +466,17 @@ def prepare(
     # directory the kernel will refuse. A declared `env` may still override it,
     # because an author saying so outranks a default — but an override naming an
     # ungranted directory is unreachable, and nothing here can make it otherwise.
-    environment = {"PATH": executable_path(policy)}
+    #
+    # The o11y prefix rides along because this dict is the *child's*
+    # environment; setting `CLAUDE_CONFIG_DIR` in ours would redirect a Claude
+    # Code the user started. `bin_on_path=False` because the prefix is under
+    # `$HOME`, which the default grants exclude, and nothing in a child needs
+    # to exec the binary.
+    environment = agent_environment(
+        Prefix.resolve(os.environ),
+        base={"PATH": executable_path(policy)},
+        bin_on_path=False,
+    )
 
     # 6a. **The task package: a copy in the zone, not a grant on the root.**
     # `interfaces.md` §4.16, F19's third position. It sits beside handoff
