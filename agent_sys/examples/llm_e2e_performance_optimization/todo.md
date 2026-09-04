@@ -838,6 +838,36 @@ make it reliable rather than fortunate.*
 > this cluster's `spur-authz` accepts per-card device flags, and **that is the
 > question to answer before anyone writes it into a brief.**
 >
+> **KEEP BOTH. Do not replace the env pin with the whitelist** — m4's coupling,
+> and the paragraph above would have caused a regression without it.
+>
+> m4's `run_in_container.sh` refuses an exec whose requested card is outside the
+> container's own `HIP_VISIBLE_DEVICES`. **A container pinned only by device
+> whitelist has no such variable**, so that check finds nothing to compare, falls
+> into its *unpinned, constrains nothing* branch, and **waves the exec through**.
+> The work would still not run on a card that is absent — but it would fail
+> **deep inside HIP** instead of being refused by name. *Safe by absence rather
+> than safe by refusal*, which is the exact direction this effort has spent the
+> day converting failures **out** of.
+>
+> So the two are not alternatives:
+>
+> | | what it gives |
+> |---|---|
+> | `--env HIP_VISIBLE_DEVICES` | a **readable statement of intent** a consumer can check against and refuse by name |
+> | per-card `--device` | **enforcement** a later process cannot override |
+>
+> **Verified on a live container, 2026-09-04** — not read off the script:
+> `HostConfig.Devices` is `/dev/kfd` and `/dev/dri` whole, with
+> `Config.Env HIP_VISIBLE_DEVICES=0,1,2,3`. Every card's node present, one
+> variable narrowing it.
+>
+> *Recorded because a correction that would itself cause a regression is worth
+> more than the correction: I wrote "whitelist is the real answer" and m4, who
+> reads the field I would have removed, is the only person positioned to notice.
+> Their wrapper now carries the same coupling as a note beside the check, so the
+> two point at each other and neither can be changed in ignorance of the other.*
+>
 > Until then the honest division is m4's: **the kit states the intent, and the
 > consumer refuses to violate it.** Their `run_in_container.sh` check reads the
 > container's own `HIP_VISIBLE_DEVICES` and refuses a request outside it —
