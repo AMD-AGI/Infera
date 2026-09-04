@@ -461,6 +461,65 @@ def produced_for_real(run: pathlib.Path, kind: str, hid: str) -> bool | None:
     return None
 
 
+def streak(rows: list[dict]) -> tuple[int, str]:
+    """Consecutive runs, newest backwards, in which the stage reached a verdict.
+
+    **The user's word is 连续 — consecutive, not cumulative** (*"前面的module如果
+    连续3次以上稳定运行了"*). Four seals in fifteen real executions is a 27 %
+    rate, and a stage that behaves that way will be the failure often; cumulative
+    counting hides exactly that.
+
+    ## What counts as reaching a verdict, and the signal is real
+
+    The leader's criterion is *consecutive runs in which the stage reached a
+    terminal state — sealed valid, or sealed and refused — skipping runs
+    terminated by an external cause*, and they asked me to print `cannot tell`
+    rather than guess if the tree carries no such signal.
+
+    **It does.** Measured over all fifteen real `deploy_and_prove` executions:
+
+        valid       + 3 validators   4 runs    sealed and passed
+        invalid     + 3 validators   1 run     sealed and REFUSED  (125637, max-bs 8)
+        generating  + 0 validators  10 runs    never reached a verdict at all
+
+    A run killed by job expiry or an operator leaves the slot **`generating`
+    with no `validation.yaml` rows** — the process died, so the attempt never
+    *ended* and `_close_model_slot` never ran. So "externally terminated" is
+    not an inference here; it is `generating`, which this tool already excludes.
+
+    **And the `INVALID` two-writer ambiguity does not bite**, which it easily
+    could have: `agent/runner.py:980` seals `INVALID` when an attempt ends with
+    the slot open, which is indistinguishable from a validator refusal
+    (`temp/bugs/2026-09-04-invalid-means-two-things…`). It does not arise for
+    these runs because the killed ones never got that far.
+
+    **It arises elsewhere, so it is guarded rather than assumed.** Run
+    `075753-e4f7ba`'s `operator_workset` is `invalid` with **one validator of
+    three** — killed mid-validation, frozen. So an `invalid` counts as a verdict
+    only when its validator set is the **full** set seen on the passing runs; a
+    short set means the phase did not finish and the run is skipped, not counted
+    against the stage.
+
+    Returns `(streak, explanation)`.
+    """
+    terminal = [r for r in rows if not r.get("in_progress")]
+    if not terminal:
+        return 0, "no run reached a verdict"
+    full = max((set(r["validators"]) for r in terminal if r["all_passed"]),
+               key=len, default=set())
+    counted = [r for r in terminal
+               if r["all_passed"] or (full and set(r["validators"]) == full)]
+    if not counted:
+        return 0, "no run reached a verdict with a complete validator set"
+    n = 0
+    for r in reversed(counted):          # survey() appends oldest run first
+        if not r["all_passed"]:
+            break
+        n += 1
+    broke = "" if n == len(counted) else f"; broken by {counted[-(n + 1)]['run']}"
+    return n, f"{n} consecutive of {len(counted)} that reached a verdict{broke}"
+
+
 def load_handoffs(run: pathlib.Path) -> list[dict]:
     """Every handoff record in a run's store, as `{id, type, versions}`."""
     store = run / "store" / "handoff"
@@ -600,7 +659,16 @@ def stability(rows: list[dict], threshold: int) -> tuple[bool, str]:
                if mocked else "no finished run produced this kind")
         return False, f"{why}{live_note}{prov}"
 
+    n, why_streak = streak(rows)
     passing = [r for r in rows if r["all_passed"]]
+    # Labels say what each number counts. `rows` is already the terminal set —
+    # `live` (never sealed) and `mocked` were removed above — so calling it
+    # "real" would overstate it by the ten runs that never reached a verdict.
+    tally = (f"  |  streak {n} (of {threshold})  |  {len(passing)} valid / "
+             f"{len(rows)} reached a verdict / {len(live)} never sealed / "
+             f"{len(mocked)} mocked")
+    if n < threshold:
+        return False, f"{why_streak}{tally}"
     if len(passing) < threshold:
         return False, (f"{len(passing)} of {len(rows)} finished run(s) passed every "
                        f"validator; threshold is {threshold}{live_note}{prov}")
@@ -636,7 +704,7 @@ def stability(rows: list[dict], threshold: int) -> tuple[bool, str]:
     if not any(passing[0]["validators"]):
         return False, "no validator graded this kind in any run — a green with nothing behind it"
     return True, (f"{len(passing)} run(s), each passing "
-                  f"{', '.join(passing[0]['validators'])}{live_note}{prov}")
+                  f"{', '.join(passing[0]['validators'])}{tally}")
 
 
 def main() -> int:
