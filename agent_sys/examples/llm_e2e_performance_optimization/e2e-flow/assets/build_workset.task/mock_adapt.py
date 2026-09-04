@@ -260,6 +260,31 @@ def _repair_readme(content: Path) -> None:
 _SEALED_ONLY_ITEMS = ("env", "result", "script")
 
 
+#: **Byte-identical to `identify.task/identify.py`'s constant of the same name**,
+#: which carries the full argument for why assignments are included and imports
+#: are not. Duplicated rather than imported because it executes under the
+#: image's python inside a container. If you change one, change both and check
+#: with `diff <(...) <(...)` — `todo.md` T34.
+MODULE_SYMBOLS_SNIPPET = (
+    "def _tgt(t):\n"
+    "    if isinstance(t,ast.Name): return [t.id]\n"
+    "    if isinstance(t,ast.Starred): return _tgt(t.value)\n"
+    "    if isinstance(t,(ast.Tuple,ast.List)):\n"
+    "        return [n for e in t.elts for n in _tgt(e)]\n"
+    "    return []\n"
+    "def _syms(src):\n"
+    "    out=[]\n"
+    "    for x in ast.parse(src).body:\n"
+    "        if isinstance(x,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef)):\n"
+    "            out.append(x.name)\n"
+    "        elif isinstance(x,ast.Assign):\n"
+    "            out+=[n for t in x.targets for n in _tgt(t)]\n"
+    "        elif isinstance(x,ast.AnnAssign):\n"
+    "            out+=_tgt(x.target)\n"
+    "    return list(dict.fromkeys(out))\n"
+)
+
+
 def _image_facts(root: Path, target: str) -> tuple[dict | None, list | None]:
     """sha256 of the stock target file **as it exists in the image**, or `None`.
 
@@ -299,15 +324,22 @@ def _image_facts(root: Path, target: str) -> tuple[dict | None, list | None]:
     # those layers. Written with quotes first, and it died with
     # `-c: line 2: syntax error: unexpected end of file` — the same defect, in
     # the same file, hours after fixing it once. base64 has no metacharacters.
+    # **`MODULE_SYMBOLS_SNIPPET` is byte-identical to the copy in
+    # `identify.task/identify.py`, and the comment there carries the argument.**
+    # Two producers of one field, which is `todo.md` T34 — they agreed until
+    # 2026-09-04 only because neither had been changed, and the fix that day
+    # (module-level *assignments* count) had to land in both or the mock and the
+    # real path would disagree about what a file defines. It cannot be a shared
+    # import: this text runs under the image's python inside a container, where
+    # none of this package is mounted.
     inner = (
         "import ast,hashlib,os,sglang\n"
-        "r=os.path.dirname(os.path.dirname(os.path.dirname(sglang.__file__)))\n"
+        + MODULE_SYMBOLS_SNIPPET
+        + "r=os.path.dirname(os.path.dirname(os.path.dirname(sglang.__file__)))\n"
         f"f=os.path.join(r,{target!r})\n"
         "b=open(f,'rb').read()\n"
         "print('SHA:',hashlib.sha256(b).hexdigest())\n"
-        "n=[x.name for x in ast.parse(b.decode()).body "
-        "if isinstance(x,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef))]\n"
-        "print('SYM:',' '.join(n))\n"
+        "print('SYM:',' '.join(_syms(b.decode())))\n"
     )
     encoded = base64.b64encode(inner.encode()).decode()
     # Spaces around the pipes: unspaced returns 255 with no output on
