@@ -5704,3 +5704,66 @@ question has already been answered wrongly three times today by reasoning.
 
 The broken tree; `serena.yaml` classed a demo while `examples/env_checker`
 depends on it; whether to measure the `:287` claim.
+
+## T+281 — 2026-09-04 10:55 UTC — written by the lead; `scribe` is still stopped
+
+Second hand-written section, same reason as T+246: `scribe` was stopped with the
+other four and a `SendMessage` would resurrect it.
+
+### 1. Progress
+
+**The round turned from stalled to converging.** At T+246 the tree was broken at
+24 failures with a half-finished refactor and no team. It is now **green at 1086
+passed, 2 skipped, 3 xfailed** across `tests/cli spec_loader env_mgr agent`, with
+two agents working and nothing blocked on the owner.
+
+Landed since: `88a4b5dc`, `6e72e27a`, `3dca5f04`, `29a39ae6`. In flight: the
+in-process-tool narrowing (`core2`) and `env_checker`'s acceptance rewrite
+(`pkg2`).
+
+### 2. The owner's ruling that changed how this is run
+
+> *"麻烦你给本次任务单独开个spec.md，不要啥事都来问我… 遇到问题自己推导。不要一会儿
+> 整一个耦合的胶水怪给我，一会又说这也不敢定，那也不敢定。"*
+
+**Both halves are one failure.** Deciding too much when I should have asked, then
+asking everything when I should have decided. The corrective is not *ask less*: it
+is `agent_sys/docs/spec.provisioning.md` (`88a4b5dc`, 208 lines), so the answer
+has a place to live and neither side carries it in a conversation. **Both new
+briefs say: bring me only what contradicts the spec or a ruling.**
+
+Also ruled: `serena.yaml` needs no decision — *"你让agent recipe refer它…不就行了"*.
+`pkg2` then established the mechanism **already exists**: `check.yaml` carries
+`recipes: [serena]` and `_recipe_paths` resolves a bare name to it. Nothing built.
+
+### 3. Corrections issued by the lead — three, and the third is a new shape
+
+1. **The `.mcp.json` "contradiction" was not one.** I had recorded `agent_assets.py:287` (*"nothing reads it"*) as contradicted by the SDK's *"the CLI would otherwise load project `.mcp.json`"*. **Derived, no experiment needed:** `.mcp.json` is a **project-scope** filename; a zone's `$CLAUDE_CONFIG_DIR` is **user** scope. Different locations, both true. **Two documents can disagree in wording and agree in fact** — the test is to ask what location each names, which is a smaller question than the experiment I was about to run.
+2. **A list of mine was stale, not narrow.** I told `core2` to edit `protocols.pyi:120` and `agent/runner.py:763`. Neither needs it: `Prepared.tools` **stays**, as the carrier for the exception. **I wrote that list against the superseded *delete everything* plan and handed it over as current.**
+3. **I stated a decision as if it were the artefact.** My brief said serena's entry *"keeps `SERENA_HOME`"*. **That key has never existed in that file** — an earlier round *ruled* the swap and it never happened. **Worse in a brief than in a claim, because a brief gets executed rather than checked.**
+
+### 4. Teammate findings, two of which generalise past this round
+
+- **`core2`, and it is better than the framing I asked for:** *"any file left modified by a stopped agent needs a read before anyone commits the path, for its **content** and not only its diff."* It caught `ROADMAP.md` asserting a still-running mechanism had been deleted — **true when written, overtaken while nobody owned the file, and nothing on disk marked it stale.** **The habit that caught it was the index-safety habit, not a documentation habit.**
+- **`core2` again:** it backed out a second file so *"a red **I** caused"* would not sit in a file the lead would read as someone else's. **Reasoning about how the observer will misattribute** — the mirror of the fifteen-minute misattribution earlier today. Corollary it drew: a doc change true only after a code change **is part of that code change**.
+- **`pkg2`:** `recipes/serena.yaml` carried a **copy of the real `.mcp.json` in a comment, already drifted** (`AGENT_SYS_MY_PLAYGROUND` vs `${TMPDIR}`), and `check.yaml` had picked up the same wrong name. **Removed, not corrected** — one fact, one writer. **A drifted copy propagates by being copied.**
+- **`pkg2`:** removed a cross-tree MCP-collision warn that with one tree has an **empty intersection by construction** — the eleventh check-that-cannot-fail this round, and the second found by its own author while editing around it.
+- **`pkg2`:** wheel counted, not assumed — 3 addon members on disk, 3 in the wheel, and the stale *"4 of 6"* corrected.
+
+### 5. Measurements I made myself
+
+`1086 passed` verified twice; `prepare.py`/`agent_assets.py` clean before release;
+the ROADMAP orphan's authorship and its stale clause; `.mcp.json`'s scope from the
+CLI's `--mcp-config` and the SDK's own wording.
+
+### 6. Non-code
+
+The cadences fired into a stopped team for four ticks and were recorded, not
+executed — **a SendMessage would have overridden a human decision with a timer.**
+
+### 7. Open
+
+`env_mgr/recipes/*.yaml` still do not ship in a wheel (`temp/bugs/2026-09-04-*`,
+one-line candidate unrun); cross-layer version conflicts; the registry sweep;
+installs run unconfined. All four are named in `spec.provisioning.md` §8 as
+deliberately unsettled, which is the point of having written it.
