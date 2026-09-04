@@ -220,21 +220,56 @@ def container_path_for(target_file: str, repo_root_var: str = "") -> str | None:
     if declared:
         if declared not in roots:
             return None
-        return f"@{declared}@/{relative}"
+        depth_and_rest = _strip_root_tail(relative, roots[declared])
+        rest = relative if depth_and_rest is None else depth_and_rest[1]
+        return f"@{declared}@/{rest}"
 
     best: tuple[int, str] | None = None
     for name, entry in roots.items():
-        tail = str((entry or {}).get("path") or "").strip("/").split("/")
-        # Longest suffix of the root's path that is also a prefix of the target
-        # file. `/sgl-workspace/sglang/python/sglang` against
-        # `python/sglang/srt/...` shares `python/sglang`.
-        for length in range(len(tail), 0, -1):
-            prefix = "/".join(tail[-length:]) + "/"
-            if relative.startswith(prefix):
-                if best is None or length > best[0]:
-                    best = (length, f"@{name}@/{relative[len(prefix):]}")
-                break
+        found = _strip_root_tail(relative, entry)
+        if found is None:
+            continue
+        depth, rest = found
+        if best is None or depth > best[0]:
+            best = (depth, f"@{name}@/{rest}")
     return best[1] if best else None
+
+
+def _strip_root_tail(relative: str, entry) -> tuple[int, str] | None:
+    """Drop the root's own trailing path segments from the front of `relative`.
+
+    **Both callers, and it used to be only one.** `/sgl-workspace/sglang/python/sglang`
+    against `sglang/python/sglang/kernels/ops/…` shares `sglang/python/sglang`,
+    and joining the two without dropping it yields
+    `/sgl-workspace/sglang/python/sglang/sglang/python/sglang/kernels/…` — a path
+    that exists nowhere, produced from two documents that are each correct.
+
+    The suffix search below the declared branch always did this; the declared
+    branch returned `@ROOT@/{relative}` verbatim, on the reasoning that a
+    workset naming its `repo_root_var` has said which root it meant and no
+    inference is needed. True about the *root*, and it says nothing about
+    whether the path was written relative to that root or to the checkout above
+    it — and m3 writes `edit_target.source_file` and
+    `invocation_spec.json`'s `sources` in the second form while naming
+    `@SGLANG_ROOT@`. So the branch that was told the answer was the one that got
+    it wrong, and the branch that had to guess was right.
+
+    Measured 2026-09-04: with the prefix present, STEP 6 refused resolving
+    `base_sha256` against the doubled path; with it stripped by hand, it
+    completed. Stripping is safe for a path that is genuinely root-relative —
+    it only fires when the root's own tail is actually there.
+
+    Returns `(segments matched, the remainder)`, or `None` when the root's tail
+    is not there at all — which the suffix search reads as "this root does not
+    describe this path" and the declared branch reads as "already relative to
+    the root it named".
+    """
+    tail = str((entry or {}).get("path") or "").strip("/").split("/")
+    for length in range(len(tail), 0, -1):
+        prefix = "/".join(tail[-length:]) + "/"
+        if relative.startswith(prefix):
+            return length, relative[len(prefix):]
+    return None
 
 
 def render_environment(out: Path, warnings: list[dict] | None = None) -> None:

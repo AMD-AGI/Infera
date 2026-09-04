@@ -61,16 +61,12 @@ mkdir -p "$TMPDIR" "$TRITON_CACHE_DIR" "$KNOWLEDGE_LOCAL_ROOT" "$CLAUDE_CONFIG_D
 # --- mock -------------------------------------------------------------------
 if [ "$KFO_MOCK" = "1" ]; then
   echo "KFO_MOCK=1: no campaign will be run" >&2
-  SEED=$("$PY" - "$INPUTS" "$WORKSET" <<'EOF'
-import json, sys, pathlib
-pinned = json.load(open(sys.argv[1]))
-target = pinned.get("edit_target") or {}
-root = pathlib.Path(sys.argv[2])
-print(root / (target.get("source_file") or ""))
-EOF
-)
+  SEED=$("$PY" "$(dirname "$0")/resolve_source.py" --inputs "$INPUTS" --what "the seed kernel") || exit 1
   if [ ! -f "$SEED" ]; then
-    echo "mock: the workset's edit_target names $SEED, which is not there" >&2
+    echo "mock: the workset's edit_target resolves to $SEED, which is not there." >&2
+    echo "That path is inside the engine container. m1 through m4 share one container" >&2
+    echo "(CONTRACT §5), so on the real path this file is on this filesystem; outside" >&2
+    echo "it, it is not. Run this step where the engine tree is." >&2
     exit 1
   fi
   {
@@ -137,13 +133,14 @@ for candidate in "$RUN/forge_experiments/forge_result.json" "$WORKDIR/forge_resu
 done
 [ -f "$WORKDIR/forge_result.json" ] || { echo "the campaign wrote no forge_result.json" >&2; exit 1; }
 
-KERNEL=$("$PY" - "$RUN" "$WORKSET" "$INPUTS" <<'EOF'
-import json, sys, pathlib
-run, workset, inputs = pathlib.Path(sys.argv[1]), sys.argv[2], json.load(open(sys.argv[3]))
-target = (inputs.get("edit_target") or {}).get("source_file") or ""
-print(run / target)
-EOF
-)
+# **The engine tree, not `$RUN`.** Forge edits the sources its invocation spec
+# names, and m3 generates that spec with `image_repo_path: @SGLANG_ROOT@` and
+# `sources` under it — the container's sglang checkout. `$RUN` is a copy of the
+# *workset* (driver, cases, one-liner), which is what forge is run FROM and not
+# what it edits. Resolving here against `$RUN` looked right and would have failed
+# after the campaign hours with "the campaign left no kernel at …", which is the
+# expensive way to find a path bug.
+KERNEL=$("$PY" "$(dirname "$0")/resolve_source.py" --inputs "$INPUTS" --what "the optimised kernel") || exit 1
 [ -f "$KERNEL" ] || { echo "the campaign left no kernel at $KERNEL" >&2; exit 1; }
 cp "$KERNEL" "$WORKDIR/optimized_kernel.py"
 
