@@ -5993,3 +5993,196 @@ seven validators belong to a module no run has reached**. If m5 behaves like
 the last third of this metric could take longer than the first two thirds took.
 **I am reporting the number I believe and naming the shape of its error rather
 than discounting it in advance.**
+
+## T+1210 — 2026-09-04 09:40 UTC
+
+### 14 of 21 — unchanged, and that is the section's finding
+
+| | runs | invocations | judgements | **distinct** |
+|---|---|---|---|---|
+| union at 09:40 | **57** | **469** | **526** | **14** |
+
+**+54 invocations, +5 runs, and the distinct count did not move.** Last section I
+wrote that this metric had stopped meaning *"how far does the graph get"* and now
+means exactly one thing — **m5 has never been reached.** This interval tests that
+reading and it holds: heavy activity across four modules moved the tallies and
+not the ceiling, because none of it was m5.
+
+Movement inside the fourteen: `check_workset_shape` **7 invocations, 5 pass** —
+two refusals appeared where it was 2-for-2 an hour ago. `check_workset_runs` 7 /
+1. m4's two remain **1 invocation, 0 pass** each, unchanged since first contact.
+
+**Two run processes present at 09:40:12** — pid 3233515 (56 m, under `timeout
+7200`) and pid 3968060 (8 m 38 s). First time I have seen two concurrent.
+
+### The pre-registration, and the one thing I cannot verify
+
+**`d71d765` is the best-designed artefact of the effort** and I want to record
+both what it establishes and where its guarantee stops.
+
+The leader proposed exercising `check_patch_live` with a **null overlay** — stock
+file plus a marker. m5 refused it on the ground that it **defeats the check
+written for exactly that case**: `check_overlay_applies`'s `require_difference`
+is a **hash** comparison, and *a comment changes the hash and nothing else*. The
+mechanism would pass; the intent would not. Their counter-design — null as a
+**negative** control, plus a **deliberately degraded** overlay as the positive
+one, on the reasoning that *making something slower needs no installable
+optimisation, so M5.1.1 does not block it* — is the right instrument, and both
+overlays keep every symbol (13 and 14 public defs against stock's 12) so
+`ed099e9` passes them honestly rather than by exemption.
+
+Predictions are in the file before the result, including the one that matters:
+**"if the degraded arm comes back `same`, that is a finding about the gate and
+not about the overlay."** That sentence is what makes the experiment able to fail
+usefully.
+
+**What I cannot verify: the ordering.** `d71d765` is timestamped **09:38:06**.
+The commit's own text says *"what makes it checkable afterwards is that this
+paragraph was written before the run."* **Nothing in the repository records when
+the experiment started**, and from here I can see only that two agent-sys runs
+began at ~08:43 and ~09:31, neither identifiable as the control experiment.
+
+So: **the claim is almost certainly true and it is currently not auditable.** A
+pre-registration's whole value is the ordering, and the ordering is the one part
+not written down. The fix is cheap and belongs to m5 — **record the experiment's
+start timestamp or its run id in the same file.** Then the git timestamp and the
+start time can be compared by anyone, forever, without asking the person who did
+it. I am raising this *because* the artefact is good; a weaker one would not be
+worth auditing.
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | clean |
+| (b) per-commit ownership | clean across 13; nobody but me touched this file |
+| (c) `todo.md` | 29 items, unchanged |
+| holds | **three, none lost**: `109260`/006, `109491`/217, `109496`/047; two `keep3` pending |
+| `/home` | 1.6 T free (85 %), flat since 05:47 |
+| run process | **two present at 09:40:12** |
+
+### 1. Progress
+
+**~76 %, held.** Elapsed 1 210 m. The leader holds 75 %.
+
+**Reliability: low→moderate, held.** Last section I upgraded on *rate* — 10 → 12
+→ 14 in ninety minutes. **The rate did not continue this interval**, so the
+symmetric treatment is to hold rather than raise: one more datum has arrived and
+it is a flat one. Thirteen commits and five runs of real work happened, and none
+of it touched the metric, exactly as predicted. **That is a good interval and a
+flat number, and those are not contradictory.**
+
+**预估耗时: no number.** Held.
+
+### 2. Current state
+
+m5's three-arm control experiment on 047 is the interval's centre. m3 closed T19
+(`7c2d501`) and found a schema-level root cause. m4 threaded the transport so a
+`gpu_hours` validator re-measures on the node. m2 put recovery cost on each probe
+tier. m1 reused the shared reasons-helper rather than writing a seventh.
+
+### 3. Code problems
+
+- **FIXED — the schema was the root** (`4d5a6e6`, `d206fc6`). `public_symbol` was
+  required with `minLength: 1`, so it **could not represent an operator whose
+  engine code is a fragment — and had to be filled with something.** Two
+  producers filled it differently. m3's generalisation is the entry to keep:
+  **two producers disagreeing is the symptom a schema-shaped defect presents
+  with, and the default reading of that symptom is wrong.** Every instinct says
+  "one producer is buggy"; here neither was.
+- **FIXED — a producer that cannot write the artefact must not report success**
+  (`4d4d196`).
+- **FIXED — `check_deploy_kit` writes its reasons** (`e42bde4`), **seventh
+  instance and the second to reuse rather than re-implement.** The count is still
+  climbing and the reuse ratio is now 2 of 7.
+- **FIXED — m5's own fixture refused and deserved it** (`1368ef8`).
+- **OPEN — m4's two validators**, 0 of 1 each, unchanged.
+- **OPEN — the 047 cause.** See §5.
+
+**m4's boundary statement on `8fbe175` is the model for this record** and I am
+copying its form: *"it gets past the probe and enters the wrapper — that is the
+delta. What is NOT verified: a real container actually running the entrypoint
+from inside the validator."* Stating the edge of what a change proves, in the
+commit that makes it, is the discipline that would have prevented most of today's
+retractions.
+
+### 4. Non-code problems
+
+- **Three holds, none lost** — the first interval today with no cancellation.
+- **Two `keep3` jobs still pending** from the non-team session.
+- **Four ownership errors today, all the leader's, all from inferring a row from
+  a filename.** m1 caught the latest by reading the manifest — *"the manifest is
+  one grep."* Same shape as m3's *"naming a class is not sweeping for it"* and as
+  my own `read_events.py`/`runprobe.py` duplication: **the cheap confirming
+  command not run.** Three owners, three instances, one habit.
+
+### 5. Open questions
+
+**The 047 cause, and m3 is holding it open on purpose.** They disproved the
+leader's image hypothesis against a dead allocation, then declined to reconcile
+what was left: the tree says the body stopped at `_read_cases()`, which only
+fails through a non-zero exit, **and a non-zero body does not seal.** Their
+statement is the one I would have written and did not:
+
+> *"Either the body did not stop where the tree says it did, or something exited
+> 0 that should not have. I would rather hand you an inconsistency than a story
+> that reconciles it — three of today's wrong answers were stories that
+> reconciled partial evidence."*
+
+**The missing evidence is the same one for the fifth time: the task body's stdout
+is kept nowhere.** T14, the discarded validator stdout, `dff2bcb`, the refusing
+zone's missing entrypoint output, and now this. **Five instances, five owners,
+one gap** — and m3 is building the other half of `dff2bcb` now, which is the
+first attempt to fix it rather than route around it.
+
+Also open: m4's two refusals · m5's full-scale cost, deliberately unmeasured ·
+how many refusals the "not visible" default mis-attributed · why holds are
+cancelled · **M5.1.1 — the package can now *state* which substitution case it is
+in and still cannot install the fragment case.**
+
+### 6. New commits
+
+**13 since `395c3f5`.** m3 4 · m5 3 · m2 2 · m4 2 · m1 2.
+
+- `7c2d501` **m3** T19 closed here — no card is chosen by default, on either side.
+- `ed099e9` **m5** a file that compiles is not a file that can be imported in place of another.
+- `1f1c975` **m5** probe is not two thirds of an arm, and my own 256 breaks it.
+- `2f01993` **m2** m5's model-config check, in the same container start.
+- `3525cb6` **m2** put the recovery cost on each tier — a node without infera is 4m44s away.
+- `6c46809` **m4** my own justification expired when `7c2d501` landed; the decision did not.
+- `e42bde4` **m1** `check_deploy_kit` writes its reasons — the shared helper, not a seventh implementation.
+- `4d5a6e6` **m3** an operator whose engine code is a fragment has no symbol to install.
+- `1368ef8` **m5** option 2 — judge the pooled mean, carry the median, and let them disagree.
+- `8fbe175` **m4** thread the transport — the `gpu_hours` validator now re-measures on the node.
+- `4d4d196` **m3** a producer that cannot write the artefact must not report success.
+- `d206fc6` **m3** identify reads the image once and records what is in the file.
+- `d71d765` **m5** the control experiment's predictions, written before the run.
+
+### 7. Anything else
+
+**`6c46809` is the rarest commit in the log:** *"my own justification expired when
+`7c2d501` landed; the decision did not."* Someone noticed that the *reason* for a
+past choice had been invalidated by someone else's fix, checked whether the
+choice still stood, found it did, and **wrote that down instead of quietly
+leaving it or quietly re-deciding.** Nothing broke and nothing changed; the
+record simply stopped containing a stale argument. I have not seen that anywhere
+else today, including from me.
+
+**Last section I wrote that if m5 behaved like `build_workset` — five stacked
+defects, each hidden by the one above — the final third could take longer than
+the first two.** This interval m5 did the one thing that attacks that directly:
+they built a **control** before building the thing. `build_workset`'s five layers
+were found one at a time, each only after the one above was cleared, because
+nothing distinguished *this gate refuses* from *this gate cannot speak*. A
+negative and a positive control distinguish exactly that. **So my stated failure
+mode is being addressed by design rather than discovered by repetition, and I
+should say so as clearly as I stated the risk.**
+
+**And the leader's disclosure belongs beside it.** They proposed the null-only
+design, m5 showed it would have defeated `check_overlay_applies` by hash, and the
+leader recorded their own proposal as the error. **A gate validated only against
+a null sample has never been shown to detect anything** — which is the same
+sentence as m2's *"the column can say live and has never been observed to say
+dead"*, and the same as my own process check before it was validated in the
+positive direction. **Third instance today of a check that has only ever seen the
+passing case**, and the first where someone caught it before the check shipped.
