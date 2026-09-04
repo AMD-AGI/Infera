@@ -228,3 +228,25 @@ env:
   # express — and a *shared* default is a name two concurrent measurements
   # collide on. m3 flagged this before it could be "fixed" by giving it a value.
   E2E_MEASURE_CONTAINER: '${measure_container:-}'
+
+  # ---- read by shared libs, declared on no agent until now -------------------
+  #
+  # m4's find, 2026-09-04. Both are read by `assets/lib/` and were declared
+  # **nowhere** — surviving on code-level fallbacks (`env_render.py` does
+  # `setdefault("E2E_STAGE", "m4")`, `remote.sh` falls back to `$HOME`). They
+  # are invisible to `check_agent_env.py` by construction: it compares
+  # declarations against declarations, and a name nobody declares has nothing
+  # to compare. **A checker's blind spot is not the same as a clean result** —
+  # this pair is why that sentence is in the file.
+  #
+  # **One correction to how this was first written here.** m4 reported the
+  # `m4` default as living in the shared `env_render.py`, and the leader wrote
+  # that down without opening the file. Measured: `env_render.py:173` is
+  # `os.environ.get("E2E_STAGE", "")` — **empty** — and the `setdefault(…, "m4")`
+  # is at `optimize_kernel.task/steps/_lib.py:351`, which is m4's own module
+  # naming itself and is correct. So the defect is smaller and different:
+  # **every stage except m4 has been stamping `warnings[].stage` with the empty
+  # string**, so a tolerated difference is recorded without saying who tolerated
+  # it. Declaring the name does not fix that; a caller setting it does.
+  E2E_STAGE: '${stage:-}'
+  E2E_REMOTE_HOME: '${remote_home:-}'
