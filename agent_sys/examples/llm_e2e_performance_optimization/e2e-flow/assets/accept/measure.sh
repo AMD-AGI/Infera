@@ -52,6 +52,55 @@ on "curl -sf -m10 '$R/health'" >/dev/null 2>&1 || {
   exit 1
 }
 
+# Copy what has completed so far into the output slots, without deleting
+# anything. Called after every step.
+#
+# **The only change to this arm that provably costs nothing in comparability.**
+# The slots used to be assembled once, at the very end, so a hold cancelled at
+# minute 30 left them empty even though smoke, needle and probe had all
+# finished — everything sat in `$WORKDIR` on the node, unsealed, and went with
+# the allocation. Four holds died today, the shortest at 28 minutes against a
+# ~105-minute arm.
+#
+# Reordering the steps to bank the gated numbers earlier was considered and
+# **ruled out**: `probe` warms the prefix cache by construction (its `isolated`
+# property exists to exercise the radix cache), and `compare.py`'s own header
+# records that cold and warm differ *by an order of magnitude on this trace*.
+# Moving `bench` ahead of it would make every number incomparable with every
+# number already taken, and would break `stock_vs_m2` — m2 measured in m2's
+# order. So the workload, its order and its state are all untouched here; only
+# the moment the bytes are copied changes.
+#
+# It does **not** make the arm resumable, and `bench` is still last and still
+# lost on a cancellation. What it saves is three steps out of five instead of
+# none. The ~105-minute arm against a hold we cannot keep is a scheduling
+# problem and nothing inside this file fixes it.
+#
+# **What is banked is evidence, not a sealable handoff.** `emit_common_env` and
+# the READMEs are still written once at the end, so a slot left behind by a
+# cancellation has `result/` and `logs/` and no `env/environment.yaml` — it will
+# fail `check_environment`, correctly, because an arm that did not finish did
+# not finish. The value is that the measurements survive to be looked at, not
+# that a partial arm can be passed off as a whole one.
+#
+# `2>/dev/null` throughout and always returning 0: banking is best-effort by
+# definition, and a copy that fails must never be the thing that ends a
+# measurement that is working.
+bank_partial() {
+  [ -d "$WORKDIR/accept" ] && {
+    mkdir -p "$OUT_ACCEPT/items/result" "$OUT_ACCEPT/items/logs" 2>/dev/null
+    cp -r "$WORKDIR/accept/." "$OUT_ACCEPT/items/result/" 2>/dev/null
+  }
+  [ -d "$WORKDIR/bench" ] && {
+    mkdir -p "$OUT_BENCH/items/result" "$OUT_BENCH/items/logs" 2>/dev/null
+    cp -r "$WORKDIR/bench/." "$OUT_BENCH/items/result/" 2>/dev/null
+  }
+  for slot in "$OUT_ACCEPT" "$OUT_BENCH"; do
+    [ -d "$WORKDIR/logs" ] && cp -r "$WORKDIR/logs/." "$slot/items/logs/" 2>/dev/null
+  done
+  return 0
+}
+
 run_step() {
   local name="$1"; shift
   local t0 t1 rc
@@ -63,6 +112,9 @@ run_step() {
   step "$name" "$rc" "$((t1 - t0))" "$(date -Is -d "@$t0")"
   say "  $name rc=$rc in $((t1 - t0))s"
   tail -3 "$WORKDIR/logs/$name.log" | sed 's/^/    /'
+  # Bank before returning: from here on, a cancellation loses this step's
+  # successors rather than everything that came before them.
+  bank_partial
   return 0
 }
 
