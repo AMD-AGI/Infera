@@ -284,7 +284,18 @@
     # M5.1.3.1 — the stock arm must reproduce m2's `profiling_mode_off` bench.
     # If it does not, the two stages measured different machines and the whole
     # chain's arithmetic is void.
-    require_stock_reproduces_m2: true
+    #
+    # **There is no `require_stock_reproduces_m2` here and that is deliberate.**
+    # One was declared, with this paragraph beside it, and `grep -rn` over
+    # `assets/` found it nowhere: the check has always been unconditional. A
+    # knob that does nothing is worse than no knob, because a reader believes
+    # the gate is switchable and an operator setting it `false` gets the check
+    # anyway. Unconditional is also the right answer — a mission requirement is
+    # not an operator's option — so the declaration went rather than the code.
+    #
+    # The tolerance stays a `--var` because a tolerance is a judgement about
+    # this cluster's noise; whether the comparison happens at all is not.
+    # `check_no_regression.validator/check.py:249-267` is the branch.
     stock_vs_m2_tolerance: '${stock_vs_m2_tolerance:-0.10}'
     # M5.1.3.2 — reconcile m4's single-kernel speedup against the end-to-end
     # change via the kernel's share of the profile. **Warning, not a blocker**,
