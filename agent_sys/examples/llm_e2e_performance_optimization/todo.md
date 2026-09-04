@@ -1942,11 +1942,38 @@ something broken, it would have been committed **under a message asserting
 otherwise** — the same shape as T43, an artefact honest in provenance and wrong
 in meaning.
 
-**The check, and it is cheaper than `git status`:** run `git diff -- <path>`
-immediately before committing and read it. `git status` tells you the file is
-dirty; **the diff tells you whose changes are in it.** If it contains lines you
-did not write, stop and coordinate. One command, and it is the only one that
-distinguishes *my edit* from *the file*.
+**The obvious check does not work, and this entry proves it on itself.** The
+first version of this paragraph said: run `git diff -- <path>` immediately
+before committing and read it — `git status` says the file is dirty, the diff
+says whose changes are in it.
+
+**That was written, verified, and immediately falsified.** The diff was read
+(one hunk at EOF, one heading, forty lines, all mine), the commit was run
+seconds later, and it reported *"no changes added to commit"* — because
+**checkpoint had committed `todo.md` in the window between the check and the
+commit**, sweeping this entry into `5281a4e`, whose subject is m3's T40
+sharpening. So an entry about pathspec commits capturing a co-owner's
+uncommitted work was captured by a co-owner's pathspec commit **while being
+committed**.
+
+**The window is between the check and the commit, and no pre-commit check can
+close it.** `git commit -- <path>` reads the working tree at commit time; there
+is no atomic verify-then-commit for a path. Checking earlier only moves the
+window, and checking harder does not shrink it.
+
+**So the check moves after the commit, and it must read content and not the
+file list.** The standing rule already says to verify with `git log -1` and
+`git show --stat --name-only HEAD` — **that confirms which files moved, which
+is exactly the half that was never in doubt.** What is needed is
+`git show --numstat HEAD` against the size of your own edit, or
+`git show HEAD | grep '^+###'` on a prose file: **if the commit is bigger than
+what you wrote, someone else's work is inside it, and the message on it is
+now wrong about its own contents.**
+
+**And the correct response is not to amend.** Both instances here were harmless
+and both were resolved by *saying so* — m3 to me, me to checkpoint — leaving the
+log slightly wrong and the record straight. Rewriting shared history to fix an
+attribution is a larger hazard than the attribution.
 
 **Most acute on shared prose.** `todo.md` has five writers and no locking, so it
 is where this will keep happening; source files are usually one owner's.
