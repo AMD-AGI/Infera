@@ -57,6 +57,7 @@ way to notice either.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -679,6 +680,55 @@ def _run_entrypoint(
     return None
 
 
+def _impl_read_problem(report: Path, handed: Path) -> str | None:
+    """Did the driver measure the bytes we handed it? m3's `impl_read`, `782bb08`.
+
+    **This is the enforcement of a dependency that was only a comment.** The
+    third-tree workspace (`30_run_forge.sh`) hands forge a copy of the engine
+    sources that is on *no interpreter's import path*. That is safe only while
+    m3's `--impl` loader execs the file it was given; the day it resolves a
+    module instead, forge keeps editing the copy, the driver measures the
+    container's untouched tree, and **every ratio comes back ~1.0 with no error
+    anywhere** — a wrong answer byte-identical to "the optimiser found nothing".
+
+    m3 guarded the *outcome* rather than the mechanism, which is the stronger
+    choice and not the one I had written: "the loader execs rather than imports"
+    goes stale the moment someone finds a third way to load a file, while "the
+    bytes measured are the bytes at the path you named" survives any rewrite
+    that keeps the promise.
+
+    `impl_path` cannot do this job and it is the reason this is not already
+    covered: it is `args.impl` copied at parse time (`_common.py:257`), an echo
+    of the request that reads identically whether the file was exec'd, imported,
+    shadowed by another copy of the same module name, or never opened.
+
+    Absent is **not** a failure. A `null` is what a pre-`782bb08` workset's
+    harness writes and what a baseline run writes, and refusing those would fail
+    correct artefacts for being older than this check.
+    """
+    try:
+        got = (json.loads(report.read_text(encoding="utf-8")) or {}).get("impl_read")
+    except (OSError, ValueError):
+        return None  # the report's own readability is judged by `_medians`
+    if not isinstance(got, dict) or not got.get("sha256"):
+        return None
+    try:
+        want = hashlib.sha256(handed.read_bytes()).hexdigest()
+    except OSError as error:
+        return f"cannot hash the file handed to --impl ({handed}): {error}"
+    if str(got.get("sha256")) == want:
+        return None
+    return (
+        f"the driver measured something other than the file it was handed. "
+        f"--impl named {handed} (sha256 {want[:12]}…), and the harness recorded "
+        f"reading {got.get('path')!r} (sha256 {str(got.get('sha256'))[:12]}…, "
+        f"{got.get('bytes')} bytes, via {got.get('loaded_by')!r}). "
+        f"Every number in this report is about the wrong file — and a wrong file "
+        f"that is the unoptimised incumbent yields a ratio near 1.0, which is "
+        f"indistinguishable from an honest null result"
+    )
+
+
 def _medians(report: Path, operator_id: str) -> dict[str, float]:
     loaded = json.loads(report.read_text(encoding="utf-8"))
     out: dict[str, float] = {}
@@ -921,6 +971,13 @@ def _remeasure(
     )
     if failure:
         problems.append(f"the optimised re-measurement failed: {failure}")
+        return
+    # **Before the numbers are read, not after.** A ratio computed from a report
+    # that measured the wrong file is not a weaker number, it is a different
+    # claim, and reporting it alongside the mismatch invites someone to use it.
+    mismatch = _impl_read_problem(candidate_report, optimized_src.resolve())
+    if mismatch:
+        problems.append(mismatch)
         return
     candidate = _medians(candidate_report, operator_id)
 

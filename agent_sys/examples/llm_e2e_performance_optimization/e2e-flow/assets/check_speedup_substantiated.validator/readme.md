@@ -84,6 +84,43 @@ an outright fabrication and it is worse, because it survives review.
 agent spec's `env:` block, and inventing a default would move the measurement
 onto card 0, which on a shared host is somebody else's.
 
+## The driver has to have measured the file we handed it
+
+m3's harness records `impl_read = {path, sha256, bytes, loaded_by}` **at the
+moment it reads** (`_common.py:333`, `782bb08`); this body compares that digest
+against the file it named on `--impl`, before any number in the report is read.
+
+**`impl_path` cannot do this.** It is `args.impl` copied at parse time — an echo
+of the request, identical whether the file was exec'd, imported, shadowed by
+another copy of the same module name, or never opened. The stub's negative
+control makes the difference visible: the recorded `path` is *the same path*
+and only the digest differs.
+
+Why it matters here specifically: `30_run_forge.sh` hands forge a copy of the
+engine sources that is on **no interpreter's import path**. If the loader ever
+resolved a module instead of exec'ing the file, forge would keep editing the
+copy while the driver measured the container's untouched tree — and **every
+ratio would come back ~1.0 with no error anywhere**, which is byte-identical to
+an honest `improved: false`. A wrong answer that looks exactly like the right
+one is the only kind this check exists for.
+
+An absent or `null` `impl_read` is **not** a failure: that is what a baseline
+run writes and what a pre-`782bb08` workset writes, and refusing those would
+fail correct artefacts for being older than the check.
+
+**Seeing it refuse:**
+
+```sh
+KFO_STUBKIT_WRONG_IMPL=1 python3 stubkit/run.py
+```
+
+The stub then hashes something other than the file it was given. Clean, all 8
+cases pass; with the flag, every candidate case refuses and names both digests.
+Five of the eight then report `verdict right but never said '<their own
+phrase>'` — the refusal is correct in all of them and arrives before the one
+each case was written for, which is what "refuses first" looks like from a kit
+that grades wording.
+
 ## One assumption that is an `args` and needs m3 to confirm it
 
 `workset.schema.json`'s `$defs/entrypoint` fixes `cmd` and `report` and says

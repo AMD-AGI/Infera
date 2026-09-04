@@ -79,7 +79,7 @@ exec python3 "$DIR/emit.py" --plan "$DIR/plan.json" --impl-path "$IMPL" \
 
 _EMIT = r'''#!/usr/bin/env python3
 """Print a performance report the case asked for. No torch, no GPU, no timing."""
-import argparse, json, sys
+import argparse, hashlib, json, os, sys
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--plan", required=True)
@@ -117,6 +117,29 @@ json.dump({"schema_version": 1, "generated_by": "stubkit",
            # this when they landed the binding -- *a second producer would not
            # have been caught, and you have one.*
            "impl_path": (a.impl_path or None) if a.side == "candidate" else None,
+           # **`impl_read` beside them, for the same reason `impl_path` had to be
+           # added: a fixture that cannot emit production's shape tests the
+           # fixture** (CONTRACT §4.4). m3's harness writes this at the moment it
+           # reads (`_common.py:333`), null on a baseline run, and
+           # `_impl_read_problem` compares its digest against the file `--impl`
+           # named. Hashing the real bytes here, not a constant -- a constant
+           # would make the check refuse every stub run and the kit would grade
+           # itself instead of the validator.
+           #
+           # `KFO_STUBKIT_WRONG_IMPL=1` hashes something else, which is the
+           # negative control: the shape of a driver that measured a different
+           # file. Without it there is no way to see the check fire, and a check
+           # never seen to refuse is the class this whole kit exists to catch.
+           "impl_read": ({
+               "path": a.impl_path,
+               "sha256": hashlib.sha256(
+                   b"a different file entirely"
+                   if os.environ.get("KFO_STUBKIT_WRONG_IMPL") == "1"
+                   else open(a.impl_path, "rb").read()).hexdigest(),
+               "bytes": os.path.getsize(a.impl_path),
+               "loaded_by": "exec_of_file_contents",
+           } if (a.side == "candidate" and a.impl_path and os.path.isfile(a.impl_path))
+             else None),
            "environment": {"node": "stub", "gpu_arch": "gfx950",
                            "container": "stub", "image_id": "sha256:" + "0" * 12},
            "started_at": "2026-09-03T00:00:00Z",

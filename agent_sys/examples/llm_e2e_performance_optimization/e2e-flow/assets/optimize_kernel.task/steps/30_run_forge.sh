@@ -265,14 +265,24 @@ fi
 
 KFO_MAX_HOURS="$CLAMPED"; export KFO_MAX_HOURS
 KFO_FORGE_WORKDIR="$WORKDIR"; export KFO_FORGE_WORKDIR
-# **This copy is not on any interpreter's import path, and that is only safe
-# because m3's `--impl` contract does not import.** The measurement execs the
-# candidate file in a fresh namespace (`harness/_common.py:278-290`); nothing
-# does `import sglang` and picks the edit up. If that contract ever changes to
-# an import, forge will keep editing this tree, the driver will keep measuring
-# the container's unmodified one, and **every ratio will come back ~1.0 with no
-# error anywhere** — the failure would look like "the optimiser found nothing".
-# Recorded at the line that depends on it rather than in a design note.
+# **This copy is on no interpreter's import path**, so nothing that
+# `import sglang`s ever sees what forge writes here. If m3's `--impl` loader
+# ever resolved a module instead of reading the file it was handed, forge would
+# keep editing this tree, the driver would keep measuring the container's
+# unmodified one, and **every ratio would come back ~1.0 with no error
+# anywhere** — a wrong answer byte-identical to "the optimiser found nothing".
+#
+# **That is now checked rather than asserted** (m3, `782bb08`). The harness
+# records `impl_read.sha256` of the bytes it compiled, and
+# `check_speedup_substantiated._impl_read_problem` compares it against the file
+# `--impl` named, refusing before any number in the report is read.
+#
+# The guard is on the OUTCOME, not the mechanism, and that is m3's improvement
+# on what this comment used to say. "The loader execs rather than imports" is a
+# claim about their implementation that goes stale the moment someone finds a
+# third way to load a file, and this comment could not fail. "The bytes measured
+# are the bytes at the path you named" is what this workspace actually depends
+# on, and it survives any rewrite that keeps the promise.
 echo "running the workset's own one-liner: $ONELINE" >&2
 echo "  --workspace $WS (a copy; the container's own checkout is not touched)" >&2
 ( cd "$RUN" && sh "./$ONELINE" --workspace "$WS" )
