@@ -247,9 +247,17 @@ carry it from a message** — the leader carried `--var image` between two nodes
 this morning and the two nodes had different images under similar tags.
 
 ```sh
-RUN=<the rung-2 run directory under /home/yihou/agent_sys_runroot/runs/>
+RUN=<the newest run whose deploy_kit has SEALED, under /home/yihou/agent_sys_runroot/runs/>
 cat "$(sh agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/lib/kit_env.sh "$RUN")"
 ```
+
+**Not "the rung-2 run" — the newest run whose kit has sealed**, and `kit_env.sh`
+tells you which that is. Measured 2026-09-04: the two newest runs both refuse
+with *"…below has to run first — that is a real answer, not a broken query"*,
+because a `deploy_kit` exists with `v0` and `v1` and **no `environment.yaml` in
+either** until bring-up completes. A reader following the old wording got a
+correct refusal and no route forward. m4 hit the same caveat independently, so
+it is a property of the shared helper rather than of this section.
 
 That file carries **all of it** — measured on `20260904T114914-0a0cdd`:
 
@@ -274,10 +282,43 @@ python3 -m agent_sys.cli.main run \
   --var image=<fixed.image> \
   --var mock_stages=m4,m5 \
   --var m4_agent=runner --var m5_agent=runner \
-  --var measure_gpu=<a card you just read from rocm-smi> \
+  --var tp=<fixed.tp_size> \
+  --var expect_ranks=<fixed.tp_size> \
+  --var gpu_devices=<the cards you just read from rocm-smi, e.g. 0,1,2,3> \
+  --var "parser_args=--reasoning-parser qwen3" \
+  --var measure_gpu=<one of those cards> \
   --var adhoc_cases=0 \
   --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR
 ```
+
+**Four of these were missing and each would have cost the hold.**
+
+- **`expect_ranks` — this section used to say "omit it".** That was wrong and I
+  wrote it. The default is **8** (`steps/m2_profiling.yaml`) and the deployment
+  is `tp_size: 4`, so `check_trace_coverage` — `strong`, one readable trace per
+  rank — refuses a *correct* capture. My reasoning was *the capture is sized by
+  the deployment*, which is true, and it does not follow that the **default**
+  matches the deployment. Read it from the record like everything else.
+- **`tp` — omitted, defaults to 8.** Rung 3 is exactly where it starts
+  mattering: m1 is real, brings the engine up from `E2E_TP`, and would deploy
+  eight-way on a node whose last deployment was four.
+- **`gpu_devices`** — `0,1,2,3` on rung 1's working line, and load-bearing: the
+  deployment came up on those four cards.
+- **`parser_args` must be quoted.** It is the only var in any launch line whose
+  value is not a single token, and unquoted the shell hands `qwen3` to argparse
+  as a positional:
+
+  ```
+  --var parser_args=--reasoning-parser qwen3      rc=2  "unrecognized arguments: qwen3"
+  --var "parser_args=--reasoning-parser qwen3"    rc=0
+  ```
+
+  Stated as the reason rather than just the quotes, so the next multi-token var
+  gets quoted too. It fails loudly — but at the moment you spend the node.
+
+**`dsa_args` is deliberately absent, and that is weaker evidence than the rest.**
+It has never been passed on any real rung, so `none` is *what every green run has
+used* — **untested, not verified correct.**
 
 **Verified to load, and verified to be the rung it claims.** Loading is the
 weaker half: m2's warning is that a command still carrying the promoted stage's
@@ -305,7 +346,7 @@ were run with rung 2's own recorded values, above.
 | `jobid` | `runtime.slurm_jobid` | same guard |
 | `transport` | `runtime.transport` | same guard; omit it and the record supplies it |
 | `node_ip`, `port_router` | `fixed.node_ip`, `runtime.ports.router` | disagreement is not caught here — these only address the engine |
-| `tp_size` | `fixed.tp_size` | feeds `expect_ranks` at rung 2. **Omit `expect_ranks` from rung 3**: m2 is real from rung 2 onward, so the capture is sized by the deployment |
+| `tp_size` | `fixed.tp_size` | feeds **both** `--var tp` and `--var expect_ranks`, at every rung. This row used to say *omit `expect_ranks` from rung 3* and that was wrong: the default is 8, the deployment is 4, and `check_trace_coverage` refuses a correct capture. *The capture is sized by the deployment* is true and does not make the **default** match it |
 | `gpu_arch`, `image_id`, `model_path` | `fixed.*` | `check_environment` compares these across every handoff in the phase and refuses two different machines |
 
 **The guard is the point of the table.** Three of these do not need discipline
@@ -1665,53 +1706,63 @@ static-only. A rung-4 result at 2.0 is not a rung-4 result.
 
 ## 2a. What the first campaign must capture, for the real `patch` path
 
-**The producer emits a diff for a `call_site_fragment` operator. The mock's is
-marker-only; the real one is the campaign's edit.** Building the real one was
-deferred because *where the stock bytes live after forge edits in place* looked
-undecidable — a backup, a recoverable checkout, or nothing preserved, three
-shapes implying three different implementations.
+**Rewritten 2026-09-04. Everything this section previously said was measured,
+correct at the time, and now points at the wrong tree** — it survived three of
+my own commits that invalidated it, including the one whose removal of a
+`git init` it cited as its own justification. Kept as a heading rather than
+deleted, because the question it asks is still the right question.
 
-**Measured 2026-09-04 and it is not three shapes. It is one boolean.**
+**What it used to say:** capture `git -C /sgl-workspace/sglang rev-parse HEAD`
+before and after the campaign, plus `status --porcelain`, to learn whether forge
+commits its edits in the engine tree.
 
+**Why that is unanswerable there.** Forge stages and commits with
+`cwd=self.ic.workspace_dir` (`loop/runner.py:1600`) — that is `--workspace`
+(`cli.py:725`, `required=True`) and nothing else. It has no opinion about the
+engine tree at all, and `30_run_forge.sh` hands it a **copy**, so
+`/sgl-workspace/sglang` is never edited by a campaign.
+
+**And it would have answered.** A post-campaign `git status --porcelain` on the
+engine tree returns the image's own dirty state — measured 35 lines on
+`inferaimage/infera:sglang-local`, 45 on `infera/engine-sglang:final-pr`,
+unchanged before and after — which reads as **"the campaign changed nothing."**
+A reader would believe that sentence and act on it. This is the
+documented-but-false defence in prose: it does not fail, it stops you looking
+where the answer is.
+
+### The three things to capture, and they are all about `$WS`
+
+`$WS` is `$W/forge/engine_src`, the copy `30_run_forge.sh` makes at
+`SGLANG_ROOT`'s level. Run these **inside the container the campaign ran in,
+before teardown**.
+
+```sh
+BASE=$(cat "$W/forge/engine_baseline.sha")   # what the diff is cut against
+git -C "$WS" log --oneline "$BASE"..HEAD
+git -C "$WS" diff --stat "$BASE"
+git -C "$WS" status --porcelain
 ```
-/sgl-workspace/sglang           is a GIT REPO, at 2948168546, target present
-git -C <SGLANG_ROOT> diff --relative -- srt/layers/sampler.py
-        ->  --- a/srt/layers/sampler.py
-            +++ b/srt/layers/sampler.py
-```
 
-**That is exactly the frame `apply.py` needs** — `apply.py:637` splits
-`@SGLANG_ROOT@/srt/layers/sampler.py` and extracts into `tree/<rel>`, so `rel`
-is `srt/layers/sampler.py`. `git diff` from the **repo root** gives
-`python/sglang/srt/...`, the workset's frame, which is the one that made `patch`
-say *"No file to patch"*. **`--relative` from `@SGLANG_ROOT@` is the difference
-between the two**, and it costs a flag rather than a design.
+1. **Did forge commit anything, or leave the tree dirty?** Either is handled —
+   `git diff <commit>` compares that commit to the *working tree*, so it carries
+   keeps and leftovers in one diff. This is worth knowing rather than needing.
+2. **How many files did it touch?** `60_write_handoff.py` **refuses** a diff
+   spanning more than the one target: `apply.py` stages one file per manifest
+   entry, so every foreign hunk dies as `No file to patch`. `runner.py`'s own
+   `git add -u` comment says an agent commonly lands the winning change in a
+   sibling module the kernel imports, so this is the **expected** case, not a
+   pathological one. **`--stat` is how you learn it before the refusal does.**
+3. **Did it create files it never committed?** `git diff` does not show
+   untracked paths, and only forge's `commit_new_paths` allowlist stages them,
+   so `status --porcelain` is the only thing that names them.
 
-So no backup is needed, no re-extraction from the image, and no assumption about
-what forge preserves.
+**No `--relative` anywhere**, and that is what the `git init` at `SGLANG_ROOT`'s
+level bought: hunks come out headed `a/srt/layers/sampler.py`, which is already
+`apply.py:655`'s frame. Cutting in the repo-root frame (`python/sglang/srt/...`)
+is what produced *"No file to patch. Skipping patch."* earlier in this package.
 
-### The one thing to capture, and it is a yes/no
-
-**Does forge COMMIT its edits in the engine tree?** `30_run_forge.sh` says
-*"Forge commits its keeps"* — but that is about `$RUN`, the copy of the
-*workset*, which is why that script `git init`s it. Whether it also commits in
-`/sgl-workspace/sglang` is unknown and decides one line:
-
-| forge leaves the edit… | the producer runs |
-|---|---|
-| uncommitted in the working tree | `git -C <root> diff --relative -- <rel>` |
-| committed | `git -C <root> diff --relative <base>..HEAD -- <rel>`, and `<base>` must be captured **before** the campaign starts |
-
-**So: record `git -C /sgl-workspace/sglang rev-parse HEAD` before the campaign
-and again after**, plus `git -C /sgl-workspace/sglang status --porcelain`. Three
-commands, and they must be run *inside the container the campaign ran in*,
-before it is torn down — the engine tree does not outlive it.
-
-**Two more worth having while someone is watching**, because they are free then
-and expensive later: whether the edit is confined to the target file
-(`git diff --stat` names every file forge touched — the producer assumes one),
-and whether `forge_result.json` lists the changed files, which would make the
-`git` questions redundant for a future run.
+**Also free while someone is watching:** whether `forge_result.json` lists the
+changed files, which would make (2) and (3) redundant for every future run.
 
 ## 3. The install, measured — it is no longer blocking
 
@@ -1753,7 +1804,12 @@ not supposed to. **And copy the checkout first**: `pip install -e` writes
 not ours. Copying to node-local scratch is 12 s for 62 MB and makes the question
 moot.
 
-## 3. What has no source yet — and it is blocking — nothing, now
+## 4. What had no source, and the measurement that closed it
+
+**A second `## 3.` until 2026-09-04**, and its title contradicted itself in its
+own words — *"it is blocking — nothing, now"* — because I struck the old heading
+instead of rewriting it when the install stopped being a blocker. Renumbered and
+retitled; the content below is the record of the thing that was blocking.
 
 **`forge-loop` is not installed anywhere this run can reach.** Measured
 2026-09-04:
