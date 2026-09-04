@@ -119,6 +119,135 @@ STAGE_OF = {
 #: failure inside the consumer.
 SKIPPABLE: dict[str, bool | None] = {k: None for k in STAGE_OF}
 
+#: **`deploy_kit` is a recipe, and by construction rather than by intent.**
+#: m1's answer, 2026-09-04, and it is stronger than the question deserved:
+#: `deploy_and_prove` writes the kit at STEP 5 and tears the deployment down at
+#: STEP 7, both inside m1's own task — so `runtime.container` names a dead
+#: container **immediately**, on every run, not only after a replay. The kit
+#: says so itself in `runtime.notes`. Replay therefore introduces no staleness
+#: the graph does not already exercise every time.
+#:
+#: `runtime.endpoint` has **no reader anywhere** — every occurrence outside m1
+#: is a write. m2's bring-up (`load/line.sh:133-149`) reads `fixed.*` and
+#: `runtime.replayed_from`, nothing else.
+SKIPPABLE["deploy_kit"] = True
+
+
+def rewrite_environment(record: dict, source_run: str) -> list[str]:
+    """Make a replayed environment record honest about being replayed.
+
+    Returns the list of changes, for the promotion record. **Mutates the copy
+    under `--out`, never the source run.**
+
+    ## The blocker this exists for
+
+    `_agree_or_die` (`run_in_container.sh:96-104`, and the same three lines in
+    m3's `measure_in_container.sh:127-129`) **exits 1** when an ambient value
+    and the record's value are both non-empty and differ. It guards
+    `fixed.node`, `runtime.slurm_jobid` and `runtime.transport`.
+
+    A replayed kit carries the *old* job id; a debug run has a new one; both
+    non-empty, both different — so m3 and m4 refuse with
+    *"slurm_jobid is 'X' in the environment and 'Y' in the record"*, which reads
+    as a misconfigured launch and not as an artefact of injection. m1 found this
+    and it is the one failure that would have looked like somebody else's
+    defect.
+
+    **Blanking is the fix, not rewriting.** `_agree_or_die` returns the ambient
+    value when the record's is empty, so an absent `slurm_jobid` lets the debug
+    run's own job id win — which is the true one. Verified against the schema:
+    `runtime.required` is `[container, endpoint, started_at]`, so neither
+    `slurm_jobid` nor `transport` is required and removing them still validates.
+
+    ## `fixed.node` is deliberately NOT rewritten
+
+    m1 suggested rewriting it when the node moves. **Declining, and saying so
+    rather than doing it silently:** the replayed artefact really was produced
+    on the old node, and rewriting the field would make the record claim a
+    measurement happened somewhere it did not. Letting `_agree_or_die` and
+    `check_environment`'s `compare_fixed_across_inputs` refuse is the correct
+    outcome — it means *skip-ahead requires the same node*, which is a real
+    constraint of the mechanism and better documented than papered over.
+
+    ## `runtime.container` is made unresolvable on purpose
+
+    m1's sharpest point, and the only silent failure in the set. Container names
+    carry a run tag, but not uniformly — one 2026-09-04 kit used a date-only tag
+    — so a replayed name **can resolve to a live container that is a different
+    process**. Then `docker inspect` succeeds, node/jobid/transport all agree,
+    and m4 execs into the wrong container with every field validating. m1 hit
+    exactly that on 2026-09-04 for an unrelated reason: the record said
+    `started_at: 09:03:51Z` while docker reported `StartedAt: 09:37:18Z` with
+    `RestartCount: 0`.
+
+    A name that **cannot** resolve takes m4's ephemeral path
+    (`run_in_container.sh:210-232`), which builds a fresh container from
+    `fixed.image`, records `mode=ephemeral`, and states that a speedup measured
+    there is a different claim from one measured in the live deployment. Wrong
+    loudly beats wrong silently, and here the loud path is also correct.
+    """
+    changes: list[str] = []
+    runtime = record.setdefault("runtime", {})
+
+    for field in ("slurm_jobid", "transport"):
+        if runtime.get(field) not in (None, ""):
+            changes.append(f"runtime.{field}={runtime[field]!r} removed "
+                           f"(_agree_or_die takes the ambient value when the record is empty)")
+            runtime.pop(field, None)
+
+    dead = f"replayed-from-{source_run}-NOT-RUNNING"
+    if runtime.get("container") != dead:
+        changes.append(f"runtime.container={runtime.get('container')!r} -> {dead!r} "
+                       f"(unresolvable on purpose: a name that resolves to a different "
+                       f"process validates every field and is wrong silently)")
+        runtime["container"] = dead
+    if runtime.get("endpoint"):
+        changes.append(f"runtime.endpoint={runtime['endpoint']!r} -> a dead marker "
+                       f"(required by the schema, read by nothing)")
+        runtime["endpoint"] = f"http://replayed-from-{source_run}.invalid:0"
+
+    # **The marker already exists and is already consumed** — five readers:
+    # `check_deploy_kit/check.py:404-425`, `kit_status.py:66,158`,
+    # `check_measurement_order/check.py:280,330`, and m2's `line.sh:149`, which
+    # carries it into the numbers rather than into a log line because a reader
+    # meets the number long after the message that qualified it. `mock_adapt.sh`
+    # sets it for the mock path, so this is the second producer of an understood
+    # field rather than a new one.
+    #
+    # `runtime.additionalProperties` is `true`, so setting it validates —
+    # checked, because an undeclared field under a closed object is the trap m4
+    # hit with `base_sha256_from` this afternoon.
+    if runtime.get("replayed_from") != source_run:
+        changes.append(f"runtime.replayed_from -> {source_run!r}")
+        runtime["replayed_from"] = source_run
+    return changes
+
+
+def rewrite_in_tree(content: pathlib.Path, source_run: str) -> list[str]:
+    """Apply `rewrite_environment` to every environment record under `content`.
+
+    All fifteen kinds carry the same document (CONTRACT §2) at one of three
+    paths, so this globs rather than being told which.
+    """
+    import yaml
+
+    out: list[str] = []
+    for rel in ("items/env/environment.yaml", "items/codes/environment.yaml",
+                "items/codes/*/environment.yaml"):
+        for path in sorted(content.glob(rel)):
+            try:
+                doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+            except Exception as exc:  # noqa: BLE001
+                out.append(f"{path.name}: UNREADABLE, left alone: {type(exc).__name__}")
+                continue
+            if not isinstance(doc, dict):
+                continue
+            changed = rewrite_environment(doc, source_run)
+            if changed:
+                path.write_text(yaml.safe_dump(doc, sort_keys=False), encoding="utf-8")
+                out.extend(f"{path.relative_to(content)}: {c}" for c in changed)
+    return out
+
 
 def load_handoffs(run: pathlib.Path) -> list[dict]:
     """Every handoff record in a run's store, as `{id, type, versions}`."""
@@ -224,6 +353,11 @@ def main() -> int:
                     help="report and write nothing")
     ap.add_argument("--allow-unstable", action="store_true",
                     help="materialise kinds below the threshold, marked in the record")
+    ap.add_argument("--no-rewrite", action="store_true",
+                    help="copy the environment records verbatim. Leaves the stale "
+                         "slurm_jobid that makes m3 and m4 refuse, and leaves a container "
+                         "name that may resolve to a different process. For inspecting "
+                         "what a run really produced, not for a debug run.")
     args = ap.parse_args()
 
     runs = [pathlib.Path(r).resolve() for r in args.run]
@@ -290,8 +424,11 @@ def main() -> int:
             shutil.rmtree(dest)
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(row["content"], dest, symlinks=True)
+        # On the copy, never the source run. A run tree is evidence.
+        rewrites = [] if args.no_rewrite else rewrite_in_tree(dest, row["run"])
         n = sum(1 for f in dest.rglob("*") if f.is_file())
         record["promoted"].append({
+            "environment_rewrites": rewrites,
             "kind": kind,
             "stage_dir": STAGE_OF[kind],
             "stable": p["stable"],
