@@ -2327,9 +2327,17 @@ key=zzz_not_a_field  schema_errors=0   consumers read None
 
 **And it fails in the unsafe direction.** `None` means *"not a replay"*, so a
 typo turns a replayed kit into one every consumer treats as a real bring-up —
-the precise thing the field exists to prevent. A field whose absence is
-indistinguishable from its misspelling is the `items_schema` shape again: the
-check is present, the property is not checked.
+the precise thing the field exists to prevent.
+
+**This is the second instance of one shape at the schema layer, and naming it is
+the point of this entry.** The first is `items_schema`, measured to validate the
+*filename string* and never the contents (`handoff/content.py:184-197`, mission
+rule G2). Both are **a check that is present and does not check the property** —
+and in both the presence of the check is what stops anyone looking. Declaring
+`replayed_from` would have *added* to that: the schema would then name the field
+and still not defend it, so the next reader would have one more reason not to
+check. **The next person to find an undeclared field will reach for the same
+obvious fix; the fix is the object, not the field.**
 
 **Only `additionalProperties: false` closes it, and the cost is now a number
 rather than a worry.** Swept every environment record in the run root — 241
