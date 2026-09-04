@@ -753,6 +753,55 @@ only the far side can emit; the exit status alone could never have carried it.
 And the test for it is the one this section keeps arriving at: **produce each
 outcome deliberately and read the sentence, not the code.**
 
+##### A sixth: a bar can be neutralised from three distances, and only the nearest is visible to its owner
+
+The previous five are about a check that runs and answers badly. This one is
+about a check that runs, answers correctly, and **was never given a threshold
+capable of refusing**. Found by sweeping the ten parameterised bars in the
+package for whether each is *reachable*, after the pass/refuse tally had already
+come back healthy.
+
+m3's ladder, and the wording is theirs — the rungs are ordered by **how far the
+neutralisation lives from the person who maintains the bar**:
+
+1. **In the owner's own file** — a default that cannot refuse.
+   `steps/m3_analysis.yaml:183`, `min_resolve_ratio: '${min_resolve_ratio:-0.0}'`.
+   Deliberate, and now said out loud in the file (m3, `5ca132e`). **Visible to
+   whoever maintains it**, which is why this rung is the benign one.
+2. **In a launch line.** `steps/m5_integration.yaml:302` sets
+   `min_adhoc_cases: '${adhoc_cases:-3}'`, and every launch line in `RUN-PLAN.md`
+   passes something below three — `adhoc_cases=0` three times, `=1` once.
+   Justified in MOCK-MAP (D″) because no sealed handoff carries ad-hoc cases.
+   **Invisible in the yaml and visible to whoever reads the launch line**, which
+   is the leader, who writes them.
+3. **In a launch line reaching two owners at once.** `min_requests` is one
+   `--var` behind two validators with two owners —
+   `steps/m2_profiling.yaml:46` (`check_bench_result`, m2) and
+   `steps/m5_integration.yaml:334` (`check_bench_report`, m5), both
+   `'${min_requests:-50}'`. **Invisible to both owners even after reading the
+   launch line**, because each reads a floor of 50 in their own file and each is
+   correct about their own file.
+
+**Each rung is invisible to the check that catches the rung below**, which is
+why this took three passes and not one, and why a healthy refusal tally said
+nothing about any of it.
+
+**The denominator is what keeps rung 3 a finding rather than a crusade.** 32
+variables are read by two or more files under `steps/`, and sharing is usually
+the *point*: `node`, `image` and `model_path` describe one machine, and two
+owners disagreeing about them would itself be the bug — §2's
+`compare_fixed_across_inputs` exists to catch exactly that. Crossed against the
+ten bars, **`min_requests` is the only one that is both cross-owner and a
+grading bar.** `measure_gpu` and `transport_env` are also cross-owner and point
+the other way: empty *causes* a refusal rather than suppressing one, which is
+the opposite of a disabled arm. So the set is one, and the instruction this
+section gives is not "de-duplicate 32 names".
+
+**How all three were missed for a day: the args were read and the launch lines
+were not.** A bar's value is not in the file that declares it. The check is to
+resolve each `${...}` against the command that will actually run, and the
+smallest honest version of it is one grep of `RUN-PLAN.md` per bar.
+
 ### 4.1 Shared validators are shared, not copied
 
 `check_kernel_table` is **one** definition used by m2 and m3 (M3.5). The two
