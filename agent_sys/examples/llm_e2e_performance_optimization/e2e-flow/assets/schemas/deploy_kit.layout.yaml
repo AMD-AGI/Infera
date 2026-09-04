@@ -521,6 +521,15 @@ runtime_contract:
       # The seventh is now synthesised there like its siblings, so this parameter
       # is required of **every** kit, replayed or produced, with no escape.
       #
+      # **An adapter change is not always required, and assuming it is would have
+      # cost work.** The `content/README.md` entry added the same day tightened
+      # this layout and needed **no** `mock_adapt.sh` change at all, because the
+      # sealed 2026-09-02 kit already carried that file. **The old artefact was
+      # right and the new ones were wrong** — the reverse of the case here, and
+      # of every other compatibility problem that day. So the question to ask of
+      # a new rule is *"does the fixture already satisfy it?"*, measured with
+      # `gate.sh`, rather than *"which adapter do I have to move?"*.
+      #
       # The one-liner the verdict carries. Without it the validator emitted the
       # whole `brief` below into a run's output — measured, and it is why every
       # future parameter should carry one.
