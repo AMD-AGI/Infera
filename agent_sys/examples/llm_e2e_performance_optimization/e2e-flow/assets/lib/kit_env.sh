@@ -5,6 +5,17 @@
 #     cat "$(kit_env.sh "$RUN")"
 #     grep -E '^  (tp_size|node|image):' "$(kit_env.sh "$RUN")"
 #
+# **Only stdout is the path.** The version taken and the store's opinion of it
+# go to stderr, so `$(…)` stays clean and a person watching still sees them.
+#
+# `KIT_ENV_KIND` overrides the kind, and it can only name a **`code`-typed** one
+# — `deploy_kit`, `kernel_optimization`, `operator_workset`, `e2e_packup` —
+# because this looks under `items/codes/`. A `reproducible` or `structured_text`
+# kind keeps the same document at `items/env/environment.yaml` (CONTRACT §2), so
+# `KIT_ENV_KIND=stock.measurement` refuses with *"no … environment.yaml"*, which
+# reads like "no such handoff" and means "wrong content type". Found by aiming
+# the invalid-status test at the wrong kind.
+#
 # **One authority for a read that five RUN-PLAN sections do** (CONTRACT §4.3).
 # Every rung's section begins by taking deployment facts out of the rung below's
 # run, and until 2026-09-04 all five did it with the same one-liner:
@@ -80,15 +91,31 @@ for f in sorted(store.glob("*.json")):
         continue
     if d.get("type") != kind:
         continue
-    versions = sorted((run / "handoffs" / d["id"]).glob("v*"),
-                      key=lambda p: int(p.name[1:]) if p.name[1:].isdigit() else -1,
-                      reverse=True)
-    for v in versions:
+    # **The store's version number and the on-disk `vN` are two namespaces**, and
+    # m3 found the disagreement: on `20260904T114914-0a0cdd`, five handoffs —
+    # `deploy_kit` among them — carry a `v1` directory while the store records
+    # only version 0. Measured before acting on it: in **every** one of those
+    # five, `v0` holds **zero files** and `v1` holds the content. So the two
+    # rules do not disagree about which artefact — there is exactly one
+    # populated directory and both select it.
+    #
+    # Swept to be sure the ordering rule is not quietly wrong somewhere else:
+    # **283 handoff directories across every run, and none has more than one
+    # populated version.** 92 have their content somewhere other than `v0`,
+    # which is why skipping empty directories is load-bearing and why ordering
+    # is not. The `if env.is_file()` below is doing the real work.
+    status = {v.get("version"): v.get("status") for v in (d.get("versions") or [])}
+    for v in sorted((run / "handoffs" / d["id"]).glob("v*"),
+                    key=lambda p: int(p.name[1:]) if p.name[1:].isdigit() else -1,
+                    reverse=True):
         env = v / "content" / "items" / "codes" / "environment.yaml"
         if env.is_file():
             # Highest version WITHIN one handoff is an ordering, not a tie-break:
-            # a later version supersedes an earlier one by definition.
-            candidates.append((d["id"], env))
+            # a later version supersedes an earlier one by definition. m3 asked
+            # to narrow that to *when it succeeded*, and the sweep says the case
+            # has never arisen — so the rule stays and the reader is told what it
+            # took instead of being asked to trust it.
+            candidates.append((d["id"], env, v.name, status))
             break
 
 # **Refuse rather than pick**, m3's, and the argument is this file's own history:
@@ -97,11 +124,26 @@ for f in sorted(store.glob("*.json")):
 # the wrong copy says on the day the copies stop agreeing.
 if len(candidates) > 1:
     print("AMBIGUOUS", file=sys.stderr)
-    for hid, env in candidates:
+    for hid, env, _vn, _st in candidates:
         print(f"  {hid}  {env}", file=sys.stderr)
     sys.exit(3)
+
 if candidates:
-    print(candidates[0][1])
+    hid, env, vname, status = candidates[0]
+    # **Say which version was taken, and what the store thinks of it** — m3's
+    # cheapest and best suggestion. One line converts a silent choice into a
+    # readable one, so the next person meets a fact instead of a mystery.
+    #
+    # **Reported, never judged**, the same call `check_environment` makes about
+    # `runtime.container`. Refusing on a status that is not `valid` would break
+    # the read this script exists for: rung 1's kit is `generating` for the hour
+    # before it seals, and reading it then is the point. But `invalid` is real —
+    # three handoffs carry it on `114914` — so a caller reading a kit the store
+    # has rejected should be told, not stopped.
+    said = status.get(0, "not recorded by the store")
+    note = "" if said == "valid" else "   <-- NOT valid; read it knowing that"
+    print(f"kit_env: {kind} {hid[:8]} {vname}, store says {said}{note}", file=sys.stderr)
+    print(env)
 PY
 )" || { rc=$?; [ "$rc" -eq 3 ] && {
   echo "kit_env: more than one $KIND in $RUN holds an environment record (listed above)." >&2
