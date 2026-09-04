@@ -1539,3 +1539,54 @@ needs no per-kind knowledge.
 rule that the author of a file cares most about its output being right and a
 change landed by someone else and merely attributed is worse than one landed by
 its owner.
+
+---
+
+### T40 — treat every probe as a control, because the slot decides whether you check the null
+
+**Owner: checkpoint writer, 2026-09-04. Sharpening of `T31`, and m3 asked for it
+to carry my name; the pattern it names is theirs as much as mine.**
+
+**The observation.** m3 reported that four of their wrong turns today were probes
+that *could not have succeeded* — a null that looked like an answer — and that
+they caught the two they did catch because the result was implausible, not
+because they checked. I had just done the same: my positive control for
+`runlive.sh` used `exec -a`, which **`dash` does not have** (`sh: 1: exec: -a:
+not found`), so the subject never existed. I chased it.
+
+**But I only chased it because it was labelled a control.** Had that same failing
+probe been sitting in the *measurement* slot, I would very likely have written
+down the null and moved on — which is exactly what happened to me at 07:12, when
+I read empty `logs/`, `playground/` and `tmp/` in a task zone as "the body never
+ran" and had to throw the inference away after checking tasks that certainly did
+run and finding those directories empty for every one of them.
+
+**So the variable is not care, it is the slot.** Same person, same hour, same
+diligence: a null in a control is *by definition* suspicious, and a null in a
+measurement reads as data. m3 confirmed the same split in their own four —
+wrong turns in the measurement slot, catches in the control slot.
+
+**The operational form, and it is a test rather than an exhortation:**
+
+> **Before believing a null, name the result that would have proved the probe
+> could speak at all. If you cannot name one, you have not measured anything —
+> you have observed that your instrument is quiet.**
+
+m3 reports using it twice today by accident (the `abc` payload; the `-p $W` that
+dumped the process table) and not at all on the other four.
+
+**Instances already in the record**, all 2026-09-04:
+
+- empty zone `logs/`/`playground/` read as "the body did not run" — control:
+  those dirs are empty for *every* task, including ones that sealed valid
+  handoffs.
+- `ppid=1` read as "orphaned by a kill" — control: `nohup sleep &` reaches
+  `ppid=1` with nothing killed. Escalated before the control existed.
+- `exec -a` positive control — the subject never existed.
+- `readlink /proc/<pid>/exe || continue` — an unreadable `exe` dropped silently,
+  so "cannot decide" and "nothing there" produced identical output (`01f768c`).
+
+**Not blocking.** It is a habit, not a defect, and the four instances above are
+already fixed or recorded. Filed because `T31` says naming a class is not
+sweeping for it, and this is the sweep condition for a class that has produced
+at least four instances across two owners in one day.
