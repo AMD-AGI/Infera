@@ -162,6 +162,34 @@ load-and-typecheck of every yaml. It then arrives at the body as the *string*
 `"${min_requests:-50}"`, where `float()` raises `ValueError` at whatever moment
 that validator first grades something.
 
+### And the *working* path is broken, not only the fallback
+
+Found 2026-09-04 by m2, checking the claim above rather than taking it, and it
+is the row that matters most. All four states of the same string, zero problems
+reported in every one:
+
+```
+${integration_min_requests:-${min_requests:-50}}   unset            -> '${min_requests:-50}'
+${integration_min_requests:-${min_requests:-50}}   min_requests=20  -> '${min_requests:-50}'
+${integration_min_requests:-${min_requests:-50}}   OUTER=7          -> '7}'
+${integration_min_requests:-${min_requests:-50}}   OUTER=7,inner=20 -> '7}'
+```
+
+**Setting the outer variable — the entire point of adding it — yields `'7}'`**:
+the value with a trailing brace glued on, because the outer reference's match
+ended at the inner `}` and the outer `}` was never part of it.
+
+So the damage is not confined to the fallback that nobody exercises. The path a
+package author would actually take — declare the nested default, then pass the
+new `--var` — produces a corrupted value **only when the knob is used**, which
+is the worst possible distribution: it works in every dry run where the variable
+is left unset (silently reading the wrong one), and breaks the first time
+somebody sets it.
+
+`float("7}")` throws, so this one at least fails loudly at the far end. A field
+consumed as a string — a container name, a path, a served model name — would not
+throw at all.
+
 `str`-not-`int` is already the known hazard here (CONTRACT.md:403,
 `interpreter_sweep.py:131`); this makes the string one that cannot be parsed at
 all, and moves the failure from the load to the grading.
