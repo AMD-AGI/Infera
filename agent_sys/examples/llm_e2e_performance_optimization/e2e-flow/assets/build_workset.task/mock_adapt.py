@@ -45,6 +45,7 @@ fails and the mock is correctly incomplete.
 from __future__ import annotations
 
 import ast
+import base64
 import json
 import os
 import re
@@ -259,7 +260,7 @@ def _repair_readme(content: Path) -> None:
 _SEALED_ONLY_ITEMS = ("env", "result", "script")
 
 
-def _base_sha256(root: Path, target: str) -> dict | None:
+def _image_facts(root: Path, target: str) -> tuple[dict | None, list | None]:
     """sha256 of the stock target file **as it exists in the image**, or `None`.
 
     m5's patch manifest pulls the file out of the image, hashes it, and refuses
@@ -280,31 +281,50 @@ def _base_sha256(root: Path, target: str) -> dict | None:
     gap for a stopped run.
     """
     override = os.environ.get("MOCK_BASE_SHA256")
-    if override:
-        return {target: override}
     image = ((yaml.safe_load((root / "environment.yaml").read_text(encoding="utf-8")) or {})
              .get("fixed") or {}).get("image")
     if not image:
-        return None
+        return ({target: override} if override else None), None
     # The repo root is asked of the image rather than assumed: `sglang.__file__`
     # is the only thing that knows where this build put it, and a wrong guess
     # would hash nothing and look identical to an unreachable node.
-    script = (
-        'r=$(python3 -c "import sglang,os;'
-        'print(os.path.dirname(os.path.dirname(os.path.dirname(sglang.__file__))))" 2>/dev/null); '
-        f'sha256sum "$r/{target}" 2>/dev/null | cut -d" " -f1'
+    # **One read, two facts.** The hash and the module-level symbol list come
+    # out of the same container start, because they answer the same question —
+    # what is in this file in this image — and asking twice would be two
+    # container starts and two chances to disagree.
+    #
+    # **The inner python travels base64**, for the reason `b9849a7` records
+    # about the measurement payload: this crosses `spur exec bash -lc`, then a
+    # `docker run ... bash -c`, and a quote anywhere in it is eaten by one of
+    # those layers. Written with quotes first, and it died with
+    # `-c: line 2: syntax error: unexpected end of file` — the same defect, in
+    # the same file, hours after fixing it once. base64 has no metacharacters.
+    inner = (
+        "import ast,hashlib,os,sglang\n"
+        "r=os.path.dirname(os.path.dirname(os.path.dirname(sglang.__file__)))\n"
+        f"f=os.path.join(r,{target!r})\n"
+        "b=open(f,'rb').read()\n"
+        "print('SHA:',hashlib.sha256(b).hexdigest())\n"
+        "n=[x.name for x in ast.parse(b.decode()).body "
+        "if isinstance(x,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef))]\n"
+        "print('SYM:',' '.join(n))\n"
     )
+    encoded = base64.b64encode(inner.encode()).decode()
+    script = f"echo {encoded}|base64 -d|python3"
     probe = subprocess.run(
         ["bash", "-c", f'. "$1"; on "$2"', "_", str(PKG / "assets/lib/remote.sh"),
          f"docker run --rm --entrypoint bash '{image}' -c '{script}'"],
         capture_output=True, text=True, timeout=300)
     digest = re.search(r"\b[0-9a-f]{64}\b", probe.stdout or "")
-    if not digest:
-        print(f"mock_adapt: could not read a base_sha256 for {target} from {image}; recording null. "
-              f"A consumer must hash it itself and say so (workset.schema.json). "
+    symbols = re.search(r"^SYM: (.*)$", probe.stdout or "", re.MULTILINE)
+    names = symbols.group(1).split() if symbols else None
+    if not digest and not override:
+        print(f"mock_adapt: could not read {target} from {image}; recording nulls. A consumer "
+              f"must hash it itself and say so (workset.schema.json). "
               f"{(probe.stderr or '').strip()[-200:]}", file=sys.stderr)
-        return None
-    return {target: digest.group(0)}
+    if names:
+        print(f"mock_adapt: {target} defines {len(names)} module-level symbol(s) in the image")
+    return ({target: override or digest.group(0)} if (override or digest) else None), names
 
 
 def _fold_sealed_items(content: Path, root: Path) -> None:
@@ -497,6 +517,13 @@ def main() -> int:
         _die("env_render reported success and wrote no items/codes/environment.yaml")
     environment = yaml.safe_load((root / "environment.yaml").read_text(encoding="utf-8"))
 
+    # **After the environment record exists**, because the image comes from it.
+    # Placed before it on the first attempt and the run died on a missing
+    # `environment.yaml` — the ordering constraint is the same one the header
+    # already records for the `items/code` rename, and I broke it the same way.
+    TARGET_FILE = "python/sglang/srt/layers/sampler.py"
+    base_sha256, module_symbols = _image_facts(root, TARGET_FILE)
+
     def entrypoints(operator_id=None):
         suffix = f" --operator {operator_id}" if operator_id else ""
         tag = operator_id or "all"
@@ -555,9 +582,22 @@ def main() -> int:
                             "source_resolution_method": "trace_python_stack",
                             "resolution_evidence": "record_shapes resolved the device symbol to aten::softmax with Input Dims [[8, 151936], [], []]; the only vocabulary-wide softmax on the decode path is sampler.py:183."},
             "integration": {
-                "target_files": ["python/sglang/srt/layers/sampler.py"],
-                "base_sha256": _base_sha256(root, "python/sglang/srt/layers/sampler.py"),
-                "public_symbol": "sampler_softmax",
+                "target_files": [TARGET_FILE],
+                "base_sha256": base_sha256,
+                "module_symbols": module_symbols,
+                # **`call_site_fragment`, and this corrects a claim of mine.**
+                # This block said `public_symbol: "sampler_softmax"` six lines
+                # below `entry_function: "Sampler.forward"` — two names for
+                # different things, and m4 read the stock file out of the image
+                # and found the first is defined nowhere in it. It is the
+                # *Definition's* function, a micro-benchmark of the computation;
+                # the engine's version is lines inside `Sampler.forward`.
+                #
+                # So there is no symbol to install, `public_symbol` is null, and
+                # how such an optimisation reaches the engine at all is M5.1.1's
+                # open question rather than something this file can answer.
+                "substitution": "call_site_fragment",
+                "public_symbol": None,
                 "signature": "sampler_softmax(logits: Tensor[B, V] fp32, out: Tensor[B, V] fp32) -> Tensor",
                 "invariants": [
                     "writes in place into the caller-provided `out`; the call site is `logits[:] = ...`, so a replacement that allocates is not substitutable there",

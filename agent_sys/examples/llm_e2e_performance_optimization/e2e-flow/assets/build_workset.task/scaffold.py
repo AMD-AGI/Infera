@@ -299,7 +299,19 @@ def main() -> int:
             "integration": {
                 "target_files": entry.get("editable_sources") or ([entry["source_file_path"][0]]
                                                                   if entry.get("source_file_path") else []),
-                "public_symbol": (entry.get("target_kernel_functions") or [""])[0],
+                # **Both of these came from `target_kernel_functions[0]`**, so
+                # the real path asserted a *method qualname* as the symbol an
+                # overlay installs — `Sampler.forward` is not a module-level
+                # function and cannot be swapped by name. Different surface from
+                # the mock's contradiction, same wrong premise: that every
+                # operator has a named substitution target.
+                #
+                # `identify` decides now, because it is the step that reads the
+                # image. Absent, the kind is unstated rather than guessed, and
+                # `check_workset_shape` says so.
+                "substitution": entry.get("substitution"),
+                "module_symbols": entry.get("module_symbols"),
+                "public_symbol": entry.get("public_symbol"),
                 "signature": "",
                 "invariants": [SENTINEL_LINE],
                 # **Carried from `identify`, never computed here.** The schema

@@ -231,6 +231,63 @@ def _check_shapes(content: Path, root: Path, operator: dict, args: dict, problem
         problems.append(f"{label}: duplicate case_id(s) {sorted({i for i in ids if ids.count(i) > 1})}")
 
 
+def _check_integration(operator: dict, problems: list[str]) -> None:
+    """`integration` describes a target that exists, or says it does not.
+
+    **The check m4 had to open a container to perform.** They read the stock
+    file out of the image and found `public_symbol: sampler_softmax` defined
+    nowhere in `target_files[0]` — so `integration` described installing a
+    named symbol into a file with no such symbol, and an overlay built from it
+    could not work. Nothing here could have caught that, because the file lives
+    in an image and this validator has no container.
+
+    It can now, because `identify` records the module-level symbol list in the
+    same read that produces `base_sha256`. **A recorded list turns a question
+    that needs a container into one that needs a comparison** — which is the
+    same move as `base_sha256` itself, and the reason both belong at identify
+    time.
+
+    Silent when `substitution` is absent: that is a workset produced before this
+    existed, and inventing a verdict about an unstated field would be worse than
+    the gap. `module_symbols: null` downgrades to unverified rather than passing,
+    and says which of the two it is.
+    """
+    label = operator["operator_id"]
+    integration = operator.get("integration") or {}
+    kind = integration.get("substitution")
+    symbol = integration.get("public_symbol")
+    if kind is None:
+        return
+    if kind == "call_site_fragment":
+        if symbol:
+            problems.append(
+                f"{label}: substitution is 'call_site_fragment' and public_symbol is {symbol!r}. "
+                f"A fragment inside {(operator.get('edit_target') or {}).get('entry_function') or 'a method'} "
+                f"has no symbol to install; naming one asserts an overlay target that does not exist"
+            )
+        return
+    if not symbol:
+        problems.append(f"{label}: substitution is 'module_symbol' and public_symbol is empty; "
+                        f"the whole claim of that kind is that a named target exists")
+        return
+    known = integration.get("module_symbols")
+    if known is None:
+        problems.append(
+            f"{label}: substitution is 'module_symbol' but module_symbols is null, so nothing here "
+            f"can confirm {symbol!r} exists in {(integration.get('target_files') or ['?'])[0]}. "
+            f"UNVERIFIED rather than wrong — identify could not read the image; a consumer must "
+            f"check before building an overlay"
+        )
+        return
+    if symbol not in known:
+        problems.append(
+            f"{label}: public_symbol {symbol!r} is not defined at module level in "
+            f"{(integration.get('target_files') or ['?'])[0]}. The image defines: "
+            f"{', '.join(sorted(known)[:8])}{' …' if len(known) > 8 else ''}. "
+            f"An overlay installing it would replace nothing"
+        )
+
+
 def _check_forge(root: Path, operator: dict, problems: list[str]) -> None:
     """The KernelForge add-on, M3.7.6. Optional as a block; internally consistent
     when present. It is *layered over* the base — a consumer that does not use
@@ -329,6 +386,7 @@ def _check(content: Path, args: dict, problems: list[str]) -> bool:
         _check_definition(root, operator, problems)
         operator.pop("_ground_dtypes", None)
         _check_shapes(content, root, operator, args, problems)
+        _check_integration(operator, problems)
         _check_forge(root, operator, problems)
         if operator["reference"]["kind"] == "written":
             _exists(root, operator["reference"]["path"], f"{label}.reference", problems)
@@ -345,10 +403,16 @@ def _check(content: Path, args: dict, problems: list[str]) -> bool:
         integration = operator["integration"]
         if not integration["target_files"]:
             problems.append(f"{label}: integration.target_files is empty; m5 has nothing to replace")
-        if not integration["public_symbol"].strip():
+        # **Empty and null are different answers now.** This required a
+        # non-empty symbol of every operator, which is the premise m4 disproved:
+        # an operator whose engine code is a fragment inside a method has no
+        # symbol, and `null` says so deliberately. An empty *string* still means
+        # nobody filled it in. `_check_integration` grades the deliberate case.
+        if integration["public_symbol"] is not None and not integration["public_symbol"].strip():
             problems.append(
-                f"{label}: integration.public_symbol is empty. The file may be rewritten wholesale, "
-                f"so the symbol is what a replacement must still provide"
+                f"{label}: integration.public_symbol is an empty string. Use null with "
+                f"substitution: call_site_fragment if there is genuinely no symbol to install; "
+                f"an empty string is an unfilled field rather than a statement"
             )
 
     # The evidence is optional in the schema — a workset may be shape-checked
