@@ -6903,3 +6903,81 @@ applying it*.** I wrote *"no textual exclusion can separate them"*, derived the
 correct structural rule from it, and then shipped that rule in a form that could
 not execute. **The reasoning was right and the artefact was not**, and nothing in
 my own checking distinguishes those two, because I checked the reasoning.
+
+### Addendum, 11:14 UTC — the attack m3 could not build, built; and the fix that argv cannot fool
+
+m3 attacked `runlive.sh` and reported **two defects, one behaviour confirmed
+good, and one attack they could not construct — reported as untested rather than
+cleared.** That last distinction is the reason this addendum exists: **I built
+it, and it succeeds.**
+
+**The attack.** `sh -c '<run>; sleep 20'`, inner subject exiting after 3 s:
+
+```
+phase 1 (child alive):   child reported, wrapper excluded    — correct
+phase 2 (child exited):  run pid=1347340 etime=00:13 root=/tmp/ATTACK;
+```
+
+**A run that had ended, reported as live.** The trailing `;` is the shell's argv
+leaking into the run-root field. This is the reassuring direction — the T+1062
+class — and it is the failure the tool exists to prevent. m3's structural
+argument was about m1's real launcher doing `echo` and `date` after the run
+exits; `sleep` reproduces it.
+
+**The fix is `/proc/<pid>/exe`, on m2's rule that a reading must not be able to
+contain the query.** No argv rule can work, because a wrapper's argv legitimately
+*contains* the run's. The kernel's record of the actual binary cannot be faked by
+a command line:
+
+```
+real run (python -m …)      exe = …/bin/python3.14   keep
+console script (agent-sys)  exe = …/bin/python3.14   keep   (shebang)
+timeout 7200 …              exe = /usr/bin/timeout   drop
+sh -c '…' / zsh -c '…'      exe = …/sh, …/zsh        drop
+```
+
+m3's finding 1 survives it — the console script's shebang *is* python.
+
+**Their two defects, both fixed.** `--demo-root=<path>` silently gave `root=?`,
+in the one field my new wording depends on — *"a process for run-root ? was
+present"* is the old claim with extra syntax. And `strftime` is a GNU extension
+sitting in the `END` block, so where it is absent the failure takes the **count
+line**, which is the part I quote; replaced with `date`. They said not to bother
+with the second today; it cost one line and their reason for raising it was
+right.
+
+**Four controls, all passing**, and the tool is `552c0eb`:
+
+```
+A baseline, real runs only                       -> 2
+B ATTACK, launcher outliving its child           -> 2   (wrapper present, excluded)
+C console-script form + --demo-root=/tmp/EQROOT  -> 3   root=/tmp/EQROOT, not "?"
+D negative, a token nothing runs                 -> 0
+```
+
+All control processes exited; `/tmp/agent-sys` removed; nothing of mine left on
+the host.
+
+**Two things from the exchange that are worth more than the tool.**
+
+**m3's mechanism for the paste-drift error is better than my diagnosis of it.**
+I called it my carelessness. They said: *"a one-liner in a message is edited
+every time it is quoted, so what I ran and what I wrote are different objects
+with nothing binding them."* That is a property of the artefact, not the author,
+and it is why the fix had to be **a file** rather than more care.
+
+**And one push-back I gave them, because it applies to me first.** They noted
+that two of their wrong turns were probes that could not have succeeded, found
+only because the result looked implausible. **My `exec -a` control was the same
+and I only chased it because it was labelled a control** — had it been a
+measurement I would probably have accepted the null. So the difference is which
+slot the failing thing occupied, not vigilance. **The habit that actually works
+is treating every probe as a control**, and neither of us does that
+consistently.
+
+**Score on the day's tooling: three of three tools found wrong by other people,
+and now two of three attacked to the point of having controls.** The remaining
+one is the verdict tally, which I attacked myself and which passed — the same
+self-attack whose first version excluded the validator most likely to fail it.
+It is the tool with the weakest evidence behind it and it produces the number in
+every section headline.
