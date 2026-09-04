@@ -652,8 +652,24 @@ def main() -> int:
         reasons.append(
             "the stock arm does not reproduce m2's profiling_mode_off bench within "
             f"{args.stock_vs_m2_tolerance:.0%}: " + ", ".join(breached)
-            + " — the two stages measured different machines, so this comparison is between "
-            "numbers that were never comparable"
+            + " — the two stages measured something different, so this comparison is between "
+            "numbers that were never comparable.\n"
+            # **It used to say "different machines", and this body cannot know
+            # that.** Two stages can disagree on the same host: a different
+            # engine build, a different serving configuration, or another
+            # tenant's load. Measured 2026-09-04 on rung 1 — the deployed engine
+            # gave 42.51 ms ITL where m1's floor was calibrated at 32.5 ms, a
+            # 31 % gap on one node with nothing moved. Naming the machine would
+            # have sent the reader to check the node, which was fine.
+            #
+            # `image_id` and not `image`: a floating tag is the case where the
+            # engine changed and the record does not show it.
+            "  Which one is decidable and this body does not decide it: compare "
+            "`fixed.image_id` and `fixed.node` in the two `environment.yaml` records. "
+            "Different `node` is two machines. Same `node` and different `image_id` is "
+            "two engines. Both the same means the same engine served differently on the "
+            "same host — load, configuration, or another tenant — and only the run logs "
+            "can say which."
         )
 
     reconciliation = kernel_reconciliation_block(
