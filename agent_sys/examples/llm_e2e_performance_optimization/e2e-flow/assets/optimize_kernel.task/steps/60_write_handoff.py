@@ -235,11 +235,26 @@ def _apply_block(pinned: dict, packup: Path, kernel: Path, premise: dict) -> dic
         "manifest": lib.APPLY_MANIFEST,
         "image": ((premise.get("run_environment") or {}).get("fixed") or {}).get("image"),
         "logical_operator": str(pinned["operator_id"]),
-        # Copied from the workset's `integration`, verbatim, so that
-        # `check_optimization_shape` can compare the two and refuse a divergence.
+        # **Copied from the workset's `edit_target`, which is what the reader
+        # compares it against.** This said `integration`, and for
+        # `entry_function` it read `integration.public_symbol` — while
+        # `check_optimization_shape:208-211` compares the field against
+        # `edit_target.entry_function` and the schema's own description says
+        # *"Copied from the workset's `operators[].edit_target`"*. Producer and
+        # validator disagreeing about one field, CONTRACT §4.3 exactly.
+        #
+        # It survived because the two happened to agree on the worksets seen so
+        # far. rung 0 supplied one where they do not: `substitution:
+        # call_site_fragment` with `public_symbol: null`, which is m3 correctly
+        # saying *there is no public symbol here*. The producer wrote `""` and
+        # the handoff was refused for `'' is too short` — a schema message for
+        # what is really "this producer read the wrong field".
+        #
+        # `public_symbol` keeps its one real use, `runtime_marker` below, which
+        # already skips itself when the workset declares none.
         "integration_point": {
             "source_file": str(target_files[0]),
-            "entry_function": str(integration.get("public_symbol") or ""),
+            "entry_function": str(target.get("entry_function") or ""),
             **({"repo_root_var": repo_root_var} if repo_root_var else {}),
             **({"entry_function_line": target["entry_function_line"]}
                if isinstance(target.get("entry_function_line"), int) else {}),

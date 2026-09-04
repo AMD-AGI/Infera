@@ -155,6 +155,15 @@ def main() -> int:
         "warn_on_mismatch": list(ground.get("warn_on_mismatch") or []),
         "workset_environment": workset_env,
         "run_environment": run_env,
+        # **The mock dropped this and the real path does not**
+        # (`20_premise_gate.py:135`). `dtype` is on M4.3.5's abort list, so a
+        # premise without it is not a weaker premise — it is one the consumer
+        # reads as `None`, and `check_speedup_substantiated` correctly aborts
+        # with *"optimised … at dtype None; the workset's ground truth says
+        # 'float32'"*. rung 0 stopped here. The workset carried
+        # `ground_truth.dtypes` all along; only the mock failed to copy it,
+        # which is the mock failing a gate the real producer passes.
+        "dtypes": dict(ground.get("dtypes") or {}),
         "verdict": {"held": not aborted, "aborted_on": aborted, "warnings": []},
     }
 
@@ -206,7 +215,10 @@ def main() -> int:
         "logical_operator": operator_id,
         "integration_point": {
             "source_file": str(target_files[0]) if target_files else "",
-            "entry_function": str(integration.get("public_symbol") or ""),
+            # `edit_target`, not `integration.public_symbol` — see the same
+            # line in `60_write_handoff.py`. The validator compares this
+            # against `edit_target.entry_function`.
+            "entry_function": str(target.get("entry_function") or ""),
             **({"repo_root_var": str(target["repo_root_var"])} if target.get("repo_root_var") else {}),
         },
         "files": (
