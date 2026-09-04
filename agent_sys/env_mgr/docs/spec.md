@@ -525,6 +525,51 @@ Two properties follow, and both are the reason the root is a single knob:
 
 ---
 
+### 9.2 Two things that need justification, and one standing exception
+
+Both rules below are about the **same temptation**: reaching for Python because
+it is nearer than a recipe. Neither forbids the thing. Each says the reason has
+to be written down and has to be *"the other routes do not work"*, not *"this
+was quicker"*.
+
+> **Rule 1 — adding an MCP server or a tool to an agent from Python code needs
+> a justification that no declarative route works.** The declarative routes are:
+> a recipe (`installer: claude` for a plugin, `run_server` for a port-based
+> server) and an agent's own `.claude/` tree, which the harness reads. If one of
+> those can carry it, it carries it.
+>
+> **Rule 2 — running an MCP server inside the `agent_sys` process needs a
+> justification that no separate process works.** A stdio server is spawned by
+> the harness. A port-based server is started by `run_server`. Both transports
+> are already served **without** anything running in the supervisor.
+
+**Why the second rule is the stronger of the two.** An in-process server is not
+a tidier version of a subprocess — it is third-party or cross-module code
+executing in the process that supervises every agent, with that process's
+memory, file descriptors and credentials. There is no boundary to fail closed:
+a crash there is not a failed tool call, and `Installer`'s contract cannot even
+express delivering one, because it returns `Outcome`s and a live Python object
+does not survive a subprocess.
+
+#### The exception, named so that it stays one
+
+**`env_mgr/remote/tools.py` — `env_remote_run`, `env_remote_push`,
+`env_remote_pull` — runs in-process today and is permitted to.** Recorded as a
+specific exception rather than as a precedent:
+
+| | |
+|---|---|
+| what it is | §5.5's tool surface: the whole remote↔local operation set, exposed as tool calls rather than as prose an agent would improvise from |
+| why in-process | it is delivered by injection — `claude_sdk.py` puts a live `create_sdk_mcp_server` object into `ClaudeAgentOptions`. **Nothing is written to disk**, so no installer can deliver it |
+| why it is not deleted | it works and has a live user; the standalone-server replacement does not exist yet |
+| what closes it | reprovide the three tools as a standalone MCP server started by `run_server` — [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md). Then this section loses its exception |
+
+**One exception with a named closing condition is a decision. A second one added
+by analogy to this is rule 1 being ignored** — the whole point of writing this
+down is that the next case argues on its own merits.
+
+---
+
 ## 10. Acceptance criteria
 
 **Criteria 2–14 are CI-enforced**, in `tests/env_mgr`, on every commit. None of
