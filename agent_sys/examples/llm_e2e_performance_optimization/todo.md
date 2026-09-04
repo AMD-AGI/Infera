@@ -1847,6 +1847,32 @@ and a field with a description but no consumer is exactly as inert as one with a
 consumer and no producer.
 
 
+**Third instance, and it is the one that cost something: `KFO_KERNELFORGE_REPO`.**
+Declared in this package (`m4_kernel_opt.yaml:358`) **and** in `kernel-opt-demo`,
+and read by no body in either. The old readme calls it *"a KernelForge checkout,
+already `pip install -e`'d"* — so the environment was always prepared **out of
+band**, and the variable only ever told a *reader* where it was.
+
+It cost something because it looked like the answer. When rung 4 turned out to be
+blocked on `forge-loop` being installed nowhere, `KFO_KERNELFORGE_REPO` is the
+first thing anyone finds, and it reads as a mechanism that has come unwired. It
+never was one. **There is no prior art to restore** — whatever gets built is new
+work, and the demo that produced this effort's proven assets ran on a machine
+somebody had prepared by hand, which nothing in the package records.
+
+**m3's statement of the class, which covers all three:** *a variable that was
+never a mechanism, only a note to a reader spelled as configuration.* And the
+tell is the same in both directions — `rebuild` has a reader and no producer,
+`must_preserve` and this one have producers or declarations and no reader:
+
+> **You cannot tell from a declaration whether anything reads it, and
+> `grep -rn "$NAME"` across the bodies is a two-second check that nobody runs
+> because a declaration looks like plumbing.**
+
+m3 ran it against both of their own `E2E_MEASURE_*` declarations while they were
+in there; both have consumers. That is the whole remedy and it is cheaper than
+the entry describing it.
+
 ### T45 — a comment that asserts a wiring gap sends the next reader to change code, when only a number was missing
 
 **m3, 2026-09-04, found by m2 measuring instead of reading.**
