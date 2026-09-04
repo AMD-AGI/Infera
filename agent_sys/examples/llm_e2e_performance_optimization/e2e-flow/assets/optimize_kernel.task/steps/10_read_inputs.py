@@ -116,6 +116,11 @@ def main() -> int:
             "baseline_per_case_ms": baseline,
             "baseline_report": baseline_rel,
             "edit_target": operator.get("edit_target"),
+            # The Definition, relative to the workset root. Pinned here because
+            # STEP 3's mock seed comes out of its `baseline` field — see
+            # `30_run_forge.sh` — and a step that re-derived which Definition it
+            # meant could derive a different one than the step that measured.
+            "definition": operator.get("definition"),
             # M5.1.1's declared integration point. Distinct from `edit_target`:
             # that says where an optimiser edits, this says where a replacement
             # is installed and what it may not change.

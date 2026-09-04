@@ -63,20 +63,59 @@ mkdir -p "$TMPDIR" "$TRITON_CACHE_DIR" "$KNOWLEDGE_LOCAL_ROOT" "$CLAUDE_CONFIG_D
 # --- mock -------------------------------------------------------------------
 if [ "$KFO_MOCK" = "1" ]; then
   echo "KFO_MOCK=1: no campaign will be run" >&2
-  SEED=$("$PY" "$(dirname "$0")/resolve_source.py" --inputs "$INPUTS" --what "the seed kernel") || exit 1
-  if [ ! -f "$SEED" ]; then
-    echo "mock: the workset's edit_target resolves to $SEED, which is not there." >&2
-    echo "That path is inside the engine container. m1 through m4 share one container" >&2
-    echo "(CONTRACT §5), so on the real path this file is on this filesystem; outside" >&2
-    echo "it, it is not. Run this step where the engine tree is." >&2
-    exit 1
-  fi
-  {
-    echo "# MOCK RUN -- KFO_MOCK=1 was set, no KernelForge campaign was run, and this"
-    echo "# file is the SEED kernel copied verbatim. There is no optimization in it."
-    echo "# Do not integrate it expecting a speedup."
-    cat "$SEED"
-  } > "$WORKDIR/optimized_kernel.py"
+  # **The seed is the Definition's `baseline`, NOT `edit_target.source_file`.**
+  #
+  # Measured 2026-09-04 on crsuse2-m2m-217: seeding from the engine's stock
+  # module made STEP 4 refuse with
+  #
+  #     the Definition's 'candidate:sampler_vocab_softmax' defines no `run`
+  #
+  # m3's `--impl` contract is a **self-contained** source file exporting a
+  # top-level `run(**inputs)`, exec'd in a fresh namespace (`harness/_common.py:278-290`)
+  # — no module, no package, no relative imports. The stock `srt/layers/sampler.py`
+  # is an sglang module: it exports `Sampler.forward`, not the workset's
+  # `integration.public_symbol` (`sampler_softmax`), so even appending a
+  # delegation to it raises `NameError`.
+  #
+  # The Definition's `baseline` already **is** that file — m3 builds it with
+  # `build_workset.task/mock_adapt.py:_read_seed()`, which lets the whole source
+  # travel verbatim and appends `def run(*a, **k): return <public_symbol>(*a, **k)`.
+  # So the mock seeds from the workset's own recorded baseline, which is also
+  # what a mock *should* be: the incumbent, unmodified, with no optimisation in
+  # it, giving a ratio of ~1.0 against itself by construction.
+  #
+  # This is also the shape KernelForge's output must take for m3's harness to
+  # accept it. Recorded here because the requirement is not obvious from either
+  # side alone, and a campaign is an hour before you find out.
+  SEED="$WORKDIR/optimized_kernel.py"
+  mkdir -p "$WORKDIR"
+  "$PY" - "$INPUTS" "$WORKSET" "$SEED" <<'EOF' || exit 1
+import json, pathlib, sys
+pinned = json.load(open(sys.argv[1]))
+root, out = pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3])
+relative = pinned.get("definition")
+if not relative:
+    sys.exit("mock: STEP 1 pinned no `definition`; cannot find the baseline to seed from")
+path = root / str(relative)
+if not path.is_file():
+    sys.exit(f"mock: the workset names a definition at {relative} that is not there")
+source = (json.loads(path.read_text(encoding="utf-8")) or {}).get("baseline")
+if not isinstance(source, str) or not source.strip():
+    sys.exit(f"mock: {relative} carries no `baseline` source string to seed from")
+if "def run(" not in source:
+    # Fail rather than append one: if the workset's own baseline does not meet
+    # m3's `--impl` contract, that is a finding about the workset and not
+    # something this script should paper over.
+    sys.exit(f"mock: {relative}'s `baseline` defines no top-level `run`; it cannot be an --impl")
+out.write_text(
+    "# MOCK RUN -- KFO_MOCK=1 was set, no KernelForge campaign was run, and this\n"
+    "# is the WORKSET'S OWN BASELINE, verbatim. There is no optimization in it,\n"
+    "# so any ratio measured against it is ~1.0 by construction.\n"
+    "# Do not integrate it expecting a speedup.\n" + source + "\n",
+    encoding="utf-8",
+)
+print(f"mock: seeded from {relative}'s baseline ({len(source)} chars)")
+EOF
   cat > "$WORKDIR/forge_result.json" <<EOF
 {
   "mock": true,
