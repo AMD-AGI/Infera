@@ -84,6 +84,36 @@ if [ "$rc" -eq 0 ]; then
     exit 2
   fi
   "$PY" "$PKG/assets/build_workset.task/mock_adapt.py" "$OUT"
+
+  # **The adaptation produced the artefact, or this body refuses.**
+  #
+  # Measured 2026-09-04 on node 047: `build_workset` **sealed** an
+  # `operator_workset` containing the harness, the sealed fold and the two MoE
+  # directories — and **no `workset.yaml`, no `definitions/`, no
+  # `environment.yaml`**. Both validators then refused with the same line, which
+  # is the right outcome three steps too late: the seal accepted a handoff whose
+  # central document was absent, and the body reported success.
+  #
+  # A post-condition and not a diagnosis. It does not say why the adaptation
+  # stopped — the body's stdout is kept nowhere, which is the whole reason that
+  # run told us nothing — but it converts "sealed and incomplete" into a
+  # refusal that names the missing file. **The artefact is the one thing every
+  # consumer reads; a producer that cannot write it must not report success.**
+  MISSING=""
+  for required in workset.yaml environment.yaml definitions workloads; do
+    [ -e "$OUT/items/codes/$required" ] || MISSING="$MISSING $required"
+  done
+  if [ -n "$MISSING" ]; then
+    echo "build_workset: mock_adapt exited 0 and the workset is incomplete." >&2
+    echo "  missing under items/codes/:$MISSING" >&2
+    echo "  present:" >&2
+    ls -1 "$OUT/items/codes" 2>/dev/null | sed 's/^/    /' >&2 || true
+    echo "  Refusing rather than sealing: workset.yaml is the one document every" >&2
+    echo "  consumer reads, and a handoff without it passes the seal and fails at" >&2
+    echo "  whichever validator opens it first." >&2
+    exit 1
+  fi
+
   # **Measured in a container on the node, where the real path measures.**
   # Not host-side: the leader measured that `spur exec <job> python3 -c "import
   # torch"` fails — the node's *host* has no torch, only the containers do — so

@@ -648,6 +648,18 @@ def main() -> int:
     # would throw away the half of the merge that is not represented above.
     print(f"mock_adapt: {OPERATOR} from the sealed stage-4 half, "
           f"{len(shapes)} shapes, forge add-on generated")
+    # **What this function promised, checked before it claims success.**
+    # `entry.sh` carries the same post-condition, deliberately: this one covers
+    # a direct caller and that one covers the case where this file is not the
+    # thing that failed. Duplicated on purpose — a post-condition that only the
+    # caller enforces is absent for everyone who does not go through the caller.
+    incomplete = [name for name in ("workset.yaml", "environment.yaml", "definitions", "workloads")
+                  if not (root / name).exists()]
+    if incomplete:
+        _die(f"finished without writing {', '.join(incomplete)} under items/codes/. "
+             f"Present: {', '.join(sorted(p.name for p in root.iterdir()))}. "
+             f"Refusing to report success on a workset missing the documents a consumer reads")
+
     print("mock_adapt: evidence/ is NOT written here — it is a measurement. "
           "Run ./run_correctness.sh and ./run_performance.sh under items/codes/.")
     return 0
