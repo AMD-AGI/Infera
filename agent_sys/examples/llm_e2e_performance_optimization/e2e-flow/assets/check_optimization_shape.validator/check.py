@@ -133,9 +133,112 @@ def _operator_of(snapshot: dict, operator_id: str) -> dict | None:
     return None
 
 
+#: Where to look for the two vocabularies when a scalar disagrees. Loaded
+#: lazily and best-effort: this is a *report* improvement, and a message that
+#: cannot find a schema must still print the useful half.
+_SCHEMA_DIR = Path(__file__).resolve().parent.parent / "schemas"
+
+
+def _enum_for(schema_file: str, leaf: str):
+    """The `enum`/`const` declared for `leaf`, or `None` if it cannot be pinned.
+
+    Searched by leaf name across the whole schema and **refused when ambiguous**
+    — zero matches or several distinct ones both return `None`. Guessing which
+    of two same-named fields was meant would put a wrong vocabulary in an error
+    message, which is worse than printing none.
+    """
+    path = _SCHEMA_DIR / schema_file
+    if not path.is_file():
+        return None
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    found: list = []
+
+    def walk(node, key=None):
+        if isinstance(node, dict):
+            if key == leaf and isinstance(node, dict):
+                if isinstance(node.get("enum"), list):
+                    found.append(tuple(node["enum"]))
+                elif "const" in node:
+                    found.append((node["const"],))
+            for k, v in node.items():
+                walk(v, k)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v, key)
+
+    walk(loaded)
+    unique = {f for f in found}
+    return list(unique.pop()) if len(unique) == 1 else None
+
+
+def _vocabularies(leaf: str) -> list[str]:
+    """The two ends' declared values for one field, when both can be pinned."""
+    here = _enum_for("kernel_optimization.schema.json", leaf)
+    there = _enum_for("workset.schema.json", leaf)
+    if here is None and there is None:
+        return []
+    lines = []
+    if here is not None:
+        lines.append(f"    kernel_optimization allows: {list(here)}")
+    if there is not None:
+        lines.append(f"    workset allows:             {list(there)}")
+    if here is not None and there is not None and set(here) != set(there):
+        lines.append(
+            "    the two ends do not permit the same values, so a value legal at one "
+            "end can never match the other"
+        )
+    return lines
+
+
 def _same(label: str, expected, actual, problems: list[str]) -> None:
-    if expected != actual:
-        problems.append(f"{label}: workset says {expected!r}, the handoff says {actual!r}")
+    """Refuse a field the handoff copied wrong — and say what was compared.
+
+    **A comparison is the only component that can see a constraint living
+    between two artefacts, and comparisons are written to decide rather than to
+    explain.** This reported that two values differ and nothing else, which is
+    exactly enough to know something is wrong and not enough to know what.
+
+    Twice on 2026-09-04 that cost runs. `entry_function`: the producer read
+    `integration.public_symbol` while this compared against
+    `edit_target.entry_function`, and the message said only that `''` differed.
+    `protocol.timing`: `d08047b` widened this schema's enum to five values while
+    m3 narrowed the workset's to one, four hours apart — **neither commit wrong
+    in isolation, and no review of either would have caught it** — so four
+    values validated here and could never match there, reported as two strings
+    differing.
+
+    So: name the differing **keys** rather than dumping two dicts, and when both
+    ends declare a vocabulary for a differing scalar, print both. A reader
+    seeing two enums side by side diagnoses *legal here, unreachable there* at
+    once; a reader told `'event' != 'wall_clock_sync'` does not.
+
+    **The verdict is unchanged.** This refuses exactly what it refused before.
+    And it degrades rather than skips: with no schema readable it still names
+    the field and both values.
+    """
+    if expected == actual:
+        return
+    if isinstance(expected, dict) and isinstance(actual, dict):
+        # Two dicts printed whole are unreadable and bury the one key that
+        # moved -- which is how a `timing` mismatch inside `protocol` arrived
+        # as a wall of JSON.
+        keys = sorted(set(expected) | set(actual))
+        differing = [k for k in keys if expected.get(k) != actual.get(k)]
+        problems.append(
+            f"{label}: differs from the workset in {differing or 'no key (ordering only)'}"
+        )
+        for key in differing:
+            problems.append(
+                f"  {label}.{key}: workset says {expected.get(key)!r}, "
+                f"the handoff says {actual.get(key)!r}"
+            )
+            problems.extend(_vocabularies(key))
+        return
+    problems.append(f"{label}: workset says {expected!r}, the handoff says {actual!r}")
+    problems.extend(_vocabularies(label.rsplit(".", 1)[-1]))
 
 
 def _same_file(expected: str, actual: str) -> bool:

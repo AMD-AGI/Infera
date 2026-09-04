@@ -1709,6 +1709,23 @@ them**; m1 looked, found it inexpressible in the schema, and put it in
 Corrected here after I asserted the general form and was wrong — see the
 carrier case below, which is what actually survived.
 
+**And the component that could have caught all of them is the one nobody
+instruments.** When a constraint lives *between* two artefacts, the only code
+that can see it is the comparison — and **comparisons are written to decide,
+not to explain.** `_same` reported that two values differ and stopped, which is
+exactly enough to know something is wrong and not enough to know what: for
+`entry_function` it said `''` differed from `Sampler.forward` without saying the
+producer had read a different field, and for `protocol.timing` it said `'event'`
+differed from `'wall_clock_sync'` without saying one end permitted five values
+and the other one. Neither `d08047b` nor m3's narrowing was wrong in isolation
+and no review of either would have caught it; **the defect existed only in the
+relation, and the relation is what the comparison had refused to print.**
+
+Fixed rather than only recorded: `_same` now names the differing *keys* instead
+of dumping two dicts, and prints both ends' declared vocabularies when it can
+resolve them, refusing when the leaf name is ambiguous rather than guessing.
+Verdict unchanged; a report change, not a gate change.
+
 **The sharpest sub-case: a constraint enforced for one carrier of a document
 that fifteen carry.** CONTRACT §2 puts the *same* `environment.yaml` in all
 fifteen kinds. `count_of: fixed.gpu_devices / at_most: fixed.gpu_count` is
