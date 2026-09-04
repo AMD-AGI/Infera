@@ -131,28 +131,42 @@ if ! on "docker inspect -f '{{.State.Running}}' '$CONTAINER' 2>/dev/null | grep 
   exit 1
 fi
 
+# **Single-quote for the shell that will re-parse this, escaping embedded
+# quotes.** `on` hands its argument to a `bash -lc`, so everything assembled
+# below is parsed by a shell one more time. Wrapping in bare `'...'` breaks the
+# moment a value contains a quote — and the FIRST real use of this script was
+# going to be
+#
+#     python3 -c 'import torch; print(torch.__version__)'
+#
+# which contains two, and which died with `syntax error near unexpected token`
+# from the outer shell rather than anything to do with the container. Caught
+# 2026-09-04 by assembling the real probe against a stub docker before the node
+# window opened, which is the only reason it did not burn it.
+_sq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
+
 # `PYTHONDONTWRITEBYTECODE=1`: root-owned `__pycache__` inside a handoff is
 # CONTRACT section 5.0 arriving early. `reclaim.sh` handles the rest, from
 # inside this same container, which is the only context with the privilege.
-EXEC_ENV="-e PYTHONDONTWRITEBYTECODE=1 -e HIP_VISIBLE_DEVICES='$HIP_VISIBLE_DEVICES'"
+EXEC_ENV="-e PYTHONDONTWRITEBYTECODE=1 -e HIP_VISIBLE_DEVICES=$(_sq "$HIP_VISIBLE_DEVICES")"
 for name in KFO_SCRATCH_ROOT TRITON_CACHE_DIR KNOWLEDGE_LOCAL_ROOT TMPDIR \
             KFO_MAX_HOURS KFO_FORGE_MODEL KFO_SNR_THRESHOLD KFO_REPORT_FLAG KFO_IMPL_FLAG \
             AGENT_SYS_TASK_PACKAGE AGENT_SYS_DEMO_PACKAGE; do
   eval "value=\${$name:-}"
-  [ -n "$value" ] && EXEC_ENV="$EXEC_ENV -e $name='$value'"
+  [ -n "$value" ] && EXEC_ENV="$EXEC_ENV -e $name=$(_sq "$value")"
 done
 # Inside the image the venv is real, which is the whole point of entering it.
-EXEC_ENV="$EXEC_ENV -e KFO_PYTHON='${KFO_PYTHON:-/opt/venv/bin/python3}'"
+EXEC_ENV="$EXEC_ENV -e KFO_PYTHON=$(_sq "${KFO_PYTHON:-/opt/venv/bin/python3}")"
 
 WORKDIR_ARG=""
-[ -n "$WORKDIR" ] && WORKDIR_ARG="-w '$WORKDIR'"
+[ -n "$WORKDIR" ] && WORKDIR_ARG="-w $(_sq "$WORKDIR")"
 
 echo "run_in_container: exec into $CONTAINER on ${E2E_NODE:-the node}, GPU $HIP_VISIBLE_DEVICES" >&2
 echo "run_in_container: the next line comes from inside the container" >&2
 
 rc=0
 # shellcheck disable=SC2086
-on "docker exec $EXEC_ENV $WORKDIR_ARG '$CONTAINER' bash -lc '$COMMAND'" || rc=$?
+on "docker exec $EXEC_ENV $WORKDIR_ARG $(_sq "$CONTAINER") bash -lc $(_sq "$COMMAND")" || rc=$?
 
 # CONTRACT section 5.0, in a `finally`: idempotent, and a no-op when there is
 # nothing root-owned, so this does not decide first whether it will be needed.
