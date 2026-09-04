@@ -7,9 +7,8 @@ paths* — ``rules``, ``hooks``, ``skills``. That shape stops at the first real
 component: a skill is a **directory**, a plugin marketplace is a directory of
 directories, an MCP server is a process to register rather than a file to place.
 This module is the route for those, and it keeps `material.py`'s rule — *a file
-is placed, not read* — for everything except the four documents whose contents
-are an interface (`settings.json`, `.mcp.json`, `marketplace.json`, and a
-`*.tooldef.py`'s ``TOOLS``).
+is placed, not read* — for everything except the three documents whose contents
+are an interface (`settings.json`, `.mcp.json`, `marketplace.json`).
 
 **Every measurement cited below is evidence about `claude` 2.1.246** — the build
 `cli/environment.py` pins and the one `material.deploy` now hands this module as
@@ -124,77 +123,35 @@ simply absent — that is the normal shape for a package's own material.
 **A failed install is a named `InstallOutcome`, never a silent skip.** Every
 subprocess's return code and output lands in `AgentMaterial.report`.
 
-## The one place package-authored code is imported — and what that costs it
+## No package-authored code is imported here, and that is a deleted route
 
-A ``*.tooldef.py`` is executed in **the supervisor's own process** to read its
-module-level ``TOOLS``. That is not a sandboxed act and nothing here pretends it
-is: the supervisor holds the API credentials the whole confinement design exists
-to keep away from a task body. Three narrowings, and they are the whole defence:
-it is done only for that exact suffix, only under ``tools/`` of a resolved
-component, and only from the **staged** package or this repository's own
-`addons/` — never from `Context.package`, which is the operator's live
-checkout. An in-process tool is worth this because the alternative measured
-shape (a stdio MCP server) costs a subprocess per tool and cannot share the
-supervisor's objects; a component that does not need that should ship a
-``*.mcp.py`` instead.
+A ``tools/*.tooldef.py`` used to be executed in **the supervisor's own process**
+to read its module-level ``TOOLS``, which reached the model as
+``mcp__env_mgr__<tool>``. **That route is deleted** — `docs/spec.provisioning.md`
+§6 — and this module now imports nothing a package wrote. A component that wants
+to offer a tool ships a server that runs on its own: a ``tools/*.mcp.py``, or a
+port-based server declared to the `run_server` installer.
 
-**The same fact has a second consequence, and nobody had connected it: an
-in-process tool cannot see the environment the run declared.** Measured
-2026-09-03. The security half above was written first — package code runs in the
-supervisor — and this follows from that same sentence. The tool's ``call`` executes in the
-supervisor's process, so it reads the **supervisor's** ``os.environ``;
-``Prepared.environment``, which is where an agent spec's declared ``env`` block
-lands, is handed to the **CLI child** (`claude_sdk.py`'s
-``options.setdefault("env", …)``) and to nothing else. Driven through
-`claude_sdk._adapt_tool` with a probe tool and no model call:
+Two measurements are kept, because they are the argument and not merely its
+history. **The supervisor holds the API credentials the whole confinement design
+exists to keep away from a task body**, and an imported module ran inside that
+process with no boundary that could fail closed. And, measured 2026-09-03, such
+a tool **could not see the environment the run declared**: its ``call`` executed
+in the supervisor, so it read the supervisor's ``os.environ``, while
+`Prepared.environment` is handed to the CLI child and to nothing else —
 
     supervisor  pid=784037   ENVCHK_NONCE=None
     tool saw    pid=784037   thread='asyncio_0'   ENVCHK_NONCE=<unset>
 
-Found by a real run: a tool computed a token from an empty ``$ENVCHK_NONCE``,
-returned a well-formed result, and the value was right about the wrong
-environment. **The other two routes do not share this** — an external
-``.mcp.json`` entry has its own ``env`` block, and a bundled ``*.mcp.py`` gets
-one from `_mcp_servers` (and got the value by inheritance even before that).
+— found by a real run in which a tool computed a token from an empty
+``$ENVCHK_NONCE``, returned a well-formed result, and was right about the wrong
+environment. Neither surviving route shares this: a ``.mcp.json`` entry has its
+own ``env`` block, and a ``*.mcp.py`` gets one from `_mcp_servers`.
 
-**This is what is true today, not a statement about what the route should be.**
-Whether the in-process route *ought* to be run-aware is an open decision and is
-not this module's to take: the loader already holds the zone environment and
-already loads each module once per attempt, so binding it at load — an additive
-contract rather than a global — is available and unbuilt. Until that is ruled,
-a component needing a run-specific value should ship a ``*.mcp.py`` rather than
-a ``*.tooldef.py``. Written this way on purpose: a reader who finds a constraint
-recorded as permanent cannot tell it from one that has since been removed.
-
-**So the positive rule, which is what an author needs: a tool's per-run context
-arrives as a tool argument. It never arrives through the environment, because
-the tool runs in the supervisor.**
-
-**Forced by the process model, not a style preference**, and that is the part
-worth keeping: the supervisor is shared by every attempt and `agent/runner.py`
-is threaded by construction, so a tool reading *any* process-global state cannot
-be per-attempt **even if the value were populated correctly**. An argument binds
-per call; a closure binds per construction; the environment binds per process,
-and the process outlives the attempt. That is also why setting ``os.environ``
-around the handler was rejected rather than merely disliked — same root cause,
-not a second one.
-
-`remote/tools.py` is the shape done properly and is **not currently reachable
-from a package**, which is the honest form of a precedent you cannot follow:
-`tools(...)` is a **factory**, `prepare` calls it with the zone and connection in
-hand, and each `ToolDef.call` closes over them. A ``*.tooldef.py`` exposes a
-module-level ``TOOLS`` and nothing ever hands that module anything, so the
-closure half of the rule above is available to this package and not to its
-callers. An author has the argument half and only that.
-
-**The open question, dated 2026-09-03 and surfaced by run 2.** `env_mgr`'s own
-tools would have this exact bug if they were declared the way packages must
-declare theirs; they are immune only because they get a call site. **The missing
-piece is not documentation, it is the factory `env_mgr` already gives itself and
-does not give packages.** Whether to give it is undecided at the time of
-writing. If it was decided against, this is the record of what was rejected; if
-it was decided for, this is its specification. Deliberately the same words
-either way.
+`env_mgr/remote/tools.py` is the **one standing exception** and is not a
+precedent a package can follow. It is injected as a live object into
+`ClaudeAgentOptions` with nothing written to disk, so no installer can carry it;
+spec §6 names it and carries its closing condition.
 """
 
 from __future__ import annotations
@@ -310,28 +267,6 @@ _NOT_PLACED = frozenset({SETTINGS_FILENAME, MCP_FILENAME, "plugins"})
 #: A stdio MCP server the component ships; auto-registered under its stem.
 MCP_SUFFIX = ".mcp.py"
 
-#: A module exposing ``TOOLS: list[ToolDef]``, imported into the supervisor.
-TOOLDEF_SUFFIX = ".tooldef.py"
-
-#: The MCP server name an in-process `ToolDef` is addressed under — the model
-#: calls ``mcp__env_mgr__<tool>``.
-#:
-#: **Owned by `agent/backends/claude_sdk.py::_TOOL_SERVER`, and duplicated here
-#: because this package may not import `agent`** (`interfaces.md` §4.6, checked
-#: by `test_env_mgr_imports_nothing_of_ours_but_task_graph`). That is a second
-#: writer for one fact and it is a real cost, accepted for a narrow reason: this
-#: copy is only ever *reported*, never used to address anything, so a divergence
-#: makes the install report wrong and breaks no call. If the two ever need to
-#: agree functionally, the name belongs in a place both may import — which does
-#: not exist today, and inventing one for a report string would be
-#: `engineer_principle.md` §2's failure mode.
-IN_PROCESS_SERVER = "env_mgr"
-
-#: What a ``*.tooldef.py`` must expose. A module-level name rather than a
-#: factory call, so that reading the file tells a reviewer what it publishes
-#: without running it in their head.
-TOOLS_ATTR = "TOOLS"
-
 #: The install report's filename inside ``<zone>/logs``.
 INSTALL_REPORT_FILENAME = "agent_assets.install.json"
 
@@ -440,10 +375,6 @@ class AgentMaterial(NamedTuple):
 
     env: dict[str, str]
     mcp_servers: dict[str, Any]
-    #: `env_mgr.remote.tools.ToolDef`-shaped. Typed loosely for `Prepared.tools`'
-    #: reason: it crosses to `agent`, which may not import this package, and a
-    #: package-authored `ToolDef` is duck-typed by construction.
-    tools: tuple[Any, ...]
     settings: dict[str, Any]
     report: tuple[InstallOutcome, ...]
 
@@ -465,8 +396,7 @@ def install(
     `Context.package`. Both are the same package and only one of them is inside
     the granted set: a path resolved against the original root points outside
     every grant, so a component installed from there would place files the
-    agent's own session cannot read — and, for a ``*.tooldef.py``, would import
-    the operator's live checkout instead of the copy this run was pinned to.
+    agent's own session cannot read.
 
     `config_dir` is ``<zone>/config``, which `material.deploy` has already
     pointed ``CLAUDE_CONFIG_DIR`` at. Measured 2026-09-03 on ``claude`` 2.1.246:
@@ -532,9 +462,8 @@ def install(
     # between this mapping and the SDK's other sources, and `claude_sdk.py:375`
     # owns it, names it and refuses.
     mcp_servers: dict[str, Any] = {}
-    tools: list[Any] = []
     for origin, tree in trees:
-        outcomes, servers, defs = _install_tree(
+        outcomes, servers = _install_tree(
             tree,
             origin=origin,
             config_dir=config_dir,
@@ -545,7 +474,6 @@ def install(
         )
         report.extend(outcomes)
         mcp_servers.update(servers)
-        tools.extend(defs)
 
     env: dict[str, str] = {}
     assets = _assets_dir(agent_spec, staged_package=staged_package)
@@ -557,7 +485,6 @@ def install(
     return AgentMaterial(
         env=env,
         mcp_servers=mcp_servers,
-        tools=tuple(tools),
         settings=settings,
         report=tuple(report),
     )
@@ -587,17 +514,16 @@ def _assets_dir(agent_spec: Any, *, staged_package: str | None) -> str | None:
     # `spec_loader.AssetIndex.resolve_folder`'s docstring already records. The
     # lesson was applied to the loader's *output* and not to this consumer of
     # it, so a hand-bound `assets: ../../..` or an absolute one reached outside
-    # the staged copy. That matters more here than anywhere else in this module:
-    # `_tooldefs` imports `*.tooldef.py` from this directory **into the
-    # supervisor**, and the module docstring's narrowing is that it never comes
-    # from outside the staged package.
+    # the staged copy. Every file this module places in the zone is read from
+    # this directory, so a path that climbs out of it places the operator's live
+    # checkout into a run that was pinned to the copy.
     path = contained_syntactically(str(rel), staged_package)
     if path is None:
         raise PrepareRefused(
             f"agent {_name(agent_spec)!r} declares assets {rel!r}, which does not "
-            f"stay inside the staged package {staged_package!r}. A tool module is "
-            f"imported from that directory into this process, so it may not be "
-            f"reached by climbing out of the copy this run was pinned to"
+            f"stay inside the staged package {staged_package!r}. This run is "
+            f"pinned to that copy, so its material may not be reached by "
+            f"climbing out of it"
         )
     if not os.path.isdir(path):
         raise PrepareRefused(
@@ -790,7 +716,7 @@ def _install_tree(
     recipe_cwd: str,
     timeout: float,
     agent_cli: str | None,
-) -> tuple[list[InstallOutcome], dict[str, Any], list[Any]]:
+) -> tuple[list[InstallOutcome], dict[str, Any]]:
     """One ``.claude/`` tree, placed in the zone. **Place by default; name every
     exception.**
 
@@ -840,10 +766,7 @@ def _install_tree(
     )
     outcomes.extend(mcp_outcomes)
 
-    tools, tool_outcomes = _tooldefs(tree, origin=origin, config_dir=config_dir)
-    outcomes.extend(tool_outcomes)
-
-    return outcomes, servers, tools
+    return outcomes, servers
 
 
 def _place_tree(tree: str, *, origin: str, config_dir: str) -> list[InstallOutcome]:
@@ -892,7 +815,7 @@ def _place_tree(tree: str, *, origin: str, config_dir: str) -> list[InstallOutco
         # **An overwrite between components is reported, never silent.** Levels
         # are installed in order and `copy_out` merges with `dirs_exist_ok`, so
         # a member two components both ship — `skills/x/SKILL.md`,
-        # `tools/util.tooldef.py` — ends up holding only the later one's bytes.
+        # `tools/util.mcp.py` — ends up holding only the later one's bytes.
         # That is the same event `_mcp_servers` already warns about for a server
         # name, and it was unreported here for a *file*, which is how one
         # component's artefact can be absent from the zone while its report says
@@ -1013,8 +936,7 @@ def _install_plugins(
     measurement above condemns. Not a raise, because it is the same event as
     ``claude plugin install`` exiting non-zero — the plugin did not install, the
     agent will run without it, and the report says so — and raising would make
-    one component's `plugins/` directory fatal to every task that names it,
-    which is the argument `_tooldefs` already lost for its own case. A run whose
+    one component's `plugins/` directory fatal to every task that names it. A run whose
     agent ships no marketplace never reaches this line, so *no `claude` on the
     machine* stays a working configuration.
 
@@ -1261,7 +1183,8 @@ def _mcp_servers(
         # why it works**, and what makes it work is a third party's process
         # model. One CLI change from silent, and silent here means a
         # well-formed answer computed against the wrong environment — which is
-        # exactly what the in-process route was measured doing.
+        # exactly what the deleted in-process route was measured doing (module
+        # docstring, and `docs/spec.provisioning.md` §6).
         #
         # **The whole mapping, not a subset, and that is deliberate under an
         # unmeasured semantics.** Whether the SDK *merges* this `env` with the
@@ -1297,150 +1220,6 @@ def _mcp_servers(
         )
     return servers, out
 
-
-def _tooldefs(tree: str, *, origin: str, config_dir: str) -> tuple[list[Any], list[InstallOutcome]]:
-    """Import each ``tools/*.tooldef.py`` and take its module-level ``TOOLS``.
-
-    **This executes package-authored code in the supervisor.** The module
-    docstring states the three narrowings that are the whole defence; this
-    function adds only the fourth, which is that a module failing to import is a
-    `fail` `InstallOutcome` and not an exception. A component whose tool module is
-    broken must not take the task down with it — the agent then runs without
-    those tools, which is a degradation the report names, and stopping the run
-    instead would make one bad file in one component fatal to every task using
-    it.
-
-    **Enumerated from the source tree and imported from the PLACED copy**, which
-    is `_mcp_servers`' shape for the same reason one line over: the run owns the
-    copy in the zone and does not own the tree it came from. The source is the
-    staged package, and importing it in place looked settled because that path is
-    inside the zone — but it is not the tree ``CLAUDE_CONFIG_DIR`` names, so the
-    supervisor was importing a copy the placed configuration does not describe.
-    That is the bare-`claude` defect's class: two consumers, one of them reading
-    a path the run does not point at.
-
-    It also puts ``__pycache__`` in the zone, where it dies with the zone,
-    instead of writing it into the repository during `prepare`. That is a
-    consequence rather than the reason, and it is why no `sys.dont_write_bytecode`
-    is needed — a process-global of exactly the kind the subprocess route removed.
-
-    **Enumerated from the source, though, and that part is load-bearing.**
-    `<config>/tools/` accumulates every level's files as each is placed, so
-    listing *it* would re-import the previous component's modules under this
-    component's name and register their tools twice. The source tree names
-    exactly this component's files; the placed path is only where each one is
-    read from.
-
-    Loaded under a private module name so that two components shipping
-    ``tools/util.tooldef.py`` do not overwrite one another in `sys.modules`.
-
-    **Registered in `sys.modules` before `exec_module`, and it stays registered.**
-    Measured 2026-09-03, CPython 3.13, by `pkg-author` against a real artefact:
-    without the registration, an artefact using ``@dataclass`` raises
-    ``AttributeError: 'NoneType' object has no attribute '__dict__'`` at import,
-    because `dataclasses._is_type` resolves a string annotation through
-    ``sys.modules[cls.__module__]`` and finds `None`. It is left in place rather
-    than popped afterwards for the same reason one step later: anything that
-    resolves an annotation lazily — `typing.get_type_hints`, a pydantic model, a
-    second dataclass built at call time — does the same lookup after this
-    function has returned.
-
-    The failure that costs is not the exception; it is that a tool whose module
-    fails to import is indistinguishable, from the model's side, from a tool
-    that was never installed. `test_agent_assets.py` carries a fixture using
-    ``@dataclass`` for exactly this.
-
-    **The cost of retention, named rather than left to be discovered.** A
-    long-lived supervisor accumulates one `sys.modules` entry per tooldef per
-    *attempt*, and each holds a reference into a zone that may since have been
-    removed. It is bounded by the number of attempts times the number of tool
-    modules, which is small, and nothing here reclaims it. Stated so that a
-    reader chasing memory finds a known cost instead of a surprise; popping the
-    entry is not the fix, for the reason in the paragraph above.
-    """
-    tools: list[Any] = []
-    out: list[InstallOutcome] = []
-    for source in _tool_files(tree, TOOLDEF_SUFFIX):
-        path = os.path.join(config_dir, TOOLS_DIRNAME, os.path.basename(source))
-        if not os.path.exists(path):
-            # `_place_tree` ran first and copies `tools/`, so this cannot happen
-            # without the placement rule having changed under this function.
-            # Reported rather than asserted, because the consequence is a missing
-            # capability and the run can continue without it.
-            out.append(
-                InstallOutcome(
-                    "fail",
-                    f"{source} was not placed, so there is nothing to import from "
-                    f"{path!r}. A tool module is read from the zone copy, never from "
-                    f"the directory it came from",
-                    {"path": path},
-                )
-            )
-            continue
-        stem = os.path.basename(source)[: -len(TOOLDEF_SUFFIX)]
-        # **Keyed on `source`, loaded from `path`, and the two halves are not
-        # interchangeable.** `99d3aea` moved the *load* to the placed copy and
-        # took the module name with it — and the placed path is
-        # ``<config>/tools/<basename>``, identical for every component shipping
-        # the same file name. Measured: two components each shipping
-        # ``tools/util.tooldef.py`` produced one module name twice, the second
-        # import replaced the first in `sys.modules`, and
-        # ``get_type_hints`` on the first component's tool raised
-        # ``NameError: name 'AlphaArgs' is not defined`` — its annotations
-        # resolved against the *other* component's namespace. Four `ok`s in the
-        # report and nothing said anything.
-        #
-        # That is precisely the state the registration below exists to prevent,
-        # arriving one component later instead of at import. `source` is unique
-        # per component, so it is what identifies the module; `path` is only
-        # where the bytes are read from.
-        module_name = f"_agent_sys_tooldef_{abs(hash(source)):x}_{stem}"
-        try:
-            spec = importlib.util.spec_from_file_location(module_name, path)
-            if spec is None or spec.loader is None:
-                raise ImportError(f"no import machinery accepts {path!r}")
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = module
-            spec.loader.exec_module(module)
-            declared = getattr(module, TOOLS_ATTR, None)
-        except Exception as error:  # noqa: BLE001 — reported, not swallowed
-            out.append(InstallOutcome("fail", f"{path} did not import: {error!r}", {"path": path}))
-            continue
-        if not isinstance(declared, Sequence) or isinstance(declared, (str, bytes)):
-            out.append(
-                InstallOutcome(
-                    "fail",
-                    f"{path} defines no module-level {TOOLS_ATTR}: list[ToolDef], so "
-                    f"nothing in it reaches the model",
-                    {"path": path},
-                )
-            )
-            continue
-        tools.extend(declared)
-        out.append(
-            InstallOutcome(
-                "ok",
-                f"{len(declared)} in-process tool(s) from {origin}",
-                # **`tools` is the load-bearing key here, not `server`.**
-                # `IN_PROCESS_SERVER` is a constant — every run has it the moment
-                # any `ToolDef` exists — so a reader comparing only against that
-                # would have a check that cannot fail. The name worth recording
-                # is the **tool's**, which is the half of
-                # ``mcp__env_mgr__<tool>`` an author chooses and the half that
-                # gets mis-addressed.
-                #
-                # `getattr` because a `ToolDef` here is duck-typed by
-                # construction — it is package-authored and this module does not
-                # define the class. A tool with no `.name` cannot be addressed by
-                # the model at all; recorded as such rather than guessed at.
-                {
-                    "server": IN_PROCESS_SERVER,
-                    "tools": [str(getattr(d, "name", "<unnamed>")) for d in declared],
-                    "path": path,
-                },
-            )
-        )
-    return tools, out
 
 
 def _tool_files(tree: str, suffix: str) -> list[str]:

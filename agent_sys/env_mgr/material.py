@@ -48,10 +48,10 @@ class Deployed(NamedTuple):
     """What one agent's deployment produced, for three different destinations.
 
     **A value where there was a `dict[str, str]`**, and the change is not
-    tidiness: `mcp_servers` and `tools` do not fit in an environment mapping and
-    never could — one is a nested JSON document and the other is a tuple of live
-    Python objects. Returning them alongside is what stops a caller having to
-    call a second function afterwards and remember the order
+    tidiness: `mcp_servers` and `report` do not fit in an environment mapping and
+    never could — one is a nested JSON document and the other is a tuple of
+    `Outcome`s. Returning them alongside is what stops a caller having to call a
+    second function afterwards and remember the order
     (`engineer_principle.md` §1).
 
     `environment` is first because it is what the two-argument call has always
@@ -62,9 +62,6 @@ class Deployed(NamedTuple):
     #: External and bundled MCP servers, keyed by the name the model addresses
     #: them under. Reaches the backend through `Prepared.mcp_servers`.
     mcp_servers: dict[str, Any]
-    #: `ToolDef`-shaped in-process tools, appended to `Prepared.tools`. Typed
-    #: loosely for that field's reason — it crosses to `agent`.
-    tools: tuple[Any, ...]
     #: Per-install `Outcome`s from `agent_assets`. Carried out rather than logged
     #: here, so that whoever renders a prepared environment renders these too and
     #: a failed component install is not a line in a log nobody opened.
@@ -226,7 +223,6 @@ def deploy(
     return Deployed(
         environment=env,
         mcp_servers=dict(material.mcp_servers),
-        tools=material.tools,
         report=material.report,
     )
 

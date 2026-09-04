@@ -240,7 +240,6 @@ def test_an_agent_that_carries_nothing_installs_nothing_and_does_not_complain(
     assert got == AgentMaterial(
         env={AGENT_ASSETS_ENV_VAR: str(pkg / "assets" / "forge.agent")},
         mcp_servers={},
-        tools=(),
         settings={},
         report=(),
     )
@@ -550,76 +549,60 @@ def test_external_and_bundled_mcp_servers_arrive_in_one_mapping(tmp_path: Path) 
     assert got.mcp_servers["envchk"]["args"] == [str(config / "tools" / "envchk.mcp.py")]
 
 
-def test_a_tooldef_module_publishes_its_TOOLS_into_the_supervisor(tmp_path: Path) -> None:
-    """The one place package-authored code is imported into this process.
-
-    The narrowings are asserted by the tests around this one — only that suffix,
-    only under `tools/`, only from the staged package. What this asserts is that
-    the mechanism works at all, because an in-process tool that never reaches
-    the model is a capability that exists and is unreachable.
-    """
-    pkg = tmp_path / "staged"
-    assets = _package(pkg)
-    _write(
-        assets / ".claude" / "tools" / "probe.tooldef.py",
-        "from typing import NamedTuple\n"
-        "class T(NamedTuple):\n"
-        "    name: str\n"
-        "    description: str\n"
-        "    schema: dict\n"
-        "    call: object\n"
-        "TOOLS = [T('probe', 'a probe', {}, lambda: 1)]\n",
-    )
-    got = install(
-        _spec(assets="assets/forge.agent"),
-        staged_package=str(pkg),
-        config_dir=str(tmp_path / "config"),
-    )
-    assert [t.name for t in got.tools] == ["probe"]
 
 
-def test_a_tooldef_that_does_not_import_degrades_and_says_so(tmp_path: Path) -> None:
-    """A broken tool module must not take the task down.
-
-    The agent then runs without those tools, which the report names. Raising
-    instead would make one bad file in one component fatal to every task that
-    uses it — and the component is the thing least likely to be edited by
-    whoever hits the failure.
-    """
-    pkg = tmp_path / "staged"
-    assets = _package(pkg)
-    _write(assets / ".claude" / "tools" / "bad.tooldef.py", "raise RuntimeError('nope')\n")
-    got = install(
-        _spec(assets="assets/forge.agent"),
-        staged_package=str(pkg),
-        config_dir=str(tmp_path / "config"),
-    )
-    assert _installs(got.report) == ["fail"]
-    assert "did not import" in got.report[-1].message
-    assert got.tools == ()
-
-
-def test_a_tools_directory_file_with_no_recognised_suffix_is_left_alone(
+def test_nothing_under_tools_is_ever_imported_into_the_supervisor(
     tmp_path: Path,
 ) -> None:
-    """The narrowing that matters most, asserted rather than asserted-about.
+    """**No package-authored module is executed here at all** — the property the
+    in-process route's deletion is supposed to buy (`spec.provisioning.md` §6).
 
-    Importing package-authored code into the supervisor is done for exactly one
-    suffix. A `tools/helper.py` beside a `*.tooldef.py` is a module the author
-    expects to be *imported by* their tool, not executed by us.
+    Both files raise at module scope, so *executing* either one is not a wrong
+    assertion later — it is a `RuntimeError` out of `install` and this test dies
+    where the import happened. That is the positive control, and it is why the
+    check is not merely "the tuple is empty": **a negative assertion about an
+    absent mechanism passes for free**, and an empty result is exactly what a
+    fixture that placed nothing would also produce.
+
+    So the subject is proven present two ways before it is proven inert: the
+    report shows the tree was installed, and both files are found in the zone.
+    `t.tooldef.py` is the deleted route's own suffix — kept as the fixture on
+    purpose, because a suffix nobody ever recognised could not go red.
     """
     pkg = tmp_path / "staged"
     assets = _package(pkg)
     _write(assets / ".claude" / "tools" / "helper.py", "raise RuntimeError('never run')\n")
+    _write(
+        assets / ".claude" / "tools" / "t.tooldef.py",
+        "raise RuntimeError('the in-process route is deleted; nothing may import this')\n",
+    )
+
     got = install(
         _spec(assets="assets/forge.agent"),
         staged_package=str(pkg),
         config_dir=str(tmp_path / "config"),
     )
-    # The file is *placed* — `tools/` is copied like every other member — and
-    # it is not imported, which is the narrowing under test.
+
+    # **The subject is present.** Placed like every other member of `tools/`,
+    # which is what makes the inertness below a fact about the loader rather
+    # than about an empty directory.
+    placed = tmp_path / "config" / "tools"
+    assert (placed / "helper.py").is_file()
+    assert (placed / "t.tooldef.py").is_file(), (
+        "the fixture never reached the zone, so this test would pass with the "
+        "import route fully restored"
+    )
+
+    # **And it is inert.** No install ran, nothing was reported as an in-process
+    # tool, and `AgentMaterial` has no field left for one to arrive through.
+    #
+    # Matched on the deleted route's own report wording — ``N in-process
+    # tool(s) from <origin>`` — and not on the bare word "tool", which the
+    # legitimate ``placed 'tools' from …`` outcome also contains. A check that
+    # fails on correct input is the other face of one that cannot fail.
     assert _installs(got.report) == []
-    assert got.tools == ()
+    assert not [o for o in got.report if "in-process tool" in o.message], _levels(got.report)
+    assert not hasattr(got, "tools")
 
 
 def test_a_settings_file_that_does_not_parse_refuses(tmp_path: Path) -> None:
@@ -678,7 +661,6 @@ def test_the_two_argument_call_still_works_and_installs_nothing(tmp_path: Path) 
     deployed = material.deploy(_spec(), _ZoneAt(str(tmp_path / "zone")))
     assert deployed.environment["CLAUDE_CONFIG_DIR"] == str(tmp_path / "zone" / "config")
     assert deployed.mcp_servers == {}
-    assert deployed.tools == ()
 
 
 # --------------------------------------------------------------------------- #
@@ -962,87 +944,6 @@ def test_install_exports_no_path_outside_the_zone(tmp_path: Path) -> None:
         assert Path(value).is_relative_to(tmp_path), f"{name} points outside the run: {value}"
 
 
-def test_a_tooldef_using_a_dataclass_imports(tmp_path: Path) -> None:
-    """**The `sys.modules` registration, and this test is the whole point of it.**
-
-    Measured 2026-09-03 on CPython 3.13 by `pkg-author`, against a real artefact:
-    loading a `*.tooldef.py` with `module_from_spec` and calling `exec_module`
-    **without** registering the module in `sys.modules` first makes any
-    ``@dataclass`` in it raise ``AttributeError: 'NoneType' object has no
-    attribute '__dict__'``. `dataclasses._is_type` resolves a string annotation
-    through ``sys.modules[cls.__module__]`` and finds `None`.
-
-    `from __future__ import annotations` in the fixture is not incidental — it is
-    what makes every annotation a string and sends `dataclasses` down that path.
-    Without it the bug does not reproduce, so a fixture that omitted it would be
-    a test that passes either way.
-
-    The failure this guards is not the exception. It is that a component whose
-    tool module fails to import is indistinguishable, from the model's side,
-    from a component that was never installed.
-    """
-    pkg = tmp_path / "staged"
-    assets = _package(pkg)
-    _write(
-        assets / ".claude" / "tools" / "dc.tooldef.py",
-        "from __future__ import annotations\n"
-        "from dataclasses import dataclass, field\n"
-        "from typing import Any, NamedTuple, get_type_hints, Callable\n"
-        "@dataclass\n"
-        "class ToolDef:\n"
-        "    name: str\n"
-        "    description: str\n"
-        "    schema: dict[str, Any] = field(default_factory=dict)\n"
-        "    call: Callable[..., Any] | None = None\n"
-        "TOOLS = [ToolDef('probe', 'a probe')]\n",
-    )
-
-    got = install(
-        _spec(assets="assets/forge.agent"),
-        staged_package=str(pkg),
-        config_dir=str(tmp_path / "config"),
-    )
-
-    assert _installs(got.report) == ["ok"], got.report
-    assert [t.name for t in got.tools] == ["probe"]
-
-
-def test_the_tooldef_module_stays_in_sys_modules_after_the_install(tmp_path: Path) -> None:
-    """It is registered **and left registered**, which is a decision.
-
-    Popping it would fix the import and reopen the same hole one step later:
-    anything that resolves an annotation lazily — `typing.get_type_hints`, a
-    pydantic model, a dataclass built at call time — does the same
-    ``sys.modules[cls.__module__]`` lookup *after* `install` has returned, when
-    nothing is left to catch the `AttributeError`.
-    """
-    pkg = tmp_path / "staged"
-    assets = _package(pkg)
-    path = _write(
-        assets / ".claude" / "tools" / "late.tooldef.py",
-        "from __future__ import annotations\n"
-        "from dataclasses import dataclass\n"
-        "@dataclass\n"
-        "class T:\n"
-        "    name: str\n"
-        "TOOLS = [T('probe')]\n",
-    )
-
-    got = install(
-        _spec(assets="assets/forge.agent"),
-        staged_package=str(pkg),
-        config_dir=str(tmp_path / "config"),
-    )
-
-    (tool,) = got.tools
-    assert sys.modules.get(type(tool).__module__) is not None, (
-        f"{path} was popped from sys.modules; a later annotation resolution "
-        f"against it would raise where nothing catches it"
-    )
-    # The deferred resolution itself, run here rather than described.
-    from typing import get_type_hints
-
-    assert get_type_hints(type(tool)) == {"name": str}
 
 
 def test_a_recipe_child_that_overruns_is_killed_and_reported(tmp_path: Path) -> None:
@@ -1498,40 +1399,6 @@ def test_a_components_marketplace_never_lands_on_the_harnesss_own_name(
     )
 
 
-def test_a_tooldef_is_imported_from_the_zone_copy_not_the_source_tree(
-    tmp_path: Path,
-) -> None:
-    """The same rule as the bundled MCP server, one function over.
-
-    The source is the **staged package**, which sits several directories from
-    the agent's `cwd` and is not what `CLAUDE_CONFIG_DIR` points at, so importing
-    it in place read a path the placed configuration does not describe — the
-    bare-`claude` defect's class, two consumers with one of them reading a copy
-    the run does not own. It also wrote `__pycache__` into the source tree during
-    `prepare`.
-
-    Asserted through the module's own `__file__`, which is the only thing that
-    can tell the two copies apart once the tools are loaded.
-    """
-    pkg = tmp_path / "staged"
-    assets = _package(pkg)
-    _write(
-        assets / ".claude" / "tools" / "t.tooldef.py",
-        "class T:\n    def __init__(self, name): self.name = name\nTOOLS = [T('probe')]\n",
-    )
-    config = tmp_path / "config"
-
-    got = install(
-        _spec(assets="assets/forge.agent"), staged_package=str(pkg), config_dir=str(config)
-    )
-
-    (tool,) = got.tools
-    loaded = Path(sys.modules[type(tool).__module__].__file__)
-    assert loaded == config / "tools" / "t.tooldef.py", loaded
-    assert not (assets / ".claude" / "tools" / "__pycache__").exists(), (
-        "importing the source wrote __pycache__ into the staged package"
-    )
-
 
 def test_a_recipe_item_runs_a_binary_reachable_only_through_base_env(
     tmp_path: Path,
@@ -1854,21 +1721,25 @@ def test_a_claude_tree_of_shapes_nobody_enumerated_is_placed_whole(
 
 
 # --------------------------------------------------------------------------- #
-# The install report names what it produced, on all three MCP routes
+# The install report names what it produced, on both MCP routes
 
 
-def test_all_three_mcp_routes_record_a_name_in_the_report(tmp_path: Path) -> None:
-    """**Four rows of one rule, not one row plus two special cases.**
+def test_both_mcp_routes_record_a_name_in_the_report(tmp_path: Path) -> None:
+    """**Two rows of one rule, not one row plus a special case.**
 
     `Prepared.mcp_servers` goes supervisor → backend and is written down nowhere
     else, so the install report is the only artefact that can carry evidence of
     *which* servers a run got. Run 1's report carried a count for the external
-    route, a path for the bundled one, and for the in-process route nothing at
-    all — so a consumer comparing declared capabilities against what installed
-    could check one of three, and only by parsing a message string.
+    route and a path for the bundled one, so a consumer comparing declared
+    capabilities against what installed could check one of them, and only by
+    parsing a message string.
 
     Each route is asserted here for a **recoverable name**, not for a message
-    that happens to contain one. Removing any of the three keys fails this.
+    that happens to contain one. Removing either key fails this.
+
+    **There were three routes; the in-process one is deleted**
+    (`docs/spec.provisioning.md` §6), and its row went with it rather than being
+    kept as a row that can no longer fail.
     """
     pkg = tmp_path / "staged"
     assets = _package(pkg)
@@ -1884,12 +1755,6 @@ def test_all_three_mcp_routes_record_a_name_in_the_report(tmp_path: Path) -> Non
         ),
     )
     _write(assets / ".claude" / "tools" / "envchk_stdio.mcp.py", "# bundled")
-    _write(
-        assets / ".claude" / "tools" / "t.tooldef.py",
-        "class T:\n"
-        "    def __init__(self, name): self.name = name\n"
-        "TOOLS = [T('envchk_echo_token')]\n",
-    )
 
     got = install(
         _spec(assets="assets/forge.agent"),
@@ -1908,12 +1773,6 @@ def test_all_three_mcp_routes_record_a_name_in_the_report(tmp_path: Path) -> Non
     # Bundled: recorded, not parsed out of the message or the path stem.
     assert details("bundled MCP server")["server"] == "envchk_stdio"
 
-    # In-process: the TOOL name is the load-bearing half. The server name is a
-    # constant every run has, so a check against it alone could not fail.
-    inproc = details("in-process tool(s)")
-    assert inproc["tools"] == ["envchk_echo_token"]
-    assert inproc["server"] == agent_assets.IN_PROCESS_SERVER
-
     # Every server the run produced is recoverable from the report alone, which
     # is the property a consumer actually needs.
     recorded = set(details("external MCP server(s)")["names"]) | {
@@ -1923,28 +1782,6 @@ def test_all_three_mcp_routes_record_a_name_in_the_report(tmp_path: Path) -> Non
         "a server reached the backend that the install report does not name"
     )
 
-
-def test_a_tool_with_no_name_is_recorded_as_such_rather_than_crashing(
-    tmp_path: Path,
-) -> None:
-    """A `ToolDef` here is duck-typed — package-authored, and this module does
-    not define the class. One with no `.name` cannot be addressed by the model
-    at all; the report says so instead of raising while building it."""
-    pkg = tmp_path / "staged"
-    assets = _package(pkg)
-    _write(
-        assets / ".claude" / "tools" / "t.tooldef.py",
-        "class T: pass\nTOOLS = [T()]\n",
-    )
-
-    got = install(
-        _spec(assets="assets/forge.agent"),
-        staged_package=str(pkg),
-        config_dir=str(tmp_path / "config"),
-    )
-
-    (inproc,) = [o for o in got.report if "in-process tool(s)" in o.message]
-    assert inproc.details["tools"] == ["<unnamed>"]
 
 
 def test_a_bundled_server_entry_states_the_run_environment_rather_than_inheriting_it(

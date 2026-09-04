@@ -238,11 +238,13 @@ class Prepared(NamedTuple):
     #: Declared in `protocols.Prepared` too; this is the implementation half and
     #: the two are compared by `tests/interfaces/`.
     #:
-    #: **Since per-agent components, it also carries theirs.** A component's
-    #: `tools/*.tooldef.py` publishes the same `ToolDef` shape, and the backend
-    #: adapts every element of this tuple into one in-process MCP server — so
-    #: there is nothing to key them by and no consumer that needs to tell a
-    #: remote tool from a component's.
+    #: **`remote/tools.py` is the only thing that reaches this field**, and that
+    #: is spec §6's standing exception rather than a general route: those three
+    #: tools are a live Python object injected into `ClaudeAgentOptions` with
+    #: nothing written to disk, so no installer can carry them. A *component*
+    #: that wants to offer a tool ships a server that runs on its own — the
+    #: in-process `ToolDef` route for component-supplied tools was deleted
+    #: 2026-09-04.
     tools: tuple[Any, ...] = ()
     #: **External MCP servers for this attempt**, keyed by the name the model
     #: addresses them under, as the SDK's `mcp_servers` option spells them.
@@ -610,13 +612,12 @@ def prepare(
         confinement=conf,
         sync=report,
         environment=MappingProxyType(environment),
-        # **The remote surface and the agent's own components, in one tuple.**
-        # `Assignment.tools` is a flat list of `ToolDef`s and the backend adapts
-        # them all into one in-process MCP server, so there is nothing to key
-        # them by and nothing that needs to tell them apart. Remote first
-        # because it is `env_mgr`'s own and a component's name collision with it
-        # should be visible as the component's, not the reverse.
-        tools=(*_remote_tools(zone, ctx), *(deployed.tools if deployed else ())),
+        # **The remote surface, and nothing else.** `deployed` used to append a
+        # component's `tools/*.tooldef.py` here; that route is deleted (spec §6)
+        # and an add-on offering a tool ships a server of its own instead. What
+        # is left is the one standing exception, which cannot be installed
+        # because it is never written to disk.
+        tools=_remote_tools(zone, ctx),
         mcp_servers=MappingProxyType(dict(deployed.mcp_servers) if deployed else {}),
     )
 

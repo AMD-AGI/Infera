@@ -417,11 +417,13 @@ class Prepared(NamedTuple):
     #: Typed loosely for the same reason `Assignment.confinement` is: it crosses
     #: to `agent`, which may not import `env_mgr`.
     #:
-    #: **It also carries a component's `tools/*.tooldef.py`.** Per-agent
-    #: components publish the same `ToolDef` shape, and every element of this
-    #: tuple becomes one entry of the single in-process MCP server the backend
-    #: builds — so there is nothing to key them by, and no consumer that has to
-    #: tell a far-side tool from a component's.
+    #: **`remote/tools.py` is the only thing that reaches this field.** Spec §6
+    #: forbids adding a tool to an agent from Python code without showing that
+    #: no declarative route works, and names these three as the one standing
+    #: exception: they are injected as a live object and never written to disk,
+    #: so no installer can carry them. The in-process `ToolDef` route for
+    #: *component-supplied* tools was deleted 2026-09-04 — an add-on that offers
+    #: a tool ships a server that runs on its own.
     tools: tuple[Any, ...] = ()
     #: **External MCP servers for this attempt**, keyed by the name the model
     #: addresses them under, in the SDK's `mcp_servers` vocabulary.
