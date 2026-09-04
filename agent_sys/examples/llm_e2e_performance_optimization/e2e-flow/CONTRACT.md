@@ -935,8 +935,27 @@ brings it up itself, in its own `readme.md` STEPS, and tears it down.
 ### 5.2 Cluster rules, standing, absolute
 
 - All spur nodes share `/shared_nfs`. workspace / playground / handoff may live
-  there at 777. **Nothing whose path lacks the substring `yihou` may ever be
-  deleted.** "Remote" *is* this sharing.
+  there at 777. "Remote" *is* this sharing.
+- **THE DELETION RULE, and it admits no judgement.** Restated and widened by the
+  user 2026-09-04:
+
+  > **Delete nothing whose path lacks the substring `yihou` or `/tmp`.** This
+  > holds on the host **and** inside any directory docker-mounts into the host.
+
+  Three things it now says that the earlier wording did not. It is **not limited
+  to `/shared_nfs`** — every path on every host is in scope. It **follows the
+  mount**: a path that looks container-local is the host's if it was bind-mounted,
+  and `/shared_nfs`, `/home/<user>` and `/mnt/m2m_nobackup/<user>` are all mounted
+  identity-mapped under §5, so a `rm` "inside the container" deletes the host's
+  file. And it is **not a heuristic to weigh against other considerations** —
+  there is no case where reasoning produces an exception. If a path needs removing
+  and does not match, it is not yours: say so and stop.
+
+  Applies to `rm`, `rm -rf`, `find -delete`, `git clean`, `docker rm -f` on a
+  volume you did not create, and `agent-sys run --clean`. **A denial is a
+  decision, not an obstacle** — do not route around one, and do not ask a
+  colleague to run what you were refused (recorded 2026-09-04, when m3's `rm -rf`
+  was denied and the leader declined to run it for them).
 - Never `docker rm -f` a container you did not create. Both held nodes are
   carrying other tenants' containers right now.
 - Never `agent-sys run --clean` on a shared root — it removes **every** run.
