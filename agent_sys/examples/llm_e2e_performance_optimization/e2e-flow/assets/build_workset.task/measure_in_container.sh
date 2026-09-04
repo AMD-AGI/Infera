@@ -281,9 +281,16 @@ case "$ROOT" in
       # line has to. Marking them keeps the pattern that made this message
       # useful — name the forms you have *seen* accepted — without the half
       # that made it travel wrongly.
-      echo "    ref: -v \$HOME:\$HOME              accepted   (measured 006/234/249)" >&2
-      echo "    ref: -v /shared_nfs:/shared_nfs   accepted   (measured)" >&2
-      echo "    ref: -v /home:/home               refused    denied [BH] by spur-authz" >&2
+      # **Each row says who established it, and that is checkpoint's finding
+      # rather than mine.** Marking these `ref:` fixed *catalogue vs event*; it
+      # did nothing for *observed vs relayed*, and the phantom `/home` defect
+      # travelled three people precisely because every marker said who reported
+      # a thing and none said whether they had measured it. Two of the three
+      # rows below are somebody else's measurement, and until now the table
+      # said "(measured)" as though they were all mine.
+      echo "    ref: -v \$HOME:\$HOME              accepted   (m3 measured, 006)" >&2
+      echo "    ref: -v /shared_nfs:/shared_nfs   accepted   (relayed: leader measured)" >&2
+      echo "    ref: -v /home:/home               refused    (relayed: leader measured, 243)" >&2
       echo "    (the three rows above are a catalogue, NOT what this run did)" >&2
       echo "  Point --demo-root at one of the two, or set E2E_REMOTE_HOME, or extend this" >&2
       echo "  case with a form you have SEEN the daemon accept — not one you expect it to." >&2
