@@ -199,19 +199,43 @@ require_visible_on_node "$ROOT" "workset" || exit 1
 # **These two forms are what was measured working, and nothing else is
 # guessed.** Anything outside them refuses here, naming both, rather than
 # arriving as an authorization denial in the middle of a measurement.
-REMOTE_HOME="${E2E_REMOTE_HOME:-$HOME}"
-case "$ROOT/" in
-  "$REMOTE_HOME"/*)  MOUNTS="-v $REMOTE_HOME:$REMOTE_HOME" ;;
-  /shared_nfs/*)     MOUNTS="-v /shared_nfs:/shared_nfs" ;;
-  *) echo "measure_in_container: $ROOT is on neither filesystem this cluster's docker" >&2
-     echo "  authorization plugin allows a measurement to mount. Measured on node 243:" >&2
-     echo "    -v $REMOTE_HOME:$REMOTE_HOME   (a run root under your home)   OK" >&2
-     echo "    -v /shared_nfs:/shared_nfs                                    OK" >&2
-     echo "    -v /home:/home            denied [BH] by plugin spur-authz" >&2
-     echo "  Point --demo-root at one of the two, or extend this case with a form you" >&2
-     echo "  have seen the daemon accept — not one you expect it to." >&2
-     exit 1 ;;
+# **Derived from `$ROOT`, never from `$HOME`.** This read
+# `${E2E_REMOTE_HOME:-$HOME}`, and in a validation zone — a closed environment —
+# `$HOME` is `/home`. So the mount came out `-v /home:/home`, which is the one
+# form the plugin explicitly refuses, and the refusal quoted my own instruction
+# to *extend this case with a form you have seen the daemon accept*.
+#
+# **I built a bound identifier out of an ambient value**, which is the mistake
+# this file already carries two other corrections for: `_agree_or_die` exists
+# because an ambient `E2E_JOBID` outvoted the record, and the guard above exists
+# because a literal path outlived its mount. `$HOME` is the same class — it
+# describes whoever is running, not the artefact, and a validator runs as
+# nobody in particular.
+#
+# `$ROOT` is a fact about the workset and is right in every caller. `/home/<user>`
+# from it is the form measured accepted on 006 (`b9849a7`, `torch 2.9.1` back
+# from inside the container) and again on 234 and 249.
+#
+# `E2E_REMOTE_HOME` is still honoured when **explicitly set** — an operator
+# naming a home is stating a fact; `$HOME` defaulting to `/home` was not.
+case "$ROOT" in
+  /shared_nfs/*) MOUNT_AT="/shared_nfs" ;;
+  /home/*/*)     MOUNT_AT="/home/$(printf '%s' "${ROOT#/home/}" | cut -d/ -f1)" ;;
+  *)
+    if [ -n "${E2E_REMOTE_HOME:-}" ] && [ "${ROOT#"${E2E_REMOTE_HOME}"/}" != "$ROOT" ]; then
+      MOUNT_AT="$E2E_REMOTE_HOME"
+    else
+      echo "measure_in_container: cannot derive a mount this cluster's docker authorization" >&2
+      echo "  plugin will accept from $ROOT. Measured forms:" >&2
+      echo "    -v /home/<user>:/home/<user>   OK   (a run root under one user's home)" >&2
+      echo "    -v /shared_nfs:/shared_nfs     OK" >&2
+      echo "    -v /home:/home                 denied [BH] by plugin spur-authz" >&2
+      echo "  Point --demo-root at one of the two, or set E2E_REMOTE_HOME, or extend this" >&2
+      echo "  case with a form you have SEEN the daemon accept — not one you expect it to." >&2
+      exit 1
+    fi ;;
 esac
+MOUNTS="-v $MOUNT_AT:$MOUNT_AT"
 
 # The default is the producer's pair; a caller may substitute its own.
 if [ "$#" -eq 0 ]; then
