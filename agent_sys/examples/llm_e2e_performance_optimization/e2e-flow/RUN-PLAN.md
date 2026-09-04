@@ -123,12 +123,25 @@ the correct place for it to stop.
   claim inherited without checking. Same remedy each time: **look before
   asserting**.)*
 
-- **So the fix is m4's principle, not a different host.** `build_workset`'s mock
-  must run its entrypoints **in a container**, the way its real path already
-  does — otherwise the mock is exercising a parallel wiring that happens to be
-  the one no host can satisfy. Until then rung 0 stops at `operator_identity`
-  by construction, and that is a true statement about the mock rather than
-  about the flow.
+- **The fix was m4's principle, and it has been implemented — this paragraph
+  used to say it had not.** `build_workset`'s mock now runs its entrypoints
+  **in a container, where the real path measures**: `a94ce98`, 2026-09-03.
+  `assets/build_workset.task/entry.sh:92` calls `measure_in_container.sh`
+  immediately after `mock_adapt.py`, and the same commit dropped the host-side
+  `torch` probe that the paragraph above was diagnosing.
+
+  It is exercised, not merely written: **rung 1's refusal at 05:08:56 came from
+  inside `measure_in_container.sh`** — the mock reached the container path and
+  stopped on the visibility guard.
+
+  *Left visible rather than silently edited, because the failure is this
+  document's own recurring one. The replaced text stated the **plan**, was
+  written before the commit that carried it out, and was then read for a day as
+  a description of the current state — by me, and I routed it to m3 as work
+  they had not done. **A plan and a status in the same tense are
+  indistinguishable to every later reader.** Same genus as §4.3 arriving in the
+  section that records §4.3, and as the `writes_in_place` correction above it.
+  Caught by m3 checking the tree before doing the work rather than after.*
 - **"Mock e2e green" therefore never meant "no hardware".** It meant "no model
   call, no bring-up, no campaign". Stage 3 onward still needs a card, because
   three of this package's validators are `cost: gpu_hours` and two of them grade
