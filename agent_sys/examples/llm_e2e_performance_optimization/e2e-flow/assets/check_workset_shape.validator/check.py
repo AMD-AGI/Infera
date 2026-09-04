@@ -350,6 +350,29 @@ def _check(content: Path, args: dict, problems: list[str]) -> bool:
         return False
 
     name = args.get("schema") or "workset"
+    # **A pre-`5c36cd3` workset fails the schema, and the bare error explains
+    # nothing.** `protocol.timing` was `event` while the harness measured
+    # wall-clock-around-a-sync; the enum now admits only the truth, so 51
+    # worksets already on disk refuse with `'event' is not one of
+    # ['wall_clock_sync']` — correct, and indistinguishable from a regression
+    # in whatever else changed that day. m2 predicted exactly that against
+    # their own gate before anyone met it.
+    #
+    # Naming it costs four lines and turns a cryptic enum error into a dated
+    # cause. The refusal stands: those numbers carry a method name that was
+    # never used, and re-labelling them without re-measuring would be asserting
+    # provenance nobody checked.
+    _LEGACY_TIMING = {"event", "wall", "hip_graph_replay", "cuda_graph_replay"}
+    declared = ((document.get("protocol") or {}).get("timing"))
+    if declared in _LEGACY_TIMING:
+        problems.append(
+            f"protocol.timing is {declared!r}, a value this package retired in 5c36cd3. The "
+            f"harness has only ever measured 'wall_clock_sync' — perf_counter around `iters` "
+            f"calls between two torch.cuda.synchronize() — so this workset is labelled with a "
+            f"method that was never used. **This is an old artefact, not a regression.** "
+            f"Re-produce it to re-label, or re-measure if the numbers are to be quoted"
+        )
+
     try:
         S.validate(name, document)
     except S.SchemaError as error:
