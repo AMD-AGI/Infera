@@ -2994,3 +2994,49 @@ the behaviour is identical until someone sets it.
 **Still m2's file and still not applied by the lead.** The correction is recorded
 because the addendum's advice would have worked by the weaker route while leaving
 the actual gap in place.
+
+### Root cause — the producer was briefed to choose 16, and did
+
+Both entries above look for a **lever** to override the ceiling. Reading
+`assets/deploy_and_prove.task/readme.md:239-249` shows there is nothing to
+override: **the kit shipped 16 because the brief asks for 16.**
+
+> *"Set the CUDA graph ceiling to at least the concurrency **this deployment will
+> be loaded at**, and write down why you chose the number. The load is
+> **concurrency 16** (mission M1.2.3.4)."*
+>
+> *"**Criterion:** the ceiling your kit ships is `>= 16`…"*
+
+**The producer complied exactly.** A kit at 16 satisfies the stated criterion, and
+`check_deploy_kit` passed it `strong` — correctly. Three of the four historical
+kits chose 16 or 8 for the same reason.
+
+**The defect is the scope of one phrase.** *"the concurrency **this deployment**
+will be loaded at"* is right for the five separate demos, where the deployment
+was loaded only by the task that made it. In the chained flow the kit is loaded
+again by **stage 2**, whose Mooncake trace replay reached **25.42** — and nothing
+tells stage 1 that consumer exists.
+
+So the same sentence is correct in the old world and wrong in the new one, which
+is exactly the class this mission was created to find, and it took a real chained
+run to surface it.
+
+**Why this is the fix and the levers are not.** A `--var` or an `EXTRA_ARGS`
+override lets an operator paper over a briefed value that is wrong; changing the
+brief makes the *next* producer choose correctly with no operator involved. The
+levers stay useful for a one-off experiment; they are not the repair.
+
+**Shape of the repair** (m1's readme, one paragraph — still not applied by the
+lead, still m1's file):
+
+* scope the instruction to **the heaviest load any consumer will apply**, not to
+  this deployment's own;
+* name the measured datum — stage 2's trace replay reached **25.42** on
+  2026-09-04, so `>= 16` is not sufficient for the flow;
+* keep the *"write down why"* requirement unchanged. It is the best part of the
+  brief and it is what makes a wrong number auditable: *"a number with no reason
+  fails this even when the number is right."*
+
+**Do not simply raise the criterion to `>= 32`.** That repeats the original
+mistake with a bigger constant — a number that happens to cover one observed
+trace, with no statement of what it must cover.
