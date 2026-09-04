@@ -4298,3 +4298,87 @@ node to confirm the guess they preferred.** The answer was the second. That is
 CONTRACT §4.3 arriving from the other direction: the rule was written after two
 rounds of inference pointed at the wrong owner, and here it stopped the inference
 before the first round. A blocker became a `--demo-root` change.
+
+### Addendum 3, 04:34 UTC — the `tp_size` collision does not exist. Retracting §4
+
+**My fourth false claim, and the first that would have cost someone else a
+redesign.** §4 of this section says:
+
+> `check_environment` lists `tp_size` in `require_fixed` *and* in
+> `compare_fixed_across_inputs`. […] The validator will refuse, and it will be
+> right to.
+
+**Both halves are wrong.** Measured, `steps/common.yaml:53-74`:
+
+```yaml
+require_fixed:
+  [node, gpu_arch, image, image_id, model_name, model_path, tp_size]
+compare_fixed_across_inputs: [node, gpu_arch, image_id, model_path]
+```
+
+`tp_size` is in `require_fixed` **only** — which requires the field to be
+*present*, not to *agree*. The cross-input list is four fields and `tp_size` is
+not one of them, deliberately: the comment above it reads *"These four are what
+make two handoffs comparable at all."* And the value I compared against was also
+wrong — the sealed records in `cheat_for_mock/` carry **`"tp_size": 2`** (×4) and
+**`1`** (×2). Not 8. **`tp_size: 4` refuses against nothing. Rung 1 is not
+blocked on this and m1's bring-up stands.**
+
+**How I did it, because the mechanism is the reusable part.** I never opened
+`common.yaml`. I had built the verdict tally by grouping `args.json` files on
+their **sorted key names**, and the signature for this validator reads:
+
+```
+compare_fixed_across_inputs,require_fixed,require_runtime,schema
+```
+
+Both list names are present in that string, so I read "`tp_size` is in
+`require_fixed`" — which I *had* seen, in the full `args.json` dump earlier in
+this session — and inferred "…and in `compare_fixed_across_inputs`" from the mere
+presence of the key. **A key signature carries names, not membership.** The `8`
+came from `CONTRACT.md:113`, which is an *illustrative* record in prose, not a
+sealed artefact; I treated a documentation example as data.
+
+So: one part read, one part inferred, published as a single fact with no marker
+between them. That is precisely the class this file has been counting all day,
+and CONTRACT §4.3 — *reproduce before attributing* — has a sibling it apparently
+needs: **when a claim has two clauses, say which one you measured.** The
+distinguishing evidence was one `sed` on a file I had already named by path.
+
+**Checking the neighbourhood, so the retraction does not leave the same worry
+somewhere else.** `node` and `image_id` *are* in `compare_fixed_across_inputs`,
+and we changed nodes — so the obvious next question is whether *that* collides.
+It does not: `assets/deploy_and_prove.task/mock_adapt.sh:52` states the adapted
+record describes **today's node**, and `:60-69` that the image digest is
+**discovered on the node rather than asserted** (m1's `91259a1`). Every side of
+a cross-input comparison therefore carries the same node and the same digest for
+a given run. And `gpu_count` is required by `environment.schema.json`
+(`fixed.required`) but appears in **neither** of `check_environment`'s two lists —
+the record must carry it; nothing compares it.
+
+**What survives from §4 is only the measurement:** cards 0–3 on
+`crsuse2-m2m-249` are held at 96–98 % VRAM and cards 4–7 are free. That is a
+capacity fact about the machine. It was never a validator fact, and I should have
+published it as the former and asked about the latter.
+
+### Addendum 3b — three things the leader returned, recorded as theirs
+
+**The `--amend` trap is going into CONTRACT §8a**, with *"corrections get their
+own commit"* as the rule. Noting the disposition here so the two records agree.
+
+**The holds: the leader's evidence, stated as evidence and not as conclusion.**
+Two first-hand observations — `spur exec 106253 …` returned *"job 106253 not
+found"*, and `squeue -u yihou` returned **empty**, while both jobs should have
+had ~3 h left. **That establishes the jobs were gone; it does not establish
+why.** My `sacct -j` returning unrelated jobs remains a real gap and the question
+stays **open**. The consequence is the part that matters and it is unaffected by
+the missing cause: **if a hold can end at 5 h of 8, then 7 h 46 m of hold is not
+7 h 46 m of budget.**
+
+**Both benign flags were real.** The dead `jobid=106250 / node=crsuse2-m2m-061`
+in `README.md:40` and `CONTRACT.md:763` is being fixed. And `8b87f41` touching
+`.claude/CLAUDE.md` is the leader's own and legitimate: m1 measured that
+`spur exec` writes as **uid 50112975, not root**, contradicting a line written
+there. Worth keeping visible — a fifth "the thing reported one state and was in
+another", and the reason my ownership check flags non-module paths rather than
+judging them.
