@@ -310,7 +310,17 @@ def main() -> int:
                 )
                 reasons.append(traceback.format_exc())
                 results[hid] = False
-        findings[hid] = ([str(r) for r in reasons], [])
+        # **`(note)` lines are notes, not problems**, and the split matters:
+        # `write_report`'s heading is `REFUSED if problems else passed`, so
+        # filing an informational line as a problem prints `REFUSED` above a
+        # verdict of `true`. Measured on a real `kernel_table` — verdict
+        # `{"h-kt": true}`, heading `## h-kt: REFUSED` — which is the same
+        # heading-contradicts-its-own-text defect m3 had just removed for
+        # crashes, reintroduced by me one field over. These bodies keep both
+        # kinds in one `reasons` list; the prefix is what tells them apart.
+        problems = [str(r) for r in reasons if not str(r).lstrip().startswith("(note)")]
+        notes = [str(r) for r in reasons if str(r).lstrip().startswith("(note)")]
+        findings[hid] = (problems, notes)
         print(f"check_trace_coverage: {hid} {'PASS' if results[hid] else 'FAIL'}")
         for reason in reasons:
             print(f"  - {reason}")

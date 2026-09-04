@@ -54,11 +54,13 @@ kind's layout rather than the sample's.
 import csv
 import json
 import sys
+import traceback
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 import schema as schema_lib  # noqa: E402 — the path insert above is what makes these importable
+import workset_io as W  # noqa: E402 — `write_report` and `CRASH_MARKER`
 import zone  # noqa: E402
 
 #: The four columns every rule below reads. Reported once when they are absent,
@@ -85,6 +87,33 @@ def check(content: Path, args: dict, reasons: list) -> bool:
     if document is not None:
         ok = _check_document(document, rows, args, reasons) and ok
     return ok
+
+
+def _observed_shape(content: Path) -> str:
+    """Which layout this artefact actually has — m3's ask, as the consumer.
+
+    `kernel_table` is one of the three cross-stage seams in
+    `handoff.analysis.md`: **one kind name over two `content_type`s.** This body
+    reads the `structured_text` layout (`items/text.json`, `items/table.csv`,
+    `items/schema`); the sealed sample was produced as `reproducible` with
+    everything under `items/result/`, and the mock reshapes it.
+
+    So "items/text.json is missing" has two very different causes — a producer
+    that wrote a malformed `structured_text` artefact, and a producer that
+    handed over the `reproducible` shape unreshaped. **Naming the shape turns a
+    refusal m3 has to reproduce into one they can act on**, which is the whole
+    of what they asked for.
+    """
+    has_text = (content / "items" / "text.json").is_file()
+    has_result = (content / "items" / "result").is_dir()
+    if has_text and not has_result:
+        return "structured_text (items/text.json) — the shape this validator grades"
+    if has_result and not has_text:
+        return ("reproducible (items/result/) — NOT the shape this validator grades; "
+                "this looks like the sealed layout before m2_reshape.py")
+    if has_text and has_result:
+        return "both items/text.json and items/result/ present — ambiguous layout"
+    return "neither items/text.json nor items/result/ — not a kernel_table layout at all"
 
 
 def _read_record(content: Path, args: dict, reasons: list):
@@ -262,17 +291,49 @@ def _check_document(document: dict, rows: list, args: dict, reasons: list) -> bo
 def main() -> int:
     args = zone.args()
     results = {}
+    # **The reasons have to outlive stdout.** This one is read by two stages
+    # (M3.5), so a refusal nobody can read costs whichever of us did not run it
+    # a reproduction. m3 asked, as the consumer, that a refusal name *which*
+    # shape was graded — see `_observed_shape`.
+    findings: dict[str, tuple[list[str], list[str]]] = {}
     for hid in zone.inputs():
         content = zone.content_of(hid)
         reasons: list = []
+        notes_extra: list = []
         if content is None:
             results[hid] = False
             reasons.append("no staged content for this handoff")
         else:
-            results[hid] = check(content, args, reasons)
+            notes_extra.append(f"layout: {_observed_shape(content)}")
+            try:
+                results[hid] = check(content, args, reasons)
+            except Exception as error:  # noqa: BLE001
+                # `W.CRASH_MARKER` rather than the literal, so m3's `DID NOT RUN`
+                # heading follows a reworded message instead of silently
+                # reverting to `REFUSED` — their point, and it is the reason the
+                # constant exists.
+                reasons.append(
+                    f"{W.CRASH_MARKER} — {type(error).__name__}: {error}. "
+                    f"An instrument failure, not a finding: nothing here was graded."
+                )
+                reasons.append(traceback.format_exc())
+                results[hid] = False
+        # **`(note)` lines are notes, not problems**, and the split matters:
+        # `write_report`'s heading is `REFUSED if problems else passed`, so
+        # filing an informational line as a problem prints `REFUSED` above a
+        # verdict of `true`. Measured on a real `kernel_table` — verdict
+        # `{"h-kt": true}`, heading `## h-kt: REFUSED` — which is the same
+        # heading-contradicts-its-own-text defect m3 had just removed for
+        # crashes, reintroduced by me one field over. These bodies keep both
+        # kinds in one `reasons` list; the prefix is what tells them apart.
+        problems = [str(r) for r in reasons if not str(r).lstrip().startswith("(note)")]
+        notes = [str(r) for r in reasons if str(r).lstrip().startswith("(note)")]
+        findings[hid] = (problems, notes + notes_extra)
         print(f"check_kernel_table: {hid} {'PASS' if results[hid] else 'FAIL'}")
         for reason in reasons:
             print(f"  - {reason}")
+    # Before the verdict, so a crash in the writer cannot take the reasons with it.
+    W.write_report("check_kernel_table", findings)
     zone.write_verdict(results)
     return 0
 
