@@ -21,9 +21,23 @@ words: *the executor is a program body: there is no agent to instruct.*
 
 | | what exists | where it goes |
 |---|---|---|
-| `…validators-stdout-is-not-kept…` | a validator's careful diagnosis | discarded stdout |
-| `todo.md` **T14** | a broken validator's verdict | never written; reads as a bad handoff |
-| **this** | the runner's own reason for stopping | escalated to nobody |
+| `…validators-stdout-is-not-kept…` | a validator's careful diagnosis | **discarded** |
+| `todo.md` **T14** | a broken validator's verdict | **never written** |
+| **this** | a program body's full refusal | **kept, escalated, and read by nobody** |
+
+**Corrected by m3 after this record was first filed, and the correction matters
+because it splits the family.** The original text put this in the same class as
+the discarded stdout. It is not: **the detail was kept the whole time**, in the
+`output_absent` event's `attributes.detail`, carrying the body's entire stderr
+including the sentence naming the cause. Nothing was lost. What is missing is a
+**reader** — the escalation had no recipient because the failing executor was a
+program body, and `NullUserSink` records without answering.
+
+So the first two are *information destroyed*; this one is *information
+preserved and unrouted*. Filing them as one thing was the leader's error, made
+while writing a record about explanations having no route — **from a store the
+leader had not read carefully enough to notice that this explanation had been
+kept.**
 
 m1's framing, and it is better than three separate entries:
 
