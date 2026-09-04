@@ -145,20 +145,109 @@ def test_uv_check_ok_with_valid_ref(tmp_path):
     assert any(o.level == "ok" for o in outs)
 
 
-def test_claude_present_names_exact_per_line():
+# --------------------------------------------------------------------------- #
+# `claude plugin list` fixtures.
+#
+# These are CAPTURED BYTES, not a remembered format. They were produced by
+# `claude plugin list > file` (stdout on a pipe, never a terminal -- the only
+# form `installers/base.run_cmd` can ever see, since it passes
+# `capture_output=True`) against `claude` 2.1.246 on 2026-09-04, and are
+# reproduced here character for character. `❯` is the entry bullet,
+# `✔` / `✘` the enabled / disabled status glyphs.
+#
+# The tests these replace fed `"superpowers 1.0\ncode-review 2.1\n"` -- a format
+# no build of the CLI produces. They were green on the broken parser and red on
+# every correct one, which is how a check that cannot pass shipped with two
+# tests over it. Do not "simplify" these strings: their value is that nobody
+# wrote them.
+
+CLAUDE_PLUGIN_LIST_EMPTY = "No plugins installed. Use `claude plugin install` to install a plugin.\n"
+
+CLAUDE_PLUGIN_LIST_THREE = (
+    "Installed plugins:\n"
+    "\n"
+    "  ❯ code-review@claude-code-plugins\n"
+    "    Version: 1.0.0\n"
+    "    Scope: user\n"
+    "    Status: ✔ enabled\n"
+    "\n"
+    "  ❯ commit-commands@claude-code-plugins\n"
+    "    Version: 1.0.0\n"
+    "    Scope: user\n"
+    "    Status: ✔ enabled\n"
+    "\n"
+    "  ❯ hookify@claude-code-plugins\n"
+    "    Version: 0.1.0\n"
+    "    Scope: user\n"
+    "    Status: ✔ enabled\n"
+    "\n"
+)
+
+#: The same three, after `claude plugin disable hookify@claude-code-plugins`.
+#: The entry does not disappear; one glyph changes.
+CLAUDE_PLUGIN_LIST_ONE_DISABLED = CLAUDE_PLUGIN_LIST_THREE.replace(
+    "  ❯ hookify@claude-code-plugins\n"
+    "    Version: 0.1.0\n"
+    "    Scope: user\n"
+    "    Status: ✔ enabled\n",
+    "  ❯ hookify@claude-code-plugins\n"
+    "    Version: 0.1.0\n"
+    "    Scope: user\n"
+    "    Status: ✘ disabled\n",
+)
+
+
+def test_claude_present_names_on_real_cli_output():
     from env_mgr.installers.claude import ClaudeInstaller
 
-    out = "superpowers 1.0\ncode-review 2.1\n"
-    names = ClaudeInstaller._present_names(out)
-    assert names == {"superpowers", "code-review"}
+    # Every entry is bulleted with U+276F and carries `@marketplace`; the three
+    # indented metadata lines are not entries. The shipped parser returned
+    # {'Installed', 'Scope:', 'Status:', 'Version:', '❯'} here -- no plugin name,
+    # so `check` reported every declared plugin missing on every run.
+    names = ClaudeInstaller._present_names(CLAUDE_PLUGIN_LIST_THREE)
+    assert names == {"code-review", "commit-commands", "hookify"}
+
+
+def test_claude_present_names_empty_when_nothing_installed():
+    from env_mgr.installers.claude import ClaudeInstaller
+
+    # The CLI answers with a sentence, not an empty string. The shipped parser
+    # took its first word and returned {'No'} -- a junk name that would have
+    # matched a plugin called `No`.
+    assert ClaudeInstaller._present_names(CLAUDE_PLUGIN_LIST_EMPTY) == set()
 
 
 def test_claude_present_names_no_substring_false_positive():
     from env_mgr.installers.claude import ClaudeInstaller
 
-    # "super" must NOT be considered present just because "superpowers" is
-    names = ClaudeInstaller._present_names("superpowers 1.0\n")
-    assert "super" not in names
+    # The surviving property of the test this replaces: a name that is a strict
+    # prefix of an installed one must not be reported present. `commit` and
+    # `code` are prefixes of `commit-commands` and `code-review`, both of which
+    # are in the capture -- so this needs no invented fixture.
+    #
+    # Stated because it matters: this assertion is negative, so it does NOT go
+    # red against the shipped parser (which emitted no plugin name at all, and
+    # therefore no prefix either). It cannot on its own witness the defect; it
+    # guards one direction, and `test_claude_present_names_on_real_cli_output`
+    # guards the other. Read the pair, not this alone.
+    names = ClaudeInstaller._present_names(CLAUDE_PLUGIN_LIST_THREE)
+    assert "commit" not in names
+    assert "code" not in names
+    assert "hook" not in names
+
+
+def test_claude_present_names_reports_a_disabled_plugin_as_present():
+    from env_mgr.installers.claude import ClaudeInstaller
+
+    # Pins the KNOWN LIMITATION rather than a desired behaviour: `plugin list`
+    # keeps listing a disabled plugin, so `_present_names` -- which reads
+    # "installed", not "enabled" -- includes it and `check` will say installed
+    # for something that will not load. Deliberately not fixed: separating the
+    # two means parsing the `Status:` line, and whether `check` is meant to
+    # assert *enabled* at all is an undecided design question. If that gets
+    # decided, this test is the one to change.
+    names = ClaudeInstaller._present_names(CLAUDE_PLUGIN_LIST_ONE_DISABLED)
+    assert names == {"code-review", "commit-commands", "hookify"}
 
 
 def test_oneline_plan_message_style(tmp_path):
