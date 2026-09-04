@@ -5397,3 +5397,221 @@ Eight since T+102's `ac05ec9`, thirteen in the round's range.
   even explains the failure mode. Only the artefact showed that two of three
   instances were unfixed. **Read the artefact, not the config that describes it**
   is the same rule this file opened with, arriving in a new place.
+
+---
+
+## T+191 — 2026-09-04 09:25 UTC
+
+**The owner halted the round mid-way, redirected the design twice, and the scope
+grew.** T+129's 85 % is not carried forward and must not be read as regression:
+the work behind it still exists and still passes. **The denominator changed.**
+
+### 1. Progress
+
+**Effort: ~55 %. This number is lower than T+129's 85 % because the job got
+bigger, not because work was lost.** Everything counted at T+129 is still done and
+still committed. What has been added since: a `run_server` installer, a server
+registry with a lifecycle owner **that does not exist today**, a port policy, the
+in-process `ToolDef` removal across `env_mgr`/`agent`/`claude_sdk`, two further
+recipe layers, and an `env_checker` acceptance rewrite.
+
+| workstream | est. % | basis |
+|---|---|---|
+| everything counted at T+129 | **still done** | HEAD is unchanged at `1c75de1`; nothing was reverted |
+| `run_server` installer + registry + tests | **in the worktree, uncommitted** | measured: `env_mgr/servers.py` (462 lines), `env_mgr/installers/run_server.py` (225), `tests/env_mgr/test_run_server.py` (408) — **all untracked**; `registry.py` and `test_imports.py` modified |
+| in-process `ToolDef` removal | **0 %** | verified: `ToolDef`/`tooldef` still referenced in **8 files** incl. `agent/backend.py`, `agent/backends/claude_sdk.py`, `env_mgr/{agent_assets,prepare,material,protocols,remote/tools}.py` and `env_checker`'s own `envchk_inproc.tooldef.py` |
+| recipe layers 2 and 3 | **in progress** | lead-reported; no artefact I can point at |
+| the default recipe | **0 %** | verified: **no `default.yaml` exists anywhere in the tree**; `env_mgr/recipes/` holds exactly `serena.yaml` and `sglang.repo.yaml`, which are **demos, not the default** |
+| `env_checker` acceptance rewrite | **0 % observable** | no change on disk |
+| **commits this window** | **zero** | `git rev-list --count 1c75de1..HEAD` → **0** |
+
+**Reliability: moderate, and the honest caveat is that 55 % is a judgement, not
+arithmetic.** I can measure what exists (1,095 lines of new uncommitted code, and
+eight files still carrying the concept that is to be deleted). I cannot measure
+the size of a registry lifecycle owner, a port policy or an acceptance rewrite
+against a design that was settled less than an hour ago. **A checkpoint whose
+number rises while the job gets bigger is worse than no number**, so this one
+falls and says why.
+
+**Zero commits landed this window.** All of the window's code is in the working
+tree.
+
+### 2. Current state
+
+Branch unchanged, HEAD **still `1c75de1`** — my own T+129 checkpoint commit.
+
+`git status --short` at 09:23:37Z:
+
+```
+ M agent_sys/env_mgr/registry.py
+ M agent_sys/tests/env_mgr/test_imports.py
+?? agent_sys/env_mgr/servers.py
+?? agent_sys/env_mgr/installers/run_server.py
+?? agent_sys/tests/env_mgr/test_run_server.py
+?? (the three long-standing root files)
+```
+
+**The design turned twice this window, and both turns are rulings.**
+
+1. **MCP servers can go through an installer.** The lead's objection — recorded in
+   this file at T+39 from `lead-analysis.md`, that `Installer` returns
+   `list[Outcome]` so an MCP server cannot come back as data — is **withdrawn**. The
+   argument that closed it, in the owner's words: *"我专门写一个 claude plugin 的
+   install 是想吃屎么"* — `installers/claude.py` already exists and its entire job is
+   configuring Claude Code. **A stdio server is launched by the harness itself, so
+   nothing has to travel back to the supervisor.**
+2. **The in-process `ToolDef` should not exist and is being deleted** — *"根本就不
+   应该存在"*. Add-ons ship **standalone servers**: separate process, started by
+   `env_mgr` at init. If `agent_sys` must ever serve MCP itself, that is a
+   **roadmap** item — a separate thread loaded at init, declaration installed as a
+   plugin.
+
+Plus: a `run_server` installer, a registry, shutdown at `agent_sys` exit, and a
+**port policy** — same binary → `warn`, otherwise → `error`.
+
+**And `recipe` now has three layers** (owner's ruling 4): the agent's own
+(`env_recipe.<agent>.yaml`, already built as `b83eb2a`), the task package's
+(`main`), and **default, living in `env_mgr/`**. At agent level **both systems
+exist** — its own recipe *and* the `assets/.claude/` copy route — both may be
+absent, under the settled absence logic (declared-and-absent is an error;
+undeclared-and-absent is simply absent).
+
+**Teammates**: both working, neither blocked. `core-impl` on `servers.py` +
+`run_server.py` + tests, registry at `<layout.run>/servers.json` through one
+exported variable. `pkg-impl` off hold, building recipe layers 2 and 3, and
+**told to decide three implementation questions itself** rather than route them to
+the lead — after two escalations this round that were the lead's to settle.
+
+### 3. Code problems — fixed / not fixed
+
+**Found before it was built on — the find of the window, and I confirmed both
+halves.**
+
+`subprocess.run(capture_output=True)` **waits for pipe EOF, not for the child to
+exit.** I read `env_mgr/agent_assets.py:1498` — `subprocess.run(list(argv),
+capture_output=True, text=True, env=..., timeout=timeout)` — and
+`agent_assets.py:364`, `RECIPE_TIMEOUT_SECONDS = 20 * 60`. A detached server
+inheriting those pipes holds `_run_recipe` open **for its whole life**, so a
+**perfectly started server reports `fail` twenty minutes later**. Measured by
+`core-impl` at 25 s versus 0 s. **Found by measuring the call it was about to
+build on, before writing the code** — the opposite of this round's usual
+discovery order.
+
+**Recorded, deliberately not changed:** the recipe child **runs unconfined**. I
+verified it: `preexec_fn` appears in `env_mgr/prepare.py:319` (the confined agent
+path) and **nowhere on the recipe path**. Installs are a documented hole in §4's
+confinement, necessarily so.
+
+**Not fixed, carried:** the two packaging defects (`adf319d`); the tenth
+cannot-fail check; the two tied `_present_names` variants.
+
+### 4. Non-code problems
+
+- **A denied deletion, denied twice, and a lead who did not launder it.** The lead
+  **withdrew their own authorisation to delete `agent_sys/build/`**: they reasoned
+  from the rule's wording to a conclusion about what the machine would allow, and
+  `guard_rm` denied it, then the permission system denied it. **They checked the
+  rule and not the enforcement.** They also **did not execute it themselves** after
+  `pkg-impl` was denied — *"a lead running a peer's denied operation is the same
+  operation with the authorisation laundered."* `pkg-impl` had already refused to
+  retry it, including against a direct instruction: **"a teammate's authorisation
+  is not the operator's."** Affirmed by the lead. This is the global rule holding
+  under pressure from inside the team rather than from outside it.
+- **A sample blind to the case that matters — the lead's, one hour after they
+  diagnosed the identical shape in someone else's work.** Their
+  `/proc/<pid>/cmdline` sample had all four lines `yihou`-owned, so every one had a
+  pid. `core-impl` had measured a **foreign-uid** port: empty Process column in
+  `ss -ltnp`, `lsof` silent, `/proc/<pid>/fd` denied. **A sample that cannot
+  contain the hard case makes the easy answer look total** — which is the exact
+  sentence the lead had used on `pkg-impl`'s one-plugin capture an hour earlier.
+- **An over-engineered brief.** `core-impl` was told to *"measure what is available
+  and reliable on this host"* for something one command away. **Presenting a solved
+  thing as a decision costs a teammate a detour and lends the detour the lead's
+  authority.**
+- **A second escalation of a question that was the lead's.** *"取代还是互补"*; the
+  owner: *"你自己拿着 registry 自己不知道怎么搞？"* The registry answers *start once,
+  warn on duplicate*; which file the declaration lives in is irrelevant. **The tell
+  is the same as with (H): the question was about shape and had no measurement in
+  it.** Second time this round.
+- **PR 154's shared root is live on this host, not merely specified.** I verified
+  it: `/home/yihou/.infera_agent_sys/bin/agentsview` exists (133 MB, Sep 1) and pid
+  **2353356** is running `agentsview serve --no-browser --host 127.0.0.1 --port
+  18888`. `TODO.md` 4h's dependency is on a thing that is already running.
+
+### 5. Open questions, not yet characterised
+
+**Suspend, don't conclude.**
+
+- The registry's lifecycle owner does not exist yet, and **a recipe runs in a
+  short-lived child**, so the registry cannot live in memory. `core-impl` measured
+  that `PR_SET_PDEATHSIG` **does** close the SIGKILL case but is the wrong tool at
+  that site; the guarantee is stated as *"stopped on normal and handled-error
+  exit"*. What happens on an unhandled exit is **named, not solved**.
+- Whether `internal` gains a witness — T+129's open question — is now entangled
+  with the new three-layer recipe design. Nobody has said whether the new design
+  answers it, moots it, or leaves it.
+- Whether `env_checker`'s `envchk_inproc.tooldef.py` is rewritten as a standalone
+  server or deleted. The owner's ruling deletes the *mechanism*; the package
+  currently proves a capability through it.
+- `import httpx2` — **sixth window**, still unread by anyone.
+- Whether the 16 review comments have been answered on GitHub. Unchecked since T+2.
+
+### 6. New commits
+
+**None.** `git rev-list --count 1c75de1..HEAD` → **0**. HEAD is still my own T+129
+checkpoint commit, and the window's 1,095 lines of new code are untracked in the
+working tree. This is the second window of the round to end with the change set
+uncommitted; the first was T+102, and that one resolved within the hour.
+
+### 7. Anything else worth recording
+
+- **Seven corrections from the lead this window. Three are severe, and the pattern
+  across them is one thing.** Corrections 1, 3 and 7 are all *reasoning from a
+  model instead of from the artefact*: (1) "MCP cannot go through an installer",
+  reasoned from a **return type**, never asking *why the data must come back at
+  all*; (3) "`addons/` empties out", which rested on the **old** model where
+  `.mcp.json` was the only content; (7) telling the owner `main.yaml` is a
+  task-graph root and therefore not a recipe — **true of the file and beside the
+  point**, because the owner was describing the *layer structure*, and the
+  confusion came from reading `env_mgr/recipes/`'s contents as shipped recipes when
+  they are demos. Correction 2 is the same shape aimed at a **permission system**
+  rather than a design.
+- **Correction 3 is the one with teeth, and the owner closed it in a single
+  question:** *"你不做独立进程，你那个 envchecker 的 checksum 验证机制怎么跑通？"*
+  Under the new design **the server is the content** — `envchk-baseline`'s carries
+  `SALT` and `token(nonce)`, and **that token is only producible by running it**.
+  The lead's proposed scope split would have left `env_checker` **unable to prove
+  itself**. A design change that silently disarms the thing that proves the design
+  is the failure mode this whole package exists to catch, and it was caught by a
+  question about the artefact, not by an argument.
+- **`core-impl`'s port-check inversion, which is the best reframing of the
+  window.** The lead and `pkg-impl` were both stuck on *"what is this process?"* —
+  **unanswerable**, since `comm`/`exe` read `python3` for serena and for any
+  stranger alike. `core-impl` asked instead **"is it the thing I was about to
+  start?"** and keyed on the declared program token from the item's **own
+  `command`**. The holder's `argv[0]` never enters the comparison. **Two people
+  failed to answer a question that had no answer; the fix was to ask a different
+  one.**
+- **`pkg-impl`'s serena result is stronger than the obvious version of it.**
+  Headless is a no-op with one INFO line, and **serena detects headless
+  explicitly** — which is a claim about the program's logic rather than *"it did
+  not hang once"*, i.e. about the mechanism instead of the sample. It also
+  demonstrated the free-port search **live at four concurrent instances** and
+  measured `SERENA_HOME` isolation on a running process.
+- **A fifth instance from the lead of *a claim about a model stated as a count*,
+  logged as mild and deliberately not inflated**: *"layer vocabulary at zero in
+  `env_mgr`"*. The field, the ordering and the module are gone; the word survives
+  where it means something else. **The count difference was a scope difference and
+  not a disagreement** — I pinned it: my `\blayer\b` over `env_mgr/*.py` gives 11,
+  their substring over `env_mgr/*.py` plus `installers/*.py` gives 12, `installers/`
+  contributes **zero**, and the single extra line is `prepare.py:315`
+  `# nothing: layers intersect.` — the plural, which a word-boundary pattern
+  excludes. Both figures correct for their own pattern.
+- **The defect class named at T+129 gets its own entry, because it is the one most
+  likely to bite next.** *Skepticism that only fires on bad news is not skepticism;
+  it is a preference dressed as rigour.* The evidence is already in this file:
+  every counts-are-not-evidence caution this round — `TODO.md` 4d, the lead's
+  ruling to both implementers, my own T+102 note — **was invoked while the suite
+  was red**, and not one was invoked at 2232 green on the same tree with the same
+  two agents editing. **The discipline had never been tested in the direction where
+  it costs something.**
