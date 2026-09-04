@@ -155,7 +155,9 @@ def test_uv_check_ok_with_valid_ref(tmp_path):
 # tests over it. Do not "simplify" these strings: their value is that nobody
 # wrote them.
 
-CLAUDE_PLUGIN_LIST_EMPTY = "No plugins installed. Use `claude plugin install` to install a plugin.\n"
+CLAUDE_PLUGIN_LIST_EMPTY = (
+    "No plugins installed. Use `claude plugin install` to install a plugin.\n"
+)
 
 CLAUDE_PLUGIN_LIST_THREE = (
     "Installed plugins:\n"
@@ -180,10 +182,7 @@ CLAUDE_PLUGIN_LIST_THREE = (
 #: The same three, after `claude plugin disable hookify@claude-code-plugins`.
 #: The entry does not disappear; one glyph changes.
 CLAUDE_PLUGIN_LIST_ONE_DISABLED = CLAUDE_PLUGIN_LIST_THREE.replace(
-    "  ❯ hookify@claude-code-plugins\n"
-    "    Version: 0.1.0\n"
-    "    Scope: user\n"
-    "    Status: ✔ enabled\n",
+    "  ❯ hookify@claude-code-plugins\n    Version: 0.1.0\n    Scope: user\n    Status: ✔ enabled\n",
     "  ❯ hookify@claude-code-plugins\n"
     "    Version: 0.1.0\n"
     "    Scope: user\n"
@@ -246,9 +245,7 @@ def test_claude_present_names_reports_a_disabled_plugin_as_present():
 
 def test_oneline_plan_message_style(tmp_path):
     # oneline previews as a single-line "would run:" message, no "script" wording
-    item = Item(
-        installer="oneline", importance="suggested", spec={"run": "echo hi"}
-    )
+    item = Item(installer="oneline", importance="suggested", spec={"run": "echo hi"})
     outs = get_installer("oneline").plan(item, _target(tmp_path))
     msg = " ".join(o.message for o in outs)
     assert "would run:" in msg
@@ -257,9 +254,7 @@ def test_oneline_plan_message_style(tmp_path):
 
 def test_embed_plan_message_style(tmp_path):
     # embed previews a multi-line script body, flagged with "script" wording
-    item = Item(
-        installer="embed", importance="required", spec={"run": "echo hi\necho bye"}
-    )
+    item = Item(installer="embed", importance="required", spec={"run": "echo hi\necho bye"})
     outs = get_installer("embed").plan(item, _target(tmp_path))
     msg = " ".join(o.message for o in outs)
     assert "script" in msg

@@ -36,7 +36,7 @@ SALT = "48d7f4c12e751bebb631ff42ffe54656"
 LABEL = "mcp_external"
 
 #: Which install level delivered it. L2 — a component this repository ships,
-#: named by an agent spec's `components:` key.
+#: named by an agent spec's `agent_plugins:` key.
 LEVEL = "L2"
 
 SERVER_NAME = "envchk_baseline"

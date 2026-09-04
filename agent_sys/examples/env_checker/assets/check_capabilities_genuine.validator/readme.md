@@ -112,19 +112,19 @@ worse than one whose edges are known.
   would fail. `serena_probe.py` keeps the salt as a local inside the function
   for exactly that reason.
 
-- **The L2 registry, when it cannot be found.** `agent_sys/components/` is a
+- **The L2 registry, when it cannot be found.** `agent_sys/agent_plugins/` is a
   repository path and a task package is staged into a zone, so
   `../../components` does not exist beside it. This body takes
-  `$AGENT_SYS_COMPONENTS_ROOT` first and searches upwards second, and when
+  `$AGENT_SYS_AGENT_PLUGINS_ROOT` first and searches upwards second, and when
   neither answers it reports the L2 capability as unverifiable **by name** —
   which is a fault, not a shrug. `env_mgr` exporting that variable is what
   closes it.
 
   **The variable arrives; the grant beside it does not.** `env_mgr` derives a
-  read grant on the components root when an agent declares `components:`, and
+  read grant on the components root when an agent declares `agent_plugins:`, and
   that grant is for the **agent's** zone. This body does not run in one: a
   validation zone is built by `validator/environment.py` in a `mkdtemp`, not
-  through `env_mgr.prepare`, so `component_grants` never runs for it. Harmless
+  through `env_mgr.prepare`, so `agent_plugin_grants` never runs for it. Harmless
   today, because nothing is enforced in a validator zone — and worth writing
   down rather than discovering, because the day validator zones are confined is
   the day this read starts failing, and the cause would otherwise look like a

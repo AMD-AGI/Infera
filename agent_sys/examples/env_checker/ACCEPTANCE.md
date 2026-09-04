@@ -113,11 +113,11 @@ where `salt` is the single `ENVCHK_SALT: <32 hex>` tag in the named artefact and
 | 2 | hook | L3 | same → `capabilities.hook` | `.token != T("hook")` from the salt in `.claude/hooks/envchk_session_start.py`; **or** `.proof.record.payload.session_id` is absent; **or** `.proof.record.payload.hook_event_name != "SessionStart"`; **or** `.proof.record.token != .token` |
 | 3 | plugin | L3 | same → `capabilities.plugin` | `.token != T("plugin")` from the salt in `.claude/plugins/envchk-plugin/skills/envchk-plugin-skill/SKILL.md`; or `.proof.plugin_list` empty. **A `.token` equal to section 1's is a fail even if well-formed** — two routes, two salts |
 | 3b | plugin **source path** | L3 | the zone's `config/settings.json` | its marketplace entry's `{"source":"directory","path": …}` is **not** under the run root — e.g. it points at `/home/yihou/dev/...`. Probe F measured that a plugin loads from its marketplace *source* directory rather than from a copy, so a marketplace outside the zone **installs cleanly and then fails to load under confinement with nothing naming the cause**. This is its own row and not a footnote precisely because it is a condition that must fail loudly rather than be checked if someone remembers |
-| 4 | external MCP | **L2** | same → `capabilities.mcp_external` | `.token` differs from what the validator gets by **starting** `agent_sys/components/envchk-baseline/.claude/servers/envchk_baseline_server.py` and calling `tools/call`; or `.proof.raw.token != .token`; or `.level != "L2"` |
+| 4 | external MCP | **L2** | same → `capabilities.mcp_external` | `.token` differs from what the validator gets by **starting** `agent_sys/agent_plugins/envchk-baseline/.claude/servers/envchk_baseline_server.py` and calling `tools/call`; or `.proof.raw.token != .token`; or `.level != "L2"` |
 | 5 | bundled stdio MCP | L3 | same → `capabilities.mcp_stdio` | `.token` differs from what the validator gets by **starting** `.claude/tools/envchk_stdio.mcp.py`; or `.proof.raw.token != .token` |
 | 6 | in-process ToolDef | L3 | same → `capabilities.tooldef` | `.token` differs from what the validator gets by **importing the placed copy** at `<staged package>/../config/tools/envchk_inproc.tooldef.py` and calling `TOOLS[0].call()`; or `.proof.raw.token != .token` |
 | 6b | tooldef **placed copy** | L3 | same → `capabilities.tooldef.proof.raw` | `.path` is not that placed copy; or `.sha256` does not match its digest |
-| 7 | serena | **L1 install + L2 declaration** | same → `capabilities.serena` | **the package declares no serena MCP server** — `components:` must name `serena`, whose `.claude/.mcp.json` registers it; an install without a declaration gives the agent `No such tool available` and is how run 1 failed. Then: `.status == "ok"` and `.token != T("serena")` from the salt in `assets/env_probe.agent/serena_probe.py`; **or** `.status == "unavailable"` and `install_report` carries no non-`ok` entry mentioning serena; **or** `.proof.raw` is not a `find_symbol` response whose hit for `envchk_serena_token` carries `name_path`, `kind`, `relative_path` naming `serena_probe.py`, a `body_location` with integer `start_line`/`end_line`, and a `body` **containing the salt**. That schema was measured against Serena 1.28.1 on this host on 2026-09-03, not remembered — see *What a PASS does not prove* for what it is and is not worth |
+| 7 | serena | **L1 install + L2 declaration** | same → `capabilities.serena` | **the package declares no serena MCP server** — `agent_plugins:` must name `serena`, whose `.claude/.mcp.json` registers it; an install without a declaration gives the agent `No such tool available` and is how run 1 failed. Then: `.status == "ok"` and `.token != T("serena")` from the salt in `assets/env_probe.agent/serena_probe.py`; **or** `.status == "unavailable"` and `install_report` carries no non-`ok` entry mentioning serena; **or** `.proof.raw` is not a `find_symbol` response whose hit for `envchk_serena_token` carries `name_path`, `kind`, `relative_path` naming `serena_probe.py`, a `body_location` with integer `start_line`/`end_line`, and a `body` **containing the salt**. That schema was measured against Serena 1.28.1 on this host on 2026-09-03, not remembered — see *What a PASS does not prove* for what it is and is not worth |
 | — | install report | — | same → `install_report` | fewer than **2** entries; or `install_report_source` empty. It must be the `outcomes` **array** out of `$AGENT_SYS_INSTALL_REPORT` (`agent_assets.install.json`), verbatim, `ok` entries included |
 | — | the whole report | — | same → `nonce_digest` | `!= sha256("nonce:" + $ENVCHK_RUN_NONCE)[:12]`. This one condition invalidates every token in the file: the report was produced against a different nonce, so none of it is about this run |
 | — | the README | — | `README.md` | any of `## Purpose`, `## Schema`, `## Method`, `## Limits` missing; fewer than 10 content lines; any `TODO`/`TBD`/`FIXME`/`XXX`/`<…>` placeholder |
@@ -321,7 +321,7 @@ cd /home/yihou/dev/git.16-19/infera.aiopt.real.task_package/agent_sys
 | # | command | proceed when |
 |---|---|---|
 | 1 | `python3 -m cli.main show --package examples/env_checker --var nonce=x --var uv_root=/tmp/yihou/x` | `2 tasks in the graph`, and both `output validation runs 2` |
-| 2 | `python3 -c 'from env_mgr import paths; print(paths.COMPONENTS_ROOT_ENV_VAR, paths.INSTALL_REPORT_ENV_VAR, paths.AGENT_ASSETS_ENV_VAR)'` | three names print. An `AttributeError` means the constants do not exist. **This row is about the names, not about the things the names refer to** — see below |
+| 2 | `python3 -c 'from env_mgr import paths; print(paths.AGENT_PLUGINS_ROOT_ENV_VAR, paths.INSTALL_REPORT_ENV_VAR, paths.AGENT_ASSETS_ENV_VAR)'` | three names print. An `AttributeError` means the constants do not exist. **This row is about the names, not about the things the names refer to** — see below |
 | 3 | `python3 -c 'from env_mgr.recipe import load_recipe; print(len(load_recipe("env_mgr/recipes/serena.yaml")[1]), "items")'` | `3 items`. A `FileNotFoundError` means the L1 recipe is not placed yet and section 7 cannot pass |
 | 4 | `python3 -m cli.main run --package examples/env_checker --demo-root /tmp/yihou/agentsys_envchecker_20260903/dryrun --var nonce=x --var uv_root=/tmp/yihou/x --dry-run` | completes, dispatches nothing, no `REJECTED` |
 | 5 | `claude plugin validate examples/env_checker/assets/env_probe.agent/.claude/plugins` | `Validation passed` |
@@ -339,9 +339,9 @@ same defect as `command -v` in the wrong shell and a probe on the wrong binary,
 in a third costume.
 
 Both exports are in fact **conditional** (`agent_assets.install`):
-`AGENT_SYS_COMPONENTS_ROOT` is set only when the agent declares `components:`,
+`AGENT_SYS_AGENT_PLUGINS_ROOT` is set only when the agent declares `agent_plugins:`,
 and `AGENT_SYS_INSTALL_REPORT` only when `logs_dir` is not `None`. Both
-conditions hold here — this agent declares `components: [envchk-baseline]`, and
+conditions hold here — this agent declares `agent_plugins: [envchk-baseline]`, and
 `material.deploy` always passes `logs_dir=<zone>/logs` — but **that was
 established by reading the code, not by row 2**, and a reader who trusts the row
 has not learned it.
@@ -349,7 +349,7 @@ has not learned it.
 What actually discharges it is the run: `$AGENT_SYS_INSTALL_REPORT` resolving to
 a real file is what the `install_report` acceptance row reads, and the L2 salt
 being re-derivable is what `check_capabilities_genuine` reports by name if
-`AGENT_SYS_COMPONENTS_ROOT` is absent. A stronger pre-flight row would have to
+`AGENT_SYS_AGENT_PLUGINS_ROOT` is absent. A stronger pre-flight row would have to
 call `agent_assets.install` for real, which runs the L1 recipe — too heavy for a
 gate, and it would be testing `env_mgr`'s own code, which has its own tests.
 

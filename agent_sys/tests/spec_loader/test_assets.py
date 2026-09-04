@@ -518,9 +518,7 @@ assets: assets/somewhere_else
         "probe.env_recipe.agent.yaml",
     ],
 )
-def test_every_permutation_of_the_env_recipe_tokens_is_found(
-    tmp_path: Path, filename: str
-) -> None:
+def test_every_permutation_of_the_env_recipe_tokens_is_found(tmp_path: Path, filename: str) -> None:
     """Both spellings the owner named, and the four more the generator implies.
 
     Transcribing the owner's two would be the same mistake the readme rules

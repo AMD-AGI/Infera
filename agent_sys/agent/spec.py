@@ -118,9 +118,10 @@ class AgentSpec(_Model):
     #: the package author restate a layout the harness already fixes.
     assets: str = ""
 
-    #: **L1** — `env_mgr` recipe YAMLs, package-relative, run before the session.
-    #: The route by which an agent asks for industry components (serena, plugins,
-    #: apt/pip tools) that this repository does not ship and should not vendor.
+    #: `env_mgr` recipe YAMLs, package-relative, run before the session. The
+    #: route by which an agent asks for components this repository does not ship
+    #: and should not vendor (serena, marketplace plugins, apt/pip tools) — and,
+    #: with an item carrying ``tags: [internal]``, for one that it does.
     #:
     #: **Also filled by convention** when the agent carries its own recipe:
     #: `assets/env_recipe.<name>.yaml` and every other permutation of those
@@ -128,11 +129,11 @@ class AgentSpec(_Model):
     #: by hand is legal, warns, and wins whole.
     recipes: list[str] = Field(default_factory=list)
 
-    #: **L2** — bare names under `agent_sys/components/`, components this
+    #: Bare names under `agent_sys/agent_plugins/` — the agent plugins this
     #: repository ships. Same on-disk shape as `assets`' `.claude/` tree, which is
     #: why one installer serves both; a name rather than a path because the
     #: directory is ours and a package must not be able to point this anywhere.
-    components: list[str] = Field(default_factory=list)
+    agent_plugins: list[str] = Field(default_factory=list)
 
     @field_validator("backends", mode="before")
     @classmethod

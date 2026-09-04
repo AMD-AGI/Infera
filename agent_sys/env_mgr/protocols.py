@@ -426,7 +426,7 @@ class Prepared(NamedTuple):
     #: **External MCP servers for this attempt**, keyed by the name the model
     #: addresses them under, in the SDK's `mcp_servers` vocabulary.
     #:
-    #: `material.deploy` computes it from the agent's three levels of component:
+    #: `material.deploy` computes it from the agent's three origins of component:
     #: a component's `.mcp.json` entries verbatim, plus one generated entry per
     #: `tools/*.mcp.py` it ships.
     #:

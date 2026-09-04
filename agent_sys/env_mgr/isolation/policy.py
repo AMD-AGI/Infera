@@ -28,7 +28,7 @@ __all__ = [
     "Policy",
     "agent_cli_grants",
     "anchor_zone_root",
-    "component_grants",
+    "agent_plugin_grants",
     "executable_path",
     "interpreter_grants",
 ]
@@ -182,16 +182,16 @@ def agent_cli_grants(agent_cli: str | None) -> tuple[Granted, ...]:
     return (Granted(os.path.dirname(os.path.dirname(resolved)), Mode.READ_EXEC),)
 
 
-def component_grants(agent_spec: Any) -> tuple[Granted, ...]:
-    """`agent_sys/components/`, read-only, **iff this agent declares any.**
+def agent_plugin_grants(agent_spec: Any) -> tuple[Granted, ...]:
+    """`agent_sys/agent_plugins/`, read-only, **iff this agent declares any.**
 
     `agent_cli_grants`' shape and its reason, one row down: *a grant every run
     needs, written once per caller, is a grant one caller forgets.* This one is
-    needed by every run whose agent names an L2 component, and by no other.
+    needed by every run whose agent names an agent plugin, and by no other.
 
     **Conditional, and the condition is the same one that exports the name.**
-    `agent_assets.install` emits ``AGENT_SYS_COMPONENTS_ROOT`` under
-    ``if _sequence(agent_spec, "components")`` and this emits the grant under the
+    `agent_assets.install` emits ``AGENT_SYS_AGENT_PLUGINS_ROOT`` under
+    ``if _sequence(agent_spec, "agent_plugins")`` and this emits the grant under the
     identical test, so `paths.py`'s rule — exported and granted agree by
     construction — cannot be broken by one of the two becoming unconditional. A
     run declaring no component gets neither, which is every package in the tree
@@ -221,18 +221,18 @@ def component_grants(agent_spec: Any) -> tuple[Granted, ...]:
     """
     if agent_spec is None:
         return ()
-    declared = agent_spec.get("components") if isinstance(agent_spec, dict) else None
+    declared = agent_spec.get("agent_plugins") if isinstance(agent_spec, dict) else None
     if declared is None:
-        declared = getattr(agent_spec, "components", None)
+        declared = getattr(agent_spec, "agent_plugins", None)
     if not declared:
         return ()
     # Imported at use time rather than at module scope: `env_mgr.agent_assets`
     # is above this package in the graph and importing it here would be an edge
     # from `isolation/` to a module that reads agent specs. The name is the
     # dependency (`engineer_principle.md` §1's last row).
-    from env_mgr.agent_assets import COMPONENTS_ROOT  # noqa: PLC0415
+    from env_mgr.agent_assets import AGENT_PLUGINS_ROOT  # noqa: PLC0415
 
-    return (Granted(COMPONENTS_ROOT, Mode.READ_EXEC, optional=True),)
+    return (Granted(AGENT_PLUGINS_ROOT, Mode.READ_EXEC, optional=True),)
 
 
 def anchor_zone_root(proposed: str | None, zone: Zone) -> str:

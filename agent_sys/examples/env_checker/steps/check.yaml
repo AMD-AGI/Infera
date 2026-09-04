@@ -89,7 +89,7 @@
   recipes: [serena]
 
   # **L2 — components this repository ships**, resolved under
-  # `agent_sys/components/<name>/`. Two, and they are here for different
+  # `agent_sys/agent_plugins/<name>/`. Two, and they are here for different
   # reasons:
   #
   # - `envchk-baseline` **is** capability 4: one external MCP server, declared
@@ -102,12 +102,12 @@
   #   invocation existed only in a comment in `env_mgr/recipes/serena.yaml`, and
   #   a comment is not a declaration.
   #
-  # **`recipes: [serena]` and `components: [serena]` are both required and that
+  # **`recipes: [serena]` and `agent_plugins: [serena]` are both required and that
   # is not redundant.** Install and declaration are two halves; neither implies
   # the other, and run 1 is what proved it. Capability 7 is therefore
   # **installed at L1 and declared at L2** — a genuine split, written down in
   # `ACCEPTANCE.md` row 7 rather than smoothed over.
-  components: [envchk-baseline, serena]
+  agent_plugins: [envchk-baseline, serena]
 
   # **`skills:` is absent, and its absence is the test.** The one capability
   # `agent_sys` already delivered was `skills`, by declaration

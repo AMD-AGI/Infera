@@ -10,7 +10,7 @@ main                        non-leaf: readme, no entry.sh, NO agent
 │
 └── probe_env               is_end · ai: env_probe
                             L1 recipes:    [serena]
-                            L2 components: [envchk-baseline]
+                            L2 agent_plugins: [envchk-baseline]
                             L3 auto:       assets/env_probe.agent/.claude/
                             out: env_report                [structured_text]
                               check_env_report_shape     program · seconds · strong
@@ -24,7 +24,7 @@ Seven capabilities, three levels, one run:
 | 1 | skill | L3 | `.claude/skills/envchk-probe/` — auto-detected, **not** declared |
 | 2 | hook | L3 | `.claude/settings.json` → `hooks/envchk_session_start.py`, fired at `SessionStart` |
 | 3 | plugin | L3 | `.claude/plugins/` — a local marketplace, installed with `claude plugin install` |
-| 4 | external MCP server | **L2** | `agent_sys/components/envchk-baseline/.claude/.mcp.json` |
+| 4 | external MCP server | **L2** | `agent_sys/agent_plugins/envchk-baseline/.claude/.mcp.json` |
 | 5 | bundled stdio MCP server | L3 | `.claude/tools/envchk_stdio.mcp.py` — the file's location is the declaration |
 | 6 | in-process `ToolDef` | L3 | `.claude/tools/envchk_inproc.tooldef.py` → `mcp__env_mgr__envchk_echo_token` |
 | 7 | serena | **L1** | `recipes: [serena]` — the real thing, over the network |

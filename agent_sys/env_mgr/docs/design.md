@@ -92,7 +92,7 @@ env_mgr/
 ├── grants.py               resolving a Grant into locations. §6
 ├── workspace.py            the clone with alternates. §7
 ├── material.py             deploying an agent's rules/hooks/skills. §11.5
-├── agent_assets.py         per-agent components, L1/L2/L3. §11.5a
+├── agent_assets.py         per-agent components, three origins. §11.5a
 ├── sync.py                 the one-shot job. §9
 ├── remote/
 │   ├── connection.py       ssh and docker exec behind one Protocol. §10.2
@@ -1264,27 +1264,33 @@ Claude Code's canonical form (`agent` spec §4.5); converting between harness
 formats is an independent module that does not exist (`agent` design §3.5). A file
 is placed, not read.
 
-### 11.5a Per-agent components — the three levels, and why they are not a fourth loop
+### 11.5a Per-agent components — the three origins, and why they are not a fourth loop
 
-Three more agent-spec keys arrived — `assets`, `recipes`, `components` — and they
+Three more agent-spec keys arrived — `assets`, `recipes`, `agent_plugins` — and they
 did **not** fit §11.5's sentence. `rules` / `hooks` / `skills` are lists of
 *files*, and a Claude Code component is a *tree*: a skill is a directory, a plugin
 marketplace is a directory of directories, an MCP server is a process to register.
 So `agent_assets.py` exists and `material.py` calls it.
 
-| level | what | declared how | resolved against |
+| owner | what | declared how | resolved against |
 |---|---|---|---|
-| L1 | industry components — serena, a marketplace plugin, an apt/pip tool | `recipes: [...]` | the staged package, then `env_mgr/recipes/<name>.yaml` |
-| L2 | components this repository ships | `components: [...]` | `agent_sys/components/<name>/` |
-| L3 | components one task package carries for one agent | **undeclared** | `<staged package>/<assets>/.claude/` |
+| upstream | serena, a marketplace plugin, an apt/pip tool | `recipes: [...]` | the staged package, then `env_mgr/recipes/<name>.yaml` |
+| this repository | the agent plugins `agent_sys` ships | `agent_plugins: [...]`, or a recipe item carrying `tags: [internal]` | `agent_sys/agent_plugins/<name>/` |
+| one task package | what it carries for one agent | **undeclared** | `<staged package>/<assets>/.claude/` |
 
-**L2 and L3 have one on-disk shape and one installer.** Promoting a component
-from a package to the shipped registry is moving a directory; there is no second
-format and nothing to convert. **L3 is undeclared** because a declaration would
-be a second statement of what the directory already says, and two statements of
-one fact drift (§1's rule, one layer out).
+Three **origins**, not three levels: the numbers named nothing the table does
+not, and each document that repeated them repeated them slightly differently.
+`tags` needed no schema change — the field, its exclusion from `Item.spec`, the
+`--tag` flag and the tag-intersection filter in `runner.py` all already exist.
 
-**Order is L1 → L2 → L3**, so the package's own copy wins a name collision —
+**The last two have one on-disk shape and one installer.** Promoting a component
+from a package to the shipped directory is moving a directory; there is no second
+format and nothing to convert. **A package's own material is undeclared** because
+a declaration would be a second statement of what the directory already says, and
+two statements of one fact drift (§1's rule, one layer out).
+
+**Order is upstream → this repository → the package**, so the package's own copy
+wins a name collision —
 `material.deploy`'s existing precedence, *an author saying so outranks a default*.
 
 **One measurement cuts across that order.** 2026-09-03: `claude plugin
@@ -1292,7 +1298,7 @@ marketplace add` and `claude plugin install` respect `CLAUDE_CONFIG_DIR` fully,
 and they **merge** into an existing `settings.json` rather than clobbering it — a
 hand-written `hooks` key survived a subsequent install, which only added
 `enabledPlugins` / `extraKnownMarketplaces`. Merging is not commutative with
-creating, so the settings document is assembled from every level and **written
+creating, so the settings document is assembled from every origin and **written
 before any install runs**. `agent_assets` writes it rather than returning it,
 because a caller cannot pick that moment without knowing which levels resolved.
 
@@ -1304,7 +1310,7 @@ servers and in-process tools, and neither fits a `Mapping[str, str]`. So
 `env_mgr` tool server already had: a name already present is a named
 `BackendUnsupported`, never a silent replacement.
 
-**L1 runs the shipped machinery as a SUBPROCESS, and the §14.4 wall is untouched.**
+**A recipe runs the shipped machinery as a SUBPROCESS, and the §14.4 wall is untouched.**
 
     <sys.executable> -m env_mgr bootstrap <recipe> --json --path <workspace>
 
@@ -1324,7 +1330,7 @@ import:
    construction, so two concurrent prepares would take that value from each
    other. The subprocess removes the window with no change to §12.1's package.
 4. **A child can be bounded and an in-process call cannot.** `run_cmd` has no
-   timeout, so a networked L1 install that goes wrong hangs `prepare` for ever,
+   timeout, so a networked recipe install that goes wrong hangs `prepare` for ever,
    and `agent-sys --timeout` is a ceiling on the whole run rather than a cure
    for one stuck child. `agent_assets.RECIPE_TIMEOUT_SECONDS` bounds the
    `python -m env_mgr` process — the thing `run_cmd` cannot bound from inside —
@@ -1375,8 +1381,9 @@ is placed the day it appears.
 
 The same ruling fixes a latent one: a bundled `tools/*.mcp.py` is now registered
 at its **placed** path. It used to be registered at its source, which worked for
-L3 only because the staged package is inside the zone — the identical L2
-component would have named a path under `COMPONENTS_ROOT`, outside every grant.
+a package's own material only because the staged package is inside the zone — the
+identical agent plugin would have named a path under `AGENT_PLUGINS_ROOT`,
+outside every grant.
 
 **A marketplace name is validated before anything is copied.** `manifest["name"]`
 is author-controlled and was joined straight into a path with the check running
@@ -1396,9 +1403,9 @@ symptom is *a server with no tools*: no error, no cause.
 
 **Two more exported names, and one of them needed a grant.**
 `AGENT_SYS_INSTALL_REPORT` points at `<zone>/logs/agent_assets.install.json` and
-is inside the zone, so it needs none. `AGENT_SYS_COMPONENTS_ROOT` is **outside**
-it, so `isolation/policy.py::component_grants` composes a `READ_EXEC` grant on
-the same condition that emits the name — a spec declaring `components:`. Read,
+is inside the zone, so it needs none. `AGENT_SYS_AGENT_PLUGINS_ROOT` is **outside**
+it, so `isolation/policy.py::agent_plugin_grants` composes a `READ_EXEC` grant on
+the same condition that emits the name — a spec declaring `agent_plugins:`. Read,
 not execute-from: a component is copied into the zone before anything runs it,
 and if that ever stops being true the answer is another copy, not a wider grant.
 

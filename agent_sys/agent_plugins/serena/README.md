@@ -1,4 +1,4 @@
-# `serena` — the declaration half of serena, as an L2 component
+# `serena` — the declaration half of serena, as an agent plugin
 
 ## What an agent gets
 
@@ -10,7 +10,7 @@ on this host: **21 tools**, `Serena 1.28.1`.
 ## What it does not do — and this is the whole point of the component
 
 **It does not install serena.** There is no `recipe.yaml` beside `.claude/`, and
-its absence is deliberate rather than an omission. The install is L1, through an
+its absence is deliberate rather than an omission. The install is a recipe's, through an
 agent spec's `recipes: [serena]` → `env_mgr/recipes/serena.yaml` → `uv tool
 install`. This component is the **declaration**, and it is useless without the
 install.
@@ -18,8 +18,8 @@ install.
 So an agent that wants serena declares **both**:
 
 ```yaml
-  recipes: [serena]        # L1 — installs the binary
-  components: [serena]     # L2 — registers it as an MCP server
+  recipes: [serena]         # installs the binary
+  agent_plugins: [serena]   # registers it as an MCP server
 ```
 
 That looks redundant and is not. It is the shape of the bug this component was
@@ -79,7 +79,7 @@ wearing the same four characters.
 
 **A caller must supply `UV_TOOL_DIR` / `UV_TOOL_BIN_DIR` / `UV_CACHE_DIR`.**
 Unset, `uv tool install` writes `~/.local/share/uv` and `~/.local/bin` — host
-state outside every zone — **and succeeds while doing it**. The L1 recipe's
+state outside every zone — **and succeeds while doing it**. The recipe's
 first item refuses rather than letting that happen, so an agent that declares
 `recipes: [serena]` without those three gets a named non-`ok` outcome in the
 install report instead of a silent modification of somebody's home directory.

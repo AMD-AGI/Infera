@@ -1,4 +1,4 @@
-# `envchk-baseline` — one external MCP server, as an L2 component
+# `envchk-baseline` — one external MCP server, as an agent plugin
 
 ## What an agent gets
 

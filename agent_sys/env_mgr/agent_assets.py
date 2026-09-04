@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
-"""Per-agent components, at three levels, into one Claude Code configuration.
+"""Per-agent components, from three origins, into one Claude Code configuration.
 
 `material.py` deploys what `agent` spec §3.1 declares as three lists of *file
 paths* — ``rules``, ``hooks``, ``skills``. That shape stops at the first real
@@ -19,25 +19,31 @@ probes B, C and F were first taken against the SDK's *bundled* 2.1.251, because
 B'/C'/F' once that was noticed. A probe's own provenance is a fact to open, not
 to assume.
 
-## The three levels
+## The three origins
 
-| level | what | declared how |
+**Not levels.** They were numbered L1/L2/L3 and the numbers were a vocabulary
+three documents each restated slightly differently, while carrying no ordering
+a reader could not get from the table itself. What actually differs is **who owns
+the directory**:
+
+| owner | what | declared how |
 |---|---|---|
-| L1 | industry components: serena, a marketplace plugin, an apt/pip tool | ``recipes: [...]`` -> an `env_mgr` recipe YAML |
-| L2 | components this repository ships | ``components: [...]`` -> `agent_sys/components/<name>/` |
-| L3 | components one task package carries for one agent | **undeclared** — `<agent assets>/.claude/` |
+| upstream | serena, a marketplace plugin, an apt/pip tool | ``recipes: [...]`` -> an `env_mgr` recipe YAML |
+| this repository | what `agent_sys` ships | ``agent_plugins: [...]`` -> `agent_sys/agent_plugins/<name>/`; an *install* rather than a tree is a recipe carrying ``tags: [internal]`` |
+| one task package | what it carries for one agent | **undeclared** — `<agent assets>/.claude/` |
 
-**L2 and L3 have the same on-disk shape**, so one installer serves both and
-promoting a component is moving a directory. **L3 is undeclared** because the
-declaration would be a second statement of what the directory already says, and
-the two would drift; `components/README.md` states the same contract from the
-author's side.
+**The last two have the same on-disk shape**, so one installer serves both and
+promoting is moving a directory. **A package's own material is undeclared**
+because the declaration would be a second statement of what the directory
+already says, and the two would drift; `agent_plugins/README.md` states the same
+contract from the author's side.
 
 ## Order, and what it buys
 
-L1, then L2, then L3 — so that when two levels bind the same name, **the
-package's own copy wins**. That is `material.deploy`'s existing precedence
-carried to a second kind of material: *an author saying so outranks a default*.
+Upstream, then this repository, then the package — so that when two origins bind
+the same name, **the package's own copy wins**. That is `material.deploy`'s
+existing precedence carried to a second kind of material: *an author saying so
+outranks a default*.
 
 One ordering constraint cuts across it and is **measured**, 2026-09-03:
 ``claude plugin marketplace add`` and ``claude plugin install`` *merge* into an
@@ -51,7 +57,7 @@ moment without knowing which levels resolved, and that is this module's
 knowledge (`engineer_principle.md` §1 — one writer, and it is the one that owns
 the ordering).
 
-## L1 runs the shipped machinery as a SUBPROCESS, and that is a contract
+## A recipe runs the shipped machinery as a SUBPROCESS, and that is a contract
 
     <sys.executable> -m env_mgr <stage> <recipe> --json
 
@@ -78,7 +84,7 @@ it is a subprocess, and the last two would not be recovered by an import:
    shipped machinery.
 
 4. **A child can be bounded and an in-process call cannot.** `run_cmd` has no
-   timeout, so a networked L1 install that goes wrong hangs `prepare` for ever —
+   timeout, so a networked recipe install that goes wrong hangs `prepare` for ever —
    and `agent-sys --timeout` is a ceiling on the whole run, not a cure for a
    stuck child. `subprocess.run(timeout=)` here bounds the
    ``python -m env_mgr`` process, which is precisely what `run_cmd` cannot bound
@@ -112,7 +118,7 @@ already returns an environment for that reason and this follows it.
 measured failure: a skipped copy is invisible at every point where anyone could
 act on it, and the agent meets the absence hours later as ``Unknown skill`` from
 inside its own session with nothing naming the cause. Undeclared and absent is
-simply absent — that is L3's normal shape.
+simply absent — that is the normal shape for a package's own material.
 
 **A failed install is a named `InstallOutcome`, never a silent skip.** Every
 subprocess's return code and output lands in `AgentMaterial.report`.
@@ -224,7 +230,7 @@ _PACKAGE_ROOT = str(pathlib.Path(__file__).resolve().parents[1])
 
 __all__ = [
     "CLAUDE_DIRNAME",
-    "COMPONENTS_ROOT",
+    "AGENT_PLUGINS_ROOT",
     "MARKETPLACE_MANIFEST",
     "SETTINGS_FILENAME",
     "RECIPE_TIMEOUT_SECONDS",
@@ -239,10 +245,10 @@ __all__ = [
 CLAUDE_DIRNAME = ".claude"
 
 #: The components this repository ships. **A repository path, not a
-#: configurable root**: ``components: [<name>]`` takes a bare name precisely so
-#: that a task package cannot point L2 anywhere, and a knob here would give back
+#: configurable root**: ``agent_plugins: [<name>]`` takes a bare name precisely so
+#: that a task package cannot point this anywhere, and a knob here would give back
 #: what the name shape removed.
-COMPONENTS_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)), "components")
+AGENT_PLUGINS_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)), "agent_plugins")
 
 #: Written into the zone's config directory. Nothing else writes this file.
 SETTINGS_FILENAME = "settings.json"
@@ -336,11 +342,11 @@ _RECIPE_STAGE = "bootstrap"
 #: ``${NAME}`` only. See `_expand` for why the bare ``$NAME`` form is excluded.
 _VAR_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
-#: How long one L1 recipe child may run, in seconds. **A default, and `install`
+#: How long one recipe child may run, in seconds. **A default, and `install`
 #: takes it as a parameter** — a site with a slow mirror is a fact about that
 #: site, not about this code.
 #:
-#: **This bound exists only because L1 is a child process**, and it is the third
+#: **This bound exists only because a recipe runs as a child process**, and it is the third
 #: independent argument for that route. `installers/base.py::run_cmd` is
 #: ``subprocess.run(shell=True)`` with **no timeout**, so a networked install
 #: that goes wrong hangs `prepare` for ever; `agent-sys --timeout` is a ceiling
@@ -370,7 +376,7 @@ class InstallOutcome(NamedTuple):
     `env_mgr.outcome.Outcome` and it is **deliberately not that class, and must
     not later be "unified" with it.** `outcome` is below the decoupling wall
     (spec §9); this module is above it and imports nothing from there, which is
-    the whole reason L1 is a subprocess rather than a call. The data arrives as
+    the whole reason a recipe is a subprocess rather than a call. The data arrives as
     JSON across a process boundary — ``{level, message, details}``, exactly what
     `render_json` emits — so importing the machinery's class to rebuild it would
     reintroduce the edge purely for nominal identity. A three-field record on
@@ -434,7 +440,7 @@ def install(
     recipe_timeout: float | None = None,
     agent_cli: str | None = None,
 ) -> AgentMaterial:
-    """Install this agent's L1, L2 and L3 components into `config_dir`.
+    """Install everything this agent asks for, from all three origins, into `config_dir`.
 
     `staged_package` is the **copy in the zone** (`interfaces.md` §4.16), never
     `Context.package`. Both are the same package and only one of them is inside
@@ -483,7 +489,7 @@ def install(
     recipe_cwd = workspace if workspace and os.path.isdir(workspace) else config_dir
     timeout = RECIPE_TIMEOUT_SECONDS if recipe_timeout is None else recipe_timeout
 
-    trees = _component_trees(agent_spec, staged_package=staged_package)
+    trees = _agent_plugin_trees(agent_spec, staged_package=staged_package)
 
     # **Before any install**, for the measured merge-not-clobber reason in the
     # module docstring. Later levels win, which is `trees`' order.
@@ -527,14 +533,14 @@ def install(
     assets = _assets_dir(agent_spec, staged_package=staged_package)
     if assets is not None:
         env[paths.AGENT_ASSETS_ENV_VAR] = assets
-    if _sequence(agent_spec, "components"):
+    if _sequence(agent_spec, "agent_plugins"):
         # **Only when declared, because only then is it granted.** `prepare`
         # composes a read grant on this directory from the same condition
-        # (`isolation/policy.py::component_grants`), and `paths.py`'s rule for
+        # (`isolation/policy.py::agent_plugin_grants`), and `paths.py`'s rule for
         # this whole family is that exported and granted agree by construction —
         # an exported path we did not grant is the body failing on our own
         # instruction.
-        env[paths.COMPONENTS_ROOT_ENV_VAR] = COMPONENTS_ROOT
+        env[paths.AGENT_PLUGINS_ROOT_ENV_VAR] = AGENT_PLUGINS_ROOT
     if logs_dir is not None:
         env[paths.INSTALL_REPORT_ENV_VAR] = _write_report(logs_dir, report)
 
@@ -593,35 +599,37 @@ def _assets_dir(agent_spec: Any, *, staged_package: str | None) -> str | None:
     return path
 
 
-def _component_trees(agent_spec: Any, *, staged_package: str | None) -> list[tuple[str, str]]:
-    """Every ``.claude/`` tree to install, as ``(origin, path)``, L2 then L3.
+def _agent_plugin_trees(agent_spec: Any, *, staged_package: str | None) -> list[tuple[str, str]]:
+    """Every ``.claude/`` tree to install, as ``(origin, path)``: this
+    repository's, then the package's own.
 
     `origin` is what a message names — ``component 'envchk-baseline'`` or
     ``the package's own assets`` — because by the time a `.claude/` tree fails
     to install, its path is a copy inside a zone and says nothing about who
     wrote it.
 
-    An L2 component with no ``.claude/`` is an **error**: `components/README.md`
+    A declared agent plugin with no ``.claude/`` is an **error**: `agent_plugins/README.md`
     marks that directory REQUIRED, and a component that installs nothing is
-    indistinguishable from one whose contents were forgotten. An L3 directory
-    with no ``.claude/`` is not — L3 is undeclared, so its absence is the normal
+    indistinguishable from one whose contents were forgotten. A package's own
+    assets directory with no ``.claude/`` is not — it is undeclared, so its
+    absence is the normal
     shape of an agent that carries no components.
     """
     trees: list[tuple[str, str]] = []
 
-    for name in _sequence(agent_spec, "components"):
-        root = os.path.join(COMPONENTS_ROOT, name)
+    for name in _sequence(agent_spec, "agent_plugins"):
+        root = os.path.join(AGENT_PLUGINS_ROOT, name)
         if not os.path.isdir(root):
             raise PrepareRefused(
                 f"agent {_name(agent_spec)!r} declares component {name!r} and "
-                f"{root!r} does not exist. `components:` takes a bare name under "
-                f"agent_sys/components/, never a path"
+                f"{root!r} does not exist. `agent_plugins:` takes a bare name under "
+                f"agent_sys/agent_plugins/, never a path"
             )
         tree = os.path.join(root, CLAUDE_DIRNAME)
         if not os.path.isdir(tree):
             raise PrepareRefused(
                 f"component {name!r} has no {CLAUDE_DIRNAME}/ directory. That is "
-                f"what a component *is* (agent_sys/components/README.md), and "
+                f"what a component *is* (agent_sys/agent_plugins/README.md), and "
                 f"installing it would be a no-op nothing reports"
             )
         trees.append((f"component {name!r}", tree))
@@ -635,7 +643,7 @@ def _component_trees(agent_spec: Any, *, staged_package: str | None) -> list[tup
 
 
 def _recipe_paths(agent_spec: Any, *, staged_package: str | None) -> list[str]:
-    """L1 recipe YAMLs, resolved, in declaration order.
+    """Recipe YAMLs, resolved, in declaration order.
 
     Two spellings, tried in that order and both admitted because they answer
     different questions. A **package-relative path** is *this package's own
@@ -645,10 +653,10 @@ def _recipe_paths(agent_spec: Any, *, staged_package: str | None) -> list[str]:
     first for the name form never to be reached — and if it does resolve, the
     author wrote a file at that path and meant it.
 
-    An L2 component's own ``recipe.yaml`` is **not** here: it is found beside
+    An agent plugin's own ``recipe.yaml`` is **not** here: it is found beside
     the component's `.claude/` and run in `_install_tree`'s place in the order,
     so that a component's prerequisites install with the component rather than
-    with the agent's unrelated L1 list.
+    with the agent's unrelated ``recipes:`` list.
     """
     out: list[str] = []
     shipped = os.path.join(os.path.dirname(__file__), "recipes")
@@ -757,9 +765,9 @@ def _place_tree(tree: str, *, origin: str, config_dir: str) -> list[InstallOutco
     the zone is what the confined session can read, and a link out of it
     resolves to a path the kernel refuses. That is also the ruling for
     `servers/` specifically — *copy into the zone, do not reference out of it* —
-    chosen over having components name ``${AGENT_SYS_COMPONENTS_ROOT}/...``
+    chosen over having components name ``${AGENT_SYS_AGENT_PLUGINS_ROOT}/...``
     because it makes the three docstrings that already assert a copy true, the
-    copy dies with the zone, and it gives **one rule for both levels**: L3's
+    copy dies with the zone, and it gives **one rule for both origins**: a package's
     `tools/*.mcp.py` used to be registered at its *source* path and worked only
     because that happened to lie inside the staged package.
 
@@ -801,7 +809,7 @@ def _place_tree(tree: str, *, origin: str, config_dir: str) -> list[InstallOutco
         # That is the same event `_mcp_servers` already warns about for a server
         # name, and it was unreported here for a *file*, which is how one
         # component's artefact can be absent from the zone while its report says
-        # `ok`. Precedence is unchanged — later wins, which is L1→L2→L3's rule —
+        # `ok`. Precedence is unchanged — later wins, which is the origin order's rule —
         # and only the silence is.
         existing = _existing_files(target)
         collisions = sorted(existing & _relative_files(os.path.join(tree, name)))
@@ -867,7 +875,7 @@ def _install_plugins(
     not the config directory — ``settings.json`` records
     ``extraKnownMarketplaces: {<mp>: {source: {path: <dir>}}}`` and the plugin is
     read from that path **at run time**. Nothing is copied by the install. So
-    registering `agent_sys/components/<name>/.claude/plugins` directly would
+    registering `agent_sys/agent_plugins/<name>/.claude/plugins` directly would
     install cleanly, report success, and then fail to load under confinement,
     because that path is outside every grant — a plausible value consumed as if
     it were right (`interfaces.md` §4.11). Copying first makes the registered
@@ -1101,9 +1109,9 @@ def _mcp_servers(
     exactly what probe E measured working.
 
     **A bundled server is registered at its PLACED path, never its source.**
-    This read `os.path.join(tree, ...)` and worked only by luck: for L3 the tree
-    is inside the staged package, which is inside the zone. An L2 component
-    shipping the same file registers a path under `COMPONENTS_ROOT` — outside
+    This read `os.path.join(tree, ...)` and worked only by luck: a package's tree
+    is inside the staged package, which is inside the zone. An agent plugin
+    shipping the same file registers a path under `AGENT_PLUGINS_ROOT` — outside
     every grant — and that is probe F's failure one directory over: it installs
     cleanly, reports `ok`, and serves nothing. `_place_tree` has already copied
     `tools/` into the config directory, so the placed path both exists and is
@@ -1217,9 +1225,9 @@ def _tooldefs(tree: str, *, origin: str, config_dir: str) -> tuple[list[Any], li
 
     **Enumerated from the source tree and imported from the PLACED copy**, which
     is `_mcp_servers`' shape for the same reason one line over: the run owns the
-    copy in the zone and does not own the directory it came from. For L3 the two
-    were the same file, so this looked settled; for an **L2** component the
-    source is `agent_sys/components/<name>/.claude/tools/…`, so the supervisor
+    copy in the zone and does not own the directory it came from. For a package's own material the two
+    were the same file, so this looked settled; for an **agent plugin** the
+    source is `agent_sys/agent_plugins/<name>/.claude/tools/…`, so the supervisor
     was importing **the repository** rather than the copy this attempt was
     pinned to. That is the bare-`claude` defect's class — two consumers, one of
     them reading a path the run does not own — and the module docstring's

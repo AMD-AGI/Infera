@@ -57,7 +57,7 @@ from env_mgr.isolation.policy import (
     Mode,
     Policy,
     agent_cli_grants,
-    component_grants,
+    agent_plugin_grants,
     executable_path,
 )
 from env_mgr.isolation.probe import Availability, probe, select
@@ -427,11 +427,11 @@ def prepare(
         *ctx.interpreter_grants,  # 3
         *agent_cli_grants(ctx.agent_cli),
         # **Conditional, and paired with an export.** `agent_assets` emits
-        # `AGENT_SYS_COMPONENTS_ROOT` under the same test, so `paths.py`'s rule —
+        # `AGENT_SYS_AGENT_PLUGINS_ROOT` under the same test, so `paths.py`'s rule —
         # exported and granted agree by construction — holds without either side
         # checking the other. Read-only: a component is read from here and copied
         # into the zone before anything runs it.
-        *component_grants(agent_spec),
+        *agent_plugin_grants(agent_spec),
     )
 
     # 4. **No `repos` is passed, and that is a gap rather than a decision.**

@@ -171,7 +171,8 @@ class AssetIndex:
         nested one would make `assets/a.agent/b.agent/` two answers for two
         different agents in a tree neither of them owns.
 
-        `None` when nothing matches, which is not an error: L3 material is
+        `None` when nothing matches, which is not an error: a package's own
+        component material is
         **undeclared and auto-detected** (`env_mgr/agent_assets.py`), so an
         agent that carries nothing has no directory and that is its normal
         shape. Raises `SpecInconsistent` when two spellings both exist —
@@ -291,7 +292,8 @@ def fill_body(
 
     **Half of that gap is now closed, and by the report rather than around it.**
     `agent.assets` exists because per-agent component install needed a directory
-    to detect L3 material in, and the report above is what said where it goes.
+    to detect a package's own component material in, and the report above is
+    what said where it goes.
     It is filled by `fill_agent_assets`, not here: this function's unit is a
     `body` mapping with two path roles in it, and an agent has neither.
 
@@ -356,7 +358,7 @@ def fill_agent_assets(
     `additionalProperties: false` then rejects — an error attributed to the
     author for something the loader did.
 
-    The value is what `env_mgr` resolves L3 material against: the directory is
+    The value is what `env_mgr` resolves that material against: the directory is
     copied into the zone with the rest of the package, and `<assets>/.claude/`
     is auto-detected there. Nothing is read here and nothing is checked to
     exist beyond the directory itself — this module fills paths and does not

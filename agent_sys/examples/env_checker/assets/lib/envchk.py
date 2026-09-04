@@ -90,14 +90,14 @@ class Capability(NamedTuple):
     #:
     #: **Installed, not declared, and for `serena` the two differ.** Its binary
     #: comes from L1 (`recipes: [serena]`) and its MCP registration from L2
-    #: (`components: [serena]`), so this field reads `L1` and `ACCEPTANCE.md`
+    #: (`agent_plugins: [serena]`), so this field reads `L1` and `ACCEPTANCE.md`
     #: row 7 carries the other half. Run 1 shipped with the install and no
     #: declaration and every `mcp__serena__*` call failed, which is why the
     #: distinction is spelled out here instead of left to the word "delivered".
     level: str
     #: `package` — relative to `$AGENT_SYS_TASK_PACKAGE`; or
     #: `component:<name>` — relative to that component's directory in the
-    #: repository's `agent_sys/components/` registry.
+    #: repository's `agent_sys/agent_plugins/` registry.
     origin: str
     #: Where the salt lives, relative to that root.
     artefact: str

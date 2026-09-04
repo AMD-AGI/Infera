@@ -125,7 +125,7 @@ Two things go in this section:
 
 ## 4. external MCP server — L2
 
-`envchk_baseline`, from the component `agent_sys/components/envchk-baseline`,
+`envchk_baseline`, from the component `agent_sys/agent_plugins/envchk-baseline`,
 declared in that component's `.claude/.mcp.json`. **This is the only one of the
 seven that comes from L2**, so if this section fails, L2 failed.
 
@@ -171,7 +171,7 @@ others, that is expected and is not a fault to work around.
 The real serena. **Two halves**, and knowing which is which is what makes an
 honest report possible here: the binary is installed by an `env_mgr` recipe
 (L1, `recipes: [serena]`), and it is registered as an MCP server by a component
-(L2, `components: [serena]`). Its tools are `mcp__serena__*`.
+(L2, `agent_plugins: [serena]`). Its tools are `mcp__serena__*`.
 
 If those tools are absent from your tool list, say so plainly — and check
 `$UV_TOOL_BIN_DIR` so you can report **which half is missing**: a binary that

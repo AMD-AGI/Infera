@@ -105,8 +105,8 @@ spec** — the two are declared together in a closure.
 | `knowledge` | §3.4 |
 | `rules` / `hooks` / `skills` | Configuration, stored in canonical form. §4.5 |
 | `assets` | **Filled by `spec_loader`, not written.** This agent's own directory under the package's `assets/`, found by the same three folder spellings a body lookup uses — `X`, `X.agent`, `agent.X`. Two matching directories is `SpecInconsistent`; an explicit binding is legal and warns. §4.5a |
-| `recipes` | **L1** — `env_mgr` recipe YAMLs for industry components this repository does not ship. §4.5a |
-| `components` | **L2** — bare names under `agent_sys/components/`. §4.5a |
+| `recipes` | `env_mgr` recipe YAMLs, for components this repository does not ship — and, with `tags: [internal]`, for ones it does. §4.5a |
+| `agent_plugins` | Bare names under `agent_sys/agent_plugins/` — the agent plugins this repository ships. §4.5a |
 
 Nine keys became twelve, and the three additions are one thing: **an agent may
 now carry components, not only files.** §4.5a is why that needed new keys instead
@@ -404,32 +404,36 @@ a skill is a directory, a plugin marketplace is a directory of directories, and
 an MCP server is a process to register rather than a file to place. Naming every
 file would make a package author restate a layout the harness already fixes.
 
-| level | what | declared how |
-|---|---|---|
-| L1 | industry components — serena, a marketplace plugin, an apt/pip tool | `recipes: [...]` |
-| L2 | components this repository ships | `components: [...]` |
-| L3 | components one task package carries for one agent | **undeclared** — `<assets>/.claude/` |
+Three **origins**, not three levels: what differs between them is who owns the
+directory, and the numbering was a vocabulary each document restated slightly
+differently while carrying no ordering the table does not already give.
 
-**L2 and L3 have one on-disk shape**, in Claude Code's canonical layout:
+| owner | what | declared how |
+|---|---|---|
+| upstream | serena, a marketplace plugin, an apt/pip tool | `recipes: [...]` |
+| this repository | the agent plugins `agent_sys` ships | `agent_plugins: [...]`, or a recipe item carrying `tags: [internal]` |
+| one task package | what it carries for one agent | **undeclared** — `<assets>/.claude/` |
+
+**The last two have one on-disk shape**, in Claude Code's canonical layout:
 `settings.json`, `skills/<name>/`, `plugins/` (a local marketplace),
 `.mcp.json`, and `tools/*.mcp.py` / `tools/*.tooldef.py`. One shape means one
 installer and means promoting a component is moving a directory.
 
-**L3 is undeclared on purpose.** A declaration would be a second statement of
-what the directory already says, and the two would drift the first time somebody
-moved it without editing the YAML.
+**A package's own material is undeclared on purpose.** A declaration would be a
+second statement of what the directory already says, and the two would drift the
+first time somebody moved it without editing the YAML.
 
 `env_mgr/agent_assets.py` installs all three; `env_mgr/docs/design.md` §11.5a is
 the mechanism, including the measured ordering constraint that decides when
-`settings.json` is written, the marketplace copy probe F forced, and why L1 runs
-the recipe machinery as a subprocess. What reaches this package is
+`settings.json` is written, the marketplace copy probe F forced, and why a
+recipe runs the shipped machinery as a subprocess. What reaches this package is
 `Assignment.mcp_servers` and `Assignment.tools`.
 
 **A component names a binary through `${VAR}`, never through `PATH`.** An
 `.mcp.json` entry is expanded against the zone environment before it becomes an
 `mcp_servers` entry, and an unresolved name is an error. That is not a
 convenience: `PATH` is derived from the granted policy at prepare step 2, and a
-directory an L1 recipe installs into does not exist until step 6b — so
+directory a recipe installs into does not exist until step 6b — so
 `"${UV_TOOL_BIN_DIR}/serena"` is the only spelling that works, and it is the one
 measured working.
 
