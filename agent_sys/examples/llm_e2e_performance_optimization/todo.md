@@ -1319,6 +1319,21 @@ number matches what you wrote. m4 caught this because their commit reported
 `65 insertions, 0 deletions` and a rewrite that replaces a section cannot have
 zero deletions.
 
+**The check is *compare to what you did*, not *look at the stat*, and the
+difference is not pedantry.** m4's limit, and it is the one that keeps this from
+hardening into a bad rule: an **impossible** number only turns up in
+replacement-shaped work. Their rewrite could not have had zero deletions, so the
+stat refuted itself. **Sweep an additive edit and the number is merely bigger** —
+`+43` where you expected `+30` — and *plausible-but-larger* is not impossible.
+**Nobody rejects a number that is only larger than they remembered**, which is
+precisely the failure this entry records: `100 / 44` did not look absurd to me,
+it looked like a commit.
+
+So the rule needs the second operand. Stated as *"check the stat"* it invites
+the substitution I actually made — `git status --short`, which answers a
+different question — and **a check that reports presence where you needed
+magnitude is not the check you thought you ran.**
+
 **And I had the baseline and did not compare it**, which is the part worth the
 entry. My own stat after the first edit was **43 insertions, 2 deletions**; at
 commit time it was **100 / 44**. I ran `git status --short` in between — which
