@@ -25,9 +25,45 @@
 # package outside this repository cannot register an entry point in the
 # `agent_sys.backends` group without being installed, and this package is data.
 #
-# **No `env` block here.** `shared.yaml` is this package's only variable
-# declaration site by design, and every `E2E_*` name this task reads is declared
-# there. A second `env` block would be a second place for a default to go stale.
+# **This agent declares its own `env` block, and the sentence that used to stand
+# here said the opposite.** It read: *"No `env` block here. `shared.yaml` is this
+# package's only variable declaration site by design, and every `E2E_*` name this
+# task reads is declared there."* Declared there — **on a different agent**, and
+# that is the whole of the bug.
+#
+# Measured 2026-09-04, from rung 1's own transcript. The agent's first command
+# was `env | grep -E '^(E2E_|AGENT_SYS_)'`, and it returned **seven
+# `AGENT_SYS_*` names and zero `E2E_*`**. `env_mgr/material.py:96` is
+# `env.update(_declared_env(agent_spec))`, and `_declared_env` reads
+# `agent_spec.env` — of **the agent that is running**. `shared.yaml`'s block
+# belongs to `runner`. So under `--var m1_agent=runner` every variable arrives,
+# and under the real `e2e_deployer` none of them does.
+#
+# What that cost, and it is the reason this comment is long: **four `--var`s on
+# rung 1's command line did nothing while the run looked healthy.** `tp=4` never
+# arrived and the bring-up used the sealed kit's `DK_TP_SIZE:=1`; `image=` never
+# arrived and the agent found the tag by running `docker images`; `instruction=`
+# never arrived, so *"take only GPUs 4-7"* was never said and the correct half of
+# the node was chosen by the sealed kit's `DK_GPU_ID:=4`. And `mock_stages=`
+# never arrived — `mock.sh` cannot distinguish *unset* from *not listed*, so
+# **`--var mock_stages=all` would have run this stage for real too.** The mock has
+# only ever worked because `m1_agent=runner` swaps in the agent that carries the
+# block.
+#
+# This is the **third face** of the seam CONTRACT.md §4.4 already names: a
+# validator declares no agent and never receives the block; an agent declares no
+# `env` and never receives it either. Same block, same silence, and both times
+# the symptom was a plausible wrong story about someone's behaviour.
+#
+# **The duplication below is deliberate and cannot be designed away.** `${...}`
+# substitution is textual per occurrence and YAML anchors do not cross files, so
+# a default reachable by `runner` is not reachable from here. The leader's ruling
+# (2026-09-04) is that each `kind: ai` agent declares what it needs — m5's
+# `e2e_integrator` has done exactly this all along — and that a checker in the
+# `show` gate compares every name and default here against `runner`'s. **Every
+# entry below must stay byte-identical to `shared.yaml`'s**; that is not a
+# convention to remember, it is the thing the checker fails on.
+#
 # No credential is written here or anywhere else in this package: model
 # credentials reach a body from the operator's own settings allow-list, by name,
 # through `env_mgr.harness.harness_env`.
@@ -36,6 +72,53 @@
   kind: ai
   version: '1'
   description: Turns a plain deployment instruction into a proven bring-up and a runnable delivery kit.
+  env:
+    # The allocation and how to reach it. Same names and same defaults as
+    # `shared.yaml`'s, so one command line drives the whole flow.
+    E2E_JOBID: '${jobid}'
+    E2E_NODE: '${node}'
+    E2E_NODE_IP: '${node_ip}'
+    E2E_TRANSPORT: '${transport:-auto}'
+    # What to serve. `model_name` and `model_path` stay separate because
+    # conflating them registers the model under a filesystem path.
+    E2E_MODEL_NAME: '${model_name}'
+    E2E_MODEL_PATH: '${model_path}'
+    E2E_SERVED_NAME: '${served_name:-}'
+    E2E_IMAGE: '${image}'
+    E2E_ETCD_IMAGE: '${etcd_image:-quay.io/coreos/etcd:v3.5.14}'
+    E2E_DEPLOY_MODE: '${deploy_mode:-mix}'
+    # **`tp` is the one rung 1 proved is load-bearing by being absent.** With no
+    # value the agent fell back to the reference kit's `DK_TP_SIZE:=1`, which is
+    # a correct deployment and not the requested one.
+    E2E_TP: '${tp:-8}'
+    E2E_CTX: '${context_length:-262144}'
+    # Both carry the literal `none` for "this model wants neither", which is
+    # different from nobody having said. **`none` is right only for a
+    # non-reasoning model** — measured 2026-09-04, Qwen3.6-27B's chat template
+    # carries `<think>`/`</think>` and without a parser the chain-of-thought
+    # lands in `content` with `reasoning_tokens: 0`, which
+    # `check_deploy_serves`'s completion probe passes.
+    E2E_DSA_ARGS: '${dsa_args:-none}'
+    E2E_PARSER_ARGS: '${parser_args:-none}'
+    # Identifiers bound on a shared host (CONTRACT.md §5.2). Starting points,
+    # not reservations — the agent checks before it binds and never
+    # `docker rm -f`s a name it did not create.
+    E2E_CONTAINER: '${container:-yihou_e2e_flow}'
+    E2E_PORT_ROUTER: '${port_router:-8101}'
+    E2E_PORT_WORKER: '${port_worker:-8102}'
+    E2E_PORT_ETCD: '${port_etcd:-8103}'
+    # Local disk. A network home with root_squash maps the container's root to
+    # nobody and the engine then fails to write its logs silently.
+    E2E_WORK_ROOT: '${work_root:-/mnt/m2m_nobackup/yihou/e2e_flow}'
+    # The flow's own input, and the first line of this task's readme sends the
+    # agent to it. **It was empty for the whole of rung 1**, which is how a site
+    # fact routed through it — *"GPUs 0-3 belong to another tenant"* — was never
+    # delivered.
+    E2E_INSTRUCTION: '${instruction:-Bring this model up in the requested mode on this host, prove it answers through the router, and hand back a kit somebody else can run.}'
+    # STEP 0 reads both. Without them `mock.sh` cannot tell *unset* from *not
+    # listed* and every run is a real one.
+    E2E_MOCK_ROOT: '${mock_root:-/shared_nfs/yihou/agent_sys/cheat_for_mock}'
+    E2E_MOCK_STAGES: '${mock_stages:-all}'
   # **No `skills:`, and that is a change from `../deploy-demo`.** That package
   # declared the packup skill because the skill was the authority for the kit's
   # layout. Here the authority is `assets/schemas/deploy_kit.layout.yaml` — that
