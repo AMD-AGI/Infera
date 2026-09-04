@@ -930,6 +930,66 @@ different ruler**. Counting those as three would promote an artefact whose
 stability was measured against a moving standard, so **the validator set is part
 of the verdict** and a change in it is reported rather than averaged away.
 
+### 4.6 A relative check cannot detect a fault both sides share
+
+**m5, 2026-09-04, measured standalone on constructed inputs.** Not a fact about
+one validator — a fact about **every cross-comparison in this package**, and the
+reason some of them need an absolute bar beside them rather than a tighter
+tolerance.
+
+`stock_vs_m2_block` asks whether m5's stock arm reproduces m2's
+`profiling_mode_off` bench within 10 %. Three cases through the real function:
+
+| case | reconciliation | why |
+|---|---|---|
+| both engines healthy | **passes** | correct |
+| one engine in eager decode | **refuses** | correct — throughput `-78.6 %`, ITL `+30.8 %` |
+| **both engines in eager decode** | **passes** | the two arms genuinely agree, about a number 4.6× wrong |
+
+**The third case is indistinguishable from the first.** Measured:
+
+```
+case1 keys     == case3 keys     : True
+case1 verdicts == case3 verdicts : True
+block mentions the graph ceiling : False
+```
+
+Same fields, same three `within_tolerance: True`, differing only in absolute
+values that nothing bars. **No reader and no downstream consumer can tell them
+apart.**
+
+**And no comparison can be made to see it, including a better one.** The obvious
+repair is to compare the engine configuration as well as the numbers. It does
+not work:
+
+| case | m2 ceiling | stock ceiling | argv differ? |
+|---|---|---|---|
+| healthy | 512 | 512 | **no** |
+| both eager | 8 | 8 | **no** |
+| one eager | 512 | 8 | yes |
+
+In the case that matters **the two sides agree** — 8 == 8. A cross-comparison
+sees nothing because nothing disagrees. Only an **absolute** bar catches it:
+*the graph ceiling must be at least the concurrency the load achieved.*
+
+**The operational form:** for every check that compares two things, ask **what
+fault would both sides have?** If the answer is not "none", that fault needs a
+bar on each side, not a comparison between them. It is §4.4's question — *what
+would this report if the subject were broken?* — asked of a check whose subject
+is a **pair**.
+
+The implementation is `assets/lib/graph_ceiling.py`: one body, two call sites
+(m2's bench, m5's arms), because this is the same predicate asked of different
+engines and not one bar written twice — the distinction `min_requests` cost us.
+
+**The detail that makes it a design lesson rather than a bug report:**
+`merge_profiling_evidence/merge.py` already carries `env/` for every part, with
+a comment giving the exact reason — *"the load configuration in it is what makes
+the two benches comparable, and **is not recoverable from the numbers**."* The
+data has been in both handoffs all along, under the same filename, **read by
+nothing.** Writing down why a field must travel is not the same as wiring a
+consumer to it.
+
 ### 4.1 Shared validators are shared, not copied
 
 `check_kernel_table` is **one** definition used by m2 and m3 (M3.5). The two
