@@ -74,6 +74,41 @@ and something refused*, so the acceptance claim had to move to the artefacts.
 That was the right move regardless — a claim should name a file — but the reason
 it was **necessary** is this ambiguity.
 
+## A second, independent defect in the same function
+
+`_completion_gaps` is **every task `SUCCEEDED`, no handoff `INVALID`**. The
+first half of this file is about the second clause. **The first clause is
+unsound too, for an unrelated reason.**
+
+**Task status is never finalised.** Found by m5 building a gate m2 proposed,
+verified by m2, verified by the leader, and reproduced here independently over
+every run in the runroot:
+
+```
+runs with task records:            36
+runs where EVERY task succeeded:    0
+runs where `main` is not succeeded: 36
+
+most common non-succeeded residue:
+   13x  {'output_validating': 1, 'running': 2, 'waiting_handoff': 1}
+    8x  {'running': 3, 'waiting_handoff': 4}
+    8x  {'output_validating': 1, 'running': 2, 'waiting_handoff': 2}
+```
+
+Thirteen runs sharing a byte-identical residue makes it **systematic rather than
+truncation**, and `main` — the run's own root task — is non-terminal in all 36.
+The status is a live field that nothing rewrites on exit.
+
+**What that does to the sentence.** The first half of this file shows *"the run
+did NOT finish"* is false for a correctly-refused handoff. This shows the
+predicate returns gaps **for a clean run too** — so the CLI has never once
+reported a run as finished, and the line could not have been true of anything.
+Everyone on this team has been reading it all day as though it discriminated.
+
+**Kept in one file rather than two**, on m2's reasoning: separating them would
+let a reader believe one was fixed. Two independent defects, one function, and
+it is the CLI's exit code.
+
 ## Why it is the day's recurring class
 
 The verdict is right and the explanation is false: something *is* wrong, exit 5
