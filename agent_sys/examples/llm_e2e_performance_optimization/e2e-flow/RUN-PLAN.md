@@ -144,6 +144,21 @@ Say what rung 0 covered in those terms, not as "the mock passed".
 
 2. **The node, before you spend the hold** — `assets/lib/nodeprobe.sh <node>`, seconds, no hold needed. Free cards, m1's anchor in a local base, disk on **both** filesystems, and whether `spur-authz` accepts this flow's mounts. **Re-probe at the moment of taking, not from a message**: measured 2026-09-04, a node went from seven free cards to 0/8 at 97 % in twenty minutes. `--auto` sweeps every idle/mix node and prints why each one failed; `report.py <rows.jsonl>` re-reads a sweep without re-running it.
 
+   *Measured 2026-09-04, and it changes how a probe result is read: **a cancelled
+   Slurm job does not reclaim its GPUs.** Job `109192` was cancelled at 06:46:49
+   while four containers of ours were serving on node 006; fifteen minutes later
+   all four were still `Up`, the engine still answered `/health` with 200, and
+   **all eight cards read 74–76%**. Containers talk to the **host** docker
+   daemon, so they are not in the job's cgroup and nothing tears them down when
+   the hold ends.*
+
+   *So a card at 90% is not evidence that anyone is still working, and a node
+   that looks fully occupied may be carrying **corpses of cancelled jobs**. The
+   probe cannot tell the two apart, and neither can `squeue`. This cuts both
+   ways: it is why a node can look busy and be free, and it is why **your own
+   cleanup is not optional** — an abandoned bring-up keeps four cards out of
+   circulation for the rest of the reservation, for everyone.*
+
    *`sinfo` cannot answer this. GRES accounting is not configured on this cluster — there is no `GresUsed` field and `sinfo -o "%G"` prints `?` — and the co-tenants allocate through the host docker daemon, which never speaks to Slurm. `idle`/`mix` is a statement about CPUs.*
 
 3. **`agent-sys show`** — under a second.
