@@ -59,9 +59,22 @@ A kind is **stable** at threshold N when N distinct runs each produced it with
 * every one of them `result: true`.
 
 A different validator set between runs is *not* stability at a lower count — it
-means the package changed underneath, and the two artefacts were not graded by
-the same thing. That is reported as `unstable: validator set changed`, with both
-sets, rather than being averaged away.
+means the artefacts were not all graded by the same thing. Reported **with the
+distribution**, never averaged away:
+
+    unstable operator_workset   13x [check_environment,check_workset_runs,
+                                     check_workset_shape] | 1x [check_environment]
+
+**The count is what makes it readable**, and it is there because the resolving
+signal does not exist. A 20-to-1 split is an outlier — m2 traced this one to a
+run killed mid-validation, whose partial `validation.yaml` froze permanently —
+and a 10-to-11 split is a real divergence. Telling them apart from the run tree
+is impossible: excluding `invalid` would discard *refused after a full pass*,
+which is the most informative case, and **the task store's `status` is never
+finalised** — measured across 36 runs, every one of them, including clean
+finishes, is left showing `running: 2` and `output_validating: 1`, so a filter
+built on it excluded 36 of 36. So the tool shows the shape and the reader
+decides.
 
 ## The safety net you get for free, which is m2's
 
@@ -103,6 +116,7 @@ session.
 from __future__ import annotations
 
 import argparse
+import collections
 import json
 import pathlib
 import shutil
@@ -453,11 +467,35 @@ def stability(rows: list[dict], threshold: int) -> tuple[bool, str]:
     if len(passing) < threshold:
         return False, (f"{len(passing)} of {len(rows)} finished run(s) passed every "
                        f"validator; threshold is {threshold}{live_note}")
-    sets = {tuple(r["validators"]) for r in passing}
-    if len(sets) > 1:
-        listed = " | ".join(",".join(s) or "<none>" for s in sorted(sets))
-        return False, ("the validator set changed between runs, so these artefacts were "
-                       f"not graded by the same thing: {listed}")
+    # **The distribution, not just the distinct sets** — and the reason is a
+    # signal that turned out not to exist.
+    #
+    # m2 chased the `operator_workset` outlier I flagged: **one run of 21**,
+    # `20260904T075753-e4f7ba`, killed mid-validation so that
+    # `check_environment` recorded and the other two never did. Its partial
+    # `validation.yaml` is frozen that way permanently — the same race as a
+    # live run's partial read, except a live one disappears and a killed one
+    # looks like a wiring difference forever.
+    #
+    # **The obvious gate does not work.** Excluding `invalid` would be wrong
+    # (m2: `invalid` also means *every validator ran and one refused*, a
+    # complete and informative set — `20260904T125637`'s `deploy_kit` is that).
+    # And gating on the run's completion is impossible: **the task store's
+    # `status` is never finalised.** Measured across 36 runs, every one of them
+    # — including runs that finished cleanly — is left with `running: 2` and
+    # `output_validating: 1`, because task state is a live field nobody rewrites
+    # on exit. A filter built on it excluded **36 of 36 runs**.
+    #
+    # So: report the shape of the disagreement instead of trying to resolve it.
+    # A 20-to-1 split is self-evidently an outlier and a 10-to-11 split is a
+    # real divergence, and the reader can tell which without a signal this run
+    # tree does not carry.
+    counts = collections.Counter(tuple(r["validators"]) for r in passing)
+    if len(counts) > 1:
+        listed = " | ".join(f"{n}x [{','.join(s) or '<none>'}]"
+                            for s, n in counts.most_common())
+        return False, ("the validator set differs between runs, so these artefacts were "
+                       f"not all graded by the same thing: {listed}")
     if not any(passing[0]["validators"]):
         return False, "no validator graded this kind in any run — a green with nothing behind it"
     return True, (f"{len(passing)} run(s), each passing "
