@@ -7949,3 +7949,114 @@ defect, and the shape had two holes in it.
 The same numbers a day later would have met two controls already written and a
 claim already quoted in `RUN-PLAN`, and the fix would have been an argument
 instead of an edit.
+
+## T+1457 — 2026-09-04 13:47 UTC
+
+**Gap: 84 minutes since T+1373, against a 30-minute cadence.** Not back-dated.
+
+### The ladder, with what each rung is blocked *on*
+
+The leader's suggestion, adopted: the count alone cannot distinguish *blocked on
+something nobody has priced* from *blocked on one campaign*, and that
+distinction is most of what changed today.
+
+| rung | state | blocked on |
+|---|---|---|
+| **0** all mock | **CLEAN** — 3 accepted runs, 2 install paths | — |
+| **1** m1 real | **in flight**, 51 m, alive on 217 | running now |
+| **2** +m2 | not started | rung 1 sealing |
+| **3** +m3 | not started | rung 2 |
+| **4** +m4 | not started | **a campaign**, plus one boolean m4 isolated (does forge commit in the engine tree) |
+| **5** +m5 | not started | rung 4 |
+
+**1 of 6 clean** — up from 0, because rung 0 is now certified by an executable
+test rather than by my reading of it. **Four blockers, none unknown, one of them
+a run in flight.** That is materially different from this morning and it is
+invisible in a bare count, which is the leader's point and it was right.
+
+### Rung 0 is reproducible across two install paths — verified, not relayed
+
+I ran `accept_mock.py` myself on the new run:
+
+```
+20260904T133028-87e7ad   MOCK E2E ACCEPTED — 15 handoffs, 43 verdicts, 42 true …
+                         REAL EXIT=0
+```
+
+**Three accepted runs now**, and this one is the first on the `patch_in_place`
+path. **Two different install paths reaching the same green is a reproducibility
+fact, not a reach fact**, and my ladder count cannot express it — recorded here
+in prose because the table cannot hold it.
+
+**Run process present at 13:47:41**, pid 2953669, **51 m 13 s** — rung 1, alive
+and writing.
+
+### 1. Progress
+
+**~87 %, up one.** Elapsed 1 457 m.
+
+**Only one point, and the reason matters:** item 2 was already priced at T+1373.
+What arrived since is **item 3's *shape*, not its progress** — rung 4's blocker
+moved from unknown-cost to known-and-cheap, and rung 0 gained a second
+reproduction. **Knowing what stands in the way is worth a point; it is not worth
+what doing it is worth.**
+
+**Reliability: moderate** for items 1–2 (executable acceptance test, run by me,
+three times). **Low** for item 3 — 1 of 6, and the five remaining are one
+in-flight run and four dependencies.
+
+**预估耗时: no number.** Held.
+
+### 2. What resolved, and the leader's own framing of it
+
+**M5.1.1 is resolved and the user resolved it by rejecting the framing:**
+
+> *"最挫的 apply 方式难道不是找到调用的地方，把那一行替换掉。"*
+
+**That is a diff, and `apply.py:641-659` had been running `patch -p1 --batch
+--forward` all along.** The leader records that they had escalated it as
+*"unsatisfiable, needs a design decision"* when the accurate statement was
+*the producer only emits whole-file replacements and the enum has one value.*
+**One is a design question; the other is a small implementation gap** — and the
+wrong one cost the user a round of reading.
+
+All three thirds landed within the hour: `5f5c1af` m3 (enum + both producers),
+`0712fbc` m4, `1ee4f4f` m5 — *"three refusals in my stage, not one enum value"*.
+
+**And m3 pre-registered all four numbers before the run; all four hit.** That is
+**the first pre-registered prediction of the day scored on a complete run.** The
+leader stopped an earlier scoring against a run that stopped at stage 4, on the
+grounds that *"the prediction was wrong"* and *"the criterion was wrong"* would
+have been indistinguishable — which is the same discipline as m5's *"if the
+degraded arm comes back `same`, that is a finding about the gate"* at T+1210,
+now applied by a third person to protect someone else's prediction.
+
+### 3–6
+
+**42 commits since `42eabc1`**, none mine. Three holds alive, **none lost in
+twenty-four intervals**. Gates rc=0. 006 and 047 free.
+
+**Open, leader-owned:** `check_command_parses` emitting `PROBLEM:` under
+`passed`.
+
+### 7. The leader's three measurement errors, recorded because they asked
+
+They report three today: **a shell-expanded grep that reported all twenty vars
+absent; `rc` read after a pipe to `tail`; and a timestamp sort on a truncated
+string that read as a four-hour stall.** Each caught by a second reading rather
+than by care.
+
+**The middle one is mine too, forty minutes earlier**, in the measurement that
+certifies a deliverable — `EXIT=0` from `tail` while the script had failed on a
+missing flag. **Two people, the same shell idiom, the same day, independently.**
+That is not a lapse in either of us; it is a defect in the idiom, and it belongs
+beside T40 rather than in either person's error column. **`rc=$?` must be
+captured before any pipe** — and neither of us would have found it without
+someone reading the output above the number.
+
+**And their port probe is the counter-example worth keeping.** They probed
+8101–8103, got nothing, **and did not conclude** — the ports are parameterised
+and they may have been aimed at the wrong ones, so they asked m1 for the fact.
+**That is T40 applied prospectively**: a null from a probe whose reach was
+uncertain, treated as uninformative rather than as absence. It is the first time
+today someone has stopped *before* the wrong conclusion rather than after it.
