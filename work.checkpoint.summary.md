@@ -5615,3 +5615,92 @@ uncommitted; the first was T+102, and that one resolved within the hour.
   was red**, and not one was invoked at 2232 green on the same tree with the same
   two agents editing. **The discipline had never been tested in the direction where
   it costs something.**
+
+## T+246 — 2026-09-04 10:20 UTC — written by the lead, because `scribe` was stopped
+
+**Not a `scribe` section.** The owner stopped all five agents at ~09:50. A
+`SendMessage` would resurrect one, so the cadence was recorded and not executed,
+and this section is written by hand to keep the window's findings out of a
+context window. Format follows the seven parts loosely; provenance is marked.
+
+### 1. Progress
+
+**Implementation is stopped, not finished, and the tree is broken.** HEAD
+`502a3cda`; **13 tracked files modified, 24 tests failing** in `tests/env_mgr`.
+`pkg-impl` was stopped mid-commit: it had **deleted**
+`env_mgr/addons/{serena,envchk-baseline}/.claude/.mcp.json` and had not yet moved
+them into the agent's own assets. Two routes back — restore the 13 to `ea5253db`
+(green) or finish the half — **put to the owner four times, neither taken.**
+Reason for inaction stated rather than implied: restoring discards a teammate's
+work, and finishing commits the owner's ruling by the lead's own hand while the
+owner is still asking questions about it.
+
+Effort is not comparable to T+191's 55 %: the denominator moved again and then
+the team was stopped.
+
+### 2. Commits this window
+
+| | |
+|---|---|
+| `f754a6e4` | the two pid guards proven with a sacrificial child, plus a **positive control**; the `cli/main.py` entry covered and red-checked |
+| `0ea5b41` | duplicate server declaration warns **from the registry alone** — the owner's *"全局启动一次，重复启动就warning"*, with no scope mechanism |
+| `ea5253db` | `agent_plugins/` → **`env_mgr/addons/`**, `package-data` added and **proven by building a wheel: 6 of 6 files ship**, where the bug record's build had 0 |
+| `502a3cda` | `spec.md` §9.2 — two justification rules and the named exception; `docs/TODO.md` 4l |
+
+### 3. Owner rulings
+
+- **The remote tools become a named exception**, not a deletion. `spec.md` §9.2
+  carries it **with its closing condition**: reprovide the three as a standalone
+  server started by `run_server`, after which the section has no exception left.
+- **Two justification rules**, both aimed at one temptation — *reaching for Python
+  because it is nearer than a recipe*. Adding an MCP server or tool from code
+  needs a justification that **no declarative route works**; running one inside
+  the `agent_sys` process needs one that **no separate process works**.
+- **A correction of their own**: *"这是我对代码库了解不够，remote机制是work的，我
+  手动测试过。"*
+
+### 4. Corrections issued by the lead
+
+1. **A recommendation withdrawn before it caused a decision.** The lead had told
+   the owner to delete the component-supplied in-process route and keep
+   `remote/tools.py`. `core-impl` read the code: **`ToolDef` is defined at
+   `remote/tools.py:31` and nowhere else**, and the in-process route is the
+   **only** delivery path for the remote surface. So the option bought nothing it
+   claimed — the mechanism would stand while a commit message said it was gone.
+   **First correction of the day to arrive before the thing it was about**, and
+   recorded as *luck plus someone else's measurement*, not as improvement.
+2. **An argument weakened by the owner's disclosure.** *"No remote task in the
+   tree"* was offered as evidence the capability was unused. It is a true fact
+   about the repository and **misleading as evidence**: the capability has a live,
+   manually-verified user, who is the owner.
+
+### 5. The finding that reopens a load-bearing claim
+
+`env_mgr/agent_assets.py:287` — the comment the *read-do-not-place* design rests
+on — says placing `.mcp.json` *"would put a file in the zone that **nothing
+reads**"*. The installed SDK's `strict_mcp_config` docstring says the CLI would
+otherwise load *"project `.mcp.json`"*. **They disagree.**
+
+**Not resolved.** The two "project"s may not be the same location, and a trust
+prompt may stand between. **One experiment, not one more inference** — this exact
+question has already been answered wrongly three times today by reasoning.
+
+### 6. Architecture answered from code, so it is not re-derived
+
+- **How an agent knows it is remote**: not from prose. `prepare.py:645` returns
+  three tools if the zone has a far side and `()` if not — **the toolbox is the
+  answer** — plus `AGENT_SYS_*_REMOTE` mirrors.
+- **In-process, not a separate process**: `claude_sdk.py:95-98`
+  `create_sdk_mcp_server`.
+- **Injected, not installed**: `claude_sdk.py:393` puts a live object into
+  `ClaudeAgentOptions["mcp_servers"]`. **No file is written anywhere** — which is
+  exactly why an installer cannot carry it and a `.mcp.json` can.
+- **`.claude/` vs SDK overlap is real, known to the SDK, and resolved by switches
+  rather than precedence**: additive by default; `setting_sources=[]` and
+  `strict_mcp_config=True` are the exclusivity knobs; **same-name collisions have
+  no SDK-level arbitration**, which is why whoever merges owns the collision.
+
+### 7. Open with the owner
+
+The broken tree; `serena.yaml` classed a demo while `examples/env_checker`
+depends on it; whether to measure the `:287` claim.
