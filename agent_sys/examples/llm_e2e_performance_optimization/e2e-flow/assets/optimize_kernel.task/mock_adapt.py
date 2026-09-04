@@ -52,6 +52,71 @@ import _lib as lib  # noqa: E402
 _QUOTED_PREFIX = re.compile(r'"\$([A-Za-z_][A-Za-z0-9_]*)"(/[A-Za-z0-9._+@/-]+)')
 
 
+def _ensure_impl_entry(packup: Path, workset_root: Path, operator: dict) -> str | None:
+    """Give the sealed kernel the `run` entry point m3's `--impl` contract needs.
+
+    **The sealed candidate predates the contract it now has to satisfy.**
+    `_common.py:289` refuses a candidate whose source defines no top-level
+    `run`, and `results/optimized_kernel.py` from the 2026-09-02 run defines
+    only `sampler_softmax` — so `run_performance.sh --impl` would have exited
+    *"defines no `run`"* before measuring anything. Found 2026-09-04 by reading
+    the two files against each other rather than by running the campaign.
+
+    **Appending is right here and refusing is right in `30_run_forge.sh`**, and
+    the difference is which artefact is at fault. There the source *is* the
+    workset's own baseline, so a missing `run` is a defect in the workset and
+    papering over it would hide m3's problem — that script says so and exits.
+    Here the source is a sealed artefact from a previous generation of the
+    contract, and reconciling those is this file's entire job (see the module
+    docstring). The shim is additive: the engine symbol m5 installs is
+    untouched.
+
+    **The shim is m3's own, not one invented here.** The delegated symbol is
+    read out of the Definition's `baseline` — which carries exactly this pair,
+    `def sampler_softmax(...)` beside `def run(*args, **kwargs)` — so the name
+    cannot drift from what the harness calls. A sealed kernel that does not
+    define that symbol is a real mismatch and is refused rather than guessed at.
+    """
+    kernel = packup / "results" / "optimized_kernel.py"
+    if not kernel.is_file():
+        return None
+    source = kernel.read_text(encoding="utf-8")
+    if re.search(r"^def run\(", source, re.M):
+        return None
+
+    relative = operator.get("definition")
+    if not relative:
+        lib.die("the workset's operator names no `definition`, so the --impl entry cannot be derived")
+    definition = lib.load_json(workset_root / str(relative))
+    baseline = (definition or {}).get("baseline")
+    if not isinstance(baseline, str):
+        lib.die(f"{relative} carries no `baseline` source, so the --impl entry cannot be derived")
+    delegated = re.search(r"^def run\(.*?\n\s+return\s+([A-Za-z_]\w*)\(", baseline, re.M | re.S)
+    if not delegated:
+        lib.die(
+            f"{relative}'s `baseline` has no `def run(...)` delegating to a symbol; m3's --impl "
+            "contract cannot be satisfied without knowing which callable is the entry point"
+        )
+    symbol = delegated.group(1)
+    if not re.search(rf"^def {re.escape(symbol)}\(", source, re.M):
+        lib.die(
+            f"the sealed kernel defines no `{symbol}`, which is what the Definition's `run` "
+            f"delegates to. Sealed candidate and workset Definition disagree about the entry "
+            f"point; that is a real mismatch and this script will not guess past it"
+        )
+    kernel.write_text(
+        source.rstrip("\n")
+        + "\n\n\n# ----- entry point, added by mock_adapt -----\n"
+        + "# The sealed kernel predates m3's `--impl` contract, which requires a\n"
+        + f"# top-level `run`. Delegates to `{symbol}`, the symbol the Definition's own\n"
+        + "# `baseline` delegates to. Additive: the engine symbol m5 installs is unchanged.\n"
+        + "def run(*args, **kwargs):\n"
+        + f"    return {symbol}(*args, **kwargs)\n",
+        encoding="utf-8",
+    )
+    return symbol
+
+
 def _reseat_quotes(packup: Path) -> list[str]:
     """Make the sealed markdown survive `handoff.locality.check`.
 
@@ -110,6 +175,9 @@ def main() -> int:
     operator = lib.pick_operator(workset, os.environ.get("E2E_WORKSET_OPERATOR") or None)
     operator_id = str(operator.get("operator_id"))
     workset_root = lib.workset_root()
+    # After the workset is loaded, because the entry symbol is read out of the
+    # Definition rather than assumed.
+    impl_entry = _ensure_impl_entry(packup, workset_root, operator)
     run_env = lib.load_environment()
     ground = workset.get("ground_truth") or {}
 
@@ -301,6 +369,15 @@ def main() -> int:
                 + " so the sealed markdown survives `handoff.locality.check`; no number, path or "
                 "claim changed. See `_reseat_quotes`."
                 if reseated else ""
+            )
+            + (
+                f" A `run(*args, **kwargs)` entry point delegating to `{impl_entry}` was appended "
+                "to results/optimized_kernel.py: the sealed kernel predates m3's `--impl` "
+                "contract, which requires a top-level `run` (`_common.py:289`), and without it "
+                "the re-measurement exits before measuring. Additive only -- the engine symbol "
+                "m5 installs is unchanged, and the delegated name is read from the Definition's "
+                "own `baseline` rather than chosen here. See `_ensure_impl_entry`."
+                if impl_entry else ""
             )
             + (
                 " `--premise mismatched`: the workset environment's gpu_arch was set to gfx942 to "
