@@ -132,12 +132,23 @@ def _task_dirs(doc, agent_name: str, assets: pathlib.Path) -> list[pathlib.Path]
     return dirs
 
 
+#: Never grepped for a `kind: ai` agent. **An ai closure does not run
+#: `entry.sh`** — the mock switch works precisely because `--var mN_agent=runner`
+#: swaps in the program agent that does. So a variable read only there is not a
+#: dependency of the ai path, and requiring it would declare one that cannot
+#: exist. m4's objection, and they were right: the first version of this check
+#: demanded `E2E_MOCK_STAGES` on an agent that can never reach `mock.sh`.
+_PROGRAM_ONLY = {"entry.sh"}
+
+
 def _referenced(dirs: list[pathlib.Path]) -> dict[str, str]:
     """`E2E_*` names appearing anywhere under those directories -> where."""
     seen: dict[str, str] = {}
     for directory in dirs:
         for path in sorted(directory.rglob("*")):
             if not path.is_file() or path.suffix not in _SUFFIXES:
+                continue
+            if path.name in _PROGRAM_ONLY:
                 continue
             try:
                 text = path.read_text(errors="replace")

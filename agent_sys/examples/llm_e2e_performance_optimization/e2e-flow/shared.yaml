@@ -190,3 +190,41 @@ env:
   # Phase 3 walks this from `all` to `none` one stage at a time, so that a
   # failure is attributable to the stage that was just promoted.
   E2E_MOCK_STAGES: '${mock_stages:-all}'
+
+  # ---- Names an agent needed and `runner` never had -------------------------
+  #
+  # Added 2026-09-04, after the survey that found no `E2E_*` reaches a
+  # `kind: ai` agent (see `assets/lib/check_agent_env.py`). Declaring a block on
+  # each ai agent turned up a second class: names an agent reads that `runner`
+  # **also** lacks, so they had never reached *anywhere* — not the ai agent, and
+  # not `rank`/`identify` running under `runner` either.
+
+  # m4's, and the reason it moved out of `KFO_*`: the operator selector is the
+  # one knob **both** paths need — `10_read_inputs.py --operator` on the real
+  # path, `mock_adapt.py` on the mock one. A name in two files with nothing
+  # comparing them is this package's most-repeated fault, so it lives in the
+  # `E2E_*` namespace where the show gate covers it. `--var` spelling unchanged.
+  E2E_WORKSET_OPERATOR: '${workset_operator:-}'
+  # Declared here so `--var mock_premise=mismatched` can fire at all. It has
+  # never fired: it was read by `mock_adapt.py` on the mock path, declared on
+  # the ai agent that `--var m4_agent=runner` **removes**, and absent from
+  # `runner`. MOCK-MAP (G) calls it "the only cheap end-to-end test of the abort
+  # path"; it was the only variable m4's ai agent had, and the only one it could
+  # never use.
+  E2E_MOCK_PREMISE: '${mock_premise:-matched}'
+
+  # m3's five. `E2E_SNR_THRESHOLD` has two producers — `scaffold.py:304` into
+  # `gates.snr_db` and `rank.py:302` into the worklist — so it belongs here
+  # regardless of any one agent's block.
+  E2E_MEASURE_GPU: '${measure_gpu:-4}'
+  E2E_SNR_THRESHOLD: '${snr_threshold:-30.0}'
+  E2E_WORKSET_ID: '${workset_id:-workset}'
+  # **A literal `unknown` is what every workset this stage ever produced
+  # recorded as `produced_by.commit`.** Declaring it does not fix that;
+  # supplying it does. m3, 2026-09-04.
+  E2E_PACKAGE_COMMIT: '${package_commit:-unknown}'
+  # **Deliberately empty, and it must stay empty.** The body's fallback is
+  # `yihou_m3_measure_$$` — unique per invocation, which no static default can
+  # express — and a *shared* default is a name two concurrent measurements
+  # collide on. m3 flagged this before it could be "fixed" by giving it a value.
+  E2E_MEASURE_CONTAINER: '${measure_container:-}'
