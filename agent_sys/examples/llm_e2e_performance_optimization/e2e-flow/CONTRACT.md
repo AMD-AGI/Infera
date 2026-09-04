@@ -680,6 +680,43 @@ of the three cases the confidence came from *the method feeling rigorous* —
 grepping `/proc`, stat-ing a whole tree — rather than from the method being able
 to fail. A fresher timestamp felt like more evidence and was not.
 
+##### A fourth: a reader whose success path was never exercised
+
+m2's, an hour later, and it is **not** a search that finds itself — nothing
+self-matched, and there was no fixture. It is a *reader* with one live branch.
+
+Tallying rung 0's verdicts, the parser asked each file for a `result` key. The
+file is `{handoff_id: bool}` and has no `result` key, so `.get("result")`
+returned `None` for every one, `None` is not `True`, and the tally came back
+**"0 pass, 18 fail"** on a run in which **nothing had refused anywhere** — 21
+verdicts, all `true`, 8 handoffs sealed. **A reader that cannot observe a pass
+reports a clean run as a total failure**, which is the exact mirror of the
+`bfs` predicate that could not observe a file and reported a live run as dead.
+
+**What caught it was not care. It was two artefacts disagreeing.** Eight
+handoffs were sealed `valid`, and *a run cannot seal a handoff whose validators
+refused* — so the tally and the store could not both be right. The settling move
+was to stop improving the reader and **open one `verdict.json` raw**. That is
+the same move that settled the orphaned-agent question, and it is the rule worth
+carrying: **when an instrument and an artefact disagree, the artefact wins, and
+you go and look at it.**
+
+**The rule it adds to the three above, and it is this section's own doctrine
+inverted.** §4.4 says *prove the probe can fail before believing that it passed*.
+A reader needs the mirror: **prove it can pass before believing that it failed.**
+Both broken liveness checks could only ever return one answer; so could this,
+and the one answer it could return was the alarming one. A verdict reader,
+a log scraper, a status parser — anything whose output is a *judgement* — must
+be shown to produce **both** outcomes against real data before either is
+reported. The positive control for a reader is a known-good input, and it is as
+mandatory as the negative one.
+
+Recorded by its author, who had spent the day telling other people about this
+class and then committed two instances of it in one session — first the
+`pgrep` above, then this. **The lesson is not that careless people write bad
+instruments.** All four instances here were written by people actively looking
+for this failure, in the hour they were looking for it.
+
 ### 4.1 Shared validators are shared, not copied
 
 `check_kernel_table` is **one** definition used by m2 and m3 (M3.5). The two
