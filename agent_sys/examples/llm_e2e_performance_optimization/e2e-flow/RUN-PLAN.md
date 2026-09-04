@@ -1296,7 +1296,7 @@ loads it and tears it down. A kit that only works for its author fails there.
 | the model served under a filesystem path | `--served-model-name` omitted |
 
 `gate.sh` keeps this honest: it runs `check_deploy_kit` against the real sealed
-kit (**must pass**) and against the same kit with **twelve planted faults**
+kit (**must pass**) and against the same kit with **fourteen planted faults**
 (**each must be reported**). Four minutes, no node. **Run it before committing
 anything to the layout** — a schema tightening that refused the sealed kit
 reached a live run on 2026-09-04 because the author verified the yaml parsed and
