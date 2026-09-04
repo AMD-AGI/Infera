@@ -78,12 +78,42 @@ def check(content: Path, args: dict, reasons: list) -> bool:
 
     ok = True
 
+    # **Directories are counted by substance, not by presence**, for the same
+    # reason the files above are counted by content line: *a presence check on a
+    # document nobody filled in is theatre*, and that argument covers a directory
+    # exactly as well as a README. The first version tested `any(path.iterdir())`
+    # and m2 showed what it buys — `logs/` reduced from 17 files to one **empty
+    # subdirectory** passed, and `scripts/` reduced from its command scripts to
+    # one **zero-byte** `run.sh` passed. Both are packups a reproducer cannot
+    # use, graded complete.
+    #
+    # `rglob` and not `iterdir` because the real kit nests: `logs/` is 17 files
+    # under seven subdirectories, so a top-level count reads it as zero. m2 hit
+    # that too, in their own instrument, and reported it against my kit before
+    # catching it — which is the reason this counts the way `find -type f` does.
+    #
+    # `st_size > 2` is `min_result_files`' own test, reused rather than re-picked
+    # so the two agree about what an empty file is.
+    #
+    # **The floor stays at 1 unless somebody measures a reason.** Real kit today:
+    # results 18, logs 17, scripts 3. A floor of, say, 4 for `scripts/` would fit
+    # today's kit and refuse a legitimate one that ships three — the bar has to
+    # come from the contract, and the contract only says the directory must mean
+    # something.
+    dir_floors = args.get("min_dir_files") or {}
     for name in args.get("require_dirs") or []:
         path = root / name
         if not path.is_dir():
             ok = _fail(reasons, f"{name}/ is missing")
-        elif not any(path.iterdir()):
-            ok = _fail(reasons, f"{name}/ is empty")
+            continue
+        found = [p for p in path.rglob("*") if p.is_file() and p.stat().st_size > 2]
+        floor = int(dir_floors.get(name, 1))
+        if len(found) < floor:
+            ok = _fail(
+                reasons,
+                f"{name}/ holds {len(found)} non-empty file(s), floor is {floor} — "
+                f"an empty subdirectory or a zero-byte placeholder is not the directory's contents",
+            )
 
     floors = args.get("min_content_lines") or {}
     for name in args.get("require_files") or []:

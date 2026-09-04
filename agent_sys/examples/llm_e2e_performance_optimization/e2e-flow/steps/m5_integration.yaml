@@ -407,6 +407,16 @@
     # REPRODUCE.md is measured in commands rather than prose: it is the one file
     # a reproducer executes.
     min_command_lines: 8
+    # **Counted by substance, not presence** — `min_dir_files`, default 1, a
+    # non-empty file found recursively. Not `is_dir()`: m2 measured that `logs/`
+    # cut to one *empty subdirectory*, and `scripts/` cut to one *zero-byte*
+    # `run.sh`, both graded complete under the presence test this started as. The
+    # same argument that makes `min_content_lines` exist makes this exist.
+    # Recursive because the real kit nests — `logs/` is 17 files under seven
+    # subdirectories, which a top-level count reads as zero.
+    # The floor stays 1 until somebody measures a reason: today's kit is results
+    # 18, logs 17, scripts 3, and a floor fitted to that would refuse a
+    # legitimate kit that ships fewer of the right things.
     require_dirs: [results, logs, scripts]
     # This is the whole flow's export, not one stage's. Four is the floor from
     # `integration-demo` and it is deliberately not raised here: raising it
