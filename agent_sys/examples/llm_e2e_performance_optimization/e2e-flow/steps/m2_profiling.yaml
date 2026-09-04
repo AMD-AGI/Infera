@@ -43,6 +43,25 @@
     # Measured on this trace: 346 requests in the default 120 s window, 166 in
     # 60 s, ~80 in 30 s — and a bar of 100 failed a perfectly working replay,
     # invalidated both of that task's handoffs, and stopped the graph.
+    #
+    # **The other bar measuring this same quantity is m5's `check_bench_report`**
+    # (`steps/m5_integration.yaml`), from the same trace and with the same
+    # default of 50. Until 2026-09-04 both read `'${min_requests:-50}'` — **one
+    # `--var` moving two owners' grading bars**, and neither owner could see it
+    # from their own file, because each reads a floor of 50 here and each is
+    # right about their own file. CONTRACT.md §4.4, sixth face, rung 3.
+    #
+    # The hazard was never that the two disagree; it is that **the override is
+    # shared when the reason for overriding is not** (m5's wording). Someone
+    # shortening the stage-5 replay window and dropping that bar to 20 silently
+    # dropped this one too, and stage 2's window had not changed.
+    #
+    # m5's is now `${integration_min_requests:-50}` (`47db1fc`) and this one
+    # keeps the plain name. Measured in four states after the split — defaults
+    # 50/50, `min_requests=0` gives 0/50, `integration_min_requests=20` gives
+    # 50/20, both set gives 0/20 — so the two are independent in each direction.
+    # **The duplicated 50 is deliberate: the default being shared was right, the
+    # override was not.** A change to the measurement behind it belongs in both.
     min_requests: '${min_requests:-50}'
     # The metrics `summarise.py` is asked to find in the CSV. Named here rather
     # than in the body so that a round that legitimately cannot produce one — a
