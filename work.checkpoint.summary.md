@@ -4642,3 +4642,127 @@ observation was correct and my use of it was too comfortable: *judged by nothing
 resolved a false alarm and simultaneously described a real hole, and I only saw
 the second half because a run finally wrote a value I knew to be untrue. **A fact
 that reassures you is the one to turn over.**
+
+### Addendum, 05:58 UTC — format audit against Rule 1.3, and the §6 I owed
+
+The leader asked me to check my sections against the seven mandated items and
+name my omissions. Done honestly, including where the answer is "no omission",
+because a role whose job is accuracy should not accept a criticism it can
+disprove any more than it should dodge one it cannot.
+
+| # | mandated | my sections | verdict |
+|---|---|---|---|
+| 1 | 进度百分比、已耗时、预估耗时、可靠性 | §1 | **complete** — see below |
+| 2 | 当前进展 | §2 | complete |
+| 3 | 代码问题、已修复／未修复 | §3 | **partial** — status conveyed in prose, never labelled |
+| 4 | 非代码问题 | §4 | complete |
+| 5 | 未定性的问题 | §5 | complete |
+| 6 | 新增 commit 和每项说明 | §6 | **omitted at T+977** |
+| 7 | 其他必要补充 | §7 | complete |
+
+**Item 1 — 预估耗时 was not dropped, and I want that on the record straight.**
+Every section carries the field as an explicit refusal with its reason: T+226
+*"still no defensible figure"*, T+876 *"no defensible figure, and I am dropping
+the one framing I used last time"*, T+977 *"still no defensible figure, and the
+reason has changed again"*. The leader's instruction — *carry it as "cannot be
+estimated, and here is why" rather than omitting it* — is the practice already
+in place, so there is nothing to change. **A stated refusal reads as a judgement;
+an absent field reads as an oversight.** Agreed, and it is why I wrote it that
+way.
+
+**Item 3 — partial, and the leader did not flag this one.** I record every code
+problem and I do say what happened to it, but in prose and inconsistently:
+*"largely repaired already"*, *"one live gap remains"*, *"unchanged and is now
+the binding constraint"*. A reader must parse sentences to learn whether
+something is fixed. **From the next section, §3 labels each problem
+`FIXED` / `OPEN` / `WORKED AROUND` explicitly.** Self-reported, not prompted.
+
+**Item 6 — the real omission, and the leader is exactly right about when it
+happens.** Sections with two or three commits enumerated them with a line each
+(T+226 lists both). T+977 had thirty-plus and I gave **per-owner counts and a
+prose summary instead** — I compressed precisely when the record was worth most.
+That is the wrong direction, and the commit list being *"the only durable record
+of why each change happened"* is the reason.
+
+**Backfilling it is legitimate and back-dating a reading is not.** These commits
+carry their own timestamps and messages in git; recovering them changes nothing
+about when I observed anything. That is the opposite of the 10 h 44 m and the
+73 m I refused to fill, which were *measurements* nobody took.
+
+**And enumerating it corrected my own §6 numbers.** I measured `33` at 05:43 and
+committed the section at 05:47; **two m3 commits landed in between**, so the true
+interval is **35**. My per-owner split was also wrong: m4 was **9**, not 7; m3
+was **4**, not 2. Corrected below. My "m2 is the only silent owner" stands.
+
+#### §6, supplied in full — 35 commits, `1ee95c7..ece6442`
+
+**leader — 9** (`contract:` / `shared.yaml:` / `run-plan:`)
+
+- `8b87f41` **run-plan** the node decides `expect_ranks`, and no var names a GPU set — `RUN-PLAN.md`, `.claude/CLAUDE.md`; the `uid 50112975` correction.
+- `a61240f` **contract 8a** never `--amend` on a shared worktree; and the gate example named a dead hold — from my breach, plus the `106250` fix.
+- `7e3959d` **contract** a `kind:ai` agent gets only its own env block, so check both halves — creates `assets/lib/check_agent_env.py`.
+- `b1790de` **contract** the checker was pointing the wrong way, and `shared.yaml` was the wrong side — the divergence rule that would have propagated a site path into four files.
+- `96d6ac6` **shared.yaml** seven names an agent read that `runner` never had.
+- `60bd848` **shared.yaml** two names read by shared libs and declared nowhere — **the one that shipped a regression** (see m4 `7028275`).
+- `c61da63` **contract** follow the libs a readme names, because a readme is the ai program — the grep-scope fix that let the checker finally see `E2E_MOCK_STAGES`.
+- `27801d9` **contract 3.2a** declaring a name with an empty default is not a no-op — the rule extracted from `60bd848`'s own failure.
+- `4c97c71` **shared.yaml** a real card as a package default makes a guard unreachable.
+
+**m4 — 9**, the interval's most active owner
+
+- `a5c3a9e` a closing quote does not shield the path after it, and the seal says so.
+- `17135cb` forge edits the engine tree, not the workset copy — resolve through the translator.
+- `4b10960` build the container path — m4 execs into m1's container, it does not start one.
+- `7566462` the handoff id and the version were read one level too high, and one path frame was read two ways.
+- `730db48` a `gpu_hours` validator pointed the reader at a knob it cannot receive.
+- `1333ecc` the container command was single-quoted into a shell that re-parses it.
+- `fcf0a98` the ai agent got **1 of 36** `E2E_` vars, and the one it had was the one it cannot use.
+- `a3f52f3` the reason those two mock vars are absent is this readme, not the agent's kind.
+- `7028275` **declaring `E2E_STAGE` broke the one stage that was stamping it** — caught the leader's `60bd848` by running the new checker against their own agent.
+
+**m1-deploy — 5**
+
+- `882fdbc` a GPU set is a bound identifier with no variable — **T19**.
+- `4f1fa4a` the ai agent declared no env, and four `--var`s did nothing — the rung-1 root cause in m1's own file.
+- `80180a6` a container left on a node we no longer hold — **T20**, a debt.
+- `c5c3ef8` the completion probe's direction claimed a discrimination it does not make — **T21**, `probes.yaml`.
+- `2598e5d` declare the two the readme-scan found, and why one is not yet right — **T22**.
+
+**m5 — 5**
+
+- `6d86a2d` the exemption that made the flow's terminal handoff unsealable.
+- `f6131f7` the two arms could be measured on two machines and nothing saw it — `check_measurement_order`.
+- `1c2a63a` a knob that does nothing is worse than no knob.
+- `ba200b1` redact refused prose over a seal check the store does not call — the same `locality.check — NOT CALLED` premise as CONTRACT §2.2.
+- `03693af` a traceback is not a diagnosis when the patch names a path no image has.
+
+**m3 — 4** (I reported 2)
+
+- `aa80b02` one primary shape is not three performance shapes.
+- `d48221b` the agent read eleven variables it was never given.
+- `e58a601` match runner's empty `measure_gpu`, and name the residual — **landed 05:43–05:47, after my count**.
+- `b868fd3` the abort gate compares two records, and could never compare anything — **same window**; touches `assets/schemas/workset.schema.json`.
+
+**checkpoint (me) — 3** · `fb694f6`, `ee1f21f`, `d1a8c23`.
+
+**m2 — 0.** Unchanged: the only silent owner.
+
+#### The three 未定性 items the leader named, now in the register
+
+They belong in §5 and were not there, because they arrived with the message
+rather than from my own reading. Recorded as **open**:
+
+- **Why were two holds cancelled?** 17 jobs in one second, `Reason=None`. Joins
+  my own unexplained `108891` death at 1 h 21 m of 8 h. Three instances, no cause.
+- **Did m1's container survive on 249?** The node now belongs to another user, so
+  this is likely **unanswerable**, not merely unanswered — and the core principle
+  forbids us going to look with any verb that could remove it.
+- **Should `E2E_STAGE` be per-agent at all?** m1's **T22**. The interval produced
+  both a rule (`27801d9`) and a regression (`60bd848` → `7028275`) on this exact
+  name, which is a fair sign the underlying question is genuinely open.
+
+**One thing I am keeping that the rule does not ask for**, with the leader's
+endorsement: the **growing / ceiling / stopped** distinction, under item 7. It
+is what made today's stalls diagnosable, it is what stopped me reading a moved
+run root as a dead graph, and a section that reported only a percentage would
+have been wrong on both occasions.
