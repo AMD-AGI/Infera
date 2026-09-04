@@ -344,11 +344,24 @@ def render_environment(out: Path, warnings: list[dict] | None = None) -> None:
         argv += ["--warn", f"{warning['field']}={warning['expected']}!={warning['actual']}"]
     import subprocess
 
-    # `E2E_STAGE` is what env_render stamps each warning with. Unset it reads as
+    # `E2E_STAGE` is what env_render stamps each warning with. Absent it reads as
     # `stage: ''`, and a warning that does not say which stage noticed the
     # difference is markedly less useful to m5 than one that does.
+    #
+    # **Empty, not just missing** — and the distinction became load-bearing the
+    # moment `shared.yaml` declared the name. This was `setdefault`, which fills
+    # a *missing* key and leaves a present-but-empty one alone; `60bd848` added
+    # `E2E_STAGE: '${stage:-}'` to `runner`, so the variable now arrives **set to
+    # the empty string** and `setdefault` stopped firing. Measured: unset ->
+    # 'm4', declared-empty -> ''. The commit that declared the name silently
+    # broke the one stage that was stamping it correctly.
+    #
+    # A declared-with-empty-default variable is *present*. Any body that guarded
+    # with `setdefault` or `${VAR:=…}`-style "if unset" logic has the same
+    # exposure the day its name is added to `shared.yaml`.
     environment = dict(os.environ)
-    environment.setdefault("E2E_STAGE", "m4")
+    if not environment.get("E2E_STAGE"):
+        environment["E2E_STAGE"] = "m4"
     done = subprocess.run(argv, capture_output=True, text=True, env=environment)
     if done.returncode != 0:
         # env_render validates before it writes, so a non-zero exit means the

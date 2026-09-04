@@ -261,6 +261,12 @@
     E2E_JOBID: '${jobid}'
     E2E_NODE: '${node}'
     E2E_TRANSPORT: '${transport:-auto}'
+    # Read by `_lib.render_environment`, which stamps each carried warning with
+    # the stage that noticed it. Declared because `check_agent_env.py` is right
+    # that an undeclared name arrives empty — and note the value here is
+    # `${stage:-}`, i.e. **empty by default and present**, which is why
+    # `render_environment` guards on truthiness rather than `setdefault`.
+    E2E_STAGE: '${stage:-}'
 
     # --- site facts. Empty by default, and empty is REFUSED at run time ------
     #

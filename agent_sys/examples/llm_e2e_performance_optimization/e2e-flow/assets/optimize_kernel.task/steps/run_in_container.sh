@@ -32,12 +32,25 @@
 # So "point `KFO_PYTHON` at a better interpreter" was never the fix; there is no
 # such interpreter on any host in this cluster.
 #
-# ## What is NOT verified here
+# ## Verified end to end, 2026-09-04
 #
-# Written and exercised on the login node, which has no docker daemon: argument
-# handling, the record read, the ambient-vs-record refusal and every diagnostic
-# below are measured. **The `docker exec` itself is not.** First real use is
-# rung 4, with the leader watching — stated rather than glossed.
+# Argument handling, the record read, the ambient-vs-record refusal and every
+# diagnostic below were measured on the login node. **The `docker exec` was
+# closed on the node**, into m1's `yihou_e2e_sgl_m1real-20260904` on
+# `crsuse2-m2m-249`, card 4:
+#
+#     torch 2.11.0+rocm7.2
+#     6b727fcde1724924c71c1148d89005500195527e827fe7ec8d51eef43d92a762  …/srt/layers/sampler.py
+#     EXIT=0
+#
+# Both match m1's independent probes. m1 named that container after the record
+# on purpose, so the `runtime.container` lookup, `_agree_or_die` and the
+# running-state probe all ran rather than being skipped.
+#
+# The hash is the one `apply.py`'s gate expects from that image, so the
+# resolve -> hash path m5's stale `base_sha256` came from is closed too. What is
+# still unexercised is the *campaign* — this wrapper has never carried a
+# multi-hour command.
 set -euo pipefail
 
 WORKDIR=""
@@ -102,10 +115,19 @@ CONTAINER=$(_field runtime.container)
   exit 1
 }
 
-# **Never defaulted to 0.** Five owners share these nodes and cards 0-3 are a
+# **Never defaulted.** Five owners share these nodes and cards 0-3 have been a
 # co-tenant's; a default here puts two runs on one card to blame each other's
 # noise. CONTRACT section 5.2: every identifier bound on a shared host is a var.
-: "${HIP_VISIBLE_DEVICES:=${E2E_MEASURE_GPU:-}}"
+#
+# **One name for the card, and it is `HIP_VISIBLE_DEVICES` (`--var gpu=`).**
+# This used to fall back to m3's `measure_gpu` variable, which reads as a
+# courtesy to their convention and is not one: `shared.yaml` declares that
+# `${measure_gpu:-4}`, **a real card**. Importing it would make the refusal
+# below *unreachable* and pick card 4 silently on a shared host — the exact
+# outcome the refusal exists to prevent, arriving through a fallback rather
+# than a decision. Two names for one identifier is also CONTRACT section 4.3's
+# shape. m3 keeps that variable for their own script; m4 asks explicitly.
+: "${HIP_VISIBLE_DEVICES:=}"
 [ -n "$HIP_VISIBLE_DEVICES" ] || {
   echo "run_in_container: HIP_VISIBLE_DEVICES is empty and this host is shared." >&2
   echo "  Pass --var gpu=<n>. Cards 0-3 are another tenant's; 4-7 were free on 2026-09-04." >&2
