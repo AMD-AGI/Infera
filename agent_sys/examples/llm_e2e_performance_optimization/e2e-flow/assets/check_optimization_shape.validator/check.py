@@ -52,6 +52,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 import zone  # noqa: E402 — the path insert above is what makes it importable
+import workset_io as W  # noqa: E402 — m3's shared helpers; `write_report` is the reason
 
 try:
     import schema as schema_lib  # noqa: E402
@@ -547,6 +548,17 @@ def _check_apply(doc: dict, packup: Path, problems: list[str]) -> None:
 def main() -> int:
     args = zone.args()
     verdicts: dict[str, bool] = {}
+    # **The reasons, on disk, beside the verdict** — m3's `workset_io.write_report`,
+    # reused rather than re-implemented. A validator's stdout is kept nowhere
+    # (`temp/bugs/2026-09-03-a-validators-stdout-is-not-kept-anywhere.md`), so a
+    # zone holds `args.json`, `inputs.json`, `materials.json`, `verdict.json` and
+    # **not one word about why**.
+    #
+    # This stage supplied the sixth instance: on 2026-09-04 rung 0 reached
+    # `optimize_kernel` for the first time, this validator refused, and the only
+    # thing recoverable was `kernel_optimization: invalid`. The finding was real
+    # and the reason was gone before anyone could read it.
+    findings: dict[str, tuple[list[str], list[str]]] = {}
     for hid in zone.inputs():
         problems: list[str] = []
         notes: list[str] = []
@@ -557,10 +569,15 @@ def main() -> int:
             verdicts[hid] = False
         else:
             verdicts[hid] = _check(content, args, problems, notes)
+        findings[hid] = (problems, notes)
         for note in notes:
             print(f"{hid} note: {note}")
         for problem in problems:
             print(f"{hid}: {problem}")
+    # **Before `write_verdict`, deliberately.** m3's ordering: a crash in the
+    # report writer must not take the reasons with it, and a verdict that
+    # arrives without them is the state this exists to end.
+    W.write_report("check_optimization_shape", findings)
     zone.write_verdict(verdicts)
     print(f"check_optimization_shape: {sum(verdicts.values())}/{len(verdicts)} passed")
     return 0

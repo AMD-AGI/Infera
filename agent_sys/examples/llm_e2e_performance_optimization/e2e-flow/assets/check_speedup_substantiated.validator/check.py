@@ -69,6 +69,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 import zone  # noqa: E402 — the path insert above is what makes it importable
+import workset_io as W  # noqa: E402 — m3's shared helpers; `write_report` is the reason
 
 _DOC = "results/kernel_optimization.json"
 _SNAPSHOT = "results/workset.snapshot.yaml"
@@ -846,14 +847,23 @@ def _check(hid: str, args: dict, problems: list[str], notes: list[str]) -> bool:
 def main() -> int:
     args = zone.args()
     verdicts: dict[str, bool] = {}
+    # See `check_optimization_shape`'s note: a validator's stdout is kept
+    # nowhere, so the reasons go beside the verdict via m3's shared helper. This
+    # one matters more than its sibling — it is `cost: gpu_hours` on an output
+    # phase, so a refusal here arrives after a campaign has been spent, and
+    # losing the reason means spending it again to find out why.
+    findings: dict[str, tuple[list[str], list[str]]] = {}
     for hid in zone.inputs():
         problems: list[str] = []
         notes: list[str] = []
         verdicts[hid] = _check(hid, args, problems, notes)
+        findings[hid] = (problems, notes)
         for note in notes:
             print(f"{hid} note: {note}")
         for problem in problems:
             print(f"{hid} problem: {problem}")
+    # Before the verdict, so a crash in the writer cannot take the reasons.
+    W.write_report("check_speedup_substantiated", findings)
     # One entry per declared handoff. A missing entry raises at `PhaseRunner`'s
     # seam rather than folding as falsy.
     zone.write_verdict(verdicts)
