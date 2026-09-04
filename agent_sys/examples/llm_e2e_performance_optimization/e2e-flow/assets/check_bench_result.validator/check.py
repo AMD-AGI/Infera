@@ -260,8 +260,66 @@ def check(content: Path, args: dict, reasons: list) -> bool:
             summary_agrees(content, export, args, reasons),
             errors_ok(content, args, reasons),
             load_config_ok(content, reasons),
+            graph_ceiling_ok(content, reasons),
         ]
     )
+
+
+def graph_ceiling_ok(content: Path, reasons: list) -> bool:
+    """The engine captured a decode graph big enough for the load it was given.
+
+    m5's `assets/lib/graph_ceiling.py` (`7d57dda`), one implementation and two
+    call sites — this one and their two arms. Not re-derived here.
+
+    **Why an absolute bar and not a comparison.** m5 measured that a
+    stock-vs-m2 reconciliation catches one arm in eager decode (throughput
+    −78.6 %) and **passes when both arms are in it**, byte-identical to a healthy
+    agreement — and comparing the two engine command lines does not help either,
+    because in that case they agree, 8 == 8. Only an absolute bar sees it
+    (CONTRACT §4.6).
+
+    **What it is worth, measured on this cluster 2026-09-04.** Same image, same
+    node 047, same cards, same tp=4, same 1024/1024/conc-16 load, one flag:
+
+        --cuda-graph-max-bs  8   ITL 42.15 ms    64 requests    312 tps
+        --cuda-graph-max-bs 16   ITL  9.31 ms   304 requests   1649 tps
+
+    4.5x on decode, and **nothing in `environment.yaml` records the ceiling**, so
+    the two are indistinguishable to `compare_fixed_across_inputs`. m1 then swept
+    every kit and found there is no default at all: the producing agent picks the
+    value fresh each bring-up, 16/16/8/32 across four real ones, against a
+    mission-mandated concurrency of 16.
+
+    **`None` is a note, never a fault, and that is what makes this safe on both
+    of my lines.** This validator grades `profiling_mode_off` *and*
+    `profiling_mode_on` and cannot tell them apart — `zone.inputs()` yields
+    handoff ids, not kinds. `profiling_mode_on` runs CUDA graph **off by design**
+    (CONTRACT §1.1: a graph launch hides the kernels the profiler exists to see),
+    so its argv carries no `--cuda-graph-*` flag and the check returns `None`.
+    Filed as a problem that would refuse a correct capture on every run; filed as
+    a note it says so and grades nothing. Verified against both sealed artefacts
+    before wiring: `aiperf_baseline` -> ok=True, ceiling 128, decode 6.93;
+    `aiperf_profiled` -> ok=None, "none of [...] in the engine's command line".
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+    import graph_ceiling  # noqa: PLC0415 — the path insert above is what makes it importable
+
+    verdict = graph_ceiling.check(
+        content / "items" / "env" / "engine_argv.txt",
+        content / "items" / "result" / "profile_export_aiperf.json",
+        "bench",
+    )
+    if verdict["ok"] is False:
+        reasons.append(verdict["reason"])
+        return False
+    if verdict["ok"] is None:
+        reasons.append(f"(note) graph ceiling unchecked: {verdict['unavailable_because']}")
+        return True
+    reasons.append(
+        f"(note) decode graph ceiling {verdict['ceiling']} >= decode concurrency "
+        f"{verdict['decode_concurrency']} — decode ran under a captured graph"
+    )
+    return True
 
 
 def main() -> int:
