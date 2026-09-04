@@ -27,8 +27,27 @@ SCHEMA_VERSION = 1
 #: itself. Declaring the mode makes an out-of-scope patch fail at the first
 #: validator instead of being mounted and never executed.
 APPLY_OVERLAY = "overlay_files"
+#: **Patch the stock file in place, then mount the result.** Added 2026-09-04
+#: with m3's `workset.schema.json` enum, for a `call_site_fragment` operator
+#: whose edit lives inside an existing function: overlaying the whole file with
+#: a replacement that defines only the optimised fragment deletes every symbol
+#: the engine imports, which `apply.py`'s surface check demonstrated on rung 0's
+#: own workset.
+#:
+#: **`apply.py` has implemented this since before it had a name** — `:641-659`
+#: runs `patch -p1 --batch --forward` for any entry carrying a `patch` rather
+#: than a `replacement`, so the tree file is stock-plus-diff and the public
+#: surface is preserved by construction. The mode is a *declaration* that the
+#: workset and the manifest must agree on; it does not select the code path,
+#: the entry's shape does.
+APPLY_PATCH_IN_PLACE = "patch_in_place"
 APPLY_REBUILD = "rebuild"
-APPLY_MODES = (APPLY_OVERLAY, APPLY_REBUILD)
+APPLY_MODES = (APPLY_OVERLAY, APPLY_PATCH_IN_PLACE, APPLY_REBUILD)
+
+#: The two this stage can actually carry out. `rebuild` is declared and not
+#: implemented: a kernel that must be compiled needs a 9m25s image build plus a
+#: second evidence chain for the build itself.
+APPLY_MODES_IMPLEMENTED = (APPLY_OVERLAY, APPLY_PATCH_IN_PLACE)
 
 #: Container roots a patch may name, as `@NAME@ -> /path/inside/the/image`.
 #:
@@ -154,7 +173,7 @@ def read_manifest(codes_dir: str | Path) -> dict:
 
 def check_manifest(manifest: dict, codes_dir: str | Path, *,
                    roots: dict[str, str] | None = None,
-                   supported_modes=(APPLY_OVERLAY,)) -> list[str]:
+                   supported_modes=APPLY_MODES_IMPLEMENTED) -> list[str]:
     """Every reason this manifest cannot be applied. Empty list means it can."""
     codes = Path(codes_dir)
     bad: list[str] = []

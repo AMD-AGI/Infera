@@ -87,10 +87,21 @@ def check(content: Path, args: dict, reasons: list) -> bool:
     # evidence would be worse than one that had none.
     reasons.extend(patchkit.check_published_files(plan, result / "files"))
 
-    if plan.get("apply_mode") != patchkit.APPLY_OVERLAY:
+    # `APPLY_MODES_IMPLEMENTED`, not `APPLY_OVERLAY`. This read `!= APPLY_OVERLAY`
+    # until 2026-09-04, which was correct while the enum had one value and became
+    # a false refusal the moment m3's `patch_in_place` landed: the plan produced
+    # by the one mechanism that can install a fragment would have been refused
+    # here, one validator after `apply_patch` built it.
+    #
+    # The mount evidence this body grades is identical for both modes — a diff
+    # per mount, a before hash and an after hash — because `apply.py` generates
+    # the diff for a whole-file replacement and copies it for a patch, so the
+    # published shape does not vary by mode. That is why widening is a one-line
+    # change and not a second code path.
+    if plan.get("apply_mode") not in patchkit.APPLY_MODES_IMPLEMENTED:
         reasons.append(
-            f"the plan's apply_mode is {plan.get('apply_mode')!r}; this stage only "
-            f"implements {patchkit.APPLY_OVERLAY!r}"
+            f"the plan's apply_mode is {plan.get('apply_mode')!r}; this stage implements "
+            f"{list(patchkit.APPLY_MODES_IMPLEMENTED)}"
         )
 
     if args.get("compile_python", True):

@@ -357,11 +357,19 @@ def check_apply_manifest(manifest: dict, apply_dir: Path, packup: Path) -> list[
     mode = manifest["apply_mode"]
     if mode not in patchkit.APPLY_MODES:
         bad.append(f"apply_mode {mode!r} is not one of {list(patchkit.APPLY_MODES)}")
-    elif mode != patchkit.APPLY_OVERLAY:
-        # Not a gap: a kernel that has to be compiled — HIP, CK, assembly —
-        # needs the image rebuilt, which is a nine-minute build plus a second
-        # evidence chain for the build itself. Failing here is what stops such a
-        # patch being mounted, never executed, and reported as no regression.
+    elif mode not in patchkit.APPLY_MODES_IMPLEMENTED:
+        # Only `rebuild` reaches this now, and it is not a gap: a kernel that
+        # has to be compiled — HIP, CK, assembly — needs the image rebuilt,
+        # which is a nine-minute build plus a second evidence chain for the
+        # build itself. Failing here is what stops such a patch being mounted,
+        # never executed, and reported as no regression.
+        #
+        # **`patch_in_place` used to land here and the message was false.** This
+        # read `mode != APPLY_OVERLAY`, so the moment m3's enum gained a second
+        # value a `call_site_fragment` workset would have been refused by the
+        # one mechanism that can install it — and told to rebuild the image,
+        # which is not what it needs. T49, in the branch that exists to explain
+        # itself.
         bad.append(
             f"apply_mode {mode!r} is declared and not implemented here. A patch that must be "
             "compiled needs the image rebuilt; this stage only does read-only bind mounts."
