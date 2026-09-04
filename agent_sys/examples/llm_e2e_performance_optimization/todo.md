@@ -2349,3 +2349,27 @@ Not "a contract-wide migration", which is what I assumed before counting.
 kinds (CONTRACT §2) and closing an object is the kind of change that turns a
 tolerated field into a hard failure mid-run. It wants the leader's call and a
 green rung before it lands, not a quiet edit while rung 1 is in flight.
+
+**Mitigated at the one producer that is new, m5, `4e7a18d`.** m1's suggestion,
+and it needs no schema change: `replay_root.py` writes the record, then **reads
+`replayed_from` back through the accessor a consumer uses** and refuses the whole
+run if it does not name this hop. Proved by injecting m1's exact typo into a copy
+of the tool — `rc=1`, with the refusal saying *"shipping this root would hand the
+flow a replayed kit wearing a real one's face."*
+
+That does not close T54; it closes the hole where a **new** producer could open
+it. The 217 existing occurrences and the other two undeclared keys are still
+governed only by `additionalProperties: true`.
+
+**And running that test found a second defect, in m5's own tool.** The refusal
+printed the value it read back, and it was **not `None`** — rung 1's `deploy_kit`
+already carried `replayed_from: /shared_nfs/…/cheat_for_mock/stage1-deploy/deploy_kit`,
+because that run mocked stage 1. The rewrite was **overwriting** it, collapsing
+`sealed corpus → run X → here` into `run X → here` and telling a reader the
+numbers came from a real bring-up one hop back when they never came from one at
+all. Now chained: `<run> <- <prior>`.
+
+**The general form, which is the part worth keeping:** *the tool that writes a
+provenance field is the one best placed to destroy provenance*, and a test aimed
+at a typo is what surfaced it. On a kit with no prior `replayed_from` the
+behaviour is identical and every check written for it passes.

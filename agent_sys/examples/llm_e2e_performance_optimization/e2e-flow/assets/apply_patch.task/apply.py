@@ -530,9 +530,27 @@ def main() -> int:
 
     # One container handle for every extraction. `docker create` starts no
     # process and touches no GPU; the image's entrypoint never runs.
+    #
+    # **`--name`, added 2026-09-04, and it is a coordination fix rather than a
+    # cosmetic one.** This was an unnamed `docker create`, so docker assigned an
+    # `adjective_scientist` name — exactly the shape of the unidentified
+    # `charming_turing` the team spent time on today. The trap below removes it
+    # on any normal exit, but a hard kill or a dropped `spur exec` leaves it,
+    # and what it leaves is **anonymous on a host shared with other tenants**.
+    #
+    # With a name carrying `yihou` and the run tag, anybody sweeping a node can
+    # tell in one `docker ps -a` that it is ours, which run made it, and — from
+    # `State.Status: created` — that it never started, holds no GPU and is safe
+    # to remove. That is the standing rule ("never `docker rm -f` a container
+    # you did not create") made answerable from the artefact instead of from
+    # memory.
+    cid_name = f"yihou_apply_extract_{run_tag}"
     extract = [
         "set -e",
-        f"CID=$(docker create '{image}' true)",
+        # `rm -f` the name first: a previous hard kill may have left one, and a
+        # collision would otherwise fail the run for a leftover of our own.
+        f"docker rm -f '{cid_name}' >/dev/null 2>&1 || true",
+        f"CID=$(docker create --name '{cid_name}' '{image}' true)",
         "trap 'docker rm -f $CID >/dev/null 2>&1' EXIT",
         f"mkdir -p '{overlay_root}'",
     ]
