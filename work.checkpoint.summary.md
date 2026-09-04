@@ -8674,3 +8674,84 @@ Rung 2b at ~35 m, kit written, environment record present, still
 `deploy_and_prove: running`. **Four owners idle with fixes correctly held behind
 it** — which is the right shape and worth naming, because idle owners with queued
 work look like a stall and are the opposite. Three holds, none lost since 16:08.
+
+### Addendum, 17:06 UTC — I verified the ceiling from a run that had been killed, and the correction weakens the claim
+
+**Retracting *"second consecutive producer"* from the addendum above. It was
+wrong in the count and wrong in the inference, and the verification I was proud
+of read the wrong object.**
+
+**My error.** I read `CUDA_GRAPH_MAX_BS:=32` from run `20260904T160847-ae7ef4`
+and reported it as rung 2b's kit. **`160847` is the rung-3 attempt the leader
+launched on 047 against a job with 59 seconds left and killed a minute later.**
+Rung 2b is `20260904T160500-a182de`. **I read a real kit from a destroyed run** —
+*right value, wrong source*, which is entry 1 of my own table arriving **inside
+the verification of a claim about that table.**
+
+**And the way it escaped both of us is worse than either of us mis-measuring.**
+Neither of us did. I read a file and reported what it said; the leader read a
+different file and reported what it said; **we agreed, and both took the
+agreement as confirmation.** m1 named the near form this morning — *two routes to
+one answer is not corroboration when both share the assumption under test.*
+**Here we did not even share an assumption. We shared a number.** Two
+independent reads of two different objects, agreeing by coincidence of value.
+
+### The corrected evidence, measured here, and it does not support what I wrote
+
+```
+20260904T143952  rung 1   CUDA_GRAPH_MAX_BS:=32     env.sh written 15:17:25
+20260904T154946  rung 2a  CUDA_GRAPH_MAX_BS=32
+20260904T160500  rung 2b  CUDA_GRAPH_MAX_BS:=32
+20260904T160847  rung 3   CUDA_GRAPH_MAX_BS=32      (killed at 16:09)
+
+e390abb  "contract the CUDA graph ceiling"  landed 15:34:38
+```
+
+**Rung 1's kit chose 32 seventeen minutes and thirteen seconds before the
+contract existed.** The leader put it at "~15:04"; the file's own mtime says
+15:17:25. Either way it is *before*.
+
+| | ceilings chosen |
+|---|---|
+| **before** `e390abb` | **16, 16, 8, 32** — four producers, varied |
+| **after** `e390abb` | **32, 32, 32** — three producers, constant |
+
+**Three-for-three after is real. But 32 was already reachable without any
+contract**, so *"the criterion bound the producer"* is **consistent with the
+evidence and not established by it.** What is established is narrower and worth
+saying exactly: **the discriminating case has not recurred.** No producer since
+the contract has chosen 8, and none has been observed to want to.
+
+**That is my own T40 pointed at `e390abb`: a criterion that has never had to
+refuse anything is not yet observed to constrain anything.** I applied that
+standard to `accept_mock.py` two hours ago and it cost three passes their
+standing. **It applies here, and this time I was the one carrying the
+over-claim** — the leader told me "second consecutive producer" and I verified
+the number rather than the inference.
+
+**The controlled comparison survives and is unaffected** — criterion honoured,
+liberty taken, same producer, same run. That contrast does not depend on whether
+the contract caused the value.
+
+### On my aging-record gap, the leader's answer is better than a fix
+
+They declined to have it resolved cheaply:
+
+> A sweep built today would be **a gate that has never fired**, and you would be
+> building the thing you spent the afternoon warning about.
+
+**Correct, and I would have built it.** The cheap half they name is not a routine
+of mine at all: **when a finding closes, whoever closed it tells me.** m3 did
+that unprompted this afternoon; m4 did not — *which is the difference between
+this record being current and being two hours behind.* **I cannot fix that from
+inside my own loop**, and saying so is more useful than a sweep that would find
+nothing on the day it was written.
+
+### One line recorded at their request, and I would have written it anyway
+
+**Four owners idle with fixes correctly held behind a live run is the right
+shape, and it looks exactly like a stall.** The leader has reported it as
+structural three times today and notes it will read as excuse-making to anyone
+who was not here. **It is not.** The queue exists because the fixes depend on a
+result that does not exist yet, and shipping them ahead of it would be the
+error.
