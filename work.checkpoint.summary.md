@@ -3176,3 +3176,1428 @@ on `agent_assets.py`, and between-turn mail delivery.
 - The interval between this section and the last is three minutes, which breaks
   the ~30-minute cadence. It is here because the resolutions were verifiable now
   and would have been indistinguishable from the next tranche of work later.
+
+---
+
+## T+94 — 2026-09-03 09:47 UTC
+
+Twenty-six minutes. The most consequential period of the effort so far, and none
+of it was new features: a fourth teammate was added to review the diff
+adversarially, and it found a defect that would have made the run's headline
+result meaningless rather than merely failed.
+
+### 1. Progress
+
+**Effort: ~80 %.** Elapsed 1 h 34 m. Estimated remaining: **1–2 h**, unchanged
+for the fourth section running, and I am now stating plainly that this number
+has not moved because I have no way to size the one thing left. The run has not
+been launched.
+
+| workstream | est. % | basis |
+|---|---|---|
+| probes | **100 %**, now including the re-measurement | verified: `PROBES.md` 147 → 188 lines, `B'/C'/F'` section at line 157 |
+| core changes | ~95 % | verified: committed in `45d2a12`, plus 10 files re-modified since |
+| `examples/env_checker` | ~95 % | verified: committed; 3 files re-modified since |
+| `agent_sys/components/` | **100 %** committed | verified in `45d2a12` |
+| tests | ~95 % | reported 2198 passed / 3 skipped / 4 xfailed, 43 module tests; verified only that `test_agent_assets.py` is +541 lines since the commit |
+| review round | ~90 % | reported: 4 findings, all fixed; verified only the blocker's fix shape (`_NOT_PLACED`) |
+| **the one real run** | **0 %** | verified: no run root anywhere under the scratch dir |
+| commits | ~60 % | verified: 2 commits landed, 6804 insertions; the CLI/PATH and review fixes are still uncommitted |
+
+**Reliability: medium-high on the artefacts, and I want to flag an asymmetry.**
+Everything I can verify says the work got *better* in this period while the
+percentage moved only 8 points, because what changed was correctness of code
+already counted as present. If the reviewer had not run the installer, the
+percentage would look the same and the effort would have been in a worse state.
+A completion percentage cannot see this class of change, which is an argument
+for reading §3 rather than §1.
+
+### 2. Current state
+
+**Two commits have landed.** `git log`:
+
+- `45d2a12 feat(agent_sys): per-agent components at three install levels, and examples/env_checker` — **54 files, 6804 insertions, 29 deletions**
+- `5834cc0 docs: update the running work log for the per-agent components round`
+
+Working tree since those: 10 modified, 3 untracked, **961 insertions / 135
+deletions** — the review fixes and the CLI/PATH fix, going in as a follow-up.
+Modified: `env_mgr/{agent_assets.py,docs/design.md,isolation/policy.py,material.py,paths.py,prepare.py}`,
+`tests/env_mgr/test_agent_assets.py` (+541), and three package files
+(`ACCEPTANCE.md`, `README.md`, the genuine validator's `readme.md`).
+
+- **Four teammates now**: `core-impl`, `pkg-author`, **`reviewer`** (new,
+  read-only), and this reporter.
+- **`core-impl` declined to review its own rewritten code**, citing the rule
+  against verifying one's own work; the lead spawned `reviewer` instead. Recording
+  the refusal because a teammate declining a task *on principle* and being backed
+  is the mechanism working, not friction.
+- **T+68's serena question is resolved in the artefact.** `git ls-files` on
+  `assets/env_probe.agent/.serena/` returns nothing — the two files were kept out
+  of `45d2a12`, and the directory now shows as a single untracked `??` entry. The
+  finding was actioned before the commit, which is the only time it is cheap.
+- **The real run**: no `runs/` or `runroot` exists under
+  `/tmp/yihou/agentsys_envchecker_20260903/`. Not launched.
+- Pre-flight reported **9/9 green** (it grew to nine plus a `6b`). I did not find
+  a pre-flight artefact in `logs/`, which holds only the six files it held at
+  T+65 plus the updated `PROBES.md`.
+
+### 3. Code problems — fixed / not fixed
+
+**Fixed this period. Six defects, and the class matters more than the count.**
+
+Found by `reviewer`, **by running the real installer rather than reading it**:
+
+1. **BLOCKER — `_install_tree` copied `skills/` and `plugins/` and nothing else.**
+   `hooks/` and `servers/` never reached the zone. Measured: the hook script
+   absent while `settings.json` named it; for the L2 component the config tree
+   was **entirely empty** while the install report said `ok`. Capability 5 worked
+   **only by luck**. Three docstrings and a README asserted the copy that did not
+   happen. — This is the effort's own headline failure mode reproduced inside its
+   own installer: *a report saying `ok` over a directory containing nothing.*
+2. **HIGH — path escape.** The marketplace `contained()` check ran *after*
+   `copy_out`, with an author-controlled `manifest["name"]` joined into the path.
+   Measured with `"name": "../../../ESCAPED"`: the tree **was written outside the
+   zone**, and only then did the refusal fire. A guard that fires after the write
+   is not a guard.
+3. **MEDIUM** — `recipes:` and hand-bound `assets:` could escape the staged package.
+4. **MEDIUM** — **three tests could not fail**, proven by mutation: deleting the
+   settings-ordering behaviour left 34 tests passing; removing the `PYTHONPATH`
+   pin also passed.
+
+Found before the review, and they **masked each other**:
+
+5. `agent_assets` called `claude` by **bare name** under the policy-derived
+   `PATH`, resolving to `/usr/local/bin/claude` **2.1.197** while the session pins
+   **2.1.246**.
+6. Underneath it, `material.deploy` never passed a `PATH` at all, so the child had
+   none. Fixing only 5 leaves `uv: not found`; fixing only 6 **activates** 5.
+   Both fixed by pinning `Prepared.agent_cli` and threading `base_env`.
+
+**The blocker's fix is the one worth remembering: the default was inverted.**
+Verified by me in `agent_sys/env_mgr/agent_assets.py:225` —
+`_NOT_PLACED = frozenset({SETTINGS_FILENAME, MCP_FILENAME, "plugins"})`, applied
+at line 701 as `if name in _NOT_PLACED: …`, with the docstring at 644 stating
+each member is a **read** or a **relocation**, not a skip. Everything under
+`.claude/` is now placed *unless* it is in that closed set, because a copy-list
+is an allow-list and an allow-list fails **silently** on anything nobody thought
+of. `plugins/` is in the set as a relocation, not an omission — the comment at
+252 says so.
+
+Reported after the fixes: `pytest agent_sys` **2198 passed / 3 skipped / 4
+xfailed**, 43 module tests, and **five mutations now fail that previously
+passed**. I did not run the suite. The mutation count is the only one of these
+numbers that measures whether the tests can detect anything.
+
+**Not fixed:** nothing above is retired by an execution. Six defects were found in
+code that had already passed load, pre-flight and a green suite.
+
+### 4. Non-code problems
+
+- **`git gc` reports too many unreachable loose objects in the shared repo across
+  eleven worktrees.** Unactioned, and correctly so: `prune` deletes, the repo is
+  shared, and it is the user's call. Recording it here so it is not lost — this is
+  exactly the shape of the operation the hard rule exists for.
+- The T+65/T+68 entries stand unchanged.
+
+### 5. Open questions, not yet characterised
+
+- **The run.** Fourth section in a row. Still the whole of the remaining risk.
+- I did not find the nine-item pre-flight recorded as a file; `logs/` is unchanged
+  apart from `PROBES.md`. Whether it lives in a teammate's transcript, in
+  `ACCEPTANCE.md`, or nowhere, I did not check.
+- `poll_notes.md` has not been written since 09:06 (10004 bytes, unchanged across
+  three of my readings).
+- The 4 xfails: still unexamined, still assumed to predate this effort.
+
+### 6. New commits
+
+- **`45d2a12` `feat(agent_sys): per-agent components at three install levels, and examples/env_checker`** —
+  54 files, +6804/−29. The whole first body of work: the three-level installer
+  (`env_mgr/agent_assets.py`, `env_mgr/recipes/serena.yaml`), the core wiring
+  across `spec_loader`/`agent`/`env_mgr`, `agent_sys/components/envchk-baseline/`,
+  the complete `examples/env_checker` package, and the new/updated tests. The two
+  `.serena/` files were **not** included.
+- **`5834cc0` `docs: update the running work log for the per-agent components round`** —
+  the work log.
+
+### 7. Anything else worth recording
+
+- **The two corrections the lead recorded against itself are the most useful
+  entries of the period**, and both are the same error:
+  - *"`uv` is fine, miniconda's bin is on the derived `PATH`"* — true of the
+    **policy**, false of **what the code received**. Checked the policy, not the
+    plumbing.
+  - **Probes B, C and F were evidence about the wrong binary.** They ran without
+    `cli_path`, and the SDK's `_find_cli` prefers its **bundled** CLI (2.1.251)
+    over `PATH`. Three of six conclusions were about a build the run will not use,
+    and **no artefact said so** — the write-up's header named 2.1.246 because that
+    is what was on `PATH`, which was a true sentence about the wrong thing.
+
+  Re-measured on the pinned 2.1.246: all three still positive, recorded as
+  `B'/C'/F'` at `PROBES.md:157`. Verified by me: the file is now 188 lines, the
+  header carries an explicit note that "2.1.246 is on `PATH`" says nothing about
+  which binary ran, the section tabulates
+  `claude_agent_sdk/_bundled/claude -> 2.1.251` against
+  `shutil.which("claude") -> 2.1.246`, and the header now **requires every section
+  to state which build it was measured against**. A probe write-up that cannot be
+  misread the same way twice is worth more than the three re-runs.
+- Both corrections and the blocker share one shape: **the artefact was consistent
+  with the claim and the claim was about something else.** `ok` over an empty
+  tree; a `PATH` version that no session used; a guard after the write; tests that
+  pass with the behaviour deleted. Only running the thing distinguishes them, and
+  in every case here it was running it that did.
+
+---
+
+## T+124 — 2026-09-03 10:17 UTC
+
+**Run 1 happened.** Thirty minutes after the last section, and after four
+sections of "the run has not been launched" it launched, failed, and failed
+*correctly* — the one outcome that was worth waiting for and could not be
+predicted from any artefact.
+
+This is the first section in which I could open the run's own output. Most of
+what follows is verified rather than reported.
+
+### 1. Progress
+
+**Effort: ~88 %.** Elapsed 2 h 4 m. Estimated remaining: **45 min – 1 h 30 m**,
+and for the first time the estimate is grounded in something: one capability out
+of seven is unwired, its fix is on disk, and run 2 is the only unknown left. The
+first run's duration is now known — launched 09:57:22, its zones and handoff
+complete, so the run itself is not an hours-long object.
+
+| workstream | est. % | basis |
+|---|---|---|
+| probes | **100 %** | unchanged |
+| core changes | ~97 % | verified: 5 fix commits since the feature commit; 685 insertions still uncommitted |
+| `examples/env_checker` | ~95 % | verified: package committed, 7 files re-modified since |
+| `agent_sys/components/` | ~95 % | verified: `components/serena/` now exists (untracked), `.claude/.mcp.json` + `README.md` |
+| tests | ~97 % | reported 2213 passed, fourteen mutations failing that previously passed |
+| **run 1** | **done** | verified: run root, both verdicts, the handoff, six of seven tokens |
+| **run 2** | **0 %** | verified: only one run directory exists |
+| commits | ~80 % | verified: HEAD `c92063a`, six commits ahead of `9bf72c8` |
+
+**Reliability: high for run 1, medium for the remainder.** I read the run's own
+files. What I cannot judge is whether the serena wiring is *sufficient* — that is
+precisely what run 2 measures, and `pkg-author`'s static check (below) is
+evidence about the gap, not about the fix's completeness in a live session.
+
+### 2. Current state
+
+**Run 1**, verified from `/tmp/yihou/agentsys_envchecker_20260903/runroot/runs/20260903T095722-53312a/`:
+
+- Two verdicts under the same validation zone, on handoff
+  `7a53f3dc-02d1-48b6-a461-83d8cb6b9278`: one `true`, one `false`. Matches the
+  reported `check_env_report_shape` **PASS** / `check_capabilities_genuine`
+  **FAIL**.
+- The handoff has **two versions**, `v0` (empty `claim`/`content`) and `v1` with
+  `manifest.yaml`, `validation.yaml`, `content/README.md` and
+  `content/items/text.json`.
+- I parsed `text.json` myself. `nonce_digest 4254090a6627`, 13 install-report
+  entries, and the seven rows:
+
+  | capability | level | status | token |
+  |---|---|---|---|
+  | `skill` | L3 | ok | `ENVCHK-SKILL-f5668adf55df` |
+  | `hook` | L3 | ok | `ENVCHK-HOOK-1a041c200f74` |
+  | `plugin` | L3 | ok | `ENVCHK-PLUGIN-89e6b7d27ee1` |
+  | `mcp_external` | L2 | ok | `ENVCHK-MCP_EXTERNAL-9090b9…` |
+  | `mcp_stdio` | L3 | ok | `ENVCHK-MCP_STDIO-ab586bb49…` |
+  | `tooldef` | L3 | ok | `ENVCHK-TOOLDEF-190b154f069…` |
+  | **`serena`** | **L1** | **unavailable** | **`null`** |
+
+  Six distinct tokens, one per capability, and the failing row carries `null`
+  rather than a value — the scheme behaved as designed.
+
+- Reported by the lead and **not** independently recomputed by me: the six tokens
+  recompute from the salts in their own artefacts, the hook payload carried
+  `session_id` and `hook_event_name: SessionStart`, and the three-level install
+  was confirmed by opening the zone — `config/hooks/envchk_session_start.py`,
+  `config/servers/envchk_baseline_server.py`, `config/marketplaces/envchk-mp`,
+  `config/skills/`, `config/tools/` all present. That last one matters: it is
+  `reviewer`'s BLOCKER fixed **in reality**, not only in tests.
+
+**Repo**: HEAD `c92063a`, six commits ahead of `9bf72c8`. Working tree 12
+modified / 4 untracked, **685 insertions / 41 deletions** uncommitted. New
+untracked `agent_sys/components/serena/` — `.claude/.mcp.json` and `README.md`,
+i.e. **declaration only**, no installer, which is the correct shape given the
+diagnosis below.
+
+Scratch has grown to 14 directories including `judge/`, `review/`, `selftest/`,
+`redtest_a/`, `scale/` and a `serena.recipe.draft.yaml`.
+
+### 3. Code problems — fixed / not fixed
+
+**The defect run 1 was for, verified by me by reading the agent's own report:**
+
+**Nothing in the package declared serena as an MCP server.** The recipe installed
+the binary; the only `.mcp.json` declared `envchk_baseline`. The agent's
+`README.md` in the handoff records the investigation in full — it called
+`mcp__serena__find_symbol` as briefed, got `No such tool available`, then checked
+rather than stopping: `$UV_TOOL_BIN_DIR` holds `serena`, `serena-agent`,
+`serena-hooks`, the install report says `recipe serena.yaml: OK` with
+`serena-agent 1.7.1.dev0` from git, and
+`grep -rl serena "$CLAUDE_CONFIG_DIR" --include='*.json'` found nothing. Its
+conclusion: **binary installed; MCP registration never happened.**
+
+Reported by the lead, and the sentence worth keeping: the serena entry existed
+**as a comment in the recipe**, correct in every detail. *A comment is not a
+declaration.*
+
+**The agent's own `## Limits` section is the best artefact this effort has
+produced.** Verified, quoting the structure: it scores its own serena result as a
+FAIL and hands it over anyway; it notes the brief permits `"unavailable"` only
+when `install_report` carries a non-`ok` outcome naming serena, and that it does
+not — every serena entry is `info`; and it explicitly records that the salt *was*
+available to it by `Read`ing `serena_probe.py` and that it did not use it,
+because reading a file and reaching a capability are different things and that
+difference is the whole scheme. An agent that could have forged a passing row,
+declined, and said so in writing.
+
+**Fixed since the run** (reported; I verified the commits exist):
+
+- `205ff8f` marketplace name must be a single directory name, + a PATH test
+- `e1b9f54` tooldef module keyed on its source, + cross-component overwrite warning
+- `c92063a` symlinks resolved at every depth
+
+Two more precede the run and were not in my last section: `04e8f97` (pin the CLI,
+give the child a PATH, place every member of a `.claude/` tree — the CLI/PATH and
+BLOCKER fixes) and `99d3aea` (import a tooldef from the zone copy, not the
+component source), which is the HEAD run 1 was pinned at.
+
+**Fixed, and the fix is a second detector, not just a patch**: `pkg-author` built
+a **static** check that catches run 1's gap **with no run at all** — green on the
+real tree, red against a copy with serena's component removed, and it produces
+run 1's message verbatim. serena is now wired as L2 `components/serena/`
+(declaration) while the agent keeps `recipes: [serena]` (install). Run 1 proved
+**neither half implies the other**, and the fix keeps them as two halves rather
+than merging them.
+
+**Not fixed:** run 2 has not run. Uncommitted: the three-route naming fix and
+`reviewer`'s 15-member closure fixture.
+
+### 4. Non-code problems
+
+- A **scope line is in force** from here to run 2: *blocking* means it would make
+  run 2 fail, make its result unattributable, or write outside the zone; anything
+  latent for a package that does not exist yet is recorded for a follow-up.
+  `reviewer` **checked that classification rather than accepting it** and found no
+  reachable path to any of the three latent findings. A scope rule that is itself
+  audited is a different object from a scope rule that is asserted.
+- The `git gc` unreachable-loose-objects item stands, unactioned, the user's call.
+
+### 5. Open questions, not yet characterised
+
+- **Run 2.** Whether declaring serena at L2 is sufficient for
+  `mcp__serena__find_symbol` to exist in the session is unmeasured. Probe E
+  showed the installed serena answers an MCP handshake and serves 21 tools; that
+  is not the same statement as the tool appearing in this package's session.
+- The two validation zones contain `args.json` / `inputs.json` /
+  `materials.json` / `verdict.json` and no stdout or reason file that I could
+  find, so the *reason* the genuine validator failed is not recoverable from the
+  zone alone — I inferred it from the handoff. Whether a validator is expected to
+  leave a reason behind, I do not know.
+- Handoff `v0` exists with empty `claim` and `content`. Normal versioning or a
+  first attempt, I did not determine.
+- The 4 xfails: still unexamined.
+
+### 6. New commits
+
+Five since T+94, four of them fixes:
+
+- **`04e8f97`** `fix(env_mgr): pin the CLI, give the child a PATH, and place every member of a .claude/ tree` — the two masked CLI/PATH defects and `reviewer`'s BLOCKER, in one commit.
+- **`99d3aea`** `fix(env_mgr): import a tooldef from the zone copy, not the component source` — **the HEAD run 1 was pinned at.**
+- **`205ff8f`** `fix(env_mgr): a marketplace name must be a single directory name, and test the PATH fix`
+- **`e1b9f54`** `fix(env_mgr): key a tooldef module on its source, and report a cross-component overwrite`
+- **`c92063a`** `fix(env_mgr): resolve symlinks when placing a .claude/ tree, at every depth`
+
+### 7. Anything else worth recording
+
+- **The lead's `judge.py` scored the run 11/11 and was wrong; the package's
+  validator was right.** It read `level: "info"` as non-`ok`, so a benign
+  `info recipe serena.yaml: OK` counted as a failed install and let serena's
+  `unavailable` through against what was actually a clean report. Fixed, and it
+  now independently reaches 10/11 with serena FAIL. Two things follow. First, the
+  independent judge was written **before** the run and deliberately did not reuse
+  the package's validator — which is why the disagreement was informative rather
+  than invisible. Second, **the disagreement was resolved by finding the judge
+  wrong**, which is the outcome an independent check is *for* and the one that
+  feels least like progress at the time.
+- **The lead retracted a one-line spec it had given `core-impl`** after
+  `pkg-author` opened the real install report and found the three MCP routes
+  record three *different* shapes: the fix is three lines, not one. Third
+  correction of the day with the same root — a claim checked against the design
+  rather than against the artefact.
+- Run 1's headline, stated the way the effort should state it: **six of seven
+  capabilities verified independently, the seventh failed for a real reason, and
+  the failure was reported honestly by the agent that could have forged it.** A
+  green run 1 would have been a weaker result than this one.
+
+---
+
+## T+222 — 2026-09-03 11:56 UTC
+
+**Run 2 happened, and the design caught something no test could have.** Ninety-nine
+minutes since the last section — the longest gap in this file, and the interval in
+which the effort's most interesting result landed.
+
+I was able to do a differential comparison across both runs' handoffs myself, so
+the central finding below is **verified first-hand**, not relayed.
+
+### 1. Progress
+
+**Effort: ~92 %.** Elapsed 3 h 43 m. Estimated remaining: **unknown, and larger
+than it looked at T+124.** I am revising the direction of the estimate for the
+first time. At T+124 I said 45 min – 1 h 30 m with one capability left to wire;
+that capability is now wired and passing, and a *different* problem appeared
+underneath it which is explicitly **beyond the approved plan and open with the
+user**. Remaining time is now gated on a decision, not on work.
+
+| workstream | est. % | basis |
+|---|---|---|
+| the seven capabilities | **7/7 reached** | verified: all seven rows `ok` in run 2's handoff |
+| serena (L1 install + L2 declaration) | **done** | verified: `ENVCHK-SERENA-582b29cd2876`, status `ok` |
+| **capability 6 (`tooldef`) correctness** | **open** | verified failing: token identical across two runs with different nonces |
+| core changes | ~97 % | verified: HEAD `9a9fdff`; nothing committed since |
+| tests | ~97 % | reported 2216 passed |
+| run 2 | **done** | verified: `runroot2/runs/20260903T103441-53acfd`, both verdicts |
+| the contract decision | **0 %, user's** | reported open with the user |
+
+**Reliability: high on run 2's facts, and I decline to estimate the remainder.**
+The percentage above counts capabilities reached, which is now a poor summary:
+seven of seven arrived and one of them arrived carrying a false value. That is a
+better state than run 1 and a *less finished* one than "7/7" suggests.
+
+### 2. Current state
+
+**Run 2**, verified from
+`/tmp/yihou/agentsys_envchecker_20260903/runroot2/runs/20260903T103441-53acfd/`:
+
+- A **fresh `runroot2`** — verified, two run roots now exist side by side.
+  Reported reason: reusing run 1's root would have manufactured the ambiguity that
+  abort condition 3 exists to detect. Not reusing a root you are about to reason
+  about is the same discipline as pinning a run id at launch.
+- Both verdicts on handoff `9ccfd8af…`: one `true`, one `false`. Shape **PASS**,
+  `check_capabilities_genuine` **FAIL**.
+- `nonce_digest 41dc185e5731`, **14** install-report entries (run 1 had 13), and
+  **all seven rows `ok`**:
+
+  | capability | level | token |
+  |---|---|---|
+  | `skill` | L3 | `ENVCHK-SKILL-9fede1294ce5` |
+  | `hook` | L3 | `ENVCHK-HOOK-d950b4f53084` |
+  | `plugin` | L3 | `ENVCHK-PLUGIN-b3b4c6c9de79` |
+  | `mcp_external` | L2 | `ENVCHK-MCP_EXTERNAL-15112e08e7a5` |
+  | `mcp_stdio` | L3 | `ENVCHK-MCP_STDIO-acb5fa842482` |
+  | `tooldef` | L3 | `ENVCHK-TOOLDEF-190b154f0697` |
+  | `serena` | **L1** | `ENVCHK-SERENA-582b29cd2876` |
+
+- serena passed **end to end** — install *and* declaration — with `find_symbol`
+  returning `body_location {'start_line': 45, 'end_line': 66}`, reported as the
+  same numbers `pkg-author` measured before writing the static check. The install
+  report now names what it produced, `{"names": ["serena"]}`, where run 1 had
+  `details: {}`.
+
+**Repo**: HEAD `9a9fdff` (`feat(env_mgr): the install report names every MCP
+server and tool it produced`). The lead reports the tree clean; `git status`
+shows **9 modified package/component files plus untracked `components/serena/`**
+— `check_capabilities_genuine/{check.py,readme.md}`, `assets/lib/envchk.py`,
+`steps/check.yaml`, `probe_env.task/readme.md`, both `README.md`s under
+`components/`, and `ACCEPTANCE.md`. Nothing under `env_mgr/` or `tests/`. So
+"clean" holds for the **core**, and run 2 ran with the serena wiring
+**uncommitted**. Stating the discrepancy, not resolving it.
+
+### 3. Code problems — fixed / not fixed
+
+**Fixed:** run 1's gap. serena declared at L2, installed at L1, reached in a real
+session. `pkg-author`'s static check caught it before run 2 and would have caught
+it with no run at all.
+
+**FOUND, not fixed — and this is the finding of the effort:**
+
+**An in-process `ToolDef` cannot see the run's environment.** Capability 6's
+token was computed from an **empty** `$ENVCHK_NONCE`.
+
+I verified this myself by differencing the two handoffs. Six of seven tokens
+change between run 1 and run 2, as they must — different nonces. One does not:
+
+```
+skill         diff   f5668adf55df -> 9fede1294ce5
+hook          diff   1a041c200f74 -> d950b4f53084
+plugin        diff   89e6b7d27ee1 -> b3b4c6c9de79
+mcp_external  diff   9090b978deb0 -> 15112e08e7a5
+mcp_stdio     diff   ab586bb4903e -> acb5fa842482
+tooldef       SAME   190b154f0697 -> 190b154f0697     <- two runs, two nonces, one token
+serena        diff   (null)       -> 582b29cd2876
+```
+
+`ENVCHK-TOOLDEF-190b154f0697` is byte-identical across two independent runs with
+different nonces. The lead's arithmetic — run 2's nonce yields `043e2bc708f0`,
+run 1's `70877fcb8947`, the **empty** string yields `190b154f0697` — I did not
+recompute, but the invariance across runs is sufficient on its own: a token that
+does not move when the nonce moves is not derived from the nonce.
+
+Mechanism, reported and independently corroborated twice: an in-process `ToolDef`
+runs in the **supervisor's** process, while `Prepared.environment` goes to the
+**CLI child**. `core-impl` probed through `_adapt_tool` — same pid as the
+supervisor, variable absent. `reviewer` reproduced the **byte-identical** failing
+token **with no model call at all**, and supplied a differential control drawn
+from run 2's own pids: `mcp_external` 672056 and `mcp_stdio` 672058, CLI-spawned
+seconds apart, against `tooldef` **669295**, a process that existed long before.
+Three independent routes to one conclusion, one of them a process-identity
+argument that does not depend on the code at all.
+
+**The agent did nothing wrong.** Correct call, correct namespace, faithful
+quotation of what it received. *The tool lied to it.* This is the exact failure
+the token scheme was built to detect and the exact failure a narrative report
+would have hidden — the row said `ok`, the `how` field would have described a
+real call, and only the value betrayed it.
+
+`reviewer` also widened the blast radius past the lead's statement of it: there
+is **no channel at all** by which an in-process tool can learn the zone
+environment. And it found the working precedent — `env_mgr`'s own remote
+`ToolDef`s take their per-run context as **constructor parameters** and close over
+it, so they are immune. A fix shape exists in this codebase already.
+
+**Ruled out, with a reason:** (B) setting `os.environ` around the handler is
+**dead** — threaded runner plus `asyncio.to_thread` means concurrent attempts take
+each other's values. This is the same argument that moved L1 installs to a
+subprocess at T+65; the second time today that process-global mutation has been
+refused on concurrency grounds.
+
+**Ruled in independently:** the **bundled** MCP entry gets an explicit `env`,
+because it currently works **only by inheritance through the CLI child** and
+nothing states why. A capability that works for an unstated reason is a capability
+that breaks silently later.
+
+**`core-impl` measured, proposed shapes, and implemented nothing.** Recorded
+approvingly: the contract question is the user's, and building the fix first
+would have made the decision for them.
+
+### 4. Non-code problems
+
+- **Open with the user, beyond the approved plan**: whether `agent_sys`'s
+  in-process `ToolDef` contract should change so the route can be run-aware at
+  all, or be **documented as the supervisor's environment by construction**. Both
+  are defensible and the choice is not the team's.
+- The `git gc` item stands, unactioned, the user's call.
+
+### 5. Open questions, not yet characterised
+
+- **The second failure the lead reported from run 2 may not exist.** Recorded
+  here as the lead asked, as a correction rather than background: it reported
+  *two* failures, the second being `$AGENT_SYS_COMPONENTS_ROOT` unset so the L2
+  row could not be re-derived. Because a validator's reason is **not recoverable
+  from the artefacts** (the same gap I recorded at T+124), it re-ran the validator
+  by hand — and its own shell did not have that variable set. `reviewer`'s A/B
+  measurement shows exactly that shape: set → 1 FAIL, unset → 2 FAILs. **So run 2
+  may have had only one failure.** `reviewer` also refuted its own earlier
+  prediction as the cause. Both are suspending rather than offering a mechanism,
+  and so am I.
+
+  The general form is worth more than the instance: **the recovery method
+  contaminated the measurement**, and it was only detectable because someone
+  measured the recovery method too.
+- Whether the constructor-parameter precedent transfers to package-declared
+  tooldefs, which are imported from a file rather than constructed by `env_mgr`,
+  is not something I can judge.
+- The 4 xfails: still unexamined.
+
+### 6. New commits
+
+One since T+124:
+
+- **`9a9fdff`** `feat(env_mgr): the install report names every MCP server and tool it produced` — the HEAD run 2 was pinned at. Visible in the artefact: run 2's report carries `{"names": ["serena"]}` where run 1 carried `details: {}`, and the entry count went 13 → 14.
+
+### 7. Anything else worth recording
+
+- **This is what the token scheme was built for, and it is the only thing that
+  could have caught it.** A capability that ran, in the right namespace, returning
+  a well-formed string, from an agent behaving correctly — and the string was
+  computed from an empty variable. No exit code, no validator shape check, no
+  narrative `how` field, and no unit test of the tool in isolation would have
+  seen it. Two runs with different nonces and one unchanged token did. The
+  decision at T+65 to make evidence token-based rather than narrative is now paid
+  for.
+- **Run 2 is a better result than a green run 2 would have been**, for the second
+  time in this effort. Run 1 proved install and declaration are independent; run 2
+  proved the in-process route cannot see the environment. A clean sweep would have
+  shipped the second defect unnoticed, because six of seven capabilities do get
+  their environment and the seventh's failure is invisible in a single run.
+- Three corrections have now been recorded against the lead's own reports in one
+  day (the `PATH` policy-vs-plumbing claim, the probes on the wrong binary, the
+  `judge.py` scoring, and now this one — four). Every one was found by someone
+  measuring the instrument rather than the subject.
+
+---
+
+## T+243 — 2026-09-03 12:16 UTC
+
+Twenty minutes. No new run of the package's own accord, but **two process
+incidents**, four commits, and a user exchange that added an option nobody on the
+team had proposed. This is the first section whose content is mostly about how
+the team works rather than what the code does, and both incidents are worth the
+space because both were **reported by their author before anything was touched**.
+
+### 1. Progress
+
+**Effort: ~93 %.** Elapsed 4 h 3 m. Estimated remaining: **still gated on a
+decision, not on work**, and I continue to decline a number. Nothing is being
+implemented by design.
+
+| workstream | est. % | basis |
+|---|---|---|
+| the seven capabilities | 7/7 reached | unchanged from run 2 |
+| capability 6's *meaning* | **open, three options now** | reported: the user added a third |
+| core changes | ~98 % | verified: HEAD `b299bf2`, package tree **clean** |
+| tests | ~98 % | reported **2217 passed / 3 skipped / 4 xfailed**, and the lead states it ran the suite itself |
+| commits | ~95 % | verified: four new, tree carries nothing but my own file |
+| run 3 (the real one) | not launched | verified: `runroot3` does not exist |
+
+**Reliability: high on state, and the state is genuinely quiet.** `git status`
+now shows only `work.checkpoint.summary.md` (mine) plus the two long-standing
+untracked files at the repo root. The nine modified package files I flagged at
+T+222 are committed. The discrepancy I raised is resolved in the artefact.
+
+### 2. Current state
+
+**Repo**, verified: HEAD `b299bf2`, ten commits ahead of `9bf72c8`. Working tree
+clean apart from this file.
+
+**Runs**, verified — there are now **three** run directories:
+
+```
+runroot/runs/20260903T095722-53312a    run 1
+runroot2/runs/20260903T103441-53acfd   run 2
+runroot2/runs/20260903T120338-a3fe5d   the stray, 12:03:38
+```
+
+The stray landed **inside `runroot2`**, which is how it reached run 2's launch
+records. It is **kept, not deleted** — the correct call, and consistent with the
+hard rule this file has carried since T+0.
+
+**Run 2's judged artefact is intact.** I verified the exact numbers the lead
+gave, independently: `items/text.json`, **13804 bytes, mtime 10:37**. The lead
+additionally reports re-running `judge.py` against it with identical output,
+11/11; I did not re-run it. Three log files did not survive — `LAUNCH2.md`, the
+console log, `stream.json`. Pins were reconstructed into a file **explicitly
+marked as reconstructed**, which is the only honest way to hold a pin you did not
+capture.
+
+### 3. Code problems — fixed / not fixed
+
+**Fixed and committed** — `13154c6` is the substantive one and I read its stat:
+13 files, +560/−42, spanning `env_mgr/agent_assets.py` (+65),
+`components/serena/` (new, +113), both component READMEs, `ACCEPTANCE.md` (+127),
+`assets/lib/envchk.py` (+72), the genuine validator, `steps/check.yaml`, and
+`tests/env_mgr/test_agent_assets.py` (+47). Its message states both halves: **a
+bundled MCP entry states the run environment** (the "works only by inheritance,
+and nothing says why" item ruled in at T+222), and **record what an in-process
+tool cannot see**.
+
+**Not fixed, deliberately, and now with three options rather than two** — see §4.
+
+### 4. Non-code problems
+
+**Incident 1 — one git index, four agents.** `pkg-author` staged eleven package
+files; `core-impl` staged two and ran a bare `git commit`, which committed **the
+whole index**. Eleven of `pkg-author`'s files landed in `13154c6` under a message
+about `env_mgr`. Nothing lost, unpushed, DCO fine — both commit as the same
+identity.
+
+**The ruling was: do not reset.** `git reset --soft` mutates a **shared** index
+while another agent may be mid-`add`, in order to repair an attribution error in
+which **every byte is intact**. The lead's formulation: *the cure touches shared
+state and the disease does not.* The run-to-tree binding was restored by an
+**empty commit** (`90b34fe`, `docs(env_checker): record which tree run 2
+executed`) instead. New rule in force: `git commit -- <explicit paths>`, with the
+staged set read back before committing.
+
+This is the same shape as the `git gc --prune` item that has sat unactioned since
+T+94, and it is now the second time today the answer to "shared state, cosmetic
+gain" has been *don't*. Recording that the rule generalised rather than being
+re-derived.
+
+Attribution, as the lead stated it: the protocol failure is the lead's, the
+command is `core-impl`'s — and `core-impl` **insisted on owning the second half**
+when the lead tried to take the whole thing.
+
+**Incident 2 — a gate tested by firing it.** `pkg-author` added a gate refusing
+to launch on a dirty package tree, then ran `launch.sh` to check the gate passes.
+The gate passed, **so the script launched**, and a third run started and
+overwrote run 2's `LAUNCH2.md`, console log and `stream.json`.
+
+Its own diagnosis: **a gate whose only self-test is a live launch will be tested
+by launching.** Fixed by adding `--check`, verified by confirming it creates
+nothing. Reported clean by the lead: `launch.sh --check` green, `runroot3`
+reserved and non-existent.
+
+Both incidents were disclosed by their author before remediation. That is twice
+today (three times counting the two-writers-on-one-file overlap at T+65) and it
+is the reason both are recoverable entries in a log rather than mysteries.
+
+**The user exchange, which added a third option.** The lead had framed the
+in-process `ToolDef` question as *document it* vs *change `agent_sys`'s
+contract*. The user asked whether the **verification method** could be redesigned
+instead — and that is a third route the team had not proposed: **have the model
+pass the nonce as a tool argument**, since `defn.call(**args)` already carries
+the model's arguments. No `agent_sys` change, freshness preserved, the salt still
+only in the artefact; and arguably the correct design for an in-process tool —
+inputs through arguments, not ambient environment.
+
+The cost, which the lead insists goes **into the acceptance table rather than
+being slipped in**: it changes what capability 6 *proves*, from *the tool can see
+the run's environment* to *the tool is callable and computes correctly*. The
+latter is what the route can offer; the former it cannot. Its recommendation is
+that **plus** documenting the limitation, because **the limitation does not
+disappear because we changed how we test around it**.
+
+**Still not ruled. Nothing is being implemented.**
+
+### 5. Open questions, not yet characterised
+
+- **Whether run 2 had one failure or two — still open, and deliberately so.** The
+  lead's second finding may be an artefact of its own re-run, whose shell lacked
+  `AGENT_SYS_COMPONENTS_ROOT`; `reviewer` refuted its own predicted cause; and the
+  lead could not close it from the artefacts because **the stream records no
+  environment at all**. Instrumentation is in place so the next occurrence is
+  evidence. It stays unresolved rather than being written up as a finding — which
+  is the right disposal and the harder one.
+- Whether the stray run at `20260903T120338-a3fe5d` produced a handoff of its own,
+  and whether anything downstream could mistake it for run 2, I did not check
+  beyond confirming the directory exists with the usual six subdirectories.
+- The 4 xfails: still unexamined, seven sections running.
+
+### 6. New commits
+
+Four since T+222, all verified present:
+
+- **`13154c6`** `fix(env_mgr): a bundled MCP entry states the run environment; record what an in-process tool cannot see` — 13 files, +560/−42. **This is the commit that carries eleven of `pkg-author`'s files under an `env_mgr` message**, per incident 1. The content is correct; the message describes two of the thirteen files' worth of intent.
+- **`90b34fe`** `docs(env_checker): record which tree run 2 executed` — the **empty** commit that restored the run-to-tree binding without touching the shared index.
+- **`0a5840b`** `docs(env_checker): the instrument lessons, and ignore serena's by-product` — which also finally disposes of the `.serena/` question first raised at T+65: it is now ignored rather than left untracked.
+- **`b299bf2`** `docs(env_checker): record the launch gates' operating rule in the repo` — incident 2's lesson written where the next person will hit it.
+
+### 7. Anything else worth recording
+
+- **Three of the four commits in this period are `docs:`**, and none of them are
+  documentation of features. They record: which tree a run executed, what an
+  instrument taught, and how a gate must be operated. An effort that commits its
+  process findings at the same cadence as its code is unusual and is the reason
+  this checkpoint file has anything to say.
+- **The user found an option four agents had missed.** Worth recording plainly:
+  the team had converged on a binary — document the limitation, or change the
+  contract — and the user's question was neither, it was *change the instrument*.
+  The binary was not wrong, it was **narrow**, and it was narrow because everyone
+  in it had spent two hours inside the same mechanism. The lead's response is the
+  right one: adopt it, and refuse to let it quietly redefine what capability 6
+  proves.
+- `0a5840b`'s title pairs "the instrument lessons" with "ignore serena's
+  by-product". The second half is a two-line `.gitignore` change I flagged at
+  T+65 and the lead's own T+94 check found half-real. It took four hours and a
+  commit to close, which is the normal cost of a small correct thing and worth
+  noting against the temptation to skip them.
+
+---
+
+## T+273 — 2026-09-03 12:46 UTC
+
+**Run 3 reached seven of seven** and one measurement closed three questions that
+had been open since T+222. And while writing this section I found **run 4 already
+in flight** — launched 12:43:21, its handoff written 12:45:07, validators not yet
+finished. This section therefore reports a state the lead's own briefing predates.
+
+### 1. Progress
+
+**Effort: ~96 %.** Elapsed 4 h 33 m. Estimated remaining: **30–60 min**, and the
+estimate is grounded again — run 4 is the last planned action and its handoff was
+already on disk 1 m 46 s after launch.
+
+| workstream | est. % | basis |
+|---|---|---|
+| the seven capabilities | **7/7 `ok` in two independent runs** | verified: run 3 and run 4 handoffs both show all seven `ok` |
+| capability 6's correctness | **fixed and proven** | verified: the frozen token is gone — see §3 |
+| `check_capabilities_genuine` | **PASS** at run 3 | reported; the two verdicts (one `true`, one `false`) are verified but not attributable from the zone |
+| `check_env_report_shape` | fixed at `65754ba` | verified: `check.py` +51/−6, `README.md` +39 |
+| run 4 | **in flight** | verified: handoff written 12:45:07, no verdicts yet at 12:46 |
+| the contract decision | resolved by redesigning the instrument | reported |
+
+**Reliability: high, with one attribution gap I could not close.** Run 3 has two
+verdicts on handoff `96c08fea…`, one `true` and one `false`, and the validation
+zones carry only `args/inputs/materials/verdict.json` — no name, no reason. Which
+of the two is the shape check is the lead's report, not my reading. This is the
+third section in which that same gap has appeared, and it is now the single
+thing most limiting what I can verify.
+
+### 2. Current state
+
+**Runs — there are now five run directories:**
+
+```
+runroot /runs/20260903T095722-53312a   run 1
+runroot2/runs/20260903T103441-53acfd   run 2
+runroot2/runs/20260903T120338-a3fe5d   the stray (T+243, kept)
+runroot3/runs/20260903T123051-f53888   run 3
+runroot4/runs/20260903T124321-2d27d9   run 4, IN FLIGHT
+```
+
+**Run 3**, verified: `nonce_digest baeb5ad02e11`, 14 install-report entries, all
+seven `ok` across all three levels.
+
+**Run 4**, verified at 12:46: handoff `0d3c8e1c…` written at 12:45:07,
+`nonce_digest a5a86ca7d43f`, 14 entries, all seven `ok`. Its single task zone was
+still being written at 12:46:35 and **no `verdict.json` exists yet**. So: the
+agent's half of run 4 is complete and passing; the validators' half is unfinished
+at the time of writing. I am recording that split rather than a result.
+
+**Repo**, verified: HEAD is **`65754ba`**, not the `47de7ed` the lead named — the
+placeholder fix has already landed and run 4 launched behind it. Tree clean apart
+from this file. Fifteen commits ahead of `9bf72c8`.
+
+### 3. Code problems — fixed / not fixed
+
+**Capability 6 is fixed, and I can prove it from the artefacts.** The token that
+was frozen across runs 1 and 2 now moves:
+
+```
+run 1  ENVCHK-TOOLDEF-190b154f0697
+run 2  ENVCHK-TOOLDEF-190b154f0697   <- identical: computed from an empty nonce
+run 3  ENVCHK-TOOLDEF-1ede902d53cf
+run 4  ENVCHK-TOOLDEF-f3bed5dfbcd7   <- three distinct values, three nonces
+```
+
+Two further independent values after the redesign. The route by which the model
+passes the nonce as a **tool argument** — the user's third option, recorded at
+T+243 — is measured working, twice. All other six tokens also differ between run
+3 and run 4, as they must.
+
+**Fixed:** `1f3fef0` `feat(env_checker): row 6 takes no input; add 6b, the
+placed-copy guard`, and `47de7ed` which tells the agent what row 6's tool now
+returns. Also `7d25011`, the positive rule for an in-process tool's per-run
+context, and `50105f4`, which **corrects a false strength claim in
+`ACCEPTANCE.md` section 3** — an effort correcting its own acceptance document
+downward is worth a line.
+
+**Fixed — the eighth instrument defect, and a new species.** `65754ba`
+`fix(env_checker): the placeholder rule failed on correct input`, verified as
+`check_env_report_shape/check.py` +51/−6 plus 39 lines of `README.md`. The rule
+flagged the agent's Schema line ``` `ENVCHK-<LABEL>-<12 hex>` ``` as an unfilled
+placeholder: **it cannot tell documenting a placeholder from leaving one.** The
+agent did the right thing and the check was wrong.
+
+The first seven instrument defects today were all *checks that could not fail*.
+This one **fails on correct input** — the other face of the same coin, and the
+repair points the opposite way. Recording the pair because a team that has spent
+a day hardening checks against false negatives is exactly the team that will
+introduce a false positive.
+
+**And it is in five files.** `pkg-author` grepped: the same regex sits in five
+places, lifted from `single_real_task`, and it verified **the original copy flags
+the exact line run 3 died on**. The ruling — *fix ours only; record the other
+four; do not build the shared helper* — is on the same principle as "do not
+reset" at T+243: changing a validator in a package nobody is running would alter
+an acceptance criterion for **already-accepted work without re-running it**.
+Third time today that touching something shared for a non-blocking gain has been
+refused.
+
+`pkg-author`'s own diagnosis is the finding: *"I introduced it by lifting a regex
+that already had it, without re-reading what it matched."* **A defect that
+spreads by copying gets more entrenched with every reuse, and each copy arrives
+carrying the authority of the file it came from.**
+
+### 4. Non-code problems
+
+- The four other copies of the placeholder regex are **recorded, not fixed**, by
+  ruling. A follow-up exists and is not this round's work.
+- The `git gc` item stands, unactioned, the user's call. Unchanged since T+94.
+
+### 5. Open questions, not yet characterised
+
+- **Run 4's verdicts.** Not written at the time of this section.
+- **Which verdict belongs to which validator is not recoverable from a run's
+  zones.** Third section running. Every attribution of a PASS or FAIL to a named
+  validator in this file has come from a teammate's report, never from my reading
+  of the run.
+- The 4 xfails: unexamined, eight sections running. I am going to stop repeating
+  this unless someone acts on it.
+
+### 6. New commits
+
+Five since T+243, all verified present:
+
+- **`50105f4`** `docs(env_checker): correct a false strength claim in ACCEPTANCE.md section 3`
+- **`7d25011`** `docs(env_mgr): the positive rule for an in-process tool's per-run context`
+- **`1f3fef0`** `feat(env_checker): row 6 takes no input; add 6b, the placed-copy guard`
+- **`47de7ed`** `docs(env_checker): tell the agent what row 6's tool now returns` — the HEAD run 3 was pinned at
+- **`65754ba`** `fix(env_checker): the placeholder rule failed on correct input` — 2 files, +84/−6; the HEAD run 4 is running behind
+
+### 7. Anything else worth recording
+
+- **Three open questions closed by one measurement, and the closure is a chain
+  worth preserving.** `check_capabilities_genuine` passed ⇒ the L2 row was
+  re-derived ⇒ `components_root()` returned a path. It has two sources; the lead
+  measured that the staged package has **no ancestor containing
+  `agent_sys/components`** (printed the list, empty), and `pkg-author` had already
+  established the upward search can never fire in a real run. Therefore the
+  variable was present. Which yields: a real validation zone **does** carry
+  `AGENT_SYS_COMPONENTS_ROOT`, §4's validation-zone third is **refuted**, and
+  **run 2 had ONE failure, not two** — the lead's second finding was its own hand
+  re-run's missing shell variable. **Recorded as a correction**, as asked, and it
+  closes the item this file has carried open since T+222. Note the form: nobody
+  measured the variable directly; a passing validator was used as an instrument to
+  measure it, which is only sound because the alternative source was independently
+  excluded first.
+- **`core-impl` corrected the lead back, and its correction is sharper than the
+  measurement.** The result shows the lead's unification was wrong **on the axis**,
+  not in one of three parts: the discriminator is not *did this context receive
+  the environment* but **spawned as a child versus sharing the supervisor's
+  process**. A validation zone *is* spawned and does get one; an in-process tool
+  is not spawned at all. Which is why option (D) has to be a **factory** rather
+  than an environment fix. A junior correcting the axis rather than the answer is
+  the most valuable kind of correction and the easiest to wave off.
+- **The lead authorised both fixes without waiting on the user**, on the reasoning
+  that a validator failing correct input is a **correction inside the plan's
+  scope**, and that a package whose method is *prove it by running it* does not
+  ship a repaired check unrun. Recording the reasoning, not just the decision,
+  because the same two sentences would justify a scope creep if the first clause
+  were dropped.
+- Run 3's `judge.py` agreement at 11/11 is reported as meaningful **because the
+  instrument was annotated before the run** rather than found to agree afterwards.
+  That distinction is the whole difference between a corroboration and a
+  coincidence, and it is the fourth time today the team has paid attention to it.
+
+---
+
+# Checkpoint summary — PR 155 review response: fold L1/L2/L3 into the recipe layer system
+
+A **third effort**, appended below the five-module `llm_e2e` debug and the
+three-level component install above. Neither earlier effort's sections are
+touched.
+
+Append-only, same discipline: one section per ~30 minutes, earlier sections are
+never revised, wrong estimates are left standing because the record over time is
+the value.
+
+Effort start (T+0) taken as **2026-09-04 06:14 UTC**, the minute this round's
+task book was backed up (`CLAUDE.envchecker.20260904-0614.md.bak`).
+
+What is being done: the previous effort shipped the three-level per-agent
+component install (L1 recipes / L2 `agent_sys/components/` / L3 auto-detected
+`.claude/`) plus `examples/env_checker`, and opened **PR 155** (`AMD-AGI/Infera`,
+head `dev.yihou.aiopt.task_with_agent_config` → base
+`dev.yihou.aiopt.task_package`). The repo owner left review comments whose
+central objection is that **L1/L2/L3 is a parallel concept for a job the existing
+recipe *layer* system should already own** — *"more concept make more complexity
+to maintain"*, *"L1 L3 is just a user friendly declare way, not a new system for
+the core code"*, *"actually I think the L2 should not exist"*.
+
+Owner rulings carried into this round (relayed by the lead, not read by me in
+this form on the PR): four layers `system` → `workspace` (the `default`
+mechanism) → `task_package` (the `main` mechanism) → `agent`; only the `agent`
+layer may carry `.claude/` in assets; conflict handling **detection-only**, no
+override; **`layer` is a system mechanism invisible to declarations and users**
+(loader-assigned, removed from recipe YAML).
+
+Teammates: **`researcher-core`** (the `layer` change set inside `env_mgr`) and
+**`researcher-pkg`** (the package-facing items). Both **research-only** at T+0.
+
+Reporter reads, cheapest first: `git status --short` / `git log --oneline` /
+`git diff --stat` in the worktree; `/tmp/yihou/agentsys_pr155_20260904/research/`;
+`agent_sys/docs/TODO.md` and `agent_sys/engineer_principle.md`;
+`gh api repos/AMD-AGI/Infera/pulls/155/comments`.
+
+---
+
+## T+2 — 2026-09-04 06:16 UTC (baseline)
+
+Written 2 minutes after the nominal T+0. This is a genuine baseline, not a
+retro-fit: everything below was observed at 06:16, not reconstructed.
+
+### 1. Progress
+
+**Effort: ~3 %.** Elapsed 2 minutes. Estimated remaining: unknown.
+
+| workstream | est. % | basis |
+|---|---|---|
+| review comments gathered | **100 %** | I fetched all 16 from the GitHub API and read every body |
+| task book (`CLAUDE.md`) rewritten for this round | **0 %** | measured: `diff -q CLAUDE.md CLAUDE.envchecker.20260904-0614.md.bak` reports the files **identical**. The backup was taken; the replacement has not been written |
+| `engineer_principle.md` — the principle the objection turns on | **100 %** | 15 added lines, read in full (see §6) |
+| `docs/TODO.md` — the `assets/` item the owner opened | **100 %** | one new row `4g`, read in full |
+| `researcher-core` output | 0 % observable | `/tmp/yihou/agentsys_pr155_20260904/research/` is **empty** |
+| `researcher-pkg` output | 0 % observable | same directory, same emptiness |
+| production code for this round | **0 %, measured** | `git diff --stat` names exactly two files, both documentation; no `env_mgr`, `spec_loader` or `examples/` file has changed |
+
+**Reliability: very low, and I want to be precise about which way.** The four
+100 % figures are solid — I opened those artefacts and diffed them. The two
+zeroes for the researchers are *floors derived from an absence*, and at T+2min an
+absence means **"has not yet written to a path I can see"**. I cannot distinguish
+that from "is reading code right now and has nothing to write yet", which is the
+overwhelmingly likely state two minutes in. Neither researcher has been observed
+to fail at anything, and neither has been observed to do anything.
+
+The **denominator is worse than usual this round.** 16 review comments is a count
+of comments, not of work: three of them are questions the owner wants *answered*
+(`nonce`, per-call MCP process model, `agent_assets.py` vs `material.py`), one is
+a request for a written explanation of an existing overlay/fallback system, and
+one — *"just reuse the recipe level system"* — is a core refactor whose size
+nobody has estimated in my hearing. **A 3 % figure against that denominator is a
+gesture.**
+
+### 2. Current state
+
+Worktree `/home/yihou/dev/git.16-19/infera.aiopt.real.task_package`, branch
+**`dev.yihou.aiopt.task_with_agent_config`**, HEAD **`8cac792`**
+(`docs(env_checker): the follow-up list, as items with triggers`, committed
+2026-09-03 12:53 UTC — **17 hours before this checkpoint**, and the previous
+effort's final commit).
+
+Note a discrepancy I am recording rather than resolving: the still-current
+`CLAUDE.md` states *"Branch is `dev.yihou.aiopt.task_package`"*, but that is the
+**base** of PR 155; the checkout is on the **head**. This is consistent with
+`CLAUDE.md` being the previous round's book, not with a stale checkout.
+
+`git status --short`:
+
+```
+ M agent_sys/docs/TODO.md
+ M agent_sys/engineer_principle.md
+M  work.checkpoint.summary.md
+?? CLAUDE.envchecker.20260904-0614.md.bak
+?? CLAUDE.kernel_opt.20260903-0813.md.bak
+?? progress.bar.for.user.md
+```
+
+Two tracked-and-modified files, both documentation, both edited this round
+(mtimes 06:04 and 06:07 UTC). `work.checkpoint.summary.md` is staged with the
+previous effort's 889 lines. The two `.bak` files and `progress.bar.for.user.md`
+are untracked; `progress.bar.for.user.md` is stale from 2026-09-02 and belongs to
+the kernel-opt effort, not this one.
+
+**On disk in the scratch workspace** `/tmp/yihou/agentsys_pr155_20260904/`:
+three directories — `logs/`, `research/`, `scratch/` — all created at 06:14 and
+**all three empty**. So the workspace has been laid out and nothing has been put
+in it.
+
+**PR 155**: OPEN, 18 commits, `reviewDecision` empty (the owner's 16 comments
+were submitted as 16 separate `COMMENTED` reviews, each with an empty top-level
+body — so there is no summary review to read; the argument exists only in the
+inline comments).
+
+**What each teammate is doing**: I have no first-hand signal. The lead's brief
+says both are research-only. I can confirm only that neither has written to
+`research/`.
+
+### 3. Code problems — fixed / not fixed
+
+**Fixed this round: none.** No production code has been touched (measured, §1).
+
+**Not fixed — the owner's 16 comments, verified by reading the API response.**
+Grouped by what they demand, with the file each names:
+
+*The central architectural objection (4 comments, all on
+`agent_sys/examples/env_checker/steps/check.yaml:110`)*
+
+- *"actually I think the L2 should not exist / and L1/L3 should also not exist in
+  the core code. just reuse the recipe level system to implement it. make L3 as a
+  new top layer or a repo layer"*
+- *"more concept make more complexity to maintain"*
+- *"L1 L3 is just a user friendly declare way, not a new system for the core code"*
+- *"components is a tag identify that this item is from inside the agent_sys. the
+  there L1/L2/L3 classify way is a virtual concept not a user aware thing"*
+- (a fifth on the same line: *"components should also declared in the recipes."*)
+
+*Declaration surface — `check.yaml:89`, the longest comment*
+
+- rename `recipe[s]` → `env_recipe[s]`;
+  `env_recipe.${agent_name}.yaml` auto-detected across the whole package;
+  a package-level `main.env_recipe.yaml` at the workspace kind;
+  **embedded recipe definitions not allowed** (reference an existing one only);
+  and *"I don't think list/arr is needed here"*. It also **asks a question**:
+  *"If i am not wrong, there is a overlay/fallback system of different kind
+  recipe like workspace/repo/project..., tell me details about that and we make
+  sure how next step do."*
+
+*A new default recipe — `agent_sys/env_mgr/recipes/serena.yaml:1` (2 comments)*
+
+- add a `default.yaml` used when a task package declares nothing for an agent:
+  bottom-most kind, the owner's **own currently-installed Claude plugins**, `cli`,
+  **`gh` cli** (added in a follow-up comment), and *"install something else, make
+  it good enough for claude code to works for a develop and experiment job working
+  in repos like infera/sglang"*, plus **print a warning when it is used**.
+
+*Placement and implementation — `agent_sys/components/envchk-baseline/.claude/servers/envchk_baseline_server.py`*
+
+- `:2` — *"the whole components folder should lives in the env_mgr folder as a
+  sub-folder, as it a something about env"*
+- `:129` — *"do not implement MCP from scratch / use standard lib"*, with a
+  sketch importing `mcp.server.MCPServer`. **The comment's sketch also contains
+  `import httpx2`**, which I am recording verbatim and not interpreting.
+- `agent_sys/components/serena/.claude/.mcp.json:5` — *"I think there is an
+  official claude code plugin can install serena, so why this file exists?"*
+
+*Questions the owner wants answered, not code changes*
+
+- `check.yaml:75` — *"what is nonce"*
+- `check.yaml:76` — *"So is this a way to declare shell variable for a agent? It
+  nice"*
+- `...envchk_baseline_server.py:148` — *"So every time the mcp call is invoked by
+  claude code, a new python process is start to response here?"*
+- `agent_sys/env_mgr/agent_assets.py:35` — *"what's the relationship of this file
+  and material.py"*
+- `agent_sys/spec_loader/assets.py:341` — *"really? not sure ... so how did
+  validators like `check_env_report_shape.validator` find their folder?"*
+
+The last of these has already produced a written answer in the repo: `TODO.md`
+row **4g** (§6) records the owner's ruling that the `assets/` mechanism *"resolves
+entry points and pretends to be a resource mechanism"* and wants a small-scope
+refactor. That is the only one of the five questions with an artefact behind it
+at T+2.
+
+### 4. Non-code problems
+
+- **The task book for this round does not exist yet.** `CLAUDE.md` is byte-identical
+  to the backup of the *previous* round's book. Anyone — human or agent — reading
+  `CLAUDE.md` right now gets the L1/L2/L3 task that PR 155 is objecting to,
+  described as the thing being built. This is the single highest-risk state on
+  disk at T+2, and it is a *stale-instruction* risk, not a lost-work risk: the
+  backup was taken correctly.
+- **Two stale `.bak` files and a stale progress bar sit untracked at the repo
+  root.** `CLAUDE.kernel_opt.20260903-0813.md.bak` is now two rounds old. Not a
+  problem yet; noted so that a future section can say whether it grew.
+- **The owner's argument is distributed across 16 zero-body reviews.** There is no
+  single review body summarising the position, so any tool or teammate that reads
+  "the review" rather than "the review *comments*" gets nothing. I hit this: the
+  `reviews` endpoint returns 16 rows of `body_len=0`.
+- **The brief says 15 comments; the API returns 16.** Recorded, not reconciled.
+- Two research directories were created and left empty for 2 minutes. That is not
+  a problem, it is the baseline; it is here so the T+30 section has something to
+  compare against.
+
+### 5. Open questions, not yet characterised
+
+**Suspend, don't conclude.**
+
+- The owner asks for *details about* an *"overlay/fallback system of different
+  kind recipe like workspace/repo/project"*, prefixed with *"If i am not wrong"*.
+  **I have not read `env_mgr/recipe.py` and do not know whether such a system
+  exists, whether it has those kind names, or whether the four-layer ruling the
+  lead relayed is a description of it or a replacement for it.** The measurement
+  that would answer it: read the kind/layer resolution in `env_mgr/recipe.py` and
+  `env_mgr/cli.py` and name what is actually there.
+- The lead's brief states the four layers as *rulings already given*. I have not
+  seen them in any of the 16 PR comments I read; the closest is *"make L3 as a new
+  top layer or a repo layer"*, which names neither four layers nor `system` /
+  `workspace` / `task_package` / `agent`. **They may have been given in a channel
+  I cannot see.** I am recording that the provenance is the lead's brief, not the
+  PR — per the rule that a teammate report and a read artefact are different
+  grades of evidence.
+- `import httpx2` in the owner's suggested MCP sketch. I do not know whether that
+  is a package that exists, a typo, or something local. Not investigated.
+- Whether the previous round's `examples/env_checker` and its two validators
+  survive the refactor at all, or are rewritten against the new declaration
+  surface. Nothing on disk speaks to this.
+
+### 6. New commits
+
+**None.** HEAD is unchanged at `8cac792` from the previous effort, 17 hours old.
+
+Two **uncommitted** documentation changes exist and I read both in full:
+
+- `agent_sys/engineer_principle.md` (+15). Adds a MUST row — ***"Never add a
+  responsibility an existing mechanism can already cover"*** — plus three
+  paragraphs arguing that a second concept for an existing job is *"the same
+  failure wearing a friendlier face, and it is harder to see because nothing is
+  obviously in the wrong place"*, and setting the order **find the owner, change
+  the owner, and only then consider a new component**. This is the owner's PR 155
+  objection generalised into the repo's standing principle, written **before** any
+  code was changed to comply with it.
+- `agent_sys/docs/TODO.md` (+2). Adds row **4g**, recording that `spec_loader/assets.py`
+  finds *one file per role* (`body.readme`, `body.entry`) and that every other file
+  an object needs arrives only because `layout.stage_package(include=None)` copies
+  the whole package — so `body.entry` is *"a pointer, not a manifest"*, each body
+  re-derives the same path string by hand, and a layout change *"breaks them one by
+  one at run time rather than at load"*.
+
+### 7. Anything else worth recording
+
+- **The principle was written before the code.** `engineer_principle.md`'s new MUST
+  row is the general form of the very objection that opened this round, and it
+  landed at 06:04 — ten minutes before the effort's nominal T+0 and before any
+  refactor exists. Whether the refactor then actually obeys it is the thing to
+  check later; recording now that the standard was set first, so that a T+N section
+  can hold the work against a rule that was not written to fit it.
+- **Row 4g is an answer to a review question, filed as a TODO.** The owner's
+  `assets.py:341` comment was a *question* (*"Am I missing something?"*), and the
+  response on disk is not a reply but a recorded defect with a scope ruling. Worth
+  watching whether the question also gets answered on the PR — a TODO row is not
+  visible to the reviewer.
+- **Nothing has been pushed and nothing has been replied to on GitHub.** All 16
+  comments are, as of 06:16, unanswered.
+- The last of the owner's comments landed at 05:40:51 UTC, 33 minutes before this
+  checkpoint. So the review was still arriving very recently; a 17th comment is
+  possible.
+
+---
+
+## T+39 — 2026-09-04 06:53 UTC
+
+**A checkpoint firing at 06:38 produced no section.** The previous section is the
+06:16 baseline; between it and this one there is a 37-minute hole in a 30-minute
+cadence. `CronCreate`'s documentation says jobs fire only while the REPL is idle,
+and long working turns covered that window — **that is a candidate, not a
+finding**, and I am not recording it as the cause. What is recorded: the cadence
+missed a window, and this section covers 37 minutes rather than 30.
+
+### 1. Progress
+
+**Effort: ~7 %.** Elapsed 39 minutes. Estimated remaining: unknown.
+
+| workstream | est. % | basis |
+|---|---|---|
+| review comments gathered and read | **100 %** | unchanged from T+2 |
+| research — `researcher-core` | **~100 % of what was asked** | `core.md` (312 lines, 06:19) and `core-changeset.md` (668 lines, 06:34) on disk; I read their heading structure, not every line |
+| research — `researcher-pkg` | **~100 % of what was asked** | `pkg.md` (508 lines, 06:27, incl. a `SERENA_HOME` addendum at 06:36) |
+| lead's own hypothesis | **100 %** | `lead-analysis.md` (3.5 kB, 06:20), read in full |
+| docs / spec written this round | **~4 items** | 3 commits landed: `engineer_principle.md` §2 MUST, `TODO.md` 4g and 4h, `env_mgr/docs/spec.md` §9.1 + principle 8 |
+| task book (`CLAUDE.md`) for this round | **0 %** | still byte-identical to the backup — deliberate sequencing, see §4 |
+| **production code for this round** | **~0 %, measured** | `git diff HEAD --stat` names **one** file, `work.checkpoint.summary.md`. No `env_mgr`, `spec_loader` or `examples/` source file has changed. The only non-doc commit is a **test** fix |
+| PR 155 comments answered on GitHub | **0 % observable** | I have not checked the PR for replies this window; last measured at T+2, all 16 unanswered |
+
+**Reliability: low, and the shape of the doubt has changed since T+2.** The
+research numbers are now solid in one direction only — I can see 1,488 lines of
+research artefact and I read their structure, so "the research phase produced
+output" is artefact-verified. Whether that output *answers* the owner is not
+something I measured; I read headings, not arguments.
+
+The implementation figure is the one to trust: **near-zero, and I am stating it
+as such deliberately.** Three commits landed this window and **not one of them is
+the change set.** Two are documentation and the third is a test assertion. The
+round's actual work — folding L1/L2/L3 into the recipe layer system — has not
+begun, and §5 says why.
+
+The denominator got *better* this window and the news is not good: `core-changeset.md`
+now costs the core edit at 668 lines including **36 fixture sites**, so there is
+for the first time a real size estimate, and 7 % against it is if anything
+generous.
+
+### 2. Current state
+
+Branch `dev.yihou.aiopt.task_with_agent_config`, HEAD **`33b9f56`** (was `8cac792`).
+Three commits this window, all by `yihou`, all signed off, all made with explicit
+pathspecs.
+
+`git status --short` is now **four** entries, down from six:
+
+```
+MM work.checkpoint.summary.md
+?? CLAUDE.envchecker.20260904-0614.md.bak
+?? CLAUDE.kernel_opt.20260903-0813.md.bak
+?? progress.bar.for.user.md
+```
+
+`agent_sys/docs/TODO.md` and `engineer_principle.md` have gone from modified to
+committed. **The `MM` on my own file is a hazard and it is mine** — see §3.
+
+**Scratch workspace** `/tmp/yihou/agentsys_pr155_20260904/` — no longer empty:
+
+| path | size | mtime |
+|---|---|---|
+| `research/core.md` | 23 kB / 312 lines | 06:19 |
+| `research/lead-analysis.md` | 3.5 kB | 06:20 |
+| `research/pkg.md` | 29 kB / 508 lines | 06:27 |
+| `research/core-changeset.md` | 33 kB / 668 lines | 06:34 |
+| `research/serena.broken.yaml` | 8.3 kB | 06:36 |
+| `logs/poll_notes.md` | 11 kB | 06:53 |
+| `research/{cfg_fresh,probe_cfg,uvbin,uvcache,uvtool}/` | — | 06:15–06:17 |
+| `scratch/` | **empty** | 06:14 |
+
+`serena.broken.yaml` in `research/` is the deliberately-broken **copy** used to
+prove `bc1a284`'s test red; the shipped `env_mgr/recipes/serena.yaml` was never
+touched (reported by the lead; I confirmed only that the copy exists at that path
+and that `git status` shows no modification to the shipped file).
+
+**Teammates.** `researcher-core` was dispatched at 06:52 — one minute before this
+checkpoint — to measure whether `installers/claude.py::_present_names` can ever
+match, against captured verbatim bytes of real `claude plugin` output, using a
+**copy** of the function in scratch. That task is deliberately not gated by
+decision (A) because the shipped file is not touched. `researcher-pkg` is idle
+with nothing outstanding. Both states are **lead-reported**; what I verified is
+that `scratch/` is empty, which is consistent with a task dispatched 60 seconds
+ago and proves nothing either way.
+
+**The four-layer ruling's provenance, resolved.** Not a PR artefact. The source is
+the **user, in session, 2026-09-04**, in Chinese: the four layers `system` /
+`workspace` (*"就是我说的 default 机制"*) / `task_package` (*"就是我说的 main
+机制"*) / `agent`, with *"强调下只有第四层允许有 asset 中的 .claude 文件格式的声明"*;
+then *"layer 字段是系统机制，对声明和用户不可见"*; then **"我选(甲)"** for
+detection-only conflict handling. The PR's closest text is *"make L3 as a new top
+layer or a repo layer"*, which is the origin but not the model. **A later reader
+searching PR 155 for the four layers will not find them** — that is why the
+provenance is written out here.
+
+**Two new owner rulings this window**, both lead-relayed, both verbatim:
+
+- *"不要和154做重复冲突的事情哈，保证两者遵循同样的原则即可，如果有什么要等他合入
+  以后要做的事情，记入 TODO"* — do not duplicate or conflict with PR 154; same
+  principle is enough; anything waiting on 154 goes to `TODO.md`. Already
+  discharged as row **4h**, which I read.
+- *"所有声明要安装的项目，除了 ai 相关的，比如需要放进 .claude 里的，是安装到具体
+  agent workspace 的，其余都是安装到公共目录大家一起使用的… 把这条补到 env_mgr 的
+  spec 里"* — already discharged as `spec.md` §9.1, which I read.
+
+### 3. Code problems — fixed / not fixed
+
+**Fixed this window — one, and it is an instrument, not product code.**
+
+- `agent_sys/tests/env_mgr/test_agent_assets.py:745` (`bc1a284`, +20/-1). **The
+  ninth cannot-fail check of this effort.** The assertion was truthy on
+  `document["outcomes"]`, which is non-empty on success *and* on `RecipeError`
+  alike — so the test was green whether the serena recipe parsed or not. Now
+  asserts `document["status"] == "OK"`. Proven red in both directions against a
+  broken **copy**. Suite unchanged at 473 pass / 2 / 1. **Lead-reported for the
+  red-proof and the suite numbers; I verified only the commit, its diffstat and
+  its message.**
+
+**Not fixed — the 16 review comments.** Unchanged from T+2 in substance. One
+correction to how T+2 recorded them, below.
+
+**Not fixed — three defects named this window, none touched:**
+
+- `agent_sys/env_mgr/installers/claude.py::_present_names` — suspected never able
+  to match. Under measurement as of 06:52; blocked from repair by decision (A).
+- `agent_sys/env_mgr/layer.py` — a docstring the lead calls false. Not read by me.
+- `env_mgr` **criterion 22's byte-identity pin** covers the whole
+  `installers/` directory, so a source-byte assertion blocks the `_present_names`
+  repair even though none of the 65 tests the criterion cites would fail.
+
+### 4. Non-code problems
+
+- **My own file is `MM` in a shared index and the staged blob is stale.** Measured:
+  index vs HEAD `+889`, working tree vs HEAD `+1160` — so **271 lines of this
+  round's T+0/T+2 exist only in the working tree**. Four agents share this index;
+  last round a bare `git commit` swept eleven of another agent's staged files into
+  someone else's commit. The team rule *"explicit paths, read the staged set
+  back"* catches a **wrong path** and does **not** catch a **stale blob at the
+  right path** — the lead's poll notes name this distinction, and the repair they
+  state is to read the **staged diff**, not the staged file list. I am committing
+  this section with `git commit -s -m … -- work.checkpoint.summary.md` and reading
+  `git diff HEAD -- <path>` back first. I will not `git reset` and will not
+  unstage anything of anyone else's.
+- **`CLAUDE.md` is still the previous round's book — reclassified.** At T+2 I
+  called this "the single highest-risk state on disk". That was the wrong
+  classification and I am correcting it here rather than editing T+2: the user's
+  rule for a new task is *research → plan → sub-workspace → write `CLAUDE.md`
+  (backing up the old) → work*, so the replacement is **due after the plan, not
+  before**. It is a **known open window with a stated closing condition: closed
+  when the plan lands.** The hazard text stands unchanged — anyone reading
+  `CLAUDE.md` right now gets the L1/L2/L3 task book as the thing being built, and
+  that is exactly what this round is dismantling.
+- **A corrected premise about PR 154, worth recording because the wrong names are
+  searchable.** The shared root is **`AGENT_SYS_HOME`**, default
+  **`~/.infera_agent_sys`**, `~/.local`-shaped (`bin/ share/ state/ run/`), read
+  by the lead first-hand from `gh pr diff 154`. The owner's recollection was
+  `${agent_sys_root}` / `~/.agent_sysxxx` — **both wrong**, and the owner had
+  flagged their own uncertainty (*"忘了是不是"*, *"好像"*). Anyone searching the
+  old names finds nothing.
+- **The poll cadence had never once sent a message.** Three ticks, three
+  deliberate refusals, each locally reasonable (everyone idle). Stacked, the
+  channel was never exercised while the reports described a running cadence. The
+  lead records the stated cause as **their own**: A–H gate the downstream work, so
+  nothing was assigned, and then *"nobody is working"* was used as the reason not
+  to poll — a state they created offered as the excuse for the state. Fixed this
+  tick by sending a poll carrying real work.
+- **`poll_notes.md`'s own two defects, found by its author.** Ticks are numbered
+  **1, 2, 4** — there is no 3, so the numbering is not evidence of firing count;
+  and the hand-written labels (~06:30, ~06:40) never matched the cron's actual
+  minutes (`:04 :14 :24 :34 :44 :54`). I verified both against the file.
+- **Both cadences are registered.** `CronList`: `faf6468a` poll at
+  `4,14,24,34,44,54`; `f247a8d6` checkpoint at `8,38`. Lead-reported.
+- Three stale untracked files still sit at the repo root, unchanged from T+2.
+
+### 5. Open questions, not yet characterised
+
+**Suspend, don't conclude.**
+
+- **Eight decisions A–H remain with the owner and gate nearly everything**: (A) the
+  byte-identity pin, (B) `sglang.repo.yaml` has no honest level, (C) `system` would
+  have no possible member, (D) the level would have no runtime reader, (E)
+  `env_recipe.<agent>.yaml` discovery scope, (F) "L2 should not exist" vs keeping
+  `components/`, (G) six routes not seven in `env_checker`'s acceptance, (H)
+  serena's `.mcp.json` vs the official plugin. This is the **second consecutive
+  poll with the same block and zero implementation progress.** I have not read the
+  eight as written; the list is the lead's. What I can say from disk is that no
+  source file has changed, which is consistent with the block and does not prove
+  it.
+- The overlay/fallback question from T+2 is **partly closed and I am not closing
+  it.** `core.md` §2 is titled *"Where the loader learns the level"* and §5
+  *"The nine items, and what level each honestly has"*, so someone has measured
+  it — but I read the headings, not the findings. The user's *"If i am not wrong"*
+  still has no answer in this record.
+- Whether the research *answers* the owner, as opposed to existing. 1,488 lines
+  across three files is a volume measurement, not a quality one.
+- `import httpx2` from the owner's MCP sketch — still uninvestigated. `pkg.md` has
+  a section Q4a on `from mcp.server import MCPServer`; whether it addresses the
+  `httpx2` line, I did not read.
+- Whether PR 155 has acquired a 17th comment, or any reply. Not checked this
+  window.
+
+### 6. New commits
+
+Three, all `2026-09-04`, all signed off, all with explicit pathspecs.
+
+- **`bc1a284`** 06:37 — `test(env_mgr): the serena-recipe test was green whether the
+  recipe parsed or not`. `tests/env_mgr/test_agent_assets.py` +20/-1. The
+  cannot-fail assertion described in §3.
+- **`562be04`** 06:37 — `docs(agent_sys): forbid a second mechanism for a job that
+  has an owner`. `engineer_principle.md` +15, `docs/TODO.md` +2. This is the pair
+  of uncommitted changes T+2 reported as *"read in full, uncommitted"* — now
+  landed unmodified.
+- **`33b9f56`** 06:44 — `docs(env_mgr): one rule for where a declared install
+  lands`. `env_mgr/docs/spec.md` +34, `docs/TODO.md` +6. Adds §9.1 — two
+  destinations, shared root by default, the agent's zone only for a `.claude/`
+  tree — with the deciding question written as a blockquote: ***"would two agents
+  in the same run need different copies of it?"*** Plus principle 8 in §2, and
+  `TODO.md` row **4h** under a **new "Blocked on another change landing"
+  subsection**. I read the whole diff.
+
+### 7. Anything else worth recording
+
+- **A new instrument species, named this window: *a pin that is stronger than the
+  criterion it cites*.** `env_mgr` criterion 22 says *"its 65 tests keep passing
+  untouched"*; the test actually asserts that **source bytes do not change**.
+  Repairing `_present_names` would fail none of those 65 tests yet trips the byte
+  assertion. This is neither a check that cannot fail nor a wrong check — it is a
+  check **enforcing more than the rule it claims to enforce**, so a reader who
+  trusts the citation draws a false conclusion about what is permitted. Distinct
+  from the nine cannot-fail checks and worth keeping separate from them.
+- **Two corrections the lead issued against their own earlier statements**, recorded
+  as corrections and not softened. (1) They reported **15** PR comments; there are
+  **16**; the 16th (`id 3931202300`, *"sorry, add gh cli"*) is a **correction to
+  comment 10's "add cli"**, so **15 requirements + 1 correction, no requirement
+  missed** — which also corrects T+2, where I listed all 16 as if each were a
+  requirement. (2) They called the `_present_names` fix *"decision-free"*; it is
+  not, because criterion 22's pin covers the whole `installers/` directory — they
+  had checked the policy and not the pin.
+- **`33b9f56` is the shared-install rule written *without* a constant to back it.**
+  §9.1 states the rule and names PR 154's `AGENT_SYS_HOME` as its single owner,
+  while 4h records that the module is not in this branch and today's installs pin
+  four variables one at a time (`UV_TOOL_DIR`, `UV_TOOL_BIN_DIR`, `UV_CACHE_DIR`,
+  `SERENA_HOME`). The commit message states the reasoning: a second root *"would
+  be exactly the parallel mechanism `engineer_principle.md` §2 forbids"*. **This
+  is the principle committed 7 minutes earlier being applied to a decision 7
+  minutes later** — the standard was set first and then obeyed under cost, which
+  is the only evidence that a principle is load-bearing rather than decorative.
+  Recording it because T+2 flagged the write-the-principle-first ordering and said
+  the thing to check later was whether the work then obeys it. First instance:
+  it did.
+- **`lead-analysis.md` marks itself as a hypothesis, in its own second line:**
+  *"Written before the researchers reported, so it is a hypothesis to test, not a
+  finding. Anything here that a researcher measures differently wins."* Its
+  load-bearing half is a *negative*: `Installer` returns `list[Outcome]` and
+  nothing else, so `mcp_servers` and `tools` **cannot** become installer outputs —
+  the L1 route is a subprocess and a live Python object does not survive it. The
+  note records that `Outcome.details` was considered as a channel and rejected.
+  A hypothesis that names where it does not reach is a different object from one
+  that does not.
+- The owner has checked out a new branch and pushed round 1 themselves; round 1
+  needs nothing further from us. Lead-reported; not verified by me.
