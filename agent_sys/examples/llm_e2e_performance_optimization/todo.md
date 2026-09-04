@@ -1296,6 +1296,36 @@ again — restoring buys one reviewable diff at the price of the next one.
 **Related:** `T31` — this is the same family. Naming the hazard after the fact
 is not the same act as checking for it before.
 
+
+**Extended 2026-09-04, evening — the same check, a failure it did not cover.**
+T33 was about a diff being *unreadable*. This is a diff being *wider than its
+author*: in a shared worktree, `git commit -- <pathspec>` names a **file**, and
+the file contains whatever any teammate has uncommitted in it.
+
+`3b4d390` says *"four fixes to rung 3's launch section"* and also carries
+**m4's rewrite of RUN-PLAN §2a** — roughly 57 of its 100 insertions and 42 of
+its 44 deletions. Nothing was lost and the content is correctly placed, but my
+message does not describe my commit, m4's `b838fae` describes changes it does
+not contain, and I signed off on sixty lines I did not write.
+
+**The standing rule — *commit by pathspec, never `git add`* — does not defend
+against this and was never meant to.** It stops you sweeping up *other files*.
+It says nothing about *other people's lines inside the same file*, and
+`RUN-PLAN.md` is the one file all six owners write to.
+
+**The mitigation is T33's own check, one step later:** run
+`git diff --stat <file>` *immediately before* committing and ask whether the
+number matches what you wrote. m4 caught this because their commit reported
+`65 insertions, 0 deletions` and a rewrite that replaces a section cannot have
+zero deletions.
+
+**And I had the baseline and did not compare it**, which is the part worth the
+entry. My own stat after the first edit was **43 insertions, 2 deletions**; at
+commit time it was **100 / 44**. I ran `git status --short` in between — which
+prints `M` and not counts — and committed on that. *A check that reports
+presence where you needed magnitude is not the check you thought you ran*, and
+the correct number was in my own scrollback.
+
 ### T34 — the environment record can outlive the container it names, and a downstream field repeats it as observation
 *m1 and m4, 2026-09-04, from two ends of the same artefact. Nobody's defect
 individually; the join is unowned.*
