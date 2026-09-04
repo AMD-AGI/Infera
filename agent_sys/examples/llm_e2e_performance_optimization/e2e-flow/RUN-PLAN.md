@@ -403,16 +403,24 @@ The user's redirection, 2026-09-04: *"e2e串通也可以通过先单独运行每
 **m4 is the stage that most needs it: it is the only one that has never executed
 in any graph, on any rung.**
 
-> **Point `--out` and every scratch path OUTSIDE the package.** A body driven by
-> hand derives its scratch from `--package`, and `--package` is the working tree
-> — so `apply.py` left `e2e-flow/stage/` (33 K, the extracted stock file) inside
-> the deliverable on 2026-09-04. **`agent-sys run` stages the working tree, so
-> every later run would have copied that scratch into every zone**, and the brief
-> says this directory receives only the package and `todo.md`.
+> **Run from a directory outside the package, and point `--out` outside it too.**
+> `apply.py` left `e2e-flow/stage/` (33 K, the extracted stock file) inside the
+> deliverable on 2026-09-04. **`agent-sys run` stages the working tree, so every
+> later run would have copied that scratch into every zone**, and the brief says
+> this directory receives only the package and `todo.md`.
 >
-> Nothing in the CLI hints at it: `--package` reads as *where the code is*, and
-> it is also where the scratch lands. Assume any hand-driven body does this, and
-> check `git status --porcelain -- <package>` after running one.
+> **The scratch comes from `Path.cwd()`** (`apply.py:499`, `stage = Path.cwd() /
+> "stage"`), **not from `--package`** — I first recorded it as `--package` and
+> that was wrong, found by reading the line rather than by it happening twice.
+> The distinction changes the remedy: no flag moves it, so **`cd` somewhere
+> disposable before invoking**, and passing `--package` at the working tree is
+> both correct and harmless.
+>
+> Nothing in the CLI hints at it, which is the part that will catch the next
+> person: the invocation names `--out` and `--package` and silently uses a third
+> location neither of them mentions. **Check `git status --porcelain -- <package>`
+> after running any body by hand**, whatever you believe about where its scratch
+> goes.
 >
 > **Related, and the reason a hand-driven run is worth its awkwardness at all:**
 > drive `--package` from the **working tree, never a run's staged copy**. A run
