@@ -496,6 +496,45 @@ for name in TMPDIR TRITON_CACHE_DIR KNOWLEDGE_LOCAL_ROOT KFO_SCRATCH_ROOT; do
 done
 [ -n "$MKSCRATCH" ] && COMMAND="$MKSCRATCH $COMMAND"
 
+# **The payload hands the files back before it exits**, and until now this file
+# only *claimed* it did. The note further down said "its payload handed the
+# files back before it exited" while no payload chown existed anywhere in this
+# script — a defence documented and not implemented, which is worse than an
+# absent one because it stops the next reader looking.
+#
+# Routed by m3, measured across six runs today: two files per run land
+# `root:root` in `check_speedup_substantiated`'s zone —
+# `substantiate_seed.json` and `substantiate_candidate.json`. They are 644 so
+# every reader and the seal work, and the zone's own user cannot remove them;
+# the symptom lands on a later run. **Ownership is the one thing
+# `repair_modes.py` cannot repair** — modes are recoverable, `root:root` on
+# `sec=sys` NFS is not, because we are not root on either side.
+#
+# The gap is in the reclaim list below, which covers the output kind and the
+# scratch root and **not `WORKDIR`** — and `WORKDIR` is where the zone is. Fixed
+# here rather than by lengthening that list, because a chown from inside covers
+# both modes with no lifecycle window: `--rm` leaves no container for
+# `reclaim.sh` to `docker exec` into. The list below stays as the second
+# defence, for a run killed mid-measure where this never executes.
+#
+# The same path set the mounts are derived from, since a path the container
+# cannot see is not one it can dirty. `id -u`/`id -g` on this side: `spur exec`
+# measured as the same uid, so the node agrees with this host.
+# The seen-list is separate from the command being built: `$CHOWN` holds the
+# paths already `_sq`-quoted, so matching a bare path against it never fires and
+# the dedupe would be a no-op that looks like one.
+CHOWN=""; CHOWN_SEEN=""
+for m in "$WORKDIR" "${TMPDIR:-}" "${KFO_SCRATCH_ROOT:-}" "${AGENT_SYS_OUTPUT_KERNEL_OPTIMIZATION:-}"; do
+  [ -n "$m" ] || continue
+  case " $CHOWN_SEEN " in *" $m "*) continue ;; esac
+  CHOWN_SEEN="$CHOWN_SEEN $m"
+  CHOWN="$CHOWN chown -R $(id -u):$(id -g) $(_sq "$m") 2>/dev/null || true;"
+done
+# `_rc` around it, so the measurement's status is what leaves the container. A
+# reclaim that swallowed a failing measurement would turn this into the
+# silent-success class twice over.
+[ -n "$CHOWN" ] && COMMAND="{ $COMMAND ; }; _rc=\$?;$CHOWN exit \$_rc"
+
 rc=0
 if [ "$MODE" = record ]; then
   echo "run_in_container: the next line comes from inside the container" >&2
@@ -583,8 +622,15 @@ fi
 
 # CONTRACT section 5.0, in a `finally`: idempotent, and a no-op when there is
 # nothing root-owned, so this does not decide first whether it will be needed.
-# Only meaningful in `record` mode — an ephemeral container is gone by now, and
-# its payload handed the files back before it exited.
+# **The second defence, not the first** — the payload chowns as its last act
+# above, which covers both modes. This one covers a run killed mid-measure,
+# where the payload never reached its exit. Only meaningful in `record` mode: an
+# ephemeral container is gone by now and there is nothing to `docker exec` into.
+#
+# It does not cover `WORKDIR`, which is where the zone is; that omission is what
+# left two `root:root` files per run, and it is the payload above that closes
+# it. Left as-is rather than widened, because `reclaim.sh` needs a live
+# container and the case this handles is the one where the payload did not run.
 if [ "$MODE" = record ] && [ -n "${AGENT_SYS_OUTPUT_KERNEL_OPTIMIZATION:-}" ]; then
   sh "$PKG/assets/lib/reclaim.sh" "$CONTAINER" "$AGENT_SYS_OUTPUT_KERNEL_OPTIMIZATION" 2>/dev/null || true
 fi
