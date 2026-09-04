@@ -399,12 +399,34 @@ def survey(runs: list[pathlib.Path], kinds: list[str] | None) -> dict[str, list[
             if version is None:
                 continue
             rows = verdicts_of(version)
+            # **A run still being written is not a run with a different
+            # validator set**, and telling them apart needs the store.
+            #
+            # Measured 2026-09-04: surveying rung 1 *while it was running*
+            # reported `deploy_kit` as `the validator set changed between runs`
+            # — two validators in the live run against three in the finished
+            # ones. m2 could not reproduce it an hour later and suspected the
+            # instrument; both our queries then agreed, because by then the run
+            # had finished and `validation.yaml` had grown its third row.
+            #
+            # **`validation.yaml` is written incrementally as each validator
+            # completes.** So a mid-flight read is a partial set, and the
+            # difference is real at that instant and gone later — the worst
+            # shape for a finding, because it does not survive being checked.
+            #
+            # The store distinguishes them: version statuses are `created`,
+            # `generating`, `valid`, `invalid`. `generating` is exactly this
+            # state. Reported as its own category rather than folded into the
+            # instability count.
+            statuses = [v.get("status") for v in (rec.get("versions") or [])]
             found.setdefault(kind, []).append({
                 "run": run.name,
                 "run_path": str(run),
                 "handoff_id": rec["id"],
                 "version": version.name,
                 "content": version / "content",
+                "statuses": statuses,
+                "in_progress": "generating" in statuses,
                 "validators": sorted(r.get("validator", "?") for r in rows),
                 "all_passed": bool(rows) and all(r.get("result") is True for r in rows),
                 "verdicts": [
@@ -418,10 +440,19 @@ def survey(runs: list[pathlib.Path], kinds: list[str] | None) -> dict[str, list[
 
 def stability(rows: list[dict], threshold: int) -> tuple[bool, str]:
     """Whether these rows clear the bar, and the sentence explaining it."""
+    # Excluded before anything is counted. A `generating` handoff has a partial
+    # `validation.yaml`, so including it would either lower the pass count or
+    # invent a validator-set change — both of which vanish when the run ends.
+    live = [r for r in rows if r.get("in_progress")]
+    rows = [r for r in rows if not r.get("in_progress")]
+    live_note = f" ({len(live)} run(s) still generating, excluded)" if live else ""
+    if not rows:
+        return False, f"no finished run produced this kind{live_note}"
+
     passing = [r for r in rows if r["all_passed"]]
     if len(passing) < threshold:
-        return False, (f"{len(passing)} of {len(rows)} run(s) passed every validator; "
-                       f"threshold is {threshold}")
+        return False, (f"{len(passing)} of {len(rows)} finished run(s) passed every "
+                       f"validator; threshold is {threshold}{live_note}")
     sets = {tuple(r["validators"]) for r in passing}
     if len(sets) > 1:
         listed = " | ".join(",".join(s) or "<none>" for s in sorted(sets))
@@ -429,7 +460,8 @@ def stability(rows: list[dict], threshold: int) -> tuple[bool, str]:
                        f"not graded by the same thing: {listed}")
     if not any(passing[0]["validators"]):
         return False, "no validator graded this kind in any run — a green with nothing behind it"
-    return True, f"{len(passing)} run(s), each passing {', '.join(passing[0]['validators'])}"
+    return True, (f"{len(passing)} run(s), each passing "
+                  f"{', '.join(passing[0]['validators'])}{live_note}")
 
 
 def main() -> int:
