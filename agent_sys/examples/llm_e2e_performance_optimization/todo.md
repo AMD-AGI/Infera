@@ -783,6 +783,50 @@ recording and the next person attributing a card is back to PID matching. **T19
 is the field; this is the three things that have to be true for the field to mean
 anything.**
 
+#### Item 4, added 2026-09-04 after the entry above was demonstrated on a live node
+
+**The pick must come from the probe, not sit beside it.**
+
+Items 1–3 assume the device set is *chosen*. The 07:16 run showed it need not be.
+That agent's kit contained **no `_pick_gpus` at all** — `env.sh:62` is a literal
+
+```sh
+: "${E2E_KIT_GPU_DEVICES:=0,1,2,3}"
+```
+
+**and the agent had probed the node at transcript record 92 before writing it.**
+It ran `rocm-smi`, read the output, and then hardcoded the first four cards. The
+probe informed its *narrative* and not its *parameter*.
+
+**This is strictly worse than the land grab it replaced**, and worth stating
+plainly because "bound to `tp_size`" would have called this kit compliant: it
+takes exactly four cards, matching `E2E_TP=4`. Item 2 is *satisfied* here. The
+deployment still bound four cards a co-tenant was mid-load on, and rose them from
+198 GB to 220 GB before it was stopped.
+
+**Nothing checked.** `deploy.sh:61` prints `preflight ok: PORTS free, NAMES free`
+— it preflights the port band and the container names and **never looks at a
+card**. A `rocm-smi` reading that does not reach the variable is decoration.
+
+**Two agents, two kits, two device policies, neither validated.** That is the
+finding above the incident: **the device policy is not a property of this package
+at all.** It is whatever the day's agent writes, and no validator, schema or
+brief constrains it. Items 1–3 fix the kit; item 4 says the kit is not the unit
+of repair.
+
+**What would settle it:** STEP 1's criterion must make the probe's output the
+*source* of `fixed.gpu_devices` and of the kit's default — a named command whose
+result is the value, not a reading the agent is invited to consider. And
+`deploy.sh`'s preflight must refuse a card it cannot verify free, on the same
+footing as the port band it already refuses. **The port check is the model: it
+exists, it aborts rather than waiting or stealing, and it was written by the same
+agent on the same day.** The cards simply were not thought of as a namespace.
+
+*Corrected while writing this: `env.sh:99`'s comment — "checks each is free and
+aborts rather than waiting or stealing" — is **about the ports**, and it sits two
+lines from where a grep for card handling lands. It was nearly reported as a card
+check that exists. Opening `deploy.sh` gave the opposite answer.*
+
 ### T28 — T21's bar, measured: 7 characters against 526
 *m1, 2026-09-04. T21 said "do not invent the number". The number exists now.*
 

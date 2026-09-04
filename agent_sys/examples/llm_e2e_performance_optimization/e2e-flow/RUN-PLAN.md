@@ -100,6 +100,25 @@ is a property of the node on the day. 249 left four free and gave `tp_size: 4`;
 235 was measured 8/8 free. **Do not carry a number between rungs or between
 nodes; read it.** The command below does.*
 
+***Corrected again 2026-09-04 by m1, whose finding the sentence above cites.
+`env.sh:230 _pick_gpus` is real, and it is a property of **one kit**, not of this
+stage.*** It was in the kit the 06:24 run's agent wrote. **The 07:16 run's agent
+wrote a different kit with no `_pick_gpus` at all** — `env.sh:62` is a literal
+`: "${E2E_KIT_GPU_DEVICES:=0,1,2,3}"`. Two agents, two kits, **two different
+device policies, and nothing in the package validates either**. So the device
+policy is not something this document can state as a fact about m1; it is
+whatever that day's agent wrote, and the only way to know is to open the kit.
+
+The rest of m2's correction stands and is strengthened by this: **do not carry a
+number between rungs or between nodes — read it from the kit and the record.**
+That now applies to *which* cards as well as how many.
+
+**And it was the literal `0,1,2,3` that caused the 07:29 incident**, not a land
+grab: the agent probed the node at transcript record 92, then hardcoded the
+default anyway, and `deploy.sh` preflights **ports and container names and not
+cards** (`deploy.sh:61`: *"preflight ok: ports free, names free"*). It bound four
+cards a co-tenant was loading a model onto. See `todo.md` **T27**, item 4.
+
 ## The rung-2 launch line, as a whole command
 
 **Written out rather than left as a delta, because every launch-line failure
