@@ -637,6 +637,49 @@ it.** The remedy is the same question §4.4 already asks and none of the three
 authors asked of their own text: *what would this report if the subject were
 broken?*
 
+#### The observer's version: a search that can find itself, and a failure that looks like a clean result
+
+§4.4 asks what a check would report if the *subject* were broken. This is the
+same question turned on the *instrument*. **Three owners hit it inside one hour
+on 2026-09-04, with three different tools, and none of us recognised it as one
+shape while it was happening** — each of us was investigating whether a run was
+alive, and each got a confident answer from a tool that could not have said
+otherwise.
+
+| tool | how it lied |
+|---|---|
+| `find -newermt '-3 minutes'` | under `bfs` the relative form is **rejected**; the predicate errors, prints nothing, and empty stdout reads as *"zero files modified"* |
+| `pgrep -af "agent_sys.cli.main run"` | matched **its own command line** — exactly one hit, which looks like a found process |
+| a `/proc` scan for the run path | matched **the probe's own invocation**, because the path was an argument |
+
+Three rules, and the third is the one that actually catches it:
+
+- **A search must not be able to find itself, and excluding by the same key you
+  search by does not achieve that.** Filtering a cmdline scan by cmdline still
+  matches the next transient shell carrying the same string. m1's rule is the
+  fix and generalises: **look for children by cwd, not for a parent by name** —
+  a cwd is a property of the process, a command line is a property of how it was
+  invoked, and an argument can spoof the second but not the first. It also finds
+  what a name match cannot: `grep agent_sys.cli.main` never matches the `claude`
+  binaries a run spawns, which is why two owners reported *"no agent alive"* in
+  good faith about an orphan that was still running.
+- **An empty result and a failed search must be distinguishable.** Check the
+  exit status, or check that the tool ran at all. `bfs` printing an error to
+  stderr and nothing to stdout produced a *"confirmed dead"* about a live run.
+- **The positive control is not optional.** Both broken liveness checks had the
+  property that they could only ever return one answer, and **neither would have
+  looked wrong on the case being tested.** The test that separates a working
+  check from an empty one is deliberately creating the condition it is supposed
+  to detect — for `runprobe` that was spawning a process with its cwd inside a
+  fixture run tree and confirming it was found and named. Without it, a check
+  that could only ever say *"no process"* is indistinguishable from a correct
+  one.
+
+**And the reason this is worth a section rather than a footnote:** in every one
+of the three cases the confidence came from *the method feeling rigorous* —
+grepping `/proc`, stat-ing a whole tree — rather than from the method being able
+to fail. A fresher timestamp felt like more evidence and was not.
+
 ### 4.1 Shared validators are shared, not copied
 
 `check_kernel_table` is **one** definition used by m2 and m3 (M3.5). The two
