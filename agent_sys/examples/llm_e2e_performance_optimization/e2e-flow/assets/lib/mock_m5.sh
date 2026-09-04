@@ -89,6 +89,37 @@ arms)
       --out "$out" \
       --serve-started "$started" --serve-seconds "$seconds" \
       --package "$PKG" --environment "$envyaml"
+    # **Mark the arm as a replay, exactly as m1 marks a replayed kit.**
+    #
+    # `--environment` above inherits m1's record, so at any rung where m1 is
+    # REAL and m5 is mocked the arm claims m1's machine while its evidence is
+    # the sealed 2026-09-02 corpus from another node. Rung 1 produced precisely
+    # that and `check_measurement_order` refused both arms, correctly:
+    #
+    #   stock: environment.yaml says node='crsuse2-m2m-217' and the arm's
+    #          evidence says 'crsuse2-m2m-276'          (and slurm_jobid likewise)
+    #
+    # At rung 0 the record came from the corpus too, so the two agreed **because
+    # nothing in the run was real** — CONTRACT §4.6 from the other side: a
+    # comparison cannot fire while both sides share a source.
+    #
+    # The validator is right and the artefact was missing a marker my own gate
+    # already looks for: `check_measurement_order/check.py:330` skips the
+    # arm-vs-own-record comparison when `runtime.replayed_from` is set, on
+    # `check_deploy_kit:341`'s precedent, and `deploy_and_prove/mock_adapt.sh:124`
+    # sets it for m1. This is the same convention, one stage later — so rung 1's
+    # count returns to one refusal by fixing the producer, not by widening a bar.
+    #
+    # Edited in place rather than re-rendered: `merge_arm.py` has already written
+    # this record, and a second `env_render` pass would rebuild fields it owns.
+    python3 - "$out/items/env/environment.yaml" "$S/${arm}_measurement" <<'PY'
+import sys, yaml
+path, src = sys.argv[1], sys.argv[2]
+doc = yaml.safe_load(open(path)) or {}
+doc.setdefault("runtime", {})["replayed_from"] = src
+yaml.safe_dump(doc, open(path, "w"), sort_keys=False)
+print(f"mock_m5: marked {path.split('/items/')[0].rsplit('/',1)[-1]} replayed_from {src}")
+PY
     python3 - "$out/items/env/steps.json" <<'PY'
 import json, sys
 p = sys.argv[1]
