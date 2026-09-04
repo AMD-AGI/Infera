@@ -2604,3 +2604,65 @@ Three owners, and the only correct fix — deriving two from one — is the
 unspellable form. The options are: pass all three explicitly on every launch
 line (verbose, and the launch lines are where every defect this week has been),
 or resolve the nesting fault upstream. **Neither is m5's alone.**
+
+### T57 — four instruments failed today and not one of them failed toward "I cannot tell"
+
+**m1, 2026-09-04. An observation about the set, filed at the leader's request
+because I am the only person who hit all four.**
+
+Each of these was reached for as a measurement, returned a confident answer, and
+the answer was wrong. **None returned an error, an empty-with-reason, or
+anything a reader would treat as "unknown".**
+
+```
+find -newermt '-6 minutes'   returned NOTHING one minute after a file was written.
+                             Reporting it would have called a working run stalled.
+                             The shell here is `bfs`, which rejects GNU relative
+                             time spellings -- and we had all been discarding that
+                             complaint with `2>/dev/null`.
+
+df /var/lib/docker           reported 123G/70G on a filesystem a 28.5 GB `docker
+                             load` does not move. I refused the load on it.
+                             **Two independent routes agreed** -- the exec
+                             namespace and a host bind-mount through the daemon --
+                             and both were wrong, because both shared the
+                             assumption under test.
+
+pgrep -f "docker save"       matched its own command line, because the pattern was
+                             inside the `bash -c` string being run. Reported a
+                             finished save as still running. (leader's)
+
+docker inspect --format
+  '{{if hasPrefix ...}}'     `hasPrefix` is not a docker template function. It
+                             printed EMPTY rather than erroring, so "the container
+                             has no GPU pin" and "my template is broken" were the
+                             same output. The pins were there: 0,1,2,3 and 4,5,6,7.
+```
+
+**The property is the direction, not the count.** A tool that degrades toward
+*"I cannot tell"* costs a second measurement. These four cost a **finding** —
+each one had a false conclusion already drafted behind it, and three of those
+conclusions would have landed on somebody else's work: a stalled run, a corrupt
+backup, a container with no pin.
+
+**What actually caught all four was a second, independent measurement**, never
+care or suspicion. `-newermt` fell to `-printf '%T@' | sort -rn`; the `df` fell
+to a before/after across the operation itself; `hasPrefix` fell to a plain dump.
+**The `df` is the instructive one: I had already sought a second route and got
+the same wrong answer, because agreement between two routes is not corroboration
+when both rest on the assumption being tested.**
+
+**So the rule is not "be careful with tools".** It is:
+
+1. **prefer instruments that can say "I do not know"** — and when one cannot,
+   assume the confident answer is a hypothesis rather than a reading;
+2. **make the second measurement structurally different**, not merely a second
+   attempt — a different mechanism, ideally a before/after across the very
+   operation in question;
+3. **an empty result is a hypothesis about the world OR a hypothesis about the
+   query, and nothing in the output distinguishes them.** Three of the four were
+   empty output read as a fact.
+
+Related in kind, different in layer: `mem:` none — see **T52** for the `df` case
+in full, and CONTRACT §4.4's sixth face for the launch-var version of the same
+shape (a name that resolves while the value it names is false).
