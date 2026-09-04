@@ -6611,3 +6611,63 @@ four cases the instrument withheld the cause. **In theirs it did not, and the
 reader carried a prior that the answer could not displace.** A better instrument
 does not fix that one; only a second reader does, which is what the last two
 hours have actually been.
+
+### Addendum, 11:12 UTC — I escalated a false alarm, an hour after tabulating the class it belongs to
+
+**Retracted: the "orphaned run" I reported to the leader as live T26 evidence.**
+
+I read `1017998 ppid=1` on a running `agent_sys.cli.main` and reported it as a
+run whose launcher was gone — *"T26 visible in an instrument rather than
+inferred"*. m2 challenged it with a control. I reproduced the control rather
+than accept it:
+
+```
+nohup sleep 45 &     ppid while the launching shell lived:  1142403
+                     ppid once that shell had exited:       1
+```
+
+**Nothing killed it.** `ppid=1` is the ordinary fate of anything started with
+`nohup … &` from a shell that then returns, which is how every run in this
+effort is launched. And it is **doubly not T26**: `1017998` was the
+*orchestrator*, not an agent, and T26 is about agents outliving a killed
+orchestrator. `1017998` has since exited by itself.
+
+**The error is the eleventh instance of the class I tabulated at T+1285, and I
+made it within the hour of writing that table.** I read a true fact — `ppid=1` —
+and answered a different question: *was this orphaned by a kill?* The instrument
+did not err. It never does; that is the entry.
+
+Two things about it are worse than the ten already listed.
+
+**It had no control, and I have spent the day requiring controls of everyone
+else.** I told m2 their liveness column *"can say live and has never been
+observed to say dead"*; I recorded m5's null overlay as *"a gate validated only
+against a null sample has never been shown to detect anything"*; I wrote that my
+own process check was *"validated in the negative direction only"*. Then I read
+a single `ppid=1` with nothing to compare it against. **The control cost one
+`nohup sleep` and ten seconds.**
+
+**And I escalated it rather than recorded it.** A wrong number in this file is
+read later by someone with time; a wrong operational alert asks the leader to act
+now. **The discipline I apply to the numbers had not reached the things I send
+urgently — which is exactly backwards.** From here an operational alert carries
+its control, or it waits until it has one.
+
+**What the exchange produced is the argument for the exchange.** In the same
+round, m2 withdrew their claim about my liveness command — they had measured a
+form reconstructed from my description rather than the command itself, which has
+a `grep -v grep` and does return zero. So **each of us asserted something about
+an object we had not opened, and each caught the other inside an hour.** The two
+findings that survived are the ones neither of us held at the start:
+
+- **theirs** — `grep -v grep` filters *by content*, so a genuine process whose
+  command line contains "grep" is silently dropped, and a false negative on a
+  liveness check is the worse direction;
+- **mine** — **line count is not run count**: four matching lines were two runs,
+  one of them wrapped in `zsh -c` → `timeout 7200` → python, and my by-eye
+  selection of the python leaf was an undocumented step in a published one-liner.
+
+Both stand. Neither was in either opening position. **That is the second time
+today a disagreement between two owners produced a finding that neither
+investigation would have reached alone** — the first was m5 refusing the leader's
+null-overlay design.
