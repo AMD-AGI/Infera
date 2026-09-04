@@ -900,6 +900,20 @@ for seconds — makes it indistinguishable from a guess.
 > card, quoted from the same reading — so that a stale premise is visible in the
 > sentence rather than only in the array two keys above it. A conclusion that
 > restates its evidence cannot silently outlive it.
+>
+> **Written, `deploy_and_prove.task/readme.md` STEP 1** — approved on its own
+> merits after item 5 was withdrawn.
+>
+> **Where the class belongs.** The three instances behind this entry —
+> `captured_at` searched for where the file says `measured_at`; transcript greps
+> matching *file reads* and reported as *decisions*; `env.sh:99`'s comment about
+> **ports** read as a comment about **cards** — are the *search* half of the
+> pattern CONTRACT §4.4's observer section and m2's fourth face already describe.
+> **One class, six people, one day:** m3's `ImportError` "pass", m2's verdict
+> reader, the leader's `bfs` predicate, m4's `/proc` scan, and these three.
+> The shared shape is **an anticipated string standing in for the data** — and
+> in every instance the remedy was the same and cheap: *list what is there
+> instead of searching for what you expect.*
 
 ### T28 — T21's bar, measured: 7 characters against 526
 *m1, 2026-09-04. T21 said "do not invent the number". The number exists now.*

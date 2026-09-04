@@ -158,6 +158,33 @@ on "ss -ltn | awk 'NR>1{print \$4}' | sed 's/.*://' | sort -n | uniq"
 
 Write what you found to `$KIT/results/preflight.json` later; capture it now.
 
+**Every conclusion you write in that file must quote the numbers it rests on.**
+Not *"all eight were free"* — **"all eight free, ≤300 MB used each, per the
+reading at `<timestamp>`"**, with the same figures that are in the structured
+array beside it. This is one sentence of discipline and it is here because its
+absence cost a deployment:
+
+> Measured 2026-09-04. A kit's `preflight.json` recorded `gpu_cards[]` showing
+> every card at **198 GiB used, 90 GiB free**, stamped `measured_at
+> 07:26:58Z` — accurate, current, and correct for the moment it declared. Two
+> keys away, `gpu_devices_rationale` read *"All eight were free (≤300 MB used
+> each, no co-tenant)"* and `vram_headroom_note` read *"~288 GiB free per
+> card"*. **The prose was wrong by a factor of three against the data directly
+> above it**, the deployment bound four cards a co-tenant was mid-load on, and
+> the run was stopped by hand.
+
+**A timestamp did not prevent it and could not have** — the file had one and it
+was right. What failed is that **a conclusion outlived the reading it came from
+while the reading sat in the same document**, and nothing compares the two: no
+validator reads `preflight.json`, and *"this sentence disagrees with that array"*
+is not something the layout's regex rules can express (`todo.md` **T27**).
+
+So the check has to be yours, at the moment you write it: **if a sentence claims
+a fact about the machine, put the number in the sentence.** A conclusion that
+restates its evidence cannot silently outlive it — and if the number you are
+about to quote looks stale, that is the moment to re-read it, which is the whole
+point.
+
 ### 2. Bring the deployment up
 
 There is no single command here, because the launch flags are the model's and
