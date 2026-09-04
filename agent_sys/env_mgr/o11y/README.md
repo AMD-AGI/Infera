@@ -103,9 +103,43 @@ wraps the supervisor in a `try` of its own, so even a bug we have not thought of
 inside it degrades to a warning. Install failure is covered by the same rule
 through the recipe's `importance: suggested`.
 
-## What the panel calls a "project"
+## What the panel calls a "project", and why each run is one
 
 Claude Code writes one directory per *working directory*, named by slugifying
 that path, with one JSONL per session inside. AgentsView shows each of those as a
-project. `agent_sys` runs every attempt in its own zone, so the list is roughly
-one entry per attempt rather than one per package.
+project, naming it after the **deepest** path segment — or, when the directory is
+inside a git repository, after that repository.
+
+`agent_sys` runs every attempt in its own zone, and zones nest, so left alone one
+run's sessions appear as several unrelated projects. Measured: four sessions of
+one run as `0_11e34171`, `0_f6daeb1b`, `task.main.b869ddf0_…` and
+`task.solve_a.8c8fb4c1_…`. Naming the directories better does not join them — a
+nested child task fragments off from its parent however prettily both are named.
+
+So each run gets **one project of its own**, `run.<run-id>`, via a single
+`explicit` mapping over the run root posted at run start
+(`mapping.py`). You will see it on the way past:
+
+```
+      o11y  panel at http://127.0.0.1:18888
+      o11y  this run is project 'run.20260904T121032_b65238' on the panel
+```
+
+Three things worth knowing as an operator:
+
+- **The label lives in the mapping table, not on the session.** Deleting the row
+  does not change the panel immediately, but the next full re-sync re-derives
+  every label and that run's sessions revert to their directory names. Keeping
+  the name means keeping the row; there is no automatic cleanup, on purpose, and
+  the table costs nothing on the path the daemon actually runs — measured at
+  **+32 ms with 5000 rows**, inside the noise.
+- **Zone teardown is harmless.** Classification reads the cwd recorded in the
+  transcript, never the filesystem — measured against a directory that was moved
+  away and a `sync --full` afterwards.
+- **A failure here costs the grouping and nothing else.** Same law as the rest of
+  this component: one warning, and the run continues with sessions under their
+  directory names.
+
+The readiness probe gets its own directory in the prefix, so it appears as
+`probe` rather than filing ten identical `Reply with exactly one word: ready`
+sessions under whichever repository you happened to be standing in.
