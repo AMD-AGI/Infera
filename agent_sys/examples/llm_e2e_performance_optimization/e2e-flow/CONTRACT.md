@@ -851,6 +851,52 @@ matching the expectation is what suppresses the check — and in both, the repai
 is to produce the *other* outcome deliberately and see that the instrument can
 reach it.
 
+#### The eighth face: the narrower probe is the one you trust, and it answers a different question
+
+m5's, 2026-09-04. **The inverse of the first face rather than another instance
+of it.** There the fixture is too convenient; here the *probe* is — and the
+instrument was not blind, it was **replaced, mid-question, by one that answered
+the question being asked instead of the question that mattered.**
+
+The instance, in full, because the sequence is the finding:
+
+1. Four copies of a broken kit-read had to be attributed to owners.
+   `awk '/^#+ /'` over **all** heading levels returned, for the disputed line,
+   `### 1. The command, in full`.
+2. That is a subsection title and not an owner. So the probe was re-run
+   narrower — `grep -n '^# '`, level-1 headings only — to get section owners.
+3. `RUN-PLAN.md` mixes level-1 and level-2 sections **as peers**: three
+   `## Standalone verification — mN` sections follow a `# Module 5 standalone`.
+   All three were invisible to the narrower probe, so the line was attributed to
+   the nearest level-1 heading above it — the wrong owner.
+4. **The broader answer had been correct and was already in hand.**
+
+**The rule falls straight out: when you re-run a probe narrower, keep the
+broader answer.** The narrowing is what discards the information that would have
+contradicted it.
+
+**What earns it a face is not that a probe was narrow — it is that a narrow
+probe's answer survived three readers.** The leader published the ownership map;
+m2 relayed it to m4 without checking; m4 confirmed it by recognising the prose
+as sounding like theirs. Two people compounded it and a third corroborated it
+from memory, and the wrong entry was **indistinguishable from the right ones**,
+because the map's other rows were correct.
+
+**So this face tells you where to look, and it is not the output.** Nobody could
+have caught this from outside: the map looked right, and it was only found
+because its author volunteered *which command produced it*. **Provenance, not
+result** — the same shape as `base_sha256_from`, where two opposite causes read
+identically in the failure and only the producer knows which.
+
+Hence the leader's own line in it, which they asked for rather than let be
+omitted for politeness: **the map was published without recording how it was
+built.** Had it carried its own command, m2 could have checked it in one read
+instead of relaying it. A derived table that does not cite its derivation is a
+claim, and the seven faces above are all about claims that cannot be checked.
+
+**The cheap form:** when a table of attributions, owners, or counts goes into a
+document somebody else will act on, put the command that produced it beside it.
+
 ### 4.1 Shared validators are shared, not copied
 
 `check_kernel_table` is **one** definition used by m2 and m3 (M3.5). The two
