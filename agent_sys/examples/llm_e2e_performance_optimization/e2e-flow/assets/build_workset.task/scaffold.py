@@ -321,7 +321,12 @@ def main() -> int:
                 # schema permits and which obliges m4 to hash and say it did —
                 # a stated gap, not a silent one.
                 "base_sha256": entry.get("base_sha256"),
-                "apply_mode": "overlay_files",
+                # Derived from `substitution`, not hardcoded: the schema
+                # refuses `call_site_fragment` with `overlay_files`, so a
+                # constant here would fail this task's own output
+                # validation on a fragment operator. `W.apply_mode_for`
+                # is shared with `mock_adapt.py`, the other producer.
+                "apply_mode": W.apply_mode_for(entry.get("substitution")),
                 "requires_restart": True,
                 "build_step": None,
             },

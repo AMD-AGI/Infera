@@ -128,6 +128,38 @@ PERFORMANCE_ROLES = frozenset({"performance", "correctness-and-performance"})
 PERFORMANCE_FLOOR = 3
 
 
+#: Which install a substitution kind requires, `workset.schema.json`'s
+#: `integration.apply_mode`.
+#:
+#: **Derived rather than written down twice.** Both producers —
+#: `build_workset.task/scaffold.py` and `.../mock_adapt.py` — hardcoded
+#: `overlay_files` until 2026-09-04, which is `todo.md` T34's shape and was
+#: harmless only while the enum had one value. It no longer does.
+#:
+#: **The mapping is a fact, not a policy.** `call_site_fragment` means the edit
+#: lives inside an existing function, so the replacement is not the module and
+#: overlaying the file with it deletes every symbol the engine imports — m4's
+#: gate demonstrated exactly that on rung 0's own workset. `patch_in_place`
+#: preserves the public surface by construction. The schema now refuses the
+#: other combination outright, so a producer emitting it would fail its own
+#: output validation.
+APPLY_MODE_FOR_SUBSTITUTION = {
+    "call_site_fragment": "patch_in_place",
+    "module_symbol": "overlay_files",
+}
+
+
+def apply_mode_for(substitution: str | None) -> str:
+    """The install this substitution kind requires.
+
+    Falls back to `overlay_files` for an unset or unknown kind, which is the
+    pre-2026-09-04 behaviour and the right default for a workset produced
+    before `substitution` existed: it is what those worksets meant, and the
+    schema's binding only constrains the `call_site_fragment` branch.
+    """
+    return APPLY_MODE_FOR_SUBSTITUTION.get(substitution or "", "overlay_files")
+
+
 def is_performance(role: str) -> bool:
     """Whether a `shapes[].role` means the shape is timed."""
     return role in PERFORMANCE_ROLES

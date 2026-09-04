@@ -586,9 +586,10 @@
             "apply_mode": {
               "type": "string",
               "enum": [
-                "overlay_files"
+                "overlay_files",
+                "patch_in_place"
               ],
-              "description": "How the replacement is installed. **One value today, and an enum rather than a string on purpose**: a registry or import hook is the better mechanism and is deferred (`todo.md` T5, M5.3 — 但现在就这样吧), so the field exists to be widened by whoever builds it rather than to be reinterpreted. Two mechanisms would mean two proofs that the patch was live, and the proof is the expensive half."
+              "description": "How the replacement is installed, and **this field now decides between two materially different installs**. Widened 2026-09-04 on the user's ruling — 最挫的 apply 方式难道不是找到调用的地方，把那一行替换掉 — which is a diff, and `apply.py:641-659` has run `patch -p1 --batch --forward` all along. The applier was never the gap; the gap was that a workset had no way to *ask* for it, because this enum had one value.\n\n**`overlay_files`** — the replacement **is** the module and is written over it. Correct when the optimised thing is the file's reason to exist and the replacement reproduces the public surface the stock file exported. It cannot be right for an edit that lives inside an existing function: overlaying `sampler.py` with a standalone kernel module deletes every symbol the engine imports.\n\n**`patch_in_place`** — a diff is applied to the stock file, which is extracted from the image and patched. Correct when the edit lives inside an existing function, which is exactly `substitution: call_site_fragment`. **The public surface survives by construction**: a patch that does not delete a definition cannot drop it, so m5's two surface refusals — the whole-file overlay dropping imported names, and `check_optimization_shape`'s `kept == ∅` — cannot fire on this path. That property, not the mechanism, is why it is the answer for a fragment operator.\n\nWidening it is what makes the `substitution` × `apply_mode` pair satisfiable. Before this the only spellable combination for a fragment operator was one m4's gate and m5's `apply_patch` both refuse, and correctly — the pair was unsatisfiable by construction, which is a statement about the schema and belonged here rather than in a gate."
             },
             "base_sha256": {
               "type": [
@@ -670,6 +671,12 @@
                 "properties": {
                   "public_symbol": {
                     "type": "null"
+                  },
+                  "apply_mode": {
+                    "not": {
+                      "const": "overlay_files"
+                    },
+                    "description": "**`call_site_fragment` with `overlay_files` is unsatisfiable, and this is where that belongs.** The edit lives inside an existing function, so the replacement is not the module — overlaying the file with it deletes every symbol the engine imports. m4's gate demonstrated this on rung 0's own workset (the replacement defined `run` and `sampler_softmax` and kept NONE of the target's 9), and m5's `apply_patch` reaches the same refusal one stage later. Two gates refusing one contradiction is worse than a schema refusing it once, and neither gate can say what a reader needs: that no artefact satisfies the pair. `not overlay_files` rather than `const patch_in_place` on purpose — the ruled-out combination is the fact, and a third mode should not have to come back here to be allowed."
                   }
                 }
               }

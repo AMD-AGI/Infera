@@ -625,7 +625,13 @@ def main() -> int:
                     "the reduced dimension is the last one and is contiguous; a replacement that relies on that must say so, because a non-contiguous `logits` then gives wrong results rather than an error",
                     "no build step may be added — the driver imports the module directly, and a replacement needing compilation cannot be delivered as an overlay",
                 ],
-                "apply_mode": "overlay_files", "requires_restart": True, "build_step": None,
+                # `patch_in_place`, derived rather than written: this
+                # operator is a `call_site_fragment` and the schema now
+                # refuses that with `overlay_files`. Shared with
+                # `scaffold.py` so the mock and the real path cannot
+                # disagree about what a substitution kind requires.
+                "apply_mode": W.apply_mode_for("call_site_fragment"),
+                "requires_restart": True, "build_step": None,
             },
             "gates": {"snr_db": 30.0, "allclose": {"atol": 1e-6, "rtol": 1e-3},
                       "extra": [{"name": "rows_sum_to_one", "tolerance": 1e-4,
