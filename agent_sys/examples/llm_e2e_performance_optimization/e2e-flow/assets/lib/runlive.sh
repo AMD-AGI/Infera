@@ -82,15 +82,35 @@ trap 'rm -f "$SNAP"' EXIT
 #
 # The console-script form survives, so m3's finding 1 stays fixed. The leaf rule
 # below is kept as a second layer for the fork case, which is unproven either way.
+#
+# ## `exe` unreadable is a THIRD answer, not a drop
+#
+# `readlink … || continue` was the first version and it is this file's own
+# original defect wearing a new cause (m3): **a matching process whose `exe`
+# cannot be read was dropped without a word**, and a run you cannot inspect then
+# reads as no run — the escalating direction. Measured: `readlink /proc/1/exe`
+# exits 1 (another user's process), and so does a pid that exited between the
+# `ps` snapshot and the `readlink` (the race). Neither is reachable while every
+# run on this host is `yihou`-owned, so it is latent — and latent in the
+# direction that matters.
+#
+# So there are three outcomes, and the third is **reported**: the count and the
+# reason disagree visibly instead of the count quietly being short.
+UNK=$(mktemp) || exit 1
+trap 'rm -f "$SNAP" "$UNK"' EXIT
+
 ps -eo pid,ppid,etime,args --no-headers 2>/dev/null \
   | grep -E '(-m +agent_sys\.cli\.main|/agent-sys) +run\b' \
   | grep -v grep \
   | while read -r pid rest; do
-      exe=$(readlink "/proc/$pid/exe" 2>/dev/null) || continue
-      case "$exe" in
-        */python*) printf '%s %s\n' "$pid" "$rest" ;;
-        *) ;;                       # a shell or `timeout` wearing the run's argv
-      esac
+      if exe=$(readlink "/proc/$pid/exe" 2>/dev/null); then
+        case "$exe" in
+          */python*) printf '%s %s\n' "$pid" "$rest" ;;
+          *) ;;                     # a shell or `timeout` wearing the run's argv
+        esac
+      else
+        printf '%s %s\n' "$pid" "$rest" >> "$UNK"   # matched, undecidable
+      fi
     done > "$SNAP"
 
 NOW=$(date +%H:%M:%S)
@@ -106,7 +126,13 @@ NOW=$(date +%H:%M:%S)
 # part that gets quoted.
 awk -v now="$NOW" '
   NR==FNR { parent[$2] = 1; next }            # pass 1: every ppid among matches
-  !parent[$1] {                                # pass 2: keep leaves only
+  # Pass 2 keeps leaves. **Since `exe` filtering arrived this rule does ONE job,
+  # not two** (m3): wrappers are already gone, so the only thing it can still
+  # remove is a genuine python run that is the parent of another matching python
+  # run — the fork case, where dropping the parent is right. It is no longer the
+  # wrapper defence; do not read it as one. If the fork case is ever shown not to
+  # occur, this becomes dead weight.
+  !parent[$1] {
     root = "?"
     for (i = 1; i <= NF; i++) {
       if ($i == "--demo-root") root = $(i + 1)          # space-separated form
@@ -117,3 +143,14 @@ awk -v now="$NOW" '
   }
   END { printf "%d run process(es) present at %s\n", n + 0, now }
 ' "$SNAP" "$SNAP"
+
+# The third answer, said out loud. A count that is short because something was
+# undecidable must not look like a count that is short because nothing was there.
+if [ -s "$UNK" ]; then
+  echo "UNDECIDED: matched the run pattern but /proc/<pid>/exe was unreadable —"
+  echo "  another user's process, or it exited between the snapshot and the read."
+  echo "  These are NOT counted above. The count is a lower bound:"
+  while read -r upid urest; do
+    echo "    pid=$upid  $(printf '%s' "$urest" | cut -c1-70)"
+  done < "$UNK"
+fi
