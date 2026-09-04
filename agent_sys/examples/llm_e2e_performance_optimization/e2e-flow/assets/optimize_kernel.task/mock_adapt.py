@@ -156,9 +156,24 @@ def _stock_from_image(container_path: str, image: str, scratch: Path) -> str | N
     if not dest.is_file():
         return None
     try:
-        return dest.read_text(encoding="utf-8")
+        text = dest.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return None
+    # **Remove it: everything under the handoff ships.** `docker cp` has to land
+    # somewhere both hosts mount, and the handoff tree is the one such place
+    # this script has a handle on -- so the scratch went inside the packup and
+    # rung 0 sealed a 30 KB copy of the stock engine file into the artefact as
+    # `apply/.stock/stock.src`. Harmless to the validators and wrong in the
+    # deliverable: a handoff carries what it claims to carry.
+    #
+    # Deleting is permitted here and the check is not rhetorical -- the standing
+    # rule is that nothing is removed whose path lacks `yihou` or `/tmp`, it
+    # follows identity mounts into containers, and it admits no judgement. This
+    # path is under the run root, which is `/home/yihou/...`; the guard makes
+    # that a precondition rather than an assumption.
+    if "yihou" in str(scratch) or str(scratch).startswith("/tmp"):
+        shutil.rmtree(scratch, ignore_errors=True)
+    return text
 
 
 def _ensure_impl_entry(packup: Path, workset_root: Path, operator: dict) -> str | None:

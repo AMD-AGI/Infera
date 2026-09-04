@@ -766,9 +766,24 @@ def _check_apply(doc: dict, packup: Path, problems: list[str]) -> None:
         replacement = entry.get("replacement")
         if replacement and not (packup / str(replacement)).is_file():
             problems.append(f"{where}.replacement names {replacement!r}, which is not in the packup")
+        # **`patch` is a bare filename under `apply/patches/`; `replacement`
+        # above is packup-relative. The two siblings genuinely differ**, because
+        # `apply.py:409,643` do `apply_dir / "patches" / entry["patch"]`.
+        #
+        # This read `packup / patch` and was correct until `0712fbc`, when I
+        # narrowed the schema from `^apply/patches/….patch$` to a bare name so
+        # the producer and the applier would agree. **That fix made two of three
+        # agree and left this one behind** — rung 0 then refused a manifest
+        # whose patch file was present, at
+        # `apply/patches/sampler_vocab_softmax.patch`, with *"which is not in
+        # the packup"*. The refusal was right about the rule and wrong about the
+        # world, which is why it cost a run to find.
         patch = entry.get("patch")
-        if patch and not (packup / str(patch)).is_file():
-            problems.append(f"{where}.patch names {patch!r}, which is not in the packup")
+        if patch and not (packup / "apply" / "patches" / str(patch)).is_file():
+            problems.append(
+                f"{where}.patch names {patch!r}, which is not in apply/patches/ "
+                f"(a bare filename, resolved there by `apply_patch`)"
+            )
 
     # The manifest is the copy m5 opens; the document is the copy every other
     # consumer reads. Two records of one fact is a drift waiting to happen, so
