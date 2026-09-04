@@ -85,6 +85,24 @@
     E2E_JOBID: '${jobid}'
     E2E_NODE: '${node}'
     E2E_TRANSPORT: '${transport:-auto}'
+    # **A reader this stage did not have until `0ca4635` added one.** Choosing
+    # the container's bind mount, `measure_in_container.sh` adopted
+    # `remote.sh`'s `${E2E_REMOTE_HOME:-$HOME}` — so the fix for one undeclared
+    # site fact introduced a second, and the checker caught it in the same
+    # commit that reported this stage complete.
+    #
+    # The fallback expands `$HOME` in the **local** shell, so it is right here
+    # only because `/home` is NFS the compute nodes mount — the very fact the
+    # visibility probe two lines of code away now measures rather than assumes.
+    # On a cluster where the login home is not visible from the node, this
+    # variable is the only fix, and `spur exec` lands with `HOME=/opt/spur`,
+    # which m1 met as `mkdir /opt/spur/.docker: permission denied` — a message
+    # naming neither docker nor HOME. Third agent to need it.
+    #
+    # `:-` and not `=`: m5 measured that the colon form fills a present-but-
+    # empty variable in both shells, so declaring it cannot reintroduce
+    # `60bd848`. Byte-identical to `runner`'s line and to m1's and m5's.
+    E2E_REMOTE_HOME: '${remote_home:-}'
     # `mock_adapt.py`'s standalone `--new` path only; in the graph `deploy_kit`
     # is a declared input and the record is inherited instead.
     E2E_NODE_IP: '${node_ip}'
