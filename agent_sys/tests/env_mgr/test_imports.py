@@ -23,12 +23,19 @@ ROOT = Path(__file__).resolve().parents[2] / "env_mgr"
 #: The shipped installer machinery. Criterion 22 requires its 65 tests to keep
 #: passing untouched, and this is the structural half of that.
 #:
-#: **This is the only list, and it is closed.** It names a set that finished
-#: growing before this work started, so enumerating it cannot fall behind. It
-#: can still *shrink*: `layer` was removed with the layer model, and a name left
-#: here for a module that no longer exists would put the wall's `_above()` — a
-#: derived set — permanently one name out of step with reality.
-BELOW = {"recipe", "runner", "outcome", "report", "registry", "versions", "installers"}
+#: **This is the only list, and it is not closed** — an earlier revision said it
+#: was, on the grounds that the set had finished growing before this work
+#: started. It has since done both: `layer` left with the layer model, and
+#: `servers` arrived with `run_server`.
+#:
+#: **What makes the enumeration safe is not that it is finished — it is that
+#: forgetting a name is caught rather than silent.** An unlisted module below
+#: the wall falls into the derived `_above()` set, and then the first import in
+#: either direction turns a test red: something below importing it reads as
+#: *below imports from above*, and its own imports of the machinery read as
+#: *above imports from below*. That is how `servers` was caught on the commit
+#: that added it, before it was listed here.
+BELOW = {"recipe", "runner", "outcome", "report", "registry", "versions", "installers", "servers"}
 
 #: `cli.py` is the only module above the wall that may import from below it, and
 #: it does so exactly as it does today.

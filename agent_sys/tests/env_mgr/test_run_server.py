@@ -1,0 +1,447 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
+"""`run_server` and the registry behind it, against real processes and real ports.
+
+**Nothing here is mocked, and that is the point.** Every property this installer
+has is a property of a process it does not own: that it survives its parent,
+that its output does not hold a pipe open, that its pid still means what it
+meant. A fake `Popen` would agree with whatever the code believed, and the two
+defects found while writing this — an empty `/proc/<pid>/cmdline` before exec,
+and a 25-second hang from an inherited pipe — are both invisible to one.
+"""
+
+from __future__ import annotations
+
+import os
+import socket
+import subprocess
+import time
+from pathlib import Path
+
+import pytest
+
+from env_mgr.installers.run_server import RunServerInstaller
+from env_mgr.recipe import Item, Target
+from env_mgr.servers import (
+    REGISTRY_ENV_VAR,
+    PortHolder,
+    ServerRecord,
+    owned_servers,
+    port_conflict,
+    records,
+    starttime_of,
+    stop_all,
+)
+
+pytestmark = pytest.mark.skipif(
+    not Path("/proc/self/stat").exists(), reason="needs procfs"
+)
+
+
+def _free_port() -> int:
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+def _alive(pid: int) -> bool:
+    """Is `pid` a *running* process?
+
+    **`os.kill(pid, 0)` is not this question** and was the first thing written
+    here. It succeeds for a zombie — a process that has terminated and whose
+    parent has not reaped it — so every "was it stopped?" assertion passed on
+    corpses. These tests are the parent of what they start, so zombies are the
+    normal case here.
+
+    Read from `/proc` rather than by calling `env_mgr.servers`: the property
+    under test is *the server is no longer running*, and asking the module under
+    test whether it thinks so would make the assertion agree with the code by
+    construction.
+    """
+    try:
+        data = Path(f"/proc/{pid}/stat").read_text()
+    except OSError:
+        return False
+    return data[data.rindex(")") + 2 :].split()[0] != "Z"
+
+
+@pytest.fixture
+def reaper():
+    """Kill anything a test started, however the test ended.
+
+    Tests here spawn detached process-group leaders on purpose. Without this a
+    failing assertion would leave a listener on a real port of a shared host.
+    """
+    started: list[int] = []
+    yield started
+    for pid in started:
+        for sig in (15, 9):
+            try:
+                os.killpg(pid, sig)
+            except OSError:
+                break
+            time.sleep(0.1)
+
+
+@pytest.fixture
+def zone(tmp_path, monkeypatch):
+    """A target directory and a registry path, wired as a real run wires them."""
+    registry = tmp_path / "servers.json"
+    monkeypatch.setenv(REGISTRY_ENV_VAR, str(registry))
+    return Target(kind="workspace", name="z", path=str(tmp_path)), registry
+
+
+def _item(**spec) -> Item:
+    spec.setdefault("name", "srv")
+    return Item(installer="run_server", importance="required", spec=spec)
+
+
+def _serve_forever(port: int) -> str:
+    return (
+        f"exec python3 -c \"import socket,time;"
+        f"s=socket.socket();s.setsockopt(1,2,1);s.bind(('127.0.0.1',{port}));"
+        f's.listen(5);time.sleep(120)"'
+    )
+
+
+# --------------------------------------------------------------------- the start
+
+
+def test_a_started_server_is_running_recorded_and_stoppable(zone, reaper):
+    target, registry = zone
+    port = _free_port()
+    item = _item(command=_serve_forever(port), port=port, ready_timeout=15)
+
+    (out,) = RunServerInstaller().install(item, target)
+    assert out.level == "ok", out
+    pid = out.details["pid"]
+    reaper.append(pid)
+
+    # Recorded, with the identity guard filled in.
+    (record,) = records(registry)
+    assert record.pid == pid
+    assert record.port == port
+    assert record.starttime == starttime_of(pid)
+
+    # Really listening, not merely reported as such.
+    with socket.socket() as probe:
+        probe.settimeout(2)
+        assert probe.connect_ex(("127.0.0.1", port)) == 0
+
+    stops = stop_all(registry)
+    assert [o.level for o in stops] == ["ok"], stops
+    assert not _alive(pid)
+    assert records(registry) == []
+
+
+def test_the_server_outlives_the_process_that_started_it(tmp_path, reaper):
+    """The property the whole design turns on, measured across a real exit.
+
+    The installer runs inside `python -m env_mgr`, which exits seconds later. If
+    the server did not survive that, the registry would be a list of dead pids.
+    """
+    port = _free_port()
+    registry = tmp_path / "servers.json"
+    script = tmp_path / "starter.py"
+    script.write_text(
+        "import sys;"
+        f"sys.path.insert(0, {str(Path(__file__).resolve().parents[2])!r});"
+        "from env_mgr.installers.run_server import RunServerInstaller;"
+        "from env_mgr.recipe import Item, Target;"
+        f"item = Item(installer='run_server', importance='required', spec={{'name':'srv',"
+        f"'command':{_serve_forever(port)!r},'port':{port},'ready_timeout':15}});"
+        f"out = RunServerInstaller().install(item, Target(kind='workspace', name='z',"
+        f" path={str(tmp_path)!r}));"
+        "print(out[0].level, out[0].details.get('pid'))"
+    )
+    env = dict(os.environ, **{REGISTRY_ENV_VAR: str(registry)})
+
+    started = time.monotonic()
+    # `capture_output=True` exactly as `_run_recipe` does it: this call returning
+    # promptly is the assertion that the server's output is not on these pipes.
+    proc = subprocess.run(
+        ["python3", str(script)], capture_output=True, text=True, env=env, timeout=60
+    )
+    elapsed = time.monotonic() - started
+
+    assert proc.returncode == 0, proc.stderr
+    level, pid_text = proc.stdout.split()
+    assert level == "ok", proc.stdout
+    pid = int(pid_text)
+    reaper.append(pid)
+
+    assert elapsed < 30, (
+        f"the starter took {elapsed:.1f}s to return. Measured 2026-09-04: a server "
+        f"inheriting the captured pipes keeps them open for its whole life, and "
+        f"`subprocess.run` waits for the pipes rather than the child"
+    )
+    assert _alive(pid), "the server died with the process that started it"
+    assert [r.pid for r in records(registry)] == [pid]
+
+
+# -------------------------------------------------------------- the two failures
+
+
+def test_a_server_that_exits_immediately_is_not_started(zone):
+    target, registry = zone
+    port = _free_port()
+    item = _item(command="exit 3", port=port, ready_timeout=10)
+
+    (out,) = RunServerInstaller().install(item, target)
+    assert out.level == "fail"
+    assert "exited immediately" in out.message
+    assert out.details["rc"] == 3
+    # Recorded anyway: the entry is written before this is known, on purpose.
+    assert len(records(registry)) == 1
+
+
+def test_a_server_that_never_binds_is_not_started(zone, reaper):
+    target, registry = zone
+    port = _free_port()
+    item = _item(command="exec sleep 60", port=port, ready_timeout=1)
+
+    (out,) = RunServerInstaller().install(item, target)
+    reaper.append(out.details["pid"])
+    assert out.level == "fail"
+    assert "nothing is listening" in out.message
+    assert out.details["port"] == port
+
+
+def test_no_registry_means_no_server_is_started(tmp_path, monkeypatch):
+    """Refusing is the point: a server nobody can stop is worse than no server."""
+    monkeypatch.delenv(REGISTRY_ENV_VAR, raising=False)
+    target = Target(kind="workspace", name="z", path=str(tmp_path))
+    port = _free_port()
+
+    (out,) = RunServerInstaller().install(_item(command=_serve_forever(port), port=port), target)
+    assert out.level == "fail"
+    assert "could never be stopped" in out.message
+    with socket.socket() as probe:
+        probe.settimeout(1)
+        assert probe.connect_ex(("127.0.0.1", port)) != 0, "it started one anyway"
+
+
+# ------------------------------------------------------------------ the port rule
+
+
+def test_an_occupied_port_held_by_the_same_program_warns(tmp_path, reaper):
+    """The measured wrinkle: the holder reports as `python3`, and must still warn.
+
+    A process name key would call every Python server the same program; an
+    interpreter-path key would too. The key is the **declared** program token,
+    so what matters is that `myserver` appears in the holder's command line.
+    """
+    program = tmp_path / "myserver"
+    program.write_text(
+        "import socket,time\n"
+        "s=socket.socket();s.setsockopt(1,2,1);s.bind(('127.0.0.1',PORT));"
+        "s.listen(5);time.sleep(120)\n"
+    )
+    port = _free_port()
+    program.write_text(program.read_text().replace("PORT", str(port)))
+    holder = subprocess.Popen(
+        ["python3", str(program)], start_new_session=True, stdout=subprocess.DEVNULL
+    )
+    reaper.append(holder.pid)
+    _wait_bound(port)
+
+    verdict = port_conflict(port, f"myserver --port {port}", "srv")
+    assert verdict is not None
+    assert verdict.level == "warn", verdict
+    assert verdict.details["pid"] == holder.pid
+
+
+def test_an_occupied_port_held_by_a_different_program_fails(tmp_path, reaper):
+    port = _free_port()
+    holder = subprocess.Popen(
+        [
+            "python3",
+            "-c",
+            "import socket,time;s=socket.socket();s.setsockopt(1,2,1);"
+            f"s.bind(('127.0.0.1',{port}));s.listen(5);time.sleep(120)",
+        ],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+    )
+    reaper.append(holder.pid)
+    _wait_bound(port)
+
+    verdict = port_conflict(port, f"somethingelse --port {port}", "srv")
+    assert verdict is not None
+    assert verdict.level == "fail", verdict
+
+
+def test_a_free_port_has_no_verdict():
+    assert port_conflict(_free_port(), "anything", "srv") is None
+
+
+def test_a_holder_whose_command_line_cannot_be_read_fails(tmp_path):
+    """The third case: occupied, and the holder is unknowable.
+
+    Measured on this host, a port held by another uid gives no pid from `ss`,
+    nothing from `lsof`, and a `/proc/<pid>/fd` that cannot be walked. It cannot
+    be *shown* to be the same program, so by the rule it is an error — and this
+    is asserted through the seam because arranging a root-owned port inside a
+    test is not something to do on a shared machine.
+    """
+    verdict = port_conflict(
+        1234, "serena start-mcp-server", "srv", holder=PortHolder(occupied=True)
+    )
+    assert verdict is not None
+    assert verdict.level == "fail"
+    assert verdict.details["holder"] == "unreadable"
+
+
+def test_the_same_program_is_recognised_through_an_interpreter(tmp_path):
+    """The wrinkle in one assertion, at the level of the rule rather than a port.
+
+    Both of these holders are `python3` by process name. Only the declaration
+    tells them apart, which is why the key comes from the declaration.
+    """
+    serena_like = PortHolder(
+        occupied=True,
+        pid=1,
+        cmdline="/home/u/.cache/uv/archive-v0/dAP4/bin/python /home/u/.local/bin/serena "
+        "start-mcp-server --port 24282",
+    )
+    stranger = PortHolder(
+        occupied=True, pid=2, cmdline="python3 -m http.server 18080 --bind 127.0.0.1"
+    )
+    same = port_conflict(24282, "serena start-mcp-server", "srv", holder=serena_like)
+    other = port_conflict(24282, "serena start-mcp-server", "srv", holder=stranger)
+    assert same is not None and same.level == "warn"
+    assert other is not None and other.level == "fail"
+
+
+def test_an_occupied_port_is_not_started_onto(zone, reaper):
+    target, registry = zone
+    port = _free_port()
+    holder = subprocess.Popen(
+        [
+            "python3",
+            "-c",
+            "import socket,time;s=socket.socket();s.setsockopt(1,2,1);"
+            f"s.bind(('127.0.0.1',{port}));s.listen(5);time.sleep(120)",
+        ],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+    )
+    reaper.append(holder.pid)
+    _wait_bound(port)
+
+    (out,) = RunServerInstaller().install(_item(command="elsewhere", port=port), target)
+    assert out.level == "fail"
+    assert records(registry) == [], "it recorded a server it did not start"
+
+
+# --------------------------------------------------------------------- the guard
+
+
+def test_a_reused_pid_is_never_signalled(tmp_path):
+    """The rule that keeps a stale registry from killing a stranger's process.
+
+    Our own pid with somebody else's `starttime` stands in for a reused pid: if
+    the guard compared only the number, this would signal the test runner.
+    """
+    registry = tmp_path / "servers.json"
+    registry.write_text("")
+    from env_mgr.servers import record_spawn
+
+    record_spawn(
+        registry,
+        ServerRecord(
+            name="stale",
+            pid=os.getpid(),
+            port=None,
+            command="whatever",
+            starttime="1",  # not ours; the real one is a much larger number
+            cmdline="",
+            started_at=0.0,
+        ),
+    )
+    (out,) = stop_all(registry)
+    assert out.level == "info"
+    assert "no longer ours" in out.message
+    assert _alive(os.getpid())
+
+
+def test_an_unidentifiable_record_is_never_signalled(tmp_path):
+    registry = tmp_path / "servers.json"
+    from env_mgr.servers import record_spawn
+
+    record_spawn(
+        registry,
+        ServerRecord(
+            name="blank",
+            pid=os.getpid(),
+            port=None,
+            command="x",
+            starttime="",  # we could not identify it even when we wrote it
+            cmdline="",
+            started_at=0.0,
+        ),
+    )
+    (out,) = stop_all(registry)
+    assert out.level == "info"
+    assert _alive(os.getpid())
+
+
+def test_a_corrupt_line_does_not_strand_the_entries_after_it(tmp_path):
+    """A kill mid-write is the case this file exists for, so it must survive one."""
+    registry = tmp_path / "servers.json"
+    good = ServerRecord("g", os.getpid(), None, "c", "1", "", 0.0)
+    registry.write_text('{"name": "half-writ')
+    from env_mgr.servers import record_spawn
+
+    record_spawn(registry, good)
+    assert [r.name for r in records(registry)] == ["g"]
+
+
+# ------------------------------------------------------------------ the manager
+
+
+def test_owned_servers_stops_on_normal_exit(zone, reaper):
+    target, registry = zone
+    port = _free_port()
+    with owned_servers(registry):
+        (out,) = RunServerInstaller().install(
+            _item(command=_serve_forever(port), port=port, ready_timeout=15), target
+        )
+        assert out.level == "ok", out
+        pid = out.details["pid"]
+        reaper.append(pid)
+        assert _alive(pid)
+    assert not _alive(pid), "the manager did not stop what the block started"
+
+
+def test_owned_servers_stops_when_the_block_raises(zone, reaper):
+    """A handled error is the other half of the stated guarantee."""
+    target, registry = zone
+    port = _free_port()
+    pid = None
+    with pytest.raises(RuntimeError):
+        with owned_servers(registry):
+            (out,) = RunServerInstaller().install(
+                _item(command=_serve_forever(port), port=port, ready_timeout=15), target
+            )
+            pid = out.details["pid"]
+            reaper.append(pid)
+            raise RuntimeError("the run failed")
+    assert pid is not None
+    assert not _alive(pid)
+
+
+def test_owned_servers_with_no_registry_is_not_an_error():
+    with owned_servers(None) as path:
+        assert path is None
+
+
+def _wait_bound(port: int, timeout: float = 10.0) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        with socket.socket() as probe:
+            probe.settimeout(0.5)
+            if probe.connect_ex(("127.0.0.1", port)) == 0:
+                return
+        time.sleep(0.05)
+    raise AssertionError(f"nothing came up on port {port}")
