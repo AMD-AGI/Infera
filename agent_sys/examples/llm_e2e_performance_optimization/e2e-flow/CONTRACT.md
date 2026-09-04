@@ -1195,6 +1195,26 @@ git add -- <the one new file>                       # never a directory
 git commit -s -m "..." -- <all your paths>          # still ignores the rest of the index
 ```
 
+**Print the staged list on both sides of that `add`.** The exception says how to
+stage an untracked file; it does not say how to know you staged only that one —
+and **`git add` is the single moment this whole section permits touching the
+shared index**, so it is the one moment nobody is watching it.
+
+```sh
+git diff --cached --name-only     # before: whatever was already staged, often empty
+git add -- <the one new file>
+git diff --cached --name-only     # after: that, plus exactly your one path
+```
+
+Cheap, and it converts *"I used the narrow form"* into *"here is what the index
+held"*. Landing `packup_probe.py` this way, m2 could say that m5's dirty
+`steps/m5_integration.yaml` and their untracked `accept_mock.py` were never
+staged — which the narrow `add` makes true and only the printout makes
+**checkable**. The same check caught a real case an hour later: another owner's
+`temp/bugs/…` note was sitting staged in the index during an unrelated commit,
+and printing the list afterwards showed it still staged and uncommitted rather
+than swept, so it could be handed back rather than silently taken.
+
 **The rule protects others from you. It does not protect you from others.**
 Reported by m2 after committing correctly by pathspec and still having their
 work land inside another owner's commit. `git commit -- <paths>` bounds what
