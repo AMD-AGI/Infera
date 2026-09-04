@@ -1826,27 +1826,12 @@ behaviour of the code in front of you and let the reader look up the wiring.
 The second is usually the better sentence anyway: *"a floor of zero grades
 nothing"* is true wherever the value comes from.
 
-**And the general form of the second half, which is not about comments at all:
-a fix verified *correct* is not a fix verified *reached*.** m4 hit the same
-thing within the hour and offered to file it separately; it belongs here
-because the two instances are one lesson and differ only in luck.
-
-| | what was verified | what was not | how it surfaced |
-|---|---|---|---|
-| m3 (this entry) | the new wording is right | the branch can execute | never — it would have printed the old string forever |
-| m4 (`0cccb97`) | the emitter threads `--impl-path` | the name is bound in that scope | `NameError` on the first candidate run |
-
-Theirs announced itself; mine was silent, in a file whose own comment said the
-fix was needed. **The failure mode that fires is the lucky one**, and neither of
-us chose it. The check is one question asked after the edit and before the
-commit — *what input reaches this line?* — and it is cheapest to ask when the
-edit is a guard, because a guard is exactly the shape whose condition may never
-hold.
-
-m4 notes they had already applied this twice today without naming it: arming a
-disabled gate to prove it fires before switching it off, and monkeypatching an
-enum to reach a branch their own fix had made unreachable. The instinct exists;
-what it lacked was a name and a moment.
+**The general form of the second half is `T46`** — *a fix verified correct is
+not a fix verified reached*. m4 filed it with both instances while this
+paragraph was still in my working tree, and theirs is the better entry: it has
+the asymmetry (their `NameError` announced itself, mine would have been silent
+forever) and it has the two cases where the check was already being applied
+without a name. Cut to a pointer rather than kept as a second copy.
 
 ### T46 — a fix verified correct is not a fix verified reached
 
