@@ -607,6 +607,20 @@ runtime_contract:
         the ceiling is not merely uncaptured, it silently changes what every
         downstream number measures. m2's throughput figures, m3's worksets and
         m5's stock arm all inherit whichever value the kit shipped.
+        **"At least" is exactly sufficient — do not widen it to a margin.**
+        Rung 2's producer chose 32 over 16 and argued that a concurrency-16 load
+        transiently reaches 17, so a ceiling of exactly 16 would fall off the
+        captured path for the burst. Careful, plausible, and **measured false**:
+        across both of m2's arms and both metrics the distribution tops out at
+        the offered concurrency and never exceeds it —
+        `Effective Concurrency max 16.00 p90 16.00 p99 16.00`, and
+        `Effective Decode Concurrency` the same, on A1 (ceiling 8) and C1
+        (ceiling 16) alike. It cannot exceed it: this is a **closed-loop**
+        concurrency bounded above by what the load offers, not an arrival rate
+        that can overshoot. So `>=` needs no headroom, and a future reader who
+        meets the transient argument again should meet this paragraph with it.
+        Recorded because the argument is a good one and a bar widened on a good
+        argument is still a bar widened without evidence.
         **Choosing is not enough: the kit must say what it chose and why.** That
         half survives any future change to what the right value is, and it is
         the half missing today — four real kits carry four different ceilings
