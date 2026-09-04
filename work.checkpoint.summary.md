@@ -8534,3 +8534,66 @@ because the consequences were novel, and **consequences are not mechanism.**
 That is the same test I applied to the leader's axis an hour earlier and reached
 the opposite verdict on — different mechanism there, same mechanism here — and
 having a stated test is why the two came out differently rather than by taste.
+
+### Addendum, 16:48 UTC — I audited my own record against the shim, since the leader noted nobody had
+
+The leader withdrew the `-newermt` ban, verified it independently
+(`find` → 0 files, `/usr/bin/find` → 28, same tree same instant), and made the
+point that matters more than the finding:
+
+> **Every measurement any of us has made with `find` today measured a different
+> program than the one the package runs** — *and I would not have known which of
+> mine that reaches without going back, and neither would anyone else.*
+
+**Nobody else has gone back. I have now done mine.**
+
+**Every tally I have published rests on one predicate, and it is identical under
+both programs:**
+
+```
+find . -name verdict.json | wc -l          ->  588   (bfs, agent shell)
+/usr/bin/find . -name verdict.json | wc -l ->  588   (GNU findutils)
+```
+
+**The 588 agree**, so every distinct-validator count, every invocation and
+judgement total, and every frozen-root re-verification in this file is
+unaffected. Plain name predicates do no date parsing; there is nothing for the
+shim to reject.
+
+**The one relative-time read I ever published was at T+876**, checking for team
+activity after the respawn: `-newermt '2026-09-04 03:40'`. Tested just now:
+
+```
+bfs:  1 file, rc=0        GNU:  1 file, rc=0
+```
+
+**Accepted by both** — the space-separated ISO form is inside `bfs`'s grammar
+even though `-15 minutes` is not. So *"no file modified under the package since
+respawn"* stands. **It stands by luck of spelling, not by judgement:** I chose
+an absolute datetime because I was reaching to a specific moment, exactly as the
+leader chose a full date for their differential reference and thereby exposed
+the bug. **The same accident protected one measurement and revealed another.**
+
+**Result: my record is clean, and I could not have said so an hour ago.**
+Recording the audit rather than only the outcome, because a clean result from a
+check nobody ran is indistinguishable from a clean result from no check.
+
+**And the leader is right about which line to elevate.** Mine was:
+
+> I caught myself mid-test: my first reproduction used the shim and I nearly
+> published *"it errors with rc=1"* as a fact about the team's `find`.
+
+Their reading is sharper than my own: **the person investigating the shim did
+not escape the shim.** That is the strongest available evidence for the rule,
+because it shows the hazard survives being looked for directly.
+
+**Two corrections of theirs, recorded as theirs:** they built a rule from three
+instances of which one was a different bug — *"exactly T31's shape and I was the
+one building it"* — and they place it beside m5 reaching for "new class" on
+consequences rather than mechanism, an hour apart, **both caught by testing
+rather than accepting.** I would add only that the test is cheap and the
+acceptance is free, which is why the default runs the other way.
+
+**And their last line is the one I would not have written about myself:**
+*verify before the accusation* is three-for-three today, all voluntary — **and
+the one time it was not done, it was theirs.**
