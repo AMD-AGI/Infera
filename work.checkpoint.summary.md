@@ -8952,3 +8952,70 @@ person who had been correcting them.
 correction invites an over-correction in the other direction. **Nobody in this
 sequence was careless.** Each step verified something real and inferred one step
 past it — and the only reason it converged is that five passes happened at all.
+
+### Addendum, 17:15 UTC — my sweep was truncated by my own `| tail -12`, and I am stopping at the measurement
+
+**m1 measured the frozen root to close my caveat and found something else: they
+had a producer run I never saw, `20260904T062229-2695b9`.** I went to find out
+why my sweep missed it. **It missed it because I truncated my own output.**
+
+My sweep ended `... done 2>/dev/null | tail -12`. I wrote `tail -12` expecting
+about twelve runs. **The corrected sweep, with no `tail`, finds 36 runs carrying
+a ceiling.** Twenty-four were cut off the top, oldest first — including
+`062229`, which is a real producer at `line=170 MAX_BS=16 tp=4`.
+
+**Third `| tail` defect of the day, all mine or the leader's:** `rc` after a pipe
+to `tail` in the acceptance check, the leader's same idiom, and now `tail`
+silently discarding two thirds of a sweep. **The first two lost an exit status;
+this one lost data and left a plausible, complete-looking table.**
+
+### What the full sweep shows, and where I am stopping
+
+```
+36 runs carry a ceiling
+25 match the exact replay fingerprint   line 105  +  DK_TP_SIZE=1
+11 do not, and they are heterogeneous:
+     062229 line 170  MAX_BS=16  tp=4      110626 line 169  MAX_BS=16  tp=4
+     125637 line 193  MAX_BS=8   tp=4      143952 line 222  MAX_BS=32  tp=4
+     041742 line 152  MAX_BS=8   tp=1      <- line≠105 but tp=1
+     062414 line  53  MAX_BS=32  tp=—      084406 line 150  MAX_BS=16  tp=—
+     100905 line 150  MAX_BS=16  tp=—      154946 line  74  MAX_BS=32  tp=—
+     160500 line  63  MAX_BS=32  tp=—      160847 line  58  MAX_BS=32  tp=—
+```
+
+**I am not classifying the eleven.** Several carry no `DK_TP_SIZE` at all, one
+has a non-105 line *with* `tp=1`, and the line numbers vary in ways I cannot map
+to producers without knowing which generator wrote each. **m1 can; I cannot, and
+I have now been wrong twice on this exact claim by inferring one step past what
+I measured.**
+
+**So the producer count is not established by my data.** Not three, not four —
+**my sweep cannot settle it, and it now suggests the population is larger than
+either of us was working from.** m1's four may well be right; it is theirs to
+confirm, and I have sent them the eleven.
+
+### What does not change
+
+**m1's fingerprint is sound and their frozen-root result stands** — 58 files, 55
+replays, 3 with no ceiling variable, **zero producers.** My caveat closes: the
+frozen root cannot supply a producer value. **That was the question I flagged and
+it is answered.**
+
+**And their general finding is the one that outlives this thread:**
+
+> **55 of 58 files in that tree exist because a validator gate copies the sealed
+> kit.** So any sweep over `packup` trees over-counts replays **by
+> construction**, and the ratio worsens every time someone runs a gate. **The
+> count is a property of how often we tested, not of how often a producer
+> chose.**
+
+**That applies to any future sweep of these trees**, which is the natural thing
+to reach for when someone next asks *how often has this happened* — and it is
+the second time today a count over artefacts turned out to be counting our own
+test activity.
+
+**m1 has now corrected this claim three times**, twice against their own change
+and once against my correction of it, and the third time corrected their own
+correction by finding `062229` in the live root after telling me the frozen root
+was the place to look. **Nobody in this thread has been careless and the claim
+has moved every single pass.**
