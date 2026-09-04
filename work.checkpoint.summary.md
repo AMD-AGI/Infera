@@ -3963,12 +3963,18 @@ identifiers substituted (`--var jobid=108891 --var node=crsuse2-m2m-249`).
 | (c) `todo.md` | **18 items**, unchanged (T18 highest) |
 | holds | **one**, job `108891` on `crsuse2-m2m-249`, `R`, ends **11:52:01 UTC** — **7 h 46 m** |
 | `/home` | **2.0 T free (81 %)**. Stable |
-| `git gc` | **resolved** — `gc.log` is gone. Three sections of warning, cleared |
+| `git gc` | **half-resolved** — `gc.log` is gone, the unreachable-objects warning is not |
 
-Two of these changed and both deserve a line. **The `git gc` warning I have
-carried since T+165 is gone**: no `gc.log` in the common gitdir, `garbage: 0`.
-6 177 loose objects and 22 packs remain, which is untidy but is not the blocked
-state that warning described. I did not prune it and I do not know who did.
+Two of these changed and both deserve a line. **The `git gc` state is half what I
+carried since T+165, and I nearly recorded it as fully fixed.** `gc.log` is gone
+from the common gitdir and `garbage: 0` — so automatic cleanup is no longer
+blocked, and I did not prune it and do not know who did. **But the warning
+itself is still live**: this section's own commit printed *"There are too many
+unreachable loose objects; run 'git prune' to remove them."* 6 177 loose objects
+across 22 packs. So one of the two halves cleared and the growing one did not.
+I had written "resolved" from the absence of `gc.log` alone; the commit I made to
+save that sentence is what disproved it, which is the fifth time in this record
+that reading a second artefact overturned an inference from the first.
 
 **And there is now one hold, not two.** That is the larger change and it is in §4.
 
@@ -4189,3 +4195,43 @@ memory. The effort lost 10 h 44 m of walltime and roughly nothing of its
 findings — which is a fair verdict on the recording discipline, and the strongest
 argument I have for why `4bc506f` mattered: the two bug records that were
 *untracked* at 17:16 would have been the only casualties.
+
+### Addendum, 04:12 UTC — I rewrote another owner's commit, and the repair
+
+**A breach of my own, recorded on the same terms as everyone else's.**
+
+I committed this section as `1ee95c7`. The commit's output printed the `git gc`
+warning, which disproved the "resolved" row I had just written (above). I edited
+the row and ran `git commit -s --amend --no-edit -- work.checkpoint.summary.md`.
+
+**In the seconds between those two commands another owner committed**
+`8b87f41` — *"run-plan: the node decides `expect_ranks`, and no var names a GPU
+set"*. `--amend` amends **HEAD**, and HEAD was no longer mine. My amend produced
+`3a435fb`: **their commit, their message, their sign-off, silently carrying my
+file.** Nothing warned me; the amend's own output named their subject line, which
+is the only reason I caught it.
+
+Repaired at 04:12 by `git reset --mixed 8b87f41`. Verified: `8b87f41` is back at
+its original SHA with its two files and no `work.checkpoint.summary.md`, and my
+edit is unstaged for a separate commit. **Their commit object was never lost** —
+it was still reachable the whole time, because the amend created a new object
+rather than destroying the old one.
+
+**The rule I was given says "commit by pathspec, never `git add`", and I obeyed
+it — the pathspec is precisely why the damage was one file and not five.** But
+the rule does not cover `--amend`, and on a shared index `--amend` is the more
+dangerous verb: pathspec limits *what* you commit, `--amend` chooses *whose
+commit* you rewrite, and it makes that choice from a HEAD that five other agents
+can move under you. **For this workspace, `--amend` is unusable.** A correction
+gets its own commit. That is what this addendum is.
+
+Two smaller things fall out of it, both worth the leader's eye:
+
+- **`8b87f41` is another owner acting on the four-GPU constraint** within minutes
+  of my measuring it — independently, since I had not yet reported it. Their
+  framing is sharper than mine: *no var names a GPU set*. The collision I
+  described in §4 is therefore already owned; treat my §4 as the measurement, not
+  as an open assignment.
+- **`8b87f41` modifies `.claude/CLAUDE.md`.** Reported, not judged — it is
+  plausibly the leader's own and entirely legitimate, but project configuration
+  is not a module path and my ownership check would have flagged it either way.
