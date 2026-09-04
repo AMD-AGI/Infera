@@ -5151,3 +5151,249 @@ Five. Four are the lead's; **the fifth is not in the brief's list** (§7).
 - **(A)'s ruling in the owner's words**: *"我们这次说的应该是设计级别的改动吧，测试
   当然是要改的，没用的测试去掉，该补的测试补上。"* criterion 22's *untouched* does not
   apply to this round — which is what let `fc200a2` retire the fence at all.
+
+---
+
+## T+129 — 2026-09-04 08:23 UTC
+
+**Implementation is complete and the round is one owner decision from finished.**
+This section also folds in the corrections and closures from the 07:59 exchange,
+which were deliberately not given a section of their own: T+102 was accurate at
+07:56 and was overtaken by events, which is the cadence working rather than the
+record misleading anyone. **T+70 broke cadence because it carried a finding that
+was never true; being overtaken is a different thing and is left to the next
+tick.**
+
+### 1. Progress
+
+**Effort: ~85 %.** Elapsed 129 minutes. Remaining: **one owner decision**, plus
+whatever it implies.
+
+| workstream | est. % | basis |
+|---|---|---|
+| decisions A–H | **8 of 8 closed** | unchanged |
+| layer removal | **done** | verified: `env_mgr/layer.py` absent; `LAYER_ORDER` survives **only** as a historical note in `spec.md:454`; no live definition anywhere |
+| `_present_names` | **done** | `93bf0ac` |
+| `components/` → `agent_plugins/` | **done** | verified: `agent_sys/components/` **does not exist**; `agent_sys/agent_plugins/{README.md, envchk-baseline, serena}` does |
+| `env_recipe.<agent>.yaml` under `assets/` | **done** | `b83eb2a` |
+| **F's declaration half — `tags: [internal]`** | **0 %, by design** | verified: no recipe carries it. §5 — pending the owner, **not** an omission |
+| two packaging defects | **recorded, unfixed** | `adf319d` |
+| **full suite** | **green** | **I ran it myself**: `2232 passed, 3 skipped, 4 xfailed` in 67 s. Working tree clean, index empty, three untracked root files |
+
+**Reliability: the highest of the round, and 85 % is still not 100 % for a
+reason.** I verified the tree state, the suite, the deleted and created
+directories, the migration guard and the packaging comment with my own hands.
+What I cannot size is the remaining decision: under one reading `internal` gains
+a witness *and* the packaging defect dissolves; under the other, both persist.
+**The last 15 % is one question whose two answers imply different amounts of
+work**, so a single number for it would be false precision.
+
+Do not read this as "complete". F's declaration half is undelivered by design and
+two packaging defects are recorded and unfixed.
+
+### 2. Current state
+
+Branch `dev.yihou.aiopt.task_with_agent_config`, HEAD **`adf319d`**.
+**13 commits** in `fc200a2~1..HEAD` — I counted them with `git rev-list --count`.
+
+`git status --short` at 08:24:05Z — **three untracked files and nothing else**:
+the two `.bak` task books and the stale `progress.bar.for.user.md`. No modified
+file, no staged entry. The 31-file staged set and the six `R`/`RM` rename entries
+I recorded at 07:59:32Z are gone into commits.
+
+**What I verified directly, rather than taking on report:**
+
+| claim | what I ran |
+|---|---|
+| suite | `pytest tests -q` → `2232 passed, 3 skipped, 4 xfailed` |
+| layer model gone | no `env_mgr/layer.py`; `LAYER_ORDER` matches only `spec.md:454`, which records it as **deleted** and says neither `LAYER_ORDER` nor `layer_index` was load-bearing |
+| the migration guard is real | `recipe.py:73-74` — `if "layer" in raw: raise RecipeError(_LAYER_REMOVED...)`, message dated `2026-09-04` |
+| rename residue swept | `grep -rn 'repositorys_components'` → **no matches** |
+| `tags: [internal]` absent | the only `internal` in `env_mgr/recipes/` is `serena.yaml`'s **decision comment** |
+
+**A precision the summary should not lose:** "layer vocabulary at zero in
+`env_mgr`" is right about the *model* and would be wrong as a literal count. Eleven
+lines still contain the word — the migration guard and its rationale, a
+`runner.py:73` comment explaining the removal, and four uses of "layer" as an
+ordinary English word (*"one layer down"*, *"the SDK's own approval layer"*). The
+field, the ordering and the module are gone; the word survives where it means
+something else.
+
+**Teammates.** Both implementers are **holding** on the A/B question with the
+owner. That is the only blocker.
+
+### 3. Code problems — fixed / not fixed
+
+**Fixed this window** — delivered against the eight rulings, lead-reported except
+where §2 says I checked it:
+
+- **A** — fence retired, criterion 22 revised with its old wording kept.
+- **B** — resolved by D.
+- **C** — layer vocabulary gone (with §2's precision).
+- **D** — `layer.py` deleted; a stale `layer:` **explicitly rejected** with a dated
+  migration message rather than silently swallowed.
+- **E** — one `_ROLES` entry under `assets/`.
+- **F** — renamed to `agent_plugins/`, plus **seven stale references, three of which
+  were paths that no longer existed**.
+- **G** withdrawn (the lead's). **H** decided by the lead — keep our `.mcp.json`,
+  `HOME` → `SERENA_HOME`.
+
+**Not fixed — two packaging defects, both recorded in `adf319d`, both pre-existing
+and nothing to do with the rename.**
+
+- `env_mgr/recipes/*.yaml` **do not ship in the wheel.** The lead opened it: 149
+  members, **zero `.yaml`**, zero `env_mgr/recipes` members, while
+  `spec_loader/schemas/*.json` — the previously-fixed instance — does ship. So
+  `recipes: [serena]`, which `examples/env_checker` **actually declares**, cannot
+  resolve from a wheel.
+- `agent_plugins/` has **no packaging route at all**, and its prognosis differs:
+  `env_mgr = ["recipes/*.yaml"]` is a one-line candidate, but `package-data` needs
+  an owning package and `agent_plugins/` sits **beside** `env_mgr/`, not inside it.
+
+**Not fixed — the tenth cannot-fail check of the effort**, and the first a teammate
+found **in their own work while writing it**: a helper reading `result.documents`,
+an attribute `LoadReport` does not have, returning `[]` unconditionally.
+
+### 4. Non-code problems
+
+- **The meta-defect is the round's own theme sitting in the repo's build config,
+  and I read it myself.** `pyproject.toml:83-88` already carries a comment
+  describing this exact failure — *"a bare `agent_sys/schemas/` is not a package, so
+  `find_packages` cannot see it… Reading it by relative path works from a git
+  checkout and dies from a wheel."* The stanza beneath it lists exactly one line,
+  `spec_loader = ["schemas/*.json"]`. **The author saw the class, wrote it down,
+  fixed the one instance, and never swept it** — and two more instances now sit
+  beside the comment that predicts them. A written diagnosis of a class is the
+  strongest possible evidence its author understood it, which is precisely what
+  makes the unswept remainder worse rather than better.
+- **A rename whose search is narrower than its target leaves residue in the names
+  most specific to the thing being renamed.**
+  `test_l2_resolves_a_bare_name_under_the_repositorys_components_directory`
+  survived a rename searching for `components`, because **`grep -w` finds no word
+  boundary inside `repositorys_components_directory`**; eighteen fixture
+  directories rode along with it. The surviving names are the ones a reader most
+  trusts to be current. (I verified the sweep finished: the string now matches
+  nothing.)
+- **The green suite carries the same caution the red one did.** At T+102 I recorded
+  10 failures and wrote that a full-suite run in a two-agent worktree is not
+  evidence about anyone's change. **The symmetry has to hold in the other
+  direction**: the lead's 08:2x green run was taken while both agents were still
+  editing, and a `recipe.py` diagnostic (`_LAYER_REMOVED` not defined) fired
+  seconds after it. My own run at 08:24 is green on a **clean tree with an empty
+  index**, which is a stronger claim than theirs was — but the temptation to accept
+  green uncritically after refusing red is exactly the asymmetry worth naming.
+- **A twelve-minute exposure window, with the accusation withdrawn.** 07:57 →
+  08:09:40 was a window in which a growing staged set was reachable by anyone's
+  bare `git commit` in a four-agent index. The **risk stands**; the lead's
+  inference that it showed a bad habit does not — see §7.
+
+### 5. Open questions, not yet characterised
+
+**Suspend, don't conclude.**
+
+- **The one open question, and it is one question wearing two sets of clothes.**
+  `internal` has **no witness in the tree**: `agent_plugins/<name>/` is reached by a
+  **directory key on `AgentSpec`**, so there is no recipe item for an origin tag to
+  sit on. Under the reading where that key goes away and those components are
+  declared through `recipes:`, the witness appears **by construction** *and* the
+  packaging defect dissolves, because they would then be recipe files under a
+  package that can carry `package-data`. Under the reading where the key stays, the
+  tag may have nothing to do and `agent_plugins/` still has no packaging route.
+  **With the owner.**
+- The two glyph-free `_present_names` variants still tie; the separating case was
+  never observed. Unchanged, open by its author's choice.
+- `import httpx2` — **fifth window**, still unread by anyone.
+- Whether `PLAN.md` still describes the round. Not read by me; known wrong on
+  `--layer` since T+70 and superseded twice since.
+- Whether the 16 review comments have been answered on GitHub. Not checked since
+  T+2; the count 16 is settled but the replies are not observed.
+
+### 6. New commits
+
+Eight since T+102's `ac05ec9`, thirteen in the round's range.
+
+- **`3db1ed5`** — `refactor(env_mgr): remove the layer model`.
+- **`b83eb2a`** — `feat(spec_loader): find an agent's env_recipe by convention under assets/`.
+- **`0295391`** — `test(env_mgr): drop the removed layer= kwarg from test_installers`. The
+  seam's second half; §7.
+- **`5454663`** — `fix(env_mgr): reject a stale layer: instead of letting it fall through`.
+  The migration guard I read at `recipe.py:73`.
+- **`cb5b870`** — `docs(env_mgr): principle 7 named one reason the fence went; there were two`.
+- **`ee3ad0a`** — `refactor(agent_sys): components/ becomes agent_plugins/; the levels become origins`.
+- **`75edb7c`** — `docs(agent_sys): the agent_plugins rename left seven stale references`.
+- **`5477c37`** — `docs(agent_sys): finish retiring the level vocabulary outside env_checker's data`.
+- **`adf319d`** — `docs(bugs): two declaration routes resolve to paths a wheel does not ship`.
+  The second bug record of the round, after `30e958b`.
+
+### 7. Anything else worth recording
+
+**Folded in from 07:59, closing two items this file left open.**
+
+- **T+102 §5's open question is closed: crossed mail, resolved.** The
+  `test_installers.py` seam was not a failed handoff — the lead's ruling and
+  `core-impl`'s question asking for it passed each other in flight. The lead
+  re-sent rather than diagnosed, and `0295391` landed. **Not an ordering fault by
+  either agent.**
+- **And the sequencing ruling was overtaken in the other direction — by luck.** The
+  rule was *`core-impl` strips first, then `pkg-impl` edits the file*. `pkg-impl`
+  had in fact committed its half at **07:52, one minute before the ruling was
+  sent**. It worked out. **Recorded as luck, not as a plan that held**, because a
+  sequencing rule that is satisfied by accident has not been tested.
+- **The fourth-instance entry, with the lead's own addition.** T+102 §7 recorded
+  *"a true sentence broader than what was checked"* as the fourth instance this
+  round. The lead confirms it and asks that the record note **the previous three
+  were also theirs**. The count was also understated in my favour: five change-set
+  commits had landed, not one.
+
+**Four corrections of the lead's this window. Two are worse than any earlier one.**
+
+1. **An inference withdrawn.** Seeing 31 files staged at **08:09:08**, they wrote
+   *"do not leave a large set staged while you work on the next thing"*. `ee3ad0a`
+   committed at **08:09:40** — they had caught a commit **mid-assembly** and called
+   it a habit. **Withdrawn.** The transferable lesson is the good part: **a staged
+   set has two causes that look identical from outside — assembly and neglect — and
+   the written condition could not tell them apart.**
+2. **An instruction issued without opening the file.** They told `pkg-impl` to add
+   `tags: [internal]` to `env_mgr/recipes/serena.yaml`. Every item in it installs
+   third-party code, so serena is the canonical example of the origin the tag
+   exists to distinguish **from**. `pkg-impl` refused, reasoned it out, and wrote
+   the refusal **as a decision at the top of the file** rather than leaving a
+   silence — I read it: *"This recipe carries no `tags: [internal]`, and that is the
+   decision, not an omission."* **Fourth instance of the species from them, and the
+   first that was an instruction rather than a claim — strictly worse, because a
+   claim gets checked and an instruction gets executed.**
+3. **Measuring, and then not believing the measurement.** They told `pkg-impl` to
+   fix `serena.yaml:4`'s "L1 industry component" comment. `75edb7c` had removed it
+   at 08:12:32, three minutes earlier — **and the repo-wide grep they ran
+   immediately before writing that message did not list `serena.yaml` either.** They
+   had the current answer in their own output and quoted an older `head -8` over
+   it. **That is not failing to measure; it is measuring and then not believing
+   it**, which is a step further down than the four instances before it. If one
+   entry from this window survives, it should be this one.
+4. **A list narrower than the thing it enumerated.** They gave four sites in
+   `test_agent_assets.py` (there were **12**, including three *test function
+   names*) and two in `check.yaml` (there were **9**), and missed
+   `tests/spec_loader/test_assets.py:414` entirely. `pkg-impl` re-ran the grep
+   instead of working the list, **which is the only reason the sweep finished**.
+   Its framing, verbatim and worth keeping: *"the second time it came wearing the
+   authority of a measurement someone else had taken."* **A list from the lead
+   reads as a spec, and a spec is what people stop looking behind.**
+
+**Other entries.**
+
+- **`pkg-impl` corrected the lead twice, both times from measuring.** Neither
+  packaging failure is silent — both raise a named `PrepareRefused`, and the
+  `agent_plugins` one is **misleading rather than quiet**; and the two have
+  **different prognoses**, with the one-line fix available to only one of them. It
+  correctly **did not run** the one-line fix it had identified.
+- **A deviation ruled correct against the lead's own instruction.** The lead said
+  keep the baseline server's `Capability.level` data and reword the prose;
+  `pkg-impl` saw that the `#:` comment, `TOOL_DESCRIPTION` and `LEVEL = "L2"` are
+  **one coherent unit**, and that rewording two-thirds yields a file whose comment
+  contradicts the constant it documents. Ruled: **coherent-and-dated beats
+  half-renamed.**
+- **Both packaging defects were found by building the wheel rather than reading
+  `pyproject.toml`.** The config *reads* as though it handles this — its comment
+  even explains the failure mode. Only the artefact showed that two of three
+  instances were unfixed. **Read the artefact, not the config that describes it**
+  is the same rule this file opened with, arriving in a new place.
