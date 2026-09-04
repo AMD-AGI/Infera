@@ -1048,9 +1048,27 @@ gets a fault nobody can attribute. It goes in after the rung, not during it.
 
 ---
 
-### T36 — `/proc` is namespaced under `spur exec`, so PID-based attribution from a node lies
+### T41 — `/proc` is namespaced under `spur exec`, so PID-based attribution from a node lies
 
-*Renumbered from **T28**, which collided with an earlier item of the same number — six owners append to this file and two picked the same next integer. Commits and messages citing T28 for *this* item still resolve: the other T28 is a different subject and the two are not confusable by title.*
+*Renumbered twice: **T28 → T36 → T41**. Six owners append here and two keep picking
+the same next integer; my own T28→T36 renumber (`f867a62`) landed on a number a
+second owner had already taken, so the fix collided the same way the fault did.*
+
+***This*** *item moved rather than the other T36, and the rule is worth stating because
+it will recur:* **the entry with external citations keeps its number.** `2d521c1`'s
+commit message and `CONTRACT.md:927` both cite T36 meaning *"a claim about who owns
+this never looks like a claim"*; nothing outside this file cites T36 meaning `/proc`.
+Renumbering the cited one would have broken two references to save one.
+
+*T41 was free — the numbers otherwise run 1–47 — so this consumes the gap rather than
+extending the range. Citations of **T28** or **T36** for the `/proc` subject still
+resolve by title; the three are not confusable, which is the only reason a renumber is
+survivable at all.*
+
+*Reported independently by m3 and by `checkpoint`, neither of whom renumbered it —
+correctly, since it touches other owners' entries. That is the second numbering
+collision today and the mechanism is unchanged: **`todo.md` has no allocator**, and
+`git status` cannot show you a number someone else is about to use in an editor.*
 
 **m2, 2026-09-04. Not blocking. Recorded because three ownership misattributions
 today were name-based, and the obvious fix — attribute by PID instead — is
@@ -1911,82 +1929,47 @@ have to differ", go and make that true once, on purpose, before shipping.
 slot gets questioned. This is about **fixes**: the code is not an instrument, the
 result is not being read, and nothing about the slot prompts suspicion.
 
-### T47 — a pathspec commit is scoped to your file, not to your change
+### T47 — the pathspec window is irreducible, so the check has to be after the commit
 
-**The team rule is *commit by pathspec, never `git add`*, adopted because the
-index is shared with four other owners.** It does protect the index. **It does
-not protect the file**, and everyone had assumed it did.
+**The mechanism is `CONTRACT` §8a, not this entry** (`8b1057d`, and `5e61480`
+for the post-check). `git commit -- <path>` takes the *working tree*, so it also
+takes a co-owner's uncommitted edits to that same path. Three owners found it
+independently — m1 first, then the checkpoint writer, then m4 — which is
+stronger evidence than any one report.
 
-`git commit -- <path>` commits the **working-tree** state of that path. Not
-HEAD plus your edit — whatever is in the file when you run it, including edits a
-co-owner made in the window since you last looked.
+**What is new here is that no pre-commit check can close it, and that was
+established by accident.** Both earlier reports assumed a pre-commit check was
+sufficient and argued about *which one*.
 
-**Measured, 2026-09-04.** `d4a7212` was filed as *"T46 — a fix verified correct
-is not a fix verified reached"* and is 74 insertions: **24 of them are m3's
-addendum to T45**, written in the same minutes, sitting unstaged in the working
-tree. They went in under m4's commit message and m4's sign-off, saying much the
-same thing sixty lines further up. m3 spotted it and cut theirs to a pointer
-(`7f642f7`); nothing was lost, and nothing needed undoing.
+**Measured 2026-09-04.** This entry originally prescribed *read
+`git diff -- <path>` immediately before committing*. That check was run against
+this very entry — one hunk at EOF, one heading, thirty-nine lines, all mine —
+the commit was issued seconds later, and it returned **`no changes added to
+commit`**: the checkpoint writer had committed `todo.md` in the interval,
+sweeping this entry into `5281a4e`, a commit about T40. **The remedy was
+falsified by the act of committing it.**
 
-**This is the leader's `4c2d5bf` precondition one tool over.** They established
-`git status --short -- <package>` before `agent-sys run`, because **a run stages
-the working tree**. A pathspec commit does exactly the same thing, and nobody
-had said so. Both owners had checked `git status` before *starting* their edit
-and found it clean — **neither check covers the other person editing in the
-window between.**
+**The window is between the check and the commit.** `git commit -- <path>` reads
+the tree at commit time and there is no atomic verify-then-commit for a path.
+**Checking earlier moves the window; checking harder does not shrink it.** So
+every pre-commit check — `git status`, `git diff`, any of them — is a mitigation
+that narrows the odds, and none is a fix. That is a property of git, not of our
+discipline.
 
-**Why it matters beyond tidiness.** The commit message stops describing the
-commit, so archaeology attributes one owner's reasoning to another's entry. And
-the failure is unbounded in the bad direction: had the co-owner been mid-edit on
-something broken, it would have been committed **under a message asserting
-otherwise** — the same shape as T43, an artefact honest in provenance and wrong
-in meaning.
+**The post-check, and the framing matters.** §8a records `git show --numstat
+HEAD` justified as *proving nothing was removed*. Zero deletions does not catch
+this: a swept-up entry is an **addition**. The check is **the commit's size
+against the size of what you wrote** — if the commit is bigger, someone else's
+work is inside it and its message is now wrong about its own contents.
 
-**The obvious check does not work, and this entry proves it on itself.** The
-first version of this paragraph said: run `git diff -- <path>` immediately
-before committing and read it — `git status` says the file is dirty, the diff
-says whose changes are in it.
+**And a pre-commit check can fail by firing.** The checkpoint writer ran
+`git status --porcelain -- todo.md`, saw ` M`, and proceeded — correctly reading
+a dirty file as *their own* edit, because they had one in flight. **A check
+whose alarm is indistinguishable from the expected condition is not a check**,
+which is why the pre-commit half cannot be made load-bearing by choosing a
+better command.
 
-**That was written, verified, and immediately falsified.** The diff was read
-(one hunk at EOF, one heading, forty lines, all mine), the commit was run
-seconds later, and it reported *"no changes added to commit"* — because
-**checkpoint had committed `todo.md` in the window between the check and the
-commit**, sweeping this entry into `5281a4e`, whose subject is m3's T40
-sharpening. So an entry about pathspec commits capturing a co-owner's
-uncommitted work was captured by a co-owner's pathspec commit **while being
-committed**.
-
-**And the weaker check does not fail by being skipped — it fails by firing.**
-The checkpoint writer's account of the same sweep, which is the sharpest thing
-in this entry and is theirs: they *did* run `git status --porcelain -- todo.md`
-before committing. **It printed ` M`. They proceeded.** Not carelessly — they
-had an edit in flight, so a dirty file was **exactly what they expected to
-see**, and the warning read as confirmation of their own work.
-
-**A check whose firing is indistinguishable from the expected state is not a
-check.** `git status` can say the file changed; it cannot say *by whom*, and the
-one moment you consult it is the moment you are guaranteed to have your own
-change in there. Same shape as `T40`'s null in the measurement slot: the signal
-arrives, and the slot it arrives in tells you to read it as normal.
-
-**The window is between the check and the commit, and no pre-commit check can
-close it.** `git commit -- <path>` reads the working tree at commit time; there
-is no atomic verify-then-commit for a path. Checking earlier only moves the
-window, and checking harder does not shrink it.
-
-**So the check moves after the commit, and it must read content and not the
-file list.** The standing rule already says to verify with `git log -1` and
-`git show --stat --name-only HEAD` — **that confirms which files moved, which
-is exactly the half that was never in doubt.** What is needed is
-`git show --numstat HEAD` against the size of your own edit, or
-`git show HEAD | grep '^+###'` on a prose file: **if the commit is bigger than
-what you wrote, someone else's work is inside it, and the message on it is
-now wrong about its own contents.**
-
-**And the correct response is not to amend.** Both instances here were harmless
-and both were resolved by *saying so* — m3 to me, me to checkpoint — leaving the
-log slightly wrong and the record straight. Rewriting shared history to fix an
-attribution is a larger hazard than the attribution.
-
-**Most acute on shared prose.** `todo.md` has five writers and no locking, so it
-is where this will keep happening; source files are usually one owner's.
+**Do not amend.** Every instance so far was harmless and each was resolved by
+disclosure. Rewriting shared history to fix an attribution is a larger hazard
+than the attribution — the standing rule against `--amend`, reached
+independently from the other direction at 04:09.
