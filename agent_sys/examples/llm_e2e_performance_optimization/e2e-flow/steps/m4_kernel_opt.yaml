@@ -96,8 +96,32 @@
     # How far the workset's own baseline may drift when re-measured here before
     # the premise is judged to have failed **empirically**. This is not the
     # deleted rule returning: exceeding it produces an ABORT, never a
-    # substituted denominator. 5% against a measured within-arm round-to-round
-    # spread of ~2% on a steady node.
+    # substituted denominator.
+    #
+    # **The "~2% round-to-round" this was justified by is a sampling artefact,
+    # measured 2026-09-04 on MI355X (`crsuse2-m2m-234`, cards 0-3 free).** Over
+    # 40 rounds the rsd is 1.8-2.7%, which is where ~2% came from. Over **200**
+    # rounds of the same thing on the same card it is **8.5%**, because the
+    # distribution is heavy-tailed rather than Gaussian:
+    #
+    #     median deviation from the median round   0.22%
+    #     p90 4.19%   p95 9.15%   p99 51.6%   max 103.5%
+    #     rounds off by >5%: 8.0%      by >10%: 4.5%
+    #
+    # One "round" there is `5 groups x 10 iters` — **exactly mission 3.2.7's
+    # protocol floor** — so a single protocol-conformant measurement is the unit
+    # that carries this tail. A typical one is excellent; roughly one in
+    # twenty-two is off by more than 10%.
+    #
+    # **The value is NOT widened, and widening it is the wrong response.** A bar
+    # loosened to cover a tail stops discriminating; the honest fixes are more
+    # than one sample, or a median-of-rounds reduction. That is a decision for
+    # the leader and for `todo.md` T7, not for this line.
+    #
+    # **Caveat, and it is why T7 is still open:** cards 4-7 were at 90% under
+    # another tenant's job, so this is a *shared chassis*, not the quiet node T7
+    # asks for. The tail is plausibly the neighbour. What the number establishes
+    # is an upper bound and the shape of the distribution, not the floor.
     baseline_agreement_tolerance: 0.05
     # How far the producer's own optimised figures may be from a re-measurement.
     # Wide because the two sides are not alike: the baseline is tight (~2%) and
