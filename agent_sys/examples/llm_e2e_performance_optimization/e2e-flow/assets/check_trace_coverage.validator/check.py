@@ -41,11 +41,13 @@ first two and stopped, because it has no model of what "every layer" means.
 
 import json
 import sys
+import traceback
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 import trace_stream  # noqa: E402 — the path insert above is what makes these importable
+import workset_io as W  # noqa: E402 — `write_report`; nothing else from it
 import zone  # noqa: E402
 
 
@@ -281,6 +283,13 @@ def _check_stack_window(content: Path, args: dict, reasons: list) -> bool:
 def main() -> int:
     args = zone.args()
     results = {}
+    # **The reasons have to outlive stdout.** A validator's stdout is kept
+    # nowhere, so a zone holds `args.json`, `inputs.json`, `materials.json` and
+    # `verdict.json` and not one word about why. This validator is the one that
+    # judges a capture nobody can re-take cheaply — a refusal here costs a
+    # bring-up and a three-minute load to reproduce, so losing its reason is
+    # the most expensive instance of that bug in this stage.
+    findings: dict[str, tuple[list[str], list[str]]] = {}
     for hid in zone.inputs():
         content = zone.content_of(hid)
         reasons: list = []
@@ -288,10 +297,26 @@ def main() -> int:
             results[hid] = False
             reasons.append("no staged content for this handoff")
         else:
-            results[hid] = check(content, args, reasons)
+            try:
+                results[hid] = check(content, args, reasons)
+            except Exception as error:  # noqa: BLE001
+                # A crash is not a refusal. `verdict.json` is `dict[str, bool]`
+                # and cannot say so (todo.md T29), so `False` is written because
+                # a check that did not execute has established nothing — and the
+                # text below is the only place the difference exists.
+                reasons.append(
+                    f"THIS VALIDATOR DID NOT RUN — {type(error).__name__}: {error}. "
+                    f"An instrument failure, not a finding: nothing here was graded."
+                )
+                reasons.append(traceback.format_exc())
+                results[hid] = False
+        findings[hid] = ([str(r) for r in reasons], [])
         print(f"check_trace_coverage: {hid} {'PASS' if results[hid] else 'FAIL'}")
         for reason in reasons:
             print(f"  - {reason}")
+    # Before the verdict, so a crash in the writer cannot take the reasons with
+    # it, and always rather than only on failure.
+    W.write_report("check_trace_coverage", findings)
     zone.write_verdict(results)
     return 0
 

@@ -44,11 +44,13 @@ where slowness is the intent.
 import gzip
 import json
 import sys
+import traceback
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 import schema as schema_lib  # noqa: E402 — the path insert above is what makes these importable
+import workset_io as W  # noqa: E402 — `write_report`; nothing else from it
 import zone  # noqa: E402
 
 MIN_BYTES = 2
@@ -265,6 +267,11 @@ def check(content: Path, args: dict, reasons: list) -> bool:
 def main() -> int:
     args = zone.args()
     results = {}
+    # **The reasons have to outlive stdout.** Its notes are as load-bearing as its
+    # refusals: '721 request record(s), 0 errored' is the evidence a load
+    # actually ran, and keeping reasons only on failure would make the record of
+    # a working gate the one thing never kept.
+    findings: dict[str, tuple[list[str], list[str]]] = {}
     for hid in zone.inputs():
         content = zone.content_of(hid)
         reasons: list = []
@@ -272,10 +279,25 @@ def main() -> int:
             results[hid] = False
             reasons.append("no staged content for this handoff")
         else:
-            results[hid] = check(content, args, reasons)
+            try:
+                results[hid] = check(content, args, reasons)
+            except Exception as error:  # noqa: BLE001
+                # A crash is not a refusal, and `verdict.json` is `dict[str, bool]`
+                # with no third state (todo.md T29). `False` because a check that
+                # did not execute has established nothing; this text is the only
+                # place the difference exists.
+                reasons.append(
+                    f"THIS VALIDATOR DID NOT RUN — {type(error).__name__}: {error}. "
+                    f"An instrument failure, not a finding: nothing here was graded."
+                )
+                reasons.append(traceback.format_exc())
+                results[hid] = False
+        findings[hid] = ([str(r) for r in reasons], [])
         print(f"check_bench_result: {hid} {'PASS' if results[hid] else 'FAIL'}")
         for reason in reasons:
             print(f"  - {reason}")
+    # Before the verdict, so a crash in the writer cannot take the reasons with it.
+    W.write_report("check_bench_result", findings)
     zone.write_verdict(results)
     return 0
 

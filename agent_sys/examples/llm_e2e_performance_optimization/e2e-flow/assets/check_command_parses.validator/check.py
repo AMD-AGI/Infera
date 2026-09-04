@@ -33,12 +33,14 @@ import os
 import pathlib
 import subprocess
 import sys
+import traceback
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "lib"))
 _pkg = os.environ.get("AGENT_SYS_TASK_PACKAGE") or os.environ.get("AGENT_SYS_DEMO_PACKAGE", "")
 if _pkg:
     sys.path.insert(0, str(pathlib.Path(_pkg) / "assets" / "lib"))
 
+import workset_io as W  # noqa: E402 — `write_report`; nothing else from it
 import zone  # noqa: E402
 
 #: Where a script that a reproducer runs may live. `command` is the
@@ -187,6 +189,22 @@ def main() -> int:
 
     for line in findings:
         print(line, file=sys.stderr)
+    # **The reasons have to outlive stdout**, and here they are printed to
+    # *stderr*, which is kept even less than stdout. This validator's whole
+    # output is a per-file verdict — "`items/command` does not parse, line 9,
+    # unterminated quote" — and that sentence is the entire value of the check;
+    # the boolean alone tells a reader nothing they can act on.
+    #
+    # `findings` is a flat list here rather than per-handoff, because one
+    # handoff can carry several scripts. Re-keyed by the id each line names so
+    # the report matches the shape `write_report` publishes, and lines that
+    # name no handoff are kept under `""` rather than dropped.
+    by_hid: dict[str, tuple[list[str], list[str]]] = {hid: ([], []) for hid in verdict}
+    for line in findings:
+        hid = line.split(":", 1)[0]
+        by_hid.setdefault(hid if hid in verdict else "", ([], []))[0].append(line)
+    # Before the verdict, so a crash in the writer cannot take the reasons with it.
+    W.write_report("check_command_parses", by_hid)
     zone.write_verdict(verdict)
     return 0 if all(verdict.values()) else 1
 
