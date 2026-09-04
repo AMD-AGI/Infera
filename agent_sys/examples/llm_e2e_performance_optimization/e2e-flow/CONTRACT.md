@@ -886,6 +886,38 @@ paths and **ignores the index entirely**, so a concurrent `git add` by another
 owner cannot be swept in. If two commits collide on `index.lock`, git says so;
 wait a second and retry.
 
+**The pathspec rule protects other files. It does not protect a file two owners
+are editing — which is where the contention actually is.** Because
+`git commit -- <path>` takes the *working tree*, it also takes edits another owner
+made to that same path and has not committed yet. `todo.md` is the one file all
+six of us write.
+
+Found by m1 2026-09-04, the only way it gets found: their `git commit` reported
+*"no changes added to commit"* because their T27 correction was already in the
+repo, inside m4's `2d521c1` — a commit whose subject is T36 and which says nothing
+about T27. **m4 broke no rule**; they committed by pathspec and signed correctly.
+No content was lost. What was lost was the *reasoning*: m1's message explaining why
+"by construction" was wrong was never written anywhere, and `git log -S` now finds
+the text under a commit that does not explain it. `f867a62`'s double renumber of
+T28 and T34 was the same race, logged at the time as a numbering problem — which
+was its symptom.
+
+So, for `todo.md` and any file more than one owner writes:
+
+```bash
+git status -- todo.md      # BEFORE committing. Changes you did not make?
+                           # Ask whose they are. Do not commit over them.
+```
+
+**And when your commit's subject is about one thing but it also carries an edit to
+a shared file, name that file in the message body** — one line, *"also carries an
+edit to todo.md T27, not mine"*. It costs nothing and makes the sweep legible after
+the fact instead of only before it.
+
+`todo.md` is **not** serialised behind one committer. `25d9c01` exists so a deferral
+is recorded by whoever found it at the moment they found it, and a queue would cost
+more than the sweep does.
+
 **And never `git --amend`. Corrections get their own commit.** Raised by
 `checkpoint` 2026-09-04 against their own near-miss, which is the only way this
 one gets found.
