@@ -79,9 +79,54 @@ def load(run_dir: str) -> list[dict]:
     return sorted(out, key=lambda e: e.get("at", ""))
 
 
+#: Candidate keys for the summary line, in priority order. `_text` uses the
+#: first that is set, and `_extras` suppresses **only that one** — see below for
+#: why suppressing all three is wrong.
+_SUMMARY_KEYS = ("message", "why", "detail")
+
+
 def _text(event: dict) -> str:
     attrs = event.get("attributes") or {}
-    return str(attrs.get("message") or attrs.get("why") or attrs.get("detail") or "")
+    for key in _SUMMARY_KEYS:
+        if attrs.get(key):
+            return str(attrs[key])
+    return ""
+
+
+def _extras(event: dict) -> list[str]:
+    """Every attribute the summary line does not already show.
+
+    **`message` alone is not enough, and on one kind it is actively false.** An
+    `output_absent` reads *"declared output … was never delivered"* while the
+    files **were** delivered and the seal refused them. The reason lives in
+    `attributes.seal_refused` and was invisible here. Two owners spent an
+    investigation each on 2026-09-04 and both ended up running `cat` on a raw
+    event JSON to reach it — the leader's four-run stall study, where
+    `seal_refused` was identical across all four runs, and m2's replayed-kit
+    A/B. See `temp/bugs/2026-09-04-output_absent-states-a-cause-that-is-false.md`
+    and `todo.md` T39. Found and patched by m2; landed here because it is this
+    file.
+
+    **Suppress only the key the summary actually used, not all of
+    `_SUMMARY_KEYS`.** `_text` returns `message` when it is set, so a fixed
+    exclusion list also hides `detail` — and on the very event this exists for,
+    `detail` is `"exit 1: mock: … operator_workset (27 files)"`, i.e. the half
+    that says the body ran and produced 27 files. Hiding it leaves the reader
+    with a refusal and no evidence there was ever an artefact. That combination
+    cost this writer a wrong published answer on 2026-09-04
+    (`work.checkpoint.summary.md`, T+1062).
+
+    Every remaining attribute rather than a per-kind list, which is what m4 did
+    for `runprobe`: a reader that must know in advance which keys matter is a
+    reader that hides the next key nobody anticipated.
+    """
+    attrs = event.get("attributes") or {}
+    used = next((k for k in _SUMMARY_KEYS if attrs.get(k)), None)
+    return [
+        f"{k}={v}"
+        for k, v in sorted(attrs.items())
+        if k != used and v not in (None, "")
+    ]
 
 
 def timeline(events: list[dict], kinds: set[str] | None, task: str | None) -> None:
@@ -92,6 +137,13 @@ def timeline(events: list[dict], kinds: set[str] | None, task: str | None) -> No
         if task and not tid.startswith(task):
             continue
         print(f"{e.get('at','')}  {e.get('kind',''):16s} {tid[:8]}  {_text(e)[:100]}")
+        # **On their own lines and NOT truncated** — m2's design decision and it
+        # is the right one. Their first draft appended the extras to the summary,
+        # where `[:100]` cut them in the middle of `seal_refused`: a change that
+        # looks correct in a diff and delivers nothing. The reason is the whole
+        # point; the summary line stays short so the timeline is still scannable.
+        for extra in _extras(e):
+            print(f"{'':>26}{'':>18}          {extra}")
 
 
 def phases(events: list[dict]) -> None:
