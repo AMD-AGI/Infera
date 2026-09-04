@@ -174,7 +174,16 @@ case "$CSTATE" in
     echo "  and ${E2E_NODE:-the node} answered that it is not running there. Modules 1-4 share" >&2
     echo "  ONE container and m1 owns its lifetime; m4 does not start one (CONTRACT section 5)." >&2
     echo "  Containers that ARE running there:" >&2
-    on "docker ps --format '    {{.Names}}   {{.Image}}'" 2>/dev/null >&2 || true
+    # **`>&2` BEFORE `2>/dev/null`, and the other order silently emptied this
+    # list.** Redirections apply left to right, so `2>/dev/null >&2` points fd2
+    # at /dev/null and then duplicates it into fd1 — the listing goes to
+    # /dev/null and the diagnostic prints a blank where the containers should
+    # be, which reads as "there are none". Caught 2026-09-04 by the stubkit's
+    # falsification run: the wrapper correctly refused a container that did not
+    # exist and reported an empty node, while `yihou_m4_standalone_20260904` was
+    # up on it. Exactly the failure this whole file keeps re-learning — an empty
+    # result and a discarded one are indistinguishable to the reader.
+    on "docker ps --format '    {{.Names}}   {{.Image}}'" >&2 2>/dev/null || true
     echo "  Either m1's bring-up has not run for this record, or it has been torn down." >&2
     exit 1
     ;;
