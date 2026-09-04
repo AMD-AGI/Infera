@@ -954,3 +954,57 @@ proven general, and this entry is where it says which.
 **rung 1 was live in `check_deploy_serves`'s path when the measurement landed.**
 Editing a validator whose body is being copied into a zone mid-run is how a run
 gets a fault nobody can attribute. It goes in after the rung, not during it.
+
+---
+
+### T28 — `/proc` is namespaced under `spur exec`, so PID-based attribution from a node lies
+
+**m2, 2026-09-04. Not blocking. Recorded because three ownership misattributions
+today were name-based, and the obvious fix — attribute by PID instead — is
+broken in the one place people will reach for it.**
+
+**The control is the finding.** On node 006, `docker top` reported PID
+`3260888` running inside `kimik3-vllm-kimi-k3`. From a `spur exec 109260`
+shell, `/proc/3260888` **does not exist**:
+
+```
+docker top kimik3-vllm-kimi-k3 -eo pid   ->  … 3260888 …     (via the daemon)
+[ -d /proc/3260888 ]                     ->  NO              (via /proc)
+```
+
+So `spur exec` puts you in a PID namespace that cannot see the host's
+processes. **A `/proc` miss there means "not visible from here", not "not
+running"** — and the two are indistinguishable without a control.
+
+I nearly reported the opposite. `rocm-smi --showpids` listed PID `90546`; it was
+absent from `/proc`, and I was one sentence from *"stale, does not exist"*. The
+only thing that stopped it was checking whether a **known-live** PID was visible
+either — it was not.
+
+**What is reliable from `spur exec`, and what is not:**
+
+| reading | reliable? | why |
+|---|---|---|
+| `docker ps` / `docker inspect` / `docker top` | **yes** | goes to the host daemon, which is outside the namespace |
+| `rocm-smi --showmemuse` | **yes** | reads the devices |
+| `/proc/<pid>/*` | **no** | namespaced; host PIDs are absent |
+| `rocm-smi --showpids` | **not as an inventory** | listed a single row holding **0 bytes** while all eight cards read 90 % |
+
+**Why it matters beyond tidiness.** A kill decision made from a PID list taken
+this way would be operating on a table that is both incomplete and
+unfalsifiable. The kill actually performed on 006 was decided through
+`docker inspect` and its mounts and verified by cards going 90 % → 0 % and the
+container list emptying — both daemon-side, so sound by this rule; that was not
+luck, but it was not checked against this rule either, because the rule did not
+exist yet.
+
+**One consumer to check:** any liveness probe reading `/proc/<pid>/cwd` is
+correct **on the login node** — same namespace as the run — and would be
+silently wrong if moved onto a node. That is a real move somebody will make,
+because the node is where the containers are.
+
+**Not fixed, because there is nothing to fix** — this is a property of the
+transport. It is a rule about which instrument answers which question, and the
+generalisation is the one this package keeps relearning: **when a reading can
+only come back one way, it is not a reading.** Establish that the instrument can
+see a positive before believing a negative.
