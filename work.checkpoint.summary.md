@@ -4235,3 +4235,66 @@ Two smaller things fall out of it, both worth the leader's eye:
 - **`8b87f41` modifies `.claude/CLAUDE.md`.** Reported, not judged — it is
   plausibly the leader's own and entirely legitimate, but project configuration
   is not a module path and my ownership check would have flagged it either way.
+
+### Addendum 2, 04:22 UTC — `/shared_nfs` is `ro` on login, and it moved my instrument
+
+Reported by the leader, **verified here first-hand before recording**, because the
+claim is about the filesystem every measurement in this file reads from.
+
+**Same volume, two mounts.** `mount | grep shared_nfs`, both sides:
+
+```
+login       172.27.255.2:/volumes/b2e6868e-df40-4cb2-9bde-2924c0409398  nfs (ro,…)
+node 108891 172.27.255.2:/volumes/b2e6868e-df40-4cb2-9bde-2924c0409398  nfs (rw,…)
+```
+
+Same UUID. `touch` from login: *"Read-only file system"*. `touch` from
+`spur exec 108891`: succeeds. Reads from login: fine. So the leader's account is
+exact, including the part that matters most — **nothing is lost, only unwritable
+from where runs are launched.**
+
+**When it flipped is bounded, and it did not kill rung 1.** The last write to
+`/shared_nfs` was run `20260903T174638`'s third event file at **17:46:39**, from
+the login node. So the transition is somewhere in `17:46:39 → now`. It is **not**
+the rung-1 cause: writes succeeded through the last recorded event, and the log
+carries no I/O error — it stops mid-phase, which is still a truncation. I raise
+this only to close it, because "a filesystem went read-only" and "a run died" in
+the same window is exactly the coincidence that invites a wrong attribution.
+
+**The part that is mine: this moved my instrument, and it can silently truncate
+my own series.** Every number in this file — 231 verdicts, 38 runs, the
+10-of-21 ceiling, the per-run handoff states — is read from
+`/shared_nfs/yihou/agent_sys/ws_handoff_refine/runroot/runs`. That path is now
+read-only **but still readable**, so the historical series survives intact. New
+runs go to `--demo-root /home/yihou/agent_sys_runroot`, which exists (created
+04:06) and holds **0 runs**. From the next run onward, **a tally that greps only
+the old root will report a flat ceiling while the graph is running fine** — the
+precise failure my three-state distinction exists to prevent, arriving through
+my own tooling. Later sections must union both roots. Recording it here so the
+next reader of this file knows the count spans two paths and why.
+
+**One correction to the accompanying facts, and it does not change the
+decision.** "`agent-sys` cannot run on the held node" is stronger than what is
+measured. From the repo directory on 108891, `python3 -m agent_sys.cli.main`
+fails at **`agent_sys/cli/main.py:31`, `from cli import build, expectations,
+package`** — a `sys.path` gap, under the node's **`/usr/bin/python3` 3.12.3**
+against the login node's **3.14.6**. That is *unconfigured*, not *impossible*.
+`--demo-root` is still the right fix and I am not proposing otherwise; the
+distinction only matters for what the fallback would cost if `/home` ever follows
+`/shared_nfs`, which is no longer hypothetical — **the run root now lives on the
+volume that hit 100 % earlier today**, and that volume is a single point of
+failure for both the runs and this record.
+
+**The class point is the leader's and it is right.** This is the second infra
+change today that **every check in this file passes straight through**: the graph
+gate loads, the verdict grep returns, `squeue` shows a healthy hold — and no run
+can start. The first was `/home` at 100 % while this record silently stopped
+being written. Both were found by someone hitting the wall, never by a check.
+
+**And m4 found this one the right way.** They had a symptom with two very
+different causes — *is the export `ro` cluster-wide, or is the login node the
+wrong place to launch from?* — and **asked instead of spending a command on the
+node to confirm the guess they preferred.** The answer was the second. That is
+CONTRACT §4.3 arriving from the other direction: the rule was written after two
+rounds of inference pointed at the wrong owner, and here it stopped the inference
+before the first round. A blocker became a `--demo-root` change.
