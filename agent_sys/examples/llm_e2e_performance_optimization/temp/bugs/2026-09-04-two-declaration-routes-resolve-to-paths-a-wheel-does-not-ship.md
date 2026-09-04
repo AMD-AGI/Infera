@@ -220,3 +220,72 @@ env_mgr = [..., "recipes/*.yaml", "default.env_recipe.yaml"]
 
 **Still unrun.** Whoever runs it should count the members rather than trust the
 pattern.
+
+---
+
+# Resolution, 2026-09-04 (second pass) — **recipes FIXED and measured fixed**
+
+Run by `pkg2`. The candidate above was correct as written, including the
+`default.env_recipe.yaml` half it added almost in passing — which turned out to
+be the more important of the two.
+
+```toml
+env_mgr = [
+    "default.env_recipe.yaml",
+    "recipes/*.yaml",
+    ... the addons entries ...
+]
+```
+
+## Counted, then resolved
+
+A wheel was built and its members listed: **3 of 3** — `default.env_recipe.yaml`,
+`recipes/serena.yaml`, `recipes/sglang.repo.yaml`. Then the wheel was
+**installed into a clean venv** and the bare name resolved through the real code
+path rather than by inspecting the zip:
+
+```
+installed at: <venv>/lib/python3.13/site-packages/env_mgr
+DEFAULT_RECIPE ships: True
+recipes/ dir: ['serena.yaml', 'sglang.repo.yaml']
+bare name resolved to: ['default.env_recipe.yaml', 'recipes/serena.yaml']
+serena.yaml parses -> 3 items
+```
+
+`agent_assets._recipe_paths({"recipes": ["serena"]})` is the function the body of
+this record accuses, called against the install. **Counting members proves the
+files are in the archive; calling the resolver proves the route works.** The
+first run of this check imported the *checkout* rather than the venv, because the
+working directory put it on `sys.path` — caught by an assertion on
+`env_mgr.__file__`, which is the only thing that could tell the two apart.
+
+## A correction to this record's own *What is NOT claimed*
+
+> *"That the failure is silent. **It is not** — both raise `PrepareRefused` with
+> the declaring agent and the missing path named."*
+
+**That was true of the two routes this record examined and false of the one it
+did not.** `default.env_recipe.yaml` is the DEFAULT recipe layer;
+`_recipe_paths` gates it on `os.path.isfile(DEFAULT_RECIPE)`, and the file's own
+header states the rule: *"Nothing declares this file, so its absence is simply
+absence."* So from a wheel the entire default layer would have done nothing,
+reported nothing and named no cause — **the silent failure this record declared
+absent, in a third instance of the class it was written about.**
+
+## The class, third time
+
+`pyproject.toml`'s comment above `[tool.setuptools.package-data]` describes this
+failure mode exactly and was written when `spec_loader/schemas` was fixed.
+`addons/` was the second instance. These are the third and fourth, and they were
+sitting *under the comment that explains them*.
+
+What found them was not reading: it was `find env_mgr -type f ! -name '*.py'`,
+i.e. enumerating the class's population instead of the instance in front of me.
+**Fixing an instance is not sweeping a class**, and the sweep is one command.
+
+`recipes/README.md` is deliberately still not shipped — nothing reads it at run
+time. That is a decision, recorded so the next person counting members does not
+read it as a fourth omission.
+
+**This record is now closed.** Both routes named in its title resolve from a
+wheel, and the one it did not name is fixed too.

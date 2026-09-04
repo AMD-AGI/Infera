@@ -100,6 +100,32 @@ spec_loader = ["schemas/*.json"]
 # that matters. Verified by building the wheel and listing its members, not by
 # reading setuptools' documentation.
 env_mgr = [
+    # **The recipe layers, and this is the THIRD instance of one class.** The
+    # comment above `[tool.setuptools.package-data]` already states it — *"
+    # `packages.find` seeing the package does not ship the `.json` files inside
+    # it"* — and was written when `spec_loader/schemas` was fixed. `addons/` was
+    # the second, fixed 2026-09-04. These two are the third and were sitting
+    # under the comment that explains them. **Fixing one instance is not
+    # sweeping the class**, and the sweep here was `find env_mgr -type f
+    # ! -name '*.py'`, run rather than reasoned.
+    #
+    # `recipes/*.yaml` is the namespace a bare `recipes: [<name>]` resolves
+    # against, so without it that declaration raises from a wheel install and
+    # resolves from a git checkout.
+    #
+    # `default.env_recipe.yaml` is the worse of the two and is why the sweep was
+    # worth running: it is the DEFAULT recipe layer, it runs on every install,
+    # and `agent_assets._recipe_paths` gates it on `os.path.isfile`. Nothing
+    # declares it, so its absence is *"simply absence"* by design — from a wheel
+    # the whole default layer would therefore do nothing, report nothing, and
+    # name no cause. The `recipes/` case at least fails loudly.
+    #
+    # `recipes/README.md` is deliberately NOT shipped: nothing reads it at run
+    # time and this list is for files the package needs, not for documentation.
+    # `addons/README.md` below is the exception and is one because
+    # `addons/README.md` is the add-on contract a wheel consumer authors against.
+    "default.env_recipe.yaml",
+    "recipes/*.yaml",
     "addons/README.md",
     "addons/*/README.md",
     "addons/*/.claude/**/*",
