@@ -524,7 +524,7 @@ def _check_correctness(doc: dict, snapshot: dict, args: dict, problems: list[str
 
 def _run_entrypoint(
     root: Path, cmd: str, impl_path: Path | None, report: Path, args: dict, env: dict,
-    timeout: float, flags: dict
+    timeout: float, flags: dict, environment: Path | None = None
 ) -> str | None:
     """The workset's own performance entrypoint. Returns an error string or `None`.
 
@@ -555,6 +555,21 @@ def _run_entrypoint(
     argv = [*cmd.split(), str(flags.get("report") or args.get("report_flag") or "--json"), str(report)]
     if impl_path is not None:
         argv += [str(flags.get("impl") or args.get("impl_flag") or "--impl"), str(impl_path)]
+    # **M4.3.5's gate, and it only fires if this run's record is handed over.**
+    # `harness/_common.py:_run_record` looks at `--environment` first and then
+    # beside the harness module. The fallback is m3's own path, where the record
+    # sits at the workset root; here the apparatus has been copied into
+    # `<scratch>/{seed,candidate}/` and no record travels with it, so without
+    # this the entrypoint compares nothing and records
+    # `environment.premise_checked_against: null`.
+    #
+    # The record is the handoff's own `items/codes/environment.yaml` — the one
+    # m4 inherited from the `deploy_kit`, i.e. *this* run — which is the other
+    # side of the comparison against the workset's `ground_truth.environment`.
+    # Two documents, which is the whole of M4.3.5; a validator that passed the
+    # workset's own record would be comparing it with itself.
+    if environment is not None:
+        argv += [str(flags.get("environment") or "--environment"), str(environment)]
     try:
         proc = subprocess.run(
             argv, capture_output=True, text=True, cwd=root, env=env, timeout=timeout
@@ -631,8 +646,33 @@ def _remeasure(
     env = _measure_env(root, python)
     operator_id = str(doc.get("operator"))
 
+    # CONTRACT §2: a `code` handoff carries the record at `items/codes/`, and the
+    # packup is a directory below that. **Reported when absent rather than passed
+    # over** — m3 made the harness say so on stderr for the same reason, and a
+    # re-measurement whose premise was never checked should not read like one
+    # that was.
+    # **`.resolve()`, because the entrypoint does not run here.** `packup` is
+    # relative to the validation zone (materials.json hands a relpath), while
+    # `_run_entrypoint` runs with `cwd=<scratch>/{seed,candidate}` — so a
+    # zone-relative path arrives at the harness meaning a directory that does
+    # not exist, and `_run_record` falls through to "no record" in silence.
+    # `optimized_src.resolve()` below is absolute for the same reason. Caught by
+    # the stubkit once it started asserting *which* path arrived rather than
+    # only that the flag was there.
+    record = (packup.parent / "environment.yaml").resolve()
+    if not record.is_file():
+        notes.append(
+            f"no environment.yaml at {record.name} beside the packup, so the entrypoint's own "
+            "M4.3.5 gate runs unchecked (environment.premise_checked_against: null). "
+            "check_environment grades that document; this note is about what the re-measurement "
+            "could not compare"
+        )
+        record = None
+
     seed_report = seed_root / "substantiate_seed.json"
-    failure = _run_entrypoint(seed_root, entrypoint, None, seed_report, args, env, timeout, flags)
+    failure = _run_entrypoint(
+        seed_root, entrypoint, None, seed_report, args, env, timeout, flags, record
+    )
     if failure:
         problems.append(f"the seed re-measurement failed: {failure}")
         return
@@ -640,7 +680,8 @@ def _remeasure(
 
     candidate_report = candidate_root / "substantiate_candidate.json"
     failure = _run_entrypoint(
-        candidate_root, entrypoint, optimized_src.resolve(), candidate_report, args, env, timeout, flags
+        candidate_root, entrypoint, optimized_src.resolve(), candidate_report, args, env,
+        timeout, flags, record
     )
     if failure:
         problems.append(f"the optimised re-measurement failed: {failure}")

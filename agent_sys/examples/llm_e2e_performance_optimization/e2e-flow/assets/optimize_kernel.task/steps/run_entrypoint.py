@@ -168,16 +168,47 @@ def main() -> int:
 
     out = Path(a.out).resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
-    argv = [*cmd.split(), os.environ.get("KFO_REPORT_FLAG", "--json"), str(out)]
-    argv += ["--operator", operator_id]
+    # **The spelling comes from the workset, which pins it as data
+    # (`workset.schema.json $defs/entrypoint.flags`).** The env vars are the
+    # fallback for a workset that predates the field, not a second authority:
+    # m3 made it data precisely because m4 guessed a three-flag form once, and
+    # a wrong selector runs the *baseline* while the caller records it as the
+    # candidate — two measurements of one kernel, ratio 1.000, no error
+    # anywhere. `check_speedup_substantiated._run_entrypoint` reads the same
+    # block the same way, which is the point of it being one block.
+    flags = dict(entry.get("flags") or {})
+
+    argv = [*cmd.split(), str(flags.get("report") or os.environ.get("KFO_REPORT_FLAG") or "--json"), str(out)]
+    argv += [str(flags.get("operator") or "--operator"), operator_id]
+
+    # **M4.3.5, and it needs THIS run's record rather than the workset's.**
+    # `harness/_common.py:_run_record` falls back to a record beside the harness
+    # — which here is the workset's own `items/codes/environment.yaml`, i.e. the
+    # document `ground_truth.environment` was taken from. Letting the fallback
+    # win would compare that record with itself and agree by construction, which
+    # is the failure m3's commit message calls "a paragraph asserting a
+    # behaviour". The `deploy_kit`'s record is the other document.
+    record = lib.input_content("deploy_kit") / "items" / "codes" / "environment.yaml"
+    if record.is_file():
+        argv += [str(flags.get("environment") or "--environment"), str(record)]
+    else:
+        print(
+            f"warning: no environment record at {record}, so the entrypoint's M4.3.5 gate runs "
+            "unchecked and the report will carry environment.premise_checked_against: null",
+            file=sys.stderr,
+        )
+
     if a.shape:
         # `--shape` exists so one case can be re-measured rather than the whole
         # workset; `check_workset_runs` uses it to spot-check the primary. It is
         # the cheap way to sanity-check a candidate mid-campaign, and it is
         # never how the recorded numbers are produced.
-        argv += ["--shape", a.shape]
+        argv += [str(flags.get("shape") or "--shape"), a.shape]
     if a.candidate:
-        argv += [os.environ.get("KFO_IMPL_FLAG", "--impl"), str(Path(a.candidate).resolve())]
+        argv += [
+            str(flags.get("impl") or os.environ.get("KFO_IMPL_FLAG") or "--impl"),
+            str(Path(a.candidate).resolve()),
+        ]
 
     timeout = float(entry.get("timeout_s") or 3600)
     print(f"running: {' '.join(argv)}  (cwd {root})", file=sys.stderr)

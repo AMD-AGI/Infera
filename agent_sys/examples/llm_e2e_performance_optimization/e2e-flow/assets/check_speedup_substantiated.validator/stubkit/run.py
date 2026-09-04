@@ -50,6 +50,13 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --impl) IMPL="$2"; shift 2 ;;
     --json) OUT="$2"; shift 2 ;;
+    # **Recorded, not discarded.** `*) shift` below tolerates any flag in
+    # silence, which is what let this kit report 8/8 over a `--environment`
+    # that was never passed: the fixture accepted its absence exactly as
+    # happily as its presence. m3's real harness compares this record against
+    # `ground_truth.environment`, so a kit that cannot see whether it arrived
+    # cannot test the gate that depends on it.
+    --environment) echo "$2" > "$DIR/last_environment.txt"; shift 2 ;;
     --operator|--shape) shift 2 ;;
     *) shift ;;
   esac
@@ -235,6 +242,14 @@ def _build(root: Path, *, document: dict, plan: dict) -> Path:
              "weighted_mean_ms": BASELINE[c], "rsd": 0.02} for c in CASES]}],
     }, indent=1))
     (packup / "results" / "optimized_kernel.py").write_text("# stub candidate\n")
+
+    # **This run's record, beside the packup** — CONTRACT §2's place for it in a
+    # `code` handoff, and the document `_remeasure` hands the entrypoint as
+    # `--environment`. Without it here the validator resolves `record = None`,
+    # appends no flag, and every case below passes without the new path
+    # executing at all: measured, 8/8 green over code that never ran.
+    (packup.parent / "environment.yaml").write_text(
+        __import__("yaml").safe_dump(_environment()), encoding="utf-8")
     return root / "handoff"
 
 
@@ -347,6 +362,7 @@ def main() -> int:
     ))
 
     failures: list[str] = []
+    landed_any = False
     for index, (label, document, plan, expect_pass, expect_text) in enumerate(cases, start=1):
         # **A case that expects a refusal must name what the refusal is about.**
         # Without this, a case passes on ANY failure — and two of these did
@@ -371,8 +387,37 @@ def main() -> int:
                     f"  {label}\n" + "\n".join("    " + l for l in output.splitlines()[:12]))
             else:
                 print(f"ok   case {index}: {label}")
+
+            # **Did the re-measurement hand over this run's record, and the
+            # right one?** Only checked where the entrypoint actually ran —
+            # several cases refuse before `_remeasure` is reached, and demanding
+            # the flag there would fail them for not doing something they never
+            # got to. The whole-kit assertion below is what keeps this able to
+            # fail: if NO case lands the record, the flag is not being passed at
+            # all and the gate it feeds is untested.
+            landed = sorted(root.rglob("last_environment.txt"))
+            if landed:
+                landed_any = True
+                got = landed[0].read_text().strip()
+                expected = str((handoff / "items" / "codes" / "environment.yaml").resolve())
+                if got != expected:
+                    failures.append(
+                        f"case {index}: --environment pointed at {got!r}, expected the handoff's "
+                        f"own record {expected!r}. A relative path is the live form of this: the "
+                        f"entrypoint runs under <scratch>/seed, not the validation zone\n  {label}")
         finally:
             shutil.rmtree(root, ignore_errors=True)
+
+    # **The kit as a whole must have exercised the flag at least once.** Without
+    # this the per-case check above is vacuous: with `--environment` removed
+    # entirely, every case simply stops landing a file and nothing complains.
+    # Measured — that is exactly how this kit reported 8/8 over code that never
+    # ran, before the record was added to the fixture.
+    if not landed_any:
+        failures.append(
+            "no case handed the entrypoint --environment, so m3's M4.3.5 gate was never "
+            "exercised by this kit. Either _remeasure stopped passing it or the fixture "
+            "stopped carrying items/codes/environment.yaml")
 
     if failures:
         print()
