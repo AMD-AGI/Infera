@@ -50,6 +50,7 @@ from ..outcome import Outcome
 from ..recipe import Item, Target
 from ..servers import (
     ServerRecord,
+    already_running,
     cmdline_of,
     inspect_port,
     port_conflict,
@@ -126,14 +127,6 @@ class RunServerInstaller:
         if port is None:
             return [Outcome(level_for_missing(item.importance), f"{item.name}: no port declared")]
 
-        # The port policy runs first and is the whole of the occupied case: an
-        # already-served port is never started onto, whether the verdict is the
-        # warn (same program, someone got there first) or the fail (someone
-        # else's).
-        conflict = port_conflict(port, command, item.name)
-        if conflict is not None:
-            return [conflict]
-
         path = registry_path()
         if path is None:
             return [
@@ -144,6 +137,37 @@ class RunServerInstaller:
                     {"variable": "AGENT_SYS_SERVER_REGISTRY"},
                 )
             ]
+
+        # **Started once per run, and a second declaration warns.** The registry
+        # is the whole answer: it already knows what is up, so nothing has to
+        # say *whether this run wants it* and no second declaration route is
+        # needed.
+        #
+        # **Before the port check, and that ordering is load-bearing.** A
+        # duplicate declaration finds its own first server holding the port, and
+        # the port check would report it as a stranger -- `fail` for what is
+        # meant to be a `warn`. The first revision had these the other way round
+        # and `test_a_second_declaration_of_the_same_server_warns_and_starts_
+        # nothing` caught it. "This run started it" is also simply the truer
+        # sentence when it is true.
+        running = already_running(path, item.name)
+        if running is not None:
+            return [
+                Outcome(
+                    "warn",
+                    f"{item.name}: already started by this run (pid {running.pid}, "
+                    f"port {running.port}); not started again",
+                    {"pid": running.pid, "port": running.port},
+                )
+            ]
+
+        # The port policy is the whole of the *someone else* case: an
+        # already-served port is never started onto, whether the verdict is the
+        # warn (the same program, started by something that is not this run) or
+        # the fail.
+        conflict = port_conflict(port, command, item.name)
+        if conflict is not None:
+            return [conflict]
 
         log = os.path.join(target.path, f"{item.name}.server.log")
         try:

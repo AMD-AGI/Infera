@@ -63,6 +63,7 @@ from .outcome import Outcome
 __all__ = [
     "REGISTRY_ENV_VAR",
     "PortHolder",
+    "already_running",
     "cmdline_of",
     "starttime_of",
     "ServerRecord",
@@ -226,6 +227,27 @@ def records(path: Path) -> list[ServerRecord]:
 # ports
 
 
+def already_running(path: Path, name: str) -> ServerRecord | None:
+    """The live entry this run already has for `name`, if there is one.
+
+    **This is the whole of "start it once; a second declaration warns".** No
+    scope mechanism is needed and none exists: which file declared the server is
+    irrelevant, because the registry already knows whether it is up. A second
+    declaration finds the first entry and reports rather than starting a rival.
+
+    *Live*, not merely *present*: an entry whose process has since died is not a
+    reason to refuse a restart, so the `starttime` guard decides this exactly as
+    it decides a stop. `records` is oldest-first and the last live match wins,
+    which matters only if a name were started twice — and the point of this
+    function is that it cannot be.
+    """
+    found = None
+    for record in records(path):
+        if record.name == name and _still_ours(record):
+            found = record
+    return found
+
+
 def cmdline_of(pid: int) -> str:
     """`/proc/<pid>/cmdline` as a space-joined string, empty if unreadable.
 
@@ -278,10 +300,29 @@ def inspect_port(port: int) -> PortHolder:
     return PortHolder(occupied=True, pid=pid, cmdline=cmdline_of(pid))
 
 
+#: Words that may stand in front of the real program in a declared command, and
+#: are skipped when picking the token. **A short closed list, not a parser.**
+#: `exec` is the one that matters -- ``exec myserver`` is the *good* way to write
+#: a `command:`, because it saves a shell process, and keying on ``argv[0]``
+#: blindly turned that into the token ``exec``, which matches nothing. Found by
+#: `test_a_second_declaration_...`, whose own fixture is written that way.
+#: **A command this list does not cover degrades to a `fail`**, never to a false
+#: `warn`: an unmatched token cannot be "basically the same".
+_COMMAND_PREFIXES = ("exec", "env", "nohup", "setsid", "stdbuf", "time")
+
+
 def _program_token(command: str) -> str:
-    """The basename of the program a `run_server` item declares."""
-    parts = command.split()
-    return os.path.basename(parts[0]) if parts else ""
+    """The basename of the program a `run_server` item declares.
+
+    Leading wrappers are skipped, as is anything of the form ``VAR=value`` --
+    ``env FOO=1 myserver`` and ``FOO=1 myserver`` are both shell for *run
+    myserver*.
+    """
+    for part in command.split():
+        if part in _COMMAND_PREFIXES or "=" in part.split("/")[0]:
+            continue
+        return os.path.basename(part)
+    return ""
 
 
 def _is_basically_the_same(declared: str, holder_cmdline: str) -> bool:

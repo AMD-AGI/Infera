@@ -179,6 +179,53 @@ def test_the_server_outlives_the_process_that_started_it(tmp_path, reaper):
     assert [r.pid for r in records(registry)] == [pid]
 
 
+def test_a_second_declaration_of_the_same_server_warns_and_starts_nothing(zone, reaper):
+    """*Start it once; a duplicate warns* — answered by the registry alone.
+
+    No scope mechanism and no second declaration route: which file declared the
+    server does not enter into it, because the registry already knows what is
+    up. Asserted on the registry rather than only on the level, because "did
+    not start a second one" is the claim and a `warn` with two entries behind it
+    would be the failure this is meant to catch.
+    """
+    target, registry = zone
+    port = _free_port()
+    item = _item(command=_serve_forever(port), port=port, ready_timeout=15)
+
+    (first,) = RunServerInstaller().install(item, target)
+    assert first.level == "ok", first
+    reaper.append(first.details["pid"])
+
+    (second,) = RunServerInstaller().install(item, target)
+    assert second.level == "warn", second
+    assert "already started by this run" in second.message
+    assert second.details["pid"] == first.details["pid"]
+    assert len(records(registry)) == 1, "it recorded a server it did not start"
+
+
+def test_a_dead_entry_does_not_block_a_restart(zone, reaper):
+    """*Live*, not merely *present*.
+
+    A server that has since died is not a reason to refuse a restart, and the
+    entry outlives it — `record_spawn` writes before readiness and nothing
+    rewrites the file until shutdown. Without the `starttime` guard here, one
+    crashed server would make its name unusable for the rest of the run.
+    """
+    target, registry = zone
+    port = _free_port()
+    (dead,) = RunServerInstaller().install(
+        _item(command="exit 0", port=port, ready_timeout=5), target
+    )
+    assert dead.level == "fail"
+    assert len(records(registry)) == 1
+
+    (out,) = RunServerInstaller().install(
+        _item(command=_serve_forever(port), port=port, ready_timeout=15), target
+    )
+    assert out.level == "ok", out
+    reaper.append(out.details["pid"])
+
+
 # -------------------------------------------------------------- the two failures
 
 
@@ -290,6 +337,40 @@ def test_a_holder_whose_command_line_cannot_be_read_fails(tmp_path):
     assert verdict is not None
     assert verdict.level == "fail"
     assert verdict.details["holder"] == "unreadable"
+
+
+@pytest.mark.parametrize(
+    "declared",
+    [
+        "myserver --port 1",
+        "exec myserver --port 1",
+        "env FOO=1 myserver --port 1",
+        "FOO=1 myserver --port 1",
+        "nohup myserver",
+        "/opt/pkg/bin/myserver",
+    ],
+)
+def test_a_wrapped_command_still_names_its_program(declared):
+    """`exec myserver` declares *myserver*, not *exec*.
+
+    Writing `command: exec myserver` is the good way to declare a server — it
+    saves a shell process — and a token rule reading `argv[0]` blindly turned it
+    into `exec`, which matches nothing, so a duplicate read as a stranger. The
+    list of skipped words is short and closed on purpose; a command it does not
+    cover degrades to `fail`, never to a false `warn`.
+    """
+    holder = PortHolder(occupied=True, pid=1, cmdline="/usr/bin/python3 /opt/pkg/bin/myserver")
+    verdict = port_conflict(1, declared, "srv", holder=holder)
+    assert verdict is not None
+    assert verdict.level == "warn", declared
+
+
+def test_an_unknown_wrapper_fails_rather_than_warning(tmp_path):
+    """The direction the closed list is allowed to be wrong in."""
+    holder = PortHolder(occupied=True, pid=1, cmdline="/usr/bin/python3 /opt/pkg/bin/myserver")
+    verdict = port_conflict(1, "weirdwrapper myserver", "srv", holder=holder)
+    assert verdict is not None
+    assert verdict.level == "fail"
 
 
 def test_the_same_program_is_recognised_through_an_interpreter(tmp_path):
