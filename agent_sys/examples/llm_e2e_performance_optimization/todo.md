@@ -2915,3 +2915,42 @@ when it was found and the next rung will hit it again within the hour.
 2026-09-02 is in `DELIVERY-NOTE-FROM-LEADER.md`: widening a bar that refused
 correctly was already tried once and was the wrong response. A ceiling of 16
 against concurrency 25.42 is a real 4.6x, not a threshold artefact.
+
+## T60 addendum — the override channel already exists and is one line from working
+
+Found 2026-09-04 21:50 by the lead, reading `assets/load/line.sh` after rung 2e died.
+
+**`E2E_KIT_ENGINE_EXTRA_ARGS` is the designed override channel**, and the file
+says so itself at `line.sh:74-76`:
+
+> *"`EXTRA_ARGS` is appended to the worker's argv **last**, so it overrides an
+> earlier occurrence of the same flag rather than racing it."*
+
+So `--cuda-graph-max-bs 32` passed through that channel **beats the kit's own 16**,
+by design, with no change to the kit and no decision about what stage 1 should
+choose. It is already plumbed end to end — `line.sh:258-262` passes three
+`E2E_KIT_*` overrides into the kit's `deploy.sh`, and this is one of them.
+
+**The only obstacle is `line.sh:78`:**
+
+```bash
+export E2E_KIT_ENGINE_EXTRA_ARGS=""        # hardcoded; an inherited value is discarded
+```
+
+A value-preserving form — `"${E2E_KIT_ENGINE_EXTRA_ARGS:-}"` — changes nothing
+when unset and makes the hook usable. **One line, behaviour-identical by default.**
+
+**Two things that are NOT solved by it**, so nobody reads this as the whole fix:
+
+* the `CAPTURE=1` branch at `line.sh:85` **overwrites** the variable with
+  `--disable-cuda-graph`, so an inherited value is still lost on the
+  `profiling_mode_on` line. Only `profiling_mode_off` — which is the line that
+  refused — is covered.
+* it makes the ceiling settable, it does not decide **what it should be**. 32
+  covers the 25.42 observed once; nothing says that generalises to another trace.
+
+**Deliberately not done by the lead.** It is m2's file and T60's decision is m1's
+and m2's jointly; the lead recorded the exact fix instead of applying it, so that
+landing it is a minute's work rather than a rediscovery. The team was unreachable
+for 2 h 20 min when this was written, and 217 sat idle rather than being spent on
+a run that would refuse identically.
