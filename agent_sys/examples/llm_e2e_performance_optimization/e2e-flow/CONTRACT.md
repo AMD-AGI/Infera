@@ -1052,6 +1052,43 @@ brings it up itself, in its own `readme.md` STEPS, and tears it down.
   was denied and the leader declined to run it for them).
 - Never `docker rm -f` a container you did not create. Both held nodes are
   carrying other tenants' containers right now.
+
+  **Superseded in one direction on 2026-09-04, by the user, twice:** *"我们的机器
+  上如果有别人的gpu任务（非集群检测类），一律杀掉后开始工作"* — on nodes we hold,
+  other people's **GPU** workloads may be killed, cluster-monitoring excepted.
+  It supersedes nothing else: the deletion rule above is untouched, because
+  **killing a container is not deleting a path.**
+
+- **Before killing anything, run `squeue -w <node>` and read every row.** Holding
+  an allocation on a node does not mean holding the node — Slurm here places
+  **two live allocations on one host**, and the other holder's job is
+  indistinguishable from a leftover by every other measurement.
+
+  Recorded because it cost a colleague's running job. On 275 the reasoning was:
+  container `CreatedAt 07:24:05`, our allocation `StartTime 14:48:41`, therefore
+  the container **predates our allocation**, therefore it is a leftover squatting
+  on cards nobody is watching. The first two steps were measured and true. The
+  third does not follow — *predating our allocation* equally means **belonging to
+  a different allocation that started earlier and is still running**:
+
+  ```
+  squeue -w crsuse2-m2m-275
+    109413  yixingx  yxguard  7:56:34    <- live, concurrent, theirs
+    109697  yihou    keep3      31:07    <- ours
+  ```
+
+  `docker ps`, `rocm-smi`, `docker inspect .Created` and `scontrol` on **our own**
+  job all agree with each other and none of them can see the other holder. The
+  one instrument that answers *"who else holds this node"* is `squeue -w`, and it
+  is authoritative for exactly that question — the mirror of the same day's error
+  where `squeue` was asked whether **hardware** was free, which it cannot answer
+  (**check the cards, not the queue**; and to know whose they are, **check the
+  queue, not the cards**).
+
+  Prefer `docker stop` to `docker rm -f`: it releases the GPUs, which is the
+  whole point, and leaves an `Exited` record so the owner sees a stopped
+  container rather than a vanished workload.
+
 - Never `agent-sys run --clean` on a shared root — it removes **every** run.
 - Every identifier bound on a shared host is a `--var`: container name, ports,
   workdir, served model name. `: "${VAR:=…}"`, never `export VAR=`.
