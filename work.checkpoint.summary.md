@@ -7342,3 +7342,137 @@ unchanged**: I had by then established that no context produced the value, and
 "the observation may be wrong" was available and cheap to test by asking m3 where
 the string came from. The generalisation m3 drew is worth having because it is
 counterintuitive; **it does not follow that the specific check was unreachable.**
+
+## T+1330 — 2026-09-04 11:40 UTC
+
+### 20 of 21 — and this metric is about to stop being useful
+
+| | runs | invocations | judgements | **distinct** |
+|---|---|---|---|---|
+| frozen (`ro`) | 38 | 231 | 255 | 10 |
+| live | 30 | 438 | 501 | 20 |
+| **union at 11:40** | **68** | **669** | **756** | **20** |
+
+**`check_packup_shape` is the only validator in the package that has never
+produced a verdict.** Confirmed stable across two independent tallies twenty
+minutes apart, with every m5 signature resolved against
+`steps/m5_integration.yaml` and no unmapped fallbacks.
+
+**The trajectory, for the whole effort: 5 → 9 → 10 (seventeen hours) → 12 → 14
+(five intervals) → 20.**
+
+**And I should say plainly what this number is about to become.** It has measured
+one thing all effort — *how far does the graph get* — and I have defended it as
+conservative precisely because it could not be gamed by anything except a run
+actually reaching further. **Reach is now essentially complete**, so from here
+the metric discriminates almost nothing: it can move by exactly one, once, and
+then never again.
+
+**What it never measured, and what remains:** in the furthest run,
+**3 of 15 handoff records are `invalid`** (`stock.measurement`,
+`patched.measurement`, `integration_report`), one judgement is false, and
+`e2e_packup` is `created` rather than sealed — which is why `check_packup_shape`
+has nothing to judge. **The pipeline completes; the content does not validate.**
+
+**So the successor metric, from the next section, is the pair I should have been
+carrying alongside:** *handoffs `valid` in the furthest single run* (**11 of
+15**) and *judgements false* (**1**). Those move for the reasons the remaining
+work will move them. I am naming the change before the old number saturates
+rather than after, because a headline that can no longer go down is a headline
+that has stopped reporting.
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | clean |
+| (b0) pre-commit `git status` on this file | clean |
+| (b) per-commit ownership | clean |
+| (c) `todo.md` | **44 items** |
+| holds | three: 006, 217, 047 — none lost since 06:47 |
+| `/home` | 1.6 T free (85 %) |
+| run process | **one present at 11:40:25**, root `/home/yihou/agent_sys_runroot` |
+
+### 1. Progress
+
+**~82 %, up three.** Elapsed 1 330 m. I said last section I wanted a second
+reading before pricing a move this size; I have it, and the count held.
+
+**Reliability: low→moderate**, unchanged, **and the caveat now matters more than
+the number.** Three points is for *reach*, which is what my instrument measures.
+It is **not** a claim that 82 % of the work is correct — 3 of 15 handoffs in the
+furthest run are invalid and the terminal one has never sealed. If the remaining
+correctness work behaves like `build_workset` did — five stacked defects, each
+hidden by the one above — the last fifth could take longer than the jump from 14
+to 20 suggests.
+
+**预估耗时: no number.** Held.
+
+### 2. Current state
+
+Rung 0 has walked all five stages. One run live. One commit this interval:
+`356d65e`, m1 — *an adapter change is not always required, and assuming it is
+costs work.*
+
+### 3. Code problems
+
+- **OPEN — `check_no_regression` refused on first contact**, 1 of 1. This is the
+  gate m5's control experiment exists to exercise. **A single refusal is not
+  evidence it can discriminate**; the null-versus-degraded design is what would
+  establish that.
+- **OPEN — three m5 handoffs `invalid`**, and `e2e_packup` unsealed.
+- **OPEN — `check_packup_shape`**, nothing to judge until the terminal handoff
+  seals.
+
+### 4. Non-code problems
+
+Three holds, none lost since 06:47 — seven intervals. Two `keep3` jobs pending.
+
+### 5. Open questions
+
+Whether `check_no_regression` discriminates or merely refused; the three invalid
+m5 handoffs; M5.1.1; why holds are cancelled.
+
+### 6. New commits
+
+**1 since `8b86a0f`** — `356d65e` m1. My own this interval: `1ff75d2` (the quote
+sweep), `8b86a0f` (20 of 21).
+
+### 7. Anything else — the one rule from today that prevents rather than detects
+
+m3 applied my three-way marking to their own refusal table (`b8d5f13`) and found
+**two of its three rows were somebody else's measurement printed under a heading
+that said "Measured forms"** — including `/shared_nfs`, which they have never
+bound in a measurement. **In their own file, about their own work**, and
+indistinguishable from the row they had actually run. That is a sharper
+demonstration than the phantom, which needed three people and a chain; this
+needed only a table heading.
+
+**And they returned something I was about to file as luck.** My sweep noted that
+I referenced T21's character counts and T7's rsd figures **by name rather than by
+value**, and called it *"partly luck"*. m3's correction:
+
+> **Quote a finding by its identifier, not its number.** *"T21's discriminator"*
+> carries nothing to mis-attribute. A figure copied out of a message is a fact
+> with its provenance stripped at the moment of copying; an identifier is a
+> pointer back to the artefact.
+
+**This is the only rule produced today that prevents rather than detects.**
+m3's `ref:` markers, my three-way split and T40's null test all catch the error
+after it exists. This one means it has nowhere to form. Recorded as theirs,
+because I had been doing it without knowing why — which is the difference between
+a habit and a rule, and the reason a second reader is worth more than a careful
+first one.
+
+**The day's four rules, in the order they arrived:**
+
+1. **T40** — before believing a null, name the result that would have proved the
+   probe could speak.
+2. **m3's `ref:`** — mark catalogue rows so they cannot be quoted as events.
+3. **the three-way split** — observed by me / relayed *with the relayer's own
+   provenance* / catalogue. A provenance marker says who said it, not whether it
+   was observed.
+4. **m3's identifier rule** — quote findings by name, not by value.
+
+**None of the four came from either of our stages, and all four outlive the
+package.** The tool that occasioned them will be superseded; these will not.
