@@ -175,6 +175,40 @@ if mode == "accepted":
     d["verdict"] = {"accepted": True, "reasons": [],
                     "warnings": ["mock: the two arms' numbers are the measured stock control, "
                                  "not the sealed run's arms; see MOCK-MAP.md (E)."]}
+# The `comparison` block: one judged row per (metric, column), rounds reduced.
+# The sealed report predates it, and this is a **derivation from its own rows**
+# rather than an invention — the sealed run has one round, and the reduction of
+# one value is that value, so every number here is the sealed number and only
+# its shape is new. Same `eval_stats.reduce_rounds` the real producer and the
+# validator call, because the validator recomputes this and would refuse a
+# reduction it disagreed with.
+sys.path.insert(0, f"{pkg}/assets/lib")
+import eval_stats  # noqa: E402
+
+HIGHER = {"output_token_throughput_tps", "request_throughput_rps"}
+bars = d.get("bars") or {}
+t_bar = float(bars.get("max_throughput_regression") or 0.05)
+l_bar = float(bars.get("max_latency_regression") or 0.10)
+by_key = {}
+for row in d.get("performance", []):
+    if row.get("verdict") == "context":
+        continue
+    key = (row.get("metric"), row.get("column"))
+    slot = by_key.setdefault(key, {"stock": [], "patched": [], "label": row.get("label")})
+    slot["stock"].append(row.get("stock"))
+    slot["patched"].append(row.get("patched"))
+comparison = []
+for (metric, column), slot in by_key.items():
+    a, da = eval_stats.reduce_rounds(slot["stock"])
+    b, db = eval_stats.reduce_rounds(slot["patched"])
+    up = metric in HIGHER
+    bar = t_bar if up else l_bar
+    row = eval_stats.perf_verdict(a, b, max_regression=bar, higher_is_better=up)
+    row.update(metric=metric, column=column, label=slot["label"], bar=bar,
+               reduction="median", rounds=da["n"], stock_detail=da, patched_detail=db)
+    comparison.append(row)
+d["comparison"] = comparison
+
 json.dump(d, open(path, "w"), indent=2)
 
 # CONTRACT.md 3.4: a structured_text kind copies its schema into items/schema and

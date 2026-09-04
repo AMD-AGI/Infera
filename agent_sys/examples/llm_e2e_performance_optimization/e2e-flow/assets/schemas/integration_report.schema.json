@@ -13,6 +13,7 @@
     "bars",
     "correctness",
     "performance",
+    "comparison",
     "stock_vs_m2",
     "kernel_reconciliation",
     "verdict"
@@ -20,70 +21,147 @@
   "properties": {
     "schema_version": {
       "const": 1,
-      "description": "As in `kernel_worklist.schema.json` and `operator_identity.schema.json`: the one field the sealed artefact lacks, added rather than dropped. An unversioned structured document is one that cannot be migrated, and six of the eight schemas in this package already carry it — this was the eighth. It matters more here than most: this document is the flow's verdict, and a later reader deciding whether a stored report can still be compared against a new one needs to know which contract produced it."
+      "description": "As in `kernel_worklist.schema.json` and `operator_identity.schema.json`: the one field the sealed artefact lacks, added rather than dropped. An unversioned structured document is one that cannot be migrated, and six of the eight schemas in this package already carry it \u2014 this was the eighth. It matters more here than most: this document is the flow's verdict, and a later reader deciding whether a stored report can still be compared against a new one needs to know which contract produced it."
     },
     "generated_at": {
       "type": "string",
       "minLength": 10,
       "description": "ISO 8601. When `compare` ran, not when either arm was measured -- the arms' own timings are in their `env/steps.json`, which is what check_measurement_order reads."
     },
-
     "patch": {
       "type": "object",
       "additionalProperties": true,
-      "required": ["operator_id", "apply_mode", "image", "files", "expect"],
+      "required": [
+        "operator_id",
+        "apply_mode",
+        "image",
+        "files",
+        "expect"
+      ],
       "description": "What was under test. `expect` is what the OPTIMISER CLAIMED, not what happened -- reading it as a fact about the run is a mistake this project has already made and published twice (see the corrected box in debugging/integration/DELIVERY-NOTE-FROM-LEADER.md).",
       "properties": {
-        "operator_id": {"type": "string", "minLength": 1},
-        "logical_operator": {"type": ["string", "null"]},
-        "apply_mode": {"type": "string", "enum": ["overlay_files", "rebuild"]},
-        "image": {"type": "string", "minLength": 1},
-        "files": {"type": "integer", "minimum": 1,
-          "description": "A patch touching zero files cannot be tested, and a report describing one is describing the stock deployment compared against itself."},
-        "declares_runtime_marker": {"type": "boolean"},
+        "operator_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "logical_operator": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "apply_mode": {
+          "type": "string",
+          "enum": [
+            "overlay_files",
+            "rebuild"
+          ]
+        },
+        "image": {
+          "type": "string",
+          "minLength": 1
+        },
+        "files": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "A patch touching zero files cannot be tested, and a report describing one is describing the stock deployment compared against itself."
+        },
+        "declares_runtime_marker": {
+          "type": "boolean"
+        },
         "expect": {
           "type": "object",
           "additionalProperties": true,
-          "required": ["source", "speedup"],
+          "required": [
+            "source",
+            "speedup"
+          ],
           "properties": {
-            "source": {"type": "string", "minLength": 1,
-              "description": "Where the claim came from: `forge`, `mock`, `workset`. `mock` means nobody measured this."},
-            "speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
-            "snr_db": {"type": ["number", "null"]},
-            "baseline_wall_ms": {"type": ["number", "null"]},
-            "optimized_wall_ms": {"type": ["number", "null"]}
+            "source": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Where the claim came from: `forge`, `mock`, `workset`. `mock` means nobody measured this."
+            },
+            "speedup": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "exclusiveMinimum": 0
+            },
+            "snr_db": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "baseline_wall_ms": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "optimized_wall_ms": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
           }
         }
       }
     },
-
     "arms": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["stock", "patched"],
+      "required": [
+        "stock",
+        "patched"
+      ],
       "description": "Both, always. A report with one arm is not a comparison.",
       "properties": {
-        "stock": {"$ref": "#/$defs/arm"},
-        "patched": {"$ref": "#/$defs/arm"}
+        "stock": {
+          "$ref": "#/$defs/arm"
+        },
+        "patched": {
+          "$ref": "#/$defs/arm"
+        }
       }
     },
-
     "bars": {
       "type": "object",
       "additionalProperties": true,
-      "required": ["max_throughput_regression", "max_latency_regression"],
+      "required": [
+        "max_throughput_regression",
+        "max_latency_regression"
+      ],
       "description": "The thresholds this verdict was decided against. Recorded because a verdict without its threshold cannot be re-read later. **check_no_regression refuses a report whose bars are LOOSER than its own args**: a producer that may pick its own bar can pass anything, and the sealed sample is exactly that case -- it declares 0.35/0.30, widened in response to a cross-instance artefact, and the correct response was a comparability gate at bring-up rather than a looser bar (todo.md T7).",
       "properties": {
-        "max_throughput_regression": {"type": "number", "minimum": 0, "maximum": 1},
-        "max_latency_regression": {"type": "number", "minimum": 0, "maximum": 1},
-        "eval_confidence": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1}
+        "max_throughput_regression": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "max_latency_regression": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "eval_confidence": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        }
       }
     },
-
     "correctness": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["smoke", "needle", "evals"],
+      "required": [
+        "smoke",
+        "needle",
+        "evals"
+      ],
       "properties": {
         "smoke": {
           "type": "array",
@@ -91,12 +169,32 @@
           "items": {
             "type": "object",
             "additionalProperties": true,
-            "required": ["check", "stock", "patched", "verdict"],
+            "required": [
+              "check",
+              "stock",
+              "patched",
+              "verdict"
+            ],
             "properties": {
-              "check": {"type": "string", "minLength": 1},
-              "stock": {"type": ["boolean", "null"]},
-              "patched": {"type": ["boolean", "null"]},
-              "verdict": {"$ref": "#/$defs/verdict_word"}
+              "check": {
+                "type": "string",
+                "minLength": 1
+              },
+              "stock": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "patched": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "verdict": {
+                "$ref": "#/$defs/verdict_word"
+              }
             }
           }
         },
@@ -106,15 +204,47 @@
           "items": {
             "type": "object",
             "additionalProperties": true,
-            "required": ["run", "stock_ok", "patched_ok", "verdict"],
+            "required": [
+              "run",
+              "stock_ok",
+              "patched_ok",
+              "verdict"
+            ],
             "properties": {
-              "run": {"type": "string", "minLength": 1},
-              "gated": {"type": "boolean"},
-              "stock_ok": {"type": ["boolean", "null"]},
-              "patched_ok": {"type": ["boolean", "null"]},
-              "stock_prompt_tokens": {"type": ["integer", "null"]},
-              "patched_prompt_tokens": {"type": ["integer", "null"]},
-              "verdict": {"$ref": "#/$defs/verdict_word"}
+              "run": {
+                "type": "string",
+                "minLength": 1
+              },
+              "gated": {
+                "type": "boolean"
+              },
+              "stock_ok": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "patched_ok": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "stock_prompt_tokens": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "patched_prompt_tokens": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "verdict": {
+                "$ref": "#/$defs/verdict_word"
+              }
             }
           }
         },
@@ -123,20 +253,70 @@
           "items": {
             "type": "object",
             "additionalProperties": true,
-            "required": ["name", "scored_a", "score_a", "scored_b", "score_b", "delta", "ci95_delta", "verdict"],
+            "required": [
+              "name",
+              "scored_a",
+              "score_a",
+              "scored_b",
+              "score_b",
+              "delta",
+              "ci95_delta",
+              "verdict"
+            ],
             "description": "`_a` is stock, `_b` is patched. The scored counts are required alongside the scores because the interval cannot be recomputed without them, and check_no_regression recomputes rather than reads.",
             "properties": {
-              "name": {"type": "string", "minLength": 1},
-              "scored_a": {"type": "integer", "minimum": 0},
-              "score_a": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
-              "ci95_a": {"$ref": "#/$defs/interval"},
-              "scored_b": {"type": "integer", "minimum": 0},
-              "score_b": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
-              "ci95_b": {"$ref": "#/$defs/interval"},
-              "delta": {"type": ["number", "null"]},
-              "ci95_delta": {"$ref": "#/$defs/interval"},
-              "verdict": {"$ref": "#/$defs/verdict_word"},
-              "uninterpretable_because": {"type": ["string", "null"]}
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "scored_a": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "score_a": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              },
+              "ci95_a": {
+                "$ref": "#/$defs/interval"
+              },
+              "scored_b": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "score_b": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              },
+              "ci95_b": {
+                "$ref": "#/$defs/interval"
+              },
+              "delta": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "ci95_delta": {
+                "$ref": "#/$defs/interval"
+              },
+              "verdict": {
+                "$ref": "#/$defs/verdict_word"
+              },
+              "uninterpretable_because": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
             }
           }
         },
@@ -147,132 +327,393 @@
         }
       }
     },
-
     "performance": {
       "type": "array",
       "minItems": 1,
-      "description": "One row per metric, per column, per replay round. Rounds are compared like for like -- round 1 is cold for the trace and round 2 is warm, and the same configuration measured cold and warm has been seen to differ by an order of magnitude.",
+      "description": "One row per metric, per column, per replay round. EVIDENCE, not the verdict: the verdict is taken on `comparison`, which reduces these. Judging each round separately made R rounds into 7R independent tests at the bar, so the gate got less trustworthy the more rounds it was given -- family-wise false refusal 6.8% at R=1 and 29.7% at R=5 for a 1% per-row rate. These rows stay because a reader needs to see the spread the reduction stood for.",
       "items": {
         "type": "object",
         "additionalProperties": true,
-        "required": ["round", "metric", "column", "stock", "patched", "verdict"],
+        "required": [
+          "round",
+          "metric",
+          "column",
+          "stock",
+          "patched",
+          "verdict"
+        ],
         "properties": {
-          "round": {"type": "string", "minLength": 1},
-          "metric": {"type": "string", "minLength": 1},
-          "column": {"type": "string", "minLength": 1},
-          "label": {"type": "string"},
-          "stock": {"type": ["number", "null"]},
-          "patched": {"type": ["number", "null"]},
-          "rel_delta": {"type": ["number", "null"],
-            "description": "(patched - stock) / stock. Null and not 0.0 when stock is zero or missing: a baseline of zero means the measurement did not happen, and reporting 0% change for it is the quiet lie this package's validators exist to catch."},
-          "bar": {"type": ["number", "null"]},
-          "verdict": {"$ref": "#/$defs/verdict_word"}
+          "round": {
+            "type": "string",
+            "minLength": 1
+          },
+          "metric": {
+            "type": "string",
+            "minLength": 1
+          },
+          "column": {
+            "type": "string",
+            "minLength": 1
+          },
+          "label": {
+            "type": "string"
+          },
+          "stock": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "patched": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "rel_delta": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "(patched - stock) / stock. Null and not 0.0 when stock is zero or missing: a baseline of zero means the measurement did not happen, and reporting 0% change for it is the quiet lie this package's validators exist to catch."
+          },
+          "bar": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "verdict": {
+            "$ref": "#/$defs/verdict_word"
+          }
         }
       }
     },
-
     "stock_vs_m2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "tolerance", "metrics", "ok"],
-      "description": "M5.1.3.1 -- 原算子应该复现 2 中 bench 的结果. The stock arm is m5's control, and m2's `profiling_mode_off.bench_result` is the same measurement one stage earlier on the same deployment. If they disagree, the two stages measured different machines (or the same machine in two different states) and every number this document compares is void. This is a BLOCKER, unlike `kernel_reconciliation`: the chain's arithmetic depends on it.",
+      "required": [
+        "source",
+        "tolerance",
+        "metrics",
+        "ok"
+      ],
+      "description": "M5.1.3.1 -- \u539f\u7b97\u5b50\u5e94\u8be5\u590d\u73b0 2 \u4e2d bench \u7684\u7ed3\u679c. The stock arm is m5's control, and m2's `profiling_mode_off.bench_result` is the same measurement one stage earlier on the same deployment. If they disagree, the two stages measured different machines (or the same machine in two different states) and every number this document compares is void. This is a BLOCKER, unlike `kernel_reconciliation`: the chain's arithmetic depends on it.",
       "properties": {
-        "source": {"type": ["string", "null"], "minLength": 1,
-          "description": "Which m2 artefact was read, by handoff kind and path. Null only alongside an `unavailable_because`."},
-        "unavailable_because": {"type": ["string", "null"],
-          "description": "Required to be a non-empty string whenever `ok` is null. 'The m2 handoff was not staged for this task' is an acceptable answer; silence is not."},
-        "tolerance": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "source": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Which m2 artefact was read, by handoff kind and path. Null only alongside an `unavailable_because`."
+        },
+        "unavailable_because": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Required to be a non-empty string whenever `ok` is null. 'The m2 handoff was not staged for this task' is an acceptable answer; silence is not."
+        },
+        "tolerance": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
         "metrics": {
           "type": "array",
           "description": "Empty is legal only when `ok` is null and `unavailable_because` says why.",
           "items": {
             "type": "object",
             "additionalProperties": true,
-            "required": ["metric", "column", "m2", "stock", "rel_delta"],
+            "required": [
+              "metric",
+              "column",
+              "m2",
+              "stock",
+              "rel_delta"
+            ],
             "properties": {
-              "metric": {"type": "string", "minLength": 1},
-              "column": {"type": "string", "minLength": 1},
-              "m2": {"type": ["number", "null"]},
-              "stock": {"type": ["number", "null"]},
-              "rel_delta": {"type": ["number", "null"],
-                "description": "(stock - m2) / m2. Signed, and both signs matter: a stock arm faster than m2's is as much evidence of a different machine as a slower one."},
-              "within_tolerance": {"type": ["boolean", "null"]}
+              "metric": {
+                "type": "string",
+                "minLength": 1
+              },
+              "column": {
+                "type": "string",
+                "minLength": 1
+              },
+              "m2": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "stock": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "rel_delta": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "(stock - m2) / m2. Signed, and both signs matter: a stock arm faster than m2's is as much evidence of a different machine as a slower one."
+              },
+              "within_tolerance": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
             }
           }
         },
-        "ok": {"type": ["boolean", "null"]}
+        "ok": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
       }
     },
-
     "kernel_reconciliation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kernel_speedup", "kernel_share_of_profile", "predicted_e2e_speedup", "observed_e2e_speedup", "agrees"],
-      "description": "M5.1.3.2 -- 优化后算子的提升加速比，结合 2 从 4 的单单体加速换算回去应该符合整体加速比. Amdahl over one kernel: if the kernel is `s` of the profile and got `k` times faster, the end-to-end speedup cannot exceed 1/((1-s) + s/k). **Warning, not a blocker**, exactly as the mission asks (作为 report/warning 报告，不作为 blocker) -- the model is crude, the kernel's share is measured with the profiler attached and CUDA graph off, and the end-to-end number is measured with neither, so a disagreement is a question rather than a fault. The one hard floor is elsewhere and it is `patched must not be slower than stock`.",
+      "required": [
+        "kernel_speedup",
+        "kernel_share_of_profile",
+        "predicted_e2e_speedup",
+        "observed_e2e_speedup",
+        "agrees"
+      ],
+      "description": "M5.1.3.2 -- \u4f18\u5316\u540e\u7b97\u5b50\u7684\u63d0\u5347\u52a0\u901f\u6bd4\uff0c\u7ed3\u5408 2 \u4ece 4 \u7684\u5355\u5355\u4f53\u52a0\u901f\u6362\u7b97\u56de\u53bb\u5e94\u8be5\u7b26\u5408\u6574\u4f53\u52a0\u901f\u6bd4. Amdahl over one kernel: if the kernel is `s` of the profile and got `k` times faster, the end-to-end speedup cannot exceed 1/((1-s) + s/k). **Warning, not a blocker**, exactly as the mission asks (\u4f5c\u4e3a report/warning \u62a5\u544a\uff0c\u4e0d\u4f5c\u4e3a blocker) -- the model is crude, the kernel's share is measured with the profiler attached and CUDA graph off, and the end-to-end number is measured with neither, so a disagreement is a question rather than a fault. The one hard floor is elsewhere and it is `patched must not be slower than stock`.",
       "properties": {
-        "kernel_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0,
-          "description": "From m4's own verification, not from the workset's printed claim."},
-        "kernel_share_of_profile": {"type": ["number", "null"], "minimum": 0, "maximum": 1,
-          "description": "The kernel's fraction of `% Total` in m2's kernel_table. Measured with the profiler attached and CUDA graph off, which is not the configuration the end-to-end number was measured in -- that is the largest single reason the two can legitimately disagree."},
-        "predicted_e2e_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
-        "observed_e2e_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
-        "agrees": {"type": ["boolean", "null"]},
-        "unavailable_because": {"type": ["string", "null"]},
-        "note": {"type": ["string", "null"]}
+        "kernel_speedup": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0,
+          "description": "From m4's own verification, not from the workset's printed claim."
+        },
+        "kernel_share_of_profile": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "The kernel's fraction of `% Total` in m2's kernel_table. Measured with the profiler attached and CUDA graph off, which is not the configuration the end-to-end number was measured in -- that is the largest single reason the two can legitimately disagree."
+        },
+        "predicted_e2e_speedup": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "observed_e2e_speedup": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "agrees": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "unavailable_because": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
-
     "verdict": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["accepted", "reasons"],
+      "required": [
+        "accepted",
+        "reasons"
+      ],
       "description": "**check_no_regression does not read `accepted`.** It recomputes the whole argument from the numbers above and fails when its answer and this one disagree -- even when its own answer is 'accept'. Two answers that differ mean one is wrong, and neither can be used until that is settled.",
       "properties": {
-        "accepted": {"type": "boolean"},
+        "accepted": {
+          "type": "boolean"
+        },
         "reasons": {
           "type": "array",
-          "items": {"type": "string", "minLength": 1},
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
           "description": "Every reason the verdict is what it is. Checked against the recomputation's reasons, not only against the boolean: a verdict that is right by accident is not a verdict."
         },
         "warnings": {
           "type": "array",
-          "items": {"type": "string", "minLength": 1},
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
           "description": "Findings that are reported and do not refuse. `kernel_reconciliation` disagreeing lands here (M5.1.3.2)."
+        }
+      }
+    },
+    "comparison": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The judged rows: ONE per (metric, column), with the rounds reduced first. `check_no_regression` recomputes each from the `performance` rows using eval_stats.reduce_rounds and refuses on a disagreement, so a producer cannot report a reduction it did not perform. At R=1 the reduction is the identity.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "metric",
+          "column",
+          "stock",
+          "patched",
+          "verdict"
+        ],
+        "properties": {
+          "metric": {
+            "type": "string",
+            "minLength": 1
+          },
+          "column": {
+            "type": "string",
+            "minLength": 1
+          },
+          "label": {
+            "type": "string"
+          },
+          "reduction": {
+            "type": "string",
+            "description": "Which statistic reduced the rounds. 'median' today; the round-to-round distribution is unmeasured (todo.md T25)."
+          },
+          "rounds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "stock": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "patched": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "rel_delta": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "bar": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "verdict": {
+            "$ref": "#/$defs/verdict_word"
+          }
         }
       }
     }
   },
-
   "$defs": {
     "verdict_word": {
       "type": "string",
-      "enum": ["same", "improved", "REGRESSED", "unmeasured", "uninterpretable", "context"],
+      "enum": [
+        "same",
+        "improved",
+        "REGRESSED",
+        "unmeasured",
+        "uninterpretable",
+        "context"
+      ],
       "description": "`REGRESSED` is shouted because it is the one that stops the graph. `context` is a row that is reported and never judged -- the replayed request count, for instance, which is not a metric but which invalidates the comparison if the two arms differ on it. `uninterpretable` is not `same`: an eval behind a failed probe produces a number rather than an error, and the number is indistinguishable from a real regression."
     },
     "interval": {
-      "type": ["array", "null"],
+      "type": [
+        "array",
+        "null"
+      ],
       "minItems": 2,
       "maxItems": 2,
-      "items": {"type": "number"},
+      "items": {
+        "type": "number"
+      },
       "description": "[lower, upper], 95%. Wilson for a proportion and Newcombe for a difference of two -- not Wald, whose width is zero at p=0 and p=1, which is exactly where an eval that is working perfectly or failing completely lands."
     },
     "arm": {
       "type": "object",
       "additionalProperties": true,
-      "required": ["node", "endpoint", "sequence"],
+      "required": [
+        "node",
+        "endpoint",
+        "sequence"
+      ],
       "properties": {
-        "node": {"type": "string", "minLength": 1},
-        "endpoint": {"type": "string", "minLength": 1},
-        "container": {"type": "string"},
+        "node": {
+          "type": "string",
+          "minLength": 1
+        },
+        "endpoint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "container": {
+          "type": "string"
+        },
         "sequence": {
           "type": "array",
           "minItems": 1,
-          "items": {"type": "string", "minLength": 1},
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
           "description": "The measurement steps in the order they ran. Both arms must match: 'round 1 is cold against this trace' is only true if the same things happened before it on both. The authoritative copy is each arm's `env/steps.json` with timestamps, which check_measurement_order reads; this is the summary a human sees."
         },
-        "probe_ok": {"type": ["boolean", "null"]},
-        "smoke_ok": {"type": ["boolean", "null"]},
-        "needle_ok": {"type": ["boolean", "null"]}
+        "probe_ok": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "smoke_ok": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "needle_ok": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
       }
     }
   }

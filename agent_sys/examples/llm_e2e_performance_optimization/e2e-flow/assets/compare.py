@@ -418,6 +418,8 @@ def main() -> int:
 
     # ---- performance ---------------------------------------------------------
     perf_rows = []
+    #: Per-round breaches. Reported, not judged -- see the append site below.
+    round_breaches: list[str] = []
     rounds = sorted(
         {p.name for arm in arms for p in (loaded[arm]["bench"]).glob("r*") if p.is_dir()}
     )
@@ -436,9 +438,16 @@ def main() -> int:
                 row.update(round=round_name, metric=metric, column=column, label=label, bar=bar)
                 perf_rows.append(row)
                 if row["verdict"] == "REGRESSED":
-                    reasons.append(
+                    # **A warning now, not a reason.** A single round breaching
+                    # is evidence about that round; the verdict is taken on the
+                    # reduction below, once per (metric, column). Rejecting here
+                    # too would restore the 7R multiple-comparison inflation
+                    # that reduction exists to remove — and would do it
+                    # invisibly, because the reduced row would say `same`.
+                    round_breaches.append(
                         f"{label} ({column}) in {round_name}: {a} -> {b}, "
-                        f"{row['rel_delta']:+.1%} against a bar of {bar:.0%}"
+                        f"{row['rel_delta']:+.1%} against a bar of {bar:.0%} "
+                        "(one round; the verdict is on the reduction)"
                     )
         counts = {
             arm: summaries[arm].get("request_count", {}).get("avg") for arm in ("stock", "patched")
@@ -458,6 +467,43 @@ def main() -> int:
                 f"{round_name}: the two arms replayed different request counts "
                 f"({counts['stock']} vs {counts['patched']}) — they are not comparable"
             )
+
+    # ---- the judged comparison: ONE row per (metric, column) -------------------
+    #
+    # **`performance` above is evidence from here on, not the verdict.** It kept
+    # one row per round and every row was judged, so R rounds were 7R independent
+    # tests at the bar and the gate got *less* trustworthy the more rounds it was
+    # given: family-wise false refusal 6.8% at R=1, 29.7% at R=5, 50.5% at R=10,
+    # at a 1% per-row rate. Rounds are supposed to average, not multiply.
+    #
+    # So the rounds are reduced first and the reduced pair is judged once.
+    # `eval_stats.reduce_rounds` is the single definition, because
+    # `check_no_regression` recomputes this from the same per-round rows and the
+    # two agreeing is the whole point of that validator.
+    #
+    # At R=1 the reduction is the identity, so every artefact this package has
+    # produced is judged exactly as it was and no existing verdict moves.
+    comparison_rows = []
+    for metric, (label, higher_better) in PERF_METRICS.items():
+        for column in PERF_COLUMNS.get(metric, ("avg",)):
+            per_round = {
+                arm: [r[arm] for r in perf_rows
+                      if r.get("metric") == metric and r.get("column") == column]
+                for arm in ("stock", "patched")
+            }
+            a, detail_a = eval_stats.reduce_rounds(per_round["stock"])
+            b, detail_b = eval_stats.reduce_rounds(per_round["patched"])
+            bar = args.max_throughput_regression if higher_better else args.max_latency_regression
+            row = eval_stats.perf_verdict(a, b, max_regression=bar, higher_is_better=higher_better)
+            row.update(metric=metric, column=column, label=label, bar=bar,
+                       reduction="median", rounds=detail_a["n"],
+                       stock_detail=detail_a, patched_detail=detail_b)
+            comparison_rows.append(row)
+            if row["verdict"] == "REGRESSED":
+                reasons.append(
+                    f"{label} ({column}) over {detail_a['n']} round(s): "
+                    f"{a} -> {b}, {row['rel_delta']:+.1%} against a bar of {bar:.0%}"
+                )
 
     # ---- did both arms do the same things in the same order? -----------------
     order = {arm: [s["step"] for s in loaded[arm]["steps"].get("steps", [])] for arm in arms}
@@ -484,6 +530,9 @@ def main() -> int:
         manifest.get("operator_id"),
     )
     warnings: list[str] = []
+    # Per-round breaches surface here so a reader sees which rounds moved and by
+    # how much, without any of them being able to reject on its own.
+    warnings.extend(round_breaches)
     if reconciliation.get("unavailable_because"):
         warnings.append(f"kernel reconciliation not computed: {reconciliation['unavailable_because']}")
     elif reconciliation.get("agrees") is False:
@@ -531,6 +580,9 @@ def main() -> int:
             "prefix_reuse_delta": prefix_reuse,
         },
         "performance": perf_rows,
+        # The judged rows: one per (metric, column), rounds reduced first.
+        # `performance` above is the evidence this stands on.
+        "comparison": comparison_rows,
         # M5.1.3.1, a blocker: the stock arm has to reproduce m2's bench, or the
         # two stages measured different machines and nothing above is comparable.
         "stock_vs_m2": stock_vs_m2,

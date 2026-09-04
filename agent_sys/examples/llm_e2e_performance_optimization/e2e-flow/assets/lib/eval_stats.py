@@ -92,6 +92,48 @@ def relative_change(a: float, b: float) -> float | None:
     return (b - a) / a
 
 
+def reduce_rounds(values: list) -> tuple[float | None, dict]:
+    """One number from a metric's per-round values, plus what was reduced.
+
+    **Why this exists: the gate used to judge every round separately, and that
+    made it worse the more evidence it was given.** `compare` emitted one row
+    per (round, metric, column) and `check_no_regression` refused if any row
+    breached, so R rounds were 7R independent tests at the bar. Measured
+    family-wise false-refusal at a 1% per-row rate: 6.8% at R=1, 29.7% at R=5,
+    50.5% at R=10. An instrument that gets less trustworthy as evidence
+    accumulates is the wrong shape, and no choice of bar fixes it.
+
+    **Median, and the choice is honest rather than measured.** At R=1 it is the
+    identity, so every artefact produced so far is judged exactly as before and
+    this change cannot move an existing verdict. At R>=3 it costs one bad round
+    rather than being dragged by it, which is what m4's heavy-tailed kernel
+    distribution argues for. But **the round-to-round distribution of these
+    metrics has never been measured** — every sealed bench artefact in the
+    package carries exactly one round — so median over mean is reasoning, not
+    evidence. `todo.md` T25 owes the measurement; revisit with it in hand.
+
+    Returns `(reduced, detail)`. `detail` carries `n`, the values reduced, and
+    the mean and spread, so a reader can see what the median stood for and a
+    later reduction can be argued against the same record.
+    """
+    seen = [v for v in values if isinstance(v, (int, float))]
+    if not seen:
+        return None, {"n": 0, "values": [], "mean": None, "spread": None}
+    ordered = sorted(seen)
+    mid = len(ordered) // 2
+    reduced = ordered[mid] if len(ordered) % 2 else (ordered[mid - 1] + ordered[mid]) / 2
+    mean = sum(seen) / len(seen)
+    # Peak-to-peak rather than a standard deviation: at the R this gate will
+    # ever see (1 to about 5) an sd is not informative and a range is.
+    spread = (max(seen) - min(seen)) / mean if mean else None
+    return reduced, {
+        "n": len(seen),
+        "values": [round(v, 6) for v in seen],
+        "mean": round(mean, 6),
+        "spread": None if spread is None else round(spread, 6),
+    }
+
+
 def perf_verdict(a: float | None, b: float | None, *, max_regression: float,
                  higher_is_better: bool) -> dict:
     """One metric, one round, both arms.

@@ -142,6 +142,7 @@ def recompute(report: dict, args: dict, reasons: list) -> list[str]:
     throughput_bar = float(args.get("max_throughput_regression", bars.get("max_throughput_regression", 0.05)))
     latency_bar = float(args.get("max_ttft_regression", bars.get("max_latency_regression", 0.10)))
     higher_better = {"output_token_throughput_tps", "request_throughput_rps"}
+    per_round_breaches: list[str] = []
     for row in report.get("performance", []):
         if row.get("verdict") == "context":
             # Reported and not judged -- but a request-count difference means the
@@ -166,8 +167,20 @@ def recompute(report: dict, args: dict, reasons: list) -> list[str]:
                 f"{row.get('round')} {metric} ({row.get('column')}): the report says "
                 f"{row.get('verdict')!r} and the numbers say {again['verdict']!r}"
             )
+        # **A per-round breach is not a refusal, and this is the fix to a defect
+        # in the gate's shape.** Every row used to refuse, so R rounds were 7R
+        # independent tests at the bar and the gate got less trustworthy the more
+        # evidence it was given: family-wise false refusal 6.8% at R=1, 29.7% at
+        # R=5, 50.5% at R=10, at a 1% per-row rate. Rounds must average, not
+        # multiply. The verdict is taken once per (metric, column) below, on the
+        # reduction; the per-round rows remain and their arithmetic is still
+        # checked, because a report whose own rows do not add up is not usable
+        # whichever level the verdict is taken at.
         if again["verdict"] == "REGRESSED":
-            found.append(f"{row.get('round')} {metric} ({row.get('column')}) regressed")
+            per_round_breaches.append(f"{row.get('round')} {metric} ({row.get('column')})")
+
+    found.extend(judge_comparison(report, args, throughput_bar, latency_bar,
+                                  higher_better, per_round_breaches))
 
     arms = report.get("arms") or {}
     sequences = {name: tuple(a.get("sequence") or ()) for name, a in arms.items()}
@@ -175,6 +188,87 @@ def recompute(report: dict, args: dict, reasons: list) -> list[str]:
         found.append(f"the arms ran different sequences: {sequences}")
 
     found.extend(stock_reproduces_m2(report, args))
+    return found
+
+
+def judge_comparison(report: dict, args: dict, throughput_bar: float, latency_bar: float,
+                     higher_better: set, per_round_breaches: list) -> list[str]:
+    """The verdict, taken once per (metric, column) on the reduced rounds.
+
+    **This is where the gate refuses, and `performance` no longer is.** Judging
+    every round separately made R rounds into 7R independent tests at the bar,
+    so the gate became less trustworthy the more evidence it was given —
+    measured family-wise false refusal 6.8% at R=1, 29.7% at R=5, 50.5% at R=10
+    for a 1% per-row rate. Reduction removes that; nothing about the bars
+    changes, and at R=1 the reduction is the identity so no existing verdict
+    moves.
+
+    **The reduction is recomputed here from `performance`, not read.** Same rule
+    as everywhere else in this file: `compare` is a program in this package, and
+    a producer that both reduces and reports its own reduction could hide a bug
+    in it. `eval_stats.reduce_rounds` is the one definition both sides call.
+    """
+    rows = report.get("comparison")
+    if not isinstance(rows, list) or not rows:
+        return [
+            "the report carries no `comparison` block. The verdict is taken on the "
+            "rounds reduced per (metric, column); a report with only per-round rows "
+            "predates that and cannot be judged without reintroducing the "
+            "multiple-comparison inflation reduction exists to remove."
+        ]
+
+    by_key: dict[tuple, dict[str, list]] = {}
+    for row in report.get("performance", []):
+        if row.get("verdict") == "context":
+            continue
+        key = (row.get("metric"), row.get("column"))
+        slot = by_key.setdefault(key, {"stock": [], "patched": []})
+        slot["stock"].append(row.get("stock"))
+        slot["patched"].append(row.get("patched"))
+
+    found: list[str] = []
+    judged = set()
+    for row in rows:
+        metric, column = row.get("metric"), row.get("column")
+        judged.add((metric, column))
+        up_is_good = metric in higher_better
+        bar = throughput_bar if up_is_good else latency_bar
+        seen = by_key.get((metric, column))
+        if not seen:
+            found.append(
+                f"{metric} ({column}) is compared but no per-round row supports it — "
+                "the reduction stands on nothing this report carries")
+            continue
+        a, _ = eval_stats.reduce_rounds(seen["stock"])
+        b, _ = eval_stats.reduce_rounds(seen["patched"])
+        # The producer's own reduced pair has to match what its rounds reduce to.
+        for name, mine, theirs in (("stock", a, row.get("stock")),
+                                   ("patched", b, row.get("patched"))):
+            if mine is None or theirs is None:
+                continue
+            if abs(mine - theirs) > max(1e-6, abs(mine) * 1e-6):
+                found.append(
+                    f"{metric} ({column}): the report's reduced {name} is {theirs} and its own "
+                    f"{len(seen[name])} round(s) reduce to {mine}")
+        again = eval_stats.perf_verdict(a, b, max_regression=bar, higher_is_better=up_is_good)
+        if again["verdict"] != row.get("verdict"):
+            found.append(
+                f"{metric} ({column}): the report says {row.get('verdict')!r} and the reduced "
+                f"numbers say {again['verdict']!r}")
+        if again["verdict"] == "REGRESSED":
+            found.append(f"{metric} ({column}) regressed over {len(seen['stock'])} round(s)")
+
+    # A per-round row with no reduced row above it would be judged by nothing.
+    for key in by_key:
+        if key not in judged:
+            found.append(f"{key[0]} ({key[1]}) has per-round rows and no comparison row, "
+                         "so nothing judged it")
+
+    if per_round_breaches and not found:
+        print("  individual rounds breached and the reduction did not: "
+              + ", ".join(per_round_breaches))
+        print("    Reported, not judged. If this is common, the rounds disagree more than "
+              "the bar allows and that is a comparability problem (todo.md T7), not a patch one.")
     return found
 
 
@@ -193,9 +287,20 @@ def unlisted_findings(report: dict, args: dict) -> list[str]:
     higher_better = {"output_token_throughput_tps", "request_throughput_rps"}
 
     missing: list[str] = []
-    for row in report.get("performance", []):
-        if row.get("verdict") == "context":
-            continue
+    # **`comparison` and not `performance`, and getting this wrong reintroduced
+    # the whole defect through a side door.** This function used to walk the
+    # per-round rows and demand that every REGRESSED one be named in
+    # `verdict.reasons`. Once the verdict moved to the reduction, that turned a
+    # single bad round into a refusal again — measured: 5 rounds with one 1.40x
+    # outlier, the reduced rows all `same`, and this refused anyway on seven
+    # "the report's reasons do not name it" findings. The reduction has to be
+    # complete or the inflation comes back invisibly, which is worse than never
+    # having reduced.
+    #
+    # Per-round breaches are `warnings` now (`compare.py` writes them there) and
+    # `judge_comparison` prints them. A warning is not something the report must
+    # justify in `reasons`.
+    for row in report.get("comparison", []):
         metric = str(row.get("metric") or "")
         again = eval_stats.perf_verdict(
             row.get("stock"), row.get("patched"),
@@ -205,13 +310,12 @@ def unlisted_findings(report: dict, args: dict) -> list[str]:
         if again["verdict"] != "REGRESSED":
             continue
         groups = [
-            [str(row.get("round") or "")],
             [g for g in (metric, str(row.get("label") or "")) if g],
             [f"({row.get('column')})"],
         ]
         if not _mentioned(groups, stated):
             missing.append(
-                f"{row.get('round')} {metric} ({row.get('column')}) regressed and the report's "
+                f"{metric} ({row.get('column')}) regressed and the report's "
                 "reasons do not name it"
             )
 
