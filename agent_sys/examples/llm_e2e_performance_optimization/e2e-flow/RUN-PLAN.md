@@ -325,3 +325,282 @@ the cards back at 0%.
 ## The one measurement to take at rung 5 that nobody has
 
 `todo.md` T7 wants the within-arm round-to-round spread on a **quiet** node. Both holds carry other tenants today. If a quiet window appears, take it: it is the number that decides whether 5% / 10% are right, and the previous round widened them to 35% / 30% on a cross-instance artefact for want of it.
+
+---
+
+## Standalone verification — m4 (`optimize_kernel`)
+
+The user's redirection, 2026-09-04: *"e2e串通也可以通过先单独运行每个模块保证单独通(也可以并行)"*
+— verify each module on its own rather than only through the ladder. This is m4's.
+**m4 is the stage that most needs it: it is the only one that has never executed
+in any graph, on any rung.**
+
+Written in a shape m1, m2, m3 and m5 can copy: **the command, the input, the
+cost, the smallest honest proof.**
+
+### 1. The command, in full
+
+Not a delta against another table. Every launch-line failure on 2026-09-04 came
+from someone assembling a command from a diff.
+
+```sh
+agent-sys run --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+  --demo-root /home/yihou/agent_sys_runroot \
+  --var jobid=<JOBID> --var node=<NODE> --var node_ip=<NODE_IP> \
+  --var model_name=Qwen/Qwen3.6-27B \
+  --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
+  --var image=<THE KIT'S IMAGE, not the node's> \
+  --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR \
+  --var mock_stages=all \
+  --var m1_agent=runner --var m2_agent=runner --var m3_agent=runner --var m5_agent=runner \
+  --var workset_operator=sampler_vocab_softmax \
+  --var gpu=<A FREE CARD> \
+  --var scratch_root=/mnt/m2m_nobackup/yihou/e2e_flow/kfo \
+  --var forge_mock=1
+```
+
+Four of these are m4-specific and each has a reason that has already cost
+something:
+
+- **`workset_operator`** — a workset with more than one operator is a run-time
+  refusal, not a coin flip. m3's real worksets carry one today, so it is
+  optional *now* and mandatory the moment they carry two.
+- **`gpu`** — no default, and the refusal is deliberate (CONTRACT §5.2). Cards
+  are shared; `HIP_VISIBLE_DEVICES` empty stops the run rather than picking
+  card 0 next to a co-tenant.
+- **`scratch_root`** — must be node-local. On this cluster's NFS every ROCm
+  kernel launch segfaults *after* the copies and the first round.
+- **`forge_mock=1`** — see §4. This is what makes the run minutes instead of
+  hours, and it is the whole reason a standalone m4 is cheap.
+
+**`m4_agent` is deliberately absent.** Leaving it out keeps the real
+`kind: ai` agent, which is the point of verifying m4 rather than its mock.
+
+### 2. The input, and the seam — tested 2026-09-04
+
+m4 takes `operator_workset` **and** `deploy_kit`. m3 has produced two real
+measured worksets; both were driven through m4's STEP 1 and STEP 2 on the login
+node, no GPU:
+
+| workset | STEP 1 | why |
+|---|---|---|
+| `/home/yihou/m3_verify/` (006) | **refused** | `the workset carries no evidence.performance_report` — the `evidence` block is absent from `workset.yaml` although `evidence/{correctness,performance}.json` exist on disk |
+| `/home/yihou/m3_verify234/` (234) | **passes** | `ok: operator sampler_vocab_softmax, 3 performance shape(s), 3 correctness shape(s), baseline from evidence/performance.json` |
+
+**So m3's current output is consumable by m4 as-is.** Everything m4 previously
+refused a workset for — `integration`, `noise_floor`, `apparatus`,
+`ground_truth.dtypes`, and three *performance-role* shapes rather than one — is
+present in the 234 artefact. The A2 scaffold change landed and this is the
+evidence.
+
+The `m3_verify` gap is one line in `workset.yaml` and m3 fixed it between the
+two runs; recorded because **the files existing on disk is not the same as the
+workset declaring them**, and only the declaration is read.
+
+**The pairing constraint, which is the actual seam and is easy to get wrong:**
+the workset's `ground_truth.environment` and the `deploy_kit`'s record must
+agree on every abort-listed field. Pairing m3's 234 workset with a `deploy_kit`
+from a different bring-up produced, correctly:
+
+```
+ABORT: fixed.tp_size: workset 4, this run 8
+```
+
+m3 measured at `tp=4` because four cards were free. **A standalone m4 run needs
+a `deploy_kit` minted for the same bring-up the workset was measured against**,
+or it aborts before spending anything — which is the gate working, and is also
+§4's "can it disagree" half obtained for free.
+
+### 3. What it costs — and "hours" is true of one step only
+
+| step | needs | time |
+|---|---|---|
+| 1 `10_read_inputs` | nothing | < 1 s |
+| 2 `20_premise_gate` | nothing | < 1 s |
+| 3 `30_run_forge` | GPU + the container | **`forge_mock=1`: ~1 s. A real campaign: ≥ 1 hour, enforced** |
+| 4 `40_correctness` | GPU + the container | ~90 s, most of it container start and torch import |
+| 5 `50_performance` | GPU + the container | ~90 s, same |
+| 6 `60_write_handoff` | the container, for `base_sha256` | seconds |
+| 7 `70_selfcheck` | nothing | seconds |
+
+**The "hours" in the bug file is `KFO_MAX_HOURS` and belongs to STEP 3 alone.**
+It is not a description of the stage. And the floor is *enforced* — `cli.py:46`
+`MIN_MAX_HOURS` rejects anything below 1.0 — so **there is no such thing as a
+five-minute real campaign**; the choice is a campaign or a mock, with nothing
+in between.
+
+**Everything except STEP 3 is about three minutes on one card**, and most of
+that is torch importing. That is the same correction rung 0 got today: a stage
+treated as a node-hour problem needed one card for seconds.
+
+### 4. The smallest honest proof
+
+m3's standard — *does it agree, and can it disagree* — applied here:
+
+**Can it disagree: already demonstrated, on real artefacts.** The `tp_size 4 vs 8`
+abort above is m4 refusing a premise that does not hold, on two artefacts
+neither of which was built to make it fail. That is the half that matters,
+because a stage that only ever produces a number proves nothing.
+
+**Does it agree: `--var forge_mock=1` with a matched workset/kit pair.** This
+exercises everything except the optimiser:
+
+- STEPs 1–2 **for real** against m3's workset and m1's record;
+- STEP 3's wiring, with the seed copied behind a banner and a `forge_result.json`
+  of nulls — *a mock is not a small campaign*;
+- STEPs 4–5 **for real**: the workset's own entrypoints, in the container, on a
+  card, measuring the seed against itself. The ratio is ~1.0 **and that is the
+  correct answer** — it proves the measurement path end to end without a claim;
+- STEP 6 **refusing to write a claim** under a mocked forge — the schema
+  forbids it, so a green run here is a run that produced a handoff *with no
+  speedup in it*;
+- STEP 7, `check_optimization_shape` against the real output.
+
+**What it does not prove, stated so nobody reads more into a green run:**
+KernelForge has still never run, `check_speedup_substantiated`'s re-measurement
+has never graded a real optimised kernel, and no number this produces is a
+speedup. **A campaign is the only thing that proves the campaign.**
+
+### 5. Useful at every size
+
+One card, three minutes, and the pieces detach:
+
+- **no card at all** — STEPs 1, 2 and 7 run on the login node. That is the
+  workset seam and the premise gate, which is where both real defects found in
+  this stage so far have been.
+- **one card, ~3 min** — add STEPs 4, 5, 6 with `forge_mock=1`. This is the
+  recommended standalone run.
+- **one card, ≥ 1 h** — drop `forge_mock` and it is rung 4.
+
+The middle row is the one to run whenever a card is free for five minutes.
+
+---
+
+# Module 5 standalone — the smallest run that proves the wiring
+
+Written for the user's *"先单独运行每个模块保证单独通"*. **The answer to "is
+there a smaller thing?" is yes, and it needed a fix first.**
+
+## 1. The command
+
+```sh
+python3 -m agent_sys.cli.main run \
+  --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+  --demo-root /home/yihou/agent_sys_runroot \
+  --var jobid=<the hold> --var node=<the node> --var node_ip=<MEASURED, see below> \
+  --var model_name=Qwen/Qwen3.6-27B \
+  --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
+  --var image=<a servable image ON THAT NODE> \
+  --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR \
+  --var mock_stages=m1,m2,m3,m4 \
+  --var m1_agent=runner --var m3_agent=runner --var m4_agent=runner \
+  --var expect_ranks=2 \
+  --var container=yihou_m5_solo --var port_router=8151 \
+  --var port_worker=8152 --var port_etcd=8153 \
+  --var work_root=/mnt/m2m_nobackup/yihou/m5_solo \
+  --var aiperf_trace=/shared_nfs/yihou/agent_sys/debugging/profiling/conversation_trace.jsonl \
+  --var gsm8k_data=<a local GSM8K jsonl> \
+  --var eval_max_tokens=256 --var eval_examples=5 \
+  --var needle_tokens=2000 --var trace_end_ms=30000 \
+  --var bench_rounds=1 --var adhoc_cases=1
+```
+
+**`m5_agent` is deliberately absent.** m5 runs with its real `kind: ai` agent,
+because that agent following the STEPS readme *is* the module. `--var
+m5_agent=runner` swaps in the mock and proves nothing about the real path.
+
+**`node_ip` is measured, never derived.** `spur exec <job> hostname -I`. There is
+no pattern: `-061` → `10.245.159.129`, `-031` → `10.245.144.239`, `-006` →
+`10.245.151.128`. Deriving it cost a bring-up.
+
+## 2. What it consumes, and where a real one comes from
+
+| input | source in this run | a real one |
+|---|---|---|
+| `deploy_kit` | m1 mock — the sealed `stage1-deploy` kit | rung 1 |
+| `profiling_evidence` | m2 mock, merged from four sealed parts | rung 2 |
+| `operator_workset` | m3 mock + adaptation (C) | rung 3 |
+| `kernel_optimization` | m4 mock + adaptation (G) | rung 4 |
+
+**Two of these are known-defective as inputs and both are m4's**, found by
+driving `apply_patch`'s real path on 2026-09-04: the manifest declares
+`@SGLANG_ROOT@/python/sglang/srt/layers/sampler.py`, which repeats the root and
+names a path no image has; and its `base_sha256` was cut against
+`rocm/sgl-dev:v0.5.18-…`, so it will not match whatever image this run serves.
+**Both surface as a clean refusal with a named cause** (`03693af`), not a
+traceback — but they stop the run at `apply_patch` until m4 re-cuts.
+
+## 3. Resource and duration
+
+**One node, 8 cards, two containers brought up in sequence** — m5 is the
+designed exception to the one-container rule (CONTRACT §5).
+
+Measured per arm, from the sealed arms' own `env/steps.json`:
+
+| step | stock | patched | reducible? |
+|---|---|---|---|
+| serve | 480 s | 240 s | no — bring-up is irreducible |
+| smoke | 271 s | 220 s | no |
+| needle | 200 s | 194 s | yes, `needle_tokens` |
+| **probe** | **2062 s** | **2001 s** | **yes, `eval_max_tokens` — and this is the whole problem** |
+| lm_eval | 23 s | 428 s | yes, `eval_examples` |
+| bench_r1 | 44 s | 161 s | yes, `trace_end_ms` |
+| **total** | **3080 s** | **3244 s** | **~105 min for the pair** |
+
+**`probe` is two thirds of an arm, and until today its cost knob could not be
+set.** `measure.sh:149,157` reads `E2E_EVAL_MAX_TOKENS` and `E2E_EVAL_THREADS`
+and **nothing declared either**, so the `:-2048` fallback always won. Now
+declared on `e2e_integrator`; `runner` should mirror them.
+
+**The reduced total is an estimate and is labelled as one.** `serve`, `smoke`
+and `bench` are measured; the effect of `eval_max_tokens=256` on `probe` is an
+extrapolation nobody has taken. **Do not quote a reduced wall time as measured
+until one run has produced it** — that is the mistake this package keeps
+cataloguing, and predicting it here would be a fourth entry.
+
+## 4. The smallest honest proof
+
+**What a reduced run proves:** two bring-ups on one node in one session, a
+teardown between them, the overlay mounted on the second, the patch-live
+evidence collected from inside the running container, both arms measured in the
+same order, the comparison computed, and the packup assembled — every edge and
+every one of the seven validators, against artefacts this package produced.
+
+**What it does not prove, and cannot:** that the optimisation is good. **This is
+structural rather than a promise.** At reduced scale `n` is small, so the noise
+floor `1.96·√2·rsd/√n` rises above the bar, and `check_no_regression` returns
+**`uninterpretable`** — *this run cannot resolve a difference at this bar* —
+instead of a verdict. The gate refuses to let a short run claim a speedup, and
+the report carries the floor either way. Measured on the sealed arms at n=60:
+floors of 12.8%, 17.9% and 20.3% against a 10% bar.
+
+So the pass condition is **not** "accepted". It is:
+
+- `apply_patch` produces `patch_overlay` and `check_overlay_applies` passes;
+- both arms seal, and `check_measurement_order` confirms they were disjoint in
+  time **and on the same machine** (`f6131f7`);
+- `check_patch_live` passes on the patched arm — the mounted bytes were the ones
+  that ran, proven by re-hashing inside the container;
+- `check_no_regression` returns a verdict **or** `uninterpretable` **with the
+  floor stated** — both are passes for this purpose, and a silent `same` at
+  reduced scale would be the failure;
+- `packup` writes `e2e_packup` and `check_packup_shape` passes.
+
+**Can it disagree?** Yes, and that is the half worth stating: the same run with
+`--var eval_max_tokens=2048 --var trace_end_ms=120000` raises `n`, drops the
+floor below the bar, and the same gate then returns a real verdict. A proof that
+cannot fail is not a proof, and the difference between the two is one `--var`.
+
+## 5. If it still does not fit
+
+**It may not.** ~105 min at full scale against holds that died at 28 min, 1 h 21
+and 5 h today, with no fitted pattern. The reduced run removes `probe` and
+`lm_eval` as the dominant terms and leaves **two bring-ups, ~12 min of
+irreducible `serve` plus ~8 min of `smoke`**, which is the floor for anything
+that measures two arms at all.
+
+**Below that floor there is no honest module-5 test**, because a single arm does
+not exercise the sequencing, the mount, or the patch-live evidence — which are
+the three things that have never run. If even ~25 minutes cannot be held, the
+finding is that **Brief item 3 is not achievable in this environment**, and that
+is a fact about the allocation rather than about this stage.

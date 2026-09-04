@@ -345,12 +345,22 @@ executing, and the run is cut anyway. Nobody has that.
 **Measured 2026-09-04**, each independently from its own store —
 `build_workset`'s `INPUT_VALIDATING finished` to its `output_absent`:
 
-| run | rung | leaf lived | `output_absent` → `escalated` |
-|---|---|---|---|
-| `20260903T172821` | 0 | **13.8 s** | 19.0 ms |
-| `20260904T041742` | 1 | **10.8 s** | 15.9 ms |
-| `20260904T072849` | 0 | **16.9 s** | 15.3 ms |
-| `20260904T073546` | 0 | **18.4 s** | 21.9 ms |
+| run | rung | leaf lived | `exit_status` | `output_absent` → `escalated` |
+|---|---|---|---|---|
+| `20260903T172821` | 0 | **13.8 s** | `failed` — `exit 1` | 19.0 ms |
+| `20260904T041742` | 1 | **10.8 s** | `failed` — `exit 1` | 15.9 ms |
+| `20260904T072849` | 0 | **16.9 s** | `finished` — `exit 0` | 15.3 ms |
+| `20260904T073546` | 0 | **18.4 s** | `finished` — `exit 0` | 21.9 ms |
+
+**Do not fit a trend through the duration column: it holds two different
+quantities.** The first two are a body *dying*; the last two are a body
+*succeeding* and its output being refused by the seal. m3 fixed the body
+between run 2 and run 3, which is the step change, and the `seal_refused`
+attribute is **identical in all four** — `README.md: required section
+'Interface' is missing`. The seal is the one cause common to every run; since
+run 3 it is the only one left. Annotated because an unannotated column invites
+exactly the reading that a rising 10.8 → 18.4 means something about the
+detector, and it does not.
 
 **None reached twenty seconds, and in all four the escalation follows the
 absence inside ~20 ms.** No `running` event exists on that task in any of them —
