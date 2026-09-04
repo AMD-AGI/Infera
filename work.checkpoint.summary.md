@@ -7261,3 +7261,84 @@ they predicted and the fix is a wording rule rather than a hunt. If a second
 reader wants the exercise, the useful target is not my quotes — it is the eleven
 places I wrote *"per the leader"* and did not ask whether the leader had measured
 it.
+
+### Addendum, 11:45 UTC — 20 of 21. m5 was reached, and the ruling that it would not be is superseded
+
+**The ceiling moved from 14 to 20 in one run**, and it corrects a statement the
+leader made minutes ago: *"the seven never-spoken are still m5's, and they will
+stay unreached because `apply_patch` will refuse first."* **`apply_patch` did not
+refuse.** Run `20260904T112414-cf3e82`, verified by me over its zones:
+
+```
+34 invocations · 42 judgements true, 1 false · 15 handoff records
+patch_overlay        valid        <- apply_patch produced it
+stock.measurement    invalid
+patched.measurement  invalid
+integration_report   invalid
+e2e_packup           created
+```
+
+**Six of the seven m5 validators have now spoken**, every signature resolved
+against `steps/m5_integration.yaml` with no unmapped fallbacks:
+
+| validator | invocations | pass |
+|---|---|---|
+| `check_overlay_applies` | 1 | 1 |
+| `check_patch_live` | 1 | 1 |
+| `check_measurement_order` | 1 | 1 |
+| `check_bench_report` | 1 | 1 |
+| `check_acceptance` | 1 | 1 |
+| `check_no_regression` | 1 | **0** |
+
+**`check_packup_shape` is the only validator in the package that has never
+produced a verdict.** Live root: **20 distinct, 438 invocations.**
+
+**And `check_no_regression` refusing on its first contact is the right result to
+want.** It is the gate m5's whole control experiment exists to exercise — the one
+that must refuse on numbers nobody chose. One refusal is not yet evidence that it
+*can* discriminate; the null-versus-degraded design is what would establish that.
+But it spoke, and it said no.
+
+**I am recording the ruling as superseded rather than wrong.** The leader made it
+deliberately, as a known cost, on the reasoning that `apply_patch` would refuse
+first. The run says otherwise. Whether the m5 verdicts are *meaningful* — three
+of the five handoffs are `invalid` — is a separate question from whether the
+validators ran, and my metric only ever claimed the latter.
+
+### The leader's provenance audit, and my file checked against it
+
+I redirected a second read at *"the eleven places I wrote 'per the leader'
+without asking whether the leader had measured it"*, noting no second reader
+could do it. **The leader supplied it themselves** — six claims sorted into
+measured and inferred, unprompted. Checked against this file:
+
+| their claim | status here |
+|---|---|
+| "scratch must be created on the far side" — **inferred, half wrong** | recorded at T+1259 **as their self-correction**. Clean |
+| "m4's 006 reading was stale" — **inferred, wrong** | recorded at T+1259 §7 **as their self-correction**. Clean |
+| "the two profiling arms ran in parallel" — **wrong twice** | **not in this file at all** |
+| "m1's kit is complete and correct" — **relayed from m1, who inferred it from `ls`** | **not in this file at all** |
+| the `/home:/home` node-243 attribution | see below |
+| progress percentages given to the user | their reporting, not this file — and they were **my tally relayed without attribution** until ~10:50, now fixed upward |
+
+**Two of the six never reached this file, and that was not discipline.** I did
+not record them because they arrived in messages about other subjects, not
+because I screened them. **A filter that works by accident is not a filter**, and
+the two that did land are clean only because the leader sent them as
+corrections.
+
+**On item 5, one over-claim of mine survives.** I wrote that the catalogue row *"is
+a quotation of a real measurement"*. The node-243 denial is real and the comment
+at `:213-218` quotes it; that the **echo row at :274** derives from that same
+measurement is my inference, not something I checked. It is very likely and it is
+still an inference, and the leader's own correction is that they *"named the
+right variable and the wrong instance."* I did the smaller version of the same
+thing in the sentence correcting them.
+
+**And I decline the leader's absolution on my second message.** They argue the
+reasoning was correct — three mechanisms eliminated ordinarily *is* evidence of a
+fourth. That is a fair defence and I have recorded it as their view. **Mine is
+unchanged**: I had by then established that no context produced the value, and
+"the observation may be wrong" was available and cheap to test by asking m3 where
+the string came from. The generalisation m3 drew is worth having because it is
+counterintuitive; **it does not follow that the specific check was unreachable.**
