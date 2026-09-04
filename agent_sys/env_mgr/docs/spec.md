@@ -76,7 +76,7 @@ internally.
 | 4 | **Write narrowly, read broadly** | A task may not write outside its zones; reads get a generous but **declared** set. Both are allow-lists — the mechanisms enforce nothing else (§4.2). §4.5 |
 | 5 | **Work on a copy** | An agent copies a handoff into its playground and works there. §6.3 |
 | 6 | **A mechanism, not a manager** | §1.1 |
-| 7 | **Reuse what shipped** | The recipe and installer machinery is reused, not reimplemented. It is no longer *frozen*: the layer model was removed from it by design on 2026-09-04. §9 |
+| 7 | **Reuse what shipped** | The recipe and installer machinery is reused, not reimplemented. It is no longer *frozen*, for **two** independent reasons, both 2026-09-04: the layer model was removed from it by design, and `installers/claude.py`'s plugin check was fixed — a check that could never pass, held in place by the fence along with two tests encoding a CLI output format that does not exist. Either alone would have retired the fence. §9 |
 | 8 | **Adopt Claude Code's user/project split; invent no levels of our own** | Non-AI installs go system-wide. AI material splits exactly as the harness already splits it: package-declared is *user level*, agent-declared is *project level*. There is no layer field and no layer vocabulary. §9.1 |
 
 ---
