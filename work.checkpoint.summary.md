@@ -4922,3 +4922,216 @@ verdicts but not completion. **Each time the aggregate was true and I read a
 specific claim out of it** — and each time the correction cost one more artefact:
 the yaml beside the signature, the event store beside the tally, the per-task
 timeline beside the run.
+
+## T+1046 — 2026-09-04 06:57 UTC
+
+Interval 05:47 → 06:57, **70 minutes, 28 commits** — and **three of them are
+retractions**, one of which is m4 withdrawing a diagnosis I had helped
+propagate. That is the interval's shape and §7 takes it up.
+
+### The number that matters
+
+**10 of 21 validators — unchanged.** Union of both roots at 06:57:
+
+| | runs | invocations | judgements |
+|---|---|---|---|
+| frozen root (`ro`) | 38 | 231 | — |
+| live root | 3 | 18 | — |
+| **union** | **41** | **249** | **276** |
+
+**Zero new verdicts this interval**, against 28 commits and two new runs. That is
+**not** a stall and the distinction is the whole value of the three-state
+reading: run `20260904T062414` started 06:24:14, holds 3 `phase_done` events and
+nothing since, and is **33 minutes into a deploy** as I write. Its predecessor
+took 40 m 32 s in the same closure. **Growing at the closure level, ceiling at
+the validator level, and quiet is the expected appearance of both.**
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | clean |
+| (b) per-commit ownership | clean across 28 |
+| (c) `todo.md` | **24 items**, +2 (T23, T24) |
+| holds | **two**: `109238` (234, to 14:34), `109260` (006, to 14:48) |
+| `/home` | 1.6 T free (85 %), flat since 05:47 |
+
+### 1. Progress
+
+**~70 %.** Elapsed 1 046 m. **Down two points from the 72 % the leader adopted,
+and the reason is the interval itself.**
+
+**Reliability: low.** Three retractions and no rung advanced, against two real
+measurements landed (T21's discriminator, T7's distribution) and rung 1 lost to a
+cancelled hold. A retraction is not neutral: it removes a claim the plan was
+resting on. Two of the three removed *bad news* (the stall detector, the parser
+flag) and one removed an attribution — so the codebase is in better shape than I
+thought an hour ago **and the record is less certain**, and I weight the second
+more heavily because the first was never measured.
+
+**预估耗时: no number, and the leader is right that this is now a stronger
+refusal than before.** **Four holds were cancelled today** — at 5 h, 5 h, 1 h
+21 m and 28 minutes of 8 h, all `Reason=None`. A remaining-time estimate is a
+schedule, and a schedule assumes the machine survives the work. It has not, four
+times, with no cause identified and no pattern I can fit. **I am not producing a
+figure that would be a statement about Slurm's behaviour disguised as a statement
+about ours.** What is defensible: 1 of 6 rungs attempted, 0 clean.
+
+### 2. Current state
+
+**Rung 1 is live** on `109260`/006, 33 minutes in, quiet, in deploy. It is the
+third rung-1 attempt; the first died with the tmux kill, the second to a
+cancelled hold.
+
+- **m4 — 3 including the retraction**, plus T7's distribution work.
+- **m3 — 6**, the interval's most active: the `--rm` finding, the mount list,
+  `E2E_REMOTE_HOME`, the self-comparison fix.
+- **m1 — 4**: `gpu_count` generated rather than asserted, `gpu_devices`, T23,
+  `on_absent: skip`.
+- **m2 — 1, and they are back**: `2e1f0b8` lands the node probe. The silence I
+  flagged for two intervals has ended.
+- **m5 — 1**: five env names the agent never received.
+- **leader** — the CONTRACT and bug-file commits.
+- **me — 3** addenda.
+
+### 3. Code problems
+
+Labels as promised at T+977.
+
+- **OPEN — the stall detector.** m4 retracted their own diagnosis (`e846dec`) and
+  I corroborate it below from a run they did not use. **`blocked` is not
+  permanent**; it is empty in a clean run. m1's original defect stands unfixed
+  and worth fixing: `main.py:1015` is `(not holding or blocked)` against a
+  docstring saying *"and no attempt holds a thread"*. **Carried in §5 as open,
+  not here as fixed** — per the leader, and I agree: nothing was changed.
+- **OPEN — escalation reaches the top and finds nobody** (`531e75c`). Confirmed
+  in three runs now.
+- **OPEN — `build_workset` delivers no output.** Two rungs, same 10–14 s.
+- **FIXED — `E2E_REMOTE_HOME`** (`24d4e6e`), the one survivor of the env survey
+  I reported at T+977. The checker's last problem is closed.
+- **WORKED AROUND — `sacct -j` ignores its filter here.** I hit this at T+876 and
+  recorded it as a gap; it is now a standing rule: **do not use `sacct` for
+  attribution.** It is what produced the leader's `109277` misattribution.
+
+### 4. Non-code problems
+
+**A cancelled Slurm hold does not reclaim its GPUs** (`41c8540`) — containers
+talk to the **host** daemon and sit outside the job's cgroup. Job `109192`
+cancelled 28 minutes in; fifteen minutes later four containers `Up`, `/health`
+200, all eight cards at 74–76 %. m3 sharpened it (`009f24f`): **`--rm` is not a
+teardown when the hold is cancelled under you** — it fires when a container
+*stops*, and a cancelled hold stops nothing.
+
+**This closes a question I have been carrying since T+876 and it is worse than
+the answer I expected.** I have twice measured a node as "occupied by a
+co-tenant" — 249 at 96–98 %, 243 at 82–83 % — and reported it as another
+tenant's work. **Some fraction of that may be our own corpses, or anyone's.**
+Neither `squeue` nor `rocm-smi` can tell a live tenant from an abandoned one, and
+**T20's container on 249 is now an instance of a class rather than an isolated
+debt.**
+
+**Four holds cancelled today**, `Reason=None`, the shortest at 28 minutes. Two
+held now.
+
+**Combined with the leader's conclusion, which I am recording as theirs and
+endorsing:** the only instrument that reads GPU truth is `rocm-smi` inside a
+hold; holds queue for hours; Slurm cannot see co-tenants. **We cannot search for
+a free node — we can only be given one.** That is the dominant constraint now,
+above the stall detector.
+
+### 5. Open questions
+
+- **Does a clean run escalate before it reaches m4?** m4's stated unknown, and
+  §7 narrows it with evidence that was not in their write-up.
+- **Why are holds cancelled?** Four, no cause. `sacct` cannot answer.
+- **How much of the "co-tenant" GPU load is abandoned containers?** New this
+  interval and unanswerable without touching other tenants' machines.
+- **T7's reduction** — m4's 5 % ruling stands; m5 owes the residual
+  false-refusal rate. **T7 is not done**, and m4's caveat holds: shared chassis,
+  an upper bound rather than the floor.
+- **T21's discriminator** — m1's A/B is two points on one model. Real, and not
+  yet general.
+
+### 6. New commits
+
+**28 since `ece6442`.** Enumerated per T+977's correction; grouped, one line each.
+
+**m3 — 6** · `4a13cb3` corrected the filing, this detail was kept not discarded ·
+`c9de062` ask the node whether it can see the workset, and mount what it answers ·
+`0ca4635` the daemon refuses `-v /home:/home`, so the mount is a measured list ·
+`6efea23` a record compared with itself is reported as self, not as a path ·
+`24d4e6e` declare `E2E_REMOTE_HOME`, which my own last commit started reading ·
+`009f24f` `--rm` is not a teardown when the hold is cancelled under you.
+
+**m1 — 4** · `8725427` `gpu_count` is the one required field with no definition (T23) ·
+`34804a5` STEP 1 generates `gpu_count` instead of leaving it asserted ·
+`53bc783` the record can now say which cards it took ·
+`2018455` give `on_absent: skip` its flip condition.
+
+**m4 — 3** · `e4581f0` pass this run's record to the entrypoint, in both argv builders ·
+`7f56712` record why `gpu_devices` is on neither premise list ·
+`c615500` the "~2 % round-to-round" behind the 5 % tolerance is a sampling artefact.
+
+**m5 — 1** · `6ec7e42` five env names the agent never received, and one changed the load.
+
+**m2 — 1** · `2e1f0b8` land the node probe — three facts, one command, no hold to learn them.
+
+**leader — 10** · `e6dfe78` contract 4.4 a fourth face · `7e01f0b` schema: `gpu_count` means cards present · `531e75c` an escalation reaches the top and finds nobody · `6b68efc` contract 3.2a I named the safe form as the hazard · `ade99f4` contract 4.4 the covering sentence, which is m3's · `e5bbb80` T19 `fixed.gpu_devices` and the sentinel · `798132e` the stall fix is a conflation, not a threshold · `d03466f` rung 1 ran 21 quiet minutes, "throughout" was too strong · `41c8540` a cancelled slurm job does not reclaim its GPUs · `e846dec` **bugs(stall detector): retract my verdict** (m4's text, leader's file).
+
+**me — 3** · `0c57307`, `71c8302`, `2c78d20`.
+
+### 7. Anything else
+
+**I can corroborate m4's retraction from a run they did not use, and it comes out
+stronger than they claimed.**
+
+m4 checked run `20260904T062414` at 26 minutes: no escalation record, `blocked`
+empty, guard `False`. I measured the same run independently — **3 `phase_done`
+events and nothing else** — so that holds.
+
+**The second run is the one that adds something.** Run `20260904T041742`, which I
+had already read: `blocked` was empty for **51 minutes** and became non-empty
+only at **05:08:56**, the instant `operator_workset` was declared absent. So
+across two runs, **escalation is an event of failure, not a background state** —
+which is a stronger statement than "no escalation at 26 minutes", because it
+explains *why* there is none.
+
+**And it corrects one premise inside the retraction.** m4 writes that *"rung 0's
+runs had such an escalation by the time `build_workset` started"*, and that is
+what makes rung 4 conditional. Measured against rung 0 run `20260903T172821`:
+
+```
+17:31:07.532  356505d8  INPUT_VALIDATING finished        <- build_workset
+17:31:21.321  ×3        output_absent  657bcbde …        <- 13.8 s later
+17:31:21.340  ×4        escalated      nothing to push
+```
+
+`657bcbde` is `operator_workset`. **The escalation arrives 13.8 seconds *after*
+`build_workset` cleared input validation, simultaneously with its failure — not
+before it.** So in rung 0 as in rung 1, `blocked` was empty when `build_workset`
+ran. **The detector has not been shown to cut anything in any run I can read**,
+and rung 4's condition is narrower than "rung 0 escalates early": it requires an
+escalation from something *other than* the closure being cut.
+
+**A separate failure in the same run, which I have not seen recorded.** After the
+escalation, rung 0 **retried**:
+
+```
+17:34:21.548  INPUT_VALIDATING finished  (retry, 3 min later)
+17:34:40.980  handling_failed   657bcbde v0 is already open by task 356505d8
+17:34:40.988  monitor_gave_up   the pusher has no action for handling_failed
+```
+
+**The retry deadlocked on its own half-open handoff version**, and the monitor
+had no action for that failure kind. That is a third distinct thing at this
+closure, after "no output delivered" and "escalation finds nobody", and it is
+sitting in yesterday's data.
+
+**The lesson of the interval is m4's and it is the inverse of mine.** Mine, three
+times today, was reading a *specific* claim out of a *true aggregate*. Theirs was
+**absence of evidence read as evidence of absence** — a log that did not show the
+trigger, taken to mean the trigger was structural, against a correct reading from
+the code that they then abandoned. Both are failures of *what the artefact can
+say*: an aggregate cannot speak about its parts, and a log cannot speak about
+what it does not record. **The event store answers both, and in both cases it
+was two commands away the whole time.**
