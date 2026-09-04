@@ -177,7 +177,11 @@ a live Python object does not survive a subprocess.
 `ClaudeAgentOptions`, and **nothing is written to disk**, so no installer can
 carry it. It works and has a live user. **Closing condition**: reprovide the
 three as a standalone server started by `run_server`, after which this section
-has no exception. See `ROADMAP.md`.
+has no exception. See `ROADMAP.md` §6, *"If `agent_sys` must ever serve MCP
+itself"*, which carries both halves: the owner's sketch for the case where
+`agent_sys` would have to be the server, and the argument that `run_server`
+already suffices — which is why the closing condition above is reachable today
+and is not waiting on that sketch.
 
 **A second exception added by analogy to this one is the first rule being
 ignored.** The point of writing it down is that the next case argues on its own

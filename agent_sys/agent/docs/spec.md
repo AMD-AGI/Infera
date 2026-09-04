@@ -416,8 +416,10 @@ differently while carrying no ordering the table does not already give.
 
 **The last two have one on-disk shape**, in Claude Code's canonical layout:
 `settings.json`, `skills/<name>/`, `plugins/` (a local marketplace),
-`.mcp.json`, and `tools/*.mcp.py` / `tools/*.tooldef.py`. One shape means one
-installer and means promoting a component is moving a directory.
+`.mcp.json`, and `tools/*.mcp.py`. One shape means one installer and means
+promoting a component is moving a directory. (A `tools/*.tooldef.py` was a
+fourth member until 2026-09-04, when the in-process route it used was deleted —
+`docs/spec.provisioning.md` §6.)
 
 **A package's own material is undeclared on purpose.** A declaration would be a
 second statement of what the directory already says, and the two would drift the
@@ -426,8 +428,10 @@ first time somebody moved it without editing the YAML.
 `env_mgr/agent_assets.py` installs all three; `env_mgr/docs/design.md` §11.5a is
 the mechanism, including the measured ordering constraint that decides when
 `settings.json` is written, the marketplace copy probe F forced, and why a
-recipe runs the shipped machinery as a subprocess. What reaches this package is
-`Assignment.mcp_servers` and `Assignment.tools`.
+recipe runs the shipped machinery as a subprocess. What reaches this package
+from a component is `Assignment.mcp_servers`. `Assignment.tools` also exists,
+but nothing a component ships arrives through it — it carries `env_mgr`'s own
+remote surface and nothing else (§5.5).
 
 **A component names a binary through `${VAR}`, never through `PATH`.** An
 `.mcp.json` entry is expanded against the zone environment before it becomes an

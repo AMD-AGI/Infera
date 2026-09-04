@@ -1303,12 +1303,19 @@ before any install runs**. `agent_assets` writes it rather than returning it,
 because a caller cannot pick that moment without knowing which levels resolved.
 
 **Two destinations that are not an environment.** A component can publish MCP
-servers and in-process tools, and neither fits a `Mapping[str, str]`. So
-`material.deploy` returns a `Deployed` value — `environment`, `mcp_servers`,
-`tools`, `report` — `prepare` carries the middle two onto `Prepared`, and
-`claude_sdk` merges them into the SDK's options under the collision policy the
-`env_mgr` tool server already had: a name already present is a named
-`BackendUnsupported`, never a silent replacement.
+servers, and a component install produces `Outcome`s; neither fits a
+`Mapping[str, str]`. So `material.deploy` returns a `Deployed` value —
+`environment`, `mcp_servers`, `report` — `prepare` carries `mcp_servers` onto
+`Prepared`, and `claude_sdk` merges it into the SDK's options under the
+collision policy the `env_mgr` tool server already had: a name already present
+is a named `BackendUnsupported`, never a silent replacement.
+
+`Deployed` carried a fourth field, `tools`, until 2026-09-04: a component's
+`tools/*.tooldef.py`, imported into the supervisor's own process and appended to
+`Prepared.tools`. That route is **deleted** — spec §6 of `docs/spec.provisioning.md`
+— and a component offering a tool now ships a server that runs on its own.
+`Prepared.tools` remains, carrying `remote/tools.py` alone, which is that
+section's one standing exception.
 
 **A recipe runs the shipped machinery as a SUBPROCESS, and the §14.4 wall is untouched.**
 
