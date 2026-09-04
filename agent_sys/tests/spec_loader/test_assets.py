@@ -495,3 +495,163 @@ assets: assets/somewhere_else
     assert problem.keyword == "explicit-binding"
     assert not problem.fatal
     assert registries.agent_specs.get("tracer")["assets"] == "assets/somewhere_else"
+
+
+# --------------------------------------------------------------------------- #
+# Rule 1, applied to a third role — `env_recipe`
+#
+# Owner's ruling for PR 155: an `env_mgr` recipe an agent carries may be found by
+# convention rather than declared, and it lives **under `assets/`** ("可以放在
+# asset 里"), not anywhere in the package. That scoping is load-bearing and is
+# tested below, because the alternative reading — the whole package — fails in a
+# way that does not look like a scoping decision.
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "env_recipe.probe.yaml",
+        "probe.env_recipe.yaml",
+        "probe.agent.env_recipe.yaml",
+        "agent.probe.env_recipe.yaml",
+        "env_recipe.probe.agent.yaml",
+        "probe.env_recipe.agent.yaml",
+    ],
+)
+def test_every_permutation_of_the_env_recipe_tokens_is_found(
+    tmp_path: Path, filename: str
+) -> None:
+    """Both spellings the owner named, and the four more the generator implies.
+
+    Transcribing the owner's two would be the same mistake the readme rules
+    already refuse: the generator is the rule, and a list is a thing somebody has
+    to remember to extend.
+    """
+    (tmp_path / filename).write_text("target: {}\n")
+
+    got = AssetIndex(tmp_path).resolve("env_recipe", name="probe", type_="agent")
+
+    assert got == Path("assets") / filename
+
+
+def test_an_env_recipe_is_found_inside_the_agents_own_folder(tmp_path: Path) -> None:
+    """Rule 3 scopes this role too, so the name may be dropped inside the folder."""
+    (tmp_path / "probe.agent").mkdir()
+    (tmp_path / "probe.agent" / "env_recipe.yaml").write_text("target: {}\n")
+
+    got = AssetIndex(tmp_path).resolve("env_recipe", name="probe", type_="agent")
+
+    assert got == Path("assets") / "probe.agent" / "env_recipe.yaml"
+
+
+def test_a_yml_env_recipe_is_not_found(tmp_path: Path) -> None:
+    """`.yaml` only — a role takes exactly one extension.
+
+    Pins the limitation rather than a wish: `probe.agent/.serena/project.yml`
+    exists in a shipped example, and a role that accepted both extensions would
+    have to explain why that file is not somebody's recipe. A `.yml` recipe is
+    simply not found; it is not an error, and nothing says so at load time.
+    """
+    (tmp_path / "env_recipe.probe.yml").write_text("target: {}\n")
+
+    assert AssetIndex(tmp_path).resolve("env_recipe", name="probe", type_="agent") is None
+
+
+def test_an_agents_env_recipe_fills_recipes(builder: PackageBuilder) -> None:
+    builder.asset("env_recipe.tracer.yaml", "target: {}\n")
+    builder.write(
+        "steps.yaml",
+        """module: agent
+name: tracer
+kind: program
+description: d
+""",
+    )
+
+    registries = FakeRegistries()
+    result = load_package(builder.package(), registries)
+
+    assert not [p for p in result.problems if p.fatal], result.problems
+    assert registries.agent_specs.get("tracer")["recipes"] == ["assets/env_recipe.tracer.yaml"]
+
+
+def test_an_explicitly_declared_recipes_warns_and_is_left_alone(
+    builder: PackageBuilder,
+) -> None:
+    """`fill_body`'s rule, applied to `recipes`.
+
+    The declared list wins whole — the discovered path is NOT appended to it.
+    One field, one writer; a merged list is one nobody can attribute at the call
+    site.
+    """
+    builder.asset("env_recipe.tracer.yaml", "target: {}\n")
+    builder.write(
+        "steps.yaml",
+        """module: agent
+name: tracer
+kind: program
+description: d
+recipes: [serena]
+""",
+    )
+
+    registries = FakeRegistries()
+    result = load_package(builder.package(), registries)
+
+    (problem,) = [p for p in result.problems if p.path == "$.recipes"]
+    assert problem.keyword == "explicit-binding"
+    assert not problem.fatal
+    assert registries.agent_specs.get("tracer")["recipes"] == ["serena"]
+
+
+def test_two_env_recipe_spellings_for_one_agent_is_a_fault(builder: PackageBuilder) -> None:
+    builder.asset("env_recipe.tracer.yaml", "target: {}\n")
+    builder.asset("tracer.env_recipe.yaml", "target: {}\n")
+    builder.write(
+        "steps.yaml",
+        """module: agent
+name: tracer
+kind: program
+description: d
+""",
+    )
+
+    result = load_package(builder.package(), FakeRegistries())
+
+    (problem,) = [p for p in result.problems if p.path == "$.recipes"]
+    assert problem.keyword == "inconsistent"
+    assert "env_recipe.tracer.yaml" in problem.message
+    assert "tracer.env_recipe.yaml" in problem.message
+
+
+def test_a_package_root_env_recipe_is_not_discovered_and_says_why(
+    builder: PackageBuilder,
+) -> None:
+    """The scoping decision, made visible.
+
+    A recipe dropped at the package root is **not** silently ignored: `_scan()`
+    walks every `.yaml` outside `assets/` and hands it to the discriminator,
+    which errors because the file has no `module:` key. So "whole package
+    discovery" is not a missing feature that would be additive — it is a
+    conflict with an existing walk, and this test is what a reader hits if they
+    try it.
+    """
+    builder.write("env_recipe.tracer.yaml", "target: {}\n")
+    builder.write(
+        "steps.yaml",
+        """module: agent
+name: tracer
+kind: program
+description: d
+""",
+    )
+
+    registries = FakeRegistries()
+    result = load_package(builder.package(), registries)
+
+    (fatal,) = [p for p in result.problems if p.fatal]
+    assert fatal.origin.endswith("env_recipe.tracer.yaml")
+    assert fatal.keyword == "module"
+    assert "no module: key" in fatal.message
+    # and the agent got nothing, so this is not a case of "found it anyway".
+    assert not (registries.agent_specs.get("tracer") or {}).get("recipes")

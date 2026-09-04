@@ -78,16 +78,30 @@ from typing import Any
 
 from .protocols import Problem, SpecInconsistent
 
-__all__ = ["ASSETS_DIRNAME", "AssetIndex", "fill_agent_assets", "fill_body"]
+__all__ = [
+    "ASSETS_DIRNAME",
+    "AssetIndex",
+    "fill_agent_assets",
+    "fill_agent_env_recipe",
+    "fill_body",
+]
 
 #: The mandatory directory (main spec §4.3). Not configurable: the whole point of
 #: fixing the name is that a document's unqualified paths have something to be
 #: relative to without the loader inferring it from the tree.
 ASSETS_DIRNAME = "assets"
 
-#: Role to the extension it requires. The extension is mandatory in both rows —
+#: Role to the extension it requires. The extension is mandatory in every row —
 #: it is the only token the user's rules never allow to be dropped.
-_ROLES: Mapping[str, str] = {"readme": ".md", "entry": ".sh"}
+#:
+#: `env_recipe` is a third role and not a third mechanism: `_stems` already
+#: generates every `.`-joined permutation, so this one line is the whole of
+#: "auto-detect `env_recipe.<agent>.yaml`" — both spellings the owner named
+#: (`env_recipe.env_probe.yaml`, `env_probe.env_recipe.yaml`) and the six more a
+#: reader would expect, plus the folder-scoped `env_probe.agent/env_recipe.yaml`.
+#: `.yaml` only, because a role takes exactly one extension; a recipe written as
+#: `.yml` is not found and is silently absent rather than an error.
+_ROLES: Mapping[str, str] = {"readme": ".md", "entry": ".sh", "env_recipe": ".yaml"}
 
 
 @dataclass(frozen=True)
@@ -374,6 +388,69 @@ def fill_agent_assets(
     found = index.resolve_folder(name=name, type_="agent")
     if found is not None:
         doc["assets"] = found.as_posix()
+    return []
+
+
+def fill_agent_env_recipe(
+    doc: MutableMapping[str, Any],
+    index: AssetIndex,
+    *,
+    kind: str,
+    name: str,
+    origin: str,
+    line: int | None,
+) -> list[Problem]:
+    """Fill an agent's `recipes` from an `env_recipe` file it carries.
+
+    **Scoped to `assets/`, deliberately, and that is narrower than "the whole
+    task package".** `AssetIndex` is rooted at `<package>/assets/` and
+    `YamlPackage._scan()` walks the rest of the tree handing every `.yaml` to the
+    document discriminator, which *errors* on a file with no `module:` key. So a
+    recipe at the package root is a load failure today, and making it work would
+    need both an exemption in `_scan` and a second index rooted at the package —
+    the second mechanism `engineer_principle.md` §2 forbids. Under `assets/` it
+    costs one `_ROLES` entry and this function. The narrowing is the owner's
+    ruling (*"可以放在 asset 里"*) and is recorded here rather than left for a
+    reader to discover by dropping a file at the root and reading a confusing
+    error.
+
+    **A declared `recipes` wins and warns**, which is `fill_body`'s rule and its
+    mechanism. The alternative — appending the discovered path to the declared
+    list — was rejected because it gives one field two writers and no way to see
+    at the call site which of them supplied a given entry. An author who wants
+    both writes both paths.
+
+    **Only `kind == "agent"`.** Every other kind returns `[]`: `recipes` is not
+    in their schemas and writing it would put a key there that
+    `additionalProperties: false` then rejects, blaming the author for the
+    loader.
+
+    Nothing here reads the recipe. This module fills paths and does not learn
+    what is in them — the same line `fill_body` and `fill_agent_assets` hold; the
+    file is parsed by `env_mgr` against the *staged* copy.
+    """
+    if kind != "agent":
+        return []
+
+    if doc.get("recipes"):
+        return [
+            Problem(
+                origin=origin,
+                path="$.recipes",
+                keyword="explicit-binding",
+                message=(
+                    f"recipes is bound by hand to {doc['recipes']!r}. That is legal "
+                    f"and it is not what this package format is for: name the file "
+                    f"by convention under {ASSETS_DIRNAME}/ and drop the key."
+                ),
+                fatal=False,
+                line=line,
+            )
+        ]
+
+    found = index.resolve("env_recipe", name=name, type_="agent")
+    if found is not None:
+        doc["recipes"] = [found.as_posix()]
     return []
 
 

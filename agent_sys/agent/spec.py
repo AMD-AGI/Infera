@@ -121,6 +121,11 @@ class AgentSpec(_Model):
     #: **L1** — `env_mgr` recipe YAMLs, package-relative, run before the session.
     #: The route by which an agent asks for industry components (serena, plugins,
     #: apt/pip tools) that this repository does not ship and should not vendor.
+    #:
+    #: **Also filled by convention** when the agent carries its own recipe:
+    #: `assets/env_recipe.<name>.yaml` and every other permutation of those
+    #: tokens (`spec_loader/assets.py`, `fill_agent_env_recipe`). Declaring it
+    #: by hand is legal, warns, and wins whole.
     recipes: list[str] = Field(default_factory=list)
 
     #: **L2** — bare names under `agent_sys/components/`, components this
