@@ -54,6 +54,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 import zone  # noqa: E402 — the path insert above is what makes it importable
 import workset_io as W  # noqa: E402 — m3's shared helpers; `write_report` is the reason
+from module_symbols import module_symbols  # noqa: E402 — one rule, three callers
 
 try:
     import schema as schema_lib  # noqa: E402
@@ -304,8 +305,8 @@ def _substitution_matches_apply_mode(packup, operator: dict, doc: dict,
     the gate belongs at m4"* is the kind of intention that dies when the day
     ends. Written-and-disabled survives a handover; a note does not.
 
-    **To arm it:** set `_ENFORCE_SUBSTITUTION_PAIR = True` — **and mirror the
-    symbol extraction first, because as written the two halves disagree.**
+    **To arm it:** set `_ENFORCE_SUBSTITUTION_PAIR = True`. Nothing else — the
+    precondition that used to sit here is discharged.
 
     m3's `51af864` widened `module_symbols` to include module-level assignments
     (`logger`, `SGLANG_RETURN_ORIGINAL_LOGPROB`, `SYNC_TOKEN_IDS_ACROSS_TP` in
@@ -329,14 +330,12 @@ def _substitution_matches_apply_mode(packup, operator: dict, doc: dict,
     A gate about imports that ignores importable names is measuring the wrong
     surface.
 
-    **Do not fix it by copying m3's `_tgt` here.** That extraction already exists
-    twice — `identify.py` and `build_workset.task/mock_adapt.py` — and `51af864`
-    unified them into one `MODULE_SYMBOLS_SNIPPET` precisely so they cannot
-    drift; a third copy in this file would undo that on the day it was done, and
-    CONTRACT §4.1 says shared things are shared. The snippet is *source text* for
-    the image's python, not an importable helper, so mirroring properly means
-    lifting it to `assets/lib/` where both sides can reach it. **Raised with m3;
-    theirs to move, since it is their constant.**
+    **Mirrored, and by import rather than by copy.** m3 lifted the rule to
+    `assets/lib/module_symbols.py` (`eccc65a`), so this file is the third caller
+    of one function instead of the third copy of one idea — §4.1. Their `SNIPPET`
+    is `inspect.getsource` of the same functions, so the text their producers
+    base64 into a container and the callable this validator imports **cannot
+    disagree**: there is no pair to keep in step.
     """
     if not _ENFORCE_SUBSTITUTION_PAIR:
         return
@@ -360,15 +359,18 @@ def _substitution_matches_apply_mode(packup, operator: dict, doc: dict,
         candidate = Path(packup) / relative
         if not candidate.is_file():
             continue
+        # **m3's shared rule, imported rather than re-implemented.** Both
+        # sides of `declared ∩ defined` must count the same things or the
+        # comparison is between two different surfaces — and `51af864` widened
+        # the producer to include module-level assignments while this still
+        # took `def`/`class` only. `eccc65a` lifted the rule to
+        # `assets/lib/module_symbols.py` so the third caller is an import and
+        # not a third copy (§4.1).
         try:
-            tree = ast.parse(candidate.read_text(encoding="utf-8"))
+            defined |= set(module_symbols(candidate.read_text(encoding="utf-8")))
         except (OSError, SyntaxError) as error:
             notes.append(f"could not read {relative} to compare its symbols: {error}")
             continue
-        defined |= {
-            node.name for node in tree.body
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-        }
     if not defined:
         return
 
