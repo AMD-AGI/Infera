@@ -2856,3 +2856,62 @@ for.
 
 Applies to any future sweep of `packup` trees, which is exactly what someone will
 reach for the next time the question is *"how often has this happened?"*
+
+# T60 — the graph ceiling is chosen by stage 1's load and spent by stage 2's
+
+**First real cross-stage refusal, rung 2e, 2026-09-04 20:45.** `check_bench_result`
+refused `profiling_mode_off.bench_result`, `strong`:
+
+```
+kit ceiling (--cuda-graph-max-bs)      16
+decode concurrency the load achieved   25.42
+-> decode exceeded the captured graph on essentially every step, engine fell
+   back to eager decode; measured 4.6x decode difference from this cause alone,
+   same image, same node
+```
+
+**The refusal is correct and must not be widened.** The same run's
+`check_deploy_serves` passed `strong` on the *same kit*, because stage 1's own
+load runs at conc=16 and 16 >= 16. **Stage 1 chose a ceiling adequate for the
+load stage 1 runs, and stage 2 then ran a heavier one against the same kit.**
+
+## Why five separate packages could never have found it
+
+Stage 2 has never consumed stage 1's kit before this run. The seam only exists
+once the stages are one graph, which is the mission's whole premise — **the first
+real chained run produced a defect that no amount of work on the five demos
+would have surfaced.**
+
+## What the code says, against the leader's first instinct
+
+The lead's initial lean was *"stage 1 should choose a higher ceiling"*. **Reading
+the code says the other path is the designed one:**
+
+* `deploy_and_prove/mock_adapt.sh:180` — `: "${E2E_KIT_CUDA_GRAPH_MAX_BS:=${DK_CUDA_GRAPH_MAX_BS:-8}}"`, i.e. `:=`, so a consumer that exports it first **wins**;
+* `check_deploy_kit.validator/gate.sh:163` — planted fault **14** is *"the graph ceiling bound with no parameter"*, so the gate already treats an unparameterised ceiling as a defect. **The parameter exists so someone downstream can bind it.**
+* and `E2E_KIT_CUDA_GRAPH_MAX_BS` is **not** a `--var` in `shared.yaml` or any step yaml — it is bound only inside the kit.
+
+**Nothing in stage 2 sets it.** No reference in the profiling assets or
+`assets/lib/line.sh`. So stage 2 inherits stage 1's choice silently, which is
+exactly the condition CONTRACT §4.6 says no comparison can detect, because both
+arms would inherit the same wrong value.
+
+## The open decision, for m1 and m2 jointly
+
+1. **stage 2 binds the ceiling before running the kit's `deploy.sh`** — matches
+   `:=`, keeps the kit a recipe, and puts the choice with the module that knows
+   its own load. Costs capture time and memory, which is why a blanket high value
+   is not obviously right.
+2. **stage 1 chooses a ceiling covering the heaviest downstream load** — simpler,
+   but stage 1 cannot know what stage 2 will demand, so it is a guess dressed as
+   a default.
+
+**Not decided here.** Recorded because the team was unreachable for 75+ minutes
+when it was found and the next rung will hit it again within the hour.
+
+## What must not happen
+
+**Do not raise the bar to make this pass.** The 5 % / 10 % precedent from
+2026-09-02 is in `DELIVERY-NOTE-FROM-LEADER.md`: widening a bar that refused
+correctly was already tried once and was the wrong response. A ceiling of 16
+against concurrency 25.42 is a real 4.6x, not a threshold artefact.
