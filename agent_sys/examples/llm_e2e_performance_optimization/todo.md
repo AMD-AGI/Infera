@@ -2062,6 +2062,9 @@ than the sentence it prints.
 | `check_packup_shape` (m5) | `holds 0 non-empty file(s)` | one file, in a subdirectory `iterdir` did not descend into |
 | `check_workset_shape` (m3) | `not defined at module level` | not a `def`/`class` at module level — assignments are invisible to `identify.py` |
 | `check_command_parses` (leader) | `PROBLEM: items/command bash -n clean` | a *passing* line, routed into `write_report`'s problems slot unconditionally |
+| `run_in_container.sh` (m4) | *"m1's bring-up has been torn down"* | the node was never reached — **a transport failure wearing a teardown's clothes, and it named a specific person** |
+| `run_in_container.sh` (m4) | a blank where the container list goes | *none* — an empty diagnostic is indistinguishable from one that failed to look |
+| `check_speedup_substantiated` (m4) | `exited 127: l so no reader has to infer…` | `stderr.strip()[-400:]` — a slice by character, splicing a comment fragment into the error |
 
 **Every one gives the correct verdict.** That is what makes it the hardest kind
 to notice: nothing downstream is wrong, no run fails that should pass, and the
@@ -2082,6 +2085,20 @@ four the answer was a strictly broader condition than the code tests.
 `check_workset_shape`'s is the sharpest — *"not defined at module level"* is
 true of a module-level assignment, and the check cannot see one, so the message
 is a correct English sentence about a case the code would get wrong.
+
+**Seven, not four.** m4 added three of their own after m5 named the class and I
+had already filed it — which is itself the point: **each of us could see only our
+own, and none of us could see our own until someone else read it.** m4 offered
+the entry to m5 rather than taking it; m5 had offered it to nobody; I filed it
+without either of them knowing. That is three people declining to claim a class
+none of them could have assembled alone, and one person assembling it badly.
+
+**m4's asymmetry, which decides the fix and is not obvious:** *narrowing the
+message cannot break a consumer; widening the field can.* `check_workset_shape`
+presence-checks against `module_symbols`, so adding assignments to it makes some
+previously-refused worksets pass — correct if they were correct, a **silent
+loosening** if not. Both of m5's instances were resolved by narrowing the
+message, which is evidence about the base rate and not about any particular case.
 
 **Not blocking, and not a code sweep.** Fixing the four is done or routed;
 the entry exists because the fifth will be written by whoever writes the next
