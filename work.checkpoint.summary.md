@@ -8154,3 +8154,103 @@ floor 64, count 64, PASS.**
 So rung 1's refusal was an instrument fault in a validator, found by the
 validator refusing a good deployment — which is the failure mode the whole
 package is built to have rather than the one it is built to avoid.
+
+### Addendum, 15:00 UTC — m5's moving ruler, applied to my own accepted runs
+
+**m5's survey finding is the sharpest thing in this interval and it lands on
+me:** `kernel_optimization` *"passed"* three times but was **graded by one
+validator once and three twice**, because a gate went off and on today.
+**The validator set is part of the verdict.** Counting those three as stable
+would have promoted an artefact measured against a moving ruler.
+
+**I have been claiming three accepted runs. So I checked whether they share a
+ruler — and they do not.**
+
+```
+20260904T112414-cf3e82   34 invocations, 20 distinct, 42 true / 1 false   md5 55d7ee3162f0
+20260904T114914-0a0cdd   34 invocations, 20 distinct, 42 true / 1 false   md5 515c4a496f78
+20260904T133028-87e7ad   34 invocations, 20 distinct, 42 true / 1 false   md5 515c4a496f78
+
+differing signature:  check_environment  ±invariants
+```
+
+**Run `112414` was graded by a `check_environment` without `invariants`; the
+other two by one with it** — the leader's `check_invariant` lift. Every count is
+identical because that arg grades almost nothing today (412 of 417 skip), which
+is *why* three identical-looking greens hid a ruler change.
+
+**And the corrected claim is better than the one I made.** My reproducibility
+statement was *"three accepted runs, two install paths"*, which spanned **two
+moving variables**. Properly:
+
+> **`114914` (old patch path) and `133028` (`patch_in_place`) share a validator
+> set and differ only in the install path. That pair is the reproducibility
+> claim.** `112414` corroborates on a different ruler and should be cited as a
+> third data point, not as part of the pair.
+
+**One variable moved, not two.** I would not have looked without m5's finding,
+and the answer strengthened the claim rather than weakening it.
+
+**Filed as entry 19 in the table, mine, caught in seconds:** my first comparison
+used Python's `hash(frozenset(...))` **in three separate processes**. `PYTHONHASHSEED`
+is randomised per process, so the three digests differed and I nearly reported
+*"the sets differ"* — right conclusion, entirely wrong evidence. `hashlib.md5`
+in one process is the fix. **An instrument answering "what is this set's hash
+here" to the question "is this the same set as that one".**
+
+### Standing instruction, recorded — it supersedes a core principle
+
+From the user, second time today:
+
+> **我们的机器上如果有别人的gpu任务（非集群检测类），一律杀掉后开始工作**
+
+with the operative clause from the earlier phrasing: **coordinate clearly
+between teammates.**
+
+**Supersedes** *"never `docker rm -f` a container you did not create"* — **for
+GPU workloads on nodes under our allocation only.** **Does not touch**: the
+deletion rule (killing a container is not deleting a path; nothing lacking
+`yihou` or `/tmp` is removed by any means), cluster-monitoring jobs, non-GPU
+containers, or the prohibition on acquiring and releasing machines.
+
+**Three coordination limits in force:** 047 off limits until m2's four latency
+arms land; **`charming_turing` on 275 unidentified — nobody kills it until we
+know whose it is**; announce before killing. All five owners told.
+
+### Entry 18 — and it is the most expensive of the six
+
+The leader told the team **275 was free with eight cards. It never was.**
+
+```
+asserted   "8 cards, nothing on it, ours"
+source     squeue — 275 listed as ours, RUNNING, 12:52
+actual     kimik3-vllm-kimi-k3, up 8 hours, GPU 100% ×8, VRAM ~91% ×8
+```
+
+**`squeue` answers "who holds the allocation". The question was "is the hardware
+free".** They had measured 006, 217 and 047 earlier — `0/8 busy` each — and
+carried the habit forward without repeating it on a new node.
+
+**m4's framing is the entry, not the leader's:** ***the allocation is ours and
+the workload is not*** — the same gap that makes *"never `docker rm -f` a
+container you did not create"* necessary, and the leader records having treated
+a hold as a node all day. **The other five instances misled only their author;
+this one was about to send m4 to contend with a saturated GPU on someone else's
+eight-hour run.**
+
+**m4 caught it before acting** — the second time today someone stopped in front
+of a wrong conclusion rather than after it, after the leader's port probe.
+
+### Ladder: 1 of 6, unchanged
+
+**Rung 1 is 34 minutes into its re-run on 217** with m1's `516c74e` floor. Its
+containers have torn down and VRAM is 0 — **the same shape as the previous run,
+where that was STEP 7 after a successful bring-up and the kit sealed minutes
+later.** The leader is not calling it either way and neither am I: **the same
+observation preceded a success once and a failure once**, which is the
+definition of a signal that does not discriminate.
+
+**Two mechanisms landed that are not rungs but change the ladder's cost**, both
+deliberately unwired: **m5's `replay_root.py`** (`0760da3`, `ad176b4`), the
+user's skip-ahead, with twelve of fourteen kinds already stable at threshold 3;
+and **m4's third-tree workspace** (`63bcaca`).
