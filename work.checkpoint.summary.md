@@ -5767,3 +5767,89 @@ executed — **a SendMessage would have overridden a human decision with a timer
 one-line candidate unrun); cross-layer version conflicts; the registry sweep;
 installs run unconfined. All four are named in `spec.provisioning.md` §8 as
 deliberately unsettled, which is the point of having written it.
+
+## T+311 — 2026-09-04 11:25 UTC — written by the lead; `scribe` still stopped
+
+Third hand-written section, same reason. Format loose; provenance marked.
+
+### 1. Progress — the round's implementation is complete
+
+**Full suite 2258 passed, 3 skipped, 4 xfailed, 0 failed. Working tree clean.**
+Every one of the owner's rulings is in: the layer model gone, `addons/` inside
+`env_mgr` and shipping in a wheel, three recipe layers, `run_server` + registry +
+stop, the in-process route narrowed to its one named exception, `env_checker`
+rebuilt on six capabilities and two install routes.
+
+Landed since T+281: `8be9204e`, `67cbdcd8`, `fc05b80d`, `60435123`, `1d6a37ff`,
+`f2c4321a`.
+
+### 2. Corrections issued by the lead — three, and the third cost a teammate's time
+
+1. **I told `core2` three modified files were "three of yours". Only one was.**
+   The other two were `core-impl`'s orphans. **Second time today I put its name on
+   a diff it did not write** — the same shape as the morning's misattribution,
+   opposite direction: *attribute the unowned thing to whoever is standing
+   nearest.* I committed both myself (`60435123`), read for content first,
+   authorship named.
+2. **I flagged `agent.schema.json` as an uncommitted orphan. It was committed** —
+   I read the tree in the window before `1d6a37ff` landed. A stale read presented
+   as a state.
+3. **I dispatched `core2` to build a guard it had already built.** `pkg2` reported
+   *"nothing fails if a future in-process route arrives"*; **I acted on the report
+   without checking the tree.** The test had been in HEAD since `8be9204e`. *A
+   claim in a message is not a fact about the repository* — I had said exactly
+   that to both agents twice each, then did it myself, **with the cost landing on
+   someone else's time rather than my own.**
+
+### 3. What the team did that is worth keeping
+
+- **`core2`'s guard is stricter than the brief I would have written.** It had
+  already written the objection I later declared mandatory: *"a negative assertion
+  about an absent mechanism passes for free, and an empty result is exactly what a
+  fixture that placed nothing would also produce."* Both halves built — subject
+  proven present, subject proven fatal if touched — and the fixture deliberately
+  keeps the deleted route's own suffix, *"because a suffix nobody ever recognised
+  could not go red."*
+- **`pkg2` verified `SERENA_HOME` twice**, reading the source *and then running
+  it*, because *"a source read alone would have been the same species as the
+  brief."* The run found what a grep could not: `language_servers/static` lands
+  under `SERENA_HOME`, `~/.solidlsp` never appears, `~/.serena` byte-identical
+  across 210 entries.
+- **`pkg2` grepped for its own overstatement before editing**, found it had never
+  reached a file, and **recorded the correct fact instead of deleting a wrong
+  one** — the real defect being that the files said nothing about the trade at all.
+- **Both volunteered which half was measured and which inferred**, unprompted, and
+  `pkg2` declined to drive `core2`'s test red because it was not its file. **A
+  claim labelled *inferred* is worth more than the same claim labelled *proved* by
+  someone who did not run it.**
+
+### 4. The species this round should carry out
+
+**`pkg2`, on a wrong belief that never reached a file:**
+
+> *"a claim that is wrong and unwritten still costs something. Mine was heading
+> for a file — I would have written the trade into `serena.yaml` next time
+> somebody asked why `HOME` was dropped, and by then the reasoning would have
+> looked settled."*
+
+**A wrong belief held privately is a file that has not been written yet.** It gets
+written at the moment someone asks, when it reads as considered rather than
+improvised. It was caught because it put the weak half in the report — **the
+mechanism ran both directions today**, catching the lead's `SERENA_HOME` claim the
+same way.
+
+### 5. Non-code
+
+Three crossed-mail misreadings today; the third was the costly direction —
+**a teammate concluded its own finding had been weighed and rejected when it had
+been adopted.** A dropped question gets re-asked; a finding believed rejected
+stops being pursued.
+
+### 6. Open with the owner
+
+`env_mgr/recipes/*.yaml` do not ship in a wheel, so `recipes: [serena]` — which
+`examples/env_checker` itself declares — cannot resolve from a wheel install. The
+one-line `package-data` candidate is **unrun**, deliberately: it is `env_mgr`
+packaging and it breaks a live path, so it wants its own change and review.
+Recorded as known gap 6 in `env_checker/README.md`, on the `recipes:` line, and in
+`spec.provisioning.md` §8.
