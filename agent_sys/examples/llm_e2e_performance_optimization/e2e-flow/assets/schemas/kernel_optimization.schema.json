@@ -268,6 +268,23 @@
                 "pattern": "^[0-9a-f]{64}$",
                 "description": "The hash of the **stock** file this was cut against, not of the replacement. m5 pulls the file out of the image, hashes it, and refuses on a mismatch \u2014 which is what makes 'this patch belongs to this image' checkable rather than asserted."
               },
+              "base_sha256_from": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["method"],
+                "description": "**How `base_sha256` was obtained.** Not decoration: m5's gate compares it against a hash they extract from the image *this run*, so a mismatch is either a real patch/image disagreement or a producer that could not reach the stock file and hashed something else. Those read identically in the failure and are opposite problems.\n\nMeasured 2026-09-04: `mock_adapt` on a login node with no engine tree hashed the **replacement**, said so in prose, and `apply.py` refused with *\"the patch was cut against fcd3c924e48d\u2026\"* \u2014 correct, and it sent the reader to the notes to find out why. m5 reads this field so the refusal can say it in the line itself. Requested by m5 as structured rather than prose (`method` as an enum) so a consumer can branch on `replacement_fallback` instead of grepping a sentence.",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "enum": ["engine_tree", "image_extract", "replacement_fallback"],
+                    "description": "`engine_tree`: hashed from a mounted engine tree, the real producer's normal path. `image_extract`: `docker create` + `docker cp` against `image` below \u2014 the same fact by a route the producer does not use, which is permitted; asserting a fact the producer does not have is not. `replacement_fallback`: **no stock file was reachable and this is the hash of the replacement**, which will not match any image and is recorded so the refusal can say so."
+                  },
+                  "image": {
+                    "type": ["string", "null"],
+                    "description": "The image the hash came out of, for `image_extract`; `null` otherwise. Load-bearing rather than informational: if the producer extracts from image A and the consumer from image B the hashes differ and the gate refuses \u2014 which is the gate working, and unreadable without knowing both images."
+                  }
+                }
+              },
               "change": {
                 "type": "string",
                 "enum": [

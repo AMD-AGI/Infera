@@ -224,6 +224,11 @@ def _apply_block(pinned: dict, packup: Path, kernel: Path, premise: dict) -> dic
         files.append({
             "container_path": container_path,
             "base_sha256": base_sha256,
+            # The real path hashes the stock file out of the engine tree in
+            # its own container. Recorded so m5 can distinguish it from a
+            # mock's image extraction or its replacement fallback -- all
+            # three produce a 64-hex string and only one matches an image.
+            "base_sha256_from": {"method": "engine_tree", "image": None},
             "change": "modify",
             # `replacement`, never a hand-rolled diff: m4's artefact is a whole
             # file, and `apply_patch` generates the diff from stock->replacement

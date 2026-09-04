@@ -350,13 +350,17 @@ def main() -> int:
     image = str((run_env.get("fixed") or {}).get("image") or "")
     if stock is not None and stock.is_file():
         base_sha256, sha_source = lib.sha256_of(stock), "the engine tree in this container"
+        sha_from = {"method": "engine_tree", "image": None}
     elif container_path and image and (extracted := _hash_from_image(container_path, image)):
         base_sha256 = extracted
         sha_source = f"the stock file extracted from image {image} (docker create + docker cp)"
+        sha_from = {"method": "image_extract", "image": image}
     elif kernel.is_file():
         base_sha256, sha_source = lib.sha256_of(kernel), "the sealed replacement (NO ENGINE TREE REACHABLE)"
+        sha_from = {"method": "replacement_fallback", "image": None}
     else:
         base_sha256, sha_source = "0" * 64, "nothing (NO ENGINE TREE AND NO KERNEL)"
+        sha_from = {"method": "replacement_fallback", "image": None}
 
     apply_block = {
         "apply_mode": "overlay_files",
@@ -375,6 +379,12 @@ def main() -> int:
             [{
                 "container_path": container_path,
                 "base_sha256": base_sha256,
+                # **Structured, at m5's request, because they branch on it.**
+                # The prose in `notes` stays -- it is what made the 2026-09-04
+                # failure diagnosable in one read -- but a consumer should not
+                # have to grep a sentence to learn the hash came from a
+                # fallback. m5 prints this in `apply.py`'s mismatch refusal.
+                "base_sha256_from": sha_from,
                 "change": "modify",
                 "replacement": "results/optimized_kernel.py",
             }]
