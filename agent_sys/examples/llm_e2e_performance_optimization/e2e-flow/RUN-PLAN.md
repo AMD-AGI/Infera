@@ -461,6 +461,68 @@ KernelForge has still never run, `check_speedup_substantiated`'s re-measurement
 has never graded a real optimised kernel, and no number this produces is a
 speedup. **A campaign is the only thing that proves the campaign.**
 
+### 4a. What the first real run found — 2026-09-04, `crsuse2-m2m-217`
+
+**The middle row is NOT green.** STEPs 1–3 passed, STEP 4 is blocked, 5 and 6
+unreached, campaign untouched. Recorded as a partial run rather than a pass,
+because the three defects below are the return on it and each would otherwise
+have surfaced inside an expensive rung.
+
+**What did work, and it is the first time for both:** STEP 2's premise **held**
+on a third machine — a 234-measured workset against a 006 kit on a 217 run,
+which is `node` deliberately not being an abort field, vindicated. And m3's
+harness accepted m4's `--environment` flag and made the two-document
+comparison, warning on `image_id` and carrying it forward.
+
+#### A near-miss, not a fixed bug: `KFO_MOCK` did not cross the boundary
+
+`run_in_container.sh` forwarded an **enumerated** list of environment names.
+`KFO_MOCK` was not on it, so `--var forge_mock=1` never reached the container
+and `30_run_forge.sh` took the **real campaign branch**.
+
+**It died on git's dubious-ownership check rather than running for an hour.**
+That is luck, not design. Had the copy succeeded it would have consumed a node
+we hold under **preemptible burst** and produced nothing anyone asked for.
+
+Recorded as a near-miss because the fix — forwarding `AGENT_SYS_*`, `KFO_*` and
+`E2E_*` by **prefix** — removes the class rather than the instance. The same
+list also dropped `AGENT_SYS_INPUT_<KIND>`, and *the kind is part of the
+variable name*, so any fixed list has to duplicate the kind list from
+`steps/m4_kernel_opt.yaml`. **A prefix has no list to fall behind.**
+
+**The general form, for anyone writing a boundary crossing: the wrapper IS the
+boundary. Anything it does not carry does not arrive — and it arrives as a
+fault in whatever runs on the far side**, which is where nobody is looking.
+
+#### The blocker: `--impl` has an unstated contract
+
+```
+the Definition's 'candidate:sampler_vocab_softmax' defines no `run`
+error: the correctness entrypoint exited 1
+```
+
+`harness/_common.py:289` execs the candidate and **requires a top-level `run`
+callable**. m4's mock seed is `edit_target.source_file` — the engine's stock
+`srt/layers/sampler.py`, an sglang module with no `run`. The two sides disagree
+about what `--impl PATH` *is*.
+
+**This bites the real campaign, not just the mock:** whatever KernelForge emits
+must define `run` for m3's harness to accept it, and **nothing states that
+anywhere**. A campaign is an hour minimum, so discovering it after one is the
+most expensive version of this mistake available.
+
+**Leader's ruling, 2026-09-04, and the order is the substance:**
+
+1. **m3 declares the candidate contract in the workset** — they own the harness
+   and the schema, so the authority belongs there. Same family as the flag
+   spelling m3 made data: one authority, two readers, except here the authority
+   did not exist.
+2. **Then m4 adapts its seed to satisfy it.**
+
+**Not the other way round.** A seed changed first would be fitted to m3's
+*current behaviour*, which is precisely the undeclared thing this is meant to
+stop relying on.
+
 ### 5. Useful at every size
 
 One card, three minutes, and the pieces detach:
