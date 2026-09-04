@@ -621,3 +621,110 @@ picking one in a comment is how a number acquires a third reader. What settles
 it: one owner states the offered load the m2-vs-stock comparison assumes, once,
 and both the declaration and the fallback cite it.
 
+
+---
+
+### T25 — a run records the environment it minted, but not the vars it was started with
+
+**m2. Not blocking. Cheapest item on this list, and it would have prevented three
+incidents on 2026-09-04 alone.**
+
+Every `--var` a run is launched with shapes what the graph does, and **none of
+them survive into the run tree.** `handoffs/<hid>/v<N>/content/items/*/
+environment.yaml` records the environment m1 *minted* — node, image, image_id,
+tp_size — which is a fact about the deployment, not about the request. The
+store keeps tasks, events and handoffs. Nothing keeps the command line.
+
+So *"what was this run asked to do"* is unanswerable from the artefact, and it
+is asked constantly, by people who were not the one who typed it.
+
+**Three questions on one day that this record would have answered**, each of
+which instead cost a message or a run:
+
+1. **Was `--var expect_ranks=2` passed?** `check_trace_coverage` is `strong` and
+   declares `${expect_ranks:-8}`; the mocked trace is TP-2 while the real
+   deployment was TP-4 — three numbers, and `expect_ranks` is deliberately not
+   derived from `${tp}` (`steps/m2_profiling.yaml:93-100`). I predicted a
+   refusal I could not check; the leader had passed it. **The prediction was
+   unverifiable, not wrong** — and the cost of asking was the same either way.
+2. **Was the run still alive?** It had been killed 20 minutes earlier and the
+   tree does not say so. Two owners reported it as live and one committed that
+   into a checkpoint.
+3. **Was its agent still alive?** Also not recorded, and the answer was yes —
+   see T26.
+
+The same gap in the other direction is the more expensive half: rung 0 returned
+`check_deploy_kit: FAIL` on a stage that had been green, because `--var image=`
+named a tag present on the node instead of the one the sealed kit renders. The
+validator refused correctly. **Believing that failure would have sent two owners
+auditing their commits for a defect that was in a command line** (CONTRACT §4.4,
+face 2) — and no reading of the run tree could have distinguished the two.
+
+**What would settle it:** the run writes its resolved variables — every `--var`
+plus every default that was taken — into the run root at launch, once. Resolved
+rather than raw, because a default that was *taken* is exactly the case nobody
+can reconstruct afterwards. `spec_loader/variables.py` already computes it; the
+value is thrown away after substitution.
+
+**Not fixed here**: `agent_sys/cli/` and `agent_sys/spec_loader/` are outside
+this effort's activity scope. Recorded with the three instances so whoever owns
+the runner has the argument as well as the request.
+
+---
+
+### T26 — killing a run does not kill its agents
+
+**m2, from the leader's incident of 2026-09-04. Not blocking; the instance is
+stopped. It changes what "I killed the run" can be relied on to mean.**
+
+**One level up from `41c8540`.** That record says a cancelled Slurm job does not
+reclaim its GPUs, because the containers talk to the **host** docker daemon and
+are therefore not in the job's cgroup. The same shape holds one layer further
+out: **an AI agent a run dispatched is not in the orchestrator's process tree**,
+so killing the orchestrator leaves it running.
+
+Measured. The leader ended run `20260904T062414-be315b` at 06:47. At 07:06:50 —
+twenty minutes later — the run tree was still being written:
+
+```
+files written since 06:47   29 -> 30      (two readings, two minutes apart)
+newest write               07:04:29 -> 07:06:40
+```
+
+under `zones/task.…/task.…/task.…/config/projects/…/<uuid>.jsonl`, an agent's
+own transcript: **490 entries, the last an `Edit` tool call**. All three task
+records in that chain still read `status=running`. The leader then found it
+directly — `PID 1097159`, 44:42 elapsed, `claude … --system-prompt "#
+deploy_and_prove — deploy the …"`, cwd inside that zone — and sent SIGTERM.
+
+**What it did while unattended.** It created container
+`infera_e2e_sgl_m1-20260904` at **06:57:38, ten minutes after the kill**, and
+replaced the `selftest` pair with `infera_e2e_sgl_kitselftest-m1` at 07:06:24.
+Both were attributed to a person; both were the orphaned agent. **Four owners
+were each asked whether the containers were theirs and each correctly answered
+no** — the object was ours the whole time, and no one could see it.
+
+**Why this is not merely untidy.** RUN-PLAN's own rule is that the first real
+run of a `kind: ai` closure happens with the leader watching, *because* an AI
+agent with a live node and a docker daemon is the one thing here that can change
+state nobody asked for. It was unwatched for twenty minutes **precisely because
+everyone believed the run was dead** — the belief that made it unsupervised was
+caused by the same event that orphaned it.
+
+And nothing it produced could ever land: the orchestrator was gone, so no
+handoff could be sealed and no task could progress. It held a node and mutated a
+shared host for an outcome with no consumer.
+
+**What would settle it:** a run that is ending terminates the agents it
+dispatched, and says how many, before it reports that it stopped. Failing that,
+the run root records agent PIDs at dispatch so a person can check — which is
+T25's record in a second use.
+
+**A note on how it was found, because the method is the transferable part.** The
+first probe reported *"zero files modified in the run tree in the last eight
+minutes"* and it was **not a measurement**: `find` on the login node is `bfs`,
+which does not support `-newermt` and errors to stderr, while stdout was piped
+to `wc -l` and the empty result read as zero. A check that could not fail.
+What worked instead was opening a file and counting its entries — **a file you
+have opened cannot lie to you about whether it exists.** CONTRACT §4.4, in the
+instrument built to catch §4.4.
