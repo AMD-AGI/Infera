@@ -138,9 +138,16 @@ Say what rung 0 covered in those terms, not as "the mock passed".
 
 ## Before rung 1, and again before every rung
 
-1. **`m2`'s interpreter sweep** — `/shared_nfs/yihou/agent_sys/ws_handoff_refine/m2/interpreter_sweep.py`. About a minute. **Treat a clean result as a gate, not a formality**: all four bugs in that class were introduced by bodies written *after* the previous sweep, so the sweep is only worth its cost when it is re-run.
-2. **`agent-sys show`** — under a second.
-3. **The node's state, before and after**: `docker ps` and the port band. Every identifier this package binds carries a run tag; **check the tag before killing anything.** Measured 2026-09-03: a validator's teardown crashed and warned that ports might be held, and the ports that were held belonged to *a different owner's run in flight*. Killing them would have destroyed live work.
+1. **`m2`'s interpreter sweep** — `/home/yihou/ws_handoff_refine_m2/interpreter_sweep.py`. About a minute. **Treat a clean result as a gate, not a formality**: all four bugs in that class were introduced by bodies written *after* the previous sweep, so the sweep is only worth its cost when it is re-run.
+
+   *Moved off `/shared_nfs` on 2026-09-04 — that export is mounted `ro` on the login node and `rw` on a held node, same volume, two mounts. The copy at `ws_handoff_refine/m2/` is **frozen** and predates the input wiring; editing it changes no result.*
+
+2. **The node, before you spend the hold** — `assets/lib/nodeprobe.sh <node>`, seconds, no hold needed. Free cards, m1's anchor in a local base, disk on **both** filesystems, and whether `spur-authz` accepts this flow's mounts. **Re-probe at the moment of taking, not from a message**: measured 2026-09-04, a node went from seven free cards to 0/8 at 97 % in twenty minutes. `--auto` sweeps every idle/mix node and prints why each one failed; `report.py <rows.jsonl>` re-reads a sweep without re-running it.
+
+   *`sinfo` cannot answer this. GRES accounting is not configured on this cluster — there is no `GresUsed` field and `sinfo -o "%G"` prints `?` — and the co-tenants allocate through the host docker daemon, which never speaks to Slurm. `idle`/`mix` is a statement about CPUs.*
+
+3. **`agent-sys show`** — under a second.
+4. **The node's state, before and after**: `docker ps` and the port band. Every identifier this package binds carries a run tag; **check the tag before killing anything.** Measured 2026-09-03: a validator's teardown crashed and warned that ports might be held, and the ports that were held belonged to *a different owner's run in flight*. Killing them would have destroyed live work.
 
 ## The three things a real run can do that a mock cannot
 
