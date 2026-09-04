@@ -37,11 +37,13 @@ from __future__ import annotations
 
 import json
 import sys
+import traceback
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 import schema as S  # noqa: E402
+import workset_io as W  # noqa: E402
 import zone  # noqa: E402
 
 #: The two methods that put a file on disk. `agent_recovered` gave a direction
@@ -151,6 +153,7 @@ def _check(content: Path, args: dict, problems: list[str], notes: list[str]) -> 
 def main() -> int:
     args = zone.args()
     verdicts: dict[str, bool] = {}
+    findings: dict[str, tuple[list[str], list[str]]] = {}
     for hid in zone.inputs():
         problems: list[str] = []
         notes: list[str] = []
@@ -159,11 +162,27 @@ def main() -> int:
             problems.append("the phase staged no content for this handoff")
             verdicts[hid] = False
         else:
-            verdicts[hid] = _check(content, args, problems, notes)
+            try:
+                verdicts[hid] = _check(content, args, problems, notes)
+            except Exception as error:  # noqa: BLE001
+                # A crash and a refusal are not the same event; only the second
+                # is a judgement. `verdict.json` is `dict[str, bool]` and has no
+                # third state (todo.md T29), so False is written because a check
+                # that did not execute has established nothing.
+                problems.append(
+                    f"THIS VALIDATOR DID NOT RUN — {type(error).__name__}: {error}. An instrument "
+                    f"failure, not a finding: nothing here was graded."
+                )
+                problems.append(traceback.format_exc())
+                verdicts[hid] = False
+        findings[hid] = (problems, notes)
         for note in notes:
             print(f"{hid}: {note}")
         for problem in problems:
             print(f"{hid}: {problem}")
+    # Before the verdict, so a crash in the writer cannot take the reasons
+    # with it, and always rather than only on failure (see write_report).
+    W.write_report("check_identity_resolved", findings)
     zone.write_verdict(verdicts)
     print(f"check_identity_resolved: {sum(verdicts.values())}/{len(verdicts)} passed")
     return 0

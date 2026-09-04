@@ -218,6 +218,37 @@ def write_report(validator: str, findings: dict[str, tuple[list[str], list[str]]
     `dict[str, bool]` is all `verdict.json` can carry (`zone.py:132`), so this
     is the only place a *reason* can live until the verdict type grows a third
     state. Named beside it deliberately: whoever finds one finds the other.
+
+    ## What this guarantees, for the four owners who do not own this file
+
+    **Any validator in this package may call it**; nothing here is m3-specific.
+    Adopted so far by `check_deploy_kit` (m1) and `check_optimization_shape`
+    and `check_speedup_substantiated` (m4), which is why it is written down
+    rather than left as a convention three people happen to share.
+
+    * **Needs nothing from the environment.** A validator declares no agent, so
+      the package's `env:` block never reaches it and `os.environ` is close to
+      empty — which is the reason this problem keeps recurring. This function
+      reads no variable: the path is relative to the cwd the runner already
+      places it in, beside `verdict.json`. Verified by running it under
+      `env -i`, not by inspection.
+    * **Written always**, pass or refuse. A passing run's notes are the
+      evidence the gate did its job; keeping reasons only when they are bad
+      makes the record of a working gate the one thing never kept.
+    * **Call it *before* `zone.write_verdict`.** A crash in the verdict writer
+      then cannot take the reasons with it. This ordering is the lesson from a
+      teardown that ran after the thing it protected and therefore never ran.
+    * **A crash is not a refusal.** Wrap `_check` and record
+      `THIS VALIDATOR DID NOT RUN` as a problem, so a broken instrument does
+      not read as a judgement about the artefact. `verdict.json` cannot express
+      the difference (`todo.md` T29); this text is the only place it exists.
+
+    **A validator that legitimately differs should say so here or in its own
+    file** — the point is that a reader can tell a deliberate difference from
+    drift. `check_deploy_serves` writing `probe_plan.json` and
+    `probe_results.json` is such a case: those are *probe artefacts*, the
+    inputs to its judgement, not the judgement's reasons, and they are not a
+    substitute for this.
     """
     lines = [f"# {validator}"]
     for hid, (problems, notes) in findings.items():
