@@ -1643,6 +1643,14 @@ answers a different question does not.**
 
 ### T43 — the artefact is honest about provenance and dishonest about meaning
 
+**The baseline first, because it is the reason the class exists rather than an
+example of it.** Swept all eight schemas under `assets/schemas/` on 2026-09-04:
+**four express no cross-field constraint at all** — `bench_result`,
+`environment`, `kernel_table`, and `integration_report`, the last at 786 lines
+with zero. The other four carry thirteen `if/then` between them. So the package
+has **eight schemas that check fields and four that check meaning**, and the
+instances below are what that ratio produces.
+
 **Three instances on 2026-09-04, one shape.** A field carries something
 faithfully — the copy is exact, the producer did nothing wrong — and the field's
 *name* says it is something else. Every field validates; the document is false.
@@ -1706,3 +1714,21 @@ instrument reads a real thing and answers a different question*, eleven
 instances. Theirs is the instrument form, this is the artefact form. Neither is
 a superset; they should point at each other rather than become two vocabularies
 for one failure.
+
+### T44 — `rebuild` is reachable in one schema and emittable by none
+
+`integration_report.patch.apply_mode` accepts `['overlay_files', 'rebuild']`.
+Upstream, `workset`'s `integration.apply_mode` is `['overlay_files']` and
+`kernel_optimization`'s `apply.apply_mode` is `const: "overlay_files"`. **So no
+producer in the package can put `rebuild` into an artefact m5 would read**, and
+the branch is dead.
+
+Not a bug and nothing is broken by it — recorded because **a reader has no way
+to tell a deferred option from a live one.** `kernel_optimization`'s own
+`const` says the alternative is *"deferred rather than unimagined"* and cites
+M5.3; m5's enum says nothing, so the same decision reads as available there.
+
+**One line, not three owners' attention** (leader's call, 2026-09-04). The fix,
+whenever the mechanism question is settled, is for the three to agree — either
+`rebuild` becomes emittable or it stops being acceptable.
+
