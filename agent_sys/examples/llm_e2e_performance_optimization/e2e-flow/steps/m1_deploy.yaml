@@ -119,6 +119,27 @@
     # listed* and every run is a real one.
     E2E_MOCK_ROOT: '${mock_root:-/shared_nfs/yihou/agent_sys/cheat_for_mock}'
     E2E_MOCK_STAGES: '${mock_stages:-all}'
+    # Read by two libs this readme names — `remote.sh` at STEP 2's `on` idiom and
+    # `env_render.py` at STEP 5. Both survive undeclared on a code-level
+    # fallback, which is why nothing had noticed; `check_agent_env.py` found them
+    # once it followed the libs a readme names.
+    #
+    # **`E2E_REMOTE_HOME` is the parameter for a fault this stage has already
+    # hit.** `remote.sh:150` exports `HOME=${E2E_REMOTE_HOME:-$HOME}` on the far
+    # side, and `spur exec` otherwise lands with `HOME=/opt/spur`, which is not
+    # writable: measured 2026-09-04, a `docker build` there dies
+    # `mkdir /opt/spur/.docker: permission denied`, a message naming neither
+    # docker nor HOME. The fallback saves us **only because** `$HOME` is expanded
+    # in the *local* shell and `/home` happens to be shared, writable NFS on this
+    # cluster. On a cluster where the login home is not visible from the node the
+    # fallback is wrong and this variable is the fix.
+    #
+    # `E2E_STAGE` stamps `warnings[].stage` in the environment record. Declaring
+    # it does not make it correct — see `todo.md` T22: it is a *per-stage* value
+    # and `--var stage=` is one value for the whole run, so at most one stage in
+    # any run can be stamped truthfully.
+    E2E_STAGE: '${stage:-}'
+    E2E_REMOTE_HOME: '${remote_home:-}'
   # **No `skills:`, and that is a change from `../deploy-demo`.** That package
   # declared the packup skill because the skill was the authority for the kit's
   # layout. Here the authority is `assets/schemas/deploy_kit.layout.yaml` — that

@@ -478,3 +478,48 @@ untested**, and T17 is why that matters: a free-form string accepts
 `qwen3-thnking` as happily as `qwen3` and the wrong one produces no error.
 Setting the default is not this entry's fix — a correct default would have
 *hidden* the probe's blindness rather than removed it.
+
+### T22 — `E2E_STAGE` names a per-stage fact and `--var` carries one value per run
+*Found by m1 on 2026-09-04 while declaring the variable `check_agent_env.py`
+flagged. Declaring it was correct and does not make it right.*
+
+`env_render.py:173` stamps every tolerated difference with
+`{"stage": os.environ.get("E2E_STAGE", "")}` so that a reader of
+`warnings[].stage` can tell **who** tolerated it. The name is now declared on
+`runner` and on the `kind: ai` agents that reach `env_render.py`, spelled
+`'${stage:-}'` on every one of them — byte-identity is what
+`check_agent_env.py` requires, and diverging locally would be exactly the drift
+it exists to catch.
+
+**But the value is a property of the stage, and `--var stage=m1` is a property of
+the run.** One command line drives all five stages, so a single `--var` can
+stamp at most one of them truthfully; the other four get a label naming somebody
+else's stage, which is **worse than the empty string it replaces**. Empty says
+"nobody recorded who"; `m1` on m3's warning says something false.
+
+So the variable is currently in the one state where it cannot be used: correct
+when unset, wrong when set.
+
+**What would settle it — a value bound per agent rather than per run.** Three
+shapes, cheapest first:
+
+1. **A constant in each agent's `env` block** — `E2E_STAGE: m1` on
+   `e2e_deployer`, `m3` on `workset_builder`, and so on. Correct by
+   construction, no `--var`, nothing to pass. **It requires
+   `check_agent_env.py`'s byte-identity rule to make room**, and the `DELIBERATE`
+   map is already the mechanism for that — an entry per agent, each carrying the
+   reason. That is five entries whose reason is identical, which is a hint the
+   rule wants a third category rather than five exceptions:
+   *per-agent-by-design*, checked for **presence** but not for agreement.
+2. **Derive it in `env_render.py`** from something the body already knows.
+   `AGENT_SYS_MY_ZONE` and `AGENT_SYS_OUTPUT_<KIND>` are both exported and both
+   name the closure; a mapping from output kind to stage would need no variable
+   at all. Cheaper to run, harder to read.
+3. **Leave it empty and delete the field.** A field that is empty in four cases
+   out of five is not carrying information, and `warnings[]` already lives
+   inside a record that names its producer. Worth considering rather than
+   dismissing: the least code is the field nobody has to keep true.
+
+Not urgent — no run is blocked, and the empty string is the safe state. It is on
+this list because **the next person to notice the empty stamp will "fix" it by
+passing `--var stage=`**, which is the one action that makes the record lie.
