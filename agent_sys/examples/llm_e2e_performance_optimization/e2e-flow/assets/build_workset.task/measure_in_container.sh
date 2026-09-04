@@ -269,9 +269,22 @@ case "$ROOT" in
     else
       echo "measure_in_container: cannot derive a mount this cluster's docker authorization" >&2
       echo "  plugin will accept from $ROOT. Measured forms:" >&2
-      echo "    -v /home/<user>:/home/<user>   OK   (a run root under one user's home)" >&2
-      echo "    -v /shared_nfs:/shared_nfs     OK" >&2
-      echo "    -v /home:/home                 denied [BH] by plugin spur-authz" >&2
+      # **Every row below is prefixed `ref:` and it is load-bearing.**
+      # These are a *catalogue of forms measured previously*, not anything this
+      # run attempted. Unprefixed, the `/home:/home` row was captured by
+      # `check_workset_runs`'s stderr tail and read — by the leader, by
+      # checkpoint and by me — as a denial that had just occurred. Four people
+      # then reasoned for an hour about a value that never existed, and it was
+      # one message from being filed as a fact about validation zones.
+      #
+      # A captured tail cannot distinguish reference from observation, so the
+      # line has to. Marking them keeps the pattern that made this message
+      # useful — name the forms you have *seen* accepted — without the half
+      # that made it travel wrongly.
+      echo "    ref: -v \$HOME:\$HOME              accepted   (measured 006/234/249)" >&2
+      echo "    ref: -v /shared_nfs:/shared_nfs   accepted   (measured)" >&2
+      echo "    ref: -v /home:/home               refused    denied [BH] by spur-authz" >&2
+      echo "    (the three rows above are a catalogue, NOT what this run did)" >&2
       echo "  Point --demo-root at one of the two, or set E2E_REMOTE_HOME, or extend this" >&2
       echo "  case with a form you have SEEN the daemon accept — not one you expect it to." >&2
       exit 1
