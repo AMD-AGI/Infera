@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from env_mgr.o11y import mapping
+from env_mgr.o11y.agentsview import mapping
 
 MACHINE = "test-box"
 

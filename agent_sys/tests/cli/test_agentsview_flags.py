@@ -88,6 +88,7 @@ def test_the_installers_two_ok_messages_still_discriminate() -> None:
     catch it. So both phrasings are taken from the real installer here.
     """
     from env_mgr.installers.bin import BinInstaller
+    from env_mgr.o11y.agentsview import freshly_installed
     from env_mgr.recipe import Item, Target
 
     target = Target(kind="prefix", name="t", path=".")
@@ -115,8 +116,8 @@ def test_the_installers_two_ok_messages_still_discriminate() -> None:
         o.message for o in BinInstaller().install(satisfied, target) if o.level == "ok"
     ]
 
-    assert cli_main._was_freshly_installed(fresh_msg) is True
-    assert cli_main._was_freshly_installed(skip_msg) is False
+    assert freshly_installed(fresh_msg) is True
+    assert freshly_installed(skip_msg) is False
 
 
 def test_the_install_closure_runs_nothing_until_it_is_called(monkeypatch, tmp_path) -> None:

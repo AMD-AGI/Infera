@@ -14,7 +14,7 @@ prevent. One mapping over the run root collapses all four, at any depth.
 
 **AgentsView is not modified.** This uses its published settings API, and every
 property relied on below was measured against v0.42.0 rather than assumed —
-see `../docs/design.md` §17.2 and `recon/U1-U3.md`.
+see `design.md` §2, beside this file.
 
 Like everything else under `o11y/`: every function returns a `Status` and
 raises nothing.
@@ -32,7 +32,7 @@ from .agentsview import Status
 
 __all__ = ["ensure_run_project", "name_for_run"]
 
-log = logging.getLogger("env_mgr.o11y.mapping")
+log = logging.getLogger("env_mgr.o11y.agentsview.mapping")
 
 #: The settings collection. `GET` lists mappings and names the machine; `POST`
 #: creates one.

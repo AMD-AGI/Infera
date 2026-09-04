@@ -47,8 +47,15 @@ from cli.render.human import HumanRenderer
 from cli.render.machine import JsonLinesRenderer
 from cli.stream import Stream
 from env_mgr import meta
-from env_mgr.o11y.agentsview import RECIPE_PATH, ensure_installed, ensure_running, resolve_port
-from env_mgr.o11y.mapping import ensure_run_project
+from env_mgr.o11y.agentsview import (
+    RECIPE_PATH,
+    freshly_installed,
+    ensure_installed,
+    ensure_run_project,
+    ensure_running,
+    pinned_version,
+    resolve_port,
+)
 from env_mgr.prefix import Prefix
 from env_mgr.prepare import EnvManager, permissions_enforced
 from env_mgr.protocols import NoConfinement, PrepareRefused, UnresolvedGrant
@@ -254,32 +261,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     return UNEXPECTED_FAILURE  # pragma: no cover — ExitStack always returns above
 
 
-#: `BinInstaller.install` says "installed <name>" when it ran and "<name>
-#: already present (skip)" when it did not — the only signal `ensure_installed`
-#: passes back about which. `test_the_installers_two_ok_messages_still_discriminate`
-#: drives both real branches, so a rephrasing there fails rather than silently
-#: muting the notice or firing it every run.
-_FRESHLY_INSTALLED_PREFIX = "installed "
-
-
-def _was_freshly_installed(reason: str) -> bool:
-    return reason.startswith(_FRESHLY_INSTALLED_PREFIX)
-
-
-def _pinned_version() -> str:
-    """The version the recipe pins, for the notice. `?` rather than a raise."""
-    try:
-        from env_mgr.recipe import load_recipe
-
-        _target, items = load_recipe(RECIPE_PATH)
-        for item in items:
-            if item.spec.get("name") == "agentsview":
-                return item.version or "?"
-    except Exception:  # noqa: BLE001 — a notice may not fail what it narrates
-        pass
-    return "?"
-
-
 def _install_item(prefix: Prefix) -> Callable[[], Sequence[Any]]:
     """The recipe call `ensure_installed` injects rather than performs.
 
@@ -337,11 +318,11 @@ def _start_o11y(
             # `ensure_installed` has already logged the one warning. Starting a
             # daemon whose binary is absent would only add a second.
             return None
-        if _was_freshly_installed(installed.reason):
+        if freshly_installed(installed.reason):
             # Only on the run that downloaded: a line on every run is how a
             # real warning gets scrolled past. Says what arrived and where,
             # because a 45 MB download nobody asked for should be inspectable.
-            version = _pinned_version()
+            version = pinned_version()
             path = str(prefix.bin / "agentsview")
             message = (
                 f"fetched the o11y panel binary (agentsview v{version}, "

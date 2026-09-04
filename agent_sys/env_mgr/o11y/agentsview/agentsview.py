@@ -14,8 +14,8 @@ a human at a terminal, wrong here: the mission asks for a warning and a skip on
 a taken port, and a daemon that quietly moved to 18889 is a panel nobody knows
 the address of. So the bind probe happens here, before launch.
 
-Rationale, measurements and rejected alternatives: `../docs/design.md` §17.1
-and `README.md`.
+Rationale, measurements and rejected alternatives: `design.md`, beside this file.
+
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from ..prefix import Prefix
+    from ...prefix import Prefix
 
 __all__ = [
     "DEFAULT_PORT",
@@ -47,6 +47,8 @@ __all__ = [
     "discover_providers",
     "ensure_installed",
     "ensure_running",
+    "freshly_installed",
+    "pinned_version",
     "port_is_free",
     "resolve_port",
     "write_config",
@@ -506,7 +508,41 @@ def ensure_running(prefix: Prefix, port: int) -> Status:
 
 #: The recipe item `ensure_installed` drives. Fixed and in-package: there is one
 #: recipe for this component, and a parameter would be a second way to say so.
-RECIPE_PATH = Path(__file__).resolve().parent.parent / "recipes" / "agentsview.o11y.yaml"
+RECIPE_PATH = Path(__file__).resolve().parent.parent.parent / "recipes" / "agentsview.o11y.yaml"
+
+#: `BinInstaller.install` says "installed <name>" when it ran and "<name>
+#: already present (skip)" when it did not — the only signal `ensure_installed`
+#: passes back about which. `test_the_installers_two_ok_messages_still_discriminate`
+#: drives both real branches, so a rephrasing there fails rather than silently
+#: muting the first-install notice or firing it every run.
+_FRESHLY_INSTALLED_PREFIX = "installed "
+
+
+def freshly_installed(reason: str) -> bool:
+    """Did `ensure_installed` just download it, or was it already there?"""
+    return reason.startswith(_FRESHLY_INSTALLED_PREFIX)
+
+
+def pinned_version() -> str:
+    """The version `RECIPE_PATH` pins, for the first-install notice.
+
+    **Reads the YAML rather than calling `recipe.load_recipe`.** That loader is
+    below the decoupling wall (spec §9) and nothing under `env_mgr/` may import
+    it — checked structurally by `tests/env_mgr/test_imports.py`. One field does
+    not justify an exemption, and `?` rather than a raise because a notice may
+    not fail the thing it narrates.
+    """
+    try:
+        import yaml
+
+        spec = yaml.safe_load(RECIPE_PATH.read_text())
+        for item in spec.get("items", []):
+            if item.get("name") == "agentsview":
+                return str(item.get("version") or "?")
+    except Exception:  # noqa: BLE001 — see the docstring
+        pass
+    return "?"
+
 
 
 @contextlib.contextmanager
