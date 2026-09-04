@@ -251,6 +251,60 @@ def _repair_readme(content: Path) -> None:
           f"the sealed copy predates `code`'s section list (content.py:73)")
 
 
+#: The sealed `reproducible` items that a `code` handoff does not define.
+#: `content.py:69-73` gives `code` exactly `codes` (required) plus `logs` and
+#: `watchout` (optional), so `watchout` stays where it is and these three have
+#: nowhere to be. They are the same leftover as the `items/code` → `items/codes`
+#: rename: the sealed half was a different content type.
+_SEALED_ONLY_ITEMS = ("env", "result", "script")
+
+
+def _fold_sealed_items(content: Path, root: Path) -> None:
+    """Move the sealed `reproducible` items into `items/codes/sealed/`.
+
+    **The second seal refusal, found before it cost a rung.** With the README
+    repaired, `content.check_items` refuses next:
+
+        items ['env', 'result', 'script'] are not defined by content_type
+        'code' (defines: ['codes', 'logs', 'watchout'])
+
+    Verified against `handoff.content.check_items` on the repaired artefact and
+    confirmed present in the live run's own output, rather than predicted.
+
+    **Moved, not deleted.** MOCK-MAP forbids inventing and this is the other
+    side of the same rule: the three carry the sealed handoff's own environment
+    note, result write-up and driver script, and they are the only record of
+    what the original delivery said. Dropping them to satisfy a shape would
+    throw away evidence to make a gate pass, which is the shape of thing this
+    package refuses everywhere else.
+
+    **And the fix is here rather than on the kind.** Declaring the three in the
+    kind's `items_schema` would also satisfy the check — and would widen
+    `operator_workset` to admit items the *real* producer never writes, because
+    `scaffold.py` writes `items/codes/` and nothing else. That is CONTRACT §4.4
+    with the arrow reversed: the fixture reshaping production. **The mock adapts
+    to the kind; the kind does not adapt to the mock.**
+
+    Idempotent: a name already folded is left alone, so a re-driven mock does
+    not stack `sealed/sealed/`.
+    """
+    destination = root / "sealed"
+    moved = []
+    for name in _SEALED_ONLY_ITEMS:
+        source = content / "items" / name
+        if not source.exists():
+            continue
+        destination.mkdir(parents=True, exist_ok=True)
+        target = destination / name
+        if target.exists():
+            target.unlink()
+        shutil.move(str(source), str(target))
+        moved.append(name)
+    if moved:
+        print(f"mock_adapt: folded {', '.join(moved)} into items/codes/sealed/ — "
+              f"content_type 'code' defines only codes, logs and watchout (content.py:69-73)")
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         _die("usage: mock_adapt.py <content dir>")
@@ -266,6 +320,7 @@ def main() -> int:
     root.mkdir(parents=True, exist_ok=True)
 
     _repair_readme(content)
+    _fold_sealed_items(content, root)
 
     # The provenance vocabulary, from whichever stage-3 operator directory the
     # seal carried. Optional: the mock is still valid without it, and says so.
