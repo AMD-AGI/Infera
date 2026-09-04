@@ -202,6 +202,22 @@ def _transport_env(args: dict, card: str) -> dict[str, str]:
     # script reads `E2E_MEASURE_GPU`.
     env["HIP_VISIBLE_DEVICES"] = card
     env["E2E_MEASURE_GPU"] = card
+
+    # **`scratch_dir` is a path on the NODE and is never touched here.** It is
+    # where ROCm and Triton write their own temporaries, and it has to be
+    # node-local because `TMPDIR` on this cluster's NFS makes every HIP kernel
+    # launch SIGSEGV — the trap that cost the 2026-09-02 run 25 minutes. It is
+    # *not* where the apparatus is staged; that is the zone. See `_remeasure`.
+    #
+    # Handed across as environment rather than created here, because this
+    # process cannot create it: `/mnt/m2m_nobackup` is a node-local NVMe volume
+    # and the login node's copy of that path is not writable by us. rung 0 died
+    # trying. `run_in_container.sh` forwards both variables into the container
+    # and creates them on the far side, which is the only side that can.
+    scratch = str(args.get("scratch_dir") or "").strip()
+    if scratch:
+        env["TMPDIR"] = scratch
+        env.setdefault("TRITON_CACHE_DIR", f"{scratch}/triton_cache")
     return env
 
 
@@ -686,31 +702,46 @@ def _remeasure(
     # this cluster's NFS every ROCm kernel launch segfaults, and it does so
     # *after* the copies and the first round, so the run is lost at its most
     # expensive point.
-    scratch_dir = str(args.get("scratch_dir") or "").strip() or os.environ.get("TMPDIR") or ""
-    if scratch_dir:
-        # **A validator that raises gives no verdict at all.** This `mkdir` was
-        # unguarded, and the default `scratch_root` is node-local
-        # (`/mnt/m2m_nobackup/...`), which does not exist on a login node — so
-        # re-running this validator anywhere but the node ended in a
-        # `PermissionError` traceback out of `pathlib`, with no `verdict.json`
-        # written and nothing naming the `--var` that caused it. Measured
-        # 2026-09-04 while re-checking rung 0's refusal off the node.
-        #
-        # A refusal here is the honest answer — the re-measurement genuinely
-        # cannot be done — but it has to arrive as a refusal that names the
-        # path, not as a stack trace the reader has to interpret.
-        try:
-            Path(scratch_dir).mkdir(parents=True, exist_ok=True)
-        except OSError as error:
-            problems.append(
-                f"cannot create the re-measurement scratch directory {scratch_dir!r}: {error}. "
-                "This is `--var scratch_dir` (falling back to $TMPDIR). It must be node-local — "
-                "on this cluster's NFS every ROCm kernel launch segfaults after the first round "
-                "— so a login node cannot satisfy the default and this check belongs on the node"
-            )
-            return
-        notes.append(f"scratch under {scratch_dir}")
-    root = Path(tempfile.mkdtemp(prefix="substantiate-", dir=scratch_dir or None))
+    # **Two different directories were being asked of one variable, and only one
+    # of them can live on this side.** rung 0 stopped here on 2026-09-04:
+    #
+    #     cannot create the re-measurement scratch directory
+    #     '/mnt/m2m_nobackup/yihou/e2e_flow/kfo/substantiate': Permission denied
+    #
+    # The refusal named the path and the `--var`, which was right, and then
+    # recommended putting the check "on the node", which was one step short. **A
+    # validator runs where the orchestrator runs — the login node — and no
+    # `--var` moves it.** So this could never have been satisfied by
+    # configuration; pointing `scratch_dir` somewhere writable here would only
+    # have moved the failure downstream.
+    #
+    # **The two directories:**
+    #
+    #   1. *where the apparatus is staged and the report is written* — needs to
+    #      be visible from this process, from the node, and from inside the
+    #      container. **The zone.**
+    #   2. *where ROCm and Triton put their own temporaries* — `TMPDIR` on this
+    #      cluster's NFS makes every HIP kernel launch SIGSEGV. **Node-local**,
+    #      and therefore not creatable or readable from here at all.
+    #
+    # Conflating them is what put a node-local path under `mkdtemp` and
+    # `copytree`. Only (2) has to be node-local, and (2) is now passed to the
+    # far side rather than built here — see `_transport_env`.
+    #
+    # **(1) goes in the zone, which is m3's answer to the same seam** and is
+    # load-bearing for the same reason they give in
+    # `check_workset_runs.validator/check.py:325-332`: the zone is on the shared
+    # filesystem, so a path here resolves identically on the node and inside the
+    # container, and it is disposable with the zone. Their re-measurement passed
+    # at rung 0 today with the tree staged exactly this way — *recorded 0.0415,
+    # re-measured 0.0415* — which is the direct evidence that the tree does not
+    # need to be node-local. Only `TMPDIR` ever did; `_measure_env` says so and
+    # the environment note says so.
+    #
+    # The validator's cwd **is** the zone (`args.json`, `inputs.json` and
+    # `materials.json` sit in it), so this needs no new parameter to find.
+    root = Path(tempfile.mkdtemp(prefix="substantiate-", dir=str(Path.cwd())))
+    notes.append(f"apparatus staged in the zone at {root.name}")
     seed_root, candidate_root = root / "seed", root / "candidate"
     shutil.copytree(apparatus, seed_root)
     shutil.copytree(apparatus, candidate_root)

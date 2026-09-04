@@ -386,6 +386,29 @@ WORKDIR_ARG=""
 echo "run_in_container: exec into $CONTAINER on ${E2E_NODE:-the node}, GPU $HIP_VISIBLE_DEVICES" >&2
 echo "run_in_container: the next line comes from inside the container" >&2
 
+# **Create the scratch roots on the far side, because only the far side can.**
+# `TMPDIR` and `TRITON_CACHE_DIR` point at node-local storage
+# (`/mnt/m2m_nobackup/...`), which is an NVMe volume on the compute node; the
+# login node's copy of that path is not writable by us, so a caller cannot
+# create them before calling and rung 0 died on 2026-09-04 trying
+# (`check_speedup_substantiated` → `PermissionError`).
+#
+# **An absent `TMPDIR` is not a harmless default here.** A `TMPDIR` naming a
+# directory that does not exist makes every HIP kernel launch SIGSEGV with no
+# output while `torch.cuda.is_available()` still returns `True` — the trap that
+# cost the 2026-09-02 run 25 minutes. So forwarding the variable without
+# creating the directory is the worst of the three options: it looks configured
+# and it crashes in the kernel.
+#
+# Prepended to the command rather than run as a separate `docker exec`, so it
+# cannot succeed in one exec and be missing in the next.
+MKSCRATCH=""
+for name in TMPDIR TRITON_CACHE_DIR KNOWLEDGE_LOCAL_ROOT KFO_SCRATCH_ROOT; do
+  eval "value=\${$name:-}"
+  [ -n "$value" ] && MKSCRATCH="$MKSCRATCH mkdir -p $(_sq "$value") || exit 1;"
+done
+[ -n "$MKSCRATCH" ] && COMMAND="$MKSCRATCH $COMMAND"
+
 rc=0
 # shellcheck disable=SC2086
 on "docker exec $EXEC_ENV $WORKDIR_ARG $(_sq "$CONTAINER") bash -lc $(_sq "$COMMAND")" || rc=$?
