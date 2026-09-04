@@ -237,9 +237,27 @@
     # enforces rather than trusts; the duplication is unavoidable because
     # `${...}` is textual per occurrence and YAML anchors do not cross files.
     #
-    # NOT re-declared, deliberately: `E2E_MOCK_ROOT` and `E2E_MOCK_STAGES` are
-    # read only by `mock.sh`, which the ai backend never runs — a `kind: ai`
-    # task does not execute `entry.sh` at all.
+    # NOT re-declared: `E2E_MOCK_ROOT` and `E2E_MOCK_STAGES` are read only by
+    # `mock.sh`, and **this task's readme never invokes it** — measured, 0
+    # references in `optimize_kernel.task/readme.md`. m4 reaches the mock only
+    # through `entry.sh` + `mock_adapt.py`, which run under `runner`, where both
+    # variables already are.
+    #
+    # **The reason is this readme's, not the agent's kind**, and the first
+    # version of this comment got that wrong: it said a `kind: ai` task never
+    # runs `entry.sh` and therefore never reaches `mock.sh`. The first half is
+    # true and the second does not follow — **a readme can invoke `mock.sh`
+    # directly, and m1's does**: `deploy_and_prove.task/readme.md:71` is STEP 0,
+    # with the 0-vs-3 exit contract as its criterion, so `e2e_deployer` needs
+    # both names and is right to declare them. Corrected by m1, who measured all
+    # four ai readmes (deploy 3 references, the other three 0).
+    #
+    # So the rule is per-agent, derived from what each task's readme actually
+    # references. A blanket "ai agents do not declare mock vars" would flag the
+    # one stage where they are load-bearing, and it would fail silently in the
+    # worst direction: undeclared, `mock.sh` cannot tell **unset** from **not
+    # listed**, so `--var mock_stages=all` runs the stage for real. That is what
+    # happened on rung 1.
     E2E_JOBID: '${jobid}'
     E2E_NODE: '${node}'
     E2E_TRANSPORT: '${transport:-auto}'
