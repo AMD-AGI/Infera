@@ -39,6 +39,20 @@
 # the call (see `agentsview.py::_patched_environ`) — a human running `env-mgr`
 # directly must export it themselves, as in the line above.
 #
+# The checksum gate is **two statements, not one `&&` list**, and that is not
+# style. `set -e` does not fire for a command that is not the last in an `&&`
+# list, so `[ -n "$expected" ] && [ "$expected" = "$actual" ]` short-circuited
+# and *carried on* whenever `awk` matched no line — installing an unverified
+# binary in exactly the case the `-n` test was written to catch (a renamed
+# release asset, a changed `SHA256SUMS` format). A genuine mismatch aborted
+# correctly the whole time, which is why it read as working.
+# `tests/env_mgr/test_o11y_agentsview.py` runs this string for real against a
+# stubbed `curl` in all three cases: match, mismatch, and checksum-not-found.
+#
+# `${tmp:?}` in the trap for the same class of reason: a recursive delete whose
+# target is a variable is one unset variable away from a much larger delete,
+# and `:?` makes the empty expansion abort instead of expand.
+#
 # The download is pinned to a specific release rather than "latest": a
 # floating install means two machines can end up running different panels
 # with no record of which, and re-deriving "latest" here would duplicate
@@ -62,13 +76,14 @@ items:
     install: >-
       set -e;
       tmp=$(mktemp -d);
-      trap 'rm -rf "$tmp"' EXIT;
+      trap 'rm -rf "${tmp:?}"' EXIT;
       base="https://github.com/kenn-io/agentsview/releases/download/v0.42.0";
       curl -fsSL "$base/agentsview_0.42.0_linux_amd64.tar.gz" -o "$tmp/av.tgz";
       curl -fsSL "$base/SHA256SUMS" -o "$tmp/SHA256SUMS";
       expected=$(awk '$2=="agentsview_0.42.0_linux_amd64.tar.gz"{print $1}' "$tmp/SHA256SUMS");
+      [ -n "$expected" ] || exit 1;
       actual=$(sha256sum "$tmp/av.tgz" | cut -d' ' -f1);
-      [ -n "$expected" ] && [ "$expected" = "$actual" ];
+      [ "$expected" = "$actual" ];
       tar -xzf "$tmp/av.tgz" -C "$tmp" agentsview;
       mkdir -p "$AGENT_SYS_HOME/bin";
       mv "$tmp/agentsview" "$AGENT_SYS_HOME/bin/agentsview";

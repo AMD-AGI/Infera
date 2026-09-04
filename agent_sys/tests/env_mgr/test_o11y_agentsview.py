@@ -4,7 +4,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import http.server
+import json
 import os
 import socket
 import subprocess
@@ -34,6 +36,30 @@ def test_the_flag_beats_the_environment() -> None:
 
 def test_an_unparseable_environment_value_falls_back_to_the_default() -> None:
     assert agentsview.resolve_port(None, {"AGENTSVIEW_PORT": "not-a-port"}) == 18888
+
+
+@pytest.mark.parametrize("bad", [70000, -1, 0, 65536])
+def test_an_out_of_range_port_falls_back_to_the_default(bad: int, caplog) -> None:
+    """Range, not just parseability.
+
+    `socket.bind` answers an out-of-range port with `OverflowError`, which is
+    neither `OSError` nor anything else `port_is_free` catches — so an
+    unchecked value escapes this module entirely and is caught only by the
+    CLI's blanket backstop, which is meant to be a fuse and not the mechanism.
+    `0` is in the list for a different reason: it binds successfully and then
+    hands the port choice to AgentsView's own auto-discovery, which is exactly
+    the delegation this module's header says it exists to prevent.
+    """
+    with caplog.at_level("WARNING"):
+        assert agentsview.resolve_port(bad, {}) == 18888
+        assert agentsview.resolve_port(None, {"AGENTSVIEW_PORT": str(bad)}) == 18888
+    assert len([r for r in caplog.records if r.levelname == "WARNING"]) == 2
+
+
+@pytest.mark.parametrize("bad", [70000, -1])
+def test_port_is_free_does_not_raise_on_an_impossible_port(bad: int) -> None:
+    """`OverflowError` is not `OSError`; the module's law covers both."""
+    assert agentsview.port_is_free(bad) is False
 
 
 def test_port_is_free_says_no_when_something_is_listening() -> None:
@@ -194,6 +220,27 @@ def test_ensure_running_passes_replace_to_serve(prefix, monkeypatch) -> None:
     assert "--replace" in seen_cmd
 
 
+def test_ensure_running_disables_the_other_providers(prefix, monkeypatch) -> None:
+    """The launch path applies the pinned denylist, not just the writer.
+
+    `write_config` is tested in isolation against an arbitrary list; that says
+    nothing about whether the one call that matters passes `OTHER_PROVIDERS`.
+    Changing this call site to `write_config(prefix, ())` left every other
+    test green — the whole `OTHER_PROVIDERS` / `check_disabled_agents`
+    apparatus exists to serve this one line.
+    """
+    _fake_binary(prefix, "exit 0\n")
+    monkeypatch.setattr(agentsview, "_wait_for_health", lambda url, timeout: True)
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        free = s.getsockname()[1]
+    agentsview.ensure_running(prefix, port=free)
+    written = (prefix.agentsview_data / "config.toml").read_text()
+    for name in agentsview.OTHER_PROVIDERS:
+        assert f'"{name}"' in written
+    assert '"claude"' not in written
+
+
 @contextmanager
 def _server_on_a_port(body: bytes, content_type: str) -> Iterator[int]:
     """A real HTTP server on a real ephemeral port, answering everything alike.
@@ -225,9 +272,47 @@ def _server_on_a_port(body: bytes, content_type: str) -> Iterator[int]:
         thread.join(timeout=5)
 
 
-def _claim_port(prefix: Prefix, port: int) -> None:
-    """Forge the evidence that *we* started the daemon on `port`."""
-    (prefix.run / "agentsview.port").write_text(str(port))
+def _claim_port(prefix: Prefix, port: int, pid: int | None = None) -> None:
+    """Forge the evidence that *we* started the daemon on `port`.
+
+    The shape is AgentsView's own, copied from a real
+    `state/agentsview/daemon.<pid>.json` written by v0.42.0 — not invented
+    here, because a test that forges a record the binary does not write proves
+    only that our parser reads our own fiction.
+    """
+    pid = os.getpid() if pid is None else pid
+    (prefix.agentsview_data / f"daemon.{pid}.json").write_text(
+        json.dumps(
+            {
+                "pid": pid,
+                "process_identity_v2": "linux-v1:test:4026531836:1",
+                "network": "tcp",
+                "address": f"127.0.0.1:{port}",
+                "service": "agentsview",
+                "version": "v0.42.0",
+                "metadata": {"host": "127.0.0.1", "port": str(port)},
+            }
+        )
+    )
+
+
+def _a_dead_pid() -> int:
+    """A pid that is certainly not running.
+
+    Found by asking the kernel rather than by picking a large number: pids wrap,
+    and a hardcoded one is a test that fails on a busy machine in a year.
+    """
+    for candidate in range(_MAX_PID, 1, -1):
+        try:
+            os.kill(candidate, 0)
+        except ProcessLookupError:
+            return candidate
+        except OSError:
+            continue
+    raise AssertionError("no dead pid available")  # pragma: no cover
+
+
+_MAX_PID = 4194304
 
 
 def test_a_stranger_answering_http_on_our_port_is_not_adopted(
@@ -257,7 +342,7 @@ def test_someone_elses_agentsview_is_not_adopted(prefix, caplog, monkeypatch) ->
     """
     monkeypatch.setattr(agentsview, "REUSE_PROBE_TIMEOUT_S", 0.2)
     with _server_on_a_port(b'[{"name":"claude-code"}]', "application/json") as port:
-        assert not (prefix.run / "agentsview.port").exists()  # control
+        assert not list(prefix.agentsview_data.glob("daemon.*.json"))  # control
         with caplog.at_level("WARNING"):
             status = agentsview.ensure_running(prefix, port=port)
     assert status.running is False
@@ -276,6 +361,161 @@ def test_our_own_resident_daemon_is_reused(prefix, caplog, monkeypatch) -> None:
     assert status.reason == "already running"
     assert status.url == f"http://127.0.0.1:{port}"
     assert [r for r in caplog.records if r.levelname == "WARNING"] == []
+
+
+def test_a_daemon_record_for_a_dead_pid_is_not_ownership(
+    prefix, caplog, monkeypatch
+) -> None:
+    """The stale-record case, which is the whole reason the pid is checked.
+
+    Our daemon is killed (reboot, OOM, `kill -9`) without the chance to remove
+    its own record; the user then starts *their* AgentsView on the same port.
+    Measured on a real v0.42.0: a clean `serve stop` **does** remove
+    `daemon.<pid>.json`, so only an unclean death leaves one behind — and in
+    that case the record names a pid that is gone. Without the liveness check
+    the operator is handed a URL to a panel listing every session on their
+    machine, labelled as theirs, with no warning at all.
+    """
+    monkeypatch.setattr(agentsview, "REUSE_PROBE_TIMEOUT_S", 0.2)
+    with _server_on_a_port(b'[{"name":"claude-code"}]', "application/json") as port:
+        _claim_port(prefix, port, pid=_a_dead_pid())
+        with caplog.at_level("WARNING"):
+            status = agentsview.ensure_running(prefix, port=port)
+    assert status.running is False
+    assert status.url is None
+    assert len([r for r in caplog.records if r.levelname == "WARNING"]) == 1
+
+
+def test_a_daemon_record_for_another_port_is_not_ownership(
+    prefix, caplog, monkeypatch
+) -> None:
+    """Ownership is per-port. A live daemon of ours on 19000 says nothing
+    about who holds 19001."""
+    monkeypatch.setattr(agentsview, "REUSE_PROBE_TIMEOUT_S", 0.2)
+    with _server_on_a_port(b'[{"name":"claude-code"}]', "application/json") as port:
+        _claim_port(prefix, port + 1)
+        with caplog.at_level("WARNING"):
+            status = agentsview.ensure_running(prefix, port=port)
+    assert status.running is False
+    assert len([r for r in caplog.records if r.levelname == "WARNING"]) == 1
+
+
+def test_a_malformed_daemon_record_is_not_ownership(prefix, caplog, monkeypatch) -> None:
+    """Unreadable evidence is a `no`: the safe answer to *is this ours* is the
+    one that declines to adopt a stranger."""
+    monkeypatch.setattr(agentsview, "REUSE_PROBE_TIMEOUT_S", 0.2)
+    with _server_on_a_port(b'[{"name":"claude-code"}]', "application/json") as port:
+        (prefix.agentsview_data / "daemon.123.json").write_text("{not json")
+        with caplog.at_level("WARNING"):
+            status = agentsview.ensure_running(prefix, port=port)
+    assert status.running is False
+    assert len([r for r in caplog.records if r.levelname == "WARNING"]) == 1
+
+
+def test_our_own_daemon_that_stops_answering_says_so_and_does_not_blame_a_stranger(
+    prefix, caplog, monkeypatch
+) -> None:
+    """The two busy-port cases are told apart, because the fixes differ.
+
+    "Something else has your port" sends the operator hunting for a process
+    that does not exist when the truth is that *our own* daemon is wedged.
+    """
+    monkeypatch.setattr(agentsview, "REUSE_PROBE_TIMEOUT_S", 0.2)
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        s.listen(1)
+        port = s.getsockname()[1]
+        _claim_port(prefix, port)
+        with caplog.at_level("WARNING"):
+            status = agentsview.ensure_running(prefix, port=port)
+    assert status.running is False
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert "something else" not in warnings[0].getMessage()
+
+
+def test_a_health_check_timeout_is_a_warning_and_a_skip(
+    prefix, caplog, monkeypatch
+) -> None:
+    """The failure mode named in `CLAUDE.md` that had no test.
+
+    The binary launches cleanly and exits 0 (`serve --background` daemonises,
+    so that is success) but nothing ever answers on the port.
+    """
+    _fake_binary(prefix, "exit 0\n")
+    monkeypatch.setattr(agentsview, "HEALTH_TIMEOUT_S", 0.2)
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        free = s.getsockname()[1]
+    with caplog.at_level("WARNING"):
+        status = agentsview.ensure_running(prefix, port=free)
+    assert status.running is False
+    assert status.reason == "health check timed out"
+    assert len([r for r in caplog.records if r.levelname == "WARNING"]) == 1
+
+
+def test_a_truncated_identity_response_is_not_an_identity(prefix, monkeypatch) -> None:
+    """`http.client.IncompleteRead` is neither `OSError` nor `ValueError`.
+
+    urllib wraps connect-time errors in `URLError`, but not errors raised
+    during `read()`, so without `HTTPException` in the caught tuple this puts
+    an exception straight through `_identifies_as_agentsview`.
+
+    **Chunked, and measured rather than assumed.** A truncated
+    `Content-Length` body does *not* reach this: `HTTPResponse.read(amt)`
+    returns a short read for that case and raises nothing (checked directly —
+    the first version of this test used it and passed against the unfixed
+    code). Chunked framing is the path that raises, and it is the framing a Go
+    HTTP server uses whenever it does not set a length — which is to say, a
+    realistic stranger.
+    """
+    monkeypatch.setattr(agentsview, "REUSE_PROBE_TIMEOUT_S", 0.0)
+
+    def liar(conn: socket.socket) -> None:
+        conn.recv(4096)
+        conn.sendall(
+            b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+            b"Transfer-Encoding: chunked\r\n\r\n64\r\n[{}]"  # promises 0x64, sends 4
+        )
+        conn.close()
+
+    with _raw_server(liar) as port:
+        _claim_port(prefix, port)
+        status = agentsview.ensure_running(prefix, port=port)
+    assert status.running is False
+
+
+@contextmanager
+def _raw_server(answer) -> Iterator[int]:  # noqa: ANN001
+    """A socket server that answers with bytes we choose, header included.
+
+    `http.server` cannot send a `Content-Length` it does not honour, and a
+    lying one is exactly the stranger this test needs.
+    """
+    srv = socket.socket()
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(5)
+    stop = threading.Event()
+
+    def loop() -> None:
+        srv.settimeout(0.2)
+        while not stop.is_set():
+            try:
+                conn, _ = srv.accept()
+            except OSError:
+                continue
+            with contextlib.suppress(OSError):
+                answer(conn)
+
+    thread = threading.Thread(target=loop, daemon=True)
+    thread.start()
+    try:
+        yield srv.getsockname()[1]
+    finally:
+        stop.set()
+        thread.join(timeout=5)
+        srv.close()
 
 
 def test_the_recipe_installs_agentsview_as_an_optional_bin_item() -> None:
@@ -313,6 +553,122 @@ def test_the_recipe_install_command_uses_a_private_tempfile_and_verifies_checksu
     assert "/tmp/av.tgz" not in install
     assert "sha256sum" in install
     assert "SHA256SUMS" in install
+
+
+def _recipe_install_command() -> str:
+    from env_mgr.recipe import load_recipe
+
+    _target, items = load_recipe("env_mgr/recipes/agentsview.o11y.yaml")
+    (item,) = [i for i in items if i.spec.get("name") == "agentsview"]
+    return item.spec["install"]
+
+
+def _stub_curl(tmp_path: Path, payload: Path, sums_text: str) -> Path:
+    """A `curl` that serves two local files by the name being fetched.
+
+    The recipe is a shell string, and the only honest way to test a shell
+    string is to run it. Everything real stays real — `mktemp`, `tar`,
+    `sha256sum`, `awk` — and only the network is replaced.
+    """
+    (tmp_path / "SHA256SUMS").write_text(sums_text)
+    stub = tmp_path / "stub"
+    stub.mkdir()
+    curl = stub / "curl"
+    curl.write_text(
+        "#!/bin/sh\n"
+        "url=; out=;\n"
+        'while [ $# -gt 0 ]; do\n'
+        '  case "$1" in\n'
+        '    -o) out=$2; shift 2 ;;\n'
+        '    -*) shift ;;\n'
+        '    *) url=$1; shift ;;\n'
+        "  esac\n"
+        "done\n"
+        'case "$url" in\n'
+        f'  *SHA256SUMS) cp "{tmp_path}/SHA256SUMS" "$out" ;;\n'
+        f'  *.tar.gz)    cp "{payload}" "$out" ;;\n'
+        "  *) exit 22 ;;\n"
+        "esac\n"
+    )
+    curl.chmod(0o755)
+    return stub
+
+
+@pytest.fixture()
+def _tarball(tmp_path: Path) -> Path:
+    """A real gzipped tar holding one file called `agentsview`."""
+    import tarfile
+
+    payload = tmp_path / "agentsview"
+    payload.write_text("#!/bin/sh\necho v0.42.0\n")
+    payload.chmod(0o755)
+    tgz = tmp_path / "release.tar.gz"
+    with tarfile.open(tgz, "w:gz") as tar:
+        tar.add(payload, arcname="agentsview")
+    return tgz
+
+
+def _run_recipe_install(tmp_path: Path, stub: Path) -> subprocess.CompletedProcess[str]:
+    home = tmp_path / "prefix"
+    home.mkdir(exist_ok=True)
+    return subprocess.run(  # noqa: S602 - the recipe *is* a shell string
+        _recipe_install_command(),
+        shell=True,
+        cwd=home,
+        env={"PATH": f"{stub}:{os.environ['PATH']}", "AGENT_SYS_HOME": str(home)},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+
+def _sha256(path: Path) -> str:
+    import hashlib
+
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+_ASSET = "agentsview_0.42.0_linux_amd64.tar.gz"
+
+
+def test_the_recipe_install_command_installs_when_the_checksum_matches(
+    tmp_path: Path, _tarball: Path
+) -> None:
+    """The positive control, and it is not decoration.
+
+    Without it the negative test below passes just as well against a recipe
+    that never installs anything at all.
+    """
+    stub = _stub_curl(tmp_path, _tarball, f"{_sha256(_tarball)}  {_ASSET}\n")
+    done = _run_recipe_install(tmp_path, stub)
+    assert done.returncode == 0, done.stderr
+    assert (tmp_path / "prefix" / "bin" / "agentsview").is_file()
+
+
+def test_the_recipe_install_command_refuses_a_wrong_checksum(
+    tmp_path: Path, _tarball: Path
+) -> None:
+    stub = _stub_curl(tmp_path, _tarball, f"{'0' * 64}  {_ASSET}\n")
+    done = _run_recipe_install(tmp_path, stub)
+    assert done.returncode != 0
+    assert not (tmp_path / "prefix" / "bin" / "agentsview").exists()
+
+
+def test_the_recipe_install_command_refuses_a_checksum_it_could_not_find(
+    tmp_path: Path, _tarball: Path
+) -> None:
+    """The case the `-n` test was written for, and the one it did not cover.
+
+    `set -e` does not fire for a command that is not the last in an `&&` list,
+    so `[ -n "$expected" ] && [ "$expected" = "$actual" ]` short-circuits and
+    *continues* when `awk` matched no line — upstream renaming an asset or
+    changing the `SHA256SUMS` format would have installed an unverified
+    binary. A mismatch aborted correctly; the missing-checksum case did not.
+    """
+    stub = _stub_curl(tmp_path, _tarball, f"{_sha256(_tarball)}  some-other-file.tar.gz\n")
+    done = _run_recipe_install(tmp_path, stub)
+    assert done.returncode != 0
+    assert not (tmp_path / "prefix" / "bin" / "agentsview").exists()
 
 
 # --- ensure_installed: the recipe item, actually installed ---------------
@@ -445,6 +801,22 @@ def test_ensure_installed_restores_os_environ_even_when_the_installer_raises(
     assert status.running is False
     assert dict(os.environ) == before
     assert "AGENT_SYS_HOME" not in os.environ
+
+
+def test_ensure_installed_is_a_warning_and_a_skip_when_the_item_is_absent(
+    prefix, caplog, _no_leftover_environ
+) -> None:
+    """The `if not outs:` branch — a failure mode with no test until now.
+
+    It fires when the recipe no longer has an item named `agentsview`, e.g.
+    after a rename. Reached by injecting the empty result directly, because
+    the point is the branch and not the recipe loader.
+    """
+    with caplog.at_level("WARNING"):
+        status = agentsview.ensure_installed(prefix, lambda: [])
+    assert status.running is False
+    assert status.reason == "recipe item not found"
+    assert len([r for r in caplog.records if r.levelname == "WARNING"]) == 1
 
 
 def test_ensure_installed_never_raises_regardless_of_outcome(
