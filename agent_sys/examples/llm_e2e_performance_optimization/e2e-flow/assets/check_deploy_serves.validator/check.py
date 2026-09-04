@@ -260,14 +260,40 @@ def judge_load(summary: dict, accept: dict, load_shape: dict) -> list[str]:
         #
         # The estimate stays as the fallback for a summary that reports neither
         # value, and only for that.
+        # **`request_latency_ms` is the quantity, not a proxy for it.** The first
+        # version of this multiplied `output_sequence_length × inter_token_latency`
+        # — a product of two means, which omits prefill and needs two keys to be
+        # spelled right. It needed one of them spelled right and got it wrong:
+        # the summary's key is `inter_token_latency_ms`, the lookup asked for
+        # `inter_token_latency`, and the miss fell through to the constant. **The
+        # resulting failure was byte-identical to the one being fixed**, under a
+        # comment explaining at length why it could not be the estimate.
+        #
+        # Measured on the refused run: direct 44.5 s, product 43.5 s, both giving
+        # floor 64 against 64 completed. The direct one is right for the reason
+        # rather than by agreement — it is the per-request wall time this floor
+        # is about, prefill included.
+        latency_ms = (metrics.get("request_latency_ms") or {}).get("avg")
         osl = (metrics.get("output_sequence_length") or {}).get("avg")
-        itl = (metrics.get("inter_token_latency") or {}).get("avg")
-        if osl and itl:
+        itl = (metrics.get("inter_token_latency_ms") or {}).get("avg")
+        if latency_ms:
+            est = max(1.0, float(latency_ms) / 1000.0)
+            basis = f"measured request_latency_ms.avg {float(latency_ms):.0f} ms"
+        elif osl and itl:
             est = max(1.0, float(osl) * float(itl) / 1000.0)
-            basis = f"measured {float(osl):.0f} tok x {float(itl):.2f} ms"
+            basis = f"measured {float(osl):.0f} tok x {float(itl):.2f} ms (no request_latency_ms)"
         else:
             est = float(accept.get("seconds_per_request_estimate", 35))
-            basis = f"estimated {est:.0f}s/request — AIPerf reported no OSL/ITL"
+            # **The fallback announces itself.** A missing key and a summary that
+            # legitimately reports neither value took the same silent path, and
+            # that is what let a misspelling look like the fix not working rather
+            # than the fix not running. Now the report says which happened.
+            basis = (
+                f"ESTIMATED {est:.0f}s/request — the summary reported neither "
+                f"request_latency_ms nor output_sequence_length x inter_token_latency_ms. "
+                f"If those metrics exist under other names this floor is not measured."
+            )
+            print(f"check_deploy_serves: WARNING: {basis}")
         rounds = max(1, int(int(load_shape["duration_seconds"]) // est))
         floor = slots * per_slot * rounds
         # Said out loud because the number is now run-dependent: a reader
