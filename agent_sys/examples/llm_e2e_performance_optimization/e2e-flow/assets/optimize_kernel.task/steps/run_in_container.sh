@@ -243,6 +243,24 @@ echo "run_in_container: record claims started_at=$(_field runtime.started_at)" >
 # nothing, so there is nothing to check and this says nothing. `--device`
 # whitelisting is deliberately **not** read: m3's rule is to extend a case with
 # a form you have SEEN, and every container this package has met pins by env.
+#
+# **Demonstrated against a real pinned deployment**, m1's
+# `yihou_e2e_flow_sgl_m1r1` on `crsuse2-m2m-006`, 2026-09-04, `docker inspect`
+# only and no exec: `HIP_VISIBLE_DEVICES=0,1,2,3` in `Config.Env` with
+# `HostConfig.Devices` = `/dev/kfd`, `/dev/dri` — the whole card set present and
+# only the variable narrowing it, confirming on a live container what
+# `start_container.sh:37-44` says on disk. Asking for card 4 and card 7 each
+# refused with exit 1, and the command the wrapper was given (an `echo` that
+# would have proved an exec happened) never ran.
+#
+# **The coupling, for whoever changes the bring-up:** if m1 ever pins by
+# per-card `--device /dev/dri/renderD<N>` and drops the env var, this check
+# finds no pin, takes the branch above and waves the exec through. That is still
+# *safe* — a card outside the whitelist genuinely is not there — but safe by
+# absence rather than by refusal, and the failure arrives as a deep HIP error
+# instead of a sentence. Keep both: the variable for this to read, the whitelist
+# for enforcement. m1 has this as a constraint in T27 and will say before
+# switching.
 # The opening quote is part of the pattern on purpose: `.Config.Env` is a JSON
 # array of `"NAME=value"` strings, so an unanchored match would also fire on the
 # tail of a *different* variable that merely ends in this name --
