@@ -66,6 +66,13 @@ done
 # validator was not setting, so the kit could not see that the chosen
 # interpreter never reached the entrypoint. A real workset script says
 # `python3`, so this one does too.
+# **Where did this actually run?** The kit's real-transport mode passes 8/8 the
+# same as the local mode does, so a passing run is no evidence at all that the
+# entrypoint crossed into a container — and an identical pass on both sides is
+# precisely the shape of a mode that silently did nothing. `/.dockerenv` is
+# written by docker into every container it starts and is absent on the host,
+# so this one line is the difference the exit status cannot show.
+{ [ -f /.dockerenv ] && echo IN_CONTAINER || echo ON_HOST; } > "$DIR/last_where.txt"
 exec python3 "$DIR/emit.py" --plan "$DIR/plan.json" \
      --side "$([ -n "$IMPL" ] && echo candidate || echo baseline)" --out "$OUT"
 '''
@@ -109,7 +116,45 @@ json.dump({"schema_version": 1, "generated_by": "stubkit",
 '''
 
 
+# **Opt-in real transport, because the leg this kit exists to cover was the one
+# leg it could not reach.**
+#
+# Every case above stubs the entrypoint, which is right — the kit grades the
+# validator's logic, not a kernel. But `runtime.transport` was pinned to
+# `local`, so `_remeasure` always took the in-process branch and the code the
+# leader asked to be threaded through — `_transport_env`, the wrapper routing,
+# `--environment` crossing a container boundary — **ran in no test at all**.
+# CONTRACT §4.4 in its plainest form: a fixture more convenient than production
+# tests the fixture.
+#
+# Set these and the same cases run their entrypoints through
+# `run_in_container.sh` into a real container on a real node:
+#
+#     KFO_STUBKIT_CONTAINER=<name>  KFO_STUBKIT_NODE=<host>  KFO_STUBKIT_JOBID=<id>
+#     KFO_STUBKIT_ROOT=<path both hosts mount>
+#
+# Unset — CI, a login node, anyone without a node — nothing changes. The stub
+# payload is unchanged in both modes, so a difference in outcome is a difference
+# in the transport and nothing else, which is the only reason this is worth
+# having as a mode rather than as a second kit.
+_REAL = {
+    "container": os.environ.get("KFO_STUBKIT_CONTAINER", ""),
+    "node": os.environ.get("KFO_STUBKIT_NODE", ""),
+    "jobid": os.environ.get("KFO_STUBKIT_JOBID", ""),
+    "root": os.environ.get("KFO_STUBKIT_ROOT", ""),
+}
+REAL_TRANSPORT = all(_REAL[k] for k in ("container", "node", "jobid", "root"))
+
+
 def _environment(node: str = "crsuse2-m2m-061") -> dict:
+    runtime = {"container": "stub", "endpoint": "http://127.0.0.1:30000",
+               "started_at": "2026-09-03T00:00:00Z", "transport": "local"}
+    if REAL_TRANSPORT:
+        node = _REAL["node"]
+        # `slurm_jobid` too: `run_in_container.sh` takes it off the record when
+        # the ambient is empty, and a validation zone's ambient IS empty.
+        runtime.update(container=_REAL["container"], transport="spur",
+                       slurm_jobid=_REAL["jobid"])
     return {
         "schema_version": 1,
         "fixed": {
@@ -119,8 +164,7 @@ def _environment(node: str = "crsuse2-m2m-061") -> dict:
             "model_name": "Qwen/Qwen3-0.6B", "model_path": "/shared_nfs/models/Qwen3-0.6B",
             "tp_size": 1,
         },
-        "runtime": {"container": "stub", "endpoint": "http://127.0.0.1:30000",
-                    "started_at": "2026-09-03T00:00:00Z", "transport": "local"},
+        "runtime": runtime,
     }
 
 
@@ -262,6 +306,18 @@ def _run(root: Path, handoff: Path) -> tuple[str, bool | None]:
         "require_correctness_pass": True, "min_shapes_measured": 3,
         "baseline_agreement_tolerance": 0.05, "tolerance": 0.15, "timeout_seconds": 120,
         "report_flag": "--json", "impl_flag": "--impl",
+        # In stub mode these are absent and `_transport_env` is never called.
+        # In real mode they are the three `--var`s a run would supply, spelled
+        # with m1's parameter names so one `--var transport_env` drives all
+        # three validators.
+        **({"transport_path": "/usr/local/bin",
+            "transport_env": f"SPUR_CONTROLLER_ADDR={os.environ.get('SPUR_CONTROLLER_ADDR', '')}",
+            "measure_gpu": "0",
+            "scratch_dir": str(root / "scratch"),
+            # The container has real torch, so the shim below is not needed and
+            # not used: in real mode `_interpreter()` is not the thing being
+            # exercised, the wrapper is.
+            "timeout_seconds": 600} if REAL_TRANSPORT else {}),
     }))
     (zone / "inputs.json").write_text('["stub"]')
     (zone / "materials.json").write_text(json.dumps({"stub": os.path.relpath(handoff, zone)}))
@@ -278,11 +334,25 @@ def _run(root: Path, handoff: Path) -> tuple[str, bool | None]:
     # selects this interpreter, which is the state a real node is in for real
     # reasons. It proves nothing about tensor math and the stub entrypoints do
     # no arithmetic, so nothing here silently depends on it.
-    shim = root / "shim"
-    shim.mkdir(exist_ok=True)
-    (shim / "torch.py").write_text('__version__ = "0.0.0+stubkit"\n')
-    environment["PYTHONPATH"] = str(shim) + os.pathsep + environment.get("PYTHONPATH", "")
-    environment["KFO_PYTHON"] = sys.executable
+    if REAL_TRANSPORT:
+        # **Model the closed zone rather than inherit the shell.** A validator
+        # declares no agent, so it gets no `SPUR_CONTROLLER_ADDR` and a `PATH`
+        # without `/usr/local/bin`. m3 lost three non-reproductions to their own
+        # login shell having the variable; this kit would inherit it from mine
+        # for exactly the same reason. Stripped here so the only way the
+        # transport can work is the `transport_path` / `transport_env` args
+        # above — which is the mechanism under test.
+        environment.pop("SPUR_CONTROLLER_ADDR", None)
+        environment["PATH"] = "/usr/bin:/bin"
+        # No torch shim and no `KFO_PYTHON`: the container carries a real torch,
+        # and the wrapper supplies the interpreter inside it. The kit's declared
+        # exception at the top of this file does not apply in this mode.
+    else:
+        shim = root / "shim"
+        shim.mkdir(exist_ok=True)
+        (shim / "torch.py").write_text('__version__ = "0.0.0+stubkit"\n')
+        environment["PYTHONPATH"] = str(shim) + os.pathsep + environment.get("PYTHONPATH", "")
+        environment["KFO_PYTHON"] = sys.executable
     environment["TMPDIR"] = str(root / "tmp")
     # **The zone declares a card, because a real `cost: gpu_hours` zone has
     # one.** `_remeasure` now refuses when `HIP_VISIBLE_DEVICES` is unset —
@@ -374,6 +444,7 @@ def main() -> int:
 
     failures: list[str] = []
     landed_any = False
+    ran_in_container = False
     for index, (label, document, plan, expect_pass, expect_text) in enumerate(cases, start=1):
         # **A case that expects a refusal must name what the refusal is about.**
         # Without this, a case passes on ANY failure — and two of these did
@@ -384,7 +455,13 @@ def main() -> int:
         if not expect_pass and not expect_text:
             failures.append(f"case {index}: expects a refusal but names no reason to look for")
             continue
-        root = Path(tempfile.mkdtemp(prefix=f"stubkit-{index}-"))
+        # In real mode every path here has to resolve **inside the container**
+        # too: `_remeasure` copies the apparatus on the host and the entrypoint
+        # then runs on the far side of a `docker exec`. The login node's `/tmp`
+        # is not the node's, so `KFO_STUBKIT_ROOT` must name something both
+        # hosts mount and the container has bind-mounted.
+        root = Path(tempfile.mkdtemp(prefix=f"stubkit-{index}-",
+                                     dir=_REAL["root"] if REAL_TRANSPORT else None))
         try:
             handoff = _build(root, document=document, plan=plan)
             output, verdict = _run(root, handoff)
@@ -416,6 +493,17 @@ def main() -> int:
                         f"case {index}: --environment pointed at {got!r}, expected the handoff's "
                         f"own record {expected!r}. A relative path is the live form of this: the "
                         f"entrypoint runs under <scratch>/seed, not the validation zone\n  {label}")
+
+            # Real mode only, and it has to be checked here because `root` is
+            # removed below. See `last_where.txt` in `_ENTRYPOINT`.
+            for where in sorted(root.rglob("last_where.txt")):
+                text = where.read_text().strip()
+                ran_in_container = ran_in_container or text == "IN_CONTAINER"
+                if REAL_TRANSPORT and text != "IN_CONTAINER":
+                    failures.append(
+                        f"case {index}: the entrypoint ran {text}, not in "
+                        f"{_REAL['container']}. Real-transport mode asked for the container "
+                        f"path and got the local one\n  {label}")
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
@@ -429,6 +517,18 @@ def main() -> int:
             "no case handed the entrypoint --environment, so m3's M4.3.5 gate was never "
             "exercised by this kit. Either _remeasure stopped passing it or the fixture "
             "stopped carrying items/codes/environment.yaml")
+
+    # **The same rule for the mode itself.** Real mode passed 8/8 on its first
+    # run and so did local mode, which is no evidence whatsoever that anything
+    # crossed a container boundary — the two modes are indistinguishable by exit
+    # status alone. It took pointing the mode at a container that does not exist
+    # to learn that the path was in fact being taken. That falsification should
+    # not have to be run by hand every time.
+    if REAL_TRANSPORT and not ran_in_container:
+        failures.append(
+            f"real-transport mode was requested for {_REAL['container']} on {_REAL['node']} "
+            "but no case ever reached it, so every case above graded the LOCAL path under a "
+            "name that claims otherwise")
 
     if failures:
         print()
