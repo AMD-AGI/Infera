@@ -363,6 +363,21 @@
     # is this cluster's node-local scratch and matches `shared.yaml`'s
     # `E2E_WORK_ROOT` — a cluster fact, not an allocation fact.
     KFO_SCRATCH_ROOT: '${scratch_root:-/mnt/m2m_nobackup/yihou/e2e_flow/kfo}'
+    # Where this task's `$W` goes — `readme.md` opens with
+    # `W="${E2E_WORK_ROOT:?}/m4/<stamp>"`, and until 2026-09-04 `$W` was used in
+    # eight command lines and defined nowhere at all.
+    #
+    # **Declared here because a `kind: ai` agent receives only its own env
+    # block.** `shared.yaml:113` binds the var and that is not inheritance;
+    # `m1_deploy.yaml:120` and `m5_integration.yaml:103` each repeat the line for
+    # the same reason. Adding the readme line without this one turned
+    # `check_agent_env` red within three minutes, which is the gate doing exactly
+    # its job.
+    #
+    # The default is duplicated from `shared.yaml` rather than referenced,
+    # matching m1 and m5 — one more copy of a cluster fact, and the alternative
+    # is an unbound var that `show` cannot resolve.
+    E2E_WORK_ROOT: '${work_root:-/mnt/m2m_nobackup/yihou/e2e_flow}'
 
     # --- the four that otherwise fail SILENTLY ------------------------------
     # `$HOME` on this class of host is NFS with root_squash, so a container's
