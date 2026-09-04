@@ -403,6 +403,26 @@ The user's redirection, 2026-09-04: *"e2e串通也可以通过先单独运行每
 **m4 is the stage that most needs it: it is the only one that has never executed
 in any graph, on any rung.**
 
+> **Point `--out` and every scratch path OUTSIDE the package.** A body driven by
+> hand derives its scratch from `--package`, and `--package` is the working tree
+> — so `apply.py` left `e2e-flow/stage/` (33 K, the extracted stock file) inside
+> the deliverable on 2026-09-04. **`agent-sys run` stages the working tree, so
+> every later run would have copied that scratch into every zone**, and the brief
+> says this directory receives only the package and `todo.md`.
+>
+> Nothing in the CLI hints at it: `--package` reads as *where the code is*, and
+> it is also where the scratch lands. Assume any hand-driven body does this, and
+> check `git status --porcelain -- <package>` after running one.
+>
+> **Related, and the reason a hand-driven run is worth its awkwardness at all:**
+> drive `--package` from the **working tree, never a run's staged copy**. A run
+> stages the tree *at launch*, so its copy is a snapshot of a moment — the branch
+> you are testing may have landed after it, and **a missing branch reads exactly
+> like a branch that failed to fire.** Confirm the code is in the file you are
+> invoking before you invoke it (`grep -c '<the new line>' <pkg>/…`), which is
+> what m5 handed over instead of an instruction and what made the `apply.py` run
+> trustworthy.
+
 Written in a shape m1, m2, m3 and m5 can copy: **the command, the input, the
 cost, the smallest honest proof.**
 
