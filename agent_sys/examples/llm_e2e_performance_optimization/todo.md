@@ -2628,6 +2628,38 @@ What stopped all three reaching the leader was widening the query a third time,
 and the third query was not more careful than the first two. **It was more
 sceptical of an answer I wanted.**
 
+**The mirror: an inconvenient answer is waved through because accepting it feels
+like rigour.** (leader's, worded by them, landed verbatim.)
+
+*"Re-ask any question whose answer you liked"* catches the flattering case. The
+unflattering one has no such trigger, and the reason is that **accepting a cost
+feels like the check rather than a substitute for it.** When someone tells you
+something that means more work for you, taking it on the chin reads as honesty —
+you are visibly not defending your own position — and that feeling occupies the
+place where the verification would have gone.
+
+Measured, 2026-09-04: m1 reported that `run_with_long_stall.py` was untracked. It
+was plausible, it was about a file the leader had written, and it meant work.
+**Nothing about it felt wrong**, which is the point. It was checked only because
+the day had made checking reflexive:
+
+```
+git ls-files --error-unmatch <path>   ->  TRACKED, and identical to HEAD
+```
+
+The claim came from a repo-root-relative path used from inside `e2e-flow/`.
+
+**And it is worse than the convenient case in one specific way.** A flattering
+answer has a natural sceptic — anybody who does not benefit from it. **An
+unflattering one has none.** The person it costs has already accepted it, and
+nobody else has a reason to look. So the convenient error gets caught by the
+room, and the inconvenient one only by the person paying for it, who is the least
+motivated to try.
+
+**So the rule is not "distrust convenient answers". It is: re-ask any question
+whose answer you had a reaction to.** The reaction is the signal, not its
+direction.
+
 Each of these was reached for as a measurement, returned a confident answer, and
 the answer was wrong. **None returned an error, an empty-with-reason, or
 anything a reader would treat as "unknown".**
@@ -2679,6 +2711,14 @@ git ls-files --error-unmatch <repo-root-relative-path>   run from a SUBDIRECTORY
                              right, one wrong, and the wrong one was the one
                              whose answer sounded like a finding.
 ```
+
+**The sixth is a different failure from the other five, and worth separating.**
+The others returned *silence* — empty output, or a match against themselves —
+and silence is at least ambiguous on its face. This one returned a **specific,
+actionable, confident misattribution**: a real diagnosis, of the wrong thing.
+**It is the one shape where re-running the same query more carefully cannot
+help, because the query was fine** — only a *different* tool exposes it, and
+here the tool with the right answer was already installed and one word away.
 
 **The fifth is the sharpest of the set** and it arrived after this entry was
 filed. A character class that silently starts matching mid-token, used to check
