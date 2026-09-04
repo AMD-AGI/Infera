@@ -82,7 +82,27 @@ bash "$SCRIPTS/reset_gpus.sh" || { echo "  ABORT: GPUs not released"; exit 1; }
 
 echo "===== 3. fresh container ====="
 mkdir -p "$WORK_ROOT/aiperf"
-docker run -d --name "$CTR" --network=host --ipc=host --shm-size=64G \
+# **`--label`, and it is the ownership test rather than decoration.**
+#
+# The standing instruction is now *kill other tenants' GPU workloads on nodes we
+# hold*, so "is this ours" has to be answerable by whoever is sweeping — and
+# `RUN-PLAN.md:476` already says how: **check the label, not the name; three
+# ownership errors were made on 2026-09-04 by reasoning from names.** Four by
+# the evening.
+#
+# These two containers carried **no label at all**, and `CTR` defaults to
+# `glm53_int` (line 33) — a name with neither `yihou` nor `infera_e2e` in it.
+# So an unlabelled, generically-named GPU container of mine on a shared host was
+# indistinguishable from a stranger's by every available test. m1 hit the mirror
+# of this from the other side: they nearly reported `infera_e2e_sgl_solo47` on
+# cards 4-7 as a violation of their own pinning, and it was **mine**.
+#
+# `infera_e2e_arm` as well as `infera_e2e_run`, on m1's point: the run label says
+# *ours rather than a stranger's*, and the arm label says *m5's stock arm rather
+# than m1's stage* — which name-matching cannot do, because we share a prefix.
+LABELS=(--label "infera_e2e_run=${E2E_RUN_TAG:-$CTR}")
+[ -n "${E2E_ARM:-}" ] && LABELS+=(--label "infera_e2e_arm=$E2E_ARM")
+docker run -d --name "$CTR" "${LABELS[@]}" --network=host --ipc=host --shm-size=64G \
   --device=/dev/kfd --device=/dev/dri \
   --group-add video --group-add render --cap-add=SYS_PTRACE --cap-add=IPC_LOCK \
   --security-opt seccomp=unconfined --ulimit memlock=-1:-1 \
@@ -112,7 +132,9 @@ fi
 echo "===== 4. etcd ====="
 # v3.5.14's image has an empty ENTRYPOINT and Cmd=[/usr/local/bin/etcd]; passing
 # `etcd` as argv[0] dumps usage and exits 2. Hence --entrypoint.
-docker run -d --name "${CTR}_etcd" --network=host --entrypoint /usr/local/bin/etcd \
+# Labelled too: etcd holds no GPU, but a sweep reads `docker ps -a` and an
+# unlabelled sibling of a labelled container is the confusing case.
+docker run -d --name "${CTR}_etcd" "${LABELS[@]}" --network=host --entrypoint /usr/local/bin/etcd \
   "$ETCD_IMAGE" \
   --advertise-client-urls "http://$MY_IP:$ETCD_PORT" \
   --listen-client-urls "http://0.0.0.0:$ETCD_PORT" \

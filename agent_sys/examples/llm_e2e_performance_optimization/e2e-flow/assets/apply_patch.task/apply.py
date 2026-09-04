@@ -550,7 +550,14 @@ def main() -> int:
         # `rm -f` the name first: a previous hard kill may have left one, and a
         # collision would otherwise fail the run for a leftover of our own.
         f"docker rm -f '{cid_name}' >/dev/null 2>&1 || true",
-        f"CID=$(docker create --name '{cid_name}' '{image}' true)",
+        # `--label` as well as `--name`: `c5aec7f` gave this container a name
+        # carrying `yihou`, which fixed the anonymous case — but `RUN-PLAN:476`
+        # makes the **label** the ownership test, because three ownership errors
+        # on 2026-09-04 came from reasoning about names. A name is a hint; the
+        # label is the answer.
+        f"CID=$(docker create --name '{cid_name}' "
+        f"--label 'infera_e2e_run={run_tag}' --label 'infera_e2e_arm=apply_extract' "
+        f"'{image}' true)",
         "trap 'docker rm -f $CID >/dev/null 2>&1' EXIT",
         f"mkdir -p '{overlay_root}'",
     ]
