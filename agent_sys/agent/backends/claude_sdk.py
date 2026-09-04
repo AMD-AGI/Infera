@@ -466,9 +466,45 @@ class ClaudeSdkBackend(ExecutorBase):
         self._await(self._client.query(message))
 
     def _terminate(self) -> None:
-        if self._connected:
-            self._await(self._client.disconnect())
+        """Disconnect the SDK and deterministically dispose of its private loop.
+
+        A successful submission deliberately leaves the client connected: the
+        completeness gate may request another submission on the same session.
+        `stop()` is the owner boundary where that reuse has ended. Merely
+        dropping the loop here leaves the SDK's `Query._read_messages` task and
+        subprocess transport alive; Python then destroys them after the loop is
+        closed and emits `Task was destroyed but it is pending`.
+
+        Idempotence matters because scheduler stop and process shutdown can both
+        reach the same executor.
+        """
+        with self._loop_lock:
+            if self._loop.is_closed():
+                self._connected = False
+                return
+            try:
+                self._loop.run_until_complete(self._shutdown())
+            finally:
+                self._loop.close()
+
+    async def _shutdown(self) -> None:
+        """Close the SDK first, then cancel anything it left on this loop."""
+        try:
+            if self._connected:
+                await self._client.disconnect()
+        finally:
             self._connected = False
+            current = asyncio.current_task()
+            pending = [
+                task
+                for task in asyncio.all_tasks(self._loop)
+                if task is not current and not task.done()
+            ]
+            for task in pending:
+                task.cancel()
+            if pending:
+                await asyncio.gather(*pending, return_exceptions=True)
+            await self._loop.shutdown_asyncgens()
 
     # ---- level 2 ---------------------------------------------------------- #
 

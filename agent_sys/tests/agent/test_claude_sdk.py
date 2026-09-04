@@ -48,6 +48,7 @@ class FakeClient:
         # `None` and `query()` raised `AttributeError` on every real run while
         # this file stayed green.
         self.connected = False
+        self.disconnects = 0
         self.queries: list[str] = []
         self.interrupts = 0
         self.responses: list[list[Message]] = []
@@ -57,6 +58,7 @@ class FakeClient:
         self.connected = True
 
     async def disconnect(self) -> None:
+        self.disconnects += 1
         self.connected = False
 
     async def query(self, prompt: str) -> None:
@@ -566,6 +568,44 @@ def test_on_started_fires_when_connect_returns() -> None:
     backend.start_async(lambda: seen.append(client.connected))
     backend.mainloop()
     assert seen == [True]
+
+
+def test_stop_disconnects_cancels_background_tasks_and_closes_the_loop() -> None:
+    """A settled submission still owns the SDK reader and subprocess transport.
+
+    `mainloop()` ending is not a client disconnect: the executor deliberately
+    survives between submissions during one run. Once its owner calls `stop`,
+    however, no asynchronous task or private event loop may survive it.
+    """
+
+    class ClientWithReader(FakeClient):
+        def __init__(self) -> None:
+            super().__init__()
+            self.reader: asyncio.Task | None = None
+
+        async def connect(self) -> None:
+            await super().connect()
+            self.reader = asyncio.create_task(self._read_forever())
+
+        @staticmethod
+        async def _read_forever() -> None:
+            await asyncio.Event().wait()
+
+    client = ClientWithReader()
+    backend = _backend(client)
+    backend.start()
+    loop = backend._loop
+    reader = client.reader
+
+    assert client.connected
+    assert reader is not None and not reader.done()
+
+    backend.stop()
+    backend.stop()  # terminal cleanup is idempotent
+
+    assert client.disconnects == 1
+    assert reader.cancelled()
+    assert loop.is_closed()
 
 
 # ------------------------------------------------- spec §5.5's remote tool surface

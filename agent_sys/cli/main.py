@@ -173,6 +173,47 @@ def parser() -> argparse.ArgumentParser:
             "ends in seconds regardless; this only bounds one that never stops"
         ),
     )
+
+    # Docker mode: run inside a container managed by env_mgr.
+    run.add_argument(
+        "--docker",
+        action="store_true",
+        help="run inside a Docker container (env_mgr builds and starts it automatically)",
+    )
+    run.add_argument(
+        "--docker-debug",
+        action="store_true",
+        help="start the container and drop into an interactive shell (sleep infinity), no task is run",
+    )
+    run.add_argument(
+        "--docker-image",
+        metavar="IMAGE",
+        default="infera/agent-sys:latest",
+        help="Docker image to use (default: infera/agent-sys:latest)",
+    )
+    run.add_argument(
+        "--docker-name",
+        metavar="NAME",
+        default="agent-sys-container",
+        help="container name (default: agent-sys-container)",
+    )
+    run.add_argument(
+        "--docker-rm",
+        action="store_true",
+        help="remove the container after the run finishes (default: keep running)",
+    )
+    run.add_argument(
+        "--detect-and-copy-host-ssh-config",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="mount host ~/.ssh into the container (default: on)",
+    )
+    run.add_argument(
+        "--detect-and-copy-host-claude-config",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="mount host ~/.claude into the container (default: on)",
+    )
     return top
 
 
@@ -262,9 +303,95 @@ def _show(args: argparse.Namespace, stream: Stream) -> int:
 def _run(args: argparse.Namespace, stream: Stream) -> int:
     if args.clean:
         return _clean(args, stream)
+    if getattr(args, "docker_debug", False):
+        return _docker_debug(args, stream)
+    if getattr(args, "docker", False):
+        return _docker_run(args, stream)
     if args.dry_run:
         return _dry_run(args, stream)
     return _real_run(args, stream)
+
+
+def _docker_debug(args: argparse.Namespace, stream: Stream) -> int:
+    """Start a container with sleep infinity and drop into a shell."""
+    from env_mgr.container import ContainerManager
+
+    mgr = ContainerManager(
+        image=args.docker_image,
+        container_name=args.docker_name,
+        detect_ssh=args.detect_and_copy_host_ssh_config,
+        detect_claude=args.detect_and_copy_host_claude_config,
+    )
+
+    mgr.start()
+
+    name = mgr.container_name
+    stream.emit(
+        EventKind.RUN_COMPLETE,
+        f"container '{name}' is running (sleep infinity). Connect with:\n"
+        f"\n"
+        f"  docker exec -it {name} bash\n",
+        exit_code=OK,
+        ok=True,
+    )
+
+    import subprocess
+    return subprocess.run(
+        [mgr._docker_bin(), "exec", "-it", "-w", "/opt/Infera", name, "bash"],
+    ).returncode
+
+
+def _docker_run(args: argparse.Namespace, stream: Stream) -> int:
+    """Delegate the run to a Docker container managed by env_mgr."""
+    from env_mgr.container import ContainerManager
+
+    mgr = ContainerManager(
+        image=args.docker_image,
+        container_name=args.docker_name,
+        detect_ssh=args.detect_and_copy_host_ssh_config,
+        detect_claude=args.detect_and_copy_host_claude_config,
+    )
+
+    stream.emit(
+        EventKind.RUN_COMPLETE,
+        f"starting Docker container (image={mgr.image})",
+        exit_code=OK,
+        ok=True,
+    )
+
+    mgr.start()
+
+    # Forward the original command into the container, stripping --docker flags.
+    forwarded = ["agent-sys", "run"]
+    if args.package:
+        forwarded += ["--package", args.package]
+    if args.demo_root:
+        forwarded += ["--demo-root", args.demo_root]
+    if args.dry_run:
+        forwarded += ["--dry-run"]
+    if getattr(args, "with_broken", False):
+        forwarded += ["--with-broken"]
+    if getattr(args, "resume", False):
+        forwarded += ["--resume"]
+    if getattr(args, "allow_repo_config", False):
+        forwarded += ["--allow-repo-config"]
+    for var_item in args.var:
+        forwarded += ["--var", var_item]
+    if args.json:
+        forwarded += ["--json", args.json]
+
+    rc = mgr.exec(forwarded, workdir="/opt/Infera")
+
+    if getattr(args, "docker_rm", False):
+        mgr.stop()
+        stream.emit(
+            EventKind.RUN_COMPLETE,
+            f"container '{mgr.container_name}' removed",
+            exit_code=rc,
+            ok=rc == 0,
+        )
+
+    return rc
 
 
 def _clean(args: argparse.Namespace, stream: Stream) -> int:
@@ -398,28 +525,34 @@ def _real_run(args: argparse.Namespace, stream: Stream) -> int:
     # which is how the bug was found. One call now.
     running = start_monitors(registry)
     try:
-        if args.resume:
-            resume_all(registry)
-        else:
-            _start(registry, stream)
-        _settle(registry, stream, timeout=getattr(args, "timeout", None) or _SETTLE_TIMEOUT)
+        try:
+            if args.resume:
+                resume_all(registry)
+            else:
+                _start(registry, stream)
+            _settle(registry, stream, timeout=getattr(args, "timeout", None) or _SETTLE_TIMEOUT)
+        finally:
+            # Names that did **not** come back, rather than a hang or a silent pass.
+            stragglers = running.stop(timeout=5.0)
+            if stragglers:
+                stream.emit(
+                    EventKind.RUN_COMPLETE,
+                    f"monitor loops that did not return: {sorted(stragglers)}",
+                    stragglers=sorted(stragglers),
+                    ok=False,
+                )
+        # Described AFTER the run, not before it: the subgraph does not exist
+        # until the root's main phase unfolds, so a graph printed at submit time
+        # would be one task long.
+        tasks = registry.get("task_mgr").all()
+        _emit_graph(stream, tasks, resumed=bool(args.resume))
+        _describe(registry, tasks, stream)
+        return _report(registry, stream, layout, promises)
     finally:
-        # Names that did **not** come back, rather than a hang or a silent pass.
-        stragglers = running.stop(timeout=5.0)
-        if stragglers:
-            stream.emit(
-                EventKind.RUN_COMPLETE,
-                f"monitor loops that did not return: {sorted(stragglers)}",
-                stragglers=sorted(stragglers),
-                ok=False,
-            )
-    # Described AFTER the run, not before it: the subgraph does not exist
-    # until the root's main phase unfolds, so a graph printed at submit time
-    # would be one task long.
-    tasks = registry.get("task_mgr").all()
-    _emit_graph(stream, tasks, resumed=bool(args.resume))
-    _describe(registry, tasks, stream)
-    return _report(registry, stream, layout, promises)
+        # Monitor decisions and reporting may reuse a settled executor. Once
+        # both are over, every attempt belongs to this invocation and must be
+        # disposed before Python tears down the SDK's private event loops.
+        registry.get("runner").shutdown()
 
 
 # --------------------------------------------------------------------------- #
