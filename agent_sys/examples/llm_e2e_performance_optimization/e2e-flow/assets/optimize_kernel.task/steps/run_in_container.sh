@@ -171,12 +171,37 @@ _sq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
 # CONTRACT section 5.0 arriving early. `reclaim.sh` handles the rest, from
 # inside this same container, which is the only context with the privilege.
 EXEC_ENV="-e PYTHONDONTWRITEBYTECODE=1 -e HIP_VISIBLE_DEVICES=$(_sq "$HIP_VISIBLE_DEVICES")"
-for name in KFO_SCRATCH_ROOT TRITON_CACHE_DIR KNOWLEDGE_LOCAL_ROOT TMPDIR \
-            KFO_MAX_HOURS KFO_FORGE_MODEL KFO_SNR_THRESHOLD KFO_REPORT_FLAG KFO_IMPL_FLAG \
-            AGENT_SYS_TASK_PACKAGE AGENT_SYS_DEMO_PACKAGE; do
+for name in TRITON_CACHE_DIR KNOWLEDGE_LOCAL_ROOT TMPDIR; do
   eval "value=\${$name:-}"
   [ -n "$value" ] && EXEC_ENV="$EXEC_ENV -e $name=$(_sq "$value")"
 done
+
+# **`AGENT_SYS_*`, `KFO_*` and `E2E_*` by PREFIX, never by name — and the
+# enumeration that used to be here was itself the defect.**
+#
+# Two failures on this wrapper's first real use, 2026-09-04, both from the same
+# hand-maintained list:
+#
+#   * `AGENT_SYS_INPUT_<KIND>` / `AGENT_SYS_OUTPUT_<KIND>` were absent, so STEP 1
+#     inside the container refused with *"AGENT_SYS_INPUT_OPERATOR_WORKSET is
+#     unset; this task does not have operator_workset as an input"* — which reads
+#     as a wiring fault in the task and was a gap in the boundary crossing.
+#   * `KFO_MOCK` was absent, so `--var forge_mock=1` did not arrive and
+#     `30_run_forge.sh` took the **real campaign** branch. It failed on git
+#     rather than running for an hour, which is luck, not design.
+#
+# The kind is part of the variable name, so a fixed list would have to duplicate
+# the kind list from `steps/m4_kernel_opt.yaml` — CONTRACT §4.3's shape, one
+# authority and two readers, and the second reader silently narrower. A prefix
+# has no list to fall behind.
+#
+# **The wrapper IS the boundary: anything it does not carry does not arrive**,
+# and it arrives as a fault in whatever runs on the far side.
+while IFS='=' read -r name value; do
+  [ -n "$value" ] && EXEC_ENV="$EXEC_ENV -e $name=$(_sq "$value")"
+done <<EOF
+$(env | grep -E '^(AGENT_SYS|KFO|E2E)_' || true)
+EOF
 # Inside the image the venv is real, which is the whole point of entering it.
 EXEC_ENV="$EXEC_ENV -e KFO_PYTHON=$(_sq "${KFO_PYTHON:-/opt/venv/bin/python3}")"
 
