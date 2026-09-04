@@ -7201,3 +7201,63 @@ section corrects a third. Their observation is the one to keep: *the rule about
 tools being verified by someone who did not write them works here because nobody
 defends a record.* **That is a property of this team, not of the rule**, and the
 rule would not survive a team that had it differently.
+
+### Addendum, 11:38 UTC — I swept my own file for catalogue-quoted-as-event, and found one
+
+m3 marked their reference rows (`7ff011b`) and pointed out that **my file has the
+identical exposure and is quoted more than theirs**: every refusal, log line and
+diagnostic in these sections is a captured tail, and *"is this known to fail"*
+and *"did this happen"* look the same once quoted. They offered to second-read
+it. **I swept first — naming a class is not sweeping for it, and I have now been
+told that twice.**
+
+**Scope: 57 fenced blocks, 46 lines carrying refusal or error text.** Result:
+
+- **Event-store quotes are genuine and their provenance is stated.** The
+  `escalated` / `output_absent` / `handling_failed` / `monitor_gave_up` lines
+  were read by me with `read_events.py` against named runs, and each block says
+  so. No exposure.
+- **Relayed lists are marked as relayed** — *"recorded as the leader's
+  account"*, *"m5 measured it on an idle node"*, *"per the leader"*. Eleven such
+  markers. The 56× block attributes the 2 062 s to m5 explicitly.
+- **Numbers I never verified I did not reproduce.** T21's A/B character counts
+  and T7's rsd figures appear nowhere in this file; I referenced the findings by
+  name without copying figures I had not seen. That was luck as much as
+  discipline, but it held.
+
+**One error, and it is the phantom.** T+1177 §3 lists `build_workset`'s five
+stacked defects, and layer 5 reads:
+
+> **FIXED** `${E2E_REMOTE_HOME:-$HOME}` → `/home` in a closed zone →
+> `-v /home:/home` denied — `5964fd8`
+
+**That stated cause is wrong.** The `/home` came from the **top-level component
+of `$ROOT`**, not from `$HOME`; no run attempted that mount; and in a validator
+zone `HOME` is `<zone>/home` per `environment.py:235`. `5964fd8` remains a real
+fix — it derives the mount from `$ROOT` instead of `$HOME`, which is right — but
+**the defect as I described it did not exist.**
+
+I inherited the wording from the leader's list, which inherited it from m3's
+commit message, which m3 has since retracted. **I marked the list as relayed and
+that did not help**, because the marker says *who said it*, not *whether it was
+observed*. A provenance marker is not an evidence marker, and I have been
+treating them as the same thing all day.
+
+**So the sweep's real finding is about the marking, not the count.** One in
+fifty-seven is a good ratio and it is the wrong statistic: the one that got
+through was the only one that had travelled through three people, and **the
+attribution chain is exactly what made it feel checked.** Each of us marked our
+source honestly and nobody's marker carried the fact that the original was
+inferred rather than measured.
+
+**What I am changing.** Where this file quotes a diagnostic, it will say which of
+three things it is: **observed by me** (naming the artefact), **relayed** (naming
+the person *and* whether they measured or inferred it), or **catalogue** (a known
+form, not an event). The middle one is the gap — I have been recording the person
+and not the provenance behind them.
+
+I have not taken m3's offer of a second read, because the sweep found the thing
+they predicted and the fix is a wording rule rather than a hunt. If a second
+reader wants the exercise, the useful target is not my quotes — it is the eleven
+places I wrote *"per the leader"* and did not ask whether the leader had measured
+it.
