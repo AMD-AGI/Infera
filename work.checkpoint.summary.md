@@ -8254,3 +8254,93 @@ definition of a signal that does not discriminate.
 deliberately unwired: **m5's `replay_root.py`** (`0760da3`, `ad176b4`), the
 user's skip-ahead, with twelve of fourteen kinds already stable at threshold 3;
 and **m4's third-tree workspace** (`63bcaca`).
+
+### Addendum, 15:12 UTC — m5's comment-match class, verified, and it is the same mechanism with two new properties
+
+m5 routed a new instrument-failure class at the leader's request. **I verified
+its load-bearing instance and tested its proposed fix**, as I did with the
+leader's axis an hour ago — and reached a different verdict, for a reason worth
+stating.
+
+**The class, in m5's words:** *a probe over source that does not strip comments
+reads the **warning** as the thing warned about.*
+
+**Their instance 1, verified in the tree:**
+
+```
+m2_profiling.yaml:114   # `${expect_ranks:-${tp:-8}}` is not spellable — …    <- a WARNING
+m2_profiling.yaml:119   expect_ranks: '${expect_ranks:-8}'                    <- the live line, flat
+```
+
+**And the measurement is stronger than m5's own framing.** A naive grep for the
+nested-default anti-pattern across `steps/` and `shared.yaml`:
+
+```
+3 hits.  3 of them are comments.  0 live lines.
+```
+
+**A 100 % false-positive rate — that grep has never once matched executable code
+in this package.** The anti-pattern exists nowhere except in warnings against it.
+
+### Verdict: same mechanism as the table, two properties none of its 19 entries have
+
+**Mechanism:** identical to entry 1 of the table — a text search answering a code
+question. `grep --include=*.yaml` reads *does this file contain X*; the question
+was *does this package do X*. So I am **not** filing it as a separate class the
+way I filed the leader's under-specification axis, which was a genuinely
+different mechanism overlapping at one instance. **This one is the same
+mechanism.**
+
+**But two properties are new and neither appears anywhere else in the table:**
+
+1. **The failure rate scales with documentation quality.** A codebase with no
+   comments is immune; one whose comments quote the anti-pattern verbatim — this
+   package's house style, and a good one — is maximally exposed. **Our own
+   discipline is what loads the gun.** No other entry has this shape: the other
+   eighteen would fire identically on an undocumented codebase.
+2. **The error is directional, and the direction is an accusation.** The false
+   positive is always *"an owner did the forbidden thing"*, so the natural next
+   action is to tell that owner. **Two of m5's three would have been accusations
+   about other people's work** — the leader's `expect_ranks` fix, and m2's
+   `measure_gpu`. Entry 17 (`grep "32.5"` → *"this constant has no
+   provenance"*) is the only prior entry that shares this, and it too was about
+   to be said about someone else's work.
+
+**Filed as entry 20, with those two properties named**, and cross-referenced
+from entry 17 as the pair that produce accusations rather than mistakes.
+
+### Their fix, tested
+
+```python
+code = line.split('#', 1)[0]
+```
+
+**It has a known false-negative mode — a `#` inside a quoted string is
+truncated** — so I checked whether that is reachable here:
+
+```
+lines in steps/*.yaml + shared.yaml where a quoted '#' would be mis-stripped: 0
+```
+
+**Safe in this tree today, and not safe in general.** Recorded that way rather
+than as a clean endorsement: the one-liner is correct for this package and would
+need a real parser for one that puts `#` inside strings. m5's own framing is the
+part that generalises and does not depend on the parser:
+
+> **`grep --include=*.yaml` is not a code search; it is a text search over a
+> file that happens to contain code.**
+
+### The rule, and what actually caught it
+
+m5 places it beside CONTRACT §4.4's eighth face — *when you re-run a probe
+narrower, keep the broader answer* — as adjacent but distinct:
+
+> **Before reporting a violation, confirm the match is in a line the machine
+> executes.**
+
+**And what saved it both times was reading the matched line before sending,
+because the finding was about to become an accusation.** The leader's phrasing
+is *verify before the accusation, not after*, and it is now **three-for-three
+today**: m4 before killing a container, m5 before touching `accept_mock.py`,
+m5 again here. **All three are the same act at a different range, and all three
+were voluntary** — nothing in the package requires any of them.
