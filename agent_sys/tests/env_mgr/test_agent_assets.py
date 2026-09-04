@@ -712,6 +712,25 @@ def test_the_shipped_serena_recipe_resolves_by_bare_name_and_parses() -> None:
     that ships no file of its own gets this one. Parsed through the CLI rather
     than through `load_recipe`, which this module may not import: a recipe that
     resolves and does not parse would be a `fail` at install time on a real run.
+
+    **The status is asserted, and the previous assertion could not fail.** It was
+    ``assert [o["level"] for o in document["outcomes"]]`` — a truthiness test on a
+    list that is never empty. On a `RecipeError` `cli.main` still prints
+    well-formed JSON carrying one `fail` outcome, so the comprehension was
+    ``["fail"]``, truthy, and green: this test passed whether `serena.yaml` parsed
+    or not, while the paragraph above says it catches exactly that.
+
+    **`== "OK"` rather than the weaker "no fail outcome", because it is
+    host-independent and that was checked rather than hoped.** All three of this
+    recipe's items reach `plan`, and none of the three can emit `warn` or `fail`
+    at this stage: `ShellInstaller.plan` (`installers/base.py`, the `embed` item)
+    and `BinInstaller.plan` (the `uv` item) return `ok` or `info`, and
+    `UvInstaller.plan`'s tool form (the serena item) returns `info` — it is a
+    static preview because `uv tool install` has no `--dry-run`. Measured here
+    2026-09-04: ``status: OK`` with levels ``info, ok, info``. The `ok` is
+    host-dependent in its *message* only — where `uv` is absent it becomes
+    ``info | would run: pip install uv`` and the status is unchanged. So this goes
+    red on one thing: the recipe ceasing to parse.
     """
     resolved = agent_assets._recipe_paths(_spec(recipes=["serena"]), staged_package=None)
     assert resolved == [str(Path(agent_assets.__file__).parent / "recipes" / "serena.yaml")]
@@ -723,7 +742,7 @@ def test_the_shipped_serena_recipe_resolves_by_bare_name_and_parses() -> None:
         env=agent_assets._child_env(None, "/tmp"),
     )
     document = json.loads(proc.stdout)
-    assert [o["level"] for o in document["outcomes"]], document
+    assert document["status"] == "OK", document
 
 
 # --------------------------------------------------------------------------- #
