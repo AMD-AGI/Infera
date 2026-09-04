@@ -2541,3 +2541,66 @@ has not shown the deployment serves under load"*. The announcing-`WARNING` path
 is the different case of a summary that parses but carries neither
 `request_latency_ms` nor `output_sequence_length x inter_token_latency_ms`.
 Two failure modes, two behaviours, and I conflated them in a message.
+
+### T57 — one scratch path, three independent literals, agreeing by coincidence
+
+**m5, 2026-09-04, from dry-running rung 5's launch line against rung 1's tree.
+Spans m1, m4 and m5, and m4 found the same variable from the other end.**
+
+Three variables name one directory tree and **none derives from another**:
+
+```
+work_root           '${work_root:-/mnt/m2m_nobackup/yihou/e2e_flow}'                    m5, m1, shared.yaml
+scratch_root        '${scratch_root:-/mnt/m2m_nobackup/yihou/e2e_flow/kfo}'             m4, five sites
+validate_work_root  '${validate_work_root:-/mnt/m2m_nobackup/yihou/e2e_flow/validate}'  m1
+```
+
+**They agree today because the rung-5 command passes `work_root` equal to its own
+default.** Change it and the other two silently keep pointing at the shared
+default — a run whose work root is elsewhere and whose scratch and validate
+trees are not.
+
+**And the section invites exactly that.** RUN-PLAN's rung-5 §5 tells the reader
+to pass a **run-unique `container=`** because the default is a fixed name on a
+shared host. Anybody applying that reasoning one variable over — a run-unique
+`work_root`, which is the same argument for the same reason — splits the three
+without a word from anything.
+
+## The part that closes a loop: they *cannot* be derived
+
+The natural spelling is:
+
+```yaml
+scratch_dir: '${scratch_root:-${work_root:-/mnt/…/e2e_flow}/kfo}'
+```
+
+**That is the nested default**, which expands to a literal string with **zero
+problems reported** (`temp/bugs/2026-09-02-an-unparseable-variable-reference-is-passed-through-silently.md`).
+So the derivation is not merely unwritten — **it is unspellable**, and three
+owners each wrote the constant out because the loader gives them no other
+option.
+
+**A framework defect found in the morning produced a cross-owner hazard by the
+afternoon**, not by breaking anything, but by making the correct expression
+unavailable and the incorrect one silent.
+
+## The other end, m4's
+
+`work_root` is on m4's launch line and **never read by their stage** — they
+carry a variable whose value does not reach them, while `scratch_root`, which
+does, is a separate name nobody passes. Two halves of one thing: a var passed
+and not read, and a var read and not passed.
+
+## Shape
+
+`min_requests` for paths (T-series, the `integration_min_requests` split): one
+name that should be one thing, spelled independently by owners who each read a
+correct value in their own file. **The difference is that `min_requests` could
+be split and this one cannot be joined.**
+
+## Not fixed, deliberately
+
+Three owners, and the only correct fix — deriving two from one — is the
+unspellable form. The options are: pass all three explicitly on every launch
+line (verbose, and the launch lines are where every defect this week has been),
+or resolve the nesting fault upstream. **Neither is m5's alone.**
