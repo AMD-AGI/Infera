@@ -310,7 +310,10 @@ def _image_facts(root: Path, target: str) -> tuple[dict | None, list | None]:
         "print('SYM:',' '.join(n))\n"
     )
     encoded = base64.b64encode(inner.encode()).decode()
-    script = f"echo {encoded}|base64 -d|python3"
+    # Spaces around the pipes: unspaced returns 255 with no output on
+    # crsuse2-m2m-047 and works on 006. Measured on both; see
+    # `measure_in_container.sh` for the full 2x2.
+    script = f"echo {encoded} | base64 -d | python3"
     probe = subprocess.run(
         ["bash", "-c", f'. "$1"; on "$2"', "_", str(PKG / "assets/lib/remote.sh"),
          f"docker run --rm --entrypoint bash '{image}' -c '{script}'"],

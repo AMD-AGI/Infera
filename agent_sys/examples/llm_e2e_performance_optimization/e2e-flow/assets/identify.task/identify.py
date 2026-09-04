@@ -597,8 +597,10 @@ def image_facts(image: str, root: str, relatives: list[str], timeout: int = 300)
     # later. `--entrypoint bash` because the image's own entrypoint is a server.
     payload = base64.b64encode(inner.encode()).decode()
     args = base64.b64encode(json.dumps(relatives).encode()).decode()
-    script = (f"echo {payload}|base64 -d>/tmp/_f.py; "
-              f"python3 /tmp/_f.py \"$(echo {args}|base64 -d)\" {shlex.quote(root)}")
+    # Spaces around the pipe and the redirect: the unspaced form returns 255
+    # with no output on crsuse2-m2m-047 and works on 006. Measured on both.
+    script = (f"echo {payload} | base64 -d > /tmp/_f.py; "
+              f"python3 /tmp/_f.py \"$(echo {args} | base64 -d)\" {shlex.quote(root)}")
     try:
         done = subprocess.run(
             ["bash", "-c", f'. "$1"; on "$2"',
