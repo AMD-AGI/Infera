@@ -944,9 +944,29 @@ a shared file, name that file in the message body** — one line, *"also carries
 edit to todo.md T27, not mine"*. It costs nothing and makes the sweep legible after
 the fact instead of only before it.
 
+**For an append-only file, `git status` alone is not enough** — raised by
+`checkpoint` 2026-09-04 against their own standing practice. Run *before* writing it
+prevents; run *after*, it cannot tell your edit from anyone else's. The
+complementary post-check is:
+
+```bash
+git show --numstat HEAD -- <file>     # e.g. "196  0" -- zero deletions
+```
+
+Zero deletions proves nothing of anyone else's was removed. **Both, or neither is
+sound**: the first prevents, the second confirms. checkpoint had been running only
+the `git log` variant, *after* committing — which would have told them afterwards
+that they had swept someone's edit into a commit titled "checkpoint". Detection is
+not prevention.
+
 `todo.md` is **not** serialised behind one committer. `25d9c01` exists so a deferral
 is recorded by whoever found it at the moment they found it, and a queue would cost
 more than the sweep does.
+
+**The root both this and the `--amend` rule share, in checkpoint's words: in this
+workspace every git verb with an implicit object is unsafe.** `--amend` has an
+implicit commit; `commit -- <path>` has an implicit working tree. Neither has a true
+referent when six agents move HEAD and the tree.
 
 **And never `git --amend`. Corrections get their own commit.** Raised by
 `checkpoint` 2026-09-04 against their own near-miss, which is the only way this
