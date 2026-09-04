@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import socket
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -28,6 +29,7 @@ from env_mgr.servers import (
     ServerRecord,
     owned_servers,
     port_conflict,
+    record_spawn,
     records,
     starttime_of,
     stop_all,
@@ -418,53 +420,95 @@ def test_an_occupied_port_is_not_started_onto(zone, reaper):
 # --------------------------------------------------------------------- the guard
 
 
-def test_a_reused_pid_is_never_signalled(tmp_path):
-    """The rule that keeps a stale registry from killing a stranger's process.
+# The guard below is the one place in this feature where being wrong harms
+# somebody outside the run: `stop_all` sending SIGTERM then SIGKILL to a process
+# `agent_sys` does not own. That is not hypothetical on this host — three serena
+# listeners of unknown ownership were measured on 24282-24284 the same day.
+#
+# **The first version of these two tests used `os.getpid()`** as the stand-in for
+# a reused pid, which asserts the right thing but cannot be proven: the mutation
+# that makes it fail — removing the guard — signals the test runner. A guard
+# proven by a test that cannot be made to go red is a guard nobody has checked.
+#
+# So: a **sacrificial child**, and a fabricated record carrying its real pid with
+# the wrong `starttime`. Pid reuse simulated without waiting for the kernel to
+# recycle a number, and nothing aims at pytest.
 
-    Our own pid with somebody else's `starttime` stands in for a reused pid: if
-    the guard compared only the number, this would signal the test runner.
+
+@pytest.fixture
+def sacrifice(reaper):
+    """A live process that exists to be aimed at, and that may safely die.
+
+    **`start_new_session=True` is a safety requirement here, not a detail.**
+    `stop_all` calls `os.killpg`, which takes a *process-group* id. A child that
+    is not a group leader shares the runner's group, so a mutation that removes
+    the guard would aim `killpg` at pytest's own group — reintroducing exactly
+    the hazard this harness exists to avoid. As its own leader it is the only
+    thing in its group.
+    """
+    proc = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(120)"],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    reaper.append(proc.pid)
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline and not _alive(proc.pid):
+        time.sleep(0.02)
+    assert _alive(proc.pid), "the sacrificial child never started"
+    return proc
+
+
+def _record(pid: int, starttime: str, name: str = "stale") -> ServerRecord:
+    return ServerRecord(
+        name=name, pid=pid, port=None, command="whatever", starttime=starttime,
+        cmdline="", started_at=0.0,
+    )
+
+
+def test_the_harness_can_actually_kill_the_sacrifice(tmp_path, sacrifice):
+    """The positive control, and the two tests below mean nothing without it.
+
+    They assert that a process is **not** signalled. That is also what they
+    would assert if `stop_all` were broken, or if the record never reached it,
+    or if `killpg` were aimed at nothing. This one proves the aim is live: with
+    the *correct* `starttime`, the very same call kills the very same child.
     """
     registry = tmp_path / "servers.json"
-    registry.write_text("")
-    from env_mgr.servers import record_spawn
+    record_spawn(registry, _record(sacrifice.pid, starttime_of(sacrifice.pid)))
 
-    record_spawn(
-        registry,
-        ServerRecord(
-            name="stale",
-            pid=os.getpid(),
-            port=None,
-            command="whatever",
-            starttime="1",  # not ours; the real one is a much larger number
-            cmdline="",
-            started_at=0.0,
-        ),
-    )
+    (out,) = stop_all(registry)
+    assert out.level == "ok", out
+    assert not _alive(sacrifice.pid)
+
+
+def test_a_reused_pid_is_never_signalled(tmp_path, sacrifice):
+    """A stale entry whose pid has been recycled must not be signalled.
+
+    The record carries the sacrifice's **real pid** and a `starttime` that is
+    not its own — which is precisely what a reused pid looks like from the
+    registry's side.
+    """
+    registry = tmp_path / "servers.json"
+    real = starttime_of(sacrifice.pid)
+    assert real, "cannot run: the sacrifice has no readable starttime"
+    record_spawn(registry, _record(sacrifice.pid, str(int(real) + 1)))
+
     (out,) = stop_all(registry)
     assert out.level == "info"
     assert "no longer ours" in out.message
-    assert _alive(os.getpid())
+    assert _alive(sacrifice.pid), "it signalled a process it does not own"
 
 
-def test_an_unidentifiable_record_is_never_signalled(tmp_path):
+def test_an_unidentifiable_record_is_never_signalled(tmp_path, sacrifice):
+    """A record we could not identify even when writing it is never signalled."""
     registry = tmp_path / "servers.json"
-    from env_mgr.servers import record_spawn
+    record_spawn(registry, _record(sacrifice.pid, "", name="blank"))
 
-    record_spawn(
-        registry,
-        ServerRecord(
-            name="blank",
-            pid=os.getpid(),
-            port=None,
-            command="x",
-            starttime="",  # we could not identify it even when we wrote it
-            cmdline="",
-            started_at=0.0,
-        ),
-    )
     (out,) = stop_all(registry)
     assert out.level == "info"
-    assert _alive(os.getpid())
+    assert _alive(sacrifice.pid), "it signalled a process it does not own"
 
 
 def test_a_corrupt_line_does_not_strand_the_entries_after_it(tmp_path):
@@ -472,8 +516,6 @@ def test_a_corrupt_line_does_not_strand_the_entries_after_it(tmp_path):
     registry = tmp_path / "servers.json"
     good = ServerRecord("g", os.getpid(), None, "c", "1", "", 0.0)
     registry.write_text('{"name": "half-writ')
-    from env_mgr.servers import record_spawn
-
     record_spawn(registry, good)
     assert [r.name for r in records(registry)] == ["g"]
 
