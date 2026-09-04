@@ -187,11 +187,24 @@ probes:
   - name: completion_nonstreaming
     direction: >-
       A real answer comes back through the **router**, not only from the engine
-      port, and it finished on its own. Discriminates three distinct faults that
-      all present as a working server: a reasoning parser that eats `content` and
-      leaves it empty while the request still succeeds; a token budget too small
-      for a reasoning preamble, which returns `finish_reason: "length"`; and a
-      router that accepts but does not forward.
+      port, and it finished on its own. Discriminates three faults that all
+      present as a working server: a reasoning parser that eats `content` and
+      leaves it **empty** while the request still succeeds; a token budget too
+      small for a reasoning preamble, which returns `finish_reason: "length"`;
+      and a router that accepts but does not forward.
+      **What it does NOT check, corrected 2026-09-04 after this text claimed
+      otherwise:** it does not look at what the content *says*. The assertions
+      below are `stop`, non-empty, and a model id that is not a path — so the
+      inverse of the first fault passes. Measured on rung 1: with no
+      `--reasoning-parser`, Qwen3.6-27B returned `finish_reason: stop`,
+      `reasoning_tokens: 0`, and a `content` beginning *"Here's a thinking
+      process:"* — 157 tokens of chain-of-thought in the field a caller reads as
+      the answer. Every assertion here passed it. **`nonempty: true` was written
+      against a parser that removes too much and is structurally blind to one
+      that removes nothing.** The fix needs a bar nobody has measured yet;
+      `todo.md` **T21** carries the proposed shape and the one measurement that
+      would set it. Until then, read a pass here as "the product path returned
+      something" and not as "the product path returned an answer".
     severity: fail
     request:
       method: POST

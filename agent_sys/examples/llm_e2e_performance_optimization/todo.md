@@ -417,3 +417,64 @@ Pairs with the reclaim finding already in `check_deploy_serves`'s history: a
 teardown that crashes warns that ports may be held, and the ports it names may
 belong to somebody else's live run. Both are about cleanup needing to be safe
 for a stranger to run.
+
+### T21 — the completion probe grades shape, not answer, and the bar that would fix it needs a measurement
+*Found by the leader on 2026-09-04 reading rung 1's completion output; localised by
+m1, who owns the probe. The `direction` text is corrected in the same commit as
+this entry — that half needed no measurement. The bar does.*
+
+**What passed.** Rung 1, Qwen3.6-27B, no `--reasoning-parser`:
+
+```
+finish_reason : stop
+usage         : {prompt_tokens: 23, completion_tokens: 157, reasoning_tokens: 0}
+content       : "Here's a thinking process:\n\n1.  **Analyze User Input:** …"
+```
+
+157 tokens of chain-of-thought in `content`, `reasoning_tokens: 0`, to the prompt
+*"What is the capital of France? Answer with one word."*
+
+**Why it passed.** `probes.yaml`'s `completion_nonstreaming` asserts
+`status: 200`, `finish_reason equals stop`, `content nonempty: true`, and
+`model not_matches ^/`. All four hold. **`nonempty: true` was written against a
+parser that removes too much and is structurally blind to one that removes
+nothing.** The probe's `direction` claimed it discriminated the reasoning-parser
+fault; it discriminates one direction of it.
+
+Same rotation as the GLM finding in `fa49319` — *"had the parser been wrong,
+`content` would have been empty on a request that still returned 200"* — with the
+sign flipped and nobody having thought to flip it.
+
+**Three fixes considered and rejected, each for a failure this effort has already
+paid for:**
+
+| candidate | why not |
+|---|---|
+| match `Paris` in `content` | **does not discriminate.** A reasoning preamble ends with the right answer, so it passes both ways |
+| bound `content` length | discriminates, and the bound would be a number invented from **one observation** — the 35 % / 30 % widening of the previous round, pointed the other way |
+| require `usage.reasoning_tokens > 0` | precise about the property, and **refuses a legitimate non-reasoning model.** It asserts a fact about the model while claiming to test the deployment |
+
+**Proposed shape, needing one measurement before it is written:**
+
+> `usage.reasoning_tokens > 0` **OR** `content` is short —
+> *either the reasoning was accounted separately, or there was none to account.*
+
+A statement about **the parser** rather than about the model, and it fails in the
+loud direction. "Short" is the number nobody has.
+
+**The measurement that would set it**, small enough to ride along with a future
+rung rather than needing its own: send this exact one-word prompt to (a) a
+reasoning model **with** a correct `--reasoning-parser`, and (b) a non-reasoning
+model, and record `len(content)` for each. The bar goes between them, nearer (a).
+Two requests against a deployment that exists for another purpose. **Until that
+is taken, do not invent the number** — a validator bar chosen on the login node is
+the artefact-tuned-to-the-instrument mistake this package refuses elsewhere.
+
+**Related, and separable:** `E2E_PARSER_ARGS` defaults to `none`, which is correct
+only for a non-reasoning model. Qwen3.6-27B is not one — its chat template carries
+`<think>` ×4 and `</think>` ×5, and the built image's `ReasoningParser.DetectorMap`
+offers both `qwen3` and `qwen3-thinking`. **Which of the two is right is
+untested**, and T17 is why that matters: a free-form string accepts
+`qwen3-thnking` as happily as `qwen3` and the wrong one produces no error.
+Setting the default is not this entry's fix — a correct default would have
+*hidden* the probe's blindness rather than removed it.
