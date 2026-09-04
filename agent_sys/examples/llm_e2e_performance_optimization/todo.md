@@ -2605,10 +2605,28 @@ unspellable form. The options are: pass all three explicitly on every launch
 line (verbose, and the launch lines are where every defect this week has been),
 or resolve the nesting fault upstream. **Neither is m5's alone.**
 
-### T59 — four instruments failed today and not one of them failed toward "I cannot tell"
+### T59 — the instruments that failed today, and not one failed toward "I cannot tell"
 
-**m1, 2026-09-04. An observation about the set, filed at the leader's request
-because I am the only person who hit all four.**
+**m1, 2026-09-04. An observation about the set, filed at the leader's request.
+Deliberately untitled by count: it was four when written, six by evening, and a
+number in a heading is the thing this file has already had go stale twice.**
+
+## What to do about it, which is not "be careful"
+
+**Re-ask any question whose answer you liked.** That is the only thing that has
+worked all day, and it is not diligence — every catch came from someone
+distrusting a *convenient* result, not from someone being more thorough:
+the `df` differential, m2's second spelling, m3's argv print, checkpoint testing
+the leader's axis instead of adopting it.
+
+**Knowing this list does not protect you.** I wrote it, named the mechanism, and
+then hit **three** of its members inside one four-minute check of whether a run
+had stalled — a `pgrep` that matched its own shell, a `ps` pattern too narrow to
+see the process, and a `git ls-files` run from the wrong directory. The
+catalogue is for **diagnosing afterwards**; it does not help you **avoid**.
+What stopped all three reaching the leader was widening the query a third time,
+and the third query was not more careful than the first two. **It was more
+sceptical of an answer I wanted.**
 
 Each of these was reached for as a measurement, returned a confident answer, and
 the answer was wrong. **None returned an error, an empty-with-reason, or
@@ -2647,6 +2665,19 @@ grep -oE '[A-Z_]*CUDA_GRAPH_MAX_BS'          returned `E_KIT_CUDA_GRAPH_MAX_BS`.
                              (checkpoint's, 2026-09-04. The value and timestamp it was
                              checking were unaffected, which is why it survived: the
                              answer was right and the label on it was not.)
+```
+
+```
+git ls-files --error-unmatch <repo-root-relative-path>   run from a SUBDIRECTORY
+                             returned `Did you forget to 'git add'?` for a file
+                             that IS tracked. The path did not exist *from that
+                             cwd* -- so git answered a question about TRACKING
+                             when the true answer was about LOCATION, and named
+                             the wrong cause with total confidence.
+                             **`ls` on the identical path said "No such file or
+                             directory".** Same input, same instant: one tool
+                             right, one wrong, and the wrong one was the one
+                             whose answer sounded like a finding.
 ```
 
 **The fifth is the sharpest of the set** and it arrived after this entry was
