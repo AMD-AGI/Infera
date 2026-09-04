@@ -8597,3 +8597,80 @@ acceptance is free, which is why the default runs the other way.
 **And their last line is the one I would not have written about myself:**
 *verify before the accusation* is three-for-three today, all voluntary — **and
 the one time it was not done, it was theirs.**
+
+### Addendum, 16:56 UTC — correcting my own stale claim, and the ceiling contract's second producer
+
+**My T+1626 section says `charming_turing` is "still unidentified and untouched".
+Untouched stands. Unidentified is stale and I am correcting it.**
+
+**Relayed — the leader relaying m4's own account, with m1's independent
+confirmation:** it was **m4's**, their `docker run --rm --entrypoint bash`
+chain-test containers on 275 at 16:08. `--rm` names them at random and they had
+already exited by the time m4 answered; m1 confirmed the `--rm` signature
+independently from `docker ps -a` showing no exited entry.
+
+**The leader's reason for raising it is the part that belongs in this file
+specifically:** *the record is the durable artefact, and an open ownership
+question in it invites someone to reopen a settled one.* **A stale open item is
+not neutral — it costs whoever reads it next.** This is the second time today my
+record carried something past its resolution; the first was the `remote.sh:150`
+candidate, which I removed when it closed. **My sections age, and nothing in my
+own routine re-reads them.**
+
+### The ceiling contract has bound a second producer — verified here
+
+```
+rung 2b's kit, run 20260904T160847-ae7ef4:
+  CUDA_GRAPH_MAX_BS:=32
+  CUDA_GRAPH_MAX_BS=32
+```
+
+**Read by me from the run's own handoff tree**, not relayed. Node 217,
+`tp_size 4`. **32 ≥ 16, so `e390abb`'s criterion is met on the number as well as
+the form**, and this is the **second consecutive producer** to honour it — m1
+verified rung 2a's, this is a different producer on a different run reaching the
+same answer.
+
+**And the controlled comparison is the interesting part, not the compliance.**
+Same producer, same run, opposite outcomes:
+
+| in the brief | states | outcome |
+|---|---|---|
+| `E2E_KIT_CUDA_GRAPH_MAX_BS` | a **criterion** | **honoured, twice** |
+| `E2E_CONTAINER` | a **liberty** | **taken** |
+
+**Two data points on the criterion side now rather than one**, against a liberty
+taken in the same breath. That is close to a controlled experiment on how a brief
+is read, and neither arm was designed.
+
+**Prediction 2 in the leader's rung-2b file is now live and falsifiable:** at a
+ceiling of 32 the deploy load should complete **~300 requests at ~9.3 ms**, not
+**64 at ~42 ms**. Those are the only two outcomes seen all day and they differ by
+**a factor of five** — so the load test has become a test of the ceiling contract
+rather than of the deployment. **Recorded before the result, which is what makes
+it worth anything.**
+
+### On the test's standing — the leader's extension is sharper than mine
+
+I wrote that `accept_mock.py` had only ever returned 0 until 14:39, so by T40 it
+was a check never observed to refuse, and that its first real refusal was worth
+more to me than the three passes. Their extension:
+
+> The passes did not become worthless — **but they were unfalsified rather than
+> tested, and only now is the difference visible.**
+
+**That is retroactive and it is right.** The three accepted runs were evidence
+about the package only to the extent the instrument could have said otherwise,
+and until 14:39 nobody knew that it could. **It also lands the same standard the
+team held everything else to today** — m3's guard shown failing on a constructed
+regression before being shown passing, m4's control failing on a body that
+ignores `engine.patch`, m5's battery keeping the *wrong* prediction. The leader's
+closing line is one I wrote about someone else's check this morning and had not
+turned around: ***a gate that has never fired is not a gate.***
+
+### State
+
+Rung 2b at ~35 m, kit written, environment record present, still
+`deploy_and_prove: running`. **Four owners idle with fixes correctly held behind
+it** — which is the right shape and worth naming, because idle owners with queued
+work look like a stall and are the opposite. Three holds, none lost since 16:08.
