@@ -1555,7 +1555,47 @@ and expensive later: whether the edit is confined to the target file
 and whether `forge_result.json` lists the changed files, which would make the
 `git` questions redundant for a future run.
 
-## 3. What has no source yet — and it is blocking
+## 3. The install, measured — it is no longer blocking
+
+**Was recorded here as blocking on the strength of `command -v forge-loop` failing.
+It is not.** Measured on `crsuse2-m2m-047`, 2026-09-04, in a `--rm` container
+from `inferaimage/infera:sglang-local` — the image the current chain's artefact
+actually names:
+
+```
+python3                            3.10.12         (requires-python >=3.10 ✓)
+pip install -e <KernelForge>       3 seconds, rc=0
+                                   "Successfully installed kernel-agents-0.1.0"
+kernel-agents forge-loop --help    runs
+  --workspace  --driver  --fellow  --invocation-spec-file      all PRESENT
+bare `forge-loop`                  does not exist
+```
+
+**Three seconds, and only `kernel-agents` itself was installed** — the six
+pure-python core dependencies are *already in the engine image*. So option A
+costs seconds per container, not minutes, and the `[profiling]` extra is **not
+needed**: `forge-loop` runs without it. (The `astunparse`/`kaleido` pins in that
+extra are the versions ROCm wants, not a conflict — see the corrected row in
+`optimize_kernel.task/readme.md`.)
+
+**Bare `forge-loop` does not exist, which confirms the one-word finding**:
+`kernel-agents forge-loop` is the form, and m3 fixed the generator (`89a1541`)
+after finding a second defect in the same line — `--workspace` is
+`required=True`, so click would have exited 2 on a held node.
+
+### Two things this does not settle
+
+**It is an install, not a campaign.** Nothing here says forge *works*, only that
+the command exists and takes the flags it is given.
+
+**Install into a container you started, never into the image.** `--rm`,
+trap-removed, and re-done per container — the install does not persist and is
+not supposed to. **And copy the checkout first**: `pip install -e` writes
+`*.egg-info` into the *source tree*, and `/shared_nfs/hyperloom/KernelForge` is
+not ours. Copying to node-local scratch is 12 s for 62 MB and makes the question
+moot.
+
+## 3. What has no source yet — and it is blocking — nothing, now
 
 **`forge-loop` is not installed anywhere this run can reach.** Measured
 2026-09-04:
