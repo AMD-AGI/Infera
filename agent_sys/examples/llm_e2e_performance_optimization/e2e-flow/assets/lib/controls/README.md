@@ -61,3 +61,29 @@ mismatch, which is that gate working.
 
 All three keep every public definition of the file they replace, so `apply_patch`'s
 symbol-set check passes them honestly rather than by exemption.
+
+## The negative-test battery beside these — `artefact_neg.py`
+
+`ARMS=<dir> python3 artefact_neg.py` breaks a real artefact six ways and checks
+the validator refuses. It is here for the same reason the overlays are: **a pass
+count cannot tell a well-built check from one grading `nonempty`**, and the next
+person to doubt one of these should be able to run the case rather than
+reconstruct it.
+
+**What six passing probes license, and what they do not.** They show these
+validators detect **the specific breakage injected here**. They do **not** show
+they detect the breakage the world produces — m4's standing caveat about their
+own re-measurement, in different clothes. A green run is evidence about six
+cases, not about the class.
+
+**Three of the probes were wrong first, and they are kept in the file.** Each
+returned a confident PASS while changing nothing — the packup has two
+`README.md` and `rglob` gave the wrong one; `smoke.json`'s `checks` is a list and
+a `dict` type-guard skipped the tamper entirely; needle depths carry `ok` while
+the probe set `retrieved`. **A PASS from a probe you have just written is not
+evidence**; check the field you edited is the field the validator reads.
+
+`zone_harness.py` is committed alongside because the battery cannot run without
+it, and it builds the zone the way `validator/phase.py` does — `env -i` with the
+GLOBAL row only, because a run that inherits your shell is a different
+experiment and will tell you the subject is fine.
