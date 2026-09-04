@@ -1049,3 +1049,68 @@ instrument responds correctly to *both* no-effect and a real effect.
 **Does not:** anything about an optimisation. **No optimisation is claimed, none
 was installed, and a green null run must never be quoted as "module 5 works".**
 It is "the plumbing works and the gate does not hallucinate a difference".
+
+### 5. Executed 2026-09-04 — what it proved, and the two corrections it forced
+
+Run twice on `crsuse2-m2m-006` (job `109260`, eight cards at 0 %, read at bind
+time rather than carried). **Both corrections are to the four sections above,
+written an hour earlier by me.**
+
+**Correction 1 — "the command, in full" was not in full.** The first run died in
+11.7 s on `aiperf_replay.sh:38: AIPERF_TRACE: parameter null or not set`. That is
+**not a defect**: `shared.yaml:129` declares `E2E_AIPERF_TRACE: '${aiperf_trace:-}'`
+with no default *on purpose*, so an operator who supplies no trace gets a loud
+failure instead of a silent fallback to somebody's debugging path. The guard
+worked exactly as designed and my command omitted the var — **the same "a diff is
+the one shape nobody can paste" failure this section was written to prevent,
+committed in the section that prevents it.** The command above now carries:
+
+```sh
+--var aiperf_trace=/shared_nfs/yihou/agent_sys/debugging/profiling/conversation_trace.jsonl
+```
+
+**Correction 2 — a mocked m1 deploys a *stub*, so this cannot verify the
+profiled line.** §2 said `--var mock_stages=m1,…` gives m2 "a real kit" and that
+m2 is therefore parallel-safe. The kit *is* real as an artefact; what its
+`deploy.sh` brings up is not. Measured — `deployment.json` on the node reads
+`"container": "stub_yihou_e2e_flow_pmoff"`, and `deploy.log` says **`ready after
+1s`**, which no engine loading 27 B of weights across four cards can do.
+
+So the honest split:
+
+| | mocked m1 (parallel) | needs a real kit |
+|---|---|---|
+| kit read, scripts located, three scripts present | **proved** | |
+| `line.sh` lifecycle: deploy → wait_ready → load → teardown → reclaim | **proved, both lines** | |
+| `profiling_mode_off.bench_result` sealed **valid**, `check_bench_result` + `check_command_parses` + `check_environment` all PASS | **proved** | |
+| aiperf replay against a live endpoint, real artefacts, `AIPERF_OK` | **proved** | |
+| the profiler capture, `profile_result`, `kernel_table` | — | **yes** |
+| any number worth quoting | — | **yes** |
+
+**m2 is parallel-safe for its wiring and not for its measurement.** That is a
+narrower claim than §2 made and it is the true one.
+
+**The capture's refusal is a negative control I did not plan and would not have
+thought to write.** Against the stub, `capture.log` reads:
+
+```
+===== 1/6 preflight =====
+  ABORT: /mnt/…/pmon/profiles is not mounted rw in stub_yihou_e2e_flow_pmon
+```
+
+It named the mount, the host side and the container, and refused before opening
+a window — so *"the profiler produced nothing"* arrived as a stated reason rather
+than as an empty trace that `check_trace_coverage` would have had to catch three
+tasks later.
+
+**Nothing leaked.** Both lines' `teardown.log` recorded `processes_stopped: 2`
+and `reclaim.log` ran; the node afterwards had no container of mine and all
+eight cards at 0 %. An `aiperf_serves-*` container running there at the time was
+**not mine** — its mounts name run `094614-790b14` and it was created four
+minutes after my run ended, which is the reading that settled it. The name alone
+would have said the opposite.
+
+**Cost, now measured**, replacing the "no total" above for the mocked path:
+`09:32:08 → 09:42:29`, **10m21s** for deploy_kit + both lines against a stub, of
+which the clean line's load is the sealed 180 s window. **A real-engine run will
+be longer by two model loads and is still unmeasured.**
