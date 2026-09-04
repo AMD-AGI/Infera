@@ -225,17 +225,51 @@ wrong; fix that and re-run this step.
 
 ### STEP 7 — run the correctness test
 
+**Do not run the entrypoints where you are standing.** You are on the host that
+runs `agent-sys`, in a zone — not inside any container. That host has **no
+torch**, measured: `spur exec <jobid> python3 -c "import torch"` →
+`ModuleNotFoundError`. Only the containers have it. So `./run_correctness.sh`
+run directly here fails at the first import, and on a host where it happened to
+succeed it would measure on a card nobody chose.
+
+Both steps go through one script, which starts an ephemeral measurement
+container on the node and runs the entrypoint inside it:
+
 ```sh
-export PYTHONDONTWRITEBYTECODE=1
-cd "$WS" && ./run_correctness.sh --json evidence/correctness.json
+"$PKG/assets/build_workset.task/measure_in_container.sh" "$WS" \
+  ./run_correctness.sh --json evidence/correctness.json
 ```
 
-**Export `PYTHONDONTWRITEBYTECODE=1` before either run, and keep it exported.**
-The container runs as root — it has to, since a framework compiling kernels on
-first call cannot write its cache as anyone else — so any `__pycache__` the
-entrypoints leave inside the handoff is root-owned, and the runner then cannot
-copy or clean the output as its own user. Measured: it does not fail on the run
-that creates it, only on the next one.
+**`E2E_MEASURE_GPU` must be set and it is not defaulted.** It is in your
+environment if the run was launched with `--var measure_gpu=<n>`; check it
+before you start, because the script refuses without it and you will have spent
+the scaffold for nothing:
+
+```sh
+: "${E2E_MEASURE_GPU:?no measurement card — the run must pass --var measure_gpu=<n>}"
+```
+
+There is no fallback on purpose. Five owners share these nodes, and a card
+someone else is serving from does not *fail* — it returns slower numbers that
+`check_workset_runs` re-measures on the same card and agrees with. **A wrong
+card produces a confident wrong answer, which is the one failure mode this
+whole workset exists to prevent.**
+
+**This is the same instrument `check_workset_runs` will use to re-measure you.**
+That validator re-runs one shape through this same script and compares its own
+number against your record; a producer measuring through a different arrangement
+than the validator would not be re-measured, it would be re-*interpreted*. If
+you find a reason to measure some other way, the validator is what you have to
+change first, and that is a conversation with the leader rather than an edit.
+
+You do **not** need `export PYTHONDONTWRITEBYTECODE=1` any more — the script
+passes it into the container, along with `TMPDIR` and `TRITON_CACHE_DIR`, and
+chowns the output back to you afterwards. It is set because the container runs
+as root — it has to, since a framework compiling kernels on first call cannot
+write its cache as anyone else — so any `__pycache__` left inside the handoff
+would be root-owned and the runner could not copy or clean the output as its own
+user. Measured: it does not fail on the run that creates it, only on the next
+one.
 
 **Acceptance:** exit 0. If it fails, read `evidence/correctness.json`: each shape
 carries its `snr_db` and a `failure`. A failure here is almost always one of
@@ -253,8 +287,13 @@ three things and they are distinguishable —
 
 ### STEP 8 — run the performance test
 
+Same instrument, same container image, same card — STEP 7's reasoning applies
+unchanged and matters more here, because this step produces the number every
+later stage divides by:
+
 ```sh
-cd "$WS" && ./run_performance.sh --json evidence/performance.json
+"$PKG/assets/build_workset.task/measure_in_container.sh" "$WS" \
+  ./run_performance.sh --json evidence/performance.json
 ```
 
 **Acceptance:** exit 0, and in `evidence/performance.json` every shape has five

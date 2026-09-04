@@ -23,10 +23,24 @@
 # was no host anywhere in this cluster that satisfied the old wiring — the mock
 # was not merely unsatisfied, it was unsatisfiable.
 #
-# The real path already measures in a container: `build_workset` is a `kind: ai`
-# closure running inside the shared container of CONTRACT §5, so its STEP 7 and
-# STEP 8 execute there. The 142.5 dB and 0.5–1.2% rsd in `run_correctness.sh`'s
-# body came from `rocm/sgl-dev:v0.5.18-rocm720-mi35x`, not from a host.
+# **Corrected 2026-09-04, and the original sentence is why STEP 7 and STEP 8
+# were written without this script.** It read: *"the real path already measures
+# in a container: `build_workset` is a `kind: ai` closure running inside the
+# shared container of CONTRACT §5, so its STEP 7 and STEP 8 execute there."*
+# The agent is **not** inside it. `agent/backends/claude_sdk.py:303` sets the
+# session's `cwd` to `assignment.zone` — the host running `agent-sys`, in a
+# validation zone — and CONTRACT §5 says m2, m3 and m4 **exec into** the shared
+# container, which is a thing somebody has to do rather than a place they start.
+#
+# So the real path did not "already" measure in a container; the brief told the
+# agent to run `./run_correctness.sh` where it stood, and where it stands has no
+# torch. Found while writing rung 3's launch line: the mock reached the
+# container and the real path never would.
+#
+# The 142.5 dB and 0.5–1.2% rsd in `run_correctness.sh`'s body did come from
+# `rocm/sgl-dev:v0.5.18-rocm720-mi35x` rather than a host — that part was true,
+# and it is what made the false half plausible. **A container was involved; the
+# claim that the agent was inside one was an inference from that.**
 #
 # So this is m4's principle rather than a different machine: **the mock
 # exercises the real wiring instead of a parallel one.** A mock that measured
