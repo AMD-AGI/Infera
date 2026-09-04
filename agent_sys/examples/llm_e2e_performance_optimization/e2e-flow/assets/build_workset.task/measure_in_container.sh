@@ -128,15 +128,37 @@ export E2E_NODE E2E_JOBID E2E_TRANSPORT
 : "${E2E_MEASURE_GPU:=4}"
 : "${E2E_MEASURE_CONTAINER:=yihou_m3_measure_$$}"
 
-# The workset must be visible from the node. On this cluster "remote" *is*
-# `/shared_nfs`, so a run root anywhere else cannot be measured — say so here
-# rather than let `docker run` fail with a confusing empty mount.
-case "$ROOT" in
-  /shared_nfs/*) ;;
-  *) echo "measure_in_container: $ROOT is not under /shared_nfs, so the node cannot see it." >&2
-     echo "  On this cluster the shared filesystem is the transport; point the run root there." >&2
-     exit 1 ;;
-esac
+# **The workset must be visible from the node, and that is asked rather than
+# asserted.** This was `case "$ROOT" in /shared_nfs/*)`, which encoded a site
+# fact as a literal path: correct where it was written, and silently wrong one
+# mount change later. `/shared_nfs` went read-only on the login node, the run
+# root moved to `/home/yihou/agent_sys_runroot`, and rung 1's `build_workset`
+# refused after eleven seconds — a workset that would have measured fine, since
+# `/home` is NFS from the same server and the compute nodes mount it too
+# (measured on node 243: the run root is there and writable).
+#
+# The property wanted was never "under /shared_nfs"; it is "a path the node can
+# also see". A second literal for `/home` would be the same defect with a
+# longer list, so this asks the node.
+#
+# **And the helper already existed.** `remote.sh:require_visible_on_node` has
+# done exactly this since before I wrote the literal, with six callers across
+# four other owners' scripts and a header comment that already says the run root
+# being NFS is "a fact about this cluster, not about agent_sys, so it is checked
+# rather than assumed". CONTRACT §4.1: shared things are shared, not re-solved.
+require_visible_on_node "$ROOT" "workset" || exit 1
+
+# **What the container mounts follows from where the workset is**, for the same
+# reason. `-v /shared_nfs:/shared_nfs` alone would pass the check above and then
+# hand `docker run` an empty mount — the confusing failure the old guard existed
+# to prevent, reintroduced one directory over. So the run root's own top-level
+# directory is mounted at the same path, and `/shared_nfs` as well when it is a
+# different one and present.
+MOUNT_ROOT="/$(printf '%s' "${ROOT#/}" | cut -d/ -f1)"
+[ -n "$MOUNT_ROOT" ] && [ "$MOUNT_ROOT" != "/" ] || {
+  echo "measure_in_container: cannot derive a mount point from $ROOT" >&2; exit 1; }
+MOUNTS="-v $MOUNT_ROOT:$MOUNT_ROOT"
+[ "$MOUNT_ROOT" = "/shared_nfs" ] || [ ! -d /shared_nfs ] || MOUNTS="$MOUNTS -v /shared_nfs:/shared_nfs"
 
 # The default is the producer's pair; a caller may substitute its own.
 if [ "$#" -eq 0 ]; then
@@ -192,7 +214,7 @@ on "docker run --rm --name '$E2E_MEASURE_CONTAINER' \
       --device /dev/kfd --device /dev/dri --group-add 44 --group-add 992 \
       -e HIP_VISIBLE_DEVICES='$E2E_MEASURE_GPU' \
       -e E2E_NODE='${E2E_NODE:-}' -e PYTHONDONTWRITEBYTECODE=1 \
-      -v /shared_nfs:/shared_nfs -w '$ROOT' '$IMAGE' \
+      $MOUNTS -w '$ROOT' '$IMAGE' \
       bash -c '$COMMAND'"
 
 sh "$PKG/assets/lib/reclaim.sh" "$CONTENT" 2>/dev/null || true
