@@ -542,6 +542,23 @@ def streak(rows: list[dict]) -> tuple[int, str]:
     return n, f"{n} consecutive of {len(counted)} that reached a verdict{broke}"
 
 
+def kit_node_of(content: pathlib.Path) -> str | None:
+    """`fixed.node` out of whichever of the three record paths this kind uses."""
+    import yaml
+    for rel in ("items/env/environment.yaml", "items/codes/environment.yaml",
+                "items/codes/*/environment.yaml"):
+        for path in sorted(content.glob(rel)) if "*" in rel else (
+                [content / rel] if (content / rel).is_file() else []):
+            try:
+                doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            except Exception:  # noqa: BLE001
+                continue
+            node = (doc.get("fixed") or {}).get("node")
+            if node:
+                return str(node)
+    return None
+
+
 def load_handoffs(run: pathlib.Path) -> list[dict]:
     """Every handoff record in a run's store, as `{id, type, versions}`."""
     store = run / "store" / "handoff"
@@ -629,6 +646,7 @@ def survey(runs: list[pathlib.Path], kinds: list[str] | None) -> dict[str, list[
                 "content": version / "content",
                 "statuses": statuses,
                 "in_progress": "generating" in statuses,
+                "kit_node": kit_node_of(version / "content"),
                 "real": produced_for_real(run, kind, rec["id"]),
                 "validators": sorted(r.get("validator", "?") for r in rows),
                 "all_passed": bool(rows) and all(r.get("result") is True for r in rows),
@@ -746,6 +764,11 @@ def main() -> int:
                     help="report and write nothing")
     ap.add_argument("--allow-unstable", action="store_true",
                     help="materialise kinds below the threshold, marked in the record")
+    ap.add_argument("--node", help="the node this root will be launched on; refused "
+                                   "if it differs from the node the replayed kit records")
+    ap.add_argument("--allow-cross-node", action="store_true",
+                    help="launch on a different node than the kit records. Nothing "
+                         "downstream will catch it; this flag is the decision.")
     ap.add_argument("--seed-from", default="/shared_nfs/yihou/agent_sys/cheat_for_mock",
                     help="corpus to symlink un-promoted stages from, so the root is "
                          "launchable. mock_root is ONE directory for all five stages.")
@@ -801,8 +824,49 @@ def main() -> int:
               file=sys.stderr)
         return 2
 
+    # **The node this root may be launched on, refused rather than warned.**
+    #
+    # Measured in `rewrite_environment`'s neighbourhood and stated in the header:
+    # every downstream handoff inherits the replayed kit's `fixed.node`, so all
+    # four `compare_fixed_across_inputs` fields agree with each other on a node
+    # the run is not using — and the guard that *would* catch it,
+    # `_agree_or_die`, runs only in a stage that executes for real. **Skip in
+    # front, mock behind is exactly the configuration in which nothing checks
+    # it.**
+    #
+    # The leader's ruling, and the reason a banner was rejected: *a warning
+    # printed at materialise time is read once, by the person who already knows;
+    # the failure happens an hour later to someone reading a bench number that
+    # is 4x off and looking for a kernel regression.* That is the
+    # `--cuda-graph-max-bs` shape, which has already cost a day once.
+    #
+    # So `--node` is required, mismatch is rc=2, and `--allow-cross-node` is the
+    # explicit decision that a warning would not have been.
+    kit_nodes = {p["row"]["kit_node"] for p in promotions if p["row"].get("kit_node")}
+    if not args.allow_cross_node:
+        if not args.node:
+            print("replay_root: --node <the node this root will be launched on> is required.\n"
+                  "  A replayed kit records the node it was produced on, every downstream\n"
+                  "  handoff inherits it, and they then AGREE with each other on a node the\n"
+                  "  run is not using — so `compare_fixed_across_inputs` passes and\n"
+                  "  `_agree_or_die` never runs, because no stage runs for real.\n"
+                  "  Pass --node, or --allow-cross-node to decide otherwise on purpose.",
+                  file=sys.stderr)
+            return 2
+        wrong = {n for n in kit_nodes if n != args.node}
+        if wrong:
+            print(f"replay_root: this root replays a kit produced on {sorted(wrong)} and you "
+                  f"asked to launch it on {args.node!r}.\n"
+                  "  Refusing: nothing downstream will catch this. Replay onto the same node,\n"
+                  "  or pass --allow-cross-node and record why.", file=sys.stderr)
+            return 2
+
     record = {
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        # Required field, per the ruling. A reader of this root an hour later can
+        # answer "may I launch this here?" without opening a handoff.
+        "required_node": args.node or "ANY (--allow-cross-node was passed)",
+        "kit_nodes": sorted(kit_nodes),
         # **The command, beside its own output** — CONTRACT §4.4, the eighth
         # face. A derived table that does not cite its derivation is a claim,
         # and the reader of a replayed handoff three weeks from now has this
