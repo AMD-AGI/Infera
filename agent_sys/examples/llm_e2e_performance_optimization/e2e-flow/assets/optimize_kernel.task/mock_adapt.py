@@ -40,6 +40,7 @@ import os
 import re
 import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "steps"))
@@ -50,6 +51,69 @@ import _lib as lib  # noqa: E402
 #: `"$VAR"/a/b` -> `"$VAR/a/b"`. The closing quote moves to the far side of the
 #: path; the shell behaviour is identical and a trailing glob stays outside.
 _QUOTED_PREFIX = re.compile(r'"\$([A-Za-z_][A-Za-z0-9_]*)"(/[A-Za-z0-9._+@/-]+)')
+
+
+def _hash_from_image(container_path: str, image: str) -> str | None:
+    """`base_sha256` of the stock file, taken out of the image itself.
+
+    **A mock may obtain a real fact by a route the producer does not use; it may
+    not assert a fact the producer does not have.** Leader's ruling,
+    2026-09-04, drawing the line between this and synthesising a
+    `public_symbol`: `60_write_handoff.py` writes this same field hashed from
+    the stock file, so extracting it from the image is *the same fact by another
+    route*. A `public_symbol` the real workset records as `null` would be a
+    *different fact*, and both m5 and I refused that one.
+
+    **Why it is needed.** `mock_adapt` runs on a login node with no engine tree,
+    so the fallback below hashes the *replacement* and says so. m5's
+    `apply.py` then refuses — correctly — with *"the patch was cut against
+    fcd3c924e48d…"*, and the run stops two gates before their compile check and
+    both surface refusals ever see input. Measured 2026-09-04 by driving
+    `apply.py` standalone against rung 0's own artefact.
+
+    **The idiom is m5's, copied rather than re-derived** (`apply.py:510-524`,
+    CONTRACT §4.1): `docker create` starts no process and touches no GPU, the
+    `trap` removes the handle, and `patchkit.expand` turns the `@ROOT@` form
+    into the path the image actually has — a lesson their comment already paid
+    for once, when a doubled `python/sglang` made `docker cp` refuse a path no
+    image contains.
+
+    **Returns `None` rather than raising.** No allocation, no reachable node and
+    no such path in the image are all ordinary on a login node, and a mock that
+    cannot run without a node would be worse than one with an honestly degraded
+    hash. The caller falls back and records which route it took.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+    try:
+        import nodecall
+        import patchkit
+    except ImportError:
+        return None
+    inside = patchkit.expand(container_path)
+    # **Hash on the node; never copy the file here.** The first version wrote
+    # `docker cp "$CID:<inside>" '<local tempdir>'` — and `docker cp` runs on
+    # the **node**, where a `tempfile.TemporaryDirectory()` created on the login
+    # node does not exist: *invalid output path: directory "/tmp/tmp…"*. That is
+    # T42 in a helper whose docstring already cites the sibling lesson — a path
+    # computed here handed to a shell over there.
+    #
+    # Streaming to `sha256sum` is the better fix rather than a repaired
+    # destination: **the file is not wanted, only its digest**, so there is no
+    # shared filesystem to arrange, nothing to clean up, and no second locality
+    # question later. `docker cp <src> -` emits a tar; `tar -xO` writes the
+    # member's bytes to stdout.
+    script = "\n".join([
+        "set -e",
+        f"CID=$(docker create '{image}' true)",
+        "trap 'docker rm -f $CID >/dev/null 2>&1' EXIT",
+        f'docker cp "$CID:{inside}" - | tar -xO | sha256sum | cut -d" " -f1',
+    ])
+    try:
+        out = nodecall.on(script)
+    except Exception:
+        return None
+    digest = (out or "").strip().splitlines()[-1].strip() if (out or "").strip() else ""
+    return digest if len(digest) == 64 and all(c in "0123456789abcdef" for c in digest) else None
 
 
 def _ensure_impl_entry(packup: Path, workset_root: Path, operator: dict) -> str | None:
@@ -283,8 +347,12 @@ def main() -> int:
         if target_files else None
     ) or ""
     stock = lib.expand_container_path(container_path) if container_path else None
+    image = str((run_env.get("fixed") or {}).get("image") or "")
     if stock is not None and stock.is_file():
         base_sha256, sha_source = lib.sha256_of(stock), "the engine tree in this container"
+    elif container_path and image and (extracted := _hash_from_image(container_path, image)):
+        base_sha256 = extracted
+        sha_source = f"the stock file extracted from image {image} (docker create + docker cp)"
     elif kernel.is_file():
         base_sha256, sha_source = lib.sha256_of(kernel), "the sealed replacement (NO ENGINE TREE REACHABLE)"
     else:
