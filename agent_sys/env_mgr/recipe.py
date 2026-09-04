@@ -15,6 +15,24 @@ IMPORTANCE = ("required", "strongly-suggested", "suggested")
 # Keys the CLI understands directly; everything else goes into Item.spec.
 _CLI_KEYS = {"installer", "importance", "tags", "version"}
 
+#: Migration guard, added 2026-09-04 with the removal of the layer model.
+#:
+#: `layer` used to be in `_CLI_KEYS`, and `_CLI_KEYS` is an **exclusion** set:
+#: keys in it are held back from `Item.spec`, and every other key falls
+#: through. Simply deleting the name would therefore not make a stale
+#: author-written `layer:` an error — it would make it an ordinary spec key,
+#: carried into the installer, where an unexpected key surfaces later as
+#: something else. A recipe still carrying it is an author working from
+#: documentation that has been superseded, and is told so here.
+#:
+#: **This guard is for recipes written before the removal and can be dropped
+#: once none are left in circulation.** It is deliberately one key and one
+#: message: it is not the start of a rejected-key list.
+_LAYER_REMOVED = (
+    "{where}: 'layer' was removed on 2026-09-04; the destination of an install "
+    "is derived, not declared — see env_mgr/docs/spec.md §9.1"
+)
+
 
 class RecipeError(Exception):
     pass
@@ -52,6 +70,8 @@ def _parse_item(raw: dict[str, Any], idx: int) -> Item:
     importance = raw["importance"]
     if importance not in IMPORTANCE:
         raise RecipeError(f"{where}: bad importance {importance!r} (expected {IMPORTANCE})")
+    if "layer" in raw:
+        raise RecipeError(_LAYER_REMOVED.format(where=where))
     spec = {k: v for k, v in raw.items() if k not in _CLI_KEYS}
     if raw["installer"] == "oneline":
         run = spec.get("run", "")

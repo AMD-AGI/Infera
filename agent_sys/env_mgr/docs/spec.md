@@ -31,9 +31,10 @@ questions, a zone module that confines a process, a sync module that copies a
 tree once. What makes it a component rather than a grab-bag is that each
 mechanism is coherent on its own, and they share one fact: **the path**.
 
-The shipped `env_mgr` — a layered environment manager driven by one YAML recipe,
-doing check / dry-run / install / bootstrap — is one of those pieces and stays as
-it is (§9).
+The shipped `env_mgr` — an environment manager driven by one YAML recipe,
+doing check / dry-run / install / bootstrap — is one of those pieces and is
+reused rather than reimplemented (§9). It is no longer held unchanged: §9's
+table says which modules this round moved and why.
 
 ### 1.2 In scope
 
@@ -75,7 +76,7 @@ internally.
 | 4 | **Write narrowly, read broadly** | A task may not write outside its zones; reads get a generous but **declared** set. Both are allow-lists — the mechanisms enforce nothing else (§4.2). §4.5 |
 | 5 | **Work on a copy** | An agent copies a handoff into its playground and works there. §6.3 |
 | 6 | **A mechanism, not a manager** | §1.1 |
-| 7 | **Reuse what shipped** | The recipe, layer, and installer machinery is not rewritten. §9 |
+| 7 | **Reuse what shipped** | The recipe and installer machinery is reused, not reimplemented. It is no longer *frozen*: the layer model was removed from it by design on 2026-09-04. §9 |
 | 8 | **Adopt Claude Code's user/project split; invent no levels of our own** | Non-AI installs go system-wide. AI material splits exactly as the harness already splits it: package-declared is *user level*, agent-declared is *project level*. There is no layer field and no layer vocabulary. §9.1 |
 
 ---
@@ -439,11 +440,18 @@ The last row is a hard requirement, not a best effort.
 
 ## 9. Relationship to the shipped `env_mgr`
 
-Reused, not rewritten.
+Reused, not rewritten — but **no longer frozen**, and that distinction is the
+point of the table. Until 2026-09-04 these modules were held *byte-identical* by
+a test, which was a scope fence for the round that built the new subsystems and
+not a quality gate. The fence is retired with criterion 22 (§10), so "reused"
+now means what it says: the same modules, changed where the design says to.
 
 | Shipped | Status |
 |---|---|
-| `recipe.py`, `layer.py`, `installers/`, `runner.py`, `outcome.py`, `report.py`, `registry.py` | **Unchanged.** They solve agent-dependency provisioning, which stays in scope |
+| `outcome.py`, `report.py`, `registry.py`, `versions.py` | **Reused unchanged.** They solve agent-dependency provisioning, which stays in scope. Nothing this round needed to touch them |
+| `installers/` | **Changed**, and it is the reason the fence had to go rather than an exception to it: `claude.py::_present_names` was a check that could never pass, and two of its tests encoded a `claude plugin list` format the CLI does not produce. The fence was holding a wrong test in place |
+| `recipe.py`, `runner.py` | **Changed** by the removal of the layer field, §9.1. `recipe.py` loses the field, its validation and its `_CLI_KEYS` entry, and gains a dated migration guard that rejects a stale `layer:` rather than letting it fall through into `Item.spec`; `runner.py`'s version-conflict Outcome loses the label it keyed on |
+| `layer.py` | **Deleted.** `LAYER_ORDER` and `layer_index`, and neither was load-bearing: `layer_index` had no production caller at all, and the field had exactly one runtime reader — a conflict label that each recipe's own subprocess had already reduced to a single key |
 | `cli.py` | **Extended** with domain and zone inspection sub-commands |
 
 New: the filesystem manager (§5), isolation (§4), the agent environment (§6),
@@ -456,7 +464,7 @@ Also needed, and recorded in [`../../docs/TODO.md`](../../docs/TODO.md): **a
 submodule that sets up the Claude Code SDK** from an API key and endpoint in
 config, so a fresh machine can run an agent without hand-setup.
 
-The shipped README records three v1 limitations. The stubbed workspace layer is
+The shipped README records three v1 limitations. The stubbed workspace default is
 superseded by §6.1; the other two stand.
 
 ### 9.1 Where an installed thing lands

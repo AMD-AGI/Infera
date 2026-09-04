@@ -142,10 +142,12 @@ def test_bad_importance_raises(tmp_path):
 #
 # `layer` was a required, validated field on every item, and it is removed:
 # where an installed thing lands is derived, not declared (`docs/spec.md` §9.1).
-# These four tests are what replaces `test_bad_layer_raises` and
+# These five tests are what replaces `test_bad_layer_raises` and
 # `tests/env_mgr/test_layer.py`, both deleted with it. The first two are the
-# removal; the third is the shipped artefacts; the fourth is the one consequence
-# of the removal that is not obvious from the diff.
+# removal; the third is the shipped artefacts; the last two are the migration
+# guard, which exists because removing the key from an *exclusion* set would
+# otherwise have turned a stale `layer:` into a silent spec key rather than an
+# error.
 
 
 def test_item_has_no_layer_field():
@@ -187,15 +189,15 @@ def test_the_shipped_recipes_carry_no_layer(name):
     assert not any("layer" in it.spec for it in items)
 
 
-def test_a_stale_layer_key_becomes_an_ordinary_spec_key(tmp_path):
-    # Characterisation, and the reason it is written down: `layer` was listed in
-    # `_CLI_KEYS`, which is the set of keys held *back* from `Item.spec`. With
-    # the field gone the name is no longer special, so an author-written
-    # `layer:` left behind in a recipe this repo does not own is neither
-    # rejected nor dropped — it is carried into the installer's `item.spec` like
-    # any other unrecognised key. That is the existing contract for unknown
-    # keys, not a new one; it is asserted so the behaviour is a decision on
-    # record rather than something the next reader discovers in an installer.
+def test_a_stale_layer_key_is_rejected_and_says_where_the_concept_went(tmp_path):
+    # `layer` was listed in `_CLI_KEYS`, which is the set of keys held *back*
+    # from `Item.spec`. Deleting the name from an exclusion set does not make a
+    # stale `layer:` an error — it makes it an ordinary spec key, carried
+    # silently into the installer. Silent pass-through is the wrong answer: an
+    # author still writing `layer:` is working from superseded documentation,
+    # and an unexpected key in `item.spec` surfaces somewhere else as something
+    # else. So it is rejected, and the message has to carry the author to the
+    # replacement, not merely refuse.
     p = _write(
         tmp_path,
         """
@@ -207,8 +209,33 @@ def test_a_stale_layer_key_becomes_an_ordinary_spec_key(tmp_path):
             layer: galaxy
     """,
     )
-    _, items = load_recipe(p)
-    assert items[0].spec["layer"] == "galaxy"
+    with pytest.raises(RecipeError) as exc:
+        load_recipe(p)
+    msg = str(exc.value)
+    assert "items[0]" in msg
+    assert "removed on 2026-09-04" in msg
+    assert "§9.1" in msg
+
+
+def test_the_layer_guard_rejects_every_value_including_the_ones_that_were_legal(tmp_path):
+    # The guard keys on the *key*, not on the value, and this is the half that
+    # would be easy to get wrong: a check written as "reject an unknown layer"
+    # would let `layer: system` through, and `system` is the value every
+    # shipped recipe used, so it is the one most likely to be left behind.
+    for value in ("system", "workspace", "project", "repo", "worktree"):
+        p = _write(
+            tmp_path,
+            f"""
+            version: 1
+            target: {{kind: repo, name: x, path: /tmp/x}}
+            items:
+              - installer: uv
+                importance: required
+                layer: {value}
+        """,
+        )
+        with pytest.raises(RecipeError, match="removed on 2026-09-04"):
+            load_recipe(p)
 
 
 def test_oneline_run_multiline_raises(tmp_path):
