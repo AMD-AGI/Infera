@@ -504,7 +504,36 @@ waiting on. The record was two commands away and consistent.
 few minutes. A wrong guess about a colleague's costs them an audit of work that
 was never broken, and it arrives with your authority attached.
 
-### 4.4 A fixture that is more convenient than production tests the fixture
+### 4.4 A check that happens to be right and cannot be wrong is not a check
+
+**m3's, 2026-09-04, and it is the sentence the rest of this section is
+instances of.** They arrived at it after finding four in their own stage in one
+day, each returning the correct answer for a reason that had nothing to do with
+the subject:
+
+| instrument | why it could not be wrong |
+|---|---|
+| `_observed` in the abort gate | read seven `E2E_*` names **nothing declared** |
+| the report's `environment` block | **transcribed** the premise it was meant to test |
+| `min_shapes` | counted shapes that were **never timed** |
+| the `--environment` fallback | compared a document **with itself** |
+
+Three of the four were **green**. None was a bug in the ordinary sense; each was
+a working mechanism pointed at nothing.
+
+m3's own correction to what they first proposed as the lesson is worth keeping,
+because it is the difference between the small version and the general one:
+
+> I told you the durable lesson was *"a paragraph asserting a behaviour is not
+> one"*. It was the smaller version — that one is about **docstrings**, and
+> every instance since has been about something **a machine reads**: a JSON
+> field, a flag, a mount, a variable name.
+
+**The operational form is the same question in every case: what would this
+report if the subject were broken?** If the answer is "the same thing", the
+instrument is decoration regardless of how carefully it was written.
+
+### 4.4.1 A fixture that is more convenient than production tests the fixture
 
 m2's wording, kept nearly verbatim because the last sentence is the whole rule.
 
