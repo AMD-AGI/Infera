@@ -35,6 +35,19 @@ Nothing was graded. **The run did not finish.**
 Both are honest records locally. The docstring for (2) is explicit that a hole
 is the point. The defect is one level up, where a reader treats the two as one.
 
+**The sealing in (2) is correct and should not be "fixed" — leaving the slot
+`GENERATING` would be worse.** `agent/runner.py:952`:
+
+> `INVALID` rather than leaving the slot `GENERATING`: a hole is the honest
+> record, and **`open_next` refuses a slot someone else has open, so a
+> re-dispatch would raise instead of appending `v+1`**.
+
+A `GENERATING` slot left by a dead attempt would deadlock the retry. Stated
+because the natural reading of this bug is *"stop sealing INVALID on the way
+down"*, and that is the wrong end: **the defect is not that a hole is sealed, it
+is that two meanings then share one value.** (The leader's point, filed
+independently and folded in here.)
+
 ## What reads it, and what it then says
 
 `cli/main.py:_completion_gaps` — *every task `SUCCEEDED`, no handoff `INVALID`*
@@ -84,10 +97,18 @@ activity scope, and recorded rather than attempted (principle 6).
    This is `todo.md` T29's missing third state, one level up: `verdict.json` is
    `dict[str, bool]` and cannot say *did not run*; `HandoffStatus` cannot say
    *sealed without being graded*.
-3. **Read the verdicts.** A handoff with recorded verdicts was graded; one
-   without was not. Available today without a framework change — `validation.yaml`
-   carries `verdicts` — but it belongs in `_completion_gaps` rather than in five
-   packages.
+3. **Read the verdicts, which is available today.** A handoff with recorded
+   verdicts was graded; one without was not. **Count the validators attached in
+   the handoff's own `validation.yaml`** — CONTRACT §4.5, the only place a
+   validator's name survives. `075753`'s `operator_workset` shows one of three,
+   the signature of a phase that died; a refused-but-complete handoff shows all
+   of them. It belongs in `_completion_gaps` rather than in five packages, but a
+   survey can use it now.
+
+   **This makes m5's *"the validator set is part of the verdict"* the
+   discriminator for a framework defect**, hours after they wrote it as a
+   discipline about rulers. A verdict without its validator set cannot say
+   whether it is the whole answer.
 
 **A caveat against the obvious per-handoff shortcut**, which m2 falsified before
 I could propose it: *"status ∈ {valid, invalid} ⇒ the phase completed"* is wrong.
