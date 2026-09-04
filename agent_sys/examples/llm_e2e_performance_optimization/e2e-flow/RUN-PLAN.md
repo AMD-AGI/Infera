@@ -1386,6 +1386,16 @@ against each other and the stock arm against m2's numbers
 the comparison is still computed, still passes its bars, and means less than it
 appears to.
 
+**If there is no rung-4 run, take them from the newest rung that ran m1 for
+real.** All four are **m1's to mint**, so every rung from 1 upward records them
+in the same `items/codes/environment.yaml`; rung 4's is preferred only because
+it is nearest. This is not hypothetical — m4 reports 2026-09-04 that **rung 4
+cannot run at all**: `forge-loop` is on neither the node host nor in the image.
+Rung 5's own comparisons are all *within* its run, so a missing rung 4 costs the
+cross-rung comparability and blocks nothing here. **The ladder is serial, so
+rung 5 waits on rung 4 being unblocked regardless** — this note is about which
+file to read when it is, not a licence to skip it.
+
 ## 2. The command
 
 ```sh
