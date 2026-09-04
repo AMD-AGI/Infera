@@ -639,6 +639,27 @@ paths and **ignores the index entirely**, so a concurrent `git add` by another
 owner cannot be swept in. If two commits collide on `index.lock`, git says so;
 wait a second and retry.
 
+**And never `git --amend`. Corrections get their own commit.** Raised by
+`checkpoint` 2026-09-04 against their own near-miss, which is the only way this
+one gets found.
+
+The pathspec rule bounds the *blast radius*; it says nothing about `--amend`,
+because **`--amend` rewrites whoever's commit happens to be at HEAD** — and HEAD
+is moved by five owners. checkpoint amended their own checkpoint commit to fix
+one wrong row; in the seconds between deciding and running it, the leader's
+`8b87f41` landed, and the amend rewrote **that**, producing a commit that was the
+leader's two files plus checkpoint's. Repaired with `git reset --mixed 8b87f41`
+and verified back at its original SHA with both files and nothing lost.
+
+The pathspec discipline is why the damage was one file rather than four owners'
+work. But *"amend my last commit"* is a sentence with no true referent in a
+shared worktree: **there is no "my last commit", only HEAD.**
+
+A stale `index.lock` is the other half of this. Before removing one, establish it
+is dead — created after the last successful commit, **zero bytes**, no holder
+under `lsof`/`fuser`, no git process on the host. Establishing that is the whole
+of the work; removing it is trivial afterwards.
+
 Then verify what you actually committed, rather than what you meant to —
 **and the obvious form of that check is broken.**
 
@@ -760,9 +781,8 @@ so the rule above closes this one as a side effect.
 ```sh
 python3 -m agent_sys.cli.main show \
   --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
-  --var jobid=106250 --var node=crsuse2-m2m-061 --var node_ip=10.245.159.129 \
-  --var model_name=Qwen/Qwen3.6-27B --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
-  --var image=infera/engine-sglang:gfx950-local
+  --var jobid=1 --var node=n --var node_ip=0.0.0.0 \
+  --var model_name=m --var model_path=/p --var image=i
 ```
 
 It loads and type-checks every yaml, derives the edge set from the handoff

@@ -37,10 +37,8 @@ one cluster and a default would be one machine's answer shipped as everyone's.
 ```sh
 python3 -m agent_sys.cli.main show \
   --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
-  --var jobid=106250 --var node=crsuse2-m2m-061 --var node_ip=10.245.159.129 \
-  --var model_name=Qwen/Qwen3.6-27B \
-  --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
-  --var image=infera/engine-sglang:gfx950-local
+  --var jobid=1 --var node=n --var node_ip=0.0.0.0 \
+  --var model_name=m --var model_path=/p --var image=i
 ```
 
 `show` loads and type-checks every yaml, derives the edge set from the handoff
