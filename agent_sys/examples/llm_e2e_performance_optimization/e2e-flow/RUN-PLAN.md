@@ -1267,13 +1267,30 @@ rung 5 it does **not** consume the rung below's artefacts — m3 runs live and
 produces its own workset. What it takes from rung 3 is **launch-line values**,
 read by a person.
 
-## 1. Read these from rung 3's run before typing anything
+## 1. Read these from the newest run that has them, preferring rung 3
 
 ```sh
-RUN=<the rung-3 run directory under /home/yihou/agent_sys_runroot/runs/>
+RUN=<the newest run under /home/yihou/agent_sys_runroot/runs/ that reached m1>
 grep -E '^  (tp_size|node|image|image_id|model_path|model_name):' \
   "$(find "$RUN" -path '*items/codes/environment.yaml' | head -1)"
 ```
+
+**Not "rung 3's run", and the correction is m5's.** They wrote the same
+instruction against rung 4 an hour before I wrote this against rung 3, and my
+`forge-loop` finding invalidated theirs: **if the rung below never ran, there is
+no run tree to grep and the section's first step is unexecutable.** Mine had the
+identical defect at the moment I committed it — **no rung-3 run exists** (the
+ladder has reached rung 1).
+
+The generalisation is more accurate anyway: **all four values are m1's to mint**,
+so every rung from 1 upward records them in the same
+`items/codes/environment.yaml`. The nearest rung is preferred because it is
+*nearest*, not because it is special.
+
+**What this is not:** a way around the ladder. **Rung 4 still waits on rung 3**,
+which waits on rung 2 — this is about which file to read when the time comes, not
+a licence to skip. m5 added that sentence to theirs for the same reason and it is
+worth repeating rather than cross-referencing.
 
 **Read, not carried:** `image`, `tp_size`, `model_name`, `model_path`. They are
 m1's to mint and rung 4 mints them again — reading rung 3's is how the two runs
