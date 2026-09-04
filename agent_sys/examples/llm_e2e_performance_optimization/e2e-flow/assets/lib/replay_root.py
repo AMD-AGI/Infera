@@ -217,9 +217,25 @@ def rewrite_environment(record: dict, source_run: str) -> list[str]:
     # `runtime.additionalProperties` is `true`, so setting it validates —
     # checked, because an undeclared field under a closed object is the trap m4
     # hit with `base_sha256_from` this afternoon.
-    if runtime.get("replayed_from") != source_run:
-        changes.append(f"runtime.replayed_from -> {source_run!r}")
-        runtime["replayed_from"] = source_run
+    # **A replay of a replay must not erase the first one.** Found by running
+    # m1's typo test against a real kit: rung 1's `deploy_kit` *already* carried
+    # `replayed_from: /shared_nfs/…/cheat_for_mock/stage1-deploy/deploy_kit`,
+    # because that run mocked stage 1 from the sealed corpus. Overwriting it
+    # collapses `sealed corpus -> run X -> here` into `run X -> here`, which
+    # tells a reader the numbers came from a real bring-up one hop back when
+    # they never came from one at all.
+    #
+    # Chained into the one field rather than into a second one: consumers treat
+    # this value as opaque and truthy — `required_unless` in m1's layout,
+    # a message in `check_deploy_kit`, a column in `kit_status`, and m2's
+    # `line.sh:149` carrying it into the numbers — so a longer string is safe,
+    # where a new undeclared key would be the hazard m1 just measured.
+    prior = runtime.get("replayed_from")
+    value = source_run if not prior or prior == source_run else f"{source_run} <- {prior}"
+    if prior != value:
+        changes.append(f"runtime.replayed_from={prior!r} -> {value!r}"
+                       + (" (chained: the source run was itself a replay)" if prior else ""))
+        runtime["replayed_from"] = value
     return changes
 
 
@@ -246,6 +262,42 @@ def rewrite_in_tree(content: pathlib.Path, source_run: str) -> list[str]:
             if changed:
                 path.write_text(yaml.safe_dump(doc, sort_keys=False), encoding="utf-8")
                 out.extend(f"{path.relative_to(content)}: {c}" for c in changed)
+                # **Read the marker back through the accessor a CONSUMER uses,
+                # and refuse if it is not there.** m1's suggestion, and it
+                # guards a failure this tool would otherwise cause itself.
+                #
+                # `environment.schema.json` leaves `runtime` open
+                # (`additionalProperties: true`), so `replayed_from` is
+                # undeclared and a **misspelling validates silently**. m1
+                # measured it against the real rung-1 record with a stock
+                # `Draft202012Validator`: `replayed_from`, `replayed_form` and
+                # `zzz_not_a_field` all give **zero schema errors**, and the two
+                # wrong ones read back as `None`.
+                #
+                # `None` means *"not a replay"* to all five consumers. So one
+                # transposed character here turns a replayed kit into one the
+                # whole flow treats as a real bring-up — the unsafe direction,
+                # from a typo, in the field whose entire job is to say this
+                # artefact is not what it looks like.
+                #
+                # Declaring the field would not fix that while the object stays
+                # open, and closing it is a shared-schema decision with the
+                # leader (three undeclared keys across 241 records, m1's sweep).
+                # This costs nothing and closes it here, where the tool is the
+                # producer.
+                back = yaml.safe_load(path.read_text(encoding="utf-8"))
+                got = ((back or {}).get("runtime") or {}).get("replayed_from")
+                # `startswith`, because the value chains when the source run was
+                # itself a replay. The gate is "does it name this hop", not
+                # "is it exactly this hop".
+                if not isinstance(got, str) or not got.startswith(source_run):
+                    raise SystemExit(
+                        f"replay_root: wrote {path} but reading `runtime.replayed_from` "
+                        f"back gives {got!r}, not {source_run!r}.\n"
+                        "  Every consumer reads it exactly that way and treats absent as "
+                        "'this is a real bring-up', so shipping this root would hand the "
+                        "flow a replayed kit wearing a real one's face. Refusing."
+                    )
     return out
 
 
