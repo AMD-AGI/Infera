@@ -2158,3 +2158,54 @@ is three of three, and **the one that works does so for a reason its author did
 not arrange.**
 
 **Not blocking.** All three sections are corrected or correct.
+
+### T51 — at promotion only the brief travels, and the brief drifts in both directions
+
+**Promotion swaps a program for a conversation.** A `kind: ai` task never runs
+`entry.sh`, so everything the program knew is lost unless the brief says it —
+and `agent/runner.py:801` closes the cheap escape: *"an env var cannot instruct
+an agent. A conversation is not a process reading `os.environ`."* An `env:` block
+makes a value **reachable**; only the brief makes it **used**.
+
+So the brief is the whole interface at promotion, and it drifts two ways.
+
+**Direction 1 — the brief omits what the program knew (m3).** `workset_builder`'s
+readme is 330 lines and ten STEPS with **zero** occurrences of
+`measure_in_container.sh`, `E2E_MEASURE_GPU`, or `rocm-smi`. STEP 7/8 say
+`cd "$WS" && ./run_correctness.sh` **directly, on whatever host the agent is on**,
+and those hosts have no torch. Everything that knows better is on the branch the
+promotion turns off — `entry.sh:168`. **The mock is not a weaker version of the
+real path here; it is the only version carrying the knowledge**, so promoting m3
+removes the container step and the card check together, silently. First symptom:
+a torch import error, or worse, a plausible number measured on a card nobody
+chose.
+
+**Direction 2 — the brief contradicts what the program does (m4), and this is
+the one that survives review.** The brief said the wrapper *"execs into the
+recorded container and never starts or removes one — CONTRACT §5.2 is absolute
+about that."* `48c3337` — the leader's own ruling — made that false: with no
+running container the wrapper now starts an ephemeral one, `--rm`, trap-removed.
+
+**A gap reads as something to fill; a false prohibition reads as a constraint to
+respect.** An agent handed a mock-chain record whose container nobody brought up
+would have concluded the wrapper could not help **and stopped — correctly,
+according to its brief.** And a confident sentence about a constraint is exactly
+what a reviewer nods at, which is why direction 2 outlives direction 1.
+
+**Why one entry.** Same seam, opposite signs, one cause: **the code moves and the
+prose does not, in the single artefact that is the entire interface at
+promotion.** Splitting it would file the symptom twice.
+
+**The constructive half is m4's and it is the only preventive thing here:** they
+wrote the mirroring requirement into the **arming instruction** rather than into
+a note beside it. m3's reading of why that is different — *a note says what
+someone should have done; an instruction that cannot be followed without doing it
+first is a different object.* Where a brief must stay in step with code, put the
+dependency in the step the reader has to execute, not in prose next to it.
+
+**Neither was found by reading the brief.** m3's came from listing what rung 3
+reads; m4's came from being asked the question m3's finding raised. **Both authors
+had read their own briefs many times.**
+
+**Not blocking for m4** — theirs is corrected. **Blocking for rung 3** until
+`workset_builder`'s brief is written.
