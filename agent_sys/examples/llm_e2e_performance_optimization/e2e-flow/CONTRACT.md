@@ -717,6 +717,42 @@ class and then committed two instances of it in one session — first the
 instruments.** All four instances here were written by people actively looking
 for this failure, in the hour they were looking for it.
 
+##### A fifth: a refusal you agree with is a refusal nobody audits
+
+m3's, and the sentence is theirs:
+
+> Hours ago, verifying `c9de062`, I ran exactly that case, got *"the workset is
+> not visible on : /home/yihou/agent_sys_runroot"*, and recorded it as
+> **"refuses when the transport cannot answer"** — which is true and misses the
+> point entirely. **The probe refused correctly and described the refusal
+> wrongly, and I checked the exit code rather than the sentence.**
+
+`require_visible_on_node` ran `on "test -e …" >/dev/null 2>&1` and read **any**
+non-zero as absence, so an unset `E2E_JOBID`, a dead allocation, a spur hiccup
+and a genuinely missing path produced one sentence — and that sentence blamed
+the filesystem and recommended changing `--demo-root`. It cost a rung: the
+leader read that refusal against a zone that **was** visible, on a `--demo-root`
+that was already the NFS path the message recommends, and nearly changed a
+correct path.
+
+**What makes this its own face** is that the previous four are about a check
+that returns the *wrong verdict*. This one returned the **right** verdict.
+`rc != 0` was correct, the test was correctly refusing, and every acceptance
+based on the exit code was satisfied. Only the *reason* was wrong — and a reason
+is what a human acts on.
+
+**So the rule the other four do not state: a refusal you agree with is the one
+nobody audits.** A failing check invites scrutiny; a check that fails *when you
+expected it to* invites a tick. Both times this was verified, the verifier had
+predicted the refusal and got it, and stopped there.
+
+The repair is the same shape as everywhere else here — **make the instrument
+unable to give one answer for several causes**. `require_visible_on_node` now
+returns three statuses and proves reachability with a sentinel in stdout, which
+only the far side can emit; the exit status alone could never have carried it.
+And the test for it is the one this section keeps arriving at: **produce each
+outcome deliberately and read the sentence, not the code.**
+
 ### 4.1 Shared validators are shared, not copied
 
 `check_kernel_table` is **one** definition used by m2 and m3 (M3.5). The two
