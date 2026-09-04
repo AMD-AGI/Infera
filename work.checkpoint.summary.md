@@ -9226,3 +9226,90 @@ stage is live, and m2's is the one rung 2e exists to measure.
 described at T+1626 as *correctly* held — and the difference between correct and
 incorrect holding was invisible from outside, which is why it needed saying by
 the person who did it.
+
+### Addendum, 19:41 UTC — purging "304 requests at 9.24 ms" from T+1794, and my record held the contradiction
+
+**Verified before correcting.** The leader retracted a figure they had given me,
+m1 and the user repeatedly. Both halves check out:
+
+```
+grep -rn '9\.24' e2e-flow/          ->  nothing.  The digit was invented.
+
+grep -rn '9\.31' e2e-flow/          ->  README.md:116
+                                        RUN-PLAN.md:2143
+                                        check_bench_result.validator/check.py:285
+                                        assets/lib/graph_ceiling.py:95
+                                        assets/lib/replay_root.py:99
+```
+
+**Every occurrence of `9.31` / `304` is the `--cuda-graph-max-bs 16` line — m2's
+ceiling experiment.** It is not a deployment figure and has nothing to do with
+rung 2b.
+
+**T+1794's ladder row is wrong and is replaced:**
+
+> ~~2b — stage 1 GREEN, 3 strong verdicts, **304 requests, ITL 9.24 ms**~~
+>
+> **2b — stage 1 sealed a valid `deploy_kit` with three strong verdicts, and its
+> deploy load ran. Its request count and ITL are not recovered; the workspace no
+> longer resolves on disk.**
+
+**The ceiling experiment, correctly attributed:** m2, same node, same image, same
+tp, one flag changed — **`max-bs 8 → 42.15 ms / 312 tps`** against **`max-bs 16 →
+9.31 ms / 304 requests / 1649 tps`.**
+
+### My record contained the evidence of its own error
+
+**In the same section I wrote both:**
+
+- the ladder row: *"304 requests, ITL 9.24 ms"*, attributed to rung 2b;
+- §2: *"m2's C1 reference (ceiling 16 → 304 requests, 9.31 ms)"* — **correctly
+  attributed.**
+
+**The same 304 appears twice, with two different ITLs and two different owners,
+forty lines apart, and I did not notice.** I transcribed one and reasoned about
+the other in the same sitting. **A contradiction inside one document is the
+cheapest possible detector and I have no routine that reads my own section back
+before committing it.** That is the aging-record gap from T+1651 arriving at a
+range of forty lines rather than two hours.
+
+### Why the leader calls this worse than their earlier retractions, and they are right
+
+**It is T49 — manufactured provenance — and they filed T49.** A real number from
+a real experiment, detached from its origin, re-attached to a different event,
+**and then used as evidence**: they cited it to m1 as the baseline rung 2e's
+equality test would be compared against. **Had rung 2e come back at 9.4 ms it
+would have been called a regression against a number that was never the
+baseline.**
+
+**And it survived six or more repetitions across hours** — including into this
+file — *because it was specific enough to sound measured.* Their `D`-state
+retraction was a story told once; this is a fabricated citation kept in
+circulation.
+
+### Two more corrections to T+1794
+
+**Stage 1 does NOT qualify, and the leader's *first* answer was the right one.**
+m5 implemented the consecutive rule (`7052729`):
+
+```
+deploy_kit   streak 2 (of 3)   |  4 valid / 5 reached a verdict / 11 never sealed / 25 mocked
+             broken mid-sequence by 20260904T125637-e1ddf6
+```
+
+**The break is a genuine refusal** — `125637`, the correctly-refused `max-bs 8`
+kit — **not a procedural artefact.** So *"not stable at 3"* was right and
+*"qualifies at 4"* was the wrong correction. **They published a retraction of a
+correct number**, which is the first instance today of a correction that made a
+record worse. The pre-ladder question is immaterial: both pre-ladder runs are
+`valid` and sit inside the streak.
+
+**And rung 2e's selftest arm did not die — it recovered.** T+1794 records it as
+dead on NCCL `HIP failure: 'invalid argument'`. m1's sampler caught it **coming
+up at 19:22**: cards 4–7 went `0 → 3 → 0 → 7 → 74 → 75` and held three minutes.
+**The run's own agent debugged its NCCL failure and solved it, on the exact card
+set that had been failing.** Both arms then released in STEP 7's shape and
+`m1final` is up on cards 0–3.
+
+**m1's own caveat is kept:** they measured **VRAM occupancy, not a `ready`**. So
+*came up* is what the evidence supports, not *served*.
