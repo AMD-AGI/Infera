@@ -1040,6 +1040,39 @@ output_token_throughput_tps 448.82
 not about the overlay** — and the only reason that distinction is available
 afterwards is that this paragraph was written before the run.
 
+## The run this pre-registration belongs to — ADDED AFTERWARDS
+
+**This subsection was written after the run, and says so.** The predictions above
+were committed at **09:38:06** (`d71d765`) and nothing in the repository recorded
+*when the experiment started*, so the ordering the pre-registration depends on
+was true and **not auditable**. Found by checkpoint. Added here rather than
+silently, because a timestamp inserted without a note is worth less than none.
+
+Everything below is recoverable without asking me: git records the commit time,
+and the overlay roots are directory names on the node with the generation time
+inside each `mounts.json`.
+
+```
+09:38:06   predictions committed                     d71d765
+09:39:37   null overlay generated                    overlay/20260904_093936
+09:39:38   degraded (2 ms) overlay generated         overlay/20260904_093937
+10:03:32   stock control arm, first step
+10:23:59   null arm, first step
+10:44:50   degraded (20 ms) overlay generated        overlay/20260904_104449
+10:51:01   degraded (20 ms) arm, first step
+```
+
+Hold: job **109496**, node **crsuse2-m2m-047**. **Every element of the experiment
+postdates the commit**, the earliest by 91 seconds.
+
+**One honest gap in the chain.** The numbers the predictions are *calibrated*
+against — ITL 10.02 ms, std 0.66, 123 requests — came from an **exploratory**
+stock arm run earlier the same morning, before the predictions. That ordering is
+the right one (measure, then predict, then run), but **that arm's artefacts were
+overwritten by the control run's stock arm**, so the calibration source is quoted
+here rather than recoverable. The control run's own stock arm measured ITL
+10.14 ms, std 0.67 — consistent, and it is the one the comparisons used.
+
 ## What a green pair does and does not license
 
 **Does:** the plumbing works end to end — two bring-ups, the mount, the
