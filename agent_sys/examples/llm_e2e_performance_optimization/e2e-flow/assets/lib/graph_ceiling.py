@@ -124,6 +124,32 @@ def ceiling_from_argv(argv_path: pathlib.Path) -> tuple[int | None, str]:
     if not argv_path.is_file():
         return None, f"no {argv_path.name} beside this measurement"
     toks = argv_path.read_text(encoding="utf-8", errors="replace").split()
+    # **Graphs explicitly off beats a ceiling that is present but inert**, and it
+    # has to be checked FIRST because both flags appear together.
+    #
+    # A real `profiling_mode_on` carries both: `assets/load/line.sh:85` adds
+    # `--disable-cuda-graph` when `CAPTURE=1`, and the kit emits
+    # `--cuda-graph-max-bs` **unconditionally** (`start_worker.sh`, and m1's
+    # `deploy_kit.layout.yaml:591` says the kit "cannot express an override
+    # without passing the flag twice"). Without this branch the search below
+    # finds the ceiling, the bar passes, and the caller prints *"decode ran under
+    # a captured graph"* about a line where graphs are off by design
+    # (CONTRACT §1.1) — `ok=True`, no verdict changed, and a reassuring sentence
+    # that is false.
+    #
+    # **The sealed corpus could not show this.** `aiperf_profiled` predates this
+    # kit and carries no `--cuda-graph-*` flag at all, so it returned `None` and
+    # reported "correctly unchecked" — the right answer for the wrong reason, on
+    # the only artefact that existed. Predicted from these two files before rung
+    # 2e's stage 2 dispatched, and corroborated independently by m1's comment and
+    # by m5 reading the kit's `start_worker.sh`.
+    #
+    # `None` rather than a verdict: with graphs disabled, *did decode fit inside
+    # the captured graph* has no answer, so **not applicable** is the honest
+    # state — the same third state the rest of this module uses.
+    if "--disable-cuda-graph" in toks:
+        return None, ("the engine was started with --disable-cuda-graph — graphs are off by "
+                      "design here, so there is no captured graph for decode to fit inside")
     for flag in FLAG_ALIASES:
         if flag not in toks:
             continue
