@@ -2639,6 +2639,22 @@ docker inspect --format
                              same output. The pins were there: 0,1,2,3 and 4,5,6,7.
 ```
 
+```
+grep -oE '[A-Z_]*CUDA_GRAPH_MAX_BS'          returned `E_KIT_CUDA_GRAPH_MAX_BS`.
+                             **`2` is not in `[A-Z_]`**, so the match began mid-token
+                             and the variable NAME came back wrong by two characters
+                             -- inside a verification of a claim ABOUT variable names.
+                             (checkpoint's, 2026-09-04. The value and timestamp it was
+                             checking were unaffected, which is why it survived: the
+                             answer was right and the label on it was not.)
+```
+
+**The fifth is the sharpest of the set** and it arrived after this entry was
+filed. A character class that silently starts matching mid-token, used to check
+what a name *is*. It failed in the same direction as the other four -- confident,
+wrong, no error -- and it did so **inside the act of verifying**, which is the one
+place we had been treating as safe.
+
 **The property is the direction, not the count.** A tool that degrades toward
 *"I cannot tell"* costs a second measurement. These four cost a **finding** —
 each one had a false conclusion already drafted behind it, and three of those
