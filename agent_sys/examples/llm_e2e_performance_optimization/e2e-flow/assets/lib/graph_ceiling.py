@@ -108,10 +108,29 @@ import pathlib
 
 FLAG = "--cuda-graph-bs-decode"
 
-#: Also accepted, because the flag has been spelled both ways across sglang
-#: versions and a bar that silently finds neither would be the `items_schema`
+#: Also accepted, because the flag has been spelled several ways across sglang
+#: versions and a bar that silently finds none would be the `items_schema`
 #: shape again — present, and checking nothing.
-FLAG_ALIASES = (FLAG, "--cuda-graph-max-bs")
+#:
+#: **`--cuda-graph-max-bs-decode` added 2026-09-04 by the lead**, from rung 2f
+#: (`20260904T225556-55e566`). Matching is exact token membership below, so the
+#: longer spelling does **not** match `--cuda-graph-max-bs` by prefix and the
+#: module would have taken its own "or the flag was renamed again" fallback —
+#: correctly refusing, but blocking a run whose kit is right.
+#:
+#: **Evidence it is real, not the kit's claim about itself.** rung 2f's producer
+#: recorded that `--cuda-graph-max-bs` is a deprecated alias that warns in
+#: sglang 0.5.17 and emitted the `-decode` form at `start_worker.sh:78`. That is
+#: the kit describing itself. What settles it is that **the engine came up on it**
+#: — cards 0–3 at 75 %, and the producer read `/get_server_info` back and saw
+#: decode graphs captured at `1 2 4 8 12 16 24 32`, i.e. the flag was accepted
+#: *and* took effect at the requested 32. A rejected or ignored flag produces a
+#: different capture set.
+#:
+#: Order is deliberate: current spelling, then the two older ones. The loop
+#: returns on the first alias present, so a kit that emitted more than one would
+#: be read by its current name.
+FLAG_ALIASES = (FLAG, "--cuda-graph-max-bs-decode", "--cuda-graph-max-bs")
 
 
 def ceiling_from_argv(argv_path: pathlib.Path) -> tuple[int | None, str]:
