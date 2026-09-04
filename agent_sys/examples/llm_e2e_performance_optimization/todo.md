@@ -810,6 +810,40 @@ knowable in advance instead of a confusing measurement afterwards.
 is demonstrated possible and still unspecified — a brief that required it would
 make it reliable rather than fortunate.*
 
+> **⚠ "by construction" is wrong, and m4 found it within the hour. Corrected
+> here rather than edited away.**
+>
+> The pin is an **environment default, not a device whitelist**.
+> `start_container.sh:37-44`:
+>
+> ```
+> --device /dev/kfd
+> --device /dev/dri                                  <- EVERY card on the host
+> --env "HIP_VISIBLE_DEVICES=${E2E_KIT_GPU_DEVICES}" <- the pin
+> ```
+>
+> **Every card's device node is exposed and only an env var says which to use**,
+> so `docker exec -e HIP_VISIBLE_DEVICES=4` overrides it and runs on a card the
+> deployment was never allocated. It does not fail; it returns a number.
+>
+> **So item 1 as met is strictly better than pinning the worker and is not
+> enforcement.** A new process inside inherits the right default instead of
+> seeing all eight — that is the real gain, and it is what made m4's landing
+> spot knowable in advance. But *"record and runtime agree by construction"*
+> overstates it: a convention a later process can override is not construction.
+>
+> **What construction would look like:** `--device /dev/dri/renderD<N>` per card
+> rather than the whole `/dev/dri`, so the cards the deployment did not take are
+> not present in the container at all. Unmeasured — nobody has checked whether
+> this cluster's `spur-authz` accepts per-card device flags, and **that is the
+> question to answer before anyone writes it into a brief.**
+>
+> Until then the honest division is m4's: **the kit states the intent, and the
+> consumer refuses to violate it.** Their `run_in_container.sh` check reads the
+> container's own `HIP_VISIBLE_DEVICES` and refuses a request outside it —
+> which is the mirror of `start_container.sh:67`'s inside-out check, and is
+> where the enforcement actually lives today.
+
 #### Item 4, added 2026-09-04 after the entry above was demonstrated on a live node
 
 **The pick must come from the probe, not sit beside it.**
@@ -1312,3 +1346,44 @@ than at anything that names the layout change. It cost a wrong turn on
 stage should stay *directly* consumable by that stage's next definition, or
 whether an adapter is the intended and permanent shape. Nothing today depends
 on the answer.
+
+### T36 — a claim about *who owns this* never looks like a claim, so nobody tests it
+
+**Six instances between the leader and m4 on 2026-09-04, all the same move: an
+assertion about *who* or *what* — an owner, a boundary, a blocker, a row —
+stated before reading the thing that would have answered it.**
+
+- **m4, twice.** *"The mount question belongs to m1, m4 or the contract; I am
+  not picking"* — while m1's sealed kits already mounted the answer, and m4's
+  own `scratch_root` default already pointed at the third form. And *"blocked on
+  m3's `--impl` contract"* — while the Definition's `baseline`, in a file m4 was
+  reading for other reasons, already carried `def sampler_softmax` beside
+  `def run(*args, **kwargs)`: **one file satisfying both consumers,
+  demonstrated, in the artefact.** There was no contract to arbitrate, only a
+  shim not copied.
+- **the leader, four times.** Ownership inferred from a filename rather than
+  read out of the manifest.
+
+**Why the existing rule does not cover it.** *"Read the artefact, not the exit
+code"* is about distrusting a **result** — and a result announces itself as
+something to check. *This* class never produces a result. A boundary, an owner,
+a blocker is a **framing**, asserted on the way to the work rather than
+returned by it, and so it is the one claim in the room that nothing is pointed
+at. **In all six the untested claim was the speaker's own.**
+
+**It is the exact inverse of the falsification items beside it** (T-items on
+gates validated only against null samples, captures verified only on the
+success path, and the `stubkit` mode whose two halves agreed on every case).
+There the discipline is *distrust a passing result*. Here it is **distrust your
+own statement of the problem** — and the second is harder, because a passing
+result at least arrives as evidence, while a framing arrives as context.
+
+**The operational form, which is cheap:** before writing *"this belongs to X"*
+or *"I am blocked on Y"*, open the artefact that would settle it. **It is one
+read, and in all six cases here the answer was already on disk.** Naming an
+owner is not research, and *"I am not guessing across the boundary"* is only
+discipline when you have first checked whether the boundary exists.
+
+**No code change. This is a habit item**, recorded because it cost real time
+today and because — unlike every other entry here — **there is nothing to
+detect it with.**
