@@ -107,11 +107,18 @@ def _binary() -> str | None:
     return shutil.which("agentsview")
 
 
+#: **Resolved once, at import.** The guard below runs at collection and the
+#: `panel` fixture runs at setup, and `_binary()` reads `AGENT_SYS_HOME` — so
+#: anything that redirects the prefix between the two makes them disagree. It
+#: does: `tests/conftest.py` points the prefix at `tmp` for the session, which
+#: turned the skip into three setup errors. One resolution, shared.
+_BINARY = _binary()
+
 #: **Skip, never fail.** A fresh checkout has no binary and its test run must
 #: stay green; this file's job is to catch a bug in the binary we ship with, not
 #: to make the absence of one an error.
 requires_binary = pytest.mark.skipif(
-    _binary() is None,
+    _BINARY is None,
     reason="the agentsview binary is not installed; this smoke test needs the real one",
 )
 
@@ -190,7 +197,7 @@ class Panel:
 
 @pytest.fixture()
 def panel(tmp_path: Path) -> Iterator[Panel]:
-    binary = _binary()
+    binary = _BINARY
     assert binary is not None  # guarded by `requires_binary`
 
     prefix = Prefix(tmp_path / "prefix")

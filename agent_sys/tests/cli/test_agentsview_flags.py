@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from cli import main as cli_main
 
 
