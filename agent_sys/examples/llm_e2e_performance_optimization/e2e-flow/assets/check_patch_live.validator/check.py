@@ -26,10 +26,23 @@ interpreter compiled the mounted bytes. The first-call marker says a real reques
 entered the patched code. Only the second answers the question this stage was
 built to ask.
 
-`runtime_marker` is optional in the contract, so a patch that declares none gets
-the first two rules and a finding saying what could not be shown. That is a
-deliberate hole and it is named rather than papered over: requiring markers would
-mean refusing every KernelForge patch that does not know about this package.
+**A marker is required by default since 2026-09-04, and the experiment that
+changed it is the argument.** The old default was `false`, on the reasoning that
+requiring markers would refuse every KernelForge patch that does not know about
+this package. Then a control overlay on crsuse2-m2m-047 produced *perfect*
+static evidence — in-container hash byte-equal to its own `sha256_patched`, the
+file demonstrably holding a 2 ms sleep, the `.pyc` compiled that minute — and
+measured **identical to stock**. Rules one and two both passed and neither could
+tell *mounted and never executed* from *executed and had no effect*, which is
+the single distinction this validator exists to draw. A third overlay carrying
+markers settled it in one bring-up: import 18 hits, first_call 8.
+
+So the hole was not a named cost, it was the check quietly not doing its job —
+the same shape as `items_schema` validating a filename string. A patch that
+truly cannot leave a marker passes `--var require_runtime_marker=false`, still
+gets rules one and two, and gets a finding stating exactly what was not shown.
+The refusal explains what a marker is and how to write one, because anyone who
+meets it is someone who did not know the field existed.
 """
 
 import contextlib
@@ -43,6 +56,24 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 import workset_io  # noqa: E402 — the shared report writer; see _report()
 import zone  # noqa: E402
+
+
+
+def _as_bool(value, default: bool) -> bool:
+    """A `${...}` arg arrives as a STRING, and `bool("false")` is True.
+
+    Measured on this package's own substitution: `'${bench_rounds:-1}'` resolves
+    to `'1'`, never to `1`. So an arg written as `'${require_runtime_marker:-true}'`
+    reaches here as `"true"` or `"false"`, and the obvious
+    `args.get(name, True)` makes the documented escape hatch impossible —
+    `"false"` is a non-empty string and therefore truthy. Caught while writing
+    the flag that documents the hatch.
+    """
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() not in ("false", "0", "no", "off", "")
 
 
 def _fail(reasons: list, message: str) -> bool:
@@ -141,18 +172,39 @@ def check(content: Path, args: dict, reasons: list) -> bool:
     declared = overlay.get("runtime_marker") or {}
     hits = {row[0]: int(row[2]) for row in read_tsv(env / "marker_hits.tsv") if len(row) >= 3}
     if not declared:
-        # **The hole, named in the findings rather than papered over.**
-        # `require_runtime_marker` is `false` in the step yaml, so an
-        # optimisation that declares no marker still gets the two static rules —
-        # and this validator says what it could not show rather than reporting a
-        # pass that means more than it does. Set it `true` at a site that can
-        # require its optimiser to leave a marker; the cost is refusing every
-        # KernelForge patch that does not know about this package.
-        if args.get("require_runtime_marker", False):
+        # **The default is now `true`, and it was measured into being.**
+        # 2026-09-04 on crsuse2-m2m-047: an overlay whose in-container hash was
+        # byte-equal to its own `sha256_patched`, whose file demonstrably held a
+        # 2 ms sleep, and whose `.pyc` had been compiled that minute — and the
+        # arm measured **identical** to stock. The static evidence was perfect
+        # and could not distinguish *mounted and never executed* from *executed
+        # and had no effect*, which is the single distinction this validator
+        # exists to draw. A third overlay carrying markers settled it in one
+        # bring-up: import 18 hits, first_call 8, so the code did run and the
+        # sleep was absorbed by overlap scheduling.
+        #
+        # A default that silently disables the check's own purpose is the same
+        # shape as `items_schema` validating a filename string. So: declare a
+        # marker, or say `--var require_runtime_marker=false` and own it.
+        if _as_bool(args.get("require_runtime_marker"), True):
             ok = _fail(
                 reasons,
-                "the patch declares no runtime_marker and args.require_runtime_marker is true. "
-                "The mounts are proven and whether the patched code was ENTERED is not.",
+                "the patch declares no `runtime_marker`, so whether the patched code was "
+                "ENTERED cannot be shown. The mounts and the in-container hash are proven, "
+                "and both are satisfied by a file that is never executed — measured on "
+                "2026-09-04, where a hash-perfect overlay produced numbers identical to "
+                "stock.\n"
+                "  A marker is two regexes in the patch manifest's `runtime_marker`, matched "
+                "against the engine log:\n"
+                '    "runtime_marker": {"import": "MYPATCH_IMPORT\\\\s+<op>\\\\s+rev1",\n'
+                '                       "first_call": "MYPATCH_FIRST_CALL\\\\s+<op>\\\\s+rev1"}\n'
+                "  and two prints in the replacement — one at module scope, one guarded by a "
+                "module-level flag at the top of the function the patch replaces. Reference "
+                "implementation: `assets/lib/controls/` (the degraded control), which reads "
+                "18 import hits and 8 first_call hits on an 8-rank deployment.\n"
+                "  If this optimiser genuinely cannot leave a marker, pass "
+                "`--var require_runtime_marker=false` — the static proof still runs and this "
+                "validator will say in its findings exactly what it could not show.",
             )
         else:
             print(

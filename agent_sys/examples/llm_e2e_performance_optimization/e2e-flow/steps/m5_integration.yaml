@@ -218,10 +218,30 @@
   args:
     require_container_hashes: true
     require_docker_mounts: true
-    # Optional in the contract, so an optimisation that declares no marker still
-    # gets the static proof — and this validator **says so in its findings**
-    # rather than pretending it got more.
-    require_runtime_marker: false
+    # **`true` since 2026-09-04, and the experiment that flipped it is the
+    # argument.** On crsuse2-m2m-047 an overlay whose in-container hash was
+    # byte-equal to its own `sha256_patched`, whose file held a 2 ms sleep, and
+    # whose `.pyc` was compiled that minute measured **identical to stock**.
+    # The static evidence was perfect and told us nothing about whether the code
+    # ran; a third overlay with markers settled it in one bring-up — import 18
+    # hits, first_call 8 — and the sleep turned out to be absorbed by overlap
+    # scheduling.
+    #
+    # So `false` was a default that silently disabled this validator's whole
+    # purpose: it could not separate *mounted and never executed* from *executed
+    # and had no effect*, which is the one distinction it exists to draw.
+    #
+    # The refusal explains what a marker is and how to add one, because everyone
+    # who meets it will be someone who did not know the field existed. An
+    # optimiser that genuinely cannot leave one passes
+    # `--var require_runtime_marker=false` and owns that choice; the static
+    # proof still runs and the findings still say what could not be shown.
+    #
+    # **The mock path already declares markers and needs no change** — verified,
+    # not assumed: the sealed `deployment_patched` carries
+    # `INTEGRATION_PATCH_IMPORT` / `INTEGRATION_PATCH_FIRST_CALL`, and the mock
+    # arm passes this validator with the flag `true` at 3 and 2 hits.
+    require_runtime_marker: '${require_runtime_marker:-true}'
   tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
 
 # --------------------------------------------------------------------------- #
