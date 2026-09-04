@@ -8842,3 +8842,113 @@ their behalf.** m1 extended the correction against their own work rather than
 accepting the softer version that flattered it. That is the fourth person today
 to weaken a record in their own disfavour, and the first to do it to a change
 they authored.
+
+## T+1651 — 2026-09-04 17:01 UTC
+
+### I over-corrected an over-claim, and m1 caught it in the opposite direction
+
+**Retracting *"seven consecutive producers chose a ceiling under the load's own
+concurrency"* from the addendum above.** m1 sent a fingerprint; I reproduced it
+exactly:
+
+```
+run      env.sh line   MAX_BS   DK_TP_SIZE
+110626       169         16         4      <- real producer
+110647       105          8         1      <- replay
+111550       105          8         1      <- replay
+112414       105          8         1      <- replay
+114914       105          8         1      <- replay
+125637       193          8         4      <- real producer, the only 8
+131949       105          8         1      <- replay
+133028       105          8         1      <- replay
+143952       222         32         4      <- real producer
+```
+
+**Six files identical at line 105 with `DK_TP_SIZE=1`.** That is `mock_adapt.sh`
+replaying the sealed 2026-09-02 TP-1 kit verbatim — the same bytes, six times.
+**The line number is the fingerprint**: a produced `env.sh` is regenerated and
+its line moves (169, 193, 222); a replayed one is always 105.
+
+**So the pre-contract *producer* record is `16, 8, 32` — three producers, one
+below the bar.** Not eight runs, not seven consecutive. And **`125637` is the run
+`check_deploy_serves` refused** — verified here.
+
+**And the six do not count for a second reason:** their ceiling of 8 is *correct
+for the deployment they describe*, which is `tp_size: 1` — a different shape, not
+the concurrency-16 case the bar is written about. m1's `mock_adapt.sh` preserves
+that 8 **deliberately**: *"the sealed 8 is right for the kit it came from; this
+script adapts a record forward — it does not re-tune a deployment that already
+happened."* **They are not producers failing to comply; they are m1's design
+decision working.**
+
+### The corrected row
+
+| claim | status |
+|---|---|
+| the criterion addresses a real failure | **established, on one producer in three** — `125637` chose 8 against a bar of 16 and its run was refused |
+| producers *can* satisfy it | established, unchanged |
+| the criterion **changed** anyone's choice | not established, not testable at concurrency 16 |
+
+**The criterion stands.** One producer choosing 8 cost a rung; that is sufficient
+motivation for a contract. What changes is the strength of the first row:
+*"seven consecutive"* reads as a persistent systemic failure; the measured
+record is **one occurrence in three producer runs**.
+
+### The error is mine and it has a name m1 filed five hours ago
+
+> **A value fixed in an artefact, mistaken for a default because the artefact is
+> replayed eighteen times.**
+
+That is m1's own entry, about this exact file, from this afternoon. **A sweep
+that does not filter recovers the replays and reads them as choices**, which is
+what mine did.
+
+**And the direction is the part worth recording.** An hour ago I corrected the
+leader for over-claiming that the contract bound producers. **I then
+over-claimed in the opposite direction** — making the failure look systemic and
+the criterion look better motivated than it is. **Both errors were about the same
+claim, within an hour, and mine flattered the thing I was scrutinising.** I had
+just written that verifying a number is not verifying an inference; I verified
+twelve numbers and inferred nine producers.
+
+**Scope caveat, stated because I did not check it:** my producer count covers the
+**live root only**. The frozen root holds **19 more `env.sh` files** I have not
+fingerprinted, which may account for the second `16` in the leader's original
+`16, 16, 8, 32`. **I am not claiming three producers total — three in the range I
+measured.**
+
+### 1. Progress
+
+**~87 %, held.** Elapsed 1 651 m. **Ladder 1 of 6.** Rung 2b still
+`deploy_and_prove: running` at ~57 m; nothing has advanced or regressed. Four
+commits since T+1626.
+
+Reliability **moderate** items 1–2, **low** item 3. **预估耗时: no number.**
+
+### 2–6
+
+One run process at 17:01:45, 56 m 51 s. Three holds — 275, 217, 287 — none lost.
+`todo.md` at **T57**. Four owners still idle with fixes queued behind rung 2b,
+which remains the right shape.
+
+### 7. Three passes over one claim, each weakening it
+
+The full sequence, because the shape is the finding:
+
+1. **leader** — *"the criterion bound a second producer"*
+2. **leader**, unprompted — *"consistent with the evidence, not established by
+   it"*
+3. **m1**, against their own change — *"the post-contract observations cannot
+   bear on the question at all"*
+4. **me** — *"eight runs at 8, seven consecutive"* — **an over-correction**
+5. **m1**, again — *six of those are one artefact replayed; the producer record
+   is three*
+
+**Five passes, four of them weakening the claim, none by anyone who gained from
+it.** m1 corrected their own change twice, and the second time corrected the
+person who had been correcting them.
+
+**The thing I would take from it:** an over-claim invites a correction, and a
+correction invites an over-correction in the other direction. **Nobody in this
+sequence was careless.** Each step verified something real and inferred one step
+past it — and the only reason it converged is that five passes happened at all.
