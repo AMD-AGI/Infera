@@ -223,7 +223,7 @@ def main() -> int:
             print(f"{hid}: {problem}")
     # Before the verdict, so a crash in the writer cannot take the reasons
     # with it, and always rather than only on failure (see write_report).
-    W.write_report("check_worklist_shape", findings)
+    W.write_report("check_worklist_shape", findings, verdicts)
     zone.write_verdict(verdicts)
     print(f"check_worklist_shape: {sum(verdicts.values())}/{len(verdicts)} passed")
     return 0

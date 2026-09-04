@@ -483,7 +483,7 @@ def main() -> int:
     # **Before the verdict, so a crash in the writer cannot take the reasons
     # with it.** Ordering learnt from the reclaim: teardown that runs after the
     # thing it protects is teardown that does not run.
-    W.write_report("check_workset_runs", findings)
+    W.write_report("check_workset_runs", findings, verdicts)
     zone.write_verdict(verdicts)
     print(f"check_workset_runs: {sum(verdicts.values())}/{len(verdicts)} passed")
     return 0

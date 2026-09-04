@@ -212,7 +212,8 @@ IMPL_CONTRACT = {
 }
 
 
-def write_report(validator: str, findings: dict[str, tuple[list[str], list[str]]]) -> None:
+def write_report(validator: str, findings: dict[str, tuple[list[str], list[str]]],
+                 verdicts: dict[str, bool] | None = None) -> None:
     """Every problem and note this validator produced, on disk in the zone.
 
     **A verdict without its reasons is a number nobody can act on.** Measured
@@ -256,6 +257,26 @@ def write_report(validator: str, findings: dict[str, tuple[list[str], list[str]]
       not read as a judgement about the artefact. `verdict.json` cannot express
       the difference (`todo.md` T29); this text is the only place it exists.
 
+    ## Pass `verdicts`, and why the optional argument exists
+
+    **Without it the heading is *inferred* from `problems` being non-empty,
+    and a caller whose list holds anything else makes it lie.** m2 hit exactly
+    that within the hour: their bodies keep refusals and informational lines in
+    one `reasons` list, so a **passing** artefact wrote `verdict.json
+    {"h": true}` under a heading of `REFUSED`. **That is the same
+    heading-contradicts-its-own-text defect the crash split had just removed,
+    one field over, and on every passing run rather than only on crashes.**
+
+    They fixed it by splitting their list, which is right for them. The fix
+    *here* is to stop inferring: pass the same `verdicts` dict you are about to
+    hand `zone.write_verdict`, and the heading and the verdict come from **one
+    value** rather than from two that can disagree. `CRASH_MARKER` still wins,
+    because a crash is neither.
+
+    Optional, so the three validators already calling this keep working
+    unchanged — but a caller that omits it is trusting its own classification
+    of `problems`, which is the thing that just went wrong.
+
     **A validator that legitimately differs should say so here or in its own
     file** — the point is that a reader can tell a deliberate difference from
     drift. `check_deploy_serves` writing `probe_plan.json` and
@@ -266,8 +287,13 @@ def write_report(validator: str, findings: dict[str, tuple[list[str], list[str]]
     lines = [f"# {validator}"]
     for hid, (problems, notes) in findings.items():
         crashed = any(CRASH_MARKER in p for p in problems)
-        verdict = "DID NOT RUN" if crashed else ("REFUSED" if problems else "passed")
-        lines.append(f"\n## {hid}: {verdict}")
+        if crashed:
+            heading = "DID NOT RUN"
+        elif verdicts is not None:
+            heading = "passed" if verdicts.get(hid) else "REFUSED"
+        else:
+            heading = "REFUSED" if problems else "passed"
+        lines.append(f"\n## {hid}: {heading}")
         lines += [f"  note:    {n}" for n in notes]
         lines += [f"  PROBLEM: {p}" for p in problems]
         if not problems and not notes:

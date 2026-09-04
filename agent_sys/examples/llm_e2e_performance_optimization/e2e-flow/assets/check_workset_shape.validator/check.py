@@ -612,7 +612,7 @@ def main() -> int:
     # §4.4: fix the convenience everywhere it appears, not only where it bit.
     # This validator's reasons were on the same discarded stream; it happened to
     # be `check_workset_runs` that refused first.
-    W.write_report("check_workset_shape", findings)
+    W.write_report("check_workset_shape", findings, verdicts)
     zone.write_verdict(verdicts)
     print(f"check_workset_shape: {sum(verdicts.values())}/{len(verdicts)} passed")
     return 0
