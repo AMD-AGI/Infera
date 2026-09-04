@@ -4766,3 +4766,80 @@ endorsement: the **growing / ceiling / stopped** distinction, under item 7. It
 is what made today's stalls diagnosable, it is what stopped me reading a moved
 run root as a dead graph, and a section that reported only a percentage would
 have been wrong on both occasions.
+
+### Addendum 2, 05:54 UTC — 18 vs 21 reconciled, and what the reconciliation found
+
+**Both counts are right and they measure different things.** Measured on run
+`20260904T041742`:
+
+- **18 `verdict.json` files** — one per **validator invocation**. All 18 are
+  `output_validation`; there are no input-validation verdicts on disk.
+- **21 boolean entries inside them** — one per **handoff judged**. Two files
+  carry more than one key: `validation-1lv08zn7` holds 2 and
+  `validation-pr0nl34b` holds 3, because a validator that takes several input
+  handoffs judges them all in one invocation and writes one file.
+
+**All 21 are `true`.** The all-pass claim is unaffected by which convention you
+use, so nothing published so far was wrong.
+
+**The record will carry invocations, and here is the reason rather than a
+preference.** My whole per-validator series counts files, because a file is what
+maps one-to-one onto the `args.json` I use to identify *which* validator ran; a
+boolean entry does not carry that mapping. Switching conventions now would
+silently redefine every number back to T+165. So:
+
+> **`18 invocations / 21 judgements`** for this run, and the union series is
+> **249 invocations / 276 judgements** across 39 runs — of which **227 pass, 49
+> fail** by judgement. Where this file says "verdicts" it means **invocations**.
+
+Recorded as a definition rather than a correction, because two right numbers
+circulating unlabelled is the thing the leader wanted stopped.
+
+### The part I did not expect: the all-green run did not finish
+
+Reconciling the count made me read the run's event store, which I had not done.
+It holds **25 `phase_done`, 2 `subgraph_done`, 3 `output_absent`, 4
+`escalated`** — and the last three kinds are not in any reading I have
+published.
+
+```
+05:08:56.746  output_absent  declared output 6c5b43da-…-baf6fae3a875 was never delivered
+05:08:56.762  escalated      nothing to push: the executor is a program body: there is no agent to instruct
+05:08:56.787  escalated      nothing to push: the attempt holds no executor: it is not in its main phase
+05:08:56.816  escalated      nothing to push: the attempt holds no executor: it is not in its main phase
+05:08:56.821  escalated      nothing to push: the attempt holds no executor: it is not in its main phase
+```
+
+`6c5b43da` is **`operator_workset`** — `build_workset`'s output, still
+`generating`, `producer_agent_id: 605fa2f0…`, i.e. the AI builder rather than a
+program.
+
+**Three facts follow that change how this run should be described.**
+
+1. **It ran for 51 minutes**, 04:17:42 → 05:08:56 — not the 20-second stall I
+   have been attributing every `build_workset` stop to. Whatever ended this one,
+   it was not the detector firing on a quiet interval.
+2. **It ended with a declared output never delivered.** "18/18 green" and "the
+   run completed" are different claims and I published the first in a way that
+   implied the second.
+3. **The escalation path had nobody to escalate to.** Four attempts, all
+   answered *"nothing to push"* — one because the executor is a program body
+   with no agent to instruct, three because the attempt holds no executor at
+   all. **The mechanism for reporting a missing output found no recipient**,
+   which is the same shape as the validator whose diagnostic goes to a discarded
+   stdout: the machinery ran correctly and the finding went nowhere.
+
+**What I am not claiming.** Whether the cause is the stall-detector bug, the AI
+builder genuinely failing to deliver in 51 minutes, or the escalation gap
+itself, **I do not know**, and the three are distinguishable by whoever owns
+`build_workset` — not by me from the store. Filed as open in §5. This is a case
+where the earlier discipline applies to me directly: I have a symptom with
+candidate causes in more than one owner's work.
+
+**And it is the second time in two intervals that a number I published was true
+and the sentence around it was not.** The 18 was correct; "a clean sweep" let a
+reader infer a finished run. The `gpu_count: 8` was schema-valid; the record was
+false. Both were found by opening one more artefact than the claim required —
+the `args.json` beside the verdict, the event store beside the tally. **The
+green number is the one to distrust**, because nothing downstream of it argues
+back.
