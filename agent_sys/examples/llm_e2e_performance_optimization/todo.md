@@ -1451,3 +1451,58 @@ discipline when you have first checked whether the boundary exists.
 **No code change. This is a habit item**, recorded because it cost real time
 today and because — unlike every other entry here — **there is nothing to
 detect it with.**
+
+---
+
+### T38 — nothing in the graph orders m2's two lines; only the GPU count does
+
+**m2, 2026-09-04. Not blocking — today's configuration is correct. It is a
+constraint on changing that configuration, and the failure mode is a wrong
+number rather than an error.**
+
+`profiling_mode_off` is the only throughput in this flow worth quoting, and
+`profiling_mode_on` runs the same model on the same cards with a profiler
+attached and CUDA graphs off. **They must not overlap.** Everyone, including me,
+has been calling that *"sequential by construction (M2.5)"*. Measured — it is
+not construction:
+
+```
+run_profiling_mode_off   froms: []   resources: {gpu: 8}
+run_profiling_mode_on    froms: []   resources: {gpu: 8}
+merge_profiling_evidence froms: [run_profiling_mode_off, run_profiling_mode_on]
+```
+
+**Both leaves depend on nothing.** The graph offers them together — the leader
+read exactly that in rung 0's log at 10:28, where both entered
+`waiting_resource` within three lines of each other and only *then* ran one
+after the other. **What serialises them is arithmetic: two tasks each asking for
+8 GPUs do not fit in an 8-GPU node.**
+
+**M2.5 says something different and true**: *a task that needs a service brings
+it up itself* — that is why each line deploys and tears down its own engine. It
+says nothing about two such tasks not running at once.
+
+**Why this is a correctness constraint and not tidiness.** The two lines use
+different port bands (`PORT_OFFSET=10`) and different run tags, so if they ever
+did overlap **they would both come up cleanly**. Nothing would fail. The clean
+line's throughput would simply be measured beside a profiler-attached load on
+the same cards, and the number that m5's stock arm must reproduce (M5.1.3.1)
+would be quietly wrong. **A guarantee whose only enforcement is a resource count
+fails silently when the count changes.**
+
+**And the count is already inconsistent with practice.** The declaration is
+`gpu: 8`; the runs that have actually happened pass `--var tp=4` with
+`gpu_devices=0,1,2,3`. So the declaration over-states what a line uses, and it
+is that over-statement — not a rule — that is currently protecting the
+measurement. Anyone who "corrects" `gpu: 8` to `gpu: 4` to match reality, or
+runs on a node with more cards, removes the protection **and gets no error.**
+
+**What would settle it:** declare the dependency where the guarantee lives —
+`run_profiling_mode_on` with `froms: [run_profiling_mode_off]`. It costs
+nothing today (they already run in that order) and it survives a change to the
+resource pool. Not done here because the ordering is m2's stage but the subgraph
+shape is the leader's to approve, and because a change that alters graph
+topology deserves its own rung rather than riding on a fix.
+
+*Numbered T38 against a max of T37; `todo.md` currently has duplicate `T36`s and
+the leader is reconciling numbering, so treat this number as provisional.*
