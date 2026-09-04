@@ -132,13 +132,22 @@ worse than one whose edges are known.
         test_nothing_under_tools_is_ever_imported_into_the_supervisor
 
   It places files under a `.claude/tools/` that raise at module scope, proves
-  they reached the zone, and proves nothing imported them — so it goes red the
-  moment an in-process route returns. That is a stronger guarantee than row 6b
-  gave *while it holds*: row 6b asked *which copy was loaded*, this asks whether
-  anything is loaded at all. It is also a weaker one the instant it stops
-  holding, because it says nothing about which copy. **Whoever turns that test
-  green again owes this bullet a replacement**, and the test failing is what
-  will tell them.
+  they reached the zone, and proves nothing imported them. Its wide sibling,
+
+      agent_sys/tests/env_mgr/test_agent_assets.py
+        test_no_member_of_a_claude_tree_is_ever_imported_into_the_supervisor
+
+  does the same for every member location, and adds the detector raising cannot
+  supply — a `sys.modules` diff for a member imported silently, which is also
+  the half that covers **both** the source tree and the placed copy. That diff
+  proves itself on every run: the test imports a planted member on purpose and
+  requires the diff to return exactly it. Both tests go red the moment an
+  in-process route returns.
+
+  Stronger than row 6b *while they hold*: row 6b asked which copy was loaded,
+  these ask whether anything is loaded. Weaker the instant they stop, because
+  neither says which copy. **Whoever turns them green again owes this bullet a
+  replacement**, and the failure is what will tell them.
 
 - **A registry search that is no longer needed, recorded because its absence is
   a change.** `mcp_external`'s artefact used to live at

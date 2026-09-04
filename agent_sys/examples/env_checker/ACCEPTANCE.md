@@ -154,16 +154,25 @@ no boundary that can fail closed. Serena stays section **7**.
       agent_sys/tests/env_mgr/test_agent_assets.py
         test_nothing_under_tools_is_ever_imported_into_the_supervisor
 
-  It places two files under `<agent assets>/.claude/tools/` — one of them with
-  the deleted route's own `.tooldef.py` suffix — that **raise at module scope**,
-  asserts both reached the zone, and asserts nothing imported either. So it
-  **goes red the moment an in-process route returns**, and it fails by dying at
-  the import rather than by a later assertion, which is what stops it degrading
-  into a wrong message. Re-enabling any such route therefore forces whoever does
-  it to confront this row, and to re-establish the narrower placed-vs-source
-  property that row 6b owned — the test says *nothing is imported*, which is
-  strictly stronger while it holds and says nothing at all about *which copy*
-  once it stops.
+  It places two files under `<agent assets>/.claude/tools/` — one with the
+  deleted route's own `.tooldef.py` suffix — that **raise at module scope**,
+  asserts both reached the zone, and asserts nothing imported either. Beside it
+  sits the wide form, which is what actually replaces row 6b's reach:
+
+      agent_sys/tests/env_mgr/test_agent_assets.py
+        test_no_member_of_a_claude_tree_is_ever_imported_into_the_supervisor
+
+  That one covers **every place a component can put a file** — the tree root,
+  `tools/`, `hooks/`, `skills/<name>/`. It carries a second detector for the
+  case raising cannot reach: a `sys.modules` diff that catches a member imported
+  *successfully and silently*, and **that diff is the half that checks both the
+  source tree and the placed copy**, because importing either is the defect.
+  **The `sys.modules` detector is proved on every run** — the test imports a
+  planted benign member on purpose at the end and requires the diff to return
+  exactly it; the raise-at-module-scope detector is sound by construction rather
+  than exercised. So the guarantee is stronger than row 6b's *while it holds* —
+  row 6b asked *which copy was loaded*, these ask whether anything is loaded at
+  all — and still says nothing about which copy once it stops.
 
   Named by path rather than described, so the pointer either resolves or does
   not. A prose reference to a test rots silently, and this round was bitten twice
