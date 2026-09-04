@@ -8,7 +8,7 @@
 # would make the tag mean "a recipe we wrote" rather than "a component we own",
 # which is the distinction it exists to draw. The declaration half of serena —
 # the `.mcp.json` that registers the server — IS ours and lives in
-# `agent_sys/agent_plugins/serena/`, reached by `agent_plugins: [serena]`.
+# `agent_sys/env_mgr/addons/serena/`, reached by `agent_plugins: [serena]`.
 #
 # `recipes: [serena]` on an agent spec resolves here
 # (`env_mgr/agent_assets.py::_recipe_paths`: a package-relative path first, then
@@ -120,7 +120,7 @@ items:
 #
 # `Prepared.mcp_servers` is assembled by `env_mgr` from a component's
 # `.mcp.json`, never by a recipe, so the entry below belongs to whichever
-# component wants serena — today `agent_plugins/serena/`. It is recorded here so that the invocation lives
+# component wants serena — today `addons/serena/`. It is recorded here so that the invocation lives
 # beside the install that produces the binary rather than in a message.
 # Measured working, probe E — `initialize` + `tools/list` returned
 # `Serena 1.28.1` and 21 tools:
@@ -149,7 +149,7 @@ items:
 # step 6b — so `$UV_TOOL_BIN_DIR` does not exist when `PATH` is computed and
 # would not appear on it even unconfined. The absolute form is also what probe E
 # measured. Naming the variable rather than a literal path is the rule
-# `agent_plugins/envchk-baseline/.claude/.mcp.json` already follows with
+# `addons/envchk-baseline/.claude/.mcp.json` already follows with
 # `${CLAUDE_CONFIG_DIR}`: the variable, not the literal, and not the search path.
 #
 # **`HOME` is set for this subprocess and must NOT be hoisted to the agent's

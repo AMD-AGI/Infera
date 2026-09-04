@@ -77,7 +77,7 @@ from env_mgr.fs.zone import Zone
 
 __all__ = [
     "AGENT_ASSETS_ENV_VAR",
-    "AGENT_PLUGINS_ROOT_ENV_VAR",
+    "ADDONS_ROOT_ENV_VAR",
     "HANDOFFS_ENV_VAR",
     "INSTALL_REPORT_ENV_VAR",
     "LOGS_ENV_VAR",
@@ -125,14 +125,14 @@ PACKAGE_ENV_VAR = "AGENT_SYS_TASK_PACKAGE"
 #: spec's and a body has no route to an agent spec.
 AGENT_ASSETS_ENV_VAR = "AGENT_SYS_AGENT_ASSETS"
 
-#: ``agent_sys/agent_plugins/`` — this repository's own plugins, **outside the zone**.
+#: ``agent_sys/env_mgr/addons/`` — this repository's own plugins, **outside the zone**.
 #:
 #: **The one exported path in this module that is not inside the zone, and the
 #: only reason it is allowed is that it is granted.** The four ``*_root`` names
 #: above are refused precisely because exporting an ungranted path is *"the
 #: evaporating allow-list one level up: the body failing on our own
 #: instruction"*. So this name is not a counter-example to that rule; it is the
-#: rule applied in the other direction — `isolation/policy.py::agent_plugin_grants`
+#: rule applied in the other direction — `isolation/policy.py::addon_grants`
 #: composes a **read** grant on this directory, `prepare` adds it beside
 #: `agent_cli_grants`, and exported-and-granted agree by construction again.
 #:
@@ -145,7 +145,7 @@ AGENT_ASSETS_ENV_VAR = "AGENT_SYS_AGENT_ASSETS"
 #: it (`agent_assets._place_tree` — *place by default*, three named exceptions).
 #: If something ever has to run out of this directory, the answer is to copy that
 #: component into the zone, not to widen the grant.
-AGENT_PLUGINS_ROOT_ENV_VAR = "AGENT_SYS_AGENT_PLUGINS_ROOT"
+ADDONS_ROOT_ENV_VAR = "AGENT_SYS_ADDONS_ROOT"
 
 #: ``<zone>/logs/agent_assets.install.json`` — what the three component levels
 #: installed, per outcome, as JSON.

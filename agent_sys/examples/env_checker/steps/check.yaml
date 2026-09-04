@@ -90,7 +90,7 @@
   recipes: [serena]
 
   # **The agent plugins this repository ships**, resolved under
-  # `agent_sys/agent_plugins/<name>/`. Two, and they are here for different
+  # `agent_sys/env_mgr/addons/<name>/`. Two, and they are here for different
   # reasons:
   #
   # - `envchk-baseline` **is** capability 4: one external MCP server, declared

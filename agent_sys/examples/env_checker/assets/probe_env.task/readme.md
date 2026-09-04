@@ -125,7 +125,7 @@ Two things go in this section:
 
 ## 4. external MCP server — L2
 
-`envchk_baseline`, from the component `agent_sys/agent_plugins/envchk-baseline`,
+`envchk_baseline`, from the component `agent_sys/env_mgr/addons/envchk-baseline`,
 declared in that component's `.claude/.mcp.json`. **This is the only one of the
 seven that comes from L2**, so if this section fails, L2 failed.
 

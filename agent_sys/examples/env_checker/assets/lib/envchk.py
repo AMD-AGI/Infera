@@ -97,7 +97,7 @@ class Capability(NamedTuple):
     level: str
     #: `package` — relative to `$AGENT_SYS_TASK_PACKAGE`; or
     #: `component:<name>` — relative to that component's directory in the
-    #: repository's `agent_sys/agent_plugins/` registry.
+    #: repository's `agent_sys/env_mgr/addons/` registry.
     origin: str
     #: Where the salt lives, relative to that root.
     artefact: str

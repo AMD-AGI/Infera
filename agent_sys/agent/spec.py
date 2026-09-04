@@ -129,7 +129,7 @@ class AgentSpec(_Model):
     #: by hand is legal, warns, and wins whole.
     recipes: list[str] = Field(default_factory=list)
 
-    #: Bare names under `agent_sys/agent_plugins/` — the agent plugins this
+    #: Bare names under `agent_sys/env_mgr/addons/` — the agent plugins this
     #: repository ships. Same on-disk shape as `assets`' `.claude/` tree, which is
     #: why one installer serves both; a name rather than a path because the
     #: directory is ours and a package must not be able to point this anywhere.

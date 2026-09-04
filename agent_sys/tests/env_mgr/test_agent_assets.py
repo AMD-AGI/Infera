@@ -273,7 +273,7 @@ def test_a_bare_name_resolves_under_the_repositorys_agent_plugins_directory(
     reach a directory we ship."""
     shipped = tmp_path / "agent_plugins"
     _write(shipped / "envchk" / ".claude" / "skills" / "chk" / "SKILL.md", "# chk\n")
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
+    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
     config = tmp_path / "config"
 
     got = install(_spec(agent_plugins=["envchk"]), staged_package=None, config_dir=str(config))
@@ -291,7 +291,7 @@ def test_a_declared_component_that_does_not_exist_refuses(
     the agent meets ``Unknown skill`` hours later from inside its own session,
     with nothing in the zone, the events or the logs naming the cause.
     """
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(tmp_path / "agent_plugins"))
+    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(tmp_path / "agent_plugins"))
     with pytest.raises(PrepareRefused, match="declares component 'nope'"):
         install(_spec(agent_plugins=["nope"]), staged_package=None, config_dir=str(tmp_path / "c"))
 
@@ -299,12 +299,12 @@ def test_a_declared_component_that_does_not_exist_refuses(
 def test_a_component_with_no_dot_claude_directory_refuses(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`agent_plugins/README.md` marks `.claude/` REQUIRED, and a component that
+    """`addons/README.md` marks `.claude/` REQUIRED, and a component that
     installs nothing is indistinguishable from one whose contents were
     forgotten."""
     shipped = tmp_path / "agent_plugins"
     (shipped / "hollow").mkdir(parents=True)
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
+    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
     with pytest.raises(PrepareRefused, match="has no .claude/ directory"):
         install(
             _spec(agent_plugins=["hollow"]), staged_package=None, config_dir=str(tmp_path / "c")
@@ -427,7 +427,7 @@ def test_settings_are_merged_across_levels_and_written_before_any_install(
         shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
         json.dumps({"name": "mp", "owner": "us", "plugins": [{"name": "p1"}, {"name": "p2"}]}),
     )
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
+    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
 
     pkg = tmp_path / "staged"
     assets = _package(pkg)
@@ -474,7 +474,7 @@ def test_a_failing_plugin_install_is_a_named_outcome_and_not_a_silent_skip(
         shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
         json.dumps({"name": "mp", "owner": "us", "plugins": [{"name": "p1"}]}),
     )
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
+    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
 
     got = install(
         _spec(agent_plugins=["base"]),
@@ -514,7 +514,7 @@ def test_external_and_bundled_mcp_servers_arrive_in_one_mapping(tmp_path: Path) 
     # package's own tree
     # only because the staged package happens to be inside the zone; the same
     # only by luck; the same file in an agent plugin would have named a path
-    # under `AGENT_PLUGINS_ROOT`,
+    # under `ADDONS_ROOT`,
     # outside every grant — probe F's failure one directory over.
     assert got.mcp_servers["envchk"]["args"] == [str(config / "tools" / "envchk.mcp.py")]
 
@@ -604,7 +604,7 @@ def test_a_later_level_wins_an_mcp_name_collision_and_the_collision_is_reported(
         shipped / "base" / ".claude" / MCP_REL,
         json.dumps({"mcpServers": {"shared": {"type": "http", "url": "l2"}}}),
     )
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
+    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
     pkg = tmp_path / "staged"
     assets = _package(pkg)
     _write(
@@ -865,7 +865,7 @@ def test_the_marketplace_is_copied_into_the_zone_before_it_is_registered(
     directory as the **marketplace source path** — `settings.json` records
     ``extraKnownMarketplaces: {<mp>: {source: {path: <dir>}}}`` and the plugin is
     read from there at run time. Nothing is copied by the install. So registering
-    `agent_sys/agent_plugins/<name>/.claude/plugins` in place would install cleanly,
+    `agent_sys/env_mgr/addons/<name>/.claude/plugins` in place would install cleanly,
     report success, and then fail to load under confinement, because that path is
     outside every grant.
     """
@@ -875,7 +875,7 @@ def test_the_marketplace_is_copied_into_the_zone_before_it_is_registered(
         json.dumps({"name": "mp", "owner": "us", "plugins": [{"name": "p1"}]}),
     )
     _write(shipped / "base" / ".claude" / "plugins" / "p1" / "skills" / "s" / "SKILL.md", "# s")
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
+    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
     config = tmp_path / "config"
 
     install(
@@ -931,22 +931,22 @@ def test_the_agent_plugins_root_is_exported_only_when_components_are_declared(
     """The export and the grant fire on the identical condition.
 
     `paths.py` exports only paths that are granted — the four `*_root` names are
-    absent from it because they measured `EACCES`. `agent_sys/agent_plugins/` is
+    absent from it because they measured `EACCES`. `agent_sys/env_mgr/addons/` is
     outside the zone, so exporting it unconditionally would reintroduce exactly
-    that: a body failing on our own instruction. `agent_plugin_grants` reads the
+    that: a body failing on our own instruction. `addon_grants` reads the
     same key, so the pair cannot fall out of step.
     """
     shipped = tmp_path / "agent_plugins"
     _write(shipped / "base" / ".claude" / "settings.json", "{}")
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
+    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
 
     declared = install(
         _spec(agent_plugins=["base"]), staged_package=None, config_dir=str(tmp_path / "c1")
     )
-    assert declared.env["AGENT_SYS_AGENT_PLUGINS_ROOT"] == str(shipped)
+    assert declared.env["AGENT_SYS_ADDONS_ROOT"] == str(shipped)
 
     plain = install(_spec(), staged_package=None, config_dir=str(tmp_path / "c2"))
-    assert "AGENT_SYS_AGENT_PLUGINS_ROOT" not in plain.env
+    assert "AGENT_SYS_ADDONS_ROOT" not in plain.env
 
 
 def test_the_grant_and_the_export_agree_on_the_same_condition() -> None:
@@ -956,12 +956,12 @@ def test_the_grant_and_the_export_agree_on_the_same_condition() -> None:
     own, because the property is a *relation between two modules* — either one
     alone can be right while the pair is wrong.
     """
-    from env_mgr.isolation.policy import agent_plugin_grants
+    from env_mgr.isolation.policy import addon_grants
 
-    assert agent_plugin_grants(_spec()) == ()
-    assert agent_plugin_grants(None) == ()
-    (granted,) = agent_plugin_grants(_spec(agent_plugins=["base"]))
-    assert granted.path == agent_assets.AGENT_PLUGINS_ROOT
+    assert addon_grants(_spec()) == ()
+    assert addon_grants(None) == ()
+    (granted,) = addon_grants(_spec(agent_plugins=["base"]))
+    assert granted.path == agent_assets.ADDONS_ROOT
     assert granted.mode is Mode.READ_EXEC
 
 
@@ -1126,7 +1126,7 @@ def test_plugin_installs_run_the_pinned_cli_and_never_the_bare_name(
         shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
         json.dumps({"name": "mp", "owner": "us", "plugins": [{"name": "p1"}]}),
     )
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
+    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
 
     install(
         _spec(agent_plugins=["base"]),
@@ -1168,7 +1168,7 @@ def test_a_component_with_plugins_and_no_pinned_cli_fails_rather_than_guessing(
         shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
         json.dumps({"name": "mp", "owner": "us", "plugins": [{"name": "p1"}]}),
     )
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
+    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
 
     got = install(
         _spec(agent_plugins=["base"]),
@@ -1400,7 +1400,7 @@ def test_a_marketplace_name_that_climbs_out_of_the_zone_copies_nothing(
         shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
         json.dumps({"name": "../../../ESCAPED", "owner": "us", "plugins": []}),
     )
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
+    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
     config = tmp_path / "deep" / "zone" / "config"
 
     got = install(
@@ -1485,7 +1485,7 @@ def test_a_components_marketplace_never_lands_on_the_harnesss_own_name(
         json.dumps({"name": "mp", "owner": "us", "plugins": []}),
     )
     _write(shipped / "base" / ".claude" / "plugins" / "SENTINEL", "the component's own copy")
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
+    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
     config = tmp_path / "config"
 
     install(
@@ -1507,7 +1507,7 @@ def test_a_tooldef_is_imported_from_the_zone_copy_not_the_component_source(
     """The same rule as the bundled MCP server, one function over.
 
     For an **agent plugin** the source is
-    `agent_sys/agent_plugins/<name>/.claude/tools/…`, so
+    `agent_sys/env_mgr/addons/<name>/.claude/tools/…`, so
     importing it read the repository rather than the copy this attempt was
     pinned to — the bare-`claude` defect's class, two consumers with one of them
     reading a path the run does not own. It also wrote `__pycache__` into the
@@ -1521,7 +1521,7 @@ def test_a_tooldef_is_imported_from_the_zone_copy_not_the_component_source(
         shipped / "base" / ".claude" / "tools" / "t.tooldef.py",
         "class T:\n    def __init__(self, name): self.name = name\nTOOLS = [T('probe')]\n",
     )
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
+    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
     config = tmp_path / "config"
 
     got = install(_spec(agent_plugins=["base"]), staged_package=None, config_dir=str(config))
@@ -1550,7 +1550,7 @@ def test_two_components_shipping_tooldefs_do_not_double_register(
             shipped / name / ".claude" / "tools" / f"{name}.tooldef.py",
             f"class T:\n    def __init__(self, name): self.name = name\nTOOLS = [T({tool!r})]\n",
         )
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
+    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
 
     got = install(
         _spec(agent_plugins=["a", "b"]),
@@ -1644,7 +1644,7 @@ def test_a_marketplace_name_that_is_not_a_single_directory_name_is_refused(
     )
     _write(shipped / "base" / ".claude" / "plugins" / "SENTINEL", "component copy")
     _write(shipped / "base" / ".claude" / "settings.json", json.dumps({"model": "m"}))
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
+    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
     config = tmp_path / "config"
 
     got = install(
@@ -1702,7 +1702,7 @@ def test_two_components_shipping_the_SAME_tooldef_filename_stay_separate(
             f"    args: {tool.capitalize()}Args | None = None\n"
             f"TOOLS = [T({tool!r})]\n",
         )
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
+    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
 
     got = install(
         _spec(agent_plugins=["a", "b"]),
@@ -1738,7 +1738,7 @@ def test_one_component_replacing_anothers_placed_file_is_reported(
     _write(shipped / "a" / ".claude" / "skills" / "shared" / "SKILL.md", "# from a")
     _write(shipped / "a" / ".claude" / "skills" / "only-a" / "SKILL.md", "# a only")
     _write(shipped / "b" / ".claude" / "skills" / "shared" / "SKILL.md", "# from b")
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
+    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
     config = tmp_path / "config"
 
     got = install(_spec(agent_plugins=["a", "b"]), staged_package=None, config_dir=str(config))
@@ -1759,7 +1759,7 @@ def test_components_that_share_no_file_do_not_warn(
     shipped = tmp_path / "agent_plugins"
     _write(shipped / "a" / ".claude" / "skills" / "one" / "SKILL.md", "# a")
     _write(shipped / "b" / ".claude" / "skills" / "two" / "SKILL.md", "# b")
-    monkeypatch.setattr(agent_assets, "AGENT_PLUGINS_ROOT", str(shipped))
+    monkeypatch.setattr(agent_assets, "ADDONS_ROOT", str(shipped))
 
     got = install(
         _spec(agent_plugins=["a", "b"]),

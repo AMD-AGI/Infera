@@ -1275,7 +1275,7 @@ So `agent_assets.py` exists and `material.py` calls it.
 | owner | what | declared how | resolved against |
 |---|---|---|---|
 | upstream | serena, a marketplace plugin, an apt/pip tool | `recipes: [...]` | the staged package, then `env_mgr/recipes/<name>.yaml` |
-| this repository | the agent plugins `agent_sys` ships | `agent_plugins: [...]`, or a recipe item carrying `tags: [internal]` | `agent_sys/agent_plugins/<name>/` |
+| this repository | the agent plugins `agent_sys` ships | `agent_plugins: [...]`, or a recipe item carrying `tags: [internal]` | `agent_sys/env_mgr/addons/<name>/` |
 | one task package | what it carries for one agent | **undeclared** | `<staged package>/<assets>/.claude/` |
 
 Three **origins**, not three levels: the numbers named nothing the table does
@@ -1382,7 +1382,7 @@ is placed the day it appears.
 The same ruling fixes a latent one: a bundled `tools/*.mcp.py` is now registered
 at its **placed** path. It used to be registered at its source, which worked for
 a package's own material only because the staged package is inside the zone — the
-identical agent plugin would have named a path under `AGENT_PLUGINS_ROOT`,
+identical agent plugin would have named a path under `ADDONS_ROOT`,
 outside every grant.
 
 **A marketplace name is validated before anything is copied.** `manifest["name"]`
@@ -1403,8 +1403,8 @@ symptom is *a server with no tools*: no error, no cause.
 
 **Two more exported names, and one of them needed a grant.**
 `AGENT_SYS_INSTALL_REPORT` points at `<zone>/logs/agent_assets.install.json` and
-is inside the zone, so it needs none. `AGENT_SYS_AGENT_PLUGINS_ROOT` is **outside**
-it, so `isolation/policy.py::agent_plugin_grants` composes a `READ_EXEC` grant on
+is inside the zone, so it needs none. `AGENT_SYS_ADDONS_ROOT` is **outside**
+it, so `isolation/policy.py::addon_grants` composes a `READ_EXEC` grant on
 the same condition that emits the name — a spec declaring `agent_plugins:`. Read,
 not execute-from: a component is copied into the zone before anything runs it,
 and if that ever stops being true the answer is another copy, not a wider grant.

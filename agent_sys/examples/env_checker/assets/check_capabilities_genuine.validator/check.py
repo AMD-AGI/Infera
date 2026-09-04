@@ -36,12 +36,12 @@ import zone  # noqa: E402
 #: Where the repository's L2 registry sits, relative to a repository root. Used
 #: only by the fallback search below; the direct route is the environment
 #: variable named beside it.
-AGENT_PLUGINS_REL = Path("agent_sys") / "agent_plugins"
+ADDONS_REL = Path("agent_sys") / "agent_plugins"
 
 #: The variable that names the L2 registry outright. Preferred over the search,
 #: because a search is a guess that can find the wrong tree on a machine with
 #: two checkouts, and a variable is a statement.
-COMPONENTS_ENV = "AGENT_SYS_AGENT_PLUGINS_ROOT"
+COMPONENTS_ENV = "AGENT_SYS_ADDONS_ROOT"
 
 #: The MCP protocol version this body asks for. A server is free to answer with
 #: its own; both servers in this package echo whatever they are given.
@@ -64,7 +64,7 @@ def package_root() -> Path:
 
 
 def agent_plugins_root(package: Path) -> tuple[Path | None, str]:
-    """The `agent_sys/agent_plugins/` registry, and how it was found.
+    """The `agent_sys/env_mgr/addons/` registry, and how it was found.
 
     **The environment variable first, a search second, and a named failure
     third.** The search exists because the registry is a *repository* path and a
@@ -80,12 +80,12 @@ def agent_plugins_root(package: Path) -> tuple[Path | None, str]:
             return path, f"${COMPONENTS_ENV}"
         return None, f"${COMPONENTS_ENV} is {declared!r} and is not a directory"
     for parent in [package, *package.parents]:
-        candidate = parent / AGENT_PLUGINS_REL
+        candidate = parent / ADDONS_REL
         if candidate.is_dir():
             return candidate, f"found at {candidate}"
     # **The environment is printed, not merely named.** Measured 2026-09-03,
     # run 2: this fault fired and neither the stream nor any artefact recorded
-    # whether the variable had been set — `AGENT_SYS_AGENT_PLUGINS_ROOT` appears
+    # whether the variable had been set — `AGENT_SYS_ADDONS_ROOT` appears
     # zero times across every event kind — so "unset" was an inference from the
     # fault text rather than an observation. Listing what the body *did* have
     # makes the next occurrence evidence: an empty list says the validator zone
@@ -94,7 +94,7 @@ def agent_plugins_root(package: Path) -> tuple[Path | None, str]:
     # different bugs and the fault text could not previously tell them apart.
     present = sorted(k for k in os.environ if k.startswith("AGENT_SYS_"))
     return None, (
-        f"${COMPONENTS_ENV} is unset and no {AGENT_PLUGINS_REL} exists above "
+        f"${COMPONENTS_ENV} is unset and no {ADDONS_REL} exists above "
         f"{package} — the L2 capability cannot be re-derived. "
         f"AGENT_SYS_* present in this body's environment: {present or '(none)'}"
     )

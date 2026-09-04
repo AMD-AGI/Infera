@@ -1,4 +1,4 @@
-# `agent_sys/agent_plugins/` — the agent plugins this repository ships
+# `agent_sys/env_mgr/addons/` — the agent plugins this repository ships
 
 An **agent plugin** is a bundle of Claude Code capabilities — plugins, hooks,
 tools, an MCP server — that this repository defines once, so that more than one
@@ -57,7 +57,7 @@ An agent plugin in this directory is still reached by `agent_plugins:`.
 ## The contract
 
 ```
-agent_sys/agent_plugins/<name>/
+agent_sys/env_mgr/addons/<name>/
 ├── README.md            what this gives an agent, and what it costs
 ├── recipe.yaml          OPTIONAL — anything that must be installed first
 └── .claude/             REQUIRED — Claude Code's own canonical layout
@@ -104,7 +104,7 @@ is **relocated** to `marketplaces/` because `claude plugin install` writes
 where a `${CLAUDE_CONFIG_DIR}`-relative path expects them, and the two files that
 configure rather than ship are not there at all.
 
-**Do not reference `${AGENT_SYS_AGENT_PLUGINS_ROOT}` from inside one.** That path
+**Do not reference `${AGENT_SYS_ADDONS_ROOT}` from inside one.** That path
 is outside the zone; a server registered at it installs cleanly, reports success,
 and then cannot be read under confinement. Copy-into-the-zone is one rule for a
 repository plugin and a package's own material alike — a package's
@@ -125,7 +125,7 @@ the token the agent reported against the token the server actually produces.
 
 ## Adding one
 
-1. `mkdir agent_sys/agent_plugins/<name>/.claude` and put the capability in it,
+1. `mkdir agent_sys/env_mgr/addons/<name>/.claude` and put the capability in it,
    in Claude Code's layout.
 2. Write `README.md`: what an agent gets, what it costs to install, and what it
    does **not** do. The third is the one a reader cannot reconstruct.

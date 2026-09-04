@@ -88,6 +88,27 @@ include = [
 # `.json` files inside it.
 [tool.setuptools.package-data]
 spec_loader = ["schemas/*.json"]
+# `addons/` is not a Python package and never will be — `agent_assets.py` calls
+# its root "a repository path, not a configurable root". Before it moved inside
+# `env_mgr/` it had **no owning package to hang a glob on**, so it could not be
+# shipped at all: measured 2026-09-04, a wheel built from this file contained no
+# member of it. That is `temp/bugs/2026-09-04-two-declaration-routes-...`, and
+# the move is what makes this line possible rather than this line being the fix.
+#
+# The `.claude/` members need naming explicitly: a leading dot is not matched by
+# `*`, so a bare `addons/**` ships the READMEs and silently drops every file
+# that matters. Verified by building the wheel and listing its members, not by
+# reading setuptools' documentation.
+env_mgr = [
+    "addons/README.md",
+    "addons/*/README.md",
+    "addons/*/.claude/**/*",
+    # `**/*` matched `.claude/servers/x.py` and **not** `.claude/.mcp.json`:
+    # the glob crosses a dot-DIRECTORY but will not match a dot-FILENAME at the
+    # leaf. Measured by listing the wheel's members — the first build shipped 4
+    # of 6 addon files and looked fine until they were counted.
+    "addons/*/.claude/.mcp.json",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

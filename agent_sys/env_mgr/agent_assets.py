@@ -29,13 +29,13 @@ the directory**:
 | owner | what | declared how |
 |---|---|---|
 | upstream | serena, a marketplace plugin, an apt/pip tool | ``recipes: [...]`` -> an `env_mgr` recipe YAML |
-| this repository | what `agent_sys` ships | ``agent_plugins: [...]`` -> `agent_sys/agent_plugins/<name>/`; an *install* rather than a tree is a recipe carrying ``tags: [internal]`` |
+| this repository | what `agent_sys` ships | ``agent_plugins: [...]`` -> `agent_sys/env_mgr/addons/<name>/`; an *install* rather than a tree is a recipe carrying ``tags: [internal]`` |
 | one task package | what it carries for one agent | **undeclared** — `<agent assets>/.claude/` |
 
 **The last two have the same on-disk shape**, so one installer serves both and
 promoting is moving a directory. **A package's own material is undeclared**
 because the declaration would be a second statement of what the directory
-already says, and the two would drift; `agent_plugins/README.md` states the same
+already says, and the two would drift; `addons/README.md` states the same
 contract from the author's side.
 
 ## Order, and what it buys
@@ -131,7 +131,7 @@ is: the supervisor holds the API credentials the whole confinement design exists
 to keep away from a task body. Three narrowings, and they are the whole defence:
 it is done only for that exact suffix, only under ``tools/`` of a resolved
 component, and only from the **staged** package or this repository's own
-`agent_plugins/` — never from `Context.package`, which is the operator's live
+`addons/` — never from `Context.package`, which is the operator's live
 checkout. An in-process tool is worth this because the alternative measured
 shape (a stdio MCP server) costs a subprocess per tool and cannot share the
 supervisor's objects; a component that does not need that should ship a
@@ -230,7 +230,7 @@ _PACKAGE_ROOT = str(pathlib.Path(__file__).resolve().parents[1])
 
 __all__ = [
     "CLAUDE_DIRNAME",
-    "AGENT_PLUGINS_ROOT",
+    "ADDONS_ROOT",
     "MARKETPLACE_MANIFEST",
     "SETTINGS_FILENAME",
     "RECIPE_TIMEOUT_SECONDS",
@@ -248,7 +248,7 @@ CLAUDE_DIRNAME = ".claude"
 #: configurable root**: ``agent_plugins: [<name>]`` takes a bare name precisely so
 #: that a task package cannot point this anywhere, and a knob here would give back
 #: what the name shape removed.
-AGENT_PLUGINS_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)), "agent_plugins")
+ADDONS_ROOT = os.path.join(os.path.dirname(__file__), "addons")
 
 #: The **default** recipe layer — the one nobody names, because it always
 #: applies. It sits in ``env_mgr/`` rather than in ``env_mgr/recipes/``, and
@@ -505,7 +505,7 @@ def install(
     recipe_cwd = workspace if workspace and os.path.isdir(workspace) else config_dir
     timeout = RECIPE_TIMEOUT_SECONDS if recipe_timeout is None else recipe_timeout
 
-    trees = _agent_plugin_trees(agent_spec, staged_package=staged_package)
+    trees = _addon_trees(agent_spec, staged_package=staged_package)
 
     # **Before any install**, for the measured merge-not-clobber reason in the
     # module docstring. Later levels win, which is `trees`' order.
@@ -552,11 +552,11 @@ def install(
     if _sequence(agent_spec, "agent_plugins"):
         # **Only when declared, because only then is it granted.** `prepare`
         # composes a read grant on this directory from the same condition
-        # (`isolation/policy.py::agent_plugin_grants`), and `paths.py`'s rule for
+        # (`isolation/policy.py::addon_grants`), and `paths.py`'s rule for
         # this whole family is that exported and granted agree by construction —
         # an exported path we did not grant is the body failing on our own
         # instruction.
-        env[paths.AGENT_PLUGINS_ROOT_ENV_VAR] = AGENT_PLUGINS_ROOT
+        env[paths.ADDONS_ROOT_ENV_VAR] = ADDONS_ROOT
     if logs_dir is not None:
         env[paths.INSTALL_REPORT_ENV_VAR] = _write_report(logs_dir, report)
 
@@ -615,7 +615,7 @@ def _assets_dir(agent_spec: Any, *, staged_package: str | None) -> str | None:
     return path
 
 
-def _agent_plugin_trees(agent_spec: Any, *, staged_package: str | None) -> list[tuple[str, str]]:
+def _addon_trees(agent_spec: Any, *, staged_package: str | None) -> list[tuple[str, str]]:
     """Every ``.claude/`` tree to install, as ``(origin, path)``: this
     repository's, then the package's own.
 
@@ -624,7 +624,7 @@ def _agent_plugin_trees(agent_spec: Any, *, staged_package: str | None) -> list[
     to install, its path is a copy inside a zone and says nothing about who
     wrote it.
 
-    A declared agent plugin with no ``.claude/`` is an **error**: `agent_plugins/README.md`
+    A declared agent plugin with no ``.claude/`` is an **error**: `addons/README.md`
     marks that directory REQUIRED, and a component that installs nothing is
     indistinguishable from one whose contents were forgotten. A package's own
     assets directory with no ``.claude/`` is not — it is undeclared, so its
@@ -634,18 +634,18 @@ def _agent_plugin_trees(agent_spec: Any, *, staged_package: str | None) -> list[
     trees: list[tuple[str, str]] = []
 
     for name in _sequence(agent_spec, "agent_plugins"):
-        root = os.path.join(AGENT_PLUGINS_ROOT, name)
+        root = os.path.join(ADDONS_ROOT, name)
         if not os.path.isdir(root):
             raise PrepareRefused(
                 f"agent {_name(agent_spec)!r} declares component {name!r} and "
                 f"{root!r} does not exist. `agent_plugins:` takes a bare name under "
-                f"agent_sys/agent_plugins/, never a path"
+                f"agent_sys/env_mgr/addons/, never a path"
             )
         tree = os.path.join(root, CLAUDE_DIRNAME)
         if not os.path.isdir(tree):
             raise PrepareRefused(
                 f"component {name!r} has no {CLAUDE_DIRNAME}/ directory. That is "
-                f"what a component *is* (agent_sys/agent_plugins/README.md), and "
+                f"what a component *is* (agent_sys/env_mgr/addons/README.md), and "
                 f"installing it would be a no-op nothing reports"
             )
         trees.append((f"component {name!r}", tree))
@@ -873,7 +873,7 @@ def _place_tree(tree: str, *, origin: str, config_dir: str) -> list[InstallOutco
     the zone is what the confined session can read, and a link out of it
     resolves to a path the kernel refuses. That is also the ruling for
     `servers/` specifically — *copy into the zone, do not reference out of it* —
-    chosen over having components name ``${AGENT_SYS_AGENT_PLUGINS_ROOT}/...``
+    chosen over having components name ``${AGENT_SYS_ADDONS_ROOT}/...``
     because it makes the three docstrings that already assert a copy true, the
     copy dies with the zone, and it gives **one rule for both origins**: a package's
     `tools/*.mcp.py` used to be registered at its *source* path and worked only
@@ -983,7 +983,7 @@ def _install_plugins(
     not the config directory — ``settings.json`` records
     ``extraKnownMarketplaces: {<mp>: {source: {path: <dir>}}}`` and the plugin is
     read from that path **at run time**. Nothing is copied by the install. So
-    registering `agent_sys/agent_plugins/<name>/.claude/plugins` directly would
+    registering `agent_sys/env_mgr/addons/<name>/.claude/plugins` directly would
     install cleanly, report success, and then fail to load under confinement,
     because that path is outside every grant — a plausible value consumed as if
     it were right (`interfaces.md` §4.11). Copying first makes the registered
@@ -1219,7 +1219,7 @@ def _mcp_servers(
     **A bundled server is registered at its PLACED path, never its source.**
     This read `os.path.join(tree, ...)` and worked only by luck: a package's tree
     is inside the staged package, which is inside the zone. An agent plugin
-    shipping the same file registers a path under `AGENT_PLUGINS_ROOT` — outside
+    shipping the same file registers a path under `ADDONS_ROOT` — outside
     every grant — and that is probe F's failure one directory over: it installs
     cleanly, reports `ok`, and serves nothing. `_place_tree` has already copied
     `tools/` into the config directory, so the placed path both exists and is
@@ -1335,11 +1335,11 @@ def _tooldefs(tree: str, *, origin: str, config_dir: str) -> tuple[list[Any], li
     is `_mcp_servers`' shape for the same reason one line over: the run owns the
     copy in the zone and does not own the directory it came from. For a package's own material the two
     were the same file, so this looked settled; for an **agent plugin** the
-    source is `agent_sys/agent_plugins/<name>/.claude/tools/…`, so the supervisor
+    source is `agent_sys/env_mgr/addons/<name>/.claude/tools/…`, so the supervisor
     was importing **the repository** rather than the copy this attempt was
     pinned to. That is the bare-`claude` defect's class — two consumers, one of
     them reading a path the run does not own — and the module docstring's
-    narrowing (*"the staged package or this repository's own `agent_plugins/`"*) is
+    narrowing (*"the staged package or this repository's own `addons/`"*) is
     the wording that made it read as fine.
 
     It also puts ``__pycache__`` in the zone, where it dies with the zone,

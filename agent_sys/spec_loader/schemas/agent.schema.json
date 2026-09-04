@@ -88,7 +88,7 @@
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
       "uniqueItems": true,
-      "description": "**The agent plugins this repository ships**: bare names under `agent_sys/agent_plugins/<name>/`, each holding a `.claude/` tree in the same on-disk shape as the one a package carries under `assets`, and optionally a `recipe.yaml` beside it for anything it must install first. One installer serves both precisely because the shape is the same; what differs is only who owns the directory. Declared and absent is an error."
+      "description": "**The agent plugins this repository ships**: bare names under `agent_sys/env_mgr/addons/<name>/`, each holding a `.claude/` tree in the same on-disk shape as the one a package carries under `assets`, and optionally a `recipe.yaml` beside it for anything it must install first. One installer serves both precisely because the shape is the same; what differs is only who owns the directory. Declared and absent is an error."
     }
   },
   "$defs": {

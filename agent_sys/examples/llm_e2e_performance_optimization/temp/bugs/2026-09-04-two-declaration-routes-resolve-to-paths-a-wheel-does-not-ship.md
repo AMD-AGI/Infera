@@ -1,13 +1,15 @@
 # Two declaration routes resolve to repository paths a wheel does not ship
 
 **Found:** 2026-09-04 by `pkg-impl` during the PR-155 `components/` →
-`agent_plugins/` rename, while checking whether the `git mv` could break
+`addons/` rename, while checking whether the `git mv` could break
 packaging. It could not — because neither name was ever packaged.
 **Severity:** two documented declaration routes — `recipes: [<bare name>]` and
 `agent_plugins: [<name>]` — cannot resolve from a wheel install. **Both fail
 loudly**, as a named `PrepareRefused`, so nothing is silently wrong; the run
 refuses. From a git checkout, which is how everything runs today, both work.
-**Status:** reported, **not fixed**. Pre-existing and older than the rename.
+**Status:** **one of the two is FIXED and proven; the other is still open.**
+See *Resolution* at the end — do not act on the body below without reading it.
+Pre-existing and older than the rename that surfaced it.
 
 ## What was measured, and how
 
@@ -30,7 +32,7 @@ spec_loader/schemas/{_common,agent,closure,handoff,task,validator}.schema.json
 agent_sys_helper-0.1.0.dist-info/{METADATA,WHEEL,entry_points.txt,top_level.txt,RECORD}
 ```
 
-So: **no `agent_plugins/` member, and no `.yaml` member of any kind.** The
+So: **no `addons/` member, and no `.yaml` member of any kind.** The
 schemas ship only because they have an explicit `package-data` entry.
 
 ## The two routes
@@ -40,13 +42,13 @@ schemas ship only because they have an explicit `package-data` entry.
 `env_mgr/agent_assets.py`:
 
 ```python
-AGENT_PLUGINS_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)), "agent_plugins")
+ADDONS_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)), "agent_plugins")
 ```
 
 From a wheel that is `<site-packages>/agent_plugins`, which does not exist.
-`_agent_plugin_trees` then raises:
+`_addon_trees` then raises:
 
-> `agent 'x' declares component 'envchk-baseline' and '<...>/agent_plugins/envchk-baseline' does not exist. 'agent_plugins:' takes a bare name under agent_sys/agent_plugins/, never a path`
+> `agent 'x' declares component 'envchk-baseline' and '<...>/addons/envchk-baseline' does not exist. 'agent_plugins:' takes a bare name under agent_sys/env_mgr/addons/, never a path`
 
 The message is accurate about the rule and misleading about the cause: it tells
 the reader they wrote a path when in fact they wrote a correct bare name and the
@@ -108,7 +110,7 @@ That gives the two routes different prognoses:
 
 - **`env_mgr/recipes/` is fixable by one line**, because the working analogue is
   in the same file, three lines above where the fix goes.
-- **`agent_plugins/` is not**, because it has no owning package to hang a glob
+- **`addons/` is not**, because it has no owning package to hang a glob
   on. It sits beside `env_mgr/`, not inside it.
 
 `pyproject.toml`'s own comment about the schemas describes this bug exactly:
@@ -133,8 +135,8 @@ directory that is likewise not a package, so this is a strong candidate rather
 than a guess. **It was still not run** — no wheel was built with that line in
 it, and this record does not claim the fix works.
 
-`agent_plugins/` has no such line available: `package-data` needs an owning
-package, and `agent_plugins/` sits beside `env_mgr/` rather than inside it. It
+`addons/` has no such line available: `package-data` needs an owning
+package, and `addons/` sits beside `env_mgr/` rather than inside it. It
 is also deliberately *not* a Python package — `agent_assets.py` calls its root
 *"a repository path, not a configurable root"* — so making it one to get it into
 a wheel would change what it is. The alternatives are a ruling somebody has to
@@ -155,13 +157,66 @@ currently do not.
 ## Why it is worth a record rather than a shrug
 
 `docs/design.md:1277` and `spec_loader/schemas/agent.schema.json` both document
-the bare-name recipe route without qualification, and `agent_plugins/README.md`
+the bare-name recipe route without qualification, and `addons/README.md`
 says *"the directory name **is** the name `agent_plugins: [<name>]` resolves"*.
 Three documents describe a resolution that holds only under one install mode,
 and none of them says which. A reader installing from a wheel meets an error
 message that tells them they made a mistake they did not make.
 
-The near-miss is worth stating too: the `components/` → `agent_plugins/` rename
+The near-miss is worth stating too: the `components/` → `addons/` rename
 was checked against packaging *because* a move is the classic way to break
 package data. The check found nothing to break, which looked like a clean
 result and was actually the bug.
+
+
+---
+
+# Resolution, 2026-09-04
+
+## `agent_plugins:` / addons — **FIXED, and measured fixed**
+
+The directory moved from `agent_sys/agent_plugins/` to **`agent_sys/env_mgr/addons/`**.
+That move is what makes the fix possible: `package-data` needs an owning package
+and the directory now has one. `pyproject.toml` gained
+
+```toml
+env_mgr = [
+    "addons/README.md",
+    "addons/*/README.md",
+    "addons/*/.claude/**/*",
+    "addons/*/.claude/.mcp.json",
+]
+```
+
+Proven by building the wheel and listing its members — **6 of 6 addon files
+present**, where the build in the body of this record had 0.
+
+**The fourth pattern is the finding, and it cost a build to see.** With only the
+first three, the wheel shipped **4 of 6** and looked correct until they were
+counted: `addons/*/.claude/**/*` matched `.claude/servers/envchk_baseline_server.py`
+but **not** `.claude/.mcp.json`. The glob crosses a dot-*directory* and will not
+match a dot-*filename* at the leaf. Nothing in the pattern hints at that
+asymmetry, and a reader who adds a dotfile to an addon will hit it again — which
+is why the pattern carries a comment saying so.
+
+This is the second time in this record that reading the configuration was not
+enough and building the artefact was. **Count the members.**
+
+## `env_mgr/recipes/*.yaml` — **STILL OPEN**
+
+Unchanged: the wheel ships no `.yaml`, so `recipes: [<bare name>]` still cannot
+resolve from a wheel, and `examples/env_checker` declares `recipes: [serena]` as
+a live dependency. Deliberately not fixed in the same change — it is a different
+route with a different blast radius, and bundling it would have hidden it behind
+a rename.
+
+The candidate remains one line, and it is now a *stronger* candidate than when
+this record was written, because the addons entry beside it has been proven to
+work from a directory that is not a package:
+
+```toml
+env_mgr = [..., "recipes/*.yaml", "default.env_recipe.yaml"]
+```
+
+**Still unrun.** Whoever runs it should count the members rather than trust the
+pattern.

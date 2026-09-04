@@ -49,7 +49,7 @@ this task's scratch belongs.
 ### The fourth pin: the package must be in a commit
 
 **`selftest/launch.sh` refuses to launch when `git status --porcelain` is
-non-empty for `examples/env_checker` or `agent_plugins/`.**
+non-empty for `examples/env_checker` or `addons/`.**
 
 Run 2 is why. Its pins recorded `env_mgr` at `9a9fdff`, which was true and
 **not sufficient**: the serena wiring, self-test case 2 and the validator that
@@ -113,7 +113,7 @@ where `salt` is the single `ENVCHK_SALT: <32 hex>` tag in the named artefact and
 | 2 | hook | L3 | same → `capabilities.hook` | `.token != T("hook")` from the salt in `.claude/hooks/envchk_session_start.py`; **or** `.proof.record.payload.session_id` is absent; **or** `.proof.record.payload.hook_event_name != "SessionStart"`; **or** `.proof.record.token != .token` |
 | 3 | plugin | L3 | same → `capabilities.plugin` | `.token != T("plugin")` from the salt in `.claude/plugins/envchk-plugin/skills/envchk-plugin-skill/SKILL.md`; or `.proof.plugin_list` empty. **A `.token` equal to section 1's is a fail even if well-formed** — two routes, two salts |
 | 3b | plugin **source path** | L3 | the zone's `config/settings.json` | its marketplace entry's `{"source":"directory","path": …}` is **not** under the run root — e.g. it points at `/home/yihou/dev/...`. Probe F measured that a plugin loads from its marketplace *source* directory rather than from a copy, so a marketplace outside the zone **installs cleanly and then fails to load under confinement with nothing naming the cause**. This is its own row and not a footnote precisely because it is a condition that must fail loudly rather than be checked if someone remembers |
-| 4 | external MCP | **L2** | same → `capabilities.mcp_external` | `.token` differs from what the validator gets by **starting** `agent_sys/agent_plugins/envchk-baseline/.claude/servers/envchk_baseline_server.py` and calling `tools/call`; or `.proof.raw.token != .token`; or `.level != "L2"` |
+| 4 | external MCP | **L2** | same → `capabilities.mcp_external` | `.token` differs from what the validator gets by **starting** `agent_sys/env_mgr/addons/envchk-baseline/.claude/servers/envchk_baseline_server.py` and calling `tools/call`; or `.proof.raw.token != .token`; or `.level != "L2"` |
 | 5 | bundled stdio MCP | L3 | same → `capabilities.mcp_stdio` | `.token` differs from what the validator gets by **starting** `.claude/tools/envchk_stdio.mcp.py`; or `.proof.raw.token != .token` |
 | 6 | in-process ToolDef | L3 | same → `capabilities.tooldef` | `.token` differs from what the validator gets by **importing the placed copy** at `<staged package>/../config/tools/envchk_inproc.tooldef.py` and calling `TOOLS[0].call()`; or `.proof.raw.token != .token` |
 | 6b | tooldef **placed copy** | L3 | same → `capabilities.tooldef.proof.raw` | `.path` is not that placed copy; or `.sha256` does not match its digest |
@@ -321,13 +321,13 @@ cd /home/yihou/dev/git.16-19/infera.aiopt.real.task_package/agent_sys
 | # | command | proceed when |
 |---|---|---|
 | 1 | `python3 -m cli.main show --package examples/env_checker --var nonce=x --var uv_root=/tmp/yihou/x` | `2 tasks in the graph`, and both `output validation runs 2` |
-| 2 | `python3 -c 'from env_mgr import paths; print(paths.AGENT_PLUGINS_ROOT_ENV_VAR, paths.INSTALL_REPORT_ENV_VAR, paths.AGENT_ASSETS_ENV_VAR)'` | three names print. An `AttributeError` means the constants do not exist. **This row is about the names, not about the things the names refer to** — see below |
+| 2 | `python3 -c 'from env_mgr import paths; print(paths.ADDONS_ROOT_ENV_VAR, paths.INSTALL_REPORT_ENV_VAR, paths.AGENT_ASSETS_ENV_VAR)'` | three names print. An `AttributeError` means the constants do not exist. **This row is about the names, not about the things the names refer to** — see below |
 | 3 | `python3 -c 'from env_mgr.recipe import load_recipe; print(len(load_recipe("env_mgr/recipes/serena.yaml")[1]), "items")'` | `3 items`. A `FileNotFoundError` means the L1 recipe is not placed yet and section 7 cannot pass |
 | 4 | `python3 -m cli.main run --package examples/env_checker --demo-root /tmp/yihou/agentsys_envchecker_20260903/dryrun --var nonce=x --var uv_root=/tmp/yihou/x --dry-run` | completes, dispatches nothing, no `REJECTED` |
 | 5 | `claude plugin validate examples/env_checker/assets/env_probe.agent/.claude/plugins` | `Validation passed` |
 | 6 | `command -v uv; command -v claude; claude --version` | all three answer. `uv` is what the L1 recipe installs serena with; `claude` is what installs the L3 plugin. **This row proves the binaries exist on this host and nothing about which build the run uses** — that is 6b |
 | 6b | `python3 -c "import shutil,subprocess;p=shutil.which('claude');print(p);print(subprocess.run([p,'--version'],capture_output=True,text=True).stdout.strip())"` | prints a path and **`2.1.246`**. That is the build the run pins **and** the build every probe conclusion now holds on — see *Measured on the pinned build* below. A different version is a **stop**, and it is a stop for two reasons at once: the run would invoke a CLI nobody characterised, **and** the probe evidence would no longer apply to it. The discharge is re-measuring the probes on the new build, not proceeding carefully |
-| 7 | `python3 /tmp/yihou/agentsys_envchecker_20260903/selftest/run.py` | `ALL OK` — 20 cases, both validators driven through their real `entry.sh` over a synthetic handoff. Case 2 is `every-capability-is-declared`: every capability reached through MCP has an artefact declaring its server name, which is run 1's failure catchable with no run at all. Case 1 is `salts-are-isolated`: seven `ENVCHK_SALT:` tags across the package and `agent_plugins/`, all distinct, **each value in exactly one authored file**, and none of them in the three documents that describe the scheme. That is the property every other case assumes, so it is checked mechanically rather than argued |
+| 7 | `python3 /tmp/yihou/agentsys_envchecker_20260903/selftest/run.py` | `ALL OK` — 20 cases, both validators driven through their real `entry.sh` over a synthetic handoff. Case 2 is `every-capability-is-declared`: every capability reached through MCP has an artefact declaring its server name, which is run 1's failure catchable with no run at all. Case 1 is `salts-are-isolated`: seven `ENVCHK_SALT:` tags across the package and `addons/`, all distinct, **each value in exactly one authored file**, and none of them in the three documents that describe the scheme. That is the property every other case assumes, so it is checked mechanically rather than argued |
 | 8 | `git --git-dir=/home/yihou/dev/git.16-19/infera/.git config --get extensions.preciousObjects` | prints `true`. **If it prints nothing, stop and ask the user** — see below |
 | 9 | `df -h /tmp \| tail -1` | room to spare. Measured 2026-09-03: `/tmp` is on the 7 TB NVMe with ~3 TB free, and the workspace is a `git clone --shared`, so the main repo's 129 MB of objects are reached through alternates rather than copied. Disk is not a constraint for this run; the row exists so that a full disk is ruled out rather than assumed |
 
@@ -339,7 +339,7 @@ same defect as `command -v` in the wrong shell and a probe on the wrong binary,
 in a third costume.
 
 Both exports are in fact **conditional** (`agent_assets.install`):
-`AGENT_SYS_AGENT_PLUGINS_ROOT` is set only when the agent declares `agent_plugins:`,
+`AGENT_SYS_ADDONS_ROOT` is set only when the agent declares `agent_plugins:`,
 and `AGENT_SYS_INSTALL_REPORT` only when `logs_dir` is not `None`. Both
 conditions hold here — this agent declares `agent_plugins: [envchk-baseline]`, and
 `material.deploy` always passes `logs_dir=<zone>/logs` — but **that was
@@ -349,7 +349,7 @@ has not learned it.
 What actually discharges it is the run: `$AGENT_SYS_INSTALL_REPORT` resolving to
 a real file is what the `install_report` acceptance row reads, and the L2 salt
 being re-derivable is what `check_capabilities_genuine` reports by name if
-`AGENT_SYS_AGENT_PLUGINS_ROOT` is absent. A stronger pre-flight row would have to
+`AGENT_SYS_ADDONS_ROOT` is absent. A stronger pre-flight row would have to
 call `agent_assets.install` for real, which runs the L1 recipe — too heavy for a
 gate, and it would be testing `env_mgr`'s own code, which has its own tests.
 

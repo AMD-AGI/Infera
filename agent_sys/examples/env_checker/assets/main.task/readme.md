@@ -24,7 +24,7 @@ Seven capabilities, three levels, one run:
 | 1 | skill | L3 | `.claude/skills/envchk-probe/` — auto-detected, **not** declared |
 | 2 | hook | L3 | `.claude/settings.json` → `hooks/envchk_session_start.py`, fired at `SessionStart` |
 | 3 | plugin | L3 | `.claude/plugins/` — a local marketplace, installed with `claude plugin install` |
-| 4 | external MCP server | **L2** | `agent_sys/agent_plugins/envchk-baseline/.claude/.mcp.json` |
+| 4 | external MCP server | **L2** | `agent_sys/env_mgr/addons/envchk-baseline/.claude/.mcp.json` |
 | 5 | bundled stdio MCP server | L3 | `.claude/tools/envchk_stdio.mcp.py` — the file's location is the declaration |
 | 6 | in-process `ToolDef` | L3 | `.claude/tools/envchk_inproc.tooldef.py` → `mcp__env_mgr__envchk_echo_token` |
 | 7 | serena | **L1** | `recipes: [serena]` — the real thing, over the network |

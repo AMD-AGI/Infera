@@ -2,7 +2,7 @@
 """`envchk_stdio` — a **bundled** stdio MCP server. L3.
 
 The difference between this file and
-`agent_sys/agent_plugins/envchk-baseline/.claude/servers/envchk_baseline_server.py`
+`agent_sys/env_mgr/addons/envchk-baseline/.claude/servers/envchk_baseline_server.py`
 is not what it does — both speak the same four JSON-RPC methods and both return
 a nonce-derived token — it is **how it is declared**:
 

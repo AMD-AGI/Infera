@@ -20,7 +20,7 @@ main                        non-leaf: readme, no entry.sh, NO agent
 | 1 | skill | L3 | `assets/env_probe.agent/.claude/skills/envchk-probe/` — auto-detected |
 | 2 | hook | L3 | `.claude/settings.json` → `hooks/envchk_session_start.py`, at `SessionStart` |
 | 3 | plugin | L3 | `.claude/plugins/` — a local marketplace, `claude plugin install` |
-| 4 | external MCP server | **L2** | `agent_sys/agent_plugins/envchk-baseline/.claude/.mcp.json` |
+| 4 | external MCP server | **L2** | `agent_sys/env_mgr/addons/envchk-baseline/.claude/.mcp.json` |
 | 5 | bundled stdio MCP server | L3 | `.claude/tools/envchk_stdio.mcp.py` — location is the declaration |
 | 6 | in-process `ToolDef` | L3 | `.claude/tools/envchk_inproc.tooldef.py` → `mcp__env_mgr__envchk_echo_token` |
 | 7 | serena | **L1** | `recipes: [serena]` — the real thing, over the network |
@@ -88,15 +88,15 @@ assets/
   check_capabilities_genuine.validator/
 ```
 
-`agent_sys/agent_plugins/envchk-baseline/` is L2 and lives outside this package on
+`agent_sys/env_mgr/addons/envchk-baseline/` is L2 and lives outside this package on
 purpose: a component that only one package can reach is not a component.
 
 ## Known gaps
 
 Written down rather than left to be discovered.
 
-1. **`$AGENT_SYS_AGENT_PLUGINS_ROOT` is expected and not yet exported.** A task
-   package is staged into a zone, so `agent_sys/agent_plugins/` — a *repository*
+1. **`$AGENT_SYS_ADDONS_ROOT` is expected and not yet exported.** A task
+   package is staged into a zone, so `agent_sys/env_mgr/addons/` — a *repository*
    path — has no relative route from it. `check_capabilities_genuine` takes that
    variable first and searches upwards from the package second; in a staged run
    only the variable can answer, and when neither does, the L2 capability is
@@ -149,7 +149,7 @@ itself, and cross-checks it against the install report — but that cross-check 
 
 **Trigger: already met.** Runs 3 and 4 established by measurement that a real
 validation zone **does** carry the environment — `check_capabilities_genuine`
-re-derived the L2 row, which requires `AGENT_SYS_AGENT_PLUGINS_ROOT`, and the
+re-derived the L2 row, which requires `AGENT_SYS_ADDONS_ROOT`, and the
 upward-search fallback cannot fire from a zone. So the validator can read
 `$AGENT_SYS_INSTALL_REPORT` **itself** and the comparison stops depending on the
 agent. Three lines in a body that already reads that file. Not done this round
@@ -325,4 +325,4 @@ the staged source path at run time.
 - `examples/single_real_task/` — the AI-task template this package's shape,
   validator layout and `assets/lib/zone.py` come from.
 - `examples/demo/main.yaml` — the non-leaf root.
-- `agent_sys/agent_plugins/README.md` — the L2 contract.
+- `agent_sys/env_mgr/addons/README.md` — the L2 contract.

@@ -32,7 +32,7 @@ capability goes under `.claude/` and anything that is not, must not.
 ```
 
 Capability 4 (an external MCP server) is **not** here: it is L2, and it comes
-from `agent_sys/agent_plugins/envchk-baseline/`, named by the agent spec's
+from `agent_sys/env_mgr/addons/envchk-baseline/`, named by the agent spec's
 `agent_plugins:` key. Capability 7 (serena) is L1, named by `recipes:`. One run
 therefore crosses all three levels, which is the only reason this package needs
 seven capabilities rather than two.
@@ -61,6 +61,6 @@ here.
 
 There could be, and leaving it out is a decision. If this directory declared an
 external MCP server too, capability 4 would be provable from L3 alone and the
-run would never need `agent_sys/agent_plugins/` — which would leave L2 declared and
+run would never need `agent_sys/env_mgr/addons/` — which would leave L2 declared and
 untested. The one external server in this run comes from the component
 precisely so that its absence is a failure.
