@@ -282,6 +282,37 @@
 - module: task
   name: run_profiling_mode_off
   description: Bring the service up with CUDA graph on, run the load with no profiler, tear it down.
+  # ------------------------------------------------------------------------- #
+  # **`agent: runner` is literal here and in the two closures below, and it must
+  # stay that way. Do not make it `${m2_agent:-<an ai>}`.**
+  #
+  # That edit is the natural tidying for someone to do: m1, m3, m4 and m5 all
+  # read `agent: '${mN_agent:-…}'` (`m1_deploy.yaml:325`, `m3_analysis.yaml:390`,
+  # `m4_kernel_opt.yaml:458`, `m5_integration.yaml:592`), so m2 looks like the
+  # odd one out. It is not; it is the one stage with no `kind: ai` body, and the
+  # asymmetry is the design.
+  #
+  # **What the edit would cost.** A `kind: ai` task never runs `entry.sh`, so
+  # everything only the program knows would have to move into a brief at once —
+  # and `assets/load/line.sh` is 402 lines holding **16 exit sites** (6 with
+  # their own diagnostic, 10 propagating a sub-script's) plus **7 `:?` guards**
+  # on required variables, among them the node-identity check at `:192` that
+  # refuses when the kit's node is not the node we are on.
+  #
+  # **An `env:` block cannot carry them.** `agent/runner.py:801` is explicit:
+  # *"an env var cannot instruct an agent. A conversation is not a process
+  # reading `os.environ`."* An `env:` entry makes a value reachable; only a
+  # brief makes it used. So the refusals would not degrade — they would be
+  # absent, and the first symptom is a plausible number measured against a
+  # deployment nobody checked.
+  #
+  # m3 found this class the other way round on `build_workset`, where promotion
+  # to `ai` silently dropped the container step and the card check. Their
+  # sentence: *the mock is not a weaker version of the real path — it is the
+  # only version that carries the knowledge.* Here the same fact points the
+  # opposite way: m2 runs one file in both modes, so its guards **gain** effect
+  # at promotion instead of vanishing. That only holds while this line is
+  # literal. CONTRACT.md §4.4 sixth face; `todo.md` T51's preventive shape.
   agent: runner
   handoffs: [deploy_kit, profiling_mode_off.bench_result]
   validators: []
@@ -299,6 +330,8 @@
 - module: task
   name: run_profiling_mode_on
   description: Bring the service up with CUDA graph off, run the same load under the profiler, rank the kernels, tear it down.
+  # `agent: runner` is literal on purpose — see the note above
+  # `run_profiling_mode_off`. Do not make it `${m2_agent:-…}`.
   agent: runner
   handoffs:
     - deploy_kit
@@ -326,6 +359,8 @@
 - module: task
   name: merge_profiling_evidence
   description: Fold both lines into stage 2's single export.
+  # `agent: runner` is literal on purpose — see the note above
+  # `run_profiling_mode_off`. Do not make it `${m2_agent:-…}`.
   agent: runner
   handoffs:
     - profiling_mode_off.bench_result
