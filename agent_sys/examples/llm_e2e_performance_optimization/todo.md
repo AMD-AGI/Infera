@@ -2663,6 +2663,5 @@ when both rest on the assumption being tested.**
    query, and nothing in the output distinguishes them.** Three of the four were
    empty output read as a fact.
 
-Related in kind, different in layer: `mem:` none — see **T52** for the `df` case
-in full, and CONTRACT §4.4's sixth face for the launch-var version of the same
+Related in kind, different in layer: see **T52** for the `df` case in full, and CONTRACT §4.4's sixth face for the launch-var version of the same
 shape (a name that resolves while the value it names is false).
