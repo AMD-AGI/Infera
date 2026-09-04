@@ -218,6 +218,35 @@ esac
 echo "run_in_container: observed $(printf '%s' "$CSTATE" | tr ' ' '\n' | grep -E '^E2E_(ID|CREATED|STARTED|RESTARTS)=' | tr '\n' ' ')" >&2
 echo "run_in_container: record claims started_at=$(_field runtime.started_at)" >&2
 
+# **In the artefact, not only in the log** — the leader's ruling on T34,
+# 2026-09-04: keep `premise.run_environment` meaning exactly what it means
+# today (m1's record, carried faithfully) and put the observation *beside* it,
+# so a later premise gate can compare the two instead of a reader comparing two
+# log lines. A field that silently changed meaning would be worse than one that
+# is honestly narrow.
+#
+# `KFO_SCRATCH_ROOT` because it is the one directory this wrapper already owns
+# and already reclaims below. Absent, the observation is logged and not
+# recorded, which is the pre-existing behaviour rather than a failure: a body
+# that does not declare a scratch root has nowhere for this to live and should
+# not have one invented for it.
+if [ -n "${KFO_SCRATCH_ROOT:-}" ]; then
+  mkdir -p "$KFO_SCRATCH_ROOT" 2>/dev/null || true
+  _get() { printf '%s' "$CSTATE" | tr ' ' '\n' | sed -n "s/^$1=//p" | head -1; }
+  cat > "$KFO_SCRATCH_ROOT/observed_runtime.json" <<JSON || true
+{
+  "container": "$CONTAINER",
+  "container_id": "$(_get E2E_ID)",
+  "created": "$(_get E2E_CREATED)",
+  "started_at": "$(_get E2E_STARTED)",
+  "restart_count": "$(_get E2E_RESTARTS)",
+  "node": "${E2E_NODE:-}",
+  "record_claims_started_at": "$(_field runtime.started_at)",
+  "observed_by": "run_in_container.sh"
+}
+JSON
+fi
+
 # **Single-quote for the shell that will re-parse this, escaping embedded
 # quotes.** `on` hands its argument to a `bash -lc`, so everything assembled
 # below is parsed by a shell one more time. Wrapping in bare `'...'` breaks the

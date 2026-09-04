@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import re
 import shutil
 import sys
@@ -305,6 +306,26 @@ def main() -> int:
     operator_id = str(pinned["operator_id"])
 
     premise = lib.load_json(state / "premise.json")
+
+    # **The observation beside the claim, never merged into it** (leader's
+    # ruling on T34). `premise.run_environment` is m1's record carried
+    # verbatim — true of the container it was written about, and silent about
+    # whether that is the container that did this work. m1 measured the gap:
+    # a record saying `started_at 09:03:51` against a container whose `Created`
+    # and `StartedAt` were both `09:37:18` with `RestartCount 0`, which is a
+    # different container wearing the same name while every field validates.
+    #
+    # `run_in_container.sh` is the only code here that touches docker, so it is
+    # the only place that can observe this, and it writes what it saw into the
+    # scratch root. Absent — no container step ran, or no scratch root was
+    # declared — the key is simply not emitted, because inventing an empty
+    # observation would let a reader mistake "not looked at" for "looked at and
+    # matched".
+    observed = state.parent / "scratch" / "observed_runtime.json"
+    if not observed.is_file() and os.environ.get("KFO_SCRATCH_ROOT"):
+        observed = Path(os.environ["KFO_SCRATCH_ROOT"]) / "observed_runtime.json"
+    if observed.is_file():
+        premise["observed_runtime"] = lib.load_json(observed)
     held = bool((premise.get("verdict") or {}).get("held"))
 
     forge_result = {}

@@ -68,7 +68,28 @@
         },
         "run_environment": {
           "$ref": "environment.schema.json",
-          "description": "Where m4 actually ran. In `e2e-flow` these two should be the same machine, because m1–m4 share one container on one node (CONTRACT §5); the fields exist so that 'should be' is checked rather than assumed."
+          "description": "**m1's `deploy_kit` record, carried verbatim** — `10_read_inputs.py` fills it with `lib.load_environment()` and observes nothing. In `e2e-flow` this should describe the machine m4 ran on, because m1–m4 share one container on one node (CONTRACT §5), and the field exists so that 'should be' is checked rather than assumed.\n\n**It is a claim, not an observation, and the name oversells it.** Kept as-is deliberately (leader's ruling on T34, 2026-09-04): a field that silently changes meaning is worse than one that is honestly narrow. `observed_runtime` beside it is the observation."
+        },
+        "observed_runtime": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "**What the container actually was, observed at exec time — beside `run_environment`, never merged into it.**\n\nm1 measured the gap on 2026-09-04: a record saying `started_at: 09:03:51Z` against a container reporting `Created == StartedAt == 09:37:18Z` with `RestartCount: 0`. A restart preserves creation time and increments the counter, so this was a *different container wearing the same name* — every field validated and the join between record and machine was unchecked. `run_in_container.sh` is the only code in this stage that touches docker and so the only thing that can see it.\n\n**Absent when no container step ran**, which is not the same fact as an observation that matched. That is why it is optional and never defaulted.",
+          "properties": {
+            "container": {"type": "string"},
+            "container_id": {
+              "type": "string",
+              "description": "The immutable id. A name is rebindable and an id is not, which is what makes the comparison possible at all."
+            },
+            "created": {"type": "string"},
+            "started_at": {"type": "string"},
+            "restart_count": {"type": "string"},
+            "node": {"type": "string"},
+            "record_claims_started_at": {
+              "type": "string",
+              "description": "`runtime.started_at` from the record, copied here so the claim and the observation sit in one place instead of two files."
+            },
+            "observed_by": {"type": "string"}
+          }
         },
         "verdict": {
           "type": "object",
