@@ -666,3 +666,143 @@ not exercise the sequencing, the mount, or the patch-live evidence — which are
 the three things that have never run. If even ~25 minutes cannot be held, the
 finding is that **Brief item 3 is not achievable in this environment**, and that
 is a fact about the allocation rather than about this stage.
+
+## Standalone verification — m1 (`deploy_and_prove`)
+
+The fifth of five, in m4's four headings. **m1 is the opposite of m4's case: it
+is the stage that has run most**, and the one whose standalone is cheapest to
+*set up* and dearest to *execute* — because the thing it verifies is a real
+model bring-up and there is no honest way to make that fast.
+
+### 1. The command, in full
+
+```sh
+python3 -m agent_sys.cli.main run \
+  --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+  --demo-root /home/yihou/agent_sys_runroot \
+  --var jobid=<JOBID> --var node=<NODE> --var node_ip=<NODE_IP> \
+  --var model_name=Qwen/Qwen3.6-27B \
+  --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
+  --var image=<AN IMAGE THAT CONTAINS infera> \
+  --var gpu_devices=0,1,2,3 --var tp=4 \
+  --var parser_args="--reasoning-parser qwen3" \
+  --var transport=spur --var transport_env="SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR" \
+  --var mock_stages=m2,m3,m4,m5 \
+  --var m2_agent=runner --var m3_agent=runner --var m4_agent=runner --var m5_agent=runner \
+  --var expect_ranks=2 --var adhoc_cases=0
+```
+
+**`m1_agent` is deliberately absent**, for m4's reason: leaving it out keeps the
+real `kind: ai` agent, which is the point.
+
+**`mock_stages` is `m2,m3,m4,m5` and NOT `all`, and this is the one place m1's
+command cannot be copied from m4's.** m4's readme never mentions `mock.sh`, so
+`mock_stages=all` leaves their ai agent unaffected — their mock lives in
+`entry.sh`, which a `kind: ai` closure does not run. **`deploy_and_prove`'s
+readme calls `mock.sh` itself, at STEP 0** (`readme.md:71`, 3 references).
+So with `mock_stages=all` the real agent dutifully mocks and stops, and the run
+looks like a pass having deployed nothing. Measured across the four ai readmes:
+`deploy_and_prove` 3, `optimize_kernel` 0, `build_workset` 0,
+`integrate_and_verify` 0. **m1 is the exception; copying m4's line silently
+verifies nothing.**
+
+Three more with reasons that have each cost something:
+
+- **`image` must contain `infera`.** Not "a recent sglang" — the kit runs
+  `python -m infera.engine.sglang` and `python -m infera.server`, so a plain
+  sglang image cannot serve it at any version. Measured on three of them:
+  `ModuleNotFoundError: No module named 'infera'`. `nodeprobe.sh`'s **READY**
+  means *a base carrying the build anchor is present*, **not that a servable
+  image exists** — 006 and 217 happened to carry one, 235 did not.
+- **`gpu_devices`** — optional, and passing it is what exercises the branch that
+  has never run: a named set means *use exactly these and stop if one is not
+  free*, rather than choose. Omit it (`none`) to exercise the discovery path
+  instead. Both are worth doing; they are different tests.
+- **`transport_env`** — a validator declares no agent, so the package's `env`
+  block never reaches `check_deploy_serves`. Without this it refuses **in one
+  second** with `failed to connect to controller`, which reads exactly like a
+  deployment failure and has cost several runs.
+
+### 2. What it consumes — nothing, and that is the point
+
+**m1 is the only stage whose standalone needs no other module's artefact.**
+`deploy_and_prove` declares `inputs: []`; `deploy_kit` is the flow's root
+handoff. Every other standalone has had to source a real upstream input — m4
+needed one of m3's worksets *paired with the deploy_kit from the same bring-up*,
+m5 needs the chain below it.
+
+So the setup cost is a node, a model on disk and an image. There is no "where do
+I get a real one" question, because m1 **is** where the real one comes from: the
+`deploy_kit` this run seals is exactly what m2, m3, m4 and m5's standalones
+consume.
+
+### 3. What it costs — measured, and the expensive part is irreducible
+
+Measured on the 2026-09-04 rung-1 run (249, TP-1 bring-up, all three validators
+green):
+
+| step | needs | time |
+|---|---|---|
+| package load, `show` | nothing | < 1 s |
+| image build, **if the node has no infera image** | disk + network | **~4 min** (base local); a base pull is ~120 GB |
+| `deploy_and_prove` — the AI agent | node + cards | **40 min 33 s** |
+| `check_environment` | nothing | seconds |
+| `check_deploy_kit` | nothing | seconds — pure static, `cost: seconds` |
+| `check_deploy_serves` | node + cards | a **second** full bring-up, 11 probes, a 1k/1k conc-16 **180 s** load, teardown |
+
+**`deploy_and_prove`'s 40 minutes is an AI agent's session, not a weight load** —
+worth stating because the sealed kit documents its own bring-up at 186 s and
+anyone sizing a budget from that number is out by a factor of thirteen.
+
+**Two knobs shorten it and neither is free.** `deploy_load_seconds` (default 180)
+and the rest of the load shape are overridable *"so a wiring run costs seconds"*
+— but the bring-up dominates, so shortening the load saves ~2 minutes of ~50 and
+weakens the one validator that grades sustained behaviour. **Not recommended:
+unlike m4's `forge_mock=1`, there is no cheap mode here that leaves the proof
+intact**, because m1's expensive step *is* the thing being proven.
+
+### 4. The smallest honest proof — does it agree, and can it disagree
+
+**Does it agree.** Three validators, in cost order, and all three graded a real
+engine on 2026-09-04:
+
+```
+check_environment    PASS   completeness / strong
+check_deploy_kit     PASS   completeness / strong
+check_deploy_serves  PASS   usability / strong
+```
+
+The third is the one that matters: it takes **the kit the agent just wrote**,
+redeploys it under a *different* run tag, port band and work root, probes it,
+loads it and tears it down. A kit that only works for its author fails there.
+
+**Can it disagree — yes, and each of these has fired on a real artefact:**
+
+| refusal | what produced it |
+|---|---|
+| `environment.md does not render fixed.image` | a wrong `--var` reaching a real record |
+| `nothing reads ${E2E_KIT_GPU_DEVICES:=…}` | a kit sealed before the parameter existed — fixed in the adapter, not by an exemption |
+| `fixed.gpu_devices has 9 entries but fixed.gpu_count is 8` | the record-internal invariant, on a planted fault |
+| `no router-side reading of "disagg_mode"` | one component agreeing with itself |
+| the model served under a filesystem path | `--served-model-name` omitted |
+
+`gate.sh` keeps this honest: it runs `check_deploy_kit` against the real sealed
+kit (**must pass**) and against the same kit with **twelve planted faults**
+(**each must be reported**). Four minutes, no node. **Run it before committing
+anything to the layout** — a schema tightening that refused the sealed kit
+reached a live run on 2026-09-04 because the author verified the yaml parsed and
+never ran the gate. *Structure is not behaviour.*
+
+**What a green standalone does NOT prove**, and this is the half worth keeping:
+
+- **one model, one node, one shape, once.** Not that the flow is parameterised:
+  rung 1 on 249 passed all three validators while **four `--var`s were inert**,
+  because a `kind: ai` agent received no `E2E_*` at all and the agent recovered
+  the values from the sealed kit's defaults. Right answer, wrong mechanism.
+- **it says nothing about whether m1's record is consumable downstream**, because
+  at this rung m2–m5 replay sealed handoffs and read their own records. The
+  one-authority-two-readers property is first tested at rung 2.
+- **`check_deploy_serves` grades shape, not answer.** Its completion probe
+  asserts `finish_reason: stop`, non-empty `content`, and a model id that is not
+  a path — so a deployment that returns 526 characters of chain-of-thought where
+  the answer should be **passes**. Measured, `todo.md` T21/T28.
