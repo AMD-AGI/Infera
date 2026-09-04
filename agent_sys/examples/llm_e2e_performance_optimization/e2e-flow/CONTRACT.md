@@ -248,6 +248,49 @@ this is the shell form that does it. Where empty is a meaningful value — a
 deliberate "not set to anything" — use the colonless form, and prefer
 `${VAR?message}` where absence is an error.
 
+#### And **declaring a name with an empty default is not a no-op**
+
+The same distinction one level up, and the leader shipped it as a live
+regression the same afternoon it was written down.
+
+`60bd848` added `E2E_STAGE: '${stage:-}'` to `runner`, to declare a name that
+shared libraries were reading and nobody declared. **A declared-empty variable
+is *present*.** So every body coping with the name's *absence* changed
+behaviour that instant:
+
+```
+unset            environment.setdefault("E2E_STAGE", "m4")  ->  'm4'
+declared empty   environment.setdefault("E2E_STAGE", "m4")  ->  ''
+```
+
+`setdefault` fills a **missing** key and leaves a present-but-empty one alone.
+Same for `${VAR:=…}`.
+
+**And it hit the only stage that was doing the right thing.** m4 was the sole
+caller in the package setting `E2E_STAGE` at all — 21 other callers of
+`env_render.py` set nothing — so declaring the name **took the one stage that
+stamped `warnings[].stage` correctly and made it match the twenty-one that did
+not.** Found by m4 running the leader's own new checker against their own agent
+rather than assuming it passed; fixed in `7028275` by guarding on truthiness.
+
+So: **before adding a name to `shared.yaml`, grep for `setdefault("<name>"` and
+`${<name>:=` in `assets/`.** Coping-with-absence is a contract a declaration
+breaks, and it breaks it silently and in the direction of the code that was
+already correct.
+
+#### A checker that makes people write worse comments is doing net harm
+
+m4's, from the same commit. `check_agent_env.py` greps `.sh`/`.py` for
+`E2E_[A-Z_]+`, so **a name in a comment counted as a read** — and their fix,
+which *removed* a reader and left the name in the comment explaining why, was
+reported as a problem. The repair they were pushed into was to reword the
+comment: *"the fix made the comment slightly worse to keep a grep happy."*
+
+Whole-line `#` comments are now stripped from code before matching. **Markdown
+is exempt on purpose** — for a `kind: ai` closure the readme *is* the program,
+so a variable named in prose is one the agent will try to read, and there is no
+comment/code distinction to draw there.
+
 **Write both fallbacks in every `entry.sh`, task and validator alike.** A
 validator's *input* phase gets the GLOBAL environment row and **never**
 `AGENT_SYS_TASK_PACKAGE`

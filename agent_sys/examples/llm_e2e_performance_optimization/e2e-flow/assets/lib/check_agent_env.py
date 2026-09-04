@@ -182,9 +182,28 @@ def _referenced(dirs: list[pathlib.Path], lib: pathlib.Path) -> dict[str, str]:
                 text = path.read_text(errors="replace")
             except OSError:
                 continue
-            for name in _REF.findall(text):
+            for name in _REF.findall(_strip_comments(path, text)):
                 seen.setdefault(name, str(path))
     return seen
+
+
+def _strip_comments(path: pathlib.Path, text: str) -> str:
+    """Drop whole-line `#` comments from code. **Not from markdown.**
+
+    m4, 2026-09-04: their fix removed a reader of `E2E_MEASURE_GPU` and left the
+    name in the comment *explaining why they no longer use it* — and this check
+    still reported it. **A false problem caused by documentation**, and the
+    repair they were pushed into was to reword the comment. Their words: *"the
+    fix made the comment slightly worse to keep a grep happy."* A checker that
+    makes people stop naming variables in comments is doing net harm.
+
+    Markdown is deliberately exempt: for a `kind: ai` closure the readme **is**
+    the program, so a variable named in prose is one the agent will try to read.
+    There is no comment/code distinction there to draw.
+    """
+    if path.suffix == ".md":
+        return text
+    return "\n".join("" if line.lstrip().startswith("#") else line for line in text.splitlines())
 
 
 def main(argv: list[str] | None = None) -> int:
