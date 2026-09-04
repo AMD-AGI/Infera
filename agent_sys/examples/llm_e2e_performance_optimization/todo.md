@@ -585,3 +585,39 @@ usable, one taken.*
 Not blocking. Recorded rather than fixed **because the fix is a definition and
 the definition is entangled with T19** — writing a criterion first would bake in
 whichever meaning m1 happened to pick.
+
+---
+
+### T24 — a fallback nobody can reach is still a second reader of the number
+
+**m5. Not blocking; the live half is fixed and this is what is left of it.**
+
+`assets/accept/measure.sh:120-122,184-185,315-316` reads its load shape as
+`${E2E_MAX_CONC:-256}`, `${E2E_WORKERS:-16}`, `${E2E_BLOCK_SIZE:-512}`,
+`${E2E_REQ_TIMEOUT:-900}` and `${E2E_TRACE_END_MS:-120000}`. `shared.yaml`'s
+`runner` declares 32, 8, 512 and 900; `e2e_integrator` now declares the same
+four, plus 60000 for the trace window, deliberately.
+
+**The live defect is fixed.** Until those declarations landed, none of the four
+reached this stage at all — a name only `runner` declares does not reach a
+`kind: ai` agent (`env_mgr/material.py:96`) — so the script's fallbacks won and
+m5 replayed at **concurrency 256 against m2's 32**, with `--var max_conc=` inert
+on one side of a comparison M5.1.3.1 requires to hold within
+`stock_vs_m2_tolerance`. Found by re-running the leader's omission check over
+m5's manifest after `shared.yaml` grew; the checker's first pass named only
+`E2E_REMOTE_HOME` because these four were not yet on `runner`.
+
+**What is left is three numbers for one knob** and no way to tell which is
+intended: `E2E_TRACE_END_MS` is 180000 on `runner`, 60000 here, 120000 in the
+script. The declaration wins wherever the graph runs the script, so the
+fallbacks are unreachable *there* — but `measure.sh` is also meant to be run by
+hand, which is the case the fallbacks exist for, and by hand it measures
+something the graph never would.
+
+**Not reconciled here, because the right value is a measurement and not an
+edit.** 256/16 was the shape some earlier run wanted; 32/8 is what `runner`
+carries now; nobody has said which the two-arm comparison should use, and
+picking one in a comment is how a number acquires a third reader. What settles
+it: one owner states the offered load the m2-vs-stock comparison assumes, once,
+and both the declaration and the fallback cite it.
+

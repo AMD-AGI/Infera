@@ -53,6 +53,32 @@
     E2E_NODE: '${node}'
     E2E_NODE_IP: '${node_ip}'
     E2E_TRANSPORT: '${transport:-auto}'
+    # **Declared because this stage's readme sends the agent to `remote.sh`**
+    # (STEPS names it twice), and `remote.sh:150` exports
+    # `HOME=${E2E_REMOTE_HOME:-$HOME}` on the far side. Without the declaration
+    # the variable never reaches a `kind: ai` agent at all —
+    # `env_mgr/material.py:96` reads the `env` block off the agent that is
+    # running, so a name only `runner` declares is absent here.
+    #
+    # m1's account, and it is a fault rather than a hypothetical: `spur exec`
+    # lands with `HOME=/opt/spur`, which is not writable, and a `docker build`
+    # there dies `mkdir /opt/spur/.docker: permission denied` — naming neither
+    # docker nor HOME. This stage brings up two arms and does not build, so it
+    # has not been bitten; that is a fact about what m5 happens to run, not a
+    # reason for the parameter to be missing.
+    #
+    # The `:-$HOME` fallback saves us only because `$HOME` expands in the
+    # **local** shell and `/home` is shared writable NFS here. On a cluster where
+    # the login home is not visible from the node it is silently wrong, and this
+    # variable is the only fix.
+    #
+    # Empty default, matching `runner` (`shared.yaml:260`) and `m1_deploy.yaml:142`
+    # exactly. Safe here: nothing in m5's manifest reads it through
+    # `os.environ.setdefault` or `${E2E_REMOTE_HOME=…}`, the two forms that fill a
+    # *missing* key and leave a present-but-empty one alone. Checked rather than
+    # assumed, because declaring a name is not free — a declaration turns
+    # "absent" into "present and empty", which is what broke m4.
+    E2E_REMOTE_HOME: '${remote_home:-}'
     E2E_MODEL_NAME: '${model_name}'
     E2E_MODEL_PATH: '${model_path}'
     E2E_SERVED_NAME: '${served_name:-}'
@@ -82,6 +108,30 @@
     E2E_EVAL_EXAMPLES: '${eval_examples:-100}'
     E2E_BENCH_ROUNDS: '${bench_rounds:-1}'
     E2E_TRACE_END_MS: '${trace_end_ms:-60000}'
+    # **The replay's load shape, and leaving these undeclared was not cosmetic.**
+    # Found by re-running the leader's omission check over m5's own manifest
+    # after `shared.yaml` grew: `assets/accept/measure.sh:120-122` reads all four,
+    # none was declared here, and a name only `runner` declares does not reach a
+    # `kind: ai` agent (`env_mgr/material.py:96`). So the script's own fallbacks
+    # won — `MAX_CONC=256`, `WORKERS=16` — against `runner`'s 32 and 8.
+    #
+    # That is an 8x and a 2x difference in offered load between m2's bench and
+    # m5's arms, and **M5.1.3.1 requires those two to be comparable**: the stock
+    # arm must reproduce m2's `profiling_mode_off` bench within
+    # `stock_vs_m2_tolerance`. Two stages replaying the same trace at different
+    # concurrency do not measure the same thing, and `--var max_conc=` would have
+    # been inert here while m2 obeyed it — the operator changes one number and
+    # gets one stage.
+    #
+    # Values are `runner`'s exactly. With them declared, `measure.sh`'s `:-256`
+    # and `:-16` become unreachable; they are left in place as a script that must
+    # still run by hand, and they disagree with these — recorded in `todo.md`
+    # rather than silently reconciled, because a fallback nobody can reach is a
+    # second reader of a number and that is the seam this package keeps finding.
+    E2E_MAX_CONC: '${max_conc:-32}'
+    E2E_WORKERS: '${workers_max:-8}'
+    E2E_BLOCK_SIZE: '${block_size:-512}'
+    E2E_REQ_TIMEOUT: '${req_timeout:-900}'
     E2E_NEEDLE_TOKENS: '${needle_tokens:-31000}'
     E2E_NEEDLE_FRONTIER_TOKENS: '${needle_frontier_tokens:-0}'
     E2E_NEEDLE_DEPTHS: '${needle_depths:-0.02,0.5,0.98}'
