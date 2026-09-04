@@ -1098,7 +1098,14 @@ def main() -> int:
         for problem in problems:
             print(f"{hid} problem: {problem}")
     # Before the verdict, so a crash in the writer cannot take the reasons.
-    W.write_report("check_speedup_substantiated", findings)
+    # **`verdicts` so the heading comes from the verdict, not from a proxy
+    # for it.** Every `return False` in this body appends a problem first —
+    # verified path by path, 2026-09-04 — so the problems list is non-empty
+    # exactly when the verdict is false, and passing it changes nothing
+    # today. **It is true by inspection and not by construction**: one bare
+    # `return False` added later and `write_report` would head a refusal as
+    # a pass, silently, which is T49. m5 passes it in all seven of theirs.
+    W.write_report("check_speedup_substantiated", findings, verdicts)
     # One entry per declared handoff. A missing entry raises at `PhaseRunner`'s
     # seam rather than folding as falsy.
     zone.write_verdict(verdicts)

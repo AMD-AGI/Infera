@@ -777,7 +777,14 @@ def main() -> int:
     # **Before `write_verdict`, deliberately.** m3's ordering: a crash in the
     # report writer must not take the reasons with it, and a verdict that
     # arrives without them is the state this exists to end.
-    W.write_report("check_optimization_shape", findings)
+    # **`verdicts` so the heading comes from the verdict, not from a proxy
+    # for it.** Every `return False` in this body appends a problem first —
+    # verified path by path, 2026-09-04 — so the problems list is non-empty
+    # exactly when the verdict is false, and passing it changes nothing
+    # today. **It is true by inspection and not by construction**: one bare
+    # `return False` added later and `write_report` would head a refusal as
+    # a pass, silently, which is T49. m5 passes it in all seven of theirs.
+    W.write_report("check_optimization_shape", findings, verdicts)
     zone.write_verdict(verdicts)
     print(f"check_optimization_shape: {sum(verdicts.values())}/{len(verdicts)} passed")
     return 0
