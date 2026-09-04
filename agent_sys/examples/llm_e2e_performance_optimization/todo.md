@@ -2954,3 +2954,43 @@ and m2's jointly; the lead recorded the exact fix instead of applying it, so tha
 landing it is a minute's work rather than a rediscovery. The team was unreachable
 for 2 h 20 min when this was written, and 217 sat idle rather than being spent on
 a run that would refuse identically.
+
+### Correction to the addendum — the direct parameter is the better lever, and the real gap is `KIT_ENV_PREFIX`
+
+The addendum above recommended unpinning `E2E_KIT_ENGINE_EXTRA_ARGS` at
+`line.sh:78`. **Reading the sealed kit itself shows a cleaner lever and a
+different gap.** From rung 2e's own `deploy_kit`, not from a comment:
+
+```
+scripts/env.sh:95            : "${E2E_KIT_CUDA_GRAPH_MAX_BS:=16}"
+scripts/env.sh:101           : "${E2E_KIT_ENGINE_EXTRA_ARGS:=}"
+scripts/start_worker.sh:91       --cuda-graph-max-bs '${E2E_KIT_CUDA_GRAPH_MAX_BS}' \
+scripts/start_worker.sh:95       ${E2E_KIT_ENGINE_EXTRA_ARGS}
+```
+
+**Both are `:=`**, so an inherited value wins for either. And `EXTRA_ARGS` really
+is last on the argv — line 95, four lines after the ceiling flag — so the comment
+was accurate. **Two working levers, not one.**
+
+**But the direct parameter is better**: `E2E_KIT_CUDA_GRAPH_MAX_BS=32` sets the
+value the kit is built around, where the EXTRA_ARGS route sets the same flag a
+second time and relies on last-wins. One is configuration; the other is an
+override of an override.
+
+**And the gap is not `line.sh:78`. It is `line.sh:223`:**
+
+```bash
+KIT_ENV_PREFIX="E2E_KIT_RUN_TAG='$E2E_KIT_RUN_TAG' \
+  E2E_KIT_PORT_BASE='$E2E_KIT_PORT_BASE' \
+  E2E_KIT_WORK_ROOT='$E2E_KIT_WORK_ROOT'"
+```
+
+Three variables. **The ceiling is not among them, so it never reaches the kit at
+all** — which is why stage 2 inherits stage 1's choice silently. Adding a fourth
+line in the identical pattern is the whole change, and **passing it empty is safe
+precisely because `env.sh:95` uses `:=`** — a null value takes the default 16, so
+the behaviour is identical until someone sets it.
+
+**Still m2's file and still not applied by the lead.** The correction is recorded
+because the addendum's advice would have worked by the weaker route while leaving
+the actual gap in place.
