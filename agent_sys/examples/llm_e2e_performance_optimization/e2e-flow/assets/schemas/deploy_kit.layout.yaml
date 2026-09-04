@@ -114,6 +114,24 @@ entries:
         #
         # The `<=` relation below is unaffected and applies whenever the field
         # is present, which is the half that catches a record that *lies*.
+        #
+        # **FLIP IT WHEN: every producer in the flow writes this field.** That
+        # is the condition, and it is why this is a decision with an expiry
+        # rather than a permanent shrug. Today absence is ambiguous — it means
+        # either *"this record predates the field"* (the sealed kit, honestly)
+        # or *"this producer did not record what it took"* (worth failing on),
+        # and a rule cannot tell them apart. Once no producer omits it, only the
+        # second meaning is left and `fault` costs nothing correct. m1 is done;
+        # the condition is m3/m4/m5, whenever their stages write records
+        # carrying a device set.
+        #
+        # **Not by giving the gate's fixture a `gpu_devices`.** That was
+        # considered and rejected by the leader, on the grounds it is changing
+        # the test to fit the rule — the same move as widening a bar to make a
+        # measurement pass. The sealed 2026-09-02 record is *evidence*: it was
+        # correct when written, and a rule that retroactively invalidates a
+        # correct artefact is a rule about our calendar rather than about the
+        # artefact.
         on_absent: skip
         required_unless: runtime.replayed_from
         err: >-
