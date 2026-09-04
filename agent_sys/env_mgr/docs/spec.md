@@ -76,6 +76,7 @@ internally.
 | 5 | **Work on a copy** | An agent copies a handoff into its playground and works there. §6.3 |
 | 6 | **A mechanism, not a manager** | §1.1 |
 | 7 | **Reuse what shipped** | The recipe, layer, and installer machinery is not rewritten. §9 |
+| 8 | **Shared by default; per-agent only for what the harness reads** | A declared install lands in one shared root. The exception is agent-facing material — a `.claude/` tree — which lands in that agent's zone. §9.1 |
 
 ---
 
@@ -457,6 +458,39 @@ config, so a fresh machine can run an agent without hand-setup.
 
 The shipped README records three v1 limitations. The stubbed workspace layer is
 superseded by §6.1; the other two stand.
+
+### 9.1 Where an installed thing lands
+
+Two destinations, and the rule that picks between them is one question.
+
+| destination | what goes there |
+|---|---|
+| **the shared root** | everything else: binaries, language packages, OS packages, a tool an agent shells out to |
+| **the agent's zone** | only material an agent harness reads as its own configuration — a `.claude/` tree: skills, hooks, `settings.json`, an MCP declaration |
+
+> **The test: would two agents in the same run need different copies of it?**
+> If no, it is shared and is installed once.
+
+`serena` is the worked example, because it is both: the **binary** is one
+installation every agent uses, and the `.mcp.json` that names it — with that
+agent's own `--project` — is per-agent. They are two things, not one thing in two
+places, and only the second is a copy.
+
+**The shared root is not defined here.** `agent_sys` has exactly one, introduced
+by PR 154: `AGENT_SYS_HOME`, defaulting to `~/.infera_agent_sys` and laid out like
+`~/.local` (`bin/ share/ state/ run/`). This section adds a rule about *which*
+things go there; it does not add a second root, and a module that needs the path
+takes it from that owner rather than recomputing it. Until PR 154 merges, the
+constant does not exist in this tree — see [`../../docs/TODO.md`](../../docs/TODO.md).
+
+Two properties follow, and both are the reason the root is a single knob:
+
+- **Nothing installs into `/usr/local/bin` or `~/.local/bin`.** A destination
+  outside the root is a defect, not a fallback.
+- **"Do not change host state" stays satisfiable by configuration**, because one
+  variable relocates every install. A tool whose upstream default writes to
+  `$HOME` (`uv`, serena) therefore needs its own variable pinned into the root —
+  the pin is what makes the rule true, not the intention.
 
 ---
 
