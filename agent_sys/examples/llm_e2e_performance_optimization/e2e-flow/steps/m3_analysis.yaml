@@ -101,7 +101,14 @@
     # answer rather than a fix: the default is still an index, and which cards
     # are free is a site fact nothing here validates. `rocm-smi` immediately
     # before use remains the only thing that knows.
-    E2E_MEASURE_GPU: '${measure_gpu:-4}'
+    # Empty, matching `runner` after `4c97c71`. m4 refused to import a real card
+    # as a package default because it makes a consumer's refuse-when-empty guard
+    # unreachable, and that is right. Nothing about this stage changes: the body
+    # still does `: "${E2E_MEASURE_GPU:=4}"` and the colon form substitutes on
+    # empty, so an unset var and an empty one both land on 4. **That fallback is
+    # the residual T19** — my consumer defaults where m4's refuses, so declaring
+    # the variable made the card sayable without making it right.
+    E2E_MEASURE_GPU: '${measure_gpu:-}'
     # **Deliberately empty, and not `runner`'s value if it takes one.** The
     # body's fallback is `yihou_m3_measure_$$`, unique per invocation, which no
     # static default can express — and a *shared* default would be a container
