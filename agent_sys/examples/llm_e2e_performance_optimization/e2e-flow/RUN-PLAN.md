@@ -422,6 +422,22 @@ in any graph, on any rung.**
 > after running any body by hand**, whatever you believe about where its scratch
 > goes.
 >
+> **And never nest a default in a value you pass by hand.** `${a:-${b:-x}}` does
+> not resolve: the renderer stops at the first `}`, so a *string* consumer
+> receives the literal `x}` — or the whole unexpanded expression when nothing is
+> set. Measured by m2 and confirmed by the leader; **nothing in the package uses
+> one, so there is no exposure today.**
+>
+> It belongs in this section rather than only in theirs because **a hand-driven
+> body is where someone invents a value on the spot**, and the values this stage
+> binds are container names, ports and paths — all string consumers. There is no
+> `float()` to throw, so **the loudness of the case we found is a property of the
+> consumer, not of the defect**: the failure here would be a container called
+> `mybox}` on a shared host, created successfully, doing real work under a name
+> nobody will recognise. That is the failure `run_in_container.sh` refuses an
+> empty `HIP_VISIBLE_DEVICES` to prevent, arriving through the one door it does
+> not watch.
+>
 > **Related, and the reason a hand-driven run is worth its awkwardness at all:**
 > drive `--package` from the **working tree, never a run's staged copy**. A run
 > stages the tree *at launch*, so its copy is a snapshot of a moment — the branch
