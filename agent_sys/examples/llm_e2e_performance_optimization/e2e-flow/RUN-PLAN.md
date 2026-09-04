@@ -324,6 +324,72 @@ the cards back at 0%.
   **prefers** it.
 - **Rung 5 green does not mean the optimisation is good.** `check_no_regression` recomputes from raw numbers and the bars stay at 5% / 10%. If the two arms disagree by more than that, the finding may still be about the node rather than the patch — that is `todo.md` **T7**, the comparability gate, and it is unbuilt. **Do not widen the bars.**
 
+## "Mock e2e green" is a file and a condition, and the run's exit code is 5
+
+**Read this before reading an exit code from a mock run.** `agent-sys run` on
+the mock exits **5**, every time, and that is the correct output. Anyone who
+stops at the exit code will read the deliverable as failing. It is not.
+
+**Why it cannot be otherwise.** The corpus's `integration_report` carries a
+*refused* verdict — `cheat_for_mock/README.md` warned about it from the start —
+and `check_no_regression` does not take the report's word for it: it
+**recomputes** from the raw numbers and reaches `REJECTED` independently. So one
+handoff seals `invalid`, and `main.py`'s completion rule (*every task
+`SUCCEEDED`, no handoff `INVALID`*) gives 5.
+
+Three ways to make that a 0, and all three are worse than the 5:
+
+- **Swap the fixture for a passing one.** There isn't one. Because the validator
+  recomputes, a passing fixture means changing numbers nobody chose — and the
+  corpus's entire value is that nobody chose them.
+- **Widen the bar.** Tried once, and `DELIVERY-NOTE-FROM-LEADER.md` is explicit
+  that it was the wrong answer. **Do not widen the bars.**
+- **Declare it an expected failure** via `cli/expectations.py`. The framework
+  really does have this (pytest's `xfail(strict=True)`), and it is a trap:
+  declaring **one** promise switches off completion checking for **all fifteen
+  handoffs**, and the sealed verdict has no reason field, so the promise would
+  also accept a *real* regression next week wearing this refusal's clothes.
+  Measured and written up in
+  `temp/bugs/2026-09-04-declaring-one-expected-failure-disables-completion-checking-for-the-whole-run.md`.
+
+**So the exit code does not carry the claim, and CLAUDE.md principle 1 says what
+does:** *read the artefact, not the exit code; every acceptance claim names a
+file to open and a condition that fails.*
+
+### The claim
+
+> One run produces **15 handoffs** and **43 verdicts**, of which **42 are true**;
+> the single false verdict is **`check_no_regression` on `integration_report`**;
+> and that validator's **`validator_report.txt` carries exactly four `PROBLEM:`
+> lines** — the producer's `max_throughput_regression=35%` against the
+> validator's 5% bar, the producer's `max_latency_regression=30%` against its
+> 10% bar, four metrics regressed, and six metrics whose noise floor exceeds
+> their bar so the run cannot judge the patch.
+
+### How to check it
+
+```sh
+python3 assets/lib/accept_mock.py                    # newest run under ~/agent_sys_runroot
+python3 assets/lib/accept_mock.py --run <run-dir>
+```
+
+**0** the claim holds — this is the deliverable's green. **1** it does not, and
+every difference is printed. **2** the script could not tell (no run, no report),
+which is deliberately not 1: *cannot judge* and *judged and refused* are
+different facts, which is the same distinction the validators themselves draw.
+
+**It is stricter than the run, not softer.** Nothing is inverted, relaxed or
+skipped: the verdict is still false and the run still exits 5. It fails in three
+directions the exit code cannot distinguish — a **different** refusal from the
+same validator on the same kind, a **second** refusal anywhere, and the expected
+refusal **disappearing** (43 true is not the claim either; an artefact that
+stopped refusing is a finding).
+
+Its ability to fire is not assumed. Six controls on copies of a real run —
+reword one `PROBLEM`, add one, flip the refusal to a pass, add a second refusal,
+delete the report, and an untouched copy as the null — are recorded in the
+commit that added it.
+
 ## The one measurement to take at rung 5 that nobody has
 
 `todo.md` T7 wants the within-arm round-to-round spread on a **quiet** node. Both holds carry other tenants today. If a quiet window appears, take it: it is the number that decides whether 5% / 10% are right, and the previous round widened them to 35% / 30% on a cross-instance artefact for want of it.
