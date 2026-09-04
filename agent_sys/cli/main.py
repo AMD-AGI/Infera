@@ -240,6 +240,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             _start_o11y(
                 args.agentsview_port,
                 disabled=args.no_agentsview or args.dry_run or args.clean,
+                stream=stream,
             )
             return _run(args, stream)
         except package.PackageNotFound as exc:
@@ -318,7 +319,9 @@ def _install_item(prefix: Prefix) -> Callable[[], Sequence[Any]]:
     return call
 
 
-def _start_o11y(port_flag: int | None, disabled: bool) -> str | None:
+def _start_o11y(
+    port_flag: int | None, disabled: bool, stream: Stream | None = None
+) -> str | None:
     """The one call site. Returns the panel URL, or None, and never raises.
 
     **The bare `except Exception` is deliberate and is the point.** Everything
@@ -327,12 +330,29 @@ def _start_o11y(port_flag: int | None, disabled: bool) -> str | None:
     run is a worse bug than a missing panel, and this is the line that makes
     that structurally impossible rather than merely intended.
 
+    **What succeeded goes to the `stream`; what failed goes to `logging`.**
+    Both were `log.info` and therefore reached nobody: this package never
+    configures `logging`, so the root logger is at `WARNING` with no handler
+    and an info record is dropped, while the warnings inside `ensure_running`
+    still reach stderr through `logging.lastResort`. The result was a component
+    that reported only its failures. The stream is the thing here whose job is
+    being read — by a human through `HumanRenderer` and by a machine through
+    `--json` — so the URL and the first-install notice belong in it.
+
+    `stream` is optional because the failure-mode tests call this directly and
+    a `Stream` is not what they are about; `main` always passes one.
+
     `os.environ` is *read* here and never written. The prefix's variables belong
     in a child's environment dict — putting them in ours would redirect a Claude
     Code the user started in their own terminal.
     """
     if disabled:
         return None
+
+    def say(message: str, **fields: Any) -> None:
+        if stream is not None:
+            stream.emit(EventKind.O11Y_PANEL, message, **fields)
+
     try:
         prefix = Prefix.resolve(os.environ)
         installed = ensure_installed(prefix, _install_item(prefix))
@@ -346,15 +366,18 @@ def _start_o11y(port_flag: int | None, disabled: bool) -> str | None:
             # forever, and a line on every run is how a real warning gets
             # scrolled past. Says what arrived and where, because a 45 MB
             # download nobody typed a command for should be inspectable.
-            log.info(
-                "agentsview: fetched the o11y panel binary "
-                "(agentsview v%s, from github.com/kenn-io/agentsview) into %s",
-                _pinned_version(),
-                prefix.bin / "agentsview",
+            version = _pinned_version()
+            path = str(prefix.bin / "agentsview")
+            message = (
+                f"fetched the o11y panel binary (agentsview v{version}, "
+                f"from github.com/kenn-io/agentsview) into {path}"
             )
+            log.info("agentsview: %s", message)
+            say(message, version=version, path=path, installed=True)
         status = ensure_running(prefix, port=resolve_port(port_flag, os.environ))
         if status.running:
             log.info("agentsview: o11y panel at %s", status.url)
+            say(f"panel at {status.url}", url=status.url)
         return status.url
     except Exception as e:  # noqa: BLE001
         log.warning("agentsview: o11y start-up failed (%s); continuing without a panel.", e)

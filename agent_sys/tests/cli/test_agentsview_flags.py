@@ -89,19 +89,32 @@ def test_the_installers_two_ok_messages_still_discriminate() -> None:
     from env_mgr.recipe import Item, Target
 
     target = Target(kind="prefix", name="t", path=".")
-    satisfied = Item("bin", "suggested", "system", spec={"name": "agentsview", "check_cmd": ""})
+    # A `check_cmd` that really answers a version, so `_satisfied` is true and
+    # `install` takes its skip branch for real rather than being asserted about.
+    satisfied = Item(
+        "bin",
+        "suggested",
+        "system",
+        spec={"name": "agentsview", "check_cmd": "echo agentsview 0.42.0"},
+    )
     fresh = Item(
         "bin", "suggested", "system", spec={"name": "agentsview", "check_cmd": "", "install": ":"}
     )
-    # `_satisfied` is false for both (no check_cmd), so force the skip branch.
+    # **Both branches are driven for real; neither string is written here.**
+    # An earlier version fell back to a literal when the skip branch produced
+    # nothing (`... ] or [f"{name} already present (skip)"]`) and then asserted
+    # only that the result was truthy — so the test invented the very string it
+    # was meant to be guarding. Rephrasing `BinInstaller`'s skip message to
+    # "installed {name} (cached)" — the exact change that makes the 45 MB
+    # notice fire on *every* run — left it green. `satisfied` therefore gets a
+    # `check_cmd` that really succeeds, which is what reaches the skip branch.
+    (fresh_msg,) = [o.message for o in BinInstaller().install(fresh, target) if o.level == "ok"]
     (skip_msg,) = [
         o.message for o in BinInstaller().install(satisfied, target) if o.level == "ok"
-    ] or [f"{satisfied.name} already present (skip)"]
-    (fresh_msg,) = [o.message for o in BinInstaller().install(fresh, target) if o.level == "ok"]
+    ]
 
     assert cli_main._was_freshly_installed(fresh_msg) is True
-    assert cli_main._was_freshly_installed("agentsview already present (skip)") is False
-    assert skip_msg  # the phrasing exists; the constant above is what we match
+    assert cli_main._was_freshly_installed(skip_msg) is False
 
 
 def test_the_install_closure_runs_nothing_until_it_is_called(monkeypatch, tmp_path) -> None:
@@ -241,3 +254,107 @@ def test_the_readiness_probe_writes_into_the_prefix_not_the_users_claude_dir(
     # And the same law as everywhere else in this feature.
     assert dict(os.environ) == before
     assert "CLAUDE_CONFIG_DIR" not in os.environ
+
+
+# --------------------------------------------------------------------------- #
+# The wire from `main()` to the panel
+#
+# Every test above this line drives `_start_o11y` directly, and every test
+# below `parser()` drives argparse directly. Neither touches the line that
+# joins them -- measured: deleting the `_start_o11y(...)` call from `main()`
+# outright left the whole `tests/cli` suite green (179 passed). Acceptance
+# criterion 2, "deploying agent_sys starts it automatically", had no test.
+
+
+def _main_with_o11y_spied(monkeypatch, argv: list[str]) -> dict:
+    """Run `main()` for real, with the run itself and the daemon stubbed."""
+    from env_mgr.o11y.agentsview import Status
+
+    seen: dict = {}
+
+    def spy_running(prefix, port):
+        seen["port"] = port
+        return Status(True, "started", f"http://127.0.0.1:{port}")
+
+    monkeypatch.setattr(cli_main, "ensure_installed", _installed("agentsview already present"))
+    monkeypatch.setattr(cli_main, "ensure_running", spy_running)
+    monkeypatch.setattr(cli_main, "_run", lambda args, stream: 0)
+    seen["exit"] = cli_main.main(argv)
+    return seen
+
+
+def test_a_plain_run_starts_the_panel_on_the_default_port(monkeypatch) -> None:
+    seen = _main_with_o11y_spied(monkeypatch, ["run", "--package", "pkg"])
+    assert seen["port"] == 18888
+    assert seen["exit"] == 0
+
+
+def test_the_port_flag_reaches_the_daemon(monkeypatch) -> None:
+    """`--agentsview-port` is parsed *and* used. Passing `None` here instead of
+    `args.agentsview_port` left every other test green."""
+    seen = _main_with_o11y_spied(
+        monkeypatch, ["run", "--package", "pkg", "--agentsview-port", "9001"]
+    )
+    assert seen["port"] == 9001
+
+
+def test_no_agentsview_reaches_the_call_site(monkeypatch) -> None:
+    seen = _main_with_o11y_spied(monkeypatch, ["run", "--package", "pkg", "--no-agentsview"])
+    assert "port" not in seen
+
+
+def test_a_dry_run_still_starts_nothing_through_main(monkeypatch) -> None:
+    seen = _main_with_o11y_spied(monkeypatch, ["run", "--package", "pkg", "--dry-run"])
+    assert "port" not in seen
+
+
+def test_show_never_reaches_the_panel(monkeypatch) -> None:
+    """`show` returns before the call site, so it has no flags to consult."""
+    from env_mgr.o11y.agentsview import Status
+
+    ran = []
+    monkeypatch.setattr(cli_main, "ensure_running", lambda *a, **k: ran.append(1) or Status(False, "x"))
+    monkeypatch.setattr(cli_main, "_show", lambda args, stream: 0)
+    assert cli_main.main(["show", "--package", "pkg"]) == 0
+    assert ran == []
+
+
+# --------------------------------------------------------------------------- #
+# The URL has to arrive somewhere the user can see
+
+
+def test_the_panel_url_reaches_the_user(monkeypatch, capsys) -> None:
+    """Read the artefact, not the exit code.
+
+    Both this and the fresh-install notice were `log.info`, and nothing in this
+    repository ever configures `logging` -- so the root logger sat at WARNING
+    with no handler and both lines were discarded. The failure warnings reached
+    stderr through `logging.lastResort`; the successes reached nobody. The
+    tests passed only because `caplog.at_level("INFO")` forced the level from
+    pytest's side, which is precisely the shape of a test that asserts the
+    program's intent rather than its output.
+    """
+    _main_with_o11y_spied(monkeypatch, ["run", "--package", "pkg", "--agentsview-port", "9001"])
+    assert "http://127.0.0.1:9001" in capsys.readouterr().out
+
+
+def test_the_fresh_install_notice_reaches_the_user(monkeypatch, capsys) -> None:
+    from env_mgr.o11y.agentsview import Status
+
+    monkeypatch.setattr(cli_main, "ensure_installed", _installed("installed agentsview"))
+    monkeypatch.setattr(cli_main, "ensure_running", lambda prefix, port: Status(False, "x"))
+    monkeypatch.setattr(cli_main, "_run", lambda args, stream: 0)
+    cli_main.main(["run", "--package", "pkg"])
+    out = capsys.readouterr().out
+    assert "agentsview" in out and "kenn-io/agentsview" in out
+
+
+def test_a_skipped_panel_says_nothing_to_the_user(monkeypatch, capsys) -> None:
+    """A warning already went to the log; the event stream is for what *is*."""
+    from env_mgr.o11y.agentsview import Status
+
+    monkeypatch.setattr(cli_main, "ensure_installed", _installed("agentsview already present"))
+    monkeypatch.setattr(cli_main, "ensure_running", lambda prefix, port: Status(False, "port in use"))
+    monkeypatch.setattr(cli_main, "_run", lambda args, stream: 0)
+    cli_main.main(["run", "--package", "pkg"])
+    assert "127.0.0.1" not in capsys.readouterr().out
