@@ -150,6 +150,31 @@ export E2E_NODE E2E_JOBID E2E_TRANSPORT
 # **Visibility is probed; what may be *mounted* is a measured list**, and the
 # block below says why the two are not the same question. Being able to see a
 # path and being allowed to bind-mount it are separate permissions here.
+# **Establish the transport before asking it a question**, because
+# `require_visible_on_node` cannot tell the two apart.
+#
+# Measured 2026-09-04: with a deliberately bad `E2E_TRANSPORT`, that helper
+# reports `the workset is not visible on : /home/yihou` — for a path that
+# plainly is. It runs `on "test -e …" >/dev/null 2>&1` and treats **any**
+# non-zero as absence, so an unset `E2E_JOBID`, a dead allocation, a spur error
+# and a genuinely missing path all produce the same sentence. That is the day's
+# own pattern one level in: **a plausible explanation attached to a failure it
+# did not produce**, and it is worse than no message, because it sends the
+# reader to fix a run root that is already correct. It sent the leader there.
+#
+# The helper is `assets/lib/remote.sh`, shared with six callers and not mine to
+# change. What is mine is not relaying its guess: a reachability probe first,
+# with the transport's **actual** stderr, so "the node is unreachable" and "the
+# node cannot see this path" are two different messages again.
+if ! _probe=$(on "true" 2>&1); then
+  echo "measure_in_container: cannot reach the node at all, so nothing below was tested." >&2
+  echo "  transport='${E2E_TRANSPORT:-}' jobid='${E2E_JOBID:-}' node='${E2E_NODE:-}'" >&2
+  echo "  (all three come from the record when the caller has none; a validator body" >&2
+  echo "   gets no E2E_* block, which is the usual reason they are empty here)" >&2
+  echo "  the transport said:" >&2
+  printf '    %s\n' "${_probe:-<no output>}" >&2
+  exit 1
+fi
 require_visible_on_node "$ROOT" "workset" || exit 1
 
 # **What the container mounts follows from where the workset is**, and the
