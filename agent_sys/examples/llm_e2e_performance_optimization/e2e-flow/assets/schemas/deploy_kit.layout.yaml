@@ -42,6 +42,13 @@ schema_version: 1
 # zero means the kit was written somewhere the layout does not put it, and two
 # means a reproducer has to guess which one worked.
 anchors:
+  # The content root itself. Needed because the seal's own requirement lives
+  # *above* `items/`, and until 2026-09-04 nothing in this file could name that
+  # level — see the `README.md` entry below.
+  content:
+    path: '.'
+    kind: dir
+
   codes:
     path: items/codes
     kind: dir
@@ -70,6 +77,40 @@ entries:
   # `schema` key names a file in this same directory, loaded through
   # `assets/lib/schema.py` — the one loader the producer also calls, so the
   # producer and the validator cannot be reading two different documents.
+  # **The handoff's own README, and the file this layout could not see.**
+  # Added 2026-09-04 after m2 traced an unexplained `output_absent` to it: the
+  # seal refuses a `code` handoff whose content root has no `README.md`
+  # (`handoff/content.py:69-74`, `readme_sections=("Purpose","Interface",
+  # "Boundary")`), and **nothing here looked above `items/`.**
+  #
+  # So `check_deploy_kit` could return **green on a kit that cannot be sealed** —
+  # which is exactly what happened: two real bring-ups produced kits complete in
+  # `items/` and missing the one file every handoff must open with. One agent
+  # wrote it, two did not, because `deploy_and_prove.task/readme.md:306` draws it
+  # in a diagram and no criterion required it. *Demonstrated possible, never
+  # required* — the same shape as T27 item 1, and this time it cost a seal.
+  #
+  # **The defect is the gap between two checkers, not either one:** `content.py`
+  # grades the handoff's README and not the interior; this file graded the
+  # interior and not the handoff's README. Worth stating because the next pair of
+  # checkers will have a gap somewhere else.
+  #
+  # The three headings are `content.py`'s, not a choice made here — restating
+  # them anywhere else would be a second authority that can disagree.
+  - path: README.md
+    anchor: content
+    kind: file
+    required: true
+    require_headings: ['Purpose', 'Interface', 'Boundary']
+    brief: >-
+      The handoff's own README, at the content root beside `items/`. **Not the
+      packup's README** — that one is inside `items/codes/<packup>/` and answers
+      "did this deployment work"; this one answers "what is this artefact and
+      what may a consumer rely on". `handoff/content.py` refuses to seal a `code`
+      handoff without it, with all three of `Purpose`, `Interface` and
+      `Boundary`, so a kit missing it is not a kit — it is a directory that
+      cannot become one.
+
   - path: environment.yaml
     anchor: codes
     kind: file

@@ -159,17 +159,34 @@ def describe(version: Path) -> int:
     packups = sorted(
         p.name for p in (version / "content" / "items" / "codes").glob("*.packup_*") if p.is_dir()
     )
-    print(f"            packup dirs             {packups or 'NONE'}")
+    print(f"            packup dirs              {packups or 'NONE'}")
+
+    # **Would it seal?** This tool was written to stop a reader over-claiming
+    # from a wreck, and its first output over-claimed: it printed "a REAL
+    # bring-up's kit" over an artefact that could not have been sealed, the claim
+    # was relayed, and another owner built a route on it. The missing thing was
+    # one file — `content/README.md`, which `handoff/content.py` requires of a
+    # `code` handoff and which nothing in `deploy_kit.layout.yaml` looked for
+    # either. **A tool that cannot report the failure it exists to prevent is the
+    # same shape as a probe that passes on the artefact that failed.**
+    handoff_readme = (version / "content" / "README.md").is_file()
+    print(f"            content/README.md        {'present' if handoff_readme else 'MISSING'}")
 
     # The one inference worth drawing, because it is the question that was asked
     # at 09:43 and it took a person twenty minutes: is this a real bring-up?
     if replayed:
         print("          -> a REPLAY. It stands in for a sealed kit; it is not a bring-up.")
+    elif packups and handoff_readme:
+        print("          -> a REAL bring-up's kit, written and never sealed, and it")
+        print("             WOULD seal on this evidence. Worth keeping. Still NOT a")
+        print("             validated handoff — no consumer should take it as one, and")
+        print("             the container it names may be long gone.")
     elif packups:
-        print("          -> a REAL bring-up's kit, written and never sealed.")
-        print("             Worth keeping. It is evidence of a deployment that happened,")
-        print("             and it is NOT a validated handoff — no consumer should take it")
-        print("             as one, and the container it names may be long gone.")
+        print("          -> a REAL bring-up's kit, and it WOULD NOT SEAL AS IT STANDS:")
+        print("             content/README.md is absent and handoff/content.py requires")
+        print("             it of every `code` handoff. The deployment happened; the")
+        print("             artefact is one file short of being a handoff at all.")
+        print("             Do not plan on this as an input until that file exists.")
     else:
         print("          -> a record with no packup beside it: started, not finished.")
     return 1

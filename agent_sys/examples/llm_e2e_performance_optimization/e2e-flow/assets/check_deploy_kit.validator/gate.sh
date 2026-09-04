@@ -18,7 +18,7 @@
 # visible here is the point — a reader can see exactly what was added and
 # nothing about the inherited rules is taken on trust.
 #
-# The negative fixture plants **twelve** faults, one per rule this validator
+# The negative fixture plants **thirteen** faults, one per rule this validator
 # owns, and asserts each is reported. They are listed in the `want` array below
 # with the rule each exercises.
 set -eu
@@ -107,6 +107,10 @@ d['fixed']['gpu_count'] = 8
 d['fixed']['gpu_devices'] = [0, 1, 2, 3, 4, 5, 6, 7, 8]
 yaml.safe_dump(d, open(p, 'w'), sort_keys=False)
 PY
+# 13. the handoff's own README, whose absence the seal refuses and this layout
+# could not see until 2026-09-04. Planted by REMOVAL, which is how it occurred:
+# two real bring-ups produced kits complete in items/ and missing this file.
+rm -f "$BAD/README.md"
 printf '{"model": "/models/qwen3.6-27b"}\n' > "$PACKUP/results/bad_model_id.json"   # 5
 rm -f "$PACKUP/results/router_workers.json" "$PACKUP/results/verification.json"     # 6
 printf '%s\n' '#!/bin/sh' 'CTR_NAME=dbg_deploy_sgl' \
@@ -128,7 +132,7 @@ done
 
 zone "$WORK/zone_bad" "$BAD"
 echo
-echo "=== negative: twelve planted faults, each must be reported ==="
+echo "=== negative: thirteen planted faults, each must be reported ==="
 run "$WORK/zone_bad" > "$WORK/bad.out" 2>&1 || true
 cat "$WORK/bad.out"
 
@@ -149,6 +153,7 @@ want=(
   "wait_ready.sh: missing"         # 10 the readiness entrypoint
   "E2E_KIT_ENGINE_EXTRA_ARGS"      # 11 the runtime contract
   "cannot take more cards"         # 12 record-internal: len(gpu_devices) <= gpu_count
+  "content/README.md: missing"     # 13 the handoff's own README -- the seal refuses without it
 )
 missed=0
 for fragment in "${want[@]}"; do
