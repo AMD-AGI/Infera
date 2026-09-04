@@ -583,6 +583,23 @@ runtime_contract:
     accepted_mount_forms:
       - '-v /shared_nfs:/shared_nfs'
       - '-v /home/<user>:/home/<user>'
+      # **The third, added within the hour of the first two and by m3's own
+      # instruction — "extend this case with a form you have SEEN the daemon
+      # accept."** Node-local scratch. `/mnt/m2m_nobackup/...` was missing from
+      # the list above, and the omission would have refused the one root a
+      # measurement most needs: m4's `scratch_root` defaults to
+      # `/mnt/m2m_nobackup/yihou/e2e_flow/kfo`, and their own section records
+      # why it must be node-local — *"on this cluster's NFS every ROCm kernel
+      # launch segfaults after the copies and the first round."*
+      #
+      # **Seen accepted, not expected to be:** the sealed 2026-09-02 kit runs
+      # `--volume "${DK_RUN_DIR}:/workdir"` (`start_container.sh:36`) with
+      # `DK_WORK_ROOT:=/mnt/m2m_nobackup/yihou/deploy` (`env.sh:83`), and that
+      # kit produced a working deployment. Every kit this package has built
+      # since mounts the same way. The evidence was inside this stage the whole
+      # time and the first two forms were copied from a file that had no reason
+      # to mention it.
+      - '-v /mnt/m2m_nobackup/<user>/...:<same path>'
     refused_mount_forms:
       - '-v /home:/home     # denied [BH] by plugin spur-authz: mount your own directory'
     brief: >-

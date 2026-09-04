@@ -225,10 +225,19 @@ at the same path inside as out. **Use the two forms this cluster's docker
 authorization plugin has been measured to accept, and no third:**
 
 ```
-/shared_nfs/…      ->  -v /shared_nfs:/shared_nfs                OK
-/home/<user>/…     ->  -v /home/<user>:/home/<user>              OK
-                       -v /home:/home    denied [BH] by spur-authz
+/shared_nfs/…            ->  -v /shared_nfs:/shared_nfs           OK
+/home/<user>/…           ->  -v /home/<user>:/home/<user>         OK
+/mnt/m2m_nobackup/…      ->  -v <that path>:<the same path>       OK  (node-local scratch)
+                             -v /home:/home   denied [BH] by spur-authz
 ```
+
+**The third form is the one a measurement most needs and it is easy to leave
+off** — a downstream stage's scratch has to be node-local (*on this cluster's NFS
+every ROCm kernel launch segfaults after the copies*), so it lands on
+`/mnt/m2m_nobackup` and neither of the first two forms covers it. It is proven
+accepted rather than assumed: the sealed kit's own `start_container.sh:36` mounts
+`"${DK_RUN_DIR}:/workdir"` under `/mnt/m2m_nobackup/yihou/deploy`, and every kit
+this stage has produced does the same.
 
 **Copy the derivation rather than writing one** — it is
 `assets/build_workset.task/measure_in_container.sh:249-266`, and it already
