@@ -288,6 +288,72 @@ def _check_integration(operator: dict, problems: list[str]) -> None:
         )
 
 
+def _check_target_paths(operator: dict, problems: list[str]) -> None:
+    """The two file paths inside one operator name the same file.
+
+    **Why an operator has two of them at all.** `scaffold.py` derives
+    `edit_target.source_file` from the identity's `source_file_path[0]` and
+    `integration.target_files` from its `editable_sources` — *two workset fields
+    from two different identity fields*. They agree today because the identity's
+    own two agree, which is a property of the identity and not of this artefact.
+
+    **Why a check rather than the derivation being enough.** The derivation is
+    `scaffold.py`'s, and at rung 3 `build_workset` is `kind: ai`: the agent runs
+    the scaffold at STEP 2 and then edits. The readme tells it to *read*
+    `edit_target` and never to write it — and nothing enforced that until this.
+    `todo.md` T51's shape aimed at a field: *the producer never writes a
+    divergent path* is true of the producer that will not be running.
+
+    **What this deliberately does NOT catch, stated so nobody reads it as
+    covered.** m5's k004 finding is `edit_target.source_file` disagreeing with
+    the **identity** (`mixed_moe_gemm_2stage.py` against
+    `moe_gemm_2stage.py`), and that comparison is **not available here**:
+    `check_workset_shape` declares `inputs: [operator_workset]`, and
+    `zone.materials()` is written per-validator — measured on run
+    `20260904T114914-0a0cdd`, every validator's `materials.json` holds exactly
+    one handoff. So this body cannot see `operator_identity` at all, and an arm
+    that pretended to would be grading one artefact against nothing.
+
+    Closing that half needs a definitions change — the identity reaching a
+    validator that grades the workset — which is not made here and is recorded
+    rather than done.
+
+    Membership rather than equality on `target_files`: an operator may
+    legitimately declare several editable files, in any order, and only the
+    claim that the primary one is among them is safe to make.
+    """
+    label = operator["operator_id"]
+    edit_target = operator.get("edit_target") or {}
+    source_file = edit_target.get("source_file") or ""
+    integration = operator.get("integration") or {}
+    target_files = [str(p) for p in (integration.get("target_files") or [])]
+
+    editable = [str(p) for p in (edit_target.get("editable_sources") or [])]
+    if source_file and editable and source_file not in editable:
+        problems.append(
+            f"{label}: edit_target.source_file is {source_file!r} but "
+            f"edit_target.editable_sources is {editable} and does not contain it. "
+            f"These are one operator's own two statements about which file it edits"
+        )
+
+    if not integration or not target_files:
+        return
+    if not source_file:
+        problems.append(
+            f"{label}: integration.target_files is {target_files} but "
+            f"edit_target.source_file is empty, so nothing here says the two agree"
+        )
+        return
+    if source_file not in target_files:
+        problems.append(
+            f"{label}: edit_target.source_file is {source_file!r} and is not in "
+            f"integration.target_files {target_files}. m5 applies the patch to "
+            f"target_files and m4 optimises what edit_target names, so a "
+            f"disagreement here has each of them editing a different file while "
+            f"both read this workset"
+        )
+
+
 def _check_forge(root: Path, operator: dict, problems: list[str]) -> None:
     """The KernelForge add-on, M3.7.6. Optional as a block; internally consistent
     when present. It is *layered over* the base — a consumer that does not use
@@ -410,6 +476,7 @@ def _check(content: Path, args: dict, problems: list[str]) -> bool:
         operator.pop("_ground_dtypes", None)
         _check_shapes(content, root, operator, args, problems)
         _check_integration(operator, problems)
+        _check_target_paths(operator, problems)
         _check_forge(root, operator, problems)
         if operator["reference"]["kind"] == "written":
             _exists(root, operator["reference"]["path"], f"{label}.reference", problems)
