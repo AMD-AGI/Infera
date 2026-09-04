@@ -8419,3 +8419,118 @@ which is a timezone or boundary question and a different cause.
 folding m2's into the shim story, because a rule built on three instances of
 which one is a different bug is the shape m3 warned about at T31 — and because
 m2's tree is not mine to measure.
+
+## T+1626 — 2026-09-04 16:36 UTC
+
+**Gap: 2 h 49 m since T+1457.** Four addenda landed in between, so the record's
+*content* is current; its *form* was not. Recorded as a format lapse, not a
+content one.
+
+### The headline went down, which is what it was chosen to do
+
+```
+20260904T143952-bec7da   MOCK E2E REJECTED
+  - true verdicts: 40, expected 42
+  - refusals: 3, expected exactly 1 —
+      check_measurement_order on patched.measurement
+      check_no_regression      on integration_report
+      check_measurement_order on stock.measurement
+  REAL EXIT=1
+```
+
+**First time any metric I have published has moved backwards.** The union count
+could not; the handoff-validity count could not reach its top; **this one fell
+from 42/1 to 40/3 and the acceptance test said so with a non-zero exit.** That is
+the single-run scoping earning its keep two sections after I adopted it.
+
+**Cause, and it is already fixed:** the mocked arms were not marked as replays,
+so `check_measurement_order` refused both of them — m5's `9d363f5`, *"mark the
+mocked arms as replays, which is what rung 1 refused on"*, at 15:53.
+
+**A regression that an executable test caught, named by validator and handoff,
+is the outcome the whole acceptance design was for.** Three earlier runs
+accepted; this one did not; nobody had to notice by eye.
+
+### 1. Progress
+
+**~87 %, held.** Elapsed 1 626 m. **Ladder unchanged at 1 of 6.** Three runs are
+in flight at 5 handoffs each — too early to score. A regression was found and
+fixed within two hours; no rung advanced.
+
+**Reliability: moderate** for items 1–2 — and better than last section, because
+the acceptance test has now been shown to **fail** as well as pass. Until 14:39
+it had only ever returned 0, which by my own T40 makes it a check that had never
+been observed to refuse. **It has now refused a real run for a real reason.**
+
+**Low** for item 3. **预估耗时: no number.**
+
+### 2. Current state
+
+Ladder 1 of 6, rung 1's blocker being worked. **The nodes have turned over
+completely** — holds are now `275`, `217`, `287`, where at T+1457 they were
+`006`, `217`, `047`. One run process present at 16:36:06, 31 m.
+
+### 3. Code problems
+
+- **FIXED — mocked arms not marked as replays** (`9d363f5`), the cause of the
+  regression above.
+- **OPEN — `INVALID` means two things and the CLI's exit code reads it as one**
+  (`5ef8468`, `c816328`, `a6124a6`), and **`_completion_gaps`' other half is
+  unsound too — task status is never finalised** (`0afabf1`).
+- **OPEN — `summarise.py` exists twice, byte-identical, call sites split across
+  both** (T56); **one scratch path, three independent literals** (T57).
+
+### 4. Non-code problems
+
+Node turnover complete. `charming_turing` on 275 still unidentified and
+untouched. **m1's `b20bd12` is the sharp one:** *the label answers "is this
+ours", not "is anyone holding this node"* — which is entry 18's lesson
+(`squeue` answers who holds the allocation) arriving at the container layer, and
+m5 has labelled every container their stage creates (`4dee1b9`).
+
+### 5. Open questions
+
+`INVALID`'s two meanings; whether the three in-flight runs reach a verdict; m2's
+`-newermt` instance, which does not fit the shim explanation (below).
+
+### 6. New commits
+
+**54 since `bac5430`**, none mine. `todo.md` at **T57**.
+
+### 7. `-newermt` is not the instrument, and m5's corollary
+
+**I tested the leader's proposed ban and it does not hold.** GNU findutils 4.9.0
+accepts all four spellings correctly — 2 files, rc=0, no stderr. **`find` in an
+agent shell is a shell function execing the Claude Code binary as `bfs 4.1.1`**,
+which rejects the GNU relative forms **loudly**: *"Invalid timestamp"*, the
+argument underlined, accepted formats listed, **rc=1**.
+
+**So it never failed silently.** Everyone, me included on the first attempt, ran
+`find … 2>/dev/null | wc -l` — **discarding stderr and taking `wc`'s exit
+status.** m4's *"it fails to zero rather than to an error"* is inverted: it
+failed to an error and we converted that to a zero.
+
+**Do not ban `-newermt`** — it works in every context the package runs in. The
+accurate rule is narrower and larger: **in an agent shell, `find` is not `find`;
+never suppress its stderr, never read `$?` through a pipe, and use
+`/usr/bin/find` when the result will be reported to someone else.** The epoch
+form is still worth adopting for m2's reason — *it cannot lie because it parses
+nothing* — verified identical under both programs.
+
+**Two of the three instances are explained; m2's is not** (10/10/3, no zero
+anywhere, so no parse rejection) and I have not folded it in.
+
+**m5's corollary to entry 20, and it is sharper than my measurement:** 3 of 3
+hits being comments makes that grep **a detector with zero precision in this
+tree — every hit it has ever produced is a false positive.** So it should not be
+run as a detector at all; its only honest use is *read the three lines*. And the
+two claims agree from opposite directions — their morning sweep found no live
+nested default, my evening count found the pattern only inside warnings against
+it. **The anti-pattern exists in this package solely as documentation of
+itself.**
+
+**Their concession is the line worth keeping:** they reached for *"new class"*
+because the consequences were novel, and **consequences are not mechanism.**
+That is the same test I applied to the leader's axis an hour earlier and reached
+the opposite verdict on — different mechanism there, same mechanism here — and
+having a stated test is why the two came out differently rather than by taste.
