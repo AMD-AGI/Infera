@@ -130,10 +130,28 @@ def _interpreter(problems: list[str], notes: list[str]) -> str | None:
         if probe.returncode == 0:
             notes.append(f"interpreter {candidate} (torch {probe.stdout.strip()})")
             return candidate
+    # **Do not tell the reader to set it on the agent spec's env block.** This
+    # body is a validator: it declares no agent, so the package's `env` block
+    # never reaches it, and no `--var` routes here — `KFO_PYTHON` is declared on
+    # `e2e_kernel_optimizer`, which a validation phase does not run under. That
+    # advice sent the reader to a knob they cannot turn, and it arrives on a
+    # `cost: gpu_hours` check on the OUTPUT phase, i.e. after a campaign has
+    # already been spent. Same family as the `transport_env` run that RUN-PLAN
+    # records, and more expensive.
+    #
+    # So name the cause instead: there is no host on this cluster with torch
+    # (`spur exec <job> python3 -c "import torch"` is `ModuleNotFoundError`,
+    # measured); only the containers have it. A validation phase that lands on a
+    # host has nothing to set.
     problems.append(
         "no interpreter with torch found; tried "
         + ", ".join(seen)
-        + ". Set KFO_PYTHON on the agent spec's env block to one that has it"
+        + ". This validator re-measures, so it needs one. NOTE: setting KFO_PYTHON will not "
+        "help here — a validator declares no agent, so the package's env block never reaches "
+        "this body and no --var routes to it. The cause is almost certainly that this phase "
+        "ran on a host rather than in the engine container: no host on this cluster has torch, "
+        "only the images do. The run root and the validation zone have to be reachable from a "
+        "context that can import torch"
     )
     return None
 
