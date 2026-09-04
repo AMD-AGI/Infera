@@ -249,10 +249,32 @@ echo "measure_in_container: starting the container; the next line comes from ins
 # who points `E2E_MEASURE_CONTAINER` at a name that already exists cannot have it
 # removed by this script — it only ever tears down a container it just started.
 #
-# `reclaim.sh` (CONTRACT §5.0) moves into the trap for the same reason: the
-# container writes `evidence/` as root by construction, and a run that dies
-# half-way leaves the *most* root-owned files, which is exactly when the old
-# placement skipped it.
+# **The reclaim was wrong three ways and `2>/dev/null` hid all three.** It read
+# `sh "$PKG/assets/lib/reclaim.sh" "$CONTENT" 2>/dev/null || true`, and
+# `reclaim.sh`'s contract is `<container-name> <path-inside-container> …`:
+#
+# 1. `$CONTENT` is a host path, passed where a container name goes, so
+#    `docker inspect` missed and it exited 0 with "nothing to do";
+# 2. it ran **locally**, on a login node with no reach to the node's daemon;
+# 3. it ran **after** `docker rm -f`, and `reclaim.sh` works by `docker exec`
+#    into a *running* container — with `--rm` there is no window at all.
+#
+# Found by trying to edit `evidence/performance.json` and getting `Permission
+# denied`: `-rw-r--r-- root root`. Every workset this stage has produced has
+# root-owned evidence, which is the failure `reclaim.sh`'s own header predicts —
+# 644 so every reader and the seal work fine, and the zone's user cannot clean
+# up, so the symptom lands on a later run.
+#
+# Two defences, because they cover different failures:
+#
+# * **The payload chowns as its last act** (below). The container is root and
+#   owns the files, so this needs no `docker exec` and no lifecycle window. It
+#   covers the normal path, where `--rm` removes the container the instant the
+#   command returns.
+# * **The trap reclaims *before* removing.** If the run is killed mid-measure
+#   the payload's chown never happens, and this is the only remaining chance —
+#   the container is still up at that point, which is exactly what `reclaim.sh`
+#   needs. Ordering matters and the old code had it backwards.
 STARTED=0
 _teardown() {
   # Disarm first: a signal fires the handler *and then* EXIT, so without this
@@ -260,8 +282,13 @@ _teardown() {
   # harmless — but a `docker rm -f` printed twice in a transcript reads as a
   # retry, and a retry reads as something having gone wrong.
   trap - EXIT HUP INT TERM
-  [ "$STARTED" = 1 ] && on "docker rm -f '$E2E_MEASURE_CONTAINER' >/dev/null 2>&1 || true" || true
-  sh "$PKG/assets/lib/reclaim.sh" "$CONTENT" 2>/dev/null || true
+  [ "$STARTED" = 1 ] || return 0
+  # On the node, not here, and while the container is still alive. Errors are
+  # shown rather than swallowed: a reclaim that cannot run is the thing that
+  # went unnoticed, and "nothing to do" printed once is cheaper than a tree
+  # nobody can delete.
+  on "sh '$PKG/assets/lib/reclaim.sh' '$E2E_MEASURE_CONTAINER' '$ROOT'" || true
+  on "docker rm -f '$E2E_MEASURE_CONTAINER' >/dev/null 2>&1 || true" || true
 }
 trap _teardown EXIT HUP INT TERM
 
@@ -284,7 +311,18 @@ trap _teardown EXIT HUP INT TERM
 # pair of double quotes and no escaping to get right. `check_workset_runs` also
 # drives this script with its own `--shape` command, so the custom-command path
 # is not a convenience — a validator's payload was subject to the same defect.
-CMD_B64=$(printf '%s' "$COMMAND" | base64 | tr -d '\n')
+# **And the payload hands the files back before it exits.** Same reason
+# `reclaim.sh` exists (CONTRACT §5.0) and the same chown it performs, done from
+# inside rather than through `docker exec` — the container is root, owns what it
+# just wrote, and is the only context with the privilege. `id -u`/`id -g` here
+# because that is the identity the zone belongs to; `spur exec` measured as the
+# same uid, so the node agrees with this host.
+#
+# `rc=$?` around it so the measurement's exit status is what leaves the
+# container: a reclaim that swallowed a failing measurement would turn this into
+# the silent-success class twice over.
+CMD_B64=$(printf '%s' "{ $COMMAND ; } ; rc=\$? ; chown -R $(id -u):$(id -g) '$ROOT' 2>/dev/null || true ; exit \$rc" \
+          | base64 | tr -d '\n')
 
 # `PYTHONDONTWRITEBYTECODE=1` keeps root-owned `.pyc` out of the handoff.
 STARTED=1
