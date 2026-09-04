@@ -17,9 +17,12 @@
 # (`agent_sys/docs/spec.provisioning.md` §4). The invocation is recorded at the
 # bottom of this file so it lives beside the install that produces the binary.
 #
-# `recipes: [serena]` on an agent spec resolves here
-# (`env_mgr/agent_assets.py::_recipe_paths`: a package-relative path first, then
-# this directory by bare name).
+# `recipes: [agent_sys:serena]` on an agent spec resolves here — the
+# `agent_sys:` root is this directory (`env_mgr/agent_assets.py::_recipe_paths`).
+# The bare `recipes: [serena]` was removed on 2026-09-04: it was resolved by
+# trying a package-relative path first and falling back here, so the declaration
+# could not be read without knowing the resolution order, and a package carrying
+# a file named exactly `serena` shadowed this file in silence.
 #
 # Drafted by `pkg-author` for `examples/env_checker`; everything in it was
 # measured on this host on 2026-09-03 rather than copied from documentation.

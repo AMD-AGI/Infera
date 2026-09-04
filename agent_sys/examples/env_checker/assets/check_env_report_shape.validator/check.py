@@ -245,7 +245,7 @@ def check_report(payload: dict, min_how: int, min_entries: int) -> list[str]:
         faults.append(
             f"install_report: {len(installs)} entries, needs {min_entries} — "
             f"this run runs two recipe layers (the package's own, which places "
-            f"the envchk-baseline server, and the agent's `recipes: [serena]`), "
+            f"the envchk-baseline server, and the agent's `recipes: [agent_sys:serena]`), "
             f"and a report naming neither is a report that never looked"
         )
 

@@ -368,7 +368,7 @@ def test_a_package_relative_recipe_runs_and_reports_its_status(tmp_path: Path) -
         f"    run: touch {marker}\n",
     )
     got = install(
-        _spec(recipes=["recipes/tools.yaml"]),
+        _spec(recipes=["package:recipes/tools.yaml"]),
         staged_package=str(pkg),
         config_dir=str(tmp_path / "config"),
     )
@@ -376,16 +376,116 @@ def test_a_package_relative_recipe_runs_and_reports_its_status(tmp_path: Path) -
     assert any("tools.yaml" in o.message for o in got.report)
 
 
-def test_a_declared_recipe_that_resolves_nowhere_refuses(tmp_path: Path) -> None:
-    """Both spellings are tried — package-relative, then
-    ``env_mgr/recipes/<name>.yaml`` — and the refusal names both candidates so
-    the author can see which one they meant to write."""
+@pytest.mark.parametrize(
+    ("declared", "expect"),
+    [
+        # **Declared and absent, per root**, and the two are separate cases
+        # because before 2026-09-04 neither of them existed: a missing
+        # `package:` file silently became a bare-name lookup in the shipped
+        # directory, and only *both* missing was an error.
+        ("package:absent.yaml", "does not exist"),
+        ("agent_sys:absent", "does not exist"),
+        # The migration guard. Dated, and its own message, because "names no
+        # root" and "is not a recipe root" send a reader to different questions.
+        ("serena", "names no root"),
+        ("recipes/tools.yaml", "names no root"),
+        # An unknown scheme **names both spellings**, so the message teaches the
+        # rule instead of citing a document.
+        ("envmgr:serena", "is not a recipe root"),
+        ("package :r.yaml", "is not a recipe root"),
+        # `agent_sys:` is a name and a separator is refused rather than
+        # basenamed — the previous code turned `a/b` into `b` in silence.
+        ("agent_sys:sub/serena", "never a path"),
+        ("agent_sys:", "never a path"),
+        # `package:` may not climb out of the staged copy. A recipe is executed.
+        ("package:../../escaped.yaml", "stay inside the staged package"),
+        ("package:/etc/passwd.yaml", "stay inside the staged package"),
+    ],
+)
+def test_every_way_a_recipe_reference_can_be_refused(
+    tmp_path: Path, declared: str, expect: str
+) -> None:
+    """**One row per refusal, each matched on its own message.**
+
+    A single `match="declares recipe"` would pass for all nine of these and tell
+    a reader nothing about which rule fired — and the rules exist precisely
+    because the old resolver collapsed several of these into *"try the next
+    candidate"*. Matching the distinguishing phrase is what makes each row a
+    check rather than a count.
+
+    The positive control is `test_a_package_relative_recipe_runs_and_reports_its_status`
+    and `test_the_shipped_serena_recipe_resolves_by_bare_name_and_parses`, which
+    resolve `package:` and `agent_sys:` respectively: without them this file
+    would be satisfied by a resolver that refused everything.
+    """
     pkg = tmp_path / "staged"
     pkg.mkdir()
-    with pytest.raises(PrepareRefused, match="declares recipe"):
+    with pytest.raises(PrepareRefused, match=expect):
         install(
-            _spec(recipes=["absent"]),
+            _spec(recipes=[declared]),
             staged_package=str(pkg),
+            config_dir=str(tmp_path / "config"),
+        )
+
+
+def test_the_root_is_the_scheme_and_never_which_file_happens_to_exist(
+    tmp_path: Path,
+) -> None:
+    """**The silent defect the scheme removes, measured against the old resolver.**
+
+    Before 2026-09-04 the resolver built a package-relative candidate and a
+    shipped-directory candidate and took the first that **existed**. Driven
+    against that logic with `serena`: a staged package carrying a file named
+    exactly ``serena`` won, and the same declaration in a package without one
+    reached `env_mgr/recipes/serena.yaml`. One string, two files, chosen by what
+    was on disk and reported as neither.
+
+    **The obvious accusation is false and is not what this guards.** A *typo* in
+    a package-relative path did not fall through to another recipe — the shipped
+    candidate was ``<shipped>/<basename>.yaml``, so ``recipes/tools.yaml`` fell
+    back to ``tools.yaml.yaml`` and refused. Measured, not assumed; the first
+    version of this test asserted the typo case and stayed green under a
+    reintroduced fallback, which is how the real case was found.
+
+    So the property is: **the scheme decides the root, and a shadowing file in
+    the package cannot change it.** Both directions are asserted with the
+    shadower present, because either alone would pass under a resolver that
+    always preferred one root.
+    """
+    pkg = tmp_path / "staged"
+    pkg.mkdir()
+    shadower = pkg / "serena"
+    shadower.write_text("version: 1\n", encoding="utf-8")
+    shipped = Path(agent_assets.__file__).parent / "recipes" / "serena.yaml"
+    assert shipped.is_file(), (
+        "the shipped recipe this test asserts is reached does not exist, so the "
+        "assertion below would be about an empty directory"
+    )
+
+    # `agent_sys:` reaches ours, with the shadower sitting right there.
+    assert agent_assets._recipe_paths(
+        _spec(recipes=["agent_sys:serena"]), staged_package=str(pkg)
+    ) == [str(shipped)]
+
+    # `package:` reaches theirs — the same name, the other root, no ambiguity.
+    assert agent_assets._recipe_paths(
+        _spec(recipes=["package:serena"]), staged_package=str(pkg)
+    ) == [str(shadower)]
+
+
+def test_a_package_recipe_with_no_staged_package_says_so(tmp_path: Path) -> None:
+    """**A different event from the file being missing**, and it does not share
+    the message.
+
+    `staged_package=None` is the shape of a run that configured no package. A
+    `package:` reference there is not an author error about a path; it is a
+    declaration this run cannot honour at all, and telling them the file does not
+    exist would send them looking for a file.
+    """
+    with pytest.raises(PrepareRefused, match="no staged task package"):
+        install(
+            _spec(recipes=["package:r.yaml"]),
+            staged_package=None,
             config_dir=str(tmp_path / "config"),
         )
 
@@ -401,7 +501,7 @@ def test_a_malformed_recipe_is_a_failed_outcome_and_not_a_raise(tmp_path: Path) 
     pkg = tmp_path / "staged"
     _write(pkg / "r.yaml", "items: [not a mapping]\n")
     got = install(
-        _spec(recipes=["r.yaml"]), staged_package=str(pkg), config_dir=str(tmp_path / "config")
+        _spec(recipes=["package:r.yaml"]), staged_package=str(pkg), config_dir=str(tmp_path / "config")
     )
     # `cli.main` already catches `RecipeError` into a `fail` outcome and exits 2,
     # so what arrives is the status line plus the parser's complaint — the child
@@ -427,7 +527,7 @@ def test_a_child_that_produces_no_report_is_a_failure_and_not_a_success(
     _write(pkg / "r.yaml", "version: 1\ntarget: {kind: repo, path: /tmp}\nitems: []\n")
 
     got = install(
-        _spec(recipes=["r.yaml"]), staged_package=str(pkg), config_dir=str(tmp_path / "config")
+        _spec(recipes=["package:r.yaml"]), staged_package=str(pkg), config_dir=str(tmp_path / "config")
     )
 
     assert _levels(got.report) == ["fail"]
@@ -831,7 +931,7 @@ def test_nothing_here_mutates_the_supervisors_environment(tmp_path: Path) -> Non
     _write(pkg / "r.yaml", "version: 1\ntarget: {kind: repo, path: /tmp}\nitems: []\n")
 
     install(
-        _spec(recipes=["r.yaml"]),
+        _spec(recipes=["package:r.yaml"]),
         staged_package=str(pkg),
         config_dir=str(tmp_path / "config"),
     )
@@ -866,7 +966,7 @@ def test_the_shipped_serena_recipe_resolves_by_bare_name_and_parses() -> None:
     ``info | would run: pip install uv`` and the status is unchanged. So this goes
     red on one thing: the recipe ceasing to parse.
     """
-    resolved = agent_assets._recipe_paths(_spec(recipes=["serena"]), staged_package=None)
+    resolved = agent_assets._recipe_paths(_spec(recipes=["agent_sys:serena"]), staged_package=None)
     assert resolved == [str(Path(agent_assets.__file__).parent / "recipes" / "serena.yaml")]
 
     proc = subprocess.run(
@@ -1091,7 +1191,7 @@ def test_a_recipe_child_that_overruns_is_killed_and_reported(tmp_path: Path) -> 
     )
 
     got = install(
-        _spec(recipes=["slow.yaml"]),
+        _spec(recipes=["package:slow.yaml"]),
         staged_package=str(pkg),
         config_dir=str(tmp_path / "config"),
         recipe_timeout=0.5,
@@ -1557,7 +1657,7 @@ def test_a_recipe_item_runs_a_binary_reachable_only_through_base_env(
         root = str(tmp_path / "zone")
 
     material.deploy(
-        _spec(recipes=["r.yaml"]),
+        _spec(recipes=["package:r.yaml"]),
         _Zone(),
         str(pkg),
         None,
@@ -2073,7 +2173,7 @@ def test_the_three_layers_run_default_then_package_then_agent(tmp_path: Path) ->
     mp.setattr(agent_assets, "DEFAULT_RECIPE", str(default))
     try:
         install(
-            _spec(recipes=["recipes/agent.yaml"]),
+            _spec(recipes=["package:recipes/agent.yaml"]),
             staged_package=str(pkg),
             config_dir=str(tmp_path / "c"),
         )
@@ -2105,7 +2205,7 @@ def test_layers_concatenate_rather_than_override(
     monkeypatch.setattr(agent_assets, "DEFAULT_RECIPE", str(default))
 
     install(
-        _spec(recipes=["recipes/agent.yaml"]),
+        _spec(recipes=["package:recipes/agent.yaml"]),
         staged_package=str(pkg),
         config_dir=str(tmp_path / "c"),
     )

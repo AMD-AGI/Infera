@@ -178,7 +178,7 @@ there.
 
 The real serena. **Two halves**, and knowing which is which is what makes an
 honest report possible here: the binary is installed by an `env_mgr` recipe
-(`recipes: [serena]` on the agent spec), and it is registered as an MCP server by
+(`recipes: [agent_sys:serena]` on the agent spec), and it is registered as an MCP server by
 an entry in **your own** `.claude/.mcp.json` — the same arrangement as section 4.
 Its tools are `mcp__serena__*`.
 

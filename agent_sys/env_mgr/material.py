@@ -174,7 +174,7 @@ def deploy(
     # again after them.** That reads like a duplication and is two different
     # facts.
     #
-    # *Before*, because it is an input: an agent declaring `recipes: [serena]`
+    # *Before*, because it is an input: an agent declaring `recipes: [agent_sys:serena]`
     # also declares `UV_TOOL_DIR` / `UV_TOOL_BIN_DIR` / `UV_CACHE_DIR` in its
     # `env` block, and `uv tool install` writes `~/.local/share/uv` — host state
     # on a shared box — if they are not in the child's environment. Measured

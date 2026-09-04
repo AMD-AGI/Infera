@@ -89,6 +89,15 @@
   # and a second recipe would add a second way for the run to fail on somebody
   # else's network without measuring anything the first does not.
   #
+  # **`agent_sys:` names the root, and there is no bare form.** Until
+  # 2026-09-04 this read `recipes: [serena]`, and which root that meant was
+  # decided by trying the package first and falling back to the shipped
+  # directory — so the declaration could not be read without knowing
+  # `agent_assets._recipe_paths`' resolution order, and a package carrying a file
+  # named exactly `serena` would have shadowed the shipped recipe in silence. The scheme is the root:
+  # `agent_sys:<name>` is `env_mgr/recipes/<name>.yaml`, `package:<relpath>` is
+  # this package's own. A bare name is now an error.
+  #
   # **The loader admits this line with a reservation, and the reservation is
   # answered rather than silenced.** It says: *name the file by convention under
   # `assets/` and drop the key.* That convention is for a recipe **this package
@@ -105,12 +114,13 @@
   # relabelled.
   #
   # **Known gap, and it belongs on this line rather than in a document.** A bare
-  # name resolves against `env_mgr/recipes/`, which `pyproject.toml` does **not**
-  # ship as package data (`spec.provisioning.md` §8, `temp/bugs/2026-09-04-*`),
-  # so this line resolves from a git checkout and raises from a wheel install.
-  # The package layer beside it — `assets/main.env_recipe.yaml` — has no such
-  # problem, because it travels inside the package.
-  recipes: [serena]
+  # **Known gap, now closed.** `agent_sys:` resolves against
+  # `env_mgr/recipes/`, which `pyproject.toml` did not ship as package data, so
+  # this line resolved from a git checkout and raised from a wheel install.
+  # Fixed and measured on 2026-09-04: the wheel now carries both recipe layers
+  # and the reference was resolved through `_recipe_paths` against an installed
+  # wheel. See `temp/bugs/2026-09-04-two-declaration-routes-*`.
+  recipes: [agent_sys:serena]
 
   # **There is no `agent_plugins:` key any more, and its absence is the design.**
   # The owner ruled that only an agent's own `assets/.claude/` tree may be
@@ -126,8 +136,8 @@
   # letting a reader notice the key is gone.** Install and declaration are still
   # two halves and neither implies the other — run 1 (2026-09-03) installed
   # serena cleanly and the agent got `No such tool available` for every
-  # `mcp__serena__*` call, because nothing declared it. `recipes: [serena]` above
-  # is still the install; the declaration is now the `serena` entry in
+  # `mcp__serena__*` call, because nothing declared it. `recipes: [agent_sys:serena]`
+  # above is still the install; the declaration is now the `serena` entry in
   # `.claude/.mcp.json`. The split survives; only the second half moved.
   #
   # serena stays a **per-agent** stdio server because `--project` differs per

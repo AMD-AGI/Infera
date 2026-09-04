@@ -10,7 +10,7 @@ main                        non-leaf: readme, no entry.sh, NO agent
 │
 └── probe_env               is_end · ai: env_probe
                             recipe  default → assets/main.env_recipe.yaml
-                                            → recipes: [serena]
+                                            → recipes: [agent_sys:serena]
                             copied  assets/env_probe.agent/.claude/  (auto-detected)
                             out: env_report                [structured_text]
                               check_env_report_shape     program · seconds · strong
@@ -29,7 +29,7 @@ is **copied** into the zone config.
 | 3 | plugin | copied | `.claude/plugins/` — a local marketplace, installed with `claude plugin install` |
 | 4 | an MCP server a recipe installed | **recipe** | `assets/main.env_recipe.yaml` copies `env_mgr/addons/envchk-baseline/`'s server in; the agent's `.claude/.mcp.json` declares it |
 | 5 | bundled stdio MCP server | copied | `.claude/tools/envchk_stdio.mcp.py` — the file's location is the declaration |
-| 7 | serena | **recipe** | `recipes: [serena]` — the real thing, over the network; the agent's `.claude/.mcp.json` declares it |
+| 7 | serena | **recipe** | `recipes: [agent_sys:serena]` — the real thing, over the network; the agent's `.claude/.mcp.json` declares it |
 
 **Section 6 is absent and the number is not reused.** It was an in-process
 `ToolDef`, published as `mcp__env_mgr__envchk_echo_token`, and

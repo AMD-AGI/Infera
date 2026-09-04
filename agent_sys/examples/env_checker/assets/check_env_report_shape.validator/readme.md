@@ -86,7 +86,7 @@ independent account of what `env_mgr` did, and `check_capabilities_genuine`
 decides serena's one permitted `unavailable` against it. A report that omits it
 is a report whose only excuse cannot be checked. The floor is 2 because this run
 runs two recipe layers — the package's own, which places the `envchk-baseline`
-server, and the agent's `recipes: [serena]` — and a report naming neither did
+server, and the agent's `recipes: [agent_sys:serena]` — and a report naming neither did
 not look.
 
 **Every fault is reported, not just the first.** A producer retrying against a

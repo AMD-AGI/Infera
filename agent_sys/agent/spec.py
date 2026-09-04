@@ -118,7 +118,12 @@ class AgentSpec(_Model):
     #: the package author restate a layout the harness already fixes.
     assets: str = ""
 
-    #: `env_mgr` recipe YAMLs, package-relative, run before the session. The
+    #: `env_mgr` recipe YAMLs run before the session, each written
+    #: ``<scheme>:<ref>`` — ``agent_sys:<name>`` for one this repository ships
+    #: under `env_mgr/recipes/`, ``package:<relpath>`` for one this task package
+    #: carries. **A reference names its root**: there is no bare form and no
+    #: fallback, because until 2026-09-04 the root was decided by which candidate
+    #: happened to exist. The
     #: route by which an agent asks for components this repository does not ship
     #: and should not vendor (serena, marketplace plugins, apt/pip tools) — and,
     #: with an item carrying ``tags: [internal]``, for one that it does.

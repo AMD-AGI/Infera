@@ -1400,7 +1400,7 @@ is author-controlled and was joined straight into a path with the check running
 *after* `copy_out`; measured with `"../../../ESCAPED"`, the tree was written
 outside the zone and only then refused. `contained_syntactically` — which needs
 no filesystem and so can run before the destination exists — is now consulted
-first, and the same check guards `assets:` and package-relative `recipes:`,
+first, and the same check guards `assets:` and a `package:` recipe reference,
 where F-D18's `Path(staged) / "/abs" == "/abs"` had been applied to the loader's
 output but not to these two consumers of it.
 
@@ -1429,7 +1429,7 @@ agent's own `assets/.claude/` tree is installed by declaring it in a recipe.
 |---|---|---|
 | default | `env_mgr/default.env_recipe.yaml` | **never** — it always applies |
 | package | `<staged package>/assets/main.env_recipe.yaml` | **never** — auto-detected |
-| agent | `recipes: [...]` on the agent spec | by name, or by package-relative path |
+| agent | `recipes: [...]` on the agent spec | `agent_sys:<name>` or `package:<relpath>` — the scheme names the root |
 
 **No item carries a layer and none can.** The path already says which layer a
 file is; a field saying it again is a second writer of one fact. That is the

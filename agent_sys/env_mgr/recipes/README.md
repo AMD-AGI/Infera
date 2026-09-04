@@ -1,15 +1,23 @@
 # `env_mgr/recipes/` — the recipes you name
 
-Everything in this directory is reached by **naming it**:
+Everything in this directory is reached by **naming it under the `agent_sys:`
+root**:
 
 ```yaml
-  recipes: [serena]     # -> env_mgr/recipes/serena.yaml
+  recipes: [agent_sys:serena]     # -> env_mgr/recipes/serena.yaml
 ```
 
-`agent_assets.py::_recipe_paths` resolves a bare name to `<this dir>/<name>.yaml`.
-It applies `os.path.basename` to the declared name deliberately, so a name may
-not select a file outside this directory by spelling a path — which also means
-**a subdirectory here is unreachable**: `recipes: [demo/x]` resolves to `x`.
+`agent_assets.py::_recipe_paths` resolves `agent_sys:<name>` to
+`<this dir>/<name>.yaml`. **A reference names its root and there is no bare
+form**: until 2026-09-04 `recipes: [serena]` was resolved by trying a
+package-relative path first and falling back here, so which root was meant
+depended on which file existed — measured, a package carrying a file named
+exactly `serena` shadowed this directory's `serena.yaml` in silence. A bare name
+is now a dated error.
+
+`<name>` may not contain a separator — **a subdirectory here is unreachable**,
+and `agent_sys:demo/x` is refused rather than silently read as `x`, which is
+what the previous `os.path.basename` call did.
 
 ## The default recipe is **not** here, and that is the distinction
 
@@ -29,7 +37,7 @@ The three layers, most general to most specific, all in
 |---|---|---|
 | default | `env_mgr/default.env_recipe.yaml` | never |
 | package | `<staged package>/assets/main.env_recipe.yaml` | never — auto-detected |
-| agent | `recipes: [...]` on the agent spec | **here**, by name, or by package-relative path |
+| agent | `recipes: [...]` on the agent spec | **here** via `agent_sys:<name>`, or the package's own via `package:<relpath>` |
 
 ## What is here
 
@@ -40,7 +48,7 @@ The three layers, most general to most specific, all in
 
 **Both are classed as demonstrations by the owner. `serena.yaml` is not only a
 demonstration in practice, and you need to know that before you touch it:**
-`examples/env_checker/steps/check.yaml` declares `recipes: [serena]` as a live
+`examples/env_checker/steps/check.yaml` declares `recipes: [agent_sys:serena]` as a live
 dependency, and its capability 7 fails without it. The label and the usage
 disagree; that disagreement is recorded here rather than resolved, because which
 one gives is the owner's call and not this file's.

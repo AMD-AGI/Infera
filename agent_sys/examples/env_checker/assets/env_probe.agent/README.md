@@ -42,7 +42,7 @@ split is the point of both:
 | | declared | installed |
 |---|---|---|
 | 4 `envchk_baseline` | the `.mcp.json` above | `assets/main.env_recipe.yaml` copies the server out of `agent_sys/env_mgr/addons/envchk-baseline/` |
-| 7 `serena` | the `.mcp.json` above | `recipes: [serena]` on the agent spec → `agent_sys/env_mgr/recipes/serena.yaml` |
+| 7 `serena` | the `.mcp.json` above | `recipes: [agent_sys:serena]` on the agent spec → `agent_sys/env_mgr/recipes/serena.yaml` |
 
 Run 1 (2026-09-03) is why the split is written down: serena installed cleanly and
 every `mcp__serena__*` call returned `No such tool available`, because nothing

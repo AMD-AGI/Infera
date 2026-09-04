@@ -212,7 +212,8 @@ CLAUDE_DIRNAME = ".claude"
 #: The **default** recipe layer — the one nobody names, because it always
 #: applies. It sits in ``env_mgr/`` rather than in ``env_mgr/recipes/``, and
 #: that placement is the whole of how a reader tells it from the recipes beside
-#: it: ``recipes/`` is the namespace of things you *name* in ``recipes: [x]``,
+#: it: ``recipes/`` is the namespace of things you *name* in ``recipes:`` under
+#: the ``agent_sys:`` root,
 #: and this is not in it. No field says "this one is the default"; the path does.
 #:
 #: **Absent is normal.** Nothing declares it, so a missing file is simply
@@ -604,7 +605,7 @@ def _recipe_paths(agent_spec: Any, *, staged_package: str | None) -> list[str]:
     |---|---|---|
     | default | `env_mgr/default.env_recipe.yaml` | never — it always applies |
     | package | `<staged package>/assets/main.env_recipe.yaml` | never — auto-detected |
-    | agent | ``recipes: [...]`` on the agent spec | by name or package-relative path |
+    | agent | ``recipes: [...]`` on the agent spec | ``<scheme>:<ref>`` — the scheme names the root |
 
     No item carries a layer and none can: the **path** already says which layer
     a file is, and a field saying it again is a second writer of one fact. That
@@ -649,14 +650,44 @@ def _recipe_paths(agent_spec: Any, *, staged_package: str | None) -> list[str]:
     that is `material.py:62-86`'s existing rule and only the agent layer can
     reach it. There is no third case.
 
-    ## The agent layer's two spellings
+    ## The agent layer: **a reference names its root**
 
-    A **package-relative path** is *this package's own recipe* and resolves
-    against the staged copy. A **bare name** is ``env_mgr/recipes/<name>.yaml``,
-    one this repository ships. A package cannot shadow a shipped recipe by
-    accident, because its own path has to resolve first for the name form never
-    to be reached — and if it does resolve, the author wrote a file at that path
-    and meant it.
+    | spelling | resolves to |
+    |---|---|
+    | ``agent_sys:<name>`` | ``env_mgr/recipes/<name>.yaml`` — what this repository ships |
+    | ``package:<relpath>`` | ``<staged package>/<relpath>`` — this task package's own |
+    | anything else | `PrepareRefused`, naming both spellings |
+
+    **There is no bare form and there is no fallback**, and both halves of that
+    are the point.
+
+    Until 2026-09-04 the root was inferred from the *shape* of the string:
+    `_recipe_paths` built a package-relative candidate and a shipped-directory
+    candidate and took the first that **existed**. Two things followed. A reader
+    of ``recipes: [serena]`` could not tell which root was meant without knowing
+    the resolution order — the declaration was not legible on its own. And which
+    root answered depended on a file's *absence*, so a typo in a package-relative
+    path did not fail; it silently became a bare-name lookup and ran a different
+    recipe.
+
+    **The old defence is kept here rather than deleted, because it was not
+    wrong.** It ran: *"a package cannot shadow a shipped recipe by accident,
+    because its own path has to resolve first for the name form never to be
+    reached — and if it does resolve, the author wrote a file at that path and
+    meant it."* That is an argument that the **precedence** is safe, and it is
+    correct. It is also not the objection. The reference was **illegible**, not
+    dangerous, and an argument about which candidate wins does not answer a
+    reader who cannot see which root was named.
+
+    So ``package:`` declared-and-absent is now an **error** — `material.py`'s
+    existing rule, reaching this key for the first time — rather than a silent
+    demotion to the other root. And an unknown scheme names both spellings in
+    the message, so the error teaches the rule instead of citing it.
+
+    ``agent_sys:`` and not ``env_mgr:``: the root is a *repository-level* fact,
+    and naming the module would be wrong the day the directory moves inside the
+    repository — which it did on 2026-09-04, when ``agent_plugins/`` became
+    ``env_mgr/addons/``.
 
     **There is no fourth spelling reaching `env_mgr/addons/`.** An add-on used
     to be able to carry a ``recipe.yaml`` beside its `.claude/`, run at
@@ -674,32 +705,102 @@ def _recipe_paths(agent_spec: Any, *, staged_package: str | None) -> list[str]:
         out.append(package_recipe)
 
     for declared in _sequence(agent_spec, "recipes"):
-        candidates = []
-        if staged_package:
-            # **Checked, for `_assets_dir`'s reason.** `../../..` climbs out of
-            # the staged copy and an absolute value replaces it outright, and a
-            # recipe is a file this module hands to a subprocess to execute.
-            # `None` simply means *not a package-relative recipe*, so the bare
-            # name below is still tried and the refusal names both candidates.
-            inside = contained_syntactically(declared, staged_package)
-            if inside is not None:
-                candidates.append(inside)
-        # The bare-name form. `os.path.basename` because this one is ours: a
-        # declared name may not select a file outside the shipped directory by
-        # spelling a path, and unlike the package-relative form there is no
-        # legitimate reading in which it contains a separator.
-        candidates.append(os.path.join(shipped, f"{os.path.basename(declared)}.yaml"))
-        for path in candidates:
-            if os.path.isfile(path):
-                out.append(path)
-                break
-        else:
-            raise PrepareRefused(
-                f"agent {_name(agent_spec)!r} declares recipe {declared!r} and none "
-                f"of {candidates!r} exists. It would have been skipped and the agent "
-                f"would meet the absence as a failure of its own"
-            )
+        out.append(_resolve_recipe(declared, agent_spec, staged_package, shipped))
     return out
+
+
+#: The two roots a recipe reference may name, and the whole of the vocabulary.
+#: A tuple rather than a chain of ``elif``s so the refusal below can print it and
+#: cannot drift from what is accepted.
+RECIPE_SCHEMES = ("agent_sys", "package")
+
+#: What a reference with no scheme is told. **A migration guard, dated, in the
+#: shape of `recipe.py`'s `_LAYER_REMOVED`.**
+#:
+#: It can be deleted once no ``recipes:`` list in any package or test carries a
+#: bare name — at which point the unknown-scheme branch below already covers the
+#: case, with a message that is correct if less specific. Kept separate while the
+#: old form is still something a reader might have seen, because *"'serena' names
+#: no root"* and *"'serena' is not a recipe root"* send that reader to different
+#: questions.
+_BARE_RECIPE_REMOVED = (
+    "agent {agent!r} declares recipe {declared!r}, which names no root. The bare "
+    "form was removed on 2026-09-04. Write 'agent_sys:{declared}' for a recipe "
+    "this repository ships under env_mgr/recipes/, or 'package:<relpath>' for one "
+    "this task package carries. It used to resolve by trying the package-relative "
+    "path first and falling back to the shipped directory, so the declaration "
+    "could not be read without knowing the resolution order, and a typo in a "
+    "package path silently ran a different recipe"
+)
+
+
+def _resolve_recipe(
+    declared: str, agent_spec: Any, staged_package: str | None, shipped: str
+) -> str:
+    """One ``<scheme>:<ref>`` reference to an existing file, or `PrepareRefused`.
+
+    **No candidate list and no first-that-exists.** The scheme selects exactly
+    one path; whether that path is there decides only between returning it and
+    raising. That is the whole change from the previous shape, in which a file's
+    *absence* selected the root — see `_recipe_paths`' docstring.
+    """
+    scheme, sep, ref = declared.partition(":")
+    if not sep:
+        raise PrepareRefused(
+            _BARE_RECIPE_REMOVED.format(agent=_name(agent_spec), declared=declared)
+        )
+    if scheme not in RECIPE_SCHEMES:
+        raise PrepareRefused(
+            f"agent {_name(agent_spec)!r} declares recipe {declared!r} and "
+            f"{scheme!r} is not a recipe root. The roots are 'agent_sys:<name>' — "
+            f"a recipe this repository ships under env_mgr/recipes/ — and "
+            f"'package:<relpath>', one this task package carries, resolved against "
+            f"the staged copy"
+        )
+
+    if scheme == "agent_sys":
+        # **A name, and a separator in it is an error rather than a basename.**
+        # The previous code called `os.path.basename` here, which silently turned
+        # ``a/b`` into ``b`` — a normalisation nobody asked for, of exactly the
+        # kind this change exists to remove. This root is ours and flat, so there
+        # is no reading in which a separator was meant.
+        if not ref or "/" in ref or os.sep in ref:
+            raise PrepareRefused(
+                f"agent {_name(agent_spec)!r} declares recipe {declared!r}; "
+                f"'agent_sys:' takes the bare name of a file in env_mgr/recipes/, "
+                f"never a path"
+            )
+        path = os.path.join(shipped, f"{ref}.yaml")
+    else:
+        # **``package:`` with nothing staged is a declaration that cannot be
+        # honoured**, and saying so beats resolving to nothing. It is not the same
+        # event as the file being missing and does not share its message.
+        if not staged_package:
+            raise PrepareRefused(
+                f"agent {_name(agent_spec)!r} declares recipe {declared!r} and this "
+                f"run has no staged task package to resolve 'package:' against"
+            )
+        # **Checked, for `_assets_dir`'s reason.** ``../../..`` climbs out of the
+        # staged copy and an absolute value replaces it outright, and a recipe is
+        # a file this module hands to a subprocess to execute. There is no
+        # fallback behind this any more, so `None` here is final.
+        inside = contained_syntactically(ref, staged_package)
+        if inside is None:
+            raise PrepareRefused(
+                f"agent {_name(agent_spec)!r} declares recipe {declared!r}, which "
+                f"does not stay inside the staged package {staged_package!r}. A "
+                f"recipe is executed, so it may not be reached by climbing out of "
+                f"the copy this run was pinned to"
+            )
+        path = inside
+
+    if not os.path.isfile(path):
+        raise PrepareRefused(
+            f"agent {_name(agent_spec)!r} declares recipe {declared!r} and {path!r} "
+            f"does not exist. Declared and absent is an error: skipped, the agent "
+            f"would meet the absence as a failure of its own"
+        )
+    return path
 
 
 # --------------------------------------------------------------------------- #

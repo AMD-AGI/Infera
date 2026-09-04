@@ -7,8 +7,8 @@ distinctively named symbol in it, sitting in the agent's workspace so that a
 code-analysis server has something to analyse. Putting it under `.claude/`
 would offer it to the installer as a component, which it is not.
 
-serena is installed by a recipe — `recipes: [serena]` on the agent spec, which
-resolves to `agent_sys/env_mgr/recipes/serena.yaml` — and **declared** by an
+serena is installed by a recipe — `recipes: [agent_sys:serena]` on the agent
+spec, where `agent_sys:` names `env_mgr/recipes/` as the root — and **declared** by an
 entry in the agent's own `.claude/.mcp.json`. Both halves are needed and neither
 implies the other; run 1 had the install and not the declaration, and every
 `mcp__serena__*` call answered `No such tool available`.

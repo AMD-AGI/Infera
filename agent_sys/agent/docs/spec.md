@@ -105,7 +105,7 @@ spec** — the two are declared together in a closure.
 | `knowledge` | §3.4 |
 | `rules` / `hooks` / `skills` | Configuration, stored in canonical form. §4.5 |
 | `assets` | **Filled by `spec_loader`, not written.** This agent's own directory under the package's `assets/`, found by the same three folder spellings a body lookup uses — `X`, `X.agent`, `agent.X`. Two matching directories is `SpecInconsistent`; an explicit binding is legal and warns. §4.5a |
-| `recipes` | The **agent layer** of three recipe layers; `env_mgr` recipe YAMLs by name or package-relative path. §4.5a |
+| `recipes` | The **agent layer** of three recipe layers; `env_mgr` recipe YAMLs as `agent_sys:<name>` or `package:<relpath>` — a reference names its root. §4.5a |
 
 Nine keys became eleven, and both additions are one thing: **an agent may now
 carry components, not only files.** §4.5a is why that needed new keys instead of

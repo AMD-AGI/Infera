@@ -23,7 +23,7 @@ main                        non-leaf: readme, no entry.sh, NO agent
 | 3 | plugin | copied | `.claude/plugins/` — a local marketplace, `claude plugin install` |
 | 4 | an MCP server a recipe installed | **recipe** | `assets/main.env_recipe.yaml` places `env_mgr/addons/envchk-baseline/`'s server; the agent's `.claude/.mcp.json` declares it |
 | 5 | bundled stdio MCP server | copied | `.claude/tools/envchk_stdio.mcp.py` — location is the declaration |
-| 7 | serena | **recipe** | `recipes: [serena]` — the real thing, over the network; the agent's `.claude/.mcp.json` declares it |
+| 7 | serena | **recipe** | `recipes: [agent_sys:serena]` — the real thing, over the network; the agent's `.claude/.mcp.json` declares it |
 
 **There are two install routes and exactly two**, and the table's second column
 is which one: a **recipe** declares something and `env_mgr` installs it, or the
@@ -184,15 +184,20 @@ Written down rather than left to be discovered.
 5. **No `resources` block.** A leaf may declare a pool; nothing here needs one,
    and `cli/build.py:85` — the only reader — declares no pools anyway.
 
-6. **`recipes: [serena]` does not resolve from a wheel install.** A bare name
-   resolves against `agent_sys/env_mgr/recipes/`, and `pyproject.toml` does not
-   ship that directory as package data —
-   `agent_sys/docs/spec.provisioning.md` §8 and
-   `examples/llm_e2e_performance_optimization/temp/bugs/2026-09-04-*`. From a
-   git checkout it works; from a wheel, section 7 cannot install. The one-line
-   `package-data` candidate is **unrun**, so this is recorded rather than
-   claimed fixed. The package layer beside it,
-   `assets/main.env_recipe.yaml`, is unaffected: it travels inside the package.
+6. ~~`recipes: [serena]` does not resolve from a wheel install.~~ **Closed
+   2026-09-04, and measured closed.** `agent_sys:serena` resolves against
+   `agent_sys/env_mgr/recipes/`, which `pyproject.toml` did not ship as package
+   data, so section 7 installed from a checkout and refused from a wheel. Both
+   recipe layers are now `package-data`; the wheel was built, its members
+   counted, and the reference resolved through `_recipe_paths` against an
+   installed venv. See
+   `examples/llm_e2e_performance_optimization/temp/bugs/2026-09-04-two-declaration-routes-*`.
+
+   Kept as a numbered entry because the *class* is the durable part: the same
+   comment in `pyproject.toml` had already described this failure mode for
+   `spec_loader/schemas`, and this was its third instance. The sweep that found
+   it — and `default.env_recipe.yaml`, whose absence would have been **silent** —
+   was `find env_mgr -type f ! -name '*.py'`.
 
 ## Deferred, on purpose — the follow-up list
 
