@@ -329,7 +329,14 @@ def _image_facts(root: Path, target: str) -> tuple[dict | None, list | None]:
     script = f"echo {encoded} | base64 -d | python3"
     probe = subprocess.run(
         ["bash", "-c", f'. "$1"; on "$2"', "_", str(PKG / "assets/lib/remote.sh"),
-         f"docker run --rm --entrypoint bash '{image}' -c '{script}'"],
+         # `--name` for the same reason `identify.py` carries one: an
+         # unattributable container on a shared node is one a teammate must
+         # either kill or hesitate over, and both are worse than a name.
+         # Literal suffix, not `$$`: a docker name may only match
+         # `[a-zA-Z0-9][a-zA-Z0-9_.-]*`, so an unexpanded `$$` crossing the
+         # shell layers would kill the probe on an invalid name.
+         f"docker run --rm --name yihou_m3_imagefacts_{os.getpid()} "
+         f"--entrypoint bash '{image}' -c '{script}'"],
         capture_output=True, text=True, timeout=300)
     digest = re.search(r"\b[0-9a-f]{64}\b", probe.stdout or "")
     symbols = re.search(r"^SYM: (.*)$", probe.stdout or "", re.MULTILINE)

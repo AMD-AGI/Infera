@@ -613,7 +613,22 @@ def image_facts(image: str, root: str, relatives: list[str], timeout: int = 300)
         done = subprocess.run(
             ["bash", "-c", f'. "$1"; on "$2"',
              "_", str(_PACKAGE / "assets/lib/remote.sh"),
-             f"docker run --rm --entrypoint bash {shlex.quote(image)} -c {shlex.quote(script)}"],
+             # **`--name`, so a container of mine is attributable on a shared
+             # node.** Without it docker assigns a random name and this probe is
+             # indistinguishable from another tenant's work in `docker ps` —
+             # which stopped being cosmetic on 2026-09-04, when the standing
+             # instruction became "kill other people's GPU tasks on nodes we
+             # hold". An unattributable container of ours is one a teammate must
+             # either kill or hesitate over. `--rm` and seconds long, so the
+             # suffix is enough to keep two concurrent runs apart.
+             #
+             # **The suffix is built here and not as `$$`.** That would have to
+             # survive `bash -c` -> `remote.sh on` -> `spur exec`, and a docker
+             # container name may only match `[a-zA-Z0-9][a-zA-Z0-9_.-]*` — so
+             # if `$$` ever reached docker unexpanded the probe would die on an
+             # invalid name rather than on anything real. A literal cannot.
+             f"docker run --rm --name yihou_m3_identify_{os.getpid()} "
+             f"--entrypoint bash {shlex.quote(image)} -c {shlex.quote(script)}"],
             capture_output=True, text=True, timeout=timeout)
     except (subprocess.TimeoutExpired, OSError) as error:
         print(f"identify: could not read {image}: {error}", file=sys.stderr)
