@@ -261,11 +261,22 @@ echo "run_in_container: record claims started_at=$(_field runtime.started_at)" >
 # instead of a sentence. Keep both: the variable for this to read, the whitelist
 # for enforcement. m1 has this as a constraint in T27 and will say before
 # switching.
-# The opening quote is part of the pattern on purpose: `.Config.Env` is a JSON
-# array of `"NAME=value"` strings, so an unanchored match would also fire on the
-# tail of a *different* variable that merely ends in this name --
-# `ROCR_HIP_VISIBLE_DEVICES=7` would be read as the pin. Matching `"NAME=`
-# requires the element to start there.
+# **The opening quote is load-bearing. Do not relax this pattern.**
+#
+# `.Config.Env` is a JSON array of `"NAME=value"` strings, so an unanchored
+# match also fires on the tail of a *different* variable that merely ends in
+# this name: `ROCR_HIP_VISIBLE_DEVICES=7` would be read as the pin. Matching
+# `"NAME=` requires the element to start there.
+#
+# **The failure is not "the check stops working" — it is a check that gets it
+# wrong in both directions at once.** With `7` mistaken for the pin of a
+# container really pinned to `0,1,2,3`, a request for card 0 is *refused* though
+# it is correct, and a request for card 7 is *passed* though it is not. A gate
+# that refuses right answers and admits wrong ones is worse than no gate, and it
+# would present as flakiness rather than as a bug in this line.
+#
+# Found only because the case was fabricated; no container in this cluster
+# happens to carry such a variable, so nothing would have surfaced it in use.
 CPIN_ALL="$(printf '%s' "$CSTATE" | sed -n 's/.*E2E_ENV=//p' \
   | grep -o '"HIP_VISIBLE_DEVICES=[^"]*' | head -1 | sed 's/^"HIP_VISIBLE_DEVICES=//')"
 if [ -n "$CPIN_ALL" ]; then
