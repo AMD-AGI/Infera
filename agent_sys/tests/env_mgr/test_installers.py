@@ -55,7 +55,6 @@ def test_bin_check_missing_is_fail_for_required(tmp_path):
     item = Item(
         installer="bin",
         importance="required",
-        layer="system",
         spec={
             "name": "definitely-not-a-real-bin-xyz",
             "check_cmd": "definitely-not-a-real-bin-xyz --version",
@@ -69,7 +68,6 @@ def test_oneline_check_uses_check_cmd(tmp_path):
     item = Item(
         installer="oneline",
         importance="suggested",
-        layer="system",
         spec={"check_cmd": "true", "run": "echo would-install"},
     )
     outs = get_installer("oneline").check(item, _target(tmp_path))
@@ -80,7 +78,6 @@ def test_apt_plan_prints_command_never_sudos(tmp_path):
     item = Item(
         installer="apt",
         importance="suggested",
-        layer="system",
         spec={"packages": ["definitely-not-installed-pkg-xyz"]},
     )
     outs = get_installer("apt").plan(item, _target(tmp_path))
@@ -93,7 +90,6 @@ def test_embed_plan_shows_body_without_running(tmp_path):
     item = Item(
         installer="embed",
         importance="required",
-        layer="repo",
         spec={"run": f"touch {marker}"},
     )
     outs = get_installer("embed").plan(item, _target(tmp_path))
@@ -106,7 +102,6 @@ def test_uv_plan_is_dry_run_and_nonmutating(tmp_path):
     item = Item(
         installer="uv",
         importance="required",
-        layer="repo",
         spec={"name": "uv", "ref": "pyproject.toml"},
     )
     outs = get_installer("uv").plan(item, Target(kind="repo", name="x", path=str(tmp_path)))
@@ -121,7 +116,6 @@ def test_uv_plan_tool_form_no_dry_run(tmp_path):
     item = Item(
         installer="uv",
         importance="required",
-        layer="system",
         spec={"tool": "git+https://example.invalid/pkg", "provides": "pkg"},
     )
     outs = get_installer("uv").plan(item, Target(kind="repo", name="x", path=str(tmp_path)))
@@ -133,14 +127,14 @@ def test_uv_plan_tool_form_no_dry_run(tmp_path):
 
 def test_uv_check_warns_when_no_ref_or_tool(tmp_path):
     # a uv item with neither ref nor tool is misconfigured; check must NOT say ok
-    item = Item(installer="uv", importance="required", layer="repo", spec={})
+    item = Item(installer="uv", importance="required", spec={})
     outs = get_installer("uv").check(item, _target(tmp_path))
     assert outs and all(o.level == "warn" for o in outs)
 
 
 def test_uv_check_ok_with_valid_ref(tmp_path):
     (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n")
-    item = Item(installer="uv", importance="required", layer="repo", spec={"ref": "pyproject.toml"})
+    item = Item(installer="uv", importance="required", spec={"ref": "pyproject.toml"})
     outs = get_installer("uv").check(item, _target(tmp_path))
     assert any(o.level == "ok" for o in outs)
 
@@ -253,7 +247,7 @@ def test_claude_present_names_reports_a_disabled_plugin_as_present():
 def test_oneline_plan_message_style(tmp_path):
     # oneline previews as a single-line "would run:" message, no "script" wording
     item = Item(
-        installer="oneline", importance="suggested", layer="system", spec={"run": "echo hi"}
+        installer="oneline", importance="suggested", spec={"run": "echo hi"}
     )
     outs = get_installer("oneline").plan(item, _target(tmp_path))
     msg = " ".join(o.message for o in outs)
@@ -264,7 +258,7 @@ def test_oneline_plan_message_style(tmp_path):
 def test_embed_plan_message_style(tmp_path):
     # embed previews a multi-line script body, flagged with "script" wording
     item = Item(
-        installer="embed", importance="required", layer="repo", spec={"run": "echo hi\necho bye"}
+        installer="embed", importance="required", spec={"run": "echo hi\necho bye"}
     )
     outs = get_installer("embed").plan(item, _target(tmp_path))
     msg = " ".join(o.message for o in outs)
