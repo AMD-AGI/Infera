@@ -3890,3 +3890,302 @@ at or beyond `build_workset`. A number that correctly does *not* move during
 visible progress is the harder half of measuring anything, and it is the reason
 this section still reads 10.
 
+
+## T+876 — 2026-09-04 04:06 UTC
+
+### Before anything else: 10 h 44 m of this record does not exist
+
+My last section was **T+226, 2026-09-03 17:16 UTC**. The next honest reading is
+this one, **14 h 36 m after T+0**. The interval **17:16 → 04:06** has no
+checkpoint and I will not manufacture one: the whole team, this writer included,
+was killed with the leader's tmux and re-spawned at ~03:52 UTC today.
+
+What is recoverable from artefacts, I have recovered and it is below. What is not
+recoverable — who was working on what between 17:46 and 03:52, whether anything
+was attempted and abandoned — is **gone**, and the record should say so rather
+than infer it. The same rule I applied through the `/home` outage.
+
+Two things bound the loss usefully. **The last commit in the repository is
+`4bc506f`, 2026-09-03 17:46 UTC.** **The last run directory is
+`20260903T174638-046322`, mtime 17:46:38.** Both stop within the same minute.
+Whatever ended this effort ended it at 17:46, not gradually.
+
+### The number that matters, before any percentage
+
+**10 of 21 validators have ever produced a recorded verdict in the graph** —
+unchanged. First-hand, 04:05 UTC, 231 `verdict.json` files across 38 runs,
+mapped to validator by their `args.json` signature against the `args:` blocks in
+`steps/*.yaml`:
+
+| validator | verdicts | pass | fail | Δ since 17:16 |
+|---|---|---|---|---|
+| `check_environment` | 76 | 62 | 14 | — |
+| `check_deploy_kit` | 36 | 26 | 10 | — |
+| `check_deploy_serves` | 36 | 12 | 24 | **+2** |
+| `check_command_parses` | 27 | 27 | 0 | — |
+| `check_bench_result` | 20 | 20 | 0 | **+4** |
+| `check_kernel_table` | 8 | 8 | 0 | **+2** |
+| `check_trace_coverage` | 8 | 8 | 0 | **+2** |
+| `check_worklist_shape` | 7 | 6 | 1 | **+2** |
+| `check_profiling_evidence` | 7 | 7 | 0 | **+2** |
+| `check_identity_resolved` | 6 | 6 | 0 | **+2** |
+
+**Trajectory: 15:00=5 · 15:06=5 · 15:14=9 · 15:40=10 · 16:17=10 · 16:40=10 ·
+16:53=10 · 17:16=10 · 04:06=10.**
+
+**State: stopped — and for the first time this is not a diagnosis, it is the
+known consequence of the team being dead.** Run count **38**, up from 35. The
+three runs I had not seen (17:20, 17:28, 17:46) account for **+16 verdicts**, all
+of them inside the ten already judged. The ceiling held across a window that
+included the first real-agent launch — which is the third time it has survived
+visible progress.
+
+*This section adds a pass/fail split I had not been carrying.* It is worth the
+column: `check_deploy_serves` is **12 pass / 24 fail**, the only validator that
+has refused more often than it has passed, and `check_environment`'s 14 failures
+are the second-largest block. Both are first-hand from the verdict files, not
+inferred. A FAIL still counts as a recorded verdict — the ten are the ten that
+have *spoken*, not the ten that are green.
+
+**Written validators: 21/21**, and no longer a count of skeletons: 21 `check.py`
+totalling **7 485 lines**, mean 356. At T+0 this read 0/20 with every body a
+12-line marker.
+
+**Graph loads: pass**, rc 0, **17 closures**, re-run at 04:05 with the new hold's
+identifiers substituted (`--var jobid=108891 --var node=crsuse2-m2m-249`).
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | **clean** — no `index.lock` in the worktree gitdir |
+| (b) per-commit ownership | **all six clean.** Fifth consecutive clean interval |
+| (c) `todo.md` | **18 items**, unchanged (T18 highest) |
+| holds | **one**, job `108891` on `crsuse2-m2m-249`, `R`, ends **11:52:01 UTC** — **7 h 46 m** |
+| `/home` | **2.0 T free (81 %)**. Stable |
+| `git gc` | **resolved** — `gc.log` is gone. Three sections of warning, cleared |
+
+Two of these changed and both deserve a line. **The `git gc` warning I have
+carried since T+165 is gone**: no `gc.log` in the common gitdir, `garbage: 0`.
+6 177 loose objects and 22 packs remain, which is untidy but is not the blocked
+state that warning described. I did not prune it and I do not know who did.
+
+**And there is now one hold, not two.** That is the larger change and it is in §4.
+
+### 1. Progress
+
+**~73 %.** Elapsed **876 m**, of which **644 m — 74 % — the team did not exist.**
+Working elapsed is closer to **232 m**, and that is the number the percentage is
+against; the 876 is walltime and says nothing about work done.
+
+**Reliability: low.** I am carrying this one point above T+226's 72 % on six
+commits and one launch, and I would not defend the single point as meaningful.
+What I *can* defend is that it did not go backwards: no commit was reverted, the
+graph still loads, the ten judged validators still read ten, and 21/21 bodies are
+still written.
+
+**Estimated remaining: no defensible figure, and I am dropping the one framing I
+used last time.** At T+226 I said the blocker was named — the image seam — and
+implied that naming it would soon let me estimate. It has not, and now there is a
+second constraint I did not have (§4), so the honest position is unchanged and I
+will not dress it up.
+
+What is defensible, and is the better number to carry: **the ladder is 6 rungs
+(0–5) and 0 are complete.** Rung 0 reaches its ceiling; rung 1 was launched once
+and cut off in seconds. There is no per-rung datum, so there is nothing to
+extrapolate from — this is an absence of data, not a pessimistic reading.
+
+### 2. Current state
+
+**Rung 1 was launched and I can say exactly how far it got.** `rung1.log`,
+2 143 B, mtime 17:46. The log ends:
+
+```
+     phase  deploy_and_prove: waiting_resource -> input_validating
+     phase  deploy_and_prove: input_validating -> running
+```
+
+and then nothing — **no error, no traceback, no teardown line.** The run
+directory holds 2 handoffs and 3 events, all `INPUT_VALIDATING finished` within
+one second of 17:46:39. **That is a truncation, not a failure path**: a process
+killed mid-sentence looks like this, a process that hit an error does not. It is
+consistent with the tmux kill and with `deploy_and_prove` being the **first
+closure in this effort to declare a non-`runner` agent** (`e2e_deployer`) —
+i.e. the first real AI closure, killed within seconds of entering `running`.
+
+**Rung 0's ceiling, verified first-hand and better than I had it.** Run
+`20260903T172821`: 11 handoff records — **8 `valid`**, `operator_workset`
+**`generating`**, `kernel_optimization` and `e2e_packup` `created`. The stall is
+exactly at `build_workset`, and `operator_workset` frozen in `generating` is the
+artefact of it. The leader's "eight valid handoffs, stops at `build_workset`" is
+confirmed against the store, not taken on report.
+
+**Per module** — six commits landed in the 30 minutes after my last section, then
+nothing:
+
+- **m1-deploy** — 2: `91259a1` a replayed kit says so and discovers its digest
+  rather than asserting one; `b8bc610` the AI brief told the agent to read the
+  message, not the exit code. Both touch the image seam.
+- **m3** — 1: `6afa0e9` the measurement was silent for its whole duration
+  (`build_workset.task/measure_in_container.sh` — the stall point's own body).
+- **leader** — 3: two CONTRACT sections and the bug-record tracking commit.
+- **m2, m4, m5** — no commits in that window. **Unknown, not scored.** m4 and m5
+  are now quiet for four consecutive live intervals. Still not evidence of
+  anything, and now confounded by the death — they may have had work in flight
+  that died with them.
+
+**Since respawn (03:52 → 04:06): no file modified under the package, none under
+`ws_handoff_refine`, no new run, no commit.** Fourteen minutes. I record it as a
+baseline for the next section, not as a concern.
+
+### 3. Code problems
+
+**None new, and none could be — nothing has executed since 17:46.**
+
+Both bug records from yesterday are now **tracked** (`4bc506f`) and I have
+confirmed the paths: `temp/bugs/` holds **7** records, the two newest being the
+validator-stdout one and the stall-detector one. They had been untracked because
+`temp/` is gitignored, which is worth remembering as a class: *a record that is
+written but not tracked is one `rm -rf` from never having existed.*
+
+The stall-detector record is the one that explains rung 0's shape, and it is now
+the most load-bearing bug in the set: `cli/main.py:1015` documents a conjunction
+and implements `(not holding or blocked)`; `blocked` is permanently true here by
+design, so the guard degenerates to "nothing changed for 20 s" and cannot tell a
+healthy quiet operation from a hang. **`build_workset` is a long quiet
+operation.** m3's `6afa0e9` — "the measurement was silent for its whole
+duration" — is the same seam approached from the body's side, by a different
+owner, in the same half-hour.
+
+### 4. Non-code problems
+
+**The GPU position changed completely and it is the dominant fact of this
+section.**
+
+The two holds from yesterday (`106250`/`crsuse2-m2m-061`, `106253`/`crsuse2-m2m-031`)
+are gone. **I cannot verify how they ended** — `sacct -j` on those IDs returns
+unrelated recent jobs on this cluster, so the accounting path I would use to
+distinguish walltime from cancellation from node failure is not answering. The
+leader reports they vanished ~5 h into 8 h; I have no independent evidence and I
+am not adopting a cause. **Open, and probably permanently.**
+
+One hold now exists: **`108891`, `crsuse2-m2m-249`, started 03:52:01, ends
+11:52:01 UTC.** Two properties of it are first-hand and both are new constraints:
+
+**(i) The named image is still absent, and the shelf is older.** `docker images`
+on 249 carries three sglang images:
+
+```
+lmsysorg/sglang-rocm:v0.5.16-rocm724-mi35x-20260805
+lmsysorg/sglang:v0.5.14-rocm720-mi35x
+lmsysorg/sglang:v0.5.12-rocm720-mi35x
+```
+
+`infera/engine-sglang:gfx950-local` — the name in the sealed `environment`
+record — is **not among them**, exactly as on 061. The image seam is not a
+property of one node; it has now failed to resolve on three.
+
+**(ii) Four of eight GPUs are taken, and this is new.** `rocm-smi --showmemuse`:
+
+```
+card0 98%   card1 96%   card2 98%   card3 96%
+card4  0%   card5  0%   card6  0%   card7  0%
+```
+
+Another tenant's non-docker processes hold 0–3 at ~300 GB VRAM each. **Cards 4–7
+are free.** So this node offers **tp=4, not tp=8.**
+
+**That is not merely a smaller machine — it collides with a validator.**
+`check_environment` lists `tp_size` in `require_fixed` *and* in
+`compare_fixed_across_inputs`. A real run pinned to four GPUs produces
+`tp_size: 4`; every sealed record it is compared against says 8. **The validator
+will refuse, and it will be right to.** I am not proposing the fix — that is
+m1's and the leader's call, and the DELIVERY-NOTE is explicit that bars do not
+get widened to make a run pass. I am recording that the constraint exists,
+that it is measured rather than anticipated, and that it lands *before* the
+first rung anyone runs on this node.
+
+**`/home` remains recovered** at 2.0 T free.
+
+**A smaller thing, benign, reported rather than filtered:** `README.md:40` and
+`CONTRACT.md:763` still give the canonical invocation with `jobid=106250`,
+`node=crsuse2-m2m-061`, `node_ip=10.245.159.129` — a dead hold on a node we no
+longer have. They are examples and they are correctly *parameterised*, so nothing
+is broken; but the documented incantation now names a machine that is gone, and
+the last time a rung was launched with a wrong `--var` it cost three runs.
+
+### 5. Open questions
+
+- **How did `106250` and `106253` end?** Unverifiable from here. The reason it
+  matters is not blame: if holds can vanish at 5 h of 8, then **7 h 46 m of hold
+  is not 7 h 46 m of budget**, and every plan built on the window is built on
+  sand. This is now the largest unquantified risk in the effort.
+- **Does the `tp_size` collision have a resolution that does not widen a bar?**
+  Open, owner m1/leader, and it gates rung 1 on this node.
+- **The eleven unjudged validators** — all at or beyond `build_workset`.
+  Unchanged, and now blocked by the stall detector as well as by the node.
+- **What did m2, m4 and m5 have in flight when the team died?** Unanswerable.
+  Their commits survive; their working state did not.
+- **Who cleared `gc.log`?** Trivial, but I carried the warning for three sections
+  and it resolved with no actor I can name.
+
+### 6. New commits
+
+**6 since T+226**, all between 17:20 and 17:46 UTC on 2026-09-03.
+Leader 3, m1 2, m3 1.
+
+**The running total I have been carrying is wrong and I am replacing it rather
+than continuing it.** `git rev-list --count 9646910..HEAD` is **108**. At
+`09da4d3` — the T+226 commit — the same command gives **102**, but that section
+reported **94**. The eight-commit gap is not explained by anything I can
+reconstruct, so I am not reconciling it by guess: **108 is measured, the series
+before it is not trustworthy, and later sections should count from here.**
+
+`3ca7e83` contract 4.3 — half-parameterised identifiers, and reproduce before
+attributing across owners ·
+`91259a1` m1(deploy) — a replayed kit says so, and discovers its digest instead
+of asserting one ·
+`c69c813` contract 3.2a — the colon in `${VAR:-}` disarmed a gate that kept
+printing PASS ·
+`6afa0e9` m3 — the measurement was silent for its whole duration ·
+`b8bc610` m1(deploy) — the AI brief told the agent to read the message, not the
+exit code ·
+`4bc506f` bugs — the two records from today: validator stdout, and the stall
+detector.
+
+Ownership: all six clean. `3ca7e83`/`c69c813` CONTRACT only; `91259a1` m1's
+validator and `deploy_and_prove.task`; `6afa0e9` `build_workset.task`, which
+`steps/m3_analysis.yaml` declares; `b8bc610` `deploy_and_prove.task/readme.md`;
+`4bc506f` `temp/bugs/` only.
+
+### 7. Anything else
+
+**Three of the six commits are the same lesson arriving from three directions,
+and they landed inside 26 minutes.** `c69c813` — a `:` inside `${VAR:-}` disarmed
+a gate that went on printing PASS. `b8bc610` — a brief told an agent to read the
+message rather than the exit code. `91259a1` — a kit that *asserts* its digest
+replaced by one that *discovers* it. Each is a case of **something reporting
+success without having established it**, and the record now holds five of these
+from yesterday plus the validator whose careful diagnostic goes to a discarded
+stdout. This is no longer a run of coincidences; it is the shape of the failure
+mode this package produces, and CONTRACT §4.3's *reproduce before attributing*
+is the procedural half of it. The other half might be worth stating: **a check
+that cannot fail is worse than no check**, because it consumes the attention a
+missing check would attract.
+
+**My own correction, on the same terms as the three false claims I have already
+recorded.** At T+226 I wrote that the blocker being *named* was an improvement
+over it being unknown, and implied an estimate would follow. Ten hours later
+there is no estimate, and a second constraint — the four-GPU node — arrived that
+naming the first one did nothing to anticipate. **Naming a blocker narrows what
+you must fix; it does not narrow what you do not yet know about.** I conflated
+the two, and the 73 % in §1 is deliberately almost the same number as last time
+because I do not have evidence for movement in either direction.
+
+**What survived the kill is exactly what was written down.** Six commits, seven
+bug records, 38 run directories, 231 verdicts, a `rung1.log` whose last two lines
+locate the death to the second. What did not survive is every agent's working
+memory. The effort lost 10 h 44 m of walltime and roughly nothing of its
+findings — which is a fair verdict on the recording discipline, and the strongest
+argument I have for why `4bc506f` mattered: the two bug records that were
+*untracked* at 17:16 would have been the only casualties.
