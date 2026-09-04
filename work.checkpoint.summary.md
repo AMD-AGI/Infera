@@ -4827,3 +4827,91 @@ the lead: 1425 insertions / 0 deletions, one file, signed off.
   same instinct this file has been tracking all round.
 - The owner has pushed round 1 onto a new branch themselves; the new `CLAUDE.md`
   states *"nothing further is owed to it."*
+
+---
+
+## T+70 — 2026-09-04 07:24 UTC (out-of-cadence correction)
+
+**Not a checkpoint section, and deliberately not carrying the seven parts** — it
+is a single correction that lands on a finding already in this file, and it
+should not wait for the `:38` tick while the durable record carries something
+that is not true. The next numbered section resumes the cadence.
+
+### Withdrawn: "a pin that is stronger than the criterion it cites"
+
+At **T+39 §7** I recorded a new instrument species under that name, and I recorded
+it as *distinct from the nine cannot-fail checks*. **It has zero instances. It is
+withdrawn.** The lead named it, I wrote it down, and the writing-down is what made
+it durable — so the withdrawal belongs at the same weight.
+
+I verified every citation myself before writing this, rather than accepting the
+retraction on report:
+
+| claim | what I read |
+|---|---|
+| criterion 22, verbatim | `agent_sys/env_mgr/docs/spec.md:561-562` — ***"The shipped recipe and installer machinery is untouched**: `pytest agent_sys/tests/env_mgr` passes unchanged."* |
+| the "65 tests … keep passing untouched" phrasing | `agent_sys/env_mgr/docs/design.md:1409` — **a different document**, in §12.1 *"Unchanged, and a test says so"* |
+| the test's own docstring | `agent_sys/tests/env_mgr/test_cli_subcommands.py:118`, `test_the_shipped_modules_are_byte_identical` — *"Criterion 22's **first clause**, asserted against the git index rather than against a memory of what was changed."* |
+
+So the byte-identity assertion is a **faithful** implementation of the word
+***untouched***, and its author said which clause it implements. **There is no
+overreach, so there is no species.** The decision option built on top of it — the
+one put to the owner as part of (A) — is withdrawn with it.
+
+**One nuance I add from reading the files, which does not excuse the error.**
+`design.md:1409` says *"65 tests pass today and criterion 22 requires them to keep
+passing untouched"* — so **`design.md` itself paraphrases criterion 22 in terms of
+the 65 tests.** The conflation had a real source in an artefact; it was not
+invented. That makes it a *more* dangerous shape, not a lesser one: the misreading
+was available to anyone who read `design.md` and stopped there.
+
+### The failure this actually is, recorded under the name this round already has
+
+**Stating something about an artefact nobody had opened.** `spec.md` §10 was one
+`sed` away throughout, and the criterion was quoted from memory across at least
+four messages before anyone looked. This is the repo-root principle *"Never state
+anything about an artefact nobody has opened"* — a **standing obligation, not a
+closed count** — recurring at a moment when the round had already logged the
+species twice and named it in the task book.
+
+And the "65" was **two facts stale at once**: it is a 2026-08-30 snapshot, and it
+is not current. I ran the collection myself — `pytest tests/env_mgr --collect-only -q`
+reports **476 tests collected**. A number repeated as current was wrong about the
+count and wrong about being a count of now.
+
+### Second correction: there is no `--layer` flag
+
+The lead has said *"`--layer` optional on the CLI"*, and it is written that way in
+`PLAN.md` decision B. **No such flag exists.** Verified two ways:
+
+- `grep -rn -- '--layer' agent_sys/env_mgr/` returns **nothing**.
+- `agent_sys/env_mgr/recipe.py:58` — `layer = raw["layer"]`, then
+  `if layer not in LAYER_ORDER: raise RecipeError(...)`. It is a **required key in
+  the recipe YAML**, and a missing or unknown value raises.
+
+So **decision (B) concretely means *make the YAML key optional*, not *make a CLI
+flag optional*.** Those are different edits touching different files, and `PLAN.md`
+currently describes the wrong one.
+
+### What is not withdrawn, kept separate on purpose
+
+- **The `_present_names` defect stands.** Real, measured, and `30e958b` records it
+  correctly. Nothing in this correction touches it.
+- **The other species from that same window stands**: *a green test encoding an
+  unmeasured third-party format*, which manufactures a **passing** check rather
+  than a failing one. `agent_sys/tests/env_mgr/test_installers.py:151` is the
+  confirmed instance. It is the inverse of a cannot-fail check and it survives the
+  withdrawal of the pin species intact.
+
+A withdrawal is not a licence to sweep the neighbouring findings out with it; two
+of the three things named that window were sound.
+
+### One open item closes
+
+**PR 155 has no 17th comment.** Measured by the lead across all three sources —
+16 inline review comments, 0 review submissions with a body, 0 issue-level PR
+comments. The count of **16** moves from *lead-reported* to *artefact-verified*,
+and my §5 item asking whether a 17th had arrived is closed. It has not.
+
+`import httpx2` from the owner's MCP sketch remains genuinely unread by anyone,
+including the lead. It stays named and open.
