@@ -6382,3 +6382,77 @@ once, unprompted; recorded before the run that did it is forgotten"* — that is
 someone treating the record as evidence that decays if unwritten, not as a
 summary written at the end. **That is the behaviour this file exists to make
 possible, and it is now happening in owners' files without anyone asking.**
+
+### Addendum, 10:54 UTC — my T+1062 answer was wrong, and the reason was in the event all along
+
+m2 found that `read_events.py` prints `message` and hides
+`attributes.seal_refused`. It is my file; the fix is landed (`841ca22`). **The
+part that belongs in this record is that the defect produced a wrong published
+answer of mine, and I can now show exactly how.**
+
+**What I told the leader at T+1062**, asked what `output_absent` at 13.8 s means:
+
+> the body executed and staged into `v1`, the store never advanced past `v0` […]
+> **Whether the divergence causes the absence or merely accompanies it is not
+> measured.**
+
+**What the event said, on both runs I analysed:**
+
+```
+message      = declared output 657bcbde-… was never delivered
+exit_status  = failed
+detail       = exit 1: mock: stage3-analyze/operator_workset -> operator_workset (27 files) …
+seal_refused = …/v1/content/README.md: required section 'Interface' is missing.
+               Present at document root: ['Environment','How to run','Purpose',
+               'Result','Watch out','operator_workset'] — a heading inside a
+               blockquote, a list or a code fence is not a section
+```
+
+**It was measured. It was in the event. I printed one of its four attributes.**
+
+Three specific errors follow, and they are worth separating:
+
+1. **"Not measured" was false.** The cause was a named seal refusal with the
+   missing section, the sections present, and the rule. I reported an open
+   question that the artefact had already closed.
+2. **"The failure is between the body and the store"** — my phrase, and it is
+   wrong. The failure is **at the seal**, which is neither.
+3. **I reconstructed `detail` by hand.** I spent several tool calls inferring
+   from mtimes and `drwxrwxrwx` that `v1` had been *staged rather than authored*.
+   `detail` says `exit 1: mock: … (27 files)` in one line. **My conclusion was
+   right and I paid for it twice over, then hedged it anyway.**
+
+**And it was fixed at 07:47 by someone who found it another way.** m3's
+`79ff361` — *"the seal wanted two README sections the sealed copy never had"* —
+is this exact refusal. So the question I left open at 07:12 was answered
+thirty-five minutes later by a different owner reading a different artefact,
+while my record still carried it as unresolved.
+
+**This is the fourth instance of the class I named this morning, and the worst,
+because the instrument was mine.** A key signature carries names but not
+membership. A run duration carries elapsed time but not which closure spent it.
+A green count carries verdicts but not completion. **And `message` carries the
+event's summary but not its cause** — while `_text` returned it and stopped,
+because I wrote `_text` to return the first of three keys and never asked what
+the other keys held.
+
+**One correction to m2's patch, which is the same bug one layer in.** Their
+`_SHOWN = ("message", "why", "detail")` suppresses all three summary candidates,
+but `_text` only *uses* the first one that is set. On this very event `message`
+is set, so `detail` — the "27 files" line, the half that proves an artefact
+existed — **stayed hidden by the fix written to unhide the cause.** Landed with
+`_extras` suppressing only the key the summary actually consumed. Verified on the
+real event: both `detail` and `seal_refused` now print. **A reader left with a
+refusal and no evidence there was ever an artefact is in the position I was in at
+07:12.**
+
+Their design decision — extras on their own lines, **untruncated** — is kept
+verbatim and was right: their first draft appended to the summary where `[:100]`
+cut through the middle of `seal_refused`, which is *"a change that looks correct
+in a diff and delivers nothing."*
+
+**What I am changing in my own procedure.** Every claim in this file that rests
+on a tool I wrote now names the tool. I have three: the verdict tally, the
+process check, `read_events.py`. **Two of the three have now been wrong in a way
+that changed a published conclusion** — the tally read one run root when there
+were two, and this. The third has never been independently checked by anyone.
