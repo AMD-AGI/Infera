@@ -358,3 +358,60 @@ def test_a_skipped_panel_says_nothing_to_the_user(monkeypatch, capsys) -> None:
     monkeypatch.setattr(cli_main, "_run", lambda args, stream: 0)
     cli_main.main(["run", "--package", "pkg"])
     assert "127.0.0.1" not in capsys.readouterr().out
+
+
+def test_the_readiness_probe_runs_from_a_directory_inside_the_prefix(monkeypatch) -> None:
+    """Where the probe runs decides which project its transcript lands in.
+
+    AgentsView names a project after the session's cwd — resolving the git
+    *main repository* when there is one. The probe inherited the caller's cwd,
+    which is the checkout, so ten identical `Reply with exactly one word:
+    ready` sessions piled into the real `infera` project. A directory of its
+    own inside the prefix is one argument and no new state.
+    """
+    import os
+    import subprocess
+
+    from cli import environment as cli_env
+    from env_mgr.prefix import Prefix
+
+    seen: dict = {}
+
+    def spy(cmd, **kw):
+        seen.update(kw)
+        return subprocess.CompletedProcess(cmd, 0, "ready", "")
+
+    monkeypatch.setattr(cli_env.shutil, "which", lambda c: "/usr/bin/claude")
+    monkeypatch.setattr(cli_env.subprocess, "run", spy)
+
+    assert cli_env.preflight_credentials(cli="claude") == "ready"
+
+    prefix = Prefix.resolve(os.environ)
+    assert seen["cwd"] == str(cli_env.probe_cwd(prefix))
+    assert str(prefix.root) in seen["cwd"]
+    assert os.path.isdir(seen["cwd"]), "the child refuses a cwd that does not exist"
+
+
+def test_the_probe_still_runs_when_its_directory_cannot_be_made(monkeypatch) -> None:
+    """A cwd we could not create is not a reason to refuse the whole run.
+
+    `preflight_credentials` failing aborts everything, which is far worse than
+    a transcript filed under the wrong project.
+    """
+    import subprocess
+    from pathlib import Path
+
+    from cli import environment as cli_env
+
+    def boom(*a, **k):
+        raise PermissionError("read-only prefix")
+
+    def spy(cmd, **kw):
+        assert kw.get("cwd") is None, "no cwd beats a cwd that does not exist"
+        return subprocess.CompletedProcess(cmd, 0, "ready", "")
+
+    monkeypatch.setattr(cli_env.shutil, "which", lambda c: "/usr/bin/claude")
+    monkeypatch.setattr(Path, "mkdir", boom)
+    monkeypatch.setattr(cli_env.subprocess, "run", spy)
+
+    assert cli_env.preflight_credentials(cli="claude") == "ready"
