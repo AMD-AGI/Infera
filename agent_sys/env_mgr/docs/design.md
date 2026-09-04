@@ -1407,8 +1407,17 @@ and if that ever stops being true the answer is another copy, not a wider grant.
 ### 12.1 Unchanged, and a test says so
 
 `recipe.py`, `layer.py`, `installers/`, `runner.py`, `outcome.py`, `report.py`,
-`registry.py`, `versions.py`. 65 tests pass today and criterion 22 requires them
-to keep passing untouched.
+`registry.py`, `versions.py`. 65 tests passed over them when this was written.
+
+**Criterion 22 is in `spec.md` §10 and is not paraphrased here**, because an
+earlier revision of this line did paraphrase it — *"criterion 22 requires them to
+keep passing untouched"* — and the paraphrase drifted from the criterion, which
+reads *"The shipped recipe and installer machinery is **untouched**: `pytest
+agent_sys/tests/env_mgr` passes unchanged."* On 2026-09-04 that drift was quoted
+back as if it were the criterion, and an argument for relaxing the enforcing test
+was built on it before anyone opened `spec.md`. One writer per fact: the
+criterion's wording lives in the spec. The 65 is likewise a snapshot of
+2026-08-30, not a live count — `tests/env_mgr` collects 476 today.
 
 `registry.py` already lists candidates on a miss (M15) — the precedent main design
 O5 cites — so nothing here needs it changed.
