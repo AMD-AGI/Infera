@@ -460,8 +460,21 @@ def main() -> int:
     integration, why = workset_integration(args.operator_workset, manifest.get("operator_id"))
     if integration:
         integration["_correctness"] = correctness_evidence(args.kernel_optimization)
-        print(f"apply: workset declares {integration.get('public_symbol')!r} in "
-              f"{integration.get('target_files')}, apply_mode {integration.get('apply_mode')!r}")
+        # **`None` printed through `!r` is not a formatting slip, and it read as
+        # one.** m4 saw `apply: workset declares None in [...]` on the first real
+        # run and reported it as a defect in the message — correctly, because a
+        # bare `None` looks like an unset field rather than a fact. It is the
+        # fact: an operator with no `public_symbol` is a `call_site_fragment`,
+        # which is the exact case M5.1.1 is about, announcing itself in the one
+        # line that mentions it and disguised as a bug.
+        symbol = integration.get("public_symbol")
+        print(
+            f"apply: workset declares "
+            + (f"public_symbol {symbol!r}" if symbol
+               else f"NO public_symbol (substitution {integration.get('substitution')!r})")
+            + f" in {integration.get('target_files')}, "
+            f"apply_mode {integration.get('apply_mode')!r}"
+        )
         bad += check_against_workset(manifest, integration)
     else:
         print(f"apply: NOTE no declared integration point to check against — {why}. "

@@ -145,7 +145,14 @@ def check(content: Path, args: dict, reasons: list) -> bool:
 
     results = root / "results"
     if results.is_dir():
-        found = [p for p in results.iterdir() if p.is_file() and p.stat().st_size > 2]
+        # `rglob`, matching `require_dirs` above. It was `iterdir` and the two
+        # measurements of the same directory disagreed about nesting: a
+        # `results/` holding only `nested/a.json` refused with *"holds 0
+        # non-empty file(s)"* when it holds one. The verdict was right and the
+        # number was a lie, which is the worse half — a reader who goes to check
+        # finds a file where the message says there is none and stops believing
+        # the next message too. Found by m2 reading `ad6d431`.
+        found = [p for p in results.rglob("*") if p.is_file() and p.stat().st_size > 2]
         floor = int(args.get("min_result_files", 4))
         if len(found) < floor:
             ok = _fail(
