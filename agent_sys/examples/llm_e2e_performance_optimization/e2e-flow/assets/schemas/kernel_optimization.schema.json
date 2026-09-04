@@ -460,13 +460,9 @@
                 "timing": {
                   "type": "string",
                   "enum": [
-                    "hip_graph_replay",
-                    "cuda_graph_replay",
-                    "event",
-                    "wall_clock_sync",
-                    "wall"
+                    "wall_clock_sync"
                   ],
-                  "description": "HOW the clock was taken, not how long it ran. The enum had no definition, and the workset declared 'event' while run_performance.sh used perf_counter -- a value nothing read, so nothing could contradict it (m2 and m3, independently). The values: 'hip_graph_replay'/'cuda_graph_replay' -- the work is captured once and replayed, so per-launch overhead is paid once rather than per iteration. 'event' -- device events recorded around the work; times GPU execution BETWEEN the markers and excludes host-side launch cost. 'wall_clock_sync' -- host clock bracketed by a device synchronise on BOTH sides. Includes launch overhead and the sync itself, amortised over iters_per_group. This is what run_performance.sh actually does. 'wall' -- host clock with NO synchronise, which on an async device times the launch queue and not the work. Kept in the enum because an artefact may honestly report it; a measurement that used it is not comparable with any of the others. Two artefacts may only be compared when this field agrees."
+                  "description": "HOW the clock was taken, not how long it ran. **This field is a COPY of the workset's `protocol.timing`, and `check_optimization_shape` compares the two with `_same` -- so it must carry exactly the values the workset schema permits, and no others.** It briefly permitted five. Four of them validated here and could never match any workset, which is a legal-but-unreachable value: an artefact that passes its own schema and fails every comparison, with nothing explaining why. Found by m4 sweeping for the field-pair class, and it was my defect -- I widened this enum to admit m3's honest correction without checking what the other end permitted.\n\n'wall_clock_sync' is what run_performance.sh does: synchronise, start perf_counter, iters calls, synchronise, stop, divided by iters. It INCLUDES per-launch overhead and the synchronise, amortised over the group.\n\nOne value on purpose, m3's reasoning and it governs here too: adding a second means adding the code, this enum member and the workset's together, and re-measuring everything recorded under the old one. HIP event timing would differ systematically and in one direction on every case. **Two artefacts may only be compared when this field agrees**, so a method that exists only in a schema is a comparison waiting to be silently wrong."
                 },
                 "reduction": {
                   "type": "string",
