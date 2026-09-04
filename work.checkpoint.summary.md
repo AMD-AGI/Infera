@@ -8060,3 +8060,97 @@ and they may have been aimed at the wrong ones, so they asked m1 for the fact.
 **That is T40 applied prospectively**: a null from a probe whose reach was
 uncertain, treated as uninformative rather than as absence. It is the first time
 today someone has stopped *before* the wrong conclusion rather than after it.
+
+### Addendum, 14:54 UTC — four instances filed, and their proposed axis tested rather than adopted
+
+`todo.md:1808` names this file's table as the canonical home for the instrument
+form, so these are mine to file. **All four are the leader's, all this
+afternoon, all silent.** Table entries 13–16:
+
+| instrument | reads | the question asked of it |
+|---|---|---|
+| `cmd \| tail` then `$?` | the **pipe's last element**'s status | did *the command* succeed |
+| `grep "${VAR}" file` | the **expansion** of `VAR` | does the file contain the *name* |
+| `pgrep -f "docker save"` | every cmdline **including pgrep's own** | is a save still running |
+| `find -newermt "14:48"` | a **misparsed** time | what changed since 14:48 |
+
+Each **succeeded**, returned a **plausible** answer, and answered a **different
+question**: *the controls pass*, *all twenty vars are absent*, *the save is
+running*, *the run has stalled four minutes*. Every one of those statements was
+false and none produced an error.
+
+### Their proposed axis, tested against the four — it is a real class and it is not this one
+
+The leader suggests *"nothing anywhere refuses an argument it cannot honour"*
+may be the more useful axis than "instrument", citing `find -newermt "14:48"`
+alongside `spec_loader/variables.py` accepting an unrecognised `--var` (rc=0,
+zero warnings) and an inert `${VAR:?}`.
+
+**Tested against their own four, it covers one:**
+
+| | under-specified input, silently accepted? |
+|---|---|
+| `\| tail` then `$?` | **no** — fully specified, and `$?` correctly returns the last element |
+| `grep "${VAR}"` | **no** — fully specified; double quotes expand, as documented |
+| `pgrep -f` self-match | **no** — fully specified; `-f` matches full cmdlines including its own |
+| `find -newermt "14:48"` | **yes** — and the full form `"2026-09-04 14:39"` worked |
+
+**So it is a second class with three members** — `find`,
+`spec_loader/variables.py`, inert `${VAR:?}` — **overlapping this table at
+exactly one instance.** It is not a better cut through the same data; it is a
+different failure that happens to share one case. The other three are
+*fully-specified commands whose documented semantics differ from the reader's
+question*, which no amount of input validation would catch.
+
+**I am recording it as its own class rather than folding it in**, because
+merging them would produce the thing `todo.md:1808` warns against: *two
+vocabularies for one failure*, or worse, one vocabulary for two.
+
+### The method that caught #4, which is the transferable part
+
+**The leader did not spot the bug.** They went to build a differential
+reference — the previous run's own write cadence, per `CLAUDE.md`'s 对拍 rule —
+and wrote the reference query with a **full date** because they were reaching
+further back. **The two queries disagreed, and only then did they look at why.**
+
+> **The bug was invisible from either query alone. It needed two that should
+> have agreed.**
+
+That is worth stating separately because **the other twelve instances in this
+table were caught by reading an artefact, and this one could not have been.**
+Reading `find`'s output more carefully would not have helped; the output was
+plausible. Only a second query with different specificity exposed it.
+
+### A fifth, which is not the leader's alone
+
+**m1 and the leader both ran `grep -rn "32\.5"`, got one hit in a comment, and
+concluded the constant was never measured.** m2 found the measurement: **33.58
+ms, real run, real jobid, m1's exact load shape — at `tp_size: 1`.** The
+constant was rounded from it.
+
+> **A search for a rounded literal cannot find the measurement it was rounded
+> from.**
+
+Two people, same instrument, same wrong conclusion — and the conclusion was
+*"this number has no provenance"*, which is the strongest kind of claim to get
+wrong. **Filed as entry 17.** The real finding underneath: the baseline is tp=1
+and today is tp=4, **so there was never a regression** — and separately that two
+images at the *same* tp=4 differ by **4.7×**, which is where m2 is looking now.
+
+### Ladder unchanged: 1 of 6
+
+**Rung 1 was refused at 14:24 and relaunched.** `check_deploy_serves` failed it
+on **64 completed requests against a floor of 80** — **not the deployment**:
+every probe passed and the load ran clean. The floor derived from a hard-coded
+35 s/request.
+
+m1 fixed it twice, and the first fix is worth the record: **`e8153f8` read the
+wrong metric key and fell *silently* back to the constant** — caught by the
+leader against the real artefact before it re-ran. **`516c74e` uses
+`request_latency_ms` directly**, the quantity rather than a proxy, one key
+instead of two. **m2 ran the fixed arithmetic against the refused artefact:
+floor 64, count 64, PASS.**
+
+So rung 1's refusal was an instrument fault in a validator, found by the
+validator refusing a good deployment — which is the failure mode the whole
+package is built to have rather than the one it is built to avoid.
