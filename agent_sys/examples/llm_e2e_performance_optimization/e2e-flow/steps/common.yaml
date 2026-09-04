@@ -54,6 +54,34 @@
     require_fixed:
       [node, gpu_arch, image, image_id, model_name, model_path, tp_size]
     require_runtime: [container, endpoint, started_at]
+    # **Relations BETWEEN fields, which no schema here can express.** JSON
+    # Schema relates a value to a *constant* — `maxItems` takes a literal, and
+    # bounding an array by a sibling's *value* needs `$data`, an Ajv extension
+    # absent from draft 2020-12, while `spec_loader/validate.py` runs a stock
+    # `Draft202012Validator`. Established by m1 after m4 routed it here as
+    # "expressible, nobody looked". It was looked for and found inexpressible.
+    #
+    # **Why it belongs here and not only in m1's layout.** The same
+    # `environment.yaml` travels in all fifteen kinds (CONTRACT §2); m1's
+    # `devices_within_count` governs `deploy_kit`. So a `profiling_evidence`
+    # could carry `gpu_count: 4` beside eight devices and validate cleanly.
+    # m4 was right about fourteen kinds for a reason they had not found.
+    #
+    # And it reads worse than an unexpressed rule: this one has a name, a fault
+    # number and a gate, so a reader who finds it concludes the document is
+    # checked. **From the artefact, a rule enforced at one carrier of a shared
+    # document is indistinguishable from one enforced everywhere.**
+    #
+    # `on_absent: skip` deliberately. `gpu_devices` is optional in the schema —
+    # a record predating the criterion is still valid, and omitting it honestly
+    # says "this run did not record which devices it took" where `[]` would
+    # falsely claim it took none. Tightening that is m1's call on their kit, and
+    # this validator grades fourteen kinds it must not tighten for.
+    invariants:
+      - name: devices_within_count
+        count_of: fixed.gpu_devices
+        at_most: fixed.gpu_count
+        on_absent: skip
     # **`fixed` is compared strictly; `runtime` is reported and never judged.**
     #
     # I first wrote this as `require_runtime_agrees_across_inputs: true`, which

@@ -69,8 +69,89 @@ def dotted(doc: dict, section: str, field: str):
     return (doc.get(section) or {}).get(field)
 
 
+def deep(doc: dict, path: str):
+    """`fixed.gpu_devices` -> the value, or None if any hop is missing."""
+    cur = doc
+    for part in path.split("."):
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(part)
+    return cur
+
+
+def check_invariants(doc: dict, rules: list) -> list[str]:
+    """Relations BETWEEN two fields of the environment record.
+
+    Lifted from m1's `check_deploy_kit.check_invariant` (`53bc783`) rather than
+    rewritten, keeping their `count_of` / `at_most` / `on_absent` spelling so the
+    two read alike — theirs governs the kit's copy, this one governs the same
+    record in the other fourteen kinds.
+
+    **Why it is here and not in the schema.** JSON Schema relates a value to a
+    *constant*: `maxItems` takes a literal, and bounding an array by a sibling
+    property's value needs `$data`, an Ajv extension absent from draft 2020-12,
+    while `spec_loader/validate.py` runs a stock `Draft202012Validator`. m1
+    established this. So `len(fixed.gpu_devices) <= fixed.gpu_count` was not
+    unexpressed because nobody looked — it was looked for, found inexpressible
+    there, and expressed in the layout instead.
+
+    **Why the layout was not enough.** The same `environment.yaml` travels in all
+    fifteen kinds (CONTRACT section 2), and the layout governs `deploy_kit` only.
+    A `profiling_evidence` could carry `gpu_count: 4` beside eight devices and
+    validate cleanly. m4 found this by looking in the wrong place and being right
+    about fourteen kinds for a reason they had not found; m1 found the reason.
+
+    The reading that makes it worth fixing rather than noting: **a rule enforced
+    at one carrier of a shared document is indistinguishable, from the artefact,
+    from a rule enforced everywhere** — and this one has a name, a fault number
+    and a gate, so a reader who finds it concludes the document is checked.
+
+    Deliberately not an expression language, m1's reasoning and it holds here: a
+    second relation adds a key, not a parser.
+    """
+    out: list[str] = []
+    for rule in rules or []:
+        name = rule.get("name", "unnamed")
+        values = deep(doc, rule["count_of"])
+        limit = deep(doc, rule["at_most"])
+        if values is None or limit is None:
+            # Absent is NOT a fault here. `gpu_devices` is optional in the
+            # schema on purpose: a record written before the criterion existed
+            # is still valid, and omitting it honestly says "this run did not
+            # record which devices it took", where `[]` would falsely claim it
+            # took none. m1 owns the decision to tighten it; this validator
+            # grades fourteen kinds and must not tighten it for them.
+            if rule.get("on_absent", "skip") == "fault":
+                out.append(f"{name}: {rule['count_of']} or {rule['at_most']} is absent")
+            continue
+        # `isinstance(list)`, not `try: len()`. A `try/except TypeError` guard
+        # was the first version and it let a STRING through: `gpu_devices: "0,1"`
+        # has `len` 3, which is under any plausible `gpu_count`, so a malformed
+        # record would have passed while being counted by characters. Found by
+        # running the case rather than by reading — the arm reported `pass` where
+        # the battery said it must refuse.
+        if not isinstance(values, list):
+            out.append(
+                f"{name}: {rule['count_of']} is {type(values).__name__} {values!r}, not a list. "
+                f"A string here would be counted by characters and pass."
+            )
+            continue
+        n = len(values)
+        if not isinstance(limit, int) or isinstance(limit, bool):
+            out.append(f"{name}: {rule['at_most']} is {limit!r}, not an integer")
+            continue
+        if n > limit:
+            out.append(
+                f"{name}: {rule['count_of']} has {n} entr{'y' if n == 1 else 'ies'} "
+                f"{values!r} but {rule['at_most']} is {limit} — the record claims to "
+                f"have taken more cards than it says the node has"
+            )
+    return out
+
+
 def main() -> int:
     args = zone.args()
+    invariants = list(args.get("invariants", []))
     required_fixed = list(args.get("require_fixed", []))
     required_runtime = list(args.get("require_runtime", []))
     compare_fixed = list(args.get("compare_fixed_across_inputs", []))
@@ -122,6 +203,8 @@ def main() -> int:
         for field in required_runtime:
             if dotted(doc, "runtime", field) in (None, ""):
                 problems.append(f"runtime.{field} is missing or empty")
+
+        problems.extend(check_invariants(doc, invariants))
 
         seen[hid] = {k: dotted(doc, "fixed", k) for k in compare_fixed}
         container = dotted(doc, "runtime", "container")
