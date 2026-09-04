@@ -2303,3 +2303,49 @@ deployment's `tp`**", since the two are only the same sentence at `tp=8`.
 The yaml's own comment has the same soft spot — *"a real run leaves it alone and
 sets `--var tp=` if the deployment is not eight-way"* reads as though setting
 `tp` moves `expect_ranks`. It does not, by the design two lines above it.
+
+### T54 — declaring `runtime.replayed_from` would not close the hole m5 found; `additionalProperties` is the hole
+
+**m1, 2026-09-04. m5's observation, measured and then corrected in the direction
+that matters.**
+
+m5 found that `runtime.replayed_from` is **consumed in five places and declared
+in none** — `check_deploy_kit/check.py:404-425`, `kit_status.py:66,158`,
+`check_measurement_order/check.py:280,330`, `load/line.sh:149` — validating only
+because `environment.schema.json`'s `runtime` has `additionalProperties: true`.
+Confirmed: it is absent from `runtime.properties`, and `fixed` is open too.
+
+**The obvious fix does not work.** Declaring the field constrains its *type* when
+present and changes nothing about a misspelling, because the object stays open.
+Demonstrated against the real rung-1 record with a stock `Draft202012Validator`:
+
+```
+key=replayed_from    schema_errors=0   consumers read '20260904T110647-fbaba0'
+key=replayed_form    schema_errors=0   consumers read None      <- one character
+key=zzz_not_a_field  schema_errors=0   consumers read None
+```
+
+**And it fails in the unsafe direction.** `None` means *"not a replay"*, so a
+typo turns a replayed kit into one every consumer treats as a real bring-up —
+the precise thing the field exists to prevent. A field whose absence is
+indistinguishable from its misspelling is the `items_schema` shape again: the
+check is present, the property is not checked.
+
+**Only `additionalProperties: false` closes it, and the cost is now a number
+rather than a worry.** Swept every environment record in the run root — 241
+across the store's handoffs — for keys the schema does not declare:
+
+```
+runtime.replayed_from   217
+fixed.sglang             10
+runtime.work_root         9
+```
+
+**Three keys, and that is all.** So the change is: declare those three, then
+close both objects — bounded, and verifiable by re-running the sweep to zero.
+Not "a contract-wide migration", which is what I assumed before counting.
+
+**Not done, deliberately.** `environment.schema.json` is shared by all fifteen
+kinds (CONTRACT §2) and closing an object is the kind of change that turns a
+tolerated field into a hard failure mid-run. It wants the leader's call and a
+green rung before it lands, not a quiet edit while rung 1 is in flight.
