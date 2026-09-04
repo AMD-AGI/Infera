@@ -767,6 +767,36 @@ live with m3's `operator_workset` and m4 **references** them (M4.4).
 **Modules 1–4 share one container on one held node.** m1 brings it up and
 records it in `environment.runtime`; m2, m3 and m4 exec into it.
 
+**"One container" means one DEPLOYMENT container. It does not forbid an
+ephemeral measurement container**, and the two must not be conflated — that
+conflation stopped rung 0 on 2026-09-04.
+
+A deployment container serves the model, m1 owns its lifetime, and nobody else
+starts or stops one. A **measurement** container is apparatus: it runs a kernel,
+prints a number and dies. In a **mock** chain no deployment container is ever
+brought up, so a check that can only re-measure inside one cannot run at all —
+and the mock e2e is a deliverable.
+
+m3 established the shape first (`measure_in_container.sh:156`, and read 325–392
+before copying it — the lifecycle notes there were learned the hard way):
+
+```bash
+: "${E2E_MEASURE_CONTAINER:=yihou_m3_measure_$$}"
+docker run --rm --name "$E2E_MEASURE_CONTAINER" …   # trapped: reclaim, then rm -f
+```
+
+Own name, `--rm`, removed in a trap, started from the image the record names.
+Never a name you did not create; never `docker rm -f` on anything else.
+
+So any body or validator that must measure:
+
+1. **prefer the container the record names**, when it is genuinely running — in a
+   real chain that is the faithful thing, same engine state and same pins;
+2. **fall back to an ephemeral one from the same image** when it is not;
+3. **say in the report which of the two it used.** A number re-measured in a
+   fresh container and one re-measured inside the live deployment are different
+   claims, and a reader must not have to guess which they are holding.
+
 **Module 5 is the designed exception.** Its two arms need two containers — a
 container holds one state for its life, which is the entire reason the two-arm
 design exists. `mission.md` G5.1 grants it: *"如果不行，再考虑换机器/启动不同的
