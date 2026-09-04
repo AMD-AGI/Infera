@@ -340,6 +340,45 @@ cannot bite — only that it has not been seen to. What would settle it: a run
 where `runprobe.py` shows `blocked` non-empty while a leaf is legitimately
 executing, and the run is cut anyway. Nobody has that.
 
+### Four runs, and `build_workset` has never survived to twenty seconds
+
+**Measured 2026-09-04**, each independently from its own store —
+`build_workset`'s `INPUT_VALIDATING finished` to its `output_absent`:
+
+| run | rung | leaf lived | `output_absent` → `escalated` |
+|---|---|---|---|
+| `20260903T172821` | 0 | **13.8 s** | 19.0 ms |
+| `20260904T041742` | 1 | **10.8 s** | 15.9 ms |
+| `20260904T072849` | 0 | **16.9 s** | 15.3 ms |
+| `20260904T073546` | 0 | **18.4 s** | 21.9 ms |
+
+**None reached twenty seconds, and in all four the escalation follows the
+absence inside ~20 ms.** No `running` event exists on that task in any of them —
+the kinds present are `phase_done`, `output_absent`, `escalated`.
+
+checkpoint's formulation is the one that carries: **story 1 requires a leaf that
+survives 20 s, and none has.** So `build_workset` has never been a candidate for
+the defect, in any run, on any rung.
+
+**The fourth is unconfounded.** `20260904T073546` ran on a clean node — eight
+cards at 0 %, `--var measure_gpu=4` passed explicitly — after node 006 had been
+double-booked during the third. **Same death, so card contention was never the
+cause.**
+
+**What this does NOT establish, and the distinction is checkpoint's:** it does
+not make story 2 true either. *Something* ends the leaf at 10–18 s and **nobody
+knows what.* What four runs remove is story 1, not the question.
+
+**And the margin is small enough to keep the question open on its own terms:**
+18.4 s against a 20 s threshold is 1.6 s. A body that fails slightly later — or
+a threshold slightly lower — puts `build_workset` on the other side of this
+line without anything about the detector changing. "No instance observed" is a
+statement about four runs, not a property of the system.
+
+**One conflation to not inherit:** `+336s` in the run log is the **run offset**,
+not the leaf's duration. It was quoted as duration in an earlier hand-off; the
+leaf is 16.9 s in that run. The two differ by the whole of m1 and m2.
+
 **And the honest reading of "what it cost" above** is that two owners lost time
 to a *correctly failing* mock stage whose failure was reported as a stall — the
 detector's *message* named the wrong cause, which is the
