@@ -354,6 +354,101 @@ def rewrite_in_tree(content: pathlib.Path, source_run: str) -> list[str]:
     return out
 
 
+#: **Which closure produces each kind, and whether that closure has a real
+#: agent.** `None` means the producer is declared `agent: runner` in the package
+#: — a program task, where `runner` is the real thing and carries no
+#: information about mocking.
+#:
+#: The four with an agent are the four stages promoted by *removing* a
+#: `--var m<N>_agent=runner`, so the store's `agent_spec` records the promotion
+#: directly.
+PRODUCER = {
+    "deploy_kit": ("deploy_and_prove", "e2e_deployer"),
+    "operator_workset": ("build_workset", "workset_builder"),
+    "kernel_optimization": ("optimize_kernel", "e2e_kernel_optimizer"),
+    "stock.measurement": ("integrate_and_verify", "e2e_integrator"),
+    "patched.measurement": ("integrate_and_verify", "e2e_integrator"),
+    "integration_report": ("integrate_and_verify", "e2e_integrator"),
+    "patch_overlay": None,          # apply_patch — agent: runner
+    "e2e_packup": None,             # packup — agent: runner
+    "kernel_worklist": None,        # identify — agent: runner
+    "operator_identity": None,      # identify — agent: runner
+    "profiling_mode_off.bench_result": None,   # m2's three closures are all
+    "profiling_mode_on.bench_result": None,    # agent: runner
+    "profiling_mode_on.profile_result": None,
+    "profiling_mode_on.kernel_table": None,
+    "profiling_evidence": None,
+}
+
+
+def produced_for_real(run: pathlib.Path, kind: str, hid: str) -> bool | None:
+    """Did the stage that produced this handoff actually execute?
+
+    `True` / `False` / **`None` for "no recorded discriminator"** — and the
+    `None` is the point of the function rather than a gap in it.
+
+    ## The defect this exists for
+
+    The leader ran a survey and it reported `deploy_kit` **STABLE, 27 runs**.
+    Stage 1 has deployed to a GPU a single-digit number of times. **A mock leaf
+    copies a previously sealed, previously validated artefact**, so it passes
+    *the same validator set* by construction — it is the artefact that passed
+    them originally. Twenty-seven runs was **one confirmation counted twenty-
+    seven times**, and certifying a stage on runs in which it never executed
+    grants exactly the skip the mechanism must never grant.
+
+    It is CONTRACT §4.6 one level up: the validator set cannot distinguish a
+    real artefact from a copy of a real artefact, because both sides share the
+    artefact.
+
+    ## The discriminator, measured
+
+    A stage is promoted by **removing** `--var m<N>_agent=runner`, and the store
+    records the resolved value per task (`store/task/*.json`, `agent_spec`).
+    Measured across every run:
+
+        deploy_and_prove agent_spec=runner        26 runs   mocked
+        deploy_and_prove agent_spec=e2e_deployer  15 runs   real
+          of which the kit also sealed `valid`:    4 runs
+
+    **27 -> 4**, and the leader's independent hand count of the ladder agrees.
+
+    ## Why it is partial, and why that is reported rather than papered over
+
+    Only four closures declare an agent. m2's three, `identify`, `apply_patch`
+    and `packup` are declared `agent: runner` in the package — for them `runner`
+    *is* the real thing, and their mock is selected inside `entry.sh` by
+    `mock.sh` reading `E2E_MOCK_STAGES`, which **the run tree does not record**
+    (only the unresolved `${mock_stages:-all}` template survives, in the staged
+    yaml).
+
+    `runtime.replayed_from` does not close the gap either: `mock_adapt.sh` (m1)
+    and `mock_m5.sh` set it, **`assets/lib/mock.sh` does not** — so it covers
+    the same two stages `agent_spec` already covers and none of the rest.
+
+    So eight of fifteen kinds have **no recorded discriminator at all**, and
+    this returns `None` for them. They are excluded from the stable count and
+    named, because a survey that silently counted them would be the same defect
+    with a smaller number.
+    """
+    spec = PRODUCER.get(kind)
+    if spec is None:
+        return None
+    closure, real_agent = spec
+    store = run / "store" / "task"
+    if not store.is_dir():
+        return None
+    for f in store.glob("*.json"):
+        try:
+            t = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            continue
+        if t.get("closure") != closure or hid not in (t.get("outputs") or []):
+            continue
+        return t.get("agent_spec") != "runner"
+    return None
+
+
 def load_handoffs(run: pathlib.Path) -> list[dict]:
     """Every handoff record in a run's store, as `{id, type, versions}`."""
     store = run / "store" / "handoff"
@@ -441,6 +536,7 @@ def survey(runs: list[pathlib.Path], kinds: list[str] | None) -> dict[str, list[
                 "content": version / "content",
                 "statuses": statuses,
                 "in_progress": "generating" in statuses,
+                "real": produced_for_real(run, kind, rec["id"]),
                 "validators": sorted(r.get("validator", "?") for r in rows),
                 "all_passed": bool(rows) and all(r.get("result") is True for r in rows),
                 "verdicts": [
@@ -463,10 +559,27 @@ def stability(rows: list[dict], threshold: int) -> tuple[bool, str]:
     if not rows:
         return False, f"no finished run produced this kind{live_note}"
 
+    # **Only runs in which the stage actually executed.** A mock copies a
+    # sealed artefact, so it passes the same validators by construction — see
+    # `produced_for_real`. `None` is *no recorded discriminator* and is excluded
+    # too: counting it would be the same defect with a smaller number.
+    unknown = [r for r in rows if r.get("real") is None]
+    mocked = [r for r in rows if r.get("real") is False]
+    rows = [r for r in rows if r.get("real") is True]
+    prov = ""
+    if mocked:
+        prov += f", {len(mocked)} mocked"
+    if unknown:
+        prov += f", {len(unknown)} with no recorded discriminator"
+    if not rows:
+        why = ("no run executed this stage for real"
+               if mocked or unknown else "no finished run produced this kind")
+        return False, f"{why}{live_note}{prov}"
+
     passing = [r for r in rows if r["all_passed"]]
     if len(passing) < threshold:
         return False, (f"{len(passing)} of {len(rows)} finished run(s) passed every "
-                       f"validator; threshold is {threshold}{live_note}")
+                       f"validator; threshold is {threshold}{live_note}{prov}")
     # **The distribution, not just the distinct sets** — and the reason is a
     # signal that turned out not to exist.
     #
@@ -499,7 +612,7 @@ def stability(rows: list[dict], threshold: int) -> tuple[bool, str]:
     if not any(passing[0]["validators"]):
         return False, "no validator graded this kind in any run — a green with nothing behind it"
     return True, (f"{len(passing)} run(s), each passing "
-                  f"{', '.join(passing[0]['validators'])}{live_note}")
+                  f"{', '.join(passing[0]['validators'])}{live_note}{prov}")
 
 
 def main() -> int:
