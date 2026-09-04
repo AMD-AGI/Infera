@@ -264,9 +264,22 @@ def main(argv: Sequence[str] | None = None) -> int:
 def _install_item(prefix: Prefix) -> Callable[[], Sequence[Any]]:
     """The recipe call `ensure_installed` injects rather than performs.
 
-    **It lives here because `env_mgr` may not contain it.** Spec §9 walls off
-    `recipe`/`runner`/`installers` from every module under `env_mgr/`, enforced
-    by `tests/env_mgr/test_imports.py`; `cli` is a different package.
+    **This is o11y-shaped code living in `cli/`, and review asked why. It is
+    here because it cannot be under `env_mgr/`.** Spec §9 walls `recipe`,
+    `runner` and `installers` off from every module there, and
+    `tests/env_mgr/test_imports.py` enforces it structurally — it derives the
+    "above the wall" set from the filesystem and walks it with `rglob`, so a new
+    subpackage is covered the moment it exists, with `env_mgr/cli.py` the single
+    exemption. This function's whole body is `load_recipe` + `runner.run`, so
+    any home under `env_mgr/o11y/` fails that test. A first draft of
+    `ensure_installed` did exactly that and failed exactly that test, which is
+    why it takes an injected callable rather than looking the recipe up itself.
+
+    Moving it would mean either putting it in `env_mgr/cli.py` — legal, but that
+    is env_mgr's command-line entry point and it would be there for the
+    exemption rather than because it belongs — or widening the exemption, which
+    weakens a guard whose own docstring records a module going unchecked when
+    the list was maintained by hand. Neither is this function's call to make.
 
     **Zero-argument, not a precomputed list**: a list evaluated at the call site
     would run the installer before `--dry-run` could stop it. `target.path` is
@@ -290,6 +303,18 @@ def _start_o11y(
     port_flag: int | None, disabled: bool, stream: Stream | None = None
 ) -> str | None:
     """The one call site. Returns the panel URL, or None, and never raises.
+
+    **Also o11y-shaped code in `cli/`, and also deliberate.** Review asked for
+    it to live in `env_mgr/o11y/`, and the destination is right; the move is a
+    refactor rather than a relocation, because this function is tied to `cli/`
+    at two points. It calls `_install_item`, which cannot leave (see there). And
+    it emits on the `Stream`, so moving it as written would have `env_mgr`
+    importing `cli` — a library importing its own consumer, which is a worse
+    inversion than the one being fixed. The honest shape is
+    `start_panel(prefix, port_flag, install_item, announce)` in the o11y package
+    with a four-line adapter here, and it re-points the ten or so tests that
+    patch `cli_main.ensure_installed` / `cli_main.ensure_running` at module
+    level. Worth doing on its own, not folded into a review-fix.
 
     **The bare `except Exception` is the point**: everything inside
     `ensure_running` already degrades to a warning, and this catches what that
