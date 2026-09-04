@@ -1401,7 +1401,7 @@ python3 -m agent_sys.cli.main run \
   --var measure_gpu=<free GPUs on the node, see below> \
   --var bench_rounds=3 \
   --var work_root=/mnt/m2m_nobackup/yihou/e2e_flow \
-  --var container=yihou_e2e_flow \
+  --var container=yihou_e2e_flow_r5_$(date +%m%d%H%M) \
   --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR
 ```
 
@@ -1412,6 +1412,15 @@ dispatched` from `agent-sys show`, 2026-09-04.
 **Every `m<N>_agent=runner` is gone, and that absence is the whole rung.** Five
 of them, not one. A rung-5 command carrying any is a lower rung wearing rung 5's
 name, and it will report a clean mock for the stage it silently kept.
+
+**`container` carries a timestamp, and the default deliberately is not used.**
+`'${container:-yihou_e2e_flow}'` is a *fixed* string, read identically by
+`shared.yaml`, m1 and m5, and nothing appends a run id — while CONTRACT §2.1's
+example of the record shows `yihou_e2e_flow_<run6hex>`. Taking the default is
+how a rung-5 run collides with another run, or with an earlier rung's
+leftovers, on a host shared with other tenants. `$(date +%m%d%H%M)` expands in
+the shell before `--var` sees it; verified as
+`yihou_e2e_flow_r5_09041236`. See §5.
 
 **`node_ip` is measured, never derived** — `spur exec <job> hostname -I`. There
 is no pattern: `-061` → `10.245.159.129`, `-031` → `10.245.144.239`, `-006` →
@@ -1496,9 +1505,27 @@ Named because a value rung 4 does not record is one somebody invents on the node
   `uninterpretable` rather than pass it if the floor exceeds the bar. If a
   rung-5 window is short, cutting rounds is the first thing to cut and the
   `uninterpretable` verdict is the honest consequence.
-- **`measure_container`** (default empty) — the two arms name themselves from it.
-  No source, and it is an identifier bound on a shared host, so leaving it
-  defaulted on a busy node is how two runs collide.
+- **`container`** (default `yihou_e2e_flow`) — **not `measure_container`, which
+  was this item's first spelling and was wrong.** `measure_container` is m3's:
+  its only consumer is `build_workset.task/measure_in_container.sh:156`, which
+  self-names with `: "${E2E_MEASURE_CONTAINER:=yihou_m3_measure_$$}"`, so an
+  empty value is already unique per process and m5 neither declares nor reads
+  it. Corrected by the leader, who checked the consumer before saying so; the
+  original sentence was a correct general worry about a variable that already
+  handles it.
+
+  **`container` is the one that does not handle it.** `shared.yaml:90`,
+  `m1_deploy.yaml:114` and `m5_integration.yaml:99` all read
+  `'${container:-yihou_e2e_flow}'`, `round.sh:26` takes it as `CTR` with **no
+  arm suffix and no run id**, and nothing anywhere appends one — while
+  CONTRACT §2.1's own example of the record shows
+  `container: yihou_e2e_flow_<run6hex>`. So the contract describes a
+  run-unique name and the default produces a **fixed** one.
+
+  The arms do not collide with each other — they are sequential, which is the
+  whole two-arm design — but **two rung-5 runs on one node collide, and so does
+  a rung-5 run against any earlier rung's leftovers.** Pass an explicit
+  run-unique `container=`; do not take the default.
 
 ## 6. What rung 5 proves that rung 4 did not, stated so a green cannot overclaim
 
