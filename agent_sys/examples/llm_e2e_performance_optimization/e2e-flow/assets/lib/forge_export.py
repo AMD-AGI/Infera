@@ -106,15 +106,53 @@ _ONE_LINE = '''#!/bin/sh
 #
 # `--dry-run` prints the command without running it, which is the flag that
 # makes it reviewable before it books a GPU for hours.
+#
+# **`kernel-agents forge-loop`, not `forge-loop`.** KernelForge declares exactly
+# one console script -- `kernel-agents = "kernel_agents.cli:main"`,
+# pyproject.toml:66 -- and `forge-loop` is a click subcommand of it, cli.py:722.
+# A bare `forge-loop` does not exist even after a correct install. Found by m4
+# while scoping the install, and it was wrong under every option for installing
+# it, which is why it was worth fixing before the decision.
+#
+# **`--workspace` is required and this wrapper cannot supply it.** cli.py:725,
+# `required=True`. It names the git checkout KernelForge edits in place, which
+# is a site fact like the measurement card -- so it is refused rather than
+# defaulted, and for the same reason: a wrong checkout does not fail, it edits
+# the wrong tree.
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 SPEC="$HERE"/invocation_spec.json
 DRIVER="$HERE"/scripts/forge_driver.py
-if [ "${{1:-}}" = "--dry-run" ]; then
-  printf 'forge-loop --invocation-spec-file %s --driver %s --fellow %s\\n' "$SPEC" "$DRIVER" {fellow}
+DRY=""
+if [ "${{1:-}}" = "--dry-run" ]; then DRY=1; shift; fi
+set -- --invocation-spec-file "$SPEC" --driver "$DRIVER" --fellow {fellow} "$@"
+
+# `--workspace=<dir>` and `--workspace <dir>` both have to count, so this
+# matches the flag name rather than a spaced token.
+HAS_WS=""
+for a in "$@"; do case "$a" in --workspace|--workspace=*) HAS_WS=1 ;; esac; done
+
+if [ -n "$DRY" ]; then
+  # **Prints even without `--workspace`, and says so in the command it prints.**
+  # Dry-run's job is to make the invocation reviewable; refusing here would
+  # break that and STEP 6's acceptance with it. The placeholder is deliberately
+  # not a valid path, so the printed line cannot be pasted blind.
+  printf 'kernel-agents forge-loop'
+  for a in "$@"; do printf ' %s' "$a"; done
+  [ -n "$HAS_WS" ] || printf ' --workspace <REQUIRED: the git checkout to edit>'
+  printf '\\n'
   exit 0
 fi
-exec forge-loop --invocation-spec-file "$SPEC" --driver "$DRIVER" --fellow {fellow} "$@"
+
+if [ -z "$HAS_WS" ]; then
+  echo "run_forge.sh: --workspace is required by kernel-agents forge-loop" >&2
+  echo "  (cli.py:725) and names the git checkout it edits in place. This" >&2
+  echo "  wrapper cannot know it: the workset describes an operator, not a" >&2
+  echo "  checkout." >&2
+  echo "  FIX: $0 --workspace <checkout> [other forge-loop flags]" >&2
+  exit 2
+fi
+exec kernel-agents forge-loop "$@"
 '''
 
 

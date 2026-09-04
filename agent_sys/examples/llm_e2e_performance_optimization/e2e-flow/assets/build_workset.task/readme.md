@@ -220,6 +220,14 @@ running:
 "$WS"/operators/<id>/run_forge.sh --dry-run
 ```
 
+It prints `kernel-agents forge-loop … --workspace <REQUIRED: the git checkout to
+edit>`. **The placeholder is not a defect** — `--workspace` is required by
+`forge-loop` and names the checkout it edits in place, which is a site fact this
+workset cannot know, so it is refused rather than defaulted for the same reason
+the measurement card is. Passing one substitutes it:
+`run_forge.sh --dry-run --workspace <checkout>`. Without `--dry-run` and without
+a workspace the script exits 2 and says so.
+
 Do not hand-edit anything under `operators/`. If it is wrong, the base format is
 wrong; fix that and re-run this step.
 
