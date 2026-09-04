@@ -120,13 +120,18 @@ CONTAINER=$(_field runtime.container)
 # noise. CONTRACT section 5.2: every identifier bound on a shared host is a var.
 #
 # **One name for the card, and it is `HIP_VISIBLE_DEVICES` (`--var gpu=`).**
-# This used to fall back to m3's `measure_gpu` variable, which reads as a
-# courtesy to their convention and is not one: `shared.yaml` declares that
-# `${measure_gpu:-4}`, **a real card**. Importing it would make the refusal
-# below *unreachable* and pick card 4 silently on a shared host — the exact
-# outcome the refusal exists to prevent, arriving through a fallback rather
-# than a decision. Two names for one identifier is also CONTRACT section 4.3's
-# shape. m3 keeps that variable for their own script; m4 asks explicitly.
+# This used to fall back to m3's `measure_gpu`. Two names for one identifier is
+# CONTRACT section 4.3's shape, and the fallback also made the refusal below
+# unreachable, so it went.
+#
+# **The reason I gave at the time has since expired, and the decision has not.**
+# It was: `shared.yaml` declares `${measure_gpu:-4}`, *a real card*, so importing
+# it picks card 4 silently on a shared host. As of `7c2d501` that default is gone
+# — `E2E_MEASURE_GPU: '${measure_gpu:-}'`, empty — so the silent-card-4 argument
+# no longer holds. **The one-name argument does**, and it is the one that was
+# load-bearing. Corrected rather than left standing: a justification that has
+# outlived its premise reads as a live reason and is how the next person
+# re-litigates a settled decision from a false start.
 : "${HIP_VISIBLE_DEVICES:=}"
 [ -n "$HIP_VISIBLE_DEVICES" ] || {
   echo "run_in_container: HIP_VISIBLE_DEVICES is empty and this host is shared." >&2
