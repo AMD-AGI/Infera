@@ -48,6 +48,7 @@ from cli.render.machine import JsonLinesRenderer
 from cli.stream import Stream
 from env_mgr import meta
 from env_mgr.o11y.agentsview import RECIPE_PATH, ensure_installed, ensure_running, resolve_port
+from env_mgr.o11y.mapping import ensure_run_project
 from env_mgr.prefix import Prefix
 from env_mgr.prepare import EnvManager, permissions_enforced
 from env_mgr.protocols import NoConfinement, PrepareRefused, UnresolvedGrant
@@ -231,12 +232,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             # once per invocation and its result never reaches the exit code.
             # Not for `--dry-run` (whose contract is *resolve everything, do
             # nothing*) or `--clean` (which deletes every run and exits).
-            _start_o11y(
+            panel_url = _start_o11y(
                 args.agentsview_port,
                 disabled=args.no_agentsview or args.dry_run or args.clean,
                 stream=stream,
             )
-            return _run(args, stream)
+            return _run(args, stream, panel_url)
         except package.PackageNotFound as exc:
             return _fail(stream, PRECONDITION, str(exc))
         except SpecInvalid as exc:
@@ -391,12 +392,12 @@ def _show(args: argparse.Namespace, stream: Stream) -> int:
 # run
 
 
-def _run(args: argparse.Namespace, stream: Stream) -> int:
+def _run(args: argparse.Namespace, stream: Stream, panel_url: str | None = None) -> int:
     if args.clean:
         return _clean(args, stream)
     if args.dry_run:
         return _dry_run(args, stream)
-    return _real_run(args, stream)
+    return _real_run(args, stream, panel_url)
 
 
 def _clean(args: argparse.Namespace, stream: Stream) -> int:
@@ -458,7 +459,7 @@ def _layout(args: argparse.Namespace) -> Layout:
     return layout_for(root).create()
 
 
-def _real_run(args: argparse.Namespace, stream: Stream) -> int:
+def _real_run(args: argparse.Namespace, stream: Stream, panel_url: str | None = None) -> int:
     """Everything. Needs credentials, a sandbox, and a model.
 
     The order of the two preconditions is measured rather than aesthetic: the
@@ -483,6 +484,18 @@ def _real_run(args: argparse.Namespace, stream: Stream) -> int:
     promises = expectations.for_package(package.locate(args.package))
 
     layout = _layout(args)
+    # **Here, and not in `_start_o11y`, because the run id does not exist yet
+    # when the panel starts.** Before any task runs, so the mapping is in place
+    # before the first transcript is ingested -- measured: a mapping that
+    # exists at ingest labels the session at sync time, with no second call.
+    mapped = ensure_run_project(panel_url, layout.run)
+    if mapped.running:
+        stream.emit(
+            EventKind.O11Y_PANEL,
+            f"this run is project {mapped.reason!r} on the panel",
+            project=mapped.reason,
+            run=str(layout.run),
+        )
     root = package.locate(args.package)
     # **Read once, at start-up, and it is the run's fact rather than a task's.**
     # `env_mgr.prepare.permissions_enforced()` is the single reader of the
