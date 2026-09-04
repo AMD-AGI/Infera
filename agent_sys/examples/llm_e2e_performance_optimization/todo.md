@@ -2047,3 +2047,42 @@ this one of the few classes here that an outside reader finds more easily than
 the author** — and unlike the tool defects, it fires when nothing is broken.
 
 **Not blocking.** No defect; a reasoning habit with one near-miss recorded.
+
+### T49 — the verdict is right and the message says why it is right, wrongly
+
+**Named as a class by m5 on 2026-09-04 after the third instance in one afternoon.
+Four now, across four owners, and the fourth is the leader's.** Recorded here
+rather than in `T43` because `T43` is about a *field* copied faithfully and
+understood by nothing; this is about a *message* that describes a narrower check
+than the sentence it prints.
+
+| where | the message claims | what was actually checked |
+|---|---|---|
+| `apply.py` (m5) | `workset declares None in [...]` | a `call_site_fragment` operator — `public_symbol: null` through `!r` |
+| `check_packup_shape` (m5) | `holds 0 non-empty file(s)` | one file, in a subdirectory `iterdir` did not descend into |
+| `check_workset_shape` (m3) | `not defined at module level` | not a `def`/`class` at module level — assignments are invisible to `identify.py` |
+| `check_command_parses` (leader) | `PROBLEM: items/command bash -n clean` | a *passing* line, routed into `write_report`'s problems slot unconditionally |
+
+**Every one gives the correct verdict.** That is what makes it the hardest kind
+to notice: nothing downstream is wrong, no run fails that should pass, and the
+only defect is in the sentence a human reads. A reader who checks the claim and
+finds it false stops believing the *next* message from the same validator, which
+is the actual cost and it is unbounded.
+
+**Three of the four were found by someone reading the message rather than the
+code**, and none by its author. m5's two were found by m2 and m4; the leader's
+was found by `checkpoint` counting `PROBLEM:` lines for an unrelated reason and
+m3 noticing that seven of them sat under a `passed` heading. **The author knows
+what the check does, so the author reads the message as a summary of it** — the
+same blindness as T48's invisible working practice, pointed at prose.
+
+**The tell, and it is cheap:** read the message *as if you did not write the
+check*, then ask what would have to be true for it to be exactly right. In all
+four the answer was a strictly broader condition than the code tests.
+`check_workset_shape`'s is the sharpest — *"not defined at module level"* is
+true of a module-level assignment, and the check cannot see one, so the message
+is a correct English sentence about a case the code would get wrong.
+
+**Not blocking, and not a code sweep.** Fixing the four is done or routed;
+the entry exists because the fifth will be written by whoever writes the next
+refusal, and the cost lands on a reader rather than on a run.
