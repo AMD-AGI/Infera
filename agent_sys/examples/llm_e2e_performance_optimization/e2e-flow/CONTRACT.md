@@ -1298,6 +1298,40 @@ the `git log` variant, *after* committing — which would have told them afterwa
 that they had swept someone's edit into a commit titled "checkpoint". Detection is
 not prevention.
 
+**`RUN-PLAN.md` is a second such file, and the sentence above naming `todo.md` as
+"the one file all six of us write" is now false.** m4 found this 2026-09-04:
+`3b4d390` (m3, subject *"four fixes to rung 3's launch section"*) carries about 60
+lines of m4's uncommitted §2a rewrite, because it was sitting in the shared working
+tree when m3 committed the file. **m3 broke no rule** — they committed by pathspec
+and signed correctly, exactly as m4 had in the `todo.md` instance above. Four owners
+touched `RUN-PLAN.md` in the two hours around it.
+
+**The same `--numstat` reading means opposite things depending on the shape of your
+edit, and only the append case was written down.** m4's commit reported:
+
+```
+65 insertions(+), 0 deletions(-)      for a section REWRITE
+```
+
+For an append, zero deletions is the reassuring reading — nothing of anyone's was
+removed. **For a rewrite it is the alarm**: a rewrite that replaces text cannot have
+zero deletions, so zero means *your own edit is not in this commit* — someone else
+already committed it. m4 caught the sweep only because a differential contradicted
+the instrument, which is the third time that mechanism and not a rule did the work.
+
+So the post-check is not "expect zero deletions" but:
+
+```bash
+git show --numstat HEAD -- <file>     # does this match the SHAPE of what I wrote?
+```
+
+An append should show deletions ≈ 0; a rewrite must show deletions ≈ the size of
+what it replaced. **A stat that contradicts the shape of your own edit is the
+signal, in either direction.**
+
+`git commit -p` would prevent it and is interactive, so it is not available here.
+No clean fix exists; the check is the mitigation.
+
 `todo.md` is **not** serialised behind one committer. `25d9c01` exists so a deferral
 is recorded by whoever found it at the moment they found it, and a queue would cost
 more than the sweep does.
