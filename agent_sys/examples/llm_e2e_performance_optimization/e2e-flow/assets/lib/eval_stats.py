@@ -134,6 +134,27 @@ def reduce_rounds(values: list) -> tuple[float | None, dict]:
     }
 
 
+def pooled_mean(values: list, counts: list) -> tuple[float | None, int]:
+    """The mean over every request in every round, and how many that was.
+
+    **No per-request data has to travel for this.** A pooled mean is the round
+    averages weighted by their request counts — `sum(v_i * n_i) / sum(n_i)` — and
+    AIPerf's summary already carries both per round. So the statistic that makes
+    `noise_floor` exact costs nothing extra to compute and nothing extra to
+    carry, and `check_no_regression` can recompute it from the same rows.
+
+    Returns `(mean, n)`. `n` is the pooled request count, which is what the floor
+    is a function of: pooling R rounds narrows it by about sqrt(R), which is the
+    whole reason this statistic is worth having.
+    """
+    pairs = [(v, c) for v, c in zip(values, counts)
+             if isinstance(v, (int, float)) and isinstance(c, (int, float)) and c > 0]
+    if not pairs:
+        return None, 0
+    total = sum(c for _, c in pairs)
+    return sum(v * c for v, c in pairs) / total, int(total)
+
+
 def noise_floor(rsd: float | None, n: int | None) -> float | None:
     """The smallest relative difference this measurement can resolve.
 
@@ -158,20 +179,21 @@ def noise_floor(rsd: float | None, n: int | None) -> float | None:
     mean's. So `p90` columns are not gated on this; their fix is more samples
     (pooling took ttft p90 from 20.0% to 5.5% at R=5), not a floor.
 
-    **And only valid for the statistic actually compared, which today means
-    R=1.** `reduce_rounds` compares a *median of R round averages*. At R=1 that
-    is the round's own mean over `n` requests and this formula is exact. At R>1
-    the median's noise is dominated by round-to-round drift, which no within-
-    round dispersion can see, and pretending otherwise would make the floor
-    **optimistic** — the direction that lets a run claim it can resolve a
-    difference it cannot. Caught reviewing this against R>1 straight after
-    writing it: the caller summed `n` across rounds as though the statistic were
-    a pooled mean, which it is not.
+    **Valid for the statistic actually compared, and that is now the pooled
+    mean.** An earlier round of this gated on `R=1`, because the judged
+    statistic was a *median of R round averages* whose noise is dominated by
+    round-to-round drift that no within-round dispersion can see — claiming a
+    floor there was optimistic, the direction that lets a run assert it can
+    resolve a difference it cannot.
 
-    So `rounds` is required and the floor is declined above 1. Two things would
-    lift that, and they are the two open items: pooling per-request across
-    rounds (then the statistic IS a pooled mean and this is exact again), or the
-    queued round-to-round measurement (then the median's own variance is known).
+    `pooled_mean` removed that restriction rather than working around it: the
+    judged statistic **is** a mean over `n` requests again, at any R, with `n`
+    the pooled count. So the formula is exact at every R and pooling narrows the
+    floor by about sqrt(R), which is the point.
+
+    The median is still computed and still carried — see `compare`'s
+    `reduction_disagrees` — but it is the cross-check, not the thing the floor
+    describes.
     """
     if rsd is None or not n or n <= 0:
         return None

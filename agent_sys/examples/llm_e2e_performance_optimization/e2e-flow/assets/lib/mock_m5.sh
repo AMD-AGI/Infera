@@ -189,14 +189,20 @@ HIGHER = {"output_token_throughput_tps", "request_throughput_rps"}
 bars = d.get("bars") or {}
 t_bar = float(bars.get("max_throughput_regression") or 0.05)
 l_bar = float(bars.get("max_latency_regression") or 0.10)
+rcounts = {r.get("round"): {"stock": r.get("stock"), "patched": r.get("patched")}
+           for r in d.get("performance", []) if r.get("metric") == "request_count"}
 by_key = {}
 for row in d.get("performance", []):
     if row.get("verdict") == "context":
         continue
     key = (row.get("metric"), row.get("column"))
-    slot = by_key.setdefault(key, {"stock": [], "patched": [], "label": row.get("label")})
+    slot = by_key.setdefault(key, {"stock": [], "patched": [], "n_stock": [],
+                                   "n_patched": [], "label": row.get("label")})
     slot["stock"].append(row.get("stock"))
     slot["patched"].append(row.get("patched"))
+    rc = rcounts.get(row.get("round"), {})
+    slot["n_stock"].append(rc.get("stock"))
+    slot["n_patched"].append(rc.get("patched"))
 # The sealed arms' own per-request dispersion, out of the sealed summary.json --
 # `std`, `avg` and `request_count`, all three already recorded on 2026-09-02. The
 # noise floor is derived from them, so it is measured evidence about that run
@@ -228,13 +234,23 @@ for arm in (("stock", "patched") if mode != "accepted" else ()):
 
 comparison = []
 for (metric, column), slot in by_key.items():
-    a, da = eval_stats.reduce_rounds(slot["stock"])
-    b, db = eval_stats.reduce_rounds(slot["patched"])
+    med_a, da = eval_stats.reduce_rounds(slot["stock"])
+    med_b, db = eval_stats.reduce_rounds(slot["patched"])
+    a, n_a = eval_stats.pooled_mean(slot["stock"], slot["n_stock"])
+    b, n_b = eval_stats.pooled_mean(slot["patched"], slot["n_patched"])
     up = metric in HIGHER
     bar = t_bar if up else l_bar
     row = eval_stats.perf_verdict(a, b, max_regression=bar, higher_is_better=up)
+    by_med = eval_stats.perf_verdict(med_a, med_b, max_regression=bar, higher_is_better=up)
     row.update(metric=metric, column=column, label=slot["label"], bar=bar,
-               reduction="median", rounds=da["n"], stock_detail=da, patched_detail=db)
+               reduction="pooled_mean", rounds=da["n"],
+               pooled_n_stock=n_a, pooled_n_patched=n_b,
+               median_stock=med_a, median_patched=med_b,
+               median_verdict=by_med["verdict"],
+               stock_detail=da, patched_detail=db)
+    if (row["verdict"] != "unmeasured" and by_med["verdict"] != "unmeasured"
+            and by_med["verdict"] != row["verdict"]):
+        row["verdict"] = "uninterpretable"; row["reduction_disagrees"] = True
     dd = disp.get((metric, column), {})
     floors = [eval_stats.noise_floor(dd.get(f"{k}_rsd"), dd.get(f"{k}_n"))
               for k in ("stock", "patched")]

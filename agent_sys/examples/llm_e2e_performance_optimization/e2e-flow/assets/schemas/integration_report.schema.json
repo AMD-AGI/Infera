@@ -602,7 +602,7 @@
           },
           "reduction": {
             "type": "string",
-            "description": "Which statistic reduced the rounds. 'median' today; the round-to-round distribution is unmeasured (todo.md T25)."
+            "description": "Which statistic is JUDGED. 'pooled_mean' -- the round averages weighted by request count, i.e. the mean over every request in every round. Judged rather than the median because noise_floor describes a mean, so pooling makes the floor exact at any R and narrows it by about sqrt(R). The median is carried beside it in median_stock / median_patched / median_verdict as the cross-check."
           },
           "rounds": {
             "type": [
@@ -670,6 +670,39 @@
               "null"
             ],
             "minimum": 0
+          },
+          "pooled_n_stock": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "pooled_n_patched": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "median_stock": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "median_patched": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "median_verdict": {
+            "$ref": "#/$defs/verdict_word"
+          },
+          "reduction_disagrees": {
+            "type": "boolean",
+            "description": "The pooled mean and the median reached different verdicts, so the rounds disagree by more than the bar can see through. The row is `uninterpretable`: a statement about the measurement, not the patch. Null disagreement rate measured on the sealed arms with no patch present: worst 9.8% at R=3, 5.7% at R=5, 1.3% at R=10."
           }
         }
       }

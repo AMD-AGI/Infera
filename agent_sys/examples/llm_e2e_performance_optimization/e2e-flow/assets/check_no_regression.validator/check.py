@@ -217,14 +217,26 @@ def judge_comparison(report: dict, args: dict, throughput_bar: float, latency_ba
             "multiple-comparison inflation reduction exists to remove."
         ]
 
+    round_counts: dict[str, dict] = {
+        r.get("round"): {"stock": r.get("stock"), "patched": r.get("patched")}
+        for r in report.get("performance", [])
+        if r.get("metric") == "request_count"
+    }
     by_key: dict[tuple, dict[str, list]] = {}
     for row in report.get("performance", []):
         if row.get("verdict") == "context":
             continue
         key = (row.get("metric"), row.get("column"))
-        slot = by_key.setdefault(key, {"stock": [], "patched": []})
+        slot = by_key.setdefault(key, {"stock": [], "patched": [],
+                                       "n_stock": [], "n_patched": []})
         slot["stock"].append(row.get("stock"))
         slot["patched"].append(row.get("patched"))
+        # The per-round request counts live on the `context` rows, keyed by
+        # round; pooling needs them as weights.
+        rnd = row.get("round")
+        counts = round_counts.get(rnd, {})
+        slot["n_stock"].append(counts.get("stock"))
+        slot["n_patched"].append(counts.get("patched"))
 
     found: list[str] = []
     judged = set()
@@ -239,8 +251,14 @@ def judge_comparison(report: dict, args: dict, throughput_bar: float, latency_ba
                 f"{metric} ({column}) is compared but no per-round row supports it — "
                 "the reduction stands on nothing this report carries")
             continue
-        a, _ = eval_stats.reduce_rounds(seen["stock"])
-        b, _ = eval_stats.reduce_rounds(seen["patched"])
+        # **Both statistics, recomputed.** `compare` judges the pooled mean and
+        # carries the median beside it; a disagreement between them is itself
+        # `uninterpretable`, so a validator that recomputed only one could not
+        # check that verdict at all.
+        a, _n_a = eval_stats.pooled_mean(seen["stock"], seen["n_stock"])
+        b, _n_b = eval_stats.pooled_mean(seen["patched"], seen["n_patched"])
+        med_a, _ = eval_stats.reduce_rounds(seen["stock"])
+        med_b, _ = eval_stats.reduce_rounds(seen["patched"])
         # The producer's own reduced pair has to match what its rounds reduce to.
         for name, mine, theirs in (("stock", a, row.get("stock")),
                                    ("patched", b, row.get("patched"))):
@@ -258,12 +276,12 @@ def judge_comparison(report: dict, args: dict, throughput_bar: float, latency_ba
         # resolvable. A row whose floor exceeds its bar is `uninterpretable` —
         # the run cannot tell a difference at the bar from its own scatter —
         # and that is a refusal, never a pass. Noise buys a harder outcome.
-        # Same R=1 guard as the producer, recomputed rather than read: above one
-        # round the compared statistic is a median whose variance this formula
-        # cannot see, so a floor claimed there is optimistic and must not gate.
-        single_round = (row.get("rounds") or len(seen["stock"])) == 1
-        floors = [(eval_stats.noise_floor(row.get(f"{arm}_rsd"), row.get(f"n_{arm}"))
-                   if single_round else None)
+        # No R=1 guard any more: the judged statistic is a pooled mean, so the
+        # closed form is exact at every R. `n` is the pooled count the producer
+        # carried, recomputed above as `_n_a`/`_n_b` and preferred over it.
+        pooled_n = {"stock": _n_a, "patched": _n_b}
+        floors = [eval_stats.noise_floor(row.get(f"{arm}_rsd"),
+                                         pooled_n[arm] or row.get(f"n_{arm}"))
                   for arm in ("stock", "patched")]
         usable = [f for f in floors if f is not None]
         floor = max(usable) if usable else None
@@ -273,7 +291,18 @@ def judge_comparison(report: dict, args: dict, throughput_bar: float, latency_ba
                 found.append(
                     f"{metric} ({column}): the report states a noise floor of {stated:.2%} and "
                     f"its own dispersion gives {floor:.2%}")
-        if floor is not None and floor > bar and again["verdict"] != "unmeasured":
+        # **Two causes, two messages, and conflating them crashed.** The
+        # disagreement between the statistics has no floor attached, so the
+        # floor's message cannot serve both — formatting a None as a percentage
+        # is what the R=5 fixture caught immediately after this landed.
+        by_median = eval_stats.perf_verdict(med_a, med_b, max_regression=bar,
+                                            higher_is_better=up_is_good)
+        disagrees = (again["verdict"] != "unmeasured"
+                     and by_median["verdict"] != "unmeasured"
+                     and by_median["verdict"] != again["verdict"])
+        floor_exceeds = (floor is not None and floor > bar
+                         and again["verdict"] != "unmeasured")
+        if disagrees or floor_exceeds:
             again = dict(again, verdict="uninterpretable")
 
         if again["verdict"] != row.get("verdict"):
@@ -282,12 +311,18 @@ def judge_comparison(report: dict, args: dict, throughput_bar: float, latency_ba
                 f"numbers say {again['verdict']!r}")
         if again["verdict"] == "REGRESSED":
             found.append(f"{metric} ({column}) regressed over {len(seen['stock'])} round(s)")
-        if again["verdict"] == "uninterpretable":
+        if floor_exceeds:
             found.append(
                 f"{metric} ({column}) is UNINTERPRETABLE: noise floor {floor:.1%} exceeds the "
                 f"{bar:.0%} bar, so this run cannot resolve a difference at it. This says the "
                 "measurement is unusable, NOT that the patch is bad — do not read it as a pass, "
                 "and do not answer it by widening the bar.")
+        elif disagrees:
+            found.append(
+                f"{metric} ({column}) is UNINTERPRETABLE: pooling the rounds says "
+                f"{eval_stats.perf_verdict(a, b, max_regression=bar, higher_is_better=up_is_good)['verdict']!r} "
+                f"and their median says {by_median['verdict']!r}. The rounds disagree by more than "
+                "the bar can see through, so this is about the measurement and NOT the patch.")
 
     # A per-round row with no reduced row above it would be judged by nothing.
     for key in by_key:

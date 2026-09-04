@@ -525,12 +525,46 @@ def main() -> int:
                       if r.get("metric") == metric and r.get("column") == column]
                 for arm in ("stock", "patched")
             }
-            a, detail_a = eval_stats.reduce_rounds(per_round["stock"])
-            b, detail_b = eval_stats.reduce_rounds(per_round["patched"])
+            # Per-round request counts, so the rounds can be pooled by weight.
+            counts = {
+                arm: [r["stock" if arm == "stock" else "patched"]
+                      for r in perf_rows
+                      if r.get("metric") == "request_count" and r.get("column") == "avg"]
+                for arm in ("stock", "patched")
+            }
+            # **Two statistics, one verdict, and their disagreement is a third
+            # answer.** The pooled mean is judged, because `noise_floor`
+            # describes a mean and pooling makes it exact at any R. The median
+            # is computed beside it, because it is the one that survives a
+            # single bad round — 5 rounds with one 1.40x outlier is absorbed by
+            # the median and dragged by the mean.
+            #
+            # Choosing one and hoping was the alternative and it loses either
+            # the floor or the robustness. **Carrying both turns the tension
+            # into a signal**: when they reach different verdicts the rounds
+            # disagree more than the bar allows, which is a comparability
+            # finding rather than a patch finding.
+            #
+            # Null disagreement rate, both arms drawn from the same arm's own
+            # per-request records so there is no patch to find, 3000 trials:
+            # worst cell 9.8% (request_latency_ms, stock, R=3), 5.7% at R=5,
+            # 1.3% at R=10, and <=0.3% everywhere on the cleaner arm. It falls
+            # with more rounds, which is the right direction. R=1 is 0% *by
+            # construction* and is not evidence — with one round the two
+            # statistics are literally the same number.
+            a, n_a = eval_stats.pooled_mean(per_round["stock"], counts["stock"])
+            b, n_b = eval_stats.pooled_mean(per_round["patched"], counts["patched"])
+            med_a, detail_a = eval_stats.reduce_rounds(per_round["stock"])
+            med_b, detail_b = eval_stats.reduce_rounds(per_round["patched"])
             bar = args.max_throughput_regression if higher_better else args.max_latency_regression
             row = eval_stats.perf_verdict(a, b, max_regression=bar, higher_is_better=higher_better)
+            by_median = eval_stats.perf_verdict(med_a, med_b, max_regression=bar,
+                                                higher_is_better=higher_better)
             row.update(metric=metric, column=column, label=label, bar=bar,
-                       reduction="median", rounds=detail_a["n"],
+                       reduction="pooled_mean", rounds=detail_a["n"],
+                       pooled_n_stock=n_a, pooled_n_patched=n_b,
+                       median_stock=med_a, median_patched=med_b,
+                       median_verdict=by_median["verdict"],
                        stock_detail=detail_a, patched_detail=detail_b)
 
             # ---- can this run resolve a difference at that bar at all? -------
@@ -551,14 +585,15 @@ def main() -> int:
             # fixed bar; p90's fix is pooled samples and throughput's floor
             # awaits the queued round-to-round measurement (`todo.md` T25).
             disp = dispersion.get((metric, column), {})
-            # R=1 only: `reduce_rounds` compares a median of R round averages,
-            # and above R=1 that statistic's noise is dominated by round-to-round
-            # drift no within-round dispersion can see. Claiming a floor there
-            # would understate it, which is the direction that lets a run say it
-            # can resolve what it cannot.
-            single_round = detail_a["n"] == 1 and detail_b["n"] == 1
-            floors = {arm: (eval_stats.noise_floor(disp.get(f"{arm}_rsd"), disp.get(f"{arm}_n"))
-                            if single_round else None)
+            # **The R=1 restriction is gone, and `pooled_mean` is why.** It was
+            # there because the judged statistic was a median of round averages,
+            # whose variance this formula cannot see. The judged statistic is a
+            # mean over the pooled requests again, so the floor is exact at any
+            # R and pooling narrows it by about sqrt(R) — measured on the sealed
+            # arms, ttft p90's floor goes 20.0% -> 5.5% between R=1 and R=5.
+            pooled_n = {"stock": n_a, "patched": n_b}
+            floors = {arm: eval_stats.noise_floor(disp.get(f"{arm}_rsd"),
+                                                  pooled_n[arm] or disp.get(f"{arm}_n"))
                       for arm in ("stock", "patched")}
             usable = [f for f in floors.values() if f is not None]
             # The worse of the two arms: a comparison is only as resolvable as
@@ -567,6 +602,23 @@ def main() -> int:
             row.update(noise_floor=None if floor is None else round(floor, 6),
                        stock_rsd=disp.get("stock_rsd"), patched_rsd=disp.get("patched_rsd"),
                        n_stock=disp.get("stock_n"), n_patched=disp.get("patched_n"))
+            # The two statistics disagreeing is itself an uninterpretable run:
+            # the rounds differ by more than the bar can see through, so neither
+            # answer is the run's answer. Checked before the floor so that the
+            # floor's message wins when both apply — a floor above the bar is
+            # the more specific finding and names a number.
+            if (row["verdict"] not in ("unmeasured",)
+                    and by_median["verdict"] not in ("unmeasured",)
+                    and by_median["verdict"] != row["verdict"]):
+                row["verdict"] = "uninterpretable"
+                row["reduction_disagrees"] = True
+                reasons.append(
+                    f"{label} ({column}) is UNINTERPRETABLE: pooling the rounds says "
+                    f"{eval_stats.perf_verdict(a, b, max_regression=bar, higher_is_better=higher_better)['verdict']!r} "
+                    f"and their median says {by_median['verdict']!r}. The rounds disagree by more "
+                    "than the bar can see through, so this is a statement about the measurement "
+                    "and NOT about the patch. More rounds is the fix; a wider bar is not."
+                )
             if floor is not None and floor > bar and row["verdict"] != "unmeasured":
                 row["verdict"] = "uninterpretable"
                 reasons.append(
