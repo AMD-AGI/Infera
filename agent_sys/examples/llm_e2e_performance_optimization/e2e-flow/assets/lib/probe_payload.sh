@@ -111,9 +111,30 @@ if [ -n "${imgs:-}" ]; then
   esac
 fi
 ncontainers="$(d ps -q | grep -c . )"
-# Names only, so a reader can tell one tenant's eight containers from eight
-# tenants. Never acted on: nothing here stops or removes anybody's container.
-tenants="$(d ps --format '{{.Names}}' | head -8 | paste -sd';' -)"
+# Names **and process counts**, so a reader can tell one tenant's eight
+# containers from eight tenants, and a serving container from an idle one.
+#
+# **`docker top`, never `docker exec`.** Both answer "is anything alive in
+# there"; `exec` answers it by running a process inside somebody else's
+# container, and `top` answers it from outside through the daemon. Same fact,
+# strictly less access, and on the right side of the line that says we read
+# other tenants' names and do nothing else with them.
+#
+# **This does NOT distinguish a corpse from live work, and must not be read as
+# if it did.** Measured 2026-09-04 (RUN-PLAN, `41c8540`): job `109192` was
+# cancelled while four of our containers were serving on 006, and fifteen
+# minutes later all four were still `Up`, the engine still answered `/health`
+# with 200, and all eight cards read 74–76 %. Containers talk to the **host**
+# daemon, so they are not in the job's cgroup and nothing tears them down when
+# the hold ends. A corpse in that sense is *genuinely running* — `State.Running`
+# is true, `docker top` shows a full process table, and both are correct. What
+# died is the *claim on the node*, not the process, and no reading available
+# here can see that. Reported as facts a person can weigh, never as a verdict.
+tenants="$(d ps --format '{{.Names}}' | head -8 \
+           | while read -r c; do
+               n="$(timeout 30 docker top "$c" 2>/dev/null | tail -n +2 | grep -c .)"
+               printf '%s(%s);' "$c" "${n:-?}"
+             done)"
 
 printf '{"node":"%s","cards_total":%s,"cards_free":%s,"free":"%s","busy":"%s","disk_gb":%s,"root_gb":%s,"mounts":"%s","containers":%s,"tenants":"%s","bases":[%s]}\n' \
   "$HOST" "${ncard:-0}" "${nfree:-0}" "${free_cards}" "${busy_cards}" \
