@@ -29,7 +29,7 @@ been telling everyone to pass the wrong one.
 | var | rungs 0–1 | rung 2 onward |
 |---|---|---|
 | `m<N>_agent=runner` | one per still-mocked stage | **removed** for the promoted stage |
-| `expect_ranks` | **2** | **omit it** (defaults to 8), or track `--var tp` |
+| `expect_ranks` | **2** | **set it to the deployment's `tp`** — omitting it defaults to **8** and refuses a `tp=4` run |
 | `adhoc_cases` | **0** | omit from rung 5 (`todo.md` T12) |
 | `image` | **the sealed kit's**, not the node's | the real bring-up's |
 | `transport_env` | **required on every rung** — `SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR` | same |
@@ -1777,7 +1777,7 @@ item below loads clean and fails later, so this list is the check.
 | `m<N>_agent` | `runner` | **all five absent** | that stage runs mocked and reports green |
 | `transport_env` | required | required | refuses in 1 s, looking exactly like a deployment failure |
 | `integration_min_requests` | n/a | **omit — default 50** | see below |
-| `expect_ranks` | `2` | omit (defaults 8) or track `tp` | m2's, listed so it is not carried in |
+| `expect_ranks` | `2` | **set to the deployment's `tp`** — omitting defaults to 8 | m2's; `${expect_ranks:-8}` does **not** track `tp`, so "omit" is safe only at `tp=8` |
 
 **`transport_env` is not a package variable at all** — it is consumed by the
 runner, so it appears in no yaml and `show` is structurally unable to see it
