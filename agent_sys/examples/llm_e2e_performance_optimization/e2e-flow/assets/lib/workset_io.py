@@ -26,6 +26,7 @@ __all__ = [
     "ABSOLUTE_PATH_ALLOW_LIST",
     "PERFORMANCE_FLOOR",
     "PERFORMANCE_ROLES",
+    "IMPL_CONTRACT",
     "VALIDATOR_REPORT",
     "write_report",
     "absolute_paths_in",
@@ -168,6 +169,34 @@ def assign_roles(shapes: list[dict], floor: int = PERFORMANCE_FLOOR) -> list[str
 
 #: Where a validator leaves its reasoning, beside `verdict.json`.
 VALIDATOR_REPORT = "validator_report.txt"
+
+#: **What `--impl PATH` must be**, as data rather than prose.
+#:
+#: Undeclared until 2026-09-04, when m4's STEP 4 reached the harness and got
+#: *"the Definition's `candidate:sampler_vocab_softmax` defines no `run`"*. Two
+#: sides disagreed about what the flag means and nothing stated it — the same
+#: shape as the flag *spellings*, which are data for exactly this reason and
+#: whose lesson this extends: **if a consumer has to read the harness to use
+#: the harness, the contract is the harness's behaviour and not a contract.**
+#:
+#: Declared by the producer so a consumer conforms to a statement rather than
+#: to whatever the instrument currently does. A seed fitted to observed
+#: behaviour pins the undeclared thing instead of removing it.
+IMPL_CONTRACT = {
+    "form": "python-source-file",
+    "entry_symbol": "run",
+    "call": "run(**inputs)",
+    "inputs_from": "definition.inputs",
+    "replaces": "baseline",
+    "notes": (
+        "exec'd in a fresh namespace, not imported: no module, no package, no __file__, "
+        "so relative imports do not work and the implementation must be self-contained in "
+        "the one file. Called with keyword arguments named by the Definition's `inputs`. "
+        "Never replaces `reference` — a candidate that could would be grading itself. "
+        "A stock module is made to fit by carrying the whole file verbatim and appending a "
+        "`run` that delegates to it; `mock_adapt.py:_read_seed` is the worked example."
+    ),
+}
 
 
 def write_report(validator: str, findings: dict[str, tuple[list[str], list[str]]]) -> None:

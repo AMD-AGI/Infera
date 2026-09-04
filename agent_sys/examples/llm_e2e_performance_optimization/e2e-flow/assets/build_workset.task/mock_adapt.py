@@ -259,6 +259,54 @@ def _repair_readme(content: Path) -> None:
 _SEALED_ONLY_ITEMS = ("env", "result", "script")
 
 
+def _base_sha256(root: Path, target: str) -> dict | None:
+    """sha256 of the stock target file **as it exists in the image**, or `None`.
+
+    m5's patch manifest pulls the file out of the image, hashes it, and refuses
+    on a mismatch; with this recorded, m4's STEP 6 no longer needs a container
+    of its own. The schema requires it at *identify* time and says why — a hash
+    taken later is a hash of whatever the file had become.
+
+    **Discovered on the node, not written down here**, which is m1's rule for
+    the image digest and the same rule for the same reason: a constant in a
+    mock is a claim about a machine, and the machine is the only thing that can
+    make it. `MOCK_BASE_SHA256` overrides for an operator who knows better.
+
+    `None` when the node or the image is out of reach. The schema permits null
+    and states the consequence — a consumer must fall back to hashing and
+    **should say that it did** — so an absent hash is a declared gap rather
+    than a silent one. That is why this returns rather than dying: the mock is
+    still a valid workset without it, and refusing here would trade a stated
+    gap for a stopped run.
+    """
+    override = os.environ.get("MOCK_BASE_SHA256")
+    if override:
+        return {target: override}
+    image = ((yaml.safe_load((root / "environment.yaml").read_text(encoding="utf-8")) or {})
+             .get("fixed") or {}).get("image")
+    if not image:
+        return None
+    # The repo root is asked of the image rather than assumed: `sglang.__file__`
+    # is the only thing that knows where this build put it, and a wrong guess
+    # would hash nothing and look identical to an unreachable node.
+    script = (
+        'r=$(python3 -c "import sglang,os;'
+        'print(os.path.dirname(os.path.dirname(os.path.dirname(sglang.__file__))))" 2>/dev/null); '
+        f'sha256sum "$r/{target}" 2>/dev/null | cut -d" " -f1'
+    )
+    probe = subprocess.run(
+        ["bash", "-c", f'. "$1"; on "$2"', "_", str(PKG / "assets/lib/remote.sh"),
+         f"docker run --rm --entrypoint bash '{image}' -c '{script}'"],
+        capture_output=True, text=True, timeout=300)
+    digest = re.search(r"\b[0-9a-f]{64}\b", probe.stdout or "")
+    if not digest:
+        print(f"mock_adapt: could not read a base_sha256 for {target} from {image}; recording null. "
+              f"A consumer must hash it itself and say so (workset.schema.json). "
+              f"{(probe.stderr or '').strip()[-200:]}", file=sys.stderr)
+        return None
+    return {target: digest.group(0)}
+
+
 def _fold_sealed_items(content: Path, root: Path) -> None:
     """Move the sealed `reproducible` items into `items/codes/sealed/`.
 
@@ -456,7 +504,8 @@ def main() -> int:
                                 "report": f"evidence/correctness.{tag}.json", "protected": True},
                 "performance": {"cmd": f"./run_performance.sh{suffix}",
                                 "report": f"evidence/performance.{tag}.json", "protected": True,
-                                "timeout_s": 1800}}
+                                "timeout_s": 1800,
+                                "impl_contract": W.IMPL_CONTRACT}}
 
     document = {
         "schema_version": 1,
@@ -507,6 +556,7 @@ def main() -> int:
                             "resolution_evidence": "record_shapes resolved the device symbol to aten::softmax with Input Dims [[8, 151936], [], []]; the only vocabulary-wide softmax on the decode path is sampler.py:183."},
             "integration": {
                 "target_files": ["python/sglang/srt/layers/sampler.py"],
+                "base_sha256": _base_sha256(root, "python/sglang/srt/layers/sampler.py"),
                 "public_symbol": "sampler_softmax",
                 "signature": "sampler_softmax(logits: Tensor[B, V] fp32, out: Tensor[B, V] fp32) -> Tensor",
                 "invariants": [

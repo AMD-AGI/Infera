@@ -151,7 +151,12 @@ def _entrypoints(operator_id: str | None) -> dict:
                         "report": f"evidence/correctness.{tag}.json", "protected": True},
         "performance": {"cmd": f"./run_performance.sh{suffix}",
                         "report": f"evidence/performance.{tag}.json", "protected": True,
-                        "timeout_s": 1800},
+                        "timeout_s": 1800,
+                        # What `--impl` must be, stated rather than inferred
+                        # from the harness. One authority in `assets/lib/`,
+                        # copied into the artefact so a consumer holding only
+                        # the workset has it.
+                        "impl_contract": W.IMPL_CONTRACT},
     }
 
 
@@ -297,6 +302,13 @@ def main() -> int:
                 "public_symbol": (entry.get("target_kernel_functions") or [""])[0],
                 "signature": "",
                 "invariants": [SENTINEL_LINE],
+                # **Carried from `identify`, never computed here.** The schema
+                # is explicit that this is pinned at identification time: a
+                # hash taken later is a hash of whatever the file had become.
+                # `null` when identify could not read the image, which the
+                # schema permits and which obliges m4 to hash and say it did —
+                # a stated gap, not a silent one.
+                "base_sha256": entry.get("base_sha256"),
                 "apply_mode": "overlay_files",
                 "requires_restart": True,
                 "build_step": None,

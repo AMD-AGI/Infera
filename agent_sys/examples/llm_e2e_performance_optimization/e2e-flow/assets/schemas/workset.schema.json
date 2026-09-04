@@ -158,6 +158,20 @@
             "environment": {"type": "string", "default": "--environment", "description": "Path to **this run's** `environment.yaml`, which the entrypoint checks `ground_truth.environment` against before measuring anything. Omitting it makes the run's premise unchecked rather than confirmed, and the entrypoint says so on stderr and records `environment.premise_checked_against: null` in the report. **Omitting it does not fall back to a second opinion**: the record beside the entrypoint is the one `ground_truth.environment` was copied from, so the comparison would be a document against itself and would agree by construction. That case reports `premise_checked_against: \"self (not independently confirmed)\"` and carries no path, because naming one reads as two documents. It is a legitimate state — a workset measured where it was built is in it — and not a failure."}
           }
         },
+        "impl_contract": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["form", "entry_symbol", "call", "replaces"],
+          "description": "**What `--impl PATH` must be**, on the `performance` entrypoint. Undeclared until m4's STEP 4 reached the harness and got *\"the Definition's `candidate:<id>` defines no `run`\"* — two sides disagreeing about what the flag means, with nothing stating it. Same shape as the flag *spellings* above and the same remedy: if a consumer has to read the harness to use the harness, the contract is the harness's behaviour rather than a contract.\n\n`form: python-source-file`, `entry_symbol: run`, `call: run(**inputs)` keyed by the Definition's `inputs`, `replaces: baseline` and never `reference` — a candidate that could replace the reference would be grading itself. Exec'd in a fresh namespace, so relative imports do not work and the file must be self-contained. The producer states it and the consumer conforms, in that order: a seed fitted to the harness's observed behaviour pins the undeclared thing instead of removing it.",
+          "properties": {
+            "form": {"const": "python-source-file"},
+            "entry_symbol": {"type": "string", "minLength": 1},
+            "call": {"type": "string", "minLength": 1},
+            "inputs_from": {"type": "string"},
+            "replaces": {"enum": ["baseline"]},
+            "notes": {"type": "string"}
+          }
+        },
         "timeout_s": {"type": "integer", "minimum": 1},
         "protected": {
           "type": "boolean",
