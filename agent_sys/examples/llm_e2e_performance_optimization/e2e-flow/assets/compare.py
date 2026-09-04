@@ -643,6 +643,36 @@ def main() -> int:
             f"the two arms ran different sequences: {order['stock']} vs {order['patched']}"
         )
 
+    # **The absolute bar beside the relative one** — m5's call site of
+    # `graph_ceiling`, the leader's two-call-site ruling (m2's bench is the
+    # other, `49fcbc3`). It is here rather than folded into `stock_vs_m2_block`
+    # because that function is a *comparison* and CONTRACT §4.6 is exactly that
+    # a comparison cannot see this: both arms can be in eager decode, agree
+    # perfectly, and produce a block indistinguishable from a healthy one.
+    #
+    # Graded per arm. m5's two arms are two bring-ups, so they can differ from
+    # each other and from m2's bench, and a ceiling below the achieved decode
+    # concurrency makes that arm's numbers a measurement of eager decode rather
+    # than of the patch.
+    import graph_ceiling  # noqa: E402 — beside its use; assets/lib is on sys.path
+
+    ceilings = {
+        arm: graph_ceiling.check(
+            Path(p) / "items" / "env" / "engine_argv.txt",
+            Path(p) / "items" / "result" / "r1" / "profile_export_aiperf.json",
+            f"{arm} arm",
+        )
+        for arm, p in (("stock", args.stock), ("patched", args.patched))
+    }
+    for arm, r in ceilings.items():
+        if r.get("ok") is False:
+            reasons.append(r["reason"])
+        elif r.get("ok") is None:
+            # A note, never a refusal and never silence: `unavailable` is not
+            # `satisfied`, and a reader has to be able to tell which.
+            print(f"compare: NOTE graph ceiling unchecked for the {arm} arm — "
+                  f"{r.get('unavailable_because')}", file=sys.stderr)
+
     stock_vs_m2 = stock_vs_m2_block(
         Path(args.stock), args.profiling_evidence, args.stock_vs_m2_tolerance
     )
@@ -733,6 +763,11 @@ def main() -> int:
         # M5.1.3.1, a blocker: the stock arm has to reproduce m2's bench, or the
         # two stages measured different machines and nothing above is comparable.
         "stock_vs_m2": stock_vs_m2,
+        # Beside it in the artefact, not only in `reasons`: a reader asking
+        # *"were these numbers taken on an engine that was serving properly?"*
+        # must be able to answer it from the report rather than from a stderr
+        # line nothing keeps. Per arm, three-state.
+        "graph_ceiling": ceilings,
         # M5.1.3.2, a warning: 作为 report/warning 报告，不作为 blocker.
         "kernel_reconciliation": reconciliation,
         "verdict": {"accepted": not reasons, "reasons": reasons, "warnings": warnings},

@@ -820,6 +820,52 @@
           "description": "m4's A7, and it holds in ONE direction only -- checked against eval_stats.perf_verdict rather than assumed. A decided verdict is reachable only when relative_change returned a number, which requires both arms present AND stock non-zero, so stock/patched/rel_delta cannot be null beside one. **The converse is false and is deliberately NOT expressed**: `unmeasured` does not imply the numbers are absent, because relative_change also returns None when stock == 0 -- a baseline of zero means the measurement did not happen, and that row carries both numbers. m4 guessed the direction that does not hold and said they had not verified it; this is the half that does."
         }
       }
+    },
+    "graph_ceiling": {
+      "type": "object",
+      "description": "Per arm: did decode fit inside the engine's captured CUDA graph, or fall back to eager? **An absolute bar, deliberately not folded into `stock_vs_m2`.** That block is a comparison, and CONTRACT 4.6 is exactly that a comparison cannot see this: both arms can be in eager decode, agree perfectly, and emit a block indistinguishable from a healthy one. Measured by m2 on one node with one flag changed: max decode graph batch 8 gives ITL 42.15 ms / 312 tok/s, 16 gives 9.31 ms / 1649 tok/s -- 4.5x, with node, gpu_arch, image_id and model_path all identical, so `compare_fixed_across_inputs` cannot see it either.\n\nThree-state per arm, like `stock_vs_m2`: `ok` true / false / **null with `unavailable_because`**. Null is not a pass -- the engine argv or the export was missing, and a reader must be able to tell *not applicable* from *not done*. Not required, so a report from before 2026-09-04 still validates.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "ok": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "ceiling": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "decode_concurrency": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "ceiling_source": {
+            "type": "string"
+          },
+          "concurrency_source": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "unavailable_because": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "ok"
+        ]
+      }
     }
   },
   "$defs": {

@@ -41,10 +41,28 @@ tolerance: **a relative check cannot detect a fault both sides share**
   already opens.**
 
 `--cuda-graph-bs-decode` takes a **list** of batch sizes, so the ceiling is the
-list's maximum, not a scalar. Measured on the sealed baseline:
-`1 2 4 8 16 24 32 48 64 96 128` → ceiling **128**, against
-`effective_decode_concurrency` **6.93**. That bench was healthy by a wide
-margin, which is what makes it a usable control.
+list's maximum, not a scalar.
+
+## Validated on four real artefacts, both sides of the flag
+
+m5 could only validate the healthy side — the sealed baseline. **m2 had failing
+captures on disk and ran the other half**, which is the test this module could
+not give itself:
+
+    sealed aiperf_baseline   ok=True    ceiling 128 >= decode  6.93
+    sealed aiperf_profiled   ok=None    no flag, correctly unchecked
+    m2's m2itl-a1 (max 8)    ok=False   ceiling   8 <  decode 13.19   <- real refusal
+    m2's m2itl-c1 (max 16)   ok=True    ceiling  16 >= decode 15.35
+
+No fixture in any row. **The refusal path fires on a real eager-decode capture**,
+with the right numbers.
+
+**C1's margin is 4 %, and that is by construction rather than by luck.** Ceiling
+16 against achieved decode concurrency 15.35 is what m1's prevention rule —
+*choose a ceiling at least the load's concurrency* — produces at exactly its own
+boundary: effective decode concurrency cannot exceed the offered concurrency, so
+a ceiling set equal to it is correct and permanently near-tight. A reader seeing
+`16 / 15.35` should read *"correct, at the bar"* and not *"nearly broken"*.
 
 ## Where this bar must NOT be pointed
 
