@@ -466,7 +466,41 @@ def main() -> int:
         else:
             # An added file has nothing to extract; the diff creates it whole.
             extract.append(f": > '{dest}/file'")
-    nodecall.on("\n".join(extract))
+    try:
+        nodecall.on("\n".join(extract))
+    except nodecall.NodeError as exc:
+        # **A traceback is not a diagnosis.** Measured: m4's manifest declared
+        # `@SGLANG_ROOT@/python/sglang/srt/layers/sampler.py` while `SGLANG_ROOT`
+        # is already `/sgl-workspace/sglang/python/sglang`, so the expansion
+        # repeated `python/sglang` and `docker cp` refused a path no image has.
+        # It was diagnosable only because the daemon happens to echo the path it
+        # could not find; the next person gets a stack trace and not that luck.
+        #
+        # The cause is a units mismatch nobody declares: a workset's
+        # `source_file` is relative to the **repository** root, and a manifest's
+        # `container_path` is relative to the **container** root named in
+        # `assets/lib/container_roots.yaml`, which is several directories deeper.
+        # No static check can see it — `patchkit.under_known_root` passes,
+        # because the path *is* under a known root; it simply does not exist.
+        # stdout is block-buffered when piped and stderr is not, so without this
+        # the diagnosis lands *above* the lines it refers to in a captured log.
+        sys.stdout.flush()
+        print("apply: the image does not have the paths this patch names.", file=sys.stderr)
+        for entry in entries:
+            if entry["change"] == "modify":
+                declared = entry["container_path"]
+                print(f"apply:   {declared}", file=sys.stderr)
+                print(f"apply:     expands to {patchkit.expand(declared)}", file=sys.stderr)
+        print(
+            "apply: the usual cause is a container_path that repeats its own root — a path\n"
+            "apply: taken from the workset, which is relative to the repository root, and\n"
+            "apply: then prefixed with @ROOT@, which already points inside it. Compare the\n"
+            "apply: expansion above against assets/lib/container_roots.yaml, and check what\n"
+            "apply: the image really has:\n"
+            f"apply:   docker run --rm --entrypoint ls {image} -l <the path without the repeat>",
+            file=sys.stderr,
+        )
+        raise SystemExit(str(exc)) from exc
 
     mounts = []
     for i, entry in enumerate(entries):
