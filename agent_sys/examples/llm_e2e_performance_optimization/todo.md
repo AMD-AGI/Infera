@@ -2493,3 +2493,51 @@ graph ceiling has the same inheritance, so comparing it **across inputs** is
 worth no more than comparing `gpu_count`. What is needed is a comparison against
 **the concurrency the load actually ran at**, which lives in m2's artefacts, not
 a cross-input equality.
+
+### T56 — `summarise.py` exists twice, byte-identical, with call sites split across both copies
+
+**m1, 2026-09-04. Found while verifying m2's account of four empty summary files;
+recorded rather than acted on, and I could not establish whether it is
+deliberate.**
+
+```
+9246d23165e72b5cdb359689b7892dc0  assets/load/summarise.py
+9246d23165e72b5cdb359689b7892dc0  assets/bench/summarise.py     <- same md5
+```
+
+Three call sites, split between them:
+
+```
+assets/accept/measure.sh:218,:408              -> $BENCH/summarise.py
+assets/load/replay.sh:147                      -> $LOAD/summarise.py
+check_deploy_serves/check.py:592               -> assets/bench/summarise.py
+```
+
+**Every one passes both arguments and is correct.** The script refuses on
+`len(argv) != 2` with a usage message and rc 2, so a one-argument call produces
+an empty file rather than a wrong one — which is the right failure and is what
+m2's own experiment harness hit, reaching for `$BENCH/../load/summarise.py`.
+Their four zero-byte summaries came from that, not from the flow.
+
+**Why it is worth an entry anyway.** The mistake was *navigating between two
+copies of one file*, and that is the seam this whole effort exists to remove —
+`handoff.analysis.md`'s three seams are each one name over two things. Two
+identical copies with owners on both sides is the same shape one level down: it
+is currently harmless because they agree, and the day they stop agreeing nothing
+will say so, because nothing compares them.
+
+**Not acted on, and the uncertainty is real.** `assets/load/` is m2's stage
+directory and `assets/bench/` is where my validator reaches; the duplication may
+be a deliberate ownership boundary rather than an accident, and deleting either
+copy breaks live call sites. **This wants its two owners to agree on one home,
+not a unilateral edit** — and m2 asked me not to chase the empty-file question
+further, which I have not.
+
+**Unrelated but measured on the way past, and it corrects something I told m2:**
+an empty summary in `check_deploy_serves` does not fall back with a warning, it
+**fails** — `check.py:592-601` catches the `ValueError` from `json.loads` and
+returns *"the load ran but produced no readable summary … A load with no numbers
+has not shown the deployment serves under load"*. The announcing-`WARNING` path
+is the different case of a summary that parses but carries neither
+`request_latency_ms` nor `output_sequence_length x inter_token_latency_ms`.
+Two failure modes, two behaviours, and I conflated them in a message.
