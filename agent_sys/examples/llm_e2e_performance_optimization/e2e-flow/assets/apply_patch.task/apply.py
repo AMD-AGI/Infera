@@ -47,6 +47,7 @@ Five things happen here, and the order is the argument:
 from __future__ import annotations
 
 import argparse
+import ast
 import datetime as dt
 import json
 import os
@@ -59,6 +60,65 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 import nodecall  # noqa: E402
 import patchkit  # noqa: E402
+
+
+def _module_surface(path: Path) -> tuple[set[str], set[str]]:
+    """The public names a module *defines*, and the ones it merely re-exports.
+
+    Returns `(defined, reexported)`. `defined` is public module-level
+    `def`/`async def`/`class` plus public module-level assignments — the names
+    this file is responsible for providing. `reexported` is public names bound
+    by a module-level `import`, which another module *can* import from here but
+    which this file does not own.
+    """
+    defined: set[str] = set()
+    reexported: set[str] = set()
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return defined, reexported
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            defined.add(node.name)
+        elif isinstance(node, ast.Assign):
+            defined.update(t.id for t in node.targets if isinstance(t, ast.Name))
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            defined.add(node.target.id)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            reexported.update((a.asname or a.name).split(".")[0] for a in node.names)
+    public = lambda names: {n for n in names if not n.startswith("_")}  # noqa: E731
+    return public(defined), public(reexported) - public(defined)
+
+
+def surface_regressions(stock: Path, patched: Path) -> tuple[set[str], set[str]]:
+    """Public names the replacement drops, split into refusals and warnings.
+
+    **Which rule, and why this one.** The leader raised the choice: refuse on
+    *any* dropped module-level name (cheap, possibly too strict) or only on names
+    something else in the tree actually imports (precise, needs a tree scan the
+    overlay has no access to). This takes a third position, because measuring the
+    two candidates on the real artefacts made the split obvious:
+
+        stock srt/layers/sampler.py   8 defs · 1 class · 3 assignments · 26 imports
+        m4's optimized_kernel.py      1 def  · 0      · 0             · 2
+
+    **Refusing on dropped *definitions* is right** — a module's own functions and
+    classes are exactly what a replacement takes responsibility for, and dropping
+    one is the failure measured on 047. **Refusing on dropped *imports* would be
+    too strict**: 26 of them are `Optional`, `Callable`, `torch` and friends, and
+    a legitimate rewrite that imports differently would be refused for nothing.
+    Something *can* do `from sampler import Optional`, so it is not free either —
+    hence a warning rather than silence.
+
+    **This is a one-artefact rule and says so.** It has been checked against
+    exactly one replacement, the one that motivated it. If it ever false-refuses,
+    the fix is the tree scan, not a loosened threshold.
+    """
+    stock_defined, stock_reexported = _module_surface(stock)
+    new_defined, new_reexported = _module_surface(patched)
+    # A name the replacement still provides, by whatever route, is not dropped.
+    still_there = new_defined | new_reexported
+    return stock_defined - still_there, stock_reexported - still_there
 
 
 CONTRACT = """\
@@ -581,6 +641,32 @@ def main() -> int:
                 raise SystemExit(
                     f"apply: the patched {entry['container_path']} does not compile: {exc}"
                 ) from exc
+            # **A file that compiles is not a file that can be imported in place
+            # of another**, and that distinction had never been checked anywhere.
+            dropped, lost_reexports = surface_regressions(base / "a" / rel, patched)
+            if dropped:
+                raise SystemExit(
+                    f"apply: the patched {entry['container_path']} drops "
+                    f"{len(dropped)} public name(s) the file it replaces defines: "
+                    + ", ".join(sorted(dropped)[:8])
+                    + ("…" if len(dropped) > 8 else "")
+                    + "\nAnything importing one of those from this module breaks at "
+                    "import, before a single token is served. Measured 2026-09-04 on "
+                    "crsuse2-m2m-047: a replacement for srt/layers/sampler.py that "
+                    "dropped all eight of its functions took the engine down with "
+                    "`ImportError: cannot import name 'apply_custom_logit_processor'` "
+                    "out of sglang/srt/speculative/dflash_utils.py, and it had already "
+                    "passed the compile check above."
+                )
+            if lost_reexports:
+                # Warned, not refused. See `surface_regressions`.
+                print(
+                    f"apply: NOTE {entry['container_path']} no longer re-exports "
+                    + ", ".join(sorted(lost_reexports)[:6])
+                    + ("…" if len(lost_reexports) > 6 else "")
+                    + " — harmless unless another module imports one of them from here.",
+                    file=sys.stderr,
+                )
 
         sha_patched = patchkit.sha256_file(patched)
         if sha_patched == sha_stock:
