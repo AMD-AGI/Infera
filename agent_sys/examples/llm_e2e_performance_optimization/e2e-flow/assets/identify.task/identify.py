@@ -42,6 +42,7 @@ _LIB = _PACKAGE / "assets" / "lib"
 sys.path.insert(0, str(_LIB))
 
 import schema as schema_lib  # noqa: E402
+from module_symbols import SNIPPET as MODULE_SYMBOLS_SNIPPET  # noqa: E402
 import store  # noqa: E402
 import symbols  # noqa: E402
 
@@ -548,69 +549,13 @@ def resolve(row: dict, hit: dict, roots: list[str], repo_map: dict) -> dict:
     }
 
 
-#: **The module-level name extraction, and it must stay byte-identical to the
-#: copy in `build_workset.task/mock_adapt.py`.** It cannot be imported from
-#: `assets/lib`: this text is executed by the *image's* python inside a
-#: container, where nothing of this package is mounted. Two copies is the price
-#: of that, and `todo.md` T34 is what two producers of one field cost when they
-#: drift — this field has had two producers since `mock_adapt` gained
-#: `_image_facts`, and they agreed only because neither had been changed.
-#:
-#: **Assignments are included, and that is the 2026-09-04 fix.** The first
-#: version took `def` / `async def` / `class` only, so
-#: `srt/layers/sampler.py`'s `logger`, `SGLANG_RETURN_ORIGINAL_LOGPROB` and
-#: `SYNC_TOKEN_IDS_ACROSS_TP` were absent — and `check_workset_shape` then
-#: reported a `public_symbol` naming one of them as **"not defined at module
-#: level"**, which is false. Found by m4 tracing a 12-vs-9 disagreement between
-#: this list and m5's import surface; unreachable today only because the one
-#: live operator is `call_site_fragment`, and reachable by any ordinary alias
-#: (`sampler_softmax = _impl_v2`), callable instance or `functools.partial`.
-#:
-#: The direction of the bug was the safe one — a false *refusal* of a legitimate
-#: workset, not a false pass — so the fix widens what the field reports rather
-#: than narrowing what the message claims. A module-level assignment **is** a
-#: module-level definition, it is a name an overlay can replace, and both the
-#: schema's wording and the refusal's wording already said so. The
-#: implementation was the only narrow reader.
-#:
-#: **`_tgt` exists to keep the widening from going too far**, which is the half
-#: that could have introduced a false *pass*. A target is a definition only if it
-#: binds a new module-level name: `a, b = f()`, `c = d = 3` and `first, *rest =
-#: xs` all do, and `obj.attr = 3` and `d['k'] = 4` do **not** — those mutate
-#: something an overlay cannot replace by name. A one-line
-#: `isinstance(t, ast.Name)` filter would have missed the tuple forms (the same
-#: class of false refusal, one shape over); `[n for n in ast.walk(t)]` would have
-#: added `obj` and `d` and reported names that do not exist. Both wrong ways were
-#: tried against the negative case before this one was kept.
-#:
-#: **Imports are still excluded**, deliberately and as a stated gap: `import
-#: torch` also binds a module-level name, but including them would change the
-#: list from *what this file defines* to *what this file's namespace contains*,
-#: which is a different question and a much longer answer. m5's count of 12
-#: against this list's 9 is exactly the three assignments, so defs, classes and
-#: assignments is the surface both readers meant.
-#:
-#: `dict.fromkeys` rather than `set`: source order is what a reader comparing
-#: this against the file expects, and a duplicate name (a re-assignment) should
-#: appear once.
-MODULE_SYMBOLS_SNIPPET = (
-    "def _tgt(t):\n"
-    "    if isinstance(t,ast.Name): return [t.id]\n"
-    "    if isinstance(t,ast.Starred): return _tgt(t.value)\n"
-    "    if isinstance(t,(ast.Tuple,ast.List)):\n"
-    "        return [n for e in t.elts for n in _tgt(e)]\n"
-    "    return []\n"
-    "def _syms(src):\n"
-    "    out=[]\n"
-    "    for x in ast.parse(src).body:\n"
-    "        if isinstance(x,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef)):\n"
-    "            out.append(x.name)\n"
-    "        elif isinstance(x,ast.Assign):\n"
-    "            out+=[n for t in x.targets for n in _tgt(t)]\n"
-    "        elif isinstance(x,ast.AnnAssign):\n"
-    "            out+=_tgt(x.target)\n"
-    "    return list(dict.fromkeys(out))\n"
-)
+# `MODULE_SYMBOLS_SNIPPET` is `assets/lib/module_symbols.py`'s `SNIPPET` --
+# `inspect.getsource` of the same functions that file exports as a callable, so
+# the text this sends into a container and the rule a validator imports cannot
+# disagree. It lived inline here and in `mock_adapt.py` until 2026-09-04 (two
+# producers, `todo.md` T34) and moved to the library on m4's argument that their
+# gate needs the same rule in a normal interpreter. The boundary -- which
+# assignment forms count, and why imports do not -- is documented there.
 
 
 def image_facts(image: str, root: str, relatives: list[str], timeout: int = 300) -> dict:

@@ -62,6 +62,7 @@ PKG = Path(os.environ.get("AGENT_SYS_TASK_PACKAGE")
 sys.path.insert(0, str(PKG / "assets" / "lib"))
 
 import workset_io as W  # noqa: E402
+from module_symbols import SNIPPET as MODULE_SYMBOLS_SNIPPET  # noqa: E402
 
 HARNESS = PKG / "assets" / "build_workset.task" / "harness"
 MOCK_ROOT = Path(os.environ.get("E2E_MOCK_ROOT") or "/shared_nfs/yihou/agent_sys/cheat_for_mock")
@@ -265,24 +266,6 @@ _SEALED_ONLY_ITEMS = ("env", "result", "script")
 #: are not. Duplicated rather than imported because it executes under the
 #: image's python inside a container. If you change one, change both and check
 #: with `diff <(...) <(...)` — `todo.md` T34.
-MODULE_SYMBOLS_SNIPPET = (
-    "def _tgt(t):\n"
-    "    if isinstance(t,ast.Name): return [t.id]\n"
-    "    if isinstance(t,ast.Starred): return _tgt(t.value)\n"
-    "    if isinstance(t,(ast.Tuple,ast.List)):\n"
-    "        return [n for e in t.elts for n in _tgt(e)]\n"
-    "    return []\n"
-    "def _syms(src):\n"
-    "    out=[]\n"
-    "    for x in ast.parse(src).body:\n"
-    "        if isinstance(x,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef)):\n"
-    "            out.append(x.name)\n"
-    "        elif isinstance(x,ast.Assign):\n"
-    "            out+=[n for t in x.targets for n in _tgt(t)]\n"
-    "        elif isinstance(x,ast.AnnAssign):\n"
-    "            out+=_tgt(x.target)\n"
-    "    return list(dict.fromkeys(out))\n"
-)
 
 
 def _image_facts(root: Path, target: str) -> tuple[dict | None, list | None]:
@@ -324,14 +307,12 @@ def _image_facts(root: Path, target: str) -> tuple[dict | None, list | None]:
     # those layers. Written with quotes first, and it died with
     # `-c: line 2: syntax error: unexpected end of file` — the same defect, in
     # the same file, hours after fixing it once. base64 has no metacharacters.
-    # **`MODULE_SYMBOLS_SNIPPET` is byte-identical to the copy in
-    # `identify.task/identify.py`, and the comment there carries the argument.**
-    # Two producers of one field, which is `todo.md` T34 — they agreed until
-    # 2026-09-04 only because neither had been changed, and the fix that day
-    # (module-level *assignments* count) had to land in both or the mock and the
-    # real path would disagree about what a file defines. It cannot be a shared
-    # import: this text runs under the image's python inside a container, where
-    # none of this package is mounted.
+    # `MODULE_SYMBOLS_SNIPPET` comes from `assets/lib/module_symbols.py`, shared
+    # with `identify.py` (the other producer of this field) and with any
+    # validator that needs the same rule in its own interpreter. It cannot be a
+    # normal import *here* -- this text runs under the image's python inside a
+    # container -- which is why the library exports the rule as source text and
+    # as a callable from one definition.
     inner = (
         "import ast,hashlib,os,sglang\n"
         + MODULE_SYMBOLS_SNIPPET
