@@ -163,3 +163,51 @@ on unambiguous evidence. Pairs with
 `2026-09-03-a-validators-stdout-is-not-kept-anywhere.md` and `todo.md` **T14** —
 three ways the runner loses a reason. Here the reason survived, in the run log,
 and was the one thing that made this findable in a single grep.
+
+---
+
+## The fix is narrower than this file argues, and the correction is m4's
+
+**Appended 2026-09-04.** Everything above reaches for `stall_after` — a bound,
+a knob, an operator's judgement. That was the only lever visible when it was
+written. **It is the wrong one.**
+
+m4 tried to talk themselves *out* of the bug first, which is why the result is
+worth something. `holding` is **not** naive: it deliberately excludes escalated
+tasks so that a working leaf counts, with a comment saying exactly that —
+*"one genuinely mid-model-call does, which is what stops a 20 s window calling
+a slow backend a stall."* And `blocked` is computed from escalation **records**,
+not a constant. So the hypothesis was that only a *failed* run gets cut and a
+healthy graph reaching rung 4 is untouched. The code even asserts it: *"A
+healthy run has no such escalation and is untouched."*
+
+**Two logs refute it**, `rung0d.log:82` and `rung0e.log:81`, and the leader
+confirmed independently on the second:
+
+```
+identify: output_validating -> succeeded          <- no failure
+build_workset: input_validating -> running        <- normal progress
+done  main is waiting on a decision no one will make …
+      (nothing to push: the attempt holds no executor: it is not in its main phase)
+```
+
+**Nothing failed.** `main`'s escalation reason is *structural* — a non-leaf holds
+no executor because it is not in its main phase — so it is present throughout a
+healthy run, `blocked` is non-empty from early on, and the guard does reduce to
+"nothing changed for 20 s".
+
+**So the defect is a conflation, not a threshold:**
+
+> `blocked` conflates **a task escalated because it failed** with **a non-leaf
+> that structurally cannot push**, and only the first means nothing will happen.
+> The second is this package's normal state.
+
+**That fix is strictly smaller than exposing `stall_after`**, and m1's reason for
+preferring it is the deciding one: distinguishing the two escalations needs no
+new CLI surface and no operator judgement, **whereas a knob asks every future
+operator to guess a bound.** A knob would also have left the bug intact for
+anyone who guessed wrong.
+
+**And it settles rung 4 without a third data point.** A KernelForge campaign is
+hours of a quiet phase; it will be cut ~20 s in. That was an open question for
+most of 2026-09-04 and it is now closed by reading, not by spending a node on it.
