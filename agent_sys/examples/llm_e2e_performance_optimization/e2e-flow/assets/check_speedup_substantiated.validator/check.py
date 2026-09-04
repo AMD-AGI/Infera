@@ -651,7 +651,29 @@ def _run_entrypoint(
     except subprocess.TimeoutExpired:
         return f"the entrypoint exceeded {timeout:.0f}s"
     if proc.returncode != 0:
-        return f"the entrypoint exited {proc.returncode}: {proc.stderr.strip()[-400:]}"
+        # **Truncate on line boundaries, and say that you did.** This was
+        # `stderr.strip()[-400:]`, a slice by character, which starts wherever
+        # 400 bytes happens to land — mid-word, mid-sentence. rung 0 produced
+        #
+        #     the entrypoint exited 127: l so no reader has to infer which of
+        #     the two produced the number.
+        #
+        # where `l so no reader…` is the tail of the wrapper's own
+        # *"mode=ephemeral so no reader has to infer…"*. The leader read it as
+        # corruption — someone else's prose spliced into an error — which is a
+        # reasonable reading and a wrong one, and on a day spent chasing
+        # messages that name the wrong cause, an error that *looks* corrupted
+        # costs the same as one that is.
+        #
+        # m3 hit the mirror of this: `stderr.splitlines()[-N:]` cuts the
+        # instruction off the *top* of a message whose fix is stated first.
+        # Lines, and an explicit marker so a reader knows the top is missing.
+        stderr = proc.stderr.strip().splitlines()
+        shown = stderr[-12:]
+        if len(stderr) > len(shown):
+            shown.insert(0, f"[... {len(stderr) - len(shown)} earlier stderr line(s) omitted]")
+        joined = "\n    ".join(shown)
+        return f"the entrypoint exited {proc.returncode}:\n    {joined}"
     if not report.is_file():
         return f"the entrypoint wrote no report at {report}"
     return None

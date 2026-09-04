@@ -466,7 +466,12 @@ WORKDIR_ARG=""
 # containers and this line is what a transcript reader anchors on.
 if [ "$MODE" = record ]; then _VERB="exec into"; else _VERB="run a throwaway"; fi
 echo "run_in_container: $_VERB $CONTAINER on ${E2E_NODE:-the node}, GPU $HIP_VISIBLE_DEVICES" >&2
-echo "run_in_container: the next line comes from inside the container" >&2
+# **"the next line comes from inside the container" is printed by whichever
+# branch is about to cross, not here.** Announcing it up front is a promise made
+# before the last thing that can refuse — the mount-form check below — so a
+# refusal arrived with that sentence directly above it and nothing from inside
+# following. A message that describes what did not happen is the same defect as
+# an empty listing.
 
 # **Create the scratch roots on the far side, because only the far side can.**
 # `TMPDIR` and `TRITON_CACHE_DIR` point at node-local storage
@@ -493,6 +498,7 @@ done
 
 rc=0
 if [ "$MODE" = record ]; then
+  echo "run_in_container: the next line comes from inside the container" >&2
   # shellcheck disable=SC2086
   on "docker exec $EXEC_ENV $WORKDIR_ARG $(_sq "$CONTAINER") bash -lc $(_sq "$COMMAND")" || rc=$?
 else
@@ -522,11 +528,51 @@ else
   }
   trap _teardown EXIT HUP INT TERM
 
+  # **The mounts come from the paths that actually cross, never from `$HOME`.**
+  #
+  # This read `for m in /shared_nfs "$HOME" "$KFO_SCRATCH_ROOT"`, and `$HOME` is
+  # the wrong source: a **validation zone redefines it** to `<zone>/home`
+  # (measured — every `validation-*/` directory in a run has a `home/` inside
+  # it). So the ephemeral container mounted a subdirectory of the zone, the
+  # apparatus at `<zone>/substantiate-XXXX/seed` was never mounted at all, and
+  # rung 0's fourth attempt died with `./run_performance.sh: No such file or
+  # directory` — a container that came up perfectly and could not see its own
+  # script.
+  #
+  # `--workdir` and the kit are the paths this exec genuinely needs to resolve
+  # inside, so they are what decide the mounts. Each is reduced to the accepted
+  # top-level form from m1's `runtime_contract.measurement_visible` (`a32f06d`),
+  # identity-mapped because `_remeasure` computes these paths here and hands
+  # them to a shell over there.
+  #
+  # **A path in no accepted form is refused, not guessed.** m3's rule: extend
+  # this with a form you have SEEN the daemon accept. Silently skipping it would
+  # reproduce exactly the failure above — a container that starts and cannot see
+  # what it was given.
+  _mount_root() {  # path -> the accepted mount root containing it, or empty
+    case "$1" in
+      /shared_nfs/*|/shared_nfs)   printf '/shared_nfs' ;;
+      /mnt/m2m_nobackup/*)         printf '%s' "$(printf '%s' "$1" | cut -d/ -f1-4)" ;;
+      /home/*)                     printf '%s' "$(printf '%s' "$1" | cut -d/ -f1-3)" ;;
+      *)                           printf '' ;;
+    esac
+  }
   MOUNTS=""
-  for m in /shared_nfs "$HOME" "${KFO_SCRATCH_ROOT:-}"; do
-    [ -n "$m" ] && MOUNTS="$MOUNTS -v $(_sq "$m:$m")"
+  for m in "$WORKDIR" "$KIT" "${TMPDIR:-}" "${KFO_SCRATCH_ROOT:-}" "${AGENT_SYS_OUTPUT_KERNEL_OPTIMIZATION:-}"; do
+    [ -n "$m" ] || continue
+    r="$(_mount_root "$m")"
+    if [ -z "$r" ]; then
+      echo "run_in_container: '$m' is under no mount form this cluster is known to accept" >&2
+      echo "  (/shared_nfs, /home/<user>, /mnt/m2m_nobackup/<user>). Refusing rather than" >&2
+      echo "  starting a container that cannot see it -- that failure arrives as 'No such" >&2
+      echo "  file or directory' from inside and reads as a broken workset." >&2
+      exit 1
+    fi
+    case " $MOUNTS " in *" -v $r:$r "*) continue ;; esac
+    MOUNTS="$MOUNTS -v $r:$r"
   done
   STARTED=1
+  echo "run_in_container: the next line comes from inside the container" >&2
   # shellcheck disable=SC2086
   on "docker run --rm --name $(_sq "$CONTAINER") \
         --device /dev/kfd --device /dev/dri --group-add video \
