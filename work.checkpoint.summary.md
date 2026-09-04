@@ -5853,3 +5853,93 @@ one-line `package-data` candidate is **unrun**, deliberately: it is `env_mgr`
 packaging and it breaks a live path, so it wants its own change and review.
 Recorded as known gap 6 in `env_checker/README.md`, on the `recipes:` line, and in
 `spec.provisioning.md` §8.
+
+## T+338 — 2026-09-04 11:52 UTC — written by the lead; `scribe` still stopped
+
+Fourth hand-written section, same reason.
+
+### 1. Progress
+
+**2259 passed, 3 skipped, 4 xfailed, 0 failed.** Landed since T+311: `6515c856`
+(the wide import guard), `7324af36` (both records point at it), `cce5c5d7` (the
+packaging fix). In flight: recipe references carrying their root.
+
+### 2. Owner rulings
+
+- **Take the packaging fix**, after reacting to how I had framed it: *"如果说是yaml
+  文件的话，当然是要打包进wheel的，为啥会产生这个问题？"*
+- **Fix `env_checker` yourself**, and: ***"声明ref时要有区分root的功能，root从package
+  root来还是哪里你自己设计清楚。"*** A design gap they named and handed back.
+
+### 3. Corrections issued by the lead — three, and the first is the worst shape yet
+
+1. **I used a stale read to correct a stale read.** I stopped `core2` from
+   building a guard *"you already built"*, citing `test_nothing_under_tools_…` at
+   `:671`. It had been at `:554` in `8be9204e`. **The line number I quoted as
+   proof the work was redundant was evidence that the new work had already
+   landed** — `:671` exists *because* the wide test was inserted above it. I
+   grepped for the name I expected, found it, stopped, and **the 117-line
+   displacement was inside the number I was citing.** `pkg2` at least reported
+   from a working tree; I reported from a grep whose own output contradicted my
+   conclusion.
+2. **I wrote "verbatim" and sent my summary.** `pkg2` had nothing to paste and
+   found out only by trying. Its framing: *"a report existed, you read it, and the
+   handoff carried your summary of it instead of the thing."*
+3. **I over-corrected on the packaging item.** Three ticks carrying an obvious
+   defect with a one-line fix — in a `package-data` entry that already existed —
+   as a decision *for the owner*. Earlier in the round I over-decided and was
+   told so; then I escalated an obvious fix because it sat near a category that
+   had once been theirs. **A defect that needs a decision and a defect that
+   merely sits next to one look identical from the inside.**
+
+### 4. `core2`'s distinction, taken as written
+
+> *"You dispatched the right work for the wrong reason."*
+
+Two things, one mistake. And it **measured** rather than argued the difference:
+restoring the real route trips the **narrow** test and **not** the wide one,
+because the wide fixtures lack the suffix the restored loop filters on. **Only the
+narrow one surviving would have shipped a future `hooks/*.py` loader green.**
+
+**Ruled: the two tests stay separate**, on its reason — *"one names a deleted
+mechanism and the other names a standing rule, and collapsing them would tie the
+rule's lifetime to that mechanism's."* A test named after a deleted thing has a
+natural end; a rule riding on it would go with it, silently, when it was most
+needed.
+
+### 5. `pkg2` refused two substitutions, and the second is the better one
+
+It would not write prose for `core2`'s test, because *"if my prose lands and you
+remember it as `core2`'s, the tree and your model of it diverge."* **Refusing a
+substitution that would have been good is harder than refusing a bad one.**
+
+And it left out a sentence that was **true**: that the wide test's both-roots diff
+gets closer to row 6b than the narrow one. *"It softens the limitation by
+suggesting partial coverage… **A limitation stated twice from opposite sides is
+not somewhere to add a hedge.**"* A false hedge gets caught; a true one gets waved
+through and does its damage by degrees.
+
+It also found `core2`'s own wording overclaimed — **only the `sys.modules`
+detector self-proves**, because the planted control member raises nothing by
+design. **A check that cannot fail, one level up: in the sentence describing the
+check.**
+
+### 6. The design ruled this window
+
+A recipe reference did not say which root it resolved against: `_recipe_paths`
+tried package-relative first and **fell back** to the shipped root when the file
+was absent — so a typo became a different file rather than an error, and reading
+a declaration required knowing the resolution order. **Silent fallback, in the
+mechanism the round's three-layer design rests on.**
+
+Ruled: `agent_sys:<name>` / `package:<relpath>`, no bare form, no fallback,
+unknown scheme a hard error naming both spellings. **`agent_sys:` rather than
+`env_mgr:` because the root is a repository-level fact, and naming the module
+would have been wrong the day that directory moved — which it did today.**
+
+### 7. Open
+
+Nothing with the owner. `spec.provisioning.md` §8 still names four deliberately
+unsettled items; one of them — recipes not shipping in a wheel — closed this
+window as **the third instance of a class whose describing comment was already in
+`pyproject.toml`.** One instance fixed, class not swept, twice.
