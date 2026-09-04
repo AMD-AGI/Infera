@@ -1138,3 +1138,69 @@ again — restoring buys one reviewable diff at the price of the next one.
 
 **Related:** `T31` — this is the same family. Naming the hazard after the fact
 is not the same act as checking for it before.
+
+### T34 — the environment record can outlive the container it names, and a downstream field repeats it as observation
+*m1 and m4, 2026-09-04, from two ends of the same artefact. Nobody's defect
+individually; the join is unowned.*
+
+**The producer half.** m1's rung-1 record on 217 said:
+
+```
+runtime.container   yihou_e2e_flow_sgl_e2e-main-20260904
+runtime.started_at  2026-09-04T09:03:51Z
+```
+
+and `docker inspect` on the container of that name said:
+
+```
+Created       2026-09-04T09:37:18Z
+StartedAt     2026-09-04T09:37:18Z
+RestartCount  0
+```
+
+**`Created` equals `StartedAt` and restarts are zero**, so it was not restarted —
+it is **a different container carrying the same name**, brought up after the
+first was torn down. The record describes an instance that no longer exists, and
+**every field in it still validates.** `check_environment` and `check_deploy_kit`
+both pass it, correctly: nothing they check is wrong.
+
+**The consumer half, m4's, and it is the sharper one.** `optimize_kernel`'s
+`10_read_inputs.py:137` fills `premise.run_environment` from
+`lib.load_environment()` — **m1's record, verbatim, with no observation
+anywhere.** So a field named for *the environment m4 ran in* is m4 repeating m1's
+claim, and a re-created container makes that claim wrong **while the handoff that
+carries it validates.**
+
+**What is missing is a join, not a field.** Each side is internally consistent:
+m1's record is true about the container it was written about, and m4's premise
+faithfully carries what it was given. **Nothing anywhere asks whether the
+container the record names is the container that did the work** — and after
+teardown the same lookup resolves to nothing at all, which is at least a loud
+failure rather than a quiet one.
+
+Same class as T27's `preflight.json` prose: **internally consistent, externally
+stale, and the join unchecked.** Different in one way that matters — that one was
+a conclusion contradicting data in the same file, and this one is two files that
+each tell the truth.
+
+**Not fixed, and neither of us changed the field.** `premise.run_environment`'s
+reader is m4's premise gate, so redefining it is a contract decision rather than
+an owner's; and `runtime.started_at` is the leader's schema. What m4 *did* do is
+make the same `docker inspect` that checks liveness also log the observed
+`Id / Created / StartedAt / RestartCount` beside the record's claim — **the only
+place in the flow where the container that actually did the work identifies
+itself.** That is a good stopgap and it is a log line, not a check.
+
+**What would settle it, cheapest first:**
+
+1. **`runtime.container_id`** in the record — the container's `Id`, not its name.
+   A name is rebindable and an id is not, so a consumer can ask *"is the thing I
+   am about to exec into the thing this record describes?"* and get an answer.
+   One field, and it makes the join checkable for the first time.
+2. **A consumer-side assertion** once (1) exists: `run_in_container.sh` already
+   does the `docker inspect`; comparing the observed `Id` against the recorded
+   one is one line and turns a log into a gate.
+3. **Or drop the pretence** — rename `premise.run_environment` to something that
+   says it is *the environment the producer declared*, not the one m4 ran in. A
+   field whose name misdescribes its provenance is the thing that made this hard
+   to see, and if (1) is not wanted then the honest fix is the name.
