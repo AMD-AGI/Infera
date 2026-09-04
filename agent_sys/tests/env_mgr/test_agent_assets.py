@@ -32,6 +32,7 @@ once that was noticed. All six conclusions hold on 2.1.246.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import stat
@@ -549,6 +550,122 @@ def test_external_and_bundled_mcp_servers_arrive_in_one_mapping(tmp_path: Path) 
     assert got.mcp_servers["envchk"]["args"] == [str(config / "tools" / "envchk.mcp.py")]
 
 
+
+
+def _imported_from(*roots: Path) -> list[tuple[str, str]]:
+    """Every `sys.modules` entry whose file lies under one of `roots`.
+
+    Split out because the test below runs it **twice** — once for the property
+    and once on a module it imported on purpose, which is what shows the
+    detector can distinguish at all.
+    """
+    found = []
+    for name, module in list(sys.modules.items()):
+        origin = getattr(module, "__file__", None)
+        if not origin:
+            continue
+        real = os.path.realpath(origin)
+        if any(real.startswith(os.path.realpath(str(root)) + os.sep) for root in roots):
+            found.append((name, real))
+    return found
+
+
+def test_no_member_of_a_claude_tree_is_ever_imported_into_the_supervisor(
+    tmp_path: Path,
+) -> None:
+    """**The wide form of the property, and the one that outlives this round.**
+
+    `spec.provisioning.md` §6 deleted the in-process route, and the test below
+    pins its suffix. This pins the *rule* the suffix was one instance of: a
+    component's tree is **data this process places**, never code it runs. The
+    narrow test would stay green if a future route imported ``hooks/*.py`` or a
+    file at the tree root; this one would not.
+
+    It also replaces a check that could not fire. `env_checker` used to prove
+    "load the placed copy, not the source" and lost it with the route; both
+    surviving records of that loss are prose, and prose does not go red when the
+    route comes back.
+
+    **Two detectors, because either alone has a hole.** Every fixture raises at
+    module scope, so an *executed* member is a `RuntimeError` out of `install`
+    even if the module is popped from `sys.modules` afterwards. And the
+    `sys.modules` diff catches an import that **succeeds** — a benign member
+    imported quietly, which no amount of raising would reveal.
+
+    **The detector proves itself on every run, not only under a hand mutation.**
+    A negative assertion about a mechanism that no longer exists is the exact
+    case that passes when its subject is absent, so the control is not optional
+    and is not left to whoever next edits this file: the test imports a placed
+    member on purpose at the end and asserts the same detector flags it. If the
+    detector ever stops discriminating, that line fails rather than this test
+    quietly becoming decorative.
+    """
+    pkg = tmp_path / "staged"
+    config = tmp_path / "config"
+    assets = _package(pkg)
+
+    # One member per place a component can put a file, because the narrow test
+    # already covers `tools/` and the point here is everywhere else.
+    boom = "raise RuntimeError('a .claude/ tree member was imported into the supervisor')\n"
+    _write(assets / ".claude" / "at_root.py", boom)
+    _write(assets / ".claude" / "tools" / "in_tools.py", boom)
+    _write(assets / ".claude" / "hooks" / "in_hooks.py", boom)
+    _write(assets / ".claude" / "skills" / "s" / "in_skills.py", boom)
+    # Benign on purpose: importing this one would raise nothing, so it is the
+    # member only the `sys.modules` detector can catch -- and the one the
+    # control at the end uses.
+    _write(assets / ".claude" / "tools" / "quiet.py", "VALUE = 1\n")
+
+    before = set(sys.modules)
+    got = install(
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
+        config_dir=str(config),
+    )
+
+    # **The subject is present**, at the path each member actually lands at --
+    # opened rather than assumed, because a claim about where a file goes is
+    # exactly the kind this package requires someone to have looked at.
+    for landed in (
+        config / "at_root.py",
+        config / "tools" / "in_tools.py",
+        config / "hooks" / "in_hooks.py",
+        config / "skills" / "s" / "in_skills.py",
+        config / "tools" / "quiet.py",
+    ):
+        assert landed.is_file(), (
+            f"{landed} was never placed, so this test would pass with an import "
+            f"route fully restored"
+        )
+    assert _installs(got.report) == []
+
+    # **And inert.** Nothing under either the source tree or the placed copy is
+    # in `sys.modules`. Both roots, because "load the placed copy, not the
+    # source" was the property `env_checker` lost -- importing either is the
+    # defect, and naming only one would let the other through.
+    leaked = [
+        (name, origin)
+        for name, origin in _imported_from(pkg, config)
+        if name not in before
+    ]
+    assert leaked == [], f"a component's file was imported into the supervisor: {leaked}"
+
+    # **The control, and it runs every time.** Import a placed member by hand
+    # and require the same detector to flag it. Without this the assertion above
+    # is indistinguishable from one whose detector never worked.
+    control = "_agent_assets_import_detector_control"
+    spec = importlib.util.spec_from_file_location(control, config / "tools" / "quiet.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[control] = module
+    try:
+        spec.loader.exec_module(module)
+        assert [n for n, _ in _imported_from(pkg, config) if n not in before] == [control], (
+            "the detector did not see a module it was just handed, so its silence "
+            "above proves nothing"
+        )
+    finally:
+        del sys.modules[control]
 
 
 def test_nothing_under_tools_is_ever_imported_into_the_supervisor(
