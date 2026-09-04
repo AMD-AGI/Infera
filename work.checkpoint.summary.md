@@ -5559,3 +5559,230 @@ corrections at the top of this section were all found by reading a *different*
 artefact — the event store against the handoff tree, the leaf's timeline against
 the run's. **Where I have only one instrument, I should say so rather than report
 the agreement of that instrument with itself.**
+
+## T+1143 — 2026-09-04 08:33 UTC
+
+### The ceiling broke
+
+**12 of 21.** It had read **10 since T+165** — roughly seventeen hours and eight
+sections — and it moved this interval.
+
+| | runs | invocations | judgements | **distinct** |
+|---|---|---|---|---|
+| union at 08:30 | **48** | **349** | **391** | **12** |
+
+The two that are new are **exactly the two the analysis named**, and I want that
+stated plainly because I have made this prediction four times and it is the first
+time it has been tested by anything other than continued stillness:
+
+| validator | invocations | pass |
+|---|---|---|
+| `check_workset_shape` | 2 | **2** |
+| `check_workset_runs` | 2 | **0** |
+
+Identified from their `args` against `steps/m3_analysis.yaml:187` (`schema:
+workset`, `min_shapes`, `min_performance_shapes`, `require_entrypoints`) and
+`:209` (`max_rsd`, `min_groups`, `min_iters_per_group`, `min_pass_ratio`). **Both
+sit immediately past `build_workset`** — the closure that has blocked every run
+for two days. The moment a run crossed it, the count moved. That is the
+prediction confirming, not a surprise.
+
+**And the pair is the right shape for a first crossing:** the *shape* check
+passes twice, the *runs* check refuses twice. A structural gate opening and a
+measurement gate holding is what a genuine advance looks like; two greens would
+have been more worrying.
+
+**Run process present at 08:30:14** — pid 3062919, 46 s in, matching
+`20260904T083225-663d67`. Artefact motion agrees. State: **growing**, on two
+independent readings.
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | clean |
+| (b) per-commit ownership | clean across 16; nobody but me touched this file |
+| (c) `todo.md` | **29 items**, +1 |
+| holds | **three**: `109260` (006), `109491` (217), `109496` (047); `109492` pending |
+| `/home` | 1.6 T free (85 %), flat since 05:47 |
+| run process | **present at 08:30:14** |
+| **origin** | **the branch was pushed** — `origin/…concat` at `1569ec1`, HEAD **2 ahead** |
+
+**The push is new and belongs in this file:** until 08:12 this branch existed
+only on disk. Whatever else is uncertain, the work is now off this machine.
+
+### 1. Progress
+
+**~72 %, up four.** Elapsed 1 143 m.
+
+**This is the largest single move I have made, and the asymmetry with last
+interval is deliberate.** At T+1092 I declined to drop to the leader's 65 %
+because nothing had changed except the reporting. This interval I raise by four
+because something changed **in the artefacts**: the ceiling moved for the first
+time in seventeen hours, two stages are green as whole stages, `operator_workset`
+sealed and passed two validators, and the branch is pushed. **A number that only
+resists movement is as useless as one that only ratchets.**
+
+**Reliability: low, unchanged.** The move is real but it rests on **two
+invocations** of each new validator. Two is enough to say the closure was
+crossed; it is not enough to say it will cross again.
+
+**预估耗时: no number.** Held. The node rules changed this interval in a way
+that *reduces* one source of variance — no acquiring, no releasing — but four
+unexplained cancellations are still four, and `check_workset_runs` refusing 0/2
+means the next gate is already visible and unmeasured. **1 of 6 rungs attempted,
+0 clean.**
+
+### 2. Current state
+
+**The user redirected the effort twice**, and both are recorded as the leader's
+account:
+
+1. **Scope** — *"现在mock串通跑完了么? 你的任务有那么需要用卡么?"* Both answers no.
+   Item 2 had never gone green and had not been retried since `b9849a7`; it needs
+   **one card for seconds**, and m4 has since measured their own stage at **three
+   minutes on one card**, against the hours the bug file implied. The leader
+   records this as their prioritisation failure.
+2. **Strategy** — *"e2e串通也可以通过先单独运行每个模块保证单独通(也可以并行)"*:
+   per-module standalone verification instead of only the serial ladder, adopted
+   over the RUN-PLAN ladder. m4 (`5caea8a`) and m5 (`fbb73c1`) have written their
+   sections; m1, m2, m3 owe theirs.
+
+**Furthest state reached:** `m1_deploy` and `m2_profiling` green as whole stages,
+`operator_workset` sealed and passing shape and environment. **Five new runs**
+this interval — the highest rate of the effort.
+
+### 3. Code problems
+
+**Every stop this interval was a different real defect, and each was fixed.**
+That is a different regime from "the same closure, four times".
+
+- **FIXED — seal refused, README lacked `Purpose/Interface/Boundary`** (`79ff361`).
+- **FIXED — a second seal refusal behind it**, items `['env','result','script']`
+  not defined by `code` (`8467696`). **Found before relaunching**, which saved a
+  rung — the only instance today of a defect caught between runs rather than by
+  one.
+- **FIXED — m1's seventh contracted parameter refused the sealed kit**
+  (`9e1fcff`), a regression the leader records as approved by them mid-run.
+- **FIXED — `check_workset_shape` crashed**, `ModuleNotFoundError: referencing`
+  (`4b4c9ce`). Note what this means for the number above: the validator that now
+  passes twice was, this morning, **crashing rather than judging** — some of the
+  ceiling was a broken instrument, not an unreached closure.
+- **OPEN — `check_workset_runs` refuses, 0 of 2**, and for the first time the
+  reason is readable (`dff2bcb`).
+- **FIXED — "not visible" was a default** (`9134715`). See §5; this closes the
+  leader's open item within the interval.
+
+### 4. Non-code problems
+
+**The node rules changed completely.**
+
+- **No acquiring, no releasing.** Query what we hold, coordinate its use. The
+  leader records that 235, 234 and 037 were released before the rule existed,
+  and that **m2 disclosed unprompted** that they had both acquired and cancelled
+  inside that window — *"the action the rule forbids, taken four minutes before
+  being told not to"*. **Disclosing a breach nobody would have found is the
+  behaviour this record should reward**, and I am noting it as such rather than
+  as a violation count.
+- **On held machines, kill every large GPU workload except cluster
+  infrastructure.** Done by the leader on two nodes, not delegated: `006` and
+  `047`, both `kimik3-vllm-kimi-k3`, 29 h and 22 h, another tenant's vLLM,
+  90 %→0 % and 92 %→0 %.
+
+**On the evidence for those kills, one correction to my own first reading.** I
+was going to flag that m2's corroborating PID attribution used a method **T28**
+(`0e76b74`) says lies. It does not: T28's broken method is **`/proc` under `spur
+exec`**, which is namespaced and reports "not visible from here" as "not
+running". m2 used **`docker top`**, daemon-side — the method T28 validates by
+contrast. So the corroboration stands, and **T28 is the control that established
+which of the two to trust.** I checked before publishing the doubt; had I not,
+this section would have undermined a sound decision.
+
+- **Inventory: three nodes, 24 cards, all free.** Two of the jobs are not this
+  team's — `109492` and `109496` are `keep3` from `/home/yihou/dev/git/aidev/temp`,
+  **the same non-team source as `109277`**, which the leader misattributed to m1
+  this morning. That is now twice; it is a property of the account, not an
+  accident.
+
+### 5. Open questions
+
+**The leader's headline open item was closed inside the interval, by m3.** The
+readable refusal said the run root must be on a filesystem both hosts mount; the
+leader checked from the node and found the zone visible and the run root already
+on the recommended NFS path — a message naming a cause that was not the cause.
+`9134715` establishes it: **"not visible" was a default, so establish the
+transport before asking it.** The consequence the leader flagged stands and is
+now confirmed rather than suspected — **refusals produced by that default were
+mis-attributed**, and how many is unknown.
+
+Still open:
+
+- **What ends `build_workset`** — though see §7; the question has changed shape.
+- **`check_workset_runs`'s refusal**, 0 of 2, reason now readable and undiagnosed.
+- **The entrypoint's own output is not kept** — the refusing zone holds only
+  `args/inputs/materials/verdict/validator_report`, so the real error is one
+  layer below what `dff2bcb` fixed. **Fourth instance** of *the machinery
+  produces the diagnosis and discards it*.
+- **Contaminated timings look like success** (m3's, from T+1092) — unchanged and
+  now more relevant, because `check_workset_runs` is the validator it is about.
+- Why holds are cancelled; how much co-tenant load is corpses.
+
+### 6. New commits
+
+**16 since `e382b68`.** m3 5 · m1 4 · m2 3 · m5 1 · m4 1 · leader/lib 2.
+
+- `03e3bae` **m2(line)** tell the kit which cards, because nothing did.
+- `470ba72` **bugs(stall detector)** four runs, and `build_workset` has never survived to 20 seconds — **the T+1092 finding, adopted into the record**.
+- `45de76c` **m1** `E2E_KIT_GPU_DEVICES` as the seventh contracted parameter, and item 5 was wrong.
+- `3045332` **m2(nodeprobe)** the shared filesystem is a gate, and it cost m5 a hold.
+- `79ff361` **m3** the seal wanted two README sections the sealed copy never had.
+- `8d28c86` **lib(runprobe)** print the triggering event's attributes — the explanation was there all along.
+- `288e9e1` **m1** a conclusion must quote the numbers it rests on.
+- `8467696` **m3** the second seal refusal, found before it cost a rung.
+- `9e1fcff` **m1** the seventh parameter refused the sealed kit — the adapter was the fix, not an exemption.
+- `5caea8a` **m4** the standalone verification for this module, and it needs one card for three minutes.
+- `fbb73c1` **m5** the standalone spec, and the knob that made a reduced arm impossible.
+- `4b4c9ce` **m3** drop `referencing`, and say when the instrument failed rather than the artefact.
+- `0e76b74` **todo** T28 — `/proc` is namespaced under `spur exec`, so PID attribution from a node lies.
+- `1569ec1` **e2e-flow** the Chinese design report in README — **the branch's first push to origin**.
+- `dff2bcb` **m3** a verdict without its reasons is a number nobody can act on.
+- `9134715` **m3** "not visible" was a default, so establish the transport before asking it.
+
+### 7. Anything else
+
+**`470ba72` closes a loop I opened at T+1092.** *"Four runs, and `build_workset`
+has never survived to 20 seconds"* is my third correction from that section,
+adopted into the bug record three minutes after I sent it, with a fourth run
+added. The structural story is retired on timing grounds and the question is now
+*what ends the leaf at 10–17 s* — which is a better question than the one the
+day started with.
+
+**The interval's real pattern is that four people found the same bug wearing
+four faces, and two of them found it within twenty minutes of each other.**
+
+- **T28** — a `/proc` miss under `spur exec` means *"not visible from here"*, not
+  *"not running"*.
+- **`9134715`** — *"not visible"* was a **default**, not a measurement; establish
+  the transport before asking.
+- **m4's retraction**, earlier today — absence of an escalation record in a log
+  read as absence of escalation.
+- **my own liveness gap** — no artefact motion read as no work.
+
+**All four are a negative answer that means "I could not see" being read as "it
+is not there."** Two of them landed at 08:10 and 08:31 from different owners
+against different subsystems. That is no longer a recurring mistake; **it is the
+shape of this system's instrumentation**, and the general form is worth stating
+once: *every probe in this stack returns the same token for "absent" and
+"unreachable", and none of them distinguishes the two unless someone builds a
+control.* T28 built one. `9134715` built one. m3's `4b4c9ce` — *say when the
+instrument failed rather than the artefact* — is the same principle applied to a
+validator.
+
+**And that principle just explained part of my own headline.** `check_workset_shape`
+was not silent this morning because the closure was unreached; it was **crashing
+on a missing module**. Some fraction of "10 of 21" was a broken instrument
+reporting as an unreached one — my own number returning the same token for
+*absent* and *unreachable*. I cannot yet say how much, and I am not going to
+guess: **the honest statement is that the ceiling I reported for seventeen hours
+had at least one validator behind it that would have failed to speak even if a
+run had arrived.**
