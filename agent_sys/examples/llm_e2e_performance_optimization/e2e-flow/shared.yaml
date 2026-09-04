@@ -258,3 +258,23 @@ env:
   # it. Declaring the name does not fix that; a caller setting it does.
   E2E_STAGE: '${stage:-}'
   E2E_REMOTE_HOME: '${remote_home:-}'
+
+  # **Which cards a deployment may take — T19, and it is the `none` sentinel
+  # rather than an empty default.** m1's reasoning, transferred verbatim from
+  # `E2E_DSA_ARGS`: on a command line `--var gpu_devices=` is indistinguishable
+  # from not passing it, so a body cannot tell *"the operator said choose
+  # freely"* from *"the operator said nothing"*. Empty is unspellable-versus-
+  # unsaid all over again.
+  #
+  # `none` means **choose freely** — probe and take what is free. A list like
+  # `4,5,6,7` means take exactly those. What the deployment actually took goes
+  # into `fixed.gpu_devices`, which records what was **taken**, not what was
+  # free: free-at-preflight is a measurement of a moment and stale by the time
+  # the record is read.
+  #
+  # Rung 1 is why this exists. `E2E_INSTRUCTION` carried "take only 4-7" in
+  # prose, the instruction never reached the agent, and the agent took card 4
+  # because the sealed kit says `DK_GPU_ID:=4`. Right answer, wrong mechanism,
+  # and nothing could have caught it: **a site fact carried in prose is a site
+  # fact nothing validates.**
+  E2E_GPU_DEVICES: '${gpu_devices:-none}'

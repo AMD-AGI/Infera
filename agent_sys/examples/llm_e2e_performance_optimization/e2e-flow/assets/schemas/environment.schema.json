@@ -121,6 +121,15 @@
               }
             }
           }
+        },
+        "gpu_devices": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uniqueItems": true,
+          "description": "The device indices this deployment TOOK, not what was free. m1's distinction and the reason it is the right one: free-at-preflight is a measurement of a moment and is stale by the time the record is read, while taken-by-this-deployment stays true -- and it makes `len(gpu_devices) <= gpu_count` a real invariant rather than a coincidence. Not required, because a record written before T19's STEP 1 criterion exists is still a valid record; a run that omits it is saying it does not know, which is honest. Rung 1 needed this field to say `eight present, four usable, one taken` and could only say the first."
         }
       }
     },

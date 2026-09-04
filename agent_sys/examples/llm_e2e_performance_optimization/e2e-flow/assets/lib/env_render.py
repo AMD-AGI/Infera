@@ -78,8 +78,24 @@ _FROM_ENV = {
 }
 _INT_FIELDS = {"gpu_count", "tp_size", "context_length"}
 
+#: Fields whose value is a **list of integers**, spellable on a `--set` as a
+#: comma-separated string. T19: `--set fixed.gpu_devices=4,5,6,7`.
+#:
+#: A JSON list already works — `_apply` routes anything starting `[` through
+#: `json.loads` — but a producer writing a shell command line should not have
+#: to quote brackets past two shells to say "cards four through seven". The
+#: comma form is what a body can build from `$HIP_VISIBLE_DEVICES` without
+#: any quoting at all, which is the spelling that will actually be used.
+_INT_LIST_FIELDS = {"gpu_devices"}
+
 
 def _coerce(field: str, value: str):
+    if field in _INT_LIST_FIELDS:
+        # Empty means "this run did not record which devices it took", which is
+        # a different claim from "it took none" and is the honest state for any
+        # producer written before T19's STEP 1 criterion. `[]` would assert the
+        # second. The schema leaves the field optional for the same reason.
+        return [int(x) for x in value.split(",") if x.strip() != ""]
     if field in _INT_FIELDS:
         return int(value)
     if value in ("null", "~"):
