@@ -497,16 +497,37 @@ patch, the hashes that pin it to one image, and the evidence.
         encoding="utf-8",
     )
 
+    # **Every prefix this process already holds, not only the four about its own
+    # zone.** A packup carries eight upstream handoffs verbatim, so it inherits
+    # every root any earlier stage wrote down — the model mount, the mock root a
+    # replayed kit records in `replayed_from`, and m4's scratch work root, all of
+    # which arrive here as `--var`s in the environment. Passing only the zone's
+    # four left 16 unnameable paths and `redact.py` exited 1 into a `check=True`,
+    # so `e2e_packup` — `is_end: true` — was never written. Supplying these cut
+    # the residue to the ones that are genuinely somebody else's content.
+    #
+    # `E2E_MODEL_PATH` is the model *directory*; its parent is the mount, which
+    # is the transferable half of the split spec §7 asks for.
+    prefixes = [
+        f"TASK_PACKAGE={args.package}",
+        f"ZONE={Path.cwd()}",
+        "TMPDIR=/tmp",
+        f"HOME={Path.home()}",
+    ]
+    for name, value in (
+        ("MODEL_MOUNT", str(Path(os.environ["E2E_MODEL_PATH"]).parent)
+                        if os.environ.get("E2E_MODEL_PATH") else ""),
+        ("WORK_ROOT", os.environ.get("E2E_WORK_ROOT", "")),
+        ("MOCK_ROOT", os.environ.get("E2E_MOCK_ROOT", "")),
+    ):
+        # Absolute only, and non-root: a `--var` left empty, or set to `/`, would
+        # otherwise turn every path in the kit into `@NAME@…`.
+        if value.startswith("/") and value.rstrip("/"):
+            prefixes.append(f"{name}={value}")
+
     subprocess.run(
-        [
-            sys.executable,
-            str(Path(args.package) / "assets" / "lib" / "redact.py"),
-            str(out),
-            f"TASK_PACKAGE={args.package}",
-            f"ZONE={Path.cwd()}",
-            "TMPDIR=/tmp",
-            f"HOME={Path.home()}",
-        ],
+        [sys.executable, str(Path(args.package) / "assets" / "lib" / "redact.py"),
+         str(out), *prefixes],
         check=True,
     )
 

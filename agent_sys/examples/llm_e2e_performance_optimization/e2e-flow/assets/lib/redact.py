@@ -49,11 +49,24 @@ ALLOWED_PREFIXES = (
     "/workspace/", "/app/",
 )
 
-#: `handoff.locality._CANDIDATE` and `_URL`, duplicated for the same reason.
+#: `handoff.locality._CANDIDATE`, `_URL` and `_REQUEST_TARGET`, duplicated for
+#: the same reason.
 CANDIDATE = re.compile(
     r"(?<![A-Za-z0-9._~@+-])(?:[A-Za-z]:\\[^\s\"'<>|]*|(?:/[A-Za-z0-9._+@-]+){2,}/?)"
 )
 URL = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://\S*")
+#: **Was missing, and its absence made this module stricter than the seal it
+#: claims to mirror.** `locality._scan_text` blanks an HTTP request target before
+#: running `_CANDIDATE`; this file copied `_URL` and the shebang skip and not
+#: this one. Measured on a two-line tree: `locality.check` returned `None` and
+#: this module exited 1 on `items/logs/access.log:1: /v1/chat/completions` out of
+#: `INFO 127.0.0.1 - "GET /v1/chat/completions HTTP/1.1" 200`. Every engine
+#: access log carries that line, so a handoff the seal would have taken was
+#: refused here instead — and the docstring above told the next reader not to
+#: check.
+REQUEST_TARGET = re.compile(
+    r"\b(?:GET|HEAD|POST|PUT|PATCH|DELETE|CONNECT|OPTIONS|TRACE)\s+(/\S*)\s+HTTP/\d(?:\.\d)?\b"
+)
 
 #: Matches `handoff.locality.check`, which skips anything larger. A file the seal
 #: will not read does not need rewriting, and rewriting a 60 MB trace would cost
@@ -72,38 +85,68 @@ MAX_BYTES = 4 << 20
 PLACEHOLDER = "@%s@"
 
 
-#: The environment record, in all three of the places CONTRACT.md §2 puts it.
-#: `reproducible` and `structured_text` use `items/env/`, `code` uses
-#: `items/codes/`, and a packup nests one a level deeper.
-ENVIRONMENT_RECORD = "environment.yaml"
+#: The environment record, in exactly the places `check_environment` looks for
+#: it: `check_environment.validator/check.py:50 CANDIDATES`. Copied as a tuple of
+#: globs rather than re-derived, because "which file is the record" is that
+#: validator's fact and a second, looser answer here is what caused the bug this
+#: tuple replaces.
+#:
+#: `items/codes/*/environment.yaml` is **one** level, matching the glob there. A
+#: copy nested deeper — `items/codes/handoffs/<kind>/environment.yaml`, which is
+#: what a packup carries — is payload that `find_record` never reads.
+ENVIRONMENT_RECORDS = (
+    "items/env/environment.yaml",
+    "items/codes/environment.yaml",
+    "items/codes/*/environment.yaml",
+)
 
 
 def is_environment_record(path, root) -> bool:
     """Is this the one file that must keep its absolute paths?
 
-    **CONTRACT.md §2.2, and this file predates it.** `environment.schema.json`
-    *requires* `model_path`, which is `/shared_nfs/...` by nature. Rewriting it
-    to `@MODEL_MOUNT@/...` does not fail here and does not fail the schema
-    either, because `model_path` is only `type: string` — **it fails two stages
-    later**, in `check_environment`'s `compare_fixed_across_inputs`, as "these
-    two handoffs describe different machines". Nobody debugging that goes
-    looking in a redactor.
+    **The skip is right and its old test was too broad.** It matched any
+    `environment.yaml` with `env` or `codes` anywhere in its path, which
+    includes the upstream records a packup nests under
+    `items/codes/handoffs/<kind>/`. Those are payload — `find_record` stops at
+    the single-level glob above and never reads them — so skipping them bought
+    nothing and **cost the seal**: measured on a kit this package's own
+    `packup.py` built, `handoff.locality.check` raised
 
-    That is worse than a refusal, which is why this is a skip rather than a
-    warning. Found by m2 against a conforming record: rewritten, exit 0.
+        items/codes/handoffs/kernel_optimization/environment.yaml:7:
+        '/shared_nfs/yihou/models/Qwen3.6-27B' is a local path
 
-    Three call sites reach this module — `apply_patch`, m2's line, and
-    `serve/round.sh`. Two of them are safe today only because they happen to
-    render the record *after* redacting, and nothing enforces that ordering. So
-    the rule belongs here, once, rather than in an ordering convention three
-    owners have to remember.
+    and `e2e_packup` is `is_end: true`, so the flow could not produce its
+    terminal artefact at all.
+
+    **Why the record itself is still skipped, corrected.** The old note here
+    said rewriting it fails `check_environment`'s
+    `compare_fixed_across_inputs`. That comparison is real — `model_path` is in
+    the list at `steps/common.yaml:76`, and a phase holding one redacted record
+    beside one raw one does refuse. But it is not the failure that arrives
+    first. Measured: `PLACEHOLDER` is `@NAME@`, and `model_path:
+    @MODEL_MOUNT@/Qwen3.6-27B` is **not valid YAML** — a bare `@` cannot start a
+    plain scalar — so the record becomes unparseable and every reader of it,
+    including `check_environment`, dies on a `ScannerError` before any
+    comparison happens. The `@` form is not optional either: it is what makes
+    the placeholder survive `CANDIDATE`'s lookbehind (see `PLACEHOLDER` above).
+
+    So: the record keeps its absolute paths, and the copies of it that are
+    merely being carried do not.
     """
-    if path.name != ENVIRONMENT_RECORD:
+    if path.name != "environment.yaml":
         return False
-    # Only under an item directory. A file called `environment.yaml` that a
-    # producer wrote into `result/` is its own artefact and is not the record.
+    # Component-wise and anchored at the content root, not `PurePath.match`
+    # (right-anchored, so `x/items/env/environment.yaml` would pass) and not
+    # `fnmatch` (its `*` crosses `/`, so the deep copy would pass). Both of
+    # those readmit exactly the paths this predicate was narrowed to exclude.
     parts = path.relative_to(root).parts
-    return "env" in parts or "codes" in parts
+    for pattern in ENVIRONMENT_RECORDS:
+        expected = pattern.split("/")
+        if len(parts) == len(expected) and all(
+            want == "*" or want == got for want, got in zip(expected, parts)
+        ):
+            return True
+    return False
 
 
 def substitute(text: str, mapping: list[tuple[str, str]]) -> str:
@@ -112,11 +155,23 @@ def substitute(text: str, mapping: list[tuple[str, str]]) -> str:
     return text
 
 
+def blank_target(match: "re.Match[str]") -> str:
+    """`locality._blank_target`: blank the request-target, keep the width."""
+    text = match.group(0)
+    start, end = match.span(1)
+    return text[: start - match.start()] + " " * (end - start) + text[end - match.start():]
+
+
 def offenders(text: str) -> list[tuple[int, str]]:
-    """Every absolute path the seal would still reject, as (line, path)."""
+    """Every absolute path the seal would still reject, as (line, path).
+
+    The three exemptions are `locality._scan_text`'s three, in its order. Two of
+    them were here already; `REQUEST_TARGET` was not, and that made this module
+    refuse artefacts the seal accepts.
+    """
     out = []
     for lineno, line in enumerate(text.splitlines(), start=1):
-        stripped = URL.sub(" ", line)
+        stripped = REQUEST_TARGET.sub(blank_target, URL.sub(" ", line))
         if stripped.lstrip().startswith("#!"):
             continue  # a shebang names an interpreter, not a produced artefact
         for match in CANDIDATE.finditer(stripped):
@@ -170,8 +225,9 @@ def main(argv: list[str]) -> int:
         # rewritten should see that it deliberately was not, and why.
         print(
             f"redact: left {len(skipped)} environment record(s) untouched "
-            f"({', '.join(skipped)}) — the schema requires an absolute model_path, "
-            "and rewriting it fails check_environment two stages later"
+            f"({', '.join(skipped)}) — the @NAME@ placeholder is not a valid YAML "
+            "scalar start, so a rewritten record is unparseable to every reader of "
+            "it. Copies carried as payload deeper than items/codes/*/ ARE rewritten."
         )
     if remaining:
         print(
