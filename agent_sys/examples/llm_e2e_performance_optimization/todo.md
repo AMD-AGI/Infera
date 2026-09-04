@@ -1315,6 +1315,40 @@ itself.** That is a good stopgap and it is a log line, not a check.
    field whose name misdescribes its provenance is the thing that made this hard
    to see, and if (1) is not wanted then the honest fix is the name.
 
+#### Sharpened by a second bring-up: `started_at` has no definition, so two runs measured two different things
+
+The entry above blames container **re-creation**. A second real bring-up shows
+that is one cause of the gap and not the cause, because the gap appears with no
+re-creation at all:
+
+| run | record `started_at` | container `Created` | `RestartCount` | gap |
+|---|---|---|---|---|
+| 217 | 09:03:51 | **09:37:18** | 0 | record is **34 min early** — it describes a container that no longer existed |
+| 006 | **10:21:54** | 10:16:46 | 0 | record is **5 min late** — same container throughout, still up |
+
+**Neither is wrong, because nothing says what the field means.**
+`environment.schema.json`'s `runtime.started_at` is `{"type": "string"}` —
+**required, and with no `description`.** So is `runtime.endpoint`. One agent
+recorded a moment before the container it eventually used; the other recorded
+something like *when the service became ready*, five minutes after its container
+started. Both validate.
+
+**This is T23's shape, in a second section of the same document.** T23 called
+`fixed.gpu_count` *"the one required field with no description"* — that was true
+of `fixed` and `runtime` has two more. A field that cannot be wrong cannot be a
+measurement, and here it has produced two incompatible readings in one afternoon
+without either being a defect.
+
+**So the fix is cheaper and more definite than T34's three options suggest:
+define it.** One sentence in the schema, the leader's file, deciding between *when
+the container started* and *when the deployment became ready* — and if it is the
+first, it should be **read from `docker inspect` rather than written by the
+agent**, which makes it a fact rather than a claim and removes the 217 case
+entirely. `runtime.endpoint` wants the same sentence: 217 recorded loopback
+`http://127.0.0.1:8101` and 006 recorded the routable
+`http://10.245.151.128:8101`, and a consumer on another host can only use one of
+them.
+
 
 ### T37 — two producers disagreeing is what a schema-shaped defect looks like
 
