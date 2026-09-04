@@ -304,7 +304,39 @@ def _substitution_matches_apply_mode(packup, operator: dict, doc: dict,
     the gate belongs at m4"* is the kind of intention that dies when the day
     ends. Written-and-disabled survives a handover; a note does not.
 
-    **To arm it:** set `_ENFORCE_SUBSTITUTION_PAIR = True`. Nothing else.
+    **To arm it:** set `_ENFORCE_SUBSTITUTION_PAIR = True` — **and mirror the
+    symbol extraction first, because as written the two halves disagree.**
+
+    m3's `51af864` widened `module_symbols` to include module-level assignments
+    (`logger`, `SGLANG_RETURN_ORIGINAL_LOGPROB`, `SYNC_TOKEN_IDS_ACROSS_TP` in
+    `sampler.py`), which is what closes m5's 12 against m3's 9. `declared` below
+    now carries those; `defined` is still built from `def`/`async def`/`class`
+    only. **So the two sides of `declared ∩ defined` are extracted by different
+    rules.**
+
+    **Harmless today and not harmless when armed.** m3 checked the direction and
+    they are right: adding names to `declared` that `defined` cannot contain can
+    only shrink `kept`, so the gate fires no *less* often and never passes
+    something silently. What it would do is refuse a replacement that **does**
+    preserve an importable name — if a replacement defined `logger = …` at module
+    level, that name survives the overlay and this would not count it.
+
+    **This gate means the importable surface, not the callable API**, and that
+    settles which side moves. Its whole claim is that a whole-file overlay leaves
+    the engine unable to import the module — and `from …sampler import
+    SYNC_TOKEN_IDS_ACROSS_TP` breaks exactly as hard as importing a function
+    (m5's point, and the reason their `surface_regressions` counts assignments).
+    A gate about imports that ignores importable names is measuring the wrong
+    surface.
+
+    **Do not fix it by copying m3's `_tgt` here.** That extraction already exists
+    twice — `identify.py` and `build_workset.task/mock_adapt.py` — and `51af864`
+    unified them into one `MODULE_SYMBOLS_SNIPPET` precisely so they cannot
+    drift; a third copy in this file would undo that on the day it was done, and
+    CONTRACT §4.1 says shared things are shared. The snippet is *source text* for
+    the image's python, not an importable helper, so mirroring properly means
+    lifting it to `assets/lib/` where both sides can reach it. **Raised with m3;
+    theirs to move, since it is their constant.**
     """
     if not _ENFORCE_SUBSTITUTION_PAIR:
         return
