@@ -65,19 +65,55 @@ def write_json(path: Path, doc) -> None:
     path.write_text(json.dumps(doc, indent=2, sort_keys=False) + "\n", encoding="utf-8")
 
 
-def input_content(kind: str) -> Path:
-    """An input handoff's `content/` directory.
+def input_version_dir(kind: str) -> Path:
+    """An input handoff's **version** directory, `<store>/<handoff_id>/v<N>`.
 
-    **The asymmetry that bites**: `$AGENT_SYS_INPUT_<KIND>` points at the
-    handoff's *version* directory, so `content/` is a hop below it, while
-    `$AGENT_SYS_OUTPUT_<KIND>` points at `content/` itself. They look like a
-    pair and they are one level apart.
+    **This shape is the same in both staging modes and `content/` is not.**
+    `env_mgr/fs/layout.py:245-247` stages to `os.path.join(into, hid, f"v{version}")`
+    either way and varies only what it copies *into* it: with `narrow=True` —
+    the default, and what every real run uses — the source is `<v>/content`, so
+    the staged directory holds `README.md` and `items/` directly; with
+    `narrow=False` (`AGENT_SYS_NO_PERMISSIONS`) the whole version directory is
+    copied and a `content/` hop appears.
+
+    So the version directory is where `handoff_id` and `version` must be read
+    from. Deriving them by walking up from `input_content()` reads one level too
+    high under the default, which is the bug this function exists to remove:
+    `workset_ref.version` came out as the handoff's uuid and `handoff_id` as the
+    name of the staging directory. Found by m2's input-wired sweep, and it had
+    never shown because rung 0 stops at `build_workset` and `optimize_kernel`
+    has never run in-graph.
     """
     var = "AGENT_SYS_INPUT_" + "".join(c if c.isalnum() else "_" for c in kind).upper()
     root = os.environ.get(var)
     if not root:
         die(f"{var} is unset; this task does not have {kind} as an input")
-    version = Path(str(root))
+    return Path(str(root))
+
+
+def input_ref(kind: str) -> dict:
+    """`{handoff_id, version}` for an input handoff, from the version directory.
+
+    One reader, because two call sites deriving it from a path is exactly how
+    they came to derive it wrongly in the same way twice.
+    """
+    version_dir = input_version_dir(kind)
+    return {"handoff_id": version_dir.parent.name, "version": version_dir.name}
+
+
+def input_content(kind: str) -> Path:
+    """An input handoff's content root — where `items/` and `README.md` live.
+
+    **The asymmetry that bites**: `$AGENT_SYS_INPUT_<KIND>` points at the
+    handoff's *version* directory, and whether `content/` is a hop below it
+    depends on the staging mode (see `input_version_dir`), while
+    `$AGENT_SYS_OUTPUT_<KIND>` always points at the content root itself.
+
+    **Never walk up from this to recover the id or the version** — under the
+    default staging mode there is no `content/` hop to walk back over, so the
+    walk lands one level high and succeeds silently. Use `input_ref`.
+    """
+    version = input_version_dir(kind)
     content = version / "content"
     return content if content.is_dir() else version
 

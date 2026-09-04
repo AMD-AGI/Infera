@@ -372,8 +372,7 @@ def main() -> int:
         "schema_version": 1,
         "operator": operator_id,
         "workset_ref": {
-            "handoff_id": str(Path(lib.input_content("operator_workset")).parent.parent.name),
-            "version": str(Path(lib.input_content("operator_workset")).parent.name),
+            **lib.input_ref("operator_workset"),
             "digest": None,
             "workset_id": pinned.get("workset_id"),
             "snapshot": lib.SNAPSHOT,

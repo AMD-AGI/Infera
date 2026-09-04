@@ -136,6 +136,37 @@ def _same(label: str, expected, actual, problems: list[str]) -> None:
         problems.append(f"{label}: workset says {expected!r}, the handoff says {actual!r}")
 
 
+def _same_file(expected: str, actual: str) -> bool:
+    """Do two paths name one file, allowing for the two frames in play?
+
+    The workset writes repo-relative and the container frame is root-relative,
+    one level deeper, so the shared part is a suffix of one and the whole of the
+    other. `_check_apply` has always compared `container_path` this way; this is
+    that rule, extracted so the two sites cannot drift — which is the fault
+    being fixed here, not a new tolerance.
+
+    Anchored on a segment boundary. A bare `endswith` would call
+    `layers/my_sampler.py` the same file as `layers/sampler.py`, which is the
+    obvious way to turn a strict check into a useless one.
+    """
+    left, right = str(expected or "").strip("/"), str(actual or "").strip("/")
+    if not left or not right:
+        return left == right
+    if left == right:
+        return True
+    longer, shorter = (left, right) if len(left) >= len(right) else (right, left)
+    return longer.endswith("/" + shorter)
+
+
+def _same_path(label: str, expected, actual, problems: list[str]) -> None:
+    if not _same_file(expected, actual):
+        problems.append(
+            f"{label}: workset says {expected!r}, the handoff says {actual!r}. "
+            f"These are compared by the part the two path frames share; neither is a "
+            f"suffix of the other, so they are different files"
+        )
+
+
 def _check_against_snapshot(doc: dict, snapshot: dict, problems: list[str]) -> None:
     """Every field the document copied from the workset must still be the workset's.
 
@@ -157,10 +188,28 @@ def _check_against_snapshot(doc: dict, snapshot: dict, problems: list[str]) -> N
     _same("premise.workset_environment", ground.get("environment"), premise.get("workset_environment"), problems)
 
     # M5.1.1 — the integration point is the workset's, not the optimiser's.
+    #
+    # **`source_file` is compared by the part the two frames share, not by
+    # equality**, and this body already knew that 300 lines down: `_check_apply`
+    # compares `apply.files[].container_path` against the same `source_file` with
+    # exactly this rule, and says why — the workset writes repo-relative
+    # (`python/sglang/srt/layers/sampler.py`) while the container frame is
+    # root-relative (`@SGLANG_ROOT@/srt/...`, and `SGLANG_ROOT` is
+    # `/sgl-workspace/sglang/python/sglang`). Comparing one of them strictly and
+    # the other by suffix meant no spelling of the workset's
+    # `integration.target_files` could satisfy both readers: the frame that let
+    # the path resolve was refused here, and the frame that passed here resolved
+    # to a doubled path that exists in no image. Measured both ways 2026-09-04.
+    #
+    # `entry_function` stays strict. It is a symbol, not a path; there are no two
+    # frames for it, and a suffix rule on a name would accept `fwd_o` for
+    # `chunk_fwd_o`.
     declared = operator.get("edit_target") or {}
     point = (doc.get("apply") or {}).get("integration_point") or {}
-    for field in ("source_file", "entry_function"):
-        _same(f"apply.integration_point.{field}", declared.get(field), point.get(field), problems)
+    _same("apply.integration_point.entry_function",
+          declared.get("entry_function"), point.get("entry_function"), problems)
+    _same_path("apply.integration_point.source_file",
+               declared.get("source_file"), point.get("source_file"), problems)
 
     performance = (doc.get("evidence") or {}).get("performance") or {}
     _same("evidence.performance.protocol", snapshot.get("protocol"), performance.get("protocol"), problems)
@@ -455,9 +504,14 @@ def _check_apply(doc: dict, packup: Path, problems: list[str]) -> None:
         # is `/sgl-workspace/sglang/python/sglang`) — so they are compared by
         # the part they share rather than by a mapping this body would have to
         # hard-code and keep in step with `container_roots.yaml`.
+        #
+        # `_same_file` is the shared reader. It used to be this expression alone
+        # while `integration_point.source_file` was compared strictly, and the
+        # two disagreeing is the fault §4.3 names — so the rule lives in one
+        # function now rather than in one function and one inline expression.
         if declared and container_path:
             tail = container_path.split("@", 2)[-1].lstrip("/")
-            if not (declared.endswith(tail) or tail.endswith(declared.lstrip("/"))):
+            if not _same_file(declared, tail):
                 problems.append(
                     f"{where}.container_path {container_path!r} is not the file the workset "
                     f"declared as its integration point ({declared!r}). M5.1.1: the apply is "
