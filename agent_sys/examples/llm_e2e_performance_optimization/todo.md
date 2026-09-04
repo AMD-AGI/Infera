@@ -827,6 +827,42 @@ aborts rather than waiting or stealing" — is **about the ports**, and it sits 
 lines from where a grep for card handling lands. It was nearly reported as a card
 check that exists. Opening `deploy.sh` gave the opposite answer.*
 
+**The documentary proof, found after the above was written, and it is sharper
+than the claim it supports.** The kit's own `results/preflight.json` contains
+**the true reading and a false claim derived from a stale one, in the same
+file**:
+
+| | |
+|---|---|
+| structured, `gpu_cards[]` | all eight cards **198–199 GiB used, 89–90 GiB free** |
+| prose, `gpu_devices_rationale` | *"All eight were free (**<=300 MB used each, no co-tenant**)"* |
+| prose, `vram_headroom_note` | *"**~288 GiB free per card** … mem-fraction-static 0.85 leaves ~232 GiB"* |
+| `captured_at` | **absent** |
+
+The prose is wrong by a factor of three against the numbers two keys above it.
+
+**So the agent did re-probe, and the late reading reached the record's structured
+half and neither the prose nor the parameter.** That is worse than "the probe
+informed its narrative": the narrative was written from the *early* reading and
+never revised, the numbers were refreshed and never reconciled, and **with no
+timestamp on either half a reader cannot tell they describe different moments.**
+
+The decision was not careless — `gpu_devices_rationale` reasons that *"0-3 was
+taken so that the low half is this deployment's and 4-7 stays available for the
+step-6 self-test"*. **A considered rationale resting on a stale premise, and the
+evidence refuting it is in the same document.**
+
+**Nothing catches this.** `check_deploy_kit` grades the layout and validates
+`environment.yaml` against its schema; it does not read `preflight.json`, and no
+rule anywhere compares a document's prose against its own numbers. The layout's
+`results/` floor asks for *two non-empty `.json` files* — this file satisfies it
+while contradicting itself.
+
+**A fifth item follows and it is cheap:** any evidence file that records a
+measurement must carry **when it was taken**. A reading without a timestamp
+cannot be known to be stale, which on this cluster — where a card reading is true
+for seconds — makes it indistinguishable from a guess.
+
 ### T28 — T21's bar, measured: 7 characters against 526
 *m1, 2026-09-04. T21 said "do not invent the number". The number exists now.*
 
