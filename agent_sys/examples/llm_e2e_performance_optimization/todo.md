@@ -984,7 +984,9 @@ gets a fault nobody can attribute. It goes in after the rung, not during it.
 
 ---
 
-### T28 — `/proc` is namespaced under `spur exec`, so PID-based attribution from a node lies
+### T36 — `/proc` is namespaced under `spur exec`, so PID-based attribution from a node lies
+
+*Renumbered from **T28**, which collided with an earlier item of the same number — six owners append to this file and two picked the same next integer. Commits and messages citing T28 for *this* item still resolve: the other T28 is a different subject and the two are not confusable by title.*
 
 **m2, 2026-09-04. Not blocking. Recorded because three ownership misattributions
 today were name-based, and the obvious fix — attribute by PID instead — is
@@ -1250,7 +1252,9 @@ itself.** That is a good stopgap and it is a log line, not a check.
    to see, and if (1) is not wanted then the honest fix is the name.
 
 
-### T34 — two producers disagreeing is what a schema-shaped defect looks like
+### T37 — two producers disagreeing is what a schema-shaped defect looks like
+
+*Renumbered from **T34**, which collided with an earlier item of the same number — six owners append to this file and two picked the same next integer. Commits and messages citing T34 for *this* item still resolve: the other T34 is a different subject and the two are not confusable by title.*
 
 **Owner m3, 2026-09-04, from m4's finding that `public_symbol: sampler_softmax`
 is defined nowhere in the file it names.**
