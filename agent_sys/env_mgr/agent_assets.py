@@ -250,6 +250,22 @@ CLAUDE_DIRNAME = ".claude"
 #: what the name shape removed.
 AGENT_PLUGINS_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)), "agent_plugins")
 
+#: The **default** recipe layer — the one nobody names, because it always
+#: applies. It sits in ``env_mgr/`` rather than in ``env_mgr/recipes/``, and
+#: that placement is the whole of how a reader tells it from the recipes beside
+#: it: ``recipes/`` is the namespace of things you *name* in ``recipes: [x]``,
+#: and this is not in it. No field says "this one is the default"; the path does.
+#:
+#: **Absent is normal.** Nothing declares it, so a missing file is simply
+#: absent — not the declared-and-absent error, which only the agent layer can
+#: reach.
+DEFAULT_RECIPE = os.path.join(os.path.dirname(__file__), "default.env_recipe.yaml")
+
+#: The **package** recipe layer's one admitted filename, under the staged
+#: package's ``assets/``. See `_package_recipe_path` for why this is a single
+#: spelling where the agent layer takes any permutation.
+PACKAGE_RECIPE_BASENAME = "main.env_recipe.yaml"
+
 #: Written into the zone's config directory. Nothing else writes this file.
 SETTINGS_FILENAME = "settings.json"
 
@@ -642,16 +658,101 @@ def _agent_plugin_trees(agent_spec: Any, *, staged_package: str | None) -> list[
     return trees
 
 
-def _recipe_paths(agent_spec: Any, *, staged_package: str | None) -> list[str]:
-    """Recipe YAMLs, resolved, in declaration order.
+def _package_recipe_path(*, staged_package: str | None) -> str | None:
+    """The package layer's recipe inside the staged copy, or `None`.
 
-    Two spellings, tried in that order and both admitted because they answer
-    different questions. A **package-relative path** is *this package's own
-    recipe*, and resolves against the staged copy. A **bare name** is
-    ``env_mgr/recipes/<name>.yaml``, one this repository ships. A package cannot
-    shadow a shipped recipe by accident, because its own path has to resolve
-    first for the name form never to be reached — and if it does resolve, the
-    author wrote a file at that path and meant it.
+    **One spelling, and that is a cost paid deliberately.** The agent layer is
+    found by `spec_loader`'s filename convention, which admits every `.`-joined
+    permutation — `env_recipe.<agent>.yaml`, `<agent>.env_recipe.yaml`, and the
+    rest. **This layer admits exactly `assets/main.env_recipe.yaml` and nothing
+    else.** `main.env_recipe.package.yaml`, `env_recipe.main.yaml` and every
+    other spelling a reader would reasonably expect from the agent layer
+    **silently do nothing here.**
+
+    The asymmetry is forced, not chosen. `spec_loader` owns that convention and
+    `env_mgr` imports `spec_loader` **nowhere** — they are two independent
+    components and a test enforces the partition. For this layer to use the same
+    machinery, `spec_loader` would have to find the file and hand the path over
+    on a *field*, and the only schema that could hold one is the task's — which
+    would give every task in the graph its own recipe layer. That is a fourth
+    layer arriving by accident, and two stated discovery rules are better than
+    one silent extra layer.
+
+    `main` and not the package's directory name: `main.yaml` is the reserved
+    package-entry filename (`spec_loader`'s `ENTRY_FILENAME`), so `main` already
+    means *this package* rather than any object in it.
+
+    Resolved against the **staged** copy for `_assets_dir`'s reason — the
+    operator's live checkout is not what the run executes.
+    """
+    if not staged_package:
+        return None
+    path = os.path.join(staged_package, "assets", PACKAGE_RECIPE_BASENAME)
+    return path if os.path.isfile(path) else None
+
+
+def _recipe_paths(agent_spec: Any, *, staged_package: str | None) -> list[str]:
+    """Every recipe YAML to run, in execution order: **default, package, agent**.
+
+    ## Three layers, and the layer is *where the file is*
+
+    | layer | where | declared |
+    |---|---|---|
+    | default | `env_mgr/default.env_recipe.yaml` | never — it always applies |
+    | package | `<staged package>/assets/main.env_recipe.yaml` | never — auto-detected |
+    | agent | ``recipes: [...]`` on the agent spec | by name or package-relative path |
+
+    No item carries a layer and none can: the **path** already says which layer
+    a file is, and a field saying it again is a second writer of one fact. That
+    is the reasoning that removed `Item.layer`, applied one level out.
+
+    Order is most-general to most-specific, so a later layer runs later.
+
+    ## They CONCATENATE — a later layer adds, it does not override
+
+    This is the thing a reader will get wrong, because "layers" suggests
+    override. It is not override, and it does not need to be: a recipe item is
+    an *install action*, and every installer gates on `check` before `install`,
+    so an item that two layers both declare is done once and reported twice.
+    Nothing is discarded and nothing has to be reconciled.
+
+    ## What is NOT checked across layers, and what closing it would cost
+
+    **A version conflict between two layers is not detected.** `runner.detect_conflicts`
+    would catch it — it is scoped to a single `run()` call, and `_run_recipe`
+    spawns **one child process per recipe file**, so three layers are three
+    independent conflict checks that never see each other. A default-layer
+    ``uv <0.11`` and an agent-layer ``uv >=0.12`` both simply run, and the last
+    one wins by execution order, silently.
+
+    Closing it means parsing all three files **in this process** to compare
+    their items before any child starts — which is exactly the in-process
+    coupling the subprocess design exists to avoid (see the module docstring's
+    three reasons). The gap is left open deliberately, with that cost named:
+    a gap whose price is stated is a decision, and the same gap alone reads as
+    an oversight.
+
+    Worth knowing while reading the above: `detect_conflicts` fires only on
+    **incompatible version constraints**, never on a repeated name. Two layers
+    naming the same item is not an error *within* one file either, so the
+    cross-file gap is narrower than it first sounds.
+
+    ## Absence
+
+    A layer that is **not declared and not there** is simply absent — the
+    default and package layers are never declared, so a missing file is their
+    normal shape. A layer that **is declared and not there** is an error;
+    that is `material.py:62-86`'s existing rule and only the agent layer can
+    reach it. There is no third case.
+
+    ## The agent layer's two spellings
+
+    A **package-relative path** is *this package's own recipe* and resolves
+    against the staged copy. A **bare name** is ``env_mgr/recipes/<name>.yaml``,
+    one this repository ships. A package cannot shadow a shipped recipe by
+    accident, because its own path has to resolve first for the name form never
+    to be reached — and if it does resolve, the author wrote a file at that path
+    and meant it.
 
     An agent plugin's own ``recipe.yaml`` is **not** here: it is found beside
     the component's `.claude/` and run in `_install_tree`'s place in the order,
@@ -660,6 +761,13 @@ def _recipe_paths(agent_spec: Any, *, staged_package: str | None) -> list[str]:
     """
     out: list[str] = []
     shipped = os.path.join(os.path.dirname(__file__), "recipes")
+
+    if os.path.isfile(DEFAULT_RECIPE):
+        out.append(DEFAULT_RECIPE)
+    package_recipe = _package_recipe_path(staged_package=staged_package)
+    if package_recipe is not None:
+        out.append(package_recipe)
+
     for declared in _sequence(agent_spec, "recipes"):
         candidates = []
         if staged_package:

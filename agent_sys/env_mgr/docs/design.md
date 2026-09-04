@@ -92,7 +92,7 @@ env_mgr/
 ├── grants.py               resolving a Grant into locations. §6
 ├── workspace.py            the clone with alternates. §7
 ├── material.py             deploying an agent's rules/hooks/skills. §11.5
-├── agent_assets.py         per-agent components, three origins. §11.5a
+├── agent_assets.py         per-agent components §11.5a; recipe layers §11.5b
 ├── sync.py                 the one-shot job. §9
 ├── remote/
 │   ├── connection.py       ssh and docker exec behind one Protocol. §10.2
@@ -1408,6 +1408,57 @@ it, so `isolation/policy.py::agent_plugin_grants` composes a `READ_EXEC` grant o
 the same condition that emits the name — a spec declaring `agent_plugins:`. Read,
 not execute-from: a component is copied into the zone before anything runs it,
 and if that ever stops being true the answer is another copy, not a wider grant.
+
+### 11.5b Recipes come in three layers, and the layer is where the file is
+
+Distinct from §11.5a's three *origins*, which are about `.claude/` trees. This
+is about recipe YAMLs, and it is the owner's ruling that everything except an
+agent's own `assets/.claude/` tree is installed by declaring it in a recipe.
+
+| layer | where | declared |
+|---|---|---|
+| default | `env_mgr/default.env_recipe.yaml` | **never** — it always applies |
+| package | `<staged package>/assets/main.env_recipe.yaml` | **never** — auto-detected |
+| agent | `recipes: [...]` on the agent spec | by name, or by package-relative path |
+
+**No item carries a layer and none can.** The path already says which layer a
+file is; a field saying it again is a second writer of one fact. That is the
+reasoning that removed `Item.layer`, applied one level out.
+
+**How a reader tells the default from a recipe you name:** `env_mgr/recipes/` is
+the namespace of things you *name* in `recipes: [x]`. The default is the one you
+never name, so it is not in that directory. Nothing marks it.
+
+**The package layer admits one spelling only** — `main.env_recipe.yaml`, not the
+permutation set the agent layer accepts. `env_mgr` imports `spec_loader`
+**nowhere** (two independent components; a test enforces the partition), so it
+cannot reuse that convention machinery. For it to do so, `spec_loader` would
+have to hand the path over on a *field*, and the only schema that could hold one
+is the task's — giving every task in the graph its own recipe layer, which is a
+fourth layer arriving by accident. **Two stated discovery rules beat one silent
+extra layer**, and `_package_recipe_path`'s docstring says so where a reader
+hits it.
+
+**They concatenate; they do not override.** A later layer adds items. That costs
+nothing because every installer gates on `check` before `install`, so an item
+two layers both declare is done once and reported twice.
+
+**Nothing detects a version conflict between layers, and that is deliberate.**
+`runner.detect_conflicts` is scoped to a single `run()` call and `_run_recipe`
+spawns one child per recipe file, so three layers are three independent checks
+that never see each other. Closing it means parsing all three files in the
+parent before any child starts — the in-process coupling the subprocess design
+exists to avoid. The gap is left open with its price named; a gap alone reads as
+an oversight.
+
+Worth knowing beside that: `detect_conflicts` fires only on **incompatible
+version constraints**, never on a repeated name. Two layers naming one item is
+not an error *within* a single file either, so the cross-file gap is narrower
+than it sounds.
+
+**Absence, stated once for all three layers.** Declared-and-absent is an
+**error**; undeclared-and-absent is simply **absent**. Only the agent layer is
+declared, so only it can reach the first case. There is no third case.
 
 ## 12. The shipped package
 

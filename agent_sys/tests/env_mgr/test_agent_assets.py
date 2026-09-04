@@ -86,6 +86,34 @@ class FakeCli(NamedTuple):
     log: Path
 
 
+#: The real `DEFAULT_RECIPE`, captured at import time — **before** the autouse
+#: fixture below can replace it. Without this the one test that checks the
+#: shipped file would inspect the fixture's fake path and could never see the
+#: real one, which is a check that cannot fail in the most literal way: it would
+#: be asserting about a string this file wrote.
+_SHIPPED_DEFAULT_RECIPE = agent_assets.DEFAULT_RECIPE
+
+
+@pytest.fixture(autouse=True)
+def _no_default_recipe(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Point `DEFAULT_RECIPE` at nothing for every test in this file.
+
+    **Not tidiness — the shipped default recipe made this suite depend on the
+    host.** It runs on every `install()` call, so without this fixture each of
+    the ~40 tests below carries two extra report entries it never asked for, and
+    the second one is `ok | uv already present (skip)` **only on a machine that
+    has uv**. On a machine without it the same line is a `warn`, and any
+    assertion about levels or report length flips for a reason that has nothing
+    to do with what the test is about. Measured, not feared: `install()` with an
+    empty spec returns exactly those two entries on this host.
+
+    The default layer is tested where it is the subject, with a synthetic recipe
+    this fixture is overridden for — so it is exercised deliberately rather than
+    leaking into every other assertion.
+    """
+    monkeypatch.setattr(agent_assets, "DEFAULT_RECIPE", "/nonexistent/default.env_recipe.yaml")
+
+
 @pytest.fixture
 def fake_claude(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FakeCli:
     """A `claude` that records its argv and succeeds.
@@ -2010,3 +2038,193 @@ def test_a_bundled_server_entry_states_the_run_environment_rather_than_inheritin
     # It is a copy, not the live mapping: one server's entry must not be
     # editable through another's, and `Prepared.mcp_servers` crosses to `agent`.
     assert entry["env"] is not environ
+
+
+# --------------------------------------------------------------------------- #
+# The three recipe layers — default, package, agent
+#
+# The layer is WHERE THE FILE IS, not a field. These tests are written against
+# that: each one puts a file somewhere and asserts what ran, never that some
+# `layer` attribute was set.
+
+
+def _marker_recipe(path: Path, marker: Path, name: str = "marker") -> None:
+    """A recipe whose single item touches `marker`, so "did this layer run" is
+    answered by the filesystem rather than by an `Outcome` that could be
+    manufactured by a stub."""
+    _write(
+        path,
+        "version: 1\n"
+        f"target: {{kind: repo, name: t, path: {path.parent}}}\n"
+        "items:\n"
+        "  - installer: oneline\n"
+        "    importance: suggested\n"
+        f"    name: {name}\n"
+        f"    run: touch {marker}\n",
+    )
+
+
+def test_the_default_layer_runs_although_nothing_declares_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The whole point of the default layer: an agent that declares no recipes
+    at all still gets it."""
+    ran = tmp_path / "default_ran"
+    recipe = tmp_path / "default.env_recipe.yaml"
+    _marker_recipe(recipe, ran)
+    monkeypatch.setattr(agent_assets, "DEFAULT_RECIPE", str(recipe))
+
+    install(_spec(), staged_package=None, config_dir=str(tmp_path / "c"))
+
+    assert ran.exists()
+
+
+def test_a_missing_default_layer_is_absence_and_not_an_error(tmp_path: Path) -> None:
+    """Undeclared **and** absent is simply absent.
+
+    `DEFAULT_RECIPE` is pointed at nothing by this file's autouse fixture, so
+    this is the shipped-file-absent case. It must not raise and must not add a
+    fault: only the AGENT layer can reach declared-and-absent, because it is the
+    only layer anything declares.
+    """
+    got = install(_spec(), staged_package=None, config_dir=str(tmp_path / "c"))
+
+    assert not [o for o in got.report if o.level in ("warn", "fail")]
+    # Negative assertion, so it does NOT go red against a tree with no default
+    # layer at all — nothing absent can produce a fault. It guards the
+    # direction its partner does not; read it with
+    # `test_the_default_layer_runs_although_nothing_declares_it`.
+
+
+def test_the_package_layer_is_auto_detected_in_the_staged_copy(tmp_path: Path) -> None:
+    ran = tmp_path / "package_ran"
+    pkg = tmp_path / "staged"
+    _marker_recipe(pkg / "assets" / "main.env_recipe.yaml", ran)
+
+    install(_spec(), staged_package=str(pkg), config_dir=str(tmp_path / "c"))
+
+    assert ran.exists()
+
+
+def test_only_one_spelling_of_the_package_recipe_is_admitted(tmp_path: Path) -> None:
+    """**Pins the cost of the fixed path, not a wish.**
+
+    The agent layer is found by `spec_loader`'s convention, which accepts every
+    `.`-joined permutation. This layer accepts `main.env_recipe.yaml` and
+    nothing else, because `env_mgr` imports `spec_loader` nowhere and cannot
+    reuse that machinery. So a reader who transfers the agent layer's habit here
+    gets silence.
+
+    This test exists to make that silence visible in the suite rather than only
+    in a docstring. If the two layers are ever unified, this is the test to
+    delete — deliberately, and not by accident.
+    """
+    ran = tmp_path / "should_not_run"
+    pkg = tmp_path / "staged"
+    _marker_recipe(pkg / "assets" / "env_recipe.main.yaml", ran)
+
+    install(_spec(), staged_package=str(pkg), config_dir=str(tmp_path / "c"))
+
+    assert not ran.exists()
+    # Also negative, and therefore green on a tree where the package layer does
+    # not exist at all — it cannot witness the feature, only its boundary. It is
+    # meaningful ONLY beside
+    # `test_the_package_layer_is_auto_detected_in_the_staged_copy`, which proves
+    # the admitted spelling does run.
+
+
+def test_the_three_layers_run_default_then_package_then_agent(tmp_path: Path) -> None:
+    """Order is most general to most specific, and it is observable.
+
+    Each layer appends its own name to one file, so the assertion is the actual
+    sequence of executions rather than the order of a list this module built.
+    """
+    order = tmp_path / "order.txt"
+    pkg = tmp_path / "staged"
+
+    def _appender(path: Path, word: str) -> None:
+        _write(
+            path,
+            "version: 1\n"
+            f"target: {{kind: repo, name: t, path: {tmp_path}}}\n"
+            "items:\n"
+            "  - installer: oneline\n"
+            "    importance: suggested\n"
+            f"    name: {word}\n"
+            f"    run: echo {word} >> {order}\n",
+        )
+
+    default = tmp_path / "default.env_recipe.yaml"
+    _appender(default, "default")
+    _appender(pkg / "assets" / "main.env_recipe.yaml", "package")
+    _appender(pkg / "recipes" / "agent.yaml", "agent")
+
+    import pytest as _pytest
+
+    mp = _pytest.MonkeyPatch()
+    mp.setattr(agent_assets, "DEFAULT_RECIPE", str(default))
+    try:
+        install(
+            _spec(recipes=["recipes/agent.yaml"]),
+            staged_package=str(pkg),
+            config_dir=str(tmp_path / "c"),
+        )
+    finally:
+        mp.undo()
+
+    assert order.read_text().split() == ["default", "package", "agent"]
+
+
+def test_layers_concatenate_rather_than_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A more specific layer ADDS; it does not replace a more general one.
+
+    The trap this pins: "layers" reads as override, and someone will one day
+    make the agent layer shadow the default. Both markers must exist — if the
+    agent layer replaced the default, only the second would.
+    """
+    from_default = tmp_path / "from_default"
+    from_agent = tmp_path / "from_agent"
+    pkg = tmp_path / "staged"
+
+    default = tmp_path / "default.env_recipe.yaml"
+    # **Deliberately the SAME item name in both layers.** A repeated name is not
+    # a conflict — `runner.detect_conflicts` fires only on incompatible version
+    # constraints — so both must still run.
+    _marker_recipe(default, from_default, name="shared")
+    _marker_recipe(pkg / "recipes" / "agent.yaml", from_agent, name="shared")
+    monkeypatch.setattr(agent_assets, "DEFAULT_RECIPE", str(default))
+
+    install(
+        _spec(recipes=["recipes/agent.yaml"]),
+        staged_package=str(pkg),
+        config_dir=str(tmp_path / "c"),
+    )
+
+    assert from_default.exists(), "the agent layer overrode the default instead of adding to it"
+    assert from_agent.exists()
+
+
+def test_the_shipped_default_recipe_exists_and_parses(tmp_path: Path) -> None:
+    """The layer needs a witness that is the REAL file, not a synthetic one.
+
+    Every test above monkeypatches `DEFAULT_RECIPE`, which is right for
+    isolation and means none of them would notice if the shipped file were
+    deleted, renamed, or made unparseable. This one opens it.
+
+    It asserts the path and that `load_recipe` accepts it — deliberately NOT
+    what is in it. The contents of the default layer are an open question and a
+    test that pinned today's single item would have to be edited by whoever
+    answers it, which is how a test becomes something people delete.
+    """
+    from env_mgr.recipe import load_recipe
+
+    assert _SHIPPED_DEFAULT_RECIPE.endswith(os.path.join("env_mgr", "default.env_recipe.yaml")), (
+        "the default layer must be in env_mgr/, not in env_mgr/recipes/ — "
+        "that placement IS how a reader tells it from a recipe you name"
+    )
+    assert os.path.isfile(_SHIPPED_DEFAULT_RECIPE)
+
+    target, items = load_recipe(_SHIPPED_DEFAULT_RECIPE)
+    assert items, "a default recipe with no items gives the layer no witness"
