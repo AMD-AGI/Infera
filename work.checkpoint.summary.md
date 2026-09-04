@@ -6456,3 +6456,158 @@ on a tool I wrote now names the tool. I have three: the verdict tally, the
 process check, `read_events.py`. **Two of the three have now been wrong in a way
 that changed a published conclusion** — the tally read one run root when there
 were two, and this. The third has never been independently checked by anyone.
+
+## T+1285 — 2026-09-04 10:55 UTC
+
+### I attacked my own tally, as instructed. It survived identification and it has one untested leg left.
+
+The leader's standing objection is right: **naming a tool is disclosure, not
+verification, and an instrument that has never been attacked is not an
+instrument that works.** Both of the tally's known failures were the same shape
+— *it read a world smaller than the real one*. So the test is not "does it count
+correctly" but **"can I construct a state it reports confidently and wrongly."**
+
+Four attacks, all run just now:
+
+| attack | result |
+|---|---|
+| **Signature collision** — two validators whose `args` keys are identical, silently merged | **none.** All 21 parsed with `yaml.safe_load_all`; every signature unique |
+| **The classifier misnames one** — my real classifier run verbatim over all 21 declared `args` | **0 misnamed of 21** |
+| **Verdicts silently dropped** — a `verdict.json` with no sibling `args.json` hits my `except: continue` | **0 of 334** |
+| **The frozen-root constants are stale** — I hardcoded them last section | **verified: 38 runs, 231 verdicts, mount still `ro`** |
+
+**One real finding, and my first attempt missed it.** My initial collision test
+was line-based and reported "20 of 21, no collisions". The missing one was
+`check_worklist_shape`, whose args are **inline flow style** —
+`args: {schema: kernel_worklist}` — invisible to a line parser. It is also the
+**shortest signature in the package** and therefore the most collision-prone, so
+my first test excluded exactly the validator most likely to fail it. Re-run with
+a real YAML parse: still no collision, but **the test that said "none" was not
+the test I thought I had run.**
+
+**What the attack does not establish.** The seven m5 validators are all
+**unknown to my map** and fall through to `NEW[<signature>]`. That is the right
+failure mode — visible, and still distinct per signature, so the *count* stays
+correct while the *names* read as raw key-lists until I add them. I am leaving
+them unmapped deliberately: a guessed mapping that renders differently at
+runtime would be a silent error, and `NEW[...]` cannot be.
+
+**So: the tally is sound on identification and unproven on scope.** Scope is
+where both its failures happened, and the current scope mitigation — the
+hardcoded frozen-root constants — is a *new* single point of failure that is one
+interval old. I re-verified it this interval and will re-verify it every
+interval rather than trusting it, and I have written the `ro` mount check into
+that verification because the constants are only valid while the mount is.
+
+**And the third tool is going to m3**, per the leader: the process check has
+never been independently examined. Sending them the tool and the claim, and
+asking them to make it lie.
+
+### The number that matters
+
+| | runs | invocations | judgements | **distinct** |
+|---|---|---|---|---|
+| frozen (`ro`, re-verified) | 38 | 231 | 255 | 10 |
+| live | 26 | 336 | 381 | 14 |
+| **union at 10:55** | **64** | **567** | **636** | **14** |
+
+**Distinct flat for the third interval — and per the rule I adopted last
+section, here is what moved underneath it:**
+
+| validator | 10:28 | 10:55 |
+|---|---|---|
+| `check_optimization_shape` | 3 / 1 | **5 / 3** |
+| `check_speedup_substantiated` | 3 / 0 | 5 / **0** |
+| `check_workset_runs` | 9 / 3 | **11 / 5** |
+| `check_workset_shape` | 9 / 7 | 11 / 9 |
+
+**Two run processes present at 10:55:31** — pid 267995 (50 m 31 s) and pid
+1017998 (2 m 08 s).
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | clean |
+| (b0) pre-commit `git status` on this file | **clean** |
+| (b) per-commit ownership | clean across 3 |
+| (c) `todo.md` | **39 items** |
+| holds | three: 006, 217, 047 — **none lost since 06:47** |
+| `/home` | 1.6 T free (85 %) |
+| frozen-root constants | **re-verified this interval**, mount `ro` |
+
+### 1. Progress
+
+**~78 %, held.** Elapsed 1 285 m. Distinct flat for a third interval; the
+movement is inside the fourteen and m5 remains unreached. Reliability
+**low→moderate**, held. **预估耗时: no number.**
+
+### 2. Current state
+
+Three commits this interval, all corrections of the same kind as the tool fix:
+`629111f` m4 — the ephemeral container mounted `$HOME` and a validation zone
+redefines it; `8df59a6` m2 — `check_kernel_table` keeps its reasons;
+`38cdf8f` m3 — the heading was inferred, so a caller's misclassification made
+it lie.
+
+### 3. Code problems
+
+- **FIXED — `read_events.py` hid `seal_refused` and `detail`** (`841ca22`).
+  m2's find, my file, my defect. See the previous addendum.
+- **OPEN — `check_speedup_substantiated`**, 0 of 5.
+- **OPEN — the process check**, unverified by anyone; going to m3.
+
+### 4. Non-code problems
+
+Three holds, none lost since 06:47 — the longest stable stretch of the effort,
+now four intervals. Two `keep3` jobs still pending from the non-team session.
+
+### 5. Open questions
+
+The seven m5 validators; `check_speedup_substantiated`'s remaining refusal;
+M5.1.1; m5's control-experiment ordering; why holds are cancelled.
+
+### 6. New commits
+
+**3 since `d1f9104`.** `629111f` m4 · `8df59a6` m2 · `38cdf8f` m3. Plus my
+own two: `841ca22` (the tool fix) and `d1f9104` (the correction it forced).
+
+### 7. The class, stated once, replacing four separate entries
+
+The leader is right that I have named this four times today under four headings
+and it is one thing. Consolidated:
+
+> **An instrument reads a real thing and answers a different question, and is
+> never wrong in a way that shows up as an error.**
+
+The instances, all measured today:
+
+| instrument | reads | the question you asked it |
+|---|---|---|
+| my `args.json` key signature | which keys exist | which list a key is *in* |
+| my run duration | the run's elapsed time | which closure spent it |
+| my distinct-validator count | verdicts recorded | whether a run completed |
+| my `_text()` | the event's `message` | the event's **cause** |
+| `items_schema` | a filename string | the file's contents |
+| m1's image check | that it passes at tp=1 | that the image is good |
+| the completion probe | `nonempty` | that the answer is right |
+| `--rm` | that a container stopped | that it was torn down |
+| `/proc` under `spur exec` | not visible from here | not running |
+| `"not visible"` | a default | a measurement |
+
+**Four of the ten are mine**, which is the reason to state it as one class
+rather than ten anecdotes: it is not a property of any subsystem, it is what
+every probe in this stack does by default. **None of them errors. Each returns a
+true fact about a smaller world than the one asked about**, and the only defence
+that has worked all day is **a second artefact** — the yaml beside the
+signature, the event store beside the tally, `detail` beside `message`,
+`docker top` beside `/proc`, a control beside a null.
+
+**And the class has a fifth kind of member, which is the leader's and is worse
+than mine.** They read `seal_refused` in a four-run study, reported it as
+identical across all four, **and then treated the phenomenon as a stall-detector
+question anyway** — while m3 had already fixed that exact refusal at 07:47. In my
+four cases the instrument withheld the cause. **In theirs it did not, and the
+reader carried a prior that the answer could not displace.** A better instrument
+does not fix that one; only a second reader does, which is what the last two
+hours have actually been.
