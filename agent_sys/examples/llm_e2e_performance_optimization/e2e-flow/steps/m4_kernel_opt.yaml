@@ -63,6 +63,29 @@
     # is **not** recorded in `run_environment.warnings[]` is still a failure:
     # differing is tolerated, hiding it is not.
     warn_on_mismatch: [rocm, image_id, torch, driver]
+    # **`gpu_devices` is deliberately on neither list, decided 2026-09-04 by the
+    # leader, and here is the condition that would change it** — recorded at the
+    # site where somebody would otherwise add it, because a decision that lives
+    # only in a message reads later as an oversight.
+    #
+    # A device *index* is not an optimisation premise. Two runs on disjoint
+    # halves of one node with the same `gpu_arch`, `gpu_count` and `image_id`
+    # are comparable, which is what makes those three abort/warn fields and not
+    # this one. On a shared cluster most legitimate re-runs get different cards,
+    # so warning on it would fire on the normal case — and **a warning channel
+    # that fires on the normal case stops being read**, which costs us the cases
+    # where it is not normal.
+    #
+    # The asymmetry is why "no" is the cheaper mistake: wrong this way costs a
+    # comparison nobody flagged, and `todo.md` T7 is the thing that would catch
+    # it; wrong the other way puts a meaningless warning on every run and
+    # teaches the next reader to skip them.
+    #
+    # **Revisit when T7 lands** — the within-arm, round-to-round spread on a
+    # quiet node. If card-to-card variation *within* one node approaches the
+    # 5% / 10% bars, which cards you got becomes a premise and this field
+    # belongs on the warn list. Today there is no evidence either way, and a
+    # warning added against a hypothesis is how the channel fills with noise.
     # Correctness is not a percentage. A kernel that is faster and wrong is not
     # a partial success. There is deliberately no `min_pass_ratio` here — the
     # one `check_workset_runs` carries is recorded as `todo.md` T10 and nothing
