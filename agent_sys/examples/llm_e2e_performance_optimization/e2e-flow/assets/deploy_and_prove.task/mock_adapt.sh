@@ -166,6 +166,18 @@ if ! grep -q 'E2E_KIT_RUN_TAG' "$ENVSH"; then
 # up to the current contract — so the parameter is now required of every kit,
 # replayed or produced, with no exemption anywhere.
 : "${E2E_KIT_GPU_DEVICES:=${DK_GPU_ID:-4}}"
+# The eighth, added the same day and by the same rule: rename, never new
+# behaviour. The sealed kit already binds a graph ceiling — `DK_CUDA_GRAPH_MAX_BS`
+# at its own `env.sh:105`, value **8** — so an unset caller still gets the
+# 2026-09-02 run's own choice byte for byte, and the replayed numbers stay
+# exactly as reproducible as they were.
+#
+# **The sealed 8 is deliberately not corrected here.** It is right for the kit it
+# came from, which is `tp_size: 1`, and this script adapts a record forward — it
+# does not re-tune a deployment that already happened. A replayed kit that
+# quietly served a different ceiling from the one its own logs show would break
+# the only thing a replay is for.
+: "${E2E_KIT_CUDA_GRAPH_MAX_BS:=${DK_CUDA_GRAPH_MAX_BS:-8}}"
 EOF
 fi
 

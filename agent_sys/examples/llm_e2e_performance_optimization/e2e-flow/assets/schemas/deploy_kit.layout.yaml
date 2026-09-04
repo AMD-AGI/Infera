@@ -561,6 +561,67 @@ runtime_contract:
         was an agent that could read prose; m2's consumer is a **program**, and a
         site fact carried in prose cannot reach a shell script. See `todo.md`
         **T19** and **T27**.
+    # The eighth, added 2026-09-04. Unlike the seven above it is not a
+    # shared-host identifier — it is here because it is the first value found
+    # that **determines every number the flow produces and is bound by nobody**.
+    - name: E2E_KIT_CUDA_GRAPH_MAX_BS
+      # **The evidence, because this entry would otherwise read as tuning.**
+      # m2 measured a 4.7x decode difference between two runs whose every
+      # recorded variable was equal — same node, same image id, same model, same
+      # `tp_size`, same cards, same `mem-fraction-static`, same load shape. The
+      # one difference was the CUDA graph ceiling, and the load runs at
+      # concurrency 16: below the ceiling the decode batch is captured, above it
+      # the engine falls to eager. m2's own stage documents the same mechanism
+      # from the other side — graphs off is where `profiling_mode_on` gets ~8x.
+      #
+      # **There was no default to be wrong.** Measured across every kit in the
+      # run root: the name appears **nowhere** in this package, and the producing
+      # agent invents a value each bring-up — `16, 16, 8, 32` over four real
+      # runs at `tp_size: 4`, the line number moving each time because `env.sh`
+      # is regenerated rather than edited. The `:=8` that looked like a default
+      # is `env.sh:105` of the sealed 2026-09-02 kit — a **`tp_size: 1`** record
+      # replayed verbatim eighteen times.
+      #
+      # That is **strictly worse than a wrong default, because a wrong default
+      # is at least reproducible.** Two of the four real bring-ups shipped a
+      # ceiling below the concurrency the mission grades at; the run in flight
+      # picked 32 and is correct **by luck, not by construction**.
+      #
+      # **Why a parameter and not a note in the brief.** The kit already emits
+      # `--cuda-graph-max-bs` unconditionally (`start_worker.sh`), so
+      # `E2E_KIT_ENGINE_EXTRA_ARGS` cannot express an override without passing
+      # the flag twice and relying on argparse last-wins — of a flag sglang
+      # already prints a deprecation warning for. A caller that must set this
+      # has no clean way to, which is the `E2E_KIT_GPU_DEVICES` argument again:
+      # m2's consumer is a **program**, and a program cannot act on prose.
+      err: >-
+        the CUDA graph ceiling decides whether decode runs captured or eager — a
+        4.7x difference invisible to every field that is recorded — and the kit
+        binds it with no parameter, so a caller cannot match it to the
+        concurrency it will be measured at. Read it as
+        `${E2E_KIT_CUDA_GRAPH_MAX_BS:=…}` in scripts/.
+      brief: >-
+        The largest decode batch the engine captures a CUDA graph for. **It must
+        be at least the concurrency this deployment will be loaded at** — 16 for
+        this flow (mission M1.2.3.4, `probes.yaml:331`) — because a batch above
+        the ceiling is not merely uncaptured, it silently changes what every
+        downstream number measures. m2's throughput figures, m3's worksets and
+        m5's stock arm all inherit whichever value the kit shipped.
+        **Choosing is not enough: the kit must say what it chose and why.** That
+        half survives any future change to what the right value is, and it is
+        the half missing today — four real kits carry four different ceilings
+        and not one of them states a reason, so a reader cannot tell a
+        considered 32 from an accidental 8.
+        A caller that names a ceiling **must be obeyed**, on the same reasoning
+        as `E2E_KIT_GPU_DEVICES`: the caller is usually matching it to a load
+        shape the kit cannot see, and substituting a "better" value destroys the
+        only mechanism that intent has.
+        **This entry does not fix the whole defect and should not be read as
+        doing so.** The ceiling is still absent from the environment record and
+        from `check_environment`'s compared set, so two engines differing 4.6x
+        in decode speed continue to validate as the same one. That half is
+        `todo.md` **T55** — it touches `environment.schema.json`, shared by all
+        fifteen kinds, and waits on a green rung for the same reason T54 does.
   # The work root must be **writable from inside the engine container, at the
   # same path**. Not a new parameter — a property of one that already exists.
   #

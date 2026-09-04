@@ -111,6 +111,12 @@ PY
 # could not see until 2026-09-04. Planted by REMOVAL, which is how it occurred:
 # two real bring-ups produced kits complete in items/ and missing this file.
 rm -f "$BAD/README.md"
+# 14. the CUDA graph ceiling bound with no parameter. Planted by REMOVAL of the
+# line the adapter synthesises, because that is exactly how a produced kit gets
+# it wrong: four real bring-ups wrote a bare value into `env.sh` and none of
+# them made it settable. Without this fault the eighth contracted parameter
+# would be a rule nothing exercises -- the shape this gate exists to prevent.
+sed -i '/E2E_KIT_CUDA_GRAPH_MAX_BS/d' "$PACKUP/scripts/env.sh"
 printf '{"model": "/models/qwen3.6-27b"}\n' > "$PACKUP/results/bad_model_id.json"   # 5
 rm -f "$PACKUP/results/router_workers.json" "$PACKUP/results/verification.json"     # 6
 printf '%s\n' '#!/bin/sh' 'CTR_NAME=dbg_deploy_sgl' \
@@ -154,6 +160,7 @@ want=(
   "E2E_KIT_ENGINE_EXTRA_ARGS"      # 11 the runtime contract
   "cannot take more cards"         # 12 record-internal: len(gpu_devices) <= gpu_count
   "content/README.md: missing"     # 13 the handoff's own README -- the seal refuses without it
+  "E2E_KIT_CUDA_GRAPH_MAX_BS"      # 14 the graph ceiling bound with no parameter
 )
 missed=0
 for fragment in "${want[@]}"; do

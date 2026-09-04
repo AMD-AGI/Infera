@@ -204,6 +204,32 @@ on "curl -sf -m 10 http://<node-ip>:<router-port>/health"
 **Criterion:** HTTP 200. If it 503s, it is still starting; wait, and watch the
 worker log grow rather than restarting anything.
 
+**Set the CUDA graph ceiling to at least the concurrency this deployment will be
+loaded at, and write down why you chose the number.** The load is **concurrency
+16** (mission M1.2.3.4). Expose it as `${E2E_KIT_CUDA_GRAPH_MAX_BS:=…}` in
+`scripts/env.sh` — it is a contracted parameter, and `check_deploy_kit` refuses a
+kit that binds it with no parameter.
+
+**Criterion:** the ceiling your kit ships is `>= 16`, and `notes.md` states the
+value and the reason. A number with no reason fails this even when the number is
+right, and that is deliberate: four real kits before yours shipped **16, 16, 8
+and 32**, and because not one of them gave a reason, nobody could tell a
+considered 32 from an accidental 8.
+
+**Why this criterion exists, measured 2026-09-04.** Two runs whose every recorded
+variable was equal — same node, same image id, same model, same `tp_size`, same
+cards, same `mem-fraction-static`, same load — differed **4.7x** in decode
+latency. The only difference was this ceiling. A decode batch above it is not
+merely uncaptured; the engine falls to eager and every number downstream — m2's
+throughput, m3's worksets, m5's stock arm — silently becomes a measurement of
+something else. **Nothing in the environment record captures this, so the two
+runs are indistinguishable to every validator.**
+
+**A caller that names a ceiling must be obeyed**, exactly as with `gpu_devices`
+above: they are matching it to a load shape you cannot see, and substituting a
+value you prefer destroys the only mechanism that intent has. If you believe the
+named value is wrong, **stop and say so** — do not quietly improve it.
+
 **Mount what a later stage will need to measure in, not only what the engine
 needs to serve.** Your container is not only a server: **m3 and m4 `docker exec`
 into the one your record names**, because CONTRACT §5 gives its lifetime to you

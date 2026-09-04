@@ -2407,3 +2407,60 @@ all. Now chained: `<run> <- <prior>`.
 provenance field is the one best placed to destroy provenance*, and a test aimed
 at a typo is what surfaced it. On a kit with no prior `replayed_from` the
 behaviour is identical and every check written for it passes.
+
+### T55 — the CUDA graph ceiling belongs in the environment record and in `check_environment`'s compared set
+
+**m1, 2026-09-04. The half of the graph-ceiling defect that item 1 does not fix.
+Approved by the leader; deferred for the same reason as T54.**
+
+m2 measured **4.7x** in decode latency between two runs whose every *recorded*
+variable was equal — node, image id, model, `tp_size`, cards,
+`mem-fraction-static`, load shape. The difference was the CUDA graph ceiling,
+against a load at concurrency 16 (M1.2.3.4): below the ceiling decode runs
+captured, above it the engine falls to eager.
+
+**There was no default to be wrong**, which is the part that makes this
+structural. `DK_CUDA_GRAPH_MAX_BS` appears **nowhere** in the package; the
+producing agent invents a value each bring-up. Measured across every kit in the
+run root:
+
+```
+env.sh:105  DK_TP_SIZE:=1  MAX_BS:=8    x18   the sealed 2026-09-02 kit, replayed
+env.sh:170  DK_TP_SIZE:=4  MAX_BS:=16         062229-2695b9   real
+env.sh:169  DK_TP_SIZE:=4  MAX_BS:=16         110626-43f0de   real
+env.sh:193  DK_TP_SIZE:=4  MAX_BS:=8          125637-e1ddf6   real
+env.sh:222  DK_TP_SIZE:=4  MAX_BS:=32         143952-bec7da   real, in flight
+```
+
+**16, 16, 8, 32 over four real bring-ups**, the line number moving each time
+because `env.sh` is regenerated rather than edited. That is **strictly worse
+than a wrong default, because a wrong default is at least reproducible.** Two of
+the four shipped a ceiling below the concurrency the mission grades at, and the
+run in flight is right **by luck, not by construction**. The `:=8` that looked
+like a default is a `tp_size: 1` record replayed eighteen times — *a value fixed
+in an artefact, mistaken for a default because the artefact is replayed*.
+
+**Landed already (item 1, this commit):** the eighth contracted parameter
+`E2E_KIT_CUDA_GRAPH_MAX_BS`, the brief's `>= concurrency` criterion with *say
+what you chose and why*, the adapter line that keeps the sealed kit passing, and
+gate fault 14. That binds the producer.
+
+**Still open, and it is the half that catches a violation rather than asking for
+compliance:** the ceiling is absent from `environment.schema.json` and from
+`check_environment`'s `compare_fixed_across_inputs`. **Two engines differing
+4.6x in decode speed validate as the same one.** Same argument as `image_id`
+over `image` — the compared set exists precisely to catch two things that claim
+to be one.
+
+**Deferred, not dropped.** `environment.schema.json` and `check_environment` are
+shared by all fifteen kinds; a change that can hard-fail mid-run has no green
+rung behind it, so a failure would be unattributable between the schema and the
+stage. Land after rung 1 seals green, as a proposal first.
+
+**One caveat for whoever lands it:** `gpu_count` carries a warning against
+adding it to `compare_fixed_across_inputs` — every stage inherits m1's record,
+so all five agree by construction and cross-input agreement detects nothing. The
+graph ceiling has the same inheritance, so comparing it **across inputs** is
+worth no more than comparing `gpu_count`. What is needed is a comparison against
+**the concurrency the load actually ran at**, which lives in m2's artefacts, not
+a cross-input equality.
