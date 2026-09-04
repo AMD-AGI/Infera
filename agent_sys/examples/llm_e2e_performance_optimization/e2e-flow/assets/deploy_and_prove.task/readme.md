@@ -310,6 +310,24 @@ items/codes/<experiment-name>.packup_<YYYYMMDD>/
     scripts/   results/   logs/
 ```
 
+**The `README.md` on the first line of that sketch is the handoff's own, and it
+is the one most likely to be missed.** It sits at the content root **beside**
+`items/`, not inside the packup — the packup has its own `README.md` answering
+*"did this deployment work"*, and this one answers *"what is this artefact and
+what may a consumer rely on"*. It needs all three of `## Purpose`,
+`## Interface`, `## Boundary`.
+
+**Write it, and do not treat the sketch above as the only mention.** Measured
+2026-09-04: **two real bring-ups produced kits complete in `items/` and missing
+this file**, because it was drawn in a diagram and required by no criterion. Both
+would have been **refused by the seal** — `handoff/content.py` will not seal a
+`code` handoff without it — and neither would have become a handoff at all. One
+of them was reported to another module as a usable input and it was not one.
+
+`check_deploy_kit` now refuses its absence too, so you will hear about it in
+seconds rather than at the seal; **that is a shorter feedback loop and not a
+reason to rely on it.**
+
 **`items/codes/` is not decoration.** This handoff's `content_type` is `code`,
 which requires an item named `codes` and nothing else at the top level; a file
 placed directly under `items/` is rejected before anyone reads it.
@@ -414,6 +432,11 @@ it.
 Read `assets/schemas/deploy_kit.layout.yaml` once more against what you wrote,
 and confirm each of these yourself:
 
+- **`README.md` exists at the content root, beside `items/`, with `## Purpose`,
+  `## Interface` and `## Boundary`.** First on this list because it is the one
+  two previous bring-ups both missed, and without it the handoff cannot seal —
+  everything else on this list would have been correct and the artefact still
+  would not have existed;
 - exactly one `<name>.packup_<YYYYMMDD>/` under `items/codes/`, beside
   `environment.yaml`;
 - **`fixed.gpu_devices` is present and no longer than `fixed.gpu_count`.** The
