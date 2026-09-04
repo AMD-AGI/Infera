@@ -5786,3 +5786,210 @@ reporting as an unreached one — my own number returning the same token for
 guess: **the honest statement is that the ceiling I reported for seventeen hours
 had at least one validator behind it that would have failed to speak even if a
 run had arrived.**
+
+## T+1177 — 2026-09-04 09:07 UTC
+
+### 14 of 21 — and the seven that remain are all one module's
+
+The ceiling read **10 for seventeen hours**, **12** at 08:30, and **14** now. Two
+moves in thirty-seven minutes after a day of stillness.
+
+| | runs | invocations | judgements | **distinct** |
+|---|---|---|---|---|
+| union at 09:05 | **52** | **415** | **466** | **14** |
+
+New since the last section, identified from `args` against
+`steps/m4_kernel_opt.yaml:160` (`require_apply_mode: [overlay_files]`) and `:42`
+(`abort_on_premise_mismatch: [gpu_arch, shapes, dtype, operator]`):
+
+| validator | invocations | pass |
+|---|---|---|
+| `check_workset_runs` | 5 | **1** |
+| `check_optimization_shape` | 1 | **0** |
+| `check_speedup_substantiated` | 1 | **0** |
+
+**`check_workset_runs` passed once** — the trust chain end to end, *"recorded
+0.0415 ms, re-measured 0.0414 ms (0.1 % apart)"*. That is the validator I
+recorded at 0-of-2 an hour ago.
+
+**And the graph reached m4**, where both of m4's validators refused on first
+contact. A stage being reached and refusing is the same good shape as
+`check_workset_shape` passing while `check_workset_runs` held: **the gate opens,
+the measurement does not yet.**
+
+**The seven that have never spoken are `check_acceptance`, `check_bench_report`,
+`check_measurement_order`, `check_no_regression`, `check_overlay_applies`,
+`check_packup_shape`, `check_patch_live` — every one of them module 5's.** The
+metric has stopped being "how far does the graph get" and become exactly one
+statement: **m5 has never been reached.** That is a far more actionable ceiling
+than the one I have been reporting all day.
+
+**An instrument change, declared.** The full two-root scan **timed out at 120 s**
+this interval — the tree has outgrown a recursive glob. The frozen root is
+mounted `ro` and cannot change, so I now scan only the live root and add the
+frozen root's measured constants (**38 runs, 231 invocations, 255 judgements,
+10 distinct**, all a subset of the live set). This is a caching decision, not a
+measurement; if the frozen root ever becomes writable the constants are wrong and
+I will have to say so.
+
+**Run process present at 09:06:58** — pid 3233515, **24 minutes in**, and newly
+wrapped in `timeout 7200`. A run now has a hard two-hour cap, which is a fact
+about what a stall can cost that did not exist this morning.
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | clean |
+| (b) per-commit ownership | clean across 10; nobody but me touched this file |
+| (c) `todo.md` | 29 items, unchanged |
+| holds | `109260`/006, `109491`/217, `109496`/047; two `keep3` pending |
+| `/home` | 1.6 T free (85 %), flat since 05:47 |
+| run process | **present at 09:06:58**, 24 m in, `timeout 7200` |
+
+### 1. Progress
+
+**~76 %.** Elapsed 1 177 m. The leader is at 75 %.
+
+**Reliability: low→moderate**, and this is the first upgrade I have made to it
+all effort. The reason is not the level but the *rate*: the ceiling — my most
+conservative and most-defended number, the one I refused to move for seventeen
+hours — went 10 → 12 → 14 in ninety minutes. **One step is a crossing; two steps
+is a trend**, and it is corroborated by an independent artefact (three stages
+green) rather than by re-reading my own.
+
+**What holds it at low-moderate rather than moderate:** all seven remaining
+validators are m5's, and **m5 has never been reached by any run**. The rate I
+just cited comes from stages that were already partly instrumented. It says
+nothing about a module the graph has not touched.
+
+**预估耗时: no number.** Held. And this interval supplied the sharpest reason yet
+*not* to produce one — see §3, where a headline figure given to the user turned
+out to be 56× wrong.
+
+### 2. Current state
+
+**Three of five stages green**, `m3_analysis` succeeded for the first time,
+`optimize_kernel` refused, 11 handoffs. All five standalone verification sections
+are written (`e19379a` completed the set).
+
+### 3. Code problems
+
+**`build_workset` had five stacked defects, each hidden by the one above** —
+recorded as the leader's account, and it is the cleanest example of layering in
+the record:
+
+1. **FIXED** seal: README missing `Purpose/Interface/Boundary` — `79ff361`
+2. **FIXED** seal: `items ['env','result','script']` not defined by `code` — `8467696`
+3. **FIXED** `check_workset_shape` crashed, `ModuleNotFoundError: referencing` — `4b4c9ce`
+4. **FIXED** validator zone had no `SPUR_CONTROLLER_ADDR` — `0e004b1`
+5. **FIXED** `${E2E_REMOTE_HOME:-$HOME}` → `/home` in a closed zone → `-v /home:/home` denied — `5964fd8`
+
+**Layers 4 and 5 are one class** — *a variable present in my shell and absent in
+a validation zone* — and m3's own note is the entry worth keeping: **"naming a
+class is not sweeping for it."** One `grep` after layer 4 would have found
+layer 5 an hour earlier.
+
+**That sentence indicts this file too.** I have named four classes today —
+aggregate-read-as-specific, absent-vs-unreachable, artefact-motion-as-liveness,
+green-number-as-completion — and in no case did I then sweep for other instances.
+Naming is the cheap half.
+
+**A risk I helped carry to the user was wrong by 56×.** The *"~105-minute
+two-arm run against 28-minute holds"* was reported as the project's binding
+constraint. m5 measured it on an idle node:
+
+```
+probe at the sealed run's own budget (2048):    37 s
+the sealed artefact records:                  2062 s      ~56x
+whole reduced correctness suite:               102 s
+```
+
+**The 2062 s was the node, not the work** — measured on the contended chassis the
+DELIVERY-NOTE describes. The residual risk is real but much smaller: ~8–13 min of
+cold NFS weight load per arm at bring-up. **m5 refuses to give a full-scale
+figure until they measure needle and lm_eval here** — *"I am not going to
+extrapolate a second time in the same hour."* That refusal is the right shape and
+it is the same discipline as my 预估耗时 refusal, arriving independently.
+
+**And m5 refuted their own spec.** Their proposed `eval_max_tokens=256` **fails**
+— the model is still reasoning when the budget runs out and the extractor takes a
+number from the middle of the working. Floor is between 256 and 512; 512 costs
+34 s against 2048's 37 s. **The missing declaration was a real defect and their
+stated reason for it was wrong** — a distinction most people collapse.
+
+**OPEN** — `check_optimization_shape` and `check_speedup_substantiated`, 0 of 1
+each, first contact, undiagnosed.
+
+### 4. Non-code problems
+
+- **m1's obey-branch works and had never run**: named `gpu_devices=0,1,2,3`,
+  container pinned exactly, cards 0–3 loading, 4–7 untouched. A branch's first
+  execution is not a regression test, and this one passed.
+- **Three handovers, three different missing resources: cards (235), filesystem
+  (037), image (047).** 047 had no infera image at all; m5 `docker load`ed one in
+  4 m 44 s. **The interesting part is that no two failed the same way** — a
+  node-readiness check that tested any one of the three would have passed the
+  other two.
+- **Three `keep3` jobs** (`109492`, `109504`, `109496`) from
+  `/home/yihou/dev/git/aidev/temp`, **not this team** — third and fourth
+  sighting, same source as `109277`. Consistently a property of the account.
+- Unchanged: holds cancelled without cause; a cancelled hold does not reclaim its
+  GPUs; `sacct` unusable for attribution.
+
+### 5. Open questions
+
+- **Why do m4's two validators refuse?** New, one invocation each.
+- **m5's full-scale cost** — deliberately unmeasured, and correctly so.
+- **How many refusals did the "not visible" default mis-attribute?** From
+  `9134715`, still unknown.
+- **The entrypoint's own output is still not kept** — fourth instance of the
+  machinery producing a diagnosis and discarding it.
+- Why holds are cancelled; how much co-tenant load is corpses.
+
+### 6. New commits
+
+**10 since `f77990f`.** m4 5 · m3 2 · m2 2 · m1 1. (The leader's list spans a
+wider window; five of those landed inside my previous section.)
+
+- `24cd068` **m4** forward by prefix — the hand-maintained env list was itself the defect.
+- `4e41406` **m4** record the first real standalone run — a near-miss and an unstated contract.
+- `0e004b1` **m3** the validator zone has no `SPUR_CONTROLLER_ADDR`, and my shell did.
+- `e19379a` **m1** the standalone verification section, fifth of five.
+- `4e5c888` **m2(run-plan)** the standalone verification for this module, and its one real dependency.
+- `5964fd8` **m3** `$HOME` is `/home` in a closed zone, and I built a mount identity out of it.
+- `d3c66af` **m4** seed the mock from the Definition's baseline, not from the engine's stock module.
+- `9d294d9` **m2** land the interpreter sweep in the repo, with the checklist pointing at it.
+- `c7340f9` **m4** write the reasons beside the verdict — this stage was the sixth instance.
+- `55fd369` **m4** the card comment was inverted — unset does not protect card 0, it takes it.
+
+### 7. Anything else
+
+**`c7340f9` says "this stage was the sixth instance".** Six times in one day, a
+verdict was produced without its reasons attached. My own count reached four
+before I stopped incrementing it; m4 is at six and still counting. **The thing
+worth noticing is that nobody fixed it centrally** — six owners each fixed it in
+their own stage, which is what happens when a class is named but not swept.
+m3's sentence and m4's counter are the same finding from two directions.
+
+**m4 asked before taking 006 rather than assuming** — *"that's the double-booking
+that cost the third rung-0 run, and I'd rather lose three minutes than repeat
+it."* The leader records that the double-booking was theirs and that they did not
+ask. **An owner changing their behaviour because of someone else's recorded
+mistake is the first instance today of this record being used rather than
+written**, and it cost three minutes against a lost run.
+
+**m4 also became the first of four people to notice they were about to
+hand-roll something `assets/lib/` already owned**, and reused m3's helper. I am
+the counter-example from two hours ago: I wrote `read_events.py` five minutes
+after `runprobe.py` landed, because I did not look. **The difference between us
+was one `ls`.**
+
+**On my own estimate, plainly.** I moved to 76 %, a point above the leader, on
+the ceiling's *rate*. I want to flag the way that could be wrong: the rate comes
+entirely from m1/m2/m3, which had been worked on all day, and **the remaining
+seven validators belong to a module no run has reached**. If m5 behaves like
+`build_workset` did — five stacked defects, each hidden by the one above — then
+the last third of this metric could take longer than the first two thirds took.
+**I am reporting the number I believe and naming the shape of its error rather
+than discounting it in advance.**
