@@ -58,6 +58,30 @@ def store_root() -> Path:
     return Path(os.environ["AGENT_SYS_DEMO_STORE"])
 
 
+def handoff_dir(hid: str) -> Path:
+    """This handoff's directory in the store. `handoff.store.handoff_dir`, duplicated.
+
+    The store names a directory ``handoff.<kind>.<uuid>`` so that a person
+    reading a run tree can tell what an artefact is. **Nothing resolves through
+    the label**: a directory is this handoff's when its name *is* the uuid — the
+    shape written before labels existed — or ends with ``.<uuid>``. The same
+    admissible duplication as `MANIFEST` and `CONTENT` above, and covered by the
+    same agreement test.
+    """
+    root = store_root()
+    suffix = f".{hid}"
+    if root.is_dir():
+        for entry in sorted(root.iterdir()):
+            if entry.name == hid or entry.name.endswith(suffix):
+                return entry
+    return root / hid
+
+
+def hid_of(dirname: str) -> str:
+    """The handoff id in a store directory name — the last field, labelled or not."""
+    return dirname.rsplit(".", 1)[-1]
+
+
 def versions(hid: str) -> list[int]:
     """**Published versions only, and the gaps are the point.**
 
@@ -75,7 +99,7 @@ def versions(hid: str) -> list[int]:
     next. Holes are skipped and never compacted, because renumbering would move
     an artefact a digest already names.
     """
-    base = store_root() / hid
+    base = handoff_dir(hid)
     if not base.is_dir():
         return []
     found = [
@@ -92,7 +116,7 @@ def content_dir(hid: str, version: int | None = None) -> Path | None:
     if not numbers:
         return None
     chosen = numbers[-1] if version is None else version
-    path = store_root() / hid / f"v{chosen}" / CONTENT
+    path = handoff_dir(hid) / f"v{chosen}" / CONTENT
     return path if path.is_dir() else None
 
 
@@ -101,7 +125,7 @@ def kind_of(hid: str, version: int | None = None) -> str:
     if not numbers:
         return ""
     chosen = numbers[-1] if version is None else version
-    manifest = store_root() / hid / f"v{chosen}" / MANIFEST
+    manifest = handoff_dir(hid) / f"v{chosen}" / MANIFEST
     if not manifest.is_file():
         return ""
     # **YAML, not JSON**, and this read `json.loads` until the filename was
@@ -173,9 +197,10 @@ def latest_of_kind(kind: str) -> Path | None:
         return None
     best: tuple[float, Path] | None = None
     for entry in sorted(root.iterdir()):
-        if not entry.is_dir() or kind_of(entry.name) != kind:
+        hid = hid_of(entry.name)
+        if not entry.is_dir() or kind_of(hid) != kind:
             continue
-        found = content_dir(entry.name)
+        found = content_dir(hid)
         if found is None:
             continue
         stamp = found.stat().st_mtime
