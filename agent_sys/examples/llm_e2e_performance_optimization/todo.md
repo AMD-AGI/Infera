@@ -1109,3 +1109,32 @@ Not fixed here because the producer and the validator now both refuse to
 choose a card at all (`T19`), so the index is at least *deliberate* on both
 sides. Recording it would make it *checkable*, which is a different property
 and the one that closes this.
+
+### T33 — a mechanical reformat makes a diff unreviewable, so the semantic check moves before the commit
+
+**Owners m3 and the leader, 2026-09-04, the same error twice in one morning.**
+
+`json.dumps(indent=2)` re-serialises a whole schema, so a five-key change lands
+as **1074 insertions / 240 deletions** and no reader can see what changed. The
+leader hit it first — 164 lines for one sentence in
+`environment.schema.json` — and m3 hit it hours later in
+`workset.schema.json`. **Both of us verified afterwards and disclosed
+afterwards**, which is the right check in the wrong order: an
+after-the-fact semantic diff reassures the author and does nothing for the
+reviewer, who has already been handed a diff they cannot read.
+
+**Ruled: do not restore hand-formatting.** Canonical `json.dumps` form is
+stable and reproducible, and the next programmatic edit would reformat it
+again — restoring buys one reviewable diff at the price of the next one.
+
+**The rule is about order and disclosure.** When an edit is programmatic:
+
+1. run a **semantic** diff against `HEAD` *before* committing — walk both
+   parsed documents and report added / removed / changed keys;
+2. if the textual diff is reformat-heavy, **put that output in the commit
+   message**. `1074 insertions` beside *"semantic diff: exactly five
+   differences, all intended, listed below"* is reviewable; `1074 insertions`
+   alone requires the reader to reconstruct it or to trust the author.
+
+**Related:** `T31` — this is the same family. Naming the hazard after the fact
+is not the same act as checking for it before.

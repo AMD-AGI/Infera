@@ -23,9 +23,11 @@ to for this image. Host checkout paths are never recorded at all: a repository i
 named, not located.
 """
 
+import base64
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -546,6 +548,104 @@ def resolve(row: dict, hit: dict, roots: list[str], repo_map: dict) -> dict:
     }
 
 
+def image_facts(image: str, root: str, relatives: list[str], timeout: int = 300) -> dict:
+    """`{relative: {"sha256": ..., "module_symbols": [...]}}`, read from the image.
+
+    **Identify time is the right time, and the schema says why for the hash:**
+    a `base_sha256` taken at m4 time is a hash of whatever the file had become
+    by then, so pinning it here makes a file that changed in between
+    *detectable* rather than silently blessed.
+
+    `module_symbols` rides along because it answers the same question about the
+    same file — what is in it, in this image — and one container start is
+    cheaper and more consistent than two. It is what lets
+    `check_workset_shape` decide `substitution` **without a container**: m4 had
+    to open one to discover that `public_symbol: sampler_softmax` is defined
+    nowhere in `sampler.py`, and a recorded list turns that into a comparison.
+
+    One container for **every** file across every operator, not one per
+    operator: the answer is per-file and the cost is per-start.
+
+    Returns `{}` on any failure, and the caller records nulls. The schema
+    permits null and states the consequence — a consumer must hash it itself
+    and say that it did — so an unreadable image is a declared gap. **Refusing
+    here would trade a stated gap for a stopped stage**, and identification is
+    useful without it.
+    """
+    if not image or not root or not relatives:
+        return {}
+    inner = (
+        "import ast,hashlib,json,os,sys\n"
+        "out={}\n"
+        "for rel in json.loads(sys.argv[1]):\n"
+        "    f=os.path.join(sys.argv[2],rel)\n"
+        "    try: b=open(f,'rb').read()\n"
+        "    except OSError: continue\n"
+        "    e={'sha256':hashlib.sha256(b).hexdigest(),'module_symbols':None}\n"
+        "    try:\n"
+        "        n=ast.parse(b.decode()).body\n"
+        "        e['module_symbols']=[x.name for x in n if isinstance("
+        "x,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef))]\n"
+        "    except (SyntaxError,UnicodeDecodeError): pass\n"
+        "    out[rel]=e\n"
+        "print('FACTS:'+json.dumps(out))\n"
+    )
+    # **base64, and the reason is recorded rather than rediscovered.** This
+    # crosses `spur exec bash -lc`, then `docker run ... bash -c`; a quote
+    # anywhere in the payload is eaten by one of those layers, which cost
+    # `b9849a7` a silent no-op and cost `mock_adapt` the same defect hours
+    # later. `--entrypoint bash` because the image's own entrypoint is a server.
+    payload = base64.b64encode(inner.encode()).decode()
+    args = base64.b64encode(json.dumps(relatives).encode()).decode()
+    script = (f"echo {payload}|base64 -d>/tmp/_f.py; "
+              f"python3 /tmp/_f.py \"$(echo {args}|base64 -d)\" {shlex.quote(root)}")
+    try:
+        done = subprocess.run(
+            ["bash", "-c", f'. "$1"; on "$2"',
+             "_", str(_PACKAGE / "assets/lib/remote.sh"),
+             f"docker run --rm --entrypoint bash {shlex.quote(image)} -c {shlex.quote(script)}"],
+            capture_output=True, text=True, timeout=timeout)
+    except (subprocess.TimeoutExpired, OSError) as error:
+        print(f"identify: could not read {image}: {error}", file=sys.stderr)
+        return {}
+    match = re.search(r"^FACTS:(.*)$", done.stdout or "", re.MULTILINE)
+    if not match:
+        print(f"identify: no file facts from {image}; base_sha256 and module_symbols will be null. "
+              f"{(done.stderr or '').strip()[-200:]}", file=sys.stderr)
+        return {}
+    try:
+        return json.loads(match.group(1))
+    except json.JSONDecodeError:
+        return {}
+
+
+def substitution_of(entry: str, symbols: list | None) -> tuple[str | None, str | None]:
+    """`(substitution, public_symbol)` for one operator, or `(None, None)`.
+
+    **The distinction m4 had to open a container to discover.** An overlay can
+    replace a *module-level function* by name; it cannot replace a fragment
+    inside a method, because there is no named thing to replace.
+
+    * a dotted entry (`Sampler.forward`) is a method — `call_site_fragment`,
+      and `public_symbol` is null. This is the case that was being recorded as
+      a symbol, in one producer as the Definition's own function name and in
+      the other as the method qualname itself.
+    * a bare name present in the image's module-level symbols —
+      `module_symbol`, and that name is the symbol.
+    * anything else is **unstated**, not guessed: a bare name absent from the
+      list means either an unresolved entry or an image we could not read, and
+      `check_workset_shape` reports an unstated kind rather than grading one
+      this function invented.
+    """
+    if not entry:
+        return None, None
+    if "." in entry:
+        return "call_site_fragment", None
+    if symbols and entry in symbols:
+        return "module_symbol", entry
+    return None, None
+
+
 def main() -> int:
     staged = store.declared_dir("kernel_worklist", direction="INPUT")
     if staged is None:
@@ -564,6 +664,36 @@ def main() -> int:
 
     repo_map = {Path(r).name: Path(r) for r in repos if Path(r).is_dir()}
     operators = [resolve(row, hits.get(row["name"]) or {}, repos, repo_map) for row in selected]
+
+    # **One image read for every operator's files, after resolution.** The
+    # facts are per-file and the cost is per-container-start, so this batches
+    # rather than asking once per operator. `fixed.image` comes from the record
+    # the worklist carried, never from a variable: the whole point of
+    # `base_sha256` is that it describes the image this stage was identifying
+    # against.
+    record = yaml.safe_load(
+        (staged / "items" / "env" / "environment.yaml").read_text(encoding="utf-8")) or {}
+    image = (record.get("fixed") or {}).get("image") or ""
+    wanted = sorted({rel for o in operators for rel in (o.get("editable_sources") or [])})
+    by_root: dict[str, list[str]] = {}
+    for o in operators:
+        for rel in o.get("editable_sources") or []:
+            by_root.setdefault(o.get("image_repo_path") or "", []).append(rel)
+    facts: dict[str, dict] = {}
+    for root, relatives in by_root.items():
+        facts.update(image_facts(image, root, sorted(set(relatives))))
+    if wanted and not facts:
+        print(f"identify: no file facts for {len(wanted)} target file(s); base_sha256 and "
+              f"module_symbols are null and a consumer must read them itself", file=sys.stderr)
+
+    for o in operators:
+        relatives = o.get("editable_sources") or []
+        hashes = {rel: facts[rel]["sha256"] for rel in relatives if rel in facts}
+        first = facts.get(relatives[0]) if relatives else None
+        o["base_sha256"] = hashes or None
+        o["module_symbols"] = (first or {}).get("module_symbols")
+        o["substitution"], o["public_symbol"] = substitution_of(
+            (o.get("target_kernel_functions") or [""])[0], o["module_symbols"])
     resolved = sum(
         1
         for o in operators
