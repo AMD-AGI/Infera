@@ -165,7 +165,7 @@ CONTAINER=$(_field runtime.container)
 #
 # Only the far side can print `E2E_STATE=`, so its presence is what separates
 # "the node answered" from "nothing was asked".
-CSTATE="$(on "docker inspect -f 'E2E_STATE={{.State.Running}} E2E_ID={{.Id}} E2E_CREATED={{.Created}} E2E_STARTED={{.State.StartedAt}} E2E_RESTARTS={{.RestartCount}}' '$CONTAINER' 2>/dev/null || echo E2E_STATE=absent" 2>/dev/null)" || true
+CSTATE="$(on "docker inspect -f 'E2E_STATE={{.State.Running}} E2E_ID={{.Id}} E2E_CREATED={{.Created}} E2E_STARTED={{.State.StartedAt}} E2E_RESTARTS={{.RestartCount}} E2E_ENV={{json .Config.Env}}' '$CONTAINER' 2>/dev/null || echo E2E_STATE=absent" 2>/dev/null)" || true
 case "$CSTATE" in
   *E2E_STATE=true*) ;;
   *E2E_STATE=*)
@@ -218,6 +218,56 @@ esac
 echo "run_in_container: observed $(printf '%s' "$CSTATE" | tr ' ' '\n' | grep -E '^E2E_(ID|CREATED|STARTED|RESTARTS)=' | tr '\n' ' ')" >&2
 echo "run_in_container: record claims started_at=$(_field runtime.started_at)" >&2
 
+# **The card this exec asks for must be one the container was actually given.**
+#
+# Measured 2026-09-04 in m1's own kit, `start_container.sh:37-44`: the container
+# is started with `--device /dev/kfd --device /dev/dri`, which exposes **every**
+# card on the host, and is pinned only by `--env
+# HIP_VISIBLE_DEVICES=${E2E_KIT_GPU_DEVICES}`. So the pin is an environment
+# variable, not a device whitelist — and `docker exec -e HIP_VISIBLE_DEVICES=4`
+# **overrides it**. An exec into a deployment pinned to `0,1,2,3` asking for
+# card 4 does not fail: it runs, on a card that deployment was never allocated,
+# and returns a number.
+#
+# **That is worse than any refusal chased today, because it produces a value
+# rather than a stop** — and the value lands in a `cost: gpu_hours` validator
+# whose output someone will believe. m1 warned about exactly this on 217
+# (*"the cards you'd get are mine (0-3), not 4-7"*), and until now the only
+# thing standing between that warning and a wrong number was remembering it.
+#
+# **Refuse, never correct.** Silently substituting a card the container does
+# own would be this same defect wearing a fix: the caller asked a question about
+# one card and would get an answer about another.
+#
+# An unpinned container (no `HIP_VISIBLE_DEVICES` in its env) constrains
+# nothing, so there is nothing to check and this says nothing. `--device`
+# whitelisting is deliberately **not** read: m3's rule is to extend a case with
+# a form you have SEEN, and every container this package has met pins by env.
+# The opening quote is part of the pattern on purpose: `.Config.Env` is a JSON
+# array of `"NAME=value"` strings, so an unanchored match would also fire on the
+# tail of a *different* variable that merely ends in this name --
+# `ROCR_HIP_VISIBLE_DEVICES=7` would be read as the pin. Matching `"NAME=`
+# requires the element to start there.
+CPIN_ALL="$(printf '%s' "$CSTATE" | sed -n 's/.*E2E_ENV=//p' \
+  | grep -o '"HIP_VISIBLE_DEVICES=[^"]*' | head -1 | sed 's/^"HIP_VISIBLE_DEVICES=//')"
+if [ -n "$CPIN_ALL" ]; then
+  case ",$CPIN_ALL," in
+    *",$HIP_VISIBLE_DEVICES,"*) ;;
+    *)
+      echo "run_in_container: this exec asks for GPU $HIP_VISIBLE_DEVICES, but container" >&2
+      echo "    $CONTAINER" >&2
+      echo "  was brought up pinned to HIP_VISIBLE_DEVICES=$CPIN_ALL." >&2
+      echo "  The pin is an env var and the container holds /dev/dri whole, so this exec would" >&2
+      echo "  NOT fail -- it would run on card $HIP_VISIBLE_DEVICES and return a number for a card this" >&2
+      echo "  deployment was never allocated. Refusing rather than substituting one of" >&2
+      echo "  {$CPIN_ALL}: you asked about a specific card and an answer about a different" >&2
+      echo "  one is not a smaller answer, it is a wrong one." >&2
+      echo "  Pass --var gpu=<one of $CPIN_ALL>, or measure in a container of your own." >&2
+      exit 1
+      ;;
+  esac
+fi
+
 # **In the artefact, not only in the log** — the leader's ruling on T34,
 # 2026-09-04: keep `premise.run_environment` meaning exactly what it means
 # today (m1's record, carried faithfully) and put the observation *beside* it,
@@ -241,6 +291,8 @@ if [ -n "${KFO_SCRATCH_ROOT:-}" ]; then
   "started_at": "$(_get E2E_STARTED)",
   "restart_count": "$(_get E2E_RESTARTS)",
   "node": "${E2E_NODE:-}",
+  "gpu_pin": "$CPIN_ALL",
+  "gpu_used": "$HIP_VISIBLE_DEVICES",
   "record_claims_started_at": "$(_field runtime.started_at)",
   "observed_by": "run_in_container.sh"
 }
