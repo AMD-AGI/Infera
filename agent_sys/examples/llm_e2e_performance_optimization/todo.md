@@ -2103,3 +2103,44 @@ message, which is evidence about the base rate and not about any particular case
 **Not blocking, and not a code sweep.** Fixing the four is done or routed;
 the entry exists because the fifth will be written by whoever writes the next
 refusal, and the cost lands on a reader rather than on a run.
+
+### T50 — an instruction verified correct against a world that does not exist yet
+
+**Three owners wrote one on the same afternoon; two were unexecutable the moment
+they were committed, and the third survives by where the ladder happens to be.**
+Routed to the leader by m4 rather than written by any of them, because T49 had
+just been three people one message from three copies of one class.
+
+| section | reads from | state when committed |
+|---|---|---|
+| m5, rung 5 | *"rung 4's run"* | **no rung-4 run exists** — and cannot, `forge-loop` is installed on neither the node host nor the image |
+| m4, rung 4 | *"rung 3's run"* | **no rung-3 run exists** — identical defect, written an hour later |
+| m2, rung 2 | *"rung 1's run"* | **executable — because rung 1 is the rung in flight.** Safe by position, not by construction |
+
+**It is not T46.** T46 is *a fix verified correct is not a fix verified reached* —
+code, correct, unreached. This is **prose**: an instruction that reads perfectly,
+survives every review, and **cannot be executed at all**, because the artefact it
+names has never been produced. T46's instances fail when something runs; these
+fail when someone tries to start.
+
+**The tell is that it reads better than a correct instruction would.** *"Read the
+image and `tp_size` from rung 3's run before typing anything"* is more specific,
+more careful and more actionable than *"read them from the nearest run that
+recorded them"* — and specificity is what made it wrong. **A cross-reference to a
+future artefact is indistinguishable from a cross-reference to a present one, in
+the only place anyone looks: the sentence.**
+
+**The fix is m5's and it is a generalisation rather than a correction:** the
+values are m1's to mint, so **every rung from 1 upward records them in the same
+`items/codes/environment.yaml`** — name the *nearest run that has them*, not a
+rung. Both m5 and m4 repeated the caveat rather than cross-referencing it, and it
+belongs here too: **this is not a licence to skip the ladder.** Rung 5 still waits
+on rung 4, which waits on rung 3. Without that sentence the amendment reads as a
+way around the blocker, and that misreading is available in every section.
+
+**What makes it worth an entry rather than three fixes:** m4 only saw their own
+after m5 described theirs, and neither would have looked at m2's. The base rate
+is three of three, and **the one that works does so for a reason its author did
+not arrange.**
+
+**Not blocking.** All three sections are corrected or correct.
