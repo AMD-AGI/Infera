@@ -135,6 +135,39 @@ So the nested default belongs to **exactly the same family as the bare dash
 above** — unmatched text walked past in silence — and this note had the one
 member it documented in detail filed on the wrong side of its own thesis.
 
+### First, the severity: with a string consumer **nothing fails at all**
+
+Measured by the leader 2026-09-04, following m2's point below. Everything else in
+this section is about *whether a reader can tell what went wrong*. This is about
+whether anything goes wrong loudly enough to be noticed at all, so it belongs
+first.
+
+```
+'${container_name:-${run_tag:-yihou_e2e}}'   OUTER=mybox   -> 'mybox}'
+'${container_name:-${run_tag:-yihou_e2e}}'   nothing set   -> '${run_tag:-yihou_e2e}'
+'${container_name:-${run_tag:-yihou_e2e}}'   INNER set     -> '${run_tag:-yihou_e2e}'
+'${run_tag:-yihou_e2e}'   (flat control)     nothing set   -> 'yihou_e2e'
+```
+
+**`problems=0` in all four**, reproduced independently. The numeric instance
+that found this fault — `min_requests` — throws inside `float("7}")`, and that
+loudness is **a property of the consumer, not of the defect**. A string consumer
+has no `float()` and therefore no exception anywhere: a container is created
+named `mybox}`, or literally `${run_tag:-yihou_e2e}`. It clears `show`, it clears
+the loader, the run proceeds, and the only trace is a wrongly-named object on a
+shared host.
+
+**This package's most safety-critical variables are exactly the string ones.**
+The core rule is *every identifier bound on a shared host is a parameter* —
+container name, ports, workdir, served model name. Every one is consumed as a
+string. So the fault is silent precisely where a wrong value is shared with
+other tenants, and audible only where somebody happened to be splitting a
+numeric bar.
+
+Nothing in the tree uses a nested default today. The next person who wants a
+shared default with an unshared override will reach for this exact spelling —
+which is the conversation that produced `integration_min_requests`.
+
 ### The variant that is worse than the one recorded
 
 Found 2026-09-04 by m5, reaching for a nested default to give
@@ -186,9 +219,9 @@ is the worst possible distribution: it works in every dry run where the variable
 is left unset (silently reading the wrong one), and breaks the first time
 somebody sets it.
 
-`float("7}")` throws, so this one at least fails loudly at the far end. A field
-consumed as a string — a container name, a path, a served model name — would not
-throw at all.
+`float("7}")` throws, so this one at least fails loudly at the far end — and
+that is luck about which knob was being split, not a property of the fault. See
+the measured string-consumer case above, which is this row's consequence.
 
 `str`-not-`int` is already the known hazard here (CONTRACT.md:403,
 `interpreter_sweep.py:131`); this makes the string one that cannot be parsed at
