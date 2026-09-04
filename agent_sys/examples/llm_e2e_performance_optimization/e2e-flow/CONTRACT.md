@@ -943,6 +943,37 @@ brings it up itself, in its own `readme.md` STEPS, and tears it down.
 - Every identifier bound on a shared host is a `--var`: container name, ports,
   workdir, served model name. `: "${VAR:=…}"`, never `export VAR=`.
 
+### 5.3 What a mock may and may not put in a handoff
+
+**A mock may obtain a real fact by a route the producer does not use. It may not
+assert a fact the producer does not have.**
+
+Both halves were decided on the same afternoon, 2026-09-04, on two cases that
+look identical from a distance and are not:
+
+| field | real producer | may the mock write it? |
+|---|---|---|
+| `base_sha256` | `60_write_handoff.py` hashes the stock file from the engine tree | **yes** — `mock_adapt` extracts the same file from the image with `docker create` + `docker cp` and hashes that. **A different route to the same fact.** |
+| `public_symbol` | the workset says `null` for a `call_site_fragment` operator | **no** — writing one makes the artefact assert something the real thing does not say, and arms `check_patch_live`'s `first_call` regex against a symbol that is not at the call site. |
+
+The test is **not** where the fact comes from. It is whether the real producer
+asserts the same fact. m4 and m5 both refused the second case unprompted and both
+routed the first rather than deciding it, which is the reason the line got drawn
+before either was landed.
+
+**A mock that takes the first route must record which route it took**, naming the
+image when it extracted from one. Two artefacts that agree on a hash obtained two
+ways are stronger than either alone; two that agree and cannot say which route
+they took are `protocol.timing` again — a field copied faithfully and understood
+by nothing (T43).
+
+**And the degraded route stays.** When no engine tree is reachable and no node
+answers, `mock_adapt` hashes the replacement and *says so in the handoff*. That
+note is why the 12:12 refusal was diagnosable in one read rather than an hour, and
+**a mock that cannot run on a login node without an allocation is worse than one
+honest about a degraded hash.** Delete the fallback and the mock acquires a
+dependency the thing it is mocking does not have.
+
 ---
 
 ## 6. Localisation — nothing site-specific in a spec (M2.1)
