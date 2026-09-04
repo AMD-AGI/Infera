@@ -23,7 +23,7 @@ from infera.common.disagg_preflight import (
 from infera.common.net import free_tcp_port
 from infera.common.registration import RegistrationClient
 from infera.common.worker_pool import DisaggMode, KvRegistrationMetadata
-from infera.engine.base import watch_engine_death
+from infera.engine.base import EngineDeath, watch_engine_death
 from infera.engine.drain import drain_engine_inflight
 from infera.engine.flush import anchor_kv_chain
 from infera.engine.vllm.args import VllmWorkerArgs, parse_vllm_args
@@ -301,8 +301,17 @@ async def main() -> None:
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(sig, stop.set)
+        death = EngineDeath()
+        death_task = watch_engine_death(engine, stop, death)
         await stop.wait()
+        death_task.cancel()
+        try:
+            await death_task
+        except asyncio.CancelledError:
+            pass
         await engine.stop()
+        if death.exit_status is not None:
+            raise SystemExit(death.exit_status)
         return
 
     # Optional NATS request transport: proxy this worker's per-instance subject
@@ -360,7 +369,8 @@ async def main() -> None:
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, stop.set)
 
-    death_task = watch_engine_death(engine, stop)
+    death = EngineDeath()
+    death_task = watch_engine_death(engine, stop, death)
     await stop.wait()
 
     death_task.cancel()
@@ -413,6 +423,8 @@ async def main() -> None:
     if kv_relay is not None:
         await kv_relay.stop()
     await engine.stop()
+    if death.exit_status is not None:
+        raise SystemExit(death.exit_status)
 
 
 if __name__ == "__main__":

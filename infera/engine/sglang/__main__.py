@@ -29,7 +29,7 @@ from infera.common.disagg_preflight import (
     validate_sglang_transport,
 )
 from infera.common.registration import RegistrationClient
-from infera.engine.base import watch_engine_death
+from infera.engine.base import EngineDeath, watch_engine_death
 from infera.engine.drain import drain_engine_inflight
 from infera.engine.flush import anchor_kv_chain
 from infera.engine.sglang.args import (
@@ -341,8 +341,17 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(sig, stop.set)
+        death = EngineDeath()
+        death_task = watch_engine_death(engine, stop, death)
         await stop.wait()
+        death_task.cancel()
+        try:
+            await death_task
+        except asyncio.CancelledError:
+            pass
         await engine.stop()
+        if death.exit_status is not None:
+            raise SystemExit(death.exit_status)
         return
 
     # --- KV plane (best-effort under auto, fatal under on, skipped under off) ---
@@ -468,7 +477,8 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, stop.set)
 
-    death_task = watch_engine_death(engine, stop)
+    death = EngineDeath()
+    death_task = watch_engine_death(engine, stop, death)
 
     await stop.wait()
 
@@ -528,6 +538,8 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
         await kv_wiring.stop()
 
     await engine.stop()
+    if death.exit_status is not None:
+        raise SystemExit(death.exit_status)
 
 
 if __name__ == "__main__":

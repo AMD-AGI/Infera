@@ -64,6 +64,16 @@ def _relay(engine) -> KvEventNatsRelay:
     )
 
 
+def test_relay_rejects_an_empty_worker_id():
+    """Bucket keys must always identify one registered worker."""
+    with pytest.raises(ValueError, match="worker_id"):
+        KvEventNatsRelay(
+            worker_id=" ",
+            engine_zmq_endpoint="tcp://0.0.0.0:5557",
+            engine=EngineType.SGLANG,
+        )
+
+
 class _FakeSocket:
     """Hands out each payload once, then lets ``_loop`` fall out of its while."""
 
@@ -275,6 +285,24 @@ async def test_a_put_that_failed_is_retried_rather_than_dropped(monkeypatch):
 
     assert len(kv.puts) == 1, "the view the failed put carried never reached the bucket"
     assert relay._dirty[0] is False
+
+
+@pytest.mark.asyncio
+async def test_persistent_bucket_failures_are_logged_geometrically(monkeypatch, caplog):
+    """A broken JetStream store must not flood the worker log."""
+    monkeypatch.setattr(relay_mod, "_BUCKET_WRITE_INTERVAL_S", 0)
+    relay = _relay(EngineType.SGLANG)
+    relay._kv = _FakeKv(fail_first=20)
+
+    with caplog.at_level(logging.WARNING):
+        for _ in range(11):
+            relay._dirty[0] = True
+            await relay._maybe_write_bucket(0)
+
+    messages = [r.message for r in caplog.records if "bucket put failed" in r.message]
+    assert len(messages) == 2
+    assert "1 so far" in messages[0]
+    assert "10 so far" in messages[1]
 
 
 @pytest.mark.asyncio

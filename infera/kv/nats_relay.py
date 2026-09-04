@@ -69,6 +69,8 @@ class KvEventNatsRelay:
         multiplexed: bool = False,
         nats_url: str | None = None,
     ) -> None:
+        if not worker_id.strip():
+            raise ValueError("worker_id must not be empty")
         self._worker_id = worker_id
         self._base_endpoint = _local_endpoint(engine_zmq_endpoint)
         # Ranks this relay tails. Multiplexed SGLang DP publishes rank r on
@@ -91,6 +93,8 @@ class KvEventNatsRelay:
         self._dirty: dict[int, bool] = {}
         self._decode_failures = 0
         self._next_decode_warn = 1
+        self._bucket_failures = 0
+        self._next_bucket_warn = 1
         self._ctx: zmq.asyncio.Context | None = None
         self._sockets: list[zmq.asyncio.Socket] = []
         self._tasks: list[asyncio.Task] = []
@@ -217,6 +221,19 @@ class KvEventNatsRelay:
         )
         self._next_decode_warn = self._decode_failures * 10
 
+    def _note_bucket_failure(self, rank: int, exc: Exception) -> None:
+        """Report persistent JetStream storage failures geometrically."""
+        self._bucket_failures += 1
+        if self._bucket_failures < self._next_bucket_warn:
+            return
+        logger.warning(
+            "KV relay bucket put failed (r%d, %d so far), will retry: %s",
+            rank,
+            self._bucket_failures,
+            exc,
+        )
+        self._next_bucket_warn = self._bucket_failures * 10
+
     async def _maybe_write_bucket(self, rank: int) -> None:
         if self._kv is None or not self._dirty.get(rank):
             return
@@ -231,6 +248,8 @@ class KvEventNatsRelay:
         view = sorted(self._sub.view_for(rank))
         try:
             await self._kv.put(kv_key_for_worker(self._worker_id, rank), self._encoder.encode(view))
+            self._bucket_failures = 0
+            self._next_bucket_warn = 1
         except Exception as exc:
             # Nothing was written, so the bucket still holds an older view. Left
             # clean, that view would stand until the *next* event happened to
@@ -241,7 +260,7 @@ class KvEventNatsRelay:
             # `_last_write` stays stamped, so the retry is spaced like any other
             # write rather than spinning at drain-tick rate against a dead bus.
             self._dirty[rank] = True
-            logger.warning("KV relay bucket put failed (r%d), will retry: %s", rank, exc)
+            self._note_bucket_failure(rank, exc)
 
     async def stop(self) -> None:
         self._closing = True
