@@ -61,6 +61,18 @@ run, kind = pathlib.Path(sys.argv[1]), sys.argv[2]
 store = run / "store" / "handoff"
 if not store.is_dir():
     sys.exit(0)
+
+# **Two filters, not one** — m3's refinement, and it is the difference between
+# fixing this and moving it. Scoping by kind alone does NOT reach one path,
+# because the fourteen staged copies under `zones/…/handoffs/` and validation
+# `materials/` are *also* `deploy_kit`. Restricting to `<run>/handoffs/` removes
+# those 14 of 17; the kind then picks 1 of the 3 remaining. A helper that did
+# only the second would still need `head -1` to break the tie, which is the
+# mechanism of the original defect surviving its own fix.
+#
+# The `<run>/handoffs/<id>/v*` glob below IS the first filter, structurally —
+# it can only ever look inside the store's own tree.
+candidates = []
 for f in sorted(store.glob("*.json")):
     try:
         d = json.loads(f.read_text())
@@ -74,10 +86,30 @@ for f in sorted(store.glob("*.json")):
     for v in versions:
         env = v / "content" / "items" / "codes" / "environment.yaml"
         if env.is_file():
-            print(env)
-            sys.exit(0)
+            # Highest version WITHIN one handoff is an ordering, not a tie-break:
+            # a later version supersedes an earlier one by definition.
+            candidates.append((d["id"], env))
+            break
+
+# **Refuse rather than pick**, m3's, and the argument is this file's own history:
+# a silent tie-break is how the defect existed in the first place. Two handoffs
+# of one kind in one run is a fact nobody predicted, and picking costs whatever
+# the wrong copy says on the day the copies stop agreeing.
+if len(candidates) > 1:
+    print("AMBIGUOUS", file=sys.stderr)
+    for hid, env in candidates:
+        print(f"  {hid}  {env}", file=sys.stderr)
+    sys.exit(3)
+if candidates:
+    print(candidates[0][1])
 PY
-)"
+)" || { rc=$?; [ "$rc" -eq 3 ] && {
+  echo "kit_env: more than one $KIND in $RUN holds an environment record (listed above)." >&2
+  echo "  Not picking one. Two handoffs of a kind in one run is unpredicted, and" >&2
+  echo "  a silent choice here is exactly the defect this script replaced." >&2
+  echo "  Set KIT_ENV_KIND, or name the path directly once you know which." >&2
+  exit 1
+}; exit "$rc"; }
 
 if [ -z "$FOUND" ]; then
   echo "kit_env: no $KIND environment.yaml under $RUN" >&2
