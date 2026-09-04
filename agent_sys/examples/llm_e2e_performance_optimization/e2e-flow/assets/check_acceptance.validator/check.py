@@ -22,12 +22,15 @@ error, which is the only kind worth spending a strong validator on:
   wrong by an unknown amount.
 """
 
+import contextlib
+import io
 import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
+import workset_io  # noqa: E402 — the shared report writer; see _report()
 import zone  # noqa: E402
 
 
@@ -320,15 +323,32 @@ def check(content: Path, args: dict, reasons: list) -> tuple[bool, list[str]]:
 def main() -> int:
     args = zone.args()
     results = {}
+    findings: dict = {}
     adhoc: dict[str, list[str]] = {}
     for hid in zone.inputs():
         content = zone.content_of(hid)
         reasons: list = []
+        notes: list = []
         if content is None:
             results[hid] = False
             reasons.append("no published content for this handoff")
         else:
-            results[hid], adhoc[hid] = check(content, args, reasons)
+            # Captured and re-echoed. The needle line -- "3/3 gated depths
+            # retrieved (floor 1); per-depth results are comparison material,
+            # not a capability claim" -- explains a PASS and is exactly the kind
+            # of sentence a zone loses, because a zone keeps no stdout.
+            buffer = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(buffer):
+                    results[hid], adhoc[hid] = check(content, args, reasons)
+            except Exception as exc:  # noqa: BLE001 — a crash is not a refusal
+                results[hid] = False
+                adhoc[hid] = []
+                reasons.append(f"THIS VALIDATOR DID NOT RUN: {type(exc).__name__}: {exc}")
+            sys.stdout.write(buffer.getvalue())
+            notes = [ln.strip() for ln in buffer.getvalue().splitlines() if ln.strip()]
+        findings[hid] = ([] if results[hid] else list(reasons),
+                         notes + (list(reasons) if results[hid] else []))
         print(f"check_acceptance: {hid} {'PASS' if results[hid] else 'FAIL'}")
         for reason in reasons:
             print(f"  - {reason}")
@@ -340,14 +360,40 @@ def main() -> int:
     if len(adhoc) > 1 and len({tuple(v) for v in adhoc.values()}) > 1:
         for hid in adhoc:
             results[hid] = False
+            findings[hid] = (list(findings.get(hid, ([], []))[0]) +
+                             ["the arms ran different ad-hoc case sets, so the per-run cases "
+                              "no longer make the suite ungameable"],
+                             list(findings.get(hid, ([], []))[1]))
             print(
                 f"check_acceptance: {hid} FAIL\n  - the arms ran different ad-hoc case sets "
                 f"({ {k: v for k, v in adhoc.items()} }). The per-run cases exist so the suite "
                 "cannot be gamed; running a different set per arm gives that back."
             )
 
+    _report(findings, results)
     zone.write_verdict(results)
     return 0
+
+
+def _report(findings: dict, results: dict) -> None:
+    """`workset_io.write_report`, and never a second implementation of it.
+
+    m3 measured 16 of 21 validators persisting nothing; seven were this stage's.
+    It matters most here because **stage 5 has never been reached** — every
+    other stage has had refusals to learn from, and m5's first would otherwise
+    arrive with the diagnostics off.
+
+    `verdicts` is passed rather than inferred from `problems` being non-empty:
+    this body keeps informational lines in the same list, which is the case the
+    argument was added for.
+
+    Wrapped so a failure to write the report cannot fail the validation — the
+    report is evidence *about* a verdict, never the reason there is not one.
+    """
+    try:
+        workset_io.write_report("check_acceptance", findings, results)
+    except Exception as exc:  # noqa: BLE001 — see the docstring
+        print(f"check_acceptance: could not write the report: {exc}", file=sys.stderr)
 
 
 if __name__ == "__main__":

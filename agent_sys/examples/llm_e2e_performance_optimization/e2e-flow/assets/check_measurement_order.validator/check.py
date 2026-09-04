@@ -69,6 +69,8 @@ while it ran.
 
 from __future__ import annotations
 
+import contextlib
+import io
 import datetime as dt
 import json
 import sys
@@ -76,6 +78,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
+import workset_io  # noqa: E402 — the shared report writer; see _report()
 import zone  # noqa: E402
 
 ARMS = ("stock", "patched")
@@ -540,8 +543,19 @@ def main() -> int:
         by_arm_id[arm] = hid
 
     reasons: list = list(problems)
+    # Captured and re-echoed: check_pair's most useful output is the lines that
+    # explain a PASS -- the two arms' timelines, the gap between them, the
+    # corroboration against AIPerf's own windows, and "both arms on <node>".
+    # None of that is in `reasons`, and a zone keeps no stdout.
+    buffer = io.StringIO()
     if set(records) == set(ARMS):
-        verdict = check_pair(records, contents, args, reasons) and not problems
+        try:
+            with contextlib.redirect_stdout(buffer):
+                verdict = check_pair(records, contents, args, reasons) and not problems
+        except Exception as exc:  # noqa: BLE001 — a crash is not a refusal
+            verdict = False
+            reasons.append(f"THIS VALIDATOR DID NOT RUN: {type(exc).__name__}: {exc}")
+        sys.stdout.write(buffer.getvalue())
     else:
         verdict = False
         reasons.append(
@@ -556,8 +570,36 @@ def main() -> int:
         print(f"check_measurement_order: {hid} {'PASS' if verdict else 'FAIL'}")
     for reason in reasons:
         print(f"  - {reason}")
+    notes = [ln.strip() for ln in buffer.getvalue().splitlines() if ln.strip()]
+    # One verdict covers both arms here, so both handoffs carry the same
+    # findings -- which is right: a pair that overlapped in time is a fact about
+    # the pair, and reading either arm's zone alone must not suggest otherwise.
+    findings = {hid: ([] if verdict else list(reasons),
+                      notes + (list(reasons) if verdict else [])) for hid in ids}
+    _report(findings, results)
     zone.write_verdict(results)
     return 0
+
+
+def _report(findings: dict, results: dict) -> None:
+    """`workset_io.write_report`, and never a second implementation of it.
+
+    m3 measured 16 of 21 validators persisting nothing; seven were this stage's.
+    It matters most here because **stage 5 has never been reached** — every
+    other stage has had refusals to learn from, and m5's first would otherwise
+    arrive with the diagnostics off.
+
+    `verdicts` is passed rather than inferred from `problems` being non-empty:
+    this body keeps informational lines in the same list, which is the case the
+    argument was added for.
+
+    Wrapped so a failure to write the report cannot fail the validation — the
+    report is evidence *about* a verdict, never the reason there is not one.
+    """
+    try:
+        workset_io.write_report("check_measurement_order", findings, results)
+    except Exception as exc:  # noqa: BLE001 — see the docstring
+        print(f"check_measurement_order: could not write the report: {exc}", file=sys.stderr)
 
 
 if __name__ == "__main__":

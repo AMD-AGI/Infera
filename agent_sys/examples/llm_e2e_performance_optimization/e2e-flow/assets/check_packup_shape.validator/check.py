@@ -15,12 +15,15 @@ heading, not a code-fence marker — and `REPRODUCE.md`, the one file a reproduc
 actually executes, is measured in command lines instead.
 """
 
+import io
+import contextlib
 import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
+import workset_io  # noqa: E402 — the shared report writer; see _report()
 import zone  # noqa: E402 — the path insert above is what makes it importable
 
 _HEADING = re.compile(r"^\s{0,3}#{1,6}\s")
@@ -125,7 +128,8 @@ def check(content: Path, args: dict, reasons: list) -> bool:
 
 def main() -> int:
     args = zone.args()
-    results = {}
+    results: dict = {}
+    findings: dict = {}
     for hid in zone.inputs():
         content = zone.content_of(hid)
         reasons: list = []
@@ -133,12 +137,53 @@ def main() -> int:
             results[hid] = False
             reasons.append("no published content for this handoff")
         else:
-            results[hid] = check(content, args, reasons)
+            # Captured and re-echoed: the lines that explain a PASS go to stdout,
+            # and a zone keeps no stdout at all. A person watching the run still
+            # sees them; so, now, does anyone reading the zone afterwards.
+            buffer = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(buffer):
+                    results[hid] = check(content, args, reasons)
+            except Exception as exc:  # noqa: BLE001
+                # A crash is not a refusal. verdict.json cannot express the
+                # difference (todo.md T29); this text is the only place it exists.
+                results[hid] = False
+                reasons.append(f"THIS VALIDATOR DID NOT RUN: {type(exc).__name__}: {exc}")
+            sys.stdout.write(buffer.getvalue())
+            notes = [ln.strip() for ln in buffer.getvalue().splitlines() if ln.strip()]
+            findings[hid] = ([] if results[hid] else list(reasons),
+                             notes + (list(reasons) if results[hid] else []))
+        findings.setdefault(hid, (list(reasons), []))
         print(f"check_packup_shape: {hid} {'PASS' if results[hid] else 'FAIL'}")
         for reason in reasons:
             print(f"  - {reason}")
+    # Before write_verdict, deliberately: a crash in the writer must not be able
+    # to take the reasons with it, and the verdict is what the phase reads.
+    _report(findings, results)
     zone.write_verdict(results)
     return 0
+
+
+def _report(findings: dict, results: dict) -> None:
+    """`workset_io.write_report`, and never a second implementation of it.
+
+    m3 measured that 16 of 21 validators persist nothing, and seven of those are
+    this stage's. That matters most here because **stage 5 has never been
+    reached**: every other stage has had refusals to learn from, and m5's first
+    one would otherwise arrive with the diagnostics switched off.
+
+    `verdicts` is passed rather than letting the heading infer from `problems`
+    being non-empty — these bodies keep informational lines in the same
+    `reasons` list, which is the case that made the argument exist.
+
+    Wrapped so that a failure to write the report cannot fail the validation:
+    the report is evidence *about* a verdict and must never become the reason
+    there is not one.
+    """
+    try:
+        workset_io.write_report("check_packup_shape", findings, results)
+    except Exception as exc:  # noqa: BLE001 — see the docstring
+        print("check_packup_shape: could not write the validator report: %s" % exc, file=sys.stderr)
 
 
 if __name__ == "__main__":
