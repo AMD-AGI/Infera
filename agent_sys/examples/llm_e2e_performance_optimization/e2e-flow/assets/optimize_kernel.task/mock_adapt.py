@@ -107,7 +107,7 @@ def main() -> int:
     reseated = _reseat_quotes(packup)
 
     workset = lib.load_workset()
-    operator = lib.pick_operator(workset, os.environ.get("KFO_WORKSET_OPERATOR") or None)
+    operator = lib.pick_operator(workset, os.environ.get("E2E_WORKSET_OPERATOR") or None)
     operator_id = str(operator.get("operator_id"))
     workset_root = lib.workset_root()
     run_env = lib.load_environment()

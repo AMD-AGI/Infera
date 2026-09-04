@@ -216,6 +216,34 @@
   version: '1'
   description: Runs a workset's own forge one-liner and its own tests, and hands back a kernel that has been graded by them.
   env:
+    # --- the allocation, re-declared because an ai agent inherits nothing ----
+    #
+    # **`env_mgr/material.py:96` reads the `env` block off the agent that is
+    # RUNNING**, and `shared.yaml` declares all 36 `E2E_*` on `runner`. A
+    # `kind: ai` agent therefore receives none of them: measured across the
+    # package, `runner` 36, `e2e_kernel_optimizer` **1**. m1 found it in rung
+    # 1's own transcript, where the agent ran `env | grep` and got seven
+    # `AGENT_SYS_*` names and zero `E2E_*`.
+    #
+    # This is the same seam as `check_speedup_substantiated` naming `KFO_PYTHON`
+    # at a validator that declares no agent: **an agent that declares no `env`
+    # is in the position of a validator that declares no agent.** Same block,
+    # same silence, and each time the symptom was a plausible wrong story about
+    # somebody's behaviour rather than a missing variable.
+    #
+    # Only what m4's own bodies read, not all 36 — `run_in_container.sh` and
+    # `assets/lib/remote.sh` need these three to reach the node. Spelling and
+    # default match `shared.yaml` exactly, which the leader's `show`-gate check
+    # enforces rather than trusts; the duplication is unavoidable because
+    # `${...}` is textual per occurrence and YAML anchors do not cross files.
+    #
+    # NOT re-declared, deliberately: `E2E_MOCK_ROOT` and `E2E_MOCK_STAGES` are
+    # read only by `mock.sh`, which the ai backend never runs — a `kind: ai`
+    # task does not execute `entry.sh` at all.
+    E2E_JOBID: '${jobid}'
+    E2E_NODE: '${node}'
+    E2E_TRANSPORT: '${transport:-auto}'
+
     # --- site facts. Empty by default, and empty is REFUSED at run time ------
     #
     # These are facts about one machine — where it keeps a checkout, which card
@@ -290,9 +318,22 @@
     KFO_MOCK: '${forge_mock:-0}'
     # Which operator, when the workset carries more than one. Empty means "the
     # workset carries exactly one, use it" — and a workset with two and no
-    # selector is a load-time refusal rather than a coin flip. One handoff per
+    # selector is a run-time refusal rather than a coin flip. One handoff per
     # operator is deferred (`todo.md` T3).
-    KFO_WORKSET_OPERATOR: '${workset_operator:-}'
+    #
+    # **`E2E_`-named rather than `KFO_`-named, and that is the whole point.**
+    # This is the one selector both paths need: the real path reads it as
+    # `10_read_inputs.py --operator`'s default, and the mock path reads it in
+    # `mock_adapt.py`. The mock path runs under `runner`, so it has to be
+    # declared there too — and a name declared in two files with nothing
+    # comparing them is the fault this package has now hit seven times.
+    # `E2E_*` puts it under the leader's `show`-gate agreement check, so the
+    # duplication is **checked rather than trusted**. `KFO_*` stays what it
+    # is: names only m4's own steps read, which never need a `runner` twin.
+    #
+    # The `--var` spelling is unchanged, so no command line moves.
+    # `shared.yaml` is the leader's file; the twin line is requested, not added.
+    E2E_WORKSET_OPERATOR: '${workset_operator:-}'
     # See `check_speedup_substantiated`'s `args`: how a candidate implementation
     # is selected is not in `workset.schema.json` yet, and these two sides must
     # agree.

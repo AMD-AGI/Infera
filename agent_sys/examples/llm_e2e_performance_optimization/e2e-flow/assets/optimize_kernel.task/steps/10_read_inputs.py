@@ -29,7 +29,7 @@ import _lib as lib  # noqa: E402
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", required=True)
-    ap.add_argument("--operator", default=os.environ.get("KFO_WORKSET_OPERATOR") or None)
+    ap.add_argument("--operator", default=os.environ.get("E2E_WORKSET_OPERATOR") or None)
     ap.add_argument("--min-shapes", type=int, default=3)
     a = ap.parse_args()
 
