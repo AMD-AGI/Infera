@@ -284,6 +284,17 @@ def _run(root: Path, handoff: Path) -> tuple[str, bool | None]:
     environment["PYTHONPATH"] = str(shim) + os.pathsep + environment.get("PYTHONPATH", "")
     environment["KFO_PYTHON"] = sys.executable
     environment["TMPDIR"] = str(root / "tmp")
+    # **The zone declares a card, because a real `cost: gpu_hours` zone has
+    # one.** `_remeasure` now refuses when `HIP_VISIBLE_DEVICES` is unset —
+    # unset does not mean "the caller chose", it means torch takes card 0, which
+    # on a shared host is a co-tenant's. This kit stubs the entrypoint entirely
+    # so no card is touched; the variable is here to reproduce the zone's
+    # *precondition*, not to reserve anything.
+    #
+    # Declared with the other exception at the top of this file rather than
+    # slipped in: a fixture that satisfies a guard it is not modelling is how a
+    # kit stops testing the thing it was built for.
+    environment["HIP_VISIBLE_DEVICES"] = "0"
     (root / "tmp").mkdir(exist_ok=True)
     proc = subprocess.run([sys.executable, str(VALIDATOR)], cwd=zone, env=environment,
                           capture_output=True, text=True, timeout=300)

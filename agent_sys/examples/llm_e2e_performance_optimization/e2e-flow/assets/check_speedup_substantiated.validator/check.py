@@ -181,10 +181,26 @@ def _measure_env(scratch: Path, python: str | None = None) -> dict[str, str]:
     no output while `torch.cuda.is_available()` still reports `True` — the trap
     that cost the 2026-09-02 run 25 minutes.
 
-    `HIP_VISIBLE_DEVICES` is deliberately **not** defaulted. It arrives from the
-    agent spec's `env:` block through the PRODUCER row, and inventing a default
-    would silently move the measurement onto card 0 — which on a shared host is
-    somebody else's.
+    **`HIP_VISIBLE_DEVICES` — the comment that used to be here was wrong, and
+    wrong in the direction that loses a card.** It read: *"deliberately not
+    defaulted. It arrives from the agent spec's `env:` block through the
+    PRODUCER row, and inventing a default would silently move the measurement
+    onto card 0."*
+
+    A validator declares no agent, so **no agent `env:` block reaches this
+    body** — `_interpreter`'s docstring twenty lines up says exactly that about
+    the same environment, which is two readers of one fact inside one file
+    (CONTRACT §4.3). And the protection is **inverted**: with the variable
+    unset, torch sees every visible card and the measurement lands on card 0
+    anyway. Not defaulting did not avoid the outcome the comment described; it
+    produced it silently.
+
+    So the caller refuses instead — see `_remeasure`. A `cost: gpu_hours` check
+    that quietly measures on a co-tenant's card produces a number, which is the
+    worst available failure.
+
+    Found by sweeping this file for ambient reads after naming the class in
+    somebody else's code. Naming a class is not sweeping for it.
     """
     env = dict(os.environ)
     env["PATH"] = env.get("PATH") or _PATH
@@ -640,6 +656,19 @@ def _remeasure(
     shutil.copytree(apparatus, seed_root)
     shutil.copytree(apparatus, candidate_root)
 
+    # **Which card, before anything is measured.** See `_measure_env`: unset
+    # does not mean "the caller chose"; it means torch takes card 0, which on a
+    # shared host is a co-tenant's. Refusing is the same rule
+    # `run_in_container.sh` applies to the producer side, and it has to be the
+    # same rule or the two disagree about who owns the choice.
+    if not str(os.environ.get("HIP_VISIBLE_DEVICES") or "").strip():
+        problems.append(
+            "HIP_VISIBLE_DEVICES is not set in this validation zone, so the re-measurement "
+            "would take card 0 — which on a shared host is somebody else's, and the number "
+            "would be contended without saying so. A validator declares no agent, so the "
+            "package's env block does not reach here; the card has to arrive with the zone"
+        )
+        return
     python = _interpreter(problems, notes)
     if python is None:
         return
