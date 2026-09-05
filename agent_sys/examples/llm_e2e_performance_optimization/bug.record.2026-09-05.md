@@ -81,6 +81,58 @@ validator」和「被拒的 handoff」;这条是 *validator 跑起来了、写�
 所以「取第一条留下报告的」这条取样规则会系统性地略过它们,而这正是它们最早、
 最接近原因的一次。
 
+### 前瞻:明天还会继续产生「无理由失败」的,只有两个 validator
+
+**读的是 body,不是普查——普查会把「修好之前的历史失败」误报成「现在还坏着」。**
+
+```
+grep -c write_report  在 21 个 validator body 上:
+  check_deploy_serves   0   <-- 从不写
+  check_environment     0   <-- 从不写
+  其余 19 个            ≥1
+```
+
+**四个「看起来沉默」的其实都是历史,不是前瞻风险。** 每一次沉默的失败都发生在该
+validator 拿到 `write_report` 之前几分钟:
+
+```
+check_deploy_kit            沉默失败 07:48 / 09:13   写入能力 09:22  (e42bde4)
+check_workset_runs          沉默失败 08:15:51        写入能力 08:20  (dff2bcb)
+check_optimization_shape    沉默失败 08:59:45        写入能力 09:03  (c7340f9)
+check_speedup_substantiated 沉默失败 08:59:47        写入能力 09:03  (c7340f9)
+```
+
+**所以「条件性沉默」这一类在本 package 里不存在。** 每个 body 要么总是写,要么
+从不写。这是好消息,也是必须读 body 才能得到的结论。
+
+**实测,不是推断**(2026-09-05T08:0xZ,负控制 harness):
+
+```
+check_kernel_table   正控制  baseline verdict=[True]  report=YES(6 行)
+                             mutated  verdict=[False] report=YES(9 行)   <- 证明 harness 能捕获报告
+check_environment            baseline verdict=[True]  report=NO
+                             mutated                  report=NO
+check_deploy_serves          baseline                 report=NO
+```
+
+`check_deploy_serves` 的 baseline 在本机复现不了(它要一个活的部署),所以**它
+是否 load-bearing 未测**;但**「不写报告」这一点与能否驱动无关**——0 个调用点,
+两次运行都没有文件。
+
+### 两个的修法不同,而且都不是 `zone.py` 的一行
+
+`write_report` 在 `lib/workset_io.py:247`,签名是
+`write_report(validator, findings: dict[str, (problems, notes)], verdicts=None)`
+——**它要的是 body 收集好的理由,不是一个写文件的动作。** 所以放进 `zone.py`
+解决不了:缺的是**理由**,不是**写**。
+
+| validator | owner | body 里已有 findings/problems/notes 引用 | 修法 |
+|---|---|---|---|
+| `check_environment` | `steps/common.yaml` —— 共享,leader | **16 处** | **接近一行**:结构已经在,`import workset_io` 加一次调用 |
+| `check_deploy_serves` | `steps/m1_deploy.yaml` —— **m1** | **0 处** | **真改动**:它根本没有收集理由的地方,要先有理由才谈得上写 |
+
+**未修。** 按 leader 的要求只报告不动手。
+
 **普查数字必须带时间戳。** 06:18 是 45/33,07:15 已是 46/34。**本文件里任何引用
 普查的数字,不带时间戳就是错的**,一天之内就会读成错。
 
