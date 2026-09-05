@@ -166,9 +166,42 @@ def ceiling_from_argv(argv_path: pathlib.Path) -> tuple[int | None, str]:
     # `None` rather than a verdict: with graphs disabled, *did decode fit inside
     # the captured graph* has no answer, so **not applicable** is the honest
     # state — the same third state the rest of this module uses.
-    if "--disable-cuda-graph" in toks:
+    # **`--disable-cuda-graph` does not always disable decode graphs, and the
+    # branch below used to assume it did.** Measured on crsuse2-m2m-217,
+    # 2026-09-05: an engine started with `--disable-cuda-graph` **and**
+    # `--cuda-graph-backend-decode full` logged `Decode batch, ... cuda graph:
+    # True` (prefill `False`), carried `server_args` with both
+    # `disable_cuda_graph=True` and `cuda_graph_backend_decode='full'`, and a
+    # `py-spy` dump caught rank TP2 inside `torch/cuda/graphs.py:141 replay`.
+    # The legacy flag reaches prefill; the newer config path wins for decode.
+    #
+    # **The abstention fired exactly where the check matters.** The early return
+    # keys on `--disable-cuda-graph`, which `line.sh` adds for `CAPTURE=1` — so
+    # it abstained on every `profiling_mode_on`, and `profiling_mode_on` is the
+    # run where the decode graph is actually replaying. The bar was present on
+    # the runs that did not need it and absent on the ones that did.
+    #
+    # The premise this was landed on (CONTRACT §1.1, "mode_on runs graphs off by
+    # design") had three corroborations — m1's comment, m5's read of the kit's
+    # `start_worker.sh`, and two source files. **All three read what the flag is
+    # meant to mean; none observed an engine.** Agreement about intent is not a
+    # measurement of effect.
+    backend = None
+    if "--cuda-graph-backend-decode" in toks:
+        i = toks.index("--cuda-graph-backend-decode")
+        if i + 1 < len(toks) and not toks[i + 1].startswith("--"):
+            backend = toks[i + 1]
+    if "--disable-cuda-graph" in toks and backend in (None, "disabled"):
         return None, ("the engine was started with --disable-cuda-graph — graphs are off by "
                       "design here, so there is no captured graph for decode to fit inside")
+    # Said out loud rather than left implicit: the ceiling below is real, and a
+    # reader who knows only about `--disable-cuda-graph` will not believe it
+    # without being told which flag won.
+    overridden = (
+        " (--disable-cuda-graph is present but --cuda-graph-backend-decode "
+        f"{backend} overrides it for decode)"
+        if "--disable-cuda-graph" in toks else ""
+    )
     for flag in FLAG_ALIASES:
         if flag not in toks:
             continue
@@ -176,8 +209,8 @@ def ceiling_from_argv(argv_path: pathlib.Path) -> tuple[int | None, str]:
         vals = list(itertools.takewhile(lambda t: not t.startswith("--"), toks[i + 1:]))
         nums = [int(v) for v in vals if v.isdigit()]
         if not nums:
-            return None, f"{flag} is present with no numeric value"
-        return max(nums), f"{flag} -> {nums if len(nums) > 1 else nums[0]}"
+            return None, f"{flag} is present with no numeric value{overridden}"
+        return max(nums), f"{flag} -> {nums if len(nums) > 1 else nums[0]}{overridden}"
     # **The `profiling_mode_on` sentence used to live here and has moved up into
     # the `--disable-cuda-graph` branch, which is the branch that now receives
     # that case.** Landing the branch without moving it left two `None` returns
