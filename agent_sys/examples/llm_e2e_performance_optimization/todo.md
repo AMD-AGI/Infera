@@ -3040,3 +3040,50 @@ lead, still m1's file):
 **Do not simply raise the criterion to `>= 32`.** That repeats the original
 mistake with a bigger constant — a number that happens to cover one observed
 trace, with no statement of what it must cover.
+
+### T60 closed by rung 2f — and 25.42 was a symptom, not a requirement
+
+**The fix worked end to end.** rung 2f (`20260904T225556-55e566`), node 088:
+
+```
+m1_deploy                succeeded  (59 min; kit/environment/deploy_serves all true)
+run_profiling_mode_off   succeeded  <- FIRST TIME STAGE 2 HAS EVER COMPLETED
+  check_bench_result     true
+  721 request records, 0 errored
+  decode graph ceiling 32 >= decode concurrency 4.909
+```
+
+Three links, all measured: the corrected brief made the producer choose **32**
+instead of 16; the producer used the non-deprecated `--cuda-graph-max-bs-decode`
+and verified from `/get_server_info` that capture buckets reached 32; and
+`graph_ceiling` was taught that spelling so it read the kit instead of refusing it.
+
+## The part that corrects the brief I wrote
+
+**rung 2e measured decode concurrency 25.42. rung 2f measured 4.909 — same trace
+(721 records both times), same tp, same model.**
+
+The ratio is ~5.2x, and the eager-fallback penalty measured on this cluster is
+**4.6x**. So the most likely reading is that **the high concurrency was caused by
+the low ceiling**, not demanded by the trace: a ceiling below the batch forces
+eager decode, eager decode is ~4.6x slower, slower decode leaves more requests
+in flight, and the in-flight count is the concurrency. **A positive feedback loop
+in which the symptom looks like the requirement.**
+
+**This makes the number I put in `deploy_and_prove.task/readme.md` misleading.**
+I wrote *"stage 2's Mooncake trace replay reached 25.42, so `>= 16` is not
+sufficient"*. The first half is a true measurement of a *degraded* run; a future
+producer sizing to cover 25.42 would over-provision on a rationale that does not
+hold once the ceiling is right.
+
+**Confound, stated rather than buried:** the two runs were on **different nodes**
+(217 and 088). Node speed also moves in-flight count. Nothing here separates the
+two causes, and one clean test would: run the same trace on **one** node at
+ceiling 16 and at ceiling 32 and compare the achieved concurrency. That is m2's
+C1/C2 shape and it has not been done for concurrency, only for ITL.
+
+**Not corrected in the brief yet**, because the honest replacement is not obvious:
+the instruction *"cover the heaviest consumer's load"* is still right, but the
+load it must cover is the one measured **at a correct ceiling**, which is
+circular unless you measure twice. Recorded so the next person does not read
+25.42 as a fixed property of the trace.
