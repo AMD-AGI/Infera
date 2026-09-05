@@ -6,7 +6,8 @@ starts its body"*. It starts. Four stages had already failed silently upstream.
 **This builds on m4's
 `2026-09-05-a-failed-body-has-its-debris-sealed-and-validated-and-says-nothing.md`
 and does not restate it.** Their §1 establishes the mechanism — `_seal_outputs()`
-runs unconditionally before `_gate(result)` (`agent/runner.py:706-708`), so a
+runs unconditionally before `_gate(result)` (`agent/runner.py`, the block whose
+comment reads *"Before the gate, and that ordering is the whole ruling"*), so a
 failed producer's partial output becomes a handoff. **That is theirs.**
 
 What is here is what happens **after** that seal, in the two directions the
