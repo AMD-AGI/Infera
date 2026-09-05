@@ -2241,9 +2241,30 @@ with another line — is choosing numbers that do not mean what they think.
 
 **Related site, first-hand:** `assets/accept/measure.sh:36` builds
 `R="http://${E2E_NODE_IP:?}:${E2E_PORT_ROUTER:?}"` — **the node IP, not the bound host**.
-That is the same host assumption as `load/line.sh:318`, which aborted a successful TP4
-bring-up on 093 when the router bound `127.0.0.1`. **Two sites, one assumption; see
-`CLAUDE.md` on a fix that guards one field of a compound value and leaves its sibling.**
+Same shape as the abort that killed a successful TP4 bring-up on 093 on 2026-09-05; see
+`CLAUDE.md` on a fix that guards one field of a compound value and leaves its sibling.
+
+> **CORRECTION 2026-09-05 17:37, from m2, who owns that stage.** An earlier version of
+> this section said *"the kit records `http://<node_ip>:<port>` for a service listening
+> on `127.0.0.1`"*. **That is false and it blamed m1's kit for something it did not do.**
+> The kit is internally consistent: it binds loopback and records loopback
+> (`endpoint: http://127.0.0.1:8162`). **The node IP never came out of the handshake —
+> `replay.sh:44` composed it.** `line.sh:318` reads the whole endpoint and is correct;
+> `line.sh:388` then hands down only `HS_PORT`, and the host is rebuilt downstream.
+> **So the defect was in m2's stage, not in the kit, and the fix landed there
+> (`df0f2b9`).** I wrote the wrong version from m4's report without checking which
+> component composed the address.
+
+**Why the two 093 halves behaved differently, since it is not the launch line:**
+
+```
+m2's kit    env.sh:108   E2E_KIT_BIND_HOST:=0.0.0.0     all interfaces  -> worked
+m4's kit    env.sh:137   E2E_KIT_BIND_HOST:=127.0.0.1   loopback        -> aborted
+```
+
+**m2's line passed by the luck of a default in a file neither of them wrote.** Whether
+`127.0.0.1` is the intended default is m1's call and is still open; `df0f2b9` makes it
+no longer decide whether this stage runs.
 
 > **This file contains SEVEN launch blocks and they do not agree. Diff against
 > this one.** Counted 2026-09-05 after m1 found that `1e7c4c1`'s
