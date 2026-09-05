@@ -337,13 +337,23 @@ def run_one(kind: str, validator: str, args: dict) -> dict:
             return {"kind": kind, "validator": validator, "state": "NO_VERDICT",
                     "rc": p.returncode, "why": tail[-1][:200] if tail else ""}
         ok = all(bool(v) for v in verdict.values()) if isinstance(verdict, dict) else False
-        why = ""
-        for line in report.splitlines():
-            if "PROBLEM" in line or "REFUSED" in line:
-                why = line.strip()[:220]
-                break
+        # **`PROBLEM` before `REFUSED`, and it is not a preference.** This used
+        # to be one loop taking the first line matching either word, and every
+        # refusal reported the same useless string: validators open their report
+        # with a banner — `## probe-<kind>: REFUSED` — so the header always
+        # matched before any reason did. Thirteen refusals graded against the
+        # first completed chain came back with thirteen copies of their own
+        # heading, and the reasons were on disk the whole time.
+        #
+        # The banner is still the fallback, because a validator that refuses
+        # without writing a `PROBLEM` line has said nothing else.
+        problems = [l.strip() for l in report.splitlines() if "PROBLEM" in l]
+        if not problems:
+            problems = [l.strip() for l in report.splitlines() if "REFUSED" in l]
+        why = problems[0][:220] if problems else ""
         return {"kind": kind, "validator": validator,
-                "state": "PASS" if ok else "REFUSE", "rc": p.returncode, "why": why}
+                "state": "PASS" if ok else "REFUSE", "rc": p.returncode, "why": why,
+                "problems": [p_[:220] for p_ in problems[:4]]}
 
 
 def main() -> int:
@@ -352,7 +362,28 @@ def main() -> int:
     ap.add_argument("--run", action="append", default=[],
                     help="a run root whose sealed handoffs supply the mocked content; "
                          "repeatable, later ones win")
+    # **Without this the probe grades a run against variables the run did not
+    # use, and reports the difference as a defect.** `MOCK_VARS` is two entries
+    # — `expect_ranks=2`, `adhoc_cases=0` — chosen for the 2026-09-02 corpus.
+    # Graded against the first completed chain, which ran `expect_ranks=4` and
+    # `bench_rounds=3`, that produced three refusals that were the probe's own
+    # defaults and not the artefacts': `check_trace_coverage` "expected 2
+    # rank(s), the manifest lists 4", and `check_bench_report` "3 replay
+    # round(s) present, 1 expected" on both arms. **Pass the run's own `--var`s
+    # and those three disappear.**
+    ap.add_argument("--var", action="append", default=[], metavar="K=V",
+                    help="override a package variable for substitution, e.g. "
+                         "--var expect_ranks=4; repeatable. Use the same values "
+                         "the run was launched with, or the probe grades a "
+                         "different run than the one you indexed.")
     a = ap.parse_args()
+
+    for kv in a.var:
+        if "=" not in kv:
+            print(f"probe_validators: --var needs K=V, got {kv!r}", file=sys.stderr)
+            return 2
+        k, _, v = kv.partition("=")
+        MOCK_VARS[k.strip()] = v
 
     for r in a.run:
         _INDEX.update(build_index(pathlib.Path(r)))
