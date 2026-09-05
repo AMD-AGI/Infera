@@ -1088,19 +1088,21 @@ ownership unresolvable. **Neither is a reason to wait on a `burst-qos` node.** T
 lead treated both as blockers on 217 for several hours while the node sat at 34 %
 under someone else's job and phase 4 had nowhere to run. That was wrong.
 
-**Check the QoS first, because it is the whole scope of the rule:**
+**Do not check the QoS. It is not a scope.** Every node in `squeue -u $USER` is a
+node we hold, and the rule applies to all of them:
 
 ```
 squeue -u $USER -o "%.9i %.18N %.12q"
 
-  109492  crsuse2-m2m-275  amd-primus-q   <- NOT burst. Rule does not apply.
-  110590  crsuse2-m2m-088  amd-burst-qo   <- applies
+  109492  crsuse2-m2m-275  amd-primus-q   <- applies
+  110590  crsuse2-m2m-088  amd-primus-q   <- applies
   111038  crsuse2-m2m-217  amd-burst-qo   <- applies
 ```
 
 **Ours** is anything carrying the `infera_e2e_run` label. **The system's** is
-cluster monitoring. **Everything else on a `burst-qos` node goes**, regardless of
-how long it has run or who else holds an allocation on that node.
+cluster monitoring. **Everything else on a node we hold goes**, regardless of
+how long it has run, which QoS the hold is under, or who else holds an
+allocation on that node.
 
 Executed 2026-09-05 05:06 on 217: `glm53-work`, unlabelled, eight cards at 34 %.
 
