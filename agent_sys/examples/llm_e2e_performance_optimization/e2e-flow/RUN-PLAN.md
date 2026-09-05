@@ -2188,8 +2188,30 @@ python3 agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/lib/
   --var gsm8k_data=/shared_nfs/yihou/agent_sys_debug/ws2/integration/data/gsm8k_test.jsonl \
   --var work_root=/mnt/m2m_nobackup/yihou/e2e_flow \
   --var container=yihou_e2e_flow_r5_$(date +%m%d%H%M) \
+  --var transport=spur \
   --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR
 ```
+
+> **This file contains SEVEN launch blocks and they do not agree. Diff against
+> this one.** Counted 2026-09-05 after m1 found that `1e7c4c1`'s
+> `--var transport=spur` reached the variable table and *one* block, and not this
+> one — while this one was the only block carrying the `run_with_long_stall`
+> wrapper that the other six still omit. **Each block held the other's known
+> defect, and each defect had already cost a run.**
+>
+> ```
+> launcher line   308  412  1214  1381  1921  2670   -> bare `python3 -m agent_sys.cli.main run`
+>                 2172                              -> the wrapper (correct)
+> transport=spur  320  1391  2173                   -> present
+>                 the other four blocks              -> absent
+> ```
+>
+> **Do not "fix" the other six by copying this one into them.** They are rung-
+> specific and several are historical records of what a rung actually ran. The
+> hazard is not that they differ, it is that **nothing says which one is
+> canonical** — so a reader diffs against whichever they scrolled to. This block
+> is canonical because it is the one whose header explains why the wrapper is
+> mandatory.
 
 **The wrapper is not optional, and this block said `python3 -m
 agent_sys.cli.main run` until it cost a hold.** `stall_after` is **not exposed
