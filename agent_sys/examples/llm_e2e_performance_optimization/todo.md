@@ -3295,3 +3295,51 @@ cause never surfaced** — which is the same relationship as
 **Holder: m3**, who is holding the fix until the full-real chain clears their
 stage, because that readme is the live system prompt and editing it mid-run
 changes what a running agent reads.
+
+---
+
+### T67 — `reverify_shapes` counts operators, and its name says shapes
+
+*Opened 2026-09-05 by m3, at the leader's instruction, while confirming the cost
+of raising it.*
+
+`assets/check_workset_runs.validator/check.py`:
+
+- **`:279-282`** builds `picked` as **one primary shape per operator** — it
+  iterates `document["operators"]` and takes the single shape with
+  `is_primary`.
+- **`:308-309`** `verified, unverified = picked[:wanted], picked[wanted:]` then
+  `picked = verified`, where `wanted = W.arg_num(args, "reverify_shapes", 1, int)`
+  (`:269`).
+
+So the argument spelled `reverify_shapes` selects **operators**. The two units
+coincide today only because the ranker emits four operators and each declares
+exactly one primary shape.
+
+**Why this is the day's recurring class and not a naming nit:** *an instrument
+reads a real thing and answers a different question, and is never wrong in a way
+that shows up as an error.* Setting `reverify_shapes=4` on a five-operator
+workset re-measures four of five and reports success. Nothing fails.
+
+**It is not silent, but the disclosure arrives late.** `:310-315` names every
+unverified operator — `recorded, NOT re-measured` — and `:316-320` prints what
+raising it would cost. Both land in the validator's **notes**, which a reader
+meets after they have already read the verdict.
+
+**Not renamed today, deliberately.** `workset_reverify_shapes` is a launch
+`--var` on lines that are running; renaming an argument mid-run breaks the
+launch command rather than the code, which is the worse failure to introduce
+while a chain is live. The leader agreed and asked for the entry instead of the
+rename.
+
+**What to do when the runs are quiet:** rename to `reverify_operators`, or make
+the selection genuinely per-shape. **Do not just raise the default** — the
+comment at `:296-304` argues against that, and it is right: each re-verify is a
+container start and a torch import, ~90 s against ~3 s of timing, and the cost
+scales with operator count.
+
+**Blocking the moment the ranker's operator count changes**, because from then
+on the argument's name actively misleads whoever sets it. Not blocking before
+that.
+
+**Holder: m3.**
