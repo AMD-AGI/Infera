@@ -238,6 +238,58 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         return 0
 
+    # **Refuse to delete a tree a live run is staging from.**
+    #
+    # This function does `rmtree` then `copytree`. A run re-stages its package
+    # at every task start (CONTRACT §8a), so regenerating into a path a chain
+    # is pointing at deletes the tree out from under it mid-run -- and the
+    # failure would surface later, somewhere else, as a missing asset.
+    #
+    # m2 hit this as a near miss and worked around it by giving every chain its
+    # own output path (`e2e-flow-noval`, `-237`, `-093`). That discipline is
+    # right, and it should not depend on remembering: the check is one `ps`.
+    live = []
+    try:
+        ps = subprocess.run(["ps", "-eo", "pid=,args="], capture_output=True,
+                            text=True, timeout=15).stdout
+        for line in ps.splitlines():
+            if "run_with_long_stall" not in line:
+                continue
+            parts = line.split()
+            for i, tok in enumerate(parts):
+                if tok == "--package" and i + 1 < len(parts):
+                    pkg = Path(parts[i + 1])
+                    if not pkg.is_absolute():
+                        pkg = Path.cwd() / pkg
+                    if pkg.resolve() == out:
+                        live.append(parts[0])
+    except Exception as exc:
+        # **Fail CLOSED.** The first version printed a warning and continued --
+        # and then a `NameError` in the guard itself let it regenerate the tree
+        # a live chain was staging from, which is precisely the accident it was
+        # written to prevent. A guard that fails open is not a guard; it is a
+        # comment that costs a subprocess.
+        print(
+            f"make_debug_package: the live-run check could not run "
+            f"({exc.__class__.__name__}: {exc}).\n"
+            f"  REFUSING rather than continuing: this function rmtree's the\n"
+            f"  destination, and without the check there is no way to know a run\n"
+            f"  is staging from it. Fix the check, or use a fresh --out path.",
+            file=sys.stderr,
+        )
+        return 2
+    if live:
+        print(
+            f"make_debug_package: REFUSING to regenerate {out} -- "
+            f"pid(s) {', '.join(live)} are running against it.\n"
+            f"  This function rmtree's the destination, and a run re-stages its\n"
+            f"  package at every task start, so the tree would vanish mid-run and\n"
+            f"  fail later somewhere else as a missing asset.\n"
+            f"  Give this generation its own path: --out {out}-<something>",
+            file=sys.stderr,
+        )
+        return 2
+
     if out.exists():
         shutil.rmtree(out)
     shutil.copytree(src, out, ignore=shutil.ignore_patterns(*_SKIP_DIRS))
