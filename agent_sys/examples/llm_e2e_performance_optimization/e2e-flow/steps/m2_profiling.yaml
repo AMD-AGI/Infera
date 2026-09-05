@@ -306,6 +306,16 @@
 #
 # Until those are in the briefs, promoting this stage loses them silently —
 # they do not degrade, they disappear. See the note on each task.
+# **What this flip is for, and what it is not for.**
+#
+# Use it to absorb small handoff-shape differences that would otherwise fail a
+# run outright — that is what the user asked for and an agent is good at it.
+# **Do not use it on a rung whose numbers we intend to keep**: a brief cannot
+# carry a guard, only a request that someone enforce one, and the two guards
+# that matter most here fail *silently* (a wrong node and a wrong port each
+# yield a full set of plausible numbers). Format is a shape concern; numbers we
+# keep are a measurement concern.
+#
 - module: agent
   name: e2e_profiler
   kind: ai
