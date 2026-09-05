@@ -119,7 +119,7 @@ One verifies the tree it copied and one is a plain `shutil.copytree`. The
 consuming path uses the plain one, so **nothing on the way out of a zone
 verifies a digest**. Recorded in `temp/bugs/`.
 
-### T10 — `check_workset_runs` hard-fails on rsd while `min_pass_ratio` forgives correctness (was C24)
+### T10 — `check_workset_runs` hard-fails on rsd while `min_pass_ratio` forgives correctness (was C24 and E16)
 
 A saturated node fails `max_rsd` on evidence that is otherwise correct, while a
 kernel that is wrong on a minority of shapes can still pass. The two knobs
@@ -3168,6 +3168,30 @@ is *"the manifest has never run against an `sgl_kernel` operator"*, then 2 and 3
 are **not a choice we are postponing — they are an unknown we have not measured.**
 Those are different states and the record should not let them read alike.
 
+**m5 answered 2026-09-05: (a)** — and for a stronger reason than m3 had.
+`SGL_KERNEL_ROOT` names **build sources**, so the site-packages module is a file
+object no manifest ever references. **m5 also measured on 287 that
+`/sgl-workspace/sglang/sgl-kernel` does not exist in the image at all** — the
+root points at nothing.
+
+**Record both halves, because they are different facts.** The decision is (a).
+*And* the manifest has **never** run against an `sgl_kernel` or an `aiter`
+operator:
+
+```
+@SGLANG_ROOT@        38 across every manifest that has ever existed (leader's count,
+                     history-wide; 31 in the current tree excluding runs/ — checkpoint)
+@AITER_ROOT@          0 in any manifest.  The single occurrence in the tree is a
+                     `description` string in workset.schema.json:495, not a use
+@SGL_KERNEL_ROOT@     1, and it is the guard constant at
+                     optimize_kernel.task/steps/60_write_handoff.py:115
+```
+
+**So both the `_NOT_OVERLAYABLE` refusal and the `rebuild` branch are unexercised
+code.** The original framing survives the answer: **we chose between two
+branches, neither of which has ever run.** An answered question and a measured
+one are still different things.
+
 **Holder: m5.** Not blocking today.
 
 ---
@@ -3232,3 +3256,37 @@ would check.**
 
 **Do not merge with m2's `475f2fc`** (the capture step waiting on another
 package's log) until m2 rules. **Their proximity in time is not evidence.**
+
+---
+
+### T66 — the agent's system prompt points at a path that is not in the repository
+
+*Opened 2026-09-05 by m3's sweep; verified by checkpoint.*
+
+`build_workset.task/readme.md:98` — **the live system prompt for a `kind: ai`
+agent** — tells it that `../../../../../rank0/definitions/` *"holds two worked
+examples and is the thing to imitate."* Three references, all off by one level.
+
+**The level is not the defect:**
+
+```
+git ls-files rank0     ->  0 files
+ls rank0/definitions   ->  gemm  moe      (present in THIS working tree)
+```
+
+**`rank0/` is untracked.** It exists only in working trees that happen to have
+it. **On a fresh checkout there is nothing to point at, at any depth.**
+
+**Why this is a third shape, distinct from a hang and from stale sibling data:**
+the reference is **silently unreachable, and it lives in an instruction rather
+than in code.** The agent gets no error, finds nothing, and **improvises the
+Definition.** Nothing fails; the output is merely unanchored.
+
+**Why nobody noticed:** damage is bounded because `check_workset_shape` enforces
+the Definition keys downstream. **A validator caught the consequence and so the
+cause never surfaced** — which is the same relationship as
+`bug.record.2026-09-05.md` entry 20, where good comments hid a bad grep.
+
+**Holder: m3**, who is holding the fix until the full-real chain clears their
+stage, because that readme is the live system prompt and editing it mid-run
+changes what a running agent reads.
