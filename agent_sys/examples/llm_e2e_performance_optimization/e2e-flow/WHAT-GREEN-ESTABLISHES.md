@@ -528,6 +528,56 @@ real   integration_report (6735d9)           items:     report.md schema text.js
 
 **这就是「不写 report」的价格,而且它恰好在这个 body 第一次真的拒绝了什么的时候到期。**
 
+## 2.11 一个绿不确立「换成 agent 跑也会绿」——四份 brief 里有一份一节都没点
+
+**先说这一节不解决什么,免得下面那张表读起来像结论:**
+
+> **移除触发器不等于关闭这一类。** 就算每一份 brief 都点全了每一节,下一次在
+> `kind: ai` 阶段上发生的、与此无关的封存拒绝**仍然不可恢复、仍然是同样的沉默**——
+> `output_absent` 在 agent 退出前不可见,而 `instruct()` 没有任何循环能够到一个已经
+> 结束的 agent。**点全节名只是拆掉一个触发器,机制原样留着。**
+
+**机制。** `agent_sys/handoff/content.py:62-87` 按 **content type** 规定 README 必须
+有哪些小节,**不是一套通用的三节**(我最初被问的就是这个通用版本,它只对产出 `code`
+的叶子成立):
+
+```
+reproducible     Purpose · How to run · Result · Environment · Watch out   (5)
+code             Purpose · Interface · Boundary                            (3)
+structured_text  Purpose · Schema                                          (2)
+text             Purpose                                                   (1)
+```
+
+一个 `kind: ai` 叶子的 brief 若不点名这些小节,就要靠 agent 自己猜出**准确的标题**。
+猜岔了就封存拒绝,**而拒绝发生在 agent 已经结束之后**。
+
+**四个默认就是 `kind: ai` 的叶子**(`agent:` 行的默认值,不是被 `--var` 改出来的):
+
+| 叶子 | 产出的 kind → 类型 | 需要 | brief 点了吗 |
+|---|---|---|---|
+| `deploy_and_prove` (`m1_deploy.yaml:325`) | `deploy_kit` → code | 3 | **点了** — `assets/deploy_and_prove.task/readme.md`,搜 *"It needs all three of"* |
+| `build_workset` (`m3_analysis.yaml:443`) | `operator_workset` → code | 3 | **点了** — 搜 *"Purpose**, **Interface**, **Boundary"*,并带一条验收 |
+| `optimize_kernel` (`m4_kernel_opt.yaml:473`) | `kernel_optimization` → code | 3 | **点了** — 三行对照表,且附了 `p5_fullreal_093c47` 那次真实拒绝的原话 |
+| `integrate_and_verify` (`m5_integration.yaml:596`) | 两个 measurement → reproducible;`integration_report` → structured_text | 5 + 5 + 2 = **12** | **一节都没点** |
+
+**`integrate_and_verify` 是唯一一个零,而它要求的最多。** 323 行的
+`assets/integrate_and_verify.task/readme.md` 里,`How to run` / `## Result` /
+`## Schema` / `## Purpose` 全部为零;唯一会被 grep 命中的是 `:140` 的
+`*Watch out:*`——那是一句讲 bring-up 会刷 `Health check failed` 的散文,不是在指示
+agent 写一个 `## Watch out` 小节。
+
+**为什么它还没发作,而 m4 的发作了。** m5 那一阶段封在 `6735d9`,**一个 agent 即兴了
+一次、恰好对了**;m4 的被**两个节点上的两个 agent**用不同的方式即兴,于是撞上。
+**「至今没有」在这里只等于一次抽样。**
+
+**另有一个潜伏项,不在上表**(它今天不是 `kind: ai`):`m2_profiling.yaml:321` 声明了
+一个叫 `e2e_profiler` 的 `kind: ai` agent,而三个叶子(`:424`、`:446`、`:478`)全都
+默认 `${m2_agent:-runner}`。**一旦有人传 `--var m2_agent=e2e_profiler`,三个叶子同时
+变成 agent 体,而三份 brief 一节都没点。** 这类东西的发作时机,正是「某人传了一个
+看起来无害的 var」的第一次。已直接交给 m2。
+
+*(审计只读不改:每份 brief 都是它自己 owner 的文件。m5 的那份和 m2 的三份已分别路由。)*
+
 ## 3. 分阶段:绿了确立什么
 
 ### m1 deploy —— 确立得最扎实的一个阶段
