@@ -150,16 +150,50 @@ no `--var m2_agent` it is a **program** task:
 
 ```
 store           status: running          (since 10:28, read at 10:42)
-zone/logs/      empty                    <- nothing ever wrote a log
-zone            0 files written after 10:28, package copy excluded
 zone/handoffs/  4 input handoffs staged, complete
-ps              no mock_m2 / merge process anywhere on the host
 ```
 
-Inputs staged, workspace cloned, and **no body ever started** — the shape of
-`2026-09-05-a-program-task-is-marked-running-with-no-program.md`. Normally that
-would be cut after `stall_after`; here it cannot be, because a *different*,
-already-succeeded task is holding the slot.
+> **CORRECTION, same day, by readme-cn.** The two lines that used to stand here
+> — `zone/logs/ empty <- nothing ever wrote a log` and `ps: no merge process` —
+> were offered as evidence that **no body ever started**, and that conclusion is
+> **false**. The body ran for 11.7 seconds, exited 1, and said why:
+>
+> ```
+> store/task    started_at 2026-09-05T10:28:22.125958Z   agent_id 97369b15
+> store/event   10:28:33.858  output_absent
+>               detail = "exit 1: merge: …/v0 carries no environment record
+>                         at items/env/environment.yaml"
+> ```
+>
+> **Both of my instruments failed, each in a way already written down.**
+> `zone/logs/` is empty for `run_profiling_mode_off` too, which **succeeded** —
+> so it discriminates nothing, and I reported a numerator without its
+> denominator. And `ps` found no process because I looked at 10:42 for one that
+> exited at 10:28:33; that is the `ps --ppid` timing trap this project has
+> recorded twice. **A zero I did not test is what produced the wrong reading,
+> not a missing artefact.**
+>
+> The cause was in the event store the whole time, in `attributes` rather than
+> `message` (`message` is `None` on all 22 events — T39).
+
+So the task is stuck at `running` for the reason the *other* record already
+gives: the body failed, the runner recorded `output_absent`, and the escalation
+never returned. `2026-09-05-a-program-task-is-marked-running-with-no-program.md`
+states this and already marks its own title as wrong.
+
+**What is new, and belongs to this file rather than that one:** the escalation's
+`why` names the program case specifically —
+
+```
+escalated  why = "nothing to push: the executor is a program body:
+                  there is no agent to instruct"
+```
+
+**A failing program task is structurally un-escalatable.** There is no agent to
+send the failure to, so it cannot fail the run; it hangs. That is why the runs
+that hang are the `--var mN_agent=runner` runs. And here it could not even be
+cut after `stall_after`, because a *different*, already-succeeded task was
+holding the slot.
 
 ### Why this appendix is worth its length
 
