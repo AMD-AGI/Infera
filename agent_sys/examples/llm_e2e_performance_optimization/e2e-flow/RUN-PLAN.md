@@ -648,6 +648,18 @@ Say what rung 0 covered in those terms, not as "the mock passed".
 
    *m3's own reading of it, and it is the reason this is a numbered step and not a sentence: **"prose is what it was already, and I still skipped it."** A precondition that lives beside the card read gets run when the cards get read; one that lives in a section for a different rung gets run when someone remembers. This package's own rule for that distinction is tier 1 versus tier 3 — change the command, do not ask anyone to remember.*
 
+2b. **If your `mock_stages` does not contain `m5`, the node must be yours alone.** One command, before you take a card set:
+
+   ```sh
+   sh assets/lib/lines.sh <node>     # any other line here without m5 in MOCK?
+   ```
+
+   **`mock_stages=none` means m5 runs real, and `mix_up.sh:81` calls `reset_gpus.sh`, which is a NODE-WIDE `kill -9` of every KFD-holding `python3`/`pt_main_thread`.** It protects `slurmstepd` and nothing else. **`--var gpu_devices` does not scope it**, so the 0–3 / 4–7 convention does not hold. Two more from the same stage: `kv-events:5557` and `kv-snapshot:8801` are literals at `mix_up.sh:70`, so **two m5 stages cannot share a node whatever ports you pass**; and `GPUS=` appears once in all of `assets/` (`mix_worker.sh:26`, defaulted, never set), so **m5's arms always take `0..TP-1`**.
+
+   *Written as a numbered precondition on 2026-09-05 because the rule existed and did not travel. It was found at 16:12 when it nearly cost m3's experiment on 217, and enforced there — while on 093 two `mock_stages=none` lines ran side by side for three hours. They survived only because they were at different depths: one was in `apply_patch` while the other was still in stage 2.*
+
+   *m4's diagnosis, which is why this is a precondition and not a reminder: **neither owner could have seen it from their own line.** Both logs named their own cards correctly, and `mix_up.sh` being node-wide is a fact about a stage one of them had not reached and whose scripts they had no reason to open. **The criterion lives outside the run, so the only place it can live is the launch-time check — and a rule that reaches one node's launches and not another's is a distribution failure, not a vigilance one. Distribution is fixable in a way that remembering is not.***
+
 3. **`agent-sys show`** — under a second.
 4. **The node's state, before and after**: `docker ps` and the port band. Every identifier this package binds carries a run tag; **check the tag before killing anything.** Measured 2026-09-03: a validator's teardown crashed and warned that ports might be held, and the ports that were held belonged to *a different owner's run in flight*. Killing them would have destroyed live work.
 
