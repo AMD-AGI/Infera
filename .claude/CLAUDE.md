@@ -518,6 +518,23 @@
   只能整段重跑。
   **和 13:11 那次同形、同一个人、同一天第二次。**
   → **不可逆动作之前的最后一步,是打开那个能说出「它在做什么」的产物。**
+- **一个拿「本次运行没有使用的值」去评分的工具,会把差异报成产物的缺陷。**
+  (m5,2026-09-05,自查探针时发现,而且这是今天第三个同族。)
+  他们的 `probe_validators.py` 把 `MOCK_VARS` 硬编码成 `expect_ranks=2,
+  adhoc_cases=0`——对 09-02 语料是对的。**拿去评一条跑了 `expect_ranks=4`、
+  `bench_rounds=3` 的链,凭空造出三个拒绝:**
+  ```
+  check_trace_coverage  "expected 2 rank(s), the manifest lists 4"
+  check_bench_report    "3 replay round(s) present, 1 expected"  ×2
+  ```
+  加上 `--var K=V` 之后,**同样的产物、同样的探针:29/13 → 32/10。**
+  **同族:`mock_stages` 什么都没 mock、`--var gpu_devices` 是失效的——
+  发车行和检查器静默地不一致,而挨骂的是产物。**
+- **同一个探针的第二个缺陷:理由全在磁盘上,一条都没打印出来。**
+  它取第一条匹配 `PROBLEM|REFUSED` 的行,**而 validator 的报告以
+  `## probe-<kind>: REFUSED` 开头——所以永远先匹配到标题。
+  十三个拒绝把自己的标题回报了回来。**
+  **一个「摘要工具」可以在完全不出错的情况下,把它要摘的东西全部丢掉。**
 - **一个 agent 写了 4.4 KB 说明自己为什么拒绝,而我们花一小时读进程表。**
   (m5,2026-09-05,`integrate_and_verify` 在 15:07 中止,`ABORT.md` 在它的 zone 里。)
   **它的判断比当天任何一个人都好:**
