@@ -24,6 +24,7 @@ import concurrent.futures as cf
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -75,10 +76,49 @@ def declared() -> list[tuple[str, str, dict]]:
                 name = str(v.get("name") or "")
                 if not name.startswith("check_"):
                     continue
-                args = dict(v.get("args") or v.get("parameters") or {})
+                args = _substitute(v.get("args") or v.get("parameters") or {})
                 for kind in v.get("inputs") or []:
                     out.append((str(kind), name, args))
     return out
+
+
+_VAR = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-(.*))?\}$")
+
+
+def _substitute(node, overrides: dict[str, str] | None = None):
+    """Resolve `${name:-default}` to its default, recursively.
+
+    **The third defect in this file, and the same sentence catches all three.**
+    v1 passed `{}`; v2 passed the raw template text; neither is *"the validator
+    the graph runs"*. A run substitutes these at load time (`spec_loader`); the
+    probe read the **definition** rather than the loaded spec — the same
+    distinction as reading the tree rather than the store.
+
+    The symptom was a crash, not a refusal:
+
+        check_bench_report   ValueError: invalid literal for int(): '${bench_rounds:-1}'
+        check_identity_resolved  could not convert string to float: '${min_resolve_ratio:-0.0}'
+
+    **12 of 14 refusals were this**, across four owners, and every owner
+    correctly refused to convert an artefact to satisfy it. Found by m5 and m3
+    independently within a minute of each other; m2 classified the whole table.
+
+    A bare `${name}` with no default resolves to `""`, which is what an
+    unset var gives a run. CONTRACT §4.2: these arrive as strings, which is why
+    a numeric coercion is where it surfaces.
+    """
+    if isinstance(node, dict):
+        return {k: _substitute(v, overrides) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_substitute(v, overrides) for v in node]
+    if isinstance(node, str):
+        m = _VAR.match(node.strip())
+        if m:
+            name, default = m.group(1), m.group(2)
+            if overrides and name in overrides:
+                return overrides[name]
+            return default if default is not None else ""
+    return node
 
 
 def _walk_validators(node):
