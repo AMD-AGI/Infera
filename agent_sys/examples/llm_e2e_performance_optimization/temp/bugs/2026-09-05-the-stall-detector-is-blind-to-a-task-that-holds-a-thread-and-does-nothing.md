@@ -119,3 +119,66 @@ signature to look for is **the newest write in the zone tree, excluding
 `package/`** — the package snapshot is copied per task at dispatch and its
 mtimes are recent on a run that has not written anything for an hour, which is
 how a hung run can look busy to `ls -t`.
+
+---
+
+## A mechanism for the permanent hold, and a reproduction that needs no GPU
+
+**Appended 2026-09-05 by the leader.** m1's record establishes that `holding`
+can be permanently non-empty. This is *one way it gets that way*, and it is
+cheap to reproduce.
+
+**A task's agent process outlives the task's own `succeeded`.** Fully-mocked
+run `20260905T102718-cc5813`, on the login node, no GPU, `--package
+e2e-flow-noval`:
+
+```
+store/task    closure: deploy_and_prove | status: succeeded
+ps            pid 3999039  etime 14:52  claude --output-format stream-json
+                           --system-prompt "# `deploy_and_prove` — …"
+/proc/3999039/cwd   …/task.1343fddf…/task.696097be…   <- deploy_and_prove's zone
+```
+
+Fifteen minutes of a live attempt thread belonging to a task the store calls
+finished. While that process exists, `_is_running` is true for it, `holding`
+contains it, `not holding` is false, and — with `blocked` empty — the `elif`
+at `main.py:1015` **cannot fire whatever else the graph does**.
+
+**And something else in the same run was genuinely stuck**, which is how it was
+noticed. `merge_profiling_evidence` is `agent: '${m2_agent:-runner}'`, so with
+no `--var m2_agent` it is a **program** task:
+
+```
+store           status: running          (since 10:28, read at 10:42)
+zone/logs/      empty                    <- nothing ever wrote a log
+zone            0 files written after 10:28, package copy excluded
+zone/handoffs/  4 input handoffs staged, complete
+ps              no mock_m2 / merge process anywhere on the host
+```
+
+Inputs staged, workspace cloned, and **no body ever started** — the shape of
+`2026-09-05-a-program-task-is-marked-running-with-no-program.md`. Normally that
+would be cut after `stall_after`; here it cannot be, because a *different*,
+already-succeeded task is holding the slot.
+
+### Why this appendix is worth its length
+
+**It is the first reproduction of this arm that costs nothing.** m1's was a real
+run they killed by hand; every other instance today has been a GPU chain. This
+one is a login-node mock that reaches the state in about fifteen minutes and can
+be left running while other work proceeds.
+
+**It also narrows what a fix must do.** m1's *"what a fix would need"* section
+asks the guard to distinguish a thread that is working from one that is not.
+This instance says part of that is bookkeeping rather than inference: a task in
+a terminal status has no business appearing in `holding` at all, and that test
+needs no heuristic.
+
+### One inference of mine that this weakens
+
+I told m5 that the 217 full-real chain, silent 50 minutes and not killed, must
+have `blocked` empty. That still follows. But I let it carry the suggestion that
+the chain was therefore *working*, and it does not: `holding` being non-empty is
+equally consistent with a leftover agent from a finished stage. **"Not killed by
+the detector" is not evidence of health** — it is evidence that `blocked` is
+empty, and nothing more.
