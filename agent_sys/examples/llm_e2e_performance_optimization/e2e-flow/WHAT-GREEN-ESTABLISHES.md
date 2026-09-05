@@ -408,6 +408,33 @@ rsd ≤0.10,并与记录对账。**这是全包唯一的信任链根**:M4.3.5 �
 **之前**就 `exec` 掉了。所以被 mock 的 m5 从不看真实 m4 的产物,这条缝**第一次被行使
 就是 rung 5**。详见 `RUN-PLAN.md`「Two rungs license less than they appear to」。
 
+#### 一个我们**主动选择**的天花板,不是缺陷 —— 2026-09-05,用户指示
+
+用户的理由是**「单次耗时太长了」**,而当天的测量支持它:m4 的一次 campaign 在
+`forge_max_hours=1.0` 的预算下**光准备就花了 113 分钟**,三个 marker 缺失,**没有一个
+源文件被改动**。于是 `CLAUDE.md` 规则 18:**stage 4 尽量重放,不重跑**
+(`--var mock_stages=…,m4,…`,或 `--var forge_mock=1`)。
+
+**这条决定给这两个 validator 划了一道永久的上限,应该在这里写清楚,而不是以后被当成
+缺口发现:**
+
+> **在本轮里,`check_optimization_shape` 和 `check_speedup_substantiated` 只可能
+> 对着一件被重放的产物行使。** 它们「拒绝过 5 次 / 7 次」是真的,但那些拒绝此后
+> 不会再增加新的**真实** campaign 的样本。
+
+**而其中一条检查会因此**按构造**被满足**,这一点是 m4 读出来的,我复核过代码:
+`_check_against_snapshot` 拿文档里的 `operator` 去它**随身携带的**
+`workset.snapshot.yaml` 里查——**重放时这两半来自同一份语料,必然一致。** 所以在规则 18
+之下,这条检查对我们永久落在「一个来源劈成两份」那一类里(`SKIP-AHEAD.md` §6.1 第四条)。
+
+**仍然会咬人的是 `_cross_check`**(`check_optimization_shape.validator/check.py:536`):
+它在**别处真的 stage 了一份 workset** 时,拿快照去和那一份比。在 m4 自己的 output
+phase 里没有第二份,所以它推迟到 **m5 的 input phase**——那里两份都在。**而它在没能比
+的时候会写下一条 note 说自己没比**,所以这个上限是**可见的**,不是隐形的。
+
+**真实 stage 4 从此只用来回答一个问题:「一次真实的 stage 4 会做什么」。今天已经回答
+过一次。**
+
 ### m5 integration —— 三条代码路径的**首次**行使
 
 **确立:** 补丁**真的在跑**(不是只被挂上)。`check_patch_live` 在运行中的容器里重新
