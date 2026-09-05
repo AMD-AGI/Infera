@@ -175,6 +175,12 @@
   **有内容的错误文件比空文件更难发现。**
 - **`| head` / `| tail` 会吞掉 rc。** 今天吞过四次,其中一次差点让我给正确的
   代码报 bug。用 `PIPESTATUS` 或分开取。
+- **agent 的 transcript 是一件我们谁都没用过的仪器。** m4 那条线「停滞 64 分钟」,
+  被诊断成挂死、被拿去质疑停滞检测器、被我建议去查 `wchan`/`stack`——**而 agent
+  早就结束了这一轮并写下了完整的拒绝理由,在 transcript 里躺了 64 分钟**:启动行
+  少了 `--var gpu=`,`HIP_VISIBLE_DEVICES` 为空,而包里三处写明「body 不许自己
+  改它」,**它认出自己就是那个 body,所以拒绝挑一张看起来空闲的卡**。
+  **mtime 和进程表回答「它在动吗」;transcript 回答「它在做什么、为什么停」。**
 - **`tail -1` 也会吞掉内容,而这一次更贵。** 我的十分钟巡检一整天都在跑
   `grep -aE 'phase|did NOT finish' $f | tail -1`。四条「死因不明」的运行,**真正的
   死因就写在最后一行的上面一行**——`"the escalation reached the top … Nothing has
