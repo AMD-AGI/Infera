@@ -381,6 +381,14 @@ def _kernel_rel(operator: dict) -> str:
     workspace"* on a path outside it, and raises again if the path is not a
     file. **Both frames accepted, containment enforced, existence enforced.**
 
+    **The checkout that decides is `/shared_nfs/hyperloom/KernelForge`** —
+    `30_run_forge.sh` installs from it per container, and `kernel-agents` is
+    not in the image — where the guard is `campaign_config.py:316`, called for
+    the kernel at `:527`. Cited because the apparent disagreement about this
+    behaviour was two people reading two different copies: line numbers here
+    are hyperloom's, not the `chaojhou` tree's, whose numbers differ by roughly
+    two hundred and which nothing installs from.
+
     The claim came to this file through a teammate's message rather than
     through a tool or a memory, which is the one channel with no independent
     check — and it was retracted by its author within the hour. It is written
