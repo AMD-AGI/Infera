@@ -3838,3 +3838,59 @@ that rather than on the filename.
 **What would reopen it:** anyone proposing to install a `results/optimized_kernel.py`
 that was not produced by `30_run_forge.sh` on the same run. **Under that condition
 the accident stops covering us, and this stops being deferrable.**
+
+### T76 — emitting `environment.yaml` is a producer's duty with no central enforcement, and three producers do not discharge it
+
+**Found by readme-cn 2026-09-05 offline against run `20260905T162032-4473f1`**, after
+`check_environment` refused three kinds and the shape suggested one cause rather than three.
+
+**The failing condition is identical in all three: step (1) *present*.** No schema
+failure, no cross-input disagreement. `check_environment.validator/check.py`'s
+`find_record` looks in exactly three places:
+
+```
+items/env/environment.yaml        reproducible, structured_text
+items/codes/environment.yaml      code
+items/codes/*/environment.yaml    code wrapped in one named dir
+```
+
+**Twelve of fifteen handoffs in that run carry a record at one of those paths;
+three carry none, and they are exactly the three that refuse.**
+**Positive control in the same run:** `deploy_kit` and `operator_workset` both hold
+`items/codes/environment.yaml` and both pass — **so the paths are reachable and the
+glob works.** (The evidence here is the miss, not a grep hit; see the audit rule.)
+
+**The one cause:** `assets/lib/env_render.py` is the only thing in the package that
+writes `environment.yaml` (its `_REL` map at `:58-60` is the source of those three
+contract paths). **It is invoked per producer and nothing enforces the invocation.**
+Seven call sites exist — `apply_patch`, `build_workset`, `deploy_and_prove`,
+`merge_arm.py:312`, `merge_profiling_evidence`, `optimize_kernel/steps/_lib.py:340`,
+`run_profiling_mode_off`. **`packup.py` is not among them, and neither is
+`integrate_and_verify`.**
+
+| kind | what sits where the record belongs | site |
+|---|---|---|
+| `integration_report` | nothing; `items/` is flat | `integrate_and_verify` never calls `env_render` |
+| `e2e_packup` | `items/codes/environment.md`, prose + a markdown table, no YAML | `packup.task/packup.py:189-197` writes only the `.md` |
+| `kernel_optimization` | `items/codes/<packup>/environment.md`, first line *"Copied verbatim from the workset's `environment.yaml`"* | same `packup.py` writer; **this artefact is the replayed one** |
+
+**Routing, and two corrections to the obvious assignment:**
+
+- **m5 is two sites, not one.** `merge_arm.py:312` *does* call `env_render`, which is
+  why `stock.measurement` and `patched.measurement` pass in the same run. m5 emits
+  for the measurements and not for the report or the packup.
+- **`kernel_optimization` is not m4's live producer.** `_lib.py:340` calls
+  `env_render`; the refusing artefact is the **replayed** one (its embedded YAML names
+  `node: crsuse2-m2m-088`). **m4's action is "confirm the live path emits it",
+  not "fix the producer".**
+
+**A fix already exists for one of the three:** m1's
+`/tmp/yihou_m5_integration_report_env.patch`, `git apply --check` clean, machine-
+generated. **It closes `integration_report` only.** `e2e_packup` needs `packup.py`
+to emit the YAML beside the `.md` it already writes — it has the data in hand there.
+
+**The item is the layer above, not the three sites.** Closing all three leaves the
+next producer free to forget. **Options not decided here:** have the seal require the
+record for kinds whose content type implies it, or have `env_render` be called by the
+framework rather than by each body. **Both change a contract, so neither belongs in
+this round** — see T75 for the same reasoning.
