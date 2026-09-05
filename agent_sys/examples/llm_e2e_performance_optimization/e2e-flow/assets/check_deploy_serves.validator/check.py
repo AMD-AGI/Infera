@@ -342,7 +342,7 @@ def judge_load(summary: dict, accept: dict, load_shape: dict) -> list[str]:
 # one kit
 
 
-def _note(notes: list[str], message: str) -> None:
+def _note(notes: list[str], message: str, *, file=None) -> None:
     """A note: context that is true whether the verdict passes or fails.
 
     **Tagged here, at the write, and never recovered from its wording later.**
@@ -354,9 +354,19 @@ def _note(notes: list[str], message: str) -> None:
     Still printed, because someone watching a live run should see it — but stdout
     is not the channel that survives: `grep -c "check_deploy_serves:"` over a
     completed run's orchestrator log returns **0**. The report is what is left.
+
+    **`file` exists because two call sites already passed it and this signature
+    did not accept it** — the teardown-path handlers at the bottom of
+    `check_one`. Found 2026-09-05 by reading every `_note(` call site after the
+    first real report came back; `77ed4be` converted twelve `print(...)` calls
+    mechanically and carried the kwarg across on the two that had it. Both sit in
+    `except` blocks, so the `TypeError` would have fired **only when a teardown
+    had already failed** — the moment the note matters most. Neither `ast.parse`
+    nor `symtable` sees an arity error, which is the third instrument in this
+    package to be unable to fail in the way it was being trusted to.
     """
     notes.append(message)
-    print(f"check_deploy_serves: {message}")
+    print(f"check_deploy_serves: {message}", file=file if file is not None else sys.stdout)
 
 
 def check_one(content: Path, parameters: dict, transport: dict, probes: dict,
@@ -629,8 +639,9 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict,
 
         # ---- 3. the load -----------------------------------------------------
         load = probes["load"]
-        print(
-            f"check_deploy_serves: 3/4 load — {load['input_tokens']}/{load['output_tokens']}, "
+        _note(
+            notes,
+            f"3/4 load — {load['input_tokens']}/{load['output_tokens']}, "
             f"concurrency {load['concurrency']}, {load['duration_seconds']}s"
         )
         port = router.rsplit(":", 1)[-1].rstrip("/")
