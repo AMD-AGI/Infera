@@ -2168,7 +2168,7 @@ item below loads clean and fails later, so this list is the check.
 | `transport_env` | required | required | refuses in 1 s, looking exactly like a deployment failure |
 | `integration_min_requests` | n/a | **omit — default 50** | see below |
 | `expect_ranks` | `2` | **set to the deployment's `tp`** — omitting defaults to 8 | m2's; `${expect_ranks:-8}` does **not** track `tp`, so "omit" is safe only at `tp=8` |
-| `forge_fellow` | **omit** | **omit** | m3's; needed only when a Definition's tags name no KernelForge backend or two. `run_forge.sh` then exits 2 listing the seven valid backends **without naming this variable** |
+| `forge_fellow` | **omit** | **omit** | m3's; needed only when a Definition's tags name no KernelForge backend or two. `run_forge.sh` then exits 2 and its FIX block names this variable — but only **after** a campaign has failed to start |
 
 **`transport_env` is not a package variable at all** — it is consumed by the
 runner, so it appears in no yaml and `show` is structurally unable to see it
@@ -2183,14 +2183,25 @@ three Triton operators and a HIP one, so pinning it substitutes a backend for
 the minority operator, which is the defect `62032fc` removed. So the row above
 says **omit** in both columns and means it.
 
-It is here because of what happens on the path that needs it. When the tags
-settle nothing — none names a backend, or two do — the generated wrapper
-refuses with the seven valid names and **no mention of the variable that would
-supply one**. The operator reads a list of backends and has no way to know
-where to put one. Documented here rather than added to the refusal text on
-purpose: the refusal's job is to stop a campaign under a backend nobody chose,
-and offering the override in the same breath invites reaching for it instead of
-fixing the tags, which is what `todo.md` T69 is actually about.
+It is here because of *when* the path that needs it is discoverable. The
+wrapper's refusal does name the variable — `forge_export.py:162-163` emits
+`--var forge_fellow=<backend>` in its FIX block — but a refusal is read after a
+campaign has failed to start, on a held node, by someone who has already
+composed a launch line. **A var table is read before.** That is the whole
+argument for the row, and it is the only one: this is not a variable the
+refusal hides.
+
+**An earlier version of this paragraph said the refusal does *not* name it.**
+That was false when written; `f92e42b` had added the FIX line an hour earlier,
+in the same series that made the fallback validated. Recorded rather than
+quietly replaced because the error has a shape worth naming: the sentence was
+written from a memory of the refusal rather than from the refusal, by the
+author of both. Found by readme-cn, who checked the row against the code.
+
+What the refusal does do, and what should not be "helpfully" reordered: it
+leads with **correct the Definition's tags** and offers the override second.
+That ordering is deliberate — reaching for the variable instead of fixing the
+tags leaves `todo.md` T69 standing.
 
 Accepted as `triton` or `triton-fellow`; an unknown name is treated as absent
 and still refuses. It never overrides tags that already decide.
