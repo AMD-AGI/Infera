@@ -9765,3 +9765,187 @@ assignment happens in messages, and a message does not know what other messages
 were sent. **A file's owner is a fact about the world; an instruction naming an
 owner is only a claim about it** — and the two drift exactly as fast as the
 coordinator sends messages.
+
+---
+
+## T+2530 — 2026-09-05 07:45 UTC
+
+Previous numbered section: **T+1794 (09-04 19:24)**. The interval between them is
+not blank — it holds `THE DAY'S RECORD` (06:47) and 81 commits — but no numbered
+section was written, so this one carries **12h21m** of ladder movement.
+
+### 1. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** |
+| 已经耗时 | 42 h 10 m wall (T0 = 09-03 13:30 UTC) |
+| 预估耗时 | **not estimable** — see below |
+| 可靠性 | **中** for the 78 %; **低** for anything past stage 3 real |
+
+**78 % is defended by coverage, not by acceptance.** Measured this interval
+[observed]: across the **29 run directories created since 09-04 19:24**, 89
+`validation.yaml` files hold **256 verdict rows — 243 true, 13 false**, and
+**all 21 declared validators were invoked at least once.** That is the first
+window in which the declared set is fully exercised.
+
+**What it does not mean, stated so nobody promotes it:** 21-invoked is a *union
+over 29 runs*, not a single green chain. A union cannot report regression — the
+reason I retired the "distinct validators passed" metric three times already.
+The single best run in the window is `20260905T043851-4e95fc` at **45 pass / 0
+fail**; the next is `20260905T064703-5fbd66` at **24 / 0**. Neither is the full
+five-stage real chain.
+
+**预估耗时 stays absent.** I have no completed real five-stage chain to divide
+by, and the last four attempts died in profiling. An ETA here would be a number
+with no denominator.
+
+### 2. 当前进展
+
+**[observed] 07:40:14 — four `run` processes**, pids 366844 (53 m), 400634
+(51 m), 725021 (32 m), 1244119 (1 m).
+
+**[observed] Three holds**, and one of them is the story:
+
+```
+109504  crsuse2-m2m-088   used 2:31:06
+111038  crsuse2-m2m-217   used 7:39:40   <-- ~20 min left of an 8 h cap
+112519  crsuse2-m2m-287   used 1:23:49
+```
+
+**217 is ~20 minutes from expiry.** Per the rule that computes *remaining*, not
+*used*: nothing longer than a short probe should be started there, and anything
+already on it should be assumed cut. **I could not determine which run is on
+217** — see item 5.
+
+**Failures in the window are concentrated, not scattered** [observed]: of 13
+false verdicts, **`check_trace_coverage` 5 and `check_deploy_serves` 5** account
+for ten; `check_environment`, `check_optimization_shape`,
+`check_speedup_substantiated` one each. Two validators own 77 % of the interval's
+rejections.
+
+**Ledgers and records reached a stable division this interval** [relayed —
+leader]: `validator.failures.2026-09-05.md` is readme-cn's sole rebuild target;
+`bug.record.2026-09-05.md` is mine; **`todo.md` reverted to shared** with a
+`git diff` precondition. The leader reversed their own sole-ownership rule after
+it was live-broken by m3's T67 in the same interval it was announced. The rule
+that survived is **"a rebuild needs one owner; an append-only log does not."**
+
+**`todo.md` is at T67.**
+
+### 3. 代码问题
+
+**Fixed this interval (mine):**
+
+- `bee6579` — the forward half of bug-record entry 2. Measured: exactly **two**
+  of 21 validator bodies never call `write_report` (`check_deploy_serves`,
+  `check_environment`); the other four the census showed silent were
+  **historical**, each having gained the write hours later (`e42bde4`,
+  `dff2bcb`, `c7340f9`). **So "conditional silence" does not exist in this
+  package** — which is the opposite of what the census alone implied.
+- `7538e78` — quantified the discarded-stdout gap at **15/46**.
+- `e9e4534` — two new bug entries; ledger rebuilt from `validation.yaml`.
+
+**Not fixed, deliberately** — the leader holds placement:
+
+- `check_environment` (`steps/common.yaml`, shared/leader's) — **16** existing
+  `findings` references, so the report write is close to a one-liner.
+- `check_deploy_serves` (`steps/m1_deploy.yaml`, m1's) — **0** references; a real
+  change. Its baseline needs a live deployment, so its load-bearing status is
+  **untested**, independent of the report question.
+
+**Found this interval, unfixed, mine:** a **two-writer corruption in my own
+measurement path** — see item 5, because it is the interesting half.
+
+### 4. 非代码问题
+
+- **The coordinator's assignment channel does not scale to its own message
+  rate.** Two file-ownership collisions inside one hour, the second created by
+  the message announcing the remedy for the first. Resolved structurally: a
+  `git diff` precondition **checks the world**; an ownership assignment **checks
+  the coordinator's memory of it**.
+- **217's remaining time is the only scarce resource right now** and no one has
+  named what is on it.
+
+### 5. 未定性
+
+**(a) The zero that was a race, not a fact.** I ran a tree-wide
+`find … > /tmp/yihou_v.txt`; it exceeded the 120 s limit and was moved to the
+background. I read the file: **0 lines**. The harness then reported the task
+**completed, exit code 0**. Exit 0 plus an empty file reads exactly like "no
+validations since 19:24" — a false and *quiet* answer. The control
+(`find` without the time filter, in one known directory) returned 9 both with
+and without `-newermt`, which is what exposed it.
+
+**(b) The same background writer then corrupted my replacement.** I truncated
+and reused the same path for a scoped re-collection. The backgrounded `find` was
+**still running** and appended into it, interleaving with my loop. The splice
+produced `…/e312c0fa-6d83-4d9-4ec3-b1e0-6e9589b50f18/v0/validation.yaml` — **a
+path that does not exist**, differing from the real
+`e312c0fa-6d83-4dd6-9f49-9aa7347205ee` only after the fourteenth character. It
+survived a `wc -l`, a `grep`, and a per-file loop, and surfaced only as a single
+`PARSE_FAIL`.
+
+**My first tally was computed over that file: 96 files, 274 rows, 260/14.** The
+clean re-collection to a fresh `mktemp` path, with every line proved to exist
+before use, gives **89 / 256 / 243 / 13**. *The published numbers in items 1–2
+are the clean ones.* Seven of the 96 were the other writer's.
+
+**Both halves are new instances of the class table's entry, and they sharpen
+it:**
+
+> **A background task's "completed, exit code 0" describes the process, not the
+> artefact.** Killing the foreground does not kill the writer, and a truncated
+> redirect target with a live second writer yields data that is *plausible*
+> rather than absent — which is strictly worse than empty.
+
+**Undetermined, and I am not guessing:**
+
+**(c) Which run is on 217.** I grepped the four newest run trees for node names
+and got `006 019 047 061 234 276` in every one, plus `088`/`287` in two. Those
+are **provenance strings carried inside the copied sealed corpora** — the
+artefact answers "which node produced my inputs", not "which node am I on".
+Same shape as the class-table entry it belongs to. **No claim made.**
+
+**(d) Whether the interval's 13 failures overlap readme-cn's 45/33/11 census.**
+Different windows and different collection methods; I did not diff them, and I
+will not touch their file to find out.
+
+### 6. 新增 commit
+
+81 commits in the interval, across seven owners. Mine, and what each is for:
+
+| commit | what |
+|---|---|
+| `e8bd141` | `validator.failures`: rule 4's bias is an instrumentation timeline, verified from the bodies |
+| `bee6579` | bug entry 2's forward half — only two bodies never write a report; four were historical |
+| `2bd231f` | checkpoint: a stale value arriving **by instruction**, and the double-assignment recurring within the hour |
+| `453237d` | restore the five corrections my rebuild destroyed, **on the rebuild's own method** |
+| `d68a104` | `CLAUDE.md`: two failures of mine today, both structural rather than slips |
+| `7538e78` | quantify the discarded-stdout gap at 15/46; T49 reached the ledger itself |
+| `e9e3340` | `todo`: mark E16 inside T10, record m5's answer in T62, add T66 |
+| `ee6af8d` | `todo`: T62–T65, today's four deferrals |
+| `e9e4534` | rebuild the failure census from `validation.yaml` (45/33/11) + two bug entries |
+| `080f1b0` | `THE DAY'S RECORD` |
+| `ba97397`/`3885050` | the negative-control results: nine of ten load-bearing, none decorative |
+| `8de9bb5` | reconcile the two ledgers — both blind to the same PASS-shaped class |
+| `14f35bc` | consolidate 15 `temp/bugs` records into one, every `file:line` re-verified |
+| `17f03d5`/`a18ece2`/`b870a61`/`ace933d` | `CLAUDE.md`: the user's standing rules and the day's debugging techniques |
+
+The other owners' 60-odd are the ladder itself — m1's NCCL retry (`78909fc`),
+m2's engine-log wait (`475f2fc`) and writable trace dir (`9ab60e3`), m3's
+container-root expansion (`91c0b04`), m4's `public_symbol` entry point
+(`039825c`), m5's schema-absence refusal (`ce2d5a6`).
+
+### 7. 其他
+
+**The one number worth carrying forward** is not 78 %. It is **21 of 21
+validators invoked in a single 12-hour window with a 95 % true rate**, set
+against **zero complete five-stage real chains**. Those two facts are not in
+tension: the validators are exercised by the *rungs*, and the rungs are cheap.
+The chain is what is expensive, and the chain is what has never finished.
+
+**And the honest note about this section:** two of its five measurement steps
+produced wrong numbers before producing right ones, both from the same
+background-writer mechanism, and **neither would have failed loudly.** The
+section is trustworthy because I ran the control, not because the tools behaved.
