@@ -2061,9 +2061,11 @@ it reads as a deployment problem.
 ## 2. The command
 
 ```sh
-python3 -m agent_sys.cli.main run \
+python3 agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/lib/run_with_long_stall.py \
+  --stall-after 900 run \
   --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
   --demo-root /home/yihou/agent_sys_runroot \
+  --timeout 21600 \
   --var jobid=<the hold> --var node=<the node> --var node_ip=<MEASURED> \
   --var model_name=Qwen/Qwen3.6-27B \
   --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
@@ -2072,16 +2074,39 @@ python3 -m agent_sys.cli.main run \
   --var expect_ranks=<the kit's tp_size> \
   --var gpu_devices=<the free cards, e.g. 0,1,2,3> \
   --var mock_stages=none \
-  --var measure_gpu=<free GPUs on the node, see below> \
+  --var measure_gpu=<the card m3 measures on, see below> \
   --var bench_rounds=3 \
   --var work_root=/mnt/m2m_nobackup/yihou/e2e_flow \
   --var container=yihou_e2e_flow_r5_$(date +%m%d%H%M) \
   --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR
 ```
 
+**The wrapper is not optional, and this block said `python3 -m
+agent_sys.cli.main run` until it cost a hold.** `stall_after` is **not exposed
+on the CLI**, so a bare launch always gets the 20-second default, and a real
+rung cannot survive it. Reproduced on 287, 2026-09-05, attempt 1 — the same
+three lines as rung 2b:
+
+```
+final    deploy_and_prove: succeeded          <- 3 strong verdicts, deploy_kit valid
+final    run_profiling_mode_off: running      <- in a cold start, measured at 222 s
+handoff  profiling_mode_off.bench_result: generating
+done     ... Nothing has changed for 20 s ... run complete; the run did NOT finish
+```
+
+55 minutes of real bring-up thrown away by a threshold nothing on the command
+line mentions. The wrapper prints `stall_after 20s -> 900s` when it takes;
+**if that line is absent the launch is the bare one** and should be killed and
+re-issued rather than watched.
+
+**The other six launch blocks in this file still show the bare form.** Left for
+their owners rather than edited here — but the defect is the file's, not this
+section's, and any of them run as written will die the same way.
+
 **Verified to load, not merely written**: this exact form, with the placeholders
 filled by representative values, returns `6 tasks in the graph; nothing was
-dispatched` from `agent-sys show`, 2026-09-04.
+dispatched` from `agent-sys show`, 2026-09-04; re-verified with real values and
+launched on 287, 2026-09-05.
 
 **Every `m<N>_agent=runner` is gone, and that absence is the whole rung.** Five
 of them, not one. A rung-5 command carrying any is a lower rung wearing rung 5's
