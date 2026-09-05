@@ -2343,6 +2343,67 @@ knew the answer from a command two minutes earlier.
 `container`, `work_root`. m1's `p4_e` rode the defaults next to another chain on
 the same host, which is the other half of what went wrong that morning.
 
+## 3b. What should exist by now — m3's three leaves
+
+**A timeout says something is *late*; a named missing artefact says *which step
+never ran*.** m4's form, from the line that worked. Measured below on two real
+runs — `20260905T064703-5fbd66` and `20260905T074905-9ec798`, both m3 real on
+287 — not estimated.
+
+### `rank` and `identify`: no useful assertion exists, and that is the answer
+
+```
+rank      start -> seal    12 s  /  12 s
+identify  start -> seal    15 s  /  14 s
+```
+
+**Both finish faster than any polling interval.** There is no artefact that
+appears early enough to distinguish "working" from "stuck", because the whole
+task is over in the time between two polls. The assertion for these two is not
+about artefacts:
+
+> **If `rank` or `identify` is `running` for more than 60 s, it is not slow —
+> something is wrong.** Both are `kind: program`, both are pure CPU over a CSV
+> and a symbol table, and neither touches the node.
+
+### `build_workset`: three checkpoints, ~28 minutes end to end
+
+```
+                                    run 5fbd66        run 9ec798
+  running                           06:59:11          07:58:20
+  items/codes/environment.yaml      +1 m 11 s         +48 s
+  items/codes/evidence/correctness.json   +18 m 19 s  +21 m 07 s
+  items/codes/evidence/performance.json   +19 m 34 s  +23 m 35 s
+  sealed                            +22 m 54 s        +28 m 09 s
+```
+
+| assert | by | if absent |
+|---|---|---|
+| `items/codes/environment.yaml` | **3 min** after `running` | the agent never got past the environment record — STEP 1/2, before any measurement |
+| `items/codes/evidence/correctness.json` | **25 min** | the correctness entrypoint never ran, or ran and never returned — STEP 7, the first thing that needs the container |
+| `items/codes/evidence/performance.json` | **28 min** | correctness ran and timing did not — STEP 8 |
+
+**`evidence/` is the sharpest single bit in this stage.** A mocked run cannot
+produce it: it is written by the workset's own entrypoints executing on the
+node. `evidence/` present means the container came up and torch imported;
+`evidence/` absent with `workloads/` present localises the failure to STEP 7,
+between building the tree and running it.
+
+### The trap in reading these by mtime
+
+**Three files in every sealed workset are older than the run.**
+`run_correctness.sh`, `run_performance.sh` and `_common.py` are copied verbatim
+from `assets/build_workset.task/harness/` and **the copy preserves the source
+mtime** — measured `09-03 14:52`, `09-04 11:12`, `09-04 15:05` inside a run that
+started `09-05 07:58`. So:
+
+- **a recent mtime on those three would mean the agent edited the oracle**,
+  which `check_workset_shape` compares byte-for-byte and refuses;
+- **`ls -t` on the workset root shows a harness file first**, which is not the
+  newest thing written;
+- any liveness check on this stage must name the artefacts above, **not** "the
+  most recently modified file".
+
 ## 4. Three values that are m5's, and each is a finding rather than a choice
 
 ### `adhoc_cases` — rung 5 is the first run that may not lower it
