@@ -2379,16 +2379,34 @@ and still refuses. It never overrides tags that already decide.
 
 ## 3a. Before you launch: is anything already on those cards?
 
-**Three conditions, and the third has cost two collisions and a near-miss in one
-morning.** `git status --porcelain -- <package>` in the shell you launch from;
-a numeric `rocm-smi` read of the cards you are taking; and **the process table**.
+**Three conditions, and they are ordered — the process table first.**
 
-**The process table is not redundant with `rocm-smi`, and this is the whole
-point.** A line that has launched and not yet brought up holds no VRAM. m1
-asserted zero on 217 at 09:12 — **it was zero** — and m4's chain, launched at
-08:47, brought up at ~09:13. **One minute.** The window is not "launched but not
-up"; it is *"will come up at some moment in the next half hour"*, and no
-snapshot of the GPU can see it. Only argv can.
+1. **Does a live chain hold the node?** The process table. If yes, the node is
+   not yours **whatever the cards say**.
+2. **Are the cards you are taking busy?** A numeric `rocm-smi` read.
+3. `git status --porcelain -- <package>` in the shell you launch from.
+
+**This section originally listed the process table third and treated the card
+read as primary. That ordering is wrong and it cost a near-miss the same
+afternoon.** 093 was reported *"completely idle, eight cards"* — **measured, and
+true**: two full-real chains were sitting in `build_workset` and `identify`,
+both CPU stages, so every card genuinely read 0 %. **The reading was right, it
+stayed right, and the node was not available.** Inferring *available* from
+*idle* is a different error from a stale reading, and only question 1 catches
+it.
+
+**The process table is not redundant with `rocm-smi`, and it is not a
+supplement to it.** A line that has launched and not yet brought up holds no
+VRAM. m1 asserted zero on 217 at 09:12 — **it was zero** — and m4's chain,
+launched at 08:47, brought up at ~09:13. **One minute.** The window is not
+"launched but not up"; it is *"will come up at some moment in the next half
+hour"*, and no snapshot of the GPU can see it. Only argv can.
+
+**Neither question subsumes the other**, which is why both are here and in this
+order: question 1 misses a container with no orchestrator behind it (an agent
+that outlived its run, or an orphan that restarted — both measured on 2026-09-05),
+and question 2 misses a chain between launch and bring-up, and misses an idle
+CPU stage entirely.
 
 ### Two forms that work
 
