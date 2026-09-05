@@ -372,14 +372,22 @@ def _kernel_rel(operator: dict) -> str:
     recorded string straight to forge names a path that does not exist there.
     Third time this frame has bitten this package.
 
-    **And a wrong value here is worse than a missing one.** forge builds
-    `(workspace / kernel_path).resolve()` (`cli.py:1132`,
-    `campaign_config.py:194`), and `Path.__truediv__` *discards the left
-    operand* when the right is absolute — so an absolute `--kernel` silently
-    ignores `--workspace`, forge edits a file outside the tree it was given,
-    and `git diff <baseline>` in the workspace comes back empty. A clean-looking
-    no-op is the worst outcome available, which is why the missing flag was
-    never worth papering over with a guess.
+    **A wrong value fails loudly, and the paragraph that used to stand here
+    said the opposite.** `f92e42b` recorded that an absolute `--kernel` would
+    silently ignore `--workspace`, edit outside the tree, and leave `git diff`
+    empty. That is false. `_relative_file` validates the value before the
+    `(workspace / kernel_path)` join that suggested the hazard: it accepts
+    either frame, resolves both sides, raises *"kernel must be inside
+    workspace"* on a path outside it, and raises again if the path is not a
+    file. **Both frames accepted, containment enforced, existence enforced.**
+
+    The claim came to this file through a teammate's message rather than
+    through a tool or a memory, which is the one channel with no independent
+    check — and it was retracted by its author within the hour. It is written
+    out here rather than deleted because the fix it justified is still the
+    right one for a different reason: the wrapper's own check turns forge's
+    exception, raised from inside a campaign that has already booked the node,
+    into a refusal that names both frames before anything starts.
 
     The tail is derived from `container_roots.yaml` rather than trimmed as a
     literal, per m4: a literal `sglang/python/sglang/` is correct today and

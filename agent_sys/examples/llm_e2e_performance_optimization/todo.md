@@ -3425,3 +3425,80 @@ than at campaign time.
 
 **Holder: m3.** Not blocking — the wrapper refuses rather than substitutes, so
 the dangerous outcome is gone even while the disagreement stands.
+
+---
+
+### T70 — `kernel_taxonomy.yaml` offers a fellow KernelForge does not have
+
+*Opened 2026-09-05 by m3 at the leader's instruction, split out of `62032fc`
+rather than folded into it.*
+
+`assets/lib/kernel_taxonomy.yaml:129` maps a symbol shape to
+**`tilelang-fellow`**. KernelForge registers seven backends
+(`kernel_agents/fellows/constants.py:17-26`): `ck`, `flydsl`, `triton`,
+`aiter`, `hip`, `hipblaslt`, `intellikit`. **`tilelang` is not among them**, so
+that row can never be honoured.
+
+**Before `62032fc` it would have substituted**; now it refuses. That is the
+safe direction and it is also why this needs an entry: **the refusal reads like
+a configuration error at the point of use**, hours away from the row that
+caused it, to somebody who did not write either. The wrapper prints the seven
+valid names, which is a hint and not an explanation.
+
+**Note the asymmetry with the other four rows.** `triton-fellow`, `ck-fellow`
+and `hip-fellow` all name real backends. One row out of four is wrong, which is
+exactly the ratio that survives review — a table where every row is wrong gets
+noticed.
+
+**What would close it:** validate the taxonomy's fellow column against
+KernelForge's constants **when the taxonomy is loaded**, not when a campaign
+tries to start. Same shape as T69's fix and it should probably be the same
+change.
+
+**Holder: m3.** Not blocking — nothing dispatches a tilelang operator today.
+
+---
+
+### T71 — three separate defects share one cause: the mock corpus has a shape the real path does not
+
+*Opened 2026-09-05 by m3 at the leader's instruction. **This entry exists
+because the third instance made it a pattern rather than a coincidence**, and
+until now each was filed only where it was found.*
+
+The mock corpus is 25 real sealed handoffs. They are real, and they were
+produced by five *separate* packages under the old design. **Where those
+packages differed from `e2e-flow`, the corpus encodes the old shape** — and a
+mock run then exercises a branch the real run cannot reach. The failure is
+always the same: **mock green, real refuses, and the difference is in the
+material rather than the code.**
+
+**Instance 1 — operator names.** *m3, measured.* Contract-diffing the real m3
+output against the mock-injected m3 material gave **zero intersection on
+operator names**, and three of the files m4 required existed only because the
+mock adapter wrote them. m4's stage refused on the real path for that reason.
+
+**Instance 2 — the four-versus-one operator count.** *Relayed from the leader,
+not measured by me; recorded so the set is complete and marked so nobody reads
+it as mine.*
+
+**Instance 3 — the fellow tag's spelling.** *m3, measured.* T69: the corpus
+carries `<lang>-fellow`, real `identify` writes bare `<lang>`. The generator
+matched the corpus, so mock took the matching branch on every operator and real
+took the fallback on every operator — **100 % divergence, and both sides
+looked healthy.**
+
+**Why it keeps producing PASS-shaped defects.** A mock run that succeeds is the
+evidence that the wiring works. When the corpus supplies the shape, the mock
+proves the wiring against material the real producer will never emit — so the
+green is real and tells you nothing about the path you are about to run.
+
+**This is not an argument for dropping the corpus.** It is the only thing that
+made stage-parallel debugging possible. **It is an argument for one specific
+control:** for any field a mock consumer reads, diff the corpus's value against
+what the real producer emits, **before** the real run — the same
+contract-diff that found instance 1, applied ahead of the failure instead of
+after it. Cheap, no node, and it is the only one of the three that was caught
+before it cost a run.
+
+**Holder: unassigned.** Instances are m3's; **the control is nobody's yet** and
+should not be inferred to be m3's because m3 filed the entry.
