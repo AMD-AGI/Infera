@@ -3797,3 +3797,44 @@ if it is worth a handler, it is worth one in a shared helper rather than four.
 
 **Holder: m1**, pending someone wanting the class closed rather than the
 instance.
+
+### T75 — constrain the `optimized_kernel.py` slot by KIND, not by filename — deferred, and the deferral is the decision
+
+**Raised by m4 in `bug.record` entry 29 and explicitly handed up rather than taken.**
+That was right: it changes a handoff contract, which is not a module owner's call.
+
+**The defect** (29's thesis, and it has two instances today): 「一个优化后的 kernel」
+和「一个内嵌了优化后 kernel 的测量候选」**同名、同后缀、同位置**。
+`60_write_handoff.py` publishes whatever is there as `results/optimized_kernel.py`,
+and `apply_patch` overlays it into a real image.
+
+- **Instance A (leader, morning):** the slot held the workset's `reference.md` --
+  prose. `ast.parse` fails outright. Guarded only by `base_sha256`, **and I removed
+  that guard myself** by measuring the true hash on a node and filling it in.
+- **Instance B (m4, 14:08):** the slot held a valid, self-documenting, correct
+  three-part composite -- an `--impl` for the workset harness whose Part 2
+  monkey-patches sglang at import and whose Part 3 defines `run`.
+  **Part 1 verifiably IS iteration 2; the file does not lie.**
+  **No syntactic check separates B from a real engine module.**
+
+**The direction m4 recorded** (as a record, not a recommendation): have the artefact
+self-report `engine_module` vs `impl_candidate`, and have the consumer constrain on
+that rather than on the filename.
+
+**Decision: not this round.** Reasons, in order:
+
+1. **It is a contract change.** Phase-0's whole discipline was that the contract is
+   frozen before the owners work in parallel; five chains have run against the
+   current shape today. Risk 1 in the plan is exactly this churn.
+2. **Phase (5) has never completed.** Nothing changes the kind contract while the
+   only thing that has never worked end-to-end is still being attempted.
+3. **The hazard is currently contained, by accident and knowingly.** `apply_patch`
+   refuses B -- `_module_surface` is `ast`-based and Part 1's defs sit inside a
+   string literal, so every stock name reads as dropped. **Correct outcome,
+   unrelated mechanism**, and `apply.py:103`'s docstring already says *"this is a
+   one-artefact rule"*. **Recording that we are relying on an accident is the
+   point of deferring in writing rather than silently.**
+
+**What would reopen it:** anyone proposing to install a `results/optimized_kernel.py`
+that was not produced by `30_run_forge.sh` on the same run. **Under that condition
+the accident stops covering us, and this stops being deferrable.**
