@@ -670,6 +670,8 @@ Say what rung 0 covered in those terms, not as "the mock passed".
 
    **Carrying a real value into a mocked run produces refusals that read exactly like producer defects**, and `-noval` will not tell you, because nothing is looking.
 
+   **The table above is not the set of vars that vary — it is the set someone has already been bitten by.** m2 found a fourth on 2026-09-05 within an hour of this being written: **`adhoc_cases` DEFAULTS to `3`, the real value, so a real run must OMIT it** and several launches that day passed `--var adhoc_cases=0` — carrying the *mocked* value into a real run, the same class in the opposite direction. **Read every var you pass and ask which side of the mock boundary its consumer is on; do not read this table and stop.**
+
    *Written on 2026-09-05 after m1 paid three launches for it. They hit `expect_ranks`, fixed that one var, relaunched, and hit `adhoc_cases` and `bench_rounds`. **The fix was never "fix that var" — it was "audit every var against the mocked column", which found both remaining ones in a single pass.** Two of eight rows were wrong for their run and they could have known before the first launch. The table was already right; it was not read as a table.*
 
 3. **`agent-sys show`** — under a second.
