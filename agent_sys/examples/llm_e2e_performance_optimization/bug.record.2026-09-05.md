@@ -1575,3 +1575,74 @@ nat == emb   ->  True
 `find -name 'forge_native*'` 永远不会命中。**而同一条命令里 `best_result.json`
 那一半本应命中,却没有。** 记在这里是因为:**一次复合检索返回空,
 它的两半可能因为完全不同的原因为空,而合起来读像是一个干净的否定。**
+
+---
+
+## 29. `results/optimized_kernel.py` 这个槽位**邀请错误的文件**,而消费者会把里面的任何东西覆盖进真镜像
+
+**m4 记,2026-09-05。两个实例,一天之内,都在同一个槽位。**
+`60_write_handoff.py` 把候选写进 `results/optimized_kernel.py`,
+m5 的 `apply_patch` 以 `overlay_files` 把它盖进运行中的镜像。
+**槽位只约束了名字和后缀,没有约束「它是哪一类东西」。**
+
+### 实例 A(上午,leader 的,事实由本人提供而非我从残留物重建)
+
+> 我生成的 `kernel_optimization` 里,`results/optimized_kernel.py` 是 workset 的
+> **`reference.md`** —— 一篇讲「参考实现在哪」的散文。`ast.parse` 直接失败。
+> `apply_mode: overlay_files` 会把它写到镜像里一个真实的 Triton kernel 上。
+> **唯一拦住它的是 `base_sha256` 对不上——而我随后上节点、跑真命令、量了真哈希
+> 填进去,把那个守卫拆掉了。** 每一步都站得住,合起来解除了唯一的阻挡。
+> m1 抓住它,靠的是去核「这个替换文件是不是从镜像那份派生的」——他说这一步他
+> 差点当成官僚流程跳过。修法是让整类不可达:`--base-sha256`(供给)换成
+> `--base-file`(从镜像 `cat` 出来),哈希取自负载因而不可能与之矛盾,
+> 另加一个 `ast.parse` 负控制,用当初漏过去的那个文件验过会被拒。
+
+**这一段是 leader 逐字给的。** 我没有从产物残留去复述它——今天已经有两次
+「转述时把别人的发现加码」的账,而这里更糟:残留物会让它看起来比当时整齐。
+
+### 实例 B(下午,我的,217 rescue)
+
+`forge/optimized_kernel.py`,19888 字节,头部自述:
+
+```
+# operator     : attention_chunk_gated_delta_rule
+# produced by  : KernelForge campaign 56dae692…, iteration 2
+# Part 1/3 is the optimized engine module VERBATIM …
+# Part 2/3 is the workset's own module_symbol overlay.
+# Part 3/3 is the Definition's own `baseline` source verbatim, which supplies `run`.
+# Built by build_candidate.py
+```
+
+**Part 1 确实是 iteration 2 逐字**(`emb.strip() == it2.strip()` 为真,
+两字节之差是 `r'''` 的换行)。**所以它没有说谎,它在自述。**
+
+**但它是一个 benchmark harness candidate,不是一个 engine module。**
+Part 2 在模块作用域对两个已 import 的 sglang 模块做 `setattr`,
+Part 3 定义 `_layout` 和 `run(...)`。**这是一份 `--impl`。**
+把它 overlay 进真镜像,等于装了一个在 import 时给引擎打猴子补丁的文件。
+
+### 为什么 B 比 A 更值得记
+
+**A 是明显的垃圾进了槽位**——该放 Python 的地方放了 markdown,一次 `ast.parse` 就抓住。
+**B 是一个语法合法、自我说明、内容正确的 Python 文件,只是「类别」错了。**
+**没有任何语法检查能区分它。**
+
+> **槽位的缺陷不是「人会往里放垃圾」,而是「一个优化后的 kernel」和
+> 「一个内嵌了优化后 kernel 的测量候选」同名、同后缀、同位置。**
+
+### `apply_patch` 会拒绝 B,但理由跟这件事无关
+
+`_module_surface` 是基于 `ast` 的,而 Part 1 的 `def` 全在一个字符串字面量里,
+于是每一个 stock 名字都读成「被删掉了」,`surface_regressions` 拒绝。
+**结果正确,机制是巧合。**
+
+而 `apply.py:103` 的标定表写着 *"m4's optimized_kernel.py: 1 def · 0 · 0 · 2"*,
+docstring 自陈 *"this is a one-artefact rule"*。
+**一个守卫在自己的注释里承认它没有覆盖它恰好抓住的这一类。**
+今天这份复合体不是那一件产物。
+
+### 未解决
+
+没有提修法。可能的方向(不是建议,是记下来供后续判断):
+按**类别**而非按文件名约束——例如产物自报 `kind: engine_module | impl_candidate`,
+消费者拒绝非 `engine_module`。**在有人决定之前,这条只是记录两个实例和它们的差别。**
