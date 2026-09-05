@@ -69,6 +69,57 @@
 (MOCK-MAP J),也就是它守的那条线在上游就被满足了。**但从 run tree 里分不出这两种
 情况**,这正是负控制存在的理由。
 
+### 2.2 收敛运行:第一次在真实验证下走 mock 数据
+
+**run `20260905T113109-2d64f3`,21 个 validator 里 20 个是活的**(只有
+`check_deploy_serves` 被换掉——它要做一次真实 bring-up 和 180 秒负载)。我第一手
+从 `validation.yaml` 数出来的:
+
+| validator | 调用 | 拒绝 |
+|---|---:|---:|
+| `check_environment` | 9 | 0 |
+| `check_command_parses` | 4 | 0 |
+| `check_bench_result` | 2 | 0 |
+| `check_deploy_kit` · `check_identity_resolved` · `check_kernel_table` · `check_profiling_evidence` · `check_trace_coverage` · `check_worklist_shape` | 各 1 | 0 |
+| `check_workset_shape` | 1 | **1** |
+| `check_workset_runs` | 1 | **1** |
+
+**共 23 次 verdict、11 个 validator、2 次拒绝。** 两次都在 `build_workset`,都正确:
+封存 workset 没有 evidence 块,而 M4.3.5 要求 m4 严格从这件产物取 ground truth,
+所以一件没被测量过的 workset **没有东西可供它取**。和 environment 记录同一族——
+**2026-09-02 的语料早于它现在要满足的契约**。
+
+**阶段 1 和阶段 2 现在在真实验证下、跑 mock 数据、全部通过;阶段 3 是语料用尽的地方。**
+
+### 2.3 这一轮的三次拒绝,没有一次是 validator 的缺陷
+
+| 拒绝 | 归因 |
+|---|---|
+| `check_trace_coverage`(run `112313-17c51a`) | **发射参数错误**——封存 trace 是 2 rank,启动时没带 `--var expect_ranks=2`。带上之后它通过,而且是在**重新解析了一个 340 万事件的 gzip** 之后通过的 |
+| `check_workset_shape` | 语料早于契约 |
+| `check_workset_runs` | 语料早于契约 |
+
+**一次是操作者的,两次是语料的,零次是 validator 的。**
+
+### 2.4 关键的一点:这次通过的那些,恰好就是被负控制证明过的那些
+
+把 2.2 的通过名单和 2.1 的负控制名单并排看:
+
+```
+2.1 被负控制证明会判分:  command_parses  kernel_table  identity_resolved
+                          profiling_evidence  worklist_shape
+2.2 本次通过且零拒绝的:   command_parses  kernel_table  identity_resolved
+                          profiling_evidence  worklist_shape  (+ 三个本来就拒绝过的)
+```
+
+**完全重合。** 这把它们的 PASS 从「不知道意味着什么」变成了**关于产物的信息**:
+我们独立地知道,给它们坏输入时它们会拒绝,所以这次它们没拒绝,说的是**产物是好的**,
+不是「这个检查不判分」。
+
+**而剩下五个从未拒绝过的——`check_acceptance`、`check_bench_report`、
+`check_overlay_applies`、`check_patch_live`、`check_packup_shape`——全部是 m5 的**,
+这和 m5 从未真实运行过是同一件事的两种说法。它们仍然是本包证据最薄的一角。
+
 ### 一个 `-noval` 运行确立什么:比你以为的少一整类
 
 **`make_debug_package.py` 生成的树把每个 validator 换成 `check_nothing`**,这是让链
