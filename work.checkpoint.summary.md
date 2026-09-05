@@ -9927,7 +9927,7 @@ will not touch their file to find out.
 | `ee6af8d` | `todo`: T62–T65, today's four deferrals |
 | `e9e4534` | rebuild the failure census from `validation.yaml` (45/33/11) + two bug entries |
 | `080f1b0` | `THE DAY'S RECORD` |
-| `ba97397`/`3885050` | the negative-control results: nine of ten load-bearing, none decorative |
+| `ba97387`/`3885050` | the negative-control results: nine of ten load-bearing, none decorative |
 | `8de9bb5` | reconcile the two ledgers — both blind to the same PASS-shaped class |
 | `14f35bc` | consolidate 15 `temp/bugs` records into one, every `file:line` re-verified |
 | `17f03d5`/`a18ece2`/`b870a61`/`ace933d` | `CLAUDE.md`: the user's standing rules and the day's debugging techniques |
