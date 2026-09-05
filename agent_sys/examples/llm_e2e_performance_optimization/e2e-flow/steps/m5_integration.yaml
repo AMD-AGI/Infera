@@ -549,7 +549,7 @@
 - module: task
   name: apply_patch
   description: Turn m4's optimised kernel into a per-file overlay plan and prove every file lands.
-  agent: runner
+  agent: '${m5_agent:-runner}'
   handoffs: [kernel_optimization, operator_workset, deploy_kit, patch_overlay]
   validators: []
   task:
@@ -614,7 +614,7 @@
 - module: task
   name: packup
   description: Assemble the whole flow into one reproduction kit.
-  agent: runner
+  agent: '${m5_agent:-runner}'
   handoffs: [deploy_kit, profiling_evidence, operator_workset, kernel_optimization, patch_overlay, stock.measurement, patched.measurement, integration_report, e2e_packup]
   validators: []
   task:

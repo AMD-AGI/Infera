@@ -331,7 +331,7 @@
 - module: task
   name: rank
   description: Rank and bucket the profiled kernels into a candidate worklist.
-  agent: runner
+  agent: '${m3_agent:-runner}'
   handoffs: [profiling_evidence, kernel_worklist]
   validators: []
   task:
@@ -347,7 +347,7 @@
 - module: task
   name: identify
   description: Resolve each candidate from a device symbol to a source location and a launcher.
-  agent: runner
+  agent: '${m3_agent:-runner}'
   handoffs: [kernel_worklist, deploy_kit, operator_identity]
   validators: []
   task:

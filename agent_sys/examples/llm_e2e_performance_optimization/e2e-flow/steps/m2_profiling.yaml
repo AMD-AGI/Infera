@@ -313,7 +313,7 @@
   # opposite way: m2 runs one file in both modes, so its guards **gain** effect
   # at promotion instead of vanishing. That only holds while this line is
   # literal. CONTRACT.md §4.4 sixth face; `todo.md` T51's preventive shape.
-  agent: runner
+  agent: '${m2_agent:-runner}'
   handoffs: [deploy_kit, profiling_mode_off.bench_result]
   validators: []
   task:
@@ -332,7 +332,7 @@
   description: Bring the service up with CUDA graph off, run the same load under the profiler, rank the kernels, tear it down.
   # `agent: runner` is literal on purpose — see the note above
   # `run_profiling_mode_off`. Do not make it `${m2_agent:-…}`.
-  agent: runner
+  agent: '${m2_agent:-runner}'
   handoffs:
     - deploy_kit
     - profiling_mode_on.bench_result
@@ -361,7 +361,7 @@
   description: Fold both lines into stage 2's single export.
   # `agent: runner` is literal on purpose — see the note above
   # `run_profiling_mode_off`. Do not make it `${m2_agent:-…}`.
-  agent: runner
+  agent: '${m2_agent:-runner}'
   handoffs:
     - profiling_mode_off.bench_result
     - profiling_mode_on.bench_result
