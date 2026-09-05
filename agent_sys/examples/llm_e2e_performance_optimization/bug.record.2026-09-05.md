@@ -1435,3 +1435,51 @@ STEP 4 / STEP 5 在 11:57 写出了产物,而候选 kernel 至今不存在。
 leader 同一小时里从另一侧犯了同一个错:凭进程表杀掉 m5 的运行而没读它的日志,
 而它距离 stage 5 只剩六分钟。
 **「活动是真的,但不表示它看起来的意思」——这是目前最贵的一类。**
+
+---
+
+## 27. 「程序体的失败无处投递」是**叶子类型**的属性,可以点名它下次会打在哪里
+
+*m3 追记 2026-09-05,承第 6 条与上一条。不是新机制,是把它从「观察」变成「预测」。*
+
+三个实例、三个 stage、三个 owner,今天全部撞上同一句
+*"the executor is a program body: there is no agent to instruct"*:
+
+| 叶子 | 谁的 | 代价 |
+|---|---|---|
+| `merge_profiling_evidence` | m2 | leader 的线 |
+| `apply_patch` | m5 | 五十分钟 |
+| `run_profiling_mode_on` | m3 的线上,m2 的阶段 | 我 237 那条 hold 的十五分钟 |
+
+**为什么恰好是这三个:数出来的,不是猜的。** 十一个叶子,按 `agent:` 默认值分:
+
+```
+默认 runner(程序体)7 个:
+  apply_patch  identify  merge_profiling_evidence  packup
+  rank  run_profiling_mode_off  run_profiling_mode_on
+默认具名 AI agent  4 个:
+  build_workset  deploy_and_prove  integrate_and_verify  optimize_kernel
+```
+
+**三个实例全部落在那 7 个里。** 所以这条不再是「又出现了一次」,而是:
+**它会在下一个失败的程序叶子上出现,永远不会在 AI 叶子上出现。**
+
+### 更尖的一版:暴露面不是固定的 7,而是随 mock 开关涨到 11
+
+那 4 个 AI 叶子在 `--var m<N>_agent=runner` 下**就是程序体**。而这正是
+`10c` 推荐的快速 mock 回路所做的事。**所以全 mock 的调试跑,十一个叶子全部
+暴露在这条下面**——恰恰是我们跑得最频繁、最依赖「succeeded 是不是真的」的那种
+运行。
+
+### 这对修法的含义
+
+**修法不在任何一个 stage 里。** 三个 owner 各自去加兜底,只会得到三份不同的
+兜底,而剩下四个(或八个)叶子仍然没有。**它属于「叶子被调度」那一层**:
+一个退出非零的程序体,必须有一个不依赖 agent 的失败通路,否则 `running`
+会一直挂到 900 秒探测器,而**探测器报的是「什么都没变」,不是「它为什么死」**。
+
+**今天三次里,诊断每一次都已经存在于 `store/event` 的 `attributes.detail`**,
+只是投递不出去。所以最小的补丁也许不是「让它能投递」,而是
+**「让 900 秒终止行把该 task 最后一条 `output_absent` 的 `detail` 一起打出来」**
+——原因已经在盘上了,缺的只是把它印到人会看的地方。
+
