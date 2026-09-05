@@ -34,8 +34,17 @@ a validator to refuse an INJECTED FAULT, and this grades artefacts as they are.
 For the standing count read `WHAT-GREEN-ESTABLISHES` §2.9, not this file and not
 §2.8: §2.8's "第 4 级:0 个" is a **frozen pre-registration snapshot**, and
 reading it as current state is a mistake that has already been made and
-propagated by three people on 2026-09-05, this docstring's first version among
+propagated by four people on 2026-09-05, this docstring's first version among
 them. §2.9 records `check_command_parses` at level 4.
+
+**§2.8 IS marked -- and that is the point** (m3's reading). `:375` says
+`**目前的分布(2026-09-05T13:xx,结果到来前):**` -- timestamped, and
+"before the results arrived" in plain text. The claim that travels is `:377`,
+`**第 4 级:0 个。**`: bold, self-contained, numeric, quotable. **The qualifier
+is one line ABOVE the line people take.** Four readers moved the bullet and
+none moved the header -- the `tail -1` shape in prose, and the same failure as
+four dead runs whose cause sat directly above the last line. Not a
+documentation gap: a bold numeric sentence travels and its context does not.
 
 **A `--var` you supply is an argument you are grading, not the validator.**
 m2's warning, and it bites here: the run's OWN staged package under
