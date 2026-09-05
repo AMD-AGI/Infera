@@ -34,11 +34,42 @@
 > the real-forge branch, not on what failed today. That tree is gone and it cannot be
 > re-checked.** So this operator may fail on **both** branches, for two unrelated reasons.
 >
-> **Consequence, and it is a decision not a fix:** no stage-4 run repairs this (rule 18 is
-> not in tension). The cheap move is to run the chain on an operator whose workset
-> reference is engine-shaped — **but m3's real ranking picks the operator and no `--var`
-> reaches that choice**, the same family trait as every mock adapter being bound to its
-> corpus operator. **Open question for the user, not a bug anyone can fix in `apply.py`.**
+> **STRONGER, 20:5x, m4 again — and it retires the "pick a better operator" escape.**
+>
+> First, m4's own correction: *"no `--var` reaches that choice"* **is wrong.**
+> `--var workset_operator` exists and reaches it (`shared.yaml:247`,
+> `m4_kernel_opt.yaml:444` → `E2E_WORKSET_OPERATOR`, read at `10_read_inputs.py:32`).
+> **They asserted the negative from a family trait instead of grepping** — the move they
+> spent the day objecting to elsewhere. Nor is the choice deterministic: p9 and `217d`
+> ranked **differently** (p9 rank 1 was `l2norm_fwd_kernel`; the agent took rank 2), and
+> `pick_operator` (`_lib.py:154-169`) **dies** on a multi-operator workset with no
+> `--operator`, so the stage-4 *agent* picks. Both chose the same one; nothing made them.
+>
+> **But the knob does not help, because all five operators in p9's real workset are
+> harness-shaped** — checked, baselines are what `forge_mock=1` emits verbatim:
+>
+> | operator | declared `public_symbol` | baseline actually defines |
+> |---|---|---|
+> | `attention_chunk_gated_delta_rule` | `chunk_gated_delta_rule_fwd_h` | `_cu_seqlens, _physical, run` |
+> | `attention_ck_tile…prefill` | `_mha_batch_prefill` | `_indptr, run` |
+> | `attention_l2norm_fwd` | `l2norm_fwd` | `run` |
+> | `elementwise_…act_and_mul` | `silu_and_mul` | `run` |
+> | `layernorm_layer_norm_fwd_1pass` | `_layer_norm_fwd` | `run` |
+>
+> **Not one defines the `public_symbol` it declares**, and that is not a defect: a workset
+> baseline *is* a benchmark reference, and `run(...)` is what the harnesses call.
+>
+> > **`forge_mock=1` and a real stage 3 are jointly incompatible with a passing
+> > `apply_patch`, for every operator, structurally.** Changing `--var workset_operator`
+> > only changes which names get reported as dropped.
+>
+> **The passing case was never a better operator — it is a differently produced artefact:**
+> `sampler_vocab_softmax` comes from the sealed corpus as a full `sampler.py`.
+>
+> **So the only route to a passing apply on a real m3 workset is a real forge campaign**
+> emitting an engine-shaped module — **exactly what rule 18 minimises, and which bug 29
+> says may itself fail** on the string-literal composite. **That half remains unverified
+> and unverifiable today; the tree is gone.** A cost decision for the user.
 
 **[SUPERSEDED — original framing, kept for the record.]** This is the phase-⑤ blocker and
 it currently has no owner. Recorded 2026-09-05 by the
