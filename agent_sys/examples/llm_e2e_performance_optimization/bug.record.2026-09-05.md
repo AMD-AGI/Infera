@@ -1365,3 +1365,73 @@ agent to instruct"*,**即第 6 条**。
 当每个 validator 都被换成 `check_nothing`,**普查照样在数调用次数,
 而每一次都是 `check_nothing` 的 PASS**——
 **于是「调用数」和「拒绝数」分家,只有后者还有意义。**
+
+---
+
+## 24. forge 在 `max_hours=1.0` 的预算下,**准备阶段跑了 113 分钟**,一个源文件都没改,而 deadline 没有切断它
+
+**m4 记,2026-09-05 13:47,在 287 的 hold 到期前 28 分钟抓下来的。**
+节点侧的读数随 hold 一起消失,所以先记读数再记推理。
+
+### 读数
+
+```
+hold        7:30:58 / 8:00:00
+campaign    自 forge/ 建立起 113 分钟,而 --var forge_max_hours=1.0
+
+三个标志物,全部缺席
+  forge/optimized_kernel.py   ABSENT
+  forge/forge_result.json     ABSENT
+  forge/engine.patch          ABSENT
+
+forge_experiments/  只有两个文件:
+  workspace.lock
+  task_preparation/initial_preflight.json
+
+engine_src   1 个 commit(就是 baseline 4fcb4567),脏的只有 `?? forge_experiments/`
+git diff vs baseline   **空** —— forge 没有改过任何一个源文件
+kernel-agents  全程 2 个进程活着
+forge/ 里另有 forge_driver.py.orig 与 forge_driver.repair.diff —— 驱动被修过
+```
+
+**所以它不是「一次跑得慢的 campaign」,是一次从未进入优化轮次的 campaign。**
+它修了 m3 的 driver、写了一份 preflight、取了 workspace 锁,然后停在准备阶段。
+
+**`max_hours` 没有生效。** `cli.py` 由 `max_hours` 推出 `deadline_unix`,
+`_require_time` 本应在耗尽时抛出。**它没有。**
+
+**不给原因。** n=1,手上是一份目录清单而不是一个调用栈。
+这条记录的价值在于它把问题**缩小**了:不是「campaign 超时」,
+而是「**优化开始之前的准备阶段**超时」——后者便宜得多,且指向一段具体代码。
+
+### 一个未对上的顺序,原样留着
+
+```
+state/correctness.json    11:57:44
+state/performance.json    11:57:59
+forge/optimized_kernel.py ABSENT
+```
+
+STEP 4 / STEP 5 在 11:57 写出了产物,而候选 kernel 至今不存在。
+**我没有对上这个顺序,也不在剩下的时间里猜。** 两份文件都在
+`/home/yihou/agent_sys_runroot` 下,节点没了照样可读。
+
+### 这条为什么在我这里被漏了一小时四十分
+
+11:39 我向 leader 报「**a campaign is running**」,依据是
+`kernel-agents` 有两个进程活着、`forge_experiments/` 在长。
+**两条读数都是真的,而且两个仪器都没坏。**
+
+**坏的是推论。** 一个活着的进程 + 一个在长的目录,
+和「准备阶段永远收敛不了」完全相容。
+**直到 leader 让我抓停机点,我才打开那个目录看里面是什么** ——
+里面只有一把锁和一份 preflight。
+
+**这和今天其余各条不是同一类。** 之前每一条都是「仪器在回答别的问题」:
+`ps`、mtime、`docker ps`、空的 `logs/`、`grep` 匹配到自己。
+**这一条里没有任何仪器说谎。** 所以**换更好的仪器救不了它**——
+唯一能救的是打开那个目录。
+
+leader 同一小时里从另一侧犯了同一个错:凭进程表杀掉 m5 的运行而没读它的日志,
+而它距离 stage 5 只剩六分钟。
+**「活动是真的,但不表示它看起来的意思」——这是目前最贵的一类。**
