@@ -23,8 +23,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import patchkit  # noqa: E402  -- sibling in assets/lib, path set above
 
 __all__ = ["export_operator", "export_all", "main"]
 
@@ -155,7 +159,11 @@ if [ -z "$FELLOW" ]; then
   echo "  than one. Known backends: ck flydsl triton aiter hip hipblaslt intellikit" >&2
   echo "  Passing an unknown name is NOT the fix: forge warns and silently" >&2
   echo "  substitutes flydsl-fellow, and the campaign completes under it." >&2
-  echo "  FIX: correct the Definition's tags, or pass --fellow <backend>-fellow" >&2
+  echo "  FIX: correct the Definition's tags; or rebuild with" >&2
+  echo "       --var forge_fellow=<backend>; or pass --fellow <backend>-fellow here." >&2
+  echo "       The tags are the per-operator answer -- one workset can hold a" >&2
+  echo "       Triton operator and a HIP one, so a launch-wide value is a" >&2
+  echo "       fallback for the undecidable case, not the mechanism." >&2
   exit 2
 fi
 if [ -z "$KERNEL" ]; then
@@ -211,7 +219,7 @@ done
 if [ -n "$WS" ] && [ ! -f "$WS/$KERNEL" ] && [ ! -f "$KERNEL" ]; then
   echo "run_forge.sh: --kernel does not resolve inside the workspace" >&2
   echo "  workspace: $WS" >&2
-  echo "  recorded:  $KERNEL   (edit_target.source_file, in the identity's frame)" >&2
+  echo "  kernel:    $KERNEL   (edit_target.source_file, re-framed onto its repo_root_var)" >&2
   echo "  tried:     $WS/$KERNEL" >&2
   # A suffix that IS present is reported as a suggestion and never substituted:
   # the frames differ by a prefix, and picking one automatically is how the
@@ -320,7 +328,7 @@ def export_operator(root: pathlib.Path, operator: dict) -> dict:
     one_line.write_text(_ONE_LINE.format(
         operator_id=operator_id,
         fellow_arg=_sh_quote(fellow),
-        kernel_arg=_sh_quote((operator.get("edit_target") or {}).get("source_file") or ""),
+        kernel_arg=_sh_quote(_kernel_rel(operator)),
     ), encoding="utf-8")
     one_line.chmod(0o755)
 
@@ -354,6 +362,49 @@ def _sh_quote(value: str) -> str:
     return "'" + str(value).replace("'", "'\\''") + "'"
 
 
+def _kernel_rel(operator: dict) -> str:
+    """`--kernel`, in the frame forge resolves it in: relative to `--workspace`.
+
+    **Measured by m4 on the live tree, and the reason this is not a
+    pass-through.** `edit_target.source_file` is repo-root-framed
+    (`sglang/python/sglang/kernels/…`) while `--workspace` is a checkout of
+    `SGLANG_ROOT` itself, under which the file is `kernels/…`. Handing the
+    recorded string straight to forge names a path that does not exist there.
+    Third time this frame has bitten this package.
+
+    **And a wrong value here is worse than a missing one.** forge builds
+    `(workspace / kernel_path).resolve()` (`cli.py:1132`,
+    `campaign_config.py:194`), and `Path.__truediv__` *discards the left
+    operand* when the right is absolute — so an absolute `--kernel` silently
+    ignores `--workspace`, forge edits a file outside the tree it was given,
+    and `git diff <baseline>` in the workspace comes back empty. A clean-looking
+    no-op is the worst outcome available, which is why the missing flag was
+    never worth papering over with a guess.
+
+    The tail is derived from `container_roots.yaml` rather than trimmed as a
+    literal, per m4: a literal `sglang/python/sglang/` is correct today and
+    wrong the first time `SGLANG_ROOT` moves. A path already carrying its
+    placeholder goes through `patchkit.split_placeholder`, which is the same
+    conversion `apply.py` uses; the recorded form does not carry one, so the
+    root's own trailing components are matched instead — longest first.
+    """
+    target = operator.get("edit_target") or {}
+    source = str(target.get("source_file") or "").strip()
+    if not source:
+        return ""
+    if source.startswith("@"):
+        return patchkit.split_placeholder(source)[1]
+    root_path = patchkit.CONTAINER_ROOTS.get(str(target.get("repo_root_var") or "").strip())
+    if not root_path:
+        return source
+    parts = [p for p in root_path.strip("/").split("/") if p]
+    for start in range(len(parts)):
+        prefix = "/".join(parts[start:]) + "/"
+        if source.startswith(prefix):
+            return source[len(prefix):]
+    return source
+
+
 def _fellow(operator: dict, definition: dict) -> str:
     """Which KernelForge fellow the kernel's language selects, or `""` to refuse.
 
@@ -381,7 +432,16 @@ def _fellow(operator: dict, definition: dict) -> str:
     for candidate in named + tags:
         if candidate in _FORGE_BACKENDS and candidate not in backends:
             backends.append(candidate)
-    return f"{backends[0]}-fellow" if len(backends) == 1 else ""
+    if len(backends) == 1:
+        return f"{backends[0]}-fellow"
+    # **The override, and it is second rather than first on purpose.** One
+    # `--var` cannot be the primary mechanism: a single real workset carries
+    # Triton *and* HIP operators, so a launch-wide value would be correct for
+    # some of them and a substitution for the rest — the defect this replaced.
+    # It exists for the case the tags cannot settle: none, or two.
+    override = os.environ.get("E2E_FORGE_FELLOW", "").strip()
+    backend = override[: -len("-fellow")] if override.endswith("-fellow") else override
+    return f"{backend}-fellow" if backend in _FORGE_BACKENDS else ""
 
 
 def _task_yaml(operator: dict, definition: dict, fellow: str) -> str:

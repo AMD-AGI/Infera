@@ -170,6 +170,24 @@
     # `produced_by.commit` records — its fallback is the literal string
     # `unknown`, so every workset this stage has produced claims to come from an
     # unknown commit. Declaring it does not fix that; supplying it does.
+    # **The KernelForge fellow, and it is a fallback rather than the setting.**
+    # `forge_export.py` derives one per operator from the Definition's language
+    # tag, which is the only per-operator answer available: a single real
+    # workset carries Triton operators *and* a HIP one, so a launch-wide value
+    # would be correct for some and a silent substitution for the rest. That
+    # substitution is exactly the defect this replaced — forge accepts an
+    # unknown name, warns, and runs the campaign under `flydsl-fellow`.
+    #
+    # So this is read only when the tags settle nothing: none of them names a
+    # backend, or two of them do. Validated against
+    # `kernel_agents/fellows/constants.py`'s set; an unknown value is treated
+    # as absent and the generated wrapper refuses rather than passing it on.
+    #
+    # `:-` and empty, deliberately: a no-default form would make every
+    # `agent-sys show` of this package fail for all five stages until every
+    # launch line carried it, and the value is not needed on the path the tags
+    # already decide.
+    E2E_FORGE_FELLOW: '${forge_fellow:-}'
     E2E_WORKSET_ID: '${workset_id:-workset}'
     E2E_PACKAGE_COMMIT: '${package_commit:-unknown}'
   backends:
