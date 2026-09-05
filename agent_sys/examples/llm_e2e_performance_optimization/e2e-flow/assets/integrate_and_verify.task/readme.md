@@ -40,6 +40,45 @@ So the ordering below is not a suggested order. It is the measurement.
 - Write everything into the attempt zone (`$PWD`). The handoff directories are
   composed at step 9, not written into as you go.
 
+## The values the scripts need from you, and what their absence looks like
+
+**Five of these abort the stage** — `measure.sh` and `remote.sh` spell them
+`${VAR:?}`, so an unset one stops the run in the first seconds with a bare
+variable name and no explanation. Rung 2 died exactly this way, four hours after
+launch, on the first of them. **A launch line cannot rescue you here**: under
+`kind: ai` *you* are what supplies these, and nobody downstream can tell an
+absent value from a deliberate one.
+
+They are described by what they are *for*. If you meet a situation this brief did
+not imagine, the purpose is what tells you the right value; the name only tells
+you the sentence to satisfy.
+
+| what it is for | absence looks like |
+|---|---|
+| **the replay trace** — the recorded conversation both arms replay, so stock and patched answer *the same questions in the same order*. Without one identical trace the two arms are two different experiments and no comparison between them means anything. | `measure.sh` aborts. This is the one that killed rung 2. |
+| **the load generator's image** — the container that drives the replay. It is not the engine image; it is the client. | `measure.sh` aborts before either arm serves a token. |
+| **the correctness dataset** — the GSM8K jsonl the frozen suite scores against, so "the patch did not break the model" is a measured claim and not an assertion. | `measure.sh` aborts. |
+| **the allocation id** — every command reaches the node through it; it is how `remote.sh` finds the machine at all. | `remote.sh` aborts on the first remote call, which reads like the node is unreachable. |
+| **the scratch root on the node** — where both arms write logs, exports and the overlay. It must be on a filesystem the node can write; `/tmp` on the login node is not it. | `measure.sh` and `round.sh` abort. |
+
+**One more that does not abort, and whose absence is a quiet wrong answer
+rather than a stop:** *which cards are ours*. In this stage it does **not**
+select GPUs — it tells `neighbour.py` which devices belong to this deployment so
+the neighbour sample describes **someone else's** load and not our own. Absent,
+every card reads as un-owned and the neighbour label degrades to `unknown`.
+`measure.sh:118-121` records why `unknown` is the honest degradation and a
+per-card dict is not: on TP-8 every card is ours, and a false `busy` would be
+worse than no label.
+
+**What promotion costs, and this stage is the one where it costs most.** Running
+with `--var m5_agent=runner` swaps you for a program that replays sealed
+artefacts. That flip exists to absorb *handoff-shape* differences while the
+graph is being wired — **it is not for a rung whose numbers we intend to keep.**
+Stage 5 produces the two arms, the comparison and the verdict: these are the
+numbers the whole flow exists to produce, and a mocked stage 5 produces a report
+about a run that did not happen. If you are reading this in a run that matters,
+you are the real agent and these values are yours to get right.
+
 ## STEPS
 
 Run these in order. Each names the command and what says it worked. Where a step
