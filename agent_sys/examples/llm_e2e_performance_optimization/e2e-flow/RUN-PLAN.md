@@ -34,6 +34,52 @@ been telling everyone to pass the wrong one.
 | `image` | **the sealed kit's**, not the node's | the real bring-up's |
 | `transport_env` | **required on every rung** — `SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR` | same |
 | `measure_gpu` | **required on every rung** — a card `nodeprobe` reports free | same |
+| `workset_operator` | may be empty — the sealed workset has one operator | **required from the rung that makes m3 real** — see below |
+
+### Every mock adapter is bound to the operator its corpus was built around
+
+**Read this before you spend a node promoting a stage.** Measured 2026-09-05 by
+m3 and m4 independently, from opposite ends, arriving at one sentence.
+
+The stage-4 mock replays an optimised kernel for **`sampler_vocab_softmax`**,
+sealed 2026-09-02. Real m3 on this deployment selects **four** operators and
+**none of them is that one** — `attention_chunk_fwd_o`,
+`elementwise_…act_and_mul`, `attention_ck_tile…prefill`,
+`layernorm_layer_norm_fwd_1pass`. **Disjoint sets.** m3 found the same binding
+as a literal in their own adapter: `OPERATOR = "sampler_vocab_softmax"`.
+
+So the first line that feeds **real m3 output into a mocked m4** cannot work, and
+**no launch-line value reaches it**. `--var workset_operator=<id>` clears the
+first refusal and reveals a second behind it — tested, all four:
+
+```
+attention_chunk_fwd_o          sealed kernel defines no `chunk_fwd_o`
+elementwise_…act_and_mul       sealed kernel defines no `silu_and_mul`
+attention_ck_tile…prefill      sealed kernel defines no `mha_batch_prefill_func`
+layernorm_layer_norm_fwd_1pass its definition's `baseline` has no `def run(...)`
+```
+
+**The consequence for whoever promotes next:** a stage still mocked downstream of
+a stage newly made real will hit this wall, and **it will look like a new bug
+each time**. It is not the format and not the wiring — it is *which operator*.
+The two configurations that work are **promote the mocked stage too** (it then
+optimises whatever m3 selected; forge produces the kernel, so there is no sealed
+candidate to disagree with), or **keep the upstream stage mocked as well**, which
+runs today and proves nothing about the seam.
+
+**`workset_operator` is required on any rung where m3 is real**, mocked or not:
+`pick_operator` refuses ambiguity by name rather than guessing, and that check
+does not know whether the consuming stage is mocked. Verified — without it the
+real path dies in seconds on the same four-operator refusal.
+
+**Which operator is a decision, not a default.** Prefer one m3 actually
+**re-measured**: `reverify_shapes` defaults to `1`, so on a four-operator workset
+three of the four weighted means are the producer's unchecked claim. On
+2026-09-05 that was `attention_chunk_fwd_o` — and it came back **13.3 % apart**
+(0.0264 → 0.0299 ms), inside the 0.25 tolerance and outside `max_rsd` 0.10.
+**Carry that disagreement into the artefact**; a downstream reader who discovers
+it later has been misled. Avoid `layernorm_layer_norm_fwd_1pass` while its
+`case_001` still reports `snr_db: inf` against 98–107 dB on its other shapes.
 
 ### The `adhoc_cases` split — 0 in a mock line, 3 in a real one
 
