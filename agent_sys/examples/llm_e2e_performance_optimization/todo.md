@@ -4006,7 +4006,34 @@ worked example above would otherwise hide: RUN-PLAN precondition 2c gives
 value therefore manufactures refusals **that read exactly like producer defects**. A
 grading table needs a mocked/real column, not one value for the sweep. *(This sweep
 graded only real runs, so it is not affected — but nothing in the harness would have
-noticed if it had been.)*
+noticed if it had not been.)*
+
+**m3 answered for `217d`: `--var expect_ranks=4`, and they checked before answering** —
+`grep -rl expect_ranks` across that run tree returns only unrendered package sources,
+and `E2E_EXPECT_RANKS` appears in no staged environment anywhere in the run. **Two
+owners independently confirmed the entry's central claim while answering a question
+about something else.**
+
+**m3's caveat, which is the more careful reading and cuts against the tidy answer:**
+their 4 and m4's 4 are **not independent** — m4's came from `tp_size: 4`, theirs from a
+canonical block whose rule is literally `--var expect_ranks=<the kit's tp_size>`.
+**Both terminate at the same field**, so the agreement establishes that the run was
+launched with 4, **not that 4 is correct**. The one genuinely independent leg comes
+from the artefact: `items/env/trace_manifest.json` enumerates ranks 0–3, four entries,
+each with its own bytes/sha256/event count — **and on `p9` the four per-rank
+`gpu_kernels` sum to exactly the 823736 the validator reached by re-parsing the traces
+from scratch.**
+
+**And m3's correction to the framing, which is sharper than the version above:**
+both runs were `-noval`, so `check_trace_coverage` **never executed during the run at
+all**. The counterfactual *"would it have refused"* is therefore **unreachable from the
+run in either direction** — there is no in-run verdict to compare against, only
+`check_nothing`. **Knowing the launch value does not make it answerable**; offline
+grading establishes what the validator says now, and nothing about what it would have
+said then.
+
+*(Superseded note: this entry first treated the counterfactual as answerable once the
+launch value was known. It is not.)*
 
 ### Why this is one item and not five
 
