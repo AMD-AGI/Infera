@@ -3502,3 +3502,37 @@ before it cost a run.
 
 **Holder: unassigned.** Instances are m3's; **the control is nobody's yet** and
 should not be inferred to be m3's because m3 filed the entry.
+
+---
+
+### T72 — `expect_ranks` 在两份文档之间有缝,两份都没错
+
+**来源:readme-cn 的 RUN-PLAN 审计,2026-09-05;两处引用我都回源核对过。**
+
+**没有哪一份文件写错了,缝在它们中间——所以两边都没有可改的东西。**
+
+- **`RUN-PLAN.md:32`** 把 `expect_ranks` 按 **rung 号**取值(rung-5 表 `L2139`
+  重复一次):rung 0–1 → `2`,rung 2 onward → 部署实际的 `tp`。
+- **同一份文件的正文 `L200–222` 写的原则是对的**:*「it is a fact about **the
+  artefact being graded**, not about the run」*。
+- **在平直阶梯上,rung 号恰好等价于「m2 是否为真」**,所以今天它是对的。
+- **在 skip-ahead 下不等价。** `replay_root.py`(docstring:*"Materialise a
+  completed run's sealed handoffs into a `mock_root`"*,用法行直接给出
+  `--var mock_stages=m1,m2`)可以把一次**真实 rung-2 capture** 塞进一个
+  **m2 被 mock** 的调试 run。此时 capture 是 `tp=4`,而表格按 rung 0–1 判它
+  该是 `2`。**`check_trace_coverage` 会在一次完整 bring-up 和加载之后,拒绝一份
+  完全正确的 capture。**
+- **`SKIP-AHEAD.md` 里 `expect_ranks` 出现 0 次**(实测 `grep -c`)。
+  readme-cn 认这个遗漏是自己的。
+
+**形状**:和 `bug.record` 第 17 条的 `adhoc_cases` 同族,高一层——
+**一个键在常见情形下是正确的代理,在一个已写进文档的变体下静默失效。**
+`adhoc_cases` 是同一文件内两节打架;这一条是**两份文件之间**,所以连
+「读全文就能发现」都不成立。
+
+**为什么记成 todo 而不是 bug**:没有代码缺陷,也没有哪一行文档是错的。要补的是
+**`SKIP-AHEAD.md` 里缺的那一段**,以及把 `RUN-PLAN.md:32` 的键从 rung 号换成
+「被评的 artefact 的 tp」——后者是行为不变的措辞改动,但**要在链空闲时做**。
+
+**持有人:未分配。** 实例来自 readme-cn 的审计,`SKIP-AHEAD.md` 是 readme-cn 写的,
+但 `RUN-PLAN.md:32` 那一行是共享的,**不要因为是 readme-cn 报的就默认归他们。**
