@@ -329,6 +329,48 @@ campaign 跑过,所以没有第二个环境可以填。于是 `_agree_or_die` �
 两个独立来源 → 这次通过有信息;一个来源分成两份(继承、铸造、自指) → 这次通过只说明
 拷贝成功了。
 
+#### 第四条路:一份文档和它自己随身携带的快照,是一个来源不是两个
+
+**m4 发现,2026-09-05,我复核过代码。** `check_optimization_shape` 的
+`_check_against_snapshot` 拿文档里的 `operator` 去它**随身携带的**
+`results/workset.snapshot.yaml` 里查,查不到就拒绝。听上去是一次交叉核对。
+
+**但在 mock 路径上,文档和它的快照是从同一份封存语料里一起拷出来的。** 于是两者
+必然一致——**内部自洽,而只在对上游时才是错的,而两边都不引用那个上游。**
+
+**这就是同一个机制的第四条路。** 判据不变:*它比的两个值是从哪来的*——这里的答案是
+「一份语料,拷了两次」。
+
+**同一个 validator 里有一个做对了的对照,可以并排看:** `_cross_check`
+(`check_optimization_shape.validator/check.py:536`)在**别的 handoff 里真的有一份
+workset 被 stage 出来时**,拿快照去和**那一份**比,不一致就点名拒绝。它是
+**opportunistic** 的,在 m4 的 output phase 里没有第二份可比,所以推迟到 m5 的 input
+phase——那里两份都在。
+
+**而它在没能比的时候会写下一条 note 说自己没比**(逐字):
+
+> *"no workset staged in this phase, so the snapshot is taken on trust here;
+> it is cross-checked in m5's input validation, which stages both"*
+
+**这正是「缺席必须可见」那条,而且它在今天之前就已经被实现了。** 一个读 m4 输出验证
+的人,现在就能看出这次交叉核对没有跑。
+
+**所以关于「算子不一致」的正确说法比「没有 validator 在看」窄得多,也有用得多:**
+一件写错算子的产物会被**产出、封存、并且走过一个阶段**,然后才被拒绝。**不是不可见,
+是被推迟了**,而推迟是有实测理由的(绑到 m4 自己的 phase 上*"would fail an innocent
+producer, which is measured"*)。
+
+#### 这一条同时印证了 `WHAT-GREEN-ESTABLISHES.md` §2.7 的判据
+
+同一次运行里两个机制都在场,而只有一个是证据:
+
+- `_check_against_snapshot` 比的是**两份拷贝**——一次拷贝就能满足它;
+- `stock_vs_m2` 算的是**一个数**,而那个数只有真的读了 m2 的 bench、又真的测了 stock
+  臂才能得到——**一次拷贝伪造不了它。**
+
+**「生产者算出来的、其值依赖于它必须读进来的输入」**,和「两个字段相等」,在
+`-noval` 之下是完全不同量级的证据。
+
 **现在的守卫是工具自己。** `--node <你将要启动的那台节点>` **必填**，root 里 replay
 的 kit 来自别的节点就以 rc=2 拒绝；`--allow-cross-node` 是一个需要显式做出的决定。
 `PROMOTION.json` 里记 `required_node` 和 `kit_nodes` 两个必填字段，这样一小时后的
