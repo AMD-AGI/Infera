@@ -1915,7 +1915,15 @@ and produces a ratio of 1.000.
 guessing, so an empty value is correct while there is one operator and a
 refusal the moment there are two.
 
-## 2. The command
+## 2. The command (rung-specific; NOT the canonical block)
+
+> **This heading used to be identical to the canonical one.** Grepping
+> `## 2. The command` returned two hits, so a reader had even odds of
+> diffing against this block — which still uses the bare
+> `python3 -m agent_sys.cli.main run` that the canonical block records as
+> having cost a hold. Renamed 2026-09-05 after m3 pointed out that a note
+> saying *"diff against this one"* is useless when the anchor is ambiguous.
+> **Canonical block: `## 2. The command — CANONICAL LAUNCH BLOCK`.**
 
 ```sh
 python3 -m agent_sys.cli.main run \
@@ -2166,7 +2174,7 @@ A run launched without this does not fail at launch. `show` loads clean, the
 graph dispatches, and m1 fails inside the bring-up several minutes later where
 it reads as a deployment problem.
 
-## 2. The command
+## 2. The command — CANONICAL LAUNCH BLOCK
 
 ```sh
 python3 agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/lib/run_with_long_stall.py \
@@ -2211,7 +2219,12 @@ python3 agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/lib/
 > hazard is not that they differ, it is that **nothing says which one is
 > canonical** — so a reader diffs against whichever they scrolled to. This block
 > is canonical because it is the one whose header explains why the wrapper is
-> mandatory.
+> mandatory, and its heading is now unique — `## 2. The command — CANONICAL
+> LAUNCH BLOCK`. **It was not, until m3 tried to follow this note:** the heading
+> appeared twice, so grepping it gave two hits and even odds of landing on the
+> block with the bare CLI. A note telling you which block to diff against is
+> worth nothing if its anchor is ambiguous, and I wrote that note *about
+> findability*.
 
 **The wrapper is not optional, and this block said `python3 -m
 agent_sys.cli.main run` until it cost a hold.** `stall_after` is **not exposed
