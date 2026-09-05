@@ -23,7 +23,22 @@
 # Usage:
 #   sh assets/lib/lines.sh                 # every live chain: pid, age, node, cards
 #   sh assets/lib/lines.sh <node>          # only that node
-#   sh assets/lib/lines.sh <node> 4        # is the 4,5,6,7 half busy? rc=0 busy, rc=1 free
+#   sh assets/lib/lines.sh <node> 4        # does a line DECLARE that half? rc=0 yes, rc=1 no
+#
+# **The `DECLARES` column is what a line asked for, NOT what is occupied**, and
+# the two can differ. 2026-09-05: m5's line declared `gpu_devices=4,5,6,7` while
+# its engine sat on cards 0-3 at 232 GB each -- opposite sets. I read this
+# script's output as occupancy and told m3 that 237 cards 0-3 were free; they
+# checked `rocm-smi` at the precondition and stopped, which is the only reason a
+# TP4 bring-up did not land on top of the deepest stage-5 chain of the day.
+#
+# **So `rc=1` means "nobody declared it", not "the cards are free."** For the
+# occupancy question there is exactly one authority and it is on the node:
+#
+#     spur exec <jobid> rocm-smi --showmemuse | grep -E "^GPU\[[0-7]\].*VRAM%"
+#
+# Use this script to find collisions between declarations. Use `rocm-smi` before
+# you put an engine anywhere.
 #
 # `rc` is the answer for the third form, so it composes into `if`/`&&` without
 # anyone re-reading the output.
@@ -62,12 +77,14 @@ if [ -n "$HALF" ]; then
     # "is the half starting at card $HALF busy on $NODE" -- rc, not prose.
     if _lines | awk -v h="$HALF" '{ split($4, c, ","); if (c[1] == h) found = 1 }
                                   END { exit(found ? 0 : 1) }'; then
-        echo "busy: $NODE cards ${HALF}-.." >&2
+        echo "DECLARED by a live line: $NODE cards ${HALF}-.." >&2
         exit 0
     fi
-    echo "free: $NODE cards ${HALF}-.." >&2
+    echo "not declared by any live line: $NODE cards ${HALF}-.." >&2
+    echo "  NOT the same as free -- a line can occupy cards it did not declare." >&2
+    echo "  Check the cards: spur exec <jobid> rocm-smi --showmemuse" >&2
     exit 1
 fi
 
-printf '%-9s %-10s %-20s %-12s %-16s %s\n' PID AGE NODE CARDS MOCK PACKAGE
+printf '%-9s %-10s %-20s %-12s %-16s %s\n' PID AGE NODE DECLARES MOCK PACKAGE
 _lines
