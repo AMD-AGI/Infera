@@ -204,10 +204,10 @@ adapt, they do not get re-derived.
 | | |
 |---|---|
 | where I am | login node, **no GPU**, no direct docker daemon |
-| GPU holds | `106250`→`crsuse2-m2m-061` (10.245.159.129), `106253`→`crsuse2-m2m-031` (10.245.144.239); 8 h each from ~12:40 UTC; both reachable, both carrying **other tenants' containers** |
+| GPU holds | **Do not read a hold or a node IP from this file — run `squeue -u $USER` and resolve the IP from the node itself.** Holds cap at 8 h; every row here expires faster than the file is re-read. *2026-09-05: the two jobs this row used to name (`106250`/`crsuse2-m2m-061`, `106253`/`crsuse2-m2m-031`) were both long gone, and m1 took `10.245.159.129` from here and nearly pointed a real deploy at another tenant's host. "measured 2026-09-03" was honest labelling and did not prevent it.* |
 | reaching them | `spur exec <jobid> bash -c '...'` — exec namespace; docker talks to the **host** daemon, but the **filesystem identity is you, not root** (measured 2026-09-04: `id -u` → `50112975`, writes land `-rw-r--r-- yihou ubuntu`). Matters because `/home` is `sec=sys` NFS, where a root-squashed write would map to `nobody` and leave a tree nobody can clean up. |
 | shared FS | `/shared_nfs` 360 T, **46 T free**, shared by every spur node — this is how "remote" works |
-| scratch | `/shared_nfs/yihou/agent_sys/ws_handoff_refine/` — all temp activity lives here |
+| scratch | `/shared_nfs/yihou/agent_sys/ws_handoff_refine/` — **writable from a compute node only.** `/shared_nfs` is `ro,relatime` on the login node, so this path is not scratch for the leader; see the debugging section. |
 | mock inputs | `/shared_nfs/yihou/agent_sys/cheat_for_mock/` — 25 real sealed handoffs, one folder per kind |
 | fast loop | `python3 -m agent_sys.cli.main show --package <dir> --var …` loads and type-checks every yaml in **< 1 s** |
 
@@ -238,11 +238,23 @@ adapt, they do not get re-derived.
    real schemas under `assets/schemas/`, loaded by producer **and** validator.
 3. **Every identifier bound on a shared host is a parameter.** Container names,
    ports, workdir, served model name. `: "${VAR:=…}"`, never `export VAR=`.
-4. **Never delete anything on `/shared_nfs` whose path lacks the substring
-   `yihou`.** Never `docker rm -f` a container you did not create. Never
-   `agent-sys run --clean` on a shared root — it removes *every* run.
-5. **Research → gather → analyse → plan → work.** Temp activity in
-   `ws_handoff_refine/`; the repo receives only `e2e-flow/` and `todo.md`.
+4. **Deletion — see standing rule 3 at the top of this file; that is the rule.**
+   It is wider than the version that stood here until 2026-09-05: **every path on
+   every host**, not just `/shared_nfs`, and `/tmp` is an allowed substring
+   alongside `yihou`. `CONTRACT.md` §5.2 agrees.
+   *This entry used to carry the pre-widening wording and therefore **permitted
+   deletions the current rule forbids** — under `/home`, `/mnt/m2m_nobackup`, and
+   inside container mounts. Found by readme-cn auditing this file 2026-09-05.*
+   **Container removal is standing rule 1, not this entry**: `docker stop -t 10`,
+   never `rm -f`, and "you did not create it" is **not** a reason to leave a
+   foreign GPU user running — rule 1 retired that caution.
+   Never `agent-sys run --clean` on a shared root — it removes *every* run.
+5. **Research → gather → analyse → plan → work.** The repo receives only
+   `e2e-flow/` and `todo.md`.
+   **Scratch is a compute node, not here.** `/shared_nfs` is `ro,relatime` on the
+   login node (measured), so `ws_handoff_refine/` is writable from a compute node
+   and **not** from where the leader works. Do not follow an instruction to put
+   temp activity there without checking which side of that boundary you are on.
 6. Bugs in `agent_sys` are recorded under
    `agent_sys/examples/llm_e2e_performance_optimization/temp/bugs/` first, then
    worked around; fixed only when the evidence is unambiguous.
