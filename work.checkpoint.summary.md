@@ -9488,3 +9488,77 @@ comment records that the verdict was always right and only the rendering lied.
 cosmetic, and the validator underneath it is the most load-bearing of the ten.**
 That is the good outcome and it is worth saying as plainly as the bad one would
 have been: **107 PASSes are earned.**
+
+### Addendum, 06:38 UTC — the residual five: nine of ten load-bearing, none decorative, one untested
+
+| validator | inv | control applied | verdict |
+|---|---|---|---|
+| `check_command_parses` | 107 | syntax error · non-executable · restore | **REFUSE / REFUSE / PASS** |
+| `check_kernel_table` | 30 | rows cut below `min_rows: 20` | **REFUSE** |
+| `check_identity_resolved` | 26 | every resolution field unresolved | **REFUSE** |
+| `check_profiling_evidence` | 26 | one named part removed | **REFUSE** |
+| `check_worklist_shape` | 26 | environment supplied it — schema drift | **refuses a real artefact today** |
+| `check_acceptance` | 5 | `result/needle.json` removed | **REFUSE** |
+| `check_bench_report` | 5 | round `r1` removed | **REFUSE** |
+| `check_patch_live` | 5 | `env/container_hashes.tsv` emptied | **REFUSE** |
+| `check_overlay_applies` | 5 | `result/mounts.json` removed | **REFUSE** |
+| `check_packup_shape` | 1 | — | **UNTESTED** |
+
+**Nine of ten load-bearing. None decorative. 235 of 236 invocations — 99.6 %.**
+**No crashes**: every mutation produced a graded refusal, never a missing
+`verdict.json`.
+
+### Two harness defects, each of which would have produced a false "decorative"
+
+**1. My harness collapsed every material onto the first one.** `materials.json`
+maps *several* handoff ids to their own directories; my copy pointed all of them
+at a copy of `material[0]`. On `check_patch_live` that handed the **stock** arm to
+a validator bound to the **patched** arm, which refused with
+*"this validator is bound to the patched arm and the record says 'stock'"* —
+**a baseline that does not reproduce.** Under the old harness I would have
+recorded `check_patch_live` as failing its own baseline and therefore
+undriveable, or worse read the constant `False` as decorative.
+
+**Fixed**: every material copied to its own directory keyed by handoff id.
+`check_patch_live`'s baseline then reproduced as `[True]`, and
+**`check_acceptance` and `check_bench_report` were re-run under the fixed
+harness** because their first results were produced by the broken one. Both held.
+
+**2. My first `patch_live` break was the wrong file.** I removed
+`result/health.txt`; the validator reads `items/env/deployment.json`,
+`env/docker_mounts.json` and `env/container_hashes.tsv`. It passed — correctly,
+because I had not broken anything it claims to check. **Reporting that as
+decorative would have been a false accusation against a validator that works.**
+Emptying `container_hashes.tsv` — which its own error text names — refuses.
+
+**Both are exactly the constraints the leader set, hit in practice.** Constraint 1
+(*break what it names*) and constraint 2 (*prove the harness drove **this** one*)
+each caught a wrong conclusion I was one step from writing down.
+
+### `check_packup_shape` — untested, and I am not upgrading that to "never ran"
+
+The full tally counts **1 invocation**. A targeted
+`grep -rl 'min_result_files' --include=args.json` over the six newest runs and
+the **entire frozen root** finds nothing, and a full re-scan **timed out at
+120 s**.
+
+**A partial search failing to find what a full scan found is not evidence that it
+does not exist.** So the status is **untested and not re-located within budget** —
+not *never ran*, and not *decorative*. **I withdraw nothing about the earlier
+"all 21 have spoken"; I simply could not drive this one.**
+
+It remains the least attested validator in the package: **one invocation, zero
+failures, zero controls.** Its silence is worth almost nothing, exactly as the
+leader said.
+
+### What this settles
+
+Before today, *"ten validators have never failed"* was ambiguous between **they
+pass good artefacts** and **they cannot fail**. **Nine can now be driven to
+refuse on demand, each by breaking the specific thing it names**, and the tenth
+is unmeasured rather than suspect.
+
+**The decorative validator the residual was supposed to hide does not exist.**
+The 9 % where it would have hidden turned out to contain four working gates and
+one I could not reach — and the two near-misses were both in **my instrument**,
+not in theirs.
