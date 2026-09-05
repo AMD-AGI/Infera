@@ -47,14 +47,59 @@
 9. **e2e 调通阶段可以先把 task 从 program 改成 ai**,让 agent 吸收 handoff 里的
    细微差异,避免不必要的失败——**前提是把 markdown 写明白**。
    (`agent/runner.py:801`:环境变量无法指示 agent,只有 brief 能。)
+   *代价:2026-09-05 我为了把 mock 回路压到 4 分钟,把五个阶段全部强制成
+   `m*_agent=runner`(program),**正好和这条相反**,而且没说。*
 
 10. **造出来的 handoff,在评估影响不大时可以手工微调**,不必为此重跑真实负载。
+    用户 2026-09-05 追加:*「太久的错的语料不是我喂给你的,发现了顺手删掉就可以。」*
+    **但「微调」不等于「编造」**:语料 workset 连 `workset.yaml` 都没有,而 evidence
+    是它里面的字段、validator 会交叉核对 measured spread——补它就是造测量数字。
+    **诚实的做法是拿今天真机产出的同类产物去嫁接**,不是手写。
+    *代价:我两次把语料缺口当成不可动的边界,直到用户第三次点破。*
+
+10a. **单独调试某个阶段时,不要求它产出真实的优化/提升。** 用户 2026-09-05:
+    *「m4 单独调试时不要求跑真实优化……怎么舍弃优化提升尽快拿到结果。」*
+    **可达性是目标,数字不是。** 降级产物必须自己声明降级。
+
+10b. **下游阶段不许等上游跑完。** 用户 2026-09-05:*「m5 根本不需要等 m4 出来
+    再说。」* 把上游算子加一两行无关代码就是一份合法的**反向优化**产物——
+    空改动测出来的就是 baseline,所以 `speedup: 1.0` 是**正确值而不是猜测**。
+    **m1/m2/m3 都真实跑通之后,下游没有任何「外界信息不足」的借口。**
+    实例:`/home/yihou/make_reverse_kernel_opt.py`。
+
+## Validator:先全关跑通,再二分打开
+
+> 用户 2026-09-05,原话:*「每个节点真连调试的首个阶段,你可以把 validator 全部
+> disable 掉。着重跑通,然后拿着一份结果,逐个修 validator,这时只需要跑一遍 e2e
+> 就能拿到更多的信息。validator 打开的过程中,也可以分阶段二分的打开,比如先打开
+> 稳定能 pass 的,再逐渐收敛到难 debug 的。过于难调的,单独记录文件上报给我就行,
+> 真实跑通前不要把太多精力花在 validator 上。」*
+
+10c. **每个节点第一次真连,validator 全关。** 机制是
+    `assets/lib/make_debug_package.py --out <repo>/e2e-flow-noval`,生成一棵副本。
+    - `validators: []` **非法**——框架原话 *"A kind with no validator cannot be
+      admitted"*,所以注入 `check_nothing`(全 true、一个不读、往 stderr 打
+      `validation is DISABLED for this run`、`strength: weak`)。
+    - **必须生成在仓库内**:`env_mgr.workspace.cut` 要求包在带
+      `extensions.preciousObjects` 的 git 仓库里。`e2e-flow-noval*/` 已 gitignore。
+    - 回收用 `--keep a,b`,并且**保留 `check_nothing` 在每个 kind 上**,这样部分
+      恢复的树仍然自报降级。
+    - **`check_deploy_serves` 不能进这个回路**——它做真实 bring-up + 180 秒压测,
+      登录节点上会挂死。先砍它,其余 20 个一起开。
+
+10d. **一个 `-noval` 的绿只证明「走通」,不证明任何正确性。** 而且它**分不清
+    「走通」和「越过了若干次静默失败」**——所有 verdict 都是 `check_nothing`。
+    唯一诚实的句子是「链子在关闭验证的情况下走完了五个阶段」。
+
+10e. **过于难调的 validator 单独记录上报,不要在跑通前纠缠。**
 
 ## 记录
 
 11. **框架的 bug,无论修了没修,统一记进 `bug.record.<date>.md`。**
+    (在 `agent_sys/examples/llm_e2e_performance_optimization/` 下。)
 
 12. **调试过程中每一次 validator 失败都要记下来**,便于后续分析。
+    (`validator.failures.<date>.md`,同目录。)
 
 ## 工作方式
 
@@ -284,23 +329,28 @@ after a solo contract freeze.
 
 ## Background
 
-The five stages exist today as five *separate* packages (`deploy-demo`,
-`profiling-demo`, `analyze-demo`, `kernel-opt-demo`, `integration-demo`), each
-driven to a real cluster run on 2026-09-02: **45 sealed handoffs, 50 validator
-PASS, 2 documented refusals**, ~3.5k lines of YAML and **~20k lines of proven
-`.py`/`.sh`**.
+The five stages used to be five *separate* packages, each driven to a real
+cluster run on 2026-09-02. They were not a flow: **a handoff only travels inside
+one run's graph**, so five packages are five runs and nothing chains. `e2e-flow/`
+is the single package that joins them.
 
-They are not a flow. **A handoff only travels inside one run's graph**, so five
-packages are five runs and nothing chains. The seams recorded in
-`handoff.analysis.md` — one `kernel_table` name over two `content_type`s,
-"workset" spanning two kinds with different required files, two same-named
-`check_service_live`s — are exactly what side-by-side authoring produces.
+**This is a refine of definitions, not a rewrite of bodies.** The ~20k lines of
+`.py`/`.sh` assets carried over are the only thing here that has ever produced a
+number; they move and adapt, they do not get re-derived.
 
-**This is a refine of definitions, not a rewrite of bodies.** The 20k lines of
-assets are the only thing here that has ever produced a number; they move and
-adapt, they do not get re-derived.
+### 进度(2026-09-05 11:5x,读表得来,不是外推)
 
-## Context — this environment, measured 2026-09-03
+| 阶段 | 状态 |
+|---|---|
+| ① 造 handoff + 重构 validator | 完成 |
+| ② 单独并行跑每个 mock | 完成 |
+| ③ 串通 mock | **完成** — 3 m 46 s 走完五阶段,15 个 handoff,`run complete`(validator 关);开回 20 个后阶段 1、2 通过 |
+| ④ 单独跑每个真实 | m1 ✅ m2 ✅ m3 ✅ / **m4 首次跑起 campaign 未完成** / **m5 从未跑过** |
+| ⑤ 串通整个真实 | 最远 = mock 1–2 + 真实 3 完成 + 真实 4 进行中 |
+
+**这张表会过期。改它之前先读运行日志,不要照抄。**
+
+## Context — this environment (rows carry their own measurement date)
 
 | | |
 |---|---|
@@ -309,25 +359,27 @@ adapt, they do not get re-derived.
 | reaching them | `spur exec <jobid> bash -c '...'` — exec namespace; docker talks to the **host** daemon, but the **filesystem identity is you, not root** (measured 2026-09-04: `id -u` → `50112975`, writes land `-rw-r--r-- yihou ubuntu`). Matters because `/home` is `sec=sys` NFS, where a root-squashed write would map to `nobody` and leave a tree nobody can clean up. |
 | shared FS | `/shared_nfs` 360 T, **46 T free**, shared by every spur node — this is how "remote" works |
 | scratch | `/shared_nfs/yihou/agent_sys/ws_handoff_refine/` — **writable from a compute node only.** `/shared_nfs` is `ro,relatime` on the login node, so this path is not scratch for the leader; see the debugging section. |
-| mock inputs | `/shared_nfs/yihou/agent_sys/cheat_for_mock/` — 25 real sealed handoffs, one folder per kind |
+| mock inputs | `/shared_nfs/yihou/agent_sys/cheat_for_mock/` — 25 real sealed handoffs, one folder per kind, **sealed 2026-09-02 and therefore older than this round's contract**: zero `environment.yaml` in 442 files, and the `operator_workset` has no `workset.yaml`. Do not delete it and do not hand-write the missing parts — graft today's real artefacts (see rule 10). Patched copy: `/home/yihou/cheat_for_mock.20260905T115337/`, originals kept beside each graft as `content.pre-0905`. |
 | fast loop | `python3 -m agent_sys.cli.main show --package <dir> --var …` loads and type-checks every yaml in **< 1 s** |
+| **4-minute loop** | **the whole five-stage graph runs on the login node with no GPU in under 4 minutes** — `--package e2e-flow-noval --var mock_stages=all` plus `MOCK_IMAGE_ID=sha256:…` as an **environment variable** (without it `mock_adapt.sh` cannot read the digest, exits 3, and the task is recorded `succeeded` anyway). Measured 2026-09-05: 3 m 46 s, 15 sealed handoffs, `run complete`. Every question that used to cost a GPU hold and forty minutes is asked here now. |
 
 ## Key references
 
 - **`mission.md`** (repo root) — the authority. Every requirement below traces to
   a numbered item there.
-- `handoff.analysis.md` (repo root) — the 26 kinds, their validators, and the
-  three cross-stage seams.
 - `/shared_nfs/yihou/agent_sys/cheat_for_mock/README.md` — **four things that
   will mislead you**, including a `kernel_table` that is a 34-row synthetic seed
   and an `integration_report` carrying a *refused* verdict.
 - `/shared_nfs/yihou/agent_sys/debugging/integration/DELIVERY-NOTE-FROM-LEADER.md`
   — why that refusal was the validator working, and why the 5 % / 10 % bars must
   **not** be widened.
-- `/shared_nfs/yihou/agent_sys/temp/leader/repair_modes.py` — restores the file
-  modes a past `chmod -R 777` erased from sealed handoffs.
-- `agent_sys/docs/design.md` §13 (WIP) — the runtime tree.
 - `agent_sys/spec_loader/validate.py:34-56` — the `jsonschema` idiom to copy.
+- `e2e-flow/RUN-PLAN.md` — **the canonical launch block. Open it FIRST, then diff
+  your line against it.** Everyone who did it in the reverse order paid: it is the
+  only place `--timeout 21600` appears, and `--var transport=spur` was missing
+  from it until 2026-09-05 and cost m3 a run two hours in.
+- `e2e-flow/WHAT-GREEN-ESTABLISHES.md` — which validators have ever refused
+  anything, and what a PASS from each one is worth.
 
 ## Core principles
 
@@ -352,13 +404,15 @@ adapt, they do not get re-derived.
    Never `agent-sys run --clean` on a shared root — it removes *every* run.
 5. **Research → gather → analyse → plan → work.** The repo receives only
    `e2e-flow/` and `todo.md`.
-   **Scratch is a compute node, not here.** `/shared_nfs` is `ro,relatime` on the
-   login node (measured), so `ws_handoff_refine/` is writable from a compute node
-   and **not** from where the leader works. Do not follow an instruction to put
-   temp activity there without checking which side of that boundary you are on.
+   **Scratch is `/home/yihou/`, not `/shared_nfs`.** `/shared_nfs` is
+   `ro,relatime` on the login node (measured), so anything the leader writes goes
+   under `/home/yihou/` — which also satisfies the deletion rule's `yihou`
+   substring.
 6. Bugs in `agent_sys` are recorded under
    `agent_sys/examples/llm_e2e_performance_optimization/temp/bugs/` first, then
    worked around; fixed only when the evidence is unambiguous.
+   **`temp/` is gitignored while all its records are tracked** — a narrow
+   `git add -f <one path>` is house style, not an override.
 7. Work in English; report to the user in Chinese.
 
 ## Other notable details
