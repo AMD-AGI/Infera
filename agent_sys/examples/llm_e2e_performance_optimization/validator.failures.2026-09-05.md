@@ -1,212 +1,132 @@
 # validator 失败记录 — 全量收割
 
-生成于 **2026-09-05T04:59:44Z**，扫描 `runs/*/handoffs/*/v*/validation.yaml`。
-2026-09-05 晚经过一次逐条核对（见文末"核对记录"），代表性理由一栏被改写过——
-**改写之前有 5 条是错的或引错了行**，原文没有保留，因为它们的内容本身就是错的。
+重新生成于 2026-09-05T06:57Z,**独立重建**,不是在旧文件上追加。
+扫描 `runs/*/handoffs/*/v*/validation.yaml` —— **327 份文件,912 条 verdict**。
 
-**这是调试过程中每一次 validator 失败的账，不是当前状态。**
-一条失败可能是产物缺陷、探针假象、环境/管道问题，或 validator 正确地拒绝一份 mock
-材料——本文件只记录发生过什么，归因写在各条下面，未归因的明说未归因。
+**这是调试过程中每一次 validator 失败的账,不是当前状态。**
+一条失败可能是产物缺陷、探针假象、或 validator 正确地拒绝一份 mock 材料——
+本文件只记录发生过什么,归因写在各条下面,未归因的明说未归因。
 
----
+跨 **33** 次运行,**45** 条失败,**11** 个 validator。
+时间跨度 2026-09-04T07:48 .. 2026-09-05T06:18。
 
-## 读这份文件之前：三条规则
-
-**1. "代表性理由"的选取规则不是"第一条"，而是"第一条留下了报告的"。**
-文件原本写的是*"同名只取第一条"*。实际做不到：一条失败的理由**只存在于
-`validator_report.txt` 里**，而 `verdict.json` 只有 `{"<handoff_id>": false}`，
-没有任何 reason 字段。所以选取规则实际是"该 validator 第一条**留下了报告**的失败"。
-
-**这个偏差是系统性的，不是随机的。** 各个 validator 的 body 是在不同时间才被加上
-写报告的能力的，所以对**较晚才被插桩的那些 validator**，代表性理由必然取自**较晚的
-那一次失败**，而不是本行"出现的运行"列里的第一个运行。已确认的三例：
-
-| validator | 本行第一个运行 | 理由实际取自 |
-|---|---|---|
-| `check_workset_runs` | `20260904T081016`（无报告） | `20260904T082227` |
-| `check_optimization_shape` | `20260904T085348`（无报告） | `20260904T094614` |
-| `check_speedup_substantiated` | `20260904T085348`（无报告） | `20260904T094614` |
-
-**2. "validator 失败"不等于"产物有问题"。** 至少两条是**管道/环境问题，产物根本没
-被读到**：`check_workset_runs` 的 demo-root 拒绝、`check_workset_shape` 的
-`workset.yaml` 找不到，两者都是 zone / run root 路径问题。
-
-**3. 崩溃与拒绝没有在这份账里被区分，而且这份账**无法**区分。**
-我打开过的每一份报告，头部都明写 `REFUSED`。而一个在写出 `verdict.json` 之前就死掉的
-body，按框架的行为**根本不会留下 verdict 行**——所以一次崩溃会**缺席**于这份普查，
-而不是在里面被错分类。**这个问题在本文件里是开放的，且本文件的方法论无法回答它。**
+*(上一版为 27 次运行 / 37 条 / 11 个 validator,生成时即已落后 7 条。)*
 
 ---
 
-## 普查（截至 2026-09-05T04:59:44Z）
+## 本文件的取样规则 —— 先说清楚,因为上一版的规则和它的实际行为不一致
 
-跨 **27** 次运行，**37** 条失败，**11** 个 validator。
-（2026-09-05 晚独立重算过一次，逐个 validator 的次数与运行列表完全复现。）
+**1. 每一条失败都来自被评分的阶段。** 45 条的 `environment.source` 全部是
+`producer`,45 条全部带 `environment.zone`。**不采用任务 zone 里的临时目录**——
+上一版有一条引自一次零 verdict 运行中手工跑的自检。
+
+**2. `note:` 不是失败理由。** 理由只取产物 `validator_report.txt` 里的
+`PROBLEM:` 行,**并且以产物为准,不以日志的标题为准**——日志曾把 `note:` 重新
+标成 `PROBLEM:`(即 T49 发生在账本自己身上)。**上一版 `check_bench_result` 和
+`check_measurement_order` 两条引的都是 `note:`,本版已换成真正的 `PROBLEM:` 行。**
+
+**3. 「同名取第一条」的真实含义是「第一条留下了 report 的」**,对于后期才补上
+报告的 validator,这条规则会系统性地取到**较晚**的那次失败。**本版按 `at` 时间
+排序取最早的一次;当最早那次没有留下 report 时,明确标注所引的不是最早一次。**
+
+**4. 没有理由就写没有理由**,不用一条看起来合理的话替代。
+**45 条里有 11 条属于此类**,分布在 3 个 validator 上。
+
+**5. 不属于本文件的:** 今天三条 profiling 线的死亡(`p4_a`、`p4_b`、
+`p4_m4real`)**不是 validator 失败**——`0 validation(s) dropped`,没有任何拒绝,
+分配仍然持有。它们记在 `bug.record.2026-09-05.md`,原因未定。
+
+---
+
+## 计数
 
 | 次数 | validator | 出现的运行 |
 |---|---|---|
-| 7 | `check_workset_runs` | 20260904T081016, 20260904T082227, 20260904T083225, 20260904T084313 …共 7 次 |
-| 6 | `check_speedup_substantiated` | 20260904T085348, 20260904T094614, 20260904T101432, 20260904T102832 …共 6 次 |
-| 4 | `check_optimization_shape` | 20260904T085348, 20260904T094614, 20260904T110647, 20260904T131949 |
-| 4 | `check_no_regression` | 20260904T112414, 20260904T114914, 20260904T133028, 20260904T143952 |
-| 3 | `check_deploy_serves` | 20260904T091312, 20260904T125637, 20260905T041023 |
-| 3 | `check_workset_shape` | 20260904T091607, 20260904T092903, 20260904T110626 |
-| 3 | `check_trace_coverage` | 20260905T040341, 20260905T041258, 20260905T043332 |
-| 2 | `check_deploy_kit` | 20260904T074821, 20260904T091312 |
-| 2 | `check_environment` | 20260904T091312, 20260904T091607 |
-| 2 | `check_measurement_order` | 20260904T143952（同一次运行里两条） |
-| 1 | `check_bench_result` | 20260904T183810 |
+| 7 | `check_workset_runs` | 081016, 082227, 083225, 084313, 091607, 092903, 110626 |
+| 7 | `check_speedup_substantiated` | 085348, 094614, 101432, 102832, 104255, 105342, **20260905T051226** |
+| 6 | `check_deploy_serves` | 091312, 125637, **20260905T041023, 051029, 055212, 055216** |
+| 5 | `check_optimization_shape` | 085348, 094614, 110647, 131949, **20260905T051226** |
+| 5 | `check_trace_coverage` | **20260905T040341, 041258, 043332, 050803, 060945** |
+| 4 | `check_no_regression` | 112414, 114914, 133028, 143952 |
+| 3 | `check_environment` | 091312, 091607, **20260905T051226** |
+| 3 | `check_workset_shape` | 091607, 092903, 110626 |
+| 2 | `check_deploy_kit` | 074821, 091312 |
+| 2 | `check_measurement_order` | 143952(同一次运行两条) |
+| 1 | `check_bench_result` | 183810 |
 
-### 该时间点之后新增的（补记，2026-09-05 晚）
-
-再 **7** 条，跨 **5** 次运行，未并入上表。
-
-| 运行 | validator | 理由 |
-|---|---|---|
-| 20260905T050803 | `check_trace_coverage` | `expected 4 rank(s), the manifest lists 2` |
-| 20260905T051029 | `check_deploy_serves` | 无记录（见"永远无法解释的五条"） |
-| 20260905T051226 | `check_environment` | 无记录（同上） |
-| 20260905T051226 | `check_optimization_shape` | `missing results/kernel_optimization.json; there is nothing structured to consume` |
-| 20260905T051226 | `check_speedup_substantiated` | `missing results/kernel_optimization.json` |
-| 20260905T055212 | `check_deploy_serves` | 无记录 |
-| 20260905T055216 | `check_deploy_serves` | 无记录 |
+未加粗的运行编号省略了 `20260904T` 前缀。**加粗的是 2026-09-05 的运行**——
+`check_trace_coverage` 的 5 条**全部**发生在今天,`check_deploy_serves` 的 6 条
+里有 4 条在今天。**这两个是当前仍在产生失败的。**
 
 ---
 
-## 每个 validator 的一条代表性理由
+## 每个 validator 的代表性理由
 
-摘自 run 树里的 `validator_report.txt`，取该 validator 第一条留下了报告的失败
-（见上文规则 1）。**报告里的 `note:` 行不是失败理由**——下面只引 `PROBLEM:` 行。
+摘自该次失败自己 zone 里的 `validator_report.txt`,只取 `PROBLEM:` 行。
 
-**`check_bench_result`**（20260904T183810）
-PROBLEM: bench: the engine captured decode graphs up to batch 16 (`--cuda-graph-max-bs -> 16`) and the load achieved decode concurrency **25.42** — so decode exceeded the captured graph on essentially every step and the engine fell back to **eager decode**. Measured on this cluster: a 4.6x difference in decode speed from this cause alone, with an identical image and node.
+**`check_workset_runs`** — 7 条,6 条留下 report。**所引非最早一次**
+(最早 08:15:51 无 report,引 08:28:09)。
+> PROBLEM: sampler_vocab_softmax/B8_V151936: the performance entrypoint exited 1:
+> files through the zone, which needs the run root to be on a filesystem both
+> hosts mount…
 
-> **本条曾被引错，而且错的方式正是 T49。** 原文引的是
-> `PROBLEM: (note) 721 request record(s), 0 errored (0.0%)`——那一行在产物里是
-> **`note:`**，内容是"零错误"，也就是一条**通过**的观察；本文件把它的 `note:`
-> 前缀改写成了 `PROBLEM:`，于是一条报告"零错误"的记录被当成了失败的原因。
-> **记录缺陷的工具，犯了它所记录的那个缺陷。**
+**注意**:这段文字里的 `-v /home:/home denied` 一族**是
+`measure_in_container.sh` 拒绝分支里的「已知不可用形式」目录行,不是当次发生的
+守护进程拒绝**。判断这 7 条的真实原因时不要把它当成事件。
 
-**`check_deploy_kit`**（20260904T074821, 20260904T091312）
-**无记录的理由。** 这两条失败都没有留下 `validator_report.txt`。
+**`check_speedup_substantiated`** — 7 条,6 条留下 report。**所引非最早一次**
+(最早 08:59:47 无 report,引 09:52:10)。
+> PROBLEM: ABORT — this handoff optimised sampler_vocab_softmax at dtype None;
+> the workset's ground truth says 'float32'. A speedup at a different precision
+> is a different question
 
-> 原文此处引了一句 `PROBLEM: packup/REPRODUCE.md: unfilled placeholder '<user>'`，
-> **来源是错的**：那句话唯一的出处是
-> `runs/20260904T173415-35b7a3/zones/.../tmp/tmp.O4qB4jcMsz/validator_report.txt`
-> ——一个 **task zone 里的临时目录**，属于一次**没有记录任何 verdict** 的运行，
-> 也就是一次手工自检，而不是被评判的 phase；且 `20260904T173415` 不是本行列出的
-> 两个运行中的任何一个。已删除，**不另找一句替换**：这两条失败没有理由留下来，
-> 就该这么写。（`check_deploy_kit` 本身是会写报告的——全部 51 次 verdict 里有
-> 39 次留下了报告——所以这不是"这个 validator 从不写报告"。）
+**`check_deploy_serves`** — 6 条,**0 条留下 report**。
+> **理由不存在。** 六次失败没有任何一次留下 `validator_report.txt`,所以无法说明
+> 它们为什么失败。这与 `bug.record.2026-09-05.md` 第 2 条(validator 的 stdout
+> 无处可寻)是同一道缝。
 
-**`check_deploy_serves`**
-**无记录的理由，且永远不会有。** 见"永远无法解释的五条"。
+**`check_optimization_shape`** — 5 条,4 条留下 report。**所引非最早一次**
+(最早 08:59:45 无 report,引 09:52:08)。
+> PROBLEM: kernel_optimization: 1 problem(s)
 
-**`check_environment`**
-**无记录的理由，且永远不会有。** 见"永远无法解释的五条"。
+**`check_trace_coverage`** — 5 条,5 条全部留下 report。所引即最早一次。
+> PROBLEM: expected 4 rank(s), the manifest lists 2
 
-**`check_measurement_order`**（20260904T143952）
-PROBLEM: stock: `environment.yaml` says `node='crsuse2-m2m-217'` and the arm's own evidence says `'crsuse2-m2m-276'`. …
-PROBLEM: stock: `environment.yaml` says `slurm_jobid='109491'` and the arm's own evidence says `'101053'`. …
-（patched 臂两条同样。）
+**`check_no_regression`** — 4 条,4 条全部留下 report。所引即最早一次。
+> PROBLEM: the report was decided against max_throughput_regression=35% and this
+> validator's bar is 5%. A producer that chooses its own threshold can pass
+> anything…
 
-> 原文引的是 `note: stock: serve -> smoke -> needle -> …` 那几行——那是两臂的步骤
-> 顺序，而且它们是**一致的**，即这条检查通过的那一半。真正的拒绝理由是记录与证据
-> 对不上机器。
+**`check_environment`** — 3 条,**0 条留下 report**。
+> **理由不存在。** 同 `check_deploy_serves`。
 
-**`check_no_regression`**（20260904T112414）
-PROBLEM: the report was decided against `max_throughput_regression=35%` and this validator's bar is **5%**. **A producer that chooses its own threshold can pass anything.** …
-PROBLEM: the report was decided against `max_latency_regression=30%` and this validator's bar is **10%**. …
-PROBLEM: the patch regressed: `output_token_throughput_tps` (avg), `request_throughput_rps` (avg), `ttft_ms` (p90), `request_latency_ms` (p90) …
-PROBLEM: this run cannot judge the patch — 6 metric(s) have a noise floor above their bar …
+**`check_workset_shape`** — 3 条,3 条全部留下 report。所引即最早一次。
+> PROBLEM: items/codes/workset.yaml does not load: [Errno 2] No such file or
+> directory: '…/runs/20260904T091607-e5f80f/zones/…'
 
-> **这四条不是缺陷，是本包刻意保留的那一条 strong 拒绝。**
->
-> 原文引的是 `note: ! kernel reconciliation not computed…`，读起来像"有个东西没算
-> 出来"。实际上同一份报告里还写着
-> `recomputed: REJECTED (10 reason(s)); report states REJECTED`——validator 从原始
-> 数字独立重算，得到 REJECTED，**与报告的结论一致**。这正是
-> `RUN-PLAN.md` 里"mock 运行退出码是 5 且 5 是正确输出"那一节说的同一件事。
->
-> **而 m5 的 `1cda806` 确立了另一半：`--var mock_report=accepted` 会关掉的正是
-> 这条拒绝。** 该 commit 的原话——`mock_report=accepted` 用测量出的对照数字和
-> validator 自己的 5%/10% 替换掉封存报告里 35%/30% 的 PRODUCER bar，*"而这恰恰就是
-> 那条封存拒绝所针对的东西——'一个自己挑阈值的 producer 什么都能通过'"*。把上面第
-> 一条 PROBLEM 逐字对照一下就能看到是同一句话。
->
-> 所以：**本账里最难读的一行，和唯一能让它消失的那个开关，指向的是同一个事件。**
-> 1cda806 还记了一句必须一起读的：在 accepted 模式下，整条链**不再**行使本包唯一
-> 那条廉价的端到端 strong 拒绝（`mock_m5.sh:140`），所以那种情况下的"绿"是一个更
-> 窄的主张。
+**`check_deploy_kit`** — 2 条,**0 条留下 report**。
+> **理由不存在。**
 
-**`check_optimization_shape`**（20260904T094614）
-PROBLEM: kernel_optimization: 1 problem(s)
-PROBLEM:   `$.apply.integration_point.entry_function: '' is too short`
+**`check_measurement_order`** — 2 条,2 条全部留下 report。所引即最早一次。
+> PROBLEM: stock: environment.yaml says node='crsuse2-m2m-217' and the arm's own
+> evidence says 'crsuse2-m2m-276'. The record describes the machine…
 
-**`check_speedup_substantiated`**（20260904T094614）
-PROBLEM: ABORT — this handoff optimised `sampler_vocab_softmax` at dtype `None`; the workset's ground truth says `'float32'`. A speedup at a different precision is a different question.
+*(上一版此条引的是 `note: stock: serve -> smoke -> …`,那是一条 note,不是理由。)*
 
-**`check_trace_coverage`**（20260905T040341）
-PROBLEM: `expected 4 rank(s), the manifest lists 2`
+**`check_bench_result`** — 1 条,留下 report。
+> PROBLEM: bench: the engine captured decode graphs up to batch 16
+> (`--cuda-graph-max-bs` → 16) and the load achieved decode concurrency 25.42
 
-> 本条也曾被引错，同 `check_bench_result` 的机制：原文引的是
-> `PROBLEM: (note) re-parsed … manifest agrees`——产物里那是 `note:`，而且
-> "manifest agrees" 说的是**对上了**，是通过的那一半，`note:` 前缀同样被改写成了
-> `PROBLEM:`。
-
-**`check_workset_runs`**（20260904T082227 —— 不是本行第一个运行）
-PROBLEM: `sampler_vocab_softmax/B8_V151936`: the performance entrypoint exited 1: files through the zone, which needs the run root to be on a filesystem | both hosts mount. Point `--demo-root` at a shared path (`$HOME` here is NFS | and works).
-
-> 引文逐字属实（包括那两个 `|`，原文就有）。**这是环境/管道问题，不是产物缺陷**：
-> workset 根本没被跑起来。
-
-**`check_workset_shape`**（20260904T091607）
-PROBLEM: `items/codes/workset.yaml` does not load: `[Errno 2] No such file or directory: '/home/yihou/agent_sys_runroot/runs/20260904T091607-e5f80f/zones/task.…'`
-
-> 同上，**产物没被读到**，不是产物有问题。
+*(上一版此条引的是 `PROBLEM: (note) 721 request record(s), 0 errored (0.0%)`
+——一条被标成 `PROBLEM:` 的 note。)*
 
 ---
 
-## 永远无法解释的五条
+## 三个 validator,零理由
 
-`check_deploy_serves`（3 条）和 `check_environment`（2 条）。
+`check_deploy_serves`(6)、`check_environment`(3)、`check_deploy_kit`(2)
+—— **共 11 条失败,占 45 条的 24%,一条理由都没有留下。**
 
-原文写的是*"该 validator 未留下 `validator_report.txt`"*，事实比这句更强。跨**所有**
-已记录的 verdict，通过的和失败的一起算：
-
-```
-check_deploy_serves    0/ 51 次 verdict 留下了 validator_report.txt
-check_environment      0/319 次 verdict 留下了 validator_report.txt
-```
-
-**不是这几次运行把文件弄丢了——这两个 body 从来没有写过报告。** 而
-`verdict.json` 里只有 `{"<handoff_id>": false}`，没有任何 reason 字段（11 条首次
-失败逐个查过）。
-
-**所以这五条失败在磁盘上没有任何理由，而且以后也不会有。** 它们是真实发生的失败，
-但永久无法解释。
-
-**归因上的保留意见，必须一起读：** checkpoint 从另一个方向独立走到了同样这五行，
-并称之为"披着 validator 名字的框架 bug"。两条路径的结论一致——**但两次计数很可能
-共用同一个来源，即 `verdict.json` 不带 reason 字段这一事实**。所以两者一致的是
-**机制**；至于该不该把它叫做框架 bug，是一个判断，**两次计数都没有确立它**。
-
----
-
-## 核对记录
-
-2026-09-05 晚，逐条对着 run 树核对了一次。方法：从
-`runs/*/handoffs/*/v*/validation.yaml` 独立重建普查，按 `at < 04:59:44Z` 过滤；
-再把每条代表性理由的引文回grep到 275 个 `validator_report.txt` 里，确定它到底出自
-哪一次 verdict、那次 verdict 是通过还是失败。
-
-结论：
-
-- **普查表完全属实**，37 / 27 / 11 与逐 validator 的次数、运行列表全部复现。
-- **1 条来源错误**：`check_deploy_kit`（手工自检的输出，冒充两条失败的理由）。
-- **4 条引错了行**：`check_bench_result`、`check_trace_coverage`、
-  `check_measurement_order`、`check_no_regression`，引的都是 `note:`；其中前两条
-  还被改写成了 `PROBLEM:` 前缀。
-- **2 条属实但说轻了**：`check_deploy_serves` / `check_environment`。
-- **0 条**是"把崩溃当成 validator 缺陷"——且见上文规则 3，这份账无法回答这个问题。
-- 27 个被点名的运行**全部存在**，没有一条因为运行消失而无法核实。
+这不是记录的疏漏,是框架的缺口:validator 把诊断写到 stdout,而 stdout 不被保存
+(`bug.record.2026-09-05.md` 第 2 条)。**这 11 条今天已经不可复原**,写在这里是
+为了让下一个人知道分母,而不是以为这三个 validator 失败得比较安静。
