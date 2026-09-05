@@ -117,6 +117,81 @@ Executed in order by `entry.sh` → `../load/line.sh`.
 
 10. **Tear down** (the trap from step 4).
 
+## If you are an AI agent running this task
+
+**This section exists because a `kind: ai` task never runs `entry.sh`.** The
+program body below it enforces guards that you now enforce yourself, and reads
+values from the environment that no environment can tell you about
+(`agent/runner.py:801` — *"an env var cannot instruct an agent"*). Declaring a
+variable makes it reachable; only this page makes it used.
+
+### Three values the shell reads and you would not know to look for
+
+**1. The load is a replay of a recorded conversation, not a synthetic sweep.**
+There is a trace file — a JSONL of `{timestamp, input_length, output_length,
+hash_ids}` records — and the load sends requests *at the timestamps it records*,
+with `ignore_eos` so each response runs to the recorded output length rather
+than to the model's own stopping. That is what makes two lines comparable: same
+arrivals, same lengths, so a difference between them is the engine and not the
+load.
+
+Without it there is nothing to send and the load aborts (`aiperf_replay.sh`
+requires it). **This is not hypothetical**: on 2026-09-05 a bring-up succeeded
+completely — worker serving, six verification probes green, a real completion —
+and the run then died at the load because no trace had been passed. The
+operator supplies the path; your job is to make sure it reaches the load step,
+and to stop with a clear message if it has not, rather than loading something
+else. The default is empty **on purpose**, so that a missing trace is loud.
+
+**2. Which GPUs to use is a precedence, not a default.** Three sources, in this
+order, and the order is the point:
+
+  1. an explicit operator choice for this run;
+  2. failing that, **the set the deployment kit records having actually taken** —
+     the kit knows which cards it bound;
+  3. failing that, the kit's own built-in default.
+
+Taking the default when the kit recorded something is the failure mode: it was a
+hardcoded `0,1,2,3` for a while, so every bring-up took the same four cards
+whatever was free, on a node five people share. **Read the kit's record before
+falling back**, and never assume the default is a description of the node.
+
+**3. A kit may be a replay rather than a fresh bring-up, and the numbers must
+say so.** The deployment record carries a provenance field naming the source it
+was replayed from, when it was replayed. A number measured against a replayed
+kit is not comparable to the deployment that kit originally described, and a
+reader meets the number long after any message that qualified it. **Carry the
+provenance into the output** rather than into a log line.
+
+### Guards the program enforced and you must now enforce yourself
+
+`assets/load/line.sh` holds **ten refusals with their own diagnostic**, plus
+seven required-variable checks. **Three paragraphs do not restore ten guards**,
+and this page does not pretend otherwise — the list is here so you know what
+stops being true the moment this task is promoted:
+
+| what it refuses | why it matters |
+|---|---|
+| the kit carries no environment record | nothing downstream can say which machine produced the numbers |
+| the kit's scripts are missing | a kit that cannot deploy is not a kit |
+| **the kit was taken on a different node than this run targets** | the numbers would describe a machine nobody used |
+| `deploy.sh` wrote no handshake | the bring-up did not report where it is |
+| the handshake is unusable, or its run tag is not this line's | teardown is scoped by that tag; a wrong one leaks a deployment |
+| **the endpoint carries no port to load against** | benching a port nothing listens on looks like a dead engine |
+| the router does not answer | a load against nothing produces a clean, empty, wrong result |
+
+**Bold the two that are silent when they fail.** A wrong node and a wrong port
+both produce plausible output — a full set of numbers, from the wrong machine or
+from nowhere — where the others produce an obvious absence. If you enforce only
+two of these, enforce those.
+
+**One more, specific to this line.** This line runs the engine with its decode
+graph disabled, on purpose: a captured graph records one launch instead of the
+kernels inside it, and the kernels are the entire output of this task. So the
+engine's own command line will carry *both* a graph-size flag and a disable
+flag, and its throughput is **not** a control for anything — the other line is
+where that number comes from.
+
 ## Watch out
 
 - **The two windows are not interchangeable and must not be aggregated.** The
