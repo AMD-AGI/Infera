@@ -3087,3 +3087,68 @@ the instruction *"cover the heaviest consumer's load"* is still right, but the
 load it must cover is the one measured **at a correct ceiling**, which is
 circular unless you measure twice. Recorded so the next person does not read
 25.42 as a fixed property of the trace.
+
+### T61 — a defect the instrument hides by functioning correctly
+
+**m5, 2026-09-05, from a warning of m2's that was about something else.** Named
+here because both the leader and m2 independently said it is a shape the day's
+collection did not already contain.
+
+`check_no_regression/check.py:567`, before `ce2d5a6`:
+
+```python
+name = args.get("schema")
+if name:
+    schema_lib.validate(str(name), report)
+```
+
+**With `schema` absent, the validator's first and strongest check does not run
+and nothing says so.** The other five args are thresholds that degrade to safe
+defaults and still bite (`0.05`, `0.10`, `0.10`). This one degrades to nothing.
+That much is ordinary — `items_schema`'s shape, present and checking nothing.
+
+## What makes it its own entry
+
+**It is invisible exactly when the tooling is correct.**
+
+It surfaced only because `probe_validators.py` was passing `args={}` to every
+validator — a *defect* in the probe. Under that defect, `check_no_regression`
+returned **True** with all six args discarded, and the passing row is what m2
+flagged: *a validator stripped of its thresholds passes trivially.*
+
+The probe has since been fixed to pass the real args. **So the condition that
+reveals this can no longer occur through the tool.** Every other instrument
+failure recorded today was visible *because* something was broken:
+
+| shape | how it becomes visible |
+|---|---|
+| a check that cannot fail (§4.4) | by asking what it would report if the subject were broken |
+| a bar neutralised by a default | by reading the default |
+| a probe that reads a warning as the thing warned about (entry 20) | by reading the matched line |
+| **this** | **only while a second tool is malfunctioning** |
+
+A working probe supplies `schema`, the branch is taken, and the validator does
+its job. There is no observation, from inside the package's own tooling, that
+distinguishes *"this check ran"* from *"this check would silently not run if
+asked differently"*.
+
+## The general form
+
+**A guard that is conditional on its own configuration is only as present as the
+caller's discipline, and no test that supplies the configuration can see its
+absence.** The absent-arg path has to be tested *deliberately* — the way a
+refusal path has to be tested deliberately — because nothing produces it by
+accident once the callers are correct.
+
+## What was done
+
+`ce2d5a6`: absent `schema` is now a refusal that names the missing arg. Verified
+both directions — with the step's args it refuses on the documented 35 %/30 %
+bars, with `schema` removed it refuses on the arg.
+
+## Where else to look
+
+Not swept. The candidate shape is `if args.get(X):` guarding a check rather than
+selecting between behaviours — as distinct from `args.get(X, <safe default>)`,
+which is the correct pattern and the one the other five use. **Worth a sweep by
+whoever next has a quiet hour; it is not urgent and it is not one owner's.**
