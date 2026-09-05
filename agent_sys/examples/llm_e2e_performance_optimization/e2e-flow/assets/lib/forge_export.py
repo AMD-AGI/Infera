@@ -119,13 +119,55 @@ _ONE_LINE = '''#!/bin/sh
 # is a site fact like the measurement card -- so it is refused rather than
 # defaulted, and for the same reason: a wrong checkout does not fail, it edits
 # the wrong tree.
+#
+# **`--kernel` is required too, and was missing until 2026-09-05.** A fresh
+# campaign raises `fresh campaign requires --kernel and --driver` -- forge's
+# `cli.py`, at the point it builds the campaign config -- and `--driver` was
+# being passed while `--kernel` was not. Found by m4 on a real campaign with a
+# held node in front of it, after the workspace had already been built.
+#
+# Unlike `--workspace`, this wrapper *can* supply it: it is the operator's own
+# `edit_target.source_file`. What the wrapper cannot know is the **frame**.
+# `_relative_file` in forge's `loop/campaign_config.py` accepts an absolute or
+# a workspace-relative path, resolves it, and refuses anything that is not a
+# file inside `--workspace`; the workset records the path in the identity's
+# frame, which is not always the checkout's -- cutting in the wrong frame is
+# what produced *"No file to patch. Skipping patch."* earlier in this package.
+# So the path is emitted, checked against the workspace before forge is
+# reached, and **refused with both frames named** rather than repaired by
+# guesswork. An explicit `--kernel` from the caller overrides it: click takes
+# the last occurrence of a non-multiple option and `"$@"` is appended last.
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 SPEC="$HERE"/invocation_spec.json
 DRIVER="$HERE"/scripts/forge_driver.py
+KERNEL={kernel_arg}
+FELLOW={fellow_arg}
+
+# **An undetermined fellow refuses here rather than being named `generic`.**
+# forge would accept the name, warn, and substitute `flydsl-fellow`; a campaign
+# that completes under a backend nobody chose is worse than one that does not
+# start. The generator writes an empty value when the Definition's tags name no
+# KernelForge backend, or name more than one.
+if [ -z "$FELLOW" ]; then
+  echo "run_forge.sh: cannot name a KernelForge fellow for {operator_id}" >&2
+  echo "  The Definition's tags name no backend forge registers, or name more" >&2
+  echo "  than one. Known backends: ck flydsl triton aiter hip hipblaslt intellikit" >&2
+  echo "  Passing an unknown name is NOT the fix: forge warns and silently" >&2
+  echo "  substitutes flydsl-fellow, and the campaign completes under it." >&2
+  echo "  FIX: correct the Definition's tags, or pass --fellow <backend>-fellow" >&2
+  exit 2
+fi
+if [ -z "$KERNEL" ]; then
+  echo "run_forge.sh: the workset records no edit_target.source_file for {operator_id}," >&2
+  echo "  so --kernel cannot be formed. FIX: pass --kernel <file inside --workspace>" >&2
+  exit 2
+fi
+
 DRY=""
 if [ "${{1:-}}" = "--dry-run" ]; then DRY=1; shift; fi
-set -- --invocation-spec-file "$SPEC" --driver "$DRIVER" --fellow {fellow} "$@"
+set -- --invocation-spec-file "$SPEC" --driver "$DRIVER" \
+       --fellow "$FELLOW" --kernel "$KERNEL" "$@"
 
 # `--workspace=<dir>` and `--workspace <dir>` both have to count, so this
 # matches the flag name rather than a spaced token.
@@ -150,6 +192,40 @@ if [ -z "$HAS_WS" ]; then
   echo "  wrapper cannot know it: the workset describes an operator, not a" >&2
   echo "  checkout." >&2
   echo "  FIX: $0 --workspace <checkout> [other forge-loop flags]" >&2
+  exit 2
+fi
+
+# **Is the recorded kernel path in the checkout's frame?** Checked here so the
+# answer is a message naming both frames rather than forge's
+# `kernel must be inside workspace` / `is not a file` from inside a campaign
+# that has already booked the node. Only checked when the caller did not
+# override `--kernel`, and only when the workspace is a plain `--workspace
+# <dir>` pair -- the `=` form is left to forge, because splitting it here would
+# be a second parser to keep in step with click's.
+WS=""
+prev=""
+for a in "$@"; do
+  [ "$prev" = "--workspace" ] && WS="$a"
+  prev="$a"
+done
+if [ -n "$WS" ] && [ ! -f "$WS/$KERNEL" ] && [ ! -f "$KERNEL" ]; then
+  echo "run_forge.sh: --kernel does not resolve inside the workspace" >&2
+  echo "  workspace: $WS" >&2
+  echo "  recorded:  $KERNEL   (edit_target.source_file, in the identity's frame)" >&2
+  echo "  tried:     $WS/$KERNEL" >&2
+  # A suffix that IS present is reported as a suggestion and never substituted:
+  # the frames differ by a prefix, and picking one automatically is how the
+  # wrong file gets edited without anybody choosing it.
+  suffix="$KERNEL"
+  while [ "${{suffix#*/}}" != "$suffix" ]; do
+    suffix="${{suffix#*/}}"
+    if [ -f "$WS/$suffix" ]; then
+      echo "  present:   $WS/$suffix" >&2
+      echo "             -- a candidate, NOT applied. Pass it explicitly if it is the one." >&2
+      break
+    fi
+  done
+  echo "  FIX: $0 --workspace $WS --kernel <path inside the workspace>" >&2
   exit 2
 fi
 exec kernel-agents forge-loop "$@"
@@ -239,7 +315,13 @@ def export_operator(root: pathlib.Path, operator: dict) -> dict:
     (directory / "scripts" / "forge_driver.py").write_text(
         _DRIVER.format(operator_id=operator_id, case_ids=case_ids), encoding="utf-8")
     one_line = directory / "run_forge.sh"
-    one_line.write_text(_ONE_LINE.format(operator_id=operator_id, fellow=fellow), encoding="utf-8")
+    # Single-quoted for the shell, because both values come from the workset and
+    # a path with a space would otherwise split into two arguments.
+    one_line.write_text(_ONE_LINE.format(
+        operator_id=operator_id,
+        fellow_arg=_sh_quote(fellow),
+        kernel_arg=_sh_quote((operator.get("edit_target") or {}).get("source_file") or ""),
+    ), encoding="utf-8")
     one_line.chmod(0o755)
 
     return {
@@ -253,18 +335,53 @@ def export_operator(root: pathlib.Path, operator: dict) -> dict:
     }
 
 
-def _fellow(operator: dict, definition: dict) -> str:
-    """Which KernelForge fellow the kernel's language selects.
+#: The fellow backends KernelForge actually registers, read from
+#: `kernel_agents/fellows/constants.py:17-26` (`FELLOW_AGENT_MODULES`, whose keys
+#: become `FELLOW_BACKENDS`). Held here as data because the failure mode is
+#: silent: `cli.py`'s `--fellow` help says in as many words *"Unsupported
+#: fellows fall back to flydsl-fellow"*, so a name outside this set does not
+#: stop a campaign — it runs one under a backend nobody chose and reports a
+#: plausible result hours later.
+#:
+#: **`tilelang-fellow` is deliberately absent**, and `assets/lib/
+#: kernel_taxonomy.yaml:129` still offers it. That row can never be honoured;
+#: it is one of the two rows that would refuse below rather than substitute.
+_FORGE_BACKENDS = ("ck", "flydsl", "triton", "aiter", "hip", "hipblaslt", "intellikit")
 
-    From the Definition's tags rather than guessed from the operator name: the
-    tags were written by `identify` off the taxonomy, and a wrong fellow does
-    not error — it optimises with the wrong idioms and reports a plausible
-    failure hours later.
+
+def _sh_quote(value: str) -> str:
+    """Single-quote a workset value for the generated `sh`."""
+    return "'" + str(value).replace("'", "'\\''") + "'"
+
+
+def _fellow(operator: dict, definition: dict) -> str:
+    """Which KernelForge fellow the kernel's language selects, or `""` to refuse.
+
+    From the Definition's tags rather than guessed from the operator name: a
+    wrong fellow does not error — it optimises with the wrong idioms and
+    reports a plausible failure hours later.
+
+    **This used to look only for a tag ending in `-fellow` and fall back to
+    `generic-fellow`.** Measured on the first real campaign (287, workset
+    `91ea967b`): the tags `identify` writes are bare language names —
+    `['attention', 'linear-attention', 'triton', 'gated-delta-rule']` — so
+    nothing ever ended in `-fellow`, the fallback was not a rare branch but
+    **the only branch**, and `generic` is not a backend forge knows. Every
+    operator in every real workset asked for a substitution. Mock never showed
+    it because the injected material carried the suffixed spelling.
+
+    Two tags naming two different backends is **refused, not resolved by
+    order**: the whole cost of this function being wrong is paid later and
+    quietly, so the one case where the evidence is ambiguous is the last case
+    to guess in.
     """
-    for tag in definition.get("tags") or []:
-        if isinstance(tag, str) and tag.endswith("-fellow"):
-            return tag
-    return "generic-fellow"
+    tags = [t for t in (definition.get("tags") or []) if isinstance(t, str)]
+    named = [t[: -len("-fellow")] for t in tags if t.endswith("-fellow")]
+    backends: list[str] = []
+    for candidate in named + tags:
+        if candidate in _FORGE_BACKENDS and candidate not in backends:
+            backends.append(candidate)
+    return f"{backends[0]}-fellow" if len(backends) == 1 else ""
 
 
 def _task_yaml(operator: dict, definition: dict, fellow: str) -> str:
