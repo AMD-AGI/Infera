@@ -956,6 +956,45 @@ def main() -> int:
               "seam is answered, treat a failure in the consuming stage as possibly this "
               "and not that stage's defect.", file=sys.stderr)
 
+    # **A replayed kit's entrypoints are stubs, and nothing else says so.**
+    # `deploy_and_prove.task/mock_adapt.sh:195-217` swaps `deploy.sh`,
+    # `wait_ready.sh` and `teardown.sh` for `check_deploy_serves`'s stub kit
+    # whenever stage 1 is mocked, keeping the originals under `scripts/sealed/`.
+    # Skip-ahead promotes stage 1 *by* mocking it, so every kit this tool
+    # materialises inherits that — and a downstream stage that really deploys
+    # gets a stub that binds a port in 1 s and answers 404.
+    #
+    # Measured 2026-09-05: rung 2h's `run_profiling_mode_on` came up in `1s`
+    # against `stub_yihou_e2e_flow_pmon`, probed 404, exited 1, and the task
+    # then sat at `running` forever behind an escalation with no recipient.
+    # rung 2g's `mode_off` sealed an `engine_argv.txt` whose entire contents
+    # were `Error response from daemon: No such container: stub_…` — and passed
+    # all three of its validators.
+    #
+    # **This tool does not un-stub.** Whether the restore belongs here or in
+    # the consumer is a design call for m5 and m1; what is not a design call is
+    # producing a kit that cannot deploy and saying nothing.
+    stubbed = []
+    for entry in sorted(out.glob("*/*/content/items/codes/*/scripts/deploy.sh")):
+        try:
+            head = entry.read_text(encoding="utf-8", errors="replace")[:400]
+        except OSError:  # noqa: PERF203 — one unreadable file must not lose the rest
+            continue
+        if "stub_env.sh" in head and (entry.parent / "sealed").is_dir():
+            stubbed.append(entry.parent.parent.name)
+    if stubbed:
+        sys.stdout.flush()
+        print("\nreplay_root: WARNING the replayed kit ships STUB deployment "
+              f"entrypoints: {', '.join(stubbed)}"
+              "\n  `scripts/deploy.sh` sources `stub_env.sh`; it binds a port in about a "
+              "second and answers 404. It is NOT the engine."
+              "\n  A downstream stage that only READS this kit is fine. A stage that "
+              "DEPLOYS from it will fail, and it will fail in a way that looks like that "
+              "stage's defect."
+              "\n  The real entrypoints are preserved at `scripts/sealed/`. Restore them "
+              "before using this root to run a stage for real. See SKIP-AHEAD.md §5.0.",
+              file=sys.stderr)
+
     print(f"\nreplay_root: wrote {out}/PROMOTION.json — "
           f"{len(record['promoted'])} promoted, {len(skipped)} not")
     print("replay_root: debugging only. Final acceptance is one full real e2e.")
