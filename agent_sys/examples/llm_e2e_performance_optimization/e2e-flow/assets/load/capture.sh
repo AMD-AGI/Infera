@@ -62,13 +62,47 @@ echo "===== 1/6 preflight ====="
 # `.Destination` is the **container** side of the mount, so it is compared
 # against the container path. Comparing it against the host path is the failure
 # this pair of variables exists to prevent.
-mounted=$(docker inspect -f "{{range .Mounts}}{{if eq .Destination \"$TRACE_OUT_IN_CONTAINER\"}}{{.RW}}{{end}}{{end}}" "$CTR")
-[ "$mounted" = "true" ] || {
-  echo "  ABORT: $TRACE_OUT_IN_CONTAINER is not mounted rw in $CTR"
+#
+# **The mount does not have to sit exactly on the trace directory.** An earlier
+# version demanded `.Destination == $TRACE_OUT_IN_CONTAINER`, and that refused
+# every real bring-up: m1's kit mounts one rw parent
+# (`/mnt/m2m_nobackup/yihou`) and the traces land several levels below it. The
+# directory was writable and the capture aborted anyway — measured on two nodes,
+# runs p4_b (275) and p4_a (088), 2026-09-05.
+#
+# So: find the mount that actually governs this path — the **longest**
+# destination that is the path or an ancestor of it — and require *that* one to
+# be rw. Longest wins because a read-only mount nested under an rw parent still
+# governs what is under it, and taking any ancestor would read that as writable.
+# No ancestor at all is still an abort: the path is then in the container's
+# writable layer, which is the silent failure the header of this file warns
+# about — SGLang writes, `/start_profile` answers 200, and the host sees an
+# empty directory.
+governing_dest=''
+governing_rw=''
+while IFS='	' read -r dest rw; do
+  [ -n "$dest" ] || continue
+  case "$TRACE_OUT_IN_CONTAINER" in
+    "$dest"|"$dest"/*) ;;
+    *) continue ;;
+  esac
+  [ "${#dest}" -gt "${#governing_dest}" ] || continue
+  governing_dest="$dest"
+  governing_rw="$rw"
+done <<EOF
+$(docker inspect -f '{{range .Mounts}}{{.Destination}}	{{.RW}}{{"\n"}}{{end}}' "$CTR")
+EOF
+[ "$governing_rw" = "true" ] || {
+  if [ -n "$governing_dest" ]; then
+    echo "  ABORT: $TRACE_OUT_IN_CONTAINER is governed by the read-only mount $governing_dest in $CTR"
+  else
+    echo "  ABORT: $TRACE_OUT_IN_CONTAINER is not under any mount in $CTR — writes would land in the container layer and the host would see nothing"
+  fi
   echo "  (host side: $TRACE_OUT). Mount destinations $CTR actually has:"
   docker inspect -f '{{range .Mounts}}    {{.Destination}} rw={{.RW}}{{"\n"}}{{end}}' "$CTR"
   exit 1
 }
+echo "  traces are governed by mount $governing_dest (rw) in $CTR"
 
 code=$(docker exec "$CTR" curl -s -o /dev/null -w '%{http_code}' -m 10 \
   -X POST "$URL/v1/admin/profile/start?role=__probe__")
