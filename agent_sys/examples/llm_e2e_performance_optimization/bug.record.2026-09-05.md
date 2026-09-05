@@ -63,6 +63,27 @@ validator」和「被拒的 handoff」;这条是 *validator 跑起来了、写�
 **状态**:未修复。m3 在 `cff4571` 补了另一半——**exit 0 的 body 输出会被丢弃,
 而那正是最疼的情况**。
 
+**这个缺口第一次被量化(2026-09-05T07:20Z 普查,46 条失败 / 34 次运行):**
+
+```
+15 / 46  条失败没有留下任何 validator_report.txt   —— 33%
+   其中 12 条来自三个「从不留报告」的 validator(check_deploy_serves 7、
+                                          check_environment 3、check_deploy_kit 2)
+   另外  3 条来自平时会留报告的 validator,是它们最早的那次失败
+        (check_workset_runs、check_optimization_shape、check_speedup_substantiated 各 1)
+```
+
+**两个数回答两个不同的问题,都对:**「哪些 validator 长期沉默」是三个;
+**「有多少条失败永远查不出原因」是 15 条,33%。** 本条讲的是被丢弃的 stdout,
+所以用后者。
+
+**那 3 条尤其值得看**——它们属于**会**留报告的 validator,只是最早那次没留。
+所以「取第一条留下报告的」这条取样规则会系统性地略过它们,而这正是它们最早、
+最接近原因的一次。
+
+**普查数字必须带时间戳。** 06:18 是 45/33,07:15 已是 46/34。**本文件里任何引用
+普查的数字,不带时间戳就是错的**,一天之内就会读成错。
+
 **绕过**:`assets/lib/read_events.py` 读事件存;`validator_report.txt` 在 zone 里
 读得到,但要**定位到那一个 validator 自己的 report**,不能全run grep(见第 5 条
 的注意事项)。

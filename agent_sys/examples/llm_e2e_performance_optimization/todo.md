@@ -2151,7 +2151,11 @@ the author** — and unlike the tool defects, it fires when nothing is broken.
 ### T49 — the verdict is right and the message says why it is right, wrongly
 
 **Named as a class by m5 on 2026-09-04 after the third instance in one afternoon.
-Four now, across four owners, and the fourth is the leader's.** Recorded here
+Six now, across five owners.** The sixth is the one that matters most for this
+entry's own reach: **T49 occurred inside the failure ledger itself**, where the
+recorded *reason* for four failures was a `note:` line the log had relabelled
+`PROBLEM:`. **Twice what the first summary of it said** — checkpoint reported two
+rows, readme-cn's audit found four. Recorded here
 rather than in `T43` because `T43` is about a *field* copied faithfully and
 understood by nothing; this is about a *message* that describes a narrower check
 than the sentence it prints.
@@ -2162,6 +2166,7 @@ than the sentence it prints.
 | `check_packup_shape` (m5) | `holds 0 non-empty file(s)` | one file, in a subdirectory `iterdir` did not descend into |
 | `check_workset_shape` (m3) | `not defined at module level` | not a `def`/`class` at module level — assignments are invisible to `identify.py` |
 | `check_command_parses` (leader) | `PROBLEM: items/command bash -n clean` | a *passing* line, routed into `write_report`'s problems slot unconditionally |
+| `validator.failures` ledger | a quoted `PROBLEM:` line as the failure reason | **four rows** were `note:` lines the log had relabelled — `check_bench_result`, `check_measurement_order`, `check_trace_coverage`, `check_no_regression` |
 | `run_in_container.sh` (m4) | *"m1's bring-up has been torn down"* | the node was never reached — **a transport failure wearing a teardown's clothes, and it named a specific person** |
 | `run_in_container.sh` (m4) | a blank where the container list goes | *none* — an empty diagnostic is indistinguishable from one that failed to look |
 | `check_speedup_substantiated` (m4) | `exited 127: l so no reader has to infer…` | `stderr.strip()[-400:]` — a slice by character, splicing a comment fragment into the error |
