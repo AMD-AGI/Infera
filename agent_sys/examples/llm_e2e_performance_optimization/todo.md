@@ -3958,3 +3958,70 @@ Passing `WORKSET_ROOT=/mnt/m2m_nobackup/yihou/e2e_flow_088a` as a fourth prefix 
 `packup.py` complete. **It is a workaround, it is one lap of the treadmill, and it
 should be labelled as such where it is added** — the next corpus with a different root
 fails the same way, after another deployment.
+
+### T79 — a run does not record the `--var` values it was launched with, and at least five of today's incidents are that one fact
+
+**m4 files, 2026-09-05, at the leader's direction. T79 and not T78 is theirs to assign.**
+
+**The measurement.** A run stages its own copy of the package under
+`zones/<task>/package/`. **That copy is NOT rendered.** On `p9`
+(`20260905T163424-bdb4d8`), `zones/.../package/steps/m2_profiling.yaml:119` still reads:
+
+```yaml
+    expect_ranks: '${expect_ranks:-8}'
+```
+
+**So the launch line is not recoverable from the run.** Not from the staged package,
+not from `store/task`, not from any artefact. It exists in the operator's shell
+history and nowhere else, and the process table loses it the moment the run ends.
+
+### The worked example: a verdict that is a function of an unrecorded argument
+
+Grading `p9`'s and `217d`'s `profiling_mode_on.profile_result` offline
+(`assets/lib/grade_offline.py`, `3313f79`) with `check_trace_coverage`:
+
+| `expect_ranks` | verdict |
+|---|---|
+| `4` | PASS |
+| default `8` | REFUSED — *"expected 8 rank(s), the manifest lists 4"* |
+
+Both runs are `tp_size: 4` — **read from each run's own `environment.yaml`, not
+assumed** — and the validator independently re-parsed the trace and found 4 ranks
+carrying 823736 GPU kernel events. **So `4` is certainly right about the deployment.
+What no one can establish is whether the launch said so.** If either line ran without
+the `--var`, `check_trace_coverage` **would have refused during the real run too** —
+which would be a defect in a launch block, not a grading detail. m2 and m3 have been
+asked; the point of the entry is that **the question had to be asked of a person.**
+
+### Why this is one item and not five
+
+The leader's pairing, and it is the reason this is filed rather than mentioned:
+
+| incident | the same fact |
+|---|---|
+| `produced_by.commit = 'unknown'` in every circulating workset | the value was knowable, nobody supplied it, **and nothing recorded that nobody had** |
+| `expect_ranks` wrong in the 78-minute `-noval` baseline | invisible for an afternoon; found only by turning a validator on |
+| the 2c class — a var with a mocked value and a real one | carrying the wrong one produces refusals that read as producer defects |
+| `--var gpu_devices` inert across five launches | undetectable **because the default matched what everyone wanted** |
+| this one | a PASS and a REFUSAL differ by an argument no artefact carries |
+
+**Every one is "the launch line is not recoverable from the artefact."** Counting them
+as five incidents is what kept them separate; **the fifth was found by grading, the
+fourth by a collision, the first by an audit — three different accidents for one cause.**
+
+### Options, none decided here
+
+- **Render the staged copy**, so the package a run actually used says what it used.
+- **Write the resolved variables into the run record**, e.g. a `store/run.json`, and
+  let every consumer — validator, grader, auditor — read them from there.
+
+**Both change a contract, so both defer like T75/T76/T77. The item does not:** it was
+unfiled, not deferred, and the difference matters because nothing was tracking it.
+
+### One consequence already visible
+
+Offline grading must report a verdict that depends on a supplied `--var` as
+**conditional**, naming the value and where it came from. `grade_offline.py`'s
+docstring says so and prefers values read from the run's own artefacts
+(`environment.yaml`'s `tp_size`) over remembered ones. **That is a mitigation, not a
+fix — it narrows who guesses, not whether anyone does.**
