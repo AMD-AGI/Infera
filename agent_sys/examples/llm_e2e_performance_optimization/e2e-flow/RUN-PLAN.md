@@ -30,10 +30,40 @@ been telling everyone to pass the wrong one.
 |---|---|---|
 | `m<N>_agent=runner` | one per still-mocked stage | **removed** for the promoted stage |
 | `expect_ranks` | **2** | **set it to the deployment's `tp`** — omitting it defaults to **8** and refuses a `tp=4` run |
-| `adhoc_cases` | **0** | omit from rung 5 (`todo.md` T12) |
+| `adhoc_cases` | **0** — mock only | **`3` on any real run, non-negotiable** — see *The `adhoc_cases` split* below |
 | `image` | **the sealed kit's**, not the node's | the real bring-up's |
 | `transport_env` | **required on every rung** — `SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR` | same |
 | `measure_gpu` | **required on every rung** — a card `nodeprobe` reports free | same |
+
+### The `adhoc_cases` split — 0 in a mock line, 3 in a real one
+
+**Decided 2026-09-05. They are not alternatives; they belong to different
+phases, and the `0` must never migrate into a real line by copy-paste** — that
+is the `measure_gpu` class and it has cost four runs.
+
+**Mock: `--var adhoc_cases=0`.** A mock *cannot* produce ad-hoc cases. They are a
+record of questions asked of a live engine and the answers it gave; the sealed
+2026-09-02 corpus predates M5.4 and carries none — checked, `find -iname
+'*adhoc*'` over the corpus returns nothing and `acceptance_stock` holds only the
+frozen suite. Setting the floor to `0` is the designed way to say *this line does
+not exercise that arm*, and it is honest **only while it is recorded**.
+
+**Real: `adhoc_cases=3`, non-negotiable.** M5.4's ad-hoc half exists *"免得作弊"* —
+the frozen suite alone can be gamed, because it ships in the repository and can
+be satisfied by construction. A real e2e that skips it has not tested the thing
+M5.4 was written for.
+
+**Do not close the gap by writing an `adhoc.json`.** That would not convert an
+artefact; it would **manufacture the evidence the validator exists to check**.
+Measured, so the choice is visible rather than argued:
+
+```
+adhoc_cases default (3)   min_adhoc_cases='3'  ->  stock=False, patched=False
+--var adhoc_cases=0       min_adhoc_cases='0'  ->  stock=True,  patched=True
+```
+
+The refusal at `3` is correct: *"adhoc.json is missing and 3 ad-hoc case(s) are
+required (M5.4)"*.
 
 **`image` and `transport_env` are on this table because each cost a run, and
 they fail in opposite ways.**
@@ -1914,6 +1944,8 @@ python3 -m agent_sys.cli.main run \
   --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
   --var image=<the image rung 4 recorded> \
   --var tp=<the kit's tp_size> \
+  --var expect_ranks=<the kit's tp_size> \
+  --var gpu_devices=<the free cards, e.g. 0,1,2,3> \
   --var mock_stages=none \
   --var measure_gpu=<free GPUs on the node, see below> \
   --var bench_rounds=3 \
@@ -2008,7 +2040,13 @@ stage 2. Omit both; the default is 50 on each side.
 
 Named because a value rung 4 does not record is one somebody invents on the node.
 
-- **`measure_gpu`** (default 4) — how many cards each arm takes. **Nothing in any
+- **`measure_gpu`** (**default empty, not `4`**) — how many cards each arm takes.
+  This section said `4` and that was wrong in the direction that matters: every
+  live site is `'${measure_gpu:-}'` and `shared.yaml:235` records why, at m4's
+  insistence — *"a **real card** as a package default makes a consumer's
+  refuse-when-empty guard unreachable and picks a card silently on a shared
+  host."* So omitting it does not quietly take card 4; the consumer **refuses**,
+  which is the guard working. **Nothing in any
   sealed artefact records how many GPUs were free**, and the two rung-5 arms need
   their own cards beside whatever the host already carries. Measured on 217 the
   hard way: GPUs 0–3 held by another tenant's non-docker processes. **Read it
