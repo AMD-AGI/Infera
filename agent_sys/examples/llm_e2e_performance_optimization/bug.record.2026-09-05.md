@@ -1786,3 +1786,62 @@ phase 行是 `running`,产物照常产出,**「这次测量不是在记录声明
 不提修法。方向(记录,不是建议):测量类产物里带一行
 `measured_in: {container: <name>, ephemeral: true|false}`,
 消费者可以据此决定它信不信这个数。
+
+## The zero-file materials fault terminated a real run (2026-09-05 23:16:58, leader)
+
+**Previously recorded as producing a false refusal or a silent pass. It does worse:
+it ended a run that was measuring correctly.**
+
+`r5m1b` (real stage 1 + corpus middle + real stage 5, whole node 217):
+
+```
+verdict  check_profiling_evidence: FAIL    completeness / strong
+
+done  main is waiting on a decision no one will make -- the escalation reached the
+      top and this entry point installs a sink that records and does not answer
+      (validation_failed: the task is terminal and there is nothing to push).
+      Nothing has changed for 900 s; still in a phase:
+      integrate_and_verify:running, m2_profiling:output_validating,
+      m5_integration:running, main:running
+```
+
+**The zone that produced that FAIL was handed ZERO files:**
+
+```
+EMPTY  validation.e2d93386-cd60-40f4-ad07-454833c30f3d.output_validation.fdf55b49
+         versions: v0   files: 0   validators: check_profiling_evidence
+1 of 13 zone(s) were handed ZERO files.
+```
+
+**So the refusal says nothing about m2's artefact** -- established by running
+`bash assets/lib/refusal_saw_something.sh <run>` BEFORE attributing it, which is
+the whole reason that tool exists (m1, `ca60ccc`).
+
+### Why this is a promotion, not another instance
+
+- the measurement was **healthy**: both arms mid-flight, stock arm 15 minutes into
+  its bench, cards 0-3 at 75%;
+- the failing stage was **mocked**, so nothing about it was under test;
+- the escalation had **no receiver** -- the `validation_failed` sink records and
+  does not answer, so the run sat for 900 s and then declared itself over;
+- **the round's whole purpose was lost**: whether a real `integration_report`
+  carrying a real `items/env/environment.yaml` passes `check_environment` is
+  STILL not established, for a fourth round, and this time for a reason that has
+  nothing to do with any artefact.
+
+**A non-deterministic framework fault can now cost a GPU round, not just a
+confusing line in a report.**
+
+### Reading note
+
+**The line that explains it is not the last line.** The terminal `done  run
+complete; ... the run did NOT finish: ...` reads like an ordinary stop. The
+explanation is 108 lines above it. `tail -1` hides it -- same shape as the four
+"cause unknown" runs this morning.
+
+### Aftermath
+
+Orchestrator exited; **no agent survived in any run zone** (`pgrep -f
+'claude/versions'` -> one process whose cwd is the repo root, not a zone). The
+stock arm was still up at 18 minutes holding cards 0-3 with nothing left to
+collect it; stopped with `docker stop -t 10` (never `rm -f`), run tree untouched.
