@@ -127,6 +127,19 @@ _GPU_HOURS: set[str] = set()
 #: Only vars whose effect has been measured belong in this dict. A var added
 #: because it appears in a launch line, without a row to show for it, is a
 #: threshold quietly relaxed.
+#:
+#: **And a green row here is not an exercised arm — `adhoc_cases=0` is the
+#: case.** It resolves `check_acceptance` by setting the floor to **zero**, and
+#: no sealed handoff carries ad-hoc cases at all: the 2026-09-02 corpus predates
+#: M5.4, and m5 searched for the material under other names on the same lesson
+#: that found `aiperf_profiled` and found none. So the validator's ad-hoc arm is
+#: **read and never exercised** — the state RUN-PLAN's rung-5 §4 says rung 5 must
+#: not perpetuate.
+#:
+#: That is an open decision for the leader (accept `adhoc_cases=0` and record the
+#: gap, or produce the cases in a real m5 run), **not a closed row**. m5 asked
+#: that the probe's accounting not collapse the two, and they are right: this
+#: dict can make a row green, and it cannot make evidence exist.
 MOCK_VARS: dict[str, str] = {
     "expect_ranks": "2",
     "adhoc_cases": "0",
