@@ -564,12 +564,35 @@ def check(content: Path, args: dict, reasons: list) -> bool:
     # is checked before anything is read out of the document, so a malformed
     # report fails as a malformed report rather than three functions later as a
     # missing key.
+    # **An absent `schema` is a refusal, not a skip.** This was `if name:` — so
+    # with the arg missing the validator's *first and strongest* check quietly
+    # did not run and said nothing, while the other five args degrade to safe
+    # defaults that still bite (`0.05`, `0.10`, `0.10` at `:145`, `:146`, `:446`).
+    #
+    # Surfaced by m2's warning that the probe was passing `args={}` to every
+    # validator: mine returned **True** with all six args discarded, which is
+    # not evidence it works — it is `items_schema`'s shape, present and checking
+    # nothing. The probe has since been fixed to pass the real args, which makes
+    # this **invisible precisely when the tooling is working**, so it would not
+    # have been found again.
+    #
+    # The step file always supplies `schema`, so this is unreachable through the
+    # package's own wiring. That is the argument for refusing rather than
+    # defaulting to a name: if it is ever absent, something is wrong with the
+    # caller and a silent pass is the worst available answer.
     name = args.get("schema")
-    if name:
-        try:
-            schema_lib.validate(str(name), report)
-        except schema_lib.SchemaError as exc:
-            return _fail(reasons, f"the report does not validate against {name!r}:\n{exc}")
+    if not name:
+        return _fail(
+            reasons,
+            "no `schema` arg was supplied, so the report was never validated against one. "
+            "This validator's other bars are thresholds with safe defaults; this one is the "
+            "document check, and it has no default because a report graded against no schema "
+            "has not been graded. Supply `schema: integration_report`.",
+        )
+    try:
+        schema_lib.validate(str(name), report)
+    except schema_lib.SchemaError as exc:
+        return _fail(reasons, f"the report does not validate against {name!r}:\n{exc}")
 
     for arm in args.get("require_arms") or ("stock", "patched"):
         if arm not in (report.get("arms") or {}):
