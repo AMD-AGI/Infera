@@ -108,6 +108,26 @@
     E2E_NODE_IP: '${node_ip}'
     E2E_PORT_ROUTER: '${port_router:-8101}'
     E2E_MOCK_ROOT: '${mock_root:-/shared_nfs/yihou/agent_sys/cheat_for_mock}'
+    # **The symbol-search index, read by `identify.task/identify.py:683`.**
+    # Undeclared here until 2026-09-05, and invisible until m2 repaired
+    # `check_agent_env`'s closure->assets mapping (`7507b74`): it matched by
+    # name-containment, so this agent was audited against `build_workset` alone
+    # and `rank.task` and `identify.task` were never scanned. One of three
+    # closures, for the life of the check.
+    #
+    # **Byte-identical to `shared.yaml:181`** — the leader's instruction, and
+    # m2's `E2E_MOCK_STAGES` defect is the reason: two declarations of one
+    # default drifted and silently changed which stages were mocked.
+    #
+    # **What its absence cost on the first real run: nothing, measured.** It
+    # feeds `kernel_finder`, which is resolution *level 2*; run
+    # `20260905T051226-559e5f` resolved all five operators at level 1
+    # (`trace_python_stack`, `resolve_ratio: 1.0`) from the kernel_table's own
+    # launcher frames, so the fallback was never reached. The body also guards
+    # it — `os.environ.get(...) or "/nonexistent"` — so an empty value makes a
+    # path that does not exist rather than an empty string. Declared because it
+    # is read and should be settable, not because it was breaking anything.
+    E2E_MAGPIE_ROOT: '${magpie_root:-/shared_nfs/chaox/Magpie}'
 
     # ---- Below here `runner` declares nothing, so these have never arrived
     # anywhere, not just here. Defaults are the ones the bodies already fall

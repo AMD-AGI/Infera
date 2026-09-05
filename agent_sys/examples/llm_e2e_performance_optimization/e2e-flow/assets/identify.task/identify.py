@@ -587,15 +587,23 @@ def image_facts(image: str, root: str, relatives: list[str], timeout: int = 300)
     inner = (
         "import ast,hashlib,json,os,sys\n"
         + MODULE_SYMBOLS_SNIPPET
-        + "out={}\n"
+        + "out={};missed=[]\n"
         "for rel in json.loads(sys.argv[1]):\n"
         "    f=os.path.join(sys.argv[2],rel)\n"
+        # **A miss is reported, not swallowed.** `except OSError: continue` was
+        # here and it is what made three stacked defects invisible for the life
+        # of this file: a wrong root, a wrong join base and a non-existent
+        # constant all arrived as the same empty dict, and the caller could only
+        # say "no file facts" without saying why. The path it tried is the whole
+        # diagnosis — it shows the join, so a doubled prefix or an unexpanded
+        # placeholder is legible in one line rather than needing a node.
         "    try: b=open(f,'rb').read()\n"
-        "    except OSError: continue\n"
+        "    except OSError as exc: missed.append(f+' :: '+type(exc).__name__); continue\n"
         "    e={'sha256':hashlib.sha256(b).hexdigest(),'module_symbols':None}\n"
         "    try: e['module_symbols']=_syms(b.decode())\n"
         "    except (SyntaxError,UnicodeDecodeError): pass\n"
         "    out[rel]=e\n"
+        "print('MISSED:'+json.dumps(missed))\n"
         "print('FACTS:'+json.dumps(out))\n"
     )
     # **base64, and the reason is recorded rather than rediscovered.** This
@@ -633,6 +641,10 @@ def image_facts(image: str, root: str, relatives: list[str], timeout: int = 300)
     except (subprocess.TimeoutExpired, OSError) as error:
         print(f"identify: could not read {image}: {error}", file=sys.stderr)
         return {}
+    missed = re.search(r"^MISSED:(.*)$", done.stdout or "", re.MULTILINE)
+    if missed:
+        for line in json.loads(missed.group(1)) or []:
+            print(f"identify: could not read {line} from {image}", file=sys.stderr)
     match = re.search(r"^FACTS:(.*)$", done.stdout or "", re.MULTILINE)
     if not match:
         print(f"identify: no file facts from {image}; base_sha256 and module_symbols will be null. "
@@ -704,9 +716,47 @@ def main() -> int:
     for o in operators:
         for rel in o.get("editable_sources") or []:
             by_root.setdefault(o.get("image_repo_path") or "", []).append(rel)
+    # **Expand the placeholder before it is used as a filesystem root.**
+    # `image_repo_path` is `@SGLANG_ROOT@` and friends — the form a handoff may
+    # carry, because `handoff/locality.py` refuses to seal an absolute container
+    # path. `image_facts` needs the *real* path: it `os.path.join`s this onto
+    # each relative and opens the result inside the container.
+    #
+    # Until 2026-09-05 the placeholder went through verbatim, so every open was
+    # `@SGLANG_ROOT@/…`, every one raised `OSError`, the payload's
+    # `except OSError: continue` swallowed all of them, and `base_sha256` and
+    # `module_symbols` came back null for every operator of every real run.
+    # The mock path never showed it because `mock_adapt._image_facts` discovers
+    # its root *inside* the container from `sglang.__file__` and never consults
+    # this table (`todo.md` T34 — two producers, one exercised).
+    #
+    # **This is one third of the fix and the commit says so.** Measured on
+    # `test-local-mooncake_hip_dmabuf1`: with the expansion, `AITER_ROOT`
+    # resolves and the other two still do not — `SGLANG_ROOT`'s value already
+    # descends into `python/sglang` while the relatives are workspace-relative,
+    # and `SGL_KERNEL_ROOT` names a directory the image does not have because
+    # sgl_kernel ships as an installed wheel with no checkout. Both are with the
+    # leader; do not read one green operator as this being solved.
+    # `roots` maps NAME -> {path, description}, not NAME -> path. Both sigils
+    # are accepted because `_container_roots` above emits `@NAME@` for this
+    # file's shape and `${NAME}` for `analyze-demo`'s, and a handoff sealed by
+    # either must be readable here.
+    _root_paths = {name: (spec or {}).get("path") if isinstance(spec, dict) else spec
+                   for name, spec in (_ROOTS.get("roots") or {}).items()}
+    expansion = {f"@{name}@": path for name, path in _root_paths.items() if path}
+    expansion.update({"${%s}" % name: path for name, path in _root_paths.items() if path})
     facts: dict[str, dict] = {}
     for root, relatives in by_root.items():
-        facts.update(image_facts(image, root, sorted(set(relatives))))
+        resolved = expansion.get(root)
+        if resolved is None:
+            # **Named, not skipped.** An unexpandable root used to become a
+            # silent zero; saying which one and what it stands for is the
+            # difference between a null a reader can act on and one they cannot.
+            print(f"identify: {root!r} has no expansion in container_roots.yaml, so the "
+                  f"{len(set(relatives))} file(s) under it cannot be read from the image; "
+                  f"their base_sha256 and module_symbols stay null", file=sys.stderr)
+            continue
+        facts.update(image_facts(image, resolved, sorted(set(relatives))))
     if wanted and not facts:
         print(f"identify: no file facts for {len(wanted)} target file(s); base_sha256 and "
               f"module_symbols are null and a consumer must read them itself", file=sys.stderr)
