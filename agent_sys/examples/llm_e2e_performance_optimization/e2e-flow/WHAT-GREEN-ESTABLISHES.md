@@ -195,6 +195,97 @@ grep 一遍找 subprocess / 远程调用,**结果是零**。**它按构造就不
 这不是两个缺口,是一个:**本包证据最薄的一角,和它唯一从未真实运行过的阶段,是同一个
 事实的两种说法。**
 
+### 2.7 一次 **17/17** 的 `-noval` 完成确立了什么
+
+**run `20260905T121310-bf8226`,2026-09-05 13:31,78 分钟,五个阶段一次 `agent-sys
+run` 走完。我第一手复核:17 个 task 全部 `succeeded`,含 `m5_integration`、`packup`
+和 `main`;15 个 kind、21 个封存版本、495 个文件、19 份 environment 记录。**
+
+```
+真实 stage 1 (deploy_and_prove)        35m34s
+语料中段 (m2+m3+m4)                     2m23s
+真实 stage 5 (integrate_and_verify)    39m29s
+```
+
+#### 一、它确立了一个结构性事实,而这是任何部分运行都给不了的
+
+**不存在走不通的阶段,stage 1 到 stage 5 之间不存在接线故障。** 今天死掉的每一条链
+都死在**分歧**上(语料早于契约、发射参数错、body 失败被丢弃),没有一条死在「图接不
+上」。**这一点从此是测出来的,不是论证出来的。**
+
+#### 二、文件计数买到了什么 —— 分开算才有意义,合起来算什么都不是
+
+leader 问 495 个文件和 19 份记录能不能收紧「静默失败」这条。**我去测了。**
+判据来自我自己记录的那个失败模式:`mock.sh` 先拷贝、body 再失败、任务仍记
+`succeeded`——**在那种模式下,handoff 里应当只有语料字节。**
+
+```
+全部 handoffs/ 下 495 个文件:  165 与语料逐字节相同 (33%)   330 不是 (67%)
+```
+
+逐 kind 分开:
+
+| kind | 文件 | 语料 | 产出 |
+|---|---:|---:|---:|
+| `deploy_kit` | 37 | 2 | **35** |
+| `patched.measurement` | 71 | 3 | **68** |
+| `stock.measurement` | 71 | 6 | **65** |
+| `e2e_packup` | 86 | 21 | **65** |
+| `patch_overlay` | 9 | 1 | 8 |
+| `operator_workset` | 41 | 26 | 15 |
+| `kernel_optimization` | 33 | 19 | 14 |
+| `profiling_evidence` | 45 | 34 | 11 |
+| `profiling_mode_off.bench_result` | 17 | 15 | **2** |
+| `profiling_mode_on.bench_result` | 17 | 15 | **2** |
+| `profiling_mode_on.profile_result` | 16 | 14 | **2** |
+
+**十五个 kind 没有一个是 100% 语料。** 但这条判据**强弱极不均匀,而不均匀的方式恰好
+可以预测**:
+
+- **真实跑过的两个阶段(m1、m5)产出占压倒多数**——35/37、68/71、65/71。这里计数是
+  真证据。
+- **语料中段只有 2–4 个产出文件**,而那几个**完全可以由 `mock.sh` 自己的引号修复
+  (MOCK-MAP J)加上 `env_render` 写的 `environment.yaml` 解释掉**——也就是说,
+  **它们正是「拷贝 → 修复 → 渲染 → 然后失败」会留下的东西。** 在这里计数买不到任何
+  东西。
+
+**所以结论是:计数只在本来就跑了真实工作的地方证明真实工作。** 它不能把
+`-noval` 的绿升级成正确性,leader 原本担心的「a lot of structure 不是论证」是对的
+——但它现在**是一个可算的、逐 kind 的判据**,而不是一个印象。
+
+#### 三、这次运行里唯一一个非 `check_nothing` 的事实,是一次拒绝
+
+**而这是全场最强的证据,强过任何计数。** `integrate_and_verify` **自己算出**
+`verdict.accepted: false`:
+
+```
+stock_vs_m2   inter_token_latency (avg)   m2 15.6456 ms   stock 11.2952 ms
+              rel_delta -0.278058         within_tolerance: false
+comparison    3 轮/臂,每臂 pooled n=720,带 median 与 spread
+```
+
+**这不是一个 validator 的判决——`check_no_regression` 在这次运行里是
+`check_nothing`。这是生产者自己的计算。** 而它需要:读到 m2 的 bench、测出 stock 臂、
+把两者比较。**一个「拷贝完就失败」的 body 产不出这个。**
+
+拒绝的理由还指名了下一步该查什么,同时明说自己不做那个判断:
+
+> *"the two stages measured something different… Which one is decidable and this
+> body does not decide it: compare `fixed.image_id` and `fixed.node` in the two
+> `environment.yaml` records."*
+
+**一个来自另一台机器的语料中段,对上一个真实的 stage 5,本来就应该不一致。**
+所以这次运行里那一个实质判断,是**一次正确的拒绝**——那比一个绿更强。
+
+#### 四、由此得到的一般判据
+
+**在 `check_nothing` 之下,证据既不是 verdict 也不是文件数,而是「生产者算出来的、
+其值依赖于它必须读进来的输入」的内容。** 一个数字如果只能由「真的读了 A 又读了 B 再
+比较」才能得到,它就不能被静默失败伪造;一个文件如果只是被拷进来的,它什么都不证明。
+
+**用这条去读上面三点:** 结构性可达(一)是真的;计数(二)只在真实阶段有效;
+而唯一不可伪造的那一条(三)恰好是本次运行**唯一一个说「不」的东西**。
+
 ### 一个 `-noval` 运行确立什么:比你以为的少一整类
 
 **`make_debug_package.py` 生成的树把每个 validator 换成 `check_nothing`**,这是让链
