@@ -3894,3 +3894,67 @@ next producer free to forget. **Options not decided here:** have the seal requir
 record for kinds whose content type implies it, or have `env_render` be called by the
 framework rather than by each body. **Both change a contract, so neither belongs in
 this round** — see T75 for the same reasoning.
+
+### T77 — `redact` refuses by file suffix, and an evidence record is not a script — deferred, and it is a contract question
+
+**m4 answers a question the leader routed out of their own hands** (their words: three
+wrong calls on the same artefact today, so a fourth is the worst-quality opinion
+available). **The answer is: do not edit the builder. This is the same shape as T75.**
+
+**The failure.** `packup.py:529` shells to `redact.py` with `check=True`; two paths in
+`results/kernel_optimization.json` cannot be named, so it exits 1 and `entry.sh`'s
+`set -eu` kills `packup.py` before `exec env_render`:
+
+```
+:32  "model_path": "/shared_nfs/yihou/models/Qwen3.6-27B"
+:61  "work_root":  "/mnt/m2m_nobackup/yihou/e2e_flow_088a/088a-09051009"
+```
+
+**`redact` is behaving correctly and this is not a `redact` bug.** Its prefix list is
+built at `packup.py:515-527` from **this** run's environment — `E2E_WORK_ROOT`,
+`E2E_MODEL_PATH`, `E2E_MOCK_ROOT`. The embedded record carries **another run's** root
+(`e2e_flow_088a`). A prefix list assembled from the live environment can never cover a
+foreign root, and the codebase already knows this: **`MOCK_ROOT` exists precisely
+because a replayed kit records a root from the run that sealed it.** That was one
+known foreign root; verbatim inheritance produces an unbounded set of them.
+
+**So "pass another prefix" is a treadmill, and each new lap is discovered by an
+`exit 1` after a real deployment has already run.** That is the expensive place to
+find out.
+
+### The real question, and why it is not about paths
+
+`redact.py:56` — `REFUSE_SUFFIXES = frozenset({".py", ".sh", ".json", ".jsonl"})`.
+**The refusal is scoped by file suffix.** Its own docstring scopes it by *merit*:
+
+> *a script carrying one host's directory layout does not run on the next host*
+
+and it deliberately spares prose, because *"prose saying `/v1/models` bakes in no
+host's directory layout."* **`premise.workset_environment` / `premise.run_environment`
+sit on the prose side of that argument, not the script side.** They are not consumed
+to locate anything — the record's own note says a consumer must read the handshake,
+not this field. **They exist to say which host established the premise, so naming the
+host is the entire content.** A `.json` suffix put them in the executable bucket.
+
+**And today gave the cost of the alternative.** `e2e_flow_088a` in an artefact
+circulating on 093 is exactly the provenance signal that took a `store/task` read to
+settle. **A field whose job is to say "this came from somewhere else" is the last
+field to launder into a placeholder.**
+
+### Options, none decided here
+
+- **Scope the refusal by what the content is, not by its suffix** — the same
+  correction T75 asks for on the `optimized_kernel.py` slot (kind, not filename).
+  A record could self-declare `content_role: evidence | executable`.
+- **Do not embed a host-specific record verbatim in generated content** — carry a
+  reference (handoff id + version + digest) and let a reader resolve it.
+
+**Both change a contract, so neither belongs in this round.** T75's reasoning applies
+unchanged.
+
+### Unblocking the leader's artefact today, and its cost
+
+Passing `WORKSET_ROOT=/mnt/m2m_nobackup/yihou/e2e_flow_088a` as a fourth prefix makes
+`packup.py` complete. **It is a workaround, it is one lap of the treadmill, and it
+should be labelled as such where it is added** — the next corpus with a different root
+fails the same way, after another deployment.
