@@ -67,13 +67,21 @@ validator」和「被拒的 handoff」;这条是 *validator 跑起来了、写�
 
 ```
 15 / 46  条失败没有留下任何 validator_report.txt   —— 33%
-   其中 12 条来自三个「从不留报告」的 validator(check_deploy_serves 7、
-                                          check_environment 3、check_deploy_kit 2)
-   另外  3 条来自平时会留报告的 validator,是它们最早的那次失败
+   其中 10 条来自两个「从不留报告」的 validator(check_deploy_serves 7、
+                                          check_environment 3)
+        2 条来自 check_deploy_kit —— 它**会**留报告(57 次里留了 45 次),
+                                    这 2 条是它拿到写入之前的
+        3 条来自平时会留报告的 validator,是它们最早的那次失败
         (check_workset_runs、check_optimization_shape、check_speedup_substantiated 各 1)
 ```
 
-**两个数回答两个不同的问题,都对:**「哪些 validator 长期沉默」是三个;
+**更正(07:55):上面原本写的是「12 条来自三个从不留报告的 validator」,把
+`check_deploy_kit` 归进了「从不留报告」。** 它不是——readme-cn 从运行树数出它
+**57 次里留了 45 次**;我从 body 数出它的 `write_report` 是 09:22 在 `e42bde4`
+补上的。**两个方向的证据说的是同一件事:它是「后来才会写」,不是「从不写」。**
+所以切分是 **10 + 2 + 3**,不是 12 + 3。**15 和 33% 不变,只是归属变细了。**
+
+**两个数回答两个不同的问题,都对:**「哪些 validator 从不留报告」是**两个**;
 **「有多少条失败永远查不出原因」是 15 条,33%。** 本条讲的是被丢弃的 stdout,
 所以用后者。
 
@@ -128,10 +136,48 @@ check_deploy_serves          baseline                 report=NO
 
 | validator | owner | body 里已有 findings/problems/notes 引用 | 修法 |
 |---|---|---|---|
-| `check_environment` | `steps/common.yaml` —— 共享,leader | **16 处** | **接近一行**:结构已经在,`import workset_io` 加一次调用 |
+| `check_environment` | `steps/common.yaml` —— 共享,leader | ~~**16 处**~~ 见下方更正 | ~~**接近一行**~~ 见下方更正 |
 | `check_deploy_serves` | `steps/m1_deploy.yaml` —— **m1** | **0 处** | **真改动**:它根本没有收集理由的地方,要先有理由才谈得上写 |
 
 **未修。** 按 leader 的要求只报告不动手。
+
+### 更正(07:55):上面这一行的两个数字都是我编错的,而且它被采信了
+
+**「16 处」复现不出来。** 在 `assets/check_environment.validator/` 里,`findings`
+一共出现在 **9 行**,三种数法(`grep -c` 按行、`grep -r` 全目录、`grep -o` 按次)
+**都是 9**。真正的 append 点是 **7 处**:`:167 :173 :183 :188 :212 :216 :226`。
+16 不属于这个文件,我把别处的计数搬了过来。
+
+**「接近一行」是错的,而且错的方向会造成伤害。** leader 自己读源码找出了为什么:
+`findings` 是**一个混着 problem 和 note 的平铺 list**,`:212` 那行明写
+*「reported, not judged」*。直接把它整个塞进 `write_report` 的 problems 槽,
+**会把一条 note 渲染成 `PROBLEM:`**——这正是 T49,而且是由「给它补上报告」的那个
+commit 引入的。
+
+**但 leader 的重估「十五处左右,每处都是判断」也偏高,而且判断其实不需要。**
+第一手读下来,判据已经写在代码里了:
+
+| append 点 | 紧跟着 verdict=False? | 类别 |
+|---|---|---|
+| `:167 :173 :183 :188` | 是(各自下一行,且都 `continue`) | problem |
+| `:216` | 是(来自 `problems`,`:214` 已据此定 verdict) | problem |
+| `:226` | 是(`:230`) | problem |
+| `:212` | **否** | **note——全文件唯一一条** |
+
+**一条 append 是 problem,当且仅当它伴随一次 verdict 置假。** 七处里恰好一处没有,
+而那一处恰好就是那条 note。leader 在 `:214` 看到的
+*「code already knows the difference」* 不止在 `:214`,它在**全部七处**都成立。
+所以这是 **7 处机械改写**,不是 15 处判断。
+
+**一个连带的坑,给要落地的人:** `:214` 的 `verdict[hid] = not problems` 之后,
+`:226/:230` 还会因为**跨 handoff 的 fixed 字段不一致**再把 verdict 打成 False,
+而那条理由**从来不在 `problems` 里**。任何「从 per-handoff 的 problems 列表重算
+verdict」的改法都会**静默丢掉这一类**。已确认 `:167–:189` 四个分支都 `continue`,
+所以 `:214` 不会覆盖它们——现有代码是对的,**是改法有风险,不是代码有 bug**。
+
+**这条更正的意义不在数字。** 我发布的是一个**成本估计**,它被直接采信并据以分配了
+归属;发现它错的是**文件的 owner 读源码**,不是我。**估计和测量在文本里长得一样,
+而估计不会因为被引用而变准。**
 
 **普查数字必须带时间戳。** 06:18 是 45/33,07:15 已是 46/34。**本文件里任何引用
 普查的数字,不带时间戳就是错的**,一天之内就会读成错。
