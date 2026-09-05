@@ -9403,3 +9403,88 @@ oversight in either.**
 **`check_packup_shape` has now run once.** It was the last validator never to
 have produced a verdict. **All 21 have now spoken** — the metric I retired at
 T+1330 for saturating has, in fact, saturated.
+
+### Addendum, 06:17 UTC — negative-controlling the ten: five tested, five load-bearing, 215 of 236 invocations covered
+
+The leader asked whether the ten never-failed validators are load-bearing or
+decorative, with three constraints: break them the way they *name*, **prove the
+harness can drive one to refuse before reporting that any cannot**, and fix
+nothing.
+
+**Harness.** Clone a real passing validation zone and its material into `/tmp`,
+rewrite `materials.json` to the copy, run the validator body with `cwd` set to
+the zone. **Nothing in the run tree is touched.** Baseline first, every time.
+
+### Constraint 2 first: the harness is proven before any conclusion
+
+**`check_command_parses`, four points:**
+
+```
+real artefact, untouched          -> PASS
+unterminated `if`, bash shebang   -> REFUSE  "line 4: syntax error: unexpected end of file"
+parses but chmod -x               -> REFUSE  "items/command is not executable"
+restored good script              -> PASS
+```
+
+**It goes to refuse and back.** The harness demonstrably delivers broken input,
+so a later PASS means the validator looked and was satisfied — not that the
+harness failed to arrive.
+
+### Results
+
+| validator | invocations | control applied | verdict |
+|---|---|---|---|
+| `check_command_parses` | **107** | syntax error · non-executable · restore | **REFUSE / REFUSE / PASS** |
+| `check_kernel_table` | 30 | `table.csv` cut to 3 rows against `min_rows: 20` | **REFUSE** |
+| `check_identity_resolved` | 26 | every resolution field set unresolved | **REFUSE** |
+| `check_profiling_evidence` | 26 | **one** named part (`kernel_table`) removed | **REFUSE** |
+| `check_worklist_shape` | 26 | — see below | **refuses a real artefact today** |
+
+**All five are load-bearing.** **215 of the ten's 236 invocations** are now
+backed by a demonstrated refusal — **91 %**.
+
+**No crashes.** Constraint 1's third outcome did not occur: every mutation
+produced a graded refusal with a diagnostic, not an exception. The distinction
+that has been conflated in this effort did not arise here.
+
+### `check_worklist_shape` — the control was supplied by the environment
+
+**Its baseline does not reproduce, and that is the finding rather than a harness
+fault.** The stored verdict from the run is `true`; re-running the same zone
+against the same material today gives `false`:
+
+```
+items/schema differs from assets/schemas/kernel_worklist.schema.json.
+The artefact is then self-describing and describes something other than what graded it
+```
+
+**The artefact carries its own copy of the schema; the package's schema has since
+changed.** So the validator refuses a previously-passing sealed artefact — a
+correct refusal, precisely diagnosed, and it never needed my mutation.
+
+**That is m5's moving ruler at the schema layer, demonstrated rather than
+argued:** *a verdict is not stable across schema edits*, and a sealed artefact
+can become invalid without anyone touching it. **It also means my own accepted-run
+comparisons are only valid within a schema generation** — the same caution I
+recorded for validator sets at 15:00, one layer down.
+
+### Not tested — 21 of 236 invocations
+
+`check_acceptance` (5), `check_bench_report` (5), `check_overlay_applies` (5),
+`check_patch_live` (5), `check_packup_shape` (1). **All five are m5's**, all
+reached only in the last few hours, and `check_packup_shape` has exactly **one**
+invocation — **the least attested of the ten, not a graduation.** Stated as
+untested rather than assumed to follow the other five.
+
+### And the Q3 instance I raised is already closed at source
+
+`check_command_parses` **no longer** renders a passing line as `PROBLEM:`.
+`77ed4be` — *"a passing line was rendered PROBLEM, 7 of the run's 11"* —
+committed, and the body now carries `(line, is_fault)` tuples with the flag set
+**where the line is written, not recovered from its wording afterwards.** The
+comment records that the verdict was always right and only the rendering lied.
+
+**So the one PASS-shaped symptom I could name concretely turned out to be
+cosmetic, and the validator underneath it is the most load-bearing of the ten.**
+That is the good outcome and it is worth saying as plainly as the bad one would
+have been: **107 PASSes are earned.**
