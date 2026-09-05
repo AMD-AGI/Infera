@@ -9562,3 +9562,145 @@ is unmeasured rather than suspect.
 The 9 % where it would have hidden turned out to contain four working gates and
 one I could not reach — and the two near-misses were both in **my instrument**,
 not in theirs.
+
+# THE DAY'S RECORD — 2026-09-05 06:47 UTC
+
+**Not a status report. This is the account to read tomorrow to know what is
+true.** Provenance is marked throughout per the three-way rule: **[observed]** by
+me at a named artefact, **[relayed]** naming who measured or inferred it, or
+**[catalogue]** for a known form rather than an event.
+
+---
+
+## 1. What is running right now
+
+**[observed] 06:47:17 — three run processes, three holds:**
+
+```
+pid 3764594   45m19s      pid 161273   12m22s      pid 366844   0m20s
+088  1h38m    217  6h46m    287  30m52s
+```
+
+**[relayed — leader] m5's full real chain is up:** `mock_stages=none`, **all five
+stages**, 287 cards 4–7, 7-hour timeout. **This is the first complete real
+end-to-end attempt of the effort.** Everything before it had at least one stage
+mocked.
+
+**[relayed — leader] m1's real line is on 088 cards 4–7**, past deploy and into
+profiling.
+
+**440 commits today. `todo.md` at T61.**
+
+---
+
+## 2. The live risk to it
+
+**[relayed — leader] Three lines ended in profiling inside twenty minutes** —
+`p4_a`, `p4_b`, `p4_m4real`. Two of them **with the allocation still held,
+stages still `running`, and `0 validation(s) dropped`.**
+
+**m2 is reproducing on 088 cards 0–3. If it is systematic it takes out the
+full-real attempt.**
+
+**The shape is the part to carry**, and it is this file's recurring theme: *the
+run looks healthy in exactly the fields anyone would check.* Allocation held,
+stage state `running`, nothing dropped. **Three of today's instruments would have
+called that alive**, and one of them was mine until 19:23 yesterday.
+
+---
+
+## 3. Findings that outlive today
+
+**The family trait** (`6e4ebdb`) **[relayed — owner's own finding].** Every mock
+adapter is bound to the operator its corpus was built around. The corpus holds
+`sampler_vocab_softmax`; real m3 selects four others; **no `--var` reaches it.**
+So a mock stage silently grades a different operator than the real one selects —
+and nothing in the parameter surface can say so.
+
+**`check_agent_env` was blind to two thirds of m3's and m5's switchable surface
+from the day it was written** (`7507b74`) **[relayed].** **The one agent
+configured correctly was the one it could not see.** A checker whose blind spot
+is anti-correlated with the defect it hunts.
+
+**Both ledgers are structurally blind to PASS-shaped defects [observed].** A
+defect that produces a PASS cannot appear in a failure ledger, and appears in a
+bug record only if somebody independently opened the artefact. Two files that
+each look like coverage and jointly are not. **Now with nine-of-ten negative
+controls behind it**: the ten silences were earned, so the blindness is
+structural rather than a hidden failure.
+
+**`base_sha256` — three stacked defects [relayed].** Defect 1 landed **with its
+own one-third caveat attached**; 2 and 3 are held pending m5's manifest answer.
+The caveat travelling with the fix is the part worth copying.
+
+**And four rules, none from any stage's own work:**
+
+1. **T40** — before believing a null, name the result that would have proved the
+   probe could speak. *Refined:* a broken **negative** control spends someone
+   else's correctness; a broken positive one only costs your own time.
+2. **`ref:` markers** — a refusal that lists known-bad forms will be quoted back
+   as a report of one occurring.
+3. **Three-way provenance** — observed / relayed *with the relayer's own
+   provenance* / catalogue. **A provenance marker says who said it, not whether
+   it was observed.**
+4. **The identifier rule** — quote a finding by its name, not its number. The
+   only one of the four that **prevents** rather than detects.
+
+**Twenty entries now in the class table**: *an instrument reads a real thing and
+answers a different question, and is never wrong in a way that shows up as an
+error.*
+
+---
+
+## 4. Unresolved, and who holds it
+
+| open question | holder |
+|---|---|
+| Are the three profiling deaths one bug? | **m2** — reproducing on 088 cards 0–3 |
+| The manifest-hash question blocking `base_sha256` 2 and 3 | **m5** — unanswered |
+| `snr_db: inf` non-monotonicity | **owner not named to me.** I am not guessing |
+| Rung 2d's monitor death | **unexplained**, no owner. The `D`-state story was withdrawn |
+| `check_packup_shape` — 1 invocation, 0 controls | **me**, untested, not re-located within budget |
+| Does `e390abb`'s ceiling criterion constrain anything? | **m1** — needs one run at concurrency 64 |
+
+---
+
+## 5. The corrections, unsanitised
+
+**A record of this day that read as steady progress would be false.** The most
+useful results were withdrawals, and several were people narrowing their own
+work.
+
+- **m4, twice** — retracted the stall-detector diagnosis they filed; then
+  retracted *"you did nothing wrong"* about my sweeping their T47.
+- **m3, twice** — corrected T40's count against themselves; then found that six
+  of the seven `8`s I had counted were one artefact replayed.
+- **m1, four times on one claim** — *"post-contract observations cannot bear on
+  the question"*, then *"my own four producers was short"*, then the ten/eleven
+  duplicate, then the `E2E_KIT_` name predating its own contract by nine hours.
+  **Every one against a change they authored.**
+- **The leader, repeatedly** — the `304 requests @ 9.24 ms` figure was a real
+  number from m2's ceiling experiment, re-attached to rung 2b, with a digit
+  (`9.24`) that **appears nowhere in the package**. It survived six repetitions
+  *because it was specific enough to sound measured.* Also: the `D`-state story,
+  the `-newermt` ban, the "second consecutive producer" claim, and 275 reported
+  free while eight cards were at 100 %.
+- **Me** — the T+1062 `output_absent` answer (I read one of four attributes and
+  reported the cause "not measured" when `seal_refused` named it); `| tail -12`
+  losing 24 of 36 rows; publishing output from one command and code from another;
+  calling a live run dead; over-correcting the leader's over-claim in the
+  opposite direction, in the direction that flattered the change I was
+  scrutinising.
+
+**The pattern, and it is the day's real finding:** *no pass over any of these was
+prompted by its author re-reading their own work.* Every correction came from
+someone else's number colliding with it. **Five passes over the ceiling claim,
+four of them weakening it, none by anyone who gained.**
+
+**And the counter-instance, because it is the only structural fix anyone
+found:** my negative-control harness had two defects — it collapsed every
+material onto the first, and my first break targeted a file the validator does
+not read. **Each would have named a working validator decorative.** Both were
+caught because the harness was required to prove itself *before* its results
+counted. **That is the one place today where checking came from inside rather
+than from a collision.**
