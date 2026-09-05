@@ -3343,3 +3343,85 @@ on the argument's name actively misleads whoever sets it. Not blocking before
 that.
 
 **Holder: m3.**
+
+---
+
+### T68 — an attested number and a claimed one are indistinguishable in the handoff
+
+*Opened 2026-09-05 by m3, from m4's question. m4 ranks it above both forge
+defects and the leader agrees; recording that because it is a consumer's
+ranking of a producer's defect.*
+
+**Re-verification is the validator's act and never writes back.**
+`check_workset_runs` re-measures shapes through the workset's own selector and
+compares against the recorded figure — but the result lands in
+`<zone>/validation-<id>/validator_report.txt`, which is **not** part of the
+handoff. The workset's `evidence/performance.json` has no field for it, under
+any spelling, because there is nothing that would write one.
+
+**Why this is not T67.** T67 is a name that lies about a unit. This is an
+attestation that **exists, is correct, and is unreachable from the artefact it
+attests**. m4 grepped for it and could not have found it.
+
+**Why it is worse than it sounds.** M4.3.5 makes the workset m4's ground truth
+*strictly* — they are told not to re-measure — and that instruction is only
+safe because this validator ran. So the consumer is required to trust numbers
+they cannot tell apart:
+
+```
+attention_chunk_fwd_o/case_001    recorded 0.1353 ms, re-measured 0.1352 ms
+attention_chunk_gated_delta_rule  recorded, NOT re-measured
+elementwise_…act_and_mul          recorded, NOT re-measured
+layernorm_layer_norm_fwd_1pass    recorded, NOT re-measured
+```
+
+All four look identical in the handoff. Run `20260905T064703-5fbd66`, workset
+`91ea967b`.
+
+**And precision does not substitute for it.** All four rsd values are ≤ 1 %.
+m4 declined to infer attestation from that and was right to; the attested one
+happens to be the top-ranked operator, which is **luck, not a property of the
+process** — `reverify_shapes=1` samples the first in ranker order.
+
+**The fix is a field, not a bigger sample**, and it is small: the validator
+already computes exactly what would go in it. `reverify_shapes=4` raises
+coverage but leaves a five-operator workset in the same state.
+
+**Holder: m3.** Not blocking; the leader has ruled the entry itself is the
+deliverable today.
+
+---
+
+### T69 — `identify` writes no `-fellow` tag, and the generator read one
+
+*Opened 2026-09-05 by m3 at the leader's instruction. The unblock is landed;
+this is the root, filed separately so the workaround does not close it.*
+
+**`forge_export.py:_fellow` looked for a Definition tag ending in `-fellow`.**
+The tags `identify` writes are bare language names — measured on real workset
+`91ea967b`: `['attention', 'linear-attention', 'triton', 'gated-delta-rule']`.
+So nothing ever matched, the `generic-fellow` fallback was **the only branch
+for every operator in every real workset**, and `generic` is not a backend
+KernelForge registers. `cli.py`'s `--fellow` help says in as many words that
+unsupported fellows fall back to `flydsl-fellow` — so a Triton attention kernel
+was being optimised by the FlyDSL fellow, with a warning as the only trace.
+
+**Mock never showed it**: the injected material carried the suffixed spelling,
+so the mock path took the branch the real path cannot reach. Another instance
+of the mock exercising code the real run does not.
+
+**Landed (`62032fc`, `f92e42b`), and that is the workaround, not the fix.** The
+generator now reads the bare language names, validates against
+`fellows/constants.py`, and refuses instead of substituting. **The defect is
+that two producers disagreed about a spelling and nothing compared them.**
+`identify`'s taxonomy also offers `tilelang-fellow`
+(`assets/lib/kernel_taxonomy.yaml:129`), which is not a KernelForge backend
+either — that row can never be honoured and now refuses.
+
+**What would actually close it:** one declared vocabulary for the language tag,
+read by `identify` when it writes and by `forge_export` when it reads, with the
+backend set validated against KernelForge's own constants at build time rather
+than at campaign time.
+
+**Holder: m3.** Not blocking — the wrapper refuses rather than substitutes, so
+the dangerous outcome is gone even while the disagreement stands.

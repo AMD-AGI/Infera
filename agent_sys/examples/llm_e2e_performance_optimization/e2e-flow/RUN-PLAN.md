@@ -1930,6 +1930,17 @@ kernel-agents forge-loop --help    runs
 bare `forge-loop`                  does not exist
 ```
 
+**That `all PRESENT` row asked the wrong question, and it cost a held node on
+2026-09-05.** It checked that the flags *already being passed* exist. It never
+asked which flags are **required**, so `--kernel` — required for a fresh
+campaign, and absent from the generated argv — could not have appeared in it.
+The instrument confirmed what the author already believed. m4 found it by
+running the real thing: `Error: fresh campaign requires --kernel and --driver`.
+The same row is silent about `--fellow` accepting *any* name and substituting
+`flydsl-fellow` for the ones it does not know. Both fixed in `62032fc` /
+`f92e42b`; the row is left standing with this note because deleting it would
+lose the shape.
+
 **Three seconds, and only `kernel-agents` itself was installed** — the six
 pure-python core dependencies are *already in the engine image*. So option A
 costs seconds per container, not minutes, and the `[profiling]` extra is **not
