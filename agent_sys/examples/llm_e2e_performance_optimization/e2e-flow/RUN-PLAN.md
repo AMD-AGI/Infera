@@ -2182,6 +2182,8 @@ python3 agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/lib/
   --var mock_stages=none \
   --var measure_gpu=<the card m3 measures on, see below> \
   --var bench_rounds=3 \
+  --var aiperf_trace=/shared_nfs/yihou/agent_sys/debugging/profiling/conversation_trace.jsonl \
+  --var gsm8k_data=/shared_nfs/yihou/agent_sys_debug/ws2/integration/data/gsm8k_test.jsonl \
   --var work_root=/mnt/m2m_nobackup/yihou/e2e_flow \
   --var container=yihou_e2e_flow_r5_$(date +%m%d%H%M) \
   --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR
