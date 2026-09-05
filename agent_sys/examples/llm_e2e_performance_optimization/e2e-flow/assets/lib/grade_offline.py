@@ -27,7 +27,15 @@ So `render()` below refuses to write an args.json still containing `${`, and
 
 **What a PASS here is worth: level 3, not level 4.** It says a validator accepts
 an artefact that a stage which really executed produced. It says NOTHING about
-whether that validator would refuse a fault. Level 4 stays zero.
+whether that validator would refuse a fault.
+
+**Nothing this script produces can be level 4, by construction** -- level 4 needs
+a validator to refuse an INJECTED FAULT, and this grades artefacts as they are.
+For the standing count read `WHAT-GREEN-ESTABLISHES` §2.9, not this file and not
+§2.8: §2.8's "第 4 级:0 个" is a **frozen pre-registration snapshot**, and
+reading it as current state is a mistake that has already been made and
+propagated by three people on 2026-09-05, this docstring's first version among
+them. §2.9 records `check_command_parses` at level 4.
 
 **A `--var` you supply is an argument you are grading, not the validator.**
 m2's warning, and it bites here: the run's OWN staged package under

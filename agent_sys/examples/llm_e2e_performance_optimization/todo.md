@@ -3993,6 +3993,21 @@ the `--var`, `check_trace_coverage` **would have refused during the real run too
 which would be a defect in a launch block, not a grading detail. m2 and m3 have been
 asked; the point of the entry is that **the question had to be asked of a person.**
 
+**m2 answered from the file, not from memory** — `/home/yihou/p9_chain_093.sh:18` reads
+`--var expect_ranks=4`. **So `p9`'s PASS is a grading of the run**, and the tidy answer
+and the true one coincided here; m2 said so explicitly rather than letting it be taken
+on trust. **That does not weaken the item — the answer came from a shell script in
+somebody's home directory, which is exactly the storage this entry is about.**
+
+**And m2 named the case where the same variable is genuinely different**, which the
+worked example above would otherwise hide: RUN-PLAN precondition 2c gives
+`expect_ranks` **2 for a mocked stage 2** (the 09-02 corpus is a TP-2 capture) and
+**`tp` for a real one**. Grading mocked and real artefacts in one sweep with a single
+value therefore manufactures refusals **that read exactly like producer defects**. A
+grading table needs a mocked/real column, not one value for the sweep. *(This sweep
+graded only real runs, so it is not affected — but nothing in the harness would have
+noticed if it had been.)*
+
 ### Why this is one item and not five
 
 The leader's pairing, and it is the reason this is filed rather than mentioned:
