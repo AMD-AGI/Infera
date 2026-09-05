@@ -1483,3 +1483,55 @@ leader 同一小时里从另一侧犯了同一个错:凭进程表杀掉 m5 的�
 **「让 900 秒终止行把该 task 最后一条 `output_absent` 的 `detail` 一起打出来」**
 ——原因已经在盘上了,缺的只是把它印到人会看的地方。
 
+
+## 28. `30_run_forge.sh` 要一个 KernelForge 不写的文件名,于是真实 campaign 跑完之后 `exit 1`
+
+*(编号取 28:此刻 `## ` 清单最大是 27,而 **25 和 26 整个缺席**——可能有人正在写。
+没有去填那两个洞。)*
+
+**第一手,我自己读的代码:**
+
+`assets/optimize_kernel.task/steps/30_run_forge.sh:299-302`,真实路径跑完
+one-liner 之后:
+
+```sh
+for candidate in "$RUN/forge_experiments/forge_result.json" "$WORKDIR/forge_result.json"; do
+  [ -f "$candidate" ] && [ "$candidate" != "$WORKDIR/forge_result.json" ] && cp "$candidate" "$WORKDIR/forge_result.json"
+done
+[ -f "$WORKDIR/forge_result.json" ] || { echo "the campaign wrote no forge_result.json" >&2; exit 1; }
+```
+
+**`best_result.json` 在整个包里一次都不出现**(`grep -rn` 遍历 `assets/` 与
+`steps/`)。而 `forge_result.json` 只在 **mock 分支**里被这个脚本自己写出来
+(`:119`,一份全 null 的占位)。**所以:mock 走得通,真跑走不通。**
+
+**第二手,来自被抢救的产物自己的字段**(我没读过 KernelForge 的源码):
+
+> KernelForge writes `best_result.json` and never a `forge_result.json`
+> (the name appears nowhere in its source), which is why `30_run_forge.sh`
+> aborted before copying the kernel.
+
+**支持它的第一手旁证**:那份 `forge_result.json` 里嵌着
+`forge_native: {'best_result.json': {...}}`——原生载荷确实是以这个名字为键的。
+
+**代价与它藏在哪:** 这次 campaign **是真的跑完了**——3 轮迭代、留 1 退 2、
+correctness 通过、`attention_chunk_gated_delta_rule` 上 0.4568 → 0.4257 ms
+(1.0748×),campaign `56dae692`。**优化真的发生了,然后脚本因为一个文件名
+把它扔了。**
+
+**和第 24 条的关系,而且这两条读起来会互相误导。** 第 24 条记的是同一个脚本下
+「三个标志物全部 ABSENT、一个源文件都没改」,结论是**从未进入优化轮次**。
+今天这棵树里**三个标志物全部存在**。**同一个 `exit 1` 之后,两种截然不同的世界
+状态——第 24 条那次是真的没跑,这次是跑完了没交付。**
+**光看「产物缺席」区分不了它们**;区分它们的是 `engine_src` 的 `git diff` 和
+campaign 目录里有没有 `best_result.json`。
+
+**状态:未修,而且现在没有节点可验。** 修法看起来只是把候选名单加一项,
+但**不要照这句话直接改**——`60_write_handoff.py:426` 之后整条链都按
+`forge_result.json` 的键名读,而 `best_result.json` 的键名不同(那份被抢救的
+文件是**有人手工 re-key 过的**,不是拷贝)。**所以这是一次转换,不是一次改名。**
+
+**必须说清楚的一点,否则这份产物会被误用:** 那个 `forge_result.json`
+**不是链子产出的,是人手搭的桥**。里面的**测量是真的**(原生载荷完整保留在
+`forge_native` 里),**但文件本身不是一次真实的 stage-4 交付**。
+拿它当「跑通一次、可复用的 stage 4」之前,这两件事必须分开说。
