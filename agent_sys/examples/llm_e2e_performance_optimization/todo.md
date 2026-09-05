@@ -3152,3 +3152,83 @@ Not swept. The candidate shape is `if args.get(X):` guarding a check rather than
 selecting between behaviours — as distinct from `args.get(X, <safe default>)`,
 which is the correct pattern and the one the other five use. **Worth a sweep by
 whoever next has a quiet hour; it is not urgent and it is not one owner's.**
+
+---
+
+### T62 — `base_sha256` defects 2 and 3, held pending an answer that may not exist
+
+*Opened 2026-09-05 by checkpoint, from the day's traffic. Defect 1 is landed.*
+
+**Defect 1 shipped with its own one-third caveat attached** — the fix states what
+it does *not* cover rather than leaving the reader to find out. Defects **2 and
+3 are held pending m5's manifest answer.**
+
+**The part that makes this a deferral rather than a queue item:** if m5's answer
+is *"the manifest has never run against an `sgl_kernel` operator"*, then 2 and 3
+are **not a choice we are postponing — they are an unknown we have not measured.**
+Those are different states and the record should not let them read alike.
+
+**Holder: m5.** Not blocking today.
+
+---
+
+### T63 — `snr_db: inf` is non-monotonic on `layernorm`, and both proposed mechanisms are disproved
+
+*Opened 2026-09-05 by checkpoint, from the day's traffic.*
+
+**Two mechanisms were proposed and both were disproved. One candidate remains
+untested.** The entry exists so the two dead ones are not re-proposed: an
+eliminated mechanism is worth as much as a confirmed one and costs the same to
+lose.
+
+**Not blocking.** Holder not assigned as of writing — **do not infer one from
+whoever touched `layernorm` last.**
+
+---
+
+### T64 — `rank.task` and `identify.task` are 15-line skeletons, not briefs
+
+*Opened 2026-09-05 by checkpoint. Measured.*
+
+```
+rank.task/readme.md            15 lines
+identify.task/readme.md        15 lines
+build_workset.task/readme.md  377 lines
+optimize_kernel.task/readme.md 386 lines
+```
+
+**Promoting either to `kind: ai` today hands an agent the mission rule and
+nothing else** — 15 lines against the 377 and 386 that the two promoted stages
+carry. The gap is not a matter of polish; it is the difference between a brief
+and a placeholder.
+
+**Consequence if promoted as-is:** the agent has no measured context, no prior
+findings, no statement of what has already been tried — so it will re-derive,
+and re-derive differently each run. `.claude/CLAUDE.md` rule 9 makes this
+explicit: an agent can only absorb what the markdown says.
+
+**Not blocking while both stages run as programs.** Blocking the moment either
+is promoted.
+
+---
+
+### T65 — four profiling lines died in one morning, cause open
+
+*Opened 2026-09-05 by checkpoint. Placeholder so m2's answer has somewhere to
+land — see `bug.record.2026-09-05.md` entry 15.*
+
+`p4_a`, `p4_b`, `p4_m4real`, and **`p4_b_m1real`**.
+
+**The fourth is the informative one: it ran with m1 real, which rules out a bad
+upstream artefact as the common cause.** Three lines with a shared mock upstream
+could have shared its defect; the fourth could not.
+
+**Why it is hard to see:** `0 validation(s) dropped`, no refusal, allocation
+still held, stage still `running`. **The run is healthy in every field a reader
+would check.**
+
+**Holder: m2**, who has built the right instrument for it — a two-arm control on
+088, `p5_m2cap` on cards 0–3 with the fix and `p5_ctl` on cards 4–7 without.
+
+**Do not merge with m2's `475f2fc`** (the capture step waiting on another
+package's log) until m2 rules. **Their proximity in time is not evidence.**
