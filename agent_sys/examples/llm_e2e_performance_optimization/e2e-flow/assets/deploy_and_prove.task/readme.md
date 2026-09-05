@@ -204,6 +204,33 @@ on "curl -sf -m 10 http://<node-ip>:<router-port>/health"
 **Criterion:** HTTP 200. If it 503s, it is still starting; wait, and watch the
 worker log grow rather than restarting anything.
 
+**If the workers die with `HIP failure: 'invalid argument'` / `NCCL error:
+unhandled cuda error`, retry the bring-up once before diagnosing anything.**
+Keep the failed worker log — rename it `logs/worker.attempt1-nccl-fail.log` —
+and if the retry succeeds, say in `notes.md` that it took two attempts. That
+record is the only evidence anyone has that this is intermittent.
+
+**Measured three times on 2026-09-04/05, and the ranks move:**
+
+```
+19:06:26  node 217   TP1 TP2 TP3        (TP0 survived)
+19:36:36  node 217   TP0 TP1 TP2        (TP3 survived)
+06:05:41  node 088   TP0 TP1 TP2 TP3    (all four)
+```
+
+**A fixed bad device fails the same ranks every time.** These do not, across two
+nodes, so it is not the cards — and a plain retry with nothing changed has
+already fixed it once, observed.
+
+**This instruction exists because the alternative was measured and cost more.**
+On 217 an agent met this and spent **fourteen minutes** on fourteen probe
+scripts — RCCL allreduce, IPC namespace, IPC privileges, the sglang process
+group — and **every probe passed**, including the bare kit container flags. The
+failure does not reproduce in isolation, so there is nothing for a probe
+campaign to find. On 088 an agent met the same signature, retried immediately,
+and was serving. **Retry first; diagnose only if the second attempt fails the
+same way**, and if it does, that is new information worth the time.
+
 **Every container you start must have `yihou` in its name — vary the tag, keep
 the prefix.** `$E2E_CONTAINER` is a *starting point* for the value, as the table
 above says, and that liberty is real: a fixed name collides the moment a second
