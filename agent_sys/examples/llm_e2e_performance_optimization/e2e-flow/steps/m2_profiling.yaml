@@ -415,8 +415,12 @@
   # sentence: *the mock is not a weaker version of the real path — it is the
   # only version that carries the knowledge.* Here the same fact points the
   # opposite way: m2 runs one file in both modes, so its guards **gain** effect
-  # at promotion instead of vanishing. That only holds while this line is
-  # literal. CONTRACT.md §4.4 sixth face; `todo.md` T51's preventive shape.
+  # at promotion instead of vanishing. **That gain is what passing
+  # `--var m2_agent=e2e_profiler` forfeits** — it is the cost stated above, not
+  # a reason the line must stay literal. This clause read "that only holds while
+  # this line is literal" until 2026-09-05, contradicting this note's own first
+  # sentence while being the authority two other sites pointed at.
+  # CONTRACT.md §4.4 sixth face; `todo.md` T51's preventive shape.
   agent: '${m2_agent:-runner}'
   handoffs: [deploy_kit, profiling_mode_off.bench_result]
   validators: []
@@ -434,8 +438,11 @@
 - module: task
   name: run_profiling_mode_on
   description: Bring the service up with CUDA graph off, run the same load under the profiler, rank the kernels, tear it down.
-  # `agent: runner` is literal on purpose — see the note above
-  # `run_profiling_mode_off`. Do not make it `${m2_agent:-…}`.
+  # **Switchable, defaulting to `runner` — see the note above
+  # `run_profiling_mode_off` for what `--var m2_agent=e2e_profiler` costs.**
+  # This comment said "literal on purpose … do not make it `${m2_agent:-…}`"
+  # while sitting directly above the thing it prohibited: the line was switched
+  # on 2026-09-05 and only the first of the three sites had its note updated.
   agent: '${m2_agent:-runner}'
   handoffs:
     - deploy_kit
@@ -463,8 +470,11 @@
 - module: task
   name: merge_profiling_evidence
   description: Fold both lines into stage 2's single export.
-  # `agent: runner` is literal on purpose — see the note above
-  # `run_profiling_mode_off`. Do not make it `${m2_agent:-…}`.
+  # **Switchable, defaulting to `runner` — see the note above
+  # `run_profiling_mode_off` for what `--var m2_agent=e2e_profiler` costs.**
+  # This comment said "literal on purpose … do not make it `${m2_agent:-…}`"
+  # while sitting directly above the thing it prohibited: the line was switched
+  # on 2026-09-05 and only the first of the three sites had its note updated.
   agent: '${m2_agent:-runner}'
   handoffs:
     - profiling_mode_off.bench_result
