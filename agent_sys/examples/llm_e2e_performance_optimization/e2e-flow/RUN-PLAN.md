@@ -2168,10 +2168,32 @@ item below loads clean and fails later, so this list is the check.
 | `transport_env` | required | required | refuses in 1 s, looking exactly like a deployment failure |
 | `integration_min_requests` | n/a | **omit — default 50** | see below |
 | `expect_ranks` | `2` | **set to the deployment's `tp`** — omitting defaults to 8 | m2's; `${expect_ranks:-8}` does **not** track `tp`, so "omit" is safe only at `tp=8` |
+| `forge_fellow` | **omit** | **omit** | m3's; needed only when a Definition's tags name no KernelForge backend or two. `run_forge.sh` then exits 2 listing the seven valid backends **without naming this variable** |
 
 **`transport_env` is not a package variable at all** — it is consumed by the
 runner, so it appears in no yaml and `show` is structurally unable to see it
 missing. That is why it cost three rung-0 runs.
+
+**`forge_fellow` is the inverse case and belongs in this list for the opposite
+reason.** It is declared, it has a default, and `show` is perfectly happy — but
+**it is correctly absent on every normal run**, because `forge_export.py`
+derives the fellow per operator from the Definition's language tag. A
+launch-wide value would be *wrong* for a mixed workset: the real one carries
+three Triton operators and a HIP one, so pinning it substitutes a backend for
+the minority operator, which is the defect `62032fc` removed. So the row above
+says **omit** in both columns and means it.
+
+It is here because of what happens on the path that needs it. When the tags
+settle nothing — none names a backend, or two do — the generated wrapper
+refuses with the seven valid names and **no mention of the variable that would
+supply one**. The operator reads a list of backends and has no way to know
+where to put one. Documented here rather than added to the refusal text on
+purpose: the refusal's job is to stop a campaign under a backend nobody chose,
+and offering the override in the same breath invites reaching for it instead of
+fixing the tags, which is what `todo.md` T69 is actually about.
+
+Accepted as `triton` or `triton-fellow`; an unknown name is treated as absent
+and still refuses. It never overrides tags that already decide.
 
 ## 4. Three values that are m5's, and each is a finding rather than a choice
 
