@@ -1480,10 +1480,38 @@ workspace every git verb with an implicit object is unsafe.** `--amend` has an
 implicit commit; `commit -- <path>` has an implicit working tree. Neither has a true
 referent when six agents move HEAD and the tree.
 
-### A run stages the WORKING TREE, not HEAD — so do not launch during an edit
+### A run stages the WORKING TREE, not HEAD — at EVERY TASK START, not once at launch
 
-`agent-sys run` copies the package out of the working tree into the run's zones at
-launch. It does not read HEAD, and it does not care that a file is half-written.
+`agent-sys run` copies the package out of the working tree into the run's zones.
+It does not read HEAD, and it does not care that a file is half-written.
+
+**And the copy is taken per task, not once for the run.** Measured by m4
+2026-09-05 on run `20260905T074905-9ec798`, by staging time of
+`package/assets/lib/forge_export.py`:
+
+```
+task.c68c5109   07:49:09-15   pre-fix    <- m1, staged before f92e42b (07:51:13)
+six later tasks 07:55:01      post-fix   <- every task that started after it
+```
+
+**So the hazard window is not "at launch" — it is every task boundary still ahead
+of the running work.** An edit landing an hour into a five-hour chain reaches
+every stage that has not begun. Twice on 2026-09-05 that worked in our favour, a
+fix reaching a running line; **that is exactly how a rule stated too narrowly
+survives.**
+
+**The consequence for deciding whether a change is safe to land:** it is not a
+property of the file or of the phase, but of **how many task starts remain**.
+A validator invoked by one step file is nearly always safe to change mid-run; one
+invoked by all five is safe only between chains. `grep -rln <validator> steps/`
+answers it in one command, and neither the leader nor m1 ran it before ruling on
+`4f992b2` — `check_deploy_serves` turned out to be invoked by `m1_deploy` **and**
+`m4_kernel_opt`, and `check_environment` by all five plus `common.yaml`.
+
+**A caution m4 measured while establishing this:** copies under
+`workspace/…/<other-package>/` are *not* what a task executes. The executed copy
+is `package/assets/…`. Grepping the zone without that distinction reports the
+wrong staging state — it is what made the pre-fix reading look general.
 
 Measured by the leader 2026-09-04, on themselves: rung 0's seventh attempt was
 launched at 11:15:50 while m4 was mid-edit in
