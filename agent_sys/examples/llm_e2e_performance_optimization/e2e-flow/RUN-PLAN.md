@@ -637,6 +637,17 @@ Say what rung 0 covered in those terms, not as "the mock passed".
 
    *`sinfo` cannot answer this. GRES accounting is not configured on this cluster — there is no `GresUsed` field and `sinfo -o "%G"` prints `?` — and the co-tenants allocate through the host docker daemon, which never speaks to Slurm. `idle`/`mix` is a statement about CPUs.*
 
+2a. **The image digest, in the same breath as the cards** — one command, seconds, before the hold is spent:
+
+   ```sh
+   spur exec <jobid> bash -c 'docker images --format "{{.Repository}}:{{.Tag}} {{.ID}}"' | grep infera
+   # want 4601539c0f3d  ==  image_id: sha256:4601539c0f3d0f35a…  (see §1a for the load)
+   ```
+
+   *Here because of where it was before. §1a already carried this command, already said in its own text "**it is not a rung-5 fact — every rung on a fresh node needs this**", and still sat 1500 lines down inside the module-5 standalone section. m3 launched a real chain on 237 on 2026-09-05 without reading it; the digest was measurable beforehand, and the mismatch was found afterwards by m2, by which point the run's NCCL failure could no longer be attributed to the stage rather than the image. **A confound costs a node and produces a result that cannot be used.***
+
+   *m3's own reading of it, and it is the reason this is a numbered step and not a sentence: **"prose is what it was already, and I still skipped it."** A precondition that lives beside the card read gets run when the cards get read; one that lives in a section for a different rung gets run when someone remembers. This package's own rule for that distinction is tier 1 versus tier 3 — change the command, do not ask anyone to remember.*
+
 3. **`agent-sys show`** — under a second.
 4. **The node's state, before and after**: `docker ps` and the port band. Every identifier this package binds carries a run tag; **check the tag before killing anything.** Measured 2026-09-03: a validator's teardown crashed and warned that ports might be held, and the ports that were held belonged to *a different owner's run in flight*. Killing them would have destroyed live work.
 
