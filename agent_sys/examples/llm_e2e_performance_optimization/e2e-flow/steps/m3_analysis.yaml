@@ -323,10 +323,25 @@
 # rather than interpretive: executable over descriptive; yaml/json over
 # markdown; standard tools (Magpie) over re-derivation; **one-click correctness
 # and one-click performance tests covering every shape to be optimised, at least
-# three**; shaped like flashinfer-bench, for which `../../../../rank0/` is this
-# repository's own worked instance; a KernelForge one-liner layered *over* that
+# three**; shaped like flashinfer-bench — a `definitions/<op_type>/<name>.json`
+# whose `reference` and `baseline` are Python source strings ending in
+# `def run(*args, **kwargs)`, with `inputs`/`outputs` mapping a name to
+# `{shape, dtype, description}`, which is what `check_workset_shape` enforces;
+# a KernelForge one-liner layered *over* that
 # base rather than replacing it; and one handoff per operator **deferred** to
 # `todo.md` — M3.7.7 itself says 目前可合成一个.
+#
+# **That flashinfer-bench clause used to end "for which `../../../../rank0/` is
+# this repository's own worked instance", and it is not in this repository.**
+# `git ls-files rank0` returns nothing — 20 files, 49 K, not ignored, just never
+# added, so it exists only in a working tree that happens to have it. The level
+# count was one short of the root besides, but correcting it would have fixed
+# nothing. Replaced by the keys rather than by a better path: the keys are what
+# `check_workset_shape` grades, and a pointer to an untracked directory should
+# not be repaired into a tidier pointer to an untracked directory.
+# `assets/build_workset.task/readme.md:98` carries the same reference **in an
+# agent's system prompt** — held while the full-real chain is live, since that
+# is the file the chain dispatches.
 #
 # `content_type: code`, because the workset's whole point is that it is
 # *runnable*: `code`'s single `codes` item leaves the interior to
