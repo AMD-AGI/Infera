@@ -1535,3 +1535,43 @@ campaign 目录里有没有 `best_result.json`。
 **不是链子产出的,是人手搭的桥**。里面的**测量是真的**(原生载荷完整保留在
 `forge_native` 里),**但文件本身不是一次真实的 stage-4 交付**。
 拿它当「跑通一次、可复用的 stage 4」之前,这两件事必须分开说。
+
+### 28 补充(15:50,第一手):文件名错**且**目录错,而原生文件一直在
+
+上面写「这是一次转换,不是一次改名」时,我以为原生输出已经随 217 一起没了。**没有。**
+
+```
+forge/engine_src/forge_experiments/best_result.json   1215 B   13:54:41
+```
+
+**由 campaign 自己写于 13:54:41**,比 14:08 那次手工组装早十四分钟。旁边整个
+campaign 目录完好:`campaign_config.json`、`events.jsonl`、`candidates/`、`best/`。
+
+而 `30_run_forge.sh:299` 找的是 `$RUN/forge_experiments/` 和 `$WORKDIR/`。
+**所以是两个错,不是一个:名字错(`forge_result` vs `best_result`),
+目录错(少了 `engine_src/`)。** 修法因此是可定位的,不是开放式的翻译问题。
+
+**手工那份忠实地嵌了原生那份,我对过:**
+
+```python
+nat = json.load(open('engine_src/forge_experiments/best_result.json'))
+emb = json.load(open('forge_result.json'))['forge_native']['best_result.json']
+nat == emb   ->  True
+```
+
+**所以「数字不可审计」不成立——原件在,而且译本没动过它。**
+
+**m4 的写入顺序证明仍然成立,而且是今天最硬的一份证据:**
+脚本写 `forge_result.json` → `optimized_kernel.py` → `engine.patch`,
+而树里是 `14:08:29 / 14:09:58 / 14:08:30`——**patch 在 kernel 之前,
+生产者产生不出这个顺序。** 所以那三个 handoff 形状的文件是人放的。
+
+**两句话必须分开说,而它们今天被合并过一次:**
+- **handoff 形状是人造的** → 不能当「跑通一次可复用的阶段 4」引用。
+- **数字是真的,而且现在可对账** → campaign 自己的记录就是基准真值。
+
+**一次检索的两半,一半找的是根本不存在于磁盘上的东西。**
+`forge_native` 是 `forge_result.json` **里的一个 JSON 键**,不是文件,
+`find -name 'forge_native*'` 永远不会命中。**而同一条命令里 `best_result.json`
+那一半本应命中,却没有。** 记在这里是因为:**一次复合检索返回空,
+它的两半可能因为完全不同的原因为空,而合起来读像是一个干净的否定。**
