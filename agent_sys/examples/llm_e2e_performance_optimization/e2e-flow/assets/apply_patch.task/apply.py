@@ -231,6 +231,25 @@ def workset_integration(workset: str | None, operator_id: str | None) -> tuple[d
     doc = yaml.safe_load(found[0].read_text(encoding="utf-8")) or {}
     operators = doc.get("operators") or []
     for op in operators:
+        # **`not operator_id` makes a MISSING field match the FIRST operator**, and
+        # returns its integration block as though the manifest had named it. So a
+        # manifest with no `operator_id` gets a confident positive — a clean
+        # integration point that was never checked against anything — while a
+        # manifest that *does* name one gets `_DISAGREES` when it is wrong.
+        # **The absence is treated better than the presence.**
+        #
+        # Measured 2026-09-05: the `kernel_optimization` one chain replayed had no
+        # `operator_id`, silently matched `sampler_vocab_softmax`, and reported a
+        # declared integration point. m1's artefact had the field, which is the
+        # only reason a mismatch was ever visible; two attempts to reproduce
+        # theirs printed nothing until the field was added.
+        #
+        # **Not changed here**, for the same reason `_DISAGREES` is a note: making
+        # this refuse belongs with M5.1.1's advisory-or-binding decision, which is
+        # with the user. `check_apply_manifest` already lists `operator_id` as
+        # required, so a manifest reaching this line without one has been reported
+        # by then — but `bad` is not raised until after this call, so this runs
+        # first and its answer is what gets printed.
         if not operator_id or op.get("operator_id") == operator_id:
             block = op.get("integration") or {}
             if not block:
