@@ -254,6 +254,19 @@ this.
 finished, and once it has finished there is no loop to instruct.** The recovery
 path is unreachable at exactly the moment it is needed.
 
+**The event kind tells you which twin you have, without opening anything else.**
+This is the cheapest thing on this page: the last event on a stuck task
+discriminates the two mechanisms before you pay for a transcript read.
+
+| last event | executor | entry | why undeliverable |
+|---|---|---|---|
+| `escalated` | program body | `2026-09-05-a-failing-program-task-is-recorded-succeeded-when-its-outputs-exist.md` | there was never an agent to instruct |
+| `handling_failed` | `kind: ai` | this file | the agent's `mainloop` had already returned |
+
+Both were seen on 2026-09-05 in the same chain: stage 4 (`optimize_kernel`,
+`kind: ai`) gave `handling_failed`; stage 5 (`apply_patch`,
+`${m5_agent:-runner}`) gave `escalated`. **Same silence, different mechanism.**
+
 **It has a twin, and the pair is the finding.** `2a5b4e8` records a **program**
 body whose escalation is undeliverable because *"the executor is a program body:
 there is no agent to instruct."* This is the **ai** case: undeliverable because

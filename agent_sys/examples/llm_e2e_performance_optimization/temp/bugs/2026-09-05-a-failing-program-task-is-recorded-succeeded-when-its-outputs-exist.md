@@ -148,3 +148,72 @@ not correctness.
 *A first attempt at the isolation above was denied by the permission system for
 containing `rm -rf`. It was re-run against a fresh timestamped directory rather
 than routed around; a denial is a decision, not an obstacle.*
+
+---
+
+## A third instance, with the whole failure path traced — `packup`, 2026-09-05
+
+**Appended by m5.** This one matters because the run it sat inside reported
+**17/17 tasks succeeded and 20 real validator verdicts, all PASS.** The green was
+standing on top of a task that exited 1.
+
+Found from the other end: `check_environment` refused `e2e_packup`, and the
+producer's `entry.sh` plainly calls `env_render` at the end, so the record
+should have been there.
+
+**Reproduced standalone** — `packup.task/entry.sh` driven with the
+`AGENT_SYS_INPUT_*` of a completed run (`20260905T172540-db3db2`), same package,
+`E2E_MOCK_STAGES=m1,m2,m3,m4`:
+
+```
+redact: these host paths are still named in executable or generated content
+  …/kernel_optimization/…packup_noop_20260905/results/kernel_optimization.json:32
+      /shared_nfs/yihou/models/Qwen3.6-27B
+  …:61  /mnt/m2m_nobackup/yihou/e2e_flow_088a/088a-09051009
+redact: rewrote 1 file(s)               <- rewrites what it can, refuses the rest
+subprocess.CalledProcessError: … redact.py … returned non-zero exit status 1
+                                        (packup.py:528, check=True)
+TRUE rc=1        66 files written        0 environment.yaml
+```
+
+**The path, and note that every step is correct except the last:**
+
+1. `redact` refuses a packup naming absolute host paths — **working as designed**;
+2. `packup.py` calls it with `check=True`, so the exception propagates — **correct**;
+3. `entry.sh` is `set -eu`, so it dies there, **before** `exec env_render` — **correct**;
+4. the task is recorded **`succeeded`**, because its outputs exist — **this file's bug**;
+5. `e2e_packup` seals with 68 files and no environment record, and the missing
+   record is the only visible trace.
+
+**The missing environment record is a symptom, not a defect.** Hours went into
+`env_render` and `packup.py`'s write order on the assumption that the writer was
+at fault. It was never reached. **A body that dies partway through leaves an
+artefact that looks like a different bug in whatever step came after.**
+
+**Method note, since it cost a wrong reading first.** The initial run of this
+reproduction printed `rc=0` — the exit code belonged to `tail`, not to
+`entry.sh`. `| head` / `| tail` swallowing a return code is already in this
+effort's notes, and it produced a false "the body succeeded" here. Re-run with
+the output redirected to a file and `$?` read directly: **rc=1**.
+
+**The content fix is elsewhere** and is the leader's: the stage-4 artefact
+carries `/shared_nfs/yihou/models/…` and an **088 work root**
+(`/mnt/m2m_nobackup/yihou/e2e_flow_088a/088a-09051009`) inside
+`results/kernel_optimization.json`. Until that is portable, every `packup` on
+this corpus fails this way and reports success.
+
+
+---
+
+## Cross-reference: this is one of a pair
+
+Appended 2026-09-05 by m2. The `kind: ai` counterpart is
+`2026-09-05-the-stall-detector-is-blind-to-a-task-that-holds-a-thread-and-does-nothing.md`,
+under *"Why the task is still `running`"*. **Both executor kinds have an
+unreachable recovery path, for opposite reasons** — a program body never had an
+agent to instruct, an ai body stopped being one when its `mainloop` returned.
+Every leaf in this package is one or the other.
+
+**The last event on a stuck task tells you which**: `escalated` here,
+`handling_failed` there. Measured in one chain on 2026-09-05 — stage 5
+(`apply_patch`, a program body) and stage 4 (`optimize_kernel`, `kind: ai`).
