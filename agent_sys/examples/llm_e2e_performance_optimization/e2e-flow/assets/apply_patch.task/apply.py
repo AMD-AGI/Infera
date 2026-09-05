@@ -174,6 +174,37 @@ def find_apply(kopt: Path) -> tuple[Path, Path]:
     return found[0].parent, found[0].parent.parent
 
 
+#: Marks the one `workset_integration` failure that is a **disagreement** rather
+#: than an absence, so the caller can word them differently.
+#:
+#: **The policy and the implementation disagree here, and the implementation is
+#: the weaker one.** The comment at the call site says a missing block is a note
+#: "because an older workset predates it and failing on its absence would refuse
+#: correct work", while "a block that is present and disagrees is a hard stop,
+#: since it means two stages have different ideas about what is being optimised."
+#:
+#: `workset_integration` returns `({}, why)` for **four** situations: no workset
+#: input, no `workset.yaml`, an operator with no `integration` block — and *the
+#: workset declares a different operator entirely*. The first three are absence.
+#: **The fourth is exactly the disagreement the policy calls a hard stop**, and
+#: it takes the note branch only because both return an empty dict.
+#:
+#: Measured on m1's `20260905T140115-db48a7`: the manifest named
+#: `attention_recompute_w_u_fwd`, the workset declared `sampler_vocab_softmax`,
+#: and the patch was applied on the optimisation's own say-so. It then stopped on
+#: the base hash, so nothing wrong was installed — **by luck of a second check,
+#: not by this one.**
+#:
+#: **Not promoted to a refusal here, deliberately.** With a mocked `m3`,
+#: `mock_adapt.py` regenerates the workset for `sampler_vocab_softmax` whatever
+#: the corpus says, so any stage-4 artefact for another operator hits this path —
+#: making it a hard stop would refuse every mocked chain, and reach is what those
+#: chains are for. That is a policy call above this file (`todo.md`, M5.1.1).
+#: What is fixed here is only that a disagreement no longer *reads* like an
+#: absence.
+_DISAGREES = "OPERATOR MISMATCH: "
+
+
 def workset_integration(workset: str | None, operator_id: str | None) -> tuple[dict, str]:
     """m3's declared integration point for this operator, or `({}, why)`.
 
@@ -192,6 +223,7 @@ def workset_integration(workset: str | None, operator_id: str | None) -> tuple[d
     if not workset:
         return {}, "this task received no operator_workset input"
     found = sorted(Path(workset).glob("items/codes/workset.yaml"))
+    # (see `_DISAGREES` above the caller for why the last case is marked)
     if not found:
         return {}, f"no items/codes/workset.yaml under {workset}"
     import yaml
@@ -212,7 +244,8 @@ def workset_integration(workset: str | None, operator_id: str | None) -> tuple[d
             # caller has one object rather than two lookups into the same operator.
             block["gates_extra"] = (op.get("gates") or {}).get("extra") or []
             return block, ""
-    return {}, f"the workset declares no operator {operator_id!r} (has: {[o.get('operator_id') for o in operators]})"
+    return {}, (f"{_DISAGREES}the workset declares no operator {operator_id!r} "
+                f"(has: {[o.get('operator_id') for o in operators]})")
 
 
 def correctness_evidence(kopt: str | None) -> dict[str, dict[str, bool]]:
@@ -484,6 +517,19 @@ def main() -> int:
             f"apply_mode {integration.get('apply_mode')!r}"
         )
         bad += check_against_workset(manifest, integration)
+    elif why.startswith(_DISAGREES):
+        # Not an absence. See `_DISAGREES`: by this call site's own policy this
+        # is the hard-stop case, and it is a note only because the mocked-m3
+        # adapter puts every chain through it. Worded so it cannot be read as
+        # "the workset predates the field".
+        print(f"apply: NOTE **{why}**. This is a DISAGREEMENT, not a missing block: "
+              "two stages name different operators, which M5.1.1 says should stop the "
+              "run. It does not, because a mocked m3 regenerates the workset for one "
+              "fixed operator and refusing here would block every mocked chain. "
+              "The patch is applied on the optimisation's own say-so and NOTHING "
+              "checked where it lands — only the base hash stands between this and "
+              "installing a replacement over an unrelated file. See todo.md M5.1.1.",
+              file=sys.stderr)
     else:
         print(f"apply: NOTE no declared integration point to check against — {why}. "
               "The patch is applied on the optimisation's own say-so; M5.1.1 wants m3's "
