@@ -108,6 +108,32 @@ buckets:
       # `_fused_qk_rope_cat_and_cache_mla_kernel`.
       - '^_fused_'
       - '^_gluon_'
+      # **KNOWN INCOMPLETE, held deliberately — `todo.md` T73.** This pattern
+      # requires a leading underscore AND `_kernel` as the final token. Real
+      # flash-linear-attention kernels are `<op>_kernel_<suffix>` and miss on
+      # both counts, so they fall through to `unknown`, which
+      # `taxonomy.py:43-48` marks **`routable: False`** — i.e. `rank` never sees
+      # them. `fellows:` below had the identical pattern and was fixed; **this
+      # copy was not**, and the asymmetry is on purpose.
+      #
+      # **Why a miss here is worse than a miss in `fellows:`.** There, a miss
+      # mislabels and the wrapper refuses — visible. Here, a miss **excludes
+      # from the candidate pool** and nothing reports it.
+      #
+      # Measured on the 124-row real kernel table (run
+      # `20260905T074905-9ec798`): the anchored form moves **seven** kernels
+      # from `unknown` to `routable`, +3.220 % of profiled GPU time, pool
+      # 18 -> 25. The largest, `fused_recurrent_gated_delta_rule_packed_
+      # decode_kernel` at 2.350 %, would rank **#2** — so one kernel that
+      # should have been a top-two candidate has been invisible to `rank` for
+      # this whole effort.
+      #
+      # **Not applied because it changes which operator gets optimised**, and
+      # this round's goal is 跑通 rather than a better optimisation; the leader
+      # holds it until after the first green chain. **Do not "fix" it in
+      # passing** — and if you do apply it, use the anchored form from
+      # `fellows:`, never a bare `_kernel` substring, which takes 58 more
+      # symbols (ATen, rocprim, sgl_hip) and hands them to the wrong bucket.
       - '^_[a-z0-9_]+_kernel$'
       - '^main_kernel$'       # tilelang generated, opaque by design
       - 'topk_transform'
