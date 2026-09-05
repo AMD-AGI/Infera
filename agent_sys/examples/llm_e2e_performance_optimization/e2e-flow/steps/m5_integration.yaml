@@ -161,6 +161,10 @@
     E2E_ADHOC_CASES: '${adhoc_cases:-3}'
     E2E_MOCK_ROOT: '${mock_root:-/shared_nfs/yihou/agent_sys/cheat_for_mock}'
     E2E_MOCK_STAGES: '${mock_stages:-all}'
+    # `refused` (default) or `accepted` — see the block in `shared.yaml`. A
+    # `kind: ai` agent receives only its own env block, so binding it there is
+    # not inheritance and this line is what actually reaches `mock_m5.sh`.
+    E2E_MOCK_REPORT: '${mock_report:-refused}'
   backends:
     - key: claude_code_sdk
       backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend

@@ -207,6 +207,30 @@ env:
   # failure is attributable to the stage that was just promoted.
   E2E_MOCK_STAGES: '${mock_stages:-all}'
 
+  # Which `integration_report` the stage-5 mock emits: `refused` (default) or
+  # `accepted`.
+  #
+  # **The default is a real refusal and must stay the default.** The sealed
+  # report's verdict is `accepted: false`, and replaying it verbatim correctly
+  # stops the graph — `mock_m5.sh:139` calls that *"the only cheap end-to-end
+  # test of a strong refusal this package has"*, and it is.
+  #
+  # **But it also means a fully-mocked run can never reach the end**, which is
+  # Brief item 2. Measured 2026-09-05: across **45 runs**, `m5_integration` has
+  # never reached `succeeded` — the best is 4/5 with stage 5 stopped on that
+  # refusal. `mock_m5.sh:141` already builds the way out, swapping the
+  # performance rows for the stock control measured under matched load on the
+  # same node (patched 475.7 ms vs stock 470.3 ms, 1.1 % apart).
+  #
+  # **The switch existed and had no wire to the launch line.** It was read
+  # straight from the environment by `mock_m5.sh` and declared in no spec, so
+  # `check_agent_env` reported it as an undeclared read and nothing could set
+  # it. That is why item 2 sat unmet for two days: not a defect, a control with
+  # no handle. Declared here, defaulting to the refusal, so `mock e2e green`
+  # becomes `--var mock_report=accepted` and the refusal test stays one word
+  # away.
+  E2E_MOCK_REPORT: '${mock_report:-refused}'
+
   # ---- Names an agent needed and `runner` never had -------------------------
   #
   # Added 2026-09-04, after the survey that found no `E2E_*` reaches a
