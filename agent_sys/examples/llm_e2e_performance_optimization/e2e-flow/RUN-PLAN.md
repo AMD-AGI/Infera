@@ -736,6 +736,67 @@ and stopping it means stopping all three, outermost first:
 end: no process with a run-tree cwd, no container carrying the run's label, and
 the cards back at 0%.
 
+## Grading a sealed artefact offline, after the run — no node, no re-run
+
+**A `-noval` run does not destroy gradeability, it defers it.** Every artefact those
+chains sealed is still on NFS and can be put in front of the real validator afterwards.
+**This is the only way to reach level 3** — *the judged kind was produced by a stage that
+actually executed* — for a chain that ran with validation off.
+
+**Recipe from m2, 2026-09-05, used to grade `p9`'s `profiling_evidence` (PASS, both
+sides agreeing on 823736 GPU kernel events).**
+
+**1. Find the handoff id.** `store/handoff/*.json` has `type` at top level and state
+inside `versions`, which is not obvious:
+
+```python
+for f in glob.glob(f"{R}/store/handoff/*.json"):
+    d = json.load(open(f))
+    if d["type"] == "profiling_evidence": print(d["id"])
+```
+
+**2. Build a zone directory with three files** — `zone.py` reads all three from the cwd:
+
+```
+inputs.json      ["<handoff-id>"]
+args.json        the validator spec's `args` block, copied VERBATIM from the step yaml
+materials.json   {"<handoff-id>": "<run>/handoffs/<id>/v<N>/content"}
+```
+
+**3. Run the real `entry.sh` from inside that directory** — not `check.py`:
+
+```sh
+AGENT_SYS_TASK_PACKAGE=<pkg> AGENT_SYS_DEMO_PYTHON=python3 \
+  sh <pkg>/assets/<name>.validator/entry.sh
+```
+
+**4. Read `verdict.json` and `validator_report.txt`**, both written into the zone.
+
+**Three things that cost time if nobody says them (m2's words):**
+
+- **`args.json` must be the yaml's block verbatim.** Invent a value and **you are grading
+  your own args, not the validator.**
+- **`materials.json`'s path is the content directory itself** — there is no `content/`
+  hop below it (`zone.py:80`).
+- **Go through `entry.sh`, not `check.py`.** It resolves `AGENT_SYS_DEMO_PYTHON` for a
+  reason m5 already paid for: **a bare `python3` on this host lacks `referencing`, so the
+  body dies before writing `verdict.json` and the phase reports "nothing was decided" —
+  which reads as a validator that was never asked.**
+
+**Scope caveat, m2's and not to be dropped:** verified on **exactly one** validator.
+`check_profiling_evidence` takes a single input; **validators with multiple `inputs:` need
+more than one entry in `inputs.json` and `materials.json`, and that is untried.**
+
+**Worked example:** `p9`'s `ae9d7162-e404-4eb9-bb63-5c082feb493f`, args from
+`m2_profiling.yaml:150-153`, run `20260905T163424-bdb4d8`.
+
+**A PASS here is level 3, not level 4.** It says the validator accepts an artefact a real
+stage produced. **It says nothing about whether it would refuse a fault.**
+
+*Recorded here because it lived only in a message thread, which is the worst available
+storage for a recipe with three gotchas. Turning it into `assets/lib/grade_offline.sh`
+is available and has not been done; nobody should ship that untested.*
+
 ## The three things a real run can do that a mock cannot
 
 **1. Call a model.** Four leaves are `kind: ai`. `--var m<N>_agent=runner` is what keeps them off that path, and **the default is the real agent** — so a rung is promoted by *removing* a var, and forgetting one is how a model gets called by accident. It has already happened once: the first full mock sat at `deploy_and_prove: running` while an AI deployment agent prepared to bring a model up for real on the node in `--var`.
