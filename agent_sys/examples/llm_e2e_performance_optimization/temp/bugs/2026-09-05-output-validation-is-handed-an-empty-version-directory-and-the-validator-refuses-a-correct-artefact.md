@@ -1,4 +1,4 @@
-# Output validation is handed the empty `v0`, and the validator refuses a correct artefact
+# Output validation is handed an empty version directory, and the validator refuses a correct artefact
 
 **The refusal is accurate about what the validator was given and false about the
 artefact.** `check_profiling_evidence` reported eight `PROBLEM:` lines of the
@@ -77,6 +77,29 @@ validation failed with it, and stages 3–5 were never reached. **Fourteen of th
 seventeen restored validators went uninvoked**, on a run whose whole purpose was
 to invoke them.
 
+## Corrected 2026-09-05, same day: `v0` is NOT the defect
+
+**The first version of this record was titled "handed the empty `v0`" and that
+framing is wrong.** Measured afterwards, in the run that *passed*
+(`20260905T174633`), `check_acceptance`'s zone:
+
+```
+materials/238016f5…/v0      \
+materials/4715253a…/v0       >  97 files
+materials/a01a6c99…/v0      /
+```
+
+**`v0` is a normal staged version and can be fully populated.** In the same run
+`profiling_evidence` was staged from `v1` and `stock/patched.measurement` from
+`v0`, both correctly.
+
+**So the defect is not the version number — it is being handed a directory with
+ZERO files while the same handoff's other version holds 47.** A reader who
+searched for "materials contains v0" would find it constantly and conclude
+nothing. **The check is the file count, not the version.** Left in rather than
+edited away, because the wrong version of this record circulated first and
+someone may have read it.
+
 ## How to recognise it
 
 **Before believing any refusal that says a file is missing, list the validation
@@ -88,8 +111,9 @@ find "$z/materials" -maxdepth 2
 find "$z/materials" -type f | wc -l
 ```
 
-**A `v0` under `materials/`, or a file count of zero, means the validator was
-shown an empty version and its refusal says nothing about the artefact.**
+**A file count of zero means the validator was shown an empty version and its
+refusal says nothing about the artefact. `v0` on its own means nothing** — see
+the correction above; it is the normal staged version for several kinds.
 
 ## Not fixed here
 
