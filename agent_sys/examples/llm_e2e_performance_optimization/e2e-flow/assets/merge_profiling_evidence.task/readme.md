@@ -89,3 +89,42 @@ Executed in order by `entry.sh` → `merge.py`.
   reference run both say 419,218 GPU kernel events. This flow has already been
   bitten once by a ranking over a different capture: a stage-3 run was fed a
   34-row synthetic seed and every validator downstream passed.
+
+
+## The content-root README your handoff must carry
+
+**Only read this if you are an AI agent** — the program body writes these
+already. You are one the moment somebody passes `--var m2_agent=e2e_profiler`,
+which flips all three of this stage's leaves to `kind: ai` at once.
+
+The file is `.../<handoff-id>/v1/content/README.md`, at the **content root** —
+not a README inside a subdirectory, and not the one in a packup. The seal
+requires specific section headings, **per content type**, and they are not the
+same set for every output (`agent_sys/handoff/content.py:62-87`):
+
+```
+reproducible     ## Purpose · ## How to run · ## Result · ## Environment · ## Watch out
+structured_text  ## Purpose · ## Schema
+```
+
+This leaf produces **one** output:
+
+| output | content type | sections |
+|---|---|---|
+| `profiling_evidence` | `reproducible` | all five |
+
+**A heading inside a blockquote, a list or a code fence is not a section** —
+that is the seal's own sentence and the one you will see if you get it wrong.
+
+**Do not take this brief's own `## Watch out` heading as the requirement being
+met.** That heading belongs to this document; the seal reads the README you
+write, not the brief you read.
+
+**Why this is spelled out rather than left to judgement.** On 2026-09-05 two
+stage-4 agents on two nodes both failed this seal within four minutes, and
+neither failure resembled the other — one wrote no root README, one invented
+its own headings. The refusal arrives **after** you have finished, and the
+framework's retry cannot reach a finished agent
+(`temp/bugs/2026-09-05-the-stall-detector-is-blind-to-a-task-that-holds-a-thread-and-does-nothing.md`),
+so a wrong heading here is not a correctable mistake — it ends the run and the
+GPU hold with it. One of those cost hold `112699`.
