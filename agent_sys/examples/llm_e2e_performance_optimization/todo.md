@@ -3592,3 +3592,101 @@ should not be inferred to be m3's because m3 filed the entry.
 
 **持有人:未分配。** 实例来自 readme-cn 的审计,`SKIP-AHEAD.md` 是 readme-cn 写的,
 但 `RUN-PLAN.md:32` 那一行是共享的,**不要因为是 readme-cn 报的就默认归他们。**
+
+---
+
+### T72 — the Triton fellow pattern needs a leading underscore and a terminal `_kernel`; real kernels have neither
+
+*Opened 2026-09-05 by m3. This answers T69's revised close (a) — why `identify`
+reports `lang='unknown'` for Triton files it resolved to a source path.*
+
+**Measured** by running `taxonomy.fellow_of` against the five device symbols in
+`operator_identity`, run `20260905T074905-9ec798` (287):
+
+```
+k004  chunk_fwd_kernel_o                              -> {'fellow': '', 'language': ''}
+k014  chunk_gated_delta_rule_fwd_kernel_h_blockdim64  -> {'fellow': '', 'language': ''}
+k015  _ZN7sgl_hip10activation18act_and_mul_kernelI…   -> {'fellow': '', 'language': ''}
+k018  _ZN7ck_tile6kentryILi1ENS_38FmhaBatchPrefill…   -> {'fellow': 'ck-fellow',     'language': 'ck'}
+k024  _layer_norm_fwd_1pass_kernel                    -> {'fellow': 'triton-fellow', 'language': 'triton'}
+```
+
+**Defect A — the Triton rule is anchored at both ends.**
+`kernel_taxonomy.yaml`, `fellows:` → `triton-fellow`, pattern
+`^_[a-z0-9_]+_kernel$`. It requires a **leading underscore** *and* `_kernel` as
+the **final** token. Real flash-linear-attention kernels are
+`<op>_kernel_<suffix>` with no leading underscore, so they miss on **two
+independent counts**. `k024` matches only because it happens to satisfy both —
+**one of three Triton kernels, and the one that passed is why the rule looked
+like it worked.**
+
+**Defect B — no rule matches `sgl_hip`.** The `hip-fellow` patterns are
+`^_ZN5aiter`, `^void aiter::`, `topk_transform`, `anonymous namespace` — all
+aiter. `_ZN7sgl_hip…` is matched by nothing, so a compiled HIP kernel comes back
+with no language at all.
+
+**The obvious fix is a trap, and the population says how big a one.** Relaxing
+the pattern to the substring `_kernel` looked like it cost one misclassification
+in the five-operator sample. Run against the **whole 124-row real
+`kernel_table`** from the same run, it would additionally capture **58 symbols**
+the anchored candidate correctly leaves alone:
+
+```
+void at::native::elementwise_kernel_manual_unroll<128, 8, …>
+void at::native::tensor_kernel_scan_innermost_dim<float, std::plus<float> >
+_ZN7sgl_hip10activation18act_and_mul_kernelI14__hip_bfloat16…
+void rocprim::…::detail::trampoline_kernel<…>
+void at::native::index_elementwise_kernel<128, 4, …>
+```
+
+PyTorch ATen, rocprim, sgl_hip. `fellows:` says *"first match wins"* and
+`triton-fellow` is **first in the list**, so every one of those would be handed
+to the Triton fellow **before `hip-fellow` is ever consulted** — **58 of 124,
+47 % of the table.** That is the wrong-fellow hazard `62032fc` was built to
+stop, reintroduced at scale by the fix for it. **In the five-operator sample it
+looked like a 20 % edge case.**
+
+Full anchoring is what does the work — a symbol containing a space, `::` or `<`
+cannot match `^[A-Za-z_][A-Za-z0-9_]*_kernel…$` at all. `(?!_Z)` covers the
+remaining case: mangled names that *are* otherwise valid identifiers.
+
+**Validated candidate**, tested against all five:
+
+```
+^(?!_Z)[A-Za-z_][A-Za-z0-9_]*_kernel([_A-Za-z0-9]*)$
+    k004 True   k014 True   k024 True      (the three Triton kernels)
+    k015 False  k018 False                 (the two mangled C++ symbols)
+```
+
+The `(?!_Z)` is load-bearing: it is what keeps an Itanium-mangled name out of
+the Triton bucket regardless of rule order.
+
+**Not landed, deliberately.** m1's full real chain is on 217 and m3 is
+downstream of it. The change turns two refusals into two campaigns — it makes
+the pipeline do *more* work, on a matcher validated against **five symbols**.
+Landing a widened matcher into a live chain's downstream stage is the same call
+as `build_workset.task/readme.md:98`, and the same answer. **Ready to land the
+moment 217 clears m3.**
+
+**Run against the population, and the result is the table above.** On all 124
+rows the candidate moves **11 kernels** from unclassified to `triton-fellow`
+(9 → 20) and changes nothing else:
+
+```
+                current                with candidate
+hip-fellow           23                     23
+ck-fellow             2                      2
+triton-fellow         9                     20
+(none)               90                     79
+```
+
+**And the number that matters more than the fix: 79 of 124 still have no
+fellow — 64 % of the real kernel table.** The taxonomy classifies about a third
+of what the profiler actually sees. That is not a pattern bug and it is not
+fixed by this change; it is the size of the gap between the taxonomy and the
+workload, and nobody has measured it before today. **Worth its own entry once
+somebody decides whether 64 % unclassified is acceptable** — most of those
+kernels are never promoted by `rank`, so the practical exposure is much smaller
+than the raw ratio, and *how much* smaller is unmeasured.
+
+**Holder: m3.**
