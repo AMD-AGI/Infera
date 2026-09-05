@@ -30,7 +30,7 @@ been telling everyone to pass the wrong one.
 |---|---|---|
 | `m<N>_agent=runner` | one per still-mocked stage | **removed** for the promoted stage |
 | `expect_ranks` | **2** | **set it to the deployment's `tp`** — omitting it defaults to **8** and refuses a `tp=4` run |
-| `adhoc_cases` | **0** — mock only | **`3` on any real run, non-negotiable** — see *The `adhoc_cases` split* below |
+| `adhoc_cases` | **`0`** | **`0` through rung 4; `3` at rung 5** — the condition is **whether m5 is real**, not the rung. See *The `adhoc_cases` split* below |
 | `image` | **the sealed kit's**, not the node's | the real bring-up's |
 | `transport_env` | **required on every rung** — `SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR` | same |
 | `measure_gpu` | **required on every rung** — a card `nodeprobe` reports free | same |
@@ -131,20 +131,29 @@ three of the four weighted means are the producer's unchecked claim. On
 it later has been misled. Avoid `layernorm_layer_norm_fwd_1pass` while its
 `case_001` still reports `snr_db: inf` against 98–107 dB on its other shapes.
 
-### The `adhoc_cases` split — 0 in a mock line, 3 in a real one
+### The `adhoc_cases` split — 0 while m5 is mocked, 3 once m5 is real
+
+**The condition is whether *m5* is real, which on the plain ladder means rung 5
+and nothing earlier.** Stated as a condition rather than as a rung because the
+two are not the same sentence: every other row in the table above turns on
+whether **m2** is real, and reading this row the same way is how `3` gets passed
+at rung 2. At rungs 0–4 `m5_agent=runner`, so **there is no agent to invent
+cases** and `3` is a floor nothing can meet — `check_acceptance` then refuses
+both arms after a full run, with *"adhoc.json is missing and 3 ad-hoc case(s)
+are required (M5.4)"*. The measurement is below.
 
 **Decided 2026-09-05. They are not alternatives; they belong to different
-phases, and the `0` must never migrate into a real line by copy-paste** — that
-is the `measure_gpu` class and it has cost four runs.
+phases, and the `0` must never migrate into a real m5 line by copy-paste** —
+that is the `measure_gpu` class and it has cost four runs.
 
-**Mock: `--var adhoc_cases=0`.** A mock *cannot* produce ad-hoc cases. They are a
+**While m5 is mocked: `--var adhoc_cases=0`.** A mock *cannot* produce ad-hoc cases. They are a
 record of questions asked of a live engine and the answers it gave; the sealed
 2026-09-02 corpus predates M5.4 and carries none — checked, `find -iname
 '*adhoc*'` over the corpus returns nothing and `acceptance_stock` holds only the
 frozen suite. Setting the floor to `0` is the designed way to say *this line does
 not exercise that arm*, and it is honest **only while it is recorded**.
 
-**Real: `adhoc_cases=3`, non-negotiable.** M5.4's ad-hoc half exists *"免得作弊"* —
+**Once m5 is real — rung 5: `adhoc_cases=3`, non-negotiable.** M5.4's ad-hoc half exists *"免得作弊"* —
 the frozen suite alone can be gamed, because it ships in the repository and can
 be satisfied by construction. A real e2e that skips it has not tested the thing
 M5.4 was written for.
@@ -413,9 +422,20 @@ python3 -m agent_sys.cli.main run \
   --var gpu_devices=<the cards you just read from rocm-smi, e.g. 0,1,2,3> \
   --var "parser_args=--reasoning-parser qwen3" \
   --var measure_gpu=<one of those cards> \
+  --var workset_operator=<the operator m3 re-measured — see below> \
   --var adhoc_cases=0 \
   --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR
 ```
+
+**`workset_operator` was missing from this command until 2026-09-05**, while the
+var table and *"Every mock adapter is bound to the operator its corpus was built
+around"* both already called it **required on any rung where m3 is real** — and
+rung 3 is the rung that makes m3 real. Without it the real path dies in seconds
+on the four-operator refusal. **Which** operator is a decision, not a default:
+prefer one m3 actually re-measured (`reverify_shapes` defaults to `1`, so on a
+four-operator workset three of the four means are the producer's unchecked
+claim), and avoid `layernorm_layer_norm_fwd_1pass` while its `case_001` reports
+`snr_db: inf`.
 
 **Four of these were missing and each would have cost the hold.**
 
