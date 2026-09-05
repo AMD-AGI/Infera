@@ -38,26 +38,59 @@ CORPUS = pathlib.Path("/shared_nfs/yihou/agent_sys/cheat_for_mock")
 def declared() -> list[tuple[str, str, dict]]:
     """(kind, validator, args) for every validator declared in the step yamls.
 
-    Read from the specs rather than from the directory listing, because the
-    args are half the contract — a validator run without the parameters its
-    step passes is not the validator the graph runs.
+    **Read from the `module: validator` blocks, which is where the args are.**
+
+    The first version walked the *handoffs* and took args from the validator
+    entry there. Every handoff in this package writes the string form —
+    `validators: [check_environment, check_profiling_evidence]` — so that
+    branch returned `{}` for all 44 pairs and **118 declared args across 21
+    validators were silently discarded**. Found by m2, 2026-09-05, by running
+    their own row both ways on the same body and corpus:
+
+        args = {}           verdict FALSE  "parts.json claims part(s) … that
+                                            this kind does not declare"
+        args = the step's   verdict TRUE   passed, four informative notes
+
+    With `require_parts` empty, every part the artefact declares is
+    "undeclared" — the refusal was the empty arg set talking.
+
+    **The failure was worse in the passing direction.** A validator stripped of
+    its thresholds passes trivially, so the 26 `PASS` rows of the first run were
+    the weakest possible evidence, not the strongest. §4.4's doctrine, in the
+    tool written to apply it: a check that cannot fail is not a check.
+
+    The docstring above this function already said *"the args are half the
+    contract — a validator run without the parameters its step passes is not
+    the validator the graph runs"*, and the code under it did the opposite.
     """
     import yaml
 
     out: list[tuple[str, str, dict]] = []
-    for step in sorted((PKG / "steps").glob("*.yaml")):
+    for step in sorted((PKG / "steps").glob("*.yaml")) + [PKG / "shared.yaml"]:
+        if not step.is_file():
+            continue
         doc = yaml.safe_load(step.read_text(encoding="utf-8")) or {}
         for mod in doc if isinstance(doc, list) else [doc]:
-            for hs in _walk_handoffs(mod):
-                kind = hs.get("name") or hs.get("kind")
-                for v in hs.get("validators") or []:
-                    if isinstance(v, str):
-                        out.append((str(kind), v, {}))
-                    elif isinstance(v, dict):
-                        name = v.get("name") or v.get("validator")
-                        if name:
-                            out.append((str(kind), str(name), dict(v.get("parameters") or {})))
+            for v in _walk_validators(mod):
+                name = str(v.get("name") or "")
+                if not name.startswith("check_"):
+                    continue
+                args = dict(v.get("args") or v.get("parameters") or {})
+                for kind in v.get("inputs") or []:
+                    out.append((str(kind), name, args))
     return out
+
+
+def _walk_validators(node):
+    """Every `module: validator` block, at any depth."""
+    if isinstance(node, dict):
+        if node.get("module") == "validator":
+            yield node
+        for v in node.values():
+            yield from _walk_validators(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from _walk_validators(v)
 
 
 def _walk_handoffs(node):
@@ -90,19 +123,47 @@ _INDEX: dict[str, pathlib.Path] = {}
 
 
 def build_index(run: pathlib.Path) -> dict[str, pathlib.Path]:
+    """kind -> newest content dir, keyed from **the store**, not from prose.
+
+    **The first version parsed the kind out of the handoff `README.md`'s first
+    line** and it silently mis-indexed anything whose title is prose:
+
+        "# Kernel optimization — sglang sampler vocabulary softmax"
+          -> head.split()[0] == "Kernel"        -> kernel_optimization never indexed
+
+    A missing key is not a loud failure here — `corpus_content` falls back to
+    `cheat_for_mock`, sealed **2026-09-02**, which predates `environment.yaml`
+    and `results/kernel_optimization.json`. So three validators were shown a
+    pre-new-format artefact and correctly reported the new files absent, and the
+    table read that as three defects in m4's stage.
+
+    **Had that table been worked, three validators would have been rewritten to
+    accept a format their own producer stopped emitting** — deleting the checks
+    that catch a producer regressing to the old shape. Found by m4, 2026-09-05,
+    who ran their rows against the right handoff and got PASS with zero changes.
+
+    `store/handoff/*.json` carries `type` exactly, which is why `kit_env.sh`
+    reads it that way. Prose is not an identifier.
+    """
     out: dict[str, pathlib.Path] = {}
-    for h in sorted((run / "handoffs").glob("*/v*/content")):
-        readme = h / "README.md"
-        if not readme.is_file():
+    for rec in sorted((run / "store" / "handoff").glob("*.json")):
+        try:
+            d = json.loads(rec.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
             continue
-        first = readme.read_text(encoding="utf-8", errors="replace").splitlines()[:1]
-        if not first:
+        kind, hid = d.get("type"), d.get("id")
+        if not kind or not hid:
             continue
-        # "# deploy_kit — Qwen/... " -> deploy_kit
-        head = first[0].lstrip("# ").strip()
-        kind = head.split()[0].split("—")[0].strip() if head else ""
-        if kind and (kind not in out or h.stat().st_mtime > out[kind].stat().st_mtime):
-            out[kind] = h
+        # Newest version with content on disk wins; a version dir can exist and
+        # hold nothing (92 of 283 measured), so presence of files is the test.
+        best: pathlib.Path | None = None
+        for c in sorted((run / "handoffs" / str(hid)).glob("v*/content")):
+            if any(c.rglob("*")):
+                best = c
+        if best is not None and (
+            kind not in out or best.stat().st_mtime > out[kind].stat().st_mtime
+        ):
+            out[str(kind)] = best
     return out
 
 
