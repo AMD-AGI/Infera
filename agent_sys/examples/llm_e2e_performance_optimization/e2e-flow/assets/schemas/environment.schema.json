@@ -17,7 +17,7 @@
     "fixed": {
       "type": "object",
       "description": "What a reproduction has to match. Everything here is a fact about the machine and the software, not about one run of them.",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "required": [
         "node",
         "gpu_arch",
@@ -110,6 +110,10 @@
           "minimum": 1,
           "description": "The context window the engine was started with. A measurement at a shape longer than this did not run the shape it claims."
         },
+        "sglang": {
+          "type": "string",
+          "description": "The sglang version the engine was built against, when the producer recorded one. Emitted by 10 of 269 records measured 2026-09-05; declared so `fixed` can be closed rather than because a consumer requires it -- `rocm`, `driver` and `torch` beside it are the same shape."
+        },
         "scripts": {
           "type": "object",
           "additionalProperties": true,
@@ -148,7 +152,6 @@
     "runtime": {
       "type": "object",
       "description": "Which machine's which container, right now. Mission M1.2.1.2. This is the half that makes 'modules 1-4 share one runtime' checkable instead of merely intended.",
-      "additionalProperties": true,
       "required": [
         "container",
         "endpoint",
@@ -195,8 +198,17 @@
         "notes": {
           "type": "string",
           "description": "Free text for a human. Nothing may parse this -- anything a consumer must read gets its own field."
+        },
+        "replayed_from": {
+          "type": "string",
+          "description": "Set when this record describes a REPLAYED kit rather than a bring-up on this node -- `mock_adapt.sh` writes it, and chains it when replaying a replay so provenance is not collapsed. Load-bearing and read by five consumers (`check_deploy_kit`, `kit_status`, `check_measurement_order`, m2's `line.sh:149`, and `deploy_kit.layout.yaml`'s `required_unless`). Declared 2026-09-05 after measuring that a transposed `replayed_form` validated with ZERO errors and read back as `None` -- and `None` means *this is not a replay* to every one of them, so one character turned a replayed kit into one the whole flow treats as real. Declaring it alone does NOT fix that; `additionalProperties: false` below is what does."
+        },
+        "work_root": {
+          "type": "string",
+          "description": "Where this invocation's workdir, logs and handshake went. Emitted by 9 of 269 records measured 2026-09-05; declared to close the object rather than because a consumer requires it."
         }
-      }
+      },
+      "additionalProperties": false
     },
     "warnings": {
       "type": "array",
