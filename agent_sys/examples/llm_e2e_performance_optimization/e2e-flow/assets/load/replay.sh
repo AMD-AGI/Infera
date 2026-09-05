@@ -34,6 +34,12 @@ TRACE_OUT="$WORK/profiles"
 # passes it down rather than this file assuming the two are equal. Defaults to
 # the host path, which is the same-path convention `profiling-demo` used.
 TRACE_OUT_IN_CONTAINER="${E2E_TRACE_OUT_IN_CONTAINER:-$TRACE_OUT}"
+# The engine's own log as the container sees it. `capture.sh` section 2/6 waits
+# for batch lines in it; a wrong path there reads as an engine that never
+# worked, which is what it read as on 088 on 2026-09-05. Same shape as the
+# line above: the caller passes it, and the default is the path
+# `profiling-demo` used.
+ENGINE_LOG_IN_CONTAINER="${E2E_ENGINE_LOG_IN_CONTAINER:-/tmp/glm53_mix.log}"
 CTR="${E2E_CONTAINER:?}"
 R="http://${E2E_NODE_IP:?}:${E2E_PORT_ROUTER:?}"
 TAG="${ROUND}_$(date +%Y%m%d_%H%M%S)"
@@ -80,6 +86,7 @@ if [ "$CAPTURE" = "1" ]; then
   say "cutting the measurement window (warmup ${E2E_WARMUP_S}s, window ${E2E_WINDOW_S}s, with_stack=0)"
   on "NODE_IP='$E2E_NODE_IP' ROUTER_PORT='$E2E_PORT_ROUTER' CTR='$CTR' \
       TRACE_OUT='$TRACE_OUT' TRACE_OUT_IN_CONTAINER='$TRACE_OUT_IN_CONTAINER' \
+      ENGINE_LOG_IN_CONTAINER='$ENGINE_LOG_IN_CONTAINER' \
       WARMUP_S='$E2E_WARMUP_S' WINDOW_S='$E2E_WINDOW_S' \
       WITH_STACK=0 OUT_SUBDIR=mixed \
       TAG='$TAG' bash '$LOAD/capture.sh'" 2>&1 | tee "$WORKDIR/capture.log"
@@ -103,6 +110,7 @@ if [ "$CAPTURE" = "1" ]; then
     say "cutting the stack window (window ${E2E_STACK_WINDOW_S}s, with_stack=1)"
     on "NODE_IP='$E2E_NODE_IP' ROUTER_PORT='$E2E_PORT_ROUTER' CTR='$CTR' \
         TRACE_OUT='$TRACE_OUT' TRACE_OUT_IN_CONTAINER='$TRACE_OUT_IN_CONTAINER' \
+        ENGINE_LOG_IN_CONTAINER='$ENGINE_LOG_IN_CONTAINER' \
         WARMUP_S=0 WINDOW_S='$E2E_STACK_WINDOW_S' \
         WITH_STACK=1 OUT_SUBDIR=mixed_stacks \
         TAG='$TAG' bash '$LOAD/capture.sh'" 2>&1 | tee "$WORKDIR/capture_stacks.log"
@@ -337,6 +345,7 @@ set -eu
 NODE_IP=$E2E_NODE_IP ROUTER_PORT=$E2E_PORT_ROUTER CTR=$CTR \\
 TRACE_OUT="\$WORK_ROOT/profiles" \\
 TRACE_OUT_IN_CONTAINER="\${WORK_ROOT_IN_CONTAINER:-\$WORK_ROOT}/profiles" \\
+ENGINE_LOG_IN_CONTAINER="$ENGINE_LOG_IN_CONTAINER" \\
 WARMUP_S=$E2E_WARMUP_S WINDOW_S=$E2E_WINDOW_S \\
 WITH_STACK=0 OUT_SUBDIR=mixed \\
 bash "\$SCRIPTS/capture.sh"
@@ -344,6 +353,7 @@ bash "\$SCRIPTS/capture.sh"
 NODE_IP=$E2E_NODE_IP ROUTER_PORT=$E2E_PORT_ROUTER CTR=$CTR \\
 TRACE_OUT="\$WORK_ROOT/profiles" \\
 TRACE_OUT_IN_CONTAINER="\${WORK_ROOT_IN_CONTAINER:-\$WORK_ROOT}/profiles" \\
+ENGINE_LOG_IN_CONTAINER="$ENGINE_LOG_IN_CONTAINER" \\
 WARMUP_S=0 WINDOW_S=${E2E_STACK_WINDOW_S:-3} \\
 WITH_STACK=1 OUT_SUBDIR=mixed_stacks \\
 bash "\$SCRIPTS/capture.sh"

@@ -33,6 +33,13 @@ TRACE_OUT="${TRACE_OUT:?}"
 #: layer, `/start_profile` still answers 200, and the host sees an empty
 #: directory at the end with no error anywhere.
 TRACE_OUT_IN_CONTAINER="${TRACE_OUT_IN_CONTAINER:-$TRACE_OUT}"
+#: The engine's own log, **as the container sees it** — section 2/6 waits for
+#: batch lines in it. The default is the path `profiling-demo` used, kept so
+#: that package stays byte-identical; every kit that puts the log somewhere else
+#: passes this. m1's kit writes `${work_root}/logs/worker.log` (measured on 088,
+#: 2026-09-05: 811 `Decode batch`/`Prefill batch` lines in a run where the
+#: hard-coded default matched nothing).
+ENGINE_LOG_IN_CONTAINER="${ENGINE_LOG_IN_CONTAINER:-/tmp/glm53_mix.log}"
 WARMUP_S="${WARMUP_S:-30}"
 WINDOW_S="${WINDOW_S:-15}"
 REQUIRE_LOAD="${REQUIRE_LOAD:-1}"
@@ -126,15 +133,36 @@ echo "===== 2/6 wait for requests to actually reach the engine ====="
 # Not a sleep: a cold AIPerf synthesizes every prompt before sending anything, so
 # "the container is up" and "the engine is busy" can be minutes apart. Warm-up is
 # only meaningful once the second is true.
+#: **Checked once, before the loop, because a missing log is indistinguishable
+#: from an idle engine from inside it.** Measured on 088, 2026-09-05: with the
+#: path wrong the loop span 39 times over ~195 s, the load finished underneath
+#: it at 209 s, and the abort that came out blamed the load — "exited before
+#: sending anything" — for a replay that had just served 721 requests. The
+#: engine log had 811 batch lines the whole time, at a path this script was not
+#: looking at.
+docker exec "$CTR" test -r "$ENGINE_LOG_IN_CONTAINER" || {
+  echo "  ABORT: the engine log $ENGINE_LOG_IN_CONTAINER is not readable in $CTR"
+  echo "  Section 2/6 waits for batch lines in it, so a wrong path here reads as"
+  echo "  an engine that never worked. Pass ENGINE_LOG_IN_CONTAINER for this kit."
+  exit 1
+}
 seen=0
 for i in $(seq 1 120); do
-  if docker exec "$CTR" bash -c "grep -acE 'Decode batch|Prefill batch' /tmp/glm53_mix.log" | grep -qv '^0$'; then
+  if docker exec "$CTR" bash -c "grep -acE 'Decode batch|Prefill batch' '$ENGINE_LOG_IN_CONTAINER'" | grep -qv '^0$'; then
     seen=1; echo "  engine has batches after $((i*5))s"; break
   fi
-  load_running || { echo "  ABORT: the load exited before sending anything"; exit 1; }
+  # **Not "before sending anything"** — this branch cannot tell how much the
+  # load sent, only that it is gone and that no batch was ever logged. Saying
+  # the stronger thing sent one reader after the load and away from the log.
+  load_running || {
+    echo "  ABORT: the load is no longer running and no batch was ever logged after $((i*5))s"
+    echo "  (engine log: $ENGINE_LOG_IN_CONTAINER). Either the load never reached"
+    echo "  the engine, or it ran to completion while this was watching the wrong log."
+    exit 1
+  }
   sleep 5
 done
-[ "$seen" = "1" ] || { echo "  ABORT: engine never reported a batch"; exit 1; }
+[ "$seen" = "1" ] || { echo "  ABORT: engine never reported a batch in $ENGINE_LOG_IN_CONTAINER"; exit 1; }
 
 echo "===== 3/6 warm-up ${WARMUP_S}s ====="
 # Skipped rather than slept when zero. The second window of a round opens on an

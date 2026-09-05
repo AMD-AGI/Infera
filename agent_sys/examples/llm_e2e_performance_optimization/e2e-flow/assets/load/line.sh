@@ -388,6 +388,7 @@ E2E_CONTAINER="$CTR" \
 E2E_PORT_ROUTER="$HS_PORT" \
 E2E_WORK_ROOT="$HS_WORK_ROOT_ON_HOST" \
 E2E_TRACE_OUT_IN_CONTAINER="$TRACE_OUT_IN_CONTAINER" \
+E2E_ENGINE_LOG_IN_CONTAINER="$HS_WORK_ROOT_IN_CONTAINER/logs/worker.log" \
 bash "$LOAD/replay.sh" || exit 1
 
 # ---- 7. rank the kernels, profiler-attached line only ------------------------
