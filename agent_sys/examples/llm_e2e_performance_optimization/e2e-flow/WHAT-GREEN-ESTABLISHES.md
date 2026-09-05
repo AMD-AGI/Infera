@@ -139,19 +139,45 @@
 `compare_fixed_across_inputs` 比的是几个 handoff **互相之间**是否一致——**不是它们
 和机器之间**是否一致。**一份记录可以完整、合法、内部自洽,并且说的是另一台机器。**
 
-**m5 的实例更危险,因为它的值看起来是真的**(m5 测量,我未复现):一份在 **287** 上
-产出的 `deploy_kit`,记录写着 `node: crsuse2-m2m-217`、`node_ip: 10.245.155.122`、
-`container: yihou_p5_217_p5main`——三个都是命令行传进去的值,把实际产出它的机器覆盖
-掉了。`check_environment` 以 `strong` 通过了三次。
+#### 撤回:本节原本还有第二个实例,那个实例是假的
 
-**`node: mock` 是显眼的假;`node: crsuse2-m2m-217` 是看不出来的假。这个 validator
-对两者一视同仁,因为它根本不做对照。**
+**原文写着**:一份在 287 上产出的 `deploy_kit`,记录却写着
+`node: crsuse2-m2m-217` / `yihou_p5_217_p5main`,而 `check_environment` 以 `strong`
+放过了三次;并由此推出这个守卫「被反了过来」。**那是错的,现予撤回。** m1 测量、
+m5 同意并撤回,我自己复核了产出方:
 
-#### 它不只是弱,它把一个守卫反了过来
+```
+run 20260905T084736-f0a236   deploy_and_prove  agent=e2e_deployer  succeeded
+  kit record:  node=crsuse2-m2m-217  ip=10.245.155.122
+               container=yihou_p5_217_p5main   replayed_from=None
+```
 
-`_agree_or_die` 比较的是**环境里的值**和**记录里的值**,不一致就退出。所以一份**错的**
-记录会让它**在正确的配对上开火,在错误的配对上沉默**——你在 287 上跑一件说自己是 287
-的产物,它拒绝;你在 217 上跑那件说自己是 217 但其实产自 287 的产物,它放行。
+**那份 kit 就是在 217 上产出的,记录说 217 是真话。** `p5_217` 是那次运行自己的
+`--var container=`,不是某个 fallback 盖过了传入值。m5 是**在 287 上重放**它,不是
+在 287 上产出它——他们那份记录带着
+`replayed_from: 20260905T084736-f0a236`、`container: replayed-from-…-NOT-RUNNING`、
+`endpoint: …invalid:0`。**`--var node=287` 说的是「谁在重放」,记录说的是「谁产出
+了这件产物」——这是两个问题,而记录回答的是对的那个。**
+
+而且这正是 `replay_root.py` 写明的决定:*"`fixed.node` is deliberately NOT
+rewritten … letting `_agree_or_die` and `compare_fixed_across_inputs` refuse is the
+correct outcome"*。他们用 `--allow-cross-node` 绕过的那次拒绝,**是机制在正常工作**。
+
+**所以「守卫被反过来」这个推论一并撤回。** 它建立在那个假实例上,没有独立证据。
+
+#### 撤回之后剩下什么 —— 而剩下的本来就是全部
+
+**§2.5 开头那九条 `node: mock` 记录是我第一手测的,它不需要第二个例子。**
+九条声称 `gfx950` 的记录来自一台没有 GPU 的登录节点,九次 `strong` 通过。
+
+**而且结构性的限制被第二条路径独立确认了**(m1):把 `check_environment` 的 body
+grep 一遍找 subprocess / 远程调用,**结果是零**。**它按构造就不接触任何节点。**
+所以「记录存在、合法、与兄弟一致」正是九次通过买到的东西,而「与这台机器相符」
+不在其中——这一点不依赖任何一个错误的例子。
+
+**开放,而不是舒服地关掉**(m1 的措辞):这份 kit 是真的,但**没有任何东西表明一份
+写错节点的 kit 不可能存在**——上面那个盲区意味着它可以存在,而且不会被抓住。
+**这才是真正的发现,它不需要一个假例子来支撑。**
 
 **这和 `SKIP-AHEAD.md` §6.1 是同一个机制的两面。** 那边是**继承**:每个下游 handoff
 用 `env_render --inherit <被 replay 的 kit>` 渲染,四个被比对的字段全是从同一份记录拷
