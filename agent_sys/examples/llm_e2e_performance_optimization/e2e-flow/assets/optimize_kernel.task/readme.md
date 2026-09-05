@@ -321,6 +321,47 @@ Be honest in `## Boundary` about what you did not measure, what shapes you did
 not cover, and what you could not explain. An honest boundary is worth more than
 a confident one, and the expensive validator re-measures in public.
 
+## The fifth document: the content-root `README.md`
+
+**There is a fifth file, it is not one of the four above, and the seal refuses
+the whole handoff without it.** It sits at the content root beside `items/` —
+`.../<handoff-id>/v1/content/README.md`, not the one inside the packup
+directory. **STEP 6 does not write it and no skeleton exists for it**
+(`60_write_handoff.py:16` says so deliberately; that is a design decision, not
+an omission to route around).
+
+It needs all three of these as sections **at document root**:
+
+```
+## Purpose      what this handoff is for, and which run produced it
+## Interface    what a consumer may read, and where to start
+## Boundary     what is not here, what was not measured, what may not be relied on
+```
+
+**A heading inside a blockquote, a list or a code fence is not a section** —
+that sentence is the seal's own, and it is the one you will see if you get it
+wrong.
+
+**Why this paragraph exists.** On 2026-09-05 two stage-4 agents, on two chains,
+on the same node, both failed here within four minutes of each other, and
+**neither failure looked like the other**:
+
+| chain | what the agent did | what the seal said |
+|---|---|---|
+| `p8_chain_093` | wrote no content-root `README.md` at all | *"every handoff opens with a README.md (spec §3.1). An artefact only a program can open is a blob"* |
+| `p5_fullreal_093c47` | wrote one, headed `What is here` / `What was and was not real` | *"required section 'Purpose' is missing … a heading inside a blockquote, a list or a code fence is not a section"* |
+
+Both agents had **finished** — `exit_status: finished`, `detail: success`, full
+reports written. The seal refused the output, the framework pushed *"continue,
+do it until finished"*, and **the push had no receiver because the agent had
+already exited**. Both runs then sat at `running` with `ended_at: None`.
+
+**Two symptoms, one cause: this page did not say it.** `deploy_and_prove.task`
+(`readme.md:413`, `:424`, `:572`) and `build_workset.task` (`readme.md:364-367`)
+both spell the three sections out; **stage 4 was the only stage whose brief did
+not**, and stage 4 is a `kind: ai` body, so this page is the only channel that
+can reach it.
+
 ---
 
 ## The pitfalls. Four of these fail silently
