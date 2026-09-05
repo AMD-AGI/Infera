@@ -100,14 +100,30 @@ python3 assets/lib/replay_root.py --list \
 
 ```sh
 python3 assets/lib/replay_root.py \
-  --out /shared_nfs/yihou/agent_sys/ws_handoff_refine/replay_root_<tag> \
+  --out /home/yihou/<something>/replay_root_<tag> \
+  --node <你将要启动的那台节点> \
   --run <run> [--run <run> ...]
 ```
 
+**`--node` 必填**，理由见 §6.1——那不是一个可选的谨慎，它是这个机制唯一真正生效的
+同节点守卫。
+
+**`--out` 不要指向 `/shared_nfs`。** `/shared_nfs` 从登录节点看是**只读**的，所以
+`replay_root` 没法在登录节点上把 root 写进计算节点会去读的那个位置。两条路：在节点上
+跑这个工具，或者物化到 `/home/yihou/...` 再拷过去。（m5 是在照着 leader 那句"写进
+`ws_handoff_refine/`"做的时候撞上的。）
+
 产物是 `<out>/<stageN-xxx>/<kind>/content/`，外加一份 `PROMOTION.json`——里面记着
-生成时间、**完整的命令行本身**、门槛、被调查的运行、每个被提升 kind 的来源运行 /
-handoff id / 版本 / 文件数 / verdict / seam 答案，以及**没被提升的 kind 和原因**。
-三周后读到一个 replay handoff 的人，手上只有这个文件。
+生成时间、**完整的命令行本身**、门槛、被调查的运行、`required_node` 与 `kit_nodes`、
+每个被提升 kind 的来源运行 / handoff id / 版本 / 文件数 / verdict / seam 答案，以及
+**没被提升的 kind 和原因**。三周后读到一个 replay handoff 的人，手上只有这个文件。
+
+**`mock_root` 是一个目录、供全部五个 stage 共用。** 一个只装了被 replay 那个 stage
+的 root 会把其余每一个 mock 的 stage 全部弄坏——`mock: no such stage
+.../stage2-profiling`。这对这个机制存在的意义是致命的：**前面跳过、后面 mock**，而
+后面那些没地方读。工具现在会自动把其余 stage 播成指向封存语料的**符号链接**（所以
+出处一个 `ls -l` 就看得见，而不是一份会陈旧的拷贝），`--no-seed` 可以关掉。
+**手工拼装一个 root 的人必须知道这件事。**
 
 **第三步：把它交给一次调试运行。**
 
@@ -263,7 +279,54 @@ stage 被判为"说不准"从而多跑一次，也不要让一个 mock 的 stage
 | `runtime.container` | 改成 **一个解析不出来的名字** `replayed-from-<run>-NOT-RUNNING` | 容器名带 run tag，但**不统一**（2026-09-04 有一个 kit 用的是只有日期的 tag），所以一个 replay 的名字**可能解析到一个活着的、但完全是另一个进程的容器**。那时 `docker inspect` 成功、node/jobid/transport 全都一致，m4 会 exec 进错误的容器而每一个字段都校验通过。解析不出来的名字会走 m4 的 ephemeral 路径，从 `fixed.image` 新建容器、记 `mode=ephemeral`，并声明"在那里测出的加速比"和"在活部署里测出的"是两个不同的主张。**响亮地错好过安静地错**，而这里响亮的那条路恰好也是对的 |
 | `runtime.endpoint` | 改成一个死标记 | schema 要求它存在，但没有任何读者 |
 | `runtime.replayed_from` | 写上来源运行；**如果来源本身就是 replay，就串起来**（`A <- B`） | 一次 replay 的 replay 不能抹掉第一次。实测：rung 1 的 `deploy_kit` **本身**就带着 `replayed_from: …/cheat_for_mock/stage1-deploy/deploy_kit`，因为那次运行 mock 了 stage 1。覆盖掉会把"封存语料 → 运行 X → 这里"塌成"运行 X → 这里"，告诉读者这些数字是一跳之前一次真实 bring-up 来的，而它们根本从来不是 |
-| `fixed.node` | **明确拒绝改写** | m1 建议过在节点变了的时候改写它。**不改，并且把理由说出来而不是默默照做**：那件被 replay 的产物真的是在旧节点上产出的，改这个字段会让记录声称一次测量发生在它没发生的地方。让 `_agree_or_die` 和 `check_environment` 的 `compare_fixed_across_inputs` 去拒绝才是正确结果——它的含义是**跳级调试要求同一个节点**，这是这个机制真实存在的约束，写下来比糊过去好 |
+| `fixed.node` | **明确拒绝改写** | m1 建议过在节点变了的时候改写它。**不改，并且把理由说出来而不是默默照做**：那件被 replay 的产物真的是在旧节点上产出的，改这个字段会让记录声称一次测量发生在它没发生的地方。同节点这条约束改由 §6.1 的 `--node` 在**构建 root 时**强制 |
+
+### 6.1 同节点是硬约束，而它的守卫**不是** `compare_fixed_across_inputs`
+
+**这一条推翻了本文件此前的写法，也推翻了 `replay_root.py` docstring 曾经的写法。
+m5 于 2026-09-04 晚实测（`270710f`、`5458dfd`）：**
+
+```
+replayed kit 里写的 node:   crsuse2-m2m-217
+下游继承到的 node:          crsuse2-m2m-217
+四个被比对的字段:            node, gpu_arch, image_id, model_path —— 全部一致
+```
+
+每一个下游 handoff 都用 `env_render --inherit <被 replay 的 kit>` 渲染自己的
+environment 记录。所以那四个被比对的字段**全部是从 replay 里拷贝来的**，它们彼此
+一致，比对通过——**在一台这次运行根本没有使用的节点上**。这就是 CONTRACT §4.6 那句
+话的又一个实例：**一个比较检测不出所有参与方共有的故障**，而这里所有参与方继承的
+就是同一份记录。
+
+真正强制同节点的是 **`_agree_or_die`**（`run_in_container.sh:105`、
+`measure_in_container.sh:127`），它拿环境里的 `E2E_NODE` 和 `fixed.node` 比——
+**但只在一个真实执行的 stage 里生效**。而跳级恰恰是"前面跳过、后面 mock"，所以
+**在这个机制存在的意义所在的那个配置里，根本没有任何东西检查节点。**
+
+> **不要把 `compare_fixed_across_inputs` 写成这里的守卫。跨节点 replay 它是过的。**
+
+**现在的守卫是工具自己。** `--node <你将要启动的那台节点>` **必填**，root 里 replay
+的 kit 来自别的节点就以 rc=2 拒绝；`--allow-cross-node` 是一个需要显式做出的决定。
+`PROMOTION.json` 里记 `required_node` 和 `kit_nodes` 两个必填字段，这样一小时后的
+读者不用打开任何 handoff 就能回答"我能不能在这里启动它"。
+
+用户会看到的拒绝长这样：
+
+```
+replay_root: this root replays a kit produced on ['crsuse2-m2m-217'] and you asked
+  to launch it on 'crsuse2-m2m-275'.
+  Refusing: nothing downstream will catch this.
+```
+
+**这道拒绝在"构建 root"的时候生效，不是在"运行"的时候。** 用 `--node A` 物化完再
+去 B 上启动，目前**没有任何东西会拦你**。补上它需要在 `mock.sh` 里加守卫，那是
+leader 的共享文件，且在 rung 2e 期间被占用。所以请把它读成**"构建 root 时会被
+拒绝"，而不是"不可能发生"**。
+
+选 refuse 而不是 warn 的理由是 leader 定的，也是决定性的那条：一条在物化时打印的
+warning 只会被**已经知道这件事的那个人**读到一次；而故障会在一小时后落到另一个人
+头上——那个人正看着一个偏了 4 倍的 bench 数字去追一个内核回归。那就是
+`--cuda-graph-max-bs` 的形状，它已经代价过一整天。
 
 `replayed_from` 还有一道写回校验：`environment.schema.json` 的 `runtime` 是开着的
 （`additionalProperties: true`），所以这个字段是未声明的，**拼错了会静默通过校验**
@@ -288,8 +351,12 @@ stage 被判为"说不准"从而多跑一次，也不要让一个 mock 的 stage
    `broken by` 后面那个运行。
 2. 打算跳过的 stage，检查它不是 `cannot tell`。是的话，这个机制没有为它提供证据，
    决定要自己做并写下来。
-3. `--out` 指向 `/shared_nfs/yihou/agent_sys/ws_handoff_refine/` 下一个新目录。
-4. 同一个节点。`fixed.node` 不会被改写，换节点就会（正确地）被拒绝。
+3. `--out` 指向 `/home/yihou/` 下一个新目录——**不要指向 `/shared_nfs`**，它从登录
+   节点看是只读的（§2）。
+4. **同一个节点，并且用 `--node` 把它说出来。** 守卫是工具的 `--node`，**不是**
+   `check_environment` 的 `compare_fixed_across_inputs`——后者在跨节点 replay 上是
+   过的（§6.1）。而且这道拒绝只在构建 root 时生效：物化完换台机器启动，没有东西
+   会拦你。
 5. `mock_stages` 和每个仍被 mock 的 stage 的 `m<N>_agent=runner` 一起给，一个都
    不能漏。
 6. 跑完之后，把 `PROMOTION.json` 和运行结果放在一起归档。

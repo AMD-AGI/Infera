@@ -341,10 +341,18 @@ replay_root.py --out <dir> --run <run> [--run <run> ...] [--kind K ...]
   运行都用**同一组** validator 产出它，且每个 `result: true`。**validator 组不同不算
   低计数的稳定**，它意味着这些产物根本不是被同一把尺子量的，所以报告时带上分布，从不
   平均掉。
-- **免费得到的安全网，以及它盖不住的两件事。** `check_environment` 的
-  `compare_fixed_across_inputs` 会让"来自另一台节点/另一个镜像/另一个模型的注入
-  handoff"当场被拒。但它盖不住**失效的活资源**（记录里的节点镜像全对、容器却已不存在），
-  也盖不住**引擎配置差异**——这就是 §0 里那个 4.5 倍，四个被比对的字段全都相同。
+- **曾被当成"免费安全网"的那条，实测不成立。** 这里一度写着
+  `check_environment` 的 `compare_fixed_across_inputs` 会让"来自另一台节点的注入
+  handoff"当场被拒。**它不会。** m5 于 2026-09-04 晚实测（`270710f`、`5458dfd`）：
+  每个下游 handoff 都用 `env_render --inherit <被 replay 的 kit>` 渲染自己的记录，
+  所以 `node`/`gpu_arch`/`image_id`/`model_path` 四个字段**全是从 replay 里拷来的**、
+  彼此一致、比对通过——在一台这次运行没有使用的节点上。又一个 §0 §4.6：**比较看不见
+  所有参与方共有的故障。** 真正强制同节点的 `_agree_or_die` 只在**真实执行**的 stage
+  里生效，而跳级恰恰把前面那些变成了 mock。现在的守卫是 `replay_root.py` 自己的
+  `--node`（必填，不符 rc=2），且只在**构建 root 时**生效。详见
+  [`SKIP-AHEAD.md`](SKIP-AHEAD.md) §6.1。
+- 它同样盖不住**失效的活资源**（记录里的节点镜像全对、容器却已不存在），也盖不住
+  **引擎配置差异**——这就是 §0 里那个 4.5 倍，四个被比对的字段全都相同。
 
 ### `assets/lib/run_with_long_stall.py` —— 抬高 stall 门槛
 
