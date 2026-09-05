@@ -100,6 +100,52 @@ nothing. **The check is the file count, not the version.** Left in rather than
 edited away, because the wrong version of this record circulated first and
 someone may have read it.
 
+## Second instance, and it is worse: the same fault produced a PASS
+
+**Found 2026-09-05 by running the recognition check over the run that "passed".**
+`20260905T174633` (`w17m1e`) — the run used as the control above — has an empty
+zone of its own:
+
+```
+zone      validation.74b535db….output_validation.773bf177
+materials 0 files
+args      []          (no parameters)
+report    none written
+verdict   {"dc334dbd-…": true}      <- PASSED, on nothing
+```
+
+**The handoff is `profiling_evidence`, and in the SAME RUN a different validator
+was staged 45 files for it and passed on those.** So one zone got the content and
+another got nothing, for the same handoff, in the same run.
+
+**The validator is not special.** A control settles it: in `20260905T121310`
+(`p6m1`), where every kind carried the injected `check_nothing`, a zone with the
+**identical signature** — `args []`, no report — was staged **33 files**, and
+**none of that run's 11 zones was empty.**
+
+| run | validator signature | materials | verdict |
+|---|---|---|---|
+| `p6m1` | `args []`, no report | **33 files** | true |
+| `w17m1e` | `args []`, no report | **0 files** | true |
+| `w17m1g` | `check_profiling_evidence` | **0 files** | **refused** |
+
+**So the fault is nondeterministic and validator-agnostic, and its visibility
+depends entirely on which validator it lands on:**
+
+- on a **strict** validator it produces a **false refusal** that reads exactly
+  like a producer defect (`w17m1g`);
+- on a **permissive** one it produces a **pass on nothing**, and is completely
+  invisible (`w17m1e`).
+
+**The second is the dangerous half.** A refusal at least stops the chain and gets
+investigated. **A green from a validator that was handed an empty directory looks
+identical to a green from one that read the artefact**, and nothing in the
+verdict, the report, or the run log distinguishes them.
+
+**Consequence for every result this effort has recorded: a PASS establishes that
+the validator was invoked, not that it saw anything.** The only way to tell is
+the file count under the zone's `materials/`, after the fact.
+
 ## How to recognise it
 
 **Before believing any refusal that says a file is missing, list the validation
@@ -114,6 +160,14 @@ find "$z/materials" -type f | wc -l
 **A file count of zero means the validator was shown an empty version and its
 refusal says nothing about the artefact. `v0` on its own means nothing** — see
 the correction above; it is the normal staged version for several kinds.
+
+## Tooling
+
+`assets/lib/refusal_saw_something.sh <run dir>` reports the file count for every
+validation zone and exits non-zero if any was handed none. **Verified against
+all three runs above**: it flags `w17m1g`'s refusing zone by name, flags
+`w17m1e`'s passing one — which is how the second instance was found — and clears
+`p6m1` at 11 zones, none empty.
 
 ## Not fixed here
 
