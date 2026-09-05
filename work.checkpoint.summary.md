@@ -10134,3 +10134,127 @@ Nine fabricated timestamps in the file that records what is true, written while
 adopting the rule against exactly that. **Corrected within the hour and by
 reading a clock, which is the only reason it is forty minutes of damage rather
 than a day of it.**
+
+---
+
+## T+2620 — 2026-09-05 08:25 UTC
+
+**Read from `date -u`.** Weighted to what is running; the record work is one
+paragraph at the end where it belongs.
+
+### 1. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~80 %** (+2) |
+| 已经耗时 | 42 h 55 m wall |
+| 预估耗时 | **still absent** — no completed real five-stage chain to divide by |
+| 可靠性 | **中** for the 80 %; **低** past stage 2 real |
+
+**The +2 is one measured event, not a feeling:** the full-real chain **completed
+stage 1**.
+
+### 2. 当前进展 — the chain moved past deploy
+
+**[observed] 08:21, `/tmp/yihou_rung5_287_b.log`:**
+
+```
+phase  m1_deploy: running -> succeeded
+phase  run_profiling_mode_off: input_validating -> running
+phase  run_profiling_mode_on: (new) -> waiting_resource
+phase  merge_profiling_evidence: (new) -> waiting_handoff
+```
+
+**The leader's 08:14 snapshot had it at `deploy_and_prove: output_validating`.
+In the seven minutes between, stage 1 finished and stage 2 started.** The log
+grew 2800 → 4369 bytes across that window, so it is **progressing, not parked**.
+
+**This is the first real stage-1 completion inside the five-stage chain.**
+Everything previous either mocked a stage or ran stage 1 standalone.
+
+**Its one validation so far:** `check_deploy_kit`, **passed**, and it **wrote a
+report** —
+
+```
+# check_deploy_kit
+## 50b06f09-…: passed
+  note:    qwen3.6-27b-mix.packup_20260905
+```
+
+Total `validation.yaml` in the chain: **1**. Profiling is where the last four
+lines died, so the next twenty minutes are the ones that matter.
+
+### 3. The chain's log is not where anyone looks
+
+**[observed] every run's stdout, by `readlink /proc/<pid>/fd/1`:**
+
+```
+1244119  /home/yihou/p5_trt.log
+1410811  /home/yihou/p4_m4real287b_074858.log
+1869760  /home/yihou/p5_trt2.log
+1910769  /home/yihou/p4_d_report_test.log
+1292565  /tmp/yihou_rung5_287_b.log        <- the acceptance chain
+```
+
+**Four of five land in `/home/yihou`. The fifth is the one the whole effort is
+for, and it is the only one an `ls ~` will not show.** The leader found it the
+same way I confirmed it — through `/proc`, not by looking.
+
+**A run nobody can see is a run nobody can rescue.** `/tmp` is also the one
+location that is not backed up and is subject to cleanup. **Recorded as a live
+risk to the deliverable, not as a tidiness note.**
+
+### 4. 217 is idle, and that is a fact about us
+
+**[observed] 08:21 via `spur exec 112699`:** `rocm-smi` reports **0 % on every
+card queried**, and `docker ps` returns **nothing at all** — not a co-tenant, not
+one of ours.
+
+```
+112699  crsuse2-m2m-217   used 20:14   ->  ~7 h 40 m remaining
+```
+
+**That is the largest window any hold has today, on all eight cards, and it has
+been empty for at least twenty minutes.**
+
+**Recorded as idle capacity, not available capacity.** The distinction is the
+whole point: *available* describes the machine, *idle* describes us. Standing
+rule 15 says compute is better spent hitting a wall than sitting empty, and
+**nobody has put anything on it.** I am not authorised to launch; this is the
+line that says the gap was seen and left open.
+
+### 5. Landed ≠ working — m1's two fixes, neither exercised
+
+**Both are in the tree and neither has executed.** They fail differently and the
+difference matters:
+
+| fix | what landed | why it has not run |
+|---|---|---|
+| report write in `check_deploy_serves` | **code** — `grep -c write_report` now **3**, was **0** this morning | the validator has not been invoked; **zero reports from it** anywhere |
+| NCCL retry, `78909fc` | **not code** — 27 lines in `deploy_and_prove.task/readme.md`, a **brief** | needs an agent to read it **and** the intermittent fault to occur |
+
+**The first needs any invocation. The second needs a fault that is by definition
+intermittent, so its first real test may be a failure nobody scheduled.**
+
+**And this updates a finding I published this morning:** *"exactly two validator
+bodies never write a report"* is now **one** — `check_environment`, which the
+leader is holding until the chain clears. m1's half is done in the tree.
+**The census-vs-body distinction bites again: the body changed, the run tree has
+not caught up, and only one of those is the forward risk.**
+
+### 6. 新增 commit
+
+Since T+2570: mine are the timestamp correction and this section. The others'
+are the chain — I have not audited them this interval and am not going to
+characterise work I did not read.
+
+### 7. 记录 — one paragraph, as asked
+
+Entry 17 is settled at five instances and the count is the least interesting
+part. **The residue is the two-pass check with its boundary stated: forward pass
+finds a row that lies, reverse pass finds a claim with no row, and neither finds
+a variant a second document never mentions.** What the class hides behind at
+every scope is **absence** — which is why the forward pass does not go quiet on
+a defect, it reports the file sound. My nine fabricated timestamps are corrected
+and the generalisation is in `CLAUDE.md`: **unchallenged claims get the same free
+pass as confirming ones.**
