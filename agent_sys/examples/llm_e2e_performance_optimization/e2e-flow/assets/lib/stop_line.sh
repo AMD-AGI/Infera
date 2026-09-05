@@ -1,7 +1,13 @@
 #!/bin/bash
 # Stop one line completely: agents, then orchestrator, then what it brought up.
 #
-#     sh assets/lib/stop_line.sh <orchestrator-pid> <jobid> <container-prefix>
+#     bash assets/lib/stop_line.sh <orchestrator-pid> <jobid> <container-prefix>
+#
+# **`bash`, not `sh`.** Both the shebang and this line say bash because the
+# script uses `set -o pipefail` (and process substitution), which dash
+# rejects at RUNTIME with `Illegal option -o pipefail`. `dash -n` accepts it
+# — a syntax check cannot fail on an invalid option — so this was verified by
+# running it, not by parsing it. Do not 'simplify' it back to `sh`.
 #     sh assets/lib/stop_line.sh 287927 112862 yihou_w17m1f
 #
 # **THREE steps. Every teardown on 2026-09-05 did two.** Mine did, and so did the

@@ -1,7 +1,13 @@
 #!/bin/bash
 # Did the validators in this run actually get shown anything?
 #
-#     sh assets/lib/refusal_saw_something.sh <run dir>
+#     bash assets/lib/refusal_saw_something.sh <run dir>
+#
+# **`bash`, not `sh`.** Both the shebang and this line say bash because the
+# script uses `set -o pipefail` (and process substitution), which dash
+# rejects at RUNTIME with `Illegal option -o pipefail`. `dash -n` accepts it
+# — a syntax check cannot fail on an invalid option — so this was verified by
+# running it, not by parsing it. Do not 'simplify' it back to `sh`.
 #
 # **Why.** 2026-09-05: `check_profiling_evidence` refused a handoff with eight
 # `PROBLEM: items/... is missing` lines while every one of those files was
