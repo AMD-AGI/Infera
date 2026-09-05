@@ -2244,6 +2244,52 @@ line mentions. The wrapper prints `stall_after 20s -> 900s` when it takes;
 **if that line is absent the launch is the bare one** and should be killed and
 re-issued rather than watched.
 
+### Mocking stage 1 takes THREE variables, not one, and the third is the stub
+
+**Measured on 287, 2026-09-05, and it is the difference between reaching stage 5
+and not.** A run with stages 1–4 mocked sat in `deploy_and_prove:
+output_validating` for **forty minutes** on three separate configurations. It is
+not a hang and it is not `mock_stages`:
+
+- `check_deploy_serves` runs the kit's **own** `deploy_entrypoint`, which
+  defaults to `scripts/deploy.sh` (`m1_deploy.yaml:245`) — the **real**
+  bring-up — bounded by `bringup_timeout_seconds`, default **3600**
+  (`check.py:475`). On a mocked kit that is a full engine bring-up nobody
+  wanted, with an hour to fail in.
+- The sealed kit already ships the answer and nothing points at it:
+  `items/codes/<packup>/scripts/stub/` holds `deploy.sh`, `teardown.sh`,
+  `wait_ready.sh` and `stub_router.py` — two `nohup python3` routers, no docker,
+  no GPU.
+
+So a mocked stage 1 needs all three:
+
+```sh
+--var mock_stages=m1,m2,m3,m4
+--var m1_agent=runner --var m3_agent=runner --var m4_agent=runner
+--var deploy_entrypoint=scripts/stub/deploy.sh \
+--var teardown_entrypoint=scripts/stub/teardown.sh
+```
+
+The middle line is its own trap: **`mock_stages` alone mocks nothing for the four
+stages whose default agent is `ai`**, because a `kind: ai` task never runs
+`entry.sh`, which is where `mock.sh` is invoked. Silent, and `show` cannot see
+it — the closure prints the agent it really has. See
+`temp/bugs/2026-09-05-mock-stages-silently-does-nothing-for-a-stage-whose-agent-is-ai.md`.
+
+With all three, the same run cleared m1's gate and both profiling lines in
+**under twelve minutes**, against forty spent waiting on one of them:
+
+```
+phase  m1_deploy: running -> succeeded
+phase  run_profiling_mode_off: output_validating -> succeeded
+phase  run_profiling_mode_on: input_validating -> running
+```
+
+**What a green stage 1 means in that configuration, so it cannot be
+over-read:** `check_deploy_serves` proved *a stub router answers*. It says
+nothing about an engine. Use it to get to the stage under test; never quote it
+as evidence that a deployment works.
+
 **The other six launch blocks in this file still show the bare form.** Left for
 their owners rather than edited here — but the defect is the file's, not this
 section's, and any of them run as written will die the same way.
