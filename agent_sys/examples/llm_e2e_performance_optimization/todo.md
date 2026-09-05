@@ -3595,7 +3595,7 @@ should not be inferred to be m3's because m3 filed the entry.
 
 ---
 
-### T72 — the Triton fellow pattern needs a leading underscore and a terminal `_kernel`; real kernels have neither
+### T73 — the Triton fellow pattern needs a leading underscore and a terminal `_kernel`; real kernels have neither
 
 *Opened 2026-09-05 by m3. This answers T69's revised close (a) — why `identify`
 reports `lang='unknown'` for Triton files it resolved to a source path.*
@@ -3688,5 +3688,79 @@ workload, and nobody has measured it before today. **Worth its own entry once
 somebody decides whether 64 % unclassified is acceptable** — most of those
 kernels are never promoted by `rank`, so the practical exposure is much smaller
 than the raw ratio, and *how much* smaller is unmeasured.
+
+**Renumbered from T72 to T73, 2026-09-05.** readme-cn's `expect_ranks` entry
+took T72 at 08:04 and this landed at 08:24 (`3d7a05e` before `f834fcf`), so this
+one is the duplicate. **I reused a number read from a heading listing taken
+before theirs existed** — the stale-pointer class again, this time on an
+identifier rather than a line number, which is exactly what checkpoint's
+*quote a finding by its name, not its number* rule is for. References in
+`assets/lib/kernel_taxonomy.yaml` updated in the same commit.
+
+---
+
+**`buckets:` measured 2026-09-05, and it is the more consequential copy.** The
+same old pattern sits at `kernel_taxonomy.yaml:96`, under `buckets:` rather than
+`fellows:`, and the consequence is not symmetrical:
+
+- in `fellows:`, a miss means **no label, then the wrapper refuses** — visible;
+- in `buckets:`, `taxonomy.py:43-48` puts an unmatched symbol in `unknown` with
+  **`routable: False`**, so a miss means **excluded from the candidate pool**.
+  `rank` never sees it. **A defect that mislabels is visible; a defect that
+  excludes is not.**
+
+**Measured on the same 124-row table** (one replacement, in the `routable`
+bucket). Seven kernels move `unknown/routable=False` -> `routable/routable=True`;
+nothing moves between named buckets and nothing loses routability:
+
+```
+  2.350%   fused_recurrent_gated_delta_rule_packed_decode_kernel
+  0.540%   chunk_gated_delta_rule_fwd_kkt_solve_kernel
+  0.120%   fused_qkv_split_gdn_prefill_kernel
+  0.100%   chunk_local_cumsum_scalar_kernel
+  0.100%   fused_gdn_gating_kernel
+  0.010%   track_mamba_states_all_layers_kernel
+  0.000%   compute_position_kernel
+
+routable today   18 kernels   10.740 % of profiled GPU time
+gained            7 kernels    3.220 %          pool +30 %
+```
+
+**The ranking consequence is narrower than the pool growth.** `rank` promotes by
+`% Total`; the pool's current top is `chunk_fwd_kernel_o` at 2.860 %, so the
+largest newcomer at **2.350 % would land at rank 2** — ahead of everything
+currently selected except k004. The other six are <= 0.54 % and would not be
+promoted. **So: one kernel that should have been a top-two candidate has been
+invisible to `rank` for this entire effort**, and six pool members that change
+nothing.
+
+**It does not invalidate existing worksets.** The four operators m4 is
+optimising were selected correctly; none of the seven displaces them below rank
+5. The distortion is an **omission at rank 2**, not a wrong ordering of what was
+chosen.
+
+**Scope limit, and the number is only as general as the trace:** this is one
+profile, one workload, one node. `2.350 %` for a *decode* kernel is a property
+of this trace's prefill/decode mix. On a decode-heavier trace that kernel's
+share would rise and the omission would matter more. **I have not measured that
+and am not extrapolating.**
+
+**HELD by the leader, 2026-09-05, for the round's goal rather than the
+measurement.** This round is 跑通即可 — get the chain through, explicitly not real
+performance improvement. Expanding the pool changes *which operator gets
+optimised*: a 2.35 % newcomer at rank 2 means the next m3 run may hand m4 a
+different operator than `attention_chunk_fwd_o`, discarding everything
+characterised today — the attested baseline (0.1353 recorded vs 0.1352
+re-measured), `noise_floor: 1.1348`, the premise gate, the `--kernel` frame — on
+a node budget that has already lost most of a day. And there is no green chain
+yet whose input this would change.
+
+**One cost of holding, stated so it is a decision:** the omission is in `rank`'s
+*input*, so the first green chain will be green over a distorted pool. **Getting
+the chain through will not have validated the selection**, and nobody should
+later read that green as evidence that it was.
+
+**The right time is after the first green chain.** One line, with this
+measurement already behind it.
 
 **Holder: m3.**

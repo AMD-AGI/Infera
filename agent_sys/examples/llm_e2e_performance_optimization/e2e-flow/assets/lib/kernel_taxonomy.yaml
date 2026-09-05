@@ -38,6 +38,21 @@ buckets:
       # contract cannot measure a collective, so the whole campaign would have
       # been unmeasurable.
       #
+      # **"was marked routable" describes a state the code no longer has, and
+      # it is written above in the past tense against code that reads in the
+      # present.** `taxonomy.py:43-48` now returns `routable: False` and
+      # `excluded_reason: no_taxonomy_rule_matched` for an unmatched symbol, so
+      # falling through to `unknown` today *excludes* rather than promotes.
+      # Left standing rather than deleted because the rule below exists for
+      # that episode: with `unknown` non-routable the failure would have been
+      # an omission instead of a bad candidate, which is quieter and not
+      # better. Whoever reads this next should know the bucket earns its keep
+      # under both behaviours, and that the sentence describes the first.
+      #
+      # Found 2026-09-05 while measuring `buckets:` for `todo.md` T73 — third
+      # comment in m3's own files that day describing a prior state as a live
+      # one, after `rank0` and `forge_fellow`.
+      #
       # The general shape of the miss is worth naming: the two patterns above
       # are written for a name a human wrote. A mangled C++ symbol carries
       # `cross_device_reduce` and neither `AllReduce` nor `all_reduce`, so a
@@ -150,7 +165,7 @@ fellows:
       # `buckets:` carries the same old pattern and is **deliberately not
       # changed here** — it decides which kernels `rank` promotes, so widening
       # it changes what the whole pipeline works on rather than which fellow a
-      # campaign asks for. `todo.md` T72.
+      # campaign asks for. `todo.md` T73.
       - '^(?!_Z)[A-Za-z_][A-Za-z0-9_]*_kernel([_A-Za-z0-9]*)$'
   - fellow: tilelang-fellow
     language: tilelang
