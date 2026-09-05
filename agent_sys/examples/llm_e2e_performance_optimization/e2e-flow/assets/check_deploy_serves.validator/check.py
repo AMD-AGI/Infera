@@ -67,13 +67,46 @@ class NodeError(RuntimeError):
         super().__init__(f"node command failed (rc={returncode}): {command}\n{output}")
 
 
-def on(command: str, transport: dict, *, check: bool = True, timeout: int | None = None) -> str:
+#: Bound for an `on()` call that does not name its own timeout.
+#
+# **`None` was the default and `None` means wait for ever.** Measured 2026-09-05
+# on run `20260905T110552` (`p4_i`): bring-up fine, probes fine, load finished
+# 11:28:56 with its export written — then nothing. The next step is
+# `summarise.py` over the load's CSV, called with no timeout, and the validator
+# sat there until the run was torn down at 12:02 and it took a SIGTERM. It wrote
+# no `verdict.json`, no report, and — because the kill landed before the
+# teardown — **left two containers holding four cards for thirty-three minutes.**
+#
+# An audit of every `on()` call site found **eight of sixteen unbounded**, and
+# the eight are exactly the ones nobody thought about: the handshake `cat`, the
+# writability probes, the probe-plan heredoc, `probe_runner.py`, and both halves
+# of the summarise step. The four long operations — bring-up, load, ceiling
+# read, teardown — all name their own, because those are the ones where a
+# duration was obviously part of the design.
+#
+# **So the fix is a default rather than eight new keywords**: the failure mode is
+# forgetting, and a default cannot be forgotten. All eight are short commands
+# (`cat`, `printf`, a heredoc, two scripts that parse one file each), so ten
+# minutes is generous by an order of magnitude for every one of them. A call
+# that genuinely needs longer says so, and the four that do already did.
+#
+# The trade, stated: a command that legitimately exceeds this now raises
+# `TimeoutExpired` where it previously hung. That is a legible failure with a
+# message instead of a lost run with leaked GPUs, and it is recoverable.
+DEFAULT_ON_TIMEOUT_SECONDS = 600
+
+
+def on(command: str, transport: dict, *, check: bool = True,
+       timeout: int | None = DEFAULT_ON_TIMEOUT_SECONDS) -> str:
     """Run `command` on the compute node, through the one seam this package has.
 
     `remote.sh` is sourced rather than reimplemented: a second spelling of
     `srun --overlap …` here would be a second thing to keep in step with it. The
     command is passed as a positional parameter, so it needs no quoting of its
     own.
+
+    `timeout` defaults to `DEFAULT_ON_TIMEOUT_SECONDS`; pass `None` explicitly to
+    wait without a bound, and expect to justify it.
     """
     env = dict(os.environ)
     # `_`-prefixed keys are this function's own parameters, not variables to
@@ -111,13 +144,27 @@ def on(command: str, transport: dict, *, check: bool = True, timeout: int | None
         name, _, value = pair.partition("=")
         if name and value:
             env[name] = value
-    proc = subprocess.run(
-        ["bash", "-c", f'. "{REMOTE_SH}"; on "$1"', "_", command],
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=timeout,
-    )
+    try:
+        proc = subprocess.run(
+            ["bash", "-c", f'. "{REMOTE_SH}"; on "$1"', "_", command],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        # **Reported as a node failure, not raised as one of ours.** The docstring
+        # on `seconds` below records what an escaping exception costs here: the
+        # body exits before writing `verdict.json`, so the phase reads a *broken
+        # validator* rather than a refused handoff, and the failure points at the
+        # checker instead of at the kit. Every call site already handles
+        # `NodeError`; none of them handles `TimeoutExpired`. So the bound added
+        # above would otherwise have converted one bad outcome into another.
+        raise NodeError(
+            command, -1,
+            f"timed out after {timeout}s with no answer from the node. "
+            f"partial output:\n{(exc.output or b'').decode(errors='replace') if isinstance(exc.output, bytes) else (exc.output or '')}"
+        ) from exc
     output = (proc.stdout or "") + (proc.stderr or "")
     if check and proc.returncode != 0:
         raise NodeError(command, proc.returncode, output)
