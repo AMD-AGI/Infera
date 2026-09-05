@@ -813,6 +813,27 @@ def main() -> int:
         env_render.write(env_render.inherit(src, [], warnings_env), out, "structured_text")
         for w in warnings_env:
             print(f"compare: environment: {w}", file=sys.stderr)
+    else:
+        # **Say so, because the alternative is a silent absence that surfaces one
+        # phase later wearing someone else's name.** m1's point, and it is the
+        # shape that cost them an afternoon: with the flag gone the report ships
+        # with no record, `check_environment` refuses it, and the refusal reads
+        # as a defect in this producer — which is exactly how this bug was
+        # originally missed. It needed a cross-run `materials/` comparison to
+        # diagnose.
+        #
+        # A note rather than a failure, deliberately: this stage is `kind: ai`,
+        # so a hard exit here ends the run with **all three** outputs empty and
+        # nothing to retry into. A refusable report beats no report.
+        #
+        # **stderr is not a void here, which is what makes the note worth
+        # writing.** Step 10 is a shell command the agent runs and reads, so
+        # this reaches the one actor able to add the flag, in the same turn —
+        # unlike a validator's output, which is kept nowhere.
+        print("compare: NOTE --environment was not supplied, so this report carries no "
+              "environment record and `check_environment` will refuse it. Pass "
+              "--environment \"$AGENT_SYS_INPUT_DEPLOY_KIT/items/codes/environment.yaml\" "
+              "(see this task's readme, STEP 10).", file=sys.stderr)
     # **The package's schema, byte for byte** (CONTRACT.md 3.4). A
     # `structured_text` kind copies its schema into `items/schema` at production
     # time, and its validator checks the copy is identical to the package's — so
