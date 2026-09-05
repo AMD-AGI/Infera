@@ -87,6 +87,51 @@ import sys
 
 DEFAULT_ROOT = pathlib.Path("~/agent_sys_runroot").expanduser()
 
+#: **The marker the `accepted` mock leaves in its own artefact**, and the reason
+#: this is a re-derivation rather than a rubber stamp.
+#:
+#: `mock_report=accepted` (`mock_m5.sh:181-207`) swaps the performance rows for
+#: the **measured stock control** — real numbers from the same node under the
+#: same co-tenant load, 1.1 % apart — and sets `bars` to the validator's own
+#: `0.05`/`0.10`. The `refused` default keeps the sealed report, whose producer
+#: declared `35 %`/`30 %`, and **that** is what `check_no_regression` refuses:
+#: *a producer that chooses its own threshold can pass anything.*
+#:
+#: So the expected refusal is a function of a **declared input**, not of the
+#: outcome. Reading it from the artefact's own warning keeps this a guard: the
+#: mock says which fixture it built, and this asserts what that fixture must
+#: produce. Accepting *whatever* the corpus produced would be the rubber stamp.
+ACCEPTED_MARKER = "the two arms' numbers are the measured stock control"
+
+
+def mock_report_mode(run: pathlib.Path) -> str:
+    """`accepted` or `refused`, from the `integration_report`'s own warning.
+
+    Not from a `--var`: the run tree does not record resolved variables, only
+    the unresolved `${mock_report:-refused}` template in the staged yaml. The
+    artefact, however, says which fixture it is.
+    """
+    import json as _json
+    for f in sorted((run / "store" / "handoff").glob("*.json")):
+        try:
+            d = _json.loads(f.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            continue
+        if d.get("type") != "integration_report":
+            continue
+        for vd in sorted((run / "handoffs" / d["id"]).glob("v*"), reverse=True):
+            text = vd / "content" / "items" / "text.json"
+            if not text.is_file():
+                continue
+            try:
+                rep = _json.loads(text.read_text(encoding="utf-8"))
+            except Exception:  # noqa: BLE001
+                continue
+            warnings = (rep.get("verdict") or {}).get("warnings") or []
+            return "accepted" if any(ACCEPTED_MARKER in str(w) for w in warnings) else "refused"
+    return "refused"
+
+
 #: The graph's shape. See "Maintenance" above before editing.
 EXPECTED_HANDOFFS = 15
 EXPECTED_VERDICTS = 43
@@ -291,16 +336,47 @@ def main() -> int:
     if true_count != EXPECTED_TRUE:
         findings.append(f"true verdicts: {true_count}, expected {EXPECTED_TRUE}")
 
-    if len(refusals) != 1:
+    # **The expected refusal follows the fixture, and the fixture says which it
+    # is.** `accepted` mode replaces the sealed report's 35 %/30 % producer bars
+    # with the validator's own 5 %/10 % and real control numbers, so
+    # `check_no_regression` has nothing left to refuse — correctly. Pinning one
+    # refusal unconditionally would then report a *finding* on a run that is
+    # behaving exactly as the switch intends.
+    #
+    # **And the converse is the point of saying it out loud:** in `accepted`
+    # mode the chain no longer exercises the refusal at all, and `mock_m5.sh:140`
+    # calls that refusal *"the only cheap end-to-end test of a strong refusal
+    # this package has"*. A green run in this mode has not tested it. That is
+    # not a defect and it is not a pass either — it is a **narrower claim**, and
+    # it is printed rather than left for a reader to infer from a var they
+    # cannot see in the tree.
+    mode = mock_report_mode(run)
+    expected_refusals = 1 if mode == "refused" else 0
+    if mode == "accepted":
+        print(f"NOTE  mock_report=accepted (from the report's own warning): the sealed "
+              f"report's producer bars are replaced by measured control numbers, so "
+              f"{EXPECTED_REFUSAL_VALIDATOR} correctly does not refuse.")
+        print("      This run therefore does NOT exercise the package's only cheap "
+              "end-to-end strong refusal. Green here is a narrower claim than green "
+              "under the `refused` default.")
+        # stdout is block-buffered when piped and the verdict goes to stderr, so
+        # without this the NOTE lands *after* the line it qualifies — a reader
+        # meets "NOT ACCEPTED" and only then the sentence narrowing what was
+        # tested. Same trap as `apply.py`'s NodeError diagnosis.
+        sys.stdout.flush()
+
+    if len(refusals) != expected_refusals:
         findings.append(
-            f"refusals: {len(refusals)}, expected exactly 1 — "
+            f"refusals: {len(refusals)}, expected exactly {expected_refusals} "
+            f"(mock_report={mode}) — "
             + (
                 "; ".join(f"{r.get('validator')} on {r.get('kind')}" for r in refusals)
                 if refusals
-                else "none, so the fixture stopped refusing and that is a finding, not a pass"
+                else ("none, so the fixture stopped refusing and that is a finding, not a "
+                      "pass" if mode == "refused" else "none expected in accepted mode")
             )
         )
-    else:
+    elif expected_refusals == 1:
         refusal = refusals[0]
         named = (refusal.get("validator"), refusal.get("kind"))
         if named != (EXPECTED_REFUSAL_VALIDATOR, EXPECTED_REFUSAL_KIND):
