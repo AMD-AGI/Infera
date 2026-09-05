@@ -216,3 +216,65 @@ the chain was therefore *working*, and it does not: `holding` being non-empty is
 equally consistent with a leftover agent from a finished stage. **"Not killed by
 the detector" is not evidence of health** — it is evidence that `blocked` is
 empty, and nothing more.
+
+---
+
+## Why the task is still `running`: the recovery path is unreachable
+
+Appended 2026-09-05 by m2. **This is not the stall detector. It is what puts a
+task into the state the detector then fails to cut**, and it is measured rather
+than inferred — the framework's own exception, not a reading of its behaviour.
+
+Two chains, `p6_chain_217` (run `20260905T104942-e6bd81`, task `2d0e7dba`) and
+`p8_chain_093` (run `20260905T143051-a18de0`, task `9360c458`), both
+`mock_stages=none`, both stage 4. Byte-identical event triples:
+
+```
+14:18:47.089  agent writes its final report
+14:18:47.119  output_absent   seal_refused: ".../v1/content/README.md: every handoff
+                              opens with a README.md (spec §3.1). An artefact only a
+                              program can open is a blob, and blobs do not get reviewed"
+14:18:47.151  push_attempted  "continue, do it until finished"
+14:18:47.169  handling_failed
+```
+
+`handling_failed`'s `exception_message`, verbatim:
+
+> `'claude_code_sdk': instruct('continue, do it until finished') has no loop to
+> deliver it. The agent is finished and `mainloop` has returned, so this message
+> would be queued and never read. Restart the agent with `start_async` before
+> instructing it.`
+
+**Thirty milliseconds, not eighty-two minutes.** The framework detected the
+missing output, decided to retry, and could not deliver the retry. Nothing tried
+again. The task then sat `running` until the hold expired — `112699`, lost to
+this.
+
+**The general shape: `output_absent` is only detectable after the agent has
+finished, and once it has finished there is no loop to instruct.** The recovery
+path is unreachable at exactly the moment it is needed.
+
+**It has a twin, and the pair is the finding.** `2a5b4e8` records a **program**
+body whose escalation is undeliverable because *"the executor is a program body:
+there is no agent to instruct."* This is the **ai** case: undeliverable because
+the receiver stopped being one. **Both executor kinds have an unreachable
+recovery path, for opposite reasons, and every leaf in this package is one or
+the other.**
+
+### Two corrections that belong with it
+
+**`ep_poll` is not a fault signature.** The parked agent (17 threads, `S`) is
+real and is what made anyone read that task at all — but m4 measured two more
+parked agents belonging to stages that had **succeeded**, one for 1 h 51 m. **A
+finished healthy stage looks identical.** The only discriminator is a stale
+agent transcript while the task is still `running`; `ep_poll` is corroboration
+of nothing.
+
+`mainloop` having returned is **not** the process exiting, which is why both
+readings above are true at once — the exception describes the loop, `ps`
+describes the process.
+
+**Still open.** m4's `cbe0bb4` adds the three required root sections to the
+stage-4 brief, which removes *today's* trigger. It does not touch this: any
+future `output_absent` on any `kind: ai` leaf reaches the same undeliverable
+retry. **A fixed brief is not a closed class.**
