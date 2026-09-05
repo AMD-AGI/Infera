@@ -36,6 +36,24 @@ Usage:
     python3 assets/lib/make_debug_package.py --out /tmp/x --report --dry-run
 
 The output is a package directory; point `--package` at it.
+
+**The invariant, and it is checkable:** a kind carries `check_nothing` **if and
+only if it lost something.** A `validators:` list that comes through unchanged is
+left byte-identical and gets no marker, because there is no degradation to
+announce. I described this to the team as *"it leaves `check_nothing` on every
+kind"*, which is the over-general version — m1 diffed the four unchanged kinds
+against the strict package and found them identical. The invariant lives here
+rather than in a message because it can be verified against the output:
+
+    diff <(grep -c check_nothing <strict>/steps/*.yaml) \\
+         <(grep -c check_nothing <generated>/steps/*.yaml)
+
+**Written down because I have now had three descriptions of my own artefacts
+corrected in one day** — the corpus's `kernel_table` shape, its rank count, and
+this. Each time I described what I intended rather than what the thing does. The
+fix that worked elsewhere was deriving the description from the artefact; here
+it is stating an invariant a reader can check rather than a behaviour they must
+take on trust.
 """
 from __future__ import annotations
 
