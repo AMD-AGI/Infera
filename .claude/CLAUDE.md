@@ -175,6 +175,12 @@
   **有内容的错误文件比空文件更难发现。**
 - **`| head` / `| tail` 会吞掉 rc。** 今天吞过四次,其中一次差点让我给正确的
   代码报 bug。用 `PIPESTATUS` 或分开取。
+- **`tail -1` 也会吞掉内容,而这一次更贵。** 我的十分钟巡检一整天都在跑
+  `grep -aE 'phase|did NOT finish' $f | tail -1`。四条「死因不明」的运行,**真正的
+  死因就写在最后一行的上面一行**——`"the escalation reached the top … Nothing has
+  changed for 900 s"`——**而且它含 `phase`,我的 grep 匹配到了它,然后 `tail -1`
+  把它扔了。** 日志在 `/home/yihou/` 里可读了一整天;没有任何东西不可恢复,
+  **我们只是从没读过最后一行之前的那一行。** 取 `tail -3`,或者分开抓终止行。
 
 ## 不要从名字推断
 
