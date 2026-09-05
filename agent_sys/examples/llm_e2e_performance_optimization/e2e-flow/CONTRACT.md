@@ -1073,6 +1073,48 @@ brings it up itself, in its own `readme.md` STEPS, and tears it down.
 
 ### 5.2 Cluster rules, standing, absolute
 
+#### 5.2.0 ON A `burst-qos` NODE, KILL EVERY GPU USER THAT IS NOT OURS
+
+**The user's standing instruction, restated 2026-09-05 after the lead deferred it
+four times.** Verbatim:
+
+> **burst qos 上的机器,凡是不是我们和系统的 GPU 占用,直接杀掉。**
+
+**This overrides the two-test caution below.** §5.2's later text says a container
+you did not create is not yours to remove, and that two holders on one node make
+ownership unresolvable. **Neither is a reason to wait on a `burst-qos` node.** The
+lead treated both as blockers on 217 for several hours while the node sat at 34 %
+under someone else's job and phase 4 had nowhere to run. That was wrong.
+
+**Check the QoS first, because it is the whole scope of the rule:**
+
+```
+squeue -u $USER -o "%.9i %.18N %.12q"
+
+  109492  crsuse2-m2m-275  amd-primus-q   <- NOT burst. Rule does not apply.
+  110590  crsuse2-m2m-088  amd-burst-qo   <- applies
+  111038  crsuse2-m2m-217  amd-burst-qo   <- applies
+```
+
+**Ours** is anything carrying the `infera_e2e_run` label. **The system's** is
+cluster monitoring. **Everything else on a `burst-qos` node goes**, regardless of
+how long it has run or who else holds an allocation on that node.
+
+Executed 2026-09-05 05:06 on 217: `glm53-work`, unlabelled, eight cards at 34 %.
+
+```
+before   VRAM 34 34 34 34 34 34 34 34
+docker stop -t 10 glm53-work
+after    VRAM  0  0  0  0  0  0  0  0     containers: none
+```
+
+**`docker stop`, not `docker rm -f`** — stop is reversible by whoever owns it,
+removal is not, and nothing in the instruction requires destroying the container.
+
+**275 was left alone and that is not an oversight**: it is `amd-primus-q`, so
+`kimik3-vllm-kimi-k3` stays. The rule is scoped by QoS and reading the QoS is the
+first step, not the last.
+
 - All spur nodes share `/shared_nfs`. workspace / playground / handoff may live
   there at 777. "Remote" *is* this sharing.
 - **THE DELETION RULE, and it admits no judgement.** Restated and widened by the
