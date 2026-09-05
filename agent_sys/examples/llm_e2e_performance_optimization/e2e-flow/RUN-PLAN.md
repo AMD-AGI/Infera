@@ -56,8 +56,28 @@ first refusal and reveals a second behind it — tested, all four:
 attention_chunk_fwd_o          sealed kernel defines no `chunk_fwd_o`
 elementwise_…act_and_mul       sealed kernel defines no `silu_and_mul`
 attention_ck_tile…prefill      sealed kernel defines no `mha_batch_prefill_func`
-layernorm_layer_norm_fwd_1pass its definition's `baseline` has no `def run(...)`
+layernorm_layer_norm_fwd_1pass baseline has no `def run(...)` DELEGATING TO A
+                               SYMBOL — see the correction below
 ```
+
+**Corrected 2026-09-05, and the correction matters more than the line did.** The
+fourth row first read *"its definition's `baseline` has no `def run(...)`"*,
+which is **false and was a claim about m3's output**. `def run` is present in all
+four definitions — m3 parsed them with `ast`, and it reproduces:
+`def run(x, weight, z):` with a docstring, a real launcher body.
+
+I produced the false version by piping a 187-character error through
+`cut -c1-115` and reporting the truncation. The clause I removed was the whole
+content: the adapter needs `run` to be a **one-line delegation**
+(`def run(*a, **k): return <public_symbol>(*a, **k)`) because *that is how it
+learns which callable is the entry point*. m3's are real bodies, which is the
+better artefact and not one this adapter can read.
+
+**So it is a second face of the same binding, not a defect in m3's output**: the
+mock was built against a corpus whose baseline happened to be a delegation, just
+as it was built against a corpus with one operator called
+`sampler_vocab_softmax`. **All four have the real-body shape**, so no operator
+choice avoids it either.
 
 **The consequence for whoever promotes next:** a stage still mocked downstream of
 a stage newly made real will hit this wall, and **it will look like a new bug
