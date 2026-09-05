@@ -2211,6 +2211,40 @@ python3 agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/lib/
   --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR
 ```
 
+### The four port vars are not independent, and the router will not land where you asked
+
+**Observed 2026-09-05 by m4, verbatim from their run's log:**
+
+```
+kit bound router port 8162; this line requested 8161
+```
+
+They launched with `--var port_router=8161 --var port_worker=8162 --var port_etcd=8163`.
+**The router came out on 8162 — the port they had declared for the worker.** m4's reading
+is that `port_router` is taken as a *base* and the four services are laid out from it,
+so the set shifts by one and collides with the neighbours you declared.
+
+**That reading is theirs and I have not verified the mechanism.** What I did check:
+`E2E_PORT_ROUTER` is consumed by `assets/accept/measure.sh` and the mock adapters, and
+**is not what the real deploy binds** — the real port comes back through the kit's
+handshake. So the symptom is real and the cause is not established.
+
+**Why it did not break that run, and why it still matters:** the load step reads
+`HS_ENDPOINT` from the kit rather than recomputing the port, so it used the *bound*
+port and worked. **The vars are wrong and the handshake covers for them.** A reader who
+assumes the four are independent — and picks four adjacent numbers to avoid a collision
+with another line — is choosing numbers that do not mean what they think.
+
+> **Pick port values at least four apart, and treat `port_router` as claiming a
+> RANGE, not a port.** Verify after bring-up by reading the kit's `deployment.json`,
+> not by trusting the launch line.
+
+**Related site, first-hand:** `assets/accept/measure.sh:36` builds
+`R="http://${E2E_NODE_IP:?}:${E2E_PORT_ROUTER:?}"` — **the node IP, not the bound host**.
+That is the same host assumption as `load/line.sh:318`, which aborted a successful TP4
+bring-up on 093 when the router bound `127.0.0.1`. **Two sites, one assumption; see
+`CLAUDE.md` on a fix that guards one field of a compound value and leaves its sibling.**
+
 > **This file contains SEVEN launch blocks and they do not agree. Diff against
 > this one.** Counted 2026-09-05 after m1 found that `1e7c4c1`'s
 > `--var transport=spur` reached the variable table and *one* block, and not this
