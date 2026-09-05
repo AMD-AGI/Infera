@@ -299,7 +299,58 @@ echo "  --workspace $WS (a copy; the container's own checkout is not touched)" >
 for candidate in "$RUN/forge_experiments/forge_result.json" "$WORKDIR/forge_result.json"; do
   [ -f "$candidate" ] && [ "$candidate" != "$WORKDIR/forge_result.json" ] && cp "$candidate" "$WORKDIR/forge_result.json"
 done
-[ -f "$WORKDIR/forge_result.json" ] || { echo "the campaign wrote no forge_result.json" >&2; exit 1; }
+
+# **The campaign does not write `forge_result.json`. It writes `best_result.json`,
+# in the WORKSPACE, and until 2026-09-05 this step threw every real result away.**
+#
+# Bug 28. Measured on the 217 rescue: a campaign ran, improved 1.0748x, correctness
+# passed -- and this step exited 1 with "the campaign wrote no forge_result.json".
+# The loop above is wrong twice: `$RUN` is the *workset* copy, not the workspace,
+# and no component of this package writes a file by that name except the mock
+# branch at the top of this script.
+#
+# **The mock branch is untouched and must stay that way**: it exits 0 long before
+# this line, having written its own null-filled `forge_result.json`, and it is
+# what every `--var forge_mock=1` line depends on.
+if [ ! -f "$WORKDIR/forge_result.json" ] && [ -f "$WS/forge_experiments/best_result.json" ]; then
+  echo "translating the campaign's best_result.json into the handoff's shape" >&2
+  "$PY" - "$WS/forge_experiments/best_result.json" "$OPERATOR" \
+        > "$WORKDIR/forge_result.json" <<'EOF' || exit 1
+import json, sys
+native = json.load(open(sys.argv[1]))
+
+# **`iteration_count` is `round_budget.rounds`, NOT `iteration`.** `iteration` is
+# *which* iteration won; on the 217 campaign that is 2 while 3 ran. Using it would
+# under-report by one and look entirely plausible -- a small integer in the right
+# range, which is the failure this package keeps paying for. Corroborated
+# independently against that campaign: `candidates/` held iter_001..iter_003.
+rounds = (native.get("round_budget") or {}).get("rounds")
+
+# **`improved` is `total_improved`, not `speedup > 1`.** The consumer asks "did the
+# campaign find anything"; forge already answers it. `improved_during_search` holds
+# the same value on the one campaign available, so the two cannot be told apart
+# here -- the total is taken because it survives a search that improves and then
+# regresses.
+json.dump({
+    "mock": False,
+    "ran": True,
+    "improved": bool(native.get("total_improved")),
+    "mean_case_speedup": native.get("mean_case_speedup"),
+    "snr_db": native.get("snr_db"),
+    "iteration_count": rounds,
+    "operator": sys.argv[2],
+    "_what_this_file_is": (
+        "KernelForge wrote forge_experiments/best_result.json; this is that record in "
+        "the keys 60_write_handoff.py reads. Nothing is invented -- every value is "
+        "copied or derived from `forge_native`, the campaign's own record, verbatim."
+    ),
+    "forge_native": {"best_result.json": native},
+}, sys.stdout, indent=2)
+EOF
+fi
+
+[ -f "$WORKDIR/forge_result.json" ] || { echo "the campaign wrote no forge_result.json, and no" >&2
+  echo "  $WS/forge_experiments/best_result.json to translate from either" >&2; exit 1; }
 
 # **In the workspace, and NOT where `resolve_source.py` points by default.**
 # That resolver answers with the *container's* path, which is where the stock
