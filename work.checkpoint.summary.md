@@ -9949,3 +9949,58 @@ The chain is what is expensive, and the chain is what has never finished.
 produced wrong numbers before producing right ones, both from the same
 background-writer mechanism, and **neither would have failed loudly.** The
 section is trustworthy because I ran the control, not because the tools behaved.
+
+---
+
+## ADDENDUM — the tenth stale value, and the first one self-inflicted
+
+**08:25 UTC.** Filed beside the instruction-channel entry (`2bd231f`) rather than
+inside bug-record 17, because the symptom matches and the **mechanism does not**.
+
+**[relayed — leader, from readme-cn and m3]** readme-cn cited `RUN-PLAN.md:L2133`
+in a message. m3 opened it and found unrelated prose. **Not a misreading by
+either of them.** The heading moved **2128 → 2139 → 2159** between the read and
+the delivery — **31 lines, of which 20 were readme-cn's own commit.**
+
+**Correct when computed, wrong when delivered, by the author's own hand in the
+interval.** Every prior instance in this series had a second party or the clock
+in between:
+
+| # | how the value went stale | who moved it |
+|---|---|---|
+| 1–8 | measured, then the world changed | the world |
+| 9 | arrived **by instruction**, pre-authorised (`13.3 %` from 217 into 287's artefact) | the coordinator |
+| **10** | **the author's own edit, between computing the pointer and sending it** | **the author** |
+
+**This is the one with no defence available.** For 1–8 the defence is re-measure;
+for 9 it is *the owner must check an instruction the way they check a tool*. For
+10 there is nothing to re-check — **the value was right when checked, and the act
+of writing the message's own supporting commit is what broke it.**
+
+**The rule, from readme-cn, and the leader has it in `CLAUDE.md`:** in a message
+about a file several people are editing, cite a **greppable anchor** — heading
+text, a table's first cell — **never a line number.**
+
+> *Line numbers in this repo today have a shelf life of single-digit minutes.*
+
+**Why it belongs here and not in bug-record 17.** Entry 17 is about a
+**correction landing in the wrong place**; this is about a **pointer decaying in
+transit**. Same symptom — a reader follows the document and arrives somewhere
+wrong — but 17's fix is *audit the table against the prose*, and no audit fixes
+this one. **The fix is at composition time and nowhere else.**
+
+**A fifth instance of 17 appeared while I was writing this, in my own hands and
+harmless:** the leader's `git log -S'--var forge_fellow=<backend>'` returned
+*"exactly one commit"*. It now returns **two** — `fba0c8b`, the fix, joined the
+set within the hour. The count was true when stated. **I record it because it is
+the cheap pole of readme-cn's calibration** — costs one `git log` to check,
+propagates nowhere — and the record should keep showing both poles rather than
+only the expensive ones.
+
+**And one correction to the leader's own account of the fourth instance**, in the
+direction that strengthens it: they put the gap between m3's code and m3's
+contradicting table row at *"an hour"*. Measured — `f92e42b` **07:51:13**,
+`0dafcfd` **08:03:43** — it is **12 minutes 30 seconds**. The fix `fba0c8b`
+landed at **08:06:30**, 2m47s after the error. **An author contradicted code they
+had written twelve minutes earlier**, which is a sharper statement of the class
+than an hour would have been.
