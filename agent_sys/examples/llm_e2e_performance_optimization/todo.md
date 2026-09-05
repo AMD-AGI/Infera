@@ -3764,3 +3764,36 @@ later read that green as evidence that it was.
 measurement already behind it.
 
 **Holder: m3.**
+
+### T74 — a killed validator leaves its own deployment holding the cards
+
+**Filed 2026-09-05T12:08:45Z by m1**, from run `20260905T110552` (`p4_i`). Recorded as a
+todo rather than fixed, because the observed cause is already fixed and this is
+the residual.
+
+`check_deploy_serves` brings a deployment up itself. When the run was torn down
+at 12:02 it took **SIGTERM mid-flight**, so the `finally` that runs
+`teardown.sh` never ran, and `yihou_p4i_sgl_serves-3871cafe` plus its etcd
+sidecar **kept four MI355X cards at 75 % for thirty-three minutes** after the
+orchestrator was gone. Nothing in the run reclaims them: the containers outlive
+the job by design, and the run's own exit path does not know the validator had
+brought anything up.
+
+**What is already done.** `a2eb6a4` bounds every `on()` call at 600 s, which
+removes the hang that got this validator killed in the first place. That closes
+the instance, not the class.
+
+**What is left, and why it is not obviously worth doing.** A `SIGTERM` handler
+in the validator that runs the teardown would close it. Against that: a handler
+racing the framework's own kill sequence is a new failure mode in a body whose
+job is to be trustworthy, and the leak is detectable in one command
+(`docker ps` on the node) by anyone who notices a run died. **The cheap
+mitigation is operational** — after any run that ends in `ValidatorInvalid`,
+check the node for `*_serves-*` containers before launching on those cards.
+
+**And it is not only mine.** Any validator that brings something up on a node
+has this shape; `check_patch_live` and m5's arms are the same construction. So
+if it is worth a handler, it is worth one in a shared helper rather than four.
+
+**Holder: m1**, pending someone wanting the class closed rather than the
+instance.
