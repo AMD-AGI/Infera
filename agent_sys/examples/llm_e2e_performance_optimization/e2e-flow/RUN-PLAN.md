@@ -2283,6 +2283,66 @@ tags leaves `todo.md` T69 standing.
 Accepted as `triton` or `triton-fellow`; an unknown name is treated as absent
 and still refuses. It never overrides tags that already decide.
 
+## 3a. Before you launch: is anything already on those cards?
+
+**Three conditions, and the third has cost two collisions and a near-miss in one
+morning.** `git status --porcelain -- <package>` in the shell you launch from;
+a numeric `rocm-smi` read of the cards you are taking; and **the process table**.
+
+**The process table is not redundant with `rocm-smi`, and this is the whole
+point.** A line that has launched and not yet brought up holds no VRAM. m1
+asserted zero on 217 at 09:12 — **it was zero** — and m4's chain, launched at
+08:47, brought up at ~09:13. **One minute.** The window is not "launched but not
+up"; it is *"will come up at some moment in the next half hour"*, and no
+snapshot of the GPU can see it. Only argv can.
+
+### Two forms that work
+
+```sh
+# m1's, and the one to prefer: literal, and the node/card filter is in it
+ps -eo pid,args | grep -F "run_with_long_stall" | grep -v grep \
+  | grep -F "node=crsuse2-m2m-088" | grep -E "gpu_devices=(0|.*,0)"
+
+# m3's, if you want the whole picture across every node at once
+for p in $(pgrep -f 'agent.sys|cli.main'); do
+  c=$(tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null)
+  case "$c" in *" run "*--package*)
+    echo "$p $(echo "$c" | grep -oE 'node=[a-z0-9-]+|gpu_devices=[0-9,]+' | tr '\n' ' ')";;
+  esac
+done
+```
+
+Both were checked against the same five live lines on 2026-09-05 and returned
+the same five PIDs.
+
+### Three patterns that silently pass, all tried on this cluster the same morning
+
+| pattern | what it did | why |
+|---|---|---|
+| `pgrep -af "cli.main run"` | **matched 0 of 3 live lines** | every line launches through `run_with_long_stall.py`, so argv reads `…/run_with_long_stall.py --stall-after 900 run --package …`. **The string `cli.main` never appears.** |
+| `pgrep -af 'python.*cli\.main run'` | **matched 0 of 4 live lines** | same cause, and it *looks* stricter, which is worse |
+| a `pgrep` loop whose body contained the node name | **matched its own shell** | the pattern is in the command line running it. `grep -v grep` covers the pipeline form; a bare `pgrep` needs the exclusion written out |
+
+**Why m3's form works, stated because it was not chosen for this:** the
+`agent.sys` alternative matches `--package agent_sys/…` in the argv — the regex
+`.` against the underscore — not `cli.main`. Every line in this effort carries
+that `--package`, so the reason is sound; it is still a pattern that works for
+a property nobody picked it for.
+
+**The failure mode is the one that matters.** A `pgrep` that matches nothing
+does not error — **it reports the node free.** All three patterns above returned
+*free* about a busy machine, and each was caught only because the reader already
+knew the answer from a command two minutes earlier.
+
+> **A check that says "free" when you are hoping for "free" is the one to
+> re-run.** This is the confirming-result bias in the single instrument that
+> decides whether you destroy someone else's allocation. Both of m3's failures
+> produced the answer they wanted, which is why they were re-run.
+
+**And take distinct identifiers even when the check is clean** — `port_router`,
+`container`, `work_root`. m1's `p4_e` rode the defaults next to another chain on
+the same host, which is the other half of what went wrong that morning.
+
 ## 4. Three values that are m5's, and each is a finding rather than a choice
 
 ### `adhoc_cases` — rung 5 is the first run that may not lower it
