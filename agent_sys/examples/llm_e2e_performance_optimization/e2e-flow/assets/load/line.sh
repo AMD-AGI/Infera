@@ -317,6 +317,38 @@ if [ "$HS_RUN_TAG" != "$E2E_KIT_RUN_TAG" ]; then
 fi
 R="$HS_ENDPOINT"
 CTR="$HS_CONTAINER"
+# **The port the kit BOUND, not the port this script computed.**
+#
+# `E2E_KIT_PORT_BASE` (line 61) is `E2E_PORT_ROUTER + PORT_OFFSET` — a *request*.
+# The kit's `deploy.sh` searches its band for free ports, **locks what it finds**,
+# and records them in the handshake; `pick_params.sh` exists precisely because a
+# port may be taken. So the computed base is what we asked for and `HS_ENDPOINT`
+# is what we got, and they are equal only when nothing else held the ports.
+#
+# **Serial runs cannot show the difference.** Measured on
+# `20260905T051720-a95d9e`: a fully successful `profiling_mode_on` bring-up —
+# worker serving after 208 s, 6/6 probes, a real completion — bound
+# `router 8115` while this script benched `8111`, because the other line was
+# holding 8111-8114 on the same node. `ABORT: no answer from the router`, after
+# everything that could go wrong had gone right.
+#
+# The rest of this block already reads the handshake for `endpoint`, `container`
+# and `run_tag`, and the comment below says why: *both declared and neither
+# computed*. The load step was the one reader still computing.
+HS_PORT="${HS_ENDPOINT##*:}"
+HS_PORT="${HS_PORT%%/*}"
+case "$HS_PORT" in
+  ''|*[!0-9]*)
+    say "ABORT: the handshake endpoint '$HS_ENDPOINT' carries no numeric port,"
+    say "  so there is nothing to load against. Not falling back to the computed"
+    say "  base $E2E_KIT_PORT_BASE — that is the defect this reads around."
+    exit 1 ;;
+esac
+if [ "$HS_PORT" != "$E2E_KIT_PORT_BASE" ]; then
+  # Not a fault: the kit is entitled to move. Said out loud because a reader
+  # comparing two runs' logs must be able to see that it did.
+  say "note: kit bound router port $HS_PORT; this line requested $E2E_KIT_PORT_BASE"
+fi
 # One directory, two names, **both declared and neither computed**.
 # `capture.sh` needs both: the host name to create and collect, the container
 # name for the mount check and for the profiler's own `output_dir`.
@@ -353,7 +385,7 @@ fi
 E2E_LOAD_ROUND="$MODE" \
 E2E_CAPTURE="$CAPTURE" \
 E2E_CONTAINER="$CTR" \
-E2E_PORT_ROUTER="$E2E_KIT_PORT_BASE" \
+E2E_PORT_ROUTER="$HS_PORT" \
 E2E_WORK_ROOT="$HS_WORK_ROOT_ON_HOST" \
 E2E_TRACE_OUT_IN_CONTAINER="$TRACE_OUT_IN_CONTAINER" \
 bash "$LOAD/replay.sh" || exit 1
