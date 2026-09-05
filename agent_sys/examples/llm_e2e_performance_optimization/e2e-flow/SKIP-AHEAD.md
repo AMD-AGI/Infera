@@ -184,6 +184,56 @@ stage 有 bug 的调试。
 
 ## 5. 局限，而且现在很大
 
+### 5.0 最大的一条：跳过之后，后面的阶段只能继续 mock，不能 real
+
+**测于 2026-09-05 03:20（lead），rung 2g 与 2h。** 这一条推翻了本文件其余部分
+隐含的前提，所以放在最前面。
+
+跳过机制是**通过把 stage 1 变成 mock** 来实现「跳过」的。而
+`assets/deploy_and_prove.task/mock_adapt.sh:195-217` 在 mock 时会**故意**把 kit
+的三个入口脚本换成 stub：
+
+```sh
+STUB="$PKG/assets/check_deploy_serves.validator/stub_kit"
+for f in deploy.sh wait_ready.sh teardown.sh; do
+  mv "$PACKUP/scripts/$f" "$PACKUP/scripts/sealed/$f"   # 真的那三个被保留
+done
+cp "$STUB"/deploy.sh … "$PACKUP/scripts/"               # 装上 stub
+## MOCKED DEPLOYMENT ENTRYPOINTS — read this before trusting `scripts/`
+```
+
+**所以重放出来的 `deploy_kit`，它的 `scripts/deploy.sh` 是一个 stub。** 任何真的
+要从它部署的下游阶段，拿到的都是 stub：
+
+```
+rung 2h  mode_on  ready after 1s      （真实冷启动实测 222 s / 232 s）
+                  deployment up … in stub_yihou_e2e_flow_pmon
+                  probe 404 → exit 1 → output_absent → escalated → 永久挂起
+rung 2g  mode_off engine_argv.txt 内容 = "Error response from daemon:
+                  No such container: stub_…"，因为 stub 只往握手里写了一个
+                  容器名字符串，根本没有容器
+                  ——而三个 validator 仍然全部通过
+```
+
+**「前面跳过、后面真跑」今天做不到。** 跳过之后，后面的阶段可以继续 **mock**，
+但不能 **real**——这与这个机制被要求做的事正好相反，而且从外面完全看不出来，
+除非去读暂存 kit 里的 `scripts/`。
+
+**这不是缺陷，是设计。** `mock_adapt.sh` 做的正是它声明要做的事，还留了表头警告。
+问题在于跳级机制建立在 mock 之上，于是继承了这个语义。
+
+**补救办法存在而且很小**：真入口还在 `scripts/sealed/`。要喂给真实下游阶段的
+重放必须还原它们——要么 `replay_root.py` 物化时反适配，要么消费方在
+`scripts/sealed/deploy.sh` 存在时优先用它。**尚未实施**：一个是 m5 的工具、一个
+是 m1 的适配器，选哪边是设计决定。
+
+**§4「为什么 replay 一个 `deploy_kit` 是安全的」仍然成立，但要这样读**：作为
+**配方**它是安全的（`fixed.*` 那些静态字段是真的，`runtime.container` 本来每次
+就是死的）；作为**可执行的部署入口**它不是。两者的区别以前不重要，因为没人真的
+从重放 kit 部署过。
+
+### 5.1 工具答不出来的那些 kind
+
 **十五个 kind 里只有六个能分辨真假**（来自四个声明了 agent 的 closure：
 `deploy_and_prove`、`build_workset`、`optimize_kernel`、`integrate_and_verify`）。
 **另外八个印的是 `cannot tell — N run(s) with no recorded discriminator`**
