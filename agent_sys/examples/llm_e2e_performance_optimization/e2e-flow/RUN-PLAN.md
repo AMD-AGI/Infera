@@ -33,6 +33,7 @@ been telling everyone to pass the wrong one.
 | `adhoc_cases` | **`0`** | **`0` through rung 4; `3` at rung 5** — the condition is **whether m5 is real**, not the rung. See *The `adhoc_cases` split* below |
 | `image` | **the sealed kit's**, not the node's | the real bring-up's |
 | `transport_env` | **required on every rung** — `SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR` | same |
+| `transport` | **`spur`, and it is NOT `transport_env`** — omitting it defaults to `auto`, m1 mints `spur` into the record, and `_agree_or_die` refuses **two hours later, inside m3's measurement, as a message about transports**. Added 2026-09-05 after m3 lost a 088 run to it: four of five operators refused with *"transport is 'auto' in the environment and 'spur' in the record"*. m3 copied this block, which did not have it; m4's line had it by hand, which is why only one of them ever saw this | same |
 | `measure_gpu` | **required on every rung** — a card `nodeprobe` reports free | same |
 | `workset_operator` | may be empty — the sealed workset has one operator | **required from the rung that makes m3 real** — see below |
 
@@ -316,6 +317,7 @@ python3 -m agent_sys.cli.main run \
   --var expect_ranks=<the kit's tp_size> \
   --var adhoc_cases=0 \
   --var measure_gpu=<a card nodeprobe reports free> \
+  --var transport=spur \
   --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR
 ```
 
