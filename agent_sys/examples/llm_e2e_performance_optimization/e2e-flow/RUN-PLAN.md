@@ -2029,6 +2029,35 @@ cross-rung comparability and blocks nothing here. **The ladder is serial, so
 rung 5 waits on rung 4 being unblocked regardless** — this note is about which
 file to read when it is, not a licence to skip it.
 
+## 1a. The image has to already be on the node, and nothing in the package puts it there
+
+**Measured on 287, 2026-09-05, and it is not a rung-5 fact — every rung on a
+fresh node needs this.** `docker images` on a newly held node carried four
+images and none was `infera/*`. m1 does not fetch: `grep -rn "docker load"`
+across `assets/` and `steps/` returns **one hit and it is a comment**. The tag
+is `test-local-…`, so a pull cannot help either — `docker run` against it fails
+with *"pull access denied … repository does not exist"*, which reads like a
+credentials problem and is not one.
+
+```sh
+# ~8 min for 27 GB off /shared_nfs
+spur exec <jobid> bash -c 'docker load -i \
+  /shared_nfs/yihou/agent_sys/images/infera-engine-sglang-test-local-mooncake_hip_dmabuf1.tar'
+```
+
+**Verify by the artefact, not the exit code** — `docker load` printing nothing
+useful is why this rule exists. The check is that the loaded id equals the
+`image_id` the kit recorded:
+
+```sh
+spur exec <jobid> bash -c 'docker images --format "{{.Repository}}:{{.Tag}} {{.ID}}"' | grep infera
+# 4601539c0f3d  ==  image_id: sha256:4601539c0f3d0f35a860e5a115510292ee4ca0ee854b56a8145e50e1932e59e2
+```
+
+A run launched without this does not fail at launch. `show` loads clean, the
+graph dispatches, and m1 fails inside the bring-up several minutes later where
+it reads as a deployment problem.
+
 ## 2. The command
 
 ```sh
@@ -2136,7 +2165,19 @@ stage 2. Omit both; the default is 50 on each side.
 
 Named because a value rung 4 does not record is one somebody invents on the node.
 
-- **`measure_gpu`** (**default empty, not `4`**) — how many cards each arm takes.
+- **`measure_gpu`** (**default empty, not `4`**) — **which card m3's
+  single-operator measurement runs on. Not a count, and not m5's.** This
+  sentence said *"how many cards each arm takes"* until 2026-09-05 and it was
+  wrong in the direction that costs a run:
+  `build_workset.task/measure_in_container.sh:482` spends it as
+  `-e HIP_VISIBLE_DEVICES='$E2E_MEASURE_GPU'`, so the value is a **device
+  index**. Read as a count, `measure_gpu=4` means *four cards* and a reader
+  splitting a node with a colleague passes it while believing they have said
+  nothing about *which*; spent as an index it is card 4. On 287, where cards
+  0–3 were m4's and 4–7 mine, the two readings differ by a collision. Found by
+  checking the consumer before typing the value into a launch line, which is
+  the only reason it was found at all — `show` cannot see it and the run would
+  have started fine. The arms' cards come from the kit's record, not from here.
   This section said `4` and that was wrong in the direction that matters: every
   live site is `'${measure_gpu:-}'` and `shared.yaml:235` records why, at m4's
   insistence — *"a **real card** as a package default makes a consumer's
