@@ -730,6 +730,41 @@ the cards back at 0%.
   **prefers** it.
 - **Rung 5 green does not mean the optimisation is good.** `check_no_regression` recomputes from raw numbers and the bars stay at 5% / 10%. If the two arms disagree by more than that, the finding may still be about the node rather than the patch — that is `todo.md` **T7**, the comparability gate, and it is unbuilt. **Do not widen the bars.**
 
+- **Rung 5 green, and the final acceptance run green, will not mean the
+  pipeline selected the right kernels.** Measured 2026-09-05 by **m3**;
+  the decision to ship without fixing it is the **leader's**, so that a later
+  reader sees a decision rather than an oversight and can reverse it with the
+  number in hand. Filed as **`todo.md` T73**.
+
+  The Triton pattern has a second copy, under `buckets:`, and it fails
+  *differently* from the `fellows:` one. `assets/lib/taxonomy.py:43-48` returns
+  `bucket: unknown, routable: False` for any symbol no rule matches — so under
+  `fellows:` a miss is **no label, then a refusal**, which is visible, while
+  under `buckets:` a miss is **exclusion from the candidate pool before `rank`
+  ever sees the kernel**, which is not.
+
+  Against the real 124-row table: seven kernels move to routable, the pool grows
+  **18 → 25 kernels** and **10.74 % → 13.96 %** of profiled GPU time, and **the
+  largest newcomer, at 2.350 %, would rank #2** — ahead of every currently
+  selected operator but one. **A kernel that should have been a top-two
+  candidate has been invisible to `rank` for this entire effort.**
+
+  **Held deliberately.** The round's goal is 跑通, and re-selecting the operator
+  discards what m4 characterised today — the attested baseline,
+  `noise_floor: 1.1348`, the premise gate, the `--kernel` frame — on a budget
+  that has already lost most of a day.
+
+  **m3's statement of what the hold costs, which is the point of this entry:**
+  the omission is in `rank`'s **input**, so the first green chain will be green
+  over a **distorted pool**. *Getting the chain through will not have validated
+  the selection, and nobody should later read that green as evidence that it
+  was.*
+
+  **Scope limit, m3's, verbatim in substance:** one profile, one workload, one
+  node. `2.350 %` for a decode kernel is a property of **this trace's
+  prefill/decode mix**, and on a decode-heavier trace the omission would matter
+  more, not less.
+
 ### Two rungs license less than they appear to, for two structural reasons
 
 **Found 2026-09-05 by document comparison, before a node was booked** — the
