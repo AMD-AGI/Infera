@@ -146,6 +146,54 @@ verdict, the report, or the run log distinguishes them.
 the validator was invoked, not that it saw anything.** The only way to tell is
 the file count under the zone's `materials/`, after the fact.
 
+## Third instance, and it killed a healthy run in progress
+
+**`r5m1b`, run `20260905T221356-9219d7`, 2026-09-05.** Found by team-lead, verified
+here independently with the tool below.
+
+```
+EMPTY  validation.e2d93386-….output_validation.fdf55b49
+         versions: v0   files: 0   validators: check_profiling_evidence
+1 of 13 zone(s) were handed ZERO files.
+```
+
+**`check_profiling_evidence` refused mocked m2 from a zero-file zone.** The
+refusal escalated, the escalation reached a sink that records and does not
+answer, and 900 s later the run was declared over:
+
+```
+done  main is waiting on a decision no one will make … Nothing has changed for
+      900 s; still in a phase: integrate_and_verify:running,
+      m2_profiling:output_validating, m5_integration:running
+```
+
+**The two lines above that `done` are the point:**
+
+```
+handoff  integration_report slot v0: generating
+```
+
+**Stage 5's real, two-arm measurement was fifteen minutes in and actively
+writing its report when a spurious refusal on a *mocked upstream stage* ended the
+run.** The measurement was healthy. Nothing was wrong with any artefact.
+
+**So the fault has now produced three distinct consequences, in increasing
+severity:**
+
+| where it lands | result | visible? |
+|---|---|---|
+| a strict validator | false refusal reading like a producer defect | yes, and misleading |
+| a permissive one | pass on nothing | **no** |
+| a strict one **upstream of live work** | **kills a healthy run in progress** | only via the `done` line |
+
+**And the terminal line hides it.** The final `done` reads like an ordinary stop;
+`tail -1` shows nothing about a validator, and the cause is in the lines above —
+the same shape as the four "cause unknown" runs earlier the same day.
+
+**Cost of this instance:** the fourth consecutive attempt to establish whether a
+real `integration_report` carrying a real environment record passes
+`check_environment`, and the node's remaining hold.
+
 ## How to recognise it
 
 **Before believing any refusal that says a file is missing, list the validation
