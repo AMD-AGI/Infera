@@ -1,0 +1,1174 @@
+#!/usr/bin/env python3
+"""`check_speedup_substantiated` — was the claim taken from the workset, and did the premise hold?
+
+**This body is a reversal of the one it replaces, and the reversal is the whole
+of the difference.** `kernel-opt-demo`'s version re-measured the baseline here
+and disbelieved the workset's; its loudest rule was *"最要命的那条：不要拿
+workset 里印的数字当分母"*. Mission M4.3.5 overrules it:
+
+    这一点不成立，优化任务的 ground truth 本身就应该严格的从 workset 中来，
+    如果最基础的硬件、优化前提不一样，直接报错 abort。软件环境不太一样可以报
+    warning。
+
+So the denominator is the workset's own recorded baseline, always, and the
+question this body asks changes from *"does your number reproduce against a
+baseline I measured"* to two questions:
+
+1. **Did you take the workset's baseline?** Exact comparison against the copy of
+   the workset's own performance report that the handoff carries. Not "close
+   to"; equal.
+2. **Did the premise hold?** Every field the workset named in
+   `ground_truth.abort_on_mismatch` must match between the workset's environment
+   and this run's. A mismatch **aborts**. A field in `warn_on_mismatch` may
+   differ, and then it must be *recorded* — differing is tolerated, hiding it is
+   not.
+
+**Why an abort rather than a smaller pass.** A speedup measured against a
+different architecture is not a weaker result, it is the answer to a different
+question, and the damage is that it looks entirely legitimate. Measured: the
+2026-09-02 run timed `B8_V151936` at 50.18 µs on gfx950 against the workset's
+55.40 µs on gfx942 — 9.6% of speedup available for free from a comparison
+nobody downstream could detect. The old rule's response was to silently
+re-baseline, which makes the report internally consistent and still answers the
+wrong question.
+
+**Why taking the workset's number on trust is safe here, and what would make it
+unsafe.** `check_workset_runs` (m3, `cost: gpu_hours`) executes the workset's own
+correctness and performance entrypoints **on this hardware** before m4 starts,
+and it runs again in m4's own input phase. The workset's printed baseline is
+therefore a number that has been reproduced here, not a number carried in from
+another machine. **If that validator is ever weakened to a shape check, this
+body has to go back to re-measuring the baseline itself.** Nothing in the code
+below can detect that happening; it is a standing dependency between two
+validators and it is written here because there is nowhere else to write it.
+
+**What is still measured here, and why the cost tag stays `gpu_hours`.** The
+*optimised* side. The reversal is about the denominator, not about believing the
+numerator: a producer's own claim about the kernel it just wrote is exactly the
+claim worth re-running. The seed is re-run too, against the workset's baseline —
+not to replace it, but because a disagreement there is the premise failing
+empirically, and that is a finding rather than a licence to substitute a number.
+
+**Why `strong`.** It refuses on the two things that cannot be recovered
+downstream: a claim whose denominator is not the ground truth, and a premise
+that did not hold. Both make every number after them meaningless, and m5 has no
+way to notice either.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import shutil
+import statistics
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+
+import zone  # noqa: E402 — the path insert above is what makes it importable
+import workset_io as W  # noqa: E402 — m3's shared helpers; `write_report` is the reason
+
+_DOC = "results/kernel_optimization.json"
+_SNAPSHOT = "results/workset.snapshot.yaml"
+_BASELINE_REPORT = "results/workset.baseline_report.json"
+#: The runnable copy of the workset the handoff carries, so that this body can
+#: re-run the workset's entrypoints without reaching for a handoff it was not
+#: handed. See the module docstring of `check_optimization_shape` for why it
+#: cannot be handed one.
+_APPARATUS = "scripts/workset"
+
+
+# --------------------------------------------------------------------------- #
+# environment
+
+
+def _interpreter(problems: list[str], notes: list[str]) -> str | None:
+    """An interpreter that can actually `import torch`, or `None`.
+
+    **This function exists because of a bug that made the previous validator
+    fail every real run, and the failure looked like a measurement
+    disagreement.** A validator body is started by `/bin/sh` with a *closed*
+    environment (`validator/environment.py`): `os.environ` is not inherited and
+    `PATH` is deliberately absent, so POSIX `sh` substitutes its built-in
+    default. The template idiom `"${AGENT_SYS_DEMO_PYTHON:-python3}"` then
+    resolves to `/usr/bin/python3` on the **output** phase, because the PRODUCER
+    row shadows the GLOBAL row that carries `AGENT_SYS_DEMO_PYTHON`
+    (`kernel-opt-demo/bugs/002-validator-env-row-shadows-demo-python.md`).
+
+    `/usr/bin/python3` has no `torch`, so the measurement died on the import in
+    about 0.1 s — faithfully reported as "measurement failed" and folded into a
+    FAIL. Measured 2026-09-01 across three campaigns; the same handoff passed
+    when re-run by hand with the venv interpreter.
+
+    The bug record said the package was immune because its bodies import stdlib
+    only. That was **wrong**: the body imports stdlib and then shells out to a
+    script that needs the whole ML stack. Immunity to a missing import is not
+    immunity to picking the wrong interpreter.
+    """
+    seen: list[str] = []
+    for candidate in (
+        os.environ.get("KFO_PYTHON"),
+        os.environ.get("AGENT_SYS_DEMO_PYTHON"),
+        sys.executable,
+        "/opt/venv/bin/python3",
+        "python3",
+    ):
+        if not candidate or candidate in seen:
+            continue
+        seen.append(candidate)
+        try:
+            probe = subprocess.run(
+                [candidate, "-c", "import torch; print(torch.__version__)"],
+                capture_output=True,
+                text=True,
+                timeout=180,
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if probe.returncode == 0:
+            notes.append(f"interpreter {candidate} (torch {probe.stdout.strip()})")
+            return candidate
+    # **Do not tell the reader to set it on the agent spec's env block.** This
+    # body is a validator: it declares no agent, so the package's `env` block
+    # never reaches it, and no `--var` routes here — `KFO_PYTHON` is declared on
+    # `e2e_kernel_optimizer`, which a validation phase does not run under. That
+    # advice sent the reader to a knob they cannot turn, and it arrives on a
+    # `cost: gpu_hours` check on the OUTPUT phase, i.e. after a campaign has
+    # already been spent. Same family as the `transport_env` run that RUN-PLAN
+    # records, and more expensive.
+    #
+    # So name the cause instead: there is no host on this cluster with torch
+    # (`spur exec <job> python3 -c "import torch"` is `ModuleNotFoundError`,
+    # measured); only the containers have it. A validation phase that lands on a
+    # host has nothing to set.
+    problems.append(
+        "no interpreter with torch found; tried "
+        + ", ".join(seen)
+        + ". This validator re-measures, so it needs one. NOTE: setting KFO_PYTHON will not "
+        "help here — a validator declares no agent, so the package's env block never reaches "
+        "this body and no --var routes to it. The cause is almost certainly that this phase "
+        "ran on a host rather than in the engine container: no host on this cluster has torch, "
+        "only the images do. The run root and the validation zone have to be reachable from a "
+        "context that can import torch"
+    )
+    return None
+
+
+#: A PATH a compiler can actually work in. **Not decoration.**
+#:
+#: An optimised kernel here is usually a Triton kernel, and the first thing
+#: Triton does on this backend is compile `hip_utils.c` by shelling out to
+#: `/bin/gcc` — which then needs `as`, `ld` and `collect2` off `PATH`. A
+#: validator body's environment is closed and carries no `PATH`, so a subprocess
+#: started from it inherits none and the compile dies. Measured 2026-09-01. The
+#: baseline side survives it because plain `torch.softmax` compiles nothing, so
+#: the symptom is *only the optimised side fails*, which reads exactly like a
+#: broken optimised kernel. It is not.
+_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+
+def _transport_env(args: dict, card: str) -> dict[str, str]:
+    """`os.environ` plus what `spur` needs and a validation zone strips.
+
+    **The third copy of this in the package**, and the parameter names are m1's
+    so one `--var transport_env` drives all three -- m1's `check_deploy_serves`,
+    m3's `check_workset_runs` and this. A second *spelling* would be a second
+    thing to keep in step, which is the failure that produced the whole class.
+    The duplication of the *function* is real and is flagged to the leader
+    rather than fixed here: `assets/lib/` is shared and a live run is walking
+    toward it.
+
+    A validator declares no agent, so it runs closed: no `SPUR_CONTROLLER_ADDR`
+    and a `PATH` of `/usr/bin:/bin` while `spur` lives in `/usr/local/bin`. m3
+    measured the consequence -- `tcp connect error` reported as *"the workset is
+    not visible on the node"*, a filesystem claim for a missing variable -- and
+    lost three non-reproductions to it because **their own login shell had the
+    variable**. §4.4, where the convenient fixture was the shell.
+    """
+    env = dict(os.environ)
+    extra = str(args.get("transport_path") or "")
+    if extra:
+        parts = [p for p in env.get("PATH", "").split(":") if p]
+        env["PATH"] = ":".join(parts + [p for p in extra.split(":") if p and p not in parts])
+    for pair in str(args.get("transport_env") or "").split():
+        name, _, value = pair.partition("=")
+        if name and value:
+            env[name] = value
+    # One arg, both spellings, so the two instruments cannot be pointed at
+    # different cards: `run_in_container.sh` reads `HIP_VISIBLE_DEVICES`, m3's
+    # script reads `E2E_MEASURE_GPU`.
+    env["HIP_VISIBLE_DEVICES"] = card
+    env["E2E_MEASURE_GPU"] = card
+
+    # **`scratch_dir` is a path on the NODE and is never touched here.** It is
+    # where ROCm and Triton write their own temporaries, and it has to be
+    # node-local because `TMPDIR` on this cluster's NFS makes every HIP kernel
+    # launch SIGSEGV — the trap that cost the 2026-09-02 run 25 minutes. It is
+    # *not* where the apparatus is staged; that is the zone. See `_remeasure`.
+    #
+    # Handed across as environment rather than created here, because this
+    # process cannot create it: `/mnt/m2m_nobackup` is a node-local NVMe volume
+    # and the login node's copy of that path is not writable by us. rung 0 died
+    # trying. `run_in_container.sh` forwards both variables into the container
+    # and creates them on the far side, which is the only side that can.
+    scratch = str(args.get("scratch_dir") or "").strip()
+    if scratch:
+        env["TMPDIR"] = scratch
+        env.setdefault("TRITON_CACHE_DIR", f"{scratch}/triton_cache")
+    return env
+
+
+def _measure_env(scratch: Path, python: str | None = None) -> dict[str, str]:
+    """The environment the measurement subprocess needs, built rather than inherited.
+
+    `TRITON_CACHE_DIR` because Triton otherwise writes to `$HOME/.triton`, and
+    `$HOME` on this class of host is an NFS mount whose writes fail silently for
+    a container user. `HOME` because several libraries probe it and an unset one
+    is not the same as a writable one. `TMPDIR` because a `$TMPDIR` pointing at
+    a directory that does not exist makes every HIP kernel launch segfault with
+    no output while `torch.cuda.is_available()` still reports `True` — the trap
+    that cost the 2026-09-02 run 25 minutes.
+
+    **`HIP_VISIBLE_DEVICES` — the comment that used to be here was wrong, and
+    wrong in the direction that loses a card.** It read: *"deliberately not
+    defaulted. It arrives from the agent spec's `env:` block through the
+    PRODUCER row, and inventing a default would silently move the measurement
+    onto card 0."*
+
+    A validator declares no agent, so **no agent `env:` block reaches this
+    body** — `_interpreter`'s docstring twenty lines up says exactly that about
+    the same environment, which is two readers of one fact inside one file
+    (CONTRACT §4.3). And the protection is **inverted**: with the variable
+    unset, torch sees every visible card and the measurement lands on card 0
+    anyway. Not defaulting did not avoid the outcome the comment described; it
+    produced it silently.
+
+    So the caller refuses instead — see `_remeasure`. A `cost: gpu_hours` check
+    that quietly measures on a co-tenant's card produces a number, which is the
+    worst available failure.
+
+    Found by sweeping this file for ambient reads after naming the class in
+    somebody else's code. Naming a class is not sweeping for it.
+    """
+    env = dict(os.environ)
+    env["PATH"] = env.get("PATH") or _PATH
+    env.setdefault("TRITON_CACHE_DIR", str(scratch / "triton_cache"))
+    env.setdefault("HOME", str(scratch))
+    env["TMPDIR"] = str(scratch / "tmp")
+    for key in ("TRITON_CACHE_DIR", "TMPDIR"):
+        Path(env[key]).mkdir(parents=True, exist_ok=True)
+
+    # **The interpreter `_interpreter()` chose has to reach the entrypoint, and
+    # until m3 asked it did not.** Raised by m3 2026-09-03 as "worth checking
+    # whether you have the same exposure"; checked, and the answer was yes.
+    #
+    # The body this replaced invoked a *Python script* directly, so passing the
+    # interpreter was `[python, script, ...]`. The workset's entrypoint is a
+    # *shell script*, so the interpreter can only reach it through the
+    # environment — and `_interpreter()`'s return value was being used as a
+    # yes/no probe and then discarded. `_PATH` above deliberately contains no
+    # venv, so the script's bare `python3` resolved to `/usr/bin/python3`, which
+    # has no torch.
+    #
+    # It would not have been silent here — the entrypoint exits non-zero and
+    # this body reports "the re-measurement failed" with the stderr tail — but
+    # it would have been *wrong*, and wrong in the expensive direction: it fails
+    # **both** sides identically, so it reads as a broken workset rather than as
+    # a missing interpreter, and the transcript would send somebody to m3's code.
+    #
+    # Both channels, because a workset may honour either: `KFO_PYTHON` for one
+    # that reads it, and the interpreter's own directory first on `PATH` for one
+    # that just says `python3`.
+    if python:
+        env["KFO_PYTHON"] = python
+        directory = os.path.dirname(os.path.abspath(python))
+        if directory:
+            env["PATH"] = directory + os.pathsep + env["PATH"]
+    return env
+
+
+def _num(value: object, fallback: float) -> float:
+    """Coerce an `args.json` value. Substitution yields **strings**, always."""
+    try:
+        return float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return fallback
+
+
+# --------------------------------------------------------------------------- #
+# the premise
+
+
+def _flags_of(snapshot: dict, operator_id: str) -> dict:
+    """The performance entrypoint's declared flag spelling.
+
+    Per-operator where present, falling back to the workset's own — the same
+    precedence `entrypoints` itself follows, because a workset with several
+    operators may drive them differently.
+    """
+    for operator in snapshot.get("operators") or ():
+        if isinstance(operator, dict) and operator.get("operator_id") == operator_id:
+            declared = ((operator.get("entrypoints") or {}).get("performance") or {}).get("flags")
+            if declared:
+                return dict(declared)
+    return dict(((snapshot.get("entrypoints") or {}).get("performance") or {}).get("flags") or {})
+
+
+def _dig(doc: dict, dotted: str):
+    """`fixed.gpu_arch` out of an environment record, or `KeyError`-free `None`."""
+    node = doc
+    for part in dotted.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return None
+        node = node[part]
+    return node
+
+
+def _resolve(field: str, environment: dict) -> tuple[str, object]:
+    """A premise field name, as a dotted path into an environment record.
+
+    The workset writes dotted paths (`fixed.gpu_arch`); the step yaml's own
+    `abort_on_premise_mismatch` writes bare leaves (`gpu_arch`), because that is
+    how the mission names them. Both are accepted, and a bare name is looked up
+    under `fixed` and then `runtime` — so the two spellings cannot silently
+    check different fields.
+    """
+    if "." in field:
+        return field, _dig(environment, field)
+    for section in ("fixed", "runtime"):
+        value = _dig(environment, f"{section}.{field}")
+        if value is not None:
+            return f"{section}.{field}", value
+    return f"fixed.{field}", None
+
+
+def _check_premise(doc: dict, args: dict, problems: list[str], notes: list[str]) -> bool:
+    """The M4.3.5 gate. Returns False on an abort."""
+    premise = doc.get("premise") or {}
+    workset_env = premise.get("workset_environment") or {}
+    run_env = premise.get("run_environment") or {}
+
+    # The lists are the workset's. The step yaml's own lists are a floor: a
+    # field the mission names must be checked even if a workset forgot it, and a
+    # field the workset adds is checked because the workset knows what its
+    # numbers depend on.
+    abort_fields = list(dict.fromkeys(
+        list(premise.get("abort_on_mismatch") or []) + list(args.get("abort_on_premise_mismatch") or [])
+    ))
+    warn_fields = list(dict.fromkeys(
+        list(premise.get("warn_on_mismatch") or []) + list(args.get("warn_on_mismatch") or [])
+    ))
+    if not abort_fields:
+        problems.append("the premise declares no abort_on_mismatch fields; there is nothing to hold it to")
+        return False
+
+    # **Deduplicated by *resolved path*, not by the name written down.** The
+    # workset spells `fixed.gpu_arch` and the step yaml spells `gpu_arch`; both
+    # resolve to the same field, and a set of the raw strings keeps both — which
+    # reported one mismatch twice in the first smoke test. Same field, one line.
+    aborted: list[str] = []
+    seen: set[str] = set()
+    for field in abort_fields:
+        # `operator`, `shapes` and `dtype` are not environment fields; they are
+        # checked against the workset in `_check_ground_truth` and skipped here.
+        if field in ("operator", "shapes", "dtype"):
+            continue
+        path, expected = _resolve(field, workset_env)
+        if path in seen:
+            continue
+        seen.add(path)
+        _, actual = _resolve(field, run_env)
+        if expected != actual:
+            aborted.append(f"{path}: the workset was measured on {expected!r}, this run is on {actual!r}")
+
+    if aborted:
+        problems.append(
+            "ABORT — the optimisation premise does not hold, so no ratio computed here answers the "
+            "question the workset asked (M4.3.5):"
+        )
+        problems.extend(f"  {line}" for line in aborted)
+        return False
+
+    # A field that differed and was not recorded is the fault. Differing is not.
+    recorded = {
+        str(w.get("field"))
+        for w in (run_env.get("warnings") or []) + (premise.get("verdict", {}).get("warnings") or [])
+        if isinstance(w, dict)
+    }
+    seen = set()
+    for field in warn_fields:
+        path, expected = _resolve(field, workset_env)
+        if path in seen:
+            continue
+        seen.add(path)
+        _, actual = _resolve(field, run_env)
+        if expected == actual:
+            continue
+        if path in recorded or field in recorded:
+            notes.append(f"WARNING carried forward — {path}: workset {expected!r}, this run {actual!r}")
+        else:
+            problems.append(
+                f"{path} differs from the workset ({expected!r} vs {actual!r}) and is recorded in "
+                "neither run_environment.warnings[] nor premise.verdict.warnings[]. A tolerated "
+                "difference that is not written down is indistinguishable from one nobody noticed"
+            )
+
+    # The producer's own verdict must agree with the one just computed. A
+    # document that says the premise held while it did not is worse than one
+    # that says nothing, because m5 reads the field and not this transcript.
+    if (premise.get("verdict") or {}).get("held") is not True:
+        problems.append("premise.verdict.held is not true, but no abort-level field differs — the record disagrees with itself")
+    return not problems
+
+
+def _check_ground_truth(doc: dict, snapshot: dict, args: dict, problems: list[str]) -> None:
+    """`operator`, `shapes` and `dtype`: the abort-level fields that are not environment."""
+    operator_id = doc.get("operator")
+    operator = next(
+        (o for o in snapshot.get("operators") or () if isinstance(o, dict) and o.get("operator_id") == operator_id),
+        None,
+    )
+    if operator is None:
+        problems.append(f"ABORT — operator {operator_id!r} is not one the workset defines")
+        return
+
+    declared = [
+        s.get("case_id")
+        for s in operator.get("shapes") or ()
+        if isinstance(s, dict) and s.get("role") in ("performance", "correctness-and-performance")
+    ]
+    performance = (doc.get("evidence") or {}).get("performance") or {}
+    measured = sorted((performance.get("measured") or {}).get("per_case_ms") or {})
+    if sorted(c for c in declared if c) != measured:
+        problems.append(
+            f"ABORT — the shapes measured are not the shapes the workset declares "
+            f"(workset {sorted(c for c in declared if c)}, measured {measured}). A speedup over a "
+            "different shape set is a different question, not a partial answer"
+        )
+    floor = int(_num(args.get("min_shapes_measured"), 3))
+    if len(measured) < floor:
+        problems.append(f"{len(measured)} shapes measured, the workset contract requires >= {floor}")
+
+    # The claim must carry the workset's own floor, not one of m4's choosing.
+    claim = performance.get("claim") or {}
+    if claim and claim.get("noise_floor") != operator.get("noise_floor"):
+        problems.append(
+            f"claim.noise_floor is {claim.get('noise_floor')!r}, the workset declares "
+            f"{operator.get('noise_floor')!r}. The workset derives it from its own measured "
+            "spread; a consumer that restates it differently has chosen when to call its own "
+            "result significant"
+        )
+
+    # `dtype` is on the mission's abort list and is **not** an environment field.
+    # It lives in each flashinfer-bench Definition's `inputs[].dtype`, which this
+    # body cannot open — the snapshot is `workset.yaml`, not the whole workset
+    # tree — so this comparison used to print "NOT compared here" and skip.
+    #
+    # m3 lifted it to `ground_truth.dtypes` on that report, and it is a summary
+    # rather than a second source of truth: `check_workset_shape` holds it
+    # against the Definitions, so it cannot drift into disagreeing with what it
+    # summarises. Both sides here are copies of one declaration, so a difference
+    # means the document was edited or the snapshot swapped — which is the same
+    # class of finding as the environment comparison above, and the same answer.
+    # **The same union `_check_premise` computes, and it has to be the same
+    # one.** The workset's own `abort_on_mismatch` is authoritative about what
+    # its numbers depend on; the step yaml's list is a floor the mission sets.
+    # Reading only the yaml's — which this did until the stub kit's case 8
+    # failed to fire — means a workset that adds `dtype` to its abort list is
+    # ignored unless the yaml happens to name it too. Two lists consulted in two
+    # places, one of them partially, is how a declared rule goes unenforced.
+    abort_fields = set(
+        list((doc.get("premise") or {}).get("abort_on_mismatch") or [])
+        + list((snapshot.get("ground_truth") or {}).get("abort_on_mismatch") or [])
+        + list(args.get("abort_on_premise_mismatch") or [])
+    )
+    if "dtype" in abort_fields:
+        workset_dtypes = (snapshot.get("ground_truth") or {}).get("dtypes")
+        if not isinstance(workset_dtypes, dict):
+            problems.append(
+                "ABORT — dtype is on the abort list and the workset carries no "
+                "ground_truth.dtypes to compare against"
+            )
+        else:
+            expected = workset_dtypes.get(operator_id)
+            actual = ((doc.get("premise") or {}).get("dtypes") or {}).get(operator_id)
+            if expected is None:
+                problems.append(f"ABORT — the workset declares no dtype for {operator_id!r}")
+            elif actual != expected:
+                problems.append(
+                    f"ABORT — this handoff optimised {operator_id} at dtype {actual!r}; the "
+                    f"workset's ground truth says {expected!r}. A speedup at a different "
+                    "precision is a different question"
+                )
+
+
+def _check_denominator(doc: dict, baseline_report: dict, problems: list[str], notes: list[str]) -> None:
+    """*Prove you took the workset's own baseline.* Exact, per case."""
+    performance = (doc.get("evidence") or {}).get("performance") or {}
+    claimed = (performance.get("baseline") or {}).get("per_case_ms") or {}
+
+    # `evidence/performance.json` and the report a candidate run writes are the
+    # **same document shape**, distinguished only by `impl`. That is m3's design
+    # and it is what makes a speedup a ratio between two runs of one instrument
+    # — and it also means a producer that carried the wrong one forward would
+    # be dividing a candidate by a candidate. One field, checked once.
+    impl = baseline_report.get("impl")
+    if impl != "baseline":
+        problems.append(
+            f"{_BASELINE_REPORT} has impl={impl!r}, not 'baseline'. The denominator must be the "
+            "workset's baseline run, and a candidate report has the same shape as one (M4.3.5)"
+        )
+        return
+
+    truth: dict[str, float] = {}
+    for entry in baseline_report.get("operators") or ():
+        if not isinstance(entry, dict) or entry.get("operator_id") != doc.get("operator"):
+            continue
+        for shape in entry.get("shapes") or ():
+            if isinstance(shape, dict) and shape.get("case_id"):
+                value = shape.get("weighted_mean_ms", shape.get("median_ms"))
+                if isinstance(value, (int, float)):
+                    truth[str(shape["case_id"])] = float(value)
+    if not truth:
+        problems.append(
+            f"{_BASELINE_REPORT} carries no figures for operator {doc.get('operator')!r}; "
+            "there is nothing to prove the denominator against"
+        )
+        return
+
+    for case, value in sorted(claimed.items()):
+        if case not in truth:
+            problems.append(f"baseline.per_case_ms names {case!r}, which the workset's own report does not")
+        elif abs(float(value) - truth[case]) > 1e-9 * max(truth[case], 1.0):
+            problems.append(
+                f"baseline.per_case_ms[{case}] is {value}, the workset's own report says {truth[case]} — "
+                "the denominator is not the workset's (M4.3.5)"
+            )
+    missing = sorted(c for c in truth if c not in claimed)
+    if missing:
+        problems.append(f"the workset baselines {missing}, which this handoff did not carry forward")
+    if not problems:
+        notes.append(f"denominator is the workset's own, {len(claimed)} case(s), exactly")
+
+
+def _check_correctness(doc: dict, snapshot: dict, args: dict, problems: list[str]) -> None:
+    """Boolean, and every declared case. Correctness is not a percentage."""
+    if not args.get("require_correctness_pass", True):
+        return
+    correctness = (doc.get("evidence") or {}).get("correctness") or {}
+    if correctness.get("passed") is not True:
+        problems.append(
+            "evidence.correctness.passed is not true. A kernel that is faster and wrong is not a "
+            "partial success, and it must never have reached a timing loop"
+        )
+    failed = [
+        s.get("case_id") for s in correctness.get("shapes") or ()
+        if isinstance(s, dict) and s.get("passed") is not True
+    ]
+    if failed:
+        problems.append(f"correctness failed on {failed}")
+
+    operator = next(
+        (o for o in snapshot.get("operators") or ()
+         if isinstance(o, dict) and o.get("operator_id") == doc.get("operator")),
+        None,
+    ) or {}
+    declared = {
+        s.get("case_id") for s in operator.get("shapes") or ()
+        if isinstance(s, dict) and s.get("role") in ("correctness", "correctness-and-performance")
+    }
+    covered = {s.get("case_id") for s in correctness.get("shapes") or () if isinstance(s, dict)}
+    uncovered = sorted(c for c in declared if c and c not in covered)
+    if uncovered:
+        problems.append(f"the workset declares correctness cases that were never run: {uncovered}")
+
+
+# --------------------------------------------------------------------------- #
+# the measurement
+
+
+def _run_entrypoint(
+    root: Path, cmd: str, impl_path: Path | None, report: Path, args: dict, env: dict,
+    timeout: float, flags: dict, environment: Path | None = None,
+    wrapper: Path | None = None,
+) -> str | None:
+    """The workset's own performance entrypoint. Returns an error string or `None`.
+
+    The contract m3 shipped is::
+
+        ./run_performance.sh [--operator ID] [--impl PATH] [--shape CASE_ID] [--json OUT]
+
+    **No `--impl` means the workset's own baseline; `--impl PATH` means the
+    candidate**, judged against the same reference, the same shapes and the same
+    protocol. So a speedup is a ratio between two runs of one instrument, which
+    is the property that makes any of this comparable.
+
+    The two flag names stay `args` rather than literals. Not because the
+    contract is unsettled — it is settled — but because this body and
+    `optimize_kernel`'s `steps/run_entrypoint.py` must drive the workset
+    *identically*, and a pair of literals in two files is a pair that can be
+    edited apart. **The failure mode if they ever disagree is silent**: a wrong
+    flag that makes the entrypoint run the baseline while this body records it
+    as the candidate produces two measurements of the same code, a ratio of
+    1.000, and no error anywhere.
+    """
+    # **The spelling comes from the workset, which now pins it as data
+    # (`$defs/entrypoint.flags`).** It was `args` before, so that this body and
+    # `optimize_kernel`'s `steps/run_entrypoint.py` could not be edited apart —
+    # two sets of literals in two files can be. One declared source is strictly
+    # better than two agreeing copies, so `args` is now only the fallback for a
+    # workset that predates the field.
+    argv = [*cmd.split(), str(flags.get("report") or args.get("report_flag") or "--json"), str(report)]
+    if impl_path is not None:
+        argv += [str(flags.get("impl") or args.get("impl_flag") or "--impl"), str(impl_path)]
+    # **M4.3.5's gate, and it only fires if this run's record is handed over.**
+    # `harness/_common.py:_run_record` looks at `--environment` first and then
+    # beside the harness module. The fallback is m3's own path, where the record
+    # sits at the workset root; here the apparatus has been copied into
+    # `<scratch>/{seed,candidate}/` and no record travels with it, so without
+    # this the entrypoint compares nothing and records
+    # `environment.premise_checked_against: null`.
+    #
+    # The record is the handoff's own `items/codes/environment.yaml` — the one
+    # m4 inherited from the `deploy_kit`, i.e. *this* run — which is the other
+    # side of the comparison against the workset's `ground_truth.environment`.
+    # Two documents, which is the whole of M4.3.5; a validator that passed the
+    # workset's own record would be comparing it with itself.
+    if environment is not None:
+        argv += [str(flags.get("environment") or "--environment"), str(environment)]
+    # Into the container when a wrapper was resolved -- see `_remeasure`.
+    if wrapper is not None:
+        argv = ["bash", str(wrapper), "--workdir", str(root), " ".join(argv)]
+    try:
+        proc = subprocess.run(
+            argv, capture_output=True, text=True, cwd=root, env=env, timeout=timeout
+        )
+    except FileNotFoundError:
+        return f"{argv[0]} is not executable from {root}"
+    except subprocess.TimeoutExpired:
+        return f"the entrypoint exceeded {timeout:.0f}s"
+    if proc.returncode != 0:
+        # **Truncate on line boundaries, and say that you did.** This was
+        # `stderr.strip()[-400:]`, a slice by character, which starts wherever
+        # 400 bytes happens to land — mid-word, mid-sentence. rung 0 produced
+        #
+        #     the entrypoint exited 127: l so no reader has to infer which of
+        #     the two produced the number.
+        #
+        # where `l so no reader…` is the tail of the wrapper's own
+        # *"mode=ephemeral so no reader has to infer…"*. The leader read it as
+        # corruption — someone else's prose spliced into an error — which is a
+        # reasonable reading and a wrong one, and on a day spent chasing
+        # messages that name the wrong cause, an error that *looks* corrupted
+        # costs the same as one that is.
+        #
+        # m3 hit the mirror of this: `stderr.splitlines()[-N:]` cuts the
+        # instruction off the *top* of a message whose fix is stated first.
+        # Lines, and an explicit marker so a reader knows the top is missing.
+        stderr = proc.stderr.strip().splitlines()
+        shown = stderr[-12:]
+        if len(stderr) > len(shown):
+            shown.insert(0, f"[... {len(stderr) - len(shown)} earlier stderr line(s) omitted]")
+        joined = "\n    ".join(shown)
+        return f"the entrypoint exited {proc.returncode}:\n    {joined}"
+    if not report.is_file():
+        return f"the entrypoint wrote no report at {report}"
+    return None
+
+
+def _impl_read_problem(report: Path, handed: Path) -> str | None:
+    """Did the driver measure the bytes we handed it? m3's `impl_read`, `782bb08`.
+
+    **This is the enforcement of a dependency that was only a comment.** The
+    third-tree workspace (`30_run_forge.sh`) hands forge a copy of the engine
+    sources that is on *no interpreter's import path*. That is safe only while
+    m3's `--impl` loader execs the file it was given; the day it resolves a
+    module instead, forge keeps editing the copy, the driver measures the
+    container's untouched tree, and **every ratio comes back ~1.0 with no error
+    anywhere** — a wrong answer byte-identical to "the optimiser found nothing".
+
+    m3 guarded the *outcome* rather than the mechanism, which is the stronger
+    choice and not the one I had written: "the loader execs rather than imports"
+    goes stale the moment someone finds a third way to load a file, while "the
+    bytes measured are the bytes at the path you named" survives any rewrite
+    that keeps the promise.
+
+    `impl_path` cannot do this job and it is the reason this is not already
+    covered: it is `args.impl` copied at parse time (`_common.py:257`), an echo
+    of the request that reads identically whether the file was exec'd, imported,
+    shadowed by another copy of the same module name, or never opened.
+
+    Absent is **not** a failure. A `null` is what a pre-`782bb08` workset's
+    harness writes and what a baseline run writes, and refusing those would fail
+    correct artefacts for being older than this check.
+    """
+    try:
+        got = (json.loads(report.read_text(encoding="utf-8")) or {}).get("impl_read")
+    except (OSError, ValueError):
+        return None  # the report's own readability is judged by `_medians`
+    if not isinstance(got, dict) or not got.get("sha256"):
+        return None
+    try:
+        want = hashlib.sha256(handed.read_bytes()).hexdigest()
+    except OSError as error:
+        return f"cannot hash the file handed to --impl ({handed}): {error}"
+    if str(got.get("sha256")) == want:
+        return None
+    return (
+        f"the driver measured something other than the file it was handed. "
+        f"--impl named {handed} (sha256 {want[:12]}…), and the harness recorded "
+        f"reading {got.get('path')!r} (sha256 {str(got.get('sha256'))[:12]}…, "
+        f"{got.get('bytes')} bytes, via {got.get('loaded_by')!r}). "
+        f"Every number in this report is about the wrong file — and a wrong file "
+        f"that is the unoptimised incumbent yields a ratio near 1.0, which is "
+        f"indistinguishable from an honest null result"
+    )
+
+
+def _medians(report: Path, operator_id: str) -> dict[str, float]:
+    loaded = json.loads(report.read_text(encoding="utf-8"))
+    out: dict[str, float] = {}
+    for entry in loaded.get("operators") or ():
+        if not isinstance(entry, dict) or entry.get("operator_id") != operator_id:
+            continue
+        for shape in entry.get("shapes") or ():
+            value = shape.get("weighted_mean_ms", shape.get("median_ms"))
+            if isinstance(value, (int, float)):
+                out[str(shape.get("case_id"))] = float(value)
+    return out
+
+
+def _remeasure(
+    packup: Path, doc: dict, baseline_truth: dict[str, float], args: dict,
+    problems: list[str], notes: list[str], flags: dict,
+) -> None:
+    """Re-run the workset's performance entrypoint on both sides, here, now."""
+    apparatus = packup / _APPARATUS
+    if not apparatus.is_dir():
+        problems.append(f"{_APPARATUS}/ is missing; the kit does not carry what measures it")
+        return
+
+    performance = (doc.get("evidence") or {}).get("performance") or {}
+    entrypoint = str(performance.get("entrypoint") or "").strip()
+    if not entrypoint:
+        problems.append("evidence.performance.entrypoint is empty; there is no protocol to re-run")
+        return
+
+    optimized_src = packup / "results" / "optimized_kernel.py"
+    if not optimized_src.is_file():
+        problems.append("results/optimized_kernel.py is missing")
+        return
+
+    timeout = _num(args.get("timeout_seconds"), 1800)
+    tolerance = _num(args.get("tolerance"), 0.15)
+    premise_tolerance = _num(args.get("baseline_agreement_tolerance"), 0.05)
+
+    # `scratch_dir` is an argument and `TMPDIR` only the fallback. A validation
+    # zone forces `TMPDIR` to `<zone>/tmp` and treats that as an invariant of
+    # the zone (`validator/environment.py:233,86`), so the producer's `env`
+    # cannot reach it. The zone sits under `--demo-root`; with a run root on
+    # this cluster's NFS every ROCm kernel launch segfaults, and it does so
+    # *after* the copies and the first round, so the run is lost at its most
+    # expensive point.
+    # **Two different directories were being asked of one variable, and only one
+    # of them can live on this side.** rung 0 stopped here on 2026-09-04:
+    #
+    #     cannot create the re-measurement scratch directory
+    #     '/mnt/m2m_nobackup/yihou/e2e_flow/kfo/substantiate': Permission denied
+    #
+    # The refusal named the path and the `--var`, which was right, and then
+    # recommended putting the check "on the node", which was one step short. **A
+    # validator runs where the orchestrator runs — the login node — and no
+    # `--var` moves it.** So this could never have been satisfied by
+    # configuration; pointing `scratch_dir` somewhere writable here would only
+    # have moved the failure downstream.
+    #
+    # **The two directories:**
+    #
+    #   1. *where the apparatus is staged and the report is written* — needs to
+    #      be visible from this process, from the node, and from inside the
+    #      container. **The zone.**
+    #   2. *where ROCm and Triton put their own temporaries* — `TMPDIR` on this
+    #      cluster's NFS makes every HIP kernel launch SIGSEGV. **Node-local**,
+    #      and therefore not creatable or readable from here at all.
+    #
+    # Conflating them is what put a node-local path under `mkdtemp` and
+    # `copytree`. Only (2) has to be node-local, and (2) is now passed to the
+    # far side rather than built here — see `_transport_env`.
+    #
+    # **(1) goes in the zone, which is m3's answer to the same seam** and is
+    # load-bearing for the same reason they give in
+    # `check_workset_runs.validator/check.py:325-332`: the zone is on the shared
+    # filesystem, so a path here resolves identically on the node and inside the
+    # container, and it is disposable with the zone. Their re-measurement passed
+    # at rung 0 today with the tree staged exactly this way — *recorded 0.0415,
+    # re-measured 0.0415* — which is the direct evidence that the tree does not
+    # need to be node-local. Only `TMPDIR` ever did; `_measure_env` says so and
+    # the environment note says so.
+    #
+    # The validator's cwd **is** the zone (`args.json`, `inputs.json` and
+    # `materials.json` sit in it), so this needs no new parameter to find.
+    root = Path(tempfile.mkdtemp(prefix="substantiate-", dir=str(Path.cwd())))
+    notes.append(f"apparatus staged in the zone at {root.name}")
+    seed_root, candidate_root = root / "seed", root / "candidate"
+    shutil.copytree(apparatus, seed_root)
+    shutil.copytree(apparatus, candidate_root)
+
+    # **Which card, before anything is measured.** See `_measure_env`: unset
+    # does not mean "the caller chose"; it means torch takes card 0, which on a
+    # shared host is a co-tenant's. Refusing is the same rule
+    # `run_in_container.sh` applies to the producer side, and it has to be the
+    # same rule or the two disagree about who owns the choice.
+    card = str(args.get("measure_gpu") or os.environ.get("HIP_VISIBLE_DEVICES") or "").strip()
+    if not card:
+        problems.append(
+            "HIP_VISIBLE_DEVICES is not set in this validation zone, so the re-measurement "
+            "would take card 0 — which on a shared host is somebody else's, and the number "
+            "would be contended without saying so. A validator declares no agent, so the "
+            "package's env block does not reach here; the card has to arrive with the zone"
+        )
+        return
+    operator_id = str(doc.get("operator"))
+
+    # CONTRACT §2: a `code` handoff carries the record at `items/codes/`, and the
+    # packup is a directory below that. **Reported when absent rather than passed
+    # over** — m3 made the harness say so on stderr for the same reason, and a
+    # re-measurement whose premise was never checked should not read like one
+    # that was.
+    # **`.resolve()`, because the entrypoint does not run here.** `packup` is
+    # relative to the validation zone (materials.json hands a relpath), while
+    # `_run_entrypoint` runs with `cwd=<scratch>/{seed,candidate}` — so a
+    # zone-relative path arrives at the harness meaning a directory that does
+    # not exist, and `_run_record` falls through to "no record" in silence.
+    # `optimized_src.resolve()` below is absolute for the same reason. Caught by
+    # the stubkit once it started asserting *which* path arrived rather than
+    # only that the flag was there.
+    record = (packup.parent / "environment.yaml").resolve()
+    if not record.is_file():
+        notes.append(
+            f"no environment.yaml at {record.name} beside the packup, so the entrypoint's own "
+            "M4.3.5 gate runs unchecked (environment.premise_checked_against: null). "
+            "check_environment grades that document; this note is about what the re-measurement "
+            "could not compare"
+        )
+        record = None
+
+    # **Step onto the node, through the producer's own wrapper.**
+    #
+    # Before this, the entrypoint ran by `subprocess.run` **locally** — in
+    # whatever context the phase handed the body, which is a validation zone on
+    # the login node with no torch. Measured: `no interpreter with torch found`,
+    # on a `cost: gpu_hours` check whose entire job is to re-measure. It could
+    # never have graded a real kernel, and my own T30 grep found it:
+    # `check_workset_runs` had three references to a container, this had zero.
+    #
+    # `run_in_container.sh` is m4's `measure_in_container.sh`, and routing
+    # through it is m3's rule — a validator that re-measured through a different
+    # arrangement than the producer used would not be re-measuring the same
+    # thing. The container, node, job and transport come from the record the
+    # handoff carries (CONTRACT §2), so no second declared input is needed.
+    package = os.environ.get("AGENT_SYS_TASK_PACKAGE") or os.environ.get("AGENT_SYS_DEMO_PACKAGE")
+    wrapper = Path(package) / "assets/optimize_kernel.task/steps/run_in_container.sh" \
+        if package else None
+    if wrapper is not None and not wrapper.is_file():
+        wrapper = None
+    if record is None:
+        wrapper = None
+    # **Only step onto the node when told how to reach it.** `transport_env` is
+    # the operator saying "here is what `spur` needs". Without it the wrapper
+    # cannot leave this host and taking that path anyway turns a missing `--var`
+    # into a docker error two layers down. m3 gates the same way.
+    #
+    # It is also what keeps `stubkit` honest: that kit stubs the entrypoint and
+    # must exercise the LOCAL path, so it passes no `transport_env`. A harness
+    # test that silently started taking the container path would be testing
+    # something it cannot reach.
+    if not str(args.get("transport_env") or "").strip():
+        if wrapper is not None:
+            notes.append(
+                "the record names a container but no `transport_env` was passed, so this "
+                "re-measures locally — which on a node will not find torch. Pass "
+                "--var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR to step in"
+            )
+        wrapper = None
+
+    if wrapper is not None:
+        # **The interpreter probe is skipped here deliberately.** It runs
+        # `import torch` in *this* process's world — the zone — which is not
+        # where the measurement happens. Probing the zone to decide whether the
+        # container can measure is testing the environment instead of the thing.
+        notes.append(f"re-measuring in a container on the node, via {wrapper.name}")
+        env = _transport_env(args, card)
+        env["AGENT_SYS_INPUT_DEPLOY_KIT"] = str(record.parent.parent.parent)
+        # **Which container produced the number is part of the number.** The
+        # wrapper prefers the container the `deploy_kit` names and falls back to
+        # an ephemeral one from the same image when that is not running — the
+        # leader's ruling, 2026-09-04, because in a mock chain nobody brings the
+        # deployment up and a check that needs a real one cannot be in the mock
+        # e2e. The two are different claims: the first carries the deployment's
+        # engine state, the second only the image's. The wrapper writes which it
+        # used here, in the zone — **not** under the scratch root, which is
+        # node-local and unreadable from this process.
+        observed_at = root / "observed_runtime.json"
+        env["KFO_OBSERVED_RUNTIME"] = str(observed_at)
+    else:
+        python = _interpreter(problems, notes)
+        if python is None:
+            return
+        env = _measure_env(root, python)
+
+    seed_report = seed_root / "substantiate_seed.json"
+    failure = _run_entrypoint(
+        seed_root, entrypoint, None, seed_report, args, env, timeout, flags, record, wrapper
+    )
+    if failure:
+        problems.append(f"the seed re-measurement failed: {failure}")
+        return
+    # **Say which container produced this, before reporting any number from it.**
+    # Read after the seed run rather than before, because that is the first run
+    # that reaches the wrapper. A reader comparing two speedups across runs
+    # cannot tell a deployment measurement from an image measurement, and the
+    # difference is exactly the engine state the deployment carries.
+    if wrapper is not None:
+        observed_at = root / "observed_runtime.json"
+        if observed_at.is_file():
+            try:
+                observed = json.loads(observed_at.read_text(encoding="utf-8"))
+            except (OSError, ValueError) as error:
+                notes.append(f"the wrapper's container record is unreadable: {error}")
+            else:
+                mode = str(observed.get("mode") or "")
+                where = str(observed.get("container") or "?")
+                if mode == "ephemeral":
+                    notes.append(
+                        f"measured in an EPHEMERAL container ({where}) started from the image the "
+                        "record names, because the container the deploy_kit names was not "
+                        "running. This carries the image's state, not the deployment's"
+                    )
+                elif mode == "record":
+                    notes.append(f"measured inside the deployment the record names ({where})")
+                else:
+                    notes.append(f"the wrapper recorded no container mode; got {mode!r}")
+        else:
+            # Not fatal — but not silent either. The absence means the wrapper
+            # never got far enough to write it, and that is worth a line rather
+            # than a reader assuming the record's container was used.
+            notes.append(
+                "the wrapper wrote no container record, so which container produced these "
+                "numbers is unknown"
+            )
+
+    seed = _medians(seed_report, operator_id)
+
+    candidate_report = candidate_root / "substantiate_candidate.json"
+    failure = _run_entrypoint(
+        candidate_root, entrypoint, optimized_src.resolve(), candidate_report, args, env,
+        timeout, flags, record, wrapper
+    )
+    if failure:
+        problems.append(f"the optimised re-measurement failed: {failure}")
+        return
+    # **Before the numbers are read, not after.** A ratio computed from a report
+    # that measured the wrong file is not a weaker number, it is a different
+    # claim, and reporting it alongside the mismatch invites someone to use it.
+    mismatch = _impl_read_problem(candidate_report, optimized_src.resolve())
+    if mismatch:
+        problems.append(mismatch)
+        return
+    candidate = _medians(candidate_report, operator_id)
+
+    # **Every case the workset baselines must come back from both sides.**
+    #
+    # Found by `stubkit` case 4, and it is the exact failure the shape of this
+    # body invites: `_medians` skips a shape whose figure is absent or
+    # non-numeric, `shared` is then an intersection, and the mean is taken over
+    # whatever came back. A candidate that fails to measure on one shape is
+    # therefore scored on the two it managed — which flatters precisely the
+    # kernel that is fast on the easy shapes and broken on the hard one.
+    #
+    # An entrypoint that exits 0 and reports nothing for a case is not a smaller
+    # sample, it is a failed measurement, and the two must not fold together.
+    for label, side in (("seed", seed), ("optimised", candidate)):
+        missing = sorted(c for c in baseline_truth if c not in side)
+        if missing:
+            problems.append(
+                f"the {label} re-measurement returned no figure for {missing} — the entrypoint "
+                "exited 0 and reported nothing for them. A case that did not measure is a failed "
+                "measurement, not a smaller sample, and averaging over the rest scores a kernel "
+                "on the shapes it happened to manage"
+            )
+    if problems:
+        return
+
+    # --- the premise, made empirical ---------------------------------------
+    #
+    # This is **not** the deleted rule coming back. It does not substitute a
+    # denominator; it refuses. If the workset's baseline does not reproduce
+    # here, the premise did not hold, and M4.3.5's answer to that is abort.
+    drifted = [
+        f"{case}: workset {baseline_truth[case]:.6f} ms, re-measured {seed[case]:.6f} ms "
+        f"({(seed[case] / baseline_truth[case] - 1) * 100:+.1f}%)"
+        for case in sorted(set(seed) & set(baseline_truth))
+        if abs(seed[case] / baseline_truth[case] - 1.0) > premise_tolerance
+    ]
+    if drifted:
+        problems.append(
+            f"ABORT — the workset's own baseline does not reproduce on this machine within "
+            f"{premise_tolerance:.0%}, so the premise did not hold empirically even though the "
+            "environment records agree. The workset's numbers are the ground truth and cannot be "
+            "replaced by these; the run is answering a different question (M4.3.5):"
+        )
+        problems.extend(f"  {line}" for line in drifted)
+        return
+
+    # --- the numerator ------------------------------------------------------
+    stated = (performance.get("measured") or {}).get("per_case_ms") or {}
+    for case in sorted(set(candidate) & set(stated)):
+        if abs(candidate[case] / float(stated[case]) - 1.0) > tolerance:
+            problems.append(
+                f"measured.per_case_ms[{case}] is {stated[case]}, re-measured {candidate[case]:.6f} ms "
+                f"— more than {tolerance:.0%} apart"
+            )
+
+    claim = performance.get("claim")
+    if not claim:
+        notes.append("no claim is made, so there is no ratio to substantiate")
+        return
+
+    shared = sorted(set(baseline_truth) & set(candidate))
+    if not shared:
+        problems.append(f"no case measured on both sides (workset {sorted(baseline_truth)}, here {sorted(candidate)})")
+        return
+    per_case = {case: baseline_truth[case] / candidate[case] for case in shared if candidate[case] > 0}
+    measured_mean = statistics.fmean(per_case.values())
+    claimed_mean = float(claim.get("mean_case_speedup", 0.0))
+
+    # **No default.** An earlier draft fell back to 1.05, and m3 was right to
+    # object: a consumer with a fallback floor is a consumer that silently picks
+    # its own significance threshold on the one occasion the workset failed to
+    # state one. The workset derives it from the measured spread as
+    # `1 + 2.83 x rsd_max` — the two-sample 2-sigma separation, so a noisy host
+    # correctly demands a bigger win — and the field is required on m3's side,
+    # so its absence means something is wrong upstream and should say so.
+    noise_floor = claim.get("noise_floor")
+    if not isinstance(noise_floor, (int, float)):
+        problems.append(
+            f"claim.noise_floor is {noise_floor!r}, not a number. It is the workset's to declare "
+            "and m4's to carry; nothing here substitutes a value for it"
+        )
+        return
+    noise_floor = float(noise_floor)
+
+    notes.append(
+        "re-measured " + ", ".join(f"{c} {per_case[c]:.3f}x" for c in shared)
+        + f"; mean {measured_mean:.3f}x against a claim of {claimed_mean:.3f}x"
+    )
+
+    if measured_mean < noise_floor:
+        problems.append(
+            f"re-measured {measured_mean:.3f}x is below the workset's noise floor {noise_floor:.3f}x — "
+            "not distinguishable from measurement spread on this machine"
+        )
+    # One-sided on purpose. A handoff that under-claims is honest; a handoff
+    # that over-claims is the thing this validator exists to catch.
+    if measured_mean < claimed_mean * (1.0 - tolerance):
+        problems.append(
+            f"re-measured {measured_mean:.3f}x is more than {tolerance:.0%} below the claimed {claimed_mean:.3f}x"
+        )
+
+
+# --------------------------------------------------------------------------- #
+
+
+def _load(packup: Path, rel: str, problems: list[str]):
+    path = packup / rel
+    if not path.is_file():
+        problems.append(f"missing {rel}")
+        return None
+    try:
+        if path.suffix in (".yaml", ".yml"):
+            import yaml
+
+            return yaml.safe_load(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        problems.append(f"{rel} does not parse: {exc}")
+        return None
+
+
+def _check(hid: str, args: dict, problems: list[str], notes: list[str]) -> bool:
+    content = zone.content_of(hid)
+    if content is None:
+        problems.append("the phase staged no content for this handoff")
+        return False
+    packup, why = zone.find_packup(content)
+    if packup is None:
+        problems.append(why)
+        return False
+
+    doc = _load(packup, _DOC, problems)
+    snapshot = _load(packup, _SNAPSHOT, problems)
+    baseline_report = _load(packup, _BASELINE_REPORT, problems)
+    if doc is None or snapshot is None or baseline_report is None:
+        return False
+
+    # The free gates first, and the abort ones before anything is spent: a run
+    # whose premise did not hold must not reach a timing loop, for the same
+    # reason a kernel that is wrong must not.
+    if not _check_premise(doc, args, problems, notes):
+        return False
+    _check_ground_truth(doc, snapshot, args, problems)
+    _check_correctness(doc, snapshot, args, problems)
+    if problems:
+        return False
+
+    _check_denominator(doc, baseline_report, problems, notes)
+    if problems:
+        return False
+
+    baseline_truth = (doc["evidence"]["performance"]["baseline"] or {}).get("per_case_ms") or {}
+    _remeasure(packup, doc, {k: float(v) for k, v in baseline_truth.items()}, args, problems, notes,
+               _flags_of(snapshot, str(doc.get("operator"))))
+    return not problems
+
+
+def main() -> int:
+    args = zone.args()
+    verdicts: dict[str, bool] = {}
+    # See `check_optimization_shape`'s note: a validator's stdout is kept
+    # nowhere, so the reasons go beside the verdict via m3's shared helper. This
+    # one matters more than its sibling — it is `cost: gpu_hours` on an output
+    # phase, so a refusal here arrives after a campaign has been spent, and
+    # losing the reason means spending it again to find out why.
+    findings: dict[str, tuple[list[str], list[str]]] = {}
+    for hid in zone.inputs():
+        problems: list[str] = []
+        notes: list[str] = []
+        verdicts[hid] = _check(hid, args, problems, notes)
+        findings[hid] = (problems, notes)
+        for note in notes:
+            print(f"{hid} note: {note}")
+        for problem in problems:
+            print(f"{hid} problem: {problem}")
+    # Before the verdict, so a crash in the writer cannot take the reasons.
+    # **`verdicts` so the heading comes from the verdict, not from a proxy
+    # for it.** Every `return False` in this body appends a problem first —
+    # verified path by path, 2026-09-04 — so the problems list is non-empty
+    # exactly when the verdict is false, and passing it changes nothing
+    # today. **It is true by inspection and not by construction**: one bare
+    # `return False` added later and `write_report` would head a refusal as
+    # a pass, silently, which is T49. m5 passes it in all seven of theirs.
+    W.write_report("check_speedup_substantiated", findings, verdicts)
+    # One entry per declared handoff. A missing entry raises at `PhaseRunner`'s
+    # seam rather than folding as falsy.
+    zone.write_verdict(verdicts)
+    print(f"check_speedup_substantiated: {sum(verdicts.values())}/{len(verdicts)} passed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

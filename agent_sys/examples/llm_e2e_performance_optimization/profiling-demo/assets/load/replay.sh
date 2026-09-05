@@ -28,7 +28,7 @@ LOAD="$PKG/assets/load"
 WORK="${PD_WORK_ROOT:?}"
 AIPERF_OUT="$WORK/aiperf"
 TRACE_OUT="$WORK/profiles"
-CTR="glm53_mix"
+CTR="${PD_CTR:?}"
 R="http://${PD_NODE_IP:?}:${PD_ROUTER_PORT:?}"
 TAG="${ROUND}_$(date +%Y%m%d_%H%M%S)"
 
@@ -403,12 +403,12 @@ REDACT_ARGS=(
   "HOME=$HOME"
 )
 python3 "$PKG/assets/lib/redact.py" "$OUT_AIPERF" "${REDACT_ARGS[@]}" || {
-  say "ABORT: the AIPerf evidence still names paths the seal will refuse"
+  say "ABORT: the AIPerf evidence still names local paths redact.py could not place"
   exit 1
 }
 if [ "$CAPTURE" = "1" ]; then
   python3 "$PKG/assets/lib/redact.py" "${PD_OUTPUT_TRACE:?}" "${REDACT_ARGS[@]}" || {
-    say "ABORT: the trace evidence still names paths the seal will refuse"
+    say "ABORT: the trace evidence still names local paths redact.py could not place"
     exit 1
   }
 fi

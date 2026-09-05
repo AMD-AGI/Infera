@@ -27,7 +27,7 @@ PROFILE="${PD_PROFILE:?}"
 SERVE="$PKG/assets/serve"
 WORK="${PD_WORK_ROOT:?}"
 TRACE_OUT="$WORK/profiles"
-CTR="glm53_mix"
+CTR="${PD_CTR:?}"
 R="http://${PD_NODE_IP:?}:${PD_ROUTER_PORT:?}"
 
 # Staging area in the zone. The zone is this attempt's cwd and is discarded with
@@ -76,6 +76,7 @@ else
       CTR='$CTR' ROUTER_PORT='$PD_ROUTER_PORT' PORT='$PD_WORKER_PORT' \
       ETCD_PORT='$PD_ETCD_PORT' TP='$PD_TP' \
       WORK_ROOT='$WORK' TRACE_OUT='$TRACE_OUT' \
+      DSA_ARGS='$PD_DSA_ARGS' PARSER_ARGS='$PD_PARSER_ARGS' CTX='$PD_CTX' \
       PROFILE='$PROFILE' CUDA_GRAPH='$CUDA_GRAPH' SCRIPTS='$SERVE' \
       bash '$SERVE/mix_up.sh'" 2>&1 | tee "$LOG"
   up_rc="${PIPESTATUS[0]}"
@@ -294,11 +295,12 @@ than the ones after it.
 EOF
 
 # ---- 5. make it publishable -------------------------------------------------
-# `handoff` refuses to seal content naming an absolute path outside a fixed
-# allow-list, and it scans every text file rather than only the README. The rule
-# is right -- a record of one machine's afternoon is not a transferable artefact
-# -- so the site-specific roots are replaced by named placeholders here, on the
-# producing side. `${MODEL_MOUNT}/GLM-5.3-Flash-FP8` keeps the model's identity
+# A handoff should not name an absolute path outside a fixed allow-list. The
+# rule is right -- a record of one machine's afternoon is not a transferable
+# artefact -- but NOTHING ENFORCES IT AT PUBLICATION: `handoff/store.py` does not
+# call `locality.check` (user-ruled 2026-08-31, 97% false positive). So the
+# site-specific roots are replaced by named placeholders here, on the producing
+# side, and `redact.py` is the only thing that checks. `${MODEL_MOUNT}/GLM-5.3-Flash-FP8` keeps the model's identity
 # and drops the mount root, which is the split spec §7 asks for.
 #
 # Ordering matters: this runs after everything is in place and before the body
@@ -313,7 +315,7 @@ python3 "$PKG/assets/lib/redact.py" "$OUT" \
   "TASK_PACKAGE=$PKG" \
   "TMPDIR=/tmp" \
   "HOME=$HOME" || {
-    say "ABORT: evidence still names paths the handoff seal will refuse"
+    say "ABORT: evidence still names local paths redact.py could not place"
     exit 1
   }
 

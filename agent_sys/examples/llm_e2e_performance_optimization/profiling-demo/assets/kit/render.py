@@ -10,6 +10,8 @@ artefact, so a document that disagrees with the run cannot be produced.
 
 import argparse
 import json
+import os
+import shutil
 from pathlib import Path
 
 
@@ -56,6 +58,40 @@ def main() -> int:
     engine_argv = argv_path.read_text(encoding="utf-8", errors="replace") if argv_path.is_file() else ""
     gpu_path = Path(args.deployment_baseline) / "items/env/gpu.txt"
     gpu = gpu_path.read_text(encoding="utf-8", errors="replace").strip() if gpu_path.is_file() else ""
+
+    # How a reproducer steps into the allocation. This is a fact about the
+    # cluster the round ran on, not about the package, so it is read from the
+    # same `PD_TRANSPORT` switch `assets/lib/remote.sh` dispatched on rather than
+    # asserted as `srun` -- a REPRODUCE.md naming a transport the reader's
+    # cluster does not have is worse than one that names none.
+    # `auto` is resolved here exactly as remote.sh resolves it, rather than being
+    # guessed at: this body runs on the same login node the transport is used
+    # from, so the same probe gives the same answer.
+    transport = os.environ.get("PD_TRANSPORT") or "auto"
+    if transport == "auto":
+        transport = "spur" if shutil.which("spur") else "srun"
+    if transport == "local":
+        machine_note = (
+            "a shell on the node itself. This round drove the steps locally "
+            "(`--var transport=local`), so there is no transport to step through — "
+            "run the commands below on the node"
+        )
+    elif transport == "spur":
+        machine_note = (
+            "`spur exec <jobid> bash -lc '<command>'`. The login node has no GPUs and "
+            "cannot ssh to a compute node, which is why every step goes through that "
+            "transport; the controller routes by job id, so no node name is passed"
+        )
+    else:
+        machine_note = (
+            "`srun --jobid=<id> --overlap -N1 -n1 -w <node> bash -lc '<command>'`. The "
+            "login node has no GPUs and cannot ssh to a compute node, which is why "
+            "every step goes through that transport"
+        )
+    # Both taken from the round's own record rather than from the eight-GPU
+    # GLM-5.3-Flash deployment this package was first written for.
+    gpus = dep_base.get("tp_size", "?")
+    model_name = Path(dep_base.get("model_path", "the model")).name
 
     top = (kernels.get("kernels") or [])[:10]
     top_rows = "\n".join(
@@ -130,18 +166,19 @@ minutes — the second is faster because the checkpoint is in page cache.
 
 ## 0. Prerequisites
 
-- **Machine:** one node with 8× MI355X, held by a Slurm allocation you can enter
-  with `srun --jobid=<id> --overlap`. The login node has no GPUs and cannot ssh to
-  a compute node, which is why every step goes through `srun`.
+- **Machine:** one node with {gpus} × MI355X, held by an allocation you reach with
+  {machine_note}.
 - **Paths** (site-specific; every `@NAME@` below is one of these):
-  - `@MODEL_MOUNT@` — the directory holding the GLM-5.3-Flash checkpoint.
+  - `@MODEL_MOUNT@` — the directory holding the `{model_name}` checkpoint.
   - `@WORK_ROOT@` — a node-local work area with ~2 GB free. Not a network mount:
-    one capture is about 462 MB and it is written eight times in parallel.
+    one capture is about 462 MB and it is written once per rank in parallel.
   - `@TRACE_DIR@` — the directory holding the Mooncake trace JSONL.
   - `@MAGPIE_ROOT@` — a checkout of Magpie.
-- **Images:** `{dep_base.get('image', '?')}` for the engine (build it from
-  `Dockerfile.sglang.glm53`; no released SGLang carries `model_type: glm5_next`),
-  `{load_cfg.get('aiperf_image', '?')}` for AIPerf, and an etcd image.
+- **Images:** `{dep_base.get('image', '?')}` for the engine — it must carry both
+  infera and an SGLang that recognises this checkpoint's `model_type`; for
+  GLM-5.3-Flash (`glm5_next`) no released SGLang does and the image is built from
+  `Dockerfile.sglang.glm53`. `{load_cfg.get('aiperf_image', '?')}` for AIPerf,
+  and an etcd image.
 - **Ports:** router {ports.get('router', '?')}, worker {ports.get('worker', '?')},
   etcd {ports.get('etcd', '?')}. **Not 2379** — these nodes run a Kubernetes
   control plane whose own etcd holds it over TLS.

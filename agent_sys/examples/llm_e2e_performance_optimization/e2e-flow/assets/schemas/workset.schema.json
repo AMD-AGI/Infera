@@ -1,0 +1,1571 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workset.schema.json",
+  "title": "operator_workset — the merged stage-3 / stage-4 contract",
+  "description": "Mission M3.7: 'operator_workset 的定义融合 阶段3 operator_workset 和 阶段4 workset 为一个'. This schema describes `items/codes/workset.yaml`, the one document m4 has to read. Every one of M3.7's seven requirements is a field or a required file here rather than a paragraph somewhere: executable over descriptive (M3.7.1 — every claim about behaviour points at a script that produces it), yaml/json over markdown (M3.7.2 — the per-operator README.md of the stage-3 half becomes `operators/<id>/operator.yaml`, and prose survives only where it states a *reason*), standard tools over bespoke ones (M3.7.3 — `provenance.magpie_row` carries Magpie's own row verbatim rather than a re-derivation), one-click correctness and one-click performance covering every shape to be optimised with at least three (M3.7.4 — `entrypoints` plus `operators[].shapes` minItems 3), shaped like flashinfer-bench (M3.7.5 — `definition` and `workload` are that project's Definition JSON and Workload JSONL, of which `rank0/` in this repository is the worked instance), a KernelForge one-line script layered *over* that base as an add-on (M3.7.6 — the whole `forge` block is generated from `definition` + `workload` and the validator checks it agrees), and one handoff per operator deferred (M3.7.7 — hence `operators` is a list, not one object).\n\nThe single most important property, and the reason m4 may take its ground truth strictly from this artefact (M4.3.5): the numbers in `evidence/performance.json` were produced by `run_performance.sh`, and that is the *same script* m4 runs on its candidate. A ratio between them is therefore a ratio between two runs of one instrument, not between two instruments.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "workset_id",
+    "produced_by",
+    "ground_truth",
+    "entrypoints",
+    "operators"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "workset_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+      "description": "Names the workset, not an operator: one workset carries every candidate operator from one profile of one model on one architecture. e.g. `qwen36-27b.gfx950.decode`."
+    },
+    "produced_by": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "package",
+        "commit",
+        "step"
+      ],
+      "description": "Which code built this. Not decoration: when a workset and the package that grades it disagree, the first question is whether they are the same generation.",
+      "properties": {
+        "package": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commit": {
+          "type": "string",
+          "minLength": 7
+        },
+        "step": {
+          "type": "string",
+          "minLength": 1
+        },
+        "produced_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "ground_truth": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "abort_on_mismatch",
+        "warn_on_mismatch",
+        "environment",
+        "dtypes",
+        "noise_floor"
+      ],
+      "description": "M4.3.5, and it is the mission item that was **reversed** relative to the previous round. m4 is no longer told to distrust the workset's printed numbers; it is told to take them as ground truth, and to **abort** when the premise under which they were measured does not hold. That instruction is only safe because `check_workset_runs` has already re-run these entrypoints on this hardware. The two lists below are what 'the premise' means, spelled as field names of `environment.schema.json#/properties/fixed` so that the comparison is mechanical.",
+      "properties": {
+        "abort_on_mismatch": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          },
+          "description": "Hardware and parallelism facts. A difference here makes every number in `evidence/` a number about a different machine, so the consumer stops rather than reporting a ratio across two machines. Default and floor: [gpu_arch, gpu_count, tp_size].",
+          "default": [
+            "gpu_arch",
+            "gpu_count",
+            "tp_size"
+          ]
+        },
+        "warn_on_mismatch": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          },
+          "description": "Software facts. A different ROCm or a rebuilt image usually moves a kernel a few percent and sometimes moves it a lot; the consumer records the difference and continues. Default: [image_id, rocm, torch].",
+          "default": [
+            "image_id",
+            "rocm",
+            "torch"
+          ]
+        },
+        "dtypes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "**Lifted here at m4's request, and the request was well founded.** `dtype` is on M4.3.5's abort list, but it lives in each Definition's `inputs[].dtype` — and m4's validator carries `workset.yaml` forward as its snapshot, not the whole tree, so it was **silently skipping the comparison**. It said so rather than passing quietly, which is how this got found.\n\nOne entry per operator_id, holding that operator's activation dtype. A summary of the Definitions, not a second source of truth: `check_workset_shape` checks it against `inputs[].dtype`, so it cannot drift into disagreeing with the thing it summarises.",
+          "propertyNames": {
+            "pattern": "^[a-z0-9][a-z0-9_]*$"
+          }
+        },
+        "noise_floor": {
+          "type": "number",
+          "exclusiveMinimum": 1.0,
+          "description": "The workset-wide floor: the largest of `operators[].noise_floor`. Present because a consumer holding only `ground_truth` — which is the block m4 copies into its own handoff as `premise` — should not have to walk the operator list to find the bar its claim must clear. `check_workset_shape` checks it is the max, so it cannot be quietly lowered."
+        },
+        "environment": {
+          "$ref": "environment.schema.json",
+          "description": "The environment under which `evidence/` was measured, inlined rather than referenced by path. It is the same document as `items/codes/environment.yaml` and `check_environment` grades that copy; this one exists so that a consumer holding only `workset.yaml` can evaluate the two lists above without opening a second file."
+        }
+      }
+    },
+    "entrypoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness",
+        "performance"
+      ],
+      "description": "M3.7.4 — 必须一键运行的 correctness test 以及 performance test. Whole-workset, every operator, every shape. Both take the same four options and the contract is that **the workset's own baseline and a consumer's candidate go through the same script**:\n\n    ./run_correctness.sh [--operator ID] [--shape CASE_ID] [--impl PATH] [--json OUT]\n    ./run_performance.sh [--operator ID] [--shape CASE_ID] [--impl PATH] [--json OUT]\n\nWith no `--impl` they exercise the workset's own baseline and reproduce `evidence/`. With `--impl PATH` they exercise a replacement against the same reference, the same shapes and the same protocol. Exit code 0 means every shape passed; non-zero means at least one did not, and the report says which. Neither script may be edited by a consumer — a change to them makes every measurement incomparable with the baseline, which is the whole point of shipping them.\n\n`--shape` narrows to one case and is what makes `check_workset_runs` affordable: that validator does not grade the recorded evidence, it **re-measures at least one shape itself** and checks its own number against the recorded one, so a full re-run would double the workset's GPU cost at every seal. Without a shape selector the cheap version of that check does not exist and the trust chain would rest on a claim about a claim.\n\nBoth refuse to run when a field in `ground_truth.abort_on_mismatch` does not match the host they are on. That refusal is a behaviour of the script and not a paragraph a reader has to obey (M3.7.1).",
+      "properties": {
+        "correctness": {
+          "$ref": "#/$defs/entrypoint"
+        },
+        "performance": {
+          "$ref": "#/$defs/entrypoint"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "correctness_report",
+        "performance_report",
+        "measured_on"
+      ],
+      "description": "Where the baseline run's own reports are, and where they were measured. Produced by running `entrypoints` with no `--impl`. `check_workset_runs` re-runs the entrypoints and compares against these; m4's speedup denominator is `performance_report`, filtered to `impl == \"baseline\"`.\n\nOptional at the schema level and **required by `check_workset_shape`** — a workset may legitimately not have been measured yet at the moment its author validates its shape, and it may never be handed on in that state.",
+      "properties": {
+        "correctness_report": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path relative to `items/codes/`, conventionally `evidence/correctness.json`. Validates against `#/$defs/correctness_report`."
+        },
+        "performance_report": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path relative to `items/codes/`, conventionally `evidence/performance.json`. Validates against `#/$defs/performance_report`."
+        },
+        "measured_on": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "node",
+            "gpu_arch",
+            "container",
+            "at"
+          ],
+          "properties": {
+            "node": {
+              "type": "string",
+              "minLength": 1
+            },
+            "gpu_arch": {
+              "type": "string",
+              "pattern": "^(gfx[0-9a-f]{3,4}|sm_[0-9]+)$"
+            },
+            "container": {
+              "type": "string",
+              "minLength": 1
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "logs": {
+          "type": "string",
+          "description": "Path to the captured stdout/stderr of the two runs, relative to `items/codes/`."
+        }
+      }
+    },
+    "protocol": {
+      "$ref": "#/$defs/protocol",
+      "description": "The measurement protocol both entrypoints use, declared once here so a consumer can quote it without reading the scripts. `groups` >= 5 and `iters_per_group` >= 10 is the floor the previous round measured to be necessary: the round-to-round spread on a steady node is ~2%, and fewer groups than this cannot distinguish a 5% win from it."
+    },
+    "operators": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One entry per candidate operator. A list rather than one object because M3.7.7 — 每个算子一个单独的 handoff — is **deferred**, not rejected: agent_sys has no 'one output slot per element of a runtime list' (`env_mgr/grants.py:340-355`), so one handoff carries them all and this list is where the split will happen when the framework can express it (`todo.md` T3).",
+      "items": {
+        "$ref": "#/$defs/operator"
+      }
+    },
+    "excluded": {
+      "type": "array",
+      "description": "Candidates that were considered and are not in `operators`, each with a reason. Present for the same argument `check_identity_resolved` makes with `min_resolve_ratio: 0.0`: what is checked is that uncertainty is *modelled*, not that it is absent. A workset that silently drops the 63%-of-GPU-time collectives is indistinguishable from one that never saw them.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "operator_id",
+          "excluded_reason"
+        ],
+        "properties": {
+          "operator_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "device_symbol": {
+            "type": "string"
+          },
+          "pct_total": {
+            "type": "number",
+            "minimum": 0
+          },
+          "excluded_reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resolution_hint": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "entrypoint": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "cmd",
+        "report"
+      ],
+      "properties": {
+        "cmd": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\./[A-Za-z0-9_./-]+(\\s.*)?$",
+          "description": "Relative to `items/codes/`, and relative on purpose: `handoff/locality.py` refuses a seal over any absolute path outside its allow-list, and a `/`-leading fragment in a *comment* has refused a complete delivery before."
+        },
+        "report": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Default `--json` destination, relative to `items/codes/`."
+        },
+        "flags": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "**The flag spelling, pinned rather than assumed.** m4 guessed a three-flag form (`--impl candidate --impl-path PATH`) from `performance_report`'s `impl`/`impl_path` fields, and named the consequence exactly: a wrong flag would run the **baseline** while the consumer recorded it as the candidate — two measurements of one kernel, ratio 1.000, and no error anywhere. A silent 1.0 is the worst failure this contract can produce, so the spelling is data.\n\n`impl` is the *only* selector: there is no `--impl candidate` mode. Passing a path selects a candidate and omitting it selects the baseline, so the two cannot disagree.",
+          "properties": {
+            "operator": {
+              "type": "string",
+              "default": "--operator"
+            },
+            "shape": {
+              "type": "string",
+              "default": "--shape"
+            },
+            "impl": {
+              "type": "string",
+              "default": "--impl"
+            },
+            "report": {
+              "type": "string",
+              "default": "--json"
+            },
+            "environment": {
+              "type": "string",
+              "default": "--environment",
+              "description": "Path to **this run's** `environment.yaml`, which the entrypoint checks `ground_truth.environment` against before measuring anything. Omitting it makes the run's premise unchecked rather than confirmed, and the entrypoint says so on stderr and records `environment.premise_checked_against: null` in the report. **Omitting it does not fall back to a second opinion**: the record beside the entrypoint is the one `ground_truth.environment` was copied from, so the comparison would be a document against itself and would agree by construction. That case reports `premise_checked_against: \"self (not independently confirmed)\"` and carries no path, because naming one reads as two documents. It is a legitimate state — a workset measured where it was built is in it — and not a failure."
+            }
+          }
+        },
+        "impl_contract": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "form",
+            "entry_symbol",
+            "call",
+            "replaces"
+          ],
+          "description": "**What `--impl PATH` must be**, on the `performance` entrypoint. Undeclared until m4's STEP 4 reached the harness and got *\"the Definition's `candidate:<id>` defines no `run`\"* — two sides disagreeing about what the flag means, with nothing stating it. Same shape as the flag *spellings* above and the same remedy: if a consumer has to read the harness to use the harness, the contract is the harness's behaviour rather than a contract.\n\n`form: python-source-file`, `entry_symbol: run`, `call: run(**inputs)` keyed by the Definition's `inputs`, `replaces: baseline` and never `reference` — a candidate that could replace the reference would be grading itself. Exec'd in a fresh namespace, so relative imports do not work and the file must be self-contained. The producer states it and the consumer conforms, in that order: a seed fitted to the harness's observed behaviour pins the undeclared thing instead of removing it.",
+          "properties": {
+            "form": {
+              "const": "python-source-file"
+            },
+            "entry_symbol": {
+              "type": "string",
+              "minLength": 1
+            },
+            "call": {
+              "type": "string",
+              "minLength": 1
+            },
+            "inputs_from": {
+              "type": "string"
+            },
+            "replaces": {
+              "enum": [
+                "baseline"
+              ]
+            },
+            "notes": {
+              "type": "string"
+            }
+          }
+        },
+        "timeout_s": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "protected": {
+          "type": "boolean",
+          "default": true,
+          "description": "The consumer may not edit this file. KernelForge already treats `--driver` this way; the same rule applies one level up, because a consumer that edits the instrument controls its own result."
+        }
+      }
+    },
+    "protocol": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "groups",
+        "iters_per_group",
+        "warmup",
+        "timing"
+      ],
+      "properties": {
+        "groups": {
+          "type": "integer",
+          "minimum": 5
+        },
+        "iters_per_group": {
+          "type": "integer",
+          "minimum": 10
+        },
+        "warmup": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timing": {
+          "type": "string",
+          "enum": [
+            "wall_clock_sync"
+          ],
+          "description": "**How the clock is taken, and it is an enum of what the harness actually implements.** It read `event` for a day while every measurement was `time.perf_counter()` wrapped in `torch.cuda.synchronize()` — declared, consumed by nothing, and therefore never contradicted. Found by m2 reading this harness against m4's.\n\n`wall_clock_sync`: sync, start `perf_counter`, `iters` calls, sync, stop; the reported figure is already divided by `iters`. It **includes** per-launch overhead and the synchronise, amortised over the group — a different quantity from HIP event timing, which would differ systematically and in one direction on every case.\n\nOne value on purpose. `run_performance.sh` now reads this field and **refuses** anything else, so a second method cannot be declared before it is built. Adding one means adding the code and the enum member together, and re-measuring everything recorded under the old one — numbers are not comparable across methods."
+        },
+        "reduction": {
+          "type": "string",
+          "enum": [
+            "weighted_mean",
+            "median"
+          ],
+          "default": "weighted_mean"
+        }
+      }
+    },
+    "operator": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "operator_id",
+        "op_type",
+        "status",
+        "missing_fields",
+        "definition",
+        "workload",
+        "shapes",
+        "entrypoints",
+        "reference",
+        "baseline",
+        "edit_target",
+        "integration",
+        "gates",
+        "noise_floor",
+        "apparatus",
+        "provenance"
+      ],
+      "properties": {
+        "operator_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9_]*$",
+          "description": "Also the directory name under `operators/`, so it is constrained to what a path and a shell variable both tolerate."
+        },
+        "kernel_id": {
+          "type": "string",
+          "description": "The id `kernel_worklist` gave it, e.g. `k003`. The join back to m3's own earlier artefacts."
+        },
+        "device_symbol": {
+          "type": "string",
+          "description": "What the profiler recorded. It is **not** the unit of work: the unit is the framework-level entry function in `edit_target`, because a device symbol is frequently a generated name that appears nowhere in the checkout. A workset whose `device_symbol` cannot be found in the source is normal and is not a defect; `edit_target.resolution_caveats` is where that is said."
+        },
+        "op_type": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9_]+$",
+          "description": "flashinfer-bench's `op_type`, and also the subdirectory under `definitions/` and `workloads/`. `gemm`, `moe`, `attention`, `norm`, `softmax`, …"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial"
+          ],
+          "description": "Carried over from the stage-3 half's `invocation_spec.json`, where it had already been used correctly and non-obviously: a workset with three *stated uncertainties* but every field filled is `complete`, because `missing_fields` is about fields, and a `partial` that names no field hides the uncertainty rather than recording it."
+        },
+        "missing_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Empty iff `status` is `complete`. `check_workset_shape` enforces the biconditional."
+        },
+        "definition": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^definitions/[a-z0-9_]+/[A-Za-z0-9_.-]+\\.json$",
+          "description": "M3.7.5. A flashinfer-bench **Definition**, byte-shaped like `rank0/definitions/gemm/aiter_gemm_a16w16_nt_n128_k6144.json`: `{name, op_type, axes{var|const}, inputs{shape,dtype}, outputs, reference, baseline, tags, description, constraints}`, where `reference` and `baseline` are Python source strings each ending in `def run(*args, **kwargs)`. That format was not chosen for resemblance — it is the only one in this problem that separates the three things a correctness gate keeps confusing: the *reference* (slow, obviously-right, what correctness is judged against), the *baseline* (the incumbent fast implementation, what speedup is judged against), and the *candidate* (what a consumer supplies)."
+        },
+        "workload": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^workloads/[a-z0-9_]+/[A-Za-z0-9_.-]+\\.jsonl$",
+          "description": "M3.7.5. A flashinfer-bench **Workload** JSONL, one line per shape, each `{definition, workload:{axes, inputs, uuid}, solution: null, evaluation: null}`. **This file is the single source of truth for the shape list**; `shapes` below is a denormalised index of it for validators that should not have to parse JSONL, and `forge.cases` is a generated export. `solution` and `evaluation` are null here by construction: they are the slots a consumer fills, and a workset that pre-fills them is asserting an answer it has not measured."
+        },
+        "shapes": {
+          "type": "array",
+          "minItems": 3,
+          "description": "M3.7.4.1 — 必须提供所有 test case: 包括所有需要优化的形状, 保证在 ≥3. Two requirements, and the second is the weaker one. **Every shape the operator is to be optimised for must appear here**, so a consumer cannot optimise a shape nothing measured; three is the floor at which a performance claim is about an operator rather than about one shape. One row per line of `workload`, in the same order, and `check_workset_shape` checks the correspondence rather than trusting it.",
+          "contains": {
+            "properties": {
+              "role": {
+                "enum": [
+                  "performance",
+                  "correctness-and-performance"
+                ]
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "minContains": 3,
+          "items": {
+            "$ref": "#/$defs/shape"
+          }
+        },
+        "entrypoints": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "correctness",
+            "performance"
+          ],
+          "description": "The per-operator narrowing of the workset-level entrypoints — `./run_correctness.sh --operator <id>` and so on. Spelled out rather than left to be composed, because a consumer building the command line itself is a consumer who can build it wrong and get a silent whole-workset run.",
+          "properties": {
+            "correctness": {
+              "$ref": "#/$defs/entrypoint"
+            },
+            "performance": {
+              "$ref": "#/$defs/entrypoint"
+            }
+          }
+        },
+        "reference": {
+          "$ref": "#/$defs/implementation",
+          "description": "What **correctness** is judged against. Slow and obviously right. `kind: imported` is strongly preferred and the stage-3 half gives the argument in one line: a reference written from a reading of the kernel is how a correctness gate comes to agree with a bug. When the framework ships its own reference for this operator — and it usually does, in its own test suite — importing it means the gate is the one its authors wrote."
+        },
+        "baseline": {
+          "$ref": "#/$defs/implementation",
+          "description": "What **speedup** is judged against: the incumbent fast implementation, the thing actually running in the served engine today. Distinct from `reference`, and conflating the two is the single most common way a speedup number becomes meaningless — a 40x win over a naive fp32 loop is not a win over the tuned kernel it would replace. flashinfer-bench keeps them in separate fields for this reason and so does this."
+        },
+        "edit_target": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "source_file",
+            "entry_function"
+          ],
+          "description": "Where a consumer changes something. The unit is the framework-level entry function, not the device symbol.",
+          "properties": {
+            "source_owner": {
+              "type": "string",
+              "description": "`aiter`, `sglang`, `triton`, … which checkout the file lives in."
+            },
+            "repo_root_var": {
+              "type": "string",
+              "pattern": "^(|\\$\\{[A-Z_][A-Z0-9_]*\\}|@[A-Z_][A-Z0-9_]*@)$",
+              "description": "The placeholder the file paths are relative to, e.g. `${AITER_ROOT}` or `@AITER_ROOT@`. A **variable and not a path**: `/sgl-workspace/aiter` is where aiter lives in *one image*, and a document that hard-codes it cannot be retargeted.\n\nBoth sigils and empty are accepted, and the value is `operator_identity.operators[].image_repo_path` carried through unchanged — so this constraint must be exactly that field's or a correct upstream document produces a workset that will not validate. It did, once: `@SGLANG_ROOT@` against a `${...}`-only pattern, caught by running the chain rather than by reading the two files side by side."
+            },
+            "source_file": {
+              "type": "string",
+              "minLength": 1
+            },
+            "editable_sources": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "entry_function": {
+              "type": "string",
+              "minLength": 1
+            },
+            "entry_function_line": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "The 1-based line of `entry_function` as the analysis saw it. **Advisory, and never a locator.** Measured 2026-09-04: a workset recorded `entry_function_line: 183` while the fragment sat at line **207** of the file in the deployed image \u2014 the analysis was against sglang 0.5.14 and the image is 0.5.16. **An offset that is precise, plausible and 24 lines wrong is worse than an absent one, because it invites use** (m4's framing, and they met it while building). A consumer must locate by the fragment text or by AST and refuse when it is absent or ambiguous, which is what `optimize_kernel.task/steps/_fragment_patch.py` now does.\\n\\n**`scaffold.py` does not emit this**, so a real workset carries no offset to go stale; the 183 was a constant in the mock and has been removed (`assets/lib/controls/edit_target_failures.py`, case B). It stays in the schema because an agent may record what it read, and a recorded observation is worth having \u2014 but it is a note about where the thing was, not an instruction for finding it. Nothing validates it: doing so would need the image, which no validator in this package has."
+            },
+            "device_function": {
+              "type": "string"
+            },
+            "device_function_line": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "The 1-based line of `device_function` as the analysis saw it. **Advisory, and never a locator.** Measured 2026-09-04: a workset recorded `entry_function_line: 183` while the fragment sat at line **207** of the file in the deployed image \u2014 the analysis was against sglang 0.5.14 and the image is 0.5.16. **An offset that is precise, plausible and 24 lines wrong is worse than an absent one, because it invites use** (m4's framing, and they met it while building). A consumer must locate by the fragment text or by AST and refuse when it is absent or ambiguous, which is what `optimize_kernel.task/steps/_fragment_patch.py` now does.\\n\\n**`scaffold.py` does not emit this**, so a real workset carries no offset to go stale; the 183 was a constant in the mock and has been removed (`assets/lib/controls/edit_target_failures.py`, case B). It stays in the schema because an agent may record what it read, and a recorded observation is worth having \u2014 but it is a note about where the thing was, not an instruction for finding it. Nothing validates it: doing so would need the image, which no validator in this package has."
+            },
+            "source_resolution_method": {
+              "type": "string",
+              "enum": [
+                "trace_python_stack",
+                "symbol_search",
+                "agent_recovered",
+                "declared"
+              ],
+              "description": "Carried through from `operator_identity`, and **the enum must be that schema's exactly**. It was not: this one said `stack_trace` where upstream says `trace_python_stack`, so a correct identity document produced a workset that would not validate. Two names for one thing across two schemas in one package is the failure a shared vocabulary exists to prevent."
+            },
+            "resolution_evidence": {
+              "type": "string",
+              "description": "How it was established. Prose, and prose is right here: this is a *reason*, and M3.7.2's preference for yaml is over facts, not over arguments."
+            },
+            "resolution_caveats": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Stated uncertainties about facts the schema has no slot for. The stage-3 half's worked example is worth keeping in mind: the source file `operator_identity` declared for one kernel was **wrong**, and editing it would have changed a different kernel while every measurement continued to look plausible."
+            },
+            "from_identity": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": true,
+              "properties": {
+                "source_file_path": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "kernel_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "description": "**What the identity said, recorded here so a single artefact can be checked against it.** `scaffold.py` derives `source_file` from `operator_identity`'s `source_file_path[0]`, and until 2026-09-04 nothing could confirm it had stayed derived: `check_workset_shape` declares `inputs: [operator_workset]`, `zone.materials()` is written per-validator (one handoff each, measured), and **no phase in this graph stages the identity and the workset together** \u2014 `operator_identity` is an intermediate, an output of `identify` and an input of `build_workset`. A two-kind validator was written and bound to nothing.\\n\\nSo this is the same move `base_sha256` and `module_symbols` make, one level up: *a recorded value turns a question that needs another artefact into one that needs a comparison*.\\n\\n**Written by the scaffold, and not to be edited.** At rung 3 `build_workset` is `kind: ai`: the agent runs the scaffold at STEP 2 and then edits the workset, and the task readme tells it to read `edit_target` rather than write it with nothing enforcing that (`todo.md` T51, aimed at a field). Editing `source_file` without editing this makes the divergence visible; editing both is a deliberate act rather than a slip.\\n\\n**`null` means no identity described this operator** \u2014 the mock's `sampler_vocab_softmax` is not in the sealed identity, whose operators are the two `moe_gemm_*`. Null downgrades the check to UNVERIFIED and says so, exactly as a null `module_symbols` does; it never passes silently.\\n\\nThe honest limit, stated rather than left to be discovered: an agent that edits both fields defeats this. It buys *verifiable within one artefact* over *unverifiable*, not proof. Proof needs a phase that stages both kinds, which is a contract change."
+            }
+          }
+        },
+        "integration": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "target_files",
+            "public_symbol",
+            "invariants",
+            "apply_mode"
+          ],
+          "description": "M5.1.1 — 优化成果是如何 apply 回 sglang，是应该严格遵循 3 的 handoff 的. **The declared integration point, and it is declared here rather than inferred downstream.** Distinct from `edit_target`, which says where an *optimiser* edits; this says where a *replacement* is installed and what it may not change. The two are usually the same file and are not the same statement, and collapsing them is what forces m5 to read an optimisation report and decide.\n\nThis block is the whole of what lets m5's `apply_patch` stay a program: with it, applying is a copy from a named source to a named target and a check that the signature held. Without it, applying is a judgement call, and a judgement call in `apply_patch` is a second agent deciding what the first agent meant.",
+          "properties": {
+            "target_files": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "Paths **inside the engine**, relative to `edit_target.repo_root_var`. What gets replaced, named by the workset, so that m4 cannot widen the blast radius by editing a sixth file and m5 cannot be surprised by one."
+            },
+            "public_symbol": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1,
+              "description": "The symbol an overlay installs, **or null when there is none**. It was a required non-empty string, which made the schema unable to represent an operator whose engine code is a fragment inside a method — so every operator had to name a symbol and one of them named a symbol that does not exist. Null is now the honest value for `substitution: call_site_fragment`; see that field."
+            },
+            "signature": {
+              "type": "string",
+              "description": "The call signature that must hold, e.g. `sampler_softmax(logits: Tensor[B, V] fp32, out: Tensor[B, V] fp32) -> Tensor`."
+            },
+            "invariants": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "What a replacement may not change, beyond the signature. The worked example is worth keeping in view because none of it is inferable from the signature: for `sampler_vocab_softmax` the production call site is `logits[:] = torch.softmax(...)`, so the replacement **writes in place into a caller-provided `out`** — one that allocates is not substitutable there, and would pass every correctness gate."
+            },
+            "apply_mode": {
+              "type": "string",
+              "enum": [
+                "overlay_files",
+                "patch_in_place"
+              ],
+              "description": "How the replacement is installed, and **this field now decides between two materially different installs**. Widened 2026-09-04 on the user's ruling — 最挫的 apply 方式难道不是找到调用的地方，把那一行替换掉 — which is a diff, and `apply.py:641-659` has run `patch -p1 --batch --forward` all along. The applier was never the gap; the gap was that a workset had no way to *ask* for it, because this enum had one value.\n\n**`overlay_files`** — the replacement **is** the module and is written over it. Correct when the optimised thing is the file's reason to exist and the replacement reproduces the public surface the stock file exported. It cannot be right for an edit that lives inside an existing function: overlaying `sampler.py` with a standalone kernel module deletes every symbol the engine imports.\n\n**`patch_in_place`** — a diff is applied to the stock file, which is extracted from the image and patched. Correct when the edit lives inside an existing function, which is exactly `substitution: call_site_fragment`. **The public surface survives by construction**: a patch that does not delete a definition cannot drop it, so m5's two surface refusals — the whole-file overlay dropping imported names, and `check_optimization_shape`'s `kept == ∅` — cannot fire on this path. That property, not the mechanism, is why it is the answer for a fragment operator.\n\nWidening it is what makes the `substitution` × `apply_mode` pair satisfiable. Before this the only spellable combination for a fragment operator was one m4's gate and m5's `apply_patch` both refuse, and correctly — the pair was unsatisfiable by construction, which is a statement about the schema and belonged here rather than in a gate."
+            },
+            "base_sha256": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "description": "sha256 of each **stock** file in `target_files`, as it exists in the image, keyed by the same path. m5's patch manifest requires it: it pulls the file out of the image, hashes it, and refuses on a mismatch.\n\n**Recorded here rather than at m4 time on purpose, and the difference is provenance.** m4 can hash the file — m1 through m4 share one container, so the tree m5 will patch is on m4's filesystem — but a hash taken then is a hash of whatever the file had become by then. Taken here, it is pinned at the moment the operator was identified, so a file that changed in between is *detectable* rather than silently blessed. m4 keeps its own hash as a cross-check, which makes the pair a check rather than two guesses.\n\nNull when the workset could not read the image. A consumer must then fall back to hashing, and should say that it did."
+            },
+            "requires_restart": {
+              "type": "boolean",
+              "default": true,
+              "description": "Whether installing it needs the engine restarted. `overlay_files` does; a hook would not."
+            },
+            "build_step": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "default": null,
+              "description": "A compile or codegen step the replacement needs, or null. Null is the good case and worth recording explicitly: a driver that imports the module directly is one an optimiser can iterate on in seconds."
+            },
+            "substitution": {
+              "type": "string",
+              "enum": [
+                "module_symbol",
+                "call_site_fragment"
+              ],
+              "description": "**Whether a named substitution target exists at all.** Added 2026-09-04 after m4 read the stock file out of the image and found that `public_symbol: sampler_softmax` is defined nowhere in `target_files[0]` — the engine's corresponding code is a fragment inside `Sampler.forward`, which is what `edit_target.entry_function` already said and what `public_symbol` contradicted.\n\n`module_symbol` — the target file defines `public_symbol` at module level and an overlay replaces it. Substitution is well-defined and `public_symbol` must appear in `module_symbols`.\n\n`call_site_fragment` — the optimised computation exists in the engine only as lines inside `edit_target.entry_function`. **There is no named thing to replace**, `public_symbol` is null, and installing a replacement means editing a method rather than swapping a symbol. That is M5.1.1's open question and this field does not answer it — it makes the workset *say which case it is in* so a consumer refuses early instead of building an overlay against a symbol that does not exist."
+            },
+            "module_symbols": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "Module-level definitions of `target_files[0]` **as they exist in the image**, recorded at identify time by the same container read that produces `base_sha256`. This is what makes `substitution: module_symbol` checkable rather than asserted: a `public_symbol` absent from this list is the defect m4 found, and it is detectable without a container. Null when the image could not be read, which downgrades the check to unverified rather than passing it.\n\n**What counts as a definition, because the boundary decides whether a refusal is honest.** `def`, `async def`, `class`, and any module-level assignment that binds a new name (`sampler_softmax = _impl_v2`, `a, b = f()`, `first, *rest = xs`). Assignments were absent until 2026-09-04, and their absence made `check_workset_shape` report a legitimate `public_symbol` as *not defined at module level* — a false refusal, found by m4 tracing a 12-vs-9 disagreement against m5's import surface.\n\n**Excluded:** `obj.attr = x` and `d[k] = x`, which mutate rather than define and cannot be replaced by name; and imports, which do bind a module-level name but belong to *what the namespace contains* rather than *what this file defines*. A consumer needing the import surface must read the file itself."
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "substitution": {
+                    "const": "module_symbol"
+                  }
+                },
+                "required": [
+                  "substitution"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "public_symbol": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "substitution": {
+                    "const": "call_site_fragment"
+                  }
+                },
+                "required": [
+                  "substitution"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "public_symbol": {
+                    "type": "null"
+                  },
+                  "apply_mode": {
+                    "not": {
+                      "const": "overlay_files"
+                    },
+                    "description": "**`call_site_fragment` with `overlay_files` is unsatisfiable, and this is where that belongs.** The edit lives inside an existing function, so the replacement is not the module — overlaying the file with it deletes every symbol the engine imports. m4's gate demonstrated this on rung 0's own workset (the replacement defined `run` and `sampler_softmax` and kept NONE of the target's 9), and m5's `apply_patch` reaches the same refusal one stage later. Two gates refusing one contradiction is worse than a schema refusing it once, and neither gate can say what a reader needs: that no artefact satisfies the pair. `not overlay_files` rather than `const patch_in_place` on purpose — the ruled-out combination is the fact, and a third mode should not have to come back here to be allowed."
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "noise_floor": {
+          "type": "number",
+          "exclusiveMinimum": 1.0,
+          "description": "**The speedup ratio below which a win is not distinguishable from noise, under this protocol on this host — declared by the workset, so that a consumer cannot invent it.** m4 is explicit that it must not pick this number itself, and it is right: a consumer choosing its own floor is a consumer choosing when to call its own result significant.\n\nDerived rather than guessed. `run_performance.sh` computes `1 + 2.83 × rsd_max` from the measured per-group spread, which is the two-sample 2σ separation — two independent measurements each with relative standard deviation `s` differ by more than `√2 · z · s` by chance alone. At the measured ~2% round-to-round spread on a steady node that gives ~1.057×, which is where the previous round's ~1.05× rule of thumb came from; this states the arithmetic instead of the rule of thumb, so a noisier host correctly demands a bigger win."
+        },
+        "apparatus": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "The files a consumer must copy, **byte-identically**, for the entrypoints to run outside this handoff. Relative to `items/codes/`.\n\nRequired because of a measured constraint on the consuming side, not for tidiness: m4's `check_speedup_substantiated` re-runs the workset's entrypoints from **its own packup's copy**, because an output phase stages only outputs — naming the workset in that validator's `inputs` would also bind it to the workset kind's phases, which cost the previous round a spurious FAIL. So the workset has to say which files travel; a consumer guessing the set is a consumer who ships a broken copy and finds out an hour later."
+        },
+        "gates": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "snr_db"
+          ],
+          "description": "What `run_correctness.sh` enforces. Every gate here is applied to every shape; a consumer's candidate passes only if the worst shape passes.",
+          "properties": {
+            "snr_db": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Signal-to-noise against `reference`, in dB. 30 is the conventional figure and it is **weak at fp4** — necessarily so, where an element-wise tolerance is either meaningless or unsatisfiable. Passing it is not equivalence, and a workset over a low-precision operator should carry an additional gate below rather than raise this one."
+            },
+            "allclose": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "atol": {
+                  "type": "number"
+                },
+                "rtol": {
+                  "type": "number"
+                }
+              }
+            },
+            "extra": {
+              "type": "array",
+              "description": "Operator-specific invariants, each a named predicate the driver evaluates. The stage-4 half carries the worked example and it is worth stating why it is not decoration: for a sampler softmax, 'every row sums to 1 within 1e-4' catches a wrong distribution that **no SNR threshold catches**, and the output feeds `torch.multinomial`.",
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "name",
+                  "brief"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "brief": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "tolerance": {
+                    "type": [
+                      "number",
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "source",
+            "magpie_row"
+          ],
+          "description": "Why this operator is in the workset at all, taken from m2's `profiling_evidence` rather than restated.",
+          "properties": {
+            "source": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Which capture. Name the model and the phase — a decode capture of a different model is a legitimate source and a misleading one if the reader assumes otherwise."
+            },
+            "rank": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "pct_total": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "magpie_row": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "M3.7.3 — 能通过工具标准化产出的尽量不自己搞：比如 magpie. **Magpie's own row, verbatim**, keys included: `Name`, `Calls`, `Self CUDA total (us)`, `Avg time (us)`, `% Total`, `Input Shapes`. Copied and not re-derived, so that a rename upstream shows up as a schema failure here rather than as a number that quietly means something else.",
+              "required": [
+                "Name",
+                "Calls",
+                "Avg time (us)",
+                "% Total",
+                "Input Shapes"
+              ],
+              "properties": {
+                "Name": {
+                  "type": "string"
+                },
+                "Calls": {
+                  "type": [
+                    "integer",
+                    "number"
+                  ]
+                },
+                "Self CUDA total (us)": {
+                  "type": "number"
+                },
+                "Avg time (us)": {
+                  "type": "number"
+                },
+                "% Total": {
+                  "type": "number"
+                },
+                "Input Shapes": {
+                  "type": [
+                    "string",
+                    "array"
+                  ]
+                }
+              }
+            },
+            "in_service_avg_us": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "Magpie's `Avg time (us)`, restated here under a name that says what it is: an average **inside the running service**, across mixed batch sizes and in contention with every other kernel. It is **not** the standalone baseline and the two can differ severalfold. The standalone number lives in `evidence/performance.json` and is the only one a speedup may be computed against. Keeping both, named differently, is cheaper than explaining the difference once and hoping."
+            }
+          }
+        },
+        "forge": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "one_line",
+            "driver",
+            "generated_from"
+          ],
+          "description": "M3.7.6 — kernel forge well format one line script 作为额外项目, 在基础格式上封装. **An add-on layered over the base format, not a replacement for it.** Everything here is generated from `definition` + `workload` by `lib/forge_export.py`, and `check_workset_shape` re-runs that generation and diffs, so the two cannot drift. A consumer that does not use KernelForge ignores this block entirely and loses nothing: the base format carries the whole contract.",
+          "properties": {
+            "one_line": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^operators/[a-z0-9_]+/run_forge\\.sh$",
+              "description": "The one-line script. `--dry-run` prints the command it would run without running it, which is the flag that makes it reviewable."
+            },
+            "driver": {
+              "type": "string",
+              "minLength": 1,
+              "description": "`scripts/forge_driver.py`, whose stdout contract forge-loop parses (`SNR: <x> dB`, `case_snr:`, `case_allclose:`, `time_ms:`/`case_ms:`) and which forge-loop treats as a **protected file** its optimising agent may not modify. That protection is exactly why `check_workset_runs` exists: forge-loop takes what this prints on trust, so something has to have run it first."
+            },
+            "invocation_spec": {
+              "type": "string",
+              "description": "`invocation_spec.json`, schema_version 2 — the machine contract for `forge-loop --invocation-spec-file`."
+            },
+            "task": {
+              "type": "string",
+              "description": "`forge_task.yaml` — the human-readable intent declaration KernelForge's own fellows emit."
+            },
+            "cases": {
+              "type": "string",
+              "description": "`tests/cases.json` — the `CASE_ID`-keyed export of `workload`, which is the form forge-loop's `--shape CASE_ID=<id>` selector needs."
+            },
+            "generated_from": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "definition",
+                  "workload",
+                  "operator"
+                ]
+              },
+              "description": "Which base documents this block is derived from. Declared so the regeneration check knows what to feed the exporter."
+            },
+            "fellow": {
+              "type": "string",
+              "description": "Which KernelForge fellow the kernel's language selects: `ck-fellow`, `triton-fellow`, …"
+            }
+          }
+        },
+        "notes": {
+          "type": "string",
+          "description": "Prose, for reasons only. Anything here that is a *fact* belongs in a field above."
+        }
+      },
+      "allOf": [
+        {
+          "$comment": "status and missing_fields are a biconditional, not two independent fields. The stage-3 half enforced this in validator code; it is mechanical, so it belongs here where the producer sees it too. `partial` with an empty list names no gap and `complete` with a non-empty one contradicts itself; both were reachable before this clause.",
+          "if": {
+            "properties": {
+              "status": {
+                "const": "complete"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "missing_fields": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "missing_fields": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "shape": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "case_id",
+        "uuid",
+        "axes",
+        "role",
+        "observed"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_]*$",
+          "description": "Stable, human-quotable, and the token both entrypoints and forge-loop's `--shape CASE_ID=<id>` select on."
+        },
+        "uuid": {
+          "type": "string",
+          "minLength": 8,
+          "description": "The `workload.uuid` of the corresponding JSONL line. This is the join to the base format, and it is what makes `shapes` a *view* rather than a second source of truth."
+        },
+        "axes": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": [
+              "integer",
+              "number",
+              "string",
+              "boolean"
+            ]
+          },
+          "description": "The `var` axes for this shape, exactly the `workload.axes` object of the matching line. Const axes are in the Definition and are not repeated."
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "correctness",
+            "performance",
+            "correctness-and-performance"
+          ],
+          "description": "What the shape is for. **At least three shapes must include `performance`** (`shapes.minContains`) — one is what keying this on `is_primary` produced, and it passes a floor written on the shape count while m4 refuses it at STEP 1 (`min_shapes_measured: 3`). A correctness-only shape cannot be shown to have got faster, so the timed count is the one M3.7.4.1's ≥3 is about. `assets/lib/workset_io.py:assign_roles` is the rule that assigns these, and both `build_workset` and `check_workset_shape` call it."
+        },
+        "is_primary": {
+          "type": "boolean",
+          "default": false,
+          "description": "Exactly one shape per operator carries this. It is the modal shape in the capture, and it is the one a single headline number refers to."
+        },
+        "observed": {
+          "type": "boolean",
+          "description": "True when this shape was seen in the profile; false when it was constructed to cover a tile boundary or an edge case. **A synthetic shape is legitimate and must be labelled**, because an operator optimised into a win on a shape the service never runs is a real and previously-made mistake."
+        },
+        "observed_shapes": {
+          "type": "array",
+          "description": "The raw tensor shapes as the profiler recorded them, when `observed`. The evidence behind `axes`, kept because `axes` is a *reading* of these and a reading can be wrong.",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "calls": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How many times this shape occurred in the capture. The weight, when several shapes are reduced to one figure."
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kind"
+      ],
+      "description": "Either `reference` or `baseline`. `kind: imported` names an existing symbol; `kind: written` carries source and must say why importing was not possible.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "imported",
+            "written"
+          ]
+        },
+        "module": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "source_file": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "path": {
+          "type": "string",
+          "description": "For `kind: written`, the file inside the workset that holds it."
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "must_receive": {
+          "type": "string",
+          "description": "Any pre-processing asymmetry between what the implementation is given and what the operator under test is given. The stage-3 half's worked example: the kernel gets shuffled weights, shuffled weight scales and sorted activation scales while the reference gets the unshuffled, unsorted originals. Getting this wrong produces a correctness gate that fails a correct kernel, which is the failure mode that wastes the most time."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "imported"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "module",
+              "symbol",
+              "rationale"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "written"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "path",
+              "rationale"
+            ]
+          }
+        }
+      ]
+    },
+    "report_environment": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "node",
+        "gpu_arch",
+        "container",
+        "image_id"
+      ],
+      "description": "Enough of `environment.schema.json#/properties/fixed` to evaluate `ground_truth`'s two lists. A report that does not say where it was measured is not evidence.",
+      "properties": {
+        "node": {
+          "type": "string",
+          "minLength": 1
+        },
+        "gpu_arch": {
+          "type": "string",
+          "pattern": "^(gfx[0-9a-f]{3,4}|sm_[0-9]+)$"
+        },
+        "gpu_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tp_size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "container": {
+          "type": "string",
+          "minLength": 1
+        },
+        "image_id": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{12,64}$"
+        },
+        "rocm": {
+          "type": "string"
+        },
+        "torch": {
+          "type": "string"
+        }
+      }
+    },
+    "correctness_report": {
+      "type": "object",
+      "$comment": "Referenced as `workset.schema.json#/$defs/correctness_report`; the registry in assets/lib/schema.py resolves it without any change to that file.",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "generated_by",
+        "environment",
+        "started_at",
+        "impl",
+        "operators",
+        "passed"
+      ],
+      "description": "What `run_correctness.sh --json` writes. **The same document shape whether `--impl` was given or not**, distinguished only by `impl`, so a consumer comparing its candidate against the baseline is comparing two instances of one format.",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "generated_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "environment": {
+          "$ref": "#/$defs/report_environment"
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "finished_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "impl": {
+          "type": "string",
+          "enum": [
+            "baseline",
+            "candidate"
+          ],
+          "description": "Which implementation produced these numbers. `candidate` **iff** `--impl` was given, and `impl_path` names it; `baseline` iff it was not, and `impl_path` is null. Bound by `allOf` below in both directions — a report claiming `candidate` with a null path is a measurement of something it cannot name, and it validated until m4's schema sweep found it. The harness sets the pair from one expression (`_common.py`: `\"candidate\" if args.impl else \"baseline\"`), so the producer could not disagree; the *contract* was silent, and a second producer would not have been caught."
+        },
+        "impl_read": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": true,
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "loaded_by": {
+              "type": "string"
+            }
+          },
+          "description": "**Which bytes were actually read for `--impl`, recorded by the harness at the moment it read them.** Null on a baseline run, and null rather than omitted so a consumer can tell *this run measured the baseline* from *this run measured a candidate and did not say which bytes*.\\n\\n**Distinct from `impl_path`, which cannot do this job.** That field is `args.impl` copied at parse time \u2014 an echo of the request. It reads the same whether the file was exec'd, imported, shadowed by another copy of the same module name, or never opened at all.\\n\\n**The dependency it exists for.** m4's third-tree workspace is on no interpreter's import path, which is safe only while `_common.load_impl` reads the file it was handed rather than resolving a module through `sys.path`. If that ever became an import, forge would keep editing its tree while the driver measured the container's untouched copy, and **every ratio would come back ~1.0 with no error anywhere** \u2014 a wrong answer byte-identical to *the optimiser found nothing*. m4 could only document that at the invocation; a comment cannot fail, and a digest can.\\n\\n`sha256` is the load-bearing field: a path alone still matches when a stale or shadowing copy was read, while the digest is of the bytes that were compiled. A consumer compares it against the file it just wrote. `loaded_by` is the loader's claim about its own mechanism, so a rewrite must either drop the block \u2014 which arrives here as null \u2014 or state something false. Exercised by `assets/lib/controls/impl_is_the_file_you_named.py`, which fails when the loader is import-based."
+        },
+        "impl_path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The path `--impl` pointed at, or null. Non-null exactly when `impl` is `candidate`; see that field. Per the `--impl` contract in `entrypoints.performance.impl_contract`, this is a self-contained Python source file defining a top-level `run`."
+        },
+        "passed": {
+          "type": "boolean",
+          "description": "True iff every gate on every shape of every operator passed. Equal to `exit code == 0`, restated in the document so a reader holding only the JSON is not guessing."
+        },
+        "operators": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "operator_id",
+              "ran",
+              "passed",
+              "shapes"
+            ],
+            "properties": {
+              "operator_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "ran": {
+                "type": "boolean"
+              },
+              "failure": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Non-null exactly when `ran` is false or `passed` is false. 'It did not run' and 'it ran and was wrong' are different facts and are never merged."
+              },
+              "passed": {
+                "type": "boolean"
+              },
+              "gates": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "shapes": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "case_id",
+                    "passed"
+                  ],
+                  "properties": {
+                    "case_id": {
+                      "type": "string"
+                    },
+                    "uuid": {
+                      "type": "string"
+                    },
+                    "snr_db": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "allclose": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "extra": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": [
+                          "boolean",
+                          "number",
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "passed": {
+                      "type": "boolean"
+                    },
+                    "failure": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "impl": {
+                "const": "candidate"
+              }
+            },
+            "required": [
+              "impl"
+            ]
+          },
+          "then": {
+            "required": [
+              "impl_path"
+            ],
+            "properties": {
+              "impl_path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "impl": {
+                "const": "baseline"
+              }
+            },
+            "required": [
+              "impl"
+            ]
+          },
+          "then": {
+            "properties": {
+              "impl_path": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "performance_report": {
+      "type": "object",
+      "$comment": "Referenced as `workset.schema.json#/$defs/performance_report`. **This is m4's denominator** and the artefact M4.3.5 makes authoritative.",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "generated_by",
+        "environment",
+        "started_at",
+        "impl",
+        "protocol",
+        "operators"
+      ],
+      "description": "What `run_performance.sh --json` writes. A speedup is `baseline.weighted_mean_ms / candidate.weighted_mean_ms` **per shape**, between two instances of this document produced by the same script on the same host. Aggregating across shapes before dividing hides an operator that got faster on the primary and slower on the other two.",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "generated_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "environment": {
+          "$ref": "#/$defs/report_environment"
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "finished_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "impl": {
+          "type": "string",
+          "enum": [
+            "baseline",
+            "candidate"
+          ],
+          "description": "Which implementation produced these numbers. `candidate` **iff** `--impl` was given, and `impl_path` names it; `baseline` iff it was not, and `impl_path` is null. Bound by `allOf` below in both directions — a report claiming `candidate` with a null path is a measurement of something it cannot name, and it validated until m4's schema sweep found it. The harness sets the pair from one expression (`_common.py`: `\"candidate\" if args.impl else \"baseline\"`), so the producer could not disagree; the *contract* was silent, and a second producer would not have been caught."
+        },
+        "impl_read": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": true,
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "loaded_by": {
+              "type": "string"
+            }
+          },
+          "description": "**Which bytes were actually read for `--impl`, recorded by the harness at the moment it read them.** Null on a baseline run, and null rather than omitted so a consumer can tell *this run measured the baseline* from *this run measured a candidate and did not say which bytes*.\\n\\n**Distinct from `impl_path`, which cannot do this job.** That field is `args.impl` copied at parse time \u2014 an echo of the request. It reads the same whether the file was exec'd, imported, shadowed by another copy of the same module name, or never opened at all.\\n\\n**The dependency it exists for.** m4's third-tree workspace is on no interpreter's import path, which is safe only while `_common.load_impl` reads the file it was handed rather than resolving a module through `sys.path`. If that ever became an import, forge would keep editing its tree while the driver measured the container's untouched copy, and **every ratio would come back ~1.0 with no error anywhere** \u2014 a wrong answer byte-identical to *the optimiser found nothing*. m4 could only document that at the invocation; a comment cannot fail, and a digest can.\\n\\n`sha256` is the load-bearing field: a path alone still matches when a stale or shadowing copy was read, while the digest is of the bytes that were compiled. A consumer compares it against the file it just wrote. `loaded_by` is the loader's claim about its own mechanism, so a rewrite must either drop the block \u2014 which arrives here as null \u2014 or state something false. Exercised by `assets/lib/controls/impl_is_the_file_you_named.py`, which fails when the loader is import-based."
+        },
+        "impl_path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The path `--impl` pointed at, or null. Non-null exactly when `impl` is `candidate`; see that field. Per the `--impl` contract in `entrypoints.performance.impl_contract`, this is a self-contained Python source file defining a top-level `run`."
+        },
+        "protocol": {
+          "$ref": "#/$defs/protocol"
+        },
+        "noise_floor": {
+          "type": "number",
+          "exclusiveMinimum": 1.0,
+          "description": "`1 + 2.83 × rsd_max` over every shape in this report — the two-sample 2σ separation at the spread actually observed. Written by the script that measured, so `operators[].noise_floor` in the manifest is a **transcription** of a computed figure rather than an author's judgement, and `check_workset_shape` can check the transcription."
+        },
+        "correctness_report": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Path to the correctness report for **this same impl**. A timing without a correctness result beside it is a measurement of an unknown function; `check_workset_runs` refuses a performance report whose companion did not pass."
+        },
+        "operators": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "operator_id",
+              "ran",
+              "shapes"
+            ],
+            "properties": {
+              "operator_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "ran": {
+                "type": "boolean"
+              },
+              "failure": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "weighted_mean_ms": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "description": "Across shapes, weighted by `shapes[].calls`. A convenience; the per-shape figures are the record."
+              },
+              "shapes": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "case_id",
+                    "groups",
+                    "iters_total",
+                    "per_group_ms",
+                    "weighted_mean_ms",
+                    "rsd"
+                  ],
+                  "properties": {
+                    "case_id": {
+                      "type": "string"
+                    },
+                    "uuid": {
+                      "type": "string"
+                    },
+                    "groups": {
+                      "type": "integer",
+                      "minimum": 5
+                    },
+                    "iters_total": {
+                      "type": "integer",
+                      "minimum": 50
+                    },
+                    "per_group_ms": {
+                      "type": "array",
+                      "minItems": 5,
+                      "items": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      },
+                      "description": "One mean per group, each group a fresh process. Kept per-group and not only reduced, because `check_workset_runs` **recomputes** the weighted mean from these and rejects a record that disagrees with itself — a stored figure that does not follow from the raw numbers can only come from the record having been edited after it was measured."
+                    },
+                    "weighted_mean_ms": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "median_ms": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "rsd": {
+                      "type": "number",
+                      "minimum": 0,
+                      "description": "Relative standard deviation across groups. The measured within-arm round-to-round spread on a steady node is ~2%; `check_workset_runs` fails above `max_rsd` (default 0.10) because a noisy baseline is worse than no baseline — the first candidate that lands on a fast sample looks like a win and the campaign chases noise for hours."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "impl": {
+                "const": "candidate"
+              }
+            },
+            "required": [
+              "impl"
+            ]
+          },
+          "then": {
+            "required": [
+              "impl_path"
+            ],
+            "properties": {
+              "impl_path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "impl": {
+                "const": "baseline"
+              }
+            },
+            "required": [
+              "impl"
+            ]
+          },
+          "then": {
+            "properties": {
+              "impl_path": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

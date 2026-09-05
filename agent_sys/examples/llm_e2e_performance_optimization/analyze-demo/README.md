@@ -37,7 +37,19 @@ AGENT_SYS_NO_PERMISSIONS=1 agent-sys run \
 and a node name is a fact about one site. Missing either is a load-time fault
 naming the file, the line and the variable.
 
-`top_n=2` is a workaround, not a preference — see *Known limits* below.
+`top_n=2` is a preference after all, and for a reason the opposite of the one
+this line used to give. It was described as a workaround for a settle budget
+that no longer exists (*Known limits* below). What makes 2 right is
+`check_workset_runs`: `min_pass_ratio: 0.5` means `top_n=1` has **zero slack**,
+so one unlucky driver fails the whole step — measured, on an FP4 operator whose
+driver hit `NotImplementedError: "fill_cuda" not implemented for
+'Float4_e2m1fn_x2'` while the same operator measured cleanly at `top_n=2`. So 2
+is the *weaker* requirement, not the more expensive one.
+
+Going higher is not free either: an rsd breach is a hard failure rather than a
+per-operator note, so each extra operator is another chance for a busy machine
+to fail the step. Check the node is quiet first —
+`rocm-smi --showuse | grep "GPU use"` should be eight zeros.
 
 ## Before the first run
 
@@ -130,10 +142,26 @@ hard-coded 1800 s settle bound stops the graph, and the report reads
 `temp/bugs/003-push-message-does-not-name-the-gate-failure.md`. This package sets
 the bit in both producers and checks it in both validators.
 
-**The settle bound is a real limit for the whole graph.** With the above fixed,
-`build_workset` succeeds in 16 min 22 s, which leaves under 13 minutes of the
-1800 s for `verify_workset` and `pack_analyze`. `cli/main.py:790` is a keyword
-default that nothing overrides.
+**The settle bound is no longer a limit for the whole graph.** This section used
+to say it was, on the basis of an 1800 s ceiling at `cli/main.py:790` that
+"nothing overrides". Both halves are now false: `cli/main.py:902` is
+`_SETTLE_TIMEOUT = 14400.0` — four hours — and `--timeout SECONDS` overrides it
+(`main.py:166`). The constant's own comment records why it moved: the ceiling
+had become an execution budget for the one case it was never meant to bound, and
+was reporting healthy runs as hangs. So `build_workset` at 16–24 minutes leaves
+hours, not thirteen minutes, and there is no reason to shrink `per_op_timeout_s`
+or `max_cases` to fit it.
+
+**What does bound a task is `stall_after`, which is 20 s and has no flag**
+(`cli/main.py:911`, a keyword default of `_settle`). It ends a run when nothing
+has moved *and* nothing holds a thread — and a task parked on an escalation that
+the CLI's sink records and never answers counts as not holding. So a task whose
+output the store refused arrives as a 20-second timeout naming no reason. That
+is what `pack_analyze` did for two whole runs; the cause was this package's own
+`items_schema`, and the diagnosis is in `analyze.debug.help.info.md` §8.
+
+**`--resume` cannot repair an interrupted task.** Measured:
+`HandoffStateError: <hid> v0 is already open by task <tid>`. Relaunch instead.
 
 **Handoff content may not name an absolute path.** `handoff/locality.py` refuses
 to seal anything outside a small allow-list, and `/sgl-workspace/` and `/data/`

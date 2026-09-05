@@ -62,3 +62,7 @@ mission.md
 .spur_job_*.sh
 .spur_ns_*.sh
 spur-*.out
+
+# Generated debug copies of e2e-flow with validators disabled
+# (assets/lib/make_debug_package.py). Regenerated, never edited by hand.
+e2e-flow-noval*/

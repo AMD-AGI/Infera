@@ -1,0 +1,670 @@
+# Stage 5 — integration, and the flow's one export.
+#
+# **Skeleton, frozen by the leader.** Kinds, wiring and graph shape are contract;
+# bodies and validator substance are m5's owner's.
+#
+# The biggest structural change in the whole refine is here. `integration-demo`
+# had eight leaves; this stage has three, because M5.2 says bring-up and use may
+# not be split across agents and therefore
+#
+#     serve_stock → measure_stock → serve_patched → measure_patched → compare
+#
+# is **one task**. `seed_patch` is gone too (M5.1): its input is now m4's real
+# `kernel_optimization` rather than a mock.
+#
+# What that costs, and it is worth naming: `integration-demo`'s three
+# argument-carrying edges — the ones that expressed "the stock arm has already
+# been measured, so it is safe to tear it down" — are no longer edges. They are
+# now *steps in one readme*, which is a weaker guarantee than a graph edge and a
+# stronger one than nothing. **M5's owner writes that ordering into the STEPS
+# section and `check_measurement_order` checks it happened** (below).
+
+# --------------------------------------------------------------------------- #
+# The agent `integrate_and_verify` runs under.
+#
+# `kind: ai` and not `runner`, because M5.2 collapsed five leaves into one and
+# what it collapsed them into is judgement work: bring a deployment up on a
+# shared node, decide whether four minutes of `Health check failed` is a JIT
+# compile or a hang, tear it down only once the arm is genuinely finished, bring
+# up the second arm with the overlay mounted, and invent a handful of
+# correctness cases nobody could have prepared for (M5.4).
+#
+# **Everything that is not judgement stays a script.** G4.2.1: the readme's body
+# is a `STEPS` section — an ordered list of commands, each with its acceptance
+# criterion — so the agent's job is to run them in order, read the results and
+# decide what to do when one is ambiguous, not to invent a method. The two arms'
+# measurement scripts are byte-identical between arms by construction, because
+# they are the same file.
+#
+# **The ordering that used to be a graph edge is now step 4 of that list**, and
+# `check_measurement_order` is what makes the difference visible: the body
+# timestamps each step into `env/steps.json` and the validator refuses a pair of
+# arms that overlap or that ran different sequences.
+- module: agent
+  name: e2e_integrator
+  kind: ai
+  version: '1'
+  description: Measures the stock and patched arms in one session on one node, and writes the comparison down.
+  env:
+    # The allocation and how to reach it. Same names as `shared.yaml`'s, so one
+    # command line drives the whole flow (CONTRACT.md §6 — no readme in this
+    # package spells a transport).
+    E2E_JOBID: '${jobid}'
+    E2E_NODE: '${node}'
+    E2E_NODE_IP: '${node_ip}'
+    E2E_TRANSPORT: '${transport:-auto}'
+    # **Declared because this stage's readme sends the agent to `remote.sh`**
+    # (STEPS names it twice), and `remote.sh:150` exports
+    # `HOME=${E2E_REMOTE_HOME:-$HOME}` on the far side. Without the declaration
+    # the variable never reaches a `kind: ai` agent at all —
+    # `env_mgr/material.py:96` reads the `env` block off the agent that is
+    # running, so a name only `runner` declares is absent here.
+    #
+    # m1's account, and it is a fault rather than a hypothetical: `spur exec`
+    # lands with `HOME=/opt/spur`, which is not writable, and a `docker build`
+    # there dies `mkdir /opt/spur/.docker: permission denied` — naming neither
+    # docker nor HOME. This stage brings up two arms and does not build, so it
+    # has not been bitten; that is a fact about what m5 happens to run, not a
+    # reason for the parameter to be missing.
+    #
+    # The `:-$HOME` fallback saves us only because `$HOME` expands in the
+    # **local** shell and `/home` is shared writable NFS here. On a cluster where
+    # the login home is not visible from the node it is silently wrong, and this
+    # variable is the only fix.
+    #
+    # Empty default, matching `runner` (`shared.yaml:260`) and `m1_deploy.yaml:142`
+    # exactly. Safe here: nothing in m5's manifest reads it through
+    # `os.environ.setdefault` or `${E2E_REMOTE_HOME=…}`, the two forms that fill a
+    # *missing* key and leave a present-but-empty one alone. Checked rather than
+    # assumed, because declaring a name is not free — a declaration turns
+    # "absent" into "present and empty", which is what broke m4.
+    E2E_REMOTE_HOME: '${remote_home:-}'
+    E2E_MODEL_NAME: '${model_name}'
+    E2E_MODEL_PATH: '${model_path}'
+    E2E_SERVED_NAME: '${served_name:-}'
+    E2E_IMAGE: '${image}'
+    E2E_ETCD_IMAGE: '${etcd_image:-quay.io/coreos/etcd:v3.5.14}'
+    E2E_DEPLOY_MODE: '${deploy_mode:-mix}'
+    E2E_TP: '${tp:-8}'
+    E2E_CTX: '${context_length:-262144}'
+    E2E_DSA_ARGS: '${dsa_args:-none}'
+    E2E_PARSER_ARGS: '${parser_args:-none}'
+    # **Two containers, and this stage is the designed exception to the
+    # one-container rule** (CONTRACT.md §5, granted by mission G5.1). A container
+    # holds one state for its life, which is the entire reason the two-arm design
+    # exists. The two names are derived from this one so that neither can collide
+    # with another tenant's — `docker ps` on both held nodes shows other people's
+    # work right now, and nothing here may `docker rm -f` a name it did not
+    # create.
+    E2E_CONTAINER: '${container:-yihou_e2e_flow}'
+    E2E_PORT_ROUTER: '${port_router:-8101}'
+    E2E_PORT_WORKER: '${port_worker:-8102}'
+    E2E_PORT_ETCD: '${port_etcd:-8103}'
+    E2E_WORK_ROOT: '${work_root:-/mnt/m2m_nobackup/yihou/e2e_flow}'
+    # The measurement knobs. Defaults are the shortened ones: a full two-arm run
+    # at the package defaults does not fit inside the CLI's hard-coded 1800 s
+    # settle budget, and work that finishes outside it is thrown away.
+    E2E_EVAL_NAMES: '${eval_names:-gsm8k mixed_prefix_gsm8k}'
+    E2E_EVAL_EXAMPLES: '${eval_examples:-100}'
+    # **The generation budget, and it is the cost knob of the most expensive
+    # step in the flow.** `assets/accept/measure.sh:149,157` reads both of these
+    # and **nothing declared either** — not `runner`, not this agent — so the
+    # `:-2048` and `:-32` fallbacks always won and neither could be set from a
+    # command line. Same omission class as the four in `6ec7e42`, found the same
+    # way, and this time it is load-bearing: `probe` costs 2062 s and 2001 s on
+    # the two sealed arms, **two thirds of an arm**, and `--max-tokens` is what
+    # sizes it.
+    #
+    # Declaring them is what makes a reduced-scale arm possible at all — see
+    # `RUN-PLAN.md`, "Module 5 standalone". Defaults are the previous fallbacks
+    # exactly, so nothing about a normal run changes.
+    #
+    # `runner` should mirror both; `shared.yaml` is the leader's file.
+    E2E_EVAL_MAX_TOKENS: '${eval_max_tokens:-2048}'
+    E2E_EVAL_THREADS: '${eval_threads:-32}'
+    E2E_BENCH_ROUNDS: '${bench_rounds:-1}'
+    E2E_TRACE_END_MS: '${trace_end_ms:-60000}'
+    # **The replay's load shape, and leaving these undeclared was not cosmetic.**
+    # Found by re-running the leader's omission check over m5's own manifest
+    # after `shared.yaml` grew: `assets/accept/measure.sh:120-122` reads all four,
+    # none was declared here, and a name only `runner` declares does not reach a
+    # `kind: ai` agent (`env_mgr/material.py:96`). So the script's own fallbacks
+    # won — `MAX_CONC=256`, `WORKERS=16` — against `runner`'s 32 and 8.
+    #
+    # That is an 8x and a 2x difference in offered load between m2's bench and
+    # m5's arms, and **M5.1.3.1 requires those two to be comparable**: the stock
+    # arm must reproduce m2's `profiling_mode_off` bench within
+    # `stock_vs_m2_tolerance`. Two stages replaying the same trace at different
+    # concurrency do not measure the same thing, and `--var max_conc=` would have
+    # been inert here while m2 obeyed it — the operator changes one number and
+    # gets one stage.
+    #
+    # Values are `runner`'s exactly. With them declared, `measure.sh`'s `:-256`
+    # and `:-16` become unreachable; they are left in place as a script that must
+    # still run by hand, and they disagree with these — recorded in `todo.md`
+    # rather than silently reconciled, because a fallback nobody can reach is a
+    # second reader of a number and that is the seam this package keeps finding.
+    E2E_MAX_CONC: '${max_conc:-32}'
+    E2E_WORKERS: '${workers_max:-8}'
+    E2E_BLOCK_SIZE: '${block_size:-512}'
+    E2E_REQ_TIMEOUT: '${req_timeout:-900}'
+    E2E_NEEDLE_TOKENS: '${needle_tokens:-31000}'
+    E2E_NEEDLE_FRONTIER_TOKENS: '${needle_frontier_tokens:-0}'
+    E2E_NEEDLE_DEPTHS: '${needle_depths:-0.02,0.5,0.98}'
+    E2E_GSM8K_DATA: '${gsm8k_data:-}'
+    E2E_AIPERF_IMAGE: '${aiperf_image:-nvcr.io/nvidia/ai-dynamo/aiperf:0.12.0}'
+    E2E_AIPERF_TRACE: '${aiperf_trace:-}'
+    # M5.4 — 同时还要临时 ai 生成几个。免得作弊. How many correctness cases the
+    # agent invents per run, on top of the frozen set in `assets/accept/`. The
+    # prompts go into the handoff beside the answers, because a generated case
+    # whose text was thrown away cannot be audited.
+    E2E_ADHOC_CASES: '${adhoc_cases:-3}'
+    E2E_MOCK_ROOT: '${mock_root:-/shared_nfs/yihou/agent_sys/cheat_for_mock}'
+    E2E_MOCK_STAGES: '${mock_stages:-all}'
+    # `refused` (default) or `accepted` — see the block in `shared.yaml`. A
+    # `kind: ai` agent receives only its own env block, so binding it there is
+    # not inheritance and this line is what actually reaches `mock_m5.sh`.
+    E2E_MOCK_REPORT: '${mock_report:-refused}'
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
+# OWNER m5: M5.1.2 — "所以看起来 seed_patch、apply_patch 都需要改一下". `apply_patch`
+# stops being fed a hand-written patch manifest and starts reading m4's
+# `kernel_optimization`, whose `apply` block was written against **the workset's
+# declared integration point** (M5.1.1). That is what lets this stay a program.
+#
+# `require_difference: true` is the cheapest decisive check in the package and it
+# stays: a patch that applies cleanly and changes nothing produces two
+# byte-identical arms, and then every check downstream passes for the wrong
+# reason — the flow compares the stock deployment against itself and reports
+# "no regression".
+- module: validator
+  name: check_overlay_applies
+  version: '1'
+  brief: Every file in the overlay lands on a real path inside the image, compiles, and differs from what it replaces
+  dimension: completeness
+  strength: strong
+  inputs: [patch_overlay]
+  args:
+    compile_python: true
+    require_difference: true
+    # A patch naming a host path has confused the machine it was cut on with the
+    # image it is to be applied to — an error that otherwise survives all the way
+    # to a deployment silently running stock code.
+    container_roots_from: container_roots.yaml
+  tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
+
+# --------------------------------------------------------------------------- #
+# **The most important validator in this package**, and the only one whose
+# dimension is `trustworthiness` on a deployment.
+#
+# It exists to catch one failure: the patch was mounted and never executed. That
+# produces two arms with identical numbers and a comparison that cheerfully
+# reports no regression — **a change that was never tested gets a green light,
+# and nothing else in the graph can see it.**
+#
+# `__file__` proves nothing. A bind mount does not change the path inside the
+# container, so the module's `__file__` reads identically on both arms.
+# **Measured, not assumed.** What proves it is re-hashing the file *inside the
+# running container* against the overlay's `sha256_patched`, plus `docker
+# inspect` showing the mount, plus the declared runtime markers — one at import,
+# one at first call.
+- module: validator
+  name: check_patch_live
+  version: '1'
+  brief: The patched arm was actually running the patched bytes, proven inside the container rather than from the launch command
+  dimension: trustworthiness
+  strength: strong
+  inputs: [patched.measurement]
+  args:
+    require_container_hashes: true
+    require_docker_mounts: true
+    # **`true` since 2026-09-04, and the experiment that flipped it is the
+    # argument.** On crsuse2-m2m-047 an overlay whose in-container hash was
+    # byte-equal to its own `sha256_patched`, whose file held a 2 ms sleep, and
+    # whose `.pyc` was compiled that minute measured **identical to stock**.
+    # The static evidence was perfect and told us nothing about whether the code
+    # ran; a third overlay with markers settled it in one bring-up — import 18
+    # hits, first_call 8 — and the sleep turned out to be absorbed by overlap
+    # scheduling.
+    #
+    # So `false` was a default that silently disabled this validator's whole
+    # purpose: it could not separate *mounted and never executed* from *executed
+    # and had no effect*, which is the one distinction it exists to draw.
+    #
+    # The refusal explains what a marker is and how to add one, because everyone
+    # who meets it will be someone who did not know the field existed. An
+    # optimiser that genuinely cannot leave one passes
+    # `--var require_runtime_marker=false` and owns that choice; the static
+    # proof still runs and the findings still say what could not be shown.
+    #
+    # **The mock path already declares markers and needs no change** — verified,
+    # not assumed: the sealed `deployment_patched` carries
+    # `INTEGRATION_PATCH_IMPORT` / `INTEGRATION_PATCH_FIRST_CALL`, and the mock
+    # arm passes this validator with the flag `true` at 3 and 2 hits.
+    require_runtime_marker: '${require_runtime_marker:-true}'
+  tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
+
+# --------------------------------------------------------------------------- #
+# OWNER m5: the ordering guarantee that used to be a graph edge.
+- module: validator
+  name: check_measurement_order
+  version: '1'
+  brief: Both arms ran the same measurements in the same order, and the patched arm started only after the stock arm finished
+  dimension: trustworthiness
+  strength: strong
+  inputs: [stock.measurement, patched.measurement]
+  args:
+    # Timestamped into `env/steps.json` by the body. "Round 1 is cold against
+    # this trace" is only true if the same thing happened before it on both
+    # arms, so a disagreement here invalidates every comparison downstream.
+    require_same_step_order: true
+    require_arms_disjoint_in_time: true
+    # `bench` and not `replay`: the body names each replay round `bench_r<N>`
+    # because the number of rounds is a `--var`, and the validator satisfies an
+    # expectation with an exact match **or** a `_r<digits>` suffix of it.
+    # Nothing else is fuzzy — a step called `smoke_v2` does not satisfy `smoke`,
+    # because a renamed step is a changed method.
+    expected_steps: [smoke, needle, probe, lm_eval, bench]
+    # Not a bar. A long gap between the arms is where the node's load can change
+    # underneath the comparison, and the validator prints the number so a reader
+    # can judge whether it mattered. Widening a bar is not the fix for that;
+    # `todo.md` T7 is.
+    warn_gap_seconds: 3600
+    # **`steps.json` is written by the same body whose ordering it attests to**,
+    # so on its own it is a file the producer could have written at the end from
+    # memory — and "the arms did not overlap" is the one claim nothing else in
+    # the graph can recover once the deployments are gone. So it is cross-checked
+    # against AIPerf's own `start_time`/`end_time` per round, which the producer
+    # did not write.
+    require_corroboration: true
+    # AIPerf writes naive local time; the step record writes UTC with an offset.
+    # A node off UTC therefore shows a constant skew, which is a timezone and is
+    # reported rather than failed. What fails is the two arms disagreeing about
+    # that offset: one node has one clock.
+    max_clock_skew_seconds: 90
+  tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
+
+- module: validator
+  name: check_acceptance
+  version: '1'
+  brief: The correctness measurements ran and are readable — a score, a long-context result, and the frozen smoke checks
+  dimension: completeness
+  strength: strong
+  inputs: [stock.measurement, patched.measurement]
+  args:
+    # M5.4: 那些端到端正确性验证的 case 和代码，都必须提前固化在 define 里，同时
+    # 还要临时 ai 生成几个。免得作弊。
+    # The frozen set lives in `assets/accept/` and is part of the package. The
+    # ad-hoc set is generated per run and its prompts are recorded in the
+    # handoff, so a later reader can see what was asked as well as what came
+    # back.
+    require_frozen_checks: [arithmetic, long_generation, workers, engine_log]
+    min_adhoc_cases: '${adhoc_cases:-3}'
+    min_scored_per_eval: 20
+    needle_min_token_ratio: 0.95
+    # **1 and not 3.** Nine measurements on this deployment produced no
+    # configuration that retrieved every depth twice: the result is non-monotone
+    # in prompt length, moves with the needle's wording, and raising the
+    # generation budget from 256 to 2048 turned two passing depths into failures
+    # because the model reasoned past the answer. Requiring three would require
+    # something nothing has reliably done; requiring one still separates a
+    # working long-context path from a stack that dropped every prefill block
+    # but the last, which is the failure this test was added for.
+    needle_min_depths_retrieved: 1
+  tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
+
+- module: validator
+  name: check_bench_report
+  version: '1'
+  brief: Each arm's replay actually sent traffic and wrote a machine-readable report
+  dimension: completeness
+  strength: strong
+  inputs: [stock.measurement, patched.measurement]
+  args:
+    # **m2's schema, not a second copy** (G2, CONTRACT.md §4.1). m5's replay and
+    # m2's bench are the same AIPerf export, so they are graded by the same
+    # document: a round whose `profile_export_aiperf.json` fails here is one m2's
+    # own `check_bench_result` would have refused.
+    schema: bench_result
+    # **50 and not 100.** This bar must sit below any legitimately shortened
+    # replay window, or it stops being "did anything get sent" and becomes a
+    # second, undeclared constraint on window length. Measured on this trace:
+    # 346 requests in the default 120 s window, 166 in 60 s, ~80 in 30 s — and a
+    # bar of 100 failed a working replay and stopped m2's graph.
+    #
+    # **`integration_min_requests`, not `min_requests`, and the duplicated 50 is
+    # deliberate.** The other bar measuring this same quantity is m2's
+    # `check_bench_result` at `steps/m2_profiling.yaml:46`, from the same trace
+    # and with the same default. Until 2026-09-04 both read `'${min_requests:-50}'`
+    # — **one `--var` moving two owners' grading bars.** The default being shared
+    # was right; the *override* was not, because the reason to override is
+    # stage-local: shorten this stage's replay window, drop the bar to 20 for
+    # that reason, and m2's stage-2 bar drops too on a window that did not
+    # change — and neither owner can see it from their own file.
+    #
+    # Found by m2, scoped by m3 (32 vars are cross-owner and sharing is usually
+    # the point; of the nine parameterised bars this was the only one that was
+    # both), decided by the leader.
+    #
+    # **The fix that would have kept the default linked does not exist.**
+    # `'${integration_min_requests:-${min_requests:-50}}'` does not nest — it
+    # expands to the literal string `'${min_requests:-50}'`, reports **zero**
+    # problems, passes `show`, and reaches this body as text `float()` throws on.
+    # See `temp/bugs/2026-09-02-an-unparseable-variable-reference-is-passed-through-silently.md`.
+    # The **arg** stays `min_requests` — `check_bench_report/check.py:124` reads
+    # that key, and it is this validator's private vocabulary. Only the `--var`
+    # is renamed, which is the thing that was shared.
+    min_requests: '${integration_min_requests:-50}'
+    # The arms are compared round for round, so a missing round is a missing
+    # comparison rather than a shorter one.
+    expect_rounds: '${bench_rounds:-1}'
+    require_metrics: [request_count, output_token_throughput_tps, ttft_ms, inter_token_latency_ms]
+    # Not zero. A saturated deployment legitimately times out the occasional
+    # request under a fixed schedule, and a bar of zero turns a completeness
+    # check into a flake detector.
+    max_error_rate: '${max_error_rate:-0.05}'
+  tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
+
+# --------------------------------------------------------------------------- #
+# **This validator does not read the report's `verdict` field.** It recomputes
+# every comparison from the raw numbers the report carries, and fails when its
+# answer and the report's disagree — even when its own answer is "accept".
+# A disagreement means one of the two is wrong and neither can be trusted until
+# that is settled. `compare` is a program in this package; a bug in it would
+# otherwise produce a report that passes its own check.
+- module: validator
+  name: check_no_regression
+  version: '1'
+  brief: Recomputed from the raw numbers, the patched arm regressed on nothing, and the report says the same
+  dimension: trustworthiness
+  strength: strong
+  inputs: [integration_report]
+  args:
+    schema: integration_report
+    require_verdict_agreement: true
+    # **Keep these.** They were measured to be right: within one arm, under a
+    # steady node, the round-to-round spread is ~2%, so a 10% latency bar is
+    # well chosen. A previous round widened them to 35%/30% in response to a
+    # *cross-instance* artefact — two arms measured under different node load —
+    # and that was the wrong response. The missing control is a comparability
+    # gate at bring-up, not a looser bar. Recorded in `todo.md`.
+    max_throughput_regression: 0.05
+    max_ttft_regression: 0.10
+    # M5.1.3.1 — the stock arm must reproduce m2's `profiling_mode_off` bench.
+    # If it does not, the two stages measured different machines and the whole
+    # chain's arithmetic is void.
+    #
+    # **There is no `require_stock_reproduces_m2` here and that is deliberate.**
+    # One was declared, with this paragraph beside it, and `grep -rn` over
+    # `assets/` found it nowhere: the check has always been unconditional. A
+    # knob that does nothing is worse than no knob, because a reader believes
+    # the gate is switchable and an operator setting it `false` gets the check
+    # anyway. Unconditional is also the right answer — a mission requirement is
+    # not an operator's option — so the declaration went rather than the code.
+    #
+    # The tolerance stays a `--var` because a tolerance is a judgement about
+    # this cluster's noise; whether the comparison happens at all is not.
+    # `check_no_regression.validator/check.py:249-267` is the branch.
+    stock_vs_m2_tolerance: '${stock_vs_m2_tolerance:-0.10}'
+    # M5.1.3.2 — reconcile m4's single-kernel speedup against the end-to-end
+    # change via the kernel's share of the profile. **Warning, not a blocker**,
+    # exactly as the mission asks: 作为 report/warning 报告，不作为 blocker.
+    # The one hard floor is that the patched arm must not be *slower* than stock.
+    reconcile_with_kernel_speedup: warn
+  tags: {logic_source: external_dynamic, cost: seconds, domain: [llm_e2e, integration, m5]}
+
+- module: validator
+  name: check_packup_shape
+  version: '1'
+  brief: The flow's export is a packup somebody who was not here can follow, with results from every stage
+  dimension: usability
+  strength: strong
+  inputs: [e2e_packup]
+  args:
+    # The packup skill's `deliverable_layout.md`, as four files and three
+    # directories. `require_files` and `min_content_lines` are separate because
+    # a present-but-empty README is the failure worth naming: it satisfies a
+    # file list and tells a reproducer nothing.
+    require_files: [README.md, REPRODUCE.md, environment.md, notes.md]
+    min_content_lines: {README.md: 20, REPRODUCE.md: 15, environment.md: 12, notes.md: 8}
+    # REPRODUCE.md is measured in commands rather than prose: it is the one file
+    # a reproducer executes.
+    min_command_lines: 8
+    # **Counted by substance, not presence** — `min_dir_files`, default 1, a
+    # non-empty file found recursively. Not `is_dir()`: m2 measured that `logs/`
+    # cut to one *empty subdirectory*, and `scripts/` cut to one *zero-byte*
+    # `run.sh`, both graded complete under the presence test this started as. The
+    # same argument that makes `min_content_lines` exist makes this exist.
+    # Recursive because the real kit nests — `logs/` is 17 files under seven
+    # subdirectories, which a top-level count reads as zero.
+    # The floor stays 1 until somebody measures a reason: today's kit is results
+    # 18, logs 17, scripts 3, and a floor fitted to that would refuse a
+    # legitimate kit that ships fewer of the right things.
+    require_dirs: [results, logs, scripts]
+    # This is the whole flow's export, not one stage's. Four is the floor from
+    # `integration-demo` and it is deliberately not raised here: raising it
+    # without saying which four files are meant would refuse a kit for having
+    # the wrong number of the right things.
+    min_result_files: 4
+  tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
+
+# --------------------------------------------------------------------------- #
+# The kinds. Six evidence kinds in `integration-demo` become two here, one per
+# arm, because one task now produces them and `${mode}.${result_type}` is the
+# naming rule (CONTRACT.md §1.1). Each carries its arm's deployment evidence,
+# its correctness results and its replay rounds.
+- module: handoff
+  name: patch_overlay
+  version: '1'
+  description: The per-file bind-mount plan that puts m4's kernel in front of the engine, with each file's before and after hash.
+  content_type: reproducible
+  scope: fixed.required
+  # `handoff/kind.py:144` rejects a `reproducible` kind whose `items_schema`
+  # permits 'script' or 'command' with no 'env'. Mission G5 wants the
+  # environment on every handoff anyway, so the two rules agree.
+  items_schema:
+    type: object
+    properties:
+      result: {type: string}
+      env: {type: string}
+      script: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+    required: [result, env]
+  validators: [check_command_parses, check_environment, check_overlay_applies]
+
+- module: handoff
+  name: stock.measurement
+  version: '1'
+  description: The unpatched arm — its deployment, its correctness results, its replay rounds.
+  content_type: reproducible
+  scope: fixed.required
+  # `handoff/kind.py:144` rejects a `reproducible` kind whose `items_schema`
+  # permits 'script' or 'command' with no 'env'. Mission G5 wants the
+  # environment on every handoff anyway, so the two rules agree.
+  items_schema:
+    type: object
+    properties:
+      result: {type: string}
+      env: {type: string}
+      script: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+    required: [result, env]
+  validators: [check_command_parses, check_environment, check_acceptance, check_bench_report, check_measurement_order]
+
+- module: handoff
+  name: patched.measurement
+  version: '1'
+  description: The patched arm — the same measurements, plus the proof the patch was live.
+  content_type: reproducible
+  scope: fixed.required
+  # `handoff/kind.py:144` rejects a `reproducible` kind whose `items_schema`
+  # permits 'script' or 'command' with no 'env'. Mission G5 wants the
+  # environment on every handoff anyway, so the two rules agree.
+  items_schema:
+    type: object
+    properties:
+      result: {type: string}
+      env: {type: string}
+      script: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+    required: [result, env]
+  validators: [check_command_parses, check_environment, check_acceptance, check_bench_report, check_patch_live]
+
+- module: handoff
+  name: integration_report
+  version: '1'
+  description: The two arms side by side, and the argument for accepting or refusing the change.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    properties:
+      env: {type: string}
+      # The machine-readable form and the human-readable form are one content,
+      # so they are one handoff. `check_items` allows a top-level item the
+      # content type never declared as long as the kind names it here.
+      'report.md': {type: string}
+  validators: [check_environment, check_no_regression]
+
+- module: handoff
+  name: e2e_packup
+  version: '1'
+  description: The whole flow as one reproduction kit — every stage's results, scripts and logs.
+  content_type: code
+  scope: fixed.required
+  validators: [check_environment, check_packup_shape]
+
+# --------------------------------------------------------------------------- #
+# The three leaves.
+- module: task
+  name: apply_patch
+  description: Turn m4's optimised kernel into a per-file overlay plan and prove every file lands.
+  agent: '${m5_agent:-runner}'
+  handoffs: [kernel_optimization, operator_workset, deploy_kit, patch_overlay]
+  validators: []
+  task:
+    goal: Build and check the overlay that puts the optimised kernel in front of the engine.
+    version: '1'
+    inputs: [kernel_optimization, operator_workset, deploy_kit]
+    outputs: [patch_overlay]
+    permissions:
+      grants:
+        - {path: handoffs/kernel_optimization, access: read, kind: kernel_optimization}
+        - {path: handoffs/operator_workset, access: read, kind: operator_workset}
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/patch_overlay, access: write, kind: patch_overlay}
+
+# M5.2 — one task. It brings up the stock arm, measures it, tears it down, brings
+# up the patched arm, measures it identically, tears it down, and compares. Three
+# handoffs, because the three are graded on different lines and merging them
+# would force `check_acceptance` to also understand AIPerf's CSV.
+#
+# `agent: e2e_integrator` (`kind: ai`), with a STEPS readme per G4.2.1. The
+# ordering that used to be graph edges is now that readme's numbered list, and
+# `check_measurement_order` is what makes the difference visible if it is not
+# followed: both arms timestamp every step into `env/steps.json`, and a pair
+# that overlaps in time or disagrees on the sequence is refused.
+#
+# **The patch-live evidence is collected by this task, not by its validator.**
+# `check_patch_live` re-hashes the patched file *inside the running container* —
+# but by the time a validator runs, the deployment has been torn down, so the
+# hash, `docker inspect`'s Mounts and the marker hits are read here and written
+# into `patched.measurement`'s `env/`.
+- module: task
+  name: integrate_and_verify
+  description: Measure both arms on one node in one session, then compare them.
+  # **Switchable, and this is the mock mechanism** (mission Brief item 2:
+  # "通过 mock ai agent"). A `kind: ai` task does not run `entry.sh` — the
+  # backend runs the readme through a model — so promoting this task to `ai`
+  # took it off the mock path entirely. Measured: the first full mock run
+  # sat at `integrate_and_verify: running` while an AI agent prepared to bring a
+  # model up for real, on a node passed in `--var`.
+  #
+  # `--var m5_agent=runner` swaps in the shared program agent, which does
+  # run `entry.sh`, which mocks. The default is the real agent, so a normal
+  # run is unchanged and the mock is the thing you have to ask for.
+  agent: '${m5_agent:-e2e_integrator}'
+  handoffs: [patch_overlay, profiling_evidence, kernel_optimization, deploy_kit, stock.measurement, patched.measurement, integration_report]
+  validators: []
+  task:
+    goal: Measure the stock and patched arms and decide whether the change is acceptable.
+    version: '1'
+    inputs: [patch_overlay, profiling_evidence, kernel_optimization, deploy_kit]
+    outputs: [stock.measurement, patched.measurement, integration_report]
+    permissions:
+      grants:
+        - {path: handoffs/patch_overlay, access: read, kind: patch_overlay}
+        - {path: handoffs/profiling_evidence, access: read, kind: profiling_evidence}
+        - {path: handoffs/kernel_optimization, access: read, kind: kernel_optimization}
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/stock.measurement, access: write, kind: stock.measurement}
+        - {path: handoffs/patched.measurement, access: write, kind: patched.measurement}
+        - {path: handoffs/integration_report, access: write, kind: integration_report}
+
+- module: task
+  name: packup
+  description: Assemble the whole flow into one reproduction kit.
+  agent: '${m5_agent:-runner}'
+  handoffs: [deploy_kit, profiling_evidence, operator_workset, kernel_optimization, patch_overlay, stock.measurement, patched.measurement, integration_report, e2e_packup]
+  validators: []
+  task:
+    goal: Assemble the flow's reproduction kit.
+    version: '1'
+    inputs:
+      - deploy_kit
+      - profiling_evidence
+      - operator_workset
+      - kernel_optimization
+      - patch_overlay
+      - stock.measurement
+      - patched.measurement
+      - integration_report
+    outputs: [e2e_packup]
+    permissions:
+      grants:
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/profiling_evidence, access: read, kind: profiling_evidence}
+        - {path: handoffs/operator_workset, access: read, kind: operator_workset}
+        - {path: handoffs/kernel_optimization, access: read, kind: kernel_optimization}
+        - {path: handoffs/patch_overlay, access: read, kind: patch_overlay}
+        - {path: handoffs/stock.measurement, access: read, kind: stock.measurement}
+        - {path: handoffs/patched.measurement, access: read, kind: patched.measurement}
+        - {path: handoffs/integration_report, access: read, kind: integration_report}
+        - {path: handoffs/e2e_packup, access: write, kind: e2e_packup}
+
+# --------------------------------------------------------------------------- #
+- module: task
+  name: m5_integration
+  description: Stage 5 — put the optimised kernel in front of the real service and decide whether it broke or slowed anything.
+  handoffs: [kernel_optimization, operator_workset, profiling_evidence, deploy_kit, patch_overlay, stock.measurement, patched.measurement, integration_report, e2e_packup]
+  validators: []
+  task:
+    goal: Decide whether the optimisation is safe to keep, and pack the flow up.
+    version: '1'
+    inputs: [kernel_optimization, operator_workset, profiling_evidence, deploy_kit]
+    outputs: [e2e_packup]
+    permissions:
+      grants:
+        - {path: handoffs/kernel_optimization, access: read, kind: kernel_optimization}
+        - {path: handoffs/operator_workset, access: read, kind: operator_workset}
+        - {path: handoffs/profiling_evidence, access: read, kind: profiling_evidence}
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/patch_overlay, access: write, kind: patch_overlay}
+        - {path: handoffs/stock.measurement, access: write, kind: stock.measurement}
+        - {path: handoffs/patched.measurement, access: write, kind: patched.measurement}
+        - {path: handoffs/integration_report, access: write, kind: integration_report}
+        - {path: handoffs/e2e_packup, access: write, kind: e2e_packup}
+    subgraph:
+      - {closure: apply_patch, froms: []}
+      - {closure: integrate_and_verify, froms: [apply_patch]}
+      - {closure: packup, froms: [apply_patch, integrate_and_verify], is_end: true}

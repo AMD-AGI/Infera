@@ -1,0 +1,548 @@
+# Stage 2 — profiling.
+#
+# **Skeleton, frozen by the leader.** Kinds, wiring and graph shape are contract
+# (CONTRACT.md §1); bodies, agents and validator substance are m2's owner's.
+#
+# What this stage is *not*, and every absence is a mission item:
+#
+#   * **no `serve_*` task and no `deployment_*` handoff** (M2.3, M2.4, M2.5).
+#     "agent A 去把服务部署好，agent B 去使用：这是不被允许的." A task that needs a
+#     service brings it up itself, in its own STEPS, and tears it down. m1's
+#     `deploy_kit` already carries the full information on how.
+#   * **no `check_service_live`** (M2.8.1) — it graded a handoff that no longer
+#     exists.
+#   * **no `baseline` / `profiled`** (M2.2) — those named a role in one
+#     package's story. The axis is a configuration and is spelled as one.
+#
+# **Definition order is load-bearing within a file**: validators, then kinds,
+# then leaves, then the non-leaf. A name referenced before it is defined is a
+# load error naming this file and this line.
+
+# --------------------------------------------------------------------------- #
+# 1. Validators.
+#
+# OWNER m2: placeholders with the right identity. Fill from
+# `../../profiling-demo/assets/check_aiperf_report.validator/` and
+# `check_trace_coverage.validator/`, both of which already carry measured
+# thresholds and the argument behind them.
+- module: validator
+  name: check_bench_result
+  version: '1'
+  brief: The bench wrote a machine-readable report that validates against the schema and describes a load that actually ran
+  dimension: completeness
+  strength: strong
+  inputs: [profiling_mode_off.bench_result, profiling_mode_on.bench_result]
+  args:
+    # M2.2.1 — a bench result must be checkable, so it is json/jsonl with a
+    # schema in `assets/schemas/`. AIPerf writes both a CSV and a JSON export;
+    # the JSON is the record and the CSV is a rendering of it.
+    schema: bench_result
+    # **50 and not 100**, and the gap cost a run. This bar must sit below any
+    # legitimately shortened replay window, or it stops being "did anything get
+    # sent" and becomes a second, undeclared constraint on window length.
+    # Measured on this trace: 346 requests in the default 120 s window, 166 in
+    # 60 s, ~80 in 30 s — and a bar of 100 failed a perfectly working replay,
+    # invalidated both of that task's handoffs, and stopped the graph.
+    #
+    # **The other bar measuring this same quantity is m5's `check_bench_report`**
+    # (`steps/m5_integration.yaml`), from the same trace and with the same
+    # default of 50. Until 2026-09-04 both read `'${min_requests:-50}'` — **one
+    # `--var` moving two owners' grading bars**, and neither owner could see it
+    # from their own file, because each reads a floor of 50 here and each is
+    # right about their own file. CONTRACT.md §4.4, sixth face, rung 3.
+    #
+    # The hazard was never that the two disagree; it is that **the override is
+    # shared when the reason for overriding is not** (m5's wording). Someone
+    # shortening the stage-5 replay window and dropping that bar to 20 silently
+    # dropped this one too, and stage 2's window had not changed.
+    #
+    # m5's is now `${integration_min_requests:-50}` (`47db1fc`) and this one
+    # keeps the plain name. Measured in four states after the split — defaults
+    # 50/50, `min_requests=0` gives 0/50, `integration_min_requests=20` gives
+    # 50/20, both set gives 0/20 — so the two are independent in each direction.
+    # **The duplicated 50 is deliberate: the default being shared was right, the
+    # override was not.** A change to the measurement behind it belongs in both.
+    min_requests: '${min_requests:-50}'
+    # The metrics `summarise.py` is asked to find in the CSV. Named here rather
+    # than in the body so that a round that legitimately cannot produce one — a
+    # non-streaming load has no TTFT — fails with the metric's name.
+    require_metrics:
+      - ttft_ms
+      - inter_token_latency_ms
+      - output_token_throughput_tps
+      - request_count
+    # Counted per request from `profile_export.jsonl.gz`, never from a summary
+    # field: AIPerf's own error accounting has moved between releases and a
+    # missing key reads as zero errors.
+    max_error_rate: 0.05
+    # A non-streaming load is a legitimate AIPerf run and a useless stage-2 one:
+    # no TTFT and no inter-token latency, which are two of the three numbers
+    # stage 5's stock arm has to reproduce.
+    require_streaming: true
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_e2e, profiling, m2]
+
+- module: validator
+  name: check_trace_coverage
+  version: '1'
+  brief: The trace opens in the official tooling and covers real work rather than an idling scheduler loop
+  dimension: usability
+  strength: strong
+  inputs: [profiling_mode_on.profile_result]
+  args:
+    # M2.2.2 — "profile result 应至少被对应解析工具正确 load". **The validator
+    # opens a trace itself**, with a streaming reader of the Chrome Trace Format
+    # that torch writes and perfetto reads (`assets/lib/trace_stream.py`). It
+    # cannot use torch's own loader: this body runs on the login node, where
+    # there is no torch and no GPU, and a validator that needed a compute node
+    # to grade a handoff could not run once the allocation ends.
+    #
+    # One rank, because a full pass over one 65 MB rank is **14 s measured** and
+    # eight would make a phase's cheapest-first ordering meaningless. One is
+    # enough for what the rule is for: a manifest that was fabricated, or built
+    # from a different capture, does not survive one row being re-derived.
+    # `-1` checks every rank; `0` trusts the manifest and says so here.
+    verify_ranks: '${verify_ranks:-1}'
+    # One readable trace per tensor-parallel rank. Seven of eight is not a
+    # partial success — an all-reduce that ran on eight would be attributed
+    # against seven and every share downstream would be wrong invisibly.
+    #
+    # **Its own variable rather than `${tp}`**, even though on a real run it is
+    # the TP size and nothing else. A default may contain no `}`, so
+    # `${expect_ranks:-${tp:-8}}` is not spellable — and more to the point, this
+    # is a fact about the *capture being graded*, which in a mock run is not the
+    # capture this run's `tp` describes. The sealed trace is from a TP-2 run, so
+    # a mock run passes `--var expect_ranks=2`; a real run leaves it alone and
+    # sets `--var tp=` if the deployment is not eight-way.
+    expect_ranks: '${expect_ranks:-8}'
+    # A window opened on an idling scheduler loop is a valid trace of nothing.
+    # The reference capture held 209,609 per rank, so this is three orders of
+    # magnitude below a real window and above any warm-up artefact.
+    min_gpu_kernels_per_rank: '${trace_min_kernels:-1000}'
+    # Plausibility, both ways: much longer than the window asked for means the
+    # stop did not take effect, much shorter that it never really started.
+    min_span_s: 1.0
+    window_s: '${window_s:-10}'
+    max_span_ratio: 4.0
+    # The stack window is a different capture with different expectations, and
+    # judging it by the measurement window's rules would fail a correct one on
+    # every rule. Set to 0 when `--var stack_window_s=0` says the round is
+    # deliberately taken without it.
+    expect_stack_ranks: '${stack_ranks:-2}'
+    min_python_functions_per_stack_rank: 10000
+    # M2.8.2 asked this to additionally check completeness against the sglang
+    # source and the model structure. **Deferred, in `todo.md` T1** — the
+    # mission itself says 先不做.
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_e2e, profiling, m2]
+
+- module: validator
+  name: check_profiling_evidence
+  version: '1'
+  brief: The merged evidence carries both benches, the trace and the ranking, and they describe one run of one deployment
+  dimension: completeness
+  strength: strong
+  inputs: [profiling_evidence]
+  args:
+    require_parts: [bench_profiling_mode_off, bench_profiling_mode_on, trace, kernel_table]
+    # The merge is the one place the two lines meet, so it is the one place that
+    # can notice they were not run against the same deployment.
+    #
+    # Across the lines this compares node and image digest, and **deliberately
+    # not the container**: the two lines are two bring-ups by design (CUDA graph
+    # on and off cannot both be true of one running engine) and CONTRACT §5.2
+    # forbids either reusing a name it did not create. Within one line it does
+    # compare the container, and that is the half with teeth — it catches a
+    # trace or a ranking folded in from a different profiled run.
+    require_same_environment: true
+    # The two artefacts whose load configurations must match for either to be a
+    # control for the other.
+    compare_load_of: [bench_profiling_mode_off, bench_profiling_mode_on]
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_e2e, profiling, m2]
+
+# --------------------------------------------------------------------------- #
+# 2. The kinds. `${mode}.${result_type}`, mission M2.2's own example spelling.
+#
+# Every `reproducible` kind below carries the same `items_schema`, and it is not
+# optional: `handoff/kind.py:144` rejects a `reproducible` kind whose schema
+# "permits a document carrying 'script' or 'command' with no 'env'" — an
+# executable with no declared environment is not reproducible whatever it
+# claims. Mission G5 wants the environment on every handoff anyway, so the
+# framework rule and the mission rule agree.
+#
+# `type: string` throughout, because for a file or tree item the value validated
+# is the item's **name**, not its contents (`handoff/content.py:184-197`). That
+# is also why this is not the schema layer G2 asks for; that one is
+# `assets/schemas/`, loaded by producer and validator alike.
+- module: handoff
+  name: profiling_mode_off.bench_result
+  version: '1'
+  description: Throughput and latency with the profiler detached and CUDA graph on — the numbers that mean something.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema: &repro_items
+    type: object
+    properties:
+      result: {type: string}
+      env: {type: string}
+      script: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+    required: [result, env]
+  validators: [check_command_parses, check_environment, check_bench_result]
+
+- module: handoff
+  name: profiling_mode_on.bench_result
+  version: '1'
+  description: The same load with the profiler attached and CUDA graph off, so the profile can be read against a known load.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema: *repro_items
+  validators: [check_command_parses, check_environment, check_bench_result]
+
+- module: handoff
+  name: profiling_mode_on.profile_result
+  version: '1'
+  description: The torch profiler trace for the window, loadable by the official tooling.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema: *repro_items
+  validators: [check_command_parses, check_environment, check_trace_coverage]
+
+- module: handoff
+  name: profiling_mode_on.kernel_table
+  version: '1'
+  description: Magpie's per-kernel ranking over the captured window.
+  content_type: structured_text
+  scope: fixed.required
+  # `structured_text` declares `text.json`/`text.yaml`/`text.xml`/`schema` and
+  # nothing else, so the two items this kind adds must be declared or
+  # `check_items` refuses them: `unknown = items - known - declared`, where
+  # `declared` is exactly this schema's properties.
+  items_schema:
+    type: object
+    properties:
+      env: {type: string}
+      'table.csv': {type: string}
+  # `check_kernel_table` is defined once, in `common.yaml`, and used by m2 and
+  # m3 both — mission M3.5.
+  validators: [check_environment, check_kernel_table]
+
+# M2.9 — the unified handoff: "bench_result、profiling result、magpie
+# standardized output result，三者整合进一个大的统一 handoff". Stage 2's only
+# export; m3 and m5 consume it rather than the four pieces.
+#
+# It carries **both** benches. m5's stock arm has to reproduce m2's numbers
+# (M5.1.3.1), and the number it must reproduce is the profiler-detached one —
+# comparing a served deployment against a profiled one would be comparing two
+# different machines.
+- module: handoff
+  name: profiling_evidence
+  version: '1'
+  description: Stage 2's single export — both benches, the trace, and the kernel ranking, with one environment record.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema: *repro_items
+  validators: [check_command_parses, check_environment, check_profiling_evidence]
+
+# --------------------------------------------------------------------------- #
+# 3. The leaves. **Two lines, and M2.6 says they may run in parallel** — they
+# share no handoff, so no edge is derived between them and the scheduler is free
+# to run them together.
+#
+# **Free in the graph, serialised on the hardware.** M2.6 is a statement about
+# the dependency structure and it is right: neither line reads the other's
+# output, and an edge between them would be a lie about why the second waits.
+# But each line brings up a TP-8 engine, and a node has eight GPUs — two of them
+# at once is not slow, it is impossible. So each leaf declares the whole `gpu`
+# pool. The graph keeps them independent, the scheduler runs one at a time, and
+# the reason the second waits is recorded as what it is: a resource, not a
+# dependency. `WAITING_RESOURCE` is a distinct status from `WAITING_HANDOFF`
+# precisely so this distinction survives into the run's own record.
+#
+# Only a leaf may acquire — a non-leaf holding a lease while its subgraph ran
+# would be hold-and-wait, and `task_graph` rejects it at load naming the task.
+# The default pool is `GpuMgr(capacity=8)`; a run on a node with more GPUs than
+# one deployment needs raises the capacity rather than editing this.
+#
+# A closure's `handoffs` must name every kind its task mentions, **inputs
+# included** — it is the declaration permissions are derived from, not a list of
+# what the task produces.
+#
+# Each line is ONE task that brings its own service up, loads it, and tears it
+# down. That is not a simplification; it is M2.5.
+# --------------------------------------------------------------------------- #
+# The ai agent for this stage, so `--var m2_agent=e2e_profiler` has something to
+# name. Every other module had one; m2 had three switch points and nothing to
+# switch to.
+#
+# **Defined here rather than in `shared.yaml`.** The leader asked for
+# `shared.yaml`; all four existing ai agents live in their own step file
+# (`m1_deploy.yaml:325`, `m3_analysis.yaml:390`, `m4_kernel_opt.yaml:458`,
+# `m5_integration.yaml:592`) and `shared.yaml` holds only `runner`. Copying the
+# convention the maintainers converged on rather than starting a second one;
+# flagged rather than done silently.
+#
+# **Declaring `env` here does NOT make this switch safe**, and the gap is the
+# point rather than a caveat. `agent/runner.py:801`: *"an env var cannot
+# instruct an agent. A conversation is not a process reading os.environ."* So
+# every guard below is reachable, and only the ones the task's `readme.md`
+# STATES are actually applied. Audited 2026-09-05 — three are named nowhere in
+# any of this stage's three briefs:
+#
+#     AIPERF_TRACE      0 mentions   the var whose absence killed a run today
+#                                    (`aiperf_replay.sh:38`, `${AIPERF_TRACE:?}`)
+#     gpu_devices       0 mentions   the seventh kit variable and its three-branch
+#                                    precedence (`line.sh`, `03e3bae`)
+#     replayed_from     0 mentions   provenance carried into the numbers, not a message
+#
+# Until those are in the briefs, promoting this stage loses them silently —
+# they do not degrade, they disappear. See the note on each task.
+# **What this flip is for, and what it is not for.**
+#
+# Use it to absorb small handoff-shape differences that would otherwise fail a
+# run outright — that is what the user asked for and an agent is good at it.
+# **Do not use it on a rung whose numbers we intend to keep**: a brief cannot
+# carry a guard, only a request that someone enforce one, and the two guards
+# that matter most here fail *silently* (a wrong node and a wrong port each
+# yield a full set of plausible numbers). Format is a shape concern; numbers we
+# keep are a measurement concern.
+#
+- module: agent
+  name: e2e_profiler
+  kind: ai
+  version: '1'
+  description: Brings its own service up from m1's kit, loads it twice — profiler detached and attached — and folds both into one evidence handoff.
+  env:
+    # The allocation. As m3 says of theirs, the bodies do not trust these over
+    # the handoff: `line.sh:193` refuses when the kit's `fixed.node` disagrees
+    # with the ambient `E2E_NODE`, and the record wins where both exist.
+    E2E_JOBID: '${jobid}'
+    E2E_NODE: '${node}'
+    E2E_NODE_IP: '${node_ip}'
+    E2E_TRANSPORT: '${transport:-auto}'
+    # Byte-identical to `runner`'s line and to m1's, m3's and m5's — the `:-`
+    # form, which m5 measured fills a present-but-empty variable in both shells.
+    E2E_REMOTE_HOME: '${remote_home:-}'
+    # **The one that killed a run.** `aiperf_replay.sh:38` is `${AIPERF_TRACE:?}`
+    # and `shared.yaml:136` says an operator who passes no `--var aiperf_trace=`
+    # gets a loud failure. Both profiling lines read it; there is no second var.
+    E2E_AIPERF_TRACE: '${aiperf_trace:-}'
+    E2E_AIPERF_IMAGE: '${aiperf_image:-nvcr.io/nvidia/ai-dynamo/aiperf:0.12.0}'
+    # The bring-up this stage performs itself (M2.5). `E2E_PORT_ROUTER` is the
+    # base the kit SEARCHES FROM, never the port to load against — `025d84c`.
+    E2E_CONTAINER: '${container:-yihou_e2e_flow}'
+    E2E_PORT_ROUTER: '${port_router:-8101}'
+    E2E_WORK_ROOT: '${work_root:-/mnt/m2m_nobackup/yihou/e2e_flow}'
+    E2E_GPU_DEVICES: '${gpu_devices:-none}'
+    E2E_MODEL_NAME: '${model_name}'
+    E2E_MODEL_PATH: '${model_path}'
+    E2E_MOCK_ROOT: '${mock_root:-/shared_nfs/yihou/agent_sys/cheat_for_mock}'
+    E2E_MOCK_STAGES: '${mock_stages:-all}'
+    # ---- Below here: read by this stage's own assets, so a `kind: ai` agent
+    # would receive them EMPTY without these lines. Every value is copied
+    # BYTE-IDENTICALLY from `shared.yaml`, which is the lesson of the
+    # `E2E_MOCK_STAGES` defect this block shipped with: two declarations of one
+    # default is how they drift, and the drift is silent at the point of use.
+    #
+    # Found by `check_agent_env.py` only after its closure->assets mapping was
+    # repaired — it had been matching agents by name-containment, and this
+    # agent is named in no closure because m2's default is `runner` on purpose.
+    # It examined nothing and said nothing, and both of us read that as a pass.
+    E2E_CTX: '${context_length:-262144}'
+    E2E_DEPLOY_MODE: '${deploy_mode:-mix}'
+    E2E_IMAGE: '${image}'
+    E2E_PORT_ETCD: '${port_etcd:-8103}'
+    E2E_PORT_WORKER: '${port_worker:-8102}'
+    E2E_SERVED_NAME: '${served_name:-}'
+    E2E_STACK_RANKS: '${stack_ranks:-2}'
+    E2E_STACK_WINDOW_S: '${stack_window_s:-3}'
+    E2E_STAGE: '${stage:-}'
+    E2E_TP: '${tp:-8}'
+    E2E_WARMUP_S: '${warmup_s:-60}'
+    E2E_WINDOW_S: '${window_s:-10}'
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+- module: task
+  name: run_profiling_mode_off
+  description: Bring the service up with CUDA graph on, run the load with no profiler, tear it down.
+  # ------------------------------------------------------------------------- #
+  # **`${m2_agent:-runner}` — switchable, and the default is byte-identical to
+  # what this was.** Until 2026-09-05 this read `agent: runner` literally with a
+  # note saying never to change it. The note's reasoning was right and is now
+  # stated as a cost rather than a prohibition, because the user wants the flip
+  # available during bring-up: an ai agent absorbs small handoff-shape
+  # differences that would otherwise fail a run outright.
+  #
+  # **What you lose the moment you pass `--var m2_agent=e2e_profiler`**, audited
+  # against all three briefs on 2026-09-05: `AIPERF_TRACE`, `gpu_devices` and
+  # `replayed_from` appear in **no** readme in this stage, so an agent is never
+  # told about them. They do not degrade — they disappear.
+  #
+  # That edit is the natural tidying for someone to do: m1, m3, m4 and m5 all
+  # read `agent: '${mN_agent:-…}'` (`m1_deploy.yaml:325`, `m3_analysis.yaml:390`,
+  # `m4_kernel_opt.yaml:458`, `m5_integration.yaml:592`), so m2 looks like the
+  # odd one out. It is not; it is the one stage with no `kind: ai` body, and the
+  # asymmetry is the design.
+  #
+  # **What the edit would cost.** A `kind: ai` task never runs `entry.sh`, so
+  # everything only the program knows would have to move into a brief at once —
+  # and `assets/load/line.sh` is 402 lines holding **16 exit sites** (6 with
+  # their own diagnostic, 10 propagating a sub-script's) plus **7 `:?` guards**
+  # on required variables, among them the node-identity check at `:192` that
+  # refuses when the kit's node is not the node we are on.
+  #
+  # **An `env:` block cannot carry them.** `agent/runner.py:801` is explicit:
+  # *"an env var cannot instruct an agent. A conversation is not a process
+  # reading `os.environ`."* An `env:` entry makes a value reachable; only a
+  # brief makes it used. So the refusals would not degrade — they would be
+  # absent, and the first symptom is a plausible number measured against a
+  # deployment nobody checked.
+  #
+  # m3 found this class the other way round on `build_workset`, where promotion
+  # to `ai` silently dropped the container step and the card check. Their
+  # sentence: *the mock is not a weaker version of the real path — it is the
+  # only version that carries the knowledge.* Here the same fact points the
+  # opposite way: m2 runs one file in both modes, so its guards **gain** effect
+  # at promotion instead of vanishing. **That gain is what passing
+  # `--var m2_agent=e2e_profiler` forfeits** — it is the cost stated above, not
+  # a reason the line must stay literal. This clause read "that only holds while
+  # this line is literal" until 2026-09-05, contradicting this note's own first
+  # sentence while being the authority two other sites pointed at.
+  # CONTRACT.md §4.4 sixth face; `todo.md` T51's preventive shape.
+  agent: '${m2_agent:-runner}'
+  handoffs: [deploy_kit, profiling_mode_off.bench_result]
+  validators: []
+  task:
+    goal: Measure the deployment with the profiler detached.
+    version: '1'
+    inputs: [deploy_kit]
+    outputs: [profiling_mode_off.bench_result]
+    resources: {gpu: 8}
+    permissions:
+      grants:
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/profiling_mode_off.bench_result, access: write, kind: profiling_mode_off.bench_result}
+
+- module: task
+  name: run_profiling_mode_on
+  description: Bring the service up with CUDA graph off, run the same load under the profiler, rank the kernels, tear it down.
+  # **Switchable, defaulting to `runner` — see the note above
+  # `run_profiling_mode_off` for what `--var m2_agent=e2e_profiler` costs.**
+  # This comment said "literal on purpose … do not make it `${m2_agent:-…}`"
+  # while sitting directly above the thing it prohibited: the line was switched
+  # on 2026-09-05 and only the first of the three sites had its note updated.
+  agent: '${m2_agent:-runner}'
+  handoffs:
+    - deploy_kit
+    - profiling_mode_on.bench_result
+    - profiling_mode_on.profile_result
+    - profiling_mode_on.kernel_table
+  validators: []
+  task:
+    goal: Capture a profile of the deployment under a known load.
+    version: '1'
+    inputs: [deploy_kit]
+    outputs:
+      - profiling_mode_on.bench_result
+      - profiling_mode_on.profile_result
+      - profiling_mode_on.kernel_table
+    # The other line's lease. See the note above `run_profiling_mode_off`.
+    resources: {gpu: 8}
+    permissions:
+      grants:
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/profiling_mode_on.bench_result, access: write, kind: profiling_mode_on.bench_result}
+        - {path: handoffs/profiling_mode_on.profile_result, access: write, kind: profiling_mode_on.profile_result}
+        - {path: handoffs/profiling_mode_on.kernel_table, access: write, kind: profiling_mode_on.kernel_table}
+
+- module: task
+  name: merge_profiling_evidence
+  description: Fold both lines into stage 2's single export.
+  # **Switchable, defaulting to `runner` — see the note above
+  # `run_profiling_mode_off` for what `--var m2_agent=e2e_profiler` costs.**
+  # This comment said "literal on purpose … do not make it `${m2_agent:-…}`"
+  # while sitting directly above the thing it prohibited: the line was switched
+  # on 2026-09-05 and only the first of the three sites had its note updated.
+  agent: '${m2_agent:-runner}'
+  handoffs:
+    - profiling_mode_off.bench_result
+    - profiling_mode_on.bench_result
+    - profiling_mode_on.profile_result
+    - profiling_mode_on.kernel_table
+    - profiling_evidence
+  validators: []
+  task:
+    goal: Merge the two lines into one evidence handoff.
+    version: '1'
+    inputs:
+      - profiling_mode_off.bench_result
+      - profiling_mode_on.bench_result
+      - profiling_mode_on.profile_result
+      - profiling_mode_on.kernel_table
+    outputs: [profiling_evidence]
+    permissions:
+      grants:
+        - {path: handoffs/profiling_mode_off.bench_result, access: read, kind: profiling_mode_off.bench_result}
+        - {path: handoffs/profiling_mode_on.bench_result, access: read, kind: profiling_mode_on.bench_result}
+        - {path: handoffs/profiling_mode_on.profile_result, access: read, kind: profiling_mode_on.profile_result}
+        - {path: handoffs/profiling_mode_on.kernel_table, access: read, kind: profiling_mode_on.kernel_table}
+        - {path: handoffs/profiling_evidence, access: write, kind: profiling_evidence}
+
+# --------------------------------------------------------------------------- #
+# 4. The stage.
+- module: task
+  name: m2_profiling
+  description: Stage 2 — measure the deployment twice, once cleanly and once under the profiler, and rank the kernels.
+  handoffs:
+    - deploy_kit
+    - profiling_mode_off.bench_result
+    - profiling_mode_on.bench_result
+    - profiling_mode_on.profile_result
+    - profiling_mode_on.kernel_table
+    - profiling_evidence
+  validators: []
+  task:
+    goal: Measure and profile the deployment, and rank its kernels.
+    version: '1'
+    inputs: [deploy_kit]
+    outputs: [profiling_evidence]
+    permissions:
+      grants:
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/profiling_mode_off.bench_result, access: write, kind: profiling_mode_off.bench_result}
+        - {path: handoffs/profiling_mode_on.bench_result, access: write, kind: profiling_mode_on.bench_result}
+        - {path: handoffs/profiling_mode_on.profile_result, access: write, kind: profiling_mode_on.profile_result}
+        - {path: handoffs/profiling_mode_on.kernel_table, access: write, kind: profiling_mode_on.kernel_table}
+        - {path: handoffs/profiling_evidence, access: write, kind: profiling_evidence}
+    subgraph:
+      - {closure: run_profiling_mode_off, froms: []}
+      # An ORDERING edge, not a data edge: the profiled line consumes nothing
+      # the baseline produces. Without it the two leaves both declare `froms: []`
+      # and are serialised only by arithmetic -- two tasks asking `gpu: 8` do not
+      # fit in an 8-GPU node. That is a guarantee no one wrote down: the lines use
+      # different port bands and run tags, so if they ever overlapped BOTH would
+      # come up cleanly and nothing would fail -- `profiling_mode_off`, the only
+      # throughput worth quoting and the number m5's stock arm must reproduce,
+      # would simply be measured beside a profiler-attached load on the same cards.
+      # The declaration already disagrees with practice (`gpu: 8` while every real
+      # run passes `tp=4`), so the OVER-declaration is what protects the
+      # measurement, and anyone correcting it to match reality removes the
+      # protection and gets no error. Found by m2, T38.
+      #
+      # `graph.py:358-371` is explicit that this is what the field is for: "an edge
+      # no handoff supports is the one thing `froms` buys", and the check on it is
+      # deliberately non-fatal for that reason.
+      - {closure: run_profiling_mode_on, froms: [run_profiling_mode_off]}
+      - {closure: merge_profiling_evidence, froms: [run_profiling_mode_off, run_profiling_mode_on], is_end: true}

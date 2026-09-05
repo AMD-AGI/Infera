@@ -61,6 +61,16 @@
     AD_GPU_NODE: '${gpu_node}'
     AD_WORK_ROOT: '${work_root:-/data/agent_sys_analyze}'
     AD_PER_OP_TIMEOUT_S: '${per_op_timeout_s:-900}'
+    # How `verify_workset` gets a shell onto the node holding the GPUs:
+    # `srun` (Slurm, the default), `spur` (`spur exec <jobid>`), or `local`
+    # when `agent-sys` already runs on that node and there is no gap to cross.
+    # A site fact, so it is a variable; `verify.py`'s `TRANSPORTS` documents
+    # the three and why the third exists.
+    AD_NODE_TRANSPORT: '${node_transport:-srun}'
+    # Which GPUs this run may open, as `HIP_VISIBLE_DEVICES`. Empty means the
+    # whole node. A card index is an identifier bound on a shared host, so it
+    # belongs here rather than in a body.
+    AD_VISIBLE_DEVICES: '${visible_devices:-}'
 
     # --- validator thresholds, read by the bodies that report on them ---- #
     AD_MAX_UNKNOWN_RATIO: '${max_unknown_ratio:-0.3}'

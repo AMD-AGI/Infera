@@ -227,31 +227,52 @@ and a producer inside a container cannot.
 Two of this package's shapes are dictated by the publication seal rather than
 chosen, and both are worth knowing before adding a handoff here.
 
-**No content file may name an absolute path outside a fixed allow-list**, and the
-scan covers every UTF-8 file, not just the README. The rule is right — a record of
-one machine's afternoon is not transferable — but the escape hatch its own source
-describes (`locality.Oracles.image_prefixes`, fed from the kind's `dependencies`)
-is wired to nothing. Measured on one round's logs: 818 absolute paths, of which
-817 were container-internal paths, HTTP routes in an access log, and an etcd key
-prefix. So:
+**A content file should not name an absolute path outside a small allow-list —
+and nothing enforces that at publication.** The rule is right, because a record
+of one machine's afternoon is not transferable, but it is this package's
+discipline rather than the store's admission check.
+
+`handoff/store.py` does not call `locality.check`, in either `seal` or `put`;
+both call sites carry `# locality.check — NOT CALLED. User-ruled 2026-08-31`
+and the reason, which is that the shape heuristic read an HTTP access-log line
+as a filesystem path on an artefact whose brief *required* that line — 97% false
+positive on a real kit. `ROADMAP.md` §6.4 carries the rebuild at P2 and keeps
+`locality.py` intact, so re-wiring it is one line. **`handoff/protocols.py:294`
+still describes the check as part of publication and is stale on that.**
+
+Our own numbers agree with the ruling rather than contradicting it: over one
+round's logs, 818 absolute paths, of which **817** were container-internal
+paths, HTTP routes in an access log, and an etcd key prefix. A check firing on
+those would have been wrong 817 times.
+
+So the discipline is kept and enforced *here*, on the producing side, which is
+where it belongs anyway — a producer knows which of its paths are site roots and
+a shape heuristic cannot:
 
 - site roots are replaced by `@NAME@` placeholders on the way in, by
-  `assets/lib/redact.py`, which then re-applies the seal's own rule and fails
-  naming anything it was not given a placeholder for;
+  `assets/lib/redact.py`, which then applies the allow-list and shape rule
+  **itself** and fails naming anything it was not given a placeholder for. Since
+  the seal does not check, this script is the only thing standing between a
+  local path and a published artefact — treat it as load-bearing, not as a
+  belt-and-braces duplicate;
 - raw logs are published gzipped, which keeps the bytes exactly where substituting
   them would corrupt the one artefact whose value is being faithful;
 - the handoffs carry `command` rather than `script` — a real bring-up script names
   its own log file under a temp directory and cannot pass.
 
-The placeholder is `@NAME@` and not `${NAME}` because `}` is not in the seal's
-lookbehind class, so `${TASK_PACKAGE}/assets/serve/mix_up.sh` offers
-`/assets/serve/mix_up.sh` as a fresh candidate. `@` is in the class.
+The placeholder is `@NAME@` and not `${NAME}` because `}` is not in the shape
+rule's lookbehind class, so `${TASK_PACKAGE}/assets/serve/mix_up.sh` offers
+`/assets/serve/mix_up.sh` as a fresh candidate. `@` is in the class. That is a
+property of `locality.py`'s regex, which `redact.py` reuses — so it still
+applies here even though the seal never runs it.
 
 **`script`, `command` and `entry` items must be executable.** `agent/gate.py`
-copies the version out and checks the mode. That is a good constraint: it pushed
-`command` from a transcript into a runnable script, and writing it as one is what
-made it survive the locality rule, because a script that takes its site paths as
-shell variables has no absolute path to reject.
+copies the version out and checks the mode. **This one is enforced**, unlike the
+locality rule above, and a missing `chmod +x` costs the whole graph while
+reporting only a timeout. It is also a good constraint: it pushed `command` from
+a transcript into a runnable script, and writing it as one is what made it clean
+under the locality rule, because a script that takes its site paths as shell
+variables has no absolute path to leak.
 
 ## Known gaps
 

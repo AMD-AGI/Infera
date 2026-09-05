@@ -1,0 +1,208 @@
+# Validators that belong to no single module because they enforce a rule every
+# module shares. **Owned by the leader**, not by a module owner: a shared
+# validator that five people edit is five validators wearing one name, which is
+# one of the three seams `handoff.analysis.md` recorded in the五-package layout.
+#
+# Definition order is load-bearing *within* a file but there is no ordering rule
+# *across* files, so a kind in `m1_deploy.yaml` may name a validator defined
+# here.
+
+# --------------------------------------------------------------------------- #
+# The environment rule, mission G5: 整个流程的 handoff 都需要传递 env.
+#
+# **Attached to all fifteen kinds.** One document, one schema, three spellings
+# of where it lives (CONTRACT.md §2) — `items/env/environment.yaml` for a
+# `reproducible` or `structured_text` kind, `items/codes/environment.yaml` for a
+# `code` one. The body dispatches on the content type it finds rather than being
+# told, so a kind whose type changes does not silently stop being checked.
+#
+# `completeness` / `strong`: every rule it applies is decided by opening a file
+# that either is there or is not, and by a schema that either validates or does
+# not. Nothing here is judged. `cost: seconds` puts it first in every phase,
+# which is what it is for — a handoff that lost the environment record should
+# fail before anything expensive looks at it.
+- module: validator
+  name: check_environment
+  version: '1'
+  brief: The handoff carries an environment.yaml that validates against the package's schema and names the run it came from
+  dimension: completeness
+  strength: strong
+  inputs:
+    - deploy_kit
+    - profiling_mode_off.bench_result
+    - profiling_mode_on.bench_result
+    - profiling_mode_on.profile_result
+    - profiling_mode_on.kernel_table
+    - profiling_evidence
+    - kernel_worklist
+    - operator_identity
+    - operator_workset
+    - kernel_optimization
+    - patch_overlay
+    - stock.measurement
+    - patched.measurement
+    - integration_report
+    - e2e_packup
+  args:
+    # The schema, by name rather than by path. The body resolves it under
+    # `$AGENT_SYS_TASK_PACKAGE/assets/schemas/` — the same file the producer
+    # validated against, which is the whole of mission rule G2.
+    schema: environment
+    # **The fields that make a record usable rather than merely present.**
+    # `image_id` and not only `image`: a floating tag is not a reproduction, and
+    # a kit that names `:latest` names whatever was on the node that day.
+    require_fixed:
+      [node, gpu_arch, image, image_id, model_name, model_path, tp_size]
+    require_runtime: [container, endpoint, started_at]
+    # **Relations BETWEEN fields, which no schema here can express.** JSON
+    # Schema relates a value to a *constant* — `maxItems` takes a literal, and
+    # bounding an array by a sibling's *value* needs `$data`, an Ajv extension
+    # absent from draft 2020-12, while `spec_loader/validate.py` runs a stock
+    # `Draft202012Validator`. Established by m1 after m4 routed it here as
+    # "expressible, nobody looked". It was looked for and found inexpressible.
+    #
+    # **Why it belongs here and not only in m1's layout.** The same
+    # `environment.yaml` travels in all fifteen kinds (CONTRACT §2); m1's
+    # `devices_within_count` governs `deploy_kit`. So a `profiling_evidence`
+    # could carry `gpu_count: 4` beside eight devices and validate cleanly.
+    # m4 was right about fourteen kinds for a reason they had not found.
+    #
+    # And it reads worse than an unexpressed rule: this one has a name, a fault
+    # number and a gate, so a reader who finds it concludes the document is
+    # checked. **From the artefact, a rule enforced at one carrier of a shared
+    # document is indistinguishable from one enforced everywhere.**
+    #
+    # `on_absent: skip` deliberately. `gpu_devices` is optional in the schema —
+    # a record predating the criterion is still valid, and omitting it honestly
+    # says "this run did not record which devices it took" where `[]` would
+    # falsely claim it took none. Tightening that is m1's call on their kit, and
+    # this validator grades fourteen kinds it must not tighten for.
+    invariants:
+      - name: devices_within_count
+        count_of: fixed.gpu_devices
+        at_most: fixed.gpu_count
+        on_absent: skip
+    # **`fixed` is compared strictly; `runtime` is reported and never judged.**
+    #
+    # I first wrote this as `require_runtime_agrees_across_inputs: true`, which
+    # would have been wrong in the one place it matters: **module 5's two arms
+    # have different containers by construction**. A container holds one state
+    # for its life — that is the entire reason the two-arm design exists, and
+    # CONTRACT.md §5 grants it. A `strong` validator failing on that stops the
+    # graph on exactly the stage the contract says must differ.
+    #
+    # What is left is weaker than "modules 1–4 shared one container", which is
+    # what I wanted to assert and cannot from here: the body sees handoff
+    # **ids**, not kinds (`zone.materials()` is keyed by id), so it cannot tell
+    # an m5 arm from an m2 line. Said out loud rather than approximated — an
+    # assertion that is right four times in five and stops the graph the fifth
+    # is worse than one that reports.
+    #
+    # These four are what make two handoffs comparable at all. A disagreement
+    # means they describe two different machines and every number computed
+    # across them is void.
+    compare_fixed_across_inputs: [node, gpu_arch, image_id, model_path]
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_e2e, common]
+
+# --------------------------------------------------------------------------- #
+# The kernel table, mission M3.5: check_kernel_table 应该和 module 2 共享一个.
+#
+# `profiling-demo` and `analyze-demo` each carry a copy today, with different
+# `args` and different `min_rows`. Resolution is per-file so nothing was broken,
+# but a reader assumes one — and the two tables they graded turned out to be
+# different artefacts (a real 124-kernel capture, and a 34-row synthetic seed).
+# **One definition, here, used by m2 as producer-side and by m3 as input-side.**
+- module: validator
+  name: check_kernel_table
+  version: '1'
+  brief: The ranking has Magpie's columns, enough rows, a head that accounts for the run, and shapes recorded
+  dimension: usability
+  strength: strong
+  inputs: [profiling_mode_on.kernel_table]
+  args:
+    schema: kernel_table
+    # Magpie's columns, exactly. A rename upstream should stop the pipeline here
+    # rather than at whatever reads the CSV next.
+    require_columns:
+      - Name
+      - Calls
+      - Self CUDA total (us)
+      - Avg time (us)
+      - '% Total'
+      - Input Shapes
+    min_rows: '${kernel_table_min_rows:-20}'
+    # The shares must add up to a whole run. Below this and the trace covered a
+    # fraction of the work; above 100 and something is being double-counted
+    # across ranks.
+    min_pct_total_sum: 80.0
+    max_pct_total_sum: 100.5
+    # The head has to mean something. If the top 25 kernels account for a tenth
+    # of the time there is no operator worth picking, and m3 would be ranking
+    # noise.
+    min_top_n_share_pct: 50.0
+    # `Input Shapes` is populated only when the capture asked the profiler for
+    # `record_shapes`. Without it every roofline downstream is impossible and
+    # nothing else would notice.
+    require_input_shapes: true
+    # **How many of the head must name the Python frame that launched them.**
+    # Added on m2's measurement: 24 of the top 25 carry a launcher frame on the
+    # real 124-kernel table, so 10 is comfortable slack and still catches a
+    # `with_stack` window that silently resolved nothing.
+    #
+    # It is a floor on the head rather than on the table because a launcher
+    # frame only exists for a kernel launched from Python: the largest item in
+    # this profile is an all-reduce launched from torch's C++ collectives, and
+    # the Tensile and rocBLAS kernels below it are dispatched from C++ too.
+    # Those are also exactly the kernels m3 excludes from its candidate pool, so
+    # requiring a frame for them would fail a correct capture on the rows nobody
+    # is going to optimise.
+    min_launchers_in_top_n: '${kernel_table_min_launchers:-10}'
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_e2e, profiling, analysis]
+
+# --------------------------------------------------------------------------- #
+# The `command` item must be a script, mission G4 by way of a gap nobody owned.
+#
+# `agent.gate` requires the item to be **executable**. Nothing required it to
+# **parse** — and **11 of the 14 sealed `items/command` scripts under
+# `cheat_for_mock/` do not**, all from one cause: an apostrophe inside a
+# `${VAR:?word}` message opens a single-quoted string that runs to end of file.
+# Six in stage 2, one in stage 3, four in stage 5. Found by m2 sweeping for a
+# class they had just fixed in their own generators; confirmed here first-hand.
+#
+# **Judged by the shell the file's own shebang names**, which is the part that
+# decides the verdict. Measured on `stage2-profiling/aiperf_baseline`: shebang
+# `#!/usr/bin/env bash`, `sh -n` clean and the script *runs*, `bash -n` fails at
+# line 9. dash tolerates the unterminated quote and bash does not — so the
+# script is broken under the shell it names and works under the shell it does
+# not. A reproducer typing `./command` gets the shebang, hence the error.
+# Checking with whichever shell is tried first decides by luck; the first draft
+# of this validator did exactly that and passed the broken one.
+#
+# Attached to every kind that can carry a `command` or a `script` — the
+# `reproducible` ones. A kind with neither is not held to it (`require_present`).
+- module: validator
+  name: check_command_parses
+  version: '1'
+  brief: The handoff's command script parses under the shell its own shebang names, and is executable
+  dimension: usability
+  strength: strong
+  inputs:
+    - profiling_mode_off.bench_result
+    - profiling_mode_on.bench_result
+    - profiling_mode_on.profile_result
+    - profiling_evidence
+    - patch_overlay
+    - stock.measurement
+    - patched.measurement
+  args:
+    require_present: true
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_e2e, common]

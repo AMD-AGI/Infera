@@ -1,0 +1,72 @@
+# The one leaf and everything it needs. Definition order is load-bearing:
+# agent, then validator, then kind, then task.
+#
+# Every object here is a **verbatim copy of the real package's**, minus the
+# things only the AI leaf needs. Keep it that way: the moment this file's
+# `check_workset_shape` args drift from
+# `llm_e2e_performance_optimization/steps/kernel_optimization.yaml`, a workset
+# that passes here starts failing there and the debug harness has become a
+# liar. The bodies themselves cannot drift — they are symlinked.
+
+- module: agent
+  name: workset_publisher
+  kind: program
+  version: '1'
+  description: Publishes a workset directory as a handoff, unrenamed.
+  env:
+    KFO_WORKSET: '${workset:-sampler_vocab_softmax}'
+    # **Required here, unlike in the real package.** There, `publish.py` falls
+    # back to `$AGENT_SYS_TASK_PACKAGE/assets/worksets/<name>` — the staged copy
+    # of the package that carries the worksets. This package carries none (its
+    # bodies are shims into the real one), so the fallback would resolve to a
+    # directory that does not exist. Naming the workset explicitly is also the
+    # right interface for a debug tool: its whole job is "check THIS workset".
+    KFO_WORKSET_DIR: '${workset_dir}'
+    # Where the real bodies live. Both shims refuse without it.
+    KFO_REAL_PACKAGE: '${real_package}'
+
+- module: validator
+  name: check_workset_shape
+  version: '1'
+  brief: The workset carries every file an optimizer needs, and its baseline is cross-checked against a profile number
+  dimension: completeness
+  strength: strong
+  inputs: [workset]
+  args:
+    required_files:
+      - README.md
+      - environment.md
+      - integration.md
+      - program.md
+      - baseline_measurement.md
+      - kernel/driver.py
+      - kernel/measure_baseline.py
+    required_driver_tokens: ['case_ms:', 'case_snr:', 'SNR:', '--bench-mode']
+    min_correctness_cases: 3
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_e2e_performance_optimization, kernel_optimization]
+
+- module: handoff
+  name: workset
+  version: '1'
+  description: Everything needed to test, optimize and re-integrate one operator.
+  content_type: code
+  scope: fixed.required
+  validators: [check_workset_shape]
+
+- module: task
+  name: publish_workset
+  description: Publish the selected workset directory as a handoff, unrenamed.
+  agent: workset_publisher
+  handoffs: [workset]
+  validators: []
+  task:
+    goal: Publish the selected workset directory as a handoff.
+    version: '1'
+    inputs: []
+    outputs: [workset]
+    permissions:
+      grants:
+        - {path: handoffs/workset, access: write, kind: workset}

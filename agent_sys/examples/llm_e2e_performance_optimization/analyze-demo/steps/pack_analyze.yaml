@@ -54,10 +54,30 @@
   description: The analyze stage's deliverable, in the experiment-result-packup layout.
   content_type: reproducible
   scope: fixed.required
+  # **Every item `packup.py` writes has to be declared here, and four were
+  # not.** `FilesystemStore.seal` runs `content.check_items` against this
+  # schema as an admission check, and `additionalProperties: false` turns an
+  # undeclared item into a refusal:
+  #
+  #     items $: Additional properties are not allowed
+  #     ('REPRODUCE.md', 'environment.md', 'notes.md', 'results' were unexpected)
+  #
+  # The refusal is returned as a string that nothing reads — `seal_refused` has
+  # no consumer yet — so the version is simply never published, `agent/gate.py`
+  # then reports `output_absent`, the escalation reaches a sink that does not
+  # answer, and the run ends on `_settle`'s stall branch reporting
+  # `pack_analyze: running`. Measured twice, end to end, with the content on
+  # disk complete and passing its own validator. Nothing in that chain names
+  # the schema.
+  #
+  # The four are not optional extras: `check_analyze_packup_shape` **requires**
+  # them (`required_files` names REPRODUCE.md, environment.md and notes.md, and
+  # `required_dirs` names results). The producer, the validator and the kind
+  # had drifted apart, and the kind was the one nobody ran.
   items_schema:
     type: object
     additionalProperties: false
-    required: [result, env, command, code]
+    required: [result, env, command, code, results, 'REPRODUCE.md', environment.md, notes.md]
     properties:
       result: {type: string}
       env: {type: string}
@@ -65,6 +85,12 @@
       code: {type: string}
       logs: {type: string}
       watchout: {type: string}
+      # The experiment-result-packup layout, which is the whole point of this
+      # handoff and is what `check_analyze_packup_shape` checks for.
+      results: {type: string}
+      'REPRODUCE.md': {type: string}
+      environment.md: {type: string}
+      notes.md: {type: string}
   validators: [check_analyze_packup_shape]
 
 # --------------------------------------------------------------------------- #

@@ -42,6 +42,26 @@ env:
   IT_IMAGE: '${image:-infera/engine-sglang:glm53-flash}'
   IT_ETCD_IMAGE: '${etcd_image:-quay.io/coreos/etcd:v3.5.14}'
   IT_TP: '${tp:-8}'
+  # KV cache reach. 262144 is GLM-5.3-Flash's, measured on eight GPUs with 288 GiB
+  # each; at a smaller tp the same number is a much larger share of a much smaller
+  # pool, so it has to be reducible without editing a script.
+  IT_CTX: '${context_length:-262144}'
+
+  # --- the two flag groups that name a MODEL rather than a recipe --------------
+  # Both default to exactly the GLM-5.3-Flash command line this package was
+  # measured on, so leaving them unset changes nothing.
+  #
+  # They exist because `model_path`, `image` and `served_name` were already
+  # variables while these were not, which made "point this package at another
+  # model" look supported and then fail inside the engine. Qwen3.5 has no DSA
+  # attention path and sglang rejects `--dsa-*-backend` outright; and a GLM
+  # reasoning parser on a non-GLM chat template yields an empty `content` for
+  # every request, which surfaces as an eval score of 0.00 rather than as an
+  # error. Pass the literal `none` for a model that wants neither: agent_sys's
+# variable syntax has no way to spell an empty default (see below), and an
+# empty --var would be indistinguishable from an unset one.
+  IT_DSA_ARGS: '${dsa_args:---dsa-prefill-backend tilelang --dsa-decode-backend tilelang}'
+  IT_PARSER_ARGS: '${parser_args:---reasoning-parser glm45 --tool-call-parser glm47}'
 
   # --- ports ------------------------------------------------------------------
   # IT_ETCD_PORT is not 2379 and must not be: these nodes run a Kubernetes
@@ -87,6 +107,11 @@ env:
   IT_EVAL_EXAMPLES: '${eval_examples:-200}'
   IT_EVAL_THREADS: '${eval_threads:-32}'
   IT_EVAL_MAX_TOKENS: '${eval_max_tokens:-2048}'
+  # The evaluator side of IT_PARSER_ARGS, and it must be set consistently with
+  # it: `--thinking-mode glm-45` is what makes `content` hold the answer when the
+  # engine runs `--reasoning-parser glm45`. Mismatch the two and a healthy
+  # deployment scores 0.00. `none` for a model with no reasoning parser.
+  IT_EVAL_THINKING: '${eval_thinking:---thinking-mode glm-45}'
   # Measured in place, 1319 rows. An absolute path rather than a file inside the
   # package: the whole package is copied into every attempt's zone.
   IT_GSM8K_DATA: '${gsm8k_data:-/apps/tas/yaoc/research/topic/infera-with-hyperloom/Infera/examples/sglang_1p1d_glm5.2/lm_eval/data/test.jsonl}'

@@ -129,7 +129,7 @@ python3 "$PKG/assets/lib/redact.py" "$OUT" \
   "TASK_PACKAGE=$PKG" \
   "TRACE_DIR=$(dirname "${PD_AIPERF_TRACE:?}")" \
   "TMPDIR=/tmp" \
-  "HOME=$HOME" || { say "ABORT: the packup still names paths the seal will refuse"; exit 1; }
+  "HOME=$HOME" || { say "ABORT: the packup still names local paths redact.py could not place"; exit 1; }
 
 say "done: $(find "$ROOT" -type f | wc -l) file(s) in the packup"
 exit 0

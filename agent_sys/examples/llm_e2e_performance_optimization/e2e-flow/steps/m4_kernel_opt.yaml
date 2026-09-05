@@ -1,0 +1,509 @@
+# Stage 4 — kernel optimisation.
+#
+# **Skeleton, frozen by the leader.** One kind, one leaf, and the smallest stage
+# in the flow — which is the mission's design, not an omission.
+#
+# Two deletions:
+#   * **`publish_workset` is gone** (M4.2). It existed to turn a hand-written
+#     workset into the shape this stage consumes; the input is now m3's
+#     `operator_workset` and there is nothing to convert at the graph level.
+#   * **the standalone `workset` kind is gone** (M4.1, M3.7) — merged into m3's.
+#     m4 declares none of its validators either (M4.4): it references the kind
+#     and inherits `check_workset_shape` and `check_workset_runs`.
+#
+# And one **reversal**, which is the most consequential single line in the
+# mission for this stage.
+
+# --------------------------------------------------------------------------- #
+# OWNER m4: the reversal, M4.3.5.
+#
+# The old package's loudest rule was *"最要命的那条：不要拿 workset 里印的数字当
+# 分母"* — do not use the number printed in the workset as your denominator,
+# measure the baseline yourself. The mission overrules it:
+#
+#   > 这一点不成立，优化任务的 ground truth 本身就应该严格的从 workset 中来，
+#   > 如果最基础的硬件、优化前提不一样，直接报错 abort。软件环境不太一样可以报
+#   > warning。
+#
+# So this validator changes from *"re-measure and disbelieve the workset"* to
+# *"prove you took the workset's own baseline, and prove the premise held"*:
+#
+#   * hardware or optimisation premise differs from the workset's → **abort**,
+#     not warn. A speedup measured against a different GPU architecture or a
+#     different shape set is not a smaller result, it is a different question.
+#   * software environment differs → **warning**, recorded in the handoff and
+#     carried forward. It is the class of difference that usually does not
+#     matter and occasionally does, and the honest treatment is to say so.
+#
+# That reversal is only safe because `check_workset_runs` (m3, `gpu_hours`) has
+# already executed the workset's own tests on this hardware. **If that validator
+# is ever weakened, this one has to go back to re-measuring.**
+- module: validator
+  name: check_speedup_substantiated
+  version: '1'
+  brief: The claimed speedup is the workset's own performance entrypoint re-run, against the workset's own baseline, under the workset's own premise
+  dimension: trustworthiness
+  strength: strong
+  inputs: [kernel_optimization]
+  args:
+    schema: kernel_optimization
+    # What must match the workset exactly before any number is believed.
+    #
+    # **A floor, not the list.** The body unions this with the workset's own
+    # `ground_truth.abort_on_mismatch`, because the workset knows what its
+    # numbers depend on and the mission knows what may never be skipped. Bare
+    # leaves here and dotted paths there resolve to the same field — `_resolve`
+    # looks a bare name up under `fixed` then `runtime` — so the two spellings
+    # cannot silently check different things.
+    #
+    # `operator`, `shapes` and `dtype` are not environment fields; they are
+    # compared against the workset itself in `_check_ground_truth`.
+    abort_on_premise_mismatch: [gpu_arch, shapes, dtype, operator]
+    # What is reported and carried rather than fatal. A field that differs and
+    # is **not** recorded in `run_environment.warnings[]` is still a failure:
+    # differing is tolerated, hiding it is not.
+    warn_on_mismatch: [rocm, image_id, torch, driver]
+    # **`gpu_devices` is deliberately on neither list, decided 2026-09-04 by the
+    # leader, and here is the condition that would change it** — recorded at the
+    # site where somebody would otherwise add it, because a decision that lives
+    # only in a message reads later as an oversight.
+    #
+    # A device *index* is not an optimisation premise. Two runs on disjoint
+    # halves of one node with the same `gpu_arch`, `gpu_count` and `image_id`
+    # are comparable, which is what makes those three abort/warn fields and not
+    # this one. On a shared cluster most legitimate re-runs get different cards,
+    # so warning on it would fire on the normal case — and **a warning channel
+    # that fires on the normal case stops being read**, which costs us the cases
+    # where it is not normal.
+    #
+    # The asymmetry is why "no" is the cheaper mistake: wrong this way costs a
+    # comparison nobody flagged, and `todo.md` T7 is the thing that would catch
+    # it; wrong the other way puts a meaningless warning on every run and
+    # teaches the next reader to skip them.
+    #
+    # **Revisit when T7 lands** — the within-arm, round-to-round spread on a
+    # quiet node. If card-to-card variation *within* one node approaches the
+    # 5% / 10% bars, which cards you got becomes a premise and this field
+    # belongs on the warn list. Today there is no evidence either way, and a
+    # warning added against a hypothesis is how the channel fills with noise.
+    # Correctness is not a percentage. A kernel that is faster and wrong is not
+    # a partial success. There is deliberately no `min_pass_ratio` here — the
+    # one `check_workset_runs` carries is recorded as `todo.md` T10 and nothing
+    # on m4's side inherits it.
+    require_correctness_pass: true
+    min_shapes_measured: 3
+
+    # --- reaching the node, because this body re-measures ---------------------
+    #
+    # **m1's parameter names and m1's defaults, verbatim.** One
+    # `--var transport_env` has to drive m1's `check_deploy_serves`, m3's
+    # `check_workset_runs` and this one; a second spelling would be a second
+    # thing to keep in step, which is the failure that produced this whole
+    # class. RUN-PLAN's var table already records `transport_env` costing three
+    # rung-0 runs and two wrong attributions in m1's stage, and m3 lost three
+    # non-reproductions to the same hole in theirs.
+    #
+    # A validator declares no agent, so it runs closed: no `SPUR_CONTROLLER_ADDR`
+    # and a `PATH` of `/usr/bin:/bin` while `spur` lives in `/usr/local/bin`.
+    # Without these the re-measurement cannot leave the login node — and it did
+    # not, which is why this validator has never graded a real kernel.
+    transport_path: '${transport_path:-/usr/local/bin:/usr/local/sbin}'
+    transport_env: '${transport_env:-}'
+    # Which card the re-measurement takes. Empty and REFUSED at run time rather
+    # than defaulted: unset does not mean "the caller chose", it means torch
+    # takes card 0, which on a shared host is a co-tenant's. Same name m3 uses,
+    # so one `--var` points both instruments at one card.
+    measure_gpu: '${measure_gpu:-}'
+
+    # How far the workset's own baseline may drift when re-measured here before
+    # the premise is judged to have failed **empirically**. This is not the
+    # deleted rule returning: exceeding it produces an ABORT, never a
+    # substituted denominator.
+    #
+    # **The "~2% round-to-round" this was justified by is a sampling artefact,
+    # measured 2026-09-04 on MI355X (`crsuse2-m2m-234`, cards 0-3 free).** Over
+    # 40 rounds the rsd is 1.8-2.7%, which is where ~2% came from. Over **200**
+    # rounds of the same thing on the same card it is **8.5%**, because the
+    # distribution is heavy-tailed rather than Gaussian:
+    #
+    #     median deviation from the median round   0.22%
+    #     p90 4.19%   p95 9.15%   p99 51.6%   max 103.5%
+    #     rounds off by >5%: 8.0%      by >10%: 4.5%
+    #
+    # One "round" there is `5 groups x 10 iters` — **exactly mission 3.2.7's
+    # protocol floor** — so a single protocol-conformant measurement is the unit
+    # that carries this tail. A typical one is excellent; roughly one in
+    # twenty-two is off by more than 10%.
+    #
+    # **The value is NOT widened, and widening it is the wrong response.** A bar
+    # loosened to cover a tail stops discriminating; the honest fixes are more
+    # than one sample, or a median-of-rounds reduction. That is a decision for
+    # the leader and for `todo.md` T7, not for this line.
+    #
+    # **Caveat, and it is why T7 is still open:** cards 4-7 were at 90% under
+    # another tenant's job, so this is a *shared chassis*, not the quiet node T7
+    # asks for. The tail is plausibly the neighbour. What the number establishes
+    # is an upper bound and the shape of the distribution, not the floor.
+    baseline_agreement_tolerance: 0.05
+    # How far the producer's own optimised figures may be from a re-measurement.
+    # Wide because the two sides are not alike: the baseline is tight (~2%) and
+    # an optimised kernel has measured ~8% round to round on this hardware. A
+    # tight tolerance would fail honest handoffs more often than dishonest ones,
+    # which is the wrong direction for a trustworthiness check to fail in.
+    tolerance: 0.15
+    timeout_seconds: 1800
+    # Local disk. `TMPDIR` is only the fallback, and a validation zone forces it
+    # to `<zone>/tmp` (`validator/environment.py:233`) — which sits under
+    # `--demo-root`. With a run root on this cluster's NFS every ROCm kernel
+    # launch segfaults, *after* the copies and the first round, so the run is
+    # lost at its most expensive point.
+    scratch_dir: '${scratch_root:-/mnt/m2m_nobackup/yihou/e2e_flow/kfo}/substantiate'
+
+    # m3's shipped entrypoint contract:
+    #   ./run_performance.sh [--operator ID] [--impl PATH] [--shape CASE_ID] [--json OUT]
+    # No `--impl` is the workset's own baseline; `--impl PATH` is the candidate,
+    # against the same reference, shapes and protocol.
+    #
+    # Kept as `args` rather than literals not because the contract is unsettled
+    # — it is settled — but because this validator and `optimize_kernel`'s
+    # `steps/run_entrypoint.py` must drive the workset **identically**, and two
+    # sets of literals in two files can be edited apart. The failure mode if
+    # they diverge is silent: a flag that runs the baseline while the caller
+    # records it as the candidate yields two measurements of the same code, a
+    # ratio of 1.000, and no error anywhere.
+    report_flag: '--json'
+    impl_flag: '--impl'
+  tags:
+    logic_source: external_dynamic
+    cost: gpu_hours
+    domain: [llm_e2e, kernel_opt, m4]
+
+- module: validator
+  name: check_optimization_shape
+  version: '1'
+  brief: The deliverable carries the kernel, how to apply it, and the evidence, in the form m5 consumes
+  dimension: completeness
+  strength: strong
+  inputs: [kernel_optimization]
+  args:
+    # Both `require_apply_mode` and `require_fields` are now enforced by the
+    # schema itself (`apply.mode` is a `const`, and the five names are its
+    # top-level `required`), which is where they belong: a rule in a schema
+    # holds for everyone who reads the document, and a rule in a validator's
+    # args holds only for whoever runs the check. They stay here as the
+    # skeleton wrote them because they are the mission's own wording and
+    # `assets/schemas/samples/selftest_kernel_optimization.py` proves the schema
+    # enforces each one — a case per field, rejected with the field named.
+    #
+    # M5.1.1: 优化成果是如何 apply 回 sglang，是应该严格遵循 3 的 handoff 的.
+    # `check.py` goes further than the schema can and compares
+    # `apply.integration_point` against the carried workset's own `edit_target`
+    # field for field. That is what makes m5's `apply_patch` a program rather
+    # than a judgement call: an `apply` written against whatever file the
+    # optimiser happened to edit is caught here.
+    schema: kernel_optimization
+    require_apply_mode: [overlay_files]
+    require_fields: [operator, workset_ref, apply, evidence, premise]
+
+    # The four documents a cold reader needs. Floors rather than targets, and
+    # deliberately low: the check is against an empty file, not a short one.
+    min_content_lines: {README.md: 12, REPRODUCE.md: 8, environment.md: 8, notes.md: 8}
+    # Command lines inside fenced blocks in REPRODUCE.md, comments excluded. A
+    # reproduction section with no commands in it is a description.
+    min_command_lines: 4
+    # Present and non-empty. The first three are what makes the handoff
+    # self-contained: without them `check_speedup_substantiated` cannot
+    # re-measure and no reader can check the denominator.
+    required_evidence:
+      - results/kernel_optimization.json
+      - results/workset.snapshot.yaml
+      - results/workset.baseline_report.json
+      - results/optimized_kernel.py
+      - results/forge_result.json
+      - apply/manifest.json
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_e2e, kernel_opt, m4]
+
+# --------------------------------------------------------------------------- #
+- module: handoff
+  name: kernel_optimization
+  version: '1'
+  description: One optimised kernel, verified by the workset's own tools, with the instructions for putting it back into the engine.
+  content_type: code
+  scope: fixed.required
+  validators: [check_environment, check_optimization_shape, check_speedup_substantiated]
+
+# --------------------------------------------------------------------------- #
+# **One agent node**, M4.3, doing four things in order and nothing else:
+#
+#   1. run the existing conversion that turns the handoff into the format
+#      KernelForge takes,
+#   2. run KernelForge,
+#   3. take its output and run the **workset's** correctness test, then the
+#      **workset's** performance test — in that order, because a kernel that is
+#      faster and wrong should never reach a timing loop,
+#   4. write the handoff m5 consumes: a kernel strictly verified by the tools
+#      shipped in stage 4's own delivery.
+#
+# `kind: ai`, and the skeleton's `agent: runner` is replaced rather than kept.
+# The work between "here is a workset" and "here is a handoff" is judgement:
+# noticing that forge silently degraded, deciding whether a null result is a
+# successful smoke test or a failure, and writing the four documents a cold
+# reader needs. None of that is a command line.
+#
+# **What is no longer judgement, and this is the change G4.2 asks for.** The
+# previous package left the agent to choose a forge invocation, choose a
+# baseline, choose a measurement protocol and decide whether a speedup was real.
+# Every one of those is now a script with a stated acceptance criterion in
+# `assets/optimize_kernel.task/readme.md`'s STEPS section:
+#
+#   1  `steps/10_read_inputs.py`   pin the operator, entrypoints, shapes, baseline
+#   2  `steps/20_premise_gate.py`  M4.3.5. Exit 2 = ABORT, before anything is spent
+#   3  `steps/30_run_forge.sh`     the WORKSET's own `forge.one_line` (M3.7.6)
+#   4  `steps/40_correctness.sh`   the workset's correctness entrypoint
+#   5  `steps/50_performance.sh`   the workset's performance entrypoint — refuses
+#                                  to run until 4 passed
+#   6  `steps/60_write_handoff.py` computes the ratios; refuses to write a claim
+#                                  under an aborted premise, a mock, or a failure
+#   7  `steps/70_selfcheck.sh`     runs check_optimization_shape's own body
+#
+# The AI sequences and reads. It does not choose a denominator, and there is no
+# point in the flow at which it could.
+#
+# **`env` is declared here and not in `shared.yaml`**, which is a departure from
+# `e2e_deployer` and is deliberate: `shared.yaml` is the leader's file
+# (CONTRACT §8a) and every name below is m4's alone. If the leader would rather
+# have one declaration site, these move wholesale and nothing else changes.
+# No credential appears here or anywhere in this package; model credentials
+# reach a body from the operator's own settings allow-list, by name, through
+# `env_mgr.harness.harness_env`.
+- module: agent
+  name: e2e_kernel_optimizer
+  kind: ai
+  version: '1'
+  description: Runs a workset's own forge one-liner and its own tests, and hands back a kernel that has been graded by them.
+  env:
+    # --- the allocation, re-declared because an ai agent inherits nothing ----
+    #
+    # **`env_mgr/material.py:96` reads the `env` block off the agent that is
+    # RUNNING**, and `shared.yaml` declares all 36 `E2E_*` on `runner`. A
+    # `kind: ai` agent therefore receives none of them: measured across the
+    # package, `runner` 36, `e2e_kernel_optimizer` **1**. m1 found it in rung
+    # 1's own transcript, where the agent ran `env | grep` and got seven
+    # `AGENT_SYS_*` names and zero `E2E_*`.
+    #
+    # This is the same seam as `check_speedup_substantiated` naming `KFO_PYTHON`
+    # at a validator that declares no agent: **an agent that declares no `env`
+    # is in the position of a validator that declares no agent.** Same block,
+    # same silence, and each time the symptom was a plausible wrong story about
+    # somebody's behaviour rather than a missing variable.
+    #
+    # Only what m4's own bodies read, not all 36 — `run_in_container.sh` and
+    # `assets/lib/remote.sh` need these three to reach the node. Spelling and
+    # default match `shared.yaml` exactly, which the leader's `show`-gate check
+    # enforces rather than trusts; the duplication is unavoidable because
+    # `${...}` is textual per occurrence and YAML anchors do not cross files.
+    #
+    # NOT re-declared: `E2E_MOCK_ROOT` and `E2E_MOCK_STAGES` are read only by
+    # `mock.sh`, and **this task's readme never invokes it** — measured, 0
+    # references in `optimize_kernel.task/readme.md`. m4 reaches the mock only
+    # through `entry.sh` + `mock_adapt.py`, which run under `runner`, where both
+    # variables already are.
+    #
+    # **The reason is this readme's, not the agent's kind**, and the first
+    # version of this comment got that wrong: it said a `kind: ai` task never
+    # runs `entry.sh` and therefore never reaches `mock.sh`. The first half is
+    # true and the second does not follow — **a readme can invoke `mock.sh`
+    # directly, and m1's does**: `deploy_and_prove.task/readme.md:71` is STEP 0,
+    # with the 0-vs-3 exit contract as its criterion, so `e2e_deployer` needs
+    # both names and is right to declare them. Corrected by m1, who measured all
+    # four ai readmes (deploy 3 references, the other three 0).
+    #
+    # So the rule is per-agent, derived from what each task's readme actually
+    # references. A blanket "ai agents do not declare mock vars" would flag the
+    # one stage where they are load-bearing, and it would fail silently in the
+    # worst direction: undeclared, `mock.sh` cannot tell **unset** from **not
+    # listed**, so `--var mock_stages=all` runs the stage for real. That is what
+    # happened on rung 1.
+    E2E_JOBID: '${jobid}'
+    E2E_NODE: '${node}'
+    E2E_TRANSPORT: '${transport:-auto}'
+    # Read by `_lib.render_environment`, which stamps each carried warning with
+    # the stage that noticed it. Declared because `check_agent_env.py` is right
+    # that an undeclared name arrives empty — and note the value here is
+    # `${stage:-}`, i.e. **empty by default and present**, which is why
+    # `render_environment` guards on truthiness rather than `setdefault`.
+    E2E_STAGE: '${stage:-}'
+
+    # --- site facts. Empty by default, and empty is REFUSED at run time ------
+    #
+    # These are facts about one machine — where it keeps a checkout, which card
+    # is free — so a real default would ship one host's answer as everyone's,
+    # which is CONTRACT §6. But a *load-time* refusal here would break the gate
+    # every owner runs after every edit (CONTRACT §9 supplies six vars and none
+    # of these three), and a package that cannot be loaded cannot be checked.
+    #
+    # So the refusal moves from load time to run time and gets *louder* rather
+    # than quieter: the value is empty, and `steps/_lib.py:scratch()` and
+    # `steps/30_run_forge.sh` refuse an empty one by name. The same sentinel
+    # trick `shared.yaml` uses for `E2E_DSA_ARGS`, for the same reason — the
+    # honest failure is the one that names the variable.
+    #
+    # `HIP_VISIBLE_DEVICES` is the one that must never acquire a real default:
+    # this host is shared, and `0` would put two runs on one card to blame each
+    # other's noise. A body never changes it either — other people are on the
+    # other cards.
+    KFO_KERNELFORGE_REPO: '${kernelforge_repo:-}'
+    HIP_VISIBLE_DEVICES: '${gpu:-}'
+    # Must be LOCAL DISK and inside a `yihou/` directory. `/tmp` inside a
+    # container is not the `/tmp` outside it, and a default that happens to be
+    # writable is how the NFS root_squash trap gets re-set. The fallback below
+    # is this cluster's node-local scratch and matches `shared.yaml`'s
+    # `E2E_WORK_ROOT` — a cluster fact, not an allocation fact.
+    KFO_SCRATCH_ROOT: '${scratch_root:-/mnt/m2m_nobackup/yihou/e2e_flow/kfo}'
+    # Where this task's `$W` goes — `readme.md` opens with
+    # `W="${E2E_WORK_ROOT:?}/m4/<stamp>"`, and until 2026-09-04 `$W` was used in
+    # eight command lines and defined nowhere at all.
+    #
+    # **Declared here because a `kind: ai` agent receives only its own env
+    # block.** `shared.yaml:113` binds the var and that is not inheritance;
+    # `m1_deploy.yaml:120` and `m5_integration.yaml:103` each repeat the line for
+    # the same reason. Adding the readme line without this one turned
+    # `check_agent_env` red within three minutes, which is the gate doing exactly
+    # its job.
+    #
+    # The default is duplicated from `shared.yaml` rather than referenced,
+    # matching m1 and m5 — one more copy of a cluster fact, and the alternative
+    # is an unbound var that `show` cannot resolve.
+    E2E_WORK_ROOT: '${work_root:-/mnt/m2m_nobackup/yihou/e2e_flow}'
+
+    # --- the four that otherwise fail SILENTLY ------------------------------
+    # `$HOME` on this class of host is NFS with root_squash, so a container's
+    # root maps to nobody: `~/.triton` and the experience KB fail with no error,
+    # and a `~/.cache` write once killed an sglang scheduler with an
+    # unremarkable `PermissionError`.
+    TRITON_CACHE_DIR: '${scratch_root:-/mnt/m2m_nobackup/yihou/e2e_flow/kfo}/triton_cache'
+    KNOWLEDGE_LOCAL_ROOT: '${scratch_root:-/mnt/m2m_nobackup/yihou/e2e_flow/kfo}/knowledge'
+    # **The one that fails with a signal rather than a message.** `env_mgr`
+    # points `TMPDIR` at `<zone>/tmp` and the zone lives under `--demo-root`;
+    # put the run root on this cluster's NFS and every ROCm kernel launch dies
+    # with SIGSEGV, on the *first* launch, after `hipGetDeviceCount` and every
+    # device-property query have returned `hipSuccess`. Measured 2026-09-02 on
+    # gfx950 five ways: `/tmp` and node-local disk return 0, three different
+    # `/shared_nfs` paths return 139 with no output. It cost an agent 25 minutes
+    # of bisection down to a hand-written HIP program, because nothing in the
+    # failure names a filesystem.
+    #
+    # An agent spec may set it at all because `env_mgr/harness.py:39-44` lists
+    # `TMPDIR` in `_RESERVED` — never forwarded from the operator's ambient
+    # environment — and then says an agent spec's declared `env` may still set
+    # any of them, applied after that module.
+    TMPDIR: '${scratch_root:-/mnt/m2m_nobackup/yihou/e2e_flow/kfo}/tmp'
+    # The interpreter the measurement subprocesses use. Named because a
+    # validator body's environment is closed and the PRODUCER row shadows
+    # `AGENT_SYS_DEMO_PYTHON` on the output phase, so `python3` resolves to
+    # `/usr/bin/python3`, which has no torch — and the measurement then dies on
+    # the import in 0.1 s and reads as a measurement disagreement.
+    KFO_PYTHON: '${kfo_python:-/opt/venv/bin/python3}'
+
+    # --- forge's own knobs ---------------------------------------------------
+    # **Do not lower below 3.0.** At or below 2.0 KernelForge silently drops
+    # Analysis to static-only and the implementer turn cap falls 500 -> 100
+    # (`kernel_agents/cli.py:47`, `:1391`, strictly greater); nothing warns you
+    # and the campaign still produces a report. The enforced floor is 1.0
+    # (`cli.py:46`), so there is no five-minute forge run.
+    KFO_MAX_HOURS: '${forge_max_hours:-3.0}'
+    # The **inner** model, on forge's own command line. Distinct from this
+    # agent's own model, which is `config.options.model` — a *process* variable
+    # would be inherited by the nested `claude` forge starts, which is exactly
+    # what the split exists to avoid.
+    KFO_FORGE_MODEL: '${forge_model:-Claude-Sonnet-5[1m]}'
+    KFO_SNR_THRESHOLD: '${forge_snr_threshold:-30.0}'
+    # `1` skips the campaign. A mock is not a small campaign: the schema forbids
+    # it from carrying a claim at all.
+    KFO_MOCK: '${forge_mock:-0}'
+    # Which operator, when the workset carries more than one. Empty means "the
+    # workset carries exactly one, use it" — and a workset with two and no
+    # selector is a run-time refusal rather than a coin flip. One handoff per
+    # operator is deferred (`todo.md` T3).
+    #
+    # **`E2E_`-named rather than `KFO_`-named, and that is the whole point.**
+    # This is the one selector both paths need: the real path reads it as
+    # `10_read_inputs.py --operator`'s default, and the mock path reads it in
+    # `mock_adapt.py`. The mock path runs under `runner`, so it has to be
+    # declared there too — and a name declared in two files with nothing
+    # comparing them is the fault this package has now hit seven times.
+    # `E2E_*` puts it under the leader's `show`-gate agreement check, so the
+    # duplication is **checked rather than trusted**. `KFO_*` stays what it
+    # is: names only m4's own steps read, which never need a `runner` twin.
+    #
+    # The `--var` spelling is unchanged, so no command line moves.
+    # `shared.yaml` is the leader's file; the twin line is requested, not added.
+    E2E_WORKSET_OPERATOR: '${workset_operator:-}'
+    # See `check_speedup_substantiated`'s `args`: how a candidate implementation
+    # is selected is not in `workset.schema.json` yet, and these two sides must
+    # agree.
+    KFO_REPORT_FLAG: '${report_flag:---json}'
+    KFO_IMPL_FLAG: '${impl_flag:---impl}'
+    # MOCK-MAP adaptation (G): `mismatched` reproduces the sealed run's
+    # gfx942-vs-gfx950 abort on purpose, as the only cheap test of the abort
+    # path. `matched` is the default because a real run of this flow shares one
+    # container across m1-m4 and the premise therefore holds.
+    E2E_MOCK_PREMISE: '${mock_premise:-matched}'
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+- module: task
+  name: optimize_kernel
+  description: Run the workset's own forge one-liner and its own tests, and hand back a kernel graded by them.
+  # **Switchable, and this is the mock mechanism** (mission Brief item 2:
+  # "通过 mock ai agent"). A `kind: ai` task does not run `entry.sh` — the
+  # backend runs the readme through a model — so promoting this task to `ai`
+  # took it off the mock path entirely. Measured: the first full mock run
+  # sat at `optimize_kernel: running` while an AI agent prepared to bring a
+  # model up for real, on a node passed in `--var`.
+  #
+  # `--var m4_agent=runner` swaps in the shared program agent, which does
+  # run `entry.sh`, which mocks. The default is the real agent, so a normal
+  # run is unchanged and the mock is the thing you have to ask for.
+  agent: '${m4_agent:-e2e_kernel_optimizer}'
+  # A closure's `handoffs` names every kind its task mentions, **inputs
+  # included** — it is what permissions are derived from, not a list of outputs.
+  handoffs: [operator_workset, deploy_kit, kernel_optimization]
+  validators: []
+  task:
+    goal: Optimise one kernel and prove it with the workset's own tests.
+    version: '1'
+    repos: [sglang]
+    inputs: [operator_workset, deploy_kit]
+    outputs: [kernel_optimization]
+    permissions:
+      grants:
+        - {path: handoffs/operator_workset, access: read, kind: operator_workset}
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/kernel_optimization, access: write, kind: kernel_optimization}
+
+# --------------------------------------------------------------------------- #
+- module: task
+  name: m4_kernel_opt
+  description: Stage 4 — optimise one kernel from the workset and hand back a verified result.
+  # A closure's `handoffs` names every kind its task mentions, **inputs
+  # included** — it is what permissions are derived from, not a list of outputs.
+  handoffs: [operator_workset, deploy_kit, kernel_optimization]
+  validators: []
+  task:
+    goal: Optimise one kernel from the workset.
+    version: '1'
+    inputs: [operator_workset, deploy_kit]
+    outputs: [kernel_optimization]
+    permissions:
+      grants:
+        - {path: handoffs/operator_workset, access: read, kind: operator_workset}
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/kernel_optimization, access: write, kind: kernel_optimization}
+    subgraph:
+      - {closure: optimize_kernel, froms: [], is_end: true}

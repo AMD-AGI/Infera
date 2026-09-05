@@ -150,9 +150,10 @@ def build(
     totals = (trace_manifest or {}).get("totals") or {}
 
     return {
-        # Provenance by digest and never by directory: `handoff/locality.py`
-        # refuses to seal content naming an absolute host path, so the artefact
-        # is identified exactly and the machine is not named at all.
+        # Provenance by digest and never by directory: a handoff should not name
+        # an absolute host path, so the artefact is identified exactly and the
+        # machine is not named at all. Held by `assets/lib/redact.py` rather than
+        # by the seal, which does not check.
         "source": {
             "filename": csv_path.name,
             "sha256": hashlib.sha256(payload).hexdigest(),

@@ -34,6 +34,28 @@ KV_DTYPE="${KV_DTYPE:-bfloat16}"
 MOE_RUNNER="${MOE_RUNNER:-triton}"
 EP_SIZE="${EP_SIZE:-}"
 
+# --- the two model-specific flag groups -------------------------------------
+# Hoisted out of the invocation below, with defaults that are byte-for-byte the
+# strings they replaced, so the GLM-5.3-Flash path is unchanged.
+#
+# They are variables because `model_path`, `image`, `served_name` and `tp`
+# already are, which made "point this package at another model" look supported
+# when these two lines quietly prevented it:
+#
+#   * DSA_ARGS -- GLM-5.3's attention is DSA and wants a backend named on each
+#     side. A model with no DSA path does not take the flag.
+#   * PARSER_ARGS -- `--reasoning-parser` / `--tool-call-parser` name a chat
+#     template's conventions. The wrong parser does NOT error: it yields an
+#     empty `content` for every request while the request still succeeds, which
+#     is the failure this whole effort is written against.
+#
+# Pass the literal `none` for a model that wants neither: agent_sys's variable
+# syntax has no way to spell an empty default, so an empty --var would be
+# indistinguishable from an unset one. Kept identical to integration-demo's
+# copy of this file on purpose -- same design, two files.
+DSA_ARGS="${DSA_ARGS:---dsa-prefill-backend tilelang --dsa-decode-backend tilelang}"
+PARSER_ARGS="${PARSER_ARGS:---reasoning-parser glm45 --tool-call-parser glm47}"
+
 KVAWARE="${KVAWARE:-1}"
 KV_PUB_PORT="${KV_PUB_PORT:-5557}"
 KV_SNAP_PORT="${KV_SNAP_PORT:-8801}"
@@ -66,14 +88,23 @@ else
 fi
 EP_ARGS=(); [ -n "$EP_SIZE" ] && EP_ARGS=(--ep-size "$EP_SIZE")
 
+# `none` is the spelling for "this model wants neither group". Read into ARRAYS,
+# not left as scalars: each carries several flags, and expanding an empty scalar
+# at the call site would hand sglang one empty argument instead of none.
+[ "$DSA_ARGS" = none ] && DSA_ARGS=""
+[ "$PARSER_ARGS" = none ] && PARSER_ARGS=""
+read -r -a DSA_ARGS_A <<< "$DSA_ARGS"
+read -r -a PARSER_ARGS_A <<< "$PARSER_ARGS"
+
 echo "[glm53-mix] ip=$MY_IP:$PORT nic=${NIC:-?} tp=$TP gpus=$GPUS gmu=$GMU chunk=$CHUNK ctx=$CTX graph=$CUDA_GRAPH bs='$GRAPH_BS' kv=$KV_DTYPE moe=$MOE_RUNNER -> $LOG"
+echo "[glm53-mix] dsa='${DSA_ARGS_A[*]}' parsers='${PARSER_ARGS_A[*]}'"
 HIP_VISIBLE_DEVICES="$GPUS" python3 -m infera.engine.sglang \
   --model-path "$MODEL" --served-model-name "$SERVED" --tp-size "$TP" --trust-remote-code \
   --host "$MY_IP" --port "$PORT" \
-  --dsa-prefill-backend tilelang --dsa-decode-backend tilelang \
+  "${DSA_ARGS_A[@]}" \
   --kv-cache-dtype "$KV_DTYPE" --moe-runner-backend "$MOE_RUNNER" \
   --mem-fraction-static "$GMU" --context-length "$CTX" \
   --chunked-prefill-size "$CHUNK" --watchdog-timeout 3600 \
-  --reasoning-parser glm45 --tool-call-parser glm47 \
+  "${PARSER_ARGS_A[@]}" \
   "${GRAPH_ARGS[@]}" "${EP_ARGS[@]}" \
   "${INFERA_ARGS[@]}" > "$LOG" 2>&1

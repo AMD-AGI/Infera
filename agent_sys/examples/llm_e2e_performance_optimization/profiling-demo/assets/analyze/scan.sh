@@ -136,8 +136,9 @@ gzip -9 -c "$WORKDIR/megapie.log" > "$ITEMS/logs/megapie.log.gz"
 cat > "$ITEMS/command" <<'EOF'
 #!/usr/bin/env bash
 # Reproduce this ranking. Executable because agent.gate requires it of a
-# 'command' item; written with shell variables so the locality seal has no
-# absolute path to reject.
+# 'command' item; written with shell variables so it names no absolute path.
+# (The seal does not check this -- redact.py does -- but a kit naming one
+# machine's paths is a bad kit whether or not anything refuses it.)
 set -eu
 : "${MAGPIE_ROOT:?export MAGPIE_ROOT=<a checkout of Magpie>}"
 : "${TRACES:?export TRACES=<directory of *.trace.json.gz>}"
@@ -242,7 +243,7 @@ python3 "$PKG/assets/lib/redact.py" "$OUT" \
   "WORK_ROOT=${PD_WORK_ROOT:?}" \
   "TASK_PACKAGE=$PKG" \
   "TMPDIR=/tmp" \
-  "HOME=$HOME" || { say "ABORT: evidence still names paths the seal will refuse"; exit 1; }
+  "HOME=$HOME" || { say "ABORT: evidence still names local paths redact.py could not place"; exit 1; }
 
 say "done"
 exit 0

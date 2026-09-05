@@ -1,0 +1,2811 @@
+# Promoting the flow from mock to real, one stage at a time
+
+Mission Brief item 3. Written before the mock run went green, so that the order
+is decided by argument rather than by whatever is convenient when it does.
+
+**The rule the whole plan rests on: promote one stage per run.** A run with two
+stages newly real cannot attribute a failure to either. That costs more runs and
+it is the only thing that makes a failure mean something.
+
+## The ladder
+
+| rung | `--var mock_stages=` | what becomes real | what it proves that the rung below did not |
+|---|---|---|---|
+| 0 | `all` | nothing | the graph, the seals, 21 validators, the handoff wiring |
+| 1 | `m2,m3,m4,m5` | **m1** | a real bring-up; `check_deploy_serves` against an engine rather than the stub |
+| 2 | `m3,m4,m5` | **+m2** | a real profile and a real bench, and that m3's readers read what m2 actually writes |
+| 3 | `m4,m5` | **+m3** | `build_workset`'s **AI** step, and `check_workset_runs` re-measuring on the real workset |
+| 4 | `m5` | **+m4** | KernelForge, and the M4.3.5 reversal against a real baseline |
+| 5 | `none` | **+m5** | the two arms, and `check_no_regression` on numbers nobody chose |
+
+Each rung is a separate `agent-sys run`. Nothing skips.
+
+### The vars that change with the rung, and they are not only the agent ones
+
+The table above says which stage becomes real. **That is not the same as which
+`--var`s change**, and the gap would have cost a GPU run — caught by m2, who had
+been telling everyone to pass the wrong one.
+
+| var | rungs 0–1 | rung 2 onward |
+|---|---|---|
+| `m<N>_agent=runner` | one per still-mocked stage | **removed** for the promoted stage |
+| `expect_ranks` | **2** | **set it to the deployment's `tp`** — omitting it defaults to **8** and refuses a `tp=4` run |
+| `adhoc_cases` | **`0`** | **`0` through rung 4; `3` at rung 5** — the condition is **whether m5 is real**, not the rung. See *The `adhoc_cases` split* below |
+| `image` | **the sealed kit's**, not the node's | the real bring-up's |
+| `transport_env` | **required on every rung** — `SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR` | same |
+| `transport` | **`spur`, and it is NOT `transport_env`** — omitting it defaults to `auto`, m1 mints `spur` into the record, and `_agree_or_die` refuses **two hours later, inside m3's measurement, as a message about transports**. Added 2026-09-05 after m3 lost a 088 run to it: four of five operators refused with *"transport is 'auto' in the environment and 'spur' in the record"*. m3 copied this block, which did not have it; m4's line had it by hand, which is why only one of them ever saw this | same |
+| `measure_gpu` | **required on every rung** — a card `nodeprobe` reports free | same |
+| `workset_operator` | may be empty — the sealed workset has one operator | **required from the rung that makes m3 real** — see below |
+
+### Every mock adapter is bound to the operator its corpus was built around
+
+**Read this before you spend a node promoting a stage.** Measured 2026-09-05 by
+m3 and m4 independently, from opposite ends, arriving at one sentence.
+
+The stage-4 mock replays an optimised kernel for **`sampler_vocab_softmax`**,
+sealed 2026-09-02. Real m3 on this deployment selects **four** operators and
+**none of them is that one** — `attention_chunk_fwd_o`,
+`elementwise_…act_and_mul`, `attention_ck_tile…prefill`,
+`layernorm_layer_norm_fwd_1pass`. **Disjoint sets.** m3 found the same binding
+as a literal in their own adapter: `OPERATOR = "sampler_vocab_softmax"`.
+
+So the first line that feeds **real m3 output into a mocked m4** cannot work, and
+**no launch-line value reaches it**. `--var workset_operator=<id>` clears the
+first refusal and reveals a second behind it — tested, all four:
+
+```
+attention_chunk_fwd_o          sealed kernel defines no `chunk_fwd_o`
+elementwise_…act_and_mul       sealed kernel defines no `silu_and_mul`
+attention_ck_tile…prefill      sealed kernel defines no `mha_batch_prefill_func`
+layernorm_layer_norm_fwd_1pass baseline has no `def run(...)` DELEGATING TO A
+                               SYMBOL — see the correction below
+```
+
+**Corrected 2026-09-05, and the correction matters more than the line did.** The
+fourth row first read *"its definition's `baseline` has no `def run(...)`"*,
+which is **false and was a claim about m3's output**. `def run` is present in all
+four definitions — m3 parsed them with `ast`, and it reproduces:
+`def run(x, weight, z):` with a docstring, a real launcher body.
+
+I produced the false version by piping a 187-character error through
+`cut -c1-115` and reporting the truncation. The clause I removed was the whole
+content: the adapter needs `run` to be a **one-line delegation**
+(`def run(*a, **k): return <public_symbol>(*a, **k)`) because *that is how it
+learns which callable is the entry point*. m3's are real bodies, which is the
+better artefact and not one this adapter can read.
+
+**Not a defect in m3's output** — but narrower than the first version of this
+correction claimed, and that over-correction is itself worth recording.
+
+The adapter's test is one regex, `mock_adapt.py:218`:
+
+```python
+re.search(r"^def run\(.*?\n\s+return\s+([A-Za-z_]\w*)\(", baseline, re.M | re.S)
+```
+
+It wants `run` to **return a call**, from which it reads the entry-point symbol.
+Measured across all four definitions:
+
+```
+attention/chunk_fwd_o         HIT  chunk_fwd_o            returns Call
+attention/ck_tile prefill     HIT  mha_batch_prefill_func returns Call
+elementwise/act_and_mul       HIT  silu_and_mul           returns Call
+layernorm/1pass               MISS                        returns a bare Name
+```
+
+**Three of the four do delegate.** They then fail at the *next* check — the
+sealed kernel not defining the symbol — which is the operator-name binding
+above. **Only layernorm returns a variable rather than a call**, and that is the
+one place the delegation shape bites.
+
+So this is **not** a second instance of the family trait; the trait rests on the
+operator-name binding alone. I claimed otherwise by equating *"has a docstring
+and a real body"* with *"is not a delegation"* — a function can have both and
+still end in one delegating `return`. **Killed a plausible candidate of m3's in
+the same pass:** the regex class is `[A-Za-z_]\w*`, so `_layer_norm_fwd`'s
+leading underscore would have matched; the underscore is not the discriminator.
+
+**Still an undeclared expectation on m3's output**, whichever way it goes:
+`check_workset_shape` requires only that `baseline` parse and define `run`, so
+"`run` must return a call" is this adapter's private rule and is not in any
+contract m3 can see.
+
+**The consequence for whoever promotes next:** a stage still mocked downstream of
+a stage newly made real will hit this wall, and **it will look like a new bug
+each time**. It is not the format and not the wiring — it is *which operator*.
+The two configurations that work are **promote the mocked stage too** (it then
+optimises whatever m3 selected; forge produces the kernel, so there is no sealed
+candidate to disagree with), or **keep the upstream stage mocked as well**, which
+runs today and proves nothing about the seam.
+
+**`workset_operator` is required on any rung where m3 is real**, mocked or not:
+`pick_operator` refuses ambiguity by name rather than guessing, and that check
+does not know whether the consuming stage is mocked. Verified — without it the
+real path dies in seconds on the same four-operator refusal.
+
+**Which operator is a decision, not a default.** Prefer one m3 actually
+**re-measured**: `reverify_shapes` defaults to `1`, so on a four-operator workset
+three of the four weighted means are the producer's unchecked claim. On
+2026-09-05 that was `attention_chunk_fwd_o` — and it came back **13.3 % apart**
+(0.0264 → 0.0299 ms), inside the 0.25 tolerance and outside `max_rsd` 0.10.
+**Carry that disagreement into the artefact**; a downstream reader who discovers
+it later has been misled. Avoid `layernorm_layer_norm_fwd_1pass` while its
+`case_001` still reports `snr_db: inf` against 98–107 dB on its other shapes.
+
+### The `adhoc_cases` split — 0 while m5 is mocked, 3 once m5 is real
+
+**The condition is whether *m5* is real, which on the plain ladder means rung 5
+and nothing earlier.** Stated as a condition rather than as a rung because the
+two are not the same sentence: every other row in the table above turns on
+whether **m2** is real, and reading this row the same way is how `3` gets passed
+at rung 2. At rungs 0–4 `m5_agent=runner`, so **there is no agent to invent
+cases** and `3` is a floor nothing can meet — `check_acceptance` then refuses
+both arms after a full run, with *"adhoc.json is missing and 3 ad-hoc case(s)
+are required (M5.4)"*. The measurement is below.
+
+**Decided 2026-09-05. They are not alternatives; they belong to different
+phases, and the `0` must never migrate into a real m5 line by copy-paste** —
+that is the `measure_gpu` class and it has cost four runs.
+
+**While m5 is mocked: `--var adhoc_cases=0`.** A mock *cannot* produce ad-hoc cases. They are a
+record of questions asked of a live engine and the answers it gave; the sealed
+2026-09-02 corpus predates M5.4 and carries none — checked, `find -iname
+'*adhoc*'` over the corpus returns nothing and `acceptance_stock` holds only the
+frozen suite. Setting the floor to `0` is the designed way to say *this line does
+not exercise that arm*, and it is honest **only while it is recorded**.
+
+**Once m5 is real — rung 5: `adhoc_cases=3`, non-negotiable.** M5.4's ad-hoc half exists *"免得作弊"* —
+the frozen suite alone can be gamed, because it ships in the repository and can
+be satisfied by construction. A real e2e that skips it has not tested the thing
+M5.4 was written for.
+
+**Do not close the gap by writing an `adhoc.json`.** That would not convert an
+artefact; it would **manufacture the evidence the validator exists to check**.
+Measured, so the choice is visible rather than argued:
+
+```
+adhoc_cases default (3)   min_adhoc_cases='3'  ->  stock=False, patched=False
+--var adhoc_cases=0       min_adhoc_cases='0'  ->  stock=True,  patched=True
+```
+
+The refusal at `3` is correct: *"adhoc.json is missing and 3 ad-hoc case(s) are
+required (M5.4)"*.
+
+**`image` and `transport_env` are on this table because each cost a run, and
+they fail in opposite ways.**
+
+`image` is a fact about **the artefact being graded**, exactly like
+`expect_ranks` — m2's framing, and it is the one that makes this list
+predictable rather than a list of remembered mistakes. Passing a tag that exists
+on the node instead of the one the sealed kit renders makes `check_deploy_kit`
+refuse: `environment.md` is a rendering of the record and the two must not
+disagree. **The validator is right and the refusal is loud**, which is the good
+version of this mistake.
+
+`transport_env` is the bad version. **A validator declares no agent, so the
+package's `env` block never reaches it** — `check_deploy_serves`'s own header
+says so, and records a previous run lost to it. With `transport_env` unset,
+`spur` has no `SPUR_CONTROLLER_ADDR`, `deploy.sh` dies with *"failed to connect
+to controller"*, and the validator refuses **in one second**. It looks exactly
+like a deployment failure. It cost three rung-0 runs and two wrong attributions
+— to GPU contention with a live deployment, then to a missing `local` branch in
+`remote.sh` — because the diagnostic that names the cause goes to **stdout, and
+nothing in a run keeps a validator's stdout** (`temp/bugs/2026-09-03-a-validators-
+stdout-is-not-kept-anywhere.md`).
+
+The correct incantation was written in a comment in `steps/m1_deploy.yaml:128`
+the whole time. **A parameter documented next to its declaration is not
+documented to the person composing a command line**, which is what this table is
+for.
+
+**`expect_ranks` is a fact about the artefact, but which artefact depends on the
+node — so the table's "omit it" advice is wrong on a partly-occupied host.**
+m1's, 2026-09-04, from measuring `crsuse2-m2m-249`: GPUs 0–3 are held by another
+tenant (~300 GB each, no docker container behind them), leaving four cards. So
+m1 brings up at `tp=4`, and at **rung 2** — where the trace comes from *that*
+bring-up rather than from the sealed TP-2 capture — `expect_ranks` must be **4**.
+Omitting it defaults to 8 and `check_trace_coverage` refuses a perfectly good
+four-rank capture **after a full bring-up and a three-minute load**.
+
+Rung 1 is unaffected: m2 is still replaying the sealed TP-2 artefact there, so
+`expect_ranks=2` stays. The var belongs to m2; **the node is what changes it**,
+which is why it is recorded here rather than left to be rediscovered.
+
+**There is no `--var` that names a GPU *set*, only a count.** `E2E_TP` gives the
+number and the index is left to the agent's `rocm-smi` read at step 1. On a
+partly-occupied host that is the largest behavioural risk at rung 1 — an agent
+taking the default devices takes 0–3 and OOMs against a co-tenant. m1 routed
+"take only 4–7" through `E2E_INSTRUCTION`, which is the declared channel for a
+site fact and the right refusal to change the package mid-rung. It is recorded
+in `todo.md` as a gap rather than a solution: **a site fact carried in prose is a
+site fact nothing validates.**
+
+`expect_ranks` is the one to watch: it is a fact about **the artefact being
+graded**, not about the run. The sealed capture is TP-2, so rungs 0 and 1 need
+`2`; at rung 2 the trace comes from the real bring-up, and passing `2` makes
+`check_trace_coverage` refuse a perfectly good capture **after a full bring-up
+and a three-minute load**. It fails loudly, so it costs a run rather than a
+wrong number — which is the good version of this mistake and still a run.
+
+***Corrected 2026-09-04 by m2, the var's owner: this paragraph said "a real TP-8
+bring-up" and the sentence above it, added the same day, said 4.* The document
+contradicted itself about the one number it exists to get right, and both
+spellings were written as facts. Neither is: **the rung-2 value is whatever
+`tp_size` the rung-1 kit recorded**, because m1 sizes the bring-up from the
+cards that were free — `env.sh:230 _pick_gpus` takes every free card — and that
+is a property of the node on the day. 249 left four free and gave `tp_size: 4`;
+235 was measured 8/8 free. **Do not carry a number between rungs or between
+nodes; read it.** The command below does.*
+
+***Corrected again 2026-09-04 by m1, whose finding the sentence above cites.
+`env.sh:230 _pick_gpus` is real, and it is a property of **one kit**, not of this
+stage.*** It was in the kit the 06:24 run's agent wrote. **The 07:16 run's agent
+wrote a different kit with no `_pick_gpus` at all** — `env.sh:62` is a literal
+`: "${E2E_KIT_GPU_DEVICES:=0,1,2,3}"`. Two agents, two kits, **two different
+device policies, and nothing in the package validates either**. So the device
+policy is not something this document can state as a fact about m1; it is
+whatever that day's agent wrote, and the only way to know is to open the kit.
+
+The rest of m2's correction stands and is strengthened by this: **do not carry a
+number between rungs or between nodes — read it from the kit and the record.**
+That now applies to *which* cards as well as how many.
+
+**And it was the literal `0,1,2,3` that caused the 07:29 incident**, not a land
+grab: the agent probed the node at transcript record 92, then hardcoded the
+default anyway, and `deploy.sh` preflights **ports and container names and not
+cards** (`deploy.sh:61`: *"preflight ok: ports free, names free"*). It bound four
+cards a co-tenant was loading a model onto. See `todo.md` **T27**, item 4.
+
+## The rung-2 launch line, as a whole command
+
+**Written out rather than left as a delta, because every launch-line failure
+today came from someone assembling a command from the table above** — and the
+table is a diff, which is the one shape that cannot be pasted. Owner: m2, since
+the var that changes is `expect_ranks`.
+
+**First read the number from the artefact.** `expect_ranks` describes the
+capture m2 is about to take, which is sized by the deployment rung 1 recorded:
+
+```sh
+RUN=<the rung-1 run directory under /home/yihou/agent_sys_runroot/runs/>
+KIT="$(sh agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/lib/kit_env.sh "$RUN")" || exit 1
+echo "# read from: $KIT" >&2
+grep -E '^  (tp_size|node|image):' "$KIT"
+```
+
+**This replaced a one-liner that was wrong twice over, and gave the right answer
+both times.** It was `find "$RUN" -path '*items/codes/environment.yaml' | head -1`.
+Dry-run against rung 1 on 2026-09-04 while it was still `generating`:
+
+- **It does not scope to `deploy_kit`, and it is not deterministic.** On a
+  *completed* tree that pattern returns **17 paths**, not one: three real
+  handoffs — `deploy_kit`, `kernel_optimization` and `operator_workset` are all
+  `code`-typed and all carry the record at the same relative path — plus
+  fourteen staged copies under `zones/…/handoffs/` and validation `materials/`.
+  Ten invocations against an unchanging tree: **six returned
+  `kernel_optimization`, four returned `deploy_kit`.** `find` here is `bfs` and
+  does not promise directory order, so `head -1` is a coin flip between three
+  handoffs — the read changes its source between two runs of the same command.
+- **It does not order versions.** With `v0`, `v1`, `v2` present, `find` walks
+  directory order and `head -1` reads the **oldest**. Confirmed on a fixture: the
+  superseded `v0` yielded `tp_size: 2` and a stale image while `v2` held the
+  right ones.
+
+Both were masked. The version bug is masked because rung 1's failed `v0` holds
+**0 files**, so it has no record to match. The scoping bug is masked by CONTRACT
+§2 — *one document, all fifteen kinds* — so m4's copy is byte-identical to the
+kit's and reading the wrong handoff returns the right values. **The command was
+correct by position, not by construction**, and the day it stops being so it
+returns a wrong `expect_ranks` with no signal at all.
+
+The replacement reads the store for the kind and takes the highest version that
+holds the file. Verified against both trees: the live `generating` one and a
+completed one where the old form picks m4.
+
+Then the run, with `tp_size`'s value as `expect_ranks` and `image` as `image`:
+
+```sh
+python3 -m agent_sys.cli.main run \
+  --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+  --demo-root /home/yihou/agent_sys_runroot \
+  --var jobid=<the hold> --var node=<the node> --var node_ip=<its IP> \
+  --var model_name=Qwen/Qwen3.6-27B \
+  --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
+  --var image=<the image the rung-1 kit records> \
+  --var mock_stages=m3,m4,m5 \
+  --var m3_agent=runner --var m4_agent=runner --var m5_agent=runner \
+  --var expect_ranks=<the kit's tp_size> \
+  --var adhoc_cases=0 \
+  --var measure_gpu=<a card nodeprobe reports free> \
+  --var transport=spur \
+  --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR
+```
+
+**Five things about it that are easy to get wrong and each cost a run once:**
+
+- **`m2` is absent from `mock_stages`, and *that* absence is the promotion — not
+  an agent var.** This bullet used to say *"`m2_agent=runner` is absent, and that
+  absence is the promotion"*, **which was false**: `grep -rn m2_agent` finds it
+  in no yaml at all. m2's three closures are `agent: runner` **literally**
+  (`steps/m2_profiling.yaml:285,302,329`), never `${m2_agent:-…}`, because this
+  stage has no `kind: ai` body to swap — m1, m3, m4 and m5 each do, which is
+  where the pattern comes from. `RUN-PLAN.md:1139` had it right all along and
+  this section contradicted it; the wrong copy was the one in the paste-from
+  block. Found while auditing this stage for the promotion question.
+
+  Two live launch lines here (`:612`, `:984`) still pass `--var m2_agent=runner`.
+  **Both are correct anyway**, because each also names m2 in `mock_stages`
+  (`all` and `m2,m3,m4,m5`) — the token is a no-op sitting beside the thing that
+  actually works. Left in place rather than stripped, because the hazard is not
+  the tokens: **an unrecognised `--var` is accepted silently.** Measured —
+  `--var totally_made_up_var=xyz` returns `6 tasks in the graph` and `rc=0`, no
+  warning anywhere. So a launch-line var is indistinguishable from a working
+  knob whether or not the package has ever heard of it, and the only check is
+  to grep the yaml for the name. CONTRACT.md §4.4, sixth face, rung 2.
+- **`m3/m4/m5_agent=runner` all stay.** m3 is `kind: ai`; drop its var and a
+  model gets called at rung 2.
+- **`measure_gpu` is needed even though nothing in *this* stage measures**, and
+  it is the one var on this line whose reason lives entirely in someone else's
+  file. `m3_agent=runner` puts m3 on its `entry.sh`, which mocks the workset at
+  `:87` and then **still runs `measure_in_container.sh` at `:168`** — deliberately,
+  because a mock that skipped the measurement would leave `check_workset_runs`
+  grading an artefact nothing ever ran. That script refuses on an empty card
+  (`measure_in_container.sh:142`, `FIX: pass --var measure_gpu=<n>`), and
+  `${measure_gpu:-}` defaults to empty, so the omission stops the run rather
+  than quietly measuring on a card nobody chose. Found by m3, routed here.
+  The value is not a constant: five owners share these nodes, so read it from
+  `assets/lib/nodeprobe.sh` rather than reusing yesterday's number.
+- **`transport_env` on every rung**, and it must expand — `$SPUR_CONTROLLER_ADDR`
+  is set in the login shell (`http://crs-m2m-cpu-spur-005…:6817`). Unset, the
+  refusal arrives in one second and reads exactly like a deployment failure.
+- **`--demo-root`**, since `/shared_nfs` is mounted `ro` on the login node.
+
+**Verified to load, not merely written**: this exact form, with rung 1's own
+values substituted, returns `6 tasks in the graph; nothing was dispatched` from
+`agent-sys show` — which is the whole of the check a launch line can be given
+before it costs a node. A `${NAME}` with no default is a load-time fault naming
+the file, the line and the variable, so `show` is the difference between finding
+a missing var in under a second and finding it after a bring-up.
+
+## The rung-3 launch line, as a whole command
+
+Owner: m3, since the stage that becomes real is mine. Same shape as rung 2's
+above and written the same way — a whole command, because the table is a diff
+and a diff cannot be pasted.
+
+**Rung 3 is blocked on a missing brief, not a missing var.** Read *"What has no
+source"* below before holding a node for it; the command is correct and the run
+will not do what the ladder says it does.
+
+### First read the values out of rung 2's record
+
+Every deployment fact rung 3 needs is already written down. **Read it; do not
+carry it from a message** — the leader carried `--var image` between two nodes
+this morning and the two nodes had different images under similar tags.
+
+```sh
+RUN=<the newest run whose deploy_kit has SEALED, under /home/yihou/agent_sys_runroot/runs/>
+cat "$(sh agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/lib/kit_env.sh "$RUN")"
+```
+
+**Not "the rung-2 run" — the newest run whose kit has sealed**, and `kit_env.sh`
+tells you which that is. Measured 2026-09-04: the two newest runs both refuse
+with *"…below has to run first — that is a real answer, not a broken query"*,
+because a `deploy_kit` exists with `v0` and `v1` and **no `environment.yaml` in
+either** until bring-up completes. A reader following the old wording got a
+correct refusal and no route forward. m4 hit the same caveat independently, so
+it is a property of the shared helper rather than of this section.
+
+That file carries **all of it** — measured on `20260904T114914-0a0cdd`:
+
+```yaml
+fixed:   node, node_ip, image, image_id, model_name, model_path,
+         deploy_mode, tp_size, context_length, served_model_name,
+         gpu_arch, gpu_count
+runtime: slurm_jobid, container, transport, ports{router,worker,etcd},
+         endpoint, started_at
+```
+
+### The command
+
+```sh
+python3 -m agent_sys.cli.main run \
+  --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+  --demo-root /home/yihou/agent_sys_runroot \
+  --var jobid=<runtime.slurm_jobid> \
+  --var node=<fixed.node> --var node_ip=<fixed.node_ip> \
+  --var model_name=<fixed.model_name> \
+  --var model_path=<fixed.model_path> \
+  --var image=<fixed.image> \
+  --var mock_stages=m4,m5 \
+  --var m4_agent=runner --var m5_agent=runner \
+  --var tp=<fixed.tp_size> \
+  --var expect_ranks=<fixed.tp_size> \
+  --var gpu_devices=<the cards you just read from rocm-smi, e.g. 0,1,2,3> \
+  --var "parser_args=--reasoning-parser qwen3" \
+  --var measure_gpu=<one of those cards> \
+  --var workset_operator=<the operator m3 re-measured — see below> \
+  --var adhoc_cases=0 \
+  --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR
+```
+
+**`workset_operator` was missing from this command until 2026-09-05**, while the
+var table and *"Every mock adapter is bound to the operator its corpus was built
+around"* both already called it **required on any rung where m3 is real** — and
+rung 3 is the rung that makes m3 real. Without it the real path dies in seconds
+on the four-operator refusal. **Which** operator is a decision, not a default:
+prefer one m3 actually re-measured (`reverify_shapes` defaults to `1`, so on a
+four-operator workset three of the four means are the producer's unchecked
+claim), and avoid `layernorm_layer_norm_fwd_1pass` while its `case_001` reports
+`snr_db: inf`.
+
+**Four of these were missing and each would have cost the hold.**
+
+- **`expect_ranks` — this section used to say "omit it".** That was wrong and I
+  wrote it. The default is **8** (`steps/m2_profiling.yaml`) and the deployment
+  is `tp_size: 4`, so `check_trace_coverage` — `strong`, one readable trace per
+  rank — refuses a *correct* capture. My reasoning was *the capture is sized by
+  the deployment*, which is true, and it does not follow that the **default**
+  matches the deployment. Read it from the record like everything else.
+- **`tp` — omitted, defaults to 8.** Rung 3 is exactly where it starts
+  mattering: m1 is real, brings the engine up from `E2E_TP`, and would deploy
+  eight-way on a node whose last deployment was four.
+- **`gpu_devices`** — `0,1,2,3` on rung 1's working line, and load-bearing: the
+  deployment came up on those four cards.
+- **`parser_args` must be quoted.** It is the only var in any launch line whose
+  value is not a single token, and unquoted the shell hands `qwen3` to argparse
+  as a positional:
+
+  ```
+  --var parser_args=--reasoning-parser qwen3      rc=2  "unrecognized arguments: qwen3"
+  --var "parser_args=--reasoning-parser qwen3"    rc=0
+  ```
+
+  Stated as the reason rather than just the quotes, so the next multi-token var
+  gets quoted too. It fails loudly — but at the moment you spend the node.
+
+**`dsa_args` is deliberately absent, and that is weaker evidence than the rest.**
+It has never been passed on any real rung, so `none` is *what every green run has
+used* — **untested, not verified correct.**
+
+**Verified to load, and verified to be the rung it claims.** Loading is the
+weaker half: m2's warning is that a command still carrying the promoted stage's
+`_agent` var is the rung below wearing this rung's name, and `show` says which
+it is out loud —
+
+```
+$ … show … --var mock_stages=m4,m5 --var m4_agent=runner --var m5_agent=runner …
+   closure  build_workset: agent 'workset_builder', 3 in, 1 out   <- rung 3
+      done  6 tasks in the graph; nothing was dispatched
+
+$ … show … --var mock_stages=m3,m4,m5 --var m3_agent=runner …
+   closure  build_workset: agent 'runner', 3 in, 1 out            <- still rung 2
+```
+
+Run the first form and grep for `build_workset` before spending the hold. Both
+were run with rung 2's own recorded values, above.
+
+### What is READ from the artefact and what is CHOSEN
+
+| value | source | what happens if you choose it instead |
+|---|---|---|
+| `image` | `fixed.image` | `measure_in_container.sh` reads the record directly — the `--var` reaches m1/m5 only. A wrong tag makes `check_deploy_kit` refuse |
+| `node` | `fixed.node` | `_agree_or_die` **refuses** rather than picking: *"measuring somewhere else makes it evidence about a different machine"* |
+| `jobid` | `runtime.slurm_jobid` | same guard |
+| `transport` | `runtime.transport` | same guard; omit it and the record supplies it |
+| `node_ip`, `port_router` | `fixed.node_ip`, `runtime.ports.router` | disagreement is not caught here — these only address the engine |
+| `tp_size` | `fixed.tp_size` | feeds **both** `--var tp` and `--var expect_ranks`, at every rung. This row used to say *omit `expect_ranks` from rung 3* and that was wrong: the default is 8, the deployment is 4, and `check_trace_coverage` refuses a correct capture. *The capture is sized by the deployment* is true and does not make the **default** match it |
+| `gpu_arch`, `image_id`, `model_path` | `fixed.*` | `check_environment` compares these across every handoff in the phase and refuses two different machines |
+
+**The guard is the point of the table.** Three of these do not need discipline
+from the operator, because `_agree_or_die` already refuses a disagreement
+between what you typed and what the record says. The ones with no guard —
+`node_ip`, `port_router` — are the ones to read carefully.
+
+Chosen, and mine: `measure_gpu`, `measure_container` (defaults to
+`yihou_m3_measure_$$` — carries `yihou`, unique per process, **not** a nested
+default), `snr_threshold`, `workset_max_rsd`, `workset_min_pass_ratio`,
+`workset_reverify_shapes`, `min_resolve_ratio`, `workset_id`, `remote_home`.
+
+### What has no source
+
+**1. `measure_gpu`, and it never will have one.** The record says `gpu_count: 8`;
+it does not say which cards are free, and no artefact can — it is a live fact
+about a shared node. `rocm-smi` **immediately before use**, not once at the
+start: a node went 7 free → 0/8 at 97 % in twenty minutes on 2026-09-04. The
+body refuses when it is unset and prints the node's current cards, so the
+failure is loud and one `--var` from fixed. This is m1's T19 and it is a
+declared gap, not an oversight.
+
+**2. `workset_builder` has no brief, and this is what blocks the rung.**
+Verified by reading, not inferred:
+
+- `assets/build_workset.task/readme.md` is the task's instructions, 330 lines,
+  ten STEPS. It contains **zero** occurrences of `measure_in_container.sh`,
+  `E2E_MEASURE_GPU`, `rocm-smi` or `--var measure_gpu`.
+- STEP 7 and STEP 8 say `cd "$WS" && ./run_correctness.sh` and
+  `./run_performance.sh` — **directly, on whatever host the agent is on.** The
+  login and `spur exec` hosts have no torch (measured, above), so STEP 7 fails
+  there; on a host that does have torch it would measure on a card nobody chose.
+- Everything that knows better is on the branch rung 3 turns off:
+  `entry.sh:168` calls `measure_in_container.sh`, which refuses without a card.
+  **A `kind: ai` task never runs `entry.sh`** — the file's own header says so.
+
+So the mock is not a weaker version of the real path here; **it is the only
+version that carries the knowledge.** Promoting m3 removes the container step
+and the card check together, silently, and the first symptom is a torch import
+error or a number measured on someone else's card.
+
+The fix is a brief, not a parameter: STEP 7 and STEP 8 have to say *run these
+through `measure_in_container.sh` on the node*, and the card has to be stated as
+a requirement rather than left to `os.environ`. `agent/runner.py:801` is the
+reason it cannot be left to the env block alone — *"an env var cannot instruct
+an agent. A conversation is not a process reading `os.environ`."* The block
+makes the value **reachable**; only the brief makes it **used**.
+
+### One thing wrong in rung 2's line above, which is not mine to edit
+
+**`--var measure_gpu` is missing from it, and rung 2 needs it.** At rung 2 m3 is
+mocked with `m3_agent=runner`, which runs `entry.sh` — and `entry.sh:168` calls
+`measure_in_container.sh` on the mock path too, because a mock that skipped the
+measurement would leave `check_workset_runs` grading an artefact nothing ever
+ran. The body refuses with `FIX: pass --var measure_gpu=<n>`. Routed to the
+leader rather than edited here.
+
+## Rung 0 cannot complete on the login node, and that is by design
+
+Measured 2026-09-03: the mock graph runs cleanly through `deploy_kit`, all four
+m2 kinds, `profiling_evidence`, `kernel_worklist` and `operator_identity` — and
+then stops at **`build_workset`**, on a login node that has no `torch`.
+
+**It is not a defect.** m3 wrote the reason into the mock's own header:
+
+> The one thing this cannot supply is `evidence/`, because evidence is a
+> **measurement**: the caller runs the entrypoints afterwards, which is the same
+> thing STEP 7 and STEP 8 do. **On a host without torch that step fails and the
+> mock is correctly incomplete.**
+
+A mock that *fabricated* `evidence/` would be exactly what MOCK-MAP forbids, and
+it would defeat `check_workset_runs`, whose whole job is that the numbers were
+measured on this hardware. So the mock stops where measurement begins, which is
+the correct place for it to stop.
+
+**Consequence for the ladder, and it changes what "rung 0 green" can mean:**
+
+- **There is no host with torch, and I asserted there was without checking.**
+  Measured after writing it: `spur exec 106253 python3 -c "import torch"` →
+  `ModuleNotFoundError`. The node's *host* environment has no torch; only the
+  **containers** do — m3's real STEP 7/8 run the harness inside
+  `rocm/sgl-dev:v0.5.18-rocm720-mi35x`, which is how they got 142.5 dB and
+  0.5–1.2% rsd. `spur exec` hands you the host, not a container.
+
+  *(My fifth assumption-stated-as-fact today. The others: a `## STEPS` grep,
+  a `cli/stream.py` pointer, an `entry.sh` read by shape, and a `$ref`
+  claim inherited without checking. Same remedy each time: **look before
+  asserting**.)*
+
+- **The fix was m4's principle, and it has been implemented — this paragraph
+  used to say it had not.** `build_workset`'s mock now runs its entrypoints
+  **in a container, where the real path measures**: `a94ce98`, 2026-09-03.
+  `assets/build_workset.task/entry.sh:92` calls `measure_in_container.sh`
+  immediately after `mock_adapt.py`, and the same commit dropped the host-side
+  `torch` probe that the paragraph above was diagnosing.
+
+  It is exercised, not merely written: **rung 1's refusal at 05:08:56 came from
+  inside `measure_in_container.sh`** — the mock reached the container path and
+  stopped on the visibility guard.
+
+  *Left visible rather than silently edited, because the failure is this
+  document's own recurring one. The replaced text stated the **plan**, was
+  written before the commit that carried it out, and was then read for a day as
+  a description of the current state — by me, and I routed it to m3 as work
+  they had not done. **A plan and a status in the same tense are
+  indistinguishable to every later reader.** Same genus as §4.3 arriving in the
+  section that records §4.3, and as the `writes_in_place` correction above it.
+  Caught by m3 checking the tree before doing the work rather than after.*
+- **"Mock e2e green" therefore never meant "no hardware".** It meant "no model
+  call, no bring-up, no campaign". Stage 3 onward still needs a card, because
+  three of this package's validators are `cost: gpu_hours` and two of them grade
+  measurements rather than shapes.
+
+Say what rung 0 covered in those terms, not as "the mock passed".
+
+## Before rung 1, and again before every rung
+
+1. **`m2`'s interpreter sweep** — `python3 assets/lib/interpreter_sweep.py`. About a minute, no node. **Treat a clean result as a gate, not a formality**: all four bugs in that class were introduced by bodies written *after* the previous sweep, so the sweep is only worth its cost when it is re-run.
+
+   Read the last three sections: **validators that died without writing a verdict** (a validator that refuses is healthy; one that dies without a verdict is read by the phase as broken rather than as a refused handoff), and the two "still ambiguous" lists, which say whether the run graded anything on a partial fixture.
+
+   *In the repo since 2026-09-04. It lived in scratch until then, and `RUN-PLAN` pointed at it there — **a documented gate backed by a file only one person had**, which is worse than an undocumented tool because the document implies the check exists. Scratch copies under `ws_handoff_refine/m2/` and `~/ws_handoff_refine_m2/` are frozen; this path is the one that runs. Writes its zones to `$E2E_SWEEP_SCRATCH` (default `~/ws_handoff_refine_m2/sweep`), never beside itself.*
+
+2. **The node, before you spend the hold** — `assets/lib/nodeprobe.sh <node>`, seconds, no hold needed. Free cards, m1's anchor in a local base, disk on **both** filesystems, and whether `spur-authz` accepts this flow's mounts. **Re-probe at the moment of taking, not from a message**: measured 2026-09-04, a node went from seven free cards to 0/8 at 97 % in twenty minutes. `--auto` sweeps every idle/mix node and prints why each one failed; `report.py <rows.jsonl>` re-reads a sweep without re-running it.
+
+   *Measured 2026-09-04, and it changes how a probe result is read: **a cancelled
+   Slurm job does not reclaim its GPUs.** Job `109192` was cancelled at 06:46:49
+   while four containers of ours were serving on node 006; fifteen minutes later
+   all four were still `Up`, the engine still answered `/health` with 200, and
+   **all eight cards read 74–76%**. Containers talk to the **host** docker
+   daemon, so they are not in the job's cgroup and nothing tears them down when
+   the hold ends.*
+
+   *So a card at 90% is not evidence that anyone is still working, and a node
+   that looks fully occupied may be carrying **corpses of cancelled jobs**. The
+   probe cannot tell the two apart, and neither can `squeue`. This cuts both
+   ways: it is why a node can look busy and be free, and it is why **your own
+   cleanup is not optional** — an abandoned bring-up keeps four cards out of
+   circulation for the rest of the reservation, for everyone.*
+
+   *`sinfo` cannot answer this. GRES accounting is not configured on this cluster — there is no `GresUsed` field and `sinfo -o "%G"` prints `?` — and the co-tenants allocate through the host docker daemon, which never speaks to Slurm. `idle`/`mix` is a statement about CPUs.*
+
+3. **`agent-sys show`** — under a second.
+4. **The node's state, before and after**: `docker ps` and the port band. Every identifier this package binds carries a run tag; **check the tag before killing anything.** Measured 2026-09-03: a validator's teardown crashed and warned that ports might be held, and the ports that were held belonged to *a different owner's run in flight*. Killing them would have destroyed live work.
+
+### How to stop a run, in order — because killing the orchestrator does not stop it
+
+Measured 2026-09-04 (`todo.md` **T26**). The orchestrator was killed at 06:47;
+its `deploy_and_prove` agent **kept working for 44 more minutes**, brought up two
+further deployments, and took every free card on the node. A run is three things
+and stopping it means stopping all three, outermost first:
+
+1. **the orchestrator** — the `agent-sys` process you launched;
+2. **the agents it dispatched** — *these are not in its process tree.* Find them
+   by **cwd**, not by name:
+
+   ```sh
+   ls -l /proc/*/cwd 2>/dev/null | grep agent_sys_runroot
+   ```
+
+   **Do not grep for `agent_sys.cli.main`.** Two people did, both got an empty
+   result, and both reported "no agent is alive" while one was. A dispatched
+   agent is a `claude` binary under `~/.local/share/claude/versions/`, which that
+   pattern cannot match — *a cwd is a property of the process, a command line is
+   a property of how it was invoked* (m4). An empty grep and no agent look
+   identical, which is the same failure as `mock.sh` not distinguishing *unset*
+   from *not listed*;
+3. **the containers, by label** — `infera_e2e_kit_run` / `infera_e2e_run` carry
+   the run tag. They talk to the **host** daemon, so they are outside the job's
+   cgroup and survive both the agent and the Slurm allocation (item 2 above).
+   `docker stop` then `docker rm`, never `-f`, and **check the label rather than
+   the name**: three ownership errors were made today by reasoning from names.
+   **Four by the end of it**, and the fourth was the reverse — rung 2b's own
+   producer named its containers `infera_e2e_sgl_m1-…`, carrying no `yihou`, so
+   *our* engine looked like a stranger's. It applied the label correctly while
+   getting the name wrong, which is exactly why the label is the instrument.
+
+   **The label is not sufficient on its own, and this is m4's correction to the
+   line above.** It answers *is this ours?* — one question, and a kill needs two:
+
+   | | question | instrument |
+   |---|---|---|
+   | 1 | is this ours? | `docker inspect --format '{{json .Config.Labels}}'` -> `infera_e2e_run` |
+   | 2 | if not ours, is anyone still holding this node? | `squeue -w <node>` |
+
+   **Only the second one stops a wrong kill.** On 275 the label answered
+   correctly — *no label, not ours* — and the container genuinely was not ours;
+   the error was the step past it, from *not ours* to *nobody is watching it*, on
+   a timestamp showing the container predated our allocation. It did predate it,
+   **and it was the live payload of `yixingx`'s concurrent 24-hour hold.**
+   Measured the same day on 275 and 287: both carry a `yxguard` job of theirs
+   *and* a `keep3` of ours, so "a machine we hold" and "a machine only we hold"
+   are different sets and the standing kill instruction is written about the
+   first.
+
+   Question 2 is decisive **only when it returns exactly one holder**. With two,
+   nothing available attributes a container to one of them — containers outlive
+   the jobs that started them, so age proves nothing either — and the answer is
+   to ask, not to infer.
+
+**Confirm rather than assume at each step**, and confirm the *whole* thing at the
+end: no process with a run-tree cwd, no container carrying the run's label, and
+the cards back at 0%.
+
+## The three things a real run can do that a mock cannot
+
+**1. Call a model.** Four leaves are `kind: ai`. `--var m<N>_agent=runner` is what keeps them off that path, and **the default is the real agent** — so a rung is promoted by *removing* a var, and forgetting one is how a model gets called by accident. It has already happened once: the first full mock sat at `deploy_and_prove: running` while an AI deployment agent prepared to bring a model up for real on the node in `--var`.
+
+**The first real run of any `kind: ai` closure in this package happens with the leader watching.** Not distrust: an AI agent with a live node and a container is the one thing here that can change state nobody asked for.
+
+**2. Hold cluster resources.** Containers, ports, GPU memory. Bodies must call `assets/lib/reclaim.sh` in a `finally` (CONTRACT §5.0) and must never `docker rm -f` a name they did not create. Both held nodes carry other tenants' work.
+
+**3. Produce a number somebody will believe.** Which is the point, and the reason for the rest of it.
+
+## What each rung must not be allowed to mean
+
+- **Rung 1 green does not mean m1 is proven.** It means the engine answered eleven probes and one load cleared the floors — on one model, on one node, once.
+- **Rung 3 green does not mean the workset is right.** It means
+  `check_workset_runs` re-measured a shape and agreed with the record.
+
+  *Corrected 2026-09-03: this note went on to say `writes_in_place` was
+  stub-validated and that `apply_patch` hedged accordingly. Both stopped being
+  true an hour after it was written — and I knew, and said so in the same
+  message the document went on contradicting. **Caught by m3 reading this file
+  against something they happened to know**, which is §4.3's own class arriving
+  in the document that records §4.3, by its author, within the hour. Left
+  visible rather than silently edited.*
+
+  `writes_in_place` is validated on MI355X, and the result strengthens the rung
+  rather than merely un-hedging it: of four numerically-correct implementations
+  the unsubstitutable one scored **151.9 dB against the baseline's 142.4**.
+  **The artefact that makes it wrong is the same one that makes it score
+  higher** — it refuses to write the caller's buffer. So a gate reading only
+  output quality does not merely fail to notice that implementation; it
+  **prefers** it.
+- **Rung 5 green does not mean the optimisation is good.** `check_no_regression` recomputes from raw numbers and the bars stay at 5% / 10%. If the two arms disagree by more than that, the finding may still be about the node rather than the patch — that is `todo.md` **T7**, the comparability gate, and it is unbuilt. **Do not widen the bars.**
+
+- **Rung 5 green, and the final acceptance run green, will not mean the
+  pipeline selected the right kernels.** Measured 2026-09-05 by **m3**;
+  the decision to ship without fixing it is the **leader's**, so that a later
+  reader sees a decision rather than an oversight and can reverse it with the
+  number in hand. Filed as **`todo.md` T73**.
+
+  The Triton pattern has a second copy, under `buckets:`, and it fails
+  *differently* from the `fellows:` one. `assets/lib/taxonomy.py:43-48` returns
+  `bucket: unknown, routable: False` for any symbol no rule matches — so under
+  `fellows:` a miss is **no label, then a refusal**, which is visible, while
+  under `buckets:` a miss is **exclusion from the candidate pool before `rank`
+  ever sees the kernel**, which is not.
+
+  Against the real 124-row table: seven kernels move to routable, the pool grows
+  **18 → 25 kernels** and **10.74 % → 13.96 %** of profiled GPU time, and **the
+  largest newcomer, at 2.350 %, would rank #2** — ahead of every currently
+  selected operator but one. **A kernel that should have been a top-two
+  candidate has been invisible to `rank` for this entire effort.**
+
+  **Held deliberately.** The round's goal is 跑通, and re-selecting the operator
+  discards what m4 characterised today — the attested baseline,
+  `noise_floor: 1.1348`, the premise gate, the `--kernel` frame — on a budget
+  that has already lost most of a day.
+
+  **m3's statement of what the hold costs, which is the point of this entry:**
+  the omission is in `rank`'s **input**, so the first green chain will be green
+  over a **distorted pool**. *Getting the chain through will not have validated
+  the selection, and nobody should later read that green as evidence that it
+  was.*
+
+  **Scope limit, m3's, verbatim in substance:** one profile, one workload, one
+  node. `2.350 %` for a decode kernel is a property of **this trace's
+  prefill/decode mix**, and on a decode-heavier trace the omission would matter
+  more, not less.
+
+### Two rungs license less than they appear to, for two structural reasons
+
+**Found 2026-09-05 by document comparison, before a node was booked** — the
+control m3's T71 asks for. Both are statements about **the ladder**, not about a
+stage, and phase ④'s whole purpose is to make a phase-⑤ failure attributable.
+For these two seams it cannot.
+
+**Rung 4 green cannot test the m4 → m5 seam, because nothing reads m4's output.**
+Measured: `assets/lib/mock_m5.sh` consumes **zero** `AGENT_SYS_INPUT_*` — it
+takes only an `environment.yaml` path. And `apply_patch/entry.sh`'s mock branch
+`exec`s `env_render` and exits, never reaching the line below it that reads
+`--kernel-optimization`. So a mocked m5 never looks at a real m4's artefact, and
+the seam is first exercised at **rung 5, with nothing before it**. This is this
+file's own sentence — *"keep the upstream stage mocked as well, which runs today
+and proves nothing about the seam"* — arriving one rung later than where it was
+written.
+
+**Rung 3 with m4 mocked is not achievable with the corpus we have, and it does
+not need to be.** The stage-4 corpus holds an optimised kernel for
+`sampler_vocab_softmax`; real m3 on this deployment selects four operators and
+none is that one. After `039825c` all four now fail at the *same* single gate —
+**the sealed kernel does not define the operator's symbol** — which is the
+operator-name binding and nothing else. There are only two ways to clear it and
+both are refused: producing sealed kernels for m3's four operators requires real
+**m4** runs, so the mock would depend on the thing it exists to substitute for;
+and synthesising a kernel the corpus does not have is fabrication (CONTRACT
+§5.3).
+
+**So the answer is to stop needing that configuration**, and that is the correct
+outcome rather than a workaround. Input-hijack exists to make a failure
+attributable; here the seam it would isolate is one we can simply run for real,
+and m4 is doing exactly that on 287. **Do not spend a node rediscovering the
+gate.**
+
+*One gate in that series is still open as of writing and is recorded rather than
+assumed: `mock_adapt.py`'s refusal when `edit_target.entry_function` is empty is
+a branch that has been **read and not exercised**. Gate 3 was closed by
+`039825c` and the `public_symbol` gate is guaranteed by `workset.schema.json`;
+neither of those is evidence about this one.*
+
+## "Mock e2e green" is a file and a condition, and the run's exit code is 5
+
+**Read this before reading an exit code from a mock run.** `agent-sys run` on
+the mock exits **5**, every time, and that is the correct output. Anyone who
+stops at the exit code will read the deliverable as failing. It is not.
+
+**Why it cannot be otherwise.** The corpus's `integration_report` carries a
+*refused* verdict — `cheat_for_mock/README.md` warned about it from the start —
+and `check_no_regression` does not take the report's word for it: it
+**recomputes** from the raw numbers and reaches `REJECTED` independently. So one
+handoff seals `invalid`, and `main.py`'s completion rule (*every task
+`SUCCEEDED`, no handoff `INVALID`*) gives 5.
+
+Three ways to make that a 0, and all three are worse than the 5:
+
+- **Swap the fixture for a passing one.** There isn't one. Because the validator
+  recomputes, a passing fixture means changing numbers nobody chose — and the
+  corpus's entire value is that nobody chose them.
+- **Widen the bar.** Tried once, and `DELIVERY-NOTE-FROM-LEADER.md` is explicit
+  that it was the wrong answer. **Do not widen the bars.**
+- **Declare it an expected failure** via `cli/expectations.py`. The framework
+  really does have this (pytest's `xfail(strict=True)`), and it is a trap:
+  declaring **one** promise switches off completion checking for **all fifteen
+  handoffs**, and the sealed verdict has no reason field, so the promise would
+  also accept a *real* regression next week wearing this refusal's clothes.
+  Measured and written up in
+  `temp/bugs/2026-09-04-declaring-one-expected-failure-disables-completion-checking-for-the-whole-run.md`.
+
+**So the exit code does not carry the claim, and CLAUDE.md principle 1 says what
+does:** *read the artefact, not the exit code; every acceptance claim names a
+file to open and a condition that fails.*
+
+### The claim
+
+> One run produces **15 handoffs** and **43 verdicts**, of which **42 are true**;
+> the single false verdict is **`check_no_regression` on `integration_report`**;
+> and that validator's **`validator_report.txt` carries exactly four `PROBLEM:`
+> lines** — the producer's `max_throughput_regression=35%` against the
+> validator's 5% bar, the producer's `max_latency_regression=30%` against its
+> 10% bar, four metrics regressed, and six metrics whose noise floor exceeds
+> their bar so the run cannot judge the patch.
+
+### How to check it
+
+```sh
+python3 assets/lib/accept_mock.py                    # newest run under ~/agent_sys_runroot
+python3 assets/lib/accept_mock.py --run <run-dir>
+```
+
+**0** the claim holds — this is the deliverable's green. **1** it does not, and
+every difference is printed. **2** the script could not tell (no run, no report),
+which is deliberately not 1: *cannot judge* and *judged and refused* are
+different facts, which is the same distinction the validators themselves draw.
+
+**It is stricter than the run, not softer.** Nothing is inverted, relaxed or
+skipped: the verdict is still false and the run still exits 5. It fails in three
+directions the exit code cannot distinguish — a **different** refusal from the
+same validator on the same kind, a **second** refusal anywhere, and the expected
+refusal **disappearing** (43 true is not the claim either; an artefact that
+stopped refusing is a finding).
+
+Its ability to fire is not assumed. Six controls on copies of a real run —
+reword one `PROBLEM`, add one, flip the refusal to a pass, add a second refusal,
+delete the report, and an untouched copy as the null — are recorded in the
+commit that added it.
+
+### "Regenerate the reference and compare" is not a check anyone can run
+
+**The reference corpus cannot be re-derived from itself. It can only be replayed
+through the adapters.** Written here rather than in a note because this is where
+it bites: an acceptance step of the form *"regenerate the sealed artefacts from
+their inputs and diff"* is exactly what someone reasoning from first principles
+proposes at the end, and **it fails for reasons that have nothing to do with
+what is being accepted.**
+
+Measured 2026-09-04, running the real producer against both identities:
+
+```sh
+scaffold.py  <- sealed cheat_for_mock/stage3-analyze/operator_identity   exit 1
+   "operator_identity carries no environment.yaml; CONTRACT.md 2 requires one on every kind"
+
+scaffold.py  <- the operator_identity a run produces                     exit 0
+   2 operators, 2 definitions, a full workset.yaml
+```
+
+**The sealed corpus predates records the contract now requires.** It carries no
+`environment.yaml`, and (the same fact, found from the other side) no
+`edit_target.from_identity` for `check_workset_shape` to compare against. The
+mock adapters — `m3_mock_adapt.py`, `mock_adapt.py`, MOCK-MAP (A) and (C) —
+exist precisely to supply those at run time.
+
+**This is a documented arrangement, not a gap.** Do not file it as a bug and do
+not try to fix it by making the producer accept a record-less input; the
+requirement is CONTRACT §2 and it is right.
+
+Two consequences worth having before you need them:
+
+- **A regenerated k004 carries two shapes**, and m4's packup refuses below
+  three. The producer says so — *"has 2 observed shape(s); M3.7.4.1.2 needs 3"* —
+  but anyone treating regeneration as a drop-in meets it after the fact.
+- **`profiling_evidence` is required by the producer and never read on this
+  path.** A directory containing only an `environment.yaml` satisfied it. Not a
+  defect; noted because it is impossible to rediscover once forgotten.
+
+**What the regeneration did establish**, and it closes m5's k004 finding: the
+current producer emits `moe_gemm_2stage.py` for k004 — **correct**, matching the
+identity, with `from_identity` recording it and no `entry_function_line` at all.
+The `mixed_moe_gemm_2stage.py` disagreement exists **only** in the 2026-09-02
+artefact. It is a property of a sealed reference, not a live defect.
+
+### Do not backfill a missing record into the sealed corpus
+
+**Not `from_identity`, not `environment.yaml`, not an offset — none of it.**
+
+Every backfilled record would be *a record nobody made, manufactured today and
+indistinguishable from a real one.* The corpus's whole value is that nobody
+chose what is in it; a field added now to make a check pass converts it from
+evidence into assertion, and the check then confirms the backfill rather than
+the artefact.
+
+This is CONTRACT §5.3 in the other direction: **a mock may obtain a real fact by
+a route the producer does not use; it may not assert a fact the producer does
+not have.** It is why `mock_adapt.py` writes `from_identity: null` rather than
+repeating its own hardcoded path — null is UNVERIFIED and says so, while a
+self-supplied provenance would have agreed with itself forever.
+
+The alternative is the one already in place: **leave the gap and report it.**
+`check_workset_shape` reports UNVERIFIED for an artefact with no provenance and
+does not pass it as checked.
+
+*2026-09-04 produced four instances of manufactured provenance in one afternoon
+— the `183` constant that corroborated itself in its own `resolution_evidence`
+prose, `32.5` recorded as prose and read back as a measurement, `replayed_from`
+overwritten by the tool that writes it, and `impl_path` echoing an argument as
+if it were an observation. This rule is what they have in common.*
+
+## The one measurement to take at rung 5 that nobody has
+
+`todo.md` T7 wants the within-arm round-to-round spread on a **quiet** node. Both holds carry other tenants today. If a quiet window appears, take it: it is the number that decides whether 5% / 10% are right, and the previous round widened them to 35% / 30% on a cross-instance artefact for want of it.
+
+---
+
+## Standalone verification — m4 (`optimize_kernel`)
+
+The user's redirection, 2026-09-04: *"e2e串通也可以通过先单独运行每个模块保证单独通(也可以并行)"*
+— verify each module on its own rather than only through the ladder. This is m4's.
+**m4 is the stage that most needs it: it is the only one that has never executed
+in any graph, on any rung.**
+
+> **Run from a directory outside the package, and point `--out` outside it too.**
+> `apply.py` left `e2e-flow/stage/` (33 K, the extracted stock file) inside the
+> deliverable on 2026-09-04. **`agent-sys run` stages the working tree, so every
+> later run would have copied that scratch into every zone**, and the brief says
+> this directory receives only the package and `todo.md`.
+>
+> **The scratch comes from `Path.cwd()`** (`apply.py:499`, `stage = Path.cwd() /
+> "stage"`), **not from `--package`** — I first recorded it as `--package` and
+> that was wrong, found by reading the line rather than by it happening twice.
+> The distinction changes the remedy: no flag moves it, so **`cd` somewhere
+> disposable before invoking**, and passing `--package` at the working tree is
+> both correct and harmless.
+>
+> Nothing in the CLI hints at it, which is the part that will catch the next
+> person: the invocation names `--out` and `--package` and silently uses a third
+> location neither of them mentions. **Check `git status --porcelain -- <package>`
+> after running any body by hand**, whatever you believe about where its scratch
+> goes.
+>
+> **And never nest a default in a value you pass by hand.** `${a:-${b:-x}}` does
+> not resolve: the renderer stops at the first `}`, so a *string* consumer
+> receives the literal `x}` — or the whole unexpanded expression when nothing is
+> set. Measured by m2 and confirmed by the leader; **nothing in the package uses
+> one, so there is no exposure today.**
+>
+> It belongs in this section rather than only in theirs because **a hand-driven
+> body is where someone invents a value on the spot**, and the values this stage
+> binds are container names, ports and paths — all string consumers. There is no
+> `float()` to throw, so **the loudness of the case we found is a property of the
+> consumer, not of the defect**: the failure here would be a container called
+> `mybox}` on a shared host, created successfully, doing real work under a name
+> nobody will recognise. That is the failure `run_in_container.sh` refuses an
+> empty `HIP_VISIBLE_DEVICES` to prevent, arriving through the one door it does
+> not watch.
+>
+> **Related, and the reason a hand-driven run is worth its awkwardness at all:**
+> drive `--package` from the **working tree, never a run's staged copy**. A run
+> stages the tree *at launch*, so its copy is a snapshot of a moment — the branch
+> you are testing may have landed after it, and **a missing branch reads exactly
+> like a branch that failed to fire.** Confirm the code is in the file you are
+> invoking before you invoke it (`grep -c '<the new line>' <pkg>/…`), which is
+> what m5 handed over instead of an instruction and what made the `apply.py` run
+> trustworthy.
+
+Written in a shape m1, m2, m3 and m5 can copy: **the command, the input, the
+cost, the smallest honest proof.**
+
+### 1. The command, in full
+
+Not a delta against another table. Every launch-line failure on 2026-09-04 came
+from someone assembling a command from a diff.
+
+```sh
+agent-sys run --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+  --demo-root /home/yihou/agent_sys_runroot \
+  --var jobid=<JOBID> --var node=<NODE> --var node_ip=<NODE_IP> \
+  --var model_name=Qwen/Qwen3.6-27B \
+  --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
+  --var image=<THE KIT'S IMAGE, not the node's> \
+  --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR \
+  --var mock_stages=all \
+  --var m1_agent=runner --var m2_agent=runner --var m3_agent=runner --var m5_agent=runner \
+  --var workset_operator=sampler_vocab_softmax \
+  --var gpu=<A FREE CARD> \
+  --var scratch_root=/mnt/m2m_nobackup/yihou/e2e_flow/kfo \
+  --var forge_mock=1
+```
+
+Four of these are m4-specific and each has a reason that has already cost
+something:
+
+- **`workset_operator`** — a workset with more than one operator is a run-time
+  refusal, not a coin flip. m3's real worksets carry one today, so it is
+  optional *now* and mandatory the moment they carry two.
+- **`gpu`** — no default, and the refusal is deliberate (CONTRACT §5.2). Cards
+  are shared; `HIP_VISIBLE_DEVICES` empty stops the run rather than picking
+  card 0 next to a co-tenant.
+- **`scratch_root`** — must be node-local. On this cluster's NFS every ROCm
+  kernel launch segfaults *after* the copies and the first round.
+- **`forge_mock=1`** — see §4. This is what makes the run minutes instead of
+  hours, and it is the whole reason a standalone m4 is cheap.
+
+**`m4_agent` is deliberately absent.** Leaving it out keeps the real
+`kind: ai` agent, which is the point of verifying m4 rather than its mock.
+
+### 2. The input, and the seam — tested 2026-09-04
+
+m4 takes `operator_workset` **and** `deploy_kit`. m3 has produced two real
+measured worksets; both were driven through m4's STEP 1 and STEP 2 on the login
+node, no GPU:
+
+| workset | STEP 1 | why |
+|---|---|---|
+| `/home/yihou/m3_verify/` (006) | **refused** | `the workset carries no evidence.performance_report` — the `evidence` block is absent from `workset.yaml` although `evidence/{correctness,performance}.json` exist on disk |
+| `/home/yihou/m3_verify234/` (234) | **passes** | `ok: operator sampler_vocab_softmax, 3 performance shape(s), 3 correctness shape(s), baseline from evidence/performance.json` |
+
+**So m3's current output is consumable by m4 as-is.** Everything m4 previously
+refused a workset for — `integration`, `noise_floor`, `apparatus`,
+`ground_truth.dtypes`, and three *performance-role* shapes rather than one — is
+present in the 234 artefact. The A2 scaffold change landed and this is the
+evidence.
+
+The `m3_verify` gap is one line in `workset.yaml` and m3 fixed it between the
+two runs; recorded because **the files existing on disk is not the same as the
+workset declaring them**, and only the declaration is read.
+
+**The pairing constraint, which is the actual seam and is easy to get wrong:**
+the workset's `ground_truth.environment` and the `deploy_kit`'s record must
+agree on every abort-listed field. Pairing m3's 234 workset with a `deploy_kit`
+from a different bring-up produced, correctly:
+
+```
+ABORT: fixed.tp_size: workset 4, this run 8
+```
+
+m3 measured at `tp=4` because four cards were free. **A standalone m4 run needs
+a `deploy_kit` minted for the same bring-up the workset was measured against**,
+or it aborts before spending anything — which is the gate working, and is also
+§4's "can it disagree" half obtained for free.
+
+### 3. What it costs — and "hours" is true of one step only
+
+| step | needs | time |
+|---|---|---|
+| 1 `10_read_inputs` | nothing | < 1 s |
+| 2 `20_premise_gate` | nothing | < 1 s |
+| 3 `30_run_forge` | GPU + the container | **`forge_mock=1`: ~1 s. A real campaign: ≥ 1 hour, enforced** |
+| 4 `40_correctness` | GPU + the container | ~90 s, most of it container start and torch import |
+| 5 `50_performance` | GPU + the container | ~90 s, same |
+| 6 `60_write_handoff` | the container, for `base_sha256` | seconds |
+| 7 `70_selfcheck` | nothing | seconds |
+
+**The "hours" in the bug file is `KFO_MAX_HOURS` and belongs to STEP 3 alone.**
+It is not a description of the stage. And the floor is *enforced* — `cli.py:46`
+`MIN_MAX_HOURS` rejects anything below 1.0 — so **there is no such thing as a
+five-minute real campaign**; the choice is a campaign or a mock, with nothing
+in between.
+
+**Everything except STEP 3 is about three minutes on one card**, and most of
+that is torch importing. That is the same correction rung 0 got today: a stage
+treated as a node-hour problem needed one card for seconds.
+
+### 4. The smallest honest proof
+
+m3's standard — *does it agree, and can it disagree* — applied here:
+
+**Can it disagree: already demonstrated, on real artefacts.** The `tp_size 4 vs 8`
+abort above is m4 refusing a premise that does not hold, on two artefacts
+neither of which was built to make it fail. That is the half that matters,
+because a stage that only ever produces a number proves nothing.
+
+**Does it agree: `--var forge_mock=1` with a matched workset/kit pair.** This
+exercises everything except the optimiser:
+
+- STEPs 1–2 **for real** against m3's workset and m1's record;
+- STEP 3's wiring, with the seed copied behind a banner and a `forge_result.json`
+  of nulls — *a mock is not a small campaign*;
+- STEPs 4–5 **for real**: the workset's own entrypoints, in the container, on a
+  card, measuring the seed against itself. The ratio is ~1.0 **and that is the
+  correct answer** — it proves the measurement path end to end without a claim;
+- STEP 6 **refusing to write a claim** under a mocked forge — the schema
+  forbids it, so a green run here is a run that produced a handoff *with no
+  speedup in it*;
+- STEP 7, `check_optimization_shape` against the real output.
+
+**What it does not prove, stated so nobody reads more into a green run:**
+KernelForge has still never run, `check_speedup_substantiated`'s re-measurement
+has never graded a real optimised kernel, and no number this produces is a
+speedup. **A campaign is the only thing that proves the campaign.**
+
+### 4a. What the first real run found — 2026-09-04, `crsuse2-m2m-217`
+
+**The middle row is NOT green.** STEPs 1–3 passed, STEP 4 is blocked, 5 and 6
+unreached, campaign untouched. Recorded as a partial run rather than a pass,
+because the three defects below are the return on it and each would otherwise
+have surfaced inside an expensive rung.
+
+**What did work, and it is the first time for both:** STEP 2's premise **held**
+on a third machine — a 234-measured workset against a 006 kit on a 217 run,
+which is `node` deliberately not being an abort field, vindicated. And m3's
+harness accepted m4's `--environment` flag and made the two-document
+comparison, warning on `image_id` and carrying it forward.
+
+#### A near-miss, not a fixed bug: `KFO_MOCK` did not cross the boundary
+
+`run_in_container.sh` forwarded an **enumerated** list of environment names.
+`KFO_MOCK` was not on it, so `--var forge_mock=1` never reached the container
+and `30_run_forge.sh` took the **real campaign branch**.
+
+**It died on git's dubious-ownership check rather than running for an hour.**
+That is luck, not design. Had the copy succeeded it would have consumed a node
+we hold under **preemptible burst** and produced nothing anyone asked for.
+
+Recorded as a near-miss because the fix — forwarding `AGENT_SYS_*`, `KFO_*` and
+`E2E_*` by **prefix** — removes the class rather than the instance. The same
+list also dropped `AGENT_SYS_INPUT_<KIND>`, and *the kind is part of the
+variable name*, so any fixed list has to duplicate the kind list from
+`steps/m4_kernel_opt.yaml`. **A prefix has no list to fall behind.**
+
+**The general form, for anyone writing a boundary crossing: the wrapper IS the
+boundary. Anything it does not carry does not arrive — and it arrives as a
+fault in whatever runs on the far side**, which is where nobody is looking.
+
+#### The blocker: `--impl` has an unstated contract
+
+```
+the Definition's 'candidate:sampler_vocab_softmax' defines no `run`
+error: the correctness entrypoint exited 1
+```
+
+`harness/_common.py:289` execs the candidate and **requires a top-level `run`
+callable**. m4's mock seed is `edit_target.source_file` — the engine's stock
+`srt/layers/sampler.py`, an sglang module with no `run`. The two sides disagree
+about what `--impl PATH` *is*.
+
+**This bites the real campaign, not just the mock:** whatever KernelForge emits
+must define `run` for m3's harness to accept it, and **nothing states that
+anywhere**. A campaign is an hour minimum, so discovering it after one is the
+most expensive version of this mistake available.
+
+**Leader's ruling, 2026-09-04, and the order is the substance:**
+
+1. **m3 declares the candidate contract in the workset** — they own the harness
+   and the schema, so the authority belongs there. Same family as the flag
+   spelling m3 made data: one authority, two readers, except here the authority
+   did not exist.
+2. **Then m4 adapts its seed to satisfy it.**
+
+**Not the other way round.** A seed changed first would be fitted to m3's
+*current behaviour*, which is precisely the undeclared thing this is meant to
+stop relying on.
+
+### 5. Useful at every size
+
+One card, three minutes, and the pieces detach:
+
+- **no card at all** — STEPs 1, 2 and 7 run on the login node. That is the
+  workset seam and the premise gate, which is where both real defects found in
+  this stage so far have been.
+- **one card, ~3 min** — add STEPs 4, 5, 6 with `forge_mock=1`. This is the
+  recommended standalone run.
+- **one card, ≥ 1 h** — drop `forge_mock` and it is rung 4.
+
+The middle row is the one to run whenever a card is free for five minutes.
+
+---
+
+# Module 5 standalone — the smallest run that proves the wiring
+
+Written for the user's *"先单独运行每个模块保证单独通"*. **The answer to "is
+there a smaller thing?" is yes, and it needed a fix first.**
+
+## 1. The command
+
+```sh
+python3 -m agent_sys.cli.main run \
+  --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+  --demo-root /home/yihou/agent_sys_runroot \
+  --var jobid=<the hold> --var node=<the node> --var node_ip=<MEASURED, see below> \
+  --var model_name=Qwen/Qwen3.6-27B \
+  --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
+  --var image=<a servable image ON THAT NODE> \
+  --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR \
+  --var mock_stages=m1,m2,m3,m4 \
+  --var m1_agent=runner --var m3_agent=runner --var m4_agent=runner \
+  --var expect_ranks=2 \
+  --var container=yihou_m5_solo --var port_router=8151 \
+  --var port_worker=8152 --var port_etcd=8153 \
+  --var work_root=/mnt/m2m_nobackup/yihou/m5_solo \
+  --var aiperf_trace=/shared_nfs/yihou/agent_sys/debugging/profiling/conversation_trace.jsonl \
+  --var gsm8k_data=<a local GSM8K jsonl> \
+  --var eval_max_tokens=1024 --var eval_examples=5 \
+  --var needle_tokens=2000 --var trace_end_ms=30000 \
+  --var bench_rounds=1 --var adhoc_cases=1
+```
+
+**`m5_agent` is deliberately absent.** m5 runs with its real `kind: ai` agent,
+because that agent following the STEPS readme *is* the module. `--var
+m5_agent=runner` swaps in the mock and proves nothing about the real path.
+
+**`node_ip` is measured, never derived.** `spur exec <job> hostname -I`. There is
+no pattern: `-061` → `10.245.159.129`, `-031` → `10.245.144.239`, `-006` →
+`10.245.151.128`. Deriving it cost a bring-up.
+
+## 2. What it consumes, and where a real one comes from
+
+| input | source in this run | a real one |
+|---|---|---|
+| `deploy_kit` | m1 mock — the sealed `stage1-deploy` kit | rung 1 |
+| `profiling_evidence` | m2 mock, merged from four sealed parts | rung 2 |
+| `operator_workset` | m3 mock + adaptation (C) | rung 3 |
+| `kernel_optimization` | m4 mock + adaptation (G) | rung 4 |
+
+**Two of these are known-defective as inputs and both are m4's**, found by
+driving `apply_patch`'s real path on 2026-09-04: the manifest declares
+`@SGLANG_ROOT@/python/sglang/srt/layers/sampler.py`, which repeats the root and
+names a path no image has; and its `base_sha256` was cut against
+`rocm/sgl-dev:v0.5.18-…`, so it will not match whatever image this run serves.
+**Both surface as a clean refusal with a named cause** (`03693af`), not a
+traceback — but they stop the run at `apply_patch` until m4 re-cuts.
+
+## 3. Resource and duration
+
+**One node, 8 cards, two containers brought up in sequence** — m5 is the
+designed exception to the one-container rule (CONTRACT §5).
+
+Measured per arm, from the sealed arms' own `env/steps.json`:
+
+| step | stock | patched | reducible? |
+|---|---|---|---|
+| serve | 480 s | 240 s | no — bring-up is irreducible |
+| smoke | 271 s | 220 s | no |
+| needle | 200 s | 194 s | yes, `needle_tokens` |
+| **probe** | **2062 s** | **2001 s** | **no — see the correction below** |
+| lm_eval | 23 s | 428 s | yes, `eval_examples` |
+| bench_r1 | 44 s | 161 s | yes, `trace_end_ms` |
+| **total** | **3080 s** | **3244 s** | **~105 min for the pair** |
+
+**`probe` is two thirds of an arm, and until today its cost knob could not be
+set.** `measure.sh:149,157` reads `E2E_EVAL_MAX_TOKENS` and `E2E_EVAL_THREADS`
+and **nothing declared either**, so the `:-2048` fallback always won. Now
+declared on `e2e_integrator`; `runner` should mirror them.
+
+### Corrected 2026-09-04 by measuring it: probe is not the problem, and 256 breaks it
+
+The two paragraphs this replaces said `probe` was two thirds of an arm and that
+`eval_max_tokens` was the knob that would shrink it. **Measured on
+crsuse2-m2m-047, an idle node, against the same deployment:**
+
+| `--max-tokens` | probe | verdict |
+|---|---|---|
+| 256 | 28 s | **FAIL** |
+| 512 | 34 s | pass |
+| 1024 | 38 s | pass |
+| **2048** — the sealed run's own budget | **37 s** | pass |
+
+**2062 s → 37 s at the identical budget.** The knob barely moves the cost; **the
+2062 s was the contended chassis**, the same one that read 193 tok/s beside an
+idle neighbour and 47 beside a busy one. So the ~105-minute two-arm total is a
+property of a busy machine and not of this module, and it should not be quoted
+as module 5's cost.
+
+**And `eval_max_tokens=256`, which the command above used to say, is wrong.**
+It fails probe, and not on the deployment:
+
+```
+multiply  expected 391 -> "23"   completion_tokens [256,256,256]  finish_reason "length"
+natalia   serial 72,72,72  but batched 48,48,72,72,48,48,72,48
+```
+
+The model was still reasoning when the budget ran out and the extractor took a
+number out of the middle of the working; the batched instability is the same
+cause. **The floor is between 256 and 512**, and since 512 costs 34 s against
+2048's 37 s there is no reason to run below **1024**, which is what the command
+now passes.
+
+**The whole reduced suite ran in 102 s** on that node — smoke 9, needle 4, probe
+28, lm_eval 14, bench_r1 47 — against baselines of 271/200/2062/23/44. **The
+bring-up is the only large cost left**, and it is irreducible.
+
+**What is still an estimate:** a *full-scale* arm on an idle node. needle at
+31 000 tokens and lm_eval at 100 examples have not been measured here, so no
+full-scale total is quoted. One extrapolation per section is the limit, and this
+section already spent its correction on the last one.
+
+## 4. The smallest honest proof
+
+**What a reduced run proves:** two bring-ups on one node in one session, a
+teardown between them, the overlay mounted on the second, the patch-live
+evidence collected from inside the running container, both arms measured in the
+same order, the comparison computed, and the packup assembled — every edge and
+every one of the seven validators, against artefacts this package produced.
+
+**What it does not prove, and cannot:** that the optimisation is good. **This is
+structural rather than a promise.** At reduced scale `n` is small, so the noise
+floor `1.96·√2·rsd/√n` rises above the bar, and `check_no_regression` returns
+**`uninterpretable`** — *this run cannot resolve a difference at this bar* —
+instead of a verdict. The gate refuses to let a short run claim a speedup, and
+the report carries the floor either way. Measured on the sealed arms at n=60:
+floors of 12.8%, 17.9% and 20.3% against a 10% bar.
+
+So the pass condition is **not** "accepted". It is:
+
+- `apply_patch` produces `patch_overlay` and `check_overlay_applies` passes;
+- both arms seal, and `check_measurement_order` confirms they were disjoint in
+  time **and on the same machine** (`f6131f7`);
+- `check_patch_live` passes on the patched arm — the mounted bytes were the ones
+  that ran, proven by re-hashing inside the container;
+- `check_no_regression` returns a verdict **or** `uninterpretable` **with the
+  floor stated** — both are passes for this purpose, and a silent `same` at
+  reduced scale would be the failure;
+- `packup` writes `e2e_packup` and `check_packup_shape` passes.
+
+**Can it disagree?** Yes, and that is the half worth stating: the same run with
+`--var eval_max_tokens=2048 --var trace_end_ms=120000` raises `n`, drops the
+floor below the bar, and the same gate then returns a real verdict. A proof that
+cannot fail is not a proof, and the difference between the two is one `--var`.
+
+## 5. If it still does not fit
+
+**It may not.** ~105 min at full scale against holds that died at 28 min, 1 h 21
+and 5 h today, with no fitted pattern. The reduced run removes `probe` and
+`lm_eval` as the dominant terms and leaves **two bring-ups, ~12 min of
+irreducible `serve` plus ~8 min of `smoke`**, which is the floor for anything
+that measures two arms at all.
+
+**Below that floor there is no honest module-5 test**, because a single arm does
+not exercise the sequencing, the mount, or the patch-live evidence — which are
+the three things that have never run. If even ~25 minutes cannot be held, the
+finding is that **Brief item 3 is not achievable in this environment**, and that
+is a fact about the allocation rather than about this stage.
+
+## Standalone verification — m1 (`deploy_and_prove`)
+
+The fifth of five, in m4's four headings. **m1 is the opposite of m4's case: it
+is the stage that has run most**, and the one whose standalone is cheapest to
+*set up* and dearest to *execute* — because the thing it verifies is a real
+model bring-up and there is no honest way to make that fast.
+
+### 1. The command, in full
+
+```sh
+python3 -m agent_sys.cli.main run \
+  --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+  --demo-root /home/yihou/agent_sys_runroot \
+  --var jobid=<JOBID> --var node=<NODE> --var node_ip=<NODE_IP> \
+  --var model_name=Qwen/Qwen3.6-27B \
+  --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
+  --var image=<AN IMAGE THAT CONTAINS infera> \
+  --var gpu_devices=0,1,2,3 --var tp=4 \
+  --var measure_gpu=4 \
+  --var parser_args="--reasoning-parser qwen3" \
+  --var transport=spur --var transport_env="SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR" \
+  --var mock_stages=m2,m3,m4,m5 \
+  --var m2_agent=runner --var m3_agent=runner --var m4_agent=runner --var m5_agent=runner \
+  --var expect_ranks=2 --var adhoc_cases=0
+```
+
+**`m1_agent` is deliberately absent**, for m4's reason: leaving it out keeps the
+real `kind: ai` agent, which is the point.
+
+**`mock_stages` is `m2,m3,m4,m5` and NOT `all`, and this is the one place m1's
+command cannot be copied from m4's.** m4's readme never mentions `mock.sh`, so
+`mock_stages=all` leaves their ai agent unaffected — their mock lives in
+`entry.sh`, which a `kind: ai` closure does not run. **`deploy_and_prove`'s
+readme calls `mock.sh` itself, at STEP 0** (`readme.md:71`, 3 references).
+So with `mock_stages=all` the real agent dutifully mocks and stops, and the run
+looks like a pass having deployed nothing. Measured across the four ai readmes:
+`deploy_and_prove` 3, `optimize_kernel` 0, `build_workset` 0,
+`integrate_and_verify` 0. **m1 is the exception; copying m4's line silently
+verifies nothing.**
+
+Three more with reasons that have each cost something:
+
+- **`image` must contain `infera`.** Not "a recent sglang" — the kit runs
+  `python -m infera.engine.sglang` and `python -m infera.server`, so a plain
+  sglang image cannot serve it at any version. Measured on three of them:
+  `ModuleNotFoundError: No module named 'infera'`. `nodeprobe.sh`'s **READY**
+  means *a base carrying the build anchor is present*, **not that a servable
+  image exists** — 006 and 217 happened to carry one, 235 did not.
+- **`gpu_devices`** — optional, and passing it is what exercises the branch that
+  has never run: a named set means *use exactly these and stop if one is not
+  free*, rather than choose. Omit it (`none`) to exercise the discovery path
+  instead. Both are worth doing; they are different tests.
+- **`transport_env`** — a validator declares no agent, so the package's `env`
+  block never reaches `check_deploy_serves`. Without this it refuses **in one
+  second** with `failed to connect to controller`, which reads exactly like a
+  deployment failure and has cost several runs.
+- **`measure_gpu` — required here even though this is m1's standalone**, and
+  the block omitted it until the leader cross-checked it against the var table
+  at the top of this file and added it by hand. **A card outside the deploy
+  set**, so `0,1,2,3` above means `4` here.
+
+  The reason it was missed is worth more than the omission. I wrote this block
+  from *"what does m1's stage consume"*, and by that reading `measure_gpu` is
+  m3's and m4's and this run mocks both. **But mocking a stage does not mock its
+  validators.** `m<N>_agent=runner` swaps the *agent* leaf; the validator leaves
+  are separate and run at every rung, and a validator declares no agent, so it
+  is fed by `args:` in the yaml rather than by any `env` block:
+  `m4_kernel_opt.yaml:116` passes `measure_gpu: '${measure_gpu:-}'`, and
+  `check_speedup_substantiated.validator/check.py:776` **refuses** on empty
+  rather than defaulting, because unset does not mean *"the caller chose"* — it
+  means torch takes card 0, which on a shared host is a co-tenant's.
+
+  So the rule the table states as *"required on every rung"* has a mechanism:
+  **every var any validator reads is required on every rung, whatever is
+  mocked.** `transport_env` above is the same rule and this is its second face.
+  (`measure_in_container.sh` refuses on the same var, but that is m3's real
+  body and is *not* the rung-1 path — the validators are.)
+
+**`expect_ranks=2` against a `tp=4` bring-up is deliberate, not stale.** It is a
+fact about **the artefact being graded, not about this deployment** — m2's
+framing, the same one that puts `image` on the var table. At rung 1 m2 is mocked,
+so the trace `check_trace_coverage` grades is the sealed capture from
+`cheat_for_mock/`, which is **TP-2** (`MOCK-MAP.md:39`,
+`m2_profiling.yaml:114-118`); it did not come from the four cards this line
+brings up, and nothing in this run connects the two. At rung 2 m2 is real, the
+trace does come from this deployment, and the number must then follow `tp`.
+
+### 2. What it consumes — nothing, and that is the point
+
+**m1 is the only stage whose standalone needs no other module's artefact.**
+`deploy_and_prove` declares `inputs: []`; `deploy_kit` is the flow's root
+handoff. Every other standalone has had to source a real upstream input — m4
+needed one of m3's worksets *paired with the deploy_kit from the same bring-up*,
+m5 needs the chain below it.
+
+So the setup cost is a node, a model on disk and an image. There is no "where do
+I get a real one" question, because m1 **is** where the real one comes from: the
+`deploy_kit` this run seals is exactly what m2, m3, m4 and m5's standalones
+consume.
+
+### 3. What it costs — measured, and the expensive part is irreducible
+
+Measured on the 2026-09-04 rung-1 run (249, TP-1 bring-up, all three validators
+green):
+
+| step | needs | time |
+|---|---|---|
+| package load, `show` | nothing | < 1 s |
+| image build, **if the node has no infera image** | disk + network | **~4 min** (base local); a base pull is ~120 GB |
+| `deploy_and_prove` — the AI agent | node + cards | **40 min 33 s** |
+| `check_environment` | nothing | seconds |
+| `check_deploy_kit` | nothing | seconds — pure static, `cost: seconds` |
+| `check_deploy_serves` | node + cards | a **second** full bring-up, 11 probes, a 1k/1k conc-16 **180 s** load, teardown |
+
+**`deploy_and_prove`'s 40 minutes is an AI agent's session, not a weight load** —
+worth stating because the sealed kit documents its own bring-up at 186 s and
+anyone sizing a budget from that number is out by a factor of thirteen.
+
+**Two knobs shorten it and neither is free.** `deploy_load_seconds` (default 180)
+and the rest of the load shape are overridable *"so a wiring run costs seconds"*
+— but the bring-up dominates, so shortening the load saves ~2 minutes of ~50 and
+weakens the one validator that grades sustained behaviour. **Not recommended:
+unlike m4's `forge_mock=1`, there is no cheap mode here that leaves the proof
+intact**, because m1's expensive step *is* the thing being proven.
+
+### 4. The smallest honest proof — does it agree, and can it disagree
+
+**Does it agree.** Three validators, in cost order, and all three graded a real
+engine on 2026-09-04:
+
+```
+check_environment    PASS   completeness / strong
+check_deploy_kit     PASS   completeness / strong
+check_deploy_serves  PASS   usability / strong
+```
+
+The third is the one that matters: it takes **the kit the agent just wrote**,
+redeploys it under a *different* run tag, port band and work root, probes it,
+loads it and tears it down. A kit that only works for its author fails there.
+
+**Can it disagree — yes, and each of these has fired on a real artefact:**
+
+| refusal | what produced it |
+|---|---|
+| `environment.md does not render fixed.image` | a wrong `--var` reaching a real record |
+| `nothing reads ${E2E_KIT_GPU_DEVICES:=…}` | a kit sealed before the parameter existed — fixed in the adapter, not by an exemption |
+| `fixed.gpu_devices has 9 entries but fixed.gpu_count is 8` | the record-internal invariant, on a planted fault |
+| `no router-side reading of "disagg_mode"` | one component agreeing with itself |
+| the model served under a filesystem path | `--served-model-name` omitted |
+
+`gate.sh` keeps this honest: it runs `check_deploy_kit` against the real sealed
+kit (**must pass**) and against the same kit with **fourteen planted faults**
+(**each must be reported**). Four minutes, no node. **Run it before committing
+anything to the layout** — a schema tightening that refused the sealed kit
+reached a live run on 2026-09-04 because the author verified the yaml parsed and
+never ran the gate. *Structure is not behaviour.*
+
+**What a green standalone does NOT prove**, and this is the half worth keeping:
+
+- **one model, one node, one shape, once.** Not that the flow is parameterised:
+  rung 1 on 249 passed all three validators while **four `--var`s were inert**,
+  because a `kind: ai` agent received no `E2E_*` at all and the agent recovered
+  the values from the sealed kit's defaults. Right answer, wrong mechanism.
+- **it says nothing about whether m1's record is consumable downstream**, because
+  at this rung m2–m5 replay sealed handoffs and read their own records. The
+  one-authority-two-readers property is first tested at rung 2.
+- **`check_deploy_serves` grades shape, not answer.** Its completion probe
+  asserts `finish_reason: stop`, non-empty `content`, and a model id that is not
+  a path — so a deployment that returns 526 characters of chain-of-thought where
+  the answer should be **passes**. Measured, `todo.md` T21/T28.
+
+---
+
+## Standalone verification — m2 (`run_profiling_mode_off`, `run_profiling_mode_on`, `merge_profiling_evidence`)
+
+The user's redirection, 2026-09-04: verify each module on its own, in parallel,
+rather than only through the serial ladder. This is m2's, in the shape m4
+(`5caea8a`) and m5 (`fbb73c1`) set.
+
+**What is already known about m2 without spending a card**: its four kinds have
+sealed `valid` in three separate mock runs, `merge_profiling_evidence` included,
+and every validator that grades them passed — 14 of the 21 verdicts in run
+`072849` were m2's. **What has never happened is `line.sh` bringing a service up
+on a card.** That is the whole of what this section buys.
+
+### 1. The command, in full
+
+Not a delta against the vars table above. **The table is a diff, and a diff is
+the one shape nobody can paste** — every launch-line failure on 2026-09-04 came
+from someone assembling a command out of one.
+
+```sh
+agent-sys run --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+  --demo-root /home/yihou/agent_sys_runroot \
+  --var jobid=<JOBID> --var node=<NODE> --var node_ip=<NODE_IP> \
+  --var model_name=Qwen/Qwen3.6-27B \
+  --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
+  --var image=<THE KIT'S IMAGE, not the node's> \
+  --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR \
+  --var mock_stages=m1,m3,m4,m5 \
+  --var m1_agent=runner --var m3_agent=runner \
+  --var m4_agent=runner --var m5_agent=runner \
+  --var expect_ranks=<THE KIT'S tp_size> \
+  --var gpu_devices=<THE CARDS THAT ARE FREE, e.g. 4,5,6,7> \
+  --var adhoc_cases=0
+```
+
+**m2 is real by *absence* from `mock_stages`** — there is no `m2_agent` to drop,
+because m2's three leaves are already `agent: runner`. The four `m<N>_agent=runner`
+vars stay: they keep m1, m3, m4 and m5 off their AI paths.
+
+Two are m2's and each has cost something:
+
+- **`expect_ranks` — read it out of the kit, never carry it.** It is a fact
+  about *the artefact being graded*. `check_trace_coverage` is `strength: strong`,
+  declares `${expect_ranks:-8}`, and is deliberately **not** derived from
+  `${tp}`. This document held both `4` and `8` as facts on the same day; neither
+  was one. m1 sizes the bring-up from the cards that were free, so the value is a
+  property of the node on the day:
+
+  ```sh
+  grep -E '^  (tp_size|node|image):' \
+    "$(sh agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/lib/kit_env.sh "$RUN")"
+  ```
+
+- **`gpu_devices`** — new on 2026-09-04 (`03e3bae`). Until then nothing told the
+  kit which cards to use and it defaulted to a hardcoded `0,1,2,3`, so both
+  bring-ups took 0–3 whatever was free. Omit it and `line.sh` falls back to the
+  set the kit records having **taken**, which is the right default; name it when
+  the node is partly occupied.
+
+### 2. What it consumes, and where a real one comes from
+
+**One input: m1's `deploy_kit`. This is the one genuine dependency in the
+parallel plan, and it is narrower than it looks.**
+
+**m2 does not need m1's standalone to have run.** It needs *a* real kit whose
+`fixed.node` is the node m2 is pointed at — `line.sh` aborts on a mismatch,
+deliberately, because otherwise every number would be filed under the wrong
+environment. Two ways to have one:
+
+1. **`--var mock_stages=m1,…` replays the sealed kit**, which is a real kit: the
+   2026-09-02 deployment scripts plus MOCK-MAP (I)'s shim, and m1 verified that
+   shim makes the untouched sealed kit pass `check_deploy_kit`. The mocked
+   producer renders `environment.yaml` from *this* run's vars, so the node
+   matches by construction. **This is the parallel path and it needs nothing
+   from m1.**
+2. **A kit already on disk** from any earlier m1 run on the same node.
+
+**Verified, not assumed** — every path `line.sh` reads was checked against the
+real kit run `062414` produced on 006: `items/codes/environment.yaml` readable;
+exactly one packup directory under `items/codes` carrying `scripts/`;
+`deploy.sh`, `wait_ready.sh` and `teardown.sh` all present; all six `fixed.*`
+fields (`node`, `image`, `image_id`, `model_name`, `served_model_name`,
+`tp_size`) populated; and **all six runtime-contract variables honoured**,
+including `E2E_KIT_ROUTER_EXTRA_ARGS`, whose absence would make every capture
+produce nothing while reporting success.
+
+**The path that is easy to get wrong**: the staged kit must be visible *from the
+node*, because `line.sh` runs `deploy.sh` there by absolute path. That works
+only because `--demo-root` is under `/home`, which is NFS and mounted rw on the
+nodes. A run root on `/tmp` or local scratch fails here, and until `2cdc403` it
+failed while blaming the filesystem for a transport error.
+
+### 3. What it needs, and for how long
+
+**One node, both cards-halves free if possible, for two sequential bring-ups.**
+
+| | measured? | value |
+|---|---|---|
+| load window per line | **yes** — sealed `items/env/load.json`, `trace_window_ms: [0, 180000]` | **180 s** |
+| concurrency / workers | **yes**, same file | 32 / 8 |
+| lines | by construction | **2** — `profiling_mode_off`, then `profiling_mode_on` |
+| bring-up + teardown per line | **no — never measured for m2** | m2's real path has never run; m1's real bring-ups are the only data and they are m1's to quote |
+
+So the honest statement is **2 × (bring-up + 180 s + teardown), with only the
+180 s measured**. I will not put a total here: an unmeasured number in a table of
+measured ones is the thing this document keeps getting caught by.
+
+**The two lines are sequential and must be** — each brings its own service up
+and tears it down (M2.5), and the profiled line runs with CUDA graphs off, which
+measured ~8× slower on the sealed pair. They use different port bands
+(`PORT_OFFSET=10`) and different run tags, so a leftover from the first cannot
+be mistaken for the second.
+
+### 4. The smallest honest proof — does it agree, and can it disagree
+
+**Agrees:** all four kinds seal `valid` and `check_profiling_evidence` passes
+over four parts that arrived separately. That last clause is the load-bearing
+one — MOCK-MAP (H) refuses a stand-in for `profiling_evidence` precisely so that
+`require_same_environment` is exercised on genuine separateness rather than on a
+hand-shaped artefact.
+
+**Can disagree, and these are the ones to watch because each fails loudly on a
+real card and cannot fail in a mock:**
+
+- **`check_trace_coverage`** — one readable trace per rank, ≥1000 GPU kernels
+  each, span within `max_span_ratio` of the window. A profiler window opened on
+  an idling scheduler loop is a valid trace of nothing, and this is the check
+  that says so. It is also the one `expect_ranks` decides.
+- **`check_bench_result`** — the profiler-detached line is the only throughput
+  in this flow worth quoting; the profiled line is *not* a control for it.
+- **`check_kernel_table`** — shared with m3 (M3.5), so a disagreement here is a
+  cross-stage one and not m2's alone.
+
+**The negative control that makes the positive mean something**: point the run
+at a node whose kit records a different `fixed.node` and `line.sh` must abort
+before bringing anything up. If it proceeds, the whole agreement above is about
+an environment nobody recorded.
+
+---
+
+# The control experiment for module 5, and its predictions written first
+
+**Two overlays, neither an optimisation.** `check_patch_live` and six other
+validators have never spoken, because the patched arm has never come up: m4's
+seed drops twelve public names and the engine dies at import, and the real
+optimisation is blocked on M5.1.1 (this operator has no installable symbol —
+m3's `4d5a6e6`). **Making something slower needs no installable symbol**, so a
+control experiment is available today even though an optimisation is not.
+
+| overlay | what it is | expected verdict |
+|---|---|---|
+| **null** | the stock `sampler.py` plus a marker constant | `same`, or `uninterpretable` on a metric whose floor exceeds its bar |
+| **degraded** | the stock `sampler.py` plus a real 2 ms cost in `Sampler.forward` | **`REGRESSED`** on throughput and inter-token latency |
+
+**A null overlay alone would be half a control.** *Known-no-effect in, no effect
+out* is a negative control; a gate validated only against it has never been
+shown to **detect** anything on a real deployment. The tamper batteries show the
+logic detects, but they are offline over hand-edited reports and cannot show a
+real difference surviving bring-up, mounting, measurement and reduction.
+
+**And the null overlay defeats `require_difference` by construction**, which is
+the one thing a later reader would never reconstruct. That check exists to catch
+*"a patch that applies cleanly and changes nothing"* and it is implemented as a
+**hash** comparison — a marker changes the hash and nothing else. It is
+satisfied here by a marker rather than by a change. **Said here because the
+artefact must carry it, not a message.**
+
+## The numbers this is predicted against
+
+Measured on crsuse2-m2m-047, idle, stock arm, 123 requests:
+
+```
+inter_token_latency_ms  avg 10.02  std 0.66   -> per-request rsd 6.6%
+ttft_ms                 avg 140.45 std 250.94 -> rsd 179%, one 1764 ms outlier, p50 87.58
+output_token_throughput_tps 448.82
+```
+
+## Predictions, before the run
+
+1. **ITL can be resolved and TTFT cannot.** Noise floor `1.96·√2·rsd/√n` at
+   n=123: **ITL ≈ 1.7%**, comfortably under its 10% bar; **TTFT ≈ 45%**, far over
+   it. So **TTFT is predicted `uninterpretable` on both arms** and ITL is
+   predicted decisive on both. If TTFT comes back with a verdict instead, its
+   dispersion did not repeat — which is a fact about the deployment, not a bug.
+2. **Null arm: `same` on throughput and ITL.** Identical semantics, so the only
+   difference is noise, and the floor says noise is ~1.7% against a 10% bar.
+3. **Degraded arm: `REGRESSED` on both.** 2 ms added per decode step against a
+   10.02 ms ITL is **+20%**, over the 10% latency bar; throughput follows at
+   about **−17%**, over the 5% bar.
+
+**If the degraded arm comes back `same`, that is a finding about the gate and
+not about the overlay** — and the only reason that distinction is available
+afterwards is that this paragraph was written before the run.
+
+## The run this pre-registration belongs to — ADDED AFTERWARDS
+
+**This subsection was written after the run, and says so.** The predictions above
+were committed at **09:38:06** (`d71d765`) and nothing in the repository recorded
+*when the experiment started*, so the ordering the pre-registration depends on
+was true and **not auditable**. Found by checkpoint. Added here rather than
+silently, because a timestamp inserted without a note is worth less than none.
+
+Everything below is recoverable without asking me: git records the commit time,
+and the overlay roots are directory names on the node with the generation time
+inside each `mounts.json`.
+
+```
+09:38:06   predictions committed                     d71d765
+09:39:37   null overlay generated                    overlay/20260904_093936
+09:39:38   degraded (2 ms) overlay generated         overlay/20260904_093937
+10:03:32   stock control arm, first step
+10:23:59   null arm, first step
+10:44:50   degraded (20 ms) overlay generated        overlay/20260904_104449
+10:51:01   degraded (20 ms) arm, first step
+```
+
+Hold: job **109496**, node **crsuse2-m2m-047**. **Every element of the experiment
+postdates the commit**, the earliest by 91 seconds.
+
+**One honest gap in the chain.** The numbers the predictions are *calibrated*
+against — ITL 10.02 ms, std 0.66, 123 requests — came from an **exploratory**
+stock arm run earlier the same morning, before the predictions. That ordering is
+the right one (measure, then predict, then run), but **that arm's artefacts were
+overwritten by the control run's stock arm**, so the calibration source is quoted
+here rather than recoverable. The control run's own stock arm measured ITL
+10.14 ms, std 0.67 — consistent, and it is the one the comparisons used.
+
+## What a green pair does and does not license
+
+**Does:** the plumbing works end to end — two bring-ups, the mount, the
+patch-live evidence, the ordering, the comparison, the packup — and the
+instrument responds correctly to *both* no-effect and a real effect.
+
+**Does not:** anything about an optimisation. **No optimisation is claimed, none
+was installed, and a green null run must never be quoted as "module 5 works".**
+It is "the plumbing works and the gate does not hallucinate a difference".
+
+### 5. Executed 2026-09-04 — what it proved, and the two corrections it forced
+
+Run twice on `crsuse2-m2m-006` (job `109260`, eight cards at 0 %, read at bind
+time rather than carried). **Both corrections are to the four sections above,
+written an hour earlier by me.**
+
+**Correction 1 — "the command, in full" was not in full.** The first run died in
+11.7 s on `aiperf_replay.sh:38: AIPERF_TRACE: parameter null or not set`. That is
+**not a defect**: `shared.yaml:129` declares `E2E_AIPERF_TRACE: '${aiperf_trace:-}'`
+with no default *on purpose*, so an operator who supplies no trace gets a loud
+failure instead of a silent fallback to somebody's debugging path. The guard
+worked exactly as designed and my command omitted the var — **the same "a diff is
+the one shape nobody can paste" failure this section was written to prevent,
+committed in the section that prevents it.** The command above now carries:
+
+```sh
+--var aiperf_trace=/shared_nfs/yihou/agent_sys/debugging/profiling/conversation_trace.jsonl
+```
+
+**Correction 2 — a mocked m1 deploys a *stub*, so this cannot verify the
+profiled line.** §2 said `--var mock_stages=m1,…` gives m2 "a real kit" and that
+m2 is therefore parallel-safe. The kit *is* real as an artefact; what its
+`deploy.sh` brings up is not. Measured — `deployment.json` on the node reads
+`"container": "stub_yihou_e2e_flow_pmoff"`, and `deploy.log` says **`ready after
+1s`**, which no engine loading 27 B of weights across four cards can do.
+
+So the honest split:
+
+| | mocked m1 (parallel) | needs a real kit |
+|---|---|---|
+| kit read, scripts located, three scripts present | **proved** | |
+| `line.sh` lifecycle: deploy → wait_ready → load → teardown → reclaim | **proved, both lines** | |
+| `profiling_mode_off.bench_result` sealed **valid**, `check_bench_result` + `check_command_parses` + `check_environment` all PASS | **proved** | |
+| aiperf replay against a live endpoint, real artefacts, `AIPERF_OK` | **proved** | |
+| the profiler capture, `profile_result`, `kernel_table` | — | **yes** |
+| any number worth quoting | — | **yes** |
+
+**m2 is parallel-safe for its wiring and not for its measurement.** That is a
+narrower claim than §2 made and it is the true one.
+
+**The capture's refusal is a negative control I did not plan and would not have
+thought to write.** Against the stub, `capture.log` reads:
+
+```
+===== 1/6 preflight =====
+  ABORT: /mnt/…/pmon/profiles is not mounted rw in stub_yihou_e2e_flow_pmon
+```
+
+It named the mount, the host side and the container, and refused before opening
+a window — so *"the profiler produced nothing"* arrived as a stated reason rather
+than as an empty trace that `check_trace_coverage` would have had to catch three
+tasks later.
+
+**Nothing leaked.** Both lines' `teardown.log` recorded `processes_stopped: 2`
+and `reclaim.log` ran; the node afterwards had no container of mine and all
+eight cards at 0 %. An `aiperf_serves-*` container running there at the time was
+**not mine** — its mounts name run `094614-790b14` and it was created four
+minutes after my run ended, which is the reading that settled it. The name alone
+would have said the opposite.
+
+**Cost, now measured**, replacing the "no total" above for the mocked path:
+`09:32:08 → 09:42:29`, **10m21s** for deploy_kit + both lines against a stub, of
+which the clean line's load is the sealed 180 s window. **A real-engine run will
+be longer by two model loads and is still unmeasured.**
+
+---
+
+# The rung-4 launch line, as a whole command
+
+**Rung 4 is `--var mock_stages=m5`: m1 through m4 real in one run.** So like
+rung 5 it does **not** consume the rung below's artefacts — m3 runs live and
+produces its own workset. What it takes from rung 3 is **launch-line values**,
+read by a person.
+
+## 1. Read these from the newest run that has them, preferring rung 3
+
+```sh
+RUN=<the newest run under /home/yihou/agent_sys_runroot/runs/ that reached m1>
+grep -E '^  (tp_size|node|image|image_id|model_path|model_name):' \
+  "$(sh agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/lib/kit_env.sh "$RUN")"
+```
+
+**Not "rung 3's run", and the correction is m5's.** They wrote the same
+instruction against rung 4 an hour before I wrote this against rung 3, and my
+`forge-loop` finding invalidated theirs: **if the rung below never ran, there is
+no run tree to grep and the section's first step is unexecutable.** Mine had the
+identical defect at the moment I committed it — **no rung-3 run exists** (the
+ladder has reached rung 1).
+
+The generalisation is more accurate anyway: **all four values are m1's to mint**,
+so every rung from 1 upward records them in the same
+`items/codes/environment.yaml`. The nearest rung is preferred because it is
+*nearest*, not because it is special.
+
+**What this is not:** a way around the ladder. **Rung 4 still waits on rung 3**,
+which waits on rung 2 — this is about which file to read when the time comes, not
+a licence to skip. m5 added that sentence to theirs for the same reason and it is
+worth repeating rather than cross-referencing.
+
+**"Reached m1" means m1 finished bring-up, not that m1 started — and there is no
+command here that tells you which.** Dry-run 2026-09-04 16:20, every run under
+the runroot newest-first:
+
+```
+20260904T160847-ae7ef4  (rung 2b, LIVE)   <none>
+20260904T160500-a182de                    <none>
+20260904T154946-a5ff12                    <none>
+20260904T143952-bec7da                    …/9fbfa44f…/v1/…/environment.yaml
+```
+
+**Four runs back.** `kit_env.sh` resolves to exactly one path or refuses — never
+a tie-break, which is m2's fix holding — but the three newest all refuse, and
+the live one refuses while its engine is up and loading a model. Its `deploy_kit`
+has **`v0` and `v1` and zero `environment.yaml`**: m1 writes the record at the
+*end* of bring-up.
+
+So `kit_env.sh`'s own *"works before the handoff seals"* is true — the record is
+readable about an hour before the seal — but the window opens later than the
+phase does, and **the refusal is correct while being unactionable**: it cannot
+tell you whether to wait five minutes or walk back four runs. That is a property
+of the shared helper, which m2, m3 and m5's sections all now depend on, not of
+this section. Walk back until one resolves.
+
+**Read, not carried:** `image`, `tp_size`, `model_name`, `model_path`. They are
+m1's to mint and rung 4 mints them again — reading rung 3's is how the two runs
+stay comparable, not how they are wired.
+
+**Read from the workset, not chosen:** `impl_flag` and `report_flag`. m3 pins
+the entrypoint flag spelling as data (`entrypoints.*.flags`) and both my
+producer and `check_speedup_substantiated` take it from there. **Passing them on
+the command line is how the two ends get edited apart** — the failure is silent
+and produces a ratio of 1.000.
+
+**Left empty unless the workset carries more than one operator:**
+`workset_operator`. `pick_operator` refuses ambiguity by name rather than
+guessing, so an empty value is correct while there is one operator and a
+refusal the moment there are two.
+
+## 2. The command (rung-specific; NOT the canonical block)
+
+> **This heading used to be identical to the canonical one.** Grepping
+> `## 2. The command` returned two hits, so a reader had even odds of
+> diffing against this block — which still uses the bare
+> `python3 -m agent_sys.cli.main run` that the canonical block records as
+> having cost a hold. Renamed 2026-09-05 after m3 pointed out that a note
+> saying *"diff against this one"* is useless when the anchor is ambiguous.
+> **Canonical block: `## 2. The command — CANONICAL LAUNCH BLOCK`.**
+
+```sh
+python3 -m agent_sys.cli.main run \
+  --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+  --demo-root /home/yihou/agent_sys_runroot \
+  --var jobid=<the hold> --var node=<the node> --var node_ip=<MEASURED> \
+  --var model_name=Qwen/Qwen3.6-27B \
+  --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
+  --var image=<the image rung 3 recorded> \
+  --var tp=<the kit's tp_size> \
+  --var mock_stages=m5 \
+  --var gpu=<a card the deployment holds> --var measure_gpu=<the same card> \
+  --var work_root=/mnt/m2m_nobackup/yihou/e2e_flow \
+  --var scratch_root=/mnt/m2m_nobackup/yihou/e2e_flow/kfo \
+  --var container=yihou_e2e_flow \
+  --var forge_max_hours=3.0 \
+  --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR
+```
+
+**Verified to load, not merely written**: this exact form with representative
+values returns `6 tasks in the graph; nothing was dispatched` from `show`,
+2026-09-04.
+
+**`gpu` and `measure_gpu` are the same card and both are named.** One arg drives
+both spellings inside `check_speedup_substantiated`; on the launch line they are
+two vars and nothing checks they agree. **And the card must be one the
+deployment was given** — `run_in_container.sh` refuses a request outside the
+container's `HIP_VISIBLE_DEVICES`, because the pin is an env default and
+`docker exec -e` would otherwise override it onto a co-tenant's card and return
+a number.
+
+**`forge_max_hours` at or below 2.0 is a declared smoke test**, not a short
+campaign: `30_run_forge.sh` writes `degraded` and says the analysis is
+static-only. A rung-4 result at 2.0 is not a rung-4 result.
+
+## 2a. What the first campaign must capture, for the real `patch` path
+
+**Rewritten 2026-09-04. Everything this section previously said was measured,
+correct at the time, and now points at the wrong tree** — it survived three of
+my own commits that invalidated it, including the one whose removal of a
+`git init` it cited as its own justification. Kept as a heading rather than
+deleted, because the question it asks is still the right question.
+
+**What it used to say:** capture `git -C /sgl-workspace/sglang rev-parse HEAD`
+before and after the campaign, plus `status --porcelain`, to learn whether forge
+commits its edits in the engine tree.
+
+**Why that is unanswerable there.** Forge stages and commits with
+`cwd=self.ic.workspace_dir` (`loop/runner.py:1600`) — that is `--workspace`
+(`cli.py:725`, `required=True`) and nothing else. It has no opinion about the
+engine tree at all, and `30_run_forge.sh` hands it a **copy**, so
+`/sgl-workspace/sglang` is never edited by a campaign.
+
+**And it would have answered.** A post-campaign `git status --porcelain` on the
+engine tree returns the image's own dirty state — measured 35 lines on
+`inferaimage/infera:sglang-local`, 45 on `infera/engine-sglang:final-pr`,
+unchanged before and after — which reads as **"the campaign changed nothing."**
+A reader would believe that sentence and act on it. This is the
+documented-but-false defence in prose: it does not fail, it stops you looking
+where the answer is.
+
+### The three things to capture, and they are all about `$WS`
+
+`$WS` is `$W/forge/engine_src`, the copy `30_run_forge.sh` makes at
+`SGLANG_ROOT`'s level. Run these **inside the container the campaign ran in,
+before teardown**.
+
+```sh
+BASE=$(cat "$W/forge/engine_baseline.sha")   # what the diff is cut against
+git -C "$WS" log --oneline "$BASE"..HEAD
+git -C "$WS" diff --stat "$BASE"
+git -C "$WS" status --porcelain
+```
+
+1. **Did forge commit anything, or leave the tree dirty?** Either is handled —
+   `git diff <commit>` compares that commit to the *working tree*, so it carries
+   keeps and leftovers in one diff. This is worth knowing rather than needing.
+2. **How many files did it touch?** `60_write_handoff.py` **refuses** a diff
+   spanning more than the one target: `apply.py` stages one file per manifest
+   entry, so every foreign hunk dies as `No file to patch`. `runner.py`'s own
+   `git add -u` comment says an agent commonly lands the winning change in a
+   sibling module the kernel imports, so this is the **expected** case, not a
+   pathological one. **`--stat` is how you learn it before the refusal does.**
+3. **Did it create files it never committed?** `git diff` does not show
+   untracked paths, and only forge's `commit_new_paths` allowlist stages them,
+   so `status --porcelain` is the only thing that names them.
+
+**No `--relative` anywhere**, and that is what the `git init` at `SGLANG_ROOT`'s
+level bought: hunks come out headed `a/srt/layers/sampler.py`, which is already
+`apply.py:655`'s frame. Cutting in the repo-root frame (`python/sglang/srt/...`)
+is what produced *"No file to patch. Skipping patch."* earlier in this package.
+
+**Also free while someone is watching:** whether `forge_result.json` lists the
+changed files, which would make (2) and (3) redundant for every future run.
+
+## 3. The install, measured — it is no longer blocking
+
+**Was recorded here as blocking on the strength of `command -v forge-loop` failing.
+It is not.** Measured on `crsuse2-m2m-047`, 2026-09-04, in a `--rm` container
+from `inferaimage/infera:sglang-local` — the image the current chain's artefact
+actually names:
+
+```
+python3                            3.10.12         (requires-python >=3.10 ✓)
+pip install -e <KernelForge>       3 seconds, rc=0
+                                   "Successfully installed kernel-agents-0.1.0"
+kernel-agents forge-loop --help    runs
+  --workspace  --driver  --fellow  --invocation-spec-file      all PRESENT
+bare `forge-loop`                  does not exist
+```
+
+**That `all PRESENT` row asked the wrong question, and it cost a held node on
+2026-09-05.** It checked that the flags *already being passed* exist. It never
+asked which flags are **required**, so `--kernel` — required for a fresh
+campaign, and absent from the generated argv — could not have appeared in it.
+The instrument confirmed what the author already believed. m4 found it by
+running the real thing: `Error: fresh campaign requires --kernel and --driver`.
+The same row is silent about `--fellow` accepting *any* name and substituting
+`flydsl-fellow` for the ones it does not know. Both fixed in `62032fc` /
+`f92e42b`; the row is left standing with this note because deleting it would
+lose the shape.
+
+**Three seconds, and only `kernel-agents` itself was installed** — the six
+pure-python core dependencies are *already in the engine image*. So option A
+costs seconds per container, not minutes, and the `[profiling]` extra is **not
+needed**: `forge-loop` runs without it. (The `astunparse`/`kaleido` pins in that
+extra are the versions ROCm wants, not a conflict — see the corrected row in
+`optimize_kernel.task/readme.md`.)
+
+**Bare `forge-loop` does not exist, which confirms the one-word finding**:
+`kernel-agents forge-loop` is the form, and m3 fixed the generator (`89a1541`)
+after finding a second defect in the same line — `--workspace` is
+`required=True`, so click would have exited 2 on a held node.
+
+### Two things this does not settle
+
+**It is an install, not a campaign.** Nothing here says forge *works*, only that
+the command exists and takes the flags it is given.
+
+**Install into a container you started, never into the image.** `--rm`,
+trap-removed, and re-done per container — the install does not persist and is
+not supposed to. **And copy the checkout first**: `pip install -e` writes
+`*.egg-info` into the *source tree*, and `/shared_nfs/hyperloom/KernelForge` is
+not ours. Copying to node-local scratch is 12 s for 62 MB and makes the question
+moot.
+
+## 4. What had no source, and the measurement that closed it
+
+**A second `## 3.` until 2026-09-04**, and its title contradicted itself in its
+own words — *"it is blocking — nothing, now"* — because I struck the old heading
+instead of rewriting it when the install stopped being a blocker. Renumbered and
+retitled; the content below is the record of the thing that was blocking.
+
+**`forge-loop` is not installed anywhere this run can reach.** Measured
+2026-09-04:
+
+```
+node host   command -v forge-loop kernel-agents   ->  rc=1, nothing
+image       docker run … command -v forge-loop     ->  NOT_IN_IMAGE
+```
+
+The workset's one-liner is `exec forge-loop --invocation-spec-file … --driver …`
+(`operators/<op>/run_forge.sh`, generated by m3), and `30_run_forge.sh` runs it
+with `sh "./$ONELINE"` **on whichever host the body runs on** — it does not go
+through `run_in_container.sh`. So the campaign has no executable on either side
+of the boundary.
+
+**`kernelforge_repo` looks like the answer and is not.**
+`steps/m4_kernel_opt.yaml:358` declares `KFO_KERNELFORGE_REPO:
+'${kernelforge_repo:-}'` and **nothing reads it** — the only other mention is a
+row in `optimize_kernel.task/readme.md` calling it *"forge's own knobs"*. That
+is T44's shape: a var emitted for a consumer that does not exist. It may well be
+where the answer *belongs* — point it at a checkout and put its `bin` on
+`PATH` — but today it is a declaration, not a mechanism.
+
+**So rung 4 cannot run, and the gap is an installation rather than a defect.**
+Nothing in the package is wrong; the campaign's binary simply is not on this
+cluster. **This is the value to establish before a node is held**, because every
+other rung-4 unknown is cheap by comparison and this one is not answerable from
+inside the package at all.
+
+**What is NOT blocking, so it is not confused with the above:** `forge_model`
+(`Claude-Sonnet-5[1m]`), `forge_snr_threshold` (30.0) and `forge_max_hours` all
+have working defaults and are policy rather than plumbing.
+
+# The rung-5 launch line, as a whole command
+
+**Owner: m5.** Written now, while rung 1 is in flight, because the rungs are
+serial and the alternative is improvising it at the moment a node frees. The
+rung-2 section above is the shape this follows.
+
+**Rung 5 is `--var mock_stages=none`: every stage real, in one run.** So unlike
+rung 2, it does not consume rung 4's *artefacts* — it produces its own. What it
+takes from rung 4 is the **launch-line values**, and the distinction matters
+because those are read by a person, not by the graph.
+
+## 1. Read these from rung 4's run before typing anything
+
+```sh
+RUN=<the rung-4 run directory under /home/yihou/agent_sys_runroot/runs/>
+grep -E '^  (tp_size|node|image|image_id|model_path):' \
+  "$(sh agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/lib/kit_env.sh "$RUN")"
+```
+
+`image` and `tp` should match what rung 4 ran on, **not because the graph checks
+it, but because rung 5's whole output is a comparison** — two arms measured
+against each other and the stock arm against m2's numbers
+(`stock_vs_m2_tolerance`, default 0.10). Change the deployment between rungs and
+the comparison is still computed, still passes its bars, and means less than it
+appears to.
+
+**If there is no rung-4 run, take them from the newest rung that ran m1 for
+real.** All four are **m1's to mint**, so every rung from 1 upward records them
+in the same `items/codes/environment.yaml`; rung 4's is preferred only because
+it is nearest. This is not hypothetical — m4 reports 2026-09-04 that **rung 4
+cannot run at all**: `forge-loop` is on neither the node host nor in the image.
+Rung 5's own comparisons are all *within* its run, so a missing rung 4 costs the
+cross-rung comparability and blocks nothing here. **The ladder is serial, so
+rung 5 waits on rung 4 being unblocked regardless** — this note is about which
+file to read when it is, not a licence to skip it.
+
+## 1a. The image has to already be on the node, and nothing in the package puts it there
+
+**Measured on 287, 2026-09-05, and it is not a rung-5 fact — every rung on a
+fresh node needs this.** `docker images` on a newly held node carried four
+images and none was `infera/*`. m1 does not fetch: `grep -rn "docker load"`
+across `assets/` and `steps/` returns **one hit and it is a comment**. The tag
+is `test-local-…`, so a pull cannot help either — `docker run` against it fails
+with *"pull access denied … repository does not exist"*, which reads like a
+credentials problem and is not one.
+
+```sh
+# ~8 min for 27 GB off /shared_nfs
+spur exec <jobid> bash -c 'docker load -i \
+  /shared_nfs/yihou/agent_sys/images/infera-engine-sglang-test-local-mooncake_hip_dmabuf1.tar'
+```
+
+**Verify by the artefact, not the exit code** — `docker load` printing nothing
+useful is why this rule exists. The check is that the loaded id equals the
+`image_id` the kit recorded:
+
+```sh
+spur exec <jobid> bash -c 'docker images --format "{{.Repository}}:{{.Tag}} {{.ID}}"' | grep infera
+# 4601539c0f3d  ==  image_id: sha256:4601539c0f3d0f35a860e5a115510292ee4ca0ee854b56a8145e50e1932e59e2
+```
+
+A run launched without this does not fail at launch. `show` loads clean, the
+graph dispatches, and m1 fails inside the bring-up several minutes later where
+it reads as a deployment problem.
+
+## 2. The command — CANONICAL LAUNCH BLOCK
+
+```sh
+python3 agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/lib/run_with_long_stall.py \
+  --stall-after 900 run \
+  --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+  --demo-root /home/yihou/agent_sys_runroot \
+  --timeout 21600 \
+  --var jobid=<the hold> --var node=<the node> --var node_ip=<MEASURED> \
+  --var model_name=Qwen/Qwen3.6-27B \
+  --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
+  --var image=<the image rung 4 recorded> \
+  --var tp=<the kit's tp_size> \
+  --var expect_ranks=<the kit's tp_size> \
+  --var gpu_devices=<the free cards, e.g. 0,1,2,3> \
+  --var mock_stages=none \
+  --var measure_gpu=<the card m3 measures on, see below> \
+  --var bench_rounds=3 \
+  --var aiperf_trace=/shared_nfs/yihou/agent_sys/debugging/profiling/conversation_trace.jsonl \
+  --var gsm8k_data=/shared_nfs/yihou/agent_sys_debug/ws2/integration/data/gsm8k_test.jsonl \
+  --var work_root=/mnt/m2m_nobackup/yihou/e2e_flow \
+  --var container=yihou_e2e_flow_r5_$(date +%m%d%H%M) \
+  --var transport=spur \
+  --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR
+```
+
+> **This file contains SEVEN launch blocks and they do not agree. Diff against
+> this one.** Counted 2026-09-05 after m1 found that `1e7c4c1`'s
+> `--var transport=spur` reached the variable table and *one* block, and not this
+> one — while this one was the only block carrying the `run_with_long_stall`
+> wrapper that the other six still omit. **Each block held the other's known
+> defect, and each defect had already cost a run.**
+>
+> ```
+> launcher line   308  412  1214  1381  1921  2670   -> bare `python3 -m agent_sys.cli.main run`
+>                 2172                              -> the wrapper (correct)
+> transport=spur  320  1391  2173                   -> present
+>                 the other four blocks              -> absent
+> ```
+>
+> **Do not "fix" the other six by copying this one into them.** They are rung-
+> specific and several are historical records of what a rung actually ran. The
+> hazard is not that they differ, it is that **nothing says which one is
+> canonical** — so a reader diffs against whichever they scrolled to. This block
+> is canonical because it is the one whose header explains why the wrapper is
+> mandatory, and its heading is now unique — `## 2. The command — CANONICAL
+> LAUNCH BLOCK`. **It was not, until m3 tried to follow this note:** the heading
+> appeared twice, so grepping it gave two hits and even odds of landing on the
+> block with the bare CLI. A note telling you which block to diff against is
+> worth nothing if its anchor is ambiguous, and I wrote that note *about
+> findability*.
+
+**The wrapper is not optional, and this block said `python3 -m
+agent_sys.cli.main run` until it cost a hold.** `stall_after` is **not exposed
+on the CLI**, so a bare launch always gets the 20-second default, and a real
+rung cannot survive it. Reproduced on 287, 2026-09-05, attempt 1 — the same
+three lines as rung 2b:
+
+```
+final    deploy_and_prove: succeeded          <- 3 strong verdicts, deploy_kit valid
+final    run_profiling_mode_off: running      <- in a cold start, measured at 222 s
+handoff  profiling_mode_off.bench_result: generating
+done     ... Nothing has changed for 20 s ... run complete; the run did NOT finish
+```
+
+55 minutes of real bring-up thrown away by a threshold nothing on the command
+line mentions. The wrapper prints `stall_after 20s -> 900s` when it takes;
+**if that line is absent the launch is the bare one** and should be killed and
+re-issued rather than watched.
+
+### Mocking stage 1 takes THREE variables, not one, and the third is the stub
+
+**Measured on 287, 2026-09-05, and it is the difference between reaching stage 5
+and not.** A run with stages 1–4 mocked sat in `deploy_and_prove:
+output_validating` for **forty minutes** on three separate configurations. It is
+not a hang and it is not `mock_stages`:
+
+- `check_deploy_serves` runs the kit's **own** `deploy_entrypoint`, which
+  defaults to `scripts/deploy.sh` (`m1_deploy.yaml:245`) — the **real**
+  bring-up — bounded by `bringup_timeout_seconds`, default **3600**
+  (`check.py:475`). On a mocked kit that is a full engine bring-up nobody
+  wanted, with an hour to fail in.
+- The sealed kit already ships the answer and nothing points at it:
+  `items/codes/<packup>/scripts/stub/` holds `deploy.sh`, `teardown.sh`,
+  `wait_ready.sh` and `stub_router.py` — two `nohup python3` routers, no docker,
+  no GPU.
+
+So a mocked stage 1 needs all three:
+
+```sh
+--var mock_stages=m1,m2,m3,m4
+--var m1_agent=runner --var m3_agent=runner --var m4_agent=runner
+--var deploy_entrypoint=scripts/stub/deploy.sh \
+--var teardown_entrypoint=scripts/stub/teardown.sh
+```
+
+The middle line is its own trap: **`mock_stages` alone mocks nothing for the four
+stages whose default agent is `ai`**, because a `kind: ai` task never runs
+`entry.sh`, which is where `mock.sh` is invoked. Silent, and `show` cannot see
+it — the closure prints the agent it really has. See
+`temp/bugs/2026-09-05-mock-stages-silently-does-nothing-for-a-stage-whose-agent-is-ai.md`.
+
+With all three, the same run cleared m1's gate and both profiling lines in
+**under twelve minutes**, against forty spent waiting on one of them:
+
+```
+phase  m1_deploy: running -> succeeded
+phase  run_profiling_mode_off: output_validating -> succeeded
+phase  run_profiling_mode_on: input_validating -> running
+```
+
+**What a green stage 1 means in that configuration, so it cannot be
+over-read:** `check_deploy_serves` proved *a stub router answers*. It says
+nothing about an engine. Use it to get to the stage under test; never quote it
+as evidence that a deployment works.
+
+**The other six launch blocks in this file still show the bare form.** Left for
+their owners rather than edited here — but the defect is the file's, not this
+section's, and any of them run as written will die the same way.
+
+**Verified to load, not merely written**: this exact form, with the placeholders
+filled by representative values, returns `6 tasks in the graph; nothing was
+dispatched` from `agent-sys show`, 2026-09-04; re-verified with real values and
+launched on 287, 2026-09-05.
+
+**Every `m<N>_agent=runner` is gone, and that absence is the whole rung.** Five
+of them, not one. A rung-5 command carrying any is a lower rung wearing rung 5's
+name, and it will report a clean mock for the stage it silently kept.
+
+**`container` carries a timestamp, and the default deliberately is not used.**
+`'${container:-yihou_e2e_flow}'` is a *fixed* string, read identically by
+`shared.yaml`, m1 and m5, and nothing appends a run id — while CONTRACT §2.1's
+example of the record shows `yihou_e2e_flow_<run6hex>`. Taking the default is
+how a rung-5 run collides with another run, or with an earlier rung's
+leftovers, on a host shared with other tenants. `$(date +%m%d%H%M)` expands in
+the shell before `--var` sees it; verified as
+`yihou_e2e_flow_r5_09041236`. See §5.
+
+**`node_ip` is measured, never derived** — `spur exec <job> hostname -I`. There
+is no pattern: `-061` → `10.245.159.129`, `-031` → `10.245.144.239`, `-006` →
+`10.245.151.128`. Deriving it cost a bring-up.
+
+## 3. What `show` cannot catch, which is most of what will go wrong here
+
+`show` catches one class only: a `${NAME}` with no default and no value. Every
+item below loads clean and fails later, so this list is the check.
+
+| var | rungs 0–4 | rung 5 | if it is wrong |
+|---|---|---|---|
+| `adhoc_cases` | `0` (or `1`) | **omit — default 3** | `check_acceptance`'s ad-hoc arm passes on zero cases |
+| `m<N>_agent` | `runner` | **all five absent** | that stage runs mocked and reports green |
+| `transport_env` | required | required | refuses in 1 s, looking exactly like a deployment failure |
+| `integration_min_requests` | n/a | **omit — default 50** | see below |
+| `expect_ranks` | `2` | **set to the deployment's `tp`** — omitting defaults to 8 | m2's; `${expect_ranks:-8}` does **not** track `tp`, so "omit" is safe only at `tp=8` |
+| `forge_fellow` | **omit** | **omit** | m3's; needed only when a Definition's tags name no KernelForge backend or two. `run_forge.sh` then exits 2 and its FIX block names this variable — but only **after** a campaign has failed to start |
+
+**`transport_env` is not a package variable at all** — it is consumed by the
+runner, so it appears in no yaml and `show` is structurally unable to see it
+missing. That is why it cost three rung-0 runs.
+
+**`forge_fellow` is the inverse case and belongs in this list for the opposite
+reason.** It is declared, it has a default, and `show` is perfectly happy — but
+**it is correctly absent on every normal run**, because `forge_export.py`
+derives the fellow per operator from the Definition's language tag. A
+launch-wide value would be *wrong* for a mixed workset: the real one carries
+three Triton operators and a HIP one, so pinning it substitutes a backend for
+the minority operator, which is the defect `62032fc` removed. So the row above
+says **omit** in both columns and means it.
+
+It is here because of *when* the path that needs it is discoverable. The
+wrapper's refusal does name the variable — `forge_export.py:162-163` emits
+`--var forge_fellow=<backend>` in its FIX block — but a refusal is read after a
+campaign has failed to start, on a held node, by someone who has already
+composed a launch line. **A var table is read before.** That is the whole
+argument for the row, and it is the only one: this is not a variable the
+refusal hides.
+
+**An earlier version of this paragraph said the refusal does *not* name it.**
+That was false when written; `f92e42b` had added the FIX line an hour earlier,
+in the same series that made the fallback validated. Recorded rather than
+quietly replaced because the error has a shape worth naming: the sentence was
+written from a memory of the refusal rather than from the refusal, by the
+author of both. Found by readme-cn, who checked the row against the code.
+
+What the refusal does do, and what should not be "helpfully" reordered: it
+leads with **correct the Definition's tags** and offers the override second.
+That ordering is deliberate — reaching for the variable instead of fixing the
+tags leaves `todo.md` T69 standing.
+
+Accepted as `triton` or `triton-fellow`; an unknown name is treated as absent
+and still refuses. It never overrides tags that already decide.
+
+## 3a. Before you launch: is anything already on those cards?
+
+**Three conditions, and the third has cost two collisions and a near-miss in one
+morning.** `git status --porcelain -- <package>` in the shell you launch from;
+a numeric `rocm-smi` read of the cards you are taking; and **the process table**.
+
+**The process table is not redundant with `rocm-smi`, and this is the whole
+point.** A line that has launched and not yet brought up holds no VRAM. m1
+asserted zero on 217 at 09:12 — **it was zero** — and m4's chain, launched at
+08:47, brought up at ~09:13. **One minute.** The window is not "launched but not
+up"; it is *"will come up at some moment in the next half hour"*, and no
+snapshot of the GPU can see it. Only argv can.
+
+### Two forms that work
+
+```sh
+# m1's, and the one to prefer: literal, and the node/card filter is in it
+ps -eo pid,args | grep -F "run_with_long_stall" | grep -v grep \
+  | grep -F "node=crsuse2-m2m-088" | grep -E "gpu_devices=(0|.*,0)"
+
+# m3's, if you want the whole picture across every node at once
+for p in $(pgrep -f 'agent.sys|cli.main'); do
+  c=$(tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null)
+  case "$c" in *" run "*--package*)
+    echo "$p $(echo "$c" | grep -oE 'node=[a-z0-9-]+|gpu_devices=[0-9,]+' | tr '\n' ' ')";;
+  esac
+done
+```
+
+Both were checked against the same five live lines on 2026-09-05 and returned
+the same five PIDs.
+
+### Three patterns that silently pass, all tried on this cluster the same morning
+
+| pattern | what it did | why |
+|---|---|---|
+| `pgrep -af "cli.main run"` | **matched 0 of 3 live lines** | every line launches through `run_with_long_stall.py`, so argv reads `…/run_with_long_stall.py --stall-after 900 run --package …`. **The string `cli.main` never appears.** |
+| `pgrep -af 'python.*cli\.main run'` | **matched 0 of 4 live lines** | same cause, and it *looks* stricter, which is worse |
+| a `pgrep` loop whose body contained the node name | **matched its own shell** | the pattern is in the command line running it. `grep -v grep` covers the pipeline form; a bare `pgrep` needs the exclusion written out |
+
+**Why m3's form works, stated because it was not chosen for this:** the
+`agent.sys` alternative matches `--package agent_sys/…` in the argv — the regex
+`.` against the underscore — not `cli.main`. Every line in this effort carries
+that `--package`, so the reason is sound; it is still a pattern that works for
+a property nobody picked it for.
+
+**The failure mode is the one that matters.** A `pgrep` that matches nothing
+does not error — **it reports the node free.** All three patterns above returned
+*free* about a busy machine, and each was caught only because the reader already
+knew the answer from a command two minutes earlier.
+
+> **A check that says "free" when you are hoping for "free" is the one to
+> re-run.** This is the confirming-result bias in the single instrument that
+> decides whether you destroy someone else's allocation. Both of m3's failures
+> produced the answer they wanted, which is why they were re-run.
+
+**And take distinct identifiers even when the check is clean** — `port_router`,
+`container`, `work_root`. m1's `p4_e` rode the defaults next to another chain on
+the same host, which is the other half of what went wrong that morning.
+
+## 3b. What should exist by now — m3's three leaves
+
+**A timeout says something is *late*; a named missing artefact says *which step
+never ran*.** m4's form, from the line that worked. Measured below on two real
+runs — `20260905T064703-5fbd66` and `20260905T074905-9ec798`, both m3 real on
+287 — not estimated.
+
+### `rank` and `identify`: no useful assertion exists, and that is the answer
+
+```
+rank      start -> seal    12 s  /  12 s
+identify  start -> seal    15 s  /  14 s
+```
+
+**Both finish faster than any polling interval.** There is no artefact that
+appears early enough to distinguish "working" from "stuck", because the whole
+task is over in the time between two polls. The assertion for these two is not
+about artefacts:
+
+> **If `rank` or `identify` is `running` for more than 60 s, it is not slow —
+> something is wrong.** Both are `kind: program`, both are pure CPU over a CSV
+> and a symbol table, and neither touches the node.
+
+### `build_workset`: three checkpoints, ~28 minutes end to end
+
+```
+                                    run 5fbd66        run 9ec798
+  running                           06:59:11          07:58:20
+  items/codes/environment.yaml      +1 m 11 s         +48 s
+  items/codes/evidence/correctness.json   +18 m 19 s  +21 m 07 s
+  items/codes/evidence/performance.json   +19 m 34 s  +23 m 35 s
+  sealed                            +22 m 54 s        +28 m 09 s
+```
+
+| assert | by | if absent |
+|---|---|---|
+| `items/codes/environment.yaml` | **3 min** after `running` | the agent never got past the environment record — STEP 1/2, before any measurement |
+| `items/codes/evidence/correctness.json` | **25 min** | the correctness entrypoint never ran, or ran and never returned — STEP 7, the first thing that needs the container |
+| `items/codes/evidence/performance.json` | **28 min** | correctness ran and timing did not — STEP 8 |
+
+**`evidence/` is the sharpest single bit in this stage.** A mocked run cannot
+produce it: it is written by the workset's own entrypoints executing on the
+node. `evidence/` present means the container came up and torch imported;
+`evidence/` absent with `workloads/` present localises the failure to STEP 7,
+between building the tree and running it.
+
+### The trap in reading these by mtime
+
+**Three files in every sealed workset are older than the run.**
+`run_correctness.sh`, `run_performance.sh` and `_common.py` are copied verbatim
+from `assets/build_workset.task/harness/` and **the copy preserves the source
+mtime** — measured `09-03 14:52`, `09-04 11:12`, `09-04 15:05` inside a run that
+started `09-05 07:58`. So:
+
+- **a recent mtime on those three would mean the agent edited the oracle**,
+  which `check_workset_shape` compares byte-for-byte and refuses;
+- **`ls -t` on the workset root shows a harness file first**, which is not the
+  newest thing written;
+- any liveness check on this stage must name the artefacts above, **not** "the
+  most recently modified file".
+
+## 4. Three values that are m5's, and each is a finding rather than a choice
+
+### `adhoc_cases` — rung 5 is the first run that may not lower it
+
+Every launch line to date passes it below the floor: three pass `0` and one
+passes `1`. **At `0` the producer generates no cases and the validator's floor is
+`0`** — both are `'${adhoc_cases:-3}'` (`E2E_ADHOC_CASES` and
+`min_adhoc_cases`), so the arm grades nothing and passes.
+
+That was **forced, not lazy**: the cases are invented by m5's `kind: ai` agent,
+and at rungs 0–4 `m5_agent=runner` means there is no agent to invent them. Rung 5
+is the first rung where the knob *can* be honoured, which makes it the first
+where lowering it is a choice.
+
+**So if rung 5 also lowers it, `check_acceptance`'s ad-hoc arm will have been
+read-but-never-exercised for the entire effort** — the same shape as a bar that
+is printed and never applied. Omit the var.
+
+### `require_runtime_marker` — rung 5 may not be runnable at all yet
+
+The default is `true` (mine, flipped 2026-09-04 on measured evidence: a
+hash-perfect overlay that never executed measured identical to stock). With it
+true, an overlay declaring no `runtime_marker` is refused by `check_patch_live`.
+
+`mock_adapt` writes a marker only when the workset declares a `public_symbol`,
+and **a `call_site_fragment` operator has none** — so for the current workset
+there is no legal path through that check. This is M5.1.1 reaching the same wall
+from a second direction, and it is **with the user**.
+
+**Say this before the node is held, not on it.** If M5.1.1 is unresolved when a
+rung-5 window opens, the options are: resolve it; or run with `--var
+require_runtime_marker=false` and **record in the run that the patched arm's
+numbers cannot distinguish *executed* from *mounted and never entered*** — which
+is precisely the distinction that validator exists to draw, so it is a
+documented downgrade and not a workaround.
+
+### `integration_min_requests` — new as of `47db1fc`, and rung 5 is where it bites
+
+It was `min_requests`, shared with m2's `check_bench_result`. Split because the
+override was shared while the reason to override is stage-local. **Rung 5 is the
+first run where getting it wrong is expensive**: `--var min_requests=0` no longer
+touches stage 5, and `--var integration_min_requests=0` no longer touches
+stage 2. Omit both; the default is 50 on each side.
+
+## 5. Values with no recorded source, which is a finding now and a block later
+
+Named because a value rung 4 does not record is one somebody invents on the node.
+
+- **`measure_gpu`** (**default empty, not `4`**) — **which card m3's
+  single-operator measurement runs on. Not a count, and not m5's.** This
+  sentence said *"how many cards each arm takes"* until 2026-09-05 and it was
+  wrong in the direction that costs a run:
+  `build_workset.task/measure_in_container.sh:482` spends it as
+  `-e HIP_VISIBLE_DEVICES='$E2E_MEASURE_GPU'`, so the value is a **device
+  index**. Read as a count, `measure_gpu=4` means *four cards* and a reader
+  splitting a node with a colleague passes it while believing they have said
+  nothing about *which*; spent as an index it is card 4. On 287, where cards
+  0–3 were m4's and 4–7 mine, the two readings differ by a collision. Found by
+  checking the consumer before typing the value into a launch line, which is
+  the only reason it was found at all — `show` cannot see it and the run would
+  have started fine. The arms' cards come from the kit's record, not from here.
+  This section said `4` and that was wrong in the direction that matters: every
+  live site is `'${measure_gpu:-}'` and `shared.yaml:235` records why, at m4's
+  insistence — *"a **real card** as a package default makes a consumer's
+  refuse-when-empty guard unreachable and picks a card silently on a shared
+  host."* So omitting it does not quietly take card 4; the consumer **refuses**,
+  which is the guard working. **Nothing in any
+  sealed artefact records how many GPUs were free**, and the two rung-5 arms need
+  their own cards beside whatever the host already carries. Measured on 217 the
+  hard way: GPUs 0–3 held by another tenant's non-docker processes. **Read it
+  from the node at hold time and write it into the run's notes**; do not carry a
+  number between rungs or between nodes.
+- **`bench_rounds`** (default 1) — the command above says `3`, and that is a
+  judgement, not a measurement. One round cannot separate a real change from
+  run-to-run spread; the noise floor is `1.96·√2·rsd/√n`, so `n` is the only term
+  the launch line controls. **Three is the smallest `n` that makes the floor
+  reportable at all**, and `check_no_regression` will mark the comparison
+  `uninterpretable` rather than pass it if the floor exceeds the bar. If a
+  rung-5 window is short, cutting rounds is the first thing to cut and the
+  `uninterpretable` verdict is the honest consequence.
+- **`container`** (default `yihou_e2e_flow`) — **not `measure_container`, which
+  was this item's first spelling and was wrong.** `measure_container` is m3's:
+  its only consumer is `build_workset.task/measure_in_container.sh:156`, which
+  self-names with `: "${E2E_MEASURE_CONTAINER:=yihou_m3_measure_$$}"`, so an
+  empty value is already unique per process and m5 neither declares nor reads
+  it. Corrected by the leader, who checked the consumer before saying so; the
+  original sentence was a correct general worry about a variable that already
+  handles it.
+
+  **`container` is the one that does not handle it.** `shared.yaml:90`,
+  `m1_deploy.yaml:114` and `m5_integration.yaml:99` all read
+  `'${container:-yihou_e2e_flow}'`, `round.sh:26` takes it as `CTR` with **no
+  arm suffix and no run id**, and nothing anywhere appends one — while
+  CONTRACT §2.1's own example of the record shows
+  `container: yihou_e2e_flow_<run6hex>`. So the contract describes a
+  run-unique name and the default produces a **fixed** one.
+
+  The arms do not collide with each other — they are sequential, which is the
+  whole two-arm design — but **two rung-5 runs on one node collide, and so does
+  a rung-5 run against any earlier rung's leftovers.** Pass an explicit
+  run-unique `container=`; do not take the default.
+
+## 6. What rung 5 proves that rung 4 did not, stated so a green cannot overclaim
+
+Rung 5 is the only rung where **`integrate_and_verify` runs**, and with it the
+two-arm bring-up, `check_acceptance` on generated cases, and
+`check_no_regression` on numbers nobody chose.
+
+Three things will still be untested after a green rung 5, and they should be
+named in whatever reports it: `apply.py`'s **generic dropped-names refusal** and
+its **no-op gate** (gates 8 and 9, never reached — a run that gets past
+`apply_patch` is a run where neither fired), and every refusal path of the seven
+m5 validators that a passing run by construction does not take.
+
+---
+
+# Skip-ahead: replaying a good run's handoffs instead of re-running the stage
+
+**The user's mechanism, 2026-09-04.** Once the earlier modules have run stably
+three or more times, a later debug run **skips** them and injects their handoffs
+from the last good run, with the not-yet-stable stage real and everything after
+it mocked. Skip in front, mock behind.
+
+**Final acceptance is still one full real e2e.** The user said so explicitly.
+This is a debugging accelerator and never an acceptance path; a green skip-ahead
+run proves the stages it ran and nothing about the ones it replayed. The
+sentence is repeated in the tool's own header, in `PROMOTION.json`, and on the
+tool's last line of output, because the person tempted to skip acceptance will
+be reading the tool and not this file.
+
+## 0. The seam question is OPEN, and this is what a wrong answer costs
+
+**Does stage N+1 consume stage N's *artefact*, or stage N's *running process*?**
+Data can be replayed. A live resource cannot.
+
+If a consumer attaches to something the producing run brought up, an injected
+handoff names a **torn-down container** and the failure appears **inside the
+consuming stage, wearing that stage's face**. So, until a seam is answered:
+
+> **Treat a failure in the consuming stage as possibly this, and not that
+> stage's defect.**
+
+`replay_root.py` prints that sentence for every kind whose seam is unrecorded,
+and records `skippable_seam: null` against it in `PROMOTION.json`.
+
+| seam | status |
+|---|---|
+| m1 → m2 | **answered: skippable.** m1, first-hand, below |
+| m2 → m3, m3 → m4, m4 → m5 | **open.** Nobody has been asked yet |
+
+### m1 → m2 is answered, and by construction rather than by intent
+
+m1's answer, 2026-09-04: `deploy_and_prove` writes the kit at **STEP 5** and
+tears the deployment down at **STEP 7**, both inside m1's own task. So
+`runtime.container` names a dead container **immediately, on every run** — not
+after three hours of replay. The kit says so in its own `runtime.notes`.
+**Replay introduces no staleness the graph does not already exercise every
+time**, which is a stronger result than the question asked for.
+
+`runtime.endpoint` has **no reader anywhere**: every occurrence outside m1's
+stage is a write.
+
+Two independent sources agree that m2 brings up its own engines rather than
+attaching to m1's:
+
+- m1, reading m2's `load/line.sh:133-149` — it takes `fixed.node`,
+  `fixed.image`, `fixed.image_id`, `fixed.model_name`, `fixed.served_model_name`,
+  `fixed.tp_size`, `fixed.gpu_devices` and `runtime.replayed_from`, and nothing
+  else;
+- `steps/m2_profiling.yaml:155-161` — *"the two lines are two bring-ups by
+  design (CUDA graph on and off cannot both be true of one running engine) and
+  CONTRACT §5.2 forbids either reusing a name it did not create."*
+
+The second is the decisive half and it is stronger than it looks: **§5.2 forbids
+reusing a name you did not create**, which rules out attaching to m1's container
+as much as to the sibling line's.
+
+**m2 has now confirmed it in their own words, and added the precision that makes
+it checkable.** `load/line.sh:131-149` reads seven `fixed.*` fields and
+`runtime.replayed_from` — a static provenance string — **and nothing else**.
+`runtime.endpoint`, `container` and `ports` *do* appear in `line.sh`, and they
+come from `deployment.json`, **the handshake m2's own `deploy.sh` just wrote**
+(`:288`, `:300`, `:306`), not from the injected kit. `:263` runs `deploy.sh` out
+of the kit and brings up m2's own engine.
+
+**The kit supplies *how to deploy*; the deployment supplies *where to send
+traffic*.** So the seam is answered by the consumer and not only inferred from
+the producer.
+
+## 0a. The guard has a hole that no compared field can see
+
+`compare_fixed_across_inputs` (§1 below) protects against a kit from a different
+node, image or model. **It does not protect against a different engine
+configuration**, and m2 measured what that is worth — one node, one image, one
+tp, same cards, one flag:
+
+```
+--cuda-graph-bs-decode max  8    ITL 42.15 ms     312 tok/s
+--cuda-graph-bs-decode max 16    ITL  9.31 ms    1649 tok/s
+```
+
+**4.5× on decode with every compared field identical.** And m1 swept the kits:
+there is **no default** — the producing agent writes the ceiling fresh at each
+bring-up, and four real runs chose 16, 16, 8, 32.
+
+So an injected kit can clear every guard here and still deploy an engine 4.5×
+slower than the one whose numbers travel beside it — surfacing downstream as a
+regression that is a configuration difference. `assets/lib/graph_ceiling.py` is
+the bar for it, and it is **absolute** rather than comparative for the reason in
+CONTRACT §4.6: both sides can share the fault, and then no comparison finds it.
+
+## 1. Eligibility is per node, and that is a good refusal
+
+`check_environment` carries `compare_fixed_across_inputs: [node, gpu_arch,
+image_id, model_path]` and runs across **every** handoff staged in a phase. So a
+kit captured on 217 and replayed into a run executing on 275 is **refused** —
+loudly, at the phase that stages it.
+
+**That is the safety net, not an obstacle.** It is what makes skip-ahead safe to
+use casually, and it was designed for something else entirely.
+
+But it means **`PROMOTION.json`'s `from_run` has to be checked against the run
+you are about to launch, not merely carried.** A user who replays across nodes
+and reads the refusal as a defect in the consuming stage has hit §0's failure by
+a different route.
+
+`fixed.node` is **deliberately not rewritten** by the tool. m1 suggested it; I
+declined, because the replayed artefact really was produced on the old node and
+rewriting the field would make the record claim otherwise. **Skip-ahead requires
+the same node.** Two loud refusals beat one forged field.
+
+## 2. "Stable" means the same validators passed, three times
+
+**Not that the run finished.** Rung 1 is the case: it *sealed* `deploy_kit` —
+README with all three headings, every probe green, load clean — and a validator
+then refused it on one number. "Ran" and "passed" came apart on the first real
+rung.
+
+**And not merely three green verdicts.** The validator *set* is part of the
+verdict — see CONTRACT §4.5, which also records the only place a validator's
+name survives in a run tree. `replay_root` reports a changed set rather than
+averaging it, and that fired on its first survey:
+
+```
+unstable kernel_optimization   the validator set changed between runs:
+                               check_environment
+                               | check_environment,check_optimization_shape,check_speedup_substantiated
+```
+
+Three runs, all green, **two rulers**.
+
+## 3. Using it
+
+```sh
+# survey without writing anything
+python3 assets/lib/replay_root.py --run <run> [--run <run> ...] --list
+
+# materialise the stable kinds into a fresh directory
+python3 assets/lib/replay_root.py --run <run> ... --out /home/yihou/replay_root
+
+# then point a debug run at it
+python3 -m agent_sys.cli.main run \
+  --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+  --demo-root /home/yihou/agent_sys_runroot \
+  --var mock_root=/home/yihou/replay_root \
+  --var mock_stages=m1,m2 --var m1_agent=runner --var m2_agent=runner \
+  … the rest of the rung's own line …
+```
+
+**`mock_root` is the whole mechanism.** A mock leaf already copies
+`<stage>/<kind>/content/` into `$AGENT_SYS_OUTPUT_<KIND>`; pointing `mock_root`
+at a replayed run instead of the sealed 2026-09-02 corpus is the entire change.
+Nothing new is trusted — verified by round trip: `mock.sh` reads the produced
+root and reports `stage1-deploy/deploy_kit -> deploy_kit (44 files)`.
+
+**Survey first, every time.** `--list` decides nothing and writes nothing, and
+its output is what tells you whether the kind you meant to skip is stable
+*today*.
+
+## 4. What the tool rewrites, and why each one would otherwise lie
+
+A replayed environment record is edited **on the copy, never in the run tree** —
+a run tree is evidence. Recorded per kind in `PROMOTION.json`
+(`environment_rewrites`), and re-validated against `environment.schema.json`
+afterwards.
+
+| field | action | without it |
+|---|---|---|
+| `runtime.slurm_jobid` | **removed** | `_agree_or_die` exits 1: *"slurm_jobid is 'X' in the environment and 'Y' in the record"* — reads as a misconfigured launch |
+| `runtime.transport` | **removed** | same function, same failure; agrees today only because everything is `spur` |
+| `runtime.container` | → `replayed-from-<run>-NOT-RUNNING` | a name that **resolves to a different live process**: every field validates and m4 execs into the wrong container, silently |
+| `runtime.endpoint` | → a `.invalid` marker | schema-required, read by nothing |
+| `runtime.replayed_from` | → the source run id | the marker five consumers already read |
+
+**Removing beats rewriting** for the first two: `_agree_or_die`
+(`run_in_container.sh:96-104`, and the same three lines in m3's
+`measure_in_container.sh:127-129`) returns the **ambient** value when the
+record's is empty, so the debug run's own job id wins — which is the true one.
+Neither field is in the schema's `runtime.required`.
+
+**The container rewrite is the only one preventing a *silent* failure.** Run
+tags are not uniformly unique — one 2026-09-04 kit used a date-only tag — so a
+replayed name can resolve to a live container that is a different process. m1
+measured exactly that shape on 2026-09-04: the record said
+`started_at: 09:03:51Z` while docker reported `StartedAt: 09:37:18Z` with
+`RestartCount: 0`. An unresolvable name instead takes m4's ephemeral path
+(`run_in_container.sh:210-232`), which builds a fresh container from
+`fixed.image` and records `mode=ephemeral` — **a different claim, labelled**,
+rather than a wrong one.
+
+`--no-rewrite` copies verbatim, for inspecting what a run really produced. Not
+for a debug run.
+
+## 5. What it will not do
+
+- **Write into a directory it did not create.** Non-empty and no
+  `PROMOTION.json` → refuses, rc 2. Verified, with a foreign file left untouched.
+- **Delete a tree it did not write.** Overwriting per kind is the widest thing
+  it does.
+- **Promote a kind below the threshold**, without `--allow-unstable`, which
+  marks it in the record.
+- **Guess a seam.** An unrecorded seam is reported, never assumed.

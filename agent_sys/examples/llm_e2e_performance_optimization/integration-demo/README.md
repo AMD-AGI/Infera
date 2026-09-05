@@ -74,6 +74,27 @@ framework's fixed 1800-second settle budget (`../temp/bugs/003`); its content wa
 validated by running `check_packup_shape` against it directly. Everything above
 it sealed inside the graph.
 
+> **Both halves of that sentence need updating, 2026-09-02.**
+>
+> **The 1800-second budget no longer exists.** `cli/main.py` now reads
+> `_SETTLE_TIMEOUT = 14400.0` — four hours — and exposes it as `agent-sys run
+> --timeout`. The constant's own comment records all three values it has had
+> (300, then 1800, now 14400) and that the 1800 s value was itself found to kill
+> a healthy 27 B bring-up. **Do not size a graph against 1800 s.**
+>
+> **And the attribution above may be wrong.** A second candidate has since been
+> identified for "the deliverable was written but never sealed": `_settle`'s
+> separate `stall_after` (20 s, `cli/main.py`, exposed by no CLI flag), which is
+> timed from the last state change *anywhere* in the run and so covers a terminal
+> task's prepare, body and seal together. A terminal `packup` declares the most
+> inputs by construction, and staging them eats that budget before the body
+> starts. Which of the two cut this run off was not established, and the run is
+> gone; **whoever hits it next should check `stall_after` before assuming a
+> budget.** A third cause exists too — a kind whose `items_schema` declares fewer
+> items than its producer writes is refused by `seal` with the message discarded
+> — though `integration_packup` was checked on 2026-09-02 and is clean on that
+> count.
+
 **The verdict was ACCEPTED, which is the right answer**, because the patch under
 test is the semantics-preserving mock: it adds two log lines and changes no
 arithmetic, so a comparison that reported a regression would have a fault in the
@@ -123,10 +144,11 @@ because a design that records only what it got right is not a record:
    seal refuses, so `serve_patched` wrote its complete handoff and then aborted
    on the last line. `DESIGN.md` §8.
 
-A fifth is the framework's, not the design's: a graph that outruns the
-1800-second settle budget cannot be finished by `--resume` either, because the
-interrupted task leaves its output slot open and the store refuses to reopen it
-(`../temp/bugs/005`).
+A fifth is the framework's, not the design's: a graph that outruns the settle
+budget cannot be finished by `--resume` either, because the interrupted task
+leaves its output slot open and the store refuses to reopen it
+(`../temp/bugs/005`). The no-resume behaviour still holds; the budget is now
+14400 s rather than the 1800 s this was observed under — see the box above.
 
 ## Running it
 

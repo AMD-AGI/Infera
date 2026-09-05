@@ -1,0 +1,329 @@
+# The one program agent every scripted leaf in this flow runs under, and **the
+# only place this package names its own variables**.
+#
+# `agent.schema.json` makes an agent's `env` block the sole route by which a
+# package may declare variables, so every `${...}` this package takes on the
+# command line is listed here and reaches a body as an `E2E_*` environment
+# variable. Nothing here is a secret; model credentials reach an AI body from
+# the operator's own settings allow-list, by name, through
+# `env_mgr.harness.harness_env`.
+#
+# **Six carry no default, on purpose** (CONTRACT.md §6): which Slurm job, which
+# node, that node's IP, what the model is called, where its weights are, and
+# what the serving image is. Those are facts about one allocation on one
+# cluster. A default here would be one machine's answer shipped as everyone's
+# and would go stale the hour the job ends. `${NAME}` with no `:-` is a
+# load-time fault naming the file, the line and the variable
+# (`spec_loader/variables.py`), so the package says what it needs rather than
+# failing later as something else.
+#
+#     agent-sys run --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+#       --var jobid=106250 --var node=crsuse2-m2m-061 --var node_ip=10.245.159.129 \
+#       --var model_name=Qwen/Qwen3.6-27B \
+#       --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
+#       --var image=infera/engine-sglang:gfx950-local
+#
+# `kind: program`, because a scripted leaf here brings a container up, waits on
+# a health endpoint, sends a load, cuts a profiler window, runs an analyser.
+# None of that is a judgement call and all of it has to be byte-identical
+# between runs for the numbers to mean anything. The leaves that *are* judgement
+# work — bring-up, workset construction, optimisation, integration — name their
+# own `kind: ai` agent in their own step file, beside the task that runs it.
+module: agent
+name: runner
+kind: program
+version: '1'
+description: Runs a task's entry.sh. No model call.
+env:
+  # --- the allocation ---------------------------------------------------------
+  E2E_JOBID: '${jobid}'
+  E2E_NODE: '${node}'
+  E2E_NODE_IP: '${node_ip}'
+  # How a body reaches that node. `auto` probes: `spur` wherever the binary
+  # exists, otherwise `srun --overlap`. A variable because it is a fact about
+  # the cluster rather than about this package — on the AMD crsuse2-m2m (spur)
+  # cluster `srun` exists but is **not** Slurm's, so probing for the srun binary
+  # picks the wrong one. `assets/lib/remote.sh` dispatches on it, and **no task
+  # readme in this package spells either transport** (M2.1).
+  E2E_TRANSPORT: '${transport:-auto}'
+
+  # --- what to serve ----------------------------------------------------------
+  # `model_name` and `model_path` are separate because conflating them is a
+  # measured fault: left unset, the engine registers the model under the
+  # filesystem path it loaded from, and every caller's `"model"` field then
+  # carries one machine's directory layout.
+  E2E_MODEL_NAME: '${model_name}'
+  E2E_MODEL_PATH: '${model_path}'
+  # Empty by default, and a body resolves it with `: "${E2E_SERVED_NAME:=$E2E_MODEL_NAME}"`.
+  # **Not `${served_name:-${model_name}}`** — a default may contain no `}`, so a
+  # nested reference is not a thing this syntax has (`spec_loader/variables.py:79`:
+  # *"a nested reference would make this a grammar"*). Written wrong it does not
+  # error; it substitutes a literal `${model_name` and leaves a stray brace.
+  E2E_SERVED_NAME: '${served_name:-}'
+  E2E_IMAGE: '${image}'
+  E2E_ETCD_IMAGE: '${etcd_image:-quay.io/coreos/etcd:v3.5.14}'
+  # `mix` is this repository's own word for one worker doing both phases on a
+  # single node with no RDMA. It is not mixed precision.
+  E2E_DEPLOY_MODE: '${deploy_mode:-mix}'
+  E2E_TP: '${tp:-8}'
+  # The engine's context window. The one flag a model substitution cannot
+  # survive by luck: the round that proved Qwen3.6-27B works here worked because
+  # its `max_position_embeddings` is *exactly* the value that used to be
+  # hard-coded.
+  E2E_CTX: '${context_length:-262144}'
+  # The two model-specific engine flag groups. A model with no DSA attention
+  # path does not take `--dsa-*-backend`, and the wrong `--reasoning-parser`
+  # does not error — it yields an empty `content` for every request while the
+  # request still succeeds. **Pass the literal `none` for a model that wants
+  # neither.** The sentinel is not because an empty default is unspellable — it
+  # is (`${NAME:-}`) — but because on the *command line* `--var dsa_args=` is
+  # indistinguishable from not passing it, so a body cannot tell "the operator
+  # said none" from "the operator said nothing".
+  E2E_DSA_ARGS: '${dsa_args:-none}'
+  E2E_PARSER_ARGS: '${parser_args:-none}'
+
+  # --- identifiers bound on a shared host (CONTRACT.md §5.2) ------------------
+  # Every one of these is a parameter because `docker ps` on these nodes shows
+  # every tenant's containers and both held nodes are carrying other people's
+  # work right now. A body writes `: "${VAR:=…}"`, never `export VAR=`, and
+  # **never `docker rm -f` a name it did not create**.
+  E2E_CONTAINER: '${container:-yihou_e2e_flow}'
+  # **These three are NOT where a consumer learns the endpoint.** A kit picks its
+  # own base -- a caller may pass `E2E_KIT_PORT_BASE` -- and records what it bound
+  # in the handshake `deployment.json`, which `deploy_kit.layout.yaml`'s
+  # `runtime_contract.handshake` makes the one authority. Rung 1 on 2026-09-04
+  # bound **8114-8117** while these still read 8101-8103, and both are correct:
+  # the defaults describe what an unconfigured bring-up would take, the handshake
+  # describes what this one did.
+  #
+  # `check_deploy_serves` gets it right -- `check.py:314,362` reads the handshake
+  # and takes `deployment["endpoint"]`. The trap is for the NEXT consumer, and the
+  # leader walked into the reader's half of it within the hour: probing 8101-8103
+  # against a serving engine returns `000`, which is exactly what a dead engine
+  # returns. Nothing was wrong; the probe was aimed by a default.
+  #
+  # So: **read the handshake. Use these only to CONFIGURE a bring-up, never to
+  # find one.** m3 flagged the hazard for a future prober in their own stage.
+  E2E_PORT_ROUTER: '${port_router:-8101}'
+  E2E_PORT_WORKER: '${port_worker:-8102}'
+  E2E_PORT_ETCD: '${port_etcd:-8103}'
+  # A container workdir goes on **local** disk. A network home with root_squash
+  # maps a container's root to nobody and the engine then fails to write its
+  # logs *silently* — no error, no log.
+  E2E_WORK_ROOT: '${work_root:-/mnt/m2m_nobackup/yihou/e2e_flow}'
+
+  # --- the flow's own input ---------------------------------------------------
+  # The plain user instruction m1 acts on. Overridable so the same closure can be
+  # pointed at PD or at a different verification bar without editing a prompt.
+  E2E_INSTRUCTION: '${instruction:-Bring this model up in the requested mode on this host, prove it answers through the router, and hand back a kit somebody else can run.}'
+
+  # --- stage 2's load and profiler window (owner: m2) -------------------------
+  # Every default here is the value the 2026-09-02 run on THIS cluster used, not
+  # the profiling-demo's, whose defaults were measured on a different machine
+  # with 256 cores and a /apps filesystem. Where the two differ the sealed
+  # artefact wins: `aiperf_baseline/content/items/env/load.json` is the record.
+  #
+  # AIPerf runs in its own container because the engine image ships Python 3.10
+  # and AIPerf needs >= 3.11.
+  E2E_AIPERF_IMAGE: '${aiperf_image:-nvcr.io/nvidia/ai-dynamo/aiperf:0.12.0}'
+  # An absolute path rather than a file inside the package: the whole package is
+  # copied into every attempt's zone, and a trace is megabytes. A cluster fact,
+  # so it carries a default — unlike the six node facts, which do not.
+  # **No default, on purpose.** This used to default to
+  # `/shared_nfs/yihou/agent_sys_debug/ws2/profiling/trace/conversation_trace.jsonl`
+  # — a site-specific absolute path in a spec, which M2.1 and CONTRACT §6
+  # forbid, and a *debugging* workspace besides. m5 caught it from the other
+  # end: their consumer is `assets/accept/measure.sh:119`, `'${E2E_AIPERF_TRACE:?}'`,
+  # so an operator who passes no `--var aiperf_trace=…` gets a loud failure
+  # naming the variable instead of a replay silently driven by somebody's
+  # scratch trace. Empty is what makes that guard reachable.
+  #
+  # Found because `check_agent_env.py` flagged m5's empty default as diverging
+  # from this one — and **the checker was pointing the wrong way**: the natural
+  # fix would have copied this path into four more files. m5's point, and the
+  # reason a checker needs a direction as well as a rule.
+  E2E_AIPERF_TRACE: '${aiperf_trace:-}'
+  # Replay the first three minutes of trace time. Measured on this cluster: 721
+  # requests, which saturates the deployment and is short enough that a
+  # debugging round is minutes.
+  E2E_TRACE_END_MS: '${trace_end_ms:-180000}'
+  # A CEILING, not a target — fixed-schedule sends at the recorded timestamps
+  # regardless. At 32 the profiler-detached round measured p90 effective
+  # concurrency 10 and the profiler-attached round 32, which is the axis showing
+  # through: with CUDA graphs off the same schedule queues.
+  E2E_MAX_CONC: '${max_conc:-32}'
+  # AIPerf worker processes. It shares the node with the engine, so this is not
+  # "as many as there are cores".
+  E2E_WORKERS: '${workers_max:-8}'
+  E2E_BLOCK_SIZE: '${block_size:-512}'
+  E2E_REQ_TIMEOUT: '${req_timeout:-900}'
+
+  # The measurement window: opened after the warm-up and only once the engine has
+  # reported a real batch. 60 + 10 against a 180 s replay leaves the window well
+  # inside the load with margin on both sides.
+  E2E_WARMUP_S: '${warmup_s:-60}'
+  E2E_WINDOW_S: '${window_s:-10}'
+  # The stack window, which is a different capture for a different purpose: it
+  # exists only so the ranking can name the Python frame that launched each
+  # kernel. Seconds is enough — resolution votes over a few launches per kernel
+  # and this trace saturates the engine. **Set to 0 to skip it**, which costs the
+  # launcher block and nothing else; `check_kernel_table`'s
+  # `min_launchers_in_top_n` must then be 0 too, or the round is asked for
+  # something it was told not to take.
+  E2E_STACK_WINDOW_S: '${stack_window_s:-3}'
+  # Rank files from the stack window carried in the handoff. Every rank runs the
+  # same Python, so one resolves everything resolvable and the second is
+  # corroboration; Hyperloom's own resolver caps at two for the same reason.
+  E2E_STACK_RANKS: '${stack_ranks:-2}'
+
+  # --- stage 2's analysis (owner: m2) -----------------------------------------
+  # Magpie is a checkout on the cluster rather than a dependency of this package.
+  E2E_MAGPIE_ROOT: '${magpie_root:-/shared_nfs/chaox/Magpie}'
+  # Rows the ranking reports as its head. The table itself carries every row —
+  # m3 buckets before it sorts — so this only sizes the summary and the share
+  # `check_kernel_table` recomputes.
+  E2E_TOP_N: '${top_n:-25}'
+  # Kernels whose launcher is resolved, taken by self CUDA time. Generous against
+  # what m3 selects: `rank` picks its top N from the routable bucket only, and
+  # collectives held 52% of GPU time in the sample profile, so a routable winner
+  # can sit well down the raw ranking.
+  E2E_LAUNCHER_TOP_N: '${launcher_top_n:-50}'
+
+  # --- mock mode (mission Brief item 2) ---------------------------------------
+  # Where the 25 real sealed handoffs live. A leaf running in mock mode copies
+  # `$E2E_MOCK_ROOT/<stage>/<kind>/content/` into its `$AGENT_SYS_OUTPUT_<KIND>`
+  # and does nothing else; the validators downstream are unchanged and are the
+  # point of the exercise.
+  #
+  # **Read `$E2E_MOCK_ROOT/README.md` before trusting anything in it.** Three
+  # traps are documented there: the two `kernel_table`s are different artefacts
+  # (one real 124-kernel table, one 34-row synthetic seed), the
+  # `integration_report` carries a *refused* verdict and will correctly stop the
+  # graph, and every digest in the tree was invalidated by a past
+  # `chmod -R 777`.
+  E2E_MOCK_ROOT: '${mock_root:-/shared_nfs/yihou/agent_sys/cheat_for_mock}'
+  # Which stages are mocked, comma-separated: `all`, `none`, or e.g. `m3,m4,m5`.
+  # Phase 3 walks this from `all` to `none` one stage at a time, so that a
+  # failure is attributable to the stage that was just promoted.
+  E2E_MOCK_STAGES: '${mock_stages:-all}'
+
+  # Which `integration_report` the stage-5 mock emits: `refused` (default) or
+  # `accepted`.
+  #
+  # **The default is a real refusal and must stay the default.** The sealed
+  # report's verdict is `accepted: false`, and replaying it verbatim correctly
+  # stops the graph — `mock_m5.sh:139` calls that *"the only cheap end-to-end
+  # test of a strong refusal this package has"*, and it is.
+  #
+  # **But it also means a fully-mocked run can never reach the end**, which is
+  # Brief item 2. Measured 2026-09-05: across **45 runs**, `m5_integration` has
+  # never reached `succeeded` — the best is 4/5 with stage 5 stopped on that
+  # refusal. `mock_m5.sh:141` already builds the way out, swapping the
+  # performance rows for the stock control measured under matched load on the
+  # same node (patched 475.7 ms vs stock 470.3 ms, 1.1 % apart).
+  #
+  # **The switch existed and had no wire to the launch line.** It was read
+  # straight from the environment by `mock_m5.sh` and declared in no spec, so
+  # `check_agent_env` reported it as an undeclared read and nothing could set
+  # it. That is why item 2 sat unmet for two days: not a defect, a control with
+  # no handle. Declared here, defaulting to the refusal, so `mock e2e green`
+  # becomes `--var mock_report=accepted` and the refusal test stays one word
+  # away.
+  E2E_MOCK_REPORT: '${mock_report:-refused}'
+
+  # ---- Names an agent needed and `runner` never had -------------------------
+  #
+  # Added 2026-09-04, after the survey that found no `E2E_*` reaches a
+  # `kind: ai` agent (see `assets/lib/check_agent_env.py`). Declaring a block on
+  # each ai agent turned up a second class: names an agent reads that `runner`
+  # **also** lacks, so they had never reached *anywhere* — not the ai agent, and
+  # not `rank`/`identify` running under `runner` either.
+
+  # m4's, and the reason it moved out of `KFO_*`: the operator selector is the
+  # one knob **both** paths need — `10_read_inputs.py --operator` on the real
+  # path, `mock_adapt.py` on the mock one. A name in two files with nothing
+  # comparing them is this package's most-repeated fault, so it lives in the
+  # `E2E_*` namespace where the show gate covers it. `--var` spelling unchanged.
+  E2E_WORKSET_OPERATOR: '${workset_operator:-}'
+  # Declared here so `--var mock_premise=mismatched` can fire at all. It has
+  # never fired: it was read by `mock_adapt.py` on the mock path, declared on
+  # the ai agent that `--var m4_agent=runner` **removes**, and absent from
+  # `runner`. MOCK-MAP (G) calls it "the only cheap end-to-end test of the abort
+  # path"; it was the only variable m4's ai agent had, and the only one it could
+  # never use.
+  E2E_MOCK_PREMISE: '${mock_premise:-matched}'
+
+  # m3's five. `E2E_SNR_THRESHOLD` has two producers — `scaffold.py:304` into
+  # `gates.snr_db` and `rank.py:302` into the worklist — so it belongs here
+  # regardless of any one agent's block.
+  # **Empty, not `4`.** It was `${measure_gpu:-4}` for one commit, copied from
+  # m3's body default. m4 refused to declare it on that basis and they were
+  # right: a **real card** as a package default makes a consumer's
+  # refuse-when-empty guard unreachable and picks a card silently on a shared
+  # host — the outcome the guard exists to prevent, arriving through a fallback
+  # instead of a decision. **m3's body REFUSES rather than
+  # defaulting** -- `measure_in_container.sh:142` prints the node's live
+  # `rocm-smi` and exits 1 naming the fix. This comment used to say the body
+  # falls back to card 4; that was true once, the fallback was removed, and the
+  # comment did not fail -- it started lying, in the direction of "you do not
+  # need to pass this". Third instance today of a default that became a refusal
+  # (T49), and the most consequential copy, because THIS is the file someone
+  # reads to decide whether the var is optional. It is not: `measure_gpu` is
+  # required on EVERY rung 0-5, because `build_workset/entry.sh:168` calls the
+  # container script on the MOCK path too. Omitting it cost rung 1 (2026-09-04):
+  # the guard fired, refused, printed the fix, wrote no `evidence/`, and two
+  # validators then correctly refused the absence.
+  E2E_MEASURE_GPU: '${measure_gpu:-}'
+  E2E_SNR_THRESHOLD: '${snr_threshold:-30.0}'
+  E2E_WORKSET_ID: '${workset_id:-workset}'
+  # **A literal `unknown` is what every workset this stage ever produced
+  # recorded as `produced_by.commit`.** Declaring it does not fix that;
+  # supplying it does. m3, 2026-09-04.
+  E2E_PACKAGE_COMMIT: '${package_commit:-unknown}'
+  # **Deliberately empty, and it must stay empty.** The body's fallback is
+  # `yihou_m3_measure_$$` — unique per invocation, which no static default can
+  # express — and a *shared* default is a name two concurrent measurements
+  # collide on. m3 flagged this before it could be "fixed" by giving it a value.
+  E2E_MEASURE_CONTAINER: '${measure_container:-}'
+
+  # ---- read by shared libs, declared on no agent until now -------------------
+  #
+  # m4's find, 2026-09-04. Both are read by `assets/lib/` and were declared
+  # **nowhere** — surviving on code-level fallbacks (`env_render.py` does
+  # `setdefault("E2E_STAGE", "m4")`, `remote.sh` falls back to `$HOME`). They
+  # are invisible to `check_agent_env.py` by construction: it compares
+  # declarations against declarations, and a name nobody declares has nothing
+  # to compare. **A checker's blind spot is not the same as a clean result** —
+  # this pair is why that sentence is in the file.
+  #
+  # **One correction to how this was first written here.** m4 reported the
+  # `m4` default as living in the shared `env_render.py`, and the leader wrote
+  # that down without opening the file. Measured: `env_render.py:173` is
+  # `os.environ.get("E2E_STAGE", "")` — **empty** — and the `setdefault(…, "m4")`
+  # is at `optimize_kernel.task/steps/_lib.py:351`, which is m4's own module
+  # naming itself and is correct. So the defect is smaller and different:
+  # **every stage except m4 has been stamping `warnings[].stage` with the empty
+  # string**, so a tolerated difference is recorded without saying who tolerated
+  # it. Declaring the name does not fix that; a caller setting it does.
+  E2E_STAGE: '${stage:-}'
+  E2E_REMOTE_HOME: '${remote_home:-}'
+
+  # **Which cards a deployment may take — T19, and it is the `none` sentinel
+  # rather than an empty default.** m1's reasoning, transferred verbatim from
+  # `E2E_DSA_ARGS`: on a command line `--var gpu_devices=` is indistinguishable
+  # from not passing it, so a body cannot tell *"the operator said choose
+  # freely"* from *"the operator said nothing"*. Empty is unspellable-versus-
+  # unsaid all over again.
+  #
+  # `none` means **choose freely** — probe and take what is free. A list like
+  # `4,5,6,7` means take exactly those. What the deployment actually took goes
+  # into `fixed.gpu_devices`, which records what was **taken**, not what was
+  # free: free-at-preflight is a measurement of a moment and stale by the time
+  # the record is read.
+  #
+  # Rung 1 is why this exists. `E2E_INSTRUCTION` carried "take only 4-7" in
+  # prose, the instruction never reached the agent, and the agent took card 4
+  # because the sealed kit says `DK_GPU_ID:=4`. Right answer, wrong mechanism,
+  # and nothing could have caught it: **a site fact carried in prose is a site
+  # fact nothing validates.**
+  E2E_GPU_DEVICES: '${gpu_devices:-none}'
