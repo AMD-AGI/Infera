@@ -382,10 +382,18 @@ if [ "$CAPTURE" = "1" ]; then
 fi
 
 # ---- 6. the load, and the profiler windows inside it -------------------------
+# **`E2E_ROUTER_ENDPOINT` carries the host from the same handshake field the
+# port comes from.** Handing down `E2E_PORT_ROUTER` alone left `replay.sh`
+# composing `http://${E2E_NODE_IP}:${port}`, which is wrong for any kit that
+# binds loopback — and one does (`env.sh:137`, `E2E_KIT_BIND_HOST:=127.0.0.1`)
+# while the kit this line usually gets binds `0.0.0.0`. **A comment cannot go
+# inside this block**: it would be joined onto the preceding backslash
+# continuation and swallow the rest of the command, and `bash -n` accepts it.
 E2E_LOAD_ROUND="$MODE" \
 E2E_CAPTURE="$CAPTURE" \
 E2E_CONTAINER="$CTR" \
 E2E_PORT_ROUTER="$HS_PORT" \
+E2E_ROUTER_ENDPOINT="$R" \
 E2E_WORK_ROOT="$HS_WORK_ROOT_ON_HOST" \
 E2E_TRACE_OUT_IN_CONTAINER="$TRACE_OUT_IN_CONTAINER" \
 E2E_ENGINE_LOG_IN_CONTAINER="$HS_WORK_ROOT_IN_CONTAINER/logs/worker.log" \

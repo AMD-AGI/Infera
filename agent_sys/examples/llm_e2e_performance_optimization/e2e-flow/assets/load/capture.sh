@@ -57,7 +57,10 @@ case "$WITH_STACK" in
   *) echo "  ABORT: WITH_STACK must be 0 or 1, got '$WITH_STACK'"; exit 1 ;;
 esac
 
-URL="http://$MY_IP:$ROUTER_PORT"
+#: Composed only as a fallback — see replay.sh's note on the bind host. A
+#: kit that binds loopback records loopback, and composing from NODE_IP
+#: dials an address nothing is listening on.
+URL="${ROUTER_URL:-http://$MY_IP:$ROUTER_PORT}"
 #: The same directory named twice, once per side of the mount. Every use below
 #: is one or the other and never both, and which it is is stated at the use.
 OUT="$TRACE_OUT/$TAG/$OUT_SUBDIR"

@@ -41,7 +41,21 @@ TRACE_OUT_IN_CONTAINER="${E2E_TRACE_OUT_IN_CONTAINER:-$TRACE_OUT}"
 # `profiling-demo` used.
 ENGINE_LOG_IN_CONTAINER="${E2E_ENGINE_LOG_IN_CONTAINER:-/tmp/glm53_mix.log}"
 CTR="${E2E_CONTAINER:?}"
-R="http://${E2E_NODE_IP:?}:${E2E_PORT_ROUTER:?}"
+#: **The endpoint the kit BOUND, host included.** `line.sh` reads the whole
+#: endpoint out of the handshake and used to hand down only the corrected
+#: *port*, so this line recomposed the host from `E2E_NODE_IP` — and a kit
+#: that binds loopback then gets dialled on its node IP. Measured
+#: 2026-09-05 on crsuse2-m2m-093: two kits on one node, `E2E_KIT_BIND_HOST`
+#: defaulting to `0.0.0.0` in one (`env.sh:108`) and `127.0.0.1` in the
+#: other (`env.sh:137`); the second bound and recorded loopback, this line
+#: dialled `http://<node_ip>:<bound_port>`, and a fully successful TP4
+#: bring-up died with "no answer from the router". The port half of this
+#: was already fixed once; **the host is its sibling field and was left
+#: composed.**
+#:
+#: The fallback keeps the standalone `command` script working, which has no
+#: handshake to read.
+R="${E2E_ROUTER_ENDPOINT:-http://${E2E_NODE_IP:?}:${E2E_PORT_ROUTER:?}}"
 TAG="${ROUND}_$(date +%Y%m%d_%H%M%S)"
 
 WORKDIR="$(pwd)/load.$ROUND"
@@ -84,7 +98,7 @@ LOAD_PID=$!
 STACK_OK=0
 if [ "$CAPTURE" = "1" ]; then
   say "cutting the measurement window (warmup ${E2E_WARMUP_S}s, window ${E2E_WINDOW_S}s, with_stack=0)"
-  on "NODE_IP='$E2E_NODE_IP' ROUTER_PORT='$E2E_PORT_ROUTER' CTR='$CTR' \
+  on "NODE_IP='$E2E_NODE_IP' ROUTER_PORT='$E2E_PORT_ROUTER' ROUTER_URL='$R' CTR='$CTR' \
       TRACE_OUT='$TRACE_OUT' TRACE_OUT_IN_CONTAINER='$TRACE_OUT_IN_CONTAINER' \
       ENGINE_LOG_IN_CONTAINER='$ENGINE_LOG_IN_CONTAINER' \
       WARMUP_S='$E2E_WARMUP_S' WINDOW_S='$E2E_WINDOW_S' \
@@ -108,7 +122,7 @@ if [ "$CAPTURE" = "1" ]; then
   # WARMUP_S=0: the engine has been serving through the whole first window.
   if [ "${E2E_STACK_WINDOW_S:-0}" -gt 0 ]; then
     say "cutting the stack window (window ${E2E_STACK_WINDOW_S}s, with_stack=1)"
-    on "NODE_IP='$E2E_NODE_IP' ROUTER_PORT='$E2E_PORT_ROUTER' CTR='$CTR' \
+    on "NODE_IP='$E2E_NODE_IP' ROUTER_PORT='$E2E_PORT_ROUTER' ROUTER_URL='$R' CTR='$CTR' \
         TRACE_OUT='$TRACE_OUT' TRACE_OUT_IN_CONTAINER='$TRACE_OUT_IN_CONTAINER' \
         ENGINE_LOG_IN_CONTAINER='$ENGINE_LOG_IN_CONTAINER' \
         WARMUP_S=0 WINDOW_S='$E2E_STACK_WINDOW_S' \
