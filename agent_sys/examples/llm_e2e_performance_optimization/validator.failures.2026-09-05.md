@@ -37,7 +37,10 @@
 **3. 崩溃与拒绝没有被区分,而且本文件的方法论无法区分。** 我打开过的每一份报告,
 头部都明写 `REFUSED`。而一个在写出 `verdict.json` 之前就死掉的 body,按框架行为
 **根本不会留下 verdict 行**——所以一次崩溃会**缺席**于这份普查,而不是在里面被错
-分类。**不要拿本文件去推崩溃率**:它没有那个分母。这个问题是开放的。
+分类。**不要拿本文件去推崩溃率**:它没有那个分母。
+
+> **这条规则现在有实例了,而实例证实了规则本身**(m1 提供,我复核)。见文末
+> 「被杀死,不是被拒绝」。那一条**在本文件的普查里一行都没有**,正如这条规则所说。
 
 **4. 「同名取第一条」的真实含义是「第一条留下了 report 的」**,对于后期才补上
 报告的 validator,这条规则会系统性地取到**较晚**的那次失败。**本版按 `at` 时间
@@ -124,8 +127,9 @@
 > is a different question
 
 **`check_deploy_serves`** — 7 条,**0 条留下 report**。
-> **理由不存在,而且永远不会有。** 见下文「零理由」一节:这个 body 在
-> **全部 55 次 verdict**(通过的也算)里一次都没写过 report。
+> **这 7 条的理由不存在,而且不可复原**——它们发生在插桩之前。
+> **但「永远不会有」是错的,这一行原本这么写。** m1 在 `01ed8dd` 修了这个 body:
+> 重测 12:18Z 是 **12 / 74**,最近 8 次 verdict 全部留下了 report。见文末更正。
 
 **`check_optimization_shape`** — 5 条,4 条留下 report。**所引非最早一次**
 (最早 08:59:45 无 report,引 09:52:08)。
@@ -168,8 +172,10 @@
 > 和那个开关联系起来。
 
 **`check_environment`** — 3 条,**0 条留下 report**。
-> **理由不存在,而且永远不会有。** 同 `check_deploy_serves`:这个 body 在
-> **全部 338 次 verdict** 里一次都没写过 report。见文末「零理由」。
+> **理由不存在,至今如此:全部 469 次 verdict(12:18Z 重测)里一次都没写过 report,
+> 且 `git log -S'write_report'` 对它返回零个 commit。**
+> **不写「永远」**——`check_deploy_serves` 刚证明那个词只需要一次提交就会被推翻。
+> 见文末「零理由」与其更正。
 
 **`check_workset_shape`** — 3 条,3 条全部留下 report。所引即最早一次。
 > PROBLEM: items/codes/workset.yaml does not load: [Errno 2] No such file or
@@ -216,8 +222,8 @@
 
 | validator | 失败条数 | 全部 verdict 中留下 report 的比例 |
 |---|---|---|
-| `check_deploy_serves` | 7 | **0 / 55** |
-| `check_environment` | 3 | **0 / 338** |
+| `check_deploy_serves` | 7 | **0 / 55** —— **已过期,见下方更正** |
+| `check_environment` | 3 | **0 / 338**(重测 12:18Z:**0 / 469**,仍然为零) |
 | `check_deploy_kit` | 2 | 45 / 57 |
 
 前两个是 **0/55** 和 **0/338**——一次都没有。`check_deploy_kit` 是对照组,它**会**
@@ -232,9 +238,89 @@
 (`bug.record.2026-09-05.md` 第 2 条)。写在这里是为了让下一个人知道分母,而不是
 以为这三个 validator 失败得比较安静。
 
+### 更正 12:18Z —— 「永远不会有」对其中一个已经不成立
+
+**`check_deploy_serves` 现在会写 report 了。** m1 在 `01ed8dd` 修了它;我重测:
+
+```
+check_deploy_serves   0 / 55   (07:30Z 本文件所记)
+                     12 / 74   (12:18Z 重测,最近 8 次 verdict 全部留下了 report)
+check_environment     0 / 469  (12:18Z,仍然一次都没有)
+```
+
+**所以上表那一行的「永远」是错的,而且错在最贵的方向**——它把一个**被修好了的**
+缺陷写成了不可修复的属性。修正后的说法:
+
+- **那 7 条历史失败仍然没有理由**,这一点没变,它们发生在插桩之前;
+- **但这个 body 不再属于「从不写」那一类**,未来的失败会有理由;
+- **只剩 `check_environment` 一个**(0/469)还在那一类里。
+
+这正是本文件页眉那条的实例:**按它自己的记录,一小时内就会过时**。写下「永远」的
+那一刻它是从 55 次 verdict 里读出来的;五小时后它被一次提交推翻了。**一个关于「将来
+也不会」的断言,不能只由过去的计数支撑**——过去的计数只能说「至今没有」。
+
 ### 归因上的保留意见,必须一起读
 
 checkpoint 从另一个方向独立走到了同样这几行,并称之为"披着 validator 名字的框架
 bug"。两条路径的结论一致——**但两次计数很可能共用同一个来源,即 `verdict.json` 不带
 reason 字段这一事实**。所以两者一致的是**机制**;至于该不该把它叫做框架 bug,
 是一个判断,**两次计数都没有确立它**,谁也不应该被读成已经确立了它。
+
+---
+
+## 被杀死,不是被拒绝 —— 规则 3 的第一个实例
+
+**m1 提供,2026-09-05,我逐条复核过。它不在上面的普查里,一行都没有,而这正是
+规则 3 所预言的。**
+
+```
+run       20260905T110552-b91322   (p4_i,217 卡 4-7,deploy 真实,m2-m5 mock)
+validator check_deploy_serves
+outcome   exited -15,没有写 verdict.json,没有写 report
+```
+
+**复核结果:**
+
+```
+该运行 validation.yaml 里记录的 verdict:
+  check_deploy_kit    result=True   11:21:35
+  check_environment   result=True   11:21:36
+"check_deploy_serves" 出现在任何 validation.yaml 里吗:  否
+```
+
+### 两个必须分开的区别,而账本原本会把它们混掉
+
+**一、这不是一次拒绝。** 没有 `verdict.json`,所以**关于这份 kit 什么都没有被判定**。
+一行写成「`check_deploy_serves` 拒绝了 `deploy_kit`」会断言一个从未发生过的判断。
+
+**二、它和上面 `check_deploy_serves` 的 7 条是不同的列。** 那 7 条是 validator **在
+拒绝**;这一条是 validator **被杀死**。同一个名字,两种事件,而普查只看得见前一种。
+
+### 死因,从产物读出来而不是从退出码
+
+m1 的测量:bring-up 正常(`deployment.json` 11:25),探针齐全,负载在 11:28:56
+**跑完了**——他读引擎自己 `worker.log` 的最后一个 decode batch 来确认它是结束而不是
+卡住,`profile_export_aiperf.json` 也在盘上。然后 33 分钟什么都没有,直到 12:02 被拆掉。
+
+负载之后那一步是对 CSV 跑 `summarise.py`,**调用时没有 timeout**;`load_summary.json`
+从未写出。`on()` 的 `timeout` 默认是 `None`。审计发现**16 个调用点里有 8 个没有上界**
+——全是没人想过的短操作,而四个长操作都各自指定了自己的超时。`a2eb6a4` 已修:默认
+600 秒,并把 `TimeoutExpired` 转成 `NodeError`,**于是超时从此落成一次带理由的拒绝,
+而不是一个在写 `verdict.json` 之前就死掉的 body。**
+
+### 我复核时与 m1 的措辞有两处出入,都不影响结论
+
+m1 写「`deploy_and_prove: output_validating -> ValidatorInvalid`」和「下游四个阶段
+final 在 `deploy_kit is invalid`」。**store 里不是这样**:`deploy_and_prove` 停在
+`output_validating`、`outcome=None`,四个下游停在 `waiting_handoff`。那两句应当是
+运行**日志**的收尾行,不是被持久化的状态——运行在 12:02 被拆掉,store 就冻在半途。
+**结论不变**(被杀、无 verdict、无 report),只是「final」这个词描述的是日志而不是 store。
+
+### 代价,以及另一侧
+
+杀死发生在 teardown **之前**,所以两个容器在编排器消失后又占了四张卡、75%、33 分钟。
+`todo.md` T74;m1 用 `docker stop -t 10` 回收了。
+
+**另一侧:今天有四次成功的 `check_deploy_serves` 报告**(`p4_f`、`p4_g`、`p4_h`、
+217 卡 0-3 的全链)。后两次带全部四个步骤,前两次缺步骤 3/4,因为它们早于 `01ed8dd`。
+**这也是上面那条更正的来源**:这个 body 今天从「从不写 report」变成了「会写」。
