@@ -43,6 +43,23 @@
 报告的 validator,这条规则会系统性地取到**较晚**的那次失败。**本版按 `at` 时间
 排序取最早的一次;当最早那次没有留下 report 时,明确标注所引的不是最早一次。**
 
+**这不是推断,机制是可查的。** 用 `git log -S'write_report'` 查每个 validator body
+第一次获得写报告能力的时间,和它那次「沉默的失败」并排:
+
+| validator | 沉默的那次失败 | body 获得 `write_report` |
+|---|---|---|
+| `check_workset_runs` | 08:15:51 | **08:20**(相隔 4 分钟) |
+| `check_optimization_shape` | 08:59:45 | 09:03 |
+| `check_speedup_substantiated` | 08:59:47 | 09:03 |
+| `check_deploy_kit` | 07:48 / 09:13 | 09:22(两次都在其前) |
+
+**每一次沉默都发生在该 body 获得写报告能力之前**,所以规则 4 的偏差不是随机丢失,
+是**插桩时间线**。而 `check_deploy_serves` 和 `check_environment` 的
+`git log -S'write_report'` 返回**零个 commit**——从来没有被插过桩。
+
+*(checkpoint 从 body 一侧独立得到同一组数字;本表是我自己重查过的。两条路径**不
+共用来源**:一边数产物,一边读代码。)*
+
 **5. 没有理由就写没有理由**,不用一条看起来合理的话替代。这里有**两个不同的数字,
 都要带上定义**,不能互相替代:
 
