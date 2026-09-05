@@ -105,7 +105,7 @@ trap 'rm -f "$SNAP" "$UNK"' EXIT
 # `run` to a known entry point. **Measured 2026-09-04 19:23: it reported 0 while
 # rung 2e was alive and writing**, because that run is driven by a wrapper:
 #
-#     python3 .../assets/lib/run_with_long_stall.py --stall-after 3600 run --package …
+#     python3 .../assets/lib/run_with_long_stall.py --stall-after 900 run --package …
 #
 # A third launch shape after `python -m` and the `agent-sys` console script, and
 # the failure is the escalating direction — **"no process" reads as "stopped"**,

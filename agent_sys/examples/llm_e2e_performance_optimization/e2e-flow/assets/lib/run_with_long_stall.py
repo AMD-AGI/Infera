@@ -63,9 +63,18 @@ the entire safety property being traded, and `--timeout` still bounds the run
 (4 h by default). A hang costs one long wait; the 20 s default costs every real
 rung, which is why the trade is worth making *here* and would not be in general.
 
+**The default is 900, not 3600** (changed 2026-09-05). 3600 was measured on this
+effort to hide the escalation-with-no-recipient diagnosis for a full hour, and it
+was this tool's own default, so anyone omitting the flag got the value the
+project's `CLAUDE.md` records as harmful. 900 covers a cold start (measured
+222 / 232 s) and m2's 8–10 minute quiet window while leaving a real hang legible.
+Found by readme-cn auditing `CLAUDE.md`: `900` appeared in exactly one launch
+line while the tool, its usage example and `runlive.sh` all said 3600 — **the
+documented compromise was not what the tool did.**
+
 Usage — identical to `python3 -m agent_sys.cli.main`, plus one flag:
 
-    python3 assets/lib/run_with_long_stall.py --stall-after 3600 run --package … --var …
+    python3 assets/lib/run_with_long_stall.py --stall-after 900 run --package … --var …
 
 **Verified before use** (2026-09-04): `_settle` is called at `main.py:405` with
 only `timeout=`, so `stall_after` genuinely comes from the default; and
@@ -80,7 +89,7 @@ import sys
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
 
-    seconds = 3600.0
+    seconds = 900.0
     if argv and argv[0] == "--stall-after":
         if len(argv) < 2:
             print("run_with_long_stall: --stall-after needs a value", file=sys.stderr)
