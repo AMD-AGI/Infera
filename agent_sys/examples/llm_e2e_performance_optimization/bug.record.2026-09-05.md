@@ -1668,3 +1668,105 @@ docstring 自陈 *"this is a one-artefact rule"*。
 没有提修法。可能的方向(不是建议,是记下来供后续判断):
 按**类别**而非按文件名约束——例如产物自报 `kind: engine_module | impl_candidate`,
 消费者拒绝非 `engine_module`。**在有人决定之前,这条只是记录两个实例和它们的差别。**
+
+## 30. 一个只修了自己那条路径的回退,把运行带进「一个目录是真的、它的兄弟不是」
+
+**m4 记,2026-09-05,093 上 `p5_fullreal_093c47` 的阶段 4。**
+证据全部来自 `optimize_kernel` 那个 `kind: ai` agent 的 transcript,
+`.../task.0d211745-*/config/projects/*/dd685ea3-*.jsonl`,时间戳原样引用。
+
+### 起因:`E2E_WORK_ROOT` 是计算节点的路径,而 body 跑在登录节点
+
+发车行给了 `--var work_root=/mnt/m2m_nobackup/yihou/e2e_flow_093c47`,
+`m4_kernel_opt.yaml:380` 把它铺成 `E2E_WORK_ROOT`。**agent body 在登录节点跑,
+那里没有 `/mnt/m2m_nobackup`。** 16:12:40.316Z:
+
+```
+mkdir: cannot create directory '/mnt/m2m_nobackup': Permission denied
+W=/mnt/m2m_nobackup/yihou/e2e_flow_093c47/m4/20260905T161240
+ls: cannot access '...': No such file or directory        (Exit code 2)
+```
+
+agent 自己诊断对了(16:13:21.719Z):
+*「环境记录指向 GPU 节点 `crsuse2-m2m-093`(gfx950),而当前主机是 CPU 节点且
+`/mnt/m2m_nobackup` 不存在。」* 于是 16:13:24.306Z `FALLBACK=yes`,
+`W=/home/yihou/e2e_flow_093c47/m4/20260905T161324`,整个阶段在那里跑完。
+
+### 真正的缺陷:回退搬了 `$W`,没搬它的兄弟
+
+`--var scratch_root=/mnt/m2m_nobackup/yihou/e2e_flow_093c47/kfo` 原样留着。
+STEP 7 是唯一一个 agent 直接在宿主机上跑、而不是经 `run_in_container.sh` 跑的步骤,
+于是 16:16:02.767Z:
+
+```
+mktemp: failed to create directory via template
+  '/mnt/m2m_nobackup/yihou/e2e_flow_093c47/kfo/selfcheck.XXXXXX': No such file or directory
+EXIT=1
+```
+
+**这一步之前,运行已经在一个「`$W` 是真的、`$KFO_SCRATCH_ROOT` 不是」的状态里跑了
+两分半钟并产出了全部产物。** 两个路径来自同一次发车、同一个 `work_root` 前缀,
+回退只认识其中一个。
+
+### 结局:agent 自己解决了,而这恰恰是它难被发现的原因
+
+16:18:57.646Z:*「Now STEP 7,通过容器跑(宿主机写不了 `$KFO_SCRATCH_ROOT`)。」*
+16:19:00 经 `run_in_container.sh` 重跑,`kfo/` 在 093 上出现(mtime 16:19:01,
+实测)。**没有任何东西进入 phase 行,没有任何东西进入产物。**
+一次 `EXIT=1` 加一次成功重跑,事后与「它本来就没坏」是同一个观察——
+正是本文件已有的「一次成功的重试会毁掉自己的证据」。
+
+### 未解决
+
+不提修法。可记下的两点:
+- `scratch_root` 和 `work_root` 共前缀却不共回退,**要么两个一起回退,要么
+  `:?` 在开头就一起判死**,现在是「一个活一个死」。
+- STEP 7 在形状上可以在宿主机跑,在需求上只能在节点跑,**没有任何地方写着这件事**;
+  agent 是读了 `70_selfcheck.sh` 的源码才想明白的(16:16:29.918Z)。
+
+## 31. `run_in_container.sh` 找不到记录里的容器就自建临时容器 —— 第二个实例
+
+**m4 记,2026-09-05。我这一个是一手的;把它叫做「一类」的那半是 leader 给的,
+我没有核过,原样标出来。**
+
+### 我这一个(093,`p5_fullreal_093c47`,阶段 4)
+
+`--var container=yihou_m4_093c47`,包装器去找 `yihou_m4_093c47_sgl_m1deploy`,
+**m1 在本链里是真跑的,但部署完已拆除**——093 的 `docker ps -a` 里连退出记录都没有
+(实测)。于是每一次测量调用都打印:
+
+```
+run_in_container: the record's container 'yihou_m4_093c47_sgl_m1deploy' is not running.
+  Measuring in an ephemeral container of my own, 'yihou_m4_measure_<pid>',
+  from the image the record names: infera/engine-sglang:test-local-mooncake_...
+```
+
+16:14:25 / 16:14:52 / 16:15:05 / 16:15:22 / 16:15:58 / 16:19:02,**六次**。
+临时容器确实起在 093 上(093 的 `docker ps -a` 抓到过
+`yihou_m4_measure_1636179 | Up Less than a second`),所以 `transport=spur` 的跳转
+是好的——**缺的只是记录里那个容器。**
+
+**包装器的行为是对的、而且是自述的。** 它没有假装用了 m1 的容器,它说了它没用。
+
+### leader 的配对(转述,我没有核)
+
+> 与今天上午 217 上 `deploy_kit` 记着 `yihou_e2e_sgl_r5-09051134`、而那个容器
+> 并不存在,是同一个形状。两个节点、两条链、两个人。
+
+**差别我要写下来,因为它可能让「同一类」不成立**:我这一个是**记录正确、容器已
+按设计拆除**;217 那一个据描述是**记录本身指向一个不存在的容器**。
+前者是生命周期,后者是出处。**在有人拿 `store/task` 核过 217 那份产物是哪次运行
+产出的之前,「一类」只是一个待验的假设。**
+
+### 两个实例共有的、而且是真正值钱的那一点
+
+**代码把这件事喊出来了,喊进了一个没人会去读的 stdout。**
+phase 行是 `running`,产物照常产出,**「这次测量不是在记录声明的容器里做的」
+这个事实不在任何产物里。** 和条目 30 是同一个家族:
+**一个阶段的回退,属于它自己的产物,而不是只属于 stdout。**
+
+### 未解决
+
+不提修法。方向(记录,不是建议):测量类产物里带一行
+`measured_in: {container: <name>, ephemeral: true|false}`,
+消费者可以据此决定它信不信这个数。
