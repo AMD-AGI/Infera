@@ -10348,3 +10348,130 @@ is **gone** at 08:57. Brought up and torn down. **A container count taken at one
 moment cannot distinguish "never started" from "started and finished"** — which
 is precisely the correction m2 made to the leader's 08:25 diagnosis, and it
 applies to my own reading here too.
+
+---
+
+## T+2710 — 2026-09-05 09:32 UTC
+
+**Time from `NOW=$(date -u …)`, referenced as a variable** — not composed
+beside the read. That is the repair from the 09:28 repeat, applied here first.
+
+**A note on my own T-numbers:** they have drifted from wall time (T+2570→T+2620
+was 5 minutes, not 50). **The UTC stamp is the authoritative field; the T-number
+is a label.** Same class as the T-number collision readme-cn routed this hour —
+an identifier I allocate from memory rather than from a read.
+
+### 1. m2's stage went green end to end on real hardware
+
+**This is the interval's result and the first deliverable-side one in several.**
+
+**[observed] I verified the verdict, not the report of it** — run
+`20260905T081530-862477`, handoff `78032ee6`:
+
+```
+check_command_parses -> True
+check_environment    -> True
+check_trace_coverage -> True
+```
+
+**And the artefacts behind it, read directly:**
+
+```
+content/items/result/traces/1788598676.785897-TP-0.trace.json.gz   66 687 211
+                                            -TP-1.trace.json.gz   66 653 448
+                                            -TP-2.trace.json.gz   66 790 479
+content/items/result/stacks/1788598747.515271-TP-0.trace.json.gz  119 855 271
+```
+
+**Why the PASS counts, and this is m2's point:** `check_trace_coverage`
+**re-parsed the gzip and counted ranks against the manifest.** It is a read of
+the trace *contents*, not of the capture's exit path. **A `CAPTURE_OK` would
+have been an exit code** — and this file has spent all day recording why that is
+not the same thing.
+
+**The controlled pair also completed** [relayed — leader, from m2]: two no-fix
+arms dying identically at capture 2/6 after 39 spins, one pinned-treatment arm
+seeing batches in 5 s and going through. **`475f2fc` moves from candidate to
+established.** m2's argument for why n=3 suffices is the part worth keeping:
+**a confound would have to reproduce that particular transition, not merely let
+the run through.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~82 %** (+2) |
+| 已经耗时 | ~44 h |
+| 预估耗时 | **still absent** |
+| 可靠性 | **中** |
+
+**+2 on the measured event only** — one stage green on real hardware with a
+contents-level validator. **预估耗时 stays absent: no completed five-stage chain
+exists to divide by**, and that is unchanged by a single stage going green.
+
+### 3. 当前进展 — three chains
+
+```
+m5   287 c4-7   full real            launch line captured
+m4   217 c0-3   full real            launch line captured
+m3   088        launching            not yet captured
+m4   287 c0-3   optimize_kernel campaign
+m1   217 c4-7   report test
+```
+
+**Two of three launch lines are in the record with their diff** (previous
+addendum). **The third is not, and it is the one I should get next** — the value
+of the first two came entirely from having them side by side.
+
+### 4. The broken precondition — worse than "cannot fail"
+
+**[observed] I ran it.** The leader's `pgrep -af "cli.main run"` **does not
+return zero.** It returned **2**, and both hits were **the shell wrapper
+carrying the pattern text in its own argv**.
+
+```
+real runs, argv:  python3 …/assets/lib/run_with_long_stall.py --stall…
+                                    ^ no `cli.main` anywhere
+pgrep hits:       the invoking shell, which contains the string "cli.main run"
+```
+
+**So it misreads in *both* directions**: zero real lines match, and the pattern
+matches its own invocation. Run one way it says *"nothing is running"*; run
+another it says *"2 are running"*. **Neither is a measurement.**
+
+**This is m3's `--system-prompt` trap exactly** — a pattern matching the text of
+the thing doing the matching. That trap is why I parsed the two launch lines
+**positionally** from `/proc/<pid>/cmdline` rather than grepping, and it is the
+second time today the same shape has cost someone.
+
+**The leader's own account of their failure is the general one:** they had the
+alternation in the command they use, passed on the first half, and **never ran
+the version they handed out.** Attributed to them, as they asked.
+
+### 5. 未定性
+
+- **m3's third launch line** — uncaptured, and the window closes when it does.
+- **The 088 / 217 co-tenancy.** The leader's correction stands: the collision
+  window is **not** launch-to-bring-up but **the whole gap**, which reached
+  **25 minutes** — m4 launched 08:47, brought up 09:13, **one minute after m1's
+  VRAM assertion passed.** A precondition that samples once cannot cover a
+  25-minute window. Attributed to the leader's scheduling.
+- **Whether entry 15's four earlier deaths were this or something else.** The
+  09:xx instance was `aiperf_trace` absent, not entry 15. **The discriminator is
+  now known and cheap — a timestamped activity artefact — and has not been
+  applied retroactively.**
+
+### 6. 新增 commit
+
+Mine this interval: the anchor rule's third axis plus the mis-stamp correction,
+and this section. **I have not read the other owners' commits and will not
+characterise them.**
+
+### 7. 其他
+
+**The thing that changed today is what a green result means.** This morning the
+strongest evidence anyone had was a count of PASSes. **m2's green is a validator
+that re-parsed 200 MB of gzip and counted ranks against a manifest** — the first
+result in the record that is a read of contents rather than of an exit path.
+**That is the standard the remaining stages should be held to**, and it is why
+one stage is worth +2 and twenty-one PASS rows were worth retiring three times.
