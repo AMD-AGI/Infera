@@ -397,6 +397,12 @@ PASS。**这是把「它在看」和「破坏没送到」分开的那一步**—
 
 **32 条 verdict,零拒绝。** 其中 12 条是 `check_nothing`,20 条是真实 validator。
 
+> **更新(运行继续之后):不再是零拒绝。** 我重数:39 条 verdict,
+> **`check_environment` 13 PASS / 1 FAIL**,唯一一条拒绝落在 **`integration_report`**
+> 上——**那是真实 m5 产出的、这个 kind 第一件被它看过的真产物。见 §2.10。**
+> 上面的级别归档不变(判据 3 问的是「评的 kind 是否真跑出来的」,那仍然成立),
+> 但「零拒绝」这句话已经过期,保留原文并在此更正。
+
 **关键事实:`mock_stages=m2,m3,m4` ⇒ stage 1 和 stage 5 真实执行,2–4 是重放。**
 所以 §2.8 判据 3 要逐条查「它评的那个 kind 由哪个阶段产出」——**查 kind,不是查
 validator 名**:
@@ -449,6 +455,60 @@ m5 的 kit 记录 `node: crsuse2-m2m-237` 配 `node_ip: 10.245.144.69`——**�
 *(运行仍在进行,m5 的其余 kind 还会带来更多 `check_environment` /
 `check_command_parses` 的**真实**条目——那会增加计数,但不改变上面的级别归档,
 除非出现拒绝。)*
+
+## 2.10 `check_environment` 拒绝了它见过的第一件真产物 —— 而这提出一个我不该自己回答的问题
+
+**m1 发现,我逐条复核。** 同一个运行 `20260905T141058-6735d9`:
+
+```
+check_environment   13 PASS / 1 FAIL
+唯一拒绝            integration_report(真实 m5 产出)
+
+mocked integration_report (20260905T091728)  items: env report.md schema text.json  -> PASS
+real   integration_report (6735d9)           items:     report.md schema text.json  -> FAIL
+```
+
+**这是真阳性,不是 validator 的缺陷。** 真实的 m5 生产者**不写**
+`items/env/environment.yaml`;封存语料里那份也没有;**是 mock adapter 造了一个出来。**
+所以**本项目历史上这个 kind 的每一次 `check_environment` 通过,都是对着一件 mock 发明
+出来的 item 通过的——而它一见到真产物就拒绝了。**
+
+**两个会被记错的地方**(m1 的,我复核过):
+
+1. **只有 `integration_report` 失败。** `done` 行还点了 `patched.measurement` 和
+   `stock.measurement`,但我读了三份 `verdict.json`,两个 measurement 在两个 validator
+   下都是 `true`。**它们是连坐**——任务的输出集是一起判的。**记三条就多记了两条。**
+2. **严格包里这个 kind 上也挂着 `check_environment`**(`[check_environment,
+   check_no_regression]`),所以这不是 `--keep` 包的产物,**全验证运行会一模一样地撞上。**
+
+### 它提出的问题,以及我为什么不自己回答
+
+§2.8 的第 4 级判据写的是:**③ 且在 `3885050` 的负控制里拒绝过注入的故障。**
+
+`check_environment` 现在**拒绝过一件真实的坏产物**——按「已知会拒绝坏输入」这个**意图**
+来说,这比一次注入更强。但**按判据的字面**,它不在 `3885050` 里,所以它仍然是第 3 级。
+
+**我不在这里改判据。** 理由就是 §2.9 里写过的那条:判据是在结果到来之前定死的,而
+**此刻改判据的方向恰好是「让我的文件多出一个第 4 级」**——这正是预先登记要防的那种
+调整。**这是一个该由 leader 裁的问题,不是一个我顺手解决的问题:**
+
+> **一次针对真实缺陷的拒绝,能不能替代一次负控制?**
+> 支持:它证明了同一件事,而且是在真材料上。
+> 反对:负控制是**受控**的——你知道注入了什么、也知道它该拒绝什么;一次真实拒绝
+> 只证明它对**这一个**缺陷敏感,不告诉你它对别的缺陷是否敏感。
+
+**在裁决之前,`check_environment` 在本文件里仍然是第 3 级。**
+
+### 这一条同时给「不写 report」标了价
+
+`check_environment` 是**最后一个一行 report 都不写的 body**(§「零理由」:0/469)。
+这次拒绝的 escalation 只说了 *"output_validation did not pass"*,`message` 是通用的,
+`detail` 一个字段名都没点。m1 拿到那句一行的原因,花了:三次 `verdict.json` 读取、
+三个 handoff 的目录列举、两份 environment 记录的 diff(为了排除
+`compare_fixed_across_inputs`)、以及一次跨运行对比 `p4_f`——**大约十五分钟。**
+**一份 report 会立刻说「没有 `items/env/environment.yaml`」。**
+
+**这就是「不写 report」的价格,而且它恰好在这个 body 第一次真的拒绝了什么的时候到期。**
 
 ## 3. 分阶段:绿了确立什么
 

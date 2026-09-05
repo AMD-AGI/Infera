@@ -324,3 +324,54 @@ final 在 `deploy_kit is invalid`」。**store 里不是这样**:`deploy_and_pro
 **另一侧:今天有四次成功的 `check_deploy_serves` 报告**(`p4_f`、`p4_g`、`p4_h`、
 217 卡 0-3 的全链)。后两次带全部四个步骤,前两次缺步骤 3/4,因为它们早于 `01ed8dd`。
 **这也是上面那条更正的来源**:这个 body 今天从「从不写 report」变成了「会写」。
+
+---
+
+## `check_environment` 拒绝了真实的 `integration_report` —— 真阳性,不是缺陷
+
+**m1 报,我逐条复核。** 这一条不在页首的普查里(普查截止 07:30Z),单列。
+
+```
+run        20260905T141058-6735d9  (k6m1,217 卡 4-7,--package e2e-flow-keep-m1)
+形状       真实 stage 1 -> 语料中段 -> 真实 stage 5
+validator  check_environment     handoff  integration_report(真实,m5 产出)
+结果       FAIL  completeness / strong
+同run计数  check_environment 13 PASS / 1 FAIL;check_command_parses 7 PASS;
+           check_kernel_table / check_identity_resolved / check_profiling_evidence /
+           check_worklist_shape 各 1 PASS;check_nothing 15 PASS
+```
+
+**死因,跨两次运行测出来:**
+
+```
+mocked integration_report (20260905T091728)  items: env report.md schema text.json  -> PASS
+real   integration_report (6735d9)           items:     report.md schema text.json  -> FAIL
+```
+
+**真实的 m5 生产者不写 `items/env/environment.yaml`;封存语料那份也没有;是 mock
+adapter 造了一个。** 所以这个 kind 上历史上每一次 `check_environment` 通过,都是对着
+一件 **mock 发明出来的 item**;**它一见到真产物就拒绝了。**
+
+### 两处会被记错的地方
+
+1. **只有 `integration_report` 失败,不是三条。** `done` 行同时点了
+   `patched.measurement` 和 `stock.measurement`,但三份 `verdict.json` 里两个
+   measurement 在两个 validator 下都是 `true`——**它们是连坐**,任务的输出集一起判。
+   **记三条会多记两条。**
+2. **不是 `--keep` 包的产物。** 严格包里这个 kind 上同样挂着 `check_environment`
+   (`[check_environment, check_no_regression]`),**全验证运行会一模一样地撞上。**
+
+### 它给「从不写 report」标了价,而且是在最贵的时刻
+
+`check_environment` 是**最后一个一行 report 都不写的 body**(0/469,见「零理由」)。
+这次 escalation 只说 *"output_validation did not pass"*:`message` 通用,`detail` 没有
+点任何字段。m1 拿到那句一行原因的成本是**约十五分钟**——三次 `verdict.json` 读取、
+三个 handoff 的目录列举、两份 environment 记录 diff(排除 `compare_fixed_across_inputs`)、
+外加一次跨运行对比。**一份 report 会立刻说「没有 `items/env/environment.yaml`」。**
+
+**这正是「不写 report」的代价,而它恰好在这个 body 第一次真的拒绝了什么的时候到期。**
+本文件此前把它记作「至今 0/469,不写『永远』」——现在它有了第一条**值得解释而无从
+解释**的拒绝。
+
+*(级别归档的影响见 `WHAT-GREEN-ESTABLISHES.md` §2.10:这次拒绝是否能替代一次负控制,
+是一个待 leader 裁决的问题,我没有自行改判据。)*
