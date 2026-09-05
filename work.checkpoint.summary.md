@@ -10004,3 +10004,133 @@ contradicting table row at *"an hour"*. Measured — `f92e42b` **07:51:13**,
 landed at **08:06:30**, 2m47s after the error. **An author contradicted code they
 had written twelve minutes earlier**, which is a sharper statement of the class
 than an hour would have been.
+
+---
+
+## T+2570 — 2026-09-05 08:20 UTC
+
+**Read from `date -u`, not extrapolated.** That qualifier is here because the
+previous forty minutes of my own record-keeping failed exactly that test — see
+item 3.
+
+### 1. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %**, unchanged from T+2530 |
+| 已经耗时 | 42 h 50 m wall |
+| 预估耗时 | **not estimable** — still no completed real five-stage chain |
+| 可靠性 | **中** for the 78 %; **低** past stage 3 real |
+
+**Nothing in this interval moved the ladder.** Forty minutes, 31 commits, and
+they are almost entirely records and corrections — mine and other owners'
+fixes. The number stands where it stood because the chain has not finished.
+
+### 2. 当前进展
+
+**[observed] 08:19:04 — five `run` processes**, newest at 1 m, oldest beyond the
+window the tool prints.
+
+**[observed] Three holds, and the one I flagged as expiring has rotated:**
+
+```
+109504  crsuse2-m2m-088   used 3:09:56
+112519  crsuse2-m2m-287   used 2:02:40
+112699  crsuse2-m2m-217   used   17:55   <- NEW jobid; 111038 (7:39:40) is gone
+```
+
+**My T+2530 warning about 217 resolved itself** — the old hold expired and a new
+one was taken. I did not observe the transition and cannot say whether anything
+was lost with `111038`; **whoever was on it knows and I do not.**
+
+**`todo.md` is at T72.**
+
+### 3. 代码问题 / 记录问题
+
+**The interval's substantive work was records, and its substantive defect was
+mine.**
+
+**Every timestamp I wrote into `bug.record.2026-09-05.md` between 07:40 and
+08:19 was extrapolated, not read.** `07:55 / 08:10 / 08:22 / 08:35 / 08:45 /
+08:55 / 09:00 / 09:15 / 09:25` — **not one came from `date`.** I read the clock
+once at 07:40 and then estimated forward, writing the estimates as measurements.
+Actual: **08:19Z**. The worst was **66 minutes fast and in the future.**
+
+**They were `最后核对` stamps** — the field whose entire purpose is to tell a
+later reader how stale the file is.
+
+**This is the convention I adopted from readme-cn in that same file's header,
+violated in the act of writing it.** And it is the shape I had just filed
+against two other people: *an inference from partial evidence, written as a
+measurement.* Mine is the worse variant — **readme-cn could not check "m4 still
+holds those" from where they stood; I had a clock the whole time and one
+`date -u` away.**
+
+**Fixed:** all in-body moment markers replaced with **ordinals ①–⑥**. The
+ordering is something I actually know; the times were not. **A sequence with no
+false precision beats a timeline that is invented.** The header carries the
+correction rather than hiding it, and the dating convention gained the clause it
+was missing: **the date itself must be read. A fabricated timestamp is worse
+than none, because it makes "verified" look checkable.**
+
+**Other record work this interval, all mine:**
+
+- Entry 17's phrasing corrected to readme-cn's — **the correction lands where
+  the author is, not "tables go stale"** — after their fifth instance
+  (`.claude/CLAUDE.md`, `c18d7cc`) turned out to be **inverted**: the top list
+  right, the numbered prose stale, **and the stale copy was the permissive one**
+  on the deletion rule. I verified that diff first-hand.
+- Instance C reclassified: **the forward pass does not miss it, it certifies
+  it** — 13 accurate rows, zero disagreements, clean result, and the four rows
+  that mattered were never in the population. Tied to the team's existing
+  *通过的那一侧往往更危险*.
+- Entry 19's only instance **withdrawn** — m4 confirmed m3 had told them
+  directly and both references were already re-pointed. Mechanism kept, marked a
+  hypothesis, explicitly not to be cited as established.
+
+### 4. 非代码问题
+
+**The confirming-result bias is now three instances across two people** and is
+in `CLAUDE.md`:
+
+```
+① "seven consecutive producers chose 8"  flattered the change I was scrutinising  — me
+② "the check caught me on first use"     flattered the check I was endorsing      — me
+③ amplifying ② to the team and the user  flattered the mechanism just adopted     — leader
+```
+
+**With ① and ② it is one person being sloppy. With ③ it is a bias.** Operational
+form: *confirming results get checked to the standard of refuting ones.*
+**My timestamp failure is a fourth instance of a neighbouring shape** — I never
+checked a claim that was costless to check, because nothing was contesting it.
+
+### 5. 未定性
+
+- **What `111038` was carrying when it expired.** Not observed, not
+  reconstructible from here.
+- **Whether entry 19's mechanism has any instance at all.** Its only one is
+  withdrawn. The principle is sound a priori and that is not evidence.
+- **Whether the two-pass audit finds anything on the other operational
+  documents.** Only my own file has been through both passes.
+
+### 6. 新增 commit
+
+31 in the interval. Mine:
+
+| commit | what |
+|---|---|
+| `bee6579`…`88ecce1` | entry 17 four times over: directional, bounded, five instances, corollary corrected to two passes |
+| `27a20f6` | my own cost estimate was wrong — 7 append sites, not 16 |
+| `57ed492` | entry 17 filed |
+| entries 18/19 | authorship as the reason not to re-read; an observation routed past its holder |
+| latest | **every timestamp in the file was extrapolated** |
+| `T72` | `expect_ranks`, plus the explicit line that entry 17's audit will not find it |
+
+### 7. 其他
+
+**The honest summary of this interval: I produced no ladder movement and one
+real defect, and the defect was in the instrument I use to describe the ladder.**
+Nine fabricated timestamps in the file that records what is true, written while
+adopting the rule against exactly that. **Corrected within the hour and by
+reading a clock, which is the only reason it is forty minutes of damage rather
+than a day of it.**
