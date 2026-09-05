@@ -388,6 +388,68 @@ PASS。**这是把「它在看」和「破坏没送到」分开的那一步**—
 
 ---
 
+## 2.9 收敛结果,按 §2.8 的判据归档 —— **一个到了第 4 级**
+
+**run `20260905T141058-6735d9`(m1 的 k6m1),`--package e2e-flow-keep-m1`,
+`--var mock_stages=m2,m3,m4`。217 卡 4-7,与那次 78 分钟的基线同节点、同卡、同语料,
+**只改了一个变量**。运行进行中(已过 13 个 task,在 `integrate_and_verify`);
+下面是我从 `validation.yaml` 读出来的,不是从日志。**
+
+**32 条 verdict,零拒绝。** 其中 12 条是 `check_nothing`,20 条是真实 validator。
+
+**关键事实:`mock_stages=m2,m3,m4` ⇒ stage 1 和 stage 5 真实执行,2–4 是重放。**
+所以 §2.8 判据 3 要逐条查「它评的那个 kind 由哪个阶段产出」——**查 kind,不是查
+validator 名**:
+
+| validator | 评过的 kind | 真实执行? |
+|---|---|---|
+| `check_command_parses` | `patch_overlay` (m5) | **是** |
+| | `profiling_evidence`、两个 `bench_result`、`profile_result` (m2) | 否 ×4 |
+| `check_environment` | `deploy_kit` (m1)、`patch_overlay` (m5) | **是 ×2** |
+| | m2/m3/m4 的九个 kind | 否 ×9 |
+| `check_identity_resolved` | `operator_identity` (m3) | 否 |
+| `check_kernel_table` | `profiling_mode_on.kernel_table` (m2) | 否 |
+| `check_profiling_evidence` | `profiling_evidence` (m2) | 否 |
+| `check_worklist_shape` | `kernel_worklist` (m3) | 否 |
+
+### 归档结果
+
+| validator | 达到 | 为什么不是更高一级 |
+|---|---|---|
+| **`check_command_parses`** | **第 4 级** | 判据 3 由 `patch_overlay` 满足,且它在 `3885050` 的负控制集内 |
+| `check_environment` | **第 3 级** | 判据 3 满足(两个真实 kind),但**它不在负控制集里**,所以够不到第 4 级 |
+| `check_kernel_table` | 第 2 级 | 在负控制集内,但只评过重放产物 |
+| `check_identity_resolved` | 第 2 级 | 同上 |
+| `check_profiling_evidence` | 第 2 级 | 同上 |
+| `check_worklist_shape` | 第 2 级 | 同上 |
+
+**`check_command_parses` 是本包第一个到达第 4 级的 validator:在一条真实的链上端到端
+通过,并且已知会拒绝坏输入(注入语法错误、去掉可执行位,两次都拒绝,还原后通过)。
+它的这次 PASS 携带信息,而不只是「这次没反对」。**
+
+**「六个全绿」这句话是错的**——六个里只有一个到了第 4 级,一个到第 3 级,四个还在
+第 2 级。**四个停在第 2 级不是它们的问题,是这次运行没有喂给它们真实产物**:
+m2/m3/m4 被重放了。要把它们推到第 3 级,需要一次 m2/m3 真实执行的运行。
+
+### 两条必须一起读的限定
+
+**一、`check_environment` 的第 3 级是「按判据成立」,不是「有分量」。** §2.5 已经
+确立它按构造不接触任何节点(m1 grep,零 subprocess)。**leader 20 分钟前的实例**:
+m5 的 kit 记录 `node: crsuse2-m2m-237` 配 `node_ip: 10.245.144.69`——**那是 088 的
+地址**。内部自洽、被每一份下游记录继承、而且是错的,`check_environment` 会全部放过,
+因为各方一致。**这是 §6.1 的形状,又一个新鲜实例。** 所以它的第 3 级只是说「它评的
+产物是真跑出来的」,不是说「它查出了什么」。
+
+**二、判据是预先登记的,所以现在按原文用,不临时收紧。** 我可以主张
+`check_command_parses` 评的只是一个 `items/command` 脚本能不能解析、这算不算「端到端
+通过」——**但判据在结果落地之前就写死了(§2.8),而在看着第一个结果时提高门槛,正是
+预先登记要防的那件事。** 如果这条判据太松,那是另一场讨论,不能用第一个结果来悄悄
+解决。
+
+*(运行仍在进行,m5 的其余 kind 还会带来更多 `check_environment` /
+`check_command_parses` 的**真实**条目——那会增加计数,但不改变上面的级别归档,
+除非出现拒绝。)*
+
 ## 3. 分阶段:绿了确立什么
 
 ### m1 deploy —— 确立得最扎实的一个阶段
