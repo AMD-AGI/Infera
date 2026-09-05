@@ -1,7 +1,7 @@
 # `agent_sys` 框架 bug 记录 — 合并版
 
 生成于 2026-09-05T06:05Z。合并 `temp/bugs/` 下 **15** 份原始记录,原件保留不动。
-**最后核对:2026-09-05T10:05Z**(`date -u` 实读,**22 条**;第 17 条 **5 个实例**,
+**最后核对:2026-09-05T11:32Z**(`date -u` 实读,**23 条**;第 17 条 **5 个实例**,
 措辞按「作者在哪」;正向趟对缺席型缺陷是**平凡通过**;第 19 条实例已撤回)。
 
 > ### ⚠ 本文件此前的所有时间戳都是我**推算**的,不是读表得到的
@@ -90,6 +90,7 @@
 | 20 | 报告只列 1、2、4,读起来却是完整的;`_note` arity 埋在 except 里 | `check_deploy_serves.validator/check.py` | **m1 已修 `01ed8dd`,类别未扫** |
 | 21 | spur 控制面连不上 —— 第二次;重试会销毁自己的证据 | 环境 / 产物要求 | **未修,计数 2** |
 | 22 | 仪器可用却没跑,而且**有理由**——理由是证据的反面 | 流程 | **已纠正,类别未扫** |
+| 23 | 程序 body 非零退出:**有输出时被丢弃记为 succeeded**,无输出时无法上报 | `runner.py` `_seal_outputs()` 先于 `_gate()` + 第 6 条 | **未修,已绕过** |
 | — | ~~stall detector 会掐掉在干活的 task~~ | `cli/main.py:1015` | **已撤回** |
 | — | ~~program task 标记 running 但没有 program~~ | `task_graph/scheduler.py:265` | **已解决,标题是错的** |
 
@@ -1303,3 +1304,64 @@ leader     不读 capture.log                  区别:有东西在质疑——
 而 `CLAUDE.md` 已经背了太多这一层的东西。**记在本文件即可。**
 
 **状态**:已发生,已纠正(产物已读,读数已翻)。**类别未扫。**
+
+---
+
+## 23. 程序 body 非零退出:**有输出就被记成 succeeded**,没输出则无法上报
+
+**来源:readme-cn,独立记录 `2a5b4e8`
+(`…a-failing-program-task-is-recorded-succeeded-when-its-outputs-exist.md`,149 行)。
+本表只放索引行与要点;**细节以那份文件为准,不在这里复述。**
+提交与代码位置我第一手核过。**
+
+**机制不是新的,是 m4 的**(`…a-failed-body-has-its-debris-sealed-and-validated-and-says-nothing.md` §1):
+`agent/runner.py` 里 `_seal_outputs()` **先于** `_gate(result)`,
+源码注释自己写着 *"Before the gate, and that ordering is the whole ruling.
+The gate asks whether an output exists; the seal is what makes it so."*
+**(用锚点不用行号:这一行今天已经漂过。)**
+
+**新的是「在 `check_nothing` 下的后果」**:
+
+```
+m4 的场景   validator 开着   三个 strong 拒绝抓住了残骸
+本条场景    -noval           没有兜底 → task 记为 succeeded
+```
+
+**实测(readme-cn,`20260905T110109-b2e7af`)**:`deploy_and_prove`
+`outcome: succeeded`、11.0 s、`deploy_kit v1` 已交付,**而它自己的 body 日志里
+写着一次拒绝**,登录节点上独立复现该拒绝为 **rc=3**。
+**那次运行有四个 body 失败,三个被记成成功**——因为 `mock.sh` 已经把它们的输出
+拷过去了。唯一冒头的是 `merge_profiling_evidence`(它**构建**输出而不是拷贝),
+**而它的 escalation 无处投递**——*"the executor is a program body: there is no
+agent to instruct"*,**即第 6 条**。
+
+### 为什么保留为独立文件而不是并进 m4 那份(我的判断,readme-cn 问的)
+
+**保留独立,加双向链接。** 判据不是「是不是同一个机制」——是同一个;
+判据是**谁会去读哪一份**:
+
+> 一个正在跑 `-noval` 调试的人,**不会**因为标题写着
+> *"a failed body has its debris sealed and validated"* 就去打开那份文件。
+> 而这一条正是他必须知道的。
+
+**并进去,第二个后果就被埋在一个讲第一个后果的标题底下。**
+和第 20 条同一处理:**同源、不同后果、分开记、互相指。**
+
+**但拆开就有第 17 条的风险**(两份文档各自自洽,只有同时打开的人看得见全貌),
+**所以双向链接是这个决定的前提条件,不是装饰**。
+**m4 那份里的反向链接归 m4 加**——我不动别人的记录。
+
+**gitignore 一事**:`temp/` 被忽略,而现存 19 份记录**全部**已跟踪,
+所以对单一路径用 `git add -f` **是照着房规做,不是绕过它**。记在这里,
+免得下一个人把它当成一次越权。
+
+**状态**:未修,已绕过。**「`-noval` 跑通」不能证明什么**——见下。
+
+### 对 `WHAT-GREEN-ESTABLISHES.md` 的连带后果(readme-cn 自己会补)
+
+**一次 `-noval` 的运行,分不清「走通了」和「走过了四次静默失败」。**
+
+**这还把我和 readme-cn 早先谈定的「普查 vs 控制」配对推进了一步**:
+当每个 validator 都被换成 `check_nothing`,**普查照样在数调用次数,
+而每一次都是 `check_nothing` 的 PASS**——
+**于是「调用数」和「拒绝数」分家,只有后者还有意义。**
