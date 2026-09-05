@@ -9313,3 +9313,93 @@ set that had been failing.** Both arms then released in STEP 7's shape and
 
 **m1's own caveat is kept:** they measured **VRAM occupancy, not a `ready`**. So
 *came up* is what the evidence supports, not *served*.
+
+### Addendum, 06:20 UTC — reconciling the two ledgers, and the third answer is the important one
+
+The leader asked three questions of `bug.record.2026-09-05.md` (13 framework
+entries) against `validator.failures.2026-09-05.md` (37 rows, 11 validators).
+**Not merged; reported.**
+
+### Q1 — rows in the failure ledger that are framework bugs wearing a validator's name
+
+**Five rows, and they are the strongest case: `check_deploy_serves` ×3 and
+`check_environment` ×2 left no `validator_report.txt` at all.** The ledger
+records that they failed and cannot say why. **The reason is unrecoverable
+*because of* bug-record entry 2** — a validator's stdout is not kept anywhere.
+So those five rows are simultaneously rows in their ledger and evidence for mine.
+
+**Two more candidates, flagged not claimed:**
+
+- **`check_workset_runs` ×7** — the recorded reason is the mount-derivation
+  refusal. **I established at 17:06 yesterday that the `-v /home:/home denied`
+  text in that family is a *catalogue row* inside `measure_in_container.sh`'s
+  refusal branch, not a live daemon denial.** If the captured tail is reference
+  text rather than an event, the stated reason for seven rows is not the cause.
+  **readme-cn's audit will settle it; I am not pre-empting them.**
+- **`check_workset_shape` ×3** — *"workset.yaml does not load: No such file or
+  directory: …/zones/…"*. A file the validator expected in its zone was absent.
+  Producer defect or zone materialisation; **unresolved either way.**
+
+### Q2 — my entries whose evidence is one layer removed
+
+- **Entry 2 (validator stdout not kept) — evidence is an *absence*:** five
+  failure rows with no report. That is inference from missing files, not from a
+  read artefact, and the entry should say so. **Corrected in the record.**
+- **Entry 5 (a command's error text in an artefact field) was seen through a
+  PASS, not a refusal** — which makes it Q3's class, in my ledger only because
+  somebody opened the artefact.
+- **Entries 1, 3, 4, 6, 7 are direct** — event store or `agent_sys` source read
+  at the cited line. No layer between.
+
+### Q3 — what is in neither, and it is enumerable
+
+**Ten of twenty-one validators have never failed. All ten have run.**
+
+```
+check_command_parses      107 invocations   0 failures
+check_kernel_table         30               0
+check_identity_resolved    26               0
+check_profiling_evidence   26               0
+check_worklist_shape       26               0
+check_acceptance            5               0
+check_bench_report          5               0
+check_overlay_applies       5               0
+check_patch_live            5               0
+check_packup_shape          1               0
+```
+
+**A failure ledger is structurally silent on all ten**, and for each of them
+`0 failures` is ambiguous between *it passed good artefacts* and *it cannot
+fail*. **Neither file distinguishes those, and neither is capable of it.**
+
+**One concrete instance, measured, in neither ledger:**
+**`check_command_parses` — 107 invocations, 0 failures — emits `PROBLEM:` lines
+under a `passed` heading**, 7 of them across 5 reports whose verdict was true.
+`write_report`'s headings are `passed` / `REFUSED` / `DID NOT RUN`, and
+`PROBLEM:` is the marker for a finding that *refuses*. **Either it labels notes
+as problems, or it finds problems and passes anyway.** Not in the failure ledger
+(it never failed); not in the bug record (it is routed to the leader as a package
+question). **This is exactly the shape m5 named.**
+
+**Four more of the same class, none in either file:**
+
+- `check_invariant` — **412 of 417 records skip it**; it grades almost nothing.
+- `accept_mock.py` — three passes before its first refusal; **unfalsified rather
+  than tested**, and only visible once it finally refused.
+- `e390abb`'s ceiling criterion — **has never had to refuse anything**, so it is
+  not yet observed to constrain anything.
+- m1's `e8153f8` — read the wrong metric key and **fell silently back to a
+  constant**, producing a plausible floor. Caught by the leader against the real
+  artefact, not by any check.
+
+**The gap, stated so neither file assumes the other holds it:** *a defect that
+produces a PASS cannot appear in a failure ledger, and appears in a bug record
+only if somebody independently opened the artefact.* **Both of today's files are
+blind to the same class, and the blindness is structural rather than an
+oversight in either.**
+
+### One state change found while counting
+
+**`check_packup_shape` has now run once.** It was the last validator never to
+have produced a verdict. **All 21 have now spoken** — the metric I retired at
+T+1330 for saturating has, in fact, saturated.
