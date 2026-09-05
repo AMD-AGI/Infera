@@ -279,12 +279,84 @@
 #
 # Each line is ONE task that brings its own service up, loads it, and tears it
 # down. That is not a simplification; it is M2.5.
+# --------------------------------------------------------------------------- #
+# The ai agent for this stage, so `--var m2_agent=e2e_profiler` has something to
+# name. Every other module had one; m2 had three switch points and nothing to
+# switch to.
+#
+# **Defined here rather than in `shared.yaml`.** The leader asked for
+# `shared.yaml`; all four existing ai agents live in their own step file
+# (`m1_deploy.yaml:325`, `m3_analysis.yaml:390`, `m4_kernel_opt.yaml:458`,
+# `m5_integration.yaml:592`) and `shared.yaml` holds only `runner`. Copying the
+# convention the maintainers converged on rather than starting a second one;
+# flagged rather than done silently.
+#
+# **Declaring `env` here does NOT make this switch safe**, and the gap is the
+# point rather than a caveat. `agent/runner.py:801`: *"an env var cannot
+# instruct an agent. A conversation is not a process reading os.environ."* So
+# every guard below is reachable, and only the ones the task's `readme.md`
+# STATES are actually applied. Audited 2026-09-05 — three are named nowhere in
+# any of this stage's three briefs:
+#
+#     AIPERF_TRACE      0 mentions   the var whose absence killed a run today
+#                                    (`aiperf_replay.sh:38`, `${AIPERF_TRACE:?}`)
+#     gpu_devices       0 mentions   the seventh kit variable and its three-branch
+#                                    precedence (`line.sh`, `03e3bae`)
+#     replayed_from     0 mentions   provenance carried into the numbers, not a message
+#
+# Until those are in the briefs, promoting this stage loses them silently —
+# they do not degrade, they disappear. See the note on each task.
+- module: agent
+  name: e2e_profiler
+  kind: ai
+  version: '1'
+  description: Brings its own service up from m1's kit, loads it twice — profiler detached and attached — and folds both into one evidence handoff.
+  env:
+    # The allocation. As m3 says of theirs, the bodies do not trust these over
+    # the handoff: `line.sh:193` refuses when the kit's `fixed.node` disagrees
+    # with the ambient `E2E_NODE`, and the record wins where both exist.
+    E2E_JOBID: '${jobid}'
+    E2E_NODE: '${node}'
+    E2E_NODE_IP: '${node_ip}'
+    E2E_TRANSPORT: '${transport:-auto}'
+    # Byte-identical to `runner`'s line and to m1's, m3's and m5's — the `:-`
+    # form, which m5 measured fills a present-but-empty variable in both shells.
+    E2E_REMOTE_HOME: '${remote_home:-}'
+    # **The one that killed a run.** `aiperf_replay.sh:38` is `${AIPERF_TRACE:?}`
+    # and `shared.yaml:136` says an operator who passes no `--var aiperf_trace=`
+    # gets a loud failure. Both profiling lines read it; there is no second var.
+    E2E_AIPERF_TRACE: '${aiperf_trace:-}'
+    E2E_AIPERF_IMAGE: '${aiperf_image:-nvcr.io/nvidia/ai-dynamo/aiperf:0.12.0}'
+    # The bring-up this stage performs itself (M2.5). `E2E_PORT_ROUTER` is the
+    # base the kit SEARCHES FROM, never the port to load against — `025d84c`.
+    E2E_CONTAINER: '${container:-yihou_e2e_flow}'
+    E2E_PORT_ROUTER: '${port_router:-8101}'
+    E2E_WORK_ROOT: '${work_root:-/mnt/m2m_nobackup/yihou/e2e_flow}'
+    E2E_GPU_DEVICES: '${gpu_devices:-none}'
+    E2E_MODEL_NAME: '${model_name}'
+    E2E_MODEL_PATH: '${model_path}'
+    E2E_MOCK_ROOT: '${mock_root:-/shared_nfs/yihou/agent_sys/cheat_for_mock}'
+    E2E_MOCK_STAGES: '${mock_stages:-}'
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
 - module: task
   name: run_profiling_mode_off
   description: Bring the service up with CUDA graph on, run the load with no profiler, tear it down.
   # ------------------------------------------------------------------------- #
-  # **`agent: runner` is literal here and in the two closures below, and it must
-  # stay that way. Do not make it `${m2_agent:-<an ai>}`.**
+  # **`${m2_agent:-runner}` — switchable, and the default is byte-identical to
+  # what this was.** Until 2026-09-05 this read `agent: runner` literally with a
+  # note saying never to change it. The note's reasoning was right and is now
+  # stated as a cost rather than a prohibition, because the user wants the flip
+  # available during bring-up: an ai agent absorbs small handoff-shape
+  # differences that would otherwise fail a run outright.
+  #
+  # **What you lose the moment you pass `--var m2_agent=e2e_profiler`**, audited
+  # against all three briefs on 2026-09-05: `AIPERF_TRACE`, `gpu_devices` and
+  # `replayed_from` appear in **no** readme in this stage, so an agent is never
+  # told about them. They do not degrade — they disappear.
   #
   # That edit is the natural tidying for someone to do: m1, m3, m4 and m5 all
   # read `agent: '${mN_agent:-…}'` (`m1_deploy.yaml:325`, `m3_analysis.yaml:390`,
