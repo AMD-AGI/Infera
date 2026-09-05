@@ -1,7 +1,7 @@
 # `agent_sys` 框架 bug 记录 — 合并版
 
 生成于 2026-09-05T06:05Z。合并 `temp/bugs/` 下 **15** 份原始记录,原件保留不动。
-**最后核对:2026-09-05T09:28Z**(`date -u` 实读,**19 条**;第 17 条 **5 个实例**,
+**最后核对:2026-09-05T09:38Z**(`date -u` 实读,**19 条**;第 17 条 **5 个实例**,
 措辞按「作者在哪」;正向趟对缺席型缺陷是**平凡通过**;第 19 条实例已撤回)。
 
 > ### ⚠ 本文件此前的所有时间戳都是我**推算**的,不是读表得到的
@@ -82,7 +82,7 @@
 | 12 | 两个 `copy_out`,docstring 承诺了另一个的保证 | `env_mgr/grants.py:177` | **未修复(文档问题)** |
 | 13 | 在 Slurm 计算节点上跑 `agent-sys` 的三个坑 | 环境,非代码 | **已绕过** |
 | 14 | 等待步骤等的是**另一个 package** 的日志 | `assets/load/capture.sh` 等 | **m2 已修 `475f2fc`,类别未扫** |
-| 15 | 三条 profiling 线在二十分钟内死亡 | 未定 | **占位,原因未定** |
+| 15 | ~~三条 profiling 线死亡~~ **前提证伪:被 900s stall detector 有序终止** | 第 6 条 + `--stall-after` | **已定性** |
 | 16 | 后台命令没停,继续写我截断复用的文件 | 工具链,非 `agent_sys` | **未修(操作纪律)** |
 | 17 | 更正落在作者当时在的地方,不在指令处 | 文档,非代码 | **五实例已修,类别未扫** |
 | 18 | 从自己写过的东西的**记忆**下笔,作者身份成了不重读的理由 | 文档/流程 | **实例已修,类别未扫** |
@@ -521,7 +521,62 @@ leader 已请 m3 在自己的 stage 里扫同一形状。
 
 ---
 
-## 15. 三条 profiling 线在二十分钟内死亡 —— 原因未定,占位
+## 15. ~~三条 profiling 线在二十分钟内死亡~~ —— **前提被证伪:它们没有死**
+
+> ### 已定性(09:40,读日志得出,`p4_a` / `p4_b` / `p4_b_m1real` / `p4_m4real_060938`)
+>
+> **四条全部不是「死亡」。四条**全部**被 900 秒 stall detector 有序终止。**
+>
+> 四个日志尾部**完全同形**,逐条实测:
+>
+> ```
+>                        stall900  escalation  run_complete  FAIL行
+> p4_a                      1          1            1          0
+> p4_b                      1          1            1          0
+> p4_b_m1real               1          1            1          0
+> p4_m4real_060938          1          1            1          1
+> ```
+>
+> **`p4_a.log:52` 原文**:
+>
+> ```
+> done  main is waiting on a decision no one will make — the escalation reached
+>       the top and this entry point installs a sink that records and does not
+>       answer (nothing to push: the attempt holds no executor: it is not in its
+>       main phase). Nothing has changed for 900 s; still in a phase:
+>       m2_profiling:running, main:running, run_profiling_mode_on:running
+> ```
+>
+> **然后是有序收尾**:`done run complete; … the run did NOT finish: …
+> 0 validation(s) dropped`。**「run complete」是 runner 自己正常退出。**
+>
+> #### 这把本条的观察和推断拆开了
+>
+> **观察是对的**:分配持有、stage `running`、零丢弃、进程活着。
+> **推断是错的**:那不是「看起来活着其实死了」,**那就是活着**——
+> 它是**卡住**,然后**按设计被停掉**。
+> **我自己的存活探针当时读成「活着」,是读对了。**
+>
+> #### 归属:这是已记条目的组合,不是新缺陷
+>
+> - **第 6 条**(escalation 到顶无人接收,`monitor/base.py:731`)——日志原文点名
+>   *"installs a sink that records and does not answer"*。
+> - **`--stall-after` 的双刃**(`CLAUDE.md`):900 秒是折中,够一次冷启动
+>   (实测 222/232 秒),这里它按预期开火了。
+>
+> **900 秒里为什么没有进展,本条不下结论**——leader 的要求是**定性,不解决**,
+> 而「被 stall detector 停掉」和「为什么会 stall」是两个问题。
+>
+> #### 最该记住的一条:证据一直在登录节点上
+>
+> **我以为需要节点上 `deploy.log` 里的 `started_at` 才能分辨**,
+> **实际上四个 run 日志的倒数第二行就写着答案**,而且这些日志
+> **从头到尾都在 `/home/yihou/` 下,一直可读**。
+> 没有任何东西不可恢复,**我们只是没读到最后一行的上一行。**
+>
+> **`p4_m4real287_064656` 不属于本条**:四项指标全 0,是另一种结束方式。
+
+**以下为原始记录,保留供追溯。**
 
 **这不是 validator 失败,所以不在 `validator.failures.2026-09-05.md` 里。**
 `0 validation(s) dropped`,没有任何拒绝,分配仍然持有,stage 仍是 `running`。
