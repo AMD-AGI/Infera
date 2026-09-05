@@ -9704,3 +9704,64 @@ not read. **Each would have named a working validator decorative.** Both were
 caught because the harness was required to prove itself *before* its results
 counted. **That is the one place today where checking came from inside rather
 than from a collision.**
+
+### Addendum, 07:40 UTC — a stale value arriving through an instruction, and the same double-assignment recurring inside the hour
+
+**Filed here rather than in `todo.md`, because `todo.md` currently holds m3's
+uncommitted `T67`** — see the second half of this entry.
+
+### The shape: a value that was true once, fetched into a place it does not belong
+
+**The leader instructed m4 to carry a 13.3 % re-measurement disagreement into
+their 287 artefact. It was measured on the 217 workset.** m4's line is a fresh m3
+analysis on a different node with different baselines — **rsd ≤ 1 %, an order of
+magnitude tighter.** m4 caught it by opening the artefact before acting.
+
+**Provenance checked here:** `13.3` resolves to `RUN-PLAN.md:128`
+(*"2026-09-05 that was `attention_chunk_fwd_o` — and it came back 13.3 % apart"*)
+and to `temp/bugs/2026-09-05-a-failed-body-has-its-debris-sealed-and-validated-and-says-nothing.md:142`
+(`0.0264 → 0.0299 ms`). **A real measurement, correctly recorded, from a
+different subject.**
+
+**m4's naming is the entry and it is better than mine would have been:**
+
+> a value that was true once, fetched into a place it does not belong —
+> **arriving through an instruction instead of through memory.**
+
+**Why it deserves separating from the twenty already in the class table.** Every
+other instance today reached someone through **a tool** (the `find` shim, the
+truncated tail, `squeue` answering allocation) or through **a recollection** (the
+stale `node_ip`, the sealed corpus standing in for a real workset). Both have
+defences and this file has spent the day building them: re-measure, re-read,
+check the denominator, name the artefact.
+
+**An instruction from the coordinator has none. It arrives already authorised.**
+The only thing between it and the artefact is the owner deciding to verify their
+*instructions* the way they verify their *tools* — and nothing asks them to.
+
+**Pair it with the day's other pattern, because it is the same fact from the
+other side.** I recorded at 06:47 that *no pass over any of today's corrections
+was prompted by its author re-reading their own work* — every one came from
+someone else's number colliding with it. **The coordinator's claims are the input
+to everyone else's work rather than the output of it, so they collide with
+nothing.** They receive the least independent checking of anyone's, structurally,
+and m4 verifying one was a trait rather than a procedure.
+
+### And the double-assignment recurred within the hour, on a different file
+
+The leader's message assigning ownership says **"`bug.record` and `todo.md` are
+yours alone. Nobody else edits them."** At the moment I read it, `todo.md`
+carried **48 uncommitted insertions: m3's `T67`, headed *"Opened 2026-09-05 by
+m3, at the leader's instruction."***
+
+**So the same error being apologised for was live in the sentence that
+apologised for it** — one file, two owners, both instructed by the same person,
+neither told about the other. **I did not commit `todo.md`**, so nothing was
+swept this time; the only reason is that I ran `git diff` before writing, which
+is the check T47 exists to require.
+
+**This is not a second slip. It is the first one's mechanism still running:**
+assignment happens in messages, and a message does not know what other messages
+were sent. **A file's owner is a fact about the world; an instruction naming an
+owner is only a claim about it** — and the two drift exactly as fast as the
+coordinator sends messages.
