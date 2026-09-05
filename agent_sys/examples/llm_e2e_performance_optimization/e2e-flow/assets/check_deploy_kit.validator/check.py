@@ -619,8 +619,24 @@ def check_runtime_contract(contract: dict, scan_rule: dict, roots: dict[str, Pat
     if not base.is_dir():
         return []
 
+    # **`scripts/stub/` is excluded, and the gate is what found this.**
+    # A replayed kit carries a stub deployment beside its real scripts, for
+    # `check_deploy_serves` alone (`mock_adapt.sh`, 2026-09-05). The stub honours
+    # the contracted parameters — it was written to — so scanning it makes the
+    # kit's *real* scripts unnecessary: a kit whose own `env.sh` ignores every
+    # parameter would pass on the strength of a fixture sitting next to it.
+    #
+    # Measured the moment the stub moved out of `scripts/` and into
+    # `scripts/stub/`: planted fault 11 stopped firing, because the validator
+    # found `E2E_KIT_ENGINE_EXTRA_ARGS` in `scripts/stub/deploy.sh` after it had
+    # been stripped from `scripts/env.sh`. **The parameter was satisfied by
+    # something that is not the kit's contract surface** — correct by position,
+    # which is the failure this whole layout exists against.
+    STUB_DIR = "stub"
     seen: set[str] = set()
     for path in sorted(p for p in base.rglob("*") if p.is_file()):
+        if STUB_DIR in path.relative_to(base).parts:
+            continue
         text = read(path)
         if text is not None:
             seen.update(PARAMETERISED.findall(text))

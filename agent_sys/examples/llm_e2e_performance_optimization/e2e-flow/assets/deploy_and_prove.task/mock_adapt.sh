@@ -192,42 +192,60 @@ fi
 # serve from means the `gpu_hours` validator is **exercised** in every mock run,
 # passes only by earning it, and grades a kit the record already says is mocked.
 #
-# The sealed entrypoints are **kept, not deleted** — moved to `scripts/sealed/`,
-# where a reader can still see byte for byte what the real bring-up ran. Losing
-# them would make the mocked kit a worse record than the sealed one it came from,
-# which is the opposite of an adaptation.
+# **The stub goes BESIDE the kit's scripts, never over them** — leader's ruling
+# 2026-09-05, and it reverses what this block used to do.
 #
-# And it is said out loud in the kit itself, not only here: a reader who opens
-# the mocked kit must not mistake a stand-in for the deployment.
+# It used to `mv` the real entrypoints to `scripts/sealed/` and write the stub
+# into `scripts/`. That satisfied the one consumer it was for —
+# `check_deploy_serves`, which must run `deploy.sh` to prove the kit serves and
+# on a *mocked* stage would otherwise pay a full bring-up — by lying to every
+# other reader of the same path. Measured on rung 2h: m2's `mode_on` came up in
+# **1 second** against `stub_…_pmon`, probed 404 and exited 1. Nothing was
+# broken; the swap did exactly what it said, and "cheap for the validator" and
+# "true for the consumer" were the same file.
+#
+# They are now two files. The kit keeps its real entrypoints, the stub lives at
+# `scripts/stub/`, and the validator is pointed at it by the parameters it
+# already had — `deploy_entrypoint` / `teardown_entrypoint`
+# (`m1_deploy.yaml:245-246`, confirmed present in a real run's `args.json`).
+# **No new plumbing, and `scripts/sealed/` stops being needed** because nothing
+# is displaced.
 STUB="$PKG/assets/check_deploy_serves.validator/stub_kit"
 [ -d "$STUB" ] || { echo "mock_adapt: no stub kit at $STUB" >&2; exit 1; }
 
-if [ ! -d "$PACKUP/scripts/sealed" ]; then
-  mkdir -p "$PACKUP/scripts/sealed"
-  for f in deploy.sh wait_ready.sh teardown.sh; do
-    if [ -f "$PACKUP/scripts/$f" ]; then mv "$PACKUP/scripts/$f" "$PACKUP/scripts/sealed/$f"; fi
-  done
-fi
-cp "$STUB"/deploy.sh "$STUB"/wait_ready.sh "$STUB"/teardown.sh    "$STUB"/stub_env.sh "$STUB"/stub_router.py "$PACKUP/scripts/"
-chmod +x "$PACKUP/scripts"/deploy.sh "$PACKUP/scripts"/wait_ready.sh          "$PACKUP/scripts"/teardown.sh "$PACKUP/scripts"/stub_router.py
+mkdir -p "$PACKUP/scripts/stub"
+cp "$STUB"/deploy.sh "$STUB"/wait_ready.sh "$STUB"/teardown.sh    "$STUB"/stub_env.sh "$STUB"/stub_router.py "$PACKUP/scripts/stub/"
+chmod +x "$PACKUP/scripts/stub"/deploy.sh "$PACKUP/scripts/stub"/wait_ready.sh          "$PACKUP/scripts/stub"/teardown.sh "$PACKUP/scripts/stub"/stub_router.py
 
 if ! grep -q 'MOCKED DEPLOYMENT ENTRYPOINTS' "$PACKUP/notes.md"; then
   cat >> "$PACKUP/notes.md" <<'EOF'
 
-## MOCKED DEPLOYMENT ENTRYPOINTS — read this before trusting `scripts/`
+## `scripts/stub/` — what it is, and who it is for
 
-`scripts/deploy.sh`, `wait_ready.sh` and `teardown.sh` in this copy are
-**stand-ins**, installed by `mock_adapt.sh`. They bring up a small HTTP server
-that answers the deployment's probe set and **serve no model**. Every number
-this kit could produce through them is meaningless.
+**`scripts/` is untouched and real.** `deploy.sh`, `wait_ready.sh` and
+`teardown.sh` are the entrypoints the 2026-09-02 bring-up ran, byte for byte, and
+a consumer that runs them is running the real thing.
 
-The entrypoints the real 2026-09-02 bring-up ran are kept, byte for byte, under
-`scripts/sealed/`. Everything else in this kit — `results/`, `logs/`, the other
-scripts, `environment.md` — is the sealed run's own and is untouched.
+`scripts/stub/` is a **stand-in for one reader only**: `check_deploy_serves` must
+execute a `deploy.sh` to prove the kit serves, and on a *mocked* stage 1 doing
+that for real would pay a full bring-up and defeat the mocking. The stub brings
+up a small HTTP server that answers the probe set and **serves no model**. Every
+number produced through it is meaningless.
 
-A validator passing against this copy has shown that the validator works. It has
+**It is reached by parameter, not by path** — a mocked run passes
+`--var deploy_entrypoint=scripts/stub/deploy.sh` and
+`--var teardown_entrypoint=scripts/stub/teardown.sh`. **Nothing else should point
+at `scripts/stub/`.** If you are not `check_deploy_serves`, you want `scripts/`.
+
+This replaces an earlier arrangement in which the stub was written *over*
+`scripts/` and the originals moved to `scripts/sealed/`. That satisfied the
+validator by lying to everyone else: rung 2h's `profiling_mode_on` came up in
+1 second against the stub, probed 404 and exited 1. There is no `scripts/sealed/`
+now because nothing is displaced.
+
+A validator passing against the stub has shown that the validator works. It has
 **not** shown that a model was served.
 EOF
 fi
 
-echo "mock_adapt: ${PACKUP##*/} now carries codes/environment.yaml, the runtime contract, and stub entrypoints (sealed originals under scripts/sealed/)" >&2
+echo "mock_adapt: ${PACKUP##*/} now carries codes/environment.yaml, the runtime contract, and a stub kit at scripts/stub/ (scripts/ left real -- point check_deploy_serves at the stub with --var deploy_entrypoint)" >&2
