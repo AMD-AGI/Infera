@@ -3392,36 +3392,72 @@ deliverable today.
 
 ---
 
-### T69 — `identify` writes no `-fellow` tag, and the generator read one
+### T69 — `identify` leaves `fellow` empty for most operators, and two producers write the tag
 
 *Opened 2026-09-05 by m3 at the leader's instruction. The unblock is landed;
 this is the root, filed separately so the workaround does not close it.*
 
-**`forge_export.py:_fellow` looked for a Definition tag ending in `-fellow`.**
-The tags `identify` writes are bare language names — measured on real workset
-`91ea967b`: `['attention', 'linear-attention', 'triton', 'gated-delta-rule']`.
-So nothing ever matched, the `generic-fellow` fallback was **the only branch
-for every operator in every real workset**, and `generic` is not a backend
-KernelForge registers. `cli.py`'s `--fellow` help says in as many words that
-unsupported fellows fall back to `flydsl-fellow` — so a Triton attention kernel
-was being optimised by the FlyDSL fellow, with a warning as the only trace.
+**This entry's original diagnosis was wrong and is corrected here.** It said
+*"the tags `identify` writes are bare language names"*, inferred from workset
+`91ea967b`'s Definitions carrying
+`['attention', 'linear-attention', 'triton', 'gated-delta-rule']`. Reading a
+real `operator_identity` — run `20260905T074905-9ec798`, 287 — shows the
+opposite: **`identify` writes a suffixed `fellow`** (`identify.py:547`), and
+`scaffold.py:264` copies it straight into the Definition's tags. The original
+`_fellow`, matching a tag ending in `-fellow`, was **correct by design**.
 
-**Mock never showed it**: the injected material carried the suffixed spelling,
-so the mock path took the branch the real path cannot reach. Another instance
-of the mock exercising code the real run does not.
+**What actually happens, measured on that run's five operators:**
 
-**Landed (`62032fc`, `f92e42b`), and that is the workaround, not the fix.** The
-generator now reads the bare language names, validates against
-`fellows/constants.py`, and refuses instead of substituting. **The defect is
+```
+k004  fellow=''            lang='unknown'   @SGLANG_ROOT@
+k014  fellow=''            lang='unknown'   @SGLANG_ROOT@
+k015  fellow=''            lang='unknown'   @SGL_KERNEL_ROOT@
+k018  fellow='ck-fellow'   lang='ck'        @AITER_ROOT@
+k024  fellow='triton-fellow' lang='triton'  @SGLANG_ROOT@
+```
+
+**`identify` resolves the language for 2 of 5 and leaves the rest empty**, and
+`scaffold` then writes no fellow tag at all for those three — `[t for t in (...)
+if t]` drops it. So the fallback fired **because the value was absent, not
+because the spelling disagreed**.
+
+**And there are two producers of the Definition, with different vocabularies.**
+`91ea967b`'s bare-language tags are not `scaffold`'s shape
+(`op_type, precision, fellow`) — `build_workset` is `kind: ai`, so **the agent
+wrote those Definitions**, in its own vocabulary. `scaffold` writes suffixed,
+the agent writes bare, and nothing reconciles them. That part of the original
+entry stands: **two producers disagreed and nothing compared them** — just not
+the two producers it named.
+
+**The mock is a third vocabulary and the worst of them.**
+`mock_adapt.py:451` hard-codes `"tags": ["softmax", "sglang", "generic-fellow"]`
+— a literal name KernelForge does not register. Before `62032fc` that flowed
+through untouched. So mock did not merely fail to show the defect; **the mock
+corpus is where `generic-fellow` comes from in the first place.**
+
+**Landed (`62032fc`, `f92e42b`), and it is better than the wrong diagnosis
+deserved.** The generator accepts **both** vocabularies — suffixed from
+`scaffold`, bare from the agent — validates against `fellows/constants.py`, and
+refuses instead of substituting. It would have been correct under either
+diagnosis, which is why the wrong one survived a landing. **The defect is
 that two producers disagreed about a spelling and nothing compared them.**
 `identify`'s taxonomy also offers `tilelang-fellow`
 (`assets/lib/kernel_taxonomy.yaml:129`), which is not a KernelForge backend
 either — that row can never be honoured and now refuses.
 
-**What would actually close it:** one declared vocabulary for the language tag,
-read by `identify` when it writes and by `forge_export` when it reads, with the
-backend set validated against KernelForge's own constants at build time rather
-than at campaign time.
+**What would actually close it, revised:** (a) find out why `identify` reports
+`lang='unknown'` for three operators including two Triton files it resolved to
+a source path — that is the real gap, and it is upstream of every vocabulary
+question; (b) one declared vocabulary shared by `identify`, `scaffold`, the
+agent's brief and `mock_adapt`, validated against KernelForge's constants at
+build time rather than at campaign time; (c) delete `generic-fellow` from
+`mock_adapt.py:451`.
+
+**How the wrong diagnosis got here, since it is the day's shape once more:** it
+was inferred from one artefact — a workset whose Definitions happened to be
+agent-written — without opening the `operator_identity` that fed it. One
+artefact, one producer assumed, a cause named. The correction cost one
+`json.load` of a file that had been sealed for twenty minutes.
 
 **Holder: m3.** Not blocking — the wrapper refuses rather than substitutes, so
 the dangerous outcome is gone even while the disagreement stands.
