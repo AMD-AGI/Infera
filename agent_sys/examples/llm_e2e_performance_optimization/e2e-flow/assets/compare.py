@@ -273,6 +273,25 @@ def main() -> int:
                     help="m4's, for the single-kernel speedup (M5.1.3.2)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--package", required=True)
+    # **Without this the report is the one kind that can never satisfy
+    # `check_environment`.** G5 puts the environment record in every handoff and
+    # `check_environment` is declared over all fifteen kinds at `strength:
+    # strong`; `integration_report` is `structured_text`, so its record belongs
+    # at `items/env/environment.yaml`. Nothing here wrote one, so the validator
+    # had no artefact to read and refused with *"no environment.yaml at any of
+    # …"* — correctly, and for the whole life of this body.
+    #
+    # Invisible until 2026-09-05, because that is the first day a real
+    # `integration_report` existed to grade: at every earlier rung stage 5 was
+    # mocked and `mock_m5.sh` renders the record itself. **The mock satisfied a
+    # check the real path could not** — the inverse of the usual worry, and the
+    # reason CONTRACT §5.3 asks what the mock asserts that the producer does not.
+    #
+    # Inherited from m1 rather than rebuilt, like every other consumer: a stage
+    # that re-derived the record could differ from m1's and nothing would notice.
+    ap.add_argument("--environment", default=None, metavar="PATH",
+                    help="the deploy_kit's environment.yaml, carried into the "
+                         "report so it satisfies check_environment")
     # The same two package variables `check_no_regression` reads out of its own
     # args block. One source, because that validator recomputes this report's
     # verdict and fails when it disagrees — two sources would make them differ
@@ -776,6 +795,24 @@ def main() -> int:
     items = out / "items"
     items.mkdir(parents=True, exist_ok=True)
     (items / "text.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+
+    # G5: carry m1's environment record into the report. `env_render` owns where
+    # it goes per content type (`ENV_PATH_BY_TYPE`), so this does not spell the
+    # path — a kind whose type changes must change that table, not this line.
+    if args.environment:
+        src = Path(args.environment)
+        if not src.is_file():
+            raise SystemExit(
+                f"compare: --environment {src} does not exist. It is m1's record, "
+                "at deploy_kit's items/codes/environment.yaml; without it the report "
+                "cannot satisfy check_environment."
+            )
+        import env_render  # noqa: PLC0415  (lib is on sys.path from --package)
+
+        warnings_env: list[str] = []
+        env_render.write(env_render.inherit(src, [], warnings_env), out, "structured_text")
+        for w in warnings_env:
+            print(f"compare: environment: {w}", file=sys.stderr)
     # **The package's schema, byte for byte** (CONTRACT.md 3.4). A
     # `structured_text` kind copies its schema into `items/schema` at production
     # time, and its validator checks the copy is identical to the package's — so

@@ -289,8 +289,18 @@ python3 "$AGENT_SYS_TASK_PACKAGE/assets/compare.py" \
   --profiling-evidence "$AGENT_SYS_INPUT_PROFILING_EVIDENCE" \
   --kernel-optimization "$AGENT_SYS_INPUT_KERNEL_OPTIMIZATION" \
   --out "$AGENT_SYS_OUTPUT_INTEGRATION_REPORT" \
-  --package "$AGENT_SYS_TASK_PACKAGE"
+  --package "$AGENT_SYS_TASK_PACKAGE" \
+  --environment "$AGENT_SYS_INPUT_DEPLOY_KIT/items/codes/environment.yaml"
 ```
+
+**`--environment` is not optional in practice.** G5 puts the environment record
+in every handoff and `check_environment` is `strong` over all fifteen kinds.
+Without this flag the report carries none and that validator refuses with *"no
+environment.yaml at any of …"* — measured 2026-09-05 against the first real
+`integration_report` this flow ever produced, and true for the whole life of
+this body before that. It was invisible because at every earlier rung stage 5
+was mocked and `mock_m5.sh` renders the record itself: **the mock satisfied a
+check the real path could not.**
 
 This is a program and you must not do its arithmetic yourself.
 `check_no_regression` **recomputes every comparison from the raw numbers and
