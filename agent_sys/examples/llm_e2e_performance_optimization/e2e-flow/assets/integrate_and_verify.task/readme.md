@@ -325,6 +325,48 @@ two arms measured fifteen minutes and one co-tenant apart. That was the wrong
 response; the missing control is a comparability gate at bring-up
 (`../../../todo.md` T7).
 
+## Every handoff you write needs a README with named sections, or the seal refuses it
+
+**This is the one failure in this stage you cannot recover from.** The README is
+checked when the handoff seals, which is *after* you have finished — and there is
+no loop to retry into, so a missing section ends the run silently with all three
+outputs empty. It cost hold `112699` on another stage. **Write these before you
+seal, not after the seal complains.**
+
+You produce three handoffs and they do not want the same sections
+(`agent_sys/handoff/content.py:62-87`, read there rather than trusting this
+table if they ever disagree):
+
+| handoff | content type | required README sections |
+|---|---|---|
+| `stock.measurement` | `reproducible` | `Purpose` · `How to run` · `Result` · `Environment` · `Watch out` |
+| `patched.measurement` | `reproducible` | `Purpose` · `How to run` · `Result` · `Environment` · `Watch out` |
+| `integration_report` | `structured_text` | `Purpose` · `Schema` |
+
+**Twelve required sections across the three.** `merge_arm.py` and `compare.py`
+write the items; the README is yours.
+
+Three rules that are not obvious, all from the checker itself
+(`agent_sys/handoff/readme.py`):
+
+- **The heading must be at the document root.** A heading inside a blockquote, a
+  list item or a code fence **does not count** — the check parses a CommonMark
+  AST and requires `token.level == 0`, deliberately stricter than markdownlint's
+  MD043, because otherwise a producer can satisfy an anti-blob check with
+  headings that are invisible in the rendered file.
+- **The section must have text under it.** An empty section fails the same way a
+  missing one does.
+- **The name must match**, not merely resemble: `Result`, not `Results`.
+
+`agent_sys/handoff/readme.py`'s `template(required)` will emit the skeleton if
+you would rather start from one than compose it.
+
+**Why this section exists.** Until 2026-09-05 this brief named none of the
+twelve, and it is the brief asking for the most. It had not bitten *this* stage —
+the agent improvised them correctly at least once — but m4's stage was bitten by
+two different agents on two nodes improvising differently, which is what a
+requirement stated nowhere produces eventually rather than immediately.
+
 ## Report back
 
 State, in this order: whether both arms completed, the two arms' time windows,
