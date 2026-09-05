@@ -244,6 +244,13 @@ def workset_integration(workset: str | None, operator_id: str | None) -> tuple[d
         # only reason a mismatch was ever visible; two attempts to reproduce
         # theirs printed nothing until the field was added.
         #
+        # **And m1's had it only because they hand-filled four missing manifest
+        # keys that afternoon.** The generator that produced both artefacts
+        # omitted `operator_id` until it was fixed the same day — so for any
+        # chain replaying a pre-fix artefact, the silent match is **the path
+        # taken**, not a corner case. The one run where this check appeared to
+        # work is the one where a human had repaired the input by hand.
+        #
         # **Not changed here**, for the same reason `_DISAGREES` is a note: making
         # this refuse belongs with M5.1.1's advisory-or-binding decision, which is
         # with the user. `check_apply_manifest` already lists `operator_id` as
