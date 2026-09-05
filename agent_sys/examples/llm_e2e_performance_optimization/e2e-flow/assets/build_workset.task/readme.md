@@ -95,10 +95,17 @@ For each `definitions/<op_type>/<name>.json`: replace the `reference` and
 `baseline` sentinels, and fill `inputs`, `outputs` and any missing `axes`.
 
 Both are **Python source strings ending in `def run(*args, **kwargs)`** —
-flashinfer-bench's own convention; `../../../../../rank0/definitions/` holds two
-worked examples and is the thing to imitate. `inputs` maps a name to
+flashinfer-bench's own convention. `inputs` maps a name to
 `{shape, dtype, description}` where each shape entry is an axis name or an
 integer.
+
+**There are no worked examples to imitate, and this paragraph used to point at
+two.** It named `../../../../../rank0/definitions/`. That directory is not in
+this repository — `git ls-files rank0` returns nothing, and the level count was
+one short of the root besides, so it resolved nowhere from the zone this brief
+runs in. You looked, found nothing, and improvised; that is the state this
+sentence replaces. The keys above are the contract, and
+`check_workset_shape` grades them.
 
 ```sh
 python3 - <<'PY'

@@ -125,7 +125,33 @@ fellows:
       - '^_gemm_a16_w16'
       - '^_fused_'
       - '^_gluon_'
-      - '^_[a-z0-9_]+_kernel$'
+      # **Was `^_[a-z0-9_]+_kernel$`, needing a leading underscore AND `_kernel`
+      # as the final token.** Real flash-linear-attention kernels are
+      # `<op>_kernel_<suffix>` with no leading underscore, so they missed on two
+      # independent counts. Measured on run `20260905T074905-9ec798`:
+      # `chunk_fwd_kernel_o` and `chunk_gated_delta_rule_fwd_kernel_h_blockdim64`
+      # returned no language; `_layer_norm_fwd_1pass_kernel` matched. One of
+      # three, and the one that passed is why the rule looked like it worked.
+      #
+      # **Do not relax this to a bare `_kernel` substring.** `fellows:` is
+      # first-match-wins and `triton-fellow` is first, so a loose pattern claims
+      # a symbol before `hip-fellow` or `ck-fellow` is consulted. Against the
+      # 124-row real kernel table the substring form takes **58** more symbols —
+      # ATen `elementwise_kernel`, rocprim `trampoline_kernel`,
+      # `_ZN7sgl_hip…act_and_mul_kernelI…` — and hands each to the Triton
+      # fellow: 47 % of the table, misrouted, with a warning as the only trace.
+      # In a five-operator sample that trap looks like one edge case.
+      #
+      # The end anchor excludes anything carrying a space, `::` or `<`; `(?!_Z)`
+      # covers Itanium-mangled names that are otherwise valid identifiers.
+      # Measured on the same 124 rows: moves 11 kernels from unclassified to
+      # `triton-fellow` (9 -> 20) and changes nothing else.
+      #
+      # `buckets:` carries the same old pattern and is **deliberately not
+      # changed here** — it decides which kernels `rank` promotes, so widening
+      # it changes what the whole pipeline works on rather than which fellow a
+      # campaign asks for. `todo.md` T72.
+      - '^(?!_Z)[A-Za-z_][A-Za-z0-9_]*_kernel([_A-Za-z0-9]*)$'
   - fellow: tilelang-fellow
     language: tilelang
     patterns: ['^main_kernel$']
