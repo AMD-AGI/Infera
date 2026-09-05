@@ -10475,3 +10475,73 @@ that re-parsed 200 MB of gzip and counted ranks against a manifest** — the fir
 result in the record that is a read of contents rather than of an exit path.
 **That is the standard the remaining stages should be held to**, and it is why
 one stage is worth +2 and twenty-one PASS rows were worth retiring three times.
+
+---
+
+## ADDENDUM — the third launch line, and the three-way diff
+
+**2026-09-05 09:36 UTC.** m3's line captured from `/proc/3048152/cmdline`, **positionally**.
+All three full-real chains are now in the record with their differences.
+
+```
+m5  /tmp/yihou_rung5_287_c.log                          287 c4-7   17 vars
+m4  /home/yihou/p5_fullreal_217_084728.log              217 c0-3   23 vars
+m3  /home/yihou/chain_…088_cards0-3_20260905T0928.log   088 c0-3   19 vars
+```
+
+**25 distinct vars across the three; 15 are common to all.** The ten that are
+not:
+
+```
+var                        m5_287  m4_217  m3_088
+adhoc_cases                  .       Y       .
+bench_rounds                 Y       .       Y
+gsm8k_data                   Y       .       Y
+parser_args                  .       Y       .
+port_etcd                    .       Y       .
+port_router                  .       Y       Y
+port_worker                  .       Y       .
+scratch_root                 .       Y       .
+transport                    .       Y       .
+workset_reverify_shapes      .       Y       Y
+```
+
+### The result, and it is cleaner than I expected
+
+**m3's line is the only one with no odd-one-out property in either direction.**
+
+```
+m5:  missing what both others have  -> port_router, workset_reverify_shapes
+     unique to it                   -> none
+m4:  missing what both others have  -> bench_rounds, gsm8k_data
+     unique to it                   -> adhoc_cases, parser_args, port_etcd,
+                                       port_worker, scratch_root, transport
+m3:  missing what both others have  -> NONE
+     unique to it                   -> NONE
+```
+
+**m3 built theirs from RUN-PLAN's canonical block; m4's came from the leader's
+list; m5 composed their own.** The line assembled from the shared document is
+the one that is neither short of what the others agree on nor carrying anything
+neither has. **That is a measurable argument for the canonical block over a
+hand-assembled list — not a matter of taste.**
+
+**Two consequences that are live rather than tidy:**
+
+1. **`workset_reverify_shapes` — m5 is now alone in omitting it.** With one
+   other line it was a question; with two it is a divergence.
+2. **`port_router` — m5 is alone in omitting it too.** Given the earlier
+   measurement that **an absent `--var port_router` does not mean the declared
+   `8101` default is in effect** (m2's line was bound on 8115), m5's line is the
+   one whose bound port nobody can predict from its launch line.
+
+**`--timeout`: m5 and m3 carry it, m4 does not.** m4's chain runs until the hold
+expires. Unchanged from the earlier addendum, now confirmed as 2-against-1.
+
+**`adhoc_cases`: only m4 passes it (`3`).** The other two omit and take the
+documented default of 3 — the behaviour `42ae222` fixed. **All three agree in
+effect.**
+
+**One correction to the brief I was given:** the container is
+`yihou_e2e_flow_088_09050928`, not `…_09280928`. Trivial, except that a
+container name is exactly the kind of string someone greps for.
