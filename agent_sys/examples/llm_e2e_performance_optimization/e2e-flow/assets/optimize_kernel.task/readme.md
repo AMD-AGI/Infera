@@ -78,7 +78,7 @@ so a var on the rung-4 command line *looked* like it placed this stage's workdir
 and did not, while `$W` was chosen unguided.
 
 **It is not cosmetic, because `$W` is where three load-bearing files live**:
-`forge/engine_src` (a 110 MB copy of the engine tree), `forge/engine.patch` and
+`forge/engine_src` (a ~150 MB copy of the engine tree), `forge/engine.patch` and
 `forge/engine_baseline.sha`. `run_in_container.sh` refuses a workdir outside
 `/shared_nfs`, `/home/<user>` or `/mnt/m2m_nobackup/<user>`, so `$W` cannot land
 somewhere the container cannot see — **but it can land somewhere different every
@@ -207,7 +207,7 @@ measured on `inferaimage/infera:sglang-local` — that tree is **dirty**, 35 lin
 of AMD's own carried modifications, every one of which `git diff HEAD` would
 have swept into this stage's patch. It is not the workset copy either: forge
 would see none of the engine sources it exists to optimise. So the step copies
-`SGLANG_ROOT` (110 MB) to `forge/engine_src`, `git init`s it **at that level**
+`SGLANG_ROOT` (152 MB / 8870 files, measured) to `forge/engine_src`, `git init`s it **at that level**
 so `git diff HEAD` comes out in `apply_patch`'s frame, and commits a baseline
 of the tree **as the container runs it, dirty state included** — that is the
 incumbent m5 overlays onto, and the commit is load-bearing rather than tidy:

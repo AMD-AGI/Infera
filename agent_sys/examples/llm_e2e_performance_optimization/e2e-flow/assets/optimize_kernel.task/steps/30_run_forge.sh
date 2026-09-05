@@ -225,8 +225,13 @@ fi
 # in this package; siting the init removes the mismatch instead of compensating
 # for it.
 #
-# 110 MB and 3158 `.py` files, measured; the 3.5 GB is the whole sglang repo and
-# the 271 MB `.git` is not copied, since we make our own.
+# **152 MB and 8870 files, measured inside the graph 2026-09-05** on
+# `infera/engine-sglang:test-local-mooncake_hip_dmabuf1`. The 110 MB / 3158
+# figure this line carried until then came from `infera/engine-sglang:final-pr`
+# on a probe node — a different revision, and the smaller of the two. Same
+# lesson as everywhere else today: a number measured on one image is not a
+# number about the image you will run on. The 3.5 GB is the whole sglang repo
+# and the 271 MB `.git` is not copied, since we make our own.
 SRC_ROOT=$("$PY" "$(dirname "$0")/resolve_source.py" --inputs "$INPUTS" --what "the stock source") || exit 1
 SRC_REL=$("$PY" "$(dirname "$0")/resolve_source.py" --inputs "$INPUTS" --relative) || exit 1
 # The root, not the file: `dirname` as many times as `$SRC_REL` has segments
@@ -241,7 +246,7 @@ ENGINE_ROOT=${SRC_ROOT%"/$SRC_REL"}
 
 WS="$WORKDIR/engine_src"
 if [ ! -d "$WS/.git" ]; then
-  echo "copying the engine sources to $WS (about 110 MB)" >&2
+  echo "copying the engine sources to $WS (about 150 MB, measured 152 MB / 8870 files)" >&2
   mkdir -p "$WS"
   cp -a "$ENGINE_ROOT/." "$WS/"
   # **Identity in the REPO, not on our one commit.** `-c user.name=…` would
