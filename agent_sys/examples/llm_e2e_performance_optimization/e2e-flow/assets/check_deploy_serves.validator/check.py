@@ -53,7 +53,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 import graph_ceiling  # noqa: E402 — m5/m2's module, adopted not re-implemented
 import schema as schema_lib  # noqa: E402
 import zone  # noqa: E402
-from workset_io import arg_num  # noqa: E402 — CONTRACT §4.2, the one numeric-arg reader
+from workset_io import arg_num, write_report  # noqa: E402 — §4.2's numeric reader,
+#                                                and the report every other validator writes
 
 HERE = Path(__file__).resolve().parent
 LIB = HERE.parent / "lib"
@@ -341,7 +342,25 @@ def judge_load(summary: dict, accept: dict, load_shape: dict) -> list[str]:
 # one kit
 
 
-def check_one(content: Path, parameters: dict, transport: dict, probes: dict) -> list[str]:
+def _note(notes: list[str], message: str) -> None:
+    """A note: context that is true whether the verdict passes or fails.
+
+    **Tagged here, at the write, and never recovered from its wording later.**
+    That is `77ed4be`'s shape and the reason for it is measured: four ledger rows
+    quoted a `note:` as a failure reason, two of them because a log relabelled
+    `note:` as `PROBLEM:`. A line's kind is a property of where it was produced,
+    not of how it reads.
+
+    Still printed, because someone watching a live run should see it — but stdout
+    is not the channel that survives: `grep -c "check_deploy_serves:"` over a
+    completed run's orchestrator log returns **0**. The report is what is left.
+    """
+    notes.append(message)
+    print(f"check_deploy_serves: {message}")
+
+
+def check_one(content: Path, parameters: dict, transport: dict, probes: dict,
+              notes: list[str]) -> list[str]:
     layout_name = parameters.get("layout", "deploy_kit.layout")
     import yaml
 
@@ -387,20 +406,72 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
     deploy = parameters.get("deploy_entrypoint", "scripts/deploy.sh")
     teardown = parameters.get("teardown_entrypoint", "scripts/teardown.sh")
 
-    print(f"check_deploy_serves: kit {kit.name}, tag {tag}, port base {overrides['E2E_KIT_PORT_BASE']}")
+    _note(notes, f"kit {kit.name}, tag {tag}, port base {overrides['E2E_KIT_PORT_BASE']}")
 
     try:
         # ---- 1. bring-up, from the kit's own scripts ------------------------
-        print("check_deploy_serves: 1/4 bring-up")
+        _note(notes, "1/4 bring-up")
+        _cmd = (f"mkdir -p {shlex.quote(work_root)} && cd {shlex.quote(str(kit))} && "
+                f"{envvars(overrides)}bash {shlex.quote(deploy)}")
         try:
-            output = on(
-                f"mkdir -p {shlex.quote(work_root)} && cd {shlex.quote(str(kit))} && "
-                f"{envvars(overrides)}bash {shlex.quote(deploy)}",
-                transport,
-                timeout=seconds(parameters, "bringup_timeout_seconds", 3600),
-            )
+            output = on(_cmd, transport,
+                        timeout=seconds(parameters, "bringup_timeout_seconds", 3600))
         except NodeError as exc:
-            return [f"{deploy} failed (rc={exc.returncode}); last output:\n{exc.output[-4000:]}"]
+            # **Retry once on the intermittent NCCL bring-up failure, and only on
+            # that.** Measured four times on 2026-09-04/05 across two nodes:
+            #
+            #     19:06:26  217  TP1 TP2 TP3        HIP failure: 'invalid argument'
+            #     19:36:36  217  TP0 TP1 TP2        NCCL error: unhandled cuda error
+            #     06:05:41  088  TP0 TP1 TP2 TP3    exited with code -9 before ready
+            #     07:14:50  088  (this validator)   identical signature, identical -9
+            #
+            # The ranks move across attempts and across nodes, so it is not a bad
+            # device; and the 06:05 instance was cleared by a retry that changed
+            # nothing, observed in that kit's own `worker.attempt1-nccl-fail.log`.
+            #
+            # **Why this exists here as well as in the brief.** `78909fc` gave the
+            # producer this retry by writing it into `deploy_and_prove`'s readme —
+            # and a readme instructs an **agent**. This validator performs the same
+            # bring-up in **program code** and read nothing, so the stage healed
+            # itself in one half and refused in the other, on one fault, two hours
+            # apart. m2's controlled experiment was the cost: their treatment arm
+            # died here at 07:15 and produced no data at all.
+            #
+            # `runner.py:801` is the mirror of this: *an environment variable
+            # cannot instruct an agent.* **A brief cannot instruct a program.**
+            # Wherever a brief and a body do the same job, a fix to one is half a
+            # fix (`todo.md` T56).
+            #
+            # **Narrow on purpose.** Only this signature retries; anything else
+            # fails on the first attempt as before. A retry that swallows every
+            # bring-up failure would turn a broken kit into a slow pass, which is
+            # the opposite of what this validator is for.
+            _sig = ("NCCL error" in exc.output and "HIP failure" in exc.output) \
+                or "exited with code -9 before reporting ready" in exc.output
+            if not _sig:
+                return [f"{deploy} failed (rc={exc.returncode}); last output:\n{exc.output[-4000:]}"]
+            notes.append(
+                f"{deploy} failed on attempt 1 with the intermittent NCCL signature "
+                f"(rc={exc.returncode}); retrying once. Four occurrences measured across "
+                f"two nodes with a moving rank set, one of them cleared by a retry alone"
+            )
+            _note(notes, "bring-up hit the intermittent NCCL failure — retrying once")
+            try:
+                on(f"cd {shlex.quote(str(kit))} && {envvars(overrides)}"
+                   f"bash {shlex.quote(teardown)} >/dev/null 2>&1 || true",
+                   transport, check=False,
+                   timeout=seconds(parameters, "teardown_timeout_seconds", 600))
+                output = on(_cmd, transport,
+                            timeout=seconds(parameters, "bringup_timeout_seconds", 3600))
+            except NodeError as exc2:
+                return [
+                    f"{deploy} failed twice with the intermittent NCCL signature "
+                    f"(rc={exc2.returncode}). **Two consecutive failures is new** — the "
+                    f"four occurrences on record were all cleared by one retry, so this "
+                    f"is worth diagnosing rather than retrying again. Last output:\n"
+                    f"{exc2.output[-4000:]}"
+                ]
+            notes.append(f"{deploy} succeeded on attempt 2")
         except subprocess.TimeoutExpired:
             return [
                 f"{deploy} did not finish within "
@@ -487,7 +558,7 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
             )
 
         # ---- 2. the probes ---------------------------------------------------
-        print("check_deploy_serves: 2/4 diagnostic probes")
+        _note(notes, "2/4 diagnostic probes")
         available = set()
         if engine:
             available.add("engine_endpoint_known")
@@ -505,7 +576,7 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
             available,
         )
         for name in dropped:
-            print(f"check_deploy_serves:   not applicable: {name}")
+            _note(notes, f"  not applicable: {name}")
 
         # The plan travels inside the command string, so its size is bounded by
         # `getconf ARG_MAX`. Guarded rather than assumed: the failure mode is
@@ -548,7 +619,7 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
                     f"probe {row['name']}: " + "; ".join(row["faults"])
                 )
         for name in probe_results["warned"]:
-            print(f"check_deploy_serves: WARN probe {name} did not pass (severity warn, not fatal)")
+            _note(notes, f"WARN probe {name} did not pass (severity warn, not fatal)")
 
         if faults:
             # The load is minutes of GPU on a shared node and it cannot tell us
@@ -664,14 +735,14 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
             # evidence that the ceiling was wrong, and it must not become a
             # refusal — but a validator that quietly drops a bar it advertises is
             # the shape this whole effort is about.
-            print(f"check_deploy_serves: WARNING: could not evaluate the graph ceiling "
+            _note(notes, f"WARNING: could not evaluate the graph ceiling "
                   f"({exc.__class__.__name__}: {exc}). The bar was NOT applied — this run "
                   f"says nothing about whether decode fitted the captured graph")
         else:
             _why = (verdict.get("reason") or verdict.get("unavailable_because")
                     or f"ceiling {verdict.get('ceiling')} vs decode concurrency "
                        f"{verdict.get('decode_concurrency')} ({verdict.get('ceiling_source')})")
-            print(f"check_deploy_serves: graph ceiling: {_why}")
+            _note(notes, f"graph ceiling: {_why}")
             if verdict.get("ok") is False:
                 faults.append(
                     f"the CUDA graph ceiling did not cover this load — {_why}. "
@@ -680,7 +751,7 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
                     f"that ships it looks identical to one that does not"
                 )
             elif verdict.get("ok") is None:
-                print("check_deploy_serves: WARNING: the graph ceiling was NOT evaluated "
+                _note(notes, "WARNING: the graph ceiling was NOT evaluated "
                       "(reported above). Not a pass — nothing here shows decode fitted.")
 
     finally:
@@ -697,7 +768,7 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
         # never true while that bug was live. Two stub routers were found alive
         # on a shared node from a run that had already finished. Anything added
         # to this block gets the same scrutiny as the thing it tears down.
-        print("check_deploy_serves: 4/4 teardown")
+        _note(notes, "4/4 teardown")
         # Hand back anything the deployment's container wrote as root, from
         # inside that container — the only context with the privilege. It runs
         # **before** teardown, because a container that is gone cannot chown
@@ -721,7 +792,7 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
                     )[-1000:]
                 )
         except Exception as exc:
-            print(f"check_deploy_serves: reclaim failed: {exc}", file=sys.stderr)
+            _note(notes, f"reclaim failed: {exc}", file=sys.stderr)
         try:
             print(
                 on(
@@ -732,7 +803,7 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
                 )[-2000:]
             )
         except Exception as exc:  # a teardown that itself hangs must not mask the verdict
-            print(f"check_deploy_serves: TEARDOWN FAILED: {exc}", file=sys.stderr)
+            _note(notes, f"TEARDOWN FAILED: {exc}", file=sys.stderr)
             print(
                 f"check_deploy_serves: containers and ports tagged {tag} may still be "
                 f"held on {fixed.get('node')} — check before the next run",
@@ -779,19 +850,39 @@ def main() -> int:
     }
 
     results: dict[str, bool] = {}
+    # **`{hid: (problems, notes)}`, the shape `write_report` publishes.** Built
+    # here so a per-handoff report exists whatever `check_one` does — including
+    # when it returns early, which is how all seven of this validator's recorded
+    # failures left nothing behind.
+    findings: dict[str, tuple[list[str], list[str]]] = {}
     for hid in zone.inputs():
         content = zone.content_of(hid)
+        notes: list[str] = []
+        findings[hid] = ([], notes)
         if content is None:
             results[hid] = False
+            findings[hid][0].append(f"{hid}: no staged content")
             print(f"check_deploy_serves: {hid}: no staged content")
             continue
         try:
-            faults = check_one(content, parameters, transport, probes)
+            faults = check_one(content, parameters, transport, probes, notes)
         except Exception as exc:  # a body that dies must refuse, not vanish
             faults = [f"the check itself failed: {type(exc).__name__}: {exc}"]
+        findings[hid][0].extend(faults)
         results[hid] = not faults
         for fault in faults:
             print(f"check_deploy_serves: {hid}: FAIL: {fault}")
+    # **Before the verdict, so a crash in the writer cannot take the reasons with
+    # it** — `check_command_parses` carries the same ordering for the same reason.
+    #
+    # This validator wrote no report at all until 2026-09-05: 0 of 55 verdicts,
+    # **7 of them failures**, and `verdict.json` holds only `{hid: false}` with no
+    # reason field — so every one of those refusals is permanently unexplainable.
+    # The incident that ended it: m2's treatment arm refused here at 07:15, their
+    # controlled experiment produced no data, and recovering *why* took twelve
+    # tool calls and a work directory on `/mnt` that teardown happened not to
+    # clean. On a reallocated node it would have been unrecoverable.
+    write_report("check_deploy_serves", findings, results)
     zone.write_verdict(results)
     print(f"check_deploy_serves: {results}")
     return 0
