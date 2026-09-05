@@ -10258,3 +10258,93 @@ every scope is **absence** — which is why the forward pass does not go quiet o
 a defect, it reports the file sound. My nine fabricated timestamps are corrected
 and the generalisation is in `CLAUDE.md`: **unchallenged claims get the same free
 pass as confirming ones.**
+
+---
+
+## ADDENDUM — the two full-real chains, captured while both were alive
+
+**08:56 UTC.** Both launch lines read from `/proc/<pid>/cmdline` and **parsed
+positionally** — only the argv element immediately following a literal `--var`
+is treated as a var. **That sidesteps m3's trap entirely**: a `grep` for `--var`
+also matches variable syntax inside `--system-prompt`, which is our own readme
+text. No grep was used.
+
+```
+2363398  /tmp/yihou_rung5_287_c.log            m5   287 c4-7   17 vars, argc 45
+2394563  /home/yihou/p5_fullreal_217_084728…   m4   217 c0-3   23 vars, argc 55
+```
+
+### What differs — this is the artefact
+
+**Only on m4's 217 line (7 vars + nothing else):**
+
+```
+adhoc_cases=3            parser_args=--reasoning-parser qwen3
+port_router=8121         port_worker=8122        port_etcd=8123
+scratch_root=/mnt/m2m_nobackup/yihou/e2e_flow_p5/kfo
+transport=spur           workset_reverify_shapes=4
+```
+
+**Only on m5's 287_c line:**
+
+```
+bench_rounds=3
+gsm8k_data=…/integration/data/gsm8k_test.jsonl
+--timeout                <- a flag, not a var; 217 has none
+```
+
+**Shared and identical**: `aiperf_trace` (the fix, on both), `expect_ranks=4`,
+`image`, `model_name`, `model_path`, `mock_stages=none`, `tp=4`,
+`transport_env`, `work_root` root.
+
+**Three consequences worth naming before either finishes:**
+
+1. **`adhoc_cases` agrees, by two different routes.** 217 passes `3`; 287_c
+   **omits it**, and RUN-PLAN as corrected in `42ae222` says rung 5 omits it and
+   takes the default 3. **Same effective value.** The one var most likely to
+   diverge is the one the documentation fix already handled.
+2. **`workset_reverify_shapes` — the leader's open cell — is measured: absent on
+   m5's line**, `4` on m4's. Whatever m5 gets is the package default.
+3. **217 has no `--timeout`.** It runs until the hold expires, ~7 h. 287_c is
+   bounded. **If one is killed by a clock and the other is not, that is the
+   launch line, not the code.**
+
+### The port map, and a hypothesis of mine that died on contact
+
+```
+   PID              node    cards    router   worker    etcd   log
+1869760   crsuse2-m2m-088  4,5,6,7  (unset)  (unset)  (unset)  p5_trt2
+1910769   crsuse2-m2m-088  4,5,6,7  (unset)  (unset)  (unset)  p4_d_report_test
+2394563   crsuse2-m2m-217  0,1,2,3     8121     8122     8123  p5_fullreal_217
+1410811   crsuse2-m2m-287  0,1,2,3     8111     8112     8113  p4_m4real287b
+2363398   crsuse2-m2m-287  4,5,6,7  (unset)  (unset)  (unset)  rung5_287_c
+```
+
+**I formed a collision hypothesis and it is false.** The declared default is
+`${port_router:-8101}` (all four `steps/m*.yaml` agree), so I expected the three
+`(unset)` lines to be sitting on 8101–8103 — which would have put the two 088
+lines on the same node, same cards, **and the same ports**, a clean explanation
+for m1's bring-up sitting 37 minutes at the top of the 18–39 band.
+
+**The node says otherwise.** On 088, m2's line is bound on **8115 / 8116 /
+8117 / 8118**, not 8101. So:
+
+> **The absence of a `--var port_router` does not mean the default is in
+> effect.** The cmdline records what was **passed**, not what was **bound**.
+
+**That is today's shape again in a new instrument.** A cmdline read answers
+*"what did the operator type"*; I asked it *"what is this process using"*. It
+never errors. And `line.sh`'s own comment already names the hazard — *"router
+8115 while this script benched 8111, because the other line was…"* — **8115 is
+exactly what I measured.**
+
+**So: no evidence of a port collision anywhere.** 287 is clear (8111–8113 vs a
+default that is not 8101 in practice), and 088's two lines are not provably
+colliding. **The 088 co-tenancy remains open on cards, not on ports**, and it is
+the leader's scheduling item, not either owner's.
+
+**One incidental**: m1's `yihou_e2e_flow_sgl_selftest`, `Up 40 seconds` at 08:27,
+is **gone** at 08:57. Brought up and torn down. **A container count taken at one
+moment cannot distinguish "never started" from "started and finished"** — which
+is precisely the correction m2 made to the leader's 08:25 diagnosis, and it
+applies to my own reading here too.
