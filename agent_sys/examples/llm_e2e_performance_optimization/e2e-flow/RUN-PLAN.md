@@ -73,11 +73,41 @@ content: the adapter needs `run` to be a **one-line delegation**
 learns which callable is the entry point*. m3's are real bodies, which is the
 better artefact and not one this adapter can read.
 
-**So it is a second face of the same binding, not a defect in m3's output**: the
-mock was built against a corpus whose baseline happened to be a delegation, just
-as it was built against a corpus with one operator called
-`sampler_vocab_softmax`. **All four have the real-body shape**, so no operator
-choice avoids it either.
+**Not a defect in m3's output** — but narrower than the first version of this
+correction claimed, and that over-correction is itself worth recording.
+
+The adapter's test is one regex, `mock_adapt.py:218`:
+
+```python
+re.search(r"^def run\(.*?\n\s+return\s+([A-Za-z_]\w*)\(", baseline, re.M | re.S)
+```
+
+It wants `run` to **return a call**, from which it reads the entry-point symbol.
+Measured across all four definitions:
+
+```
+attention/chunk_fwd_o         HIT  chunk_fwd_o            returns Call
+attention/ck_tile prefill     HIT  mha_batch_prefill_func returns Call
+elementwise/act_and_mul       HIT  silu_and_mul           returns Call
+layernorm/1pass               MISS                        returns a bare Name
+```
+
+**Three of the four do delegate.** They then fail at the *next* check — the
+sealed kernel not defining the symbol — which is the operator-name binding
+above. **Only layernorm returns a variable rather than a call**, and that is the
+one place the delegation shape bites.
+
+So this is **not** a second instance of the family trait; the trait rests on the
+operator-name binding alone. I claimed otherwise by equating *"has a docstring
+and a real body"* with *"is not a delegation"* — a function can have both and
+still end in one delegating `return`. **Killed a plausible candidate of m3's in
+the same pass:** the regex class is `[A-Za-z_]\w*`, so `_layer_norm_fwd`'s
+leading underscore would have matched; the underscore is not the discriminator.
+
+**Still an undeclared expectation on m3's output**, whichever way it goes:
+`check_workset_shape` requires only that `baseline` parse and define `run`, so
+"`run` must return a call" is this adapter's private rule and is not in any
+contract m3 can see.
 
 **The consequence for whoever promotes next:** a stage still mocked downstream of
 a stage newly made real will hit this wall, and **it will look like a new bug
