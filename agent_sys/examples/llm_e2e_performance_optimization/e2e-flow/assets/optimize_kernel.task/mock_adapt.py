@@ -215,18 +215,51 @@ def _ensure_impl_entry(packup: Path, workset_root: Path, operator: dict) -> str 
     baseline = (definition or {}).get("baseline")
     if not isinstance(baseline, str):
         lib.die(f"{relative} carries no `baseline` source, so the --impl entry cannot be derived")
-    delegated = re.search(r"^def run\(.*?\n\s+return\s+([A-Za-z_]\w*)\(", baseline, re.M | re.S)
-    if not delegated:
-        lib.die(
-            f"{relative}'s `baseline` has no `def run(...)` delegating to a symbol; m3's --impl "
-            "contract cannot be satisfied without knowing which callable is the entry point"
-        )
-    symbol = delegated.group(1)
+    # **`integration.public_symbol` first, the baseline's shape only as a
+    # fallback.** The field is the workset *stating* the entry point; the
+    # baseline's shape is evidence *about* it, and inference loses to a
+    # declaration whenever both are available.
+    #
+    # Measured 2026-09-05 on m3's first real workset, which is what settled it.
+    # The regex below wants `run` to **return a call**; of four real operators
+    # three do and `layernorm_layer_norm_fwd_1pass` returns a bare name:
+    #
+    #     attention/chunk_fwd_o     HIT chunk_fwd_o             returns Call
+    #     attention/ck_tile prefill HIT mha_batch_prefill_func   returns Call
+    #     elementwise/act_and_mul   HIT silu_and_mul             returns Call
+    #     layernorm/1pass           MISS                         returns a Name
+    #
+    # So a definition could be **correct, useful and unreadable here** — and
+    # nothing warned, because `check_workset_shape` requires only that
+    # `baseline` parse and define `run`. *"`run` must return a call"* was this
+    # file's private rule and an undeclared expectation on m3's output.
+    #
+    # **The field cannot be empty where it matters.** `workset.schema.json`
+    # binds `substitution: module_symbol` to a non-empty `public_symbol` and
+    # refuses the document otherwise, which is exactly the case this shim
+    # handles; a `call_site_fragment` operator has no `public_symbol` and no
+    # symbol to delegate to either.
+    #
+    # The fallback stays because a pre-schema workset may carry neither, and
+    # dropping it would trade one silent unreadability for another.
+    symbol = str((operator.get("integration") or {}).get("public_symbol") or "").strip()
+    source_of_symbol = "the workset's integration.public_symbol"
+    if not symbol:
+        delegated = re.search(r"^def run\(.*?\n\s+return\s+([A-Za-z_]\w*)\(", baseline, re.M | re.S)
+        if not delegated:
+            lib.die(
+                f"the workset's operator declares no `integration.public_symbol`, and "
+                f"{relative}'s `baseline` has no `def run(...)` returning a call to fall back on. "
+                "Nothing states which callable is the entry point, and m3's --impl contract "
+                "cannot be satisfied without it"
+            )
+        symbol = delegated.group(1)
+        source_of_symbol = f"{relative}'s `baseline` (no public_symbol declared)"
     if not re.search(rf"^def {re.escape(symbol)}\(", source, re.M):
         lib.die(
-            f"the sealed kernel defines no `{symbol}`, which is what the Definition's `run` "
-            f"delegates to. Sealed candidate and workset Definition disagree about the entry "
-            f"point; that is a real mismatch and this script will not guess past it"
+            f"the sealed kernel defines no `{symbol}`, which is the entry point named by "
+            f"{source_of_symbol}. Sealed candidate and workset disagree about the entry point; "
+            f"that is a real mismatch and this script will not guess past it"
         )
     kernel.write_text(
         source.rstrip("\n")
