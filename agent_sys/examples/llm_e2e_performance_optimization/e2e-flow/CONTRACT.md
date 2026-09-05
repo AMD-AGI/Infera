@@ -1073,12 +1073,14 @@ brings it up itself, in its own `readme.md` STEPS, and tears it down.
 
 ### 5.2 Cluster rules, standing, absolute
 
-#### 5.2.0 ON A `burst-qos` NODE, KILL EVERY GPU USER THAT IS NOT OURS
+#### 5.2.0 ON EVERY NODE WE HOLD, KILL EVERY GPU USER THAT IS NOT OURS
 
 **The user's standing instruction, restated 2026-09-05 after the lead deferred it
 four times.** Verbatim:
 
-> **burst qos 上的机器,凡是不是我们和系统的 GPU 占用,直接杀掉。**
+> **所有我们持有的机器,一律杀掉非我们或系统的 GPU 任务,然后并行安排工作。**
+>
+> (最初说的是 burst-qos;用户同日放宽到**全部持有的机器**,不分 QoS。)
 
 **This overrides the two-test caution below.** §5.2's later text says a container
 you did not create is not yours to remove, and that two holders on one node make
@@ -1111,9 +1113,12 @@ after    VRAM  0  0  0  0  0  0  0  0     containers: none
 **`docker stop`, not `docker rm -f`** — stop is reversible by whoever owns it,
 removal is not, and nothing in the instruction requires destroying the container.
 
-**275 was left alone and that is not an oversight**: it is `amd-primus-q`, so
-`kimik3-vllm-kimi-k3` stays. The rule is scoped by QoS and reading the QoS is the
-first step, not the last.
+**275 was initially left alone on QoS grounds and that was wrong.** The user
+widened the rule the same day: it is not scoped by QoS. `kimik3-vllm-kimi-k3`
+was stopped at 05:15, eight cards 93 % -> 0 %.
+
+**Only GPU users.** A container holding no cards is not in scope; 088 carries
+three unlabelled CPU containers that were left running.
 
 - All spur nodes share `/shared_nfs`. workspace / playground / handoff may live
   there at 777. "Remote" *is* this sharing.
