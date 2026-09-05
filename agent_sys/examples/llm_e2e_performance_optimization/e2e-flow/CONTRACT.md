@@ -1329,8 +1329,98 @@ An append should show deletions ≈ 0; a rewrite must show deletions ≈ the siz
 what it replaced. **A stat that contradicts the shape of your own edit is the
 signal, in either direction.**
 
+### The prevention, beside the detection
+
 `git commit -p` would prevent it and is interactive, so it is not available here.
-No clean fix exists; the check is the mitigation.
+**But a non-interactive shape does exist, and it was measured 2026-09-04 rather than
+reasoned.** The check above is the *detection*; this is the *prevention*.
+
+**Capture your own diff at edit time, and commit that patch through a private
+index** — never through the shared one:
+
+```bash
+# 1. the moment you finish editing, BEFORE anyone else can commit the file
+git diff -- <file> > /tmp/mine.patch
+
+# 2. at commit time — a private index, so the shared one is never involved
+export GIT_INDEX_FILE=$(mktemp) && rm -f "$GIT_INDEX_FILE"
+git read-tree HEAD
+git apply --cached /tmp/mine.patch          # stages ONLY your hunks
+C=$(git commit-tree "$(git write-tree)" -p HEAD -m "subject
+
+Signed-off-by: you <you@example.com>")
+unset GIT_INDEX_FILE
+
+# 3. move the branch, then RESYNC THE REAL INDEX
+git update-ref HEAD "$C"
+git reset                                    # mixed, no pathspec — required, see below
+```
+
+Measured, in a scratch repo with a teammate's line uncommitted in the same file:
+`git commit -m … -- SHARED.md` gives `2 0` and sweeps both authors' lines; the recipe
+above gives `1 0` and **only** the author's, with the teammate's line still
+uncommitted and untouched in the working tree.
+
+**`GIT_INDEX_FILE` is what makes this compatible with *never `git add`*.**
+`git apply --cached` against the *real* index would need a bare `git commit`, which
+commits whatever anyone else has staged — the very thing that rule exists to prevent.
+A private index does not touch the shared one at all.
+
+**Step 3's `git reset` is required, not tidiness.** After `update-ref` the real index
+still holds the pre-commit blob while HEAD has moved past it, so `git status` reads
+`MM` — and a subsequent bare `git commit` would commit that stale index and **silently
+revert the line you just committed**. `git reset` with no arguments resyncs index to
+HEAD and leaves the working tree, including everyone else's uncommitted lines, alone.
+
+**And the failure mode inverts, which is the whole reason this is worth more than the
+check.** If the file moved under you, `git apply --cached` refuses:
+
+```
+error: patch failed: SHARED.md:1
+error: SHARED.md: patch does not apply           rc=1
+```
+
+Today's sweep is silent. This is a refusal that names the file and tells you to
+re-cut your patch.
+
+**Two costs, and they are why this is not a new default:**
+
+* **`commit-tree` bypasses hooks and `-s`.** The `Signed-off-by:` trailer must be in
+  the message you pass, by hand. CI blocks a commit without one, so this is a new way
+  to fail.
+* **It needs the diff captured at edit time.** Forget step 1 and you are back to the
+  check.
+
+So: **this is what you do when you know a section rewrite is coming** — the case the
+detection reads backwards. For appends, the check is enough.
+
+### The scratch repo that is not a scratch repo
+
+**Assert where you are before the first git command.** m4, 2026-09-04, was told to
+build the scratch repo for the experiment above under
+`/shared_nfs/yihou/agent_sys/ws_handoff_refine/`. That mount had gone **read-only**
+hours earlier, so `mkdir` failed, `cd` failed, `set -e` did not fire — and a script
+containing `git init`, `git config` and `git add -A` ran **in the real worktree**. It
+committed 29 files and 1572 insertions to the branch as `m4 <m4@e2e-flow.invalid>`,
+sweeping four owners' uncommitted work including the `graph_ceiling.py` fix that was
+on a deadline.
+
+In m4's words: ***the script's safety depended on a `cd` succeeding, with no assertion
+that it had.*** The fix is an assertion about **where you are**, not a hope that
+getting there worked:
+
+```bash
+case "$(git rev-parse --show-toplevel 2>/dev/null)" in
+  /tmp/my-scratch-*) : ;;
+  *) echo "FATAL: git toplevel is not the scratch repo. Refusing."; exit 1 ;;
+esac
+```
+
+**`git config` is the half nobody expects: worktrees share repo config**, so
+`git config user.name` in a worktree changes the committing identity for **every**
+owner until it is put back. Recovery order matters — restore the identity *first*,
+then `git reset --mixed HEAD~1` (mixed, so nothing is left staged in the shared
+index), guarded on `git rev-parse HEAD` still being your commit.
 
 `todo.md` is **not** serialised behind one committer. `25d9c01` exists so a deferral
 is recorded by whoever found it at the moment they found it, and a queue would cost

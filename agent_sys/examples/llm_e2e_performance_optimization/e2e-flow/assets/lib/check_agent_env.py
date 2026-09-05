@@ -152,6 +152,47 @@ _PROGRAM_ONLY = {"entry.sh"}
 _LIB_REF = re.compile(r"\b([a-z_][a-z0-9_]*\.(?:sh|py))\b")
 
 
+def _consequence(reference: str, key: str) -> str:
+    """What an empty value actually does *at the site that reads it*.
+
+    **The verdict was always right and the reason was asserted, not checked.**
+    This message used to end *"and the body silently takes whatever default it
+    wrote"* — true for `${VAR:-…}` and false for `${VAR:?…}`, which fails
+    naming the variable. m4 hit it 2026-09-04 on `E2E_WORK_ROOT`, where the
+    readme uses `:?`; the defect was real and the stated consequence was not.
+
+    That distinction is not cosmetic here: a `:-` where a `:?` was meant is the
+    exact fault that kept a gate printing PASS for a day (CONTRACT §3.2a). A
+    check that cannot tell them apart is grading the thing it exists to catch.
+
+    **And the wrong reason made the defect sound worse than it was**, which is
+    the direction nobody audits — you do not go checking a message that is
+    scolding you accurately enough. That is why this one survived.
+
+    The file is already open to produce `reference`; reading it again is cheap
+    and is the difference between reporting and asserting.
+    """
+    path = reference.split(" (named by")[0]
+    try:
+        text = pathlib.Path(path).read_text(errors="replace")
+    except OSError:
+        return "and what the body then does was not readable from " + path
+    if re.search(r"\$\{" + re.escape(key) + r":\?", text):
+        return (
+            f"and the body FAILS LOUDLY: it uses `${{{key}:?…}}`, so the step aborts "
+            f"naming the variable. Real defect, loud symptom."
+        )
+    if re.search(r"\$\{" + re.escape(key) + r":[-=]", text):
+        return (
+            f"and the body SILENTLY takes its own default: it uses `${{{key}:-…}}` or "
+            f"`${{{key}:=…}}`, so nothing says the value never arrived."
+        )
+    return (
+        f"and the body reads it unguarded (no `:?` or `:-` at the site), so an empty "
+        f"value propagates as an empty string."
+    )
+
+
 def _referenced(dirs: list[pathlib.Path], lib: pathlib.Path) -> dict[str, str]:
     """`E2E_*` names appearing under those directories, plus libs their readmes name."""
     seen: dict[str, str] = {}
@@ -302,8 +343,8 @@ def main(argv: list[str] | None = None) -> int:
                 problems.append(
                     f"{step.name}: {name} does NOT declare {key}, which its own assets "
                     f"read ({refs[key].split('/e2e-flow/')[-1]}). A `kind: ai` agent "
-                    f"receives only its own env block, so this arrives EMPTY and the "
-                    f"body silently takes whatever default it wrote."
+                    f"receives only its own env block, so this arrives EMPTY — "
+                    f"{_consequence(refs[key], key)}"
                 )
 
     for line in notes:
