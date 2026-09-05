@@ -76,11 +76,61 @@ def declared() -> list[tuple[str, str, dict]]:
                 name = str(v.get("name") or "")
                 if not name.startswith("check_"):
                     continue
-                args = _substitute(v.get("args") or v.get("parameters") or {})
+                args = _substitute(v.get("args") or v.get("parameters") or {}, MOCK_VARS)
+                if str((v.get("tags") or {}).get("cost", "")) == "gpu_hours":
+                    _GPU_HOURS.add(name)
                 for kind in v.get("inputs") or []:
                     out.append((str(kind), name, args))
     return out
 
+
+#: Validators the probe **cannot** grade, by their own declaration.
+#:
+#: `tags.cost: gpu_hours` says the check re-measures on a node. The probe runs on
+#: a login node with no card and no live allocation, so these refuse every
+#: artefact identically — a fact about where the probe runs, not about the
+#: artefact. m3 argued the category from `check_workset_runs`; it covers three:
+#:
+#:     check_deploy_serves          brings a deployment up and loads it
+#:     check_workset_runs           measure_in_container.sh:142, "no measurement card"
+#:     check_speedup_substantiated  re-measures the kernel; that IS its purpose
+#:
+#: **`NO_CORPUS` and `NO_VERDICT` exist for the same reason** — *could not be
+#: graded* is a different fact from *graded and refused*, and collapsing them is
+#: what put three permanent non-defects on a fourteen-row worklist. Every future
+#: run would have reported them again.
+#:
+#: Reported, never silently skipped: the row still appears, saying why.
+_GPU_HOURS: set[str] = set()
+
+
+#: The launch-line vars a **mock** run passes, which the declared defaults do
+#: not cover. Without these the probe grades a mocked artefact under a real
+#: run's expectations and refuses correctly for a reason about the launch line
+#: rather than about the artefact — the fourth defect in this file, and the same
+#: sentence as the first three: *the validator the graph runs* is the one with
+#: its launch line, not just its defaults.
+#:
+#: Measured, each one resolving a row that was otherwise a correct refusal of
+#: the wrong question (m2, 2026-09-05):
+#:
+#:     expect_ranks=2   check_trace_coverage    "expected 8 rank(s), the manifest lists 2"
+#:                      — the sealed torch_trace is a TP-2 capture (`m2_profiling.yaml:116`)
+#:     adhoc_cases=0    check_acceptance x2     "adhoc.json is missing and 3 ad-hoc case(s)
+#:                      are required (M5.4)" — no sealed handoff carries them (MOCK-MAP D")
+#:
+#: **`measure_gpu` is deliberately NOT here**, m3's warning: supplying it would
+#: have the probe attempt a real measurement on a login node with no card, which
+#: moves the refusal rather than removing it. A `cost: gpu_hours` validator is
+#: not gradeable here at all — see `NOT_GRADEABLE`.
+#:
+#: Only vars whose effect has been measured belong in this dict. A var added
+#: because it appears in a launch line, without a row to show for it, is a
+#: threshold quietly relaxed.
+MOCK_VARS: dict[str, str] = {
+    "expect_ranks": "2",
+    "adhoc_cases": "0",
+}
 
 _VAR = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-(.*))?\}$")
 
@@ -99,7 +149,12 @@ def _substitute(node, overrides: dict[str, str] | None = None):
         check_bench_report   ValueError: invalid literal for int(): '${bench_rounds:-1}'
         check_identity_resolved  could not convert string to float: '${min_resolve_ratio:-0.0}'
 
-    **12 of 14 refusals were this**, across four owners, and every owner
+    **Ten of the fourteen refusals crashed on it; six of those resolve once
+    substituted.** The other four crashed *and* refuse afterwards — the crash
+    was HIDING a real refusal, not manufacturing a false one, which is the
+    opposite of what a bare "12 of 14 were this" implies. Three counts, three
+    different questions: 12 rows contain a template, 10 crashed on one, 6 are
+    resolved by substituting. Across four owners, and every owner
     correctly refused to convert an artefact to satisfy it. Found by m5 and m3
     independently within a minute of each other; m2 classified the whole table.
 
@@ -222,6 +277,12 @@ def run_one(kind: str, validator: str, args: dict) -> dict:
     body = PKG / "assets" / f"{validator}.validator" / "check.py"
     if not body.is_file():
         return {"kind": kind, "validator": validator, "state": "NO_BODY"}
+    if validator in _GPU_HOURS:
+        # Declared `cost: gpu_hours` — it re-measures on a node. Running it here
+        # produces a refusal about the login node, not about the artefact.
+        return {"kind": kind, "validator": validator, "state": "NOT_GRADEABLE",
+                "why": "declares cost: gpu_hours — re-measures on a node; "
+                       "the probe has no card and no live allocation"}
     content = corpus_content(kind)
     if content is None:
         return {"kind": kind, "validator": validator, "state": "NO_CORPUS"}
@@ -298,7 +359,8 @@ def main() -> int:
         for r in ex.map(lambda t: run_one(*t), pairs):
             rows.append(r)
 
-    order = {"NO_VERDICT": 0, "TIMEOUT": 1, "REFUSE": 2, "NO_CORPUS": 3, "NO_BODY": 4, "PASS": 5}
+    order = {"NO_VERDICT": 0, "TIMEOUT": 1, "REFUSE": 2, "NO_CORPUS": 3,
+             "NOT_GRADEABLE": 4, "NO_BODY": 5, "PASS": 6}
     rows.sort(key=lambda r: (order.get(r["state"], 9), r["kind"], r["validator"]))
     for r in rows:
         line = f"  {r['state']:<10} {r['kind']:<34} {r['validator']}"
