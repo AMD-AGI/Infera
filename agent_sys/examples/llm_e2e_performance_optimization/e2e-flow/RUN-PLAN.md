@@ -660,6 +660,18 @@ Say what rung 0 covered in those terms, not as "the mock passed".
 
    *m4's diagnosis, which is why this is a precondition and not a reminder: **neither owner could have seen it from their own line.** Both logs named their own cards correctly, and `mix_up.sh` being node-wide is a fact about a stage one of them had not reached and whose scripts they had no reason to open. **The criterion lives outside the run, so the only place it can live is the launch-time check — and a rule that reaches one node's launches and not another's is a distribution failure, not a vigilance one. Distribution is fixable in a way that remembering is not.***
 
+2c. **Audit EVERY var against the mocked/real column before you launch — not the one that just refused.** The variable table above has eight rows; **at least three take a different value depending on whether the stage that consumes them is mocked or real:**
+
+   | var | mocked stage | real stage |
+   |---|---|---|
+   | `expect_ranks` | **2** (09-02 corpus is a TP-2 capture) | your `tp` |
+   | `adhoc_cases` | **0** (the corpus predates M5.4 — *a mock cannot produce ad-hoc cases*) | 3 |
+   | `bench_rounds` | **1** (the corpus holds one round) | 3 |
+
+   **Carrying a real value into a mocked run produces refusals that read exactly like producer defects**, and `-noval` will not tell you, because nothing is looking.
+
+   *Written on 2026-09-05 after m1 paid three launches for it. They hit `expect_ranks`, fixed that one var, relaunched, and hit `adhoc_cases` and `bench_rounds`. **The fix was never "fix that var" — it was "audit every var against the mocked column", which found both remaining ones in a single pass.** Two of eight rows were wrong for their run and they could have known before the first launch. The table was already right; it was not read as a table.*
+
 3. **`agent-sys show`** — under a second.
 4. **The node's state, before and after**: `docker ps` and the port band. Every identifier this package binds carries a run tag; **check the tag before killing anything.** Measured 2026-09-03: a validator's teardown crashed and warned that ports might be held, and the ports that were held belonged to *a different owner's run in flight*. Killing them would have destroyed live work.
 
