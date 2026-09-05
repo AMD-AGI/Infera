@@ -730,6 +730,46 @@ the cards back at 0%.
   **prefers** it.
 - **Rung 5 green does not mean the optimisation is good.** `check_no_regression` recomputes from raw numbers and the bars stay at 5% / 10%. If the two arms disagree by more than that, the finding may still be about the node rather than the patch — that is `todo.md` **T7**, the comparability gate, and it is unbuilt. **Do not widen the bars.**
 
+### Two rungs license less than they appear to, for two structural reasons
+
+**Found 2026-09-05 by document comparison, before a node was booked** — the
+control m3's T71 asks for. Both are statements about **the ladder**, not about a
+stage, and phase ④'s whole purpose is to make a phase-⑤ failure attributable.
+For these two seams it cannot.
+
+**Rung 4 green cannot test the m4 → m5 seam, because nothing reads m4's output.**
+Measured: `assets/lib/mock_m5.sh` consumes **zero** `AGENT_SYS_INPUT_*` — it
+takes only an `environment.yaml` path. And `apply_patch/entry.sh`'s mock branch
+`exec`s `env_render` and exits, never reaching the line below it that reads
+`--kernel-optimization`. So a mocked m5 never looks at a real m4's artefact, and
+the seam is first exercised at **rung 5, with nothing before it**. This is this
+file's own sentence — *"keep the upstream stage mocked as well, which runs today
+and proves nothing about the seam"* — arriving one rung later than where it was
+written.
+
+**Rung 3 with m4 mocked is not achievable with the corpus we have, and it does
+not need to be.** The stage-4 corpus holds an optimised kernel for
+`sampler_vocab_softmax`; real m3 on this deployment selects four operators and
+none is that one. After `039825c` all four now fail at the *same* single gate —
+**the sealed kernel does not define the operator's symbol** — which is the
+operator-name binding and nothing else. There are only two ways to clear it and
+both are refused: producing sealed kernels for m3's four operators requires real
+**m4** runs, so the mock would depend on the thing it exists to substitute for;
+and synthesising a kernel the corpus does not have is fabrication (CONTRACT
+§5.3).
+
+**So the answer is to stop needing that configuration**, and that is the correct
+outcome rather than a workaround. Input-hijack exists to make a failure
+attributable; here the seam it would isolate is one we can simply run for real,
+and m4 is doing exactly that on 287. **Do not spend a node rediscovering the
+gate.**
+
+*One gate in that series is still open as of writing and is recorded rather than
+assumed: `mock_adapt.py`'s refusal when `edit_target.entry_function` is empty is
+a branch that has been **read and not exercised**. Gate 3 was closed by
+`039825c` and the `public_symbol` gate is guaranteed by `workset.schema.json`;
+neither of those is evidence about this one.*
+
 ## "Mock e2e green" is a file and a condition, and the run's exit code is 5
 
 **Read this before reading an exit code from a mock run.** `agent-sys run` on
