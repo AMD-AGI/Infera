@@ -346,7 +346,29 @@
     E2E_MODEL_NAME: '${model_name}'
     E2E_MODEL_PATH: '${model_path}'
     E2E_MOCK_ROOT: '${mock_root:-/shared_nfs/yihou/agent_sys/cheat_for_mock}'
-    E2E_MOCK_STAGES: '${mock_stages:-}'
+    E2E_MOCK_STAGES: '${mock_stages:-all}'
+    # ---- Below here: read by this stage's own assets, so a `kind: ai` agent
+    # would receive them EMPTY without these lines. Every value is copied
+    # BYTE-IDENTICALLY from `shared.yaml`, which is the lesson of the
+    # `E2E_MOCK_STAGES` defect this block shipped with: two declarations of one
+    # default is how they drift, and the drift is silent at the point of use.
+    #
+    # Found by `check_agent_env.py` only after its closure->assets mapping was
+    # repaired — it had been matching agents by name-containment, and this
+    # agent is named in no closure because m2's default is `runner` on purpose.
+    # It examined nothing and said nothing, and both of us read that as a pass.
+    E2E_CTX: '${context_length:-262144}'
+    E2E_DEPLOY_MODE: '${deploy_mode:-mix}'
+    E2E_IMAGE: '${image}'
+    E2E_PORT_ETCD: '${port_etcd:-8103}'
+    E2E_PORT_WORKER: '${port_worker:-8102}'
+    E2E_SERVED_NAME: '${served_name:-}'
+    E2E_STACK_RANKS: '${stack_ranks:-2}'
+    E2E_STACK_WINDOW_S: '${stack_window_s:-3}'
+    E2E_STAGE: '${stage:-}'
+    E2E_TP: '${tp:-8}'
+    E2E_WARMUP_S: '${warmup_s:-60}'
+    E2E_WINDOW_S: '${window_s:-10}'
   backends:
     - key: claude_code_sdk
       backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend

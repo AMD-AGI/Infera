@@ -114,11 +114,41 @@ def _task_dirs(doc, agent_name: str, assets: pathlib.Path) -> list[pathlib.Path]
     """
     dirs: list[pathlib.Path] = []
 
+    # **An agent reachable only by OVERRIDE is named in no closure**, and
+    # containment alone cannot see it. m2's three closures read
+    # `'${m2_agent:-runner}'` — the default is `runner` on purpose, because
+    # promotion loses ten guards — so `e2e_profiler` appears nowhere and this
+    # function returned zero directories for it. The omission check then
+    # examined nothing and said nothing, and a vacuous silence is the
+    # strongest-looking evidence in this effort and the weakest.
+    #
+    # **Not unique to m2.** `${m3_agent:-runner}` and `${m5_agent:-runner}`
+    # exist too, so `workset_builder` and `e2e_integrator` were each matched
+    # only against the one closure that defaults to them, and their
+    # switchable-to-runner closures were invisible in the same way.
+    #
+    # So a closure is also a candidate when its agent is a `${…}` template and
+    # the agent under test is declared in the same document — an override can
+    # only name an agent the loader can resolve, and these are per-file.
+    def _declared_here(node) -> bool:
+        """Is the agent under test defined in THIS document?"""
+        if isinstance(node, dict):
+            if node.get("module") == "agent" and node.get("name") == agent_name:
+                return True
+            return any(_declared_here(v) for v in node.values())
+        if isinstance(node, list):
+            return any(_declared_here(v) for v in node)
+        return False
+
+    switchable = _declared_here(doc)
+
     def walk(node):
         if isinstance(node, dict):
             agent = node.get("agent")
             closure = node.get("name")
-            if isinstance(agent, str) and agent_name in agent and isinstance(closure, str):
+            if isinstance(agent, str) and isinstance(closure, str) and (
+                agent_name in agent or (switchable and agent.startswith("${"))
+            ):
                 candidate = assets / f"{closure}.task"
                 if candidate.is_dir():
                     dirs.append(candidate)
