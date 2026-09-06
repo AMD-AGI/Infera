@@ -679,3 +679,59 @@ assets/lib/interpreter_sweep.py:103
 
 *(空 HOME 的复现只要一条命令,不占 GPU:*
 `HOME=/tmp/yihou_emptyhome /usr/bin/python3 -c "import jsonschema; print(jsonschema.__version__)"`*)*
+
+## Two module owners on one node share a port band AND a work_root by default, and the first to arrive kills the second
+
+Recorded 2026-09-06T08:23:35Z by m1.
+
+**What happened.** m1's run `20260906T075853-e6f882` (launched 07:58:53) died at
+08:12:09 with exit **143 = SIGTERM**. The exit code says nothing; the reason was
+in the stage's own log, `/data/yihou/e2e_flow/deploy_main.log`:
+
+```
+[deploy 08:11:26] tag=qwen3-32b-mix ctr=yihou_dk_qwen3-32b-mix ports=8101..8106
+deploy.sh: ABORT: etcd port 8103 is already in use. Move the band with
+  E2E_KIT_PORT_BASE=<free base>; do not wait for it.
+```
+
+**Ownership of the port established by config, not by name or adjacency:**
+`docker inspect yihou_e2e_chain_main_etcd --format '{{json .Args}}'` shows etcd
+configured on **8103/8104**. That run is m2's — orchestrator `573170`,
+`/data/yihou/e2e_verify_20260906/m2/launch_chain.py`, started 08:05:04.
+
+**Two defaults collide, and neither owner chose either of them.**
+
+| | m1 | m2 |
+|---|---|---|
+| port band | `8101..8106` (kit default) | `8101..8106` (same default) |
+| `work_root` | `/data/yihou/e2e_flow` | `/data/yihou/e2e_flow` — byte-identical |
+| `validate_work_root` | `/data/yihou/e2e_flow/validate` | same |
+
+**A preflight cannot fix the port half.** m1 checked 8101/8140/8160/5557/8801 at
+07:58 and all were free; m2 launched at 08:05; m1's deploy reached the band at
+08:11. **The reading was correct when it was taken and wrong when it was used** —
+the same shape as reading GPU occupancy at plan time instead of at bring-up time.
+The only real defence is a band that is not the default:
+**`E2E_KIT_PORT_BASE` moves the whole band; `port_router` moves one port and
+leaves the rest behind.**
+
+**The work_root half is worse because it is silent.** Nothing aborts when two
+runs write into one work root; they simply interleave. `deploy_kit/` under the
+shared root was created 08:15:46 by m2's run while m1 still believed the tree was
+its own. No corruption observed, and that is luck rather than a property.
+
+**Compounding: m2's line is `mock_stages=none`**, a fully real chain, so its m5
+reaches `mix_up.sh:81` -> `reset_gpus.sh`, a **node-level** kill of every KFD
+process that protects only `slurmstepd`. Under CLAUDE.md rule 5 that makes the
+node exclusive for the duration, so the two lines could not have coexisted even
+with disjoint ports.
+
+**What to change, and it belongs in the launch block rather than here** — this
+is a launch-line fact, and a collision is invisible until the moment another
+tenant takes your number:
+
+- every concurrent line needs its **own `E2E_KIT_PORT_BASE`**, spaced well clear
+  (the kit claims a RANGE, ~6 ports, not one);
+- every concurrent line needs its **own `work_root` and `validate_work_root`**,
+  and the owner's name is the obvious discriminator;
+- and a line that will reach a real m5 needs the node to itself regardless.
