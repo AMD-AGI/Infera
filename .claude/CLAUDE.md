@@ -645,6 +645,26 @@
   > 全部用来保护的那个东西。**
   **诚实的位置是:我不知道那是谁的,而我告诉过两个人是他们的。**
 
+  **第五个实例,2026-09-06 00:5x,而它是我在把这一条写进文件之后犯的。**
+  我从 `yihou_m3_dev217` / `yihou_m3_explore` 的名字推出「m3 的容器」,
+  并**在同一分钟里对两个人这样称呼它们**——给 m1 的免停通知,和给 m3 的前瞻警告。
+  **m3 用「这个包能创建的完整集合」反驳:**
+  ```
+  identify.py:638             docker run --rm --name yihou_m3_identify_<pid>
+  mock_adapt.py:338           docker run --rm --name yihou_m3_imagefacts_<pid>
+  measure_in_container.sh:480 docker run --rm --name $E2E_MEASURE_CONTAINER
+  ```
+  **三个名字,全部 `--rm`、全部带 pid 后缀——而一个 `--rm` 容器不可能作为
+  `sleep` 存活。** 加上他们的 hold `112862` 已经超时,**他们此刻根本没有路径上那台节点。**
+  > **`yihou_` 是我们所有人共用的前缀,`m3_` 被读成了归属。**
+  **这是今天第四个被按前缀判给 m3 的容器**(此前 `src`/`dev`/`reader` 在 287),
+  **同一签名:`autoremove=false`、`sleep N`、只有 ubuntu 标签、无 `infera_e2e_run`。
+  同一个未知的创建者,现在出现在第二台节点上——至今无人认领,而且不是我们任何一条流水线。**
+  *m3 同时更正了自己给 m5 的一句过宽的话:包**确实**会造 `sleep infinity` 容器——
+  `mix_up.sh:111`,带 `--device=/dev/kfd`,但那是 m5 的 serve 路径、名字是 `$CTR`、
+  带 `infera_e2e_arm`/`infera_e2e_run` 标签。**正确的判别器是那几个更窄的:
+  `--rm`、pid 后缀、标签——不是前缀。**
+
   **同一天第三次,而这次相邻在「样本里恰好共变的那个变量」上**(2026-09-05 20:4x,
   T78,m4 推翻)。两条真实链的 `apply_patch` 失败、两条 mock-1-4 的通过,于是我
   写下轴是「真实 vs 回放」。**同样四行完全符合「算子」这个解释,而算子就在每一份
