@@ -1845,3 +1845,43 @@ Orchestrator exited; **no agent survived in any run zone** (`pgrep -f
 'claude/versions'` -> one process whose cwd is the repo root, not a zone). The
 stock arm was still up at 18 minutes holding cards 0-3 with nothing left to
 collect it; stopped with `docker stop -t 10` (never `rm -f`), run tree untouched.
+
+### Sampled 2026-09-06 00:1x (m2): the precondition is abundant, the fault is absent
+
+**10 mock-loop runs, login node, no GPU. 60 validation zones / 80 staged handoffs,
+8 kinds. ZERO empty, agreed by two independent instruments** (`refusal_saw_something.sh`
+10x "none empty"; an independent census of the 80 staged handoffs).
+
+**The part that is not a null result:**
+
+```
+handoff shape                          staged   result       count
+multi-version, HAS an empty version    v1       non-empty       20
+single-version, no empty version       v0       non-empty       60
+```
+
+**30 of 100 handoffs carry exactly the `v0=0, v1=N` shape of the real instances, and
+version resolution picked the populated version in all twenty that were staged.**
+
+> **So the loop reproduces the PRECONDITION at 30% and the FAULT at 0/80. It is NOT
+> "an empty v0 confuses staging" -- that arises constantly and is handled correctly.**
+
+This also confirms m1's refutation of the `v0` framing on 80 fresh samples: 60 zones
+staged from `v0`, every one populated.
+
+**Not sampled, so the number is not over-read:** all 80 are output-phase (no input
+zone stages materials -- structural); stages 1-3 only (all ten runs stalled at
+`build_workset` -- a separate stall, not chased); one validator (`-noval`, so every
+zone ran `check_nothing`); mocked producers, so a fault that depends on how a real
+stage seals is invisible here. **`profiling_evidence`, the kind from the real
+instances, IS in the sample, ten times.**
+
+**Stop condition reached and honoured: this needs a framework code read, not more
+sampling.** More runs tighten an upper bound and buy nothing about mechanism. The
+open question is what makes version resolution choose an empty version when it
+demonstrably prefers the populated one.
+
+**Caveat m2 raised against their own result, and it is the right one:** the ~1-in-12
+figure came from three instances **found by accident**, so its denominator was never
+counted. 0/80 is inconsistent with that rate, but the honest reading may be that the
+RATE is unreliable, not that the mock path is blind.
