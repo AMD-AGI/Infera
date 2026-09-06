@@ -15821,3 +15821,140 @@ becomes a fraction. **That is worth more than the +2** — but it is worth exact
 nothing past `build_workset`, where the chain has never been, and where the two
 unfixed defects in front of it are a mount `case` with no branch for this cluster
 and a `baseline` field two modules disagree about.
+
+---
+
+## R2 T+937 — 2026-09-06 22:10 UTC
+
+**T+937 = wall-clock delta from the baseline** (06:33:41 → 22:10:04).
+
+### 1. STAGE 3 IS COMPLETE, and stage 4 has started
+
+**[observed, first-hand] `20260906T203956-3bf8c2`, alive, pid 3203507, last write
+22:09:52:**
+
+```
+m1_deploy                succeeded
+deploy_and_prove         succeeded
+run_profiling_mode_off   succeeded
+run_profiling_mode_on    succeeded
+merge_profiling_evidence succeeded
+m2_profiling             succeeded
+identify                 succeeded
+rank                     succeeded
+build_workset            SUCCEEDED       ← refused in run 17 (T+847)
+m3_analysis              SUCCEEDED       ← STAGE 3 SEALED, first time ever
+m4_kernel_opt            running         ← STAGE 4 ENTERED, first time ever
+optimize_kernel          running
+
+verdicts 24/24 — zero refusals
+stacks_manifest.json ×7
+```
+
+**`build_workset` sealed.** It was refused ninety minutes ago by
+`check_workset_runs` on a mount `case` with no branch for `/data/yihou` (T+847).
+**It passed this time, so the mount reached the validator's closed environment** —
+**how, I have not established**, and that is the reading worth taking: the fix
+either travelled in the launch or the agent supplied it, and those have very
+different lifespans.
+
+**24 of 24 verdicts, no refusals, on a fully real chain** (`mock_stages=none`,
+read from argv at T+907). **Three of five stages sealed.**
+
+**`/data/yihou/e2e_flow8/kfo` exists** — the kernel-forge scratch root. Module 4
+is doing something.
+
+**Timing, measured:** launched **20:39:56**, `m3_analysis` sealed by
+**22:09:52 — 90 minutes for stages 1 through 3.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (+6) |
+| 已经耗时 | **~951 min** (mission.md 06:19:11 → 22:10:04) |
+| 预估耗时 | **for the first time, partially estimable — see below** |
+| 可靠性 | **中** |
+
+**+6: stage 3 sealed and stage 4 entered.** Three of five.
+
+**On 预估耗时, and this is the first time I can say anything.** Stages 1–3 cost
+**90 minutes** on a fully real run, and the front of the chain has now been
+measured twice (46 min and 60 min to `build_workset`). **Module 4 has zero
+measurements here and the user flagged it as very long; the first cluster
+recorded one campaign running 113 minutes and still in preparation.** Module 5
+also has zero.
+
+> **So: the chain up to module 4 costs about 90 minutes. What remains is
+> unestimable, and it is unestimable because of module 4 specifically, not
+> because of general uncertainty.** That is a more useful statement than
+> "absent," and it is the first time it has been available.
+
+**Hold `29313`: 15 h 50 min left.**
+
+### 3. 当前进展
+
+```
+3bf8c2   ALIVE  the only run; m4_kernel_opt / optimize_kernel running
+node     8 cards VRAM 0 %, no yihou_* container
+scratch  /data/yihou/e2e_flow8/kfo present
+```
+
+**Cards idle while module 4 runs is expected** — the first cluster measured a
+campaign spending its first two hours in preparation with no source file
+modified. **I will not read "no GPU activity" as "module 4 is stuck"**, and the
+discriminator when it matters is the growth of `kfo/`, not the cards.
+
+### 4. Code problems
+
+**Apparently cleared, mechanism unconfirmed:** the `measure_in_container.sh`
+mount `case`. **`check_workset_runs` passed; I have not read how.**
+
+**Carried, root-caused, unfixed:** `baseline` with two incompatible consumers
+(`apply.py:828`) — **and it is now directly in front of the chain**, because
+module 5's `apply_patch` is the consumer that refuses; stall threshold equals
+AIPerf's 900 s request timeout; `preflight.sh:211`; teardown-vs-preflight
+sequencing; `--var jobid` vs `_agree_or_die`; `etcd.log` on no path;
+`min_resolve_ratio` floor of zero; the router `/health` gate vs a cold JIT
+compile; three refusals naming unreadable `--var`s.
+**Open, intermittent:** the stack window.
+**Carried unread since T+94:** the eight `jsonschema` validators — **fifteen and
+a half hours.**
+
+### 5. 未定性
+
+- **What module 4 costs, and whether it fits 15 h 50 min.** **Now the single
+  question that decides whether this round reaches `packup`.**
+- **How `build_workset` cleared the mount defect.** §1. **A fix in a launch or an
+  agent instruction does not ship; a fix in the package does.** This record has
+  made that distinction four times today and it applies again.
+- **Whether `baseline` blocks module 5** regardless of module 4's outcome
+  (T+877 §1).
+- **What module 5 consumes if module 4 is replayed** — **twenty-ninth consecutive
+  section, and it is now one stage away from being answered by events rather
+  than by reading.**
+
+### 6. 新增 commit
+
+Since T+907, none but mine (`59c1c7b3`).
+
+### 7. 其他
+
+**Sixteen hours and eighteen runs to get three stages, and the third arrived
+ninety minutes after the second on the same run.**
+
+That is worth stating precisely because it is not a story about acceleration.
+**The eighteen runs bought eleven distinct single-point defects**, each found
+once, each by something refusing rather than by something quietly producing a
+wrong answer. **Run 18 did not go faster because anyone tried harder; it went
+further because every rung below it had been repaired.**
+
+**And the two defects nearest the front are the two that were unreachable
+longest:** a mount `case` that could only be hit once a real workset existed to
+measure, and a `baseline` contract that only bites when `apply_patch` reads what
+`build_workset` wrote. **Both are properties of the chain being connected, which
+is the entire thing this package exists to do.**
+
+**What has never happened on either cluster is `packup`.** Module 4 is running,
+the cards are idle, and the honest position is that nobody here knows how long
+that lasts.
