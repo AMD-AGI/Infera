@@ -15,9 +15,12 @@ thing you must supply, not a thing you can inherit.
 
 ## Where the first round got to
 
-**Six real chain runs. Best board: seventeen validators invoked, sixteen pass, one
-refusal.** Read this table as the starting point to reproduce, not as a claim to
-trust.
+**Seven real chain runs.** Two boards worth carrying, and they are not the same claim:
+**(a)** modules 1, 2 and 5 real — seventeen validators, sixteen pass, one refusal;
+**(b)** modules 1 and 2 real with 3/4/5 replayed — seventeen validators, **zero
+refusals, `packup` reached.** **(b) is a stronger-looking board and a weaker
+statement**, because the only validator that has ever refused was not exercised in it.
+Read both as starting points to reproduce, not as claims to trust.
 
 | module | real or replayed in the best run | its validators |
 |---|---|---|
@@ -63,7 +66,14 @@ trust.
   attempt spent 113 minutes still in preparation with no source file changed.
   **Running it through is a first-class goal of this round** and is the main reason
   a cluster with longer holds is worth the move.
-- **No chain has completed all five stages.** `packup` is unreached.
+- **A chain HAS now walked all five stages and reached `packup`** — but only in the
+  shape where module 5 is replayed (modules 1 and 2 real, 3/4/5 replayed). Seventeen
+  validators, **zero refusals**, and `check_packup_shape` invoked and passing for the
+  first time. **Read it as reachability, not as regression:** in that shape
+  `check_no_regression` passed on a report whose two comparison blocks both
+  self-declare `unavailable_because: mock`. **It passed by having nothing to judge.**
+  **No chain has reached `packup` with module 5 real** — that is still open, and it is
+  the one the refusal above blocks.
 - **`check_no_regression` under clean comparability.** The surviving explanation for
   the 11.2 % is *one machine in two states* — module 2 runs a profiled capture and
   two bring-ups sit between it and module 5's stock arm. **No launch variable
