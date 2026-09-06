@@ -15264,3 +15264,150 @@ sample, and a run tree cannot tell you it is N=1.** The denominator lives outsid
 the run — which is the same place this file already established that hold
 liveness, image identity, and container ownership live. **Four things now, all
 invisible from inside.**
+
+---
+
+## R2 T+817 — 2026-09-06 20:11 UTC
+
+**T+817 = wall-clock delta from the baseline** (06:33:41 → 20:10:34).
+
+### 1. Deepest board of the round — stage 2 sealed again, stage 3 well inside, 21/21 verdicts
+
+**[observed, first-hand] `20260906T192406-5f24ca`, alive, pid 2505185, last write
+20:09:50:**
+
+```
+m1_deploy                succeeded
+deploy_and_prove         succeeded
+run_profiling_mode_off   succeeded
+run_profiling_mode_on    succeeded
+merge_profiling_evidence succeeded
+m2_profiling             SUCCEEDED        ← stage 2 sealed, 2nd time
+identify                 SUCCEEDED        ← never sealed before
+rank                     succeeded
+build_workset            running          ← never reached before
+m3_analysis              running
+
+verdicts  21/21 pass — ZERO refusals
+```
+
+**`identify` sealed.** It refused once, at T+637, on a duplicate
+`logical_operator` that would have become two directories with one name.
+**`649af26b` fixed it and this is the first run to test that fix.** It passed.
+
+**Twenty-one verdicts and not one refusal.** The largest clean board of the
+round; the previous best was 20/21.
+
+### 2. The stack window was captured — and the rate is now 2 in 4
+
+**[first-hand]**
+
+```
+stacks_manifest.json  ×7 in this run
+  ranks 2
+  totals {files 2, bytes 140 335 056, gpu_kernels 111 516,
+          python_functions 5 703 861, readable 2}
+```
+
+**140 MB and 5.7 million python function samples**, comparable to `d9c7af`'s
+137 MB / 5.6 M at T+637.
+
+**T+786 recorded the rate as 1 hit in 3 real attempts. It is now 2 in 4.** That
+is the honest update: **the stack window remains intermittent, and this run is a
+hit rather than a fix.** Nothing in the launch changed to make it more likely —
+`launch11` carries the same `trace_end_ms=120000` and the same absence of waiver
+flags.
+
+**The question I carried for four sections — "will the capture succeed without
+the waiver?" — has now been answered twice: yes, sometimes.** That is a worse
+answer than a clean yes and a much better one than the yes/no framing allowed.
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~66 %** (+8) |
+| 已经耗时 | **~831 min** (mission.md 06:19:11 → 20:10:34) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+8: stage 2 reproduced, `identify` and `rank` sealed, `build_workset`
+running.** Stage 3 is no longer "entered and refused" — **three of its tasks have
+sealed and a fourth is executing.**
+
+**Timing so far, measured:** launched 19:24:06, at `build_workset` by 20:09:50 —
+**46 minutes for stage 1 plus stage 2 plus most of stage 3.** `d9c7af` took ~68
+minutes to reach the equivalent of stage 2 alone.
+
+**Hold `29313`: 17 h 50 min left.**
+
+### 4. 当前进展
+
+```
+5f24ca  ALIVE  the only run, pid 2505185, container=yihou_e2e_chain7
+node    8 cards VRAM 0 %, no yihou_* container
+```
+
+**Cards idle and no engine container, with the run actively writing 11 seconds
+before I sampled.** `build_workset` is a CPU stage; **this is the sixth failure
+mode of "the cards are free" and the reading is correct while the inference from
+it would be wrong.** Recorded because I have now made that mistake once and
+avoided it four times in this file, and the difference each time was asking
+whether a live chain exists before asking whether cards are busy.
+
+### 5. Code problems
+
+**No new ones. Nothing broke this interval.**
+
+**Confirmed fixed by a passing run:** `logical_operator` uniqueness (`649af26b`)
+— **the first fix of the round verified by the validator that refused it.**
+
+**Carried, root-caused, unfixed:** stall threshold equals AIPerf's 900 s request
+timeout; `preflight.sh:211`; teardown-vs-preflight sequencing; `--var jobid` vs
+`_agree_or_die`; `etcd.log` on no path; `min_resolve_ratio` floor of zero; the
+router `/health` gate vs a cold JIT compile; three refusals naming unreadable
+`--var`s.
+**Open, correctly framed as intermittent:** what makes the stack window fail 2
+times in 4.
+**Carried unread since T+94:** the eight `jsonschema` validators — **thirteen and
+a half hours.**
+
+### 6. 未定性
+
+- **Whether `build_workset` completes and `m3_analysis` seals.** Live now, and
+  **this is the furthest the round has ever been.**
+- **What module 4 costs.** Still zero measurements, and it is now one stage away.
+  **17 h 50 min of hold is the budget it has.**
+- **What module 5 consumes if module 4 is replayed** — **twenty-fifth consecutive
+  section**, and if `m3_analysis` seals it becomes the immediate next question
+  rather than a carried one.
+- **Whether `merge_profiling_evidence` had executed before tonight.** **It shows
+  `succeeded` here and in `d9c7af`.** The leader stated at 14:28 that it had never
+  executed anywhere; **two runs now disagree with that, and I record the
+  disagreement rather than assuming which is stale.**
+
+### 7. 新增 commit
+
+Since T+786, none but mine (`daf69e62`).
+
+### 8. 其他
+
+**The last three sections have a shape worth naming while the run is still
+alive.**
+
+```
+T+757   a stall detector fed by the failure it watches for
+T+786   a mechanism proposed, retracted, and its denominator corrected —
+        by one person inside forty minutes
+T+817   21 of 21 verdicts, three new tasks sealed, no refusals
+```
+
+**The clean board did not arrive because the chain got easier.** It arrived after
+a day in which ten distinct single-point defects were each found once, and in
+which the last three findings were all about *how we were measuring* rather than
+about the product. **`identify` sealing is the direct payoff of a refusal at
+16:57 that named a file and a fix; the capture succeeding is not a payoff at all,
+it is a coin that landed the right way twice in four.**
+
+**Keeping those two apart is the whole job of this section.** One of them will
+still be true tomorrow.
