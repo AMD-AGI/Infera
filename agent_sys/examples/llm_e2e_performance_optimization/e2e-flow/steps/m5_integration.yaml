@@ -122,6 +122,26 @@
     # `runner` should mirror both; `shared.yaml` is the leader's file.
     E2E_EVAL_MAX_TOKENS: '${eval_max_tokens:-2048}'
     E2E_EVAL_THREADS: '${eval_threads:-32}'
+    # **The same omission class again, and this one produces a NUMBER rather
+    # than an error.** `assets/accept/measure.sh:193` and `:265` read
+    # `E2E_EVAL_THINKING` with the fallback `--thinking-mode glm-45`, and
+    # nothing declared it — so on any model that is not GLM-4.5/5.3 the
+    # evaluator sends `enable_thinking: True` to a model with no matching
+    # reasoning parser. `assets/accept/lm_eval.sh:11` records the consequence:
+    # a healthy deployment answers every request and **scores 0.00**, which
+    # `check_acceptance` cannot distinguish from a model that got the questions
+    # wrong. Found by m2's variable audit, 2026-09-06.
+    #
+    # **The default is today's fallback, character for character**, so a
+    # first-cluster reproduction is unchanged and this declaration cannot break
+    # anyone. `--var eval_thinking=none` is the other value: `lm_eval.sh:47`
+    # turns `none` into an empty flag, which is what a model without a
+    # reasoning parser needs.
+    #
+    # `measure.sh:265` writes the value it used into the arm's `context.json`,
+    # so which one a run took is readable afterwards rather than inferred —
+    # which the launch line is not.
+    E2E_EVAL_THINKING: '${eval_thinking:---thinking-mode glm-45}'
     E2E_BENCH_ROUNDS: '${bench_rounds:-1}'
     E2E_TRACE_END_MS: '${trace_end_ms:-60000}'
     # **The replay's load shape, and leaving these undeclared was not cosmetic.**
