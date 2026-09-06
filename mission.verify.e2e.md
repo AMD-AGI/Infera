@@ -117,8 +117,20 @@ expensive one; put it last and reuse its output once obtained.**
 
 ### Framework, not ours
 
-1. **A validation zone is sometimes handed ZERO files.** Non-deterministic,
-   validator-agnostic, roughly **one zone in eleven to thirteen** on real runs.
+1. **One validation zone per run is handed ZERO files, and it is always the same
+   one.** **Seven real runs, seven results of exactly one empty zone**, and in the six
+   resolved so far the zone belongs to **module 2's closure** (`m2_profiling`, the
+   task carrying `deploy_kit` + `profiling_evidence`). **It survives module 2 replayed
+   vs real, module 5 replayed vs real, both halves of a node, and different validator
+   subsets.** It was mistaken for a ~1-in-13 *rate* for a whole night because every
+   report gave a count; **exactly one per run is inconsistent with an independent
+   per-zone probability**, which would give some runs zero and some two.
+   **Established: deterministic for that closure. NOT established: that only that
+   closure can be affected** — every run in the sample has module 2 in the graph and
+   upstream of live work. **The cheap test nobody has run is a graph without it.**
+   **Untested shape hypothesis:** that closure carries **two kinds** and the only
+   stage in the graph that gathers from four producers sits immediately upstream of
+   it. **Nobody has read the staging code.**
    Consequences in increasing severity: a false refusal that reads like a producer
    defect; **a silent pass on nothing**; and — measured once — **the death of a
    healthy run**, when a spurious refusal on a replayed upstream stage escalated to a
@@ -128,7 +140,13 @@ expensive one; put it last and reuse its output once obtained.**
    handoffs on a mock loop produced **zero** empties while reproducing the *shape*
    (`v0` empty, `v1` populated) at 30 % and resolving it correctly every time — so
    "an empty `v0` confuses staging" is refuted. **The version number is noise; the
-   file count is the discriminator.**
+   file count is the discriminator.** **Caution on that 0-in-80:** those runs all
+   stalled early and may never have staged the same zone set, so it and the real-path
+   number were probably never the same population. **Do not treat them as a
+   contradiction requiring explanation until the zone counts are compared.**
+   **The zone directory is named `validation.<TASK-ID>.<phase>.<hash>` — the owning
+   task is IN the name, and the store maps it to a closure. Resolve the identity, do
+   not report a count.**
    **Before attributing any refusal:**
    ```sh
    bash assets/lib/refusal_saw_something.sh <run dir>
@@ -138,6 +156,9 @@ expensive one; put it last and reuse its output once obtained.**
    about the artefact.**
    **A PASS establishes that the validator was invoked, not that it saw anything** —
    a pass carries no reason, so the file count is the only retrospective check on it.
+   **Consequence on the first cluster: every verdict that project recorded for the
+   validator on that kind is void — both of its refusals and all of its passes.**
+   Expect the same to be true of whichever kind it lands on for you.
 
 2. **An escalation with no receiver leaves a task at `running` and the log looking
    healthy.** Two flavours, and the event type tells them apart without opening
