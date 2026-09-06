@@ -1371,7 +1371,52 @@ instrument 2 有同样的缺陷,却被立为决定者。
 
 ---
 
-## 14. 引擎自称 ready 之后一秒失去 detokenizer —— 而**修好的守卫这一次根本没被调用**
+## 14. ~~引擎自称 ready 之后一秒失去 detokenizer~~ —— **这一条的中心主张是错的，见开头的撤回**
+
+> # 【撤回 2026-09-06T16:13:28Z，作者 m35，撤回的是我自己】
+>
+> **下面把 detokenizer 那两行当成故障签名。它不是签名，它是每一次起机都有的噪声。**
+> 我在 run 4 里据此加了一次重试，**那次重试连杀两个健康的起机**，
+> 两次都在第 130 秒、对着 2400 秒的预算、冷启动中途中止，两次都没有 `router.log`
+> ——router 根本没被起到。
+>
+> **判据是一张表,分母写明:**
+>
+> ```
+> 21 / 21 —— 100%
+> 19 个不同的臂（find -name 'worker*.log' 于 e2e_flow / e2e_flow3 / e2e_flow4，
+>              重复副本已合并）+ run 4 的两次尝试
+> 每一个都有 "fired up and ready to roll!" ×1 和 detokenizer 失败 ×3–5
+> 其中包括每一次成功的起机：c2a（真答过一次）、chain3（15:21:42 PASS）、
+> serves-d8ff1deb（check_deploy_serves 通过）
+> ```
+>
+> **我只采样了失败的那些。** 我打开的四份日志,每一份都是因为出了事才打开的——
+> **这个样本在结构上不可能给我反例**,而这句话我今天写进过 CLAUDE.md 两次。
+>
+> **更糟的是 kit 自己在同一份日志里说过它是良性的,而它在三十秒后照我说的中止了:**
+> ```
+> 16:05:45  not ready yet (60s of 2400s). A cold start on this model is minutes of
+>           weight load and JIT kernel builds; the repeated health-check failure
+>           in the log is that, not a hang.
+> 16:07:15  worker log carries the detokenizer signature after 130s
+> 16:07:15  attempt 1 hit the known detokenizer signature; retrying exactly once
+> ```
+>
+> **这正是我今晨写进 CLAUDE.md 顶部那节的形状**——「一个修复正确地针对眼前那次
+> 失败,而对下一次是错的」——而我在引用那条规矩之后几小时内亲手造了一个实例。
+> 我自己那三个问题本来就能拦住它:
+> * *哪一类输入从通过被推到拒绝?* —— **本机上每一次健康的冷启动。**
+>   我当时回答「没有,它只是给一条本来就会死的路径加一次尝试」。**那是假的,而我没查。**
+> * *它判不出来时倒向哪边?* —— **倒向中止**,在第 130 秒。我说它倒向「花时间」。
+>
+> **run 3 那条臂的真实死因仍然未知。** 它的 router 连不上 8142 的 etcd,
+> 而 detokenizer 那两行在**每一次**起机里都有,包括同一天成功的那些。
+> **下面保留原文,因为「我当时是怎么推出来的」比结论有用。**
+
+### 原文（结论已撤回，推理过程保留）
+
+#### 原 14 标题: 引擎自称 ready 之后一秒失去 detokenizer —— 而**修好的守卫这一次根本没被调用**
 
 **observed_at 2026-09-06T15:46:57Z（`date -u` 读出）；发现者 m35，运行 `20260906T150155-79bca5`。**
 
