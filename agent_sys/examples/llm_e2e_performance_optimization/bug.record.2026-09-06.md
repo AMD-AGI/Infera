@@ -1018,7 +1018,7 @@ happened to be right; here the flag is absent and the software chooses well.
 
 ---
 
-## 7. 900 秒 stall 是自终止的,不留孤儿 agent、不留容器 —— 实测,退掉一条一直在用的假设
+## 9. 900 秒 stall 是自终止的,不留孤儿 agent、不留容器 —— 实测,退掉一条一直在用的假设
 
 追加于 **2026-09-06T14:10:10Z**(`date -u` 实读)。**这不是 bug,是一条被证伪的操作假设**,
 记在这里是因为它改变 leader 在每一次 stall 时该做什么,而消息不会留下来。
@@ -1030,7 +1030,7 @@ happened to be right; here the flag is absent and the software chooses well.
 **「杀掉编排进程不会杀掉它的 agent,而 agent 会在容器被停一分钟后重建它」**。
 于是没有人敢让 stall 自己烧完——**那条路径从来没有人看过。**
 
-### 实测(运行 ,2026-09-06 ~14:05Z)
+### 实测(运行 `20260906T130845-298750`,2026-09-06 ~14:05Z)
 
 让它烧完之后:
 
