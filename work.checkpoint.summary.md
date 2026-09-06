@@ -11413,3 +11413,190 @@ every future crash to the artefact under test.**
 I will keep counting zone materials; **it is now labelled with what it cannot
 see**, which is the only repair available to a tool that answers a narrower
 question than the one being asked.
+
+---
+
+## R2 T+125 — 2026-09-06 08:39 UTC
+
+**T+125 = wall-clock delta from the baseline** (06:33:41 → 08:38:26, read in the
+same command).
+
+### 1. The interval's result — the first verdicts on this cluster, and they pass
+
+**[observed, first-hand] Two of `deploy_kit`'s three validators returned `true`;
+the third is executing.** Run `20260906T080504-3e8a03`, handoff
+`fe6a4ab0-…` (kind `deploy_kit`), zone
+`validation.d4ed6649-….output_validation.7f544db1`, **30 files in materials**:
+
+```
+validation-tfkbxt_1   args {"layout": "deploy_kit.layout"}
+                      verdict {fe6a4ab0-…: true}
+                      validator_report.txt:
+                          # check_deploy_kit
+                          ## fe6a4ab0-…: passed
+                            note: qwen3-32b-mix.packup_20260906
+validation-3pwu1vm_   args schema=environment,
+                           require_fixed [node, gpu_arch, image, image_id,
+                                          model_name, model_path, tp_size]
+                           require_runtime [container, endpoint, started_at]
+                           invariant devices_within_count
+                      verdict {fe6a4ab0-…: true}
+validation-rwx4veqz   args deploy_entrypoint=scripts/deploy.sh,
+                           aiperf 0.12.0, load_seconds 180, port_base 8140,
+                           work_root /data/yihou/e2e_flow/validate
+                      NO VERDICT — running now
+```
+
+**`check_environment` passing is the load-bearing one.** It is the validator that
+crashed on `jsonschema` an hour ago and the one attached to **every** kind. Its
+`true` here is a positive test of that repair — **it could not have returned a
+verdict at all while the `ImportError` stood.** I have not read the fix commit
+and do not know which of the two candidate idioms was used.
+
+**The third validator, `check_deploy_serves`, is a real bring-up plus a 180 s
+load** — the heaviest check in the set and the one the first cluster kept out of
+its fast loop entirely. **It is running on hardware right now:**
+
+```
+08:32:10  yihou_e2e_chain_serves-6e2f6dbb        created
+08:32:14  yihou_e2e_chain_serves-6e2f6dbb_etcd   created
+08:35:11  aiperf_serves-6e2f6dbb                 created
+08:37:45  cards 0-3 VRAM 76 76 76 76 %   cards 4-7  0 0 0 0 %
+```
+
+**That is the first time this round the cards have been busy while I sampled**,
+and the split 76/0 matches a TP-4 deployment on `gpu_devices=0,1,2,3`.
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~22 %** (+8) |
+| 已经耗时 | **~139 min** (mission.md 06:19:11 → 08:38:26) |
+| 预估耗时 | **still absent** |
+| 可靠性 | **中** |
+
+**+8 for two passing verdicts on a real artefact.** Both are reads of the kit's
+contents — one of its layout, one of its `environment` record against seven
+required fixed fields and three runtime ones. **Neither is an exit code.** The
+blocking defect that made 15/15 kinds unreachable at T+94 is demonstrably gone
+for at least this kind.
+
+**Not counted:** `check_deploy_serves` has not returned. **If it passes, stage 1
+is green on this cluster and that is worth more than this interval's +8** — I
+would rather book it when it happens than pre-book it now.
+
+**Hold `29184`: 5 h 22 min left** (14:00:01 − 08:38:26).
+
+### 3. 当前进展 — one run alive, and it is the full-real chain
+
+```
+20260906T064218-15c264  orchestrator gone   (died on the jsonschema crash)
+20260906T075853-e6f882  orchestrator gone   deploy_and_prove: FAILED
+20260906T080504-3e8a03  pid 573170 ALIVE    m2's launch_chain.py
+                        container=yihou_e2e_chain   mock_stages=none
+                        main: running   m1_deploy: running
+                        deploy_and_prove: output_validating
+```
+
+**`mock_stages=none` — every one of the five stages is real in this run.** It is
+the only live chain and it holds the node's four busy cards.
+
+### 4. The collision fired — and by the path I did not flag first
+
+**m1's run 2 died. [relayed from `becc19d6`, whose author measured it; I observed
+only the resulting `deploy_and_prove: failed`.]**
+
+> *Two module owners on one node take the same default port band (8101..8106)
+> and the same `work_root`. m1's run 2 aborted on **"etcd port 8103 is already
+> in use"** six minutes after a preflight measured it free — **correct when
+> taken, stale when used** — and the exit code was **143**, which says nothing.
+> Ownership of the port established by inspecting the other run's etcd args, not
+> by container name or arrival order.*
+
+**Against my own T+94 section.** I flagged the overlap and named two collision
+paths: cards 0–3, and `mix_up.sh`'s hard-coded 5557/8801. **Neither is what
+fired.** It was the default port band `8101..8106` and a shared `work_root` —
+**a third path I did not name, in a message where I listed two and stopped.**
+The warning was right in shape and incomplete in mechanism, and the incomplete
+part is the part that cost a run.
+
+**Two details in that record worth keeping separately from the incident:**
+
+- **"correct when taken, stale when used"** — a preflight measured 8103 free and
+  six minutes later it was not. **This is the same shape as reading VRAM before
+  a launch: the reading does not expire loudly.**
+- **Ownership was established by inspecting the other run's etcd args**, not by
+  container name or arrival order. **That is exactly the discriminator the first
+  cluster paid five times to learn**, applied on first contact here.
+
+**Also filed in that commit, and it is a correction to how run 1 will be read
+later:** `check_deploy_kit`'s crash is a **NON-verdict** — it exited 1 and wrote
+no `verdict.json`, so **`deploy_kit: invalid` there means *undecided*, not
+*bad***. The same kit passed later. **Anyone reading run 1's store without this
+paragraph would conclude the kit was defective.**
+
+### 5. Code problems
+
+**Fixed this interval (inferred from behaviour, not from a diff): the
+`jsonschema` `ImportError`.** `check_environment` returned `true` at this write;
+it could not have produced any verdict while the import failed. **I have not
+found or read the fix commit and cannot say which files changed or whether all
+eight affected validators were repaired** — the `git log` I ran over `*check_*`
+and `*schema*` paths since 07:30 returned nothing, which most likely means my
+pathspec was wrong rather than that no fix landed. **Flagging my own instrument
+rather than concluding from it.**
+
+**Unfixed, newly recorded — `6e465181`, "only m2 declares a GPU lease":**
+
+> *cross-stage separation is dependency ordering, not lease ordering*
+
+**No file named by me; I have not read the diff.** Recorded because it is the
+general form of what killed run 2 — **the graph orders stages, and ordering is
+not exclusion.**
+
+**Unfixed: the port band and `work_root` defaults are shared.** Named by
+`becc19d6`. Whether a fix landed, I have not checked.
+
+### 6. 未定性
+
+- **`check_deploy_serves`.** Running since ~08:32, load phase since 08:35:11.
+  **It is the single thing that decides whether stage 1 is green today.**
+- **Whether all eight crash-affected validators were repaired**, or only the path
+  `check_environment` takes. **The reading that answers it: the fix commit's
+  diff, which I have not located.**
+- **Whether m1 relaunches, and onto which port band.** m1 has no live
+  orchestrator; the node's cards are held by m2's chain.
+- **`expect_ranks=2` vs `tp=4`** — carried, still unread. **Less urgent now**:
+  the live chain is `mock_stages=none`, so its m2 is real and will produce its
+  own trace.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched.
+
+### 7. 新增 commit
+
+Since T+94, three:
+
+```
+be34f98b  checkpoint R2 T+94 — mine
+becc19d6  m1: record the port-band/work_root collision that killed run 2, and
+          the non-verdict from run 1
+6e465181  bug record 5: only m2 declares a GPU lease — cross-stage separation
+          is dependency ordering, not lease ordering
+```
+
+### 8. 其他
+
+**Two runs died today and the record is better for both, but not equally.**
+
+Run 1's death produced a general defect — `verdict.json` cannot distinguish a
+crash from a refusal — that will change how every future failure is read. **Run
+2's death produced an incident report.** The mechanism is well documented, the
+ownership question was answered correctly on first contact, and the "correct
+when taken, stale when used" line generalises. **But nothing about it had to be
+learned by losing a run**: two owners on one node with one default port band is
+a fact that was available before either launched.
+
+**That is the difference between a cost that bought something and a cost that
+was avoidable, and I would rather record it now than let both settle into the
+same column.** My own T+94 warning is on the avoidable side of that line: it was
+sent, it named the right pair of runs, and it listed the wrong two mechanisms.
