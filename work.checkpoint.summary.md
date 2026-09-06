@@ -13071,3 +13071,169 @@ that is not "read more carefully" — it is to make the property checkable in th
 artefact. **A preflight that must name *how* it identified a holder (label /
 VRAM / KFD) would have made the blindness visible in its own output**, which is
 what the fix now does by demoting KFD to a supplement.
+
+---
+
+## R2 T+426 — 2026-09-06 13:40 UTC
+
+**T+426 = wall-clock delta from the baseline** (06:33:41 → 13:40:05).
+
+### 1. The T+366 refusals have a root cause, and it corrects what I wrote
+
+**At T+366 I recorded the two refusals as "no stack window was captured" and
+called run 7's `stack_window_s=0` "a deliberate degradation … declared in the
+launch record — the honest form of it." The degradation was not necessary.**
+
+**[first-hand, `5d098338`]**
+
+> *`trace_end_ms` is the knob (`shared.yaml:149` for m2's path, consumed at
+> `aiperf_replay.sh:100` as `--fixed-schedule-end-offset`). The two captures run
+> in sequence inside one load: **warmup 60 + window 10 for the measurement, then
+> 3 for the stack window, so the load must outlast ~73 s plus setup.**
+> **All six launches today passed `trace_end_ms=60000`. A 60 s load cannot cover
+> a 73 s sequence.***
+
+**So the stack window was not omitted — it was scheduled after the load ended.**
+`capture_stacks.log` recorded *"no aiperf load in flight"*, and the two
+validators then refused for something that is not the producer's fault.
+
+**And it is explicitly not a code defect:**
+
+> *the ordering works at the package's own defaults — `aiperf_replay.sh`'s
+> fallback is 120000 and `shared.yaml`'s is 180000, both well over the floor.
+> **A deliberate time-saving override introduced it**, and nothing states that
+> `trace_end_ms` has a floor set by `warmup_s + window_s + stack_window_s`.
+> **The defect is an unenforced dependency between launch variables.***
+
+**The recommended repair is `trace_end_ms=120000`, not shortening warmup** —
+*"warmup buys steady state and trading it swaps a known quantity for an
+unknown one."*
+
+**Three thresholds were checked and cleared as insensitive to load length**
+(`max_span_ratio` scales with `window_s` not the load; `min_gpu_kernels_per_rank`
+and `min_requests` only improve). **That is the "audit the class, don't fix the
+instance" discipline applied before the next launch rather than after three of
+them.**
+
+**Consequence for an open question I have carried twice:** *whether module 3
+needs launcher frames* is **no longer the right question**. The frames are
+capturable; **`stack_window_s=0` was papering over a 13-second arithmetic
+shortfall.**
+
+### 2. The fix was filed as comments, with its own tier named
+
+**[first-hand, `a1aecda2`]**
+
+> *Nothing anywhere stated that `trace_end_ms` has a floor set by
+> `warmup_s + window_s + stack_window_s`. **That fact lived in a document, which
+> is the tier that decays**: the next person writes a launch line while thinking
+> about something else, which is exactly how the override that blocked four
+> stages got written.*
+
+**Comments at both declaration sites**, carrying the arithmetic (70 s + 3 s = a
+73 s floor), what breaks below it, and **the run that proved it — `fdb0bd`, load
+ended 12:14:58, stack capture started after 12:15:19.**
+
+**The commit subject says the honest part out loud: *"document it where the launch
+line is written, and write the preflight without applying it."*** They wrote the
+enforcement and did not turn it on. **A tier-3 repair, labelled as tier-3 by its
+author, with the tier-2 version written but not enabled** — that is a more useful
+state than either a silent comment or an unreviewed guard going live at 13:40
+with twenty minutes of hold left.
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~44 %** (+2) |
+| 已经耗时 | **~440 min** (mission.md 06:19:11 → 13:40:05) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+2 for a root cause, not for a stage.** The wall at m2 now has arithmetic
+behind it instead of a shrug.
+
+**Hold `29184` ends in 20 minutes** (14:00:01 → 13:40:05). **A successor hold
+`29313` is PENDING, reason `Resources`, submitted 11:38:12, `TimeLimit=1-00:00:00`
+(24 h).** **Whether it starts when 29184 releases is not predictable from
+`Reason=Resources`** — this file recorded on the first cluster that a pending
+reason explains why a job waits and says nothing about what happens when the
+constraint lifts; a different job took the slot that time.
+
+### 4. 当前进展 — run 8 is mid-validation with 20 minutes on the clock
+
+```
+298750  ALIVE  pid 3308290, started 13:08:45
+        m1_deploy: running   deploy_and_prove: output_validating
+        verdicts so far:  layout = true    environment = true
+        check_deploy_serves running:
+             yihou_e2e_chain_serves-ff0b8393_etcd  13:34:05
+             yihou_e2e_chain_serves-ff0b8393_sgl   13:34:07
+             aiperf_serves-ff0b8393                13:36:53
+        cards 0-3 at 76 %,  4-7 at 0 %
+        last write 13:36:53
+```
+
+**Stage 1 is two-thirds green for the fifth time**, with the 180-second load
+under way. **It will not reach profiling before the hold ends.**
+
+### 5. Code problems
+
+**Root-caused, fix documented but not enforced:** `trace_end_ms` floor —
+`shared.yaml:149`, `aiperf_replay.sh:100`. **Preflight written, deliberately not
+applied.**
+
+**Fixed earlier today:** `env.sh:172`; the KFD-blind preflight (label-first).
+**Both live in launch records or agent instructions, still uncommitted.**
+
+**Carried unfixed:** whether all eight `jsonschema`-affected validators were
+repaired; unbooked-usage and missing-`depends_on` (T+186 §5); shared-`work_root`
+overlap unexamined; the `CLAUDE_CONFIG_DIR` placeholder — six launch records.
+
+### 6. 未定性
+
+- **Whether hold `29313` starts.** `Reason=Resources` does not answer it.
+- **What happens to run 8 at 14:00:01.** It is inside `check_deploy_serves` with
+  an engine and an aiperf container up. **I do not know whether the allocation
+  ending tears the containers down cleanly or leaves them**, and the measurement
+  is simply to look after 14:00.
+- **Whether `trace_end_ms=120000` clears the m2 wall.** Not yet launched with it.
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, **twelfth
+  consecutive section**, and the hold ends before it can be answered by a run.
+
+### 7. 新增 commit
+
+Since T+396, four:
+
+```
+e2d41d7f  checkpoint R2 T+396 — mine
+0487b970  ON-ARM-REFUSAL: amend — the refusal is established by two verdicts,
+          and the run's end was the no-receiver escalation
+5d098338  ON-ARM-REFUSAL: the repair is arithmetic, and it reattributes the
+          cause to an unenforced variable dependency
+a5908df1  ON-ARM-REFUSAL: repair three words an unescaped backtick ate in the
+          previous commit
+a1aecda2  replay-length floor: document it where the launch line is written,
+          and write the preflight without applying it
+```
+
+**Four commits on one finding, including an amend that reattributes the cause and
+a repair of three words a backtick ate.** The second is worth a line of its own:
+**an unescaped backtick in a commit message silently removed content, and commit
+messages cannot be amended once pushed** — this file's own rule.
+
+### 8. 其他
+
+**My T+366 section called `stack_window_s=0` "the honest form" of a degradation.
+It was honest and it was the wrong repair**, and the difference is instructive.
+
+Declaring an omission intended is the right move **when the thing genuinely
+cannot be produced**. Here it could: the capture was scheduled 13 seconds past
+the end of a load that a launch override had shortened. **A declared degradation
+and a masked defect look identical in the artefact** — both produce a clean run
+with `stack_window_s=0` in the record and no launcher frames in the output.
+
+**What separated them was arithmetic nobody had written down**, and the thing
+that found it was somebody adding up three variables and comparing the sum to a
+fourth. **Not a tool, not a validator — a subtraction.**
