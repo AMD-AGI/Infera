@@ -654,6 +654,30 @@ Say what rung 0 covered in those terms, not as "the mock passed".
    sh assets/lib/lines.sh <node>     # any other line here without m5 in MOCK?
    ```
 
+   **And if the node carries containers you did not launch, answer ownership HERE
+   rather than from the name** — one command per container, on the node:
+
+   ```sh
+   docker inspect -f '{{.HostConfig.AutoRemove}} {{.Config.Labels}} {{.Path}}' <name>
+   ```
+
+   **Ours:** `AutoRemove=true` **and** a pid suffix (`identify.py:638`,
+   `mock_adapt.py:338`, `measure_in_container.sh:480`), **or** an
+   `infera_e2e_run` / `infera_e2e_arm` label (m5's serve path,
+   `mix_up.sh:111`, which does create `sleep infinity` containers with
+   `--device=/dev/kfd`). **Nothing else is ours, whatever the name says.**
+
+   > **`yihou_` is the prefix every one of us launches under. `m3_` is not
+   > ownership.** Five containers on two nodes have now been misattributed by
+   > prefix — `src`, `dev`, `reader` on 287; `dev217`, `explore` on 217 — all
+   > `AutoRemove=false`, `sleep N`, ubuntu labels only. **The creator is still
+   > unowned.**
+
+   *This lives here, and not only in `CLAUDE.md`, on m3's diagnosis: the rule was in
+   the file and had four instances in it; the leader added the fifth while composing
+   a message in which the container's **name was the only field on screen**.
+   **Put the discriminator where the question is asked, not where it has been read.***
+
    **`mock_stages=none` means m5 runs real, and `mix_up.sh:81` calls `reset_gpus.sh`, which is a NODE-WIDE `kill -9` of every KFD-holding `python3`/`pt_main_thread`.** It protects `slurmstepd` and nothing else. **`--var gpu_devices` does not scope it**, so the 0–3 / 4–7 convention does not hold. Two more from the same stage: `kv-events:5557` and `kv-snapshot:8801` are literals at `mix_up.sh:70`, so **two m5 stages cannot share a node whatever ports you pass**; and `GPUS=` appears once in all of `assets/` (`mix_worker.sh:26`, defaulted, never set), so **m5's arms always take `0..TP-1`**.
 
    *Written as a numbered precondition on 2026-09-05 because the rule existed and did not travel. It was found at 16:12 when it nearly cost m3's experiment on 217, and enforced there — while on 093 two `mock_stages=none` lines ran side by side for three hours. They survived only because they were at different depths: one was in `apply_patch` while the other was still in stage 2.*
