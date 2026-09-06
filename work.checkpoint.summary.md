@@ -14769,3 +14769,116 @@ The gap that remains is that these documents are **uncommitted**, in
 `/data/yihou/e2e_verify_20260906/m2/`, and the fixes they carry live in agent
 instructions rather than in the package. **A launch record is a good place to
 learn something and a poor place to keep it.**
+
+---
+
+## R2 T+726 — 2026-09-06 18:40 UTC
+
+**T+726 = wall-clock delta from the baseline** (06:33:41 → 18:39:49).
+
+### 1. Run 16 is reproducing stage 2, without the masking flags
+
+**[observed, first-hand] `20260906T180412-6b7c19`, pid 1773936, last write
+18:36:04:**
+
+```
+m1_deploy               succeeded          ← stage 1 green, 8th time
+deploy_and_prove        succeeded
+run_profiling_mode_off  succeeded
+run_profiling_mode_on   running
+m2_profiling            running
+
+verdicts  6/6 pass, zero refusals
+stacks_manifest.json    0  (the _on arm is mid-load; the capture comes last)
+
+aiperf_profiling_mode_on_20260906_183335   18:33:35
+yihou_e2e_sgl_…_pmon                       18:30:43
+cards 0-3 at 76 %
+```
+
+**Elapsed to this point: 32 minutes** (18:04:12 launch → `_on` running).
+`d9c7af` took roughly 68 minutes for stages 1 and 2 together.
+
+**What makes this run different from `d9c7af` is what it does not carry.**
+`launch10` omits `stack_window_s` and `stack_ranks` entirely — the two flags that
+at T+426 and T+457 were masking a 13-second shortfall. **If the stacks appear
+here, they were earned by `trace_end_ms=120000` alone, on a launch with no
+capture waiver.** That would be a second independent confirmation rather than a
+repeat.
+
+**It is not yet answered.** `_on` is running and the capture has not happened.
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~58 %** (unchanged) |
+| 已经耗时 | **~740 min** (mission.md 06:19:11 → 18:39:49) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Unchanged, and deliberately so: reproducing a stage that is already counted is
+not progress in the numerator.** It is worth a great deal for confidence and
+nothing for the fraction, and this record has an obligation not to let the two
+blur.
+
+**Hold `29313`: 19 h 20 min left.**
+
+### 3. 当前进展
+
+```
+6b7c19  ALIVE  the only run; no other orchestrator
+node    cards 0-3 at 76 %, 4-7 idle
+        three of our containers up, two foreign CPU containers
+```
+
+**The JIT signature is present again** — `start build` and `Health check failed`
+together total 7 lines in this run's `pmon` worker log — **on an arm that is
+running normally.** Recorded to keep T+607's correction attached to fresh data:
+**the signature is a constant and cannot discriminate anything.**
+
+### 4. Code problems
+
+**No new ones this interval, and nothing has been fixed.**
+
+**Carried, root-caused, unfixed:** `preflight.sh:211` in the package (the working
+predicate lives in launch text, `4cd1425e`); teardown-vs-preflight sequencing;
+`--var jobid` vs `_agree_or_die`; `etcd.log` written on no path;
+`min_resolve_ratio` floor of zero; the router `/health` gate vs a cold JIT
+compile.
+**Carried unread since T+94:** the eight `jsonschema` validators — **twelve
+hours.**
+
+### 5. 未定性
+
+- **Whether the stacks are captured without the waiver flags.** §1. **First
+  answerable in this run.**
+- **Whether run 16 reaches `m3_analysis`, and past it.** `649af26b` fixed the
+  `logical_operator` collision that refused there; **no run has tested that fix.**
+- **Whether `kernel_table_min_launchers=0` gets carried as "not evidence."**
+  `launch9` wrote it in advance; the result has not arrived.
+- **Why run 11 stopped in `_off`** — still unread. **The new instruction's
+  unconditional log capture means the next such death will be readable**, but it
+  does not recover this one.
+- **What module 5 consumes if module 4 is replayed** — **twenty-second
+  consecutive section.**
+
+### 6. 新增 commit
+
+Since T+697, none but mine (`6042638e`).
+
+### 7. 其他
+
+**A quiet interval, and the honest summary is that it looks like the loop
+working.**
+
+One run, alive, on the only node, with no competing orchestrator; the launch line
+assembled from a named commit rather than retyped; two waiver flags deliberately
+absent; six verdicts and no refusals; and a signature that misled two people four
+hours ago now appearing in the logs of a healthy arm without anyone acting on it.
+
+**Nothing here is a result.** `m2_profiling` has sealed once and is running for
+the second time, and the stage past it has been entered once and refused once.
+**But the difference between this interval and the 08:00 hour is that no
+instrument is currently lying to anybody**, and every fix in flight was written
+down before its result arrived.
