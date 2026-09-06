@@ -1944,3 +1944,33 @@ one task's staging path, not a hunt.**
 **Consequence for every earlier verdict on `profiling_evidence`:** a PASS there
 established that the validator was invoked, and nothing else. **`check_profiling_evidence`
 refused from this zone twice; both refusals said nothing about the artefact.**
+
+### CORRECTION 2026-09-06 07:2x — "always m2_profiling" is REFUTED by the sixth run
+
+**The entry above claimed the empty zone is deterministically `m2_profiling`'s. The
+very run I said would discriminate did discriminate, and it went against me.**
+
+```
+r7m1a  20260906T062157-bab0d5   (m1 real, m2 real, m3/m4/m5 MOCKED, packup reached)
+  EMPTY  validation.6239664f…  files: 0
+         parent closure = main      kinds = ['e2e_packup']      <- NOT m2_profiling
+  m2_profiling's zone in this run: populated
+```
+
+**So the location is not fixed.** Six runs: five at `m2_profiling`, one at `main`
+(`e2e_packup`). **The claim as written was too strong and it is withdrawn.**
+
+**What survives, and it is still the interesting part:** **seven real-path runs,
+seven results of EXACTLY ONE empty zone**, out of 13 or 14 zones each. **That
+distribution is still inconsistent with an independent per-zone probability** — which
+would produce runs with zero and runs with two. **One-per-run is the durable
+observation; the identity of the one is not.**
+
+**A note on why the first table looked so convincing:** in all five of those runs
+`packup` was never reached, so the `e2e_packup` zone did not exist to be picked.
+**The sample could not have shown me a counter-example.** `r7m1a` is the first run
+where it could, and it did immediately.
+
+**Not established, and nobody should assert it:** what selects the one. Position in
+the graph, ordering, timing, and the number of producers a zone gathers from are all
+untested. **The one thing now ruled out is "a fixed closure".**
