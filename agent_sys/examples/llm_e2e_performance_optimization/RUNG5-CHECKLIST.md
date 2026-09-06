@@ -55,6 +55,66 @@ anyone invented; `shared.yaml:149`'s default is `180000`. Both clear the floor.
 > **UNTESTED.** The whole test is one grep after the next run:
 > `grep CAPTURE_OK <run>/…/load.profiling_mode_on/capture_stacks.log`.
 
+### `CAPTURE_OK` is necessary and NOT sufficient — the siblings fall together
+
+**SETTLED 2026-09-06T14:2xZ from `298750`'s artefacts plus the framework code.
+This was three readers' "observation, not mechanism" for most of the day; it is
+now a mechanism.**
+
+`298750`'s closing line showed three `profiling_mode_on` handoffs `invalid`
+while **two of the three had no failing verdict of their own**:
+
+| handoff | own verdicts in `v0/validation.yaml` | status |
+|---|---|---|
+| `f6b44b11` `.bench_result` | `check_bench_result`, `check_command_parses`, `check_environment` — **all `true`** | `invalid` |
+| `624b7ec0` `.kernel_table` | `check_environment`, `check_kernel_table` — **all `true`** | `invalid` |
+| `2d120113` `.profile_result` | `check_command_parses`, `check_environment` true; **`check_trace_coverage` false** | `invalid` |
+
+All three are outputs of **one task**, `59f16aa6`, sealed in a 2 ms burst at
+`13:50:18.554/.555/.556`, 4 ms after the single `false` at `13:50:18.550821`.
+The same verdict *object* — `check_environment`, zone `validation-n2utmuer`,
+identical microsecond — appears in **all three** files, so validation is
+computed once per closure and fanned out to each output.
+
+**The mechanism, not the correlation** (`agent/runner.py`):
+
+```
+_close:586-599        passed = self._validation(OUTPUT_PHASE)   # ONE bool for the phase
+                      self._seal_model_versions(passed)
+_seal_model_versions  for hid in self.task.outputs:
+   :965-977               status = VALID if (passed and hid in self._store_sealed) else INVALID
+_validation:604       return False if outcome.blocks_the_task
+report.py:blocks…     unchecked or (not empty and not passed)
+report.py:passed      "A failure binds at every strength."
+```
+
+> **`passed` is one boolean for the whole closure. The loop applies it to every
+> output. A single false verdict — on any kind, at any strength — invalidates
+> every handoff the task produced.**
+
+**Consequences, both of which the plan must absorb:**
+
+1. **A clean sweep is required, not a repair of the one refusal.** For
+   `merge_profiling_evidence` to receive anything, *every* blocking validator on
+   *all three* `_on` kinds must pass in the same attempt. `CAPTURE_OK` removes
+   the one refusal we have diagnosed; it does not make the other two kinds'
+   validators optional — it makes their existing passes count.
+2. **The other branch is dead, and that is the good news.** `bench_result` and
+   `kernel_table` were **not** independently invalid. There are not three
+   problems here, only one. `check_kernel_table` genuinely passed — on its
+   `min_launchers=0` waiver, which is a separate question, but it passed.
+
+**Subject test (`bug.record` §10) applied to this one:** *"the siblings are
+invalid"* and *"the siblings were invalidated"* have different subjects. The
+artefacts answer the first; only the code answers the second, and the second is
+what the plan needed.
+
+**What the yaml does NOT say:** `validation.yaml` carries no reason field and no
+statement of why a version was sealed `INVALID` — the status lives in
+`store/handoff/<id>.json` and the *reason* lives nowhere on disk. It is
+recoverable only by reading `agent/runner.py`. That is the gap; a `sealed_because`
+field on the version would close it.
+
 ### There are TWO paths. P-1 recommends the first. Do not mix them.
 
 **PATH A — REPAIR (recommended): make the capture succeed.**
