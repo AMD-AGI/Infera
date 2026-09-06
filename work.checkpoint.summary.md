@@ -15551,3 +15551,133 @@ measure — **which required stage 1 green, stage 2 sealed, `identify` sealed, a
 **That is what a ladder buys and it is worth stating plainly at 68 %:** the
 defects found late are not the ones anybody was slow to find. **They are the ones
 that were unreachable until the rungs below them held.**
+
+---
+
+## R2 T+877 — 2026-09-06 21:11 UTC
+
+**T+877 = wall-clock delta from the baseline** (06:33:41 → 21:10:34).
+
+### 1. One field, two consumers, incompatible demands
+
+**[first-hand, `1d71a809`]**
+
+> *m3's `--impl` wants **a self-contained file exporting top-level `run()`**;
+> `apply_patch`'s `overlay_files` wants **the overlaid module's whole public
+> surface preserved**. Run 7's workset records a **472-char wrapper as baseline
+> for all five operators**, each of whose targets defines **6–55 module
+> symbols**, so `apply.py:828` refuses. **`base_sha256` matches the image
+> exactly, so 691 does not pre-empt it.** `apply_patch` brings nothing up, so the
+> refusal costs seconds, not an m5 arm.*
+
+**This is the mirror of the family this record has been collecting all day.**
+Three times it has been *one intention, two names* — `stack_window_s` /
+`stack_ranks`, `min_launchers_in_top_n` / `kernel_table_min_launchers`, and a
+third at T+786. **This is one name, two intentions**: `baseline` is written to
+satisfy m3 and read to satisfy `apply_patch`, and the two definitions cannot both
+hold for the same 472 bytes.
+
+**Two details worth keeping separately from the defect:**
+
+- **`base_sha256` matching exactly is why the earlier check does not fire.** The
+  hash is correct; the *shape* is wrong. **That is the first cluster's lesson
+  inverted** — there a correct-looking hash was supplied and disarmed a real
+  guard; here a genuinely correct hash simply does not speak to the question, and
+  a different check at `:828` catches it. **A field can be right and irrelevant.**
+- **The refusal costs seconds because `apply_patch` brings nothing up.** **A
+  cheap refusal sited before an expensive action is the correct shape**, and this
+  one is. Compare `check_deploy_serves`, whose refusal costs a bring-up and a
+  teardown by construction.
+
+### 2. Run 18 is 30 minutes in and has not brought up — and it is working, not stalled
+
+```
+3bf8c2   ALIVE  pid 3203507, container=yihou_e2e_chain8, started 20:39:56
+         deploy_and_prove: running   verdicts 0/0
+         last write 21:09:58  (6 s before I sampled)
+node     8 cards VRAM 0 %, no yihou_* container
+```
+
+**Thirty minutes with no engine container is slower than the recent pattern** —
+run 17 had its serves container up ~15 minutes after launch. **So I opened the
+transcript rather than inferring from the cards:**
+
+```
+21:09:54  "Now the STEP 8 self-check. Let me look at exactly how the validator
+           interprets headings and evidence:"
+21:09:58  reads a file under zones/task.44d916dc-…
+```
+
+**The deployer is reading the validator's own source to check its output against
+it before submitting.** That is deliberate work, not a hang. **The cards being
+idle is correct and means nothing about the run's health** — the sixth failure
+mode, avoided by asking whether a live chain exists before asking whether cards
+are busy.
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~68 %** (unchanged) |
+| 已经耗时 | **~891 min** (mission.md 06:19:11 → 21:10:34) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Unchanged: run 18 has not reached a verdict.** **Hold `29313`: 16 h 50 min
+left.**
+
+### 4. Code problems
+
+**New, root-caused, unfixed:** `baseline` has two consumers with incompatible
+demands (`apply.py:828`; m3's `--impl`; `overlay_files`). **Run 7's workset
+records a 472-char wrapper for all five operators.**
+
+**Carried, root-caused, unfixed:** the `measure_in_container.sh` two-branch mount
+`case` and `E2E_REMOTE_HOME` absent from `check_workset_runs`'s closed env; stall
+threshold equals AIPerf's 900 s request timeout; `preflight.sh:211`;
+teardown-vs-preflight sequencing; `--var jobid` vs `_agree_or_die`; `etcd.log` on
+no path; `min_resolve_ratio` floor of zero; the router `/health` gate vs a cold
+JIT compile; three refusals naming unreadable `--var`s.
+**Open, intermittent:** the stack window, 2 hits in 4.
+**Carried unread since T+94:** the eight `jsonschema` validators — **fourteen and
+a half hours.**
+
+### 5. 未定性
+
+- **Whether run 18 clears `check_workset_runs`** — the mount defect from T+847 is
+  the wall it will meet, and I do not know whether the launch addresses it.
+- **Which consumer's definition of `baseline` is the correct one.** §1 names the
+  conflict; **it does not say which side should change**, and that is a contract
+  decision rather than a bug fix.
+- **What module 4 costs** — zero measurements, 16 h 50 min of hold.
+- **What module 5 consumes if module 4 is replayed** — **twenty-seventh
+  consecutive section**, and §1 is the first finding that touches it: **if
+  `apply_patch` refuses every workset baseline, module 5 has nothing to apply
+  regardless of where module 4's artefact comes from.**
+
+### 6. 新增 commit
+
+Since T+847, one:
+
+```
+eabcfbc6  checkpoint R2 T+847 — mine
+1d71a809  bug record: baseline has two consumers with incompatible demands
+```
+
+### 7. 其他
+
+**The `baseline` conflict is the first defect of the round that is a contract
+question rather than an implementation error, and it arrived exactly where the
+ladder predicted.**
+
+Everything earlier had a right answer that somebody simply had not written:
+a mount branch, a timeout ordering, a variable that was never wired, a duplicated
+name. **This one has two right answers held by two modules, and no amount of
+careful reading resolves it** — `apply.py:828` is correct to refuse a wrapper
+that drops 6–55 public symbols, and m3 is correct to want a self-contained file
+with a top-level `run()`.
+
+**`CONTRACT.md` is the frozen fifteen-kind cross-module contract and it is the
+document this belongs in.** Whether it already speaks to `baseline`, I have not
+read. **That is the cheap reading that would tell whoever picks this up whether
+they are fixing a violation or filling a gap** — and those need different people.
