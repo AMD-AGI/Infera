@@ -181,3 +181,82 @@ Part 2 edits `steps/m3_analysis.yaml`, which is m3's file. **Not made by me.**
 real artefact for a real, reproducible reason, named the file and the case, and
 the reason survived independent measurement. `check_workset_runs` had never
 refused anything here before; it now has, correctly.
+
+---
+
+## `check_optimization_shape` and `check_speedup_substantiated` — REFUSED on run 8, and both are right
+
+Run `20260906T203956-3bf8c2`, `optimize_kernel` output validation, 22:10:51.
+**Zone had 18 files** (checked before attribution).
+
+```
+min_command_lines,min_content_lines                      false
+abort_on_premise_mismatch,baseline_agreement_tolerance   false
+
+ABORT — the shapes measured are not the shapes the workset declares
+  (workset ['case_001'..'case_004'], measured [])
+0 shapes measured, the workset contract requires >= 3
+$.evidence.correctness.shapes: [] should be non-empty
+```
+
+### Cause — a missing launch variable, not a property of `forge_mock=1`
+
+```
+/data/yihou/e2e_flow8/m4/20260906T220149/logs/step4_attempt.log   155 bytes, 22:04:08
+
+run_in_container: HIP_VISIBLE_DEVICES is empty and this host is shared.
+  Pass --var gpu=<n>. Cards 0-3 are another tenant's; 4-7 were free on 2026-09-04.
+```
+
+`steps/m4_kernel_opt.yaml:359` — `HIP_VISIBLE_DEVICES: '${gpu:-}'`, empty default;
+`optimize_kernel.task/steps/run_in_container.sh:136` aborts on empty.
+**`gpu` was not on the launch line.**
+
+The artefact's own numbers confirm the shape of it:
+
+```
+evidence.performance.baseline.per_case_ms   4 real numbers (from build_workset)
+evidence.performance.measured.per_case_ms   {}
+evidence.correctness   passed False, shapes 0
+evidence.forge         ran False, mock True, degraded False
+```
+
+**The baseline measured; the optimised side never ran.** Both validators describe a
+real gap. **Neither refusal is about `forge_mock=1`.**
+
+### This is a documented failure that was walked into anyway
+
+`.claude/CLAUDE.md` carries it from the other cluster: a stage stalled 64 minutes
+because *"启动行少了 `--var gpu=`,`HIP_VISIBLE_DEVICES` 为空"*, and the body
+**refused to pick a card that looked free** — correct behaviour. The rule written
+under it: *"凡是「没有默认值、缺了就 abort」的变量,清点一遍,逐个进标准块."*
+
+**The launch line carried `measure_gpu=4` and not `gpu`.** Two names, two
+consumers; **having one of the pair made the other look covered.** Same shape as
+the `remote_home` / `transport_env` pair earlier tonight, where one of two needed
+variables was also present and the other missing.
+
+### The class, swept rather than the instance fixed
+
+Every `${name:-}` (empty default) in `steps/` + `shared.yaml` that was absent from
+the launch line:
+
+| var | status |
+|---|---|
+| `gpu` | **aborts — proven by this run** |
+| `kernelforge_repo`, `forge_fellow` | real-campaign only; `forge_mock=1` skips |
+| `measure_container` | auto-named in practice (`yihou_m3_measure_<pid>` tonight) |
+| `served_name` | documented: empty means `$E2E_MODEL_NAME` |
+| `stage`, `workset_operator` | no abort found; m4 pinned gemm without the latter |
+
+**Only `gpu` has a demonstrated abort. The other six are un-refuted, not proven
+harmless** — a grep for die/exit on their env keys found nothing, which is weaker
+than testing them.
+
+### What this run did NOT test
+
+The prediction that `apply_patch` would refuse a `forge_mock` payload at
+`apply.py:828` with `drops N public name(s)` (recorded in `bug.record` as
+`1d71a809`) **was not exercised**: `kernel_optimization` never became a valid
+handoff, so `apply_patch` never ran. **The analysis stands unrefuted and also
+unconfirmed.**
