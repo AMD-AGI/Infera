@@ -1974,3 +1974,54 @@ where it could, and it did immediately.
 **Not established, and nobody should assert it:** what selects the one. Position in
 the graph, ordering, timing, and the number of producers a zone gathers from are all
 untested. **The one thing now ruled out is "a fixed closure".**
+
+### RE-CORRECTION 2026-09-06 07:3x — the withdrawal above was wrong. Six for six.
+
+**The correction immediately above is itself withdrawn.** `m2_profiling` was right;
+**my instrument was broken and I retracted a true finding because of it.**
+
+**The zone directory is `validation.<TASK-ID>.<phase>.<hash>` — the task id is in the
+zone's own name.** My resolver globbed for the zone, took `os.path.dirname`, and read
+the **enclosing** task instead. For a zone belonging to a leaf *inside* `m2_profiling`
+the two agree; for the zone belonging to **`m2_profiling` itself** the parent is
+`main`, and that is the one I read.
+
+**Read directly from each zone's own task record:**
+
+```
+20260906T062157  r7m1a   own_closure=m2_profiling   kinds=[deploy_kit, profiling_evidence]
+20260906T014002  r6m1a   own_closure=m2_profiling   kinds=[deploy_kit, profiling_evidence]
+20260906T000840  r5m1c   own_closure=m2_profiling   kinds=[deploy_kit, profiling_evidence]
+20260905T221356  r5m1b   own_closure=m2_profiling   kinds=[deploy_kit, profiling_evidence]
+20260905T202930          own_closure=m2_profiling   kinds=[deploy_kit, profiling_evidence]
+20260905T194045  w17m1g  own_closure=m2_profiling   kinds=[deploy_kit, profiling_evidence]
+```
+
+> **Six for six, and it survives every variable we have moved: m2 replayed vs real,
+> m5 replayed vs real, both halves of the node, two different `--keep` sets.**
+
+**m1's observation about where the identity lived is the sharpest thing here:** the
+task id was **printed in every report, inside the string being quoted**, and six
+successive readers — both of us — read the count beside it. **Not "one `store/task`
+read away"; zero reads away, in the identifier we kept pasting.**
+`refusal_saw_something.sh` now prints `closure=` on every empty zone (`5326aa4`), so
+the report is an identity instead of a count.
+
+**Still NOT established, and m1 is right to hold the line:** *"deterministic for
+`m2_profiling`"* is established; *"only `m2_profiling`"* is not. **Every run in the
+sample has m2 in the graph and upstream of live work.** The cheap test is a graph
+without m2; nobody has run one.
+
+**Untested hypothesis about shape, from both of us, and neither has read the staging
+code:** that closure carries **two kinds** and `merge_profiling_evidence` — the only
+stage that gathers from four producers — is upstream of it. **A zone assembling from
+several sources is structurally unlike one assembling from a single producer.**
+
+**Cost, restated:** **every `check_profiling_evidence` verdict this project has
+recorded is void** — the two refusals and every pass from that zone. **One validator,
+one kind, all of them** — smaller and far more actionable than any rate.
+
+**Method note, and it is the reason this entry exists three times over:** the retraction
+was made on a broken resolver, not on evidence. **A withdrawal is a claim pointing the
+other way and deserves the same check as the claim it withdraws** — which this file
+already said, twice, before I did it again.
