@@ -915,8 +915,24 @@ m2, not a fix.
 - `check_acceptance`, `check_bench_report`, `check_bench_result`, `check_command_parses`,
   `check_patch_live` pass on both arms.
 
-### Not understood, flagged rather than diagnosed
+### `invalid` with every validator passing — RESOLVED, and it is a ledger hazard
 
-**`stock.measurement` and `patched.measurement` are marked `invalid` although every one
-of their validators passed.** Possibly sibling propagation from the failing
-`integration_report`, possibly not. **Unread; nobody should quote a cause for it.**
+**Not a verdict. Sibling invalidation.** m1 established this in round 1 (`k6m1`) and
+quantified it here:
+
+```
+stock.measurement    e3642c03   6 validators, ALL True, materials=149 each
+patched.measurement  eeb3d82e   7 validators, ALL True, materials=149 each
+```
+
+**Thirteen true verdicts across the two, none from an empty zone.** The framework marks
+a task's whole output set invalid when one sibling fails; `integration_report` failed
+`check_no_regression` and took both siblings with it.
+
+> **The direction of the error is why this matters: three refusals reads as a MORE
+> rigorous run than one. A ledger that counts handoff STATES instead of VERDICTS will
+> overcount refusals every time a stage has multiple outputs.**
+
+**Not claimed:** that invalidating a passing sibling is correct behaviour. That is a
+design question nobody here has a basis to answer. **What is established is only that
+it is not a validator saying no.**
