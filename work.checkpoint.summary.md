@@ -11192,3 +11192,224 @@ has died on them.** `bfs` behaving unlike GNU `find` was found by someone testin
 their probe, not by a probe silently under-reporting during an incident. **That
 ordering is the whole value, and it is the kind of thing only a timestamp can
 show** — which is why the mtimes above are listed even when the contents are not.
+
+---
+
+## R2 T+94 — 2026-09-06 08:08 UTC
+
+**T+94 = wall-clock delta from the baseline** (06:33:41 → 08:07:13, read in the
+same command).
+
+### 1. The interval's result — the first validation did not refuse, it crashed
+
+**And it corrects my own previous section, which is the first thing to say.**
+
+`check_deploy_kit` died on an **`ImportError` on `jsonschema`**. The validator
+runs with `HOME` inside its own zone, so user-site resolves to an empty
+directory and it falls back to a system `jsonschema` with no
+`Draft202012Validator`. **It exited 1 without writing a verdict, the task went
+terminal, and the escalation had no receiver.**
+
+**[observed, first-hand] The escalation event, verbatim from
+`store/event/f81d6ff4-….json`:**
+
+```
+"at":   "2026-09-06T07:29:59.160381Z"
+"kind": "escalated"
+"attributes": { "target": "user",
+                "why": "validation_unreached: the task is terminal and
+                        there is nothing to push" }
+```
+
+**07:29:59 is the same second the phase line said `running -> output_validating`.**
+It never spent 36 minutes validating; **it died on entry and I read the phase
+line as progress.**
+
+**What T+62 got wrong, and the diagnosis names it exactly** (from `0a23e9cf`'s
+message):
+
+> *the zone was green — one zone, 37 files, none empty — and that was correct
+> while the run died anyway. **Was the validator shown something** and **did it
+> survive to look** are different questions and only the first has a tool.*
+
+**My 37-file count was true and I drew a conclusion it cannot carry.** I wrote
+"if it refuses, the refusal will be about the artefact." **It did not refuse.
+There is a third outcome my check had no way to see**, and I had already
+recorded, one section earlier, that a tool answering a different question is
+this record's most expensive recurring shape.
+
+**Blast radius, as measured by the owner rather than assumed** [relayed from
+`0a23e9cf`, not independently re-measured by me]:
+
+```
+import is inside def validate(), not at module level
+  -> importing the shared lib is harmless; only a call detonates
+every call site catches SchemaError, which an ImportError is NOT
+8 of 22 validators crash
+check_environment is on EVERY kind
+  -> 15 of 15 kinds cannot reach a verdict
+  -> there is no partial green and no degraded configuration that avoids it
+```
+
+**`check_workset_shape` was missed on the first pass** because it carries its own
+`jsonschema` import instead of calling the shared lib — **right pattern, wrong
+scope**, caught only by asking whether `jsonschema` is imported anywhere else.
+
+**The transferable finding, and it is the sharpest thing produced today:**
+
+> **`verdict.json` cannot express crashed-versus-refused, so a crash is recorded
+> as `invalid` and reads as a judgement about the artefact.**
+
+**`check_packup_shape` already guards this** — it writes `THIS VALIDATOR DID NOT
+RUN` into its reasons, citing `todo.md` T29. **The other seven do not.** And
+both a prior record of this exact crash and a better fix idiom than `PYTHONPATH`
+**already existed in the package**, at `check_workset_shape:655` and
+`mock_adapt.sh:103`. **Two of today's costs were paid for a second time.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~14 %** (+1) |
+| 已经耗时 | **~108 min** (mission.md 06:19:11 → 08:07:13) |
+| 预估耗时 | **still absent** |
+| 可靠性 | **中** |
+
+**+1 despite the run dying, and the reasoning matters more than the number.**
+Nothing proven at T+31 was un-proven: the image, the served completion, the
+clean teardown all stand. **What this interval bought is a fully characterised
+blocking defect with a measured blast radius** — 8/22 validators, 15/15 kinds,
+no degraded configuration. **That is worth more than the +1 suggests and less
+than a green stage**, and I would rather under-count it than let the number
+drift upward on a diagnosis.
+
+**Hold `29184`: 5 h 53 min left** (14:00:01 − 08:07:13).
+
+### 3. 当前进展 — two live runs, and they want the same cards
+
+**Three run trees exist; one orchestrator died, two are alive.** Processes read
+**positionally from `/proc/<pid>/cmdline`**, never by grepping a pattern that
+appears in my own argv — the first pass of that read returned my own shell as a
+hit and I discarded it.
+
+```
+run 20260906T064218-15c264   06:42:18   orchestrator GONE   (died, §1)
+run 20260906T075853-e6f882   pid 529945  started 07:58:45   m1
+     container=yihou_e2e_m1_09060758   gpu_devices=0,1,2,3
+     tp=4  measure_gpu=4  mock_stages=m2,m3,m4,m5
+run 20260906T080504-3e8a03   pid 573170  started 08:04:53   m2
+     launcher /data/yihou/e2e_verify_20260906/m2/launch_chain.py
+     container=yihou_e2e_chain   tp=4  measure_gpu=4
+     mock_stages=none          ← a FULL REAL five-stage chain
+     gpu_devices                 ABSENT from its argv
+```
+
+**Both are in `deploy_and_prove` right now.** Two `kind: ai` deployer agents are
+alive (pids 530669, 574698).
+
+**The concern, stated with its evidence and its limit.** What I measured: m1
+declares cards 0–3; **m2's chain passes no `gpu_devices` at all**; both are
+`tp=4`; both are deploying now. What I did **not** measure on this cluster: what
+an absent `gpu_devices` resolves to here. **On the first cluster it was measured
+by intervention** — the kit was changed to `[4,5,6,7]` and the arm still took
+0–3, because `mix_worker.sh:26` reads `GPUS="${GPUS:-$(seq -s, 0 $((TP-1)))}"`
+and nothing in the package sets `GPUS`. **If that line is unchanged here, both
+runs take 0,1,2,3.**
+
+**A second, independent collision path from the same record:** `mix_up.sh`
+hard-codes `kv-events:5557` and `kv-snapshot:8801`, so **two m5 stages cannot
+coexist on one node regardless of ports passed** — and m2's chain is
+`mock_stages=none`, so it will reach m5.
+
+**I am flagging this to the leader as a measurement, not as an instruction.**
+I do not know whether the overlap was scheduled deliberately. **All eight cards
+read VRAM 0 % and `docker ps` shows only the two foreign CPU containers at
+08:05:57**, so nothing has collided yet; the window is open, not closed.
+
+### 4. Code problems
+
+**Unfixed and blocking — the `jsonschema` `ImportError`.** Files named by the
+diagnosis: the shared validate lib (import inside `def validate()`),
+`check_workset_shape` (own import, and a prior record of this crash at `:655`),
+`check_packup_shape` (the one that already guards it), `mock_adapt.sh:103` (the
+better fix idiom). **No fix commit had landed at 08:07:13.**
+
+**Fixed earlier, unchanged:** the deploy kit's `scripts/teardown.sh` settle gate.
+
+**Two tool-level records committed this interval, both by others:**
+
+```
+935e9973 / 5166c897   bfs errors where GNU find would not, and 2>/dev/null
+                      hides it
+```
+
+**The second carries a near-miss worth keeping:** m35 was *thirty seconds* from
+reporting a quiet run tree off a zero whose newest file was **73 seconds old**.
+And the record makes the general point in the safest form — **`2>/dev/null`
+turns a good failure into a plausible zero, and `2>&1 | wc -l` turns it into a
+plausible non-zero, so neither direction of the result is safe.**
+
+***Against myself, again:*** T+62 enumerated teammate files with
+`find … -newermt … 2>/dev/null` and I flagged it as unverified. **`bfs` rejects
+relative time strings; I used absolute ones and got 25 plausible rows, so that
+listing survives — but by luck of argument form, not by care.** This interval I
+used `-newermt '2026-09-06 07:36'` with stderr visible.
+
+### 5. Non-code problems
+
+**Nothing new.** The four from T+31 stand. **One is now sharper:** the round has
+no sealed corpus, and the validator defect means **no kind can reach a verdict**,
+so nothing produced in the next hours can be *validated* into a corpus either
+until the import is fixed. **That makes the `jsonschema` fix the critical path,
+not a side quest** — stated as a consequence of two measured facts, not as a
+scheduling opinion.
+
+### 6. 未定性
+
+- **Whether the two live runs collide on cards 0–3.** Open. **The reading that
+  settles it: `docker inspect <ctr> --format '{{.HostConfig.DeviceRequests}}'`
+  or `rocm-smi` once either brings up** — neither has yet.
+- **What an absent `gpu_devices` resolves to on this cluster.** Carried from the
+  first cluster's measurement; **not re-measured here**, and the honest form is
+  that it is an expectation, not an observation.
+- **Whether the 8/22 and 15/15 counts hold** — relayed from `0a23e9cf`, whose
+  author measured them. I have not re-derived them and am not widening them.
+- **`expect_ranks=2` vs `tp=4`** — carried, still unread.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched.
+
+### 7. 新增 commit
+
+Since T+62, four, all by others except mine:
+
+```
+e536e3c4  checkpoint R2 T+62 — mine
+0a23e9cf  bug record: a crash is not a refusal, and verdict.json cannot say
+          which
+590467f7  bug record: the jsonschema crash from both ends — m1's PATH/HOME
+          mechanism and m35's blast radius
+1b81a7d3  bug record: cross-reference m1's blast-radius paragraph to the counts
+          in section 6
+```
+
+**Three commits on one defect, from two owners, cross-referenced to each
+other.** `590467f7`'s subject — "from both ends" — is the mechanism and the
+blast radius arriving separately and being joined. **The previous round's note
+that one cause stays split into three surprises because each is counted as an
+event: here it was joined the same hour.**
+
+### 8. 其他
+
+**The honest reading of this interval is that the round's first real validation
+produced no verdict, and the record is better for it.**
+
+What exists now that did not at 07:36: a named mechanism (`HOME` in the zone →
+empty user-site → wrong `jsonschema`), a measured blast radius that rules out
+every partial workaround, a second instance found by asking the scope question
+rather than by being bitten, and **a general defect — `verdict.json` cannot
+distinguish a crash from a refusal — that would have quietly mis-attributed
+every future crash to the artefact under test.**
+
+**And my own check was shown to be sound and insufficient in the same sentence.**
+I will keep counting zone materials; **it is now labelled with what it cannot
+see**, which is the only repair available to a tool that answers a narrower
+question than the one being asked.
