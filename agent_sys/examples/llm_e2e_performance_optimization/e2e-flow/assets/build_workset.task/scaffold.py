@@ -40,6 +40,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -170,6 +171,40 @@ def _environment(staged: Path) -> tuple[dict, str]:
             text = candidate.read_text(encoding="utf-8")
             return yaml.safe_load(text) or {}, text
     raise SystemExit(f"{staged.name} carries no environment.yaml; CONTRACT.md 2 requires one on every kind")
+
+
+def _package_commit() -> str:
+    """The commit of the package tree this body is running from.
+
+    **Derived, not defaulted.** `E2E_PACKAGE_COMMIT` has a `--var` and nobody
+    has ever passed it: measured 2026-09-05, *every* workset in circulation
+    recorded `commit: unknown`, including the 11:19:40 artefact that was
+    grafted into the mock corpus and consumed by two downstream stages. The
+    commit is knowable -- the package is a git tree and this body runs inside
+    it -- so the field was recording "nobody said" rather than provenance.
+    `assets/serve/round.sh:272` already does exactly this; it is copied, not
+    invented.
+
+    **It records the STAGED COPY's commit, and that is surprising on purpose.**
+    A run stages the package per task, so a chain that spans a code landing
+    records *different* commits at different stages. That is the honest answer
+    to "which code produced this artefact" and it is not the answer to "which
+    commit was the run launched at" -- there is no field for the second, and a
+    reader who assumes one value per run will read the variation as a bug.
+    Tonight cost a run to exactly this gap: a package copy predated the fix it
+    was meant to test by 33 minutes and nothing in the run said which code it
+    had.
+
+    Falls back to `unknown` when the tree is not a git checkout -- the same
+    literal as before, so this can only add information, never remove it.
+    """
+    try:
+        out = subprocess.run(["git", "-C", str(_PACKAGE), "rev-parse", "HEAD"],
+                             capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    sha = (out.stdout or "").strip()
+    return sha if out.returncode == 0 and len(sha) >= 7 else "unknown"
 
 
 def main() -> int:
@@ -369,7 +404,7 @@ def main() -> int:
         "schema_version": 1,
         "workset_id": os.environ.get("E2E_WORKSET_ID") or "workset",
         "produced_by": {"package": "e2e-flow",
-                        "commit": os.environ.get("E2E_PACKAGE_COMMIT") or "unknown",
+                        "commit": os.environ.get("E2E_PACKAGE_COMMIT") or _package_commit(),
                         "step": "build_workset",
                         "produced_at": datetime.now(timezone.utc).isoformat(timespec="seconds")},
         "ground_truth": {
