@@ -12463,3 +12463,160 @@ act needs the answer to decide whether to act at all.**
 "validator changed, or kit changed." **The kit changed, in a specific 56-minute
 window, by adding a near-homograph of a variable it already had** — a fact that
 neither branch of my framing would have produced, and that took two commands.
+
+---
+
+## R2 T+306 — 2026-09-06 11:40 UTC
+
+**T+306 = wall-clock delta from the baseline** (06:33:41 → 11:39:58).
+
+### 1. Run 6 launched at 11:38:11, after a 63-minute idle gap
+
+```
+20260906T113811-fdb0bd   pid 2466373   container=yihou_e2e_chain
+                         main: running   m1_deploy: running
+                         deploy_and_prove: running
+                         last write 11:39:25  (12 s before I sampled)
+```
+
+**The gap, measured end to end:** last write anywhere **10:34:31** → first write
+of the new attempt **11:37:37** = **63 minutes 06 seconds** with no orchestrator,
+no container, and eight cards at VRAM 0 %. **That is the largest single block of
+unused hold time this round.** I reported it at 10:40 and again at 11:10; it is
+now closed, and I record its size rather than a view about it.
+
+### 2. What changed for this attempt — and it is only the instruction
+
+**[first-hand, `m2/launch4/LAUNCH-RECORD.txt`]**
+
+```
+launched_at_utc: 2026-09-06T11:38:04Z
+supersedes: 20260906T093443-ae2c38
+   (check_deploy_kit refused: DK_ROUTER_PORT fixed at env.sh:172)
+instruction v3: EXACTLY ONE bring-up, kit scripts first;
+                := idiom + no second name for a value that has one
+```
+
+**I diffed every `--var` between launch3 and launch4: no difference.** The
+entire change is the agent instruction. **That is a clean experiment** — one
+variable moved, and it is the one the refusal pointed at.
+
+**"no second name for a value that has one"** is the near-homograph finding from
+T+277 stated as a rule for the agent. **Whether it arrived there from my section,
+from my 11:10 message, or independently, I do not know and will not claim** —
+`ae2c38`'s refusal named `env.sh:172` on its own and that is sufficient to
+produce the first half of the instruction.
+
+**"EXACTLY ONE bring-up, kit scripts first" is a time-budget change and worth
+noting as such.** The `ae2c38` deployer performed a main arm, a callability arm,
+and then a *final full cycle with the exact shipped scripts* (transcript, T+216
+§3) — thorough, and it spent about 35 minutes inside `deploy_and_prove`.
+**With 2 h 20 min of hold left, that thoroughness no longer fits.**
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~33 %** (unchanged) |
+| 已经耗时 | **~320 min** (mission.md 06:19:11 → 11:39:58) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Unchanged for the third consecutive interval.** Two of the three were spent
+idle. **Nothing regressed; nothing advanced.**
+
+**Hold `29184`: 2 h 20 min left** (14:00:01 → 11:39:58). **Prior attempts took
+~40 min to clear stage 1** (08:05→08:47, 08:49→09:29). **If this one holds that
+pace it clears stage 1 near 12:18 and has roughly 100 minutes for stages 2–5,
+none of which has ever completed here.** That is arithmetic on two measured
+durations, not a forecast.
+
+### 4. 当前进展
+
+```
+15c264  dead  jsonschema crash
+e6f882  dead  port 8103 abort
+3e8a03  dead  STAGE 1 GREEN → died at m2 (trace hash_id)
+6ded23  dead  STAGE 1 GREEN → died at m2 (card lease, 1.8 s)
+ae2c38  dead  REFUSED at check_deploy_kit (env.sh:172)
+fdb0bd  ALIVE started 11:38:11, deploy_and_prove: running
+```
+
+**Node at 11:39:37:** 8 cards VRAM 0 %, no `yihou_*` container. **Expected —
+the run is 86 seconds old and pre-bring-up.** Recording the reading with its
+interpretation attached, because the same numbers meant three different things
+today.
+
+### 5. Code problems
+
+**Presumed addressed by instruction v3, not yet by a verdict:** `env.sh:172`.
+**The evidence that will settle it is `check_deploy_kit`'s verdict on this run's
+kit**, which does not exist yet.
+
+**Carried unfixed:** whether all eight `jsonschema`-affected validators were
+repaired; the unbooked-usage and missing-`depends_on` framework messages
+(T+186 §5); the shared-`work_root` overlap unexamined for damage (T+216).
+
+### 6. Non-code problems
+
+**The placeholder in `LAUNCH-RECORD.txt` has survived three launches.** I flagged
+it at T+186 §8; it is still there in launch4, verbatim:
+
+```
+CLAUDE_CONFIG_DIR=<m1's shared farm — get the exact value from the leader> \
+```
+
+**In a document whose entire purpose is to make a launch reproducible, one field
+routes the reader to a person.** Every other line is copy-pasteable, which is
+precisely what makes this one easy to carry past. **Recorded a second time
+because it has now outlived the two runs it was written for.**
+
+### 7. 未定性
+
+- **Whether run 6 clears `check_deploy_kit`.** First real question, ~40 min out.
+- **Whether "EXACTLY ONE bring-up" is compatible with `check_deploy_serves`,**
+  which performs its own bring-up as part of validation. **The instruction binds
+  the agent; the validator is not the agent.** I do not know whether they
+  conflict, and the reading that answers it is this run's zone.
+- **Whether stages 2–5 can be reached at all this hold.** Arithmetic in §3.
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched,
+  **eighth consecutive section.** It has now been open longer than any other item
+  in this record and has never been the thing blocking progress, which is exactly
+  why it keeps surviving.
+
+### 8. 新增 commit
+
+Since T+277, one:
+
+```
+c5cbf65d  checkpoint R2 T+277 — mine
+```
+
+**No other commits.** The `env.sh:172` fix, if it exists, lives in the agent
+instruction rather than in the repository — **`instruction v3` is recorded in
+`m2/launch4/LAUNCH-RECORD.txt`, which was uncommitted at 11:39:58.**
+
+### 9. 其他
+
+**Six runs, and the causes of the five deaths have not repeated once:**
+
+```
+framework      jsonschema ImportError
+coordination   two owners, one port band
+materials      trace hash_id inconsistent across records
+boundary       validator's engine outlives its verdict by 1.8 s
+deliverable    the kit cannot host a second copy of itself
+```
+
+**Each is a different layer, and the last one is the only one that is a property
+of the thing being shipped.** The progression is downward through the stack —
+**from "our tools broke" to "we collided with ourselves" to "our inputs were
+wrong" to "our seams leak" to "the product has a defect"** — and that ordering is
+what a debugging loop produces when each fix holds.
+
+**The uncomfortable half: five of the six runs died, and 63 of the last 65
+minutes were idle.** Both statements are true, and the first one is the reason
+the record is good while the second is the reason the deliverable is not
+finished. **With 2 h 20 min left, the constraint has stopped being knowledge and
+started being time.**
