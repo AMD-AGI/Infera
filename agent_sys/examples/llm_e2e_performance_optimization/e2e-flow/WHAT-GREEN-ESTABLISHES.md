@@ -936,3 +936,47 @@ a task's whole output set invalid when one sibling fails; `integration_report` f
 **Not claimed:** that invalidating a passing sibling is correct behaviour. That is a
 design question nobody here has a basis to answer. **What is established is only that
 it is not a validator saying no.**
+
+---
+
+## 2026-09-06 03:32 — a real m2 removes two thirds of the `check_no_regression` gap
+
+**`r6m1a` (run `20260906T014002-c43dd0`): m1 real, m2 REAL, m3/m4 replayed, m5 real.
+First rung where both arms come from the same machine in the same hour.**
+
+```
+r5m1a  (m2 replayed)  inter_token_latency -26.1%   time_to_first_token +34.7%
+r5m1c  (m2 replayed)  inter_token_latency -29.3%
+r6m1a  (m2 REAL)      time_to_first_token -11.2%   <- ITL no longer named at all
+```
+
+**`inter_token_latency` now reproduces within 10%.** The metric that refused on two
+independent nights stops refusing once the corpus is out of the comparison. **What is
+left is TTFT alone, at -11.2% against a 10% bar.**
+
+```
+PROBLEM: the patch regressed: the stock arm does not reproduce m2's profiling_mode_off
+bench within 10%: time_to_first_token (avg) -11.2%. The two stages measured different
+machines, or one machine in two states, so this report's comparison is between numbers
+that were never comparable.
+```
+
+**Note what the sentence still offers: "different machines, OR one machine in two
+states." This rung eliminates the first.** The remaining candidate is state drift
+between m2's capture and m5's stock bring-up on the same node — m2 runs a profiled
+capture and two bring-ups in between.
+
+**Checked before attributing, per the standing rule:**
+
+```
+refusing zone   9cb1302a   files: 149     <- read real content
+empty zone      2b992b2f   files: 0       <- check_environment, elsewhere, not this
+```
+
+**Fifth instance of the empty-zone fault, still ~1 per run of 13 zones — still
+inconsistent with m2's controlled 0/80, and still unexplained.**
+
+**Not established:** whether the residual 11.2% is reducible, or is at/below the noise
+floor that `bench_rounds=3` exists to measure. **Rounds 4 and 5 both called TTFT
+UNINTERPRETABLE because the floor exceeded the bar; whether this round says the same is
+unread.** Nobody should quote a cause for the residual until that is read.
