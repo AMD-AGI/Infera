@@ -14611,3 +14611,161 @@ artefacts into a corpus sealed eight days earlier**, because it had one. **This
 cluster had nothing and therefore had to earn it, and what it earned has a
 `required_node` field and a command line that reproduces it.** Whether that
 matters will show in whoever next needs to replay stage 2 without a GPU.
+
+---
+
+## R2 T+697 — 2026-09-06 18:10 UTC
+
+**T+697 = wall-clock delta from the baseline** (06:33:41 → 18:10:16).
+
+### 1. The launch record has become a pre-registration document
+
+**[first-hand, `m2/launch9/LAUNCH-RECORD.txt`, 18:00:01]** — the whole point is
+what it says about a waiver it is *keeping*:
+
+```
+FULL REAL CHAIN: mock_stages=none, no replay
+trace_end_ms=120000 (the proven fix);
+  stack_window_s and stack_ranks ABSENT (capture must succeed)
+kernel_table_min_launchers=0 KEPT -- leader scope decision made BEFORE the result:
+  one false verdict anywhere in the _on closure invalidates all three handoffs
+  (runner.py:598,972), and packup has never been reached on any cluster.
+  Reaching it once outweighs one attributable verdict.
+  THIS PASS IS NOT EVIDENCE. Restoring a waiver to recover a green is not a
+  measurement.
+instruction: v4 + unconditional log capture before teardown
+             (run 5 died with its cause unread)
+NOT included: m35's run-4 instruction text (I do not have it);
+              detokenizer retry deliberately absent
+```
+
+**"THIS PASS IS NOT EVIDENCE" written into the launch record before the run
+starts** is pre-registration in its strongest form — **the criterion is fixed
+before the data point, and the waiver is labelled so it cannot later be counted
+as a result.** It also names *why* the waiver is kept (a single false verdict
+invalidates three sibling handoffs, `runner.py:598,972`) and *what it is buying*
+(reaching `packup` once).
+
+**Three more things this record does that are worth copying:**
+
+- **`stack_window_s` and `stack_ranks` ABSENT — "capture must succeed."** The
+  masking flags from T+426/T+457 are deliberately not carried. **The run is
+  required to earn the stacks rather than declare them away.**
+- **"instruction: v4 + unconditional log capture before teardown (run 5 died
+  with its cause unread)."** A defect in *observability* fixed by changing the
+  instruction, with the incident that motivated it named inline.
+- **"NOT included: m35's run-4 instruction text (I do not have it)"** — **an
+  explicit statement of what the launcher could not obtain.** An absence
+  recorded rather than silently omitted.
+
+### 2. `launch10` supersedes it four minutes later — and reads its fix from the file
+
+```
+launched_at_utc: 2026-09-06T18:04:01Z
+supersedes: 20260906T180012-9aa819
+            (killed 2 min in: instruction carried the run-2 stranger clause)
+preflight text: VERBATIM from PREFLIGHT-FIX-FOR-NEXT-LAUNCH.md @ 4cd1425e (m35),
+                read from the file not the quotation
+  - a container holds a GPU only if VRAM is ATTRIBUTABLE to it;
+    /dev/kfd mapping is not evidence
+  - unattributable => unknown; unknown WAITS (up to 300s), never aborts
+```
+
+**This is the resolution of T+517's three-instrument problem, stated as a
+predicate.** All three earlier instruments answered adjacent questions —
+`/proc` KFD (blind across containers), `HostConfig.Devices` (mapping, not
+occupancy), bare VRAM (correct, but aborts on our own draining engine). **The new
+one is attribution plus a default of *wait*, not *abort*.**
+
+**"read from the file not the quotation" is the operative clause.** This record
+has spent the day on findings that degraded as they were relayed; **reading the
+source at a named commit removes the relay entirely.**
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~58 %** (unchanged) |
+| 已经耗时 | **~710 min** (mission.md 06:19:11 → 18:10:16) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**No stage advanced.** Two launches spent, one killed at two minutes for
+carrying stale instruction text.
+
+**Hold `29313`: 19 h 50 min left.**
+
+### 4. 当前进展 — sixteen runs; one alive and bringing up
+
+```
+1048af  dead  17:10:14  stage 1 green, stopped in _off
+9aa819  dead  18:02:53  deploy_and_prove FAILED at ~2.5 min (killed, §2)
+6b7c19  ALIVE pid 1773936, started 18:04:12, container=yihou_e2e_chain
+        yihou_e2e_etcd_chain6  18:09:11
+        yihou_e2e_sgl_chain6   18:09:12
+        cards 0 % at 18:09:48 — bring-up is 36 s old
+```
+
+**The idle gap between runs was 50 minutes** (run-tree writes 17:10:14 →
+18:00:12), or 34 minutes measured on teammate scratch (17:25:13 → 17:59:38).
+**Recorded against T+667's 15 minutes; smaller than T+306's 63.**
+
+### 5. Code problems
+
+**No new ones.** **Fixed in launch instruction, not in the package:** the
+preflight predicate (§2) and unconditional log capture before teardown.
+
+**Carried, root-caused, unfixed:** `preflight.sh:211` in the package itself (the
+fix above lives in launch text); teardown-vs-preflight sequencing; `--var jobid`
+vs `_agree_or_die`; `etcd.log` written on no path; `min_resolve_ratio` floor of
+zero; the router `/health` gate vs a cold JIT compile.
+**Carried unread since T+94:** the eight `jsonschema` validators — **eleven and a
+half hours.**
+
+### 6. 未定性
+
+- **Whether run 16 reaches `packup`.** It carries the proven `trace_end_ms`, no
+  masking flags, the new preflight predicate, and log capture before teardown.
+  **It is the best-equipped launch of the round.**
+- **Whether `kernel_table_min_launchers=0` will be honoured as "not evidence"**
+  when the result arrives. **The record says so in advance; whether the next
+  reader carries that qualifier is precisely what the first cluster's §2.8
+  incident was about** — a qualifier one line above a bold claim does not
+  travel.
+- **Why run 11 stopped in `_off`** — carried from T+667, still unread, **and the
+  new instruction's "unconditional log capture before teardown" exists because of
+  it.**
+- **What module 5 consumes if module 4 is replayed** — **twenty-first
+  consecutive section.**
+
+### 7. 新增 commit
+
+Since T+667, one:
+
+```
+202399e3  checkpoint R2 T+667 — mine
+9a1b8a21  CLAUDE.md: fix the definition, not the branch — and say what the
+          common case is
+```
+
+### 8. 其他
+
+**The two launch records in this section are the round's best artefacts, and
+neither is code.**
+
+Between them they carry: what changed and why, which run is superseded and its
+measured cause, a waiver kept with its justification *and* an advance statement
+that its pass is not evidence, two flags deliberately omitted so a capture must
+be earned, a fix quoted verbatim from a named commit rather than retyped, and an
+explicit list of what the launcher could not obtain.
+
+**Every one of those is a defence against a specific failure this record logged
+today** — stale relayed text, a masked degradation read as a result, a
+superseding run whose predecessor's cause was never established, a fix that
+decayed in transit.
+
+**Nine hours ago the launch line was not recoverable from the artefact at all.**
+The gap that remains is that these documents are **uncommitted**, in
+`/data/yihou/e2e_verify_20260906/m2/`, and the fixes they carry live in agent
+instructions rather than in the package. **A launch record is a good place to
+learn something and a poor place to keep it.**
