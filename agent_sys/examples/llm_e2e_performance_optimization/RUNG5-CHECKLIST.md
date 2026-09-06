@@ -55,6 +55,56 @@ anyone invented; `shared.yaml:149`'s default is `180000`. Both clear the floor.
 > **UNTESTED.** The whole test is one grep after the next run:
 > `grep CAPTURE_OK <run>/…/load.profiling_mode_on/capture_stacks.log`.
 
+### There are TWO paths. P-1 recommends the first. Do not mix them.
+
+**PATH A — REPAIR (recommended): make the capture succeed.**
+
+```
+--var trace_end_ms=120000
+```
+
+**If the capture succeeds, no declaration is needed at all** — the manifest
+exists, both validators pass on the artefact rather than on a waiver, and m3
+keeps `identify` resolution **level 1**. **This is the only path that recovers a
+capability rather than giving one up.** Untested; the grep above is the test.
+
+**PATH B — DECLARE IT INTENDED (fallback, if A fails): all THREE, not two.**
+
+```
+--var stack_window_s=0              # the PRODUCER: do not attempt the capture
+--var kernel_table_min_launchers=0  # check_kernel_table
+--var stack_ranks=0                 # check_trace_coverage   <-- NEVER PASSED, ALL DAY
+```
+
+> **Passing two of three is exactly what 2026-09-06 looked like**, and it refused
+> twice for the same reason on two different runs.
+
+**`stack_window_s=0` reaches the producer ONLY.** Measured on `298750`: no
+`capture_stacks.log` was written (producer obeyed) and `check_trace_coverage`
+refused anyway, because its gate is elsewhere:
+
+```
+m2_profiling.yaml:133          expect_stack_ranks: '${stack_ranks:-2}'
+check_trace_coverage:223-225   want_ranks = int(args.get("expect_stack_ranks", 0) or 0)
+                               if want_ranks <= 0: return True
+```
+
+> ### The refusal text and the yaml comment BOTH name the wrong knob
+>
+> The refusal says *"Set `--var stack_window_s=0` to say that is intended"*, and
+> `m2_profiling.yaml:131` repeats it — **sitting directly above the line whose
+> knob is `stack_ranks`.**
+>
+> **This is more dangerous than the `min_launchers_in_top_n` case** (bug record
+> §7c): that one names a validator *args field*, which is not a `--var` at all,
+> so a careful reader checks. **This names a REAL `--var` that REALLY WORKS — on
+> a different component.** It reads as authoritative and it is self-defeating.
+> **If you meet that advice mid-launch, recognise it and add `stack_ranks=0`.**
+
+**Path B is not a repair.** It is a second declaration of the same abandonment:
+no launcher frames either way, so m3 falls to Magpie, which has never completed a
+real scan here, while `min_resolve_ratio: 0.0` refuses nothing.
+
 **The alternative is worse:** `--var stack_window_s=0` also makes both refusals
 pass, changes **nothing** about the artefact, and permanently gives up
 `identify` resolution **level 1** — pushing m3 onto Magpie, which has never
@@ -119,6 +169,19 @@ find /data/yihou/e2e_flow /data/yihou/agent_sys_runroot/runs/<id> \
 ```
 
 **Before reporting that anything went unrecorded, search both roots.**
+
+**And the launch line is recoverable — but only while the orchestrator lives.**
+Core principle 3 says a run does not record its launch line. **That is true only
+*after* the process dies:**
+
+```sh
+tr '\0' '\n' < /proc/<orchestrator pid>/cmdline | grep -A1 -- '--var' | grep -vE '^--var$|^--$'
+```
+
+**Read it before the run exits and "unrecoverable" becomes "recorded".** This is
+how `298750` was shown to have passed `stack_window_s=0` and **not**
+`stack_ranks`. The run id is **not** on that cmdline (only `--demo-root`, which
+every run shares), so note the pid at launch.
 
 ---
 
