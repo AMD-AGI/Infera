@@ -735,3 +735,66 @@ tenant takes your number:
 - every concurrent line needs its **own `work_root` and `validate_work_root`**,
   and the owner's name is the obvious discriminator;
 - and a line that will reach a real m5 needs the node to itself regardless.
+
+---
+
+## 5. `WAITING_RESOURCE` 和 `WAITING_HANDOFF` 看起来是同一种保护的两种口味,而只有一种是保护
+
+追加于 **2026-09-06T08:34:54Z**(`date -u` 实读)。我在真链跑起来之后自查发现,**在它造成代价之前**。
+
+### 事实
+
+```
+grep -n 'resources: {gpu' steps/*.yaml
+  m2_profiling.yaml:432    resources: {gpu: 8}
+  m2_profiling.yaml:462    resources: {gpu: 8}
+  （m1_deploy / m3_analysis / m4_kernel_opt / m5_integration：一条都没有）
+```
+
+**只有 m2 的两个叶子申领 GPU 租约。其余四个阶段一个都不申领。**
+
+### 为什么这很容易读反
+
+`m2_profiling.yaml:267-272` 明写了这个设计意图,而且写得很好:
+
+> *「第二个之所以等,记录成它本来的样子:一个**资源**,不是一个依赖。
+> `WAITING_RESOURCE` 是和 `WAITING_HANDOFF` 不同的状态,正是为了让这个区别
+> 活到运行记录里。」*
+
+读到这一段,很自然会推出「框架用租约把 GPU 工作串起来了」。**推不出来。**
+那段话只描述 **m2 内部两条臂**之间的关系。
+
+> **跨阶段的分离完全来自 handoff 依赖链** —— m3 拿不到 m2 的产物就不能开始,
+> 所以 m2 的引擎先被拆掉。**那是真实的顺序,但它是「依赖顺序」而不是「租约顺序」。**
+
+**差别在哪里会咬人:一个从上一个阶段泄漏出来的容器,不会被任何东西排除在外。**
+租约会排除它;依赖不会——依赖只保证「上一个任务报告完成了」,
+不保证「上一个任务留下的进程没了」。而本文件 CLAUDE.md 一侧已经记着:
+**agent 会活过编排、并在容器被停一分钟后重建它**。
+
+### 同一天的具体实例:`measure_gpu`
+
+我按「m1 占 0-3,所以 4-7 空闲」把 `--var measure_gpu` 从 `0` 改成 `4`。
+真链起来之后测到:
+
+```
+08:20  cards: 0 0 0 0 75 75 75 75      引擎自己选了 4-7
+08:21  cards: 75 75 75 75 75 75 75 75  m1 的 selftest 引擎（0-3）与主引擎（4-7）并存
+                                        —— leader 实测,整个节点都在用
+```
+
+**两个前提都被同一个事实证伪:kit 在 bring-up 时自己选卡。**
+`--var gpu_devices` 被省略(`none` = 自由选择),所以
+
+> **发车行记录的是一个关于卡的**意图**;只有跑起来的部署记录**事实**,
+> 而那个事实在发车时不可知。**
+
+这不是谁不小心。这和本轮 `gpu_devices` 失效那条是同一个形状,只是从反方向来的:
+那条是「flag 说了不算」,这条是「事实在说话之前还不存在」。
+
+### 判据(可查,不靠记忆)
+
+- 断言「某两个阶段不会同时用 GPU」之前,**先看它们申领了租约没有**:
+  `grep -n 'resources: {gpu' steps/*.yaml`。没有租约 = 只有依赖顺序在保护你。
+- 依赖顺序**只**在「上游没有泄漏容器」时成立。所以一个依赖 `measure_gpu` 的
+  阶段开跑前,应当检查**那张卡上有没有容器**,而不是检查上游任务是否 succeeded。
