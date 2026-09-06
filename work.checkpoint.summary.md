@@ -15080,3 +15080,187 @@ and a read `launched_at_utc` — and it is the same property the leader is askin
 for when they say a stale directive should be answered with the right instrument
 rather than absorbed. **A message does not carry its own expiry; a timestamped
 record of what was true when does.**
+
+---
+
+## R2 T+786 — 2026-09-06 19:40 UTC
+
+**T+786 = wall-clock delta from the baseline** (06:33:41 → 19:40:14).
+
+### 1. The engine freeze from T+757 was diagnosed, then corrected twice by its own author
+
+**The mechanism claim, then its retraction, then a correction of the retraction's
+arithmetic — all inside forty minutes and all self-initiated.**
+
+```
+4afe06b7  "a with_stack profiler window freezes the engine mid-window"
+52487eed  CORRECTION: the same config passed at 16:38
+2e83f52c  the real denominator: stack window 1 of 3, measurement window 4 of 4
+10558a28  CLAUDE.md: an intermittent failure is indistinguishable from a
+          deterministic one at N=1
+```
+
+**[first-hand, `52487eed`]**
+
+> *Run `20260906T154908-d9c7af` took **the same 3 s `with_stack=1` window on the
+> same host, image and schedule** and produced four trace files;
+> `check_trace_coverage` passed on it. **The freeze is intermittent, one of two
+> real attempts, not a property of `with_stack`.** The `ReadTimeout` on that stop
+> **happened in the passing run too and carries no information.** Timeline and
+> the missing `Stop profiling` lines stand.*
+
+**A known-good run refuted the mechanism, and the same run also disarmed the
+`ReadTimeout` that had looked like evidence.** This is T+607's shape a second
+time: **a signature present in a passing run cannot discriminate anything** —
+except that here it was caught in forty minutes rather than four hours, and by
+the person who proposed it.
+
+**Then the denominator correction, which is the sharper one** [`2e83f52c`]:
+
+> *I had written "two attempts, one hit" by **dropping the attempt that aborted
+> before the window opened**. Different failure, still an attempt that produced
+> no stack window; **excluding it flattered the number.***
+
+```
+stack window        1 of 3   ← survives
+measurement window  4 of 4
+```
+
+**The asymmetry between the two window types is the finding, and it survives the
+small sample.** The 1-of-3 is worse than the 2-of-3 they first wrote, and they
+corrected it against themselves.
+
+**And the rule they extracted is the one this record most needed today**
+[`10558a28`]:
+
+> *An intermittent failure is indistinguishable from a deterministic one at N=1.
+> **And N=1 is invisible from inside the run tree.** Before naming a mechanism
+> for a failure, ask whether that stage has **ever succeeded on this host**, and
+> **ask it outside the run.** Four commands.*
+
+**Every mechanism error this file recorded today would have been caught by that
+question.** My T+548 etcd attribution, my T+578 JIT mechanism, the detokenizer
+guard that killed two healthy bring-ups, and now this — **four instances, and in
+each one the disproof was a run that had already succeeded and was not
+consulted.**
+
+### 2. A third member of the wrong-knob family
+
+**`4e67b69d`: "a refusal names a `--var` the guard does not read."** Joining
+`min_launchers_in_top_n` vs `kernel_table_min_launchers` (T+366) and
+`stack_window_s` vs `stack_ranks` (T+457). **Three instances, three different
+validators.** **The class — *a refusal's remediation text names an internal field
+rather than the operator's flag* — is now established by multiplicity rather than
+by a single case.**
+
+### 3. Run 17 is in flight, and its launch record now binds identity
+
+**[first-hand, `m2/launch11/LAUNCH-RECORD.txt`]**
+
+```
+written_at        2026-09-06T19:25:19Z   (read with date -u, not hand-written)
+launched          2026-09-06T19:24:06Z
+run dir           /data/yihou/agent_sys_runroot/runs/20260906T192406-5f24ca
+orchestrator pid  2505185  ppid 1  (setsid took; a harness tool-call timeout
+                  cannot reap it — m1's 2026-09-06 08:0x finding)
+identity          bound by the agent child's readlink /proc/<pid>/cwd
+```
+
+**Three defences in five lines, each traceable to a specific incident:** a read
+timestamp with the method stated; `ppid 1` recorded as *evidence that `setsid`
+took*, against the harness-reaping failure; and identity bound by `cwd` rather
+than by a name — **the discriminator the first cluster paid five
+misattributions to learn.**
+
+**Board at 19:39:49:**
+
+```
+5f24ca   ALIVE  pid 2505185, container=yihou_e2e_chain7
+         deploy_and_prove: output_validating   verdicts 2/2
+         yihou_e2e_etcd_serves-e5b225d6  19:38:45
+         yihou_e2e_sgl_serves-e5b225d6   19:38:47
+         cards 0-3 at 75 %
+6b7c19   dead   19:05:59  (two 900 s timers, T+757)
+```
+
+**Seventeen runs.**
+
+### 4. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~58 %** (unchanged) |
+| 已经耗时 | **~800 min** (mission.md 06:19:11 → 19:40:14) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Hold `29313`: 18 h 20 min left.**
+
+**A number worth stating because it changes how the remaining hold should be
+read:** the stack-window capture has succeeded **1 time in 3 real attempts**,
+and it is required for `check_trace_coverage` without a waiver. **Stage 2 is not
+reliably reproducible even though it has sealed once.**
+
+### 5. Code problems
+
+**Retracted, not a defect:** `with_stack` freezing the engine. **Open, and now
+correctly framed as intermittent:** what makes the stack window fail 2 times in
+3.
+
+**Carried, root-caused, unfixed:** stall threshold equals AIPerf's 900 s request
+timeout; `preflight.sh:211`; teardown-vs-preflight sequencing; `--var jobid` vs
+`_agree_or_die`; `etcd.log` on no path; `min_resolve_ratio` floor of zero; the
+router `/health` gate vs a cold JIT compile; **and now a third refusal naming an
+unreadable `--var`.**
+**Carried unread since T+94:** the eight `jsonschema` validators — **thirteen
+hours.**
+
+### 6. 未定性
+
+- **Whether run 17's stack window is the 2nd hit in 4 attempts or the 3rd miss.**
+  **This is now a measurable rate rather than a yes/no**, which is a better
+  question than the one I carried for four sections.
+- **What makes the stack window intermittent.** Open, correctly.
+- **Whether `merge_profiling_evidence` has executed** — the T+757 §7 disagreement
+  with the leader stands unresolved; **nobody has re-read `d9c7af`'s
+  `store/task`.**
+- **What module 5 consumes if module 4 is replayed** — **twenty-fourth
+  consecutive section.**
+
+### 7. 新增 commit
+
+Since T+757, five:
+
+```
+75cc5889  checkpoint R2 T+757 — mine
+4e67b69d  bug record: a refusal names a --var the guard does not read
+4afe06b7  bug record: a with_stack profiler window freezes the engine mid-window
+52487eed  bug record: correct the with_stack entry — the same config passed at
+          16:38
+10558a28  CLAUDE.md: an intermittent failure is indistinguishable from a
+          deterministic one at N=1
+2e83f52c  bug record: the real denominator — stack window 1 of 3, measurement
+          window 4 of 4
+```
+
+**Three of the six are corrections to the other three, by the same author, within
+the same interval.** **That ratio is the healthiest thing in this section.**
+
+### 8. 其他
+
+**"Ask whether that stage has ever succeeded on this host, and ask it outside the
+run" is the rule this file has been circling all day, finally stated as four
+commands.**
+
+Every mechanism I got wrong today failed the same way: **I reasoned from the
+failing run and the failing run alone.** T+548 read one router log. T+578 read
+one worker log. The detokenizer guard sampled only failures — *"that sample could
+not structurally contain a counterexample."* **In all four cases a successful run
+of the same stage existed on the same host at the time, and in three of them it
+was in a directory I had already listed.**
+
+**The correction is not "read more carefully." It is that a failure is not a
+sample, and a run tree cannot tell you it is N=1.** The denominator lives outside
+the run — which is the same place this file already established that hold
+liveness, image identity, and container ownership live. **Four things now, all
+invisible from inside.**
