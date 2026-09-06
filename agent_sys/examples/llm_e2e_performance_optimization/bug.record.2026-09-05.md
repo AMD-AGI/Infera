@@ -1885,3 +1885,23 @@ demonstrably prefers the populated one.
 figure came from three instances **found by accident**, so its denominator was never
 counted. 0/80 is inconsistent with that rate, but the honest reading may be that the
 RATE is unreliable, not that the mock path is blind.
+
+**Two limits m2 attached to their own finding, and both belong INSIDE the quotable
+claim rather than under it:**
+
+1. **The 30% precondition rate is from the MOCK path only.** The rate of `v0=0, v1=N`
+   handoffs in real runs is unmeasured; if it differs, the 0/80 vs 1-in-12 comparison
+   weakens in whichever direction it differs.
+2. **"Version resolution picked `v1` in all twenty" is an observation about OUTCOMES,
+   not about the code.** The staging path was never read. It is consistent with correct
+   resolution and equally consistent with resolution that merely happens to be correct
+   under mock conditions. **This is precisely the distinction m1 is protecting by
+   leaving the mechanism open, and this result does not close it.**
+
+**Tooling left ready:** `/home/yihou/zone_census.py` joins zone -> kind -> closure ->
+version shape -> verdict for any run tree, not only the hunt runs.
+
+**And the reading has changed for the next instance:** before tonight, an empty zone
+would have read as "the known intermittent fault, again". After 20/20 correct
+resolutions in a controlled sample, **an empty zone on a real run is a much sharper
+signal and should be captured, not filed as another sighting.**
