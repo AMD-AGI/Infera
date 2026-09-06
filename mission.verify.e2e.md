@@ -167,6 +167,16 @@ expensive one; put it last and reuse its output once obtained.**
    gathers from four producers writes it.**
    **It reproduces on a login node, fully mocked, with no GPU** — the whole question
    costs about twenty minutes and no cards. **Do not spend a GPU round on it.**
+   **LATEST, and it may mean this whole entry does not apply to you:** the emptiness
+   correlates perfectly with **which debug package was generated**, not with anything
+   the framework did — **10 of 10 empty with a partially-restored validator set, 0 of
+   3 empty with an all-stubs one**, on an otherwise identical login-node comparison.
+   The generator rewrites some kinds' validator lists and leaves others byte-identical,
+   and the affected kind is one it leaves alone.
+   > **Every run in the first round used a GENERATED package. No run has used the
+   > package as it sits in the repository.** If yours does and the zone is populated,
+   > this is our tooling's defect and never yours. **Run that comparison before you
+   > budget any time for this** — login node, all stages mocked, no cards.
    **Before attributing any refusal:**
    ```sh
    bash assets/lib/refusal_saw_something.sh <run dir>
