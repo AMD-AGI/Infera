@@ -204,3 +204,67 @@ the symptom.
 
 *Stopped here at the hold boundary. Everything above is read from `fdb0bd`'s own
 artefacts and the package source; nothing is inferred from a run I did not open.*
+
+---
+
+## 7. Amendment 2026-09-06T13:28:36Z — "refused; the run stopped here" was imprecise, and the precise version is better
+
+The leader challenged step 1: **`output_validating` is a STATE, not a verdict**, and
+two worlds fit it — a real refusal, or validation still running when the run was
+killed. Neither of us had established which. **The challenge was right as method;
+the evidence already existed and settles it.**
+
+### A refusal definitely happened — two artefacts, not an inference
+
+```
+verdict.json  validation-u2o0w8ix   {"a56d7e08…": false}   + validator_report.txt "REFUSED"
+verdict.json  validation-js25li68   {"88274848…": false}   + validator_report.txt "REFUSED"
+```
+
+**World 1. Not "the task sat in a state" — two verdicts on disk say `false`.**
+
+### But what happened AFTER the refusal I had NOT established, and it is the documented death
+
+From `store/event`:
+
+```
+validation_failed  task=64619ce7 (run_profiling_mode_on)  "output_validation did not pass"
+validation_failed  task=b80e029c (m2_profiling)           from_task=64619ce7
+validation_failed  task=b8d93b5d (main)                   from_task=b80e029c
+
+escalated  64619ce7   "validation_failed: the task is terminal and there is nothing to push"
+escalated  b80e029c   same
+escalated  b8d93b5d   same
+escalated  b8d93b5d   same, target: user
+```
+
+**Three `validation_failed` are ONE refusal propagating up the task tree** —
+leaf → `m2_profiling` → `main`, each naming its `from_task`. **A ledger counting
+these as three failures would report three where there is one**, which is exactly
+the trap `mission.verify.e2e.md` defect 3 names, visible here in the event stream.
+
+**Four `escalated`, all with the same `why`: *"the task is terminal and there is
+nothing to push"*, the last addressed to `target: user`.** That is
+`mission.verify.e2e.md` **defect 2 in its exact documented form** — a program body
+exits with a failure, there is no agent to instruct, the escalation climbs to the
+root and is addressed to a user who is not there.
+
+**And there is no terminal event.** Event kinds present: `phase_done`,
+`subgraph_done`, `validation_failed`, `escalated`. **No `done`, no run-complete.**
+The run never concluded on its own; it sat with an unanswered escalation at the
+root until it was superseded.
+
+### So the corrected sentence
+
+**Not** *"refused; the run stopped here"* — that reads as if validation halted the
+run. **The accurate version:**
+
+> **Two validators refused. The refusal propagated to the root as a single
+> failure. The escalation had no receiver, so nothing retried and nothing
+> concluded, and the run was still sitting there when it was superseded.**
+
+**Nothing in §1–§6 changes** — the materials check, the recounted numbers, the
+timing diagnosis and the `stack_window_s=0` analysis all stand. **What changes is
+that the run's end is now attributed to the no-receiver escalation rather than
+left implied.** The blocker upstream of m3/m4/m5 is real, and the run's death is
+a second, separate, already-documented defect that happened to it.
