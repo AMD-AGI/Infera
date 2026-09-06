@@ -498,3 +498,87 @@ Supported timestamp formats are ISO 8601-like, e.g. 2026-09-06T07:25:32Z
   的原因**。改成 `find "$DEST" -mindepth 1 -print -quit`,错误回到 stderr,
   不可读的目录变成一次可见的失败而不是一个数据。两个控制重跑过:
   空目标 rc=0,非空目标 rc=1。
+
+---
+
+## 6. **一个崩溃不是一次拒绝,而框架分不出来** —— `jsonschema` 导入失败杀死本轮第一次真实验证
+
+(m1 定位,m35 测量爆炸半径,2026-09-06T07:44:33Z。**这是 `mission.verify.e2e.md` 缺陷 #2 的
+逐字复现,连诊断信息躺在 `attributes.detail` 里没人读这一点都一样。**)
+
+### 现象
+
+```
+07:29:59Z  deploy_and_prove  output_validating -> validation_unreached, escalated x4
+attributes.message:
+  check_deploy_kit: exited 1 and wrote no verdict.json; nothing was decided.
+  lib/schema.py:169  from jsonschema import Draft202012Validator
+  ImportError: cannot import name 'Draft202012Validator' from 'jsonschema'
+               (/usr/lib/python3/dist-packages/jsonschema/__init__.py)
+```
+
+validator 的 `HOME` 指向自己的 zone,user-site 因此解析到一个空目录,
+回落到系统的旧 `jsonschema`。同一个解释器在普通 shell 里拿到的是
+`~/.local/.../jsonschema 4.26.0`,是好的。
+
+### 爆炸半径:**按 validator 是 8/22,按 kind 是 15/15**
+
+**导入在 `def validate()` 内部,不在模块顶层**(`schema.py:169` 是函数第一句)。
+所以 `import schema_lib` 无害,**只有真的调用 `validate` 才炸**。
+而调用点全都写着 `except schema_lib.SchemaError` —— **`ImportError` 不是
+`SchemaError`**,于是它穿过去,body exit 1,没有 verdict。
+
+| 会崩(8) | 不会崩(14) |
+|---|---|
+| `check_deploy_kit` `check_environment` `check_bench_report` `check_bench_result` `check_kernel_table` `check_no_regression` `check_optimization_shape` **`check_workset_shape`** | `check_acceptance` `check_command_parses` `check_deploy_serves` `check_identity_resolved` `check_measurement_order` `check_nothing` `check_overlay_applies` `check_packup_shape` `check_patch_live` `check_profiling_evidence` `check_speedup_substantiated` `check_trace_coverage` `check_worklist_shape` `check_workset_runs` |
+
+**`check_workset_shape` 我第一遍数漏了**,因为我搜的是共享库的调用点
+`schema_lib.validate(`,而它在 `check.py:667` **有自己的一份**
+`from jsonschema import Draft202012Validator`。**又是 §5:模式对,范围错。**
+抓到它靠的是补问了一句「整个包里还有没有别处 import jsonschema」。
+
+> **但真正的数字是 15/15:`check_environment` 挂在每一个 kind 上,
+> 所以每个 kind 都至少有一个会崩的 validator,没有任何 kind 能产出 verdict。
+> 本轮不存在「部分绿」这个选项,也不存在绕过它的降级配置。**
+
+### 这一条真正的教训:**verdict.json 表达不了「崩了」和「拒绝了」的区别**
+
+handoff 被记成 `invalid`,而 `invalid` 读起来就是一次拒绝。
+**`check_packup_shape.validator/check.py:184-188` 早就知道这件事**——它 catch
+`Exception` 并把 `"THIS VALIDATOR DID NOT RUN: <type>: <msg>"` 写进 reasons,
+注释原话 *"verdict.json cannot express the difference (todo.md T29)"*。
+**另外七个调用 `schema_lib.validate` 的 validator 没有这个守卫**,
+所以它们是安静地崩,而不是说出来。
+
+→ **可机械化的改法(不是记忆):把 `check_packup_shape` 那个 try/except 模式
+铺到每一个 validator body 上。** 它把第三种结局从「没有 verdict」变成
+「一个自报『我没有运行』的 verdict」,而后者是可数的。
+
+### 两条本可以省掉一小时的东西,都在包里
+
+1. **同样的崩溃已经被记录过,而且就记在造成它的那一行上方。**
+   `check_workset_shape.validator/check.py:655-661` 的 docstring:
+   *"crashed on the import, wrote no `verdict.json`, and the handoff was
+   recorded `invalid` — **a missing dependency reported as a judgement about
+   the artefact**."* —— 又一次「答案已经被取回来了,只是没有被读」。
+2. **修法的先例也在包里,而且比 `PYTHONPATH` 好。**
+   `deploy_and_prove.task/mock_adapt.sh:103-112` **探测**一个能 import 的解释器:
+   ```sh
+   for candidate in "${AGENT_SYS_DEMO_PYTHON:-}" python3 /usr/bin/python3; do
+     if "$candidate" -c 'import jsonschema, yaml' >/dev/null 2>&1; then PY="$candidate"; break; fi
+   done
+   ```
+   **它在坏输入上给一句话而不是一个 traceback。** 硬编码 `PYTHONPATH` 在环境
+   再变一次时会安静地解析到错的 site-packages;探测会说出来。
+
+### 它对今天所有读数的影响 —— 包括我自己那个「绿」
+
+07:36 我报告 zone 是绿的:**1 个 zone,37 个文件,没有空的**。那个结论**是对的**。
+**而运行照样死在验证上。**
+
+> **「validator 有没有被递到东西」和「validator 有没有活到去看它」是两个问题,
+> 而只有第一个有工具。** 我的检查回答了它的问题,而它的问题不是决定结局的那个。
+
+**推论,已写进 PRE-REGISTER:materials 检查是「归因一次拒绝」的前置条件,
+永远不是「验证发生过」的证据。读任何一张板子之前,先把 `verdict.json` 的**个数**
+和 kind 声明的 validator 个数对一下——缺失的那个就是第三种结局,而它是安静的。**
