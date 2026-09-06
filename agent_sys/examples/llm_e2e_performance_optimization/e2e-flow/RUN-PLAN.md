@@ -2350,6 +2350,29 @@ with another line — is choosing numbers that do not mean what they think.
 > RANGE, not a port.** Verify after bring-up by reading the kit's `deployment.json`,
 > not by trusting the launch line.
 
+**2026-09-06 05:0x — the variable you actually want is `E2E_KIT_PORT_BASE`, not
+`port_router`.** m3 lost a trial to this on 217:
+
+```
+[04:33:41] FATAL: router port 8301 is already in use. Every port on this box is
+           shared with every other tenant -- move the band with E2E_KIT_PORT_BASE
+           rather than waiting for it.
+```
+
+> **`E2E_KIT_PORT_BASE` moves the whole band. `port_router` moves one port and leaves
+> the rest of the kit's band where it was.**
+
+**m3 had been passing `port_router` all day and got away with it because nothing
+collided until 04:33.** The failure mode is the worst kind: the body `exit 1`s, there is
+no escalation recipient (`2a5b4e8` again), **so the task sits at `running` and the log
+reads healthy for the full 900 s until the stall detector ends the run.** Fifteen
+minutes of hold spent after the body had already exited, with the reason in
+`attributes.detail` the whole time.
+
+**This entry is here and not only in the bug record because it is a launch-line fact.**
+A collision is invisible until the moment another tenant takes your number, and by then
+the diagnosis costs a run.
+
 **Related site, first-hand:** `assets/accept/measure.sh:36` builds
 `R="http://${E2E_NODE_IP:?}:${E2E_PORT_ROUTER:?}"` — **the node IP, not the bound host**.
 Same shape as the abort that killed a successful TP4 bring-up on 093 on 2026-09-05; see
