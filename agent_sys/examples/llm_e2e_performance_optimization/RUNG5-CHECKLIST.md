@@ -364,6 +364,69 @@ reads `infera_e2e_run` — but that one is written by `mix_up.sh`, a **package
 asset**, so it is a mechanism rather than a habit. **Worth stating the
 difference when either is discussed: same field, different durability.**
 
+> ### TESTED 2026-09-06T14:43:22Z, AND THE PARAGRAPH ABOVE WAS WRONG. Left in place.
+>
+> *"a lapsed label costs a false abort, not a silent overwrite"* was written as
+> the reassuring half. **It was pre-registered, it came true, and a false abort
+> turned out to cost the whole run** — the `_off` body is a program, so the
+> escalation had no recipient and the task sat at `running` until the 900 s
+> stall. **"Only a false abort" priced a false abort at zero. It is one run.**
+>
+> **And the mechanism was not a lapsed label — it is worse and it is P2d.**
+
+---
+
+## P2d — BLOCKING. The kit preflight aborts on ANY busy card on this host, and the fix must land before the next launch
+
+**This killed run `20260906T140831-026b96` at 14:43:22Z, 35 minutes in, one
+stage after `deploy_kit` went `valid`.** Full record: `bug.record.2026-09-06.md`
+§13. The short form, because this is a launch gate:
+
+```
+preflight.sh:121  _gpu_containers()   docker inspect … {{.PathOnHost}} … | grep -q '/dev/kfd'
+preflight.sh:132  _foreign_gpu_containers()  = GPU containers minus ours-by-label
+preflight.sh:211  "Instrument 2 decided: a stranger. Abort immediately."
+```
+
+**`HostConfig.Devices` is device mapping, not occupancy.** Measured on this host:
+
+```
+rc_26_7_902    devices: /dev/dri /dev/kfd /dev/infiniband     up 2 days
+xiaoming-dev   devices: /dev/kfd /dev/dri /dev/infiniband     up 3 days
+cards, six minutes after the abort, both still running:  0 0 0 0 0 0 0 0
+```
+
+> **Instrument 2 can never be empty here. So `:211` is reached whenever any card
+> reads busy, for any reason, and BOTH wait branches the instruction asked for
+> — predecessor-wait and blind-wait — are unreachable code on this node.**
+
+The busy reading was **our own** `check_deploy_serves` engine draining: up
+14:40:00, cards 76 %, preflight read 112–117 GB at 14:43:22, containers gone by
+14:44. Instrument 1 found no labelled container because that container had
+already been removed while VRAM was still draining — **so the one instrument
+that could have said "predecessor" had nothing left to see.**
+
+**Two fixes, both required, neither optional:**
+
+1. **`_gpu_containers` must test occupancy, not mapping.** A container holds a
+   GPU only if VRAM is attributable to it. When attribution fails the honest
+   label is `unknown`, and `unknown` routes to the wait that already exists and
+   already has a budget (`DK_GPU_WAIT_S`). The script's own text at `:259` says
+   this correctly — *"something is holding VRAM that docker cannot name from
+   here"* — and `:260` throws it away with *"If instrument 2 named a container,
+   it is a stranger."*
+2. **Sequence the validator's teardown against the next stage's preflight.**
+   Nothing does. Fix 1 makes a busy card survivable; fix 2 stops it appearing.
+
+**The instruction is where it entered, and it half-knew:** *"KFD process
+inspection … must never be the deciding test: /proc cannot see into other
+containers."* That sentence applies verbatim to `HostConfig.Devices`, which
+crosses the namespace but answers a different question. **Instrument 3 was
+correctly demoted; instrument 2 has the same defect and was made the decider.**
+
+**Relaunching without fix 1 reproduces this abort** — the two foreign containers
+are long-lived and will be here next time.
+
 ---
 
 ## P3 — `mock_stages` must exclude m5, and there is no smoke test for what follows
