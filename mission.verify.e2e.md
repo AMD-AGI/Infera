@@ -146,6 +146,41 @@ expensive one; put it last and reuse its output once obtained.**
    healthy run**, when a spurious refusal on a replayed upstream stage escalated to a
    sink that cannot answer and a 900 s timer ended the run while module 5 was writing
    its report.
+   ---
+   **Second cluster, 2026-09-06T12:29:26Z — what our data can and cannot say about this.**
+   Six real runs on `smci355-ccs-aus-n04-25`. **They do NOT test the claim, and
+   the reason is worth more than the count:** the closure this entry names,
+   `m2_profiling`, **never reached output validation in any of them.** It exists
+   as a task in every run's `store/task`, but no run got past its children.
+
+   | run | validation zones | empty |
+   |---|---|---|
+   | `15c264` `3e8a03` `6ded23` `ae2c38` | 1 each — `deploy_and_prove` only | 0 |
+   | `fdb0bd` | 3 | 0 |
+   | `041f89` | 0 — pre-validation | 0 |
+
+   `fdb0bd`'s three, identities resolved by the method this entry prescribes
+   (`inputs.json` -> handoff id -> kind), **not** by counting:
+
+   ```
+   files=30  closure=deploy_and_prove        kind=deploy_kit
+   files=17  closure=run_profiling_mode_off  kind=profiling_mode_off.bench_result
+   files=39  closure=run_profiling_mode_on   kind=kernel_table
+   ```
+
+   **These are module 2's LEAF closures, each carrying ONE kind. They are not
+   `m2_profiling`, which carries two.** So *"7-for-7 there, 0-for-1 here"* would
+   be wrong and we are not saying it: **our testable sample is zero.**
+
+   **What it is weak evidence for:** three non-`m2_profiling` zones were
+   populated, which is *consistent with* the specificity this entry claims and
+   does not establish it. **It is also consistent with the untested shape
+   hypothesis below** — the two leaf zones carry one kind each and neither was
+   empty, while the two-kind closure was never reached.
+
+   **The cheap test named above — a graph without module 2 — is still unrun, by
+   both clusters.**
+
    **Mechanism unknown and deliberately left open.** A controlled sample of 80 staged
    handoffs on a mock loop produced **zero** empties while reproducing the *shape*
    (`v0` empty, `v1` populated) at 30 % and resolving it correctly every time — so
