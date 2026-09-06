@@ -55,13 +55,33 @@ while IFS= read -r z; do
   n=$(find "$z/materials" -type f 2>/dev/null | wc -l | tr -d ' ')
   vers=$(find "$z/materials" -maxdepth 2 -mindepth 2 -type d 2>/dev/null \
          | sed 's|.*/||' | sort -u | tr '\n' ' ')
+  # **Name the CLOSURE, not just the path.** The zone directory is
+  # `validation.<TASK-ID>.<phase>.<hash>`, and the store maps task id -> closure,
+  # so the owning stage is one lookup away and always was. Six separate reports
+  # of this fault gave a COUNT ("1 of 13") and stopped; a count invites a rate,
+  # and the rate we all wrote down -- "non-deterministic, roughly 1 in 13" -- was
+  # wrong. It is `m2_profiling`'s zone every time. Reporting the identity instead
+  # of the number is the difference between a hunt and a targeted read.
+  tid=$(basename "$z" | sed 's/^validation\.//; s/\..*//')
+  closure=$(python3 - "$RUN" "$tid" <<'PYEOF' 2>/dev/null || true
+import json,glob,os,sys
+run,tid=sys.argv[1],sys.argv[2]
+for f in glob.glob(run+"/store/task/**/*", recursive=True):
+    if not os.path.isfile(f): continue
+    try: j=json.load(open(f))
+    except Exception: continue
+    for e in (j if isinstance(j,list) else [j]):
+        if isinstance(e,dict) and e.get("id")==tid and e.get("closure"):
+            print(e["closure"]); sys.exit(0)
+PYEOF
+)
   # Name the validators in the zone, so a hit is actionable rather than a path.
   who=$(grep -ho '^# check_[a-z_]*' "$z"/validation-*/validator_report.txt 2>/dev/null \
         | sed 's/^# //' | sort -u | tr '\n' ' ')
   [ -n "$who" ] || who='(no report written — check_environment writes none)'
   if [ "$n" = 0 ]; then
     bad=$((bad + 1))
-    echo "EMPTY  $(basename "$z")"
+    echo "EMPTY  closure=${closure:-<unresolved>}   $(basename "$z" | cut -c1-52)"
     echo "         versions: ${vers:-none}   files: 0   validators: $who"
   else
     echo "ok     $(basename "$z" | cut -c1-56)  files: $n  versions: ${vers:-none}"
