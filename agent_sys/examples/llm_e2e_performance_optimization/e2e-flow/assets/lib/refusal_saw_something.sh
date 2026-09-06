@@ -55,14 +55,54 @@ while IFS= read -r z; do
   n=$(find "$z/materials" -type f 2>/dev/null | wc -l | tr -d ' ')
   vers=$(find "$z/materials" -maxdepth 2 -mindepth 2 -type d 2>/dev/null \
          | sed 's|.*/||' | sort -u | tr '\n' ' ')
+  # **Name the CLOSURE, not just the path.** The zone directory is
+  # `validation.<TASK-ID>.<phase>.<hash>`, and the store maps task id -> closure,
+  # so the owning stage is one lookup away and always was. Six separate reports
+  # of this fault gave a COUNT ("1 of 13") and stopped; a count invites a rate,
+  # and the rate we all wrote down -- "non-deterministic, roughly 1 in 13" -- was
+  # wrong. It is `m2_profiling`'s zone every time. Reporting the identity instead
+  # of the number is the difference between a hunt and a targeted read.
+  tid=$(basename "$z" | sed 's/^validation\.//; s/\..*//')
+  closure=$(python3 - "$RUN" "$tid" <<'PYEOF' 2>/dev/null || true
+import json,glob,os,sys
+run,tid=sys.argv[1],sys.argv[2]
+for f in glob.glob(run+"/store/task/**/*", recursive=True):
+    if not os.path.isfile(f): continue
+    try: j=json.load(open(f))
+    except Exception: continue
+    for e in (j if isinstance(j,list) else [j]):
+        if isinstance(e,dict) and e.get("id")==tid and e.get("closure"):
+            print(e["closure"]); sys.exit(0)
+PYEOF
+)
   # Name the validators in the zone, so a hit is actionable rather than a path.
   who=$(grep -ho '^# check_[a-z_]*' "$z"/validation-*/validator_report.txt 2>/dev/null \
         | sed 's/^# //' | sort -u | tr '\n' ' ')
   [ -n "$who" ] || who='(no report written — check_environment writes none)'
   if [ "$n" = 0 ]; then
     bad=$((bad + 1))
-    echo "EMPTY  $(basename "$z")"
-    echo "         versions: ${vers:-none}   files: 0   validators: $who"
+    # **Report the KIND being validated, not just the closure.** The closure came
+    # from mapping the zone name's task id through the store, which is an
+    # inference; the kind comes from the handoff the zone actually lists in
+    # inputs.json, which is what was being judged. On 2026-09-06 the two were
+    # read differently by two people on the same zone and produced opposite
+    # conclusions -- one "e2e_packup", one "m2_profiling" -- while the kind was
+    # unambiguous and the same in all seven runs: profiling_evidence.
+    kinds=$(python3 - "$RUN" "$z" <<'PYEOF' 2>/dev/null || true
+import json,glob,os,sys
+run,z=sys.argv[1],sys.argv[2]
+inp=glob.glob(z+"/validation-*/inputs.json")
+out=[]
+if inp:
+    for i in json.load(open(inp[0])):
+        rd=sorted(glob.glob(run+f"/handoffs/{i}/v*/content/README.md"))
+        out.append(open(rd[-1]).readline().strip().lstrip("# ") if rd else i[:8])
+print(",".join(out))
+PYEOF
+)
+    echo "EMPTY  kind=${kinds:-<unknown>}  closure=${closure:-<unresolved>}"
+    echo "         zone: $(basename "$z" | cut -c1-52)"
+    echo "         versions staged: ${vers:-none}   files: 0   validators: $who"
   else
     echo "ok     $(basename "$z" | cut -c1-56)  files: $n  versions: ${vers:-none}"
   fi

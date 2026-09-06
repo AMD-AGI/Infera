@@ -1905,3 +1905,178 @@ version shape -> verdict for any run tree, not only the hunt runs.
 would have read as "the known intermittent fault, again". After 20/20 correct
 resolutions in a controlled sample, **an empty zone on a real run is a much sharper
 signal and should be captured, not filed as another sighting.**
+
+### 2026-09-06 06:2x — the "1 in 13" is NOT a rate. It is always the same task.
+
+**Five runs, five empty zones, and every one resolves to the same closure:**
+
+```
+run                       empty zone -> parent task -> closure
+20260906T014002-c43dd0    2b992b2f  ->  m2_profiling   kinds: profiling_evidence, deploy_kit
+20260906T000840-bc92a6    87f3c042  ->  m2_profiling   kinds: profiling_evidence, deploy_kit
+20260905T221356-9219d7    e2d93386  ->  m2_profiling   kinds: profiling_evidence, deploy_kit
+20260905T202930-0fc78e    7bfceeaa  ->  m2_profiling   kinds: profiling_evidence, deploy_kit
+20260905T194045-223263    e868c6f9  ->  m2_profiling   kinds: profiling_evidence, deploy_kit
+```
+
+> **It is `m2_profiling`'s output-validation zone, every run, deterministically —
+> not a stochastic fault sampling one zone in thirteen.**
+
+**Why nobody saw it:** every earlier sighting was reported as a count ("1 of 13"),
+and a count invites a rate. **Six runs each producing EXACTLY one empty is already
+inconsistent with an independent per-zone probability** — that distribution would put
+some runs at zero and some at two. **The identity was one `store/task` read away and
+five separate reports stopped at the number.**
+
+**It holds across configurations:** m2 REPLAYED (`r5m1b`, `r5m1c`) and m2 REAL
+(`r6m1a`) both produce it, so it is not a property of the mock adapter.
+
+**And it explains the contradiction with the mock loop's 0/80.** Those ten runs all
+stalled at `build_workset`; whether they ever staged this particular zone in this
+form was never checked. **The two samples were never measuring the same population.**
+
+**Not established:** the mechanism. Candidates nobody has tested — the closure has
+two kinds (`profiling_evidence` and `deploy_kit`) and a merge step upstream
+(`merge_profiling_evidence`); a zone that must gather from two producers is a
+different shape from one that gathers from one. **This is now a targeted code read of
+one task's staging path, not a hunt.**
+
+**Consequence for every earlier verdict on `profiling_evidence`:** a PASS there
+established that the validator was invoked, and nothing else. **`check_profiling_evidence`
+refused from this zone twice; both refusals said nothing about the artefact.**
+
+### CORRECTION 2026-09-06 07:2x — "always m2_profiling" is REFUTED by the sixth run
+
+**The entry above claimed the empty zone is deterministically `m2_profiling`'s. The
+very run I said would discriminate did discriminate, and it went against me.**
+
+```
+r7m1a  20260906T062157-bab0d5   (m1 real, m2 real, m3/m4/m5 MOCKED, packup reached)
+  EMPTY  validation.6239664f…  files: 0
+         parent closure = main      kinds = ['e2e_packup']      <- NOT m2_profiling
+  m2_profiling's zone in this run: populated
+```
+
+**So the location is not fixed.** Six runs: five at `m2_profiling`, one at `main`
+(`e2e_packup`). **The claim as written was too strong and it is withdrawn.**
+
+**What survives, and it is still the interesting part:** **seven real-path runs,
+seven results of EXACTLY ONE empty zone**, out of 13 or 14 zones each. **That
+distribution is still inconsistent with an independent per-zone probability** — which
+would produce runs with zero and runs with two. **One-per-run is the durable
+observation; the identity of the one is not.**
+
+**A note on why the first table looked so convincing:** in all five of those runs
+`packup` was never reached, so the `e2e_packup` zone did not exist to be picked.
+**The sample could not have shown me a counter-example.** `r7m1a` is the first run
+where it could, and it did immediately.
+
+**Not established, and nobody should assert it:** what selects the one. Position in
+the graph, ordering, timing, and the number of producers a zone gathers from are all
+untested. **The one thing now ruled out is "a fixed closure".**
+
+### RE-CORRECTION 2026-09-06 07:3x — the withdrawal above was wrong. Six for six.
+
+**The correction immediately above is itself withdrawn.** `m2_profiling` was right;
+**my instrument was broken and I retracted a true finding because of it.**
+
+**The zone directory is `validation.<TASK-ID>.<phase>.<hash>` — the task id is in the
+zone's own name.** My resolver globbed for the zone, took `os.path.dirname`, and read
+the **enclosing** task instead. For a zone belonging to a leaf *inside* `m2_profiling`
+the two agree; for the zone belonging to **`m2_profiling` itself** the parent is
+`main`, and that is the one I read.
+
+**Read directly from each zone's own task record:**
+
+```
+20260906T062157  r7m1a   own_closure=m2_profiling   kinds=[deploy_kit, profiling_evidence]
+20260906T014002  r6m1a   own_closure=m2_profiling   kinds=[deploy_kit, profiling_evidence]
+20260906T000840  r5m1c   own_closure=m2_profiling   kinds=[deploy_kit, profiling_evidence]
+20260905T221356  r5m1b   own_closure=m2_profiling   kinds=[deploy_kit, profiling_evidence]
+20260905T202930          own_closure=m2_profiling   kinds=[deploy_kit, profiling_evidence]
+20260905T194045  w17m1g  own_closure=m2_profiling   kinds=[deploy_kit, profiling_evidence]
+```
+
+> **Six for six, and it survives every variable we have moved: m2 replayed vs real,
+> m5 replayed vs real, both halves of the node, two different `--keep` sets.**
+
+**m1's observation about where the identity lived is the sharpest thing here:** the
+task id was **printed in every report, inside the string being quoted**, and six
+successive readers — both of us — read the count beside it. **Not "one `store/task`
+read away"; zero reads away, in the identifier we kept pasting.**
+`refusal_saw_something.sh` now prints `closure=` on every empty zone (`5326aa4`), so
+the report is an identity instead of a count.
+
+**Still NOT established, and m1 is right to hold the line:** *"deterministic for
+`m2_profiling`"* is established; *"only `m2_profiling`"* is not. **Every run in the
+sample has m2 in the graph and upstream of live work.** The cheap test is a graph
+without m2; nobody has run one.
+
+**Untested hypothesis about shape, from both of us, and neither has read the staging
+code:** that closure carries **two kinds** and `merge_profiling_evidence` — the only
+stage that gathers from four producers — is upstream of it. **A zone assembling from
+several sources is structurally unlike one assembling from a single producer.**
+
+**Cost, restated:** **every `check_profiling_evidence` verdict this project has
+recorded is void** — the two refusals and every pass from that zone. **One validator,
+one kind, all of them** — smaller and far more actionable than any rate.
+
+**Method note, and it is the reason this entry exists three times over:** the retraction
+was made on a broken resolver, not on evidence. **A withdrawal is a claim pointing the
+other way and deserves the same check as the claim it withdraws** — which this file
+already said, twice, before I did it again.
+
+### 2026-09-06 08:1x — it is a VERSION-SELECTION question, it has a positive control,
+### and it reproduces with no GPU in 18 minutes
+
+**The right discriminator was never the closure.** It is the handoff the zone lists in
+its own `inputs.json`, and that handoff's **kind**. Both earlier readings *inferred*
+the identity — one from directory nesting, one from mapping the zone name's task id
+through the store — and on one zone the two inferences disagreed **while the kind was
+never in doubt.**
+
+```
+zone -> inputs.json: 56751b24 -> kind: profiling_evidence
+        handoff 56751b24:  v0 = 0 files,  v1 = 49 files
+```
+
+**Eight runs, measured that way:**
+
+```
+r7m1a   14 zones  1 empty  profiling_evidence  v0
+r6m1a   13        1        profiling_evidence  v0
+r5m1c   13        1        profiling_evidence  v0
+r5m1b   13        1        profiling_evidence  v0
+r5m1a   13        1        profiling_evidence  v0
+w17m1g   6        1        profiling_evidence  v0
+w17m1e  13        1        profiling_evidence  v0
+p6m1    11        0        profiling_evidence  v1, 45 files   <- POPULATED
+```
+
+> **Seven for seven on the kind, and the eighth is the positive control we said we
+> never had: the same kind staged from `v1` and it was fine.**
+
+**So the variable is which VERSION gets staged, not the closure and not a rate.**
+`profiling_evidence` is the only kind that consistently carries two versions, and
+`merge_profiling_evidence` — the only stage gathering from four producers — writes it.
+**The two-kinds-and-a-merge hypothesis is now narrowed to a version-selection question
+with a control attached.**
+
+**NOT claimed:** that the validator set (`-noval` vs the full package) is the cause.
+`p6m1` differs in package, stages and node at once, and is n=1.
+
+### And it is cheap now
+
+**The fault reproduces on the login node, fully mocked, with no cards:**
+
+```
+mock loop run 1   login node, full package, mock_stages=all, no GPU
+    EMPTY  kind=profiling_evidence  closure=m2_profiling
+    1 of 11 zones handed ZERO files
+```
+
+**Not the hardware, not the node, not a real stage, not m2 doing real work.**
+**Every expensive explanation is ruled out, and the question costs 18 minutes instead
+of a 90-minute GPU round.** A decisive comparison — same package-generation mode as
+`p6m1`, same mocked stages, same node, differing only in the validator set — is the
+next reading.

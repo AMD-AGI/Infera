@@ -15,9 +15,12 @@ thing you must supply, not a thing you can inherit.
 
 ## Where the first round got to
 
-**Six real chain runs. Best board: seventeen validators invoked, sixteen pass, one
-refusal.** Read this table as the starting point to reproduce, not as a claim to
-trust.
+**Seven real chain runs.** Two boards worth carrying, and they are not the same claim:
+**(a)** modules 1, 2 and 5 real — seventeen validators, sixteen pass, one refusal;
+**(b)** modules 1 and 2 real with 3/4/5 replayed — seventeen validators, **zero
+refusals, `packup` reached.** **(b) is a stronger-looking board and a weaker
+statement**, because the only validator that has ever refused was not exercised in it.
+Read both as starting points to reproduce, not as claims to trust.
 
 | module | real or replayed in the best run | its validators |
 |---|---|---|
@@ -63,7 +66,14 @@ trust.
   attempt spent 113 minutes still in preparation with no source file changed.
   **Running it through is a first-class goal of this round** and is the main reason
   a cluster with longer holds is worth the move.
-- **No chain has completed all five stages.** `packup` is unreached.
+- **A chain HAS now walked all five stages and reached `packup`** — but only in the
+  shape where module 5 is replayed (modules 1 and 2 real, 3/4/5 replayed). Seventeen
+  validators, **zero refusals**, and `check_packup_shape` invoked and passing for the
+  first time. **Read it as reachability, not as regression:** in that shape
+  `check_no_regression` passed on a report whose two comparison blocks both
+  self-declare `unavailable_because: mock`. **It passed by having nothing to judge.**
+  **No chain has reached `packup` with module 5 real** — that is still open, and it is
+  the one the refusal above blocks.
 - **`check_no_regression` under clean comparability.** The surviving explanation for
   the 11.2 % is *one machine in two states* — module 2 runs a profiled capture and
   two bring-ups sit between it and module 5's stock arm. **No launch variable
@@ -117,8 +127,20 @@ expensive one; put it last and reuse its output once obtained.**
 
 ### Framework, not ours
 
-1. **A validation zone is sometimes handed ZERO files.** Non-deterministic,
-   validator-agnostic, roughly **one zone in eleven to thirteen** on real runs.
+1. **One validation zone per run is handed ZERO files, and it is always the same
+   one.** **Seven real runs, seven results of exactly one empty zone**, and in the six
+   resolved so far the zone belongs to **module 2's closure** (`m2_profiling`, the
+   task carrying `deploy_kit` + `profiling_evidence`). **It survives module 2 replayed
+   vs real, module 5 replayed vs real, both halves of a node, and different validator
+   subsets.** It was mistaken for a ~1-in-13 *rate* for a whole night because every
+   report gave a count; **exactly one per run is inconsistent with an independent
+   per-zone probability**, which would give some runs zero and some two.
+   **Established: deterministic for that closure. NOT established: that only that
+   closure can be affected** — every run in the sample has module 2 in the graph and
+   upstream of live work. **The cheap test nobody has run is a graph without it.**
+   **Untested shape hypothesis:** that closure carries **two kinds** and the only
+   stage in the graph that gathers from four producers sits immediately upstream of
+   it. **Nobody has read the staging code.**
    Consequences in increasing severity: a false refusal that reads like a producer
    defect; **a silent pass on nothing**; and — measured once — **the death of a
    healthy run**, when a spurious refusal on a replayed upstream stage escalated to a
@@ -128,7 +150,23 @@ expensive one; put it last and reuse its output once obtained.**
    handoffs on a mock loop produced **zero** empties while reproducing the *shape*
    (`v0` empty, `v1` populated) at 30 % and resolving it correctly every time — so
    "an empty `v0` confuses staging" is refuted. **The version number is noise; the
-   file count is the discriminator.**
+   file count is the discriminator.** **Caution on that 0-in-80:** those runs all
+   stalled early and may never have staged the same zone set, so it and the real-path
+   number were probably never the same population. **Do not treat them as a
+   contradiction requiring explanation until the zone counts are compared.**
+   **Resolve the identity, do not report a count — and resolve it the unambiguous
+   way:** read the zone's own `inputs.json`, take the handoff id it lists, and read
+   that handoff's **kind**. Two indirect methods (directory nesting; mapping the zone
+   name's task id through the store) disagreed with each other on one zone while the
+   kind was never in doubt.
+   **What the first cluster ended up with:** eight runs measured that way, **seven
+   empty and all seven the same kind**, plus **one positive control where the same
+   kind staged from a populated version and was fine.** So the variable is **which
+   version gets staged**, not the closure and not a rate. **That kind is the only one
+   in the graph that consistently carries two versions, and the only stage that
+   gathers from four producers writes it.**
+   **It reproduces on a login node, fully mocked, with no GPU** — the whole question
+   costs about twenty minutes and no cards. **Do not spend a GPU round on it.**
    **Before attributing any refusal:**
    ```sh
    bash assets/lib/refusal_saw_something.sh <run dir>
@@ -138,6 +176,9 @@ expensive one; put it last and reuse its output once obtained.**
    about the artefact.**
    **A PASS establishes that the validator was invoked, not that it saw anything** —
    a pass carries no reason, so the file count is the only retrospective check on it.
+   **Consequence on the first cluster: every verdict that project recorded for the
+   validator on that kind is void — both of its refusals and all of its passes.**
+   Expect the same to be true of whichever kind it lands on for you.
 
 2. **An escalation with no receiver leaves a task at `running` and the log looking
    healthy.** Two flavours, and the event type tells them apart without opening
