@@ -14452,3 +14452,162 @@ record could not say whether it was worth anything. **Today it caught a duplicat
 string that would have become two directories with one name** — a defect no
 amount of running the chain would have surfaced, because the chain would have
 run.
+
+---
+
+## R2 T+667 — 2026-09-06 17:40 UTC
+
+**T+667 = wall-clock delta from the baseline** (06:33:41 → 17:40:17).
+
+### 1. This cluster now has a sealed corpus, produced by itself
+
+**The baseline's largest structural problem is solved.** At T+0 I wrote:
+*"there is no sealed corpus on this cluster and `/shared_nfs` is empty …
+**nothing can be replayed on this node until this round produces it first.**"*
+
+**[observed, first-hand] `/data/yihou/e2e_verify_20260906/m35/replay_root_run4/`,
+generated 17:02:32:**
+
+```
+PROMOTION.json     11 736 B
+stage1-deploy/
+stage2-profiling/  profiling_evidence
+                   profiling_mode_off.bench_result
+                   profiling_mode_on.bench_result
+                   profiling_mode_on.kernel_table
+                   profiling_mode_on.profile_result
+```
+
+**`PROMOTION.json` records how it was made, and it is the kind of provenance the
+first cluster's corpus never had:**
+
+```
+generated_at   2026-09-06T17:02:32+00:00
+required_node  smci355-ccs-aus-n04-25
+kit_nodes      [smci355-ccs-aus-n04-25]
+threshold      1
+command        assets/lib/replay_root.py --out … --node smci355-ccs-aus-n04-25
+               --threshold 1 --allow-unstable --no-seed
+               --kind deploy_kit --kind profiling_evidence
+               --kind profiling_mode_off.bench_result … 
+               --run /data/yihou/agent_sys_runroot/runs/20260906T154908-d9c7af
+also present   runs_surveyed · ACCEPTANCE · promoted · not_promoted
+```
+
+**It names the run it came from, the node it requires, and — importantly — a
+`not_promoted` list.** The first cluster's `cheat_for_mock/` had a README warning
+about four things that would mislead you; **this one carries its own exclusions
+as data.**
+
+**What this unlocks, stated concretely:** stages 3, 4 and 5 can now be developed
+against replayed stage-1/2 artefacts **without spending 68 minutes and a GPU
+bring-up per attempt.** Given that module 4 is the stage the user has flagged as
+very long, and that no measurement of it exists here, **this is the difference
+between iterating on the back half and waiting for the front half.**
+
+### 2. Run 11 ended without finishing, at the same place as its predecessors
+
+**[first-hand, `m35/launch-run5/chain.log`, last write 17:25:13]**
+
+```
+handoff  profiling_evidence slot v0: created
+handoff  operator_workset slot v0: created
+handoff  kernel_optimization slot v0: created
+handoff  profiling_mode_off.bench_result slot v0: generating
+handoff  profiling_mode_on.bench_result slot v0: created
+   done  run complete; this package promises no failure, and the run did NOT
+          finish: m2_profiling: running, m3_analysis: waiting_handoff,
+          m4_kernel_opt: waiting_handoff, m5_integration: waiting_handoff,
+          main: running, merge_profiling_evidence: waiting_handoff,
+          run_profiling_mode_off: running,
+          run_profiling_mode_on: waiting_resource,
+          0 validation(s) dropped
+```
+
+**Stage 1 green (3/3 verdicts), then stopped inside `run_profiling_mode_off`.**
+**`0 validation(s) dropped`** — nothing was skipped; it simply did not get there.
+
+**I do not know why it stopped**, and the terminal line does not say. **The
+reading that would: this run's transcript, or `store/event`'s
+`attributes.detail`.** I have opened neither. **This record has recorded twice
+today that the last line of a run log is not the line that explains it.**
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~58 %** (+2) |
+| 已经耗时 | **~681 min** (mission.md 06:19:11 → 17:40:17) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+2 for the corpus, not for a stage.** No stage advanced this interval; **the
+cost of every future attempt at stages 3–5 dropped.**
+
+**Hold `29313`: 20 h 19 min left.**
+
+### 4. 当前进展 — nothing is running
+
+```
+d9c7af  dead   16:57:36   STAGE 2 SEALED, m3_analysis reached, 20/21 verdicts
+1048af  dead   17:10:14   stage 1 green, stopped in _off, 3/3 verdicts
+orchestrators  none
+node           8 cards VRAM 0 %, only the two foreign CPU containers
+last write     17:25:13  (m35/launch-run5/chain.log)  — 15 min ago
+```
+
+**Fifteen minutes idle.** Below the hour-long gap of T+306 and not yet worth
+alarm; **recorded so the next section can measure against it.** Twenty hours of
+hold remain, so the arithmetic pressure of the 13:00–14:00 window does not
+apply.
+
+### 5. Code problems
+
+**No new ones this interval.**
+
+**Carried, root-caused, unfixed:** `preflight.sh:211`; teardown-vs-preflight
+sequencing; `--var jobid` vs `_agree_or_die`; `etcd.log` written on no path;
+`min_resolve_ratio` floor of zero grades nothing; the router `/health` gate
+narrower than a cold JIT compile (deliberately unfixed on one observation).
+**Fixed and committed:** `logical_operator` uniqueness (`649af26b`).
+**Must not ship:** any retry keyed on the detokenizer signature.
+**Carried unread since T+94:** the eight `jsonschema` validators — **eleven hours.**
+
+### 6. 未定性
+
+- **Why run 11 stopped in `run_profiling_mode_off`.** §2. **One transcript read
+  away and nobody has reported it.**
+- **What module 5 consumes if module 4 is replayed** — **twentieth consecutive
+  section**, and the corpus in §1 is the machinery that would answer it cheaply.
+- **Whether module 4 fits the hold.** No measurement exists.
+- **Whether `PROMOTION.json`'s `not_promoted` list is empty or long.** I read the
+  key and not its contents. **One command, and it says what the corpus cannot
+  replay.**
+
+### 7. 新增 commit
+
+Since T+637, none. **This interval's output is in
+`/data/yihou/e2e_verify_20260906/m35/`, uncommitted** — including the replay
+root, `PROMOTION.json`, and `launch-run5/`.
+
+### 8. 其他
+
+**The corpus in §1 closes the loop the baseline opened, and it is worth marking
+what that took.**
+
+```
+T+0     no corpus exists; nothing can be replayed until we produce it
+T+637   stage 2 sealed with a 137 MB stack capture
+T+667   that run's artefacts promoted into a replay root, with provenance
+```
+
+**Eleven hours, eleven runs, and the thing that made the corpus possible was
+producing one genuinely complete stage.** Not a mock, not a graft — **the
+`--run` field in `PROMOTION.json` names `20260906T154908-d9c7af` and nothing
+else.**
+
+**The first cluster spent this round's equivalent effort grafting today's real
+artefacts into a corpus sealed eight days earlier**, because it had one. **This
+cluster had nothing and therefore had to earn it, and what it earned has a
+`required_node` field and a command line that reproduces it.** Whether that
+matters will show in whoever next needs to replay stage 2 without a GPU.
