@@ -16130,3 +16130,149 @@ was blamed on a stall threshold that had nothing to do with it. **A rule that
 keeps a false example loses the thing that makes it trustworthy**, and dropping
 the example cost nothing because the rule survives on `build_workset`'s two
 measured 24-minute runs.
+
+---
+
+## R2 T+997 — 2026-09-06 23:10 UTC
+
+**T+997 = wall-clock delta from the baseline** (06:33:41 → 23:10:28).
+
+### 1. `output_validating` means the opposite of what it reads as — and I have printed it fourteen times
+
+**[first-hand, `c2ac437f`]**
+
+> *Two runs died under that label and it was **read twice as "validation is
+> taking too long."** Measured: **both validations finished in under a second and
+> refused**; the wait afterwards is an **escalation to an agentless root task**.
+> **The label is accurate and means the opposite of what it reads as**, and
+> **only the verdict files' mtimes separate the two.** **No stall value would
+> have changed either.***
+
+**This lands squarely on my own instrument.** Every section since the baseline
+has printed `store/task` status, and `deploy_and_prove: output_validating` has
+appeared in many of them — for `15c264`, `ae2c38`, `79bca5`, and others, all
+dead.
+
+**And I made the exact misreading it names, at T+62:**
+
+> *"At 07:35:22 it had not returned … **Elapsed in validation at this write:
+> 5 min 23 s.** I do not know whether that is normal for this validator set
+> here."*
+
+**It had not been validating for five minutes. It had crashed at 07:29:59, in the
+same second the phase line was written** — which I established at T+94 and
+recorded as my own correction. **`c2ac437f` is the general form of that
+correction**, measured across two further runs and shown to be a property of the
+label rather than an accident of one crash.
+
+**The operational consequence, stated as the check I will now run:** when a task
+reads `output_validating`, **compare the verdict files' mtimes to the phase
+transition.** Sub-second means the validation is over and the task is sitting in
+an escalation with no recipient. **The label cannot distinguish them; two mtimes
+can.**
+
+**"No stall value would have changed either" also disarms a fix that looks
+obvious** — this is not a timeout to be widened, and widening one would have
+bought nothing.
+
+### 2. 当前进展 — run 20, and run 19 lasted nine minutes
+
+```
+967186   dead   launched 22:32:21, carried the gpu=4 fix
+ef6374   ALIVE  pid 95533, container=yihou_e2e_chain10, launched 22:41:00
+         deploy_and_prove: output_validating   verdicts 2/2
+         yihou_e2e_serves-fba3b260       23:03:46
+         yihou_e2e_serves-fba3b260_etcd  23:03:52
+         aiperf_serves-fba3b260          23:06:47
+         cards 0-3 at 76 %
+         last write 23:10:02  (26 s before I sampled)
+total runs: 20
+```
+
+**`check_deploy_serves` is running with a live engine and aiperf**, so this
+`output_validating` is the genuine kind — **and I can say so because the aiperf
+container exists**, not because of the label.
+
+**`/data/yihou/e2e_flow9/kfo` is 0 bytes** — run 19 never reached module 4.
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged) |
+| 已经耗时 | **~1011 min** (mission.md 06:19:11 → 23:10:28) |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 still zero measurements** |
+| 可靠性 | **中, and one component of it just got worse** |
+
+**Unchanged.** Two launches consumed since T+937 and neither reached module 4.
+
+**On reliability:** §1 shows that one of the fields I report every thirty minutes
+is systematically ambiguous. **My status tables have been accurate and one of
+their rows has been over-read — by me, at T+62, and by two others since.** The
+sections stand; **the field now needs a companion measurement whenever it
+matters.**
+
+**Hold `29313`: 14 h 50 min left.**
+
+### 4. Code problems
+
+**New, root-caused, unfixed:** `output_validating` persists after a failed
+validation, because the escalation goes to an agentless root task. **Framework,
+not package.**
+
+**Fixed in the launch line:** `--var gpu`. **Six empty-default variables remain
+un-refuted.**
+
+**Carried, root-caused, unfixed:** `baseline` with two incompatible consumers;
+stall threshold vs the longest quiet interval; `preflight.sh:211`;
+teardown-vs-preflight sequencing; `--var jobid` vs `_agree_or_die`; `etcd.log` on
+no path; `min_resolve_ratio` floor of zero; the router `/health` gate vs a cold
+JIT compile; three refusals naming unreadable `--var`s.
+**Carried unread since T+94:** the eight `jsonschema` validators — **sixteen and
+a half hours.**
+
+### 5. 未定性
+
+- **What module 4 costs.** **Four runs have now entered or approached it and none
+  has measured anything.** 14 h 50 min of hold.
+- **Why run 19 died nine minutes in**, carrying the `gpu=4` fix. **Not
+  established; its `kfo` is empty so it did not reach module 4.**
+- **The six un-refuted empty-default variables.**
+- **Whether `baseline` blocks module 5.**
+- **What module 5 consumes if module 4 is replayed** — **thirty-first consecutive
+  section.**
+
+### 6. 新增 commit
+
+Since T+967, one:
+
+```
+cbd0b96e  checkpoint R2 T+967 — mine
+c2ac437f  bug record: output_validating persists forever after a failed
+          validation
+```
+
+### 7. 其他
+
+**Three findings tonight have the same shape and it is the sharpest recurring
+pattern of the round: a signal that is accurate and misleading at once.**
+
+```
+T+607  the detokenizer health-check failure   accurate; universal, so it
+                                              discriminates nothing
+T+967  measure_gpu present, gpu absent        accurate; its presence made the
+                                              absent half look covered
+T+997  output_validating                      accurate; it means the validation
+                                              is OVER, not ongoing
+```
+
+**None of these is a bug in the signal.** Each says something true. **What each
+lacks is the second reading that makes it decisive** — a known-good sample, the
+package's empty-default set, a verdict file's mtime. **In all three cases that
+second reading is one command and existed the whole time.**
+
+**And in all three the first reading is the one that arrives unasked**, printed
+in a log or a status table, which is why it gets used. **The cost is not that
+people trust bad instruments; it is that a good instrument answering an adjacent
+question is indistinguishable from one answering yours, until you take the
+second reading.**
