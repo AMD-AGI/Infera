@@ -869,3 +869,65 @@ check_trace_buildable.py:19    g._cache.clear()
 **代价侧的测量:** ISL/OSL 完全不变(同一 seed,只有 hash_ids 变了);
 distinct hash_ids 4947 → 11525;**理论前缀命中率 0.81 → 0.57**。
 命中率下降是尾块不再共享的直接结果。
+
+## Where the `ABORT: etcd port 8103` evidence lives, and why three greps missed it
+
+Recorded 2026-09-06T10:02:06Z by m1, at the leader's request — they could not verify the claim
+and were right to label it unverified rather than repeat it.
+
+**The string is not in the run tree and not in the workspace.** It is in the
+**shared work_root**, which is a third place nobody greps:
+
+```
+/data/yihou/e2e_flow/deploy_main.log        418 bytes, mtime 2026-09-06 08:11:27
+```
+
+```
+[deploy 08:11:26] tag=qwen3-32b-mix ctr=yihou_dk_qwen3-32b-mix ports=8101..8106
+[deploy 08:11:26] gpus=0,1,2,3 tp=4 graph_max_bs=64
+[deploy 08:11:26] work_root=/data/yihou/e2e_flow/qwen3-32b-mix
+    LISTEN 0      4096               *:8103             *:*
+deploy.sh: ABORT: etcd port 8103 is already in use. Move the band with
+  E2E_KIT_PORT_BASE=<free base>; do not wait for it.
+```
+
+> **A stage writes its own diagnosis into `work_root`, not into the run tree.**
+> So `grep -r` over the run directory — the obvious place, and the place the
+> stall/verdict evidence does live — returns nothing, and the natural reading of
+> that nothing is "the claim is unsupported".
+
+**And the shared work_root makes that evidence perishable**: the same path is
+written by whichever run holds it, so a second owner's stage can overwrite the
+first's diagnosis with no error. Copied to
+`/data/yihou/e2e_verify_20260906/m1/EVIDENCE-deploy_main-abort-08-11-26.log`
+with a read timestamp in the file, because `cp -a` preserves the SOURCE mtime
+and therefore records nothing about when the copy was taken.
+
+### The sequence, with all three accounts, because only two are load-bearing
+
+| time | what | established by |
+|---|---|---|
+| 08:11:26 | m1's deploy **hard-aborts** on etcd 8103, held by the other line | the log above, first-hand |
+| 08:12:08 | leader SIGTERMs m1's run, **for a card-contention reason that was wrong** | leader's own account |
+| ~08:20 | the chain's *selftest* engine takes cards 0-3 — the four m1 declared | leader's `rocm-smi` + `docker inspect` |
+
+**The collision was real and it was via ports, not cards, and it had already
+happened one minute before the stop.** The card contention the stop was ordered
+for did not exist at 08:12 and did exist by 08:20, through a container that had
+not been created when the decision was made.
+
+**What generalises is not the timing.** The leader gave two instructions that
+hour whose premise was *which cards a line will occupy*, and both premises were
+falsified by one fact:
+
+> **The launch line records an INTENTION about cards. Only the running
+> deployment records the FACT** — the kit picks its own devices at bring-up
+> (`worker_entry.sh:93`, from `E2E_KIT_GPU_DEVICES`), so the answer is not in
+> `--var gpu_devices`, not in `mix_worker.sh:26`'s default (that is m5's serve
+> path, not m1's kit path), and not in what an earlier run did.
+
+Three people predicted the cards from the launch line and all three were reading
+the wrong file. **This is the same lesson as the `gpu_devices`-is-inert entry
+arriving from the opposite direction**: there the flag was inert and the default
+happened to be right; here the flag is absent and the software chooses well.
+**Both times, reasoning about cards from the launch line was wrong.**
