@@ -1529,6 +1529,20 @@
   (我把 `premise.run_environment` 设成 workset 自己的环境)。
   **这是「所有比较方都共享的错误看不见」那条规则的极限情形——「所有方」退化成一方。**
   通过仍然返回 true,但它**排除不掉任何一种世界状态**。
+  **第四条路径,而且它落在这份文件自己列为「被守卫」的字段上**(m2,2026-09-06):
+  `slurm_jobid` 是 `_agree_or_die` 守的三个之一,而一个指向**已经结束的 hold** 的
+  jobid 照样通过,因为守卫比的两边都来自同一个 `--var jobid=`:
+  ```sh
+  measure_in_container.sh:118
+  _agree_or_die() {  # name  ambient  from_record
+    if [ -n "$2" ] && [ -n "$3" ] && [ "$2" != "$3" ]; then   # 只在「不一致」时拒绝
+  ```
+  **陈旧的值和它自己一致,于是守卫满足。守卫问的是「两个来源吵不吵架」,不是
+  「这个值是不是真的」——一个字段可以被守卫,并且整体地、一致地错。**
+  jobid 会被封进每一份产物的 `runtime.slurm_jobid`,而 `show` 分不出死活
+  (两者都是合法字符串)。**比 `produced_by.commit` 更糟,不是它的兄弟:
+  `unknown` 在自报无知,陈旧的 jobid 什么都不喊。**
+  判据是发车前断言它 `RUNNING`,不是断言它非空。
 - **观察者会写进它所观察的产物里。** m2 用 `worker.log` 的 mtime 当活性信号,
   而他自己每次 `health_generate` 探测都会在里面写一行「Health check failed」——
   **mtime 追踪的是轮询器,不是引擎。** 引擎最后一次真实工作停在 09:47:39,
