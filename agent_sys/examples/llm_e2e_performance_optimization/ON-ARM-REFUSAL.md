@@ -285,7 +285,15 @@ a second, separate, already-documented defect that happened to it.
 | `assets/load/aiperf_replay.sh:40` | `TRACE_END_MS="${TRACE_END_MS:-120000}"` — the script's own fallback |
 | `assets/load/aiperf_replay.sh:100` | `--fixed-schedule-end-offset $TRACE_END_MS` — **the actual load length** |
 
-**`m2_profiling.yaml` does not declare it**, so m2's arm takes 's.
+**`m2_profiling.yaml` does not declare it**, so m2's arm takes the one in
+`shared.yaml`.
+
+*(Three words were lost from this line in the first commit: an unescaped
+backtick pair in an unquoted heredoc ran `shared.yaml` as a command. The shell
+said `command not found` and I checked the written file rather than the exit
+status, which is the only reason it did not ship. Same family as `2>/dev/null`
+on a command whose failure matters — the diagnostic was there and the artefact
+is what needed reading.)*
 
 ### 8.2 The arithmetic — and it reattributes the cause
 
