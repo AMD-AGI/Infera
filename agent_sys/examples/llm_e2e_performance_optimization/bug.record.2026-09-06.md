@@ -1015,3 +1015,57 @@ arriving from the opposite direction**: there the flag was inert and the default
 happened to be right; here the flag is absent and the software chooses well.
 **Both times, reasoning about cards from the launch line was wrong.**
 
+
+---
+
+## 7. 900 秒 stall 是自终止的,不留孤儿 agent、不留容器 —— 实测,退掉一条一直在用的假设
+
+追加于 **2026-09-06T14:10:10Z**(`date -u` 实读)。**这不是 bug,是一条被证伪的操作假设**,
+记在这里是因为它改变 leader 在每一次 stall 时该做什么,而消息不会留下来。
+
+### 此前的做法与它的依据
+
+一整天我们在每次「escalation 无接收方」时都**提前杀掉运行**,理由是
+「不要为 stall 白付 15 分钟」,而背后还有一条更贵的担心:CLAUDE.md 记着
+**「杀掉编排进程不会杀掉它的 agent,而 agent 会在容器被停一分钟后重建它」**。
+于是没有人敢让 stall 自己烧完——**那条路径从来没有人看过。**
+
+### 实测(运行 ,2026-09-06 ~14:05Z)
+
+让它烧完之后:
+
+```
+main is waiting on a decision no one will make — the escalation reached the top and
+this entry point installs a sink that records and does not answer
+(validation_failed: the task is terminal and there is nothing to push).
+Nothing has changed for 900 s; still in a phase: m2_profiling:running, main:running,
+run_profiling_mode_on:output_validating
+
+run complete; this package promises no failure, and the run did NOT finish: …
+```
+
+编排进程**自己退出了**。我去杀它的时候它已经不在了。随后的核对:
+
+| 检查 | 结果 |
+|---|---|
+| 任何 cwd 在 run 目录下的 `claude/versions` 进程 | **无** |
+| 我们的容器 | **0** |
+| 八张卡 | `0 0 0 0 0 0 0 0` |
+| 端口 8101-8106 / 811x / 812x / 814x / 5557 / 8801 | **全部释放** |
+
+> **900 秒 stall 在本集群是自终止的,而且它自己收拾干净:没有孤儿 agent,
+> 没有遗留容器,卡和端口都回到基线。**
+
+### 推论(改变行为的那一条)
+
+- **不必再为了「怕留下孤儿」而抢在 stall 之前杀。** 提前杀仍然可以省 15 分钟,
+  那是个**时间**判断,不再是**安全**判断——两者此前被混在一起。
+- **CLAUDE.md 那条「agent 活过编排」的教训仍然成立**,但它描述的是
+  **人为杀掉编排**的情形,不是 stall 自己走完的情形。**两条路径的收尾不一样,
+  而我们把前者的风险套在了后者身上。**
+- 想省那 15 分钟仍然要按记录的顺序拆:**先 agent(按 `readlink /proc/<pid>/cwd`
+  判别,不要用会匹配自己命令行的模式),再容器 `docker stop -t 10`,再编排,再核对。**
+
+**与本文件其它条目同族的地方:这是一条「不去看就一直成立」的假设。**
+它不是被推理推翻的,是被**让它跑完一次**推翻的——代价 15 分钟,而我们为了
+回避这 15 分钟付了一整天的谨慎。
