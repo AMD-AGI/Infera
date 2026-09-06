@@ -16276,3 +16276,144 @@ in a log or a status table, which is why it gets used. **The cost is not that
 people trust bad instruments; it is that a good instrument answering an adjacent
 question is indistinguishable from one answering yours, until you take the
 second reading.**
+
+---
+
+## R2 T+1027 — 2026-09-06 23:41 UTC
+
+**T+1027 = wall-clock delta from the baseline** (06:33:41 → 23:41:00).
+
+### 1. `xiaoming-dev` took all eight GPUs at 23:39:34 — and eight of my sections say it holds none
+
+**[observed, first-hand, second reading taken deliberately]**
+
+```
+23:39:49   VRAM%  36 35 36 37 37 35 37 35
+23:40:09   VRAM%  47 47 47 48 44 47 49 45      rising ~11 % in 20 s
+23:40:30   VRAM%  47 47 47 48 44 47 49 45
+
+rocm-smi --showpids
+  626424  pt_elastic  GPU 0
+  626591/3/5/6/8  python  GPU 1   ~140 GB each
+
+ps -o user=,lstart=,args=
+  626424  root  Sun Sep  6 23:39:34  /opt/venv/bin/torchrun --nnodes=1 …
+  626595  root  Sun Sep  6 23:39:35  /opt/venv/bin/python -u _cfgtest/profile_keys.py
+
+/proc/*/cgroup -> docker-67486b18cb58…
+docker inspect  name=/xiaoming-dev  image=tasimage/primus:pr-1048
+                started 2026-09-03T02:19:00Z  autoremove=false
+                labels: only org.opencontainers.*  — NO infera_e2e_run
+```
+
+**This is the seventh failure mode of "the cards are free," in its exact
+recorded form:** *a container present but idle can begin loading at any moment,
+and the reading that says it holds nothing expires in minutes.* **It sat idle for
+three days and started thirty-five seconds before I first sampled.**
+
+**Eight of my sections carry "foreign, CPU only" or "foreign, no GPU" for this
+container.** Every one of them was true when taken and **each had a shelf life
+nobody could have bounded.** This is the difference this record has drawn all day
+between an inaccurate reading and a correct reading whose validity window is
+shorter than the interval between readings.
+
+**I have not touched it, and the reasoning is on the record rather than in my
+judgement:** standing rule 1 says stop foreign GPU occupants; the same rule's
+amendment says an occupant that will respawn should be reported rather than
+fought; **and I have no evidence either way about respawn, because it started
+thirty-five seconds before I looked.** Reported to the leader at 23:40:30 with
+the measurements and no recommendation. **It is another engineer's container
+running a real workload — `torchrun --nnodes=1` with five ranks at ~140 GB is not
+a stale allocation.**
+
+**Why it is material right now:** **card 4 is at 44 %**, and `--var gpu=4` is the
+variable fixed at T+967 so that module 4 could measure.
+
+### 2. Run 20 has the second-deepest board and is still going
+
+```
+ef6374   ALIVE  pid 95533, container=yihou_e2e_chain10, launched 22:41:00
+  m1_deploy                succeeded
+  deploy_and_prove         succeeded
+  run_profiling_mode_off   succeeded
+  run_profiling_mode_on    succeeded
+  merge_profiling_evidence succeeded
+  m2_profiling             succeeded
+  identify                 succeeded
+  rank                     succeeded
+  build_workset            running
+  m3_analysis              running
+  verdicts 21/21           newest verdict mtime 23:24:27
+  last write 23:39:56
+```
+
+**Third consecutive run to seal stage 2, `identify` and `rank`.** **59 minutes
+from launch to `build_workset`** — against 46 and 60 for runs 17 and 18.
+
+**I applied T+997's check:** the newest verdict mtime is **23:24:27** and the run
+has written since (**23:39:56**), so nothing is sitting in a post-refusal
+escalation. **That is the companion reading the status label cannot give.**
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged) |
+| 已经耗时 | **~1042 min** (mission.md 06:19:11 → 23:41:00) |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Unchanged.** **Hold `29313`: 14 h 19 min left.**
+
+**A risk I can state without predicting:** if `xiaoming-dev` holds eight cards
+while run 20 reaches module 4, the measurement `--var gpu=4` exists for **cannot
+get an idle card.** Whether it waits, refuses, or measures under contention, **I
+do not know** — and the first cluster measured that a co-tenant corrupts a
+failure but not a pass, which makes any module-4 timing taken under this load
+unusable as a duration estimate even if it succeeds.
+
+### 4. Code problems
+
+**No new ones.** Carried, unchanged from T+997: `output_validating` persisting;
+`baseline` with two incompatible consumers; stall threshold vs longest quiet
+interval; `preflight.sh:211`; teardown-vs-preflight sequencing; `--var jobid` vs
+`_agree_or_die`; `etcd.log` on no path; `min_resolve_ratio` floor of zero; the
+router `/health` gate vs a cold JIT compile; three refusals naming unreadable
+`--var`s; six un-refuted empty-default variables.
+**Carried unread since T+94:** the eight `jsonschema` validators — **seventeen
+hours.**
+
+### 5. 未定性
+
+- **Whether `xiaoming-dev` releases, and whether it respawns.** **No evidence in
+  either direction.** The measurement is another sample in thirty minutes.
+- **What module 4 costs** — and now, **whether any measurement taken tonight
+  would be interpretable** given §3.
+- **Whether run 20 reaches module 4 before the cards are gone.**
+- **What module 5 consumes if module 4 is replayed** — **thirty-second
+  consecutive section.**
+
+### 6. 新增 commit
+
+Since T+997, none but mine (`1dbac526`).
+
+### 7. 其他
+
+**The eight stale claims in §1 are the cleanest example this file contains of a
+category it has been describing all day, and they are mine.**
+
+Nothing was measured wrong. `docker ps` reported the container; `rocm-smi`
+reported zero; both were correct at every sampling. **What made the claim
+misleading is that I carried it forward as a standing fact across seventeen hours
+of sections, when what I had was a series of instantaneous readings.**
+
+**The repair is not to check more often.** At thirty-minute intervals I would
+still have written "CPU only" at 23:09 and been overtaken at 23:39. **The repair
+is to write the reading with its timestamp and not the inference** — *"held no
+GPU at 23:09:58"* rather than *"foreign, CPU only."* The first expires visibly;
+the second reads as a property of the container.
+
+**And the same distinction is what §2's verdict-mtime check buys**, and what
+`c2ac437f`, `58c5c56e` and `10558a28` all bought tonight in their own domains.
+**A measurement with a timestamp is a fact. The same measurement stated as a
+property is a prediction.**
