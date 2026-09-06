@@ -13925,3 +13925,173 @@ short-circuiting on it is the documented design — its own probe text says
 report has no pointer to where the component logs live**, and every reader will
 need them. **One line — the path it already knows, since it wrote the tag into
 the note — would close it.**
+
+---
+
+## R2 T+578 — 2026-09-06 16:11 UTC
+
+**T+578 = wall-clock delta from the baseline** (06:33:41 → 16:11:17).
+
+### 1. My T+548 reading was wrong — and the real cause is a JIT build racing the router
+
+**At T+548 I wrote "the worker was serving and the router could not reach etcd."
+Both halves are wrong.** The owner's record `fc0e0441` says the engine died, and
+I went back to the log and read more than four lines.
+
+**[observed, first-hand] `logs/worker.log`, lines 272–286:**
+
+```
+15:31:19  The server is fired up and ready to roll!
+15:31:19  Freezing GC in Detokenizer Manager process
+15:31:19  [aiter] Process-3 start build [mha_batch_prefill_bf16_…]
+          [aiter] Process-1/2/4 waiting for baton release
+          INFO: waiting for SGLang HTTP on port 8141 … (elapsed 125s)
+15:31:40  Health check failed. Server couldn't get a response from detokenizer
+          for last 20 seconds. last_heartbeat time: 15:31:19
+15:31:42  Health check failed …
+15:31:47  Health check failed …
+          [aiter] Process-3 finish build […], cost 32.6s
+15:31:53  SGLang ready on port 8141 · "GET /health" 200 OK
+```
+
+**The engine was not broken. It was blocked in a 32.6-second aiter JIT kernel
+compile**, three processes waiting on a baton, and the detokenizer heartbeat
+stalled for the duration. **It then recovered fully** — which is exactly the
+state I sampled at T+548 and mistook for health.
+
+**The mechanism, from the owner** [`fc0e0441`, not re-derived by me]: *the kit
+gates the router on the worker's `/health`, so the router started into nothing.*
+The router hit `ConnectError`, died, and **nothing was listening on 8140 when the
+worker came back.**
+
+**How I got it wrong, precisely.** I ran `tail -4` on `worker.log`, saw
+`SGLang ready` and two `200 OK`s, and concluded the worker was serving. **Those
+lines are true and they are the recovery.** The failure is 21 lines earlier.
+**This is `tail -N` eating the line that explains the death — the trap this file
+has recorded twice on the other cluster, committed by the person maintaining the
+file.**
+
+**And "could not reach etcd" was adjacency.** `router.log` line 2 mentions etcd
+discovery; line 3 begins the traceback. **I read the line before the exception
+as its cause.** Third time today this record has reasoned from adjacency, and
+the first two are written down two sections above.
+
+### 2. The owner corrected themselves in the same window, on a different claim
+
+**[first-hand, `cff188de`]**
+
+> *I wrote it as a regression the run-3 rewrite introduced. … `etcd.log` is
+> absent from three other arms and from **run 3's OWN successful m1 deploy**: two
+> code paths, one long-standing gap, not a new one. The fix is unchanged; the
+> class is not, and **my version would have sent the next reader diffing two kits
+> for nothing.***
+
+**Three suspects were eliminated by measurement rather than argument** — the
+repaired preflight was never invoked, ports were identical to the passing run,
+and **m1's own bring-up on the new `work_root` succeeded.** **That last one closes
+my T+548 §5 question**: the new `work_root=/data/yihou/e2e_flow3` is not
+involved, and it was closed by a measurement rather than by my declining to
+speculate.
+
+***One attribution I cannot confirm:*** `cff188de` credits the sweep against
+known-good cases to "checkpoint." **I did not run it.** Either another party did
+or the attribution is loose; **I flag it rather than accept credit**, because a
+misattributed check is one nobody re-runs.
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~46 %** (unchanged) |
+| 已经耗时 | **~592 min** (mission.md 06:19:11 → 16:11:17) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Fifth consecutive interval unchanged.** **Hold `29313`: 21 h 49 min left.**
+
+### 4. 当前进展
+
+```
+79bca5  dead   last 15:31:54   deploy_serves REFUSED (§1)
+d9c7af  ALIVE  pid 554448, started 15:49:08, container=yihou_e2e_chain4
+        m1_deploy / deploy_and_prove running
+        yihou_e2e_etcd_chain4  16:07:22
+        yihou_e2e_sgl_chain4   16:07:23
+        cards 0-3 at 75 %
+        last write 16:10:35
+```
+
+**`docker ps -a --filter name=serves-60b9599a` returns nothing** — the failed
+validator's containers were removed at teardown. **The reading I proposed to the
+leader at 15:48 is no longer answerable**, and that is worth saying: **a
+container-identity question has a shelf life measured in minutes**, while the
+logs it left in `work_root` are still there.
+
+### 5. Code problems
+
+**Newly understood, unfixed:** an aiter JIT kernel build (32.6 s measured) can
+stall the worker's detokenizer heartbeat past the window in which the kit gates
+the router on `/health`. **The router does not survive the wait.** Files: the
+kit's router start path and its health gate.
+
+**Long-standing, now correctly classed:** `etcd.log` is written on no path in the
+current kit and was absent from earlier arms too — **a diagnosability gap, not a
+regression.**
+
+**Carried, root-caused, unfixed:** `preflight.sh:211`; teardown-vs-preflight
+sequencing; `stack_ranks` / `stack_window_s`; `--var jobid` vs `_agree_or_die`.
+**Carried, documented, not enforced:** the `trace_end_ms` 73 s floor.
+**Carried unread since T+94:** the eight `jsonschema` validators.
+
+### 6. 未定性
+
+- **Whether the JIT build is a first-run cost** that will not recur now that the
+  kernel is compiled, or whether it recurs per container. **The measurement:
+  whether `chain4`'s worker.log shows the same 32-second build.** It is bringing
+  up now and will answer this on its own.
+- **Whether the router's health gate has a timeout long enough** for a cold JIT
+  path. Not read.
+- **Whether stacks get captured with `trace_end_ms=120000`** — open for a fourth
+  run.
+- **What module 5 consumes if module 4 is replayed** — **seventeenth consecutive
+  section.**
+
+### 7. 新增 commit
+
+Since T+548, three:
+
+```
+519fab1a  checkpoint R2 T+548 — mine
+fc0e0441  bug.record 14: run 3 died at the engine, not at the guard we had just
+          fixed
+cff188de  bug.record 14: correct my attribution of the missing etcd.log
+60f18043  PROPOSAL (unapplied): tier-2 form of the compare.py --environment gap
+```
+
+**`60f18043` is labelled `(unapplied)` in its own subject** — the third time
+today someone has committed a repair and declined to enable it. **That is now a
+habit rather than an accident**, and it is the right one when the hold is long
+and the change is unreviewed.
+
+### 8. 其他
+
+**Two people got the same failure wrong in the same hour, in opposite
+directions, and both corrections came from reading further into a file they had
+already opened.**
+
+```
+me     read tail -4 of worker.log     -> "the worker was serving"
+       read the line before the       -> "could not reach etcd"
+       traceback in router.log
+owner  read the absence of etcd.log   -> "a regression the rewrite introduced"
+```
+
+**Neither of us lacked the file.** Mine was open and I read four lines of it;
+theirs was a zero they interpreted before establishing its denominator. **The
+corrections cost one `sed -n '272,286p'` and one sweep across known-good arms.**
+
+**What actually happened is more interesting than either wrong version:** a
+kernel JIT compile made a healthy engine look dead for 33 seconds, and a
+component that gates on health took the bait. **Nothing was broken; something was
+slow, and a timeout turned slow into failed.** That is a class this file has not
+recorded before today.
