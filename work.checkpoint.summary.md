@@ -13413,3 +13413,179 @@ disagreement is not stochastic.
 
 **That is the most useful thing to hand to whoever picks this up with 23 hours of
 hold:** the next run does not need to be observed, it needs one variable bound.
+
+---
+
+## R2 T+487 — 2026-09-06 14:41 UTC
+
+**T+487 = wall-clock delta from the baseline** (06:33:41 → 14:41:05).
+
+### 1. The port-band overlap I flagged resolved itself — and not the way I framed it
+
+**[observed] Three runs launched in six minutes; two are dead, one survives.**
+
+```
+140625-bb5824   failed 14:07:43   exit 143   monitor_gave_up
+140819-2f9956   failed 14:10:27   exit 143   monitor_gave_up
+140831-026b96   ALIVE  pid 3856205  container=yihou_e2e_chain2
+                deploy_and_prove: output_validating
+                aiperf_serves-d8ff1deb  14:40:03   cards 0-3 at 76 %
+```
+
+**Both deaths are exit 143 — SIGTERM.** Not a port abort, not a validator
+refusal: something killed them. `monitor_gave_up: the pusher has no action for
+handling_failed`.
+
+**And the discriminator between the dead and the living is not ports.** I read
+the survivor's argv:
+
+```
+dead pair   --var jobid=29184     (the hold that ended at 14:00:01)
+survivor    --var jobid=29313     (the hold that started at 14:00:06)
+```
+
+**[first-hand, `174dd6b5`, by the owner of those launches]**
+
+> *Hold 29184 ended 14:00:01; 29313 took the same node at 14:00:34. **My 14:08
+> launch still carried `--var jobid=29184`**, which is sealed into every artefact
+> as `runtime.slurm_jobid`.*
+
+**So the two SIGTERMs are consistent with a deliberate supersede** — a stale hold
+id caught and the launches replaced. **I did not observe the kill and I am not
+asserting the cause.** What I can say: the survivor carries the live jobid, the
+dead pair carried the dead one, and their owner filed the finding in the same
+window.
+
+**My 14:09 flag named the port band. The port band was not what separated
+them.** That is the second time today I have read a concurrent-run hazard off
+argv and named the wrong field — T+216 recorded the first. **Both times the
+overlap was real and the mechanism I led with was not the operative one.**
+
+### 2. The jobid finding is the sharpest guard-failure of the round
+
+> *The part worth recording is that **`slurm_jobid` IS one of the three fields
+> `_agree_or_die` guards.** That guard (`measure_in_container.sh:118-126`)
+> refuses only on DISAGREEMENT between the ambient value and the record — **and
+> both come from the same `--var`, so a stale jobid is identical on both sides,
+> they agree, and the guard passes.** A field can be guarded and uniformly
+> wrong.*
+
+**This is the first cluster's rule — *when a consistency check passes, ask where
+its two values came from* — arriving as a live incident on the one field
+everybody would have assumed was covered.** `_agree_or_die` watches 3 of 28
+environment fields; **this is a failure inside the covered 3, not outside them.**
+
+**And the value is not merely stale, it is falsifiable against the world**:
+`squeue` shows one job, `29313`. **A jobid naming a dead hold is checkable by one
+command at launch**, which is what makes this a tier-2 repair rather than a note.
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~46 %** (unchanged) |
+| 已经耗时 | **~501 min** (mission.md 06:19:11 → 14:41:05) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Unchanged: no stage advanced.** Two launches were spent and replaced; the
+survivor is at the same point run 8 reached at 13:36.
+
+**Hold `29313`: 23 h 19 min left** (2026-09-07T14:00:06 → 14:41:05).
+
+### 4. 当前进展 — and the survivor will hit the known wall
+
+**I read the survivor's argv for the variable that decides its fate:**
+
+```
+jobid=29313          correct
+trace_end_ms=120000  the T+426 arithmetic fix, applied
+stack_ranks          ABSENT
+stack_window_s       ABSENT
+```
+
+**By T+457 §2, `check_trace_coverage:223` gates on `expect_stack_ranks` ←
+`${stack_ranks:-2}`.** With `stack_ranks` unset it defaults to 2 and the
+validator will demand `stacks_manifest.json`. **With `trace_end_ms=120000` the
+load now outlasts the 73-second sequence, so the capture has time to happen** —
+which means this run may produce the stacks rather than need the flag.
+
+**That is a real prediction and I am marking it as one:** *if* the stack capture
+now runs, `check_trace_coverage` passes on its merits and the flag question
+becomes moot. *If* it does not, the refusal will be identical to `fdb0bd`'s and
+`298750`'s. **The measurement that decides it is whether `capture_stacks.log`
+exists in this run's `_on` output.** I have made no prediction about which.
+
+### 5. Code problems
+
+**Newly named:** `--var jobid` can name a dead hold and pass `_agree_or_die`
+(`measure_in_container.sh:118-126`).
+
+**Carried, root-caused, unfixed:** `check_trace_coverage:223` /
+`m2_profiling.yaml:133` — `stack_ranks` unlinked from `stack_window_s`.
+**Carried, documented, enforcement not enabled:** the `trace_end_ms` 73 s floor.
+**Carried unfixed:** the eight `jsonschema` validators (unread); unbooked-usage
+and missing-`depends_on`; the `CLAUDE_CONFIG_DIR` placeholder.
+
+**Note against my own §3 of T+457:** I recorded the shared `work_root` as
+"actively reproduced." **It still is** — the survivor and the dead pair all used
+`/data/yihou/e2e_flow`. **The overlap did not cause today's deaths and it remains
+the failure that does not announce itself.**
+
+### 6. 未定性
+
+- **Whether `026b96` captures stacks** with the longer load. §4.
+- **Whether the two SIGTERMs were the supersede they appear to be.** Consistent,
+  not established. **The reading is the owner's own account, not the run trees.**
+- **Whether other artefacts already carry `slurm_jobid: 29184`.** Anything sealed
+  between 14:00:01 and the correction. **Cheap grep, not run.**
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — **fourteenth consecutive
+  section.**
+
+### 7. 新增 commit
+
+Since T+457, five:
+
+```
+3e60294b  checkpoint R2 T+457 — mine
+174dd6b5  bug record: a GUARDED field can still be uniformly wrong — jobid
+          naming a dead hold
+64ea7bd5  bug record: two checks with one failure mode are one check — and the
+          test is cheap
+b66cd62c  CLAUDE.md: a guarded field can still be uniformly wrong — slurm_jobid
+85e7e44f  RUNG5-CHECKLIST: sibling handoffs are invalidated by the closure, not
+          independently
+37b79b9c  CLAUDE.md: /home/yihou/dev/git is a SYMLINK to git.16-19 — one tree,
+          two names
+```
+
+**`37b79b9c` closes a trap this record could have walked into.** Two path
+prefixes have been used interchangeably in today's sections and commit messages;
+**they are one tree.** Had they been two, every "the file is clean" check I ran
+would have been checking a different file than the one being edited.
+
+### 8. 其他
+
+**Two of today's findings are the same theorem, discovered eight hours apart, and
+putting them side by side is worth more than either alone.**
+
+```
+T+457  stack_window_s tells the producer to skip;
+       stack_ranks tells the validator to demand.
+       ONE DECISION, TWO NAMES — and nothing binds them.
+
+T+487  --var jobid feeds both the ambient value and the record;
+       _agree_or_die compares them and they agree.
+       ONE VALUE, TWO PLACES — and the guard compares it to itself.
+```
+
+**The first splits one intention across two knobs, so setting one is silently
+insufficient. The second merges two supposedly independent sources into one, so
+comparing them is silently uninformative.** Opposite errors, identical
+consequence: **a mechanism that looks like it is checking something and is not.**
+
+**And the detection cost differs enormously.** The split knob was found by a
+validator refusing and someone reading two YAML lines. **The merged source was
+found only because a human noticed a number naming a job that no longer exists**
+— the guard itself will never report it, at any point in the future, on any run.
