@@ -12126,3 +12126,181 @@ decision, and that is exactly the pattern that makes a bad method look sound.**
 launch line records an intention, only the running deployment records the fact.*
 I have quoted launch-line variables in four sections now. **They describe what
 was asked for, and I will label them that way from here.**
+
+---
+
+## R2 T+246 — 2026-09-06 10:40 UTC
+
+**T+246 = wall-clock delta from the baseline** (06:33:41 → 10:40:14).
+
+### 1. The round's first genuine refusal — and it names a file, a line, and the fix
+
+**[observed, first-hand] Run `20260906T093443-ae2c38`, `check_deploy_kit`,
+29 files in materials:**
+
+```
+# check_deploy_kit
+## 0d66e5f1-…: REFUSED
+  note:    qwen3-32b-mix.packup_20260906
+  PROBLEM: scripts/env.sh:172: DK_ROUTER_PORT is fixed here and reaches a
+           binding flag at scripts/deploy.sh:205; write it as
+           `: "${DK_ROUTER_PORT:=…}"` so a second copy of this kit can run
+           beside the first
+```
+
+**This is not a crash and not a trivial pass.** It is the first verdict of the
+round that says *no* about the artefact: two files, two line numbers, the
+mechanism (a fixed value reaching a binding flag), and the exact idiom that
+fixes it.
+
+**And what it refused is the defect that cost run 2.** At 08:11:26 m1's deploy
+hard-aborted on `ABORT: etcd port 8103 is already in use`, and this morning's
+`92835f4d` patched the canonical launch block so two lines take different port
+bands. **The validator is refusing the general form of the same problem one
+level deeper — not "these two runs collided" but "this kit cannot have a second
+copy beside it."** `: "${VAR:=…}"` is core principle 3 of the package's own
+contract, and the validator is enforcing it against the produced kit.
+
+**By this record's own criterion, this refusal is self-immune to the empty-zone
+failure:** it quotes file contents and line numbers, which a validator looking
+at an empty directory cannot produce.
+
+**The other two validators passed:**
+
+```
+ae2c38   scripts/deploy.sh (180 s load)  true
+         schema=environment              true
+         layout                          FALSE   ← this one
+```
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~33 %** (unchanged) |
+| 已经耗时 | **~261 min** (mission.md 06:19:11 → 10:40:14) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**No change.** A refusal is information, not progress: stage 1 went from
+reproducibly green to green-with-a-known-defect-in-the-kit. **The two earlier
+greens are not retracted** — the kit that passed then had the same
+`DK_ROUTER_PORT` shape, so what changed is that a validator now looks for it.
+**Whether the earlier two runs' kits would refuse under today's validator is a
+question I have not asked and could ask cheaply.**
+
+**Hold `29184`: 3 h 20 min left** (14:00:01 → 10:40:14).
+
+### 3. 当前进展 — nothing is running
+
+**[observed] There is no live orchestrator and no live agent.**
+
+```
+20260906T093443-ae2c38   escalated 10:25:52, last write 10:34:31
+                         deploy_and_prove: output_validating   (terminal)
+all five run trees        no orchestrator process
+node                      8 cards VRAM 0 %, no yihou_* container
+teammate scratch          last write 10:34:31 (m2/launch3/chain.log)
+```
+
+**The chain's own account of how it stopped, from `store/event`:**
+
+```
+10:25:52.617  validation_failed  "output_validation did not pass"
+10:25:52.617  escalated          "validation_failed: the task is terminal and
+                                  there is nothing to push"
+10:25:52.619  escalated  target=user   (same why)
+```
+
+**A refusal with nowhere to go.** This is the same terminal shape as the
+`jsonschema` crash at 07:29:59 — the task is terminal, the escalation has no
+receiver — **but for a completely legitimate reason this time: the validator
+did its job and the graph has no path forward from a refused output.**
+
+**A method note, because I nearly filed the opposite.** My first process scan
+matched two processes; **both were my own shell and my own `python3 -c`,
+carrying the search strings in their argv.** I discarded them. **The pattern
+that finds orchestrators cannot be a pattern I am holding.** This is the fourth
+time today that trap has appeared in this record and the first time it appeared
+in my own hands.
+
+### 4. Code problems
+
+**Newly named by a validator, unfixed at this write:**
+
+- **`scripts/env.sh:172` — `DK_ROUTER_PORT` is fixed** and reaches a binding
+  flag at **`scripts/deploy.sh:205`**. Fix idiom given by the refusal itself.
+
+**This is the third member of one family today**, and they were found at three
+different depths:
+
+```
+08:11  two runs collide on port 8103        found by a run dying
+09:xx  canonical block shares port band
+       AND work_root                        found by auditing the block
+10:25  the KIT cannot host a second copy    found by a validator
+```
+
+**Only the third one is a property of the deliverable.** The first two are
+properties of how we launched it. **A fix to either of the first two would have
+left the kit shippable-but-not-co-locatable**, which is exactly what the
+validator refuses to sign.
+
+**Carried unfixed:** whether all eight `jsonschema`-affected validators were
+repaired; the unbooked-usage and missing-`depends_on` framework messages
+(T+186 §5).
+
+### 5. Non-code problems
+
+**Nothing new this interval.** The `work_root` overlap from T+216 remains
+recorded and unexamined for damage.
+
+### 6. 未定性
+
+- **Whether anyone is driving.** Nothing has run since 10:34:31 and the hold has
+  3 h 20 min. **I am the checkpoint writer and do not schedule work; I am
+  recording the gap because it is measurable and because idle GPU time under a
+  finite hold is the one cost this record has consistently called unrecoverable.**
+- **Whether the two earlier green kits carry the same `DK_ROUTER_PORT` defect.**
+  **Cheap to answer:** `grep -n DK_ROUTER_PORT` in `3e8a03`'s and `6ded23`'s
+  staged kits. **I have not run it** — it would change what those two greens are
+  worth, and that is exactly why it should be run by someone who will act on it.
+- **Whether `m2_profiling` can be reached at all this hold**, given the deploy
+  stage now refuses. Two chains died in m2; the third never left stage 1.
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched. **It
+  has been carried in six consecutive sections without being touched**, which is
+  itself worth saying out loud.
+
+### 7. 新增 commit
+
+Since T+216, one:
+
+```
+be36e7ad  checkpoint R2 T+216 — mine
+```
+
+**No other commits in this interval.**
+
+### 8. 其他
+
+**Today's ledger of stage 1, in the order the evidence arrived:**
+
+```
+06:42  bring-up works, 147 tokens generated       (a fact about the engine)
+08:47  three validators pass                      (a fact about the kit)
+09:29  three validators pass again                (reproducible)
+10:25  one validator refuses, naming env.sh:172   (a fact about the kit)
+```
+
+**The last line is not a regression — it is the first time the kit was asked a
+question it fails.** Two greens preceded it and neither is falsified; the
+validator set changed underneath, or the kit did, and **which of those two it was
+is the cheap grep in §6 that nobody has run.**
+
+**What I would not want lost from today: three separate defects in one family
+were found at three depths, and only the deepest one is about the thing being
+shipped.** The first cost a run and announced itself. The second cost nothing and
+announced nothing — the shared `work_root`. **The third cost nothing and
+announced itself precisely, which is the only one of the three arrangements
+anybody should want.**
