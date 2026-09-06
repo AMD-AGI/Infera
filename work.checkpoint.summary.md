@@ -12304,3 +12304,162 @@ shipped.** The first cost a run and announced itself. The second cost nothing an
 announced nothing — the shared `work_root`. **The third cost nothing and
 announced itself precisely, which is the only one of the three arrangements
 anybody should want.**
+
+---
+
+## R2 T+277 — 2026-09-06 11:10 UTC
+
+**T+277 = wall-clock delta from the baseline** (06:33:41 → 11:10:19).
+
+### 1. I ran the cheap grep from §6 of T+246, and the answer is decisive
+
+**At T+246 I framed it as "the validator set changed underneath, or the kit did,
+and which of those two it was is the cheap grep nobody has run." It was the
+kit — and the change is a regression, not a new check.**
+
+**[observed, first-hand] `scripts/env.sh` in all three staged kits:**
+
+```
+run      bytes  lines   ROUTER_PORT   PORT_BASE   the port line
+3e8a03   10329    198        0            7    128: : "${DK_PORT_ROUTER:=$(( E2E_KIT_PORT_BASE + 0 ))}"
+6ded23   11315    209        0            8     80: : "${DK_PORT_ROUTER:=$((E2E_KIT_PORT_BASE + 0))}"
+ae2c38   11277    214        3            9    172: DK_ROUTER_PORT=$(( E2E_KIT_PORT_BASE + 0 ))
+```
+
+**Both green kits already used the correct overridable idiom.** The refused kit
+**added a second, differently-named spelling of the same port and assigned it
+unconditionally**:
+
+```
+DK_PORT_ROUTER     the two green kits    : "${…:=…}"      overridable
+DK_ROUTER_PORT     the refused kit       plain assignment  not overridable
+```
+
+**The two names differ only by swapping `PORT` and `ROUTER`.** A reader
+skimming either file sees a `DK_…_PORT…` variable set from `E2E_KIT_PORT_BASE`
+and moves on.
+
+**The negative control, because a zero needs a denominator.** The two `0`s above
+are not empty files or wrong paths: those same files return **7 and 8** hits for
+`PORT_BASE`, and both carry `: "${E2E_KIT_PORT_BASE:=8101}"`. **The grep found
+the file, read it, and the variable genuinely is not there.**
+
+**Consequences, and they run in both directions:**
+
+- **The two earlier greens are not weakened.** Their kits pass today's check on
+  its merits — they never had the defect.
+- **The refusal is a real regression caught in the interval it was introduced**,
+  between 09:29:16 and 10:25:52.
+- **`check_deploy_kit` did what a validator is for**: it refused a change that
+  every human read of the file would have called fine.
+
+**I said at T+246 this should be run by whoever would act on it. That was the
+wrong line to draw** — reading is not acting, the question was blocking the
+interpretation of two greens, and thirty-five minutes passed with nobody running
+it. **An instrument declining to take a measurement is not neutrality.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~33 %** (unchanged) |
+| 已经耗时 | **~290 min** (mission.md 06:19:11 → 11:10:19) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Unchanged, and this time the reason is that nothing ran.** The interval's
+result is a finding about the record, not about the deliverable.
+
+**Hold `29184`: 2 h 50 min left** (14:00:01 → 11:10:19).
+
+### 3. 当前进展 — the node has been idle for 35 minutes
+
+```
+last write anywhere    10:34:31   (m2/launch3/chain.log)
+now                    11:09:40
+idle                   35 min 09 s
+orchestrators          none        (positional /proc scan)
+containers             rc_26_7_902, xiaoming-dev — both foreign, CPU only
+cards                  8 × VRAM 0 %
+teammate scratch       no file written since 10:34:31
+new commits            none since be36e7ad (mine, T+216)
+```
+
+**Every source I have reads idle.** Flagged to the leader at 10:40 with the same
+measurements; **this is the second consecutive interval with no activity, and
+the standing rule for GPU-occupying problems is first-sighting intervention, so
+this is now past that threshold rather than approaching it.**
+
+**I state the cost without inflating it:** an unused hold hour is not recoverable,
+and 2 h 50 min remain against a task where no stage past 1 has ever completed on
+this cluster. **I do not know why nothing is running** — the measurement that
+would answer it is the owners' own accounts, not anything in the run trees.
+
+### 4. Code problems
+
+**Newly characterised this interval — `scripts/env.sh:172`, and it is a
+regression with a named window.**
+
+```
+introduced   between 09:29:16 (6ded23's kit: absent) and 10:25:52 (refused)
+symptom      DK_ROUTER_PORT is assigned, not defaulted
+reaches      scripts/deploy.sh:205 (export) -> a binding flag
+consequence  a second copy of the kit cannot run beside the first
+fix          : "${DK_ROUTER_PORT:=…}"     (given by the refusal itself)
+```
+
+**Unfixed at this write**, and nothing has been committed since 10:40.
+
+**Carried unfixed:** whether all eight `jsonschema`-affected validators were
+repaired; the unbooked-usage and missing-`depends_on` framework messages
+(T+186 §5); shared `work_root` damage unexamined (T+216).
+
+### 5. Non-code problems
+
+**A near-homograph inside one file is a localisation trap of its own kind.**
+`DK_PORT_ROUTER` and `DK_ROUTER_PORT` are three characters apart in a file that
+contains nine `PORT_BASE` references. **Neither `bash -n` nor a schema check can
+see it**, and a `grep -n PORT` returns both spellings looking like siblings —
+I printed exactly that output above and it reads as consistent. **Only a
+validator that asks "is this value overridable" separates them.**
+
+### 6. 未定性
+
+- **Why nothing is running.** Open, second interval. **Not answerable from any
+  artefact I read** — this is the "the discriminator is outside the run" case,
+  and here it is outside the machine.
+- **Whether the `env.sh:172` regression has been fixed since 10:34.** No commit,
+  no scratch write. **Cheap to answer once anything runs again.**
+- **Whether `m2_profiling` can be reached this hold.** With 2 h 50 min left and
+  two prior chains taking ~40 min to clear stage 1, **there is time for roughly
+  two more attempts, not many.**
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched,
+  **seventh consecutive section.**
+
+### 7. 新增 commit
+
+Since T+246, one:
+
+```
+29b1560b  checkpoint R2 T+246 — mine
+```
+
+**No other commits.**
+
+### 8. 其他
+
+**The interval's real content is a correction to my own reasoning, so I will
+state it as a rule rather than an apology.**
+
+At T+246 I withheld a read-only grep on the grounds that its answer "changes what
+the two greens are worth, and that is exactly why it should be run by someone who
+will act on it." **The premise was right and the conclusion was backwards.** A
+measurement whose answer changes how existing evidence is read is the *most*
+urgent one for the record-keeper to take, not the least — **the person who will
+act needs the answer to decide whether to act at all.**
+
+**And the answer was better than either branch I offered.** I framed it as
+"validator changed, or kit changed." **The kit changed, in a specific 56-minute
+window, by adding a near-homograph of a variable it already had** — a fact that
+neither branch of my framing would have produced, and that took two commands.
