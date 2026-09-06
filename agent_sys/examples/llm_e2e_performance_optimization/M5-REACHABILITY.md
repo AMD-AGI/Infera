@@ -267,3 +267,55 @@ completed on any cluster.**
   the package**, on a different model. They are borrowed and labelled as such.
 - **Whether `stock_vs_m2` can pass here.** It has refused on every real
   comparison ever made. Nothing in this study bears on it.
+
+---
+
+## AMENDMENT 2026-09-06T15:04:58Z — the `compare.py` / `check_environment` barrier is DOWNGRADED, not removed
+
+**Flagged by m2, who deliberately did not edit this file so I would check rather
+than inherit. That is the right instinct and it is the failure mode this file
+has paid for before.**
+
+**The old finding, as written above:** `compare.py` never writes an environment
+record, so `integration_report` could never satisfy `check_environment` by
+construction, and mock hid it for a whole ladder.
+
+**That is no longer true.** `assets/compare.py:813`:
+
+```python
+if args.environment:
+    src = Path(args.environment)
+    ...
+    env_render.write(env_render.inherit(src, [], warnings_env), out, "structured_text")
+```
+
+**But it is conditional on a flag, and the else-branch is a note rather than a
+failure**, deliberately (`:826-830`): a hard exit here ends a `kind: ai` stage
+with all three outputs empty and nothing to retry into, so *"a refusable report
+beats no report."*
+
+```
+compare: NOTE --environment was not supplied, so this report carries no
+environment record and `check_environment` will refuse it.
+```
+
+**So the barrier moved from STRUCTURAL to CONDITIONAL:**
+
+| | before | now |
+|---|---|---|
+| can the body satisfy `check_environment`? | never | yes, **if** STEP 10 passes `--environment` |
+| what happens if it does not? | silent absence | a note on stderr, in a turn the agent reads |
+
+`assets/integrate_and_verify.task/readme.md:271,293` spells the flag and `:296`
+says *"`--environment` is not optional in practice."* **So the instruction
+exists; nothing enforces it.**
+
+**Class:** the same unenforced-dependency shape as `produced_by.commit =
+'unknown'` — a knowable value, a working mechanism, a field waiting for someone
+to remember. **The one thing better here:** the note lands on stderr inside a
+step the agent runs and reads, so it reaches the one actor who can add the flag,
+in the same turn. A validator's output would not.
+
+**Consequence for m5's cost: one barrier lighter, and the residual risk is an
+omitted flag rather than an impossible artefact.** The rest of this file's
+reachability arithmetic is unchanged.
