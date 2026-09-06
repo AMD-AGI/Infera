@@ -861,3 +861,62 @@ validator 至今从未拒绝过任何东西,其中最弱的 `check_packup_shape`
 - m5 的三条路径部分来自 MOCK-MAP 的章节而非通读 `mock_m5.sh`,已在该节标注。
 - T73 的数字是 **m3** 的测量,我核过机制(`taxonomy.py` 对未匹配符号返回
   `routable: False`),**没有复现那些数字**。
+
+---
+
+## ESTABLISHED 2026-09-06 01:35 — `check_environment` on a real `integration_report`
+
+**Carried as NOT ESTABLISHED across four rounds. Settled by `r5m1c`
+(run `20260906T000840-bc92a6`, node 217, whole node, `mock_stages=m2,m3,m4`).**
+
+**16 of 17 validators pass. The one refusal is structural, not a defect.**
+
+```
+handoff 089c6a06 (integration_report)
+  items:  env  report.md  schema  text.json      <- env present, 1 environment.yaml
+  record: node crsuse2-m2m-217 · container yihou_r5m1c_sgl_r5m1c-a
+          started_at 2026-09-06T00:20:43Z        <- THIS run, this node
+
+  check_environment    True    materials_files=149
+  check_no_regression  False   materials_files=149
+```
+
+**Why this is worth something and the four earlier greens were not:** before tonight
+every stage 5 in every rung was mocked, and `mock_m5.sh` rendered the environment
+record itself. `compare.py` **has never written one** -- so this kind could not
+satisfy a `strong` validator covering all fifteen kinds, and **the hole was hidden by
+the mock rather than exposed by it.** m5's `8f05a94` fixed the producer; this run is
+the first evidence the fix works on a real chain.
+
+**Checked to the refuting standard, not read off the tally.** One zone in this run was
+handed **zero** files (`validation.87f3c042…`, no report) -- the fourth instance of that
+fault and the first that cost nothing. **It judged neither of these handoffs**; the zone
+that did held 149 files. **A PASS establishes that the validator was invoked, not that
+it saw anything -- so the file count is part of the claim, not a footnote.**
+
+### The seventeenth: `check_no_regression`, refusing correctly
+
+```
+the stock arm does not reproduce m2's profiling_mode_off bench within 10%:
+inter_token_latency (avg) -29.3%. The two stages measured different machines,
+or one machine in two states.
+```
+
+**Content-derived, so it read the files. And it CANNOT pass in a corpus-middle
+configuration** -- m2's bench comes from the corpus (another machine, another day)
+while the stock arm ran tonight. **Round 4 measured -26.1%, round 5 -29.3%: two
+independent measurements of the same structural gap.** Making it pass needs a real
+m2, not a fix.
+
+### Also promoted by this run
+
+- **`check_measurement_order`: 2 PASS** on `stock.measurement` and `patched.measurement`
+  -- it was the last entry standing at "unknown, not failing".
+- `check_acceptance`, `check_bench_report`, `check_bench_result`, `check_command_parses`,
+  `check_patch_live` pass on both arms.
+
+### Not understood, flagged rather than diagnosed
+
+**`stock.measurement` and `patched.measurement` are marked `invalid` although every one
+of their validators passed.** Possibly sibling propagation from the failing
+`integration_report`, possibly not. **Unread; nobody should quote a cause for it.**
