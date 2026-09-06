@@ -143,6 +143,20 @@
     # which the launch line is not.
     E2E_EVAL_THINKING: '${eval_thinking:---thinking-mode glm-45}'
     E2E_BENCH_ROUNDS: '${bench_rounds:-1}'
+    # **This is the SAME `--var` as `shared.yaml:149`, with a DIFFERENT default,
+    # and the two stages must not be given different values.**
+    #
+    # `check_no_regression`'s `stock_vs_m2` compares this stage's stock arm
+    # against m2's bench. The replay window selects WHICH SLICE of the Mooncake
+    # trace runs; the trace carries `hash_ids`, so prefix hit rate — and with it
+    # TTFT and throughput — follows the slice. **A different window is a
+    # different workload, and the comparison then refuses for something that
+    # looks like a regression and is not.**
+    #
+    # One `--var` feeds both declaration sites, so passing it once is correct and
+    # is what every launch has done. **The hazard is raising it for m2 alone**
+    # (see the floor documented at `shared.yaml:149`) and leaving m5 on this
+    # default.
     E2E_TRACE_END_MS: '${trace_end_ms:-60000}'
     # **The replay's load shape, and leaving these undeclared was not cosmetic.**
     # Found by re-running the leader's omission check over m5's own manifest

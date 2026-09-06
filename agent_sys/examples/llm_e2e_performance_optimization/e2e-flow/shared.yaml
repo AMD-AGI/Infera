@@ -146,6 +146,33 @@ env:
   # Replay the first three minutes of trace time. Measured on this cluster: 721
   # requests, which saturates the deployment and is short enough that a
   # debugging round is minutes.
+  #
+  # **THERE IS A FLOOR, AND NOTHING ENFORCES IT.** The m2 profiling arm cuts TWO
+  # captures in sequence inside ONE load, and the second one requires the load to
+  # still be running (`assets/load/capture.sh:130`, `load_running`):
+  #
+  #     measurement   E2E_WARMUP_S + E2E_WINDOW_S        60 + 10 = 70 s
+  #     stack window  WARMUP_S=0   + E2E_STACK_WINDOW_S   0 +  3 =  3 s
+  #                                                       ------------
+  #     floor         trace_end_ms >                            73 s + setup
+  #
+  # **Below the floor the second capture is scheduled into a period with no
+  # load.** `capture_stacks.log` reads `ABORT: no aiperf load in flight`,
+  # `replay.sh:114-121` treats that as non-fatal by design, and then
+  # `check_trace_coverage` and `check_kernel_table` BOTH refuse — for something
+  # that is not the producer's fault.
+  #
+  # **Measured on run `20260906T113811-fdb0bd`** (`--var trace_end_ms=60000`):
+  # the load ended 12:14:58, the measurement window ran to 12:15:19, the stack
+  # capture started after that and aborted. That run's two refusals blocked
+  # `merge_profiling_evidence`, so `profiling_evidence` was never produced and
+  # m3/m4/m5 never started. **One override, four stages lost.**
+  #
+  # Both defaults below the two that exist clear the floor — this one at 180 s
+  # and `assets/load/aiperf_replay.sh:38`'s own fallback at 120 s. **The failure
+  # was introduced by a deliberate time-saving `--var`, not by the package.**
+  # If you shorten this, keep it above the floor, or raise `stack_window_s=0`
+  # deliberately and accept losing `identify` resolution level 1.
   E2E_TRACE_END_MS: '${trace_end_ms:-180000}'
   # A CEILING, not a target — fixed-schedule sends at the recorded timestamps
   # regardless. At 32 the profiler-detached round measured p90 effective
