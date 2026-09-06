@@ -15681,3 +15681,143 @@ with a top-level `run()`.
 document this belongs in.** Whether it already speaks to `baseline`, I have not
 read. **That is the cheap reading that would tell whoever picks this up whether
 they are fixing a violation or filling a gap** — and those need different people.
+
+---
+
+## R2 T+907 — 2026-09-06 21:40 UTC
+
+**T+907 = wall-clock delta from the baseline** (06:33:41 → 21:40:19).
+
+### 1. Run 18 reproduced the deepest board, fully real, in one hour
+
+**[observed, first-hand] `20260906T203956-3bf8c2`, alive, pid 3203507, last write
+21:39:41:**
+
+```
+m1_deploy                succeeded
+deploy_and_prove         succeeded
+run_profiling_mode_off   succeeded
+run_profiling_mode_on    succeeded
+merge_profiling_evidence succeeded
+m2_profiling             succeeded
+identify                 succeeded
+rank                     succeeded
+build_workset            running
+m3_analysis              running
+
+verdicts 21/21 — zero refusals
+```
+
+**Identical board to run 17 at the same point, and `mock_stages=none`** — read
+from the orchestrator's argv, along with `trace_end_ms=120000`,
+`work_root=/data/yihou/e2e_flow8`, `jobid=29313`. **Nothing was replayed.**
+
+**This is the second consecutive run to seal stage 2 and `identify`.** At T+817 I
+was careful to separate the `identify` fix (a real payoff) from the stack capture
+(a coin landing right). **Two runs in a row now make stage 2 + `identify` + `rank`
+reproducible rather than lucky** — and the stack capture, which was 2 of 4, is
+now presumably 3 of 5, though I have not counted this run's manifests.
+
+**Timing, both runs, measured:**
+
+```
+run 17   19:24:06 launch -> build_workset running 20:09:50   46 min
+run 18   20:39:56 launch -> build_workset running 21:39:41   60 min
+         (at 21:10:04 it was still deploy_and_prove, 0 verdicts)
+```
+
+**Run 18 spent ~30 minutes in stage 1 and ~30 in stage 2 + identify + rank.**
+Run 17 was faster in stage 1. **I do not know why**; the difference is not in the
+launch variables I read.
+
+### 2. A foreign-looking container, and I am not attributing it by name
+
+```
+yihou_m3_explore   created 21:39:41
+  image      rocm/pytorch:rocm7.2.4_ubuntu24.04_py3.12_…
+  autoremove true
+  devices    /dev/kfd
+  labels     only org.opencontainers.*  — NO infera_e2e_run
+```
+
+**It maps `/dev/kfd` and all eight cards read 0 %.** By T+517's finding that is
+*device mapping, not occupancy*, so under the standing rule — stop GPU occupants,
+leave the rest — **it is out of scope and I have not touched it.**
+
+**By ownership evidence rather than by name:** no `infera_e2e_run` label,
+`--rm`, and a `rocm/pytorch` image rather than our engine image. **The `yihou_m3_`
+prefix is not evidence** — the first cluster misattributed five containers that
+way, one of them twice to two different people. **I record what it is and decline
+to say whose.**
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~70 %** (+2) |
+| 已经耗时 | **~921 min** (mission.md 06:19:11 → 21:40:19) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+2 for reproducibility, not new ground** — the same accounting I applied at
+T+186 when stage 1 went green twice. **Nothing past `build_workset` has ever
+completed.**
+
+**Hold `29313`: 16 h 20 min left.**
+
+**One estimate that is now defensible and I will state with its limits:** stages
+1–3-to-`build_workset` cost **46 and 60 minutes** on two consecutive fully-real
+runs. **That is a real measurement of the front three quarters of the chain.**
+Modules 4 and 5 still have **zero** measurements here, and module 4 is the one
+the user flagged as very long — **so the total remains unestimable, but the part
+that is not module 4 is now known to be about an hour.**
+
+### 4. Code problems
+
+**No new ones. Nothing broke this interval.**
+
+**Carried, root-caused, unfixed:** `baseline` with two incompatible consumers
+(`apply.py:828`); `measure_in_container.sh`'s two-branch mount `case` and
+`E2E_REMOTE_HOME` absent from `check_workset_runs`'s closed env; stall threshold
+equals AIPerf's 900 s request timeout; `preflight.sh:211`;
+teardown-vs-preflight sequencing; `--var jobid` vs `_agree_or_die`; `etcd.log` on
+no path; `min_resolve_ratio` floor of zero; the router `/health` gate vs a cold
+JIT compile; three refusals naming unreadable `--var`s.
+**Open, intermittent:** the stack window.
+**Carried unread since T+94:** the eight `jsonschema` validators — **fifteen
+hours.**
+
+### 5. 未定性
+
+- **Whether run 18 clears `check_workset_runs`.** The mount defect from T+847 is
+  the wall in front of it and **I have not established whether this launch
+  addresses it** — `work_root=/data/yihou/e2e_flow8` is still under `/data`,
+  which is the root the two-branch `case` does not cover.
+- **Why run 17's stage 1 was 15 minutes faster than run 18's.** Not in the launch
+  variables.
+- **What module 4 costs** — zero measurements, 16 h 20 min of hold.
+- **What module 5 consumes if module 4 is replayed** — **twenty-eighth
+  consecutive section.**
+
+### 6. 新增 commit
+
+Since T+877, none but mine (`0dd15a0c`).
+
+### 7. 其他
+
+**Two runs in a row have produced identical 21/21 boards on a fully real chain,
+and that is the first time this round has had a repeatable state to reason
+from.**
+
+Everything before tonight was a single instance: one stage-1 green, then a
+second; one stage-2 seal; one `identify` seal. **Each was worth recording and
+none of them supported a rate.** The day's sharpest methodological finding —
+`10558a28`, *an intermittent failure is indistinguishable from a deterministic
+one at N=1* — was about precisely that poverty.
+
+**With two identical boards, the questions change shape.** "Did `identify` pass?"
+becomes "does `identify` pass?", and the stack window stops being a yes/no and
+becomes a fraction. **That is worth more than the +2** — but it is worth exactly
+nothing past `build_workset`, where the chain has never been, and where the two
+unfixed defects in front of it are a mount `case` with no branch for this cluster
+and a `baseline` field two modules disagree about.
