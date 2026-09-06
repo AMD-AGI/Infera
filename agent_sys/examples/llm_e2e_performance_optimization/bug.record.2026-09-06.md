@@ -640,6 +640,11 @@ where it was written is now the thing that stops the next reader looking here.
 **Blast radius: every validator that validates a schema, in every module.** Not
 m1's alone. Nothing about it depends on which stage is real.
 
+*(数字见 §6:**按 validator 是 8/22**——只有真的调用 schema 校验的那八个会崩,
+`schema.py:169` 的 import 在 `def validate()` 内部所以不到达就不炸;
+**按 kind 是 15/15**,因为 `check_environment` 挂在每一个 kind 上。
+决定「有没有部分绿」的是后一个数,而它只在 §6 里。—— m35 附注)
+
 **Only one injection point exists**, because PATH is reserved: the `PYTHONPATH`
 key of the settings allow-list. Note `_block` lets the **live** value win, so
 adding the key is not enough on its own — the launch line must carry the full
