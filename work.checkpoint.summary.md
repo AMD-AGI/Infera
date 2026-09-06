@@ -10750,3 +10750,251 @@ commit cannot tell a correct rebuild from a wrong merge. My scratch is
 what it observes has stopped being one — and this round starts with three empty
 note directories that are *meant* to be empty, which is exactly the state a
 curious observer would be tempted to disturb.
+
+---
+
+## R2 T+31 — 2026-09-06 07:05 UTC
+
+**T+31 is the wall-clock delta from the baseline** (06:33:41 → 07:04:36, read in
+the same command). Times below are reads; none is extrapolated.
+
+### 1. The interval's result — Qwen3-32B served a completion on this node
+
+**[observed, first-hand] This is a read of contents, not of an exit path.** From
+`…/handoffs/27dd187f-…/v1/content/items/codes/qwen3-32b-mix.packup_20260906/results/`:
+
+```
+deployment.json    started_at   2026-09-06T06:54:35.131400696Z
+                   image_id     sha256:fa58aef5…92bf2
+                   tp_size 4    gpu_devices [0,1,2,3]   ctx 40960
+router_workers     10.235.192.131:8102  status active  engine sglang
+chat_completion    model Qwen/Qwen3-32B
+                   usage {prompt 20, completion 147, total 167}
+                   content "<think>\nOkay, the user is asking for the capital
+                            of France and wants the answer in one word…"
+chat_completion_stream.sse                     40 555 bytes   07:00:22
+teardown.json      removed both containers, clean: true       07:01:44
+```
+
+**147 completion tokens the model produced.** No exit code and no `SERVE_OK`
+could have manufactured that string. **The engine image is real and this
+cluster's first bring-up worked.**
+
+**The image, and it is corroborated by two reads rather than asserted:**
+
+```
+m1/build4.log     writing image sha256:fa58aef5…92bf2
+                  naming to docker.io/infera/engine-sglang:qwen3-local-20260906
+deployment.json   image_id  sha256:fa58aef5…92bf2
+```
+
+The first is the builder's own output; the second is what the deployment
+recorded from the daemon. **Two reads of the same artefact through different
+paths — not two methods, and I am not claiming more than that.**
+
+**Timeline of the arm, all from mtimes read with `--time-style=+'%F %T'`:**
+
+```
+06:42:18  run 20260906T064218-15c264 starts
+06:54:35  bring-up  started_at
+07:00:19  engine_server_info / router_models / worker_mode_line
+07:00:21  chat_completion.json
+07:01:44  teardown clean
+07:02:44  yihou_dk_selftest{,_etcd} created  ← the callability arm, step 6
+```
+
+**Bring-up to first completion: 5 min 44 s.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~12 %** (+12 from the baseline's 0) |
+| 已经耗时 | **~45 min** (mission.md 06:19:11 → 07:04:36) |
+| 预估耗时 | **still absent** |
+| 可靠性 | **中** |
+
+**What the 12 % is and is not.** It is: an engine image built and proven by a
+served completion, a deploy kit that stands up and tears down cleanly, m2's
+materials generated, and m35's pre-registration written. **It is not a green
+stage** — `deploy_and_prove` is still `running`; no validator has returned a
+verdict on this cluster yet. **The first PASS is the event that will move this
+number again, and it has not happened.**
+
+**Why 中 and not 高:** the 12 % rests on my judgement of how much of a
+five-stage chain one nearly-finished stage represents, and **the previous round
+established that the last stage is not the cheapest.** The underlying
+observations are 高; the fraction is not.
+
+**预估耗时 stays absent.** Hold `29184` ends **2026-09-06T14:00:01**, leaving
+**6 h 55 min** at this write — that is a ceiling on this hold, not an estimate of
+the task.
+
+### 3. 当前进展 — one live run, three owners producing
+
+```
+run   20260906T064218-15c264      started 06:42:18   last write 07:02:43
+      main               running
+      m1_deploy          running
+      deploy_and_prove   running          agent e2e_deployer (kind: ai)
+      m2_profiling       waiting_handoff
+      m3_analysis        waiting_handoff
+      m4_kernel_opt      waiting_handoff
+      m5_integration     waiting_handoff
+```
+
+**Read from `store/task/*.json` `status`, not from a phase line.** The phase log
+says what was dispatched; these are the states the store holds.
+
+**What the deployer is doing right now, from its transcript** — the artefact
+that says *why*, which the previous round paid twice for not opening:
+
+```
+07:01:38  "Now step 6 — the callability arm. Tearing the first deployment down
+           first, since I hold only cards 0–3."
+07:02:15  "A real finding: teardown returns before the driver reclaims VRAM.
+           Adding a settle gate so back-to-back redeploy works."
+07:02:38  "Now the callability arm — the kit driven entirely by its contracted
+           parameters, with values different from my own run."
+```
+
+**All eight cards read VRAM 0 % at 07:03:19 and that is expected, not idle** —
+the first deployment was torn down at 07:01:44 and the selftest arm came up
+15 seconds before I sampled. **This is the sixth failure mode of "the cards are
+free" in its clearest form: the reading is correct and the inference from it
+would be wrong.**
+
+**Containers at 07:03:19:**
+
+```
+yihou_dk_selftest        created 2026-09-06 07:02:47   ← ours, step 6
+yihou_dk_selftest_etcd   created 2026-09-06 07:02:44   ← ours, step 6
+rc_26_7_902              created 2026-09-03 19:05:51   foreign, no GPU
+xiaoming-dev             created 2026-09-03 02:19:00   foreign, no GPU
+```
+
+**Other owners' output, listed by mtime, not characterised** — I have read file
+names and sizes, not the documents:
+
+```
+m2   materials/conversation_trace.jsonl        803 900 B  06:36:58
+     …jsonl.provenance.json                      1 249 B
+     materials/README.md                         9 442 B  06:48:23
+     VAR-TABLE.md          17 044 B   07:02:00
+     LAUNCH-m2.md          10 161 B   07:02:21
+     PRE-REGISTER-m2.md    12 838 B   07:02:42
+     tools/  gen_conversation_trace.py, check_trace_buildable.py,
+             check_gsm8k.py, sweep_unwired_env.py
+m35  PRE-REGISTER.md       19 565 B   06:57:36
+     RUNG5-CHECKLIST.md     9 933 B   07:00:40
+     mk_reverse_payload.py 15 298 B   07:02:55
+     probe_payload/  stock.py 40 628 B, optimized_kernel.py 41 250 B,
+                     payload_record.json         07:03:04
+     tool_probe/run/a/validation.good/materials/h1/v0/{file1,file2}.txt
+m1   Dockerfile.infera-engine  7 494 B, build2/3/4.log, launch_m1.sh 4 575 B
+```
+
+**m2's trace carries a `.provenance.json` beside it.** Recorded because a
+generated corpus that names its own origin is the thing this cluster does not
+have and must produce; whether that file says enough, I have not read.
+
+### 4. Code problems
+
+**Fixed this interval — one, and it was found by running, not by reading.**
+
+- **`scripts/teardown.sh` in the deploy kit** (path above): teardown returned
+  before the driver reclaimed VRAM, so a back-to-back redeploy would race the
+  reclaim. The deployer added a settle gate at **07:02:35**. **[observed via the
+  transcript and the file's mtime; I have not read the diff.]**
+
+**Recorded by a teammate, not by me — commit `7ae653c2`, 06:58:30:**
+
+> *`E2E_EVAL_THINKING` and `E2E_RESOLVE_TIMEOUT_S` are not two events. A body
+> reads `${E2E_FOO:-default}` while no `shared.yaml` or `steps/*.yaml` declares
+> `E2E_FOO`, so no `--var` reaches it and the default is the only value it can
+> take. Absence is invisible: grep finds the read and nothing looks wrong.*
+
+**Eleven instances of one cause.** This is `--var gpu_devices` from the first
+cluster, generalised and swept for rather than met one at a time — the repair
+the previous round arrived at only after paying three launches. **I quote the
+commit message; I have not run the sweep.**
+
+**Unfixed / unknown: none I can name.** No validator has refused anything on
+this cluster yet, because none has been asked.
+
+### 5. Non-code problems
+
+**(a) `transport=spur` is dead here, and it was caught before launch, not
+after.** From `LAUNCH-LINE.txt`, which m1 wrote next to the run:
+
+> *`transport=local`: `assets/lib/remote.sh:121` has a `local` branch the probe
+> NEVER selects. spur is absent here and srun is present, so the probe would
+> pick srun and try to step into the allocation we are already inside.*
+
+**This closes an open question from the baseline** — RUN-PLAN's carried-over
+block is not valid unmodified on this cluster, and the specific incompatibility
+is now named with a file and a line.
+
+**(b) `RUN-PLAN.md` has seven launch blocks that disagree.** m1's header says so
+and says which two it took from and why. **On the first cluster the canonical
+block was measurably the best line; here it needed adapting, and the adaptation
+is documented in the run tree rather than in someone's memory.**
+
+**(c) `LAUNCH-LINE.txt` exists at all, and that is the previous round's most
+expensive lesson applied before it cost anything here.** Its own justification:
+
+> *a launch line is NOT recoverable from the artefact: the staged package keeps
+> `${var:-default}` unrendered, so the run tree cannot say what was passed. Four
+> separate incidents trace to that.*
+
+**(d) The namespace-package hazard, measured today by m1**: `agent_sys` spans
+both this checkout and `…/infera.aiopt.all`, and "this one wins by ordering,
+which is an accident, not a property." The launch line pins `PYTHONPATH`.
+
+### 6. 未定性
+
+- **Whether the callability arm passes.** It started 07:02:44 and is the last
+  step before `deploy_and_prove` can produce its output. **Unresolved, and it is
+  the next thing that will be true or false.**
+- **`expect_ranks=2` against `tp=4` in a run whose m2 is mocked.** The launch
+  line states this is deliberate — it grades a sealed TP-2 trace, not this
+  deployment. **But the baseline established there is no sealed corpus on this
+  cluster.** I have not checked which trace `expect_ranks=2` will actually be
+  applied to, and that is the reading that would settle it. Open.
+- **What module 5 consumes if module 4 is replayed** — carried forward from the
+  baseline, unchanged, and nothing this interval touched it.
+- **Whether m2's generated trace can substitute for the absent corpus** in the
+  places the package expects sealed inputs. m2 has written a provenance file and
+  a `check_trace_buildable.py`; **I have not read either and will not
+  characterise their answer.**
+
+### 7. 新增 commit
+
+Since my last section, two, both on `dev.yihou.aiopt.task_package.concat`:
+
+```
+f027073d  checkpoint R2 T+0: baseline on the second cluster — mine
+7ae653c2  bug record 2026-09-06: one cause, eleven instances — a knob the code
+          offers that the package never wires up            (not mine; quoted
+          from its message in §4, not read as a diff)
+```
+
+Working tree at 07:04:36: `.serena/`, `overlay-review.20260805.md`,
+`sglang_unified_pd_test.packup_20260727/` untracked. **The two `.claude/`
+entries staged at the baseline are now committed** (`46469f7f`, which predates
+my baseline commit in the log but landed in the same window).
+
+### 8. 其他
+
+**One thing is different from the first cluster's early hours and worth naming
+while it is still true.** Every owner produced a document that names its own
+provenance before producing a result: `LAUNCH-LINE.txt` beside the run,
+`conversation_trace.jsonl.provenance.json` beside the trace,
+`PRE-REGISTER.md` and `PRE-REGISTER-m2.md` **written before the results they
+grade exist**.
+
+**Pre-registration is the one defence the previous round found that does not
+decay** — the criteria cannot be bent toward the first data point if they were
+written before it arrived. **Whether these three documents are good, I have not
+read. That they were written first is a fact about their mtimes**, and it is the
+part that cannot be recovered later.
