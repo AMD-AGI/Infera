@@ -13589,3 +13589,169 @@ consequence: **a mechanism that looks like it is checking something and is not.*
 validator refusing and someone reading two YAML lines. **The merged source was
 found only because a human noticed a number naming a job that no longer exists**
 — the guard itself will never report it, at any point in the future, on any run.
+
+---
+
+## R2 T+517 — 2026-09-06 15:11 UTC
+
+**T+517 = wall-clock delta from the baseline** (06:33:41 → 15:10:59).
+
+### 1. The preflight fix from T+396 has an unreachable branch, and I verified its premise
+
+**[first-hand, `c890bf83`]**
+
+> *`_foreign_gpu_containers` tests `HostConfig.Devices` for `/dev/kfd`, **which is
+> device mapping and not occupancy**. `rc_26_7_902` and `xiaoming-dev` map it
+> permanently and hold zero VRAM, so **instrument 2 is never empty** and
+> `preflight.sh:211` aborts on any busy card whatever the cause. Measured: the
+> two named strangers are still running six minutes later with all eight cards
+> at zero; **the 112–117 GB was our own `check_deploy_serves` engine draining.***
+
+**I checked the premise myself rather than relaying it** — one `docker inspect`:
+
+```
+rc_26_7_902  HostConfig.Devices:
+  [{"PathOnHost":"/dev/dri",…},{"PathOnHost":"/dev/kfd",…},{"PathOnHost":"/dev/infiniband",…}]
+```
+
+**The device is mapped. All eight cards read 0 % at 15:10:31.** The container is
+a permanent, non-occupying resident of this node's device list.
+
+**This is the first cluster's line arriving intact: *seeing the device is not
+holding a handle*.** There it was recorded against a `/proc`-KFD predicate; here
+it defeats a `HostConfig.Devices` predicate written **this morning to replace
+that one**. **The T+396 fix swapped a blind instrument for a permanently-nonempty
+one**, and `1c611a5d` had already said the hard branch was untested — **it turned
+out to be unreachable, not merely untested.**
+
+**And a second, independent cause is recorded beside it:** *nothing sequences
+that validator's teardown against m2's preflight.* **That is the T+186 finding —
+a validator's engine outliving its verdict by 1.8 s — recurring at the scale of a
+112–117 GB drain.** The ownership-wait added at launch3 handles a holder that can
+be identified; **it does not help when the abort fires on VRAM before
+identification matters.**
+
+### 2. 当前进展 — stage 1 green a sixth time, m2 blocked by a new cause
+
+```
+026b96  dead   last 14:58:20
+        m1_deploy = succeeded    deploy_and_prove = succeeded
+        run_profiling_mode_off = running   (died here)
+        verdicts: layout true · environment true · deploy.sh true
+79bca5  ALIVE  pid 163036, started 15:01:46
+        container=yihou_e2e_chain3
+        work_root=/data/yihou/e2e_flow3     ← SEPARATED at last
+        jobid=29313   trace_end_ms=120000
+        port_etcd=8103                       ← band unchanged
+        main/m1_deploy/deploy_and_prove all running
+node    8 cards VRAM 0 %, no yihou_* container — run 9 min old, pre-bring-up
+```
+
+**`work_root` is finally distinct** (`/data/yihou/e2e_flow3`). **The port band is
+not**, but only one chain is alive, so nothing is contending for it.
+
+**No `capture_stacks.log` and no `stacks_manifest.json` exist anywhere in
+`026b96`** — it never got far enough for the T+487 §4 question to be answerable.
+**That prediction remains open and untested for a second run.**
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~46 %** (unchanged) |
+| 已经耗时 | **~531 min** (mission.md 06:19:11 → 15:10:59) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Unchanged for the third consecutive interval, and the reason is worth stating
+plainly.** Stage 1 has now gone green **six times**. `m2_profiling` has been
+entered **six times** and completed **zero**. **The causes have differed every
+time** — trace hash_id, card lease, stack window arithmetic, `stack_ranks`
+split, and now a preflight whose foreign-container instrument cannot return
+empty on this host.
+
+**That is not a chain that is failing to work. It is a chain whose second stage
+sits behind a queue of independent single-point defects**, each of which took a
+run to surface.
+
+**Hold `29313`: 22 h 49 min left.**
+
+### 4. Code problems
+
+**Newly root-caused, unfixed:** `preflight.sh:211` — `_foreign_gpu_containers`
+tests device mapping, not occupancy; two permanent residents make it
+never-empty, so any busy card aborts. **The fix candidates are named by the
+first cluster's own conclusion: per-card VRAM crosses namespaces and is the
+occupancy signal; a container list should admit on "is a GPU-capable container
+present" only as a supplement.**
+
+**Newly named, unfixed:** nothing sequences `check_deploy_serves`'s teardown
+against m2's preflight.
+
+**Carried, root-caused, unfixed:** `stack_ranks` unlinked from `stack_window_s`
+(`check_trace_coverage:223`, `m2_profiling.yaml:133`); `--var jobid` can name a
+dead hold and pass `_agree_or_die`.
+**Carried, documented, not enforced:** the `trace_end_ms` 73 s floor.
+**Carried unfixed:** the eight `jsonschema` validators (still unread);
+unbooked-usage and missing-`depends_on`; the `CLAUDE_CONFIG_DIR` placeholder.
+
+### 5. 未定性
+
+- **Whether `79bca5` reaches `_on` and whether stacks get captured** with
+  `trace_end_ms=120000`. **Twice now this has been the open question and twice
+  the run died before answering it.**
+- **Whether the preflight abort has been fixed for this launch.** `79bca5`
+  started 15:01:46 and `c890bf83` was committed in the same window; **I have not
+  established the order**, and the run has not reached the preflight yet.
+- **Whether all eight crash-affected validators were repaired** — carried,
+  **and I note it has now survived unread since T+94**, seven hours.
+- **What module 5 consumes if module 4 is replayed** — **fifteenth consecutive
+  section.**
+
+### 6. 新增 commit
+
+Since T+487, four:
+
+```
+f944eec6  checkpoint R2 T+487 — mine
+c890bf83  bug.record 13: the kit preflight's two wait branches are unreachable
+          on this host
+8cc13d92  RUNG5-CHECKLIST P2d: blocking launch gate for the preflight stranger
+          test
+4cd1425e  PREFLIGHT-FIX-FOR-NEXT-LAUNCH: drop-in instruction text for the
+          stranger test
+2f8e7faa  m35: compare.py barrier downgraded to conditional; two thin-worklist
+          explanations retired
+```
+
+**`8cc13d92` and `4cd1425e` are the same repair at two tiers** — a blocking gate
+in the checklist, and drop-in text so the next launcher does not have to compose
+it. **This record's own tier analysis says the second is what makes the first
+survive contact with someone in a hurry.**
+
+**`2f8e7faa` retires two explanations rather than adding one.** Recorded because
+it is rarer than it should be: **most of today's commits added a finding; that
+one removed two that did not hold.**
+
+### 7. 其他
+
+**Three instruments have now been used to answer "is this node busy," and all
+three were wrong in a different way.**
+
+```
+/proc KFD count          blind across containers   -> reads 0 on a busy node
+HostConfig.Devices       mapping, not occupancy    -> never empty on this node
+rocm-smi per-card VRAM   correct, and it caught
+                         our OWN draining engine   -> aborts on ourselves
+```
+
+**The third is the one this file has recommended all along, and it is the one
+that fired today** — correctly, on 112–117 GB that was genuinely allocated, by
+a process that was genuinely ours and genuinely going away. **A correct
+occupancy reading is still not an answer to "may I proceed," because it cannot
+distinguish a tenant from a corpse.**
+
+**What the three failures share is that each answered a question adjacent to the
+one asked.** *Which processes can I see* / *which containers may use a GPU* /
+*how much memory is allocated right now* — **none of them is *will these cards be
+free when I need them*, and that is the question a preflight actually has.**
