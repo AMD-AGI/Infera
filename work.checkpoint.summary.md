@@ -11781,3 +11781,182 @@ this record's own answer to "how do you trust a new instrument," adopted this
 morning.** They are still right, and they are **not** sufficient — a control
 inherits the scope of the harness that runs it, and this one was per-record when
 the invariant was cross-record.
+
+---
+
+## R2 T+186 — 2026-09-06 09:40 UTC
+
+**T+186 = wall-clock delta from the baseline** (06:33:41 → 09:39:55).
+
+### 1. Stage 1 went green a second time — it is reproducible, not a one-off
+
+**[observed, first-hand] Run `20260906T084930-6ded23` produced the same three
+verdicts as `-3e8a03`:**
+
+```
+run     validator arg              verdict
+3e8a03  layout                     true
+3e8a03  schema=environment         true
+3e8a03  scripts/deploy.sh          true     ← 180 s load test
+6ded23  layout                     true
+6ded23  schema=environment         true
+6ded23  scripts/deploy.sh          true     ← again
+```
+
+`deploy_and_prove = succeeded` and `m1_deploy = succeeded` in both. **Two
+independent runs, two separate bring-ups, the same three PASSes.** At T+156 I
+wrote that a second green would make stage 1 reproducible rather than achieved;
+**that is what this is.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~32 %** (+4) |
+| 已经耗时 | **~200 min** (mission.md 06:19:11 → 09:39:55) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+4 for reproducibility, not for new ground.** No stage past 1 has completed.
+**Both chains that got past stage 1 died in `m2_profiling`, each for a different
+reason, and both reasons are now named and fixed** (§4).
+
+**Hold `29184`: 4 h 20 min left** (14:00:01 − 09:39:55).
+
+### 3. 当前进展 — run 5 in flight, four dead trees behind it
+
+```
+15c264  dead  last 07:44:59   jsonschema crash
+e6f882  dead  last 08:12:09   deploy_and_prove failed (port 8103)
+3e8a03  dead  last 08:47:06   STAGE 1 GREEN → died at m2 (trace)
+6ded23  dead  last 09:29:16   STAGE 1 GREEN → died at m2 (card lease)
+ae2c38  ALIVE pid 1407641  started 09:34:43
+        main: running   m1_deploy: running   deploy_and_prove: running
+```
+
+**Node at 09:39:26: all eight cards VRAM 0 %**, one container
+`yihou_e2e_chain_probe` created 09:37:48. **The new chain is in its pre-bring-up
+phase; the cards being idle here is the expected state for that phase and not a
+sign of stalling** — the run tree's last write was 09:38:35, 51 seconds before I
+sampled.
+
+**Note on the two dead trees that reached green:** both still record
+`m2_profiling=running`. **Their orchestrators are gone.** As at T+156, nothing
+inside those runs distinguishes *running* from *abandoned*; `/proc` does, and it
+shows one orchestrator.
+
+### 4. Why the two green chains died — and the second was a boundary defect
+
+**[first-hand, from `m2/launch3/LAUNCH-RECORD.txt`, written at launch]**
+
+```
+launched_at_utc: 2026-09-06T09:34:32Z
+supersedes: 20260906T084930-6ded23
+   (m2 aborted: card0 held by check_deploy_serves engine 1.8s after its verdict)
+change: --var instruction now requires ownership-conditional wait up to 300s
+        in the kit preflight
+trace: conversation_trace.v2.jsonl
+```
+
+**`check_deploy_serves` writes its verdict while its own engine still holds card
+0.** Measured gap: **1.8 seconds.** The next stage's preflight sampled the cards
+inside that window and aborted.
+
+**This is the T+31 finding arriving at a stage boundary.** At 07:02 the deployer
+recorded *"teardown returns before the driver reclaims VRAM"* and added a settle
+gate **inside the kit**. **The same physics then bit at a different seam — one
+validator's engine versus the next stage's preflight — where the kit's gate does
+not apply.** The fix is an ownership-conditional wait of up to 300 s.
+
+> **A validator that brings up hardware does not stop being a tenant when it
+> returns its verdict.** The verdict is a statement about the artefact; the
+> engine is a fact about the node, and they end at different times.
+
+**The other death, `-3e8a03`, was the trace defect** recorded at T+156
+(`2cba517a`). Its fix is visible here as `conversation_trace.v2.jsonl`.
+
+**One carried open question closes.** The launch record now passes
+`--var expect_ranks=4`. With `mock_stages=none` the chain's m2 is real and TP-4,
+so 4 is the value that matches the deployment. **The `expect_ranks=2 vs tp=4`
+question I carried since T+31 belonged to a mocked-m2 launch and does not apply
+to the live chain.**
+
+### 5. Code problems
+
+**Two framework messages in `m2/launch2/chain.log` that I have not seen recorded
+elsewhere.** Quoting them because they are cheap to lose and neither stopped the
+run:
+
+```
+c5c26634…: usage names 'seconds', which the task did not declare and which
+           cannot record unreserved spend; 1516.62… is not booked
+           (same for duration_ms, num_turns, total_cost_usd, turns)
+b25200a6…: depends_on omits c5c26634…, which produces ac35d9fd…
+d9b92b39…: depends_on omits c5c26634…, which produces ac35d9fd…
+```
+
+**The first says a completed task's cost was not booked** — 1516 s, 83 turns,
+$11.53 discarded because the task did not declare those usage names. **The
+second says two tasks consume a handoff whose producer they do not depend on**,
+which is the shape `6e465181` named this morning: *ordering is not lease
+ordering*. **I am reporting these as read, not diagnosed** — I do not know
+whether either is intended.
+
+**Fixed this interval:** the card-lease boundary (ownership-conditional wait, per
+the launch record); m2's trace (v2 in use).
+
+**Unfixed, carried:** shared default port band and `work_root`; whether all eight
+`jsonschema`-affected validators were repaired (still unread).
+
+### 6. 未定性
+
+- **Whether run 5 clears `m2_profiling`.** Two chains have died there, each on a
+  different defect. **A third failure at m2 with a third cause would say
+  something the first two do not.**
+- **Whether the 300 s ownership wait is long enough**, and what it does if the
+  holder is a co-tenant rather than our own validator's engine. **I have not read
+  the preflight change.**
+- **The unbooked usage and the missing `depends_on` edges** above — open, and I
+  have named the file to read.
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched, and
+  still the furthest-out unknown.
+
+### 7. 新增 commit
+
+Since T+156, one:
+
+```
+c59e7aad  checkpoint R2 T+156 — mine
+```
+
+**No other commits landed in this interval.** The work this interval went into
+run tree and launch records rather than the repository — `LAUNCH-CHAIN.md` grew
+to 21 124 B at 09:34:19 and `launch3/LAUNCH-RECORD.txt` was written at 09:34:33,
+both uncommitted at 09:39:55.
+
+### 8. 其他
+
+**The launch record is doing the job the first cluster spent four incidents
+learning to need**, and it is worth naming while it is cheap to copy:
+
+```
+launched_at_utc:  a READ timestamp
+supersedes:       which run this replaces, and the measured reason it died
+change:           the one thing that is different this time
+trace:            which version of the materials
+```
+
+**Four fields, and together they make a launch line recoverable from the
+artefact** — the property the first cluster established is *absent* from a run
+tree, because the staged package keeps `${var:-default}` unrendered. **`supersedes`
+is the field I would not have thought to ask for**: it turns a directory of five
+run trees from a pile into a sequence with causes attached, which is exactly what
+§3 of this section is able to be because that field exists.
+
+**One caution against my own section, though.** `LAUNCH-RECORD.txt` contains the
+line `CLAUDE_CONFIG_DIR=<m1's shared farm — get the exact value from the leader>`
+directly under a line giving a concrete path. **A record whose purpose is to make
+a launch reproducible has one field that is a placeholder**, and a later reader
+copying the block will get the concrete line and not notice the angle brackets
+two lines down.
