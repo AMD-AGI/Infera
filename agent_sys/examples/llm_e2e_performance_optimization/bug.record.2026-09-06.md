@@ -1689,3 +1689,85 @@ launcher 是三个可以独立取值的决定)。**修的是信息:每条拒绝�
 
 *另附:`expect_stack_ranks` 本身今天由 m35 先提出,这里新的是「它和另外两个是
 同一个决定的三个名字」,以及「三条信息里有两条指错」。*
+
+---
+
+## `with_stack=1` 的第二个 profiler 窗口冻死引擎 —— 而判据是**引擎日志里少了四行**
+
+*2026-09-06,m2。运行 `20260906T180412-6b7c19`,`run_profiling_mode_on`。
+本条经历两次自我更正,两版都写在末尾,因为**错的那两版各自都很像对的**。*
+
+### 时间线(全部一手,来自被冻引擎自己的日志与两份 capture 日志)
+
+```
+18:34:36   窗口 1 开始  with_stack=0  mixed
+18:35:09   "Profiling done" × 4 （TP0-3）   /stop_profile 200
+                                            4 个文件，各约 38 MB   CAPTURE_OK
+18:35:21   窗口 2 开始  with_stack=1  mixed_stacks  3 秒
+           "Profiling starts" × 4 （TP0-3）  /start_profile 200
+18:35:24   引擎最后一行（Prefill batch，#running-req: 31；数条 200 OK）
+           —— 此后十三分钟以上，任何 rank 没有再写过一个字
+           "Stop profiling" 全日志共 4 次，全部属于窗口 1；窗口 2 一次也没有
+           /stop_profile → ReadTimeout      0 个文件
+```
+
+**引擎从此不再生成 token**:19:48 探测,`/v1/models` 与 `/health` 均 1 毫秒返回 200,
+而一次 `max_tokens=4` 的生成十秒无任何字节。**卡:三个 TP rank GFX 100 %、
+显存带宽 0,一个 rank 0 %。**
+
+### 判据为什么是「少了四行」
+
+`profiler_manager.py:_stop_profile` 在调用 `self.torch_profiler.stop()` **之前**
+先写 `"Stop profiling..."`。四个 rank 一行也没写。
+
+> **所以引擎不是卡在 stop 里,它在 stop 请求到达之前就已经不再推进调度循环了——
+> 窗口开了约三秒之后。`ReadTimeout` 是后果,不是原因。**
+
+日志里 `RuntimeError` / `Traceback` / `INTERNAL ASSERT` / `stack.empty` **全为 0**,
+所以**不是** SGLang 自己文档里那个 `!stack.empty()` 断言(镜像内
+`docs/developer_guide/benchmark_and_profiling.mdx:374`,指向 vllm#18240 与
+pytorch#101632)——那一个会抛异常并留下痕迹。**我们这一次是静默停摆。**
+
+### 两条被排除的、看起来很像的机制(留着,免得下一个人重新发现并误判)
+
+1. **`_stop_profile` 里的 `torch.distributed.barrier(self.dp_tp_cpu_group)`**
+   被两个**逐 rank**条件包着(`profile_in_progress`、`torch_profiler is not None`),
+   而 `_start_profile` 对 `start()` 的 `RuntimeError` 是**只让该 rank**
+   `torch_profiler = None` 并返回 `success=False`。
+   **任何 rank 在这两个条件上分叉,就会跳过 barrier,把其余 rank 永久留在里面。**
+   这是真实存在的死锁形状,**但今晚不是它**——四个 rank 连 `"Stop profiling"` 都没写。
+2. **第二次会话本身**:`_start_profile:119` 对 `profile_in_progress` 是**干净的提前返回**
+   (`"Profiling is already in progress"`),不是挂起;而窗口 1 的 stop 在返回 200 之前
+   已把 `profile_in_progress` 置回 False。
+
+### 缓解(建议,未验证)
+
+**关掉 stack window 需要三个 `--var`**,见「一条拒绝信息点名了一个守卫并不读的变量」那条。
+**注意 `SGLANG_PROFILE_WITH_STACK=False` 在这条路径上不起作用**:
+`tokenizer_control_mixin.py:387` 的逻辑是请求里的 `with_stack` 覆盖环境默认,
+而我们的 capture 每次都显式传。
+
+**未验证的核心问题:是 `with_stack=1`,还是「第二个会话」?** 两个变量同时变了。
+分离它们的探针已写好并做过守卫控制:
+`/data/yihou/e2e_verify_20260906/m2/probe_two_windows.sh`(`ARM=nostack` 先跑)。
+**若复现,在停任何容器之前先跑
+`/data/yihou/e2e_verify_20260906/m2/capture_engine_stack.sh`**——
+py-spy 在镜像里(`/opt/venv/bin/py-spy`),需要 `--pid=host --privileged --user 0`
+(`--cap-add SYS_PTRACE` 不够,本机 `yama/ptrace_scope=1`),
+仪器已在一个植入了已知帧名的进程上验证过。
+
+### 便宜的早期探测(应进 capture.sh,尚未实施)
+
+> **任何 stack window 关闭之后,在引擎日志里数 `Stop profiling` 行:
+> 少于 rank 数就是这个故障。** 它在窗口结束后数秒可见——
+> 比 `ReadTimeout` 早,比 stall 计时器早几个小时。
+
+### 我错了两次,两次的形状都值得记
+
+1. 先报「stack window 开启三秒后引擎停了」——**只是时间上的相邻**,我明说了不是机制,
+   这一步是对的。
+2. 再报「0 个文件说明没 rank 走过 `stop()`,所以挂在 `stop()` 里面」——
+   **前提对,结论多走了一步。** 0 个文件同样符合「从没到达 `stop()`」,
+   而日志正是这么说的。
+   > **那一行判据在我一小时前亲手拷下来的文件里,我拿它 grep 了别的东西。**
+   又一次「答案已经被取回来了,只是没有被读」。
