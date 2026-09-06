@@ -13755,3 +13755,173 @@ distinguish a tenant from a corpse.**
 one asked.** *Which processes can I see* / *which containers may use a GPU* /
 *how much memory is allocated right now* — **none of them is *will these cards be
 free when I need them*, and that is the question a preflight actually has.**
+
+---
+
+## R2 T+548 — 2026-09-06 15:42 UTC
+
+**T+548 = wall-clock delta from the baseline** (06:33:41 → 15:41:18).
+
+### 1. `check_deploy_serves` refused for the first time — and the cause inverts the obvious reading
+
+**[observed, first-hand] Run `20260906T150155-79bca5`, 30 files in materials:**
+
+```
+# check_deploy_serves
+## c32f1bb3-…: REFUSED
+  note: kit qwen3-32b-mix.packup_20260906, tag serves-60b9599a, port base 8140
+  note: 1/4 bring-up
+  note: 2/4 diagnostic probes
+  note: 4/4 teardown
+  PROBLEM: probe router_health: no answer:
+           URLError: <urlopen error [Errno 111] Connection refused>
+  PROBLEM: the load was not sent — a deployment that fails a fatal probe has
+           nothing to measure
+```
+
+**Step 3 of 4 is absent from the notes: the load never ran.** `layout` and
+`environment` passed; this is the only false verdict.
+
+**The obvious reading is "the engine did not come up." I opened the logs, and the
+engine did come up.** From `/data/yihou/e2e_flow3/validate/serves-60b9599a/logs/`:
+
+```
+worker.log (78 129 B)   INFO: SGLang ready on port 8141
+                        INFO: worker ready: model=Qwen/Qwen3-32B
+                              url=http://10.235.192.131:8141 engine=SGLANG
+                        [15:31:53] "GET /health HTTP/1.1" 200 OK   (twice)
+
+router.log (4 774 B)    INFO: router-policy=kv-aware overlap_weight=1
+                        INFO: using etcd discovery:
+                              endpoint=10.235.192.131:8142 prefix=/infera/workers/
+                        Traceback …
+                        httpx.ConnectError: All connection attempts failed
+```
+
+**The worker was serving and answering health checks. The router died reaching
+etcd discovery at 8142**, so nothing listened on 8140 and the probe got
+connection refused in **0.001 s**.
+
+**And the deployment record says so without needing a probe at all:**
+
+```
+deployment.json:  endpoint  http://10.235.192.131:8140
+                  ports     router 8140, worker 8141, etcd 8142, …
+                  started_at  null            ← every successful deploy today
+                                                 carried a real timestamp
+```
+
+**`started_at: null` is a one-field discriminator** between "this deployment
+happened" and "this record was written for a deployment that did not." Every
+green kit today carried a value there — `2026-09-06T06:54:35.131400696Z` at
+T+31, for instance.
+
+**The refusal is correct and its wording is accurate at the level it operates.**
+`router_health` genuinely got nothing. **But a reader stopping at the refusal
+concludes the deployment failed; the worker log says three quarters of it
+succeeded and one component could not reach etcd.** The distinction decides
+whether the next fix targets bring-up or discovery.
+
+**Where that evidence lives is the T+216 finding again**: not in the run tree, in
+`work_root`. **`/data/yihou/e2e_flow3/validate/serves-60b9599a/logs/` is the only
+place the router traceback exists.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~46 %** (unchanged) |
+| 已经耗时 | **~561 min** (mission.md 06:19:11 → 15:41:18) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Fourth consecutive interval unchanged.** Stage 1 had gone green six times;
+**this run is the first in which it did not** — `check_deploy_serves` passed on
+five prior occasions with the same kit.
+
+**Hold `29313`: 22 h 19 min left.**
+
+### 3. 当前进展
+
+```
+026b96  dead   last 14:58:20   stage 1 green, died in run_profiling_mode_off
+79bca5  ALIVE  pid 163036, started 15:01:46, container=yihou_e2e_chain3
+        work_root=/data/yihou/e2e_flow3        (separated)
+        deploy_and_prove: output_validating
+        layout true · environment true · deploy_serves FALSE
+        last write 15:31:54  —  9 min 24 s before I sampled
+node    8 cards VRAM 0 %, only the two foreign CPU containers
+```
+
+**The run has an orchestrator and has not written for nine minutes.** The
+teardown at 15:31:54 is consistent with the refusal having just landed and the
+graph having nowhere to push. **I have not opened its transcript and am not
+declaring it stalled.**
+
+### 4. Code problems
+
+**New, unfixed:** the kit's router cannot reach etcd discovery at
+`10.235.192.131:8142` under the validator's port base 8140
+(`logs/router.log`, `httpx.ConnectError`). **Cause unknown to me.** The worker at
+8141 was healthy.
+
+**New, and cheap:** a deployment record is written with `started_at: null` when
+bring-up does not complete. **Nothing appears to read that field as a gate** —
+the failure was found by a probe making a network call. **A record that already
+knows it is describing a non-deployment is a stronger and cheaper signal than
+a connection attempt.**
+
+**Carried, root-caused, unfixed:** `preflight.sh:211` device-mapping instrument;
+teardown-vs-preflight sequencing; `stack_ranks` unlinked from `stack_window_s`;
+`--var jobid` passing `_agree_or_die` while naming a dead hold.
+**Carried, documented, not enforced:** the `trace_end_ms` 73 s floor.
+**Carried unread since T+94:** whether all eight `jsonschema` validators were
+repaired.
+
+### 5. 未定性
+
+- **Why the router could not reach etcd at 8142** when the worker at 8141 came
+  up. **The measurement: whether an etcd container existed for tag
+  `serves-60b9599a`.** I did not check and it is one `docker ps -a` filter.
+- **Whether this is related to the new `work_root=/data/yihou/e2e_flow3`**, which
+  is the one launch variable that changed. **Adjacency, not evidence** — this
+  record has been wrong twice today reasoning from exactly that.
+- **Whether stacks get captured with `trace_end_ms=120000`** — open for a third
+  consecutive run; no `capture_stacks.log` exists in either recent run.
+- **What module 5 consumes if module 4 is replayed** — **sixteenth consecutive
+  section.**
+
+### 6. 新增 commit
+
+Since T+517, one:
+
+```
+310d5baa  checkpoint R2 T+517 — mine
+```
+
+**No other commits in this interval.**
+
+### 7. 其他
+
+**Today's refusals have divided cleanly into two kinds, and this one is the first
+of the second kind.**
+
+```
+kind A   the refusal names the defect       env.sh:172 · stacks_manifest missing
+         and the fix                        · min launchers in the head
+kind B   the refusal names the SYMPTOM      router_health: connection refused
+         and the cause is elsewhere
+```
+
+**Kind A refusals were actionable from the report alone.** This one required
+opening two log files in a directory the run tree does not contain, and the
+answer reversed the natural reading: **not "bring-up failed" but "the worker is
+serving and the router cannot find it."**
+
+**I do not think that is a defect in the validator.** `check_deploy_serves`
+probes the product endpoint because that is what a consumer touches, and
+short-circuiting on it is the documented design — its own probe text says
+*"Everything after this is meaningless if it is not."* **The gap is that its
+report has no pointer to where the component logs live**, and every reader will
+need them. **One line — the path it already knows, since it wrote the tag into
+the note — would close it.**
