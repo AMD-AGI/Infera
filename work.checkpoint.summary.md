@@ -15411,3 +15411,143 @@ it is a coin that landed the right way twice in four.**
 
 **Keeping those two apart is the whole job of this section.** One of them will
 still be true tomorrow.
+
+---
+
+## R2 T+847 — 2026-09-06 20:41 UTC
+
+**T+847 = wall-clock delta from the baseline** (06:33:41 → 20:40:23).
+
+### 1. `build_workset` executed and was refused — by a localisation defect, not an artefact defect
+
+**[observed, first-hand] `5f24ca`, `check_workset_runs`, 43 files in materials,
+23/24 verdicts:**
+
+```
+PROBLEM: gemm_aiter_bf16gemm_bf16_tn/case_001: the performance entrypoint
+  exited 1: measure_in_container: cannot derive a mount this cluster's docker
+  authorization plugin will accept from …/materials/…/v1/items/codes.
+  Measured forms:
+    ref: -v $HOME:$HOME              accepted   (m3 measured, 006)
+    ref: -v /shared_nfs:/shared_nfs  accepted   (relayed: leader measured)
+    ref: -v /home:/home              refused    (relayed: leader measured, 243)
+    (the three rows above are a catalogue, NOT what this run did)
+  Point --demo-root at one of the two, or set E2E_REMOTE_HOME, or extend this
+  case with a form you have SEEN the daemon accept — not one you expect it to.
+```
+
+**[first-hand, `b6c0a3c4`] The mechanism:**
+
+> *`measure_in_container.sh` derives its bind mount from a **two-branch `case`
+> covering `/shared_nfs` and `/home`; this host's root is `/data/yihou`.**
+> `E2E_REMOTE_HOME` is declared in **four task env blocks and not in
+> `check_workset_runs`**, which runs with a **closed environment**. The
+> `build_workset` agent exported it by hand, **so only the validator side could
+> fail.***
+
+**This is the round's cleanest second-cluster localisation defect.** The package
+knows about two filesystem layouts; this cluster is a third. **The producer side
+was patched by hand at runtime and the validator side, which cannot see the
+environment, was not.** `E2E_REMOTE_HOME` appears 16 times in the package — **in
+four task env blocks, and not in the one place that needed it.**
+
+**Two things about the refusal text itself, because they are the standard this
+record has been asking for all day:**
+
+- **It labels its own evidence by provenance** — `(m3 measured, 006)` versus
+  `(relayed: leader measured)` — and then **explicitly disclaims the catalogue**:
+  *"the three rows above are a catalogue, NOT what this run did."*
+- **It ends with "a form you have SEEN the daemon accept — not one you expect it
+  to."** That is this file's core discipline written into a validator's error
+  path.
+
+**And the same report volunteers its own coverage limit:**
+
+> *`reverify_shapes` = **1 of 5** operator(s) with a primary shape. **This number
+> is the producer's claim and this run did not check it.** … re-measuring all 5
+> would cost about 360 s more.*
+
+**Four of five operators were recorded, not re-measured, and the validator says
+so per-operator with the price of fixing it.** Compare `min_resolve_ratio`'s
+floor of zero at T+637 — **the same honesty, and this one quantifies the trade.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~68 %** (+2) |
+| 已经耗时 | **~861 min** (mission.md 06:19:11 → 20:40:23) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+2: `build_workset` ran, produced a workset with five operators and timing
+cases, and reached output validation.** The one refusal does not judge that
+artefact — **`b6c0a3c4`'s subject says it outright: "and the artefact is fine."**
+
+**Hold `29313`: 17 h 20 min left.**
+
+### 3. 当前进展 — run 18 launched one minute ago
+
+```
+5f24ca  dead   last 20:38:48   build_workset: output_validating, 23/24
+                orchestrator gone
+3bf8c2  ALIVE  pid 3203507, container=yihou_e2e_chain8, started 20:39:56
+node    8 cards VRAM 0 %, no yihou_* container — run is 27 s old
+total runs: 18
+```
+
+### 4. Code problems
+
+**New, root-caused, unfixed:** `measure_in_container.sh`'s mount `case` has two
+branches (`/shared_nfs`, `/home`) and this host needs a third (`/data/yihou`);
+**`E2E_REMOTE_HOME` is absent from `check_workset_runs`'s env block**, which runs
+closed. **The producer-side workaround was a manual export and does not travel.**
+
+**Carried, root-caused, unfixed:** stall threshold equals AIPerf's 900 s request
+timeout; `preflight.sh:211`; teardown-vs-preflight sequencing; `--var jobid` vs
+`_agree_or_die`; `etcd.log` on no path; `min_resolve_ratio` floor of zero; the
+router `/health` gate vs a cold JIT compile; three refusals naming unreadable
+`--var`s.
+**Open, intermittent:** the stack window, 2 hits in 4.
+**Carried unread since T+94:** the eight `jsonschema` validators — **fourteen
+hours.**
+
+### 5. 未定性
+
+- **Whether run 18 clears `check_workset_runs`.** It depends entirely on whether
+  the mount form or `E2E_REMOTE_HOME` reached the validator's closed
+  environment. **The reading is one `grep` of the launch record.**
+- **Whether `reverify_shapes=1` is the right default for acceptance.** The
+  validator prices the alternative at 360 s. **Nobody has decided; the default
+  means four of five operator timings are the producer's unchecked claim.**
+- **What module 4 costs** — zero measurements, one stage away, 17 h 20 min of
+  hold.
+- **What module 5 consumes if module 4 is replayed** — **twenty-sixth
+  consecutive section.**
+
+### 6. 新增 commit
+
+Since T+817, one:
+
+```
+5b233c68  checkpoint R2 T+817 — mine
+b6c0a3c4  validator failures: check_workset_runs refused, and the artefact is
+          fine
+```
+
+### 7. 其他
+
+**The environment defect in §1 is the exact class this round exists to find, and
+it took fourteen hours to surface because everything upstream of it had to work
+first.**
+
+The baseline at T+0 listed the second-cluster hazards it could see: no corpus,
+no `spur`, a read-only path that is not read-only here, a namespace-package
+collision. **It could not list this one**, because a mount `case` in a
+measurement script is only reachable once a workset with real operators exists to
+measure — **which required stage 1 green, stage 2 sealed, `identify` sealed, and
+`build_workset` to run.**
+
+**That is what a ladder buys and it is worth stating plainly at 68 %:** the
+defects found late are not the ones anybody was slow to find. **They are the ones
+that were unreachable until the rungs below them held.**
