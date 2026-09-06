@@ -1905,3 +1905,42 @@ version shape -> verdict for any run tree, not only the hunt runs.
 would have read as "the known intermittent fault, again". After 20/20 correct
 resolutions in a controlled sample, **an empty zone on a real run is a much sharper
 signal and should be captured, not filed as another sighting.**
+
+### 2026-09-06 06:2x — the "1 in 13" is NOT a rate. It is always the same task.
+
+**Five runs, five empty zones, and every one resolves to the same closure:**
+
+```
+run                       empty zone -> parent task -> closure
+20260906T014002-c43dd0    2b992b2f  ->  m2_profiling   kinds: profiling_evidence, deploy_kit
+20260906T000840-bc92a6    87f3c042  ->  m2_profiling   kinds: profiling_evidence, deploy_kit
+20260905T221356-9219d7    e2d93386  ->  m2_profiling   kinds: profiling_evidence, deploy_kit
+20260905T202930-0fc78e    7bfceeaa  ->  m2_profiling   kinds: profiling_evidence, deploy_kit
+20260905T194045-223263    e868c6f9  ->  m2_profiling   kinds: profiling_evidence, deploy_kit
+```
+
+> **It is `m2_profiling`'s output-validation zone, every run, deterministically —
+> not a stochastic fault sampling one zone in thirteen.**
+
+**Why nobody saw it:** every earlier sighting was reported as a count ("1 of 13"),
+and a count invites a rate. **Six runs each producing EXACTLY one empty is already
+inconsistent with an independent per-zone probability** — that distribution would put
+some runs at zero and some at two. **The identity was one `store/task` read away and
+five separate reports stopped at the number.**
+
+**It holds across configurations:** m2 REPLAYED (`r5m1b`, `r5m1c`) and m2 REAL
+(`r6m1a`) both produce it, so it is not a property of the mock adapter.
+
+**And it explains the contradiction with the mock loop's 0/80.** Those ten runs all
+stalled at `build_workset`; whether they ever staged this particular zone in this
+form was never checked. **The two samples were never measuring the same population.**
+
+**Not established:** the mechanism. Candidates nobody has tested — the closure has
+two kinds (`profiling_evidence` and `deploy_kit`) and a merge step upstream
+(`merge_profiling_evidence`); a zone that must gather from two producers is a
+different shape from one that gathers from one. **This is now a targeted code read of
+one task's staging path, not a hunt.**
+
+**Consequence for every earlier verdict on `profiling_evidence`:** a PASS there
+established that the validator was invoked, and nothing else. **`check_profiling_evidence`
+refused from this zone twice; both refusals said nothing about the artefact.**
