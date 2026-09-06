@@ -15958,3 +15958,175 @@ is the entire thing this package exists to do.**
 **What has never happened on either cluster is `packup`.** Module 4 is running,
 the cards are idle, and the honest position is that nobody here knows how long
 that lasts.
+
+---
+
+## R2 T+967 — 2026-09-06 22:40 UTC
+
+**T+967 = wall-clock delta from the baseline** (06:33:41 → 22:40:12).
+
+### 1. Module 4 was attempted twice and refused twice — both correctly, both for a missing launch variable
+
+**[first-hand, `f273f0e1`]**
+
+> *`HIP_VISIBLE_DEVICES` is `'${gpu:-}'` and `run_in_container.sh` aborts on
+> empty, **so STEP 4 never measured**; both refusals are downstream of that and
+> **both are correct**. **The launch line carried `measure_gpu` and not `gpu` —
+> two names, two consumers, and having one made the other look covered.**
+> Sweeps the whole empty-default class rather than fixing the instance, and
+> **marks the six untested ones as un-refuted.***
+
+**Module 4 has now run twice and measured nothing.** Its cost on this cluster is
+still zero measurements — **the two attempts do not count, because the stage
+aborted before it did any work.**
+
+**Three things worth separating:**
+
+- **Both refusals are correct.** The validators refused an artefact that
+  genuinely had no measurement in it. **This is not a validator problem.**
+- **The class was swept, not the instance.** The first cluster paid three
+  launches fixing `expect_ranks`, then `adhoc_cases`, then `bench_rounds` one at
+  a time. **Here the whole empty-default variable class was enumerated in one
+  pass, and the six that remain untested are marked *un-refuted* rather than
+  quietly assumed fine.**
+- **Run 19 carries `gpu=4`.** Read from `/proc/21292/cmdline` just now, alongside
+  `measure_gpu=4`, `mock_stages=none`, `trace_end_ms=120000`,
+  `work_root=/data/yihou/e2e_flow9`. **The fix is in the launch line.**
+
+### 2. The general rule, and it is mechanically checkable
+
+**[first-hand, `58c5c56e`]**
+
+> *Twice in one evening: **`remote_home` present / `transport_env` missing**, and
+> **`measure_gpu` present / `gpu` missing.** The absent half's failure **looks
+> like an artefact defect, not a launch-line defect.** **Re-reading the variable
+> table does not catch it — the table was wrong**; subtracting the line from the
+> package's empty-default vars does, **in two commands, before launch.***
+
+**"Re-reading the variable table does not catch it — the table was wrong" is the
+part that makes this tier 2 rather than tier 3.** The first cluster's rule was
+*audit the whole variable table against your `mock_stages` every launch*; **this
+supersedes it, because the table itself is a document and documents decay.**
+**Subtracting the launch line from the package's own empty-default variables is a
+computation over the code.**
+
+**And it answers my T+937 §1 open question by family:** the mount defect at
+T+847 was `remote_home` present / `transport_env` missing — **a launch-line
+defect wearing the costume of an artefact defect**, exactly as this rule
+predicts.
+
+### 3. A retraction of a worked example — the false-credit error with its sign flipped
+
+**[first-hand, `d313556e`]**
+
+> *The threshold must exceed the longest **QUIET** interval, not the longest
+> stage: a stage that writes into the run tree keeps the detector fed
+> (`build_workset` ran **24 min under 1200 s twice**). **Run 7 was not an
+> instance** — its output validation took **0.85 s** and refused; the 20 minutes
+> were an escalation with no recipient. The validator feared to take tens of
+> minutes **measured 7 s.** **Blaming a death on a choice that did not cause it
+> is the false-credit error with the sign flipped.***
+
+**That last sentence is a new formulation and it completes a pair.**
+`753e060f` at T+786: *a fix credited with a save it did not make gets
+over-trusted.* **This is the same error pointed the other way — a choice blamed
+for a death it did not cause gets over-avoided.** Both distort the next decision;
+neither is caught by care.
+
+**And the correction is quantitative in both directions**: a validator feared to
+cost tens of minutes measured **7 s**, and a stage that does not stall
+(`build_workset`, 24 min) never threatened the detector because **it writes**.
+
+### 4. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged) |
+| 已经耗时 | **~981 min** (mission.md 06:19:11 → 22:40:12) |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 still zero measurements** |
+| 可靠性 | **中** |
+
+**Unchanged: module 4 ran twice and measured nothing.** **The estimate for stages
+1–3 stands at ~90 minutes and is unaffected.**
+
+**Hold `29313`: 15 h 20 min left.**
+
+### 5. 当前进展
+
+```
+3bf8c2   dead   reached m4_kernel_opt; module 4 refused twice (missing --var gpu)
+                /data/yihou/e2e_flow8/kfo  224 K, 27 files written in 30 min
+967186   ALIVE  pid 21292, container=yihou_e2e_chain9, started 22:32:21
+                deploy_and_prove: running   verdicts 0/0
+                carries gpu=4  (the fix)
+node     8 cards VRAM 0 %, no yihou_* container — run is 7 min old
+total runs: 19
+```
+
+**`kfo/` reached only 224 K.** Consistent with STEP 4 never measuring; **the
+forge wrote its scaffolding and stopped.**
+
+### 6. Code problems
+
+**Root-caused, fixed in the launch line:** `--var gpu` absent while `measure_gpu`
+present. **Six other empty-default variables are enumerated and marked
+un-refuted** — **not fixed, and honestly labelled.**
+
+**Carried, root-caused, unfixed:** `baseline` with two incompatible consumers
+(`apply.py:828`); stall threshold vs the longest **quiet** interval;
+`preflight.sh:211`; teardown-vs-preflight sequencing; `--var jobid` vs
+`_agree_or_die`; `etcd.log` on no path; `min_resolve_ratio` floor of zero; the
+router `/health` gate vs a cold JIT compile; three refusals naming unreadable
+`--var`s.
+**Carried unread since T+94:** the eight `jsonschema` validators — **sixteen
+hours.**
+
+### 7. 未定性
+
+- **What module 4 costs.** **Still zero measurements after two attempts** — and
+  this is the question that decides whether `packup` is reached. 15 h 20 min.
+- **The six un-refuted empty-default variables.** Enumerated, untested. **Each
+  one can produce a refusal that reads as an artefact defect.**
+- **Whether `baseline` blocks module 5** (T+877).
+- **What module 5 consumes if module 4 is replayed** — **thirtieth consecutive
+  section.**
+
+### 8. 新增 commit
+
+Since T+937, three:
+
+```
+55081e55  checkpoint R2 T+937 — mine
+f273f0e1  validator failures: m4 refused twice, cause is a missing --var gpu
+58c5c56e  CLAUDE.md: the present half of a variable pair makes the absent half
+          look covered
+d313556e  CLAUDE.md: the stall rule's second half, and a worked example that is
+          not one
+```
+
+### 9. 其他
+
+**Two of tonight's three commits are rules that supersede rules, and both
+supersede them in the same direction: from a document to a computation.**
+
+```
+was  "audit the whole variable table every launch"
+now  "subtract your launch line from the package's empty-default vars" — 2 cmds
+     because THE TABLE WAS WRONG
+
+was  "set the stall threshold above the longest stage"
+now  "above the longest QUIET interval" — because a stage that writes feeds the
+     detector, measured: build_workset 24 min under a 1200 s threshold, twice
+```
+
+**Both old versions were written down, read, and followed. Both failed anyway**,
+and in each case the replacement is something you compute rather than something
+you remember. **This file has argued all day that only the remember-it tier
+decays; tonight two rules crossed from that tier into the checkable one, and each
+crossing was paid for by a specific death.**
+
+**The third commit retracts a worked example rather than defending it** — run 7
+was blamed on a stall threshold that had nothing to do with it. **A rule that
+keeps a false example loses the thing that makes it trustworthy**, and dropping
+the example cost nothing because the rule survives on `build_workset`'s two
+measured 24-minute runs.
