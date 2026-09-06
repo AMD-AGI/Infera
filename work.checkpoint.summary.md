@@ -10998,3 +10998,197 @@ decay** — the criteria cannot be bent toward the first data point if they were
 written before it arrived. **Whether these three documents are good, I have not
 read. That they were written first is a fact about their mtimes**, and it is the
 part that cannot be recovered later.
+
+---
+
+## R2 T+62 — 2026-09-06 07:36 UTC
+
+**T+62 = wall-clock delta from the baseline** (06:33:41 → 07:35:22, read in the
+same command as the write).
+
+### 1. The interval's event — `deploy_and_prove` entered output validation
+
+```
+07:29:59   phase  deploy_and_prove: running -> output_validating
+07:29:59   store/handoff/27dd187f-….json  written
+07:29:59   zone  validation.68eec6d6-….output_validation.d158bc57  created
+```
+
+**This is the first validator invocation of the round on this cluster.** At
+07:35:22 it had not returned: no `verdict`, no report anywhere under the zone.
+**Elapsed in validation at this write: 5 min 23 s.** I do not know whether that
+is normal for this validator set here; the measurement that would say is a
+completed one to compare against, and there is none yet.
+
+**The one thing I checked before it returns, because it is the check that is
+worthless afterwards:**
+
+```
+materials/27dd187f-…/v1     37 files
+args.json                   {"layout": "deploy_kit.layout"}   (non-empty)
+```
+
+**37 files, staged from `v1`, and the args are not empty.** Those are the two
+failure modes the first cluster spent a day on — a zone handed a zero-file
+directory produces a well-formed refusal that reads exactly like a producer
+defect, and empty `args` makes a validator pass trivially. **Neither is present
+here.** Recorded now precisely because once a verdict exists, nobody re-reads
+the zone.
+
+**I am not claiming the verdict will be a PASS.** I am claiming that if it
+refuses, the refusal will be about the artefact.
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~13 %** (+1) |
+| 已经耗时 | **~76 min** (mission.md 06:19:11 → 07:35:22) |
+| 预估耗时 | **still absent** |
+| 可靠性 | **中** |
+
+**+1, not more.** Entering validation is a state transition, not a result. The
++12 last interval was bought by 147 generated tokens; **this interval bought a
+dispatch.** Hold `29184` has **6 h 25 min** left (14:00:01 − 07:35:22).
+
+### 3. 当前进展
+
+```
+main               running
+m1_deploy          running
+deploy_and_prove   output_validating   ← since 07:29:59
+m2_profiling       waiting_handoff
+m3_analysis        waiting_handoff
+m4_kernel_opt      waiting_handoff
+m5_integration     waiting_handoff
+```
+
+**Node at 07:34:53:** all eight cards VRAM 0 %; `docker ps` shows only
+`rc_26_7_902` and `xiaoming-dev`, both foreign and neither GPU-holding. **The
+two `yihou_dk_selftest*` containers seen last interval are gone** — the
+callability arm finished and tore itself down between 07:03 and 07:34. **I did
+not observe it complete; I observed that it is no longer there**, and those are
+different statements.
+
+**Owners' output this interval, by mtime — names and sizes, not judgements:**
+
+```
+m35  PRE-REGISTER.md        19 565 → 27 820 B   07:17:24
+     RUNG5-CHECKLIST.md      9 933 → 15 788 B   07:19:27
+     LAUNCH-CHAIN-m35.md              9 591 B   07:31:46   (new)
+     m3_extract.py                    9 727 B   07:32:59   (new)
+     known/{harness,module,mixed}/…/workset.yaml + usable_op.json
+                                                07:32:59–07:33:09
+     watch_for_verdict.sh + …snapshot.sh        07:28:01–07:28:24
+     findprobe/, watchprobe/  — probe scratch
+m2   graft_kit.sh                     7 288 B   07:25:44   (new)
+     LAUNCH-CHAIN.md                 15 449 B   07:33:39   (new)
+     PRE-REGISTER-m2.md    12 838 → 17 058 B    07:34:07
+     LAUNCH-m2.md          10 161 → 12 556 B    07:20:49
+m1   run.log                          4 121 B   07:29:59
+```
+
+**`known/{harness,module,mixed}/` is worth naming as a shape, not a
+conclusion:** three named fixtures with hand-sized `workset.yaml` files, built
+by `m3_extract.py`. **That is the outline of "let a new instrument grade a
+sample whose answer you already know"** — the repair the first cluster reached
+only after four confident false refusals. Whether these fixtures do that, I have
+not read.
+
+**`watch_for_verdict.sh` and its `.snapshot.sh` sibling.** A snapshot copy
+beside a shared script is the fix for "bash reads a running script lazily, and
+someone else's edit moves the offset." Recorded as the shape; I have not
+verified the snapshot carries its provenance header.
+
+### 4. Code problems
+
+**None fixed by me; three bug records committed by others this interval.** I
+quote their subject lines and do not restate them wider than they were written:
+
+```
+8637b3e9  bug record 2026-09-06 entry 4: PIPESTATUS is empty in the shell we
+          type into
+935e9973  bug record: bfs errors where GNU find would not, and 2>/dev/null
+          hides it
+5166c897  bug record 4b: bfs errors loudly on relative -newermt; 2>/dev/null is
+          what makes it silent
+```
+
+**All three are instrument failures, not product failures**, and all three are
+the same family this record has been filling for two days: **a tool that answers
+a different question than the one asked, and a redirect that turns the
+disagreement into silence.** `2>/dev/null` appearing in two of the three is the
+part worth carrying — **the previous round's rule was "do not put `2>/dev/null`
+on a command that can fail"; these two are that rule being collected twice on a
+new machine because `find` here is `bfs`.**
+
+*Method note against myself: I used `find … -newermt … 2>/dev/null` in this very
+interval to enumerate teammate files. If `bfs` errored, my listing is short and
+would look complete. The listing above returned 25 rows with plausible
+timestamps, but that is not proof — **I am flagging my own instrument, not
+clearing it.***
+
+- **`scripts/teardown.sh` settle gate** — fixed last interval, unchanged.
+
+### 5. Non-code problems
+
+**Nothing new this interval.** The four from T+31 stand unchanged: no corpus,
+`transport=spur` dead, seven disagreeing launch blocks in `RUN-PLAN.md`, and the
+`agent_sys` namespace-package collision.
+
+**One clarification I owe on my own last section.** I wrote that the image
+digest was "corroborated by two reads rather than asserted" and then said they
+are not two methods. **Holding both: the build log's `writing image` line and
+`deployment.json`'s `image_id` are the same value travelling two paths, which
+catches a transcription error and nothing else.** It does not establish that the
+image contains what the Dockerfile intended.
+
+### 6. 未定性
+
+- **The verdict.** Open for 5 min 23 s at this write, and it is the single most
+  informative thing that will happen next. **`materials` = 37 files and
+  non-empty `args` are already recorded, so whatever it says can be read at face
+  value.**
+- **Why validation is taking this long.** I do not know. **The measurement that
+  would answer it: the validator's own report once it lands, or the zone's
+  `home/`/`tmp/` growing.** Both were empty of results at 07:35:22.
+- **`expect_ranks=2` vs. `tp=4`** — carried from T+31, untouched, still unread.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched.
+- **Whether `m35/known/*` fixtures have known answers** *before* they are used
+  to grade anything. Open, and it is cheap to close later by reading the mtimes
+  against the first grading run.
+
+### 7. 新增 commit
+
+Since T+31, four on `dev.yihou.aiopt.task_package.concat`:
+
+```
+8fcdb00b  checkpoint R2 T+31 — mine
+8637b3e9  bug record 2026-09-06 entry 4: PIPESTATUS is empty in the shell we
+          type into
+ae9bb3ab  m5: expose eval_thinking; record the unwired-knob and file-set
+          findings
+935e9973  bug record: bfs errors where GNU find would not, and 2>/dev/null
+          hides it
+5166c897  bug record 4b: bfs errors loudly on relative -newermt; 2>/dev/null is
+          what makes it silent
+```
+
+**`ae9bb3ab` is the first commit this round that changes the package rather than
+the record** — it wires up `eval_thinking`, one of the eleven unwired knobs from
+`7ae653c2`. **I have not read its diff and do not know whether the other ten are
+addressed.**
+
+### 8. 其他
+
+**Three of the five commits this interval are bug records about the team's own
+tools, and none is about the thing being built.** That is not a complaint. On
+the first cluster the same ratio held and the tool bugs were the ones that cost
+runs — a `pkill` pattern that matched its own argv, a `find` that failed to zero,
+a `tail -1` that ate the line explaining four deaths.
+
+**What is different here is the timing: these are being written before a chain
+has died on them.** `bfs` behaving unlike GNU `find` was found by someone testing
+their probe, not by a probe silently under-reporting during an incident. **That
+ordering is the whole value, and it is the kind of thing only a timestamp can
+show** — which is why the mtimes above are listed even when the contents are not.
