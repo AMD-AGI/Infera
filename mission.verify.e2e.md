@@ -154,9 +154,19 @@ expensive one; put it last and reuse its output once obtained.**
    stalled early and may never have staged the same zone set, so it and the real-path
    number were probably never the same population. **Do not treat them as a
    contradiction requiring explanation until the zone counts are compared.**
-   **The zone directory is named `validation.<TASK-ID>.<phase>.<hash>` — the owning
-   task is IN the name, and the store maps it to a closure. Resolve the identity, do
-   not report a count.**
+   **Resolve the identity, do not report a count — and resolve it the unambiguous
+   way:** read the zone's own `inputs.json`, take the handoff id it lists, and read
+   that handoff's **kind**. Two indirect methods (directory nesting; mapping the zone
+   name's task id through the store) disagreed with each other on one zone while the
+   kind was never in doubt.
+   **What the first cluster ended up with:** eight runs measured that way, **seven
+   empty and all seven the same kind**, plus **one positive control where the same
+   kind staged from a populated version and was fine.** So the variable is **which
+   version gets staged**, not the closure and not a rate. **That kind is the only one
+   in the graph that consistently carries two versions, and the only stage that
+   gathers from four producers writes it.**
+   **It reproduces on a login node, fully mocked, with no GPU** — the whole question
+   costs about twenty minutes and no cards. **Do not spend a GPU round on it.**
    **Before attributing any refusal:**
    ```sh
    bash assets/lib/refusal_saw_something.sh <run dir>

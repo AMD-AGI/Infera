@@ -2025,3 +2025,58 @@ one kind, all of them** — smaller and far more actionable than any rate.
 was made on a broken resolver, not on evidence. **A withdrawal is a claim pointing the
 other way and deserves the same check as the claim it withdraws** — which this file
 already said, twice, before I did it again.
+
+### 2026-09-06 08:1x — it is a VERSION-SELECTION question, it has a positive control,
+### and it reproduces with no GPU in 18 minutes
+
+**The right discriminator was never the closure.** It is the handoff the zone lists in
+its own `inputs.json`, and that handoff's **kind**. Both earlier readings *inferred*
+the identity — one from directory nesting, one from mapping the zone name's task id
+through the store — and on one zone the two inferences disagreed **while the kind was
+never in doubt.**
+
+```
+zone -> inputs.json: 56751b24 -> kind: profiling_evidence
+        handoff 56751b24:  v0 = 0 files,  v1 = 49 files
+```
+
+**Eight runs, measured that way:**
+
+```
+r7m1a   14 zones  1 empty  profiling_evidence  v0
+r6m1a   13        1        profiling_evidence  v0
+r5m1c   13        1        profiling_evidence  v0
+r5m1b   13        1        profiling_evidence  v0
+r5m1a   13        1        profiling_evidence  v0
+w17m1g   6        1        profiling_evidence  v0
+w17m1e  13        1        profiling_evidence  v0
+p6m1    11        0        profiling_evidence  v1, 45 files   <- POPULATED
+```
+
+> **Seven for seven on the kind, and the eighth is the positive control we said we
+> never had: the same kind staged from `v1` and it was fine.**
+
+**So the variable is which VERSION gets staged, not the closure and not a rate.**
+`profiling_evidence` is the only kind that consistently carries two versions, and
+`merge_profiling_evidence` — the only stage gathering from four producers — writes it.
+**The two-kinds-and-a-merge hypothesis is now narrowed to a version-selection question
+with a control attached.**
+
+**NOT claimed:** that the validator set (`-noval` vs the full package) is the cause.
+`p6m1` differs in package, stages and node at once, and is n=1.
+
+### And it is cheap now
+
+**The fault reproduces on the login node, fully mocked, with no cards:**
+
+```
+mock loop run 1   login node, full package, mock_stages=all, no GPU
+    EMPTY  kind=profiling_evidence  closure=m2_profiling
+    1 of 11 zones handed ZERO files
+```
+
+**Not the hardware, not the node, not a real stage, not m2 doing real work.**
+**Every expensive explanation is ruled out, and the question costs 18 minutes instead
+of a 90-minute GPU round.** A decisive comparison — same package-generation mode as
+`p6m1`, same mocked stages, same node, differing only in the validator set — is the
+next reading.
