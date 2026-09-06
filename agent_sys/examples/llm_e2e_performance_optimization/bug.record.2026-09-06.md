@@ -1636,3 +1636,56 @@ pmon/preflight.json           13:44:29      pmon/results/preflight.json    18:30
 另有一条**时间上的巧合,不是机制**:`mixed_stacks/` 创建于 **18:35:21** 且为空,
 引擎最后一行是 **18:35:24**,相隔三秒,随后 `/stop_profile` 超时。
 **记下来是为了下次有第二个样本时能比对,不是为了现在下结论。**
+
+---
+
+## 一条拒绝信息,点名了一个守卫**并不读**的变量 —— 关掉 stack window 要三个 `--var`,而没有一条信息说全
+
+*2026-09-06 19:1x,m2。这一条是在「照着拒绝信息去修」之前读代码才发现的;
+照那句话做会原地再吃一次同样的拒绝。*
+
+### 三个名字,一个决定
+
+```
+--var stack_window_s=0            steps/m2_profiling.yaml:367  E2E_STACK_WINDOW_S
+--var stack_ranks=0               steps/m2_profiling.yaml:133  expect_stack_ranks
+--var kernel_table_min_launchers=0  steps/common.yaml:162      min_launchers_in_top_n
+```
+
+`check_trace_coverage` 的 5b 规则是这样开关的:
+
+```python
+# check_trace_coverage.validator/check.py:223
+want_ranks = int(args.get("expect_stack_ranks", 0) or 0)
+if want_ranks <= 0:
+    return True
+```
+
+**它读 `expect_stack_ranks`,而没有任何地方从 `stack_window_s` 推出它。**
+于是 `--var stack_window_s=0` 单独设,产出的是一轮**故意不采 stack window
+然后因为没有 stack window 被拒绝**的运行:`stacks_manifest.json is missing`,
+外加 `check_kernel_table` 规则 9 再拒一次。
+
+### 缺陷本身
+
+**每条拒绝信息点名的子集都不一样,而且没有一条点全:**
+
+| 出处 | 它说要设什么 | 问题 |
+|---|---|---|
+| `check_trace_coverage.validator/check.py:233` | `--var stack_window_s=0` | **正是这个守卫不读的那一个** |
+| `check_kernel_table.validator/check.py:272` | `stack_window_s=0` 和 `min_launchers_in_top_n` 设 0 | 后者不是 `--var` 名,发车行上叫 `kernel_table_min_launchers` |
+| `steps/m2_profiling.yaml:131` 的**注释** | 三者的耦合关系 | 只存在于其中一个变量旁边的注释里 |
+
+> **本仓库已有「一个只守住复合值里某一个字段的修复,会把兄弟字段留在原地」。
+> 这一条多一个拐点:指引不只是不全,它指错了字段。**
+> **一条叫你去设一个守卫根本不读的变量的信息,代价是一次发车,
+> 而发车之后的失败和你本来想避开的那一个一模一样。**
+
+### 修法(建议,未实施)
+
+不是把三个变量并成一个——那会改变语义(采不采、期望几个 rank、表里要几个
+launcher 是三个可以独立取值的决定)。**修的是信息:每条拒绝把三个 `--var` 名
+一次列全,并且用发车行上的名字,不用 yaml 内部的键名。**
+
+*另附:`expect_stack_ranks` 本身今天由 m35 先提出,这里新的是「它和另外两个是
+同一个决定的三个名字」,以及「三条信息里有两条指错」。*
