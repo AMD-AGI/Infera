@@ -14095,3 +14095,159 @@ kernel JIT compile made a healthy engine look dead for 33 seconds, and a
 component that gates on health took the bait. **Nothing was broken; something was
 slow, and a timeout turned slow into failed.** That is a class this file has not
 recorded before today.
+
+---
+
+## R2 T+607 — 2026-09-06 16:41 UTC
+
+**T+607 = wall-clock delta from the baseline** (06:33:41 → 16:41:00).
+
+### 1. T+578's mechanism is retracted — and I measured the counterexample myself
+
+**The JIT-build-stalls-the-detokenizer story I wrote one section ago is wrong.**
+`734efc0d` retracts it, and **I have first-hand corroboration I gathered before
+reading the retraction.**
+
+**[observed, first-hand] Every arm of the currently-running chain carries the
+exact signature, including the one that succeeded:**
+
+```
+/data/yihou/e2e_flow4/<arm>/logs/worker.log
+  chain4   start build ×3   Health check failed ×4   fired up ×1
+  pmoff    start build ×3   Health check failed ×4   fired up ×1
+  pmon     start build ×3   Health check failed ×4   fired up ×1
+  build costs: 12.76 s, 36.7 s, 36.4 s
+```
+
+**`run_profiling_mode_off` = `succeeded` for the `pmoff` arm.** The signature I
+called the cause is present, four times, in an arm that finished cleanly.
+
+**[from `734efc0d`, and the sampling diagnosis is the part worth keeping]**
+
+> *21/21 worker logs carry it, **including every successful bring-up**: `c2a`
+> which served a real completion, `chain3` which passed at 15:21:42, and
+> `serves-d8ff1deb` whose `check_deploy_serves` passed. **I sampled only
+> failures, and that sample could not structurally contain a counterexample.***
+
+**"That sample could not structurally contain a counterexample" is the cleanest
+statement of this failure mode anyone has written today.** Looking only at
+failures cannot distinguish a cause from a constant.
+
+**And the cost was not hypothetical:**
+
+> *The retry I proposed on this signature **killed two healthy bring-ups in run
+> 4**, both at 130 s against a 2400 s budget, mid cold start, with no
+> `router.log` in either. **The kit's own console said the health-check failures
+> were the cold start and not a hang, thirty seconds before aborting on them.***
+
+**A guard built on a universal signature aborts everything.** It fired at 130
+seconds of a 2400-second budget, on healthy runs, **against the kit's own printed
+statement that this was a cold start.**
+
+**Where that leaves run 3:** *unexplained again — its router could not reach etcd
+on 8142.* **That is where I was at T+548**, and I want to be exact: my T+548
+sentence named etcd as the *cause* and that is still not established. **The
+retraction restores "unexplained," not my original claim.** I was wrong at T+548
+(overclaimed a cause), wrong at T+578 (adopted a mechanism that was a constant),
+and the honest position is the one nobody has been able to improve on: **the
+router could not reach etcd on 8142 and nobody knows why.**
+
+**The original text was kept below the retraction**, with the note *"the
+reasoning is worth more than the conclusion."*
+
+### 2. Run 10 is the deepest point of the round — both profiling arms, no refusals
+
+**[observed] `20260906T154908-d9c7af`, pid 554448, last write 16:40:25:**
+
+```
+m1_deploy               succeeded
+deploy_and_prove        succeeded          ← stage 1 green, 7th time
+run_profiling_mode_off  succeeded          ← sealed
+run_profiling_mode_on   running            ← live now
+m2_profiling            running
+
+six verdicts, ZERO refusals:
+  layout · environment ×2 · deploy.sh · require_present · max_error_rate
+
+yihou_e2e_etcd_…_pmon  16:33:46
+yihou_e2e_sgl_…_pmon   16:33:47      cards 0-3 at 76 %
+```
+
+**`run_profiling_mode_on` has never run before on this cluster.** Every prior
+chain died at or before `_off`. **This is the first time the second profiling arm
+has been in flight.**
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~48 %** (+2) |
+| 已经耗时 | **~622 min** (mission.md 06:19:11 → 16:41:00) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+2 for new ground: `_on` in flight with a clean verdict sheet.** Not more —
+**`m2_profiling` still has not completed, on the eighth attempt.**
+
+**Hold `29313`: 21 h 19 min left.**
+
+### 4. Code problems
+
+**Retracted, not a defect:** the detokenizer health-check signature. **A guard
+was built on it and killed two healthy bring-ups; that guard must not ship.**
+
+**Unexplained, open:** run 3's router could not reach etcd on 8142.
+
+**Carried, root-caused, unfixed:** `preflight.sh:211` device-mapping instrument;
+teardown-vs-preflight sequencing; `stack_ranks` / `stack_window_s`; `--var jobid`
+vs `_agree_or_die`; `etcd.log` written on no path.
+**Carried, documented, not enforced:** the `trace_end_ms` 73 s floor.
+**Carried unread since T+94:** the eight `jsonschema` validators.
+
+### 5. 未定性
+
+- **Whether `_on` completes and `m2_profiling` seals.** Live now. **The furthest
+  the round has reached.**
+- **Whether stacks get captured with `trace_end_ms=120000`.** Open for four runs;
+  **`_on` reaching `running` is the first time the question can actually be
+  answered.**
+- **Why run 3's router could not reach etcd on 8142** — reopened.
+- **What module 5 consumes if module 4 is replayed** — **eighteenth consecutive
+  section**, and if `m2_profiling` seals it stops being hypothetical.
+
+### 6. 新增 commit
+
+Since T+578, one:
+
+```
+b6d21a09  checkpoint R2 T+578 — mine  (its §1 mechanism is retracted above)
+734efc0d  bug.record 14: RETRACTED — the detokenizer signature is universal,
+          not a fault
+```
+
+**My T+578 commit message asserts the retracted mechanism in its subject line**,
+and a commit message cannot be amended once it is in a shared history. **This
+section is the only correction that will travel with it** — which is precisely
+the hazard this file records about commit messages, now applying to mine.
+
+### 7. 其他
+
+**Today's most expensive pattern, stated with three instances and a cure.**
+
+```
+sampled only failures        -> a constant looks like a cause
+                             -> a retry guard killed 2 healthy bring-ups
+read tail -4 of a log        -> the recovery looked like the state
+read the line before an      -> adjacency looked like causation
+  exception
+```
+
+**All three are mine or the owner's from the last two hours, and all three were
+resolved the same way: by looking at something known to be good.** The owner
+swept 21 worker logs and found the signature in every successful one; **I listed
+three arms of a live chain and found it in the arm that had already sealed.**
+
+**Neither of us needed a new tool.** The `pmoff` arm was sitting there with
+`succeeded` next to it in the same `store/task` listing I print every thirty
+minutes. **The control was already in the sample; the question just had not been
+asked of it.**
