@@ -10545,3 +10545,208 @@ effect.**
 **One correction to the brief I was given:** the container is
 `yihou_e2e_flow_088_09050928`, not `…_09280928`. Trivial, except that a
 container name is exactly the kind of string someone greps for.
+
+---
+
+## R2 T+0 — 2026-09-06 06:33 UTC — BASELINE, second cluster
+
+**Numbering restarts with an `R2` prefix.** The previous section is `T+2710`
+(2026-09-05 09:32 UTC) and belongs to the *first* cluster's round. This is a new
+round, on a different machine, against a mission file rewritten this morning.
+Continuing the old counter would have put ~1 261 wall-clock minutes of *no work
+on this round* inside a number that reads as effort. **A new prefix costs a
+grep; a colliding number costs a wrong reading.**
+
+**Every time in this section came from `NOW=$(date -u …)` or from a `--time-style
+=+'%F %T'` listing, read in the same command that used it.** Nothing here is
+extrapolated from an earlier clock read.
+
+### 1. Why this entry is a baseline and not a progress report
+
+**Nothing has run yet.** That is the measurement, and it is the point of writing
+it down now:
+
+```
+/data/yihou/agent_sys_runroot/runs/      does not exist
+/data/yihou/e2e_verify_20260906/m1/      empty          (mtime 06:30:47)
+/data/yihou/e2e_verify_20260906/m2/      materials/ only, empty (06:31:16)
+/data/yihou/e2e_verify_20260906/m35/     empty          (06:32:05)
+/data/yihou/e2e_verify_20260906/notes/   empty
+docker ps -q | wc -l                     2   (both foreign, see §4)
+rocm-smi --showmemuse   GPU[0..7] VRAM%  0 0 0 0 0 0 0 0
+```
+
+**The earliest artefact of this round I can date is `mission.md`, mtime
+2026-09-06 06:19:11** — so the round is ~15 minutes old at this write. Later
+sections have something to be measured against; this one does not, by
+construction.
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **0 %** |
+| 已经耗时 | **~15 min** (from `mission.md` mtime 06:19:11 to 06:33:41) |
+| 预估耗时 | **absent** |
+| 可靠性 | **高 for the 0 %; N/A for the estimate that does not exist** |
+
+**The 0 % needs its denominator said out loud, or it will be misread.** The
+previous round reached ~82 % **of a chain on a different cluster**. This round's
+deliverable is *reproducing that chain here*, and **no stage of it has been
+attempted on this node**. The 82 % does not transfer and is not a starting
+credit.
+
+**预估耗时 stays absent** for the same reason it was absent all of yesterday:
+**there is no completed five-stage chain on this cluster to divide by.** I will
+not produce one from the other cluster's timings — a different image, a
+different model, and no sealed corpus make that a guess wearing a number's
+clothes.
+
+**Reliability of the 0 %: 高.** It rests on four independent absences read this
+minute (no run root, three empty note dirs, zero VRAM on all eight cards). It is
+the one number in this table that is hard to be wrong about.
+
+### 3. 当前进展 — the cluster, measured
+
+```
+hostname     smci355-ccs-aus-n04-25.prov.aus.ccs.cpe.ice.amd.com
+hold         29184  RUNNING  Compute-DCPT  --exclusive  gres/gpu:8
+             StartTime  2026-09-05T22:00:01
+             EndTime    2026-09-06T14:00:01
+             REMAINING  7 h 26 min  (14:00:01 − 06:33:41)
+filesystem   /data   49 T,  41 T avail   ← this is the scratch that exists
+             /       14 T,  13 T avail
+             /shared_nfs   EMPTY (two entries, both `.`/`..`, root-owned)
+GPUs         8 × MI355X, all eight at VRAM 0 %
+```
+
+**`REMAINING`, not elapsed.** `RunTime=08:32:23` is what `squeue`'s `%M` would
+have shown and it is the wrong field for every scheduling decision.
+
+**Materials named by `mission.md`, both confirmed present:**
+
+```
+/apps/data/models/GLM-5.3-Flash                        exists
+/apps/yihou/packups/glm53flash.mix.packup_20260830     exists
+/apps/data/models/Qwen3-32B                            exists
+```
+
+**The third is not in `mission.md`** — it comes from the leader's phase plan
+(phase A on Qwen3-32B, phase B swapping in GLM-5.3-Flash). Recorded as the
+leader's plan, not as a mission requirement, because `mission.md`'s *Materials*
+section names only the GLM path.
+
+**Team, and what each holds** [relayed from the leader's brief, not yet
+corroborated by any artefact — all three note dirs are empty]:
+
+```
+m1-deploy      engine image + module 1
+m2-profiling   materials, variable table, module 2
+m35-chain      modules 3/4/5 + packup, pre-registration
+```
+
+### 4. Non-code problems — the localisation traps, and they are the whole story
+
+**(a) There is no sealed corpus on this cluster, and `/shared_nfs` is empty.**
+On the first cluster the entire mock loop — the 4-minute login-node loop, every
+`mock_stages=` replay — stood on
+`/shared_nfs/yihou/agent_sys/cheat_for_mock/`, 25 sealed handoffs. **Here that
+path's parent contains nothing at all.** Consequence, stated plainly rather than
+solved: **nothing can be replayed on this node until this round produces it
+first.** The cheapest debugging loop the previous round had does not exist here
+yet.
+
+**(b) We are ON the compute node, not on a login node.** The first cluster's
+whole operating model — read-only `/shared_nfs`, `spur exec` to reach GPUs, no
+local docker daemon — **does not describe this machine.** `docker ps` answers
+directly, `rocm-smi` answers directly, and writes to `/data` land locally. Every
+instruction in the carried-over `CLAUDE.md` that begins "from the login node"
+needs re-reading before it is obeyed, not after.
+
+**(c) Two foreign containers are on this node and neither holds a GPU.**
+
+```
+rc_26_7_902     unifiedtrainingdockers.azurecr.io/utd/ci:primus_…_20260902
+                created 2026-09-03 19:05:51 UTC   Up 2 days
+xiaoming-dev    tasimage/primus:pr-1048
+                created 2026-09-03 02:19:00 UTC   Up 3 days
+```
+
+**All eight cards read VRAM 0 %, so under the standing rule — stop GPU
+occupants, leave CPU containers alone — neither is in scope.** I am recording
+them, not touching them; I am an instrument this round. **I report container
+identity by `CreatedAt`, not by `Up 3 days`**: a relative duration silently
+re-anchors to whenever it was printed and is not comparable with anything.
+
+**(d) A VRAM-0 reading is not "the node is free" and I am not claiming it is.**
+The sixth failure mode from the first cluster applies unchanged: occupancy
+measures *now*, a live chain occupies the *future*, and a CPU-phase chain is
+invisible to `rocm-smi`. Here the process-table half of that check is also
+satisfied — no run root exists, so no chain has been launched — **but the two
+questions are separate and I answered both.**
+
+### 5. Code problems — none observed, and that is not the same as none present
+
+**No code has been executed against this cluster by this round**, so I have
+nothing to report in this category and will not manufacture something. The
+package `agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/` is
+present with its eight top-level documents and `assets/`, `steps/`, `main.yaml`,
+`shared.yaml`; **I have not loaded it, and `show --package` has not been run on
+this node.** The first thing worth measuring next interval is whether it even
+type-checks here.
+
+### 6. 未定性 — open, and deliberately left open
+
+- **Whether the engine image for phase A exists yet.** 157 images are on this
+  node, including many `lmsysorg/sglang-rocm:*-mi35x-*` and `rocserve/engine-*`
+  tags. **None of them is known to be "the locally built infera image" the plan
+  calls for**, and I did not guess by name — the first cluster charged us five
+  times for reading ownership off a name prefix. **The measurement that would
+  settle it: m1's own note, or the digest the module-1 environment record
+  writes.** Neither exists yet.
+- **Whether the carried-over launch block in `RUN-PLAN.md` is valid on this
+  cluster at all.** It names `--var transport=spur`; there is no spur here. **Not
+  yet read against this node.**
+- **What replaces the 4-minute mock loop.** With no corpus, the fast falsifier
+  that made the previous round tractable has no input. Open.
+- **Whether module 4 being degraded/replayed this hold** [the leader states this
+  is the user's decision] **leaves anything for module 5 to consume**, given
+  there is no sealed `kernel_optimization` here to replay *from*. Open, and it is
+  the one that could stall the far end of the chain.
+
+### 7. 新增 commit
+
+**None by me this interval** — this section is the first thing I have written.
+
+Two commits landed on `dev.yihou.aiopt.task_package.concat` before I started, and
+I name them without characterising work I did not read:
+
+```
+a41c119e  mission: reproduce, debug and accept the e2e chain on a second cluster
+3920f7e8  CLAUDE.md: all three exemptions can coincide in one sentence …
+```
+
+**Uncommitted in the tree at 06:33:41**, recorded because a package stages the
+*working tree*, not `HEAD`, so these reach every task that starts from now on:
+
+```
+A   .claude/CLAUDE.handoff-refine.20260906-0627.md.bak
+M   .claude/CLAUDE.md
+??  .serena/  overlay-review.20260805.md  sglang_unified_pd_test.packup_20260727/
+```
+
+`work.checkpoint.summary.md` itself was **clean** before this append — `git diff`
+and `git status` both empty, checked in the same command as the write.
+
+### 8. 其他
+
+**What I am, and the one way I could break this round.** This file is 552 KB and
+four people edit it. **I append; I do not regenerate.** A rebuild that improves
+every line it touches still destroys the lines it did not know about, and the
+commit cannot tell a correct rebuild from a wrong merge. My scratch is
+`/data/yihou/e2e_verify_20260906/checkpoint/`.
+
+**Between writes I sleep rather than explore.** An instrument that writes into
+what it observes has stopped being one — and this round starts with three empty
+note directories that are *meant* to be empty, which is exactly the state a
+curious observer would be tempted to disturb.
