@@ -12767,3 +12767,167 @@ unchanged, the pair is interpretable after the fact.**
 first cluster's equivalent question — *what was different about the run that
 worked?* — was unanswerable there, because a run tree does not record its own
 launch line. **Here it took one `diff` of two records.**
+
+---
+
+## R2 T+366 — 2026-09-06 12:40 UTC
+
+**T+366 = wall-clock delta from the baseline** (06:33:41 → 12:40:17).
+
+### 1. Stage 2 ran on hardware and produced real traces — the deepest point of the round
+
+**[observed, first-hand] Run `20260906T113811-fdb0bd` reached
+`run_profiling_mode_off = succeeded` and `run_profiling_mode_on =
+output_validating`.** Two validators then refused, **and both refusals quote the
+contents they read:**
+
+```
+# check_trace_coverage                            (39 files in materials)
+  note: re-parsed 1788696891.2799642-TP-2.trace.json.gz:
+        1 395 036 events, 99 892 GPU kernels, 11.02 s — manifest agrees
+  note: 4 rank(s), 399 528 GPU kernel events
+  PROBLEM: items/result/stacks_manifest.json is missing — the round was asked
+           for a stack window and this handoff carries none, so no launcher
+           frame can be resolved from it. Set --var stack_window_s=0 to say
+           that is intended
+
+# check_kernel_table
+  note: 130 kernels, top 25 cover 82.5%, shares sum to 100.01
+  note: layout: structured_text (items/text.json)
+  PROBLEM: no launcher frames were resolved … and this round wanted at least 10
+           in the head. Set --var stack_window_s=0 and min_launchers_in_top_n
+           to 0 to say that is intended
+```
+
+**The profiling capture worked.** A validator re-parsed a gzip and counted
+**1 395 036 events and 99 892 GPU kernels in one rank**, agreeing with the
+manifest, and **399 528 GPU kernel events across 4 ranks**. A second one
+independently summed a 130-row kernel table to **100.01 %**. **These are numbers
+that only exist if the stage really ran** — the standard this record set at the
+first cluster and has been asking for since.
+
+**Both refusals have one cause: no stack window was captured**, so
+`stacks_manifest.json` is absent and no launcher frame can be resolved. **Each
+refusal names the variable that declares the omission intended.**
+
+**Run 7 launched 49 seconds later** and states the change:
+
+```
+launched_at_utc: 2026-09-06T12:19:08Z
+supersedes: 20260906T113811-fdb0bd (_off SEALED; _on refused by
+            check_trace_coverage + check_kernel_table)
+change: --var stack_window_s=0 --var kernel_table_min_launchers=0
+note:   min_launchers_in_top_n is a validator ARGS field (common.yaml:162);
+        the --var is kernel_table_min_launchers
+```
+
+**That `note:` is the interval's most transferable line.** The refusal told the
+operator to set `min_launchers_in_top_n` — **which is the name of the field the
+validator reads, not the name of the flag a human types.** Following the
+refusal's own wording literally would have produced a `--var` that reaches
+nothing, and by this record's oldest rule, **an unwired `--var` is silent**.
+
+***Against my own instrument:*** my verdict summariser labels each verdict by an
+arbitrary key from `args.json`, so it printed `expect_ranks [False]` for the
+trace refusal. **`expect_ranks` was correct — the report says "4 rank(s) …
+manifest agrees."** My label named a field the validator was *given*, not the
+field it *refused on*. **Same defect the launch record just documented, in my own
+tooling, found in the same ten minutes.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~42 %** (+6) |
+| 已经耗时 | **~381 min** (mission.md 06:19:11 → 12:40:17) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+6: stage 2 executed and produced measured artefacts.** `run_profiling_mode_off`
+is `succeeded` — **a sealed sub-handoff, not a pass on an empty check.** The
+refusals are about a capture option, not about whether the profiling worked.
+
+**Hold `29184`: 1 h 20 min left** (14:00:01 → 12:40:17).
+
+### 3. 当前进展
+
+```
+fdb0bd  dead   DEEPEST YET — _off sealed, _on refused (stack window)
+                last write 12:18:44
+041f89  ALIVE  pid 2840180, started 12:19:08
+                deploy_and_prove: running
+                yihou_e2e_chain_dk1_sgl   started 12:38:05
+                yihou_e2e_chain_dk1_etcd  started 12:38:02
+                cards 0-3 at 75 %, 4-7 at 0 %
+```
+
+**Run 7 is 20 minutes in and bringing up.** Prior stage-1 times: 42, 40, 29 min.
+
+### 4. Code problems
+
+**Cleared:** `env.sh:172` (run 6's `layout` = true).
+
+**Not a code defect — a capture-configuration mismatch:** the round asked for a
+stack window and the profiling stage produced none. **Addressed in run 7 by
+declaring it intended** (`stack_window_s=0`, `kernel_table_min_launchers=0`)
+rather than by capturing stacks. **That is a deliberate degradation and it is
+declared in the launch record**, which is the honest form of it — but the
+resulting `profiling_evidence` will carry no launcher frames, **and whether
+module 3 needs them is a question I have not seen asked.**
+
+**Carried unfixed:** whether all eight `jsonschema`-affected validators were
+repaired; unbooked-usage and missing-`depends_on` (T+186 §5); shared-`work_root`
+overlap unexamined; the `CLAUDE_CONFIG_DIR` placeholder, now five launch records.
+
+### 5. 未定性
+
+- **Whether run 7 clears `m2_profiling`** with the two flags set. **First time
+  the wall has been approached with the specific refusal answered.**
+- **Whether module 3 needs launcher frames.** `stack_window_s=0` removes them by
+  declaration. **If `m3_analysis` refuses for want of them, the degradation moves
+  the wall rather than clearing it.** Nobody has asked this yet and it is
+  cheap: read `check_*` for module 3's kind.
+- **Whether stages 3–5 fit in 1 h 20 min.** No measurement for any of them here.
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, **tenth
+  consecutive section**, and now one stage away from mattering.
+
+### 6. 新增 commit
+
+Since T+336, four (one is a merge — **the branch has diverged and been merged,
+which means other people's commits are now in this history**):
+
+```
+401ff10d  checkpoint R2 T+336 — mine
+ea35436a  Merge branch 'dev.yihou.aiopt.task_package.concat' … (merge)
+49f0374d  bug record: a refusal names the field it reads, not the flag you
+          type; renumber my sections around the merge
+fc549951  mission.verify.e2e: second cluster cannot test the empty-zone claim,
+          and why
+2f7ba262  bug record: four of today's costs share one shape — a value that
+          looks like an identifier and is a category
+```
+
+**`49f0374d` is the finding in §1, filed by its owner.** I reached the same shape
+from my own summariser independently and record both — **theirs from the launch
+path, mine from the reporting path, same hour.**
+
+**I have not read `fc549951` or `2f7ba262` beyond their subjects and do not
+restate them.**
+
+### 7. 其他
+
+**The refusals in §1 are the best-formed this round has produced, and it is worth
+saying exactly why.**
+
+Each one **states what it measured before it states what is wrong** — the trace
+validator reports 1.4 M events and agreement with the manifest, *then* names the
+missing file. **A reader learns that the stage worked and that one option was
+unset, in that order.** Compare `check_deploy_kit`'s crash at 07:29:59, which
+produced no verdict at all and would have been read as "the kit is bad."
+
+**And each names the escape hatch: `set --var X to say that is intended`.** That
+turns a refusal into a decision the operator makes explicitly, rather than a wall
+they route around silently. **The cost of the design shows up in the same
+breath** — the escape hatch was named with the field's internal name, and one
+line in a launch record was needed to translate it.
