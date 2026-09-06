@@ -93,3 +93,91 @@ reaches it. **I proposed an instruction fix for a code defect**, which is the
 mirror of the run-3 preflight case where the fix genuinely was the instruction.
 The question to ask first is *where is this value actually produced*, and I
 answered it second.
+
+---
+
+## `check_workset_runs` — REFUSED on run 7, and the artefact is fine
+
+Run `20260906T192406-5f24ca`, `build_workset` output validation, 20:18:48.998.
+**Zone had 43 files** (checked before attribution), and the refusal names a real
+operator and case — `gemm_aiter_bf16gemm_bf16_tn/case_001` — so it read content.
+
+```
+verdict  {"9037ab8a-2f29-46af-b871-46492e489efd": false}
+PROBLEM  the performance entrypoint exited 1: measure_in_container: cannot
+         derive a mount this cluster's docker authorization plugin will accept
+         from /data/yihou/agent_sys_runroot/runs/.../materials/.../items/codes
+```
+
+### Cause — a site parameter that reaches every task and no validator
+
+`assets/build_workset.task/measure_in_container.sh:277`:
+
+```sh
+case "$ROOT" in
+  /shared_nfs/*) MOUNT_AT="/shared_nfs" ;;
+  /home/*/*)     MOUNT_AT="/home/$(...)" ;;
+  *)             [ -n "$E2E_REMOTE_HOME" ] && MOUNT_AT=... || abort
+esac
+```
+
+Two branches, for the first cluster's two filesystems. **This host's run root is
+`/data/yihou/...` and matches neither.**
+
+`E2E_REMOTE_HOME: '${remote_home:-}'` is declared in the **task** env of
+`m1_deploy`, `m2_profiling`, `m3_analysis` and `m5_integration`.
+**`check_workset_runs`'s `args` carry `transport_path`, `transport_env` and
+`measure_gpu` — and not `remote_home`.** A validator declares no agent and is
+started with a closed environment, which is exactly why `transport_env` had to be
+added to this same validator (see the comment at `steps/m3_analysis.yaml:288`).
+**`remote_home` is that same fix, one variable short.**
+
+### Why the producer passed — and why that hid it
+
+The `build_workset` agent supplied the variable itself. From its transcript:
+
+```
+Bash: export E2E_REMOTE_HOME=/data/yihou; P="$AGENT_SYS_TASK_PACKAGE"; ...
+```
+
+Its `evidence/performance.json` is genuine: `ran: true`,
+`weighted_mean_ms: 0.1238`, node `smci355-ccs-aus-n04-25`, `gfx950`, 20:15:33.
+
+> **An ai body papered over a missing site parameter and a validator could not.
+> So the gap surfaced only on the validator side, where it reads like a bad
+> artefact. The artefact is fine.**
+
+This is the counterpart to a shape already in `bug.record`: there, a mock
+satisfied a check a real path could never satisfy, hiding a body's whole
+lifetime. Here an **agent** satisfies a requirement the **validator** cannot,
+hiding a package gap — and the same asymmetry (a body that can improvise vs one
+that cannot) is what makes it invisible until the closed-environment side runs.
+
+### The mount, measured rather than read
+
+The message's `ref:` rows are a catalogue from the other cluster and the file
+says so. So I measured this daemon:
+
+```
+20:21:22Z  docker run --rm -v /data/yihou:/data/yihou alpine  ->  MOUNT_OK, READ_OK
+           and it listed the exact zone path the refusal named
+```
+
+**`-v /data/yihou:/data/yihou` is accepted on this host. Observed, not relayed.**
+
+### Fix — two parts, and part 1 alone does nothing
+
+1. `--var remote_home=/data/yihou` on the launch line (reaches the four tasks).
+2. Add `remote_home: '${remote_home:-}'` to `check_workset_runs`'s args and pass
+   it into the validator's environment the way `transport_env` is.
+   **Without 2 the validator still refuses**, because the `--var` never reaches
+   a closed environment.
+
+Part 2 edits `steps/m3_analysis.yaml`, which is m3's file. **Not made by me.**
+
+### What this refusal is worth
+
+**It is the strongest single verdict this cluster has produced.** It refused a
+real artefact for a real, reproducible reason, named the file and the case, and
+the reason survived independent measurement. `check_workset_runs` had never
+refused anything here before; it now has, correctly.
