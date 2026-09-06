@@ -1368,3 +1368,64 @@ instrument 2 有同样的缺陷,却被立为决定者。
 它同时是 `VRAMSUM=272 KFD=0` 那条的镜像:那次是 `/proc` 跨不过命名空间
 所以**拒绝不足**;这次是 `HostConfig.Devices` 跨得过命名空间但答的是另一个问题,
 所以**拒绝过度**。**两次都是判别器回答了一个相邻的问题。**
+
+---
+
+## 14. 引擎自称 ready 之后一秒失去 detokenizer —— 而**修好的守卫这一次根本没被调用**
+
+**observed_at 2026-09-06T15:46:57Z（`date -u` 读出）；发现者 m35，运行 `20260906T150155-79bca5`。**
+
+上一条(§13)的修法落地了、被验过了、**而这次运行死在别的地方**。记下来是因为
+「我们刚修的那个」是最容易被当成死因的东西。
+
+### 时间线（全部来自那条臂自己的日志，不是退出码）
+
+```
+15:29:15  臂 preflight：六个端口全空、卡全空、ok: true、waited 0s
+15:30:37  worker: Application startup complete
+15:31:19  worker: The server is fired up and ready to roll!
+15:31:20  worker: Health check failed — no response from detokenizer for 20 s,
+                  last_heartbeat 15:31:19            （共 4 次）
+          router: httpx.ConnectError: All connection attempts failed —— 启动即死
+15:31:54  拆除；check_deploy_serves REFUSED；deploy_kit 判 invalid
+```
+
+**kit 是在 worker 的 `/health` 通过之后才起 router 的**（`deploy.sh:181-198`,
+`curl -sf .../health` 循环 + `die`）。所以 worker 答了 `/health`,
+**而它在自称 ready 之后一秒失去了 detokenizer**，router 起来时对面已经没人。
+
+### 三个嫌疑人，各被一次测量排除（不是被论证排除）
+
+| 嫌疑 | 反证 |
+|---|---|
+| §13 修好的 preflight | **根本没被调用**。臂 preflight `ok: true`，`classify()` 未进入，卡 283 MiB |
+| 端口 / `E2E_KIT_PORT_BASE` | **run 2 与 run 3 用的是同一个 8140-8145**，两份 `deployment.json` 一致，`ss` 在 15:29:15 报六个全空 |
+| 我改的 `work_root`/`container` | 机制不经过它们；同镜像同卡，**m1 自己在 `/data/yihou/e2e_flow3` 上 15:21:42 起机成功并真答了一次** |
+
+### 这条线在一小时前就出现过，而我把它记成了「记录，不解读」
+
+run 2 的 m1 `deploy.log` 里写着 *"the health check keeps failing. That is not a
+hang."* 我当时明确说不解读它。**它不是模板散文，是本机一种已知的引擎行为——
+run 2 扛过去了，run 3 没扛过去。**
+
+### kit 的一处**可诊断性回退**，而它让我连续推错两次
+
+run 2 的 kit 在 deploy 收尾处无条件 `docker logs <etcd> > etcd.log`；
+**run 3 的 kit 在任何路径上都不写 `etcd.log`** —— `grep -n 'etcd.log' scripts/*.sh`
+返回空。于是臂的 log 目录只有 `router.log` 和 `worker.log`。
+
+我先把这个缺席读成「etcd 从没起来」，再读成「etcd 通过了它的门」，
+**两次都错：这个文件的缺席在任何方向上都不构成证据。**
+
+> **一个前一版产物有、这一版没有的日志,不是「少了个文件」,是「一整类问题
+> 从此不可归因」。而它是 agent 重写脚本时顺手丢掉的,没有任何东西报错。**
+
+### 下一轮要改的三件，没有一件是 preflight
+
+1. **恢复无条件的 `docker logs <etcd> > etcd.log`。**
+2. **kit 已有的重试瞄准了错的签名。** run 2 对 NCCL/HIP 签名重试；run 3 直接
+   `die` 并让人重试。**两者都不覆盖「自称 ready 之后失去 detokenizer」**——
+   而那正是我们两次观察到的那一个。一次到达 `fired up and ready to roll!`
+   之后一秒内失去 detokenizer 的起机，是可重试的，指令要说出来，
+   并且保留第一次尝试的日志（§「重试必须留下被它跨过的那次失败的产物」）。
+3. §13 的 preflight 修法和 `E2E_KIT_PORT_BASE` 原样带进下一轮。
