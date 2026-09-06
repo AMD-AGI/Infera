@@ -14251,3 +14251,204 @@ three arms of a live chain and found it in the arm that had already sealed.**
 `succeeded` next to it in the same `store/task` listing I print every thirty
 minutes. **The control was already in the sample; the question just had not been
 asked of it.**
+
+---
+
+## R2 T+637 — 2026-09-06 17:11 UTC
+
+**T+637 = wall-clock delta from the baseline** (06:33:41 → 17:10:36).
+
+### 1. STAGE 2 IS COMPLETE — and stage 3 was entered
+
+**[observed, first-hand] Run `20260906T154908-d9c7af`:**
+
+```
+m1_deploy                succeeded
+deploy_and_prove         succeeded
+run_profiling_mode_off   succeeded
+run_profiling_mode_on    succeeded      ← never completed before
+merge_profiling_evidence succeeded
+m2_profiling             SUCCEEDED      ← STAGE 2 SEALED, first time
+rank                     succeeded
+identify                 output_validating
+m3_analysis              running        ← STAGE 3 ENTERED, first time
+
+18 verdicts:  17 pass, 1 refuse
+```
+
+**Eight attempts reached `m2_profiling`; this is the first that sealed it.**
+
+**And the four-run-old question is answered — the stacks were captured:**
+
+```
+capture_stacks.log      1
+stacks_manifest.json    6
+
+items/result/trace/stacks_manifest.json:
+  ranks 2
+  totals {files 2, bytes 137 678 956, gpu_kernels 119 054,
+          python_functions 5 613 901, readable 2}
+```
+
+**5.6 million python function samples and 137 MB of stack data.** `trace_end_ms=
+120000` gave the load enough runway for the capture to happen inside it — **the
+`5d098338` arithmetic (73 s floor) was correct and the fix worked.**
+**`check_trace_coverage` passed** — the validator that refused at T+366 and T+457.
+
+**`stack_window_s=0` was never needed.** T+426 recorded that it was masking a
+13-second shortfall; **this run proves the frames were capturable all along.**
+
+### 2. The stage-3 refusal, and it names a collision a human would not see
+
+```
+# check_identity_resolved                       (5 files in materials)
+## fc537169-…: REFUSED
+  note:  5/5 resolved (ratio 1.00, floor 0.0 — a floor of zero grades nothing;
+         set --var min_resolve_ratio to grade it)
+  PROBLEM: duplicate logical_operator(s): ['layernorm_aiter_add_rmsnorm_quant'].
+           It becomes a directory name in the workset, so two of them collide
+           silently
+```
+
+**Two things worth separating.** The resolve ratio is **1.00 — everything
+resolved** — and the validator says so *and* volunteers that its own floor of
+zero grades nothing. **A validator naming its own weak threshold in the same
+report is rare and it is the honest form.**
+
+**The actual refusal is a name collision that becomes a directory name.** Two
+operators sharing `layernorm_aiter_add_rmsnorm_quant` would silently overwrite
+each other in the workset. **`649af26b` — "identify: make logical_operator
+unique, because it becomes a directory name" — is already committed.**
+
+### 3. The JIT mechanism is reinstated, and the reconciliation is the interesting part
+
+**[from `1c954e0f`]** My T+578 mechanism was **not** wrong; the T+607 retraction
+over-corrected. The two findings are compatible and each answers a different
+question:
+
+```
+21/21 logs carry the signature   ->  says WHERE it is: everywhere
+the 32.6 s JIT compile window    ->  says WHY it is there, and why run 3's
+                                     router — gated on /health — started INTO
+                                     the window, hit ConnectError and died
+```
+
+> *the detokenizer lines are universal **because they are the shadow of a JIT
+> compile.** 21/21 says where it is, this says why.*
+
+**Four positions in four hours, and I want the sequence legible:**
+
+```
+T+548  me     "router could not reach etcd"        wrong: adjacency
+T+578  me     JIT window, router gated on /health  mechanism — correct
+T+607  owner  signature universal -> "not a fault" correct about the SIGNATURE,
+              + my sealed-arm counterexample       over-reached to "unexplained"
+T+637  owner  both true; universality is the        reconciled
+              shadow, the window is the cause
+```
+
+**What was actually wrong at T+607 was treating a constant as a *discriminator* —
+in both directions.** The owner had used its presence to accuse; we then used its
+universality to acquit. **Neither is available from a constant.** The thing that
+resolved it was a *timing* argument, which the signature alone cannot carry.
+
+***And the guard cost still stands.*** A retry built on that signature killed two
+healthy bring-ups at 130 s of a 2400 s budget. **Reinstating the mechanism does
+not reinstate the guard**, and `1c954e0f` says so: *widening the router's gate is
+one observation*, deliberately unfixed.
+
+### 4. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~56 %** (+8) |
+| 已经耗时 | **~651 min** (mission.md 06:19:11 → 17:10:36) |
+| 预估耗时 | **still absent, and now for a smaller reason** |
+| 可靠性 | **中** |
+
+**+8: two of five stages complete, the third entered.** Stage 2 sealed with
+17/18 verdicts passing and a 137 MB stack capture behind it.
+
+**On 预估耗时.** Stage 1 has four measured durations; **stage 2 now has exactly
+one** (`d9c7af`: 15:49:08 launch → `m2_profiling` sealed before 16:57:36, so
+under ~68 min for both stages together). **Stages 4 and 5 still have zero, and
+module 4 is the one the user has already flagged as very long.** A total is still
+a number with a false denominator — **but for the first time the missing terms
+are two rather than four.**
+
+**Hold `29313`: 20 h 49 min left.**
+
+### 5. 当前进展
+
+```
+d9c7af  dead   last 16:57:36 — reached m3_analysis, STAGE 2 SEALED
+1048af  ALIVE  pid 1229785, container=yihou_e2e_chain5, started 17:03:54
+        yihou_e2e_etcd_serves-444741f7  17:03:59
+        yihou_e2e_sgl_serves-444741f7   17:04:00
+        aiperf_serves-444741f7          17:06:56
+        cards 0-3 at 76 %
+```
+
+**Run 11 is already inside `check_deploy_serves`** three minutes after launch —
+faster than any prior run, consistent with a warm JIT cache on this host.
+
+### 6. Code problems
+
+**Fixed and committed:** `649af26b` — `logical_operator` uniqueness.
+**Reinstated, deliberately unfixed:** the router's `/health` gate is narrower
+than a cold JIT compile. **One observation, not enough to widen it on.**
+**Must not ship:** any retry keyed on the detokenizer health-check signature.
+
+**Carried, root-caused, unfixed:** `preflight.sh:211`; teardown-vs-preflight
+sequencing; `--var jobid` vs `_agree_or_die`; `etcd.log` written on no path;
+`min_resolve_ratio` defaults to a floor of zero that grades nothing.
+**Carried unread since T+94:** the eight `jsonschema` validators.
+
+**No longer a problem:** `stack_ranks` / `stack_window_s` — the split knobs were
+only reachable because the capture was being skipped. **With the capture
+happening, neither flag is needed.**
+
+### 7. 未定性
+
+- **Whether `m3_analysis` completes.** Entered once, refused once on a fix that
+  has already landed.
+- **What module 5 consumes if module 4 is replayed** — **nineteenth consecutive
+  section, and it is now the next unknown in the path**, not a distant one.
+- **Whether module 4's duration fits the hold.** 20 h 49 min; the user has
+  flagged kernel forge as very long and this record has no measurement of it on
+  this cluster.
+- **Why run 3's router hit the JIT window when ten other bring-ups did not** —
+  §3 explains the mechanism, not the timing coincidence.
+
+### 8. 新增 commit
+
+Since T+607, three:
+
+```
+57ba0bd9  checkpoint R2 T+607 — mine
+967a4b09  validator.failures: run 4 board — 8 validators passed, one real
+          refusal
+649af26b  identify: make logical_operator unique, because it becomes a
+          directory name
+1c954e0f  bug.record 14: run 3's cause found (aiter JIT window), and fix an
+          attribution
+```
+
+### 9. 其他
+
+**Eleven runs to get two stages, and the eleventh needed none of the eleven
+failures to be repeated.**
+
+Every cause has been distinct: a framework import, a shared port band, a
+malformed trace, a card lease, a kit that could not be co-located, a blind
+occupancy predicate, a device-mapping predicate, a stale hold id, a load shorter
+than the capture it contained, a name collision that becomes a directory. **Ten
+single-point defects, each found once, each found by something refusing rather
+than by something silently producing a wrong answer.**
+
+**That is the argument for the validator set, stated in the only currency that
+counts.** At T+94 the entire set was unreachable behind an `ImportError` and this
+record could not say whether it was worth anything. **Today it caught a duplicate
+string that would have become two directories with one name** — a defect no
+amount of running the chain would have surfaced, because the chain would have
+run.
