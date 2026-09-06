@@ -11600,3 +11600,184 @@ a fact that was available before either launched.
 was avoidable, and I would rather record it now than let both settle into the
 same column.** My own T+94 warning is on the avoidable side of that line: it was
 sent, it named the right pair of runs, and it listed the wrong two mechanisms.
+
+---
+
+## R2 T+156 — 2026-09-06 09:10 UTC
+
+**T+156 = wall-clock delta from the baseline** (06:33:41 → 09:09:17).
+
+### 1. Stage 1 is green on this cluster — all three validators, including the load test
+
+**[observed, first-hand] Run `20260906T080504-3e8a03`, handoff `fe6a4ab0-…`,
+kind `deploy_kit`:**
+
+```
+validation-tfkbxt_1   layout             -> true
+validation-3pwu1vm_   schema=environment -> true
+validation-rwx4veqz   scripts/deploy.sh  -> true    ← this one is new
+                      aiperf 0.12.0, load_seconds 180, port_base 8140
+
+store/task:  deploy_and_prove = succeeded
+             m1_deploy        = succeeded
+```
+
+**`check_deploy_serves` returned `true`.** That is the validator the first
+cluster deliberately kept out of every fast loop because it performs a real
+bring-up and a 180-second load — **the most expensive check in the set, and the
+one whose PASS is hardest to fake.** Between my 08:37:45 sample (verdict absent,
+cards 0–3 at 76 %) and its last write at **08:47:06**, it finished and passed.
+
+**This is the round's first stage-level green and the first on this hardware.**
+The chain then advanced: `m2_profiling` and `run_profiling_mode_off` both
+reached `running` in the same run.
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~28 %** (+6) |
+| 已经耗时 | **~170 min** (mission.md 06:19:11 → 09:09:17) |
+| 预估耗时 | **absent — but for the first time there is a reason to expect one** |
+| 可靠性 | **中** |
+
+**+6: one of five stages green, with its heaviest validator included.** I am not
+booking a straight 20 % per stage — stage 1 is the only one with a proven
+artefact path here, and the first cluster established the later stages are not
+cheaper.
+
+**On 预估耗时.** Stage 1 took **06:42:18 → 08:47:06 ≈ 2 h 05 m** across three
+runs, two of which died for reasons now fixed. **That is a measured number for
+one stage, not a basis for multiplying by five** — most of it was paying for
+defects that do not recur (`jsonschema`, port band). **I am recording it so a
+later section can divide by something real; I am not dividing yet.**
+
+**Hold `29184`: 4 h 51 min left** (14:00:01 − 09:09:17).
+
+### 3. 当前进展 — one live chain, three dead run trees
+
+```
+20260906T064218-15c264   dead   jsonschema crash
+20260906T075853-e6f882   dead   deploy_and_prove: failed (port 8103)
+20260906T080504-3e8a03   dead   STAGE 1 GREEN, then died at m2
+                                last write 08:47:06
+20260906T084930-6ded23   pid 1000969  started 08:49:18  ALIVE
+                                m2's launch_chain.py, container=yihou_e2e_chain
+                                mock_stages=none, tp=4, work_root=/data/yihou/e2e_flow
+                                main: running   deploy_and_prove: running
+```
+
+**A caution about the dead one, because it will mislead whoever reads its store
+next.** `20260906T080504-3e8a03` still records `m2_profiling=running` and
+`run_profiling_mode_off=running`. **Its orchestrator is gone and it has written
+nothing since 08:47:06.** Nothing inside that run distinguishes *running* from
+*running under a process that no longer exists* — **the discriminator is
+`/proc`, entirely outside the run**, and only one orchestrator is alive
+(pid 1000969, which is the 08:49 run).
+
+**Node at 09:08:36 — all eight cards busy, and that is us:**
+
+```
+VRAM%    75 75 75 75 75 75 75 75
+yihou_dk_qwen3-32b-mix       started 09:00:38   labels infera_e2e_run=qwen3-32b-mix
+yihou_dk_qwen3-32b-mix_etcd  started 09:00:43
+yihou_dk_selftest            started 09:06:50   labels infera_e2e_run=selftest
+yihou_dk_selftest_etcd       started 09:06:55
+rc_26_7_902 / xiaoming-dev   foreign, CPU only
+```
+
+**Two of our deployments up at once — the main arm and the callability arm —
+which is what puts all eight cards at 75 %.** We hold the node `--exclusive`
+with `gres/gpu:8`, so this is within the allocation. **Ownership read from
+labels, not from the `yihou_` prefix** — the prefix is shared by everyone on the
+team and the first cluster mis-assigned five containers by reading it as
+ownership.
+
+### 4. Why the green chain then died — and the defect was its author's own
+
+**[quoted from `2cba517a`, whose author both caused and found it]**
+
+> *Cost: one full chain died at m2 after a clean bring-up, 35 minutes, and the
+> defect was mine. AIPerf refused the trace at load — `hash_id 0` materialized
+> at **477 tokens in one record and 512 in another**, because block 0 was a
+> shared system prompt while the layout made each record's final block partial.
+> **Every record individually valid; the file not.***
+
+**The part that generalises, and it is the sharpest instrument lesson of the day:**
+
+> *The verification ran the **REAL** `PromptGenerator` over all 3108 layouts with
+> two known-answer controls and **passed**. It called `g._cache.clear()` between
+> records, deliberately, for isolation and per-layout attribution — **and that
+> shared cache is exactly what AIPerf's `dataset_manager` uses to enforce the
+> cross-record invariant, so the control removed the only property that could
+> fail.** `aiperf validate` passed 7761 rows for the same reason: row-independent
+> validation. **Two instruments, both real, both blind to the one property that
+> mattered.***
+
+**Using the real consumer is not sufficient if you call it the way the consumer
+never calls it.** The isolation that made per-layout attribution possible is the
+same isolation that deleted the invariant. **And the known-answer controls —
+this record's own recommended defence, adopted this morning — passed, because
+they were per-record too.**
+
+### 5. Code problems
+
+**Fixed this interval, inferred from behaviour:** the `jsonschema` `ImportError`
+(all three validators returned verdicts). **Still not read as a diff; still
+unknown whether all eight affected validators were repaired.**
+
+**Fixed, per its own record:** m2's trace generator — the shared-system-prompt
+block producing inconsistent `hash_id 0` lengths. **I have not verified a
+corrected trace exists; the live chain relaunched two minutes after that run
+stopped, which is consistent with a fix but does not establish one.**
+
+**Unfixed, carried:** shared default port band `8101..8106` and shared
+`work_root` (`becc19d6`); no GPU lease except m2's (`6e465181`).
+
+### 6. 未定性
+
+- **Whether the live chain (`-6ded23`) passes stage 1 again.** It is in
+  `deploy_and_prove` with two deployments up. **Stage 1 has been green once; a
+  second green would make it reproducible rather than achieved.**
+- **Whether the corrected trace passes AIPerf at load.** That is the check that
+  failed 35 minutes into the last chain, and **it can only be answered by
+  reaching m2 again.**
+- **Whether all eight crash-affected validators were repaired** — carried,
+  unread.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched, and
+  **now the furthest-out unknown**, since stages 1–2 both have live paths.
+
+### 7. 新增 commit
+
+Since T+125, two:
+
+```
+53b05652  checkpoint R2 T+125 — mine
+2cba517a  bug record 6: the real consumer, called the way the consumer never
+          calls it, is a different instrument
+```
+
+### 8. 其他
+
+**Three run trees died before one stage went green, and the order of their causes
+is the useful part.**
+
+```
+run 1   06:42   a defect in the validator framework   (jsonschema import)
+run 2   07:58   a defect in how two owners share one node   (port band)
+run 3   08:05   STAGE 1 GREEN, then a defect in the materials   (trace hash_id)
+```
+
+**Each death was further in than the last, and each cause was of a different
+kind** — framework, coordination, data. **None recurred.** That is what a
+debugging loop looks like when it is working, and it is worth stating plainly
+because the raw count — *three dead runs in two and a half hours* — reads like
+the opposite.
+
+**The one thing I would not let pass unremarked:** `2cba517a`'s author verified
+their materials with the real consumer and two known-answer controls, and it
+still shipped a file that the consumer rejected. **Known-answer controls were
+this record's own answer to "how do you trust a new instrument," adopted this
+morning.** They are still right, and they are **not** sufficient — a control
+inherits the scope of the harness that runs it, and this one was per-record when
+the invariant was cross-record.
