@@ -1410,7 +1410,36 @@ instrument 2 有同样的缺陷,却被立为决定者。
 >   我当时回答「没有,它只是给一条本来就会死的路径加一次尝试」。**那是假的,而我没查。**
 > * *它判不出来时倒向哪边?* —— **倒向中止**,在第 130 秒。我说它倒向「花时间」。
 >
-> **run 3 那条臂的真实死因仍然未知。** 它的 router 连不上 8142 的 etcd,
+> **【run 3 的死因已经查明,2026-09-06T17:00:58Z,发现者 checkpoint,他们同时撤回了自己
+> 15:48 那份基于 `tail -4` 的报告——那四行读到的是恢复,不是故障。】**
+>
+> `worker.log` 272-286 的完整段落:
+> ```
+> 15:31:19  The server is fired up and ready to roll!
+> 15:31:19  [aiter] Process-3 start build [mha_batch_prefill_bf16_...]
+>           Process-1/2/4 waiting for baton release
+> 15:31:40  Health check failed ... detokenizer ... last_heartbeat 15:31:19
+> 15:31:47  Health check failed ...
+>           [aiter] Process-3 finish build, cost 32.6s
+> 15:31:53  SGLang ready on port 8141 · "GET /health" 200 OK
+> ```
+> **引擎卡在一次 32.6 秒的 aiter JIT 编译里。detokenizer 心跳正好停在那个窗口,
+> 然后自己恢复了。** kit 按 worker 的 `/health` 起 router;router 起进了那个窗口、
+> ConnectError、退出。**worker 15:31:53 回来了,而 8140 上已经没有人在听。**
+>
+> > **没有任何东西坏掉。是有东西慢,而一个超时把「慢」变成了「失败」。**
+>
+> **这同时解释了 detokenizer 那两行为什么普遍存在:它是一次 JIT 编译的影子。**
+> 21/21 说的是「它到处都有」,checkpoint 这份说的是「它为什么在那儿」。
+>
+> **未修,而且刻意不修:** router 的就绪门槛太短是**一次观测**。leader 提过
+> 放宽它,随即自己撤回——理由值得抄:*「21/21 表明 JIT 停顿在全部 21 条臂里都发生,
+> 而只有一条臂的 router 死于它。所以这是十九分之一,不是抛硬币;
+> 而我正要在两个我批准的守卫各杀死一次运行的当天,凭一次观测批准第三个守卫。」*
+> **第二次出现时再修,那时它有两次观测。记在这里就是为了让第二次是「认出来」
+> 而不是「重新发现」。**
+
+> **~~run 3 那条臂的真实死因仍然未知。~~**（上面已查明）它的 router 连不上 8142 的 etcd,
 > 而 detokenizer 那两行在**每一次**起机里都有,包括同一天成功的那些。
 > **下面保留原文,因为「我当时是怎么推出来的」比结论有用。**
 
@@ -1455,8 +1484,10 @@ run 2 扛过去了，run 3 没扛过去。**
 
 ### 【更正 2026-09-06T15:50:04Z：下面这段的**归因是错的**，原文保留】
 
-> **我把它写成「run 3 的 kit 引入的回退」。不是。** leader 转来的 checkpoint
-> 已知答案扫描:`etcd.log` 在 `serves-6e2f6dbb`、`serves-e3e9d27d`、
+> **我把它写成「run 3 的 kit 引入的回退」。不是。** leader **自己跑的**已知答案
+> 扫描(我先前在这里记成「checkpoint 的」,是误记;**checkpoint 主动指出不是他们
+> 跑的,leader 也来更正**——一个被错误署名的检查,是没有人会去重跑的检查):
+> `etcd.log` 在 `serves-6e2f6dbb`、`serves-e3e9d27d`、
 > `serves-ec31ab7d` 都缺,**而且 run 3 自己那次成功的 m1 部署
 > `e2e_flow3/deploy/chain3` 也没有。**
 > **两条代码路径,只有一条留 etcd 日志——这是长期存在的缺口,不是这次重写造成的。**
