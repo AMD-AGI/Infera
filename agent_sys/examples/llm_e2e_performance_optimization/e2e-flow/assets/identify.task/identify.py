@@ -252,6 +252,46 @@ def logical_operator(row: dict) -> str:
     return f"{category}_{name}"[:96].strip("_") if name else category
 
 
+def disambiguate_logical_operators(operators: list[dict]) -> list[str]:
+    """Make `logical_operator` unique in place. Returns the names it changed.
+
+    **`logical_operator` becomes a directory name in the workset**, so two
+    operators carrying the same one collide silently. `check_identity_resolved`
+    refuses that, and it is right to — but the producer could not previously
+    satisfy the requirement, which is the CONTRACT §5.3 shape.
+
+    The collapse is deliberate and stays: `logical_operator` drops tile and
+    tuning tokens and keeps four, so a name survives a rebuild. That is exactly
+    why two genuinely different kernels can reduce to one string. Measured on
+    run `20260906T154908-d9c7af`: two distinct symbols both became
+    `layernorm_aiter_add_rmsnorm_quant`, and the refusal read *"It becomes a
+    directory name in the workset, so two of them collide silently."*
+
+    **The suffix is `kernel_id`, not a counter.** A counter renumbers every
+    operator whenever an unrelated kernel enters or leaves the worklist, and
+    these names appear in artefacts compared across runs. **Only colliding
+    entries are touched** — a worklist that did not collide comes out
+    byte-identical, so this cannot perturb a comparison it was not needed for.
+    """
+    from collections import Counter  # noqa: PLC0415 — local to the one caller
+
+    counts = Counter(o["logical_operator"] for o in operators)
+    renamed: list[str] = []
+    for o in operators:
+        base = o["logical_operator"]
+        if counts[base] < 2:
+            continue
+        suffixed = f"{base}_{o['kernel_id']}"[:96].strip("_")
+        o["logical_operator"] = suffixed
+        # The nested copy is what downstream reads for identity; leaving it
+        # behind would give one operator two names, which is worse than one
+        # name for two operators.
+        if isinstance(o.get("kernel_identity"), dict):
+            o["kernel_identity"]["logical_operator"] = suffixed
+        renamed.append(f"{base} -> {suffixed}")
+    return renamed
+
+
 def kernel_finder(magpie_root: Path, symbols: list[str], repos: list[str], timeout: int) -> dict:
     """Run Magpie's `amd_kernel_finder` out of process, and survive its absence.
 
@@ -701,6 +741,10 @@ def main() -> int:
 
     repo_map = {Path(r).name: Path(r) for r in repos if Path(r).is_dir()}
     operators = [resolve(row, hits.get(row["name"]) or {}, repos, repo_map) for row in selected]
+    for line in disambiguate_logical_operators(operators):
+        # Say it, because a renamed operator is a directory name that differs
+        # from the one a reader would derive from the symbol by hand.
+        print(f"  logical_operator collision resolved: {line}")
 
     # **One image read for every operator's files, after resolution.** The
     # facts are per-file and the cost is per-container-start, so this batches
