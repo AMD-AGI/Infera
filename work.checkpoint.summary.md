@@ -14882,3 +14882,201 @@ the second time, and the stage past it has been entered once and refused once.
 **But the difference between this interval and the 08:00 hour is that no
 instrument is currently lying to anybody**, and every fix in flight was written
 down before its result arrived.
+
+---
+
+## R2 T+757 — 2026-09-06 19:11 UTC
+
+**T+757 = wall-clock delta from the baseline** (06:33:41 → 19:10:34).
+
+### 1. Run 16 died, and the detector was fed by the failure it exists to catch
+
+**[first-hand, `4c74288f`]**
+
+> *AIPerf's request timeout and `agent_sys`'s stall timeout are **both 900 s**.
+> Each timeout burst writes into the run tree seconds after the stall deadline,
+> so **the detector is re-satisfied every cycle.** Measured: bursts at **18:50:24
+> and 19:05:25, exactly 32 each**, on an engine that **stopped generating at
+> 18:35:24**.*
+
+**A stall detector watches for absence of writes. A request timeout produces
+writes.** With both timers at 900 s, the failing component wrote just often
+enough, and just late enough, to keep resetting the watchdog. **The engine was
+dead for thirty minutes and the run looked alive throughout.**
+
+**`e472d24b` states the general rule:** *a stall threshold must not equal any
+downstream timeout.* **This is the cleanest tier-2 finding of the day** — it is
+a property of two numbers, checkable before any run, and it does not depend on
+anyone remembering anything.
+
+**The record includes its own retrospective test** — *periodic writes at a known
+timeout interval; an artefact that only grows failures* — **and leaves the
+engine's cause open with the measurement that would close it.** Naming what it
+does *not* explain is why the finding is trustworthy.
+
+**Run 16's board** (`20260906T180412-6b7c19`, last write 19:05:59, orchestrator
+gone):
+
+```
+m1_deploy               succeeded     stage 1 green, 8th time
+deploy_and_prove        succeeded
+run_profiling_mode_off  succeeded
+run_profiling_mode_on   running       ← died here
+verdicts 6/6 pass       stacks_manifest.json: 0
+```
+
+**The no-waiver stack-capture question from T+726 is unanswered for a second
+run.** `_on` never completed.
+
+### 2. A separate commit splits a mis-attribution from the mechanism it was credited to
+
+**[first-hand, `667ba683`]**
+
+> *A value taken from a grep **without asking which stage produced it** is one
+> mechanism; **two runs' files coexisting under `pmoff/` and `pmon/`** is
+> another. **Splitting `work_root` fixes the second and does not touch the
+> first.** A fix credited with a save it did not make gets over-trusted.*
+
+**This is the T+216 lesson generalised.** There the launch line recorded an
+intention and the deployment recorded the fact; here a fix is being kept from
+inheriting credit for a save it did not make. **`753e060f` puts it in
+`CLAUDE.md`.**
+
+### 3. Leader messages arrived batched, and two of them are stale — recorded because a stale directive is an instrument failure
+
+**Five messages arrived together at ~19:10.** Three describe state from 06:51,
+07:42 and 13:09; one is a cadence check timestamped 14:28. **Reading them in
+sequence would have produced a section describing a hold that ended five hours
+ago.** Recording the discrepancy rather than acting on it:
+
+**(a) "Write the round's final section now, the hold ends at 13:59:59."**
+**Superseded by events.** `29184` ended 14:00:01 and **`29313` started 14:00:06
+on the same node with a 24-hour limit** — recorded at T+457 from `scontrol`.
+There was no final section to write; the round continued for five more hours and
+sealed stage 2 at 16:57.
+
+**(b) The cadence check: "last changed at 13:10 … roughly 45 minutes past due."**
+**Not correct, and the leader explicitly asked to be told which instrument is
+right.** My commits to this file, read from `git log` just now:
+
+```
+12:10:43  T+336      15:11:47  T+517
+12:41:05  T+366      15:42:03  T+548
+13:10:41  T+396      16:12:12  T+578
+13:40:50  T+426      16:41:41  T+607
+14:11:23  T+457      17:11:39  T+637
+14:41:57  T+487      17:41:12  T+667
+                     18:10:59  T+697
+                     18:40:19  T+726
+```
+
+**Every interval is 30 minutes ± 90 seconds, unbroken since the baseline.** At
+14:28 the file's most recent commit was **14:11:23**, not 13:10. **The right
+instrument is `git log -- work.checkpoint.summary.md`**; a working-tree mtime or
+a stale `git log` cache will disagree.
+
+**(c) The `bfs` warning, applied to my own idiom.** The leader is right that
+`find` here is `bfs` and rejects relative `-newermt`. **I have used absolute
+timestamps throughout** (`-newermt '2026-09-06 07:04'`), which `bfs` accepts —
+**but I did carry `2>/dev/null` on some of those calls**, which is the more
+dangerous half and which I flagged against myself at T+94 §4. **From this section
+I use `-mmin -N`**; the check above this one used it.
+
+### 4. The leader's own items, recorded plainly as asked
+
+**Stated without softening, at their request:**
+
+- **The duplicate launch at 14:08 was theirs** — two owners authorised, the first
+  never withdrawn, two chains with identical ports and `work_root`. **They killed
+  `3849649` at 14:10:35.** I flagged the overlap at 14:09:47 and named the wrong
+  operative mechanism (T+216, T+487); **the authorisation is the part that made
+  it possible and it is theirs.**
+- **The `trace_end_ms=60000` override that blocked the ladder for six launches
+  was theirs**, compression under an instruction to go faster. **T+426 recorded
+  the arithmetic; this records who set it.**
+- **The node was idle about an hour** between a refusal and a relaunch, held for
+  a decision. **T+306 measured that gap at 63 minutes.**
+- **Their own run-tree readings ran ahead of the filesystem three times** and
+  were reported as independently confirmed. **They have stood down from
+  corroborating run state.** *"An instrument failure with an unknown cause, not a
+  resolved one"* — recorded as they asked, and I have not investigated it.
+
+**And their central lesson, which this record reached independently at T+396 and
+T+517:** *today's run deaths were each caused by a guard added to fix the
+previous death, and each fix was correct about the failure in front of it and
+blind to the one it created.* **Their diagnosis of why the countering evidence
+did not help is the part I had not got to:** *the clause reads as conservative,
+and the failure it produces looks exactly like the thing it guards against.*
+
+### 5. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~58 %** (unchanged) |
+| 已经耗时 | **~771 min** (mission.md 06:19:11 → 19:10:34) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Unchanged.** Run 16 reproduced stage 1 and `_off` and died in `_on`.
+
+**Hold `29313`: 18 h 50 min left.**
+
+### 6. Code problems
+
+**New, root-caused, unfixed:** the stall threshold equals AIPerf's request
+timeout (both 900 s), so timeout bursts re-satisfy the detector.
+**New, unknown:** why the engine stopped generating at 18:35:24. **The record
+names the measurement that would close it; nobody has taken it.**
+
+**Carried, root-caused, unfixed:** `preflight.sh:211`; teardown-vs-preflight
+sequencing; `--var jobid` vs `_agree_or_die`; `etcd.log` on no path;
+`min_resolve_ratio` floor of zero; the router `/health` gate vs a cold JIT
+compile.
+**Carried unread since T+94:** the eight `jsonschema` validators — **twelve and a
+half hours.**
+
+### 7. 未定性
+
+- **Whether the stacks are captured without waiver flags** — unanswered for two
+  runs.
+- **Whether `merge_profiling_evidence` executes.** The leader states it has
+  **never executed anywhere**, and that it, not m3, is the next rung. **`d9c7af`
+  shows `merge_profiling_evidence = succeeded`** — I record the disagreement
+  rather than resolving it; **the reading is that run's `store/task`, which is
+  what I printed at T+637.**
+- **Why the engine stopped generating at 18:35:24.**
+- **What module 5 consumes if module 4 is replayed** — **twenty-third
+  consecutive section.**
+
+### 8. 新增 commit
+
+Since T+726, four:
+
+```
+c9d32be7  checkpoint R2 T+726 — mine
+753e060f  CLAUDE.md: a fix credited with a save it did not make gets over-trusted
+667ba683  bug record: separate a mis-attribution from the real mechanism it was
+          credited to
+4c74288f  bug record: two 900s timers, and the failure feeding the detector
+          meant to kill it
+e472d24b  CLAUDE.md: a stall threshold must not equal any downstream timeout
+```
+
+### 9. 其他
+
+**Two of the five messages I received this interval described a world that had
+stopped existing five hours earlier, and one of them was an instruction to write
+a final section.**
+
+**Had I acted on it, this file would now contain a closing summary of a round
+that went on to seal stage 2, build its own replay corpus, and reach stage 3.**
+The thing that prevented it was not judgement — **it was that every section in
+this file records the clock it was written against**, so a directive premised on
+`29184` ending was checkable against `29313` starting, which T+457 had already
+read from `scontrol`.
+
+**That is the same property the launch records acquired at T+697** — `supersedes`
+and a read `launched_at_utc` — and it is the same property the leader is asking
+for when they say a stale directive should be answered with the right instrument
+rather than absorbed. **A message does not carry its own expiry; a timestamped
+record of what was true when does.**
