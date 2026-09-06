@@ -337,7 +337,7 @@ echo $?           → 1
 
 ---
 
-## 5. 方法:**一次 grep 是关于「文件集」的主张,不亚于关于「模式」的主张——而没说出口的那一半永远是文件集**
+## 7. 方法:**一次 grep 是关于「文件集」的主张,不亚于关于「模式」的主张——而没说出口的那一半永远是文件集**
 
 (m35,2026-09-06T07:18:23Z。这不是一个缺陷,是今天已经决定过四个答案的一条判据,所以单列。)
 
@@ -377,7 +377,7 @@ echo $?           → 1
 §1「找出其余实例的方法」里那句 **「工具本身跑过已知答案再用」** 是同一条从工具那头说的;
 这一条是从**手工检索**那头说的。**两头都要,因为今天四次里三次是手敲的 grep,不是工具。**
 
-### 5a. 同一族的第二半:**`2>/dev/null` 会把一个「好的失败」变成一个「安静的零」**
+### 7a. 同一族的第二半:**`2>/dev/null` 会把一个「好的失败」变成一个「安静的零」**
 
 (m35,2026-09-06T07:25:08Z。这一条是当场撞上的,不是复盘出来的,而且差三十秒就变成一条错的上报。)
 
@@ -420,7 +420,7 @@ find "$R" -type f -newermt '-5 minutes' 2>/dev/null | wc -l    ->  0
 *落实方式不是记住:`watch_for_verdict.sh` 的文件头里写明了这条,并且整个脚本没有
 一处 `2>/dev/null`,理由写在旁边。*
 
-### 5b. 一条相邻的:**把「谁」的问题问给人,把「什么」的问题下给系统 —— 两种错向的误投递**
+### 7b. 一条相邻的:**把「谁」的问题问给人,把「什么」的问题下给系统 —— 两种错向的误投递**
 
 (m35 与 leader,2026-09-06,相隔二十分钟,方向相反。)
 
@@ -434,13 +434,66 @@ find "$R" -type f -newermt '-5 minutes' 2>/dev/null | wc -l    ->  0
   收信人只能等,或者拆掉两次已证明的 bring-up。
 
 **共同形状:一个关于「什么」的问题被路由给了「谁」,或者反过来。**
-和 §5 同族——§5 是「这条主张其实是关于文件集的」,这一条是
+和 §7 同族——§7 是「这条主张其实是关于文件集的」,这一条是
 **「这条主张其实是关于世界的,而我问的是人」**。
 
 > **判据两条,都便宜:**
 > 1. 开口问人之前,先问「有没有一条命令能答」——**读世界比读记忆准**;
 > 2. 下达一条指令之前,先问「收信人有没有这个控制点」——
 >    **读产物告诉你正在发生什么,它不告诉你你能做什么,那是第二个问题。**
+
+### 7c. **一条拒绝告诉你「把 X 设成 0」时,X 是它读的 args 字段名,不是你要敲的 `--var` 名**
+
+(m2 发现,m35 复核两半,2026-09-06T12:22:29Z。这是 §7 那一类里最贵的一种,因为**照做会静默失败**。)
+
+```
+拒绝文本:   set min_launchers_in_top_n to 0
+steps/common.yaml:162
+    min_launchers_in_top_n: '${kernel_table_min_launchers:-10}'
+             ^ validator 的 args 字段              ^ 真正的 --var
+```
+
+**照字面抄下来敲 `--var min_launchers_in_top_n=0`,会发生什么:**
+
+我做了差分,不是推测——同一条 `show`,加与不加那个假 `--var`:
+
+```
+不加:  rc=2
+加上:  rc=2
+diff:  完全一致(字节级)
+```
+
+> **一个不存在的 `--var` 不产生任何信号:不报错、不警告、输出一个字节都不变。**
+> 于是它 **load 干净、发车干净,四十分钟后为同一个原因再拒绝一次。**
+
+*(leader 转述时说它「会被列进 supplied 然后忽略」。我没能确认这半句——
+这次调用在打印那一行之前就因为别的缺失变量退出了。**能确认的是更强的那一半:
+输出字节级相同**,所以在这个配置下它连「被列出」都没有。不确定的部分标出来,
+不当成已确认。)*
+
+### 为什么这属于 §7
+
+§7 说的是**检索的范围**没说出口;这一条是**名字的来源**没说出口。
+两边都是「看起来像同一个东西的两个东西」:
+
+| | 看起来是什么 | 实际是什么 |
+|---|---|---|
+| §7 | 一次搜索关于「世界」 | 关于**你选的文件集** |
+| 7c | 拒绝里的名字是**你要传的旗标** | 是**它自己读的字段** |
+
+**而两者的失败方式相同:安静。** 错的文件集返回一个格式良好的空;
+错的 `--var` 返回一个格式良好的 run。
+
+### 判据(便宜,而且在发车前)
+
+> **把拒绝里的名字拿去 `grep -n` `steps/` 和 `shared.yaml`。**
+> 命中的那一行会长成 `<args 字段>: '${<真正的 var>:-<默认>}'`——
+> **冒号左边是拒绝告诉你的,`${}` 里面才是你要敲的。**
+> 两个名字**故意不同**,因为一个是 validator 的私有词汇,一个是操作者接口。
+
+*(同族先例已在本文件:`min_requests` 与 `integration_min_requests` 被**故意**拆开,
+理由是「一个 `--var` 在移动两个 owner 的评分线」。所以「args 名 ≠ var 名」不是疏忽,
+是设计——而拒绝文本没有说这件事。)*
 
 ### 4b. 同族第二例:`find` 的**好**失败模式,被我们自己用 `2>/dev/null` 关掉了
 
@@ -501,7 +554,7 @@ Supported timestamp formats are ISO 8601-like, e.g. 2026-09-06T07:25:32Z
 
 ---
 
-## 6. **一个崩溃不是一次拒绝,而框架分不出来** —— `jsonschema` 导入失败杀死本轮第一次真实验证
+## 8. **一个崩溃不是一次拒绝,而框架分不出来** —— `jsonschema` 导入失败杀死本轮第一次真实验证
 
 (m1 定位,m35 测量爆炸半径,2026-09-06T07:44:33Z。**这是 `mission.verify.e2e.md` 缺陷 #2 的
 逐字复现,连诊断信息躺在 `attributes.detail` 里没人读这一点都一样。**)
@@ -534,7 +587,7 @@ validator 的 `HOME` 指向自己的 zone,user-site 因此解析到一个空目�
 
 **`check_workset_shape` 我第一遍数漏了**,因为我搜的是共享库的调用点
 `schema_lib.validate(`,而它在 `check.py:667` **有自己的一份**
-`from jsonschema import Draft202012Validator`。**又是 §5:模式对,范围错。**
+`from jsonschema import Draft202012Validator`。**又是 §7:模式对,范围错。**
 抓到它靠的是补问了一句「整个包里还有没有别处 import jsonschema」。
 
 > **但真正的数字是 15/15:`check_environment` 挂在每一个 kind 上,
@@ -640,17 +693,17 @@ where it was written is now the thing that stops the next reader looking here.
 **Blast radius: every validator that validates a schema, in every module.** Not
 m1's alone. Nothing about it depends on which stage is real.
 
-*(数字见 §6:**按 validator 是 8/22**——只有真的调用 schema 校验的那八个会崩,
+*(数字见 §8:**按 validator 是 8/22**——只有真的调用 schema 校验的那八个会崩,
 `schema.py:169` 的 import 在 `def validate()` 内部所以不到达就不炸;
 **按 kind 是 15/15**,因为 `check_environment` 挂在每一个 kind 上。
-决定「有没有部分绿」的是后一个数,而它只在 §6 里。—— m35 附注)
+决定「有没有部分绿」的是后一个数,而它只在 §8 里。—— m35 附注)
 
 **Only one injection point exists**, because PATH is reserved: the `PYTHONPATH`
 key of the settings allow-list. Note `_block` lets the **live** value win, so
 adding the key is not enough on its own — the launch line must carry the full
 PYTHONPATH or the key changes nothing.
 
-### 6a. 附:**包里一条注释记着第一个集群量到的 `jsonschema` 版本,在本机差了一个大版本**
+### 8a. 附:**包里一条注释记着第一个集群量到的 `jsonschema` 版本,在本机差了一个大版本**
 
 (leader 发现,m35 复测,2026-09-06T07:47:15Z。)
 
@@ -931,3 +984,4 @@ the wrong file. **This is the same lesson as the `gpu_devices`-is-inert entry
 arriving from the opposite direction**: there the flag was inert and the default
 happened to be right; here the flag is absent and the software chooses well.
 **Both times, reasoning about cards from the launch line was wrong.**
+
