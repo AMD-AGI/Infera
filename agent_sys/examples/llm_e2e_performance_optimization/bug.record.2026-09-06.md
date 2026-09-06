@@ -1408,10 +1408,22 @@ run 2 的 m1 `deploy.log` 里写着 *"the health check keeps failing. That is no
 hang."* 我当时明确说不解读它。**它不是模板散文，是本机一种已知的引擎行为——
 run 2 扛过去了，run 3 没扛过去。**
 
-### kit 的一处**可诊断性回退**，而它让我连续推错两次
+### 【更正 2026-09-06T15:50:04Z：下面这段的**归因是错的**，原文保留】
 
-run 2 的 kit 在 deploy 收尾处无条件 `docker logs <etcd> > etcd.log`；
-**run 3 的 kit 在任何路径上都不写 `etcd.log`** —— `grep -n 'etcd.log' scripts/*.sh`
+> **我把它写成「run 3 的 kit 引入的回退」。不是。** leader 转来的 checkpoint
+> 已知答案扫描:`etcd.log` 在 `serves-6e2f6dbb`、`serves-e3e9d27d`、
+> `serves-ec31ab7d` 都缺,**而且 run 3 自己那次成功的 m1 部署
+> `e2e_flow3/deploy/chain3` 也没有。**
+> **两条代码路径,只有一条留 etcd 日志——这是长期存在的缺口,不是这次重写造成的。**
+> 我把它挂到了我当时正在看的那个变更上。**修法不变,类别变了:
+> 照我原来的写法,下一个人会去 diff 两份 kit,什么也找不到。**
+> *今天第五次「把相邻当成因果」,这次是我的:run 3 重写了脚本、日志缺失,
+> 于是我把两件事连了起来。*
+
+### kit 的一处**日志缺口**，而它让我连续推错两次
+
+run 2 的那条臂有 `etcd.log`；**run 3 的 kit 在任何路径上都不写它**（这一句仍然成立，
+错的是把它称为「回退」——见上方更正） —— `grep -n 'etcd.log' scripts/*.sh`
 返回空。于是臂的 log 目录只有 `router.log` 和 `worker.log`。
 
 我先把这个缺席读成「etcd 从没起来」，再读成「etcd 通过了它的门」，
