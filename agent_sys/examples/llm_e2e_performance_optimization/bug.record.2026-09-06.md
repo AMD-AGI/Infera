@@ -1269,3 +1269,102 @@ m35 的目录比我的晚 **16 秒**创建,于是两个检查都选中了它。
 今天四次归属错误分别被记成:卡号相邻、时间相邻、前缀相同、目录最新。
 **四个不同的「相邻」,一个成因:我用了一个对正确答案不敏感的判据,
 然后用第二个同样不敏感的判据去「确认」它。**
+
+---
+
+## 13. 一道守卫的**两条等待分支在本机上是不可达代码**,因为它的判别器恒为真
+
+**observed_at 2026-09-06T14:51:45Z(`date -u` 读出,不是手写);发现者 m35,
+运行 `20260906T140831-026b96`。**
+
+`_off` 臂在 preflight `exit 1`,程序体,`escalated` 的理由是
+*"nothing to push: the executor is a program body: there is no agent to instruct"*
+—— 没有接收方,任务停在 `running`,900 秒 stall 计时开始。
+
+### 现象
+
+```
+PREFLIGHT ABORT: a foreign container holds a GPU on this node and a card this
+kit was told to take reads busy.
+  instrument 1, container label 'deploy_kit_owner=yihou' : NO container carries it
+  instrument 2, running containers holding /dev/kfd : rc_26_7_902 xiaoming-dev
+  instrument 3, KFD processes (SUPPLEMENT ONLY) : none visible
+  cards read at 2026-09-06T14:43:22Z: 0:112326901760 1:115476824064
+                                      2:117001453568 3:115174834176
+```
+
+> **注意:上面这段是逐字的。`waited: 0s` 这一行本文其余部分提到过,
+> 它 —— 不 —— 在这段里。** `waited:` 只出现在 `:256` 的**超时**中止文本中,
+> 而这次走的是 `:211` 的**立即**中止,它不打印等待时间。
+> **「等了 0 秒」是我从两件事推出来的,不是读出来的:** `:211` 在轮询循环
+> `sleep` 之前返回;以及 preflight 读卡 `14:43:22Z`、事件落盘 `14:43:23`。
+> *这一条留在这里,因为我第一版把它写进了引用块里 —— 那正是本文件反复记录的
+> 「把推断混进逐字引用」。*
+
+### 为什么它是错的 —— 一条命令的反证
+
+```
+rc_26_7_902    devices: /dev/dri /dev/kfd /dev/infiniband     up 2 days
+xiaoming-dev   devices: /dev/kfd /dev/dri /dev/infiniband     up 3 days
+cards at 14:49:43Z (六分钟后，两个容器仍在运行):  0 0 0 0 0 0 0 0
+```
+
+**被点名的两个「陌生人」此刻仍然活着,而八张卡全零。它们从来没有持有过显存。**
+14:43:22 那 112–117 GB 是我们自己的 `check_deploy_serves` 引擎在拆除中放显存
+——它 14:40:00 起机,14:44 消失。
+
+### 机制:判别器测的是「设备映射」,不是「占用」
+
+```
+preflight.sh:121  _gpu_containers()
+    docker inspect "$n" --format '{{range .HostConfig.Devices}}{{.PathOnHost}} {{end}}'
+      | grep -q '/dev/kfd'
+preflight.sh:132  _foreign_gpu_containers()   = 全部 GPU 容器 减去 带我们 label 的
+preflight.sh:211  "Instrument 2 decided: a stranger. Abort immediately."
+```
+
+**本机上任何开发容器都会永久映射 `/dev/kfd`,所以 `_foreign_gpu_containers`
+恒为非空。** 于是:
+
+> **只要有任何一张卡读到 busy,不论持有者是谁,这个脚本就走 `:211` 中止。
+> 指令里要求的两条等待分支 —— 「是我们的前驱 → 等 `DK_GPU_WAIT_S`」和
+> 「什么都看不见 → 也等」—— 都要求 instrument 2 为空才能到达。它永远不为空。
+> 两条分支在本机是不可达代码。**(它们没执行过是从 `:211` 的位置和
+> 14:43:22→14:43:23 的一秒间隔推的,不是从中止文本里读的 —— 见上面那条注意。)
+
+所以「守卫倒向中止」这句话对它还太客气:**它只有一条活分支。**
+
+### 它自己的收尾文字说对了,然后在下一行扔掉
+
+```
+preflight.sh:259  "something is holding VRAM that docker cannot name from here"
+preflight.sh:260  "If instrument 2 named a container, it is a stranger."
+```
+
+### 同一句话在指令里被正确地用过一次,又被错误地用了一次
+
+给 m1 的指令写着 *"KFD process inspection … must never be the deciding test:
+/proc cannot see into other containers"* —— **这句话逐字适用于
+`HostConfig.Devices`,它看见的是映射不是使用。** instrument 3 被正确降级了,
+instrument 2 有同样的缺陷,却被立为决定者。
+
+### 修法(一处)
+
+容器只有在**有显存可归属于它**时才算持有 GPU;归属不出来时诚实的标签是
+`unknown`,而 `unknown` 必须路由到那条**已经存在、已经有预算**的等待,不是中止。
+
+### 第二个独立成因,不要用第一个把它盖住
+
+**没有任何东西把 `check_deploy_serves` 的拆除和 m2 的 preflight 排序。**
+14:40:00 验证器自己起机,14:43:22 m2 读卡 —— 相隔三分钟,而拆除还没完成。
+这是把 busy 读数摆到守卫面前的那件事;守卫的缺陷决定了它必然被读成中止。
+**两个都要修:第一个让 busy 不再等于中止,第二个让 busy 不再出现。**
+
+### 与 CLAUDE.md 顶部那节的关系
+
+这正是今晨写下的那条:*「一道守卫的价值,不看它挡住了上一次,看它在
+『它判不出来』时往哪边倒。」* 这道守卫是为了修上一次运行的
+「等错了对象」而收窄的,**而收窄的代价落在这一次。**
+它同时是 `VRAMSUM=272 KFD=0` 那条的镜像:那次是 `/proc` 跨不过命名空间
+所以**拒绝不足**;这次是 `HostConfig.Devices` 跨得过命名空间但答的是另一个问题,
+所以**拒绝过度**。**两次都是判别器回答了一个相邻的问题。**
