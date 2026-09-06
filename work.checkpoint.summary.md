@@ -12620,3 +12620,150 @@ minutes were idle.** Both statements are true, and the first one is the reason
 the record is good while the second is the reason the deliverable is not
 finished. **With 2 h 20 min left, the constraint has stopped being knowledge and
 started being time.**
+
+---
+
+## R2 T+336 — 2026-09-06 12:10 UTC
+
+**T+336 = wall-clock delta from the baseline** (06:33:41 → 12:10:00).
+
+### 1. Stage 1 green a third time, with the refusal cleared — and stage 2 is live
+
+**[observed, first-hand] Run `20260906T113811-fdb0bd`, all three verdicts:**
+
+```
+layout             true    ← was FALSE in ae2c38 (env.sh:172)
+schema=environment true
+scripts/deploy.sh  true
+```
+
+**`layout` flipping `false → true` on the next attempt, with the launch
+variables byte-identical and only the agent instruction changed, is a controlled
+result.** T+306 recorded the diff of every `--var` between launch3 and launch4 as
+empty. **One variable moved and the refusal cleared.** That is the negative
+control this record keeps asking for — *break it, put it back, watch it pass* —
+arriving by accident of sequence rather than by design, but with the same
+structure.
+
+**And the chain went past stage 1 for the third time, now with a real profiling
+engine up:**
+
+```
+store/task     m1_deploy = succeeded      deploy_and_prove = succeeded
+               m2_profiling = running
+               run_profiling_mode_off = running
+               run_profiling_mode_on = waiting_resource
+               merge_profiling_evidence = waiting_handoff
+containers     yihou_e2e_chain_…_pmoff        started 12:07:00
+               yihou_e2e_chain_…_pmoff_etcd   started 12:07:05
+cards          0-3 at VRAM 75 %   4-7 at 0 %
+last write     12:09:51   (9 s before I sampled)
+```
+
+**Stage 1 took ~29 minutes this time** (11:38:11 launch → `pmoff` container
+12:07:00), against ~42 and ~40 for the two earlier greens. **The "EXACTLY ONE
+bring-up" instruction is the only change that could account for it**, and I say
+*could* — I have not read this deployer's transcript to confirm it did only one.
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~36 %** (+3) |
+| 已经耗时 | **~351 min** (mission.md 06:19:11 → 12:10:00) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+3: the regression is cleared and stage 2 is executing on hardware.** Two
+prior chains reached `m2_profiling = running` and died there; **this is the third
+attempt at the same wall, with both known causes fixed** (trace v2, ownership
+wait).
+
+**Hold `29184`: 1 h 50 min left** (14:00:01 → 12:10:00). **Stage 2's profiling
+capture on the first cluster ran in the tens of minutes; I have no measurement of
+it on this one.** If stage 2 completes, stages 3–5 have never been attempted here
+and I have no basis to estimate them.
+
+### 3. 当前进展
+
+```
+15c264  dead   jsonschema crash
+e6f882  dead   port 8103 abort
+3e8a03  dead   stage 1 green → died at m2 (trace hash_id)
+6ded23  dead   stage 1 green → died at m2 (card lease 1.8 s)
+ae2c38  dead   REFUSED at check_deploy_kit (env.sh:172)
+fdb0bd  ALIVE  pid 2466373 — stage 1 green, m2_profiling running
+```
+
+**Phase timeline from `m2/launch4/chain.log`, in order:**
+
+```
+deploy_and_prove: input_validating -> running -> output_validating -> succeeded
+m2_profiling:     waiting_handoff -> input_validating -> running
+run_profiling_mode_off: (new) -> running
+m1_deploy:        running -> succeeded
+merge_profiling_evidence: (new) -> waiting_handoff
+run_profiling_mode_on:    (new) -> waiting_resource
+```
+
+**`run_profiling_mode_on` is `waiting_resource` while `mode_off` runs** — the two
+profiling arms are serialised on the cards, which is consistent with one TP-4
+deployment holding 0–3 and cards 4–7 reading 0 %.
+
+### 4. Code problems
+
+**Cleared this interval:** `scripts/env.sh:172` — `check_deploy_kit` now passes.
+**Fixed via the agent instruction, not via a repository change**; `instruction
+v3` lives in `m2/launch4/LAUNCH-RECORD.txt`. **If the next chain is launched
+without that instruction, the defect can return** — the fix is in a launch
+record, not in the package.
+
+**Carried unfixed:** whether all eight `jsonschema`-affected validators were
+repaired; unbooked-usage and missing-`depends_on` framework messages (T+186 §5);
+shared-`work_root` overlap unexamined (T+216); the `CLAUDE_CONFIG_DIR`
+placeholder, now surviving four launch records (T+306 §6).
+
+### 5. 未定性
+
+- **Whether `m2_profiling` completes.** Third attempt at the same wall. **Both
+  previously known causes are fixed, so a third failure here would have a third
+  cause** — and that would say something the first two do not.
+- **Whether "EXACTLY ONE bring-up" actually held**, or whether the 29 minutes has
+  another explanation. **The reading is this deployer's transcript**, which I
+  have not opened.
+- **Whether stages 3–5 are reachable in 1 h 50 min.** No measurement exists for
+  any of them on this cluster. **I decline to estimate rather than guess.**
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched,
+  **ninth consecutive section.** If stage 2 completes, this stops being
+  hypothetical within the hour.
+
+### 6. 新增 commit
+
+Since T+306, one:
+
+```
+5946df32  checkpoint R2 T+306 — mine
+```
+
+**No other commits.** Three consecutive intervals now in which the only
+repository change is this record. **The team's output is going into run trees and
+launch records** — which for `instruction v3` means the one fix that cleared
+today's refusal is not in the repository at all.
+
+### 7. 其他
+
+**The clean experiment in §1 deserves stating as a method note, because it was
+not designed.**
+
+`ae2c38` and `fdb0bd` differ in **exactly one input**: the agent instruction.
+Same package, same `--var` set byte for byte, same node, same image, same model,
+same hour. **`layout` went `false → true`.** Nobody set out to run a controlled
+pair — the second launch was simply the next attempt after a refusal — **but
+because the launch record captured `supersedes` and the variable set was
+unchanged, the pair is interpretable after the fact.**
+
+**That is what `supersedes` bought, and it cost one line in a text file.** The
+first cluster's equivalent question — *what was different about the run that
+worked?* — was unanswerable there, because a run tree does not record its own
+launch line. **Here it took one `diff` of two records.**
