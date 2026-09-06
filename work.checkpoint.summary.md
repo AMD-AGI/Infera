@@ -13237,3 +13237,179 @@ with `stack_window_s=0` in the record and no launcher frames in the output.
 **What separated them was arithmetic nobody had written down**, and the thing
 that found it was somebody adding up three variables and comparing the sum to a
 fourth. **Not a tool, not a validator — a subtraction.**
+
+---
+
+## R2 T+457 — 2026-09-06 14:11 UTC
+
+**T+457 = wall-clock delta from the baseline** (06:33:41 → 14:10:36).
+
+### 1. The hold rolled over — 24 hours, same node
+
+```
+29184   ended      2026-09-06T14:00:01
+29313   RUNNING    StartTime 2026-09-06T14:00:06   EndTime 2026-09-07T14:00:06
+                   smci355-ccs-aus-n04-25   TimeLimit 1-00:00:00
+```
+
+**Five seconds of gap, same node, and the successor is a 24-hour hold rather than
+16.** At T+426 I recorded `29313` as `PENDING (Resources)` and declined to
+predict it would start — this file's own rule that a pending reason explains the
+wait and not the release. **It started. The prediction I declined to make would
+have been right, and declining it still cost nothing** — I have no way to know
+whether it started *because* 29184 released or by coincidence of the scheduler,
+and the record does not need me to.
+
+**The time pressure of the last four sections is gone.** 23 h 50 min remain.
+
+### 2. Run 8 is the round's deepest result, and it isolates the m2 wall to one variable
+
+**[observed, first-hand] `20260906T130845-298750`, last write 14:05:14:**
+
+```
+m1_deploy               succeeded
+deploy_and_prove        succeeded
+run_profiling_mode_off  succeeded
+run_profiling_mode_on   output_validating
+m2_profiling            running
+
+verdicts (11):  layout true · environment true×3 · deploy.sh true
+                require_present true×3 · max_error_rate true×2
+                max_pct_total_sum true          ← check_kernel_table PASSES
+                expect_ranks FALSE              ← check_trace_coverage
+```
+
+**`check_kernel_table` now passes.** At T+366 it refused for want of launcher
+frames; `kernel_table_min_launchers=0` cleared it. **Ten of eleven verdicts are
+true and the eleventh is the only thing between this chain and stage 2.**
+
+**And that eleventh is now fully explained** [first-hand, `2f53d2a6`]:
+
+> *`_off` SUCCEEDED at 13:46:13 … `_on` then refused at 13:52 with one false
+> verdict in a 39-file zone, and the refusal is identical to `fdb0bd`'s — **on a
+> run that passed `--var stack_window_s=0`, verified in the live process.**
+> **The producer got it**: no `capture_stacks.log` exists, so `replay.sh`
+> correctly skipped the capture. **The validator did not, because it never reads
+> that variable.** `check_trace_coverage:223` gates on `expect_stack_ranks`,
+> which `m2_profiling.yaml:133` binds to `${stack_ranks:-2}`. **`stack_window_s=0`
+> does not touch `stack_ranks`**, so the producer skips and the validator still
+> demands the manifest.*
+
+**One intention, two variable names, and the flag was verified reaching the live
+process.** This is the third member of that family today — `DK_ROUTER_PORT` vs
+`DK_PORT_ROUTER` (T+277), `min_launchers_in_top_n` vs `kernel_table_min_launchers`
+(T+366), and now `stack_window_s` vs `stack_ranks`. **The first two were naming
+collisions; this one is a genuine split of one decision across two knobs that
+nothing binds together.**
+
+### 3. **Two concurrent runs share a port band and a work root — flagged at 14:09**
+
+**[observed, first-hand, positional `/proc` read]**
+
+```
+pid 3849649  started 14:08:09   container=yihou_e2e_chain
+pid 3856205  started 14:08:25   container=yihou_e2e_chain2
+  BOTH:  port_router=8101  port_worker=8102  port_etcd=8103
+         work_root=/data/yihou/e2e_flow
+         validate_work_root=/data/yihou/e2e_flow/validate
+         mock_stages=none      trace_end_ms=120000
+```
+
+**Only `container` differs.** This is the configuration that killed run 2 at
+08:11:26 with `ABORT: etcd port 8103 is already in use`, and `92835f4d` amended
+the canonical launch block this morning **specifically to require a separate port
+band and a separate work root** for two lines on one node.
+
+**Both are still in `deploy_and_prove` and nothing has bound a port yet.**
+Reported to the leader at 14:09:47 with the measurement and without an
+instruction — **I do not know whether the overlap is deliberate.**
+
+**Both carry `trace_end_ms=120000`**, so the arithmetic fix from T+426 is in
+flight. **Neither carries `stack_ranks`**, so by §2 both will hit the same
+`check_trace_coverage` refusal if they reach `_on`.
+
+### 4. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~46 %** (+2) |
+| 已经耗时 | **~471 min** (mission.md 06:19:11 → 14:10:36) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+2: ten of eleven verdicts true in one run, and the eleventh traced to a named
+line in a named file.** Not more, because **`m2_profiling` has still never
+completed.**
+
+**预估耗时 remains absent and I want to be explicit about why it is still absent
+after eight hours.** Stage 1 now has four measured durations (42, 40, 29, ~38
+min). **Stages 3, 4 and 5 have zero.** A total built from one measured stage and
+four guesses would be a number with a false denominator, and this record has
+spent the day on exactly that failure mode.
+
+### 5. Code problems
+
+**Root-caused, unfixed:** `check_trace_coverage:223` / `m2_profiling.yaml:133` —
+`expect_stack_ranks` ← `${stack_ranks:-2}`, unlinked from `stack_window_s`.
+
+**Root-caused, documented, enforcement deliberately not enabled:** the
+`trace_end_ms` 73-second floor (`shared.yaml:149`, `aiperf_replay.sh:100`).
+
+**Fixed earlier:** `env.sh:172`; KFD-blind preflight; `kernel_table_min_launchers`.
+
+**Carried unfixed:** whether all eight `jsonschema`-affected validators were
+repaired; unbooked-usage and missing-`depends_on` (T+186 §5); shared-`work_root`
+overlap — **no longer merely unexamined, now actively reproduced in §3**; the
+`CLAUDE_CONFIG_DIR` placeholder.
+
+### 6. 未定性
+
+- **Whether the two concurrent runs collide.** §3.
+- **Whether `stack_ranks=0` is accepted** and clears `check_trace_coverage`, or
+  whether a real stack capture is required. **Not verified by anyone I can
+  read.**
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, **thirteenth
+  consecutive section.** With 23 h 50 min of hold, the time excuse for not
+  answering it has expired.
+
+### 7. 新增 commit
+
+Since T+426, five:
+
+```
+a4a492e4  checkpoint R2 T+426 — mine
+1c611a5d  PREFLIGHT-HANDOVER-298750: the handover ran clean and the hard branch
+          is still untested
+af54e790  RUNG5-CHECKLIST: fold the day's findings in as steps, and make it the
+          single entry point
+2f53d2a6  MERGE-WATCH-298750: the merge did not fire — stack_window_s=0 reaches
+          the producer and not the validator
+0ad0c7d0  RUNG5-CHECKLIST P-1: name both paths, add the third --var, and flag
+          the refusal that gives the wrong knob
+```
+
+**`1c611a5d` is worth its own line: "the handover ran clean and the hard branch is
+still untested."** The KFD preflight fix from T+396 was exercised on its easy
+path only. **Saying so in the subject line is the difference between a fix and a
+fix that has been tested**, and it is the same discipline as `a1aecda2` writing a
+preflight and declining to enable it.
+
+### 8. 其他
+
+**Eight hours in, the shape of the remaining problem is clear and it is not what
+it was at 06:33.**
+
+At the baseline, nothing had run and the question was whether the chain would
+work here at all. **It works.** Stage 1 has gone green five times, an engine
+serves, traces of 1.4 M events get captured and re-parsed, a 130-row kernel table
+sums to 100.01 %, and ten of eleven validators pass on a real artefact.
+
+**What blocks the chain today is not capability — it is that one decision is
+spelled two ways.** `stack_window_s` tells the producer to skip; `stack_ranks`
+tells the validator to demand. **Both are doing exactly what they were written to
+do**, and no amount of running the chain again will resolve it, because the
+disagreement is not stochastic.
+
+**That is the most useful thing to hand to whoever picks this up with 23 hours of
+hold:** the next run does not need to be observed, it needs one variable bound.
