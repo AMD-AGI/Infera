@@ -980,3 +980,45 @@ inconsistent with m2's controlled 0/80, and still unexplained.**
 floor that `bench_rounds=3` exists to measure. **Rounds 4 and 5 both called TTFT
 UNINTERPRETABLE because the floor exceeded the bar; whether this round says the same is
 unread.** Nobody should quote a cause for the residual until that is read.
+
+### The residual is NOT noise — floor measured, and it is under the bar (m2, 03:47)
+
+```
+metric                    rounds  noise_floor        verdict
+ttft_ms                      3    0.043757 = 4.4%    same
+inter_token_latency_ms       3    0.007582 = 0.76%   same
+request_latency_ms           3    0.026735 = 2.7%    same
+```
+
+**`bench_rounds=3` was in effect and the floor WAS measured. TTFT's floor is 4.4%
+against a 10% bar — the instrument is about twice as tight as the threshold.** And this
+run's report does **not** say UNINTERPRETABLE, where rounds 4 and 5 did.
+
+> **So `-11.2%` is not "a bar tighter than the instrument". Machine identity is
+> eliminated by this rung; noise is eliminated by the floor. The validator's second
+> branch — ONE MACHINE IN TWO STATES — is the only one left standing.**
+
+**Worth noticing on its own:** TTFT's floor is **5.8x** ITL's (4.4% vs 0.76%) on the
+same three rounds of the same load. **That is a reason to expect TTFT to be the last
+metric to close, not a reason to doubt it.**
+
+**m2 marked what they did not check:** they read THIS run's floor, and took
+"rounds 4 and 5 were UNINTERPRETABLE" from the leader's message rather than from those
+runs' reports. **Second-hand; if that comparison is ever load-bearing it needs one more
+read of a different run tree.**
+
+### Decision 2026-09-06 03:5x — stop GPU rounds on this question
+
+**Not because it is answered, but because no launch variable addresses what is left.**
+The surviving explanation is state drift between m2's profiled capture and m5's stock
+bring-up on the same node, with two bring-ups in between. **Nothing in `--var` changes
+that ordering; the lever is the measurement design, not a node-hour.**
+
+**This is the 2026-09-02 open finding reproduced with numbers** — *"the two-arm design
+does not control for node load at measurement time, and `check_service_live` proves a
+deployment is live, not that it is comparable."* **It now has a magnitude (11.2%), a
+floor (4.4%), and a rung that eliminates the machine-identity explanation.**
+
+**Standing rule 7 says this round needs the chain to run through, not to show a real
+gain. It runs through. The remaining refusal is a measurement-design item, filed, not a
+blocker.**
