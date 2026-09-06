@@ -12931,3 +12931,143 @@ turns a refusal into a decision the operator makes explicitly, rather than a wal
 they route around silently. **The cost of the design shows up in the same
 breath** — the escape hatch was named with the field's internal name, and one
 line in a launch record was needed to translate it.
+
+---
+
+## R2 T+396 — 2026-09-06 13:10 UTC
+
+**T+396 = wall-clock delta from the baseline** (06:33:41 → 13:10:02).
+
+### 1. Run 7 died on the KFD blindness this record documented on the first cluster
+
+**[first-hand, `m2/launch6/LAUNCH-RECORD.txt`]**
+
+```
+launched_at_utc: 2026-09-06T13:08:34Z
+supersedes: 20260906T121919-041f89
+   (_off FATAL: UNIDENTIFIED holder -> aborted; KFD is blind across containers)
+change: preflight identifies by CONTAINER LABEL first; KFD only a supplement;
+        blind -> wait 300s not abort
+```
+
+**This is the same mechanism this file recorded on 2026-09-06 00:46 on the first
+cluster** — `/proc`-based KFD counting cannot see into another container, so the
+count is structurally zero across boundaries. **What is new is the direction of
+the failure.** There it under-refused: a busy node read `KFD=0` and the predicate
+would have admitted a launch. **Here it over-refused:** the holder could not be
+identified, and the preflight treated *unidentifiable* as *fatal* and aborted a
+chain that had already passed stage 1.
+
+> **The same blind instrument produced opposite failures on two clusters, and
+> both were wrong.** The first cluster's conclusion — *under-refusing is the
+> dangerous direction* — is unchanged and this is not a counterexample to it;
+> **it is the reminder that the safe direction still costs runs.**
+
+**The fix matches the shape the first cluster arrived at**: identify by
+**container label** first (labels cross namespaces; `/proc` does not), keep KFD
+as a supplement only, and **treat blindness as "wait" rather than "abort."**
+
+**Run 7's reach, for the record:** `deploy_and_prove = succeeded`, `m1_deploy =
+succeeded`, `run_profiling_mode_off = running` — **stage 1 green for the fourth
+time**, then dead at 12:55:46 before profiling completed. **It did not get as far
+as run 6.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~42 %** (unchanged) |
+| 已经耗时 | **~410 min** (mission.md 06:19:11 → 13:10:02) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Unchanged: run 7 reached less than run 6.** The deepest point of the round is
+still `fdb0bd`'s sealed `run_profiling_mode_off` and the two content-level
+refusals at T+366.
+
+**Hold `29184`: 50 minutes left** (14:00:01 → 13:10:02). **Stage 1 alone has
+taken 29–42 minutes on every attempt.** Run 8 launched at 13:08:45. **The
+arithmetic is that run 8 can plausibly finish stage 1 and little else**, and
+that is arithmetic on four measured durations, not a forecast about what the
+agents will do.
+
+### 3. 当前进展
+
+```
+fdb0bd  dead   DEEPEST — _off sealed, _on refused (stack window)   12:18:44
+041f89  dead   stage 1 green (4th), _off FATAL on unidentified holder  12:55:46
+298750  ALIVE  pid 3308290, started 13:08:45
+               main/m1_deploy/deploy_and_prove all running
+               last write 13:09:44
+node    8 cards VRAM 0 %, no yihou_* container — run is 56 s old, pre-bring-up
+```
+
+### 4. Code problems
+
+**Fixed this interval, in the kit preflight** (per the launch record; **I have
+not read the diff**): container-label-first identification, KFD demoted to a
+supplement, blindness → 300 s wait instead of abort.
+
+**Note on where this fix lives.** The T+306 fix (`instruction v3`) lived in an
+agent instruction; **this one is described as a preflight change**, which would
+put it in the kit. **I cannot confirm which from the launch record alone**, and
+the distinction matters: **a fix in the kit ships; a fix in a launch instruction
+does not.**
+
+**Carried unfixed:** whether all eight `jsonschema`-affected validators were
+repaired; unbooked-usage and missing-`depends_on` (T+186 §5); shared-`work_root`
+overlap unexamined; the `CLAUDE_CONFIG_DIR` placeholder — **now six launch
+records, verbatim, still routing the reader to a person.**
+
+### 5. 未定性
+
+- **Whether run 8 reaches profiling before the hold ends.** 50 minutes; stage 1
+  costs 29–42.
+- **Whether module 3 needs launcher frames**, given `stack_window_s=0` declares
+  them away. **Raised at T+366 and to the leader at 12:41; not yet answered, and
+  it is a `grep` of module 3's validators.** If run 8 reaches m3 this hold, it
+  will be answered by a refusal instead — **which costs a run rather than a
+  command.**
+- **Whether the preflight fix is in the kit or in an instruction** — §4.
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, **eleventh
+  consecutive section.**
+
+### 6. 新增 commit
+
+Since T+366, one:
+
+```
+c022dcfd  checkpoint R2 T+366 — mine
+```
+
+**No other commits in this interval.** Both fixes of the last two hours —
+`instruction v3` and the preflight identification change — **exist in
+`m2/launch*/LAUNCH-RECORD.txt` files, uncommitted.**
+
+### 7. 其他
+
+**Eight runs. The five distinct causes of death from T+306 have become six, and
+the newest one is a repeat from the other cluster.**
+
+```
+framework      jsonschema ImportError
+coordination   two owners, one port band
+materials      trace hash_id inconsistent across records
+boundary       validator's engine outlives its verdict by 1.8 s
+deliverable    the kit cannot host a second copy of itself
+instrument     KFD is blind across containers — abort on unidentifiable
+```
+
+**Five of the six were new to this cluster. The sixth was written down on
+2026-09-06 at 00:46, on the other cluster, in this file** — including the
+correction that a `/proc` KFD predicate is blind across container boundaries and
+that `rocm-smi` is what crosses them. **It cost a run here anyway.**
+
+**That is this record's own tier-3 problem stated against itself:** the lesson
+was written, it was in the file, and **it was not present at the line where the
+preflight predicate was chosen.** The repair the file already prescribes for
+that is not "read more carefully" — it is to make the property checkable in the
+artefact. **A preflight that must name *how* it identified a holder (label /
+VRAM / KFD) would have made the blindness visible in its own output**, which is
+what the fix now does by demoting KFD to a supplement.
