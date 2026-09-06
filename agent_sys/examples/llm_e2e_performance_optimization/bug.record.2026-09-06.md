@@ -1817,3 +1817,91 @@ py-spy 在镜像里(`/opt/venv/bin/py-spy`),需要 `--pid=host --privileged --us
    而日志正是这么说的。
    > **那一行判据在我一小时前亲手拷下来的文件里,我拿它 grep 了别的东西。**
    又一次「答案已经被取回来了,只是没有被读」。
+
+---
+
+## 一个字段有两个消费者,而它们的要求互斥 —— `baseline` 同时喂 m3 的 `--impl` 和 m5 的整文件覆盖
+
+*2026-09-06 20:4x,m2,应 leader 之请在 m4 跑之前从代码和 run 7 的真实 workset 读出来。
+结论:**`forge_mock=1` 的产物会被 `apply_patch` 拒绝**,而且拒绝**只花几秒**。*
+
+### 先更正一个代价上的前提
+
+**`apply_patch` 不起任何服务。** `assets/apply_patch.task/` 只有三个文件
+(`apply.py` / `entry.sh` / `readme.md`),grep `mix_up|deploy.sh|start_worker` 无命中。
+它做的是 `docker create <image> true` + `docker cp` 把 stock 文件取出来、打补丁、
+做检查、在节点上摆好 overlay、写 `mounts.json`。
+**起机在 `integrate_and_verify`,是后面另一个 closure。**
+> **所以这里的拒绝以秒计,永远到不了一条 m5 臂。**
+
+### `apply.py` 的检查顺序
+
+```
+690  sha_stock = sha256(从镜像 docker cp 出来的文件)
+691  change=="modify" 且 sha_stock != base_sha256          -> 拒绝
+793  patched 编译                                          -> 拒绝
+801  dropped, lost_reexports = surface_regressions(stock, patched)
+809  dropped 且 substitution=="call_site_fragment" 且 overlay_files -> 硬停
+828  dropped                                               -> 拒绝「drops N public name(s)」
+853  sha_patched == sha_stock                              -> 拒绝「changed nothing」
+```
+
+### 会命中的是 828,而 workset 自己就写着
+
+run 7 的 `operator_workset`(handoff `9037ab8a`),五个算子全部
+`substitution: module_symbol` + `apply_mode: overlay_files`,
+`module_symbols` 分别 **6 / 55 / 32 / 32 / 20** 个。
+而 `30_run_forge.sh` 在 `KFO_MOCK=1` 下 seed 的那个 `baseline`,五个全部只有
+**472–2163 字符**。gemm 那个全文如下:
+
+```python
+"""The incumbent: aiter's assembly a16w16 GEMM, `gemm_a16w16_asm`. ..."""
+import aiter
+def run(A, B, out, **kwargs):
+    return aiter.gemm_a16w16_asm(A, B, out)
+```
+
+**模块级名字只有一个 `run`。** 被它覆盖的
+`/sgl-workspace/aiter/aiter/ops/gemm_op_a16w16.py` 实测 **2414 字节、6 个模块级名字**,
+`base_sha256` 与 workset 记录的 `3201806d…` **逐位相符**(所以 691 不会先拦)。
+**六个进去、一个出来,828 拒绝。**
+
+workset 自己的 invariant 里已经写了这句:
+> *"The five other module-level names in this file — `_gemm_a16w16_asm`,
+> `_SEMA_SHAPE`, `ASM_SPLITK_MAX_GRID`, `_get_semaphore_workspace_keyed`,
+> `get_semaphore_workspace` — must survive an overlay."*
+
+**「换个算子」不是出路:五个形状相同。** 这与另一个集群的记录独立复现
+(「五个 baseline 全是 harness 形状,于是『换个算子』这条逃生路当场消失」),
+而这一次的 workset 是今晚由另一个 agent 现建的。
+
+**注意 853 那条不会命中**:mock 会写四行 `# MOCK RUN` 头,字节与 stock 不同。
+**所以拒绝不是因为「负载等于 baseline」,是因为负载根本不是那个模块。**
+一份真正的空改动(stock 模块 + 一行注释)828 和 853 都能过——
+**用户「反向优化、`speedup: 1.0` 是正确值」的决定,机制上是支持的;
+挡住的是种子的形状,不是空改动本身。**
+
+### 根因:一个字段,两个互斥的消费者
+
+`optimized_kernel.py` 同时要满足:
+
+| 消费者 | 要求 |
+|---|---|
+| m3 的 `--impl`(`harness/_common.py:278-290`) | 自包含、在全新命名空间里 exec、导出顶层 `run(**inputs)` |
+| `apply_patch` 的 `overlay_files` | 保住被覆盖模块的**全部**模块级公开名 |
+
+**一个文件只有一种形状能同时满足:stock 模块原样 + 末尾追加
+`def run(*a, **k): return <public_symbol>(*a, **k)`。**
+`30_run_forge.sh:66-79` 正是这么描述另一个集群的
+`mock_adapt.py:_read_seed()` 的——「让整份源码逐字通过,并追加 `def run`」。
+**今晚真实的 `build_workset` 把一份手写的 15 行 wrapper 记成了 `baseline`。**
+
+> **所以缺口在「`build_workset` 往 `baseline` 里放什么」,不在 mock,也不在
+> `apply_patch`。** `30_run_forge.sh` 自己拒绝掩盖镜像方向的同一问题——
+> *"if the workset's own baseline does not meet m3's `--impl` contract, that is a
+> finding about the workset"*——**反方向适用同一条原则。**
+
+### 附带的正面事实
+
+那个 agent 从镜像里量出的 `base_sha256` 是对的。
+**workset 的出处是可靠的;错的只是它选了哪份源码叫 `baseline` 这一个字段。**
