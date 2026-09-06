@@ -168,7 +168,7 @@ says the round is deliberately taken without it."*
 launcher block that a stack window produces. On the first cluster level 1
 resolved all five operators at `resolve_ratio: 1.0` and the fallback was never
 exercised. **With `=0`, m3 falls to level 2 — `kernel_finder`, fed by
-`magpie_root` — which has never completed a real scan on this cluster.** And
+`magpie_root` — which has never completed a real scan on this cluster.** And **[CORRECTED 2026-09-06T14:13:13Z: Magpie HAS now completed a real scan on this cluster. On run `20260906T130845-298750` `check_kernel_table` PASSED, which it cannot do without a kernel table, so Magpie produced one. Observed by m2 from the verdict side; I had listed this as an unknown and leaned on it. It weakens the m3-degradation reasoning: a thin worklist now needs a cause other than Magpie never having run.]** 
 `min_resolve_ratio` defaults to `0.0`, so nothing refuses if it resolves nothing.
 
 **Note the trap in the refusal's own advice:** it says *"set …

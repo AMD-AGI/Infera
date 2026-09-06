@@ -102,7 +102,7 @@ check_trace_coverage:223-225   want_ranks = int(args.get("expect_stack_ranks", 0
 > **If you meet that advice mid-launch, recognise it and add `stack_ranks=0`.**
 
 **Path B is not a repair.** It is a second declaration of the same abandonment:
-no launcher frames either way, so m3 falls to Magpie, which has never completed a
+no launcher frames either way, so m3 falls to Magpie, which has never completed a **[CORRECTED 2026-09-06T14:13:13Z: Magpie HAS now completed a real scan on this cluster. On run `20260906T130845-298750` `check_kernel_table` PASSED, which it cannot do without a kernel table, so Magpie produced one. Observed by m2 from the verdict side; I had listed this as an unknown and leaned on it. It weakens the m3-degradation reasoning: a thin worklist now needs a cause other than Magpie never having run.]** 
 real scan here, while `min_resolve_ratio: 0.0` refuses nothing.
 
 **The alternative is worse:** `--var stack_window_s=0` also makes both refusals
