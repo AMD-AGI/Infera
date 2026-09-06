@@ -11960,3 +11960,169 @@ directly under a line giving a concrete path. **A record whose purpose is to mak
 a launch reproducible has one field that is a placeholder**, and a later reader
 copying the block will get the concrete line and not notice the angle brackets
 two lines down.
+
+---
+
+## R2 T+216 — 2026-09-06 10:10 UTC
+
+**T+216 = wall-clock delta from the baseline** (06:33:41 → 10:10:11).
+
+### 1. My T+94 warning was wrong about the mechanism, and the record says so precisely
+
+**I flagged card contention between two runs. It was ports, and the card reason
+was not true when it was acted on.** From `381d7b40`, whose author reconstructed
+the sequence from the file that actually holds it:
+
+> *m1's deploy **hard-aborted on etcd 8103 at 08:11:26**, one minute before the
+> **SIGTERM at 08:12:08** that was ordered for a card-contention reason **which
+> was not true at that moment and became true by ~08:20 via a container that did
+> not yet exist**. The collision was real and was **via ports, not cards**.*
+
+**And the generalisation names exactly what I did:**
+
+> *the launch line records an **intention** about cards, only the running
+> deployment records the **fact**. **Three people predicted the cards from the
+> launch line and all three read the wrong file.***
+
+**I was one of the three.** My T+94 message to the leader read `gpu_devices` out
+of `/proc/<pid>/cmdline` — I was careful to take it positionally rather than by
+grep, and **being careful about how I read the wrong file did not help.** I even
+wrote in that same message that I had not measured what an absent `gpu_devices`
+resolves to here; **then I led with the card path anyway and put the port path
+second, and the port path is the one that fired.**
+
+**Where the evidence lives, and why nobody found it by grepping:**
+
+> *A stage writes its own diagnosis into `work_root`, **not into the run tree**,
+> so grepping the run directory returns nothing **and that nothing reads as
+> "claim unsupported"**.* The file is **`/data/yihou/e2e_flow/deploy_main.log`**.
+
+**That is this record's oldest shape in a new place** — a zero that means "you
+looked in the wrong directory" is indistinguishable from a zero that means "it
+did not happen." **A copy was preserved with a read timestamp, because `cp -a`
+keeps the source mtime and records nothing about the copy.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~33 %** (+1) |
+| 已经耗时 | **~230 min** (mission.md 06:19:11 → 10:10:11) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+1 only.** No stage advanced past 1 this interval. The live chain is still
+inside `deploy_and_prove` at 35 minutes; **the two runs that passed it took ~42
+and ~40 minutes end to end, so this is not yet late.**
+
+**Hold `29184`: 3 h 50 min left** (14:00:01 → 10:10:11). **That is now less than
+the elapsed time of this round.** No stage past 1 has ever completed here.
+
+### 3. 当前进展 — run 5 is at the end of its deploy stage, not stalled
+
+```
+ae2c38   pid 1407641   started 09:34:43   deploy_and_prove: running
+         run tree last write 10:09:11   (25 s before I sampled)
+```
+
+**Cards read 0 % and `docker ps` showed no `yihou_*` container at 10:09:36. That
+reading is correct and the obvious inference from it is wrong** — the third time
+today. **From the deployer's own transcript:**
+
+```
+10:05:05  "Now a final full cycle with the exact shipped scripts, so every
+           result comes from the bytes being handed over."
+10:08:59  reads results/chat_completion.json
+10:09:02  "Now tearing down and recording the final state."
+10:09:07  teardown command issued
+```
+
+**It tore down 29 seconds before I looked.** Had I sampled the process table and
+the cards only, this would have read as an idle node under a stalled run.
+
+**Note the deployer's stated reason for the final cycle** — *"the exact shipped
+scripts, so every result comes from the bytes being handed over."* **That is the
+distinction between testing what you ran and testing what you are handing over**,
+and it is the same axis as `2cba517a`'s "called the way the consumer never calls
+it."
+
+**The four dead trees are unchanged.** `15c264` and `e6f882` show a write at
+10:00:44 — **consistent with m1 collecting the ABORT evidence for `381d7b40`,
+but I did not observe that and am not asserting it.**
+
+### 4. Code problems
+
+**Fixed this interval — the shared-defaults hazard, in the canonical launch
+block** (`92835f4d`). The reasoning is worth keeping verbatim:
+
+> *Both defaults are shared, so **two owners who each change nothing collide**.
+> The port collision aborts and names itself (`ABORT: etcd port 8103 is already
+> in use`); **the shared `work_root` does not abort at all**, and two runs on
+> 2026-09-06 held byte-identical `work_root` AND `validate_work_root` without
+> either owner choosing it. **The loud failure is the benign one.***
+
+**Two runs shared a `work_root` today and nothing complained.** The port
+collision cost a run and announced itself; the `work_root` overlap cost nothing
+visible **and that is the reason it is the more dangerous of the two.**
+
+**The fix was applied to the CANONICAL block only**, deliberately: *"several are
+historical records of what a rung ran, and the hazard was never that they differ
+but that nothing says which is canonical."* **That is a narrower and better
+repair than normalising seven blocks** — it fixes the ambiguity rather than the
+diversity.
+
+**Carried unfixed:** whether all eight `jsonschema`-affected validators were
+repaired (still unread); the unbooked-usage and missing-`depends_on` messages
+from T+186 (§5 there names the file).
+
+### 5. Non-code problems
+
+**A diagnosis written outside the run tree is invisible to every run-tree-based
+tool**, including mine. `/data/yihou/e2e_flow/deploy_main.log` held the ABORT
+line the whole time. **My sections have reported run state from `store/task`,
+`store/event` and transcripts, all inside the tree; none of them would have
+carried this.**
+
+### 6. 未定性
+
+- **Whether run 5 clears `m2_profiling`** — unchanged and now the only question
+  that matters this hold. Two chains died there on two different defects, both
+  fixed.
+- **Whether the 300 s ownership wait is long enough**, and its behaviour against
+  a co-tenant holder — carried, still unread.
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched.
+- **Whether the shared `work_root` caused any silent damage today**, given two
+  runs held byte-identical `work_root` and `validate_work_root`. `92835f4d`
+  records the overlap; **whether anything was corrupted by it is a separate
+  question and I have not seen it asked.**
+
+### 7. 新增 commit
+
+Since T+186, three:
+
+```
+4efc4dc6  checkpoint R2 T+186 — mine
+92835f4d  RUN-PLAN canonical block: two lines on one node need their own port
+          band AND work root
+381d7b40  bug record: where the etcd-8103 ABORT evidence lives, and the three
+          accounts of the collision
+```
+
+### 8. 其他
+
+**Two people were wrong about the same collision in opposite directions, and the
+useful part is which of them cost something.**
+
+I predicted cards from a launch line and was wrong. **A SIGTERM was ordered at
+08:12:08 for that same card reason — and the run it killed had already
+hard-aborted 42 seconds earlier on a port.** So the wrong reason cost nothing
+that the right reason had not already cost. **But the record notes the card
+reason "became true by ~08:20 via a container that did not yet exist"**, which
+is the uncomfortable part: **the prediction was validated by events after the
+decision, and that is exactly the pattern that makes a bad method look sound.**
+
+**The durable line is the one I will carry into every future section:** *the
+launch line records an intention, only the running deployment records the fact.*
+I have quoted launch-line variables in four sections now. **They describe what
+was asked for, and I will label them that way from here.**
