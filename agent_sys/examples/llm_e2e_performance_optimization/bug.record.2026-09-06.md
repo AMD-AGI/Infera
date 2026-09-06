@@ -582,3 +582,95 @@ handoff 被记成 `invalid`,而 `invalid` 读起来就是一次拒绝。
 **推论,已写进 PRE-REGISTER:materials 检查是「归因一次拒绝」的前置条件,
 永远不是「验证发生过」的证据。读任何一张板子之前,先把 `verdict.json` 的**个数**
 和 kind 声明的 validator 个数对一下——缺失的那个就是第三种结局,而它是安静的。**
+
+## An output-phase validator gets no PATH, lands on /usr/bin/python3, and HOME remapping hides the only modern jsonschema
+
+Recorded 2026-09-06T07:47:09Z by m1, on smci355-ccs-aus-n04-25. Run
+`/data/yihou/agent_sys_runroot/runs/20260906T064218-15c264/`.
+
+**Symptom.** `check_deploy_kit` **exited 1 and wrote no verdict.json** — a crash,
+not a refusal. The escalation had no recipient, so the task sat at
+`output_validating` for the full 900 s with a log that read healthy, and the run
+ended `deploy_kit: invalid`. **The explaining line was not the last line**; the
+reason existed only in `store/event`'s `attributes.message`:
+
+```
+ImportError: cannot import name 'Draft202012Validator' from 'jsonschema'
+             (/usr/lib/python3/dist-packages/jsonschema/__init__.py)
+```
+
+**Mechanism — four steps, and each was verified rather than inferred.**
+
+1. An OUTPUT phase takes spec §8.2's PRODUCER row, which is
+   `Prepared.environment` filled from `harness_env()` — the `env` allow-list in
+   `~/.claude/settings.json`. The package's own `env:` block does **not** reach a
+   validator (`validator/phase.py:324`; `check_deploy_serves/check.py:30` says so
+   in prose).
+2. That allow-list cannot carry PATH: `env_mgr/harness.py:43`
+   `_RESERVED = ("CLAUDE_CONFIG_DIR","CLAUDE_CODE_TMPDIR","TMPDIR","PATH")`.
+3. With no PATH inherited, `#!/usr/bin/env python3` falls back to POSIX's
+   built-in default PATH and resolves **/usr/bin/python3 (3.10)** — not the run's
+   interpreter, which here was miniconda 3.13 and carries jsonschema 4.26.0.
+4. `validator/environment.py:235` remaps `HOME` into the zone. That is correct
+   isolation — its docstring is explicit that it never inherits `os.environ` —
+   and it drops `~/.local/lib/python3.10/site-packages` off `sys.path`. What
+   survives is the system's **jsonschema 3.2.0 (2019)**, which predates
+   Draft 2020-12.
+
+**Controlled reproduction**, matching the traceback exactly:
+
+```sh
+env -i HOME=/tmp/fakezonehome_yihou TMPDIR=/tmp sh -c \
+  'python3 -c "import jsonschema; print(jsonschema.__file__)"'
+# -> /usr/lib/python3/dist-packages/jsonschema/__init__.py   Draft202012: False
+
+env -i HOME=/tmp/fakezonehome_yihou TMPDIR=/tmp \
+    PYTHONPATH=/home/yihou/.local/lib/python3.10/site-packages sh -c \
+  'python3 -c "from jsonschema import Draft202012Validator; print(\"IMPORT OK\")"'
+# -> IMPORT OK
+```
+
+**This is a host provisioning gap, not a package defect**, and the package says
+so without knowing it: `assets/lib/schema.py:169`'s docstring claims `validate`
+"behaves identically under the run's interpreter and under a bare
+`/usr/bin/python3`". That holds wherever the system jsonschema is >= 4. **On this
+cluster it is 3.2.0, and the claim is false** — so a docstring that was accurate
+where it was written is now the thing that stops the next reader looking here.
+
+**Blast radius: every validator that validates a schema, in every module.** Not
+m1's alone. Nothing about it depends on which stage is real.
+
+**Only one injection point exists**, because PATH is reserved: the `PYTHONPATH`
+key of the settings allow-list. Note `_block` lets the **live** value win, so
+adding the key is not enough on its own — the launch line must carry the full
+PYTHONPATH or the key changes nothing.
+
+### 6a. 附:**包里一条注释记着第一个集群量到的 `jsonschema` 版本,在本机差了一个大版本**
+
+(leader 发现,m35 复测,2026-09-06T07:47:15Z。)
+
+```
+assets/lib/interpreter_sweep.py:103
+  #: … `/usr/bin/python3` is jsonschema 4.10.3 with no `referencing`
+```
+
+本机实测:
+
+```
+/usr/bin/python3,我的 HOME      -> 4.26.0   ~/.local/lib/python3.10/site-packages
+/usr/bin/python3,空 HOME        -> 3.2.0    /usr/lib/python3/dist-packages
+```
+
+**3.2.0,不是 4.10.3,而且方向正好要命:4.10.3 是有 `Draft202012Validator` 的。**
+一个照着这条注释判断的人会得出「本机不可能出这个问题」。
+
+> **这就是 RUN-PLAN 那条「读机制,不要读数值」——只是这次它出现在我们自己的
+> assets 注释里,而不是出现在一份显然属于别的集群的文档里。**
+> 一个测量值写进注释的那一刻就开始过期,而注释不带日期也不带主机名。
+
+**可机械化的一半:凡是往代码注释里写一个测过的数值,连同「在哪台机器、什么时候」
+一起写。** 没有这两样,下一个读者无法判断它还成不成立,
+而**注释比文档更容易被当成当前事实**——它就在代码旁边。
+
+*(空 HOME 的复现只要一条命令,不占 GPU:*
+`HOME=/tmp/yihou_emptyhome /usr/bin/python3 -c "import jsonschema; print(jsonschema.__version__)"`*)*
