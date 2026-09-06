@@ -268,3 +268,82 @@ timing diagnosis and the `stack_window_s=0` analysis all stand. **What changes i
 that the run's end is now attributed to the no-receiver escalation rather than
 left implied.** The blocker upstream of m3/m4/m5 is real, and the run's death is
 a second, separate, already-documented defect that happened to it.
+
+---
+
+## 8. The repair, made actionable — and it reattributes the cause (2026-09-06T13:31:01Z)
+
+**UNTESTED. Not run. Stated as arithmetic and a hypothesis.**
+
+### 8.1 The knob exists, and it is `trace_end_ms`
+
+| where | what |
+|---|---|
+| `shared.yaml:149` | `E2E_TRACE_END_MS: '${trace_end_ms:-180000}'` — **this is the one m2's load path reads** |
+| `steps/m5_integration.yaml:126` | `E2E_TRACE_END_MS: '${trace_end_ms:-60000}'` — same `--var`, **different default** (bug record §3) |
+| `assets/load/replay.sh:86` | passes it to the replay as `TRACE_END_MS` |
+| `assets/load/aiperf_replay.sh:40` | `TRACE_END_MS="${TRACE_END_MS:-120000}"` — the script's own fallback |
+| `assets/load/aiperf_replay.sh:100` | `--fixed-schedule-end-offset $TRACE_END_MS` — **the actual load length** |
+
+**`m2_profiling.yaml` does not declare it**, so m2's arm takes 's.
+
+### 8.2 The arithmetic — and it reattributes the cause
+
+The two captures run **in sequence inside one load**:
+
+```
+measurement capture   WARMUP_S + WINDOW_S       = 60 + 10 = 70 s   (m2_profiling.yaml:370-371)
+stack capture         WARMUP_S=0 + STACK_WINDOW = 0  + 3  =  3 s   (m2_profiling.yaml:367)
+                                                        ------
+                    the load must outlast at least          73 s   + both captures' setup
+```
+
+**Every launch today passed `--var trace_end_ms=60000`** — checked, all six
+launch records. **A 60-second load cannot cover a 73-second sequence.**
+
+> **So this is NOT a producer code defect, and §3's heading is narrowed by this
+> section.** The ordering works at the package's own defaults —
+> `aiperf_replay.sh`'s fallback is **120000** and `shared.yaml`'s is **180000**,
+> both comfortably over 73 s. **The failure was introduced by a deliberate
+> time-saving override**, and nothing warns that `trace_end_ms` has a floor set
+> by `warmup_s + window_s + stack_window_s`.
+
+**The relationship between those four variables is unstated anywhere.** That is
+the defect: not the ordering, but an **unenforced dependency between launch
+variables** — the same family as the mocked/real class, arriving as a
+*constraint* rather than a mismatch.
+
+### 8.3 The value I would pass
+
+```
+--var trace_end_ms=120000        # aiperf_replay.sh's own fallback; 47 s of margin over the 73 s floor
+```
+
+The cheaper alternative, if wall-clock matters more than fidelity:
+`--var warmup_s=20` drops the floor to 33 s and keeps a 60 s load — **but warmup
+exists to let the engine reach steady state, so shortening it trades a known
+quantity for an unknown one.** I would move the load, not the warmup.
+
+### 8.4 What else moves when it moves — three cleared, one real
+
+| threshold | function of | moves? |
+|---|---|---|
+| `check_trace_coverage.max_span_ratio` (4.0) | `max_span = window_s × ratio` (`check.py:96-97`) — **`window_s`, not the load** | **No.** Cleared. Observed span 11.02 s against `window_s=10` → ratio 1.1 |
+| `check_trace_coverage.min_gpu_kernels_per_rank` (1000) | trace content | **No** — a longer load gives *more* kernels |
+| `check_bench_result.min_requests` (50) | request count | **No** — 437 recorded at 60 s; more at 120 s |
+| **`check_no_regression.stock_vs_m2`** | m5's stock arm vs **m2's bench** | **YES, and this is the one to watch** |
+
+**Why the last one moves:** the replay window selects *which slice* of the
+Mooncake trace runs, the trace carries `hash_ids`, and prefix hit rate decides
+how much prefill there is. **A different window is a different workload.** So
+**m2 and m5 must use the same `trace_end_ms`** — which they do today, because
+one `--var` feeds both declaration sites. **If anyone raises it for m2 alone,
+`stock_vs_m2` is comparing different workloads and will refuse for a reason that
+looks like a regression.**
+
+### 8.5 Status
+
+**Untested.** I have not run it and the hold ended before I could. What settles
+it: a run with `--var trace_end_ms=120000`, then
+`grep CAPTURE_OK <run>/…/load.profiling_mode_on/capture_stacks.log`. **A
+`CAPTURE_OK` there is the whole test.**
