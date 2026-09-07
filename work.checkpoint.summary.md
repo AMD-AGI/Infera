@@ -18202,3 +18202,144 @@ mount form is a two-line `case` statement that has now refused two consumers.
 
 **That is not a small finding to end a quiet interval on.** It means the shape of
 what remains is a package fix and a contract decision — **not a compute budget.**
+
+---
+
+## R2 T+1537 — 2026-09-07 08:11 UTC
+
+**T+1537 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 08:10:40).
+
+### 1. CORRECTION — module 4 did not run a campaign. `forge_mock=1` was on the launch line.
+
+**T+1477 §1 and T+1507 §6 are wrong in the way that matters, and this section
+supersedes both.**
+
+**[first-hand, `322d5b7f`, and I verified the premise myself rather than relaying
+it]**
+
+> *`work.checkpoint.summary.md`'s closing section (`3d683bf1`, 07:11:21) reports
+> module 4's body as "under 18 minutes, far below what was feared: the first
+> cluster measured one campaign at 113 minutes". **No campaign ran: `forge_mock=1`
+> was on the launch line, read from `/proc/3140102/cmdline`. The measured body was
+> four minutes.***
+
+**My own verification, from the launch records rather than the commit message:**
+
+```
+m2/launch11/LAUNCH-RECORD.txt:55
+  bench_rounds=3, adhoc_cases=3, forge_mock=1, kernel_table_min_launchers=0,
+```
+
+**What is retracted:**
+
+- **"Module 4's body ran … in under 18 minutes"** — the body was **four
+  minutes**, and it was **a mocked forge, not a campaign.**
+- **The comparison to the first cluster's 113-minutes-still-preparing.** Two
+  different things were placed side by side and the contrast was the point of the
+  paragraph.
+- **T+1507 §6's conclusion** that *"the thing that was feared as a duration
+  problem turned out to be a mount-form problem."* **That rested entirely on the
+  bad comparison.**
+
+**What survives:**
+
+- **Module 4's path executed and produced a real four-case artefact**, which
+  `check_speedup_substantiated` counted: *"4 case(s), exactly."*
+- **The mount-`case` refusal is unaffected** — it is an environment defect in the
+  validator's re-measurement path and it refused two different consumers
+  (T+847, T+1477 §2).
+- **`forge_mock=1` is a legitimate configuration** — the user's decision on
+  2026-09-06 was that module 4 rides on a replayed or self-declared-degraded
+  artefact this hold. **The defect is not that it was used; it is that I reported
+  its duration without its qualifier.**
+
+**How I got it wrong, precisely, because the mechanism is one this file has
+documented against others:** at T+1387 I read `/proc/3140102/cmdline` through a
+grep pattern of variable names **I chose** —
+`^(mock_stages|mock_root|gpu|trace_end_ms|work_root)=`. **`forge_mock` was not in
+my pattern.** The instrument answered exactly the question I asked.
+
+> **A grep over a launch line is a filter I write, and everything I did not think
+> to name is invisible in a way that looks like absence.** The launch line had
+> `forge_mock=1` in it at 05:41 and I printed five other fields.
+
+**And the failure propagated in the shape this record warns about most:** an
+unqualified number went into a section headed **"MODULE 4 EXECUTED"**, into a
+commit subject that cannot be amended, and into a message to the leader. **Three
+places, and the commit subject is permanent.**
+
+**One more consequence I had not drawn and the launch record states:**
+`forge_mock=1` **cannot reach `integrate_and_verify`** — so **module 5 was
+structurally unreachable in run 22**, independent of everything else.
+
+### 2. 进度 / 耗时 / 可靠性 — the number comes back down
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** (−4, retracting T+1477's award) |
+| 已经耗时 | **~1551 min ≈ 25 h 51 min** |
+| 预估耗时 | **stages 1–3 90–96 min measured; module 4 NOT measured; module 5 unreachable in that config; packup unmeasured** |
+| 可靠性 | **中, and lower for anything I derived from a self-written grep** |
+
+**The +4 at T+1477 was awarded for "module 4 executed and produced a validated
+artefact."** Under `forge_mock=1` that is **a mocked forge producing a declared
+artefact — real, useful, and not the measurement the round needs.** **I am taking
+the +4 back rather than arguing it down.**
+
+**预估耗时 loses its newest term.** T+1477 said the measured chain was ~110
+minutes. **It is ~90–96 minutes, and module 4 is once again zero measurements.**
+
+### 3. State
+
+```
+run 22 (13a18e)  last write 06:47:04  -> quiet 83 min 36 s; orchestrator gone
+total runs       22
+teammate writes  0 in the last 40 min
+cards            VRAM% 0 0 0 0 0 0 0 0 at 08:10:08
+hold 29313       RUNNING 18:10:02 elapsed, 5 h 50 min left
+```
+
+### 4. Code problems
+
+**No new ones.** Unchanged from T+1507: the mount `case`, and `baseline`'s
+three-way conflict. The eight `jsonschema` validators remain **unread since
+T+94 — twenty-six hours.**
+
+### 5. 未定性
+
+- **What a real module-4 campaign costs on this cluster.** **Back to zero
+  measurements**, and it is again the round's missing term.
+- **Whether the round is continuing.** Asked at 07:11, no answer, 5 h 50 min
+  left.
+- **What module 5 consumes if module 4 is replayed** — **forty-ninth consecutive
+  section**, and now with the added fact that `forge_mock=1` cannot reach
+  `integrate_and_verify` at all.
+
+### 6. 新增 commit
+
+```
+83e3b070  checkpoint R2 T+1507 — mine
+322d5b7f  bug record: an unqualified duration reached the closing section —
+          forge_mock=1 means module 4's four minutes is not a campaign
+```
+
+### 7. 其他
+
+**The author of `322d5b7f` made a choice worth naming: they recorded the
+correction in the bug record rather than editing my file, and they stated the cost
+of that choice inside the entry — "a reader of that file has to reach this
+entry."**
+
+**They were right not to edit it**, and this section is the other half of the
+mechanism: **the append-only file has to carry its own correction, or the
+bug-record entry is a fix that never reaches the person reading the summary.**
+That is the *"corrections must land where the reader first arrives"* rule from
+the first cluster, and it only works if both halves happen.
+
+**The thing I would most want carried forward from this interval is not the
+retraction, it is the grep.** Every launch-line reading in this file since T+31
+has gone through a pattern I wrote. **T+1417 praised a probe for reading the
+launch line "the only place a run records what it was launched with" — and the
+same interval, my own reading of a launch line was filtering out the field that
+mattered.**
