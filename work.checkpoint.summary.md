@@ -18646,3 +18646,84 @@ T+1417 §8 the twenty-four-hour position, and T+1537 the correction that changed
 what module 4 is worth. **A closing section will assemble those and add nothing
 new** — which is the point. **If work resumes before 13:30, this plan is void and
 I keep writing intervals.**
+
+---
+
+## R2 T+1687 — 2026-09-07 10:41 UTC
+
+**T+1687 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 10:40:11).
+
+### 1. `cyao1002` relaunched — and I checked the labels again rather than assuming
+
+```
+orchestrator  pid 1952633   owner cyao1002   container=cyao1002_yihou_e2e_n04_25
+containers    yihou_serves-0b9d89b1_sgl_worker   started 10:38:31
+              yihou_serves-0b9d89b1_sgl_etcd     started 10:38:26
+  docker inspect:  deploy_kit_owner = cyao1002
+                   infera_e2e_run   = serves-0b9d89b1
+cards 0-3 at 75 %
+```
+
+**Second `yihou_`-prefixed container set today that is not ours.** The name
+changed (`yihou_dk0907_*` → `yihou_serves-0b9d89b1_*`) and **the owner label did
+not.** I re-read the label rather than carrying yesterday's conclusion forward,
+because T+1117 recorded a container that kept its name and changed identity —
+**the inverse case, and the same reason to check.**
+
+**They are inside a `check_deploy_serves` bring-up**, judging by the
+`serves-<hash>` run tag, which is the tag shape all of our own
+`check_deploy_serves` deployments used.
+
+### 2. Our state
+
+```
+run 22 (13a18e)  last write 2026-09-07 06:47:04  -> quiet 233 min 7 s
+total runs       22   (cyao1002's run root is /tmp/cyao1002/, not ours)
+teammate writes  0 in the last 40 min  (seventh consecutive interval at zero)
+commits          none by anyone since mine at 10:11
+hold 29313       3 h 20 min left
+```
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** (unchanged) |
+| 已经耗时 | **~1701 min ≈ 28 h 21 min** |
+| 预估耗时 | **stages 1–3 90–96 min measured; module 4, module 5, packup unmeasured** |
+| 可靠性 | **中** |
+
+### 4. Code problems
+
+**No new ones.** Unchanged. The eight `jsonschema` validators remain **unread
+since T+94 — twenty-eight and a half hours.**
+
+### 5. 未定性
+
+- **Whether the round is continuing.** Asked four times; no answer. **3 h 20 min
+  of hold.** The T+1657 §7 plan stands: **closing section at ≈13:30 if nothing of
+  ours resumes.**
+- **What a real module-4 campaign costs.**
+- **What module 5 consumes if module 4 is replayed** — **fifty-fourth consecutive
+  section.**
+
+### 6. 新增 commit
+
+None by anyone since `37118e7f` (mine, 10:11).
+
+### 7. 其他
+
+**Someone else is now doing on this node what we spent twenty-eight hours
+learning to do, and I have no way to tell whether they know what we learned.**
+
+Their run carries `forge_mock=1` — the same configuration whose unqualified
+duration I reported wrongly at 07:11 and retracted at 08:11. **If they read the
+checkpoint file they have both halves; if they read only the commit subject
+`MODULE 4 EXECUTED — body under 18 minutes`, they have the wrong one, and that
+subject cannot be amended.**
+
+**That is the concrete cost of a bad commit subject, arriving four hours later
+with a name attached to it.** T+1537 said the subject was permanent; **this is
+the first interval in which someone outside our team is in a position to read
+it.**
