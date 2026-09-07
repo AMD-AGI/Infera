@@ -214,7 +214,7 @@ jobs:
     timeout-minutes: 60
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
-      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus:amd-primus-qos,amd-primus:amd-burst-qos,amd-burst:amd-burst-qos
+      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus-cicd:amd-primus-cicd-qos,amd-primus:amd-primus-qos
       INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
       INFERA_E2E_SLURM_TIME: "00:50:00"
       INFERA_E2E_JOB_TAG: ${{ github.run_id }}-engine
@@ -254,7 +254,7 @@ jobs:
     timeout-minutes: 120
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
-      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus:amd-primus-qos,amd-primus:amd-burst-qos,amd-burst:amd-burst-qos
+      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus-cicd:amd-primus-cicd-qos,amd-primus:amd-primus-qos
       INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
       # Keep the SLURM allocation just inside the job timeout, so the scheduler
       # reclaims the node even if the runner is killed before it can scancel.
@@ -300,7 +300,7 @@ jobs:
     timeout-minutes: 120
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
-      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus:amd-primus-qos,amd-primus:amd-burst-qos,amd-burst:amd-burst-qos
+      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus-cicd:amd-primus-cicd-qos,amd-primus:amd-primus-qos
       INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
       # Ceiling on every disagg srun step, inside the job timeout above so the
       # scheduler reclaims a node even if the runner is killed first.

@@ -27,7 +27,7 @@ gaie = [
 # performance model interpolates the profiling grids without scipy.
 planner = ["numpy>=1.24"]
 # Per-engine targets; framework comes from the vendor base image, not pip.
-sglang = ["amd-infera[gaie]"]
+sglang = ["amd-infera[gaie]", "tiktoken>=0.7"]
 vllm = ["amd-infera[gaie]"]
 atom = ["amd-infera[gaie]"]
 dev = [
