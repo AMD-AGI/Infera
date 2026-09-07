@@ -260,3 +260,65 @@ The prediction that `apply_patch` would refuse a `forge_mock` payload at
 `1d71a809`) **was not exercised**: `kernel_optimization` never became a valid
 handoff, so `apply_patch` never ran. **The analysis stands unrefuted and also
 unconfirmed.**
+
+---
+
+## `check_speedup_substantiated` — REFUSED on run 11, and it is the mount defect a THIRD time
+
+Run `20260907T045327-13a18e`, `optimize_kernel` output validation, 06:44:18.
+**Zone had 20 files.** The other two validators on the same zone passed, including
+`check_optimization_shape`, which had refused on run 8.
+
+```
+PROBLEM: the seed re-measurement failed: the entrypoint exited 1:
+  run_in_container: '<zone>/validation-0p1fdlim/substantiate-bfulctu7/seed' is
+  under no mount form this cluster is known to accept
+  (/shared_nfs, /home/<user>, /mnt/m2m_nobackup/<user>).
+```
+
+**The validator is right and its message is a model of the kind.** It refuses
+rather than starting a container that cannot see its own script, and it says why:
+*"that failure arrives as 'No such file or directory' from inside and reads as a
+broken workset."*
+
+### Three allow-lists, three shapes, and only two are reachable
+
+| where | branches | `E2E_REMOTE_HOME` escape? |
+|---|---|---|
+| `build_workset.task/measure_in_container.sh:277` | `/shared_nfs`, `/home/*/*` | **yes** |
+| `optimize_kernel.task/steps/run_in_container.sh:592` | `/shared_nfs`, `/mnt/m2m_nobackup`, `/home/*` | **no — `grep` returns nothing** |
+| (m1's `check_deploy_serves` reaches its env via `transport_env`) | — | via `_env_extra` |
+
+**`--var remote_home` + `--var transport_env=E2E_REMOTE_HOME=/data/yihou` fixed the
+first. Nothing on a launch line can reach the second**, because it reads no
+environment variable at all.
+
+> **同一个缺陷,三个各自硬编码的清单,而其中一个没有任何逃生口。**
+> 修好一个之后,下一个的失败读起来完全像一个新问题——它换了消息文本、换了
+> 允许列表、换了文件。
+
+### The fix the file itself asks for
+
+The comment above `_mount_root` says: *"m3's rule: extend this with a form you have
+**SEEN** the daemon accept."* Seen, twice, on this daemon:
+
+```
+2026-09-06 20:21:22Z  docker run --rm -v /data/yihou:/data/yihou alpine -> MOUNT_OK, READ_OK
+2026-09-07 04:40:26Z  same, listing a zone path under /data/yihou
+plus every engine container tonight: binds=/data/yihou:/data/yihou
+```
+
+One additive line, parallel to the `/home/<user>` branch:
+
+```sh
+    /data/*)   printf '%s' "$(printf '%s' "$1" | cut -d/ -f1-3)" ;;
+```
+
+**Not applied — it is a `.sh` in m4's task and outside the scope the leader
+authorised for the brief edits. Asked; awaiting an answer.**
+
+### What the same run established
+
+`--var gpu=4` cleared **both** of run 8's m4 refusals: `check_optimization_shape`
+passes, and the artefact now carries `correctness.passed: True` with 4 shapes and
+a real `weighted_mean_ms`. **The remaining refusal is not about m4's work.**
