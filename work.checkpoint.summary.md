@@ -16540,3 +16540,143 @@ measured across it.
 record that says *"held no GPU at 00:10:11"* stays true forever and lets a later
 reader ask the right question. **A record that says "foreign, CPU only" quietly
 becomes false at 23:39:34 and takes eight sections with it.**
+
+---
+
+## R2 T+1087 — 2026-09-07 00:41 UTC
+
+**T+1087 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 00:40:34).
+
+### 1. Run 20 is not stalled — it died at 23:58:13 and the label never changed
+
+**At T+1057 I recorded twelve minutes of quiet and declined to call it a stall,
+citing `build_workset`'s measured 24-minute precedent. That was the right call
+for the wrong reason: it was already dead.** This interval I read the events
+instead of the clock.
+
+**[observed, first-hand] `store/event`, the last three, same instant:**
+
+```
+2026-09-06T23:58:13.887  output_absent
+   detail: success   exit_status: finished
+   "declared output 879b05db-59bc-4307-a2de-ba81fb51ec3e was never delivered"
+   seal_refused…
+2026-09-06T23:58:13.888  push_attempted   "continue, do it until finished"
+2026-09-06T23:58:13.894  handling_failed  {}
+```
+
+**The body finished successfully and never delivered its declared output.**
+`exit_status: finished`, `detail: success`, and the declared output absent.
+
+**`handling_failed` with an empty `attributes` is the first cluster's documented
+signature for *the agent has completed and `mainloop` has returned, so there is
+no loop to deliver to*, and nothing retries.** **I relay that interpretation and
+did not re-derive it**; what I measured is the three events and their timestamps.
+
+**Four independent readings agree, and none of them is the status field:**
+
+```
+last run-tree write     2026-09-06 23:58:13   -> 41 min 54 s quiet
+build_workset's longest measured quiet         24 min, twice (d313556e)
+--stall-after 900 should have fired ~00:13     it did not kill the run
+newest verdict mtime    2026-09-06 23:24:27    validation long over (T+997)
+store/task still says   build_workset: running
+orchestrator pid 95533  ALIVE, holding the slot
+```
+
+**This is the third distinct way a run can be dead while reading alive**, and
+they are now all on the record:
+
+```
+T+997   output_validating persists after a failed validation
+T+757   two 900 s timers — timeout bursts keep re-satisfying the detector
+T+1087  output_absent + handling_failed — the task stays `running` forever
+```
+
+**In none of them is the status field wrong.** It reports what was dispatched.
+**What it cannot report is that nothing will ever pick the work up again**, and
+in all three cases the discriminator is in `store/event`, which is one directory
+away and which I did not open at T+1057.
+
+### 2. Nobody is watching, and the node is idle
+
+```
+teammate writes under /data/yihou/e2e_verify_20260906/  in the last 60 min:  0
+commits by anyone since mine at 00:10:59:                                     0
+cards at 00:39:48:  VRAM%  0 0 0 0 0 0 0 0
+containers:         rc_26_7_902, xiaoming-dev — held no GPU at 00:39:48
+```
+
+**`xiaoming-dev` released before 00:10:11 after holding all eight cards for about
+31 minutes** (T+1057 §1). **So the node has been free and doing nothing for at
+least thirty minutes**, with a dead run holding the chain slot.
+
+**Reported to the leader at 00:40:07 with the measurements.** **I have not
+touched the orchestrator** — teardown order is agents first, then containers,
+and that is not an instrument's call.
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged) |
+| 已经耗时 | **~1101 min ≈ 18 h 21 min** |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Fifth consecutive interval unchanged**, and this one for a reason worth
+stating: **the board run 20 reached was the third consecutive 21/21 with zero
+refusals**, and it died on a delivery failure rather than on anything it
+computed.
+
+**Hold `29313`: 13 h 19 min left** (2026-09-07T14:00:06 → 00:40:34).
+
+### 4. Code problems
+
+**New, observed, unfixed:** a task whose body finishes and does not deliver its
+declared output leaves the task `running` permanently with no retry
+(`output_absent` → `push_attempted` → `handling_failed`). **Framework, not
+package**, and it joins the two other permanent-`running` mechanisms in §1.
+
+**Carried, unchanged:** `output_validating` persisting; `baseline` with two
+incompatible consumers; stall threshold vs longest quiet interval;
+`preflight.sh:211`; teardown-vs-preflight sequencing; `--var jobid` vs
+`_agree_or_die`; `etcd.log` on no path; `min_resolve_ratio` floor of zero; the
+router `/health` gate vs a cold JIT compile; three refusals naming unreadable
+`--var`s; six un-refuted empty-default variables.
+**Carried unread since T+94:** the eight `jsonschema` validators — **eighteen
+hours.**
+
+### 5. 未定性
+
+- **Why `build_workset` did not deliver `879b05db-…`.** `exit_status: finished`
+  and `detail: success` say the body thought it was done. **The reading that
+  would answer it is the body's own output directory against what it declared**;
+  I have not taken it.
+- **Whether anyone picks this up before the hold burns.** 13 h 19 min, node
+  idle, no activity in an hour.
+- **What module 4 costs** — five approaches, zero measurements.
+- **What module 5 consumes if module 4 is replayed** — **thirty-fourth
+  consecutive section.**
+
+### 6. 新增 commit
+
+Since T+1057, none by anyone, including me until this section.
+
+### 7. 其他
+
+**Three mechanisms now produce a run that is dead and reads alive, and I found
+the third by opening the events after having declined to open them thirty minutes
+earlier.**
+
+At T+1057 I wrote: *"Quiet for 12 min 15 s at this sample. Recorded as a
+measurement, not a diagnosis."* **That restraint was correct as a policy and it
+cost thirty minutes**, because the thing that would have settled it was not more
+patience — **it was `store/event`, which is the same artefact this file has
+named as the discriminator every time this has come up.**
+
+**The rule I will follow from here, stated so it is checkable rather than
+remembered:** *when a task's quiet interval exceeds its own measured precedent,
+open `store/event` before writing the section — not after.* **`build_workset`'s
+precedent is 24 minutes and it was in this file when I wrote T+1057.**
