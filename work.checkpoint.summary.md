@@ -18113,3 +18113,92 @@ f6e17da7  bug record: my verbatim-baseline requirement collides with
 0406bd35  temp: snapshot m2's launch guards and instruments before the halt
 b44f6d6c  Merge branch … (merge)
 ```
+
+---
+
+## R2 T+1507 — 2026-09-07 07:41 UTC
+
+**T+1507 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 07:40:09).
+
+**Everything has stopped. The "halt" named in `0406bd35`'s subject appears to be
+real, and I record it as observation rather than inference.**
+
+### 1. State
+
+```
+run 22 (13a18e)  last write 2026-09-07 06:47:04  -> quiet 52 min 53 s
+                 optimize_kernel: output_validating
+                 m4_kernel_opt / main: running
+                 orchestrator GONE  (0 orchestrators)
+total runs       22
+teammate writes  0 in the last 40 min
+commits          none by anyone since mine at 07:11
+cards            VRAM% 0 0 0 0 0 0 0 0 at 07:39:57
+containers       xiaoming-dev, rc_26_7_902 — neither on GPU
+hold 29313       6 h 20 min left
+```
+
+**Run 22 reads `optimize_kernel: output_validating` with no orchestrator** —
+which by T+997 means the validation is over, not ongoing. **The refusal it
+produced is in T+1477 §2.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~82 %** (unchanged) |
+| 已经耗时 | **~1521 min ≈ 25 h 21 min** |
+| 预估耗时 | **stages 1–3 90–96 min + module 4 <18 min ≈ 110 min measured; module 5 and packup unmeasured** |
+| 可靠性 | **中** |
+
+**Unchanged. Nothing has executed since 06:47:04.**
+
+### 3. Code problems
+
+**No new ones.** Two are now the critical path and both are package-level:
+
+- **The mount `case`** — accepts `/shared_nfs`, `/home/<user>`,
+  `/mnt/m2m_nobackup/<user>`; this cluster's roots are `/data/yihou`. **It has
+  now refused two different consumers** (`check_workset_runs` at T+847,
+  `check_speedup_substantiated` at T+1477) and **the T+937 clearing was
+  consumer-local, exactly as cautioned.**
+- **`baseline`'s three-way conflict** — m3's `--impl`, `apply_patch`'s
+  `overlay_files`, and `check_workset_shape` (T+877, T+1477 §3). **Pairwise
+  reasonable, jointly unsatisfiable for at least one operator.**
+
+**Carried unchanged:** the rest. The eight `jsonschema` validators remain
+**unread since T+94 — twenty-five and a half hours.**
+
+### 4. 未定性
+
+- **Whether the round is continuing.** Asked the leader at 07:11; **no answer
+  yet, and 6 h 20 min of hold remain.** If it is winding down I will write a
+  closing section rather than another interval.
+- **Whether module 4's under-18-minute duration is representative** — one
+  measurement.
+- **What module 5 consumes if module 4 is replayed** — **forty-eighth consecutive
+  section**, and module 4 has now produced a four-case artefact for it to
+  consume.
+
+### 5. 新增 commit
+
+None by anyone since `3d683bf1` (mine, 07:11).
+
+### 6. 其他
+
+**One line is worth adding to the ledger while the machine is quiet, because it
+is the round's clearest single result and it was not available yesterday.**
+
+> **Module 4 — the stage the user flagged as very long, the one this record
+> called "the only thing standing between this round and `packup`" for eleven
+> consecutive sections — produced a four-case artefact in under eighteen
+> minutes.**
+
+**It was refused, and on an environment defect in the validator's re-measurement
+path rather than on anything the forge computed.** **So the thing that was
+feared as a duration problem turned out to be a mount-form problem**, and the
+mount form is a two-line `case` statement that has now refused two consumers.
+
+**That is not a small finding to end a quiet interval on.** It means the shape of
+what remains is a package fix and a contract decision — **not a compute budget.**
