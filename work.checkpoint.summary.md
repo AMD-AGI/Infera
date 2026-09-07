@@ -17835,3 +17835,119 @@ packup    has never been reached, on either cluster
 **The honest one-sentence version is unchanged from T+1297:** everything up to
 the kernel forge is reproducible and measured, and the kernel forge has never
 completed here. **Seven hours and fifty minutes of hold remain.**
+
+---
+
+## R2 T+1447 — 2026-09-07 06:41 UTC
+
+**T+1447 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 06:40:22).
+
+### 1. Module 4 is running with every known blocker fixed — the clock starts here
+
+**[observed, first-hand] `20260907T045327-13a18e`, alive, last write 06:39:43:**
+
+```
+m3_analysis      SUCCEEDED     ← stage 3 sealed, 2nd time ever
+build_workset    SUCCEEDED
+m4_kernel_opt    running
+optimize_kernel  running       created 2026-09-07T06:29:06.604Z
+verdicts 24/24, zero refusals
+/data/yihou/e2e_flow11/kfo  144 K, 9 files written in the last 20 min
+```
+
+**`optimize_kernel` started at 06:29:06.604Z. At 06:40:22 that is 11 min 16 s.**
+**I am recording the start instant precisely because module 4's duration is the
+one number this record has been missing for twenty-four hours**, and it can only
+be computed from an anchor taken while the run is alive.
+
+**This is the first module-4 attempt with the `--var gpu` fix in place.** Run 18
+entered it twice and refused twice because `HIP_VISIBLE_DEVICES` was
+`'${gpu:-}'` and `run_in_container.sh` aborts on empty (T+967). **Run 22 carries
+`gpu=4`**, read from its argv at T+1387.
+
+**Run 22's timings, from `store/task` `created_at` fields:**
+
+```
+launched              04:53:27
+m3_analysis created   04:53:29
+build_workset created 05:45:58
+optimize_kernel created 06:29:06
+```
+
+**Stages 1–3: about 96 minutes**, consistent with the ~90 minutes measured on
+runs 17 and 18.
+
+**Cards read 0 % at 06:39:55 and that is expected**, not idle — the first
+cluster measured a forge campaign spending its opening two hours in preparation
+with no source file modified. **The signal that matters is `kfo/` growth, which
+is happening: 9 files in 20 minutes.**
+
+### 2. State
+
+```
+run 22 (13a18e)  pid 3140102, the only run
+total runs       22
+co-tenant        xiaoming-dev, no GPU at 06:39:55; no burst since 02:03:40
+repo             clean, no rebase
+hold 29313       7 h 20 min left
+```
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** (+2) |
+| 已经耗时 | **~1461 min ≈ 24 h 21 min** |
+| 预估耗时 | **stages 1–3 ≈ 90–96 min; module 4 measuring NOW, 11 min in** |
+| 可靠性 | **中** |
+
+**+2: stage 3 sealed a second time, and module 4 is executing for the first time
+without a known blocker in front of it.**
+
+**Not more, and the reason is on the record:** module 4 has been entered five
+times before and measured nothing each time. **Eleven minutes of `kfo/` growth is
+not a completed stage**, and this record has spent a day distinguishing those.
+
+**预估耗时 is closer than it has ever been.** If module 4 completes, the round has
+its last missing term and a total becomes computable for the first time.
+
+### 4. Code problems
+
+**No new ones.** All carried. The eight `jsonschema` validators remain **unread
+since T+94 — twenty-four and a half hours.**
+
+### 5. 未定性
+
+- **How long module 4 takes.** **Anchor: `optimize_kernel` created
+  2026-09-07T06:29:06.604Z.** With 7 h 20 min of hold, the first cluster's
+  113-minutes-and-still-preparing observation is the only prior, and it is from a
+  different machine.
+- **Whether module 4 produces something module 5 can consume**, given `baseline`
+  has two consumers with incompatible demands (T+877, `apply.py:828`). **That
+  defect is unfixed and sits directly downstream.**
+- **What `redact` will refuse at `packup`** — predicted, not observed (T+1417).
+- **What module 5 consumes if module 4 is replayed** — **forty-sixth consecutive
+  section, and if module 4 completes it stops being a question about a
+  hypothetical.**
+
+### 6. 新增 commit
+
+None by anyone since `254f2e64` (mine, 06:11).
+
+### 7. 其他
+
+**Twenty-four hours and twenty minutes in, the round is at the exact point it has
+been trying to reach since the baseline, and the reason it took this long is
+legible.**
+
+Module 4 needed: stage 1 green, stage 2 sealed with a real stack capture,
+`identify` past a duplicate-name refusal, `build_workset` past a mount `case`
+with no branch for this cluster, and `--var gpu` passed. **Each of those was a
+single-point defect found by something refusing, and each had to be fixed before
+the next became visible.**
+
+**Nothing about tonight was a breakthrough.** The eleven defects were found in
+the order the ladder exposed them, and the last one — `--var gpu` — was found
+twelve hours ago and fixed in a launch line. **What changed is only that a run
+finally carried all of the fixes at once.**
