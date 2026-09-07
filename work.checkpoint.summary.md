@@ -18832,3 +18832,63 @@ since T+94 — twenty-nine and a half hours.**
 ### 5. 新增 commit
 
 None by anyone since `a8fd18e8` (mine, 11:11).
+
+---
+
+## R2 T+1777 — 2026-09-07 12:11 UTC
+
+**T+1777 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 12:10:10).
+
+**No-change record.**
+
+### 1. State
+
+```
+run 22 (13a18e)  last write 2026-09-07 06:47:04  -> quiet 322 min 55 s
+total runs       22
+orchestrators    0
+teammate writes  0 in the last 40 min  (tenth consecutive interval at zero)
+commits          none by anyone since mine at 11:41
+cards            VRAM% 0 0 0 0 0 0 0 0 at 12:09:59
+hold 29313       RUNNING 22:09:54 elapsed, 1 h 50 min left
+```
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** (unchanged) |
+| 已经耗时 | **~1791 min ≈ 29 h 51 min** |
+| 预估耗时 | **stages 1–3 90–96 min measured; module 4, module 5, packup unmeasured** |
+| 可靠性 | **中** |
+
+### 3. Code problems
+
+**No new ones.** Unchanged. The eight `jsonschema` validators remain **unread
+since T+94 — thirty hours.**
+
+### 4. 未定性
+
+- **Whether the round is continuing.** Six asks, no answer.
+- **What a real module-4 campaign costs.**
+- **What module 5 consumes if module 4 is replayed** — **fifty-seventh
+  consecutive section.**
+
+### 5. 新增 commit
+
+None by anyone since `db412345` (mine, 11:41).
+
+### 6. Scheduling the closing section — one adjustment
+
+**T+1657 §7 said "≈13:30". I am moving it to the 13:11 mark**, which is a
+scheduled interval and leaves **49 minutes of margin** before the hold ends at
+14:00:06.
+
+**The reason is the one that motivated the plan:** a closing section must be able
+to *check* what it asserts, and `rocm-smi`, `docker ps`, `/proc` and `squeue` all
+stop answering when the allocation ends. **Writing it on a scheduled mark with
+margin is safer than writing it at a time I picked to be as late as possible.**
+
+**If anything of ours resumes before 13:11, the plan is void and I keep writing
+intervals.**
