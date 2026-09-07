@@ -40,7 +40,6 @@ target:
 items:
   - installer: bin
     importance: suggested
-    layer: system
     name: agentsview
     version: "0.42.0"
     check_cmd: "$AGENT_SYS_HOME/bin/agentsview --version"

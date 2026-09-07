@@ -62,3 +62,8 @@ mission.md
 .spur_job_*.sh
 .spur_ns_*.sh
 spur-*.out
+
+# serena writes `.serena/` into whatever directory it is given as
+# `--project`; ignored rather than remembered, since `launch.sh` refuses to
+# start a run while the package tree is dirty.
+.serena/

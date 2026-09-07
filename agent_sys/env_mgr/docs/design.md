@@ -74,7 +74,7 @@ preparation order, and nowhere else.
 ```
 env_mgr/
 ├── cli.py                  EXTENDED with sub-commands (§12.2). The only shipped file that changes
-├── recipe.py  layer.py  runner.py  outcome.py  report.py  registry.py  versions.py
+├── recipe.py  runner.py  outcome.py  report.py  registry.py  versions.py
 ├── installers/             ── all unchanged (§12.1)
 │
 ├── meta.py                 configuration: domains, mappings, sync strength (spec §3.1)
@@ -92,6 +92,7 @@ env_mgr/
 ├── grants.py               resolving a Grant into locations. §6
 ├── workspace.py            the clone with alternates. §7
 ├── material.py             deploying an agent's rules/hooks/skills. §11.5
+├── agent_assets.py         per-agent components §11.5a; recipe layers §11.5b
 ├── sync.py                 the one-shot job. §9
 ├── remote/
 │   ├── connection.py       ssh and docker exec behind one Protocol. §10.2
@@ -121,7 +122,7 @@ That is enforced, not intended:
                                  ▲
                                cli.py
         ─────────────────── the wall ───────────────────
-   recipe, layer, runner, outcome, report, registry, installers/
+   recipe, runner, outcome, report, registry, installers/
 ```
 
 `cli.py` is the only module above the wall that may import from below it, and it
@@ -1126,7 +1127,7 @@ def prepare(task: Task, execution: Execution, agent_spec: AgentSpec,
     if report.conflicts:
         raise PrepareRefused(report.conflicts)                #    §9.3
     layout.stage_handoffs(task, execution, zone, ctx)         # 6  §8.3
-    material.deploy(agent_spec, zone)                         # 6b §11.5
+    material.deploy(agent_spec, zone, staged, ws.path)        # 6b §11.5, §11.5a
     conf   = isolation.apply(policy, probe(), tier=ctx.tier)  # 7  §4.5 -- LAST
     return Prepared(zone, ws, policy, conf, report)
 ```
@@ -1263,13 +1264,230 @@ Claude Code's canonical form (`agent` spec §4.5); converting between harness
 formats is an independent module that does not exist (`agent` design §3.5). A file
 is placed, not read.
 
+### 11.5a Per-agent material — recipes and one copied tree, and why they are not a fourth loop
+
+Two more agent-spec keys arrived — `assets` and `recipes` — and they did **not**
+fit §11.5's sentence. `rules` / `hooks` / `skills` are lists of *files*, and a
+Claude Code component is a *tree*: a skill is a directory, a plugin marketplace
+is a directory of directories, an MCP server is a process to register. So
+`agent_assets.py` exists and `material.py` calls it.
+
+`docs/spec.provisioning.md` is normative for this and supersedes the L1/L2/L3
+vocabulary **and** the three-origins table that replaced it:
+
+| what | how | resolved against |
+|---|---|---|
+| anything upstream ships, and anything `agent_sys` ships under `env_mgr/addons/` | a recipe — the default layer, the package layer, or `recipes: [...]` | the staged package, then `env_mgr/recipes/<name>.yaml`; an add-on by importing `env_mgr` |
+| what one task package carries for one agent | **undeclared** — copied | `<staged package>/<assets>/.claude/` |
+
+**There was a third row and a key that reached it.** `agent_plugins: [...]`
+named a directory under `env_mgr/addons/`, and it is deleted: the key, its schema
+property, `isolation/policy.py::addon_grants` and the exported
+`AGENT_SYS_ADDONS_ROOT`. Add-ons are installed by recipe only. `tags: [internal]`
+on a recipe item still marks provenance, and needed no schema change — the field,
+its exclusion from `Item.spec`, the `--tag` flag and the tag-intersection filter
+in `runner.py` all already exist.
+
+**A package's own material is undeclared** because a declaration would be a
+second statement of what the directory already says, and two statements of one
+fact drift (§1's rule, one layer out).
+
+**Order is upstream → this repository → the package**, so the package's own copy
+wins a name collision —
+`material.deploy`'s existing precedence, *an author saying so outranks a default*.
+
+**One measurement cuts across that order.** 2026-09-03: `claude plugin
+marketplace add` and `claude plugin install` respect `CLAUDE_CONFIG_DIR` fully,
+and they **merge** into an existing `settings.json` rather than clobbering it — a
+hand-written `hooks` key survived a subsequent install, which only added
+`enabledPlugins` / `extraKnownMarketplaces`. Merging is not commutative with
+creating, so the settings document is assembled from every origin and **written
+before any install runs**. `agent_assets` writes it rather than returning it,
+because a caller cannot pick that moment without knowing which levels resolved.
+
+**Two destinations that are not an environment.** A component can publish MCP
+servers, and a component install produces `Outcome`s; neither fits a
+`Mapping[str, str]`. So `material.deploy` returns a `Deployed` value —
+`environment`, `mcp_servers`, `report` — `prepare` carries `mcp_servers` onto
+`Prepared`, and `claude_sdk` merges it into the SDK's options under the
+collision policy the `env_mgr` tool server already had: a name already present
+is a named `BackendUnsupported`, never a silent replacement.
+
+`Deployed` carried a fourth field, `tools`, until 2026-09-04: a component's
+`tools/*.tooldef.py`, imported into the supervisor's own process and appended to
+`Prepared.tools`. That route is **deleted** — spec §6 of `docs/spec.provisioning.md`
+— and a component offering a tool now ships a server that runs on its own.
+`Prepared.tools` remains, carrying `remote/tools.py` alone, which is that
+section's one standing exception.
+
+**A recipe runs the shipped machinery as a SUBPROCESS, and the §14.4 wall is untouched.**
+
+    <sys.executable> -m env_mgr bootstrap <recipe> --json --path <workspace>
+
+`agent_assets` imports nothing from below the wall, so spec §9's *nothing new
+imports the installer machinery* holds as written and `cli.py` remains the one
+named exception. Four reasons, and the last two are not recoverable by an
+import:
+
+1. The invariant stays literally true rather than being amended to fit a feature.
+2. It is **not** the `importlib.import_module` dodge, which hides an edge that
+   still exists in-process. A subprocess genuinely has no edge; the coupling
+   becomes a CLI contract, which is weaker and is visible to a reader.
+3. **A child takes `env=` and this process's `os.environ` does not.**
+   `installers/base.py::run_cmd` builds its subprocesses from `os.environ`, so an
+   in-process call could only set `CLAUDE_CONFIG_DIR` and the `UV_*` roots by
+   mutating the supervisor's environment — and `agent/runner.py` is threaded by
+   construction, so two concurrent prepares would take that value from each
+   other. The subprocess removes the window with no change to §12.1's package.
+4. **A child can be bounded and an in-process call cannot.** `run_cmd` has no
+   timeout, so a networked recipe install that goes wrong hangs `prepare` for ever,
+   and `agent-sys --timeout` is a ceiling on the whole run rather than a cure
+   for one stuck child. `agent_assets.RECIPE_TIMEOUT_SECONDS` bounds the
+   `python -m env_mgr` process — the thing `run_cmd` cannot bound from inside —
+   and it is a **parameter with a stated default**: twenty minutes, from probe
+   D's real cold-cache `uv tool install` of serena finishing well inside
+   fifteen, plus headroom. On expiry the recipe is a `fail` naming the bound and
+   saying that a partial install may remain, which is more than the current
+   behaviour of silence for ever.
+
+The cost is stated in `agent_assets`' own docstring: **the CLI's argument surface
+is now a compatibility surface.** The JSON round-trip is lossless —
+`render_json` emits `{level, message, details}` and `Outcome` is exactly those
+three — so `agent_assets.InstallOutcome` reconstructs what an in-process call
+would have returned. It is a separate type for the same reason the call is a
+subprocess: `outcome` is below the wall, and importing a class to rebuild
+something that arrived as JSON would reintroduce the edge for nothing.
+
+Two details of the invocation are load-bearing. **`PYTHONPATH` is derived from
+`agent_assets.__file__`**, because measured on this host the editable
+`agent-sys-helper` install resolves `env_mgr` to a *different worktree* — a bare
+`-m env_mgr` would run somebody else's checkout and mostly work, which is
+`interfaces.md` §4.11's family. **`--path` is always passed**, because
+`Target.path` is each item's `cwd`, a shipped recipe carries a placeholder, and
+`subprocess.run` *raises* rather than returning non-zero when `cwd` is absent.
+
+**Three measurements shape the rest**, all 2026-09-03:
+
+| probe | what it settles |
+|---|---|
+| A / A' | plugin installs honour `CLAUDE_CONFIG_DIR`; they **merge** into `settings.json`, hence the write-first ordering above |
+| D | `uv tool install` writes `~/.local/share/uv` unless `UV_TOOL_DIR` / `UV_TOOL_BIN_DIR` / `UV_CACHE_DIR` are pinned — and it *succeeds* while doing it. So `material.deploy` resolves the agent's declared `env` block **before** the installs (it is an input) and applies it **again after** (it is still the last word) |
+| F | a plugin is read from its **marketplace source path at run time**; nothing is copied by the install. So a component's `plugins/` is copied into `<zone>/config/marketplaces/<name>/` and *that* is registered. Registering it in place would install cleanly and fail to load under confinement |
+
+**Placing a `.claude/` tree is an enumeration, and the enumeration is inverted
+on purpose.** `_install_tree` copied `skills/` and `plugins/` and nothing else,
+so `hooks/` and `servers/` were named by consumers and placed by nobody — a
+`SessionStart` hook pointing at a missing script, and a component's MCP server
+reported `ok` with `args[0]` absent, which is the *server with no tools* failure
+`_expand` exists to prevent, arriving after `_expand` had done its job
+correctly. The question a reader must be able to answer is not *are these two
+copied* but *is there anything a `.claude/` tree can carry that a consumer names
+and the installer does not place*, and that is only answerable if placing is the
+default. So everything is copied except `agent_assets._NOT_PLACED` —
+`settings.json` (read and merged), `.mcp.json` (read and carried as data), and
+`plugins/` (relocated to `marketplaces/`, because `<config>/plugins/` is where
+Claude Code puts *installed* plugins). A directory the harness invents next year
+is placed the day it appears.
+
+The same ruling fixes a latent one: a bundled `tools/*.mcp.py` is now registered
+at its **placed** path. It used to be registered at its source, which worked only
+because the staged package is inside the zone — and being readable is not the
+same as being the tree `CLAUDE_CONFIG_DIR` names, which is the path the harness
+actually reads.
+
+**A marketplace name is validated before anything is copied.** `manifest["name"]`
+is author-controlled and was joined straight into a path with the check running
+*after* `copy_out`; measured with `"../../../ESCAPED"`, the tree was written
+outside the zone and only then refused. `contained_syntactically` — which needs
+no filesystem and so can run before the destination exists — is now consulted
+first, and the same check guards `assets:` and a `package:` recipe reference,
+where F-D18's `Path(staged) / "/abs" == "/abs"` had been applied to the loader's
+output but not to these two consumers of it.
+
+**`${VAR}` in a component's `.mcp.json` is expanded against the zone
+environment, and an unresolved name refuses.** That is what lets a component
+write `"${UV_TOOL_BIN_DIR}/serena"` — which it must, because `executable_path`
+derives `PATH` at step 2 and that directory does not exist until step 6b. A
+pass-through would start a server with a literal `${...}` in its argv, and the
+symptom is *a server with no tools*: no error, no cause.
+
+**Two more exported names, and neither needs a grant.**
+`AGENT_SYS_INSTALL_REPORT` points at `<zone>/logs/agent_assets.install.json` and
+`AGENT_SYS_AGENT_ASSETS` at the staged copy; both are inside the zone, which
+`prepare` grants recursively. `AGENT_SYS_ADDONS_ROOT` was a third, **outside**
+the zone, held legitimate by `isolation/policy.py::addon_grants` composing a
+`READ_EXEC` grant under the same condition that emitted the name. It went with
+`agent_plugins:`, and with it the last exported out-of-zone path.
+
+### 11.5b Recipes come in three layers, and the layer is where the file is
+
+Distinct from §11.5a's three *origins*, which are about `.claude/` trees. This
+is about recipe YAMLs, and it is the owner's ruling that everything except an
+agent's own `assets/.claude/` tree is installed by declaring it in a recipe.
+
+| layer | where | declared |
+|---|---|---|
+| default | `env_mgr/default.env_recipe.yaml` | **never** — it always applies |
+| package | `<staged package>/assets/main.env_recipe.yaml` | **never** — auto-detected |
+| agent | `recipes: [...]` on the agent spec | `agent_sys:<name>` or `package:<relpath>` — the scheme names the root |
+
+**No item carries a layer and none can.** The path already says which layer a
+file is; a field saying it again is a second writer of one fact. That is the
+reasoning that removed `Item.layer`, applied one level out.
+
+**How a reader tells the default from a recipe you name:** `env_mgr/recipes/` is
+the namespace of things you *name* in `recipes: [x]`. The default is the one you
+never name, so it is not in that directory. Nothing marks it.
+
+**The package layer admits one spelling only** — `main.env_recipe.yaml`, not the
+permutation set the agent layer accepts. `env_mgr` imports `spec_loader`
+**nowhere** (two independent components; a test enforces the partition), so it
+cannot reuse that convention machinery. For it to do so, `spec_loader` would
+have to hand the path over on a *field*, and the only schema that could hold one
+is the task's — giving every task in the graph its own recipe layer, which is a
+fourth layer arriving by accident. **Two stated discovery rules beat one silent
+extra layer**, and `_package_recipe_path`'s docstring says so where a reader
+hits it.
+
+**They concatenate; they do not override.** A later layer adds items. That costs
+nothing because every installer gates on `check` before `install`, so an item
+two layers both declare is done once and reported twice.
+
+**Nothing detects a version conflict between layers, and that is deliberate.**
+`runner.detect_conflicts` is scoped to a single `run()` call and `_run_recipe`
+spawns one child per recipe file, so three layers are three independent checks
+that never see each other. Closing it means parsing all three files in the
+parent before any child starts — the in-process coupling the subprocess design
+exists to avoid. The gap is left open with its price named; a gap alone reads as
+an oversight.
+
+Worth knowing beside that: `detect_conflicts` fires only on **incompatible
+version constraints**, never on a repeated name. Two layers naming one item is
+not an error *within* a single file either, so the cross-file gap is narrower
+than it sounds.
+
+**Absence, stated once for all three layers.** Declared-and-absent is an
+**error**; undeclared-and-absent is simply **absent**. Only the agent layer is
+declared, so only it can reach the first case. There is no third case.
+
 ## 12. The shipped package
 
 ### 12.1 Unchanged, and a test says so
 
-`recipe.py`, `layer.py`, `installers/`, `runner.py`, `outcome.py`, `report.py`,
-`registry.py`, `versions.py`. 65 tests pass today and criterion 22 requires them
-to keep passing untouched.
+`recipe.py`, `installers/`, `runner.py`, `outcome.py`, `report.py`,
+`registry.py`, `versions.py`. 65 tests passed over them when this was written.
+`layer.py` was one of them and is now deleted: the layer model it held was
+removed, `spec.md` §9.1.
+
+**Criterion 22 is in `spec.md` §10 and is not paraphrased here**, because an
+earlier revision of this line did paraphrase it — *"criterion 22 requires them to
+keep passing untouched"* — and the paraphrase drifted from the criterion, which
+reads *"The shipped recipe and installer machinery is **untouched**: `pytest
+agent_sys/tests/env_mgr` passes unchanged."* On 2026-09-04 that drift was quoted
+back as if it were the criterion, and an argument for relaxing the enforcing test
+was built on it before anyone opened `spec.md`. One writer per fact: the
+criterion's wording lives in the spec. The 65 is likewise a snapshot of
+2026-08-30, not a live count — `tests/env_mgr` collects 476 today.
 
 `registry.py` already lists candidates on a miss (M15) — the precedent main design
 O5 cites — so nothing here needs it changed.

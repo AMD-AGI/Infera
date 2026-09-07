@@ -1,30 +1,30 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
-"""Deploying an agent's rules, hooks and skills into the zone. Design §11.5.
+"""Deploying an agent's rules, hooks and skills into the zone. Design section 11.5.
 
-`agent` spec §3.1 says ``env`` is *"resolved by env_mgr"* and `agent` design
-§3.4 says ``rules``, ``hooks`` and ``skills`` are handed *"to env_mgr to
-deploy"*. Four keys, one named consumer, and until design rev. 4 no route.
-
-**This module parses nothing.** Those are paths in Claude Code's canonical form;
-converting between harness formats is an independent module that does not exist.
-A file is placed, not read.
+This module parses nothing: these are paths in Claude Code's canonical form,
+and a file is placed, not read. ``rules``/``hooks``/``skills`` are lists of
+files; a Claude Code *component* (skill directory, marketplace, MCP server) is
+a tree, and placing those, plus deciding what a ``settings.json`` merge must
+precede, is `agent_assets.py`'s job. This module keeps the four original keys
+and calls the one module that owns the other three.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
-from env_mgr import harness
-from env_mgr.fs.layout import copy_out
+from env_mgr import agent_assets, harness, paths
+from env_mgr.fs.layout import LOGS, copy_out
 from env_mgr.fs.zone import Zone
 from env_mgr.prefix import Prefix
 from env_mgr.protocols import PrepareRefused
 
-__all__ = ["CONFIG_DIR", "MATERIAL_KEYS", "PROJECTS_DIR", "deploy"]
+__all__ = ["CONFIG_DIR", "MATERIAL_KEYS", "PROJECTS_DIR", "Deployed", "deploy"]
 
 log = logging.getLogger("env_mgr.material")
 
@@ -43,19 +43,35 @@ PROJECTS_DIR = "projects"
 MATERIAL_KEYS = ("rules", "hooks", "skills")
 
 
-def deploy(agent_spec: Any, zone: Zone) -> dict[str, str]:
-    """Place this agent's material in the zone and return the environment it needs.
+class Deployed(NamedTuple):
+    """What one agent's deployment produced, for three different destinations.
 
-    Runs at prepare step 6b — **before** confinement and after the zone exists,
-    because deploying is writing into the zone and confinement makes writing
-    impossible. It sits beside handoff staging because it is the same kind of
-    act: putting something the executor will need where the executor can reach
-    it.
+    `environment` is first so the two-argument call still unpacks; `mcp_servers`
+    and `report` do not fit a mapping and are returned alongside it.
+    """
 
-    A declared ``env`` requirement is what the shipped recipe machinery already
-    resolves; what is new is only that it now has a route from the agent spec.
-    Returned rather than applied, because this module does not own the
-    executor's process.
+    environment: dict[str, str]
+    #: External and bundled MCP servers, keyed by the name the model addresses
+    #: them under. Reaches the backend through `Prepared.mcp_servers`.
+    mcp_servers: dict[str, Any]
+    #: Per-install `Outcome`s from `agent_assets`. Carried out rather than logged
+    #: here, so that whoever renders a prepared environment renders these too and
+    #: a failed component install is not a line in a log nobody opened.
+    report: tuple[Any, ...] = ()
+
+
+def deploy(
+    agent_spec: Any,
+    zone: Zone,
+    staged_package: str | None = None,
+    workspace: str | None = None,
+    base_env: Mapping[str, str] | None = None,
+    agent_cli: str | None = None,
+) -> Deployed:
+    """Place this agent's material in the zone and return what it needs.
+
+    Runs before confinement. `staged_package` is the copy in the zone, never
+    `Context.package`. `base_env` seeds installs' child environment.
     """
     config = os.path.join(zone.root, CONFIG_DIR)
     os.makedirs(config, exist_ok=True)
@@ -69,25 +85,9 @@ def deploy(agent_spec: Any, zone: Zone) -> dict[str, str]:
         for src in _paths(agent_spec, key):
             dst = os.path.join(config, key, os.path.basename(src))
             if not os.path.exists(src):
-                # **Declared and absent is an error, not a shrug.** This was
-                # `if os.path.exists(src): copy_out(...)` with no else, and the
-                # failure it produces is invisible at every point where anyone
-                # could act on it: the copy is skipped silently, the run
-                # proceeds, and the agent discovers it hours later as
-                # `Unknown skill: <name>` from inside its own session — with
-                # nothing in the zone, the events or the logs naming the cause.
-                #
-                # Measured 2026-08-31: an agent mid-run called
-                # `Skill{"experiment-result-packup"}`, got `Unknown skill`, and
-                # started `find / -name ...` looking for it. That instance was a
-                # package declaring no skill at all; this guard is for the one
-                # after it, where the declaration is present and the path is
-                # wrong — which is the same bug wearing a fix.
-                #
-                # `fail closed` is this package's own rule (`locality.py`: "an
-                # oracle whose prefix cannot be formed is an error, not a
-                # silently widened blind spot"), and no shipped package declares
-                # any material today, so nothing existing changes behaviour.
+                # Declared and absent is an error, not a silent skip: skipping
+                # would leave the agent to discover the absence hours later as
+                # `Unknown skill: <name>` with nothing naming the cause.
                 raise PrepareRefused(
                     f"agent {getattr(agent_spec, 'name', '?')!r} declares "
                     f"{key} {src!r} and it does not exist. It would have been "
@@ -103,8 +103,37 @@ def deploy(agent_spec: Any, zone: Zone) -> dict[str, str]:
     # `harness` carries that block across; its reserved set is what stops it
     # overwriting the three keys this function just decided, or the derived `PATH`.
     env.update(harness.harness_env())
-    env.update(_declared_env(agent_spec))
-    return env
+
+    # The declared block is resolved before the installs (an agent's `env`
+    # feeds the recipe machinery) and applied again after them, so it still
+    # outranks the names `agent_assets` contributes.
+    declared = _declared_env(agent_spec)
+    material = agent_assets.install(
+        agent_spec,
+        staged_package=staged_package,
+        config_dir=config,
+        workspace=workspace,
+        logs_dir=os.path.join(zone.root, LOGS),
+        # `base_env` first so that everything this function decided, and then
+        # everything the author declared, still outranks it.
+        environ={**(base_env or {}), **env, **declared},
+        agent_cli=agent_cli,
+    )
+    env.update(material.env)
+    env.update(declared)
+
+    # The asset directory, copied into the workspace root as a subdirectory
+    # (not its contents, to avoid colliding with `workspace.cut`'s clone).
+    # Read back out of `material.env` rather than resolved a second time.
+    assets = material.env.get(paths.AGENT_ASSETS_ENV_VAR)
+    if workspace and assets:
+        copy_out(assets, os.path.join(workspace, os.path.basename(assets)))
+
+    return Deployed(
+        environment=env,
+        mcp_servers=dict(material.mcp_servers),
+        report=material.report,
+    )
 
 
 def _share_projects(config: str) -> None:

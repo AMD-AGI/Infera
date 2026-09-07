@@ -281,7 +281,7 @@ def _main_with_o11y_spied(monkeypatch, argv: list[str]) -> dict:
 
     monkeypatch.setattr(cli_main, "ensure_installed", _installed("agentsview already present"))
     monkeypatch.setattr(cli_main, "ensure_running", spy_running)
-    monkeypatch.setattr(cli_main, "_run", lambda args, stream, panel_url=None: 0)
+    monkeypatch.setattr(cli_main, "_run", lambda args, stream, stack, panel_url=None: 0)
     seen["exit"] = cli_main.main(argv)
     return seen
 
@@ -346,7 +346,7 @@ def test_the_fresh_install_notice_reaches_the_user(monkeypatch, capsys) -> None:
 
     monkeypatch.setattr(cli_main, "ensure_installed", _installed("installed agentsview"))
     monkeypatch.setattr(cli_main, "ensure_running", lambda prefix, port: Status(False, "x"))
-    monkeypatch.setattr(cli_main, "_run", lambda args, stream, panel_url=None: 0)
+    monkeypatch.setattr(cli_main, "_run", lambda args, stream, stack, panel_url=None: 0)
     cli_main.main(["run", "--package", "pkg"])
     out = capsys.readouterr().out
     assert "agentsview" in out and "kenn-io/agentsview" in out
@@ -358,7 +358,7 @@ def test_a_skipped_panel_says_nothing_to_the_user(monkeypatch, capsys) -> None:
 
     monkeypatch.setattr(cli_main, "ensure_installed", _installed("agentsview already present"))
     monkeypatch.setattr(cli_main, "ensure_running", lambda prefix, port: Status(False, "port in use"))
-    monkeypatch.setattr(cli_main, "_run", lambda args, stream, panel_url=None: 0)
+    monkeypatch.setattr(cli_main, "_run", lambda args, stream, stack, panel_url=None: 0)
     cli_main.main(["run", "--package", "pkg"])
     assert "127.0.0.1" not in capsys.readouterr().out
 
@@ -442,7 +442,7 @@ def test_the_panel_url_reaches_the_run(monkeypatch) -> None:
     )
     monkeypatch.setattr(
         cli_main, "_real_run",
-        lambda args, stream, panel_url=None: seen.setdefault("url", panel_url) and 0 or 0,
+        lambda args, stream, stack, panel_url=None: seen.setdefault("url", panel_url) and 0 or 0,
     )
 
     cli_main.main(["run", "--package", "pkg", "--agentsview-port", "9001"])
@@ -459,7 +459,7 @@ def test_a_run_without_a_panel_passes_none_rather_than_failing(monkeypatch) -> N
     monkeypatch.setattr(cli_main, "ensure_running", lambda prefix, port: Status(False, "port in use"))
     monkeypatch.setattr(
         cli_main, "_real_run",
-        lambda args, stream, panel_url="MISSING": seen.setdefault("url", panel_url) or 0,
+        lambda args, stream, stack, panel_url="MISSING": seen.setdefault("url", panel_url) or 0,
     )
 
     assert cli_main.main(["run", "--package", "pkg"]) == 0

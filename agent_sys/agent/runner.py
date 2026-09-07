@@ -761,6 +761,10 @@ class TaskAttempt:
             # `Prepared` from before this field existed is still a valid one,
             # which is the same allowance every other optional field here gets.
             tools=tuple(getattr(prepared, "tools", ()) or ()),
+            # The per-agent components' external servers, same allowance and
+            # for the same reason: a `Prepared` built before this field existed
+            # is still a valid one.
+            mcp_servers=dict(getattr(prepared, "mcp_servers", None) or {}),
             confinement=getattr(prepared, "confinement", None),
             agent_cli=prepared.agent_cli,
             # **Read, not inferred**, and that is the field's whole reason.

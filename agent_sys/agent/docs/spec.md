@@ -104,6 +104,16 @@ spec** — the two are declared together in a closure.
 | `env` | Environment requirements, resolved by `env_mgr` |
 | `knowledge` | §3.4 |
 | `rules` / `hooks` / `skills` | Configuration, stored in canonical form. §4.5 |
+| `assets` | **Filled by `spec_loader`, not written.** This agent's own directory under the package's `assets/`, found by the same three folder spellings a body lookup uses — `X`, `X.agent`, `agent.X`. Two matching directories is `SpecInconsistent`; an explicit binding is legal and warns. §4.5a |
+| `recipes` | The **agent layer** of three recipe layers; `env_mgr` recipe YAMLs as `agent_sys:<name>` or `package:<relpath>` — a reference names its root. §4.5a |
+
+Nine keys became eleven, and both additions are one thing: **an agent may now
+carry components, not only files.** §4.5a is why that needed new keys instead of
+a longer `skills` list.
+
+**There was a third, `agent_plugins:`, and it is deleted** —
+`docs/spec.provisioning.md` §4: what this repository ships under
+`env_mgr/addons/` is installed by a recipe, and no declaration key reaches it.
 
 ### 3.2 Permissions are not here
 
@@ -376,6 +386,62 @@ Agent material splits in two, and the split decides how it is stored:
 Picking one canonical format matters more than which one is picked: with N
 harnesses, storing each in its own format needs N² converters, and storing one
 canonical form needs N.
+
+**Which Claude Code surface is canonical: the declarative one.** Design O4 asked,
+because *"Claude Code's format"* named two different execution models — the
+`.claude/settings.json` tree and the SDK's `ClaudeAgentOptions(hooks={...})`
+callbacks — and every surveyed converter targets the first while nobody converts
+programmatic callbacks at all. The answer is the first, and it is now what the
+code does: `env_mgr` writes `<zone>/config/settings.json` and points
+`CLAUDE_CONFIG_DIR` at it. The consequence O4 warned about is therefore not
+incurred — criterion 13 rests on the surface the prior art actually covers.
+
+The callback form is not forbidden; a backend config may still carry `hooks`, and
+`claude_sdk` passes it through. What it is not is the **stored** form, so nothing
+in a package or a component is written that way.
+
+### 4.5a A component is a tree, and that needed three keys
+
+§4.5's three lists are lists of *files*. A Claude Code component is a directory:
+a skill is a directory, a plugin marketplace is a directory of directories, and
+an MCP server is a process to register rather than a file to place. Naming every
+file would make a package author restate a layout the harness already fixes.
+
+**Two routes, and only one copies a tree.** `docs/spec.provisioning.md` is
+normative here and supersedes both the L1/L2/L3 numbering and the three-origins
+table that replaced it.
+
+| what | declared how |
+|---|---|
+| anything upstream ships, and anything `agent_sys` ships under `env_mgr/addons/` | `recipes: [...]`, or the package/default recipe layer; `tags: [internal]` marks an item as ours |
+| what one task package carries for one agent | **undeclared** — `<assets>/.claude/`, copied |
+
+**The copied tree is in Claude Code's canonical layout**:
+`settings.json`, `skills/<name>/`, `plugins/` (a local marketplace),
+`.mcp.json`, and `tools/*.mcp.py`. It is the harness's own layout rather than
+ours, so a file is placed and not converted. (A `tools/*.tooldef.py` was a fourth
+member until 2026-09-04, when the in-process route it used was deleted —
+`docs/spec.provisioning.md` §6.)
+
+**A package's own material is undeclared on purpose.** A declaration would be a
+second statement of what the directory already says, and the two would drift the
+first time somebody moved it without editing the YAML.
+
+`env_mgr/agent_assets.py` installs both; `env_mgr/docs/design.md` §11.5a is
+the mechanism, including the measured ordering constraint that decides when
+`settings.json` is written, the marketplace copy probe F forced, and why a
+recipe runs the shipped machinery as a subprocess. What reaches this package
+from a component is `Assignment.mcp_servers`. `Assignment.tools` also exists,
+but nothing a component ships arrives through it — it carries `env_mgr`'s own
+remote surface and nothing else (§5.5).
+
+**A component names a binary through `${VAR}`, never through `PATH`.** An
+`.mcp.json` entry is expanded against the zone environment before it becomes an
+`mcp_servers` entry, and an unresolved name is an error. That is not a
+convenience: `PATH` is derived from the granted policy at prepare step 2, and a
+directory a recipe installs into does not exist until step 6b — so
+`"${UV_TOOL_BIN_DIR}/serena"` is the only spelling that works, and it is the one
+measured working.
 
 ---
 

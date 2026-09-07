@@ -484,6 +484,7 @@ def test_prepared_matches_the_declared_surface(ctx) -> None:
         output_paths,
         staged_package,
         tools,
+        mcp_servers,
     ) = prepared
     assert (zone, policy, environment) == (prepared.zone, prepared.policy, prepared.environment)
     assert tools is prepared.tools

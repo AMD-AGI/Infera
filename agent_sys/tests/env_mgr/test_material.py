@@ -43,7 +43,7 @@ def test_config_projects_links_to_the_prefix(tmp_path: Path, prefix: Prefix) -> 
     """Gate 1 of the design's four, in the pipeline rather than only in a probe."""
     zone = zone_at(tmp_path, "a")
 
-    env = material.deploy(AgentSpec(), zone)
+    env = material.deploy(AgentSpec(), zone).environment
 
     link = Path(env["CLAUDE_CONFIG_DIR"]) / "projects"
     assert link.is_symlink(), "a real directory here is the bug this fixes"
@@ -64,7 +64,7 @@ def test_two_zones_write_under_the_prefix_in_different_slugs(
 ) -> None:
     """Sharing one physical `projects/` cannot collide: Claude Code names each
     subdirectory after the slugified cwd, and every attempt has its own zone."""
-    envs = [material.deploy(AgentSpec(), zone_at(tmp_path, n)) for n in ("a", "b")]
+    envs = [material.deploy(AgentSpec(), zone_at(tmp_path, n)).environment for n in ("a", "b")]
 
     for i, env in enumerate(envs):
         slug = Path(env["CLAUDE_CONFIG_DIR"]) / "projects" / f"-slug-{i}"
@@ -146,7 +146,7 @@ def test_a_failed_link_does_not_raise(
     monkeypatch.setenv("AGENT_SYS_HOME", str(blocker / "prefix"))
 
     with caplog.at_level(logging.WARNING):
-        env = material.deploy(AgentSpec(), zone_at(tmp_path, "a"))
+        env = material.deploy(AgentSpec(), zone_at(tmp_path, "a")).environment
 
     assert env["CLAUDE_CONFIG_DIR"]
     assert any("projects" in r.message for r in caplog.records)
@@ -162,7 +162,7 @@ def test_the_rest_of_the_config_directory_is_untouched(
     rule.write_text("# house style\n")
     zone = zone_at(tmp_path, "a")
 
-    env = material.deploy(AgentSpec(rules=(str(rule),)), zone)
+    env = material.deploy(AgentSpec(rules=(str(rule),)), zone).environment
 
     config = Path(zone.root) / material.CONFIG_DIR
     assert env["CLAUDE_CONFIG_DIR"] == str(config)
