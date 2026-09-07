@@ -17592,3 +17592,94 @@ the only place a 138-line section could go that a rebase could not reach.**
 file from its writers. **It does not protect a writer's unlanded work from the
 repository itself**, and the thing that does is a copy outside the repository with
 a read timestamp beside it.
+
+---
+
+## R2 T+1387 — 2026-09-07 05:41 UTC
+
+**T+1387 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 05:40:32).
+
+### 1. Run 22 is fully real and is at the closure that has killed three runs
+
+**[observed, first-hand, `/proc/3140102/cmdline`]**
+
+```
+mock_stages = none        ← fully real, no replay
+gpu         = 4           ← the T+967 fix, carried
+trace_end_ms= 120000      ← the T+426 arithmetic, carried
+work_root   = /data/yihou/e2e_flow11
+```
+
+**Board at 05:39:57:**
+
+```
+m1_deploy                succeeded     stage 1 green, 9th time
+deploy_and_prove         succeeded
+run_profiling_mode_off   succeeded
+run_profiling_mode_on    running       ← here
+m2_profiling             running
+verdicts 6/6, zero refusals
+
+yihou_e2e_chain11_…_pmon       05:36:57
+yihou_e2e_chain11_…_pmon_etcd  05:37:02
+aiperf_profiling_mode_on_…     05:39:52
+cards 0-3 at 76 %
+```
+
+**`run_profiling_mode_on` is the closure runs 6, 16 and 21 died in.** It has also
+sealed successfully in runs 17, 18 and 20. **Three deaths, three seals — and the
+three deaths have three different recorded causes** (the stack window in run 6,
+two 900 s timers in run 16, and run 21's cause unread).
+
+**So the closure is not systematically broken; it is where the run happens to be
+when several different things go wrong.** That distinction matters for whoever
+looks at it next, and I state it because "the closure that keeps killing runs" is
+the natural and wrong summary.
+
+### 2. State
+
+```
+run 22 (13a18e)  pid 3140102, launched 04:53:27, last write 05:39:57
+total runs       22
+repo             clean, on dev.yihou.aiopt.task_package.concat, no rebase
+                 T+1327 and T+1357 both on the branch (84f14362)
+co-tenant        xiaoming-dev up since 00:39:55, no GPU at 05:40:16
+                 no third burst since 02:03:40
+hold 29313       8 h 20 min left
+```
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged) |
+| 已经耗时 | **~1402 min ≈ 23 h 21 min** |
+| 预估耗时 | **stages 1–3 ≈ 90 min real; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Unchanged: `_on` is running, not sealed.**
+
+**A note on the 76 % as this round approaches twenty-four hours.** It has not
+moved since `m3_analysis` sealed at 22:09 on run 18 — **seven and a half hours.**
+That is accurate rather than pessimistic: **three of five stages are sealed and
+reproducible, and the fourth has never measured anything.** The number will move
+when module 4 does, and not before.
+
+### 4. Code problems
+
+**No new ones.** All carried. The eight `jsonschema` validators remain **unread
+since T+94 — twenty-three and a half hours.**
+
+### 5. 未定性
+
+- **Whether run 22's `_on` seals.** Live now.
+- **Why run 21 stopped in the same closure** — carried from T+1357, unread,
+  and now more interesting because run 22 is in that closure.
+- **What module 4 costs.**
+- **What module 5 consumes if module 4 is replayed** — **forty-fourth consecutive
+  section.**
+
+### 6. 新增 commit
+
+None by anyone since `84f14362` (mine, 05:11).
