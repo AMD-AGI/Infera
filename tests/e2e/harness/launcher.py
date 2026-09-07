@@ -355,9 +355,12 @@ class SrunDockerLauncher(WorkerLauncher):
         )
         started = _srun(node, cmd, timeout=self.start_timeout)
         if started.returncode != 0:
+            detail = "\n".join(
+                part.strip() for part in (started.stdout, started.stderr) if part and part.strip()
+            )
             raise RuntimeError(
                 f"failed to launch container {container} on {node} (rc={started.returncode}).\n"
-                f"--- stderr ---\n{started.stderr[-2000:]}"
+                f"--- output tail ---\n{detail[-2000:]}"
             )
 
     def _run_infera(

@@ -164,10 +164,16 @@ def require_step_access(node: str, *, timeout: float = 30) -> None:
     try:
         done = run_on_node(node, ["true"], timeout=timeout)
     except subprocess.TimeoutExpired as exc:
-        raw_detail = exc.stderr or ""
-        detail = (
-            raw_detail.decode(errors="replace") if isinstance(raw_detail, bytes) else raw_detail
-        ).strip()
+        details: list[str] = []
+        for raw_detail in (exc.stdout, exc.stderr):
+            if not raw_detail:
+                continue
+            text = (
+                raw_detail.decode(errors="replace") if isinstance(raw_detail, bytes) else raw_detail
+            ).strip()
+            if text and text not in details:
+                details.append(text)
+        detail = "\n".join(details)
         # Killing an srun client does not cancel a detached Spur allocation.
         # If attachment regressed and srun announced a new pending job, reclaim
         # it before reporting the failed probe.

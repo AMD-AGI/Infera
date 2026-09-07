@@ -254,14 +254,22 @@ def test_spur_detached_srun_keeps_submission_placement(monkeypatch):
     assert "--reservation=ci-reservation" in argv
 
 
-def test_step_access_reports_pending_allocation(monkeypatch):
+@pytest.mark.parametrize(
+    "timeout_output",
+    [
+        {"output": b"srun: Pending job allocation 100477...\n"},
+        {"stderr": b"srun: Pending job allocation 100477...\n"},
+    ],
+    ids=["pty-stdout", "stderr"],
+)
+def test_step_access_reports_pending_allocation(monkeypatch, timeout_output):
     cancelled = []
 
     def pending(*args, **kwargs):
         raise subprocess.TimeoutExpired(
             ["srun"],
             kwargs["timeout"],
-            stderr=b"srun: Pending job allocation 100477...\n",
+            **timeout_output,
         )
 
     monkeypatch.setattr(cluster, "run_on_node", pending)
@@ -319,6 +327,27 @@ def test_disagg_cleanup_and_launch_are_job_scoped(monkeypatch, tmp_path):
     remote._run("node-a", "test-container", "test-image", [], ["true"])
     launch_argv = calls[-1][1]
     assert launch_argv[launch_argv.index("--label") + 1] == "infera.e2e.job_tag=run-engine"
+
+
+def test_disagg_launch_surfaces_spur_pty_stdout(monkeypatch, tmp_path):
+    def run(node, argv, *, timeout):
+        if argv[:4] == ["docker", "rm", "-f", "test-container"]:
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        return SimpleNamespace(
+            returncode=1,
+            stdout="docker: Cannot connect to the Docker daemon.\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(launcher, "_srun", run)
+    remote = launcher.SrunDockerLauncher(
+        image="test-image",
+        dockerfile="Dockerfile",
+        log_dir=str(tmp_path),
+    )
+
+    with pytest.raises(RuntimeError, match="Cannot connect to the Docker daemon"):
+        remote._run("node-a", "test-container", "test-image", [], ["true"])
 
 
 def test_disagg_exclusive_gpu_cleanup_failure_is_not_ignored(monkeypatch, tmp_path):
