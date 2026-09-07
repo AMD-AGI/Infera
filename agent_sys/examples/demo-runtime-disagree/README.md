@@ -71,6 +71,3 @@ observing both is exit 0.
 ```bash
 AGENT_SYS_NO_PERMISSIONS=1 agent-sys run --package agent_sys/examples/demo-runtime-disagree
 ```
-
-Verified on `smci355-ccs-aus-n05-29`: exit 0, 2/2 expected failures observed,
-about 33 seconds of wall clock.

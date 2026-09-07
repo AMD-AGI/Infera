@@ -64,6 +64,3 @@ under `demo-runtime-grounding-fail` are `grounded_verdict_fails` and
 ```bash
 AGENT_SYS_NO_PERMISSIONS=1 agent-sys run --package agent_sys/examples/demo-runtime-grounding-fail
 ```
-
-Verified on `smci355-ccs-aus-n05-29`: exit 0, 2/2 expected failures observed,
-about 31 seconds of wall clock.
