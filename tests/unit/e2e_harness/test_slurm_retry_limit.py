@@ -85,6 +85,126 @@ exit 1
     assert "SLURM submission limit reached (5 attempts)" in result.stderr
 
 
+def test_dirty_gpu_node_is_excluded_and_retried_within_limit(tmp_path):
+    mock_bin = tmp_path / "bin"
+    mock_bin.mkdir()
+    count_file = tmp_path / "srun-count"
+    args_file = tmp_path / "srun-args"
+    count_file.write_text("0\n")
+    _executable(mock_bin / "sleep", "exit 0\n")
+    _executable(
+        mock_bin / "srun",
+        """
+n=$(cat "$COUNT_FILE")
+n=$((n + 1))
+echo "$n" > "$COUNT_FILE"
+printf '%s\n' "$*" >> "$ARGS_FILE"
+echo "INFERA_E2E_SLURM_NODE=node-$n"
+echo "INFERA_E2E_GPU_NODE_DIRTY_NODE=node-$n mock foreign GPU owner" >&2
+echo "Uvicorn running on wrong-node" >&2
+exit 75
+""",
+    )
+    env = _runner_env(tmp_path, mock_bin, count_file)
+    env["ARGS_FILE"] = str(args_file)
+
+    result = _run_runner(env, "engine")
+
+    assert result.returncode == 1
+    assert count_file.read_text().strip() == "5"
+    attempts = args_file.read_text().splitlines()
+    assert "-x node-1" in attempts[1]
+    assert "-x node-1,node-2" in attempts[2]
+    assert "still have GPU owners after exclusive cleanup" in result.stderr
+    assert "SLURM submission limit reached (5 attempts)" in result.stderr
+
+
+def test_marker_text_inside_test_failure_is_not_retried(tmp_path):
+    mock_bin = tmp_path / "bin"
+    mock_bin.mkdir()
+    count_file = tmp_path / "srun-count"
+    count_file.write_text("0\n")
+    _executable(mock_bin / "sleep", "exit 0\n")
+    _executable(
+        mock_bin / "srun",
+        """
+n=$(cat "$COUNT_FILE")
+echo $((n + 1)) > "$COUNT_FILE"
+echo "INFERA_E2E_SLURM_NODE=node-a"
+echo "AssertionError: expected INFERA_E2E_GPU_NODE_DIRTY marker" >&2
+exit 1
+""",
+    )
+
+    result = _run_runner(_runner_env(tmp_path, mock_bin, count_file), "engine")
+
+    assert result.returncode == 1
+    assert count_file.read_text().strip() == "1"
+    assert "still have GPU owners after exclusive cleanup" not in result.stderr
+
+
+def test_dirty_marker_in_shared_worker_log_excludes_exact_node(tmp_path):
+    mock_bin = tmp_path / "bin"
+    mock_bin.mkdir()
+    count_file = tmp_path / "srun-count"
+    args_file = tmp_path / "srun-args"
+    count_file.write_text("0\n")
+    _executable(mock_bin / "sleep", "exit 0\n")
+    _executable(
+        mock_bin / "srun",
+        """
+n=$(cat "$COUNT_FILE")
+n=$((n + 1))
+echo "$n" > "$COUNT_FILE"
+printf '%s\n' "$*" >> "$ARGS_FILE"
+for arg in "$@"; do
+  case "$arg" in
+    */dispatch-engine-*.log)
+      echo "INFERA_E2E_GPU_NODE_DIRTY_NODE=node-$n mock owner" > "$arg"
+      ;;
+  esac
+done
+exit 75
+""",
+    )
+    env = _runner_env(tmp_path, mock_bin, count_file)
+    env.update({"ARGS_FILE": str(args_file), "CI": "true"})
+
+    result = _run_runner(env, "engine")
+
+    assert result.returncode == 1
+    assert count_file.read_text().strip() == "5"
+    attempts = args_file.read_text().splitlines()
+    assert "-x node-1" in attempts[1]
+    assert "-x node-1,node-2" in attempts[2]
+
+
+def test_dirty_node_is_not_resubmitted_inside_one_node_allocation(tmp_path):
+    mock_bin = tmp_path / "bin"
+    mock_bin.mkdir()
+    count_file = tmp_path / "srun-count"
+    count_file.write_text("0\n")
+    _executable(mock_bin / "sleep", "exit 0\n")
+    _executable(
+        mock_bin / "srun",
+        """
+n=$(cat "$COUNT_FILE")
+echo $((n + 1)) > "$COUNT_FILE"
+echo "INFERA_E2E_GPU_NODE_DIRTY_NODE=node-a mock owner" >&2
+exit 75
+""",
+    )
+    env = _runner_env(tmp_path, mock_bin, count_file)
+    env.update({"SLURM_JOB_ID": "42", "SLURM_JOB_NUM_NODES": "1"})
+
+    result = _run_runner(env, "engine")
+
+    assert result.returncode == 1
+    assert count_file.read_text().strip() == "1"
+    assert "this one-node allocation cannot reselect" in result.stderr
+    assert "SLURM submission limit reached" not in result.stderr
+
+
 def test_disagg_hold_sbatch_submissions_stop_after_five(tmp_path):
     mock_bin = tmp_path / "bin"
     mock_bin.mkdir()
