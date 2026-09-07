@@ -50,13 +50,33 @@ REFUSABLE = {".py", ".sh", ".json", ".jsonl"}
 
 
 def load_redact():
-    """The real module. Anything else answers a different question."""
+    """The real module. Anything else answers a different question.
+
+    **Every failure path here names the module, because this probe's whole
+    value is that it imports the real one.** `spec_from_file_location` returns
+    `ModuleSpec | None` and a spec's `loader` may be `None`; passing either
+    straight through fails with *"'NoneType' object has no attribute 'loader'"*
+    at the one moment the reader needs to be told *which file was missing*.
+    Same idea as the `NOTHING TO SCAN` exit, one level down: a tool that cannot
+    do its job must say what it could not do.
+    """
     path = REPO / "assets" / "lib" / "redact.py"
     if not path.is_file():
-        sys.exit(f"probe: redact.py not found at {path}")
+        sys.exit(f"probe: redact.py not found at {path} — cannot answer, and a "
+                 f"hand-rolled imitation would answer a different question")
     spec = importlib.util.spec_from_file_location("redact", path)
+    if spec is None or spec.loader is None:
+        sys.exit(f"probe: {path} exists but python produced no import spec/loader "
+                 f"for it — cannot load the real redact module")
     mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    try:
+        spec.loader.exec_module(mod)
+    except Exception as exc:  # noqa: BLE001 — the reason matters more than the type
+        sys.exit(f"probe: importing {path} raised {type(exc).__name__}: {exc}")
+    for needed in ("substitute", "offenders"):
+        if not hasattr(mod, needed):
+            sys.exit(f"probe: {path} has no {needed}() — redact's interface moved "
+                     f"and this probe is now measuring nothing")
     return mod
 
 
