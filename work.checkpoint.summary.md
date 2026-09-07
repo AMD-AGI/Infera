@@ -10545,3 +10545,6784 @@ effect.**
 **One correction to the brief I was given:** the container is
 `yihou_e2e_flow_088_09050928`, not `…_09280928`. Trivial, except that a
 container name is exactly the kind of string someone greps for.
+
+---
+
+## R2 T+0 — 2026-09-06 06:33 UTC — BASELINE, second cluster
+
+**Numbering restarts with an `R2` prefix.** The previous section is `T+2710`
+(2026-09-05 09:32 UTC) and belongs to the *first* cluster's round. This is a new
+round, on a different machine, against a mission file rewritten this morning.
+Continuing the old counter would have put ~1 261 wall-clock minutes of *no work
+on this round* inside a number that reads as effort. **A new prefix costs a
+grep; a colliding number costs a wrong reading.**
+
+**Every time in this section came from `NOW=$(date -u …)` or from a `--time-style
+=+'%F %T'` listing, read in the same command that used it.** Nothing here is
+extrapolated from an earlier clock read.
+
+### 1. Why this entry is a baseline and not a progress report
+
+**Nothing has run yet.** That is the measurement, and it is the point of writing
+it down now:
+
+```
+/data/yihou/agent_sys_runroot/runs/      does not exist
+/data/yihou/e2e_verify_20260906/m1/      empty          (mtime 06:30:47)
+/data/yihou/e2e_verify_20260906/m2/      materials/ only, empty (06:31:16)
+/data/yihou/e2e_verify_20260906/m35/     empty          (06:32:05)
+/data/yihou/e2e_verify_20260906/notes/   empty
+docker ps -q | wc -l                     2   (both foreign, see §4)
+rocm-smi --showmemuse   GPU[0..7] VRAM%  0 0 0 0 0 0 0 0
+```
+
+**The earliest artefact of this round I can date is `mission.md`, mtime
+2026-09-06 06:19:11** — so the round is ~15 minutes old at this write. Later
+sections have something to be measured against; this one does not, by
+construction.
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **0 %** |
+| 已经耗时 | **~15 min** (from `mission.md` mtime 06:19:11 to 06:33:41) |
+| 预估耗时 | **absent** |
+| 可靠性 | **高 for the 0 %; N/A for the estimate that does not exist** |
+
+**The 0 % needs its denominator said out loud, or it will be misread.** The
+previous round reached ~82 % **of a chain on a different cluster**. This round's
+deliverable is *reproducing that chain here*, and **no stage of it has been
+attempted on this node**. The 82 % does not transfer and is not a starting
+credit.
+
+**预估耗时 stays absent** for the same reason it was absent all of yesterday:
+**there is no completed five-stage chain on this cluster to divide by.** I will
+not produce one from the other cluster's timings — a different image, a
+different model, and no sealed corpus make that a guess wearing a number's
+clothes.
+
+**Reliability of the 0 %: 高.** It rests on four independent absences read this
+minute (no run root, three empty note dirs, zero VRAM on all eight cards). It is
+the one number in this table that is hard to be wrong about.
+
+### 3. 当前进展 — the cluster, measured
+
+```
+hostname     smci355-ccs-aus-n04-25.prov.aus.ccs.cpe.ice.amd.com
+hold         29184  RUNNING  Compute-DCPT  --exclusive  gres/gpu:8
+             StartTime  2026-09-05T22:00:01
+             EndTime    2026-09-06T14:00:01
+             REMAINING  7 h 26 min  (14:00:01 − 06:33:41)
+filesystem   /data   49 T,  41 T avail   ← this is the scratch that exists
+             /       14 T,  13 T avail
+             /shared_nfs   EMPTY (two entries, both `.`/`..`, root-owned)
+GPUs         8 × MI355X, all eight at VRAM 0 %
+```
+
+**`REMAINING`, not elapsed.** `RunTime=08:32:23` is what `squeue`'s `%M` would
+have shown and it is the wrong field for every scheduling decision.
+
+**Materials named by `mission.md`, both confirmed present:**
+
+```
+/apps/data/models/GLM-5.3-Flash                        exists
+/apps/yihou/packups/glm53flash.mix.packup_20260830     exists
+/apps/data/models/Qwen3-32B                            exists
+```
+
+**The third is not in `mission.md`** — it comes from the leader's phase plan
+(phase A on Qwen3-32B, phase B swapping in GLM-5.3-Flash). Recorded as the
+leader's plan, not as a mission requirement, because `mission.md`'s *Materials*
+section names only the GLM path.
+
+**Team, and what each holds** [relayed from the leader's brief, not yet
+corroborated by any artefact — all three note dirs are empty]:
+
+```
+m1-deploy      engine image + module 1
+m2-profiling   materials, variable table, module 2
+m35-chain      modules 3/4/5 + packup, pre-registration
+```
+
+### 4. Non-code problems — the localisation traps, and they are the whole story
+
+**(a) There is no sealed corpus on this cluster, and `/shared_nfs` is empty.**
+On the first cluster the entire mock loop — the 4-minute login-node loop, every
+`mock_stages=` replay — stood on
+`/shared_nfs/yihou/agent_sys/cheat_for_mock/`, 25 sealed handoffs. **Here that
+path's parent contains nothing at all.** Consequence, stated plainly rather than
+solved: **nothing can be replayed on this node until this round produces it
+first.** The cheapest debugging loop the previous round had does not exist here
+yet.
+
+**(b) We are ON the compute node, not on a login node.** The first cluster's
+whole operating model — read-only `/shared_nfs`, `spur exec` to reach GPUs, no
+local docker daemon — **does not describe this machine.** `docker ps` answers
+directly, `rocm-smi` answers directly, and writes to `/data` land locally. Every
+instruction in the carried-over `CLAUDE.md` that begins "from the login node"
+needs re-reading before it is obeyed, not after.
+
+**(c) Two foreign containers are on this node and neither holds a GPU.**
+
+```
+rc_26_7_902     unifiedtrainingdockers.azurecr.io/utd/ci:primus_…_20260902
+                created 2026-09-03 19:05:51 UTC   Up 2 days
+xiaoming-dev    tasimage/primus:pr-1048
+                created 2026-09-03 02:19:00 UTC   Up 3 days
+```
+
+**All eight cards read VRAM 0 %, so under the standing rule — stop GPU
+occupants, leave CPU containers alone — neither is in scope.** I am recording
+them, not touching them; I am an instrument this round. **I report container
+identity by `CreatedAt`, not by `Up 3 days`**: a relative duration silently
+re-anchors to whenever it was printed and is not comparable with anything.
+
+**(d) A VRAM-0 reading is not "the node is free" and I am not claiming it is.**
+The sixth failure mode from the first cluster applies unchanged: occupancy
+measures *now*, a live chain occupies the *future*, and a CPU-phase chain is
+invisible to `rocm-smi`. Here the process-table half of that check is also
+satisfied — no run root exists, so no chain has been launched — **but the two
+questions are separate and I answered both.**
+
+### 5. Code problems — none observed, and that is not the same as none present
+
+**No code has been executed against this cluster by this round**, so I have
+nothing to report in this category and will not manufacture something. The
+package `agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/` is
+present with its eight top-level documents and `assets/`, `steps/`, `main.yaml`,
+`shared.yaml`; **I have not loaded it, and `show --package` has not been run on
+this node.** The first thing worth measuring next interval is whether it even
+type-checks here.
+
+### 6. 未定性 — open, and deliberately left open
+
+- **Whether the engine image for phase A exists yet.** 157 images are on this
+  node, including many `lmsysorg/sglang-rocm:*-mi35x-*` and `rocserve/engine-*`
+  tags. **None of them is known to be "the locally built infera image" the plan
+  calls for**, and I did not guess by name — the first cluster charged us five
+  times for reading ownership off a name prefix. **The measurement that would
+  settle it: m1's own note, or the digest the module-1 environment record
+  writes.** Neither exists yet.
+- **Whether the carried-over launch block in `RUN-PLAN.md` is valid on this
+  cluster at all.** It names `--var transport=spur`; there is no spur here. **Not
+  yet read against this node.**
+- **What replaces the 4-minute mock loop.** With no corpus, the fast falsifier
+  that made the previous round tractable has no input. Open.
+- **Whether module 4 being degraded/replayed this hold** [the leader states this
+  is the user's decision] **leaves anything for module 5 to consume**, given
+  there is no sealed `kernel_optimization` here to replay *from*. Open, and it is
+  the one that could stall the far end of the chain.
+
+### 7. 新增 commit
+
+**None by me this interval** — this section is the first thing I have written.
+
+Two commits landed on `dev.yihou.aiopt.task_package.concat` before I started, and
+I name them without characterising work I did not read:
+
+```
+a41c119e  mission: reproduce, debug and accept the e2e chain on a second cluster
+3920f7e8  CLAUDE.md: all three exemptions can coincide in one sentence …
+```
+
+**Uncommitted in the tree at 06:33:41**, recorded because a package stages the
+*working tree*, not `HEAD`, so these reach every task that starts from now on:
+
+```
+A   .claude/CLAUDE.handoff-refine.20260906-0627.md.bak
+M   .claude/CLAUDE.md
+??  .serena/  overlay-review.20260805.md  sglang_unified_pd_test.packup_20260727/
+```
+
+`work.checkpoint.summary.md` itself was **clean** before this append — `git diff`
+and `git status` both empty, checked in the same command as the write.
+
+### 8. 其他
+
+**What I am, and the one way I could break this round.** This file is 552 KB and
+four people edit it. **I append; I do not regenerate.** A rebuild that improves
+every line it touches still destroys the lines it did not know about, and the
+commit cannot tell a correct rebuild from a wrong merge. My scratch is
+`/data/yihou/e2e_verify_20260906/checkpoint/`.
+
+**Between writes I sleep rather than explore.** An instrument that writes into
+what it observes has stopped being one — and this round starts with three empty
+note directories that are *meant* to be empty, which is exactly the state a
+curious observer would be tempted to disturb.
+
+---
+
+## R2 T+31 — 2026-09-06 07:05 UTC
+
+**T+31 is the wall-clock delta from the baseline** (06:33:41 → 07:04:36, read in
+the same command). Times below are reads; none is extrapolated.
+
+### 1. The interval's result — Qwen3-32B served a completion on this node
+
+**[observed, first-hand] This is a read of contents, not of an exit path.** From
+`…/handoffs/27dd187f-…/v1/content/items/codes/qwen3-32b-mix.packup_20260906/results/`:
+
+```
+deployment.json    started_at   2026-09-06T06:54:35.131400696Z
+                   image_id     sha256:fa58aef5…92bf2
+                   tp_size 4    gpu_devices [0,1,2,3]   ctx 40960
+router_workers     10.235.192.131:8102  status active  engine sglang
+chat_completion    model Qwen/Qwen3-32B
+                   usage {prompt 20, completion 147, total 167}
+                   content "<think>\nOkay, the user is asking for the capital
+                            of France and wants the answer in one word…"
+chat_completion_stream.sse                     40 555 bytes   07:00:22
+teardown.json      removed both containers, clean: true       07:01:44
+```
+
+**147 completion tokens the model produced.** No exit code and no `SERVE_OK`
+could have manufactured that string. **The engine image is real and this
+cluster's first bring-up worked.**
+
+**The image, and it is corroborated by two reads rather than asserted:**
+
+```
+m1/build4.log     writing image sha256:fa58aef5…92bf2
+                  naming to docker.io/infera/engine-sglang:qwen3-local-20260906
+deployment.json   image_id  sha256:fa58aef5…92bf2
+```
+
+The first is the builder's own output; the second is what the deployment
+recorded from the daemon. **Two reads of the same artefact through different
+paths — not two methods, and I am not claiming more than that.**
+
+**Timeline of the arm, all from mtimes read with `--time-style=+'%F %T'`:**
+
+```
+06:42:18  run 20260906T064218-15c264 starts
+06:54:35  bring-up  started_at
+07:00:19  engine_server_info / router_models / worker_mode_line
+07:00:21  chat_completion.json
+07:01:44  teardown clean
+07:02:44  yihou_dk_selftest{,_etcd} created  ← the callability arm, step 6
+```
+
+**Bring-up to first completion: 5 min 44 s.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~12 %** (+12 from the baseline's 0) |
+| 已经耗时 | **~45 min** (mission.md 06:19:11 → 07:04:36) |
+| 预估耗时 | **still absent** |
+| 可靠性 | **中** |
+
+**What the 12 % is and is not.** It is: an engine image built and proven by a
+served completion, a deploy kit that stands up and tears down cleanly, m2's
+materials generated, and m35's pre-registration written. **It is not a green
+stage** — `deploy_and_prove` is still `running`; no validator has returned a
+verdict on this cluster yet. **The first PASS is the event that will move this
+number again, and it has not happened.**
+
+**Why 中 and not 高:** the 12 % rests on my judgement of how much of a
+five-stage chain one nearly-finished stage represents, and **the previous round
+established that the last stage is not the cheapest.** The underlying
+observations are 高; the fraction is not.
+
+**预估耗时 stays absent.** Hold `29184` ends **2026-09-06T14:00:01**, leaving
+**6 h 55 min** at this write — that is a ceiling on this hold, not an estimate of
+the task.
+
+### 3. 当前进展 — one live run, three owners producing
+
+```
+run   20260906T064218-15c264      started 06:42:18   last write 07:02:43
+      main               running
+      m1_deploy          running
+      deploy_and_prove   running          agent e2e_deployer (kind: ai)
+      m2_profiling       waiting_handoff
+      m3_analysis        waiting_handoff
+      m4_kernel_opt      waiting_handoff
+      m5_integration     waiting_handoff
+```
+
+**Read from `store/task/*.json` `status`, not from a phase line.** The phase log
+says what was dispatched; these are the states the store holds.
+
+**What the deployer is doing right now, from its transcript** — the artefact
+that says *why*, which the previous round paid twice for not opening:
+
+```
+07:01:38  "Now step 6 — the callability arm. Tearing the first deployment down
+           first, since I hold only cards 0–3."
+07:02:15  "A real finding: teardown returns before the driver reclaims VRAM.
+           Adding a settle gate so back-to-back redeploy works."
+07:02:38  "Now the callability arm — the kit driven entirely by its contracted
+           parameters, with values different from my own run."
+```
+
+**All eight cards read VRAM 0 % at 07:03:19 and that is expected, not idle** —
+the first deployment was torn down at 07:01:44 and the selftest arm came up
+15 seconds before I sampled. **This is the sixth failure mode of "the cards are
+free" in its clearest form: the reading is correct and the inference from it
+would be wrong.**
+
+**Containers at 07:03:19:**
+
+```
+yihou_dk_selftest        created 2026-09-06 07:02:47   ← ours, step 6
+yihou_dk_selftest_etcd   created 2026-09-06 07:02:44   ← ours, step 6
+rc_26_7_902              created 2026-09-03 19:05:51   foreign, no GPU
+xiaoming-dev             created 2026-09-03 02:19:00   foreign, no GPU
+```
+
+**Other owners' output, listed by mtime, not characterised** — I have read file
+names and sizes, not the documents:
+
+```
+m2   materials/conversation_trace.jsonl        803 900 B  06:36:58
+     …jsonl.provenance.json                      1 249 B
+     materials/README.md                         9 442 B  06:48:23
+     VAR-TABLE.md          17 044 B   07:02:00
+     LAUNCH-m2.md          10 161 B   07:02:21
+     PRE-REGISTER-m2.md    12 838 B   07:02:42
+     tools/  gen_conversation_trace.py, check_trace_buildable.py,
+             check_gsm8k.py, sweep_unwired_env.py
+m35  PRE-REGISTER.md       19 565 B   06:57:36
+     RUNG5-CHECKLIST.md     9 933 B   07:00:40
+     mk_reverse_payload.py 15 298 B   07:02:55
+     probe_payload/  stock.py 40 628 B, optimized_kernel.py 41 250 B,
+                     payload_record.json         07:03:04
+     tool_probe/run/a/validation.good/materials/h1/v0/{file1,file2}.txt
+m1   Dockerfile.infera-engine  7 494 B, build2/3/4.log, launch_m1.sh 4 575 B
+```
+
+**m2's trace carries a `.provenance.json` beside it.** Recorded because a
+generated corpus that names its own origin is the thing this cluster does not
+have and must produce; whether that file says enough, I have not read.
+
+### 4. Code problems
+
+**Fixed this interval — one, and it was found by running, not by reading.**
+
+- **`scripts/teardown.sh` in the deploy kit** (path above): teardown returned
+  before the driver reclaimed VRAM, so a back-to-back redeploy would race the
+  reclaim. The deployer added a settle gate at **07:02:35**. **[observed via the
+  transcript and the file's mtime; I have not read the diff.]**
+
+**Recorded by a teammate, not by me — commit `7ae653c2`, 06:58:30:**
+
+> *`E2E_EVAL_THINKING` and `E2E_RESOLVE_TIMEOUT_S` are not two events. A body
+> reads `${E2E_FOO:-default}` while no `shared.yaml` or `steps/*.yaml` declares
+> `E2E_FOO`, so no `--var` reaches it and the default is the only value it can
+> take. Absence is invisible: grep finds the read and nothing looks wrong.*
+
+**Eleven instances of one cause.** This is `--var gpu_devices` from the first
+cluster, generalised and swept for rather than met one at a time — the repair
+the previous round arrived at only after paying three launches. **I quote the
+commit message; I have not run the sweep.**
+
+**Unfixed / unknown: none I can name.** No validator has refused anything on
+this cluster yet, because none has been asked.
+
+### 5. Non-code problems
+
+**(a) `transport=spur` is dead here, and it was caught before launch, not
+after.** From `LAUNCH-LINE.txt`, which m1 wrote next to the run:
+
+> *`transport=local`: `assets/lib/remote.sh:121` has a `local` branch the probe
+> NEVER selects. spur is absent here and srun is present, so the probe would
+> pick srun and try to step into the allocation we are already inside.*
+
+**This closes an open question from the baseline** — RUN-PLAN's carried-over
+block is not valid unmodified on this cluster, and the specific incompatibility
+is now named with a file and a line.
+
+**(b) `RUN-PLAN.md` has seven launch blocks that disagree.** m1's header says so
+and says which two it took from and why. **On the first cluster the canonical
+block was measurably the best line; here it needed adapting, and the adaptation
+is documented in the run tree rather than in someone's memory.**
+
+**(c) `LAUNCH-LINE.txt` exists at all, and that is the previous round's most
+expensive lesson applied before it cost anything here.** Its own justification:
+
+> *a launch line is NOT recoverable from the artefact: the staged package keeps
+> `${var:-default}` unrendered, so the run tree cannot say what was passed. Four
+> separate incidents trace to that.*
+
+**(d) The namespace-package hazard, measured today by m1**: `agent_sys` spans
+both this checkout and `…/infera.aiopt.all`, and "this one wins by ordering,
+which is an accident, not a property." The launch line pins `PYTHONPATH`.
+
+### 6. 未定性
+
+- **Whether the callability arm passes.** It started 07:02:44 and is the last
+  step before `deploy_and_prove` can produce its output. **Unresolved, and it is
+  the next thing that will be true or false.**
+- **`expect_ranks=2` against `tp=4` in a run whose m2 is mocked.** The launch
+  line states this is deliberate — it grades a sealed TP-2 trace, not this
+  deployment. **But the baseline established there is no sealed corpus on this
+  cluster.** I have not checked which trace `expect_ranks=2` will actually be
+  applied to, and that is the reading that would settle it. Open.
+- **What module 5 consumes if module 4 is replayed** — carried forward from the
+  baseline, unchanged, and nothing this interval touched it.
+- **Whether m2's generated trace can substitute for the absent corpus** in the
+  places the package expects sealed inputs. m2 has written a provenance file and
+  a `check_trace_buildable.py`; **I have not read either and will not
+  characterise their answer.**
+
+### 7. 新增 commit
+
+Since my last section, two, both on `dev.yihou.aiopt.task_package.concat`:
+
+```
+f027073d  checkpoint R2 T+0: baseline on the second cluster — mine
+7ae653c2  bug record 2026-09-06: one cause, eleven instances — a knob the code
+          offers that the package never wires up            (not mine; quoted
+          from its message in §4, not read as a diff)
+```
+
+Working tree at 07:04:36: `.serena/`, `overlay-review.20260805.md`,
+`sglang_unified_pd_test.packup_20260727/` untracked. **The two `.claude/`
+entries staged at the baseline are now committed** (`46469f7f`, which predates
+my baseline commit in the log but landed in the same window).
+
+### 8. 其他
+
+**One thing is different from the first cluster's early hours and worth naming
+while it is still true.** Every owner produced a document that names its own
+provenance before producing a result: `LAUNCH-LINE.txt` beside the run,
+`conversation_trace.jsonl.provenance.json` beside the trace,
+`PRE-REGISTER.md` and `PRE-REGISTER-m2.md` **written before the results they
+grade exist**.
+
+**Pre-registration is the one defence the previous round found that does not
+decay** — the criteria cannot be bent toward the first data point if they were
+written before it arrived. **Whether these three documents are good, I have not
+read. That they were written first is a fact about their mtimes**, and it is the
+part that cannot be recovered later.
+
+---
+
+## R2 T+62 — 2026-09-06 07:36 UTC
+
+**T+62 = wall-clock delta from the baseline** (06:33:41 → 07:35:22, read in the
+same command as the write).
+
+### 1. The interval's event — `deploy_and_prove` entered output validation
+
+```
+07:29:59   phase  deploy_and_prove: running -> output_validating
+07:29:59   store/handoff/27dd187f-….json  written
+07:29:59   zone  validation.68eec6d6-….output_validation.d158bc57  created
+```
+
+**This is the first validator invocation of the round on this cluster.** At
+07:35:22 it had not returned: no `verdict`, no report anywhere under the zone.
+**Elapsed in validation at this write: 5 min 23 s.** I do not know whether that
+is normal for this validator set here; the measurement that would say is a
+completed one to compare against, and there is none yet.
+
+**The one thing I checked before it returns, because it is the check that is
+worthless afterwards:**
+
+```
+materials/27dd187f-…/v1     37 files
+args.json                   {"layout": "deploy_kit.layout"}   (non-empty)
+```
+
+**37 files, staged from `v1`, and the args are not empty.** Those are the two
+failure modes the first cluster spent a day on — a zone handed a zero-file
+directory produces a well-formed refusal that reads exactly like a producer
+defect, and empty `args` makes a validator pass trivially. **Neither is present
+here.** Recorded now precisely because once a verdict exists, nobody re-reads
+the zone.
+
+**I am not claiming the verdict will be a PASS.** I am claiming that if it
+refuses, the refusal will be about the artefact.
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~13 %** (+1) |
+| 已经耗时 | **~76 min** (mission.md 06:19:11 → 07:35:22) |
+| 预估耗时 | **still absent** |
+| 可靠性 | **中** |
+
+**+1, not more.** Entering validation is a state transition, not a result. The
++12 last interval was bought by 147 generated tokens; **this interval bought a
+dispatch.** Hold `29184` has **6 h 25 min** left (14:00:01 − 07:35:22).
+
+### 3. 当前进展
+
+```
+main               running
+m1_deploy          running
+deploy_and_prove   output_validating   ← since 07:29:59
+m2_profiling       waiting_handoff
+m3_analysis        waiting_handoff
+m4_kernel_opt      waiting_handoff
+m5_integration     waiting_handoff
+```
+
+**Node at 07:34:53:** all eight cards VRAM 0 %; `docker ps` shows only
+`rc_26_7_902` and `xiaoming-dev`, both foreign and neither GPU-holding. **The
+two `yihou_dk_selftest*` containers seen last interval are gone** — the
+callability arm finished and tore itself down between 07:03 and 07:34. **I did
+not observe it complete; I observed that it is no longer there**, and those are
+different statements.
+
+**Owners' output this interval, by mtime — names and sizes, not judgements:**
+
+```
+m35  PRE-REGISTER.md        19 565 → 27 820 B   07:17:24
+     RUNG5-CHECKLIST.md      9 933 → 15 788 B   07:19:27
+     LAUNCH-CHAIN-m35.md              9 591 B   07:31:46   (new)
+     m3_extract.py                    9 727 B   07:32:59   (new)
+     known/{harness,module,mixed}/…/workset.yaml + usable_op.json
+                                                07:32:59–07:33:09
+     watch_for_verdict.sh + …snapshot.sh        07:28:01–07:28:24
+     findprobe/, watchprobe/  — probe scratch
+m2   graft_kit.sh                     7 288 B   07:25:44   (new)
+     LAUNCH-CHAIN.md                 15 449 B   07:33:39   (new)
+     PRE-REGISTER-m2.md    12 838 → 17 058 B    07:34:07
+     LAUNCH-m2.md          10 161 → 12 556 B    07:20:49
+m1   run.log                          4 121 B   07:29:59
+```
+
+**`known/{harness,module,mixed}/` is worth naming as a shape, not a
+conclusion:** three named fixtures with hand-sized `workset.yaml` files, built
+by `m3_extract.py`. **That is the outline of "let a new instrument grade a
+sample whose answer you already know"** — the repair the first cluster reached
+only after four confident false refusals. Whether these fixtures do that, I have
+not read.
+
+**`watch_for_verdict.sh` and its `.snapshot.sh` sibling.** A snapshot copy
+beside a shared script is the fix for "bash reads a running script lazily, and
+someone else's edit moves the offset." Recorded as the shape; I have not
+verified the snapshot carries its provenance header.
+
+### 4. Code problems
+
+**None fixed by me; three bug records committed by others this interval.** I
+quote their subject lines and do not restate them wider than they were written:
+
+```
+8637b3e9  bug record 2026-09-06 entry 4: PIPESTATUS is empty in the shell we
+          type into
+935e9973  bug record: bfs errors where GNU find would not, and 2>/dev/null
+          hides it
+5166c897  bug record 4b: bfs errors loudly on relative -newermt; 2>/dev/null is
+          what makes it silent
+```
+
+**All three are instrument failures, not product failures**, and all three are
+the same family this record has been filling for two days: **a tool that answers
+a different question than the one asked, and a redirect that turns the
+disagreement into silence.** `2>/dev/null` appearing in two of the three is the
+part worth carrying — **the previous round's rule was "do not put `2>/dev/null`
+on a command that can fail"; these two are that rule being collected twice on a
+new machine because `find` here is `bfs`.**
+
+*Method note against myself: I used `find … -newermt … 2>/dev/null` in this very
+interval to enumerate teammate files. If `bfs` errored, my listing is short and
+would look complete. The listing above returned 25 rows with plausible
+timestamps, but that is not proof — **I am flagging my own instrument, not
+clearing it.***
+
+- **`scripts/teardown.sh` settle gate** — fixed last interval, unchanged.
+
+### 5. Non-code problems
+
+**Nothing new this interval.** The four from T+31 stand unchanged: no corpus,
+`transport=spur` dead, seven disagreeing launch blocks in `RUN-PLAN.md`, and the
+`agent_sys` namespace-package collision.
+
+**One clarification I owe on my own last section.** I wrote that the image
+digest was "corroborated by two reads rather than asserted" and then said they
+are not two methods. **Holding both: the build log's `writing image` line and
+`deployment.json`'s `image_id` are the same value travelling two paths, which
+catches a transcription error and nothing else.** It does not establish that the
+image contains what the Dockerfile intended.
+
+### 6. 未定性
+
+- **The verdict.** Open for 5 min 23 s at this write, and it is the single most
+  informative thing that will happen next. **`materials` = 37 files and
+  non-empty `args` are already recorded, so whatever it says can be read at face
+  value.**
+- **Why validation is taking this long.** I do not know. **The measurement that
+  would answer it: the validator's own report once it lands, or the zone's
+  `home/`/`tmp/` growing.** Both were empty of results at 07:35:22.
+- **`expect_ranks=2` vs. `tp=4`** — carried from T+31, untouched, still unread.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched.
+- **Whether `m35/known/*` fixtures have known answers** *before* they are used
+  to grade anything. Open, and it is cheap to close later by reading the mtimes
+  against the first grading run.
+
+### 7. 新增 commit
+
+Since T+31, four on `dev.yihou.aiopt.task_package.concat`:
+
+```
+8fcdb00b  checkpoint R2 T+31 — mine
+8637b3e9  bug record 2026-09-06 entry 4: PIPESTATUS is empty in the shell we
+          type into
+ae9bb3ab  m5: expose eval_thinking; record the unwired-knob and file-set
+          findings
+935e9973  bug record: bfs errors where GNU find would not, and 2>/dev/null
+          hides it
+5166c897  bug record 4b: bfs errors loudly on relative -newermt; 2>/dev/null is
+          what makes it silent
+```
+
+**`ae9bb3ab` is the first commit this round that changes the package rather than
+the record** — it wires up `eval_thinking`, one of the eleven unwired knobs from
+`7ae653c2`. **I have not read its diff and do not know whether the other ten are
+addressed.**
+
+### 8. 其他
+
+**Three of the five commits this interval are bug records about the team's own
+tools, and none is about the thing being built.** That is not a complaint. On
+the first cluster the same ratio held and the tool bugs were the ones that cost
+runs — a `pkill` pattern that matched its own argv, a `find` that failed to zero,
+a `tail -1` that ate the line explaining four deaths.
+
+**What is different here is the timing: these are being written before a chain
+has died on them.** `bfs` behaving unlike GNU `find` was found by someone testing
+their probe, not by a probe silently under-reporting during an incident. **That
+ordering is the whole value, and it is the kind of thing only a timestamp can
+show** — which is why the mtimes above are listed even when the contents are not.
+
+---
+
+## R2 T+94 — 2026-09-06 08:08 UTC
+
+**T+94 = wall-clock delta from the baseline** (06:33:41 → 08:07:13, read in the
+same command).
+
+### 1. The interval's result — the first validation did not refuse, it crashed
+
+**And it corrects my own previous section, which is the first thing to say.**
+
+`check_deploy_kit` died on an **`ImportError` on `jsonschema`**. The validator
+runs with `HOME` inside its own zone, so user-site resolves to an empty
+directory and it falls back to a system `jsonschema` with no
+`Draft202012Validator`. **It exited 1 without writing a verdict, the task went
+terminal, and the escalation had no receiver.**
+
+**[observed, first-hand] The escalation event, verbatim from
+`store/event/f81d6ff4-….json`:**
+
+```
+"at":   "2026-09-06T07:29:59.160381Z"
+"kind": "escalated"
+"attributes": { "target": "user",
+                "why": "validation_unreached: the task is terminal and
+                        there is nothing to push" }
+```
+
+**07:29:59 is the same second the phase line said `running -> output_validating`.**
+It never spent 36 minutes validating; **it died on entry and I read the phase
+line as progress.**
+
+**What T+62 got wrong, and the diagnosis names it exactly** (from `0a23e9cf`'s
+message):
+
+> *the zone was green — one zone, 37 files, none empty — and that was correct
+> while the run died anyway. **Was the validator shown something** and **did it
+> survive to look** are different questions and only the first has a tool.*
+
+**My 37-file count was true and I drew a conclusion it cannot carry.** I wrote
+"if it refuses, the refusal will be about the artefact." **It did not refuse.
+There is a third outcome my check had no way to see**, and I had already
+recorded, one section earlier, that a tool answering a different question is
+this record's most expensive recurring shape.
+
+**Blast radius, as measured by the owner rather than assumed** [relayed from
+`0a23e9cf`, not independently re-measured by me]:
+
+```
+import is inside def validate(), not at module level
+  -> importing the shared lib is harmless; only a call detonates
+every call site catches SchemaError, which an ImportError is NOT
+8 of 22 validators crash
+check_environment is on EVERY kind
+  -> 15 of 15 kinds cannot reach a verdict
+  -> there is no partial green and no degraded configuration that avoids it
+```
+
+**`check_workset_shape` was missed on the first pass** because it carries its own
+`jsonschema` import instead of calling the shared lib — **right pattern, wrong
+scope**, caught only by asking whether `jsonschema` is imported anywhere else.
+
+**The transferable finding, and it is the sharpest thing produced today:**
+
+> **`verdict.json` cannot express crashed-versus-refused, so a crash is recorded
+> as `invalid` and reads as a judgement about the artefact.**
+
+**`check_packup_shape` already guards this** — it writes `THIS VALIDATOR DID NOT
+RUN` into its reasons, citing `todo.md` T29. **The other seven do not.** And
+both a prior record of this exact crash and a better fix idiom than `PYTHONPATH`
+**already existed in the package**, at `check_workset_shape:655` and
+`mock_adapt.sh:103`. **Two of today's costs were paid for a second time.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~14 %** (+1) |
+| 已经耗时 | **~108 min** (mission.md 06:19:11 → 08:07:13) |
+| 预估耗时 | **still absent** |
+| 可靠性 | **中** |
+
+**+1 despite the run dying, and the reasoning matters more than the number.**
+Nothing proven at T+31 was un-proven: the image, the served completion, the
+clean teardown all stand. **What this interval bought is a fully characterised
+blocking defect with a measured blast radius** — 8/22 validators, 15/15 kinds,
+no degraded configuration. **That is worth more than the +1 suggests and less
+than a green stage**, and I would rather under-count it than let the number
+drift upward on a diagnosis.
+
+**Hold `29184`: 5 h 53 min left** (14:00:01 − 08:07:13).
+
+### 3. 当前进展 — two live runs, and they want the same cards
+
+**Three run trees exist; one orchestrator died, two are alive.** Processes read
+**positionally from `/proc/<pid>/cmdline`**, never by grepping a pattern that
+appears in my own argv — the first pass of that read returned my own shell as a
+hit and I discarded it.
+
+```
+run 20260906T064218-15c264   06:42:18   orchestrator GONE   (died, §1)
+run 20260906T075853-e6f882   pid 529945  started 07:58:45   m1
+     container=yihou_e2e_m1_09060758   gpu_devices=0,1,2,3
+     tp=4  measure_gpu=4  mock_stages=m2,m3,m4,m5
+run 20260906T080504-3e8a03   pid 573170  started 08:04:53   m2
+     launcher /data/yihou/e2e_verify_20260906/m2/launch_chain.py
+     container=yihou_e2e_chain   tp=4  measure_gpu=4
+     mock_stages=none          ← a FULL REAL five-stage chain
+     gpu_devices                 ABSENT from its argv
+```
+
+**Both are in `deploy_and_prove` right now.** Two `kind: ai` deployer agents are
+alive (pids 530669, 574698).
+
+**The concern, stated with its evidence and its limit.** What I measured: m1
+declares cards 0–3; **m2's chain passes no `gpu_devices` at all**; both are
+`tp=4`; both are deploying now. What I did **not** measure on this cluster: what
+an absent `gpu_devices` resolves to here. **On the first cluster it was measured
+by intervention** — the kit was changed to `[4,5,6,7]` and the arm still took
+0–3, because `mix_worker.sh:26` reads `GPUS="${GPUS:-$(seq -s, 0 $((TP-1)))}"`
+and nothing in the package sets `GPUS`. **If that line is unchanged here, both
+runs take 0,1,2,3.**
+
+**A second, independent collision path from the same record:** `mix_up.sh`
+hard-codes `kv-events:5557` and `kv-snapshot:8801`, so **two m5 stages cannot
+coexist on one node regardless of ports passed** — and m2's chain is
+`mock_stages=none`, so it will reach m5.
+
+**I am flagging this to the leader as a measurement, not as an instruction.**
+I do not know whether the overlap was scheduled deliberately. **All eight cards
+read VRAM 0 % and `docker ps` shows only the two foreign CPU containers at
+08:05:57**, so nothing has collided yet; the window is open, not closed.
+
+### 4. Code problems
+
+**Unfixed and blocking — the `jsonschema` `ImportError`.** Files named by the
+diagnosis: the shared validate lib (import inside `def validate()`),
+`check_workset_shape` (own import, and a prior record of this crash at `:655`),
+`check_packup_shape` (the one that already guards it), `mock_adapt.sh:103` (the
+better fix idiom). **No fix commit had landed at 08:07:13.**
+
+**Fixed earlier, unchanged:** the deploy kit's `scripts/teardown.sh` settle gate.
+
+**Two tool-level records committed this interval, both by others:**
+
+```
+935e9973 / 5166c897   bfs errors where GNU find would not, and 2>/dev/null
+                      hides it
+```
+
+**The second carries a near-miss worth keeping:** m35 was *thirty seconds* from
+reporting a quiet run tree off a zero whose newest file was **73 seconds old**.
+And the record makes the general point in the safest form — **`2>/dev/null`
+turns a good failure into a plausible zero, and `2>&1 | wc -l` turns it into a
+plausible non-zero, so neither direction of the result is safe.**
+
+***Against myself, again:*** T+62 enumerated teammate files with
+`find … -newermt … 2>/dev/null` and I flagged it as unverified. **`bfs` rejects
+relative time strings; I used absolute ones and got 25 plausible rows, so that
+listing survives — but by luck of argument form, not by care.** This interval I
+used `-newermt '2026-09-06 07:36'` with stderr visible.
+
+### 5. Non-code problems
+
+**Nothing new.** The four from T+31 stand. **One is now sharper:** the round has
+no sealed corpus, and the validator defect means **no kind can reach a verdict**,
+so nothing produced in the next hours can be *validated* into a corpus either
+until the import is fixed. **That makes the `jsonschema` fix the critical path,
+not a side quest** — stated as a consequence of two measured facts, not as a
+scheduling opinion.
+
+### 6. 未定性
+
+- **Whether the two live runs collide on cards 0–3.** Open. **The reading that
+  settles it: `docker inspect <ctr> --format '{{.HostConfig.DeviceRequests}}'`
+  or `rocm-smi` once either brings up** — neither has yet.
+- **What an absent `gpu_devices` resolves to on this cluster.** Carried from the
+  first cluster's measurement; **not re-measured here**, and the honest form is
+  that it is an expectation, not an observation.
+- **Whether the 8/22 and 15/15 counts hold** — relayed from `0a23e9cf`, whose
+  author measured them. I have not re-derived them and am not widening them.
+- **`expect_ranks=2` vs `tp=4`** — carried, still unread.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched.
+
+### 7. 新增 commit
+
+Since T+62, four, all by others except mine:
+
+```
+e536e3c4  checkpoint R2 T+62 — mine
+0a23e9cf  bug record: a crash is not a refusal, and verdict.json cannot say
+          which
+590467f7  bug record: the jsonschema crash from both ends — m1's PATH/HOME
+          mechanism and m35's blast radius
+1b81a7d3  bug record: cross-reference m1's blast-radius paragraph to the counts
+          in section 6
+```
+
+**Three commits on one defect, from two owners, cross-referenced to each
+other.** `590467f7`'s subject — "from both ends" — is the mechanism and the
+blast radius arriving separately and being joined. **The previous round's note
+that one cause stays split into three surprises because each is counted as an
+event: here it was joined the same hour.**
+
+### 8. 其他
+
+**The honest reading of this interval is that the round's first real validation
+produced no verdict, and the record is better for it.**
+
+What exists now that did not at 07:36: a named mechanism (`HOME` in the zone →
+empty user-site → wrong `jsonschema`), a measured blast radius that rules out
+every partial workaround, a second instance found by asking the scope question
+rather than by being bitten, and **a general defect — `verdict.json` cannot
+distinguish a crash from a refusal — that would have quietly mis-attributed
+every future crash to the artefact under test.**
+
+**And my own check was shown to be sound and insufficient in the same sentence.**
+I will keep counting zone materials; **it is now labelled with what it cannot
+see**, which is the only repair available to a tool that answers a narrower
+question than the one being asked.
+
+---
+
+## R2 T+125 — 2026-09-06 08:39 UTC
+
+**T+125 = wall-clock delta from the baseline** (06:33:41 → 08:38:26, read in the
+same command).
+
+### 1. The interval's result — the first verdicts on this cluster, and they pass
+
+**[observed, first-hand] Two of `deploy_kit`'s three validators returned `true`;
+the third is executing.** Run `20260906T080504-3e8a03`, handoff
+`fe6a4ab0-…` (kind `deploy_kit`), zone
+`validation.d4ed6649-….output_validation.7f544db1`, **30 files in materials**:
+
+```
+validation-tfkbxt_1   args {"layout": "deploy_kit.layout"}
+                      verdict {fe6a4ab0-…: true}
+                      validator_report.txt:
+                          # check_deploy_kit
+                          ## fe6a4ab0-…: passed
+                            note: qwen3-32b-mix.packup_20260906
+validation-3pwu1vm_   args schema=environment,
+                           require_fixed [node, gpu_arch, image, image_id,
+                                          model_name, model_path, tp_size]
+                           require_runtime [container, endpoint, started_at]
+                           invariant devices_within_count
+                      verdict {fe6a4ab0-…: true}
+validation-rwx4veqz   args deploy_entrypoint=scripts/deploy.sh,
+                           aiperf 0.12.0, load_seconds 180, port_base 8140,
+                           work_root /data/yihou/e2e_flow/validate
+                      NO VERDICT — running now
+```
+
+**`check_environment` passing is the load-bearing one.** It is the validator that
+crashed on `jsonschema` an hour ago and the one attached to **every** kind. Its
+`true` here is a positive test of that repair — **it could not have returned a
+verdict at all while the `ImportError` stood.** I have not read the fix commit
+and do not know which of the two candidate idioms was used.
+
+**The third validator, `check_deploy_serves`, is a real bring-up plus a 180 s
+load** — the heaviest check in the set and the one the first cluster kept out of
+its fast loop entirely. **It is running on hardware right now:**
+
+```
+08:32:10  yihou_e2e_chain_serves-6e2f6dbb        created
+08:32:14  yihou_e2e_chain_serves-6e2f6dbb_etcd   created
+08:35:11  aiperf_serves-6e2f6dbb                 created
+08:37:45  cards 0-3 VRAM 76 76 76 76 %   cards 4-7  0 0 0 0 %
+```
+
+**That is the first time this round the cards have been busy while I sampled**,
+and the split 76/0 matches a TP-4 deployment on `gpu_devices=0,1,2,3`.
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~22 %** (+8) |
+| 已经耗时 | **~139 min** (mission.md 06:19:11 → 08:38:26) |
+| 预估耗时 | **still absent** |
+| 可靠性 | **中** |
+
+**+8 for two passing verdicts on a real artefact.** Both are reads of the kit's
+contents — one of its layout, one of its `environment` record against seven
+required fixed fields and three runtime ones. **Neither is an exit code.** The
+blocking defect that made 15/15 kinds unreachable at T+94 is demonstrably gone
+for at least this kind.
+
+**Not counted:** `check_deploy_serves` has not returned. **If it passes, stage 1
+is green on this cluster and that is worth more than this interval's +8** — I
+would rather book it when it happens than pre-book it now.
+
+**Hold `29184`: 5 h 22 min left** (14:00:01 − 08:38:26).
+
+### 3. 当前进展 — one run alive, and it is the full-real chain
+
+```
+20260906T064218-15c264  orchestrator gone   (died on the jsonschema crash)
+20260906T075853-e6f882  orchestrator gone   deploy_and_prove: FAILED
+20260906T080504-3e8a03  pid 573170 ALIVE    m2's launch_chain.py
+                        container=yihou_e2e_chain   mock_stages=none
+                        main: running   m1_deploy: running
+                        deploy_and_prove: output_validating
+```
+
+**`mock_stages=none` — every one of the five stages is real in this run.** It is
+the only live chain and it holds the node's four busy cards.
+
+### 4. The collision fired — and by the path I did not flag first
+
+**m1's run 2 died. [relayed from `becc19d6`, whose author measured it; I observed
+only the resulting `deploy_and_prove: failed`.]**
+
+> *Two module owners on one node take the same default port band (8101..8106)
+> and the same `work_root`. m1's run 2 aborted on **"etcd port 8103 is already
+> in use"** six minutes after a preflight measured it free — **correct when
+> taken, stale when used** — and the exit code was **143**, which says nothing.
+> Ownership of the port established by inspecting the other run's etcd args, not
+> by container name or arrival order.*
+
+**Against my own T+94 section.** I flagged the overlap and named two collision
+paths: cards 0–3, and `mix_up.sh`'s hard-coded 5557/8801. **Neither is what
+fired.** It was the default port band `8101..8106` and a shared `work_root` —
+**a third path I did not name, in a message where I listed two and stopped.**
+The warning was right in shape and incomplete in mechanism, and the incomplete
+part is the part that cost a run.
+
+**Two details in that record worth keeping separately from the incident:**
+
+- **"correct when taken, stale when used"** — a preflight measured 8103 free and
+  six minutes later it was not. **This is the same shape as reading VRAM before
+  a launch: the reading does not expire loudly.**
+- **Ownership was established by inspecting the other run's etcd args**, not by
+  container name or arrival order. **That is exactly the discriminator the first
+  cluster paid five times to learn**, applied on first contact here.
+
+**Also filed in that commit, and it is a correction to how run 1 will be read
+later:** `check_deploy_kit`'s crash is a **NON-verdict** — it exited 1 and wrote
+no `verdict.json`, so **`deploy_kit: invalid` there means *undecided*, not
+*bad***. The same kit passed later. **Anyone reading run 1's store without this
+paragraph would conclude the kit was defective.**
+
+### 5. Code problems
+
+**Fixed this interval (inferred from behaviour, not from a diff): the
+`jsonschema` `ImportError`.** `check_environment` returned `true` at this write;
+it could not have produced any verdict while the import failed. **I have not
+found or read the fix commit and cannot say which files changed or whether all
+eight affected validators were repaired** — the `git log` I ran over `*check_*`
+and `*schema*` paths since 07:30 returned nothing, which most likely means my
+pathspec was wrong rather than that no fix landed. **Flagging my own instrument
+rather than concluding from it.**
+
+**Unfixed, newly recorded — `6e465181`, "only m2 declares a GPU lease":**
+
+> *cross-stage separation is dependency ordering, not lease ordering*
+
+**No file named by me; I have not read the diff.** Recorded because it is the
+general form of what killed run 2 — **the graph orders stages, and ordering is
+not exclusion.**
+
+**Unfixed: the port band and `work_root` defaults are shared.** Named by
+`becc19d6`. Whether a fix landed, I have not checked.
+
+### 6. 未定性
+
+- **`check_deploy_serves`.** Running since ~08:32, load phase since 08:35:11.
+  **It is the single thing that decides whether stage 1 is green today.**
+- **Whether all eight crash-affected validators were repaired**, or only the path
+  `check_environment` takes. **The reading that answers it: the fix commit's
+  diff, which I have not located.**
+- **Whether m1 relaunches, and onto which port band.** m1 has no live
+  orchestrator; the node's cards are held by m2's chain.
+- **`expect_ranks=2` vs `tp=4`** — carried, still unread. **Less urgent now**:
+  the live chain is `mock_stages=none`, so its m2 is real and will produce its
+  own trace.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched.
+
+### 7. 新增 commit
+
+Since T+94, three:
+
+```
+be34f98b  checkpoint R2 T+94 — mine
+becc19d6  m1: record the port-band/work_root collision that killed run 2, and
+          the non-verdict from run 1
+6e465181  bug record 5: only m2 declares a GPU lease — cross-stage separation
+          is dependency ordering, not lease ordering
+```
+
+### 8. 其他
+
+**Two runs died today and the record is better for both, but not equally.**
+
+Run 1's death produced a general defect — `verdict.json` cannot distinguish a
+crash from a refusal — that will change how every future failure is read. **Run
+2's death produced an incident report.** The mechanism is well documented, the
+ownership question was answered correctly on first contact, and the "correct
+when taken, stale when used" line generalises. **But nothing about it had to be
+learned by losing a run**: two owners on one node with one default port band is
+a fact that was available before either launched.
+
+**That is the difference between a cost that bought something and a cost that
+was avoidable, and I would rather record it now than let both settle into the
+same column.** My own T+94 warning is on the avoidable side of that line: it was
+sent, it named the right pair of runs, and it listed the wrong two mechanisms.
+
+---
+
+## R2 T+156 — 2026-09-06 09:10 UTC
+
+**T+156 = wall-clock delta from the baseline** (06:33:41 → 09:09:17).
+
+### 1. Stage 1 is green on this cluster — all three validators, including the load test
+
+**[observed, first-hand] Run `20260906T080504-3e8a03`, handoff `fe6a4ab0-…`,
+kind `deploy_kit`:**
+
+```
+validation-tfkbxt_1   layout             -> true
+validation-3pwu1vm_   schema=environment -> true
+validation-rwx4veqz   scripts/deploy.sh  -> true    ← this one is new
+                      aiperf 0.12.0, load_seconds 180, port_base 8140
+
+store/task:  deploy_and_prove = succeeded
+             m1_deploy        = succeeded
+```
+
+**`check_deploy_serves` returned `true`.** That is the validator the first
+cluster deliberately kept out of every fast loop because it performs a real
+bring-up and a 180-second load — **the most expensive check in the set, and the
+one whose PASS is hardest to fake.** Between my 08:37:45 sample (verdict absent,
+cards 0–3 at 76 %) and its last write at **08:47:06**, it finished and passed.
+
+**This is the round's first stage-level green and the first on this hardware.**
+The chain then advanced: `m2_profiling` and `run_profiling_mode_off` both
+reached `running` in the same run.
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~28 %** (+6) |
+| 已经耗时 | **~170 min** (mission.md 06:19:11 → 09:09:17) |
+| 预估耗时 | **absent — but for the first time there is a reason to expect one** |
+| 可靠性 | **中** |
+
+**+6: one of five stages green, with its heaviest validator included.** I am not
+booking a straight 20 % per stage — stage 1 is the only one with a proven
+artefact path here, and the first cluster established the later stages are not
+cheaper.
+
+**On 预估耗时.** Stage 1 took **06:42:18 → 08:47:06 ≈ 2 h 05 m** across three
+runs, two of which died for reasons now fixed. **That is a measured number for
+one stage, not a basis for multiplying by five** — most of it was paying for
+defects that do not recur (`jsonschema`, port band). **I am recording it so a
+later section can divide by something real; I am not dividing yet.**
+
+**Hold `29184`: 4 h 51 min left** (14:00:01 − 09:09:17).
+
+### 3. 当前进展 — one live chain, three dead run trees
+
+```
+20260906T064218-15c264   dead   jsonschema crash
+20260906T075853-e6f882   dead   deploy_and_prove: failed (port 8103)
+20260906T080504-3e8a03   dead   STAGE 1 GREEN, then died at m2
+                                last write 08:47:06
+20260906T084930-6ded23   pid 1000969  started 08:49:18  ALIVE
+                                m2's launch_chain.py, container=yihou_e2e_chain
+                                mock_stages=none, tp=4, work_root=/data/yihou/e2e_flow
+                                main: running   deploy_and_prove: running
+```
+
+**A caution about the dead one, because it will mislead whoever reads its store
+next.** `20260906T080504-3e8a03` still records `m2_profiling=running` and
+`run_profiling_mode_off=running`. **Its orchestrator is gone and it has written
+nothing since 08:47:06.** Nothing inside that run distinguishes *running* from
+*running under a process that no longer exists* — **the discriminator is
+`/proc`, entirely outside the run**, and only one orchestrator is alive
+(pid 1000969, which is the 08:49 run).
+
+**Node at 09:08:36 — all eight cards busy, and that is us:**
+
+```
+VRAM%    75 75 75 75 75 75 75 75
+yihou_dk_qwen3-32b-mix       started 09:00:38   labels infera_e2e_run=qwen3-32b-mix
+yihou_dk_qwen3-32b-mix_etcd  started 09:00:43
+yihou_dk_selftest            started 09:06:50   labels infera_e2e_run=selftest
+yihou_dk_selftest_etcd       started 09:06:55
+rc_26_7_902 / xiaoming-dev   foreign, CPU only
+```
+
+**Two of our deployments up at once — the main arm and the callability arm —
+which is what puts all eight cards at 75 %.** We hold the node `--exclusive`
+with `gres/gpu:8`, so this is within the allocation. **Ownership read from
+labels, not from the `yihou_` prefix** — the prefix is shared by everyone on the
+team and the first cluster mis-assigned five containers by reading it as
+ownership.
+
+### 4. Why the green chain then died — and the defect was its author's own
+
+**[quoted from `2cba517a`, whose author both caused and found it]**
+
+> *Cost: one full chain died at m2 after a clean bring-up, 35 minutes, and the
+> defect was mine. AIPerf refused the trace at load — `hash_id 0` materialized
+> at **477 tokens in one record and 512 in another**, because block 0 was a
+> shared system prompt while the layout made each record's final block partial.
+> **Every record individually valid; the file not.***
+
+**The part that generalises, and it is the sharpest instrument lesson of the day:**
+
+> *The verification ran the **REAL** `PromptGenerator` over all 3108 layouts with
+> two known-answer controls and **passed**. It called `g._cache.clear()` between
+> records, deliberately, for isolation and per-layout attribution — **and that
+> shared cache is exactly what AIPerf's `dataset_manager` uses to enforce the
+> cross-record invariant, so the control removed the only property that could
+> fail.** `aiperf validate` passed 7761 rows for the same reason: row-independent
+> validation. **Two instruments, both real, both blind to the one property that
+> mattered.***
+
+**Using the real consumer is not sufficient if you call it the way the consumer
+never calls it.** The isolation that made per-layout attribution possible is the
+same isolation that deleted the invariant. **And the known-answer controls —
+this record's own recommended defence, adopted this morning — passed, because
+they were per-record too.**
+
+### 5. Code problems
+
+**Fixed this interval, inferred from behaviour:** the `jsonschema` `ImportError`
+(all three validators returned verdicts). **Still not read as a diff; still
+unknown whether all eight affected validators were repaired.**
+
+**Fixed, per its own record:** m2's trace generator — the shared-system-prompt
+block producing inconsistent `hash_id 0` lengths. **I have not verified a
+corrected trace exists; the live chain relaunched two minutes after that run
+stopped, which is consistent with a fix but does not establish one.**
+
+**Unfixed, carried:** shared default port band `8101..8106` and shared
+`work_root` (`becc19d6`); no GPU lease except m2's (`6e465181`).
+
+### 6. 未定性
+
+- **Whether the live chain (`-6ded23`) passes stage 1 again.** It is in
+  `deploy_and_prove` with two deployments up. **Stage 1 has been green once; a
+  second green would make it reproducible rather than achieved.**
+- **Whether the corrected trace passes AIPerf at load.** That is the check that
+  failed 35 minutes into the last chain, and **it can only be answered by
+  reaching m2 again.**
+- **Whether all eight crash-affected validators were repaired** — carried,
+  unread.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched, and
+  **now the furthest-out unknown**, since stages 1–2 both have live paths.
+
+### 7. 新增 commit
+
+Since T+125, two:
+
+```
+53b05652  checkpoint R2 T+125 — mine
+2cba517a  bug record 6: the real consumer, called the way the consumer never
+          calls it, is a different instrument
+```
+
+### 8. 其他
+
+**Three run trees died before one stage went green, and the order of their causes
+is the useful part.**
+
+```
+run 1   06:42   a defect in the validator framework   (jsonschema import)
+run 2   07:58   a defect in how two owners share one node   (port band)
+run 3   08:05   STAGE 1 GREEN, then a defect in the materials   (trace hash_id)
+```
+
+**Each death was further in than the last, and each cause was of a different
+kind** — framework, coordination, data. **None recurred.** That is what a
+debugging loop looks like when it is working, and it is worth stating plainly
+because the raw count — *three dead runs in two and a half hours* — reads like
+the opposite.
+
+**The one thing I would not let pass unremarked:** `2cba517a`'s author verified
+their materials with the real consumer and two known-answer controls, and it
+still shipped a file that the consumer rejected. **Known-answer controls were
+this record's own answer to "how do you trust a new instrument," adopted this
+morning.** They are still right, and they are **not** sufficient — a control
+inherits the scope of the harness that runs it, and this one was per-record when
+the invariant was cross-record.
+
+---
+
+## R2 T+186 — 2026-09-06 09:40 UTC
+
+**T+186 = wall-clock delta from the baseline** (06:33:41 → 09:39:55).
+
+### 1. Stage 1 went green a second time — it is reproducible, not a one-off
+
+**[observed, first-hand] Run `20260906T084930-6ded23` produced the same three
+verdicts as `-3e8a03`:**
+
+```
+run     validator arg              verdict
+3e8a03  layout                     true
+3e8a03  schema=environment         true
+3e8a03  scripts/deploy.sh          true     ← 180 s load test
+6ded23  layout                     true
+6ded23  schema=environment         true
+6ded23  scripts/deploy.sh          true     ← again
+```
+
+`deploy_and_prove = succeeded` and `m1_deploy = succeeded` in both. **Two
+independent runs, two separate bring-ups, the same three PASSes.** At T+156 I
+wrote that a second green would make stage 1 reproducible rather than achieved;
+**that is what this is.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~32 %** (+4) |
+| 已经耗时 | **~200 min** (mission.md 06:19:11 → 09:39:55) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+4 for reproducibility, not for new ground.** No stage past 1 has completed.
+**Both chains that got past stage 1 died in `m2_profiling`, each for a different
+reason, and both reasons are now named and fixed** (§4).
+
+**Hold `29184`: 4 h 20 min left** (14:00:01 − 09:39:55).
+
+### 3. 当前进展 — run 5 in flight, four dead trees behind it
+
+```
+15c264  dead  last 07:44:59   jsonschema crash
+e6f882  dead  last 08:12:09   deploy_and_prove failed (port 8103)
+3e8a03  dead  last 08:47:06   STAGE 1 GREEN → died at m2 (trace)
+6ded23  dead  last 09:29:16   STAGE 1 GREEN → died at m2 (card lease)
+ae2c38  ALIVE pid 1407641  started 09:34:43
+        main: running   m1_deploy: running   deploy_and_prove: running
+```
+
+**Node at 09:39:26: all eight cards VRAM 0 %**, one container
+`yihou_e2e_chain_probe` created 09:37:48. **The new chain is in its pre-bring-up
+phase; the cards being idle here is the expected state for that phase and not a
+sign of stalling** — the run tree's last write was 09:38:35, 51 seconds before I
+sampled.
+
+**Note on the two dead trees that reached green:** both still record
+`m2_profiling=running`. **Their orchestrators are gone.** As at T+156, nothing
+inside those runs distinguishes *running* from *abandoned*; `/proc` does, and it
+shows one orchestrator.
+
+### 4. Why the two green chains died — and the second was a boundary defect
+
+**[first-hand, from `m2/launch3/LAUNCH-RECORD.txt`, written at launch]**
+
+```
+launched_at_utc: 2026-09-06T09:34:32Z
+supersedes: 20260906T084930-6ded23
+   (m2 aborted: card0 held by check_deploy_serves engine 1.8s after its verdict)
+change: --var instruction now requires ownership-conditional wait up to 300s
+        in the kit preflight
+trace: conversation_trace.v2.jsonl
+```
+
+**`check_deploy_serves` writes its verdict while its own engine still holds card
+0.** Measured gap: **1.8 seconds.** The next stage's preflight sampled the cards
+inside that window and aborted.
+
+**This is the T+31 finding arriving at a stage boundary.** At 07:02 the deployer
+recorded *"teardown returns before the driver reclaims VRAM"* and added a settle
+gate **inside the kit**. **The same physics then bit at a different seam — one
+validator's engine versus the next stage's preflight — where the kit's gate does
+not apply.** The fix is an ownership-conditional wait of up to 300 s.
+
+> **A validator that brings up hardware does not stop being a tenant when it
+> returns its verdict.** The verdict is a statement about the artefact; the
+> engine is a fact about the node, and they end at different times.
+
+**The other death, `-3e8a03`, was the trace defect** recorded at T+156
+(`2cba517a`). Its fix is visible here as `conversation_trace.v2.jsonl`.
+
+**One carried open question closes.** The launch record now passes
+`--var expect_ranks=4`. With `mock_stages=none` the chain's m2 is real and TP-4,
+so 4 is the value that matches the deployment. **The `expect_ranks=2 vs tp=4`
+question I carried since T+31 belonged to a mocked-m2 launch and does not apply
+to the live chain.**
+
+### 5. Code problems
+
+**Two framework messages in `m2/launch2/chain.log` that I have not seen recorded
+elsewhere.** Quoting them because they are cheap to lose and neither stopped the
+run:
+
+```
+c5c26634…: usage names 'seconds', which the task did not declare and which
+           cannot record unreserved spend; 1516.62… is not booked
+           (same for duration_ms, num_turns, total_cost_usd, turns)
+b25200a6…: depends_on omits c5c26634…, which produces ac35d9fd…
+d9b92b39…: depends_on omits c5c26634…, which produces ac35d9fd…
+```
+
+**The first says a completed task's cost was not booked** — 1516 s, 83 turns,
+$11.53 discarded because the task did not declare those usage names. **The
+second says two tasks consume a handoff whose producer they do not depend on**,
+which is the shape `6e465181` named this morning: *ordering is not lease
+ordering*. **I am reporting these as read, not diagnosed** — I do not know
+whether either is intended.
+
+**Fixed this interval:** the card-lease boundary (ownership-conditional wait, per
+the launch record); m2's trace (v2 in use).
+
+**Unfixed, carried:** shared default port band and `work_root`; whether all eight
+`jsonschema`-affected validators were repaired (still unread).
+
+### 6. 未定性
+
+- **Whether run 5 clears `m2_profiling`.** Two chains have died there, each on a
+  different defect. **A third failure at m2 with a third cause would say
+  something the first two do not.**
+- **Whether the 300 s ownership wait is long enough**, and what it does if the
+  holder is a co-tenant rather than our own validator's engine. **I have not read
+  the preflight change.**
+- **The unbooked usage and the missing `depends_on` edges** above — open, and I
+  have named the file to read.
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched, and
+  still the furthest-out unknown.
+
+### 7. 新增 commit
+
+Since T+156, one:
+
+```
+c59e7aad  checkpoint R2 T+156 — mine
+```
+
+**No other commits landed in this interval.** The work this interval went into
+run tree and launch records rather than the repository — `LAUNCH-CHAIN.md` grew
+to 21 124 B at 09:34:19 and `launch3/LAUNCH-RECORD.txt` was written at 09:34:33,
+both uncommitted at 09:39:55.
+
+### 8. 其他
+
+**The launch record is doing the job the first cluster spent four incidents
+learning to need**, and it is worth naming while it is cheap to copy:
+
+```
+launched_at_utc:  a READ timestamp
+supersedes:       which run this replaces, and the measured reason it died
+change:           the one thing that is different this time
+trace:            which version of the materials
+```
+
+**Four fields, and together they make a launch line recoverable from the
+artefact** — the property the first cluster established is *absent* from a run
+tree, because the staged package keeps `${var:-default}` unrendered. **`supersedes`
+is the field I would not have thought to ask for**: it turns a directory of five
+run trees from a pile into a sequence with causes attached, which is exactly what
+§3 of this section is able to be because that field exists.
+
+**One caution against my own section, though.** `LAUNCH-RECORD.txt` contains the
+line `CLAUDE_CONFIG_DIR=<m1's shared farm — get the exact value from the leader>`
+directly under a line giving a concrete path. **A record whose purpose is to make
+a launch reproducible has one field that is a placeholder**, and a later reader
+copying the block will get the concrete line and not notice the angle brackets
+two lines down.
+
+---
+
+## R2 T+216 — 2026-09-06 10:10 UTC
+
+**T+216 = wall-clock delta from the baseline** (06:33:41 → 10:10:11).
+
+### 1. My T+94 warning was wrong about the mechanism, and the record says so precisely
+
+**I flagged card contention between two runs. It was ports, and the card reason
+was not true when it was acted on.** From `381d7b40`, whose author reconstructed
+the sequence from the file that actually holds it:
+
+> *m1's deploy **hard-aborted on etcd 8103 at 08:11:26**, one minute before the
+> **SIGTERM at 08:12:08** that was ordered for a card-contention reason **which
+> was not true at that moment and became true by ~08:20 via a container that did
+> not yet exist**. The collision was real and was **via ports, not cards**.*
+
+**And the generalisation names exactly what I did:**
+
+> *the launch line records an **intention** about cards, only the running
+> deployment records the **fact**. **Three people predicted the cards from the
+> launch line and all three read the wrong file.***
+
+**I was one of the three.** My T+94 message to the leader read `gpu_devices` out
+of `/proc/<pid>/cmdline` — I was careful to take it positionally rather than by
+grep, and **being careful about how I read the wrong file did not help.** I even
+wrote in that same message that I had not measured what an absent `gpu_devices`
+resolves to here; **then I led with the card path anyway and put the port path
+second, and the port path is the one that fired.**
+
+**Where the evidence lives, and why nobody found it by grepping:**
+
+> *A stage writes its own diagnosis into `work_root`, **not into the run tree**,
+> so grepping the run directory returns nothing **and that nothing reads as
+> "claim unsupported"**.* The file is **`/data/yihou/e2e_flow/deploy_main.log`**.
+
+**That is this record's oldest shape in a new place** — a zero that means "you
+looked in the wrong directory" is indistinguishable from a zero that means "it
+did not happen." **A copy was preserved with a read timestamp, because `cp -a`
+keeps the source mtime and records nothing about the copy.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~33 %** (+1) |
+| 已经耗时 | **~230 min** (mission.md 06:19:11 → 10:10:11) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+1 only.** No stage advanced past 1 this interval. The live chain is still
+inside `deploy_and_prove` at 35 minutes; **the two runs that passed it took ~42
+and ~40 minutes end to end, so this is not yet late.**
+
+**Hold `29184`: 3 h 50 min left** (14:00:01 → 10:10:11). **That is now less than
+the elapsed time of this round.** No stage past 1 has ever completed here.
+
+### 3. 当前进展 — run 5 is at the end of its deploy stage, not stalled
+
+```
+ae2c38   pid 1407641   started 09:34:43   deploy_and_prove: running
+         run tree last write 10:09:11   (25 s before I sampled)
+```
+
+**Cards read 0 % and `docker ps` showed no `yihou_*` container at 10:09:36. That
+reading is correct and the obvious inference from it is wrong** — the third time
+today. **From the deployer's own transcript:**
+
+```
+10:05:05  "Now a final full cycle with the exact shipped scripts, so every
+           result comes from the bytes being handed over."
+10:08:59  reads results/chat_completion.json
+10:09:02  "Now tearing down and recording the final state."
+10:09:07  teardown command issued
+```
+
+**It tore down 29 seconds before I looked.** Had I sampled the process table and
+the cards only, this would have read as an idle node under a stalled run.
+
+**Note the deployer's stated reason for the final cycle** — *"the exact shipped
+scripts, so every result comes from the bytes being handed over."* **That is the
+distinction between testing what you ran and testing what you are handing over**,
+and it is the same axis as `2cba517a`'s "called the way the consumer never calls
+it."
+
+**The four dead trees are unchanged.** `15c264` and `e6f882` show a write at
+10:00:44 — **consistent with m1 collecting the ABORT evidence for `381d7b40`,
+but I did not observe that and am not asserting it.**
+
+### 4. Code problems
+
+**Fixed this interval — the shared-defaults hazard, in the canonical launch
+block** (`92835f4d`). The reasoning is worth keeping verbatim:
+
+> *Both defaults are shared, so **two owners who each change nothing collide**.
+> The port collision aborts and names itself (`ABORT: etcd port 8103 is already
+> in use`); **the shared `work_root` does not abort at all**, and two runs on
+> 2026-09-06 held byte-identical `work_root` AND `validate_work_root` without
+> either owner choosing it. **The loud failure is the benign one.***
+
+**Two runs shared a `work_root` today and nothing complained.** The port
+collision cost a run and announced itself; the `work_root` overlap cost nothing
+visible **and that is the reason it is the more dangerous of the two.**
+
+**The fix was applied to the CANONICAL block only**, deliberately: *"several are
+historical records of what a rung ran, and the hazard was never that they differ
+but that nothing says which is canonical."* **That is a narrower and better
+repair than normalising seven blocks** — it fixes the ambiguity rather than the
+diversity.
+
+**Carried unfixed:** whether all eight `jsonschema`-affected validators were
+repaired (still unread); the unbooked-usage and missing-`depends_on` messages
+from T+186 (§5 there names the file).
+
+### 5. Non-code problems
+
+**A diagnosis written outside the run tree is invisible to every run-tree-based
+tool**, including mine. `/data/yihou/e2e_flow/deploy_main.log` held the ABORT
+line the whole time. **My sections have reported run state from `store/task`,
+`store/event` and transcripts, all inside the tree; none of them would have
+carried this.**
+
+### 6. 未定性
+
+- **Whether run 5 clears `m2_profiling`** — unchanged and now the only question
+  that matters this hold. Two chains died there on two different defects, both
+  fixed.
+- **Whether the 300 s ownership wait is long enough**, and its behaviour against
+  a co-tenant holder — carried, still unread.
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched.
+- **Whether the shared `work_root` caused any silent damage today**, given two
+  runs held byte-identical `work_root` and `validate_work_root`. `92835f4d`
+  records the overlap; **whether anything was corrupted by it is a separate
+  question and I have not seen it asked.**
+
+### 7. 新增 commit
+
+Since T+186, three:
+
+```
+4efc4dc6  checkpoint R2 T+186 — mine
+92835f4d  RUN-PLAN canonical block: two lines on one node need their own port
+          band AND work root
+381d7b40  bug record: where the etcd-8103 ABORT evidence lives, and the three
+          accounts of the collision
+```
+
+### 8. 其他
+
+**Two people were wrong about the same collision in opposite directions, and the
+useful part is which of them cost something.**
+
+I predicted cards from a launch line and was wrong. **A SIGTERM was ordered at
+08:12:08 for that same card reason — and the run it killed had already
+hard-aborted 42 seconds earlier on a port.** So the wrong reason cost nothing
+that the right reason had not already cost. **But the record notes the card
+reason "became true by ~08:20 via a container that did not yet exist"**, which
+is the uncomfortable part: **the prediction was validated by events after the
+decision, and that is exactly the pattern that makes a bad method look sound.**
+
+**The durable line is the one I will carry into every future section:** *the
+launch line records an intention, only the running deployment records the fact.*
+I have quoted launch-line variables in four sections now. **They describe what
+was asked for, and I will label them that way from here.**
+
+---
+
+## R2 T+246 — 2026-09-06 10:40 UTC
+
+**T+246 = wall-clock delta from the baseline** (06:33:41 → 10:40:14).
+
+### 1. The round's first genuine refusal — and it names a file, a line, and the fix
+
+**[observed, first-hand] Run `20260906T093443-ae2c38`, `check_deploy_kit`,
+29 files in materials:**
+
+```
+# check_deploy_kit
+## 0d66e5f1-…: REFUSED
+  note:    qwen3-32b-mix.packup_20260906
+  PROBLEM: scripts/env.sh:172: DK_ROUTER_PORT is fixed here and reaches a
+           binding flag at scripts/deploy.sh:205; write it as
+           `: "${DK_ROUTER_PORT:=…}"` so a second copy of this kit can run
+           beside the first
+```
+
+**This is not a crash and not a trivial pass.** It is the first verdict of the
+round that says *no* about the artefact: two files, two line numbers, the
+mechanism (a fixed value reaching a binding flag), and the exact idiom that
+fixes it.
+
+**And what it refused is the defect that cost run 2.** At 08:11:26 m1's deploy
+hard-aborted on `ABORT: etcd port 8103 is already in use`, and this morning's
+`92835f4d` patched the canonical launch block so two lines take different port
+bands. **The validator is refusing the general form of the same problem one
+level deeper — not "these two runs collided" but "this kit cannot have a second
+copy beside it."** `: "${VAR:=…}"` is core principle 3 of the package's own
+contract, and the validator is enforcing it against the produced kit.
+
+**By this record's own criterion, this refusal is self-immune to the empty-zone
+failure:** it quotes file contents and line numbers, which a validator looking
+at an empty directory cannot produce.
+
+**The other two validators passed:**
+
+```
+ae2c38   scripts/deploy.sh (180 s load)  true
+         schema=environment              true
+         layout                          FALSE   ← this one
+```
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~33 %** (unchanged) |
+| 已经耗时 | **~261 min** (mission.md 06:19:11 → 10:40:14) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**No change.** A refusal is information, not progress: stage 1 went from
+reproducibly green to green-with-a-known-defect-in-the-kit. **The two earlier
+greens are not retracted** — the kit that passed then had the same
+`DK_ROUTER_PORT` shape, so what changed is that a validator now looks for it.
+**Whether the earlier two runs' kits would refuse under today's validator is a
+question I have not asked and could ask cheaply.**
+
+**Hold `29184`: 3 h 20 min left** (14:00:01 → 10:40:14).
+
+### 3. 当前进展 — nothing is running
+
+**[observed] There is no live orchestrator and no live agent.**
+
+```
+20260906T093443-ae2c38   escalated 10:25:52, last write 10:34:31
+                         deploy_and_prove: output_validating   (terminal)
+all five run trees        no orchestrator process
+node                      8 cards VRAM 0 %, no yihou_* container
+teammate scratch          last write 10:34:31 (m2/launch3/chain.log)
+```
+
+**The chain's own account of how it stopped, from `store/event`:**
+
+```
+10:25:52.617  validation_failed  "output_validation did not pass"
+10:25:52.617  escalated          "validation_failed: the task is terminal and
+                                  there is nothing to push"
+10:25:52.619  escalated  target=user   (same why)
+```
+
+**A refusal with nowhere to go.** This is the same terminal shape as the
+`jsonschema` crash at 07:29:59 — the task is terminal, the escalation has no
+receiver — **but for a completely legitimate reason this time: the validator
+did its job and the graph has no path forward from a refused output.**
+
+**A method note, because I nearly filed the opposite.** My first process scan
+matched two processes; **both were my own shell and my own `python3 -c`,
+carrying the search strings in their argv.** I discarded them. **The pattern
+that finds orchestrators cannot be a pattern I am holding.** This is the fourth
+time today that trap has appeared in this record and the first time it appeared
+in my own hands.
+
+### 4. Code problems
+
+**Newly named by a validator, unfixed at this write:**
+
+- **`scripts/env.sh:172` — `DK_ROUTER_PORT` is fixed** and reaches a binding
+  flag at **`scripts/deploy.sh:205`**. Fix idiom given by the refusal itself.
+
+**This is the third member of one family today**, and they were found at three
+different depths:
+
+```
+08:11  two runs collide on port 8103        found by a run dying
+09:xx  canonical block shares port band
+       AND work_root                        found by auditing the block
+10:25  the KIT cannot host a second copy    found by a validator
+```
+
+**Only the third one is a property of the deliverable.** The first two are
+properties of how we launched it. **A fix to either of the first two would have
+left the kit shippable-but-not-co-locatable**, which is exactly what the
+validator refuses to sign.
+
+**Carried unfixed:** whether all eight `jsonschema`-affected validators were
+repaired; the unbooked-usage and missing-`depends_on` framework messages
+(T+186 §5).
+
+### 5. Non-code problems
+
+**Nothing new this interval.** The `work_root` overlap from T+216 remains
+recorded and unexamined for damage.
+
+### 6. 未定性
+
+- **Whether anyone is driving.** Nothing has run since 10:34:31 and the hold has
+  3 h 20 min. **I am the checkpoint writer and do not schedule work; I am
+  recording the gap because it is measurable and because idle GPU time under a
+  finite hold is the one cost this record has consistently called unrecoverable.**
+- **Whether the two earlier green kits carry the same `DK_ROUTER_PORT` defect.**
+  **Cheap to answer:** `grep -n DK_ROUTER_PORT` in `3e8a03`'s and `6ded23`'s
+  staged kits. **I have not run it** — it would change what those two greens are
+  worth, and that is exactly why it should be run by someone who will act on it.
+- **Whether `m2_profiling` can be reached at all this hold**, given the deploy
+  stage now refuses. Two chains died in m2; the third never left stage 1.
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched. **It
+  has been carried in six consecutive sections without being touched**, which is
+  itself worth saying out loud.
+
+### 7. 新增 commit
+
+Since T+216, one:
+
+```
+be36e7ad  checkpoint R2 T+216 — mine
+```
+
+**No other commits in this interval.**
+
+### 8. 其他
+
+**Today's ledger of stage 1, in the order the evidence arrived:**
+
+```
+06:42  bring-up works, 147 tokens generated       (a fact about the engine)
+08:47  three validators pass                      (a fact about the kit)
+09:29  three validators pass again                (reproducible)
+10:25  one validator refuses, naming env.sh:172   (a fact about the kit)
+```
+
+**The last line is not a regression — it is the first time the kit was asked a
+question it fails.** Two greens preceded it and neither is falsified; the
+validator set changed underneath, or the kit did, and **which of those two it was
+is the cheap grep in §6 that nobody has run.**
+
+**What I would not want lost from today: three separate defects in one family
+were found at three depths, and only the deepest one is about the thing being
+shipped.** The first cost a run and announced itself. The second cost nothing and
+announced nothing — the shared `work_root`. **The third cost nothing and
+announced itself precisely, which is the only one of the three arrangements
+anybody should want.**
+
+---
+
+## R2 T+277 — 2026-09-06 11:10 UTC
+
+**T+277 = wall-clock delta from the baseline** (06:33:41 → 11:10:19).
+
+### 1. I ran the cheap grep from §6 of T+246, and the answer is decisive
+
+**At T+246 I framed it as "the validator set changed underneath, or the kit did,
+and which of those two it was is the cheap grep nobody has run." It was the
+kit — and the change is a regression, not a new check.**
+
+**[observed, first-hand] `scripts/env.sh` in all three staged kits:**
+
+```
+run      bytes  lines   ROUTER_PORT   PORT_BASE   the port line
+3e8a03   10329    198        0            7    128: : "${DK_PORT_ROUTER:=$(( E2E_KIT_PORT_BASE + 0 ))}"
+6ded23   11315    209        0            8     80: : "${DK_PORT_ROUTER:=$((E2E_KIT_PORT_BASE + 0))}"
+ae2c38   11277    214        3            9    172: DK_ROUTER_PORT=$(( E2E_KIT_PORT_BASE + 0 ))
+```
+
+**Both green kits already used the correct overridable idiom.** The refused kit
+**added a second, differently-named spelling of the same port and assigned it
+unconditionally**:
+
+```
+DK_PORT_ROUTER     the two green kits    : "${…:=…}"      overridable
+DK_ROUTER_PORT     the refused kit       plain assignment  not overridable
+```
+
+**The two names differ only by swapping `PORT` and `ROUTER`.** A reader
+skimming either file sees a `DK_…_PORT…` variable set from `E2E_KIT_PORT_BASE`
+and moves on.
+
+**The negative control, because a zero needs a denominator.** The two `0`s above
+are not empty files or wrong paths: those same files return **7 and 8** hits for
+`PORT_BASE`, and both carry `: "${E2E_KIT_PORT_BASE:=8101}"`. **The grep found
+the file, read it, and the variable genuinely is not there.**
+
+**Consequences, and they run in both directions:**
+
+- **The two earlier greens are not weakened.** Their kits pass today's check on
+  its merits — they never had the defect.
+- **The refusal is a real regression caught in the interval it was introduced**,
+  between 09:29:16 and 10:25:52.
+- **`check_deploy_kit` did what a validator is for**: it refused a change that
+  every human read of the file would have called fine.
+
+**I said at T+246 this should be run by whoever would act on it. That was the
+wrong line to draw** — reading is not acting, the question was blocking the
+interpretation of two greens, and thirty-five minutes passed with nobody running
+it. **An instrument declining to take a measurement is not neutrality.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~33 %** (unchanged) |
+| 已经耗时 | **~290 min** (mission.md 06:19:11 → 11:10:19) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Unchanged, and this time the reason is that nothing ran.** The interval's
+result is a finding about the record, not about the deliverable.
+
+**Hold `29184`: 2 h 50 min left** (14:00:01 → 11:10:19).
+
+### 3. 当前进展 — the node has been idle for 35 minutes
+
+```
+last write anywhere    10:34:31   (m2/launch3/chain.log)
+now                    11:09:40
+idle                   35 min 09 s
+orchestrators          none        (positional /proc scan)
+containers             rc_26_7_902, xiaoming-dev — both foreign, CPU only
+cards                  8 × VRAM 0 %
+teammate scratch       no file written since 10:34:31
+new commits            none since be36e7ad (mine, T+216)
+```
+
+**Every source I have reads idle.** Flagged to the leader at 10:40 with the same
+measurements; **this is the second consecutive interval with no activity, and
+the standing rule for GPU-occupying problems is first-sighting intervention, so
+this is now past that threshold rather than approaching it.**
+
+**I state the cost without inflating it:** an unused hold hour is not recoverable,
+and 2 h 50 min remain against a task where no stage past 1 has ever completed on
+this cluster. **I do not know why nothing is running** — the measurement that
+would answer it is the owners' own accounts, not anything in the run trees.
+
+### 4. Code problems
+
+**Newly characterised this interval — `scripts/env.sh:172`, and it is a
+regression with a named window.**
+
+```
+introduced   between 09:29:16 (6ded23's kit: absent) and 10:25:52 (refused)
+symptom      DK_ROUTER_PORT is assigned, not defaulted
+reaches      scripts/deploy.sh:205 (export) -> a binding flag
+consequence  a second copy of the kit cannot run beside the first
+fix          : "${DK_ROUTER_PORT:=…}"     (given by the refusal itself)
+```
+
+**Unfixed at this write**, and nothing has been committed since 10:40.
+
+**Carried unfixed:** whether all eight `jsonschema`-affected validators were
+repaired; the unbooked-usage and missing-`depends_on` framework messages
+(T+186 §5); shared `work_root` damage unexamined (T+216).
+
+### 5. Non-code problems
+
+**A near-homograph inside one file is a localisation trap of its own kind.**
+`DK_PORT_ROUTER` and `DK_ROUTER_PORT` are three characters apart in a file that
+contains nine `PORT_BASE` references. **Neither `bash -n` nor a schema check can
+see it**, and a `grep -n PORT` returns both spellings looking like siblings —
+I printed exactly that output above and it reads as consistent. **Only a
+validator that asks "is this value overridable" separates them.**
+
+### 6. 未定性
+
+- **Why nothing is running.** Open, second interval. **Not answerable from any
+  artefact I read** — this is the "the discriminator is outside the run" case,
+  and here it is outside the machine.
+- **Whether the `env.sh:172` regression has been fixed since 10:34.** No commit,
+  no scratch write. **Cheap to answer once anything runs again.**
+- **Whether `m2_profiling` can be reached this hold.** With 2 h 50 min left and
+  two prior chains taking ~40 min to clear stage 1, **there is time for roughly
+  two more attempts, not many.**
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched,
+  **seventh consecutive section.**
+
+### 7. 新增 commit
+
+Since T+246, one:
+
+```
+29b1560b  checkpoint R2 T+246 — mine
+```
+
+**No other commits.**
+
+### 8. 其他
+
+**The interval's real content is a correction to my own reasoning, so I will
+state it as a rule rather than an apology.**
+
+At T+246 I withheld a read-only grep on the grounds that its answer "changes what
+the two greens are worth, and that is exactly why it should be run by someone who
+will act on it." **The premise was right and the conclusion was backwards.** A
+measurement whose answer changes how existing evidence is read is the *most*
+urgent one for the record-keeper to take, not the least — **the person who will
+act needs the answer to decide whether to act at all.**
+
+**And the answer was better than either branch I offered.** I framed it as
+"validator changed, or kit changed." **The kit changed, in a specific 56-minute
+window, by adding a near-homograph of a variable it already had** — a fact that
+neither branch of my framing would have produced, and that took two commands.
+
+---
+
+## R2 T+306 — 2026-09-06 11:40 UTC
+
+**T+306 = wall-clock delta from the baseline** (06:33:41 → 11:39:58).
+
+### 1. Run 6 launched at 11:38:11, after a 63-minute idle gap
+
+```
+20260906T113811-fdb0bd   pid 2466373   container=yihou_e2e_chain
+                         main: running   m1_deploy: running
+                         deploy_and_prove: running
+                         last write 11:39:25  (12 s before I sampled)
+```
+
+**The gap, measured end to end:** last write anywhere **10:34:31** → first write
+of the new attempt **11:37:37** = **63 minutes 06 seconds** with no orchestrator,
+no container, and eight cards at VRAM 0 %. **That is the largest single block of
+unused hold time this round.** I reported it at 10:40 and again at 11:10; it is
+now closed, and I record its size rather than a view about it.
+
+### 2. What changed for this attempt — and it is only the instruction
+
+**[first-hand, `m2/launch4/LAUNCH-RECORD.txt`]**
+
+```
+launched_at_utc: 2026-09-06T11:38:04Z
+supersedes: 20260906T093443-ae2c38
+   (check_deploy_kit refused: DK_ROUTER_PORT fixed at env.sh:172)
+instruction v3: EXACTLY ONE bring-up, kit scripts first;
+                := idiom + no second name for a value that has one
+```
+
+**I diffed every `--var` between launch3 and launch4: no difference.** The
+entire change is the agent instruction. **That is a clean experiment** — one
+variable moved, and it is the one the refusal pointed at.
+
+**"no second name for a value that has one"** is the near-homograph finding from
+T+277 stated as a rule for the agent. **Whether it arrived there from my section,
+from my 11:10 message, or independently, I do not know and will not claim** —
+`ae2c38`'s refusal named `env.sh:172` on its own and that is sufficient to
+produce the first half of the instruction.
+
+**"EXACTLY ONE bring-up, kit scripts first" is a time-budget change and worth
+noting as such.** The `ae2c38` deployer performed a main arm, a callability arm,
+and then a *final full cycle with the exact shipped scripts* (transcript, T+216
+§3) — thorough, and it spent about 35 minutes inside `deploy_and_prove`.
+**With 2 h 20 min of hold left, that thoroughness no longer fits.**
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~33 %** (unchanged) |
+| 已经耗时 | **~320 min** (mission.md 06:19:11 → 11:39:58) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Unchanged for the third consecutive interval.** Two of the three were spent
+idle. **Nothing regressed; nothing advanced.**
+
+**Hold `29184`: 2 h 20 min left** (14:00:01 → 11:39:58). **Prior attempts took
+~40 min to clear stage 1** (08:05→08:47, 08:49→09:29). **If this one holds that
+pace it clears stage 1 near 12:18 and has roughly 100 minutes for stages 2–5,
+none of which has ever completed here.** That is arithmetic on two measured
+durations, not a forecast.
+
+### 4. 当前进展
+
+```
+15c264  dead  jsonschema crash
+e6f882  dead  port 8103 abort
+3e8a03  dead  STAGE 1 GREEN → died at m2 (trace hash_id)
+6ded23  dead  STAGE 1 GREEN → died at m2 (card lease, 1.8 s)
+ae2c38  dead  REFUSED at check_deploy_kit (env.sh:172)
+fdb0bd  ALIVE started 11:38:11, deploy_and_prove: running
+```
+
+**Node at 11:39:37:** 8 cards VRAM 0 %, no `yihou_*` container. **Expected —
+the run is 86 seconds old and pre-bring-up.** Recording the reading with its
+interpretation attached, because the same numbers meant three different things
+today.
+
+### 5. Code problems
+
+**Presumed addressed by instruction v3, not yet by a verdict:** `env.sh:172`.
+**The evidence that will settle it is `check_deploy_kit`'s verdict on this run's
+kit**, which does not exist yet.
+
+**Carried unfixed:** whether all eight `jsonschema`-affected validators were
+repaired; the unbooked-usage and missing-`depends_on` framework messages
+(T+186 §5); the shared-`work_root` overlap unexamined for damage (T+216).
+
+### 6. Non-code problems
+
+**The placeholder in `LAUNCH-RECORD.txt` has survived three launches.** I flagged
+it at T+186 §8; it is still there in launch4, verbatim:
+
+```
+CLAUDE_CONFIG_DIR=<m1's shared farm — get the exact value from the leader> \
+```
+
+**In a document whose entire purpose is to make a launch reproducible, one field
+routes the reader to a person.** Every other line is copy-pasteable, which is
+precisely what makes this one easy to carry past. **Recorded a second time
+because it has now outlived the two runs it was written for.**
+
+### 7. 未定性
+
+- **Whether run 6 clears `check_deploy_kit`.** First real question, ~40 min out.
+- **Whether "EXACTLY ONE bring-up" is compatible with `check_deploy_serves`,**
+  which performs its own bring-up as part of validation. **The instruction binds
+  the agent; the validator is not the agent.** I do not know whether they
+  conflict, and the reading that answers it is this run's zone.
+- **Whether stages 2–5 can be reached at all this hold.** Arithmetic in §3.
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched,
+  **eighth consecutive section.** It has now been open longer than any other item
+  in this record and has never been the thing blocking progress, which is exactly
+  why it keeps surviving.
+
+### 8. 新增 commit
+
+Since T+277, one:
+
+```
+c5cbf65d  checkpoint R2 T+277 — mine
+```
+
+**No other commits.** The `env.sh:172` fix, if it exists, lives in the agent
+instruction rather than in the repository — **`instruction v3` is recorded in
+`m2/launch4/LAUNCH-RECORD.txt`, which was uncommitted at 11:39:58.**
+
+### 9. 其他
+
+**Six runs, and the causes of the five deaths have not repeated once:**
+
+```
+framework      jsonschema ImportError
+coordination   two owners, one port band
+materials      trace hash_id inconsistent across records
+boundary       validator's engine outlives its verdict by 1.8 s
+deliverable    the kit cannot host a second copy of itself
+```
+
+**Each is a different layer, and the last one is the only one that is a property
+of the thing being shipped.** The progression is downward through the stack —
+**from "our tools broke" to "we collided with ourselves" to "our inputs were
+wrong" to "our seams leak" to "the product has a defect"** — and that ordering is
+what a debugging loop produces when each fix holds.
+
+**The uncomfortable half: five of the six runs died, and 63 of the last 65
+minutes were idle.** Both statements are true, and the first one is the reason
+the record is good while the second is the reason the deliverable is not
+finished. **With 2 h 20 min left, the constraint has stopped being knowledge and
+started being time.**
+
+---
+
+## R2 T+336 — 2026-09-06 12:10 UTC
+
+**T+336 = wall-clock delta from the baseline** (06:33:41 → 12:10:00).
+
+### 1. Stage 1 green a third time, with the refusal cleared — and stage 2 is live
+
+**[observed, first-hand] Run `20260906T113811-fdb0bd`, all three verdicts:**
+
+```
+layout             true    ← was FALSE in ae2c38 (env.sh:172)
+schema=environment true
+scripts/deploy.sh  true
+```
+
+**`layout` flipping `false → true` on the next attempt, with the launch
+variables byte-identical and only the agent instruction changed, is a controlled
+result.** T+306 recorded the diff of every `--var` between launch3 and launch4 as
+empty. **One variable moved and the refusal cleared.** That is the negative
+control this record keeps asking for — *break it, put it back, watch it pass* —
+arriving by accident of sequence rather than by design, but with the same
+structure.
+
+**And the chain went past stage 1 for the third time, now with a real profiling
+engine up:**
+
+```
+store/task     m1_deploy = succeeded      deploy_and_prove = succeeded
+               m2_profiling = running
+               run_profiling_mode_off = running
+               run_profiling_mode_on = waiting_resource
+               merge_profiling_evidence = waiting_handoff
+containers     yihou_e2e_chain_…_pmoff        started 12:07:00
+               yihou_e2e_chain_…_pmoff_etcd   started 12:07:05
+cards          0-3 at VRAM 75 %   4-7 at 0 %
+last write     12:09:51   (9 s before I sampled)
+```
+
+**Stage 1 took ~29 minutes this time** (11:38:11 launch → `pmoff` container
+12:07:00), against ~42 and ~40 for the two earlier greens. **The "EXACTLY ONE
+bring-up" instruction is the only change that could account for it**, and I say
+*could* — I have not read this deployer's transcript to confirm it did only one.
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~36 %** (+3) |
+| 已经耗时 | **~351 min** (mission.md 06:19:11 → 12:10:00) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+3: the regression is cleared and stage 2 is executing on hardware.** Two
+prior chains reached `m2_profiling = running` and died there; **this is the third
+attempt at the same wall, with both known causes fixed** (trace v2, ownership
+wait).
+
+**Hold `29184`: 1 h 50 min left** (14:00:01 → 12:10:00). **Stage 2's profiling
+capture on the first cluster ran in the tens of minutes; I have no measurement of
+it on this one.** If stage 2 completes, stages 3–5 have never been attempted here
+and I have no basis to estimate them.
+
+### 3. 当前进展
+
+```
+15c264  dead   jsonschema crash
+e6f882  dead   port 8103 abort
+3e8a03  dead   stage 1 green → died at m2 (trace hash_id)
+6ded23  dead   stage 1 green → died at m2 (card lease 1.8 s)
+ae2c38  dead   REFUSED at check_deploy_kit (env.sh:172)
+fdb0bd  ALIVE  pid 2466373 — stage 1 green, m2_profiling running
+```
+
+**Phase timeline from `m2/launch4/chain.log`, in order:**
+
+```
+deploy_and_prove: input_validating -> running -> output_validating -> succeeded
+m2_profiling:     waiting_handoff -> input_validating -> running
+run_profiling_mode_off: (new) -> running
+m1_deploy:        running -> succeeded
+merge_profiling_evidence: (new) -> waiting_handoff
+run_profiling_mode_on:    (new) -> waiting_resource
+```
+
+**`run_profiling_mode_on` is `waiting_resource` while `mode_off` runs** — the two
+profiling arms are serialised on the cards, which is consistent with one TP-4
+deployment holding 0–3 and cards 4–7 reading 0 %.
+
+### 4. Code problems
+
+**Cleared this interval:** `scripts/env.sh:172` — `check_deploy_kit` now passes.
+**Fixed via the agent instruction, not via a repository change**; `instruction
+v3` lives in `m2/launch4/LAUNCH-RECORD.txt`. **If the next chain is launched
+without that instruction, the defect can return** — the fix is in a launch
+record, not in the package.
+
+**Carried unfixed:** whether all eight `jsonschema`-affected validators were
+repaired; unbooked-usage and missing-`depends_on` framework messages (T+186 §5);
+shared-`work_root` overlap unexamined (T+216); the `CLAUDE_CONFIG_DIR`
+placeholder, now surviving four launch records (T+306 §6).
+
+### 5. 未定性
+
+- **Whether `m2_profiling` completes.** Third attempt at the same wall. **Both
+  previously known causes are fixed, so a third failure here would have a third
+  cause** — and that would say something the first two do not.
+- **Whether "EXACTLY ONE bring-up" actually held**, or whether the 29 minutes has
+  another explanation. **The reading is this deployer's transcript**, which I
+  have not opened.
+- **Whether stages 3–5 are reachable in 1 h 50 min.** No measurement exists for
+  any of them on this cluster. **I decline to estimate rather than guess.**
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, untouched,
+  **ninth consecutive section.** If stage 2 completes, this stops being
+  hypothetical within the hour.
+
+### 6. 新增 commit
+
+Since T+306, one:
+
+```
+5946df32  checkpoint R2 T+306 — mine
+```
+
+**No other commits.** Three consecutive intervals now in which the only
+repository change is this record. **The team's output is going into run trees and
+launch records** — which for `instruction v3` means the one fix that cleared
+today's refusal is not in the repository at all.
+
+### 7. 其他
+
+**The clean experiment in §1 deserves stating as a method note, because it was
+not designed.**
+
+`ae2c38` and `fdb0bd` differ in **exactly one input**: the agent instruction.
+Same package, same `--var` set byte for byte, same node, same image, same model,
+same hour. **`layout` went `false → true`.** Nobody set out to run a controlled
+pair — the second launch was simply the next attempt after a refusal — **but
+because the launch record captured `supersedes` and the variable set was
+unchanged, the pair is interpretable after the fact.**
+
+**That is what `supersedes` bought, and it cost one line in a text file.** The
+first cluster's equivalent question — *what was different about the run that
+worked?* — was unanswerable there, because a run tree does not record its own
+launch line. **Here it took one `diff` of two records.**
+
+---
+
+## R2 T+366 — 2026-09-06 12:40 UTC
+
+**T+366 = wall-clock delta from the baseline** (06:33:41 → 12:40:17).
+
+### 1. Stage 2 ran on hardware and produced real traces — the deepest point of the round
+
+**[observed, first-hand] Run `20260906T113811-fdb0bd` reached
+`run_profiling_mode_off = succeeded` and `run_profiling_mode_on =
+output_validating`.** Two validators then refused, **and both refusals quote the
+contents they read:**
+
+```
+# check_trace_coverage                            (39 files in materials)
+  note: re-parsed 1788696891.2799642-TP-2.trace.json.gz:
+        1 395 036 events, 99 892 GPU kernels, 11.02 s — manifest agrees
+  note: 4 rank(s), 399 528 GPU kernel events
+  PROBLEM: items/result/stacks_manifest.json is missing — the round was asked
+           for a stack window and this handoff carries none, so no launcher
+           frame can be resolved from it. Set --var stack_window_s=0 to say
+           that is intended
+
+# check_kernel_table
+  note: 130 kernels, top 25 cover 82.5%, shares sum to 100.01
+  note: layout: structured_text (items/text.json)
+  PROBLEM: no launcher frames were resolved … and this round wanted at least 10
+           in the head. Set --var stack_window_s=0 and min_launchers_in_top_n
+           to 0 to say that is intended
+```
+
+**The profiling capture worked.** A validator re-parsed a gzip and counted
+**1 395 036 events and 99 892 GPU kernels in one rank**, agreeing with the
+manifest, and **399 528 GPU kernel events across 4 ranks**. A second one
+independently summed a 130-row kernel table to **100.01 %**. **These are numbers
+that only exist if the stage really ran** — the standard this record set at the
+first cluster and has been asking for since.
+
+**Both refusals have one cause: no stack window was captured**, so
+`stacks_manifest.json` is absent and no launcher frame can be resolved. **Each
+refusal names the variable that declares the omission intended.**
+
+**Run 7 launched 49 seconds later** and states the change:
+
+```
+launched_at_utc: 2026-09-06T12:19:08Z
+supersedes: 20260906T113811-fdb0bd (_off SEALED; _on refused by
+            check_trace_coverage + check_kernel_table)
+change: --var stack_window_s=0 --var kernel_table_min_launchers=0
+note:   min_launchers_in_top_n is a validator ARGS field (common.yaml:162);
+        the --var is kernel_table_min_launchers
+```
+
+**That `note:` is the interval's most transferable line.** The refusal told the
+operator to set `min_launchers_in_top_n` — **which is the name of the field the
+validator reads, not the name of the flag a human types.** Following the
+refusal's own wording literally would have produced a `--var` that reaches
+nothing, and by this record's oldest rule, **an unwired `--var` is silent**.
+
+***Against my own instrument:*** my verdict summariser labels each verdict by an
+arbitrary key from `args.json`, so it printed `expect_ranks [False]` for the
+trace refusal. **`expect_ranks` was correct — the report says "4 rank(s) …
+manifest agrees."** My label named a field the validator was *given*, not the
+field it *refused on*. **Same defect the launch record just documented, in my own
+tooling, found in the same ten minutes.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~42 %** (+6) |
+| 已经耗时 | **~381 min** (mission.md 06:19:11 → 12:40:17) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+6: stage 2 executed and produced measured artefacts.** `run_profiling_mode_off`
+is `succeeded` — **a sealed sub-handoff, not a pass on an empty check.** The
+refusals are about a capture option, not about whether the profiling worked.
+
+**Hold `29184`: 1 h 20 min left** (14:00:01 → 12:40:17).
+
+### 3. 当前进展
+
+```
+fdb0bd  dead   DEEPEST YET — _off sealed, _on refused (stack window)
+                last write 12:18:44
+041f89  ALIVE  pid 2840180, started 12:19:08
+                deploy_and_prove: running
+                yihou_e2e_chain_dk1_sgl   started 12:38:05
+                yihou_e2e_chain_dk1_etcd  started 12:38:02
+                cards 0-3 at 75 %, 4-7 at 0 %
+```
+
+**Run 7 is 20 minutes in and bringing up.** Prior stage-1 times: 42, 40, 29 min.
+
+### 4. Code problems
+
+**Cleared:** `env.sh:172` (run 6's `layout` = true).
+
+**Not a code defect — a capture-configuration mismatch:** the round asked for a
+stack window and the profiling stage produced none. **Addressed in run 7 by
+declaring it intended** (`stack_window_s=0`, `kernel_table_min_launchers=0`)
+rather than by capturing stacks. **That is a deliberate degradation and it is
+declared in the launch record**, which is the honest form of it — but the
+resulting `profiling_evidence` will carry no launcher frames, **and whether
+module 3 needs them is a question I have not seen asked.**
+
+**Carried unfixed:** whether all eight `jsonschema`-affected validators were
+repaired; unbooked-usage and missing-`depends_on` (T+186 §5); shared-`work_root`
+overlap unexamined; the `CLAUDE_CONFIG_DIR` placeholder, now five launch records.
+
+### 5. 未定性
+
+- **Whether run 7 clears `m2_profiling`** with the two flags set. **First time
+  the wall has been approached with the specific refusal answered.**
+- **Whether module 3 needs launcher frames.** `stack_window_s=0` removes them by
+  declaration. **If `m3_analysis` refuses for want of them, the degradation moves
+  the wall rather than clearing it.** Nobody has asked this yet and it is
+  cheap: read `check_*` for module 3's kind.
+- **Whether stages 3–5 fit in 1 h 20 min.** No measurement for any of them here.
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, **tenth
+  consecutive section**, and now one stage away from mattering.
+
+### 6. 新增 commit
+
+Since T+336, four (one is a merge — **the branch has diverged and been merged,
+which means other people's commits are now in this history**):
+
+```
+401ff10d  checkpoint R2 T+336 — mine
+ea35436a  Merge branch 'dev.yihou.aiopt.task_package.concat' … (merge)
+49f0374d  bug record: a refusal names the field it reads, not the flag you
+          type; renumber my sections around the merge
+fc549951  mission.verify.e2e: second cluster cannot test the empty-zone claim,
+          and why
+2f7ba262  bug record: four of today's costs share one shape — a value that
+          looks like an identifier and is a category
+```
+
+**`49f0374d` is the finding in §1, filed by its owner.** I reached the same shape
+from my own summariser independently and record both — **theirs from the launch
+path, mine from the reporting path, same hour.**
+
+**I have not read `fc549951` or `2f7ba262` beyond their subjects and do not
+restate them.**
+
+### 7. 其他
+
+**The refusals in §1 are the best-formed this round has produced, and it is worth
+saying exactly why.**
+
+Each one **states what it measured before it states what is wrong** — the trace
+validator reports 1.4 M events and agreement with the manifest, *then* names the
+missing file. **A reader learns that the stage worked and that one option was
+unset, in that order.** Compare `check_deploy_kit`'s crash at 07:29:59, which
+produced no verdict at all and would have been read as "the kit is bad."
+
+**And each names the escape hatch: `set --var X to say that is intended`.** That
+turns a refusal into a decision the operator makes explicitly, rather than a wall
+they route around silently. **The cost of the design shows up in the same
+breath** — the escape hatch was named with the field's internal name, and one
+line in a launch record was needed to translate it.
+
+---
+
+## R2 T+396 — 2026-09-06 13:10 UTC
+
+**T+396 = wall-clock delta from the baseline** (06:33:41 → 13:10:02).
+
+### 1. Run 7 died on the KFD blindness this record documented on the first cluster
+
+**[first-hand, `m2/launch6/LAUNCH-RECORD.txt`]**
+
+```
+launched_at_utc: 2026-09-06T13:08:34Z
+supersedes: 20260906T121919-041f89
+   (_off FATAL: UNIDENTIFIED holder -> aborted; KFD is blind across containers)
+change: preflight identifies by CONTAINER LABEL first; KFD only a supplement;
+        blind -> wait 300s not abort
+```
+
+**This is the same mechanism this file recorded on 2026-09-06 00:46 on the first
+cluster** — `/proc`-based KFD counting cannot see into another container, so the
+count is structurally zero across boundaries. **What is new is the direction of
+the failure.** There it under-refused: a busy node read `KFD=0` and the predicate
+would have admitted a launch. **Here it over-refused:** the holder could not be
+identified, and the preflight treated *unidentifiable* as *fatal* and aborted a
+chain that had already passed stage 1.
+
+> **The same blind instrument produced opposite failures on two clusters, and
+> both were wrong.** The first cluster's conclusion — *under-refusing is the
+> dangerous direction* — is unchanged and this is not a counterexample to it;
+> **it is the reminder that the safe direction still costs runs.**
+
+**The fix matches the shape the first cluster arrived at**: identify by
+**container label** first (labels cross namespaces; `/proc` does not), keep KFD
+as a supplement only, and **treat blindness as "wait" rather than "abort."**
+
+**Run 7's reach, for the record:** `deploy_and_prove = succeeded`, `m1_deploy =
+succeeded`, `run_profiling_mode_off = running` — **stage 1 green for the fourth
+time**, then dead at 12:55:46 before profiling completed. **It did not get as far
+as run 6.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~42 %** (unchanged) |
+| 已经耗时 | **~410 min** (mission.md 06:19:11 → 13:10:02) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Unchanged: run 7 reached less than run 6.** The deepest point of the round is
+still `fdb0bd`'s sealed `run_profiling_mode_off` and the two content-level
+refusals at T+366.
+
+**Hold `29184`: 50 minutes left** (14:00:01 → 13:10:02). **Stage 1 alone has
+taken 29–42 minutes on every attempt.** Run 8 launched at 13:08:45. **The
+arithmetic is that run 8 can plausibly finish stage 1 and little else**, and
+that is arithmetic on four measured durations, not a forecast about what the
+agents will do.
+
+### 3. 当前进展
+
+```
+fdb0bd  dead   DEEPEST — _off sealed, _on refused (stack window)   12:18:44
+041f89  dead   stage 1 green (4th), _off FATAL on unidentified holder  12:55:46
+298750  ALIVE  pid 3308290, started 13:08:45
+               main/m1_deploy/deploy_and_prove all running
+               last write 13:09:44
+node    8 cards VRAM 0 %, no yihou_* container — run is 56 s old, pre-bring-up
+```
+
+### 4. Code problems
+
+**Fixed this interval, in the kit preflight** (per the launch record; **I have
+not read the diff**): container-label-first identification, KFD demoted to a
+supplement, blindness → 300 s wait instead of abort.
+
+**Note on where this fix lives.** The T+306 fix (`instruction v3`) lived in an
+agent instruction; **this one is described as a preflight change**, which would
+put it in the kit. **I cannot confirm which from the launch record alone**, and
+the distinction matters: **a fix in the kit ships; a fix in a launch instruction
+does not.**
+
+**Carried unfixed:** whether all eight `jsonschema`-affected validators were
+repaired; unbooked-usage and missing-`depends_on` (T+186 §5); shared-`work_root`
+overlap unexamined; the `CLAUDE_CONFIG_DIR` placeholder — **now six launch
+records, verbatim, still routing the reader to a person.**
+
+### 5. 未定性
+
+- **Whether run 8 reaches profiling before the hold ends.** 50 minutes; stage 1
+  costs 29–42.
+- **Whether module 3 needs launcher frames**, given `stack_window_s=0` declares
+  them away. **Raised at T+366 and to the leader at 12:41; not yet answered, and
+  it is a `grep` of module 3's validators.** If run 8 reaches m3 this hold, it
+  will be answered by a refusal instead — **which costs a run rather than a
+  command.**
+- **Whether the preflight fix is in the kit or in an instruction** — §4.
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, **eleventh
+  consecutive section.**
+
+### 6. 新增 commit
+
+Since T+366, one:
+
+```
+c022dcfd  checkpoint R2 T+366 — mine
+```
+
+**No other commits in this interval.** Both fixes of the last two hours —
+`instruction v3` and the preflight identification change — **exist in
+`m2/launch*/LAUNCH-RECORD.txt` files, uncommitted.**
+
+### 7. 其他
+
+**Eight runs. The five distinct causes of death from T+306 have become six, and
+the newest one is a repeat from the other cluster.**
+
+```
+framework      jsonschema ImportError
+coordination   two owners, one port band
+materials      trace hash_id inconsistent across records
+boundary       validator's engine outlives its verdict by 1.8 s
+deliverable    the kit cannot host a second copy of itself
+instrument     KFD is blind across containers — abort on unidentifiable
+```
+
+**Five of the six were new to this cluster. The sixth was written down on
+2026-09-06 at 00:46, on the other cluster, in this file** — including the
+correction that a `/proc` KFD predicate is blind across container boundaries and
+that `rocm-smi` is what crosses them. **It cost a run here anyway.**
+
+**That is this record's own tier-3 problem stated against itself:** the lesson
+was written, it was in the file, and **it was not present at the line where the
+preflight predicate was chosen.** The repair the file already prescribes for
+that is not "read more carefully" — it is to make the property checkable in the
+artefact. **A preflight that must name *how* it identified a holder (label /
+VRAM / KFD) would have made the blindness visible in its own output**, which is
+what the fix now does by demoting KFD to a supplement.
+
+---
+
+## R2 T+426 — 2026-09-06 13:40 UTC
+
+**T+426 = wall-clock delta from the baseline** (06:33:41 → 13:40:05).
+
+### 1. The T+366 refusals have a root cause, and it corrects what I wrote
+
+**At T+366 I recorded the two refusals as "no stack window was captured" and
+called run 7's `stack_window_s=0` "a deliberate degradation … declared in the
+launch record — the honest form of it." The degradation was not necessary.**
+
+**[first-hand, `5d098338`]**
+
+> *`trace_end_ms` is the knob (`shared.yaml:149` for m2's path, consumed at
+> `aiperf_replay.sh:100` as `--fixed-schedule-end-offset`). The two captures run
+> in sequence inside one load: **warmup 60 + window 10 for the measurement, then
+> 3 for the stack window, so the load must outlast ~73 s plus setup.**
+> **All six launches today passed `trace_end_ms=60000`. A 60 s load cannot cover
+> a 73 s sequence.***
+
+**So the stack window was not omitted — it was scheduled after the load ended.**
+`capture_stacks.log` recorded *"no aiperf load in flight"*, and the two
+validators then refused for something that is not the producer's fault.
+
+**And it is explicitly not a code defect:**
+
+> *the ordering works at the package's own defaults — `aiperf_replay.sh`'s
+> fallback is 120000 and `shared.yaml`'s is 180000, both well over the floor.
+> **A deliberate time-saving override introduced it**, and nothing states that
+> `trace_end_ms` has a floor set by `warmup_s + window_s + stack_window_s`.
+> **The defect is an unenforced dependency between launch variables.***
+
+**The recommended repair is `trace_end_ms=120000`, not shortening warmup** —
+*"warmup buys steady state and trading it swaps a known quantity for an
+unknown one."*
+
+**Three thresholds were checked and cleared as insensitive to load length**
+(`max_span_ratio` scales with `window_s` not the load; `min_gpu_kernels_per_rank`
+and `min_requests` only improve). **That is the "audit the class, don't fix the
+instance" discipline applied before the next launch rather than after three of
+them.**
+
+**Consequence for an open question I have carried twice:** *whether module 3
+needs launcher frames* is **no longer the right question**. The frames are
+capturable; **`stack_window_s=0` was papering over a 13-second arithmetic
+shortfall.**
+
+### 2. The fix was filed as comments, with its own tier named
+
+**[first-hand, `a1aecda2`]**
+
+> *Nothing anywhere stated that `trace_end_ms` has a floor set by
+> `warmup_s + window_s + stack_window_s`. **That fact lived in a document, which
+> is the tier that decays**: the next person writes a launch line while thinking
+> about something else, which is exactly how the override that blocked four
+> stages got written.*
+
+**Comments at both declaration sites**, carrying the arithmetic (70 s + 3 s = a
+73 s floor), what breaks below it, and **the run that proved it — `fdb0bd`, load
+ended 12:14:58, stack capture started after 12:15:19.**
+
+**The commit subject says the honest part out loud: *"document it where the launch
+line is written, and write the preflight without applying it."*** They wrote the
+enforcement and did not turn it on. **A tier-3 repair, labelled as tier-3 by its
+author, with the tier-2 version written but not enabled** — that is a more useful
+state than either a silent comment or an unreviewed guard going live at 13:40
+with twenty minutes of hold left.
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~44 %** (+2) |
+| 已经耗时 | **~440 min** (mission.md 06:19:11 → 13:40:05) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+2 for a root cause, not for a stage.** The wall at m2 now has arithmetic
+behind it instead of a shrug.
+
+**Hold `29184` ends in 20 minutes** (14:00:01 → 13:40:05). **A successor hold
+`29313` is PENDING, reason `Resources`, submitted 11:38:12, `TimeLimit=1-00:00:00`
+(24 h).** **Whether it starts when 29184 releases is not predictable from
+`Reason=Resources`** — this file recorded on the first cluster that a pending
+reason explains why a job waits and says nothing about what happens when the
+constraint lifts; a different job took the slot that time.
+
+### 4. 当前进展 — run 8 is mid-validation with 20 minutes on the clock
+
+```
+298750  ALIVE  pid 3308290, started 13:08:45
+        m1_deploy: running   deploy_and_prove: output_validating
+        verdicts so far:  layout = true    environment = true
+        check_deploy_serves running:
+             yihou_e2e_chain_serves-ff0b8393_etcd  13:34:05
+             yihou_e2e_chain_serves-ff0b8393_sgl   13:34:07
+             aiperf_serves-ff0b8393                13:36:53
+        cards 0-3 at 76 %,  4-7 at 0 %
+        last write 13:36:53
+```
+
+**Stage 1 is two-thirds green for the fifth time**, with the 180-second load
+under way. **It will not reach profiling before the hold ends.**
+
+### 5. Code problems
+
+**Root-caused, fix documented but not enforced:** `trace_end_ms` floor —
+`shared.yaml:149`, `aiperf_replay.sh:100`. **Preflight written, deliberately not
+applied.**
+
+**Fixed earlier today:** `env.sh:172`; the KFD-blind preflight (label-first).
+**Both live in launch records or agent instructions, still uncommitted.**
+
+**Carried unfixed:** whether all eight `jsonschema`-affected validators were
+repaired; unbooked-usage and missing-`depends_on` (T+186 §5); shared-`work_root`
+overlap unexamined; the `CLAUDE_CONFIG_DIR` placeholder — six launch records.
+
+### 6. 未定性
+
+- **Whether hold `29313` starts.** `Reason=Resources` does not answer it.
+- **What happens to run 8 at 14:00:01.** It is inside `check_deploy_serves` with
+  an engine and an aiperf container up. **I do not know whether the allocation
+  ending tears the containers down cleanly or leaves them**, and the measurement
+  is simply to look after 14:00.
+- **Whether `trace_end_ms=120000` clears the m2 wall.** Not yet launched with it.
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, **twelfth
+  consecutive section**, and the hold ends before it can be answered by a run.
+
+### 7. 新增 commit
+
+Since T+396, four:
+
+```
+e2d41d7f  checkpoint R2 T+396 — mine
+0487b970  ON-ARM-REFUSAL: amend — the refusal is established by two verdicts,
+          and the run's end was the no-receiver escalation
+5d098338  ON-ARM-REFUSAL: the repair is arithmetic, and it reattributes the
+          cause to an unenforced variable dependency
+a5908df1  ON-ARM-REFUSAL: repair three words an unescaped backtick ate in the
+          previous commit
+a1aecda2  replay-length floor: document it where the launch line is written,
+          and write the preflight without applying it
+```
+
+**Four commits on one finding, including an amend that reattributes the cause and
+a repair of three words a backtick ate.** The second is worth a line of its own:
+**an unescaped backtick in a commit message silently removed content, and commit
+messages cannot be amended once pushed** — this file's own rule.
+
+### 8. 其他
+
+**My T+366 section called `stack_window_s=0` "the honest form" of a degradation.
+It was honest and it was the wrong repair**, and the difference is instructive.
+
+Declaring an omission intended is the right move **when the thing genuinely
+cannot be produced**. Here it could: the capture was scheduled 13 seconds past
+the end of a load that a launch override had shortened. **A declared degradation
+and a masked defect look identical in the artefact** — both produce a clean run
+with `stack_window_s=0` in the record and no launcher frames in the output.
+
+**What separated them was arithmetic nobody had written down**, and the thing
+that found it was somebody adding up three variables and comparing the sum to a
+fourth. **Not a tool, not a validator — a subtraction.**
+
+---
+
+## R2 T+457 — 2026-09-06 14:11 UTC
+
+**T+457 = wall-clock delta from the baseline** (06:33:41 → 14:10:36).
+
+### 1. The hold rolled over — 24 hours, same node
+
+```
+29184   ended      2026-09-06T14:00:01
+29313   RUNNING    StartTime 2026-09-06T14:00:06   EndTime 2026-09-07T14:00:06
+                   smci355-ccs-aus-n04-25   TimeLimit 1-00:00:00
+```
+
+**Five seconds of gap, same node, and the successor is a 24-hour hold rather than
+16.** At T+426 I recorded `29313` as `PENDING (Resources)` and declined to
+predict it would start — this file's own rule that a pending reason explains the
+wait and not the release. **It started. The prediction I declined to make would
+have been right, and declining it still cost nothing** — I have no way to know
+whether it started *because* 29184 released or by coincidence of the scheduler,
+and the record does not need me to.
+
+**The time pressure of the last four sections is gone.** 23 h 50 min remain.
+
+### 2. Run 8 is the round's deepest result, and it isolates the m2 wall to one variable
+
+**[observed, first-hand] `20260906T130845-298750`, last write 14:05:14:**
+
+```
+m1_deploy               succeeded
+deploy_and_prove        succeeded
+run_profiling_mode_off  succeeded
+run_profiling_mode_on   output_validating
+m2_profiling            running
+
+verdicts (11):  layout true · environment true×3 · deploy.sh true
+                require_present true×3 · max_error_rate true×2
+                max_pct_total_sum true          ← check_kernel_table PASSES
+                expect_ranks FALSE              ← check_trace_coverage
+```
+
+**`check_kernel_table` now passes.** At T+366 it refused for want of launcher
+frames; `kernel_table_min_launchers=0` cleared it. **Ten of eleven verdicts are
+true and the eleventh is the only thing between this chain and stage 2.**
+
+**And that eleventh is now fully explained** [first-hand, `2f53d2a6`]:
+
+> *`_off` SUCCEEDED at 13:46:13 … `_on` then refused at 13:52 with one false
+> verdict in a 39-file zone, and the refusal is identical to `fdb0bd`'s — **on a
+> run that passed `--var stack_window_s=0`, verified in the live process.**
+> **The producer got it**: no `capture_stacks.log` exists, so `replay.sh`
+> correctly skipped the capture. **The validator did not, because it never reads
+> that variable.** `check_trace_coverage:223` gates on `expect_stack_ranks`,
+> which `m2_profiling.yaml:133` binds to `${stack_ranks:-2}`. **`stack_window_s=0`
+> does not touch `stack_ranks`**, so the producer skips and the validator still
+> demands the manifest.*
+
+**One intention, two variable names, and the flag was verified reaching the live
+process.** This is the third member of that family today — `DK_ROUTER_PORT` vs
+`DK_PORT_ROUTER` (T+277), `min_launchers_in_top_n` vs `kernel_table_min_launchers`
+(T+366), and now `stack_window_s` vs `stack_ranks`. **The first two were naming
+collisions; this one is a genuine split of one decision across two knobs that
+nothing binds together.**
+
+### 3. **Two concurrent runs share a port band and a work root — flagged at 14:09**
+
+**[observed, first-hand, positional `/proc` read]**
+
+```
+pid 3849649  started 14:08:09   container=yihou_e2e_chain
+pid 3856205  started 14:08:25   container=yihou_e2e_chain2
+  BOTH:  port_router=8101  port_worker=8102  port_etcd=8103
+         work_root=/data/yihou/e2e_flow
+         validate_work_root=/data/yihou/e2e_flow/validate
+         mock_stages=none      trace_end_ms=120000
+```
+
+**Only `container` differs.** This is the configuration that killed run 2 at
+08:11:26 with `ABORT: etcd port 8103 is already in use`, and `92835f4d` amended
+the canonical launch block this morning **specifically to require a separate port
+band and a separate work root** for two lines on one node.
+
+**Both are still in `deploy_and_prove` and nothing has bound a port yet.**
+Reported to the leader at 14:09:47 with the measurement and without an
+instruction — **I do not know whether the overlap is deliberate.**
+
+**Both carry `trace_end_ms=120000`**, so the arithmetic fix from T+426 is in
+flight. **Neither carries `stack_ranks`**, so by §2 both will hit the same
+`check_trace_coverage` refusal if they reach `_on`.
+
+### 4. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~46 %** (+2) |
+| 已经耗时 | **~471 min** (mission.md 06:19:11 → 14:10:36) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+2: ten of eleven verdicts true in one run, and the eleventh traced to a named
+line in a named file.** Not more, because **`m2_profiling` has still never
+completed.**
+
+**预估耗时 remains absent and I want to be explicit about why it is still absent
+after eight hours.** Stage 1 now has four measured durations (42, 40, 29, ~38
+min). **Stages 3, 4 and 5 have zero.** A total built from one measured stage and
+four guesses would be a number with a false denominator, and this record has
+spent the day on exactly that failure mode.
+
+### 5. Code problems
+
+**Root-caused, unfixed:** `check_trace_coverage:223` / `m2_profiling.yaml:133` —
+`expect_stack_ranks` ← `${stack_ranks:-2}`, unlinked from `stack_window_s`.
+
+**Root-caused, documented, enforcement deliberately not enabled:** the
+`trace_end_ms` 73-second floor (`shared.yaml:149`, `aiperf_replay.sh:100`).
+
+**Fixed earlier:** `env.sh:172`; KFD-blind preflight; `kernel_table_min_launchers`.
+
+**Carried unfixed:** whether all eight `jsonschema`-affected validators were
+repaired; unbooked-usage and missing-`depends_on` (T+186 §5); shared-`work_root`
+overlap — **no longer merely unexamined, now actively reproduced in §3**; the
+`CLAUDE_CONFIG_DIR` placeholder.
+
+### 6. 未定性
+
+- **Whether the two concurrent runs collide.** §3.
+- **Whether `stack_ranks=0` is accepted** and clears `check_trace_coverage`, or
+  whether a real stack capture is required. **Not verified by anyone I can
+  read.**
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — carried, **thirteenth
+  consecutive section.** With 23 h 50 min of hold, the time excuse for not
+  answering it has expired.
+
+### 7. 新增 commit
+
+Since T+426, five:
+
+```
+a4a492e4  checkpoint R2 T+426 — mine
+1c611a5d  PREFLIGHT-HANDOVER-298750: the handover ran clean and the hard branch
+          is still untested
+af54e790  RUNG5-CHECKLIST: fold the day's findings in as steps, and make it the
+          single entry point
+2f53d2a6  MERGE-WATCH-298750: the merge did not fire — stack_window_s=0 reaches
+          the producer and not the validator
+0ad0c7d0  RUNG5-CHECKLIST P-1: name both paths, add the third --var, and flag
+          the refusal that gives the wrong knob
+```
+
+**`1c611a5d` is worth its own line: "the handover ran clean and the hard branch is
+still untested."** The KFD preflight fix from T+396 was exercised on its easy
+path only. **Saying so in the subject line is the difference between a fix and a
+fix that has been tested**, and it is the same discipline as `a1aecda2` writing a
+preflight and declining to enable it.
+
+### 8. 其他
+
+**Eight hours in, the shape of the remaining problem is clear and it is not what
+it was at 06:33.**
+
+At the baseline, nothing had run and the question was whether the chain would
+work here at all. **It works.** Stage 1 has gone green five times, an engine
+serves, traces of 1.4 M events get captured and re-parsed, a 130-row kernel table
+sums to 100.01 %, and ten of eleven validators pass on a real artefact.
+
+**What blocks the chain today is not capability — it is that one decision is
+spelled two ways.** `stack_window_s` tells the producer to skip; `stack_ranks`
+tells the validator to demand. **Both are doing exactly what they were written to
+do**, and no amount of running the chain again will resolve it, because the
+disagreement is not stochastic.
+
+**That is the most useful thing to hand to whoever picks this up with 23 hours of
+hold:** the next run does not need to be observed, it needs one variable bound.
+
+---
+
+## R2 T+487 — 2026-09-06 14:41 UTC
+
+**T+487 = wall-clock delta from the baseline** (06:33:41 → 14:41:05).
+
+### 1. The port-band overlap I flagged resolved itself — and not the way I framed it
+
+**[observed] Three runs launched in six minutes; two are dead, one survives.**
+
+```
+140625-bb5824   failed 14:07:43   exit 143   monitor_gave_up
+140819-2f9956   failed 14:10:27   exit 143   monitor_gave_up
+140831-026b96   ALIVE  pid 3856205  container=yihou_e2e_chain2
+                deploy_and_prove: output_validating
+                aiperf_serves-d8ff1deb  14:40:03   cards 0-3 at 76 %
+```
+
+**Both deaths are exit 143 — SIGTERM.** Not a port abort, not a validator
+refusal: something killed them. `monitor_gave_up: the pusher has no action for
+handling_failed`.
+
+**And the discriminator between the dead and the living is not ports.** I read
+the survivor's argv:
+
+```
+dead pair   --var jobid=29184     (the hold that ended at 14:00:01)
+survivor    --var jobid=29313     (the hold that started at 14:00:06)
+```
+
+**[first-hand, `174dd6b5`, by the owner of those launches]**
+
+> *Hold 29184 ended 14:00:01; 29313 took the same node at 14:00:34. **My 14:08
+> launch still carried `--var jobid=29184`**, which is sealed into every artefact
+> as `runtime.slurm_jobid`.*
+
+**So the two SIGTERMs are consistent with a deliberate supersede** — a stale hold
+id caught and the launches replaced. **I did not observe the kill and I am not
+asserting the cause.** What I can say: the survivor carries the live jobid, the
+dead pair carried the dead one, and their owner filed the finding in the same
+window.
+
+**My 14:09 flag named the port band. The port band was not what separated
+them.** That is the second time today I have read a concurrent-run hazard off
+argv and named the wrong field — T+216 recorded the first. **Both times the
+overlap was real and the mechanism I led with was not the operative one.**
+
+### 2. The jobid finding is the sharpest guard-failure of the round
+
+> *The part worth recording is that **`slurm_jobid` IS one of the three fields
+> `_agree_or_die` guards.** That guard (`measure_in_container.sh:118-126`)
+> refuses only on DISAGREEMENT between the ambient value and the record — **and
+> both come from the same `--var`, so a stale jobid is identical on both sides,
+> they agree, and the guard passes.** A field can be guarded and uniformly
+> wrong.*
+
+**This is the first cluster's rule — *when a consistency check passes, ask where
+its two values came from* — arriving as a live incident on the one field
+everybody would have assumed was covered.** `_agree_or_die` watches 3 of 28
+environment fields; **this is a failure inside the covered 3, not outside them.**
+
+**And the value is not merely stale, it is falsifiable against the world**:
+`squeue` shows one job, `29313`. **A jobid naming a dead hold is checkable by one
+command at launch**, which is what makes this a tier-2 repair rather than a note.
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~46 %** (unchanged) |
+| 已经耗时 | **~501 min** (mission.md 06:19:11 → 14:41:05) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Unchanged: no stage advanced.** Two launches were spent and replaced; the
+survivor is at the same point run 8 reached at 13:36.
+
+**Hold `29313`: 23 h 19 min left** (2026-09-07T14:00:06 → 14:41:05).
+
+### 4. 当前进展 — and the survivor will hit the known wall
+
+**I read the survivor's argv for the variable that decides its fate:**
+
+```
+jobid=29313          correct
+trace_end_ms=120000  the T+426 arithmetic fix, applied
+stack_ranks          ABSENT
+stack_window_s       ABSENT
+```
+
+**By T+457 §2, `check_trace_coverage:223` gates on `expect_stack_ranks` ←
+`${stack_ranks:-2}`.** With `stack_ranks` unset it defaults to 2 and the
+validator will demand `stacks_manifest.json`. **With `trace_end_ms=120000` the
+load now outlasts the 73-second sequence, so the capture has time to happen** —
+which means this run may produce the stacks rather than need the flag.
+
+**That is a real prediction and I am marking it as one:** *if* the stack capture
+now runs, `check_trace_coverage` passes on its merits and the flag question
+becomes moot. *If* it does not, the refusal will be identical to `fdb0bd`'s and
+`298750`'s. **The measurement that decides it is whether `capture_stacks.log`
+exists in this run's `_on` output.** I have made no prediction about which.
+
+### 5. Code problems
+
+**Newly named:** `--var jobid` can name a dead hold and pass `_agree_or_die`
+(`measure_in_container.sh:118-126`).
+
+**Carried, root-caused, unfixed:** `check_trace_coverage:223` /
+`m2_profiling.yaml:133` — `stack_ranks` unlinked from `stack_window_s`.
+**Carried, documented, enforcement not enabled:** the `trace_end_ms` 73 s floor.
+**Carried unfixed:** the eight `jsonschema` validators (unread); unbooked-usage
+and missing-`depends_on`; the `CLAUDE_CONFIG_DIR` placeholder.
+
+**Note against my own §3 of T+457:** I recorded the shared `work_root` as
+"actively reproduced." **It still is** — the survivor and the dead pair all used
+`/data/yihou/e2e_flow`. **The overlap did not cause today's deaths and it remains
+the failure that does not announce itself.**
+
+### 6. 未定性
+
+- **Whether `026b96` captures stacks** with the longer load. §4.
+- **Whether the two SIGTERMs were the supersede they appear to be.** Consistent,
+  not established. **The reading is the owner's own account, not the run trees.**
+- **Whether other artefacts already carry `slurm_jobid: 29184`.** Anything sealed
+  between 14:00:01 and the correction. **Cheap grep, not run.**
+- **Whether all eight crash-affected validators were repaired** — carried.
+- **What module 5 consumes if module 4 is replayed** — **fourteenth consecutive
+  section.**
+
+### 7. 新增 commit
+
+Since T+457, five:
+
+```
+3e60294b  checkpoint R2 T+457 — mine
+174dd6b5  bug record: a GUARDED field can still be uniformly wrong — jobid
+          naming a dead hold
+64ea7bd5  bug record: two checks with one failure mode are one check — and the
+          test is cheap
+b66cd62c  CLAUDE.md: a guarded field can still be uniformly wrong — slurm_jobid
+85e7e44f  RUNG5-CHECKLIST: sibling handoffs are invalidated by the closure, not
+          independently
+37b79b9c  CLAUDE.md: /home/yihou/dev/git is a SYMLINK to git.16-19 — one tree,
+          two names
+```
+
+**`37b79b9c` closes a trap this record could have walked into.** Two path
+prefixes have been used interchangeably in today's sections and commit messages;
+**they are one tree.** Had they been two, every "the file is clean" check I ran
+would have been checking a different file than the one being edited.
+
+### 8. 其他
+
+**Two of today's findings are the same theorem, discovered eight hours apart, and
+putting them side by side is worth more than either alone.**
+
+```
+T+457  stack_window_s tells the producer to skip;
+       stack_ranks tells the validator to demand.
+       ONE DECISION, TWO NAMES — and nothing binds them.
+
+T+487  --var jobid feeds both the ambient value and the record;
+       _agree_or_die compares them and they agree.
+       ONE VALUE, TWO PLACES — and the guard compares it to itself.
+```
+
+**The first splits one intention across two knobs, so setting one is silently
+insufficient. The second merges two supposedly independent sources into one, so
+comparing them is silently uninformative.** Opposite errors, identical
+consequence: **a mechanism that looks like it is checking something and is not.**
+
+**And the detection cost differs enormously.** The split knob was found by a
+validator refusing and someone reading two YAML lines. **The merged source was
+found only because a human noticed a number naming a job that no longer exists**
+— the guard itself will never report it, at any point in the future, on any run.
+
+---
+
+## R2 T+517 — 2026-09-06 15:11 UTC
+
+**T+517 = wall-clock delta from the baseline** (06:33:41 → 15:10:59).
+
+### 1. The preflight fix from T+396 has an unreachable branch, and I verified its premise
+
+**[first-hand, `c890bf83`]**
+
+> *`_foreign_gpu_containers` tests `HostConfig.Devices` for `/dev/kfd`, **which is
+> device mapping and not occupancy**. `rc_26_7_902` and `xiaoming-dev` map it
+> permanently and hold zero VRAM, so **instrument 2 is never empty** and
+> `preflight.sh:211` aborts on any busy card whatever the cause. Measured: the
+> two named strangers are still running six minutes later with all eight cards
+> at zero; **the 112–117 GB was our own `check_deploy_serves` engine draining.***
+
+**I checked the premise myself rather than relaying it** — one `docker inspect`:
+
+```
+rc_26_7_902  HostConfig.Devices:
+  [{"PathOnHost":"/dev/dri",…},{"PathOnHost":"/dev/kfd",…},{"PathOnHost":"/dev/infiniband",…}]
+```
+
+**The device is mapped. All eight cards read 0 % at 15:10:31.** The container is
+a permanent, non-occupying resident of this node's device list.
+
+**This is the first cluster's line arriving intact: *seeing the device is not
+holding a handle*.** There it was recorded against a `/proc`-KFD predicate; here
+it defeats a `HostConfig.Devices` predicate written **this morning to replace
+that one**. **The T+396 fix swapped a blind instrument for a permanently-nonempty
+one**, and `1c611a5d` had already said the hard branch was untested — **it turned
+out to be unreachable, not merely untested.**
+
+**And a second, independent cause is recorded beside it:** *nothing sequences
+that validator's teardown against m2's preflight.* **That is the T+186 finding —
+a validator's engine outliving its verdict by 1.8 s — recurring at the scale of a
+112–117 GB drain.** The ownership-wait added at launch3 handles a holder that can
+be identified; **it does not help when the abort fires on VRAM before
+identification matters.**
+
+### 2. 当前进展 — stage 1 green a sixth time, m2 blocked by a new cause
+
+```
+026b96  dead   last 14:58:20
+        m1_deploy = succeeded    deploy_and_prove = succeeded
+        run_profiling_mode_off = running   (died here)
+        verdicts: layout true · environment true · deploy.sh true
+79bca5  ALIVE  pid 163036, started 15:01:46
+        container=yihou_e2e_chain3
+        work_root=/data/yihou/e2e_flow3     ← SEPARATED at last
+        jobid=29313   trace_end_ms=120000
+        port_etcd=8103                       ← band unchanged
+        main/m1_deploy/deploy_and_prove all running
+node    8 cards VRAM 0 %, no yihou_* container — run 9 min old, pre-bring-up
+```
+
+**`work_root` is finally distinct** (`/data/yihou/e2e_flow3`). **The port band is
+not**, but only one chain is alive, so nothing is contending for it.
+
+**No `capture_stacks.log` and no `stacks_manifest.json` exist anywhere in
+`026b96`** — it never got far enough for the T+487 §4 question to be answerable.
+**That prediction remains open and untested for a second run.**
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~46 %** (unchanged) |
+| 已经耗时 | **~531 min** (mission.md 06:19:11 → 15:10:59) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Unchanged for the third consecutive interval, and the reason is worth stating
+plainly.** Stage 1 has now gone green **six times**. `m2_profiling` has been
+entered **six times** and completed **zero**. **The causes have differed every
+time** — trace hash_id, card lease, stack window arithmetic, `stack_ranks`
+split, and now a preflight whose foreign-container instrument cannot return
+empty on this host.
+
+**That is not a chain that is failing to work. It is a chain whose second stage
+sits behind a queue of independent single-point defects**, each of which took a
+run to surface.
+
+**Hold `29313`: 22 h 49 min left.**
+
+### 4. Code problems
+
+**Newly root-caused, unfixed:** `preflight.sh:211` — `_foreign_gpu_containers`
+tests device mapping, not occupancy; two permanent residents make it
+never-empty, so any busy card aborts. **The fix candidates are named by the
+first cluster's own conclusion: per-card VRAM crosses namespaces and is the
+occupancy signal; a container list should admit on "is a GPU-capable container
+present" only as a supplement.**
+
+**Newly named, unfixed:** nothing sequences `check_deploy_serves`'s teardown
+against m2's preflight.
+
+**Carried, root-caused, unfixed:** `stack_ranks` unlinked from `stack_window_s`
+(`check_trace_coverage:223`, `m2_profiling.yaml:133`); `--var jobid` can name a
+dead hold and pass `_agree_or_die`.
+**Carried, documented, not enforced:** the `trace_end_ms` 73 s floor.
+**Carried unfixed:** the eight `jsonschema` validators (still unread);
+unbooked-usage and missing-`depends_on`; the `CLAUDE_CONFIG_DIR` placeholder.
+
+### 5. 未定性
+
+- **Whether `79bca5` reaches `_on` and whether stacks get captured** with
+  `trace_end_ms=120000`. **Twice now this has been the open question and twice
+  the run died before answering it.**
+- **Whether the preflight abort has been fixed for this launch.** `79bca5`
+  started 15:01:46 and `c890bf83` was committed in the same window; **I have not
+  established the order**, and the run has not reached the preflight yet.
+- **Whether all eight crash-affected validators were repaired** — carried,
+  **and I note it has now survived unread since T+94**, seven hours.
+- **What module 5 consumes if module 4 is replayed** — **fifteenth consecutive
+  section.**
+
+### 6. 新增 commit
+
+Since T+487, four:
+
+```
+f944eec6  checkpoint R2 T+487 — mine
+c890bf83  bug.record 13: the kit preflight's two wait branches are unreachable
+          on this host
+8cc13d92  RUNG5-CHECKLIST P2d: blocking launch gate for the preflight stranger
+          test
+4cd1425e  PREFLIGHT-FIX-FOR-NEXT-LAUNCH: drop-in instruction text for the
+          stranger test
+2f8e7faa  m35: compare.py barrier downgraded to conditional; two thin-worklist
+          explanations retired
+```
+
+**`8cc13d92` and `4cd1425e` are the same repair at two tiers** — a blocking gate
+in the checklist, and drop-in text so the next launcher does not have to compose
+it. **This record's own tier analysis says the second is what makes the first
+survive contact with someone in a hurry.**
+
+**`2f8e7faa` retires two explanations rather than adding one.** Recorded because
+it is rarer than it should be: **most of today's commits added a finding; that
+one removed two that did not hold.**
+
+### 7. 其他
+
+**Three instruments have now been used to answer "is this node busy," and all
+three were wrong in a different way.**
+
+```
+/proc KFD count          blind across containers   -> reads 0 on a busy node
+HostConfig.Devices       mapping, not occupancy    -> never empty on this node
+rocm-smi per-card VRAM   correct, and it caught
+                         our OWN draining engine   -> aborts on ourselves
+```
+
+**The third is the one this file has recommended all along, and it is the one
+that fired today** — correctly, on 112–117 GB that was genuinely allocated, by
+a process that was genuinely ours and genuinely going away. **A correct
+occupancy reading is still not an answer to "may I proceed," because it cannot
+distinguish a tenant from a corpse.**
+
+**What the three failures share is that each answered a question adjacent to the
+one asked.** *Which processes can I see* / *which containers may use a GPU* /
+*how much memory is allocated right now* — **none of them is *will these cards be
+free when I need them*, and that is the question a preflight actually has.**
+
+---
+
+## R2 T+548 — 2026-09-06 15:42 UTC
+
+**T+548 = wall-clock delta from the baseline** (06:33:41 → 15:41:18).
+
+### 1. `check_deploy_serves` refused for the first time — and the cause inverts the obvious reading
+
+**[observed, first-hand] Run `20260906T150155-79bca5`, 30 files in materials:**
+
+```
+# check_deploy_serves
+## c32f1bb3-…: REFUSED
+  note: kit qwen3-32b-mix.packup_20260906, tag serves-60b9599a, port base 8140
+  note: 1/4 bring-up
+  note: 2/4 diagnostic probes
+  note: 4/4 teardown
+  PROBLEM: probe router_health: no answer:
+           URLError: <urlopen error [Errno 111] Connection refused>
+  PROBLEM: the load was not sent — a deployment that fails a fatal probe has
+           nothing to measure
+```
+
+**Step 3 of 4 is absent from the notes: the load never ran.** `layout` and
+`environment` passed; this is the only false verdict.
+
+**The obvious reading is "the engine did not come up." I opened the logs, and the
+engine did come up.** From `/data/yihou/e2e_flow3/validate/serves-60b9599a/logs/`:
+
+```
+worker.log (78 129 B)   INFO: SGLang ready on port 8141
+                        INFO: worker ready: model=Qwen/Qwen3-32B
+                              url=http://10.235.192.131:8141 engine=SGLANG
+                        [15:31:53] "GET /health HTTP/1.1" 200 OK   (twice)
+
+router.log (4 774 B)    INFO: router-policy=kv-aware overlap_weight=1
+                        INFO: using etcd discovery:
+                              endpoint=10.235.192.131:8142 prefix=/infera/workers/
+                        Traceback …
+                        httpx.ConnectError: All connection attempts failed
+```
+
+**The worker was serving and answering health checks. The router died reaching
+etcd discovery at 8142**, so nothing listened on 8140 and the probe got
+connection refused in **0.001 s**.
+
+**And the deployment record says so without needing a probe at all:**
+
+```
+deployment.json:  endpoint  http://10.235.192.131:8140
+                  ports     router 8140, worker 8141, etcd 8142, …
+                  started_at  null            ← every successful deploy today
+                                                 carried a real timestamp
+```
+
+**`started_at: null` is a one-field discriminator** between "this deployment
+happened" and "this record was written for a deployment that did not." Every
+green kit today carried a value there — `2026-09-06T06:54:35.131400696Z` at
+T+31, for instance.
+
+**The refusal is correct and its wording is accurate at the level it operates.**
+`router_health` genuinely got nothing. **But a reader stopping at the refusal
+concludes the deployment failed; the worker log says three quarters of it
+succeeded and one component could not reach etcd.** The distinction decides
+whether the next fix targets bring-up or discovery.
+
+**Where that evidence lives is the T+216 finding again**: not in the run tree, in
+`work_root`. **`/data/yihou/e2e_flow3/validate/serves-60b9599a/logs/` is the only
+place the router traceback exists.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~46 %** (unchanged) |
+| 已经耗时 | **~561 min** (mission.md 06:19:11 → 15:41:18) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Fourth consecutive interval unchanged.** Stage 1 had gone green six times;
+**this run is the first in which it did not** — `check_deploy_serves` passed on
+five prior occasions with the same kit.
+
+**Hold `29313`: 22 h 19 min left.**
+
+### 3. 当前进展
+
+```
+026b96  dead   last 14:58:20   stage 1 green, died in run_profiling_mode_off
+79bca5  ALIVE  pid 163036, started 15:01:46, container=yihou_e2e_chain3
+        work_root=/data/yihou/e2e_flow3        (separated)
+        deploy_and_prove: output_validating
+        layout true · environment true · deploy_serves FALSE
+        last write 15:31:54  —  9 min 24 s before I sampled
+node    8 cards VRAM 0 %, only the two foreign CPU containers
+```
+
+**The run has an orchestrator and has not written for nine minutes.** The
+teardown at 15:31:54 is consistent with the refusal having just landed and the
+graph having nowhere to push. **I have not opened its transcript and am not
+declaring it stalled.**
+
+### 4. Code problems
+
+**New, unfixed:** the kit's router cannot reach etcd discovery at
+`10.235.192.131:8142` under the validator's port base 8140
+(`logs/router.log`, `httpx.ConnectError`). **Cause unknown to me.** The worker at
+8141 was healthy.
+
+**New, and cheap:** a deployment record is written with `started_at: null` when
+bring-up does not complete. **Nothing appears to read that field as a gate** —
+the failure was found by a probe making a network call. **A record that already
+knows it is describing a non-deployment is a stronger and cheaper signal than
+a connection attempt.**
+
+**Carried, root-caused, unfixed:** `preflight.sh:211` device-mapping instrument;
+teardown-vs-preflight sequencing; `stack_ranks` unlinked from `stack_window_s`;
+`--var jobid` passing `_agree_or_die` while naming a dead hold.
+**Carried, documented, not enforced:** the `trace_end_ms` 73 s floor.
+**Carried unread since T+94:** whether all eight `jsonschema` validators were
+repaired.
+
+### 5. 未定性
+
+- **Why the router could not reach etcd at 8142** when the worker at 8141 came
+  up. **The measurement: whether an etcd container existed for tag
+  `serves-60b9599a`.** I did not check and it is one `docker ps -a` filter.
+- **Whether this is related to the new `work_root=/data/yihou/e2e_flow3`**, which
+  is the one launch variable that changed. **Adjacency, not evidence** — this
+  record has been wrong twice today reasoning from exactly that.
+- **Whether stacks get captured with `trace_end_ms=120000`** — open for a third
+  consecutive run; no `capture_stacks.log` exists in either recent run.
+- **What module 5 consumes if module 4 is replayed** — **sixteenth consecutive
+  section.**
+
+### 6. 新增 commit
+
+Since T+517, one:
+
+```
+310d5baa  checkpoint R2 T+517 — mine
+```
+
+**No other commits in this interval.**
+
+### 7. 其他
+
+**Today's refusals have divided cleanly into two kinds, and this one is the first
+of the second kind.**
+
+```
+kind A   the refusal names the defect       env.sh:172 · stacks_manifest missing
+         and the fix                        · min launchers in the head
+kind B   the refusal names the SYMPTOM      router_health: connection refused
+         and the cause is elsewhere
+```
+
+**Kind A refusals were actionable from the report alone.** This one required
+opening two log files in a directory the run tree does not contain, and the
+answer reversed the natural reading: **not "bring-up failed" but "the worker is
+serving and the router cannot find it."**
+
+**I do not think that is a defect in the validator.** `check_deploy_serves`
+probes the product endpoint because that is what a consumer touches, and
+short-circuiting on it is the documented design — its own probe text says
+*"Everything after this is meaningless if it is not."* **The gap is that its
+report has no pointer to where the component logs live**, and every reader will
+need them. **One line — the path it already knows, since it wrote the tag into
+the note — would close it.**
+
+---
+
+## R2 T+578 — 2026-09-06 16:11 UTC
+
+**T+578 = wall-clock delta from the baseline** (06:33:41 → 16:11:17).
+
+### 1. My T+548 reading was wrong — and the real cause is a JIT build racing the router
+
+**At T+548 I wrote "the worker was serving and the router could not reach etcd."
+Both halves are wrong.** The owner's record `fc0e0441` says the engine died, and
+I went back to the log and read more than four lines.
+
+**[observed, first-hand] `logs/worker.log`, lines 272–286:**
+
+```
+15:31:19  The server is fired up and ready to roll!
+15:31:19  Freezing GC in Detokenizer Manager process
+15:31:19  [aiter] Process-3 start build [mha_batch_prefill_bf16_…]
+          [aiter] Process-1/2/4 waiting for baton release
+          INFO: waiting for SGLang HTTP on port 8141 … (elapsed 125s)
+15:31:40  Health check failed. Server couldn't get a response from detokenizer
+          for last 20 seconds. last_heartbeat time: 15:31:19
+15:31:42  Health check failed …
+15:31:47  Health check failed …
+          [aiter] Process-3 finish build […], cost 32.6s
+15:31:53  SGLang ready on port 8141 · "GET /health" 200 OK
+```
+
+**The engine was not broken. It was blocked in a 32.6-second aiter JIT kernel
+compile**, three processes waiting on a baton, and the detokenizer heartbeat
+stalled for the duration. **It then recovered fully** — which is exactly the
+state I sampled at T+548 and mistook for health.
+
+**The mechanism, from the owner** [`fc0e0441`, not re-derived by me]: *the kit
+gates the router on the worker's `/health`, so the router started into nothing.*
+The router hit `ConnectError`, died, and **nothing was listening on 8140 when the
+worker came back.**
+
+**How I got it wrong, precisely.** I ran `tail -4` on `worker.log`, saw
+`SGLang ready` and two `200 OK`s, and concluded the worker was serving. **Those
+lines are true and they are the recovery.** The failure is 21 lines earlier.
+**This is `tail -N` eating the line that explains the death — the trap this file
+has recorded twice on the other cluster, committed by the person maintaining the
+file.**
+
+**And "could not reach etcd" was adjacency.** `router.log` line 2 mentions etcd
+discovery; line 3 begins the traceback. **I read the line before the exception
+as its cause.** Third time today this record has reasoned from adjacency, and
+the first two are written down two sections above.
+
+### 2. The owner corrected themselves in the same window, on a different claim
+
+**[first-hand, `cff188de`]**
+
+> *I wrote it as a regression the run-3 rewrite introduced. … `etcd.log` is
+> absent from three other arms and from **run 3's OWN successful m1 deploy**: two
+> code paths, one long-standing gap, not a new one. The fix is unchanged; the
+> class is not, and **my version would have sent the next reader diffing two kits
+> for nothing.***
+
+**Three suspects were eliminated by measurement rather than argument** — the
+repaired preflight was never invoked, ports were identical to the passing run,
+and **m1's own bring-up on the new `work_root` succeeded.** **That last one closes
+my T+548 §5 question**: the new `work_root=/data/yihou/e2e_flow3` is not
+involved, and it was closed by a measurement rather than by my declining to
+speculate.
+
+***One attribution I cannot confirm:*** `cff188de` credits the sweep against
+known-good cases to "checkpoint." **I did not run it.** Either another party did
+or the attribution is loose; **I flag it rather than accept credit**, because a
+misattributed check is one nobody re-runs.
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~46 %** (unchanged) |
+| 已经耗时 | **~592 min** (mission.md 06:19:11 → 16:11:17) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Fifth consecutive interval unchanged.** **Hold `29313`: 21 h 49 min left.**
+
+### 4. 当前进展
+
+```
+79bca5  dead   last 15:31:54   deploy_serves REFUSED (§1)
+d9c7af  ALIVE  pid 554448, started 15:49:08, container=yihou_e2e_chain4
+        m1_deploy / deploy_and_prove running
+        yihou_e2e_etcd_chain4  16:07:22
+        yihou_e2e_sgl_chain4   16:07:23
+        cards 0-3 at 75 %
+        last write 16:10:35
+```
+
+**`docker ps -a --filter name=serves-60b9599a` returns nothing** — the failed
+validator's containers were removed at teardown. **The reading I proposed to the
+leader at 15:48 is no longer answerable**, and that is worth saying: **a
+container-identity question has a shelf life measured in minutes**, while the
+logs it left in `work_root` are still there.
+
+### 5. Code problems
+
+**Newly understood, unfixed:** an aiter JIT kernel build (32.6 s measured) can
+stall the worker's detokenizer heartbeat past the window in which the kit gates
+the router on `/health`. **The router does not survive the wait.** Files: the
+kit's router start path and its health gate.
+
+**Long-standing, now correctly classed:** `etcd.log` is written on no path in the
+current kit and was absent from earlier arms too — **a diagnosability gap, not a
+regression.**
+
+**Carried, root-caused, unfixed:** `preflight.sh:211`; teardown-vs-preflight
+sequencing; `stack_ranks` / `stack_window_s`; `--var jobid` vs `_agree_or_die`.
+**Carried, documented, not enforced:** the `trace_end_ms` 73 s floor.
+**Carried unread since T+94:** the eight `jsonschema` validators.
+
+### 6. 未定性
+
+- **Whether the JIT build is a first-run cost** that will not recur now that the
+  kernel is compiled, or whether it recurs per container. **The measurement:
+  whether `chain4`'s worker.log shows the same 32-second build.** It is bringing
+  up now and will answer this on its own.
+- **Whether the router's health gate has a timeout long enough** for a cold JIT
+  path. Not read.
+- **Whether stacks get captured with `trace_end_ms=120000`** — open for a fourth
+  run.
+- **What module 5 consumes if module 4 is replayed** — **seventeenth consecutive
+  section.**
+
+### 7. 新增 commit
+
+Since T+548, three:
+
+```
+519fab1a  checkpoint R2 T+548 — mine
+fc0e0441  bug.record 14: run 3 died at the engine, not at the guard we had just
+          fixed
+cff188de  bug.record 14: correct my attribution of the missing etcd.log
+60f18043  PROPOSAL (unapplied): tier-2 form of the compare.py --environment gap
+```
+
+**`60f18043` is labelled `(unapplied)` in its own subject** — the third time
+today someone has committed a repair and declined to enable it. **That is now a
+habit rather than an accident**, and it is the right one when the hold is long
+and the change is unreviewed.
+
+### 8. 其他
+
+**Two people got the same failure wrong in the same hour, in opposite
+directions, and both corrections came from reading further into a file they had
+already opened.**
+
+```
+me     read tail -4 of worker.log     -> "the worker was serving"
+       read the line before the       -> "could not reach etcd"
+       traceback in router.log
+owner  read the absence of etcd.log   -> "a regression the rewrite introduced"
+```
+
+**Neither of us lacked the file.** Mine was open and I read four lines of it;
+theirs was a zero they interpreted before establishing its denominator. **The
+corrections cost one `sed -n '272,286p'` and one sweep across known-good arms.**
+
+**What actually happened is more interesting than either wrong version:** a
+kernel JIT compile made a healthy engine look dead for 33 seconds, and a
+component that gates on health took the bait. **Nothing was broken; something was
+slow, and a timeout turned slow into failed.** That is a class this file has not
+recorded before today.
+
+---
+
+## R2 T+607 — 2026-09-06 16:41 UTC
+
+**T+607 = wall-clock delta from the baseline** (06:33:41 → 16:41:00).
+
+### 1. T+578's mechanism is retracted — and I measured the counterexample myself
+
+**The JIT-build-stalls-the-detokenizer story I wrote one section ago is wrong.**
+`734efc0d` retracts it, and **I have first-hand corroboration I gathered before
+reading the retraction.**
+
+**[observed, first-hand] Every arm of the currently-running chain carries the
+exact signature, including the one that succeeded:**
+
+```
+/data/yihou/e2e_flow4/<arm>/logs/worker.log
+  chain4   start build ×3   Health check failed ×4   fired up ×1
+  pmoff    start build ×3   Health check failed ×4   fired up ×1
+  pmon     start build ×3   Health check failed ×4   fired up ×1
+  build costs: 12.76 s, 36.7 s, 36.4 s
+```
+
+**`run_profiling_mode_off` = `succeeded` for the `pmoff` arm.** The signature I
+called the cause is present, four times, in an arm that finished cleanly.
+
+**[from `734efc0d`, and the sampling diagnosis is the part worth keeping]**
+
+> *21/21 worker logs carry it, **including every successful bring-up**: `c2a`
+> which served a real completion, `chain3` which passed at 15:21:42, and
+> `serves-d8ff1deb` whose `check_deploy_serves` passed. **I sampled only
+> failures, and that sample could not structurally contain a counterexample.***
+
+**"That sample could not structurally contain a counterexample" is the cleanest
+statement of this failure mode anyone has written today.** Looking only at
+failures cannot distinguish a cause from a constant.
+
+**And the cost was not hypothetical:**
+
+> *The retry I proposed on this signature **killed two healthy bring-ups in run
+> 4**, both at 130 s against a 2400 s budget, mid cold start, with no
+> `router.log` in either. **The kit's own console said the health-check failures
+> were the cold start and not a hang, thirty seconds before aborting on them.***
+
+**A guard built on a universal signature aborts everything.** It fired at 130
+seconds of a 2400-second budget, on healthy runs, **against the kit's own printed
+statement that this was a cold start.**
+
+**Where that leaves run 3:** *unexplained again — its router could not reach etcd
+on 8142.* **That is where I was at T+548**, and I want to be exact: my T+548
+sentence named etcd as the *cause* and that is still not established. **The
+retraction restores "unexplained," not my original claim.** I was wrong at T+548
+(overclaimed a cause), wrong at T+578 (adopted a mechanism that was a constant),
+and the honest position is the one nobody has been able to improve on: **the
+router could not reach etcd on 8142 and nobody knows why.**
+
+**The original text was kept below the retraction**, with the note *"the
+reasoning is worth more than the conclusion."*
+
+### 2. Run 10 is the deepest point of the round — both profiling arms, no refusals
+
+**[observed] `20260906T154908-d9c7af`, pid 554448, last write 16:40:25:**
+
+```
+m1_deploy               succeeded
+deploy_and_prove        succeeded          ← stage 1 green, 7th time
+run_profiling_mode_off  succeeded          ← sealed
+run_profiling_mode_on   running            ← live now
+m2_profiling            running
+
+six verdicts, ZERO refusals:
+  layout · environment ×2 · deploy.sh · require_present · max_error_rate
+
+yihou_e2e_etcd_…_pmon  16:33:46
+yihou_e2e_sgl_…_pmon   16:33:47      cards 0-3 at 76 %
+```
+
+**`run_profiling_mode_on` has never run before on this cluster.** Every prior
+chain died at or before `_off`. **This is the first time the second profiling arm
+has been in flight.**
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~48 %** (+2) |
+| 已经耗时 | **~622 min** (mission.md 06:19:11 → 16:41:00) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+2 for new ground: `_on` in flight with a clean verdict sheet.** Not more —
+**`m2_profiling` still has not completed, on the eighth attempt.**
+
+**Hold `29313`: 21 h 19 min left.**
+
+### 4. Code problems
+
+**Retracted, not a defect:** the detokenizer health-check signature. **A guard
+was built on it and killed two healthy bring-ups; that guard must not ship.**
+
+**Unexplained, open:** run 3's router could not reach etcd on 8142.
+
+**Carried, root-caused, unfixed:** `preflight.sh:211` device-mapping instrument;
+teardown-vs-preflight sequencing; `stack_ranks` / `stack_window_s`; `--var jobid`
+vs `_agree_or_die`; `etcd.log` written on no path.
+**Carried, documented, not enforced:** the `trace_end_ms` 73 s floor.
+**Carried unread since T+94:** the eight `jsonschema` validators.
+
+### 5. 未定性
+
+- **Whether `_on` completes and `m2_profiling` seals.** Live now. **The furthest
+  the round has reached.**
+- **Whether stacks get captured with `trace_end_ms=120000`.** Open for four runs;
+  **`_on` reaching `running` is the first time the question can actually be
+  answered.**
+- **Why run 3's router could not reach etcd on 8142** — reopened.
+- **What module 5 consumes if module 4 is replayed** — **eighteenth consecutive
+  section**, and if `m2_profiling` seals it stops being hypothetical.
+
+### 6. 新增 commit
+
+Since T+578, one:
+
+```
+b6d21a09  checkpoint R2 T+578 — mine  (its §1 mechanism is retracted above)
+734efc0d  bug.record 14: RETRACTED — the detokenizer signature is universal,
+          not a fault
+```
+
+**My T+578 commit message asserts the retracted mechanism in its subject line**,
+and a commit message cannot be amended once it is in a shared history. **This
+section is the only correction that will travel with it** — which is precisely
+the hazard this file records about commit messages, now applying to mine.
+
+### 7. 其他
+
+**Today's most expensive pattern, stated with three instances and a cure.**
+
+```
+sampled only failures        -> a constant looks like a cause
+                             -> a retry guard killed 2 healthy bring-ups
+read tail -4 of a log        -> the recovery looked like the state
+read the line before an      -> adjacency looked like causation
+  exception
+```
+
+**All three are mine or the owner's from the last two hours, and all three were
+resolved the same way: by looking at something known to be good.** The owner
+swept 21 worker logs and found the signature in every successful one; **I listed
+three arms of a live chain and found it in the arm that had already sealed.**
+
+**Neither of us needed a new tool.** The `pmoff` arm was sitting there with
+`succeeded` next to it in the same `store/task` listing I print every thirty
+minutes. **The control was already in the sample; the question just had not been
+asked of it.**
+
+---
+
+## R2 T+637 — 2026-09-06 17:11 UTC
+
+**T+637 = wall-clock delta from the baseline** (06:33:41 → 17:10:36).
+
+### 1. STAGE 2 IS COMPLETE — and stage 3 was entered
+
+**[observed, first-hand] Run `20260906T154908-d9c7af`:**
+
+```
+m1_deploy                succeeded
+deploy_and_prove         succeeded
+run_profiling_mode_off   succeeded
+run_profiling_mode_on    succeeded      ← never completed before
+merge_profiling_evidence succeeded
+m2_profiling             SUCCEEDED      ← STAGE 2 SEALED, first time
+rank                     succeeded
+identify                 output_validating
+m3_analysis              running        ← STAGE 3 ENTERED, first time
+
+18 verdicts:  17 pass, 1 refuse
+```
+
+**Eight attempts reached `m2_profiling`; this is the first that sealed it.**
+
+**And the four-run-old question is answered — the stacks were captured:**
+
+```
+capture_stacks.log      1
+stacks_manifest.json    6
+
+items/result/trace/stacks_manifest.json:
+  ranks 2
+  totals {files 2, bytes 137 678 956, gpu_kernels 119 054,
+          python_functions 5 613 901, readable 2}
+```
+
+**5.6 million python function samples and 137 MB of stack data.** `trace_end_ms=
+120000` gave the load enough runway for the capture to happen inside it — **the
+`5d098338` arithmetic (73 s floor) was correct and the fix worked.**
+**`check_trace_coverage` passed** — the validator that refused at T+366 and T+457.
+
+**`stack_window_s=0` was never needed.** T+426 recorded that it was masking a
+13-second shortfall; **this run proves the frames were capturable all along.**
+
+### 2. The stage-3 refusal, and it names a collision a human would not see
+
+```
+# check_identity_resolved                       (5 files in materials)
+## fc537169-…: REFUSED
+  note:  5/5 resolved (ratio 1.00, floor 0.0 — a floor of zero grades nothing;
+         set --var min_resolve_ratio to grade it)
+  PROBLEM: duplicate logical_operator(s): ['layernorm_aiter_add_rmsnorm_quant'].
+           It becomes a directory name in the workset, so two of them collide
+           silently
+```
+
+**Two things worth separating.** The resolve ratio is **1.00 — everything
+resolved** — and the validator says so *and* volunteers that its own floor of
+zero grades nothing. **A validator naming its own weak threshold in the same
+report is rare and it is the honest form.**
+
+**The actual refusal is a name collision that becomes a directory name.** Two
+operators sharing `layernorm_aiter_add_rmsnorm_quant` would silently overwrite
+each other in the workset. **`649af26b` — "identify: make logical_operator
+unique, because it becomes a directory name" — is already committed.**
+
+### 3. The JIT mechanism is reinstated, and the reconciliation is the interesting part
+
+**[from `1c954e0f`]** My T+578 mechanism was **not** wrong; the T+607 retraction
+over-corrected. The two findings are compatible and each answers a different
+question:
+
+```
+21/21 logs carry the signature   ->  says WHERE it is: everywhere
+the 32.6 s JIT compile window    ->  says WHY it is there, and why run 3's
+                                     router — gated on /health — started INTO
+                                     the window, hit ConnectError and died
+```
+
+> *the detokenizer lines are universal **because they are the shadow of a JIT
+> compile.** 21/21 says where it is, this says why.*
+
+**Four positions in four hours, and I want the sequence legible:**
+
+```
+T+548  me     "router could not reach etcd"        wrong: adjacency
+T+578  me     JIT window, router gated on /health  mechanism — correct
+T+607  owner  signature universal -> "not a fault" correct about the SIGNATURE,
+              + my sealed-arm counterexample       over-reached to "unexplained"
+T+637  owner  both true; universality is the        reconciled
+              shadow, the window is the cause
+```
+
+**What was actually wrong at T+607 was treating a constant as a *discriminator* —
+in both directions.** The owner had used its presence to accuse; we then used its
+universality to acquit. **Neither is available from a constant.** The thing that
+resolved it was a *timing* argument, which the signature alone cannot carry.
+
+***And the guard cost still stands.*** A retry built on that signature killed two
+healthy bring-ups at 130 s of a 2400 s budget. **Reinstating the mechanism does
+not reinstate the guard**, and `1c954e0f` says so: *widening the router's gate is
+one observation*, deliberately unfixed.
+
+### 4. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~56 %** (+8) |
+| 已经耗时 | **~651 min** (mission.md 06:19:11 → 17:10:36) |
+| 预估耗时 | **still absent, and now for a smaller reason** |
+| 可靠性 | **中** |
+
+**+8: two of five stages complete, the third entered.** Stage 2 sealed with
+17/18 verdicts passing and a 137 MB stack capture behind it.
+
+**On 预估耗时.** Stage 1 has four measured durations; **stage 2 now has exactly
+one** (`d9c7af`: 15:49:08 launch → `m2_profiling` sealed before 16:57:36, so
+under ~68 min for both stages together). **Stages 4 and 5 still have zero, and
+module 4 is the one the user has already flagged as very long.** A total is still
+a number with a false denominator — **but for the first time the missing terms
+are two rather than four.**
+
+**Hold `29313`: 20 h 49 min left.**
+
+### 5. 当前进展
+
+```
+d9c7af  dead   last 16:57:36 — reached m3_analysis, STAGE 2 SEALED
+1048af  ALIVE  pid 1229785, container=yihou_e2e_chain5, started 17:03:54
+        yihou_e2e_etcd_serves-444741f7  17:03:59
+        yihou_e2e_sgl_serves-444741f7   17:04:00
+        aiperf_serves-444741f7          17:06:56
+        cards 0-3 at 76 %
+```
+
+**Run 11 is already inside `check_deploy_serves`** three minutes after launch —
+faster than any prior run, consistent with a warm JIT cache on this host.
+
+### 6. Code problems
+
+**Fixed and committed:** `649af26b` — `logical_operator` uniqueness.
+**Reinstated, deliberately unfixed:** the router's `/health` gate is narrower
+than a cold JIT compile. **One observation, not enough to widen it on.**
+**Must not ship:** any retry keyed on the detokenizer health-check signature.
+
+**Carried, root-caused, unfixed:** `preflight.sh:211`; teardown-vs-preflight
+sequencing; `--var jobid` vs `_agree_or_die`; `etcd.log` written on no path;
+`min_resolve_ratio` defaults to a floor of zero that grades nothing.
+**Carried unread since T+94:** the eight `jsonschema` validators.
+
+**No longer a problem:** `stack_ranks` / `stack_window_s` — the split knobs were
+only reachable because the capture was being skipped. **With the capture
+happening, neither flag is needed.**
+
+### 7. 未定性
+
+- **Whether `m3_analysis` completes.** Entered once, refused once on a fix that
+  has already landed.
+- **What module 5 consumes if module 4 is replayed** — **nineteenth consecutive
+  section, and it is now the next unknown in the path**, not a distant one.
+- **Whether module 4's duration fits the hold.** 20 h 49 min; the user has
+  flagged kernel forge as very long and this record has no measurement of it on
+  this cluster.
+- **Why run 3's router hit the JIT window when ten other bring-ups did not** —
+  §3 explains the mechanism, not the timing coincidence.
+
+### 8. 新增 commit
+
+Since T+607, three:
+
+```
+57ba0bd9  checkpoint R2 T+607 — mine
+967a4b09  validator.failures: run 4 board — 8 validators passed, one real
+          refusal
+649af26b  identify: make logical_operator unique, because it becomes a
+          directory name
+1c954e0f  bug.record 14: run 3's cause found (aiter JIT window), and fix an
+          attribution
+```
+
+### 9. 其他
+
+**Eleven runs to get two stages, and the eleventh needed none of the eleven
+failures to be repeated.**
+
+Every cause has been distinct: a framework import, a shared port band, a
+malformed trace, a card lease, a kit that could not be co-located, a blind
+occupancy predicate, a device-mapping predicate, a stale hold id, a load shorter
+than the capture it contained, a name collision that becomes a directory. **Ten
+single-point defects, each found once, each found by something refusing rather
+than by something silently producing a wrong answer.**
+
+**That is the argument for the validator set, stated in the only currency that
+counts.** At T+94 the entire set was unreachable behind an `ImportError` and this
+record could not say whether it was worth anything. **Today it caught a duplicate
+string that would have become two directories with one name** — a defect no
+amount of running the chain would have surfaced, because the chain would have
+run.
+
+---
+
+## R2 T+667 — 2026-09-06 17:40 UTC
+
+**T+667 = wall-clock delta from the baseline** (06:33:41 → 17:40:17).
+
+### 1. This cluster now has a sealed corpus, produced by itself
+
+**The baseline's largest structural problem is solved.** At T+0 I wrote:
+*"there is no sealed corpus on this cluster and `/shared_nfs` is empty …
+**nothing can be replayed on this node until this round produces it first.**"*
+
+**[observed, first-hand] `/data/yihou/e2e_verify_20260906/m35/replay_root_run4/`,
+generated 17:02:32:**
+
+```
+PROMOTION.json     11 736 B
+stage1-deploy/
+stage2-profiling/  profiling_evidence
+                   profiling_mode_off.bench_result
+                   profiling_mode_on.bench_result
+                   profiling_mode_on.kernel_table
+                   profiling_mode_on.profile_result
+```
+
+**`PROMOTION.json` records how it was made, and it is the kind of provenance the
+first cluster's corpus never had:**
+
+```
+generated_at   2026-09-06T17:02:32+00:00
+required_node  smci355-ccs-aus-n04-25
+kit_nodes      [smci355-ccs-aus-n04-25]
+threshold      1
+command        assets/lib/replay_root.py --out … --node smci355-ccs-aus-n04-25
+               --threshold 1 --allow-unstable --no-seed
+               --kind deploy_kit --kind profiling_evidence
+               --kind profiling_mode_off.bench_result … 
+               --run /data/yihou/agent_sys_runroot/runs/20260906T154908-d9c7af
+also present   runs_surveyed · ACCEPTANCE · promoted · not_promoted
+```
+
+**It names the run it came from, the node it requires, and — importantly — a
+`not_promoted` list.** The first cluster's `cheat_for_mock/` had a README warning
+about four things that would mislead you; **this one carries its own exclusions
+as data.**
+
+**What this unlocks, stated concretely:** stages 3, 4 and 5 can now be developed
+against replayed stage-1/2 artefacts **without spending 68 minutes and a GPU
+bring-up per attempt.** Given that module 4 is the stage the user has flagged as
+very long, and that no measurement of it exists here, **this is the difference
+between iterating on the back half and waiting for the front half.**
+
+### 2. Run 11 ended without finishing, at the same place as its predecessors
+
+**[first-hand, `m35/launch-run5/chain.log`, last write 17:25:13]**
+
+```
+handoff  profiling_evidence slot v0: created
+handoff  operator_workset slot v0: created
+handoff  kernel_optimization slot v0: created
+handoff  profiling_mode_off.bench_result slot v0: generating
+handoff  profiling_mode_on.bench_result slot v0: created
+   done  run complete; this package promises no failure, and the run did NOT
+          finish: m2_profiling: running, m3_analysis: waiting_handoff,
+          m4_kernel_opt: waiting_handoff, m5_integration: waiting_handoff,
+          main: running, merge_profiling_evidence: waiting_handoff,
+          run_profiling_mode_off: running,
+          run_profiling_mode_on: waiting_resource,
+          0 validation(s) dropped
+```
+
+**Stage 1 green (3/3 verdicts), then stopped inside `run_profiling_mode_off`.**
+**`0 validation(s) dropped`** — nothing was skipped; it simply did not get there.
+
+**I do not know why it stopped**, and the terminal line does not say. **The
+reading that would: this run's transcript, or `store/event`'s
+`attributes.detail`.** I have opened neither. **This record has recorded twice
+today that the last line of a run log is not the line that explains it.**
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~58 %** (+2) |
+| 已经耗时 | **~681 min** (mission.md 06:19:11 → 17:40:17) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+2 for the corpus, not for a stage.** No stage advanced this interval; **the
+cost of every future attempt at stages 3–5 dropped.**
+
+**Hold `29313`: 20 h 19 min left.**
+
+### 4. 当前进展 — nothing is running
+
+```
+d9c7af  dead   16:57:36   STAGE 2 SEALED, m3_analysis reached, 20/21 verdicts
+1048af  dead   17:10:14   stage 1 green, stopped in _off, 3/3 verdicts
+orchestrators  none
+node           8 cards VRAM 0 %, only the two foreign CPU containers
+last write     17:25:13  (m35/launch-run5/chain.log)  — 15 min ago
+```
+
+**Fifteen minutes idle.** Below the hour-long gap of T+306 and not yet worth
+alarm; **recorded so the next section can measure against it.** Twenty hours of
+hold remain, so the arithmetic pressure of the 13:00–14:00 window does not
+apply.
+
+### 5. Code problems
+
+**No new ones this interval.**
+
+**Carried, root-caused, unfixed:** `preflight.sh:211`; teardown-vs-preflight
+sequencing; `--var jobid` vs `_agree_or_die`; `etcd.log` written on no path;
+`min_resolve_ratio` floor of zero grades nothing; the router `/health` gate
+narrower than a cold JIT compile (deliberately unfixed on one observation).
+**Fixed and committed:** `logical_operator` uniqueness (`649af26b`).
+**Must not ship:** any retry keyed on the detokenizer signature.
+**Carried unread since T+94:** the eight `jsonschema` validators — **eleven hours.**
+
+### 6. 未定性
+
+- **Why run 11 stopped in `run_profiling_mode_off`.** §2. **One transcript read
+  away and nobody has reported it.**
+- **What module 5 consumes if module 4 is replayed** — **twentieth consecutive
+  section**, and the corpus in §1 is the machinery that would answer it cheaply.
+- **Whether module 4 fits the hold.** No measurement exists.
+- **Whether `PROMOTION.json`'s `not_promoted` list is empty or long.** I read the
+  key and not its contents. **One command, and it says what the corpus cannot
+  replay.**
+
+### 7. 新增 commit
+
+Since T+637, none. **This interval's output is in
+`/data/yihou/e2e_verify_20260906/m35/`, uncommitted** — including the replay
+root, `PROMOTION.json`, and `launch-run5/`.
+
+### 8. 其他
+
+**The corpus in §1 closes the loop the baseline opened, and it is worth marking
+what that took.**
+
+```
+T+0     no corpus exists; nothing can be replayed until we produce it
+T+637   stage 2 sealed with a 137 MB stack capture
+T+667   that run's artefacts promoted into a replay root, with provenance
+```
+
+**Eleven hours, eleven runs, and the thing that made the corpus possible was
+producing one genuinely complete stage.** Not a mock, not a graft — **the
+`--run` field in `PROMOTION.json` names `20260906T154908-d9c7af` and nothing
+else.**
+
+**The first cluster spent this round's equivalent effort grafting today's real
+artefacts into a corpus sealed eight days earlier**, because it had one. **This
+cluster had nothing and therefore had to earn it, and what it earned has a
+`required_node` field and a command line that reproduces it.** Whether that
+matters will show in whoever next needs to replay stage 2 without a GPU.
+
+---
+
+## R2 T+697 — 2026-09-06 18:10 UTC
+
+**T+697 = wall-clock delta from the baseline** (06:33:41 → 18:10:16).
+
+### 1. The launch record has become a pre-registration document
+
+**[first-hand, `m2/launch9/LAUNCH-RECORD.txt`, 18:00:01]** — the whole point is
+what it says about a waiver it is *keeping*:
+
+```
+FULL REAL CHAIN: mock_stages=none, no replay
+trace_end_ms=120000 (the proven fix);
+  stack_window_s and stack_ranks ABSENT (capture must succeed)
+kernel_table_min_launchers=0 KEPT -- leader scope decision made BEFORE the result:
+  one false verdict anywhere in the _on closure invalidates all three handoffs
+  (runner.py:598,972), and packup has never been reached on any cluster.
+  Reaching it once outweighs one attributable verdict.
+  THIS PASS IS NOT EVIDENCE. Restoring a waiver to recover a green is not a
+  measurement.
+instruction: v4 + unconditional log capture before teardown
+             (run 5 died with its cause unread)
+NOT included: m35's run-4 instruction text (I do not have it);
+              detokenizer retry deliberately absent
+```
+
+**"THIS PASS IS NOT EVIDENCE" written into the launch record before the run
+starts** is pre-registration in its strongest form — **the criterion is fixed
+before the data point, and the waiver is labelled so it cannot later be counted
+as a result.** It also names *why* the waiver is kept (a single false verdict
+invalidates three sibling handoffs, `runner.py:598,972`) and *what it is buying*
+(reaching `packup` once).
+
+**Three more things this record does that are worth copying:**
+
+- **`stack_window_s` and `stack_ranks` ABSENT — "capture must succeed."** The
+  masking flags from T+426/T+457 are deliberately not carried. **The run is
+  required to earn the stacks rather than declare them away.**
+- **"instruction: v4 + unconditional log capture before teardown (run 5 died
+  with its cause unread)."** A defect in *observability* fixed by changing the
+  instruction, with the incident that motivated it named inline.
+- **"NOT included: m35's run-4 instruction text (I do not have it)"** — **an
+  explicit statement of what the launcher could not obtain.** An absence
+  recorded rather than silently omitted.
+
+### 2. `launch10` supersedes it four minutes later — and reads its fix from the file
+
+```
+launched_at_utc: 2026-09-06T18:04:01Z
+supersedes: 20260906T180012-9aa819
+            (killed 2 min in: instruction carried the run-2 stranger clause)
+preflight text: VERBATIM from PREFLIGHT-FIX-FOR-NEXT-LAUNCH.md @ 4cd1425e (m35),
+                read from the file not the quotation
+  - a container holds a GPU only if VRAM is ATTRIBUTABLE to it;
+    /dev/kfd mapping is not evidence
+  - unattributable => unknown; unknown WAITS (up to 300s), never aborts
+```
+
+**This is the resolution of T+517's three-instrument problem, stated as a
+predicate.** All three earlier instruments answered adjacent questions —
+`/proc` KFD (blind across containers), `HostConfig.Devices` (mapping, not
+occupancy), bare VRAM (correct, but aborts on our own draining engine). **The new
+one is attribution plus a default of *wait*, not *abort*.**
+
+**"read from the file not the quotation" is the operative clause.** This record
+has spent the day on findings that degraded as they were relayed; **reading the
+source at a named commit removes the relay entirely.**
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~58 %** (unchanged) |
+| 已经耗时 | **~710 min** (mission.md 06:19:11 → 18:10:16) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**No stage advanced.** Two launches spent, one killed at two minutes for
+carrying stale instruction text.
+
+**Hold `29313`: 19 h 50 min left.**
+
+### 4. 当前进展 — sixteen runs; one alive and bringing up
+
+```
+1048af  dead  17:10:14  stage 1 green, stopped in _off
+9aa819  dead  18:02:53  deploy_and_prove FAILED at ~2.5 min (killed, §2)
+6b7c19  ALIVE pid 1773936, started 18:04:12, container=yihou_e2e_chain
+        yihou_e2e_etcd_chain6  18:09:11
+        yihou_e2e_sgl_chain6   18:09:12
+        cards 0 % at 18:09:48 — bring-up is 36 s old
+```
+
+**The idle gap between runs was 50 minutes** (run-tree writes 17:10:14 →
+18:00:12), or 34 minutes measured on teammate scratch (17:25:13 → 17:59:38).
+**Recorded against T+667's 15 minutes; smaller than T+306's 63.**
+
+### 5. Code problems
+
+**No new ones.** **Fixed in launch instruction, not in the package:** the
+preflight predicate (§2) and unconditional log capture before teardown.
+
+**Carried, root-caused, unfixed:** `preflight.sh:211` in the package itself (the
+fix above lives in launch text); teardown-vs-preflight sequencing; `--var jobid`
+vs `_agree_or_die`; `etcd.log` written on no path; `min_resolve_ratio` floor of
+zero; the router `/health` gate vs a cold JIT compile.
+**Carried unread since T+94:** the eight `jsonschema` validators — **eleven and a
+half hours.**
+
+### 6. 未定性
+
+- **Whether run 16 reaches `packup`.** It carries the proven `trace_end_ms`, no
+  masking flags, the new preflight predicate, and log capture before teardown.
+  **It is the best-equipped launch of the round.**
+- **Whether `kernel_table_min_launchers=0` will be honoured as "not evidence"**
+  when the result arrives. **The record says so in advance; whether the next
+  reader carries that qualifier is precisely what the first cluster's §2.8
+  incident was about** — a qualifier one line above a bold claim does not
+  travel.
+- **Why run 11 stopped in `_off`** — carried from T+667, still unread, **and the
+  new instruction's "unconditional log capture before teardown" exists because of
+  it.**
+- **What module 5 consumes if module 4 is replayed** — **twenty-first
+  consecutive section.**
+
+### 7. 新增 commit
+
+Since T+667, one:
+
+```
+202399e3  checkpoint R2 T+667 — mine
+9a1b8a21  CLAUDE.md: fix the definition, not the branch — and say what the
+          common case is
+```
+
+### 8. 其他
+
+**The two launch records in this section are the round's best artefacts, and
+neither is code.**
+
+Between them they carry: what changed and why, which run is superseded and its
+measured cause, a waiver kept with its justification *and* an advance statement
+that its pass is not evidence, two flags deliberately omitted so a capture must
+be earned, a fix quoted verbatim from a named commit rather than retyped, and an
+explicit list of what the launcher could not obtain.
+
+**Every one of those is a defence against a specific failure this record logged
+today** — stale relayed text, a masked degradation read as a result, a
+superseding run whose predecessor's cause was never established, a fix that
+decayed in transit.
+
+**Nine hours ago the launch line was not recoverable from the artefact at all.**
+The gap that remains is that these documents are **uncommitted**, in
+`/data/yihou/e2e_verify_20260906/m2/`, and the fixes they carry live in agent
+instructions rather than in the package. **A launch record is a good place to
+learn something and a poor place to keep it.**
+
+---
+
+## R2 T+726 — 2026-09-06 18:40 UTC
+
+**T+726 = wall-clock delta from the baseline** (06:33:41 → 18:39:49).
+
+### 1. Run 16 is reproducing stage 2, without the masking flags
+
+**[observed, first-hand] `20260906T180412-6b7c19`, pid 1773936, last write
+18:36:04:**
+
+```
+m1_deploy               succeeded          ← stage 1 green, 8th time
+deploy_and_prove        succeeded
+run_profiling_mode_off  succeeded
+run_profiling_mode_on   running
+m2_profiling            running
+
+verdicts  6/6 pass, zero refusals
+stacks_manifest.json    0  (the _on arm is mid-load; the capture comes last)
+
+aiperf_profiling_mode_on_20260906_183335   18:33:35
+yihou_e2e_sgl_…_pmon                       18:30:43
+cards 0-3 at 76 %
+```
+
+**Elapsed to this point: 32 minutes** (18:04:12 launch → `_on` running).
+`d9c7af` took roughly 68 minutes for stages 1 and 2 together.
+
+**What makes this run different from `d9c7af` is what it does not carry.**
+`launch10` omits `stack_window_s` and `stack_ranks` entirely — the two flags that
+at T+426 and T+457 were masking a 13-second shortfall. **If the stacks appear
+here, they were earned by `trace_end_ms=120000` alone, on a launch with no
+capture waiver.** That would be a second independent confirmation rather than a
+repeat.
+
+**It is not yet answered.** `_on` is running and the capture has not happened.
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~58 %** (unchanged) |
+| 已经耗时 | **~740 min** (mission.md 06:19:11 → 18:39:49) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Unchanged, and deliberately so: reproducing a stage that is already counted is
+not progress in the numerator.** It is worth a great deal for confidence and
+nothing for the fraction, and this record has an obligation not to let the two
+blur.
+
+**Hold `29313`: 19 h 20 min left.**
+
+### 3. 当前进展
+
+```
+6b7c19  ALIVE  the only run; no other orchestrator
+node    cards 0-3 at 76 %, 4-7 idle
+        three of our containers up, two foreign CPU containers
+```
+
+**The JIT signature is present again** — `start build` and `Health check failed`
+together total 7 lines in this run's `pmon` worker log — **on an arm that is
+running normally.** Recorded to keep T+607's correction attached to fresh data:
+**the signature is a constant and cannot discriminate anything.**
+
+### 4. Code problems
+
+**No new ones this interval, and nothing has been fixed.**
+
+**Carried, root-caused, unfixed:** `preflight.sh:211` in the package (the working
+predicate lives in launch text, `4cd1425e`); teardown-vs-preflight sequencing;
+`--var jobid` vs `_agree_or_die`; `etcd.log` written on no path;
+`min_resolve_ratio` floor of zero; the router `/health` gate vs a cold JIT
+compile.
+**Carried unread since T+94:** the eight `jsonschema` validators — **twelve
+hours.**
+
+### 5. 未定性
+
+- **Whether the stacks are captured without the waiver flags.** §1. **First
+  answerable in this run.**
+- **Whether run 16 reaches `m3_analysis`, and past it.** `649af26b` fixed the
+  `logical_operator` collision that refused there; **no run has tested that fix.**
+- **Whether `kernel_table_min_launchers=0` gets carried as "not evidence."**
+  `launch9` wrote it in advance; the result has not arrived.
+- **Why run 11 stopped in `_off`** — still unread. **The new instruction's
+  unconditional log capture means the next such death will be readable**, but it
+  does not recover this one.
+- **What module 5 consumes if module 4 is replayed** — **twenty-second
+  consecutive section.**
+
+### 6. 新增 commit
+
+Since T+697, none but mine (`6042638e`).
+
+### 7. 其他
+
+**A quiet interval, and the honest summary is that it looks like the loop
+working.**
+
+One run, alive, on the only node, with no competing orchestrator; the launch line
+assembled from a named commit rather than retyped; two waiver flags deliberately
+absent; six verdicts and no refusals; and a signature that misled two people four
+hours ago now appearing in the logs of a healthy arm without anyone acting on it.
+
+**Nothing here is a result.** `m2_profiling` has sealed once and is running for
+the second time, and the stage past it has been entered once and refused once.
+**But the difference between this interval and the 08:00 hour is that no
+instrument is currently lying to anybody**, and every fix in flight was written
+down before its result arrived.
+
+---
+
+## R2 T+757 — 2026-09-06 19:11 UTC
+
+**T+757 = wall-clock delta from the baseline** (06:33:41 → 19:10:34).
+
+### 1. Run 16 died, and the detector was fed by the failure it exists to catch
+
+**[first-hand, `4c74288f`]**
+
+> *AIPerf's request timeout and `agent_sys`'s stall timeout are **both 900 s**.
+> Each timeout burst writes into the run tree seconds after the stall deadline,
+> so **the detector is re-satisfied every cycle.** Measured: bursts at **18:50:24
+> and 19:05:25, exactly 32 each**, on an engine that **stopped generating at
+> 18:35:24**.*
+
+**A stall detector watches for absence of writes. A request timeout produces
+writes.** With both timers at 900 s, the failing component wrote just often
+enough, and just late enough, to keep resetting the watchdog. **The engine was
+dead for thirty minutes and the run looked alive throughout.**
+
+**`e472d24b` states the general rule:** *a stall threshold must not equal any
+downstream timeout.* **This is the cleanest tier-2 finding of the day** — it is
+a property of two numbers, checkable before any run, and it does not depend on
+anyone remembering anything.
+
+**The record includes its own retrospective test** — *periodic writes at a known
+timeout interval; an artefact that only grows failures* — **and leaves the
+engine's cause open with the measurement that would close it.** Naming what it
+does *not* explain is why the finding is trustworthy.
+
+**Run 16's board** (`20260906T180412-6b7c19`, last write 19:05:59, orchestrator
+gone):
+
+```
+m1_deploy               succeeded     stage 1 green, 8th time
+deploy_and_prove        succeeded
+run_profiling_mode_off  succeeded
+run_profiling_mode_on   running       ← died here
+verdicts 6/6 pass       stacks_manifest.json: 0
+```
+
+**The no-waiver stack-capture question from T+726 is unanswered for a second
+run.** `_on` never completed.
+
+### 2. A separate commit splits a mis-attribution from the mechanism it was credited to
+
+**[first-hand, `667ba683`]**
+
+> *A value taken from a grep **without asking which stage produced it** is one
+> mechanism; **two runs' files coexisting under `pmoff/` and `pmon/`** is
+> another. **Splitting `work_root` fixes the second and does not touch the
+> first.** A fix credited with a save it did not make gets over-trusted.*
+
+**This is the T+216 lesson generalised.** There the launch line recorded an
+intention and the deployment recorded the fact; here a fix is being kept from
+inheriting credit for a save it did not make. **`753e060f` puts it in
+`CLAUDE.md`.**
+
+### 3. Leader messages arrived batched, and two of them are stale — recorded because a stale directive is an instrument failure
+
+**Five messages arrived together at ~19:10.** Three describe state from 06:51,
+07:42 and 13:09; one is a cadence check timestamped 14:28. **Reading them in
+sequence would have produced a section describing a hold that ended five hours
+ago.** Recording the discrepancy rather than acting on it:
+
+**(a) "Write the round's final section now, the hold ends at 13:59:59."**
+**Superseded by events.** `29184` ended 14:00:01 and **`29313` started 14:00:06
+on the same node with a 24-hour limit** — recorded at T+457 from `scontrol`.
+There was no final section to write; the round continued for five more hours and
+sealed stage 2 at 16:57.
+
+**(b) The cadence check: "last changed at 13:10 … roughly 45 minutes past due."**
+**Not correct, and the leader explicitly asked to be told which instrument is
+right.** My commits to this file, read from `git log` just now:
+
+```
+12:10:43  T+336      15:11:47  T+517
+12:41:05  T+366      15:42:03  T+548
+13:10:41  T+396      16:12:12  T+578
+13:40:50  T+426      16:41:41  T+607
+14:11:23  T+457      17:11:39  T+637
+14:41:57  T+487      17:41:12  T+667
+                     18:10:59  T+697
+                     18:40:19  T+726
+```
+
+**Every interval is 30 minutes ± 90 seconds, unbroken since the baseline.** At
+14:28 the file's most recent commit was **14:11:23**, not 13:10. **The right
+instrument is `git log -- work.checkpoint.summary.md`**; a working-tree mtime or
+a stale `git log` cache will disagree.
+
+**(c) The `bfs` warning, applied to my own idiom.** The leader is right that
+`find` here is `bfs` and rejects relative `-newermt`. **I have used absolute
+timestamps throughout** (`-newermt '2026-09-06 07:04'`), which `bfs` accepts —
+**but I did carry `2>/dev/null` on some of those calls**, which is the more
+dangerous half and which I flagged against myself at T+94 §4. **From this section
+I use `-mmin -N`**; the check above this one used it.
+
+### 4. The leader's own items, recorded plainly as asked
+
+**Stated without softening, at their request:**
+
+- **The duplicate launch at 14:08 was theirs** — two owners authorised, the first
+  never withdrawn, two chains with identical ports and `work_root`. **They killed
+  `3849649` at 14:10:35.** I flagged the overlap at 14:09:47 and named the wrong
+  operative mechanism (T+216, T+487); **the authorisation is the part that made
+  it possible and it is theirs.**
+- **The `trace_end_ms=60000` override that blocked the ladder for six launches
+  was theirs**, compression under an instruction to go faster. **T+426 recorded
+  the arithmetic; this records who set it.**
+- **The node was idle about an hour** between a refusal and a relaunch, held for
+  a decision. **T+306 measured that gap at 63 minutes.**
+- **Their own run-tree readings ran ahead of the filesystem three times** and
+  were reported as independently confirmed. **They have stood down from
+  corroborating run state.** *"An instrument failure with an unknown cause, not a
+  resolved one"* — recorded as they asked, and I have not investigated it.
+
+**And their central lesson, which this record reached independently at T+396 and
+T+517:** *today's run deaths were each caused by a guard added to fix the
+previous death, and each fix was correct about the failure in front of it and
+blind to the one it created.* **Their diagnosis of why the countering evidence
+did not help is the part I had not got to:** *the clause reads as conservative,
+and the failure it produces looks exactly like the thing it guards against.*
+
+### 5. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~58 %** (unchanged) |
+| 已经耗时 | **~771 min** (mission.md 06:19:11 → 19:10:34) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Unchanged.** Run 16 reproduced stage 1 and `_off` and died in `_on`.
+
+**Hold `29313`: 18 h 50 min left.**
+
+### 6. Code problems
+
+**New, root-caused, unfixed:** the stall threshold equals AIPerf's request
+timeout (both 900 s), so timeout bursts re-satisfy the detector.
+**New, unknown:** why the engine stopped generating at 18:35:24. **The record
+names the measurement that would close it; nobody has taken it.**
+
+**Carried, root-caused, unfixed:** `preflight.sh:211`; teardown-vs-preflight
+sequencing; `--var jobid` vs `_agree_or_die`; `etcd.log` on no path;
+`min_resolve_ratio` floor of zero; the router `/health` gate vs a cold JIT
+compile.
+**Carried unread since T+94:** the eight `jsonschema` validators — **twelve and a
+half hours.**
+
+### 7. 未定性
+
+- **Whether the stacks are captured without waiver flags** — unanswered for two
+  runs.
+- **Whether `merge_profiling_evidence` executes.** The leader states it has
+  **never executed anywhere**, and that it, not m3, is the next rung. **`d9c7af`
+  shows `merge_profiling_evidence = succeeded`** — I record the disagreement
+  rather than resolving it; **the reading is that run's `store/task`, which is
+  what I printed at T+637.**
+- **Why the engine stopped generating at 18:35:24.**
+- **What module 5 consumes if module 4 is replayed** — **twenty-third
+  consecutive section.**
+
+### 8. 新增 commit
+
+Since T+726, four:
+
+```
+c9d32be7  checkpoint R2 T+726 — mine
+753e060f  CLAUDE.md: a fix credited with a save it did not make gets over-trusted
+667ba683  bug record: separate a mis-attribution from the real mechanism it was
+          credited to
+4c74288f  bug record: two 900s timers, and the failure feeding the detector
+          meant to kill it
+e472d24b  CLAUDE.md: a stall threshold must not equal any downstream timeout
+```
+
+### 9. 其他
+
+**Two of the five messages I received this interval described a world that had
+stopped existing five hours earlier, and one of them was an instruction to write
+a final section.**
+
+**Had I acted on it, this file would now contain a closing summary of a round
+that went on to seal stage 2, build its own replay corpus, and reach stage 3.**
+The thing that prevented it was not judgement — **it was that every section in
+this file records the clock it was written against**, so a directive premised on
+`29184` ending was checkable against `29313` starting, which T+457 had already
+read from `scontrol`.
+
+**That is the same property the launch records acquired at T+697** — `supersedes`
+and a read `launched_at_utc` — and it is the same property the leader is asking
+for when they say a stale directive should be answered with the right instrument
+rather than absorbed. **A message does not carry its own expiry; a timestamped
+record of what was true when does.**
+
+---
+
+## R2 T+786 — 2026-09-06 19:40 UTC
+
+**T+786 = wall-clock delta from the baseline** (06:33:41 → 19:40:14).
+
+### 1. The engine freeze from T+757 was diagnosed, then corrected twice by its own author
+
+**The mechanism claim, then its retraction, then a correction of the retraction's
+arithmetic — all inside forty minutes and all self-initiated.**
+
+```
+4afe06b7  "a with_stack profiler window freezes the engine mid-window"
+52487eed  CORRECTION: the same config passed at 16:38
+2e83f52c  the real denominator: stack window 1 of 3, measurement window 4 of 4
+10558a28  CLAUDE.md: an intermittent failure is indistinguishable from a
+          deterministic one at N=1
+```
+
+**[first-hand, `52487eed`]**
+
+> *Run `20260906T154908-d9c7af` took **the same 3 s `with_stack=1` window on the
+> same host, image and schedule** and produced four trace files;
+> `check_trace_coverage` passed on it. **The freeze is intermittent, one of two
+> real attempts, not a property of `with_stack`.** The `ReadTimeout` on that stop
+> **happened in the passing run too and carries no information.** Timeline and
+> the missing `Stop profiling` lines stand.*
+
+**A known-good run refuted the mechanism, and the same run also disarmed the
+`ReadTimeout` that had looked like evidence.** This is T+607's shape a second
+time: **a signature present in a passing run cannot discriminate anything** —
+except that here it was caught in forty minutes rather than four hours, and by
+the person who proposed it.
+
+**Then the denominator correction, which is the sharper one** [`2e83f52c`]:
+
+> *I had written "two attempts, one hit" by **dropping the attempt that aborted
+> before the window opened**. Different failure, still an attempt that produced
+> no stack window; **excluding it flattered the number.***
+
+```
+stack window        1 of 3   ← survives
+measurement window  4 of 4
+```
+
+**The asymmetry between the two window types is the finding, and it survives the
+small sample.** The 1-of-3 is worse than the 2-of-3 they first wrote, and they
+corrected it against themselves.
+
+**And the rule they extracted is the one this record most needed today**
+[`10558a28`]:
+
+> *An intermittent failure is indistinguishable from a deterministic one at N=1.
+> **And N=1 is invisible from inside the run tree.** Before naming a mechanism
+> for a failure, ask whether that stage has **ever succeeded on this host**, and
+> **ask it outside the run.** Four commands.*
+
+**Every mechanism error this file recorded today would have been caught by that
+question.** My T+548 etcd attribution, my T+578 JIT mechanism, the detokenizer
+guard that killed two healthy bring-ups, and now this — **four instances, and in
+each one the disproof was a run that had already succeeded and was not
+consulted.**
+
+### 2. A third member of the wrong-knob family
+
+**`4e67b69d`: "a refusal names a `--var` the guard does not read."** Joining
+`min_launchers_in_top_n` vs `kernel_table_min_launchers` (T+366) and
+`stack_window_s` vs `stack_ranks` (T+457). **Three instances, three different
+validators.** **The class — *a refusal's remediation text names an internal field
+rather than the operator's flag* — is now established by multiplicity rather than
+by a single case.**
+
+### 3. Run 17 is in flight, and its launch record now binds identity
+
+**[first-hand, `m2/launch11/LAUNCH-RECORD.txt`]**
+
+```
+written_at        2026-09-06T19:25:19Z   (read with date -u, not hand-written)
+launched          2026-09-06T19:24:06Z
+run dir           /data/yihou/agent_sys_runroot/runs/20260906T192406-5f24ca
+orchestrator pid  2505185  ppid 1  (setsid took; a harness tool-call timeout
+                  cannot reap it — m1's 2026-09-06 08:0x finding)
+identity          bound by the agent child's readlink /proc/<pid>/cwd
+```
+
+**Three defences in five lines, each traceable to a specific incident:** a read
+timestamp with the method stated; `ppid 1` recorded as *evidence that `setsid`
+took*, against the harness-reaping failure; and identity bound by `cwd` rather
+than by a name — **the discriminator the first cluster paid five
+misattributions to learn.**
+
+**Board at 19:39:49:**
+
+```
+5f24ca   ALIVE  pid 2505185, container=yihou_e2e_chain7
+         deploy_and_prove: output_validating   verdicts 2/2
+         yihou_e2e_etcd_serves-e5b225d6  19:38:45
+         yihou_e2e_sgl_serves-e5b225d6   19:38:47
+         cards 0-3 at 75 %
+6b7c19   dead   19:05:59  (two 900 s timers, T+757)
+```
+
+**Seventeen runs.**
+
+### 4. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~58 %** (unchanged) |
+| 已经耗时 | **~800 min** (mission.md 06:19:11 → 19:40:14) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Hold `29313`: 18 h 20 min left.**
+
+**A number worth stating because it changes how the remaining hold should be
+read:** the stack-window capture has succeeded **1 time in 3 real attempts**,
+and it is required for `check_trace_coverage` without a waiver. **Stage 2 is not
+reliably reproducible even though it has sealed once.**
+
+### 5. Code problems
+
+**Retracted, not a defect:** `with_stack` freezing the engine. **Open, and now
+correctly framed as intermittent:** what makes the stack window fail 2 times in
+3.
+
+**Carried, root-caused, unfixed:** stall threshold equals AIPerf's 900 s request
+timeout; `preflight.sh:211`; teardown-vs-preflight sequencing; `--var jobid` vs
+`_agree_or_die`; `etcd.log` on no path; `min_resolve_ratio` floor of zero; the
+router `/health` gate vs a cold JIT compile; **and now a third refusal naming an
+unreadable `--var`.**
+**Carried unread since T+94:** the eight `jsonschema` validators — **thirteen
+hours.**
+
+### 6. 未定性
+
+- **Whether run 17's stack window is the 2nd hit in 4 attempts or the 3rd miss.**
+  **This is now a measurable rate rather than a yes/no**, which is a better
+  question than the one I carried for four sections.
+- **What makes the stack window intermittent.** Open, correctly.
+- **Whether `merge_profiling_evidence` has executed** — the T+757 §7 disagreement
+  with the leader stands unresolved; **nobody has re-read `d9c7af`'s
+  `store/task`.**
+- **What module 5 consumes if module 4 is replayed** — **twenty-fourth
+  consecutive section.**
+
+### 7. 新增 commit
+
+Since T+757, five:
+
+```
+75cc5889  checkpoint R2 T+757 — mine
+4e67b69d  bug record: a refusal names a --var the guard does not read
+4afe06b7  bug record: a with_stack profiler window freezes the engine mid-window
+52487eed  bug record: correct the with_stack entry — the same config passed at
+          16:38
+10558a28  CLAUDE.md: an intermittent failure is indistinguishable from a
+          deterministic one at N=1
+2e83f52c  bug record: the real denominator — stack window 1 of 3, measurement
+          window 4 of 4
+```
+
+**Three of the six are corrections to the other three, by the same author, within
+the same interval.** **That ratio is the healthiest thing in this section.**
+
+### 8. 其他
+
+**"Ask whether that stage has ever succeeded on this host, and ask it outside the
+run" is the rule this file has been circling all day, finally stated as four
+commands.**
+
+Every mechanism I got wrong today failed the same way: **I reasoned from the
+failing run and the failing run alone.** T+548 read one router log. T+578 read
+one worker log. The detokenizer guard sampled only failures — *"that sample could
+not structurally contain a counterexample."* **In all four cases a successful run
+of the same stage existed on the same host at the time, and in three of them it
+was in a directory I had already listed.**
+
+**The correction is not "read more carefully." It is that a failure is not a
+sample, and a run tree cannot tell you it is N=1.** The denominator lives outside
+the run — which is the same place this file already established that hold
+liveness, image identity, and container ownership live. **Four things now, all
+invisible from inside.**
+
+---
+
+## R2 T+817 — 2026-09-06 20:11 UTC
+
+**T+817 = wall-clock delta from the baseline** (06:33:41 → 20:10:34).
+
+### 1. Deepest board of the round — stage 2 sealed again, stage 3 well inside, 21/21 verdicts
+
+**[observed, first-hand] `20260906T192406-5f24ca`, alive, pid 2505185, last write
+20:09:50:**
+
+```
+m1_deploy                succeeded
+deploy_and_prove         succeeded
+run_profiling_mode_off   succeeded
+run_profiling_mode_on    succeeded
+merge_profiling_evidence succeeded
+m2_profiling             SUCCEEDED        ← stage 2 sealed, 2nd time
+identify                 SUCCEEDED        ← never sealed before
+rank                     succeeded
+build_workset            running          ← never reached before
+m3_analysis              running
+
+verdicts  21/21 pass — ZERO refusals
+```
+
+**`identify` sealed.** It refused once, at T+637, on a duplicate
+`logical_operator` that would have become two directories with one name.
+**`649af26b` fixed it and this is the first run to test that fix.** It passed.
+
+**Twenty-one verdicts and not one refusal.** The largest clean board of the
+round; the previous best was 20/21.
+
+### 2. The stack window was captured — and the rate is now 2 in 4
+
+**[first-hand]**
+
+```
+stacks_manifest.json  ×7 in this run
+  ranks 2
+  totals {files 2, bytes 140 335 056, gpu_kernels 111 516,
+          python_functions 5 703 861, readable 2}
+```
+
+**140 MB and 5.7 million python function samples**, comparable to `d9c7af`'s
+137 MB / 5.6 M at T+637.
+
+**T+786 recorded the rate as 1 hit in 3 real attempts. It is now 2 in 4.** That
+is the honest update: **the stack window remains intermittent, and this run is a
+hit rather than a fix.** Nothing in the launch changed to make it more likely —
+`launch11` carries the same `trace_end_ms=120000` and the same absence of waiver
+flags.
+
+**The question I carried for four sections — "will the capture succeed without
+the waiver?" — has now been answered twice: yes, sometimes.** That is a worse
+answer than a clean yes and a much better one than the yes/no framing allowed.
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~66 %** (+8) |
+| 已经耗时 | **~831 min** (mission.md 06:19:11 → 20:10:34) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+8: stage 2 reproduced, `identify` and `rank` sealed, `build_workset`
+running.** Stage 3 is no longer "entered and refused" — **three of its tasks have
+sealed and a fourth is executing.**
+
+**Timing so far, measured:** launched 19:24:06, at `build_workset` by 20:09:50 —
+**46 minutes for stage 1 plus stage 2 plus most of stage 3.** `d9c7af` took ~68
+minutes to reach the equivalent of stage 2 alone.
+
+**Hold `29313`: 17 h 50 min left.**
+
+### 4. 当前进展
+
+```
+5f24ca  ALIVE  the only run, pid 2505185, container=yihou_e2e_chain7
+node    8 cards VRAM 0 %, no yihou_* container
+```
+
+**Cards idle and no engine container, with the run actively writing 11 seconds
+before I sampled.** `build_workset` is a CPU stage; **this is the sixth failure
+mode of "the cards are free" and the reading is correct while the inference from
+it would be wrong.** Recorded because I have now made that mistake once and
+avoided it four times in this file, and the difference each time was asking
+whether a live chain exists before asking whether cards are busy.
+
+### 5. Code problems
+
+**No new ones. Nothing broke this interval.**
+
+**Confirmed fixed by a passing run:** `logical_operator` uniqueness (`649af26b`)
+— **the first fix of the round verified by the validator that refused it.**
+
+**Carried, root-caused, unfixed:** stall threshold equals AIPerf's 900 s request
+timeout; `preflight.sh:211`; teardown-vs-preflight sequencing; `--var jobid` vs
+`_agree_or_die`; `etcd.log` on no path; `min_resolve_ratio` floor of zero; the
+router `/health` gate vs a cold JIT compile; three refusals naming unreadable
+`--var`s.
+**Open, correctly framed as intermittent:** what makes the stack window fail 2
+times in 4.
+**Carried unread since T+94:** the eight `jsonschema` validators — **thirteen and
+a half hours.**
+
+### 6. 未定性
+
+- **Whether `build_workset` completes and `m3_analysis` seals.** Live now, and
+  **this is the furthest the round has ever been.**
+- **What module 4 costs.** Still zero measurements, and it is now one stage away.
+  **17 h 50 min of hold is the budget it has.**
+- **What module 5 consumes if module 4 is replayed** — **twenty-fifth consecutive
+  section**, and if `m3_analysis` seals it becomes the immediate next question
+  rather than a carried one.
+- **Whether `merge_profiling_evidence` had executed before tonight.** **It shows
+  `succeeded` here and in `d9c7af`.** The leader stated at 14:28 that it had never
+  executed anywhere; **two runs now disagree with that, and I record the
+  disagreement rather than assuming which is stale.**
+
+### 7. 新增 commit
+
+Since T+786, none but mine (`daf69e62`).
+
+### 8. 其他
+
+**The last three sections have a shape worth naming while the run is still
+alive.**
+
+```
+T+757   a stall detector fed by the failure it watches for
+T+786   a mechanism proposed, retracted, and its denominator corrected —
+        by one person inside forty minutes
+T+817   21 of 21 verdicts, three new tasks sealed, no refusals
+```
+
+**The clean board did not arrive because the chain got easier.** It arrived after
+a day in which ten distinct single-point defects were each found once, and in
+which the last three findings were all about *how we were measuring* rather than
+about the product. **`identify` sealing is the direct payoff of a refusal at
+16:57 that named a file and a fix; the capture succeeding is not a payoff at all,
+it is a coin that landed the right way twice in four.**
+
+**Keeping those two apart is the whole job of this section.** One of them will
+still be true tomorrow.
+
+---
+
+## R2 T+847 — 2026-09-06 20:41 UTC
+
+**T+847 = wall-clock delta from the baseline** (06:33:41 → 20:40:23).
+
+### 1. `build_workset` executed and was refused — by a localisation defect, not an artefact defect
+
+**[observed, first-hand] `5f24ca`, `check_workset_runs`, 43 files in materials,
+23/24 verdicts:**
+
+```
+PROBLEM: gemm_aiter_bf16gemm_bf16_tn/case_001: the performance entrypoint
+  exited 1: measure_in_container: cannot derive a mount this cluster's docker
+  authorization plugin will accept from …/materials/…/v1/items/codes.
+  Measured forms:
+    ref: -v $HOME:$HOME              accepted   (m3 measured, 006)
+    ref: -v /shared_nfs:/shared_nfs  accepted   (relayed: leader measured)
+    ref: -v /home:/home              refused    (relayed: leader measured, 243)
+    (the three rows above are a catalogue, NOT what this run did)
+  Point --demo-root at one of the two, or set E2E_REMOTE_HOME, or extend this
+  case with a form you have SEEN the daemon accept — not one you expect it to.
+```
+
+**[first-hand, `b6c0a3c4`] The mechanism:**
+
+> *`measure_in_container.sh` derives its bind mount from a **two-branch `case`
+> covering `/shared_nfs` and `/home`; this host's root is `/data/yihou`.**
+> `E2E_REMOTE_HOME` is declared in **four task env blocks and not in
+> `check_workset_runs`**, which runs with a **closed environment**. The
+> `build_workset` agent exported it by hand, **so only the validator side could
+> fail.***
+
+**This is the round's cleanest second-cluster localisation defect.** The package
+knows about two filesystem layouts; this cluster is a third. **The producer side
+was patched by hand at runtime and the validator side, which cannot see the
+environment, was not.** `E2E_REMOTE_HOME` appears 16 times in the package — **in
+four task env blocks, and not in the one place that needed it.**
+
+**Two things about the refusal text itself, because they are the standard this
+record has been asking for all day:**
+
+- **It labels its own evidence by provenance** — `(m3 measured, 006)` versus
+  `(relayed: leader measured)` — and then **explicitly disclaims the catalogue**:
+  *"the three rows above are a catalogue, NOT what this run did."*
+- **It ends with "a form you have SEEN the daemon accept — not one you expect it
+  to."** That is this file's core discipline written into a validator's error
+  path.
+
+**And the same report volunteers its own coverage limit:**
+
+> *`reverify_shapes` = **1 of 5** operator(s) with a primary shape. **This number
+> is the producer's claim and this run did not check it.** … re-measuring all 5
+> would cost about 360 s more.*
+
+**Four of five operators were recorded, not re-measured, and the validator says
+so per-operator with the price of fixing it.** Compare `min_resolve_ratio`'s
+floor of zero at T+637 — **the same honesty, and this one quantifies the trade.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~68 %** (+2) |
+| 已经耗时 | **~861 min** (mission.md 06:19:11 → 20:40:23) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+2: `build_workset` ran, produced a workset with five operators and timing
+cases, and reached output validation.** The one refusal does not judge that
+artefact — **`b6c0a3c4`'s subject says it outright: "and the artefact is fine."**
+
+**Hold `29313`: 17 h 20 min left.**
+
+### 3. 当前进展 — run 18 launched one minute ago
+
+```
+5f24ca  dead   last 20:38:48   build_workset: output_validating, 23/24
+                orchestrator gone
+3bf8c2  ALIVE  pid 3203507, container=yihou_e2e_chain8, started 20:39:56
+node    8 cards VRAM 0 %, no yihou_* container — run is 27 s old
+total runs: 18
+```
+
+### 4. Code problems
+
+**New, root-caused, unfixed:** `measure_in_container.sh`'s mount `case` has two
+branches (`/shared_nfs`, `/home`) and this host needs a third (`/data/yihou`);
+**`E2E_REMOTE_HOME` is absent from `check_workset_runs`'s env block**, which runs
+closed. **The producer-side workaround was a manual export and does not travel.**
+
+**Carried, root-caused, unfixed:** stall threshold equals AIPerf's 900 s request
+timeout; `preflight.sh:211`; teardown-vs-preflight sequencing; `--var jobid` vs
+`_agree_or_die`; `etcd.log` on no path; `min_resolve_ratio` floor of zero; the
+router `/health` gate vs a cold JIT compile; three refusals naming unreadable
+`--var`s.
+**Open, intermittent:** the stack window, 2 hits in 4.
+**Carried unread since T+94:** the eight `jsonschema` validators — **fourteen
+hours.**
+
+### 5. 未定性
+
+- **Whether run 18 clears `check_workset_runs`.** It depends entirely on whether
+  the mount form or `E2E_REMOTE_HOME` reached the validator's closed
+  environment. **The reading is one `grep` of the launch record.**
+- **Whether `reverify_shapes=1` is the right default for acceptance.** The
+  validator prices the alternative at 360 s. **Nobody has decided; the default
+  means four of five operator timings are the producer's unchecked claim.**
+- **What module 4 costs** — zero measurements, one stage away, 17 h 20 min of
+  hold.
+- **What module 5 consumes if module 4 is replayed** — **twenty-sixth
+  consecutive section.**
+
+### 6. 新增 commit
+
+Since T+817, one:
+
+```
+5b233c68  checkpoint R2 T+817 — mine
+b6c0a3c4  validator failures: check_workset_runs refused, and the artefact is
+          fine
+```
+
+### 7. 其他
+
+**The environment defect in §1 is the exact class this round exists to find, and
+it took fourteen hours to surface because everything upstream of it had to work
+first.**
+
+The baseline at T+0 listed the second-cluster hazards it could see: no corpus,
+no `spur`, a read-only path that is not read-only here, a namespace-package
+collision. **It could not list this one**, because a mount `case` in a
+measurement script is only reachable once a workset with real operators exists to
+measure — **which required stage 1 green, stage 2 sealed, `identify` sealed, and
+`build_workset` to run.**
+
+**That is what a ladder buys and it is worth stating plainly at 68 %:** the
+defects found late are not the ones anybody was slow to find. **They are the ones
+that were unreachable until the rungs below them held.**
+
+---
+
+## R2 T+877 — 2026-09-06 21:11 UTC
+
+**T+877 = wall-clock delta from the baseline** (06:33:41 → 21:10:34).
+
+### 1. One field, two consumers, incompatible demands
+
+**[first-hand, `1d71a809`]**
+
+> *m3's `--impl` wants **a self-contained file exporting top-level `run()`**;
+> `apply_patch`'s `overlay_files` wants **the overlaid module's whole public
+> surface preserved**. Run 7's workset records a **472-char wrapper as baseline
+> for all five operators**, each of whose targets defines **6–55 module
+> symbols**, so `apply.py:828` refuses. **`base_sha256` matches the image
+> exactly, so 691 does not pre-empt it.** `apply_patch` brings nothing up, so the
+> refusal costs seconds, not an m5 arm.*
+
+**This is the mirror of the family this record has been collecting all day.**
+Three times it has been *one intention, two names* — `stack_window_s` /
+`stack_ranks`, `min_launchers_in_top_n` / `kernel_table_min_launchers`, and a
+third at T+786. **This is one name, two intentions**: `baseline` is written to
+satisfy m3 and read to satisfy `apply_patch`, and the two definitions cannot both
+hold for the same 472 bytes.
+
+**Two details worth keeping separately from the defect:**
+
+- **`base_sha256` matching exactly is why the earlier check does not fire.** The
+  hash is correct; the *shape* is wrong. **That is the first cluster's lesson
+  inverted** — there a correct-looking hash was supplied and disarmed a real
+  guard; here a genuinely correct hash simply does not speak to the question, and
+  a different check at `:828` catches it. **A field can be right and irrelevant.**
+- **The refusal costs seconds because `apply_patch` brings nothing up.** **A
+  cheap refusal sited before an expensive action is the correct shape**, and this
+  one is. Compare `check_deploy_serves`, whose refusal costs a bring-up and a
+  teardown by construction.
+
+### 2. Run 18 is 30 minutes in and has not brought up — and it is working, not stalled
+
+```
+3bf8c2   ALIVE  pid 3203507, container=yihou_e2e_chain8, started 20:39:56
+         deploy_and_prove: running   verdicts 0/0
+         last write 21:09:58  (6 s before I sampled)
+node     8 cards VRAM 0 %, no yihou_* container
+```
+
+**Thirty minutes with no engine container is slower than the recent pattern** —
+run 17 had its serves container up ~15 minutes after launch. **So I opened the
+transcript rather than inferring from the cards:**
+
+```
+21:09:54  "Now the STEP 8 self-check. Let me look at exactly how the validator
+           interprets headings and evidence:"
+21:09:58  reads a file under zones/task.44d916dc-…
+```
+
+**The deployer is reading the validator's own source to check its output against
+it before submitting.** That is deliberate work, not a hang. **The cards being
+idle is correct and means nothing about the run's health** — the sixth failure
+mode, avoided by asking whether a live chain exists before asking whether cards
+are busy.
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~68 %** (unchanged) |
+| 已经耗时 | **~891 min** (mission.md 06:19:11 → 21:10:34) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**Unchanged: run 18 has not reached a verdict.** **Hold `29313`: 16 h 50 min
+left.**
+
+### 4. Code problems
+
+**New, root-caused, unfixed:** `baseline` has two consumers with incompatible
+demands (`apply.py:828`; m3's `--impl`; `overlay_files`). **Run 7's workset
+records a 472-char wrapper for all five operators.**
+
+**Carried, root-caused, unfixed:** the `measure_in_container.sh` two-branch mount
+`case` and `E2E_REMOTE_HOME` absent from `check_workset_runs`'s closed env; stall
+threshold equals AIPerf's 900 s request timeout; `preflight.sh:211`;
+teardown-vs-preflight sequencing; `--var jobid` vs `_agree_or_die`; `etcd.log` on
+no path; `min_resolve_ratio` floor of zero; the router `/health` gate vs a cold
+JIT compile; three refusals naming unreadable `--var`s.
+**Open, intermittent:** the stack window, 2 hits in 4.
+**Carried unread since T+94:** the eight `jsonschema` validators — **fourteen and
+a half hours.**
+
+### 5. 未定性
+
+- **Whether run 18 clears `check_workset_runs`** — the mount defect from T+847 is
+  the wall it will meet, and I do not know whether the launch addresses it.
+- **Which consumer's definition of `baseline` is the correct one.** §1 names the
+  conflict; **it does not say which side should change**, and that is a contract
+  decision rather than a bug fix.
+- **What module 4 costs** — zero measurements, 16 h 50 min of hold.
+- **What module 5 consumes if module 4 is replayed** — **twenty-seventh
+  consecutive section**, and §1 is the first finding that touches it: **if
+  `apply_patch` refuses every workset baseline, module 5 has nothing to apply
+  regardless of where module 4's artefact comes from.**
+
+### 6. 新增 commit
+
+Since T+847, one:
+
+```
+eabcfbc6  checkpoint R2 T+847 — mine
+1d71a809  bug record: baseline has two consumers with incompatible demands
+```
+
+### 7. 其他
+
+**The `baseline` conflict is the first defect of the round that is a contract
+question rather than an implementation error, and it arrived exactly where the
+ladder predicted.**
+
+Everything earlier had a right answer that somebody simply had not written:
+a mount branch, a timeout ordering, a variable that was never wired, a duplicated
+name. **This one has two right answers held by two modules, and no amount of
+careful reading resolves it** — `apply.py:828` is correct to refuse a wrapper
+that drops 6–55 public symbols, and m3 is correct to want a self-contained file
+with a top-level `run()`.
+
+**`CONTRACT.md` is the frozen fifteen-kind cross-module contract and it is the
+document this belongs in.** Whether it already speaks to `baseline`, I have not
+read. **That is the cheap reading that would tell whoever picks this up whether
+they are fixing a violation or filling a gap** — and those need different people.
+
+---
+
+## R2 T+907 — 2026-09-06 21:40 UTC
+
+**T+907 = wall-clock delta from the baseline** (06:33:41 → 21:40:19).
+
+### 1. Run 18 reproduced the deepest board, fully real, in one hour
+
+**[observed, first-hand] `20260906T203956-3bf8c2`, alive, pid 3203507, last write
+21:39:41:**
+
+```
+m1_deploy                succeeded
+deploy_and_prove         succeeded
+run_profiling_mode_off   succeeded
+run_profiling_mode_on    succeeded
+merge_profiling_evidence succeeded
+m2_profiling             succeeded
+identify                 succeeded
+rank                     succeeded
+build_workset            running
+m3_analysis              running
+
+verdicts 21/21 — zero refusals
+```
+
+**Identical board to run 17 at the same point, and `mock_stages=none`** — read
+from the orchestrator's argv, along with `trace_end_ms=120000`,
+`work_root=/data/yihou/e2e_flow8`, `jobid=29313`. **Nothing was replayed.**
+
+**This is the second consecutive run to seal stage 2 and `identify`.** At T+817 I
+was careful to separate the `identify` fix (a real payoff) from the stack capture
+(a coin landing right). **Two runs in a row now make stage 2 + `identify` + `rank`
+reproducible rather than lucky** — and the stack capture, which was 2 of 4, is
+now presumably 3 of 5, though I have not counted this run's manifests.
+
+**Timing, both runs, measured:**
+
+```
+run 17   19:24:06 launch -> build_workset running 20:09:50   46 min
+run 18   20:39:56 launch -> build_workset running 21:39:41   60 min
+         (at 21:10:04 it was still deploy_and_prove, 0 verdicts)
+```
+
+**Run 18 spent ~30 minutes in stage 1 and ~30 in stage 2 + identify + rank.**
+Run 17 was faster in stage 1. **I do not know why**; the difference is not in the
+launch variables I read.
+
+### 2. A foreign-looking container, and I am not attributing it by name
+
+```
+yihou_m3_explore   created 21:39:41
+  image      rocm/pytorch:rocm7.2.4_ubuntu24.04_py3.12_…
+  autoremove true
+  devices    /dev/kfd
+  labels     only org.opencontainers.*  — NO infera_e2e_run
+```
+
+**It maps `/dev/kfd` and all eight cards read 0 %.** By T+517's finding that is
+*device mapping, not occupancy*, so under the standing rule — stop GPU occupants,
+leave the rest — **it is out of scope and I have not touched it.**
+
+**By ownership evidence rather than by name:** no `infera_e2e_run` label,
+`--rm`, and a `rocm/pytorch` image rather than our engine image. **The `yihou_m3_`
+prefix is not evidence** — the first cluster misattributed five containers that
+way, one of them twice to two different people. **I record what it is and decline
+to say whose.**
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~70 %** (+2) |
+| 已经耗时 | **~921 min** (mission.md 06:19:11 → 21:40:19) |
+| 预估耗时 | **absent** |
+| 可靠性 | **中** |
+
+**+2 for reproducibility, not new ground** — the same accounting I applied at
+T+186 when stage 1 went green twice. **Nothing past `build_workset` has ever
+completed.**
+
+**Hold `29313`: 16 h 20 min left.**
+
+**One estimate that is now defensible and I will state with its limits:** stages
+1–3-to-`build_workset` cost **46 and 60 minutes** on two consecutive fully-real
+runs. **That is a real measurement of the front three quarters of the chain.**
+Modules 4 and 5 still have **zero** measurements here, and module 4 is the one
+the user flagged as very long — **so the total remains unestimable, but the part
+that is not module 4 is now known to be about an hour.**
+
+### 4. Code problems
+
+**No new ones. Nothing broke this interval.**
+
+**Carried, root-caused, unfixed:** `baseline` with two incompatible consumers
+(`apply.py:828`); `measure_in_container.sh`'s two-branch mount `case` and
+`E2E_REMOTE_HOME` absent from `check_workset_runs`'s closed env; stall threshold
+equals AIPerf's 900 s request timeout; `preflight.sh:211`;
+teardown-vs-preflight sequencing; `--var jobid` vs `_agree_or_die`; `etcd.log` on
+no path; `min_resolve_ratio` floor of zero; the router `/health` gate vs a cold
+JIT compile; three refusals naming unreadable `--var`s.
+**Open, intermittent:** the stack window.
+**Carried unread since T+94:** the eight `jsonschema` validators — **fifteen
+hours.**
+
+### 5. 未定性
+
+- **Whether run 18 clears `check_workset_runs`.** The mount defect from T+847 is
+  the wall in front of it and **I have not established whether this launch
+  addresses it** — `work_root=/data/yihou/e2e_flow8` is still under `/data`,
+  which is the root the two-branch `case` does not cover.
+- **Why run 17's stage 1 was 15 minutes faster than run 18's.** Not in the launch
+  variables.
+- **What module 4 costs** — zero measurements, 16 h 20 min of hold.
+- **What module 5 consumes if module 4 is replayed** — **twenty-eighth
+  consecutive section.**
+
+### 6. 新增 commit
+
+Since T+877, none but mine (`0dd15a0c`).
+
+### 7. 其他
+
+**Two runs in a row have produced identical 21/21 boards on a fully real chain,
+and that is the first time this round has had a repeatable state to reason
+from.**
+
+Everything before tonight was a single instance: one stage-1 green, then a
+second; one stage-2 seal; one `identify` seal. **Each was worth recording and
+none of them supported a rate.** The day's sharpest methodological finding —
+`10558a28`, *an intermittent failure is indistinguishable from a deterministic
+one at N=1* — was about precisely that poverty.
+
+**With two identical boards, the questions change shape.** "Did `identify` pass?"
+becomes "does `identify` pass?", and the stack window stops being a yes/no and
+becomes a fraction. **That is worth more than the +2** — but it is worth exactly
+nothing past `build_workset`, where the chain has never been, and where the two
+unfixed defects in front of it are a mount `case` with no branch for this cluster
+and a `baseline` field two modules disagree about.
+
+---
+
+## R2 T+937 — 2026-09-06 22:10 UTC
+
+**T+937 = wall-clock delta from the baseline** (06:33:41 → 22:10:04).
+
+### 1. STAGE 3 IS COMPLETE, and stage 4 has started
+
+**[observed, first-hand] `20260906T203956-3bf8c2`, alive, pid 3203507, last write
+22:09:52:**
+
+```
+m1_deploy                succeeded
+deploy_and_prove         succeeded
+run_profiling_mode_off   succeeded
+run_profiling_mode_on    succeeded
+merge_profiling_evidence succeeded
+m2_profiling             succeeded
+identify                 succeeded
+rank                     succeeded
+build_workset            SUCCEEDED       ← refused in run 17 (T+847)
+m3_analysis              SUCCEEDED       ← STAGE 3 SEALED, first time ever
+m4_kernel_opt            running         ← STAGE 4 ENTERED, first time ever
+optimize_kernel          running
+
+verdicts 24/24 — zero refusals
+stacks_manifest.json ×7
+```
+
+**`build_workset` sealed.** It was refused ninety minutes ago by
+`check_workset_runs` on a mount `case` with no branch for `/data/yihou` (T+847).
+**It passed this time, so the mount reached the validator's closed environment** —
+**how, I have not established**, and that is the reading worth taking: the fix
+either travelled in the launch or the agent supplied it, and those have very
+different lifespans.
+
+**24 of 24 verdicts, no refusals, on a fully real chain** (`mock_stages=none`,
+read from argv at T+907). **Three of five stages sealed.**
+
+**`/data/yihou/e2e_flow8/kfo` exists** — the kernel-forge scratch root. Module 4
+is doing something.
+
+**Timing, measured:** launched **20:39:56**, `m3_analysis` sealed by
+**22:09:52 — 90 minutes for stages 1 through 3.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (+6) |
+| 已经耗时 | **~951 min** (mission.md 06:19:11 → 22:10:04) |
+| 预估耗时 | **for the first time, partially estimable — see below** |
+| 可靠性 | **中** |
+
+**+6: stage 3 sealed and stage 4 entered.** Three of five.
+
+**On 预估耗时, and this is the first time I can say anything.** Stages 1–3 cost
+**90 minutes** on a fully real run, and the front of the chain has now been
+measured twice (46 min and 60 min to `build_workset`). **Module 4 has zero
+measurements here and the user flagged it as very long; the first cluster
+recorded one campaign running 113 minutes and still in preparation.** Module 5
+also has zero.
+
+> **So: the chain up to module 4 costs about 90 minutes. What remains is
+> unestimable, and it is unestimable because of module 4 specifically, not
+> because of general uncertainty.** That is a more useful statement than
+> "absent," and it is the first time it has been available.
+
+**Hold `29313`: 15 h 50 min left.**
+
+### 3. 当前进展
+
+```
+3bf8c2   ALIVE  the only run; m4_kernel_opt / optimize_kernel running
+node     8 cards VRAM 0 %, no yihou_* container
+scratch  /data/yihou/e2e_flow8/kfo present
+```
+
+**Cards idle while module 4 runs is expected** — the first cluster measured a
+campaign spending its first two hours in preparation with no source file
+modified. **I will not read "no GPU activity" as "module 4 is stuck"**, and the
+discriminator when it matters is the growth of `kfo/`, not the cards.
+
+### 4. Code problems
+
+**Apparently cleared, mechanism unconfirmed:** the `measure_in_container.sh`
+mount `case`. **`check_workset_runs` passed; I have not read how.**
+
+**Carried, root-caused, unfixed:** `baseline` with two incompatible consumers
+(`apply.py:828`) — **and it is now directly in front of the chain**, because
+module 5's `apply_patch` is the consumer that refuses; stall threshold equals
+AIPerf's 900 s request timeout; `preflight.sh:211`; teardown-vs-preflight
+sequencing; `--var jobid` vs `_agree_or_die`; `etcd.log` on no path;
+`min_resolve_ratio` floor of zero; the router `/health` gate vs a cold JIT
+compile; three refusals naming unreadable `--var`s.
+**Open, intermittent:** the stack window.
+**Carried unread since T+94:** the eight `jsonschema` validators — **fifteen and
+a half hours.**
+
+### 5. 未定性
+
+- **What module 4 costs, and whether it fits 15 h 50 min.** **Now the single
+  question that decides whether this round reaches `packup`.**
+- **How `build_workset` cleared the mount defect.** §1. **A fix in a launch or an
+  agent instruction does not ship; a fix in the package does.** This record has
+  made that distinction four times today and it applies again.
+- **Whether `baseline` blocks module 5** regardless of module 4's outcome
+  (T+877 §1).
+- **What module 5 consumes if module 4 is replayed** — **twenty-ninth consecutive
+  section, and it is now one stage away from being answered by events rather
+  than by reading.**
+
+### 6. 新增 commit
+
+Since T+907, none but mine (`59c1c7b3`).
+
+### 7. 其他
+
+**Sixteen hours and eighteen runs to get three stages, and the third arrived
+ninety minutes after the second on the same run.**
+
+That is worth stating precisely because it is not a story about acceleration.
+**The eighteen runs bought eleven distinct single-point defects**, each found
+once, each by something refusing rather than by something quietly producing a
+wrong answer. **Run 18 did not go faster because anyone tried harder; it went
+further because every rung below it had been repaired.**
+
+**And the two defects nearest the front are the two that were unreachable
+longest:** a mount `case` that could only be hit once a real workset existed to
+measure, and a `baseline` contract that only bites when `apply_patch` reads what
+`build_workset` wrote. **Both are properties of the chain being connected, which
+is the entire thing this package exists to do.**
+
+**What has never happened on either cluster is `packup`.** Module 4 is running,
+the cards are idle, and the honest position is that nobody here knows how long
+that lasts.
+
+---
+
+## R2 T+967 — 2026-09-06 22:40 UTC
+
+**T+967 = wall-clock delta from the baseline** (06:33:41 → 22:40:12).
+
+### 1. Module 4 was attempted twice and refused twice — both correctly, both for a missing launch variable
+
+**[first-hand, `f273f0e1`]**
+
+> *`HIP_VISIBLE_DEVICES` is `'${gpu:-}'` and `run_in_container.sh` aborts on
+> empty, **so STEP 4 never measured**; both refusals are downstream of that and
+> **both are correct**. **The launch line carried `measure_gpu` and not `gpu` —
+> two names, two consumers, and having one made the other look covered.**
+> Sweeps the whole empty-default class rather than fixing the instance, and
+> **marks the six untested ones as un-refuted.***
+
+**Module 4 has now run twice and measured nothing.** Its cost on this cluster is
+still zero measurements — **the two attempts do not count, because the stage
+aborted before it did any work.**
+
+**Three things worth separating:**
+
+- **Both refusals are correct.** The validators refused an artefact that
+  genuinely had no measurement in it. **This is not a validator problem.**
+- **The class was swept, not the instance.** The first cluster paid three
+  launches fixing `expect_ranks`, then `adhoc_cases`, then `bench_rounds` one at
+  a time. **Here the whole empty-default variable class was enumerated in one
+  pass, and the six that remain untested are marked *un-refuted* rather than
+  quietly assumed fine.**
+- **Run 19 carries `gpu=4`.** Read from `/proc/21292/cmdline` just now, alongside
+  `measure_gpu=4`, `mock_stages=none`, `trace_end_ms=120000`,
+  `work_root=/data/yihou/e2e_flow9`. **The fix is in the launch line.**
+
+### 2. The general rule, and it is mechanically checkable
+
+**[first-hand, `58c5c56e`]**
+
+> *Twice in one evening: **`remote_home` present / `transport_env` missing**, and
+> **`measure_gpu` present / `gpu` missing.** The absent half's failure **looks
+> like an artefact defect, not a launch-line defect.** **Re-reading the variable
+> table does not catch it — the table was wrong**; subtracting the line from the
+> package's empty-default vars does, **in two commands, before launch.***
+
+**"Re-reading the variable table does not catch it — the table was wrong" is the
+part that makes this tier 2 rather than tier 3.** The first cluster's rule was
+*audit the whole variable table against your `mock_stages` every launch*; **this
+supersedes it, because the table itself is a document and documents decay.**
+**Subtracting the launch line from the package's own empty-default variables is a
+computation over the code.**
+
+**And it answers my T+937 §1 open question by family:** the mount defect at
+T+847 was `remote_home` present / `transport_env` missing — **a launch-line
+defect wearing the costume of an artefact defect**, exactly as this rule
+predicts.
+
+### 3. A retraction of a worked example — the false-credit error with its sign flipped
+
+**[first-hand, `d313556e`]**
+
+> *The threshold must exceed the longest **QUIET** interval, not the longest
+> stage: a stage that writes into the run tree keeps the detector fed
+> (`build_workset` ran **24 min under 1200 s twice**). **Run 7 was not an
+> instance** — its output validation took **0.85 s** and refused; the 20 minutes
+> were an escalation with no recipient. The validator feared to take tens of
+> minutes **measured 7 s.** **Blaming a death on a choice that did not cause it
+> is the false-credit error with the sign flipped.***
+
+**That last sentence is a new formulation and it completes a pair.**
+`753e060f` at T+786: *a fix credited with a save it did not make gets
+over-trusted.* **This is the same error pointed the other way — a choice blamed
+for a death it did not cause gets over-avoided.** Both distort the next decision;
+neither is caught by care.
+
+**And the correction is quantitative in both directions**: a validator feared to
+cost tens of minutes measured **7 s**, and a stage that does not stall
+(`build_workset`, 24 min) never threatened the detector because **it writes**.
+
+### 4. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged) |
+| 已经耗时 | **~981 min** (mission.md 06:19:11 → 22:40:12) |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 still zero measurements** |
+| 可靠性 | **中** |
+
+**Unchanged: module 4 ran twice and measured nothing.** **The estimate for stages
+1–3 stands at ~90 minutes and is unaffected.**
+
+**Hold `29313`: 15 h 20 min left.**
+
+### 5. 当前进展
+
+```
+3bf8c2   dead   reached m4_kernel_opt; module 4 refused twice (missing --var gpu)
+                /data/yihou/e2e_flow8/kfo  224 K, 27 files written in 30 min
+967186   ALIVE  pid 21292, container=yihou_e2e_chain9, started 22:32:21
+                deploy_and_prove: running   verdicts 0/0
+                carries gpu=4  (the fix)
+node     8 cards VRAM 0 %, no yihou_* container — run is 7 min old
+total runs: 19
+```
+
+**`kfo/` reached only 224 K.** Consistent with STEP 4 never measuring; **the
+forge wrote its scaffolding and stopped.**
+
+### 6. Code problems
+
+**Root-caused, fixed in the launch line:** `--var gpu` absent while `measure_gpu`
+present. **Six other empty-default variables are enumerated and marked
+un-refuted** — **not fixed, and honestly labelled.**
+
+**Carried, root-caused, unfixed:** `baseline` with two incompatible consumers
+(`apply.py:828`); stall threshold vs the longest **quiet** interval;
+`preflight.sh:211`; teardown-vs-preflight sequencing; `--var jobid` vs
+`_agree_or_die`; `etcd.log` on no path; `min_resolve_ratio` floor of zero; the
+router `/health` gate vs a cold JIT compile; three refusals naming unreadable
+`--var`s.
+**Carried unread since T+94:** the eight `jsonschema` validators — **sixteen
+hours.**
+
+### 7. 未定性
+
+- **What module 4 costs.** **Still zero measurements after two attempts** — and
+  this is the question that decides whether `packup` is reached. 15 h 20 min.
+- **The six un-refuted empty-default variables.** Enumerated, untested. **Each
+  one can produce a refusal that reads as an artefact defect.**
+- **Whether `baseline` blocks module 5** (T+877).
+- **What module 5 consumes if module 4 is replayed** — **thirtieth consecutive
+  section.**
+
+### 8. 新增 commit
+
+Since T+937, three:
+
+```
+55081e55  checkpoint R2 T+937 — mine
+f273f0e1  validator failures: m4 refused twice, cause is a missing --var gpu
+58c5c56e  CLAUDE.md: the present half of a variable pair makes the absent half
+          look covered
+d313556e  CLAUDE.md: the stall rule's second half, and a worked example that is
+          not one
+```
+
+### 9. 其他
+
+**Two of tonight's three commits are rules that supersede rules, and both
+supersede them in the same direction: from a document to a computation.**
+
+```
+was  "audit the whole variable table every launch"
+now  "subtract your launch line from the package's empty-default vars" — 2 cmds
+     because THE TABLE WAS WRONG
+
+was  "set the stall threshold above the longest stage"
+now  "above the longest QUIET interval" — because a stage that writes feeds the
+     detector, measured: build_workset 24 min under a 1200 s threshold, twice
+```
+
+**Both old versions were written down, read, and followed. Both failed anyway**,
+and in each case the replacement is something you compute rather than something
+you remember. **This file has argued all day that only the remember-it tier
+decays; tonight two rules crossed from that tier into the checkable one, and each
+crossing was paid for by a specific death.**
+
+**The third commit retracts a worked example rather than defending it** — run 7
+was blamed on a stall threshold that had nothing to do with it. **A rule that
+keeps a false example loses the thing that makes it trustworthy**, and dropping
+the example cost nothing because the rule survives on `build_workset`'s two
+measured 24-minute runs.
+
+---
+
+## R2 T+997 — 2026-09-06 23:10 UTC
+
+**T+997 = wall-clock delta from the baseline** (06:33:41 → 23:10:28).
+
+### 1. `output_validating` means the opposite of what it reads as — and I have printed it fourteen times
+
+**[first-hand, `c2ac437f`]**
+
+> *Two runs died under that label and it was **read twice as "validation is
+> taking too long."** Measured: **both validations finished in under a second and
+> refused**; the wait afterwards is an **escalation to an agentless root task**.
+> **The label is accurate and means the opposite of what it reads as**, and
+> **only the verdict files' mtimes separate the two.** **No stall value would
+> have changed either.***
+
+**This lands squarely on my own instrument.** Every section since the baseline
+has printed `store/task` status, and `deploy_and_prove: output_validating` has
+appeared in many of them — for `15c264`, `ae2c38`, `79bca5`, and others, all
+dead.
+
+**And I made the exact misreading it names, at T+62:**
+
+> *"At 07:35:22 it had not returned … **Elapsed in validation at this write:
+> 5 min 23 s.** I do not know whether that is normal for this validator set
+> here."*
+
+**It had not been validating for five minutes. It had crashed at 07:29:59, in the
+same second the phase line was written** — which I established at T+94 and
+recorded as my own correction. **`c2ac437f` is the general form of that
+correction**, measured across two further runs and shown to be a property of the
+label rather than an accident of one crash.
+
+**The operational consequence, stated as the check I will now run:** when a task
+reads `output_validating`, **compare the verdict files' mtimes to the phase
+transition.** Sub-second means the validation is over and the task is sitting in
+an escalation with no recipient. **The label cannot distinguish them; two mtimes
+can.**
+
+**"No stall value would have changed either" also disarms a fix that looks
+obvious** — this is not a timeout to be widened, and widening one would have
+bought nothing.
+
+### 2. 当前进展 — run 20, and run 19 lasted nine minutes
+
+```
+967186   dead   launched 22:32:21, carried the gpu=4 fix
+ef6374   ALIVE  pid 95533, container=yihou_e2e_chain10, launched 22:41:00
+         deploy_and_prove: output_validating   verdicts 2/2
+         yihou_e2e_serves-fba3b260       23:03:46
+         yihou_e2e_serves-fba3b260_etcd  23:03:52
+         aiperf_serves-fba3b260          23:06:47
+         cards 0-3 at 76 %
+         last write 23:10:02  (26 s before I sampled)
+total runs: 20
+```
+
+**`check_deploy_serves` is running with a live engine and aiperf**, so this
+`output_validating` is the genuine kind — **and I can say so because the aiperf
+container exists**, not because of the label.
+
+**`/data/yihou/e2e_flow9/kfo` is 0 bytes** — run 19 never reached module 4.
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged) |
+| 已经耗时 | **~1011 min** (mission.md 06:19:11 → 23:10:28) |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 still zero measurements** |
+| 可靠性 | **中, and one component of it just got worse** |
+
+**Unchanged.** Two launches consumed since T+937 and neither reached module 4.
+
+**On reliability:** §1 shows that one of the fields I report every thirty minutes
+is systematically ambiguous. **My status tables have been accurate and one of
+their rows has been over-read — by me, at T+62, and by two others since.** The
+sections stand; **the field now needs a companion measurement whenever it
+matters.**
+
+**Hold `29313`: 14 h 50 min left.**
+
+### 4. Code problems
+
+**New, root-caused, unfixed:** `output_validating` persists after a failed
+validation, because the escalation goes to an agentless root task. **Framework,
+not package.**
+
+**Fixed in the launch line:** `--var gpu`. **Six empty-default variables remain
+un-refuted.**
+
+**Carried, root-caused, unfixed:** `baseline` with two incompatible consumers;
+stall threshold vs the longest quiet interval; `preflight.sh:211`;
+teardown-vs-preflight sequencing; `--var jobid` vs `_agree_or_die`; `etcd.log` on
+no path; `min_resolve_ratio` floor of zero; the router `/health` gate vs a cold
+JIT compile; three refusals naming unreadable `--var`s.
+**Carried unread since T+94:** the eight `jsonschema` validators — **sixteen and
+a half hours.**
+
+### 5. 未定性
+
+- **What module 4 costs.** **Four runs have now entered or approached it and none
+  has measured anything.** 14 h 50 min of hold.
+- **Why run 19 died nine minutes in**, carrying the `gpu=4` fix. **Not
+  established; its `kfo` is empty so it did not reach module 4.**
+- **The six un-refuted empty-default variables.**
+- **Whether `baseline` blocks module 5.**
+- **What module 5 consumes if module 4 is replayed** — **thirty-first consecutive
+  section.**
+
+### 6. 新增 commit
+
+Since T+967, one:
+
+```
+cbd0b96e  checkpoint R2 T+967 — mine
+c2ac437f  bug record: output_validating persists forever after a failed
+          validation
+```
+
+### 7. 其他
+
+**Three findings tonight have the same shape and it is the sharpest recurring
+pattern of the round: a signal that is accurate and misleading at once.**
+
+```
+T+607  the detokenizer health-check failure   accurate; universal, so it
+                                              discriminates nothing
+T+967  measure_gpu present, gpu absent        accurate; its presence made the
+                                              absent half look covered
+T+997  output_validating                      accurate; it means the validation
+                                              is OVER, not ongoing
+```
+
+**None of these is a bug in the signal.** Each says something true. **What each
+lacks is the second reading that makes it decisive** — a known-good sample, the
+package's empty-default set, a verdict file's mtime. **In all three cases that
+second reading is one command and existed the whole time.**
+
+**And in all three the first reading is the one that arrives unasked**, printed
+in a log or a status table, which is why it gets used. **The cost is not that
+people trust bad instruments; it is that a good instrument answering an adjacent
+question is indistinguishable from one answering yours, until you take the
+second reading.**
+
+---
+
+## R2 T+1027 — 2026-09-06 23:41 UTC
+
+**T+1027 = wall-clock delta from the baseline** (06:33:41 → 23:41:00).
+
+### 1. `xiaoming-dev` took all eight GPUs at 23:39:34 — and eight of my sections say it holds none
+
+**[observed, first-hand, second reading taken deliberately]**
+
+```
+23:39:49   VRAM%  36 35 36 37 37 35 37 35
+23:40:09   VRAM%  47 47 47 48 44 47 49 45      rising ~11 % in 20 s
+23:40:30   VRAM%  47 47 47 48 44 47 49 45
+
+rocm-smi --showpids
+  626424  pt_elastic  GPU 0
+  626591/3/5/6/8  python  GPU 1   ~140 GB each
+
+ps -o user=,lstart=,args=
+  626424  root  Sun Sep  6 23:39:34  /opt/venv/bin/torchrun --nnodes=1 …
+  626595  root  Sun Sep  6 23:39:35  /opt/venv/bin/python -u _cfgtest/profile_keys.py
+
+/proc/*/cgroup -> docker-67486b18cb58…
+docker inspect  name=/xiaoming-dev  image=tasimage/primus:pr-1048
+                started 2026-09-03T02:19:00Z  autoremove=false
+                labels: only org.opencontainers.*  — NO infera_e2e_run
+```
+
+**This is the seventh failure mode of "the cards are free," in its exact
+recorded form:** *a container present but idle can begin loading at any moment,
+and the reading that says it holds nothing expires in minutes.* **It sat idle for
+three days and started thirty-five seconds before I first sampled.**
+
+**Eight of my sections carry "foreign, CPU only" or "foreign, no GPU" for this
+container.** Every one of them was true when taken and **each had a shelf life
+nobody could have bounded.** This is the difference this record has drawn all day
+between an inaccurate reading and a correct reading whose validity window is
+shorter than the interval between readings.
+
+**I have not touched it, and the reasoning is on the record rather than in my
+judgement:** standing rule 1 says stop foreign GPU occupants; the same rule's
+amendment says an occupant that will respawn should be reported rather than
+fought; **and I have no evidence either way about respawn, because it started
+thirty-five seconds before I looked.** Reported to the leader at 23:40:30 with
+the measurements and no recommendation. **It is another engineer's container
+running a real workload — `torchrun --nnodes=1` with five ranks at ~140 GB is not
+a stale allocation.**
+
+**Why it is material right now:** **card 4 is at 44 %**, and `--var gpu=4` is the
+variable fixed at T+967 so that module 4 could measure.
+
+### 2. Run 20 has the second-deepest board and is still going
+
+```
+ef6374   ALIVE  pid 95533, container=yihou_e2e_chain10, launched 22:41:00
+  m1_deploy                succeeded
+  deploy_and_prove         succeeded
+  run_profiling_mode_off   succeeded
+  run_profiling_mode_on    succeeded
+  merge_profiling_evidence succeeded
+  m2_profiling             succeeded
+  identify                 succeeded
+  rank                     succeeded
+  build_workset            running
+  m3_analysis              running
+  verdicts 21/21           newest verdict mtime 23:24:27
+  last write 23:39:56
+```
+
+**Third consecutive run to seal stage 2, `identify` and `rank`.** **59 minutes
+from launch to `build_workset`** — against 46 and 60 for runs 17 and 18.
+
+**I applied T+997's check:** the newest verdict mtime is **23:24:27** and the run
+has written since (**23:39:56**), so nothing is sitting in a post-refusal
+escalation. **That is the companion reading the status label cannot give.**
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged) |
+| 已经耗时 | **~1042 min** (mission.md 06:19:11 → 23:41:00) |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Unchanged.** **Hold `29313`: 14 h 19 min left.**
+
+**A risk I can state without predicting:** if `xiaoming-dev` holds eight cards
+while run 20 reaches module 4, the measurement `--var gpu=4` exists for **cannot
+get an idle card.** Whether it waits, refuses, or measures under contention, **I
+do not know** — and the first cluster measured that a co-tenant corrupts a
+failure but not a pass, which makes any module-4 timing taken under this load
+unusable as a duration estimate even if it succeeds.
+
+### 4. Code problems
+
+**No new ones.** Carried, unchanged from T+997: `output_validating` persisting;
+`baseline` with two incompatible consumers; stall threshold vs longest quiet
+interval; `preflight.sh:211`; teardown-vs-preflight sequencing; `--var jobid` vs
+`_agree_or_die`; `etcd.log` on no path; `min_resolve_ratio` floor of zero; the
+router `/health` gate vs a cold JIT compile; three refusals naming unreadable
+`--var`s; six un-refuted empty-default variables.
+**Carried unread since T+94:** the eight `jsonschema` validators — **seventeen
+hours.**
+
+### 5. 未定性
+
+- **Whether `xiaoming-dev` releases, and whether it respawns.** **No evidence in
+  either direction.** The measurement is another sample in thirty minutes.
+- **What module 4 costs** — and now, **whether any measurement taken tonight
+  would be interpretable** given §3.
+- **Whether run 20 reaches module 4 before the cards are gone.**
+- **What module 5 consumes if module 4 is replayed** — **thirty-second
+  consecutive section.**
+
+### 6. 新增 commit
+
+Since T+997, none but mine (`1dbac526`).
+
+### 7. 其他
+
+**The eight stale claims in §1 are the cleanest example this file contains of a
+category it has been describing all day, and they are mine.**
+
+Nothing was measured wrong. `docker ps` reported the container; `rocm-smi`
+reported zero; both were correct at every sampling. **What made the claim
+misleading is that I carried it forward as a standing fact across seventeen hours
+of sections, when what I had was a series of instantaneous readings.**
+
+**The repair is not to check more often.** At thirty-minute intervals I would
+still have written "CPU only" at 23:09 and been overtaken at 23:39. **The repair
+is to write the reading with its timestamp and not the inference** — *"held no
+GPU at 23:09:58"* rather than *"foreign, CPU only."* The first expires visibly;
+the second reads as a property of the container.
+
+**And the same distinction is what §2's verdict-mtime check buys**, and what
+`c2ac437f`, `58c5c56e` and `10558a28` all bought tonight in their own domains.
+**A measurement with a timestamp is a fact. The same measurement stated as a
+property is a prediction.**
+
+---
+
+## R2 T+1057 — 2026-09-07 00:10 UTC
+
+**T+1057 = wall-clock delta from the baseline** (2026-09-06 06:33:41 → 2026-09-07
+00:10:38). **First section on a second calendar day; the T-number and the UTC
+stamp both continue, and the date is now part of every timestamp below.**
+
+### 1. `xiaoming-dev` released the cards after about half an hour
+
+**[observed, first-hand]**
+
+```
+2026-09-06 23:39:34   torchrun starts, five ranks, ~140 GB each
+2026-09-06 23:40:30   VRAM%  47 47 47 48 44 47 49 45
+2026-09-07 00:10:11   VRAM%   0  0  0  0  0  0  0  0
+                      rocm-smi --showpids: "No KFD PIDs currently running"
+```
+
+**It held all eight cards for at most ~31 minutes and let them go.** The
+container is still up (`docker ps` shows it), still maps `/dev/kfd`, and holds
+nothing.
+
+**The open question from T+1027 — does it respawn — is still open, and one
+release does not answer it.** What I can say: **it went from three days idle to
+eight cards in one second, and back to zero within half an hour.** The honest
+description of this node is that **it has a co-tenant whose GPU use is bursty and
+unannounced**, which is a stronger and more useful statement than either "CPU
+only" or "it took the GPUs."
+
+**And the phrasing repair from T+1027 §7 applies immediately:** the correct
+record is *"held no GPU at 00:10:11"*, not *"holds no GPU."*
+
+### 2. Run 20 has been quiet for twelve minutes inside `build_workset`
+
+```
+ef6374   ALIVE  pid 95533, orchestrator up since 22:40:48
+  build_workset            running
+  m3_analysis              running
+  everything upstream      succeeded
+  verdicts 21/21           newest verdict mtime 2026-09-06 23:24:27
+  last run-tree write      2026-09-06 23:58:13
+  work_root 442 M, 0 files written in the last 15 min
+```
+
+**Quiet for 12 min 15 s at this sample.** Recorded as a measurement, not a
+diagnosis.
+
+**The comparison that makes it interpretable comes from tonight's own
+measurement** (`d313556e`): **`build_workset` ran 24 minutes under a 1200-second
+threshold, twice.** So twelve minutes of quiet is **inside its known range** and
+this record has no basis to call it stalled.
+
+**And T+997's companion check says the same:** the newest verdict mtime is
+23:24:27 with run-tree writes at 23:58:13 afterwards, so **the task is not
+sitting in a post-refusal escalation.**
+
+**`build_workset` is a `runner` closure — a program body, no transcript** — so
+the artefact that would say *what* it is doing does not exist for it. **The
+available signals are the ones above.**
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged) |
+| 已经耗时 | **~1071 min ≈ 17 h 51 min** (mission.md 2026-09-06 06:19:11 → now) |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Fourth consecutive interval unchanged.** Runs 19 and 20 have both failed to get
+past `build_workset` so far, and **module 4 has still measured nothing on this
+cluster after four approaches.**
+
+**Hold `29313`: 13 h 50 min left** (2026-09-07T14:00:06 → 00:10:38).
+
+### 4. Code problems
+
+**No new ones.** All carried, unchanged from T+1027: `output_validating`
+persisting after a failed validation; `baseline` with two incompatible consumers;
+stall threshold vs the longest quiet interval; `preflight.sh:211`;
+teardown-vs-preflight sequencing; `--var jobid` vs `_agree_or_die`; `etcd.log` on
+no path; `min_resolve_ratio` floor of zero; the router `/health` gate vs a cold
+JIT compile; three refusals naming unreadable `--var`s; six un-refuted
+empty-default variables.
+**Carried unread since T+94:** the eight `jsonschema` validators — **seventeen
+and a half hours.**
+
+### 5. 未定性
+
+- **Whether `build_workset` completes.** Twelve minutes quiet against a measured
+  24-minute precedent.
+- **Whether `xiaoming-dev` bursts again**, and whether module 4 would be able to
+  measure card 4 if it did. **One release is not a pattern.**
+- **What module 4 costs** — and per T+1027 §3, **any timing taken under a
+  co-tenant burst would be uninterpretable even if it succeeded.**
+- **Whether `baseline` blocks module 5.**
+- **What module 5 consumes if module 4 is replayed** — **thirty-third consecutive
+  section.**
+
+### 6. 新增 commit
+
+Since T+1027, none but mine (`48248964`). **No commits by anyone in the last
+thirty minutes.**
+
+### 7. 其他
+
+**The co-tenant burst is the first event of this round that neither the package
+nor the team can fix, and it is worth marking as a different category from
+everything above it.**
+
+Every other entry in this file is something someone did: a variable not passed, a
+mount branch not written, a name spelled two ways, a timer set equal to another
+timer. **All of them have owners and repairs.** `xiaoming-dev` starting a
+training job at 23:39:34 has neither — **it is a fact about sharing a machine**,
+and the only thing available is to know it happened and to distrust any number
+measured across it.
+
+**That is why the T+1027 §7 phrasing repair matters more than it looks.** A
+record that says *"held no GPU at 00:10:11"* stays true forever and lets a later
+reader ask the right question. **A record that says "foreign, CPU only" quietly
+becomes false at 23:39:34 and takes eight sections with it.**
+
+---
+
+## R2 T+1087 — 2026-09-07 00:41 UTC
+
+**T+1087 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 00:40:34).
+
+### 1. Run 20 is not stalled — it died at 23:58:13 and the label never changed
+
+**At T+1057 I recorded twelve minutes of quiet and declined to call it a stall,
+citing `build_workset`'s measured 24-minute precedent. That was the right call
+for the wrong reason: it was already dead.** This interval I read the events
+instead of the clock.
+
+**[observed, first-hand] `store/event`, the last three, same instant:**
+
+```
+2026-09-06T23:58:13.887  output_absent
+   detail: success   exit_status: finished
+   "declared output 879b05db-59bc-4307-a2de-ba81fb51ec3e was never delivered"
+   seal_refused…
+2026-09-06T23:58:13.888  push_attempted   "continue, do it until finished"
+2026-09-06T23:58:13.894  handling_failed  {}
+```
+
+**The body finished successfully and never delivered its declared output.**
+`exit_status: finished`, `detail: success`, and the declared output absent.
+
+**`handling_failed` with an empty `attributes` is the first cluster's documented
+signature for *the agent has completed and `mainloop` has returned, so there is
+no loop to deliver to*, and nothing retries.** **I relay that interpretation and
+did not re-derive it**; what I measured is the three events and their timestamps.
+
+**Four independent readings agree, and none of them is the status field:**
+
+```
+last run-tree write     2026-09-06 23:58:13   -> 41 min 54 s quiet
+build_workset's longest measured quiet         24 min, twice (d313556e)
+--stall-after 900 should have fired ~00:13     it did not kill the run
+newest verdict mtime    2026-09-06 23:24:27    validation long over (T+997)
+store/task still says   build_workset: running
+orchestrator pid 95533  ALIVE, holding the slot
+```
+
+**This is the third distinct way a run can be dead while reading alive**, and
+they are now all on the record:
+
+```
+T+997   output_validating persists after a failed validation
+T+757   two 900 s timers — timeout bursts keep re-satisfying the detector
+T+1087  output_absent + handling_failed — the task stays `running` forever
+```
+
+**In none of them is the status field wrong.** It reports what was dispatched.
+**What it cannot report is that nothing will ever pick the work up again**, and
+in all three cases the discriminator is in `store/event`, which is one directory
+away and which I did not open at T+1057.
+
+### 2. Nobody is watching, and the node is idle
+
+```
+teammate writes under /data/yihou/e2e_verify_20260906/  in the last 60 min:  0
+commits by anyone since mine at 00:10:59:                                     0
+cards at 00:39:48:  VRAM%  0 0 0 0 0 0 0 0
+containers:         rc_26_7_902, xiaoming-dev — held no GPU at 00:39:48
+```
+
+**`xiaoming-dev` released before 00:10:11 after holding all eight cards for about
+31 minutes** (T+1057 §1). **So the node has been free and doing nothing for at
+least thirty minutes**, with a dead run holding the chain slot.
+
+**Reported to the leader at 00:40:07 with the measurements.** **I have not
+touched the orchestrator** — teardown order is agents first, then containers,
+and that is not an instrument's call.
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged) |
+| 已经耗时 | **~1101 min ≈ 18 h 21 min** |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Fifth consecutive interval unchanged**, and this one for a reason worth
+stating: **the board run 20 reached was the third consecutive 21/21 with zero
+refusals**, and it died on a delivery failure rather than on anything it
+computed.
+
+**Hold `29313`: 13 h 19 min left** (2026-09-07T14:00:06 → 00:40:34).
+
+### 4. Code problems
+
+**New, observed, unfixed:** a task whose body finishes and does not deliver its
+declared output leaves the task `running` permanently with no retry
+(`output_absent` → `push_attempted` → `handling_failed`). **Framework, not
+package**, and it joins the two other permanent-`running` mechanisms in §1.
+
+**Carried, unchanged:** `output_validating` persisting; `baseline` with two
+incompatible consumers; stall threshold vs longest quiet interval;
+`preflight.sh:211`; teardown-vs-preflight sequencing; `--var jobid` vs
+`_agree_or_die`; `etcd.log` on no path; `min_resolve_ratio` floor of zero; the
+router `/health` gate vs a cold JIT compile; three refusals naming unreadable
+`--var`s; six un-refuted empty-default variables.
+**Carried unread since T+94:** the eight `jsonschema` validators — **eighteen
+hours.**
+
+### 5. 未定性
+
+- **Why `build_workset` did not deliver `879b05db-…`.** `exit_status: finished`
+  and `detail: success` say the body thought it was done. **The reading that
+  would answer it is the body's own output directory against what it declared**;
+  I have not taken it.
+- **Whether anyone picks this up before the hold burns.** 13 h 19 min, node
+  idle, no activity in an hour.
+- **What module 4 costs** — five approaches, zero measurements.
+- **What module 5 consumes if module 4 is replayed** — **thirty-fourth
+  consecutive section.**
+
+### 6. 新增 commit
+
+Since T+1057, none by anyone, including me until this section.
+
+### 7. 其他
+
+**Three mechanisms now produce a run that is dead and reads alive, and I found
+the third by opening the events after having declined to open them thirty minutes
+earlier.**
+
+At T+1057 I wrote: *"Quiet for 12 min 15 s at this sample. Recorded as a
+measurement, not a diagnosis."* **That restraint was correct as a policy and it
+cost thirty minutes**, because the thing that would have settled it was not more
+patience — **it was `store/event`, which is the same artefact this file has
+named as the discriminator every time this has come up.**
+
+**The rule I will follow from here, stated so it is checkable rather than
+remembered:** *when a task's quiet interval exceeds its own measured precedent,
+open `store/event` before writing the section — not after.* **`build_workset`'s
+precedent is 24 minutes and it was in this file when I wrote T+1057.**
+
+---
+
+## R2 T+1117 — 2026-09-07 01:11 UTC
+
+**T+1117 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 01:10:23).
+
+### 1. The co-tenant respawns — `xiaoming-dev` is a new container with the same name
+
+**The T+1027 question "does it respawn" has an answer, and it is yes.**
+
+**[observed, first-hand]**
+
+```
+docker inspect xiaoming-dev
+  created  2026-09-07T00:39:55.052Z      ← was 2026-09-03T02:19:00Z
+  started  2026-09-07T00:39:55.102Z
+  running  true    RestartCount 0        ← a fresh docker run, not a restart
+  image    tasimage/primus:pr-1048       (unchanged)
+
+docker ps -a --filter name=xiaoming
+  3cdd18ecbf1c  xiaoming-dev  Up 30 minutes  2026-09-07 00:39:55
+```
+
+**One row. The container that held eight GPUs at 23:39:34 no longer exists** —
+not running, not stopped, gone. **A new one took its name at 00:39:55 with
+`RestartCount 0`, so it was created, not restarted.**
+
+**Two consequences, and the first is about my own evidence:**
+
+- **The container I inspected at 23:40 is unrecoverable.** Its cgroup, its
+  labels, its start time — all gone. **This is the T+548 shelf-life finding
+  again: a container-identity question expires in minutes, while the logs it
+  wrote do not.** I recorded the inspect output at T+1027, which is now the only
+  copy.
+- **The recreation at 00:39:55 preceded my report to the leader at 00:40:07 by
+  twelve seconds.** **It was not caused by it**, and I state the ordering rather
+  than leaving it to be inferred the other way.
+
+**Cards read 0 % at 01:09:57**, so the new container is not using GPUs yet — **and
+by T+1027's phrasing rule that is a reading with a timestamp, not a property.**
+
+### 2. Run 20 has been dead for seventy-one minutes and nothing has acted
+
+```
+last run-tree write     2026-09-06 23:58:13
+now                     2026-09-07 01:10:23      -> 71 min 10 s
+store/task              build_workset: running   (unchanged, T+1087 §1)
+orchestrator pid 95533  ALIVE, holding the chain slot
+verdicts                21/21
+teammate writes, 45 min 0
+commits by anyone       none since mine at 00:41
+cards                   VRAM% 0 0 0 0 0 0 0 0
+```
+
+**Reported at 00:40:07 with the events and the measurements.** **The node has now
+been idle, with a free set of eight cards and a dead run holding the slot, for
+over an hour.**
+
+**I record the cost without inflating it:** hold `29313` has **12 h 50 min**
+left; stages 1–3 have been measured at **~90 minutes**; **module 4 has never
+measured anything in five approaches.** Whether that leaves room depends entirely
+on module 4's unknown duration.
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged) |
+| 已经耗时 | **~1131 min ≈ 18 h 51 min** |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Sixth consecutive interval unchanged.** **Nothing has run since 23:58:13.**
+
+### 4. Code problems
+
+**No new ones.** All carried, unchanged from T+1087, including the three
+permanent-`running` mechanisms and the eight `jsonschema` validators **unread
+since T+94 — eighteen and a half hours.**
+
+### 5. 未定性
+
+- **Whether anyone picks up run 20.** Seventy-one minutes, node idle, reported
+  once.
+- **Whether the new `xiaoming-dev` takes the GPUs as its predecessor did.** **The
+  predecessor went from three days idle to eight cards in one second**; this one
+  is thirty minutes old and at zero. **One prior burst is not a rate.**
+- **Why `build_workset` did not deliver `879b05db-…`** — carried, unread.
+- **What module 4 costs** — five approaches, zero measurements.
+- **What module 5 consumes if module 4 is replayed** — **thirty-fifth consecutive
+  section.**
+
+### 6. 新增 commit
+
+Since T+1087, none by anyone.
+
+### 7. 其他
+
+**The last two hours have produced no runs and three findings, and all three are
+about the difference between a name and a thing.**
+
+```
+T+1057  a container that "holds no GPU"  ->  held none at that instant
+T+1087  a task that reads "running"      ->  finished and delivered nothing
+T+1117  a container called xiaoming-dev  ->  a different container, same name
+```
+
+**Each of the three labels is accurate.** `docker ps` really did show that name;
+the task really was dispatched; the card really did read zero. **What none of them
+carries is the thing a reader wants: is this the same entity, and is it still
+true.**
+
+**The first cluster paid five misattributions for the third of these** and
+concluded that ownership is a label, an auto-remove flag and a process list —
+never a name. **Tonight the same name changed identity underneath a running
+investigation**, and the only reason the earlier evidence survives is that
+T+1027 pasted the `docker inspect` output into this file instead of citing it.
+
+**That is the whole argument for quoting an instrument's output rather than its
+conclusion**, and it is worth stating at the point where it just paid for itself.
+
+---
+
+## R2 T+1147 — 2026-09-07 01:41 UTC
+
+**T+1147 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 01:40:31).
+
+**This section is short because nothing happened. Padding it would be the filler
+this record has spent a day arguing against.**
+
+### 1. State, unchanged in every field I measure
+
+```
+run 20 (ef6374)   last write 2026-09-06 23:58:13   -> dead 101 min 47 s
+                  build_workset / m3_analysis / main still read `running`
+                  orchestrator pid 95533 ALIVE, holding the chain slot
+total runs        20
+cards             VRAM% 0 0 0 0 0 0 0 0   at 01:40:00
+containers        xiaoming-dev (created 00:39:55), rc_26_7_902 — neither on GPU
+teammate writes   0 in the last 40 min
+commits           none by anyone since mine at 01:11
+hold 29313        12 h 20 min left
+```
+
+**Reported twice — 00:40:07 and 01:10:23. I will not report it a third time**;
+it is on the record with its measurements and repeating it consumes the leader's
+attention without adding a fact.
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged, seventh consecutive interval) |
+| 已经耗时 | **~1161 min ≈ 19 h 21 min** |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Nothing has executed for 101 minutes.**
+
+### 3. What a resumer needs, gathered because I am the only one holding all of it
+
+**Not a closing summary — the hold has 12 h 20 min and the round is not over.**
+This is the state someone picking up cold would otherwise have to reconstruct.
+
+**Reproducible, three times, fully real (`mock_stages=none`):**
+
+```
+stage 1  deploy_and_prove          3/3 verdicts, 8 greens across the round
+stage 2  _off, _on, merge, m2      sealed in runs 17, 18, 20
+stage 3  identify, rank            sealed in runs 17, 18, 20
+         build_workset             sealed once (run 18); m3_analysis sealed once
+best board  24/24 verdicts, zero refusals (run 18, T+937)
+duration    ~90 min for stages 1-3
+```
+
+**Materials this cluster produced for itself:**
+
+```
+/data/yihou/e2e_verify_20260906/m35/replay_root_run4/
+  PROMOTION.json   promoted 6 kinds, not_promoted 0
+                   required_node smci355-ccs-aus-n04-25
+                   --run 20260906T154908-d9c7af
+  stage1-deploy/  stage2-profiling/
+```
+
+**Never reached, on either cluster:** `packup`. **Never measured, here:** module
+4 — five approaches, zero measurements.
+
+**The two defects standing between the current board and the end of the chain:**
+
+- **`baseline` has two consumers with incompatible demands** (`apply.py:828`;
+  m3's `--impl` wants a self-contained `run()`, `overlay_files` wants the whole
+  public surface preserved). **A contract question, not a bug — both sides are
+  right.** `CONTRACT.md` is where it belongs; **nobody has read whether it already
+  speaks to `baseline`.**
+- **Six empty-default launch variables remain un-refuted**, enumerated in
+  `f273f0e1`. **Each can produce a refusal that reads as an artefact defect.**
+
+**Three ways a run reads alive while dead**, all measured tonight and all
+discriminated by something outside `store/task`: `output_validating` persisting
+(T+997), two 900 s timers feeding the detector (T+757), `output_absent` +
+`handling_failed` (T+1087).
+
+### 4. Code problems
+
+**No new ones.** All carried unchanged from T+1117; the eight `jsonschema`
+validators **unread since T+94 — nineteen hours.**
+
+### 5. 未定性
+
+- **Whether anything resumes before the hold ends.** 12 h 20 min.
+- **What module 4 costs.** Unchanged and still the only thing between the current
+  board and `packup`.
+- **Whether the new `xiaoming-dev` bursts.** At zero for an hour.
+- **Why `build_workset` did not deliver `879b05db-…`.**
+- **What module 5 consumes if module 4 is replayed** — **thirty-sixth consecutive
+  section.**
+
+### 6. 新增 commit
+
+None by anyone since `5ca0a5a1` (mine, 01:11).
+
+---
+
+## R2 T+1177 — 2026-09-07 02:11 UTC
+
+**T+1177 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 02:10:24).
+
+### 1. The co-tenant burst a second time — 02:03:40, and it is the new container
+
+**T+1117 left this open: "one prior burst is not a rate." There are now two.**
+
+**[observed, first-hand, ownership by cgroup rather than by name]**
+
+```
+02:09:55  VRAM%  17 17 17 99 17 17 17 17
+02:10:07  VRAM%  17 17 17 99 17 17 17 17    (stable across 12 s)
+
+rocm-smi --showpids
+  1744540/2/4/5/6/7  python   ~77-86 GB each
+
+ps -o user=,lstart=,args=
+  root  Mon Sep  7 02:03:40  /opt/venv/bin/python -c
+        "from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=6, …"
+
+/proc/*/cgroup -> docker-3cdd18ecbf1c
+docker inspect  name=/xiaoming-dev  created 2026-09-07T00:39:55Z
+                image tasimage/primus:pr-1048
+```
+
+**`3cdd18ecbf1c` is the container created at 00:39:55** — the replacement
+recorded at T+1117, not the one that burst at 23:39:34. **I resolved it through
+`/proc/<pid>/cgroup` to a container ID and inspected that ID**, rather than
+matching the name, because the name changed identity underneath this
+investigation two hours ago.
+
+**Two bursts, measured:**
+
+```
+2026-09-06 23:39:34   old container, 8 cards, ~140 GB/rank, released within 31 min
+2026-09-07 02:03:40   new container, card 3 at 99 %, others 17 %, ongoing
+```
+
+**Two is not a rate and I will not extrapolate one.** What it supports: **this
+node has a co-tenant that takes GPUs without warning and has now done so twice in
+two and a half hours.** **Card 4 — the one `--var gpu=4` names for module 4's
+measurement — is at 17 %.**
+
+### 2. Everything else is unchanged
+
+```
+run 20 (ef6374)   last write 2026-09-06 23:58:13  -> dead 131 min 42 s
+                  build_workset / m3_analysis / main still read `running`
+                  orchestrator pid 95533 ALIVE
+total runs        20
+teammate writes   0 in the last 40 min
+commits           none by anyone since mine at 01:41
+hold 29313        11 h 50 min left
+```
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged, eighth consecutive interval) |
+| 已经耗时 | **~1191 min ≈ 19 h 51 min** |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Nothing of ours has executed for 131 minutes.**
+
+**And a consequence worth stating now rather than after the fact:** per the first
+cluster's measurement, **a co-tenant corrupts a failure but not a pass.** If
+module 4 is attempted while `xiaoming-dev` is loaded, **a success is still a
+success, but its duration is not usable as the estimate this record has been
+missing for twenty hours** — and duration is the only thing module 4 is still
+being asked for.
+
+### 4. Code problems
+
+**No new ones.** All carried unchanged from T+1147. The eight `jsonschema`
+validators remain **unread since T+94 — nineteen and a half hours.**
+
+### 5. 未定性
+
+- **Whether the second burst releases as the first did.** The first held ~31
+  minutes.
+- **Whether anything of ours resumes.** 11 h 50 min of hold, nothing running for
+  131 minutes.
+- **What module 4 costs** — and now **whether a clean window exists to measure it
+  in.**
+- **Why `build_workset` did not deliver `879b05db-…`.**
+- **What module 5 consumes if module 4 is replayed** — **thirty-seventh
+  consecutive section.**
+
+### 6. 新增 commit
+
+None by anyone since `47c34311` (mine, 01:41).
+
+### 7. 其他
+
+**The two bursts are the clearest vindication in this file of a rule I applied to
+myself at T+1027 and have followed since: record the reading with its timestamp,
+never the inference.**
+
+Had the earlier sections said *"`xiaoming-dev` is a CPU-only container"* — which
+is what eight of them effectively did — **this section would read as a
+contradiction of the record.** Because T+1027 replaced that with *"held no GPU at
+00:10:11"*, the two bursts are simply two more timestamped readings, and the
+sequence 23:39:34 → released → 02:03:40 is legible as a pattern rather than as a
+correction.
+
+**The same repair is what makes ownership resolvable here.** The name
+`xiaoming-dev` now refers to its second container of the night; **the cgroup ID
+`3cdd18ecbf1c` refers to one thing only.** Every ownership claim in this section
+goes through the ID.
+
+---
+
+## R2 T+1207 — 2026-09-07 02:41 UTC
+
+**T+1207 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 02:40:09).
+
+**Short section: one new measurement, everything else unchanged.**
+
+### 1. The second burst released, and the two are comparable
+
+**[observed, first-hand]**
+
+```
+02:39:56   VRAM%  0 0 0 0 0 0 0 0
+           rocm-smi --showpids: "No KFD PIDs currently running"
+```
+
+```
+burst 1   old container (gone)   started 2026-09-06 23:39:34   held ≈ 31 min
+burst 2   3cdd18ecbf1c           started 2026-09-07 02:03:40   held ≤ 36 min
+```
+
+**Burst 2's duration is an upper bound**, not a measurement — I sampled at
+02:10:07 and 02:39:56 and it ended somewhere between. **The two are the same
+order of magnitude**, which is all two points support.
+
+**What this does and does not license:** the node's co-tenant takes all cards for
+roughly half an hour at a time and gives them back. **It does not license a
+prediction about when the next one starts** — burst 1 came 3 days after its
+container was created, burst 2 came 84 minutes after its container was created.
+
+### 2. Everything else, unchanged
+
+```
+run 20 (ef6374)   last write 2026-09-06 23:58:13  -> dead 161 min 43 s
+                  build_workset / m3_analysis / main still read `running`
+                  orchestrator pid 95533 ALIVE, holding the chain slot
+total runs        20
+teammate writes   0 in the last 40 min
+commits           none by anyone since mine at 02:11
+cards             free at 02:39:56
+hold 29313        11 h 20 min left
+```
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged, ninth consecutive interval) |
+| 已经耗时 | **~1221 min ≈ 20 h 21 min** |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Nothing of ours has executed for 161 minutes.** The cards are free right now.
+
+### 4. Code problems
+
+**No new ones.** All carried unchanged from T+1177. The eight `jsonschema`
+validators remain **unread since T+94 — twenty hours.**
+
+### 5. 未定性
+
+- **Whether anything of ours resumes.** 11 h 20 min of hold; nothing running for
+  161 minutes; the cards are free at this instant.
+- **When the next co-tenant burst starts.** Two observations, no basis for a
+  prediction — §1.
+- **What module 4 costs.**
+- **Why `build_workset` did not deliver `879b05db-…`.**
+- **What module 5 consumes if module 4 is replayed** — **thirty-eighth
+  consecutive section.**
+
+### 6. 新增 commit
+
+None by anyone since `21a26c30` (mine, 02:11).
+
+---
+
+## R2 T+1237 — 2026-09-07 03:11 UTC
+
+**T+1237 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 03:10:10).
+
+**Fourth consecutive quiet interval. One computed number, then the unchanged
+state.**
+
+### 1. The idle cost, computed rather than characterised
+
+**Nothing of ours has executed since 2026-09-06 23:58:13.** At 03:10:10 that is
+**191 min 57 s**.
+
+```
+elapsed idle                    191 min 57 s   =  3.20 h
+minus co-tenant burst 1              ≈ 31 min   (23:39:34, before the idle began)
+minus co-tenant burst 2              ≤ 36 min   (02:03:40 – ≤02:39:56)
+cards genuinely free and unused  ≈ 156 min      =  2.60 h
+                                 × 8 cards      ≈ 20.8 GPU-hours
+```
+
+**Burst 1 overlaps the idle window only partly** — it started 18 minutes before
+run 20 died — so **156 minutes is an approximation with its arithmetic shown**,
+not a measurement. **The order of magnitude is what matters: roughly twenty
+GPU-hours on a held node, unused.**
+
+**I state it because it is the one cost in this file that nobody will reconstruct
+later.** Defects leave artefacts; idle time leaves nothing but the gap between
+two timestamps.
+
+### 2. State, unchanged in every field
+
+```
+run 20 (ef6374)   last write 2026-09-06 23:58:13   -> dead 191 min 57 s
+                  build_workset / m3_analysis / main still read `running`
+                  orchestrator pid 95533 ALIVE, holding the chain slot
+total runs        20
+teammate writes   0 in the last 40 min  (fourth consecutive interval at zero)
+commits           none by anyone since mine at 02:41
+cards             VRAM% 0 0 0 0 0 0 0 0 at 03:09:55; no KFD holders
+hold 29313        RUNNING, 13:09:49 elapsed, 10 h 50 min left
+```
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged, tenth consecutive interval) |
+| 已经耗时 | **~1251 min ≈ 20 h 51 min** |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 zero measurements** |
+| 可靠性 | **中 for the state; 高 for the idle arithmetic in §1** |
+
+**The 76 % has not moved in five hours.** It should not: **the last thing that
+advanced it was `m3_analysis` sealing at 22:09 on run 18**, and nothing has
+executed since 23:58.
+
+### 4. Code problems
+
+**No new ones.** All carried unchanged from T+1207. The eight `jsonschema`
+validators remain **unread since T+94 — twenty and a half hours.**
+
+### 5. 未定性
+
+- **Whether anything of ours resumes**, with 10 h 50 min of hold and the cards
+  free at this instant.
+- **When the next co-tenant burst starts** — two observations, no basis for a
+  prediction (T+1207 §1).
+- **What module 4 costs.**
+- **Why `build_workset` did not deliver `879b05db-…`.**
+- **What module 5 consumes if module 4 is replayed** — **thirty-ninth
+  consecutive section.**
+
+### 6. 新增 commit
+
+None by anyone since `c47f72ca` (mine, 02:41).
+
+### 7. 其他
+
+**Everything this round established is in the file and none of it is at risk from
+the idle time.**
+
+Stages 1–3 are reproduced three times at 21/21 and 24/24 with zero refusals; the
+replay corpus is on disk with its provenance; eleven distinct defects are
+recorded with files and line numbers; three mechanisms by which a dead run reads
+alive are measured and distinguished. **None of that decays while the node
+sits.**
+
+**What the idle time costs is the one thing still missing: a measurement of
+module 4.** Five approaches, zero measurements, and it is the sole remaining
+unknown between the current board and `packup` — **which has never been reached
+on either cluster.**
+
+---
+
+## R2 T+1267 — 2026-09-07 03:41 UTC
+
+**T+1267 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 03:40:03).
+
+**Fifth consecutive quiet interval. Every field I measure is unchanged, so this
+section is a timestamped no-change record and nothing more.**
+
+### 1. State
+
+```
+run 20 (ef6374)   last write 2026-09-06 23:58:13   -> dead 221 min 50 s
+                  build_workset / m3_analysis / main still read `running`
+                  orchestrator pid 95533 ALIVE, holding the chain slot
+orchestrators     1  (that one)
+total runs        20
+teammate writes   0 in the last 40 min  (fifth consecutive interval at zero)
+commits           none by anyone since mine at 03:11
+cards             VRAM% 0 0 0 0 0 0 0 0 at 03:39:52
+containers        xiaoming-dev (created 00:39:55), rc_26_7_902 — neither on GPU
+hold 29313        10 h 20 min left
+```
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged, eleventh consecutive interval) |
+| 已经耗时 | **~1281 min ≈ 21 h 21 min** |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Idle GPU-hours now approximately 24**, extending T+1237 §1's arithmetic by
+another half hour of free cards.
+
+### 3. Code problems
+
+**No new ones.** All carried unchanged from T+1237. The eight `jsonschema`
+validators remain **unread since T+94 — twenty-one hours.**
+
+### 4. 未定性
+
+Unchanged from T+1237, and I will not re-list what has not moved:
+
+- **Whether anything of ours resumes.**
+- **What module 4 costs.**
+- **Why `build_workset` did not deliver `879b05db-…`.**
+- **What module 5 consumes if module 4 is replayed** — **fortieth consecutive
+  section.**
+
+### 5. 新增 commit
+
+None by anyone since `c0cce706` (mine, 03:11).
+
+### 6. 其他
+
+**A note on what these sections are for while nothing happens.**
+
+The instruction is a section every thirty minutes, and four of the last five have
+had no new content. **I have kept writing them short rather than filling them**,
+because the value of an unbroken series is that a gap in it means something: if a
+later reader finds thirty-minute stamps from 06:34 to 03:41 with no break, **the
+absence of activity between 23:58 and now is established rather than inferred.**
+
+**A summary written at the end could not do that.** It would report that nothing
+ran overnight; **it could not show that someone was looking every thirty minutes
+and found nothing each time.**
+
+---
+
+## R2 T+1297 — 2026-09-07 04:11 UTC
+
+**T+1297 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 04:10:03).
+
+**Sixth consecutive quiet interval. No-change record.**
+
+### 1. State
+
+```
+run 20 (ef6374)   last write 2026-09-06 23:58:13   -> dead 251 min 50 s
+                  build_workset / m3_analysis / main still read `running`
+                  orchestrator pid 95533 ALIVE, holding the chain slot
+orchestrators     1
+total runs        20
+teammate writes   0 in the last 40 min  (sixth consecutive interval at zero)
+commits           none by anyone since mine at 03:41
+cards             VRAM% 0 0 0 0 0 0 0 0 at 04:09:53
+containers        xiaoming-dev (created 00:39:55), rc_26_7_902 — neither on GPU
+hold 29313        9 h 50 min left
+```
+
+**No third co-tenant burst since 02:03:40.**
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged, twelfth consecutive interval) |
+| 已经耗时 | **~1311 min ≈ 21 h 51 min** |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Idle GPU-hours now approximately 26.**
+
+### 3. Code problems
+
+**No new ones.** All carried unchanged. The eight `jsonschema` validators remain
+**unread since T+94 — twenty-one and a half hours.**
+
+### 4. 未定性
+
+Unchanged from T+1267. **What module 5 consumes if module 4 is replayed —
+forty-first consecutive section.**
+
+### 5. 新增 commit
+
+None by anyone since `1f4c423a` (mine, 03:41).
+
+### 6. 其他
+
+**One thing has quietly become measurable that was not at the baseline, and it is
+worth recording once before this series ends.**
+
+At T+0 I wrote that 预估耗时 was absent because *"no completed five-stage chain
+exists to divide by."* **That is still true, and the reason has narrowed from
+four unknowns to one.** Stages 1–3 have three independent durations; the replay
+corpus exists so stages 4 and 5 can be developed without re-running them; and the
+only term with no measurement at all is module 4.
+
+**Twenty-two hours in, the honest one-line status is: everything up to the kernel
+forge is reproducible and measured, and the kernel forge has never run to
+completion on this cluster.**

@@ -2542,6 +2542,78 @@ the shell before `--var` sees it; verified as
 is no pattern: `-061` → `10.245.159.129`, `-031` → `10.245.144.239`, `-006` →
 `10.245.151.128`. Deriving it cost a bring-up.
 
+### Two lines on one node need their own port band AND their own work root — and only one of those fails loudly
+
+Added 2026-09-06 by m1 after losing a run to the first and nearly losing an
+artefact to the second. **Both defaults are shared, so two owners who each
+change nothing collide.**
+
+```sh
+  --var work_root=/data/yihou/e2e_flow_<owner> \
+  --var validate_work_root=/data/yihou/e2e_flow_<owner>/validate \
+  --var validate_port_base=8340 \
+# and in the environment, NOT as a --var:
+  export E2E_KIT_PORT_BASE=8300
+```
+
+**`E2E_KIT_PORT_BASE` moves the whole band; a per-service var moves one port and
+leaves the rest of the band where it was.** The kit claims a RANGE — measured
+`ports=8101..8106` for one line — so space bands well clear of each other rather
+than picking adjacent numbers.
+
+**The port collision is the benign one, because it aborts and names itself:**
+
+```
+deploy.sh: ABORT: etcd port 8103 is already in use. Move the band with
+  E2E_KIT_PORT_BASE=<free base>; do not wait for it.
+```
+
+**The shared `work_root` is the dangerous one, because nothing aborts.** Two
+runs on 2026-09-06 held byte-identical `work_root` *and* `validate_work_root`
+(`/data/yihou/e2e_flow`), neither owner having chosen either — they are simply
+what everyone copies. The trees interleave silently, and a `deploy_kit/`
+directory under that root was written by one run while the other believed the
+tree was its own. **A loud failure costs a run; a silent one costs the meaning
+of an artefact**, and surfaces much later as a product that does not match the
+run claiming it.
+
+> **Give both a value that carries the owner's name. `work_root` has a third
+> member — `validate_work_root` — and `check_deploy_serves` redeploys under it
+> on purpose, so it must be a real local path and not the producer's.**
+
+**A preflight does not substitute for this, and can be true and useless.** m1
+measured the default band free at 07:58; the other line launched at 08:05; the
+deploy reached the band at 08:11 and aborted. **The reading was correct when it
+was taken and stale when it was used.** If you keep a preflight, point it at the
+band the line will actually take, not the default one it will not.
+
+### Ask "is a live line on this host" BEFORE "are the cards busy" — the first can veto and the second cannot
+
+Same date, same author, as a near-miss rather than a loss. **Idle cards do not
+mean an idle node.** Twice on 2026-09-06 the node read *8/8 cards at 0 % VRAM,
+zero containers of ours* while another owner's orchestrator was already up and
+in pre-bring-up; a third reading found all eight cards busy nine minutes later.
+The gap between one line ending and the next starting was **shorter than a poll
+interval**.
+
+```sh
+ps -eo pid,etime,cmd | grep -E 'run_with_long_stall|launch_' | grep -v grep   # 1. is a line alive?
+rocm-smi --showmemuse                                                        # 2. are the cards busy?
+```
+
+**Question 1 vetoes; question 2 cannot.** A live line owns the cards it is about
+to take, and a CPU stage holds none of them while still owning them. Neither
+check subsumes the other — the process table cannot see a container that
+outlived its run, and `rocm-smi` cannot see a line that has not brought up yet.
+
+**And the launch line records an *intention* about cards; only the running
+deployment records the *fact*.** The kit chooses its own devices at bring-up
+(`worker_entry.sh:93`, from `E2E_KIT_GPU_DEVICES`), so which cards a stage will
+occupy is **not knowable from `--var gpu_devices`, not from a default in
+`mix_worker.sh`, and not from what an earlier run did**. Read
+`/proc/<pid>/environ` inside the container, or `rocm-smi`, and read it at the
+moment you need the answer.
+
 ## 3. What `show` cannot catch, which is most of what will go wrong here
 
 `show` catches one class only: a `${NAME}` with no default and no value. Every

@@ -4,11 +4,6 @@
 > 下面每一条都是用户亲口说过、而且**我至少忘过一次**的。忘记的代价写在每条后面,
 > 那不是修辞,是当天的账。
 
-> **两个集群并行,2026-09-06。** 下面「用户的规矩」和累积的调试教训是共用的;
-> **本次(第二个集群、MI355X 本机)的任务与本机事实,见文件末尾的'# Task — THIS cluster'一节。**
-> **读机制,不读数值** —— 另一个集群的节点、jobid、`/shared_nfs` 路径在这里都不成立。
-
-
 ## 集群
 
 1. **我们持有的所有机器上,凡是不是我们和系统的 GPU 占用,一律杀掉,然后并行安排
@@ -250,114 +245,6 @@
 > **一条必须在复合命令中途、在时间压力下、在你正想着内容而不是机制的那一刻触发的
 > 规则,形状就是错的。** 修法之所以有效,是因为它取消了那个选择的时刻。*
 
-## 一次授权不会因为你换了个人说话就失效 —— 协调者制造的撞车
-
-(第二集群,2026-09-06 14:08,leader 干的。**当天唯一一次两条链同时起在一个节点上,
-而两个 owner 都以为自己拥有活下来的那一条。**)
-
-我先对 A 说「这条消息之后不必再等我的话,去发」,十分钟后对 B 说「发车归你」。
-**我从没撤销第一条。** 两条授权,一个节点:
-
-```
-3849649  container=yihou_e2e_chain   jobid=29184  无 --timeout   无豁免   → runs/…140819
-3856205  container=yihou_e2e_chain2  jobid=29313  有 --timeout   有豁免   → runs/…140831
-两条端口都是 8101/8102/8103，work_root 也相同，两分钟内各写约 1800 个文件。
-```
-
-**三件事各自值得记:**
-
-1. **两个 owner 都报了同一个 run 目录。** 一个取「最新的 run 目录」拿到了对方的
-   (相差 12 秒),另一个把对方的编排当成自己的父进程。**定案判据不是 pid、不是
-   时间、不是目录新旧,是 `--var` 集合——每条命令行都和它作者自己的发车记录对得上。**
-   *又一次「从相邻推归属」,而这次两个人同时犯,方向相反。*
-2. **发车前的「有没有别人在跑」检查,在被跑的那一刻是对的,在发车的那一刻过期了。**
-   A 在 14:07:46 确认终结,B 在 14:08:09 起来,A 在 14:08:31 发车——**间隔 23 秒。**
-   和读卡、读端口完全同形:**读数为真,要紧的是它的保质期。**
-   (`pgrep -f 'launch_chain.py'` 还会自匹配,得用不会匹配自己的 `/proc` 扫描。)
-3. **响的那个是良性的那个**(checkpoint):**端口撞车会中止并自报家门;
-   共享 `work_root` 根本不会中止。** 两个都在场时,只有前者会告诉你。
-
-**规矩(给协调者,不是给 owner):**
-
-> **同一时刻只能有一个具名的发车人。改派的时候,必须在同一句话里撤销上一个人的
-> 授权——「X 发车」不蕴含「Y 别发」,尤其当 Y 收到过「不必再等我的话」。**
-
-*代价只有五分钟,因为还没有 bring-up。同样的两条线晚十分钟发现,
-`reset_gpus.sh` 会让后起来的那条杀掉先起的引擎。*
-
-## 加一道守卫之前,先读这一条 —— **一个修复正确地针对眼前那次失败,而对下一次是错的**
-
-(第二集群,2026-09-06。**当天最后两次运行死亡,都是由「为修上一次死亡而加的守卫」造成的。**)
-
-链条是这样的,每一环单独看都无可指摘:
-
-```
-运行 N   卡被上一阶段的 validator 引擎占着  →  加「等卡释放」
-运行 N+1 等错了对象(等了一个陌生人的卡)   →  加「只等我们自己的」的归属判据
-运行 N+2 归属判据判不出来 → UNIDENTIFIED → 立刻中止 → 运行死亡
-```
-
-> **每一个修复都正确地描述了它面前那次失败,并且引入了下一次失败。**
-> 而第三次的反证**当天早上就已经在这个文件里**(见本节 `VRAMSUM=272 KFD=0` 那条:
-> 「我用一个**拒绝不足**的谓词,替换了一个**拒绝过度**的代理量」),
-> leader 当天读过它,仍然走了同一条路。
-
-**为什么读过也没用:** 那条记录讲的是**某一个谓词**的具体缺陷。这一条讲的是
-**「加守卫」这个动作本身有一个惯性方向**——每一次都在收窄,而收窄的代价
-落在下一次,不落在这一次。**具体实例挡不住一般动作。**
-
-### 加守卫之前必须回答的三个问题(便宜,而且在动手之前)
-
-1. **这道守卫在「判不出来」的时候做什么?**
-   —— 中止、放行、还是等待?**「判不出来」是最常见的分支,而它通常是最后被想到的。**
-   写下它,不要让它落在 `else` 里。
-2. **它把哪一类输入从「通过」推到了「拒绝」?那一类里有没有健康的情形?**
-   —— 上一次的失败在里面;**这一次的成功可能也在里面。**
-3. **我是在修一次失败,还是在修一类失败?**
-   —— 如果只能说出眼前那一次,那么这道守卫的作用域就是那一次,
-   **而它会一直生效到下一次。**
-
-### 判据
-
-> **一道守卫的价值,不看它挡住了上一次,看它在「它判不出来」时往哪边倒。**
-> **倒向放行**:代价是漏掉——可见、可测、可以下次再收。
-> **倒向中止**:代价是一次死亡——而且长得像它本来要防的那个问题。
-
-*正面对照(同一天,m35 的 `reset_gpus.sh` 守卫):每一条错误路径都返回
-`unknown:<why>` 并**放行**,而放行落进脚本已有的分支——VRAM 底线超时、
-`mix_up.sh` 在**任何 bring-up 之前**大声中止。**它没有引入新的失败模式,
-只是把多一种情况路由进了已有的那一种。** 这是「倒向放行」的形状。*
-
-*而 m2 的卡前置检查同一天做对了另一半:**无法识别的占用者立即中止而不是落入等待**
-——因为在**那个**位置,倒向等待才是危险的方向。**所以这条规矩不是「永远放行」,
-是「说出你倒向哪边,并说出为什么那一边在这里更便宜」。***
-
-> ### 【2026-09-06 傍晚:上面那个「做对了另一半」的例子被推翻了,而且是同一个人推翻的】
->
-> **「无法识别的占用者立即中止」正是杀死运行 2 的那一条。** 而我在修它的时候
-> 又写了一次同样形状的东西:*「外来容器持有 GPU 就立即中止」*——**而我从没定义
-> 「持有 GPU」是什么意思。** agent 用了最显然的仪器 `HostConfig.Devices`,
-> 而本机两个长驻开发容器**永久映射 `/dev/kfd` 且占 0 显存**,于是任何一张卡读到忙,
-> 陌生人分支必然触发。运行 6 会死在同一处,只是理由从「不认识」换成了「外来」。
->
-> **两次我都写了一个默认中止的分支,两次那个默认都落在正常情形上。**
->
-> **m35 的修法不在分支上,在定义上:**
-> *「一个容器只有在显存可以归因于它时才算持有 GPU;把 `/dev/kfd` 映射进容器不是证据。
-> 归因不了就是 `unknown`,而 `unknown` 等待,不中止。」*
-> **这就是它同时挡住两次的原因。**
->
-> **一般形式(比原来那条强):当你在决定「模棱两可的情形往哪边倒」时,
-> 那个模棱两可通常出在一个你没有定义的词上。修分支,下一个读者要重新推导那个定义,
-> 而他会挑最显然的仪器——而最显然的那个是错的。定义那个词,才是修复。**
->
-> **另一半,同样是 m35 的,而我写不出来:** 光把词定义对了,仍然可能得到一个
-> 「当成罕见分支实现」的版本。他们的第二段点名了 `check_deploy_serves`
-> ——*「它在同一组卡上自己起一次机,容器在显存还在排空时就被删掉;
-> 预期会遇到一张忙卡而没有任何容器可以归因,约 60 秒。**这是你的前置检查
-> 最可能遇到的情形,也正是那个等待存在的理由。**」*
-> **一条指令可以把词定义对,却因为没说清「常见情形是什么」而拿到罕见路径的实现。**
-
 ## 循环的形状,比循环里的努力重要
 
 - **一次全链运行只返回一个 bit。** 图停在第一个 invalid handoff,所以串行跑链
@@ -403,21 +290,6 @@
   失败在顺序:他在读取返回之前就把值写死了。**规矩:`NOW=$(date -u …)` 然后引用
   `${NOW}`,永远不要在读取旁边手写那个值。** 前两种是「仪器在回答别的问题」,
   这一种是「仪器在场且未被使用」。
-- **同一条的写法版:`replace()` 匹配不到会安静地成功,`assert needle in s` 让它报错。**
-  (m2,2026-09-06。)我改 CLAUDE.md 时把缩进写成 4 空格,实际是 2 空格。
-  **`s.replace(old, new)` 会返回一个原样的字符串并报告成功**——和 `find` 失败成零
-  同形,只是穿了改文件的衣服。抓住它的是那一行 `assert anchor in s`。
-  **凡是「按内容定位再替换」的编辑,先断言定位命中,再替换。**
-- **一个从来没有在「它要防的那个配置」里跑过的检查 —— 一个下午三次。**
-  (m2,2026-09-06。三次都是我自己的守卫,三次都是同一族。)
-  1. `--timeout` 只有 `run` 接受,而我的脚本两个模式都传——**于是我今天每一次
-     `show` 校验的都是另一条命令行**,那个 flag 从来没在用它的那条路径上跑过;
-  2. 那道 abort 的解释从没打印过:`set -u` 先在 `TIMEOUT_ARG` 上炸了。
-     **它 fail-closed 是对的,但一道守卫的全部价值就是它那句话;**
-  3. `--var` 计数守卫**在结构上看不见任何不是 `--var` 的 flag** ——
-     所以它不可能抓到 (1)。
-  > **三次都不是「忘了检查」,是「检查存在、但从没在它要防的那个配置下执行过」。**
-  判据和上面那条同形:**先用一个你已经知道答案的输入跑它**——包括跑它该失败的那一次。
 - **正面的那一半:一个对坏输入报错、而不是返回空集的工具,让同一个错误代价为零。**
   (m5,2026-09-05,今天第三次撞上「复合命令跨过一个 `cd`」——而这次失败得安全。)
   他们的 gate 和 commit 接在一个 `cd` 之后,同时破坏了模块路径和 git pathspec。
@@ -481,19 +353,6 @@
   两次都属于同一个窄类,各一条命令:
   - 「记录了错节点」← 哪一次运行产出了这份产物?一次 `store/task`。
   - 「没有 validator 在看」← 有没有任何 validator 读这个字段?一次 grep。
-- **镜像:一个被记成「救了我们一次」而其实没救的正确修复,会被下一个人过度信任。**
-  (m2 与 leader,2026-09-06 晚。)一次误读被归因给「两条链共用 `work_root`」,
-  而实际成因是**我在 run tree 里 grep,拿到的是 m1 自己那份 preflight**——`0` 在那里
-  是正确值。**分开 `work_root` 拦不住它:m1 的 preflight 是封进这次运行自己的 handoff 的,
-  换成 `e2e_flow7` 之后同一条 grep 返回同一个 `0`。**
-  > **一个被记上了它没做成的功劳的修复,比一个没被记录的修复更糟——
-  > 它在「有人会停止检查」的那一点上买来了虚假的信心。**
-  **所以记录时要把成因钉在正确的那一条上:**
-  「从 grep 里取值而没问是哪个阶段产出的」——分开的树不防它;
-  「两次运行的文件在 `pmoff/` 里共存」——真实、不中止、只能事后读产物发现,
-  但**和这次误读无关**。
-  *和上一条是一对:假理由让正确修复被拆掉,假功劳让正确修复被高估。两者都靠
-  「把理由和功劳分别核对」来防,而不是靠修复本身是否正确。*
 - **今天最接近造成真实损害的一次:一个由正确测量支撑的错误修复,拆掉了正在起作用的
   那个检查。** 2026-09-05,我干的。
   我造的产物里 `results/optimized_kernel.py` **不是 Python**——它是 workset 的
@@ -720,22 +579,6 @@
      活动证据是 `squeue -j <hold>`,**完全在运行之外**。
   **所以「读产物不读退出码」有个边界:产物只能告诉你它自己知道的事。**
   遇到出处/环境类问题时,先问「这个判据在不在这次运行里」——不在,就别在里面找。
-
-  **第三个实例,2026-09-06,m2,而它换了个方向:不在运行里的不是环境事实,
-  是「这个阶段成功过」这件事本身。**
-  我在一棵运行树里诊断了一小时,把 `run_profiling_mode_on` 的引擎冻结逐步收窄到
-  `with_stack=1` 的 profiler 窗口,一路都是一手证据(引擎日志少了四行
-  `Stop profiling`、生成探测十秒无字节、三个 rank GFX 100 % 带宽 0)。
-  **而两个半小时前,同一台机、同一镜像、同一 TP4、同一份 schedule、同样 3 秒的
-  `with_stack=1`,成功过一次,`check_trace_coverage` 判了 passed。**
-  > **一个间歇性故障,在样本量为一的时候,和一个确定性故障长得一模一样——
-  > 而「样本量为一」这件事,你在那一棵树里是看不见的。**
-  代价:我据此给出的每一条建议(关掉 stack window、三个 `--var`、分离变量的探针)
-  都在解一个不存在的确定性问题,并且我两次告诉 leader
-  「`check_trace_coverage` 在这个集群从没说过话」——它两个半小时前说过,而且是 passed。
-  **判据是四条命令:`find <runroot> -name capture_stacks.log` 加看最后一行。**
-  → **在为一次失败命名机制之前,先问「这个阶段在这台机器上成功过没有」,
-  并且到运行树外面去问。** 同族:「先测分母」——这里要测的分母是**尝试次数**。
   (m5,2026-09-05 收尾时自己给的诊断,今天最值得带走的一条。)
   他们九个配置没跑到阶段 5,其中**四个死于本可预知的东西**——缺 wrapper、
   `aiperf_trace`、`mock_stages` 没配 `m<N>_agent`、stub 入口。
@@ -1010,28 +853,6 @@
   > 说清哪些被守住了、哪些没有。「这一处修对了」不蕴含「这一类修完了」。**
   *附带一条正面的:`line.sh:318` 上方的注释保留了上一次 abort 的运行号和症状,
   **m4 因此几分钟就定位到,而不是几小时。修 bug 时最想删掉的就是那个 bug 的故事。***
-
-  **同一晚上两次,而它比「兄弟字段」那版更阴:一对变量里在场的那一个,
-  让缺席的那一个看起来已经覆盖了。**(m2,2026-09-06。)
-
-  | 需要两个 | 我的发车行有 | 缺的 | 后果 |
-  |---|---|---|---|
-  | `remote_home`(四个 task 的 env)+ `transport_env`(三个 validator 的封闭环境) | 前者(而且 agent 还自己 export 了一遍) | 后者 | `check_workset_runs` 拒绝一份**完好**的产物 |
-  | `measure_gpu`(workset 测量)+ `gpu`(m4 的 `HIP_VISIBLE_DEVICES`) | 前者 | 后者 | m4 一个 shape 都没测,两个 validator 拒绝一份**从未被生产出来**的产物 |
-
-  > **两个名字相近、消费者不同的变量,清点时会被当成一个。**
-  > **而缺席的那一半的失败,长得像产物的缺陷,不像发车行的缺陷。**
-
-  **修法不是「再读一遍变量表」——我那晚读了两遍,表本身是错的。**
-  是把「包里所有空默认变量」减去「发车行上的变量」,两条命令,**在发车之前**:
-  ```sh
-  grep -rhoE '\$\{([a-z_0-9]+):-\}' steps/*.yaml shared.yaml | sed 's/[${}]//g; s/:-//' | sort -u > /tmp/empty.txt
-  <发车行里的 --var 名字> | sort -u > /tmp/have.txt
-  comm -23 /tmp/empty.txt /tmp/have.txt
-  ```
-  **而这道守卫只对「已经实测过会 abort 的那个」中止,其余只打印。**
-  理由见「加一道守卫之前先读这一条」:把分类不了的一律拒掉,就是把一个未知
-  变成一次死亡。
 - **mock 满足了一个真实路径根本无法满足的检查——于是那个 body 的整个生命期都是隐形的。**
   (m5,2026-09-05,今天最尖的一条,而且方向和我们担心的相反。)
   `compare.py` **从来没有写过 environment 记录,一次都没有**,而
@@ -1621,20 +1442,6 @@
   (我把 `premise.run_environment` 设成 workset 自己的环境)。
   **这是「所有比较方都共享的错误看不见」那条规则的极限情形——「所有方」退化成一方。**
   通过仍然返回 true,但它**排除不掉任何一种世界状态**。
-  **第四条路径,而且它落在这份文件自己列为「被守卫」的字段上**(m2,2026-09-06):
-  `slurm_jobid` 是 `_agree_or_die` 守的三个之一,而一个指向**已经结束的 hold** 的
-  jobid 照样通过,因为守卫比的两边都来自同一个 `--var jobid=`:
-  ```sh
-  measure_in_container.sh:118
-  _agree_or_die() {  # name  ambient  from_record
-    if [ -n "$2" ] && [ -n "$3" ] && [ "$2" != "$3" ]; then   # 只在「不一致」时拒绝
-  ```
-  **陈旧的值和它自己一致,于是守卫满足。守卫问的是「两个来源吵不吵架」,不是
-  「这个值是不是真的」——一个字段可以被守卫,并且整体地、一致地错。**
-  jobid 会被封进每一份产物的 `runtime.slurm_jobid`,而 `show` 分不出死活
-  (两者都是合法字符串)。**比 `produced_by.commit` 更糟,不是它的兄弟:
-  `unknown` 在自报无知,陈旧的 jobid 什么都不喊。**
-  判据是发车前断言它 `RUNNING`,不是断言它非空。
 - **观察者会写进它所观察的产物里。** m2 用 `worker.log` 的 mtime 当活性信号,
   而他自己每次 `health_generate` 探测都会在里面写一行「Health check failed」——
   **mtime 追踪的是轮询器,不是引擎。** 引擎最后一次真实工作停在 09:47:39,
@@ -1715,73 +1522,6 @@
   而 `packup` 每一轮都没达到——**没有任何一条链走完五个阶段。所以答案是不。**
   *而 m3 拒绝把「解除了一个条件」当成「解除了另一个条件」,是这件事被摆到台面上的原因:
   我把三项一起说成解封,而 `buckets:` 从来不是卡在树上。*
-
-- **第七种「卡是空的」:容器在场但空闲——它可以在任何一刻开始加载,而两分钟就够。**
-  (2026-09-06 06:18–06:23,我读 0%,m1 两分钟后读 34% 并复现两次。)
-  两个读数**可能都是对的**:`glm53-work` 02:35 就起来了、一直在那儿,而
-  `rocm-smi` 在它开始载模型之前当然读 0。**一次冷加载两到四分钟。**
-  > **所以「卡空」的保质期,在一个在场但空闲的容器面前,是分钟级的;
-  > 而我又一次拿它当发车许可发给了别人——今晚第二次(第一次是把 093 给 m2)。**
-  **判据便宜:读卡的同时读容器清单。零容器的零和「有容器但此刻不占卡」的零,
-  是两个不同的零,而只有前者能当许可。**
-  *m1 的处置值得抄:他们没有说我错,而是说「决定能不能放整机轮次的那个读数,
-  此刻是 34%,而且按容器自己的启动时间已经四小时了」——把主张限定在决策所需的那一句上。*
-
-- **一件仪器可以在所有「不能暴露它」的情形里都与真相一致,而在第一个能暴露它的情形里
-  给出错的答案——于是它让我撤回了一个正确的发现。**
-  (2026-09-06 07:2x–07:3x,我干的,m1 纠正。)
-  zone 目录叫 `validation.<任务ID>.<阶段>.<哈希>`,**任务 ID 就在 zone 自己的名字里**。
-  我 glob 到 zone 后取 `dirname`,读的是**外层**任务:
-  ```
-  zone 属于 m2_profiling 内部的叶子  → 外层就是 m2_profiling   → 两法一致（前五次）
-  zone 属于 m2_profiling 自己        → 外层是 main            → 只有这一次会分叉
-  ```
-  **前五次全对,而且看起来无懈可击;第六次一分叉,我就撤回了那个正确的结论。**
-  > **和「我的样本在结构上不可能给我反例」同形,只是低了一层——在工具里。**
-  **而撤回本身没有被核:这份文件里已经两次写着「撤回是一个指向反方向的主张,
-  需要同等核查」,其中一条是我自己写的。**
-  *m1 那句更尖:那个任务 ID **印在我每一份报告里、就在我反复粘贴的字符串内部**,
-  六次阅读、两个人,都读了旁边那个计数。**不是「差一次 `store/task` 读取」,是零次。**
-  修法是 tier-1:让工具直接打印 `closure=`,而不是要求谁记得去查。*
-
-- **一个后台作业会被「启动它的那次工具调用超时」连同进程组一起收走,而现场和挂死
-  一模一样。**(m1,2026-09-06 08:0x,今晚最值得带走的运维发现。)
-  他们的 mock 回路看起来在 `identify: input_validating` 卡了十分钟——编排进程消失、
-  没有任何 escalation、**日志干干净净地结束、没有错误**。
-  **它没有卡:store 里最后一个事件是 `+104s`,正好落在那次工具调用两分钟超时的那一秒。**
-  > **`nohup` 挡不住这个;`setsid`(放进自己的进程组)可以。改用 `setsid` 重发之后,
-  > 它径直走过了「卡住」的那一点。**
-  **分辨它的是时间戳算术,不是日志。** 这是「运行看起来死掉」的第四种方式,
-  和前三种(stall detector、agent 扫描、撞墙)都不同——**是 harness 在回收。**
-  *而今晚我起的每一条长运行也都是 `nohup … &`,只是那些调用恰好返回得快。*
-- **推翻你的那次检查,可能比说服你的那次更弱,而没有任何东西会提示这一点。**
-  (m1 给我 2026-09-06 07:3x 那次错误撤回的诊断,今天第三次「撤回本身是错的」。)
-  我用一次**更间接**的读法(目录嵌套)推翻了一个用更直接的方法刚确立的发现,
-  几分钟之内。**不是「不该核查」,而是核查的强度没有被比较过。**
-  > **一次撤回要问的第一个问题不是「新证据说什么」,而是「新证据比旧证据强还是弱」。**
-  *而真正的判据两边都不是:zone 自己的 `inputs.json` 里列着 handoff,那个 handoff 有
-  kind——**它从头到尾没有歧义,而我们俩都在推断身份。** 修法是 tier-1:让工具直接
-  打印 `kind=` 和被 stage 的版本,身份不必再被推断。*
-
-- **一个算出来的值进了**报告**(而不是破坏性命令),照样会杀人——它产出的是
-  「对一个正确发现的假反例」。**(m1,2026-09-06 12:2x,自己举证。)
-  ```
-  R=$(ls -1td .../runs/*/ | head -1)     # 「最新的运行目录」
-  # 而当时并行跑着两条回路：另一条的 run 在中途开始
-  # 于是这条结束时，「最新」已经是别人的了
-  ```
-  **它把另一条回路的「零空」报成了自己这次的结果。** 有二十分钟,那个故障看起来
-  「在固定配置下是随机的」——**而那几乎重新坐实了我半小时前那次错误的撤回。**
-  > **和「空变量落进破坏性通配符」同族,高了一层:那一类毁掉别人的工作,
-  > 这一类毁掉一个正确的结论。而后者没有任何东西会报错。**
-  **抓住它的是「重新测量」而不是「重新阅读」**——直接从每次运行的 `inputs.json`
-  逐个枚举。**摘要和真相不一致,而只有直接测量是承重的。**
-  > **推论:自己写的摘要不是证据。** 今天这已经计费三次(我的 zone 解析器、
-  > 他们的回路摘要、以及那个把身份概括成计数的报告)。
-- **同一个 kind 在一次运行里可以有多个 zone,而只有一个是坏的。**
-  `profiling_evidence` 每轮出现在**三个** zone(两个 output_validation、
-  一个 input_validation),**只有一个是空的**。
-  **任何不说明「哪一个」的报告都是不可证伪的**——我们两个人的工具都曾如此。
 
 ## 零和缺席
 
@@ -1869,63 +1609,12 @@
 ## 环境
 
 - **算「还剩多久」。** `squeue` 的 `%M` 是已用,上限 8 小时。
-- **`/home/yihou/dev/git` 是一个指向 `./git.16-19` 的符号链接——只有一棵树,两个名字。**
-  (m2,2026-09-06,leader 更正了我更窄的那一版。)**不是「同一个文件两条路径」,
-  是同一棵目录树两条路径:**
-  ```
-  /home/yihou/dev/git -> ./git.16-19
-  realpath 两条 .claude/CLAUDE.md      -> 同一个
-  git rev-parse --absolute-git-dir 两边 -> /home/yihou/dev/git.16-19/infera/.git
-  branch 两边                          -> dev.yihou.aiopt.task_package.concat
-  stat -c %h                           -> 1 links   ← 硬链接会是 2
-  ```
-  **`1 links` 是判别式**:同一个 inode 加一个链接数,意味着两条路径抵达的是
-  *同一个目录项*,而不是两个目录项指向一个文件。
-  **所以「另一个 worktree」不存在。** 任何人从任一路径写下的东西——`bug.record`、
-  `RUNG5-CHECKLIST.md`、今天提交的每一个文件——都落进同一个仓库、同一棵工作树。
-  *我最初只说「这一个文件是共享的」,那是关于一个文件的句子,而问题的主语是整棵树。*
 - **`/shared_nfs` 在登录节点是只读**(`ro,relatime`),计算节点可写。
   从登录节点 `mkdir` 会静默失败——不要把 `2>/dev/null` 加在会失败的命令上。
 - **zsh 不对未加引号的变量做词分割**,`--include=*.json` 会被 glob 掉,要加引号。
 - **`--stall-after` 是双刃**:默认 20 秒让「升级无接收方」几秒内就报出来;
   我设成 3600 把同一条诊断藏了一小时。**900 秒是折中**——够一次冷启动(实测
   222/232 秒),又不至于把失败藏起来。
-
-  **第三条刃,2026-09-06 实测(m2):900 秒也是 AIPerf 的请求超时。**
-  引擎 18:35:24 停止生成,而 AIPerf 每 900 秒吐一批超时并写进运行树——
-  **正好落在 stall 截止之后几秒,每一轮都把探测器重置一次。** 两次爆发实测相隔
-  十五分钟、各 32 条(= 并发数),运行本可以这样再活四小时。
-  > **一个探测器的阈值,不只要对着「健康工作的最长间隔」校准,还要对着
-  > 「下游每一个超时的周期」校准——失败会以那个周期产生活动,而活动就是它要的。**
-  **事后判据便宜:运行树的写入如果是规整周期,而且等于某个已知超时,那是机器的
-  签名不是工作的签名;再看产物是不是只在增长失败记录。**
-  *选阈值时把下游超时列一遍,不要和其中任何一个相等——这一条属于发车路径,
-  不属于 bug 记录。*
-
-  **规则的第二半,以及一个不成立的实例(m2,2026-09-06 22:3x)。**
-  完整形式是:**阈值不能等于任何下游超时,并且必须大于它要坐等的最长
-  「安静间隔」——要紧的词是「安静」,不是「长」。** 一个边干活边往运行树里写的
-  阶段,再久也喂得饱探测器:`build_workset` 在 1200 秒阈值下跑了 24 分钟,两次,
-  都没接近过。**真正会踩中它的,是把活交给一个安静子进程的阶段**
-  (真实的 forge campaign、`reverify_shapes` 调大)。**没有测量历史的阶段,
-  你不知道那个间隔,所以要按看不见的那种情形取值。**
-
-  > **但要小心给这条规则挑错的实例。** leader 把一次运行的死亡归给自己选的 1200,
-  > 说「validation 安静了二十分钟,看门狗杀掉了一个成功」。**实测不是:**
-  > ```
-  > 20:18:48.146  manifest 写好（workset 封存）
-  > 20:18:48.674/.810/.998  三个 verdict，最后一个 false
-  > 20:18:49.008  validation_failed 升级到根任务（无 agent，无接收方）
-  > 20:38:48      stall 触发
-  > ```
-  > **输出验证用了 0.85 秒,而且是拒绝。**那二十分钟是拒绝**之后**在等一个
-  > 没有接收方的升级。**链子死于拒绝,不是死于阈值;5400 也救不了它。**
-  > 而那个被担心「要跑几十分钟」的 validator,下一轮实测 **7 秒**
-  > (`reverify_shapes` 默认是 1)。
-  **所以这条规则至今没有真实实例,只有一个被误判成实例的反例。**
-  一条没有实例的规则仍然值得遵守——**正因为如此,取值要慷慨而不是「有理由」。**
-  *而把一次死亡归给一个没有造成它的选择,和「给一个没做出拯救的修复记功」是同一个错,
-  只是符号相反:两者都会让下一个人对那个旋钮估错权重。*
 
 ---
 
@@ -2064,139 +1753,3 @@ Sign off **as yourself** — never a colleague's line, never a bot identity.
 Branch `dev.yihou.aiopt.task_package.concat`. Activity is limited to
 `agent_sys/examples/llm_e2e_performance_optimization/` plus the root-level
 `*.md` notes this effort writes.
-
----
-
-# Task — Reproduce, debug and accept the LLM e2e opt chain on THIS cluster
-
-Authority: repo-root **`mission.md`** + **`mission.verify.e2e.md`**. Everything
-below traces to one of them. The previous round's file is
-`.claude/CLAUDE.handoff-refine.20260906-0627.md.bak` — **it is about a different
-cluster**; read it for mechanism, never for values (nodes, jobids, `/shared_nfs`
-paths, `spur`, 8-hour holds — none of that is true here).
-
-## The job
-
-`agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/` — one package
-whose graph runs module 1 → 5 in **one `agent-sys run`**. No `agent_sys` core
-changes.
-
-1. **Reproduce** the first cluster's board here (modules 1, 2, 5 real).
-2. **Complete all five stages in one run, reaching `packup`.**
-3. Run module 4 for real if compute allows. **It is not this hold's goal.**
-4. Debug what breaks and record it.
-
-### The user's two decisions, 2026-09-06 06:2x
-
-- **Two phases on the model.** Phase A: `Qwen3-32B` + the stock image already on
-  this host — get the chain green with the cheapest possible bring-up. Phase B:
-  swap `image`/`model_path` to GLM-5.3-Flash and re-run once for acceptance.
-- **Priority is 1→2→3→5 + `packup`.** Module 4 rides on a replayed or
-  self-declared-degraded artefact this hold. A degraded artefact **must say so in
-  itself**; a `speedup: 1.0` from an empty-change baseline is a correct value,
-  not a guess.
-
----
-
-## Context — this host (every row measured 2026-09-06 06:2x; re-measure, do not inherit)
-
-| | |
-|---|---|
-| where I am | **on the compute node itself**, `smci355-ccs-aus-n04-25`. Not a login node. `docker` talks to the local daemon. |
-| GPUs | 8 × MI355X (gfx950), **all idle, VRAM 0 %** at 06:25 |
-| the hold | slurm job **29184**, `TimeLimit=16:00:00`, **`EndTime=2026-09-06T14:00:01`**. Partition timelimit is `infinite` but this job's is not. **Reckon time remaining, and re-read `scontrol show job 29184` — do not trust this row.** |
-| transport | **`--var transport=local`, and it must be asked for.** `assets/lib/remote.sh` has a `local` branch that the probe **never selects** ("no transport binary present" ≠ "I am on the node"). `spur` is absent, `srun` is present, so the probe would pick `srun` and step into an allocation we are already inside. |
-| scratch | **`/data/yihou/e2e_verify_20260906/`** — local `/dev/md0`, 41 T free, writable. All temporary activity here. |
-| run root | **`/data/yihou/agent_sys_runroot`** |
-| `work_root` | must be **local disk**: `/data/yihou/e2e_flow`. `/home` is autofs NFS; `/apps` is NFS and 99 % full. The package warns a root-squashed network home makes the engine fail to write logs *silently*. |
-| model (phase A) | `/apps/data/models/Qwen3-32B` (~65 GB, plain directory) |
-| model (phase B) | `/apps/data/models/GLM-5.3-Flash` (306 GB) + an image built from `/apps/yihou/packups/glm53flash.mix.packup_20260830/Dockerfile.sglang.glm53` |
-| image (phase A) | `lmsysorg/sglang-rocm:v0.5.18-rocm724-mi35x-20260903` — already loaded |
-| etcd image | `quay.io/coreos/etcd:v3.5.14` — already loaded |
-| network | outbound HTTPS to quay.io and github.com works (200) |
-| **no corpus** | `/shared_nfs` exists and is **empty**. The first cluster's 25 sealed handoffs are NOT here. **So nothing can be mocked until we have produced our own.** The ladder is bottom-up: run a stage real → seal → `assets/lib/replay_root.py` materialises a `mock_root` from it (`SKIP-AHEAD.md` is the manual). |
-| foreign tenants | containers `rc_26_7_902` and `xiaoming-dev` are running and **hold no GPU**. Leave them. Re-check before every bring-up. |
-| fast loop | `PYTHONPATH=$PWD/agent_sys python3 -m cli.main show --package … --var …` type-checks every yaml in < 1 s. **`PYTHONPATH` is mandatory** — a bare `agent-sys` resolves to the `infera.aiopt.all` worktree, not this one. |
-
----
-
-## Key references, in the order to read them
-
-1. **`e2e-flow/RUN-PLAN.md` § `## 2. The command — CANONICAL LAUNCH BLOCK`**
-   (~line 2299). **This file holds SEVEN launch blocks and they disagree.** Diff
-   against that one and no other; its heading is unique on purpose.
-2. **`e2e-flow/WHAT-GREEN-ESTABLISHES.md`** — which validators have ever refused
-   anything, and what a pass from each is worth.
-3. `e2e-flow/CONTRACT.md` — the frozen fifteen-kind cross-module contract.
-4. `e2e-flow/SKIP-AHEAD.md` — the replay mechanism, **and its first page says it
-   is a debugging accelerator and never an acceptance path.**
-5. `/apps/yihou/packups/glm53flash.mix.packup_20260830/` — how GLM-5.3-Flash was
-   brought up on an 8×MI355X box, for phase B.
-
----
-
-## Core principles
-
-1. **Read the artefact, not the exit code.** Every acceptance claim names a file
-   to open and a condition that fails.
-2. **Before attributing ANY refusal**, run
-   `bash assets/lib/refusal_saw_something.sh <run dir>` — **`bash`, not `sh`**.
-   A validation zone is sometimes handed **zero files** (~1 in 11–13 zones);
-   a refusal from a zero-file zone says nothing about the artefact, and a PASS
-   carries no reason at all, so the file count is the only retrospective check.
-3. **Record your launch line beside the run.** The staged package keeps
-   `${var:-default}` unrendered, so which `--var` a run used **cannot be read
-   back from the artefact**. Four separate incidents trace to this.
-4. **Audit the whole variable table against your `mock_stages` every launch** —
-   not the rows you remember. `expect_ranks`, `adhoc_cases`, `bench_rounds` each
-   have one value when a stage is mocked and another when it is real; three
-   launches were lost fixing them one at a time.
-5. **`E2E_KIT_PORT_BASE` moves the whole port band.** `port_router` moves one
-   port and leaves the band behind. A collision makes the body `exit 1` with no
-   escalation recipient, so the task sits at `running` and the log reads healthy
-   for the full stall timer.
-6. **The `run_with_long_stall.py` wrapper is not optional.** `stall_after` is not
-   on the CLI; a bare launch gets the 20-second default and a real rung cannot
-   survive it. The wrapper prints `stall_after 20s -> 900s` when it takes — **if
-   that line is absent, kill and re-issue.**
-7. **Module 5 brings its arms up through a node-wide GPU reset** that kills every
-   GPU process whose command name matches the engine's. It protects no
-   co-tenant. Its arms are pinned to the first TP devices and two of its
-   coordination ports are literals, **so a run with a real module 5 owns the
-   host.** Check the cards and the container list before every bring-up.
-8. **Killing an orchestrator does not kill its agents**, and an agent will
-   rebuild a container about a minute after you stop it. **Order: agents first,
-   then containers, then verify.** Before any irreversible action against a run,
-   open the transcript or the event's `attributes.detail` — not the phase line.
-9. **Pre-register.** Write down what each outcome would mean, and what the
-   current state is, *before* the result arrives.
-10. **Never let a computed value reach a destructive command unchecked**
-    (`[ -n "$X" ] || exit 1`). **Deletion: nothing whose path lacks `yihou` or
-    `/tmp`.** Stop containers with `docker stop -t 10`; never force-remove one
-    you did not create. Never `--clean` a shared run root.
-11. **Do not infer ownership from a name.** Ownership is a label, an
-    auto-remove flag and a process list.
-12. **A tool that returns a well-formed answer on bad input is the dangerous
-    kind.** Before trusting a new instrument, run it on a case whose answer you
-    already know.
-13. **Do not request machines.** Query and use what is held; if there is not
-    enough, say so.
-
-## Working rules
-
-- **Work in English. Report to the user in Chinese.**
-- **Every commit is `git commit -s`.** CI rejects a commit without the trailer.
-  Branch `dev.yihou.aiopt.task_package.concat`. The repository receives only
-  `agent_sys/examples/llm_e2e_performance_optimization/` and the root `*.md`
-  notes.
-- **Agent team.** Leader polls every 10 min; a problem seen once is recorded, and
-  intervened on at the second sighting **unless it is burning GPU or hold time,
-  in which case intervene at the first.** An owner with nothing assigned is the
-  leader's failure.
-- **A checkpoint writer appends to `work.checkpoint.summary.md` every 30 min**:
-  estimated completion %, elapsed and projected time, reliability; current
-  state; code problems fixed/unfixed; non-code problems; open questions; new
-  commits one line each.
-- Framework bugs → `agent_sys/examples/llm_e2e_performance_optimization/bug.record.2026-09-06.md`;
-  validator failures → `validator.failures.2026-09-06.md`, same directory.
-- **Do not change the host** (root filesystem, system state) without asking.
