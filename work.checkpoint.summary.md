@@ -19159,3 +19159,76 @@ day when a container three days idle took all eight GPUs in one second.
 
 > **A measurement with a timestamp is a fact. The same measurement stated as a
 > property is a prediction.**
+
+---
+
+## R2 T+1897 — 2026-09-07 14:11 UTC — after the hold
+
+**T+1897 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 14:10:28).
+
+### 1. The hold ended, and my prediction about what would stop working was wrong
+
+**T+1867 said this would be "the last section that can verify anything against
+the node" and that `rocm-smi`, `docker`, `/proc` "and possibly this shell" would
+stop being available. Measured at 14:10:17, four minutes after `29313`'s end
+time:**
+
+```
+squeue -u yihou        empty — 1 line, the header only. NO jobs.
+scontrol show job 29313  returns nothing
+hostname               smci355-ccs-aus-n04-25   (unchanged)
+rocm-smi               ANSWERS:  VRAM% 0 0 0 0 0 0 0 0
+docker ps              ANSWERS:  xiaoming-dev, rc_26_7_902
+/data/yihou/…/runs     readable
+git                    working
+```
+
+**Everything still answers. The allocation ended; the access did not.** The
+slurm job was a reservation on a shared host, not a container we were living
+inside, and **I conflated the two.**
+
+**The correct reading, and it is the one that matters operationally:** *we no
+longer hold this node.* Not *we lost access to it*. **Anything run here from now
+on is unreserved and shares the machine with whoever else the scheduler gives
+it to.**
+
+**No successor hold is pending** — `squeue -u yihou` returns the header and
+nothing else.
+
+### 2. State
+
+```
+total runs      22, unchanged
+orchestrators   0
+last run write  2026-09-07 06:47:04  -> nothing of ours for 443 min 24 s
+cards           all 0 %
+commits         none by anyone since mine at 13:41
+this file       63 sections
+```
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** (unchanged; the closing at T+1837 stands) |
+| 已经耗时 | **~1911 min ≈ 31 h 51 min** |
+| 预估耗时 | **not computable — T+1837 §7** |
+| 可靠性 | **中** |
+
+### 4. 其他 — the correction is small and the class is not
+
+**I predicted a loss of capability and got the mechanism wrong**, and the mistake
+has the same shape as three others in this file: **I reasoned about what a thing
+*is* from what it is *called*.** A slurm allocation is called a hold on a node,
+so I treated its end as losing the node. **It is a reservation, and the
+discriminator is whether the tools answer — which took one command.**
+
+**That the tools still answer is not a reason to keep using them.** The hold is
+what made this node ours; **without it, every card reading in this file describes
+a machine somebody else may now be given.**
+
+**I will keep writing thirty-minute sections until told to stop**, and they will
+be shorter, because from here the only things I can honestly report are the
+repository, the run tree on `/data`, and readings of a machine we no longer hold
+— **each of which I will label as such.**
