@@ -176,8 +176,44 @@ things are movable, none of them bugs:
    already defers "vendor_tuned bucket support" to todo;
 2. **whether `collective` is really out of scope** — 69 % is the only place with an
    order of magnitude in it;
-3. **`_gemma_fused_add_rmsnorm_kernel` is `routable` at 2.29 %, twice rank 1, and is
-   not among the five.** Unexplained; previously recorded as "not investigated".
+3. **~~`_gemma_fused_add_rmsnorm_kernel` is unexplained~~ — ANSWERED 2026-09-07 by m3,
+   read-only: excluded by a stated rule, `no_shape_evidence` (`rank.py:231-237`).**
+   The profiler recorded no `input_shapes` for it, so it cannot yield a correctness
+   case however hot it is. **Not a defect and not silent — the reason is written to
+   the row** (`input_shapes: None`, `cases: None`,
+   `excluded_reason: no_shape_evidence`), exclusion happens *before* selection, and a
+   third filter sits between the two floors and the sort. **`resolve_ratio: 1.0` is
+   therefore honest.** All four of the leader's candidate explanations — silent drop,
+   dedup, wrong bucket label, not `self_us`-ordered — are wrong; the ordering is
+   `-pct_total` (`:241`).
+
+   **CORRECTION, and it affects anyone re-checking this: kernel IDs are PER-RUN.**
+   The leader's entry above says `k002`; in m3's worklist that same kernel is `k006`
+   and `k002` is a different, `vendor_tuned` kernel. **Identify kernels by NAME across
+   artefacts, never by id** — and the share moves too (2.29 % in the corpus worklist
+   the leader read, 1.24 % in m3's).
+
+   **What the rule costs, and this is the part worth keeping:** **7 of 131 rows die to
+   it, 5 of them routable, together about 3.1 % of GPU time — more than the 1.12 % the
+   pipeline does select.**
+
+   ```
+   1.24%  _gemma_fused_add_rmsnorm_kernel
+   0.85%  _causal_conv1d_fwd_kernel
+   0.54%  paged_attention_ll4mi_QKV_mfma16
+   0.34%  _causal_conv1d_update_kernel
+   0.15%  _fused_qk_gemma_rmsnorm_gate_kernel
+   ```
+
+   > **And it is recorded but not reported.** A reader sees the top-5 and
+   > `resolve_ratio: 1.0`; that the largest routable kernel was dropped for want of
+   > shapes lives only in a CSV column nobody surfaces. **Same shape as
+   > `check_environment`'s explanation being computed and written to a discarded
+   > stderr — the information exists and does not reach the person deciding.**
+
+   **So if the goal is to select something above m5's 4.4 % floor, the constraint to
+   attack is `no_shape_evidence`, not `top_n`** — and shapes come from the profiler,
+   **so it is m2's gap as much as m3's filter.** Not decided here.
 
 **Consequence for the second cluster, and this is the actionable half:** a real module-4
 campaign is the most expensive single step in the round. **Run on the current selection,
