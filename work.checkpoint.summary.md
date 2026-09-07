@@ -16802,3 +16802,105 @@ T+1027 pasted the `docker inspect` output into this file instead of citing it.
 
 **That is the whole argument for quoting an instrument's output rather than its
 conclusion**, and it is worth stating at the point where it just paid for itself.
+
+---
+
+## R2 T+1147 — 2026-09-07 01:41 UTC
+
+**T+1147 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 01:40:31).
+
+**This section is short because nothing happened. Padding it would be the filler
+this record has spent a day arguing against.**
+
+### 1. State, unchanged in every field I measure
+
+```
+run 20 (ef6374)   last write 2026-09-06 23:58:13   -> dead 101 min 47 s
+                  build_workset / m3_analysis / main still read `running`
+                  orchestrator pid 95533 ALIVE, holding the chain slot
+total runs        20
+cards             VRAM% 0 0 0 0 0 0 0 0   at 01:40:00
+containers        xiaoming-dev (created 00:39:55), rc_26_7_902 — neither on GPU
+teammate writes   0 in the last 40 min
+commits           none by anyone since mine at 01:11
+hold 29313        12 h 20 min left
+```
+
+**Reported twice — 00:40:07 and 01:10:23. I will not report it a third time**;
+it is on the record with its measurements and repeating it consumes the leader's
+attention without adding a fact.
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged, seventh consecutive interval) |
+| 已经耗时 | **~1161 min ≈ 19 h 21 min** |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Nothing has executed for 101 minutes.**
+
+### 3. What a resumer needs, gathered because I am the only one holding all of it
+
+**Not a closing summary — the hold has 12 h 20 min and the round is not over.**
+This is the state someone picking up cold would otherwise have to reconstruct.
+
+**Reproducible, three times, fully real (`mock_stages=none`):**
+
+```
+stage 1  deploy_and_prove          3/3 verdicts, 8 greens across the round
+stage 2  _off, _on, merge, m2      sealed in runs 17, 18, 20
+stage 3  identify, rank            sealed in runs 17, 18, 20
+         build_workset             sealed once (run 18); m3_analysis sealed once
+best board  24/24 verdicts, zero refusals (run 18, T+937)
+duration    ~90 min for stages 1-3
+```
+
+**Materials this cluster produced for itself:**
+
+```
+/data/yihou/e2e_verify_20260906/m35/replay_root_run4/
+  PROMOTION.json   promoted 6 kinds, not_promoted 0
+                   required_node smci355-ccs-aus-n04-25
+                   --run 20260906T154908-d9c7af
+  stage1-deploy/  stage2-profiling/
+```
+
+**Never reached, on either cluster:** `packup`. **Never measured, here:** module
+4 — five approaches, zero measurements.
+
+**The two defects standing between the current board and the end of the chain:**
+
+- **`baseline` has two consumers with incompatible demands** (`apply.py:828`;
+  m3's `--impl` wants a self-contained `run()`, `overlay_files` wants the whole
+  public surface preserved). **A contract question, not a bug — both sides are
+  right.** `CONTRACT.md` is where it belongs; **nobody has read whether it already
+  speaks to `baseline`.**
+- **Six empty-default launch variables remain un-refuted**, enumerated in
+  `f273f0e1`. **Each can produce a refusal that reads as an artefact defect.**
+
+**Three ways a run reads alive while dead**, all measured tonight and all
+discriminated by something outside `store/task`: `output_validating` persisting
+(T+997), two 900 s timers feeding the detector (T+757), `output_absent` +
+`handling_failed` (T+1087).
+
+### 4. Code problems
+
+**No new ones.** All carried unchanged from T+1117; the eight `jsonschema`
+validators **unread since T+94 — nineteen hours.**
+
+### 5. 未定性
+
+- **Whether anything resumes before the hold ends.** 12 h 20 min.
+- **What module 4 costs.** Unchanged and still the only thing between the current
+  board and `packup`.
+- **Whether the new `xiaoming-dev` bursts.** At zero for an hour.
+- **Why `build_workset` did not deliver `879b05db-…`.**
+- **What module 5 consumes if module 4 is replayed** — **thirty-sixth consecutive
+  section.**
+
+### 6. 新增 commit
+
+None by anyone since `5ca0a5a1` (mine, 01:11).
