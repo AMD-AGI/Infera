@@ -410,3 +410,90 @@ not python engines, so `KILLABLE_RE` does not match them — **but that is a
 property of their command names, not of their idleness**, and it has not been
 verified against what they run inside. **Before m5, look; do not assume this
 paragraph.**
+
+## 4. PRE-FLIGHT FOR m5 — run this immediately before any m5 bring-up
+
+**Requested by the leader after my "before m5, look; do not assume this
+paragraph" caveat. Looking found something, and it also found that the check we
+first proposed does not work.**
+
+### The proposed command is wrong, and it fails toward "safe"
+
+`docker top <c> | awk '{print $NF}'` returns the **last argument**, not the
+process name. Measured 2026-09-07T05:54:20Z:
+
+```
+xiaoming-dev  -> "infinity"          (from `sleep infinity`)
+rc_26_7_902   -> "/usr/bin/bash" "bash"
+```
+
+**For `/opt/venv/bin/python -u _cfgtest/profile_keys.py` it would return
+`_cfgtest/profile_keys.py`, which matches nothing.** So the check would report
+"no killable process" on precisely the workload it exists to catch. **A guard
+that answers "safe" on its own worst case is the dangerous kind** — and this one
+would have been read as reassurance.
+
+### The correct check uses the same instruments the destructive step uses
+
+`reset_gpus.sh` does not consult docker at all. It enumerates
+**`rocm-smi --showpids`** and matches **`ps -o comm=`**:
+
+```
+reset_gpus.sh:29  rocm-smi --showpids | awk '/^[0-9]+[ \t]/ {print $1}'
+reset_gpus.sh:31  comm_of() { ps -o comm= -p "$1" | tr -d ' '; }
+```
+
+So the pre-flight is the same two reads and nothing else:
+
+```sh
+KILLABLE='^(python3?|pt_main_thread|ray|sglang.*)$'
+PROTECTED='^(slurmstepd|slurmd|slurmctld|kubelet|containerd|dockerd|systemd)'
+rocm-smi --showpids 2>/dev/null | awk '/^[0-9]+[ \t]/ {print $1}' | while read -r p; do
+  c=$(ps -o comm= -p "$p" 2>/dev/null | tr -d ' ')
+  [ -z "$c" ] && continue
+  if   printf '%s' "$c" | grep -qE "$PROTECTED"; then v=PROTECTED
+  elif printf '%s' "$c" | grep -qE "$KILLABLE";  then v="WILL BE KILLED"
+  else v="left alone"; fi
+  printf '  %s %-16s %s\n' "$p" "$c" "$v"
+done
+```
+
+> **Any line reading `WILL BE KILLED` that is not ours means m5 must not start.
+> A match is a `kill -9`, not a wait — `reset_gpus.sh` has no wait branch.**
+
+### Verified by running the regexes, not by reading them
+
+```
+python           KILL          torchrun    left alone
+python3          KILL          bash        left alone
+pt_main_thread   KILL          sleep       left alone
+sglang_worker    KILL          slurmstepd  PROTECTED
+```
+
+**And there is a sharper consequence than "it kills a colleague's job":
+`torchrun` does NOT match while its `python` ranks DO.** The sweep kills the
+ranks and leaves the launcher alive — **a torn-apart training job rather than a
+clean stop**, and the owner sees ranks dying for no reason they can locate.
+
+### The measurement that makes this live rather than theoretical
+
+Leader/checkpoint measured, 23:39:34 on 2026-09-06:
+
+```
+626424  root  /opt/venv/bin/torchrun --nnodes=1 --node-rank=0 ...
+626595  root  /opt/venv/bin/python -u _cfgtest/profile_keys.py
+five python ranks, ~140 GB each, all eight cards
+```
+
+**That container was idle for three days, ran thirty-one minutes, was destroyed
+and recreated at 00:39:55, and has been idle since.** It reads idle right now —
+`sleep infinity` and `bash`, no KFD processes at all.
+
+> **One burst is not a rate, and an idle reading here has a shelf life of
+> minutes. This is the seventh "the cards are free" failure mode in our notes:
+> a container that is present and can begin at any moment.**
+
+**So run the check immediately before the bring-up, not at planning time — and
+know that even then, a workload starting between the check and `reset_gpus.sh`
+is covered by nothing.** That residual cannot be closed from inside this
+package; it is a decision for the user, and the leader is raising it as one.
