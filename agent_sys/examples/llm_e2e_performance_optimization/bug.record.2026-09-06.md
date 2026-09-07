@@ -2088,3 +2088,68 @@ replay root,已经是目标形状了** —— run 4 的产物是 `items/text.jso
 而 replay 每修一层就露出下一层。
 *随后发现另有一条全真链 `20260907T045327-13a18e` 已经在跑、而且更远,
 于是我停掉了自己的运行,没有发车。* **端口都是 8101,不查就会撞。**
+
+---
+
+## 我加的「baseline 必须逐字」要求,和 `check_workset_shape` 的既有规则相撞 —— 一个算子因此被排除
+
+*2026-09-07 06:47,m2。运行 `20260907T045327-13a18e`。**这是我自己那条 brief 修改
+(`e248c76f`)的代价,由生产者自己写在 `Boundary` 里,而我是去读了才知道的。***
+
+### 生产者的原话
+
+> **One operator was excluded: `attention_ck_tile_kentry`, rank 2, 8.03% of the
+> profiled window** — the largest single thing missing from this artefact. Two
+> independent blockers, either sufficient. **First, its `baseline` would have to
+> be `aiter/ops/mha.py` byte for byte, 138 KB, and that file trips two of
+> `check_workset_shape`'s own rules once embedded in a Definition JSON: eight
+> absolute paths, and two of the seven template markers rule 7 scans for.
+> Trimming the file would break the whole-file-overlay property the verbatim
+> requirement exists for.** Second, `_mha_batch_prefill` is batch prefill against
+> a paged KV cache … `_common.py:build_inputs` is protected and fills every
+> integer tensor with `torch.randint(0, 8, dims)`, which would send the kernel
+> reading outside the cache. **That is not a failing gate, it is an illegal
+> memory access that takes the process down.**
+
+### 两个 blocker,只有第一个是我造成的
+
+1. **逐字要求 × `check_workset_shape` 的绝对路径 / 模板标记规则。**
+   一个真实的大文件嵌进 Definition JSON 之后,必然带着自己的绝对路径和模板标记。
+   **而「裁掉它们」正好破坏这条要求存在的理由。**
+   → **这两条规则是互斥的,而我加要求时没有检查另一条。**
+2. **`build_inputs` 用 `torch.randint(0, 8, dims)` 填所有整数张量**,对分页 KV
+   的 batch prefill 就是越界读。**这一条与我的修改无关**,是 harness 的既有限制,
+   需要 per-operator 的输入构造器,属于包级改动。
+
+**任一条单独成立就足以排除这个算子。所以「排除」不是我的修改独自造成的——
+但第一条确实是,而且如果只有第二条,记录会长得不一样。**
+
+### 由此得到的、比这个实例更一般的教训
+
+> **给一条 brief 加要求之前,先看这条要求会把哪些既有检查从「可满足」推到
+> 「不可满足」。** 我加的是「必须逐字」,而包里已经有两条规则在惩罚
+> 真实源码必然带有的东西(绝对路径、模板标记)。**新旧两条规则各自都对,
+> 合起来把一整类算子排除在外。**
+
+**修法不明显,而且不该由我在停机前决定。** 可能的方向:
+`check_workset_shape` 对 `definitions/*.json` 的 `baseline` 字段豁免那两条规则
+(它是嵌入的源码,不是这份产物自己的路径),或者 `baseline` 改为按引用而不是
+按值携带。**两者都会动到别人的文件和已冻结的契约,记在这里等重启后讨论。**
+
+### 附:一个未定性的东西,现在写下而不是事后回忆
+
+生产者在 `baseline` 顶部加了一个 **`__package__` 赋值**,理由是它自己测的:
+
+> `_common.py:_exec_source` 用 `exec(compile(...), {})` 跑这个字符串,空命名空间
+> 没有 `__name__`,模块自己的相对导入(`from ..jit.core import compile_ops`)会
+> 抛 `KeyError("'__name__' not in globals")` —— **measured in the deployment
+> image on 2026-09-07**。
+
+**这是对的,而且补上了我那条 brief 修改的一个缺口**(「逐字复制真实模块」会
+破坏 `--impl` harness,我没预见到)。
+
+**未定性的部分:这一行现在也在会被 overlay 到真实模块上的负载里。**
+它只增加名字、不删除名字,所以 `apply.py:828` 不受影响;
+**但 `integrate_and_verify` 是真的 import 那个结果的,而一个在 import 时给自己
+赋 `__package__` 的模块并不常见。我不知道它在那个位置有没有害。**
+> **如果 m5 死在一个 import 上,第一个要看的就是这一行。**
