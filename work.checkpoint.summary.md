@@ -18938,3 +18938,148 @@ thirty and a half hours.**
 ### 5. 新增 commit
 
 None by anyone since `d3746a51` (mine, 12:11).
+
+---
+
+## R2 T+1837 — 2026-09-07 13:11 UTC — CLOSING SECTION
+
+**T+1837 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 13:10:01). **Hold `29313` ends at 14:00:06 — 50 minutes from this
+write.**
+
+**Written now, not after, so every claim below could be checked while the node
+still answers.** `squeue`, `rocm-smi`, `docker ps` and `/proc` all stop answering
+when the allocation ends, and this record's method is reading rather than
+recalling.
+
+**This adds nothing new.** It assembles T+1147 §3, T+1417 §8 and the T+1537
+correction, with final numbers re-read at 13:09:40.
+
+### 1. Final state, read at 13:09:40
+
+```
+hold 29313      RUNNING 23:09:34 elapsed, ends 2026-09-07T14:00:06
+cards           VRAM% 0 0 0 0 0 0 0 0
+containers      xiaoming-dev, rc_26_7_902 — neither on GPU, neither ours
+orchestrators   0
+total runs      22
+last run write  2026-09-07 06:47:04  -> nothing of ours for 382 min 57 s
+teammate writes 0 in the last 40 min  (twelfth consecutive interval)
+this file       61 sections, 909 472 bytes, 60 checkpoint commits
+```
+
+### 2. Established — reproducible, with the numbers re-read
+
+```
+stage 1  deploy_and_prove green 9 times, on kits three different agents produced
+stage 2  m2_profiling sealed 4 times (runs 17, 18, 20, 22), with real 137-140 MB
+         stack captures, 5.6-5.7 M python samples, and 1.4 M-event traces
+         RE-PARSED by a validator rather than trusted
+stage 3  identify + rank sealed 4 times; build_workset and m3_analysis sealed
+         twice (runs 18 and 22)
+
+final verdict tallies, read at 13:10:
+  run 18   25/27   refusals: abort_on_premise_mismatch, min_command_lines
+  run 20   21/21   no refusals
+  run 22   26/27   refusals: abort_on_premise_mismatch
+  10 tasks sealed in each of runs 18 and 22
+
+duration stages 1-3   90-96 min, measured three times
+corpus  /data/yihou/e2e_verify_20260906/m35/replay_root_run4/
+        6 kinds promoted, 0 not promoted, from run 20260906T154908-d9c7af
+        built at 17:02, first consumed at 04:31 by a run that reached _on in
+        six minutes
+```
+
+**Note against my own earlier sections:** at T+937 I reported run 18 as **24/24**.
+That was true at 22:10; **its final tally is 25/27**, because two module-4
+refusals landed afterwards. **The 24/24 was a snapshot, not a result.**
+
+### 3. Not established
+
+```
+module 4   NEVER RUN AS A CAMPAIGN on this cluster.
+           Six approaches. Two refused on a missing --var gpu; the one that
+           produced an artefact ran with forge_mock=1 (T+1537 correction).
+           Zero campaign measurements.
+module 5   has never run for real, on either cluster.
+           forge_mock=1 cannot reach integrate_and_verify at all.
+packup     has never been reached, on either cluster.
+```
+
+### 4. The two defects on the critical path, both package-level
+
+- **The mount `case`.** `measure_in_container.sh` accepts `/shared_nfs`,
+  `/home/<user>`, `/mnt/m2m_nobackup/<user>`. **This cluster's roots are
+  `/data/yihou`.** It refused `check_workset_runs` (T+847) and later
+  `check_speedup_substantiated` (T+1477). **The T+937 clearing was
+  consumer-local**, which I flagged at the time and which proved out.
+- **`baseline` has three consumers with pairwise-incompatible demands.** m3's
+  `--impl` wants a self-contained file exporting `run()`; `apply_patch`'s
+  `overlay_files` wants the module's whole public surface preserved
+  (`apply.py:828`); `check_workset_shape`'s absolute-path and template-marker
+  rules reject a real 138 KB file embedded in a Definition JSON. **A contract
+  question, not a bug — every party is right.** `CONTRACT.md` is where it
+  belongs; **nobody has read whether it already speaks to `baseline`.**
+
+### 5. What I would tell whoever picks this up first
+
+1. **Fix the mount `case` in the package**, not in a launch line. It is two
+   branches short and it is blocking the last two rungs.
+2. **Settle `baseline` in `CONTRACT.md`** before running module 5, because no
+   configuration reaches it otherwise.
+3. **Run module 4 without `forge_mock=1` once**, purely to get its duration. It
+   is the only missing term in the estimate, and everything upstream of it is
+   reproducible in ~90 minutes.
+4. **The corpus works.** `mock_stages=m1,m2` with
+   `mock_root=…/m35/replay_root_run4` reaches `_on` in six minutes. Use it for
+   everything except acceptance — `SKIP-AHEAD.md` page 1, and the launch records
+   say so themselves.
+5. **Read `store/event` before concluding a run is stalled.** Three distinct
+   mechanisms leave a dead run reading `running`: `output_validating` persisting
+   after a failed validation, two 900 s timers feeding the detector, and
+   `output_absent` + `handling_failed`. **None is visible in `store/task`.**
+
+### 6. What this file cost and what it caught
+
+**Sixty sections at thirty-minute intervals, unbroken from 06:34 on 2026-09-06.**
+The unbroken series is the deliverable: **the absence of activity from 06:47
+onward is established rather than inferred**, because someone looked every thirty
+minutes and recorded finding nothing.
+
+**Four corrections to my own sections, all of them load-bearing:**
+
+```
+T+94    my 37-file zone check was true and insufficient — a crash is a third
+        outcome my tool could not see
+T+216   I predicted a collision from cards; it fired on the port band. The
+        launch line records an intention; only the deployment records the fact
+T+607   I retracted a mechanism, then T+637 reinstated it — a constant cannot
+        discriminate in EITHER direction
+T+1537  I reported module 4's duration without its qualifier. forge_mock=1 was
+        in the launch line and not in the grep pattern I wrote
+```
+
+**The last one is the one I would carry forward.** Every launch-line reading in
+this file went through a pattern I chose, and **everything I did not think to
+name was invisible in a way that looked like absence.**
+
+### 7. 进度 / 耗时 / 可靠性 — final
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** |
+| 已经耗时 | **~1851 min ≈ 30 h 51 min** (mission.md 2026-09-06 06:19:11 → now) |
+| 预估耗时 | **not computable — stages 1–3 are 90–96 min; module 4, module 5 and packup have zero measurements between them** |
+| 可靠性 | **中 for the percentage; 高 for §2's counts, which were re-read at 13:10** |
+
+**78 % is three of five stages sealed and reproducible, with the fourth entered
+and never measured.** It is not a prediction that the remaining 22 % is small —
+**module 4's duration is unknown and module 5 has never run anywhere.**
+
+### 8. If work resumes
+
+**This section closes nothing.** The hold has 50 minutes and the file is
+append-only: **if anything runs, the next section is T+1867 and this one becomes
+a mid-round summary.** That is the correct behaviour for a record whose value is
+that it never regenerates.
