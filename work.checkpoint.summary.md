@@ -18727,3 +18727,60 @@ subject cannot be amended.**
 with a name attached to it.** T+1537 said the subject was permanent; **this is
 the first interval in which someone outside our team is in a position to read
 it.**
+
+---
+
+## R2 T+1717 — 2026-09-07 11:11 UTC
+
+**T+1717 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 11:10:07).
+
+**No-change record for our work. `cyao1002`'s second run also ended.**
+
+### 1. State
+
+```
+cyao1002        run 2 started 10:2x, containers up 10:38:26/31
+                at 11:10:00: 0 orchestrators, no serves-0b9d89b1 containers
+                => ran at most ~32 min, same shape as their first (~45 min)
+run 22 (13a18e) last write 2026-09-07 06:47:04  -> quiet 262 min 56 s
+total runs      22
+teammate writes 0 in the last 40 min  (eighth consecutive interval at zero)
+commits         none by anyone since mine at 10:41
+cards           VRAM% 0 0 0 0 0 0 0 0 at 11:10:00
+hold 29313      2 h 50 min left
+```
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** (unchanged) |
+| 已经耗时 | **~1731 min ≈ 28 h 51 min** |
+| 预估耗时 | **stages 1–3 90–96 min measured; module 4, module 5, packup unmeasured** |
+| 可靠性 | **中** |
+
+### 3. Code problems
+
+**No new ones.** Unchanged. The eight `jsonschema` validators remain **unread
+since T+94 — twenty-nine hours.**
+
+### 4. 未定性
+
+- **Whether the round is continuing.** Asked at 07:11, 08:11, 09:41 and 10:41;
+  no answer. **T+1657 §7's plan stands: closing section at ≈13:30.**
+- **What a real module-4 campaign costs.**
+- **What module 5 consumes if module 4 is replayed** — **fifty-fifth consecutive
+  section.**
+
+### 5. 新增 commit
+
+None by anyone since `7caa28e1` (mine, 10:41).
+
+### 6. 其他
+
+**Two runs by `cyao1002` today, at most 45 and 32 minutes, both ending without
+reaching anything I can see from here** — their run root is `/tmp/cyao1002/` and
+I have not looked inside it. **I record the durations because they are visible
+from process and container lifetimes, and nothing else about their runs is mine
+to characterise.**
