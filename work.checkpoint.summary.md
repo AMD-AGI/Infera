@@ -16680,3 +16680,125 @@ named as the discriminator every time this has come up.**
 remembered:** *when a task's quiet interval exceeds its own measured precedent,
 open `store/event` before writing the section — not after.* **`build_workset`'s
 precedent is 24 minutes and it was in this file when I wrote T+1057.**
+
+---
+
+## R2 T+1117 — 2026-09-07 01:11 UTC
+
+**T+1117 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 01:10:23).
+
+### 1. The co-tenant respawns — `xiaoming-dev` is a new container with the same name
+
+**The T+1027 question "does it respawn" has an answer, and it is yes.**
+
+**[observed, first-hand]**
+
+```
+docker inspect xiaoming-dev
+  created  2026-09-07T00:39:55.052Z      ← was 2026-09-03T02:19:00Z
+  started  2026-09-07T00:39:55.102Z
+  running  true    RestartCount 0        ← a fresh docker run, not a restart
+  image    tasimage/primus:pr-1048       (unchanged)
+
+docker ps -a --filter name=xiaoming
+  3cdd18ecbf1c  xiaoming-dev  Up 30 minutes  2026-09-07 00:39:55
+```
+
+**One row. The container that held eight GPUs at 23:39:34 no longer exists** —
+not running, not stopped, gone. **A new one took its name at 00:39:55 with
+`RestartCount 0`, so it was created, not restarted.**
+
+**Two consequences, and the first is about my own evidence:**
+
+- **The container I inspected at 23:40 is unrecoverable.** Its cgroup, its
+  labels, its start time — all gone. **This is the T+548 shelf-life finding
+  again: a container-identity question expires in minutes, while the logs it
+  wrote do not.** I recorded the inspect output at T+1027, which is now the only
+  copy.
+- **The recreation at 00:39:55 preceded my report to the leader at 00:40:07 by
+  twelve seconds.** **It was not caused by it**, and I state the ordering rather
+  than leaving it to be inferred the other way.
+
+**Cards read 0 % at 01:09:57**, so the new container is not using GPUs yet — **and
+by T+1027's phrasing rule that is a reading with a timestamp, not a property.**
+
+### 2. Run 20 has been dead for seventy-one minutes and nothing has acted
+
+```
+last run-tree write     2026-09-06 23:58:13
+now                     2026-09-07 01:10:23      -> 71 min 10 s
+store/task              build_workset: running   (unchanged, T+1087 §1)
+orchestrator pid 95533  ALIVE, holding the chain slot
+verdicts                21/21
+teammate writes, 45 min 0
+commits by anyone       none since mine at 00:41
+cards                   VRAM% 0 0 0 0 0 0 0 0
+```
+
+**Reported at 00:40:07 with the events and the measurements.** **The node has now
+been idle, with a free set of eight cards and a dead run holding the slot, for
+over an hour.**
+
+**I record the cost without inflating it:** hold `29313` has **12 h 50 min**
+left; stages 1–3 have been measured at **~90 minutes**; **module 4 has never
+measured anything in five approaches.** Whether that leaves room depends entirely
+on module 4's unknown duration.
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged) |
+| 已经耗时 | **~1131 min ≈ 18 h 51 min** |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Sixth consecutive interval unchanged.** **Nothing has run since 23:58:13.**
+
+### 4. Code problems
+
+**No new ones.** All carried, unchanged from T+1087, including the three
+permanent-`running` mechanisms and the eight `jsonschema` validators **unread
+since T+94 — eighteen and a half hours.**
+
+### 5. 未定性
+
+- **Whether anyone picks up run 20.** Seventy-one minutes, node idle, reported
+  once.
+- **Whether the new `xiaoming-dev` takes the GPUs as its predecessor did.** **The
+  predecessor went from three days idle to eight cards in one second**; this one
+  is thirty minutes old and at zero. **One prior burst is not a rate.**
+- **Why `build_workset` did not deliver `879b05db-…`** — carried, unread.
+- **What module 4 costs** — five approaches, zero measurements.
+- **What module 5 consumes if module 4 is replayed** — **thirty-fifth consecutive
+  section.**
+
+### 6. 新增 commit
+
+Since T+1087, none by anyone.
+
+### 7. 其他
+
+**The last two hours have produced no runs and three findings, and all three are
+about the difference between a name and a thing.**
+
+```
+T+1057  a container that "holds no GPU"  ->  held none at that instant
+T+1087  a task that reads "running"      ->  finished and delivered nothing
+T+1117  a container called xiaoming-dev  ->  a different container, same name
+```
+
+**Each of the three labels is accurate.** `docker ps` really did show that name;
+the task really was dispatched; the card really did read zero. **What none of them
+carries is the thing a reader wants: is this the same entity, and is it still
+true.**
+
+**The first cluster paid five misattributions for the third of these** and
+concluded that ownership is a label, an auto-remove flag and a process list —
+never a name. **Tonight the same name changed identity underneath a running
+investigation**, and the only reason the earlier evidence survives is that
+T+1027 pasted the `docker inspect` output into this file instead of citing it.
+
+**That is the whole argument for quoting an instrument's output rather than its
+conclusion**, and it is worth stating at the point where it just paid for itself.
