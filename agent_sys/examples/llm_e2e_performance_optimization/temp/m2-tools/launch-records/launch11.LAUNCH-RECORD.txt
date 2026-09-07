@@ -1,0 +1,69 @@
+run 7
+written_at        2026-09-06T19:25:19Z   (read with date -u, not hand-written)
+launched          2026-09-06T19:24:06Z
+run dir           /data/yihou/agent_sys_runroot/runs/20260906T192406-5f24ca
+orchestrator pid  2505185   ppid 1 (setsid took; a harness tool-call timeout
+                  cannot reap it -- m1's 2026-09-06 08:0x finding)
+identity          bound by the agent child's readlink /proc/2506584/cwd, which
+                  names this run dir. NOT by mtime and NOT by "newest".
+
+CHANGES FROM RUN 6 -- exactly these, everything else byte-identical
+  --stall-after 1200          was 900
+  work_root            /data/yihou/e2e_flow7
+  scratch_root         /data/yihou/e2e_flow7/kfo
+  validate_work_root   /data/yihou/e2e_flow7/validate
+  container            yihou_e2e_chain7
+
+  The leader named work_root and container. I moved scratch_root and
+  validate_work_root too, unasked, because they are siblings of the same value
+  and bug 30 in this package is precisely "the rollback moved work_root and
+  left scratch_root behind". Moving one field of a compound value and leaving
+  its siblings pointed at the old tree is the documented way to get run 6's
+  files under run 7's name.
+
+WHY 1200 AND NOT 900
+  AIPerf's request timeout is 900 s. agent_sys's stall timeout was 900 s.
+  On 2026-09-06 the engine stopped generating at 18:35:24 and AIPerf emitted a
+  burst of 32 timeouts every 900 s; each burst wrote into the run tree seconds
+  after the stall deadline and re-satisfied the detector. Measured bursts:
+  18:50:24 and 19:05:25. The run would have looked alive for ~4 more hours.
+  Any value that is not 900 breaks the alias. 1200 is not claimed optimal.
+  do_launch.sh now REFUSES 900 by name; control run, it aborts.
+
+WHAT THIS CHANGE DOES NOT DO -- stated before the result exists
+  It does not fix the engine dying. It makes a repeat visible in 20 minutes
+  instead of 30+. The engine death is UNEXPLAINED. Denominator across every
+  attempt on this host today:
+      measurement window (with_stack=0)   4 attempts, 4 clean
+      stack window       (with_stack=1)   3 attempts, 1 clean
+  Run 4 (20260906T154908-d9c7af) took the same 3 s with_stack=1 window on the
+  same host, image, TP4 and schedule and PASSED, with check_trace_coverage
+  green on 5,613,901 python_function events. So the failure is intermittent.
+  IF RUN 7's _on DIES THE SAME WAY, THE STALL CHANGE GETS NO CREDIT FOR THE
+  DIAGNOSIS -- it only shortens the wait. Recording that now, before the
+  outcome, so it cannot be assigned afterwards.
+
+DETECTION TO APPLY WHEN THE STACK WINDOW CLOSES
+  Count "Stop profiling" lines in the engine log. Fewer than the rank count
+  means the engine is dead. On run 6 that was true at 18:35:25 -- nine minutes
+  before anyone noticed, and 30 before the run ended.
+  If it fires: run capture_engine_stack.sh BEFORE stopping any container.
+
+UNCHANGED FROM RUN 6
+  jobid=29313 (asserted RUNNING at launch), node=smci355-ccs-aus-n04-25,
+  transport=local, tp=4, expect_ranks=4, mock_stages=none, trace_end_ms=120000,
+  bench_rounds=3, adhoc_cases=3, forge_mock=1, kernel_table_min_launchers=0,
+  --timeout 21600 (asserted present), 31 --var flags (asserted), setsid,
+  env -u PYTHONPATH, CLAUDE_CONFIG_DIR=.../m1/claude-config.
+  The preflight clause is the fixed one: unknown WAITS, abort only when a
+  container can be named AND non-zero VRAM attributed to it.
+
+PRE-LAUNCH STATE, read at 19:23:54Z
+  jobid 29313 RUNNING, TIME_LEFT 18:36:12
+  all 8 cards VRAM 0 %
+  containers: exactly 2, rc_26_7_902 and xiaoming-dev, both foreign, both
+              3 days old, neither holding GPU -- left alone
+  /data/yihou/e2e_flow7 did not exist
+
+WRAPPER LINE CONFIRMED (rule 6 -- absent means kill and re-issue)
+  run_with_long_stall: stall_after 20s -> 1200s
