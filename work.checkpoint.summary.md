@@ -17020,3 +17020,79 @@ correction.
 `xiaoming-dev` now refers to its second container of the night; **the cgroup ID
 `3cdd18ecbf1c` refers to one thing only.** Every ownership claim in this section
 goes through the ID.
+
+---
+
+## R2 T+1207 — 2026-09-07 02:41 UTC
+
+**T+1207 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 02:40:09).
+
+**Short section: one new measurement, everything else unchanged.**
+
+### 1. The second burst released, and the two are comparable
+
+**[observed, first-hand]**
+
+```
+02:39:56   VRAM%  0 0 0 0 0 0 0 0
+           rocm-smi --showpids: "No KFD PIDs currently running"
+```
+
+```
+burst 1   old container (gone)   started 2026-09-06 23:39:34   held ≈ 31 min
+burst 2   3cdd18ecbf1c           started 2026-09-07 02:03:40   held ≤ 36 min
+```
+
+**Burst 2's duration is an upper bound**, not a measurement — I sampled at
+02:10:07 and 02:39:56 and it ended somewhere between. **The two are the same
+order of magnitude**, which is all two points support.
+
+**What this does and does not license:** the node's co-tenant takes all cards for
+roughly half an hour at a time and gives them back. **It does not license a
+prediction about when the next one starts** — burst 1 came 3 days after its
+container was created, burst 2 came 84 minutes after its container was created.
+
+### 2. Everything else, unchanged
+
+```
+run 20 (ef6374)   last write 2026-09-06 23:58:13  -> dead 161 min 43 s
+                  build_workset / m3_analysis / main still read `running`
+                  orchestrator pid 95533 ALIVE, holding the chain slot
+total runs        20
+teammate writes   0 in the last 40 min
+commits           none by anyone since mine at 02:11
+cards             free at 02:39:56
+hold 29313        11 h 20 min left
+```
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged, ninth consecutive interval) |
+| 已经耗时 | **~1221 min ≈ 20 h 21 min** |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Nothing of ours has executed for 161 minutes.** The cards are free right now.
+
+### 4. Code problems
+
+**No new ones.** All carried unchanged from T+1177. The eight `jsonschema`
+validators remain **unread since T+94 — twenty hours.**
+
+### 5. 未定性
+
+- **Whether anything of ours resumes.** 11 h 20 min of hold; nothing running for
+  161 minutes; the cards are free at this instant.
+- **When the next co-tenant burst starts.** Two observations, no basis for a
+  prediction — §1.
+- **What module 4 costs.**
+- **Why `build_workset` did not deliver `879b05db-…`.**
+- **What module 5 consumes if module 4 is replayed** — **thirty-eighth
+  consecutive section.**
+
+### 6. 新增 commit
+
+None by anyone since `21a26c30` (mine, 02:11).
