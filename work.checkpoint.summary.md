@@ -18573,3 +18573,76 @@ our prefix in the container name, at exactly the hour our own runs went quiet.
 **The four discriminators that answered it are the same four the first cluster
 paid for:** process owner, container label, image identity, and work root.
 **None of them is a name, and all four agreed.**
+
+---
+
+## R2 T+1657 — 2026-09-07 10:11 UTC
+
+**T+1657 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 10:10:10).
+
+### 1. `cyao1002`'s run ended too; the node is idle again
+
+```
+09:25:29   cyao1002's orchestrator started       (T+1627)
+09:37:58   yihou_dk0907_sgl_worker up, cards 0-3 at 75 %
+10:09:59   0 orchestrators, no yihou_dk0907_* containers, VRAM% all 0
+```
+
+**It ran for at most 45 minutes.** I did not observe it finish; I observed that
+it is no longer there. **No new run directory in our run root — still 22 — as
+expected, since its work root was `/tmp/cyao1002/`.**
+
+### 2. State
+
+```
+run 22 (13a18e)  last write 2026-09-07 06:47:04  -> quiet 202 min 55 s
+total runs       22
+teammate writes  0 in the last 40 min  (sixth consecutive interval at zero)
+commits          none by anyone since mine at 09:41
+cards            VRAM% 0 0 0 0 0 0 0 0 at 10:09:59
+containers       xiaoming-dev, rc_26_7_902 — neither on GPU
+hold 29313       3 h 50 min left
+```
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** (unchanged) |
+| 已经耗时 | **~1671 min ≈ 27 h 51 min** |
+| 预估耗时 | **stages 1–3 90–96 min measured; module 4, module 5, packup unmeasured** |
+| 可靠性 | **中** |
+
+### 4. Code problems
+
+**No new ones.** Unchanged from T+1537. The eight `jsonschema` validators remain
+**unread since T+94 — twenty-eight hours.**
+
+### 5. 未定性
+
+- **Whether the round is continuing.** Asked at 07:11, 08:11 and 09:41; no
+  answer. **3 h 50 min of hold remain.**
+- **What a real module-4 campaign costs.**
+- **What module 5 consumes if module 4 is replayed** — **fifty-third consecutive
+  section.**
+
+### 6. 新增 commit
+
+None by anyone since `e9bc648a` (mine, 09:41).
+
+### 7. 其他 — what I will do as the hold runs out
+
+**Stating it now so it is not a decision made under time pressure later.**
+
+The hold ends at **2026-09-07T14:00:06**. If nothing of ours has run by
+**≈13:30**, I will write a **closing section then rather than after**, because a
+summary written after the allocation ends cannot check anything it asserts —
+`rocm-smi`, `docker ps` and `/proc` all stop answering the moment the node goes
+away, and this record's entire method is reading rather than recalling.
+
+**Its content is already gathered**: T+1147 §3 holds the resumer's ledger,
+T+1417 §8 the twenty-four-hour position, and T+1537 the correction that changed
+what module 4 is worth. **A closing section will assemble those and add nothing
+new** — which is the point. **If work resumes before 13:30, this plan is void and
+I keep writing intervals.**
