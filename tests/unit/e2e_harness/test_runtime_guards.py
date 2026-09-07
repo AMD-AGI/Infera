@@ -202,12 +202,43 @@ def test_spur_attached_srun_reuses_holder_allocation(monkeypatch):
 
     argv = cluster.srun_argv("node-a")
 
-    assert argv[:5] == ["srun", "-N1", "-n1", "-w", "node-a"]
+    assert argv[:7] == [
+        "srun",
+        "--overlap",
+        "--nodes=1",
+        "--ntasks=1",
+        "--nodelist",
+        "node-a",
+        "--jobid",
+    ]
+    assert argv[7] == "4242"
     assert "-p" not in argv
     assert not any(arg.startswith("--reservation") for arg in argv)
-    assert "--jobid" not in argv
     assert "wrong-account" not in argv
     assert argv[-1] == "--cpu-bind=none"
+
+
+def test_spur_attached_run_uses_pty_and_normalizes_output(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cluster, "_SPUR", True)
+    monkeypatch.setenv("SLURM_JOB_ID", "4242")
+    monkeypatch.setattr(cluster.shutil, "which", lambda command: f"/usr/bin/{command}")
+
+    def run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return subprocess.CompletedProcess(argv, 0, "^@node-a\r\n\x00", "")
+
+    monkeypatch.setattr(cluster.subprocess, "run", run)
+
+    done = cluster.run_on_node("node-a", ["hostname", "-s"], timeout=7)
+
+    argv, kwargs = calls[0]
+    assert argv[:2] == ["/usr/bin/script", "-qefc"]
+    assert "--jobid 4242" in argv[2]
+    assert "--nodelist node-a" in argv[2]
+    assert argv[-1] == "/dev/null"
+    assert kwargs["timeout"] == 7
+    assert done.stdout == "node-a\n"
 
 
 def test_spur_detached_srun_keeps_submission_placement(monkeypatch):

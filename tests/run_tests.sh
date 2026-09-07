@@ -227,29 +227,31 @@ _cancel_dispatched() {
 # pytest's teardown, so without this a cancel leaves prefill+decode on the GPUs.
 _DISAG_NODES=""
 _wipe_disag_nodes() {
-  local n step=() extra=() resv=()
+  local n command=() extra=() resv=() wrapped=""
   for n in ${_DISAG_NODES//,/ }; do
     echo "[cleanup] removing this job's PD containers on $n" >&2
     if [ -n "$_HOLDER_JID" ]; then
-      if [ -n "${SPUR_CONTROLLER_ADDR:-}" ]; then
-        step=(env SLURM_JOB_ID="$_HOLDER_JID" srun -N1 -n1 -w "$n")
-      else
-        step=(srun --overlap --nodes=1 --ntasks=1 --nodelist "$n" --jobid "$_HOLDER_JID")
-      fi
+      command=(srun --overlap --nodes=1 --ntasks=1 --nodelist "$n" --jobid "$_HOLDER_JID")
       extra=()
     else
-      step=(srun -N1 -n1 -p "$SLURM_PART" -w "$n")
+      command=(srun -N1 -n1 -p "$SLURM_PART" -w "$n")
       [ -n "${INFERA_E2E_RESERVATION:-}" ] &&
         resv=("--reservation=$INFERA_E2E_RESERVATION")
       read -ra extra <<< "${INFERA_E2E_SRUN_EXTRA:-}"
     fi
     # Unnamed, SLURM would call this "bash" and leave it UNLIMITED — invisible to
     # ci.yml's `infera-ci-`+run-id reclaim, on the very cancel that reclaim cleans up.
-    "${step[@]}" "${resv[@]}" "${extra[@]}" \
+    command+=("${resv[@]}" "${extra[@]}" \
       -J "infera-ci-wipe-${INFERA_E2E_JOB_TAG:-local}" -t 00:05:00 \
       bash -lc 'docker rm -f $(docker ps -aq --filter "label=infera.e2e.job_tag=$1") 2>/dev/null || true' \
-      _ "$CTR_TAG" \
-      >/dev/null 2>&1 || true
+      _ "$CTR_TAG")
+    if [ -n "$_HOLDER_JID" ] && [ -n "${SPUR_CONTROLLER_ADDR:-}" ] &&
+       command -v script >/dev/null 2>&1; then
+      printf -v wrapped '%q ' "${command[@]}"
+      script -qefc "$wrapped" /dev/null >/dev/null 2>&1 || true
+    else
+      "${command[@]}" >/dev/null 2>&1 || true
+    fi
   done
   _DISAG_NODES=""
 }
@@ -1169,9 +1171,9 @@ run_e2e_disagg() {
       # Every remote operation must be a STEP in the allocation that owns this
       # pair.  Submitting fresh jobs worked on reserved Spur nodes but deadlocks
       # on the open partition: docker rm/inspect/logs queue behind our own holder.
-      # Spur has no --jobid flag, but srun consumes SLURM_JOB_ID from the
-      # environment.  The launcher issues these short docker steps sequentially,
-      # so it does not need Spur's unsupported --overlap.
+      # The Python launcher reads SLURM_JOB_ID and attaches every Spur command
+      # with --jobid/--overlap under a pseudo-TTY; exporting the id alone makes
+      # Spur create a fresh allocation which queues behind this holder forever.
       env SLURM_JOB_ID="$_HOLDER_JID" \
         INFERA_E2E_EXCLUSIVE="$exclusive_owner" \
         INFERA_E2E_STEP_SRUN_EXTRA="$_SLURM_STEP_SRUN_EXTRA" \

@@ -43,7 +43,8 @@ DEFAULT_GID_INDEX = "1"
 
 _SRUN_TIMEOUT = 60
 
-# The Spur scheduler exposes only a subset of srun (no --overlap/--jobid).
+# Spur's external ``--jobid --overlap`` attachment requires a TTY even for a
+# non-interactive command. ``run_on_node`` supplies one with util-linux ``script``.
 _SPUR = bool(os.environ.get("SPUR_CONTROLLER_ADDR"))
 
 # Every disagg step carries this name (traceable to its CI run, and matched by
@@ -78,15 +79,27 @@ def srun_argv(node: str, *, job: str = "") -> list[str]:
     short jobs on the reserved pair; allocation and attached-step extras are
     deliberately separate.
 
-    When ``SLURM_JOB_ID`` is present the pair is already allocated.  In that mode
-    placement/account flags must not be repeated: on Spur they turn what should
-    be an allocation step into a new job which queues behind the holder.
+    When ``SLURM_JOB_ID`` is present the pair is already allocated. In that mode
+    placement/account flags must not be repeated, and the existing job must be
+    named explicitly: merely exporting ``SLURM_JOB_ID`` from an external driver
+    does not attach on Spur and creates a new job which queues behind the holder.
     """
     part = os.environ.get("INFERA_E2E_SLURM_PARTITION")
     attached = _job_id() is not None
-    if _SPUR:
+    if _SPUR and attached:
+        argv = [
+            "srun",
+            "--overlap",
+            "--nodes=1",
+            "--ntasks=1",
+            "--nodelist",
+            node,
+            "--jobid",
+            _job_id(),
+        ]
+    elif _SPUR:
         argv = ["srun", "-N1", "-n1"]
-        if part and not attached:
+        if part:
             argv += ["-p", part]
         argv += ["-w", node]
     else:
@@ -112,12 +125,33 @@ def run_on_node(
     srun_args: tuple[str, ...] = (),
 ):
     """Run ``argv`` on ``node`` and capture its output (never raises on rc!=0)."""
-    return subprocess.run(
-        srun_argv(node) + list(srun_args) + argv,
+    command = srun_argv(node) + list(srun_args) + argv
+    pty = _SPUR and in_allocation()
+    if pty:
+        script = shutil.which("script")
+        if script is None:
+            raise RuntimeError(
+                "Spur holder attachment requires util-linux 'script' to provide a pseudo-TTY"
+            )
+        command = [script, "-qefc", shlex.join(command), "/dev/null"]
+    done = subprocess.run(
+        command,
         capture_output=True,
         text=True,
         timeout=timeout,
     )
+    if not pty:
+        return done
+
+    # The pseudo-TTY merges the child's stderr into stdout and emits CRLF (plus
+    # an occasional NUL when Spur closes its raw stream). Keep callers' parsing
+    # deterministic; errors still carry the child's non-zero return code.
+    def clean_pty(value: str | None) -> str:
+        return (value or "").replace("\x00", "").replace("^@", "").replace("\r\n", "\n")
+
+    stdout = clean_pty(done.stdout)
+    stderr = clean_pty(done.stderr)
+    return subprocess.CompletedProcess(done.args, done.returncode, stdout, stderr)
 
 
 def require_step_access(node: str, *, timeout: float = 30) -> None:
