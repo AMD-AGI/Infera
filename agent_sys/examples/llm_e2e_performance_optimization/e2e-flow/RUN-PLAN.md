@@ -2470,6 +2470,32 @@ So a mocked stage 1 needs all three:
 --var teardown_entrypoint=scripts/stub/teardown.sh
 ```
 
+**2026-09-07 — and the stub is still not enough to run stage 1 on a login node.**
+Measured over four attempts:
+
+```
+transport=spur                hung 15 min at deploy_and_prove:output_validating.
+                              check_deploy_serves brings up through on(), which shells to
+                              `spur exec 0` -- no node. It is bounded by
+                              bringup_timeout_seconds (3600), NOT by your own timeout.
+transport=local + stub        stub deploy rc=1:
+                              mkdir: cannot create '/mnt/m2m_nobackup': Permission denied
++ validate_work_root=/tmp     bring-up SUCCEEDED, reached 3/4, then:
+                              PROBLEM: the load failed (rc=1)
+                                preflight OK -- load 1024/1024, conc 16, 180 s -- refused
+```
+
+> **The stub answers a preflight; it cannot serve a three-minute 1k/1k load.** So
+> `check_deploy_serves` refuses, the chain stops at stage 1, and every downstream kind
+> never exists. **A login-node run cannot answer any question about a downstream kind
+> — the sample is structurally incapable of it.**
+
+**`validate_work_root` is a SEPARATE variable from `work_root`** (`m1_deploy.yaml:250`),
+defaulting to a compute-node path that is unwritable from the login node. **It is not a
+forgotten variable — it is a default that is correct in the configuration everyone runs
+and wrong in the one nobody does**, so it fails only where nobody looks. Add it to any
+login-node line.
+
 The middle line is its own trap: **`mock_stages` alone mocks nothing for the four
 stages whose default agent is `ai`**, because a `kind: ai` task never runs
 `entry.sh`, which is where `mock.sh` is invoked. Silent, and `show` cannot see
