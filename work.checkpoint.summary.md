@@ -16417,3 +16417,126 @@ the second reads as a property of the container.
 `c2ac437f`, `58c5c56e` and `10558a28` all bought tonight in their own domains.
 **A measurement with a timestamp is a fact. The same measurement stated as a
 property is a prediction.**
+
+---
+
+## R2 T+1057 — 2026-09-07 00:10 UTC
+
+**T+1057 = wall-clock delta from the baseline** (2026-09-06 06:33:41 → 2026-09-07
+00:10:38). **First section on a second calendar day; the T-number and the UTC
+stamp both continue, and the date is now part of every timestamp below.**
+
+### 1. `xiaoming-dev` released the cards after about half an hour
+
+**[observed, first-hand]**
+
+```
+2026-09-06 23:39:34   torchrun starts, five ranks, ~140 GB each
+2026-09-06 23:40:30   VRAM%  47 47 47 48 44 47 49 45
+2026-09-07 00:10:11   VRAM%   0  0  0  0  0  0  0  0
+                      rocm-smi --showpids: "No KFD PIDs currently running"
+```
+
+**It held all eight cards for at most ~31 minutes and let them go.** The
+container is still up (`docker ps` shows it), still maps `/dev/kfd`, and holds
+nothing.
+
+**The open question from T+1027 — does it respawn — is still open, and one
+release does not answer it.** What I can say: **it went from three days idle to
+eight cards in one second, and back to zero within half an hour.** The honest
+description of this node is that **it has a co-tenant whose GPU use is bursty and
+unannounced**, which is a stronger and more useful statement than either "CPU
+only" or "it took the GPUs."
+
+**And the phrasing repair from T+1027 §7 applies immediately:** the correct
+record is *"held no GPU at 00:10:11"*, not *"holds no GPU."*
+
+### 2. Run 20 has been quiet for twelve minutes inside `build_workset`
+
+```
+ef6374   ALIVE  pid 95533, orchestrator up since 22:40:48
+  build_workset            running
+  m3_analysis              running
+  everything upstream      succeeded
+  verdicts 21/21           newest verdict mtime 2026-09-06 23:24:27
+  last run-tree write      2026-09-06 23:58:13
+  work_root 442 M, 0 files written in the last 15 min
+```
+
+**Quiet for 12 min 15 s at this sample.** Recorded as a measurement, not a
+diagnosis.
+
+**The comparison that makes it interpretable comes from tonight's own
+measurement** (`d313556e`): **`build_workset` ran 24 minutes under a 1200-second
+threshold, twice.** So twelve minutes of quiet is **inside its known range** and
+this record has no basis to call it stalled.
+
+**And T+997's companion check says the same:** the newest verdict mtime is
+23:24:27 with run-tree writes at 23:58:13 afterwards, so **the task is not
+sitting in a post-refusal escalation.**
+
+**`build_workset` is a `runner` closure — a program body, no transcript** — so
+the artefact that would say *what* it is doing does not exist for it. **The
+available signals are the ones above.**
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged) |
+| 已经耗时 | **~1071 min ≈ 17 h 51 min** (mission.md 2026-09-06 06:19:11 → now) |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Fourth consecutive interval unchanged.** Runs 19 and 20 have both failed to get
+past `build_workset` so far, and **module 4 has still measured nothing on this
+cluster after four approaches.**
+
+**Hold `29313`: 13 h 50 min left** (2026-09-07T14:00:06 → 00:10:38).
+
+### 4. Code problems
+
+**No new ones.** All carried, unchanged from T+1027: `output_validating`
+persisting after a failed validation; `baseline` with two incompatible consumers;
+stall threshold vs the longest quiet interval; `preflight.sh:211`;
+teardown-vs-preflight sequencing; `--var jobid` vs `_agree_or_die`; `etcd.log` on
+no path; `min_resolve_ratio` floor of zero; the router `/health` gate vs a cold
+JIT compile; three refusals naming unreadable `--var`s; six un-refuted
+empty-default variables.
+**Carried unread since T+94:** the eight `jsonschema` validators — **seventeen
+and a half hours.**
+
+### 5. 未定性
+
+- **Whether `build_workset` completes.** Twelve minutes quiet against a measured
+  24-minute precedent.
+- **Whether `xiaoming-dev` bursts again**, and whether module 4 would be able to
+  measure card 4 if it did. **One release is not a pattern.**
+- **What module 4 costs** — and per T+1027 §3, **any timing taken under a
+  co-tenant burst would be uninterpretable even if it succeeded.**
+- **Whether `baseline` blocks module 5.**
+- **What module 5 consumes if module 4 is replayed** — **thirty-third consecutive
+  section.**
+
+### 6. 新增 commit
+
+Since T+1027, none but mine (`48248964`). **No commits by anyone in the last
+thirty minutes.**
+
+### 7. 其他
+
+**The co-tenant burst is the first event of this round that neither the package
+nor the team can fix, and it is worth marking as a different category from
+everything above it.**
+
+Every other entry in this file is something someone did: a variable not passed, a
+mount branch not written, a name spelled two ways, a timer set equal to another
+timer. **All of them have owners and repairs.** `xiaoming-dev` starting a
+training job at 23:39:34 has neither — **it is a fact about sharing a machine**,
+and the only thing available is to know it happened and to distrust any number
+measured across it.
+
+**That is why the T+1027 §7 phrasing repair matters more than it looks.** A
+record that says *"held no GPU at 00:10:11"* stays true forever and lets a later
+reader ask the right question. **A record that says "foreign, CPU only" quietly
+becomes false at 23:39:34 and takes eight sections with it.**
