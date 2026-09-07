@@ -16904,3 +16904,119 @@ validators **unread since T+94 — nineteen hours.**
 ### 6. 新增 commit
 
 None by anyone since `5ca0a5a1` (mine, 01:11).
+
+---
+
+## R2 T+1177 — 2026-09-07 02:11 UTC
+
+**T+1177 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 02:10:24).
+
+### 1. The co-tenant burst a second time — 02:03:40, and it is the new container
+
+**T+1117 left this open: "one prior burst is not a rate." There are now two.**
+
+**[observed, first-hand, ownership by cgroup rather than by name]**
+
+```
+02:09:55  VRAM%  17 17 17 99 17 17 17 17
+02:10:07  VRAM%  17 17 17 99 17 17 17 17    (stable across 12 s)
+
+rocm-smi --showpids
+  1744540/2/4/5/6/7  python   ~77-86 GB each
+
+ps -o user=,lstart=,args=
+  root  Mon Sep  7 02:03:40  /opt/venv/bin/python -c
+        "from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=6, …"
+
+/proc/*/cgroup -> docker-3cdd18ecbf1c
+docker inspect  name=/xiaoming-dev  created 2026-09-07T00:39:55Z
+                image tasimage/primus:pr-1048
+```
+
+**`3cdd18ecbf1c` is the container created at 00:39:55** — the replacement
+recorded at T+1117, not the one that burst at 23:39:34. **I resolved it through
+`/proc/<pid>/cgroup` to a container ID and inspected that ID**, rather than
+matching the name, because the name changed identity underneath this
+investigation two hours ago.
+
+**Two bursts, measured:**
+
+```
+2026-09-06 23:39:34   old container, 8 cards, ~140 GB/rank, released within 31 min
+2026-09-07 02:03:40   new container, card 3 at 99 %, others 17 %, ongoing
+```
+
+**Two is not a rate and I will not extrapolate one.** What it supports: **this
+node has a co-tenant that takes GPUs without warning and has now done so twice in
+two and a half hours.** **Card 4 — the one `--var gpu=4` names for module 4's
+measurement — is at 17 %.**
+
+### 2. Everything else is unchanged
+
+```
+run 20 (ef6374)   last write 2026-09-06 23:58:13  -> dead 131 min 42 s
+                  build_workset / m3_analysis / main still read `running`
+                  orchestrator pid 95533 ALIVE
+total runs        20
+teammate writes   0 in the last 40 min
+commits           none by anyone since mine at 01:41
+hold 29313        11 h 50 min left
+```
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged, eighth consecutive interval) |
+| 已经耗时 | **~1191 min ≈ 19 h 51 min** |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Nothing of ours has executed for 131 minutes.**
+
+**And a consequence worth stating now rather than after the fact:** per the first
+cluster's measurement, **a co-tenant corrupts a failure but not a pass.** If
+module 4 is attempted while `xiaoming-dev` is loaded, **a success is still a
+success, but its duration is not usable as the estimate this record has been
+missing for twenty hours** — and duration is the only thing module 4 is still
+being asked for.
+
+### 4. Code problems
+
+**No new ones.** All carried unchanged from T+1147. The eight `jsonschema`
+validators remain **unread since T+94 — nineteen and a half hours.**
+
+### 5. 未定性
+
+- **Whether the second burst releases as the first did.** The first held ~31
+  minutes.
+- **Whether anything of ours resumes.** 11 h 50 min of hold, nothing running for
+  131 minutes.
+- **What module 4 costs** — and now **whether a clean window exists to measure it
+  in.**
+- **Why `build_workset` did not deliver `879b05db-…`.**
+- **What module 5 consumes if module 4 is replayed** — **thirty-seventh
+  consecutive section.**
+
+### 6. 新增 commit
+
+None by anyone since `47c34311` (mine, 01:41).
+
+### 7. 其他
+
+**The two bursts are the clearest vindication in this file of a rule I applied to
+myself at T+1027 and have followed since: record the reading with its timestamp,
+never the inference.**
+
+Had the earlier sections said *"`xiaoming-dev` is a CPU-only container"* — which
+is what eight of them effectively did — **this section would read as a
+contradiction of the record.** Because T+1027 replaced that with *"held no GPU at
+00:10:11"*, the two bursts are simply two more timestamped readings, and the
+sequence 23:39:34 → released → 02:03:40 is legible as a pattern rather than as a
+correction.
+
+**The same repair is what makes ownership resolvable here.** The name
+`xiaoming-dev` now refers to its second container of the night; **the cgroup ID
+`3cdd18ecbf1c` refers to one thing only.** Every ownership claim in this section
+goes through the ID.
