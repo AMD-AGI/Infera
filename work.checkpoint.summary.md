@@ -19232,3 +19232,57 @@ a machine somebody else may now be given.**
 be shorter, because from here the only things I can honestly report are the
 repository, the run tree on `/data`, and readings of a machine we no longer hold
 — **each of which I will label as such.**
+
+---
+
+## R2 T+1927 — 2026-09-07 14:41 UTC
+
+**T+1927 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 14:40:09).
+
+**No-change record. No hold.**
+
+### 1. State
+
+```
+squeue -u yihou   header only — NO hold, no successor pending
+total runs        22
+orchestrators     0
+last run write    2026-09-07 06:47:04  -> nothing of ours for 472 min 58 s
+teammate writes   0 in the last 40 min  (fifteenth consecutive interval)
+commits           none by anyone since mine at 14:11
+```
+
+**Readings of a machine we no longer hold**, labelled as such per T+1897 §4:
+
+```
+cards        VRAM% 0 0 0 0 0 0 0 0 at 14:40:02
+containers   xiaoming-dev, rc_26_7_902 — neither ours
+```
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** — the T+1837 closing stands unrevised |
+| 已经耗时 | **~1941 min ≈ 32 h 21 min** |
+| 预估耗时 | **not computable — T+1837 §7** |
+| 可靠性 | **中** |
+
+### 3. Code problems
+
+**No new ones.** The two on the critical path are unchanged and both
+package-level (T+1837 §4): the mount `case` with no `/data/yihou` branch, and
+`baseline`'s three-way conflict.
+
+### 4. 未定性
+
+- **Whether a further hold will be obtained.** **I cannot request one** —
+  standing rule is query and use, never request. Reported to the leader at 14:11.
+- **What a real module-4 campaign costs.**
+- **Whether `CONTRACT.md` already speaks to `baseline`** — one read, still not
+  done.
+
+### 5. 新增 commit
+
+None by anyone since `2af18283` (mine, 14:11).
