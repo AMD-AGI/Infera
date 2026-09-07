@@ -2019,3 +2019,72 @@ markdown-it 的 `level` 是**嵌套深度**(blockquote / list),**不是标题层
 *(第 3 种与本文件已有的「`escalated` vs `handling_failed`」那张表同族:
 `handling_failed` = ai 体、agent 已完成、`mainloop` 已返回。
 新的是**触发它的原因**——不是 validator 拒绝,是 `seal_refused`。)*
+
+---
+
+## 15. m2 的 replay 路径从来没有人走通过 —— 两个形状,一条路径,而只有没有语料的集群才够得着
+
+**observed_at 2026-09-07T05:47:46Z（`date -u` 读出);发现者 m35,运行 `20260907T043102-cdd3f7`
+与 `20260906T170354-1048af`。两个缺陷都在把 run 4 的 m1+m2 物化成 `mock_root` 时撞到。**
+
+### 缺陷一:目录名两套,而 `deploy_kit` 恰好掩盖了它
+
+```
+replay_root.py:152-156   kind -> STAGE 目录，然后写 <stage>/<KIND>/content
+sweep_inputs.py:63-66    mock.sh 读            <stage>/<ALIAS>/content
+    profiling_mode_off.bench_result  -> stage2-profiling/aiperf_baseline
+    profiling_mode_on.bench_result   -> stage2-profiling/aiperf_profiled
+    profiling_mode_on.profile_result -> stage2-profiling/torch_trace
+    profiling_mode_on.kernel_table   -> stage2-profiling/kernel_table
+```
+
+现象:`exit 1: mock: no sealed content at .../stage2-profiling/aiperf_baseline/content`。
+
+> **`deploy_kit` 能过,只因为它的 kind 名等于别名的最后一段。
+> 第一个 kind 通过,给了「机制是通的」这个印象,而它是四个里唯一同名的那个。**
+
+我在自己的物化副本里加了四个符号链接(内容一字未动,出处一次 `ls -l` 可见),
+其中两个立刻生效:`aiperf_profiled` 17 个文件、`torch_trace` 18 个文件。
+
+### 缺陷二,而它终结了这条路:`mock.sh` 无条件地 reshape `kernel_table`
+
+```
+m2_reshape: the record is missing at .../kernel_table/content/items/result/text.json
+```
+
+`m2_reshape.py` 的 docstring 自己写明了它为什么存在:
+
+```
+sealed stage2-profiling/kernel_table   content_type: reproducible
+    items/result/text.json ...
+this package's profiling_mode_on.kernel_table   content_type: structured_text
+    items/text.json ...
+```
+
+**它是为了把「语料的形状」转成「本包的形状」。而一个从本包真实运行物化出来的
+replay root,已经是目标形状了** —— run 4 的产物是 `items/text.json`。
+于是 reshape 这一步不只是多余,**它是致命的**:它去找一个在真实产物里
+不存在、也不应该存在的路径。
+
+> **一般形式:`replay_root.py` 物化的是「真实生产者的输出」,`mock.sh` 期待的是
+> 「语料的布局」。两个形状共用一条路径,而这个不一致只有在
+> **「m2 被 replay」** 时才可达 —— 另一个集群上 m2 永远是从语料 mock 的,
+> 所以那里永远不会走到这一步。**
+
+**这就是「有些事实从一次运行内部看不见」的又一实例,只是换成了空间:
+一个只有在语料不存在的集群上才够得着的缺陷。**
+
+### 修法(未做,而且不该由我在活跃期做)
+
+要么给 `mock.sh` / `m2_reshape` 一个「源已经是本包形状」的开关,
+要么让 `replay_root.py` 按别名写目录并跳过需要 reshape 的 kind。
+**两者都会改动一条活跃的 mock 路径,而现在有一条真实链在跑;
+所以只记录,不动手。**
+
+### 代价与判断
+
+两次尝试各赔了一次 stall(约 7 分钟)加上我的时间。**第二次之后我停止了 replay
+这条路,改为「让 m2 真跑」** —— m2 真跑约 13 分钟且已知可行,
+而 replay 每修一层就露出下一层。
+*随后发现另有一条全真链 `20260907T045327-13a18e` 已经在跑、而且更远,
+于是我停掉了自己的运行,没有发车。* **端口都是 8101,不查就会撞。**
