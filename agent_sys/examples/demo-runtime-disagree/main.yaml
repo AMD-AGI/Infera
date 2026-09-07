@@ -1,0 +1,23 @@
+# Body succeeds but content disagreement fails validation.
+# Two reviewers disagree, reconcile merges correctly, but check_agree
+# detects the disagreement and fails the handoff.
+module: task
+name: main
+description: Two reviewers disagree, reconcile merges them, validator rejects.
+handoffs: [review_x, review_y, review]
+validators: []
+task:
+  goal: Demonstrate a validator rejecting valid output due to content disagreement.
+  version: '1'
+  inputs: []
+  outputs: []
+  permissions:
+    grants:
+      - {path: handoffs/review_x, access: write, kind: review_x}
+      - {path: handoffs/review_y, access: write, kind: review_y}
+      - {path: handoffs/review, access: write, kind: review}
+  subgraph:
+    - {closure: judge_x, froms: []}
+    - {closure: judge_y, froms: []}
+    - {closure: reconcile, froms: [judge_x, judge_y]}
+    - {closure: downstream, froms: [reconcile], is_end: true}
