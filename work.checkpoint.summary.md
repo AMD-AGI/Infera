@@ -18892,3 +18892,49 @@ margin is safer than writing it at a time I picked to be as late as possible.**
 
 **If anything of ours resumes before 13:11, the plan is void and I keep writing
 intervals.**
+
+---
+
+## R2 T+1807 — 2026-09-07 12:41 UTC
+
+**T+1807 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 12:40:06).
+
+**No-change record. The next section is the closing one, at the 13:11 mark.**
+
+### 1. State
+
+```
+run 22 (13a18e)  last write 2026-09-07 06:47:04  -> quiet 352 min 55 s
+total runs       22
+orchestrators    0
+teammate writes  0 in the last 40 min  (eleventh consecutive interval at zero)
+commits          none by anyone since mine at 12:11
+cards            VRAM% 0 0 0 0 0 0 0 0 at 12:39:59
+hold 29313       1 h 20 min left
+```
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** (unchanged) |
+| 已经耗时 | **~1821 min ≈ 30 h 21 min** |
+| 预估耗时 | **stages 1–3 90–96 min measured; module 4, module 5, packup unmeasured** |
+| 可靠性 | **中** |
+
+### 3. Code problems
+
+**No new ones.** The eight `jsonschema` validators remain **unread since T+94 —
+thirty and a half hours.**
+
+### 4. 未定性
+
+- **Whether the round is continuing.** Seven asks, no answer.
+- **What a real module-4 campaign costs.**
+- **What module 5 consumes if module 4 is replayed** — **fifty-eighth
+  consecutive section, and the last one before the closing.**
+
+### 5. 新增 commit
+
+None by anyone since `d3746a51` (mine, 12:11).
