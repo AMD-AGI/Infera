@@ -525,8 +525,8 @@ block above is written in placeholders rather than plausible examples — pasted
 unedited it fails in under a second and names what it wants, where a plausible wrong
 value would have rendered silently. It refuses a placeholder name this combo does not
 have, so a misspelled `--set` cannot pass as a no-op. And `--pin-rail` adds
-`MC_MS_AUTO_DISC=0` plus `MC_MS_FILTERS=<rail>` to both legs — an insertion into
-the env list rather than a substitution. Pin the rail when yours carry no IPv4:
+`MC_TE_FILTERS=<rail>` to both legs — an insertion into the env list rather than
+a substitution. Pin the rail when yours carry no IPv4:
 every GID is then link-local `fe80::`, so every rail looks like the same `/64`
 subnet and Mooncake can pair the prefill node's rail A with the decode node's
 rail B, where the transfer times out. `--check-rail` reads the rail's state on
@@ -1119,8 +1119,8 @@ kvd, on a workload with no reuse, costs throughput and TTFT and returns nothing;
 
 **Four boundaries.** (1) The validating cluster's rails carry no IPv4, so every
 rail's only RoCEv2 GID sits in the same `fe80::/64` and Mooncake cannot tell them
-apart to pair them; KV was pinned to a **single rail** (`MC_MS_AUTO_DISC=0` plus
-`MC_MS_FILTERS=<rail>`) rather than the multi-rail aggregate. Correctness is
+apart to pair them; KV was pinned to a **single rail** (`MC_TE_FILTERS=<rail>`)
+rather than the multi-rail aggregate. Correctness is
 unaffected, but nothing here supports a claim about KV transport *not* being the
 bottleneck. (2) That cluster's host driver is 6.3.x, so it ran the `rocm700` base
 per §1 — the `rocm720` default remains validated only in the `docker` form.

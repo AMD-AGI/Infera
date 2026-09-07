@@ -674,13 +674,14 @@ def _eval_mode_b(active: list[dict], peermem: dict, fast: list[dict], dmabuf_eng
         "nic_selection": {
             "devices": [pick["device"]] if pick else [],
             "rule": "the fastest ODP NIC (name tiebreak so prefill+decode pick the "
-            "SAME one); MC_MS_FILTERS locks KV to it so non-ODP rails never pin.",
+            "SAME one); MC_TE_FILTERS locks KV to it so non-ODP rails never pin.",
         },
+        # SGLang PD calls Mooncake's TransferEngine directly. Its topology
+        # whitelist is MC_TE_FILTERS; the Store-layer knobs do not reach this path.
         "env": {
             "MOONCAKE_DISABLE_HIP_DMABUF": "0",
             "MC_DISABLE_HIP_TRANSPORT": "1",
-            "MC_MS_AUTO_DISC": "0",
-            "MC_MS_FILTERS": pick["device"] if pick else "<odp-nic>",
+            "MC_TE_FILTERS": pick["device"] if pick else "<odp-nic>",
             "MC_GID_INDEX": str(gid),
             "NCCL_IB_DISABLE": "1",
             **({"RDMAV_FORK_SAFE": "1"} if has_non_odp_active else {}),

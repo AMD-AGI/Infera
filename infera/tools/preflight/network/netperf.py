@@ -119,22 +119,48 @@ def _gid_index(dev: str) -> int:
     return fallback if fallback is not None else 1
 
 
+def _gid_override() -> int | None:
+    """Explicit preflight GID, or None when unset or malformed."""
+    selected = os.environ.get("INFERA_PREFLIGHT_GID_INDEX")
+    if selected is None:
+        return None
+    try:
+        return int(selected)
+    except ValueError:
+        print(
+            f"[preflight] ignoring invalid INFERA_PREFLIGHT_GID_INDEX={selected!r}; "
+            "using the detected RoCE v2 GID",
+            file=sys.stderr,
+        )
+        return None
+
+
 def _port(r: int, a: int) -> int:
     return _BASE_PORT + r * _PORT_STRIDE + a
 
 
 def _nics() -> list[str]:
     try:
-        return sorted(x for x in os.listdir(_IB) if x)
+        nics = sorted(x for x in os.listdir(_IB) if x)
     except OSError:
         return []
+    selected = os.environ.get("INFERA_PREFLIGHT_RDMA_DEVICE")
+    if not selected:
+        return nics
+    requested = [x.strip() for x in selected.split(",") if x.strip()]
+    return [x for x in requested if x in nics]
 
 
 def detect_local() -> dict | None:
     nics = _nics()
     if not have("ib_write_bw") or not nics:
         return None
-    return {"mgmt_ip": _mgmt_ip(), "nics": nics, "gid": _gid_index(nics[0])}
+    gid = _gid_override()
+    return {
+        "mgmt_ip": _mgmt_ip(),
+        "nics": nics,
+        "gid": gid if gid is not None else _gid_index(nics[0]),
+    }
 
 
 def _parse_bw(out: str) -> float | None:

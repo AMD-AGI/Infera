@@ -49,7 +49,7 @@ Same idea, same placement, same slot semantics.  Ours is a SUBSET, adapted:
   scope      #32209 also ships a `_forward_trtllm` decode trim, a CUDA idle
              short-circuit in `forward_cuda`, and an eager draft-output slice.
              We take only the vote.
-  base       Ours applies to v0.5.17; #32209 targets `main`.
+  base       Ours applies to v0.5.18; #32209 targets `main`.
   default    #32209 defaults the field to False, ours to True.  Its scheduler
              sets the value on every DP path; on this base the field can reach a
              non-DP forward unset, where False would refuse the graph outright.
@@ -59,23 +59,13 @@ Same idea, same placement, same slot semantics.  Ours is a SUBSET, adapted:
              what the build script greps out of the BYTECODE to prove the patch
              landed -- see apply_sglang_dsa_patches.sh.
 
-RE-CUT FOR v0.5.17 (was cut against v0.5.15.post1)
+RE-CUT FOR v0.5.18 (previously cut against v0.5.17)
 --------------------------------------------------------------------------------
-Same mechanism; three differences this base makes:
-  * `MLPSyncBatchInfo.all_gather` derives the row width from the packed tensor
-    (`info_width = local_info_tensor.numel()`), so appending a slot bumps no
-    width constants -- the v0.5.15 cut had to edit two hardcoded 7s.
-  * `ModelWorkerBatch` is gone; `ScheduleBatch` feeds `ForwardBatch.init_new`
-    directly.  The v0.5.15 cut had to carry the field through
-    `get_model_worker_batch`; here the equivalent propagation would be dead and
-    is not made -- `ScheduleBatch.copy()` feeds only `process_batch_result`,
-    which never reads the gate.
-  * The slot the v0.5.15 cut sat next to was `can_run_breakable_cuda_graph`; here
-    it is `can_run_prefill_cuda_graph`.  Ours is slot 7 either way.
-That cut also omitted a default `requires_dp_attention_eager_forward` on
-`BaseSpecWorker`, which left MultiLayerEagleWorkerV2 / DFlashWorkerV2 /
-NGRAMWorker raising AttributeError at the decode.py call site.  This cut adds it,
-so the call site needs no defensive getattr and every spec algorithm is covered.
+Same mechanism. Six files and six of seven dp_attn.py hunks still apply exactly
+at `--fuzz=0`; only the reduction hunk changed because v0.5.18 copies the packed
+tensor to `tp0_info_cpu` once and reduces that host mirror instead of calling
+`.item()` repeatedly on `tp0_info`. The re-cut follows that new source shape and
+adds slot 7 to the same CPU reduction. No behavior or field naming changed.
 
 TWO DETAILS THAT WOULD MAKE THIS SILENTLY INERT
 --------------------------------------------------------------------------------
@@ -103,7 +93,7 @@ A green stress result alone cannot distinguish this fix from forcing the draft
 path eager -- both pass every functional test.  What rules that out here is that
 the accept length reaches the ceiling and the deadlock is gone: the vote must be
 flipping, or the group decision would still be permissive and the hang would
-remain.  On the v0.5.15.post1 cut the finer instrumentation was run and is worth
+remain.  On an earlier gfx950 cut the finer instrumentation was run and is worth
 recording: over 2992 iterations with all 8 ranks logging, the LOCAL decision
 still diverged 38 times, the ACTED-ON decision diverged 0 times, the vote changed
 some rank's mind 190 times, and draft-graph usage stayed at 97.1%.
@@ -157,14 +147,14 @@ the next.
              ],
              device=device,
              dtype=dtype,
-@@ -188,6 +194,7 @@
-         self.can_run_decode_cuda_graph = bool(tp0_info[:, 2].min().item())
-         self.is_extend_in_batch = bool(tp0_info[:, 3].max().item())
-         self.can_run_prefill_cuda_graph = bool(tp0_info[:, 6].min().item())
-+        self.can_run_draft_cuda_graph = bool(tp0_info[:, 7].min().item())
+@@ -194,6 +200,7 @@
+         self.can_run_decode_cuda_graph = bool(tp0_info_cpu[:, 2].min())
+         self.is_extend_in_batch = bool(tp0_info_cpu[:, 3].max())
+         self.can_run_prefill_cuda_graph = bool(tp0_info_cpu[:, 6].min())
++        self.can_run_draft_cuda_graph = bool(tp0_info_cpu[:, 7].min())
          if _ENABLE_METRICS_DP_ATTENTION:
-             self.dp_cooperation_info = DPCooperationInfo.create(tp0_info[:, 5].tolist())
- 
+             self.dp_cooperation_info = DPCooperationInfo.create(
+                 tp0_info_cpu[:, 5].tolist()
 @@ -215,6 +222,7 @@
      # Check forward mode for cuda graph
      batch.can_run_dp_cuda_graph = mlp_sync_info.can_run_decode_cuda_graph

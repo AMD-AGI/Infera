@@ -38,12 +38,14 @@ import httpx
 
 from . import cluster
 from .adapter import emit_reporter_line
+from .gpu_cleanup import dirty_message
 
 # Repo root (…/tests/e2e/harness/launcher.py -> 4 up). Bind-mounted into each
 # container at the SAME path so remote services run THIS working tree (requires
 # the repo to live on storage shared across the allocation, e.g. a home/NFS
 # mount — the normal case on these clusters).
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+GPU_CLEANUP = os.path.join(REPO, "tests", "e2e", "harness", "gpu_cleanup.py")
 
 # Host libionic so in-container libibverbs matches the ionic RoCE kernel ABI
 # (same mount the preflight uses). Harmless if the image entrypoint ignores it.
@@ -78,6 +80,12 @@ _GPU_RDMA_FLAGS = [
 
 def _srun(node: str, argv: list[str], *, timeout: float) -> subprocess.CompletedProcess:
     return cluster.run_on_node(node, argv, timeout=timeout)
+
+
+def _dirty_error(node: str, message: str, detail: str = "") -> RuntimeError:
+    marker = dirty_message(message, node=node)
+    emit_reporter_line(marker)
+    return RuntimeError(marker + (f"\n{detail}" if detail else ""))
 
 
 @dataclass
@@ -180,33 +188,82 @@ class SrunDockerLauncher(WorkerLauncher):
         migrate unlabelled legacy containers.
         """
         exclusive = os.environ.get("INFERA_E2E_EXCLUSIVE") == "1"
+        errors: list[RuntimeError] = []
         for node in dict.fromkeys(nodes):
             label = "label=infera.e2e.job_tag" if exclusive else f"label={self.job_label}"
             label = shlex.quote(label)
             legacy = (
                 "legacy=$(docker ps -a --filter name=infera-e2e- "
                 "--filter name=infera-utest- --format '{{.Names}} {{.Labels}}' | "
-                "awk '$0 !~ /infera\\.e2e\\.job_tag=/{print $1}'); "
+                "awk '$0 !~ /infera\\.e2e\\.job_tag=/{print $1}') || exit $?; "
                 if exclusive
                 else "legacy=; "
             )
             script = (
-                f"current=$(docker ps -a --filter {label} --format '{{{{.Names}}}}'); "
+                "set -o pipefail; "
+                f"current=$(docker ps -a --filter {label} --format '{{{{.Names}}}}') || exit $?; "
                 + legacy
-                + 's="$current $legacy"; [ -n "${s// /}" ] && echo $s && '
-                + "docker rm -f $s >/dev/null 2>&1; true"
+                + 's="$current $legacy"; '
+                + 'if [ -n "${s// /}" ]; then echo "$s"; docker rm -f $s >/dev/null; fi'
             )
-            got = _srun(
-                node,
-                [
-                    "bash",
-                    "-lc",
-                    script,
-                ],
-                timeout=self.start_timeout,
+            try:
+                got = _srun(
+                    node,
+                    [
+                        "bash",
+                        "-lc",
+                        script,
+                    ],
+                    timeout=self.start_timeout,
+                )
+            except (OSError, subprocess.SubprocessError) as exc:
+                errors.append(_dirty_error(node, f"stale container cleanup could not run: {exc}"))
+                continue
+            cleanup_detail = "\n".join(
+                part.strip() for part in (got.stdout, got.stderr) if part.strip()
             )
+            if got.returncode != 0:
+                errors.append(
+                    _dirty_error(
+                        node,
+                        f"stale container cleanup failed (rc={got.returncode})",
+                        cleanup_detail,
+                    )
+                )
+                continue
             if got.stdout.strip():
                 emit_reporter_line(f"[e2e disagg] {node}: removed stale {got.stdout.strip()}")
+            if exclusive:
+                try:
+                    cleaned = _srun(
+                        node,
+                        [
+                            "env",
+                            "INFERA_E2E_EXCLUSIVE=1",
+                            f"INFERA_E2E_SLURM_NODE={node}",
+                            "python3",
+                            GPU_CLEANUP,
+                        ],
+                        timeout=self.start_timeout,
+                    )
+                except (OSError, subprocess.SubprocessError) as exc:
+                    errors.append(_dirty_error(node, f"GPU cleanup could not run: {exc}"))
+                    continue
+                detail = "\n".join(
+                    part.strip() for part in (cleaned.stdout, cleaned.stderr) if part.strip()
+                )
+                for line in detail.splitlines():
+                    emit_reporter_line(f"[e2e disagg] {node}: {line}")
+                if cleaned.returncode != 0:
+                    errors.append(
+                        _dirty_error(
+                            node,
+                            f"GPU cleanup failed (rc={cleaned.returncode})",
+                            detail,
+                        )
+                    )
+        if errors:
+            raise RuntimeError("\n".join(map(str, errors)))
 
     # -- image ----------------------------------------------------------
     def ensure_image(self, node: str) -> None:
@@ -298,9 +355,12 @@ class SrunDockerLauncher(WorkerLauncher):
         )
         started = _srun(node, cmd, timeout=self.start_timeout)
         if started.returncode != 0:
+            detail = "\n".join(
+                part.strip() for part in (started.stdout, started.stderr) if part and part.strip()
+            )
             raise RuntimeError(
                 f"failed to launch container {container} on {node} (rc={started.returncode}).\n"
-                f"--- stderr ---\n{started.stderr[-2000:]}"
+                f"--- output tail ---\n{detail[-2000:]}"
             )
 
     def _run_infera(

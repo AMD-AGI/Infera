@@ -69,6 +69,7 @@ DF_VLLM="deploy/docker/Dockerfile.vllm"
 DF_SGLANG="deploy/docker/Dockerfile.sglang"
 DF_ATOM="deploy/docker/Dockerfile.atom"
 ETCD_IMG="quay.io/coreos/etcd:v3.5.14"
+GPU_DIRTY_NODE_PREFIX="INFERA_E2E_GPU_NODE_DIRTY_NODE="
 
 # ---- target GPU architecture ------------------------------------------------
 # Picks the engine image and (forwarded in) the matrix's per-case knobs. Same
@@ -290,9 +291,11 @@ _log_dir_banner() {
 }
 _log_dir_banner
 
-# Forward the arch DECLARATION only: the container sees this host's GPUs, so left
-# alone it resolves to what we did — and its guard can still tell intent from fact.
-E2E_FLAGS=()
+# Keep dirty-node reports tied to SLURM's node name, not a container hostname.
+INFERA_E2E_SLURM_NODE="${SLURMD_NODENAME:-$(hostname -s)}"
+export INFERA_E2E_SLURM_NODE
+E2E_FLAGS=(-e INFERA_E2E_SLURM_NODE="$INFERA_E2E_SLURM_NODE")
+# Forward an explicit arch declaration; otherwise the container probes locally.
 if [ -n "${INFERA_E2E_GFX_ARCH:-}" ]; then
   E2E_FLAGS+=(-e INFERA_E2E_GFX_ARCH="$INFERA_E2E_GFX_ARCH")
 fi
@@ -757,6 +760,11 @@ _watch_job() {
   done
 }
 
+_dirty_nodes_from() {
+  sed -n "s/^${GPU_DIRTY_NODE_PREFIX}\([A-Za-z0-9._-]*\).*/\1/p" "$@" 2>/dev/null |
+    awk 'NF && !seen[$0]++ { nodes = nodes sep $0; sep = "," } END { print nodes }'
+}
+
 _dispatch_slurm() {
   local label="$1"; shift
   if ! _have_slurm; then
@@ -786,9 +794,15 @@ _dispatch_slurm() {
     tailf="$logf"
   fi
 
-  local prc=1 attempt=0 max_attempts="$SLURM_MAX_ATTEMPTS" exclude="" ran retryable=0
+  local prc=1 attempt=0 max_attempts="$SLURM_MAX_ATTEMPTS" exclude="" ran dirty_nodes retryable=0
+  local fixed_one_node=0
   local cred=0 cred_count="${#_SLURM_ACCOUNT_QOS_PAIRS[@]}"
   local holdflag="$SCRATCH/.hold-$label"
+  # Node failures cannot be re-placed inside a one-node inherited allocation.
+  if [ -n "${SLURM_JOB_ID:-${SLURM_JOBID:-}}" ] &&
+     [ "${SLURM_JOB_NUM_NODES:-1}" -le 1 ] 2>/dev/null; then
+    fixed_one_node=1
+  fi
   [ "$cred_count" -gt 0 ] && _set_slurm_account_qos "$cred"
   while [ "$attempt" -lt "$max_attempts" ]; do
     attempt=$((attempt + 1))
@@ -891,11 +905,33 @@ _dispatch_slurm() {
       echo "[$label] SLURM rejected all $cred_count account/QoS pairs — giving up" >&2
       break
     fi
-    # Docker errors land in $logf (shared) or $out (local); "running on <node>"
-    # is always an srun banner in $out.
-    ran="$(sed -n 's/.*running on \([A-Za-z0-9._-]*\).*/\1/p' "$out" | tail -1)"
+    dirty_nodes="$(_dirty_nodes_from "$out" ${logf:+"$logf"})"
+    if [ -n "$dirty_nodes" ]; then
+      exclude="${exclude:+$exclude,}$dirty_nodes"
+      if [ "$fixed_one_node" -eq 1 ]; then
+        echo "[$label] node $dirty_nodes has dirty GPU state, but this one-node allocation cannot reselect" >&2
+        retryable=0
+        break
+      fi
+      echo "[$label] node(s) $dirty_nodes still have GPU owners after exclusive cleanup — excluding, retrying elsewhere" >&2
+      retryable=1
+      continue
+    fi
+    # Standard SLURM does not print Spur's scheduler banner, so the remote leg
+    # also emits its hostname. Use only these structured/scheduler lines.
+    ran="$(
+      sed -n \
+        -e 's/.*srun: job [0-9][0-9]* running on \([A-Za-z0-9._-]*\).*/\1/p' \
+        -e 's/^INFERA_E2E_SLURM_NODE=\([A-Za-z0-9._-]*\)$/\1/p' \
+        "$out" ${logf:+"$logf"} 2>/dev/null | tail -1
+    )"
     if grep -qiE 'node failure|Cannot connect to the Docker daemon' "$out" ${logf:+"$logf"} 2>/dev/null; then
       [ -n "$ran" ] && exclude="${exclude:+$exclude,}$ran"
+      if [ "$fixed_one_node" -eq 1 ]; then
+        echo "[$label] node ${ran:-?} is unusable, but this one-node allocation cannot reselect" >&2
+        retryable=0
+        break
+      fi
       echo "[$label] node ${ran:-?} unusable — excluding, retrying elsewhere" >&2
       retryable=1; continue
     fi
@@ -1096,7 +1132,7 @@ run_e2e_disagg() {
   fi
 
   local rc=0 e prc out="$SCRATCH/.e2e-disag.out"
-  local max_attempts=3 attempt exclude n1 n2 nodes ok
+  local max_attempts=3 attempt exclude n1 n2 nodes ok dirty_nodes
   local races max_races="${INFERA_E2E_HOLD_RACE_MAX:-$SLURM_MAX_ATTEMPTS}" hold_rc
 
   # An allocation handed to us takes over from picking and holding a pair. The
@@ -1186,6 +1222,12 @@ run_e2e_disagg() {
       _DISAG_NODES=""   # pytest returned, so its fixtures already tore the stack down
       _release_hold
       [ "$prc" -eq 0 ] && { ok=1; break; }
+      dirty_nodes="$(_dirty_nodes_from "$out")"
+      if [ -n "$dirty_nodes" ]; then
+        exclude="${exclude:+$exclude,}$dirty_nodes"
+        echo "[e2e disagg] $e found dirty GPU state on $dirty_nodes — excluding and retrying with a fresh pair" >&2
+        continue
+      fi
       if grep -qiE 'node failure|Cannot connect to the Docker daemon|could not resolve a routable IP|docker build .* failed' "$out"; then
         exclude="${exclude:+$exclude,}$n1,$n2"
         echo "[e2e disagg] $e hit a bad node ($n1/$n2) — excluding, retrying with a fresh pair" >&2
@@ -1271,22 +1313,40 @@ engine_tier() {
 # With explicit exclusive ownership, containers from other tags and the
 # pre-label scheme are orphaned and safe to remove; a direct local run cleans
 # only its own label.
+if [ "${INFERA_E2E_EXCLUSIVE:-}" = 1 ] && _run_here; then
+  echo "INFERA_E2E_SLURM_NODE=$INFERA_E2E_SLURM_NODE"
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "${GPU_DIRTY_NODE_PREFIX}${INFERA_E2E_SLURM_NODE} docker is unavailable" >&2
+    exit 75
+  fi
+fi
 if command -v docker >/dev/null 2>&1 && _run_here; then
   if [ "${INFERA_E2E_EXCLUSIVE:-}" = 1 ]; then
-    stale=$(
+    if ! stale=$(
       {
-        docker ps -a --filter label=infera.e2e.job_tag --format '{{.Names}}'
+        docker ps -a --filter label=infera.e2e.job_tag --format '{{.Names}}' || exit $?
         docker ps -a --filter name=infera-e2e- --filter name=infera-utest- \
           --format '{{.Names}} {{.Labels}}' |
-          awk '$0 !~ /infera\.e2e\.job_tag=/{print $1}'
+          awk '$0 !~ /infera\.e2e\.job_tag=/{print $1}' || exit $?
       } 2>/dev/null | sort -u
-    )
+    ); then
+      echo "${GPU_DIRTY_NODE_PREFIX}${INFERA_E2E_SLURM_NODE} could not enumerate stale containers" >&2
+      exit 75
+    fi
   else
     stale=$(docker ps -a --filter "label=$CTR_LABEL" --format '{{.Names}}' 2>/dev/null)
   fi
   if [ -n "$stale" ]; then
     echo "[cleanup] $(hostname -s): removing stale containers: $(echo $stale | tr '\n' ' ')"
-    docker rm -f $stale >/dev/null 2>&1 || true
+    if ! docker rm -f $stale >/dev/null 2>&1; then
+      if [ "${INFERA_E2E_EXCLUSIVE:-}" = 1 ]; then
+        echo "${GPU_DIRTY_NODE_PREFIX}${INFERA_E2E_SLURM_NODE} could not remove stale containers" >&2
+        exit 75
+      fi
+    fi
+  fi
+  if [ "${INFERA_E2E_EXCLUSIVE:-}" = 1 ]; then
+    python3 "$REPO/tests/e2e/harness/gpu_cleanup.py" || exit $?
   fi
 fi
 

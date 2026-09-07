@@ -5,19 +5,19 @@
 ###############################################################################
 """ROCm opt-out for SGLang's CUDA-only DSA ``topk_v2`` JIT kernel.
 
-SGLang >= v0.5.15 defaults ``SGLANG_OPT_USE_TOPK_V2`` ON, but that kernel's
+The supported SGLang releases default ``SGLANG_OPT_USE_TOPK_V2`` ON, but that kernel's
 header includes ``<cooperative_groups.h>`` (CUDA-only; ROCm ships only
 ``hip/hip_cooperative_groups.h``), so hipcc fails at JIT time and the engine
 dies in decode CUDA-graph capture. Upstream turns the flag off on HIP only in
 the ``DeepseekV4ForCausalLM`` branch of ``server_args.py``, yet the kernel is
 shared by every DSA arch — GLM-5.x, DeepseekV32, LongcatFlash, MistralLarge3 —
 which therefore still hit it. Default it OFF on ROCm instead; the backend then
-takes the legacy transform path ROCm used before v0.5.15.
+takes the legacy ROCm transform path.
 
 Set-if-unset, so it self-retires: once upstream guards the kernel, its own value
 (or an explicit ``SGLANG_OPT_USE_TOPK_V2=1``) wins and this becomes a no-op.
 
-Verified 2026-07-30, MI355X/gfx950, sglang v0.5.15.post1, GLM-5.1-FP8 tp4:
+Verified 2026-07-30, MI355X/gfx950, GLM-5.1-FP8 tp4:
 capture dies at 0/4 without it, completes 4/4 with it.
 """
 

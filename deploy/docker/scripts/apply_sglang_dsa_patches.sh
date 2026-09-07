@@ -7,7 +7,7 @@
 #
 # TWO ARMS, because the set is not uniformly portable across our engine bases:
 #
-#   DSA_PATCH_SET=full     (default; Dockerfile.sglang, mi35x / v0.5.17)
+#   DSA_PATCH_SET=full     (default; Dockerfile.sglang, mi35x / v0.5.18)
 #         patch 01 + dsa_dp_sync + dsa_page_table_rows + draft_cuda_graph_dp_vote.
 #         The three diffs are `--fuzz=0` against that one release, so this arm
 #         only works there.
@@ -109,9 +109,18 @@ for p in ${PATCHES[@]+"${PATCHES[@]}"}; do
   # against a different base is worse than a clean failure.  An OFFSET is not
   # fuzz: it means the hunk matched byte-for-byte somewhere else in the file,
   # which is why 02a carries to v0.5.16 while 04's dp_attn.py does not.
-  # --batch so a "Reversed (or previously applied) patch detected!" prompt fails
-  # instead of hanging a build waiting on stdin.
-  out=$(patch -p1 --fuzz=0 --batch < "$PATCH_DIR/$p" 2>&1) && rc=0 || rc=$?
+  # Probe both directions before mutating the tree. GNU patch otherwise assumes
+  # -R for an already-applied diff and silently removes our fix on a second run.
+  if patch -p1 --fuzz=0 --batch --forward --dry-run < "$PATCH_DIR/$p" >/dev/null 2>&1; then
+    out=$(patch -p1 --fuzz=0 --batch --forward < "$PATCH_DIR/$p" 2>&1) && rc=0 || rc=$?
+  elif patch -p1 -R --fuzz=0 --batch --dry-run < "$PATCH_DIR/$p" >/dev/null 2>&1; then
+    echo "      already applied — skipping"
+    continue
+  else
+    # Run once for diagnostics and for the narrowly-scoped EXPECT_REJECT port
+    # mechanism below. --forward guarantees this path can never reverse a fix.
+    out=$(patch -p1 --fuzz=0 --batch --forward < "$PATCH_DIR/$p" 2>&1) && rc=0 || rc=$?
+  fi
   echo "$out" | sed 's/^/      /'
   [ "$rc" -eq 0 ] && continue
 

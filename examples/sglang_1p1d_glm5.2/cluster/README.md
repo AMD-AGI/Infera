@@ -77,7 +77,7 @@ the preflight report:
 | `RDMA_IB_DEVICES` | all `PORT_ACTIVE` rails, comma-separated | the single ODP NIC |
 | `MC_GID_INDEX` | the routable RoCEv2 GID index | same |
 | `MOONCAKE_DISABLE_HIP_DMABUF` | `1` | `0` |
-| `MC_MS_AUTO_DISC` / `MC_MS_FILTERS` | unset | `0` / the ODP NIC |
+| `MC_TE_FILTERS` | unset | the ODP NIC |
 | `RDMAV_FORK_SAFE` | `1` | only if non-ODP rails are also present |
 
 Two things about this block are worth knowing before you fill it in.

@@ -254,14 +254,22 @@ def test_spur_detached_srun_keeps_submission_placement(monkeypatch):
     assert "--reservation=ci-reservation" in argv
 
 
-def test_step_access_reports_pending_allocation(monkeypatch):
+@pytest.mark.parametrize(
+    "timeout_output",
+    [
+        {"output": b"srun: Pending job allocation 100477...\n"},
+        {"stderr": b"srun: Pending job allocation 100477...\n"},
+    ],
+    ids=["pty-stdout", "stderr"],
+)
+def test_step_access_reports_pending_allocation(monkeypatch, timeout_output):
     cancelled = []
 
     def pending(*args, **kwargs):
         raise subprocess.TimeoutExpired(
             ["srun"],
             kwargs["timeout"],
-            stderr=b"srun: Pending job allocation 100477...\n",
+            **timeout_output,
         )
 
     monkeypatch.setattr(cluster, "run_on_node", pending)
@@ -300,18 +308,153 @@ def test_disagg_cleanup_and_launch_are_job_scoped(monkeypatch, tmp_path):
     assert "label=infera.e2e.job_tag=run-engine" in cleanup_script
     assert "name=infera-e2e-" not in cleanup_script
     assert "name=infera-utest-" not in cleanup_script
+    assert len(calls) == 1
 
     monkeypatch.setenv("INFERA_E2E_EXCLUSIVE", "1")
+    before = len(calls)
     remote.cleanup_stale(["node-a"])
-    cleanup_script = calls[-1][1][-1]
+    cleanup_script = calls[before][1][-1]
     assert "--filter label=infera.e2e.job_tag " in cleanup_script
     assert "name=infera-e2e-" in cleanup_script
     assert "name=infera-utest-" in cleanup_script
     assert r"$0 !~ /infera\.e2e\.job_tag=/" in cleanup_script
+    gpu_cleanup_argv = calls[before + 1][1]
+    assert gpu_cleanup_argv[:2] == ["env", "INFERA_E2E_EXCLUSIVE=1"]
+    assert "INFERA_E2E_SLURM_NODE=node-a" in gpu_cleanup_argv
+    assert gpu_cleanup_argv[-2] == "python3"
+    assert gpu_cleanup_argv[-1].endswith("tests/e2e/harness/gpu_cleanup.py")
 
     remote._run("node-a", "test-container", "test-image", [], ["true"])
     launch_argv = calls[-1][1]
     assert launch_argv[launch_argv.index("--label") + 1] == "infera.e2e.job_tag=run-engine"
+
+
+def test_disagg_launch_surfaces_spur_pty_stdout(monkeypatch, tmp_path):
+    def run(node, argv, *, timeout):
+        if argv[:4] == ["docker", "rm", "-f", "test-container"]:
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        return SimpleNamespace(
+            returncode=1,
+            stdout="docker: Cannot connect to the Docker daemon.\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(launcher, "_srun", run)
+    remote = launcher.SrunDockerLauncher(
+        image="test-image",
+        dockerfile="Dockerfile",
+        log_dir=str(tmp_path),
+    )
+
+    with pytest.raises(RuntimeError, match="Cannot connect to the Docker daemon"):
+        remote._run("node-a", "test-container", "test-image", [], ["true"])
+
+
+def test_disagg_exclusive_gpu_cleanup_failure_is_not_ignored(monkeypatch, tmp_path):
+    calls = []
+    emitted = []
+
+    def run(node, argv, *, timeout):
+        calls.append((node, argv, timeout))
+        if "gpu_cleanup.py" in argv[-1]:
+            return SimpleNamespace(
+                returncode=75,
+                stdout="",
+                stderr="INFERA_E2E_GPU_NODE_DIRTY: foreign owner",
+            )
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setenv("INFERA_E2E_EXCLUSIVE", "1")
+    monkeypatch.setattr(launcher, "_srun", run)
+    monkeypatch.setattr(launcher, "emit_reporter_line", emitted.append)
+    remote = launcher.SrunDockerLauncher(
+        image="test-image",
+        dockerfile="Dockerfile",
+        log_dir=str(tmp_path),
+    )
+
+    with pytest.raises(RuntimeError, match="INFERA_E2E_GPU_NODE_DIRTY.*node-a"):
+        remote.cleanup_stale(["node-a"])
+    assert len(calls) == 2
+    assert emitted[-1].startswith("INFERA_E2E_GPU_NODE_DIRTY_NODE=node-a ")
+
+
+def test_disagg_cleanup_reports_every_dirty_node(monkeypatch, tmp_path):
+    emitted = []
+
+    def run(node, argv, *, timeout):
+        if "gpu_cleanup.py" in argv[-1]:
+            return SimpleNamespace(returncode=75, stdout="", stderr="dirty")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setenv("INFERA_E2E_EXCLUSIVE", "1")
+    monkeypatch.setattr(launcher, "_srun", run)
+    monkeypatch.setattr(launcher, "emit_reporter_line", emitted.append)
+    remote = launcher.SrunDockerLauncher(
+        image="test-image",
+        dockerfile="Dockerfile",
+        log_dir=str(tmp_path),
+    )
+
+    with pytest.raises(RuntimeError) as error:
+        remote.cleanup_stale(["node-a", "node-b"])
+    assert "INFERA_E2E_GPU_NODE_DIRTY_NODE=node-a" in str(error.value)
+    assert "INFERA_E2E_GPU_NODE_DIRTY_NODE=node-b" in str(error.value)
+    assert [line for line in emitted if line.startswith("INFERA_E2E_GPU_NODE_DIRTY_NODE=")] == [
+        "INFERA_E2E_GPU_NODE_DIRTY_NODE=node-a GPU cleanup failed (rc=75)",
+        "INFERA_E2E_GPU_NODE_DIRTY_NODE=node-b GPU cleanup failed (rc=75)",
+    ]
+
+
+def test_disagg_stale_container_cleanup_must_succeed_before_gpu_signals(monkeypatch, tmp_path):
+    calls = []
+    emitted = []
+
+    def run(node, argv, *, timeout):
+        calls.append((node, argv, timeout))
+        return SimpleNamespace(returncode=1, stdout="", stderr="docker unavailable")
+
+    monkeypatch.setenv("INFERA_E2E_EXCLUSIVE", "1")
+    monkeypatch.setattr(launcher, "_srun", run)
+    monkeypatch.setattr(launcher, "emit_reporter_line", emitted.append)
+    remote = launcher.SrunDockerLauncher(
+        image="test-image",
+        dockerfile="Dockerfile",
+        log_dir=str(tmp_path),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="INFERA_E2E_GPU_NODE_DIRTY_NODE=node-a stale container cleanup failed",
+    ):
+        remote.cleanup_stale(["node-a"])
+    assert len(calls) == 1
+    assert emitted == [
+        "INFERA_E2E_GPU_NODE_DIRTY_NODE=node-a stale container cleanup failed (rc=1)"
+    ]
+
+
+def test_disagg_cleanup_timeout_has_node_dirty_marker(monkeypatch, tmp_path):
+    emitted = []
+
+    def run(node, argv, *, timeout):
+        raise subprocess.TimeoutExpired(argv, timeout)
+
+    monkeypatch.setenv("INFERA_E2E_EXCLUSIVE", "1")
+    monkeypatch.setattr(launcher, "_srun", run)
+    monkeypatch.setattr(launcher, "emit_reporter_line", emitted.append)
+    remote = launcher.SrunDockerLauncher(
+        image="test-image",
+        dockerfile="Dockerfile",
+        log_dir=str(tmp_path),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="INFERA_E2E_GPU_NODE_DIRTY_NODE=node-a stale container cleanup could not run",
+    ):
+        remote.cleanup_stale(["node-a"])
+    assert emitted[-1].startswith("INFERA_E2E_GPU_NODE_DIRTY_NODE=node-a ")
 
 
 def test_staged_model_with_config_passes(tmp_path):

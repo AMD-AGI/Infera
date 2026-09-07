@@ -81,11 +81,7 @@ def pin_rail(text: str, rail: str) -> str:
 
     def inject(m: re.Match) -> str:
         indent = m.group(1)
-        return (
-            m.group(0)
-            + f'\n{indent}- {{name: MC_MS_AUTO_DISC, value: "0"}}'
-            + f'\n{indent}- {{name: MC_MS_FILTERS, value: "{rail}"}}'
-        )
+        return m.group(0) + f'\n{indent}- {{name: MC_TE_FILTERS, value: "{rail}"}}'
 
     text, n = re.subn(r"^([ \t]*)- \{name: MC_GID_INDEX[^}]*\}$", inject, text, flags=re.MULTILINE)
     if n == 0:

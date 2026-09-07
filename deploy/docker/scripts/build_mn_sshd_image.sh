@@ -21,7 +21,7 @@
 #   Default --tag appends "-sshd" to the base tag.
 # EXAMPLE:
 #   bash deploy/docker/scripts/build_mn_sshd_image.sh \
-#     --base harbor.example.com/custom/primussafe/sglang:v0.5.15-rocm720-mi30x-gfx942 --push
+#     --base lmsysorg/sglang:v0.5.16-rocm720-mi30x --push
 set -euo pipefail
 
 BASE=""

@@ -32,6 +32,7 @@ from dataclasses import dataclass
 
 import httpx
 
+from .gpu_cleanup import dirty_message
 from .params import EngineParams
 
 # Terminal reporter + capture manager, set by the e2e conftest so harness lines
@@ -243,18 +244,22 @@ def _gpu_vram() -> dict[int, tuple[int, int]]:
     HIP_VISIBLE_DEVICES indices the harness assigns (the container isn't
     launched with a restricted visibility list)."""
     try:
-        out = subprocess.run(
+        done = subprocess.run(
             ["rocm-smi", "--showmeminfo", "vram", "--json"],
             capture_output=True,
             text=True,
-            timeout=30,
-        ).stdout
-        data = json.loads(out)
+            timeout=5,
+        )
+        if done.returncode != 0:
+            return {}
+        data = json.loads(done.stdout)
     except Exception:
+        return {}
+    if not isinstance(data, dict):
         return {}
     vram: dict[int, tuple[int, int]] = {}
     for card, info in data.items():
-        if not card.startswith("card"):
+        if not isinstance(card, str) or not card.startswith("card") or not isinstance(info, dict):
             continue
         try:
             idx = int(card[len("card") :])
@@ -274,16 +279,31 @@ async def _await_gpus_freed(gpu_ids: list[int], timeout: float = _GPU_FREE_TIMEO
     for tens of seconds after its process exits; starting the next worker on the
     same GPUs then HIP-OOMs. A GPU counts as free once it uses < 5% of its
     capacity (idle baseline is well under that). No-op if rocm-smi can't be read
-    (so it never hangs on a non-ROCm host) or on timeout (proceed anyway)."""
+    so it never hangs on a non-ROCm host. A readable GPU that remains busy at
+    the deadline is a dirty node, not a condition under which launching can
+    succeed."""
     loop = asyncio.get_running_loop()
     deadline = loop.time() + timeout
     while True:
-        vram = _gpu_vram()
+        vram = await asyncio.to_thread(_gpu_vram)
         if not vram:
             return  # can't measure → don't block
-        busy = [g for g in gpu_ids if vram.get(g, (0, 1))[0] >= 0.05 * vram.get(g, (0, 1))[1]]
-        if not busy or loop.time() >= deadline:
+        missing = [gpu for gpu in gpu_ids if gpu not in vram]
+        busy = [gpu for gpu in gpu_ids if gpu in vram and vram[gpu][0] >= 0.05 * vram[gpu][1]]
+        if not busy and not missing:
             return
+        if loop.time() >= deadline:
+            detail = ", ".join(
+                f"gpu{gpu}={vram[gpu][0] / (1024**3):.1f}/{vram[gpu][1] / (1024**3):.1f}GiB"
+                for gpu in busy
+            )
+            if missing:
+                detail = ", ".join(filter(None, (detail, f"missing={missing}")))
+            message = dirty_message(
+                f"GPU(s) remained busy or unreported after {timeout:.0f}s ({detail})"
+            )
+            _emit(message)
+            raise RuntimeError(message)
         await asyncio.sleep(3)
 
 
