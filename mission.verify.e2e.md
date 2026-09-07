@@ -96,6 +96,16 @@ Read both as starting points to reproduce, not as claims to trust.
    the first was cluster-shaped.
 2. **Run module 4 for real, end to end**, and carry its output into module 5. This is
    the one stage the first round never completed.
+   > **Read this before you spend that compute.** On the first cluster the operator the
+   > pipeline selects is **1.12 % of total GPU time**, and the whole bucket it selects
+   > from is **8.17 %** — 69 % sits in collective, classified out of scope. **Module 5's
+   > own measured noise floors are 4.4 % (TTFT) and 0.76 % (ITL).** A 1.12 % kernel made
+   > twice as fast moves end-to-end by 0.56 %, **below the floor.** So a real module-4
+   > campaign on the current selection spends the round's most expensive step proving
+   > something that cannot be measured end to end. **Check your own trace's bucket
+   > split first** — if yours is shaped the same, either widen the selection policy or
+   > run module 4 as a reachability exercise and say so, rather than as a performance
+   > claim.
 3. **Complete all five stages in one run, reaching `packup`.**
 4. **Debug what breaks**, and record it. The defect list below is what to expect, not
    what exists.
