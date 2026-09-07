@@ -19317,3 +19317,33 @@ cards / containers (machine we no longer hold, read 15:09:58):
 (T+1837 §4).
 **未定性:** unchanged from T+1927 §4.
 **新增 commit:** none by anyone since `c428fb13` (mine, 14:41).
+
+---
+
+## R2 T+1987 — 2026-09-07 15:41 UTC
+
+**T+1987 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 15:40:01).
+
+**No-change record. No hold.**
+
+```
+squeue -u yihou   header only — no hold, no successor
+total runs        22          orchestrators 0
+last run write    2026-09-07 06:47:04  -> nothing of ours for 532 min 53 s
+teammate writes   0 in the last 40 min  (seventeenth consecutive interval)
+commits           none by anyone since mine at 15:11
+cards / containers (machine we no longer hold, read 15:39:57):
+                  VRAM% all 0; xiaoming-dev, rc_26_7_902 — neither ours
+```
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** — the T+1837 closing stands |
+| 已经耗时 | **~1991 min ≈ 33 h 21 min** |
+| 预估耗时 | **not computable — T+1837 §7** |
+| 可靠性 | **中** |
+
+**Code problems:** none new (T+1837 §4 unchanged).
+**未定性:** unchanged from T+1927 §4.
+**新增 commit:** none by anyone since `2e1679c7` (mine, 15:11).
