@@ -81,6 +81,16 @@ def spawn_inference_benchmark(args, inference_config):
                or os.environ.get("INFERASIM_BENCH_SERVING_BACKEND"))
     if backend:
         argv += ["--serving-backend", str(backend)]
+    # Flags the checkpoint needs before it will load at all -- a remote-code
+    # architecture, a non-default attention backend. Without a way through,
+    # such a model is unmeasurable for a reason that has nothing to do with
+    # its performance.
+    server_args = (getattr(args, "bench_server_args", None)
+                   or os.environ.get("INFERASIM_BENCH_SERVER_ARGS"))
+    if server_args:
+        # "=" form: the value is itself a flag string, which argparse would
+        # otherwise read as the next option rather than as this one's argument.
+        argv.append(f"--server-args={server_args}")
     if ep > 1:
         argv.append("--enable-expert-parallel")
     # Measuring on fewer GPUs than the target is the expected case, not a
