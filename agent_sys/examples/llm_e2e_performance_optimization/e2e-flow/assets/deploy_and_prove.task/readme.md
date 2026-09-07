@@ -424,6 +424,16 @@ is the one most likely to be missed.** It sits at the content root **beside**
 what may a consumer rely on"*. It needs all three of `## Purpose`,
 `## Interface`, `## Boundary`.
 
+**Each of the three needs at least one sentence of prose directly under its own
+`##`, before any `###`.** `readme.py:sections()` opens a new section at every
+heading with `token.level == 0`, and markdown-it's `level` is **nesting depth,
+not heading depth** — so a document-root `###` is a *sibling* that ends the
+section above it, and a section whose content is entirely in subsections measures
+zero. **Measured 2026-09-07**, run `20260906T224100-ef6374`: 12,552 bytes,
+`Boundary` carrying about 8 KB across eight `###` subsections, **its own body 0**,
+seal refused with `required section 'Boundary' is empty`, run lost. The other two
+sections passed only by happening to have prose at their own level.
+
 **Write it, and do not treat the sketch above as the only mention.** Measured
 2026-09-04: **two real bring-ups produced kits complete in `items/` and missing
 this file**, because it was drawn in a diagram and required by no criterion. Both

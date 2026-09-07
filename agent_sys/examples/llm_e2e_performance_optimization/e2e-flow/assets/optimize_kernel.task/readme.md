@@ -342,6 +342,18 @@ It needs all three of these as sections **at document root**:
 that sentence is the seal's own, and it is the one you will see if you get it
 wrong.
 
+**And a `###` at document root is not a subsection — it is a sibling that ends
+the section above it.** `readme.py:sections()` opens a new section at every
+heading with `token.level == 0`, and markdown-it's `level` is **nesting depth,
+not heading depth**. So a `##` followed immediately by a `###` has an empty body
+and the seal refuses it with `required section '<name>' is empty`. **Put at
+least one sentence of prose directly under each `##` before any `###`.**
+
+**Measured 2026-09-07**, run `20260906T224100-ef6374`: a 12,552-byte README with
+eight `###` subsections under `## Boundary` carrying about 8 KB between them —
+`Boundary`'s own body measured **0**, the seal was refused, and the run was lost
+because the framework's remedy is to instruct an agent that had already exited.
+
 **Why this paragraph exists.** On 2026-09-05 two stage-4 agents, on two chains,
 on the same node, both failed here within four minutes of each other, and
 **neither failure looked like the other**:

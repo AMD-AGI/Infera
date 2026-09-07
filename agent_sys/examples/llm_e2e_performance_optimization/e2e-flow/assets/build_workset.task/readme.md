@@ -99,6 +99,88 @@ flashinfer-bench's own convention. `inputs` maps a name to
 `{shape, dtype, description}` where each shape entry is an axis name or an
 integer.
 
+**`baseline` must be the target module's source VERBATIM, with the `run`
+delegation appended — not a wrapper that imports it.** A four-line
+
+```python
+import aiter
+def run(A, B, out, **kwargs): return aiter.gemm_a16w16_asm(A, B, out)
+```
+
+satisfies every sentence above and **kills the chain two stages later**, so the
+requirement is stated here rather than discovered there.
+
+**Why, and it is not about this step.** `baseline` has a second consumer. When
+m4 runs with `--var forge_mock=1` there is no campaign, so
+`optimize_kernel.task/steps/30_run_forge.sh` seeds `optimized_kernel.py` **from
+this exact string**; m5's `apply_patch` then installs that file over
+`integration.target_files` with `apply_mode: overlay_files`, which replaces the
+**whole file**. `apply.py:828` refuses when the replacement fails to define a
+module-level name the file it replaces defines — the 2026-09-04 `sampler.py`
+precedent, where a replacement that dropped eight functions took the engine down
+with an `ImportError` *after* passing the compile check.
+
+**Measured 2026-09-06**, run `20260906T203956-3bf8c2`, on a workset built by
+following the previous wording:
+
+```
+target  /sgl-workspace/aiter/aiter/ops/gemm_op_a16w16.py   6 module-level names
+seed    results/optimized_kernel.py                        1 (`run`)
+dropped 6, including `gemm_a16w16_asm` itself — the symbol this operator's own
+        `integration.invariants` says "must stay reachable as aiter.gemm_a16w16_asm"
+```
+
+**One shape satisfies both consumers**: the stock source, unmodified, followed by
+
+```python
+def run(*args, **kwargs):
+    return <integration.public_symbol>(*args, **kwargs)
+```
+
+That still ends in a top-level `run`, so the `--impl` contract holds; and it
+keeps every module-level name, so an overlay of it is a legal no-op patch. **A
+no-op patch is a legitimate reverse-optimisation — `speedup: 1.0` from an empty
+change is a correct value, not a guess — but only if the machinery accepts the
+payload.**
+
+**`reference` is unaffected**: it is never overlaid, so a small hand-written
+implementation is right for it, and the two staying different is what
+`check_workset_shape` already grades.
+
+Add this to the STEP 4 acceptance run — it compares each `baseline` against the
+names that operator's own `integration.module_symbols` promises will survive, and
+**says so rather than failing when that block is not filled yet**, because the
+ordering between the two is not fixed by this brief:
+
+```sh
+python3 - <<'PY'
+import ast, json, pathlib, sys, yaml
+ws = yaml.safe_load(open("<WS>/workset.yaml"))
+ops = ws if isinstance(ws, list) else ws.get("operators", ws)
+promised = {o["operator_id"]: (o.get("integration") or {}).get("module_symbols") or []
+            for o in ops}
+bad = 0
+for p in pathlib.Path("<WS>/definitions").rglob("*.json"):
+    d = json.loads(p.read_text())
+    want = promised.get(p.stem)
+    if not want:
+        print(f"{p.stem}: integration.module_symbols not filled yet — NOT CHECKED")
+        continue
+    have = {getattr(n, "name", None) for n in ast.parse(d["baseline"]).body} | {
+        t.id for n in ast.parse(d["baseline"]).body if isinstance(n, ast.Assign)
+        for t in n.targets if isinstance(t, ast.Name)}
+    missing = [s for s in want if s not in have]
+    if missing:
+        print(f"{p.stem}: baseline defines {len(have - {None})} name(s); "
+              f"an overlay of it would drop {len(missing)}: {missing[:6]}")
+        bad += 1
+sys.exit(1 if bad else 0)
+PY
+```
+
+**Acceptance:** that command exits 0, and any operator it reports as NOT CHECKED
+is re-run after `integration.module_symbols` is filled.
+
 **There are no worked examples to imitate, and this paragraph used to point at
 two.** It named `../../../../../rank0/definitions/`. That directory is not in
 this repository — `git ls-files rank0` returns nothing, and the level count was
@@ -371,9 +453,54 @@ without them: **Purpose**, **Interface**, **Boundary**. Write
   every shape you added rather than observed, every gate you believe is weak,
   and any operator whose `status` is `partial` with the field that is missing.
 
-**Acceptance:** all three headings present, and the *Boundary* section names at
-least the excluded operators. A workset whose boundary section is empty is
-claiming it has no limits, which has never been true of one.
+**Every one of the three needs at least one sentence of prose directly under its
+own `##`, before any `###` subheading.** This is not a style note — it decides
+whether the seal succeeds.
+
+`agent_sys/handoff/readme.py:sections()` starts a new section at every heading
+whose `token.level == 0`, and in markdown-it `level` is **nesting depth**
+(blockquote, list item), **not heading depth**. A `###` at document root is
+therefore a *sibling* of the `##` above it and terminates its body. **A section
+whose content is entirely in subsections measures zero and the seal is refused
+with `required section '<name>' is empty`.**
+
+**Measured 2026-09-07**, run `20260906T224100-ef6374`, by running that parser on
+the README a previous run of this step produced:
+
+```
+total bytes 12552
+  'Purpose'    body_len 1537
+  'Interface'  body_len 1947
+  'Boundary'   body_len 0     <- REFUSED
+  its eight ### subsections:  1019 665 1826 571 546 910 185 1711 497
+```
+
+**Eight kilobytes under `Boundary`, and its own body was the blank line.** The
+body succeeded, the workset was complete, and the run was lost: the framework's
+remedy is to instruct the agent to continue, and the agent had already returned
+from `mainloop`, so nothing could act. It sat idle for four and a half hours.
+
+**`Purpose` and `Interface` passed by accident** — they happened to have prose at
+their own level. Structure the README however you like; just do not let a `##`
+be followed immediately by a `###`.
+
+```sh
+python3 - <<'PY'
+import sys
+sys.path.insert(0, "<repo root>")          # wherever agent_sys is importable from
+from agent_sys.handoff import readme
+s = readme.sections(open("<OUT>/README.md").read())
+bad = [n for n in ("Purpose", "Interface", "Boundary") if not s.get(n, "").strip()]
+for n in bad:
+    print(f"{n}: present={n in s} but its body measures 0 — the seal will refuse it")
+sys.exit(1 if bad else 0)
+PY
+```
+
+**Acceptance:** all three headings present; **that command exits 0**; and the
+*Boundary* section names at least the excluded operators. A workset whose
+boundary section is empty is claiming it has no limits, which has never been true
+of one.
 
 ## Done
 
