@@ -99,6 +99,29 @@ class ConsumableMgr(ResourceMgr):
         # un-spent, while a reservation must never become durable.
         self._persist()
 
+    def charge(self, amount: float) -> None:
+        """Record spend that was never reserved.
+
+        A non-leaf acquires nothing yet its validation phases may run an AI agent
+        and spend tokens; `give_back` cannot record that, because it clamps the
+        settlement to the reservation and the reservation is zero. `available`
+        may go negative and that is the honest outcome — refusing to book spend
+        that has already happened is the one thing a budget must never do.
+        Persists, because a settlement is what makes spend final.
+        """
+        self._check(amount)
+        self.available -= amount
+        self.spent += amount
+        if self.available < 0:
+            log.warning(
+                "%s: %s spent against a capacity of %s; the pool is over budget "
+                "and will refuse every request until it is refilled",
+                self.name,
+                self.spent,
+                self.capacity,
+            )
+        self._persist()
+
     def resume_system(self) -> None:
         record = self._r.get("store_mgr").read(KIND, self.name)
         self.spent = float(record["spent"]) if record is not None else 0.0

@@ -1,0 +1,136 @@
+# The last entry of the outer graph, and the only one that reads every other.
+#
+# **One file per step, holding everything that step introduces**, in the order
+# the format imposes: a name referenced before it is defined *in this file* is
+# an error, so the parts come first and the step that assembles them comes last.
+# `check_faster` is above `optimised` because the kind names it; `optimised` is
+# above `optimise` because the task names the kind. `steps/produce.yaml` says
+# the same thing at more length and it is the authoring manual for this.
+#
+# Nothing is defined inline. An inline definition is registered under its own
+# name and hoisted above its host, so it is a top-level definition written
+# somewhere less greppable, and it earns that only when the object is
+# single-use *and* short enough not to bury the thing it sits inside.
+#
+# `froms` for this entry lives in `main.yaml`, with the rest of the graph. A
+# closure's edges are a property of the graph and not of the step, and putting
+# them here would split one list across six files.
+
+# --------------------------------------------------------------------------- #
+
+# The agent that does the optimising: one model, given all three students'
+# attempts at the same problem and the grades they earned.
+#
+# `backend_entry` is the dotted form rather than an entry-point name, because a
+# task package outside this repository cannot register an entry point in the
+# `agent_sys.backends` group without being installed — and this package is data.
+# Both forms are admitted (`agent` design §6.3) and the dotted one is the one an
+# uninstalled package can write.
+#
+# **No `env` block.** The scale knobs exist so a bring-up run can ask for two
+# problems instead of twelve, and this agent is told how many to write by the
+# `problems` artefact it is handed rather than by a count. A knob it would not
+# read would be a declaration that lies.
+- module: agent
+  name: optimiser
+  kind: ai
+  version: '1'
+  description: Reads three students' solutions and writes one better implementation.
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
+
+# Usability: the improvement is real enough to hand to somebody.
+#
+# **`weak`, and the readme says why at length.** The claim under test is *this
+# is faster*, and this validator cannot measure that: the worked examples are
+# small, and a wall-clock comparison at that size on a shared machine is noise.
+# What it does check is that correctness survived and that the claim is
+# structurally supported — fewer lines, or a different named algorithm.
+#
+# Calling that `strong` would be the dishonesty this repository cares most
+# about; `examples/demo/steps/describe.yaml` is the long-form argument. A crude
+# check that is honestly described is worth more than a sophisticated one that
+# is silently approximate, but the honesty is the part that has to be written
+# down, because the strength field is the only thing a consumer reads.
+- module: validator
+  name: check_faster
+  version: '1'
+  brief: Each optimised solution still passes, and is shorter or uses a different algorithm
+  dimension: usability
+  strength: weak
+  inputs: [optimised]
+  tags:
+    logic_source: external_static
+    # Twelve compilations at up to 60 s each, plus every worked example. Minutes
+    # is the honest order of magnitude and §5.3 orders a phase cheap-first on
+    # this field, so understating it would push a slow check in front of fast
+    # ones that could have failed the same handoff first.
+    cost: minutes
+    domain: [demo, code]
+
+# --------------------------------------------------------------------------- #
+
+# What `optimise` writes: one improved implementation per problem.
+#
+# `content_type: code` because that is what it is — sources that compile and
+# run. **The type's shape was measured, not assumed** (`handoff/content.py:69`):
+# `code` requires exactly one item, `codes`, and its README sections are
+# `Purpose`, `Interface` and `Boundary`. So the per-problem directories live
+# *inside* `items/codes/`, which reaches `Content.load` as a single `tree` item;
+# a directory per problem directly under `items/` would be a dozen items the
+# type never defined, and `check_items` refuses those.
+- module: handoff
+  name: optimised
+  version: '1'
+  description: One improved implementation per problem, with a report on what changed.
+  content_type: code
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [codes]
+    properties:
+      # A directory: `Content.load` types a directory under `items/` as a `tree`
+      # and the instance value is its name, so the schema types its presence.
+      # What is *in* it is `check_faster`'s job — which is the split between the
+      # two mechanisms, and the reason this schema is three lines and not a
+      # description of twelve problem directories.
+      codes: {type: string}
+  # A kind is never valid without at least one validator (`handoff` spec §5.3).
+  validators: [check_faster]
+
+# --------------------------------------------------------------------------- #
+
+# The step. `is_end: true` is set in `main.yaml`, with the rest of the graph.
+#
+# It consumes five kinds, which is the widest fan-in in the package, and every
+# one of them is read: the three students' sources are the material, `scores`
+# picks the baseline, and `problems` supplies the worked examples the rewrite
+# must still answer.
+- module: task
+  name: optimise
+  description: Rewrite each problem's best student solution into a better one.
+  agent: optimiser
+  handoffs: [problems, solutions_a, solutions_b, solutions_c, scores, optimised]
+  validators: [check_faster]
+  task:
+    # ≤ 100 characters, and a human label rather than an instruction channel —
+    # `task.schema.json` caps it and `closure` spec §2.6 is explicit that goal
+    # and body are not two names for one thing. What to actually do is in
+    # `assets/optimise.task/readme.md`.
+    goal: Write one better implementation per problem, from the students' three.
+    version: '1'
+    inputs: [problems, solutions_a, solutions_b, solutions_c, scores]
+    outputs: [optimised]
+    permissions:
+      grants:
+        - {path: handoffs/problems, access: read, kind: problems}
+        - {path: handoffs/solutions_a, access: read, kind: solutions_a}
+        - {path: handoffs/solutions_b, access: read, kind: solutions_b}
+        - {path: handoffs/solutions_c, access: read, kind: solutions_c}
+        - {path: handoffs/scores, access: read, kind: scores}
+        - {path: handoffs/optimised, access: write, kind: optimised}

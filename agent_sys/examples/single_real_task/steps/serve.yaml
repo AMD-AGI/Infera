@@ -1,0 +1,235 @@
+# The one leaf, and everything it introduces.
+#
+# **Definition order is load-bearing within a file** — a name referenced before
+# it is defined here is an error. The order below is therefore:
+#
+#   1. the agent        (referenced by `task.agent`)
+#   2. the validators   (referenced by the kind's `validators`)
+#   3. the handoff kind (referenced by `task.handoffs` / `outputs`)
+#   4. the task         (references all of the above)
+
+# --------------------------------------------------------------------------- #
+# 1. The agent.
+#
+# `kind: ai`, because the work is a bring-up: pick free ports, read the repo's
+# own docs, watch a log that says `Health check failed` for three minutes and
+# decide that is not a hang, and then write down what it did. None of that is a
+# command somebody already wrote.
+#
+# `backend_entry` is the dotted form rather than an entry-point name: a task
+# package outside this repository cannot register an entry point in the
+# `agent_sys.backends` group without being installed, and this package is data.
+#
+# **The `env` block is the only route by which a package may name its own
+# variables** (`agent.schema.json`), and it is where the four facts a colleague
+# would fairly hand over reach the readme. A readme says `$SRT_MODEL_PATH`,
+# never a literal path, so `--var model_path=...` retargets a run without
+# editing a prompt — and none of these is a secret. **No credential is written
+# here or anywhere else in this package**: the model credentials reach a body
+# from the operator's own `~/.claude/settings.json` allow-list, by name, through
+# `env_mgr.harness.harness_env`.
+#
+# **Two of the four are required and deliberately carry no default.** Where a
+# site keeps 52 GB of weights, and what its image is called, are facts about
+# that site; a default here would be one machine's answer shipped as everyone's
+# and would put a path — with somebody's username in it — into public history.
+# `${NAME}` with no `:-` is a load-time fault naming the file and the line
+# (`spec_loader/variables.py`), so the package says what it needs instead of
+# silently pointing at a directory that is not there:
+#
+#     agent-sys run --package agent_sys/examples/single_real_task \
+#       --var model_path=/srv/models/Qwen3.6-27B --var image=<your-image>
+#
+# The other two default because a public registry tag and `/var/tmp` are not
+# anybody's local fact.
+- module: agent
+  name: deployer
+  kind: ai
+  version: '1'
+  description: Brings a model up on the local host and packs the bring-up into a reproduction kit.
+  env:
+    SRT_MODEL_PATH: '${model_path}'
+    SRT_IMAGE: '${image}'
+    SRT_ETCD_IMAGE: '${etcd_image:-quay.io/coreos/etcd:v3.5.14}'
+    SRT_WORK_ROOT: '${work_root:-/var/tmp}'
+  # **The readme calls the packup skill "the authority" for the layout, and
+  # without this line the agent cannot reach it.** Measured 2026-08-31: mid-run
+  # it called `Skill{"experiment-result-packup"}`, got `Unknown skill`, and went
+  # looking for the directory by hand. `env_mgr` redirects `CLAUDE_CONFIG_DIR`
+  # into the zone (`material.py:63`) and a session reads skills from
+  # `$CLAUDE_CONFIG_DIR/skills/`, so a skill only arrives if it is declared:
+  # `material.deploy` copies `MATERIAL_KEYS` and nothing else. The mechanism was
+  # wired and working; no package had ever used it.
+  #
+  # **Required, with no default, for the same reason `model_path` is.** Where an
+  # operator keeps their skills is a fact about that operator, and a default
+  # would put one machine's home directory into a package that is data. A
+  # visibly-unfilled placeholder was the alternative and is worse here: a
+  # declared path that does not exist used to be skipped in silence, which is
+  # the same bug wearing a fix. It now raises (`material.py`), and an unfilled
+  # `${packup_skill}` fails at load naming this file and this line.
+  #
+  #     --var packup_skill=$HOME/.claude/skills/experiment-result-packup
+  skills: ['${packup_skill}']
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
+# 2. The two validators.
+#
+# **Neither carries a `kind:` key, because `validator.schema.json` has no such
+# field and `additionalProperties: false`.** The mission's word "ai" for the
+# second one names *what the check does*, not a schema value: both bodies are
+# scripts run by `validator.ScriptBodyRunner`, and the difference is that one of
+# them spends its time inside `claude` and the other does not. That is also why
+# the two are told apart by `tags.logic_source` and `tags.cost` rather than by a
+# kind — `external_static`/`seconds` against `external_dynamic`/`gpu_hours` is
+# the pair `validator` spec §5.3 orders a phase by, cheap first, so the shape
+# check runs and can fail before the expensive one is ever started.
+#
+# **Neither names an `agent:`.** Naming one takes §8.2's BOUND row, whose
+# environment is the agent spec's literal `env` block — which would mean writing
+# a credential into this YAML file. Leaving it absent lets the phase choose:
+# on this package's only phase (see the kind below) that is the PRODUCER row,
+# which already carries the operator's harness block.
+
+# Completeness, and `strong` without qualification. Every rule it applies is
+# decided by looking at a file that either is there or is not, and the substance
+# rules are counted rather than judged. It cannot be *approximately* right about
+# whether `REPRODUCE.md` exists.
+- module: validator
+  name: check_packup_shape
+  version: '1'
+  brief: The handoff is one packup directory carrying every file the packup layout mandates, with substance, and it fixes no identifier it binds on a shared host
+  dimension: completeness
+  strength: strong
+  inputs: [runbook]
+  args:
+    # The substance floors, in one place so the readme beside the body and the
+    # code cannot drift. Counted in **content lines**: non-blank, not a heading,
+    # not a code fence marker.
+    min_content_lines:
+      README.md: 5
+      REPRODUCE.md: 8
+      environment.md: 8
+      notes.md: 3
+    # `REPRODUCE.md` is the file a reproducer executes, so it is the one file
+    # whose substance is measured in commands rather than in prose.
+    min_command_lines: 5
+    # **There is a third rule and it takes no argument.** The body also refuses a
+    # kit that freezes an identifier it then binds into a host-wide namespace --
+    # a container name, a published or listened-on port, the container workdir --
+    # because `check_reproduces` starts another bring-up from that same kit while
+    # the run that produced it may still be up. Numbers live here so a reader
+    # sees what is enforced; the flag set and the exemption form are sets rather
+    # than dials and live in `check.py`, argued in the readme beside it. The
+    # readme also lists what the rule cannot catch, which is the part a reader of
+    # this line would otherwise have to assume.
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [single_real_task, deploy]
+
+# Usability, and `weak` on purpose — the readme beside the body argues it at
+# length. In one line: the verdict is the *reproducer's own* report, and all
+# this body adds on top of it is that the artefacts the report names exist and
+# are non-empty. That is a real corroboration and it is not the same thing as
+# having checked the model served.
+#
+# `cost: gpu_hours` is the honest order of magnitude for the real handoff — the
+# reproducer brings a 27 B model up — and it is what puts this validator second
+# in the phase, behind the shape check.
+- module: validator
+  name: check_reproduces
+  version: '1'
+  brief: A fresh Claude Code session follows the handoff's REPRODUCE.md and actually reproduces the run
+  dimension: usability
+  strength: weak
+  inputs: [runbook]
+  args:
+    # How long the reproducer gets. A cold bring-up of a model this size runs to
+    # minutes before the server is ready, plus whatever the kit asks for on top;
+    # 90 minutes is slack rather than a budget, and
+    # `--var reproduce_timeout_seconds=120` is what a bring-up run passes.
+    timeout_seconds: '${reproduce_timeout_seconds:-5400}'
+  tags:
+    logic_source: external_dynamic
+    cost: gpu_hours
+    domain: [single_real_task, deploy]
+
+# --------------------------------------------------------------------------- #
+# 3. The kind.
+#
+# **`content_type: code`, and the choice was between this and `reproducible`.**
+# `reproducible` is the type named after what a packup is, and it is the wrong
+# one here: its required items are `result` and `env` plus one of
+# `script`/`command` (`handoff/content.py:69-74` and `_ALTERNATIVES`), and
+# `check_items` rejects a top-level item the type never declared. Laying a
+# packup into it means `results/` becomes `items/result`, `environment.md`
+# becomes `items/env`, `scripts/` becomes `items/script` and `REPRODUCE.md` —
+# the one file a reproducer executes — has no item to be. **Renaming the files
+# the packup layout mandates destroys the thing `check_packup_shape` exists to
+# check.** `code` requires exactly one item, `codes`, whose interior is
+# unconstrained, so the packup directory survives byte for byte with its own
+# name on it. The cost is that the type's README sections are
+# `Purpose`/`Interface`/`Boundary` rather than the five `reproducible` would
+# have asked for, and those three are a fair description of a reproduction kit.
+#
+# **No `items_schema`.** It could only restate `codes`, and a *closed* schema
+# would additionally reject `logs` and `watchout`, which the `code` type itself
+# lists as optional. What is *inside* `codes/` is `check_packup_shape`'s job —
+# that is the split the two mechanisms exist for.
+#
+# **`runbook` has no consumer**, because `serve_qwen` is the only task. Nothing
+# ever takes it as an input, so these two validators only ever run in
+# `serve_qwen`'s **output** phase — `agent/runner.py:579,598` runs the input
+# phase over the task's own `inputs`, which are `[]`. That decides which of
+# `validator` spec §8.2's four rows a body gets: the PRODUCER row, whose
+# environment is `Prepared.environment` and therefore carries
+# `AGENT_SYS_TASK_PACKAGE` and the operator's harness block, and **not**
+# `AGENT_SYS_DEMO_PACKAGE`/`_STORE`/`_PYTHON`. The two rows are disjoint rather
+# than nested — read `validator/docs/spec.md` §8.2 rather than assuming they
+# nest — so both bodies here are written against the producer row and fall back
+# to the global one only where a `:-` default costs nothing.
+- module: handoff
+  name: runbook
+  version: '1'
+  description: A packup-shaped reproduction kit for a Qwen3.6-27B mix-mode bring-up.
+  content_type: code
+  scope: fixed.required
+  validators: [check_packup_shape, check_reproduces]
+
+# --------------------------------------------------------------------------- #
+# 4. The task.
+#
+# A leaf, so it names an `agent`. `goal` is capped at 100 characters by
+# `task.schema.json` and is a human label, not an instruction channel —
+# everything the agent is actually told is in `assets/serve_qwen.task/readme.md`,
+# found by convention from the folder name.
+#
+# **No `resources`.** A leaf may declare a pool and this one legitimately wants
+# a GPU, but `cli/build.py:85` is the only reader and the CLI composition root
+# declares no pools, so a `resources` block here names a pool that does not
+# exist. Recorded in `README.md` as a known gap rather than written as a claim
+# nothing enforces.
+#
+# **`repos` is declared and read by nothing yet.** `infera` and `sglang` are
+# what this task's work needs, so they are written where the schema says they
+# go; `env_mgr` does not act on them today.
+- module: task
+  name: serve_qwen
+  description: Serve Qwen3.6-27B in mix mode on infera + sglang, then pack the bring-up up.
+  agent: deployer
+  handoffs: [runbook]
+  validators: []
+  task:
+    goal: Serve Qwen3.6-27B in mix mode and pack the bring-up into a kit.
+    version: '1'
+    repos: [infera, sglang]
+    inputs: []
+    outputs: [runbook]
+    permissions:
+      grants:
+        - {path: handoffs/runbook, access: write, kind: runbook}

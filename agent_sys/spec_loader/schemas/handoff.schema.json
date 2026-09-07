@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "handoff.schema.json",
+  "title": "Handoff kind",
+  "description": "A kind of artefact a task produces or consumes. Keys are `handoff` spec §8's; the four content types are §3.2's and the four scope tags are §4's.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "description", "content_type", "scope"],
+  "properties": {
+    "name": {
+      "$ref": "_common.schema.json#/$defs/name",
+      "description": "The kind name. Unique; this is what `Handoff.type` holds."
+    },
+    "version": { "$ref": "_common.schema.json#/$defs/version" },
+    "description": {
+      "$ref": "_common.schema.json#/$defs/description",
+      "description": "What this kind of artefact is, for a human."
+    },
+    "content_type": {
+      "enum": ["reproducible", "code", "structured_text", "text"],
+      "description": "One of the four in `handoff` spec §3.2. The type fixes what `items` must carry and what the README's sections are. `reproducible` is the richest: a thing that ran, the way to run it again, what came out, and what to watch for."
+    },
+    "scope": {
+      "enum": ["fixed.required", "fixed.optional", "addons.temp", "addons.knowledge"],
+      "description": "A closed vocabulary, and a handoff carries exactly one (`handoff` spec §4). It decides storage, permission, and retention together. An `addons` handoff cannot satisfy a `fixed.required` input — §4.2."
+    },
+    "items_schema": {
+      "type": "object",
+      "description": "The declared keys of `items` and their shapes; runtime-generated keys are permitted where this says so. Typed loosely ON PURPOSE. Whether it is a valid schema is a named load-time check calling `Draft202012Validator.check_schema`, not a `$ref` to the metaschema: `docs/design.md` §3.5 measured the `$ref` form producing eight identical unactionable errors for one mistake."
+    },
+    "readme_sections": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "description": "Sections the README must carry, beyond the content type's defaults."
+    },
+    "validators": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "description": "Validator spec names. **At least one**, unless the escape-hatch flag is set — and that is a load-time check rather than `minItems`, because the flag is a run-time argument the schema cannot see, and a kind it lets through must be admitted AND reported (`handoff` spec §5.3)."
+    },
+    "dependencies": {
+      "type": "object",
+      "description": "What a consumer's machine must satisfy: hardware, software, a container image. Deliberately not further constrained — `handoff` spec §7 says the `env` item carries this for a `reproducible` kind and that for the others 'the kind's schema declares what applies', so fixing a shape here would be inventing a requirement."
+    }
+  }
+}

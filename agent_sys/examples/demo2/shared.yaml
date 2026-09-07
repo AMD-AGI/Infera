@@ -1,0 +1,33 @@
+# What more than one step uses. Everything else lives in the step that
+# introduces it — see `steps/`.
+#
+# The rule is worth more than the file is: **a step file holds what only that
+# step uses, and the moment a second step needs it, it moves up here.** Without
+# it, "which of the two files owns this" is a question with no answer, and the
+# object ends up duplicated or arbitrarily placed. Every AI agent in this
+# package has exactly one user and so lives beside its task; this one has
+# thirteen.
+
+# An agent, and not an AI.
+#
+# `kind: program` is not a degenerate case and not a workaround for the absence
+# of an agent — main spec §4.8 settles that a *leaf* has an agent and that
+# `kind` is what varies. Nothing synthesises this document: `closure.agent_of()`
+# returns `runner` because a package author wrote it (`closure` D1).
+#
+# No `backends`. `agent.select_backend` dispatches on `kind` one line before it
+# reads the list, and a `kind: program` spec selects `ProgramExecutor`, which
+# takes its command from the body's `entry.sh`. That is also why one spec serves
+# every program body in the package: a program agent carries **no command of its
+# own**, so there is nothing left in it to differ between users.
+#
+# **Thirteen users**, which is the whole reason it is here: the three program
+# leaves `reconcile`, `harness` and `score`, plus all ten validator bodies. The
+# validators are the interesting half — a validator body is a script like any
+# other, so it runs under the same program agent as a task does, and this file
+# is where that becomes visible instead of being asserted in a design document.
+module: agent
+name: runner
+kind: program
+version: '1'
+description: Runs a body's entry.sh. No model call.

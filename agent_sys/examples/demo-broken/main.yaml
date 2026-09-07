@@ -1,0 +1,37 @@
+# Loaded only by `--dry-run --with-broken`. Criterion 11's second half.
+#
+# **It is a separate package now, and it had to become one.** It used to be
+# `examples/demo/broken/closures/dangling.jsonnet` — a subdirectory the old
+# per-kind discovery pass did not walk. The YAML front end scans *every* `*.yaml`
+# under a package root except `assets/`, so a broken document anywhere inside
+# `examples/demo/` would now be loaded on every ordinary run and criterion 13's
+# *"two runs, no hand-editing"* would be dead. Two mandatory names — `main.yaml`
+# and `assets/` — are what make a directory a package, so a sibling directory
+# with both is the smallest thing that is unambiguously *not* part of the demo.
+#
+# Airflow's answer is a skip-list of known-bad files, and that is what a suite
+# grows *after* it has more than one example; with one, a separate package and an
+# explicit flag is smaller and honest about what it is for (`demo` design §8.4).
+#
+# The fault is a **cross-registry** one, so no schema can catch it: `nonexistent`
+# is a well-formed handoff kind name that is in no loaded package. It is
+# `check_closures`' check 1 that reports it, and the message names this file.
+#
+# The document is a closure called `dangling` in a file called `main.yaml`.
+# `main.yaml` is the mandatory entry and nothing ties the name of the object
+# inside it to the name of the file — reported to the lead as an observation
+# rather than worked around.
+module: task
+name: dangling
+description: 'Deliberately broken: it names a handoff kind nothing declares.'
+agent: collect
+handoffs: [nonexistent]
+validators: []
+task:
+  goal: Fail to load, and say which file did it.
+  version: '1'
+  inputs: [nonexistent]
+  outputs: []
+  permissions:
+    grants:
+      - {path: handoffs/nonexistent, access: read, kind: nonexistent}
