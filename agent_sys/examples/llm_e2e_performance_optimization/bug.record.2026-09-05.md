@@ -2080,3 +2080,91 @@ mock loop run 1   login node, full package, mock_stages=all, no GPU
 of a 90-minute GPU round.** A decisive comparison — same package-generation mode as
 `p6m1`, same mocked stages, same node, differing only in the validator set — is the
 next reading.
+
+### 2026-09-06 12:2x — ANSWERED: the variable is the VALIDATOR SET, and it is OUR generator
+
+```
+package    profiling_evidence zone staged from   runs
+-noval     v1, 45 files   POPULATED              0 of 3 empty   (2 login + p6m1)
+keep17     v0,  0 files   EMPTY                 10 of 10 empty  (3 login + 7 real)
+```
+
+**Ten for ten against zero for three, and the login-node pair is a clean comparison:
+same node, same `mock_stages=all`, same corpus, same commit, same hour — only the
+validator set differs.**
+
+> **This reclassifies the defect. It has been recorded all night as a framework fault;
+> it correlates perfectly with which package `make_debug_package.py` produced.**
+
+`-noval` rewrites every kind to `[check_nothing]`; `--keep` rewrites only the kinds
+that lost a validator and leaves the rest byte-identical. **`profiling_evidence` is one
+`--keep` leaves alone — and the populated case is the one where its list WAS
+rewritten.** **That is a hypothesis about which code path stages the version. Nobody
+has read the staging code.**
+
+**The test that has never been run, and it is the one that matters most:** every run in
+this project used a **generated** package (`-noval` or `--keep`). **No run has used the
+package as it sits in the repository.** If the original stages `v1`, the fault is an
+artefact of our own debug tooling and does not exist for anyone running the package
+normally — **including the second cluster.** Cheap: login node, `mock_stages=all`, no
+cards.
+
+### A false counter-example, caught by re-measuring rather than re-reading
+
+**The loop's own summary reported one run as "11 zones, none empty". It was not** —
+that run's `profiling_evidence` zone was `v0` with 0 files.
+
+**Cause:** the loop resolved the run directory as `ls -1td …/runs/*/ | head -1` — the
+newest — **while two loops ran in parallel.** The other loop's run started mid-way, so
+when this one finished, the newest directory belonged to the other. **It reported the
+other loop's result as its own.**
+
+> **A computed value reached a report with no check that it identified the right
+> thing** — the same family as an empty variable expanding into a destructive glob, one
+> level up, **and it produced the most dangerous possible output: a false
+> counter-example to a true finding.** For twenty minutes the fault looked stochastic
+> within a fixed configuration.
+
+**What caught it was re-measuring, not re-reading:** enumerating every run's zone from
+`inputs.json` directly. **The summary and the truth disagreed, and only the direct
+measurement was load-bearing.**
+
+**Also:** `profiling_evidence` appears in **three** zones per run — two
+`output_validation`, one `input_validation` — **and only one is ever empty.** Any
+report naming "the profiling_evidence zone" without saying which is ambiguous.
+
+### CORRECTION 2026-09-07 — the direction of the correlation was misread
+
+**The entry above concluded the defect is our debug tooling's. That is wrong and the
+check took ten seconds** (m1):
+
+```
+profiling_evidence   repo package : [check_command_parses, check_environment, check_profiling_evidence]
+                     keep17       : [check_command_parses, check_environment, check_profiling_evidence]   <- IDENTICAL
+                     noval        : [check_nothing]                                                        <- rewritten
+
+deploy_kit, for contrast
+                     repo package : [check_environment, check_deploy_kit, check_deploy_serves]
+                     keep17       : [check_nothing, check_environment, check_deploy_kit]                   <- rewritten
+```
+
+> **`--keep` does not touch the affected kind. `-noval` rewrites it. So the finding is
+> not "restoring validators breaks it" but "the all-stubs rewrite avoids it" — and the
+> ten empty runs used the REPOSITORY's own validator list for the kind that came up
+> empty.**
+
+**On this evidence the defect is in the package as shipped.** `mission.verify.e2e.md`
+carried the reassuring version for about two hours and has been reverted (`4a79c94`).
+
+**Why the literal test cannot settle it on a login node, and this is the trap named
+the same morning:** the repository wires `check_deploy_serves` on `deploy_kit`, which
+performs a real bring-up and a timed load. On a login node the chain stops at stage 1
+and `profiling_evidence` never exists — **the sample would be structurally incapable of
+producing a counter-example.** It needs a GPU node, or
+`--var deploy_entrypoint=scripts/stub/deploy.sh` so the validator has a stub to bring
+up. **Untested whether the stub survives a login node.**
+
+**Status: strongly indicated, not measured.** Byte-identity is a strong argument — the
+repository package could only differ if version selection depends on some *other*
+kind's validator list, a coupling nobody has proposed and which would itself be a
+finding. **It is still an argument, not a measurement.**

@@ -202,6 +202,22 @@ expensive one; put it last and reuse its output once obtained.**
    gathers from four producers writes it.**
    **It reproduces on a login node, fully mocked, with no GPU** — the whole question
    costs about twenty minutes and no cards. **Do not spend a GPU round on it.**
+   **A reassuring reading was published here for about two hours and it was wrong.
+   Expect this defect.** The emptiness does correlate with the generated package —
+   **10 of 10 empty with a partially-restored validator set, 0 of 3 with an all-stubs
+   one** — but the direction of that correlation was misread. **The affected kind's
+   validator list is BYTE-IDENTICAL between the repository package and the
+   partially-restored one**; only the all-stubs variant rewrites it.
+   > **So it is not "restoring validators breaks it". It is "the all-stubs rewrite
+   > avoids it", and the ten empty runs used the repository's own validator list for
+   > the kind that came up empty. On this evidence the defect is in the package as
+   > shipped and you will see it.**
+   **Strongly indicated, not measured.** The literal test — repository package, all
+   stages mocked, login node — **cannot run**: the repository wires a validator on the
+   first kind that performs a real bring-up and a timed load, so on a login node the
+   chain stops at stage 1 and the affected kind never exists. **The sample would be
+   structurally incapable of answering.** A GPU node, or a stub deployment entrypoint
+   supplied by parameter, is required to measure it.
    **Before attributing any refusal:**
    ```sh
    bash assets/lib/refusal_saw_something.sh <run dir>
