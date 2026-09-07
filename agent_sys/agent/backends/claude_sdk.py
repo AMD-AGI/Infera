@@ -357,20 +357,35 @@ class ClaudeSdkBackend(ExecutorBase):
             options.setdefault("permission_mode", "bypassPermissions")
         if self.assignment.environment:
             options.setdefault("env", dict(self.assignment.environment))
+        if self.assignment.mcp_servers:
+            # Per-agent components' external servers, under the same collision
+            # policy as the tool server: a name may not be taken twice, since
+            # `mcp__<server>__<tool>` is what the model calls. A collision is
+            # refused rather than merged, so neither side silently loses tools.
+            servers = dict(options.get("mcp_servers") or {})
+            clash = sorted(set(servers) & set(self.assignment.mcp_servers))
+            if clash:
+                raise BackendUnsupported(
+                    self.key,
+                    "mcp_servers",
+                    f"this config and this agent's components both declare MCP "
+                    f"server(s) {clash}. The model addresses these as "
+                    f"mcp__<server>__<tool>, so two servers cannot share a name — "
+                    f"rename one side rather than letting the other's tools "
+                    f"disappear.",
+                )
+            servers.update(self.assignment.mcp_servers)
+            options["mcp_servers"] = servers
         if self.assignment.tools:
             # **Spec §5.5's remote surface, and the only place that knows the
             # SDK.** `env_mgr` may not import the SDK and `agent/backend.py` is
             # backend-agnostic, so the `ToolDef` -> `SdkMcpTool` adapter belongs
             # here beside every other option this file assembles.
             server, names = _tool_server(self.assignment.tools)
-            # **A collision is named, not resolved.** This was
-            # `options.setdefault("mcp_servers", {})[_TOOL_SERVER] = server`,
-            # which silently replaced a caller's own server of the same name —
-            # the only line in this method that overwrites rather than
-            # `setdefault`s, and the one whose key is a compatibility surface
-            # (`mcp__env_mgr__…` is what the model calls). An operator who lost
-            # their tools that way would get no message and no failure, just
-            # different tools than the ones they configured.
+            # **A collision is named, not resolved.** The key is a
+            # compatibility surface — `mcp__env_mgr__…` is what the model calls
+            # — so replacing a caller's own server of the same name would hand
+            # them different tools with no message and no failure.
             servers = dict(options.get("mcp_servers") or {})
             if _TOOL_SERVER in servers:
                 raise BackendUnsupported(

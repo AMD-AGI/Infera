@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import shutil
 import sys
 from collections.abc import Sequence
@@ -49,6 +50,7 @@ from env_mgr import meta
 from env_mgr.prepare import EnvManager, permissions_enforced
 from env_mgr.protocols import NoConfinement, PrepareRefused, UnresolvedGrant
 from env_mgr.remote.connection import sync_transport
+from env_mgr.servers import REGISTRY_ENV_VAR, owned_servers
 from env_mgr.sync import check_delete_scope
 from monitor import (
     NullUserSink,
@@ -209,7 +211,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             if args.verb == "show":
                 return _show(args, stream)
-            return _run(args, stream)
+            return _run(args, stream, stack)
         except package.PackageNotFound as exc:
             return _fail(stream, PRECONDITION, str(exc))
         except SpecInvalid as exc:
@@ -259,12 +261,16 @@ def _show(args: argparse.Namespace, stream: Stream) -> int:
 # run
 
 
-def _run(args: argparse.Namespace, stream: Stream) -> int:
+def _run(args: argparse.Namespace, stream: Stream, stack: ExitStack) -> int:
     if args.clean:
         return _clean(args, stream)
     if args.dry_run:
         return _dry_run(args, stream)
-    return _real_run(args, stream)
+    # `stack` reaches only `_real_run`: it is what stops the servers a run
+    # started, and the other two verbs start none. `clean` removes a directory;
+    # `dry-run` dispatches nothing, which its own body asserts rather than
+    # assumes.
+    return _real_run(args, stream, stack)
 
 
 def _clean(args: argparse.Namespace, stream: Stream) -> int:
@@ -326,7 +332,7 @@ def _layout(args: argparse.Namespace) -> Layout:
     return layout_for(root).create()
 
 
-def _real_run(args: argparse.Namespace, stream: Stream) -> int:
+def _real_run(args: argparse.Namespace, stream: Stream, stack: ExitStack) -> int:
     """Everything. Needs credentials, a sandbox, and a model.
 
     The order of the two preconditions is measured rather than aesthetic: the
@@ -351,17 +357,19 @@ def _real_run(args: argparse.Namespace, stream: Stream) -> int:
     promises = expectations.for_package(package.locate(args.package))
 
     layout = _layout(args)
+    # The servers this run starts are stopped when this block unwinds; `env_mgr`
+    # starts them, so `env_mgr` stops them. The path is set on `os.environ`
+    # because that is the only channel a recipe subprocess reads it from; it is
+    # a per-run constant, safe even though the runner is threaded.
+    registry_file = layout.run / "servers.json"
+    os.environ[REGISTRY_ENV_VAR] = str(registry_file)
+    stack.enter_context(owned_servers(registry_file))
     root = package.locate(args.package)
-    # **Read once, at start-up, and it is the run's fact rather than a task's.**
-    # `env_mgr.prepare.permissions_enforced()` is the single reader of the
-    # variable and this calls it; the demo never learns the name. A function and
-    # not a constant, on their advice: a module-level read is taken at import
-    # and would answer with whatever the environment held then.
-    #
-    # `main` has no `Prepared` at all — a non-leaf never executes — so a banner
-    # about the run cannot be assembled from per-task facts even where they
-    # exist. `Prepared.permissions_enforced` stays a confirmation, not a second
-    # source.
+    # Read once, at start-up: this is the run's fact rather than a task's.
+    # `env_mgr.prepare.permissions_enforced()` is the variable's single reader.
+    # A function and not a constant, because a module-level read is taken at
+    # import and would answer with whatever the environment held then.
+    # `Prepared.permissions_enforced` stays a confirmation, not a second source.
     enforced = permissions_enforced()
     stream.emit(
         EventKind.CONFINEMENT_APPLIED,

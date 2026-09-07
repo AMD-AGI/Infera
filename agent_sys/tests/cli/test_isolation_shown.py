@@ -166,7 +166,10 @@ def test_the_leak_target_resolves_to_a_real_directory_outside_every_zone(
     # The variable has to be *exported*, and this is the assertion that was
     # missing: resolved through the real mechanism, from the rendered spec.
     spec = _loaded_specs(package_root, "agent", outside=str(layout.outside))["describe"]
-    environment = material.deploy(spec, _ZoneAt(str(tmp_path / "zone")))
+    # `.environment`: `deploy` returns a `Deployed` since per-agent components
+    # gave it three more things to hand back than an environment mapping can
+    # hold. The two-argument call is unchanged, which is what §4.6 froze.
+    environment = material.deploy(spec, _ZoneAt(str(tmp_path / "zone"))).environment
     assert name in environment, (
         f"{name} is in the readme and exported by nothing; the command would "
         f'run as `echo leaked > "/leak.txt"` against a root-owned /'
@@ -647,3 +650,28 @@ def test_the_two_declared_names_point_at_the_same_level() -> None:
     assert '"content" / "items"' not in render
     collect = (package / "assets" / "produce.task" / "collect.py").read_text()
     assert 'dst / "items"' in collect and 'dst / "content"' not in collect
+
+
+def test_a_run_names_a_server_registry_under_its_own_run_root(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    """`_real_run` exports `AGENT_SYS_SERVER_REGISTRY` under this run's own
+    root before entering the manager block, so no run can stop another's
+    servers."""
+    monkeypatch.setattr(cli_main, "confinement", lambda *a, **k: "landlock")
+    monkeypatch.setattr(cli_main, "preflight_credentials", lambda: "ready")
+    monkeypatch.setattr(cli_main, "preflight_repository", lambda *a, **k: None)
+    monkeypatch.delenv("AGENT_SYS_SERVER_REGISTRY", raising=False)
+    seen: dict[str, str] = {}
+
+    def stop_here() -> bool:
+        seen["value"] = os.environ.get("AGENT_SYS_SERVER_REGISTRY", "")
+        raise RepositoryNotPrepared("stop after the lines under test")
+
+    monkeypatch.setattr(cli_main, "permissions_enforced", stop_here)
+    _cli(monkeypatch, "run", "--demo-root", str(tmp_path))
+
+    assert seen.get("value"), "no server registry was named for the run"
+    named = Path(seen["value"])
+    assert named.name == "servers.json"
+    assert named.parent.parent == tmp_path / "runs", named

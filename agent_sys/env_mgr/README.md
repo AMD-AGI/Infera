@@ -1,6 +1,6 @@
 # env_mgr
 
-Layered environment manager for the agent work system. Driven by one
+Environment manager for the agent work system. Driven by one
 self-contained YAML recipe, it can **check / dry-run / install / bootstrap**
 an environment (Python, apt, binaries, Claude plugins/MCP) and report per-item
 status plus delivered artifacts (path/version/deps).
@@ -36,16 +36,18 @@ Exit code: 2 on any FAIL, else 0.
 
 ## v1 limitations
 
-- **Cross-layer skip-with-warning is not implemented** (design §4.1). env_mgr
-  does not yet walk the parent chain to detect that an item is already
-  satisfied by an upper layer and skip it with a warning. Each installer's own
-  idempotent `check` covers the practical single-host case. Consequently
-  `--on-conflict weak` is a **v1 no-op**: it skips cross-layer conflict
-  detection entirely and proceeds with install (exit 0), whereas `fail`
-  records the conflict and halts before install (exit 2). Only cross-layer
-  *version-conflict detection* under `fail` is active.
-- **workspace layer is stubbed** — the default `$HOME/workspace.infera.aiopt`
-  path, its warning, and user-bin symlinking are not wired up yet.
+- **Skip-with-warning is not implemented** (design §4.1). env_mgr does not yet
+  detect that an item is already satisfied elsewhere and skip it with a
+  warning. Each installer's own idempotent `check` covers the practical
+  single-host case. Consequently `--on-conflict weak` is a **v1 no-op**: it
+  skips conflict detection entirely and proceeds with install (exit 0), whereas
+  `fail` records the conflict and halts before install (exit 2). Only
+  *version-conflict detection* under `fail` is active. (This bullet described
+  walking a chain of *layers*; the layer model is gone — `docs/spec.md` §9.1 —
+  and what is unimplemented is the skip, not the chain.)
+- **the workspace default is stubbed** — the default
+  `$HOME/workspace.infera.aiopt` path, its warning, and user-bin symlinking are
+  not wired up yet. The default appears nowhere in this tree.
 - **system apt is detect-and-print only** — the `apt` installer never runs
   sudo; it prints the `apt-get install` line for you to run.
 
@@ -58,8 +60,9 @@ now lives entirely in this recipe and the installers above.
 
 # Above the wall: paths, zones, isolation
 
-Everything above is the **shipped installer machinery** and is unchanged
-(spec §9, criterion 22). Everything below is `docs/design.md` §2's subtree:
+Everything above is the **shipped installer machinery**, reused rather than
+reimplemented (spec §9, criterion 22 — no longer *frozen*: the layer model was
+removed from it on 2026-09-04). Everything below is `docs/design.md` §2's subtree:
 `meta.py`, `fs/`, `isolation/`, `grants.py`, `workspace.py`, `material.py`,
 `sync.py`, `remote/`, `prepare.py`, and the CLI's two new sub-commands.
 
@@ -701,6 +704,17 @@ kinds stay five and the zone-path kind grows from one name to six.
 one fact may not have two writers and `tests/cli/test_isolation_shown.py`
 imports it from there.
 
+**Per-agent components did not add a sixth kind either**, and the reason is
+worth stating because it looks like one. `agent_assets.install` contributes
+`AGENT_SYS_AGENT_ASSETS`, and it reaches `Prepared.environment` *through*
+`material.deploy` — the fifth contributor, whose whole job is already *what this
+agent needs*. What components genuinely added is not a sixth environment source
+but **two destinations that are not an environment at all**:
+`Prepared.mcp_servers` and more entries in `Prepared.tools`. That is why
+`material.deploy` returns a `Deployed` value now instead of a `dict[str, str]` —
+the mapping had nowhere to put a nested server declaration or a live Python
+object, and a second function returning them would be one act split in two.
+
 | variable | value | the user's name for it |
 |---|---|---|
 | `AGENT_SYS_MY_ZONE` | `<zone>` | — (see below) |
@@ -709,7 +723,26 @@ imports it from there.
 | `AGENT_SYS_MY_PLAYGROUND` | `<zone>/playground` | `my_agent_playground` |
 | `AGENT_SYS_MY_HANDOFFS` | `<zone>/handoffs` | — (`等等`) |
 | `AGENT_SYS_MY_LOGS` | `<zone>/logs` | — (`等等`) |
+| `AGENT_SYS_AGENT_ASSETS` | `<zone>/package/<AgentSpec.assets>` | — (added with per-agent components) |
+| `AGENT_SYS_INSTALL_REPORT` | `<zone>/logs/agent_assets.install.json` | — (ditto) |
 | `<any of the above>_REMOTE` | the same path under `sync.remote_root(zone, mapping)` | `*_romote` |
+
+`AGENT_SYS_AGENT_ASSETS` is **the one name in the family whose value is not a
+zone subdirectory**, so `paths.py` owns its spelling and `agent_assets.install`
+binds it. It still obeys the family's rule — exported and granted agree — because
+the staged package is inside the zone and `prepare` grants the zone recursively.
+It is not derived from `AGENT_SYS_TASK_PACKAGE` by a body, because the relative
+part is the agent spec's and a body has no route to an agent spec.
+
+**Every name in this table is a path inside the zone**, and that is now
+without exception. `AGENT_SYS_ADDONS_ROOT` used to be here, naming
+`agent_sys/env_mgr/addons/` and defended as *the same rule run the other way* —
+`isolation/policy.py::addon_grants` composed a `READ_EXEC` grant on it under the
+identical condition that emitted the name. It went with the `agent_plugins:`
+declaration key (`docs/spec.provisioning.md` §4): an add-on is installed by a
+recipe, the recipe runs unconfined and copies what it needs into the zone, and
+nothing confined reaches back out. Deleting the last exported out-of-zone path
+is what the removal was for.
 
 A name whose directory does not exist is **not exported**: the zone's
 subdirectories are one per registered domain kind, so a run with no `PLAYGROUND`
@@ -884,7 +917,7 @@ which half.
 | 19 | agent works on a copy; the stored artefact is unchanged | `test_agent_works_on_a_copy`, `test_stored_artefact_byte_identical`, `test_copy_out_refuses_to_copy_onto_itself` |
 | 20 | shared object store, main checkout unmodified — **D1**, not "is a worktree" | `test_workspace_shares_object_store`, `test_main_checkout_unmodified`, `test_the_agent_can_commit`, `test_collect_returns_work_by_a_supervisor_side_fetch`, `test_cut_refuses_a_main_repository_without_precious_objects`, `test_precious_objects_blocks_the_prune` |
 | 21 | conventions from a knowledge handoff, no code change | `test_conventions_come_from_a_knowledge_handoff`, `test_a_missing_knowledge_handoff_is_the_empty_default`. **The consumption half only** — the system-level task that would *produce* one is unspecified, so the test builds the artefact. The design recorded this as untestable; it is half-testable |
-| 22 | the shipped machinery is untouched | The shipped **65**, unchanged, plus `test_the_shipped_modules_are_byte_identical` (asserted against the git index, not against memory) and `test_cli_subcommands_preserve_shipped_shapes` |
+| 22 | the shipped machinery **keeps working** | `test_cli_subcommands_preserve_shipped_shapes`, plus the machinery's own tests. **Revised 2026-09-04** (`fc200a2`): the criterion read *untouched*, and a test — test_the_shipped_modules_are_byte_identical, named here **without backticks on purpose**, because `test_every_test_the_readme_cites_exists` scans backticked `test_*` names and cannot tell *citing a test as cover* from *naming one that was removed* — asserted that literally, over `git diff HEAD`. That was a scope fence for the round that built the new subsystems, and this round is a design-level change to the machinery itself, so the fence is retired. The **65** is a 2026-08-30 snapshot, not a live count. See `docs/spec.md` §10 criterion 22 for the full reason |
 
 **Beyond the criteria**, three suites hold properties nothing else would catch:
 `test_imports.py` (the decoupling wall, both directions, plus `fs/path.py`

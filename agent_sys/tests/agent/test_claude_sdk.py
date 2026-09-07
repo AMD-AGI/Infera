@@ -768,3 +768,89 @@ def test_no_tools_means_no_mcp_server_at_all() -> None:
 
     assert "mcp_servers" not in options
     assert not options.get("allowed_tools")
+
+
+# --------------------------------------------------------------------------- #
+# Per-agent components' external MCP servers
+
+
+def test_component_mcp_servers_reach_the_options_the_sdk_is_constructed_with() -> None:
+    """`Assignment.mcp_servers` reaches `ClaudeAgentOptions(mcp_servers=...)`.
+
+    An external server, unlike `env_mgr`'s in-process one, needs no
+    `allowed_tools` entry: its tool names are not known until it starts.
+    """
+    pytest.importorskip("claude_agent_sdk")
+    backend = ClaudeSdkBackend(
+        "claude_sdk",
+        {"client": FakeClient()},
+        Assignment(
+            goal="g",
+            zone="/z",
+            mcp_servers={"envchk": {"type": "stdio", "command": "python3", "args": ["s.py"]}},
+        ),
+    )
+
+    options = backend._options()
+
+    assert options["mcp_servers"]["envchk"]["command"] == "python3"
+
+
+def test_a_component_server_and_the_remote_tool_server_coexist() -> None:
+    """A component server and the remote tool server merge into one mapping;
+    neither displaces the other."""
+    pytest.importorskip("claude_agent_sdk")
+    backend = ClaudeSdkBackend(
+        "claude_sdk",
+        {"client": FakeClient()},
+        Assignment(
+            goal="g",
+            zone="/z",
+            tools=_defs(),
+            mcp_servers={"envchk": {"type": "stdio", "command": "python3"}},
+        ),
+    )
+
+    options = backend._options()
+
+    assert set(options["mcp_servers"]) == {"envchk", "env_mgr"}
+    assert "mcp__env_mgr__env_remote_run" in options["allowed_tools"]
+
+
+def test_a_component_server_colliding_with_a_config_server_is_refused() -> None:
+    """A component server colliding with a config server's name is refused,
+    not resolved in either direction — the same policy `env_mgr` already
+    applies to its own name collisions."""
+    pytest.importorskip("claude_agent_sdk")
+    backend = ClaudeSdkBackend(
+        "claude_sdk",
+        {"client": FakeClient(), "options": {"mcp_servers": {"envchk": {"type": "sdk"}}}},
+        Assignment(goal="g", zone="/z", mcp_servers={"envchk": {"type": "stdio"}}),
+    )
+
+    with pytest.raises(BackendUnsupported, match="envchk"):
+        backend._options()
+
+
+def test_a_component_server_named_env_mgr_is_refused_by_the_existing_guard() -> None:
+    """A component server named `env_mgr` collides with the remote tool
+    surface's own name and is refused by its existing guard."""
+    pytest.importorskip("claude_agent_sdk")
+    backend = ClaudeSdkBackend(
+        "claude_sdk",
+        {"client": FakeClient()},
+        Assignment(goal="g", zone="/z", tools=_defs(), mcp_servers={"env_mgr": {"type": "stdio"}}),
+    )
+
+    with pytest.raises(BackendUnsupported, match="env_mgr"):
+        backend._options()
+
+
+def test_no_components_means_no_mcp_servers_key_at_all() -> None:
+    """The control. An agent whose components declare no server must leave the
+    option absent rather than present-and-empty — `grants.output_paths`' rule,
+    and here it also keeps the shape every existing run has today."""
+    pytest.importorskip("claude_agent_sdk")
+    backend = ClaudeSdkBackend("claude_sdk", {"client": FakeClient()}, Assignment(goal="g"))
+
+    assert "mcp_servers" not in backend._options()

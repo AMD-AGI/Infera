@@ -182,38 +182,25 @@ class Assignment(BaseModel):
     #: which is what every backend but `claude_sdk` does today.
     tools: tuple[Any, ...] = ()
 
+    #: External MCP servers this agent's components declared, keyed by the
+    #: name the model addresses them under (`env_mgr.Prepared.mcp_servers`,
+    #: straight through). Typed loosely: the values are the SDK's own server
+    #: vocabulary, which `agent` does not own or check. A backend that cannot
+    #: express external servers ignores this entirely.
+    mcp_servers: dict[str, Any] = Field(default_factory=dict)
+
     #: `env_mgr.Confinement`, carried for an executor that wants to report what
     #: it will run under. Typed loosely because `agent` may not import `env_mgr`.
-    #:
-    #: **A prediction, not a report**, since `interfaces.md` split step 7:
-    #: nothing has been applied when this arrives, and `spawn` realises it in
-    #: the child. `mechanism`, `network`, `pid` and `abi` are all knowable at
-    #: prepare time and are accurate — and the run does get them, because
-    #: `spawn` cannot silently skip the confinement. So it is safe to record;
-    #: what would be wrong is reading it as *already in force*.
-    #:
-    #: **The wrapper is deliberately not here.** It used to be, and that was the
-    #: defect `closure`'s review found: a field an executor *may* read is a
-    #: field an executor may silently *not* read, and the one that does not is
-    #: the AI backend — the executor whose confinement matters most. It arrives
-    #: through `accept_confinement` instead, which an executor that cannot
-    #: honour it refuses.
+    #: **A prediction, not a report**: nothing is applied when this arrives, and
+    #: `spawn` realises it in the child. The wrapper is deliberately absent and
+    #: arrives through `accept_confinement`, which an executor may refuse.
     confinement: Any = None
 
     #: **What this task must deliver, as text for the agent** — each declared
     #: output, its kind, and where it goes. Empty for a task with no outputs and
     #: for a `kind: program` body, which is told by its environment instead.
-    #:
-    #: **Facts, never guidance**, which is the line `main` drew when ruling this
-    #: onto the runner: the path is per-attempt and computed at dispatch, so no
-    #: readme can name it and no package could. What the work *is* — the
-    #: contract, what counts as done — stays in the readme, which is the
-    #: package's to write and this field must never grow into.
-    #:
-    #: **Separate from `readme` on purpose.** `readme` means *the package's
-    #: brief, as written*, and a program executor receives it too; machine text
-    #: merged into it would make one field two things and leave no way to tell
-    #: which half a reader is looking at.
+    #: **Facts, never guidance**: the path is per-attempt and computed at
+    #: dispatch, so no readme can name it. What the work *is* stays in `readme`.
     outputs_brief: str = ""
 
     #: `env_mgr.Prepared.agent_cli` — the CLI this environment was provisioned

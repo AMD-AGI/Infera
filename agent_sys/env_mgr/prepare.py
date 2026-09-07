@@ -151,6 +151,12 @@ _NO_ENV: Mapping[str, str] = MappingProxyType({})
 #: that is not an environment *no environment*. Reported by `env-mgr`.
 _NO_PATHS: Mapping[Any, str] = MappingProxyType({})
 
+#: And again for `mcp_servers`, for the reason `_NO_PATHS` is not `_NO_ENV`: the
+#: values are the SDK's server declarations, not strings, and a shared name for
+#: three differently-typed empties is a mis-annotation waiting for whoever reads
+#: the third one.
+_NO_MCP: Mapping[str, Any] = MappingProxyType({})
+
 
 class Prepared(NamedTuple):
     """What the runner is handed.
@@ -228,47 +234,22 @@ class Prepared(NamedTuple):
     #: shared name would make substituting one for the other silent. That is the
     #: rename-on-incompatible-change rule applied to meaning rather than type.
     staged_package: str | None = None
-    #: This attempt's far-side tool surface — `remote.tools.ToolDef`s, or `()`.
-    #: Declared in `protocols.Prepared` too; this is the implementation half and
-    #: the two are compared by `tests/interfaces/`.
+    #: This attempt's far-side tool surface -- `remote.tools.ToolDef`s, or `()`.
+    #: `remote/tools.py` is the only thing that reaches this field (spec section
+    #: 6's standing exception): injected live, never written to disk, so no
+    #: installer can carry them.
     tools: tuple[Any, ...] = ()
+    #: External MCP servers for this attempt, keyed by the name the model
+    #: addresses them under. Separate from `tools`: a `ToolDef` is a Python
+    #: object this process calls, while one of these declares a process the
+    #: harness starts and this one never sees.
+    mcp_servers: Mapping[str, Any] = _NO_MCP
 
     def spawn(self, argv: Sequence[str], **popen_kwargs: Any) -> subprocess.Popen:
-        """Start `argv` **confined**, and hand back the process. One verb.
+        """Start `argv` confined, and hand back the process. One verb.
 
-        `wrap_argv`'s shape does not carry over to Landlock and this is why:
-        bubblewrap *is* the exec, so its confinement crosses the fork/exec
-        boundary **as data** in a command line. Landlock is a syscall against a
-        live thread, so there is nothing to put in an argv — it has to be
-        executed in the child, after fork, before exec.
-
-        Three cases, and the caller branches on none of them:
-
-        | mechanism | |
-        |---|---|
-        | bwrap | the argv carries the policy; an ordinary `Popen` |
-        | landlock, this process already confined | plain `Popen` — the child inherits the domain |
-        | landlock, this process not confined | the ruleset is built **here** and applied in the child |
-
-        **The child's whole job is two syscalls, and that is deliberate.**
-        Forking a threaded process gives the child locks held by threads that do
-        not exist in it, which is the documented reason `preexec_fn` is unsafe —
-        and `agent.Runner` is threaded by construction. A ruleset fd survives
-        fork, so building it in the parent leaves the child with `prctl` and
-        `restrict_self` and nothing that allocates.
-
-        Measured under four deliberately contending threads, 150 rounds each
-        (`scratch/impl-2026-08/env_mgr/p4_fork_from_a_threaded_parent.py`): no
-        hangs in this arrangement, and none in the two neighbouring ones either.
-        **That is evidence and not proof** — a fork deadlock is probabilistic
-        and CPython warns about the pattern on principle. What the measurement
-        does establish is that the post-fork footprint is as small as it can be
-        made.
-
-        The same probe found the cost: building the ruleset in a *threaded*
-        parent is GIL-bound and about 15x slower than building it in a
-        single-threaded child. One spawn per task, so it is a real cost and a
-        payable one.
+        Landlock is applied in the child after fork, before exec, unlike
+        bubblewrap's data-in-argv confinement.
         """
         if not self.permissions_enforced:
             # The kill switch. Without this the next line calls `select(probe())`
@@ -400,6 +381,10 @@ def prepare(
         *grants.resolve_all(task, execution, ctx, enforce=enforcing),  # 2
         *ctx.interpreter_grants,  # 3
         *agent_cli_grants(ctx.agent_cli),
+        # **Nothing grants `env_mgr/addons/` and nothing needs to.** An add-on is
+        # installed by a recipe, which runs unconfined at step 6b and copies what
+        # it needs into the zone, so the confined body never reaches back out
+        # (`spec.provisioning.md` §4). No grant here names a path outside the zone.
     )
 
     # 4. **No `repos` is passed, and that is a gap rather than a decision.**
@@ -441,31 +426,17 @@ def prepare(
             f"reports it, and refusing converts silent data loss into a stopped task."
         )
 
-    # **The switch does NOT widen this, and that reverses one of its three ruled
-    # rows.** Applying the ruling's own line rather than overriding it:
-    # *materialisation is not permission management, and if you find yourself
-    # disabling something that makes a file appear where a task needs it, you
-    # have crossed the line.*
-    #
-    # Measured (`task_graph`'s `probe_narrow_staging.py`, and p12 here): widening
-    # moves every staged input **down one level** — the artefact's files land at
-    # `<materials>/<hid>/v<N>/content/…` instead of `<materials>/<hid>/v<N>/…`.
-    # `examples/demo/bin/render.py:67` reads the narrow shape, so the switch
-    # would break a body **by moving its input**, and it would present as a body
-    # reading one level short rather than as a switch.
-    #
-    # And widening buys no permission property in this mode: with nothing
-    # confined a body can read the store directly (`p11`'s unconfined control
-    # succeeds on all four reads), so narrowing the *copy* denies it nothing it
-    # could not already reach. What is left is a path convention.
-    #
-    # `stage(narrow=)` stays, tested, for whoever wants the wide shape.
+    # The permissions switch does not widen this staging shape.
     staged_inputs = layout.stage_handoffs(task, execution, zone, ctx)  # 6
-    # `PATH` is derived from the policy, never chosen: it cannot then name a
-    # directory the kernel will refuse. A declared `env` may still override it,
-    # because an author saying so outranks a default — but an override naming an
-    # ungranted directory is unreachable, and nothing here can make it otherwise.
+    # `PATH` is derived from the policy, never chosen, so it cannot name a
+    # directory the kernel will refuse. A declared `env` may still override it.
     environment = {"PATH": executable_path(policy)}
+
+    # **Resolved once, read twice.** `Prepared.agent_cli` reports it and
+    # `material.deploy` runs plugin installs with it, and those two must be the
+    # same binary or the run installs into one build and talks to another. Two
+    # `resolve_strict` calls would be one fact with two writers.
+    agent_cli = resolve_strict(ctx.agent_cli) if ctx.agent_cli else None
 
     # 6a. **The task package: a copy in the zone, not a grant on the root.**
     # `interfaces.md` §4.16, F19's third position. It sits beside handoff
@@ -513,25 +484,25 @@ def prepare(
     # find its own staged input by parsing our directory layout.
     environment.update(grants.input_env(task, staged_inputs))
 
+    # 6b. `deploy` returns four destinations, not one: per-agent components
+    # produce MCP servers and a report, which do not fit an environment mapping.
+    # `staged` and `ws` are passed because components resolve against the
+    # **staged** copy — the original checkout is outside every grant — and the
+    # asset directory is copied into the workspace.
+    deployed = None
     if agent_spec is not None:
-        environment.update(material.deploy(agent_spec, zone))  # 6b
+        # `environment` and `agent_cli` are passed because the installs are
+        # subprocesses: `environment` carries the policy-derived `PATH`, and
+        # `agent_cli` is the pinned CLI a plugin install must run under.
+        deployed = material.deploy(
+            agent_spec, zone, staged, ws.path, base_env=environment, agent_cli=agent_cli
+        )
+        environment.update(deployed.environment)
 
-    # 7 -- LAST, and since the split it **checks** rather than applies.
-    #
-    # `select` raises `NoConfinement` when no mechanism exists, so *no
-    # isolation, no start* still holds — and now refuses **before** the
-    # workspace is cut rather than after, which is strictly better.
-    #
-    # The syscall itself happens in `spawn`, in the child. §11.1's
-    # "confinement last" existed so that the supervisor and every prior process
-    # stay outside the domain; moving it into the child achieves that **by
-    # construction rather than by ordering**, which is stronger than the
-    # sequence that expressed it.
-    #
-    # **With the switch off, step 7 is not attempted.** Not attempted and
-    # discarded — `select` raises `NoConfinement` when no mechanism exists, and
-    # computing it only to throw it away would put a live exception on the path
-    # of a run that asked for no permission management.
+    # 7 -- LAST, and since the split it checks rather than applies. `select`
+    # raises `NoConfinement` when no mechanism exists. With the switch off,
+    # step 7 is not attempted at all, to avoid that exception on a run that
+    # asked for no permission management.
     conf = None
     if enforcing:
         av = availability or probe()
@@ -539,7 +510,7 @@ def prepare(
     return Prepared(
         permissions_enforced=enforcing,
         output_paths=MappingProxyType(grants.output_paths(task, execution, ctx.store_root)),
-        agent_cli=resolve_strict(ctx.agent_cli) if ctx.agent_cli else None,
+        agent_cli=agent_cli,
         staged_package=staged,
         zone=zone,
         workspace=ws,
@@ -547,51 +518,30 @@ def prepare(
         confinement=conf,
         sync=report,
         environment=MappingProxyType(environment),
+        # **The remote surface, and nothing else.** `deployed` used to append a
+        # component's `tools/*.tooldef.py` here; that route is deleted (spec §6)
+        # and an add-on offering a tool ships a server of its own instead. What
+        # is left is the one standing exception, which cannot be installed
+        # because it is never written to disk.
         tools=_remote_tools(zone, ctx),
+        mcp_servers=MappingProxyType(dict(deployed.mcp_servers) if deployed else {}),
     )
 
 
 def _far_side(ctx: Context) -> dict[str, str]:
-    """Every far-side root this context knows, from **both** fields that carry one.
+    """Every far-side root this context knows, from both fields that carry one.
 
-    `Context` has two: `mapping` is weak-only because it is `sync`'s input, and
-    `far_roots` covers every mapping because a **strong** mapping still has a far
-    side. `far_roots` is therefore a superset in any context `cli/main.py` builds
-    — it sets both — and the union is only ever needed for a context that sets
-    one and not the other, which every direct construction in the tests does.
-
-    **It exists because two call sites resolved this differently and one was
-    wrong.** `zone_env(remote_zone_root=…)` read `mapping` while `_remote_tools`
-    read `far_roots`, so a strong mapping produced remote *tools* and no remote
-    *variables*. Swapping the one for the other merely moves the hole to the
-    opposite configuration — a weak-only context then loses the variables — which
-    is why this is one function and not a second edit.
-
-    `far_roots` wins a collision. The two disagree only when one `local_root` is
-    declared twice with different strengths, and there the weak value belongs to
-    `sync` alone; what an agent is told about its own far side is the tools'
-    question, and the tools read `far_roots`.
+    `mapping` is weak-only; `far_roots` also covers strong mappings. `far_roots`
+    wins a collision.
     """
     return {**dict(ctx.mapping or {}), **dict(getattr(ctx, "far_roots", None) or {})}
 
 
 def _remote_tools(zone: Zone, ctx: Context) -> tuple[Any, ...]:
-    """Spec §5.5's tool surface for this zone's far side, or `()`.
+    """Spec section 5.5's tool surface for this zone's far side, or `()`.
 
-    Built here because `remote.tools.tools` needs three things and this is the
-    only place holding all three: the connection, the zone, and **the zone's
-    far-side root** — which comes from the configuration and is why `tools` takes
-    it as a parameter rather than computing it.
-
-    **`far_roots`, not `mapping`.** `ctx.mapping` is weak-only, because it is
-    `sync`'s input and strength answers *must bytes be copied*. A **strong**
-    mapping still has a far side and its `remote_root` is not in `ctx.mapping`
-    at all — so resolving against it would have given a strong mapping tools
-    pointed at nothing, which is the configuration R1b uses.
-
-    `()` when nothing maps this zone, which is every configuration with no meta
-    file. A task with no far side gets no remote tools, and that absence is what
-    the agent sees: no tool, rather than a tool that fails.
+    `()` when nothing maps this zone: a task with no far side gets no remote
+    tools, rather than a failing one.
     """
     transports = dict(getattr(ctx, "transports", None) or {})
     found = _sync.match(zone, _far_side(ctx))
@@ -605,30 +555,10 @@ def _remote_tools(zone: Zone, ctx: Context) -> tuple[Any, ...]:
 
 
 def place_zone(task: Any, execution: Any, ctx: Context) -> Zone:
-    """Create this attempt's zone and **nothing else**. Returns the `Zone`.
+    """Create this attempt's zone and nothing else. Returns the `Zone`.
 
-    `prepare`'s first step, on its own. A non-leaf task never executes — the
-    scheduler runs its main phase by unfolding — so it reaches no code path that
-    calls `prepare`, and therefore never gets a zone. But a subtask's storage
-    nests **inside its parent's** (criterion 2), so a parent with no zone is a
-    parent whose children cannot be placed at all: no nested graph can run.
-
-    Doing it with `prepare` was the obvious repair and is wrong three ways, two
-    of them measured. It would cut a workspace and stage handoffs for a task
-    that never executes; it would end in `apply()`, confining a thread that is
-    about to be handed back and re-entered for output validation; and `apply()`
-    would refuse anyway, because an attempt thread plus the main thread is
-    already two.
-
-    So this is the first step and none of the rest. It confines nothing, cuts
-    nothing, stages nothing, and syncs nothing.
-
-    **It does not decide who calls it.** The scheduler at `unfold` and the
-    attempt before it releases its thread are both plausible, they need the same
-    verb, and the choice is not this module's. What *is* this module's is that
-    the parent's `Execution` has to come from somewhere: `Task.parent` is a
-    `TaskId`, so a zone that does not exist has no discoverable attempt number,
-    and creating one at attempt 0 would be wrong the moment a parent is retried.
+    `prepare`'s first step, on its own. Confines nothing, cuts nothing,
+    stages nothing, syncs nothing.
     """
     return layout.create(task, execution, ctx.domains)
 
@@ -636,17 +566,8 @@ def place_zone(task: Any, execution: Any, ctx: Context) -> Zone:
 class ValidationZone(NamedTuple):
     """Where a validation's materials go, and what was put there.
 
-    `root` is a **sibling** of the producing task's zone, never a descendant.
-    That is design D5 and criterion 13 is untrue without it: anything under the
-    producing task's directory is inside its subtree, and permissions cover a
-    task's own subtree recursively.
-
-    `materials` are **copies**, staged out of the store — spec §6.3 rule 2, so a
-    validation cannot edit what it is validating, and so a body handed handoff
-    ids has somewhere to read them from. It maps **handoff id → staged path**,
-    because a validator taking more than one input must know which copy is
-    which, and recovering that by parsing the path would make this module's
-    directory shape a contract another package quotes.
+    `root` is a sibling of the producing task's zone, never a descendant.
+    `materials` are copies staged out of the store, keyed by handoff id.
     """
 
     root: str
@@ -657,18 +578,8 @@ class ValidationZone(NamedTuple):
 def prepare_validation(task: Any, execution: Any, phase: Any, ctx: Context) -> ValidationZone:
     """Place a validation's zone and stage what it validates.
 
-    `phase` is read for its value — ``input_validation`` or
-    ``output_validation`` — the same structural read this module already uses
-    for `task_graph.Access`, and for the same reason: the two packages do not
-    import each other.
-
-    Which slots are staged follows from the phase: an input validation checks
-    what the task was given, an output validation what it produced. The versions
-    come off the `Execution`, so a retry validates that attempt's artefacts and
-    not the previous one's.
-
-    **It does not confine anything**, and that is deliberate rather than
-    forgotten — see the note on `EnvManager.prepare_validation`.
+    `phase` is read for its value (``input_validation`` or
+    ``output_validation``). Does not confine anything.
     """
     kind = str(getattr(phase, "value", phase))
     root = layout.validation_zone(task, kind, ctx.domains)
@@ -683,29 +594,8 @@ def prepare_validation(task: Any, execution: Any, phase: Any, ctx: Context) -> V
 class EnvManager:
     """The registered component, ``env_mgr``.
 
-    A thin object over two functions, and it exists for one reason: `Context` is
-    composition-time configuration — the domains, the store root, the main
-    repository, the sync mapping, the tier — and threading it through a caller
-    would make that caller carry configuration it has no opinion about. The
-    object binds the context once at the root; callers pass only what varies.
-
-    **The "one method, and it stays one" rule is amended here rather than
-    reinterpreted, and this is the amendment.** The rule's stated hazard was
-    *"a second is how the runner would start making environment decisions"* —
-    the runner, accreting. `prepare_validation` is not that: it is a different
-    caller asking the layout owner a question only the layout owner can answer,
-    and it was ruled in after two modules were found to be answering *where does
-    a validation go*.
-
-    What decides it is not the hazard's wording but what this object **is**: a
-    `Context` bound once. A validation zone needs `ctx.domains` and
-    `ctx.store_root` — the *same* bound context — so a separate component would
-    bind one configuration twice, and one fact with two writers is the thing the
-    rule was protecting against in the first place.
-
-    The guard survives the amendment: `test_env_manager_exposes_exactly_these`
-    pins the **set**, so a third method still fails a test and still needs a
-    decision. That is what the original guard was for.
+    A thin object over two functions: `Context` is bound once at the root, so
+    callers pass only what varies.
     """
 
     def __init__(self, ctx: Context) -> None:
@@ -714,30 +604,15 @@ class EnvManager:
     def prepare(self, task: Any, execution: Any, agent_spec: Any = None) -> Prepared:
         """Raises `NoConfinement`, `PrepareRefused` or `UnresolvedGrant`.
 
-        **The caller catches none of them.** Criterion 14 is *no isolation, no
-        start*, and it is only a rule if nothing anywhere converts the refusal
-        into a warning.
-
-        **This confines nothing.** Step 7 checks that a mechanism exists and
-        refuses if it does not; `Prepared.spawn` applies it in the child. The
-        split is what lets a threaded runner call this at all — a thread that
-        confines itself can no longer write the store, irreversibly.
+        The caller catches none of them. Confines nothing itself;
+        `Prepared.spawn` applies it later, in the child.
         """
         return prepare(task, execution, self._ctx, agent_spec)
 
     def prepare_validation(self, task: Any, execution: Any, phase: Any) -> ValidationZone:
-        """Place a validation's zone as a **sibling** of the producing task's,
-        and stage copies of what it validates into it.
-
-        Resolved by name, never imported: `validator` may not import this
-        package, and an import edge is permanent where a name lookup is not.
-
-        **It confines nothing, and that is a boundary rather than an omission.**
-        `prepare` applies Landlock to *its own process* because the executor is
-        that process's child; a phase runner calling this is the supervisor, and
-        confining it would confine the supervisor. Who applies a policy to a
-        validation *body* is a third question that this ruling did not settle
-        and that this method does not quietly answer.
+        """Place a validation's zone as a sibling of the producing task's,
+        and stage copies of what it validates into it. Confines nothing:
+        the caller here is the supervisor, not an executor's child.
         """
         return prepare_validation(task, execution, phase, self._ctx)
 
