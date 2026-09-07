@@ -17096,3 +17096,97 @@ validators remain **unread since T+94 — twenty hours.**
 ### 6. 新增 commit
 
 None by anyone since `21a26c30` (mine, 02:11).
+
+---
+
+## R2 T+1237 — 2026-09-07 03:11 UTC
+
+**T+1237 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 03:10:10).
+
+**Fourth consecutive quiet interval. One computed number, then the unchanged
+state.**
+
+### 1. The idle cost, computed rather than characterised
+
+**Nothing of ours has executed since 2026-09-06 23:58:13.** At 03:10:10 that is
+**191 min 57 s**.
+
+```
+elapsed idle                    191 min 57 s   =  3.20 h
+minus co-tenant burst 1              ≈ 31 min   (23:39:34, before the idle began)
+minus co-tenant burst 2              ≤ 36 min   (02:03:40 – ≤02:39:56)
+cards genuinely free and unused  ≈ 156 min      =  2.60 h
+                                 × 8 cards      ≈ 20.8 GPU-hours
+```
+
+**Burst 1 overlaps the idle window only partly** — it started 18 minutes before
+run 20 died — so **156 minutes is an approximation with its arithmetic shown**,
+not a measurement. **The order of magnitude is what matters: roughly twenty
+GPU-hours on a held node, unused.**
+
+**I state it because it is the one cost in this file that nobody will reconstruct
+later.** Defects leave artefacts; idle time leaves nothing but the gap between
+two timestamps.
+
+### 2. State, unchanged in every field
+
+```
+run 20 (ef6374)   last write 2026-09-06 23:58:13   -> dead 191 min 57 s
+                  build_workset / m3_analysis / main still read `running`
+                  orchestrator pid 95533 ALIVE, holding the chain slot
+total runs        20
+teammate writes   0 in the last 40 min  (fourth consecutive interval at zero)
+commits           none by anyone since mine at 02:41
+cards             VRAM% 0 0 0 0 0 0 0 0 at 03:09:55; no KFD holders
+hold 29313        RUNNING, 13:09:49 elapsed, 10 h 50 min left
+```
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged, tenth consecutive interval) |
+| 已经耗时 | **~1251 min ≈ 20 h 51 min** |
+| 预估耗时 | **stages 1–3 ≈ 90 min; module 4 zero measurements** |
+| 可靠性 | **中 for the state; 高 for the idle arithmetic in §1** |
+
+**The 76 % has not moved in five hours.** It should not: **the last thing that
+advanced it was `m3_analysis` sealing at 22:09 on run 18**, and nothing has
+executed since 23:58.
+
+### 4. Code problems
+
+**No new ones.** All carried unchanged from T+1207. The eight `jsonschema`
+validators remain **unread since T+94 — twenty and a half hours.**
+
+### 5. 未定性
+
+- **Whether anything of ours resumes**, with 10 h 50 min of hold and the cards
+  free at this instant.
+- **When the next co-tenant burst starts** — two observations, no basis for a
+  prediction (T+1207 §1).
+- **What module 4 costs.**
+- **Why `build_workset` did not deliver `879b05db-…`.**
+- **What module 5 consumes if module 4 is replayed** — **thirty-ninth
+  consecutive section.**
+
+### 6. 新增 commit
+
+None by anyone since `c47f72ca` (mine, 02:41).
+
+### 7. 其他
+
+**Everything this round established is in the file and none of it is at risk from
+the idle time.**
+
+Stages 1–3 are reproduced three times at 21/21 and 24/24 with zero refusals; the
+replay corpus is on disk with its provenance; eleven distinct defects are
+recorded with files and line numbers; three mechanisms by which a dead run reads
+alive are measured and distinguished. **None of that decays while the node
+sits.**
+
+**What the idle time costs is the one thing still missing: a measurement of
+module 4.** Five approaches, zero measurements, and it is the sole remaining
+unknown between the current board and `packup` — **which has never been reached
+on either cluster.**
