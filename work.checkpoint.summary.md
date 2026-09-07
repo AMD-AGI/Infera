@@ -17951,3 +17951,165 @@ the next became visible.**
 the order the ladder exposed them, and the last one — `--var gpu` — was found
 twelve hours ago and fixed in a launch line. **What changed is only that a run
 finally carried all of the fixes at once.**
+
+---
+
+## R2 T+1477 — 2026-09-07 07:11 UTC
+
+**T+1477 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 07:10:39).
+
+### 1. MODULE 4 EXECUTED — and its duration is measured for the first time
+
+**[observed, first-hand] `20260907T045327-13a18e`:**
+
+```
+optimize_kernel  created  2026-09-07T06:29:06.604Z
+                 status   output_validating
+run's last write          2026-09-07T06:47:04
+verdicts 26/27, one refusal
+/data/yihou/e2e_flow11/kfo  220 K
+```
+
+**Module 4's body ran and produced an artefact in under 18 minutes** —
+06:29:06 to 06:47:04 covers the body *plus* the start of output validation, so
+**18 minutes is an upper bound on the body.**
+
+**That is the number this record has been missing since the baseline**, and it is
+far below what was feared: the first cluster measured one campaign at **113
+minutes and still in preparation**. **I record the measurement and do not explain
+it** — whether this cluster's forge is configured for a shorter campaign, or the
+work was smaller, I have not read.
+
+**The artefact is real:** `check_speedup_substantiated` reports *"denominator is
+the workset's own, **4 case(s), exactly**"* — a validator counting cases it found
+in the produced `kernel_optimization`.
+
+### 2. The refusal is the T+847 mount defect, still live in a different consumer
+
+```
+# check_speedup_substantiated                        (20 files in materials)
+## 85a59135-…: REFUSED
+  note: denominator is the workset's own, 4 case(s), exactly
+  note: re-measuring in a container on the node, via run_in_container.sh
+  PROBLEM: the seed re-measurement failed: the entrypoint exited 1:
+    run_in_container: the record's container 'yihou_e2e_chain11_chain11-20260907'
+      is not running.
+      Measuring in an ephemeral container of my own, 'yihou_m4_measure_4193191',
+      from the image the record names: infera/engine-sglang:qwen3-local-20260906
+      This carries the IMAGE's state, not the deployment's. The handoff records
+      mode=ephemeral so no reader has to infer which of the two produced the number.
+    run_in_container: record claims started_at=2026-09-07T05:11:35Z
+    run_in_container: '…/substantiate-bfulctu7/seed' is under no mount form this
+      cluster is known to accept (/shared_nfs, /home/<user>, /mnt/m2m_nobackup/<user>).
+      Refusing rather than …
+```
+
+**This is the same two-branch mount `case` that refused `build_workset` at
+T+847** — now listing three known-accepted forms, none of which is `/data/yihou`,
+**and hitting a different consumer.**
+
+**At T+937 §4 I recorded it as "apparently cleared, mechanism unconfirmed" and
+wrote:** *"A fix in a launch or an agent instruction does not ship; a fix in the
+package does."* **That caution was correct.** It was cleared for
+`check_workset_runs` and **is still live for `check_speedup_substantiated`.**
+
+**Two things in this refusal are exemplary and worth copying regardless of the
+defect:**
+
+- **It declares a degradation in the artefact, not just in the log.** The
+  deployment's container was gone, so it measured in an ephemeral one and states
+  *"This carries the IMAGE's state, not the deployment's"* — and **records
+  `mode=ephemeral` in the handoff "so no reader has to infer which of the two
+  produced the number."**
+- **It refuses rather than measuring under a mount it does not trust**, and names
+  the three forms it knows are accepted.
+
+### 3. A requirement that made an existing rule unsatisfiable
+
+**[first-hand, `f6e17da7`, its author reporting on themselves]**
+
+> *The producer excluded `attention_ck_tile_kentry` and said why: its baseline
+> would have to be `aiter/ops/mha.py` **byte for byte**, and a real 138 KB file
+> embedded in a Definition JSON **trips `check_workset_shape`'s absolute-path and
+> template-marker rules**, while trimming it **breaks the whole-file-overlay
+> property the requirement exists for.** Two independent blockers … the first is
+> mine, and **I added the requirement without checking which existing rules it
+> would make unsatisfiable.***
+
+**This is the `baseline` contract question from T+877 acquiring a second
+constraint.** There it was m3's `--impl` versus `apply_patch`'s `overlay_files`;
+here a verbatim-baseline requirement versus `check_workset_shape`. **Three rules,
+pairwise reasonable, jointly unsatisfiable for at least one operator.**
+
+### 4. State — the run is over and something was halted
+
+```
+run 22 (13a18e)  orchestrator GONE; last write 06:47:04
+kfo11            220 K, 0 files in the last 20 min
+cards            VRAM% 0 0 0 0 0 0 0 0 at 07:10:00
+commits          0406bd35 "snapshot m2's launch guards and instruments
+                 BEFORE THE HALT"
+hold 29313       6 h 50 min left
+```
+
+**A commit message says "before the halt."** I do not know what was halted or by
+whom, and **the run ending at 06:47:04 is consistent with it but does not
+establish it.**
+
+### 5. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~82 %** (+4) |
+| 已经耗时 | **~1491 min ≈ 24 h 51 min** |
+| 预估耗时 | **for the first time, computable — see below** |
+| 可靠性 | **中** |
+
+**+4: module 4 executed and produced a validated artefact with four cases.** It
+was refused, but on an environment defect in the *validator's* re-measurement
+path, not on the artefact's content.
+
+**预估耗时, first time in the round:**
+
+```
+stages 1-3        90-96 min   (measured 3 times)
+module 4 body     < 18 min    (measured once, upper bound)
+module 5          unmeasured
+packup            unmeasured
+```
+
+**So the measured part of the chain is roughly 110 minutes.** **I will not add a
+total**, because two terms are still zero and this record has spent a day on
+numbers with false denominators.
+
+### 6. Code problems
+
+**Newly confirmed still-live:** the mount `case` (`/shared_nfs`, `/home/<user>`,
+`/mnt/m2m_nobackup/<user>` — no `/data/yihou`), now in
+`check_speedup_substantiated`'s `run_in_container.sh` path.
+**Newly named:** a verbatim-baseline requirement that makes
+`check_workset_shape` unsatisfiable for at least one operator (§3).
+
+**Carried unchanged:** everything from T+1447. The eight `jsonschema` validators
+remain **unread since T+94 — twenty-five hours.**
+
+### 7. 未定性
+
+- **What halted, and whether the round is continuing.** §4.
+- **Whether module 4's under-18-minute duration is representative**, or specific
+  to this configuration. **One measurement.**
+- **Whether `baseline`'s three-way conflict has a resolution** (T+877 + §3).
+- **What module 5 consumes if module 4 is replayed** — **forty-seventh
+  consecutive section, and module 4 has now produced something for it to
+  consume.**
+
+### 8. 新增 commit
+
+```
+ca2e9740  checkpoint R2 T+1447 — mine
+f6e17da7  bug record: my verbatim-baseline requirement collides with
+          check_workset_shape
+0406bd35  temp: snapshot m2's launch guards and instruments before the halt
+b44f6d6c  Merge branch … (merge)
+```
