@@ -17683,3 +17683,155 @@ since T+94 — twenty-three and a half hours.**
 ### 6. 新增 commit
 
 None by anyone since `84f14362` (mine, 05:11).
+
+---
+
+## R2 T+1417 — 2026-09-07 06:11 UTC
+
+**T+1417 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 06:10:29). **The round passed twenty-four hours at 06:19:11 today,
+measured from `mission.md`'s mtime.**
+
+### 1. Run 22 cleared `run_profiling_mode_on` and reached `build_workset`
+
+**[observed, first-hand] `20260907T045327-13a18e`, alive, last write 06:09:41:**
+
+```
+m1_deploy                succeeded
+deploy_and_prove         succeeded
+run_profiling_mode_off   succeeded
+run_profiling_mode_on    SUCCEEDED     ← the closure three runs died in
+merge_profiling_evidence succeeded
+m2_profiling             succeeded
+identify                 succeeded
+rank                     succeeded
+build_workset            running
+m3_analysis              running
+
+verdicts 21/21, zero refusals      stacks_manifest.json ×7
+```
+
+**Fourth consecutive fully-real run to reach this board**, and it carries no
+replay: `mock_stages=none`, `gpu=4`, `trace_end_ms=120000`.
+
+**The stack window was captured again.** I have not maintained an exact
+denominator across every attempt and will not quote a rate I cannot defend —
+**what I can say is that it has now succeeded in runs 17, 18, 20 and 22, and that
+T+786's "1 of 3" is long superseded.**
+
+### 2. Someone is reading the last rung before reaching it
+
+**Three commits this interval are about `packup` — the rung that has never been
+reached on either cluster.**
+
+```
+acc72f35  PACKUP-REACHABILITY: the last unlooked-at rung, read before we reach it
+fcf423d2  packup_redact_probe: predict redact's verdict before packup runs
+4b852cb7  packup_redact_probe: every load failure now names the module
+```
+
+**[first-hand, `fcf423d2`]**
+
+> *Imports the **real** `redact` module and calls `substitute()` then
+> `offenders()` with the prefixes `packup.py:511-527` would build, **read from
+> the orchestrator's launch line — the only place a run records what it was
+> launched with.** **A grep for a literal answers what a path looks like; the
+> question is what `redact` refuses.** Three controls, all run: a self-test on
+> six known answers (Magpie and `/mnt/m2m_nobackup` refuse,
+> `work_root`/`model_mount`/`/dev`/`/shared_nfs` do not) …*
+
+**And `4b852cb7` hardens the probe against the failure mode this record has spent
+two days on:**
+
+> *An **importable `redact` whose functions moved** would otherwise leave the
+> probe **measuring nothing and saying nothing**. … Four paths, each verified by
+> **triggering it in-process rather than by reading**.*
+
+**Three properties worth naming, because together they are the standard this file
+has been arguing toward:**
+
+- **It uses the real consumer**, not a reimplementation — the T+366 lesson.
+- **It reads the launch line for its inputs**, which is the only place a run
+  records what it was launched with — the T+216 lesson.
+- **It cannot silently measure nothing**: an interface check catches a `redact`
+  whose functions moved, and every load failure names the module — the T+607 and
+  T+997 lessons.
+
+**And it is pre-registration**: the verdict is predicted before `packup` runs.
+
+### 3. State
+
+```
+run 22 (13a18e)  pid 3140102, launched 04:53:27, last write 06:09:41
+total runs       22
+cards            VRAM% 0 0 0 0 0 0 0 0 at 06:10:01  (build_workset is CPU)
+co-tenant        xiaoming-dev, no GPU; no third burst since 02:03:40
+repo             clean, no rebase, on dev.yihou.aiopt.task_package.concat
+hold 29313       7 h 50 min left
+```
+
+### 4. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged) |
+| 已经耗时 | **~1431 min ≈ 23 h 51 min** (mission.md 2026-09-06 06:19:11 → now) |
+| 预估耗时 | **stages 1–3 ≈ 90 min real; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Unchanged: reaching `build_workset` for the fourth time is reproducibility, not
+new ground.** The number moves when module 4 measures something.
+
+### 5. Code problems
+
+**No new package defects.** **One probe defect found and fixed by its author**
+(`4b852cb7`): `spec_from_file_location` returns `ModuleSpec | None` and a spec's
+loader may be `None`, so a missing file produced
+`'NoneType' object has no attribute 'loader'` **at the one moment the reader
+needs to know which file was missing.**
+
+**Carried unchanged:** everything from T+1387. The eight `jsonschema` validators
+remain **unread since T+94 — twenty-four hours.**
+
+### 6. 未定性
+
+- **Whether run 22 gets into module 4.** It is one closure away.
+- **What `redact` will refuse at `packup`.** **Predicted but not observed** —
+  §2. **The prediction existing before the run is the point; it is not a result.**
+- **What module 4 costs.**
+- **What module 5 consumes if module 4 is replayed** — **forty-fifth consecutive
+  section.**
+
+### 7. 新增 commit
+
+Three by others (§2); mine `2e4e2368` at 05:41.
+
+### 8. 其他 — twenty-four hours
+
+**What the round established, as of the twenty-four-hour mark, stated once
+without hedging in either direction.**
+
+**Established and reproducible:**
+
+```
+stage 1   green 9 times, across kits three different agents produced
+stage 2   sealed 4 times, with a real 137-140 MB stack capture and
+          1.4 M-event traces re-parsed by a validator
+stage 3   identify + rank sealed 4 times; m3_analysis sealed once;
+          best board 24/24 verdicts with zero refusals
+corpus    this cluster built its own replay root with provenance and used it
+defects   eleven distinct single-point defects, each found once, each by
+          something refusing rather than quietly producing a wrong answer
+```
+
+**Not established:**
+
+```
+module 4  five approaches, zero measurements — it has never run to completion
+module 5  has never run for real, on either cluster
+packup    has never been reached, on either cluster
+```
+
+**The honest one-sentence version is unchanged from T+1297:** everything up to
+the kernel forge is reproducible and measured, and the kernel forge has never
+completed here. **Seven hours and fifty minutes of hold remain.**
