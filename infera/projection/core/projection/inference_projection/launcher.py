@@ -525,6 +525,34 @@ def _anchor_model_filter(store):
     )
 
 
+def _assert_anchor_is_this_model(path, artifact):
+    """Refuse an anchor harvested from a different checkpoint.
+
+    Store lookup already filters by model, but an explicit ``--load-benchmark``
+    skips the store entirely. A foreign anchor does not fail loudly when it is
+    applied -- it prices one architecture's kernels onto another and returns a
+    confident number for a machine nobody ran -- so the explicit path needs the
+    same check the store path gets. ``INFERASIM_ALLOW_FOREIGN_ANCHOR`` exists
+    for the deliberate cross-model experiment.
+    """
+    from .search.regime import models_match
+
+    measured = (artifact.get("meta") or {}).get("model")
+    preset = os.environ.get("INFERASIM_MODEL")
+    if not measured or not preset:
+        return
+    if models_match(preset, measured) or os.environ.get(
+        "INFERASIM_ALLOW_FOREIGN_ANCHOR"
+    ):
+        return
+    raise ValueError(
+        f"[inferasim:Inference] anchor {path} was measured on {measured!r}, but "
+        f"this projection is {preset!r}. Applying it would price one model's "
+        "kernels onto another. Pass an anchor for this model, or set "
+        "INFERASIM_ALLOW_FOREIGN_ANCHOR=1 if the mismatch is intended."
+    )
+
+
 def _anchor_from_store(args, inference_config):
     """Find a warmup measurement this projection can be calibrated against.
 
@@ -681,6 +709,7 @@ def launch_projection_from_cli(args, overrides):
 
         with open(load_bench) as _f:
             benchmark_layer_times = _json.load(_f)
+        _assert_anchor_is_this_model(load_bench, benchmark_layer_times)
         print(f"[inferasim:Inference] loaded GPU benchmark from {load_bench}")
         for _p in _scaling_bench_paths(args):
             with open(_p) as _f:
