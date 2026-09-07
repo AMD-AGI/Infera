@@ -87,6 +87,32 @@ def test_the_capacity_is_bought_with_per_rank_batch_efficiency():
     assert dp_attn["decode_step_ms"] < 1.3 * tp_only["decode_step_ms"]
 
 
+def test_a_mixed_step_is_shared_by_the_ranks_that_prefill_in_it():
+    """Long-context TPOT cannot get worse for holding less cache per rank.
+
+    A mixed step under this axis carries one prefill chunk *per rank*, each for
+    a different request, and is priced unsharded because a rank holds every head
+    of its own chunk. Charging every request the whole chunk count against that
+    longer step bills the same prefill once per rank. At 32k that put the blended
+    TPOT above the tensor-parallel one while every step inside it was cheaper --
+    the shape of a fleet nobody would turn the axis on for, and the reason the
+    projector was preferring TP8 to the TP8/DPa the measured fleets run.
+    """
+    long_ctx = {**MLA, "input_len": 32768, "concurrency": 64}
+    tp_only = project_spec(**long_ctx)
+    dp_attn = project_spec(**long_ctx, attn_dp=8)
+
+    # Where the context is long enough for the KV read to dominate the step, a
+    # rank under DP reads its own sequences' latent rather than the fleet's.
+    assert dp_attn["decode_step_ms"] < tp_only["decode_step_ms"]
+    # So the blend of those steps cannot come out the other way.
+    assert dp_attn["tpot_ms"] < tp_only["tpot_ms"], (
+        f"DP attention TPOT {dp_attn['tpot_ms']:.1f} ms vs tensor-parallel "
+        f"{tp_only['tpot_ms']:.1f} ms, on a cheaper decode step: the mixed step "
+        "is being billed to every request instead of shared across the ranks"
+    )
+
+
 def test_the_axis_subdivides_the_tensor_parallel_group_rather_than_adding_gpus():
     dp_attn = project_spec(**MLA, attn_dp=8)
     assert dp_attn["replica_gpus"] == project_spec(**MLA)["replica_gpus"]
