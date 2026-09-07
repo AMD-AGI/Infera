@@ -2132,3 +2132,39 @@ measurement was load-bearing.**
 **Also:** `profiling_evidence` appears in **three** zones per run — two
 `output_validation`, one `input_validation` — **and only one is ever empty.** Any
 report naming "the profiling_evidence zone" without saying which is ambiguous.
+
+### CORRECTION 2026-09-07 — the direction of the correlation was misread
+
+**The entry above concluded the defect is our debug tooling's. That is wrong and the
+check took ten seconds** (m1):
+
+```
+profiling_evidence   repo package : [check_command_parses, check_environment, check_profiling_evidence]
+                     keep17       : [check_command_parses, check_environment, check_profiling_evidence]   <- IDENTICAL
+                     noval        : [check_nothing]                                                        <- rewritten
+
+deploy_kit, for contrast
+                     repo package : [check_environment, check_deploy_kit, check_deploy_serves]
+                     keep17       : [check_nothing, check_environment, check_deploy_kit]                   <- rewritten
+```
+
+> **`--keep` does not touch the affected kind. `-noval` rewrites it. So the finding is
+> not "restoring validators breaks it" but "the all-stubs rewrite avoids it" — and the
+> ten empty runs used the REPOSITORY's own validator list for the kind that came up
+> empty.**
+
+**On this evidence the defect is in the package as shipped.** `mission.verify.e2e.md`
+carried the reassuring version for about two hours and has been reverted (`4a79c94`).
+
+**Why the literal test cannot settle it on a login node, and this is the trap named
+the same morning:** the repository wires `check_deploy_serves` on `deploy_kit`, which
+performs a real bring-up and a timed load. On a login node the chain stops at stage 1
+and `profiling_evidence` never exists — **the sample would be structurally incapable of
+producing a counter-example.** It needs a GPU node, or
+`--var deploy_entrypoint=scripts/stub/deploy.sh` so the validator has a stub to bring
+up. **Untested whether the stub survives a login node.**
+
+**Status: strongly indicated, not measured.** Byte-identity is a strong argument — the
+repository package could only differ if version selection depends on some *other*
+kind's validator list, a coupling nobody has proposed and which would itself be a
+finding. **It is still an argument, not a measurement.**
