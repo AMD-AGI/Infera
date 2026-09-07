@@ -16,6 +16,7 @@
 //!
 //! Modules are `pub` so the binary and the `tests/` suite share one API.
 
+pub mod anthropic;
 pub mod block_hasher;
 pub mod breaker;
 pub mod cache_control;
@@ -37,5 +38,8 @@ pub mod policy;
 pub mod pool;
 pub mod protocol;
 pub mod proxy;
+pub mod render_probe;
+pub mod render_variant;
+pub mod responses_input;
 pub mod tiktoken;
 pub mod util;

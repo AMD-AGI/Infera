@@ -19,6 +19,7 @@ use infera_router::handlers::{app, AppState};
 use infera_router::kv_event::KvEventClient;
 use infera_router::policy::{KvEventAwarePolicy, Policy, RoundRobin};
 use infera_router::pool::Snapshot;
+use infera_router::render_variant::{RenderVariant, VariantRegistry};
 use infera_router::{
     discovery, discovery_k8s, k8s, kv_event_nats, kv_selfheal, nats_request, proxy,
 };
@@ -67,6 +68,12 @@ async fn main() -> anyhow::Result<()> {
                 );
             });
         }
+        // Validated at startup (config::validate), so a parse failure here is
+        // impossible rather than tolerated.
+        let parsed_default_ctk: Option<serde_json::Value> = cfg
+            .kv_default_chat_template_kwargs
+            .as_deref()
+            .map(|raw| serde_json::from_str(raw).expect("validated as JSON at startup"));
         let hasher = match &cfg.kv_tokenizer_path {
             Some(p) => BlockHasher::load(p),
             None => BlockHasher::disabled(),
@@ -79,6 +86,10 @@ async fn main() -> anyhow::Result<()> {
                 cfg.kv_prefill_overlap_weight,
                 cfg.kv_decode_overlap_weight,
             )
+            .with_variants(VariantRegistry::new(
+                RenderVariant::from_default_chat_template_kwargs(parsed_default_ctk.as_ref()),
+                cfg.kv_per_worker_template_kwargs,
+            ))
             // A worker that served traffic before the router subscribed emits
             // its one rooted event to nobody, and no later event can rebuild
             // the chain. Asking it to flush is the only repair, so the router

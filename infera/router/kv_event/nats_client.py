@@ -23,14 +23,14 @@ import logging
 
 from msgspec.msgpack import Decoder
 
-from infera.common.worker_pool import WorkerInfo
+from infera.common.worker_pool import DisaggMode, WorkerInfo
 from infera.kv.nats_bus import (
     KV_EVENTS_SUBJECT_PREFIX,
     NatsBus,
     parse_kv_key,
     parse_kv_subject,
 )
-from infera.router.kv_event.client import KvEventClient, WorkerSubscription
+from infera.router.kv_event.client import KvEventClient, WorkerSubscription, decision_key
 from infera.router.kv_event.events import batch_type_for_engine
 from infera.router.policy.target import is_rank_multiplexed
 
@@ -54,21 +54,42 @@ class NatsKvEventClient(KvEventClient):
         # No per-worker socket in NATS mode: just record the subscription
         # state (block_size, multiplexed) so cache_view / _handle_event have
         # somewhere to write. Ingestion is the single global NATS sub.
-        if w.worker_id in self._subs:
+        #
+        # Still keyed on the decision inputs rather than the id: there is no
+        # socket to reopen here, but the KV view is the same stale-cache hazard
+        # as on the ZMQ path. See `decision_key`.
+        if not self._claim(w):
             return
         # Same rule as the ZMQ client: a missing block size is not a 1. See the
         # comment there — 1 produces a view that never matches and hides the fault.
+        #
+        # Severity depends on the role, not on the symptom. A PD decode leg is
+        # SUPPOSED to arrive without one: it runs --no-enable-kv-events, so
+        # worker.py leaves kv_block_size None by design, and kv-aware routing
+        # never applies to the decode pool anyway (the prefix hit is decided on
+        # the prefill side; disagg dispatch picks decode by load). Logging that
+        # at ERROR every startup trains people to ignore a line that is real for
+        # every OTHER role. Prefill/mixed without a block size IS a fault —
+        # usually an unresolved --page-size — and stays at ERROR.
         if not w.kv_block_size:
-            logger.error(
-                "kv events (nats): NOT tracking %s — it registered no kv_block_size, so "
-                "kv-aware routing is off for this worker.",
-                w.worker_id,
-            )
+            if w.disagg_mode == DisaggMode.DECODE:
+                logger.debug(
+                    "kv events (nats): not tracking decode worker %s (no kv_block_size; "
+                    "expected — kv-aware routing does not apply to the decode pool).",
+                    w.worker_id,
+                )
+            else:
+                logger.error(
+                    "kv events (nats): NOT tracking %s — it registered no kv_block_size, so "
+                    "kv-aware routing is off for this worker.",
+                    w.worker_id,
+                )
             return
         self._subs[w.worker_id] = WorkerSubscription(
             worker_id=w.worker_id,
             endpoint="(nats)",
             block_size=w.kv_block_size,
+            key=decision_key(w),
             # Same as the ZMQ client: the wire format is per-engine (vLLM map vs
             # SGLang array), so the decoder must follow the worker's engine.
             decoder=Decoder(type=batch_type_for_engine(w.engine)),

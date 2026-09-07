@@ -174,6 +174,27 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
         "by load is more important. Defaults to --kv-overlap-weight if "
         "unset; typical production value: 2.0.",
     )
+    parser.add_argument(
+        "--kv-default-chat-template-kwargs",
+        default=None,
+        help="kv-aware only: JSON object matching the workers' sglang "
+        '--default-chat-template-kwargs, e.g. \'{"reasoning_effort": "high"}\'. '
+        "The engine merges these into every request BEFORE the chat template "
+        "runs, and nothing tells the router — so without this the router "
+        "renders a different preamble than the worker and every block hash "
+        "misses, silently, with the policy degrading to load balancing. Only "
+        "needed as a fallback: the render probe reads the real value from each "
+        "worker's /get_server_info at registration and prefers that.",
+    )
+    parser.add_argument(
+        "--kv-per-worker-template-kwargs",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="kv-aware only: let each worker's own /get_server_info override "
+        "--kv-default-chat-template-kwargs (default: on). Turning it off pins "
+        "the whole fleet to the flag; it exists as a kill switch for a fleet "
+        "where that endpoint reports something the router mishandles.",
+    )
     # Issue #20 item 3 / PD §6.2 — speculative L3 prefetch endpoint.
     parser.add_argument(
         "--kvd-socket-path",

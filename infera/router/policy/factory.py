@@ -16,6 +16,7 @@ from typing import Any
 
 from infera.router.kv_event.block_hasher import BlockHasher
 from infera.router.kv_event.client import KvEventClient
+from infera.router.kv_event.render_variant import RenderVariant, VariantRegistry
 from infera.router.policy.base import Policy
 from infera.router.policy.kv_event_aware import KvEventAwarePolicy
 from infera.router.policy.round_robin import RoundRobinPolicy
@@ -33,6 +34,8 @@ def _build_kv_aware(
     tokenizer_path: str | None = None,
     kv_event_transport: str = "zmq",
     nats_server: str | None = None,
+    default_chat_template_kwargs: str | None = None,
+    per_worker_template_kwargs: bool = True,
     **_: Any,
 ) -> Policy:
     # Transport for the per-worker KV-event view: direct ZMQ (one SUB per
@@ -50,7 +53,35 @@ def _build_kv_aware(
         overlap_weight=overlap_weight,
         prefill_overlap_weight=prefill_overlap_weight,
         decode_overlap_weight=decode_overlap_weight,
+        variants=VariantRegistry(
+            _parse_template_kwargs(default_chat_template_kwargs),
+            enabled=per_worker_template_kwargs,
+        ),
     )
+
+
+def _parse_template_kwargs(raw: str | None) -> RenderVariant:
+    """``--kv-default-chat-template-kwargs`` as the engine would take it.
+
+    Rejects rather than shrugs. A typo here does not fail anything at runtime:
+    the router would just keep rendering the preamble the workers do not render,
+    which is the exact silent failure this flag exists to fix -- so it is worth
+    refusing to start over.
+    """
+    if not raw:
+        return RenderVariant()
+    import json
+
+    try:
+        parsed = json.loads(raw)
+    except ValueError as exc:
+        raise ValueError(f"--kv-default-chat-template-kwargs is not valid JSON: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise ValueError(
+            "--kv-default-chat-template-kwargs must be a JSON object (sglang's own "
+            f"--default-chat-template-kwargs is a dict), got {type(parsed).__name__}"
+        )
+    return RenderVariant(parsed)
 
 
 _BUILDERS: dict[str, Callable[..., Policy]] = {

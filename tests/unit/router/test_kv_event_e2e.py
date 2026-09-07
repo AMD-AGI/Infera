@@ -76,6 +76,10 @@ class _IdentityHasher:
     def __init__(self, block_size: int = 4) -> None:
         self._block_size = block_size
 
+    # BlockHasher's gate for `spawn_probe`; these doubles always render.
+    def can_render(self, model_id, engine=None) -> bool:
+        return True
+
     def hash_for(self, body: dict, *, block_size: int, engine=None) -> list[int]:
         from infera.router.kv_event.hasher import hash_request
 
@@ -228,7 +232,7 @@ async def test_full_pipeline_handles_chained_parent_block_hash():
         assert picked.worker.worker_id == "w1"
 
         # cache_hits is the prefix length — both blocks should hit.
-        hits = policy._cache_hits(RouteTarget(w), {(EngineType.SGLANG, 4): blocks})
+        hits = policy._cache_hits(RouteTarget(w), blocks)
         assert hits == 2
     finally:
         pub.close(linger=0)
@@ -296,7 +300,7 @@ async def test_bigram_block_stored_matches_flat_request_tokens():
         picked, blocks = policy.pick(
             [w], {"model": "test/m", "token_ids": [1, 2, 3, 4, 5, 6, 7, 8]}
         )
-        hits = policy._cache_hits(RouteTarget(w), {(EngineType.SGLANG, 4): blocks})
+        hits = policy._cache_hits(RouteTarget(w), blocks)
         assert hits == 2, "bigram view must hash to the same blocks as flat tokens"
     finally:
         pub.close(linger=0)
@@ -350,7 +354,7 @@ async def test_request_with_misaligned_tokens_gets_zero_hits():
         )
         assert picked.worker.worker_id == "w1"
         # Hashes of [9..12] and [13..16] aren't in wA's view → 0 hits.
-        assert policy._cache_hits(RouteTarget(w), {(EngineType.SGLANG, 4): blocks}) == 0
+        assert policy._cache_hits(RouteTarget(w), blocks) == 0
     finally:
         pub.close(linger=0)
         ctx.term()

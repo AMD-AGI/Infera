@@ -36,6 +36,11 @@ concurrency:
 permissions:
   contents: read
 
+# Hard ceiling per GPU matrix leg. This counts every real srun/sbatch submission,
+# including account/QoS fallback and scheduler-hold resubmissions.
+env:
+  INFERA_E2E_SLURM_MAX_ATTEMPTS: "5"
+
 jobs:
   # Classify the change: does it touch package code, or only docs/examples? A
   # docs-only change (manual/, examples/, *.md, LICENSE) skips every code job below (a job skipped by `if`
@@ -209,9 +214,8 @@ jobs:
     timeout-minutes: 60
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
-      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus:amd-primus-qos,amd-primus:amd-burst-qos
+      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus:amd-primus-qos,amd-primus:amd-burst-qos,amd-burst:amd-burst-qos
       INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
-      INFERA_E2E_RESERVATION: infera-cicd-reserved
       INFERA_E2E_SLURM_TIME: "00:50:00"
       INFERA_E2E_JOB_TAG: ${{ github.run_id }}-engine
     steps:
@@ -250,10 +254,8 @@ jobs:
     timeout-minutes: 120
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
-      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus:amd-primus-qos,amd-primus:amd-burst-qos
+      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus:amd-primus-qos,amd-primus:amd-burst-qos,amd-burst:amd-burst-qos
       INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
-      # Dispatch onto this pre-made reservation's nodes (srun --reservation).
-      INFERA_E2E_RESERVATION: infera-cicd-reserved
       # Keep the SLURM allocation just inside the job timeout, so the scheduler
       # reclaims the node even if the runner is killed before it can scancel.
       INFERA_E2E_SLURM_TIME: "01:50:00"
@@ -298,12 +300,11 @@ jobs:
     timeout-minutes: 120
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
-      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus:amd-primus-qos,amd-primus:amd-burst-qos
+      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus:amd-primus-qos,amd-primus:amd-burst-qos,amd-burst:amd-burst-qos
       INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
       # Ceiling on every disagg srun step, inside the job timeout above so the
       # scheduler reclaims a node even if the runner is killed first.
       INFERA_E2E_SLURM_TIME: "01:50:00"
-      INFERA_E2E_RESERVATION: infera-cicd-reserved
       # No ib_peer_mem here, so bare ibv_reg_mr cannot pin VRAM: Mooncake must
       # register via dma-buf, compiled in at build time and selected at run time.
       # The rail is mlx5 (ionic dma-buf dies on a production KV pool); its

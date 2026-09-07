@@ -8,17 +8,24 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use axum::body::Bytes;
+use axum::body::{to_bytes, Body, Bytes};
 use axum::extract::{DefaultBodyLimit, State};
+use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use serde_json::json;
+use futures::StreamExt;
+use serde_json::{json, Value};
 
+use crate::anthropic::{self, SseTranslator};
 use crate::breaker::CircuitBreaker;
+use crate::cache_control::{attach_cache_hints, parse_cache_hints};
 use crate::policy::Policy;
 use crate::pool::SharedPool;
 use crate::proxy;
+
+const REQUEST_ID_HEADER: &str = "x-infera-request-id";
+const MAX_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -41,7 +48,9 @@ pub fn app(state: AppState) -> Router {
     Router::new()
         .route("/v1/chat/completions", post(chat))
         .route("/v1/completions", post(completions))
+        .route("/v1/responses/input_tokens", post(responses_input_tokens))
         .route("/v1/responses", post(responses))
+        .route("/v1/messages", post(messages))
         .route("/health", get(health))
         .route("/v1/workers", get(workers))
         .route("/v1/models", get(models))
@@ -66,11 +75,268 @@ async fn completions(State(st): State<AppState>, body: Bytes) -> Response {
 /// Stateless calls only. SGLang keeps `store`/`previous_response_id` state in a
 /// per-process dict (`serving_responses.py`'s `response_store`), so the
 /// retrieve/cancel sub-routes and conversation continuation cannot be routed
-/// across a fleet; clients should send `store: false`. kv-aware also has no
-/// renderer for a Responses body's `input` field, so these requests route on
-/// load — see `block_hasher::BlockHasher::render_text`.
+/// across a fleet; clients should send `store: false`.
+///
+/// kv-aware DOES cover these: `BlockHasher::hash_for` normalises the `input`
+/// field into the chat body `OpenAIServingResponses._make_request` builds and
+/// renders that, so `/v1/responses` and `/v1/chat/completions` hash identically.
+/// The exception is a `previous_response_id` whose history lives in the engine
+/// -- unreproducible by construction -- which routes on load and logs why.
 async fn responses(State(st): State<AppState>, body: Bytes) -> Response {
     proxy::dispatch(&st, body, "/v1/responses").await
+}
+
+/// OpenAI Responses input-token probe (`POST /v1/responses/input_tokens`).
+///
+/// LiteLLM CountTokens concatenates `{api_base}/responses/input_tokens` and
+/// expects HTTP 200 `{"input_tokens": N}`. Count with the same tokenizer
+/// kv-aware routing uses so the number matches the prompt the engine will
+/// see. Stateless bodies only: `previous_response_id` history lives in the
+/// engine and is refused rather than guessed.
+async fn responses_input_tokens(State(st): State<AppState>, body: Bytes) -> Response {
+    let body: Value = match serde_json::from_slice(&body) {
+        Ok(value) => value,
+        Err(_) => {
+            return openai_error(StatusCode::BAD_REQUEST, "malformed JSON in request body");
+        }
+    };
+    let model_ok = body
+        .get("model")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|model| !model.is_empty())
+        .is_some();
+    if !model_ok {
+        return openai_error(StatusCode::BAD_REQUEST, "`model` is required");
+    }
+    if body.get("input").is_none() {
+        return openai_error(StatusCode::BAD_REQUEST, "`input` is required");
+    }
+    if body
+        .get("previous_response_id")
+        .is_some_and(|value| !value.is_null())
+    {
+        return openai_error(
+            StatusCode::BAD_REQUEST,
+            "`previous_response_id` is not countable; send a fully inlined `input`",
+        );
+    }
+    match st.policy.count_input_tokens(&body) {
+        Some(n) => Json(json!({
+            "object": "response.input_tokens",
+            "input_tokens": n,
+        }))
+        .into_response(),
+        None => openai_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "input token counting requires a kv-aware tokenizer",
+        ),
+    }
+}
+
+/// Anthropic Messages API translated through the OpenAI Chat worker path.
+async fn messages(State(st): State<AppState>, headers: HeaderMap, body: Bytes) -> Response {
+    if let Some(version) = headers
+        .get("anthropic-version")
+        .and_then(|value| value.to_str().ok())
+        .filter(|version| *version != "2023-06-01")
+    {
+        tracing::info!(
+            anthropic_version = version,
+            "accepting an Anthropic API version not covered by regression tests"
+        );
+    }
+    if headers.contains_key("x-api-key") || headers.contains_key(header::AUTHORIZATION) {
+        tracing::debug!("Anthropic auth header accepted without router-side validation");
+    }
+
+    let mut anthropic_body: Value = match serde_json::from_slice(&body) {
+        Ok(value) => value,
+        Err(error) => {
+            tracing::warn!(%error, "Anthropic Messages request contains malformed JSON");
+            return anthropic_error(StatusCode::BAD_REQUEST, "malformed JSON in request body");
+        }
+    };
+    let model = match anthropic_body
+        .get("model")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|model| !model.is_empty())
+    {
+        Some(model) => model.to_string(),
+        None => {
+            return anthropic_error(
+                StatusCode::BAD_REQUEST,
+                "missing or empty 'model' field (required by Anthropic Messages spec)",
+            )
+        }
+    };
+
+    crate::cache_control::strip_internal_hints(&mut anthropic_body);
+    let hints = parse_cache_hints(&anthropic_body);
+    let mut openai_body = match anthropic::translate_request(&anthropic_body) {
+        Ok(value) => value,
+        Err(message) => return anthropic_error(StatusCode::BAD_REQUEST, &message),
+    };
+    let stream = openai_body
+        .get("stream")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    if stream {
+        let obj = openai_body
+            .as_object_mut()
+            .expect("translated Anthropic request is an object");
+        let options = obj
+            .entry("stream_options")
+            .or_insert_with(|| json!({}))
+            .as_object_mut()
+            .expect("stream_options inserted as an object");
+        options.entry("include_usage").or_insert(Value::Bool(true));
+    }
+
+    let worker_body = match serde_json::to_vec(&openai_body) {
+        Ok(encoded) => Bytes::from(encoded),
+        Err(error) => {
+            tracing::error!(%error, "failed to encode translated Anthropic request");
+            return anthropic_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to encode translated request",
+            );
+        }
+    };
+    let mut routing_request = openai_body;
+    attach_cache_hints(&mut routing_request, &hints);
+
+    let request_id = headers
+        .get(REQUEST_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("{:032x}", rand::random::<u128>()));
+    let upstream =
+        proxy::dispatch_routed(&st, &routing_request, worker_body, "/v1/chat/completions").await;
+    let status = upstream.status();
+    if status.is_client_error() || status.is_server_error() {
+        return with_request_id(upstream, &request_id);
+    }
+
+    if stream {
+        return translate_anthropic_stream(upstream, &model, &request_id);
+    }
+
+    let (parts, upstream_body) = upstream.into_parts();
+    let bytes = match to_bytes(upstream_body, MAX_RESPONSE_BYTES).await {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            tracing::warn!(%error, "failed to read OpenAI response for Anthropic translation");
+            return anthropic_error(StatusCode::BAD_GATEWAY, "failed to read worker response");
+        }
+    };
+    let openai_response: Value = match serde_json::from_slice(&bytes) {
+        Ok(value) => value,
+        Err(_) => {
+            let response = Response::from_parts(parts, Body::from(bytes));
+            return with_request_id(response, &request_id);
+        }
+    };
+    let translated =
+        anthropic::translate_response(&openai_response, Some(&model), Some(&request_id));
+    Response::builder()
+        .status(status)
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(REQUEST_ID_HEADER, request_id)
+        .body(Body::from(translated.to_string()))
+        .expect("Anthropic JSON response is valid")
+}
+
+/// Convert an OpenAI SSE body to Anthropic events without buffering the stream.
+fn translate_anthropic_stream(upstream: Response, model: &str, request_id: &str) -> Response {
+    let (_, body) = upstream.into_parts();
+    let source = body.into_data_stream();
+    let translator = SseTranslator::new(model, Some(request_id));
+    let translated = futures::stream::unfold(
+        (source, translator, false),
+        |(mut source, mut translator, finished)| async move {
+            if finished {
+                return None;
+            }
+            loop {
+                match source.next().await {
+                    Some(Ok(chunk)) => {
+                        let output = translator.push(&chunk);
+                        if !output.is_empty() {
+                            return Some((
+                                Ok::<Bytes, axum::Error>(Bytes::from(output)),
+                                (source, translator, false),
+                            ));
+                        }
+                    }
+                    Some(Err(error)) => {
+                        let output = translator.error(&format!("worker stream failed: {error}"));
+                        return Some((
+                            Ok::<Bytes, axum::Error>(Bytes::from(output)),
+                            (source, translator, true),
+                        ));
+                    }
+                    None => {
+                        let output = translator.finish();
+                        if output.is_empty() {
+                            return None;
+                        }
+                        return Some((Ok(Bytes::from(output)), (source, translator, true)));
+                    }
+                }
+            }
+        },
+    );
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .header(REQUEST_ID_HEADER, request_id)
+        .body(Body::from_stream(translated))
+        .expect("Anthropic SSE response is valid")
+}
+
+fn openai_error(status: StatusCode, message: &str) -> Response {
+    Response::builder()
+        .status(status)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(
+            json!({
+                "error": {
+                    "message": message,
+                    "type": "invalid_request_error",
+                }
+            })
+            .to_string(),
+        ))
+        .expect("error response is valid")
+}
+
+/// Build an Anthropic-compatible error response.
+fn anthropic_error(status: StatusCode, message: &str) -> Response {
+    Response::builder()
+        .status(status)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(
+            json!({
+                "type": "error",
+                "error": {
+                    "type": "invalid_request_error",
+                    "message": message,
+                },
+            })
+            .to_string(),
+        ))
+        .expect("Anthropic error response is valid")
+}
+
+/// Attach the router request id to an existing response.
+fn with_request_id(mut response: Response, request_id: &str) -> Response {
+    if let Ok(value) = request_id.parse() {
+        response.headers_mut().insert(REQUEST_ID_HEADER, value);
+    }
+    response
 }
 
 async fn health(State(st): State<AppState>) -> impl IntoResponse {
@@ -124,6 +390,62 @@ async fn metrics(State(st): State<AppState>) -> impl IntoResponse {
             "infera_router_worker_breaker_state{{worker_id=\"{worker_id}\"}} {v}\n\
              infera_router_worker_breaker_trips_total{{worker_id=\"{worker_id}\"}} {trips}\n"
         ));
+    }
+    // A 0 here means kv-aware routing is silently off for that worker: every
+    // block hash misses, the policy degrades to load balancing, and no other
+    // signal shows it. Alert on 0; -1 just means the engine served no tokenize
+    // endpoint to check against.
+    out.push_str(
+        "# HELP infera_router_render_parity 1 = this worker confirmed the router renders \
+             the prompt it does, 0 = DIVERGED (kv-aware is off for it), -1 = not checkable\n\
+         # TYPE infera_router_render_parity gauge\n",
+    );
+    for (worker_id, model, v) in st.policy.render_parity() {
+        out.push_str(&format!(
+            "infera_router_render_parity{{worker_id=\"{}\",model=\"{}\"}} {v}\n",
+            escape_label_value(&worker_id),
+            escape_label_value(&model),
+        ));
+    }
+    // Survives the worker, unlike the gauge above: `retain` drops a departed
+    // worker's series, so a fleet rolling THROUGH broken replicas leaves no
+    // gauge behind to alert on. Mirrors the Python router's counter of the
+    // same name -- an alert on `increase(...[1h]) > 0` used to be silently
+    // dead on this backend.
+    let diverged = st.policy.render_parity_diverged();
+    if !diverged.is_empty() {
+        out.push_str(
+            "# HELP infera_router_render_parity_diverged_total workers ever found to render \
+                 prompts differently from this router\n\
+             # TYPE infera_router_render_parity_diverged_total counter\n",
+        );
+        for (model, n) in diverged {
+            out.push_str(&format!(
+                "infera_router_render_parity_diverged_total{{model=\"{}\"}} {n}\n",
+                escape_label_value(&model),
+            ));
+        }
+    }
+    // The server-side template defaults each worker reported. Watch the number
+    // of DISTINCT variant labels before trusting any of this: 1 means the fleet
+    // is uniform and a single --kv-default-chat-template-kwargs would have been
+    // enough; 2 or more means it would not, and the per-worker tier is load
+    // bearing. A worker missing from here is one the router could not ask, and
+    // is being hashed with the router's own default.
+    let variants = st.policy.render_variants();
+    if !variants.is_empty() {
+        out.push_str(
+            "# HELP infera_router_render_variant the --default-chat-template-kwargs this \
+                 worker reported, which the router renders its requests with\n\
+             # TYPE infera_router_render_variant gauge\n",
+        );
+        for (worker_id, label) in variants {
+            out.push_str(&format!(
+                "infera_router_render_variant{{worker_id=\"{}\",variant=\"{}\"}} 1\n",
+                escape_label_value(&worker_id),
+                escape_label_value(&label),
+            ));
+        }
     }
     out
 }

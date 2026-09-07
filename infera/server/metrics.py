@@ -240,6 +240,38 @@ policy_cache_view_size = Gauge(
     registry=REGISTRY,
 )
 
+render_parity = Gauge(
+    "infera_router_render_parity",
+    "Whether this worker confirmed at registration that the router renders the "
+    "same prompt it does: 1 = confirmed, 0 = DIVERGED, -1 = could not be "
+    "checked. 0 means kv-aware routing is silently off for this worker — every "
+    "block hash misses, the policy degrades to load balancing, and no other "
+    "signal shows it. Alert on 0; -1 is expected on engines without a tokenize "
+    "endpoint.",
+    labelnames=("worker_id", "model"),
+    registry=REGISTRY,
+)
+
+render_variant = Gauge(
+    "infera_router_render_variant",
+    "The server-side --default-chat-template-kwargs the router read back from "
+    "this worker and hashes its requests under. Always 1; the label carries "
+    "the value. The number to watch is how many DISTINCT `variant` labels a "
+    "model exports: 1 means the fleet is uniform and a single router-side flag "
+    "would have been right, 2+ means it would not have been — and before this "
+    "existed the minority group's cache lookups all missed, silently.",
+    labelnames=("worker_id", "variant"),
+    registry=REGISTRY,
+)
+
+render_parity_diverged_total = Counter(
+    "infera_router_render_parity_diverged_total",
+    "Workers that failed the startup render-parity check, by model. Unlike the "
+    "gauge this survives the worker going away, so a fleet that rolls through "
+    "broken replicas leaves a trace.",
+    labelnames=("model",),
+    registry=REGISTRY,
+)
 
 # ----------------------------------------------------------------------
 # Client cache-control hints (retention)

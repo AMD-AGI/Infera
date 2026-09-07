@@ -304,7 +304,8 @@ class Registry:
                 )
                 return
 
-        existed = self._pool.get(worker_id) is not None
+        previous = self._pool.get(worker_id)
+        existed = previous is not None
         self._pool.add(info)
         logger.info(
             "etcd: worker %s %s (%s, model=%s, disagg=%s, kv_events=%s, kv=%s)",
@@ -316,14 +317,16 @@ class Registry:
             info.kv_events_endpoint,
             "yes" if info.kv is not None else "no",
         )
-        # NOTE: on_added only fires on FIRST registration of a worker_id.
-        # If a worker is re-registered with a changed endpoint (e.g. its
-        # dynamically allocated kv_events_endpoint port shifts after a fast
-        # restart), subscribers won't auto-reconnect to the new endpoint.
-        # In practice the etcd lease (~30s TTL) expires before any restart
-        # completes, triggering a DELETE -> on_removed first, so this is
-        # only a concern for sub-second restart cycles.
-        if not existed and self._on_added is not None:
+        # Fires on first registration AND on a record that changed in place.
+        # The lease argument that used to justify first-only ("a restart always
+        # trips the ~30s TTL, so on_removed comes first") does not hold on the
+        # k8s backend, whose sibling has no lease at all, and a re-registration
+        # that keeps the worker_id but moves its dynamically allocated
+        # `kv_events_endpoint` is exactly what a SIGKILL/OOM restart produces.
+        # Subscribers are keyed on the fields they care about (see
+        # `KvEventClient.decision_key`) and no-op on everything else, so the
+        # heartbeat republish that arrives every refresh costs one comparison.
+        if (not existed or previous != info) and self._on_added is not None:
             try:
                 self._on_added(info)
             except Exception:

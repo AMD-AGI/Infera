@@ -106,6 +106,33 @@ pub struct Config {
     #[arg(long)]
     pub kv_tokenizer_path: Option<String>,
 
+    /// kv-aware: the engine's `--default-chat-template-kwargs`, as JSON.
+    ///
+    /// The one input to the engine's render the router is never told about: the
+    /// client does not send it, discovery does not carry it, and it is merged
+    /// before the template runs. Set it here to whatever the workers were
+    /// launched with and the router renders the same preamble they do.
+    ///
+    /// This is a config that can drift from the fleet, which is the very class
+    /// of bug it fixes -- so do not trust it, check it. The startup render
+    /// probe reports `infera_router_render_parity{worker_id,model}` = 0 when
+    /// this is set wrong, and the router also reads each worker's real value
+    /// from `/get_server_info` and prefers that over this flag (see
+    /// `--kv-per-worker-template-kwargs`). This flag is the floor for workers
+    /// that cannot be asked.
+    #[arg(long, env = "INFERA_KV_DEFAULT_CHAT_TEMPLATE_KWARGS")]
+    pub kv_default_chat_template_kwargs: Option<String>,
+
+    /// kv-aware: read each worker's own `--default-chat-template-kwargs` from
+    /// `/get_server_info` at registration, and hash requests for that worker
+    /// the way that worker renders them.
+    ///
+    /// On by default, and additive: a worker that cannot be asked falls back to
+    /// `--kv-default-chat-template-kwargs`, i.e. to today's behaviour. Turn it
+    /// off to pin the whole fleet to the flag.
+    #[arg(long, default_value_t = true, action = clap::ArgAction::Set)]
+    pub kv_per_worker_template_kwargs: bool,
+
     /// kv-aware: base overlap weight in `cost = w*(blocks-hits) + active`.
     #[arg(long, default_value_t = 1.0)]
     pub kv_overlap_weight: f64,
@@ -135,6 +162,15 @@ impl Config {
                 "rust backend supports --router-policy round-robin|kv-aware (got {:?})",
                 self.router_policy
             );
+        }
+        if let Some(raw) = &self.kv_default_chat_template_kwargs {
+            match serde_json::from_str::<serde_json::Value>(raw) {
+                Ok(v) if v.is_object() => {}
+                Ok(_) => anyhow::bail!(
+                    "--kv-default-chat-template-kwargs must be a JSON object (got {raw:?})"
+                ),
+                Err(e) => anyhow::bail!("--kv-default-chat-template-kwargs is not JSON: {e}"),
+            }
         }
         if self.router_policy == "kv-aware" && self.kv_tokenizer_path.is_none() {
             tracing::warn!(
@@ -249,6 +285,25 @@ mod tests {
         ])
         .unwrap();
         assert!(kva.validate().is_ok());
+        // the template-kwargs flag has to be a JSON object: a router that
+        // renders with a half-parsed default is worse than one that will not
+        // start, because it starts.
+        for bad_kwargs in ["{\"reasoning_effort\": high}", "\"high\"", "[1]"] {
+            let c = Config::try_parse_from([
+                "infera-router",
+                "--kv-default-chat-template-kwargs",
+                bad_kwargs,
+            ])
+            .unwrap();
+            assert!(c.validate().is_err(), "{bad_kwargs} should be rejected");
+        }
+        let good = Config::try_parse_from([
+            "infera-router",
+            "--kv-default-chat-template-kwargs",
+            "{\"reasoning_effort\": \"high\"}",
+        ])
+        .unwrap();
+        assert!(good.validate().is_ok());
         // unsupported discovery backend still rejected
         let bad_disc =
             Config::try_parse_from(["infera-router", "--discovery-backend", "k8s"]).unwrap();

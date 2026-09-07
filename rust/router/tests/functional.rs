@@ -823,3 +823,64 @@ async fn a_worker_reachable_only_over_nats_is_not_flushed_over_http() {
     tokio::time::sleep(Duration::from_millis(300)).await;
     assert!(seen.lock().unwrap().is_empty());
 }
+
+// ---------------------------------------------------------------------------
+// POST /v1/responses/input_tokens (LiteLLM CountTokens)
+// ---------------------------------------------------------------------------
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn responses_input_tokens_counts_pre_tokenized_ids() {
+    // Integer `prompt` hashes without a tokenizer; the handler still requires
+    // Responses `input` so this is the wiring check, not a template render.
+    let router = spawn_router(make_kv_state(vec![], 0)).await;
+    let r = client()
+        .post(format!("{router}/v1/responses/input_tokens"))
+        .json(&json!({"model": "m", "input": "hi", "prompt": [1, 2, 3, 4]}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 200);
+    let body: Value = r.json().await.unwrap();
+    assert_eq!(body["input_tokens"], 4);
+    assert_eq!(body["object"], "response.input_tokens");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn responses_input_tokens_refuses_previous_response_id() {
+    let router = spawn_router(make_kv_state(vec![], 0)).await;
+    let r = client()
+        .post(format!("{router}/v1/responses/input_tokens"))
+        .json(&json!({
+            "model": "m",
+            "input": "hi",
+            "previous_response_id": "resp_1",
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 400);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn responses_input_tokens_requires_input() {
+    let router = spawn_router(make_kv_state(vec![], 0)).await;
+    let r = client()
+        .post(format!("{router}/v1/responses/input_tokens"))
+        .json(&json!({"model": "m"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 400);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn responses_input_tokens_unavailable_without_tokenizer() {
+    let router = spawn_router(make_state(vec![], 0)).await;
+    let r = client()
+        .post(format!("{router}/v1/responses/input_tokens"))
+        .json(&json!({"model": "m", "input": "hi"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 503);
+}

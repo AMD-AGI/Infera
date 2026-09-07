@@ -93,11 +93,11 @@ def _compute_kv_metadata(
 
         metadata = compute_kv_metadata(
             model_id=args.model,
-            # vLLM's --block-size defaults to None (engine auto-selects);
-            # fall back to vLLM's ROCm default of 16 so we never register
-            # engine_block_size=None, which the server's from_dict rejects
-            # (int(None)) and would drop the whole worker. Mirrors the
-            # SGLang launcher's `page_size or 1`.
+            # vLLM's --block-size defaults to None (engine auto-selects). Unlike
+            # SGLang's page_size this one has a knowable default -- 16 on ROCm --
+            # and `vllm/worker.py` already re-registers the resolved value once the
+            # engine reports it, so the fallback is a real answer rather than the
+            # fabricated 1 the SGLang launcher used to send.
             engine_block_size=args.block_size or 16,
             index_block_size=args.index_block_size,
             events_endpoint=events_endpoint or "",
@@ -109,7 +109,7 @@ def _compute_kv_metadata(
         if not events_endpoint:
             metadata = dataclasses.replace(metadata, events_endpoint=None, supports_events=False)
         logger.info(
-            "kv metadata: model=%s digest=%s canary_len=%d engine_block=%d index_block=%d",
+            "kv metadata: model=%s digest=%s canary_len=%d engine_block=%s index_block=%d",
             model_name,
             metadata.tokenizer_digest,
             len(metadata.tokenizer_canary),
