@@ -18464,3 +18464,112 @@ twenty-seven hours.**
 ### 5. 新增 commit
 
 None by anyone since `f9c8e12e` (mine, 08:41).
+
+---
+
+## R2 T+1627 — 2026-09-07 09:41 UTC
+
+**T+1627 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 09:40:19).
+
+### 1. A different user is running this package on our held node
+
+**[observed, first-hand — ownership by process owner and container label, never
+by name]**
+
+```
+ps -o user=,lstart= -p 1502437
+  cyao1002   Mon Sep  7 09:25:29 2026
+
+/proc/1502437/cmdline
+  mock_stages=none
+  forge_mock=1
+  work_root=/tmp/cyao1002/yihou-e2e-flow/20260907T085634Z/n04-25/work
+  container=cyao1002_yihou_e2e_n04_25
+
+docker inspect yihou_dk0907_sgl_worker
+  labels  deploy_kit_owner: cyao1002
+          infera_e2e_run:   dk0907
+  image   rocm/pytorch:rocm7.2.4_ubuntu24.04_py3.12_…
+  started 2026-09-07 09:37:58
+
+cards 0-3 at 75 %   /tmp/cyao1002/yihou-e2e-flow  241 M
+```
+
+**`cyao1002` launched an `agent-sys` chain at 09:25:29 and brought up a
+deployment at 09:37:58 on cards 0–3 of the node held by our job `29313`.**
+
+**This is not ours by any discriminator that matters:** process owner
+`cyao1002`, `deploy_kit_owner: cyao1002`, `infera_e2e_run: dk0907` (not a
+`yihou_*` run tag), work root under `/tmp/cyao1002/`, and an image that is not
+the `infera/engine-sglang:qwen3-local-20260906` every one of our runs used.
+
+**And the container name is `yihou_dk0907_sgl_worker`.** **It carries our prefix
+and it is not ours.** This record has documented five misattributions from name
+prefixes on the first cluster and one of my own at T+1027; **this is the first
+case where reading the prefix would have produced the opposite error — claiming
+someone else's work as ours.**
+
+**No new run directory appeared under `/data/yihou/agent_sys_runroot/runs/`** —
+still 22. Their run root is elsewhere, which is why `mock_stages=none` and
+`forge_mock=1` are visible in their argv but nothing of theirs is in our tree.
+
+**I have not touched it**, and the reasoning is on the record: it is a live
+workload with a named human owner, and the standing rule's amendment says an
+occupant that will not simply vanish should be reported rather than fought.
+**Reported to the leader at this write.**
+
+### 2. Our own state is unchanged
+
+```
+run 22 (13a18e)  last write 2026-09-07 06:47:04  -> quiet 173 min 15 s
+total runs       22
+teammate writes  0 in the last 40 min  (fifth consecutive interval at zero)
+commits          none by anyone since mine at 09:11
+hold 29313       4 h 20 min left
+```
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** (unchanged) |
+| 已经耗时 | **~1641 min ≈ 27 h 21 min** |
+| 预估耗时 | **stages 1–3 90–96 min measured; module 4, module 5, packup unmeasured** |
+| 可靠性 | **中** |
+
+**`cyao1002`'s run does not move our number**, and I note that plainly: **it is
+not our run, on our artefacts, in our run root.** Whatever it establishes belongs
+to whoever launched it.
+
+### 4. Code problems
+
+**No new ones.** Unchanged from T+1537. The eight `jsonschema` validators remain
+**unread since T+94 — twenty-seven and a half hours.**
+
+### 5. 未定性
+
+- **Whether `cyao1002`'s run is coordinated with ours.** **I do not know**, and
+  it is not resolvable from anything I can read — the discriminator is a person.
+- **Whether the round is continuing.** Asked at 07:11 and 08:11; no answer.
+- **What a real module-4 campaign costs.** Their run also carries `forge_mock=1`.
+- **What module 5 consumes if module 4 is replayed** — **fifty-second consecutive
+  section.**
+
+### 6. 新增 commit
+
+None by anyone since `cc80a4c7` (mine, 09:11).
+
+### 7. 其他
+
+**The `yihou_dk0907_sgl_worker` container is the cleanest single argument in this
+file for the rule it violates.**
+
+Every ownership rule here was written to stop us claiming *someone else's*
+container was ours-to-stop. **This one would have made us claim someone else's
+work as our result** — a chain running the same package, on the same node, with
+our prefix in the container name, at exactly the hour our own runs went quiet.
+
+**The four discriminators that answered it are the same four the first cluster
+paid for:** process owner, container label, image identity, and work root.
+**None of them is a name, and all four agreed.**
