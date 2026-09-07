@@ -17326,3 +17326,269 @@ only term with no measurement at all is module 4.
 **Twenty-two hours in, the honest one-line status is: everything up to the kernel
 forge is reproducible and measured, and the kernel forge has never run to
 completion on this cluster.**
+
+---
+
+## R2 T+1327 — 2026-09-07 04:41 UTC
+
+**T+1327 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 04:40:39).
+
+**Activity resumed. Run 21 launched at 04:31:02 after a 273-minute gap.**
+
+### 1. The replay corpus is being used — its first exercise since it was built
+
+**[observed, first-hand, from `/proc/2906547/cmdline`]**
+
+```
+mock_stages = m1,m2
+mock_root   = /data/yihou/e2e_verify_20260906/m35/replay_root_run4
+work_root   = /data/yihou/e2e_flow5b
+container   = yihou_e2e_chain5b
+trace_end_ms= 120000
+```
+
+**That `mock_root` is the corpus this cluster produced for itself at 17:02:32**
+(T+667), promoted from run `d9c7af`. **This is the first run to consume it**, and
+it is exactly the unlock T+667 described: **stages 1 and 2 replayed so the back
+half can be worked on without the measured 90-minute front end.**
+
+**It shows in the clock.** Launched 04:31:02; by 04:37:26 `run_profiling_mode_off`
+had sealed and `_on` was running — **six minutes to a point that costs about an
+hour when real.**
+
+**And the run declares its own status, in its own launch record:**
+
+> ***THIS IS NOT AN ACCEPTANCE RUN AND CANNOT BE ONE.*** *`SKIP-AHEAD.md` page 1:
+> replay is a debugging accelerator, never an acceptance path. This run cannot
+> satisfy Finish Standard 1. What it can answer is whether …*
+>
+> *starts real work at : m3 (identify / rank / build_workset)*
+
+**So the progress number does not move for it, and the record says why before the
+result exists.** That is the pre-registration discipline from T+697 applied to a
+run's entire epistemic status.
+
+### 2. A record I nearly mis-reported, caught by reading further
+
+**The file's first line reads `RUN 5 — REPLAY — launched_at … 2026-09-06T17:03:39Z`
+while the file was written at 04:30:33 today** — an eleven-hour gap between a
+"read not written" timestamp and the file's own mtime. **My first reading was
+that a provenance document had a stale header.**
+
+**It does not.** Line 67 carries the relaunch:
+
+```
+RUN 5b — RELAUNCH at 2026-09-07T04:30:47Z. Run 5 (170354-1048af, pid 1233556) died at …
+work_root/container moved to e2e_flow5b / yihou_e2e_chain5b so run 5's partial …
+```
+
+**The record was appended to, not regenerated** — the same discipline this file
+follows, applied to a launch record. **The header is run 5's history and the tail
+is run 5b's.** I record the near-miss because *"the header is stale"* is a
+plausible, cheap, wrong conclusion available from the first line, and **the
+correction cost one `grep`.**
+
+### 3. State
+
+```
+run 21 (cdd3f7)   pid 2906547, launched 04:31:02, last write 04:37:26
+                  m2_profiling: running   run_profiling_mode_on: running
+                  (m1/m2 replayed; real work starts at m3)
+run 20 (ef6374)   still dead since 2026-09-06 23:58:13; its orchestrator is gone
+total runs        21
+idle gap          23:58:13 -> 04:31:02  =  272 min 49 s
+cards             VRAM% 0 0 0 0 0 0 0 0 at 04:39:53
+hold 29313        9 h 20 min left
+```
+
+**No third co-tenant burst since 02:03:40.**
+
+### 4. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged) |
+| 已经耗时 | **~1341 min ≈ 22 h 21 min** |
+| 预估耗时 | **stages 1–3 ≈ 90 min real; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Unchanged, and it must be: a replay run cannot advance an acceptance number**,
+by its own record and by `SKIP-AHEAD.md` page 1. **What it can advance is
+knowledge of stages 3–5, which is what the round needs most.**
+
+**Total idle across the gap: approximately 30 GPU-hours** on the same arithmetic
+as T+1237 §1.
+
+### 5. Code problems
+
+**No new ones by me.** Three commits landed that I can only report by subject,
+because **all three have empty bodies**:
+
+```
+d2057aef  CLAUDE.md: a computed value reaching a REPORT produces a false
+          counter-example, and only re-measuring catches it
+4a79c949  mission.verify: REVERT the reassurance — the affected kind's validator
+          list is byte-identical to the repo package, so expect the defect
+aeef93c9  bug: CORRECTION — keep17 leaves the affected kind identical to the
+          repo package; the defect is indicated to ship
+```
+
+**Two of the three are reverts of a reassurance**, which is the safer direction:
+someone established that a defect was *not* mitigated and withdrew the claim that
+it was. **I have not read what the affected kind is** and will not guess.
+
+**Carried unchanged:** all defects from T+1297. The eight `jsonschema` validators
+remain **unread since T+94 — twenty-two hours.**
+
+### 6. 未定性
+
+- **Whether run 21 gets past `build_workset` and into module 4.** **It is the
+  first run whose entire purpose is to reach the back half**, and it starts real
+  work at m3.
+- **What module 4 costs** — still the only missing term.
+- **Why `build_workset` did not deliver `879b05db-…`** in run 20.
+- **What module 5 consumes if module 4 is replayed** — **forty-second consecutive
+  section, and run 21 is the run that could answer it.**
+
+### 7. 新增 commit
+
+Three by others (§5); none by me since `03e68549` (04:11).
+
+### 8. 其他
+
+**The corpus took five hours to build and is now saving an hour per attempt.**
+
+T+667 recorded it as an unlock and could not say whether it would be used. **It
+was used at 04:31:02, eleven and a half hours after it was written, by a run
+whose explicit purpose is to reach stages the front end kept it from.** The
+`--run` field in `PROMOTION.json` still names `20260906T154908-d9c7af`, so the
+lineage from a real chain to tonight's accelerator is intact and checkable.
+
+**Whether that hour buys `packup` is a different question**, and it turns on the
+one number nobody has: how long the kernel forge takes when it actually runs.
+
+---
+
+## R2 T+1357 — 2026-09-07 05:11 UTC
+
+**T+1357 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 05:11:15).
+
+### 1. The section above this one was dropped by a rebase and restored from scratch
+
+**The T+1327 section immediately preceding this was re-appended at 05:11, not
+written at 04:41.** Its own header timestamp is the read one from when it was
+composed. **The gap and the reason belong in the record.**
+
+**What happened, measured:**
+
+```
+04:41  I appended T+1327 and committed.  Output: [detached HEAD c01a1d1f]
+04:47  .git/rebase-merge present: onto aeef93c9, head-name refs/heads/rebase-try
+       32 commands done, 81 remaining; the `done` file was replaying MY
+       checkpoint commits (pick e2d41d7f, pick c022dcfd, …)
+       branch tip e5e29f93 held T+1207…T+1297 intact — nothing older at risk
+       working tree held a rebase-INTERMEDIATE copy missing T+1207…T+1297
+04:51  preserved the text to
+       /data/yihou/e2e_verify_20260906/checkpoint/T1327.pending.md  (138 lines)
+       reported to the leader; stopped appending
+05:10  rebase finished, HEAD back on dev.yihou.aiopt.task_package.concat
+       T+1327 present in the branch copy: 0     ← the commit was dropped
+       file otherwise intact: 44 sections, T+1147…T+1297 all present
+05:11  re-appended from the preserved copy
+```
+
+**Two things this cost nothing, and one thing it nearly cost.**
+
+- **It cost no earlier content.** The rebase was onto a scratch branch
+  (`rebase-try`) and the real branch tip was never behind it.
+- **It cost one thirty-minute slot** — I skipped writing at 04:41's successor
+  rather than append into a working tree mid-replay.
+- **It nearly cost the section itself.** `git commit` reported
+  `[detached HEAD c01a1d1f]` and **that string is the entire warning**. Had I not
+  read it, T+1327 would have vanished at 05:10 with no trace and no error.
+
+> **A commit that succeeds on a detached HEAD looks exactly like a commit that
+> succeeded.** The exit code is 0, the diffstat is right, the file on disk is
+> correct. **The only signal is one word in the output line**, and this record has
+> spent two days on instruments that answer an adjacent question in a well-formed
+> way.
+
+**And the deeper hazard was the working tree, not the commit.** For those thirty
+minutes the file on disk was a *reconstruction in progress* — 44 sections short
+of itself. **Appending to it would have produced a file that looked complete and
+was not**, which is precisely the failure the append-only rule exists to prevent,
+arriving from a direction the rule does not cover: **someone rewriting history
+underneath a shared append-only file.**
+
+### 2. Run 21 died; run 22 is up
+
+```
+run 21 (cdd3f7)  last write 04:37:26
+                 deploy_and_prove / _off / m1_deploy  succeeded  (replayed)
+                 m2_profiling, run_profiling_mode_on  still read `running`
+                 orchestrator gone
+run 22 (13a18e)  pid 3140102, container=yihou_e2e_chain11
+                 launched 04:53:27, deploy_and_prove: running
+                 verdicts 0/0, last write 05:10:49
+cards            VRAM% 0 0 0 0 0 0 0 0 at 05:10:49
+total runs       22
+hold 29313       8 h 49 min left
+```
+
+**Run 21 never reached m3**, which was its entire purpose. **It stopped in
+`run_profiling_mode_on` — the same closure that killed runs 16 and 6.**
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~76 %** (unchanged) |
+| 已经耗时 | **~1372 min ≈ 22 h 52 min** |
+| 预估耗时 | **stages 1–3 ≈ 90 min real; module 4 zero measurements** |
+| 可靠性 | **中** |
+
+**Unchanged.** Run 21 was a replay run and could not move it; **it also did not
+reach the stages it existed to reach.**
+
+### 4. Code problems
+
+**No new package defects.** **One process hazard, newly demonstrated:** a
+`git commit` during another agent's rebase lands on a detached HEAD and is
+silently discarded when the rebase ends. **The countermeasure is the one I used:
+read the commit output line, and keep a copy outside the repo.**
+
+**Carried unchanged:** everything from T+1327 §5. The eight `jsonschema`
+validators remain **unread since T+94 — twenty-three hours.**
+
+### 5. 未定性
+
+- **Why run 21 stopped in `run_profiling_mode_on`.** Third run to die in that
+  closure. **`store/event` is the discriminator and I have not read it** — the
+  same restraint that cost thirty minutes at T+1057, so I am naming it rather
+  than deferring it silently.
+- **Whether run 22 gets further.**
+- **What module 4 costs.**
+- **What module 5 consumes if module 4 is replayed** — **forty-third consecutive
+  section.**
+
+### 6. 新增 commit
+
+Since T+1297: three by others before the rebase (`d2057aef`, `4a79c949`,
+`aeef93c9`), plus `e5e29f93` and `e248c76f` after it. **My `c01a1d1f` no longer
+exists** — dropped by the rebase, restored by content in §1.
+
+### 7. 其他
+
+**The one instruction in my brief that mattered most tonight was the one that
+looked most like bureaucracy.**
+
+*"Your scratch is `/data/yihou/e2e_verify_20260906/checkpoint/`."* I created that
+directory at 06:32 and did not use it once in twenty-two hours. **At 04:51 it was
+the only place a 138-line section could go that a rebase could not reach.**
+
+**The general form is worth keeping:** an append-only discipline protects a shared
+file from its writers. **It does not protect a writer's unlanded work from the
+repository itself**, and the thing that does is a copy outside the repository with
+a read timestamp beside it.
