@@ -319,3 +319,94 @@ in the same turn. A validator's output would not.
 **Consequence for m5's cost: one barrier lighter, and the residual risk is an
 omitted flag rather than an impossible artefact.** The rest of this file's
 reachability arithmetic is unchanged.
+
+---
+
+# AMENDMENT 2026-09-07T05:51:33Z — this file is stale IN M5'S FAVOUR, and the two questions answered
+
+**Written at the leader's request while `20260907T045327-13a18e` (m2's) runs. I
+have touched nothing and launched nothing.**
+
+## 1. Three of m5's four inputs now exist. When this file was written, one did.
+
+| m5 input | when this file was written | 2026-09-07 |
+|---|---|---|
+| `deploy_kit` | valid | **valid, many times** |
+| `profiling_evidence` | **"has NEVER existed"** | **valid** — first produced run `d9c7af` 16:42, since reproduced |
+| `operator_workset` | never | **sealed once (run 10); generating again now** |
+| `kernel_optimization` | never | m4 reached its own **output validation** on run 8 |
+
+**So the reachability arithmetic in the body above is superseded: m5 is one
+`apply_patch` acceptance away, not four task-completions away.**
+
+## 2. Is `--environment` in the brief m5 ACTUALLY uses, or only in a readme?
+
+**Answered: it is in the brief, and for this task the readme IS the brief.**
+
+```
+assets/integrate_and_verify.task/   contains exactly two files: entry.sh, readme.md
+steps/m5_integration.yaml           agent: '${m5_agent:-e2e_integrator}'
+                                    and its own comment: "A `kind: ai` task does
+                                    not run `entry.sh`"
+```
+
+**So by default m5 is a real agent, `entry.sh` is never executed, and the readme
+is the whole of the instruction.** `entry.sh` does not invoke `compare.py` at
+all — grep returns nothing — so the flag could only ever arrive from the readme.
+
+**And it is in the command block, not only in prose:**
+
+```
+readme.md:271   --environment "$AGENT_SYS_INPUT_DEPLOY_KIT/items/codes/environment.yaml"
+readme.md:293   --environment "$AGENT_SYS_INPUT_DEPLOY_KIT/items/codes/environment.yaml"
+readme.md:296   "**`--environment` is not optional in practice.**"
+```
+
+**Two command blocks carry it and a third line explains the consequence.** That
+is the strongest form tier 3 can take: the flag appears where it is copied from,
+not only where it is explained.
+
+**The residual risk, unchanged and still real:** nothing *enforces* it.
+`compare.py:833` prints a NOTE to stderr when it is absent, into a turn the agent
+reads — better than most of this class gets. **But if the agent composes the
+command itself instead of copying the block, `check_environment` refuses the
+report AFTER a two-arm bring-up has already been paid for.** That is the cost
+asymmetry worth naming: the check is free, the failure is not.
+Proposal for making it tier 2: `environment_flag_tier2.proposal.md`, unapplied.
+
+## 3. What a real m5 costs this host — restated for m2, BEFORE it happens
+
+**Every line re-measured against the current package today, not carried over.**
+
+```
+mix_up.sh:81       bash "$SCRIPTS/reset_gpus.sh" || { echo "ABORT: GPUs not released"; exit 1; }
+reset_gpus.sh:25   KILLABLE_RE='^(python3?|pt_main_thread|ray|sglang.*)$'
+reset_gpus.sh:27   PROTECTED_RE='^(slurmstepd|slurmd|slurmctld|kubelet|containerd|dockerd|systemd)'
+mix_up.sh:70       "kv-events:5557"  "kv-snapshot:8801"     <- LITERALS, not variables
+mix_worker.sh:26   GPUS="${GPUS:-$(seq -s, 0 $((TP - 1)))}" <- arms pinned to 0..TP-1
+```
+
+**Three consequences, and each is a thing m2 needs to know in advance:**
+
+1. **`reset_gpus.sh` is a node-wide `kill -9` sweep.** It kills every process
+   holding a KFD handle whose command name matches `python3|pt_main_thread|ray|
+   sglang.*`. It protects `slurmstepd` and the container daemons. **It protects
+   no co-tenant and no other line of ours.** Any engine on this node dies.
+2. **Two coordination ports are literals.** `E2E_KIT_PORT_BASE` moves the band;
+   5557 and 8801 do not move. **Two m5 stages cannot coexist on one node at any
+   port setting.**
+3. **The arms take cards `0..TP-1`.** With `tp=4` that is **cards 0-3**, and
+   `--var gpu_devices` does not reach it — `GPUS=` appears once in the whole of
+   `assets/` and nothing sets it.
+
+> **So a run with a real m5 owns the host for the duration. Not "should have
+> priority" — owns it.** The check before it starts is the container list and
+> the cards, and the honest form is: **nothing of ours and nothing of anyone
+> else's may be on a GPU when m5 begins.**
+
+**Currently benign and worth stating so nobody rediscovers it:** `rc_26_7_902`
+and `xiaoming-dev` map `/dev/kfd` permanently and hold **zero** VRAM. They are
+not python engines, so `KILLABLE_RE` does not match them — **but that is a
+property of their command names, not of their idleness**, and it has not been
+verified against what they run inside. **Before m5, look; do not assume this
+paragraph.**
