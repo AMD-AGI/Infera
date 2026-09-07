@@ -19083,3 +19083,79 @@ and never measured.** It is not a prediction that the remaining 22 % is small �
 append-only: **if anything runs, the next section is T+1867 and this one becomes
 a mid-round summary.** That is the correct behaviour for a record whose value is
 that it never regenerates.
+
+---
+
+## R2 T+1867 — 2026-09-07 13:41 UTC
+
+**T+1867 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 13:40:14). **Hold `29313` ends in 19 minutes 52 seconds.**
+
+**This is the last section that can verify anything against the node.** I am
+running on `smci355-ccs-aus-n04-25` itself; when the allocation ends, `rocm-smi`,
+`docker`, `/proc` and possibly this shell stop being available. **Everything
+below was read at 13:40:03.**
+
+### 1. Final live reading
+
+```
+hold 29313      RUNNING 23:39:57 elapsed, ends 2026-09-07T14:00:06
+cards           VRAM% 0 0 0 0 0 0 0 0
+containers      xiaoming-dev (created 00:39:55), rc_26_7_902 (2026-09-03)
+                neither ours, neither on GPU
+orchestrators   0
+total runs      22
+last run write  2026-09-07 06:47:04  -> nothing of ours for 412 min 59 s
+teammate writes 0 in the last 40 min  (thirteenth consecutive interval)
+/data           41 T free, local to this node
+```
+
+**Nothing changed between the closing section at 13:11 and now.** The closing
+stands as written and this section does not revise it.
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** |
+| 已经耗时 | **~1881 min ≈ 31 h 21 min** |
+| 预估耗时 | **not computable — see T+1837 §7** |
+| 可靠性 | **中 for the percentage; 高 for the readings above** |
+
+### 3. 未定性 — carried out of the round
+
+- **What a real module-4 campaign costs.** Six approaches, zero measurements.
+- **Whether `baseline`'s three-way conflict is a `CONTRACT.md` gap or a
+  violation.** One read of `CONTRACT.md` answers it and nobody has done it.
+- **What module 5 consumes if module 4 is replayed** — **fifty-ninth and final
+  section it appears in.** Its sharpened form (T+1567 §6): the question is
+  whether **any** cheap module-4 configuration can also reach module 5, and for
+  `forge_mock=1` the answer is measured and it is no.
+
+### 4. 新增 commit
+
+None by anyone since `c287c956` (mine, 13:11).
+
+### 5. 其他 — a note on what this file can and cannot be read for afterwards
+
+**Everything in it that is a reading has a timestamp, and every timestamp was
+taken with `date -u` or a `--time-style=+'%F %T'` listing in the same command
+that used it.** No time in this file was extrapolated from an earlier clock read.
+
+**What it can be read for later:** what was true at a named instant, what was
+measured versus relayed, which claims were retracted and by whom, and the exact
+sequence of twenty-two runs with their causes of death.
+
+**What it cannot be read for:** anything about the node after 14:00:06. **The
+container list, the card readings and the process table in this file describe a
+machine that is about to stop existing for us**, and a later reader should treat
+every one of them as a historical measurement rather than a description of a
+system they could go and look at.
+
+**That distinction is the one lesson from these sixty-one sections I would put
+first if I could only keep one** — stated at T+1027 after eight of my own
+sections carried a reading as a property, and demonstrated at 23:39:34 the same
+day when a container three days idle took all eight GPUs in one second.
+
+> **A measurement with a timestamp is a fact. The same measurement stated as a
+> property is a prediction.**
