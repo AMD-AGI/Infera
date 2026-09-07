@@ -2168,3 +2168,29 @@ up. **Untested whether the stub survives a login node.**
 repository package could only differ if version selection depends on some *other*
 kind's validator list, a coupling nobody has proposed and which would itself be a
 finding. **It is still an argument, not a measurement.**
+
+### 2026-09-07 05:1x — the repository-package test CANNOT run on a login node (measured)
+
+**Four attempts, and the blocker is not a missing variable:** `check_deploy_serves`
+needs a real serving engine. The stub answers a preflight and **cannot serve the
+180 s 1k/1k load**, so the validator refuses, the chain stops at stage 1, and
+`profiling_evidence` never exists. **The sample is structurally incapable of answering
+the question it was set up to answer.**
+
+**So the decisive comparison needs a GPU node — about twenty minutes of one.** Until
+then the best available evidence is unchanged and points at the shipped package:
+**the affected kind's validator list is byte-identical between the repository package
+and `keep17`, and `keep17` staged the empty version ten times out of ten.**
+**Strongly indicated, not measured.**
+
+**Incidental, and it belongs in the launch inventory (now in RUN-PLAN):**
+`validate_work_root` is a separate variable from `work_root` (`m1_deploy.yaml:250`)
+with a compute-node default that is unwritable on the login node. **A default that is
+right in the configuration everyone runs and wrong in the one nobody does.**
+
+**Cluster: nothing safely runnable, recorded as a decision rather than a launch.**
+020 shows 15-16 % on all eight cards from **six bare GPU processes (~49 GB each) that
+are in no container** — standing rule 1 offers no mechanism there: it says
+`docker stop -t 10`, and there is nothing to stop. **Killing another tenant's bare
+processes is outside what that rule authorises.** 093 is `glm53-work` at 87 %, seventh
+sighting. **Both reported, neither touched.**

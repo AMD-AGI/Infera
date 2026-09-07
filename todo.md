@@ -120,3 +120,101 @@ experiment: `apply.py:117-121` versus what a live stage 4 emits.
 between us and a completed full-real chain. Stages 1–4 are sealed and passing on real
 artefacts (`p9`, twelve tasks). **`apply_patch` is the first door of stage 5 and it is
 shut for exactly the runs that matter.**
+
+### T80 — the operator the pipeline selects is below its own measurement noise floor
+
+**Computed 2026-09-07 from first-hand artefacts, in response to the user's objection
+that optimising a 1.12 % kernel is pointless. It is worse than pointless: it is
+unmeasurable.**
+
+**Where the time is** (real m3 output, 4 trace files, 826,040 GPU kernel events,
+125 kernels):
+
+```
+collective         69.0%     <- cross_device_reduce_2stage alone is 64.82%
+vendor_tuned      15.63%
+routable           8.17%     <- m3 selects only from here
+framework_native   4.88%
+unknown            2.29%
+```
+
+**What it selects** (`top_n: 5`, all from `routable`):
+
+```
+rank 1  k010  recompute_w_u_fwd_kernel                 1.12%   <- the pick
+rank 2  k015  chunk_gated_delta_rule_fwd_kernel_h…     0.72%   <- what stage 4 actually took
+rank 3  k017  act_and_mul                              0.66%
+rank 4  k019  ck_tile FmhaBatchPrefill                 0.62%
+rank 5  k023  _layer_norm_fwd_1pass_kernel             0.43%
+```
+
+**Against m5's own measured noise floors at `bench_rounds=3`:**
+
+```
+ttft_ms                4.4%
+inter_token_latency_ms 0.76%
+request_latency_ms     2.7%
+```
+
+> **A 1.12 % kernel made twice as fast moves end-to-end by 0.56 % — below the ITL
+> floor (0.76 %) and far below the TTFT floor (4.4 %). The pipeline is structurally
+> incapable of demonstrating its own result: a successful optimisation and noise are
+> indistinguishable.**
+
+**The ceiling is not 1.12 % but 8.17 %** — perfect optimisation of the entire routable
+bucket. **69 % of the time is in collective, classified out of scope.**
+
+**This is consistent with `check_no_regression`'s `kernel_reconciliation` block having
+self-declared `unavailable_because` in every round it has ever run.** It is the block
+that would have caught this, and it has never once been computed.
+
+**Not a defect and not this round's failure** — standing rule 7 asks only that the
+chain run through. **It is a property of the operator-selection policy**, and three
+things are movable, none of them bugs:
+
+1. **the bucket policy** — `vendor_tuned` (15.63 %) is excluded; mission.md M3.3
+   already defers "vendor_tuned bucket support" to todo;
+2. **whether `collective` is really out of scope** — 69 % is the only place with an
+   order of magnitude in it;
+3. **~~`_gemma_fused_add_rmsnorm_kernel` is unexplained~~ — ANSWERED 2026-09-07 by m3,
+   read-only: excluded by a stated rule, `no_shape_evidence` (`rank.py:231-237`).**
+   The profiler recorded no `input_shapes` for it, so it cannot yield a correctness
+   case however hot it is. **Not a defect and not silent — the reason is written to
+   the row** (`input_shapes: None`, `cases: None`,
+   `excluded_reason: no_shape_evidence`), exclusion happens *before* selection, and a
+   third filter sits between the two floors and the sort. **`resolve_ratio: 1.0` is
+   therefore honest.** All four of the leader's candidate explanations — silent drop,
+   dedup, wrong bucket label, not `self_us`-ordered — are wrong; the ordering is
+   `-pct_total` (`:241`).
+
+   **CORRECTION, and it affects anyone re-checking this: kernel IDs are PER-RUN.**
+   The leader's entry above says `k002`; in m3's worklist that same kernel is `k006`
+   and `k002` is a different, `vendor_tuned` kernel. **Identify kernels by NAME across
+   artefacts, never by id** — and the share moves too (2.29 % in the corpus worklist
+   the leader read, 1.24 % in m3's).
+
+   **What the rule costs, and this is the part worth keeping:** **7 of 131 rows die to
+   it, 5 of them routable, together about 3.1 % of GPU time — more than the 1.12 % the
+   pipeline does select.**
+
+   ```
+   1.24%  _gemma_fused_add_rmsnorm_kernel
+   0.85%  _causal_conv1d_fwd_kernel
+   0.54%  paged_attention_ll4mi_QKV_mfma16
+   0.34%  _causal_conv1d_update_kernel
+   0.15%  _fused_qk_gemma_rmsnorm_gate_kernel
+   ```
+
+   > **And it is recorded but not reported.** A reader sees the top-5 and
+   > `resolve_ratio: 1.0`; that the largest routable kernel was dropped for want of
+   > shapes lives only in a CSV column nobody surfaces. **Same shape as
+   > `check_environment`'s explanation being computed and written to a discarded
+   > stderr — the information exists and does not reach the person deciding.**
+
+   **So if the goal is to select something above m5's 4.4 % floor, the constraint to
+   attack is `no_shape_evidence`, not `top_n`** — and shapes come from the profiler,
+   **so it is m2's gap as much as m3's filter.** Not decided here.
+
+**Consequence for the second cluster, and this is the actionable half:** a real module-4
+campaign is the most expensive single step in the round. **Run on the current selection,
+it spends that compute proving something that cannot be measured end-to-end.**
