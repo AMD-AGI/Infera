@@ -18414,3 +18414,53 @@ recording as the state of the carry rather than letting it roll over unchanged a
 fifty-first time: **the question is no longer "will module 5 accept a replayed
 module 4 artefact" — it is "can any configuration that produces a module-4
 artefact cheaply also reach module 5", and the answer for `forge_mock=1` is no.**
+
+---
+
+## R2 T+1597 — 2026-09-07 09:11 UTC
+
+**T+1597 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-07 09:09:59).
+
+**No-change record.**
+
+### 1. State
+
+```
+run 22 (13a18e)  last write 2026-09-07 06:47:04  -> quiet 142 min 55 s
+                 0 orchestrators on the node
+total runs       22
+teammate writes  0 in the last 40 min  (fourth consecutive interval at zero)
+commits          none by anyone since mine at 08:41
+cards            VRAM% 0 0 0 0 0 0 0 0 at 09:09:50
+containers       xiaoming-dev, rc_26_7_902 — neither on GPU
+                 no co-tenant burst since 02:03:40
+hold 29313       4 h 50 min left
+```
+
+### 2. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** (unchanged) |
+| 已经耗时 | **~1611 min ≈ 26 h 51 min** |
+| 预估耗时 | **stages 1–3 90–96 min measured; module 4, module 5, packup unmeasured** |
+| 可靠性 | **中** |
+
+### 3. Code problems
+
+**No new ones.** Unchanged from T+1537: the mount `case` (refused two consumers,
+no `/data/yihou` branch) and `baseline`'s three-way conflict remain the critical
+path. The eight `jsonschema` validators remain **unread since T+94 —
+twenty-seven hours.**
+
+### 4. 未定性
+
+- **Whether the round is continuing.** Asked at 07:11 and 08:11; no answer.
+- **What a real module-4 campaign costs.**
+- **What module 5 consumes if module 4 is replayed** — **fifty-first consecutive
+  section**, in the sharpened form recorded at T+1567 §6.
+
+### 5. 新增 commit
+
+None by anyone since `f9c8e12e` (mine, 08:41).
