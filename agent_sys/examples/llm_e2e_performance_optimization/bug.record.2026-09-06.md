@@ -1952,3 +1952,70 @@ find <run> -name 'verdict*.json' -printf '%TT %p\n' | sort | tail -3
 
 *(同族:本文件「读产物不读退出码」与「一条线看起来不动时按这个顺序读」。
 那两条讲的是 phase 行**信息不足**;这一条讲的是 phase 行**信息充足而含义相反**。)*
+
+---
+
+## 一份 12.5 KB 的 README,因为「`## Boundary` 下面直接就是 `### 子标题`」被判为空 —— 运行 10 死于此
+
+*2026-09-07 04:3x,m2。用框架自己的解析器在真实文件上跑出来的,不是推断。*
+
+### 死因链
+
+```
+23:24:27  phase_done   INPUT/OUTPUT_VALIDATING finished
+23:58:13  output_absent   exit_status=finished, detail=success
+          message:     declared output 879b05db… was never delivered
+          seal_refused: …/v1/content/README.md: required section 'Boundary' is empty
+23:58:13  push_attempted  "continue, do it until finished"
+23:58:13  handling_failed AgentNotListening: instruct(...) has no loop to deliver it.
+                          The agent is finished and `mainloop` has returned.
+```
+
+**body 成功了,产物做出来了,封存被拒;框架的补救是叫 agent 继续,而 agent 已经退出。**
+运行随后空转 4 小时 33 分,直到被人拆掉。
+
+### README 一点都不空
+
+`agent_sys/handoff/readme.py:sections()`,在那份真实 README 上跑出来:
+
+```
+total bytes 12552
+  'Purpose'    body_len 1537
+  'Interface'  body_len 1947
+  'Boundary'   body_len 0     <- EMPTY
+  然后是它的八个 ### 子节：1019 / 665 / 1826 / 571 / 546 / 910 / 185 / 1711 / 497
+```
+
+**`Boundary` 底下有约 8 KB 的内容,而它自己的 body 是 0。**
+
+### 机制
+
+`sections()` 遇到 `heading_open` 且 `token.level == 0` 就**开一个新节**。
+markdown-it 的 `level` 是**嵌套深度**(blockquote / list),**不是标题层级**——
+所以文档根部的 `###` 和 `##` 一样是 `level == 0`。
+
+> **于是每一个根部标题都会终止上一节。`## Boundary` 紧跟着 `### …`,
+> 它自己的 body 就只有中间那个空行。**
+
+**docstring 明确讨论过 `level == 0`**(为了让 blockquote / list 里的标题不算数),
+**却完全没有提到标题层级。所以「子标题算兄弟节」看起来是没被考虑,而不是被决定的。**
+这一条我只报机制,不报意图。
+
+### 生产者侧的规避(brief 级,可达 `kind: ai`)
+
+**在 `## Boundary` 和第一个 `###` 之间写一句散文。** 一句就够。
+`Purpose` 和 `Interface` 之所以通过,正是因为它们有自己层级的正文。
+
+### 这一条同时是「更长的 stall 更安全」的反例
+
+运行 10 用的是 `--stall-after 5400`(我按 leader 的要求设的)。
+**它 23:58:13 就死了,04:31 才被发现——盲区 4.5 小时。**
+> **阈值调长,对「安静地死掉」这一类失败是纯损失:它不救任何东西,只延长盲窗。**
+今晚三种死法各不相同,而阈值对三种都不起作用:
+1. 运行 7 / 8:**验证拒绝 + 升级无接收方** —— 计时器只是收尸。
+2. 运行 6:**引擎卡死** —— AIPerf 每 900 秒的超时爆发**反复喂饱**探测器。
+3. 运行 10:**封存被拒 + agent 已退出** —— 死得很安静,越长越晚被发现。
+
+*(第 3 种与本文件已有的「`escalated` vs `handling_failed`」那张表同族:
+`handling_failed` = ai 体、agent 已完成、`mainloop` 已返回。
+新的是**触发它的原因**——不是 validator 拒绝,是 `seal_refused`。)*
