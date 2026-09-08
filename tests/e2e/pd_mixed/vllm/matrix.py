@@ -244,7 +244,7 @@ CASES = [
         {
             "args": [
                 "--kv-cache-dtype",
-                "fp8",
+                "auto",
                 "--reasoning-parser",
                 "glm45",
                 "--no-enable-prefix-caching",
