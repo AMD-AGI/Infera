@@ -1,0 +1,100 @@
+# Validators first, then handoff kinds, then tasks.
+
+- module: validator
+  name: check_facts
+  version: '1'
+  brief: Every row carries path, lines, sha256_prefix, and totals are consistent
+  dimension: completeness
+  strength: strong
+  inputs: [facts]
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [runtime]
+
+- module: validator
+  name: check_grounded
+  version: '1'
+  brief: Every numeral in the summary also appears in the facts it summarises
+  dimension: trustworthiness
+  strength: strong
+  inputs: [summary]
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [runtime]
+
+- module: handoff
+  name: facts
+  version: '1'
+  description: A file manifest with per-file rows and recomputable totals.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json']
+    properties:
+      'text.json': {type: string}
+  validators: [check_facts]
+
+- module: handoff
+  name: summary
+  version: '1'
+  description: A summary of the manifest, with a grounding copy of the facts.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json', grounding]
+    properties:
+      'text.json': {type: string}
+      grounding: {type: string}
+  validators: [check_grounded]
+
+- module: task
+  name: produce
+  description: Walk the package tree and write a facts manifest.
+  agent: runner
+  handoffs: [facts]
+  validators: [check_facts]
+  task:
+    goal: Produce a file manifest of this package.
+    version: '1'
+    inputs: []
+    outputs: [facts]
+    permissions:
+      grants:
+        - {path: handoffs/facts, access: write, kind: facts}
+
+- module: task
+  name: transform
+  description: Summarise the facts with a deliberately ungrounded claim.
+  agent: runner
+  handoffs: [facts, summary]
+  validators: [check_facts, check_grounded]
+  task:
+    goal: Summarise the manifest, including a fabricated elapsed time.
+    version: '1'
+    inputs: [facts]
+    outputs: [summary]
+    permissions:
+      grants:
+        - {path: handoffs/facts, access: read, kind: facts}
+        - {path: handoffs/summary, access: write, kind: summary}
+
+- module: task
+  name: consume
+  description: Render the summary. Never runs because summary is sealed INVALID.
+  agent: runner
+  handoffs: [summary]
+  validators: [check_grounded]
+  task:
+    goal: Render the summary into a report.
+    version: '1'
+    inputs: [summary]
+    outputs: []
+    permissions:
+      grants:
+        - {path: handoffs/summary, access: read, kind: summary}
