@@ -63,6 +63,17 @@ class EvalResult:
     prefill_throughput_tps: float | None = None
     kv_cache_gb: float | None = None
     max_concurrent_sequences: int | None = None
+    # Serving metrics the projector reports that the tuner could not previously
+    # rank on, including the total-tokens-per-GPU figure InferenceX leads with.
+    total_throughput_tps_per_gpu: float | None = None
+    total_throughput_tps: float | None = None
+    prefill_throughput_tps_per_gpu: float | None = None
+    interactivity_tok_s_per_user: float | None = None
+    per_request_decode_tps: float | None = None
+    decode_step_ms_pure: float | None = None
+    mixed_step_fraction_pct: float | None = None
+    tpot_pollution_pct: float | None = None
+    replica_gpus: int | None = None
     source: str = "memory_only"
     stdout_tail: str = ""
     returncode: int = 0

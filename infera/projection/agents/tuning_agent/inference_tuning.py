@@ -792,7 +792,12 @@ def build_inference_seed_plan(
 # ---------------------------------------------------------------------------
 
 # Lower-is-better metrics.
-_MINIMIZE = {"ttft_ms", "itl_ms", "request_latency_ms", "tpot_ms", "latency_ms"}
+_MINIMIZE = {
+    "ttft_ms", "itl_ms", "request_latency_ms", "tpot_ms", "latency_ms",
+    # Capacity and step-quality objectives: less is better.
+    "memory_per_gpu_gb", "kv_cache_gb", "decode_step_ms_pure",
+    "mixed_step_fraction_pct", "tpot_pollution_pct", "iteration_ms",
+}
 
 # Friendly aliases the user may put in the YAML `objective:` field.
 _OBJECTIVE_ALIASES = {
@@ -809,6 +814,71 @@ _OBJECTIVE_ALIASES = {
     "max_concurrency": "max_concurrent_sequences",
     "sustainable_concurrency": "max_sustainable_concurrency",
     "max_sustainable_concurrency": "max_sustainable_concurrency",
+    # Total tokens per GPU, prompt plus generation. This is what InferenceX
+    # ranks on and it is not the same ordering as decode-only throughput: at a
+    # 144:1 prompt-to-generation ratio the prompt decides the winner.
+    "max_total_throughput": "total_throughput_tps_per_gpu",
+    "total_throughput": "total_throughput_tps_per_gpu",
+    "tput_per_gpu": "total_throughput_tps_per_gpu",
+    "total_throughput_per_gpu": "total_throughput_tps_per_gpu",
+    "max_total_throughput_fleet": "total_throughput_tps",
+    # Generation side alone.
+    "max_output_throughput": "decode_throughput_tps_per_gpu",
+    "output_throughput": "decode_throughput_tps_per_gpu",
+    "output_tput_per_gpu": "decode_throughput_tps_per_gpu",
+    "max_output_throughput_fleet": "decode_throughput_tps",
+    # Prompt side alone -- the metric a prefill-heavy agentic fleet lives on.
+    "max_input_throughput": "prefill_throughput_tps_per_gpu",
+    "input_throughput": "prefill_throughput_tps_per_gpu",
+    "input_tput_per_gpu": "prefill_throughput_tps_per_gpu",
+    "max_input_throughput_fleet": "prefill_throughput_tps",
+    # What a single user feels, as opposed to what the fleet delivers.
+    "max_interactivity": "interactivity_tok_s_per_user",
+    "interactivity": "interactivity_tok_s_per_user",
+    "intvty": "interactivity_tok_s_per_user",
+    "max_per_user_throughput": "per_request_decode_tps",
+    "per_user_throughput": "per_request_decode_tps",
+    # Latency, by the name each audience uses for it.
+    "min_e2el": "request_latency_ms",
+    "e2el": "request_latency_ms",
+    "min_tpot": "itl_ms",
+    "min_decode_step": "decode_step_ms_pure",
+    # Capacity and efficiency.
+    "min_memory": "memory_per_gpu_gb",
+    "min_kv": "kv_cache_gb",
+    "max_mfu": "mfu",
+    "max_tflops": "tflops_per_s_per_gpu",
+    # Scheduler quality: how much of the decode budget prefill chunks eat.
+    "min_mixed_step_fraction": "mixed_step_fraction_pct",
+    "min_tpot_pollution": "tpot_pollution_pct",
+}
+
+# The catalogue the study sweeps, mapped to the InferenceX metric each answers.
+# Energy is deliberately absent: InferenceX reports avg_power_w and
+# joules_per_{output,total}_token, and the projector models no power at all, so
+# there is nothing to optimize against and pretending otherwise would invent it.
+INFERENCEX_OBJECTIVES = {
+    "total_throughput_tps_per_gpu":  "tput_per_gpu (headline ranking)",
+    "total_throughput_tps":          "tput_per_gpu x GPUs (fleet total)",
+    "decode_throughput_tps_per_gpu": "output_tput_per_gpu",
+    "decode_throughput_tps":         "output tokens/s (fleet)",
+    "prefill_throughput_tps_per_gpu":"input_tput_per_gpu",
+    "prefill_throughput_tps":        "input tokens/s (fleet)",
+    "interactivity_tok_s_per_user":  "mean_intvty",
+    "per_request_decode_tps":        "per-user generation rate",
+    "ttft_ms":                       "mean_ttft",
+    "itl_ms":                        "mean_tpot / mean_itl",
+    "request_latency_ms":            "mean_e2el",
+    "decode_step_ms_pure":           "uncontended step time",
+    "max_concurrent_sequences":      "kv_cache_pool_tokens (as sequences)",
+    "max_sustainable_concurrency":   "concurrency the pool sustains",
+    "memory_per_gpu_gb":             "HBM footprint",
+    "kv_cache_gb":                   "KV footprint",
+    "mixed_step_fraction_pct":       "prefill interference in decode",
+    "tpot_pollution_pct":            "TPOT inflation from interference",
+    "mfu":                           "model FLOPs utilisation",
+    "tflops_per_s_per_gpu":          "achieved TFLOP/s per GPU",
+    "iteration_ms":                  "per-iteration wall time",
 }
 
 DEFAULT_INFERENCE_OBJECTIVE = "decode_throughput_tps_per_gpu"
@@ -851,6 +921,16 @@ _RE_KV = re.compile(rf"KV cache[^:]*:\s*{_FLOAT}\s*GB", re.IGNORECASE)
 _RE_MAXCONC = re.compile(r"Max concurrent sequences:\s*(\d+)", re.IGNORECASE)
 _RE_SUSTAINABLE = re.compile(r"Max sustainable concurrency:\s*(\d+)", re.IGNORECASE)
 _RE_CONC_USED = re.compile(r"Concurrency used:\s*(\d+)", re.IGNORECASE)
+# InferenceX ranks on total tokens per GPU -- prompt plus generation -- which at
+# agentic context is dominated by the prompt and is a different ordering from
+# decode-only throughput. It was the one headline metric never parsed.
+_RE_TOTAL_TPS_GPU = re.compile(rf"Total throughput / GPU:\s*{_FLOAT}", re.IGNORECASE)
+_RE_REPLICA_GPUS = re.compile(r"Replica GPUs[^:]*:\s*(\d+)", re.IGNORECASE)
+_RE_INTERACTIVITY = re.compile(rf"Interactivity \(per user\):\s*{_FLOAT}", re.IGNORECASE)
+_RE_PER_REQ_TPS = re.compile(rf"Per-request decode throughput:\s*{_FLOAT}", re.IGNORECASE)
+_RE_STEP_PURE = re.compile(rf"Decode step latency \(pure\):\s*{_FLOAT}\s*ms", re.IGNORECASE)
+_RE_MIXED_FRAC = re.compile(rf"Mixed-step fraction:\s*{_FLOAT}\s*%", re.IGNORECASE)
+_RE_POLLUTION = re.compile(rf"TPOT pollution:\s*{_FLOAT}\s*%", re.IGNORECASE)
 
 
 def _f(m) -> float | None:
@@ -881,4 +961,26 @@ def parse_inference_metrics(stdout: str) -> dict[str, Any]:
         out["max_sustainable_concurrency"] = int(m.group(1))
     if (m := _RE_CONC_USED.search(stdout)):
         out["concurrency_used"] = int(m.group(1))
+    if (m := _RE_TOTAL_TPS_GPU.search(stdout)):
+        out["total_throughput_tps_per_gpu"] = _f(m)
+    if (m := _RE_REPLICA_GPUS.search(stdout)):
+        out["replica_gpus"] = int(m.group(1))
+    if (m := _RE_INTERACTIVITY.search(stdout)):
+        out["interactivity_tok_s_per_user"] = _f(m)
+    if (m := _RE_PER_REQ_TPS.search(stdout)):
+        out["per_request_decode_tps"] = _f(m)
+    if (m := _RE_STEP_PURE.search(stdout)):
+        out["decode_step_ms_pure"] = _f(m)
+    if (m := _RE_MIXED_FRAC.search(stdout)):
+        out["mixed_step_fraction_pct"] = _f(m)
+    if (m := _RE_POLLUTION.search(stdout)):
+        out["tpot_pollution_pct"] = _f(m)
+    # Per-GPU and fleet forms the projector prints only one side of. Ranking on
+    # a fleet total rewards spending more GPUs, so both are kept and named.
+    gpus = out.get("replica_gpus") or 0
+    if gpus:
+        if out.get("prefill_throughput_tps") is not None:
+            out["prefill_throughput_tps_per_gpu"] = out["prefill_throughput_tps"] / gpus
+        if out.get("total_throughput_tps_per_gpu") is not None:
+            out["total_throughput_tps"] = out["total_throughput_tps_per_gpu"] * gpus
     return out
