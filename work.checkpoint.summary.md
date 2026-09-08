@@ -19840,3 +19840,72 @@ cards / containers (machine we no longer hold, read 23:39:59):
 **Code problems:** none new (T+1837 §4 unchanged).
 **未定性:** unchanged from T+1927 §4.
 **新增 commit:** none by anyone since `11f5c808` (mine, 23:11).
+
+---
+
+## R2 T+2497 — 2026-09-08 00:11 UTC
+
+**T+2497 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-08 00:10:09). **First section on a third calendar day.**
+
+### 1. A third tenant took a card — which is what not holding the node looks like
+
+**[observed, first-hand]**
+
+```
+docker inspect weihuan_flydsl_mbs3
+  created  2026-09-08T00:03:02.726Z
+  image    rocm/primus:v26.5.1
+  labels   only org.opencontainers.*  — no deploy_kit_owner, no infera_e2e_run
+
+rocm-smi --showpids
+  3870905  slurmstepd  GPU 0
+  3871010  python      GPU 1   49 015 926 784 bytes (~49 GB)
+
+cards  VRAM%  0 0 0 15 0 0 0 0   at 00:10:00
+```
+
+**A `slurmstepd` is present**, so someone else now has a scheduler allocation on
+this node. **That is the expected consequence of `29313` expiring**, and it is
+the first time it has been visible.
+
+**Not ours by any discriminator:** no `infera_e2e_run` label, no
+`deploy_kit_owner`, and a `rocm/primus` image. **I did not read the name.**
+
+**Recorded because it changes what a later reader should assume**, not because it
+is a problem: **from 00:03:02 onward this machine has another tenant with a
+reservation, and any card reading in this file after that time describes a shared
+machine.**
+
+### 2. Our state
+
+```
+squeue -u yihou   header only — still no hold of ours
+total runs        22          orchestrators 0
+last run write    2026-09-07 06:47:04  -> nothing of ours for 1042 min 56 s
+teammate writes   0 in the last 40 min  (thirty-fourth consecutive interval)
+commits           none by anyone since mine at 23:41
+```
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** — the T+1837 closing stands |
+| 已经耗时 | **~2511 min ≈ 41 h 51 min** |
+| 预估耗时 | **not computable — T+1837 §7** |
+| 可靠性 | **中** |
+
+### 4. Code problems
+
+**None new** (T+1837 §4 unchanged).
+
+### 5. 未定性
+
+Unchanged from T+1927 §4. **Added:** whether the node will still be obtainable
+if the round resumes — **it now has another tenant with an allocation, which it
+did not two hours ago.**
+
+### 6. 新增 commit
+
+None by anyone since `d00cbc68` (mine, 23:41).
