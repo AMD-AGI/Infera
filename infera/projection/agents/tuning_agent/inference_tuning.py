@@ -477,11 +477,22 @@ def validate_inference(
     if cfg.fuse_rmsnorm_allreduce and cfg.tp <= 1:
         return False, "fuse_rmsnorm_allreduce requires TP>1"
 
-    replica_gpus = cfg.tp * cfg.pp * (cfg.ep if getattr(arch, "is_moe", False) else 1)
+    # Expert parallelism repartitions the ranks a replica already has rather
+    # than adding to them: under ``--enable-expert-parallel`` at TP8 the same
+    # eight ranks hold disjoint experts, which is why the projector itself
+    # reports replica GPUs as TP×PP. Charging tp*pp*ep here made TP8/EP8
+    # illegal on a single node, so the search only ever saw EP>1 with TP shrunk
+    # to fit -- a shape nobody deploys -- and reported EP1 as a finding when it
+    # was a constraint.
+    replica_gpus = cfg.tp * cfg.pp
     if replica_gpus > world:
         return False, (
             f"replica needs {replica_gpus} GPUs but only {world} available "
             f"({cluster.num_nodes}×{cluster.gpus_per_node})"
+        )
+    if getattr(arch, "is_moe", False) and cfg.ep > 1 and replica_gpus % cfg.ep:
+        return False, (
+            f"EP={cfg.ep} must divide the replica's {replica_gpus} ranks (TP×PP)"
         )
 
     # Feature A: disaggregation — prefill/decode pools each need to fit.
@@ -494,9 +505,8 @@ def validate_inference(
             return False, f"decode_tp={d_tp} not in legal TP set {legality.tp}"
         if cfg.decode_replicas < 1:
             return False, "decode_replicas must be >= 1"
-        ep = cfg.ep if getattr(arch, "is_moe", False) else 1
-        prefill_gpus = p_tp * cfg.pp * ep
-        decode_gpus = d_tp * cfg.pp * ep * cfg.decode_replicas
+        prefill_gpus = p_tp * cfg.pp
+        decode_gpus = d_tp * cfg.pp * cfg.decode_replicas
         if prefill_gpus + decode_gpus > world:
             return False, (
                 f"disaggregated pools need {prefill_gpus}+{decode_gpus} GPUs "
@@ -718,6 +728,17 @@ def build_inference_seed_plan(
                    quick_reduce=(base_tp > 1),
                    fuse_rmsnorm_allreduce=(base_tp > 1),
                    attention_backend="aiter"))
+        # Expert parallelism, seeded where the winners actually live. It used to
+        # appear only at batch 16 in bf16, which always died on memory, so the
+        # sweep never answered whether disjoint experts beat a TP all-reduce at
+        # serving batch -- it just reported the EP1 configurations that survived.
+        ep_hi = max([e for e in leg.ep if e > 1 and base_tp % e == 0] or [1])
+        if ep_hi > 1:
+            for bs in [b for b in leg.batch_size if b in (64, 128, 256)]:
+                for mc in _tier_tops(bs, best_dp, n=3):
+                    add(mk(batch_size=bs, attention_dp=best_dp, ep=ep_hi,
+                           max_concurrency=mc, weight_dtype="fp4",
+                           linear_weight_dtype="mxfp4", kv_cache_dtype="fp8"))
     # 3) batching / concurrency (throughput)
     for bs in [b for b in leg.batch_size if b in (4, 16, 64)]:
         add(mk(batch_size=bs))
@@ -744,12 +765,11 @@ def build_inference_seed_plan(
     # 8e) Scheduler per-step token budget (caps prefill+decode tokens/step).
     add(mk(batch_size=16, max_num_batched_tokens=8192))
     add(mk(batch_size=16, chunked_prefill_size=1024, max_num_batched_tokens=8192))
-    # 9) MoE EP sweep — pick the largest TP that still fits with this EP.
+    # 9) MoE EP sweep — EP repartitions the replica's own ranks, so it is swept
+    #    at the full TP rather than by shrinking TP to make room for it.
     if is_moe:
-        for ep in [e for e in leg.ep if e in (1, 2, 4, 8)]:
-            feasible_tp = [t for t in leg.tp if t * ep <= world]
-            tp_for_ep = max(feasible_tp) if feasible_tp else 1
-            add(mk(tp=tp_for_ep, ep=ep, batch_size=16))
+        for ep in [e for e in leg.ep if e in (1, 2, 4, 8) and base_tp % e == 0]:
+            add(mk(ep=ep, batch_size=16))
 
     # 9a2) Expert parallelism and attention DP together. Neither substitutes for
     #      the other -- EP shards what each rank computes, attention DP shards
@@ -757,33 +777,26 @@ def build_inference_seed_plan(
     #      fleets run, so it is worth a seed rather than only a crossing the
     #      agent might find.
     if is_moe:
-        for ep in [e for e in leg.ep if e in (1, 2, 4, 8)]:
-            feasible_tp = [t for t in leg.tp if t * ep <= world]
-            tp_for_ep = max(feasible_tp) if feasible_tp else 1
-            if tp_for_ep > 1 and tp_for_ep in leg.attention_dp:
-                add(mk(tp=tp_for_ep, ep=ep, batch_size=16,
-                       attention_dp=tp_for_ep, kv_cache_dtype="fp8"))
+        for ep in [e for e in leg.ep if e in (1, 2, 4, 8) and base_tp % e == 0]:
+            if base_tp > 1 and base_tp in leg.attention_dp:
+                add(mk(ep=ep, batch_size=16,
+                       attention_dp=base_tp, kv_cache_dtype="fp8"))
 
     # 9b) MoE DeepEP — overlap the EP All-to-All behind expert compute. Only
     #     meaningful with EP>1, so pair it with the largest feasible EP.
     if is_moe:
-        ep_for_deepep = max([e for e in leg.ep if e in (2, 4, 8) and e <= world] or [1])
+        ep_for_deepep = max([e for e in leg.ep if e in (2, 4, 8) and base_tp % e == 0] or [1])
         if ep_for_deepep > 1:
-            feasible_tp = [t for t in leg.tp if t * ep_for_deepep <= world]
-            tp_deepep = max(feasible_tp) if feasible_tp else 1
-            add(mk(tp=tp_deepep, ep=ep_for_deepep, batch_size=16, use_turbo_deepep=True))
+            add(mk(ep=ep_for_deepep, batch_size=16, use_turbo_deepep=True))
 
     # 9c) MoE expert-routing imbalance (+ redundant-expert mitigation). Only
     #     meaningful with EP>1, so pair with the largest feasible EP.
     if is_moe:
-        ep_for_imb = max([e for e in leg.ep if e in (2, 4, 8) and e <= world] or [1])
+        ep_for_imb = max([e for e in leg.ep if e in (2, 4, 8) and base_tp % e == 0] or [1])
         if ep_for_imb > 1:
-            feasible_tp = [t for t in leg.tp if t * ep_for_imb <= world]
-            tp_imb = max(feasible_tp) if feasible_tp else 1
-            add(mk(tp=tp_imb, ep=ep_for_imb, batch_size=16, ep_load_balance=1.3))
+            add(mk(ep=ep_for_imb, batch_size=16, ep_load_balance=1.3))
             add(
                 mk(
-                    tp=tp_imb,
                     ep=ep_for_imb,
                     batch_size=16,
                     ep_load_balance=1.3,
@@ -797,11 +810,9 @@ def build_inference_seed_plan(
         add(mk(batch_size=16, tp_allreduce_algo="one_shot"))
         add(mk(batch_size=16, tp_allreduce_algo="hierarchical"))
     if is_moe:
-        ep_for_a2a = max([e for e in leg.ep if e in (2, 4, 8) and e <= world] or [1])
-        feasible_tp = [t for t in leg.tp if t * ep_for_a2a <= world]
-        tp_a2a = max(feasible_tp) if feasible_tp else 1
+        ep_for_a2a = max([e for e in leg.ep if e in (2, 4, 8) and base_tp % e == 0] or [1])
         if ep_for_a2a > 1:
-            add(mk(tp=tp_a2a, ep=ep_for_a2a, batch_size=16, ep_a2a_algo="hierarchical"))
+            add(mk(ep=ep_for_a2a, batch_size=16, ep_a2a_algo="hierarchical"))
 
     # 11) Feature A — prefill/decode disaggregation. Split the cluster into a
     #     latency-tuned prefill pool (higher TP) and a throughput-tuned decode
@@ -856,11 +867,9 @@ def build_inference_seed_plan(
     )
     # 16) MoE expert compute precision (mxfp4 / fp8 expert grouped-GEMM).
     if is_moe:
-        ep_for_dtype = max([e for e in leg.ep if e in (2, 4, 8) and e <= world] or [1])
-        feasible_tp = [t for t in leg.tp if t * ep_for_dtype <= world]
-        tp_dtype = max(feasible_tp) if feasible_tp else 1
-        add(mk(tp=tp_dtype, ep=ep_for_dtype, batch_size=16, moe_expert_dtype="fp8"))
-        add(mk(tp=tp_dtype, ep=ep_for_dtype, batch_size=16, moe_expert_dtype="mxfp4"))
+        ep_for_dtype = max([e for e in leg.ep if e in (2, 4, 8) and base_tp % e == 0] or [1])
+        add(mk(ep=ep_for_dtype, batch_size=16, moe_expert_dtype="fp8"))
+        add(mk(ep=ep_for_dtype, batch_size=16, moe_expert_dtype="mxfp4"))
     # 17) Custom collective ops (TP>1): quick-reduce + fused RMSNorm+AllReduce.
     if base_tp > 1:
         add(mk(batch_size=16, quick_reduce=True))
