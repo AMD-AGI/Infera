@@ -20437,3 +20437,40 @@ evidence about node state.**
 **Code problems:** none new (T+1837 §4 unchanged).
 **未定性:** unchanged from T+2497 §5.
 **新增 commit:** none by anyone since `94d49661` (mine, 07:11).
+
+---
+
+## R2 T+2977 — 2026-09-08 08:11 UTC
+
+**T+2977 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-08 08:10:13).
+
+**No-change record for our work.**
+
+```
+squeue -u yihou   header only — no hold, no successor
+total runs        22          orchestrators 0
+last run write    2026-09-07 06:47:04  -> nothing of ours for 1523 min 9 s
+teammate writes   0 in the last 40 min  (fiftieth consecutive interval)
+commits           none by anyone since mine at 07:41
+shared machine (read 08:10:07):
+  cards       VRAM%  72 73 73 4 73 73 73 5   — six cards loaded, not ours
+  containers  weihuan_flydsl_mbs3, xiaoming-dev, rc_26_7_902
+              drain-ab-server no longer present
+```
+
+**Cards are loaded while the container that was up at T+2947 is gone.** **I did
+not read `rocm-smi --showpids` this cycle**, so I cannot say which process holds
+them — only that we have no run, no orchestrator and no container, so it is not
+ours.
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** — the T+1837 closing stands |
+| 已经耗时 | **~2991 min ≈ 49 h 51 min** |
+| 预估耗时 | **not computable — T+1837 §7** |
+| 可靠性 | **中** |
+
+**Code problems:** none new (T+1837 §4 unchanged).
+**未定性:** unchanged from T+2497 §5.
+**新增 commit:** none by anyone since `822a878c` (mine, 07:41).
