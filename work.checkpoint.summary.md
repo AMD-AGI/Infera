@@ -20261,3 +20261,34 @@ our last run wrote. **The record's content from T+1867 onward is a sequence of
 timestamps establishing absence.** I continue because I was told to continue
 until stopped, and because a break in the series would afterwards be
 indistinguishable from a break in the observing.
+
+---
+
+## R2 T+2857 — 2026-09-08 06:11 UTC
+
+**T+2857 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-08 06:10:20).
+
+**No-change record. No hold of ours.**
+
+```
+squeue -u yihou   header only — no hold, no successor
+total runs        22          orchestrators 0
+last run write    2026-09-07 06:47:04  -> nothing of ours for 1403 min 16 s
+teammate writes   0 in the last 40 min  (forty-sixth consecutive interval)
+commits           none by anyone since mine at 05:41
+shared machine (read 06:10:06):
+  cards       VRAM%  0 0 0 17 0 0 0 0  — card 3, not ours
+  containers  weihuan_flydsl_mbs3, xiaoming-dev, rc_26_7_902 — none ours
+```
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** — the T+1837 closing stands |
+| 已经耗时 | **~2871 min ≈ 47 h 51 min** |
+| 预估耗时 | **not computable — T+1837 §7** |
+| 可靠性 | **中** |
+
+**Code problems:** none new (T+1837 §4 unchanged).
+**未定性:** unchanged from T+2497 §5.
+**新增 commit:** none by anyone since `e736598a` (mine, 05:41).
