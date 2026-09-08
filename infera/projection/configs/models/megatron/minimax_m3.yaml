@@ -12,7 +12,9 @@ bases:
 # single largest term in how this model serves: the runs behind it average
 # 130k tokens of context, so a dense attention layer would read sixty times
 # what this one does. Set it on the request as ``sparse_attention_topk: 2048``;
-# it is a serving-time property rather than a weight, so it does not live here.
+# it is a serving-time property rather than a weight, so it is declared here
+# as a serving default rather than as an architectural dimension.
+sparse_attention_topk: 2048
 
 tokenizer_type: HuggingFaceTokenizer
 tokenizer_model: MiniMaxAI/MiniMax-M3

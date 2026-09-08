@@ -239,7 +239,11 @@ def resolve_workload(workload_yaml: Path, config_root: Path | None = None) -> Ar
         is_moe=is_moe,
         num_experts=int(model.get("num_experts", 0) or 0),
         moe_router_topk=int(model.get("moe_router_topk", 0) or 0),
-        index_topk=int(model.get("index_topk", 0) or 0),
+        # DeepSeek names its indexer ``index_topk``; the other sparse families
+        # carry theirs as a serving-time property under its request name, so
+        # both spellings are read and either one means "this model is sparse".
+        index_topk=int(model.get("index_topk")
+                       or model.get("sparse_attention_topk") or 0),
         moe_ffn_hidden_size=model.get("moe_ffn_hidden_size"),
         moe_shared_expert_intermediate_size=model.get("moe_shared_expert_intermediate_size"),
         vocab_size=model.get("padded_vocab_size") or model.get("vocab_size"),

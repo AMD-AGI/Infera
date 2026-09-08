@@ -8,7 +8,9 @@ extends:
 # Attention is DSA: a lightning indexer keeps the top-2048 tokens (HF
 # ``index_topk: 2048``). GLM-5.2 additionally shares that indexer across every
 # four layers (IndexShare); the sparse window itself is still 2048 on every
-# layer. Set it on the request as ``sparse_attention_topk: 2048``.
+# layer. Set it on the request as ``sparse_attention_topk: 2048``, which is
+# declared below so tooling does not have to infer it from this comment.
+sparse_attention_topk: 2048
 
 tokenizer_type: HuggingFaceTokenizer
 ##### TODO update to GLM-5 tokenizer

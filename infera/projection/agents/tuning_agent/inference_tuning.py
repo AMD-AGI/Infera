@@ -303,8 +303,14 @@ def derive_inference_legality(
     # Sparse attention is a property of the checkpoint before it is a knob: a
     # model trained with an indexer is not served dense, and offering only the
     # generic widths would leave its own out of reach.
+    # Only the width this model was actually trained with, plus off. The
+    # generic 512/2048 ladder used to be offered to every model, which handed a
+    # dense-attention checkpoint an indexer it does not have -- at 130k context
+    # that is a sixtyfold reduction in attention reads, so the search took it
+    # every time and reported a throughput the model cannot reach. Sparsity is
+    # an architectural property, not a serving knob to be turned up.
     model_topk = int(getattr(arch, "index_topk", 0) or 0)
-    sparse_topk = sorted({0, 512, 2048} | ({model_topk} if model_topk else set()))
+    sparse_topk = sorted({0} | ({model_topk} if model_topk else set()))
 
     # Attention DP subdivides the TP group, so the degrees worth offering are
     # the divisors of the widest TP on the table. A trial pairs one with its own
