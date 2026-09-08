@@ -13,6 +13,8 @@ is silently accepted for a different model produces a confident wrong answer.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from infera.projection.core.projection.inference_projection.search.regime import (
@@ -135,6 +137,44 @@ def test_a_multi_model_store_refuses_to_guess_which_model_to_use(monkeypatch):
     monkeypatch.delenv("INFERASIM_MODEL", raising=False)
     with pytest.raises(ValueError, match="could not be identified"):
         _anchor_model_filter(many)
+
+
+def test_a_target_may_name_its_checkpoint_when_the_preset_does_not(monkeypatch, tmp_path):
+    """DeepSeek-R1's own anchor must be usable for a DeepSeek-R1 projection.
+
+    R1 runs on the V3 architecture preset, so ``INFERASIM_MODEL`` says
+    "deepseek_v3" while the artifact says "deepseek-ai/DeepSeek-R1" and identity
+    by preset alone refused R1's own measurement for R1's own projection. The
+    answer is not to let the architecture stand in for the checkpoint -- an
+    anchor measures expert routing, which is weights -- but to let the target
+    name its weights, which ``--bench-model`` already does elsewhere.
+    """
+    from infera.projection.core.projection.inference_projection.launcher import (
+        _anchor_model_filter,
+        _assert_anchor_is_this_model,
+    )
+
+    artifact = {"meta": {"model": "deepseek-ai/DeepSeek-R1"}}
+    monkeypatch.setenv("INFERASIM_MODEL", "deepseek_v3")
+    monkeypatch.delenv("INFERASIM_BENCH_MODEL", raising=False)
+    monkeypatch.delenv("INFERASIM_ALLOW_FOREIGN_ANCHOR", raising=False)
+
+    with pytest.raises(ValueError, match="was measured on"):
+        _assert_anchor_is_this_model("a.json", artifact)
+
+    _assert_anchor_is_this_model(
+        "a.json", artifact, SimpleNamespace(bench_model="deepseek-ai/DeepSeek-R1")
+    )
+    monkeypatch.setenv("INFERASIM_BENCH_MODEL", "deepseek-ai/DeepSeek-R1")
+    _assert_anchor_is_this_model("a.json", artifact)
+
+    # Naming the checkpoint widens nothing else: a foreign anchor is still refused.
+    with pytest.raises(ValueError, match="was measured on"):
+        _assert_anchor_is_this_model("b.json", {"meta": {"model": "openai/gpt-oss-120b"}})
+
+    # The store filter resolves against the same identity.
+    many = _FakeStore(["openai/gpt-oss-120b", "deepseek-ai/DeepSeek-R1"])
+    assert _anchor_model_filter(many) == "deepseek-ai/DeepSeek-R1"
 
 
 # ---------------------------------------------------------------------------

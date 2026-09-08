@@ -498,34 +498,59 @@ def _print_des(des: Dict[str, object]) -> None:
     print("=" * 100)
 
 
-def _anchor_model_filter(store):
+def _target_model_id(args=None):
+    """Which checkpoint this projection is for, for anchor identity.
+
+    ``INFERASIM_MODEL`` answers a different question: it selects the
+    architecture YAML, so it carries a preset spelling ("deepseek_v3") that is a
+    checkpoint id only when it happens to look like one. DeepSeek-R1 runs on the
+    V3 preset, so identifying the target by preset alone refused R1's own anchor
+    for R1's own projection -- the two names disagree because one names an
+    architecture and the other names weights.
+
+    Widening the *comparison* to let the architecture stand in for the
+    checkpoint would be wrong: an anchor measures expert routing, which is
+    weights, not geometry, so a V3 anchor may not price R1. The fix is to let
+    the target name its weights. ``--bench-model``/``INFERASIM_BENCH_MODEL``
+    already does that for the benchmark path, so it is honoured here too, and
+    the preset remains the fallback when nothing names the checkpoint.
+    """
+    explicit = getattr(args, "bench_model", None) or os.environ.get(
+        "INFERASIM_BENCH_MODEL"
+    )
+    return explicit or os.environ.get("INFERASIM_MODEL")
+
+
+def _anchor_model_filter(store, args=None):
     """Which model's anchors this projection may use, or None for any.
 
     A structural config carries no HF model name, so a store holding one model's
     anchors needs no filter. A store holding several does: without one, the
     nearest-anchor search would happily calibrate gpt-oss against DeepSeek's
     warmup, which is the kind of mistake that produces a confident wrong number.
-    Resolved against INFERASIM_MODEL, whose preset spelling ("gpt_oss_120B") is
-    matched loosely against the artifact's id ("openai/gpt-oss-120b").
+    Resolved against the target checkpoint, whose preset spelling
+    ("gpt_oss_120B") is matched loosely against the artifact's id
+    ("openai/gpt-oss-120b").
     """
     from .search.regime import models_match
 
     models = {e.get("model") for e in store.entries() if e.get("model")}
     if len(models) <= 1:
         return None
-    preset = os.environ.get("INFERASIM_MODEL")
+    preset = _target_model_id(args)
     if preset:
         hits = [m for m in models if models_match(preset, m)]
         if len(hits) == 1:
             return hits[0]
     raise ValueError(
         f"store holds anchors for {len(models)} models {sorted(models)} and the "
-        "target model could not be identified; set INFERASIM_MODEL or use a "
+        "target model could not be identified; set INFERASIM_MODEL (or "
+        "--bench-model when the preset does not name the checkpoint) or use a "
         "per-model store"
     )
 
 
-def _assert_anchor_is_this_model(path, artifact):
+def _assert_anchor_is_this_model(path, artifact, args=None):
     """Refuse an anchor harvested from a different checkpoint.
 
     Store lookup already filters by model, but an explicit ``--load-benchmark``
@@ -538,7 +563,7 @@ def _assert_anchor_is_this_model(path, artifact):
     from .search.regime import models_match
 
     measured = (artifact.get("meta") or {}).get("model")
-    preset = os.environ.get("INFERASIM_MODEL")
+    preset = _target_model_id(args)
     if not measured or not preset:
         return
     if models_match(preset, measured) or os.environ.get(
@@ -548,8 +573,11 @@ def _assert_anchor_is_this_model(path, artifact):
     raise ValueError(
         f"[inferasim:Inference] anchor {path} was measured on {measured!r}, but "
         f"this projection is {preset!r}. Applying it would price one model's "
-        "kernels onto another. Pass an anchor for this model, or set "
-        "INFERASIM_ALLOW_FOREIGN_ANCHOR=1 if the mismatch is intended."
+        "kernels onto another. Pass an anchor for this model, name the target's "
+        "checkpoint with --bench-model when the preset does not (an "
+        "architecture preset such as 'deepseek_v3' does not name DeepSeek-R1's "
+        "weights), or set INFERASIM_ALLOW_FOREIGN_ANCHOR=1 if the mismatch is "
+        "intended."
     )
 
 
@@ -581,7 +609,7 @@ def _anchor_from_store(args, inference_config):
 
         store = AnchorStore(root)
         recipe = recipe_from_inference_config(inference_config)
-        model = _anchor_model_filter(store)
+        model = _anchor_model_filter(store, args)
         entry, distance = store.nearest(recipe, model=model)
     except Exception as exc:  # noqa: BLE001 - a broken store must not fail a projection
         print(f"[inferasim:Inference] anchor store unusable ({exc}) — "
@@ -709,7 +737,7 @@ def launch_projection_from_cli(args, overrides):
 
         with open(load_bench) as _f:
             benchmark_layer_times = _json.load(_f)
-        _assert_anchor_is_this_model(load_bench, benchmark_layer_times)
+        _assert_anchor_is_this_model(load_bench, benchmark_layer_times, args)
         print(f"[inferasim:Inference] loaded GPU benchmark from {load_bench}")
         for _p in _scaling_bench_paths(args):
             with open(_p) as _f:
