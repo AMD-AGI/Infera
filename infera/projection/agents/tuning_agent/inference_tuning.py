@@ -142,11 +142,18 @@ def _tier_tops(batch: int, dp: int, n: int = 6) -> list[int]:
     that buys TPOT back. A large batch that misses its TPOT budget at full
     admission is usually not the wrong batch -- it is the right batch admitting
     too many sequences at once, and only a lower tier reveals that.
+
+    It also reaches above it. Concurrency is how many requests are in flight,
+    not how many run in a step, and a scheduler holding more than it runs is
+    ordinary continuous batching -- the surplus is what keeps the next step full.
+    Capping the ladder at the batch size hid the entire region where these
+    models are actually fastest, and it is the memory model, not the batch, that
+    says how far it can go.
     """
     if dp <= 1 or batch < dp:
         return [batch] if batch > 0 else []
     out: list[int] = []
-    for frac in (1.0, 0.75, 0.5, 0.375, 0.25, 0.125):
+    for frac in (2.0, 1.5, 1.25, 1.0, 0.75, 0.5, 0.375, 0.25, 0.125):
         top = (int(batch * frac) // dp) * dp
         if top >= dp and top not in out:
             out.append(top)
@@ -678,7 +685,7 @@ def build_inference_seed_plan(
     if "fp4" in leg.weight_dtype:
         for dp in [d for d in leg.attention_dp if d > 1 and base_tp % d == 0]:
             for bs in [b for b in leg.batch_size if b in (64, 128, 256)]:
-                for mc in _tier_tops(bs, dp):
+                for mc in _tier_tops(bs, dp, n=9):
                     add(mk(batch_size=bs, attention_dp=dp, max_concurrency=mc,
                            weight_dtype="fp4", linear_weight_dtype="mxfp4",
                            kv_cache_dtype="fp8", chunked_prefill_size=2048,
