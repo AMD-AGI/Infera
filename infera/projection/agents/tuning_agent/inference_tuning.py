@@ -45,14 +45,27 @@ class InferenceTrialConfig:
     pp: int = 1
     ep: int = 1
     cp: int = 1
+    # Attention data parallelism: subdivides the TP group so a rank owns whole
+    # requests rather than a slice of every request's heads. 1 = off. This is
+    # not a minor knob for the models being tuned here -- MLA caches one latent
+    # that every head reads, so tensor parallelism replicates it and the axis is
+    # what stops a TP8 replica storing the same cache eight times.
+    attention_dp: int = 1
     # request / batching profile
     batch_size: int = 1
+    # Share of each prompt already in the KV cache from an earlier turn.
+    prefix_cache_hit_rate: float = 0.0
     input_len: int = 1024
     output_len: int = 128
     max_concurrency: int | None = None
     # precision
     weight_dtype: str = "bf16"
     kv_cache_dtype: str = "bf16"
+    # Precision of the attention projections and the dense MLP, which the
+    # resident weight dtype does not settle: a 4-bit checkpoint quantizes those
+    # alongside the experts, and without saying so they stream fp8 while memory
+    # sizes them at 4. None leaves the projector's own auto-detection alone.
+    linear_weight_dtype: str | None = None
     # serving features
     chunked_prefill_size: int = 0
     speculative_num_tokens: int = 0
@@ -139,11 +152,17 @@ class InferenceAxisLegality:
     pp: list[int]
     ep: list[int]
     cp: list[int]
+    # Candidate degrees across every legal TP; a trial's own value must divide
+    # its TP, which ``validate_inference`` checks against ``cfg.tp``.
+    attention_dp: list[int]
     batch_size: list[int]
     weight_dtype: list[str]
     kv_cache_dtype: list[str]
     chunked_prefill_size: list[int]
     speculative_num_tokens: list[int]
+    linear_weight_dtype: list[str] = field(
+        default_factory=lambda: ["bf16", "fp8", "mxfp4", "fp4"]
+    )
     tp_allreduce_algo: list[str] = field(
         default_factory=lambda: ["auto", "ring", "one_shot", "two_shot", "hierarchical"]
     )
@@ -185,9 +204,11 @@ class InferenceAxisLegality:
     def to_prompt_dict(self) -> dict:
         return {
             "tp": self.tp, "pp": self.pp, "ep": self.ep, "cp": self.cp,
+            "attention_dp": self.attention_dp,
             "batch_size": self.batch_size,
             "weight_dtype": self.weight_dtype,
             "kv_cache_dtype": self.kv_cache_dtype,
+            "linear_weight_dtype": self.linear_weight_dtype,
             "chunked_prefill_size": self.chunked_prefill_size,
             "speculative_num_tokens": self.speculative_num_tokens,
             "tp_allreduce_algo": self.tp_allreduce_algo,
@@ -226,10 +247,24 @@ def derive_inference_legality(
         ep = [1]
     cp = [1]  # context parallel is rarely used for serving; keep simple
 
+    # Sparse attention is a property of the checkpoint before it is a knob: a
+    # model trained with an indexer is not served dense, and offering only the
+    # generic widths would leave its own out of reach.
+    model_topk = int(getattr(arch, "index_topk", 0) or 0)
+    sparse_topk = sorted({0, 512, 2048} | ({model_topk} if model_topk else set()))
+
+    # Attention DP subdivides the TP group, so the degrees worth offering are
+    # the divisors of the widest TP on the table. A trial pairs one with its own
+    # TP and ``validate_inference`` rejects the pairings that do not divide.
+    attention_dp = _divisors(max(tp)) if max(tp) > 1 else [1]
+
     # Concurrency / decode batch depth.
     batch_size = _powers_of_two(256)
 
-    weight_dtype = ["bf16", "fp8"]
+    # A frontier MoE at 130k does not fit on this part at 8 or 16 bits, so a
+    # search that cannot say "fp4" cannot say anything about it: every trial is
+    # rejected on memory before its performance is ever read.
+    weight_dtype = ["bf16", "fp8", "fp4"]
     kv_cache_dtype = ["bf16", "fp8", "int8"]
     chunked_prefill_size = [0, 512, 1024, 2048]
     speculative_num_tokens = [0, 2, 4]
@@ -244,11 +279,13 @@ def derive_inference_legality(
 
     return InferenceAxisLegality(
         tp=tp, pp=pp, ep=ep, cp=cp,
+        attention_dp=attention_dp,
         batch_size=batch_size,
         weight_dtype=weight_dtype,
         kv_cache_dtype=kv_cache_dtype,
         chunked_prefill_size=chunked_prefill_size,
         speculative_num_tokens=speculative_num_tokens,
+        sparse_attention_topk=sparse_topk,
         use_turbo_deepep=use_turbo_deepep,
         quick_reduce=tp_collective,
         fuse_rmsnorm_allreduce=tp_collective,
@@ -268,12 +305,34 @@ def validate_inference(
         return False, f"PP={cfg.pp} not in legal set {legality.pp}"
     if cfg.ep not in legality.ep:
         return False, f"EP={cfg.ep} not in legal set {legality.ep}"
+    if cfg.attention_dp not in legality.attention_dp:
+        return False, (
+            f"attention_dp={cfg.attention_dp} not in legal set {legality.attention_dp}"
+        )
+    if cfg.attention_dp > 1 and cfg.tp % cfg.attention_dp != 0:
+        # The axis splits the TP group; a degree it does not divide describes no
+        # rank layout, and the projector refuses it rather than rounding.
+        return False, (
+            f"attention_dp={cfg.attention_dp} must divide TP={cfg.tp}"
+        )
     if cfg.batch_size <= 0:
         return False, f"batch_size must be positive, got {cfg.batch_size}"
     if cfg.weight_dtype not in legality.weight_dtype:
         return False, f"weight_dtype={cfg.weight_dtype} not in {legality.weight_dtype}"
     if cfg.kv_cache_dtype not in legality.kv_cache_dtype:
         return False, f"kv_cache_dtype={cfg.kv_cache_dtype} not in {legality.kv_cache_dtype}"
+    if (cfg.linear_weight_dtype is not None
+            and cfg.linear_weight_dtype not in legality.linear_weight_dtype):
+        return False, (
+            f"linear_weight_dtype={cfg.linear_weight_dtype} not in "
+            f"{legality.linear_weight_dtype}"
+        )
+    if (cfg.linear_weight_dtype is not None
+            and cfg.linear_weight_dtype not in legality.linear_weight_dtype):
+        return False, (
+            f"linear_weight_dtype={cfg.linear_weight_dtype} not in "
+            f"{legality.linear_weight_dtype}"
+        )
     if cfg.speculative_num_tokens < 0:
         return False, "speculative_num_tokens must be >= 0"
     if not getattr(arch, "is_moe", False) and cfg.ep > 1:
@@ -381,6 +440,7 @@ def _profile_from_opt(opt: OptimizationConfig) -> dict:
         "input_len": int(inf.get("input_len", 1024)),
         "output_len": int(inf.get("output_len", 128)),
         "max_concurrency": inf.get("max_concurrency"),
+        "prefix_cache_hit_rate": float(inf.get("prefix_cache_hit_rate", 0.0) or 0.0),
     }
 
 
@@ -451,13 +511,27 @@ def build_inference_seed_plan(
     # a dedicated EP sweep explores expert parallelism for MoE.
     base_tp = max(t for t in leg.tp if t <= world)
 
+    # A prompt admitted to the engine in one step sizes the activation working
+    # set, and at agentic context lengths that term alone is larger than the
+    # device: 130k tokens unchunked costs ~575 GB, so every trial is rejected on
+    # memory before its throughput is ever read. No server runs that way, so the
+    # seeds carry a scheduler budget rather than treating it as a later knob.
+    base_token_budget = 8192 if in_len >= 16384 else 0
+    # Dense attention over a 130k prompt is quadratic and costs this model a
+    # thirteen-minute first token, so a checkpoint that declares an indexer is
+    # seeded with it rather than being asked to rediscover its own architecture.
+    base_sparse_topk = int(getattr(arch, "index_topk", 0) or 0)
+
     def mk(**kw) -> InferenceTrialConfig:
         base = dict(
             tp=base_tp, pp=1, ep=1, cp=1,
             batch_size=1, input_len=in_len, output_len=out_len,
             max_concurrency=profile["max_concurrency"],
+            prefix_cache_hit_rate=profile["prefix_cache_hit_rate"],
             weight_dtype="bf16", kv_cache_dtype="bf16",
             chunked_prefill_size=0,
+            max_num_batched_tokens=base_token_budget,
+            sparse_attention_topk=base_sparse_topk,
             speculative_num_tokens=0, speculative_acceptance_rate=0.0,
         )
         base.update(kw)
@@ -481,6 +555,32 @@ def build_inference_seed_plan(
     # 2) TP sweep (intra-node latency tradeoff)
     for tp in leg.tp:
         add(mk(tp=tp))
+    # 2b) attention DP — for a model whose KV is one latent every head reads,
+    #     this is the difference between storing the cache once per replica and
+    #     once per rank, so it is seeded high rather than left to the agent to
+    #     discover. Paired with a batch that can spend the freed capacity: at
+    #     batch 1 there is nothing to hold and the axis only costs GEMM shape.
+    for dp in [d for d in leg.attention_dp if d > 1 and base_tp % d == 0]:
+        add(mk(attention_dp=dp, batch_size=16))
+        add(mk(attention_dp=dp, batch_size=64, kv_cache_dtype="fp8"))
+    # 2c) 4-bit weights. Not one point on a precision sweep for these models but
+    #     the only precision they fit in, so it is seeded with the batch and the
+    #     attention-DP degree that a fitting configuration would want.
+    if "fp4" in leg.weight_dtype:
+        add(mk(batch_size=16, weight_dtype="fp4",
+               linear_weight_dtype="mxfp4", kv_cache_dtype="fp8"))
+        for dp in [d for d in leg.attention_dp if d > 1 and base_tp % d == 0]:
+            add(mk(batch_size=32, weight_dtype="fp4", linear_weight_dtype="mxfp4",
+                   kv_cache_dtype="fp8", attention_dp=dp))
+    # 2c) 4-bit weights. Not one point on a precision sweep for these models but
+    #     the only precision they fit in, so it is seeded with the batch and the
+    #     attention-DP degree that a fitting configuration would want.
+    if "fp4" in leg.weight_dtype:
+        add(mk(batch_size=16, weight_dtype="fp4",
+               linear_weight_dtype="mxfp4", kv_cache_dtype="fp8"))
+        for dp in [d for d in leg.attention_dp if d > 1 and base_tp % d == 0]:
+            add(mk(batch_size=32, weight_dtype="fp4", linear_weight_dtype="mxfp4",
+                   kv_cache_dtype="fp8", attention_dp=dp))
     # 3) batching / concurrency (throughput)
     for bs in [b for b in leg.batch_size if b in (4, 16, 64)]:
         add(mk(batch_size=bs))
@@ -512,6 +612,19 @@ def build_inference_seed_plan(
             feasible_tp = [t for t in leg.tp if t * ep <= world]
             tp_for_ep = max(feasible_tp) if feasible_tp else 1
             add(mk(tp=tp_for_ep, ep=ep, batch_size=16))
+
+    # 9a2) Expert parallelism and attention DP together. Neither substitutes for
+    #      the other -- EP shards what each rank computes, attention DP shards
+    #      which requests it holds -- and this pairing is what the measured MLA
+    #      fleets run, so it is worth a seed rather than only a crossing the
+    #      agent might find.
+    if is_moe:
+        for ep in [e for e in leg.ep if e in (1, 2, 4, 8)]:
+            feasible_tp = [t for t in leg.tp if t * ep <= world]
+            tp_for_ep = max(feasible_tp) if feasible_tp else 1
+            if tp_for_ep > 1 and tp_for_ep in leg.attention_dp:
+                add(mk(tp=tp_for_ep, ep=ep, batch_size=16,
+                       attention_dp=tp_for_ep, kv_cache_dtype="fp8"))
 
     # 9b) MoE DeepEP — overlap the EP All-to-All behind expert compute. Only
     #     meaningful with EP>1, so pair it with the largest feasible EP.

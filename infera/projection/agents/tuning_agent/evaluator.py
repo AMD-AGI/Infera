@@ -549,8 +549,25 @@ def _build_inference_cmd(
         "--kv-cache-dtype", cfg.kv_cache_dtype,
         "--hbm-capacity-gb", str(agent_cfg.optimization.hbm_capacity_gb),
     ]
-    if cfg.max_concurrency is not None:
-        cmd += ["--max-concurrency", str(cfg.max_concurrency)]
+    # Resident sequences. Left unset the projector admits its own default rather
+    # than the batch being tuned, which prices every trial against a queue it
+    # was never configured for -- TPOT came back 4.5x high and the whole search
+    # read as SLO-infeasible. The documented default is the batch size, so say
+    # so explicitly instead of relying on the flag's absence to mean it.
+    concurrency = cfg.max_concurrency if cfg.max_concurrency is not None else cfg.batch_size
+    cmd += ["--max-concurrency", str(concurrency)]
+    # Attention data parallelism subdivides the TP group. Emitted only when on,
+    # so a trial that leaves it at 1 produces the same command it always did.
+    if getattr(cfg, "attention_dp", 1) > 1:
+        cmd += ["--attention-dp-size", str(cfg.attention_dp)]
+    # Share of each prompt already resident from an earlier turn. Omitting it
+    # prices an agentic trace as if every turn reprefilled its whole transcript.
+    if getattr(cfg, "prefix_cache_hit_rate", 0.0):
+        cmd += ["--prefix-cache-hit-rate", str(cfg.prefix_cache_hit_rate)]
+    # Precision of the attention projections and dense MLP. Without it a 4-bit
+    # checkpoint is sized at 4 bits but streamed at 8.
+    if getattr(cfg, "linear_weight_dtype", None):
+        cmd += ["--linear-weight-dtype", str(cfg.linear_weight_dtype)]
     if cfg.chunked_prefill_size:
         cmd += ["--chunked-prefill-size", str(cfg.chunked_prefill_size)]
     if cfg.speculative_num_tokens:

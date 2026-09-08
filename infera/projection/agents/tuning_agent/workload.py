@@ -54,6 +54,10 @@ class ArchitectureRecord:
     is_moe: bool = False
     num_experts: int = 0
     moe_router_topk: int = 0
+    # Native sparse-attention indexer width. Nonzero means the checkpoint reads
+    # a fixed number of KV entries per query instead of the whole prefix, which
+    # is what keeps prefill from going quadratic at agentic context lengths.
+    index_topk: int = 0
     moe_ffn_hidden_size: int | None = None
     moe_shared_expert_intermediate_size: int | None = None
     vocab_size: int | None = None  # padded vocab size if known
@@ -235,6 +239,7 @@ def resolve_workload(workload_yaml: Path, config_root: Path | None = None) -> Ar
         is_moe=is_moe,
         num_experts=int(model.get("num_experts", 0) or 0),
         moe_router_topk=int(model.get("moe_router_topk", 0) or 0),
+        index_topk=int(model.get("index_topk", 0) or 0),
         moe_ffn_hidden_size=model.get("moe_ffn_hidden_size"),
         moe_shared_expert_intermediate_size=model.get("moe_shared_expert_intermediate_size"),
         vocab_size=model.get("padded_vocab_size") or model.get("vocab_size"),

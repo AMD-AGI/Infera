@@ -127,11 +127,16 @@ class OptimizationConfig:
     # Serving request profile (only used when mode == "inference").
     #   input_len / output_len: prompt + generation lengths (tokens)
     #   max_concurrency: resident sequences for KV sizing (default: batch)
+    #   prefix_cache_hit_rate: fraction of each prompt already resident from an
+    #     earlier turn. This is a property of the traffic, not a knob to tune:
+    #     an agentic trace resends a long transcript and reprefills almost none
+    #     of it, so leaving it at 0 tunes for a workload nobody runs.
     inference: dict[str, Any] = field(
         default_factory=lambda: {
             "input_len": 1024,
             "output_len": 128,
             "max_concurrency": None,
+            "prefix_cache_hit_rate": 0.0,
         }
     )
     # Latency service-level objectives, in milliseconds (inference mode). A
