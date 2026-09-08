@@ -71,6 +71,14 @@ class EvalResult:
     interactivity_tok_s_per_user: float | None = None
     per_request_decode_tps: float | None = None
     decode_step_ms_pure: float | None = None
+    decode_step_ms_mixed: float | None = None
+    weights_gb: float | None = None
+    prefill_comm_ms: float | None = None
+    decode_comm_ms: float | None = None
+    # Parsed all along but never declared, so ``asdict`` dropped them and any
+    # objective naming one scored None and looked like an infeasible search.
+    max_sustainable_concurrency: int | None = None
+    concurrency_used: int | None = None
     mixed_step_fraction_pct: float | None = None
     tpot_pollution_pct: float | None = None
     replica_gpus: int | None = None

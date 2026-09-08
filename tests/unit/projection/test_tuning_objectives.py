@@ -41,8 +41,12 @@ PROJECTION = """
   Prefill throughput:              856141.8 tok/s
   Replica GPUs (TP x PP):          8
   Projected Total Memory:   112.0271 GB
+  Weights (fp4):           93.7605 GB
   KV cache (fp8):         17.1337 GB
+  Activation working set:   1.1328 GB
   Max concurrent sequences: 360
+    prefill:  TP-AR 293.35 | EP-A2A 0.00 | PP-P2P 0.00 | total 293.35
+    decode:   TP-AR 0.24 | EP-A2A 0.00 | PP-P2P 0.00 | total 0.24
 """
 
 
@@ -84,12 +88,14 @@ def test_scheduler_interference_is_measurable():
 
 
 def test_every_catalogued_objective_resolves_to_something_real():
+    """An objective the projection never reports scores None on every trial,
+    which the search then reports as "no legal serving config found" -- which is
+    indistinguishable from a genuinely infeasible model. Four shipped that way.
+    """
     m = parse_inference_metrics(PROJECTION)
-    # These three come from the evaluator rather than serving stdout.
-    from_evaluator = {"mfu", "tflops_per_s_per_gpu", "iteration_ms"}
     for obj in INFERENCEX_OBJECTIVES:
         assert resolve_objective(obj) == obj, f"{obj} is not canonical"
-        assert obj in m or obj in from_evaluator, f"{obj} is never populated"
+        assert obj in m, f"{obj} is catalogued but never populated"
 
 
 def test_direction_is_right_for_each_objective():
@@ -115,12 +121,30 @@ def test_the_names_people_actually_use_reach_the_right_metric():
     assert resolve_objective("e2el") == "request_latency_ms"
 
 
-def test_energy_is_absent_rather_than_faked():
+def test_what_cannot_be_projected_is_not_offered():
     """InferenceX reports power and joules/token; the projector models neither.
+    MFU and TFLOP/s are training-mode figures the serving path never emits.
 
     An objective that silently scores None would look like a failed search, and
-    one that guessed would be worse. It is simply not offered.
+    one that guessed would be worse. They are simply not offered.
     """
-    for absent in ("avg_power_w", "joules_per_output_token",
-                   "joules_per_total_token"):
+    from infera.projection.agents.tuning_agent.inference_tuning import (
+        UNSUPPORTED_OBJECTIVES,
+    )
+    for absent in UNSUPPORTED_OBJECTIVES:
         assert absent not in INFERENCEX_OBJECTIVES
+    assert {"avg_power_w", "mfu", "tflops_per_s_per_gpu"} <= UNSUPPORTED_OBJECTIVES
+
+
+def test_the_step_that_absorbs_a_prefill_chunk_is_measurable():
+    m = parse_inference_metrics(PROJECTION)
+    assert m["decode_step_ms_pure"] == 22.17
+    assert m["decode_step_ms_mixed"] == 984.25
+
+
+def test_collective_time_is_split_by_phase():
+    """Prefill and decode pay wildly different collective costs, and a single
+    blended number hides which one a parallelism choice is hurting."""
+    m = parse_inference_metrics(PROJECTION)
+    assert m["prefill_comm_ms"] == 293.35
+    assert m["decode_comm_ms"] == 0.24

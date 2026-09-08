@@ -848,7 +848,9 @@ _MINIMIZE = {
     "ttft_ms", "itl_ms", "request_latency_ms", "tpot_ms", "latency_ms",
     # Capacity and step-quality objectives: less is better.
     "memory_per_gpu_gb", "kv_cache_gb", "decode_step_ms_pure",
-    "mixed_step_fraction_pct", "tpot_pollution_pct", "iteration_ms",
+    "mixed_step_fraction_pct", "tpot_pollution_pct",
+    "decode_step_ms_mixed", "weights_gb", "activation_gb",
+    "prefill_comm_ms", "decode_comm_ms", "replica_gpus",
 }
 
 # Friendly aliases the user may put in the YAML `objective:` field.
@@ -898,8 +900,11 @@ _OBJECTIVE_ALIASES = {
     # Capacity and efficiency.
     "min_memory": "memory_per_gpu_gb",
     "min_kv": "kv_cache_gb",
-    "max_mfu": "mfu",
-    "max_tflops": "tflops_per_s_per_gpu",
+    "min_gpus": "replica_gpus",
+    "min_weights": "weights_gb",
+    "min_activation": "activation_gb",
+    "min_prefill_comm": "prefill_comm_ms",
+    "min_decode_comm": "decode_comm_ms",
     # Scheduler quality: how much of the decode budget prefill chunks eat.
     "min_mixed_step_fraction": "mixed_step_fraction_pct",
     "min_tpot_pollution": "tpot_pollution_pct",
@@ -928,9 +933,22 @@ INFERENCEX_OBJECTIVES = {
     "kv_cache_gb":                   "KV footprint",
     "mixed_step_fraction_pct":       "prefill interference in decode",
     "tpot_pollution_pct":            "TPOT inflation from interference",
-    "mfu":                           "model FLOPs utilisation",
-    "tflops_per_s_per_gpu":          "achieved TFLOP/s per GPU",
-    "iteration_ms":                  "per-iteration wall time",
+    "decode_step_ms_mixed":          "step time when a prefill chunk lands",
+    "weights_gb":                    "resident weight footprint",
+    "activation_gb":                 "activation working set",
+    "prefill_comm_ms":               "collective time in prefill",
+    "decode_comm_ms":                "collective time in decode",
+    "replica_gpus":                  "GPUs a replica costs",
+}
+
+# Deliberately absent, because the serving projection reports none of them and
+# an objective that scores None reads as a failed search rather than a missing
+# model: energy (avg_power_w, joules_per_{output,total}_token) is not modelled
+# at all, and MFU / TFLOP-per-second / iteration time are training-mode figures
+# the serving path never emits.
+UNSUPPORTED_OBJECTIVES = {
+    "avg_power_w", "joules_per_output_token", "joules_per_total_token",
+    "mfu", "tflops_per_s_per_gpu", "iteration_ms",
 }
 
 DEFAULT_INFERENCE_OBJECTIVE = "decode_throughput_tps_per_gpu"
@@ -983,6 +1001,11 @@ _RE_PER_REQ_TPS = re.compile(rf"Per-request decode throughput:\s*{_FLOAT}", re.I
 _RE_STEP_PURE = re.compile(rf"Decode step latency \(pure\):\s*{_FLOAT}\s*ms", re.IGNORECASE)
 _RE_MIXED_FRAC = re.compile(rf"Mixed-step fraction:\s*{_FLOAT}\s*%", re.IGNORECASE)
 _RE_POLLUTION = re.compile(rf"TPOT pollution:\s*{_FLOAT}\s*%", re.IGNORECASE)
+_RE_STEP_MIXED = re.compile(rf"Decode step latency \(pure\):[^|]*\|\s*mixed:\s*{_FLOAT}\s*ms", re.IGNORECASE)
+_RE_WEIGHTS = re.compile(rf"Weights \([^)]*\):\s*{_FLOAT}\s*GB", re.IGNORECASE)
+_RE_ACTIVATION = re.compile(rf"Activation working set:\s*{_FLOAT}\s*GB", re.IGNORECASE)
+_RE_PREFILL_COMM = re.compile(rf"prefill:\s*TP-AR.*?total\s+{_FLOAT}", re.IGNORECASE)
+_RE_DECODE_COMM = re.compile(rf"decode:\s*TP-AR.*?total\s+{_FLOAT}", re.IGNORECASE)
 
 
 def _f(m) -> float | None:
@@ -1027,6 +1050,16 @@ def parse_inference_metrics(stdout: str) -> dict[str, Any]:
         out["mixed_step_fraction_pct"] = _f(m)
     if (m := _RE_POLLUTION.search(stdout)):
         out["tpot_pollution_pct"] = _f(m)
+    if (m := _RE_STEP_MIXED.search(stdout)):
+        out["decode_step_ms_mixed"] = _f(m)
+    if (m := _RE_WEIGHTS.search(stdout)):
+        out["weights_gb"] = _f(m)
+    if (m := _RE_ACTIVATION.search(stdout)):
+        out["activation_gb"] = _f(m)
+    if (m := _RE_PREFILL_COMM.search(stdout)):
+        out["prefill_comm_ms"] = _f(m)
+    if (m := _RE_DECODE_COMM.search(stdout)):
+        out["decode_comm_ms"] = _f(m)
     # Per-GPU and fleet forms the projector prints only one side of. Ranking on
     # a fleet total rewards spending more GPUs, so both are kept and named.
     gpus = out.get("replica_gpus") or 0
