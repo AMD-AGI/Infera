@@ -75,6 +75,7 @@ and the [CLI reference](cli.md).
 | Env | Default | What it does |
 |---|---|---|
 | `INFERA_NODEPORT_RANGE` | `30000-32767` | Port window every auto-allocated port must avoid (kv-event publishers, single or a per-DP-rank block, and the ATOM rendezvous port) — Kubernetes' NodePort range, where a Service claim makes the port unreachable from the node IP we advertise. Set `lo-hi` for a cluster that moved the range, `none` to drop the guard. Only `none`/`off` drop it — an empty or malformed value keeps the default. |
+| `INFERA_ENGINE_READY_TIMEOUT` | `1800` (s) | Maximum time the SGLang/vLLM wrapper waits for the child engine `/health` endpoint during startup. Increase for slow model storage or long JIT compilation; invalid values fall back to 1800. This is separate from disaggregation bootstrap and runtime watchdog timeouts. |
 
 ## Engine correctness
 
