@@ -20033,3 +20033,39 @@ shared machine (read 02:10:04):
 **Code problems:** none new (T+1837 §4 unchanged).
 **未定性:** unchanged from T+2497 §5.
 **新增 commit:** none by anyone since `dcc0182e` (mine, 01:41).
+
+---
+
+## R2 T+2647 — 2026-09-08 02:41 UTC
+
+**T+2647 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-08 02:40:14).
+
+**No-change record for our work. No hold of ours.**
+
+```
+squeue -u yihou   header only — no hold, no successor
+total runs        22          orchestrators 0
+last run write    2026-09-07 06:47:04  -> nothing of ours for 1193 min 10 s
+teammate writes   0 in the last 40 min  (thirty-ninth consecutive interval)
+commits           none by anyone since mine at 02:11
+shared machine (read 02:40:07):
+  cards       VRAM%  0 0 0 15 0 0 0 0  — card 3 in use again, not ours
+  containers  weihuan_flydsl_mbs3, xiaoming-dev, rc_26_7_902 — none ours
+```
+
+**Card 3 at 15 % is the same pattern as T+2497** and the same tenant is the
+likely holder, **but I did not re-read `rocm-smi --showpids` this cycle and so I
+am not asserting whose it is** — only that it is not ours, since we have no run,
+no orchestrator and no container.
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** — the T+1837 closing stands |
+| 已经耗时 | **~2661 min ≈ 44 h 21 min** |
+| 预估耗时 | **not computable — T+1837 §7** |
+| 可靠性 | **中** |
+
+**Code problems:** none new (T+1837 §4 unchanged).
+**未定性:** unchanged from T+2497 §5.
+**新增 commit:** none by anyone since `4ef23d0d` (mine, 02:11).
