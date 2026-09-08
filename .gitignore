@@ -67,3 +67,7 @@ spur-*.out
 # `--project`; ignored rather than remembered, since `launch.sh` refuses to
 # start a run while the package tree is dirty.
 .serena/
+# Generated debug copies of e2e-flow with validators disabled
+# (assets/lib/make_debug_package.py). Regenerated, never edited by hand.
+e2e-flow-noval*/
+e2e-flow-keep*/

@@ -1,0 +1,480 @@
+# Stage 3 — analysis, and the worksets.
+#
+# **Skeleton, frozen by the leader.** Kinds, wiring and graph shape are contract
+# (CONTRACT.md §1); bodies and validator substance are m3's owner's.
+#
+# `analyze-demo`'s design was judged sound — M3.1: "总体来说流程设计科学，质量较
+# 高，但是 handoff 需要规范化". So this stage keeps its three-step shape
+# (rank → identify → build) and changes what crosses between the steps.
+#
+# Two deletions, both mission items:
+#   * **`seed_table` is gone** (M3.2). It existed because stage 2's real output
+#     was not reachable; it now is. A 34-row synthetic seed is not merely
+#     unnecessary — it is one of the two artefacts filed under the name
+#     `kernel_table` in the mock set, and the more misleading of the two.
+#   * **the second `check_kernel_table` is gone** (M3.5). One definition, in
+#     `common.yaml`, used by m2 and m3 both.
+#
+# Definition order is load-bearing within a file: validators, kinds, leaves,
+# non-leaf.
+
+# --------------------------------------------------------------------------- #
+# 0. The agent.
+#
+# `kind: ai`, and only for `build_workset`. `rank` and `identify` keep
+# `agent: runner`: the evidence available to them is a symbol name and a table
+# of numbers, and a rule table plus an out-of-process finder is a better
+# instrument for that than a model. M3.8 asks whether that limits them —
+# recorded in `todo.md` T4, not changed here.
+#
+# **What this agent is for, and it is a narrow thing.** Two judgements a program
+# cannot make, per operator: which existing function is the correctness
+# reference, and which call is the incumbent whose speed a candidate will be
+# measured against. Everything else in the workset is generated —
+# `assets/build_workset.task/scaffold.py` writes the tree,
+# `assets/lib/forge_export.py` writes the KernelForge add-on, and the two
+# entrypoints are copied verbatim from `assets/build_workset.task/harness/`.
+#
+# **The entrypoints are package data and the agent may not touch them.** They
+# are the instrument that decides whether the agent's own output is correct and
+# how fast it is; an agent that writes its own oracle controls its own result,
+# and `check_workset_runs` — which re-runs them — would then be confirming a
+# claim with the claimant's own ruler. `check_workset_shape` compares the copy
+# against `harness/` byte for byte.
+#
+# `backend_entry` is the dotted form rather than an entry-point name: a task
+# package outside this repository cannot register an entry point in the
+# `agent_sys.backends` group without being installed, and this package is data.
+#
+# **This block used to say there was no `env` block**, on the grounds that
+# `shared.yaml` is the package's only declaration site and a second one is a
+# second place for a default to go stale. The reasoning is right and the premise
+# was never checked: `env_mgr/material.py:96` builds an agent's environment from
+# `_declared_env(agent_spec)` — the `env` of **the agent that is running** — and
+# `shared.yaml`'s 36 `E2E_*` are declared on `runner`. m1 measured it off rung
+# 1's transcript: a `kind: ai` agent's first command was
+# `env | grep -E '^(E2E_|AGENT_SYS_)'` and it returned seven `AGENT_SYS_*` and
+# **zero `E2E_*`**. So the cost of the second declaration site was already being
+# paid, in the form of every variable below silently taking its fallback.
+#
+# This matters more here than at most stages because this is the stage that
+# *measures*. It bites in the `${VAR:-default}` form and not the `set -u` form:
+# an absent variable that fails is loud, and an absent variable that defaults is
+# a wrong value with a clean transcript. That is rung 1's finding exactly — four
+# `--var`s were inert and the run still looked correct, because the sealed kit's
+# defaults happened to match.
+#
+# The mock path never showed it: `--var m3_agent=runner` swaps in the shared
+# program agent, which *is* `runner` and therefore does hold the block.
+#
+# Names and defaults below are `shared.yaml`'s verbatim where `runner` declares
+# the same variable, so the leader's agreement check has something to compare.
+# The five it does not declare are marked; they are read by this stage's bodies
+# and by `rank.py`, and they have never reached either.
+- module: agent
+  name: workset_builder
+  kind: ai
+  version: '1'
+  description: Turns resolved operator identities into runnable worksets, measured on this hardware.
+  env:
+    # The allocation, for `measure_in_container.sh`. It does **not** trust these
+    # over the handoff: `_agree_or_die` refuses a disagreement between the
+    # ambient value and `environment.yaml`, and takes the record when the
+    # ambient one is absent. That discipline is why the measurement path was
+    # correct while these were missing — it was reading the record, not this.
+    E2E_JOBID: '${jobid}'
+    E2E_NODE: '${node}'
+    E2E_TRANSPORT: '${transport:-auto}'
+    # **A reader this stage did not have until `0ca4635` added one.** Choosing
+    # the container's bind mount, `measure_in_container.sh` adopted
+    # `remote.sh`'s `${E2E_REMOTE_HOME:-$HOME}` — so the fix for one undeclared
+    # site fact introduced a second, and the checker caught it in the same
+    # commit that reported this stage complete.
+    #
+    # The fallback expands `$HOME` in the **local** shell, so it is right here
+    # only because `/home` is NFS the compute nodes mount — the very fact the
+    # visibility probe two lines of code away now measures rather than assumes.
+    # On a cluster where the login home is not visible from the node, this
+    # variable is the only fix, and `spur exec` lands with `HOME=/opt/spur`,
+    # which m1 met as `mkdir /opt/spur/.docker: permission denied` — a message
+    # naming neither docker nor HOME. Third agent to need it.
+    #
+    # `:-` and not `=`: m5 measured that the colon form fills a present-but-
+    # empty variable in both shells, so declaring it cannot reintroduce
+    # `60bd848`. Byte-identical to `runner`'s line and to m1's and m5's.
+    E2E_REMOTE_HOME: '${remote_home:-}'
+    # `mock_adapt.py`'s standalone `--new` path only; in the graph `deploy_kit`
+    # is a declared input and the record is inherited instead.
+    E2E_NODE_IP: '${node_ip}'
+    E2E_PORT_ROUTER: '${port_router:-8101}'
+    E2E_MOCK_ROOT: '${mock_root:-/shared_nfs/yihou/agent_sys/cheat_for_mock}'
+    # **The symbol-search index, read by `identify.task/identify.py:683`.**
+    # Undeclared here until 2026-09-05, and invisible until m2 repaired
+    # `check_agent_env`'s closure->assets mapping (`7507b74`): it matched by
+    # name-containment, so this agent was audited against `build_workset` alone
+    # and `rank.task` and `identify.task` were never scanned. One of three
+    # closures, for the life of the check.
+    #
+    # **Byte-identical to `shared.yaml:181`** — the leader's instruction, and
+    # m2's `E2E_MOCK_STAGES` defect is the reason: two declarations of one
+    # default drifted and silently changed which stages were mocked.
+    #
+    # **What its absence cost on the first real run: nothing, measured.** It
+    # feeds `kernel_finder`, which is resolution *level 2*; run
+    # `20260905T051226-559e5f` resolved all five operators at level 1
+    # (`trace_python_stack`, `resolve_ratio: 1.0`) from the kernel_table's own
+    # launcher frames, so the fallback was never reached. The body also guards
+    # it — `os.environ.get(...) or "/nonexistent"` — so an empty value makes a
+    # path that does not exist rather than an empty string. Declared because it
+    # is read and should be settable, not because it was breaking anything.
+    E2E_MAGPIE_ROOT: '${magpie_root:-/shared_nfs/chaox/Magpie}'
+
+    # ---- Below here `runner` declares nothing, so these have never arrived
+    # anywhere, not just here. Defaults are the ones the bodies already fall
+    # back to, so declaring them changes no behaviour and only makes them
+    # reachable from the command line.
+
+    # The measurement card. This is m1's T19 — an identifier bound on a shared
+    # host with no `--var` — for this stage, and declaring it is a partial
+    # answer rather than a fix: the default is still an index, and which cards
+    # are free is a site fact nothing here validates. `rocm-smi` immediately
+    # before use remains the only thing that knows.
+    # Empty, matching `runner` after `4c97c71`. m4 refused to import a real card
+    # as a package default because it makes a consumer's refuse-when-empty guard
+    # unreachable, and that is right.
+    #
+    # **This comment used to end by saying the body falls back to card 4** —
+    # `: "${E2E_MEASURE_GPU:=4}"`, so an unset var and an empty one both land on
+    # 4, described as "the residual T19". That stopped being true when
+    # `measure_in_container.sh:142` was changed to refuse: it now prints the
+    # node's live `rocm-smi` and exits 1 with `FIX: pass --var measure_gpu=<n>`.
+    # So there is no residual fallback and this variable is **required** wherever
+    # `build_workset` runs, mock or real. Found 2026-09-04 while writing rung 3's
+    # launch line — `todo.md` T45's class, in my own file, eight hours after
+    # filing it: a comment describing behaviour in another file, gone stale
+    # silently because nothing loads it. The rule I wrote there applies here —
+    # describe the code in front of you, or re-read the file you are describing
+    # at the moment you write the sentence.
+    E2E_MEASURE_GPU: '${measure_gpu:-}'
+    # **Deliberately empty, and not `runner`'s value if it takes one.** The
+    # body's fallback is `yihou_m3_measure_$$`, unique per invocation, which no
+    # static default can express — and a *shared* default would be a container
+    # name two concurrent measurements collide on. Empty here lets the body's
+    # `:=` fill it; naming one lets an operator override it.
+    E2E_MEASURE_CONTAINER: '${measure_container:-}'
+    # `scaffold.py` writes it into every operator's `gates.snr_db` and `rank.py`
+    # into the worklist. One number, two producers, and until now two silent
+    # 30.0s rather than one declared threshold.
+    E2E_SNR_THRESHOLD: '${snr_threshold:-30.0}'
+    # Provenance. `workset_id` names the artefact and `package_commit` is what
+    # `produced_by.commit` records — its fallback is the literal string
+    # `unknown`, so every workset this stage has produced claims to come from an
+    # unknown commit. Declaring it does not fix that; supplying it does.
+    # **The KernelForge fellow, and it is a fallback rather than the setting.**
+    # `forge_export.py` derives one per operator from the Definition's language
+    # tag, which is the only per-operator answer available: a single real
+    # workset carries Triton operators *and* a HIP one, so a launch-wide value
+    # would be correct for some and a silent substitution for the rest. That
+    # substitution is exactly the defect this replaced — forge accepts an
+    # unknown name, warns, and runs the campaign under `flydsl-fellow`.
+    #
+    # So this is read only when the tags settle nothing: none of them names a
+    # backend, or two of them do. Validated against
+    # `kernel_agents/fellows/constants.py`'s set; an unknown value is treated
+    # as absent and the generated wrapper refuses rather than passing it on.
+    #
+    # `:-` and empty, deliberately: a no-default form would make every
+    # `agent-sys show` of this package fail for all five stages until every
+    # launch line carried it, and the value is not needed on the path the tags
+    # already decide.
+    E2E_FORGE_FELLOW: '${forge_fellow:-}'
+    E2E_WORKSET_ID: '${workset_id:-workset}'
+    E2E_PACKAGE_COMMIT: '${package_commit:-unknown}'
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
+# 1. Validators.
+#
+# OWNER m3: placeholders with the right identity.
+# `../../analyze-demo/assets/check_worklist_shape.validator/`,
+# `check_identity_resolved.validator/`, `check_workset_shape.validator/` and
+# `check_workset_runs.validator/` are the bodies to carry across; each already
+# holds measured thresholds and the argument behind them.
+- module: validator
+  name: check_worklist_shape
+  version: '1'
+  brief: The worklist validates against its schema, its buckets are accounted for, and every exclusion carries a reason
+  dimension: completeness
+  strength: strong
+  inputs: [kernel_worklist]
+  args: {schema: kernel_worklist}
+  tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, analysis, m3]}
+
+- module: validator
+  name: check_identity_resolved
+  version: '1'
+  brief: Every candidate carries a resolution level, and an unresolved one says why rather than guessing
+  dimension: trustworthiness
+  strength: strong
+  inputs: [operator_identity]
+  args:
+    schema: operator_identity
+    # **0.0 on purpose.** The evidence available is the device symbol name, and
+    # for a Tensile GEMM dispatched from C++ there is no Python frame to find.
+    # A floor above zero would fail a correct analysis on exactly the kernels
+    # the next stage excludes anyway. What is checked is that uncertainty is
+    # *modelled* — `excluded_reason`, `resolution_hint` — not that it is absent.
+    min_resolve_ratio: '${min_resolve_ratio:-0.0}'
+  tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, analysis, m3]}
+
+- module: validator
+  name: check_workset_shape
+  version: '1'
+  brief: The workset validates against the merged schema and carries at least three shapes with runnable correctness and performance entrypoints
+  dimension: completeness
+  strength: strong
+  inputs: [operator_workset]
+  args:
+    schema: workset
+    # M3.7.4.1.2 — "保证在 ≥3". Three is the floor at which a performance claim
+    # is about an operator rather than about one shape.
+    min_shapes: 3
+    # The same 3, on a different count, and the difference is the whole point:
+    # `min_shapes` counts every shape and this counts the ones carrying a
+    # performance role. m4's packup refuses below three timed shapes (STEP 1,
+    # and `check_speedup_substantiated`'s `min_shapes_measured`), so a workset
+    # that satisfies only the first floor is one this stage would seal and the
+    # next would refuse.
+    min_performance_shapes: 3
+    require_entrypoints: [correctness, performance]
+  tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, analysis, m3]}
+
+- module: validator
+  name: check_workset_runs
+  version: '1'
+  brief: The workset's own one-click correctness and performance entrypoints run, on this hardware, and agree with the numbers it prints
+  dimension: trustworthiness
+  strength: strong
+  inputs: [operator_workset]
+  args:
+    # **This is the validator that makes M4.3.5 possible.** m4 is told to take
+    # its ground truth *strictly* from the workset; that instruction is only
+    # safe if something has already run the workset's own tests on this
+    # hardware. If this validator is ever weakened, m4's
+    # `check_speedup_substantiated` has to go back to re-measuring.
+    max_rsd: '${workset_max_rsd:-0.10}'
+    # **The knob that makes this evidence rather than a reading of evidence**
+    # (CONTRACT.md 4.0). `build_workset` builds *and* measures, so the numbers
+    # in the workset are the producer's own claim about itself; grading their
+    # shape would make the chain a claim about a claim. So the body re-measures
+    # this many shapes through the workset's own `--shape` selector and checks
+    # its own number against the recorded one. **0 is refused by the body**,
+    # not silently honoured.
+    reverify_shapes: '${workset_reverify_shapes:-1}'
+    # The measurement protocol floor, mission 3.2.7: five groups, ten iterations
+    # each, every group a fresh process. Fewer cannot distinguish a 5% win from
+    # the ~2% round-to-round spread a steady node already has.
+    min_groups: 5
+    min_iters_per_group: 10
+    # An operator whose entry point is still unknown legitimately cannot run
+    # yet. Failing the whole step for it would block the ones that are ready.
+    min_pass_ratio: '${workset_min_pass_ratio:-0.5}'
+    # **This validator re-measures on the node, so it needs the transport — and
+    # a validator declares no agent, so it is started with a closed
+    # environment.** Both names and both defaults are m1's
+    # (`m1_deploy.yaml:234-241`) so that one `--var` drives every validator that
+    # steps onto a node; a second spelling would be a second thing to keep in
+    # step. Measured 2026-09-04: without `transport_env`, `spur` exits with
+    # `Connection refused` and `require_visible_on_node` reports it as the
+    # workset not being visible — a filesystem claim for a missing variable,
+    # which cost four rung-0 runs across two stages.
+    transport_path: '${transport_path:-/usr/local/bin:/usr/local/sbin}'
+    transport_env: '${transport_env:-}'
+    # The card to re-measure on. No default, matching the producer: a card
+    # nobody chose is a card someone else may be serving from, and a shared
+    # card yields slower numbers rather than an error.
+    measure_gpu: '${measure_gpu:-}'
+  tags: {logic_source: external_dynamic, cost: gpu_hours, domain: [llm_e2e, analysis, m3]}
+
+# --------------------------------------------------------------------------- #
+# 2. The kinds.
+#
+# M3.6 — "所有 structure text 都必须有 schema 和对应的 validator，并且 schema 暴露
+# 给 producer agent". Both `structured_text` kinds carry `items/schema`, copied
+# at production time from `assets/schemas/`; the validator checks the copy is
+# byte-identical to the package's, so the artefact is self-describing *and*
+# provably not a private fork (CONTRACT.md §3.4).
+- module: handoff
+  name: kernel_worklist
+  version: '1'
+  description: The ranked, bucketed candidate list — which kernels are worth an optimisation attempt and why the rest are not.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    properties:
+      env: {type: string}
+      'worklist.csv': {type: string}
+  validators: [check_environment, check_worklist_shape]
+
+- module: handoff
+  name: operator_identity
+  version: '1'
+  description: Each candidate resolved from a device symbol to a source location and a launcher, with its resolution level recorded.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    properties:
+      env: {type: string}
+  validators: [check_environment, check_identity_resolved]
+
+# **The merged workset** — M3.7: "operator_workset 的定义融合 阶段3
+# operator_workset 和 阶段4 workset 为一个". The single largest item in the whole
+# refine, and it is on m4's critical path, so **m3 and m4 agree this kind's
+# contract before either writes a body.**
+#
+# Seven requirements, all M3.7's, all of them about making m4's job mechanical
+# rather than interpretive: executable over descriptive; yaml/json over
+# markdown; standard tools (Magpie) over re-derivation; **one-click correctness
+# and one-click performance tests covering every shape to be optimised, at least
+# three**; shaped like flashinfer-bench — a `definitions/<op_type>/<name>.json`
+# whose `reference` and `baseline` are Python source strings ending in
+# `def run(*args, **kwargs)`, with `inputs`/`outputs` mapping a name to
+# `{shape, dtype, description}`, which is what `check_workset_shape` enforces;
+# a KernelForge one-liner layered *over* that
+# base rather than replacing it; and one handoff per operator **deferred** to
+# `todo.md` — M3.7.7 itself says 目前可合成一个.
+#
+# **That flashinfer-bench clause used to end "for which `../../../../rank0/` is
+# this repository's own worked instance", and it is not in this repository.**
+# `git ls-files rank0` returns nothing — 20 files, 49 K, not ignored, just never
+# added, so it exists only in a working tree that happens to have it. The level
+# count was one short of the root besides, but correcting it would have fixed
+# nothing. Replaced by the keys rather than by a better path: the keys are what
+# `check_workset_shape` grades, and a pointer to an untracked directory should
+# not be repaired into a tidier pointer to an untracked directory.
+# `assets/build_workset.task/readme.md:98` carries the same reference **in an
+# agent's system prompt** — held while the full-real chain is live, since that
+# is the file the chain dispatches.
+#
+# `content_type: code`, because the workset's whole point is that it is
+# *runnable*: `code`'s single `codes` item leaves the interior to
+# `assets/schemas/workset.schema.json` and to the validators.
+- module: handoff
+  name: operator_workset
+  version: '1'
+  description: One runnable optimisation workset per candidate operator — definition, shapes, correctness test, performance test.
+  content_type: code
+  scope: fixed.required
+  # M4.4: "workset 相关的 validator 都统一放进 module3 的输出…但是不需要单独的."
+  # m4 declares none of these; it references the kind and inherits them.
+  validators: [check_environment, check_workset_shape, check_workset_runs]
+
+# --------------------------------------------------------------------------- #
+# 3. The leaves.
+#
+# `rank` and `identify` stay `kind: program`: the evidence available to them is
+# a symbol name and a table of numbers, and a rule table plus an out-of-process
+# finder is a better instrument for that than a model. M3.8 asks whether that
+# limits them — recorded in `todo.md`, not changed here.
+- module: task
+  name: rank
+  description: Rank and bucket the profiled kernels into a candidate worklist.
+  agent: '${m3_agent:-runner}'
+  handoffs: [profiling_evidence, kernel_worklist]
+  validators: []
+  task:
+    goal: Rank the profiled kernels and bucket them into candidates.
+    version: '1'
+    inputs: [profiling_evidence]
+    outputs: [kernel_worklist]
+    permissions:
+      grants:
+        - {path: handoffs/profiling_evidence, access: read, kind: profiling_evidence}
+        - {path: handoffs/kernel_worklist, access: write, kind: kernel_worklist}
+
+- module: task
+  name: identify
+  description: Resolve each candidate from a device symbol to a source location and a launcher.
+  agent: '${m3_agent:-runner}'
+  handoffs: [kernel_worklist, deploy_kit, operator_identity]
+  validators: []
+  task:
+    goal: Resolve each candidate to a source location and a launcher.
+    version: '1'
+    inputs: [kernel_worklist, deploy_kit]
+    outputs: [operator_identity]
+    permissions:
+      grants:
+        - {path: handoffs/kernel_worklist, access: read, kind: kernel_worklist}
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/operator_identity, access: write, kind: operator_identity}
+
+# Judgement work — which existing function is the correctness reference, and
+# which call is the incumbent a speedup is measured against — so it runs under
+# `workset_builder`. Its `readme.md` is a STEPS section (G4.2.1): ten ordered
+# commands, each with the condition that decides whether it worked. The agent
+# sequences them and reads what comes back; it does not invent a method, and the
+# two steps that are real judgement (STEP 3 and STEP 4) are the only two whose
+# acceptance criterion is not a command's exit code.
+#
+# **It builds *and* measures** (CONTRACT.md §4.0). There is no `verify_workset`
+# task: splitting bring-up from use across two agents is what M2.5 forbids, and
+# the same argument applies to splitting build from measure. STEP 7 and STEP 8
+# run the workset's own entrypoints, which is why this closure needs the shared
+# container `deploy_kit` names.
+- module: task
+  name: build_workset
+  description: Build one runnable optimisation workset per candidate operator.
+  # **Switchable, and this is the mock mechanism** (mission Brief item 2:
+  # "通过 mock ai agent"). A `kind: ai` task does not run `entry.sh` — the
+  # backend runs the readme through a model — so promoting this task to `ai`
+  # took it off the mock path entirely. Measured: the first full mock run
+  # sat at `build_workset: running` while an AI agent prepared to bring a
+  # model up for real, on a node passed in `--var`.
+  #
+  # `--var m3_agent=runner` swaps in the shared program agent, which does
+  # run `entry.sh`, which mocks. The default is the real agent, so a normal
+  # run is unchanged and the mock is the thing you have to ask for.
+  agent: '${m3_agent:-workset_builder}'
+  handoffs: [operator_identity, profiling_evidence, deploy_kit, operator_workset]
+  validators: []
+  task:
+    goal: Build a runnable workset per candidate operator.
+    version: '1'
+    inputs: [operator_identity, profiling_evidence, deploy_kit]
+    outputs: [operator_workset]
+    permissions:
+      grants:
+        - {path: handoffs/operator_identity, access: read, kind: operator_identity}
+        - {path: handoffs/profiling_evidence, access: read, kind: profiling_evidence}
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/operator_workset, access: write, kind: operator_workset}
+
+# --------------------------------------------------------------------------- #
+# 4. The stage.
+- module: task
+  name: m3_analysis
+  description: Stage 3 — turn the profile into a ranked candidate list and a runnable workset per operator.
+  handoffs: [profiling_evidence, deploy_kit, kernel_worklist, operator_identity, operator_workset]
+  validators: []
+  task:
+    goal: Turn the profile into ranked candidates and runnable worksets.
+    version: '1'
+    inputs: [profiling_evidence, deploy_kit]
+    outputs: [operator_workset]
+    permissions:
+      grants:
+        - {path: handoffs/profiling_evidence, access: read, kind: profiling_evidence}
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/kernel_worklist, access: write, kind: kernel_worklist}
+        - {path: handoffs/operator_identity, access: write, kind: operator_identity}
+        - {path: handoffs/operator_workset, access: write, kind: operator_workset}
+    subgraph:
+      - {closure: rank, froms: []}
+      - {closure: identify, froms: [rank]}
+      - {closure: build_workset, froms: [identify], is_end: true}
