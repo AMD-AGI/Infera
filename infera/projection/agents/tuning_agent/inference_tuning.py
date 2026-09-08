@@ -130,21 +130,28 @@ class InferenceTrialConfig:
 # Legality
 # ---------------------------------------------------------------------------
 
-def _tier_tops(batch: int, dp: int, n: int = 3) -> list[int]:
+def _tier_tops(batch: int, dp: int, n: int = 6) -> list[int]:
     """Concurrencies at the top of an attention-DP tier, largest first.
 
     With attention DP a rank holds ``ceil(concurrency / dp)`` sequences, so TTFT
     steps up at each multiple of ``dp`` and then improves across the tier. The
     best concurrency is therefore always a multiple of ``dp``; anything else
     pays a tier's latency while using less of it.
+
+    The ladder reaches well below the batch size because admission is the knob
+    that buys TPOT back. A large batch that misses its TPOT budget at full
+    admission is usually not the wrong batch -- it is the right batch admitting
+    too many sequences at once, and only a lower tier reveals that.
     """
     if dp <= 1 or batch < dp:
         return [batch] if batch > 0 else []
-    top = (batch // dp) * dp
     out: list[int] = []
-    while top >= dp and len(out) < n:
-        out.append(top)
-        top -= dp * max(1, (batch // dp) // 4)
+    for frac in (1.0, 0.75, 0.5, 0.375, 0.25, 0.125):
+        top = (int(batch * frac) // dp) * dp
+        if top >= dp and top not in out:
+            out.append(top)
+        if len(out) >= n:
+            break
     return out
 
 
@@ -579,6 +586,12 @@ def build_inference_seed_plan(
     # memory before its throughput is ever read. No server runs that way, so the
     # seeds carry a scheduler budget rather than treating it as a later knob.
     base_token_budget = 8192 if in_len >= 16384 else 0
+    # What the scheduler actually has to compute per prompt, which under prefix
+    # reuse is a small tail of it: at 92% reuse a 130k prompt is a ~10k prefill.
+    # A budget that covers the tail retires a prompt in one step; a smaller one
+    # splits it across steps that then land in decode and inflate TPOT.
+    effective_prompt = max(1, int(in_len * (1.0 - profile["prefix_cache_hit_rate"])))
+    covering_budget = 1 << max(11, (effective_prompt - 1).bit_length())
     # Dense attention over a 130k prompt is quadratic and costs this model a
     # thirteen-minute first token, so a checkpoint that declares an indexer is
     # seeded with it rather than being asked to rediscover its own architecture.
@@ -656,6 +669,12 @@ def build_inference_seed_plan(
     #     best point always sits at the top of a tier, and a plan that samples
     #     round numbers lands mid-tier and reports a worse configuration than
     #     exists.
+    #
+    #     Both chunked and unchunked are seeded, because which one wins depends
+    #     on how much of the prompt is actually new. Chunking is what makes a
+    #     cold 130k prompt survivable, but under heavy prefix reuse only a small
+    #     tail is ever computed -- at 92% reuse a 130k prompt is a ~10k prefill
+    #     -- and then chunking it just buys more steps for no benefit.
     if "fp4" in leg.weight_dtype:
         for dp in [d for d in leg.attention_dp if d > 1 and base_tp % d == 0]:
             for bs in [b for b in leg.batch_size if b in (64, 128, 256)]:
@@ -664,6 +683,15 @@ def build_inference_seed_plan(
                            weight_dtype="fp4", linear_weight_dtype="mxfp4",
                            kv_cache_dtype="fp8", chunked_prefill_size=2048,
                            max_num_batched_tokens=2048))
+                    add(mk(batch_size=bs, attention_dp=dp, max_concurrency=mc,
+                           weight_dtype="fp4", linear_weight_dtype="mxfp4",
+                           kv_cache_dtype="fp8"))
+                    if covering_budget != base_token_budget:
+                        add(mk(batch_size=bs, attention_dp=dp,
+                               max_concurrency=mc, weight_dtype="fp4",
+                               linear_weight_dtype="mxfp4",
+                               kv_cache_dtype="fp8",
+                               max_num_batched_tokens=covering_budget))
         # Elementwise fusion and the TP-collective optimizations are cheap and
         # compound with the above; kept as a separate point so their effect is
         # attributable rather than baked into every large-batch trial.
