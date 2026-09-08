@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import ExitStack
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -39,6 +40,11 @@ def _run_harness(monkeypatch: pytest.MonkeyPatch, tmp_path, *, settle_error=None
     monkeypatch.setattr(cli_main, "_emit_graph", lambda *a, **k: None)
     monkeypatch.setattr(cli_main, "_describe", lambda *a, **k: None)
     monkeypatch.setattr(cli_main, "_report", lambda *a: 0)
+    # `_real_run` writes the server registry path into the real `os.environ` --
+    # that is the only channel a recipe subprocess reads it from. Claiming the
+    # variable through `monkeypatch` is what puts it back afterwards, so the
+    # run under test cannot leak a path into the tests that follow it.
+    monkeypatch.setenv(cli_main.REGISTRY_ENV_VAR, "")
 
     args = SimpleNamespace(
         package=str(tmp_path),
@@ -52,7 +58,8 @@ def _run_harness(monkeypatch: pytest.MonkeyPatch, tmp_path, *, settle_error=None
 def test_real_run_shuts_down_executors_after_reporting(monkeypatch, tmp_path) -> None:
     args, stream, runner, monitors = _run_harness(monkeypatch, tmp_path)
 
-    assert cli_main._real_run(args, stream) == 0
+    with ExitStack() as stack:
+        assert cli_main._real_run(args, stream, stack) == 0
     monitors.stop.assert_called_once_with(timeout=5.0)
     runner.shutdown.assert_called_once_with()
 
@@ -63,7 +70,8 @@ def test_real_run_shuts_down_executors_when_settle_raises(monkeypatch, tmp_path)
         monkeypatch, tmp_path, settle_error=failure
     )
 
-    with pytest.raises(RuntimeError, match="settle failed"):
-        cli_main._real_run(args, stream)
+    with ExitStack() as stack:
+        with pytest.raises(RuntimeError, match="settle failed"):
+            cli_main._real_run(args, stream, stack)
     monitors.stop.assert_called_once_with(timeout=5.0)
     runner.shutdown.assert_called_once_with()
