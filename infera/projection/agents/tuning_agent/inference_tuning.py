@@ -130,6 +130,24 @@ class InferenceTrialConfig:
 # Legality
 # ---------------------------------------------------------------------------
 
+def _tier_tops(batch: int, dp: int, n: int = 3) -> list[int]:
+    """Concurrencies at the top of an attention-DP tier, largest first.
+
+    With attention DP a rank holds ``ceil(concurrency / dp)`` sequences, so TTFT
+    steps up at each multiple of ``dp`` and then improves across the tier. The
+    best concurrency is therefore always a multiple of ``dp``; anything else
+    pays a tier's latency while using less of it.
+    """
+    if dp <= 1 or batch < dp:
+        return [batch] if batch > 0 else []
+    top = (batch // dp) * dp
+    out: list[int] = []
+    while top >= dp and len(out) < n:
+        out.append(top)
+        top -= dp * max(1, (batch // dp) // 4)
+    return out
+
+
 def min_draft_cost(acceptance: float) -> float:
     """Cheapest draft model that could plausibly hit this acceptance rate.
 
@@ -625,6 +643,40 @@ def build_inference_seed_plan(
         for dp in [d for d in leg.attention_dp if d > 1 and base_tp % d == 0]:
             add(mk(batch_size=32, weight_dtype="fp4", linear_weight_dtype="mxfp4",
                    kv_cache_dtype="fp8", attention_dp=dp))
+    # 2d) The high-throughput region. The deterministic plan used to stop at
+    #     batch 64 with an unchunked prompt, which at agentic context is not a
+    #     configuration that runs: batch 64 unchunked costs a ~50 s first token,
+    #     so the whole large-batch region read as infeasible and only the agent
+    #     stage ever reached it. Chunking the prompt is what makes these legal.
+    #
+    #     Concurrency is seeded at tier boundaries rather than at round numbers.
+    #     Attention DP makes TTFT a sawtooth in concurrency with period equal to
+    #     the DP degree -- the tier is ceil(concurrency / dp) sequences per rank,
+    #     TTFT jumps at each boundary and then falls across the tier -- so the
+    #     best point always sits at the top of a tier, and a plan that samples
+    #     round numbers lands mid-tier and reports a worse configuration than
+    #     exists.
+    if "fp4" in leg.weight_dtype:
+        for dp in [d for d in leg.attention_dp if d > 1 and base_tp % d == 0]:
+            for bs in [b for b in leg.batch_size if b in (64, 128, 256)]:
+                for mc in _tier_tops(bs, dp):
+                    add(mk(batch_size=bs, attention_dp=dp, max_concurrency=mc,
+                           weight_dtype="fp4", linear_weight_dtype="mxfp4",
+                           kv_cache_dtype="fp8", chunked_prefill_size=2048,
+                           max_num_batched_tokens=2048))
+        # Elementwise fusion and the TP-collective optimizations are cheap and
+        # compound with the above; kept as a separate point so their effect is
+        # attributable rather than baked into every large-batch trial.
+        best_dp = max([d for d in leg.attention_dp if base_tp % d == 0] or [1])
+        for bs in [b for b in leg.batch_size if b in (64, 128)]:
+            add(mk(batch_size=bs, attention_dp=best_dp,
+                   max_concurrency=(_tier_tops(bs, best_dp) or [None])[0],
+                   weight_dtype="fp4", linear_weight_dtype="mxfp4",
+                   kv_cache_dtype="fp8", chunked_prefill_size=2048,
+                   max_num_batched_tokens=2048, fused_kernels=True,
+                   quick_reduce=(base_tp > 1),
+                   fuse_rmsnorm_allreduce=(base_tp > 1),
+                   attention_backend="aiter"))
     # 3) batching / concurrency (throughput)
     for bs in [b for b in leg.batch_size if b in (4, 16, 64)]:
         add(mk(batch_size=bs))
