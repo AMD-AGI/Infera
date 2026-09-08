@@ -74,6 +74,7 @@ __all__ = [
     "place_zone",
     "prepare",
     "permissions_enforced",
+    "permissions_env",
     "prepare_validation",
 ]
 
@@ -101,6 +102,14 @@ _UNSET_READS_AS = "1"
 #: enforcement**, which is why the set is generous rather than just `"0"`.
 _FALSE = frozenset({"", "0", "false", "no", "off"})
 
+#: The spelling `permissions_env` uses to say *enforce*. One member of `_FALSE`,
+#: promoted to a name because it is now written into another process's
+#: environment rather than only read out of ours — asserted below so a future
+#: edit to `_FALSE` cannot silently make the forwarded value mean its opposite.
+_ENFORCED_READS_AS = "0"
+assert _ENFORCED_READS_AS in _FALSE
+assert _UNSET_READS_AS not in _FALSE
+
 
 def permissions_enforced(environ: Mapping[str, str] | None = None) -> bool:
     """**The only place the switch is read.** A switch with three readers is three.
@@ -127,6 +136,27 @@ def permissions_enforced(environ: Mapping[str, str] | None = None) -> bool:
     """
     env = os.environ if environ is None else environ
     return env.get(NO_PERMISSIONS_ENV_VAR, _UNSET_READS_AS).strip().lower() in _FALSE
+
+
+def permissions_env(environ: Mapping[str, str] | None = None) -> dict[str, str]:
+    """This host's answer, spelled for a child that **cannot inherit** it.
+
+    A container does not share our environment, so the one place `--docker`
+    cannot simply read the switch is the one place it must be restated. This is
+    that restatement, and it lives here so the name and the default keep the
+    single writer `permissions_enforced` gave them: `env_mgr/container.py`
+    built `-e AGENT_SYS_NO_PERMISSIONS={os.environ.get(..., '1')}`, which
+    re-spelled both, and a container could then disagree with its host about
+    whether permissions are enforced while looking identical.
+
+    **The decision is forwarded, not the string.** Passing the raw value
+    through would forward a spelling this module has to interpret — and a host
+    that said ``off`` would hand the container a word whose meaning depends on
+    `_FALSE` matching on both sides. Two canonical spellings instead, so the
+    container reaches the same `bool` by construction.
+    """
+    value = _ENFORCED_READS_AS if permissions_enforced(environ) else _UNSET_READS_AS
+    return {NO_PERMISSIONS_ENV_VAR: value}
 
 
 #: Where the staged task package went, for whoever launches the body.

@@ -8,7 +8,9 @@ it.  Host SSH keys and Claude credentials are detected and bind-mounted at
 runtime (never copied into the image).
 
 This module lives above the decoupling wall: it imports nothing from the
-shipped installer subsystem and nothing from the isolation / domain subsystem.
+shipped installer subsystem.  It reaches `prepare` for one thing and one only —
+the permissions switch's canonical spelling, which no other module may write —
+and does so lazily, inside `start`, so importing this one still costs nothing.
 """
 
 from __future__ import annotations
@@ -134,6 +136,10 @@ class ContainerManager:
             log.info("image %s not found, building it", self.image)
             self.build()
 
+        # Lazy: see the module docstring. The container needs the switch —
+        # it cannot inherit ours — but it may not be *re-spelled* here.
+        from env_mgr.prepare import permissions_env
+
         docker = self._docker_bin()
         home = os.environ.get("HOME", os.path.expanduser("~"))
         container_home = "/home/agent"
@@ -187,14 +193,15 @@ class ContainerManager:
             "-e",
             "GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=accept-new",
             "-e",
-            f"AGENT_SYS_NO_PERMISSIONS={os.environ.get('AGENT_SYS_NO_PERMISSIONS', '1')}",
-            "-e",
             "AGENT_SYS_REPO=/opt/Infera",
             "-e",
             f"INFERA_AGENT_SYSTEM_WORKROOT={workroot}",
             "-v",
             f"{workroot}:{workroot}",
         ]
+
+        for name, value in permissions_env().items():
+            cmd += ["-e", f"{name}={value}"]
 
         if self.detect_ssh:
             ssh_dir = os.path.join(home, ".ssh")
