@@ -1,0 +1,77 @@
+run 8
+written_at        2026-09-06T20:41:15Z   (read with date -u)
+launched          2026-09-06T20:39:56Z
+run dir           /data/yihou/agent_sys_runroot/runs/20260906T203956-3bf8c2
+orchestrator pid  3203507   ppid 1 (setsid)
+identity          bound via the agent child's readlink /proc/<child>/cwd, which
+                  names this run dir. NOT mtime, NOT "newest".
+
+CHANGES FROM RUN 7 -- exactly these
+  --var remote_home=/data/yihou                     NEW
+  --var transport_env=E2E_REMOTE_HOME=/data/yihou   NEW
+  work_root/scratch_root/validate_work_root  -> /data/yihou/e2e_flow8[/kfo|/validate]
+  container                                  -> yihou_e2e_chain8
+  --var count guard 31 -> 33 (control run: EXPECT_VARS=34 aborts)
+
+WHY -- run 7's only refusal
+  check_workset_runs REFUSED operator_workset at 20:18:48.998, zone 43 files,
+  naming gemm_aiter_bf16gemm_bf16_tn/case_001. Cause:
+  measure_in_container.sh:277 derives its bind mount from
+      case "$ROOT" in /shared_nfs/*) ;; /home/*/*) ;; *) need E2E_REMOTE_HOME
+  and this host's root is /data/yihou/... -- neither branch.
+  The build_workset AGENT exported E2E_REMOTE_HOME=/data/yihou by hand (in its
+  transcript), so the producer passed; the VALIDATOR runs with a closed
+  environment and could not. The artefact is fine.
+  BOTH vars are needed and are not redundant: remote_home reaches the four task
+  env blocks, transport_env reaches the three validators
+  (check_deploy_serves:143, check_workset_runs:238,
+  check_speedup_substantiated:197 all parse NAME=VALUE pairs identically).
+
+MEASURED, NOT RELAYED
+  20:21:22Z  docker run --rm -v /data/yihou:/data/yihou alpine -> MOUNT_OK,
+             READ_OK, and it listed the exact zone path the refusal named.
+  20:26:31Z  HOME=/data/yihou docker ps -> OK; HOME=/data/yihou docker run with
+             that mount -> OK; /data/yihou writable. This is the side effect of
+             transport_env on m1's check_deploy_serves, which is currently
+             green; the known failure mode (unwritable ~/.docker, which m1 met
+             on the other cluster as /opt/spur/.docker) is absent here.
+             That is the failure mode I know about. It is not proof of no other.
+
+AUTHORITY FOR THIS LAUNCH -- stated plainly
+  I asked the leader for a decision on (a) accepting the transport_env side
+  effect and (b) full rerun vs replay, and recommended "accept" and "full
+  rerun". No answer arrived in ~13 minutes. Run 7 self-terminated at 20:38:49
+  and left eight idle MI355X cards. The standing rule is that idle GPU is
+  intervened on at first sighting, and I hold launch authority, so I launched
+  my own recommendation. IF EITHER DECISION SHOULD HAVE GONE THE OTHER WAY,
+  THAT IS MINE, NOT THE LEADER'S.
+
+RUN 7's TERMINATION -- the 1200 s change behaving exactly as designed
+  20:18:49  validation_failed escalated to root task 3a2e4340 (main, no agent,
+            so no recipient)
+  20:38:49  "run complete; the run did NOT finish: build_workset:
+            output_validating, handoff operator_workset: invalid"
+  1200 s to the second. Self-terminating: zero orphan agents, zero leftover
+  containers, all 8 cards 0 %, run tree preserved. The two foreign containers
+  rc_26_7_902 and xiaoming-dev were untouched throughout.
+
+PRE-REGISTERED, BEFORE ANY RESULT
+  If run 8 reaches build_workset and check_workset_runs PASSES, that shows the
+  two vars fixed the mount. It shows nothing about the engine question.
+  If it REFUSES with the same mount message, the vars did not reach the
+  validator and the next step is the narrow package edit (add remote_home to
+  check_workset_runs's args), NOT a third rerun -- replay from run 8's sealed
+  handoffs instead.
+  Engine denominator carried forward, unchanged by run 7's success:
+      measurement window (with_stack=0)   5 of 5 clean
+      stack window       (with_stack=1)   2 of 4 clean
+
+DETECTION STILL ARMED
+  After the stack window closes, count "Stop profiling" lines in the engine log
+  against the rank count. Fewer means the engine is dead. If it fires, run
+  capture_engine_stack.sh BEFORE stopping any container.
+
+UNCHANGED  jobid=29313 (RUNNING, 17:20 left at launch), --timeout 21600,
+           --stall-after 1200, transport=local, tp=4, expect_ranks=4,
+           mock_stages=none, trace_end_ms=120000, bench_rounds=3, adhoc_cases=3,
+           forge_mock=1, kernel_table_min_launchers=0, setsid, env -u PYTHONPATH.

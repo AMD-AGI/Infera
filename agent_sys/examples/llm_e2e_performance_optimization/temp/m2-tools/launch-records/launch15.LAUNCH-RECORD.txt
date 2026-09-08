@@ -1,0 +1,63 @@
+run 11
+launched          2026-09-07T04:53:27Z
+run dir           /data/yihou/agent_sys_runroot/runs/20260907T045327-13a18e
+orchestrator pid  3140102   ppid 1 (setsid)
+identity          bound via the agent child's readlink /proc/<child>/cwd
+                  parent of the orchestrator is /sbin/init -- confirming it is
+                  mine and not another owner's script, which is the check that
+                  would have prevented tonight's cdd3f7 misattribution
+
+CHANGES FROM RUN 10
+  --stall-after 1800   was 5400
+  work_root/scratch_root/validate_work_root -> /data/yihou/e2e_flow11[/kfo|/validate]
+  container                                 -> yihou_e2e_chain11
+  AND THE PACKAGE ITSELF CHANGED: commit e248c76f, two brief edits, landed
+  BEFORE this launch so the staged tree carries them.
+
+WHY 1800, and it is not a compromise between 900 and 5400
+  No threshold has ever helped this effort. Three deaths, three mechanisms:
+    runs 7, 8   validation refused -> escalation to an agentless root task.
+                The timer collected the body 20 minutes late. Any value: same.
+    run 6       engine wedged. AIPerf's 900 s timeout bursts wrote into the run
+                tree seconds after each stall deadline and RE-FED the detector.
+                A threshold cannot win against a failure that generates activity.
+    run 10      seal refused, agent already exited. Died 23:58:13, found 04:31.
+                --stall-after 5400 made that blind window 4h33m instead of 20 min.
+  deathwatch.sh now covers what a threshold cannot, in one poll.
+  So the threshold's only remaining job is the unknown quiet interval in the
+  three stages that have never run: apply_patch, integrate_and_verify, packup.
+  1800 is longer than any stage that has ever run here and short enough that a
+  quiet death is found within one poll cycle rather than four hours.
+  The lead offered 5400 and did not override; this number is mine.
+
+PRE-REGISTERED, BEFORE ANY RESULT
+  1. build_workset's baseline should now be the stock module + appended run().
+     If it is, apply_patch's 828 refusal should NOT fire. If build_workset still
+     emits a wrapper, the brief edit did not reach the agent and that is a
+     finding about briefs, not about apply_patch.
+  2. The README seal should no longer refuse on an empty section. If it refuses
+     anyway, my reading of sections() is wrong somewhere.
+  3. Neither edit touches the engine. Stack window stands at 3 hits in 5 real
+     attempts; run 11's _on is attempt 6, and a hit is a draw, not a fix.
+  4. If this run dies at a NEW rung, 1800 is not implicated unless the death is
+     a genuinely quiet one that a larger value would have survived -- and that
+     case has not happened yet in eleven runs.
+
+DETECTION ARMED
+  - After the stack window: count "Stop profiling" in the engine log against the
+    rank count. Fewer means the engine is dead; take the engine stack BEFORE
+    stopping any container (capture_engine_stack.sh).
+  - Every poll: bash deathwatch.sh <run dir> --quiet. Silence means no strong
+    signal; it is NOT a claim of health.
+
+PRE-LAUNCH STATE, read 04:53:01Z
+  m35's cdd3f7 orchestrator gone (self-terminated ~04:52); zero orphan agents
+  under any run root; only rc_26_7_902 and xiaoming-dev running, both foreign,
+  neither holding GPU; all 8 cards VRAM 0%; /data/yihou/e2e_flow11 did not exist;
+  jobid 29313 RUNNING with 9:07:03 left.
+
+UNCHANGED  gpu=4, measure_gpu=4, remote_home=/data/yihou,
+           transport_env=E2E_REMOTE_HOME=/data/yihou, trace_end_ms=120000,
+           bench_rounds=3, adhoc_cases=3, forge_mock=1,
+           kernel_table_min_launchers=0, --timeout 21600, 34 --var (guard passed),
+           setsid, env -u PYTHONPATH.

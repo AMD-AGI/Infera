@@ -1,0 +1,801 @@
+# `deploy_kit` — the layout, as a document rather than as code
+#
+# Mission M1.1: *"handoff 应该有自己文件格式和目录格式要求，应该写进一个单独的
+# yaml 文件说明。并且有 validator 根据此标准检查，该 validator 应该是程序化的"*.
+#
+# This file **is** that standard. `check_deploy_kit` is an interpreter for it and
+# holds no rule of its own: every path, floor, pattern and message below is read
+# from here at run time, so the thing a kit author reads and the thing that
+# grades the kit are one file. The producer's readme quotes this file by name for
+# the same reason.
+#
+# **Not a JSON Schema, on purpose.** JSON Schema describes a *document*; what has
+# to be described here is a *directory* — which files exist, which directories
+# are non-empty, how many `.json` files carry evidence, which regex must and must
+# not appear across a subtree. The one genuine document inside the kit,
+# `environment.yaml`, does get a JSON Schema, and this file points at it
+# (`entries[].schema`) rather than restating it.
+#
+# Written against the real sealed kit at
+# `$E2E_MOCK_ROOT/stage1-deploy/deploy_kit/` — 38 files, produced by a real
+# bring-up on this cluster on 2026-09-02. Every floor below is at or under what
+# that kit actually carries; nothing here is aspirational.
+
+schema_version: 1
+
+# --------------------------------------------------------------------------- #
+# 1. Anchors — the two roots everything else is relative to.
+#
+# `deploy_kit` is `content_type: code`, whose single required item is `codes`.
+# Two things live directly under it and they are different in kind:
+#
+#   * `environment.yaml` — the flow's environment record (CONTRACT.md §2). It is
+#     **not** inside the packup directory, because it belongs to the *handoff*
+#     and travels to m2/m3/m4/m5, while the packup directory is one deployment's
+#     reproduction kit. `code`-typed consumers read `codes/environment.yaml` at a
+#     path that does not change when the model does.
+#   * the packup directory — named `<experiment>.packup_<YYYYMMDD>` by the packup
+#     skill, so its name carries the model and the date and cannot be a fixed
+#     string here.
+#
+# **Exactly one packup directory.** Both other cardinalities are real failures:
+# zero means the kit was written somewhere the layout does not put it, and two
+# means a reproducer has to guess which one worked.
+anchors:
+  # The content root itself. Needed because the seal's own requirement lives
+  # *above* `items/`, and until 2026-09-04 nothing in this file could name that
+  # level — see the `README.md` entry below.
+  content:
+    path: '.'
+    kind: dir
+
+  codes:
+    path: items/codes
+    kind: dir
+  packup:
+    under: items/codes
+    kind: dir
+    name_pattern: '\A.+\.packup_\d{8}\Z'
+    cardinality: exactly_one
+    why: >-
+      The packup skill's folder naming. Anchored at both ends and the date is
+      exactly eight digits, so `something.packup_soon` is not a packup and
+      saying so is free.
+
+# --------------------------------------------------------------------------- #
+# 2. Entries — the files and directories the kit must carry.
+#
+# `min_content_lines` counts **content lines**: non-blank, not a heading, not a
+# code-fence marker. Headings are excluded deliberately — a document that is four
+# `##` lines and nothing under them is exactly the failure a floor exists to
+# catch, and counting the headings would let it pass.
+entries:
+
+  # ---- the handoff's own record -------------------------------------------- #
+  # M1.1.1: *"不要把可以结构化的文档放在 md 里，比如 environment, 可以有单独的
+  # yaml 文件，并且通过 json schema 约束"*. This entry is that sentence. The
+  # `schema` key names a file in this same directory, loaded through
+  # `assets/lib/schema.py` — the one loader the producer also calls, so the
+  # producer and the validator cannot be reading two different documents.
+  # **The handoff's own README, and the file this layout could not see.**
+  # Added 2026-09-04 after m2 traced an unexplained `output_absent` to it: the
+  # seal refuses a `code` handoff whose content root has no `README.md`
+  # (`handoff/content.py:69-74`, `readme_sections=("Purpose","Interface",
+  # "Boundary")`), and **nothing here looked above `items/`.**
+  #
+  # So `check_deploy_kit` could return **green on a kit that cannot be sealed** —
+  # which is exactly what happened: two real bring-ups produced kits complete in
+  # `items/` and missing the one file every handoff must open with. One agent
+  # wrote it, two did not, because `deploy_and_prove.task/readme.md:306` draws it
+  # in a diagram and no criterion required it. *Demonstrated possible, never
+  # required* — the same shape as T27 item 1, and this time it cost a seal.
+  #
+  # **The defect is the gap between two checkers, not either one:** `content.py`
+  # grades the handoff's README and not the interior; this file graded the
+  # interior and not the handoff's README. Worth stating because the next pair of
+  # checkers will have a gap somewhere else.
+  #
+  # The three headings are `content.py`'s, not a choice made here — restating
+  # them anywhere else would be a second authority that can disagree.
+  - path: README.md
+    anchor: content
+    kind: file
+    required: true
+    require_headings: ['Purpose', 'Interface', 'Boundary']
+    brief: >-
+      The handoff's own README, at the content root beside `items/`. **Not the
+      packup's README** — that one is inside `items/codes/<packup>/` and answers
+      "did this deployment work"; this one answers "what is this artefact and
+      what may a consumer rely on". `handoff/content.py` refuses to seal a `code`
+      handoff without it, with all three of `Purpose`, `Interface` and
+      `Boundary`, so a kit missing it is not a kit — it is a directory that
+      cannot become one.
+
+  - path: environment.yaml
+    anchor: codes
+    kind: file
+    required: true
+    schema: environment
+    brief: The flow's environment record — the fixed half and the runtime half, per CONTRACT.md §2.
+    # **What the schema cannot say** (todo.md T19/T23). JSON Schema relates a
+    # value to a constant; this relates two fields of the same document, and no
+    # keyword expresses `len(a) <= b`. So it is declared here, where every other
+    # rule this kit is graded by already lives.
+    #
+    # Why it is worth a rule at all: `gpu_count` is *cards present on the node*
+    # and `gpu_devices` is *the indices this deployment took*, so the second can
+    # never be longer than the first. Rung 1 recorded `gpu_count: 8` on a node
+    # holding four cards for another tenant and passed 21 validators, because
+    # `gpu_devices` did not exist and nothing related the record's two halves.
+    #
+    # **Record-internal on purpose.** The alternative considered was comparing
+    # `environment.yaml` against `results/preflight.json` — rejected, because
+    # `preflight.json` is not a required member of `results/` and requiring it
+    # would refuse every kit that does not write one. *Widening a requirement to
+    # enable a check* is the move this file should not make.
+    invariants:
+      - name: devices_within_count
+        count_of: fixed.gpu_devices
+        at_most: fixed.gpu_count
+        # **Presence is NOT enforced yet, and this is one word from being so.**
+        # Change `on_absent` to `fault` and a real bring-up that omits the field
+        # is refused, with `required_unless` exempting a replay — a replay
+        # describes another day's deployment on another host and cannot know
+        # which devices *it* took, the same distinction `environment.md`'s
+        # rendering comparison draws two entries below. Both paths are
+        # implemented and tested.
+        #
+        # It is off because turning it on **refuses the sealed kit**, measured:
+        # `gate.sh`'s positive fixture is the real 2026-09-02 kit with
+        # `replayed_from` cleared on purpose (so the strict path stays tested),
+        # and that record predates this field, so the gate went red on a correct
+        # artefact. Whether an artefact that can never be re-produced becomes
+        # invalid is not a validator author's call to make quietly — the schema
+        # deliberately left the field optional, and this is the same decision.
+        #
+        # The `<=` relation below is unaffected and applies whenever the field
+        # is present, which is the half that catches a record that *lies*.
+        #
+        # **FLIP IT WHEN: every producer in the flow writes this field.** That
+        # is the condition, and it is why this is a decision with an expiry
+        # rather than a permanent shrug. Today absence is ambiguous — it means
+        # either *"this record predates the field"* (the sealed kit, honestly)
+        # or *"this producer did not record what it took"* (worth failing on),
+        # and a rule cannot tell them apart. Once no producer omits it, only the
+        # second meaning is left and `fault` costs nothing correct. m1 is done;
+        # the condition is m3/m4/m5, whenever their stages write records
+        # carrying a device set.
+        #
+        # **Not by giving the gate's fixture a `gpu_devices`.** That was
+        # considered and rejected by the leader, on the grounds it is changing
+        # the test to fit the rule — the same move as widening a bar to make a
+        # measurement pass. The sealed 2026-09-02 record is *evidence*: it was
+        # correct when written, and a rule that retroactively invalidates a
+        # correct artefact is a rule about our calendar rather than about the
+        # artefact.
+        on_absent: skip
+        required_unless: runtime.replayed_from
+        err: >-
+          fixed.gpu_devices is absent. A bring-up knows which device indices it
+          took and the record is the only place that survives; without it this
+          kit can say how many cards the node has and not which ones it used,
+          which is exactly what made rung 1's `8` unfalsifiable. STEP 1 of the
+          producer brief says where the value comes from.
+
+  # ---- the packup documents ------------------------------------------------ #
+  - path: README.md
+    anchor: packup
+    kind: file
+    required: true
+    min_content_lines: 5
+    require_headings: ['Result']
+    brief: >-
+      What was asked, what happened, and where the evidence for each claim is.
+      `## Result` is required by name because it is the section that answers
+      "did it work", and a kit that never answers that is a kit nobody can act
+      on.
+
+  - path: REPRODUCE.md
+    anchor: packup
+    kind: file
+    required: true
+    min_content_lines: 8
+    min_command_lines: 5
+    require_headings: ['Expected output']
+    brief: >-
+      The file a reproducer executes, so its substance is measured in commands
+      inside code blocks rather than in prose. `Expected output` is required
+      because it is the only criterion a reproduction has: without it a correct
+      reproduction can be judged a failure, and neither verdict is recoverable
+      afterwards.
+
+  # **A rendering, not the record** (M1.1.1). The packup layout wants a human to
+  # be able to read the environment without a schema in hand, and that is all
+  # this file is for. `rendered_from` is checked: every value the schema marks
+  # load-bearing must actually appear in the rendering, so the two cannot drift
+  # into disagreeing. What is *not* checked is prose — this file may say
+  # anything else it likes.
+  - path: environment.md
+    anchor: packup
+    kind: file
+    required: true
+    min_content_lines: 8
+    rendered_from:
+      document: environment.yaml
+      anchor: codes
+      # Dotted paths into that document. Each value must appear verbatim in the
+      # rendering. Exactly the three facts the previous stage checked with three
+      # hand-written regexes — architecture, image, model — now compared against
+      # the record instead of pattern-matched against prose.
+      #
+      # **`fixed.node` is deliberately not here**, and it was, for one run. A
+      # node is the one fact in the record a reproduction may legitimately
+      # change: reproducing on a different machine of the same architecture is
+      # the normal case, not a failure. Requiring the human rendering to name
+      # this run's node also makes the rule unsatisfiable for any kit whose
+      # `environment.md` documents the deployment it came from while its record
+      # describes the run replaying it — which is every mocked kit, and is how
+      # this was found.
+      must_render:
+        - fixed.gpu_arch
+        - fixed.image
+        - fixed.model_name
+    brief: The human-readable rendering of environment.yaml. Not the record; the record is the yaml.
+
+  - path: notes.md
+    anchor: packup
+    kind: file
+    required: true
+    min_content_lines: 3
+    brief: >-
+      What went wrong on the way and what a next reader should not repeat. Kept
+      mandatory because a bring-up with no traps recorded is almost always a
+      bring-up whose traps were not noticed.
+
+  # ---- the packup directories ---------------------------------------------- #
+  - path: scripts
+    anchor: packup
+    kind: dir
+    required: true
+    non_empty: true
+    brief: >-
+      The scripts that were actually run, byte for byte. An empty `scripts/` is
+      the "hollow scaffolding" the packup layout tells an author to omit —
+      omitting it fails the presence check instead, which is the same verdict by
+      a clearer route.
+
+  - path: results
+    anchor: packup
+    kind: dir
+    required: true
+    non_empty: true
+    min_files:
+      glob: '**/*.json'
+      count: 2
+      non_empty: true
+    brief: >-
+      Machine-readable evidence. A kit whose evidence is prose cannot be diffed
+      against the next run, and every stage downstream consumes results as files
+      rather than as paragraphs. Counted over a recursive glob so a kit may
+      organise `results/` into subdirectories.
+
+  - path: logs
+    anchor: packup
+    kind: dir
+    required: false
+    brief: The engine, router and etcd logs as produced. Optional — valuable, and not every deployment shape has three.
+
+  # ---- the two entrypoints ------------------------------------------------- #
+  # Named files rather than "something in scripts/", because mission M2.3 removes
+  # the `serve_baseline` step on the grounds that *"module 1 的 output 已经包含了
+  # 如何部署的全量信息"*. A later stage can only stand on that if the kit says
+  # **which** script starts the deployment — a directory of thirteen scripts is
+  # complete information for a person and none at all for a program. See
+  # `runtime_contract` below for what they must honour.
+  - path: scripts/deploy.sh
+    anchor: packup
+    kind: file
+    required: true
+    brief: Brings the whole deployment up and writes the handshake. The one entrypoint a consumer calls.
+
+  - path: scripts/teardown.sh
+    anchor: packup
+    kind: file
+    required: true
+    brief: Removes everything this run created, and only what this run created.
+
+  # Required because it is the **acceptance criterion** a consumer's step 1 is
+  # written against, not because a kit needs three scripts. `deploy.sh` returning
+  # 0 says the launch commands were accepted; this says the service answered.
+  # **It must exit non-zero on timeout.** A readiness wait that exits 0 when it
+  # gave up turns "the model never loaded" into "the benchmark measured
+  # nothing", and the second is discovered three stages later.
+  - path: scripts/wait_ready.sh
+    anchor: packup
+    kind: file
+    required: true
+    brief: Blocks until the service answers, exits non-zero on timeout. The one criterion a consumer waits on.
+
+# --------------------------------------------------------------------------- #
+# 3. Placeholders — a document that was templated and never written.
+#
+# `<...>` is the packup templates' own placeholder form (`<exact commands>`,
+# `<who>`, `<YYYY-MM-DD>`), matched only when the angle brackets wrap something
+# that is not a URL and not an e-mail address, so a legitimate `<https://…>` or
+# `<user@host>` does not trip it.
+placeholders:
+  applies_to: [README.md, REPRODUCE.md, environment.md, notes.md]
+  pattern: >-
+    \b(?:TODO|TBD|FIXME|XXX)\b|to\s+be\s+filled\s+in|<(?![A-Za-z][A-Za-z0-9+.-]*://)(?![^<>@\s]+@)[^<>\n]{2,}>
+  flags: [IGNORECASE]
+
+# --------------------------------------------------------------------------- #
+# 4. Evidence rules — properties of `results/`, each a fault that was measured.
+#
+# These are the five checks mission M1.1 asks to be carried across from the
+# stage-1 package, minus `environment_facts`, which became `entries[].schema`
+# plus `rendered_from` above. Each is a rule about what the *running system*
+# said, not about what the launch command asked for, because the launch command
+# is not evidence: the deployment mode is selected by **omitting** a flag.
+evidence:
+
+  - name: served_name_not_a_path
+    brief: No evidence file shows the model registered under a filesystem path.
+    over: {anchor: packup, dir: results}
+    forbid: '"(?:model|served_model_name|model_name)"\s*:\s*"(/[^"]*)"'
+    message: >-
+      the model is served under a filesystem path, not a published model name.
+      Measured: one kit registered `Qwen/Qwen3.6-27B` and the next registered
+      `/data/<user>/…/Qwen3.6-27B`, purely from one flag being absent — and the
+      second bakes a machine's directory layout into the one field every caller
+      must copy. Set the served name explicitly.
+    # Scanned over `results/` only, so a kit is free to explain this very trap in
+    # prose in `notes.md` without failing for it.
+
+  - name: mode_readback
+    brief: The deployment mode is evidenced from two independent components.
+    over: {anchor: packup, dir: results}
+    require_each:
+      - label: worker-side reading (a `disagg=DisaggMode.…` line the worker wrote itself)
+        pattern: 'disagg\s*=\s*DisaggMode\.\w+'
+      - label: router-side reading (a `"disagg_mode"` field from the router's worker listing)
+        pattern: '"disagg_mode"\s*:\s*(?:"[^"]*"|\[)'
+    message: >-
+      the mode is selected by *omitting* a flag, so the launch command is not
+      evidence of it and one component agreeing with itself is not either. Read
+      it back out of the running system twice, from two components that learned
+      it independently, and put both readings in `results/`.
+    # Deliberately loose about the *value*: which mode was asked for is a
+    # package variable. The rule is that the running system was asked, twice.
+
+  - name: completion_evidence
+    brief: One file carries both a non-truncated finish reason and a non-empty content.
+    over: {anchor: packup, dir: results}
+    require_together:
+      - '"finish_reason"\s*:\s*"stop"'
+      - '"content"\s*:\s*"(?:[^"\\]|\\.)+"'
+    message: >-
+      no completion evidence — `/health` returning 200 shows a process is
+      listening, which is not a model that answers. Both facts must be in **one**
+      file: a finish reason in one place and a content in another is two facts,
+      not one answer. `finish_reason: "length"` alone is the reasoning-budget
+      trap — a request that was too small, not a deployment that works.
+
+# --------------------------------------------------------------------------- #
+# 5. Shared-namespace identifiers.
+#
+# Rule: every identifier bound on a shared host is a parameter. A name is
+# **frozen** if a plain assignment gives it a value that is not built purely out
+# of other variables, and **bound** if it reaches one of `binding_flags`.
+# Frozen-and-bound is the shape a second copy of the kit cannot run beside the
+# first — and a reproducer starts from this same kit while the run that produced
+# it may still be up.
+#
+# A name is exempt the moment it appears in a `${X:=…}` / `${X:-…}` / `${X:?…}`
+# form **anywhere** in the kit, because that is all it takes to let a caller
+# re-point it.
+#
+# A list of flags rather than an attempt to recognise "a container name" from its
+# text: the flags are where a value enters a host-wide namespace, and they are
+# few and literal. Guessing at the semantics of a string would fail honest kits.
+#
+# **What this does NOT cover, measured against a second model's kit** (todo.md
+# T18) — stated here because "no identifier is frozen" and "no identifier reaches
+# one of seven flags" are different claims and only the second one is checked:
+#
+#   * a literal passed to a **command** rather than a flag — `docker rm -f
+#     some_name` destroys rather than binds, and no flag appears;
+#   * a port **inside a URL** — `--listen-client-urls http://0.0.0.0:2379`,
+#     `--etcd-endpoint $HOST:2379`, neither flag being in the list;
+#   * a **half-parameterised** identifier: the producer of a port made a variable
+#     and its consumer left literal. That failure surfaces as
+#     `ConnectError: All connection attempts failed`, naming neither the port nor
+#     the mismatch;
+#   * a node-wide destructive act with no identifier at all — a `kill -9` over
+#     every GPU process on the host passes every check in this package.
+#
+# All four are real and all four were in one kit.
+runtime_contract:
+  # --------------------------------------------------------------------------- #
+  # 5. The runtime contract — what makes the kit *callable* rather than only
+  #    readable.
+  #
+  # M1.2.5 makes this the only handoff out of stage 1, and M2.3 deletes the
+  # `serve_baseline` step because this handoff already carries how to deploy. Two
+  # different programs then have to bring a service up from it: m2, to measure,
+  # and `check_deploy_serves`, to prove it can be. Neither can read prose.
+  #
+  # So three variables and one handshake file. The variables are what lets a
+  # second copy of the kit run beside the first *without editing it* —
+  # `shared_identifiers` below proves nothing is frozen, and this proves there is
+  # a documented way to re-point what is not. The two rules are complementary and
+  # neither implies the other: a kit can be fully parameterised and still be
+  # unusable by a program that does not know which of its forty names to set.
+  #
+  # `parameters` is a list rather than a fixed set of names so that a package
+  # standardising on a different prefix can say so here instead of forking the
+  # validator. Each must appear in a `${NAME:=…}` / `${NAME:-…}` form somewhere
+  # under `scripts/` — that form, and not a bare `$NAME`, because only the
+  # defaulting forms let the kit run with none of them set.
+  parameters:
+    - name: E2E_KIT_RUN_TAG
+      brief: >-
+        A token unique to this invocation. Every container name, port lock and
+        label the kit creates carries it, which is what makes teardown able to
+        remove what this run created **and nothing else** — the host's `docker ps`
+        shows every tenant's containers.
+    - name: E2E_KIT_PORT_BASE
+      brief: >-
+        The first port of a contiguous band the kit may bind. A caller that
+        already holds one deployment gives the second a different base; the kit
+        never picks a fixed port.
+    - name: E2E_KIT_WORK_ROOT
+      brief: >-
+        Where this invocation's workdir, logs and handshake go, on **local** disk.
+        A fixed workdir is the failure that survives fixing the names: two runs
+        share one `results/`, and the consequence is not mixed-up logs — which
+        you would notice — but a verifier reading the other run's evidence and
+        passing on it.
+    # The two below exist because M2.3 and M2.4 delete module 2's own serve
+    # scripts: *"module 1 的 output 已经包含了如何部署的全量信息"*. Module 2 then
+    # needs to bring the **same** deployment up twice differing on one axis —
+    # CUDA graph on for the numbers that mean something, off plus a profiler
+    # control plane for the trace. Without a seam, the only way to express that
+    # is a second copy of this kit's launch, which is precisely the duplication
+    # M2.3 removes.
+    #
+    # Deliberately **two** seams and not one, because argv and environment are
+    # not interchangeable: a flag the engine's parser reads and a variable its
+    # process reads arrive by different routes, and a single "extras" string
+    # would force one of the two through a shell hack.
+    #
+    # **The original example for the environment half was wrong and is recorded
+    # rather than quietly replaced.** It was `SGLANG_TORCH_PROFILER_DIR`, named
+    # when m2 asked for the seams; m2 then measured that their pipeline never
+    # sets it — the engine is told where to write **per capture**, in
+    # `/start_profile`'s `output_dir`, which is also what lets two windows of one
+    # round write to different subdirectories. So `E2E_KIT_ENGINE_EXTRA_ENV` is
+    # **empty on both of m2's lines today and has no current consumer.**
+    #
+    # It stays required anyway, and the reason is the argv/environment split
+    # above rather than any one variable: a kit that reads only one of the two
+    # cannot be re-pointed by a later stage that needs the other, and finding
+    # that out costs a bring-up. A parameter with no consumer is cheap; a seam
+    # discovered to be missing mid-stage is not.
+    #
+    # Both default to empty, so a caller that sets neither gets today's
+    # behaviour **byte for byte** — which is what makes the profiled arm's only
+    # difference from the clean arm be the thing it names.
+    - name: E2E_KIT_ENGINE_EXTRA_ARGS
+      brief: >-
+        Appended verbatim to the engine worker's argv, last, so it overrides an
+        earlier occurrence of the same flag. Empty by default.
+    - name: E2E_KIT_ENGINE_EXTRA_ENV
+      brief: >-
+        A space-separated `K=V` list exported into the worker process before it
+        starts. Empty by default. Not merged into the container's own
+        environment: what a later stage needs to vary is the worker, and a
+        container-wide export would also reach the router.
+    # The router is a **third** seam and not a special case of the engine one,
+    # because some controls live on the control plane rather than in the engine.
+    # Measured by m2: `--enable-profiling` is a router flag, and without it the
+    # admin profile start/stop routes answer **403** — so a capture runs, reports
+    # success, and produces no trace, with nothing the caller sees saying why.
+    - name: E2E_KIT_ROUTER_EXTRA_ARGS
+      brief: >-
+        Appended verbatim to the router's argv, last. Empty by default. Separate
+        from the engine's because the router and the worker are different
+        processes with different flag sets, and passing one's flags to the other
+        is an error the engine reports and the router does not.
+    # The seventh, added 2026-09-04 after a kit without it took a co-tenant's
+    # cards. m2 found the consumer half; this is the producer half.
+    - name: E2E_KIT_GPU_DEVICES
+      # **Adding this refused the sealed kit, and the fix was the adapter, not an
+      # exemption.** Measured 2026-09-04: the 2026-09-02 kit's `scripts/` cannot
+      # mention a name that postdates them, so rung 0 died here within minutes.
+      # A `skip_if_replayed` escape was written and then removed — every replay in
+      # this flow goes through `mock_adapt.sh`, which **exists to bring a sealed
+      # kit up to the current contract and already synthesises the other six
+      # parameters** (`mock_adapt.sh:143-154`). An exemption would therefore never
+      # have fired, while quietly weakening the rule for any replay that did.
+      # The seventh is now synthesised there like its siblings, so this parameter
+      # is required of **every** kit, replayed or produced, with no escape.
+      #
+      # **An adapter change is not always required, and assuming it is would have
+      # cost work.** The `content/README.md` entry added the same day tightened
+      # this layout and needed **no** `mock_adapt.sh` change at all, because the
+      # sealed 2026-09-02 kit already carried that file. **The old artefact was
+      # right and the new ones were wrong** — the reverse of the case here, and
+      # of every other compatibility problem that day. So the question to ask of
+      # a new rule is *"does the fixture already satisfy it?"*, measured with
+      # `gate.sh`, rather than *"which adapter do I have to move?"*.
+      #
+      # The one-liner the verdict carries. Without it the validator emitted the
+      # whole `brief` below into a run's output — measured, and it is why every
+      # future parameter should carry one.
+      err: >-
+        the cards are the one identifier this kit binds with no parameter, so a
+        second copy cannot take different ones and a caller cannot name a set to
+        avoid a co-tenant. Read it as `${E2E_KIT_GPU_DEVICES:=…}` in scripts/.
+      brief: >-
+        Which device indices this deployment takes, comma-separated — **the one
+        identifier the kit binds that had no parameter.** Container names, ports
+        and the workdir have had one since the first kit; the cards did not, and
+        a card is the same kind of thing: a slot in a namespace shared with every
+        other tenant of the host. **Required here because the alternative is a
+        default, and every default a kit has chosen so far has been wrong on some
+        node** — one kit picked *every free card* (`_pick_gpus`), the next
+        hardcoded *the first four*, and neither read the machine before binding.
+        Both were written by agents following the same brief, which is the point:
+        **without this entry the device policy is not a property of this package
+        at all, it is whatever that day's kit author decided.** A contracted
+        parameter is what makes it the package's.
+        Two consequences worth stating because they are what the contract buys.
+        A caller that names cards **must be obeyed**: an operator naming a subset
+        is usually avoiding a co-tenant, and substituting a different free card
+        defeats the only mechanism that fact has. And a second copy of the kit
+        must be able to take *different* cards from the first — the same property
+        `E2E_KIT_PORT_BASE` exists for, applied to the resource that is scarcer.
+        **A prose instruction cannot replace it.** m1 routed "take only 4-7"
+        through `E2E_INSTRUCTION` at rung 1 and it worked only because the leaf
+        was an agent that could read prose; m2's consumer is a **program**, and a
+        site fact carried in prose cannot reach a shell script. See `todo.md`
+        **T19** and **T27**.
+    # The eighth, added 2026-09-04. Unlike the seven above it is not a
+    # shared-host identifier — it is here because it is the first value found
+    # that **determines every number the flow produces and is bound by nobody**.
+    - name: E2E_KIT_CUDA_GRAPH_MAX_BS
+      # **The evidence, because this entry would otherwise read as tuning.**
+      # m2 measured a 4.7x decode difference between two runs whose every
+      # recorded variable was equal — same node, same image id, same model, same
+      # `tp_size`, same cards, same `mem-fraction-static`, same load shape. The
+      # one difference was the CUDA graph ceiling, and the load runs at
+      # concurrency 16: below the ceiling the decode batch is captured, above it
+      # the engine falls to eager. m2's own stage documents the same mechanism
+      # from the other side — graphs off is where `profiling_mode_on` gets ~8x.
+      #
+      # **There was no default to be wrong.** Measured across every kit in the
+      # run root: the name appears **nowhere** in this package, and the producing
+      # agent invents a value each bring-up — `16, 16, 8, 32` over four real
+      # runs at `tp_size: 4`, the line number moving each time because `env.sh`
+      # is regenerated rather than edited. The `:=8` that looked like a default
+      # is `env.sh:105` of the sealed 2026-09-02 kit — a **`tp_size: 1`** record
+      # replayed verbatim eighteen times.
+      #
+      # That is **strictly worse than a wrong default, because a wrong default
+      # is at least reproducible.** Two of the four real bring-ups shipped a
+      # ceiling below the concurrency the mission grades at; the run in flight
+      # picked 32 and is correct **by luck, not by construction**.
+      #
+      # **Why a parameter and not a note in the brief.** The kit already emits
+      # `--cuda-graph-max-bs` unconditionally (`start_worker.sh`), so
+      # `E2E_KIT_ENGINE_EXTRA_ARGS` cannot express an override without passing
+      # the flag twice and relying on argparse last-wins — of a flag sglang
+      # already prints a deprecation warning for. A caller that must set this
+      # has no clean way to, which is the `E2E_KIT_GPU_DEVICES` argument again:
+      # m2's consumer is a **program**, and a program cannot act on prose.
+      err: >-
+        the CUDA graph ceiling decides whether decode runs captured or eager — a
+        4.7x difference invisible to every field that is recorded — and the kit
+        binds it with no parameter, so a caller cannot match it to the
+        concurrency it will be measured at. Read it as
+        `${E2E_KIT_CUDA_GRAPH_MAX_BS:=…}` in scripts/.
+      brief: >-
+        The largest decode batch the engine captures a CUDA graph for. **It must
+        be at least the concurrency this deployment will be loaded at** — 16 for
+        this flow (mission M1.2.3.4, `probes.yaml:331`) — because a batch above
+        the ceiling is not merely uncaptured, it silently changes what every
+        downstream number measures. m2's throughput figures, m3's worksets and
+        m5's stock arm all inherit whichever value the kit shipped.
+        **"At least" is exactly sufficient — do not widen it to a margin.**
+        Rung 2's producer chose 32 over 16 and argued that a concurrency-16 load
+        transiently reaches 17, so a ceiling of exactly 16 would fall off the
+        captured path for the burst. Careful, plausible, and **measured false**:
+        across both of m2's arms and both metrics the distribution tops out at
+        the offered concurrency and never exceeds it —
+        `Effective Concurrency max 16.00 p90 16.00 p99 16.00`, and
+        `Effective Decode Concurrency` the same, on A1 (ceiling 8) and C1
+        (ceiling 16) alike. It cannot exceed it: this is a **closed-loop**
+        concurrency bounded above by what the load offers, not an arrival rate
+        that can overshoot. So `>=` needs no headroom, and a future reader who
+        meets the transient argument again should meet this paragraph with it.
+        Recorded because the argument is a good one and a bar widened on a good
+        argument is still a bar widened without evidence.
+        **Choosing is not enough: the kit must say what it chose and why.** That
+        half survives any future change to what the right value is, and it is
+        the half missing today — four real kits carry four different ceilings
+        and not one of them states a reason, so a reader cannot tell a
+        considered 32 from an accidental 8.
+        A caller that names a ceiling **must be obeyed**, on the same reasoning
+        as `E2E_KIT_GPU_DEVICES`: the caller is usually matching it to a load
+        shape the kit cannot see, and substituting a "better" value destroys the
+        only mechanism that intent has.
+        **This entry does not fix the whole defect and should not be read as
+        doing so.** The ceiling is still absent from the environment record and
+        from `check_environment`'s compared set, so two engines differing 4.6x
+        in decode speed continue to validate as the same one. That half is
+        `todo.md` **T55** — it touches `environment.schema.json`, shared by all
+        fifteen kinds, and waits on a green rung for the same reason T54 does.
+  # The work root must be **writable from inside the engine container, at the
+  # same path**. Not a new parameter — a property of one that already exists.
+  #
+  # Measured by m2, and it is the failure that produces a success: SGLang writes
+  # a profiler trace to a path the *container* sees, so without the mount docker
+  # creates the directory in the container layer, the capture reports success,
+  # and the host sees nothing. The same is true of anything else a later stage
+  # asks the engine to write.
+  #
+  # Same path inside and out, so a path means the same thing on both sides of the
+  # boundary — the idiom `assets/bench/aiperf_replay.sh` already uses. That also
+  # makes the handshake, the logs and any trace land in one per-invocation
+  # directory that `E2E_KIT_RUN_TAG` already isolates, so nothing new has to be
+  # named or torn down.
+  #
+  # **Not "at the same path inside".** That was the first draft and the real
+  # sealed kit refutes it: it mounts `"${DK_RUN_DIR}:/workdir"`, a working
+  # convention this layout has no business overturning. So the kit chooses where
+  # the mount lands and **says so** in the handshake, which is what the handshake
+  # is for. A consumer that needs the engine to write somewhere composes its path
+  # from `work_root_in_container`, not from the host path.
+  #
+  # Enforced at run time, not statically. The obvious static rule —
+  # `E2E_KIT_WORK_ROOT` must appear in a `--volume` — fails the sealed kit, whose
+  # mounted path is *derived* from the work root; following that derivation needs
+  # a shell evaluator, and a checker that guesses rejects correct kits.
+  # `check_deploy_serves` writes a file through the running container instead.
+  writable_work_root:
+    mode: rw
+    declared_by: runtime_contract.handshake.work_root_in_container
+    brief: >-
+      The per-invocation work root must be writable from inside the engine
+      container. Measured by m2 and it is the failure that reports success:
+      SGLang writes a profiler trace to a path the *container* sees, so with no
+      mount docker creates the directory in the container layer, the capture
+      succeeds, and the host sees nothing.
+
+  # **The container must be able to host a measurement, not only serve.** Added
+  # 2026-09-04 after m4 found it from the far side, and the finding is theirs:
+  #
+  #   /shared_nfs   : No such file or directory
+  #   the run root  : No such file or directory
+  #   torch, cards  : 2.9.1+rocm7.2, 4        <- the container was otherwise fine
+  #
+  # A `deploy_kit` container that mounts only the model directory serves
+  # perfectly and **cannot be measured in**, and nothing said so until rung 4 was
+  # about to hit it.
+  #
+  # **Why it is m1's job and not the consumer's.** `run_in_container.sh` **execs**
+  # rather than `docker run`s — deliberately, because CONTRACT §5 gives the
+  # container's lifetime to m1 and a consumer creating one would acquire
+  # something it does not own. The consequence nobody had drawn: **a consumer
+  # inherits the producer's mounts and cannot add its own.** m3's
+  # `measure_in_container.sh` `docker run`s and so mounts for itself, which is
+  # exactly why this stayed invisible — every previous use of m4's wrapper was
+  # against a container m4 had built, *a fixture more convenient than production
+  # where the convenience was that they built the fixture* (m4, CONTRACT §4.4).
+  #
+  # **Rejected: `docker cp` the apparatus in.** `apply_patch` copies a *patch*,
+  # which is the thing under test; copying the *apparatus* means the measurement
+  # runs against a copy rather than against the artefact the handoff carries, and
+  # then nothing downstream can say which bytes were measured. Leader's ruling,
+  # and provenance is the property this package exists to keep.
+  measurement_visible:
+    mode: rw
+    declared_by: runtime_contract.handshake.work_root_on_host
+    # **The two forms m3 measured this cluster's docker authorization plugin
+    # accepting — not a third that looks reasonable.** Reuse the derivation at
+    # `build_workset.task/measure_in_container.sh:249-266`; do not write a second.
+    accepted_mount_forms:
+      - '-v /shared_nfs:/shared_nfs'
+      - '-v /home/<user>:/home/<user>'
+      # **The third, added within the hour of the first two and by m3's own
+      # instruction — "extend this case with a form you have SEEN the daemon
+      # accept."** Node-local scratch. `/mnt/m2m_nobackup/...` was missing from
+      # the list above, and the omission would have refused the one root a
+      # measurement most needs: m4's `scratch_root` defaults to
+      # `/mnt/m2m_nobackup/yihou/e2e_flow/kfo`, and their own section records
+      # why it must be node-local — *"on this cluster's NFS every ROCm kernel
+      # launch segfaults after the copies and the first round."*
+      #
+      # **Seen accepted, not expected to be:** the sealed 2026-09-02 kit runs
+      # `--volume "${DK_RUN_DIR}:/workdir"` (`start_container.sh:36`) with
+      # `DK_WORK_ROOT:=/mnt/m2m_nobackup/yihou/deploy` (`env.sh:83`), and that
+      # kit produced a working deployment. Every kit this package has built
+      # since mounts the same way. The evidence was inside this stage the whole
+      # time and the first two forms were copied from a file that had no reason
+      # to mention it.
+      - '-v /mnt/m2m_nobackup/<user>/...:<same path>'
+    refused_mount_forms:
+      - '-v /home:/home     # denied [BH] by plugin spur-authz: mount your own directory'
+    brief: >-
+      The engine container must see the **run root** and the **workset root**
+      read-write, at the same path inside as outside, so that a stage which
+      `docker exec`s into it can read the handoff and write its evidence.
+      Read-write and not read-only: a measurement writes.
+
+      **Derive the mount from the root, never from `$HOME`.** In a validation
+      zone `$HOME` is `/home`, which is the one form the plugin explicitly
+      refuses — m3 made exactly that mistake and the refusal quoted their own
+      instruction back at them. A root is a fact about the artefact; `$HOME`
+      describes whoever is running, and a validator runs as nobody in particular.
+
+      **Anything outside the two accepted forms must refuse, naming both**,
+      rather than arriving as an authorization denial in the middle of a
+      measurement.
+
+      Checked where it can be answered rather than guessed, like
+      `writable_work_root` above: a static *"`-v` must mention the run root"*
+      rule is the false positive this file already rejects once, because the
+      sealed kit mounts `"${DK_RUN_DIR}:/workdir"` where the path is derived.
+      The honest check is a consumer exec'ing in and finding its inputs — which
+      is what m4's wrapper now does, and what found this.
+
+  # Written by `scripts/deploy.sh` on success, read by every consumer. JSON and
+  # not a printed line: a consumer parsing stdout has to be told which line, and a
+  # kit that adds a banner breaks it silently.
+  handshake:
+    path: '${E2E_KIT_WORK_ROOT}/deployment.json'
+    required_keys: [endpoint, container, run_tag, work_root_in_container, work_root_on_host]
+    optional_keys: [engine_endpoint, ports, pid, containerized]
+    brief: >-
+      `endpoint` is the **product** endpoint — the router, not the engine's own
+      port.
+
+      **`work_root_in_container` and `work_root_on_host` are the two sides of one
+      mount and both are required, because a consumer given only one must infer
+      the other.** Measured on the real kit: `pick_params.sh` writes `DK_RUN_DIR`
+      into `run.env` and `env.sh` sources that *after* any export, so the mount
+      stayed `${WORK_ROOT}/${TAG}:/workdir` — one level below what the handshake
+      declared. Three candidates, and only measurement separates them: the mount
+      could have been read-only, the container path could have been wrong, or the
+      declaration could have been wrong. It was the third — writing
+      `/workdir/.writable_probe` inside and reading it at the mounted host
+      directory worked, and so did the reverse. **The kit's declaration was
+      wrong, the mount was fine, and the check was right to refuse.**
+
+      m2 measured what the inference costs when it is wrong: `/start_profile`
+      answers 200, the traces land in the container layer, the host sees an empty
+      directory, and nothing errors anywhere.
+
+      `work_root_in_container` is where `E2E_KIT_WORK_ROOT` is mounted
+      inside the engine container — equal to the host path when the kit mounts it
+      there, `/workdir` for a kit that follows the sealed one's convention; a
+      consumer that needs the engine to write somewhere composes its path from
+      this and never from the host path. `engine_endpoint` is optional and is
+      what unlocks the engine-side diagnostic probes; a kit that omits it is not
+      refused, it is less diagnosable. `containerized` defaults to true and a
+      kit that runs no container sets it **false**, which is a claim rather than
+      an inference: "there is no container" and "the container died during
+      bring-up" are indistinguishable from outside, and one is a pass while the
+      other is the fault the writability check exists to find.
+
+shared_identifiers:
+  scan: {anchor: packup, dir: scripts}
+  binding_flags: ['--name', '--publish', '--volume', '--mount', '--port', '-p', '-v']
+  # The two short flags mean something else in other commands — `mkdir -p` above
+  # all — so they only count inside a command that mentions `docker`.
+  docker_only_flags: ['-p', '-v']
+  # Flags where a bare literal is a fault on its own, with no variable involved.
+  # `--volume` is **not** here: a read-only mount of an input path is
+  # legitimately fixed, and only the *host* side of it is shared.
+  literal_forbidden_flags: ['--name', '--publish', '--port', '-p']

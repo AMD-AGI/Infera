@@ -1,0 +1,353 @@
+# Stage 1 — deploy.
+#
+# The kind, its wiring and its place in the graph are contract (CONTRACT.md §1)
+# and do not move. Everything else here is m1's.
+#
+# Definition order is load-bearing within a file: agent, validators, kind, leaf,
+# non-leaf.
+
+# --------------------------------------------------------------------------- #
+# 1. The agent.
+#
+# `kind: ai`, and the skeleton's `agent: runner` is replaced rather than kept,
+# because a bring-up is judgement work: pick free ports on a shared host, read
+# the repository's own examples, watch a log repeat `Health check failed` for
+# four minutes and decide that is a JIT compile rather than a hang. None of that
+# is a command somebody already wrote — and the moment it is, this closure should
+# be demoted to a program.
+#
+# **What the AI is not doing is inventing a method.** Mission G4.2.1 puts the
+# ordered commands and their acceptance criteria in
+# `assets/deploy_and_prove.task/readme.md`'s STEPS section; this agent sequences
+# them and reads what comes back.
+#
+# `backend_entry` is the dotted form rather than an entry-point name: a task
+# package outside this repository cannot register an entry point in the
+# `agent_sys.backends` group without being installed, and this package is data.
+#
+# **This agent declares its own `env` block, and the sentence that used to stand
+# here said the opposite.** It read: *"No `env` block here. `shared.yaml` is this
+# package's only variable declaration site by design, and every `E2E_*` name this
+# task reads is declared there."* Declared there — **on a different agent**, and
+# that is the whole of the bug.
+#
+# Measured 2026-09-04, from rung 1's own transcript. The agent's first command
+# was `env | grep -E '^(E2E_|AGENT_SYS_)'`, and it returned **seven
+# `AGENT_SYS_*` names and zero `E2E_*`**. `env_mgr/material.py:96` is
+# `env.update(_declared_env(agent_spec))`, and `_declared_env` reads
+# `agent_spec.env` — of **the agent that is running**. `shared.yaml`'s block
+# belongs to `runner`. So under `--var m1_agent=runner` every variable arrives,
+# and under the real `e2e_deployer` none of them does.
+#
+# What that cost, and it is the reason this comment is long: **four `--var`s on
+# rung 1's command line did nothing while the run looked healthy.** `tp=4` never
+# arrived and the bring-up used the sealed kit's `DK_TP_SIZE:=1`; `image=` never
+# arrived and the agent found the tag by running `docker images`; `instruction=`
+# never arrived, so *"take only GPUs 4-7"* was never said and the correct half of
+# the node was chosen by the sealed kit's `DK_GPU_ID:=4`. And `mock_stages=`
+# never arrived — `mock.sh` cannot distinguish *unset* from *not listed*, so
+# **`--var mock_stages=all` would have run this stage for real too.** The mock has
+# only ever worked because `m1_agent=runner` swaps in the agent that carries the
+# block.
+#
+# This is the **third face** of the seam CONTRACT.md §4.4 already names: a
+# validator declares no agent and never receives the block; an agent declares no
+# `env` and never receives it either. Same block, same silence, and both times
+# the symptom was a plausible wrong story about someone's behaviour.
+#
+# **The duplication below is deliberate and cannot be designed away.** `${...}`
+# substitution is textual per occurrence and YAML anchors do not cross files, so
+# a default reachable by `runner` is not reachable from here. The leader's ruling
+# (2026-09-04) is that each `kind: ai` agent declares what it needs — m5's
+# `e2e_integrator` has done exactly this all along — and that a checker in the
+# `show` gate compares every name and default here against `runner`'s. **Every
+# entry below must stay byte-identical to `shared.yaml`'s**; that is not a
+# convention to remember, it is the thing the checker fails on.
+#
+# No credential is written here or anywhere else in this package: model
+# credentials reach a body from the operator's own settings allow-list, by name,
+# through `env_mgr.harness.harness_env`.
+- module: agent
+  name: e2e_deployer
+  kind: ai
+  version: '1'
+  description: Turns a plain deployment instruction into a proven bring-up and a runnable delivery kit.
+  env:
+    # The allocation and how to reach it. Same names and same defaults as
+    # `shared.yaml`'s, so one command line drives the whole flow.
+    E2E_JOBID: '${jobid}'
+    E2E_NODE: '${node}'
+    E2E_NODE_IP: '${node_ip}'
+    E2E_TRANSPORT: '${transport:-auto}'
+    # What to serve. `model_name` and `model_path` stay separate because
+    # conflating them registers the model under a filesystem path.
+    E2E_MODEL_NAME: '${model_name}'
+    E2E_MODEL_PATH: '${model_path}'
+    E2E_SERVED_NAME: '${served_name:-}'
+    E2E_IMAGE: '${image}'
+    E2E_ETCD_IMAGE: '${etcd_image:-quay.io/coreos/etcd:v3.5.14}'
+    E2E_DEPLOY_MODE: '${deploy_mode:-mix}'
+    # **`tp` is the one rung 1 proved is load-bearing by being absent.** With no
+    # value the agent fell back to the reference kit's `DK_TP_SIZE:=1`, which is
+    # a correct deployment and not the requested one.
+    E2E_TP: '${tp:-8}'
+    E2E_CTX: '${context_length:-262144}'
+    # **The GPU set, which rung 1 proved cannot be carried in prose.** The
+    # instruction *"take only 4-7"* went into `E2E_INSTRUCTION`, never arrived,
+    # and the agent took card 4 from the sealed kit's `DK_GPU_ID:=4` — right
+    # answer, wrong mechanism, and nothing could have caught it. `none` rather
+    # than empty for the same reason as `E2E_DSA_ARGS`: on a command line
+    # `--var gpu_devices=` is indistinguishable from not passing it, so a body
+    # cannot tell *"choose freely"* from *"nobody said"*.
+    E2E_GPU_DEVICES: '${gpu_devices:-none}'
+    # Both carry the literal `none` for "this model wants neither", which is
+    # different from nobody having said. **`none` is right only for a
+    # non-reasoning model** — measured 2026-09-04, Qwen3.6-27B's chat template
+    # carries `<think>`/`</think>` and without a parser the chain-of-thought
+    # lands in `content` with `reasoning_tokens: 0`, which
+    # `check_deploy_serves`'s completion probe passes.
+    E2E_DSA_ARGS: '${dsa_args:-none}'
+    E2E_PARSER_ARGS: '${parser_args:-none}'
+    # Identifiers bound on a shared host (CONTRACT.md §5.2). Starting points,
+    # not reservations — the agent checks before it binds and never
+    # `docker rm -f`s a name it did not create.
+    E2E_CONTAINER: '${container:-yihou_e2e_flow}'
+    E2E_PORT_ROUTER: '${port_router:-8101}'
+    E2E_PORT_WORKER: '${port_worker:-8102}'
+    E2E_PORT_ETCD: '${port_etcd:-8103}'
+    # Local disk. A network home with root_squash maps the container's root to
+    # nobody and the engine then fails to write its logs silently.
+    E2E_WORK_ROOT: '${work_root:-/mnt/m2m_nobackup/yihou/e2e_flow}'
+    # The flow's own input, and the first line of this task's readme sends the
+    # agent to it. **It was empty for the whole of rung 1**, which is how a site
+    # fact routed through it — *"GPUs 0-3 belong to another tenant"* — was never
+    # delivered.
+    E2E_INSTRUCTION: '${instruction:-Bring this model up in the requested mode on this host, prove it answers through the router, and hand back a kit somebody else can run.}'
+    # STEP 0 reads both. Without them `mock.sh` cannot tell *unset* from *not
+    # listed* and every run is a real one.
+    E2E_MOCK_ROOT: '${mock_root:-/shared_nfs/yihou/agent_sys/cheat_for_mock}'
+    E2E_MOCK_STAGES: '${mock_stages:-all}'
+    # Read by two libs this readme names — `remote.sh` at STEP 2's `on` idiom and
+    # `env_render.py` at STEP 5. Both survive undeclared on a code-level
+    # fallback, which is why nothing had noticed; `check_agent_env.py` found them
+    # once it followed the libs a readme names.
+    #
+    # **`E2E_REMOTE_HOME` is the parameter for a fault this stage has already
+    # hit.** `remote.sh:150` exports `HOME=${E2E_REMOTE_HOME:-$HOME}` on the far
+    # side, and `spur exec` otherwise lands with `HOME=/opt/spur`, which is not
+    # writable: measured 2026-09-04, a `docker build` there dies
+    # `mkdir /opt/spur/.docker: permission denied`, a message naming neither
+    # docker nor HOME. The fallback saves us **only because** `$HOME` is expanded
+    # in the *local* shell and `/home` happens to be shared, writable NFS on this
+    # cluster. On a cluster where the login home is not visible from the node the
+    # fallback is wrong and this variable is the fix.
+    #
+    # `E2E_STAGE` stamps `warnings[].stage` in the environment record. Declaring
+    # it does not make it correct — see `todo.md` T22: it is a *per-stage* value
+    # and `--var stage=` is one value for the whole run, so at most one stage in
+    # any run can be stamped truthfully.
+    E2E_STAGE: '${stage:-}'
+    E2E_REMOTE_HOME: '${remote_home:-}'
+  # **No `skills:`, and that is a change from `../deploy-demo`.** That package
+  # declared the packup skill because the skill was the authority for the kit's
+  # layout. Here the authority is `assets/schemas/deploy_kit.layout.yaml` — that
+  # is the whole of M1.1 — and the readme quotes it. Declaring the skill as well
+  # would give the agent two authorities that can disagree, and it would add a
+  # required `--var packup_skill=<path>` whose only honest value is one
+  # operator's home directory.
+  #
+  # If a site does want the skill in the zone, add `skills: ['${packup_skill}']`
+  # here and pass the var: `env_mgr` redirects `CLAUDE_CONFIG_DIR` into the zone
+  # and a session reads skills from `$CLAUDE_CONFIG_DIR/skills/`, so a skill only
+  # arrives if it is declared.
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
+# 2. The validators. Neither carries a `kind:` key — `validator.schema.json` has
+# no such field and `additionalProperties: false`. The two are told apart by
+# `tags.logic_source` and `tags.cost`, which is the pair a phase is ordered by:
+# cheapest first, so a malformed kit fails in seconds instead of after a bring-up.
+#
+# Both are **program** validators (G4.1: 能程序化的，尽量不用 ai).
+
+# M1.1. Every rule it applies is read from `assets/schemas/deploy_kit.layout.yaml`
+# at run time; the body holds none of its own. `args.layout` names that file, so
+# a package standardising on a different layout re-points it rather than forking
+# the validator.
+#
+# The five checks mission M1.1 asks to be carried across from `../deploy-demo`
+# are all in that yaml — `served_name_not_a_path`, `mode_readback`,
+# `completion_evidence`, `results/` `min_files`, `Expected output`. The sixth,
+# `environment_facts`, is **replaced** as M1.1.1 asks: the record is
+# `codes/environment.yaml` validated against `environment.schema.json`, and
+# `environment.md` is checked as a *rendering* of it rather than by three
+# regexes over prose.
+- module: validator
+  name: check_deploy_kit
+  version: '1'
+  brief: The kit matches the declared layout, its environment.yaml validates, and no identifier bound on a shared host is frozen into it
+  dimension: completeness
+  strength: strong
+  inputs: [deploy_kit]
+  args:
+    layout: deploy_kit.layout        # assets/schemas/deploy_kit.layout.yaml
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_e2e, deploy, m1]
+
+# M1.2.3, the real-run validator: the kit's own `scripts/deploy.sh` brings the
+# service up, a **researched** probe set (`probes.yaml`) diagnoses it in several
+# directions, and a 1k/1k concurrency-16 three-minute load runs through
+# `assets/bench/aiperf_synthetic.sh`.
+#
+# **Everything site-specific is an `arg`, and that is forced rather than
+# chosen.** A validator declares no agent, so this package's `env` block never
+# reaches its body — only the policy-derived environment does. Everything the
+# *kit* recorded (node, model, image, ports) is read from the kit's own
+# `codes/environment.yaml` instead, because the kit is the thing under test.
+#
+# `cost: gpu_hours` is honest, and it is what puts this validator second.
+- module: validator
+  name: check_deploy_serves
+  version: '1'
+  brief: The kit's own scripts bring the service up, it answers the diagnostic probes, and it sustains a 1k/1k conc=16 three-minute load
+  dimension: usability
+  strength: strong
+  inputs: [deploy_kit]
+  args:
+    layout: deploy_kit.layout
+    # How to reach the node, and which one. No defaults for the allocation: a
+    # default here is one job's answer shipped as everyone's and it goes stale
+    # the hour the job ends.
+    transport: '${transport:-auto}'
+    jobid: '${jobid}'
+    node: '${node}'
+    # **Where the transport binary lives.** A validator body is started with a
+    # closed environment in which `PATH` is absent, so `sh` substitutes
+    # `/usr/bin:/bin` — and `spur` is in `/usr/local/bin`. Without this the call
+    # dies `rc=127, spur: command not found`, reported as the *kit's* deploy.sh
+    # failing. Measured 2026-09-03; a site fact, so a variable.
+    transport_path: '${transport_path:-/usr/local/bin:/usr/local/sbin}'
+    # **And what the transport binary itself needs.** Space-separated `K=V`.
+    # `spur` reads `SPUR_CONTROLLER_ADDR`; without it, it exits 1 with
+    # `failed to connect to controller … Connection refused`, which names the
+    # controller and not the missing variable. No default, because a controller
+    # address is one cluster's answer — pass
+    # `--var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR`.
+    transport_env: '${transport_env:-}'
+    # The kit's own entrypoints, by the names `deploy_kit.layout.yaml` requires.
+    # Arguments rather than literals so a package whose kits are shaped
+    # differently re-points them here.
+    deploy_entrypoint: '${deploy_entrypoint:-scripts/deploy.sh}'
+    teardown_entrypoint: '${teardown_entrypoint:-scripts/teardown.sh}'
+    # Where **this** deployment goes. Distinct from the producer's on purpose:
+    # the run that produced the kit may still be up, and a validator that takes
+    # its ports or its container name breaks the thing it is checking.
+    work_root: '${validate_work_root:-/mnt/m2m_nobackup/yihou/e2e_flow/validate}'
+    port_base: '${validate_port_base:-8140}'
+    # AIPerf runs in its own container: the engine image ships Python 3.10 and
+    # AIPerf needs >= 3.11. **Same variable and same default as `shared.yaml`'s
+    # `E2E_AIPERF_IMAGE`** — a validator cannot read that block, so the default
+    # is repeated here rather than referenced, and the two must be changed
+    # together or this validator loads a different AIPerf than m2 does.
+    aiperf_image: '${aiperf_image:-nvcr.io/nvidia/ai-dynamo/aiperf:0.12.0}'
+    # The load shape, overridable so a wiring run costs seconds. The standard is
+    # stated once, in `probes.yaml`; these only override it.
+    load_input_tokens: '${deploy_load_in:-1024}'
+    load_output_tokens: '${deploy_load_out:-1024}'
+    load_concurrency: '${deploy_load_conc:-16}'
+    load_seconds: '${deploy_load_seconds:-180}'
+    # A cold bring-up of a large model runs to minutes before the server is
+    # ready. Slack, not a budget: a timeout here should mean it hung.
+    bringup_timeout_seconds: '${deploy_bringup_timeout_seconds:-3600}'
+    load_slack_seconds: '${deploy_load_slack_seconds:-900}'
+    teardown_timeout_seconds: '${deploy_teardown_timeout_seconds:-600}'
+    timeout_seconds: '${deploy_timeout_seconds:-5400}'
+  tags:
+    logic_source: external_dynamic
+    cost: gpu_hours
+    domain: [llm_e2e, deploy, m1]
+
+# --------------------------------------------------------------------------- #
+# 3. The kind. **One handoff out of stage 1** (M1.2.5) — and in this flow it
+# reaches m3 and m4 as well, because it carries the environment record and
+# because those stages run things in the container m1 brought up.
+#
+# `content_type: code`, and the choice was between this and `reproducible`.
+# `reproducible`'s required items are `result` and `env`, and `check_items`
+# rejects a top-level item the type never declared — so laying a packup into it
+# renames every file the layout mandates and destroys the thing
+# `check_deploy_kit` exists to check. `code` requires exactly one item, `codes`,
+# whose interior is unconstrained, so the kit survives byte for byte with its own
+# name on it and `codes/environment.yaml` is where the environment record lives
+# (CONTRACT.md §2).
+#
+# No `items_schema`: it could only restate `codes`, and a closed one would
+# additionally reject `logs` and `watchout`, which the `code` type itself lists
+# as optional.
+- module: handoff
+  name: deploy_kit
+  version: '1'
+  description: One model's proven end-to-end deployment as a runnable kit, carrying the flow's environment record.
+  content_type: code
+  scope: fixed.required
+  validators: [check_environment, check_deploy_kit, check_deploy_serves]
+
+# --------------------------------------------------------------------------- #
+# 4. The leaf.
+#
+# `goal` is capped at 100 characters by `task.schema.json` and is a human label,
+# not an instruction channel — everything the agent is told is in
+# `assets/deploy_and_prove.task/readme.md`, found by convention from the folder
+# name.
+#
+# **No `resources`.** A leaf may declare a pool and this one legitimately wants
+# GPUs, but `cli/build.py` is the only reader and the CLI composition root
+# declares no pools, so a `resources` block here would name a pool that does not
+# exist.
+- module: task
+  name: deploy_and_prove
+  description: Bring the requested model up end to end on this host and pack the deployment into a runnable kit.
+  # **Switchable, and this is the mock mechanism** (mission Brief item 2:
+  # "通过 mock ai agent"). A `kind: ai` task does not run `entry.sh` — the
+  # backend runs the readme through a model — so promoting this task to `ai`
+  # took it off the mock path entirely. Measured: the first full mock run
+  # sat at `deploy_and_prove: running` while an AI agent prepared to bring a
+  # model up for real, on a node passed in `--var`.
+  #
+  # `--var m1_agent=runner` swaps in the shared program agent, which does
+  # run `entry.sh`, which mocks. The default is the real agent, so a normal
+  # run is unchanged and the mock is the thing you have to ask for.
+  agent: '${m1_agent:-e2e_deployer}'
+  handoffs: [deploy_kit]
+  validators: []
+  task:
+    goal: Deploy the requested model end to end and hand back a runnable kit.
+    version: '1'
+    repos: [infera, sglang]
+    inputs: []
+    outputs: [deploy_kit]
+    permissions:
+      grants:
+        - {path: handoffs/deploy_kit, access: write, kind: deploy_kit}
+
+# --------------------------------------------------------------------------- #
+- module: task
+  name: m1_deploy
+  description: Stage 1 — deploy the model and establish the runtime every later stage shares.
+  handoffs: [deploy_kit]
+  validators: []
+  task:
+    goal: Deploy the model and establish the shared runtime.
+    version: '1'
+    inputs: []
+    outputs: [deploy_kit]
+    permissions:
+      grants:
+        - {path: handoffs/deploy_kit, access: write, kind: deploy_kit}
+    subgraph:
+      - {closure: deploy_and_prove, froms: [], is_end: true}
