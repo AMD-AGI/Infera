@@ -134,6 +134,27 @@ def test_speculation_that_pays_for_itself_is_still_allowed():
     assert ok, why
 
 
+def test_accuracy_has_to_be_bought():
+    """Acceptance and cost describe one draft model, so they move together.
+
+    Barring only the perfect-and-free corner left the class of problem intact:
+    acceptance 0.95 at a cost of 0.10 was legal, which is the same free lunch
+    one step less brazen.
+    """
+    from infera.projection.agents.tuning_agent.inference_tuning import min_draft_cost
+
+    leg = _legality()
+    cheap = _cfg(speculative_num_tokens=4, speculative_acceptance_rate=0.95,
+                 speculative_draft_cost_factor=0.10)
+    ok, why = validate_inference(cheap, _Arch(), _Cluster(), leg)
+    assert not ok and "too cheap" in why
+
+    # The cost floor rises with acceptance and leaves no reason to speculate
+    # once the draft costs a whole target step.
+    assert min_draft_cost(0.7) < min_draft_cost(0.9) < min_draft_cost(0.95)
+    assert min_draft_cost(0.96) > 1.0
+
+
 def test_the_projection_command_carries_the_axis():
     """Legal in the search but undelivered to the projector would score every
     DP trial as if the axis were off, which is worse than not searching it."""

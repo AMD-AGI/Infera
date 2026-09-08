@@ -130,6 +130,27 @@ class InferenceTrialConfig:
 # Legality
 # ---------------------------------------------------------------------------
 
+def min_draft_cost(acceptance: float) -> float:
+    """Cheapest draft model that could plausibly hit this acceptance rate.
+
+    Acceptance and draft cost describe one object -- the draft model -- but the
+    search treats them as independent, so left uncoupled it buys accuracy for
+    nothing: acceptance 0.95 at a draft cost of 0.10 was accepted as legal, and
+    the optimizer duly took it.
+
+    What a draft has to buy is the *odds* of acceptance, and those get
+    superlinearly expensive near certainty because a draft that is always right
+    is the target model. Pricing the odds gives ~0.12 of a step at acceptance
+    0.7 and ~0.45 at 0.9, and passes 1.0 (a draft costing a full target step,
+    i.e. no reason to speculate) just below 0.96.
+    """
+    if acceptance <= 0.0:
+        return 0.0
+    if acceptance >= 1.0:
+        return float("inf")
+    return 0.05 * acceptance / (1.0 - acceptance)
+
+
 def _divisors(n: int, max_val: int | None = None) -> list[int]:
     if n <= 0:
         return [1]
@@ -400,10 +421,17 @@ def validate_inference(
                 f"speculative_acceptance_rate={cfg.speculative_acceptance_rate} "
                 "must be in (0, 1) when speculative decoding is on"
             )
+        floor = min_draft_cost(cfg.speculative_acceptance_rate)
         if cfg.speculative_draft_cost_factor <= 0:
             return False, (
                 "speculative decoding must charge a draft cost: "
                 "speculative_draft_cost_factor must be > 0"
+            )
+        if cfg.speculative_draft_cost_factor < floor:
+            return False, (
+                f"speculative_draft_cost_factor={cfg.speculative_draft_cost_factor} "
+                f"is too cheap for acceptance_rate={cfg.speculative_acceptance_rate}: "
+                f"a draft that accurate costs at least {floor:.2f} of a step"
             )
     # Custom collective ops only matter when TP>1.
     if cfg.quick_reduce and cfg.tp <= 1:
