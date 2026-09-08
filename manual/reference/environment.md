@@ -50,6 +50,7 @@ ones that matter.
 | `MORI_IB_GID_INDEX` | `1` | RoCEv2 GID index for the MoRI transport. |
 | `VLLM_HOST_IP` | *(none)* | Routable IP a vLLM worker advertises for KV transfer (cross-node). Pair with `--advertise-host`. |
 | `RDMAV_FORK_SAFE` | `1` | libibverbs fork-safety; set for RDMA workers. |
+| `INFERA_PREFLIGHT_MOONCAKE_OPCODE` | `read` | Mooncake preflight operation: `read` preserves the existing receiver-pull probe; `write` exercises the producer-push direction used by SGLang `send_kvcache`. This changes only the diagnostic probe, not engine traffic. |
 
 See [PD disaggregation](../features/pd_disaggregation.md) for the bring-up
 checklist and the RDMA self-check.
