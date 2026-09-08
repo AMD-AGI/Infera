@@ -1,0 +1,61 @@
+# The outermost graph. Its name is fixed and its presence is what makes this
+# directory a task package (main spec §4.3).
+#
+# Two AI leaves and one handoff between them — the smallest graph that runs an
+# agent and a dependency edge at the same time. Anything removed from here stops
+# testing one of the two.
+#
+# `main` is a **non-leaf**: it carries `assets/main.task/readme.md` and no
+# `entry.sh`, because its work *is* its subgraph and the two are mutually
+# exclusive (`closure` spec §2.6). It declares no `agent` — `closure.schema.json`
+# requires one of a leaf and of nothing else — and no `resources`, because only
+# a leaf may acquire.
+#
+# There is no `body:` key anywhere in this package. A folder named
+# `${name}.${type}` under `assets/` scopes the lookup.
+module: task
+name: main
+description: Set the directions of an algorithms course, then write the problem set.
+
+# Every kind the subtree uses, declared here. A task's `inputs`/`outputs` must
+# each appear in its closure's `handoffs` (`closure` spec §4 check 2), and
+# permissions are inherited downwards, so the root is the one place that has to
+# know the full vocabulary. Each kind is *defined* in its producer's step file.
+handoffs:
+  - directions
+  - problems
+
+# A non-leaf runs nothing, so there is nothing of its own to validate. The three
+# validators hang off the handoff kinds, in the step files that declare them.
+validators: []
+
+task:
+  goal: Set the course directions, then turn them into a problem set.
+  version: '1'
+
+  # This package consumes nothing from outside itself.
+  inputs: []
+
+  # The end entry's outputs are the sole route by which a handoff produced
+  # inside a subgraph leaves it (`task_graph` criterion 50).
+  outputs: [problems]
+
+  # Inherited by every subtask: `Task._instantiate` passes the parent's
+  # permissions down. WRITE covers READ, so one grant per kind covers the
+  # producer and every consumer.
+  permissions:
+    grants:
+      - {path: handoffs/directions, access: write, kind: directions}
+      - {path: handoffs/problems, access: write, kind: problems}
+
+  # `froms` is mandatory on every entry and `[]` is an answer. The edge is
+  # derived from the handoff wiring (`models.derived_edges`) and what is written
+  # here is checked against that derivation, so these lists are not a summary —
+  # shortening one is a load failure.
+  #
+  # No `is_start`: index 0 is always a root of the derived graph. `is_end` stays
+  # because its default is positional, so appending a third entry would silently
+  # move the subgraph's exit.
+  subgraph:
+    - {closure: directions, froms: []}
+    - {closure: problems, froms: [directions], is_end: true}
