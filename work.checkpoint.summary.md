@@ -20292,3 +20292,75 @@ shared machine (read 06:10:06):
 **Code problems:** none new (T+1837 §4 unchanged).
 **未定性:** unchanged from T+2497 §5.
 **新增 commit:** none by anyone since `e736598a` (mine, 05:41).
+
+---
+
+## R2 T+2887 — 2026-09-08 06:41 UTC
+
+**T+2887 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-08 06:40:26).
+
+### 1. All eight cards are in use by another tenant
+
+**[observed, first-hand]**
+
+```
+cards  VRAM%  72 71 71 71 71 71 71 71   at 06:40:07
+
+rocm-smi --showpids
+  2652740  sglang::schedul   221 454 647 296 bytes (~221 GB)
+  2651812  sglang::schedul   221 158 948 864 bytes
+
+docker inspect drain-copilot-check
+  created  2026-09-08T06:27:18.874Z
+  image    rocm-llm-bench:latest
+  labels   only org.opencontainers.*  — no infera_e2e_run, no deploy_kit_owner
+
+sinfo -n smci355-ccs-aus-n04-25
+  STATE allocated   REASON none
+```
+
+**An `sglang` deployment holding ~221 GB per rank across all eight cards, in a
+container created at 06:27:18.** Not ours — no `infera_e2e_run` label, no
+`deploy_kit_owner`, and an image (`rocm-llm-bench`) none of our 22 runs used.
+
+**The container's name contains "drain" and I checked whether the node is being
+drained: it is not.** `sinfo` reports `STATE allocated, REASON none`. **The name
+is not evidence of node state** — which is the same discipline as not reading
+ownership from a prefix, applied to a different inference.
+
+**Recorded because it changes the practical picture:** the machine is now fully
+committed to another tenant's workload. **If the round resumes, it needs a
+scheduler allocation, and the cards are not currently free.**
+
+### 2. Our state
+
+```
+squeue -u yihou   header only — no hold, no successor
+total runs        22          orchestrators 0
+last run write    2026-09-07 06:47:04  -> nothing of ours for 1433 min 22 s
+teammate writes   0 in the last 40 min  (forty-seventh consecutive interval)
+commits           none by anyone since mine at 06:11
+```
+
+### 3. 进度 / 耗时 / 可靠性
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** — the T+1837 closing stands |
+| 已经耗时 | **~2901 min ≈ 48 h 21 min** |
+| 预估耗时 | **not computable — T+1837 §7** |
+| 可靠性 | **中** |
+
+### 4. Code problems
+
+**None new** (T+1837 §4 unchanged).
+
+### 5. 未定性
+
+Unchanged from T+2497 §5, with §1 sharpening one of them: **the node is not
+merely allocated to someone else, its GPUs are fully in use.**
+
+### 6. 新增 commit
+
+None by anyone since `4def2c93` (mine, 06:11).
