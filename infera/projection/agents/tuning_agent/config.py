@@ -162,6 +162,11 @@ class LLMConfig:
     model: str = DEFAULT_MODEL
     timeout: int = 300
     max_tokens: int = 16000
+    # Extra HTTP headers sent with every completion. An API-gateway-fronted
+    # endpoint typically wants a subscription key and a caller identity that
+    # neither the bearer token nor the base URL carries, and without them the
+    # gateway rejects the request before any model sees it.
+    extra_headers: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -243,6 +248,9 @@ def load_config(target_cluster_yaml: Path, workload_yaml: Path, out_dir: Path | 
         model=str(llm_raw.get("model") or _from_env("LLM_MODEL", DEFAULT_MODEL)),
         timeout=int(llm_raw.get("timeout", 300)),
         max_tokens=int(llm_raw.get("max_tokens", 16000)),
+        extra_headers={
+            str(k): str(v) for k, v in (llm_raw.get("extra_headers") or {}).items()
+        },
     )
 
     return AgentConfig(

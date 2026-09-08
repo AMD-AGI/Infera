@@ -63,6 +63,8 @@ def configure_dspy(agent_cfg: AgentConfig) -> None:
         lm_kwargs["api_key"] = api_key
     if base_url:
         lm_kwargs["api_base"] = base_url
+    if getattr(agent_cfg.llm, "extra_headers", None):
+        lm_kwargs["extra_headers"] = dict(agent_cfg.llm.extra_headers)
 
     # ChatAdapter avoids JSONAdapter failures when the model wraps output in ```json.
     lm = dspy.LM(model, **lm_kwargs)
