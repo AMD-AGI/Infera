@@ -20400,3 +20400,40 @@ Same order as the other tenants' bursts recorded at T+1057 and T+1207.
 **Code problems:** none new (T+1837 §4 unchanged).
 **未定性:** unchanged from T+2497 §5.
 **新增 commit:** none by anyone since `f6e78510` (mine, 06:41).
+
+---
+
+## R2 T+2947 — 2026-09-08 07:41 UTC
+
+**T+2947 = wall-clock delta from the baseline** (2026-09-06 06:33:41 →
+2026-09-08 07:40:13).
+
+**No-change record for our work. The other tenant is back on all eight cards.**
+
+```
+squeue -u yihou   header only — no hold, no successor
+total runs        22          orchestrators 0
+last run write    2026-09-07 06:47:04  -> nothing of ours for 1493 min 9 s
+teammate writes   0 in the last 40 min  (forty-ninth consecutive interval)
+commits           none by anyone since mine at 07:11
+shared machine (read 07:40:08):
+  cards       VRAM%  71 ×8
+  containers  drain-ab-server (new), weihuan_flydsl_mbs3, xiaoming-dev,
+              rc_26_7_902 — none ours
+```
+
+**A second `drain-*` container, `drain-ab-server`, and all eight cards again.**
+**I did not re-check `sinfo` this cycle** — at T+2887 it read `allocated, REASON
+none`, and I am not carrying that forward as current. **The name still is not
+evidence about node state.**
+
+| | |
+|---|---|
+| 任务预估进度 | **~78 %** — the T+1837 closing stands |
+| 已经耗时 | **~2961 min ≈ 49 h 21 min** |
+| 预估耗时 | **not computable — T+1837 §7** |
+| 可靠性 | **中** |
+
+**Code problems:** none new (T+1837 §4 unchanged).
+**未定性:** unchanged from T+2497 §5.
+**新增 commit:** none by anyone since `94d49661` (mine, 07:11).
