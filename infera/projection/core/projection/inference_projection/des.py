@@ -345,6 +345,23 @@ def simulate_once(
         if arrivals is None:
             arrivals = _generate_arrivals(num_requests, rate_per_s, arrival_model, rng, burstiness)
         pending = _build_workload(len(arrivals), arrivals, input_len, output_len, range_ratio, rng)
+    if prebuilt is None:
+        # Seed the flat prefix-cache hit rate. The multi-instance router derives
+        # each request's hit from a content-addressed block cache and hands the
+        # result over in ``prebuilt``; the single-engine path had no equivalent,
+        # so ``--prefix-cache-hit-rate`` was accepted and then ignored and every
+        # request reprefilled its whole prompt. On an agentic shape that is the
+        # difference between a 10k prefill and a 130k one, which showed up as the
+        # DES saturating at 0.08 req/s where the analytical path sustained 1.78.
+        # Same rule as ``_prefix_cached_tokens``: at least one token stays
+        # uncached so a fully-cached prompt still runs a forward to emit token 1.
+        hit = inference_config.request_config.resolved_prefix_cache_hit_rate()
+        if hit > 0.0:
+            for r in pending:
+                cached = max(0, min(int(r.prompt_len * hit), r.prompt_len - 1))
+                if cached > 0:
+                    r.cached_prefix = cached
+                    r.num_computed = cached
     pending.sort(key=lambda r: (r.arrival_ms, r.idx))
     n = len(pending)
 
