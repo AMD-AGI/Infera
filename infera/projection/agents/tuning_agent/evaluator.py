@@ -618,6 +618,17 @@ def _build_inference_cmd(
     if getattr(cfg, "request_rate", 0.0) and getattr(cfg, "arrival_model", "closed") != "closed":
         cmd += ["--request-rate", str(cfg.request_rate)]
         cmd += ["--arrival-model", str(cfg.arrival_model)]
+    # Per-request length heterogeneity. The search priced every trial at a single
+    # ISL/OSL point, which is not what any measured trace looks like -- the
+    # agentic ones span 103k-248k input -- and a point estimate cannot show long
+    # requests holding KV while short ones cycle through. These reach the DES,
+    # so they only bite alongside an offered rate or a replayed workload.
+    if getattr(cfg, "des_workload_file", None):
+        cmd += ["--des-workload-file", str(cfg.des_workload_file)]
+    if getattr(cfg, "des_range_ratio", 1.0) != 1.0:
+        cmd += ["--des-range-ratio", str(cfg.des_range_ratio)]
+    if getattr(cfg, "des_num_requests", 0):
+        cmd += ["--des-num-requests", str(cfg.des_num_requests)]
     # Kernel backend + native sparse attention + expert precision + fused ops.
     if getattr(cfg, "attention_backend", None):
         cmd += ["--attention-backend", str(cfg.attention_backend)]

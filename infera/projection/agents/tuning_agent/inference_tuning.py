@@ -93,6 +93,12 @@ class InferenceTrialConfig:
     decode_replicas: int = 1
     # KV-transfer engine preset for disaggregation: nixl | mooncake | mori
     transfer_backend: str | None = None
+    # per-request length heterogeneity (DES): uniform spread over
+    # [ratio*len, len], a replayed (arrival, isl, osl) workload, and how many
+    # requests to simulate. 1.0 / None / 0 keep the single-point behaviour.
+    des_range_ratio: float = 1.0
+    des_workload_file: str | None = None
+    des_num_requests: int = 0
     # offered load (open-loop): request rate + arrival process
     request_rate: float = 0.0
     arrival_model: str = "closed"  # closed | poisson | deterministic
@@ -411,6 +417,11 @@ def validate_inference(
             return False, "transfer_backend only applies when disaggregate is set"
         if cfg.transfer_backend not in legality.transfer_backend:
             return False, f"transfer_backend={cfg.transfer_backend} not in {legality.transfer_backend}"
+    if not (0.0 < cfg.des_range_ratio <= 1.0):
+        return False, (
+            f"des_range_ratio={cfg.des_range_ratio} must be in (0, 1] "
+            "(1.0 = every request the same length)"
+        )
     if cfg.kv_block_size < 0:
         return False, f"kv_block_size must be >= 0, got {cfg.kv_block_size}"
     if cfg.max_num_batched_tokens < 0:
