@@ -106,6 +106,34 @@ def test_the_seed_plan_spends_trials_on_the_axis():
     assert any(c.batch_size >= 16 for c in dp_trials)
 
 
+def test_a_draft_model_that_is_never_wrong_and_never_costs_anything_is_rejected():
+    """Speculation has to pay for itself or the optimizer will take a free lunch.
+
+    Acceptance and draft cost are free parameters. Handed a draft that is always
+    right and runs for nothing, the search took it and reported 354 tok/s/GPU on
+    a configuration no draft model can implement -- 2.5x the honest number.
+    """
+    leg = _legality()
+    perfect = _cfg(speculative_num_tokens=4, speculative_acceptance_rate=1.0,
+                   speculative_draft_cost_factor=0.0)
+    ok, why = validate_inference(perfect, _Arch(), _Cluster(), leg)
+    assert not ok and "acceptance_rate" in why
+
+    free = _cfg(speculative_num_tokens=4, speculative_acceptance_rate=0.7,
+                speculative_draft_cost_factor=0.0)
+    ok, why = validate_inference(free, _Arch(), _Cluster(), leg)
+    assert not ok and "draft cost" in why
+
+
+def test_speculation_that_pays_for_itself_is_still_allowed():
+    """The axis stays searchable; only the unphysical corner is closed."""
+    leg = _legality()
+    cfg = _cfg(speculative_num_tokens=4, speculative_acceptance_rate=0.7,
+               speculative_draft_cost_factor=0.2)
+    ok, why = validate_inference(cfg, _Arch(), _Cluster(), leg)
+    assert ok, why
+
+
 def test_the_projection_command_carries_the_axis():
     """Legal in the search but undelivered to the projector would score every
     DP trial as if the axis were off, which is worse than not searching it."""

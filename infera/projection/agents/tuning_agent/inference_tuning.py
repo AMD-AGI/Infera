@@ -389,6 +389,22 @@ def validate_inference(
         return False, "speculative_draft_cost_factor must be >= 0"
     if cfg.speculative_draft_cost_factor > 0 and cfg.speculative_num_tokens <= 0:
         return False, "speculative_draft_cost_factor requires speculative_num_tokens>0"
+    # Speculation has to pay for itself. Acceptance and draft cost are free
+    # parameters, so an optimizer handed a perfect draft model that runs for
+    # nothing will take it -- and it did, tripling reported throughput on a
+    # configuration no draft model can implement. A draft that is always right
+    # is the target model, and running it is not free.
+    if cfg.speculative_num_tokens > 0:
+        if not (0.0 < cfg.speculative_acceptance_rate < 1.0):
+            return False, (
+                f"speculative_acceptance_rate={cfg.speculative_acceptance_rate} "
+                "must be in (0, 1) when speculative decoding is on"
+            )
+        if cfg.speculative_draft_cost_factor <= 0:
+            return False, (
+                "speculative decoding must charge a draft cost: "
+                "speculative_draft_cost_factor must be > 0"
+            )
     # Custom collective ops only matter when TP>1.
     if cfg.quick_reduce and cfg.tp <= 1:
         return False, "quick_reduce requires TP>1"
@@ -595,7 +611,8 @@ def build_inference_seed_plan(
     if in_len >= 2048:
         add(mk(batch_size=16, chunked_prefill_size=1024))
     # 8) speculative decoding (latency)
-    add(mk(speculative_num_tokens=4, speculative_acceptance_rate=0.7))
+    add(mk(speculative_num_tokens=4, speculative_acceptance_rate=0.7,
+           speculative_draft_cost_factor=0.2))
     # 8b) CUDA-graph capture (per-step launch overhead / mixed-step penalty).
     add(mk(batch_size=16, cudagraph_mode="full"))
     add(mk(batch_size=16, cudagraph_mode="piecewise"))
