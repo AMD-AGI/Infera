@@ -15,6 +15,30 @@ task package's environment recipe and installed by `env_mgr` at runtime.
 
 No SSH keys or credentials are needed at build time.
 
+Two requirements that are easy to trip over:
+
+**BuildKit is required.**  The Dockerfile uses `# syntax=`, `RUN --mount=type=cache`
+and `COPY --chmod`, none of which the legacy builder understands.  Docker ships
+BuildKit through the `buildx` CLI plugin, and a host can have a modern daemon
+without it — `docker buildx version` answering `unknown command` is the symptom,
+and `build.sh` then fails with *"BuildKit is enabled but the buildx component is
+missing or broken"*.  You do not need to change anything system-wide to get one:
+drop the plugin into a config directory you own and point `DOCKER_CONFIG` at it.
+
+```bash
+mkdir -p ~/my-docker-config/cli-plugins
+curl -fsSL -o ~/my-docker-config/cli-plugins/docker-buildx \
+  https://github.com/docker/buildx/releases/download/v0.20.1/buildx-v0.20.1.linux-amd64
+chmod +x ~/my-docker-config/cli-plugins/docker-buildx
+DOCKER_CONFIG=~/my-docker-config deploy/docker/agent-sys/build.sh
+```
+
+**Build from the main checkout, not from a `git worktree`.**  A worktree's `.git`
+is a one-line pointer file naming a path on your machine; `COPY` carries the
+pointer and not what it points at, so inside the image it names nothing.  The
+build stops early and says so.  `.git` itself is deliberately *not* ignored —
+`env_mgr/workspace.py` runs `git clone --shared` against `/opt/Infera`.
+
 ```bash
 deploy/docker/agent-sys/build.sh
 deploy/docker/agent-sys/build.sh --tag infera/agent-sys:v1

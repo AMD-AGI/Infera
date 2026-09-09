@@ -103,6 +103,24 @@ FROM toolchain AS venv-agent
 
 COPY . /opt/Infera
 
+# A git *worktree* has a one-line `.git` file -- `gitdir: /abs/path/...` --
+# instead of a `.git` directory, and that path names a location on the build
+# host that does not exist in the image.  Every git step below then fails with
+# `fatal: not a git repository: <a path the reader has never seen>`, which
+# sends them looking for a broken checkout rather than at their build context.
+#
+# Refused here, with the instruction, rather than repaired: materialising a
+# repository (`git init` + one commit) would silently collapse history for
+# every consumer of `env_mgr/workspace.py`'s `git clone --shared`, and that is
+# not a side effect a Dockerfile may have.
+RUN if [ -f /opt/Infera/.git ]; then \
+      echo "This build context is a git worktree, not a checkout: .git is a" >&2; \
+      echo "pointer file naming a path that does not exist in the image, so" >&2; \
+      echo "every git step below would fail. Build from the main checkout." >&2; \
+      exit 1; \
+    fi \
+ && test -d /opt/Infera/.git
+
 # `--copies` so Landlock confinement works correctly -- see the original
 # Dockerfile comments on copies vs symlinks.
 RUN python -m venv --copies /opt/venv/agent \
