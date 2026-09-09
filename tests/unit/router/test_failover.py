@@ -390,6 +390,19 @@ async def test_half_a_pd_deployment_names_the_empty_pool(present, missing):
 
 
 @pytest.mark.asyncio
+async def test_empty_fleet_does_not_claim_a_mixed_worker_is_required():
+    """An empty auto-router fleet reports the actual absence of workers."""
+    from infera.router.auto import AutoRouter
+
+    r = AutoRouter(_ModePool([]), _FakePolicy())
+    resp = await r.dispatch({"model": "m"}, stream=False)
+    assert resp.status_code == 503
+    body = json.loads(bytes(resp.body))["error"]
+    assert body == "no active worker for model='m'"
+    await r.aclose()
+
+
+@pytest.mark.asyncio
 async def test_a_mixed_worker_still_absorbs_a_half_pd_fleet():
     """A mixed worker alongside half a PD pool can serve, so the 503 must not
     fire -- this is the rolling-upgrade case."""

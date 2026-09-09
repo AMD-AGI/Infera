@@ -70,13 +70,39 @@ class BaseEngine(ABC):
         return proc.returncode
 
 
-def watch_engine_death(engine: BaseEngine, stop: asyncio.Event) -> asyncio.Task:
+@dataclass
+class EngineDeath:
+    """Captures an inference subprocess exit observed by the death watcher."""
+
+    observed: bool = False
+    returncode: int | None = None
+
+    @property
+    def exit_status(self) -> int | None:
+        """Return a non-zero POSIX status for an observed subprocess exit."""
+        if not self.observed:
+            return None
+        if self.returncode is None:
+            return 1
+        if self.returncode < 0:
+            return 128 - self.returncode
+        return self.returncode or 1
+
+
+def watch_engine_death(
+    engine: BaseEngine,
+    stop: asyncio.Event,
+    death: EngineDeath | None = None,
+) -> asyncio.Task:
     async def _watch() -> None:
         if engine._proc is None:
             # No subprocess to watch (e.g. engine not started yet); never trip
             # shutdown on a phantom "death".
             return
         code = await engine.wait()
+        if death is not None:
+            death.observed = True
+            death.returncode = code
         logger.error(
             "engine subprocess exited (code=%s); deregistering worker and shutting down",
             code,

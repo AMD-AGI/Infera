@@ -28,7 +28,7 @@ func natsImage(idep *inferav1alpha1.InferaDeployment) string {
 	if idep.Spec.NATS != nil && idep.Spec.NATS.Image != "" {
 		return idep.Spec.NATS.Image
 	}
-	return "nats:latest"
+	return "nats:2.11.1"
 }
 
 func natsStorageSize(idep *inferav1alpha1.InferaDeployment) string {
@@ -55,7 +55,9 @@ func buildNATSService(idep *inferav1alpha1.InferaDeployment) *corev1.Service {
 }
 
 // buildNATSStatefulSet creates a single-replica JetStream NATS whose store_dir
-// is driven by NATS_STORE_DIR pointing at the mounted PVC (survives restarts).
+// is the mounted PVC at /data/jetstream (survives restarts). The path is a
+// literal: expanding $(NATS_STORE_DIR) in Args is CRI-dependent and an empty
+// -sd makes nats-server report 10077 "opening msg block file [\"\"]".
 // Scale to an odd replica count for RAFT quorum in production.
 func buildNATSStatefulSet(idep *inferav1alpha1.InferaDeployment) *appsv1.StatefulSet {
 	lbls := natsLabels(idep.Name)
@@ -81,9 +83,8 @@ func buildNATSStatefulSet(idep *inferav1alpha1.InferaDeployment) *appsv1.Statefu
 					Containers: []corev1.Container{{
 						Name:  "nats",
 						Image: natsImage(idep),
-						// K8s expands $(NATS_STORE_DIR) in args from the env below.
-						Args: []string{"-js", "-sd", "$(NATS_STORE_DIR)", "-m", "8222"},
-						Env:  []corev1.EnvVar{{Name: "NATS_STORE_DIR", Value: "/data/jetstream"}},
+						Args:  []string{"-js", "-sd", "/data/jetstream", "-m", "8222"},
+						Env:   []corev1.EnvVar{{Name: "NATS_STORE_DIR", Value: "/data/jetstream"}},
 						Ports: []corev1.ContainerPort{
 							{Name: "client", ContainerPort: natsClientPort},
 							{Name: "monitor", ContainerPort: natsMonitorPort},

@@ -38,7 +38,7 @@ from infera.common.net import free_tcp_port
 from infera.common.registration import RegistrationClient
 from infera.engine.atom.args import parse_atom_args
 from infera.engine.atom.worker import AtomEngine
-from infera.engine.base import watch_engine_death
+from infera.engine.base import EngineDeath, watch_engine_death
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)  # silence etcd keepalive spam
@@ -155,7 +155,8 @@ async def main() -> None:
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, stop.set)
 
-    death_task = watch_engine_death(engine, stop)
+    death = EngineDeath()
+    death_task = watch_engine_death(engine, stop, death)
     await stop.wait()
 
     death_task.cancel()
@@ -176,6 +177,8 @@ async def main() -> None:
         # thing to inherit if one is ever added.
         logger.warning("stopping anyway")
     await engine.stop()
+    if death.exit_status is not None:
+        raise SystemExit(death.exit_status)
 
 
 if __name__ == "__main__":

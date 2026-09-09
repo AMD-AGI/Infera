@@ -77,15 +77,14 @@ class AutoRouter(BaseRouter):
         has_d = self.pool.list_active(model=model, mode=DisaggMode.DECODE)
         if has_p and has_d:
             return await self._disagg.dispatch(body, stream=stream, path=path)
+        has_mixed = self.pool.list_active(model=model, mode=DisaggMode.MIXED)
         # Exactly one PD pool populated: the deployment is disaggregated but
         # half of it is gone. Falling through to the mixed router would be
         # correct-but-useless -- there are no mixed workers either, so it
         # answers "no active mixed worker", which sends the reader looking for
         # something they never deployed while a decode (or prefill) pool sits
         # right there. Scaling either side to zero is the usual cause.
-        if bool(has_p) != bool(has_d) and not self.pool.list_active(
-            model=model, mode=DisaggMode.MIXED
-        ):
+        if bool(has_p) != bool(has_d) and not has_mixed:
             present, missing = ("prefill", "decode") if has_p else ("decode", "prefill")
             logger.warning(
                 "model=%r has %d %s worker(s) but no %s worker: PD dispatch needs both",
@@ -101,6 +100,11 @@ class AutoRouter(BaseRouter):
                         f"but no {missing} worker; PD dispatch requires both pools"
                     )
                 },
+                status_code=503,
+            )
+        if not has_p and not has_d and not has_mixed:
+            return JSONResponse(
+                content={"error": f"no active worker for model={model!r}"},
                 status_code=503,
             )
         return await self._mixed.dispatch(body, stream=stream, path=path)
