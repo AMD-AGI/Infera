@@ -302,9 +302,7 @@ class NatsBus:
             return await self._create_kv_view(js, StorageType.FILE)
         except Exception as exc:
             if js_store_failed(exc):
-                logger.warning(
-                    "KV view bucket FILE create failed (%s); retrying in MEMORY", exc
-                )
+                logger.warning("KV view bucket FILE create failed (%s); retrying in MEMORY", exc)
                 try:
                     await js.delete_key_value(KV_VIEW_BUCKET)
                 except Exception:

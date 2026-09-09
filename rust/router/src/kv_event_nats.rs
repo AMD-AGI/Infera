@@ -302,7 +302,9 @@ async fn watch_bucket(
 ) -> Result<()> {
     let store = match js.get_key_value(KV_VIEW_BUCKET).await {
         Ok(s) => s,
-        Err(_) => open_kv_view(&js).await.context("opening the KV view bucket")?,
+        Err(_) => open_kv_view(&js)
+            .await
+            .context("opening the KV view bucket")?,
     };
     // `watch_all` delivers only subsequent updates, which would leave a
     // cold-starting router waiting for the next time a relay happens to rewrite

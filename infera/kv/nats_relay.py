@@ -284,9 +284,7 @@ class KvEventNatsRelay:
                         self._dirty[rank] = False
                         self._bucket_failures = 0
                         self._next_bucket_warn = 1
-                        logger.warning(
-                            "KV view bucket rebuilt after filestore failure (r%d)", rank
-                        )
+                        logger.warning("KV view bucket rebuilt after filestore failure (r%d)", rank)
                         return
                     except Exception as retry_exc:
                         self._note_bucket_failure(rank, retry_exc)
