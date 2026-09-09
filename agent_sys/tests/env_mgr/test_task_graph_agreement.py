@@ -21,6 +21,7 @@ from pathlib import Path
 import pytest
 
 from env_mgr.fs.domain import DomainKind, DomainRegistry
+from env_mgr.fs.layout import handoff_version_dir
 from env_mgr.grants import mode_for, resolve_all
 from env_mgr.protocols import Context, Mode, Tier, UnresolvedGrant
 from task_graph import Access, Grant, Permissions
@@ -153,7 +154,7 @@ def test_resolve_all_against_real_permissions(store: str, tmp_path: Path) -> Non
     execution = task.push_execution(AgentId.new(), {hid: 2})
 
     granted = resolve_all(task, execution, _ctx(store, {hid: _handoff(hid, "trace")}, tmp_path))
-    assert [g.path for g in granted] == [os.path.join(store, str(hid), "v2", "content")]
+    assert [g.path for g in granted] == [os.path.join(handoff_version_dir(store, hid, 2), "content")]
     assert granted[0].mode is Mode.READ_EXEC
 
 

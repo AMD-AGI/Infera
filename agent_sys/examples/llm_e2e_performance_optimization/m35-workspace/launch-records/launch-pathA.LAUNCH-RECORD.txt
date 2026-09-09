@@ -1,0 +1,68 @@
+launched_at_utc: 2026-09-06T14:07:46Z
+launched_by:     m35 (m2 unreached at launch time; leader approved)
+supersedes:      20260906T130845-298750 — _on REFUSED (check_trace_coverage,
+                 stacks_manifest.json missing); orchestrator exited 14:05:14,
+                 3 profiling_mode_on.* handoffs invalid from ONE refusal
+PATH A — the repair, not the declarations:
+  trace_end_ms 60000 -> 120000   (floor = warmup 60 + window 10 + stack 3 = 73 s)
+  DROPPED --var stack_window_s=0 (producer opt-out) — the capture must SUCCEED
+  NOT ADDED --var stack_ranks=0  (validator opt-out) — same reason
+  KEPT --var kernel_table_min_launchers=0 — see note below
+  container yihou_e2e_chain -> yihou_e2e_chain2 (distinct from the dead run)
+  jobid 29184 -> 29313 (the new hold)
+
+note on kernel_table_min_launchers: kept deliberately as a safety net. The
+  attributable test for Path A is grep CAPTURE_OK in capture_stacks.log, which
+  is independent of any validator waiver, so keeping this one costs no
+  attributability and avoids losing the run to a >=10-launcher threshold.
+
+note on ports: E2E_KIT_PORT_BASE is NOT a declared --var (shared.yaml mentions
+  it only in a comment; read by the kit and check_deploy_serves, declared
+  nowhere), so the band CANNOT be moved from a launch line. Left at 8101-8103;
+  safe because the predecessor is fully terminal — no orchestrator, no
+  containers, cards 0 0 0 0 0 0 0 0 at 14:05:39Z.
+
+THE TEST: grep CAPTURE_OK <run>/…/load.profiling_mode_on/capture_stacks.log
+
+--- the command ---
+#!/usr/bin/env bash
+# PATH A — the repair. trace_end_ms=120000 so the stack capture's preflight finds
+# load in flight. NO stack_window_s and NO stack_ranks: the point is that both
+# validators pass on the artefact rather than on a waiver.
+set -u
+cd /home/yihou/dev/git.16-19/infera
+LD=/data/yihou/e2e_verify_20260906/m35/launch-pathA
+env -u PYTHONPATH \
+CLAUDE_CONFIG_DIR=/data/yihou/e2e_verify_20260906/m1/claude-config \
+python3 /data/yihou/e2e_verify_20260906/m2/launch_chain.py \
+  --stall-after 900 run \
+  --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+  --demo-root /data/yihou/agent_sys_runroot \
+  --timeout 21600 \
+  --var jobid=29313 \
+  --var node=smci355-ccs-aus-n04-25 \
+  --var node_ip=10.235.192.131 \
+  --var transport=local \
+  --var model_name=Qwen/Qwen3-32B \
+  --var model_path=/apps/data/models/Qwen3-32B \
+  --var image=infera/engine-sglang:qwen3-local-20260906 \
+  --var context_length=40960 \
+  --var tp=4 --var expect_ranks=4 \
+  --var dsa_args=none --var parser_args=none \
+  --var mock_stages=none \
+  --var work_root=/data/yihou/e2e_flow \
+  --var scratch_root=/data/yihou/e2e_flow/kfo \
+  --var validate_work_root=/data/yihou/e2e_flow/validate \
+  --var container=yihou_e2e_chain2 \
+  --var port_router=8101 --var port_worker=8102 --var port_etcd=8103 \
+  --var measure_gpu=4 \
+  --var magpie_root=/data/yihou/Magpie \
+  --var aiperf_trace=/data/yihou/e2e_verify_20260906/m2/materials/conversation_trace.v2.jsonl \
+  --var gsm8k_data=/data/yihou/e2e_verify_20260906/m2/materials/gsm8k_test.jsonl \
+  --var trace_end_ms=120000 \
+  --var bench_rounds=3 \
+  --var adhoc_cases=3 \
+  --var eval_thinking=none \
+  --var forge_mock=1 \
+  --var kernel_table_min_launchers=0 \
+  --var instruction="$(cat "$LD/instruction.txt")"

@@ -76,11 +76,19 @@ from env_mgr.fs.layout import LOGS
 from env_mgr.fs.zone import Zone
 
 __all__ = [
+    "AGENT_ASSETS_ENV_VAR",
+    "BIN_ENV_VAR",
+    "CLAUDE_HOME_ENV_VAR",
     "HANDOFFS_ENV_VAR",
+    "HOME_ENV_VAR",
+    "INSTALL_REPORT_ENV_VAR",
     "LOGS_ENV_VAR",
     "PACKAGE_ENV_VAR",
     "PLAYGROUND_ENV_VAR",
     "REMOTE_SUFFIX",
+    "RUN_ENV_VAR",
+    "SHARE_ENV_VAR",
+    "STATE_ENV_VAR",
     "WORKSPACE_ENV_VAR",
     "ZONE_ENV_VAR",
     "remote_name",
@@ -103,39 +111,48 @@ ZONE_ENV_VAR = "AGENT_SYS_MY_ZONE"
 #: longer granted, so a package with its own variable must derive it from this.
 PACKAGE_ENV_VAR = "AGENT_SYS_TASK_PACKAGE"
 
-#: The user's ``my_agent_workspace`` — ``<zone>/workspace``, what `workspace.cut`
-#: clones into.
-#:
-#: **``MY_`` and not ``MY_AGENT_``.** Every name in this namespace is already the
-#: agent's, so the second word would say it twice; what ``MY_`` distinguishes is
-#: *this attempt's* from the shared root, which is the distinction the user's
-#: list draws between items 2 and 8. The user's list is lowercase and
-#: unprefixed — `task_package_root` is already spelled `AGENT_SYS_TASK_PACKAGE`
-#: in this tree and they did not object — so it reads as concepts to be mapped
-#: onto the existing convention, not as literal spellings. Reported for a ruling.
+#: Where this agent's own asset directory went, inside the staged package
+#: (``<staged package>/<AgentSpec.assets>``), or absent when the spec has none.
+#: Defined here but bound by `agent_assets.install`, since its value depends
+#: on `AgentSpec.assets`, not just the `Zone`.
+AGENT_ASSETS_ENV_VAR = "AGENT_SYS_AGENT_ASSETS"
+
+
+#: ``<zone>/logs/agent_assets.install.json`` -- what the recipes and the agent's
+#: own ``.claude/`` tree installed, per outcome, as JSON. Promised rather than
+#: discoverable, so an agent can state its capabilities without searching.
+INSTALL_REPORT_ENV_VAR = "AGENT_SYS_INSTALL_REPORT"
+
+#: The user's ``my_agent_workspace`` -- ``<zone>/workspace``, what
+#: `workspace.cut` clones into. ``MY_`` (not ``MY_AGENT_``) distinguishes this
+#: attempt's copy from the shared root.
 WORKSPACE_ENV_VAR = "AGENT_SYS_MY_WORKSPACE"
 
 #: The user's ``my_agent_playground`` — ``<zone>/playground``, spec §6.2's
 #: unsynced scratch.
 PLAYGROUND_ENV_VAR = "AGENT_SYS_MY_PLAYGROUND"
 
-#: ``<zone>/handoffs`` — where `layout.stage_handoffs` puts this attempt's
-#: **staged inputs**.
-#:
-#: **Not the handoff store, and the vocabulary here is genuinely confusing.**
-#: `DomainKind.HANDOFF_STORAGE` names the domain that roots the *zone tree*
-#: (`fs/domain.py:23`, `layout.create:88`), while the store the artefacts live in
-#: is `Context.store_root`, a separate field. `cli/environment.py:465,472` sets
-#: them to two different directories. Neither is exportable — both measured
-#: `EACCES` — so what this name carries is the third thing, the one inside the
-#: zone. `AGENT_SYS_INPUT_<KIND>` remains the way to address a *particular*
-#: staged input; this is the directory they share.
+#: ``<zone>/handoffs`` -- where `layout.stage_handoffs` puts this attempt's
+#: staged inputs. Not the handoff store (`Context.store_root`), which is not
+#: exportable; this is the zone-local directory the staged copies share.
 HANDOFFS_ENV_VAR = "AGENT_SYS_MY_HANDOFFS"
 
 #: ``<zone>/logs`` — spec §6.1's last row. Not on the user's list and included
 #: because it is one of the four directories a zone has and the only one that
 #: would otherwise have no name; ``等等`` invited the completion.
 LOGS_ENV_VAR = "AGENT_SYS_MY_LOGS"
+
+#: **The prefix family, re-exported rather than redefined.** `prefix` owns them
+#: because it owns the layout; they are visible here because `paths` is where a
+#: reader looks for an ``AGENT_SYS_*`` name.
+from .prefix import (  # noqa: E402
+    BIN_ENV_VAR,
+    CLAUDE_HOME_ENV_VAR,
+    HOME_ENV_VAR,
+    RUN_ENV_VAR,
+    SHARE_ENV_VAR,
+    STATE_ENV_VAR,
+)
 
 #: The user's ``_romote``, read as ``_remote``. A suffix rather than a second
 #: family, so that a name and its counterpart cannot drift apart.

@@ -1,0 +1,113 @@
+# Resolve each selected operator to a framework-level entry point.
+#
+# DESIGN.md section 4.4 is the substance of this step, and it is the place the
+# design changed most after reading AgentKernelArena's 21 `image_kernel` tasks:
+# **the unit of a workset is a framework-level callable, not a device kernel
+# symbol.** A Triton or TileLang device symbol is a compilation artefact; the
+# editable object is the Python function that generated it. Arena's KDA task
+# says so in its own words — "KDA is Triton-JIT so the trace shows launcher =
+# Not found; the entry points below were recovered from the session call
+# stacks."
+#
+# So this step does not try to resolve `main_kernel` to a source file. It
+# resolves *direction* — which repository, which subsystem — and records a hint.
+# `build_workset` reads the source and names the entry function.
+
+# --------------------------------------------------------------------------- #
+
+# Trustworthiness, because the failure this guards is a **plausible wrong
+# answer**: a resolver that reports a source file it did not verify sends the
+# whole downstream chain at the wrong code. Every rule below is therefore about
+# whether the claim was checked, not about whether a field is populated.
+- module: validator
+  name: check_identity_resolved
+  version: '1'
+  brief: Every selected operator carries a checked classification, and resolved paths exist where claimed
+  dimension: trustworthiness
+  strength: strong
+  inputs: [operator_identity]
+  args:
+    # **Zero, and the number is the finding rather than a loosened threshold.**
+    #
+    # The design first set this to 0.6, assuming name-grep would resolve most
+    # operators. Measured on the sample profile it resolved one of five, and
+    # that one was wrong: `amd_kernel_finder` answered
+    # `kernels/ops/kvcache/triton_store_cache.py` for an `add_rmsnorm_quant`
+    # kernel. `identify` now corroborates every grep hit against the indexed
+    # repository and rejects the ones that do not hold up, which took the
+    # verified ratio to zero on this data.
+    #
+    # That is the correct answer, not a disappointing one. DESIGN.md section 4.4:
+    # a Triton or TileLang device symbol is a compilation artefact and has no
+    # source file to find. The entry point is a framework-level function, and
+    # naming it means reading source — which is `build_workset`'s job. Two of
+    # AgentKernelArena's own production tasks were built exactly this way.
+    #
+    # **`profiling-demo` now supplies launcher frames, so level 1 is reachable —
+    # and this stays at 0.0 anyway.** The frames come from a `with_stack` window
+    # that a run can legitimately not have: `--var stack_window_s=0` skips it, and
+    # this package's own `seed_table` mock has never carried one. A floor above
+    # zero would turn "this profile has no call stacks" into a failed graph rather
+    # than a lower-confidence answer, and the answer is still usable.
+    #
+    # Measured against a profiling-shaped table carrying five frames: three of the
+    # five selected operators reached level 1 with a confirmed source file and
+    # entry function, taking the ratio from 0.0 to 0.6. So the number to watch is
+    # this one moving off the floor on its own, not a floor forcing it up.
+    min_resolve_ratio: 0.0
+    # The real gate, and it is per-operator rather than a ratio: an operator is
+    # actionable when it names a language, a container root, at least one
+    # workload case, and either a corroborated source file or a hint saying
+    # where to look. An operator failing this leaves `build_workset` nothing to
+    # act on, and one is enough to fail the step.
+    require_actionable: true
+  tags:
+    logic_source: external_dynamic
+    cost: minutes
+    domain: [llm_perf, kernel]
+
+# --------------------------------------------------------------------------- #
+
+# Where each selected operator lives, in the vocabulary KernelForge and
+# AgentKernelArena already use.
+#
+# The field names are Arena's `config.yaml`, not invented here: `image_repo_path`,
+# `repo_subdir`, `repository_language`, `source_file_path`, `editable_sources`,
+# `target_kernel_functions`, `kernel_identity`. Adopting an existing vocabulary
+# is what lets `build_workset` emit Arena-shaped output without a translation
+# layer, and lets a reviewer compare a produced workset against the 21 real ones.
+- module: handoff
+  name: operator_identity
+  version: '1'
+  description: Where each selected operator lives — repo, language, files, entry functions.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json', schema]
+    properties:
+      'text.json': {type: string}
+      schema: {type: string}
+      # Present only when the resolver actually ran against indexed
+      # repositories; absent when it fell back to symbol-name rules alone.
+      'resolution_log.txt': {type: string}
+  validators: [check_identity_resolved]
+
+# --------------------------------------------------------------------------- #
+
+- module: task
+  name: identify
+  description: Resolve each selected operator to a repository, language and entry point.
+  agent: run_script
+  handoffs: [kernel_worklist, operator_identity]
+  validators: [check_worklist_shape, check_identity_resolved]
+  task:
+    goal: Say where each selected operator lives and what may be edited.
+    version: '1'
+    inputs: [kernel_worklist]
+    outputs: [operator_identity]
+    permissions:
+      grants:
+        - {path: handoffs/kernel_worklist, access: read, kind: kernel_worklist}
+        - {path: handoffs/operator_identity, access: write, kind: operator_identity}

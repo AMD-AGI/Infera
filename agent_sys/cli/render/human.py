@@ -35,6 +35,7 @@ _LABEL = {
     EventKind.PERMISSIONS_DISABLED: "NO SANDBOX",
     EventKind.VALIDATION_DROPPED: "DROPPED",
     EventKind.ZONE_PREPARED: "zone",
+    EventKind.O11Y_PANEL: "o11y",
     EventKind.ACCESS_DENIED: "  denied",
     EventKind.TASK_DISPATCHED: "dispatch",
     EventKind.PHASE_START: "  phase",

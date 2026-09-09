@@ -1,0 +1,234 @@
+# check_capabilities_genuine — trustworthiness, strong
+
+Every token in the report is the token that capability actually produces, for
+**this run's nonce**. Two of the six are re-derived by running the capability
+here, in this body; the other four are recomputed from the salt in the installed
+artefact.
+
+This file spends most of its length on the difference between those two, because
+the honest claim is narrower than the validator's name and a reader who quotes
+its PASS deserves to know which half they are quoting.
+
+## The scheme, in one paragraph
+
+A token is `sha256(f"{salt}:{label}:{nonce}")[:12]`, prefixed
+`ENVCHK-<LABEL>-`. The **nonce** is per-run and supplied at launch; the **salt**
+is a 32-hex constant that exists in exactly one place — the artefact of the
+capability it belongs to. There is no table of salts anywhere, including in
+`../lib/envchk.py`, and that absence is load-bearing: a single file listing all
+six would let one read produce all six tokens. This body obtains each salt
+the same way the agent had to, out of the artefact.
+
+## The two treatments
+
+| capability | installed by | treatment | what runs |
+|---|---|---|---|
+| `mcp_external` | recipe | **replay** | the placed server at `<zone>/config/servers/` is started with `python3`, spoken to over JSON-RPC — `initialize`, `notifications/initialized`, `tools/call` — and its answer is the token |
+| `mcp_stdio` | copied | **replay** | the same, against the bundled server |
+| `hook` | copied | salt, **plus the payload** | the salt is read from the hook script; separately, the hook's own output file must carry a `payload` with a `session_id` and `hook_event_name: SessionStart` |
+| `skill` | copied | salt | the salt is read from `SKILL.md` |
+| `plugin` | copied | salt | the salt is read from the plugin's `SKILL.md` |
+| `serena` | recipe | salt | the salt is read from `serena_probe.py` |
+
+**There was a third replay and it is gone.** `tooldef` imported the in-process
+`ToolDef` module and invoked `TOOLS[0].call()`; `agent_sys/docs/
+spec.provisioning.md` §6 deleted that route, so this body imports nothing any
+more and the capability is not in the register.
+
+**The replays go through the declaration, not around it.** `TOOLS[0].call()`
+rather than the `echo_token` function beside it, because `TOOLS` is what
+`env_mgr` reads and what `claude_sdk._adapt_tool` adapts; calling the function
+directly would check something the declaration happens to point at today. The
+MCP replays speak the protocol rather than importing `report()`, for the same
+reason: a server that answers `initialize` and a module with a function in it
+are different facts.
+
+## What a PASS means, per capability
+
+**For the three replayed ones**: the string the agent reported is the string the
+capability produces. There is no salt-reading path to that string that does not
+also go through the artefact, and the artefact is a program the agent would have
+had to run. This is the strongest of the three claims and it is still not a
+claim about honesty — see below.
+
+**For the hook**: the salt was installed *and* the harness invoked the script at
+`SessionStart`. That second half is the part no file read can produce:
+`session_id` and `hook_event_name` arrive on the hook's stdin from Claude Code,
+so an agent that ran the script by hand gets an empty `payload` and this body
+says so by name.
+
+**For the skill, the plugin and serena**: the artefact carrying that salt was
+installed where that capability puts it, in this zone, for this run. Nothing
+more.
+
+## What it cannot catch
+
+Written out rather than left implicit, because a check that reads as complete is
+worse than one whose edges are known.
+
+- **A file read instead of a capability use.** Four of the six artefacts are
+  files an agent with `Read` can open — two `SKILL.md`s, `serena_probe.py`, and
+  the hook script. An agent that opened them and reported the tokens passes this
+  validator. It is an in-band limit and it does not have a fix inside one
+  trusting environment: the agent and the artefacts are in the same zone by
+  construction, because putting them there is the thing being measured.
+
+  What the tokens *do* buy, in full, and it is the failure this package was
+  built for: **an agent cannot report six tokens if the six capabilities
+  were not installed into its zone.** A run where `env_mgr` silently delivered
+  nothing produces no salts and therefore no tokens, however confident the
+  narrative.
+
+- **Freshness.** `pid` and `at` are checked for shape and not for value. This
+  body does not know when the session started — it has no run window — so a
+  freshness rule here would be a number with no basis, and enforcing a guess is
+  worse than declining to.
+
+- **A forged hook payload.** An agent that found its own session id and wrote
+  the file itself is not caught. Nothing here cross-checks the id against a
+  transcript, because the transcript is the agent's own and reading it would be
+  taking the same word by a longer route.
+
+- **Whether serena was *used* rather than installed.** `serena`'s replay is a
+  salt read. `proof.raw` is additionally checked against the **shape** Serena
+  1.28.1 returns — a `find_symbol` array whose hit for `envchk_serena_token`
+  carries `name_path`, `kind`, `relative_path` naming `serena_probe.py`, a
+  `body_location` with integer line numbers, and a `body` containing the salt.
+
+  That schema was **measured on this host on 2026-09-03**, by starting the
+  binary probe D installed and calling the tool, rather than remembered. It is a
+  **forgery-cost increase and not a closure**, and the difference matters: it
+  moves the bar from *read one file* to *read the file **and** know serena's
+  response schema*, and **a model that has seen that schema can still fabricate
+  it**. Anyone quoting this row should quote it as a cost, not as evidence
+  serena ran.
+
+  It also has a cost of its own, which is the reason it was nearly not written:
+  it is a check against a **third-party** output format, so a serena release
+  that changes the schema turns an honest run red. That is the one place in this
+  body where a PASS can be lost without the report being wrong, and the failure
+  message says so in as many words — *"if serena's response schema has changed,
+  this is a validator update and not a capability failure"*.
+
+  **The salt is checked, not the token.** Measured: `find_symbol` with
+  `include_body=true` returns the symbol's body and nothing above it, so a
+  module-level salt would be invisible in the response and every honest run
+  would fail. `serena_probe.py` keeps the salt as a local inside the function
+  for exactly that reason.
+
+- **Where a placed file was loaded from.** This body no longer observes it, and
+  the check that did is gone rather than weakened. Row 6b compared the path the
+  agent reported for the in-process `ToolDef` against the copy placed in the
+  run's zone, and it was the one check in this repository that could see
+  `env_mgr`'s isolation property — *load the copy, not the source* — break for
+  every package that ever shipped one. The route is deleted, so the property has
+  no subject here, and **it is not covered elsewhere in this package** — no
+  validator in `env_checker` observes where a placed file was loaded from,
+  because nothing here is loaded any more.
+
+  **What guards the return is a test, not this sentence:**
+
+      agent_sys/tests/env_mgr/test_agent_assets.py
+        test_nothing_under_tools_is_ever_imported_into_the_supervisor
+
+  It places files under a `.claude/tools/` that raise at module scope, proves
+  they reached the zone, and proves nothing imported them. Its wide sibling,
+
+      agent_sys/tests/env_mgr/test_agent_assets.py
+        test_no_member_of_a_claude_tree_is_ever_imported_into_the_supervisor
+
+  does the same for every member location, and adds the detector raising cannot
+  supply — a `sys.modules` diff for a member imported silently, which is also
+  the half that covers **both** the source tree and the placed copy. That diff
+  proves itself on every run: the test imports a planted member on purpose and
+  requires the diff to return exactly it. Both tests go red the moment an
+  in-process route returns.
+
+  Stronger than row 6b *while they hold*: row 6b asked which copy was loaded,
+  these ask whether anything is loaded. Weaker the instant they stop, because
+  neither says which copy. **Whoever turns them green again owes this bullet a
+  replacement**, and the failure is what will tell them.
+
+- **A registry search that is no longer needed, recorded because its absence is
+  a change.** `mcp_external`'s artefact used to live at
+  `agent_sys/env_mgr/addons/envchk-baseline/…`, a *repository* path that a staged
+  task package cannot reach, so this body took `$AGENT_SYS_ADDONS_ROOT` first and
+  walked up the filesystem second — a guess that can find the wrong checkout on a
+  machine with two — and reported the capability unverifiable by name when
+  neither answered. None of that exists now: the package's own recipe layer
+  **copies the server into the zone**, so the artefact is one directory from the
+  staged package and no variable names anything outside it. The variable itself
+  is deleted (`spec.provisioning.md` §4).
+
+  A note that went with it and is worth keeping: a validation zone is built by
+  `validator/environment.py` in a `mkdtemp`, **not** through `env_mgr.prepare`,
+  so no grant is composed for it at all. Harmless today because nothing is
+  enforced in a validator zone — and the day validator zones are confined, every
+  read this body makes outside its own zone is a candidate, not just the one that
+  used to be here.
+
+Every one of these is a **false negative**: this validator does not report a
+report that has the problem. There is no configuration under which it reports a
+report that does not — every rule compares a string the agent wrote against a
+string this body derived, and a match cannot be produced by accident.
+
+## serena's one exemption
+
+`capabilities.serena` may read `"status": "unavailable"`. It is the only
+capability that may, it is named in the spec's `may_be_unavailable` arg rather
+than hard-coded here, and it is **not the agent's to claim**: the run's own
+`install_report` must carry an entry that mentions serena and does not look like
+a success. An `unavailable` beside a clean install report is a FAIL.
+
+The reason for the exemption is that serena is the one capability whose install
+crosses a network and touches a third-party index; a site with no route to it
+must still be able to run this package and get a truthful report. The reason for
+the cross-check is `.claude/CLAUDE.md`'s first principle: a stage once reported
+fourteen tasks and ten validators green over a run in which every result was
+zero, and the general form of that failure is a producer being trusted about its
+own environment.
+
+The entry-shape matching is **tolerant on purpose**. `env_mgr`'s `Outcome` is a
+level, a message and an extra mapping, but the install report reaches here
+through the agent's JSON and this body does not own that schema. So an entry
+counts when its serialised form mentions serena and does not look like a
+success — which cannot be satisfied by an entry reporting a clean serena
+install, and cannot be satisfied at all by a report that never mentions serena.
+
+## Why `strong`, and why `cost: minutes`
+
+`strong` because every rule is a comparison between a string the agent wrote and
+a string this body derived from the installed artefact. Nothing is approximate
+and nothing is judged. `strength` qualifies a PASS (`validator` spec §5.4), and
+the PASS is qualified further, per capability, in *What a PASS means* above —
+which is where the narrowness lives, rather than in a weaker label that would
+hide it.
+
+`cost: minutes` is an order of magnitude, not a measurement: two subprocesses,
+one import and a few file reads is seconds of work in the good case, and a
+server that hangs is bounded by `replay_timeout_seconds` rather than by luck.
+The tag's job is to put this validator **second**, behind a shape check that
+costs nothing, and one honest step up from `seconds` is what does that.
+
+## Two things this body deliberately does not do
+
+**It does not print the nonce.** `ENVCHK_NONCE` is compared, hashed and passed
+to two subprocesses in their environment — where they already read it from — and
+its value never reaches a message, a file or an argument. `ScriptBodyRunner`
+folds a body's stderr tail into an exception message, and an exception message
+travels into the event stream.
+
+**It does not fall back to an empty nonce.** An unset `ENVCHK_NONCE` would
+produce six mismatches and send a reader to look at the agent, so it is named
+as its own failure instead. On this package's only phase the variable is present
+— `validator` spec §8.2's PRODUCER row is `Prepared.environment`, into which
+`env_mgr.material.deploy` merged the agent spec's `env` block — and the guard is
+for whoever adds a consumer and reaches the other row.
+
+## Layout
+
+`entry.sh` is the command, `check.py` is the implementation,
+`../lib/zone.py` is the four body-facing zone files, and `../lib/envchk.py` is
+the capability register and the token scheme — shared with
+`check_env_report_shape`, so the two cannot disagree about which six
+capabilities exist.

@@ -1,0 +1,74 @@
+# The outermost graph. Its name is fixed and its presence is what makes this
+# directory a task package.
+#
+# `main` is a non-leaf: it carries a readme and no `entry.sh`, declares no
+# `agent` (task_graph supplies a built-in spec for a non-leaf) and no
+# `resources` (only a leaf may acquire).
+#
+# **This is step 2 of DESIGN.md section 10, not the finished graph.** The design
+# has six leaves; this file wires one. The point of stopping here is that
+# `serve_baseline` is the only leaf that exercises every mechanism the rest will
+# reuse — remote execution into a Slurm allocation, a `reproducible` handoff
+# assembled by a program body, and a validator that reads it — so a failure now
+# is attributable, and a failure after six leaves would not be.
+#
+# The remaining five (`run_baseline`, `serve_profiled`, `run_profiled`,
+# `kernel_scan`, `packup`) are appended to `subgraph` in that order, each with
+# `froms` naming its predecessor. `is_end` moves to the last of them; it is
+# written explicitly here for the reason the reference demo gives — the default
+# is positional, so appending an entry would otherwise silently move the end.
+module: task
+name: main
+description: Deploy GLM-5.3-Flash, replay a Mooncake trace, capture a profile, rank the kernels.
+
+# A closure may declare a kind its subgraph uses internally. `deployment_baseline`
+# does not cross `main`'s own boundary, so it is declared but not output.
+handoffs:
+  - deployment_baseline
+  - aiperf_baseline
+  - deployment_profiled
+  - aiperf_profiled
+  - torch_trace
+  - kernel_table
+  - profile_packup
+validators: []
+
+task:
+  goal: Profile GLM-5.3-Flash under an AIPerf Mooncake trace replay.
+  version: '1'
+  inputs: []
+  outputs: []
+
+  # Inherited by every subtask: the root's set has to cover the whole subgraph.
+  #
+  # The absolute paths are the ones the bodies reach outside their zone, written
+  # down even though this package runs with AGENT_SYS_NO_PERMISSIONS=1 and
+  # nothing enforces them today. They are the answer to "what does this touch",
+  # and writing them now means turning enforcement on later is a configuration
+  # change rather than an archaeology exercise.
+  permissions:
+    grants:
+      - {path: handoffs/deployment_baseline, access: write, kind: deployment_baseline}
+      - {path: handoffs/aiperf_baseline, access: write, kind: aiperf_baseline}
+      - {path: handoffs/deployment_profiled, access: write, kind: deployment_profiled}
+      - {path: handoffs/aiperf_profiled, access: write, kind: aiperf_profiled}
+      - {path: handoffs/torch_trace, access: write, kind: torch_trace}
+      - {path: handoffs/kernel_table, access: write, kind: kernel_table}
+      - {path: handoffs/profile_packup, access: write, kind: profile_packup}
+      # The Slurm client, and the node-local work area the bodies write through it.
+      - {path: /usr/bin, access: read}
+      - {path: /data/agent_sys_profiling, access: write}
+
+  # A chain, not a fan-out, and every edge is load-bearing:
+  #   serve_profiled <- run_baseline  because its first act is to tear the
+  #                                   baseline deployment down, so the edge has
+  #                                   to mean "the baseline has been measured"
+  #   packup         <- run_profiled  through aiperf_profiled; the traces
+  #                                   themselves are consumed only by kernel_scan
+  subgraph:
+    - {closure: serve_baseline,  froms: []}
+    - {closure: run_baseline,    froms: [serve_baseline]}
+    - {closure: serve_profiled,  froms: [run_baseline]}
+    - {closure: run_profiled,    froms: [serve_profiled]}
+    - {closure: kernel_scan,     froms: [run_profiled]}
+    - {closure: packup,          froms: [serve_baseline, run_baseline, serve_profiled, run_profiled, kernel_scan], is_end: true}

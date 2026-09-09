@@ -1,0 +1,80 @@
+--- /tmp/yihou_reset_orig.sh	2026-09-06 09:59:37.135231896 +0000
++++ /tmp/yihou_reset_patched.sh	2026-09-06 09:59:37.170231486 +0000
+@@ -29,6 +29,64 @@
+ kfd_pids() {
+   rocm-smi --showpids 2>/dev/null | awk '/^[0-9]+[ \t]/ {print $1}'
+ }
++# --- ownership guard (m35, 2026-09-06) ------------------------------------
++# `reset_gpus.sh` is node-wide with a working `sudo` fallback, so without this
++# it will kill a co-tenant's GPU work. Ownership is the label `mix_up.sh`
++# writes, never the name: `yihou_` is a shared prefix.
++#
++# **Fails toward SPARING.** Every error path returns `unknown:<why>` and the
++# caller spares — which routes into the branch this script already has for an
++# unrecognised process: the VRAM floor times out and `mix_up.sh` aborts loudly
++# BEFORE any bring-up. No new failure mode.
++#
++# Our own leftovers stay killable: by the time this runs, `mix_up.sh` has
++# removed this arm's containers and a removed container takes its processes
++# with it, so anything still holding VRAM is in a container that still exists
++# and still carries its label.
++owner_of() {
++  pid="$1"
++  # **Bash builtins only, up to the one `docker` call — and the reason is
++  # diagnostic accuracy, not safety.**
++  #
++  # I first wrote this rewrite because control C7 reported the `cat`/`sed`/`head`
++  # version returning an EMPTY verdict under a broken `PATH`. **That diagnosis
++  # was wrong: C7 itself was broken** — `PATH=/nonexistent bash -c …` means the
++  # shell cannot find `bash`, so nothing ran at all, and a `2>/dev/null` in the
++  # test hid the `command not found`. Measured afterwards with an absolute
++  # `/bin/bash` and `PATH` broken *inside*, **both versions return `unknown:`**
++  # and both therefore spare. The guard was never unsafe.
++  #
++  # The rewrite is kept for what the corrected control does show:
++  #
++  #     original (cat/sed/head)  ->  unknown:empty-cgroup     <- MISLEADING; the
++  #                                  cgroup is fine, `cat` was missing
++  #     builtins                 ->  unknown:inspect-failed   <- accurate
++  #
++  # Same safe direction, honest reason versus a reason that would send the next
++  # reader to look at `/proc`. `read` and `[[ =~ ]]` cannot be missing.
++  [ -r "/proc/$pid/cgroup" ] || { printf 'unknown:no-proc-entry'; return 0; }
++  cg=""
++  while IFS= read -r line; do cg="$cg$line"$'\n'; done < "/proc/$pid/cgroup" 2>/dev/null
++  [ -n "$cg" ] || { printf 'unknown:empty-cgroup'; return 0; }
++  if [[ "$cg" =~ docker[-/]([0-9a-f]{12,64}) ]]; then
++    cid="${BASH_REMATCH[1]}"
++  else
++    printf 'unknown:not-in-a-container'; return 0
++  fi
++  name=$(docker inspect -f '{{.Name}}' "$cid" 2>/dev/null) || {
++    printf 'unknown:inspect-failed'; return 0; }
++  [ -n "$name" ] || { printf 'unknown:inspect-empty'; return 0; }
++  lbl=$(docker inspect -f '{{index .Config.Labels "infera_e2e_run"}}' "$cid" 2>/dev/null)
++  arm=$(docker inspect -f '{{index .Config.Labels "infera_e2e_arm"}}' "$cid" 2>/dev/null)
++  case "${lbl}|${arm}" in
++    # `index` on an absent label renders the literal `<no value>`; treat that
++    # and the empty string alike. Both mean "no ownership claim".
++    "|"|"<no value>|<no value>"|"|<no value>"|"<no value>|")
++        printf 'foreign:%s' "${name#/}" ;;
++    *)  printf 'ours:%s' "${name#/}" ;;
++  esac
++}
++
+ comm_of() { ps -o comm= -p "$1" 2>/dev/null | tr -d ' '; }
+ 
+ echo "[reset] KFD processes: $(for p in $(kfd_pids); do printf '%s(%s) ' "$p" "$(comm_of "$p")"; done)"
+@@ -45,6 +103,12 @@
+     echo "[reset] unrecognised, not killing: $pid ($comm)"
+     skipped=$((skipped + 1)); continue
+   fi
++  own="$(owner_of "$pid")"
++  case "$own" in
++    ours:*) ;;
++    *) echo "[reset] SPARED, not ours ($own): $pid ($comm)"
++       skipped=$((skipped + 1)); continue ;;
++  esac
+   echo "[reset] killing $pid ($comm)"
+   kill -9 "$pid" 2>/dev/null || sudo kill -9 "$pid" 2>/dev/null || true
+ done

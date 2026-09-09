@@ -39,7 +39,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .assets import ASSETS_DIRNAME, AssetIndex, fill_body
+from .assets import (
+    ASSETS_DIRNAME,
+    AssetIndex,
+    fill_agent_assets,
+    fill_agent_env_recipe,
+    fill_body,
+)
 from .bundled import schema_for
 from .protocols import (
     LoadReport,
@@ -396,20 +402,27 @@ class YamlPackage:
 
         name = obj.get("name")
         if isinstance(name, str) and name:
-            try:
-                problems += fill_body(
-                    obj, index, kind=kind, name=name, origin=origin, line=_line(obj)
-                )
-            except SpecInconsistent as exc:
-                problems.append(
-                    Problem(
-                        origin=origin,
-                        path="$.body",
-                        keyword="inconsistent",
-                        message=str(exc),
-                        line=_line(obj),
+            # Three fillers share one `try`; each reports its own `$.` path so
+            # a conflict points at the right field.
+            for filler, pointer in (
+                (fill_body, "$.body"),
+                (fill_agent_assets, "$.assets"),
+                (fill_agent_env_recipe, "$.recipes"),
+            ):
+                try:
+                    problems += filler(
+                        obj, index, kind=kind, name=name, origin=origin, line=_line(obj)
                     )
-                )
+                except SpecInconsistent as exc:
+                    problems.append(
+                        Problem(
+                            origin=origin,
+                            path=pointer,
+                            keyword="inconsistent",
+                            message=str(exc),
+                            line=_line(obj),
+                        )
+                    )
 
         at = position_of(obj)
         documents.append(

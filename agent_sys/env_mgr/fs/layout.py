@@ -2,11 +2,15 @@
 # Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
 """The nested layout, and where a validation goes. Design §8.
 
-Spec §5.1, unchanged::
+Spec §5.1, plus a label::
 
-    <root>/task.<uuid>.<version>.<hash>/
+    <root>/task.<closure>.<uuid>.<version>.<hash>/
       ├── handoffs/     ├── workspace/    ├── playground/    ├── logs/
-      └── task.<child-uuid>.<version>.<hash>/     ← a subtask, nested
+      └── task.<closure>.<child-uuid>.<version>.<hash>/     ← a subtask, nested
+
+The ``<closure>`` field is for whoever is reading the tree and nothing resolves
+through it — see `env_mgr.fs.zone.zone_dirname`. A zone written before it
+existed still resolves, because `find_zone_dir` matches the uuid as a field.
 
 The nesting is what makes containment answer both *"is this path in the zone"*
 and *"may this task reach that path"*, because permissions cover the task's own
@@ -30,6 +34,7 @@ __all__ = [
     "copy_out",
     "create",
     "find_zone_dir",
+    "handoff_dir",
     "handoff_version_dir",
     "stage",
     "stage_handoffs",
@@ -58,15 +63,21 @@ def _subdirs(domains: DomainRegistry) -> tuple[str, ...]:
 def find_zone_dir(base: str, task_id: Any) -> str | None:
     """The directory of `task_id`'s most recent attempt, anywhere under `base`.
 
-    A task's uuid is unique, so the ``task.<uuid>.`` prefix identifies it
-    wherever the tree happens to have put it — which is what lets a subtask be
-    placed under its parent without the parent's `Task` object being in hand.
+    A task's uuid is unique, so the ``task.`` prefix plus the uuid as a whole
+    field identifies it wherever the tree happens to have put it — which is what
+    lets a subtask be placed under its parent without the parent's `Task` object
+    being in hand.
+
+    **The uuid is matched as a field, not as a prefix**, because `zone_dirname`
+    now carries an optional label between the prefix and the uuid. Both shapes
+    match, so a run resumed against zones written before the label existed still
+    finds them.
     """
-    prefix = f"{_ZONE_PREFIX}{task_id}."
+    field = f".{task_id}."
     best: tuple[int, str] | None = None
     for dirpath, dirnames, _ in os.walk(base):
         for name in dirnames:
-            if not name.startswith(prefix):
+            if not name.startswith(_ZONE_PREFIX) or field not in name:
                 continue
             parts = name.split(".")
             try:
@@ -94,7 +105,8 @@ def create(task: Any, execution: Any, domains: DomainRegistry) -> Zone:
                 f"task {task.id} declares parent {parent_id}, which has no zone under {base}"
             )
         base = parent_dir
-    root = os.path.join(base, zone_dirname(task.id, execution.attempt))
+    name = getattr(task, "closure", None)
+    root = os.path.join(base, zone_dirname(task.id, execution.attempt, name))
     for sub in _subdirs(domains):
         # exist_ok: a resume finds its own playground and keeps the contents.
         os.makedirs(os.path.join(root, sub), exist_ok=True)
@@ -115,7 +127,8 @@ def validation_zone(task: Any, phase: str, domains: DomainRegistry) -> str:
     base = domains.storage_root()
     zone_dir = find_zone_dir(base, task.id)
     parent = os.path.dirname(zone_dir) if zone_dir else base
-    root = os.path.join(parent, validation_dirname(task.id, phase))
+    name = getattr(task, "closure", None)
+    root = os.path.join(parent, validation_dirname(task.id, phase, name))
     os.makedirs(root, exist_ok=True)
     resolved = resolve_strict(root)
     if resolved is None:  # pragma: no cover - we just created it
@@ -139,13 +152,46 @@ def validation_zone(task: Any, phase: str, domains: DomainRegistry) -> str:
 CONTENT_DIR = "content"
 
 
+#: `handoff.store.HANDOFF_PREFIX`, spelled again for the same reason
+#: `CONTENT_DIR` above is: `env_mgr` may not import `handoff`, and
+#: `tests/interfaces/test_handoff_layout.py` is the price that keeps the two
+#: spellings honest.
+HANDOFF_PREFIX = "handoff"
+
+
+def handoff_dir(store_root: str, handoff_id: Any) -> str:
+    """``<store_root>/handoff.<kind>.<hid>/`` — `handoff` design §6.2's layout.
+
+    **Resolved by scanning, not composed**, and that is not a style choice: the
+    label in the middle is the handoff's *kind*, which lives on `task_graph`'s
+    `Handoff.type` and is not a fact this module has. It does not need it — the
+    store allocates the directory at dispatch (`task_graph/scheduler.py:470`),
+    before anything here resolves a grant, so by the time this runs the
+    directory is on disk and the uuid identifies it.
+
+    A directory is this handoff's when its name *is* the uuid — the shape
+    written before labels existed, so an older store still resolves — or ends
+    with ``.<uuid>``.
+    """
+    wanted = str(handoff_id)
+    suffix = f".{wanted}"
+    try:
+        names = sorted(os.listdir(store_root))
+    except OSError:
+        names = []
+    for name in names:
+        if name == wanted or name.endswith(suffix):
+            return os.path.join(store_root, name)
+    return os.path.join(store_root, f"{HANDOFF_PREFIX}.{wanted}")
+
+
 def handoff_version_dir(store_root: str, handoff_id: Any, version: int) -> str:
-    """``<store_root>/<hid>/v<N>/`` — `handoff` design §6.2's layout.
+    """``<store_root>/handoff.<kind>.<hid>/v<N>/`` — `handoff` design §6.2's layout.
 
     This module grants access to that directory and computes nothing about its
     contents (design §1.2).
     """
-    return os.path.join(store_root, str(handoff_id), f"v{version}")
+    return os.path.join(handoff_dir(store_root, handoff_id), f"v{version}")
 
 
 def stage(
@@ -241,11 +287,18 @@ def stage(
         version = versions.get(hid)
         if version is None:
             continue
-        version_dir = handoff_version_dir(store_root, hid, version)
+        handoff_root = handoff_dir(store_root, hid)
+        version_dir = os.path.join(handoff_root, f"v{version}")
         src = os.path.join(version_dir, CONTENT_DIR) if narrow else version_dir
         if not os.path.isdir(src):
             continue
-        dst = os.path.join(into, str(hid), f"v{version}")
+        # The staged copy takes the **store directory's own name**, so the
+        # kind label rides along and a body's `materials/` reads like the store.
+        # Derived rather than passed: this function is handed slots and versions
+        # and not kinds, and threading a kinds map through `stage_handoffs` and
+        # `prepare_validation` would put `task_graph`'s vocabulary in two more
+        # signatures to compute a string that is already on disk.
+        dst = os.path.join(into, os.path.basename(handoff_root), f"v{version}")
         copy_out(src, dst)
         staged[hid] = dst
     return staged
@@ -324,20 +377,25 @@ def stage_package(
     return into
 
 
-def copy_out(src: str, dst: str) -> str:
-    """Copy a stored artefact to `dst`. Spec §6.3 rule 2: an agent works on a copy.
+def copy_out(src: str, dst: str, *, dereference: bool = False) -> str:
+    """Copy a stored artefact to `dst`; never returns the source (spec 6.3.2).
 
-    `handoff`'s own ``copy_out(hid, version, dst)`` has no default for `dst`
-    because an agent handed the store's own path edits the store in place. The
-    same reasoning applies one level down: this never returns the source.
+    `dereference=True` resolves links at every depth, since a preserved link out
+    of the zone fails `contained`; the default follows `src` but keeps nested ones.
     """
     if os.path.abspath(src) == os.path.abspath(dst):
         raise ValueError("refusing to copy a stored artefact onto itself")
     os.makedirs(os.path.dirname(dst) or os.curdir, exist_ok=True)
-    if os.path.isdir(src):
-        shutil.copytree(src, dst, dirs_exist_ok=True, symlinks=True)
+    if os.path.isdir(src) and not (dereference and os.path.islink(src)):
+        shutil.copytree(src, dst, dirs_exist_ok=True, symlinks=not dereference)
     else:
-        shutil.copy2(src, dst)
+        # `copy2` follows a symlink, so this is already the dereferencing branch
+        # for a plain file; a symlinked *directory* under `dereference` lands
+        # here too and `copytree` above resolves it on the recursive call.
+        if dereference and os.path.islink(src) and os.path.isdir(src):
+            shutil.copytree(os.path.realpath(src), dst, dirs_exist_ok=True, symlinks=False)
+        else:
+            shutil.copy2(src, dst)
     return dst
 
 

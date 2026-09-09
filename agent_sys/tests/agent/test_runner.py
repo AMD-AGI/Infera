@@ -273,6 +273,30 @@ def test_stop_ends_the_attempt_and_acknowledges(wired) -> None:
     assert wired.runner.attempt_of(task.id) is None
 
 
+def test_shutdown_stops_and_forgets_every_surviving_attempt(wired) -> None:
+    """The CLI owns all attempts after monitors stop and must release them.
+
+    Successful attempts deliberately retain their executor so a monitor can
+    submit again during the run. Process-level shutdown is the boundary where
+    that reuse ends, including attempts whose worker thread already returned.
+    """
+    first, _ = _run(wired, "writer", "leaf_ai")
+    second, _ = _run(wired, "writer", "leaf_ai")
+    attempts = [wired.runner.attempt_of(task.id) for task in (first, second)]
+    executors = [attempt.executor for attempt in attempts if attempt is not None]
+
+    assert len(executors) == 2
+    assert all(isinstance(executor, ScriptedBackend) for executor in executors)
+    assert all(executor.terminated == 0 for executor in executors)
+
+    wired.runner.shutdown()
+    wired.runner.shutdown()  # process-level cleanup is idempotent
+
+    assert all(executor.terminated == 1 for executor in executors)
+    assert wired.runner.attempt_of(first.id) is None
+    assert wired.runner.attempt_of(second.id) is None
+
+
 def test_an_unresolvable_monitor_is_loud(wired) -> None:
     """`docs/interfaces.md` §2.1 rev. 4: such a task "never advances a phase".
     It fails visibly instead — a task that hangs for ever and a task that says

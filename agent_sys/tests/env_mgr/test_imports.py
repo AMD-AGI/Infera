@@ -20,12 +20,10 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2] / "env_mgr"
 
-#: The shipped installer machinery. Criterion 22 requires its 65 tests to keep
-#: passing untouched, and this is the structural half of that.
-#:
-#: **This is the only list, and it is closed.** It names a set that finished
-#: growing before this work started, so enumerating it cannot fall behind.
-BELOW = {"recipe", "layer", "runner", "outcome", "report", "registry", "versions", "installers"}
+#: The shipped installer machinery, this is the structural half of criterion 22.
+#: Not a closed list: an unlisted module below the wall falls into the derived
+#: `_above()` set instead, so forgetting a name is caught rather than silent.
+BELOW = {"recipe", "runner", "outcome", "report", "registry", "versions", "installers", "servers"}
 
 #: `cli.py` is the only module above the wall that may import from below it, and
 #: it does so exactly as it does today.

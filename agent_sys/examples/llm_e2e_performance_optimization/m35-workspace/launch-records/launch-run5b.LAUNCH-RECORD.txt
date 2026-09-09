@@ -1,0 +1,96 @@
+RUN 5 — REPLAY — launched_at (date -u, read not written) : 2026-09-06T17:03:39Z
+launcher    : /data/yihou/e2e_verify_20260906/m35/launch-run5/launch.sh
+instruction : /data/yihou/e2e_verify_20260906/m35/launch-run5/instruction.txt (sha256 d91ceb9349f6aa68)
+starts real work at : m3 (identify / rank / build_workset)
+
+*** THIS IS NOT AN ACCEPTANCE RUN AND CANNOT BE ONE. ***
+SKIP-AHEAD.md page 1: replay is a debugging accelerator, never an acceptance
+path. This run cannot satisfy Finish Standard 1. What it can answer is whether
+m3 -> m4 -> m5 -> packup works at all, which nobody has ever known. A clean full
+real run follows; the hold runs to 2026-09-07T14:00:06.
+
+REPLAYED HANDOFFS — all from run 20260906T154908-d9c7af (run 4)
+  deploy_kit                        v1  40 files
+  profiling_evidence                v1  47 files
+  profiling_mode_off.bench_result   v0  17 files
+  profiling_mode_on.bench_result    v0  17 files
+  profiling_mode_on.kernel_table    v0   8 files
+  profiling_mode_on.profile_result  v0  18 files
+materialised to : /data/yihou/e2e_verify_20260906/m35/launch-run5/../replay_root_run4  (PROMOTION.json beside them)
+  command line, threshold and per-kind provenance are recorded IN PROMOTION.json
+
+TWO CAVEATS FROM THE TOOL, CARRIED NOT SUPPRESSED
+  1. --threshold 1 --allow-unstable. Default bar is 3 consecutive clean runs;
+     we have 1. Only deploy_kit clears even at 1. The other five report
+     "cannot tell - no recorded discriminator": the run tree does not record
+     E2E_MOCK_STAGES, so the ARTEFACT cannot say whether m2 was mocked.
+     I know it ran real first-hand (bring-ups, aiperf loads, 825176 GPU kernel
+     events agreed by two producers) but that is MY observation, not the
+     artefact's, and the difference is the whole point of the tool's refusal.
+  2. Verbatim: "A replayed record can name a container that no longer exists.
+     Until the seam is answered, treat a failure in the consuming stage as
+     possibly this and not that stage's defect."
+     => AN m3 FAILURE HERE IS SUSPECT UNTIL SHOWN OTHERWISE.
+
+CODE CHANGE IN THIS RUN
+  649af26b  identify.py: logical_operator made unique (kernel_id suffix, only
+            colliding entries touched). That is what run 4 refused on:
+            two kernels both minted layernorm_aiter_add_rmsnorm_quant.
+            Known-answer tested by CALLING it on the refused artefact.
+
+CARRIED FORWARD, unchanged and verified
+  attributable-VRAM preflight   verified on the real drain, run 4: waited 10 s
+  unconditional log capture     verified: etcd.log present on failing attempts
+  trace_end_ms=120000           verified: CAPTURE_OK, run 4
+  kernel_table_min_launchers=0  kept; m2 is replayed so check_kernel_table is
+                                not re-executing. The clean run drops it.
+  NO log-text retry             the run-4 defect; the instruction forbids it and
+                                carries its own 21/21 measurement
+
+PRECONDITIONS AT LAUNCH
+  cards      : VRAM% ID) 0% 0% 0% 0% 0% 0% 0% 0% 
+  containers : rc_26_7_902 xiaoming-dev 
+  orphans    : 0 (/proc scan, self excluded)
+  hold       : 29313 -> 2026-09-07T14:00:06
+
+WHAT THIS RUN TESTS, in order — ALL OF IT IS NEW GROUND
+  1. m3 identify with the uniqueness fix: does check_identity_resolved pass
+  2. m3 build_workset  — never executed anywhere
+  3. m4 with forge_mock=1 — never executed anywhere
+  4. m5 integrate_and_verify — NEVER RUN FOR REAL ON EITHER CLUSTER
+  5. packup — never reached
+  Before attributing ANY refusal: bash assets/lib/refusal_saw_something.sh <run>
+orchestrator pid : 1233556
+run dir : /data/yihou/agent_sys_runroot/runs/20260906T170354-1048af/
+
+================================================================
+RUN 5b — RELAUNCH at 2026-09-07T04:30:47Z. Run 5 (170354-1048af, pid 1233556) died at
+run_profiling_mode_off with:
+
+  exit 1: mock: no sealed content at
+    .../replay_root_run4/stage2-profiling/aiperf_baseline/content
+
+CAUSE — a real naming disagreement inside the replay mechanism, not a bad root:
+  replay_root.py:152-156  maps kind -> STAGE dir, then writes <stage>/<KIND>/content
+  sweep_inputs.py:63-66   mock.sh reads  <stage>/<ALIAS>/content
+      profiling_mode_off.bench_result  -> stage2-profiling/aiperf_baseline
+      profiling_mode_on.bench_result   -> stage2-profiling/aiperf_profiled
+      profiling_mode_on.profile_result -> stage2-profiling/torch_trace
+      profiling_mode_on.kernel_table   -> stage2-profiling/kernel_table
+  deploy_kit worked only because its kind name equals its alias basename.
+  m2's kinds have never been replayed before: on the other cluster m2 was mocked
+  from the sealed corpus, which already used the alias names.
+
+FIX — symlinks in MY OWN materialised copy, content untouched:
+  aiperf_baseline -> profiling_mode_off.bench_result   (17 files)
+  aiperf_profiled -> profiling_mode_on.bench_result    (17 files)
+  torch_trace     -> profiling_mode_on.profile_result  (18 files)
+  kernel_table    -> profiling_mode_on.kernel_table    ( 8 files)
+Symlinks rather than copies deliberately: provenance stays visible to one
+'ls -l' and cannot go stale, which is the property SKIP-AHEAD asks of seeding.
+Nothing was fabricated and no file was edited.
+
+work_root/container moved to e2e_flow5b / yihou_e2e_chain5b so run 5's partial
+tree stays separable (bug.record 9).
+orchestrator pid : 2906539
+run dir : /data/yihou/agent_sys_runroot/runs/20260907T043102-cdd3f7/

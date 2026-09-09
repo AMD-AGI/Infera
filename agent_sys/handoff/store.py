@@ -50,6 +50,9 @@ __all__ = [
     "STAGING_PREFIX",
     "FilesystemStore",
     "KindSource",
+    "handoff_dir",
+    "handoff_dirname",
+    "slug",
     "store_name_for",
     "version_dir",
 ]
@@ -90,14 +93,81 @@ def store_name_for(scope: Scope) -> str:
     return _STORE_FOR_SCOPE[scope]
 
 
-def version_dir(root: Path, hid: HandoffId, version: int) -> Path:
+#: The kind prefix on a handoff's directory. Every runtime directory in this
+#: system now leads with what it *is*, so a user reading a run tree can tell a
+#: handoff from a zone without knowing any uuid.
+HANDOFF_PREFIX = "handoff"
+
+#: A label's cap. `env_mgr.fs.zone._SLUG_CHARS`, duplicated across the package
+#: boundary on `docs/interfaces.md` §8.1's terms, like `CONTENT_DIR` already is.
+_SLUG_CHARS = 40
+
+
+def slug(text: object) -> str:
+    """A directory-name-safe label, or ``""`` when there is nothing to say.
+
+    ``.`` is the field separator in a handoff directory name, so it must not
+    survive — otherwise `handoff_dir`'s *"the uuid is the last field"* rule
+    stops being true. `env_mgr.fs.zone.slug`'s rule, duplicated; the agreement
+    is pinned by `tests/interfaces/test_handoff_layout.py`.
+    """
+    if text is None:
+        return ""
+    out: list[str] = []
+    for char in str(text):
+        keep = char if (char.isascii() and (char.isalnum() or char in "_-")) else "-"
+        if keep == "-" and (not out or out[-1] == "-"):
+            continue
+        out.append(keep)
+    return "".join(out).strip("-")[:_SLUG_CHARS].strip("-")
+
+
+def handoff_dirname(hid: HandoffId, kind: object = None) -> str:
+    """``handoff.<kind>.<uuid>``, or ``handoff.<uuid>`` when the kind is unknown.
+
+    The kind is a **label**: it makes the store readable and nothing resolves
+    through it, which is why `handoff_dir` can find a directory whose label is
+    absent, stale, or was written before labels existed. The uuid stays whole
+    and stays last, because that is what a lookup keys on.
+    """
+    label = slug(kind)
+    return f"{HANDOFF_PREFIX}.{label}.{hid}" if label else f"{HANDOFF_PREFIX}.{hid}"
+
+
+def handoff_dir(root: Path, hid: HandoffId, kind: object = None) -> Path:
+    """This handoff's directory under `root` — **the existing one, if there is one**.
+
+    A directory is this handoff's when its name *is* the uuid (the shape written
+    before labels existed) or *ends with* ``.<uuid>``. That is the whole
+    compatibility story: a store written by an earlier run resumes without a
+    migration, and a label may change without moving an artefact.
+
+    When nothing is on disk yet the name to create is `handoff_dirname`'s. The
+    scan is over one directory, and only ever the store root.
+    """
+    base = Path(root)
+    wanted = str(hid)
+    suffix = f".{wanted}"
+    try:
+        entries = sorted(base.iterdir())
+    except OSError:
+        # An unreadable or absent root is not this function's error to raise;
+        # every caller already handles "the directory is not there".
+        entries = []
+    for entry in entries:
+        if entry.name == wanted or entry.name.endswith(suffix):
+            return entry
+    return base / handoff_dirname(hid, kind)
+
+
+def version_dir(root: Path, hid: HandoffId, version: int, kind: object = None) -> Path:
     """**The one function that computes a path**, and the on-disk shape is private.
 
     Bazel #23576 is the lesson: a path-shape change survived only because
     consumers use `file.path` rather than composing strings. Every other module
     asks for a path; none builds one.
     """
-    return Path(root) / str(hid) / f"v{version}"
+    return handoff_dir(root, hid, kind) / f"v{version}"
 
 
 class KindSource(Protocol):
@@ -124,7 +194,7 @@ class KindSource(Protocol):
 
 
 class FilesystemStore:
-    """`<root>/<hid>/v<N>/{content/,validation.yaml,manifest.yaml}`."""
+    """`<root>/handoff.<kind>.<hid>/v<N>/{content/,validation.yaml,manifest.yaml}`."""
 
     def __init__(
         self,
@@ -143,6 +213,20 @@ class FilesystemStore:
     def root(self) -> Path:
         """Read-only. A caller that wants a path inside asks `version_dir`."""
         return self._root
+
+    def _dir(self, hid: HandoffId) -> Path:
+        """This handoff's directory, labelled with its kind when one is known.
+
+        The label comes from `self._kinds`, which is exactly the same source
+        `put` and `seal` already use for the manifest — so a store that can
+        publish can also name, and a read-only store (`kinds=None`) still finds
+        every directory, because `handoff_dir` resolves on the uuid.
+        """
+        kind = self._kinds.kind_for(hid) if self._kinds is not None else None
+        return handoff_dir(self._root, hid, getattr(kind, "name", None))
+
+    def _version_dir(self, hid: HandoffId, version: int) -> Path:
+        return self._dir(hid) / f"v{version}"
 
     # ---- reads ----
 
@@ -210,12 +294,12 @@ class FilesystemStore:
         """
         if version is None:
             return bool(self.list_versions(hid))
-        return (version_dir(self._root, hid, version) / MANIFEST_FILE).is_file()
+        return (self._version_dir(hid, version) / MANIFEST_FILE).is_file()
 
     def _version_dirs(self, hid: HandoffId) -> list[tuple[int, Path]]:
         """Every `v<N>/` on disk, published or not. **Internal**: allocation
         must see the unpublished ones or it would hand out a number in use."""
-        base = self._root / str(hid)
+        base = self._dir(hid)
         if not base.is_dir():
             return []
         out = [
@@ -282,7 +366,7 @@ class FilesystemStore:
         want = manifest.digest.get("sha256")
         if got != want:
             raise DigestMismatch(
-                f"{version_dir(self._root, hid, version)}: manifest records "
+                f"{self._version_dir(hid, version)}: manifest records "
                 f"sha256={want}, the copy at {dst} recomputes to sha256={got} "
                 f"(algorithm {manifest.algorithm})"
             )
@@ -342,10 +426,10 @@ class FilesystemStore:
         and `seal` are where that refusal lives. Requiring it here would block
         dispatch on a resolver only the seal can use.
         """
-        base = self._root / str(hid)
+        base = self._dir(hid)
         base.mkdir(parents=True, exist_ok=True)
         for n in itertools.count(self._next_guess(base)):
-            target = version_dir(self._root, hid, n)
+            target = self._version_dir(hid, n)
             try:
                 os.mkdir(target)
             except FileExistsError:
@@ -411,7 +495,7 @@ class FilesystemStore:
         # `NotSealable`, and it raises rather than returning a reason: neither
         # of these says anything about the content, so neither is an outcome of
         # the attempt. See `errors.NotSealable` for the re-run case.
-        target = version_dir(self._root, hid, version)
+        target = self._version_dir(hid, version)
         if not target.is_dir():
             raise NotSealable(
                 f"cannot seal {hid} v{version}: {target} does not exist. A version "
@@ -500,7 +584,7 @@ class FilesystemStore:
         # disconnected caller, not a deleted module, so re-wiring it is one line.
         content_mod.check_items(content_mod.load(content_dir), ctype, kind.items_schema)
 
-        base = self._root / str(hid)
+        base = self._dir(hid)
         base.mkdir(parents=True, exist_ok=True)
         for n in itertools.count(self._next_guess(base)):
             stage = base / f"{STAGING_PREFIX}{n}"  # a SIBLING of the destination
@@ -606,7 +690,7 @@ class FilesystemStore:
         a second home for that fact would pre-empt it. **It returns the day
         F-D1 moves the seal after output validation, and not before.**
         """
-        path = version_dir(self._root, hid, version)
+        path = self._version_dir(hid, version)
         if not (path / MANIFEST_FILE).is_file():
             have = self.list_versions(hid)
             allocated = path.is_dir()

@@ -88,6 +88,29 @@ include = [
 # `.json` files inside it.
 [tool.setuptools.package-data]
 spec_loader = ["schemas/*.json"]
+# `addons/` is not a Python package — it lives inside `env_mgr/` so it has
+# an owning package to hang a `package-data` glob on. `.claude/` members
+# need naming explicitly: a leading dot isn't matched by `*`, so a bare
+# `addons/**` would ship the READMEs and silently drop every file that
+# matters.
+env_mgr = [
+    # Package-data glob for `env_mgr`'s own non-.py assets — same reason as
+    # `spec_loader/schemas` above. `recipes/*.yaml` is the namespace a bare
+    # `recipes: [<name>]` resolves against; `default.env_recipe.yaml` is the
+    # default recipe layer and is gated on `os.path.isfile`, so a missing
+    # copy fails silently rather than loudly.
+    "default.env_recipe.yaml",
+    "recipes/*.yaml",
+    "addons/README.md",
+    "addons/*/README.md",
+    "addons/*/.claude/**/*",
+    # `**/*` matches a dot-DIRECTORY but not a dot-FILENAME at the leaf, so
+    # dot-files at a leaf must be named explicitly or they're dropped in
+    # silence from the wheel. This glob currently matches nothing (both
+    # `.mcp.json`s moved out of `addons/`) but stands as the rule for the
+    # next one.
+    "addons/*/.claude/.mcp.json",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

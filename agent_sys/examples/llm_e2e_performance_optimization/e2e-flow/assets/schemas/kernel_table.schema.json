@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kernel_table.schema.json",
+  "title": "Every GPU kernel in the captured window, ranked by the CUDA time it owns",
+
+  "description": "The document `profiling_mode_on.kernel_table` carries as `items/text.json`, and the one artefact two modules read: m2 produces it, m3 buckets and ranks every row of it (M3.5 — one `check_kernel_table`, shared, not two).\n\nWritten against the **real** sealed artefact at `cheat_for_mock/stage2-profiling/kernel_table/content/items/result/text.json` — 124 kernels, shares summing to 99.96%, 46 rows carrying a resolved launcher frame. Stage 3's same-named `kernel_table` is a **34-row synthetic seed** and is a different artefact; it is not what this schema was written against and M3.2 deletes the task that produced it.\n\n**It describes the whole table and not the head.** `top_kernels.json` in the sealed handoff is the head as a convenience and is derivable from this document; m3 classifies every row into a bucket *before* it sorts, so handing it a top-N would discard most of the routable candidates along with the noise. That is why `kernels` is the required array and why nothing here has a maximum length.\n\nThe raw Magpie CSV travels beside it as `items/table.csv`. The CSV is the export and this is the record: `source.sha256` binds the two, so a table whose JSON and CSV disagree is detectable rather than merely unlucky.",
+
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source", "columns", "totals", "kernels"],
+
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "description": "As in `kernel_worklist`, `operator_identity` and `integration_report`: the one field the sealed artefact lacks, added rather than dropped. An unversioned structured document is one that cannot be migrated, and this was the last of the eight schemas in this package without it. `assets/analyze/kernel_doc.py` emits it and `assets/lib/m2_reshape.py` adds it to the sealed sample, which predates the field."
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["filename", "sha256", "trace_files", "trace_gpu_kernels"],
+      "description": "Where the rows came from. `sha256` is over the CSV this document was built from, which is what makes `items/table.csv` checkable against `items/text.json` instead of the two being two unrelated claims. `trace_gpu_kernels` is the capture's own total and ties this table back to the trace handoff it was derived from.",
+      "properties": {
+        "filename": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "size": {"type": "integer", "minimum": 1},
+        "trace_files": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "How many rank traces were pooled. One is not wrong and it is worth seeing: a table built from a single rank of a TP-8 deployment attributes a collective against one eighth of the work."
+        },
+        "trace_gpu_kernels": {"type": "integer", "minimum": 1}
+      }
+    },
+
+    "columns": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1},
+      "description": "Magpie's own column names, carried verbatim from the CSV header. Recorded rather than assumed so that a rename upstream is visible in the artefact and not only in whatever failed next. `check_kernel_table`'s `require_columns` is checked against the CSV header itself; this is the record of what the producer saw."
+    },
+
+    "enriched": {
+      "type": "boolean",
+      "description": "Whether the rows were annotated beyond Magpie's export. False on the sealed sample."
+    },
+
+    "repo_variables": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "The `${NAME}` container roots used in `launcher.container_root`, when the producer recorded them. Empty on the sealed sample, where the roots are spelled inline."
+    },
+
+    "totals": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["rows", "pct_total_sum"],
+      "description": "The producer's own summary. **It is recomputed by the validator rather than trusted** — a number a producer wrote about itself is not evidence — and it is required anyway, because a document that will not say how many rows it thinks it has cannot be cross-checked at all.",
+      "properties": {
+        "rows": {"type": "integer", "minimum": 1},
+        "pct_total_sum": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100.5,
+          "description": "The shares must add up to a whole run. The ceiling is above 100 by half a point for rounding, and a value materially above it means something is being double-counted across ranks. The floor lives in `check_kernel_table`'s args, because how much of a run a window may legitimately miss is a decision about the capture rather than about the format."
+        },
+        "self_cuda_us": {"type": "number", "minimum": 0}
+      }
+    },
+
+    "launchers": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["available"],
+      "description": "The Python-frame resolution as a whole: how many frames were wanted, how many were placed, and what could not be placed. It exists as a summary because the way this goes wrong is quietly — a resolution that reports zero reads exactly like a profile whose frames were genuinely unfindable, and `reason` is the field that separates the two.\n\nNot required at the top level: a round taken with no stack window legitimately resolves nothing, and `--var stack_window_s=0` is how an operator says so.",
+      "properties": {
+        "available": {"type": "boolean"},
+        "reason": {"type": "string"},
+        "wanted": {"type": "integer", "minimum": 0},
+        "resolved": {"type": "integer", "minimum": 0},
+        "matched_rows": {"type": "integer", "minimum": 0},
+        "unmapped": {"type": "integer", "minimum": 0},
+        "by_owner": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "by_path_form": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}}
+      }
+    },
+
+    "kernels": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/kernel"},
+      "description": "Every row, in Magpie's own order — descending self CUDA time. The order is part of the contract: m3's ranking reads it as given and `check_kernel_table` recomputes the head's share from it."
+    }
+  },
+
+  "$defs": {
+    "kernel": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["name", "calls", "self_us", "avg_us", "pct_total", "input_shapes"],
+      "description": "One kernel. The six required field names are m3's, and they are required on **every** row rather than checked on the first: a rename or an omission on either side turns into a column of nulls three tasks away, and the row it happens on is not predictable.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The symbol exactly as the profiler emitted it, mangled and all. Not demangled and not shortened, because the mangled name is what m3 matches its taxonomy against and what identifies the kernel in the trace."
+        },
+        "calls": {"type": "integer", "minimum": 1},
+        "self_us": {"type": "number", "minimum": 0},
+        "avg_us": {"type": "number", "minimum": 0},
+        "pct_total": {"type": "number", "minimum": 0, "maximum": 100},
+        "input_shapes": {
+          "type": "string",
+          "description": "Semicolon-separated shape lists, populated only when the capture asked the profiler for `record_shapes`. **An empty string is legal on a row and empty on every row is not** — that is the whole-table failure `check_kernel_table` refuses, because without shapes every roofline downstream is impossible while the table itself looks entirely normal. 25 of the 124 rows on the sealed sample are legitimately empty."
+        },
+        "launcher": {"$ref": "#/$defs/launcher"}
+      }
+    },
+
+    "launcher": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["source_file", "line", "function", "owner", "container_root"],
+      "description": "The Python frame that launched this kernel, resolved from the stack window. This is the evidence that answers 'which file do I edit' for a symbol like `main_kernel` or a Tensile `Cijk_...` name, which no amount of searching for the symbol can.\n\nOptional per row — a sub-percent kernel may legitimately not appear in a three-second stack window — but when a row has one, these five fields are what make it usable. `check_kernel_table` requires a floor over the head, not over the table.",
+      "properties": {
+        "source_file": {"type": "string", "minLength": 1},
+        "line": {"type": "integer", "minimum": 1},
+        "function": {"type": "string", "minLength": 1},
+        "sample_count": {"type": "integer", "minimum": 1},
+        "launch_api": {"type": "string"},
+        "container_root": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The repository or package root `source_file` is relative to, e.g. `${AITER_ROOT}`. Required alongside the path: a frame with no root cannot be turned into a repository by the consumer, so it is present without being usable — which is worse than absent, because it counts towards coverage."
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Which project owns the frame — sglang, aiter, sgl_kernel. This is what m3 turns into a patchable source tree."
+        },
+        "path_form": {"type": "string"}
+      }
+    }
+  }
+}

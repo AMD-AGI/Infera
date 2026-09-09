@@ -1,0 +1,75 @@
+run 10
+written_at        2026-09-06T22:42:19Z
+launched          2026-09-06T22:41:00Z
+run dir           /data/yihou/agent_sys_runroot/runs/20260906T224100-ef6374
+orchestrator pid  95533   ppid 1 (setsid)
+identity          bound via the agent child's readlink /proc/<child>/cwd
+
+CHANGE FROM RUN 9 -- one parameter, plus the roots
+  --stall-after 5400   was 1200
+  work_root/scratch_root/validate_work_root -> /data/yihou/e2e_flow10[/kfo|/validate]
+  container                                 -> yihou_e2e_chain10
+  everything else identical, including --var gpu=4 (34 vars, guard passed)
+
+WHY 5400 -- and NOT for the reason it was asked for
+  The leader's case was "two validation phases have exceeded 1200 s". MEASURED,
+  THAT IS FALSE. Both completed in under a second and REFUSED:
+     run 7  build_workset    verdicts 20:18:48.674/.810/.998, last FALSE
+                             validation_failed -> root task 20:18:49.008
+                             stall 20:38:48  = 1200 s of waiting AFTER the refusal
+     run 8  optimize_kernel  verdicts 22:10:51 (three, two FALSE)
+                             stall 22:30:51  = 1200 s of waiting AFTER the refusal
+  The phase label stays at `output_validating` forever once a validation fails,
+  because the task has nowhere to go: the escalation reaches a root task that
+  declares no agent. THE LABEL IS ACCURATE AND MEANS SOMETHING OTHER THAN WHAT
+  IT SAYS. No stall value would have changed either outcome.
+  check_workset_runs, feared to be tens of minutes, measured 7 s on run 8.
+
+  The reason 5400 IS right: three stages ahead have NEVER run and therefore have
+  no measured quiet interval at all -- apply_patch, integrate_and_verify (two
+  bring-ups), packup. "Choose for the unknown case" applies to those, and to
+  nothing that has happened so far.
+
+  Recorded so it cannot be misread later: IF THIS RUN SURVIVES A LONG QUIET
+  STAGE, 5400 GETS THE CREDIT. IF IT DIES ANYWHERE, 5400 IS NOT IMPLICATED --
+  the two prior deaths were refusals, not timeouts, and a third of that kind
+  would be the same.
+
+  Counter-argument on the record: the one MEASURED wedge (run 6's engine,
+  18:35-19:06) was made WORSE by a timer, because AIPerf's 900 s timeout bursts
+  re-satisfied the detector. A longer threshold does nothing for that case
+  either. The wedge case is covered by counting "Stop profiling" lines after the
+  stack window, not by a threshold.
+
+RUN 9's TEARDOWN -- documented order, 22:40:20
+  agent 21695 (found by cwd under the run dir, own pid skipped) -> TERM
+  no chain9 containers were up
+  orchestrator 21292 -> TERM, gone
+  all 8 cards 0%; rc_26_7_902 and xiaoming-dev untouched; run tree preserved
+  cost: ~8 minutes of m1
+
+STILL PRE-REGISTERED (unchanged from run 9)
+  m4 with --var gpu=4 should measure >= 3 shapes and pass its two validators.
+  apply_patch should then REFUSE at apply.py:828. That is no longer a prediction
+  from reading apply_mode -- MEASURED on run 8's own artefact:
+      manifest container_path @AITER_ROOT@/ops/gemm_op_a16w16.py, overlay_files
+      stock module-level names (6): ASM_SPLITK_MAX_GRID, _SEMA_SHAPE,
+        _gemm_a16w16_asm, _get_semaphore_workspace_keyed, gemm_a16w16_asm,
+        get_semaphore_workspace
+      replacement names        (1): run
+      DROPPED (6): all of them, including gemm_a16w16_asm itself
+  Residual uncertainty: whether apply.py's surface_regressions counts names the
+  same way my ast walk does. If narrower, the count changes, not the outcome --
+  gemm_a16w16_asm is a bare def.
+  => forge_mock=1 CANNOT reach integrate_and_verify. The seed must be the stock
+     module plus an appended run() delegation, which is build_workset's
+     `baseline` field: an m3 change.
+
+  Engine denominator: measurement window 6/6, stack window 3/5. Run 10's _on is
+  attempt 6. A hit makes it 4/6 and is still a coin flip.
+
+
+NOTE ON THIS FILE: written with an UNQUOTED heredoc, so two backticked
+words were executed as commands and vanished ('output_validating',
+'baseline'). Restored above. The rule is <<'EOF', and I had written that
+rule down earlier tonight before breaking it here.

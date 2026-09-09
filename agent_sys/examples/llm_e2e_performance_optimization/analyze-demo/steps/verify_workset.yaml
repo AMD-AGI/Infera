@@ -1,0 +1,91 @@
+# The only leaf that needs a GPU.
+#
+# It exists because forge-loop treats `--driver` as a **protected file**: the
+# optimizing agent may not modify it, so everything forge-loop concludes about
+# correctness and speed rests on a driver this package wrote. A driver that is
+# wrong sends the optimization somewhere plausible and useless, and nothing
+# downstream would notice. So the driver is executed here, on the target
+# hardware, before it is handed over.
+#
+# It runs through `srun --overlap` into the node holding the allocation, and
+# inside the serving container — `lmsysorg/sglang:v0.5.18-rocm720-mi35x`, which
+# already carries torch, triton, tilelang and aiter. No model weights are
+# needed: a single operator is measured, not a served model.
+
+# --------------------------------------------------------------------------- #
+
+# Trustworthiness, and the most expensive validator in the package.
+#
+# `gpu_hours` / `external_dynamic` puts it last in its phase, after
+# `check_workset_shape` has already rejected anything structurally broken.
+- module: validator
+  name: check_workset_runs
+  version: '1'
+  brief: Every driver ran on the target GPU, met the SNR gate, and produced a stable five-group measurement
+  dimension: trustworthiness
+  strength: strong
+  inputs: [workset_evidence]
+  args:
+    # mission.md 3.2.7: five weighted groups, each averaging at least ten
+    # iterations. `assets/lib/bench_stats.py` implements it and is imported by
+    # both the producer and this validator, so the two cannot disagree about
+    # what the weighted average means.
+    min_groups: 5
+    min_iters_per_group: 10
+    # Run-to-run spread across the five group means. Above this the machine was
+    # not quiet, and a baseline measured then is not one forge-loop can optimize
+    # against — it would chase noise and report a win.
+    max_rsd: 0.1
+    # How many operators must have measured cleanly. Below 1.0 because a
+    # workset whose entry point is still unknown legitimately cannot run yet,
+    # and failing the whole step for it would block the ones that can.
+    min_pass_ratio: 0.5
+  tags:
+    logic_source: external_dynamic
+    cost: gpu_hours
+    domain: [llm_perf, kernel]
+
+# --------------------------------------------------------------------------- #
+
+# What the drivers actually did on the target hardware.
+#
+# Separate from `operator_workset` on purpose: the workset is the apparatus and
+# this is the reading it produced. Keeping them apart means a workset can be
+# re-measured without being rebuilt, and it gives `check_workset_runs` a subject
+# that is only measurements.
+- module: handoff
+  name: workset_evidence
+  version: '1'
+  description: Measured correctness and performance for every workset, on the target GPU.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json', schema]
+    properties:
+      'text.json': {type: string}
+      schema: {type: string}
+      # Per-operator stdout and stderr, kept because a program task's stdout is
+      # discarded by the framework on success — `agent/backends/program.py`
+      # keeps a tail only on a non-zero exit.
+      logs: {type: string}
+  validators: [check_workset_runs]
+
+# --------------------------------------------------------------------------- #
+
+- module: task
+  name: verify_workset
+  description: Run every workset's driver on the target GPU and record what happened.
+  agent: run_script
+  handoffs: [operator_workset, workset_evidence]
+  validators: [check_workset_shape, check_workset_runs]
+  task:
+    goal: Prove each driver runs and measures before KernelForge depends on it.
+    version: '1'
+    inputs: [operator_workset]
+    outputs: [workset_evidence]
+    permissions:
+      grants:
+        - {path: handoffs/operator_workset, access: read, kind: operator_workset}
+        - {path: handoffs/workset_evidence, access: write, kind: workset_evidence}

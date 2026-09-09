@@ -1,0 +1,190 @@
+# The patch: where it comes from, and how it gets in front of the interpreter.
+#
+# **One file per step, holding everything that step introduces.** Within a file a
+# name referenced before it is defined is an error, so the order is
+# validator -> handoff kind -> task. `runner`, the agent every task here runs
+# under, is in `../shared.yaml`; a cross-file reference has no ordering rule.
+#
+# Both leaves in this file are cheap and neither needs a GPU, which is why they
+# run first. The arms that follow cost twenty minutes each, and a patch that will
+# not apply should cost ten seconds.
+
+# --------------------------------------------------------------------------- #
+
+# Completeness: the patch declares everything a consumer needs to apply it, and
+# every rule is decided by looking at a file that either says the thing or does
+# not.
+#
+# The interesting field is `apply_mode`. This package implements `overlay_files`
+# and refuses `rebuild`, and the refusal is deliberate: a HIP, CK or assembly
+# kernel cannot be bind-mounted, it has to be compiled, and the rebuild path
+# costs a 9m25s image build per iteration plus a whole second evidence chain for
+# the build itself. Declaring the mode here means an out-of-scope patch fails at
+# the first validator naming the reason, rather than being silently mounted and
+# never executed.
+- module: validator
+  name: check_patch_shape
+  version: '1'
+  brief: The patch declares an operator, an image, an apply mode and a well-formed diff per file
+  dimension: completeness
+  strength: strong
+  inputs: [kernel_patch]
+  args:
+    schema_version: 1
+    # What this package can actually do. A patch declaring anything else is
+    # rejected here rather than at bring-up.
+    supported_apply_modes: [overlay_files]
+    # Where a container path is allowed to live. A patch naming a host path has
+    # confused the machine it was cut on with the image it applies to, and that
+    # mistake survives all the way to a deployment that silently runs stock code.
+    container_roots:
+      - /sgl-workspace/sglang/python/sglang
+      - /sgl-workspace/aiter
+      - /sgl-workspace/sglang/sgl-kernel
+      - /opt/tilelang
+    require_fields: [schema_version, operator_id, logical_operator, image, apply_mode, files]
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [integration-demo, patch]
+
+# --------------------------------------------------------------------------- #
+
+# What KernelForge hands over. **This kind is the contract this stage proposes to
+# the kernel-optimization stage**, and it is defined here rather than in
+# `shared.yaml` because when that stage lands, the definition moves upstream with
+# its producer and only the consumer stays behind.
+#
+# `content_type: code`. The handoff carries a directory -- a manifest, one diff
+# per touched file, and the forge report -- and `structured_text`'s optional
+# items are exactly `text.json` / `text.yaml` / `text.xml` / `schema`, with
+# `handoff/content.py:check_items` rejecting any top-level item the type never
+# declared. `code` requires `codes` and leaves what is inside it alone, which is
+# what a patch set needs.
+- module: handoff
+  name: kernel_patch
+  version: '1'
+  description: An optimised kernel as a patch set against a named engine image, with its manifest.
+  content_type: code
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [codes, watchout]
+    properties:
+      codes: {type: string}
+      watchout: {type: string}
+  validators: [check_patch_shape]
+
+# --------------------------------------------------------------------------- #
+
+# The mock producer.
+#
+# The kernel-optimization stage does not exist yet, and `analyze-demo`'s design
+# records that forge-loop's OUTPUT was never specified -- only that it edits in a
+# git worktree and "exports a patch", plus a `--result-json` path whose schema is
+# undefined. So this stage defines the contract above and mocks a producer for
+# it, exactly as `analyze-demo` mocks `kernel_table` with `seed_table`.
+#
+# **The mock patch is semantics-preserving on purpose.** It adds two log lines
+# and changes no arithmetic. That makes the expected verdict knowable: correctness
+# deltas should be exactly zero and performance deltas should sit inside the
+# noise. A comparison that reports a regression on this input is a fault in the
+# judgement, not in the thing being judged -- which is the only way the
+# validators in this package can themselves be checked.
+- module: task
+  name: seed_patch
+  description: Produce a semantics-preserving mock of the kernel-optimization deliverable.
+  agent: runner
+  handoffs: [kernel_patch]
+  validators: [check_patch_shape]
+  task:
+    goal: Mock the kernel-optimization stage's patch deliverable.
+    version: '1'
+    repos: [sglang]
+    inputs: []
+    outputs: [kernel_patch]
+    permissions:
+      grants:
+        - {path: handoffs/kernel_patch, access: write, kind: kernel_patch}
+        - {path: /usr/bin, access: read}
+        - {path: /data/agent_sys_integration, access: write}
+
+# --------------------------------------------------------------------------- #
+
+# Completeness: the overlay is buildable, and what it would mount is not the same
+# bytes as what is already there.
+#
+# That last rule is the one worth having. A patch that applies cleanly and
+# changes nothing produces two arms that are byte-identical, and every downstream
+# check then passes for the wrong reason -- the pipeline would be comparing the
+# stock deployment against itself and reporting "no regression". Cheap to catch
+# here, invisible everywhere else.
+- module: validator
+  name: check_overlay_applies
+  version: '1'
+  brief: Every mount has a patched file that differs from stock, hashes as recorded, and compiles
+  dimension: completeness
+  strength: strong
+  inputs: [patch_overlay]
+  args:
+    # Python files get a `compile()` before anything waits fifteen minutes for a
+    # health endpoint. A syntax error in a mounted file takes the engine down
+    # during model import, where it reads as a model-loading failure.
+    compile_python: true
+    require_difference: true
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [integration-demo, patch]
+
+# --------------------------------------------------------------------------- #
+
+# The overlay: which host file goes over which container path, and the hashes
+# that make the claim checkable later.
+#
+# `reproducible` because it carries directories -- the patched files themselves,
+# the diffs, and the environment they were cut against. `command` rather than
+# `script` for the reason every handoff in this family uses `command`: the seal
+# rejects content naming an absolute path outside a fixed allow-list, and a real
+# apply script names paths under the node's work root.
+- module: handoff
+  name: patch_overlay
+  version: '1'
+  description: A mount plan turning a patch set into bind mounts, with stock and patched hashes.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [result, env, command, logs, watchout]
+    properties:
+      result: {type: string}
+      env: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+  validators: [check_overlay_applies]
+
+# --------------------------------------------------------------------------- #
+
+# The step. One input, so its input validation phase re-runs `check_patch_shape`
+# over the patch it is about to apply -- the useful half of a validator being
+# able to run in both phases.
+- module: task
+  name: apply_patch
+  description: Turn the patch set into a set of per-file bind mounts, and prove each one applies.
+  agent: runner
+  handoffs: [kernel_patch, patch_overlay]
+  validators: [check_overlay_applies]
+  task:
+    goal: Build a per-file bind-mount overlay from the patch set.
+    version: '1'
+    inputs: [kernel_patch]
+    outputs: [patch_overlay]
+    permissions:
+      grants:
+        - {path: handoffs/patch_overlay, access: write, kind: patch_overlay}
+        - {path: handoffs/kernel_patch, access: read, kind: kernel_patch}
+        - {path: /usr/bin, access: read}
+        - {path: /data/agent_sys_integration, access: write}

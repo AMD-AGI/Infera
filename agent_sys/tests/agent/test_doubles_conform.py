@@ -366,6 +366,11 @@ def test_the_rule_rejects_the_prepared_double_as_it_actually_was() -> None:
         # exception to it: `tools` is spec §5.5's remote surface, which `agent`
         # does not compute and only forwards. The double needed it just the same.
         "tools",
+        # The fifth, and the docstring's claim held again without anyone
+        # deciding it should: `mcp_servers` is a per-agent component's external
+        # servers, computed by `env_mgr`, forwarded by `agent`, read by one
+        # backend — and the double went red the moment it appeared.
+        "mcp_servers",
     }
 
 

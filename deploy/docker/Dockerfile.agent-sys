@@ -1,0 +1,223 @@
+# syntax=docker/dockerfile:1.7
+#
+# Control-plane image for agent_sys.
+#
+# This image carries ONLY agent_sys and its system-layer dependencies.
+# Task-specific dependencies (Magpie, compilers, etc.) are declared in each
+# task package's environment recipe and installed by env_mgr at runtime.
+#
+# Secrets (SSH keys, API tokens, .claude) are injected at runtime only.
+#
+# Build:
+#   deploy/docker/agent-sys/build.sh
+#   docker build -f deploy/docker/Dockerfile.agent-sys -t infera/agent-sys:latest .
+
+ARG PYTHON_VERSION=3.12
+ARG BASE_IMAGE=python:${PYTHON_VERSION}-slim-bookworm
+
+# =============================================================== stage: base ==
+# Everything needed at run time, and nothing that only a build needs.
+FROM ${BASE_IMAGE} AS base
+
+ARG NODE_VERSION=v22.23.2
+ARG DOCKER_CLI_VERSION=29.1.3
+ARG TARGETARCH=amd64
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_ROOT_USER_ACTION=ignore \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+# agent_sys's own prefix -- `env_mgr/prefix.py`.  Declared here, in the stage
+# every other stage descends from, so the stage that installs AgentsView and
+# the stage that runs it cannot disagree about where the binary lives.
+#
+# Stated explicitly rather than left to resolve from $HOME: `Prefix.resolve`
+# reads AGENT_SYS_HOME first and falls back to `$HOME/.infera_agent_sys`, and
+# a container whose HOME is set at `docker run` time would then put the prefix
+# somewhere the image never installed into.  The path still *matches* the HOME
+# fallback for the HOME that `env_mgr/container.py` sets, so a run that ignores
+# this variable entirely lands in the same place.
+ENV AGENT_SYS_HOME=/home/agent/.infera_agent_sys
+
+# bubblewrap is absent: unprivileged containers cannot open user namespaces;
+# Landlock works without it.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+        ca-certificates curl gnupg \
+        git openssh-client rsync \
+        bash coreutils findutils gzip tar xz-utils jq less procps tini \
+ && update-ca-certificates
+
+# uv -- the Python toolchain manager.
+COPY --from=ghcr.io/astral-sh/uv:0.9.9 /uv /uvx /usr/local/bin/
+
+# `env_mgr/workspace.py` runs `git clone --shared` against /opt/Infera.
+# Under `docker run --user 1000:1000` git refuses a repository it does not
+# own without safe.directory.
+RUN git config --system --add safe.directory '*' \
+ && git config --system init.defaultBranch main
+
+# Node.js + claude CLI.  `agent/backends/claude_sdk.py` requires the CLI on
+# PATH; it does not fall back to the SDK's bundled executable.
+RUN case "${TARGETARCH}" in \
+      amd64) NODE_ARCH=x64 ;; \
+      arm64) NODE_ARCH=arm64 ;; \
+      *)     echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+ && curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" \
+      | tar -xJ -C /usr/local --strip-components=1 \
+        --exclude='*/CHANGELOG.md' --exclude='*/LICENSE' --exclude='*/README.md' \
+ && npm install -g --no-fund --no-audit @anthropic-ai/claude-code \
+ && npm cache clean --force \
+ && node --version && claude --version
+
+# Docker client (not daemon) -- for inspecting engine containers over ssh.
+ARG WITH_DOCKER_CLI=1
+RUN if [ "${WITH_DOCKER_CLI}" = "1" ]; then \
+      case "${TARGETARCH}" in \
+        amd64) DOCKER_ARCH=x86_64 ;; \
+        arm64) DOCKER_ARCH=aarch64 ;; \
+        *)     echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+      esac \
+   && curl -fsSL "https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_CLI_VERSION}.tgz" \
+        | tar -xz -C /usr/local/bin --strip-components=1 docker/docker \
+   && docker --version ; \
+    fi
+
+# ========================================================= stage: toolchain ==
+# Build-only compiler set.  Not shipped to the runtime stage.
+FROM base AS toolchain
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update \
+ && apt-get install -y --no-install-recommends build-essential pkg-config
+
+# ======================================================== stage: venv-agent ==
+# agent_sys only.  Task-specific packages are installed by env_mgr at runtime.
+FROM toolchain AS venv-agent
+
+COPY . /opt/Infera
+
+# A git *worktree* has a one-line `.git` file -- `gitdir: /abs/path/...` --
+# instead of a `.git` directory, and that path names a location on the build
+# host that does not exist in the image.  Every git step below then fails with
+# `fatal: not a git repository: <a path the reader has never seen>`, which
+# sends them looking for a broken checkout rather than at their build context.
+#
+# Refused here, with the instruction, rather than repaired: materialising a
+# repository (`git init` + one commit) would silently collapse history for
+# every consumer of `env_mgr/workspace.py`'s `git clone --shared`, and that is
+# not a side effect a Dockerfile may have.
+RUN if [ -f /opt/Infera/.git ]; then \
+      echo "This build context is a git worktree, not a checkout: .git is a" >&2; \
+      echo "pointer file naming a path that does not exist in the image, so" >&2; \
+      echo "every git step below would fail. Build from the main checkout." >&2; \
+      exit 1; \
+    fi \
+ && test -d /opt/Infera/.git
+
+# `--copies` so Landlock confinement works correctly -- see the original
+# Dockerfile comments on copies vs symlinks.
+RUN python -m venv --copies /opt/venv/agent \
+ && /opt/venv/agent/bin/pip install --upgrade pip setuptools wheel
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    /opt/venv/agent/bin/pip install -e "/opt/Infera/agent_sys[claude,dev]"
+
+# ========================================================= stage: agentsview ==
+# The o11y panel.  `env_mgr/o11y/agentsview/agentsview.py` looks for it at
+# `prefix.bin / "agentsview"` and nowhere on PATH, so this installs into the
+# prefix rather than /usr/local/bin.
+#
+# **The recipe is run, not restated.**  `env_mgr/recipes/agentsview.o11y.yaml`
+# is the single writer of the version, the download URL and the checksum gate;
+# repeating any of them here would be a second copy that can drift from the one
+# `ensure_installed` uses at run time.  This is the exact invocation that
+# recipe's own header documents.  Needs curl, tar and sha256sum -- all in base.
+FROM venv-agent AS agentsview
+
+# amd64 only, because the recipe is: it names
+# `agentsview_<v>_linux_amd64.tar.gz` and there is no second URL to select.
+# Failing here rather than skipping, because a silently panel-less image is
+# exactly the "check that cannot fail" this repo keeps paying for.
+ARG TARGETARCH=amd64
+RUN case "${TARGETARCH}" in \
+      amd64) ;; \
+      *) echo "agentsview: recipe is amd64-only, TARGETARCH=${TARGETARCH}" >&2; exit 1 ;; \
+    esac
+
+# No cache mount: the recipe downloads into its own mktemp -d and removes it.
+#
+# The assertion after the install is load-bearing.  The recipe item is
+# `importance: suggested`, which is deliberate -- o11y may never fail a
+# deployment -- so `env-mgr install` exits 0 whether the download worked or
+# not.  That is right at run time and wrong at build time: an image is built
+# once and the failure would surface as a missing panel on every run.
+# `BinInstaller` runs both `check_cmd` and the install script with
+# `cwd=target.path`, so the prefix has to exist before the install rather than
+# be created by it -- measured: without this the build died with
+# `FileNotFoundError: '/home/agent/.infera_agent_sys'` out of `subprocess`.
+# `Prefix.create()` is what does this at run time; this is its build-time twin.
+RUN mkdir -p "${AGENT_SYS_HOME}/bin"
+
+RUN /opt/venv/agent/bin/env-mgr install \
+      /opt/Infera/agent_sys/env_mgr/recipes/agentsview.o11y.yaml \
+      --path "${AGENT_SYS_HOME}" \
+ && test -x "${AGENT_SYS_HOME}/bin/agentsview" \
+ && "${AGENT_SYS_HOME}/bin/agentsview" --version
+
+# ============================================================ stage: runtime ==
+FROM base AS runtime
+
+LABEL org.opencontainers.image.title="infera-agent-sys" \
+      org.opencontainers.image.description="Control plane for agent_sys. Carries no engine and no task-specific dependencies." \
+      org.opencontainers.image.source="https://github.com/AMD-AGI/Infera"
+
+COPY --from=venv-agent /opt/venv/agent /opt/venv/agent
+COPY --from=venv-agent /opt/Infera     /opt/Infera
+
+# Git wrapper: restore system config, neutralise user global config.
+RUN printf '%s\n' \
+      '#!/bin/sh' \
+      'export GIT_CONFIG_SYSTEM=/etc/gitconfig' \
+      'export GIT_CONFIG_GLOBAL=/dev/null' \
+      'unset GIT_CONFIG_NOSYSTEM' \
+      'exec /usr/bin/git "$@"' \
+      > /usr/local/bin/git \
+ && chmod 0755 /usr/local/bin/git
+
+ENV VIRTUAL_ENV=/opt/venv/agent \
+    PATH=/opt/venv/agent/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
+
+# `prepare()` refuses to clone a repository without preciousObjects.
+RUN git -C /opt/Infera config extensions.preciousObjects true
+
+ENV AGENT_SYS_REPO=/opt/Infera
+
+# Default run root (container-internal).  For real runs, override with -e and
+# mount at the identical absolute path on both host and container.
+ENV INFERA_AGENT_SYSTEM_WORKROOT=/work/runs
+
+RUN mkdir -p /work /home/agent \
+ && chmod 1777 /work /home/agent
+
+# The prefix, and only its two directories -- `Prefix.create()` makes share/,
+# state/ and run/ itself on first use, which is why they are not created here
+# and why the parent has to be writable by whatever uid `docker run --user`
+# picks.  1777 to match /work and /home/agent above; the binary itself stays
+# 0755 and root-owned, since nothing at run time should be rewriting it.
+RUN mkdir -p "${AGENT_SYS_HOME}/bin" \
+ && chmod 1777 "${AGENT_SYS_HOME}" "${AGENT_SYS_HOME}/bin"
+
+COPY --from=agentsview --chmod=0755 \
+     ${AGENT_SYS_HOME}/bin/agentsview ${AGENT_SYS_HOME}/bin/agentsview
+
+WORKDIR /opt/Infera
+
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["bash"]

@@ -1,0 +1,191 @@
+# What the pipeline is for: a kernel ranking, and a directory somebody who was
+# not here can follow.
+#
+# Neither of these steps produces a measurement. `kernel_scan` reads a trace and
+# `packup` reads five handoffs, which is why both can be rerun from an archived
+# run without the cluster — `kernel_scan` only reaches the node because Magpie's
+# dependencies happen to be installed there.
+
+# --------------------------------------------------------------------------- #
+
+# Usability rather than completeness: the question is not whether a CSV arrived
+# but whether the table in it can be acted on. A ranking whose rows are all
+# sub-percent noise is complete and useless.
+- module: validator
+  name: check_kernel_table
+  version: '1'
+  brief: The ranking has Magpie's columns, enough rows, and a head that accounts for the run
+  dimension: usability
+  strength: strong
+  inputs: [kernel_table]
+  args:
+    # Magpie's columns, exactly. A rename upstream should stop the pipeline here
+    # rather than at whatever reads the CSV next.
+    require_columns:
+      - Name
+      - Calls
+      - Self CUDA total (us)
+      - Avg time (us)
+      - '% Total'
+      - Input Shapes
+    min_rows: 20
+    # The shares must add up to a whole run. Below this and the trace covered a
+    # fraction of the work; above 100 and something is being double-counted
+    # across ranks.
+    min_pct_total_sum: 80.0
+    max_pct_total_sum: 100.5
+    # The head has to mean something. If the top 25 kernels account for a tenth
+    # of the time, there is no operator worth picking and the next stage would be
+    # choosing noise.
+    min_top_n_share_pct: 50.0
+    # `Input Shapes` is populated only when the capture asked the profiler for
+    # record_shapes. Without it every roofline downstream is impossible, and
+    # nothing else would notice.
+    require_input_shapes: true
+    # --- launcher frames ------------------------------------------------------
+    # How many of the head must name the Python frame that launched them.
+    #
+    # **Five and not twenty-five, and the gap is the point.** A launcher frame
+    # only exists for a kernel launched from Python: the largest item in this
+    # profile is an all-reduce launched from torch's C++ collectives, and the
+    # Tensile and rocBLAS kernels below it are dispatched from C++ too. Those are
+    # also exactly the kernels the next stage excludes from its candidate pool,
+    # so requiring a frame for them would fail a correct capture on the rows
+    # nobody is going to optimise.
+    #
+    # Five is what the routable head needs. Measured on
+    # smci355-ccs-aus-n04-29 on 2026-09-01 against a six-kernel microbenchmark
+    # in the engine image, four of six resolved and the two that did not were the
+    # probe's own script and a Tensile GEMM -- including both mangled C++ symbols
+    # (`_ZN5aiter24add_rmsnorm_quant_kernel...` and
+    # `_ZN7sgl_hip10activation18act_and_mul_kernel...`), which are rows 8 and 10
+    # of the real sample profile.
+    #
+    # Set to 0 alongside `--var stack_window_s=0` to run without launcher frames.
+    min_launchers_in_top_n: 5
+    launcher_head_n: 25
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [profiling-demo, analysis]
+
+# --------------------------------------------------------------------------- #
+
+- module: handoff
+  name: kernel_table
+  version: '1'
+  description: Every GPU kernel in the captured window, ranked by the CUDA time it owns, with the Python frame that launched it.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [result, env, command, logs, watchout]
+    properties:
+      result: {type: string}
+      env: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+  validators: [check_kernel_table]
+
+# --------------------------------------------------------------------------- #
+
+# Completeness, `strong`. Every rule is decided by looking at a file that is
+# either there or is not, and the substance floors are counted rather than judged.
+- module: validator
+  name: check_packup_shape
+  version: '1'
+  brief: The packup carries every file the layout mandates, with substance in each
+  dimension: completeness
+  strength: strong
+  inputs: [profile_packup]
+  args:
+    # `deliverable_layout.md`: these three are never omitted.
+    require_files: [README.md, REPRODUCE.md, environment.md, notes.md]
+    require_dirs: [scripts, results, logs]
+    # Counted in CONTENT lines: non-blank, not a heading, not a code-fence marker.
+    # A presence check cannot tell a document from a skeleton, which is the whole
+    # reason the layout reference ships templates and this counts what filled them.
+    min_content_lines:
+      README.md: 10
+      REPRODUCE.md: 15
+      environment.md: 10
+      notes.md: 5
+    # REPRODUCE.md is the file a reproducer executes, so its substance is
+    # measured in commands rather than in prose.
+    min_command_lines: 5
+    # The results directory is the evidence. An empty one turns the packup into a
+    # narrative.
+    min_result_files: 4
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [profiling-demo, packup]
+
+# --------------------------------------------------------------------------- #
+
+# **`content_type: code`, and the choice was forced the same way
+# `single_real_task` describes.** `reproducible` is the type named after what a
+# packup is and it is the wrong one: laying a packup into it means `results/`
+# becomes `items/result`, `scripts/` becomes `items/script` and `REPRODUCE.md` —
+# the one file a reproducer executes — has no item to be. Renaming the files the
+# layout mandates destroys the thing `check_packup_shape` exists to check. `code`
+# requires exactly one item, `codes`, whose interior is unconstrained, so the
+# packup survives with its own names on it.
+- module: handoff
+  name: profile_packup
+  version: '1'
+  description: The whole run as one directory a colleague can follow, in the experiment-result-packup layout.
+  content_type: code
+  scope: fixed.required
+  validators: [check_packup_shape]
+
+# --------------------------------------------------------------------------- #
+
+- module: task
+  name: kernel_scan
+  description: Rank the kernels in the captured trace with Magpie.
+  agent: runner
+  handoffs: [torch_trace, kernel_table]
+  validators: [check_kernel_table]
+  task:
+    goal: Rank every GPU kernel in the captured window.
+    version: '1'
+    inputs: [torch_trace]
+    outputs: [kernel_table]
+    permissions:
+      grants:
+        - {path: handoffs/kernel_table, access: write, kind: kernel_table}
+        - {path: handoffs/torch_trace, access: read, kind: torch_trace}
+        - {path: /usr/bin, access: read}
+        - {path: /data/agent_sys_profiling, access: write}
+
+# --------------------------------------------------------------------------- #
+
+# The end of the graph. It fans in five handoffs and **not** `torch_trace`: at
+# 462 MB the traces would be staged into this zone and then copied again into the
+# packup, for an artefact whose value is being followable rather than complete.
+# `kernel_table` carries the trace manifest, so the traces are identified by
+# SHA-256 without being carried.
+#
+# The edge from `run_profiled` still exists — through `aiperf_profiled`.
+- module: task
+  name: packup
+  description: Assemble the run into one directory somebody who was not here can follow.
+  agent: runner
+  handoffs: [deployment_baseline, deployment_profiled, aiperf_baseline, aiperf_profiled, kernel_table, profile_packup]
+  validators: [check_packup_shape]
+  task:
+    goal: Pack the run into a reproduction kit.
+    version: '1'
+    inputs: [deployment_baseline, deployment_profiled, aiperf_baseline, aiperf_profiled, kernel_table]
+    outputs: [profile_packup]
+    permissions:
+      grants:
+        - {path: handoffs/profile_packup, access: write, kind: profile_packup}
+        - {path: handoffs/deployment_baseline, access: read, kind: deployment_baseline}
+        - {path: handoffs/deployment_profiled, access: read, kind: deployment_profiled}
+        - {path: handoffs/aiperf_baseline, access: read, kind: aiperf_baseline}
+        - {path: handoffs/aiperf_profiled, access: read, kind: aiperf_profiled}
+        - {path: handoffs/kernel_table, access: read, kind: kernel_table}

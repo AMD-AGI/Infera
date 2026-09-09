@@ -21,9 +21,10 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import shutil
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextlib import ExitStack
 from pathlib import Path
 from typing import Any, TextIO
@@ -46,9 +47,20 @@ from cli.render.human import HumanRenderer
 from cli.render.machine import JsonLinesRenderer
 from cli.stream import Stream
 from env_mgr import meta
+from env_mgr.o11y.agentsview import (
+    RECIPE_PATH,
+    freshly_installed,
+    ensure_installed,
+    ensure_run_project,
+    ensure_running,
+    pinned_version,
+    resolve_port,
+)
+from env_mgr.prefix import Prefix
 from env_mgr.prepare import EnvManager, permissions_enforced
 from env_mgr.protocols import NoConfinement, PrepareRefused, UnresolvedGrant
 from env_mgr.remote.connection import sync_transport
+from env_mgr.servers import REGISTRY_ENV_VAR, owned_servers
 from env_mgr.sync import check_delete_scope
 from monitor import (
     NullUserSink,
@@ -173,6 +185,61 @@ def parser() -> argparse.ArgumentParser:
             "ends in seconds regardless; this only bounds one that never stops"
         ),
     )
+    run.add_argument(
+        "--agentsview-port",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "port for the AgentsView o11y panel (default 18888; "
+            "a port already in use is a warning and a skip)"
+        ),
+    )
+    run.add_argument(
+        "--no-agentsview",
+        action="store_true",
+        help="do not start the AgentsView o11y panel",
+    )
+    # Docker mode: run inside a container managed by env_mgr.
+    run.add_argument(
+        "--docker",
+        action="store_true",
+        help="run inside a Docker container (env_mgr builds and starts it automatically)",
+    )
+    run.add_argument(
+        "--docker-debug",
+        action="store_true",
+        help="start the container and drop into an interactive shell (sleep infinity), no task is run",
+    )
+    run.add_argument(
+        "--docker-image",
+        metavar="IMAGE",
+        default="infera/agent-sys:latest",
+        help="Docker image to use (default: infera/agent-sys:latest)",
+    )
+    run.add_argument(
+        "--docker-name",
+        metavar="NAME",
+        default="agent-sys-container",
+        help="container name (default: agent-sys-container)",
+    )
+    run.add_argument(
+        "--docker-rm",
+        action="store_true",
+        help="remove the container after the run finishes (default: keep running)",
+    )
+    run.add_argument(
+        "--detect-and-copy-host-ssh-config",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="mount host ~/.ssh into the container (default: on)",
+    )
+    run.add_argument(
+        "--detect-and-copy-host-claude-config",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="mount host ~/.claude into the container (default: on)",
+    )
     return top
 
 
@@ -209,7 +276,34 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             if args.verb == "show":
                 return _show(args, stream)
-            return _run(args, stream)
+            # The one call site: the daemon outlives the run, so it starts
+            # once per invocation and its result never reaches the exit code.
+            # Not for `--dry-run` (whose contract is *resolve everything, do
+            # nothing*) or `--clean` (which deletes every run and exits).
+            #
+            # **And not for `--docker`, where the panel belongs in the
+            # container.** A panel can only ingest transcripts it can see, and
+            # under `--docker` the run writes them into the *container's*
+            # prefix, which is not mounted on the host. Starting one here
+            # produced a silent triple failure, measured: the host daemon took
+            # the port, the container's `ensure_running` then skipped with
+            # *"port N is in use by something else"* -- true, and misleading,
+            # because the something else was us -- and the run's transcripts
+            # were ingested by nobody. Host database 0 sessions / 0 messages,
+            # container database never created, two real .jsonl transcripts
+            # (157 KB and 54 KB) sitting unread in the container prefix.
+            #
+            # The switch is `--docker`, not the forwarded `--no-agentsview`,
+            # because that flag says *this operator wants no panel* and here we
+            # want one -- just on the other side of the container wall. It is
+            # forwarded below so the operator keeps both answers.
+            in_container = getattr(args, "docker", False) or getattr(args, "docker_debug", False)
+            panel_url = _start_o11y(
+                args.agentsview_port,
+                disabled=args.no_agentsview or args.dry_run or args.clean or in_container,
+                stream=stream,
+            )
+            return _run(args, stream, stack, panel_url)
         except package.PackageNotFound as exc:
             return _fail(stream, PRECONDITION, str(exc))
         except SpecInvalid as exc:
@@ -224,6 +318,110 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (PrepareRefused, UnresolvedGrant) as exc:
             return _fail(stream, PRECONDITION, f"the environment refused the task: {exc}")
     return UNEXPECTED_FAILURE  # pragma: no cover — ExitStack always returns above
+
+
+def _install_item(prefix: Prefix) -> Callable[[], Sequence[Any]]:
+    """The recipe call `ensure_installed` injects rather than performs.
+
+    **This is o11y-shaped code living in `cli/`, and review asked why. It is
+    here because it cannot be under `env_mgr/`.** Spec §9 walls `recipe`,
+    `runner` and `installers` off from every module there, and
+    `tests/env_mgr/test_imports.py` enforces it structurally — it derives the
+    "above the wall" set from the filesystem and walks it with `rglob`, so a new
+    subpackage is covered the moment it exists, with `env_mgr/cli.py` the single
+    exemption. This function's whole body is `load_recipe` + `runner.run`, so
+    any home under `env_mgr/o11y/` fails that test. A first draft of
+    `ensure_installed` did exactly that and failed exactly that test, which is
+    why it takes an injected callable rather than looking the recipe up itself.
+
+    Moving it would mean either putting it in `env_mgr/cli.py` — legal, but that
+    is env_mgr's command-line entry point and it would be there for the
+    exemption rather than because it belongs — or widening the exemption, which
+    weakens a guard whose own docstring records a module going unchecked when
+    the list was maintained by hand. Neither is this function's call to make.
+
+    **Zero-argument, not a precomputed list**: a list evaluated at the call site
+    would run the installer before `--dry-run` could stop it. `target.path` is
+    overridden because the checked-in recipe's value is a placeholder — nothing
+    in `env_mgr` expands `${VAR}` in a YAML value.
+    """
+
+    def call() -> Sequence[Any]:
+        from env_mgr.recipe import load_recipe
+        from env_mgr.runner import Filters, run
+
+        target, items = load_recipe(RECIPE_PATH)
+        target.path = str(prefix.root)
+        outs, _status = run(target, items, "install", Filters(item="agentsview"))
+        return outs
+
+    return call
+
+
+def _start_o11y(
+    port_flag: int | None, disabled: bool, stream: Stream | None = None
+) -> str | None:
+    """The one call site. Returns the panel URL, or None, and never raises.
+
+    **Also o11y-shaped code in `cli/`, and also deliberate.** Review asked for
+    it to live in `env_mgr/o11y/`, and the destination is right; the move is a
+    refactor rather than a relocation, because this function is tied to `cli/`
+    at two points. It calls `_install_item`, which cannot leave (see there). And
+    it emits on the `Stream`, so moving it as written would have `env_mgr`
+    importing `cli` — a library importing its own consumer, which is a worse
+    inversion than the one being fixed. The honest shape is
+    `start_panel(prefix, port_flag, install_item, announce)` in the o11y package
+    with a four-line adapter here, and it re-points the ten or so tests that
+    patch `cli_main.ensure_installed` / `cli_main.ensure_running` at module
+    level. Worth doing on its own, not folded into a review-fix.
+
+    **The bare `except Exception` is the point**: everything inside
+    `ensure_running` already degrades to a warning, and this catches what that
+    module has not thought of. A side-car that can abort a run is a worse bug
+    than a missing panel.
+
+    **Success goes to the `stream`, failure to `logging`.** Both were
+    `log.info`, and this package never configures `logging` — so the root
+    logger sits at `WARNING` with no handler and they reached nobody, while the
+    warnings still reached stderr through `lastResort`. `stream` is optional
+    because the failure-mode tests are not about it; `main` always passes one.
+
+    `os.environ` is read here and never written.
+    """
+    if disabled:
+        return None
+
+    def say(message: str, **fields: Any) -> None:
+        if stream is not None:
+            stream.emit(EventKind.O11Y_PANEL, message, **fields)
+
+    try:
+        prefix = Prefix.resolve(os.environ)
+        installed = ensure_installed(prefix, _install_item(prefix))
+        if not installed.running:
+            # `ensure_installed` has already logged the one warning. Starting a
+            # daemon whose binary is absent would only add a second.
+            return None
+        if freshly_installed(installed.reason):
+            # Only on the run that downloaded: a line on every run is how a
+            # real warning gets scrolled past. Says what arrived and where,
+            # because a 45 MB download nobody asked for should be inspectable.
+            version = pinned_version()
+            path = str(prefix.bin / "agentsview")
+            message = (
+                f"fetched the o11y panel binary (agentsview v{version}, "
+                f"from github.com/kenn-io/agentsview) into {path}"
+            )
+            log.info("agentsview: %s", message)
+            say(message, version=version, path=path, installed=True)
+        status = ensure_running(prefix, port=resolve_port(port_flag, os.environ))
+        if status.running:
+            log.info("agentsview: o11y panel at %s", status.url)
+            say(f"panel at {status.url}", url=status.url)
+        return status.url
+    except Exception as e:  # noqa: BLE001
+        log.warning("agentsview: o11y start-up failed (%s); continuing without a panel.", e)
+        return None
 
 
 def _fail(stream: Stream, code: int, message: str, *, kind: EventKind | None = None) -> int:
@@ -259,12 +457,117 @@ def _show(args: argparse.Namespace, stream: Stream) -> int:
 # run
 
 
-def _run(args: argparse.Namespace, stream: Stream) -> int:
+def _run(
+    args: argparse.Namespace,
+    stream: Stream,
+    stack: ExitStack,
+    panel_url: str | None = None,
+) -> int:
     if args.clean:
         return _clean(args, stream)
+    if getattr(args, "docker_debug", False):
+        return _docker_debug(args, stream)
+    if getattr(args, "docker", False):
+        return _docker_run(args, stream)
     if args.dry_run:
         return _dry_run(args, stream)
-    return _real_run(args, stream)
+    # `stack` reaches only `_real_run`: it is what stops the servers a run
+    # started, and the other two verbs start none. `clean` removes a directory;
+    # `dry-run` dispatches nothing, which its own body asserts rather than
+    # assumes.
+    return _real_run(args, stream, stack, panel_url)
+
+
+def _docker_debug(args: argparse.Namespace, stream: Stream) -> int:
+    """Start a container with sleep infinity and drop into a shell."""
+    from env_mgr.container import ContainerManager
+
+    mgr = ContainerManager(
+        image=args.docker_image,
+        container_name=args.docker_name,
+        detect_ssh=args.detect_and_copy_host_ssh_config,
+        detect_claude=args.detect_and_copy_host_claude_config,
+    )
+
+    mgr.start()
+
+    name = mgr.container_name
+    stream.emit(
+        EventKind.RUN_COMPLETE,
+        f"container '{name}' is running (sleep infinity). Connect with:\n"
+        f"\n"
+        f"  docker exec -it {name} bash\n",
+        exit_code=OK,
+        ok=True,
+    )
+
+    import subprocess
+    return subprocess.run(
+        [mgr._docker_bin(), "exec", "-it", "-w", "/opt/Infera", name, "bash"],
+    ).returncode
+
+
+def _docker_run(args: argparse.Namespace, stream: Stream) -> int:
+    """Delegate the run to a Docker container managed by env_mgr."""
+    from env_mgr.container import ContainerManager
+
+    mgr = ContainerManager(
+        image=args.docker_image,
+        container_name=args.docker_name,
+        detect_ssh=args.detect_and_copy_host_ssh_config,
+        detect_claude=args.detect_and_copy_host_claude_config,
+    )
+
+    stream.emit(
+        EventKind.RUN_COMPLETE,
+        f"starting Docker container (image={mgr.image})",
+        exit_code=OK,
+        ok=True,
+    )
+
+    mgr.start()
+
+    # Forward the original command into the container, stripping --docker flags.
+    forwarded = ["agent-sys", "run"]
+    if args.package:
+        forwarded += ["--package", args.package]
+    if args.demo_root:
+        forwarded += ["--demo-root", args.demo_root]
+    if args.dry_run:
+        forwarded += ["--dry-run"]
+    if getattr(args, "with_broken", False):
+        forwarded += ["--with-broken"]
+    if getattr(args, "resume", False):
+        forwarded += ["--resume"]
+    if getattr(args, "allow_repo_config", False):
+        forwarded += ["--allow-repo-config"]
+    for var_item in args.var:
+        forwarded += ["--var", var_item]
+    if args.json:
+        forwarded += ["--json", args.json]
+    # The panel runs inside the container -- `main` skips the host one under
+    # `--docker` -- so both o11y answers have to cross the wall or the operator
+    # loses them. Without the port there is no route at all to move the panel
+    # off a busy 18888: `--agentsview-port` stopped here, and `container.py`
+    # forwards no `AGENTSVIEW_PORT` either, so a host with anything on that
+    # port gave a containerised run no panel and no way to ask for one.
+    if getattr(args, "no_agentsview", False):
+        forwarded += ["--no-agentsview"]
+    if getattr(args, "agentsview_port", None) is not None:
+        forwarded += ["--agentsview-port", str(args.agentsview_port)]
+
+    rc = mgr.exec(forwarded, workdir="/opt/Infera")
+
+    if getattr(args, "docker_rm", False):
+        mgr.stop()
+        stream.emit(
+            EventKind.RUN_COMPLETE,
+            f"container '{mgr.container_name}' removed",
+            exit_code=rc,
+            ok=rc == 0,
+        )
+
+    return rc
 
 
 def _clean(args: argparse.Namespace, stream: Stream) -> int:
@@ -326,7 +629,12 @@ def _layout(args: argparse.Namespace) -> Layout:
     return layout_for(root).create()
 
 
-def _real_run(args: argparse.Namespace, stream: Stream) -> int:
+def _real_run(
+    args: argparse.Namespace,
+    stream: Stream,
+    stack: ExitStack,
+    panel_url: str | None = None,
+) -> int:
     """Everything. Needs credentials, a sandbox, and a model.
 
     The order of the two preconditions is measured rather than aesthetic: the
@@ -351,17 +659,31 @@ def _real_run(args: argparse.Namespace, stream: Stream) -> int:
     promises = expectations.for_package(package.locate(args.package))
 
     layout = _layout(args)
+    # **Here, and not in `_start_o11y`, because the run id does not exist yet
+    # when the panel starts.** Before any task runs, so the mapping is in place
+    # before the first transcript is ingested -- measured: a mapping that
+    # exists at ingest labels the session at sync time, with no second call.
+    mapped = ensure_run_project(panel_url, layout.run)
+    if mapped.running:
+        stream.emit(
+            EventKind.O11Y_PANEL,
+            f"this run is project {mapped.reason!r} on the panel",
+            project=mapped.reason,
+            run=str(layout.run),
+        )
+    # The servers this run starts are stopped when this block unwinds; `env_mgr`
+    # starts them, so `env_mgr` stops them. The path is set on `os.environ`
+    # because that is the only channel a recipe subprocess reads it from; it is
+    # a per-run constant, safe even though the runner is threaded.
+    registry_file = layout.run / "servers.json"
+    os.environ[REGISTRY_ENV_VAR] = str(registry_file)
+    stack.enter_context(owned_servers(registry_file))
     root = package.locate(args.package)
-    # **Read once, at start-up, and it is the run's fact rather than a task's.**
-    # `env_mgr.prepare.permissions_enforced()` is the single reader of the
-    # variable and this calls it; the demo never learns the name. A function and
-    # not a constant, on their advice: a module-level read is taken at import
-    # and would answer with whatever the environment held then.
-    #
-    # `main` has no `Prepared` at all — a non-leaf never executes — so a banner
-    # about the run cannot be assembled from per-task facts even where they
-    # exist. `Prepared.permissions_enforced` stays a confirmation, not a second
-    # source.
+    # Read once, at start-up: this is the run's fact rather than a task's.
+    # `env_mgr.prepare.permissions_enforced()` is the variable's single reader.
+    # A function and not a constant, because a module-level read is taken at
+    # import and would answer with whatever the environment held then.
+    # `Prepared.permissions_enforced` stays a confirmation, not a second source.
     enforced = permissions_enforced()
     stream.emit(
         EventKind.CONFINEMENT_APPLIED,
@@ -398,28 +720,34 @@ def _real_run(args: argparse.Namespace, stream: Stream) -> int:
     # which is how the bug was found. One call now.
     running = start_monitors(registry)
     try:
-        if args.resume:
-            resume_all(registry)
-        else:
-            _start(registry, stream)
-        _settle(registry, stream, timeout=getattr(args, "timeout", None) or _SETTLE_TIMEOUT)
+        try:
+            if args.resume:
+                resume_all(registry)
+            else:
+                _start(registry, stream)
+            _settle(registry, stream, timeout=getattr(args, "timeout", None) or _SETTLE_TIMEOUT)
+        finally:
+            # Names that did **not** come back, rather than a hang or a silent pass.
+            stragglers = running.stop(timeout=5.0)
+            if stragglers:
+                stream.emit(
+                    EventKind.RUN_COMPLETE,
+                    f"monitor loops that did not return: {sorted(stragglers)}",
+                    stragglers=sorted(stragglers),
+                    ok=False,
+                )
+        # Described AFTER the run, not before it: the subgraph does not exist
+        # until the root's main phase unfolds, so a graph printed at submit time
+        # would be one task long.
+        tasks = registry.get("task_mgr").all()
+        _emit_graph(stream, tasks, resumed=bool(args.resume))
+        _describe(registry, tasks, stream)
+        return _report(registry, stream, layout, promises)
     finally:
-        # Names that did **not** come back, rather than a hang or a silent pass.
-        stragglers = running.stop(timeout=5.0)
-        if stragglers:
-            stream.emit(
-                EventKind.RUN_COMPLETE,
-                f"monitor loops that did not return: {sorted(stragglers)}",
-                stragglers=sorted(stragglers),
-                ok=False,
-            )
-    # Described AFTER the run, not before it: the subgraph does not exist
-    # until the root's main phase unfolds, so a graph printed at submit time
-    # would be one task long.
-    tasks = registry.get("task_mgr").all()
-    _emit_graph(stream, tasks, resumed=bool(args.resume))
-    _describe(registry, tasks, stream)
-    return _report(registry, stream, layout, promises)
+        # Monitor decisions and reporting may reuse a settled executor. Once
+        # both are over, every attempt belongs to this invocation and must be
+        # disposed before Python tears down the SDK's private event loops.
+        registry.get("runner").shutdown()
 
 
 # --------------------------------------------------------------------------- #

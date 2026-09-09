@@ -1,0 +1,200 @@
+# The profiled round: decode CUDA graphs OFF, profiling control plane ON.
+#
+# Everything about it is the baseline round with two flags flipped, so the two
+# tasks share one implementation each (`assets/serve/round.sh`,
+# `assets/load/replay.sh`) and this file introduces only what is new: two more
+# handoff kinds of the same shape, one genuinely new kind, and one validator.
+#
+# `check_service_live` and `check_aiperf_report` are declared in `baseline.yaml`
+# and cover this round's deployment and report too — their `inputs` name both
+# kinds. A cross-file reference has no ordering rule.
+
+# --------------------------------------------------------------------------- #
+
+# Completeness: the capture covered the load rather than an idle scheduler.
+#
+# `strong`, because every rule is a count read out of a file that was produced by
+# parsing the traces themselves. `minutes` rather than `seconds` for the cost tag:
+# the manifest this reads was built by decompressing and parsing every rank, and
+# `validator` spec §5.3 orders a phase cheapest-first, so this should not be
+# mistaken for a shape check.
+- module: validator
+  name: check_trace_coverage
+  version: '1'
+  brief: One trace per rank, every one readable, and every one holding GPU kernels
+  dimension: completeness
+  strength: strong
+  inputs: [torch_trace]
+  args:
+    # One file per tensor-parallel rank. Seven readable ranks out of eight is not
+    # a partial success: an all-reduce that ran on eight will be attributed
+    # against seven, and every share in the ranking is then wrong by an amount
+    # nobody can see.
+    expect_ranks: '${tp:-8}'
+    # The rule that separates a capture from eight well-formed empty files. A
+    # window that opened on an idle engine produces exactly that.
+    min_gpu_kernels_per_rank: 1000
+    # The window was asked for in seconds; the trace should cover roughly that.
+    # Generous on both sides because the profiler starts and stops asynchronously
+    # and the point is to catch a window that missed the load entirely, not to
+    # measure the profiler's own latency.
+    min_span_s: 1.0
+    max_span_ratio: 4.0
+    # The window the capture was asked for, so the span rule has something to be
+    # a ratio of. Defaulted from the same variable the capture reads, so the two
+    # cannot drift.
+    window_s: '${window_s:-15}'
+    # --- the stack window ----------------------------------------------------
+    # Rank files expected from the short `with_stack` capture, from the same
+    # variable `replay.sh` carries, so asking for none and checking for none are
+    # one decision rather than two that can disagree. Zero disables the rule,
+    # which is what `--var stack_window_s=0` should be paired with.
+    expect_stack_ranks: '${stack_ranks:-2}'
+    # A three-second window on a saturated engine recorded 9,565
+    # `python_function` events for a six-kernel microbenchmark; measured on
+    # smci355-ccs-aus-n04-29. Ten thousand is therefore a floor a real window
+    # clears by orders of magnitude and a window taken with `with_stack` off
+    # cannot reach at all, because it records exactly zero.
+    min_python_functions_per_stack_rank: 10000
+  tags:
+    logic_source: external_static
+    cost: minutes
+    domain: [profiling-demo, profile]
+
+# --------------------------------------------------------------------------- #
+
+# Same shape as `deployment_baseline`, and a separate kind rather than a second
+# producer of the same one: `task_graph` keeps exactly one producer per kind per
+# subgraph, so two tasks producing `deployment` would leave only the last of them
+# visible to any consumer. `demo2` splits `solutions_a/b/c` for the same reason.
+- module: handoff
+  name: deployment_profiled
+  version: '1'
+  description: A GLM-5.3-Flash MIX deployment with decode CUDA graphs off and the profiler control plane on.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [result, env, command, logs, watchout]
+    properties:
+      result: {type: string}
+      env: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+  validators: [check_service_live]
+
+# --------------------------------------------------------------------------- #
+
+- module: handoff
+  name: aiperf_profiled
+  version: '1'
+  description: The same replay against the graphs-off deployment, taken while the profiler was attached.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [result, env, command, logs, watchout]
+    properties:
+      result: {type: string}
+      env: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+  validators: [check_aiperf_report]
+
+# --------------------------------------------------------------------------- #
+
+# The one genuinely new kind: the traces themselves.
+#
+# **The `*.trace.json.gz` files are carried, not referenced.** Measured at 60.5 MB
+# per rank and 462 MB for the eight, which is four times the original estimate —
+# a MIX deployment puts prefill and decode kernels in one trace and this load
+# saturates the engine. Carrying them keeps `kernel_scan` dependent on the handoff
+# rather than on the node still existing, which is what lets the ranking be rerun
+# from an archived run.
+#
+# They also pass the locality seal for free: `handoff.locality` skips files it
+# cannot decode as UTF-8 and files over 4 MB, and these are both.
+#
+# **The handoff carries two captures of the same load, and they are not
+# interchangeable.** `result/traces/` is the measurement window, taken without
+# Python stacks. `result/stacks/` is a seconds-long window taken with them, kept
+# for the first `stack_ranks` ranks only, and it exists so `kernel_scan` can name
+# the Python frame that launched each ranked kernel.
+#
+# They are separate because stacks are expensive rather than because two windows
+# are elegant: measured on smci355-ccs-aus-n04-29, the same workload profiled with
+# and without stacks came to 13.1x the uncompressed bytes at identical kernel
+# counts and kernel time. At this package's 60.5 MB per rank for 15 s, stacks
+# across the measurement window would be roughly 8 GB for the round. Resolution
+# needs a few launches per kernel, not a long window.
+- module: handoff
+  name: torch_trace
+  version: '1'
+  description: A torch-profiler measurement window per rank plus a short with_stack window, cut out of a running trace replay.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [result, env, command, logs, watchout]
+    properties:
+      result: {type: string}
+      env: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+  validators: [check_trace_coverage]
+
+# --------------------------------------------------------------------------- #
+
+# **This depends on `run_baseline`, not on `serve_baseline`.** Its first act is to
+# tear the baseline deployment down, so the edge has to say "the baseline has been
+# measured" rather than "the baseline exists". Wiring it to `serve_baseline` would
+# let agent_sys schedule it alongside `run_baseline` and destroy the deployment
+# mid-measurement.
+- module: task
+  name: serve_profiled
+  description: Restart GLM-5.3-Flash with decode CUDA graphs off and the profiler control plane on.
+  agent: runner
+  handoffs: [aiperf_baseline, deployment_profiled]
+  validators: [check_service_live]
+  task:
+    goal: Serve GLM-5.3-Flash with graphs off and profiling enabled.
+    version: '1'
+    repos: [infera, sglang]
+    inputs: [aiperf_baseline]
+    outputs: [deployment_profiled]
+    permissions:
+      grants:
+        - {path: handoffs/deployment_profiled, access: write, kind: deployment_profiled}
+        - {path: handoffs/aiperf_baseline, access: read, kind: aiperf_baseline}
+        - {path: /usr/bin, access: read}
+        - {path: /data/agent_sys_profiling, access: write}
+
+# --------------------------------------------------------------------------- #
+
+# Two outputs from one task, because the profiler window has to fall inside the
+# load window and agent_sys has no way to express that between siblings. See
+# `assets/load/replay.sh`.
+- module: task
+  name: run_profiled
+  description: Replay the trace again and cut a torch-profiler window out of the load.
+  agent: runner
+  handoffs: [deployment_profiled, aiperf_profiled, torch_trace]
+  validators: [check_aiperf_report, check_trace_coverage]
+  task:
+    goal: Replay the trace and capture a profiler window inside it.
+    version: '1'
+    inputs: [deployment_profiled]
+    outputs: [aiperf_profiled, torch_trace]
+    permissions:
+      grants:
+        - {path: handoffs/aiperf_profiled, access: write, kind: aiperf_profiled}
+        - {path: handoffs/torch_trace, access: write, kind: torch_trace}
+        - {path: handoffs/deployment_profiled, access: read, kind: deployment_profiled}
+        - {path: /usr/bin, access: read}
+        - {path: /data/agent_sys_profiling, access: write}

@@ -1,0 +1,89 @@
+{
+  "_note": "A HAND-CURATED SUBSET, not a mirror of leetcode.com. Written from knowledge and never fetched: this package must run with no network access, and a validator that matched against a live site would fail for reasons that have nothing to do with the work being graded. Every `slug` is a genuine leetcode.com problem slug and every `topic_id` is an id from `assets/catalog/clrs_topics.json`; `difficulty` is LeetCode's own label. Coverage is deliberately broad rather than deep -- three or more problems per topic, so `check_problems` has a real closed list to match a slug against, and so a problem set drawn from any single topic is still a choice rather than the only option. Three entries (connecting-cities-with-minimum-cost, optimize-water-distribution-in-a-village, alien-dictionary) are LeetCode Premium; the slugs are real and nothing in this package fetches them.",
+  "problems": [
+    {"slug": "merge-k-sorted-lists", "title": "Merge k Sorted Lists", "topic_id": "divide_and_conquer", "difficulty": "hard"},
+    {"slug": "maximum-subarray", "title": "Maximum Subarray", "topic_id": "divide_and_conquer", "difficulty": "medium"},
+    {"slug": "kth-largest-element-in-an-array", "title": "Kth Largest Element in an Array", "topic_id": "divide_and_conquer", "difficulty": "medium"},
+    {"slug": "different-ways-to-add-parentheses", "title": "Different Ways to Add Parentheses", "topic_id": "divide_and_conquer", "difficulty": "medium"},
+
+    {"slug": "sort-colors", "title": "Sort Colors", "topic_id": "sorting", "difficulty": "medium"},
+    {"slug": "merge-intervals", "title": "Merge Intervals", "topic_id": "sorting", "difficulty": "medium"},
+    {"slug": "largest-number", "title": "Largest Number", "topic_id": "sorting", "difficulty": "medium"},
+    {"slug": "sort-an-array", "title": "Sort an Array", "topic_id": "sorting", "difficulty": "medium"},
+
+    {"slug": "jump-game", "title": "Jump Game", "topic_id": "greedy", "difficulty": "medium"},
+    {"slug": "gas-station", "title": "Gas Station", "topic_id": "greedy", "difficulty": "medium"},
+    {"slug": "task-scheduler", "title": "Task Scheduler", "topic_id": "greedy", "difficulty": "medium"},
+    {"slug": "non-overlapping-intervals", "title": "Non-overlapping Intervals", "topic_id": "greedy", "difficulty": "medium"},
+
+    {"slug": "climbing-stairs", "title": "Climbing Stairs", "topic_id": "dynamic_programming", "difficulty": "easy"},
+    {"slug": "coin-change", "title": "Coin Change", "topic_id": "dynamic_programming", "difficulty": "medium"},
+    {"slug": "longest-increasing-subsequence", "title": "Longest Increasing Subsequence", "topic_id": "dynamic_programming", "difficulty": "medium"},
+    {"slug": "edit-distance", "title": "Edit Distance", "topic_id": "dynamic_programming", "difficulty": "medium"},
+    {"slug": "word-break", "title": "Word Break", "topic_id": "dynamic_programming", "difficulty": "medium"},
+
+    {"slug": "number-of-islands", "title": "Number of Islands", "topic_id": "graph_traversal", "difficulty": "medium"},
+    {"slug": "clone-graph", "title": "Clone Graph", "topic_id": "graph_traversal", "difficulty": "medium"},
+    {"slug": "pacific-atlantic-water-flow", "title": "Pacific Atlantic Water Flow", "topic_id": "graph_traversal", "difficulty": "medium"},
+    {"slug": "rotting-oranges", "title": "Rotting Oranges", "topic_id": "graph_traversal", "difficulty": "medium"},
+
+    {"slug": "network-delay-time", "title": "Network Delay Time", "topic_id": "shortest_paths", "difficulty": "medium"},
+    {"slug": "cheapest-flights-within-k-stops", "title": "Cheapest Flights Within K Stops", "topic_id": "shortest_paths", "difficulty": "medium"},
+    {"slug": "path-with-minimum-effort", "title": "Path With Minimum Effort", "topic_id": "shortest_paths", "difficulty": "medium"},
+
+    {"slug": "min-cost-to-connect-all-points", "title": "Min Cost to Connect All Points", "topic_id": "minimum_spanning_tree", "difficulty": "medium"},
+    {"slug": "connecting-cities-with-minimum-cost", "title": "Connecting Cities With Minimum Cost", "topic_id": "minimum_spanning_tree", "difficulty": "medium"},
+    {"slug": "optimize-water-distribution-in-a-village", "title": "Optimize Water Distribution in a Village", "topic_id": "minimum_spanning_tree", "difficulty": "hard"},
+
+    {"slug": "find-the-index-of-the-first-occurrence-in-a-string", "title": "Find the Index of the First Occurrence in a String", "topic_id": "string_matching", "difficulty": "easy"},
+    {"slug": "repeated-substring-pattern", "title": "Repeated Substring Pattern", "topic_id": "string_matching", "difficulty": "easy"},
+    {"slug": "shortest-palindrome", "title": "Shortest Palindrome", "topic_id": "string_matching", "difficulty": "hard"},
+
+    {"slug": "two-sum", "title": "Two Sum", "topic_id": "hashing", "difficulty": "easy"},
+    {"slug": "group-anagrams", "title": "Group Anagrams", "topic_id": "hashing", "difficulty": "medium"},
+    {"slug": "longest-consecutive-sequence", "title": "Longest Consecutive Sequence", "topic_id": "hashing", "difficulty": "medium"},
+
+    {"slug": "top-k-frequent-elements", "title": "Top K Frequent Elements", "topic_id": "heaps", "difficulty": "medium"},
+    {"slug": "find-median-from-data-stream", "title": "Find Median from Data Stream", "topic_id": "heaps", "difficulty": "hard"},
+    {"slug": "k-closest-points-to-origin", "title": "K Closest Points to Origin", "topic_id": "heaps", "difficulty": "medium"},
+
+    {"slug": "binary-search", "title": "Binary Search", "topic_id": "binary_search", "difficulty": "easy"},
+    {"slug": "search-in-rotated-sorted-array", "title": "Search in Rotated Sorted Array", "topic_id": "binary_search", "difficulty": "medium"},
+    {"slug": "median-of-two-sorted-arrays", "title": "Median of Two Sorted Arrays", "topic_id": "binary_search", "difficulty": "hard"},
+    {"slug": "koko-eating-bananas", "title": "Koko Eating Bananas", "topic_id": "binary_search", "difficulty": "medium"},
+
+    {"slug": "number-of-provinces", "title": "Number of Provinces", "topic_id": "union_find", "difficulty": "medium"},
+    {"slug": "redundant-connection", "title": "Redundant Connection", "topic_id": "union_find", "difficulty": "medium"},
+    {"slug": "accounts-merge", "title": "Accounts Merge", "topic_id": "union_find", "difficulty": "medium"},
+
+    {"slug": "subsets", "title": "Subsets", "topic_id": "backtracking", "difficulty": "medium"},
+    {"slug": "permutations", "title": "Permutations", "topic_id": "backtracking", "difficulty": "medium"},
+    {"slug": "n-queens", "title": "N-Queens", "topic_id": "backtracking", "difficulty": "hard"},
+    {"slug": "combination-sum", "title": "Combination Sum", "topic_id": "backtracking", "difficulty": "medium"},
+
+    {"slug": "container-with-most-water", "title": "Container With Most Water", "topic_id": "two_pointers", "difficulty": "medium"},
+    {"slug": "3sum", "title": "3Sum", "topic_id": "two_pointers", "difficulty": "medium"},
+    {"slug": "trapping-rain-water", "title": "Trapping Rain Water", "topic_id": "two_pointers", "difficulty": "hard"},
+    {"slug": "valid-palindrome", "title": "Valid Palindrome", "topic_id": "two_pointers", "difficulty": "easy"},
+
+    {"slug": "longest-substring-without-repeating-characters", "title": "Longest Substring Without Repeating Characters", "topic_id": "sliding_window", "difficulty": "medium"},
+    {"slug": "minimum-window-substring", "title": "Minimum Window Substring", "topic_id": "sliding_window", "difficulty": "hard"},
+    {"slug": "sliding-window-maximum", "title": "Sliding Window Maximum", "topic_id": "sliding_window", "difficulty": "hard"},
+    {"slug": "permutation-in-string", "title": "Permutation in String", "topic_id": "sliding_window", "difficulty": "medium"},
+
+    {"slug": "single-number", "title": "Single Number", "topic_id": "bit_manipulation", "difficulty": "easy"},
+    {"slug": "number-of-1-bits", "title": "Number of 1 Bits", "topic_id": "bit_manipulation", "difficulty": "easy"},
+    {"slug": "counting-bits", "title": "Counting Bits", "topic_id": "bit_manipulation", "difficulty": "easy"},
+    {"slug": "sum-of-two-integers", "title": "Sum of Two Integers", "topic_id": "bit_manipulation", "difficulty": "medium"},
+
+    {"slug": "validate-binary-search-tree", "title": "Validate Binary Search Tree", "topic_id": "trees_bst", "difficulty": "medium"},
+    {"slug": "kth-smallest-element-in-a-bst", "title": "Kth Smallest Element in a BST", "topic_id": "trees_bst", "difficulty": "medium"},
+    {"slug": "lowest-common-ancestor-of-a-binary-search-tree", "title": "Lowest Common Ancestor of a Binary Search Tree", "topic_id": "trees_bst", "difficulty": "medium"},
+    {"slug": "convert-sorted-array-to-binary-search-tree", "title": "Convert Sorted Array to Binary Search Tree", "topic_id": "trees_bst", "difficulty": "easy"},
+
+    {"slug": "course-schedule", "title": "Course Schedule", "topic_id": "topological_sort", "difficulty": "medium"},
+    {"slug": "course-schedule-ii", "title": "Course Schedule II", "topic_id": "topological_sort", "difficulty": "medium"},
+    {"slug": "alien-dictionary", "title": "Alien Dictionary", "topic_id": "topological_sort", "difficulty": "hard"},
+    {"slug": "minimum-height-trees", "title": "Minimum Height Trees", "topic_id": "topological_sort", "difficulty": "medium"}
+  ]
+}

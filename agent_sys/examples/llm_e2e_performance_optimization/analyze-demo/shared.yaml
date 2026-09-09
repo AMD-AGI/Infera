@@ -1,0 +1,137 @@
+# What more than one step uses. Everything else lives in the step that
+# introduces it — see `steps/`.
+
+# The program agent, shared by five of the six leaves.
+#
+# A program agent carries no command of its own — the command is the task's own
+# `entry.sh` — so one spec serves every program leaf. No `backends`:
+# `agent.select_backend` dispatches on `kind` before it reads the list, and
+# `kind: program` selects `ProgramExecutor`.
+#
+# **Every package variable is declared here, in one block.** An `env:` block is
+# an agent field, and `env_mgr.material.deploy` merges it into the body's
+# environment; it is the only route a package variable has into a program body.
+# Because one agent serves five tasks, one block serves all five, and a body
+# reads the names it needs and ignores the rest. The `AD_` prefix keeps them
+# apart from the framework's own `AGENT_SYS_*`.
+#
+# **Two variables carry no default and that is deliberate.** A Slurm job id
+# changes every allocation and a node name is a fact about one site; a default
+# for either would be one machine's answer shipped as everyone's. `${NAME}` with
+# no `:-` is a load-time fault naming the file, the line and the variable
+# (`spec_loader/variables.py`), so the package says what it needs instead of
+# failing halfway through a run in some other shape:
+#
+#     agent-sys run --package .../analyze-demo \
+#       --var jobid=28080 --var gpu_node=smci355-ccs-aus-n05-21
+- module: agent
+  name: run_script
+  kind: program
+  version: '1'
+  description: Runs a task's entry.sh. No model call.
+  env:
+    # --- input ---------------------------------------------------------- #
+    AD_SEED_CSV: '${seed_csv:-/apps/tas/yaoc/research/topic/infera-with-hyperloom/Infera/examples/sglang_1p1d_glm5.2/profiles/20260826_053606/decode/megapie/gap_analysis/gap_analysis.csv}'
+
+    # --- selection thresholds ------------------------------------------- #
+    AD_TOP_N: '${top_n:-5}'
+    AD_MIN_PCT: '${min_pct:-0.1}'
+    AD_MIN_CALLS: '${min_calls:-100}'
+    AD_MAX_CASES: '${max_cases:-4}'
+
+    # --- the environment the workset describes -------------------------- #
+    # Facts about the target machine, from `examples/glm53flash-demo/environment.md`.
+    # They are written into every exported workset, so a KernelForge run started
+    # from one of them targets the machine the profile came from.
+    AD_GPU_TARGET: '${gpu_target:-gfx950}'
+    AD_GPU_TYPE: '${gpu_type:-mi355x}'
+    AD_FRAMEWORK: '${framework:-sglang}'
+    AD_SNR_THRESHOLD: '${snr_threshold:-30.0}'
+    AD_IMAGE: '${image:-lmsysorg/sglang:v0.5.18-rocm720-mi35x}'
+
+    # --- source resolution ---------------------------------------------- #
+    AD_MAGPIE_ROOT: '${magpie_root:-/apps/tas/yaoc/research/topic/infera-with-hyperloom/Magpie}'
+    AD_SGLANG_SRC: '${sglang_src:-}'
+    AD_AITER_SRC: '${aiter_src:-}'
+    AD_REPOS_BASE_DIR: '${repos_base_dir:-/data/agent_sys_analyze/repos}'
+    AD_RESOLVE_TIMEOUT_S: '${resolve_timeout_s:-1800}'
+
+    # --- GPU verification ------------------------------------------------ #
+    AD_JOBID: '${jobid}'
+    AD_GPU_NODE: '${gpu_node}'
+    AD_WORK_ROOT: '${work_root:-/data/agent_sys_analyze}'
+    AD_PER_OP_TIMEOUT_S: '${per_op_timeout_s:-900}'
+    # How `verify_workset` gets a shell onto the node holding the GPUs:
+    # `srun` (Slurm, the default), `spur` (`spur exec <jobid>`), or `local`
+    # when `agent-sys` already runs on that node and there is no gap to cross.
+    # A site fact, so it is a variable; `verify.py`'s `TRANSPORTS` documents
+    # the three and why the third exists.
+    AD_NODE_TRANSPORT: '${node_transport:-srun}'
+    # Which GPUs this run may open, as `HIP_VISIBLE_DEVICES`. Empty means the
+    # whole node. A card index is an identifier bound on a shared host, so it
+    # belongs here rather than in a body.
+    AD_VISIBLE_DEVICES: '${visible_devices:-}'
+
+    # --- validator thresholds, read by the bodies that report on them ---- #
+    AD_MAX_UNKNOWN_RATIO: '${max_unknown_ratio:-0.3}'
+    AD_MIN_RESOLVE_RATIO: '${min_resolve_ratio:-0.6}'
+    AD_MAX_RSD: '${max_rsd:-0.1}'
+
+# --------------------------------------------------------------------------- #
+
+# Completeness of the input table, shared by the mock producer and — once the
+# graphs are joined — by `profiling-demo`'s real one.
+#
+# `strong` is honest: every rule is total over the document. The header is one
+# of two known shapes, the row count clears a floor, and the percentages sum
+# into a range a correct table cannot leave.
+- module: validator
+  name: check_kernel_table
+  version: '1'
+  brief: The gap-analysis CSV has a known header, enough rows, and percentages that sum sanely
+  dimension: usability
+  strength: strong
+  inputs: [kernel_table]
+  args:
+    min_kernel_rows: 20
+    # `% Total` is per-kernel against the profiled total, so a complete table
+    # sums close to 100. Magpie rounds to two decimals over ~143 rows, so the
+    # sum drifts down: the sample profile sums to 99.94. The floor is loose
+    # because a table truncated by `--top-k` is still usable.
+    pct_total_min: 50.0
+    pct_total_max: 100.5
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_perf, profiling]
+
+# --------------------------------------------------------------------------- #
+
+# The `kernel_table` handoff kind.
+#
+# Declared here rather than in `steps/seed_table.yaml` on purpose: a handoff
+# contract belongs to its producer, and the real producer is `profiling-demo`'s
+# `kernel_scan`, not the `seed_table` mock in this package. Keeping the kind in
+# `shared.yaml` says that the contract outlives the mock.
+#
+# The two shapes it accepts are described in DESIGN.md section 3.2: six columns
+# from a plain Magpie run, or nineteen when Magpie ran with
+# `--find-kernel-sources`. Both are the same kind, because a consumer reading
+# `text.json` sees the same records either way — `csv_io.read_gap_analysis`
+# reports which shape it got in `meta.enriched`.
+- module: handoff
+  name: kernel_table
+  version: '1'
+  description: Kernel-level GPU time table from a Magpie gap analysis, plus the raw CSV.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json', gap_analysis]
+    properties:
+      'text.json': {type: string}
+      # A directory holding the CSV as Magpie wrote it. Typed here as presence;
+      # what is inside it is `check_kernel_table`'s job.
+      gap_analysis: {type: string}
+  validators: [check_kernel_table]

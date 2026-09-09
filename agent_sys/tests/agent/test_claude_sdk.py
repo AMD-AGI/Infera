@@ -48,6 +48,7 @@ class FakeClient:
         # `None` and `query()` raised `AttributeError` on every real run while
         # this file stayed green.
         self.connected = False
+        self.disconnects = 0
         self.queries: list[str] = []
         self.interrupts = 0
         self.responses: list[list[Message]] = []
@@ -57,6 +58,7 @@ class FakeClient:
         self.connected = True
 
     async def disconnect(self) -> None:
+        self.disconnects += 1
         self.connected = False
 
     async def query(self, prompt: str) -> None:
@@ -568,6 +570,44 @@ def test_on_started_fires_when_connect_returns() -> None:
     assert seen == [True]
 
 
+def test_stop_disconnects_cancels_background_tasks_and_closes_the_loop() -> None:
+    """A settled submission still owns the SDK reader and subprocess transport.
+
+    `mainloop()` ending is not a client disconnect: the executor deliberately
+    survives between submissions during one run. Once its owner calls `stop`,
+    however, no asynchronous task or private event loop may survive it.
+    """
+
+    class ClientWithReader(FakeClient):
+        def __init__(self) -> None:
+            super().__init__()
+            self.reader: asyncio.Task | None = None
+
+        async def connect(self) -> None:
+            await super().connect()
+            self.reader = asyncio.create_task(self._read_forever())
+
+        @staticmethod
+        async def _read_forever() -> None:
+            await asyncio.Event().wait()
+
+    client = ClientWithReader()
+    backend = _backend(client)
+    backend.start()
+    loop = backend._loop
+    reader = client.reader
+
+    assert client.connected
+    assert reader is not None and not reader.done()
+
+    backend.stop()
+    backend.stop()  # terminal cleanup is idempotent
+
+    assert client.disconnects == 1
+    assert reader.cancelled()
+    assert loop.is_closed()
+
+
 # ------------------------------------------------- spec §5.5's remote tool surface
 
 
@@ -768,3 +808,89 @@ def test_no_tools_means_no_mcp_server_at_all() -> None:
 
     assert "mcp_servers" not in options
     assert not options.get("allowed_tools")
+
+
+# --------------------------------------------------------------------------- #
+# Per-agent components' external MCP servers
+
+
+def test_component_mcp_servers_reach_the_options_the_sdk_is_constructed_with() -> None:
+    """`Assignment.mcp_servers` reaches `ClaudeAgentOptions(mcp_servers=...)`.
+
+    An external server, unlike `env_mgr`'s in-process one, needs no
+    `allowed_tools` entry: its tool names are not known until it starts.
+    """
+    pytest.importorskip("claude_agent_sdk")
+    backend = ClaudeSdkBackend(
+        "claude_sdk",
+        {"client": FakeClient()},
+        Assignment(
+            goal="g",
+            zone="/z",
+            mcp_servers={"envchk": {"type": "stdio", "command": "python3", "args": ["s.py"]}},
+        ),
+    )
+
+    options = backend._options()
+
+    assert options["mcp_servers"]["envchk"]["command"] == "python3"
+
+
+def test_a_component_server_and_the_remote_tool_server_coexist() -> None:
+    """A component server and the remote tool server merge into one mapping;
+    neither displaces the other."""
+    pytest.importorskip("claude_agent_sdk")
+    backend = ClaudeSdkBackend(
+        "claude_sdk",
+        {"client": FakeClient()},
+        Assignment(
+            goal="g",
+            zone="/z",
+            tools=_defs(),
+            mcp_servers={"envchk": {"type": "stdio", "command": "python3"}},
+        ),
+    )
+
+    options = backend._options()
+
+    assert set(options["mcp_servers"]) == {"envchk", "env_mgr"}
+    assert "mcp__env_mgr__env_remote_run" in options["allowed_tools"]
+
+
+def test_a_component_server_colliding_with_a_config_server_is_refused() -> None:
+    """A component server colliding with a config server's name is refused,
+    not resolved in either direction — the same policy `env_mgr` already
+    applies to its own name collisions."""
+    pytest.importorskip("claude_agent_sdk")
+    backend = ClaudeSdkBackend(
+        "claude_sdk",
+        {"client": FakeClient(), "options": {"mcp_servers": {"envchk": {"type": "sdk"}}}},
+        Assignment(goal="g", zone="/z", mcp_servers={"envchk": {"type": "stdio"}}),
+    )
+
+    with pytest.raises(BackendUnsupported, match="envchk"):
+        backend._options()
+
+
+def test_a_component_server_named_env_mgr_is_refused_by_the_existing_guard() -> None:
+    """A component server named `env_mgr` collides with the remote tool
+    surface's own name and is refused by its existing guard."""
+    pytest.importorskip("claude_agent_sdk")
+    backend = ClaudeSdkBackend(
+        "claude_sdk",
+        {"client": FakeClient()},
+        Assignment(goal="g", zone="/z", tools=_defs(), mcp_servers={"env_mgr": {"type": "stdio"}}),
+    )
+
+    with pytest.raises(BackendUnsupported, match="env_mgr"):
+        backend._options()
+
+
+def test_no_components_means_no_mcp_servers_key_at_all() -> None:
+    """The control. An agent whose components declare no server must leave the
+    option absent rather than present-and-empty — `grants.output_paths`' rule,
+    and here it also keeps the shape every existing run has today."""
+    pytest.importorskip("claude_agent_sdk")
+    backend = ClaudeSdkBackend("claude_sdk", {"client": FakeClient()}, Assignment(goal="g"))
+
+    assert "mcp_servers" not in backend._options()
