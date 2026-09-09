@@ -280,9 +280,27 @@ def main(argv: Sequence[str] | None = None) -> int:
             # once per invocation and its result never reaches the exit code.
             # Not for `--dry-run` (whose contract is *resolve everything, do
             # nothing*) or `--clean` (which deletes every run and exits).
+            #
+            # **And not for `--docker`, where the panel belongs in the
+            # container.** A panel can only ingest transcripts it can see, and
+            # under `--docker` the run writes them into the *container's*
+            # prefix, which is not mounted on the host. Starting one here
+            # produced a silent triple failure, measured: the host daemon took
+            # the port, the container's `ensure_running` then skipped with
+            # *"port N is in use by something else"* -- true, and misleading,
+            # because the something else was us -- and the run's transcripts
+            # were ingested by nobody. Host database 0 sessions / 0 messages,
+            # container database never created, two real .jsonl transcripts
+            # (157 KB and 54 KB) sitting unread in the container prefix.
+            #
+            # The switch is `--docker`, not the forwarded `--no-agentsview`,
+            # because that flag says *this operator wants no panel* and here we
+            # want one -- just on the other side of the container wall. It is
+            # forwarded below so the operator keeps both answers.
+            in_container = getattr(args, "docker", False) or getattr(args, "docker_debug", False)
             panel_url = _start_o11y(
                 args.agentsview_port,
-                disabled=args.no_agentsview or args.dry_run or args.clean,
+                disabled=args.no_agentsview or args.dry_run or args.clean or in_container,
                 stream=stream,
             )
             return _run(args, stream, stack, panel_url)
@@ -527,6 +545,16 @@ def _docker_run(args: argparse.Namespace, stream: Stream) -> int:
         forwarded += ["--var", var_item]
     if args.json:
         forwarded += ["--json", args.json]
+    # The panel runs inside the container -- `main` skips the host one under
+    # `--docker` -- so both o11y answers have to cross the wall or the operator
+    # loses them. Without the port there is no route at all to move the panel
+    # off a busy 18888: `--agentsview-port` stopped here, and `container.py`
+    # forwards no `AGENTSVIEW_PORT` either, so a host with anything on that
+    # port gave a containerised run no panel and no way to ask for one.
+    if getattr(args, "no_agentsview", False):
+        forwarded += ["--no-agentsview"]
+    if getattr(args, "agentsview_port", None) is not None:
+        forwarded += ["--agentsview-port", str(args.agentsview_port)]
 
     rc = mgr.exec(forwarded, workdir="/opt/Infera")
 
