@@ -89,6 +89,26 @@ lifecycle automatically:
 agent-sys run --docker --package /path/to/task
 ```
 
+**The o11y panel runs inside the container, and `--docker` does not start one on
+the host.**  A panel can only ingest transcripts it can see, and under `--docker`
+the run writes them into the *container's* prefix, which is not mounted on the
+host.  `--agentsview-port` and `--no-agentsview` are forwarded, so both answers
+still reach it.
+
+Before that was fixed, the failure was silent and it was worse than "no panel":
+the host daemon took the port, the container's skipped saying *"port N is in use
+by something else"* — us — and the transcripts sat unread.  They are not lost:
+**a later run's panel ingests them under the directory-name fallback**, so a
+project appears named `task.directions.e42df9d9_…` instead of its run.  The
+symptom is therefore *mislabelled history*, discovered long afterwards by
+whoever wonders where that project name came from.
+
+If you reproduce any of this by hand, note that `ensure_running` launches
+`agentsview serve --background --replace`, and `--replace` replaces the daemon
+**for that data directory** — not for that port.  Starting a panel on any port
+against the default prefix will stop a colleague's daemon that is sharing it.
+Point `AGENT_SYS_HOME` at a prefix of your own first.
+
 Options (all default to **on**):
 
 | Flag | Effect |
