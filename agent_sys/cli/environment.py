@@ -34,6 +34,7 @@ from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any, NamedTuple
 
+from env_mgr import harness
 from env_mgr.fs.domain import DomainRegistry
 from env_mgr.isolation.policy import Granted, Mode, interpreter_grants
 from env_mgr.isolation.probe import Availability, probe, select
@@ -329,6 +330,12 @@ def _probe_environment() -> dict[str, str]:
     """
     env = dict(os.environ)
     env[CLAUDE_CONFIG_ENV_VAR] = str(Prefix.resolve(os.environ).claude_home)
+    # The other half of the relocation, and `material.deploy` already carries
+    # the same line: moving `CLAUDE_CONFIG_DIR` moves away the block holding the
+    # endpoint and credentials, so a probe without this answers `Not logged in`
+    # and blames the machine. Masked on a host whose shell exports them; under
+    # `--docker` nothing does. Reserved keys stop it undoing the line above.
+    env.update(harness.harness_env())
     return env
 
 
