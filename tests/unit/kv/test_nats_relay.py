@@ -306,6 +306,45 @@ async def test_persistent_bucket_failures_are_logged_geometrically(monkeypatch, 
 
 
 @pytest.mark.asyncio
+async def test_a_filestore_put_failure_rebuilds_the_bucket(monkeypatch):
+    """A 10077 bucket is dropped and replaced so bootstrap can resume."""
+    monkeypatch.setattr(relay_mod, "_BUCKET_WRITE_INTERVAL_S", 0)
+    relay = _relay(EngineType.SGLANG)
+
+    class _Broken:
+        async def put(self, key, value):
+            raise RuntimeError('nats: 503 err_code=10077 error opening msg block file [""]')
+
+    class _Healed:
+        def __init__(self) -> None:
+            self.puts: list[bytes] = []
+
+        async def put(self, key, value):
+            self.puts.append(value)
+
+    class _Bus:
+        def __init__(self, store) -> None:
+            self.store = store
+            self.rebuilds = 0
+
+        async def rebuild_kv_view_store(self):
+            self.rebuilds += 1
+            return self.store
+
+    healed = _Healed()
+    bus = _Bus(healed)
+    relay._kv = _Broken()
+    relay._bus = bus
+    relay._dirty[0] = True
+    await relay._maybe_write_bucket(0)
+
+    assert bus.rebuilds == 1
+    assert len(healed.puts) == 1
+    assert relay._dirty[0] is False
+    assert relay._kv is healed
+
+
+@pytest.mark.asyncio
 async def test_the_drain_writes_nothing_when_no_rank_is_dirty(monkeypatch):
     """It runs for the life of the worker, so a quiet rank must cost a dict
     lookup and not a bucket round-trip per tick."""

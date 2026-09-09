@@ -84,6 +84,22 @@ def parse_kv_subject(subject: str) -> tuple[str, int] | None:
 KV_VIEW_BUCKET = "infera_kv_view"
 
 
+def js_store_failed(exc: BaseException) -> bool:
+    """True when JetStream cannot open its on-disk msg blocks.
+
+    nats-server reports this as JSStreamStoreFailedF (10077), often with an
+    empty msg-block path when store_dir is unset or the FILE stream is
+    corrupt. Live routing still works; FILE-backed KV/stream writes do not.
+    """
+    text = str(exc).lower()
+    return (
+        "10077" in text
+        or "jsstreamstorefailed" in text.replace(" ", "")
+        or "msg block file" in text
+        or "opening msg block file" in text
+    )
+
+
 def kv_key_for_worker(worker_id: str, rank: int = 0) -> str:
     """KV bucket key ``<token>.<rank>`` (NATS KV keys allow ``.``)."""
     return f"{_token(worker_id)}.{rank}"
@@ -167,32 +183,63 @@ class NatsBus:
 
         return await self._nc.subscribe(subject, cb=_handler)
 
-    async def ensure_event_stream(self) -> None:
-        """Idempotently create the JetStream stream that captures live KV-event
-        deltas (infera.kv.events.>). Bounded by bytes/msgs so it can't grow
-        unbounded; OLD messages are discarded first. Both relay (publisher) and
-        router (subscriber) call this so neither races ahead of the other."""
-        if self._nc is None:
-            return
-        from nats.js.api import DiscardPolicy, RetentionPolicy, StorageType, StreamConfig
+    def _event_stream_config(self, storage):
+        from nats.js.api import DiscardPolicy, RetentionPolicy, StreamConfig
 
-        js = self._nc.jetstream()
-        cfg = StreamConfig(
+        return StreamConfig(
             name=KV_EVENTS_STREAM,
             subjects=[f"{KV_EVENTS_SUBJECT_PREFIX}.>"],
             retention=RetentionPolicy.LIMITS,
-            storage=StorageType.FILE,
+            storage=storage,
             discard=DiscardPolicy.OLD,
             max_bytes=256 * 1024 * 1024,
             max_msgs=1_000_000,
         )
+
+    async def _install_event_stream(self, js, cfg) -> Exception | None:
         try:
             await js.add_stream(cfg)
-        except Exception:
+            return None
+        except Exception as add_exc:
             try:
                 await js.update_stream(cfg)
-            except Exception:
-                pass
+                return None
+            except Exception as update_exc:
+                return update_exc if js_store_failed(update_exc) else add_exc
+
+    async def ensure_event_stream(self) -> None:
+        """Idempotently create the JetStream stream that captures live KV-event
+        deltas (infera.kv.events.>). Bounded by bytes/msgs so it can't grow
+        unbounded; OLD messages are discarded first. Both relay (publisher) and
+        router (subscriber) call this so neither races ahead of the other.
+
+        FILE is preferred. A 10077 / empty msg-block failure means the
+        broker's filestore is unusable, so the stream is deleted and recreated
+        in MEMORY rather than leaving kv-aware with a stream that cannot
+        accept publishes.
+        """
+        if self._nc is None:
+            return
+        from nats.js.api import StorageType
+
+        js = self._nc.jetstream()
+        err = await self._install_event_stream(js, self._event_stream_config(StorageType.FILE))
+        if err is None or not js_store_failed(err):
+            return
+        logger.warning(
+            "KV event stream FILE store failed (%s); recreating %s in MEMORY",
+            err,
+            KV_EVENTS_STREAM,
+        )
+        try:
+            await js.delete_stream(KV_EVENTS_STREAM)
+        except Exception:
+            pass
+        mem_err = await self._install_event_stream(
+            js, self._event_stream_config(StorageType.MEMORY)
+        )
+        if mem_err is not None:
+            logger.warning("KV event stream MEMORY recreate failed: %s", mem_err)
 
     async def js_publish(self, subject: str, payload: bytes) -> None:
         """Persistent publish onto the JetStream stream (acked, flow-controlled,
@@ -232,6 +279,11 @@ class NatsBus:
             config=ConsumerConfig(deliver_policy=DeliverPolicy.ALL),
         )
 
+    async def _create_kv_view(self, js, storage):
+        from nats.js.api import KeyValueConfig
+
+        return await js.create_key_value(KeyValueConfig(bucket=KV_VIEW_BUCKET, storage=storage))
+
     async def kv_view_store(self):
         """Return the JetStream KV bucket holding per-worker cache views,
         creating it on first use. Returns None if NATS isn't connected."""
@@ -241,14 +293,42 @@ class NatsBus:
         try:
             return await js.key_value(KV_VIEW_BUCKET)
         except Exception:
-            # BucketNotFoundError (or first-run race) -> create it.
-            from nats.js.api import KeyValueConfig
+            return await self._create_kv_view_with_fallback(js)
 
+    async def _create_kv_view_with_fallback(self, js):
+        from nats.js.api import StorageType
+
+        try:
+            return await self._create_kv_view(js, StorageType.FILE)
+        except Exception as exc:
+            if js_store_failed(exc):
+                logger.warning(
+                    "KV view bucket FILE create failed (%s); retrying in MEMORY", exc
+                )
+                try:
+                    await js.delete_key_value(KV_VIEW_BUCKET)
+                except Exception:
+                    pass
+                return await self._create_kv_view(js, StorageType.MEMORY)
             try:
-                return await js.create_key_value(KeyValueConfig(bucket=KV_VIEW_BUCKET))
-            except Exception:
-                # Lost a create race; the bucket now exists.
                 return await js.key_value(KV_VIEW_BUCKET)
+            except Exception:
+                return await self._create_kv_view(js, StorageType.MEMORY)
+
+    async def rebuild_kv_view_store(self):
+        """Drop a filestore-broken KV bucket and recreate it.
+
+        Called after a put returns 10077. FILE is retried first; MEMORY is
+        the fallback so a cold router can still seed from live workers.
+        """
+        if self._nc is None:
+            return None
+        js = self._nc.jetstream()
+        try:
+            await js.delete_key_value(KV_VIEW_BUCKET)
+        except Exception as exc:
+            logger.warning("KV view bucket delete failed (continuing recreate): %s", exc)
+        return await self._create_kv_view_with_fallback(js)
 
     async def close(self) -> None:
         if self._nc is not None:

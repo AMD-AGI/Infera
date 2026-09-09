@@ -33,6 +33,7 @@ from msgspec.msgpack import Decoder, Encoder
 
 from infera.kv.nats_bus import (
     NatsBus,
+    js_store_failed,
     kv_key_for_worker,
     subject_for_worker,
 )
@@ -95,6 +96,8 @@ class KvEventNatsRelay:
         self._next_decode_warn = 1
         self._bucket_failures = 0
         self._next_bucket_warn = 1
+        self._kv_healed = False
+        self._stream_healed = False
         self._ctx: zmq.asyncio.Context | None = None
         self._sockets: list[zmq.asyncio.Socket] = []
         self._tasks: list[asyncio.Task] = []
@@ -154,7 +157,15 @@ class KvEventNatsRelay:
             try:
                 await self._bus.js_publish(subject, payload)
             except Exception as exc:
-                logger.warning("KV relay NATS publish failed: %s", exc)
+                if js_store_failed(exc) and not self._stream_healed:
+                    self._stream_healed = True
+                    await self._bus.ensure_event_stream()
+                    try:
+                        await self._bus.js_publish(subject, payload)
+                    except Exception as retry_exc:
+                        logger.warning("KV relay NATS publish failed: %s", retry_exc)
+                else:
+                    logger.warning("KV relay NATS publish failed: %s", exc)
             # 2. Update authoritative per-rank view + persist to KV bucket.
             try:
                 batch = self._decoder.decode(payload)
@@ -260,6 +271,26 @@ class KvEventNatsRelay:
             # `_last_write` stays stamped, so the retry is spaced like any other
             # write rather than spinning at drain-tick rate against a dead bus.
             self._dirty[rank] = True
+            if js_store_failed(exc) and not self._kv_healed:
+                self._kv_healed = True
+                store = await self._bus.rebuild_kv_view_store()
+                if store is not None:
+                    self._kv = store
+                    try:
+                        await self._kv.put(
+                            kv_key_for_worker(self._worker_id, rank),
+                            self._encoder.encode(view),
+                        )
+                        self._dirty[rank] = False
+                        self._bucket_failures = 0
+                        self._next_bucket_warn = 1
+                        logger.warning(
+                            "KV view bucket rebuilt after filestore failure (r%d)", rank
+                        )
+                        return
+                    except Exception as retry_exc:
+                        self._note_bucket_failure(rank, retry_exc)
+                        return
             self._note_bucket_failure(rank, exc)
 
     async def stop(self) -> None:

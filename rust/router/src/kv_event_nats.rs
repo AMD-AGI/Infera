@@ -166,11 +166,32 @@ async fn ensure_event_stream(js: &async_nats::jetstream::Context) -> Result<()> 
     };
     // The relay may have created it first; either way the config converges.
     if js.create_stream(cfg.clone()).await.is_err() {
-        js.update_stream(&cfg)
-            .await
-            .context("creating or updating the KV event stream")?;
+        match js.update_stream(&cfg).await {
+            Ok(_) => {}
+            Err(e) if is_js_store_failed(&e) => {
+                tracing::warn!(
+                    "kv events (nats): FILE stream store failed ({e:#}); recreating {KV_EVENTS_STREAM} in MEMORY"
+                );
+                let _ = js.delete_stream(KV_EVENTS_STREAM).await;
+                let mut mem = cfg;
+                mem.storage = StorageType::Memory;
+                js.create_stream(mem)
+                    .await
+                    .context("recreating the KV event stream in MEMORY")?;
+            }
+            Err(e) => {
+                return Err(e).context("creating or updating the KV event stream");
+            }
+        }
     }
     Ok(())
+}
+
+fn is_js_store_failed(err: &impl std::fmt::Display) -> bool {
+    let text = err.to_string().to_ascii_lowercase();
+    text.contains("10077")
+        || text.contains("msg block file")
+        || text.contains("jsstreamstorefailed")
 }
 
 async fn consume_events(
@@ -217,7 +238,48 @@ async fn consume_events(
     Ok(())
 }
 
-/// A bucket value is the msgpack list of chained hashes the relay wrote.
+async fn open_kv_view(
+    js: &async_nats::jetstream::Context,
+) -> Result<async_nats::jetstream::kv::Store> {
+    use async_nats::jetstream::kv::Config;
+    use async_nats::jetstream::stream::StorageType;
+
+    match js
+        .create_key_value(Config {
+            bucket: KV_VIEW_BUCKET.to_string(),
+            storage: StorageType::File,
+            ..Default::default()
+        })
+        .await
+    {
+        Ok(store) => Ok(store),
+        Err(e) if is_js_store_failed(&e) => {
+            tracing::warn!(
+                "kv events (nats): FILE KV store failed ({e:#}); recreating {KV_VIEW_BUCKET} in MEMORY"
+            );
+            let _ = js.delete_key_value(KV_VIEW_BUCKET).await;
+            js.create_key_value(Config {
+                bucket: KV_VIEW_BUCKET.to_string(),
+                storage: StorageType::Memory,
+                ..Default::default()
+            })
+            .await
+            .context("recreating the KV view bucket in MEMORY")
+        }
+        Err(_) => match js.get_key_value(KV_VIEW_BUCKET).await {
+            Ok(store) => Ok(store),
+            Err(_) => js
+                .create_key_value(Config {
+                    bucket: KV_VIEW_BUCKET.to_string(),
+                    storage: StorageType::Memory,
+                    ..Default::default()
+                })
+                .await
+                .context("opening the KV view bucket"),
+        },
+    }
+}
+
 fn decode_view(bytes: &[u8]) -> Option<Vec<u64>> {
     let mut cur = std::io::Cursor::new(bytes);
     let value = rmpv::decode::read_value(&mut cur).ok()?;
@@ -240,22 +302,29 @@ async fn watch_bucket(
 ) -> Result<()> {
     let store = match js.get_key_value(KV_VIEW_BUCKET).await {
         Ok(s) => s,
-        Err(_) => js
-            .create_key_value(async_nats::jetstream::kv::Config {
-                bucket: KV_VIEW_BUCKET.to_string(),
-                ..Default::default()
-            })
-            .await
-            .context("opening the KV view bucket")?,
+        Err(_) => open_kv_view(&js).await.context("opening the KV view bucket")?,
     };
     // `watch_all` delivers only subsequent updates, which would leave a
     // cold-starting router waiting for the next time a relay happens to rewrite
     // a view -- the bootstrap would never arrive. Asking for history delivers
     // each key's current value first, then the updates.
-    let mut watcher = store
-        .watch_many_with_history([">"])
-        .await
-        .context("watching the KV view bucket")?;
+    let mut watcher = match store.watch_many_with_history([">"]).await {
+        Ok(w) => w,
+        Err(e) if is_js_store_failed(&e) => {
+            tracing::warn!(
+                "kv events (nats): KV watch FILE store failed ({e:#}); rebuilding {KV_VIEW_BUCKET}"
+            );
+            let _ = js.delete_key_value(KV_VIEW_BUCKET).await;
+            let healed = open_kv_view(&js)
+                .await
+                .context("reopening the KV view bucket after filestore failure")?;
+            healed
+                .watch_many_with_history([">"])
+                .await
+                .context("watching the KV view bucket")?
+        }
+        Err(e) => return Err(e).context("watching the KV view bucket"),
+    };
     while let Some(entry) = watcher.next().await {
         let entry = match entry {
             Ok(e) => e,
@@ -290,6 +359,14 @@ mod tests {
 
     fn token(s: &str) -> String {
         URL_SAFE_NO_PAD.encode(s.as_bytes())
+    }
+
+    #[test]
+    fn store_failed_detects_empty_msg_block() {
+        assert!(is_js_store_failed(
+            &r#"nats: 503 err_code=10077 error opening msg block file [""]"#
+        ));
+        assert!(!is_js_store_failed(&"timeout"));
     }
 
     #[test]
