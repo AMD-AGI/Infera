@@ -29,6 +29,18 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
+# agent_sys's own prefix -- `env_mgr/prefix.py`.  Declared here, in the stage
+# every other stage descends from, so the stage that installs AgentsView and
+# the stage that runs it cannot disagree about where the binary lives.
+#
+# Stated explicitly rather than left to resolve from $HOME: `Prefix.resolve`
+# reads AGENT_SYS_HOME first and falls back to `$HOME/.infera_agent_sys`, and
+# a container whose HOME is set at `docker run` time would then put the prefix
+# somewhere the image never installed into.  The path still *matches* the HOME
+# fallback for the HOME that `env_mgr/container.py` sets, so a run that ignores
+# this variable entirely lands in the same place.
+ENV AGENT_SYS_HOME=/home/agent/.infera_agent_sys
+
 # bubblewrap is absent: unprivileged containers cannot open user namespaces;
 # Landlock works without it.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -99,6 +111,48 @@ RUN python -m venv --copies /opt/venv/agent \
 RUN --mount=type=cache,target=/root/.cache/pip \
     /opt/venv/agent/bin/pip install -e "/opt/Infera/agent_sys[claude,dev]"
 
+# ========================================================= stage: agentsview ==
+# The o11y panel.  `env_mgr/o11y/agentsview/agentsview.py` looks for it at
+# `prefix.bin / "agentsview"` and nowhere on PATH, so this installs into the
+# prefix rather than /usr/local/bin.
+#
+# **The recipe is run, not restated.**  `env_mgr/recipes/agentsview.o11y.yaml`
+# is the single writer of the version, the download URL and the checksum gate;
+# repeating any of them here would be a second copy that can drift from the one
+# `ensure_installed` uses at run time.  This is the exact invocation that
+# recipe's own header documents.  Needs curl, tar and sha256sum -- all in base.
+FROM venv-agent AS agentsview
+
+# amd64 only, because the recipe is: it names
+# `agentsview_<v>_linux_amd64.tar.gz` and there is no second URL to select.
+# Failing here rather than skipping, because a silently panel-less image is
+# exactly the "check that cannot fail" this repo keeps paying for.
+ARG TARGETARCH=amd64
+RUN case "${TARGETARCH}" in \
+      amd64) ;; \
+      *) echo "agentsview: recipe is amd64-only, TARGETARCH=${TARGETARCH}" >&2; exit 1 ;; \
+    esac
+
+# No cache mount: the recipe downloads into its own mktemp -d and removes it.
+#
+# The assertion after the install is load-bearing.  The recipe item is
+# `importance: suggested`, which is deliberate -- o11y may never fail a
+# deployment -- so `env-mgr install` exits 0 whether the download worked or
+# not.  That is right at run time and wrong at build time: an image is built
+# once and the failure would surface as a missing panel on every run.
+# `BinInstaller` runs both `check_cmd` and the install script with
+# `cwd=target.path`, so the prefix has to exist before the install rather than
+# be created by it -- measured: without this the build died with
+# `FileNotFoundError: '/home/agent/.infera_agent_sys'` out of `subprocess`.
+# `Prefix.create()` is what does this at run time; this is its build-time twin.
+RUN mkdir -p "${AGENT_SYS_HOME}/bin"
+
+RUN /opt/venv/agent/bin/env-mgr install \
+      /opt/Infera/agent_sys/env_mgr/recipes/agentsview.o11y.yaml \
+      --path "${AGENT_SYS_HOME}" \
+ && test -x "${AGENT_SYS_HOME}/bin/agentsview" \
+ && "${AGENT_SYS_HOME}/bin/agentsview" --version
+
 # ============================================================ stage: runtime ==
 FROM base AS runtime
 
@@ -133,6 +187,17 @@ ENV INFERA_AGENT_SYSTEM_WORKROOT=/work/runs
 
 RUN mkdir -p /work /home/agent \
  && chmod 1777 /work /home/agent
+
+# The prefix, and only its two directories -- `Prefix.create()` makes share/,
+# state/ and run/ itself on first use, which is why they are not created here
+# and why the parent has to be writable by whatever uid `docker run --user`
+# picks.  1777 to match /work and /home/agent above; the binary itself stays
+# 0755 and root-owned, since nothing at run time should be rewriting it.
+RUN mkdir -p "${AGENT_SYS_HOME}/bin" \
+ && chmod 1777 "${AGENT_SYS_HOME}" "${AGENT_SYS_HOME}/bin"
+
+COPY --from=agentsview --chmod=0755 \
+     ${AGENT_SYS_HOME}/bin/agentsview ${AGENT_SYS_HOME}/bin/agentsview
 
 WORKDIR /opt/Infera
 
