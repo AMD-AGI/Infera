@@ -111,14 +111,23 @@ import json
 import os
 
 from .arch import SUPPORTED_ARCHS, target_arch
-from .params import EngineParams
+from .params import CorrectnessConfig, EngineParams
 
 # Base dir for locally pre-staged models. Set/forwarded by run_tests.sh (see
 # module docstring). Read once at import; unset ⇒ always load from the HF Hub.
 MODEL_DIR = os.environ.get("INFERA_E2E_MODEL_DIR") or None
 
 # Knobs a case's ``opts`` may carry, besides the per-architecture overlays.
-_OPT_KEYS = frozenset({"args", "env", "setup", "server_ready_timeout", "skip"})
+_OPT_KEYS = frozenset(
+    {
+        "args",
+        "env",
+        "setup",
+        "server_ready_timeout",
+        "skip",
+        "correctness",
+    }
+)
 
 # Model references (HF repo ids). The actual launch path is resolved via
 # resolve_model() (local copy under MODEL_DIR, else the HF Hub). MoE-ness is
@@ -323,6 +332,7 @@ def expand_cases(table, *, arch: str | None = None) -> list[EngineParams]:
                     setup=opts.get("setup"),
                     server_ready_timeout=opts.get("server_ready_timeout"),
                     skip_reason=opts.get("skip"),
+                    correctness=CorrectnessConfig(**opts.get("correctness", {})),
                 )
             )
     return params

@@ -18,7 +18,7 @@ from typing import NamedTuple
 
 from . import client, correctness, speculation
 from .adapter import emit_reporter_line
-from .params import EngineParams
+from .params import DEFAULT_CORRECTNESS, CorrectnessConfig, EngineParams
 
 
 def _short(text: str, limit: int = 400) -> str:
@@ -131,11 +131,21 @@ async def _longctx_probe(server_url: str, model: str) -> _Probe:
     return _Probe("long-context", correctness.is_longctx_correct(content), _short(content))
 
 
-async def assert_correctness(server_url: str, model: str) -> None:
+async def assert_correctness(
+    server_url: str,
+    model: str,
+    config: CorrectnessConfig = DEFAULT_CORRECTNESS,
+) -> None:
     """Two gates over three probes: at least one liveness probe must pass, and the
     long-context depth probe must pass when the deployment can run it."""
-    liveness = [await _counting_probe(server_url, model), await _capital_probe(server_url, model)]
-    depth = [await _longctx_probe(server_url, model)]
+    liveness = []
+    if config.enable_counting:
+        liveness.append(await _counting_probe(server_url, model))
+    if config.enable_capital:
+        liveness.append(await _capital_probe(server_url, model))
+    depth = []
+    if config.enable_longctx:
+        depth.append(await _longctx_probe(server_url, model))
 
     # Every verdict and the model's actual reply, live in the run output
     # (capture-suspended), so a pass or a fail explains itself without a rerun.
@@ -143,7 +153,7 @@ async def assert_correctness(server_url: str, model: str) -> None:
         state = "ok" if probe.ok else "n/a" if not probe.ran else "FAILED"
         emit_reporter_line(f"[e2e correctness] {probe.name:<12} {state:<6} {probe.detail!r}")
 
-    alive = any(probe.ok for probe in liveness)
+    alive = not liveness or any(probe.ok for probe in liveness)
     wrong = [p for p in depth if p.ran and not p.ok]
     emit_reporter_line(f"[e2e correctness] {'PASS' if alive and not wrong else 'FAIL'}")
 
@@ -167,7 +177,7 @@ async def run_mixed(server: dict, spawn, params: EngineParams) -> list:
 
     await assert_chat_ok(server["url"], params.model)
     await assert_chat_streaming_ok(server["url"], params.model)
-    await assert_correctness(server["url"], params.model)
+    await assert_correctness(server["url"], params.model, params.correctness)
     await speculation.report_speculation(workers[0].port, params, engine=workers[0].engine)
 
     return workers

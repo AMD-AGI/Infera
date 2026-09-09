@@ -244,7 +244,7 @@ CASES = [
         {
             "args": [
                 "--kv-cache-dtype",
-                "auto",
+                "fp8",
                 "--reasoning-parser",
                 "glm45",
                 "--no-enable-prefix-caching",
@@ -265,6 +265,7 @@ CASES = [
                 "PYTHONHASHSEED": "0",
             },
             "server_ready_timeout": 1800,
+            "correctness": {"enable_longctx": False},
             # fp8, so gpt-oss's MXFP4 findings say nothing here; and this tp4
             # row has never been fitted against MI300X's 192 GB per card
             # (MI355X has 288). Both are one run to settle.

@@ -41,11 +41,22 @@ class DisaggRole(enum.Enum):
 
 
 @dataclass(frozen=True)
+class CorrectnessConfig:
+    enable_counting: bool = True
+    enable_capital: bool = True
+    enable_longctx: bool = True
+
+
+DEFAULT_CORRECTNESS = CorrectnessConfig()
+
+
+@dataclass(frozen=True)
 class EngineParams:
     model: str = DEFAULT_MODEL
     tensor_parallel_size: int = 1
     expert_parallel: bool = False
     dp_attention: bool = False
+    correctness: CorrectnessConfig = DEFAULT_CORRECTNESS
     # Whether `model` is MoE — gates the expert-parallel case (ep is a no-op /
     # error on a dense model). Set by the matrix.
     is_moe: bool = False
