@@ -1,0 +1,24 @@
+# Task: TP4/EP4 internal-decode DPA sweep
+
+## Task
+Run global concurrency4,8,16,20,24 with DPA off and on using four GPUs, ISL70000, OSL10000, expected bonus-inclusive accept length3.61. Extend the existing scheduler-free target/draft wrapper; preserve the verified TP8 baseline. Report TPOT, throughput, actual acceptance, graph usage and launch/decode durations.
+
+## Background
+This Git checkout is now authoritative for all code/debug work; user committed baseline4d982fa on branch dev.yihou.sglang.bench.fast.script. Old /shared_nfs workspace and packups stay read-only. Prior target passed160000 outputs in78.175s decode,about183s launch-to-result with hot cache. Previous instructions backed up as CLAUDE.glm52-internal-decode.20260910-0452.md.bak.
+
+## Context
+Sweep artifacts: sweeps/tp4_ep4_dpa_yihou_20260910-0452/. Common code stays in bench/, scripts/, tests/ for Git tracking. Record HEAD+diff+source hashes per run. Do not commit/push unless asked; repository DCO instructions apply to any future commit.
+
+## References
+- Sweep plan: sweeps/tp4_ep4_dpa_yihou_20260910-0452/plan.md
+- Proven baseline: iterations/005_full_target_yihou/
+- Pinned image sha256:b9a83742f631d7321c6b75aceb031a8b347c70f97c62ef8c62370c686853de7d
+- SGLang402df1e1e453e1e85ec0f5ac4052d36598cc691a; AITER2c71811b32c8ce2e1266aedaec199df7d90f597d
+- Physical model /shared_nfs/models/GLM-5.2-MXFP4 (read-only)
+
+## Principles
+This task owns existing node056/job130737. Other session fake-prefill-decode-benchmark owns249/job130740; coordinate reassignment first and do not operate249. Never node234/036. Never request/cancel allocations. User explicitly authorizes stopping non-our-party GPU workloads on056, but preserve own-party tasks, supervisors and system/cluster collectors; inspect precise ownership before action. No broad process kill, file deletion, container removal/prune or host daemon changes.
+
+Use Docker, unique yihou container, exact pinned stack, four-GPU visibility. Real weights and routing, physical synthetic prefix, actual MTP compute; no Scheduler/PD or throughput multiplication shortcut. DPAoff attentionTP4 batchC; DPAon DP4/attentionTP1 batchC/4. Count global outputs once per DP replica, not per TP rank. Keep collective-compatible state.
+
+Evidence-driven per-iteration debug loop, frozen source per run, LSP/Serena where available, source/reference/logs before fixes. Read applicable runtime/spec/env skills before corresponding edits. Ask before large core-library changes. English work files; Chinese user reports. One independent teammate for topology, leader owns GPU execution and conclusions; no subagent verification of leader work.

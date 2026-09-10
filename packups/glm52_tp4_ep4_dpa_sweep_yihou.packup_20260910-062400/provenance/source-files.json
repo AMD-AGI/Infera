@@ -1,0 +1,2269 @@
+{
+  "created_utc": "2026-09-10T06:26:26.740073+00:00",
+  "sources": [
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/bench/batch_state.py",
+      "destination": "scripts/original/bench/batch_state.py",
+      "encoding": "verbatim",
+      "bytes": 5258,
+      "sha256": "879ad4a6f5ac08ca6aaae422d88fe4318b2329c9c8ba7f59dfbb00cb7e8962a3",
+      "mtime_ns": 1789014442567502603
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py",
+      "destination": "scripts/original/bench/profile_decode.py",
+      "encoding": "verbatim",
+      "bytes": 25300,
+      "sha256": "32b87c09203e5d654d557f24c60f463fd6be5f4c7439f8f71950f15a2a610db6",
+      "mtime_ns": 1789017674668322880
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/bench/topology.py",
+      "destination": "scripts/original/bench/topology.py",
+      "encoding": "verbatim",
+      "bytes": 6799,
+      "sha256": "87c17b7dae533a68fe353a53ac86f78ad0d703bf499668d3b3a8066e51d8d0ca",
+      "mtime_ns": 1789017412088040364
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/scripts/collect_sweep_yihou.py",
+      "destination": "scripts/original/scripts/collect_sweep_yihou.py",
+      "encoding": "verbatim",
+      "bytes": 2821,
+      "sha256": "bfd8ff6222489083299e571548b7b729dd325269daf23d5287cb7fd54ef401ed",
+      "mtime_ns": 1789017112317353140
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/scripts/create_container_yihou.sh",
+      "destination": "scripts/original/scripts/create_container_yihou.sh",
+      "encoding": "verbatim",
+      "bytes": 1754,
+      "sha256": "772eb37a28390aeddc1974a6125022c8f96b35a97c4092b8ce26f04591855168",
+      "mtime_ns": 1789016681351457096
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/scripts/run_decode.sh",
+      "destination": "scripts/original/scripts/run_decode.sh",
+      "encoding": "verbatim",
+      "bytes": 2536,
+      "sha256": "dfe7dba7864511c25a3dbeb383cae3f1a69aaee4422db2a84273c52fc9bc6656",
+      "mtime_ns": 1789016519469489196
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/scripts/run_tp4_ep4_sweep_yihou.sh",
+      "destination": "scripts/original/scripts/run_tp4_ep4_sweep_yihou.sh",
+      "encoding": "verbatim",
+      "bytes": 754,
+      "sha256": "c4526253a337c0147d76439ee29b2eeb7d5f442d143356618e88c67f075aee5a",
+      "mtime_ns": 1789016916470437907
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/scripts/test_run_decode_yihou.py",
+      "destination": "scripts/original/scripts/test_run_decode_yihou.py",
+      "encoding": "verbatim",
+      "bytes": 1830,
+      "sha256": "5a34d4f97bd61c9c310561abdcfd3c2f17f928241105598b428725e413bc27f6",
+      "mtime_ns": 1789016447686045629
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/tests/test_batch_state_yihou.py",
+      "destination": "scripts/original/tests/test_batch_state_yihou.py",
+      "encoding": "verbatim",
+      "bytes": 5908,
+      "sha256": "3b2cc77d6da69248cef3d33ce4f63d14e37eac5f8630aca052c96a2f2c80673c",
+      "mtime_ns": 1789014441909877772
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/tests/test_topology_yihou.py",
+      "destination": "scripts/original/tests/test_topology_yihou.py",
+      "encoding": "verbatim",
+      "bytes": 8243,
+      "sha256": "08f37454880971e99bcdfacef687dc0bd3932ee87b486819d6c125223329f1b9",
+      "mtime_ns": 1789017332085276642
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/cleanup.log",
+      "destination": "evidence/cleanup.log.gz",
+      "encoding": "gzip",
+      "bytes": 135,
+      "sha256": "25aaed5f389a06a0cb8bc9f0728c73da1aff99bf76a635cb172356b819f322ca",
+      "mtime_ns": 1789021236403215235
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/cpu_tests.log",
+      "destination": "evidence/cpu_tests.log.gz",
+      "encoding": "gzip",
+      "bytes": 3328,
+      "sha256": "e571f08e0c083fbae172f89ef47b3334137fe41873d850e57d12eb28b6d555ae",
+      "mtime_ns": 1789021175848107827
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/plan.md",
+      "destination": "evidence/plan.md",
+      "encoding": "verbatim",
+      "bytes": 6903,
+      "sha256": "d2f0e60c24af4ed8c598d96e04916788f4a9f386f6e421523fe6570389dcad7b",
+      "mtime_ns": 1789015991111559131
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/report.md",
+      "destination": "evidence/report.md",
+      "encoding": "verbatim",
+      "bytes": 7522,
+      "sha256": "6f2ac97488254f08c2bbe75dfc48eb3be5b369675bcc94f60e4f87f75250d251",
+      "mtime_ns": 1789021151452387465
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/summary.csv",
+      "destination": "evidence/summary.csv",
+      "encoding": "verbatim",
+      "bytes": 1090,
+      "sha256": "e154ce232c118140498456d6f186172117d0e166270bb41c09fb986b2fddeca5",
+      "mtime_ns": 1789020878884787271
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/sweep_console.log",
+      "destination": "evidence/sweep_console.log.gz",
+      "encoding": "gzip",
+      "bytes": 793804,
+      "sha256": "6cc8cebd67cfc5cefa27596da54adb7ac312b590f5d68f83021f5f66a3ad330a",
+      "mtime_ns": 1789020855171254788
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/verification_yihou.json",
+      "destination": "evidence/verification_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 7928,
+      "sha256": "b7b96ecf4ec4e5539ca8f2440a365b23ef6db7c1e196cf94e7693413350a2d9c",
+      "mtime_ns": 1789021057583573452
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/working_process.md",
+      "destination": "evidence/working_process.md",
+      "encoding": "verbatim",
+      "bytes": 6965,
+      "sha256": "7e9d6ea1e53e6213706774393b1df80b8689605887703631fd31c1a8d284f1a3",
+      "mtime_ns": 1789020475575238250
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/000_environment/authorized_cleanup.log",
+      "destination": "evidence/iterations/000_environment/authorized_cleanup.log.gz",
+      "encoding": "gzip",
+      "bytes": 2569,
+      "sha256": "1c98e4dd25c3207841dd93d77ba54e89b0b1e1db11515ee3f6e4441df8ee1ca8",
+      "mtime_ns": 1789016127086312440
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/000_environment/authorized_cleanup_second.log",
+      "destination": "evidence/iterations/000_environment/authorized_cleanup_second.log.gz",
+      "encoding": "gzip",
+      "bytes": 2831,
+      "sha256": "45d54fabff0fe32f7eb14a493a65d41eb45ce29c3d6090a98d82415fbb38fe7f",
+      "mtime_ns": 1789016888168545341
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/000_environment/container.log",
+      "destination": "evidence/iterations/000_environment/container.log.gz",
+      "encoding": "gzip",
+      "bytes": 65,
+      "sha256": "c93f4c79ec66b8ba218edb0ab2f2b66f9c3d7f819e4c3494cde3f9ab72c8b76d",
+      "mtime_ns": 1789016723249939537
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/000_environment/environment_summary.json",
+      "destination": "evidence/iterations/000_environment/environment_summary.json",
+      "encoding": "verbatim",
+      "bytes": 529,
+      "sha256": "41a52c952b2114b9bf97efa19968127955a759721492d424f0f89ad9b6d657ab",
+      "mtime_ns": 1789017294823657288
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/000_environment/image_load.log",
+      "destination": "evidence/iterations/000_environment/image_load.log.gz",
+      "encoding": "gzip",
+      "bytes": 195,
+      "sha256": "b3d96dfb4c65305f9819ed198fe2c05bf54fc6b62d4e9ff5d15c327ac7df16c9",
+      "mtime_ns": 1789016483921498407
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/000_environment/runtime_identity.log",
+      "destination": "evidence/iterations/000_environment/runtime_identity.log.gz",
+      "encoding": "gzip",
+      "bytes": 3089,
+      "sha256": "695062494780ebaaa7455a995e1f70c12930108bfaef93d734d60a343a459daf",
+      "mtime_ns": 1789016724733324707
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/000_environment/storage.log",
+      "destination": "evidence/iterations/000_environment/storage.log.gz",
+      "encoding": "gzip",
+      "bytes": 218,
+      "sha256": "a465f72be7f2edee4a473ef3c4f646a02eba7f7461dc3434d9b6e3e37c0a9c31",
+      "mtime_ns": 1789016186082386781
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/code.diff",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/code.diff",
+      "encoding": "verbatim",
+      "bytes": 26374,
+      "sha256": "f1f8e0cce3daa0adc20a39662a1e184e6dc8972b3f89aef460e8400554a9a4eb",
+      "mtime_ns": 1789017874291126163
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/code_hashes.sha256",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/code_hashes.sha256",
+      "encoding": "verbatim",
+      "bytes": 573,
+      "sha256": "2b0114f3f5181a6bb37a1a13c9ea37122956f28f968bc7b80e54e7dca97d52d8",
+      "mtime_ns": 1789017874298038052
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/command.txt",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/command.txt",
+      "encoding": "verbatim",
+      "bytes": 878,
+      "sha256": "92314cacb564b8690e197df7441d521b754c7c5b90c1957f42747265a33ce147",
+      "mtime_ns": 1789017873916851064
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/config_yihou.json",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/config_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 1597,
+      "sha256": "90b24b046866c282b840fbcc4a7f82ced26d4b7f6bce86e9f7d580afef826a9b",
+      "mtime_ns": 1789017904682572803
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/console.log",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/console.log.gz",
+      "encoding": "gzip",
+      "bytes": 88753,
+      "sha256": "3e3029095e22b06e12d565c439704693055ea7119ee2c009177f44b8ff9d97b5",
+      "mtime_ns": 1789018765893898702
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/git_head.txt",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/git_head.txt",
+      "encoding": "verbatim",
+      "bytes": 41,
+      "sha256": "0fedcc859ff41e55a610d616aa94cda3697f1ca3363713016fa7bc4454dc0395",
+      "mtime_ns": 1789017873930021646
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/launch_status.json",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/launch_status.json",
+      "encoding": "verbatim",
+      "bytes": 42,
+      "sha256": "a698fe98783f8426d0c96c8f8ec44f71282cfed7ca2c5e312722342ec8651199",
+      "mtime_ns": 1789018765902650159
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/rank_0_yihou.json",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/rank_0_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3193,
+      "sha256": "0ef4e7c3410f27e5378ae4ef459d660c907784c11bead18d7da3e0a41cbc7041",
+      "mtime_ns": 1789018757449448544
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/rank_1_yihou.json",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/rank_1_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3193,
+      "sha256": "7e9fc31d19e37874cac16013b754fda1de19c8b136da932df5942ba8a8089cfb",
+      "mtime_ns": 1789018757446540689
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/rank_2_yihou.json",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/rank_2_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3194,
+      "sha256": "ea809e3fa5d5f1bdaa35ea4432ec51646d344461f0494667c6db8f13f9e1f88c",
+      "mtime_ns": 1789018757447800030
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/rank_3_yihou.json",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/rank_3_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3194,
+      "sha256": "0b7becaec52f7624f076cae388a1b6ce8b95e94a0615bfeebaa065b6dda095a1",
+      "mtime_ns": 1789018757444522251
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/result_yihou.json",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/result_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3465,
+      "sha256": "a5aec8d9d73168da59d2ae1d5cb3550293f493edf5affdfd86c8d3352df49d67",
+      "mtime_ns": 1789018757547362741
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/runtime.log",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/runtime.log.gz",
+      "encoding": "gzip",
+      "bytes": 88753,
+      "sha256": "3e3029095e22b06e12d565c439704693055ea7119ee2c009177f44b8ff9d97b5",
+      "mtime_ns": 1789018765883618570
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/steps_rank_0_yihou.jsonl",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/steps_rank_0_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 776,
+      "sha256": "1b43ce5e263992013a1da9ac78773091f19a366ace59a54d020ed36901c38fb1",
+      "mtime_ns": 1789018757543631840
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/steps_rank_1_yihou.jsonl",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/steps_rank_1_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 775,
+      "sha256": "b803ce132cc86d9fae76da552f9917bc110200a7cfc06ec596c96285b556e936",
+      "mtime_ns": 1789018757453156856
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/steps_rank_2_yihou.jsonl",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/steps_rank_2_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 776,
+      "sha256": "c52d84d0b849d677cf9b7d0c287be611a90f2ba8dee6b30be989a45438fed325",
+      "mtime_ns": 1789018757542052795
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/steps_rank_3_yihou.jsonl",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/steps_rank_3_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 775,
+      "sha256": "9edf44610dcef4c08e2392e37334fca783ab154a1ab33135fb590855a88a42e7",
+      "mtime_ns": 1789018757451353204
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/steps_yihou.jsonl",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/steps_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 776,
+      "sha256": "1b43ce5e263992013a1da9ac78773091f19a366ace59a54d020ed36901c38fb1",
+      "mtime_ns": 1789018757550171548
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/code.diff",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/code.diff",
+      "encoding": "verbatim",
+      "bytes": 26374,
+      "sha256": "f1f8e0cce3daa0adc20a39662a1e184e6dc8972b3f89aef460e8400554a9a4eb",
+      "mtime_ns": 1789018831263189169
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/code_hashes.sha256",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/code_hashes.sha256",
+      "encoding": "verbatim",
+      "bytes": 573,
+      "sha256": "2b0114f3f5181a6bb37a1a13c9ea37122956f28f968bc7b80e54e7dca97d52d8",
+      "mtime_ns": 1789018831269894754
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/command.txt",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/command.txt",
+      "encoding": "verbatim",
+      "bytes": 899,
+      "sha256": "ddefa184b06ea35985c40839f3f0fd55982088c220ee771cd676953960dfac38",
+      "mtime_ns": 1789018830923070882
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/config_yihou.json",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/config_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 1624,
+      "sha256": "0c404003b5834e850e2daf535dce4bc4e33a9aa9ceb9eee41236b9c9dea42e95",
+      "mtime_ns": 1789018841018942201
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/console.log",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/console.log.gz",
+      "encoding": "gzip",
+      "bytes": 87009,
+      "sha256": "c372ad90096f4fcb95ddb9412fe08bf6cda6e530c869b4ad793253d0af4aa5ac",
+      "mtime_ns": 1789018933732673040
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/git_head.txt",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/git_head.txt",
+      "encoding": "verbatim",
+      "bytes": 41,
+      "sha256": "0fedcc859ff41e55a610d616aa94cda3697f1ca3363713016fa7bc4454dc0395",
+      "mtime_ns": 1789018830936281805
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/launch_status.json",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/launch_status.json",
+      "encoding": "verbatim",
+      "bytes": 42,
+      "sha256": "f75a087ddf270d0673f4b1e443d297489afaa7abe0288d373b8e51ca165c7179",
+      "mtime_ns": 1789018933741431287
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/rank_0_yihou.json",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/rank_0_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3136,
+      "sha256": "e3f192316e9148cdcbfa52e445b4a6b5ce743f8c92ab30c75be16c4a671b95bc",
+      "mtime_ns": 1789018925882417250
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/rank_1_yihou.json",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/rank_1_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3139,
+      "sha256": "d4f4b45a6ac7dc1acef7cd02be09553e1a489ffb4947323cb270e3d14887aac7",
+      "mtime_ns": 1789018925884185272
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/rank_2_yihou.json",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/rank_2_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3138,
+      "sha256": "718d33f1fa0aa6e7261b90bf7e165fa1e65604fca5c0c92f9313ce4619881280",
+      "mtime_ns": 1789018925885888165
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/rank_3_yihou.json",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/rank_3_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3135,
+      "sha256": "846fd5bf65ff1634e37799fd090018cc3747ebc5ee65b1813dba0b06d4b04c5f",
+      "mtime_ns": 1789018925887567829
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/result_yihou.json",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/result_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3510,
+      "sha256": "73f9edf73174eccb6bcb4936f5a3763215df0e0c7e20ae7f332a7603db66f15b",
+      "mtime_ns": 1789018925898575807
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/runtime.log",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/runtime.log.gz",
+      "encoding": "gzip",
+      "bytes": 87009,
+      "sha256": "c372ad90096f4fcb95ddb9412fe08bf6cda6e530c869b4ad793253d0af4aa5ac",
+      "mtime_ns": 1789018933722405484
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/steps_rank_0_yihou.jsonl",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/steps_rank_0_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 630,
+      "sha256": "94e8dde00bb605944013db0cbdd6967e6d27c2ebbf01cac497ee477aafe4cf63",
+      "mtime_ns": 1789018925889758344
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/steps_rank_1_yihou.jsonl",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/steps_rank_1_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 630,
+      "sha256": "0730f12cc564db50cc3a6429b34f185443e6607332e62714d708b27d3f8cc14f",
+      "mtime_ns": 1789018925891659215
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/steps_rank_2_yihou.jsonl",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/steps_rank_2_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 631,
+      "sha256": "8e41c661c62893263e54272f885e639af9d7676302905d1fc826560575a2a840",
+      "mtime_ns": 1789018925893330359
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/steps_rank_3_yihou.jsonl",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/steps_rank_3_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 631,
+      "sha256": "105bb7c3172ec0c21d598e203761deabada30e29e82070e23b684803be46453a",
+      "mtime_ns": 1789018925894811265
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/steps_yihou.jsonl",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/steps_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 630,
+      "sha256": "94e8dde00bb605944013db0cbdd6967e6d27c2ebbf01cac497ee477aafe4cf63",
+      "mtime_ns": 1789018925900960129
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/code.diff",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/code.diff",
+      "encoding": "verbatim",
+      "bytes": 26374,
+      "sha256": "f1f8e0cce3daa0adc20a39662a1e184e6dc8972b3f89aef460e8400554a9a4eb",
+      "mtime_ns": 1789019319301083572
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/code_hashes.sha256",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/code_hashes.sha256",
+      "encoding": "verbatim",
+      "bytes": 573,
+      "sha256": "2b0114f3f5181a6bb37a1a13c9ea37122956f28f968bc7b80e54e7dca97d52d8",
+      "mtime_ns": 1789019319307965604
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/command.txt",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/command.txt",
+      "encoding": "verbatim",
+      "bytes": 889,
+      "sha256": "3babb035aff5594bcfe74796b794ecdf42ae1096003e039f0aaa38a11f9e97aa",
+      "mtime_ns": 1789019318930454098
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/config_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/config_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 1604,
+      "sha256": "d6608e89a87e2d7d1bf4e23306a05c49b6637086518f277e9176d79fe85177d2",
+      "mtime_ns": 1789019328998339818
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/console.log",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/console.log.gz",
+      "encoding": "gzip",
+      "bytes": 75291,
+      "sha256": "3ddcc7eb5b60a3e7cc47f14eb2012c0923305434cdf8c6d505db73cb1ecc70b2",
+      "mtime_ns": 1789019504074534286
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/git_head.txt",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/git_head.txt",
+      "encoding": "verbatim",
+      "bytes": 41,
+      "sha256": "0fedcc859ff41e55a610d616aa94cda3697f1ca3363713016fa7bc4454dc0395",
+      "mtime_ns": 1789019318942577043
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/launch_status.json",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/launch_status.json",
+      "encoding": "verbatim",
+      "bytes": 42,
+      "sha256": "97aebcf5f15b586480da8e95fa84aa2569d770f886e098a2f9cd2f75b0953588",
+      "mtime_ns": 1789019504083235225
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/rank_0_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/rank_0_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3552,
+      "sha256": "43e6fde25b5f64df8d87a1e3dd479a757c41c71c917c83f0ec12445b0c1e4971",
+      "mtime_ns": 1789019495724815277
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/rank_1_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/rank_1_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3553,
+      "sha256": "0b0b80e9691aacfd90ad0490289ffa622b466013a87a8fe491a9722124057393",
+      "mtime_ns": 1789019495726322503
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/rank_2_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/rank_2_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3549,
+      "sha256": "452cdb28949559ad2c162d04f1c2012d8cc14c50907ceef859552382703223f3",
+      "mtime_ns": 1789019495722971806
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/rank_3_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/rank_3_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3550,
+      "sha256": "1cf1bd6fdb5130bc56a252c900c4f564a8b8d968c757b80522cbe6a456afefb4",
+      "mtime_ns": 1789019495728124125
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/result_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/result_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3864,
+      "sha256": "5c79132f40df5813121611ac22d1f941fca0c2d616d2c2548c5edfa55d90bb55",
+      "mtime_ns": 1789019495798653880
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/runtime.log",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/runtime.log.gz",
+      "encoding": "gzip",
+      "bytes": 75291,
+      "sha256": "3ddcc7eb5b60a3e7cc47f14eb2012c0923305434cdf8c6d505db73cb1ecc70b2",
+      "mtime_ns": 1789019504062151662
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/steps_rank_0_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/steps_rank_0_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 984943,
+      "sha256": "b830e8309612c8e445859e2d5fd544b583b8676c12befc19a106e6932cdeca9a",
+      "mtime_ns": 1789019495787838890
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/steps_rank_1_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/steps_rank_1_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 984878,
+      "sha256": "17e2682d03428ec3dcae012e952522279506ea64858fa7ea1938fe981bfece35",
+      "mtime_ns": 1789019495791366045
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/steps_rank_2_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/steps_rank_2_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 984954,
+      "sha256": "6b737c0705f7006baf8e6f46682d97e26fde31d986ab1d50e29ec26c9ee2b826",
+      "mtime_ns": 1789019495739575726
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/steps_rank_3_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/steps_rank_3_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 984929,
+      "sha256": "c0e2c2ca4564ffe4abb9085d7738eb51aa82f6d427a12f626f45a6bb36c84569",
+      "mtime_ns": 1789019495794651563
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/steps_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/steps_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 984943,
+      "sha256": "b830e8309612c8e445859e2d5fd544b583b8676c12befc19a106e6932cdeca9a",
+      "mtime_ns": 1789019495814493743
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/code.diff",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/code.diff",
+      "encoding": "verbatim",
+      "bytes": 26374,
+      "sha256": "f1f8e0cce3daa0adc20a39662a1e184e6dc8972b3f89aef460e8400554a9a4eb",
+      "mtime_ns": 1789019504513663454
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/code_hashes.sha256",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/code_hashes.sha256",
+      "encoding": "verbatim",
+      "bytes": 573,
+      "sha256": "2b0114f3f5181a6bb37a1a13c9ea37122956f28f968bc7b80e54e7dca97d52d8",
+      "mtime_ns": 1789019504520178115
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/command.txt",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/command.txt",
+      "encoding": "verbatim",
+      "bytes": 889,
+      "sha256": "6ff8f967fda9c01b35232a38ad87ec486c3f4537fc7290309aa498c150f854bf",
+      "mtime_ns": 1789019504143289511
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/config_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/config_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 1604,
+      "sha256": "612c5c90d990d26d575d16bfbf10321f2e3ac8fd63834535871f305dd99bf3cb",
+      "mtime_ns": 1789019514021351435
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/console.log",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/console.log.gz",
+      "encoding": "gzip",
+      "bytes": 84725,
+      "sha256": "e1dac51261ff44c885165ef4548fb106cd122816db39aa0fc88e146a90782de4",
+      "mtime_ns": 1789019712552467040
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/git_head.txt",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/git_head.txt",
+      "encoding": "verbatim",
+      "bytes": 41,
+      "sha256": "0fedcc859ff41e55a610d616aa94cda3697f1ca3363713016fa7bc4454dc0395",
+      "mtime_ns": 1789019504155340069
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/launch_status.json",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/launch_status.json",
+      "encoding": "verbatim",
+      "bytes": 42,
+      "sha256": "a73e24e05963f34189ea1b4ffc6fd08063be17358fff6e695884c957fed270ce",
+      "mtime_ns": 1789019712566533278
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/rank_0_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/rank_0_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3638,
+      "sha256": "6bbb387703ea61884ca1afdda12adb7a7818ae596b300d3b95bf367821fd6a42",
+      "mtime_ns": 1789019703812587452
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/rank_1_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/rank_1_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3639,
+      "sha256": "d1c07d82b2a1e767a8e3f323a1bbc9e16481cde8c6807704b880caffba9b11c5",
+      "mtime_ns": 1789019703807425073
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/rank_2_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/rank_2_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3639,
+      "sha256": "bc6548279056511491a663f9a0b0d5c94c0ec313948e65496509fa613d50582b",
+      "mtime_ns": 1789019703811185224
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/rank_3_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/rank_3_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3641,
+      "sha256": "7622b21acaba866dae7d780e34ecf8632a53224e33e75600d9d7211565be0411",
+      "mtime_ns": 1789019703808914269
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/result_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/result_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3951,
+      "sha256": "f5a1ea28e7c383fc770abdef38fa40be45d9a0bc89c1f1e52cef87e8cd798ae2",
+      "mtime_ns": 1789019703864300412
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/runtime.log",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/runtime.log.gz",
+      "encoding": "gzip",
+      "bytes": 84725,
+      "sha256": "e1dac51261ff44c885165ef4548fb106cd122816db39aa0fc88e146a90782de4",
+      "mtime_ns": 1789019712541719801
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/steps_rank_0_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/steps_rank_0_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 1128845,
+      "sha256": "153a87c71c608571303ab14e62c71f275e9b5f3265d4afc9df0786ff02e980aa",
+      "mtime_ns": 1789019703859787083
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/steps_rank_1_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/steps_rank_1_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 1128836,
+      "sha256": "a248ad1de2be358f83d7035b395d7f85828fc254be21e71d07198457a2a97ca2",
+      "mtime_ns": 1789019703850453829
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/steps_rank_2_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/steps_rank_2_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 1128888,
+      "sha256": "47da3f86fe4e44bc4eac14b5f617e3437d7a2af4ed73d854f5dfa7e84eaf3b33",
+      "mtime_ns": 1789019703857631606
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/steps_rank_3_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/steps_rank_3_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 1128825,
+      "sha256": "46cacf0f3fa6003ebf02241ef7720678febf42b7f05ec6d656b5e62a788674db",
+      "mtime_ns": 1789019703853267095
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/steps_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/steps_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 1128845,
+      "sha256": "153a87c71c608571303ab14e62c71f275e9b5f3265d4afc9df0786ff02e980aa",
+      "mtime_ns": 1789019703881094269
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/code.diff",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/code.diff",
+      "encoding": "verbatim",
+      "bytes": 26374,
+      "sha256": "f1f8e0cce3daa0adc20a39662a1e184e6dc8972b3f89aef460e8400554a9a4eb",
+      "mtime_ns": 1789019712930508578
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/code_hashes.sha256",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/code_hashes.sha256",
+      "encoding": "verbatim",
+      "bytes": 573,
+      "sha256": "2b0114f3f5181a6bb37a1a13c9ea37122956f28f968bc7b80e54e7dca97d52d8",
+      "mtime_ns": 1789019712937204166
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/command.txt",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/command.txt",
+      "encoding": "verbatim",
+      "bytes": 889,
+      "sha256": "c58f7acf42b9e3beda68b7afe40aa635b37e3caf4ce416eb4439d978b56c3f84",
+      "mtime_ns": 1789019712588766147
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/config_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/config_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 1604,
+      "sha256": "61c24b531e411ac3296c2b11c5032390e6b92bbeaeaa074ef2f8c534f7ecba64",
+      "mtime_ns": 1789019722532675086
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/console.log",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/console.log.gz",
+      "encoding": "gzip",
+      "bytes": 84455,
+      "sha256": "117a47cd8131d9a2f825852622cec0cf9c0f1d1a0ebdb6be413bb27a906ab8ef",
+      "mtime_ns": 1789019929760538536
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/git_head.txt",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/git_head.txt",
+      "encoding": "verbatim",
+      "bytes": 41,
+      "sha256": "0fedcc859ff41e55a610d616aa94cda3697f1ca3363713016fa7bc4454dc0395",
+      "mtime_ns": 1789019712601650359
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/launch_status.json",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/launch_status.json",
+      "encoding": "verbatim",
+      "bytes": 42,
+      "sha256": "0f39ec8a19f9410395fdea4e6d32e45ead21af947e91d0a9a5396f2bd8427b85",
+      "mtime_ns": 1789019929771308726
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/rank_0_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/rank_0_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3727,
+      "sha256": "f357f52380d5bb578381816df47ec9b259b54058a7c457d1177531b3bfd3ae1f",
+      "mtime_ns": 1789019921381703404
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/rank_1_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/rank_1_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3728,
+      "sha256": "e3bf7d9324393f646d209bff354489f5361ecc58d0021e92f24f07d673b76fa2",
+      "mtime_ns": 1789019921378455525
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/rank_2_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/rank_2_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3727,
+      "sha256": "ffd9a47689ad7846869f77ddc5c3241bbdff1223bd85f8a555bcaad331b0b10f",
+      "mtime_ns": 1789019921380332975
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/rank_3_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/rank_3_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3727,
+      "sha256": "fab8570e549af2327af3b6c176a809eb8f86fcb943b22af44279610c2bbbe655",
+      "mtime_ns": 1789019921377146285
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/result_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/result_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 4040,
+      "sha256": "fbd7ca5355d582bb8cc700e48123d1dbc2654ac0576d4719e24aedd2782a2207",
+      "mtime_ns": 1789019921434281780
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/runtime.log",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/runtime.log.gz",
+      "encoding": "gzip",
+      "bytes": 84455,
+      "sha256": "117a47cd8131d9a2f825852622cec0cf9c0f1d1a0ebdb6be413bb27a906ab8ef",
+      "mtime_ns": 1789019929744867885
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/steps_rank_0_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/steps_rank_0_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 1272767,
+      "sha256": "f4f6cb30a3c9c939a441b2f0f3fbecb5299f8241f44efbe484c14f07a5012a44",
+      "mtime_ns": 1789019921429827950
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/steps_rank_1_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/steps_rank_1_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 1272837,
+      "sha256": "f415449653ca13845738bb5044efb21529306306fbed075a1d1adb14a7d09a41",
+      "mtime_ns": 1789019921424116820
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/steps_rank_2_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/steps_rank_2_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 1272783,
+      "sha256": "874319b21c6f0b64392e03d34913754f85b29c63023873a14e5982ab76b18ce4",
+      "mtime_ns": 1789019921428376433
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/steps_rank_3_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/steps_rank_3_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 1272810,
+      "sha256": "3b24696eb09e22af4124abcc3a37e3422d21677e6c7772db5f65fc97a0e2b157",
+      "mtime_ns": 1789019921397617675
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/steps_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/steps_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 1272767,
+      "sha256": "f4f6cb30a3c9c939a441b2f0f3fbecb5299f8241f44efbe484c14f07a5012a44",
+      "mtime_ns": 1789019921455654436
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/code.diff",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/code.diff",
+      "encoding": "verbatim",
+      "bytes": 26374,
+      "sha256": "f1f8e0cce3daa0adc20a39662a1e184e6dc8972b3f89aef460e8400554a9a4eb",
+      "mtime_ns": 1789019002101137468
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/code_hashes.sha256",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/code_hashes.sha256",
+      "encoding": "verbatim",
+      "bytes": 573,
+      "sha256": "2b0114f3f5181a6bb37a1a13c9ea37122956f28f968bc7b80e54e7dca97d52d8",
+      "mtime_ns": 1789019002107542926
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/command.txt",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/command.txt",
+      "encoding": "verbatim",
+      "bytes": 886,
+      "sha256": "d8d817e40f773dbb33afde9fc0ce65b8e08fe20d906088ed41b2f3d5fcbd0b1a",
+      "mtime_ns": 1789019001746059858
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/config_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/config_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 1600,
+      "sha256": "f26c9dcb8c2d66ccb8f75fbe106f8cd9caa10887dfd66d2787270e4f95969d86",
+      "mtime_ns": 1789019011346975278
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/console.log",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/console.log.gz",
+      "encoding": "gzip",
+      "bytes": 83471,
+      "sha256": "36587a8fac0620caae63cd361608d1a5dac47b107abe1d1ac5a12607f5de325d",
+      "mtime_ns": 1789019155215485065
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/git_head.txt",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/git_head.txt",
+      "encoding": "verbatim",
+      "bytes": 41,
+      "sha256": "0fedcc859ff41e55a610d616aa94cda3697f1ca3363713016fa7bc4454dc0395",
+      "mtime_ns": 1789019001758040255
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/launch_status.json",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/launch_status.json",
+      "encoding": "verbatim",
+      "bytes": 42,
+      "sha256": "39f89591b69f518c6efb2949bf8b4b7bd06132cba2bf7e7cb1f88f62b7712fef",
+      "mtime_ns": 1789019155226486827
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/rank_0_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/rank_0_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3277,
+      "sha256": "131aa22d0c6340492ccd4e7537e35f72192401f9300499eef2dd8a2549e1540e",
+      "mtime_ns": 1789019146242210138
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/rank_1_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/rank_1_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3272,
+      "sha256": "816e5d8a4603d4c0d78a9f7c5d67da3869783b21152e966f97d2b71919dbd96a",
+      "mtime_ns": 1789019146243607676
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/rank_2_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/rank_2_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3273,
+      "sha256": "54666e799e0b2ee547103755b329faaceead7cd35d4349cd578c326dbc0a1b29",
+      "mtime_ns": 1789019146245438377
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/rank_3_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/rank_3_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3273,
+      "sha256": "290b7ba999d9f531e24b43b50c03a5e06034f98022278e5e8d0dc1a8423892f2",
+      "mtime_ns": 1789019146247091581
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/result_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/result_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3590,
+      "sha256": "9fd4b99456cb14edf80dbac6aacaec52cc7eed5666a7684c1f4ca4126270d6ad",
+      "mtime_ns": 1789019146303406255
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/runtime.log",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/runtime.log.gz",
+      "encoding": "gzip",
+      "bytes": 83471,
+      "sha256": "36587a8fac0620caae63cd361608d1a5dac47b107abe1d1ac5a12607f5de325d",
+      "mtime_ns": 1789019155205761578
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/steps_rank_0_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/steps_rank_0_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 554207,
+      "sha256": "d4ec7b9bce4d9084b9dc3deb1a3cb007c8129951d380e542e5452c2f6e963cf9",
+      "mtime_ns": 1789019146253739917
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/steps_rank_1_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/steps_rank_1_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 554173,
+      "sha256": "34c16542f12c594ec7171ddcde339f2480c7cb5f01ef98bfcda9bac3a0b092c6",
+      "mtime_ns": 1789019146293300154
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/steps_rank_2_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/steps_rank_2_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 554151,
+      "sha256": "9210d8c41a470b4172586317b83f2e1ff198c139b1cb6385df4277da3090e61b",
+      "mtime_ns": 1789019146295920493
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/steps_rank_3_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/steps_rank_3_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 554218,
+      "sha256": "9e207ca9441599ef4666179a2d6264401d51892cd81b926937766c852faa5301",
+      "mtime_ns": 1789019146299081923
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/steps_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/steps_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 554207,
+      "sha256": "d4ec7b9bce4d9084b9dc3deb1a3cb007c8129951d380e542e5452c2f6e963cf9",
+      "mtime_ns": 1789019146314089347
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/code.diff",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/code.diff",
+      "encoding": "verbatim",
+      "bytes": 26374,
+      "sha256": "f1f8e0cce3daa0adc20a39662a1e184e6dc8972b3f89aef460e8400554a9a4eb",
+      "mtime_ns": 1789019155574102425
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/code_hashes.sha256",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/code_hashes.sha256",
+      "encoding": "verbatim",
+      "bytes": 573,
+      "sha256": "2b0114f3f5181a6bb37a1a13c9ea37122956f28f968bc7b80e54e7dca97d52d8",
+      "mtime_ns": 1789019155580633645
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/command.txt",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/command.txt",
+      "encoding": "verbatim",
+      "bytes": 886,
+      "sha256": "23fb25e2653bdcf7181cc09134794346f2b6892f6cf1b34cd92c239e5c9d99dc",
+      "mtime_ns": 1789019155249250289
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/config_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/config_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 1600,
+      "sha256": "8fcb900aadbbb3f29396b09c253ab89e5062142a852c14e56be92c164e7220bc",
+      "mtime_ns": 1789019164879707028
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/console.log",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/console.log.gz",
+      "encoding": "gzip",
+      "bytes": 73687,
+      "sha256": "ec22636c4dc7f65326676540ca5edf613c1c0d29691eef0245355444b1f84abc",
+      "mtime_ns": 1789019318893482080
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/git_head.txt",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/git_head.txt",
+      "encoding": "verbatim",
+      "bytes": 41,
+      "sha256": "0fedcc859ff41e55a610d616aa94cda3697f1ca3363713016fa7bc4454dc0395",
+      "mtime_ns": 1789019155261683234
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/launch_status.json",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/launch_status.json",
+      "encoding": "verbatim",
+      "bytes": 42,
+      "sha256": "8ae34162fe13ea2e63ef2bc0c25a49abb690bbcd5120d2137a65c0b6c9818ffe",
+      "mtime_ns": 1789019318904984123
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/rank_0_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/rank_0_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3358,
+      "sha256": "7150c6e8e44644e00c17a5a278d2d95916878ab840a0b5de750e4ed9f5818e30",
+      "mtime_ns": 1789019311281826774
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/rank_1_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/rank_1_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3363,
+      "sha256": "31db1e9b06d54a76ef9ead8cd920723e85b9d375bc0faed5d4ba1e4931f8d36b",
+      "mtime_ns": 1789019311274903523
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/rank_2_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/rank_2_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3361,
+      "sha256": "c724ebe97ff46f0f9268bd553a83abba278d906adb77da146d502717e843c6ed",
+      "mtime_ns": 1789019311279191325
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/rank_3_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/rank_3_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3361,
+      "sha256": "eb5ea6b5a9128011e8f9a6a6127226c6e0b7f27b14e50cb76d80823dea66df31",
+      "mtime_ns": 1789019311276699485
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/result_yihou.json",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/result_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3668,
+      "sha256": "270b1644e85f43703ea9fd0ac3d97fcb233d0056e69dfb8d8485c5e9fdc738b2",
+      "mtime_ns": 1789019311302102125
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/runtime.log",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/runtime.log.gz",
+      "encoding": "gzip",
+      "bytes": 73687,
+      "sha256": "ec22636c4dc7f65326676540ca5edf613c1c0d29691eef0245355444b1f84abc",
+      "mtime_ns": 1789019318883314839
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/steps_rank_0_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/steps_rank_0_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 698132,
+      "sha256": "d8d5b503d9b5ee5181c9f79f0a1b11f7ed8d51a2b168238a7dd5bdcb04cbaa91",
+      "mtime_ns": 1789019311298180757
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/steps_rank_1_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/steps_rank_1_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 698119,
+      "sha256": "66471a91285b10544381879a9c6db65908ac62b02d865da90d75bddacf485ea2",
+      "mtime_ns": 1789019311292555895
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/steps_rank_2_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/steps_rank_2_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 698137,
+      "sha256": "941e0e2014dfe430a6dd3386557110247877203bd3fb5f57bd294d4f89349867",
+      "mtime_ns": 1789019311295447320
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/steps_rank_3_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/steps_rank_3_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 698105,
+      "sha256": "4a81bb7e70db4f932471139798770317eb50021db96dbdec9d10d84dec94536c",
+      "mtime_ns": 1789019311289491143
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/steps_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/steps_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 698132,
+      "sha256": "d8d5b503d9b5ee5181c9f79f0a1b11f7ed8d51a2b168238a7dd5bdcb04cbaa91",
+      "mtime_ns": 1789019311316351471
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/code.diff",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/code.diff",
+      "encoding": "verbatim",
+      "bytes": 26374,
+      "sha256": "f1f8e0cce3daa0adc20a39662a1e184e6dc8972b3f89aef460e8400554a9a4eb",
+      "mtime_ns": 1789020251984688518
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/code_hashes.sha256",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/code_hashes.sha256",
+      "encoding": "verbatim",
+      "bytes": 573,
+      "sha256": "2b0114f3f5181a6bb37a1a13c9ea37122956f28f968bc7b80e54e7dca97d52d8",
+      "mtime_ns": 1789020251991093071
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/command.txt",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/command.txt",
+      "encoding": "verbatim",
+      "bytes": 910,
+      "sha256": "a4c9aab2e525b9cdd4bbc79c5880c1da7a99ef7f00d0ccd3332d5dbd939c32ac",
+      "mtime_ns": 1789020251638295605
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/config_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/config_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 1629,
+      "sha256": "4b5a2d66c6d7f989d6ea2c2455149b116bb9ae88b14764c894089b53481d8ab9",
+      "mtime_ns": 1789020261887374142
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/console.log",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/console.log.gz",
+      "encoding": "gzip",
+      "bytes": 76693,
+      "sha256": "84d321200b19178e8a3812813ff87287eefd1e76c09f958f17b5d0c9fed27429",
+      "mtime_ns": 1789020443161783013
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/git_head.txt",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/git_head.txt",
+      "encoding": "verbatim",
+      "bytes": 41,
+      "sha256": "0fedcc859ff41e55a610d616aa94cda3697f1ca3363713016fa7bc4454dc0395",
+      "mtime_ns": 1789020251650234719
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/launch_status.json",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/launch_status.json",
+      "encoding": "verbatim",
+      "bytes": 42,
+      "sha256": "72160db577825ab252528813f27bc86f3cf142de94c650fd2dd8ef7a1fdf987e",
+      "mtime_ns": 1789020443173619489
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/rank_0_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/rank_0_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3273,
+      "sha256": "3df77675406b90b370505d139c410f3a353c1fe58e2f91e9125d6f3364379695",
+      "mtime_ns": 1789020435647492880
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/rank_1_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/rank_1_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3273,
+      "sha256": "f257137822416e01162cddad942e46b4e61f1fd4258f4cf0458facf66832ecea",
+      "mtime_ns": 1789020435652421553
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/rank_2_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/rank_2_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3269,
+      "sha256": "472f7c941281c20921eee4af9f58138f0bbc378b71108e1d425b161e9562589e",
+      "mtime_ns": 1789020435649171554
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/rank_3_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/rank_3_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3272,
+      "sha256": "d5a3e6111a26dc4ba50c8e3e3f73251e40d643f3fb0aa5fafe31657efb88108d",
+      "mtime_ns": 1789020435650781579
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/result_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/result_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3914,
+      "sha256": "f4b8fe74860f5e8da71f2a23811147468e9328aa83b842092e8618c08a846ab7",
+      "mtime_ns": 1789020435750874210
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/runtime.log",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/runtime.log.gz",
+      "encoding": "gzip",
+      "bytes": 76693,
+      "sha256": "84d321200b19178e8a3812813ff87287eefd1e76c09f958f17b5d0c9fed27429",
+      "mtime_ns": 1789020443148526323
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/steps_rank_0_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/steps_rank_0_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 553149,
+      "sha256": "c96033a8ab43fd13edd51e17a61bbf6ddc8fe8a0f4df8314ac7e81ee30544d34",
+      "mtime_ns": 1789020435664491585
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/steps_rank_1_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/steps_rank_1_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 553157,
+      "sha256": "9566e2d7825ef7603d00d98adf660738560cde894afa697fa41c7d024434138f",
+      "mtime_ns": 1789020435747309936
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/steps_rank_2_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/steps_rank_2_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 553092,
+      "sha256": "67f06b8ea309c61ca8f5cc8c903b11bc247e8a420cf19ab4b7ee3818532e00fb",
+      "mtime_ns": 1789020435741944749
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/steps_rank_3_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/steps_rank_3_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 553163,
+      "sha256": "a1d87b22b0b5dd8de5b77c0adcdc9a3a7d1617f3e239ffc18ff634e2754dae5f",
+      "mtime_ns": 1789020435745161129
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/steps_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/steps_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 553149,
+      "sha256": "c96033a8ab43fd13edd51e17a61bbf6ddc8fe8a0f4df8314ac7e81ee30544d34",
+      "mtime_ns": 1789020435761826330
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/code.diff",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/code.diff",
+      "encoding": "verbatim",
+      "bytes": 26374,
+      "sha256": "f1f8e0cce3daa0adc20a39662a1e184e6dc8972b3f89aef460e8400554a9a4eb",
+      "mtime_ns": 1789020443554267385
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/code_hashes.sha256",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/code_hashes.sha256",
+      "encoding": "verbatim",
+      "bytes": 573,
+      "sha256": "2b0114f3f5181a6bb37a1a13c9ea37122956f28f968bc7b80e54e7dca97d52d8",
+      "mtime_ns": 1789020443560591303
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/command.txt",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/command.txt",
+      "encoding": "verbatim",
+      "bytes": 910,
+      "sha256": "68e5843b93f02ce89f2e8546d9914a03a88739962e3fb1978b5fe7bf5a152006",
+      "mtime_ns": 1789020443196421511
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/config_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/config_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 1629,
+      "sha256": "b91c5b1569031445c65d7a69ba8623d38902d0a60baadbc33becb02a2a3c1ced",
+      "mtime_ns": 1789020453254321437
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/console.log",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/console.log.gz",
+      "encoding": "gzip",
+      "bytes": 75618,
+      "sha256": "32d85cac0c7f59da854601d91c7aa2779b8d2731ade84e1812b244d68eaefad5",
+      "mtime_ns": 1789020641215110417
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/git_head.txt",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/git_head.txt",
+      "encoding": "verbatim",
+      "bytes": 41,
+      "sha256": "0fedcc859ff41e55a610d616aa94cda3697f1ca3363713016fa7bc4454dc0395",
+      "mtime_ns": 1789020443207366873
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/launch_status.json",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/launch_status.json",
+      "encoding": "verbatim",
+      "bytes": 42,
+      "sha256": "ad18944666add13a9a0ed5e038283d5049b0d6dacf10a807a8ba8ae1e64da29f",
+      "mtime_ns": 1789020641225112203
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/rank_0_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/rank_0_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3295,
+      "sha256": "00fc5f999acde2c69c6d889e465e53b7c32a022946b756c0e61f7252d46dd106",
+      "mtime_ns": 1789020633639053808
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/rank_1_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/rank_1_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3296,
+      "sha256": "73a8de6f78ea1c2ac9f13747449d6ea49d7d81f67cfe3f5b70d02fcd6dd0bbee",
+      "mtime_ns": 1789020633635580852
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/rank_2_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/rank_2_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3297,
+      "sha256": "73c24d041fbcd08659f6d58ea3f570125227885688cd27648fc3ace6fff4c51c",
+      "mtime_ns": 1789020633637311005
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/rank_3_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/rank_3_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3297,
+      "sha256": "e1da140842adca015aac054772604bee3dcbf9149e0d3c8ba45711be46c69f66",
+      "mtime_ns": 1789020633640734512
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/result_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/result_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 4002,
+      "sha256": "2b67f071a73f89895dee4d38af1b03b9fb06b26d356a8dae8f6fb5bb7729c3e5",
+      "mtime_ns": 1789020633716838977
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/runtime.log",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/runtime.log.gz",
+      "encoding": "gzip",
+      "bytes": 75618,
+      "sha256": "32d85cac0c7f59da854601d91c7aa2779b8d2731ade84e1812b244d68eaefad5",
+      "mtime_ns": 1789020641203345329
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/steps_rank_0_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/steps_rank_0_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 589122,
+      "sha256": "550b61da875d62b77e2e3505d2b74934596a6fec605666031c6383892d80d200",
+      "mtime_ns": 1789020633710130301
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/steps_rank_1_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/steps_rank_1_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 589135,
+      "sha256": "a760ab8a2d23fc87308a9dce1a359074b2413f34b7d1cf540e5edbb22c7329c5",
+      "mtime_ns": 1789020633648391423
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/steps_rank_2_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/steps_rank_2_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 589137,
+      "sha256": "b15f00e238631a1f22ca9fdcdab7838bc4fa92adc1c625189b4e3e50a140d760",
+      "mtime_ns": 1789020633707208197
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/steps_rank_3_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/steps_rank_3_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 589120,
+      "sha256": "ecaf3fa8202f9764fc1df8e51bff55abb9156e50cfcf0060f22597bc58286994",
+      "mtime_ns": 1789020633712718081
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/steps_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/steps_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 589122,
+      "sha256": "550b61da875d62b77e2e3505d2b74934596a6fec605666031c6383892d80d200",
+      "mtime_ns": 1789020633729006927
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/code.diff",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/code.diff",
+      "encoding": "verbatim",
+      "bytes": 26374,
+      "sha256": "f1f8e0cce3daa0adc20a39662a1e184e6dc8972b3f89aef460e8400554a9a4eb",
+      "mtime_ns": 1789020641583617603
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/code_hashes.sha256",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/code_hashes.sha256",
+      "encoding": "verbatim",
+      "bytes": 573,
+      "sha256": "2b0114f3f5181a6bb37a1a13c9ea37122956f28f968bc7b80e54e7dca97d52d8",
+      "mtime_ns": 1789020641590029238
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/command.txt",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/command.txt",
+      "encoding": "verbatim",
+      "bytes": 910,
+      "sha256": "801b0390badff6120cc189a7c7e5cb00c0c0dccf6c711013e3141fa8d20c457a",
+      "mtime_ns": 1789020641247003806
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/config_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/config_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 1629,
+      "sha256": "c0635699c4ea4df5d5c1541585717b648111d4f7ec73c8b03bf35305230f9e48",
+      "mtime_ns": 1789020650723923316
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/console.log",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/console.log.gz",
+      "encoding": "gzip",
+      "bytes": 86387,
+      "sha256": "5b2d4877037ecea7b1628ae111b29834f4911678987ae0d9ed13cdc337019467",
+      "mtime_ns": 1789020855168937951
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/git_head.txt",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/git_head.txt",
+      "encoding": "verbatim",
+      "bytes": 41,
+      "sha256": "0fedcc859ff41e55a610d616aa94cda3697f1ca3363713016fa7bc4454dc0395",
+      "mtime_ns": 1789020641259587357
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/launch_status.json",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/launch_status.json",
+      "encoding": "verbatim",
+      "bytes": 42,
+      "sha256": "9b87b0f628924832cbdba692174f1ff09b88725dd9d16898ae30e3d66137eea3",
+      "mtime_ns": 1789020855179431967
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/rank_0_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/rank_0_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3319,
+      "sha256": "ea008c6e19f7e6a0e207ebf1c21144a7ae8c1329889596fee9e808689810b65a",
+      "mtime_ns": 1789020847308115530
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/rank_1_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/rank_1_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3317,
+      "sha256": "da374bf83387da0dd76ac964ffb17bef9f7c0909abef7cc319894909fa926167",
+      "mtime_ns": 1789020847309682775
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/rank_2_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/rank_2_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3319,
+      "sha256": "716c12b68fa4c7ca06f0481f1b9e87e01a8735dfb29ad04d5b6175425072e961",
+      "mtime_ns": 1789020847358934968
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/rank_3_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/rank_3_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3317,
+      "sha256": "a042f66f0425ec44e4c69ec4e6108ac7faed33322991de931cc20578e468c43c",
+      "mtime_ns": 1789020847311625565
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/result_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/result_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 4089,
+      "sha256": "c8d25d8becdc19468fee23404860cdf63b844742ba5e4937b24c68fc06a4dc4f",
+      "mtime_ns": 1789020847374715552
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/runtime.log",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/runtime.log.gz",
+      "encoding": "gzip",
+      "bytes": 86387,
+      "sha256": "5b2d4877037ecea7b1628ae111b29834f4911678987ae0d9ed13cdc337019467",
+      "mtime_ns": 1789020855157592327
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/steps_rank_0_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/steps_rank_0_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 625101,
+      "sha256": "a136fe4646c1ae2027ec779c4ea5a2595d89005768844c1c731d1a2195ee7581",
+      "mtime_ns": 1789020847362760378
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/steps_rank_1_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/steps_rank_1_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 625086,
+      "sha256": "3d6bec45e438448e2eecc8c004c01505b43e0cd9e6b1bec78fa3eede235934f0",
+      "mtime_ns": 1789020847365217060
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/steps_rank_2_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/steps_rank_2_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 625093,
+      "sha256": "82cce9e3ecd1075a2a80dd84da52bd185530534f449837328ad23a20e5e20b99",
+      "mtime_ns": 1789020847371335005
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/steps_rank_3_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/steps_rank_3_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 625053,
+      "sha256": "6fbca3647ffbd3f18a4ea625a379d9111341335d25adf01b5beeaf438b1225a5",
+      "mtime_ns": 1789020847368020836
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/steps_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/steps_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 625101,
+      "sha256": "a136fe4646c1ae2027ec779c4ea5a2595d89005768844c1c731d1a2195ee7581",
+      "mtime_ns": 1789020847385988557
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/code.diff",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/code.diff",
+      "encoding": "verbatim",
+      "bytes": 26374,
+      "sha256": "f1f8e0cce3daa0adc20a39662a1e184e6dc8972b3f89aef460e8400554a9a4eb",
+      "mtime_ns": 1789019930158856954
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/code_hashes.sha256",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/code_hashes.sha256",
+      "encoding": "verbatim",
+      "bytes": 573,
+      "sha256": "2b0114f3f5181a6bb37a1a13c9ea37122956f28f968bc7b80e54e7dca97d52d8",
+      "mtime_ns": 1789019930165657446
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/command.txt",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/command.txt",
+      "encoding": "verbatim",
+      "bytes": 907,
+      "sha256": "d3a7d7b12434cdc3c762d02121da2cb433560532ef52fb3229266be13477b554",
+      "mtime_ns": 1789019929830459054
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/config_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/config_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 1627,
+      "sha256": "00ef92b6e0da463982eef5ac7d6a5fd5db1f2ca5c1297bc6ceec198b723fc2ea",
+      "mtime_ns": 1789019939759204563
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/console.log",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/console.log.gz",
+      "encoding": "gzip",
+      "bytes": 75997,
+      "sha256": "9c2291033d44f5d28f6667bd9893888b866dc963ee7a9014f6199a6c6da7079e",
+      "mtime_ns": 1789020083063768644
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/git_head.txt",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/git_head.txt",
+      "encoding": "verbatim",
+      "bytes": 41,
+      "sha256": "0fedcc859ff41e55a610d616aa94cda3697f1ca3363713016fa7bc4454dc0395",
+      "mtime_ns": 1789019929843077490
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/launch_status.json",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/launch_status.json",
+      "encoding": "verbatim",
+      "bytes": 42,
+      "sha256": "39f89591b69f518c6efb2949bf8b4b7bd06132cba2bf7e7cb1f88f62b7712fef",
+      "mtime_ns": 1789020083071581465
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/rank_0_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/rank_0_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3201,
+      "sha256": "5beee14d415013f5d7a0e855a91940909137add72ad1d4665c64f3312b08b07c",
+      "mtime_ns": 1789020074930732636
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/rank_1_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/rank_1_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3202,
+      "sha256": "2d8eefdc5567c93306649bd524cdf2885974fc0eb1839559046a385cfea4caf0",
+      "mtime_ns": 1789020074928885135
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/rank_2_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/rank_2_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3198,
+      "sha256": "d2fc8de4705b781e4a23720c28972ccfe1169a0fdde29ed9025f570ea965b347",
+      "mtime_ns": 1789020074931914567
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/rank_3_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/rank_3_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3202,
+      "sha256": "6ef85722b5962d5abaa04551e5fb46d96ddad4a79a0dd77c6252d18ccf095437",
+      "mtime_ns": 1789020074927050763
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/result_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/result_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3637,
+      "sha256": "40fcd0be447bfc2113ae3930ddce0fa84d213f4ffbf2abde5b6527b8d218dcff",
+      "mtime_ns": 1789020074973041177
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/runtime.log",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/runtime.log.gz",
+      "encoding": "gzip",
+      "bytes": 75997,
+      "sha256": "9c2291033d44f5d28f6667bd9893888b866dc963ee7a9014f6199a6c6da7079e",
+      "mtime_ns": 1789020083054325405
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/steps_rank_0_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/steps_rank_0_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 446225,
+      "sha256": "f72192e083c1f2d0f9a065e90f2ee5d11094e5f0e93ad0e947f5926fb97f57e9",
+      "mtime_ns": 1789020074968549507
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/steps_rank_1_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/steps_rank_1_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 446217,
+      "sha256": "c16b4de3e76b611c0abbb773ac6e9c221f44bc7365c25478ca08344a0076c8ed",
+      "mtime_ns": 1789020074940855838
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/steps_rank_2_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/steps_rank_2_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 446267,
+      "sha256": "8fbe372919ed541e92d55bc073ae42b49b1382c5b5ee0a4b0458e556fd0170d6",
+      "mtime_ns": 1789020074968906992
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/steps_rank_3_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/steps_rank_3_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 446217,
+      "sha256": "83ae9f380c8305e98f180af54253d1209010de67c3a80d3b2c60965f76bb976b",
+      "mtime_ns": 1789020074938351137
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/steps_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/steps_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 446225,
+      "sha256": "f72192e083c1f2d0f9a065e90f2ee5d11094e5f0e93ad0e947f5926fb97f57e9",
+      "mtime_ns": 1789020074983496664
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/code.diff",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/code.diff",
+      "encoding": "verbatim",
+      "bytes": 26374,
+      "sha256": "f1f8e0cce3daa0adc20a39662a1e184e6dc8972b3f89aef460e8400554a9a4eb",
+      "mtime_ns": 1789020083129452200
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/code_hashes.sha256",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/code_hashes.sha256",
+      "encoding": "verbatim",
+      "bytes": 573,
+      "sha256": "2b0114f3f5181a6bb37a1a13c9ea37122956f28f968bc7b80e54e7dca97d52d8",
+      "mtime_ns": 1789020083135514960
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/command.txt",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/command.txt",
+      "encoding": "verbatim",
+      "bytes": 907,
+      "sha256": "af9e5c8b946ac995eea51e4b27f202100717575a797d6008dc542f8326160087",
+      "mtime_ns": 1789020083093031353
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/config_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/config_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 1627,
+      "sha256": "3697b707acb0c2631ca1cdc7cc71ea41fb3b9843ccf078d5a1bf9a6e1e254724",
+      "mtime_ns": 1789020092298414466
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/console.log",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/console.log.gz",
+      "encoding": "gzip",
+      "bytes": 77480,
+      "sha256": "fba00137262ad9ca497d3f836d858e8c834bcc630e58b2542b7f40092bdddec4",
+      "mtime_ns": 1789020251601513325
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/git_head.txt",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/git_head.txt",
+      "encoding": "verbatim",
+      "bytes": 41,
+      "sha256": "0fedcc859ff41e55a610d616aa94cda3697f1ca3363713016fa7bc4454dc0395",
+      "mtime_ns": 1789020083101035487
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/launch_status.json",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/launch_status.json",
+      "encoding": "verbatim",
+      "bytes": 42,
+      "sha256": "fbb4adb13571272b8146632f5b681125a287e88f315b1be34fd32a3387e7e5b4",
+      "mtime_ns": 1789020251612307557
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/rank_0_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/rank_0_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3224,
+      "sha256": "72898f72791b71f01ddb627325d6eddcf288b9fe06f8492dd05851c3e5999c4a",
+      "mtime_ns": 1789020244648758252
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/rank_1_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/rank_1_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3225,
+      "sha256": "11a31187ce9592a3b9132789e8491389c775031870c879553e0b7bc911ae8cca",
+      "mtime_ns": 1789020244654350695
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/rank_2_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/rank_2_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3223,
+      "sha256": "9cb5bdb4b0a843a0f2906b1b698fc56a9a35f9b7487ec64ca67fa17910a66374",
+      "mtime_ns": 1789020244650263179
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/rank_3_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/rank_3_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3227,
+      "sha256": "e2e1a02f0ea109a0ef6bc811d9f860c0a9165b4134ede20d1f053b13b523a27f",
+      "mtime_ns": 1789020244652542023
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/result_yihou.json",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/result_yihou.json",
+      "encoding": "verbatim",
+      "bytes": 3726,
+      "sha256": "a78a506a9c9bdbcc88f6b740745d90209a39cedbf21d74794d32ec18d93e66fd",
+      "mtime_ns": 1789020244672839697
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/runtime.log",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/runtime.log.gz",
+      "encoding": "gzip",
+      "bytes": 77480,
+      "sha256": "fba00137262ad9ca497d3f836d858e8c834bcc630e58b2542b7f40092bdddec4",
+      "mtime_ns": 1789020251591766224
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/steps_rank_0_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/steps_rank_0_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 481135,
+      "sha256": "2cdbc4b4ca3ef442be340adf6bc5bcd1fdc794d97f3c9c83486788bcfd906746",
+      "mtime_ns": 1789020244659198060
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/steps_rank_1_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/steps_rank_1_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 481185,
+      "sha256": "12932dc003aeca2189be7e16feb8339d51f894ba83db151d73f6989396f49f0a",
+      "mtime_ns": 1789020244668236499
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/steps_rank_2_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/steps_rank_2_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 481087,
+      "sha256": "345ab31ff0890efe27f58ce521259db7bd80eee5b7e5d16b6cbed16c9c6eb27d",
+      "mtime_ns": 1789020244662082285
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/steps_rank_3_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/steps_rank_3_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 481137,
+      "sha256": "9a12a2a485733a1e61b6e8b69a78aca054353523f4ce16199744d60ac622678c",
+      "mtime_ns": 1789020244665355624
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/steps_yihou.jsonl",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/steps_yihou.jsonl",
+      "encoding": "verbatim",
+      "bytes": 481135,
+      "sha256": "2cdbc4b4ca3ef442be340adf6bc5bcd1fdc794d97f3c9c83486788bcfd906746",
+      "mtime_ns": 1789020244682627705
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/bench_snapshot/batch_state.py",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/bench_snapshot/batch_state.py",
+      "encoding": "verbatim",
+      "bytes": 5258,
+      "sha256": "879ad4a6f5ac08ca6aaae422d88fe4318b2329c9c8ba7f59dfbb00cb7e8962a3",
+      "mtime_ns": 1789014442567502603
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/bench_snapshot/profile_decode.py",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/bench_snapshot/profile_decode.py",
+      "encoding": "verbatim",
+      "bytes": 25300,
+      "sha256": "32b87c09203e5d654d557f24c60f463fd6be5f4c7439f8f71950f15a2a610db6",
+      "mtime_ns": 1789017674668322880
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c8_yihou/bench_snapshot/topology.py",
+      "destination": "evidence/iterations/full_dpa_on_c8_yihou/bench_snapshot/topology.py",
+      "encoding": "verbatim",
+      "bytes": 6799,
+      "sha256": "87c17b7dae533a68fe353a53ac86f78ad0d703bf499668d3b3a8066e51d8d0ca",
+      "mtime_ns": 1789017412088040364
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/bench_snapshot/batch_state.py",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/bench_snapshot/batch_state.py",
+      "encoding": "verbatim",
+      "bytes": 5258,
+      "sha256": "879ad4a6f5ac08ca6aaae422d88fe4318b2329c9c8ba7f59dfbb00cb7e8962a3",
+      "mtime_ns": 1789014442567502603
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/bench_snapshot/profile_decode.py",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/bench_snapshot/profile_decode.py",
+      "encoding": "verbatim",
+      "bytes": 25300,
+      "sha256": "32b87c09203e5d654d557f24c60f463fd6be5f4c7439f8f71950f15a2a610db6",
+      "mtime_ns": 1789017674668322880
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c4_yihou/bench_snapshot/topology.py",
+      "destination": "evidence/iterations/full_dpa_on_c4_yihou/bench_snapshot/topology.py",
+      "encoding": "verbatim",
+      "bytes": 6799,
+      "sha256": "87c17b7dae533a68fe353a53ac86f78ad0d703bf499668d3b3a8066e51d8d0ca",
+      "mtime_ns": 1789017412088040364
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/bench_snapshot/batch_state.py",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/bench_snapshot/batch_state.py",
+      "encoding": "verbatim",
+      "bytes": 5258,
+      "sha256": "879ad4a6f5ac08ca6aaae422d88fe4318b2329c9c8ba7f59dfbb00cb7e8962a3",
+      "mtime_ns": 1789014442567502603
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/bench_snapshot/profile_decode.py",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/bench_snapshot/profile_decode.py",
+      "encoding": "verbatim",
+      "bytes": 25300,
+      "sha256": "32b87c09203e5d654d557f24c60f463fd6be5f4c7439f8f71950f15a2a610db6",
+      "mtime_ns": 1789017674668322880
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c24_yihou/bench_snapshot/topology.py",
+      "destination": "evidence/iterations/full_dpa_on_c24_yihou/bench_snapshot/topology.py",
+      "encoding": "verbatim",
+      "bytes": 6799,
+      "sha256": "87c17b7dae533a68fe353a53ac86f78ad0d703bf499668d3b3a8066e51d8d0ca",
+      "mtime_ns": 1789017412088040364
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/bench_snapshot/batch_state.py",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/bench_snapshot/batch_state.py",
+      "encoding": "verbatim",
+      "bytes": 5258,
+      "sha256": "879ad4a6f5ac08ca6aaae422d88fe4318b2329c9c8ba7f59dfbb00cb7e8962a3",
+      "mtime_ns": 1789014442567502603
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/bench_snapshot/profile_decode.py",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/bench_snapshot/profile_decode.py",
+      "encoding": "verbatim",
+      "bytes": 25300,
+      "sha256": "32b87c09203e5d654d557f24c60f463fd6be5f4c7439f8f71950f15a2a610db6",
+      "mtime_ns": 1789017674668322880
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c20_yihou/bench_snapshot/topology.py",
+      "destination": "evidence/iterations/full_dpa_on_c20_yihou/bench_snapshot/topology.py",
+      "encoding": "verbatim",
+      "bytes": 6799,
+      "sha256": "87c17b7dae533a68fe353a53ac86f78ad0d703bf499668d3b3a8066e51d8d0ca",
+      "mtime_ns": 1789017412088040364
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/bench_snapshot/batch_state.py",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/bench_snapshot/batch_state.py",
+      "encoding": "verbatim",
+      "bytes": 5258,
+      "sha256": "879ad4a6f5ac08ca6aaae422d88fe4318b2329c9c8ba7f59dfbb00cb7e8962a3",
+      "mtime_ns": 1789014442567502603
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/bench_snapshot/profile_decode.py",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/bench_snapshot/profile_decode.py",
+      "encoding": "verbatim",
+      "bytes": 25300,
+      "sha256": "32b87c09203e5d654d557f24c60f463fd6be5f4c7439f8f71950f15a2a610db6",
+      "mtime_ns": 1789017674668322880
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_on_c16_yihou/bench_snapshot/topology.py",
+      "destination": "evidence/iterations/full_dpa_on_c16_yihou/bench_snapshot/topology.py",
+      "encoding": "verbatim",
+      "bytes": 6799,
+      "sha256": "87c17b7dae533a68fe353a53ac86f78ad0d703bf499668d3b3a8066e51d8d0ca",
+      "mtime_ns": 1789017412088040364
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/bench_snapshot/batch_state.py",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/bench_snapshot/batch_state.py",
+      "encoding": "verbatim",
+      "bytes": 5258,
+      "sha256": "879ad4a6f5ac08ca6aaae422d88fe4318b2329c9c8ba7f59dfbb00cb7e8962a3",
+      "mtime_ns": 1789014442567502603
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/bench_snapshot/profile_decode.py",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/bench_snapshot/profile_decode.py",
+      "encoding": "verbatim",
+      "bytes": 25300,
+      "sha256": "32b87c09203e5d654d557f24c60f463fd6be5f4c7439f8f71950f15a2a610db6",
+      "mtime_ns": 1789017674668322880
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c8_yihou/bench_snapshot/topology.py",
+      "destination": "evidence/iterations/full_dpa_off_c8_yihou/bench_snapshot/topology.py",
+      "encoding": "verbatim",
+      "bytes": 6799,
+      "sha256": "87c17b7dae533a68fe353a53ac86f78ad0d703bf499668d3b3a8066e51d8d0ca",
+      "mtime_ns": 1789017412088040364
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/bench_snapshot/batch_state.py",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/bench_snapshot/batch_state.py",
+      "encoding": "verbatim",
+      "bytes": 5258,
+      "sha256": "879ad4a6f5ac08ca6aaae422d88fe4318b2329c9c8ba7f59dfbb00cb7e8962a3",
+      "mtime_ns": 1789014442567502603
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/bench_snapshot/profile_decode.py",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/bench_snapshot/profile_decode.py",
+      "encoding": "verbatim",
+      "bytes": 25300,
+      "sha256": "32b87c09203e5d654d557f24c60f463fd6be5f4c7439f8f71950f15a2a610db6",
+      "mtime_ns": 1789017674668322880
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c4_yihou/bench_snapshot/topology.py",
+      "destination": "evidence/iterations/full_dpa_off_c4_yihou/bench_snapshot/topology.py",
+      "encoding": "verbatim",
+      "bytes": 6799,
+      "sha256": "87c17b7dae533a68fe353a53ac86f78ad0d703bf499668d3b3a8066e51d8d0ca",
+      "mtime_ns": 1789017412088040364
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/bench_snapshot/batch_state.py",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/bench_snapshot/batch_state.py",
+      "encoding": "verbatim",
+      "bytes": 5258,
+      "sha256": "879ad4a6f5ac08ca6aaae422d88fe4318b2329c9c8ba7f59dfbb00cb7e8962a3",
+      "mtime_ns": 1789014442567502603
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/bench_snapshot/profile_decode.py",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/bench_snapshot/profile_decode.py",
+      "encoding": "verbatim",
+      "bytes": 25300,
+      "sha256": "32b87c09203e5d654d557f24c60f463fd6be5f4c7439f8f71950f15a2a610db6",
+      "mtime_ns": 1789017674668322880
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c24_yihou/bench_snapshot/topology.py",
+      "destination": "evidence/iterations/full_dpa_off_c24_yihou/bench_snapshot/topology.py",
+      "encoding": "verbatim",
+      "bytes": 6799,
+      "sha256": "87c17b7dae533a68fe353a53ac86f78ad0d703bf499668d3b3a8066e51d8d0ca",
+      "mtime_ns": 1789017412088040364
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/bench_snapshot/batch_state.py",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/bench_snapshot/batch_state.py",
+      "encoding": "verbatim",
+      "bytes": 5258,
+      "sha256": "879ad4a6f5ac08ca6aaae422d88fe4318b2329c9c8ba7f59dfbb00cb7e8962a3",
+      "mtime_ns": 1789014442567502603
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/bench_snapshot/profile_decode.py",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/bench_snapshot/profile_decode.py",
+      "encoding": "verbatim",
+      "bytes": 25300,
+      "sha256": "32b87c09203e5d654d557f24c60f463fd6be5f4c7439f8f71950f15a2a610db6",
+      "mtime_ns": 1789017674668322880
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c20_yihou/bench_snapshot/topology.py",
+      "destination": "evidence/iterations/full_dpa_off_c20_yihou/bench_snapshot/topology.py",
+      "encoding": "verbatim",
+      "bytes": 6799,
+      "sha256": "87c17b7dae533a68fe353a53ac86f78ad0d703bf499668d3b3a8066e51d8d0ca",
+      "mtime_ns": 1789017412088040364
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/bench_snapshot/batch_state.py",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/bench_snapshot/batch_state.py",
+      "encoding": "verbatim",
+      "bytes": 5258,
+      "sha256": "879ad4a6f5ac08ca6aaae422d88fe4318b2329c9c8ba7f59dfbb00cb7e8962a3",
+      "mtime_ns": 1789014442567502603
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/bench_snapshot/profile_decode.py",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/bench_snapshot/profile_decode.py",
+      "encoding": "verbatim",
+      "bytes": 25300,
+      "sha256": "32b87c09203e5d654d557f24c60f463fd6be5f4c7439f8f71950f15a2a610db6",
+      "mtime_ns": 1789017674668322880
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/full_dpa_off_c16_yihou/bench_snapshot/topology.py",
+      "destination": "evidence/iterations/full_dpa_off_c16_yihou/bench_snapshot/topology.py",
+      "encoding": "verbatim",
+      "bytes": 6799,
+      "sha256": "87c17b7dae533a68fe353a53ac86f78ad0d703bf499668d3b3a8066e51d8d0ca",
+      "mtime_ns": 1789017412088040364
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/bench_snapshot/batch_state.py",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/bench_snapshot/batch_state.py",
+      "encoding": "verbatim",
+      "bytes": 5258,
+      "sha256": "879ad4a6f5ac08ca6aaae422d88fe4318b2329c9c8ba7f59dfbb00cb7e8962a3",
+      "mtime_ns": 1789014442567502603
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/bench_snapshot/profile_decode.py",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/bench_snapshot/profile_decode.py",
+      "encoding": "verbatim",
+      "bytes": 25300,
+      "sha256": "32b87c09203e5d654d557f24c60f463fd6be5f4c7439f8f71950f15a2a610db6",
+      "mtime_ns": 1789017674668322880
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/002_ep4_on_smoke_yihou/bench_snapshot/topology.py",
+      "destination": "evidence/iterations/002_ep4_on_smoke_yihou/bench_snapshot/topology.py",
+      "encoding": "verbatim",
+      "bytes": 6799,
+      "sha256": "87c17b7dae533a68fe353a53ac86f78ad0d703bf499668d3b3a8066e51d8d0ca",
+      "mtime_ns": 1789017412088040364
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/bench_snapshot/batch_state.py",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/bench_snapshot/batch_state.py",
+      "encoding": "verbatim",
+      "bytes": 5258,
+      "sha256": "879ad4a6f5ac08ca6aaae422d88fe4318b2329c9c8ba7f59dfbb00cb7e8962a3",
+      "mtime_ns": 1789014442567502603
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/bench_snapshot/profile_decode.py",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/bench_snapshot/profile_decode.py",
+      "encoding": "verbatim",
+      "bytes": 25300,
+      "sha256": "32b87c09203e5d654d557f24c60f463fd6be5f4c7439f8f71950f15a2a610db6",
+      "mtime_ns": 1789017674668322880
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/sweeps/tp4_ep4_dpa_yihou_20260910-0452/iterations/001_ep4_off_smoke_yihou/bench_snapshot/topology.py",
+      "destination": "evidence/iterations/001_ep4_off_smoke_yihou/bench_snapshot/topology.py",
+      "encoding": "verbatim",
+      "bytes": 6799,
+      "sha256": "87c17b7dae533a68fe353a53ac86f78ad0d703bf499668d3b3a8066e51d8d0ca",
+      "mtime_ns": 1789017412088040364
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/CLAUDE.md",
+      "destination": "history/CLAUDE.md",
+      "encoding": "verbatim",
+      "bytes": 2652,
+      "sha256": "35d18356823499689311a6067a02b3c0fa78ea44270f1d6b234ac66130170253",
+      "mtime_ns": 1789016043761433981
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/README.md",
+      "destination": "history/README.md",
+      "encoding": "verbatim",
+      "bytes": 4465,
+      "sha256": "e40372a3a91d64d148aec7a03c61f0ce2124885b2de64a0ee3e7ed8f1d15808a",
+      "mtime_ns": 1789021252994491281
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/CLAUDE.glm52-internal-decode.20260910-0452.md.bak",
+      "destination": "history/CLAUDE.glm52-internal-decode.20260910-0452.md.bak",
+      "encoding": "verbatim",
+      "bytes": 2579,
+      "sha256": "86323b14cd07f20abf829bc868854498b68afb704c9dade2473d034ab52623b2",
+      "mtime_ns": 1789015991105774137
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/CLAUDE.md",
+      "destination": "CLAUDE.tp4-ep4-dpa-sweep.20260910-0624.md.bak",
+      "encoding": "verbatim",
+      "bytes": 2652,
+      "sha256": "35d18356823499689311a6067a02b3c0fa78ea44270f1d6b234ac66130170253",
+      "mtime_ns": 1789016043761433981
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/iterations/000_research/packup-scripts__repo__Dockerfile",
+      "destination": "references/optimization_stack/packup-scripts__repo__Dockerfile",
+      "encoding": "verbatim",
+      "bytes": 1440,
+      "sha256": "0754d740caa95230993720133815ef4eef44fcb852e2913b80a71052221a06fe",
+      "mtime_ns": 1789014442376872185
+    },
+    {
+      "source": "/home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/iterations/000_research/packup-environment.md",
+      "destination": "references/optimization_stack/packup-environment.md",
+      "encoding": "verbatim",
+      "bytes": 7421,
+      "sha256": "8fe8d57eb4d1102bd156fba6d71ed6b852dd17f183ac051054fb9b563252c8a7",
+      "mtime_ns": 1789014442400892772
+    }
+  ]
+}

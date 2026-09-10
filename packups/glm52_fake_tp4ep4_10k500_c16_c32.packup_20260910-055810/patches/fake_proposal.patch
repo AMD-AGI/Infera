@@ -1,0 +1,32 @@
+--- a/python/sglang/srt/speculative/eagle_disaggregation.py
++++ b/python/sglang/srt/speculative/eagle_disaggregation.py
+@@ -9,7 +9,7 @@
+ )
+ from sglang.srt.managers.overlap_utils import RelayPayload
+ from sglang.srt.model_executor.forward_batch_info import CaptureHiddenMode
+-from sglang.srt.runtime_context import get_spec
++from sglang.srt.runtime_context import get_disagg, get_spec
+ from sglang.srt.speculative.eagle_info import EagleDraftInput
+ 
+ if TYPE_CHECKING:
+@@ -94,6 +94,20 @@
+         bonus_tokens=last_tokens_tensor,
+         dsa_topk_indices=dsa_topk_indices,
+     )
++    # Fake transfer has no prefill proposal distribution. Seed a valid point
++    # mass on its supplied dummy draft token, only for synthetic benchmarks.
++    # Keep real transfers unchanged: their proposal must come from real prefill.
++    if (
++        get_disagg().disaggregation_transfer_backend == "fake"
++        and spec.speculative_use_rejection_sampling
++    ):
++        spec_info.draft_probs = torch.zeros(
++            (len(batch.reqs), batch.model_config.vocab_size),
++            dtype=torch.float32,
++            device=batch.device,
++        )
++        spec_info.draft_probs.scatter_(1, topk_index[:, :1], 1.0)
++        spec_info.topk_p = torch.ones_like(topk_p)
+     spec_info.capture_hidden_mode = CaptureHiddenMode.LAST
+ 
+     if batch.enable_overlap:

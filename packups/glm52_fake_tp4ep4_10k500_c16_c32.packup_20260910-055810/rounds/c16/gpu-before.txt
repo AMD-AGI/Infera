@@ -1,0 +1,40 @@
+WARNING: AMD GPU device(s) is/are in a low-power state. Check power control/runtime_status
+
+
+
+============================ ROCm System Management Interface ============================
+=================================== Current Memory Use ===================================
+GPU[0]		: GPU Memory Allocated (VRAM%): 0
+GPU[0]		: GPU Memory Read/Write Activity (%): 0
+GPU[0]		: Memory Activity: 1462839471
+GPU[0]		: Avg. Memory Bandwidth: 0
+GPU[1]		: GPU Memory Allocated (VRAM%): 0
+GPU[1]		: GPU Memory Read/Write Activity (%): 0
+GPU[1]		: Memory Activity: 1286898161
+GPU[1]		: Avg. Memory Bandwidth: 0
+GPU[2]		: GPU Memory Allocated (VRAM%): 0
+GPU[2]		: GPU Memory Read/Write Activity (%): 0
+GPU[2]		: Memory Activity: 1044020872
+GPU[2]		: Avg. Memory Bandwidth: 0
+GPU[3]		: GPU Memory Allocated (VRAM%): 0
+GPU[3]		: GPU Memory Read/Write Activity (%): 0
+GPU[3]		: Memory Activity: 1195942190
+GPU[3]		: Avg. Memory Bandwidth: 0
+GPU[4]		: GPU Memory Allocated (VRAM%): 0
+GPU[4]		: GPU Memory Read/Write Activity (%): 0
+GPU[4]		: Memory Activity: 2583053492
+GPU[4]		: Avg. Memory Bandwidth: 0
+GPU[5]		: GPU Memory Allocated (VRAM%): 0
+GPU[5]		: GPU Memory Read/Write Activity (%): 0
+GPU[5]		: Memory Activity: 2238114350
+GPU[5]		: Avg. Memory Bandwidth: 0
+GPU[6]		: GPU Memory Allocated (VRAM%): 0
+GPU[6]		: GPU Memory Read/Write Activity (%): 0
+GPU[6]		: Memory Activity: 2179281055
+GPU[6]		: Avg. Memory Bandwidth: 0
+GPU[7]		: GPU Memory Allocated (VRAM%): 0
+GPU[7]		: GPU Memory Read/Write Activity (%): 0
+GPU[7]		: Memory Activity: 1286616762
+GPU[7]		: Avg. Memory Bandwidth: 0
+==========================================================================================
+================================== End of ROCm SMI Log ===================================
