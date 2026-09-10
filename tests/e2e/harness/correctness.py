@@ -139,9 +139,24 @@ def build_longctx_prompt() -> str:
     )
 
 
+# Coherent replies measure 0.60-0.76 alpha, digit salad 0.00-0.28; 0.20 clears both.
+_DEGENERATE_MIN_CHARS = 24
+_DEGENERATE_MAX_ALPHA = 0.20
+
+
+def looks_degenerate(text: str) -> bool:
+    """Digit salad: pure ASCII, so :func:`looks_garbage` misses it. Long-context only."""
+    t = text.strip()
+    if len(t) < _DEGENERATE_MIN_CHARS:
+        return False
+    return sum(1 for ch in t if ch.isalpha()) / len(t) < _DEGENERATE_MAX_ALPHA
+
+
 def is_longctx_correct(text: str) -> bool:
-    """Correct = NOT garbage AND the reply carries the buried access code."""
+    """Correct = NOT garbage, NOT degenerate, and the code stands alone (not "47312")."""
     if not text:
         return False
     t = text.strip()
-    return bool(t) and not looks_garbage(t) and LONGCTX_ANSWER in t
+    if looks_garbage(t) or looks_degenerate(t):
+        return False
+    return re.search(rf"(?<!\d){re.escape(LONGCTX_ANSWER)}(?!\d)", t) is not None
