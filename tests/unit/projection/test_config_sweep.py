@@ -27,11 +27,13 @@ def _pt(**kw):
 
 
 def test_ranking_puts_the_best_config_first():
-    res = SweepResult(points=[
-        _pt(tp=1, decode_tps_per_gpu=100.0),
-        _pt(tp=8, decode_tps_per_gpu=900.0),
-        _pt(tp=4, decode_tps_per_gpu=400.0),
-    ])
+    res = SweepResult(
+        points=[
+            _pt(tp=1, decode_tps_per_gpu=100.0),
+            _pt(tp=8, decode_tps_per_gpu=900.0),
+            _pt(tp=4, decode_tps_per_gpu=400.0),
+        ]
+    )
     assert [p.tp for p in res.ranked()] == [8, 4, 1]
     assert res.shortlist(2)[0].tp == 8
     # Latency is a minimise objective, so the flag has to work both ways.
@@ -41,10 +43,12 @@ def test_ranking_puts_the_best_config_first():
 
 def test_infeasible_points_are_kept_but_never_recommended():
     """A search needs "does not fit" and "was not tried" to be different answers."""
-    res = SweepResult(points=[
-        _pt(tp=1, decode_tps_per_gpu=999.0, feasible=False, reason="needs 900 GB/GPU"),
-        _pt(tp=8, decode_tps_per_gpu=100.0),
-    ])
+    res = SweepResult(
+        points=[
+            _pt(tp=1, decode_tps_per_gpu=999.0, feasible=False, reason="needs 900 GB/GPU"),
+            _pt(tp=8, decode_tps_per_gpu=100.0),
+        ]
+    )
     assert len(res.points) == 2, "infeasible points must survive for auditing"
     assert [p.tp for p in res.feasible] == [8]
     assert [p.tp for p in res.shortlist(5)] == [8], (
@@ -56,7 +60,10 @@ def test_a_failing_config_does_not_abort_the_sweep():
     """One bad point must cost one point, not the whole sweep."""
     res = sweep(
         "gpt_oss_120B",
-        tp=(1,), ep=(1,), pp=(1,), concurrency=(8,),
+        tp=(1,),
+        ep=(1,),
+        pp=(1,),
+        concurrency=(8,),
         workload="/nonexistent/workload.yaml",
     )
     assert res.n_projected == 1
@@ -73,7 +80,10 @@ def test_valid_filter_skips_combinations_before_projecting_them():
 
     res = sweep(
         "gpt_oss_120B",
-        tp=(1, 2), ep=(1, 2), pp=(1,), concurrency=(8,),
+        tp=(1, 2),
+        ep=(1, 2),
+        pp=(1,),
+        concurrency=(8,),
         valid=valid,
     )
     assert res.n_projected == 0, "filtered combinations must not be projected"

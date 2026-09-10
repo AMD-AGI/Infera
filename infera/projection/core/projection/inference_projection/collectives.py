@@ -40,8 +40,8 @@ from infera.projection.core.projection.training_config import (
 _PROTOCOLS = ("simple", "ll", "ll64", "ll128")
 
 # Representative extra TP-AllReduce speedups for custom collective ops.
-_QUICK_REDUCE_SPEEDUP = 0.6        # ROCm low-latency quantized AR (small msgs).
-_FUSED_RMSNORM_AR_SPEEDUP = 0.8    # RMSNorm+AR fusion hides part of the AR.
+_QUICK_REDUCE_SPEEDUP = 0.6  # ROCm low-latency quantized AR (small msgs).
+_FUSED_RMSNORM_AR_SPEEDUP = 0.8  # RMSNorm+AR fusion hides part of the AR.
 
 # Intra-node serving collective latency floor.
 #
@@ -85,9 +85,7 @@ _INFER_AR_MEASURED_GBPS = {2: (7.81, 65.9), 4: (10.06, 120.7), 8: (11.40, 117.6)
 # 250x larger and nowhere near the sizes the fit was measured over. Applying the
 # small-message bandwidth there charged 232 ms of all-reduce to a prefill that
 # measured 177 ms in total, i.e. more communication than the whole step.
-_VLLM_CUSTOM_AR_MAX_BYTES = float(
-    os.getenv("INFERASIM_CUSTOM_AR_MAX_MB", "8") or 8
-) * 1024 * 1024
+_VLLM_CUSTOM_AR_MAX_BYTES = float(os.getenv("INFERASIM_CUSTOM_AR_MAX_MB", "8") or 8) * 1024 * 1024
 
 # Intra-node expert-parallel all-to-all, measured the same way and fitted to
 # the same ``t_us = floor_us + bytes / bw`` shape, at r^2 >= 0.996. Maps world
@@ -115,9 +113,9 @@ _INFER_A2A_MEASURED_GBPS = {2: (26.59, 57.2), 4: (22.52, 148.3), 8: (18.6, 290.3
 # that measures far less. The all-reduce already guards its own fit for the same
 # reason (see ``_VLLM_CUSTOM_AR_MAX_BYTES``); above this size the analytical
 # bandwidth model describes the transfer better than the small-message fit.
-_INFER_A2A_MEASURED_MAX_BYTES = float(
-    os.getenv("INFERASIM_A2A_MEASURED_MAX_MB", "32") or 32
-) * 1024 * 1024
+_INFER_A2A_MEASURED_MAX_BYTES = (
+    float(os.getenv("INFERASIM_A2A_MEASURED_MAX_MB", "32") or 32) * 1024 * 1024
+)
 
 
 def _measured_intra_node_a2a_us(msg_bytes: float, gpus: int) -> float | None:
@@ -229,7 +227,7 @@ def _allreduce_overhead_us(args, msg_size, gpus) -> float:
         ratio = min(1.0, per_nic_bytes / warmup) if warmup > 0 else 1.0
         if ratio < 1.0:
             setup_us = getattr(args, "nic_rdma_setup_us", 0.0) * node_steps
-            overhead += setup_us * (1.0 - ratio ** 2.5)
+            overhead += setup_us * (1.0 - ratio**2.5)
     return overhead
 
 
@@ -240,7 +238,9 @@ def _alltoall_overhead_us(args, gpus) -> float:
     inter_node_peers = max(0, gpus - gpus_per_node)
     intra_sync = getattr(args, "a2a_intra_sync_overhead", 50.0)
     intra_per_peer = getattr(args, "a2a_intra_node_peer_lat", 2.5)
-    intra_overhead = (intra_sync + intra_per_peer * intra_node_peers) if intra_node_peers > 0 else 0.0
+    intra_overhead = (
+        (intra_sync + intra_per_peer * intra_node_peers) if intra_node_peers > 0 else 0.0
+    )
     inter_per_peer = getattr(args, "a2a_peer_lat", 0.45)
     inter_overhead = inter_per_peer * inter_node_peers
     return intra_overhead + inter_overhead + getattr(args, "a2a_rccl_overhead_us", 0.0)
@@ -351,13 +351,17 @@ class InferenceCollectiveModel:
             if algo == "ring":
                 raw = _min_over_protocols(cm.RingAllreduce, self._args, msg, self.tp, ["tp"])
             elif algo == "one_shot":
-                raw = _min_over_protocols(cm.single_shot_allreduce, self._args, msg, self.tp, ["tp"])
+                raw = _min_over_protocols(
+                    cm.single_shot_allreduce, self._args, msg, self.tp, ["tp"]
+                )
             elif algo == "two_shot":
                 rs = _min_over_protocols(cm.run_reduce_scatter, self._args, msg, self.tp, ["tp"])
                 ag = _min_over_protocols(cm.run_allgather, self._args, msg, self.tp, ["tp"])
                 raw = rs + ag
             elif algo == "hierarchical":
-                raw = _min_over_protocols(cm.hierarchical_allreduce, self._args, msg, self.tp, ["tp"])
+                raw = _min_over_protocols(
+                    cm.hierarchical_allreduce, self._args, msg, self.tp, ["tp"]
+                )
             else:
                 raw = _min_over_protocols(cm.RingAllreduce, self._args, msg, self.tp, ["tp"])
             # Forced algorithms must carry the same fixed overhead as ``auto``.
@@ -390,9 +394,13 @@ class InferenceCollectiveModel:
             if algo == "direct":
                 raw = _min_over_protocols(cm.run_alltoall, self._a2a_args, msg, self.ep, ["ep"])
             elif algo == "single_shot":
-                raw = _min_over_protocols(cm.single_shot_alltoall, self._a2a_args, msg, self.ep, ["ep"])
+                raw = _min_over_protocols(
+                    cm.single_shot_alltoall, self._a2a_args, msg, self.ep, ["ep"]
+                )
             elif algo == "hierarchical":
-                raw = _min_over_protocols(cm.hierarchical_alltoall, self._a2a_args, msg, self.ep, ["ep"])
+                raw = _min_over_protocols(
+                    cm.hierarchical_alltoall, self._a2a_args, msg, self.ep, ["ep"]
+                )
             else:
                 raw = _min_over_protocols(cm.run_alltoall, self._a2a_args, msg, self.ep, ["ep"])
             # Forced algorithms must carry the same fixed overhead as ``auto``.
@@ -403,10 +411,7 @@ class InferenceCollectiveModel:
         # dispatch + combine, scaled by the custom-op efficiency and reduced by
         # the DeepEP/SyncFree compute-overlap fraction (exposed A2A only).
         return (
-            2.0
-            * (one / 1000.0)
-            * float(self.cc.ep_a2a_efficiency)
-            * (1.0 - self._deepep_overlap)
+            2.0 * (one / 1000.0) * float(self.cc.ep_a2a_efficiency) * (1.0 - self._deepep_overlap)
         )
 
     def _floor_small_msg_overhead(self, us: float, msg: int, gpus: int, *, is_a2a: bool) -> float:
@@ -491,7 +496,9 @@ class InferenceCollectiveModel:
 
     # -- KV-cache transfer (disaggregation) ------------------------------------
 
-    def kv_transfer_ms(self, kv_bytes: float, *, bw_gbps: float | None = None, latency_us: float = 0.0) -> float:
+    def kv_transfer_ms(
+        self, kv_bytes: float, *, bw_gbps: float | None = None, latency_us: float = 0.0
+    ) -> float:
         """Time to move ``kv_bytes`` of KV cache prefill→decode worker.
 
         Uses the inter-node (pod) bandwidth from the collective args unless an
@@ -502,7 +509,7 @@ class InferenceCollectiveModel:
             return 0.0
         bw = bw_gbps if (bw_gbps and bw_gbps > 0) else self._args.pod_bw
         bw = max(bw, 1e-6)
-        gb = kv_bytes / (1024.0 ** 3)
+        gb = kv_bytes / (1024.0**3)
         return (gb / bw) * 1000.0 + latency_us / 1000.0
 
     # -- combined per-layer ----------------------------------------------------

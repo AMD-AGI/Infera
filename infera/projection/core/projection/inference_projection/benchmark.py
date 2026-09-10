@@ -25,9 +25,7 @@ import tempfile
 
 def _resolve_bench_model(args) -> str:
     """Which checkpoint to serve while measuring."""
-    model = getattr(args, "bench_model", None) or os.environ.get(
-        "INFERASIM_BENCH_MODEL"
-    )
+    model = getattr(args, "bench_model", None) or os.environ.get("INFERASIM_BENCH_MODEL")
     if model:
         return model
     # INFERASIM_MODEL carries a preset spelling ("gpt_oss_120B") for matching
@@ -59,34 +57,43 @@ def spawn_inference_benchmark(args, inference_config):
     ep = max(1, int(getattr(mp, "expert_model_parallel_size", 1) or 1))
 
     argv = [
-        "--model", _resolve_bench_model(args),
-        "--save", str(save),
-        "--tp", str(max(tp, ep)),
-        "--pp", str(int(getattr(mp, "pipeline_model_parallel_size", 1) or 1)),
-        "--input-len", str(int(req.input_seq_len)),
-        "--output-len", str(int(req.output_seq_len)),
+        "--model",
+        _resolve_bench_model(args),
+        "--save",
+        str(save),
+        "--tp",
+        str(max(tp, ep)),
+        "--pp",
+        str(int(getattr(mp, "pipeline_model_parallel_size", 1) or 1)),
+        "--input-len",
+        str(int(req.input_seq_len)),
+        "--output-len",
+        str(int(req.output_seq_len)),
         # --concurrency, not --batch: it sweeps the engine's own CUDA-graph
         # capture ladder up to this batch and characterises decode against
         # context in the same engine build. A single batch point would leave the
         # projector holding one measurement flat across both axes, which is
         # wrong for anything asking off the measured point -- a load sweep, the
         # tuning agent, or a longer context.
-        "--concurrency", str(int(req.max_concurrency or req.batch_size or 1)),
+        "--concurrency",
+        str(int(req.max_concurrency or req.batch_size or 1)),
     ]
     # Which engine measures. The harness launches all three through the same
     # adapters the platform serves with, so this decides whose kernels the
     # anchor describes -- and it is what makes an architecture measurable at
     # all when the default engine's build cannot load it.
-    backend = (getattr(args, "bench_serving_backend", None)
-               or os.environ.get("INFERASIM_BENCH_SERVING_BACKEND"))
+    backend = getattr(args, "bench_serving_backend", None) or os.environ.get(
+        "INFERASIM_BENCH_SERVING_BACKEND"
+    )
     if backend:
         argv += ["--serving-backend", str(backend)]
     # Flags the checkpoint needs before it will load at all -- a remote-code
     # architecture, a non-default attention backend. Without a way through,
     # such a model is unmeasurable for a reason that has nothing to do with
     # its performance.
-    server_args = (getattr(args, "bench_server_args", None)
-                   or os.environ.get("INFERASIM_BENCH_SERVER_ARGS"))
+    server_args = getattr(args, "bench_server_args", None) or os.environ.get(
+        "INFERASIM_BENCH_SERVER_ARGS"
+    )
     if server_args:
         # "=" form: the value is itself a flag string, which argparse would
         # otherwise read as the next option rather than as this one's argument.

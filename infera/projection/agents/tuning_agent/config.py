@@ -190,7 +190,9 @@ def _from_env(key: str, default: Any = None) -> Any:
     return val if val not in (None, "") else default
 
 
-def load_config(target_cluster_yaml: Path, workload_yaml: Path, out_dir: Path | None = None) -> AgentConfig:
+def load_config(
+    target_cluster_yaml: Path, workload_yaml: Path, out_dir: Path | None = None
+) -> AgentConfig:
     """Build the agent config from a target-cluster YAML and the env."""
     load_env()
 
@@ -248,9 +250,7 @@ def load_config(target_cluster_yaml: Path, workload_yaml: Path, out_dir: Path | 
         model=str(llm_raw.get("model") or _from_env("LLM_MODEL", DEFAULT_MODEL)),
         timeout=int(llm_raw.get("timeout", 300)),
         max_tokens=int(llm_raw.get("max_tokens", 16000)),
-        extra_headers={
-            str(k): str(v) for k, v in (llm_raw.get("extra_headers") or {}).items()
-        },
+        extra_headers={str(k): str(v) for k, v in (llm_raw.get("extra_headers") or {}).items()},
     )
 
     return AgentConfig(
@@ -260,5 +260,7 @@ def load_config(target_cluster_yaml: Path, workload_yaml: Path, out_dir: Path | 
         llm=llm,
         out_dir=Path(out_dir) if out_dir else Path("./tuning_runs") / target_cluster.name,
         workload_yaml=Path(workload_yaml).resolve(),
-        extra_prompt="\n".join(agent_raw.get("prompt_extras") or []) if isinstance(agent_raw, dict) else "",
+        extra_prompt="\n".join(agent_raw.get("prompt_extras") or [])
+        if isinstance(agent_raw, dict)
+        else "",
     )

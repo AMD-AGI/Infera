@@ -4,17 +4,21 @@
 # See LICENSE for license information.
 ###############################################################################
 
-from typing import Optional
 
 from infera.projection.core.projection.base_module_profiler import BaseModuleProfiler
-
 
 # Bytes per element the KV cache is stored at. The cache dtype is set
 # independently of the compute dtype (fp8 KV with bf16 activations is common),
 # and at decode the cache read is the dominant attention cost.
 _KV_CACHE_BYTES = {
-    "fp8": 1.0, "fp8_e4m3": 1.0, "fp8_e5m2": 1.0, "int8": 1.0,
-    "bf16": 2.0, "fp16": 2.0, "auto": 2.0, "": 2.0,
+    "fp8": 1.0,
+    "fp8_e4m3": 1.0,
+    "fp8_e5m2": 1.0,
+    "int8": 1.0,
+    "bf16": 2.0,
+    "fp16": 2.0,
+    "auto": 2.0,
+    "": 2.0,
     "fp32": 4.0,
 }
 
@@ -68,7 +72,7 @@ class AttentionProfiler(BaseModuleProfiler):
         self._cached_results = None
         self._cache_key = None
 
-    def estimated_num_params(self, rank: Optional[int] = None) -> int:
+    def estimated_num_params(self, rank: int | None = None) -> int:
         args = self.config.model_config
         # Group-query & multi-latent attention support.
         # If GQA not enabled, fall back to per-head queries.
@@ -99,7 +103,11 @@ class AttentionProfiler(BaseModuleProfiler):
                 q_term
                 # kv lora + rope + kv norm
                 + args.kv_lora_rank
-                * (args.hidden_size + args.num_attention_heads * (args.qk_head_dim + args.v_head_dim) + 1)
+                * (
+                    args.hidden_size
+                    + args.num_attention_heads * (args.qk_head_dim + args.v_head_dim)
+                    + 1
+                )
                 # pos emb
                 + args.hidden_size * args.qk_pos_emb_head_dim
                 # out proj
@@ -277,9 +285,8 @@ class AttentionProfiler(BaseModuleProfiler):
         if self._gemm_backend is not None:
             # The checkpoint's own weight precision where it is known, so an
             # fp4 model streams fp4 projection weights rather than fp8 ones.
-            gemm_dtype = (
-                getattr(args, "linear_weight_dtype", None)
-                or ("fp8" if getattr(args, "fp8", None) else "bf16")
+            gemm_dtype = getattr(args, "linear_weight_dtype", None) or (
+                "fp8" if getattr(args, "fp8", None) else "bf16"
             )
 
             if getattr(args, "multi_latent_attention", False):
@@ -338,12 +345,12 @@ class AttentionProfiler(BaseModuleProfiler):
                     str(getattr(args, "kv_cache_dtype", "") or "").lower(), 2.0
                 )
                 if getattr(args, "multi_latent_attention", False):
-                    kv_bytes_per_token = (
-                        args.kv_lora_rank + args.qk_pos_emb_head_dim
-                    ) * kv_bpe
+                    kv_bytes_per_token = (args.kv_lora_rank + args.qk_pos_emb_head_dim) * kv_bpe
                 else:
                     kv_bytes_per_token = (
-                        kv_heads_per_rank * (sdpa_head_dim + (sdpa_head_dim_v or sdpa_head_dim)) * kv_bpe
+                        kv_heads_per_rank
+                        * (sdpa_head_dim + (sdpa_head_dim_v or sdpa_head_dim))
+                        * kv_bpe
                     )
                 # Prefill keeps causal masking; decode (single query) attends
                 # to the whole cache so masking is irrelevant.
@@ -395,12 +402,12 @@ class AttentionProfiler(BaseModuleProfiler):
                 # Effective sequence length per rank if CP is used
                 slen_per_cp = seq_len // cp_size
 
-
                 # Imported here, not at module scope: this pulls in torch, which costs
                 # ~0.66 s and is only needed to benchmark on a real GPU. A simulate-only
                 # projection should not pay for it -- Hyperloom spawns one process per
                 # config, where that import dwarfed the ~28 ms the projection takes.
                 from .utils import benchmark_layer
+
                 self._cached_results = benchmark_layer(
                     self.module,
                     [

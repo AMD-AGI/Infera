@@ -5,10 +5,10 @@
 ###############################################################################
 
 import copy
-from typing import Any, Dict
+from typing import Any
 
 
-def deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     """
     Recursively merge two dictionaries.
 
@@ -39,7 +39,7 @@ def deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]
     return result
 
 
-def shallow_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+def shallow_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     """
     Shallow merge:
       - Only top-level keys

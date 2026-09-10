@@ -13,7 +13,6 @@ third-party libraries and frameworks.
 
 import os
 from pathlib import Path
-from typing import Optional
 
 
 def _ensure_directory(path: str) -> None:
@@ -135,7 +134,7 @@ def set_env_var(
     value: str,
     force: bool = False,
     verbose: bool = True,
-) -> Optional[str]:
+) -> str | None:
     """
     Set an environment variable with optional override.
 

@@ -48,7 +48,9 @@ def get_model_provider(model_type="gpt"):
     # Try to import model_provider
     if model_type == "mamba":
         model_provider = lazy_import(
-            ["model_provider", "pretrain_mamba"], "model_provider", log_prefix="[inferasim][MegatronCompat]"
+            ["model_provider", "pretrain_mamba"],
+            "model_provider",
+            log_prefix="[inferasim][MegatronCompat]",
         )
         # Try to import mamba_builder (for Mamba models)
         try:
@@ -61,12 +63,16 @@ def get_model_provider(model_type="gpt"):
     else:
         # Default GPT behavior
         model_provider = lazy_import(
-            ["model_provider", "pretrain_gpt"], "model_provider", log_prefix="[inferasim][MegatronCompat]"
+            ["model_provider", "pretrain_gpt"],
+            "model_provider",
+            log_prefix="[inferasim][MegatronCompat]",
         )
 
         # Try to import gpt_builder (only exists in newer versions)
         try:
-            gpt_builder = lazy_import(["gpt_builders"], "gpt_builder", log_prefix="[inferasim][MegatronCompat]")
+            gpt_builder = lazy_import(
+                ["gpt_builders"], "gpt_builder", log_prefix="[inferasim][MegatronCompat]"
+            )
             return partial(model_provider, gpt_builder)
         except ImportError:
             return model_provider

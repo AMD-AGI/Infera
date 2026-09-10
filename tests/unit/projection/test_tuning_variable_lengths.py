@@ -62,9 +62,7 @@ def test_a_nonsensical_spread_is_rejected_rather_than_clamped():
     """0 means zero-length prompts and >1 means longer than the configured ISL."""
     leg = derive_inference_legality(_Arch(), _Cluster())
     for bad in (0.0, -0.5, 1.5):
-        ok, why = validate_inference(
-            _cfg(des_range_ratio=bad), _Arch(), _Cluster(), leg
-        )
+        ok, why = validate_inference(_cfg(des_range_ratio=bad), _Arch(), _Cluster(), leg)
         assert not ok and "des_range_ratio" in why, bad
 
 

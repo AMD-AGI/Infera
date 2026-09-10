@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, replace
-from typing import Optional
 
 from infera.projection.core.projection.module_profilers.language_model import (
     build_profiler,
@@ -46,12 +45,12 @@ class InferenceMemoryResult:
     total_bytes: int
     kv: KVCacheBreakdown
     layers_on_rank: int
-    hbm_capacity_bytes: Optional[int] = None
-    max_concurrent_sequences: Optional[int] = None
-    fits: Optional[bool] = None
+    hbm_capacity_bytes: int | None = None
+    max_concurrent_sequences: int | None = None
+    fits: bool | None = None
 
 
-_GB = 1024.0 ** 3
+_GB = 1024.0**3
 
 
 def _layers_on_rank(inference_config: InferenceConfig) -> int:
@@ -95,8 +94,8 @@ def _forward_activation_bytes(inference_config: InferenceConfig, profiler) -> in
 def project_inference_memory(
     inference_config: InferenceConfig,
     *,
-    rank: Optional[int] = None,
-    hbm_capacity_gb: Optional[float] = None,
+    rank: int | None = None,
+    hbm_capacity_gb: float | None = None,
     verbose: bool = True,
 ) -> InferenceMemoryResult:
     eff_rank = int(os.getenv("RANK", "0")) if rank is None else int(rank)
@@ -121,9 +120,7 @@ def project_inference_memory(
         local = max(1, int(inference_config.request_config.resolved_max_concurrency()) // reps)
         inference_config = replace(
             inference_config,
-            model_parallel_config=disagg.decode_parallel(
-                inference_config.model_parallel_config
-            ),
+            model_parallel_config=disagg.decode_parallel(inference_config.model_parallel_config),
             request_config=replace(
                 inference_config.request_config,
                 batch_size=local,
@@ -142,9 +139,7 @@ def project_inference_memory(
     # weight class -- experts by expert assignment, everything else by tensor
     # sharding. Counting the expert split here as well would shard experts
     # twice and report a fraction of the weights a rank really loads.
-    view.model_parallel_config = replace(
-        view.model_parallel_config, expert_model_parallel_size=1
-    )
+    view.model_parallel_config = replace(view.model_parallel_config, expert_model_parallel_size=1)
     profiler = build_profiler(get_language_model_profiler_spec(view))
 
     # With experts left whole above, ``estimated_num_params`` counts this rank's
@@ -224,9 +219,7 @@ def _print_memory(inference_config: InferenceConfig, r: InferenceMemoryResult) -
         print(f"  HBM capacity:             {r.hbm_capacity_bytes / _GB:.4f} GB")
         if req.kv_cache_memory_fraction:
             usable = r.hbm_capacity_bytes * float(req.kv_cache_memory_fraction)
-            print(
-                f"  Usable HBM (frac={req.kv_cache_memory_fraction:.2f}): {usable / _GB:.4f} GB"
-            )
+            print(f"  Usable HBM (frac={req.kv_cache_memory_fraction:.2f}): {usable / _GB:.4f} GB")
         print(f"  Fits:                     {r.fits}")
         if req.kv_offload_gb_per_gpu:
             print(

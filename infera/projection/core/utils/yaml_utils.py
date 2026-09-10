@@ -5,8 +5,9 @@
 ###############################################################################
 
 import json
+from collections.abc import Mapping
 from types import SimpleNamespace
-from typing import Any, Mapping
+from typing import Any
 
 import yaml
 
@@ -61,7 +62,9 @@ def has_key_in_namespace(namespace: SimpleNamespace, key: str):
 
 def check_key_in_namespace(namespace: SimpleNamespace, key: str):
     # WARN: namespace should have name attr
-    assert has_key_in_namespace(namespace, key), f"Failed to find key({key}) in namespace({namespace.name})"
+    assert has_key_in_namespace(namespace, key), (
+        f"Failed to find key({key}) in namespace({namespace.name})"
+    )
 
 
 def get_value_by_key(namespace: SimpleNamespace, key: str):
@@ -71,7 +74,9 @@ def get_value_by_key(namespace: SimpleNamespace, key: str):
 
 def set_value_by_key(namespace: SimpleNamespace, key: str, value, allow_override=False):
     if not allow_override:
-        assert not hasattr(namespace, key), f"Not allowed to override key({key}) in namespace({namespace})"
+        assert not hasattr(namespace, key), (
+            f"Not allowed to override key({key}) in namespace({namespace})"
+        )
     if value == "null":
         value = None
     return setattr(namespace, key, value)
@@ -111,7 +116,9 @@ def override_namespace(original_ns: SimpleNamespace, overrides_ns: SimpleNamespa
     deep_merge_namespace(original_ns, nested_namespace_to_dict(overrides_ns))
 
 
-def merge_namespace(dst: SimpleNamespace, src: SimpleNamespace, allow_override=False, excepts: list = None):
+def merge_namespace(
+    dst: SimpleNamespace, src: SimpleNamespace, allow_override=False, excepts: list = None
+):
     src_dict = nested_namespace_to_dict(src)
     dst_dict = nested_namespace_to_dict(dst)
     excepts = set(excepts or [])

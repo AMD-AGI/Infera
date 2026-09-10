@@ -6,7 +6,6 @@
 
 import os
 import re
-from typing import List, Optional
 
 from infera.projection.core.projection.base_module_profiler import BaseModuleProfiler
 from infera.projection.core.projection.profiler_spec import ModuleProfilerSpec
@@ -26,12 +25,14 @@ def build_profiler(spec: ModuleProfilerSpec, depth=0) -> BaseModuleProfiler:
     Recursively build a profiler instance from a ModuleProfilerSpec.
     """
     if not issubclass(spec.profiler, BaseModuleProfiler):
-        raise TypeError(f"spec.profiler must be subclass of BaseModuleProfiler, got {spec.profiler}")
+        raise TypeError(
+            f"spec.profiler must be subclass of BaseModuleProfiler, got {spec.profiler}"
+        )
 
     if depth == 0:
         print(f"Begin build profiler: {spec.profiler.__name__}")
 
-    print(f"{'--'*(depth+1)}[{spec.profiler.__name__}]")
+    print(f"{'--' * (depth + 1)}[{spec.profiler.__name__}]")
 
     sub_profilers = {}
     if spec.sub_profiler_specs:
@@ -44,7 +45,7 @@ def build_profiler(spec: ModuleProfilerSpec, depth=0) -> BaseModuleProfiler:
                 sub_profilers[name] = build_profiler(sub_spec, depth)
             elif issubclass(sub_spec, BaseModuleProfiler):
                 # init sub profile
-                print(f"{'--'*(depth+1)}[{sub_spec.__name__}]({name})")
+                print(f"{'--' * (depth + 1)}[{sub_spec.__name__}]({name})")
                 sub_profilers[name] = sub_spec(spec.config, sub_profilers=None)
             else:
                 raise TypeError(f"Invalid type for sub_profiler_specs['{name}']: {type(sub_spec)}")
@@ -66,7 +67,7 @@ def get_language_model_profiler_spec(config: TrainingConfig) -> ModuleProfilerSp
     )
 
 
-def _get_balanced_layer_distribution(n_layers: int, total_stages: int) -> List[int]:
+def _get_balanced_layer_distribution(n_layers: int, total_stages: int) -> list[int]:
     """
     Distribute layers across stages as evenly as possible.
     Remainder layers are distributed to the first stages.
@@ -90,9 +91,9 @@ def _get_balanced_layer_distribution(n_layers: int, total_stages: int) -> List[i
 def _get_explicit_layer_distribution(
     n_layers: int,
     total_stages: int,
-    decoder_first: Optional[int],
-    decoder_last: Optional[int],
-) -> List[int]:
+    decoder_first: int | None,
+    decoder_last: int | None,
+) -> list[int]:
     """
     Get layer distribution with explicit first/last stage layer counts.
     Middle stages get evenly distributed remainder.
@@ -111,7 +112,11 @@ def _get_explicit_layer_distribution(
     middle_stages = (
         total_stages - 2
         if (decoder_first is not None and decoder_last is not None)
-        else (total_stages - 1 if (decoder_first is not None or decoder_last is not None) else total_stages)
+        else (
+            total_stages - 1
+            if (decoder_first is not None or decoder_last is not None)
+            else total_stages
+        )
     )
 
     if middle_stages > 0 and remaining_layers > 0:
@@ -143,8 +148,8 @@ def _get_explicit_layer_distribution(
 
 
 def _parse_layout_stage_layer_counts(
-    layout: Optional[str], total_stages: int, n_layers: int
-) -> Optional[List[int]]:
+    layout: str | None, total_stages: int, n_layers: int
+) -> list[int] | None:
     """
     Parse Megatron-style pipeline layout into decoder-layer counts per virtual stage.
 
@@ -167,12 +172,14 @@ def _parse_layout_stage_layer_counts(
             f"but PP*VPP expects {total_stages} stages."
         )
 
-    layers_per_stage: List[int] = []
+    layers_per_stage: list[int] = []
     for spec in stage_specs:
         spec = spec.split(",", 1)[0].strip()
         matches = re.findall(r"[tT](?:\*(\d+))?", spec)
         if not matches:
-            raise ValueError(f"Invalid pipeline stage spec '{spec}' in pipeline_model_parallel_layout.")
+            raise ValueError(
+                f"Invalid pipeline stage spec '{spec}' in pipeline_model_parallel_layout."
+            )
         layer_count = sum(int(m) if m else 1 for m in matches)
         layers_per_stage.append(layer_count)
 
@@ -247,11 +254,11 @@ class LanguageModelProfiler(BaseModuleProfiler):
         tp_size: int,
         cp_size: int,
         ep_size: int,
-        num_virtual_pipeline_stages: Optional[int] = None,
-        decoder_first_pipeline_num_layers: Optional[int] = None,
-        decoder_last_pipeline_num_layers: Optional[int] = None,
-        pipeline_model_parallel_layout: Optional[str] = None,
-    ) -> List[int]:
+        num_virtual_pipeline_stages: int | None = None,
+        decoder_first_pipeline_num_layers: int | None = None,
+        decoder_last_pipeline_num_layers: int | None = None,
+        pipeline_model_parallel_layout: str | None = None,
+    ) -> list[int]:
         """
         Get layers assigned to a specific rank, handling imbalanced layer distribution.
 
@@ -284,11 +291,11 @@ class LanguageModelProfiler(BaseModuleProfiler):
         tp_size: int,
         cp_size: int,
         ep_size: int,
-        num_virtual_pipeline_stages: Optional[int] = None,
-        decoder_first_pipeline_num_layers: Optional[int] = None,
-        decoder_last_pipeline_num_layers: Optional[int] = None,
-        pipeline_model_parallel_layout: Optional[str] = None,
-    ) -> List[List[int]]:
+        num_virtual_pipeline_stages: int | None = None,
+        decoder_first_pipeline_num_layers: int | None = None,
+        decoder_last_pipeline_num_layers: int | None = None,
+        pipeline_model_parallel_layout: str | None = None,
+    ) -> list[list[int]]:
         """
         Get per-virtual-stage decoder layers assigned to a rank.
         """
@@ -310,7 +317,9 @@ class LanguageModelProfiler(BaseModuleProfiler):
             if decoder_last is None:
                 decoder_last = getattr(mp_config, "decoder_last_pipeline_num_layers", None)
             if pipeline_model_parallel_layout is None:
-                pipeline_model_parallel_layout = getattr(mp_config, "pipeline_model_parallel_layout", None)
+                pipeline_model_parallel_layout = getattr(
+                    mp_config, "pipeline_model_parallel_layout", None
+                )
 
         # Build layer counts per virtual stage
         if pipeline_model_parallel_layout:
@@ -331,7 +340,7 @@ class LanguageModelProfiler(BaseModuleProfiler):
         # pp_rank 1 gets virtual stages: 1, pp_size+1, 2*pp_size+1, ...
         my_virtual_stages = range(pp_rank, total_stages, pp_size)
 
-        assigned_chunks: List[List[int]] = []
+        assigned_chunks: list[list[int]] = []
         for vs_index in my_virtual_stages:
             # Calculate start layer by summing layers in all previous stages
             start_layer = sum(layers_per_stage[:vs_index])
@@ -436,7 +445,7 @@ class LanguageModelProfiler(BaseModuleProfiler):
         dp_size = world_size // mp.expert_model_parallel_size // mp.pipeline_model_parallel_size
         return max(1, dp_size)
 
-    def estimated_num_params(self, rank: Optional[int] = None) -> int:
+    def estimated_num_params(self, rank: int | None = None) -> int:
         total_params = 0
         if rank is None:
             layers = range(self.config.model_config.num_layers)
@@ -445,13 +454,16 @@ class LanguageModelProfiler(BaseModuleProfiler):
         for layer in layers:
             is_moe = self.config.model_config.moe_pattern[layer]
             if is_moe:
-                total_params += self.sub_profilers["moe_transformer_layer"].estimated_num_params(rank)
+                total_params += self.sub_profilers["moe_transformer_layer"].estimated_num_params(
+                    rank
+                )
             else:
-                total_params += self.sub_profilers["dense_transformer_layer"].estimated_num_params(rank)
+                total_params += self.sub_profilers["dense_transformer_layer"].estimated_num_params(
+                    rank
+                )
         if 0 in self.layers:
             total_params += self.sub_profilers["embedding"].estimated_num_params(rank)
         if self.config.model_config.num_layers - 1 in self.layers:
             total_params += self.sub_profilers["final_layernorm"].estimated_num_params(rank)
             total_params += self.sub_profilers["output_layer"].estimated_num_params(rank)
         return total_params
-

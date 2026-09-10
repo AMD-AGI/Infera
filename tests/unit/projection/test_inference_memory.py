@@ -17,13 +17,15 @@ import pytest
 
 from infera.projection.core.projection.training_config import dtype_num_bytes
 
-GIB = 1024.0 ** 3
+from .conftest import project_spec as _project
+
+GIB = 1024.0**3
 
 
 @pytest.mark.parametrize(
     "dtype, expected",
     [
-        ("mxfp4", 0.53125),   # 4 bits + one E8M0 scale byte per 32 elements
+        ("mxfp4", 0.53125),  # 4 bits + one E8M0 scale byte per 32 elements
         ("mxfp8", 1.03125),
         ("fp8", 1.0),
         ("bf16", 2.0),
@@ -36,9 +38,6 @@ def test_block_scaled_dtypes_are_not_silently_bf16(dtype, expected):
 def test_mxfp4_is_a_quarter_of_bf16():
     """The whole point of the format; a fallback to 2.0 would hide 4x of HBM."""
     assert dtype_num_bytes("mxfp4") < dtype_num_bytes("bf16") / 3.5
-
-
-from .conftest import project_spec as _project
 
 
 def test_weights_are_tp_sharded_across_ranks():
@@ -88,12 +87,17 @@ def test_deepseek_v4_kv_is_the_576_byte_shared_latent():
 
     cfg = SimpleNamespace(
         model_config=SimpleNamespace(
-            multi_latent_attention=False, kv_lora_rank=0, qk_pos_emb_head_dim=64,
-            group_query_attention=True, num_query_groups=1, num_attention_heads=128,
+            multi_latent_attention=False,
+            kv_lora_rank=0,
+            qk_pos_emb_head_dim=64,
+            group_query_attention=True,
+            num_query_groups=1,
+            num_attention_heads=128,
             kv_channels=512,
         ),
         model_parallel_config=SimpleNamespace(
-            tensor_model_parallel_size=8, attention_data_parallel_size=1,
+            tensor_model_parallel_size=8,
+            attention_data_parallel_size=1,
         ),
         request_config=SimpleNamespace(kv_cache_dtype="fp8"),
     )
@@ -109,8 +113,14 @@ def test_disagg_kv_is_split_across_decode_replicas():
     the 288 GB ceiling by a replica-count.
     """
     common = dict(
-        disaggregate=True, prefill_tp=4, tp=8, ep=1,
-        prefill_replicas=1, concurrency=256, input_len=1024, output_len=128,
+        disaggregate=True,
+        prefill_tp=4,
+        tp=8,
+        ep=1,
+        prefill_replicas=1,
+        concurrency=256,
+        input_len=1024,
+        output_len=128,
         max_num_batched_tokens=8192,
     )
     one = _project(**common, decode_replicas=1)

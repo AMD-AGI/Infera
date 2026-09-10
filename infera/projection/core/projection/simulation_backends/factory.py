@@ -15,7 +15,6 @@ SDPA always uses the built-in analytical simulator.
 """
 
 import os
-from typing import Optional
 
 from infera.projection.core.projection.simulation_backends.base import (
     GEMMSimulationBackend,
@@ -24,9 +23,9 @@ from infera.projection.core.projection.simulation_backends.base import (
 
 
 def get_gemm_simulation_backend(
-    backend_name: Optional[str] = None,
-    gpu_arch: Optional[str] = None,
-    gpu_clock_mhz: Optional[int] = None,
+    backend_name: str | None = None,
+    gpu_arch: str | None = None,
+    gpu_clock_mhz: int | None = None,
     require_simulation: bool = True,
 ) -> GEMMSimulationBackend:
     """
@@ -57,7 +56,7 @@ def get_gemm_simulation_backend(
     is_rank_0 = int(os.getenv("RANK", "0")) == 0
 
     if name is not None and name != "origami":
-        raise ValueError(f"Unknown GEMM simulation backend: '{name}'. " f"Supported backend: 'origami'")
+        raise ValueError(f"Unknown GEMM simulation backend: '{name}'. Supported backend: 'origami'")
 
     from infera.projection.core.projection.simulation_backends.origami_backend import (
         OrigamiGEMMBackend,
@@ -66,7 +65,8 @@ def get_gemm_simulation_backend(
     backend = OrigamiGEMMBackend(gpu_arch=gpu_arch, gpu_clock_mhz=gpu_clock_mhz)
     if require_simulation and not backend.is_available():
         raise RuntimeError(
-            "Origami GEMM simulation backend is not available.\n" "Install it with: pip install origami"
+            "Origami GEMM simulation backend is not available.\n"
+            "Install it with: pip install origami"
         )
 
     if is_rank_0 and require_simulation:
@@ -75,8 +75,8 @@ def get_gemm_simulation_backend(
 
 
 def get_sdpa_simulation_backend(
-    gpu_arch: Optional[str] = None,
-    gpu_clock_mhz: Optional[int] = None,
+    gpu_arch: str | None = None,
+    gpu_clock_mhz: int | None = None,
 ) -> SDPASimulationBackend:
     """
     Create and return the SDPA simulation backend.

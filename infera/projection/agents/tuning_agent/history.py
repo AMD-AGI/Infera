@@ -40,7 +40,7 @@ class History:
     seen_signatures: set[str] = field(default_factory=set)
 
     @classmethod
-    def load(cls, path: Path) -> "History":
+    def load(cls, path: Path) -> History:
         h = cls(path=path)
         if path.is_file():
             for line in path.read_text().splitlines():
@@ -84,7 +84,9 @@ class History:
         return _sig(config) in self.seen_signatures
 
     def best(self, objective: str = "tokens_per_s_per_gpu") -> TrialRecord | None:
-        legal = [t for t in self.trials if t.result.get("legal") and t.result.get(objective) is not None]
+        legal = [
+            t for t in self.trials if t.result.get("legal") and t.result.get(objective) is not None
+        ]
         if not legal:
             return None
         return max(legal, key=lambda t: t.result.get(objective) or 0.0)
@@ -105,8 +107,10 @@ class History:
                 f"VPP={cfg.get('vpp')} sched={cfg.get('pp_schedule')} "
                 f"recompute={cfg.get('recompute_granularity')}"
             )
-            tag = "OK" if r.get("legal") else f"REJECT({r.get('reason','')[:60]})"
-            lines.append(f"#{t.idx:03d} [{t.source:9s}] {tag:40s} tps={tps_s:>10s} mem={mem_s:>8s} | {cfg_s}")
+            tag = "OK" if r.get("legal") else f"REJECT({r.get('reason', '')[:60]})"
+            lines.append(
+                f"#{t.idx:03d} [{t.source:9s}] {tag:40s} tps={tps_s:>10s} mem={mem_s:>8s} | {cfg_s}"
+            )
         return "\n".join(lines) if lines else "(no trials yet)"
 
 

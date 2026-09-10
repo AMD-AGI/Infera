@@ -55,7 +55,9 @@ class SeedPlan:
     rationale: str
 
 
-def build_seed_plan(arch: ArchitectureRecord, agent_cfg: AgentConfig, max_candidates: int = 12) -> SeedPlan:
+def build_seed_plan(
+    arch: ArchitectureRecord, agent_cfg: AgentConfig, max_candidates: int = 12
+) -> SeedPlan:
     """Generate the deterministic seed plan.
 
     Order of returned candidates (small ``--seed-budget`` runs the first N):
@@ -315,7 +317,15 @@ def build_seed_plan(arch: ArchitectureRecord, agent_cfg: AgentConfig, max_candid
             # Primary: match the workload's recompute knob (full + layer-id
             # count) to mirror the published reference as closely as possible.
             _push(
-                _make(btp, cand_pp, bep, bcp, bmbs, cand_vpp, recompute=arch.recompute_granularity or "full")
+                _make(
+                    btp,
+                    cand_pp,
+                    bep,
+                    bcp,
+                    bmbs,
+                    cand_vpp,
+                    recompute=arch.recompute_granularity or "full",
+                )
             )
 
         # Secondary: for the most-impactful (PP, VPP) pairs (those that match
@@ -336,7 +346,15 @@ def build_seed_plan(arch: ArchitectureRecord, agent_cfg: AgentConfig, max_candid
             # often dodges the v26.2 FP8 sub-node bench crash.
             if 1 != bmbs:
                 _push(
-                    _make(btp, cand_pp, bep, bcp, 1, cand_vpp, recompute=arch.recompute_granularity or "full")
+                    _make(
+                        btp,
+                        cand_pp,
+                        bep,
+                        bcp,
+                        1,
+                        cand_vpp,
+                        recompute=arch.recompute_granularity or "full",
+                    )
                 )
                 if _full():
                     break
@@ -366,7 +384,9 @@ def build_seed_plan(arch: ArchitectureRecord, agent_cfg: AgentConfig, max_candid
             moe_combos.append(("DeepEP", {"use_turbo_deepep": True}))
             # Then DeepEP + recompute=none — the highest-leverage achievable
             # combo on environments without TEGroupedMLP.
-            moe_combos.append(("DeepEP+recompute=none", {"use_turbo_deepep": True, "recompute": "none"}))
+            moe_combos.append(
+                ("DeepEP+recompute=none", {"use_turbo_deepep": True, "recompute": "none"})
+            )
         for _name, kw in moe_combos:
             _push(_make(btp, bp, bep, bcp, bmbs, bvpp, **kw))
             if _full():
@@ -380,7 +400,19 @@ def build_seed_plan(arch: ArchitectureRecord, agent_cfg: AgentConfig, max_candid
         if not _full():
             _push(_make(btp, bp, bep, bcp, bmbs, bvpp, fp8="hybrid", recompute="none"))
         if not _full() and arch.is_moe and not deepep_already_on:
-            _push(_make(btp, bp, bep, bcp, bmbs, bvpp, fp8="hybrid", use_turbo_deepep=True, recompute="none"))
+            _push(
+                _make(
+                    btp,
+                    bp,
+                    bep,
+                    bcp,
+                    bmbs,
+                    bvpp,
+                    fp8="hybrid",
+                    use_turbo_deepep=True,
+                    recompute="none",
+                )
+            )
 
     # ── 5. Combined-best Tier-A (DeepEP + SyncFree=3 + FP8 + recompute=none)
     # SyncFree=3 is best-case overlap per the skill but requires the
@@ -437,7 +469,11 @@ def build_seed_plan(arch: ArchitectureRecord, agent_cfg: AgentConfig, max_candid
     # ≤ gpus_per_node and divides num_layers). Common choice: 4 or 8.
     if bp == 1 and arch.num_layers:
         for cand in (8, 4, 2):
-            if cand in legality.pp and arch.num_layers % cand == 0 and cand not in schedule_pp_targets:
+            if (
+                cand in legality.pp
+                and arch.num_layers % cand == 0
+                and cand not in schedule_pp_targets
+            ):
                 schedule_pp_targets.append(cand)
                 break
     # Some workloads (notably DSv3 with 61 layers) encode interleaved staging
@@ -540,7 +576,9 @@ def build_seed_plan(arch: ArchitectureRecord, agent_cfg: AgentConfig, max_candid
 
     # ── 9. Coarse parallelism grid ────────────────────────────────────────
     if not _full():
-        for tp, pp, ep, cp, mbs, vpp in itertools.product(tp_set, pp_set, ep_set, cp_set, mbs_set, vpp_set):
+        for tp, pp, ep, cp, mbs, vpp in itertools.product(
+            tp_set, pp_set, ep_set, cp_set, mbs_set, vpp_set
+        ):
             if pp == 1 and vpp not in (None, 1):
                 continue
             _push(_make(tp, pp, ep, cp, mbs, vpp))

@@ -7,8 +7,8 @@ are rejected before reaching the projection tool.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 from .config import TargetCluster
 from .workload import ArchitectureRecord
@@ -88,7 +88,7 @@ class TrialConfig:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "TrialConfig":
+    def from_dict(cls, d: dict) -> TrialConfig:
         def _opt_int(v):
             return int(v) if v not in (None, "null", "") else None
 
@@ -382,14 +382,16 @@ def validate(
         return False, f"derived DP={dp} (gpus_per_replica={gpus_per_replica})"
 
     if cfg.gbs % (cfg.mbs * dp) != 0:
-        return False, (f"GBS({cfg.gbs}) must be divisible by MBS({cfg.mbs}) × DP({dp}) = {cfg.mbs*dp}")
+        return False, (
+            f"GBS({cfg.gbs}) must be divisible by MBS({cfg.mbs}) × DP({dp}) = {cfg.mbs * dp}"
+        )
 
     # schedule × vpp coherence
     vpp_for_lookup = cfg.vpp or 1
     sched_set = legality.pp_schedules_by_vpp.get(vpp_for_lookup, ["auto"])
     if cfg.pp_schedule not in sched_set:
         return False, (
-            f"schedule '{cfg.pp_schedule}' not legal for VPP={vpp_for_lookup}; " f"legal: {sched_set}"
+            f"schedule '{cfg.pp_schedule}' not legal for VPP={vpp_for_lookup}; legal: {sched_set}"
         )
 
     if cfg.recompute_granularity not in (None, "none", "selective", "full"):

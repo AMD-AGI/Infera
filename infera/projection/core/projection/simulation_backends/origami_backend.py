@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 
 from infera.projection.core.projection.simulation_backends.base import (
     GEMMSimulationBackend,
@@ -38,7 +37,7 @@ from infera.projection.core.projection.simulation_backends.base import (
 # Lazy import – we don't want to fail at module-import time.
 # ---------------------------------------------------------------------------
 _origami = None
-_origami_available: Optional[bool] = None
+_origami_available: bool | None = None
 
 
 def _try_import_origami():
@@ -88,7 +87,7 @@ class _HardwareProfile:
 # architecture without a profile -- the one case it exists to cover.
 _FALLBACK_HBM_BW_GBPS: float = 5300.0
 
-_KNOWN_PROFILES: Dict[str, _HardwareProfile] = {
+_KNOWN_PROFILES: dict[str, _HardwareProfile] = {
     # MI300X / gfx942: HBM3 ~5.3 TB/s, ~1307 TFLOP/s dense BF16
     "mi300x": _HardwareProfile("gfx942", 304, 65536, 4_194_304, 2_100_000, 5300.0, 1307.0),
     "gfx942": _HardwareProfile("gfx942", 304, 65536, 4_194_304, 2_100_000, 5300.0, 1307.0),
@@ -143,7 +142,7 @@ _ROOFLINE_COMPUTE_EFF = 0.40
 # Physical operand width, in bytes per element, of each precision the expert /
 # projection GEMMs can run at. ``mxfp4`` is block-scaled: 4-bit elements plus one
 # E8M0 scale per block of 32 = 4 + 8/32 bits = 0.53125 B/el.
-_OPERAND_BYTES: Dict[str, float] = {
+_OPERAND_BYTES: dict[str, float] = {
     "fp32": 4.0,
     "bf16": 2.0,
     "fp16": 2.0,
@@ -158,7 +157,7 @@ _OPERAND_BYTES: Dict[str, float] = {
 
 # Dense matrix-throughput of each precision relative to BF16 on CDNA3/CDNA4:
 # each halving of operand width doubles the MFMA rate.
-_PEAK_MULTIPLE: Dict[str, float] = {
+_PEAK_MULTIPLE: dict[str, float] = {
     "fp32": 0.5,
     "bf16": 1.0,
     "fp16": 1.0,
@@ -188,7 +187,7 @@ def _dtype_peak_multiple(sim_dtype: str, native_fp8: bool = False) -> float:
     return 2.0 if native_fp8 else 1.0
 
 
-_DTYPE_MAP: Dict[str, str] = {
+_DTYPE_MAP: dict[str, str] = {
     "bf16": "bf16",
     "fp16": "f16",
     "fp32": "f32",
@@ -206,7 +205,7 @@ _DTYPE_MAP: Dict[str, str] = {
 # A wider search space yields better latency predictions at the cost of
 # slightly longer selection time (still << 1 ms per GEMM).
 # ---------------------------------------------------------------------------
-_DEFAULT_TILE_SIZES: List[Tuple[int, int, int]] = [
+_DEFAULT_TILE_SIZES: list[tuple[int, int, int]] = [
     (64, 64, 32),
     (64, 64, 64),
     (64, 128, 32),
@@ -222,7 +221,7 @@ _DEFAULT_TILE_SIZES: List[Tuple[int, int, int]] = [
     (256, 256, 32),
     (256, 256, 64),
 ]
-_DEFAULT_OCCUPANCIES: List[int] = [1, 2, 4]
+_DEFAULT_OCCUPANCIES: list[int] = [1, 2, 4]
 
 # Widest ``block_K`` in the static list above. When a matrix instruction is
 # wider than this in the K dimension, none of the static macro-tiles can fully
@@ -230,7 +229,7 @@ _DEFAULT_OCCUPANCIES: List[int] = [1, 2, 4]
 _MAX_STATIC_TILE_K = 64
 
 
-def _candidate_tile_sizes(mi_k: int) -> List[Tuple[int, int, int]]:
+def _candidate_tile_sizes(mi_k: int) -> list[tuple[int, int, int]]:
     """Macro-tile candidates, widened so at least one tile can feed the MI.
 
     Origami only ranks the tiles it is given. If every candidate's ``block_K``
@@ -269,9 +268,9 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
 
     def __init__(
         self,
-        gpu_arch: Optional[str] = None,
-        gpu_clock_mhz: Optional[int] = None,
-        n_cu_override: Optional[int] = None,
+        gpu_arch: str | None = None,
+        gpu_clock_mhz: int | None = None,
+        n_cu_override: int | None = None,
     ):
         """
         Args:
@@ -293,17 +292,19 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
 
         # Clock override: CLI > env var > profile default
         _env_clock = os.getenv("INFERASIM_GPU_CLOCK_MHZ", None)
-        self._clock_override_mhz: Optional[int] = gpu_clock_mhz or (int(_env_clock) if _env_clock else None)
+        self._clock_override_mhz: int | None = gpu_clock_mhz or (
+            int(_env_clock) if _env_clock else None
+        )
 
         self._n_cu_override = n_cu_override
 
         # Lazily initialised origami objects – see ``_ensure_initialized``.
         self._hardware = None  # origami.hardware_t
         self._configs = None  # list[origami.config_t]
-        self._clock_ghz: Optional[float] = None
+        self._clock_ghz: float | None = None
         self._initialized = False
-        self._init_dtype: Optional[str] = None  # tracks dtype used for config init
-        self._fp8_origami_str: Optional[str] = None  # resolved FP8 MI dtype str
+        self._init_dtype: str | None = None  # tracks dtype used for config init
+        self._fp8_origami_str: str | None = None  # resolved FP8 MI dtype str
 
     # ------------------------------------------------------------------
     # GEMMSimulationBackend interface
@@ -316,7 +317,7 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
         return _try_import_origami()
 
     @property
-    def hbm_bandwidth_gbps(self) -> Optional[float]:
+    def hbm_bandwidth_gbps(self) -> float | None:
         """Peak HBM bandwidth for the target architecture (GB/s).
 
         Resolved from the arch profile (``_KNOWN_PROFILES``) or the
@@ -336,7 +337,9 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
         profile = _KNOWN_PROFILES.get(arch)
         return profile.peak_tflops_bf16 if profile is not None else 1307.0
 
-    def _roofline_ceiling_ms(self, m: int, n: int, k: int, batch: int, sim_dtype: str, native_fp8: bool) -> float:
+    def _roofline_ceiling_ms(
+        self, m: int, n: int, k: int, batch: int, sim_dtype: str, native_fp8: bool
+    ) -> float:
         """Efficiency-adjusted max(memory, compute) roofline for one (batched) GEMM.
 
         This is a physical *upper bound* on a well-tuned kernel's time: it can't
@@ -432,7 +435,7 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
             )
         except Exception as e:
             raise RuntimeError(
-                f"Origami select_config failed for " f"(M={m}, N={n}, K={k}, dtype={dtype}): {e}"
+                f"Origami select_config failed for (M={m}, N={n}, K={k}, dtype={dtype}): {e}"
             ) from e
 
         latency_cycles = result.latency
@@ -443,7 +446,9 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
         # roofline. Compute-bound (large-M / prefill) GEMMs sit below the
         # ceiling and are unaffected. dtype=="fp8" always earns the FP8 roofline
         # (2x throughput, 1-byte operands) regardless of the BF16 fallback.
-        ceiling_ms = self._roofline_ceiling_ms(m, n, k, batch, sim_dtype, native_fp8=(dtype == "fp8"))
+        ceiling_ms = self._roofline_ceiling_ms(
+            m, n, k, batch, sim_dtype, native_fp8=(dtype == "fp8")
+        )
         if ceiling_ms > 0:
             time_ms = min(time_ms, ceiling_ms)
 

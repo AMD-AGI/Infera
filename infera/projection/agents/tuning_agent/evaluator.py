@@ -223,7 +223,9 @@ def write_trial_yaml(arch: ArchitectureRecord, cfg: TrialConfig, out_dir: Path, 
             PP_SCHEDULE_TO_RUNTIME_ALGORITHM,
         )
 
-        overrides["pp_algorithm"] = PP_SCHEDULE_TO_RUNTIME_ALGORITHM.get(cfg.pp_schedule, cfg.pp_schedule)
+        overrides["pp_algorithm"] = PP_SCHEDULE_TO_RUNTIME_ALGORITHM.get(
+            cfg.pp_schedule, cfg.pp_schedule
+        )
 
     # 3) MoE communication (Tier-A — biggest single MoE win per skill) ----
     # Required-by-runtime couplings for the Primus Turbo MoE stack:
@@ -521,7 +523,7 @@ def write_inference_trial_yaml(arch: ArchitectureRecord, cfg, out_dir: Path, tag
     """
     src = Path(arch.workload_path)
     raw = yaml.safe_load(src.read_text())
-    pre_trainer = ((raw.get("modules") or {}).get("pre_trainer") or {})
+    pre_trainer = (raw.get("modules") or {}).get("pre_trainer") or {}
     overrides = dict(pre_trainer.get("overrides") or {})
     overrides["tensor_model_parallel_size"] = cfg.tp
     overrides["pipeline_model_parallel_size"] = cfg.pp
@@ -557,16 +559,26 @@ def _build_inference_cmd(
     # skips the measurement and just calibrates.
     cmd: list[str] = [
         *_python_invoker(config_root),
-        "projection", "inference",
-        "--config", str(yaml_path),
-        "--inference-mode", "both",
-        "--gpu-arch", agent_cfg.target_cluster.gpu_arch,
-        "--input-len", str(cfg.input_len),
-        "--output-len", str(cfg.output_len),
-        "--inference-batch-size", str(cfg.batch_size),
-        "--weight-dtype", cfg.weight_dtype,
-        "--kv-cache-dtype", cfg.kv_cache_dtype,
-        "--hbm-capacity-gb", str(agent_cfg.optimization.hbm_capacity_gb),
+        "projection",
+        "inference",
+        "--config",
+        str(yaml_path),
+        "--inference-mode",
+        "both",
+        "--gpu-arch",
+        agent_cfg.target_cluster.gpu_arch,
+        "--input-len",
+        str(cfg.input_len),
+        "--output-len",
+        str(cfg.output_len),
+        "--inference-batch-size",
+        str(cfg.batch_size),
+        "--weight-dtype",
+        cfg.weight_dtype,
+        "--kv-cache-dtype",
+        cfg.kv_cache_dtype,
+        "--hbm-capacity-gb",
+        str(agent_cfg.optimization.hbm_capacity_gb),
     ]
     # Resident sequences. Left unset the projector admits its own default rather
     # than the batch being tuned, which prices every trial against a queue it
@@ -667,7 +679,9 @@ def _build_inference_cmd(
     return cmd
 
 
-def _build_env(agent_cfg: AgentConfig, config_root: Path, profiling_mode: str | None = None) -> dict:
+def _build_env(
+    agent_cfg: AgentConfig, config_root: Path, profiling_mode: str | None = None
+) -> dict:
     env = os.environ.copy()
     # For memory + simulate: pass the real target-cluster shape so
     # `projection memory`'s ``get_dp_size`` doesn't enter the "recompute min
@@ -731,7 +745,11 @@ def _run(cmd: list[str], cwd: Path, env: dict, timeout: int) -> tuple[int, str, 
     except subprocess.TimeoutExpired as e:
         return (
             124,
-            (e.stdout.decode("utf-8", "replace") if isinstance(e.stdout, bytes) else (e.stdout or "")),
+            (
+                e.stdout.decode("utf-8", "replace")
+                if isinstance(e.stdout, bytes)
+                else (e.stdout or "")
+            ),
             time.time() - started,
         )
 
@@ -886,8 +904,7 @@ class Evaluator:
 
         legality = derive_inference_legality(self.arch, self.cfg.target_cluster)
         ok, reason = validate_inference(cfg, self.arch, self.cfg.target_cluster, legality)
-        result = EvalResult(legal=ok, reason=reason, source="inference",
-                            config=cfg.as_dict())
+        result = EvalResult(legal=ok, reason=reason, source="inference", config=cfg.as_dict())
         if not ok:
             return result
 
@@ -899,8 +916,8 @@ class Evaluator:
             result.ttft_ms = 50.0 + cfg.input_len * 0.01
             result.itl_ms = 10.0 + cfg.tp * 2.0
             result.decode_throughput_tps = cfg.batch_size * 1000.0 / result.itl_ms
-            result.decode_throughput_tps_per_gpu = (
-                result.decode_throughput_tps / max(1, cfg.tp * cfg.pp)
+            result.decode_throughput_tps_per_gpu = result.decode_throughput_tps / max(
+                1, cfg.tp * cfg.pp
             )
             result.memory_per_gpu_gb = 80.0
             return result
@@ -940,14 +957,21 @@ class Evaluator:
         decode_floor = self._resolve_decode_floor(cfg) if is_bench else None
 
         cmd = _build_inference_cmd(
-            yaml_path, cfg, self.cfg, self.config_root,
-            load_benchmark=load_bench, profiling_mode=profiling_mode, bench_gpus=bench_gpus,
+            yaml_path,
+            cfg,
+            self.cfg,
+            self.config_root,
+            load_benchmark=load_bench,
+            profiling_mode=profiling_mode,
+            bench_gpus=bench_gpus,
             decode_floor=decode_floor,
         )
         rc, out, dur = _run(
-            cmd, cwd=self.config_root,
-            env=_build_env(self.cfg, self.config_root,
-                           profiling_mode=("benchmark" if profiling_mode else None)),
+            cmd,
+            cwd=self.config_root,
+            env=_build_env(
+                self.cfg, self.config_root, profiling_mode=("benchmark" if profiling_mode else None)
+            ),
             timeout=(3600 if profiling_mode == "benchmark" else 600),
         )
         if load_bench is not None or profiling_mode == "benchmark":
@@ -964,8 +988,7 @@ class Evaluator:
         if rc != 0 or result.ttft_ms is None:
             result.legal = False
             result.reason = (
-                f"projection inference failed (rc={rc}, ttft={result.ttft_ms}); "
-                f"see stdout_tail"
+                f"projection inference failed (rc={rc}, ttft={result.ttft_ms}); see stdout_tail"
             )
             return result
 
@@ -1065,7 +1088,9 @@ class Evaluator:
         # as ADVISORY: log it but proceed to benchmark, because real OOM is
         # the only authoritative answer. In simulate / memory-only modes
         # the projection remains authoritative.
-        cap = self.cfg.optimization.hbm_capacity_gb * (1 - self.cfg.optimization.memory_safety_margin)
+        cap = self.cfg.optimization.hbm_capacity_gb * (
+            1 - self.cfg.optimization.memory_safety_margin
+        )
         adjusted_mem = result.memory_per_gpu_gb
         if cfg.recompute_granularity == "selective" and adjusted_mem is not None:
             adjusted_mem = adjusted_mem * 0.55
@@ -1141,7 +1166,9 @@ class Evaluator:
         """
         import tempfile
 
-        cap = self.cfg.optimization.hbm_capacity_gb * (1 - self.cfg.optimization.memory_safety_margin)
+        cap = self.cfg.optimization.hbm_capacity_gb * (
+            1 - self.cfg.optimization.memory_safety_margin
+        )
 
         fd, tmp_path = tempfile.mkstemp(prefix="tuning_agent_bench_", suffix=".json")
         os.close(fd)
@@ -1172,7 +1199,9 @@ class Evaluator:
 
             if rc1 != 0:
                 result.legal = False
-                result.reason = f"projection performance --benchmark failed (rc={rc1}); " f"see stdout_tail"
+                result.reason = (
+                    f"projection performance --benchmark failed (rc={rc1}); see stdout_tail"
+                )
                 return result
 
             if not artifact.exists() or artifact.stat().st_size == 0:
@@ -1204,9 +1233,9 @@ class Evaluator:
             )
             self.n_memory_calls += 1
             result.duration_s += dur2
-            result.stdout_tail = (result.stdout_tail + "\n--- mem (bench/load) ---\n" + _tail(out2, 6000))[
-                -14000:
-            ]
+            result.stdout_tail = (
+                result.stdout_tail + "\n--- mem (bench/load) ---\n" + _tail(out2, 6000)
+            )[-14000:]
             mem_metrics = _parse_metrics(out2)
             for k, v in mem_metrics.items():
                 setattr(result, k, v)

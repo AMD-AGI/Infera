@@ -52,9 +52,7 @@ def _a2a_ms(tp, ep, tokens=TOKENS):
         context_model_parallel_size = 1
         attention_data_parallel_size = 1
 
-    model = InferenceCollectiveModel(
-        _Model(), _Parallel(), InferenceCollectiveConfig(enabled=True)
-    )
+    model = InferenceCollectiveModel(_Model(), _Parallel(), InferenceCollectiveConfig(enabled=True))
     return model.ep_a2a_ms(1, tokens)
 
 

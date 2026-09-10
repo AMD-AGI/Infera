@@ -24,7 +24,6 @@ from __future__ import annotations
 import math
 import os
 from dataclasses import dataclass, field, replace
-from typing import Dict, Optional
 
 from infera.projection.core.projection.module_profilers.language_model import (
     build_profiler,
@@ -53,6 +52,7 @@ from .collectives import (
     InferenceCollectiveModel,
     deepep_overlap_efficiency,
 )
+
 
 def _safe_forward(profiler, batch: int, seq_len: int) -> float:
     """Forward time of a sub-profiler, or 0 if it does not implement timing.
@@ -122,27 +122,33 @@ class PhaseForwardTimes:
 class InferencePerfResult:
     ttft_ms: float
     decode_total_ms: float
-    itl_ms: float                 # inter-token latency per sequence (= TPOT)
-    request_latency_ms: float     # TTFT + full decode for one sequence
+    itl_ms: float  # inter-token latency per sequence (= TPOT)
+    request_latency_ms: float  # TTFT + full decode for one sequence
     per_request_decode_tps: float
-    decode_throughput_tps: float          # aggregate, whole batch
+    decode_throughput_tps: float  # aggregate, whole batch
     decode_throughput_tps_per_gpu: float
     prefill_throughput_tps: float
-    decode_step_latency_ms: float          # one decode forward (whole batch)
+    decode_step_latency_ms: float  # one decode forward (whole batch)
     replica_gpus: int
     # Disaggregation (feature A). ``is_disaggregated`` toggles the extra report.
     is_disaggregated: bool = False
     kv_transfer_ms: float = 0.0
     prefill_replica_gpus: int = 0
     decode_replica_gpus: int = 0
-    extras: Dict[str, float] = field(default_factory=dict)
+    extras: dict[str, float] = field(default_factory=dict)
 
 
 class InferencePerformanceProjector:
     """Builds the profiler once and answers prefill / decode timing queries."""
 
-    def __init__(self, inference_config: InferenceConfig, args=None, benchmark_layer_times=None,
-                 scaling_benchmarks=None, decode_floor=None):
+    def __init__(
+        self,
+        inference_config: InferenceConfig,
+        args=None,
+        benchmark_layer_times=None,
+        scaling_benchmarks=None,
+        decode_floor=None,
+    ):
         self.cfg = inference_config
         self._args_ref = args
         # Optional measured decode latency floor {batch: ms} from a sharded
@@ -250,9 +256,11 @@ class InferencePerformanceProjector:
         # expert-GEMM simulator can apply imbalance *inside* the roofline, per
         # view (EP lives on each view's parallel config). Default ("roofline")
         # mode; INFERASIM_MOE_IMB_ROOFLINE=0 falls back to the outer multiplier.
-        self._imb_roofline = os.getenv(
-            "INFERASIM_MOE_IMB_ROOFLINE", "1"
-        ).strip().lower() not in ("0", "false", "no")
+        self._imb_roofline = os.getenv("INFERASIM_MOE_IMB_ROOFLINE", "1").strip().lower() not in (
+            "0",
+            "false",
+            "no",
+        )
         try:
             mc.ep_load_balance = float(self.cfg.request_config.ep_load_balance or 1.0)
             mc.redundant_experts = int(self.cfg.request_config.redundant_experts or 0)
@@ -272,7 +280,9 @@ class InferencePerformanceProjector:
         # sparse-attention selection, and MoE expert-dtype (mxfp4/fp8/bf16)
         # compute speedup.  All affect the *simulation* path only (the measured
         # path bundles these into the whole-model step).  Defaults are no-ops.
-        self._attn_backend_mult = inference_config.request_config.resolved_attention_backend_multiplier()
+        self._attn_backend_mult = (
+            inference_config.request_config.resolved_attention_backend_multiplier()
+        )
         # The expert dtype is now priced inside the expert GEMM roofline (real
         # operand bytes + matrix throughput), so there is no outer multiplier to
         # apply. Kept at 1.0 rather than removed so the restore/ratio paths that
@@ -312,7 +322,7 @@ class InferencePerformanceProjector:
         #     one MoE layer per phase. Composed directly by layer counts.
         #
         # Empty => pure simulation.
-        self._meas_whole: Dict[str, list] = {}   # {"prefill": [(batch, ms)], "decode": [...]}
+        self._meas_whole: dict[str, list] = {}  # {"prefill": [(batch, ms)], "decode": [...]}
         # When the benchmark swept the decode curve at the engine's CUDA-graph
         # capture sizes, runtime pads the decode batch UP to the nearest captured
         # size — so decode latency is a staircase and we look it up by bucket
@@ -323,15 +333,15 @@ class InferencePerformanceProjector:
         # over context is nearly the same at low and high batch, so it is NOT
         # proportional to batch). Fit from the benchmark's decode-vs-context grid;
         # 0 => flat (no grid), preserving prior behaviour.
-        self._decode_kv_slope_ms: float = 0.0     # ms per KV token (batch-independent)
-        self._decode_ctx_ref: float = 0.0         # context the batch curve was measured at
-        self._decode_ctx_max: float = 0.0         # largest measured context (guard)
+        self._decode_kv_slope_ms: float = 0.0  # ms per KV token (batch-independent)
+        self._decode_ctx_ref: float = 0.0  # context the batch curve was measured at
+        self._decode_ctx_max: float = 0.0  # largest measured context (guard)
         self._meas_prefill_rate_ms_per_tok: float = 0.0  # for sub-prompt prefill pieces
         # True when the benchmark deliberately repeated prompts with prefix
         # caching enabled. Such a curve is a cache-hit lookup curve and is only
         # usable for a target configured as a full prefix hit.
         self._meas_prefill_cache_hit: bool = False
-        self._meas_layer: Dict[tuple, float] = {}        # {(phase, ltype): ms}
+        self._meas_layer: dict[tuple, float] = {}  # {(phase, ltype): ms}
         self._meas_ref_input: int = 0
         self._bench_backend: str = "megatron"
         self._bench_measured = benchmark_layer_times
@@ -345,7 +355,7 @@ class InferencePerformanceProjector:
         # phase -> batch -> tp -> (ms, ep, pp), and the split fitted from it.
         self._bench_scaling_raw: dict = {}
         self._bench_scaling_fit: dict = {}
-        for _blob in (scaling_benchmarks or []):
+        for _blob in scaling_benchmarks or []:
             self.add_scaling_benchmark(_blob)
         if benchmark_layer_times:
             self.set_benchmark_calibration(benchmark_layer_times)
@@ -477,7 +487,7 @@ class InferencePerformanceProjector:
 
     # -- measured-time accessors (benchmark-based projection) ------------------
 
-    def _measured_decode_step_ms(self, batch: int, context: Optional[float] = None) -> float:
+    def _measured_decode_step_ms(self, batch: int, context: float | None = None) -> float:
         """Measured whole-model / composed decode *step* latency at ``batch``.
 
         ``context`` (the resident KV length) adds the fitted attention KV term on
@@ -489,12 +499,18 @@ class InferencePerformanceProjector:
                 base = self._bucket_up(batch, pts)
             else:
                 base = self._transport_batch(batch, pts)
-            if context is not None and self._decode_kv_slope_ms > 0.0 and self._decode_ctx_ref > 0.0:
+            if (
+                context is not None
+                and self._decode_kv_slope_ms > 0.0
+                and self._decode_ctx_ref > 0.0
+            ):
                 base += self._decode_kv_slope_ms * max(0.0, float(context) - self._decode_ctx_ref)
             return base
         # Per-layer schema: restore each layer to the target TP/EP, then sum by
         # layer count. Decode processes 1 token/step.
-        d = self._restore_per_layer("dense", self._meas_layer.get(("decode", "dense"), 0.0), batch, 1)
+        d = self._restore_per_layer(
+            "dense", self._meas_layer.get(("decode", "dense"), 0.0), batch, 1
+        )
         m = self._restore_per_layer("moe", self._meas_layer.get(("decode", "moe"), 0.0), batch, 1)
         return self._n_dense * d + self._n_moe * m + self._restore_pp_ms(batch, 1)
 
@@ -503,8 +519,12 @@ class InferencePerformanceProjector:
         if self._meas_whole.get("prefill"):
             return self._transport_batch(batch, self._meas_whole["prefill"])
         tok = self._meas_ref_input or 1
-        d = self._restore_per_layer("dense", self._meas_layer.get(("prefill", "dense"), 0.0), batch, tok)
-        m = self._restore_per_layer("moe", self._meas_layer.get(("prefill", "moe"), 0.0), batch, tok)
+        d = self._restore_per_layer(
+            "dense", self._meas_layer.get(("prefill", "dense"), 0.0), batch, tok
+        )
+        m = self._restore_per_layer(
+            "moe", self._meas_layer.get(("prefill", "moe"), 0.0), batch, tok
+        )
         return self._n_dense * d + self._n_moe * m + self._restore_pp_ms(batch, tok)
 
     def _measured_prefill_tokens_ms(self, total_tokens: int) -> float:
@@ -518,8 +538,9 @@ class InferencePerformanceProjector:
             # Decode-only artifact (or an untrusted prefill, see
             # set_benchmark_calibration): simulate the chunk rather than bill it
             # as free.
-            return self._forward_times(1, max(1, total_tokens), "prefill",
-                                       max(1, total_tokens)).total_ms
+            return self._forward_times(
+                1, max(1, total_tokens), "prefill", max(1, total_tokens)
+            ).total_ms
         return rate * max(1, total_tokens)
 
     # -- benchmark ingestion ---------------------------------------------------
@@ -530,7 +551,9 @@ class InferencePerformanceProjector:
         if ltype == "moe":
             # EP>1 (expert_tp==1) drops the post-expert TP-AR (combined by A2A).
             n_ar = _moe_tp_allreduce_count(self._view)
-            return n_ar * tp_ar_one + _estimate_moe_a2a_time_ms(self._view, batch, q_len, self._gemm)
+            return n_ar * tp_ar_one + _estimate_moe_a2a_time_ms(
+                self._view, batch, q_len, self._gemm
+            )
         return _dense_tp_allreduce_count(self._view) * tp_ar_one
 
     def set_benchmark_calibration(self, benchmark_layer_times: dict) -> None:
@@ -637,7 +660,9 @@ class InferencePerformanceProjector:
                 pre_pts = []
             if self._restore:
                 # Prefill processes ``ref_input`` tokens/seq; decode 1 token/step.
-                pre_pts = [(b, self._restore_whole(ms, b, ref_input, "prefill")) for b, ms in pre_pts]
+                pre_pts = [
+                    (b, self._restore_whole(ms, b, ref_input, "prefill")) for b, ms in pre_pts
+                ]
                 dec_pts = [(b, self._restore_whole(ms, b, 1, "decode")) for b, ms in dec_pts]
             self._meas_whole = {
                 k: v for k, v in (("prefill", sorted(pre_pts)), ("decode", sorted(dec_pts))) if v
@@ -665,7 +690,7 @@ class InferencePerformanceProjector:
 
         # Per-layer schema (Megatron worker): measured forward time of one dense
         # and one MoE layer per phase. Used directly, composed by layer counts.
-        layer: Dict[tuple, float] = {}
+        layer: dict[tuple, float] = {}
         for ltype in ("dense", "moe"):
             entry = measured.get(ltype)
             if not entry:
@@ -692,9 +717,7 @@ class InferencePerformanceProjector:
         tgt_ep = max(1, getattr(mp, "expert_model_parallel_size", 1) or 1)
         tgt_pp = max(1, mp.pipeline_model_parallel_size)
         self._restore = (
-            self._bench_tp != self._tgt_tp
-            or self._bench_ep != tgt_ep
-            or self._bench_pp != tgt_pp
+            self._bench_tp != self._tgt_tp or self._bench_ep != tgt_ep or self._bench_pp != tgt_pp
         )
         if not self._restore:
             return
@@ -734,31 +757,39 @@ class InferencePerformanceProjector:
         if self._scaling_mode == "origami":
             try:
                 self._gemm_sim = get_gemm_simulation_backend(
-                    backend_name=self._gemm_name, gpu_arch=self._gpu_arch,
-                    gpu_clock_mhz=self._gpu_clock, require_simulation=True,
+                    backend_name=self._gemm_name,
+                    gpu_arch=self._gpu_arch,
+                    gpu_clock_mhz=self._gpu_clock,
+                    require_simulation=True,
                 )
                 self._sdpa_sim = get_sdpa_simulation_backend(
-                    gpu_arch=self._gpu_arch, gpu_clock_mhz=self._gpu_clock,
+                    gpu_arch=self._gpu_arch,
+                    gpu_clock_mhz=self._gpu_clock,
                 )
                 rc = self.cfg.request_config
                 saved_mp = self.cfg.model_parallel_config
                 self.cfg.model_parallel_config = bench_mp
                 self._view_bench = self.cfg.as_training_config(
-                    batch_size=rc.batch_size, seq_len=rc.input_seq_len,
+                    batch_size=rc.batch_size,
+                    seq_len=rc.input_seq_len,
                 )
                 self.cfg.model_parallel_config = saved_mp
                 self._lm_ratio_tgt = build_profiler(
-                    get_language_model_profiler_spec(self._view_tgt))
+                    get_language_model_profiler_spec(self._view_tgt)
+                )
                 self._lm_ratio_tgt.set_simulation_backends(self._gemm_sim, self._sdpa_sim)
                 self._lm_ratio_bench = build_profiler(
-                    get_language_model_profiler_spec(self._view_bench))
+                    get_language_model_profiler_spec(self._view_bench)
+                )
                 self._lm_ratio_bench.set_simulation_backends(self._gemm_sim, self._sdpa_sim)
             except Exception as e:  # pragma: no cover - arch-dependent
                 self._lm_ratio_bench = None
-                print(f"[inferasim:Inference] origami-ratio unavailable ({e}); "
-                      "falling back to measured fit / blind TP^-1.")
+                print(
+                    f"[inferasim:Inference] origami-ratio unavailable ({e}); "
+                    "falling back to measured fit / blind TP^-1."
+                )
 
-    def _comm_model_at_tp(self, tp: int, ep: int, pp: int) -> "InferenceCollectiveModel":
+    def _comm_model_at_tp(self, tp: int, ep: int, pp: int) -> InferenceCollectiveModel:
         """Collective model at an arbitrary parallelism, for the scaling fit."""
         mp = self.cfg.model_parallel_config
         return InferenceCollectiveModel(
@@ -787,10 +818,10 @@ class InferencePerformanceProjector:
             for tp, (ms, ep, pp) in sorted(per_tp.items()):
                 tokens = 1 if phase == "decode" else self._meas_ref_input
                 cm = self._comm_model_at_tp(tp, ep, pp)
-                dense = (cm.layer_comm_ms(batch, tokens, is_moe=False).total_ms
-                         if self._n_dense else 0.0)
-                moe = (cm.layer_comm_ms(batch, tokens, is_moe=True).total_ms
-                       if self._n_moe else 0.0)
+                dense = (
+                    cm.layer_comm_ms(batch, tokens, is_moe=False).total_ms if self._n_dense else 0.0
+                )
+                moe = cm.layer_comm_ms(batch, tokens, is_moe=True).total_ms if self._n_moe else 0.0
                 comm = self._n_dense * dense + self._n_moe * moe
                 xs.append(1.0 / tp)
                 ys.append(max(0.0, ms - comm))
@@ -823,8 +854,11 @@ class InferencePerformanceProjector:
 
     def _report_tp_scaling(self) -> None:
         """Print the TP-scaling law the restore will use."""
-        if (self._scaling_mode == "origami" and self._restore
-                and getattr(self, "_lm_ratio_bench", None) is not None):
+        if (
+            self._scaling_mode == "origami"
+            and self._restore
+            and getattr(self, "_lm_ratio_bench", None) is not None
+        ):
             print(
                 f"[inferasim:Inference] TP scaling: origami-ratio (simulate vLLM-fused "
                 f"MoE) — scaling measured TP={self._bench_tp} anchor to TP="
@@ -879,14 +913,19 @@ class InferencePerformanceProjector:
         model_step = measured.get("model") or {}
         ref_batch = int(meta.get("batch") or self.cfg.request_config.batch_size or 1)
         for phase, key in (("decode", "decode_ms"), ("prefill", "prefill_ms")):
-            rows = [(int(e["batch"]), float(e[key])) for e in sweep
-                    if e.get("batch") is not None and e.get(key)]
+            rows = [
+                (int(e["batch"]), float(e[key]))
+                for e in sweep
+                if e.get("batch") is not None and e.get(key)
+            ]
             if not rows and model_step.get(key):
                 rows = [(ref_batch, float(model_step[key]))]
             for batch, ms in rows:
-                self._bench_scaling_raw.setdefault(phase, {}).setdefault(
-                    batch, {}
-                )[tp] = (ms, ep, pp)
+                self._bench_scaling_raw.setdefault(phase, {}).setdefault(batch, {})[tp] = (
+                    ms,
+                    ep,
+                    pp,
+                )
 
     def _restore_per_layer(self, ltype: str, ms_bench: float, batch: int, tokens: int) -> float:
         """Restore a per-layer time measured at the benchmark's (reduced) TP/EP to
@@ -912,7 +951,7 @@ class InferencePerformanceProjector:
             return 0.0
         return self._comm_tgt.pp_p2p_ms(batch, tokens) - self._comm_bench.pp_p2p_ms(batch, tokens)
 
-    def _origami_steps(self, batch: int, tokens: int, phase: str) -> Optional[tuple]:
+    def _origami_steps(self, batch: int, tokens: int, phase: str) -> tuple | None:
         """Simulated whole-step time at the target and bench views, ``(tgt, bench)``.
 
         Reuses the analytical ``_forward_times`` at the bench and target views by
@@ -945,8 +984,7 @@ class InferencePerformanceProjector:
         comm_free = phase == "decode"
 
         def _step(lm, comm, view, imb) -> float:
-            saved = (self._lm, self._comm, self._view, self._gemm, self._sdpa,
-                     self._moe_imbalance)
+            saved = (self._lm, self._comm, self._view, self._gemm, self._sdpa, self._moe_imbalance)
             self._lm, self._comm, self._view = lm, comm, view
             self._gemm, self._sdpa = self._gemm_sim, self._sdpa_sim
             # Per-view imbalance: bench-EP vs target-EP (see _setup_restoration).
@@ -954,12 +992,18 @@ class InferencePerformanceProjector:
             try:
                 ft = self._forward_times(batch, q_len, phase, kv)
                 if comm_free:
-                    return max(0.0, ft.total_ms - ft.comm.tp_allreduce_ms
-                               - ft.comm.ep_a2a_ms - ft.comm.pp_p2p_ms)
+                    return max(
+                        0.0,
+                        ft.total_ms
+                        - ft.comm.tp_allreduce_ms
+                        - ft.comm.ep_a2a_ms
+                        - ft.comm.pp_p2p_ms,
+                    )
                 return ft.total_ms
             finally:
-                (self._lm, self._comm, self._view, self._gemm, self._sdpa,
-                 self._moe_imbalance) = saved
+                (self._lm, self._comm, self._view, self._gemm, self._sdpa, self._moe_imbalance) = (
+                    saved
+                )
 
         try:
             s_tgt = _step(self._lm_ratio_tgt, comm_tgt, self._view_tgt, self._imb_tgt)
@@ -970,7 +1014,9 @@ class InferencePerformanceProjector:
             return None
         return s_tgt, s_bench
 
-    def _restore_whole(self, ms_bench: float, batch: int, tokens: int, phase: str = "decode") -> float:
+    def _restore_whole(
+        self, ms_bench: float, batch: int, tokens: int, phase: str = "decode"
+    ) -> float:
         """Restore a whole-model (vLLM) step latency measured at the benchmark's
         reduced parallelism to the target TP/EP/PP, training-style and in the same
         ``pp -> ep -> tp`` order as the Megatron per-layer path:
@@ -1009,9 +1055,11 @@ class InferencePerformanceProjector:
                 else:
                     restored = ms_bench * (s_tgt / s_bench)
                 if os.getenv("INFERASIM_DEBUG_RESTORE"):
-                    print(f"[dbg-restore] phase={phase} b={batch} "
-                          f"sim_tgt={s_tgt:.3f} sim_bench={s_bench:.3f} "
-                          f"ms_bench={ms_bench:.3f} restored={restored:.3f}")
+                    print(
+                        f"[dbg-restore] phase={phase} b={batch} "
+                        f"sim_tgt={s_tgt:.3f} sim_bench={s_bench:.3f} "
+                        f"ms_bench={ms_bench:.3f} restored={restored:.3f}"
+                    )
                 return restored
 
         def _comm_total(cm) -> float:
@@ -1163,7 +1211,8 @@ class InferencePerformanceProjector:
         # while the fixed-shape 8k sweep, where the floor barely binds, does not
         # move at all.
         sparse_scale = (
-            1.0 if phase == "decode"
+            1.0
+            if phase == "decode"
             else self.cfg.request_config.resolved_sparse_attention_scale(kv_len)
         )
         # Attention-DP: the memory model has always known that a rank under DP
@@ -1192,8 +1241,7 @@ class InferencePerformanceProjector:
                     continue
                 charged = sub.measured_forward_time(batch, q_len)
                 actual = (
-                    sub.measured_forward_time(attn_batch, q_len)
-                    if attn_batch != batch else charged
+                    sub.measured_forward_time(attn_batch, q_len) if attn_batch != batch else charged
                 ) * factor
                 if is_moe:
                     moe_compute = max(0.0, moe_compute + actual - charged)
@@ -1235,9 +1283,7 @@ class InferencePerformanceProjector:
             # engine can do it: ``deepep_overlap_efficiency``, already applied
             # inside ``ep_a2a_ms`` and zero unless DeepEP/SyncFree is on. What
             # remains after that is exposed like any other collective.
-            keep_a2a = (
-                self._overlap_keep(phase, new_ep_a2a, moe_compute) if has_moe else 1.0
-            )
+            keep_a2a = self._overlap_keep(phase, new_ep_a2a, moe_compute) if has_moe else 1.0
             ep_a2a_exposed = new_ep_a2a * keep_a2a
 
             dense_comm = new_tp_ar
@@ -1245,9 +1291,7 @@ class InferencePerformanceProjector:
             keep_moe_ar = self._overlap_keep(phase, moe_tp_ar, moe_compute) if has_moe else 1.0
 
             dense_fwd = dense_compute + (dense_comm * keep_dense if has_dense else 0.0)
-            moe_fwd = moe_compute + (
-                moe_tp_ar * keep_moe_ar + ep_a2a_exposed if has_moe else 0.0
-            )
+            moe_fwd = moe_compute + (moe_tp_ar * keep_moe_ar + ep_a2a_exposed if has_moe else 0.0)
 
             # TP-AR appears in both layer types; charge each at its own exposure.
             comm.tp_allreduce_ms = (
@@ -1357,7 +1401,7 @@ class InferencePerformanceProjector:
 
             per_token_gb = estimate_kv_cache(
                 self.cfg, _layers_on_rank(self.cfg), concurrency=1, context_len=1
-            ).bytes_per_token / (1024.0 ** 3)
+            ).bytes_per_token / (1024.0**3)
             fetched_gb = min(cached * per_token_gb, req.kv_offload_gb_per_gpu)
             fetch_ms = fetched_gb / req.kv_offload_bw_gbps * 1000.0
 
@@ -1444,8 +1488,10 @@ class InferencePerformanceProjector:
             return cached
         # The model's slope over the same span, in us per token. Batch 1 and no
         # prefix reuse, matching the concurrency-1 rows the fit came from.
-        span_ms = (self._forward_times(1, hi, "prefill", hi).total_ms
-                   - self._forward_times(1, lo, "prefill", lo).total_ms)
+        span_ms = (
+            self._forward_times(1, hi, "prefill", hi).total_ms
+            - self._forward_times(1, lo, "prefill", lo).total_ms
+        )
         modelled = span_ms * 1000.0 / float(hi - lo)
         scale = (rate / modelled) if modelled > 0 else 1.0
         # A slope fit from two points on a handful of runs is not precise enough
@@ -1590,10 +1636,16 @@ class InferencePerformanceProjector:
         if self._measured_mode:
             spec = q_len if q_len > 1 else 1
             prefill_piece = self._measured_prefill_tokens_ms(chunk_tokens)
-            dec_piece = self._measured_decode_step_ms(num_decode, decode_ctx) * spec if num_decode > 0 else 0.0
+            dec_piece = (
+                self._measured_decode_step_ms(num_decode, decode_ctx) * spec
+                if num_decode > 0
+                else 0.0
+            )
             return (prefill_piece + dec_piece) * (1.0 + penalty) + ov
-        prefill_piece = (self._forward_times(1, chunk_tokens, "prefill", max(1, prefill_kv_len)).total_ms
-                         * self._prefill_rate_scale())
+        prefill_piece = (
+            self._forward_times(1, chunk_tokens, "prefill", max(1, prefill_kv_len)).total_ms
+            * self._prefill_rate_scale()
+        )
         dec_piece = (
             self._forward_times(num_decode, q_len, "decode", max(1, decode_ctx)).total_ms
             if num_decode > 0
@@ -1638,7 +1690,9 @@ class InferencePerformanceProjector:
 
     # -- continuous batching (steady-state TPOT) -------------------------------
 
-    def _continuous_decode_metrics(self, input_len: int, output_len: int, concurrency: int) -> Dict[str, float]:
+    def _continuous_decode_metrics(
+        self, input_len: int, output_len: int, concurrency: int
+    ) -> dict[str, float]:
         """Steady-state decode under *continuous batching*.
 
         Real servers (vLLM, SGLang, ...) keep ``concurrency`` sequences resident
@@ -1753,7 +1807,9 @@ class InferencePerformanceProjector:
                 ctx = int(ctx_lo + frac * (ctx_hi - ctx_lo))
                 pure_fwd = self._forward_times(C, q_len, "decode", ctx).total_ms
                 t_pure = pure_fwd + self._draft_overhead_ms(pure_fwd / max(1, q_len)) + ov + occ
-                prefill_piece = self._forward_times(1, chunk_tokens, "prefill", min(ctx, ISL)).total_ms
+                prefill_piece = self._forward_times(
+                    1, chunk_tokens, "prefill", min(ctx, ISL)
+                ).total_ms
                 dec_piece = self._forward_times(max(1, C - 1), q_len, "decode", ctx).total_ms
                 t_mixed = (prefill_piece + dec_piece) * (1.0 + penalty) + ov + occ
                 pure.append(t_pure)
@@ -1856,8 +1912,9 @@ class InferencePerformanceProjector:
         return admit_ms, buffered * max(0.0, itl_ms)
 
     @staticmethod
-    def _closed_loop_wait_ms(service_ms: float, think_ms: float, clients: int,
-                             demand_ms: float = None) -> float:
+    def _closed_loop_wait_ms(
+        service_ms: float, think_ms: float, clients: int, demand_ms: float = None
+    ) -> float:
         """Mean response time of one shared server under a closed load.
 
         A serving benchmark run with ``--max-concurrency C`` is a closed
@@ -1902,7 +1959,7 @@ class InferencePerformanceProjector:
 
     def _request_rate_queueing(
         self, system_decode_tps: float, output_len: int, ttft_ms: float, request_latency_ms: float
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """First-order open-loop queueing delay for a given offered load.
 
         Closed-loop (``request_rate == 0`` or ``arrival_model == "closed"``) is
@@ -1931,7 +1988,7 @@ class InferencePerformanceProjector:
             return {}
         rho = rate / mu
         ts_ms = 1000.0 / mu  # mean service time per request
-        out: Dict[str, float] = {
+        out: dict[str, float] = {
             "offered_request_rate": rate,
             "max_sustainable_request_rate": mu,
             "utilization": rho,
@@ -1966,7 +2023,7 @@ class InferencePerformanceProjector:
             return (1.0 - accept ** (spec_k + 1)) / (1.0 - accept)
         return float(spec_k + 1 if spec_k > 0 else 1)
 
-    def _overlap_keep(self, phase: str, comm_ms: float, compute_ms: Optional[float]) -> float:
+    def _overlap_keep(self, phase: str, comm_ms: float, compute_ms: float | None) -> float:
         """Exposed-comm fraction (1 - hidden) after compute/comm overlap.
 
         The configured ``prefill_overlap`` / ``decode_overlap`` is the *ceiling*
@@ -1982,9 +2039,7 @@ class InferencePerformanceProjector:
         compute is not separately modelled) falls back to the constant ceiling,
         preserving the previous behaviour there.
         """
-        ceiling = float(
-            self._cc.prefill_overlap if phase == "prefill" else self._cc.decode_overlap
-        )
+        ceiling = float(self._cc.prefill_overlap if phase == "prefill" else self._cc.decode_overlap)
         ceiling = min(max(ceiling, 0.0), 1.0)
         if ceiling <= 0.0:
             return 1.0
@@ -2021,8 +2076,8 @@ class InferencePerformanceProjector:
         return comm
 
     def _comm_extras(
-        self, batch: int, input_len: int, output_len: int, prefill_batch: Optional[int] = None
-    ) -> Dict[str, float]:
+        self, batch: int, input_len: int, output_len: int, prefill_batch: int | None = None
+    ) -> dict[str, float]:
         """Representative per-phase comm breakdown (ms) for reporting.
 
         ``prefill_batch`` sizes the prefill breakdown; it defaults to ``batch``
@@ -2074,7 +2129,7 @@ class InferencePerformanceProjector:
 
             if torch.cuda.is_available():
                 props = torch.cuda.get_device_properties(0)
-                return props.total_memory / (1024.0 ** 3), f"device({props.name})"
+                return props.total_memory / (1024.0**3), f"device({props.name})"
         except Exception:
             pass
         raise ValueError(
@@ -2084,7 +2139,7 @@ class InferencePerformanceProjector:
             "No default is assumed."
         )
 
-    def _sustainable_concurrency(self) -> tuple[Optional[int], float, str]:
+    def _sustainable_concurrency(self) -> tuple[int | None, float, str]:
         """KV-feasible max concurrent sequences at the target context length,
         i.e. how many sequences fit in the HBM left after weights + activations.
         Reuses the memory projection so there is a single sizing formula. Returns
@@ -2093,9 +2148,7 @@ class InferencePerformanceProjector:
         try:
             from .memory import project_inference_memory
 
-            mem = project_inference_memory(
-                self.cfg, hbm_capacity_gb=hbm_gb, verbose=False
-            )
+            mem = project_inference_memory(self.cfg, hbm_capacity_gb=hbm_gb, verbose=False)
             return mem.max_concurrent_sequences, hbm_gb, source
         except Exception:
             return None, hbm_gb, source
@@ -2158,7 +2211,11 @@ class InferencePerformanceProjector:
         # riding mixed steps, so its own service time is ``chunks * mixed_step``
         # and the queue it waits in is the closed-loop one below.
         continuous = self._use_continuous_batching(concurrency, output_len)
-        m = self._continuous_decode_metrics(input_len, output_len, concurrency) if continuous else None
+        m = (
+            self._continuous_decode_metrics(input_len, output_len, concurrency)
+            if continuous
+            else None
+        )
         if continuous:
             prefill_service_ms = max(m["prefill_chunks"] * m["mixed_step_ttft_ms"], 0.0)
             # Under attention-DP each rank owns a subset of the requests and
@@ -2173,8 +2230,9 @@ class InferencePerformanceProjector:
 
             dp = attention_dp_size(self.cfg)
             queued_clients = max(1, math.ceil(concurrency / dp)) if dp > 1 else concurrency
-            ttft = self._closed_loop_wait_ms(prefill_service_ms, m["decode_total_ms"],
-                                             queued_clients, m["prefill_demand_ms"])
+            ttft = self._closed_loop_wait_ms(
+                prefill_service_ms, m["decode_total_ms"], queued_clients, m["prefill_demand_ms"]
+            )
             prefill_full_ms = self.prefill_latency_ms(batch, input_len)
         else:
             ttft = prefill_full_ms = self.prefill_latency_ms(batch, input_len)
@@ -2247,7 +2305,11 @@ class InferencePerformanceProjector:
         if q:
             extras.update(q)
 
-        extras.update(self._comm_extras(batch, input_len, output_len, prefill_batch=(1 if continuous else batch)))
+        extras.update(
+            self._comm_extras(
+                batch, input_len, output_len, prefill_batch=(1 if continuous else batch)
+            )
+        )
         if self.is_benchmark_calibrated:
             extras["benchmark_calibrated"] = 1.0
 
@@ -2265,7 +2327,9 @@ class InferencePerformanceProjector:
             extras=extras,
         )
 
-    def _kv_transfer_ms(self, decode_proj: "InferencePerformanceProjector", batch: int, input_len: int) -> float:
+    def _kv_transfer_ms(
+        self, decode_proj: InferencePerformanceProjector, batch: int, input_len: int
+    ) -> float:
         """KV-cache transfer time prefill→decode worker, for ONE request's KV.
 
         Both callers are per-request quantities -- the TTFT this handoff delays,
@@ -2362,9 +2426,7 @@ class InferencePerformanceProjector:
         denom = resp1 + decode_total
         n_prefill = per_replica
         if denom > 0:
-            n_prefill = max(1, min(per_replica, int(round(
-                per_replica * resp1 / denom
-            ))))
+            n_prefill = max(1, min(per_replica, int(round(per_replica * resp1 / denom))))
         prefill_full_ms = prefill_proj.prefill_latency_ms(n_prefill, input_len)
         ttft_compute = prefill_full_ms
         # Host prompt-tokenization cost (latency-only, TTFT side).
@@ -2397,8 +2459,10 @@ class InferencePerformanceProjector:
         # per-request TPOT improved. The co-located path gets this from the
         # continuous-batching model's ``system_tps``.
         decode_tps_replica = (
-            decode_batch * self._spec_tokens_per_step() * 1000.0 / step_latency
-        ) if step_latency > 0 else 0.0
+            (decode_batch * self._spec_tokens_per_step() * 1000.0 / step_latency)
+            if step_latency > 0
+            else 0.0
+        )
         decode_tps = decode_tps_replica * max(1, disagg.decode_replicas)
 
         # Capacity of the prefill pool at the offered load, not at the
@@ -2406,8 +2470,7 @@ class InferencePerformanceProjector:
         # report a nearly-idle station as unable to feed decode.
         prefill_cap_ms = prefill_proj.prefill_latency_ms(per_replica, input_len)
         prefill_tps_replica = (
-            (per_replica * input_len * 1000.0 / prefill_cap_ms)
-            if prefill_cap_ms > 0 else 0.0
+            (per_replica * input_len * 1000.0 / prefill_cap_ms) if prefill_cap_ms > 0 else 0.0
         )
         prefill_tps = prefill_tps_replica * max(1, disagg.prefill_replicas)
 
@@ -2417,8 +2480,8 @@ class InferencePerformanceProjector:
         # pool's unfed ceiling: low prefill:decode ratios came out optimistic
         # and throughput did not respond to the prefix-cache hit rate at all.
         if input_len > 0 and output_len > 0:
-            supply = prefill_tps / input_len        # requests/s the prefill pool feeds
-            demand = decode_tps / output_len        # requests/s the decode pool could run
+            supply = prefill_tps / input_len  # requests/s the prefill pool feeds
+            demand = decode_tps / output_len  # requests/s the decode pool could run
             if 0.0 < supply < demand:
                 decode_tps = supply * output_len
 

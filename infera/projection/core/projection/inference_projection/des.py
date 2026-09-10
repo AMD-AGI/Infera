@@ -45,7 +45,6 @@ import math
 import random
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 from infera.projection.core.projection.training_config import InferenceConfig
 
@@ -60,7 +59,7 @@ _CTX_BUCKET = 256
 _TOK_BUCKET = 64
 
 
-def _slope(xs: List[float], ys: List[float]) -> float:
+def _slope(xs: list[float], ys: list[float]) -> float:
     """Least-squares slope dy/dx; 0.0 for degenerate input."""
     n = len(xs)
     if n < 2:
@@ -74,7 +73,7 @@ def _slope(xs: List[float], ys: List[float]) -> float:
     return sxy / sxx
 
 
-def _pct(xs: List[float], p: float) -> float:
+def _pct(xs: list[float], p: float) -> float:
     """Linear-interpolation percentile (p in [0, 1]); 0.0 for empty input."""
     if not xs:
         return 0.0
@@ -97,17 +96,17 @@ class _Req:
     arrival_ms: float
     prompt_len: int
     output_len: int
-    num_computed: int = 0        # prompt tokens already processed (prefill progress)
-    prefix_id: int = -1          # shared-prefix identity (-1 = unique / no pool)
-    cached_prefix: int = 0       # prompt tokens served from a prefix-cache hit
-    blocks: List[int] = field(default_factory=list)  # ordered KV block-hash ids
-    generated: int = 0           # output tokens emitted so far
+    num_computed: int = 0  # prompt tokens already processed (prefill progress)
+    prefix_id: int = -1  # shared-prefix identity (-1 = unique / no pool)
+    cached_prefix: int = 0  # prompt tokens served from a prefix-cache hit
+    blocks: list[int] = field(default_factory=list)  # ordered KV block-hash ids
+    generated: int = 0  # output tokens emitted so far
     prefill_done: bool = False
-    status: str = "WAITING"      # WAITING | RUNNING | FINISHED
-    admit_ms: float = -1.0       # when it left the waiting queue (server admit)
+    status: str = "WAITING"  # WAITING | RUNNING | FINISHED
+    admit_ms: float = -1.0  # when it left the waiting queue (server admit)
     first_token_ms: float = -1.0
     finish_ms: float = -1.0
-    itls: List[float] = field(default_factory=list)
+    itls: list[float] = field(default_factory=list)
 
     @property
     def reserved_kv(self) -> int:
@@ -127,30 +126,30 @@ class _Req:
 @dataclass
 class DESResult:
     arrival_model: str
-    offered_rate: float            # req/s requested
-    achieved_rate: float           # req/s completed over makespan
-    utilization: float             # busy time / makespan
+    offered_rate: float  # req/s requested
+    achieved_rate: float  # req/s completed over makespan
+    utilization: float  # busy time / makespan
     num_requests: int
     makespan_ms: float
-    system_throughput_tps: float   # output tokens/s
+    system_throughput_tps: float  # output tokens/s
     saturated: bool
     # latency distributions (ms)
-    ttft: Dict[str, float] = field(default_factory=dict)          # from admission (queue-excluded)
-    ttft_arrival: Dict[str, float] = field(default_factory=dict)  # from arrival (incl. queue wait)
-    queue_wait: Dict[str, float] = field(default_factory=dict)    # arrival -> admission
-    tpot: Dict[str, float] = field(default_factory=dict)
-    itl: Dict[str, float] = field(default_factory=dict)
-    e2e: Dict[str, float] = field(default_factory=dict)
+    ttft: dict[str, float] = field(default_factory=dict)  # from admission (queue-excluded)
+    ttft_arrival: dict[str, float] = field(default_factory=dict)  # from arrival (incl. queue wait)
+    queue_wait: dict[str, float] = field(default_factory=dict)  # arrival -> admission
+    tpot: dict[str, float] = field(default_factory=dict)
+    itl: dict[str, float] = field(default_factory=dict)
+    e2e: dict[str, float] = field(default_factory=dict)
     # batch-composition / packing summary (serving_sim-style)
-    packing: Dict[str, float] = field(default_factory=dict)
+    packing: dict[str, float] = field(default_factory=dict)
     # multi-instance routing / prefix-cache summary (only when instances>1 or a
     # prefix pool is configured)
-    prefix: Dict[str, float] = field(default_factory=dict)
+    prefix: dict[str, float] = field(default_factory=dict)
     # optional per-step records (only when record_steps=True)
-    steps: Optional[List[dict]] = None
+    steps: list[dict] | None = None
     # optional raw per-request latency samples (only when return_samples=True);
     # used to pool distributions across instances in the multi-instance driver.
-    samples: Optional[Dict[str, List[float]]] = None
+    samples: dict[str, list[float]] | None = None
 
 
 class _CostKernel:
@@ -159,8 +158,8 @@ class _CostKernel:
     def __init__(self, projector: InferencePerformanceProjector, q_len: int):
         self._p = projector
         self._q = q_len
-        self._decode: Dict[tuple, float] = {}
-        self._mixed: Dict[tuple, float] = {}
+        self._decode: dict[tuple, float] = {}
+        self._mixed: dict[tuple, float] = {}
 
     @staticmethod
     def _bucket(ctx: int) -> int:
@@ -178,7 +177,9 @@ class _CostKernel:
             self._decode[key] = v
         return v
 
-    def mixed_step_ms(self, num_decode: int, prefill_tokens: int, ctx: int, prefill_kv: int) -> float:
+    def mixed_step_ms(
+        self, num_decode: int, prefill_tokens: int, ctx: int, prefill_kv: int
+    ) -> float:
         key = (num_decode, self._tok(prefill_tokens), self._bucket(ctx), self._bucket(prefill_kv))
         v = self._mixed.get(key)
         if v is None:
@@ -189,7 +190,7 @@ class _CostKernel:
 
 def _generate_arrivals(
     n: int, rate_per_s: float, model: str, rng: random.Random, burstiness: float = 1.0
-) -> List[float]:
+) -> list[float]:
     """Arrival timestamps (ms) for ``n`` requests at ``rate_per_s`` req/s.
 
     ``deterministic`` → fixed spacing; ``poisson`` → gamma inter-arrivals with
@@ -200,7 +201,7 @@ def _generate_arrivals(
         return [0.0] * n
     mean_dt_ms = 1000.0 / rate_per_s
     t = 0.0
-    out: List[float] = []
+    out: list[float] = []
     for _ in range(n):
         if model == "deterministic":
             dt = mean_dt_ms
@@ -241,7 +242,7 @@ def _sample_len(rng: random.Random, max_len: int, range_ratio: float) -> int:
     return rng.randint(lo, max_len)
 
 
-def _load_workload_file(path: str) -> List[Tuple[float, int, int]]:
+def _load_workload_file(path: str) -> list[tuple[float, int, int]]:
     """Load ``(arrival_ms, isl, osl)`` rows from JSON (list of dicts) or CSV.
 
     Keys/columns are case-insensitive: ``arrival`` (ms; aliases arrival_ms/time/
@@ -262,7 +263,7 @@ def _load_workload_file(path: str) -> List[Tuple[float, int, int]]:
                 return float(lower[nm])
         return default
 
-    out: List[Tuple[float, int, int]] = []
+    out: list[tuple[float, int, int]] = []
     for row in rows:
         arrival = get(row, "arrival", "arrival_ms", "time", "step", default=0.0)
         isl = int(get(row, "isl", "input_len", "prompt_len", default=1.0))
@@ -273,15 +274,15 @@ def _load_workload_file(path: str) -> List[Tuple[float, int, int]]:
 
 def _build_workload(
     n: int,
-    arrivals: List[float],
+    arrivals: list[float],
     input_len: int,
     output_len: int,
     range_ratio: float,
     rng: random.Random,
-) -> List[_Req]:
+) -> list[_Req]:
     """Construct ``n`` requests with per-request sampled lengths (homogeneous
     when ``range_ratio >= 1``)."""
-    reqs: List[_Req] = []
+    reqs: list[_Req] = []
     for i in range(n):
         isl = _sample_len(rng, input_len, range_ratio)
         osl = _sample_len(rng, output_len, range_ratio)
@@ -298,13 +299,13 @@ def simulate_once(
     num_requests: int = 400,
     warmup_frac: float = 0.1,
     seed: int = 0,
-    arrivals: Optional[List[float]] = None,
+    arrivals: list[float] | None = None,
     burstiness: float = 1.0,
     range_ratio: float = 1.0,
     kv_cache_tokens: int = 0,
-    workload_file: Optional[str] = None,
+    workload_file: str | None = None,
     record_steps: bool = False,
-    prebuilt: Optional[List["_Req"]] = None,
+    prebuilt: list[_Req] | None = None,
     return_samples: bool = False,
 ) -> DESResult:
     """Run one single-engine DES at a fixed offered load.
@@ -319,13 +320,13 @@ def simulate_once(
     input_len = max(1, req.input_seq_len)
     output_len = max(1, req.output_seq_len)
     max_running = max(1, req.resolved_max_concurrency())
-    token_budget = int(req.max_num_batched_tokens or 0)      # 0 = unlimited
-    long_prefill = int(req.chunked_prefill_size or 0)        # per-request chunk cap
+    token_budget = int(req.max_num_batched_tokens or 0)  # 0 = unlimited
+    long_prefill = int(req.chunked_prefill_size or 0)  # per-request chunk cap
     max_model_len = max(2, int(req.resolved_max_context_len()))
     spec_k = int(req.speculative_num_tokens or 0)
     accept = float(req.speculative_acceptance_rate or 0.0)
     q_len = (spec_k + 1) if spec_k > 0 else 1
-    kv_pool = int(kv_cache_tokens or 0)                       # 0 = unlimited
+    kv_pool = int(kv_cache_tokens or 0)  # 0 = unlimited
 
     rng = random.Random(seed)
 
@@ -367,15 +368,15 @@ def simulate_once(
 
     kernel = _CostKernel(projector, q_len)
     next_arrival = 0
-    waiting: List[_Req] = []
-    running: List[_Req] = []
-    done: List[_Req] = []
+    waiting: list[_Req] = []
+    running: list[_Req] = []
+    done: list[_Req] = []
     kv_used = 0
 
     now = 0.0
     busy_ms = 0.0
-    backlog: List[tuple] = []       # (time_ms, waiting depth) for saturation test
-    step_records: List[dict] = [] if record_steps else []
+    backlog: list[tuple] = []  # (time_ms, waiting depth) for saturation test
+    step_records: list[dict] = [] if record_steps else []
     # packing accumulators
     pk_steps = pk_batch = pk_maxbatch = pk_prefill_reqs = pk_decode_reqs = 0
     pk_qtokens = 0
@@ -407,7 +408,7 @@ def simulate_once(
         # 3) Build the step: Phase 1 (running) then Phase 2 (admit), sharing the
         #    per-step token budget. ``scheduled`` = (req, q, is_prefill, kv_start).
         budget = token_budget if token_budget > 0 else math.inf
-        scheduled: List[Tuple[_Req, int, bool, int]] = []
+        scheduled: list[tuple[_Req, int, bool, int]] = []
 
         def _schedule_tokens(r: _Req, budget: float) -> int:
             if r.prefill_done:
@@ -474,13 +475,13 @@ def simulate_once(
         busy_ms += step_dt
 
         # 6) Apply the forward pass (prefill progress; decode commits w/ spec).
-        for (r, q, is_prefill, _kv) in scheduled:
+        for r, q, is_prefill, _kv in scheduled:
             if not r.prefill_done:
                 r.num_computed += q
                 if r.num_computed >= r.prompt_len:
                     r.prefill_done = True
                     r.first_token_ms = now
-                    r.generated = 1              # last prefill chunk emits token 1
+                    r.generated = 1  # last prefill chunk emits token 1
                     r.itls.append(step_dt)
                     if r.generated >= r.output_len:
                         r.status = "FINISHED"
@@ -498,7 +499,7 @@ def simulate_once(
                     r.finish_ms = now
 
         # 7) Retire finished requests, free their KV reservation.
-        still: List[_Req] = []
+        still: list[_Req] = []
         for r in running:
             if r.status == "FINISHED":
                 kv_used -= r.reserved_kv
@@ -562,16 +563,15 @@ def simulate_once(
 
     ttft = [
         (r.first_token_ms - _admit(r)) + tok_ms_pt * r.prompt_len
-        for r in sample if r.first_token_ms >= 0
+        for r in sample
+        if r.first_token_ms >= 0
     ]
     ttft_arrival = [
         (r.first_token_ms - r.arrival_ms) + tok_ms_pt * r.prompt_len
-        for r in sample if r.first_token_ms >= 0
+        for r in sample
+        if r.first_token_ms >= 0
     ]
-    queue_wait = [
-        _admit(r) - r.arrival_ms
-        for r in sample if r.first_token_ms >= 0
-    ]
+    queue_wait = [_admit(r) - r.arrival_ms for r in sample if r.first_token_ms >= 0]
     # Per-output-token detokenization + streaming (client-side host cost).
     # Latency-only: added to ITL/TPOT/e2e but not to the server step, so the
     # scheduler, makespan and throughput above are unchanged. Matches the
@@ -579,14 +579,15 @@ def simulate_once(
     detok_ms = max(0.0, req.detokenize_overhead_us) / 1000.0
     e2e = [
         (r.finish_ms - r.arrival_ms) + tok_ms_pt * r.prompt_len + detok_ms * r.generated
-        for r in sample if r.finish_ms >= 0
+        for r in sample
+        if r.finish_ms >= 0
     ]
     tpot = [
         (r.finish_ms - r.first_token_ms) / max(1, r.generated - 1) + detok_ms
         for r in sample
         if r.finish_ms >= 0 and r.generated > 1
     ]
-    itl_all: List[float] = []
+    itl_all: list[float] = []
     for r in sample:
         itl_all.extend(x + detok_ms for x in r.itls)
 
@@ -616,7 +617,7 @@ def simulate_once(
     if rate_per_s > 0 and achieved_rate < 0.5 * rate_per_s:
         saturated = True
 
-    def dist(xs: List[float]) -> Dict[str, float]:
+    def dist(xs: list[float]) -> dict[str, float]:
         return {
             "mean": (sum(xs) / len(xs)) if xs else 0.0,
             "p50": _pct(xs, 0.50),
@@ -687,11 +688,11 @@ class _BlockCache:
     """
 
     def __init__(self, capacity_blocks: int = 0) -> None:
-        self.capacity = int(capacity_blocks or 0)   # 0 = unbounded
-        self._lru: "OrderedDict[int, None]" = OrderedDict()
+        self.capacity = int(capacity_blocks or 0)  # 0 = unbounded
+        self._lru: OrderedDict[int, None] = OrderedDict()
         self.evictions = 0
 
-    def prefix_match(self, blocks: List[int]) -> int:
+    def prefix_match(self, blocks: list[int]) -> int:
         """Number of leading blocks already resident (contiguous from the head)."""
         m = 0
         for b in blocks:
@@ -701,7 +702,7 @@ class _BlockCache:
                 break
         return m
 
-    def insert(self, blocks: List[int]) -> None:
+    def insert(self, blocks: list[int]) -> None:
         """Warm a request's blocks (mark MRU); evict LRU beyond capacity."""
         for b in blocks:
             if b in self._lru:
@@ -721,7 +722,7 @@ class _BlockHasher:
     """Deterministic ``tuple -> small int`` block-hash id allocator."""
 
     def __init__(self) -> None:
-        self._m: Dict[tuple, int] = {}
+        self._m: dict[tuple, int] = {}
 
     def hid(self, key: tuple) -> int:
         h = self._m.get(key)
@@ -732,8 +733,13 @@ class _BlockHasher:
 
 
 def _blocks_from_prefix(
-    idx: int, prompt_len: int, prefix_id: int, prefix_len: int, block_size: int, hasher: _BlockHasher
-) -> List[int]:
+    idx: int,
+    prompt_len: int,
+    prefix_id: int,
+    prefix_len: int,
+    block_size: int,
+    hasher: _BlockHasher,
+) -> list[int]:
     """Blockify a synthetic prompt: leading blocks shared by same-``prefix_id``
     requests, trailing blocks unique to this request.
 
@@ -742,13 +748,15 @@ def _blocks_from_prefix(
     """
     bs = max(1, block_size)
     n_blocks = max(1, math.ceil(prompt_len / bs))
-    n_shared = min(n_blocks, math.ceil(prefix_len / bs)) if (prefix_id >= 0 and prefix_len > 0) else 0
+    n_shared = (
+        min(n_blocks, math.ceil(prefix_len / bs)) if (prefix_id >= 0 and prefix_len > 0) else 0
+    )
     blocks = [hasher.hid(("P", prefix_id, b)) for b in range(n_shared)]
     blocks += [hasher.hid(("U", idx, b)) for b in range(n_blocks - n_shared)]
     return blocks
 
 
-def _load_mooncake_trace(path: str) -> List[Tuple[float, int, int, List[int]]]:
+def _load_mooncake_trace(path: str) -> list[tuple[float, int, int, list[int]]]:
     """Load a Mooncake-format trace: ``(arrival_ms, isl, osl, hash_ids)`` rows.
 
     Accepts JSON-lines (one object per line) or a JSON array. Each record uses
@@ -757,7 +765,7 @@ def _load_mooncake_trace(path: str) -> List[Tuple[float, int, int, List[int]]]:
     content-addressed prefix-cache matching directly -- consecutive requests that
     share a system prompt share leading ``hash_ids``.
     """
-    records: List[dict] = []
+    records: list[dict] = []
     with open(path) as f:
         text = f.read()
     stripped = text.lstrip()
@@ -776,7 +784,7 @@ def _load_mooncake_trace(path: str) -> List[Tuple[float, int, int, List[int]]]:
                 return low[nm]
         return default
 
-    rows: List[Tuple[float, int, int, List[int]]] = []
+    rows: list[tuple[float, int, int, list[int]]] = []
     for r in records:
         ts = float(_g(r, "timestamp", "arrival", "arrival_ms", "time", default=0.0))
         isl = int(_g(r, "input_length", "isl", "input_len", "prompt_len", default=1))
@@ -786,9 +794,7 @@ def _load_mooncake_trace(path: str) -> List[Tuple[float, int, int, List[int]]]:
     return rows
 
 
-def _draw_prefix_ids(
-    n: int, num_prefixes: int, zipf: float, rng: random.Random
-) -> List[int]:
+def _draw_prefix_ids(n: int, num_prefixes: int, zipf: float, rng: random.Random) -> list[int]:
     """Assign each of ``n`` requests a shared-prefix id in ``[0, num_prefixes)``.
 
     ``zipf <= 0`` → uniform popularity; ``zipf > 0`` → power-law skew (a few
@@ -826,7 +832,7 @@ _KV_UNKNOWN_COST_BLOCKS = 1.0
 
 
 def _route_and_warm(
-    reqs: List["_Req"],
+    reqs: list[_Req],
     *,
     policy: str,
     num_instances: int,
@@ -834,7 +840,7 @@ def _route_and_warm(
     cache_blocks: int,
     rng: random.Random,
     overlap_weight: float = 1.0,
-) -> Tuple[List[List["_Req"]], Dict[str, float]]:
+) -> tuple[list[list[_Req]], dict[str, float]]:
     """Route requests across instances and derive per-request prefix-cache hits
     from a content-addressed block cache (as real serving engines do).
 
@@ -851,7 +857,7 @@ def _route_and_warm(
     leading block so same-prefix requests co-locate; ``round_robin``/``random``
     ignore locality.
     """
-    per_inst: List[List["_Req"]] = [[] for _ in range(num_instances)]
+    per_inst: list[list[_Req]] = [[] for _ in range(num_instances)]
     caches = [_BlockCache(cache_blocks) for _ in range(num_instances)]
     # Decayed history of blocks each instance had to compute. The router's load
     # term also counts in-flight blocks, which are unknowable here (routing is
@@ -897,9 +903,7 @@ def _route_and_warm(
             # prompt accrues it and the next cold prompt goes elsewhere.
             for i in range(num_instances):
                 recent[i] *= _KV_RECENT_DECAY
-            recent[inst] += (
-                float(len(blocks) - matched) if blocks else _KV_UNKNOWN_COST_BLOCKS
-            )
+            recent[inst] += float(len(blocks) - matched) if blocks else _KV_UNKNOWN_COST_BLOCKS
         cached = max(0, min(matched * block_size, r.prompt_len - 1))
         if cached > 0:
             r.cached_prefix = cached
@@ -925,29 +929,34 @@ def _route_and_warm(
         "avg_cached_tokens": (cached_total / n) if n else 0.0,
         "min_inst_hit_rate": min(
             (inst_hits[i] / inst_reqs[i]) for i in range(num_instances) if inst_reqs[i]
-        ) if any(inst_reqs) else 0.0,
+        )
+        if any(inst_reqs)
+        else 0.0,
         "max_inst_hit_rate": max(
             (inst_hits[i] / inst_reqs[i]) for i in range(num_instances) if inst_reqs[i]
-        ) if any(inst_reqs) else 0.0,
+        )
+        if any(inst_reqs)
+        else 0.0,
     }
     return per_inst, summary
 
 
-def _aggregate_instances(results: List[DESResult], prefix_summary: Dict[str, float]) -> DESResult:
+def _aggregate_instances(results: list[DESResult], prefix_summary: dict[str, float]) -> DESResult:
     """Pool per-instance DESResults into one fleet-level DESResult.
 
     Latency distributions are recomputed from the pooled raw samples; system
     throughput / achieved rate sum across instances; makespan is the slowest
     instance; utilization is the per-instance mean.
     """
-    def _pool(key: str) -> List[float]:
-        out: List[float] = []
+
+    def _pool(key: str) -> list[float]:
+        out: list[float] = []
         for r in results:
             if r.samples and r.samples.get(key):
                 out.extend(r.samples[key])
         return out
 
-    def dist(xs: List[float]) -> Dict[str, float]:
+    def dist(xs: list[float]) -> dict[str, float]:
         return {
             "mean": (sum(xs) / len(xs)) if xs else 0.0,
             "p50": _pct(xs, 0.50),
@@ -997,7 +1006,7 @@ def simulate_multi_instance(
     prefix_zipf: float,
     block_size: int,
     cache_blocks: int,
-    mooncake_rows: Optional[List[Tuple[float, int, int, List[int]]]] = None,
+    mooncake_rows: list[tuple[float, int, int, list[int]]] | None = None,
 ) -> DESResult:
     """Route one arrival stream across ``num_instances`` replicas and pool.
 
@@ -1027,7 +1036,9 @@ def simulate_multi_instance(
         arrivals = _generate_arrivals(num_requests, rate_per_s, arrival_model, rng, burstiness)
         reqs = _build_workload(len(arrivals), arrivals, input_len, output_len, range_ratio, rng)
         # A prefix pool with ``prefix_len == 0`` defaults to half the prompt.
-        eff_prefix_len = prefix_len if prefix_len > 0 else (input_len // 2 if num_prefixes > 0 else 0)
+        eff_prefix_len = (
+            prefix_len if prefix_len > 0 else (input_len // 2 if num_prefixes > 0 else 0)
+        )
         for r, pid in zip(reqs, _draw_prefix_ids(len(reqs), num_prefixes, prefix_zipf, rng)):
             r.prefix_id = pid
             r.blocks = _blocks_from_prefix(r.idx, r.prompt_len, pid, eff_prefix_len, bs, hasher)
@@ -1041,10 +1052,12 @@ def simulate_multi_instance(
         rng=rng,
         overlap_weight=overlap_weight,
     )
-    prefix_summary["routing"] = float(_ROUTING_POLICIES.index(routing)) if routing in _ROUTING_POLICIES else -1.0
+    prefix_summary["routing"] = (
+        float(_ROUTING_POLICIES.index(routing)) if routing in _ROUTING_POLICIES else -1.0
+    )
     prefix_summary["trace_driven"] = 1.0 if mooncake_rows is not None else 0.0
 
-    results: List[DESResult] = []
+    results: list[DESResult] = []
     for i, sub in enumerate(per_inst):
         if not sub:
             continue
@@ -1080,7 +1093,7 @@ def run_des(
     burstiness: float = 1.0,
     range_ratio: float = 1.0,
     kv_cache_tokens: int = 0,
-    workload_file: Optional[str] = None,
+    workload_file: str | None = None,
     record_steps: bool = False,
     num_instances: int = 1,
     routing: str = "round_robin",
@@ -1091,8 +1104,8 @@ def run_des(
     cache_slots: int = 0,
     block_size: int = 0,
     cache_blocks: int = 0,
-    mooncake_trace: Optional[str] = None,
-) -> Dict[str, object]:
+    mooncake_trace: str | None = None,
+) -> dict[str, object]:
     """Run the DES at the configured load and (optionally) a load sweep.
 
     Returns ``{"point": DESResult, "curve": [DESResult, ...],
@@ -1100,7 +1113,7 @@ def run_des(
     rate ``mu`` from the steady-state projection and samples fractions of it to
     trace the throughput-vs-latency knee.
     """
-    out: Dict[str, object] = {}
+    out: dict[str, object] = {}
     # ``cache_blocks`` is the block-cache capacity; fall back to the legacy
     # ``cache_slots`` flag when the new one is unset.
     eff_cache_blocks = max(0, cache_blocks or cache_slots or 0)
@@ -1117,7 +1130,9 @@ def run_des(
             inference_config,
             projector,
             rate_per_s=eff_rate,
-            arrival_model=arrival_model if arrival_model in ("poisson", "deterministic") else "poisson",
+            arrival_model=arrival_model
+            if arrival_model in ("poisson", "deterministic")
+            else "poisson",
             num_requests=num_requests,
             seed=seed,
             warmup_frac=warmup_frac,
@@ -1154,7 +1169,7 @@ def run_des(
         steady = projector.project()
         osl = max(1, inference_config.request_config.output_seq_len)
         mu = (steady.decode_throughput_tps / osl) if steady.decode_throughput_tps > 0 else 0.0
-        curve: List[DESResult] = []
+        curve: list[DESResult] = []
         if mu > 0:
             sweep_n = min(num_requests, 300)
             fracs = [0.3, 0.5, 0.7, 0.8, 0.9, 0.95]

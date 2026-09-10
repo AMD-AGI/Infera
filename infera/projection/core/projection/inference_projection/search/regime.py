@@ -34,7 +34,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Dict, Iterable, Optional
+from collections.abc import Iterable
+from typing import Any
 
 # Regime-defining axes: differ on any of these → a different measured anchor.
 #
@@ -124,6 +125,7 @@ def models_match(a: Any, b: Any) -> bool:
     refusing to reuse a warmup that is genuinely for this model, and the regime
     axes still have to agree before it is used for anything.
     """
+
     def leaf(v: Any) -> str:
         return normalise_model_id(str(v or "").rstrip("/").rsplit("/", 1)[-1])
 
@@ -133,19 +135,19 @@ def models_match(a: Any, b: Any) -> bool:
     return na in nb or nb in na
 
 
-def _sig(recipe: Dict[str, Any], axes: Iterable[str]) -> str:
+def _sig(recipe: dict[str, Any], axes: Iterable[str]) -> str:
     payload = {k: _canon(recipe.get(k)) for k in axes}
     blob = json.dumps(payload, sort_keys=True)
     return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
 
-def regime_signature(recipe: Dict[str, Any]) -> str:
+def regime_signature(recipe: dict[str, Any]) -> str:
     """Hash over the regime-defining axes only.  Two recipes with the same
     signature are mutually transportable (same kernels/regime)."""
     return _sig(recipe, REGIME_AXES)
 
 
-def config_key(recipe: Dict[str, Any], extra: Optional[Dict[str, Any]] = None) -> str:
+def config_key(recipe: dict[str, Any], extra: dict[str, Any] | None = None) -> str:
     """Exact-run identity: hash over regime + transport axes, plus any ``extra``
     (measurement knobs that change the number but not the regime, e.g.
     decode-steps).  Used by the benchmark result cache."""
@@ -157,9 +159,7 @@ def config_key(recipe: Dict[str, Any], extra: Optional[Dict[str, Any]] = None) -
     return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
 
-def regime_distance(
-    a: Dict[str, Any], b: Dict[str, Any], *, ignore_missing: bool = True
-) -> int:
+def regime_distance(a: dict[str, Any], b: dict[str, Any], *, ignore_missing: bool = True) -> int:
     """Hamming distance over the regime axes.  0 => same regime (fully
     transportable).  When ``ignore_missing`` (default), an axis absent/None on
     *either* side is not counted — so a partially-specified target still matches
@@ -199,9 +199,7 @@ def regime_distance(
     return d
 
 
-def speculative_axis(
-    method: Optional[str], num_tokens: Optional[int] = None
-) -> Optional[str]:
+def speculative_axis(method: str | None, num_tokens: int | None = None) -> str | None:
     """Canonical ``speculative`` axis value: ``None``, ``"off"`` or ``"spec:k"``.
 
     ``None`` propagates as "unknown" (artifact predates the tracking); an
@@ -222,7 +220,7 @@ def speculative_axis(
     return f"spec:{int(num_tokens)}" if num_tokens else "spec"
 
 
-def aiter_ops_axis(env: Optional[Dict[str, str]]) -> Optional[str]:
+def aiter_ops_axis(env: dict[str, str] | None) -> str | None:
     """Canonical ``aiter_ops`` value: ``None``, ``"default"`` or ``"op=v,..."``.
 
     A recipe can turn off one AITER kernel family while the master switch stays
@@ -240,7 +238,7 @@ def aiter_ops_axis(env: Optional[Dict[str, str]]) -> Optional[str]:
     if env is None:
         return None
     ops = sorted(
-        (k[len(_AITER_OP_PREFIX):].lower(), _canon(v))
+        (k[len(_AITER_OP_PREFIX) :].lower(), _canon(v))
         for k, v in env.items()
         if str(k).upper().startswith(_AITER_OP_PREFIX)
     )
@@ -251,7 +249,8 @@ def aiter_ops_axis(env: Optional[Dict[str, str]]) -> Optional[str]:
 # Adapters: build a canonical recipe from the three sources that produce one.
 # --------------------------------------------------------------------------
 
-def recipe_from_meta(meta: Dict[str, Any], *, model: Optional[str] = None) -> Dict[str, Any]:
+
+def recipe_from_meta(meta: dict[str, Any], *, model: str | None = None) -> dict[str, Any]:
     """Canonical recipe from a benchmark artifact's ``meta`` block.  The
     *benchmark* parallelism (what it actually ran at) is recorded on the
     transport axes so the anchor's coverage is described in benchmark space;
@@ -299,7 +298,7 @@ def recipe_from_meta(meta: Dict[str, Any], *, model: Optional[str] = None) -> Di
     }
 
 
-def recipe_from_bench_args(args: Any, env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+def recipe_from_bench_args(args: Any, env: dict[str, str] | None = None) -> dict[str, Any]:
     """Canonical recipe from ``benchmark_vllm.py`` CLI args (stdlib-only path).
 
     Also returns nothing extra here — measurement-only knobs are passed as the
@@ -335,7 +334,7 @@ def recipe_from_bench_args(args: Any, env: Optional[Dict[str, str]] = None) -> D
     }
 
 
-def recipe_from_inference_config(cfg: Any) -> Dict[str, Any]:
+def recipe_from_inference_config(cfg: Any) -> dict[str, Any]:
     """Canonical recipe from an ``InferenceConfig`` (the reconstruction target).
 
     Structural configs carry no HF model *name*, so ``model`` is left ``None``
@@ -377,7 +376,7 @@ def recipe_from_inference_config(cfg: Any) -> Dict[str, Any]:
     }
 
 
-def _cudagraph_from_mode(mode: Optional[str]) -> Optional[str]:
+def _cudagraph_from_mode(mode: str | None) -> str | None:
     if mode is None:
         return None
     return "eager" if str(mode).lower() in ("none", "off", "eager") else "graph"

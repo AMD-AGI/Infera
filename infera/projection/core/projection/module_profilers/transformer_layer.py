@@ -6,7 +6,6 @@
 
 import logging
 import os
-from typing import Optional
 
 from infera.projection.core.projection.base_module_profiler import BaseModuleProfiler
 from infera.projection.core.projection.profiler_spec import ModuleProfilerSpec
@@ -306,7 +305,7 @@ class DenseTransformerLayerProfiler(BaseModuleProfiler):
         self._cached_results = None
         self._cache_key = None
 
-    def estimated_num_params(self, rank: Optional[int] = None) -> int:
+    def estimated_num_params(self, rank: int | None = None) -> int:
         return (
             self.sub_profilers["layer_norm"].estimated_num_params(rank) * 3
             + self.sub_profilers["self_attention"].estimated_num_params(rank)
@@ -319,7 +318,8 @@ class DenseTransformerLayerProfiler(BaseModuleProfiler):
             self.sub_profilers["layer_norm"].estimated_activation_memory(batch_size, seq_len) * 3
             + self.sub_profilers["self_attention"].estimated_activation_memory(batch_size, seq_len)
             + self.sub_profilers["mlp"].estimated_activation_memory(batch_size, seq_len)
-            + self.sub_profilers["residual_add"].estimated_activation_memory(batch_size, seq_len) * 2
+            + self.sub_profilers["residual_add"].estimated_activation_memory(batch_size, seq_len)
+            * 2
         )
 
     def _get_simulated_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
@@ -340,7 +340,9 @@ class DenseTransformerLayerProfiler(BaseModuleProfiler):
             self.config, batch_size, seq_len, self._gemm_backend
         )
 
-        fwd_time = attn_fwd + mlp_fwd + _dense_tp_allreduce_count(self.config) * tp_ar_ms + ln_res_fwd_ms
+        fwd_time = (
+            attn_fwd + mlp_fwd + _dense_tp_allreduce_count(self.config) * tp_ar_ms + ln_res_fwd_ms
+        )
         activation_memory = self.estimated_activation_memory(batch_size, seq_len)
         return (fwd_time, activation_memory)
 
@@ -432,7 +434,7 @@ class MoETransformerLayerProfiler(BaseModuleProfiler):
         self._cached_results = None
         self._cache_key = None
 
-    def estimated_num_params(self, rank: Optional[int] = None) -> int:
+    def estimated_num_params(self, rank: int | None = None) -> int:
         return (
             self.sub_profilers["layer_norm"].estimated_num_params(rank) * 3
             + self.sub_profilers["self_attention"].estimated_num_params(rank)
@@ -447,7 +449,8 @@ class MoETransformerLayerProfiler(BaseModuleProfiler):
             + self.sub_profilers["self_attention"].estimated_activation_memory(batch_size, seq_len)
             + self.sub_profilers["mlp"].estimated_activation_memory(batch_size, seq_len)
             + self.sub_profilers["router"].estimated_activation_memory(batch_size, seq_len)
-            + self.sub_profilers["residual_add"].estimated_activation_memory(batch_size, seq_len) * 2
+            + self.sub_profilers["residual_add"].estimated_activation_memory(batch_size, seq_len)
+            * 2
         )
 
     def _get_simulated_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
@@ -540,7 +543,9 @@ class MoETransformerLayerProfiler(BaseModuleProfiler):
                             restore()
                         except Exception:
                             # Best-effort cleanup: restore failures should not fail benchmarking.
-                            _LOGGER.debug("Failed to restore routing patch during cleanup.", exc_info=True)
+                            _LOGGER.debug(
+                                "Failed to restore routing patch during cleanup.", exc_info=True
+                            )
             else:
                 self._cached_results = self._get_benchmark_composite_results(batch_size, seq_len)
             self._cache_key = cache_key

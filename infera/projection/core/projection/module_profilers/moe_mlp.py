@@ -5,12 +5,10 @@
 ###############################################################################
 
 import os
-from typing import Optional
 
 from infera.projection.core.projection.base_module_profiler import BaseModuleProfiler
 from infera.projection.core.projection.profiler_spec import ModuleProfilerSpec
 from infera.projection.core.projection.training_config import TrainingConfig
-
 
 # Efficiency fractions for non-GEMM MoE overhead estimation.
 # These express achievable bandwidth as a fraction of peak HBM bandwidth.
@@ -38,7 +36,6 @@ _ACTIVATION_BW_FRACTION = 0.566
 #
 # Fallback absolute values used when the backend cannot report HBM bandwidth.
 _FALLBACK_HBM_BW_GBPS = 5300.0  # MI300X default
-
 
 
 # Measured grouped-GEMM bandwidth on MI355X at M=1, as a fraction of peak HBM,
@@ -83,9 +80,7 @@ def _router_coverage(curve, tokens: int) -> float:
     # Accepts a mapping, or the [[batch, coverage], ...] form a YAML preset uses
     # (the config loader turns mappings into namespaces and cannot hold the
     # integer keys this is naturally keyed by).
-    items = curve.items() if hasattr(curve, "items") else (
-        (p[0], p[1]) for p in curve
-    )
+    items = curve.items() if hasattr(curve, "items") else ((p[0], p[1]) for p in curve)
     pts = sorted((int(b), float(v)) for b, v in items)
     if tokens <= pts[0][0]:
         return pts[0][1]
@@ -100,9 +95,7 @@ def _router_coverage(curve, tokens: int) -> float:
     return pts[-1][1]
 
 
-def _expert_hit_fraction(
-    num_experts: int, topk: int, tokens: int, skew: float = 0.0
-) -> float:
+def _expert_hit_fraction(num_experts: int, topk: int, tokens: int, skew: float = 0.0) -> float:
     """Expected fraction of experts a step touches, for a Zipf(``skew``) router.
 
     ``skew`` 0 is uniform and reproduces the closed form
@@ -118,7 +111,7 @@ def _expert_hit_fraction(
     draws = tokens * max(1, topk)
     if skew <= 0.0:
         return 1.0 - (1.0 - min(1.0, topk / num_experts)) ** tokens
-    weights = [1.0 / (i ** skew) for i in range(1, num_experts + 1)]
+    weights = [1.0 / (i**skew) for i in range(1, num_experts + 1)]
     total = sum(weights)
     hit = sum(1.0 - (1.0 - w / total) ** draws for w in weights)
     return min(1.0, hit / num_experts)
@@ -148,7 +141,7 @@ class MoEMLPProfiler(BaseModuleProfiler):
         self._cached_results = None
         self._cache_key = None
 
-    def estimated_num_params(self, rank: Optional[int] = None) -> int:
+    def estimated_num_params(self, rank: int | None = None) -> int:
         if self.config.model_config.moe_ffn_hidden_size is not None:
             moe_ffn = self.config.model_config.moe_ffn_hidden_size
         else:
@@ -288,9 +281,7 @@ class MoEMLPProfiler(BaseModuleProfiler):
                 getattr(self.config.model_config, "moe_router_coverage", None),
                 routing_tokens,
             )
-            active_global_experts = max(
-                1, min(num_experts, int(round(num_experts * hit_frac)))
-            )
+            active_global_experts = max(1, min(num_experts, int(round(num_experts * hit_frac))))
             active_local_experts = max(
                 1, min(num_local_experts, int(round(num_local_experts * hit_frac)))
             )
@@ -338,9 +329,8 @@ class MoEMLPProfiler(BaseModuleProfiler):
         # real number of weight bytes instead of applying a speedup multiplier
         # after the fact -- at decode the step is weight-bound, so this width is
         # the dominant term.
-        gemm_dtype = (
-            getattr(self.config.model_config, "moe_expert_dtype", None)
-            or ("fp8" if getattr(self.config.model_config, "fp8", None) else "bf16")
+        gemm_dtype = getattr(self.config.model_config, "moe_expert_dtype", None) or (
+            "fp8" if getattr(self.config.model_config, "fp8", None) else "bf16"
         )
         # Activations keep their own precision; they are not the expert weights.
         bytes_per_el = 1 if getattr(self.config.model_config, "fp8", None) else 2
@@ -395,7 +385,9 @@ class MoEMLPProfiler(BaseModuleProfiler):
                 gate_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=B)
                 up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=B)
                 down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=B)
-                expert_fwd_ms = gate_fwd.forward_time_ms + up_fwd.forward_time_ms + down_fwd.forward_time_ms
+                expert_fwd_ms = (
+                    gate_fwd.forward_time_ms + up_fwd.forward_time_ms + down_fwd.forward_time_ms
+                )
             else:
                 up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=B)
                 down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=B)
@@ -407,9 +399,7 @@ class MoEMLPProfiler(BaseModuleProfiler):
             # (~16 experts), so it only reshapes the small-batch decode curve --
             # which is exactly where the group is small enough to matter.
             if int(seq_len) <= 1 and B > 0:
-                expert_fwd_ms *= max(
-                    1.0, _GROUPED_GEMM_PLATEAU / _grouped_gemm_efficiency(B)
-                )
+                expert_fwd_ms *= max(1.0, _GROUPED_GEMM_PLATEAU / _grouped_gemm_efficiency(B))
 
             expert_fwd = expert_fwd_ms
         else:
@@ -418,7 +408,9 @@ class MoEMLPProfiler(BaseModuleProfiler):
                 gate_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=1)
                 up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=1)
                 down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=1)
-                expert_fwd_ms = gate_fwd.forward_time_ms + up_fwd.forward_time_ms + down_fwd.forward_time_ms
+                expert_fwd_ms = (
+                    gate_fwd.forward_time_ms + up_fwd.forward_time_ms + down_fwd.forward_time_ms
+                )
             else:
                 up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=1)
                 down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=1)
@@ -448,7 +440,9 @@ class MoEMLPProfiler(BaseModuleProfiler):
 
         # ── 2. Router overhead ──
         # Gate linear: [batch_tokens, num_experts, hidden_size]
-        router_gemm = self._gemm_backend.simulate_gemm(batch_tokens, num_experts, hidden_size, gemm_dtype)
+        router_gemm = self._gemm_backend.simulate_gemm(
+            batch_tokens, num_experts, hidden_size, gemm_dtype
+        )
         router_fwd_ms = router_gemm.forward_time_ms
         # Softmax + top-K selection over the router logits [batch_tokens,
         # num_experts]. Modelled as a memory-bound streaming op (read logits,
@@ -472,10 +466,9 @@ class MoEMLPProfiler(BaseModuleProfiler):
         # unquantized (bf16) whatever width the operands were.
         dispatch_bytes = 2 * topk_tokens * hidden_size * bytes_per_el
         combine_bytes = (topk_tokens + batch_tokens) * hidden_size * 2
-        permute_fwd_ms = (
-            dispatch_bytes / (peak_hbm * _PERMUTE_GATHER_BW_FRACTION * 1e6)
-            + combine_bytes / (peak_hbm * _PERMUTE_COMBINE_BW_FRACTION * 1e6)
-        )
+        permute_fwd_ms = dispatch_bytes / (
+            peak_hbm * _PERMUTE_GATHER_BW_FRACTION * 1e6
+        ) + combine_bytes / (peak_hbm * _PERMUTE_COMBINE_BW_FRACTION * 1e6)
 
         fwd_time += permute_fwd_ms
 
@@ -522,12 +515,12 @@ class MoEMLPProfiler(BaseModuleProfiler):
                 self._cached_results = self._get_simulated_results(batch_size, seq_len)
                 self._a2a_fwd_ms = 0.0
             else:
-
                 # Imported here, not at module scope: this pulls in torch, which costs
                 # ~0.66 s and is only needed to benchmark on a real GPU. A simulate-only
                 # projection should not pay for it -- Hyperloom spawns one process per
                 # config, where that import dwarfed the ~28 ms the projection takes.
                 from .utils import benchmark_moe_layer_decomposed
+
                 fwd, act_mem, a2a_fwd = benchmark_moe_layer_decomposed(
                     self.module,
                     [(seq_len, batch_size, self.config.model_config.hidden_size)],

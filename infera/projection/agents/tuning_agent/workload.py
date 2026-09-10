@@ -204,7 +204,8 @@ def resolve_workload(workload_yaml: Path, config_root: Path | None = None) -> Ar
             model_path = candidate
         else:
             raise FileNotFoundError(
-                f"Could not find model YAML for '{model_filename}' " f"under {model_path} or {candidate}"
+                f"Could not find model YAML for '{model_filename}' "
+                f"under {model_path} or {candidate}"
             )
 
     model = _resolve_model_chain(model_path)
@@ -214,7 +215,9 @@ def resolve_workload(workload_yaml: Path, config_root: Path | None = None) -> Ar
 
     # precision: BF16 by default; FP8 if `fp8` block present at workload level
     precision = "bf16"
-    if any("fp8" in k.lower() for k in raw.keys()) or any("fp8" in k.lower() for k in overrides.keys()):
+    if any("fp8" in k.lower() for k in raw.keys()) or any(
+        "fp8" in k.lower() for k in overrides.keys()
+    ):
         precision = "fp8"
 
     return ArchitectureRecord(
@@ -242,14 +245,15 @@ def resolve_workload(workload_yaml: Path, config_root: Path | None = None) -> Ar
         # DeepSeek names its indexer ``index_topk``; the other sparse families
         # carry theirs as a serving-time property under its request name, so
         # both spellings are read and either one means "this model is sparse".
-        index_topk=int(model.get("index_topk")
-                       or model.get("sparse_attention_topk") or 0),
+        index_topk=int(model.get("index_topk") or model.get("sparse_attention_topk") or 0),
         moe_ffn_hidden_size=model.get("moe_ffn_hidden_size"),
         moe_shared_expert_intermediate_size=model.get("moe_shared_expert_intermediate_size"),
         vocab_size=model.get("padded_vocab_size") or model.get("vocab_size"),
         precision=precision,
         tensor_model_parallel_size=int(_strip_env(overrides.get("tensor_model_parallel_size", 1))),
-        pipeline_model_parallel_size=int(_strip_env(overrides.get("pipeline_model_parallel_size", 1))),
+        pipeline_model_parallel_size=int(
+            _strip_env(overrides.get("pipeline_model_parallel_size", 1))
+        ),
         expert_model_parallel_size=int(_strip_env(overrides.get("expert_model_parallel_size", 1))),
         context_parallel_size=int(_strip_env(overrides.get("context_parallel_size", 1))),
         # VPP can be set explicitly OR implied by ``pipeline_model_parallel_layout``

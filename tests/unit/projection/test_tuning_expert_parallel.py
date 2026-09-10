@@ -67,9 +67,7 @@ def test_full_tp_with_full_ep_fits_on_one_node():
 
 def test_expert_parallelism_composes_with_attention_dp_at_full_width():
     """The pairing the measured MLA fleets run has to be expressible."""
-    ok, why = validate_inference(
-        _cfg(ep=8, attention_dp=8), _Arch(), _Cluster(), _legality()
-    )
+    ok, why = validate_inference(_cfg(ep=8, attention_dp=8), _Arch(), _Cluster(), _legality())
     assert ok, why
 
 

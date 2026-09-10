@@ -36,10 +36,16 @@ Using 'TRITON' Mxfp4 MoE backend
 
 
 def spec(**over) -> Namespace:
-    base = dict(model="openai/gpt-oss-120b", serving_backend="vllm",
-                max_model_len=8192, enable_expert_parallel=False,
-                enforce_eager=False, quantization=None, kv_cache_dtype=None,
-                server_args="")
+    base = dict(
+        model="openai/gpt-oss-120b",
+        serving_backend="vllm",
+        max_model_len=8192,
+        enable_expert_parallel=False,
+        enforce_eager=False,
+        quantization=None,
+        kv_cache_dtype=None,
+        server_args="",
+    )
     base.update(over)
     return Namespace(**base)
 
@@ -63,13 +69,15 @@ def test_kernels_are_absent_rather_than_wrong_for_another_engine():
     }
 
 
-@pytest.mark.parametrize("backend, model_flag, tp_flag, http_flag", [
-    ("vllm", None, "--tensor-parallel-size", "--port"),
-    ("sglang", "--model-path", "--tp", "--port"),
-    ("atom", "--model", "--tensor-parallel-size", "--server-port"),
-])
-def test_each_engine_is_launched_the_way_it_expects(backend, model_flag, tp_flag,
-                                                    http_flag):
+@pytest.mark.parametrize(
+    "backend, model_flag, tp_flag, http_flag",
+    [
+        ("vllm", None, "--tensor-parallel-size", "--port"),
+        ("sglang", "--model-path", "--tp", "--port"),
+        ("atom", "--model", "--tensor-parallel-size", "--server-port"),
+    ],
+)
+def test_each_engine_is_launched_the_way_it_expects(backend, model_flag, tp_flag, http_flag):
     argv = _engine_argv(spec(serving_backend=backend), port=8123, tp=4)
     if model_flag is None:
         assert argv[0] == "openai/gpt-oss-120b"  # vLLM takes the model positionally
@@ -89,13 +97,11 @@ def test_atom_keeps_its_rendezvous_port_off_the_http_port():
 def test_the_context_length_flag_follows_the_engine():
     """The same intent, spelled differently by each engine."""
     assert "--max-model-len" in _engine_argv(spec(), port=1, tp=1)
-    assert "--context-length" in _engine_argv(spec(serving_backend="sglang"),
-                                              port=1, tp=1)
+    assert "--context-length" in _engine_argv(spec(serving_backend="sglang"), port=1, tp=1)
 
 
 def test_caller_server_args_always_win_by_coming_last():
-    argv = _engine_argv(spec(server_args="--gpu-memory-utilization 0.85"),
-                        port=1, tp=1)
+    argv = _engine_argv(spec(server_args="--gpu-memory-utilization 0.85"), port=1, tp=1)
     assert argv[-2:] == ["--gpu-memory-utilization", "0.85"]
 
 
@@ -103,6 +109,7 @@ def test_caller_server_args_always_win_by_coming_last():
 # A served point costs a whole client run, so which batches a launch sweeps is
 # the difference between an anchor that answers off its measured point and one
 # that does not.
+
 
 def _sweep_batches(monkeypatch, **over):
     """Run the serving anchor with the engine and load generator stubbed."""
@@ -120,12 +127,22 @@ def _sweep_batches(monkeypatch, **over):
     # are about which batches get measured, not about what is installed.
     monkeypatch.setattr(benchmark_serving.shutil, "which", lambda _: "/usr/bin/vllm")
     monkeypatch.setattr(
-        benchmark_serving, "_measure_concurrency",
+        benchmark_serving,
+        "_measure_concurrency",
         lambda port, batch, args, out_dir: measured.append(batch) or float(batch),
     )
-    fields = dict(tp=8, pp=1, benchmark_gpus=4, batch=16, batches=None,
-                  concurrency=None, input_len=1024, output_len=128, env=[],
-                  quantization="mxfp4")
+    fields = dict(
+        tp=8,
+        pp=1,
+        benchmark_gpus=4,
+        batch=16,
+        batches=None,
+        concurrency=None,
+        input_len=1024,
+        output_len=128,
+        env=[],
+        quantization="mxfp4",
+    )
     fields.update(over)
     return measured, benchmark_serving.run_serving_benchmark(spec(**fields))
 
@@ -179,24 +196,30 @@ def test_benchmark_mode_can_choose_the_engine_that_can_load_the_model():
 
     cfg = SimpleNamespace(
         model_parallel_config=SimpleNamespace(
-            tensor_model_parallel_size=2, expert_model_parallel_size=1,
-            pipeline_model_parallel_size=1),
+            tensor_model_parallel_size=2,
+            expert_model_parallel_size=1,
+            pipeline_model_parallel_size=1,
+        ),
         request_config=SimpleNamespace(
-            input_seq_len=1024, output_seq_len=128, max_concurrency=32,
-            batch_size=32),
+            input_seq_len=1024, output_seq_len=128, max_concurrency=32, batch_size=32
+        ),
     )
 
     def argv_for(**over):
-        args = Namespace(bench_model="deepseek-ai/DeepSeek-V4-Flash",
-                         save_benchmark="/tmp/anchor.json",
-                         benchmark_gpus=None, **over)
+        args = Namespace(
+            bench_model="deepseek-ai/DeepSeek-V4-Flash",
+            save_benchmark="/tmp/anchor.json",
+            benchmark_gpus=None,
+            **over,
+        )
         seen = {}
-        with mock.patch.object(benchmark, "json") as js, \
-                mock.patch("builtins.open", mock.mock_open(read_data="{}")):
+        with (
+            mock.patch.object(benchmark, "json") as js,
+            mock.patch("builtins.open", mock.mock_open(read_data="{}")),
+        ):
             js.load.return_value = {}
             with mock.patch(
-                "infera.projection.core.projection.inference_projection"
-                ".benchmark_vllm.main",
+                "infera.projection.core.projection.inference_projection.benchmark_vllm.main",
                 side_effect=lambda argv: seen.setdefault("argv", argv),
             ):
                 benchmark.spawn_inference_benchmark(args, cfg)

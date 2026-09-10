@@ -121,8 +121,7 @@ def test_wider_expert_parallelism_moves_bytes_faster():
     )
 
     msg = 4 * 1024 * 1024
-    assert (_measured_intra_node_a2a_us(msg, 8)
-            < _measured_intra_node_a2a_us(msg, 2))
+    assert _measured_intra_node_a2a_us(msg, 8) < _measured_intra_node_a2a_us(msg, 2)
 
 
 def test_decode_step_stays_smooth_across_the_batch_axis():

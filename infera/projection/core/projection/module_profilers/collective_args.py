@@ -10,7 +10,7 @@ Hardware parameters can be customized via config file.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass
@@ -61,7 +61,7 @@ class CollectiveArgs:
     # Network topology
     switch_topology: bool = True  # Whether using switch-based topology
     node_topology: str = "switch"  # Node topology: "switch" or "mesh" (for mesh derate)
-    nics_per_node: Optional[int] = 8  # NICs per node (None = gpus_per_node)
+    nics_per_node: int | None = 8  # NICs per node (None = gpus_per_node)
 
     # Hierarchical AllReduce pipelining
     ar_overlap_factor: float = 0.9  # Peak overlap between intra-node and inter-node phases (0-1)
@@ -128,7 +128,7 @@ def get_default_args(
     _dp: int = -1,  # Auto-calculated if -1 (currently unused, retained for API compatibility)
     ep: int = 1,
     cp: int = 1,
-    hardware_config: Optional[Dict[str, Any]] = None,
+    hardware_config: dict[str, Any] | None = None,
 ) -> CollectiveArgs:
     """
     Get CollectiveArgs with customizable hardware configuration.
@@ -212,19 +212,19 @@ def get_default_args(
                 # Convert value to the expected type if it's a string representation of a number
                 if isinstance(value, str) and field_type in (int, float):
                     try:
-                        if field_type == int:
+                        if field_type is int:
                             # Handle scientific notation for int (e.g., "1e3" -> 1000)
                             if "e" in value.lower() or "E" in value.lower():
                                 value = int(float(value))
                             else:
                                 value = int(value)
-                        elif field_type == float:
+                        elif field_type is float:
                             # Handle scientific notation for float (e.g., "3.2e12" -> 3.2e12)
                             value = float(value)
                     except (ValueError, TypeError):
                         # If conversion fails, keep original value and let it fail later
                         pass
-                elif field_type == bool and isinstance(value, str):
+                elif field_type is bool and isinstance(value, str):
                     # Convert string booleans to actual booleans
                     if value.lower() in ("true", "1", "yes", "on"):
                         value = True
@@ -233,7 +233,9 @@ def get_default_args(
 
                 setattr(args, key, value)
             else:
-                print(f"[inferasim:WARNING] Unknown hardware parameter '{key}' in config. Skipping.")
+                print(
+                    f"[inferasim:WARNING] Unknown hardware parameter '{key}' in config. Skipping."
+                )
 
     # Set nics_per_node to gpus_per_node if not explicitly set
     if args.nics_per_node is None:

@@ -24,15 +24,15 @@ from infera.projection.core.projection.inference_projection.benchmark_vllm impor
 @pytest.mark.parametrize(
     "tp, ep, expected",
     [
-        (1, 1, 1),    # a single-GPU config is measured on one GPU
+        (1, 1, 1),  # a single-GPU config is measured on one GPU
         (2, 1, 2),
-        (4, 1, 4),    # exactly the cap
+        (4, 1, 4),  # exactly the cap
         # A TP=2 EP=2 target occupies two GPUs in vLLM, where EP follows TP, so
         # the warmup cannot be wider than the thing it is measuring.
         (2, 2, 2),
-        (8, 1, 4),    # beyond the cap: measure on four, project the rest
+        (8, 1, 4),  # beyond the cap: measure on four, project the rest
         (8, 8, 4),
-        (16, 1, 4),   # multi-node targets never enlarge the warmup
+        (16, 1, 4),  # multi-node targets never enlarge the warmup
         (4, 4, 4),
     ],
 )
@@ -43,8 +43,8 @@ def test_a_warmup_never_asks_for_more_than_half_a_node(tp, ep, expected):
 
 def test_tp4_is_the_anchor_for_every_target_at_or_above_four():
     """The calibration anchor is TP4 even when TP4 does not divide target TP."""
-    assert warmup_gpu_count(3, 1) == 3   # below four: keep the target TP
-    assert warmup_gpu_count(6, 1) == 4   # at or above four: always use TP4
+    assert warmup_gpu_count(3, 1) == 3  # below four: keep the target TP
+    assert warmup_gpu_count(6, 1) == 4  # at or above four: always use TP4
     assert warmup_gpu_count(12, 1) == 4
 
 
