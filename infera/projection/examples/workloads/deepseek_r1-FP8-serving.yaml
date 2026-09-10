@@ -1,0 +1,53 @@
+work_group: ${INFERASIM_TEAM:tas}
+user_name: ${INFERASIM_USER:qyy}
+exp_name: ${INFERASIM_EXP_NAME:deepseek_r1-serving}
+workspace: ./output
+
+# Serving-projection workload for DeepSeek-R1 (V3 architecture: MLA + 256-expert
+# MoE). Mirrors the measured 1P1D sglang sweep in bench/pd_mori_1p1d/results:
+# TP=8 per engine on MI355X, ISL/OSL 1024, fp8 weights.
+modules:
+  pre_trainer:
+    framework: megatron
+    config: pre_trainer.yaml
+
+    model: ${INFERASIM_MODEL:deepseek_v3}.yaml
+    overrides:
+      stderr_sink_level: DEBUG
+
+      # hyper parameters (serving only reads seq_length / batch shape)
+      train_iters: 10
+      micro_batch_size: 1
+      global_batch_size: 8
+      seq_length: ${INFERASIM_SEQ_LENGTH:2048}
+      max_position_embeddings: ${INFERASIM_MAX_POSITION_EMBEDDINGS:8192}
+      lr: 1.0e-5
+      min_lr: 0.0
+      lr_warmup_iters: 2
+      lr_decay_iters: null
+      lr_decay_style: cosine
+      weight_decay: 0.1
+      adam_beta1: 0.9
+      adam_beta2: 0.95
+      eod_mask_loss: true
+      init_method_std: 0.008
+      norm_epsilon: 1.0e-6
+
+      # parallel — one serving engine: TP=8, EP=8 over the same 8 GPUs
+      tensor_model_parallel_size: ${INFERASIM_TP:8}
+      pipeline_model_parallel_size: ${INFERASIM_PP:1}
+      virtual_pipeline_model_parallel_size: ${INFERASIM_VP:1}
+      expert_model_parallel_size: ${INFERASIM_EP:8}
+
+      # data
+      mock_data: true
+      train_data_path: ${TOKENIZED_DATA_PATH:null}
+      valid_data_path: null
+      test_data_path: null
+
+      # ckpt
+      finetune: false
+      auto_continue_train: false
+      load: null
+      save: null
+      eval_iters: 0
