@@ -1,0 +1,27 @@
+Read-only implementation findings during iteration002 runtime freeze
+Source pin: xiaobochen-amd/sglang 402df1e1e453e1e85ec0f5ac4052d36598cc691a.
+Cached sources are in references/pinned_yihou/.
+
+KV layout
+- srt/mem_cache/memory_pool.py:4079-4088: HIP + DSA + FP8 writes raw MLA nope+rope FP8 without block scales. The mixed layout (FP8 nope, FP32 scales, BF16 rope) is the different elif branch at4089-4105. Reading the class rope_storage_dtype comment alone would incorrectly imply mixed storage on HIP.
+- memory_pool.py:3932-4001: pool kv_cache_dim and store_dtype determine the physical buffer shape. A future safety assertion should require raw width kv_lora_rank+qk_rope_head_dim before writing uniform FP8 bytes.
+- srt/mem_cache/index_key_cache.py:32-43: each index buffer row has page_size*(index_head_dim+4) bytes for this model's128-wide index head; top-k reuse layers have zero-row placeholders. Filling page_size*128 key bytes followed by FP32 scale words matches this layout.
+- Current initialization exactly follows SIKL common.py:294-315, random unsigned FP8 codes in[0,0x7c), scales uniform[0.5,2]. It is finite in FP8 but positive and broad magnitude; e4m3fn maximum in this range is352. No claim of statistically realistic KV distribution. Bounded signed FP8 initialization is a possible explicit benchmark improvement, not required to fix mixed BF16 storage on this HIP path. Driver/bootstrap currently checks finite hidden/topk values.
+
+Preallocation ownership
+- srt/speculative/eagle_utils.py:1041-1114 calculates next allocation as max(existing allocation, page-rounded committed+reserve).
+- srt/mem_cache/allocation_sizing.py:10-47 gives reserve=2*max(topk*steps,draft_tokens)=12 for EAGLE5/6/1.
+- srt/mem_cache/allocation.py:646-692 alloc_for_spec_decode writes mappings/allocates only when num_needed_tokens>0; it does not free existing reserve.
+- srt/speculative/eagle_worker_common.py:461-660 run_eagle_verify does no rejected-slot free. Tree compaction is conditional on topk>1; our topk1 chain is already compact. The driver does not call scheduler result-processing/free paths.
+
+Simulation and progression
+- srt/speculative/spec_utils.py:358-438 samples once per batch, then broadcasts the chosen acceptance length by filling num_correct_drafts. Length includes bonus. match-expected at3.61 chooses3 or4 with probabilities0.39/0.61, unlike rounded/clamped normal sampling under method multinomial.
+- Driver explicitly requires uniform accept_lens; unequal lengths need active-request handling and are rejected rather than silently miscounted.
+- CPU full workload test passes exact16*10000 useful emissions, contexts70000->80000, terminal over-computation excluded from useful output. A new post-completion record() guard test currently fails; the two-line production guard is deliberately queued until runtime freeze ends.
+
+Queued invariants after runtime freeze
+- Assert worker new_seq_lens equals previous lengths plus actual accept_lens before useful terminal clipping.
+- Guard against recording after accounting completion.
+- Record specific imported module provenance (sglang.srt.server_args.__file__), not top-level sglang.__file__, which is a namespace package.
+
+No runtime files changed during iteration002 freeze. CPU tests and this explicitly requested reference note only.

@@ -1,0 +1,3 @@
+93b579abb7c1768c6f3c808d0b60aaeed852609e16d5705bb5a81cf6bf52bae7  /shared_nfs/yihou/packups/glm52_mix_repro.packup_20260909-100729/MANIFEST.sha256
+0754d740caa95230993720133815ef4eef44fcb852e2913b80a71052221a06fe  /shared_nfs/yihou/packups/glm52_mix_repro.packup_20260909-100729/scripts/repo/Dockerfile
+db17bc38f0d75f21a37d58cc667382ff648a6e97f7cb308bf2fc937c940ddb25  /shared_nfs/yihou/packups/glm52_mix_repro.packup_20260909-100729/scripts/repo/glm52/launch_sglang.sh
