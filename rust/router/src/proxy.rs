@@ -357,11 +357,34 @@ pub(crate) async fn dispatch_routed(
     let guard = state.pool.load();
     let snap: &Snapshot = &guard;
 
-    let has_p = !snap.list_active(model, DisaggMode::Prefill).is_empty();
-    let has_d = !snap.list_active(model, DisaggMode::Decode).is_empty();
+    let prefill = snap.list_active(model, DisaggMode::Prefill);
+    let decode = snap.list_active(model, DisaggMode::Decode);
+    let mixed = snap.list_active(model, DisaggMode::Mixed);
+    let has_p = !prefill.is_empty();
+    let has_d = !decode.is_empty();
     if has_p && has_d {
         return crate::disagg::dispatch(state, snap, model, routing_request, raw, stream, path)
             .await;
+    }
+    if has_p != has_d && mixed.is_empty() {
+        let (present, missing, count) = if has_p {
+            ("prefill", "decode", prefill.len())
+        } else {
+            ("decode", "prefill", decode.len())
+        };
+        return json_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            &format!(
+                "model={model:?} has {count} {present} worker(s) but no {missing} worker; \
+                 PD dispatch requires both pools"
+            ),
+        );
+    }
+    if !has_p && !has_d && mixed.is_empty() {
+        return json_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            &format!("no active worker for model={model:?}"),
+        );
     }
     mixed_dispatch(state, snap, model, routing_request, raw, stream, path).await
 }

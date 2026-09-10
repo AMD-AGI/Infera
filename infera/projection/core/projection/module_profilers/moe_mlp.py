@@ -1,0 +1,563 @@
+###############################################################################
+# Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
+#
+# See LICENSE for license information.
+###############################################################################
+
+import os
+from typing import Optional
+
+from infera.projection.core.projection.base_module_profiler import BaseModuleProfiler
+from infera.projection.core.projection.profiler_spec import ModuleProfilerSpec
+from infera.projection.core.projection.training_config import TrainingConfig
+
+
+# Efficiency fractions for non-GEMM MoE overhead estimation.
+# These express achievable bandwidth as a fraction of peak HBM bandwidth.
+# The actual BW is ``fraction × peak_hbm_bw`` for the target architecture,
+# so the model scales automatically across MI300X (5.3 TB/s), MI325X (6.0
+# TB/s), MI355X (8.0 TB/s), etc.
+#
+# PERMUTE (scatter/gather) — token dispatch/combine.  Measured on MI355X as a
+# fraction of peak HBM, gathering whole rows against the row length:
+#
+#   row bytes   128   256   512    1K    2K    7K   14K
+#   gather      14%   27%   52%   85%   91%   81%   87%
+#
+# The random-access penalty is a *granularity* effect and only bites below a
+# DRAM burst; a hidden-size row (7 KB for a 7168-wide model in fp8) is
+# contiguous and streams at near-sequential bandwidth.  Combine is the slower
+# half — it reduces ``topk`` scattered rows per output row with no reuse — and
+# was measured separately at the same shapes.
+_PERMUTE_GATHER_BW_FRACTION = 0.80
+_PERMUTE_COMBINE_BW_FRACTION = 0.28
+#
+# ACTIVATION (SwiGLU / GELU) — sequential element-wise ops that stream over
+# contiguous buffers.  Typically ~55-60 % of peak HBM bandwidth.
+_ACTIVATION_BW_FRACTION = 0.566
+#
+# Fallback absolute values used when the backend cannot report HBM bandwidth.
+_FALLBACK_HBM_BW_GBPS = 5300.0  # MI300X default
+
+
+
+# Measured grouped-GEMM bandwidth on MI355X at M=1, as a fraction of peak HBM,
+# against the number of experts in the group (bench/.../measure_gemm_bandwidth):
+#
+#   experts     1     2     4     8    16    32    64   128   256
+#   gpt-oss   14%   27%   46%   65%   85%   67%   75%   73%   77%
+#   deepseek  25%   44%   65%   74%   74%   78%   80%   81%   82%
+#
+# A group of a few experts cannot saturate HBM -- too few independent streams to
+# cover latency -- and both models saturate by ~16 experts. Crucially the same
+# sweep at fixed expert count across etp=1..8 holds 72-78%, so this is set by how
+# many experts are in the group, NOT by how many bytes each rank reads. That
+# distinction is the whole point: TP sharding cuts the bytes without cutting the
+# group, so it must not be charged this penalty, and the measured TP relief is
+# indeed near-ideal.
+_GROUPED_GEMM_PLATEAU = 0.78
+_GROUPED_GEMM_EXPERT_SCALE = 4.0
+
+
+def _grouped_gemm_efficiency(active_experts: int) -> float:
+    """Fraction of peak HBM bandwidth a group of ``active_experts`` reaches."""
+    if active_experts <= 0:
+        return _GROUPED_GEMM_PLATEAU
+    import math
+
+    return _GROUPED_GEMM_PLATEAU * (
+        1.0 - math.exp(-float(active_experts) / _GROUPED_GEMM_EXPERT_SCALE)
+    )
+
+
+def _router_coverage(curve, tokens: int) -> float:
+    """Measured distinct-expert coverage, relative to independent routing.
+
+    ``curve`` maps a token count to the fraction of the independent-routing
+    prediction the real router actually reaches, as measured from the
+    checkpoint. Interpolated in log(tokens) because the batch points are spaced
+    by doubling, and held flat outside the measured range.
+    """
+    if not curve:
+        return 1.0
+    # Accepts a mapping, or the [[batch, coverage], ...] form a YAML preset uses
+    # (the config loader turns mappings into namespaces and cannot hold the
+    # integer keys this is naturally keyed by).
+    items = curve.items() if hasattr(curve, "items") else (
+        (p[0], p[1]) for p in curve
+    )
+    pts = sorted((int(b), float(v)) for b, v in items)
+    if tokens <= pts[0][0]:
+        return pts[0][1]
+    if tokens >= pts[-1][0]:
+        return pts[-1][1]
+    import math
+
+    for (b0, v0), (b1, v1) in zip(pts, pts[1:]):
+        if b0 <= tokens <= b1:
+            w = (math.log(tokens) - math.log(b0)) / (math.log(b1) - math.log(b0))
+            return v0 + w * (v1 - v0)
+    return pts[-1][1]
+
+
+def _expert_hit_fraction(
+    num_experts: int, topk: int, tokens: int, skew: float = 0.0
+) -> float:
+    """Expected fraction of experts a step touches, for a Zipf(``skew``) router.
+
+    ``skew`` 0 is uniform and reproduces the closed form
+    ``1 - (1 - topk/E)^tokens`` exactly; above 0 the popular experts absorb the
+    routings and the distinct count falls, which is what a real router does.
+
+    Validated against real gpt-oss vLLM sweeps at forced Zipf s=0.3/0.5/0.7/1.0:
+    decode time is linear in the count this returns to within +-1.5% at batch
+    >= 8, over a range where the count moves 49 -> 33 at batch 16.
+    """
+    if num_experts <= 1 or topk <= 0 or tokens <= 0:
+        return 1.0
+    draws = tokens * max(1, topk)
+    if skew <= 0.0:
+        return 1.0 - (1.0 - min(1.0, topk / num_experts)) ** tokens
+    weights = [1.0 / (i ** skew) for i in range(1, num_experts + 1)]
+    total = sum(weights)
+    hit = sum(1.0 - (1.0 - w / total) ** draws for w in weights)
+    return min(1.0, hit / num_experts)
+
+
+class MoEMLPProfiler(BaseModuleProfiler):
+    def __init__(self, config, sub_profilers=None):
+        super().__init__(config, sub_profilers)
+        self.module = None  # Will be set during benchmarking
+        self._cached_results = None  # Cache for (forward_time, activation_memory)
+        self._cache_key = None  # Cache key (batch_size, seq_len)
+        self._gemm_backend = None  # Optional: GEMM simulation backend
+        # Decomposed A2A timing (populated during benchmarking)
+        self._a2a_fwd_ms = 0.0  # Measured A2A dispatch+combine forward time
+
+    def set_module(self, module):
+        """Set the actual MoE MLP module for benchmarking."""
+        self.module = module
+        # Invalidate cache when module changes
+        self._cached_results = None
+        self._cache_key = None
+
+    def set_gemm_backend(self, backend):
+        """Set a GEMM simulation backend for simulated profiling."""
+        self._gemm_backend = backend
+        # Invalidate cache when backend changes
+        self._cached_results = None
+        self._cache_key = None
+
+    def estimated_num_params(self, rank: Optional[int] = None) -> int:
+        if self.config.model_config.moe_ffn_hidden_size is not None:
+            moe_ffn = self.config.model_config.moe_ffn_hidden_size
+        else:
+            moe_ffn = self.config.model_config.ffn_hidden_size
+
+        # For SwiGLU: 3 projections per expert (gate, up, down)
+        # For standard FFN: 2 projections per expert (up, down)
+        num_ffn_projections = 3 if self.config.model_config.swiglu else 2
+        per_expert_params = num_ffn_projections * self.config.model_config.hidden_size * moe_ffn
+        ep = 1 if rank is None else self.config.model_parallel_config.expert_model_parallel_size
+
+        all_experts_params = self.config.model_config.num_experts * per_expert_params // ep
+
+        # Shared experts (if any)
+        shared_sz = 0
+        if self.config.model_config.moe_shared_expert_intermediate_size is not None:
+            shared_sz = self.config.model_config.moe_shared_expert_intermediate_size
+        shared_params = num_ffn_projections * self.config.model_config.hidden_size * shared_sz
+
+        return all_experts_params + shared_params
+
+    def estimated_activation_memory(self, batch_size: int, seq_len: int) -> int:
+        num_tokens = (
+            batch_size
+            * seq_len
+            // self.config.model_parallel_config.tensor_model_parallel_size
+            // self.config.model_parallel_config.context_model_parallel_size
+        )
+        topk_tokens = num_tokens * self.config.model_config.moe_router_topk
+
+        if self.config.model_config.moe_ffn_hidden_size is not None:
+            moe_ffn = self.config.model_config.moe_ffn_hidden_size
+        else:
+            moe_ffn = self.config.model_config.ffn_hidden_size
+
+        if self.config.model_config.swiglu:
+            # Need to store both gate and up projections for backward
+            intermediate_memory = 2 * topk_tokens * moe_ffn * 2  # bf16
+        else:
+            intermediate_memory = topk_tokens * moe_ffn * 2  # bf16
+
+        # After activation
+        activation_memory = topk_tokens * moe_ffn * 2  # bf16
+        output_memory = topk_tokens * self.config.model_config.hidden_size * 2  # bf16
+        total = intermediate_memory + activation_memory + output_memory
+        if self.config.model_config.moe_shared_expert_intermediate_size is not None:
+            if self.config.model_config.swiglu:
+                # Need to store both gate and up projections for backward
+                intermediate_memory = 2 * num_tokens * moe_ffn * 2  # bf16
+            else:
+                intermediate_memory = num_tokens * moe_ffn * 2  # bf16
+
+            # After activation
+            activation_memory = num_tokens * moe_ffn * 2  # bf16
+            output_memory = num_tokens * self.config.model_config.hidden_size * 2  # bf16
+            total += intermediate_memory + activation_memory + output_memory
+
+        return total
+
+    def _get_simulated_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
+        """Get simulated results from the GEMM simulation backend for MoE MLP.
+
+        In addition to expert GEMM time, this method estimates several
+        components of MoE execution that the GEMM simulation alone misses:
+
+        1. **Router overhead** — gate linear projection + softmax/top-K.
+        2. **Token permutation** — dispatch (scatter) and combine (gather)
+           memory traffic with random-access patterns.
+        3. **Activation function** — SwiGLU / GELU element-wise overhead.
+
+        **Grouped GEMM performance model selection**:
+        When ``enable_primus_turbo`` and ``use_turbo_grouped_gemm`` are both
+        ``True`` in the training config, the expert GEMMs are modelled using
+        Origami's *batched* GEMM path (``batch=num_local_experts``).  Primus
+        Turbo's grouped-GEMM kernel achieves near-ideal batched execution,
+        so the batched model is an accurate proxy.
+
+        Otherwise (legacy ``grouped_gemm`` package), each expert is simulated
+        independently (``batch=1``) and the result is scaled by the number of
+        local experts.  This more closely reflects the sequential per-expert
+        execution of the legacy kernel.
+        """
+        tp_size = self.config.model_parallel_config.tensor_model_parallel_size
+        cp_size = self.config.model_parallel_config.context_model_parallel_size
+        ep_size = self.config.model_parallel_config.expert_model_parallel_size
+
+        hidden_size = self.config.model_config.hidden_size
+        topk = self.config.model_config.moe_router_topk
+
+        # Tokens are NOT sharded by tensor parallelism: TP splits the hidden and
+        # FFN dimensions while every TP rank holds the whole token axis. Only
+        # context parallelism shards tokens, and expert parallelism redistributes
+        # them across ranks via the dispatch all-to-all (accounted for below by
+        # dividing the *routings* by ``ep_size``, not the token count by ``tp_size``).
+        tokens_global = max(1, batch_size * seq_len // max(1, cp_size))
+        routings_global = tokens_global * topk
+        # The router runs on every token on every TP rank (the gate is replicated).
+        batch_tokens = tokens_global
+
+        if self.config.model_config.moe_ffn_hidden_size is not None:
+            moe_ffn = self.config.model_config.moe_ffn_hidden_size
+        else:
+            moe_ffn = self.config.model_config.ffn_hidden_size
+
+        num_experts = self.config.model_config.num_experts or 1
+        num_local_experts = num_experts // ep_size
+
+        # Expert tensor-parallel degree: within a TP×EP domain, EP distributes
+        # whole experts across ranks and the remaining ``tp_size // ep_size`` ranks
+        # tensor-shard each expert's FFN intermediate (gate/up column-parallel,
+        # down row-parallel — all shard the ``moe_ffn`` dimension). Without this,
+        # the weight-bandwidth-bound decode GEMM reads the *full* expert weights on
+        # every rank and shows no TP speedup (e.g. EP=1: experts never shard).
+        #   EP=1, TP=8 -> etp=8 (full TP sharding)   EP=8, TP=8 -> etp=1 (EP-only)
+        expert_tp = max(1, tp_size // max(1, ep_size))
+
+        # Expected number of *distinct* experts whose weights are actually read
+        # this step. MoE decode is weight-bandwidth-bound, so its cost tracks the
+        # number of experts touched, not the full local set: at small batch only
+        # ``topk × tokens`` routings land, covering a fraction of experts, while
+        # at prefill / high batch nearly every expert is hit. For a router with
+        # popularity law ``p_i`` over ``draws = tokens * topk`` selections the
+        # expected fraction hit is ``mean_i(1 - (1 - p_i)^draws)``, which reduces
+        # to the uniform ``1 - (1 - topk/E)^tokens`` at skew 0.
+        # This is a no-op for prefill/training (draws large -> every expert hit)
+        # and only reshapes the small-batch decode curve.
+        routing_tokens = tokens_global
+        if num_experts > 1 and num_local_experts > 1:
+            skew = float(getattr(self.config.model_config, "moe_routing_skew", 0.0) or 0.0)
+            hit_frac = _expert_hit_fraction(num_experts, topk, routing_tokens, skew)
+            # Both laws above treat tokens as routing independently. Real tokens
+            # do not: their representations are correlated, so they pick
+            # overlapping experts and a step touches fewer distinct ones than
+            # independence predicts. Measured from the checkpoint's own router,
+            # this is a no-op when unmeasured.
+            hit_frac *= _router_coverage(
+                getattr(self.config.model_config, "moe_router_coverage", None),
+                routing_tokens,
+            )
+            active_global_experts = max(
+                1, min(num_experts, int(round(num_experts * hit_frac)))
+            )
+            active_local_experts = max(
+                1, min(num_local_experts, int(round(num_local_experts * hit_frac)))
+            )
+        else:
+            active_global_experts = max(1, num_experts)
+            active_local_experts = max(1, num_local_experts)
+
+        # Rows per expert GEMM. Every routing lands on exactly one expert, so the
+        # rows an expert sees are the global routings spread over the experts
+        # actually hit -- a quantity that depends on neither TP (which replicates
+        # tokens) nor EP (which divides routings and experts by the same factor).
+        # Floor at 1: small decode batches yield < 1 token per expert, which would
+        # size a 0-row grouped GEMM and divide-by-zero in the simulator.
+        tokens_per_expert = max(1, routings_global // max(active_global_experts, 1))
+
+        # Routings this rank's local experts actually process, used by the
+        # permute / activation terms below (the dispatch A2A is what moves them).
+        topk_tokens = max(1, routings_global // max(1, ep_size))
+
+        # MoE routing imbalance (busiest EP rank), applied *inside* the roofline:
+        # the hottest rank sees ``imbalance``x the mean token load, so scale its
+        # per-expert row count ``M``. Because the expert GEMM is
+        # ``max(compute, weight_read)``, this is a near no-op at weight-bandwidth-
+        # bound decode (small M) and grows to the full factor at compute-bound
+        # prefill / high batch — matching measured EP=8 decode (~flat vs EP=1).
+        # EP-gated (no cross-rank imbalance when EP<=1) and per-view (each view's
+        # own ``ep_size``). Toggle: INFERASIM_MOE_IMB_ROOFLINE=0 disables (imbalance
+        # then handled by the legacy outer multiplier in performance.py).
+        imbalance = 1.0
+        if (
+            os.getenv("INFERASIM_MOE_IMB_ROOFLINE", "1").strip().lower() not in ("0", "false", "no")
+            and ep_size > 1
+            and num_experts > 1
+        ):
+            elb = float(getattr(self.config.model_config, "ep_load_balance", 1.0) or 1.0)
+            if elb > 1.0:
+                red = max(0, int(getattr(self.config.model_config, "redundant_experts", 0) or 0))
+                imbalance = 1.0 + (elb - 1.0) * num_experts / (num_experts + red) if red else elb
+                imbalance = max(1.0, imbalance)
+        tokens_per_expert = max(1, int(round(tokens_per_expert * imbalance)))
+
+        # The expert grouped-GEMM runs at the *expert weight* precision, which is
+        # not necessarily the activation precision: gpt-oss ships mxfp4 experts,
+        # DeepSeek ships fp8. Passing it through means the roofline streams the
+        # real number of weight bytes instead of applying a speedup multiplier
+        # after the fact -- at decode the step is weight-bound, so this width is
+        # the dominant term.
+        gemm_dtype = (
+            getattr(self.config.model_config, "moe_expert_dtype", None)
+            or ("fp8" if getattr(self.config.model_config, "fp8", None) else "bf16")
+        )
+        # Activations keep their own precision; they are not the expert weights.
+        bytes_per_el = 1 if getattr(self.config.model_config, "fp8", None) else 2
+
+        # ── 1. Routed expert GEMMs ──
+        # ``F`` is the per-rank FFN intermediate after expert tensor-sharding, so
+        # the weight-bound decode step scales ~1/etp (and total per-rank expert
+        # weight ∝ num_experts·H·F/tp, independent of the EP/TP split — physically
+        # correct: total expert params spread over all GPUs).
+        M = tokens_per_expert
+        H = hidden_size
+        F = max(1, moe_ffn // expert_tp)
+
+        # Determine grouped-GEMM performance model.
+        # Primus Turbo's grouped-GEMM kernel achieves near-ideal batched
+        # execution → model as Origami batched GEMM (batch=num_local_experts).
+        # Legacy grouped_gemm executes experts more sequentially → model as
+        # individual GEMM (batch=1) × num_local_experts.
+        use_turbo = getattr(self.config.model_config, "enable_primus_turbo", False) and getattr(
+            self.config.model_config, "use_turbo_grouped_gemm", False
+        )
+
+        # Kernel selection. ``vllm_fused`` models the vLLM fused-MoE decode kernel:
+        # a single batched op over the *active* experts (no per-expert launch
+        # overhead like the Megatron ``legacy`` grouped_gemm) that is weight-
+        # bandwidth-bound at decode — the backend roofline over ``batch=active``
+        # captures reading each touched expert's (sharded) weights once. Resolution
+        # order: explicit env / model_config override, else turbo flag, else legacy.
+        # vLLM serving should use ``vllm_fused``; Megatron training keeps turbo/legacy.
+        kernel = (
+            os.getenv("INFERASIM_MOE_SIM_KERNEL")
+            or getattr(self.config.model_config, "moe_sim_kernel", None)
+            or ("turbo" if use_turbo else "legacy")
+        ).lower()
+        batched = kernel in ("turbo", "vllm_fused")
+
+        is_rank_0 = int(os.getenv("RANK", "0")) == 0
+        if is_rank_0 and num_local_experts > 1:
+            label = {"vllm_fused": "vLLM fused (batched)", "turbo": "Turbo (batched)"}.get(
+                kernel, "Legacy (sequential)"
+            )
+            print(
+                f"  [MoE MLP] Grouped-GEMM model: {label}"
+                f"  ({active_local_experts}/{num_local_experts} active local experts, "
+                f"M={M}, H={H}, F={F})"
+            )
+
+        if batched:
+            # ── Batched model (turbo / vLLM-fused): active experts in parallel ──
+            B = active_local_experts
+            if self.config.model_config.swiglu:
+                gate_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=B)
+                up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=B)
+                down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=B)
+                expert_fwd_ms = gate_fwd.forward_time_ms + up_fwd.forward_time_ms + down_fwd.forward_time_ms
+            else:
+                up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=B)
+                down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=B)
+                expert_fwd_ms = up_fwd.forward_time_ms + down_fwd.forward_time_ms
+
+            # The backend's roofline streams expert weights at its saturated
+            # bandwidth, which a small group does not reach. Charge the measured
+            # shortfall for this group size. A no-op once the group saturates
+            # (~16 experts), so it only reshapes the small-batch decode curve --
+            # which is exactly where the group is small enough to matter.
+            if int(seq_len) <= 1 and B > 0:
+                expert_fwd_ms *= max(
+                    1.0, _GROUPED_GEMM_PLATEAU / _grouped_gemm_efficiency(B)
+                )
+
+            expert_fwd = expert_fwd_ms
+        else:
+            # ── Legacy model: individual GEMM × num_local_experts ──
+            if self.config.model_config.swiglu:
+                gate_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=1)
+                up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=1)
+                down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=1)
+                expert_fwd_ms = gate_fwd.forward_time_ms + up_fwd.forward_time_ms + down_fwd.forward_time_ms
+            else:
+                up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=1)
+                down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=1)
+                expert_fwd_ms = up_fwd.forward_time_ms + down_fwd.forward_time_ms
+
+            expert_fwd = expert_fwd_ms * active_local_experts
+
+            # NOTE: Legacy grouped GEMM is not properly modelled. Origami
+            # simulates ideal single-kernel execution
+            if is_rank_0:
+                print(
+                    "  [MoE MLP] WARNING: Legacy grouped GEMM not properly modelled. "
+                    "Estimates may be inaccurate."
+                )
+
+        fwd_time = expert_fwd
+
+        # Effective HBM bandwidths for the memory-bound (non-GEMM) MoE terms.
+        # Derived from the target GPU's peak HBM bandwidth so the model adapts
+        # automatically across architectures (MI300X/MI325X/MI355X).
+        peak_hbm = (
+            self._gemm_backend.hbm_bandwidth_gbps
+            if self._gemm_backend is not None and self._gemm_backend.hbm_bandwidth_gbps is not None
+            else _FALLBACK_HBM_BW_GBPS
+        )
+        activation_bw_gbps = peak_hbm * _ACTIVATION_BW_FRACTION
+
+        # ── 2. Router overhead ──
+        # Gate linear: [batch_tokens, num_experts, hidden_size]
+        router_gemm = self._gemm_backend.simulate_gemm(batch_tokens, num_experts, hidden_size, gemm_dtype)
+        router_fwd_ms = router_gemm.forward_time_ms
+        # Softmax + top-K selection over the router logits [batch_tokens,
+        # num_experts]. Modelled as a memory-bound streaming op (read logits,
+        # write gates/indices) rather than a fixed per-layer constant. This
+        # scales with the tokens actually routed on this rank — so it shards
+        # with TP (via ``batch_tokens``) and collapses to ~0 at decode (few
+        # tokens). A batch-independent constant instead stays equal across the
+        # bench/target views and pulls the EP/TP restore ratio toward 1
+        # (under-relief). Softmax streams contiguous buffers, so it uses the
+        # same sequential-streaming BW fraction as the activation term.
+        router_logits_bytes = 2 * batch_tokens * num_experts * 4  # fp32 logits read + write
+        topk_overhead_ms = router_logits_bytes / (activation_bw_gbps * 1e6)
+        router_fwd_ms += topk_overhead_ms
+
+        fwd_time += router_fwd_ms
+
+        # ── 3. Token permutation overhead (dispatch + combine) ──
+        # Dispatch gathers one row per routing and writes it in expert order;
+        # combine reads those rows back and reduces ``topk`` of them into one row
+        # per token. Combine reads the down-projection outputs, which are still
+        # unquantized (bf16) whatever width the operands were.
+        dispatch_bytes = 2 * topk_tokens * hidden_size * bytes_per_el
+        combine_bytes = (topk_tokens + batch_tokens) * hidden_size * 2
+        permute_fwd_ms = (
+            dispatch_bytes / (peak_hbm * _PERMUTE_GATHER_BW_FRACTION * 1e6)
+            + combine_bytes / (peak_hbm * _PERMUTE_COMBINE_BW_FRACTION * 1e6)
+        )
+
+        fwd_time += permute_fwd_ms
+
+        # ── 4. Activation function overhead (SwiGLU / GELU) ──
+        # Uses the per-rank (tensor-sharded) intermediate ``F``, not full moe_ffn.
+        if self.config.model_config.swiglu:
+            act_bytes = 3 * topk_tokens * F * bytes_per_el  # gate+up read, result write
+        else:
+            act_bytes = 2 * topk_tokens * F * bytes_per_el  # read + write
+        activation_ms = act_bytes / (activation_bw_gbps * 1e6)
+
+        fwd_time += activation_ms
+
+        # ── 5. Shared experts (if any) ──
+        # The shared expert is an ordinary dense MLP that every token visits, so
+        # it is column/row tensor-sharded over the full TP group like any other
+        # MLP -- not over ``expert_tp``, which only describes how a *routed*
+        # expert is split once EP has handed it a rank.
+        shared_sz = self.config.model_config.moe_shared_expert_intermediate_size
+        if shared_sz:
+            shared_result = self._gemm_backend.simulate_mlp_gemms(
+                batch_tokens=batch_tokens,
+                hidden_size=hidden_size,
+                ffn_hidden_size=max(1, shared_sz // tp_size),
+                dtype=gemm_dtype,
+                swiglu=self.config.model_config.swiglu,
+            )
+            fwd_time += shared_result.forward_time_ms
+
+        activation_memory = self.estimated_activation_memory(batch_size, seq_len)
+        return (fwd_time, activation_memory)
+
+    def _get_benchmark_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
+        """Get or compute benchmark results (cached).
+
+        When benchmarking (not simulating), uses decomposed MoE benchmarking
+        to separately measure A2A communication time.  The A2A forward time is
+        stored in ``self._a2a_fwd_ms`` and can be retrieved via
+        :meth:`measured_a2a_forward_time`.
+        """
+        cache_key = (batch_size, seq_len)
+        if self._cached_results is None or self._cache_key != cache_key:
+            if self._gemm_backend is not None:
+                self._cached_results = self._get_simulated_results(batch_size, seq_len)
+                self._a2a_fwd_ms = 0.0
+            else:
+
+                # Imported here, not at module scope: this pulls in torch, which costs
+                # ~0.66 s and is only needed to benchmark on a real GPU. A simulate-only
+                # projection should not pay for it -- Hyperloom spawns one process per
+                # config, where that import dwarfed the ~28 ms the projection takes.
+                from .utils import benchmark_moe_layer_decomposed
+                fwd, act_mem, a2a_fwd = benchmark_moe_layer_decomposed(
+                    self.module,
+                    [(seq_len, batch_size, self.config.model_config.hidden_size)],
+                )
+                self._cached_results = (fwd, act_mem)
+                self._a2a_fwd_ms = a2a_fwd
+            self._cache_key = cache_key
+        return self._cached_results
+
+    def measured_forward_time(self, batch_size: int, seq_len: int) -> float:
+        forward_time, _ = self._get_benchmark_results(batch_size, seq_len)
+        return forward_time
+
+    def measured_activation_memory(self, batch_size: int, seq_len: int) -> int:
+        _, activation_memory = self._get_benchmark_results(batch_size, seq_len)
+        return activation_memory
+
+    def measured_a2a_forward_time(self, batch_size: int, seq_len: int) -> float:
+        """Return the measured A2A (dispatch+combine) forward time in ms.
+
+        Must be called after :meth:`measured_forward_time` so that the cache
+        is populated.  Returns 0.0 in simulation mode.
+        """
+        self._get_benchmark_results(batch_size, seq_len)  # ensure cache
+        return self._a2a_fwd_ms
+
+
+def get_moe_mlp_profiler_spec(config: TrainingConfig) -> ModuleProfilerSpec:
+    return ModuleProfilerSpec(
+        profiler=MoEMLPProfiler,
+        config=config,
+        sub_profiler_specs=None,
+    )

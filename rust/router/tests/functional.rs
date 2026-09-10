@@ -367,6 +367,52 @@ async fn mixed_failover_to_healthy_worker() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn half_pd_names_the_missing_pool() {
+    for (mode, missing) in [("prefill", "decode"), ("decode", "prefill")] {
+        let state = make_state(
+            vec![worker(json!({
+                "worker_id": mode,
+                "url": "http://127.0.0.1:1",
+                "model_name": "m",
+                "disagg_mode": mode
+            }))],
+            0,
+        );
+        let router = spawn_router(state).await;
+        let resp = client()
+            .post(format!("{router}/v1/chat/completions"))
+            .json(&json!({"model": "m"}))
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), 503);
+        let body = resp.json::<Value>().await.unwrap();
+        let error = body["error"].as_str().unwrap();
+        assert!(error.contains(missing), "{error}");
+        assert!(error.contains("PD dispatch requires both pools"), "{error}");
+        assert!(!error.contains("mixed"), "{error}");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn empty_fleet_reports_no_active_worker() {
+    let router = spawn_router(make_state(vec![], 0)).await;
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m"}))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 503);
+    assert_eq!(
+        resp.json::<Value>().await.unwrap()["error"],
+        "no active worker for model=\"m\""
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn breaker_stops_reselecting_a_dead_worker() {
     // The regression behind issue #82, end to end through the real router
     // rather than against the breaker in isolation.
