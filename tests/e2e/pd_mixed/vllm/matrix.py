@@ -260,6 +260,10 @@ CASES = [
             "env": {
                 "VLLM_USE_V1": "1",
                 "VLLM_ROCM_USE_AITER": "1",
+                # aiter's custom all-reduce is nondeterministic at temperature 0: the
+                # same request returns different logits, and past ~1.7k prompt tokens
+                # the spread is what decides the long-context probe. vLLM's CUSTOM is clean.
+                "VLLM_ROCM_USE_AITER_CUSTOM_AR": "0",
                 "AITER_BF16_FP8_MOE_BOUND": "0",
                 "VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS": "1",
                 "PYTHONHASHSEED": "0",
