@@ -250,9 +250,11 @@ class SDPASimulator(SDPASimulationBackend):
         if self._tile_gemm is None:
             raise RuntimeError(
                 "SDPASimulator requires the Origami backend but it is not "
-                "available.  Please install the 'origami' package or ensure "
-                "infera.projection.core.projection.simulation_backends.origami_backend "
-                "is importable."
+                "available.  Install it with: pip install "
+                "'git+https://github.com/ROCm/rocm-libraries.git"
+                "#subdirectory=shared/origami/python' (building it requires "
+                "ROCm/HIP on the host), or ensure infera.projection.core."
+                "projection.simulation_backends.origami_backend is importable."
             )
 
     def name(self) -> str:

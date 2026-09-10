@@ -66,7 +66,10 @@ def get_gemm_simulation_backend(
     if require_simulation and not backend.is_available():
         raise RuntimeError(
             "Origami GEMM simulation backend is not available.\n"
-            "Install it with: pip install origami"
+            # Not `pip install origami`: that name on PyPI is an unrelated project.
+            "Install it with: pip install 'git+https://github.com/ROCm/rocm-libraries.git"
+            "#subdirectory=shared/origami/python'\n"
+            "(building it requires ROCm/HIP on the host)"
         )
 
     if is_rank_0 and require_simulation:

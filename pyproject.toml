@@ -39,6 +39,7 @@ dev = [
 ]
 # Inference/serving projection (analytical + GPU-calibrated). torch and the
 # serving engine (vllm) come from the engine base image, not pip.
+# `--profiling-mode simulate` also needs Origami; see infera/projection/README.md.
 projection = [
     "numpy>=1.24",
     "pyyaml>=6",

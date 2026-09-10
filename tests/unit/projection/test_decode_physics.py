@@ -15,13 +15,14 @@ from __future__ import annotations
 
 import pytest
 
-from .conftest import DEFAULTS, project_spec
+from .conftest import DEFAULTS, project_spec, requires_origami
 
 # MI355X: HBM3E, 8 TB/s peak. Nothing that streams bytes may imply more.
 _MI355X_HBM_TBPS = 8.0
 
 
 def _sdpa(**kw):
+    requires_origami()  # SDPASimulator raises in its constructor without it
     from infera.projection.core.projection.simulation_backends.sdpa_simulator import (
         SDPASimulator,
     )
@@ -514,13 +515,12 @@ def test_expert_gemm_keeps_near_ideal_relief_when_sharded(name, k, ffn, experts)
     benchmark artifact: a lone [1 x k] x [k x n] call is latency-bound and reads
     ~10% of peak, which is not the kernel MoE decode actually issues.
     """
+    requires_origami()
     from infera.projection.core.projection.simulation_backends.origami_backend import (
         OrigamiGEMMBackend,
     )
 
     backend = OrigamiGEMMBackend(gpu_arch="mi355x")
-    if not backend.is_available():
-        pytest.skip("origami not installed")
 
     def t(etp):
         return backend.simulate_gemm(

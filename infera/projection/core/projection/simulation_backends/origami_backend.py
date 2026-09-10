@@ -48,10 +48,16 @@ def _try_import_origami():
 
     try:
         import origami  # type: ignore[import-untyped]
+    except ImportError:
+        _origami = None
+        _origami_available = False
+        return _origami_available
 
+    # PyPI carries an unrelated project under this name, so check the API we call.
+    if all(hasattr(origami, attr) for attr in ("select_config", "get_hardware_for_arch")):
         _origami = origami
         _origami_available = True
-    except ImportError:
+    else:
         _origami = None
         _origami_available = False
 
