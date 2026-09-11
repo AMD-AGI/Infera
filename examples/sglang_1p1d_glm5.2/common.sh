@@ -36,6 +36,14 @@ start_container(){
   local ep=(--entrypoint '')
   if [ "${ENTRYPOINT_KEEP:-0}" = "1" ]; then ep=(); fi
   local mounts=(-v "$MODEL_MOUNT:$MODEL_MOUNT")
+  # Overlay deployment: INFERA_IMAGE is a STOCK base carrying no infera; it arrives
+  # via OVERLAY_PAYLOAD, whose infera-exec sets PYTHONPATH. HOST_LIBIONIC is needed
+  # too and fails QUIETLY — a libionic the ionic driver's ABI rejects gives "No RDMA
+  # devices found", and cross-node PD then dies in hipIpcOpenMemHandle. Mount the host's.
+  if [ -n "${OVERLAY_PAYLOAD:-}" ]; then
+    mounts+=(-v "$OVERLAY_PAYLOAD:/payload:ro")
+    [ -n "${HOST_LIBIONIC:-}" ] && mounts+=(-v "$HOST_LIBIONIC:/host-libionic:ro")
+  fi
   # Only mount a host RDMA provider library if the site says it needs one.
   # HOST_RDMA_MOUNT must be the in-container path YOUR image's entrypoint reads — mount it
   # elsewhere and the injection silently no-ops: zero devices, and the leg still serves.
@@ -100,7 +108,10 @@ start_router(){
   # the `docker exec bash -c ...` command string that CONTAINS that text — i.e. this shell.
   docker exec "$CTR" bash -c "pgrep -f 'python3 -m infera.server' | xargs -r kill -9 2>/dev/null; true"
   sleep 2
-  docker exec -d "$CTR" bash -c "nohup python3 -m infera.server \
+  # INFERA_EXEC is the overlay's entrypoint shim, empty on a baked image. The
+  # router needs it for the same reason the legs do: on a stock base, infera
+  # itself lives only in the mounted payload.
+  docker exec -d "$CTR" bash -c "nohup ${INFERA_EXEC:-} python3 -m infera.server \
     --host 0.0.0.0 --port $ROUTER_PORT --router-backend $backend \
     --discovery-backend etcd --etcd-endpoint $ip:$ETCD_PORT \
     --request-transport http --kv-event-transport zmq \

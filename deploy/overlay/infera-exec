@@ -122,16 +122,91 @@ fi
 # different number of state tensors, so PD died on every rank with "too many
 # values to unpack" during KV registration.
 #
-# Skipped entirely when INFERA_SKIP_ENGINE_PATCHES is set, and a failing patch
-# warns rather than blocking startup — a mis-anchored patch must not take down a
-# worker that would otherwise serve.
-if [ -d "$PAYLOAD_ROOT/patches/vllm" ] && [ -z "${INFERA_SKIP_ENGINE_PATCHES:-}" ]; then
+# Skipped entirely when INFERA_SKIP_ENGINE_PATCHES is set. Otherwise a failing
+# patch is FATAL. That reverses an earlier decision -- "a mis-anchored patch must
+# not take down a worker that would otherwise serve" -- which holds only while
+# every patch is atomic, as the `.py` scripts are: they check every anchor before
+# their single write, so a miss leaves the file untouched and the cost is a
+# missing fix. sglang_dsa is GNU-patch diffs with no atomicity across files. On a
+# base the diffs were not cut against, the set lands some files and rejects
+# others, and the worker that "would otherwise serve" then serves from an
+# internally inconsistent tree, returning 200s that no log explains. Measured on
+# sglang 0.5.15: six of seven files applied, all seven hunks of dp_attn.py
+# rejected.
+#
+# So the rule is: the patched tree must be the one the patch set was cut against,
+# which is the same tree deploy/docker/Dockerfile.sglang bakes and its e2e matrix
+# validates across models. Refusing to start is how that inheritance is asserted.
+# Set INFERA_SKIP_ENGINE_PATCHES=1 to run a deliberately unpatched engine.
+
+# The two families differ: vLLM is one flat `.py` directory, SGLang is three of
+# them plus the applier, since sglang_dsa is `--fuzz=0` diffs, not scripts. Gate
+# this on `import vllm` alone and an SGLang base runs entirely unpatched — on
+# gfx950 a DP-attention deadlock, or wrong output behind a 200 no log explains.
+_run_patch_dir(){
+    _d="$PAYLOAD_ROOT/patches/$1"
+    [ -d "$_d" ] || return 0
+    _rc=0
+    for _p in "$_d"/*.py; do
+        [ -e "$_p" ] || continue
+        # Each script exits 0 when it is legitimately inapplicable on this base
+        # ("no mla.py here — no staged write-back to gate") and non-zero only
+        # when an anchor it needs is absent, i.e. the layout moved. So the test
+        # is "nothing reported failure", NOT "every patch changed something".
+        (cd / && PYTHONPATH="$PYTREE${PYTHONPATH:+:$PYTHONPATH}" "$PY" "$_p") || {
+            echo "infera-exec: patch $(basename "$_p") FAILED" >&2
+            _rc=1
+        }
+    done
+    return $_rc
+}
+
+_patch_fatal(){
+    echo "infera-exec: engine patches did not apply cleanly to this base." >&2
+    echo "infera-exec: the payload's patches are cut against ONE engine release;" >&2
+    echo "infera-exec: mount it over that base, or set INFERA_SKIP_ENGINE_PATCHES=1" >&2
+    echo "infera-exec: to run an unpatched engine deliberately. Refusing to start." >&2
+    exit 92
+}
+
+if [ -z "${INFERA_SKIP_ENGINE_PATCHES:-}" ]; then
     if "$PY" -c 'import vllm' >/dev/null 2>&1; then
-        for _p in "$PAYLOAD_ROOT"/patches/vllm/*.py; do
-            [ -e "$_p" ] || continue
-            (cd / && PYTHONPATH="$PYTREE${PYTHONPATH:+:$PYTHONPATH}" "$PY" "$_p") \
-                || echo "infera-exec: patch $(basename "$_p") failed; continuing" >&2
-        done
+        _run_patch_dir vllm || _patch_fatal
+    elif "$PY" -c 'import sglang' >/dev/null 2>&1; then
+        # Patching mutates the container's SHARED sglang checkout, and both an
+        # engine leg and the router come through infera-exec in one container.
+        # Two of them rewriting the same file is a race, so it happens once,
+        # under a lock, behind a marker; the applier is itself idempotent.
+        _mark="${INFERA_SGLANG_PATCH_MARKER:-/tmp/.infera-sglang-patched}"
+        if [ ! -e "$_mark" ]; then
+            (
+                flock 9 2>/dev/null || true
+                if [ ! -e "$_mark" ]; then
+                    _ok=1
+                    _run_patch_dir sglang_disagg   || _ok=0
+                    _run_patch_dir sglang_responses || _ok=0
+                    _run_patch_dir sglang_rocm     || _ok=0
+                    _applier="$PAYLOAD_ROOT/bin/apply_sglang_dsa_patches.sh"
+                    if [ -d "$PAYLOAD_ROOT/patches/sglang_dsa" ] && [ -f "$_applier" ]; then
+                        # SGLANG_DIR is passed explicitly and always non-empty:
+                        # the applier drops __pycache__ under it with a find -exec
+                        # rm, and an empty value there would be a recursive delete
+                        # with no anchor.
+                        PATCH_DIR="$PAYLOAD_ROOT/patches/sglang_dsa" \
+                        SGLANG_DIR="${SGLANG_DIR:-/sgl-workspace/sglang}" \
+                        DSA_PATCH_SET="${DSA_PATCH_SET:-full}" \
+                            bash "$_applier" \
+                            || { echo "infera-exec: sglang_dsa patch set FAILED" >&2; _ok=0; }
+                    fi
+                    # The marker is written ONLY on success. Writing it after a
+                    # failure would make the next call in this container skip
+                    # patching and proceed on the half-patched tree -- the exact
+                    # state this is here to prevent.
+                    [ "$_ok" = 1 ] || exit 1
+                    : > "$_mark"
+                fi
+            ) 9>"${_mark}.lock" || _patch_fatal
+        fi
     fi
 fi
 

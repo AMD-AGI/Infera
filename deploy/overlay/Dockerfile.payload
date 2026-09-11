@@ -122,8 +122,54 @@ COPY --from=native312 /usr/local/bin/infera-router /payload/bin/infera-router
 # Engine patches applied at container start (see infera-exec). These fix vendor
 # code we do not otherwise ship — the overlay's whole point is not forking the
 # vendor image, and a runtime patch keeps that true where a rebuild would not.
-# Each script is self-locating, idempotent, and no-ops once upstream carries the
-# fix, so they are safe to leave in place across a base bump.
+# The vllm/ scripts are self-locating and atomic: they verify every anchor before
+# the single write, so a base whose layout moved exits 1 leaving the file
+# untouched. That is what makes THEM safe across a base bump. It is not true of
+# sglang_dsa — see the TODO below.
 COPY deploy/docker/patches/vllm/ /payload/patches/vllm/
+# The SGLang groups, without which an SGLang base overlay serves an entirely
+# UNPATCHED engine: on gfx950 that is a DP-attention host-sync deadlock (a hang)
+# plus an aiter paged-MQA row-sizing bug that returns wrong output behind a 200,
+# so nothing in any log says why. disagg/responses/rocm are plain `.py` scripts.
+COPY deploy/docker/patches/sglang_dsa/       /payload/patches/sglang_dsa/
+COPY deploy/docker/patches/sglang_disagg/    /payload/patches/sglang_disagg/
+COPY deploy/docker/patches/sglang_responses/ /payload/patches/sglang_responses/
+COPY deploy/docker/patches/sglang_rocm/      /payload/patches/sglang_rocm/
+# sglang_dsa is diffs pinned at `--fuzz=0`, not runnable scripts, so its applier
+# ships too and drives that group instead of infera-exec's `<dir>/*.py` glob —
+# the glob would also run a v0.5.16-only script and fail on this base. For the
+# same no-opt-out reason `sglang_carried/` is deliberately NOT copied.
+COPY deploy/docker/scripts/apply_sglang_dsa_patches.sh /payload/bin/apply_sglang_dsa_patches.sh
+#
+# TODO — this payload is VERSION-BOUND TO THE ENGINE, and nothing enforces it.
+#
+# infera-exec resolves four axes at container start. Three declare themselves and
+# fail loudly on a mismatch: python minor (`py310/`), ROCm major
+# (`native/rocm7-py310/` + CAPABILITIES + INFERA_REQUIRE_NATIVE), and engine
+# family (`import vllm` / `import sglang`). The fourth — **engine version** — is
+# not checked at all, and sglang_dsa is `--fuzz=0` diffs cut against exactly one
+# release (today v0.5.18).
+#
+# Measured on `lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727` (sglang 0.5.15,
+# the Kimi-K3 base): disagg/responses/rocm all apply, then
+# draft_cuda_graph_dp_vote lands 6 of its 7 files and rejects every hunk of
+# dp_attn.py. The applier exits 1, infera-exec prints "FAILED; continuing", and
+# the engine starts on a HALF-PATCHED tree — it serves, returns 200s, and no log
+# says the tree is inconsistent. GNU patch has no atomicity across files; the
+# vllm/ scripts do, which is the whole difference.
+#
+# Consequence for releases: this image cannot be versioned independently of the
+# engine it will be mounted over. "Runs on the customer's own vendor image" holds
+# only while that image is the pinned version. A baked build catches this at
+# BUILD time (bumping the base fails the build); moving patching to run time
+# removed that gate without replacing it.
+#
+# The fix needs no new machinery — give each patch group the shape the native
+# trees already have: declare the engine versions it targets, detect, skip loudly
+# on a mismatch, and let a deployment that must be patched (GLM-5.3 PD) set an
+# INFERA_REQUIRE_PATCHES-style switch to make a skip fatal.
+#
+# Until then: only mount this payload over a base the patches were cut against.
+# See examples/sglang_1p1d_glm5.3/README.md for the verified one.
 COPY deploy/overlay/infera-exec /payload/bin/infera-exec
 CMD ["sh", "-c", "cp -a /payload/. /out/ && echo 'infera overlay payload installed to /out'"]

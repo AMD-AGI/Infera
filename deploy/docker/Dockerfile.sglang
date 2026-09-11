@@ -6,6 +6,11 @@
 # the end of this file are context diffs applied at --fuzz=0 against this exact
 # sglang release. Bumping the base fails the build there rather than silently
 # mis-applying. Build with APPLY_SGLANG_DSA_PATCHES=0 if you need a newer base.
+#
+# GLM-5.3 and GLM-5.3-MXFP4 need NO new model source here: they are model_type
+# `glm_moe_dsa` / GlmMoeDsaForCausalLM, and their config.json is field-for-field
+# identical to GLM-5.2's except `transformers_version`, so the released engine
+# already serves them through glm4_moe.py.
 ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.18-rocm720-mi35x
 FROM ${SGLANG_BASE_IMAGE}
 

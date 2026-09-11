@@ -10,6 +10,13 @@
 #                carrying Kimi-K3 support; the general v0.5.15 tag has none)
 #   overlay      inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
 #
+# DO NOT "MODERNISE" THE BASE. v0.5.18 does carry kimi_k3, so the swap looks free,
+# and it is not: there --language-only no longer suppresses the multimodal
+# mem-fraction scaling, which caps the effective value at 0.85 even when you pass
+# 1.0. The weights alone occupy 0.866 of each card at TP8, so the engine loads all
+# 96 shards and then exits with "no GPU memory for the KV cache". The flag that
+# would suppress it, --language-model-only, is rejected under --disaggregation-mode.
+#
 #   <PREFILL_MODEL_DIR> / <DECODE_MODEL_DIR>
 #       the model directory on EACH node. They need NOT match: every pod mounts its
 #       own node's copy, so nodes that name their local NVMe differently
@@ -53,6 +60,10 @@ spec:
                       "--router-tokenizer-path","/models/Kimi-K3",
                       "--request-transport","http","--kv-event-transport","zmq"]
             env:
+              # Same reason as the workers below: this base is sglang 0.5.15 and the
+              # overlay's patches target v0.5.18. The router shares the base, so it
+              # would patch its own container too.
+              - {name: INFERA_SKIP_ENGINE_PATCHES, value: "1"}
               - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
               - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
               - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
@@ -135,6 +146,11 @@ spec:
                       "--disaggregation-transfer-backend","mooncake"]
             env:
               - {name: SGLANG_USE_AITER, value: "1"}
+              # This base is sglang 0.5.15; the overlay's patches are --fuzz=0 diffs
+              # cut against v0.5.18, and Kimi-K3 has never carried them. A no-op
+              # against the pinned overlay, which patches nothing here anyway -- it
+              # keeps a digest bump unpatched instead of refusing to start.
+              - {name: INFERA_SKIP_ENGINE_PATCHES, value: "1"}
               - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
               - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
               - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
@@ -233,6 +249,11 @@ spec:
                       "--disaggregation-transfer-backend","mooncake"]
             env:
               - {name: SGLANG_USE_AITER, value: "1"}
+              # This base is sglang 0.5.15; the overlay's patches are --fuzz=0 diffs
+              # cut against v0.5.18, and Kimi-K3 has never carried them. A no-op
+              # against the pinned overlay, which patches nothing here anyway -- it
+              # keeps a digest bump unpatched instead of refusing to start.
+              - {name: INFERA_SKIP_ENGINE_PATCHES, value: "1"}
               - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
               - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
               - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}

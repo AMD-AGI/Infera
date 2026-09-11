@@ -45,6 +45,10 @@ PLACEHOLDERS = (
     "PREFILL_MODEL_DIR",
     "DECODE_MODEL_DIR",
     "KVD_L3_DIR",
+    # Node-local directory holding the overlay payload tree, mounted as a
+    # hostPath by the recipes that run a stock engine image. Node-local and not a
+    # shared mount: the payload carries .so files that get mmap'd.
+    "PAYLOAD_DIR",
     "RDMA_IB_DEVICES",
     "PREFILL_GID_INDEX",
     "DECODE_GID_INDEX",
