@@ -1,0 +1,1 @@
+Captured in the original-packet run of the same immutable image; the second run adds DEBUG_CLR_GRAPH_PACKET_CAPTURE=false and reuses its compiled cache.

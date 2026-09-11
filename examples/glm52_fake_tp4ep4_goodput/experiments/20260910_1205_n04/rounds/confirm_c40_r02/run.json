@@ -1,0 +1,9 @@
+{
+  "point": "confirm_c40_r02",
+  "concurrency": 40,
+  "num_requests": 640,
+  "warmup_requests": 40,
+  "started_at": "2026-09-10T14:02:29.508530+00:00",
+  "profile": false,
+  "repeat": 2
+}

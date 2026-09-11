@@ -1,0 +1,46 @@
+--- relocated-packup
++++ unprofiled-sweep
+@@ -6,12 +6,12 @@
+ MEM=${3:-0.85}
+ CONC=${4:-16}
+ NAME=glm52-goodput-high-20260910-1525
+-IMAGE=sha256:b9a83742f631d7321c6b75aceb031a8b347c70f97c62ef8c62370c686853de7d
++IMAGE=sha256:416d51effc431e27a4ddeed5cdd8ca6012c68eeabb071f987ce99f1ba9854973
+ MODEL=/shared_nfs/models/GLM-5.2-MXFP4
+ PORT=31864
+ case "$MODE" in mix|decode|sim) ;; *) exit 2;; esac
+ R="$W/rounds/$ROUND"
+-mkdir -p "$R" "$W/cache/jit-b9a83742f631" "$W/cache/triton" "$W/cache/torch" "$W/cache/hf"
++mkdir -p "$R" "/data/cyao1002/glm52_profile_20260910_n04_c32/jit-b9a83742f631" "/data/cyao1002/glm52_profile_20260910_n04_c32/triton" "/data/cyao1002/glm52_profile_20260910_n04_c32/torch" "/data/cyao1002/glm52_profile_20260910_n04_c32/hf"
+ if docker container inspect "$NAME" >/dev/null 2>&1; then
+     printf 'Refusing to replace existing container %s; stop explicitly first.\n' "$NAME" >&2
+     exit 2
+@@ -47,7 +47,7 @@
+     --kv-cache-dtype fp8_e4m3 --dsa-prefill-backend flydsl --dsa-decode-backend flydsl
+     --tool-call-parser glm47 --reasoning-parser glm45
+     --chunked-prefill-size 32768 --mem-fraction-static "$MEM"
+-    --max-running-requests "$CONC" --cuda-graph-max-bs "$CONC"
++    --max-running-requests "$CONC" --cuda-graph-max-bs "$CONC" --cuda-graph-bs-decode 1 16 32 64 128 256
+     --speculative-algorithm EAGLE --speculative-num-steps 5
+     --speculative-eagle-topk 1 --speculative-num-draft-tokens 6
+     --dsa-topk-backend aiter --enable-aiter-allreduce-fusion --enable-fused-qk-norm-rope
+@@ -58,13 +58,13 @@
+     --network host --ipc=host --shm-size 32g \
+     --device=/dev/kfd --device=/dev/dri --group-add video --group-add render \
+     --security-opt seccomp=unconfined --ulimit memlock=-1:-1 \
+-    -v "$W:$W" -v "$MODEL:$MODEL:ro" \
+-    -v "$W/cache/jit-b9a83742f631:/jit-cache" -e AITER_JIT_DIR=/jit-cache \
+-    -v "$W/cache/triton:/triton-cache" -e TRITON_CACHE_DIR=/triton-cache \
+-    -v "$W/cache/torch:/torch-cache" -e TORCHINDUCTOR_CACHE_DIR=/torch-cache \
+-    -v "$W/cache/hf:/hf_cache" -e HF_HOME=/hf_cache \
++    -v "$W:$W" -v "/data/models/GLM-5.2-MXFP4:$MODEL:ro" \
++    -v "/data/cyao1002/glm52_profile_20260910_n04_c32/jit-b9a83742f631:/jit-cache" -e AITER_JIT_DIR=/jit-cache \
++    -v "/data/cyao1002/glm52_profile_20260910_n04_c32/triton:/triton-cache" -e TRITON_CACHE_DIR=/triton-cache \
++    -v "/data/cyao1002/glm52_profile_20260910_n04_c32/torch:/torch-cache" -e TORCHINDUCTOR_CACHE_DIR=/torch-cache \
++    -v "/data/cyao1002/glm52_profile_20260910_n04_c32/hf:/hf_cache" -e HF_HOME=/hf_cache \
+     -e SGLANG_OPT_USE_TOPK_V2=false -e SGLANG_TIMEOUT_KEEP_ALIVE=900 \
+-    -e HIP_VISIBLE_DEVICES=0,1,2,3 -e PYTHONNOUSERSITE=1 -e PYTHONDONTWRITEBYTECODE=1 \
++    -e PYTHONPATH=/sglang/python -e HIP_VISIBLE_DEVICES=0,1,2,3 -e PYTHONNOUSERSITE=1 -e PYTHONDONTWRITEBYTECODE=1 \
+     -e AITER_USE_FLYDSL_MOE_SORTING=1 -e SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=1 \
+     "${ENV[@]}" "${PATCH_MOUNTS[@]}" "$IMAGE" "${CMD[@]}" > "$R/container-id.txt"
+ docker inspect "$NAME" > "$R/container-inspect.json"

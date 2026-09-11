@@ -1,0 +1,386 @@
+[
+  {
+    "trace": "profile_01/traces/profile_01-1789036080.114145-TP-0-EP-0.trace.json.gz",
+    "main_kernel_count_per_graph_by_stage": {
+      "draft": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "verify": [
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156
+      ],
+      "draft_extend": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "all_verify_pairs_between_mla_q_prep_and_output_bmm": true
+  },
+  {
+    "trace": "profile_01/traces/profile_01-1789036080.114145-TP-1-EP-1.trace.json.gz",
+    "main_kernel_count_per_graph_by_stage": {
+      "draft": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "verify": [
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156
+      ],
+      "draft_extend": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "all_verify_pairs_between_mla_q_prep_and_output_bmm": true
+  },
+  {
+    "trace": "profile_01/traces/profile_01-1789036080.114145-TP-2-EP-2.trace.json.gz",
+    "main_kernel_count_per_graph_by_stage": {
+      "draft": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "verify": [
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156
+      ],
+      "draft_extend": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "all_verify_pairs_between_mla_q_prep_and_output_bmm": true
+  },
+  {
+    "trace": "profile_01/traces/profile_01-1789036080.114145-TP-3-EP-3.trace.json.gz",
+    "main_kernel_count_per_graph_by_stage": {
+      "draft": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "verify": [
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156
+      ],
+      "draft_extend": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "all_verify_pairs_between_mla_q_prep_and_output_bmm": true
+  },
+  {
+    "trace": "profile_02/traces/profile_02-1789036123.8133447-TP-0-EP-0.trace.json.gz",
+    "main_kernel_count_per_graph_by_stage": {
+      "draft": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "verify": [
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156
+      ],
+      "draft_extend": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "all_verify_pairs_between_mla_q_prep_and_output_bmm": true
+  },
+  {
+    "trace": "profile_02/traces/profile_02-1789036123.8133447-TP-1-EP-1.trace.json.gz",
+    "main_kernel_count_per_graph_by_stage": {
+      "draft": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "verify": [
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156
+      ],
+      "draft_extend": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "all_verify_pairs_between_mla_q_prep_and_output_bmm": true
+  },
+  {
+    "trace": "profile_02/traces/profile_02-1789036123.8133447-TP-2-EP-2.trace.json.gz",
+    "main_kernel_count_per_graph_by_stage": {
+      "draft": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "verify": [
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156
+      ],
+      "draft_extend": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "all_verify_pairs_between_mla_q_prep_and_output_bmm": true
+  },
+  {
+    "trace": "profile_02/traces/profile_02-1789036123.8133447-TP-3-EP-3.trace.json.gz",
+    "main_kernel_count_per_graph_by_stage": {
+      "draft": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "verify": [
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156,
+        156
+      ],
+      "draft_extend": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "all_verify_pairs_between_mla_q_prep_and_output_bmm": true
+  }
+]

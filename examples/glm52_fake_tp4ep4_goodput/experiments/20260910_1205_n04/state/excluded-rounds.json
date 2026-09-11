@@ -1,0 +1,9 @@
+[
+  {
+    "round": "sweep_c32_r01",
+    "planned_requests": 256,
+    "actual_requests": 160,
+    "all_actual_requests_successful": true,
+    "reason": "Archived dataset has 160 records; native random/tokenize path truncates larger requested counts. Excluded from final sweep and rerun with expanded input."
+  }
+]

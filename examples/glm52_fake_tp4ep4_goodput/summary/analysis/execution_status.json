@@ -1,0 +1,34 @@
+[
+  {
+    "experiment": "20260910_1205_n04",
+    "status": "completed",
+    "concurrencies": "1,2,4,8,16,32,40,48,64",
+    "mem_fraction_static": 0.85,
+    "successful_requests": 4800,
+    "note": "13 valid rounds; separate truncated 160-request diagnostic excluded"
+  },
+  {
+    "experiment": "20260910_1525_n04_c128_c256",
+    "status": "startup_oom",
+    "concurrencies": "256",
+    "mem_fraction_static": 0.85,
+    "successful_requests": 0,
+    "note": "Draft-extend graph capture requested 3 GiB with 1.22 GiB free"
+  },
+  {
+    "experiment": "20260910_1540_n04_c128",
+    "status": "completed_with_observed_long_tail",
+    "concurrencies": "64,128",
+    "mem_fraction_static": 0.85,
+    "successful_requests": 1536,
+    "note": "c128 full samples include a 10.625-second chunk gap; no outlier removal"
+  },
+  {
+    "experiment": "20260910_1545_n04_c256_m084",
+    "status": "prepared_not_executed",
+    "concurrencies": "256",
+    "mem_fraction_static": 0.84,
+    "successful_requests": 0,
+    "note": "No server launch or benchmark run by this task"
+  }
+]

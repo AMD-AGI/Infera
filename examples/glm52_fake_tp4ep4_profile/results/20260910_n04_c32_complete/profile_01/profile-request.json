@@ -1,0 +1,22 @@
+{
+  "request": {
+    "output_dir": "/apps/tas/yaoc/research/topic/infera-with-hyperloom/exp_only/Infera-yx-test/examples/glm52_fake_tp4ep4_profile/.cache/run_20260910_n04_c32_complete/rounds/profile_01/traces",
+    "num_steps": 12,
+    "activities": [
+      "CPU",
+      "GPU"
+    ],
+    "with_stack": false,
+    "record_shapes": false,
+    "profile_by_stage": false,
+    "merge_profiles": false,
+    "profile_prefix": "profile_01"
+  },
+  "requested_at": "2026-09-10T10:28:00.109670+00:00",
+  "trigger_samples": [
+    "[2026-09-10 10:27:59 TP0 EP0] Decode batch, #running-req: 32, #token: 321536, token usage: 0.11, accept len: 3.60, accept rate: 0.52, pre-allocated usage: 0.00, #prealloc-req: 0, #transfer-req: 0, #retracted-req: 0, cuda graph: True, gen throughput (token/s): 611.89, #queue-req: 0",
+    "[2026-09-10 10:28:00 TP0 EP0] Decode batch, #running-req: 32, #token: 323584, token usage: 0.11, accept len: 3.80, accept rate: 0.56, pre-allocated usage: 0.00, #prealloc-req: 0, #transfer-req: 0, #retracted-req: 0, cuda graph: True, gen throughput (token/s): 2872.57, #queue-req: 0"
+  ],
+  "response": "Start profiling.\n",
+  "response_at": "2026-09-10T10:28:00.155940+00:00"
+}

@@ -1,0 +1,32 @@
+--- native-serving.py
++++ bench_with_details.py
+@@ -102,6 +102,8 @@
+     latency: float = 0.0
+     ttft: float = 0.0  # Time to first token
+     itl: List[float] = field(default_factory=list)  # List of inter-token latencies
++    raw_chunk_gaps: List[float] = field(default_factory=list)
++    chunk_token_counts: List[int] = field(default_factory=list)
+     text_chunks: List[str] = field(default_factory=list)
+     prompt_len: int = 0
+     error: str = ""
+@@ -756,6 +758,8 @@
+                                     if num_new_tokens == 0:
+                                         continue
+                                     chunk_gap = timestamp - most_recent_timestamp
++                                    output.raw_chunk_gaps.append(chunk_gap)
++                                    output.chunk_token_counts.append(num_new_tokens)
+                                     adjust_itl = chunk_gap / num_new_tokens
+                                     output.itl.extend([adjust_itl] * num_new_tokens)
+ 
+@@ -1876,6 +1880,11 @@
+         "output_lens": output_lens,
+         "ttfts": [output.ttft for output in outputs],
+         "itls": [output.itl for output in outputs],
++        "latencies": [output.latency for output in outputs],
++        "start_times": [output.start_time for output in outputs],
++        "successes": [output.success for output in outputs],
++        "raw_chunk_gaps": [output.raw_chunk_gaps for output in outputs],
++        "chunk_token_counts": [output.chunk_token_counts for output in outputs],
+         "generated_texts": [output.generated_text for output in outputs],
+         "errors": [output.error for output in outputs],
+     }

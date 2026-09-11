@@ -1,0 +1,6 @@
+.cache/
+results/**/traces/
+results/**/benchmark.jsonl
+results/**/server-full.log*
+results/**/*.tar
+__pycache__/

@@ -1,0 +1,56 @@
+
+
+============================ ROCm System Management Interface ============================
+=================================== % time GPU is busy ===================================
+GPU[0]		: GPU use (%): 0
+GPU[0]		: GFX Activity: 2560849998
+GPU[1]		: GPU use (%): 0
+GPU[1]		: GFX Activity: 3804677045
+GPU[2]		: GPU use (%): 0
+GPU[2]		: GFX Activity: 3309099310
+GPU[3]		: GPU use (%): 0
+GPU[3]		: GFX Activity: 547221933
+GPU[4]		: GPU use (%): 0
+GPU[4]		: GFX Activity: 3807758703
+GPU[5]		: GPU use (%): 0
+GPU[5]		: GFX Activity: 4244570109
+GPU[6]		: GPU use (%): 0
+GPU[6]		: GFX Activity: 3253252378
+GPU[7]		: GPU use (%): 0
+GPU[7]		: GFX Activity: 3216823864
+==========================================================================================
+=================================== Current Memory Use ===================================
+GPU[0]		: GPU Memory Allocated (VRAM%): 0
+GPU[0]		: GPU Memory Read/Write Activity (%): 0
+GPU[0]		: Memory Activity: 4069223898
+GPU[0]		: Avg. Memory Bandwidth: 0
+GPU[1]		: GPU Memory Allocated (VRAM%): 0
+GPU[1]		: GPU Memory Read/Write Activity (%): 0
+GPU[1]		: Memory Activity: 3847443506
+GPU[1]		: Avg. Memory Bandwidth: 0
+GPU[2]		: GPU Memory Allocated (VRAM%): 0
+GPU[2]		: GPU Memory Read/Write Activity (%): 0
+GPU[2]		: Memory Activity: 3789791885
+GPU[2]		: Avg. Memory Bandwidth: 0
+GPU[3]		: GPU Memory Allocated (VRAM%): 0
+GPU[3]		: GPU Memory Read/Write Activity (%): 0
+GPU[3]		: Memory Activity: 4239878340
+GPU[3]		: Avg. Memory Bandwidth: 0
+GPU[4]		: GPU Memory Allocated (VRAM%): 0
+GPU[4]		: GPU Memory Read/Write Activity (%): 0
+GPU[4]		: Memory Activity: 3825971173
+GPU[4]		: Avg. Memory Bandwidth: 0
+GPU[5]		: GPU Memory Allocated (VRAM%): 0
+GPU[5]		: GPU Memory Read/Write Activity (%): 0
+GPU[5]		: Memory Activity: 3788360665
+GPU[5]		: Avg. Memory Bandwidth: 0
+GPU[6]		: GPU Memory Allocated (VRAM%): 0
+GPU[6]		: GPU Memory Read/Write Activity (%): 0
+GPU[6]		: Memory Activity: 3772993912
+GPU[6]		: Avg. Memory Bandwidth: 0
+GPU[7]		: GPU Memory Allocated (VRAM%): 0
+GPU[7]		: GPU Memory Read/Write Activity (%): 0
+GPU[7]		: Memory Activity: 3951398928
+GPU[7]		: Avg. Memory Bandwidth: 0
+==========================================================================================
+================================== End of ROCm SMI Log ===================================

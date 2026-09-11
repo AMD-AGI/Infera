@@ -1,0 +1,9 @@
+{
+  "point": "sweep_full_c32_r01",
+  "concurrency": 32,
+  "num_requests": 256,
+  "warmup_requests": 32,
+  "started_at": "2026-09-10T13:49:14.809566+00:00",
+  "profile": false,
+  "repeat": 1
+}

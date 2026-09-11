@@ -1,0 +1,8 @@
+{
+  "status": "prepared_only_not_executed",
+  "planned_concurrency": 256,
+  "planned_mem_fraction_static": 0.84,
+  "server_launched": false,
+  "benchmark_launched": false,
+  "reason": "User stopped further testing; no GPU node work performed during final consolidation."
+}

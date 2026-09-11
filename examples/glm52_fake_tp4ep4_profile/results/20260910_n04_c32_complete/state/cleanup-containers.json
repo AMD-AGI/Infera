@@ -1,0 +1,36 @@
+[
+  {
+    "name": "/glm52-profile-c32-20260910",
+    "image": "sha256:416d51effc431e27a4ddeed5cdd8ca6012c68eeabb071f987ce99f1ba9854973",
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-09-10T09:44:05.734569146Z",
+      "FinishedAt": "2026-09-10T10:22:27.599767977Z"
+    }
+  },
+  {
+    "name": "/glm52-profile-c32-complete-20260910",
+    "image": "sha256:416d51effc431e27a4ddeed5cdd8ca6012c68eeabb071f987ce99f1ba9854973",
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-09-10T10:23:19.394501378Z",
+      "FinishedAt": "2026-09-10T10:37:34.151727564Z"
+    }
+  }
+]

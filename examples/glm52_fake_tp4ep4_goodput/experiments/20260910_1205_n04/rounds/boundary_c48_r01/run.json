@@ -1,0 +1,9 @@
+{
+  "point": "boundary_c48_r01",
+  "concurrency": 48,
+  "num_requests": 768,
+  "warmup_requests": 48,
+  "started_at": "2026-09-10T14:04:36.235949+00:00",
+  "profile": false,
+  "repeat": 1
+}

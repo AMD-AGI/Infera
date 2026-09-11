@@ -1,0 +1,62 @@
+[
+  {
+    "file": "/apps/tas/yaoc/research/topic/infera-with-hyperloom/exp_only/Infera-yx-test/examples/glm52_fake_tp4ep4_profile/.cache/run_20260910_n04_c32_complete/rounds/profile_02/traces/profile_02-1789036123.8133447-TP-0-EP-0.trace.json.gz",
+    "rank": 0,
+    "kernel_count": 25581,
+    "stage_annotation_counts": {
+      "draft": 12,
+      "verify": 12,
+      "draft_extend": 12
+    },
+    "verify_batch_sizes": {
+      "32": 12
+    },
+    "graph_launch_count": 36,
+    "graph_launches_without_kernels": 0
+  },
+  {
+    "file": "/apps/tas/yaoc/research/topic/infera-with-hyperloom/exp_only/Infera-yx-test/examples/glm52_fake_tp4ep4_profile/.cache/run_20260910_n04_c32_complete/rounds/profile_02/traces/profile_02-1789036123.8133447-TP-1-EP-1.trace.json.gz",
+    "rank": 1,
+    "kernel_count": 25581,
+    "stage_annotation_counts": {
+      "draft": 12,
+      "verify": 12,
+      "draft_extend": 12
+    },
+    "verify_batch_sizes": {
+      "32": 12
+    },
+    "graph_launch_count": 36,
+    "graph_launches_without_kernels": 0
+  },
+  {
+    "file": "/apps/tas/yaoc/research/topic/infera-with-hyperloom/exp_only/Infera-yx-test/examples/glm52_fake_tp4ep4_profile/.cache/run_20260910_n04_c32_complete/rounds/profile_02/traces/profile_02-1789036123.8133447-TP-2-EP-2.trace.json.gz",
+    "rank": 2,
+    "kernel_count": 25581,
+    "stage_annotation_counts": {
+      "draft": 12,
+      "verify": 12,
+      "draft_extend": 12
+    },
+    "verify_batch_sizes": {
+      "32": 12
+    },
+    "graph_launch_count": 36,
+    "graph_launches_without_kernels": 0
+  },
+  {
+    "file": "/apps/tas/yaoc/research/topic/infera-with-hyperloom/exp_only/Infera-yx-test/examples/glm52_fake_tp4ep4_profile/.cache/run_20260910_n04_c32_complete/rounds/profile_02/traces/profile_02-1789036123.8133447-TP-3-EP-3.trace.json.gz",
+    "rank": 3,
+    "kernel_count": 25581,
+    "stage_annotation_counts": {
+      "draft": 12,
+      "verify": 12,
+      "draft_extend": 12
+    },
+    "verify_batch_sizes": {
+      "32": 12
+    },
+    "graph_launch_count": 36,
+    "graph_launches_without_kernels": 0
+  }
+]

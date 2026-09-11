@@ -1,0 +1,7 @@
+{
+  "mode": "DEBUG_CLR_GRAPH_PACKET_CAPTURE_false",
+  "expected_kernels": 3603,
+  "observed_kernels": 3603,
+  "graph_launches": 6,
+  "source": "examples/glm52_fake_tp4ep4_profile/.cache/run_20260910_n04_c32/alternate_probe_DEBUG_CLR_GRAPH_PACKET_CAPTURE_false.trace.json"
+}

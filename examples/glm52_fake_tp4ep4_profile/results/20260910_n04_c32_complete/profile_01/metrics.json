@@ -1,0 +1,15 @@
+{
+  "completed": 128,
+  "duration": 25.059787936042994,
+  "output_throughput": 2553.89232196774,
+  "median_tpot_ms": 11.902241110017819,
+  "p90_tpot_ms": 12.689019075570581,
+  "accept_length": 3.627424094025465,
+  "concurrency": 31.918269013572576,
+  "total_output_tokens": 64000,
+  "max_concurrency": 32,
+  "errors": 0,
+  "input_length": 10000,
+  "output_length": 500,
+  "profiled": true
+}

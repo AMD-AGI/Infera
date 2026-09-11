@@ -1,0 +1,9 @@
+{
+  "point": "high128_c128_r01",
+  "concurrency": 128,
+  "num_requests": 1024,
+  "warmup_requests": 128,
+  "started_at": "2026-09-10T15:42:25.339853+00:00",
+  "profile": false,
+  "repeat": 1
+}

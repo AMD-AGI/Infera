@@ -1,0 +1,47 @@
+{
+  "baseline_c32": {
+    "completed": 128,
+    "duration": 23.732359047979116,
+    "output_throughput": 2696.739918295219,
+    "median_tpot_ms": 11.706262090166877,
+    "p90_tpot_ms": 11.82634998458197,
+    "accept_length": 3.637006680514231,
+    "concurrency": 31.904701052772097,
+    "total_output_tokens": 64000,
+    "max_concurrency": 32,
+    "errors": 0,
+    "input_length": 10000,
+    "output_length": 500,
+    "profiled": false
+  },
+  "profile_01": {
+    "completed": 128,
+    "duration": 25.059787936042994,
+    "output_throughput": 2553.89232196774,
+    "median_tpot_ms": 11.902241110017819,
+    "p90_tpot_ms": 12.689019075570581,
+    "accept_length": 3.627424094025465,
+    "concurrency": 31.918269013572576,
+    "total_output_tokens": 64000,
+    "max_concurrency": 32,
+    "errors": 0,
+    "input_length": 10000,
+    "output_length": 500,
+    "profiled": true
+  },
+  "profile_02": {
+    "completed": 128,
+    "duration": 24.559460700955242,
+    "output_throughput": 2605.920414103829,
+    "median_tpot_ms": 11.997437798408773,
+    "p90_tpot_ms": 12.842427212222367,
+    "accept_length": 3.6137698478869065,
+    "concurrency": 31.929991766585037,
+    "total_output_tokens": 64000,
+    "max_concurrency": 32,
+    "errors": 0,
+    "input_length": 10000,
+    "output_length": 500,
+    "profiled": true
+  }
+}

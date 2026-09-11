@@ -1,0 +1,16 @@
+{
+  "sampled_running_requests": {
+    "16": 1,
+    "25": 1,
+    "32": 1,
+    "40": 4,
+    "47": 1,
+    "48": 217
+  },
+  "sampled_retractions": [
+    0
+  ],
+  "all_samples_cuda_graph": true,
+  "profiling_started_in_logs": false,
+  "completed_at": "2026-09-10T14:06:49.293010+00:00"
+}

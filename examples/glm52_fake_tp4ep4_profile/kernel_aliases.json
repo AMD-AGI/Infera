@@ -1,0 +1,13 @@
+{
+  "scope": "GLM-5.2 TP4/EP4 with SGLang 402df1e1e and AITER 2c71811b; verify against source before reusing with other models/builds",
+  "aliases": {
+    "main_kernel": "Attention / MLA",
+    "p0v2_kernel_0": "MoE routing / sorting",
+    "p23_kernel_1": "MoE routing / sorting"
+  },
+  "evidence": {
+    "main_kernel": "dsa_backend.py falls back to tilelang_sparse_fwd for seq=192. tilelang_kernel.py calls sparse_mla_fwd_decode_partial_fp8 and sparse_mla_fwd_decode_combine, each with prim_func main. In every verify graph the 156 main_kernel events occur as 78 pairs between fused MLA Q/RoPE preparation and the output BMM. Draft extension has the corresponding one-layer pair. See results/20260910_n04_c32_complete/state/kernel-sources and kernel-alias-validation.json.",
+    "p0v2_kernel_0": "aiter/ops/flydsl/kernels/moe_sorting_kernel.py defines p0v2_kernel at line 1271; its two-phase sorting launcher runs p0v2_kernel then p23_kernel.",
+    "p23_kernel_1": "aiter/ops/flydsl/kernels/moe_sorting_kernel.py defines p23_kernel at line 1476; the paired symbols appear after the MoE router and before expert GEMMs in the captured graph."
+  }
+}

@@ -1,0 +1,5 @@
+experiments/**/cache/
+experiments/**/rounds/**/benchmark.jsonl
+experiments/**/rounds/**/benchmark.jsonl.gz
+experiments/**/state/server-full.log*
+__pycache__/

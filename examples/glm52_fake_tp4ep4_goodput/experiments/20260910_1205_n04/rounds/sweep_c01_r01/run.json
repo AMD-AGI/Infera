@@ -1,0 +1,9 @@
+{
+  "point": "sweep_c01_r01",
+  "concurrency": 1,
+  "num_requests": 128,
+  "warmup_requests": 16,
+  "started_at": "2026-09-10T13:31:36.614950+00:00",
+  "profile": false,
+  "repeat": 1
+}

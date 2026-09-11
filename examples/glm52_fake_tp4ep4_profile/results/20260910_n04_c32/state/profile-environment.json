@@ -1,0 +1,19 @@
+{
+  "archived_image": "sha256:b9a83742f631d7321c6b75aceb031a8b347c70f97c62ef8c62370c686853de7d",
+  "actual_image": "sha256:416d51effc431e27a4ddeed5cdd8ca6012c68eeabb071f987ce99f1ba9854973",
+  "exact_image_reproduction": false,
+  "commits": {
+    "/sglang": "402df1e1e453e1e85ec0f5ac4052d36598cc691a",
+    "/aiter": "2c71811b32c8ce2e1266aedaec199df7d90f597d"
+  },
+  "host_model": "/data/models/GLM-5.2-MXFP4",
+  "model_hashes": {
+    "config.json": "8b46225f7afd7181735c2dd97b925bcb70dfebb72b1a105d4ac0be7583a5c726",
+    "model.safetensors.index.json": "fd42188894abe9196fb70a2113c4fd1d0569b29a307a89c0e18e200111456fc6"
+  },
+  "cache_dir": "/data/cyao1002/glm52_profile_20260910_n04_c32",
+  "container": "glm52-profile-c32-20260910",
+  "port": 31832,
+  "profile_graph_node_tracing": true,
+  "run_dir": "/apps/tas/yaoc/research/topic/infera-with-hyperloom/exp_only/Infera-yx-test/examples/glm52_fake_tp4ep4_profile/.cache/run_20260910_n04_c32"
+}

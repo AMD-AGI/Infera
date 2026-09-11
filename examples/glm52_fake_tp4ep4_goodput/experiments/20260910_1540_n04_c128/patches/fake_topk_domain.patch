@@ -1,0 +1,18 @@
+--- a/python/sglang/srt/layers/attention/dsa/utils.py
++++ b/python/sglang/srt/layers/attention/dsa/utils.py
+@@ -219,7 +219,14 @@
+         get_disagg().disaggregation_mode != "null" and seed_dsa_topk_from_draft_extend
+     )
+     return envs.SGLANG_DSA_FUSE_TOPK.get() and (
+-        not pd_index_share_seed or should_remap_pd_dsa_seed_to_local_slots()
++        not pd_index_share_seed
++        or should_remap_pd_dsa_seed_to_local_slots()
++        # Fake handoff supplies no remote logical seed. Keep producer/consumer
++        # in the local physical-slot domain, as in the aggregated worker.
++        or (
++            get_disagg().disaggregation_mode == "decode"
++            and get_disagg().disaggregation_transfer_backend == "fake"
++        )
+     )
+ 
+ 

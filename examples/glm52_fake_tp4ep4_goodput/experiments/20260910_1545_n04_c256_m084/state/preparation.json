@@ -1,0 +1,44 @@
+{
+  "created_at": "2026-09-10T15:40:38.447910+00:00",
+  "helper": "NEW packaging relocation helper; not used by the measured run",
+  "kit": "/apps/tas/yaoc/research/topic/infera-with-hyperloom/exp_only/Infera-yx-test/packups/glm52_fake_tp4ep4_10k500_c16_c32.packup_20260910-055810",
+  "workspace": "/apps/tas/yaoc/research/topic/infera-with-hyperloom/exp_only/Infera-yx-test/examples/glm52_fake_tp4ep4_goodput/experiments/20260910_1545_n04_c256_m084",
+  "container_name": "glm52-goodput-c256-20260910-m084",
+  "port": 31864,
+  "substitutions": [
+    [
+      "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452",
+      "/apps/tas/yaoc/research/topic/infera-with-hyperloom/exp_only/Infera-yx-test/examples/glm52_fake_tp4ep4_goodput/experiments/20260910_1545_n04_c256_m084"
+    ],
+    [
+      "g52-fake-short-tp4ep4",
+      "glm52-goodput-c256-20260910-m084"
+    ],
+    [
+      "31816",
+      "31864"
+    ]
+  ],
+  "scripts": [
+    {
+      "source": "scripts/original/bench.sh",
+      "generated": "scripts/bench.sh",
+      "original_sha256": "027e68c9873c46f243b393742c23f4e16a85da02361d38e27bb3c51ee72b6816",
+      "generated_sha256": "4fb10cf0855522f1e3bfd69b3bdf3996bb50621984b00b87b02fde2e4574f59c"
+    },
+    {
+      "source": "scripts/original/launch.sh",
+      "generated": "scripts/launch.sh",
+      "original_sha256": "9d5de7baf8300356cedb89773fa2f36e5d7ea5c9782c354ed27f5c91f347f800",
+      "generated_sha256": "9237cb7306e9c939dbeea2e29c1b4fd7ea9a3a0ad759fad331dc8aed37703487"
+    },
+    {
+      "source": "scripts/original/wait_ready.py",
+      "generated": "scripts/wait_ready.py",
+      "original_sha256": "2fa0f4fdaa9faff883a2739800514f00272fe4349bd6f1db22855853a7ad32e1",
+      "generated_sha256": "928602842d498a980b66386460df681ffbf1f66bb0e4541bdfc8ccdaf3b0b071"
+    }
+  ],
+  "external_model": "/shared_nfs/models/GLM-5.2-MXFP4",
+  "cache_policy": "Empty: no compiled cache or weights copied"
+}

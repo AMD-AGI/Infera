@@ -1,0 +1,10 @@
+{
+  "completed_rounds": 15,
+  "successful_requests": 6336,
+  "max_measured_concurrency": 128,
+  "c256_performance_measurement": false,
+  "c256_mem084_launched": false,
+  "native_metrics_crosschecked": true,
+  "report_links_checked": true,
+  "gpu_benchmarks_started_during_consolidation": 0
+}

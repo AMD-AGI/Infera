@@ -1,0 +1,10 @@
+{
+  "phase": "startup/draft_extend_cuda_graph_capture",
+  "requested_server_capacity": 256,
+  "mem_fraction_static": 0.85,
+  "allocation_requested_gib": 3.0,
+  "free_gib_at_failure": 1.22,
+  "measured_requests": 0,
+  "result": "HIP out of memory; no benchmark run",
+  "evidence": "startup-failed.log"
+}

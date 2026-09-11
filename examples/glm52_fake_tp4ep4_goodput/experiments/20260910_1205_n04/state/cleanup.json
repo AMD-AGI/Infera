@@ -1,0 +1,17 @@
+{
+  "container": "/glm52-goodput-20260910-1205",
+  "state": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-09-10T12:08:53.189574806Z",
+    "FinishedAt": "2026-09-10T14:12:18.910102827Z"
+  },
+  "image": "sha256:416d51effc431e27a4ddeed5cdd8ca6012c68eeabb071f987ce99f1ba9854973"
+}

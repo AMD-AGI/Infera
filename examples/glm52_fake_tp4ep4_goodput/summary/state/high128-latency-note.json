@@ -1,0 +1,12 @@
+{
+  "completed": 1024,
+  "max_raw_chunk_gap_s": 10.624948122072965,
+  "max_adjusted_itl_s": 10.544245201628655,
+  "requests_with_chunk_gap_gt_1s": 113,
+  "requests_with_ttft_gt_1s": 15,
+  "compile_warning_window_utc": [
+    "2026-09-10 15:42:51",
+    "2026-09-10 15:43:02"
+  ],
+  "observation": "Sparse MLA fallback at seq=113 and compiler warnings occur in the same window as the long client gaps; cause is not independently isolated. Full latency samples retained; no rerun or outlier removal."
+}

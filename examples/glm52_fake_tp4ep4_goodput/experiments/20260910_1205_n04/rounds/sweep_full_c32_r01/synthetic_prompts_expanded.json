@@ -1,0 +1,3074 @@
+[
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 0. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 1. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 2. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 3. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 4. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 5. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 6. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 7. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 8. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 9. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 10. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 11. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 12. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 13. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 14. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 15. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 16. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 17. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 18. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 19. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 20. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 21. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 22. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 23. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 24. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 25. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 26. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 27. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 28. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 29. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 30. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 31. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 32. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 33. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 34. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 35. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 36. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 37. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 38. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 39. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 40. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 41. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 42. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 43. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 44. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 45. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 46. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 47. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 48. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 49. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 50. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 51. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 52. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 53. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 54. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 55. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 56. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 57. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 58. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 59. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 60. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 61. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 62. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 63. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 64. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 65. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 66. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 67. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 68. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 69. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 70. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 71. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 72. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 73. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 74. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 75. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 76. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 77. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 78. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 79. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 80. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 81. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 82. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 83. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 84. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 85. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 86. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 87. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 88. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 89. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 90. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 91. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 92. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 93. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 94. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 95. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 96. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 97. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 98. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 99. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 100. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 101. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 102. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 103. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 104. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 105. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 106. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 107. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 108. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 109. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 110. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 111. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 112. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 113. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 114. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 115. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 116. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 117. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 118. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 119. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 120. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 121. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 122. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 123. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 124. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 125. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 126. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 127. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 128. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 129. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 130. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 131. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 132. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 133. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 134. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 135. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 136. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 137. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 138. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 139. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 140. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 141. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 142. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 143. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 144. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 145. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 146. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 147. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 148. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 149. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 150. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 151. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 152. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 153. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 154. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 155. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 156. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 157. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 158. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 159. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 0. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 1. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 2. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 3. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 4. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 5. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 6. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 7. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 8. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 9. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 10. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 11. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 12. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 13. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 14. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 15. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 16. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 17. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 18. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 19. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 20. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 21. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 22. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 23. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 24. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 25. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 26. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 27. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 28. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 29. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 30. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 31. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 32. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 33. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 34. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 35. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 36. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 37. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 38. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 39. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 40. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 41. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 42. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 43. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 44. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 45. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 46. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 47. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 48. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 49. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 50. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 51. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 52. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 53. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 54. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 55. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 56. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 57. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 58. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 59. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 60. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 61. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 62. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 63. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 64. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 65. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 66. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 67. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 68. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 69. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 70. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 71. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 72. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 73. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 74. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 75. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 76. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 77. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 78. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 79. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 80. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 81. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 82. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 83. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 84. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 85. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 86. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 87. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 88. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 89. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 90. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 91. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 92. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 93. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 94. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Example 95. Describe an integer sequence and its next value."
+      },
+      {
+        "from": "gpt",
+        "value": "The next value depends on the rule."
+      }
+    ]
+  }
+]

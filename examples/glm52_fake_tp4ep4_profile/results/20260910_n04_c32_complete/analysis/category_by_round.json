@@ -1,0 +1,26 @@
+{
+  "profile_01": {
+    "MoE expert GEMM": 29.607722577322342,
+    "Communication / fused allreduce": 18.080987298792554,
+    "Dense GEMM / linear": 17.3238965427269,
+    "Attention / MLA": 16.27904329064305,
+    "DSA index / top-k": 6.941046126421922,
+    "MoE routing / sorting": 5.018498566085594,
+    "Tensor / elementwise / indexing": 3.837932340017172,
+    "Norm / RoPE / KV write": 2.067985750078762,
+    "Quantization / cast": 0.7645184328883367,
+    "Sampling / speculative bookkeeping": 0.0783690750254587
+  },
+  "profile_02": {
+    "MoE expert GEMM": 29.63422883565721,
+    "Communication / fused allreduce": 17.939929228510564,
+    "Dense GEMM / linear": 17.278740424310204,
+    "Attention / MLA": 16.51828777604136,
+    "DSA index / top-k": 6.883325593083439,
+    "MoE routing / sorting": 5.001472350412129,
+    "Tensor / elementwise / indexing": 3.8291025902508053,
+    "Norm / RoPE / KV write": 2.070408696376443,
+    "Quantization / cast": 0.7626174800785087,
+    "Sampling / speculative bookkeeping": 0.08188702528125358
+  }
+}

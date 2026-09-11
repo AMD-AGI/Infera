@@ -1,0 +1,35 @@
+{
+  "checked_at": "2026-09-11T01:05:33.950359+00:00",
+  "job_id": 30020,
+  "queries": [
+    {
+      "command": [
+        "squeue",
+        "-h",
+        "-j",
+        "30020",
+        "-o",
+        "%i|%u|%j|%T|%N|%L"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "slurm_load_jobs error: Invalid job id specified\n"
+    },
+    {
+      "command": [
+        "sacct",
+        "-j",
+        "30020",
+        "--format=JobID,State,ExitCode,End",
+        "-n",
+        "-P"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "Slurm accounting storage is disabled\n"
+    }
+  ],
+  "active_job_present": false,
+  "scancel_executed_by_this_task": false,
+  "final_reason": "Not verified; Slurm accounting is disabled. No new allocation or node operation after user stopped testing."
+}
