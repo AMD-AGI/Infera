@@ -215,7 +215,16 @@ jobs:
     timeout-minutes: 60
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
-      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus-cicd:amd-primus-cicd-qos,amd-primus:amd-primus-qos
+      # Tried best-first; a leg rotates to the next pair when the scheduler
+      # refuses the current one. The dedicated CI QoS leads, amd-primus follows,
+      # and amd-burst-qos is the last resort: it is low priority and
+      # preemptible, but its group limit is 182 nodes against the CI QoS's 11
+      # and amd-primus's 4. Those two ceilings are shared with everyone else on
+      # the account, so when another team's jobs sit on them -- 11 nodes held
+      # for eight hours on 2026-09-11 -- a ladder without a burst rung leaves
+      # every GPU leg dead ~25s in, on "all SLURM account/QoS pairs are blocked
+      # (QOSGrpNodeLimit)", for however long that lasts.
+      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus-cicd:amd-primus-cicd-qos,amd-primus:amd-primus-qos,amd-primus-cicd:amd-burst-qos
       INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
       INFERA_E2E_SLURM_TIME: "00:50:00"
       INFERA_E2E_JOB_TAG: ${{ github.run_id }}-engine
@@ -258,7 +267,8 @@ jobs:
     timeout-minutes: 120
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
-      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus-cicd:amd-primus-cicd-qos,amd-primus:amd-primus-qos
+      # Account/QoS ladder, burst last — see the engine job for why.
+      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus-cicd:amd-primus-cicd-qos,amd-primus:amd-primus-qos,amd-primus-cicd:amd-burst-qos
       INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
       # Keep the SLURM allocation just inside the job timeout, so the scheduler
       # reclaims the node even if the runner is killed before it can scancel.
@@ -305,7 +315,10 @@ jobs:
     timeout-minutes: 120
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
-      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus-cicd:amd-primus-cicd-qos,amd-primus:amd-primus-qos
+      # Account/QoS ladder, burst last — see the engine job for why. The pair
+      # that wins here also holds the node pair and carries every disagg step,
+      # since _set_slurm_account_qos exports it as INFERA_E2E_SRUN_EXTRA.
+      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus-cicd:amd-primus-cicd-qos,amd-primus:amd-primus-qos,amd-primus-cicd:amd-burst-qos
       INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
       # Ceiling on every disagg srun step, inside the job timeout above so the
       # scheduler reclaims a node even if the runner is killed first.
