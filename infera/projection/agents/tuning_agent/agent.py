@@ -259,7 +259,9 @@ class TuningSearchSignature(dspy.Signature):
     history_summary: str = dspy.InputField(desc="Compact text summary of prior trials")
     extra_guidance: str = dspy.InputField(desc="User-provided guidance")
 
-    best_config: str = dspy.OutputField(desc="JSON object: the winning trial config (or empty {} if none).")
+    best_config: str = dspy.OutputField(
+        desc="JSON object: the winning trial config (or empty {} if none)."
+    )
     summary: str = dspy.OutputField(
         desc="5-8 sentences on the search: what was tried, what worked, what didn't."
     )
@@ -442,7 +444,8 @@ def _cluster_blob(agent_cfg: AgentConfig) -> str:
             "name": agent_cfg.target_cluster.name,
             "num_nodes": agent_cfg.target_cluster.num_nodes,
             "gpus_per_node": agent_cfg.target_cluster.gpus_per_node,
-            "world_size": agent_cfg.target_cluster.num_nodes * agent_cfg.target_cluster.gpus_per_node,
+            "world_size": agent_cfg.target_cluster.num_nodes
+            * agent_cfg.target_cluster.gpus_per_node,
             "gpu_arch": agent_cfg.target_cluster.gpu_arch,
             "hbm_capacity_gb": agent_cfg.optimization.hbm_capacity_gb,
             "memory_safety_margin": agent_cfg.optimization.memory_safety_margin,

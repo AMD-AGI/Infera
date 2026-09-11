@@ -35,12 +35,12 @@ class KVCacheBreakdown:
 
     bytes_per_token_per_layer: float
     layers_on_rank: int
-    bytes_per_token: float          # across all layers on this rank
-    bytes_per_sequence: float       # at max_context_len
-    bytes_total: float              # across the sequences resident on this rank
+    bytes_per_token: float  # across all layers on this rank
+    bytes_per_sequence: float  # at max_context_len
+    bytes_total: float  # across the sequences resident on this rank
     max_context_len: int
-    concurrency: int                # resident sequences across the replica
-    sequences_on_rank: int          # concurrency / attention-DP size
+    concurrency: int  # resident sequences across the replica
+    sequences_on_rank: int  # concurrency / attention-DP size
     kv_cache_dtype: str
 
 
@@ -108,10 +108,7 @@ def linear_state_bytes_per_layer(inference_config: InferenceConfig) -> float:
         return 0.0
     mp = inference_config.model_parallel_config
     tp = max(1, mp.tensor_model_parallel_size)
-    heads_on_rank = (
-        heads if attention_dp_size(inference_config) > 1
-        else max(1, heads // tp)
-    )
+    heads_on_rank = heads if attention_dp_size(inference_config) > 1 else max(1, heads // tp)
     elem = dtype_num_bytes("bf16")
     state = heads_on_rank * d * d * elem
     kernel = int(getattr(mc, "linear_attention_conv_kernel", 0) or 0)
@@ -184,9 +181,7 @@ def estimate_kv_cache(
     lin_frac = 1.0 - full_frac
     if lin_frac > 0.0:
         per_sequence += (
-            linear_state_bytes_per_layer(inference_config)
-            * max(1, layers_on_rank)
-            * lin_frac
+            linear_state_bytes_per_layer(inference_config) * max(1, layers_on_rank) * lin_frac
         )
 
     # Data-parallel attention splits the running requests across ranks, so a

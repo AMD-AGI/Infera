@@ -114,13 +114,15 @@ def test_a_draft_model_that_is_never_wrong_and_never_costs_anything_is_rejected(
     a configuration no draft model can implement -- 2.5x the honest number.
     """
     leg = _legality()
-    perfect = _cfg(speculative_num_tokens=4, speculative_acceptance_rate=1.0,
-                   speculative_draft_cost_factor=0.0)
+    perfect = _cfg(
+        speculative_num_tokens=4, speculative_acceptance_rate=1.0, speculative_draft_cost_factor=0.0
+    )
     ok, why = validate_inference(perfect, _Arch(), _Cluster(), leg)
     assert not ok and "acceptance_rate" in why
 
-    free = _cfg(speculative_num_tokens=4, speculative_acceptance_rate=0.7,
-                speculative_draft_cost_factor=0.0)
+    free = _cfg(
+        speculative_num_tokens=4, speculative_acceptance_rate=0.7, speculative_draft_cost_factor=0.0
+    )
     ok, why = validate_inference(free, _Arch(), _Cluster(), leg)
     assert not ok and "draft cost" in why
 
@@ -128,8 +130,9 @@ def test_a_draft_model_that_is_never_wrong_and_never_costs_anything_is_rejected(
 def test_speculation_that_pays_for_itself_is_still_allowed():
     """The axis stays searchable; only the unphysical corner is closed."""
     leg = _legality()
-    cfg = _cfg(speculative_num_tokens=4, speculative_acceptance_rate=0.7,
-               speculative_draft_cost_factor=0.2)
+    cfg = _cfg(
+        speculative_num_tokens=4, speculative_acceptance_rate=0.7, speculative_draft_cost_factor=0.2
+    )
     ok, why = validate_inference(cfg, _Arch(), _Cluster(), leg)
     assert ok, why
 
@@ -144,8 +147,11 @@ def test_accuracy_has_to_be_bought():
     from infera.projection.agents.tuning_agent.inference_tuning import min_draft_cost
 
     leg = _legality()
-    cheap = _cfg(speculative_num_tokens=4, speculative_acceptance_rate=0.95,
-                 speculative_draft_cost_factor=0.10)
+    cheap = _cfg(
+        speculative_num_tokens=4,
+        speculative_acceptance_rate=0.95,
+        speculative_draft_cost_factor=0.10,
+    )
     ok, why = validate_inference(cheap, _Arch(), _Cluster(), leg)
     assert not ok and "too cheap" in why
 

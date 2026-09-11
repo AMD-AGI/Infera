@@ -4,10 +4,8 @@
 # See LICENSE for license information.
 ###############################################################################
 
-from typing import Optional
 
 from infera.projection.core.projection.base_module_profiler import BaseModuleProfiler
-
 
 
 class OutputLayerProfiler(BaseModuleProfiler):
@@ -31,7 +29,7 @@ class OutputLayerProfiler(BaseModuleProfiler):
         self._cached_results = None
         self._cache_key = None
 
-    def estimated_num_params(self, rank: Optional[int] = None) -> int:
+    def estimated_num_params(self, rank: int | None = None) -> int:
         return self.config.model_config.padded_vocab_size * self.config.model_config.hidden_size
 
     def estimated_activation_memory(self, batch_size: int, seq_len: int) -> int:
@@ -77,12 +75,12 @@ class OutputLayerProfiler(BaseModuleProfiler):
                 # Effective sequence length per rank if CP is used
                 slen_per_cp = seq_len // cp_size
 
-
                 # Imported here, not at module scope: this pulls in torch, which costs
                 # ~0.66 s and is only needed to benchmark on a real GPU. A simulate-only
                 # projection should not pay for it -- Hyperloom spawns one process per
                 # config, where that import dwarfed the ~28 ms the projection takes.
                 from .utils import benchmark_layer
+
                 self._cached_results = benchmark_layer(
                     self.module,
                     [

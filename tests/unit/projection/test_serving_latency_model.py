@@ -64,9 +64,17 @@ def test_disagg_ttft_is_batched_prefill_not_a_fifo_of_singles():
     """
     from .conftest import project_spec
 
-    common = dict(disaggregate=True, prefill_tp=4, tp=8, ep=1,
-                  prefill_replicas=1, decode_replicas=1, input_len=1024,
-                  output_len=128, prefix_cache_hit_rate=0.0)
+    common = dict(
+        disaggregate=True,
+        prefill_tp=4,
+        tp=8,
+        ep=1,
+        prefill_replicas=1,
+        decode_replicas=1,
+        input_len=1024,
+        output_len=128,
+        prefix_cache_hit_rate=0.0,
+    )
     one = project_spec(**common, concurrency=1)
     many = project_spec(**common, concurrency=64)
     assert one["ttft_ms"] > 0 and many["ttft_ms"] > 0
@@ -91,9 +99,17 @@ def test_disagg_long_decode_does_not_prefill_every_resident_client():
     """
     from .conftest import project_spec
 
-    common = dict(disaggregate=True, prefill_tp=4, tp=8, ep=1,
-                  prefill_replicas=1, decode_replicas=1, input_len=512,
-                  output_len=2048, prefix_cache_hit_rate=0.0)
+    common = dict(
+        disaggregate=True,
+        prefill_tp=4,
+        tp=8,
+        ep=1,
+        prefill_replicas=1,
+        decode_replicas=1,
+        input_len=512,
+        output_len=2048,
+        prefix_cache_hit_rate=0.0,
+    )
     one = project_spec(**common, concurrency=1)
     many = project_spec(**common, concurrency=64)
     assert one["ttft_ms"] > 0 and many["ttft_ms"] > 0
@@ -108,13 +124,20 @@ def test_disagg_more_prefill_replicas_cut_ttft_under_load():
     """Splitting the same load across more prefill workers must reduce TTFT."""
     from .conftest import project_spec
 
-    common = dict(disaggregate=True, prefill_tp=2, tp=8, ep=1,
-                  decode_replicas=1, input_len=2048, output_len=128,
-                  concurrency=64, prefix_cache_hit_rate=0.0)
+    common = dict(
+        disaggregate=True,
+        prefill_tp=2,
+        tp=8,
+        ep=1,
+        decode_replicas=1,
+        input_len=2048,
+        output_len=128,
+        concurrency=64,
+        prefix_cache_hit_rate=0.0,
+    )
     thin = project_spec(**common, prefill_replicas=1)
     wide = project_spec(**common, prefill_replicas=4)
     assert wide["ttft_ms"] < thin["ttft_ms"], (
         f"4 prefill replicas {wide['ttft_ms']:.1f} ms vs 1 replica "
         f"{thin['ttft_ms']:.1f} ms at the same system concurrency"
     )
-

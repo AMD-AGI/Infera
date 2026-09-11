@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Dict
 
 from infera.projection.core.launcher.parser import load_config
 from infera.projection.core.projection.training_config import (
@@ -17,7 +16,7 @@ from infera.projection.core.projection.training_config import (
 )
 
 from .memory import project_inference_memory
-from .performance import InferencePerformanceProjector, project_inference_performance
+from .performance import InferencePerformanceProjector
 
 # Map CLI arg attribute names → InferenceRequestConfig field names.
 _ARG_TO_FIELD = {
@@ -96,11 +95,11 @@ _DISAGG_ARG_TO_FIELD = {
     "transfer_backend": "disagg_transfer_backend",
 }
 
-_GB = 1024.0 ** 3
+_GB = 1024.0**3
 
 
-def _collect_inference_overrides(args) -> Dict[str, object]:
-    overrides: Dict[str, object] = {}
+def _collect_inference_overrides(args) -> dict[str, object]:
+    overrides: dict[str, object] = {}
     for mapping in (_ARG_TO_FIELD, _COLL_ARG_TO_FIELD, _DISAGG_ARG_TO_FIELD):
         for arg_name, field_name in mapping.items():
             if hasattr(args, arg_name):
@@ -150,8 +149,7 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
         feats.append(f"prefix_cache_hit={req.resolved_prefix_cache_hit_rate():.2f}")
     if req.speculative_num_tokens:
         feats.append(
-            f"speculative(k={req.speculative_num_tokens}, "
-            f"accept={req.speculative_acceptance_rate})"
+            f"speculative(k={req.speculative_num_tokens}, accept={req.speculative_acceptance_rate})"
         )
     if req.kv_cache_dtype != "bf16":
         feats.append(f"kv_dtype={req.kv_cache_dtype}")
@@ -160,15 +158,17 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
         _frac = req.resolved_sliding_window_fraction(
             getattr(mc, "sink_window_even_layers_only", False)
         )
-        feats.append(
-            f"sliding_window={_win}" + (f"(frac={_frac:g})" if _frac < 1.0 else "")
-        )
+        feats.append(f"sliding_window={_win}" + (f"(frac={_frac:g})" if _frac < 1.0 else ""))
     if not getattr(req, "sampling_enabled", True):
         feats.append("sampling=off")
     elif getattr(req, "sampling_top_k", 0) or 0.0 < getattr(req, "sampling_top_p", 1.0) < 1.0:
         feats.append(
             "sampling("
-            + (f"top_k={req.sampling_top_k}" if req.sampling_top_k else f"top_p={req.sampling_top_p}")
+            + (
+                f"top_k={req.sampling_top_k}"
+                if req.sampling_top_k
+                else f"top_p={req.sampling_top_p}"
+            )
             + ")"
         )
     _adq = req.resolved_act_quant_dtype(getattr(mc, "fp8", None))
@@ -186,9 +186,7 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
     if req.kv_block_size:
         feats.append(f"kv_block={req.kv_block_size}")
     if req.kv_offload_gb_per_gpu:
-        feats.append(
-            f"kv_offload={req.kv_offload_gb_per_gpu:g}GB@{req.kv_offload_bw_gbps:g}GB/s"
-        )
+        feats.append(f"kv_offload={req.kv_offload_gb_per_gpu:g}GB@{req.kv_offload_bw_gbps:g}GB/s")
     if req.max_num_batched_tokens:
         feats.append(f"max_batched_tokens={req.max_num_batched_tokens}")
     if req.ep_load_balance and req.ep_load_balance != 1.0:
@@ -202,8 +200,7 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
     n_lin = mc.linear_attention_layer_count()
     if n_lin:
         feats.append(
-            f"linear_attn={n_lin}/{mc.num_layers}"
-            f"(state={mc.linear_attention_state_len()})"
+            f"linear_attn={n_lin}/{mc.num_layers}(state={mc.linear_attention_state_len()})"
         )
     if getattr(req, "moe_expert_dtype", None):
         feats.append(f"moe_expert_dtype={req.moe_expert_dtype}")
@@ -244,7 +241,9 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
     print("-" * 100)
     print(f"  TTFT (time to first token):      {perf.ttft_ms:.2f} ms")
     if perf.is_disaggregated:
-        print(f"    prefill compute:               {perf.extras.get('prefill_compute_ttft_ms', 0.0):.2f} ms")
+        print(
+            f"    prefill compute:               {perf.extras.get('prefill_compute_ttft_ms', 0.0):.2f} ms"
+        )
         print(f"    KV-cache transfer:             {perf.kv_transfer_ms:.2f} ms")
     print(f"  ITL / TPOT (per token):          {perf.itl_ms:.2f} ms")
     print(f"  Interactivity (per user):        {perf.per_request_decode_tps:.1f} tok/s/user")
@@ -276,17 +275,20 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
     print(f"  Aggregate decode throughput:     {perf.decode_throughput_tps:.1f} tok/s")
     print(f"  Decode throughput / GPU:         {perf.decode_throughput_tps_per_gpu:.1f} tok/s/gpu")
     if perf.is_disaggregated:
-        fleet_gpus = (perf.prefill_replica_gpus * int(perf.extras.get("prefill_replicas", 1))
-                      + perf.decode_replica_gpus * int(perf.extras.get("decode_replicas", 1)))
+        fleet_gpus = perf.prefill_replica_gpus * int(
+            perf.extras.get("prefill_replicas", 1)
+        ) + perf.decode_replica_gpus * int(perf.extras.get("decode_replicas", 1))
     else:
         fleet_gpus = perf.replica_gpus
     # Billed tokens, not computed ones: a prompt served from the prefix cache is
     # still charged, so this is what a $/token figure divides into. Prefill and
     # decode GPUs are both in the denominator, which is what makes it comparable
     # across P:D ratios that a decode-only figure would rank identically.
-    total_tps = perf.decode_throughput_tps * (
-        req.input_seq_len + req.output_seq_len
-    ) / max(1, req.output_seq_len)
+    total_tps = (
+        perf.decode_throughput_tps
+        * (req.input_seq_len + req.output_seq_len)
+        / max(1, req.output_seq_len)
+    )
     print(
         f"  Total throughput / GPU:          {total_tps / max(1, fleet_gpus):.1f} tok/s/gpu"
         f"   (in+out over {fleet_gpus} GPU)"
@@ -305,8 +307,7 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
         print(f"  Replica GPUs (TP×PP):            {perf.replica_gpus}")
     if perf.extras.get("speculative_tokens_per_step", 1.0) > 1.0:
         print(
-            f"  Speculative tokens / step:       "
-            f"{perf.extras['speculative_tokens_per_step']:.2f}"
+            f"  Speculative tokens / step:       {perf.extras['speculative_tokens_per_step']:.2f}"
         )
     # Throughput priced in the unit a serving budget is quoted in. Prefill and
     # decode share the GPUs under continuous batching, so a token's cost is the
@@ -397,7 +398,7 @@ def _emit_restore_confidence(anchor_paths, target_gpus: int) -> None:
         pass
 
 
-def _print_des(des: Dict[str, object]) -> None:
+def _print_des(des: dict[str, object]) -> None:
     point = des["point"]
     print("\n" + "=" * 100)
     print("[inferasim:Inference] Discrete-Event Simulation (arrival-driven)")
@@ -415,7 +416,7 @@ def _print_des(des: Dict[str, object]) -> None:
     print("-" * 100)
     print(f"  {'metric':<22}{'mean':>12}{'p50':>12}{'p90':>12}{'p99':>12}")
 
-    def _row(label: str, d: Dict[str, float], unit: str = "ms") -> None:
+    def _row(label: str, d: dict[str, float], unit: str = "ms") -> None:
         print(
             f"  {label:<22}"
             f"{d.get('mean', 0.0):>10.2f} {unit:<1}"
@@ -444,9 +445,7 @@ def _print_des(des: Dict[str, object]) -> None:
             else f"prefix pool: {int(pfx.get('num_prefixes', 0))} prefixes"
         )
         print("-" * 100)
-        print(
-            f"  Fleet: {int(pfx['num_instances'])} instance(s), routing={rname} | {source}"
-        )
+        print(f"  Fleet: {int(pfx['num_instances'])} instance(s), routing={rname} | {source}")
         bs = int(pfx.get("block_size", 0))
         cap = int(pfx.get("cache_blocks", 0))
         cap_str = f"{cap} blocks" if cap > 0 else "unbounded"
@@ -515,9 +514,7 @@ def _target_model_id(args=None):
     already does that for the benchmark path, so it is honoured here too, and
     the preset remains the fallback when nothing names the checkpoint.
     """
-    explicit = getattr(args, "bench_model", None) or os.environ.get(
-        "INFERASIM_BENCH_MODEL"
-    )
+    explicit = getattr(args, "bench_model", None) or os.environ.get("INFERASIM_BENCH_MODEL")
     return explicit or os.environ.get("INFERASIM_MODEL")
 
 
@@ -566,9 +563,7 @@ def _assert_anchor_is_this_model(path, artifact, args=None):
     preset = _target_model_id(args)
     if not measured or not preset:
         return
-    if models_match(preset, measured) or os.environ.get(
-        "INFERASIM_ALLOW_FOREIGN_ANCHOR"
-    ):
+    if models_match(preset, measured) or os.environ.get("INFERASIM_ALLOW_FOREIGN_ANCHOR"):
         return
     raise ValueError(
         f"[inferasim:Inference] anchor {path} was measured on {measured!r}, but "
@@ -593,14 +588,13 @@ def _anchor_from_store(args, inference_config):
 
     Returns the anchor path to load, or None to project analytically.
     """
-    root = getattr(args, "anchor_store", None) or os.environ.get(
-        "INFERASIM_ANCHOR_STORE"
-    )
+    root = getattr(args, "anchor_store", None) or os.environ.get("INFERASIM_ANCHOR_STORE")
     if not root:
         return None
     if not os.path.isdir(root):
-        print(f"[inferasim:Inference] anchor store '{root}' does not exist — "
-              "projecting analytically.")
+        print(
+            f"[inferasim:Inference] anchor store '{root}' does not exist — projecting analytically."
+        )
         return None
 
     try:
@@ -612,25 +606,29 @@ def _anchor_from_store(args, inference_config):
         model = _anchor_model_filter(store, args)
         entry, distance = store.nearest(recipe, model=model)
     except Exception as exc:  # noqa: BLE001 - a broken store must not fail a projection
-        print(f"[inferasim:Inference] anchor store unusable ({exc}) — "
-              "projecting analytically.")
+        print(f"[inferasim:Inference] anchor store unusable ({exc}) — projecting analytically.")
         return None
 
     if entry is None:
-        print(f"[inferasim:Inference] no anchor in {root} for this model — "
-              "projecting analytically.")
+        print(
+            f"[inferasim:Inference] no anchor in {root} for this model — projecting analytically."
+        )
         return None
     if distance:
-        print(f"[inferasim:Inference] nearest anchor differs on {distance} regime "
-              f"axis(es) ({entry.get('path')}); it describes different kernels, so "
-              "projecting analytically instead. Warm up in this regime to calibrate.")
+        print(
+            f"[inferasim:Inference] nearest anchor differs on {distance} regime "
+            f"axis(es) ({entry.get('path')}); it describes different kernels, so "
+            "projecting analytically instead. Warm up in this regime to calibrate."
+        )
         return None
 
     path = entry.get("path")
     tr = entry.get("transport") or {}
-    print(f"[inferasim:Inference] calibrating from warmup anchor {path} "
-          f"(same regime, measured at TP={tr.get('tp')} EP={tr.get('ep')} "
-          f"PP={tr.get('pp')})")
+    print(
+        f"[inferasim:Inference] calibrating from warmup anchor {path} "
+        f"(same regime, measured at TP={tr.get('tp')} EP={tr.get('ep')} "
+        f"PP={tr.get('pp')})"
+    )
     return path
 
 
@@ -643,9 +641,7 @@ def launch_projection_from_cli(args, overrides):
     config, _unknown = load_config(args, overrides or [])
 
     inf_overrides = _collect_inference_overrides(args)
-    inference_config = convert_config_to_inference_config(
-        config, inference_overrides=inf_overrides
-    )
+    inference_config = convert_config_to_inference_config(config, inference_overrides=inf_overrides)
 
     # Serving weight precision drives the *compute* GEMM dtype, not just the
     # memory report. The layer profilers pick the GEMM dtype from
@@ -671,9 +667,11 @@ def launch_projection_from_cli(args, overrides):
         inference_config.model_config.moe_router_coverage = {
             int(k): float(v) for k, v in _curve.items()
         }
-        print(f"[inferasim:Inference] measured router coverage from {_cov} "
-              f"({len(_curve)} batch points, "
-              f"min {min(float(v) for v in _curve.values()):.2f}x independent)")
+        print(
+            f"[inferasim:Inference] measured router coverage from {_cov} "
+            f"({len(_curve)} batch points, "
+            f"min {min(float(v) for v in _curve.values()):.2f}x independent)"
+        )
 
     explicit_wdt = getattr(args, "weight_dtype", None)
     if explicit_wdt is not None:
@@ -806,7 +804,9 @@ def launch_projection_from_cli(args, overrides):
     # anchor (per-GPU decode throughput not yet flat within one doubling of the
     # target) and recommend the GPU count to benchmark next.
     if mode in ("performance", "both"):
-        _tgt_pp = int(getattr(inference_config.model_parallel_config, "pipeline_model_parallel_size", 1) or 1)
+        _tgt_pp = int(
+            getattr(inference_config.model_parallel_config, "pipeline_model_parallel_size", 1) or 1
+        )
         _tgt_tp = int(inference_config.model_parallel_config.tensor_model_parallel_size)
         _anchor_paths = ([load_bench] if load_bench else []) + _scaling_bench_paths(args)
         if getattr(args, "decode_floor_benchmark", None):
@@ -823,12 +823,14 @@ def launch_projection_from_cli(args, overrides):
         )
     if mode in ("performance", "both"):
         projector = InferencePerformanceProjector(
-            inference_config, args=args, benchmark_layer_times=benchmark_layer_times,
-            scaling_benchmarks=scaling_benchmarks, decode_floor=decode_floor,
+            inference_config,
+            args=args,
+            benchmark_layer_times=benchmark_layer_times,
+            scaling_benchmarks=scaling_benchmarks,
+            decode_floor=decode_floor,
         )
         perf = projector.project()
-        _print_performance(inference_config, perf,
-                           getattr(args, "gpu_cost_per_hour", None))
+        _print_performance(inference_config, perf, getattr(args, "gpu_cost_per_hour", None))
         results["performance"] = perf
 
         # Phase 3: opt-in discrete-event simulation for arrival-driven
@@ -840,15 +842,19 @@ def launch_projection_from_cli(args, overrides):
         dump_steps = getattr(args, "des_dump_steps", None)
         mooncake_trace = getattr(args, "des_mooncake_trace", None)
         run_des_enabled = (
-            arrival_model in ("poisson", "deterministic") and (req.request_rate or 0) > 0
-        ) or bool(workload_file) or bool(mooncake_trace)
+            (arrival_model in ("poisson", "deterministic") and (req.request_rate or 0) > 0)
+            or bool(workload_file)
+            or bool(mooncake_trace)
+        )
         if run_des_enabled:
             from .des import run_des
 
             des = run_des(
                 inference_config,
                 projector,
-                arrival_model=arrival_model if arrival_model in ("poisson", "deterministic") else "poisson",
+                arrival_model=arrival_model
+                if arrival_model in ("poisson", "deterministic")
+                else "poisson",
                 rate_per_s=float(req.request_rate or 0.0),
                 num_requests=int(getattr(args, "des_num_requests", 400) or 400),
                 seed=int(getattr(args, "des_seed", 0) or 0),
@@ -893,6 +899,8 @@ def launch_projection_from_cli(args, overrides):
                 }
                 with open(dump_steps, "w") as _f:
                     _json.dump(payload, _f)
-                print(f"[inferasim:Inference] wrote {len(des['point'].steps)} DES step records to {dump_steps}")
+                print(
+                    f"[inferasim:Inference] wrote {len(des['point'].steps)} DES step records to {dump_steps}"
+                )
 
     return results

@@ -58,6 +58,21 @@ def _workload_file():
     return _workload_path
 
 
+def requires_origami():
+    """Skip the calling test unless the Origami GEMM backend is installed."""
+    # Origami builds against ROCm/HIP, so no extra can pull it onto a GPU-less runner.
+    from infera.projection.core.projection.simulation_backends.origami_backend import (
+        OrigamiGEMMBackend,
+    )
+
+    if not OrigamiGEMMBackend().is_available():
+        pytest.skip(
+            "needs the Origami GEMM backend: pip install "
+            "'git+https://github.com/ROCm/rocm-libraries.git"
+            "#subdirectory=shared/origami/python' (needs ROCm to build)"
+        )
+
+
 DEFAULTS = {
     "model": "gpt_oss_120B",
     "tp": 8,
@@ -76,6 +91,7 @@ DEFAULTS = {
 def project_spec(**overrides):
     """Project one workload; returns ``{metric: value}``."""
     yaml = pytest.importorskip("yaml")  # noqa: F841 - projection extra
+    requires_origami()
     from infera.projection.cli import build_parser
     from infera.projection.core.projection.inference_projection import (
         launch_projection_from_cli,
@@ -84,17 +100,28 @@ def project_spec(**overrides):
     spec = {**DEFAULTS, **overrides}
     argv = [
         "inference",
-        "--config", _workload_file(),
-        "--inference-mode", "both",
-        "--profiling-mode", "simulate",
-        "--input-len", str(spec["input_len"]),
-        "--output-len", str(spec["output_len"]),
-        "--inference-batch-size", str(spec["concurrency"]),
-        "--max-concurrency", str(spec["concurrency"]),
-        "--weight-dtype", spec["weight_dtype"],
-        "--kv-cache-dtype", spec["kv_cache_dtype"],
-        "--gpu-arch", spec["gpu_arch"],
-        "--hbm-capacity-gb", str(spec["hbm_gb"]),
+        "--config",
+        _workload_file(),
+        "--inference-mode",
+        "both",
+        "--profiling-mode",
+        "simulate",
+        "--input-len",
+        str(spec["input_len"]),
+        "--output-len",
+        str(spec["output_len"]),
+        "--inference-batch-size",
+        str(spec["concurrency"]),
+        "--max-concurrency",
+        str(spec["concurrency"]),
+        "--weight-dtype",
+        spec["weight_dtype"],
+        "--kv-cache-dtype",
+        spec["kv_cache_dtype"],
+        "--gpu-arch",
+        spec["gpu_arch"],
+        "--hbm-capacity-gb",
+        str(spec["hbm_gb"]),
     ]
     for flag, key in (
         ("--sliding-window", "sliding_window"),
@@ -112,17 +139,25 @@ def project_spec(**overrides):
     if spec.get("disaggregate"):
         argv += [
             "--disaggregate",
-            "--prefill-tp", str(spec.get("prefill_tp", spec["tp"])),
-            "--prefill-ep", str(spec.get("prefill_ep", spec["ep"])),
-            "--decode-tp", str(spec["tp"]),
-            "--decode-ep", str(spec["ep"]),
-            "--prefill-replicas", str(spec.get("prefill_replicas", 1)),
-            "--decode-replicas", str(spec.get("decode_replicas", 1)),
+            "--prefill-tp",
+            str(spec.get("prefill_tp", spec["tp"])),
+            "--prefill-ep",
+            str(spec.get("prefill_ep", spec["ep"])),
+            "--decode-tp",
+            str(spec["tp"]),
+            "--decode-ep",
+            str(spec["ep"]),
+            "--prefill-replicas",
+            str(spec.get("prefill_replicas", 1)),
+            "--decode-replicas",
+            str(spec.get("decode_replicas", 1)),
         ]
         if spec.get("attn_dp"):
             argv += [
-                "--prefill-attention-dp", str(spec.get("prefill_tp", spec["tp"])),
-                "--decode-attention-dp", str(spec["tp"]),
+                "--prefill-attention-dp",
+                str(spec.get("prefill_tp", spec["tp"])),
+                "--decode-attention-dp",
+                str(spec["tp"]),
             ]
     if spec.get("enable_deepep"):
         argv += ["--enable-deepep"]
@@ -150,7 +185,7 @@ def project_spec(**overrides):
     mc = getattr(cfg, "model_config", None)
     req = getattr(cfg, "request_config", None)
     extras = dict(getattr(perf, "extras", {}) or {})
-    gib = 1024.0 ** 3
+    gib = 1024.0**3
     return {
         "sliding_window": req.resolved_sliding_window(getattr(mc, "sink_sliding_window", 0)),
         "shared_expert_size": getattr(mc, "moe_shared_expert_intermediate_size", None),

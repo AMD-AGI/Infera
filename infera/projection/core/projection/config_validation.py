@@ -14,7 +14,7 @@ memory projections and poor runtime memory behavior.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from infera.projection.core.projection.training_config import ModelParallelConfig, TrainingConfig
 
@@ -73,8 +73,8 @@ def recompute_is_enabled(
 
 def resolve_pipeline_schedule(
     *,
-    pipeline_schedule_algorithm: Optional[str] = None,
-    pp_algorithm: Optional[str] = None,
+    pipeline_schedule_algorithm: str | None = None,
+    pp_algorithm: str | None = None,
     enable_zero_bubble: bool = False,
 ) -> str:
     """Effective schedule name for validation (CLI overrides YAML)."""
@@ -98,12 +98,12 @@ def uses_split_wgrad_schedule(schedule: str, *, enable_zero_bubble: bool = False
 
 def check_recompute_pipeline_compat(
     *,
-    recompute_granularity: Optional[str] = None,
+    recompute_granularity: str | None = None,
     recompute_num_layers: int = 0,
-    recompute_layer_ids: Optional[list] = None,
+    recompute_layer_ids: list | None = None,
     pipeline_schedule: str = "auto",
-    pp_algorithm: Optional[str] = None,
-    enable_zero_bubble: Optional[bool] = None,
+    pp_algorithm: str | None = None,
+    enable_zero_bubble: bool | None = None,
 ) -> tuple[bool, str]:
     """Return (ok, reason). Used by the tuning agent before launching projection."""
     granularity = recompute_granularity
@@ -134,7 +134,7 @@ def assert_recompute_pipeline_compat(
     training_config: TrainingConfig,
     *,
     config: Any = None,
-    pipeline_schedule_algorithm: Optional[str] = None,
+    pipeline_schedule_algorithm: str | None = None,
 ) -> None:
     """Raise AssertionError when recompute + split-wgrad schedule are combined."""
     mp = training_config.model_parallel_config

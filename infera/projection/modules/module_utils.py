@@ -6,7 +6,7 @@
 
 import inspect
 from types import SimpleNamespace
-from typing import Any, Dict, Union
+from typing import Any
 
 from infera.projection.core.utils import logger
 
@@ -126,7 +126,7 @@ def error_rank_0(msg, *args, **kwargs):
 
 def log_dict_aligned(
     title: str,
-    data: Union[Dict[str, Any], SimpleNamespace],
+    data: dict[str, Any] | SimpleNamespace,
     indent: str = "  ",
     rank_filter: str = "rank_0",
 ):
@@ -173,7 +173,7 @@ def log_dict_aligned(
         log_func = log_rank_0  # Default to rank 0
 
     # Helper function to flatten nested SimpleNamespace to dot notation
-    def _flatten_namespace(obj: Any, prefix: str = "") -> Dict[str, Any]:
+    def _flatten_namespace(obj: Any, prefix: str = "") -> dict[str, Any]:
         """Recursively flatten nested SimpleNamespace objects using dot notation."""
         result = {}
 

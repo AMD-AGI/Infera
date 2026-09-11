@@ -22,13 +22,17 @@ def get_rocm_smi_gpu_util(device_id: int):
             stderr=subprocess.DEVNULL,
             timeout=10,
         )
-    except FileNotFoundError:
-        raise RuntimeError("rocm-smi not found, please ensure ROCm is installed and in PATH")
-    except subprocess.TimeoutExpired:
-        raise RuntimeError("rocm-smi --showuse timed out")
+    except FileNotFoundError as e:
+        raise RuntimeError("rocm-smi not found, please ensure ROCm is installed and in PATH") from e
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError("rocm-smi --showuse timed out") from e
     except subprocess.CalledProcessError as e:
-        output = e.output.strip() if isinstance(e.output, str) and e.output else "No output captured."
-        raise RuntimeError(f"rocm-smi --showuse failed with exit code {e.returncode}. Output: {output}")
+        output = (
+            e.output.strip() if isinstance(e.output, str) and e.output else "No output captured."
+        )
+        raise RuntimeError(
+            f"rocm-smi --showuse failed with exit code {e.returncode}. Output: {output}"
+        ) from e
 
     # Parse output: look for GPU use (%) or similar (e.g. "GPU use (%): 42" or "GPU Use: 42%")
     for line in out.splitlines():
@@ -52,14 +56,18 @@ def get_rocm_smi_gpu_util(device_id: int):
             if 0 <= val <= 100:
                 return val
 
-    raise RuntimeError(f"rocm-smi --showuse did not report a GPU use percentage for device {device_id}")
+    raise RuntimeError(
+        f"rocm-smi --showuse did not report a GPU use percentage for device {device_id}"
+    )
 
 
 def get_rocm_smi_mem_info(device_id: int):
     try:
-        out = subprocess.check_output(["rocm-smi", "--showmeminfo", "vram", f"-d={device_id}"], text=True)
-    except FileNotFoundError:
-        raise RuntimeError("rocm-smi not found, please ensure ROCm is installed and in PATH")
+        out = subprocess.check_output(
+            ["rocm-smi", "--showmeminfo", "vram", f"-d={device_id}"], text=True
+        )
+    except FileNotFoundError as e:
+        raise RuntimeError("rocm-smi not found, please ensure ROCm is installed and in PATH") from e
 
     # mem in Bytes
     total_mem, used_mem = None, None

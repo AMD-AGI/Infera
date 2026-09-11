@@ -66,9 +66,7 @@ def test_linear_blend_at_long_context_is_the_mla_fraction():
     blended = mc.blend_linear_attn_kv(kv)
     expected = (69 * 128 + 24 * kv) / 93
     assert blended == pytest.approx(expected, rel=1e-3)
-    assert blended < 0.30 * kv, (
-        f"blended KV {blended} is not the MLA-layer fraction of {kv}"
-    )
+    assert blended < 0.30 * kv, f"blended KV {blended} is not the MLA-layer fraction of {kv}"
 
 
 def test_linear_blend_is_a_no_op_without_kda_layers():
@@ -92,9 +90,7 @@ def test_kimi_token_kv_is_only_the_mla_layers():
     # Recurrent state is bf16, TP-sharded heads: 69 layers × 12 heads × d×d,
     # plus the short-conv leftover of (kernel-1) tokens.
     d, heads_on_rank, kernel = 128, 96 // 8, 4
-    state_bytes = 69 * heads_on_rank * (
-        d * d + d * (kernel - 1)
-    ) * 2 * conc
+    state_bytes = 69 * heads_on_rank * (d * d + d * (kernel - 1)) * 2 * conc
     assert kv.bytes_total == pytest.approx(token_bytes + state_bytes, rel=1e-6)
     all_mla = 93 * latent * ctx * conc
     assert kv.bytes_total < 0.35 * all_mla
@@ -114,8 +110,8 @@ def test_kimi_yaml_keys_reach_the_projection():
     )
     ctx = 65536 + 8
     latent = 512 + 64
-    mla_only_gb = 24 * latent * ctx * 8 / (1024.0 ** 3)
-    all_mla_gb = 93 * latent * ctx * 8 / (1024.0 ** 3)
+    mla_only_gb = 24 * latent * ctx * 8 / (1024.0**3)
+    all_mla_gb = 93 * latent * ctx * 8 / (1024.0**3)
     assert kimi["kv_cache_gb"] < 0.40 * all_mla_gb, (
         f"Kimi KV {kimi['kv_cache_gb']:.2f} GB looks like 93-layer MLA "
         f"({all_mla_gb:.2f} GB), so the linear_attention_* keys were dropped"
@@ -131,8 +127,13 @@ def test_kimi_prefill_does_not_grow_as_dense_mla():
     not by the ~8x of a full-context prefill of 64k vs 8k.
     """
     common = dict(
-        model="kimi_k3", tp=8, ep=8, concurrency=1, output_len=8,
-        weight_dtype="mxfp4", kv_cache_dtype="fp8",
+        model="kimi_k3",
+        tp=8,
+        ep=8,
+        concurrency=1,
+        output_len=8,
+        weight_dtype="mxfp4",
+        kv_cache_dtype="fp8",
     )
     short = project_spec(**common, input_len=8192, prefix_cache_hit_rate=0.0)
     # 65536 * (1 - 0.875) = 8192 new tokens attending 64k.

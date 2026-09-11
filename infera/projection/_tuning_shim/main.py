@@ -15,6 +15,7 @@ The projection CLI lives at ``infera.projection.cli``. This shim maps the
 keep working unchanged. Only the ``inference`` suite is supported (the Megatron
 ``performance`` / ``memory`` training suites are not part of the serving path).
 """
+
 import sys
 
 
@@ -22,15 +23,13 @@ def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv or argv[0] != "projection":
         raise SystemExit(
-            "infera projection shim: expected 'projection <suite> ...' "
-            f"(got {argv!r})"
+            f"infera projection shim: expected 'projection <suite> ...' (got {argv!r})"
         )
     suite_argv = argv[1:]  # drop the leading 'projection'
     suite = suite_argv[0] if suite_argv else None
     if suite != "inference":
         raise SystemExit(
-            f"infera projection shim: only the 'inference' suite is supported "
-            f"(got {suite!r})."
+            f"infera projection shim: only the 'inference' suite is supported (got {suite!r})."
         )
     from infera.projection.cli import main as _projection_main
 

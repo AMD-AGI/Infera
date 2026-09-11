@@ -30,7 +30,7 @@ def parse_yaml(path: str) -> dict:
 # 1. Load YAML
 # ================================================================
 def _load_yaml(path: str):
-    with open(path, "r") as f:
+    with open(path) as f:
         return yaml.load(f, Loader=yaml.SafeLoader)
 
 

@@ -48,9 +48,7 @@ def test_tpot_reads_the_projected_itl():
 
 def test_every_missed_budget_is_listed():
     slo = {"ttft_ms": 500, "tpot_ms": 25, "request_latency_ms": 5000}
-    misses = _slo_violations(
-        _result(ttft_ms=820.0, itl_ms=40.0, request_latency_ms=12000.0), slo
-    )
+    misses = _slo_violations(_result(ttft_ms=820.0, itl_ms=40.0, request_latency_ms=12000.0), slo)
     assert len(misses) == 3
 
 

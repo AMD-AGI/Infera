@@ -39,8 +39,7 @@ class _Cfg:
 def _seed(hit: float, prompt_len: int = 130000, n: int = 8):
     """Run the seeding block the way ``simulate_once`` does, in isolation."""
     pending = [
-        des_mod._Req(idx=i, arrival_ms=0.0, prompt_len=prompt_len, output_len=900)
-        for i in range(n)
+        des_mod._Req(idx=i, arrival_ms=0.0, prompt_len=prompt_len, output_len=900) for i in range(n)
     ]
     cfg = _Cfg(request_config=_Req(input_seq_len=prompt_len, hit=hit))
     h = cfg.request_config.resolved_prefix_cache_hit_rate()

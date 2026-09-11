@@ -4,7 +4,7 @@ import argparse
 import os
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from infera.projection.core.config.preset_loader import PresetLoader
 from infera.projection.core.launcher.config import InferaSimConfig
@@ -64,7 +64,9 @@ def add_posttrain_parser(parser: argparse.ArgumentParser):
     return add_pretrain_parser(parser)
 
 
-def _parse_args(extra_args_provider=None, ignore_unknown_args=False) -> Tuple[argparse.Namespace, List[str]]:
+def _parse_args(
+    extra_args_provider=None, ignore_unknown_args=False
+) -> tuple[argparse.Namespace, list[str]]:
     parser = argparse.ArgumentParser(description="InferaSim Arguments", allow_abbrev=False)
     parser = _add_common_train_args(parser, include_data_path=False)
 
@@ -97,13 +99,13 @@ def _check_keys_exist(ns: SimpleNamespace, overrides: dict, prefix=""):
         assert hasattr(ns, k), f"Override key '{full_key}' does not exist in pre_trainer config."
         attr_val = getattr(ns, k)
         if isinstance(v, dict):
-            assert isinstance(
-                attr_val, SimpleNamespace
-            ), f"Override key '{full_key}' expects a namespace/dict but got {type(attr_val)}"
+            assert isinstance(attr_val, SimpleNamespace), (
+                f"Override key '{full_key}' expects a namespace/dict but got {type(attr_val)}"
+            )
             _check_keys_exist(attr_val, v, prefix=full_key)
 
 
-def _split_known_unknown(ns: SimpleNamespace, overrides: dict) -> Tuple[dict, dict]:
+def _split_known_unknown(ns: SimpleNamespace, overrides: dict) -> tuple[dict, dict]:
     """
     Split overrides into two dictionaries:
       - known: keys that exist in the namespace
@@ -141,7 +143,7 @@ def parse_args(extra_args_provider=None, ignore_unknown_args=False):
     return config
 
 
-def _load_config(args: argparse.Namespace, overrides: List[str]) -> Tuple[Any, Dict[str, Any]]:
+def _load_config(args: argparse.Namespace, overrides: list[str]) -> tuple[Any, dict[str, Any]]:
     """
     Build the configuration with optional command-line overrides.
 
@@ -173,12 +175,12 @@ def _load_config(args: argparse.Namespace, overrides: List[str]) -> Tuple[Any, D
     return config, unknown_overrides
 
 
-def load_config(args: argparse.Namespace, overrides: List[str]) -> Tuple[Any, Dict[str, Any]]:
+def load_config(args: argparse.Namespace, overrides: list[str]) -> tuple[Any, dict[str, Any]]:
     """Parse the experiment config and apply CLI overrides."""
     return _load_config(args, overrides)
 
 
-class InferaSimParser(object):
+class InferaSimParser:
     def __init__(self):
         pass
 
@@ -292,7 +294,9 @@ class InferaSimParser(object):
         #     delattr(model_config, "model")
 
         # ---- Merge: config + model ----
-        yaml_utils.merge_namespace(module_config, model_config, allow_override=False, excepts=["name"])
+        yaml_utils.merge_namespace(
+            module_config, model_config, allow_override=False, excepts=["name"]
+        )
 
         # ---- Apply overrides if present ----
         if yaml_utils.has_key_in_namespace(module, "overrides"):
@@ -300,7 +304,9 @@ class InferaSimParser(object):
 
         # ---- Flatten and save back ----
         module_config.name = module_name
-        yaml_utils.set_value_by_key(self.exp.modules, module_name, module_config, allow_override=True)
+        yaml_utils.set_value_by_key(
+            self.exp.modules, module_name, module_config, allow_override=True
+        )
 
     def parse_modules(self):
         yaml_utils.check_key_in_namespace(self.exp, "modules")

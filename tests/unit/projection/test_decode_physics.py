@@ -15,13 +15,14 @@ from __future__ import annotations
 
 import pytest
 
-from .conftest import DEFAULTS, project_spec
+from .conftest import DEFAULTS, project_spec, requires_origami
 
 # MI355X: HBM3E, 8 TB/s peak. Nothing that streams bytes may imply more.
 _MI355X_HBM_TBPS = 8.0
 
 
 def _sdpa(**kw):
+    requires_origami()  # SDPASimulator raises in its constructor without it
     from infera.projection.core.projection.simulation_backends.sdpa_simulator import (
         SDPASimulator,
     )
@@ -36,8 +37,16 @@ def test_sdpa_prefill_grows_with_kv_length():
     left Origami saturating, so 9k tokens attending 8k and 9k attending 122k
     came out within 50% of each other. FLOPs grew 15x; time has to as well.
     """
-    common = dict(batch_size=1, num_heads=16, seq_len=2048, head_dim=128,
-                  causal=True, dtype="bf16", num_heads_kv=16, head_dim_v=128)
+    common = dict(
+        batch_size=1,
+        num_heads=16,
+        seq_len=2048,
+        head_dim=128,
+        causal=True,
+        dtype="bf16",
+        num_heads_kv=16,
+        head_dim_v=128,
+    )
     short = _sdpa(**common, seq_len_kv=2048)
     long = _sdpa(**common, seq_len_kv=32768)
     assert long.forward_time_ms > 4.0 * short.forward_time_ms, (
@@ -48,8 +57,16 @@ def test_sdpa_prefill_grows_with_kv_length():
 
 def test_sdpa_cached_prefill_is_not_half_masked():
     """Causal masking does not apply to the cached prefix a suffix attends over."""
-    common = dict(batch_size=1, num_heads=8, seq_len=2048, head_dim=64,
-                  dtype="bf16", seq_len_kv=16384, num_heads_kv=8, head_dim_v=64)
+    common = dict(
+        batch_size=1,
+        num_heads=8,
+        seq_len=2048,
+        head_dim=64,
+        dtype="bf16",
+        seq_len_kv=16384,
+        num_heads_kv=8,
+        head_dim_v=64,
+    )
     causal = _sdpa(**common, causal=True)
     full = _sdpa(**common, causal=False)
     # Prefix is 7/8 of KV, so the causal discount on the suffix block is ~6%,
@@ -69,9 +86,15 @@ def test_sdpa_decode_cannot_beat_hbm_bandwidth():
     """
     batch, kv_len, kv_heads, head_dim = 256, 1536, 8, 64
     res = _sdpa(
-        batch_size=batch, num_heads=64, seq_len=1, head_dim=head_dim,
-        causal=False, dtype="bf16", seq_len_kv=kv_len,
-        num_heads_kv=kv_heads, head_dim_v=head_dim,
+        batch_size=batch,
+        num_heads=64,
+        seq_len=1,
+        head_dim=head_dim,
+        causal=False,
+        dtype="bf16",
+        seq_len_kv=kv_len,
+        num_heads_kv=kv_heads,
+        head_dim_v=head_dim,
     )
     kv_bytes = batch * kv_heads * kv_len * (head_dim * 2) * 2  # K and V, bf16
     implied_tbps = kv_bytes / (res.forward_time_ms * 1e-3) / 1e12
@@ -88,9 +111,17 @@ def test_mla_kv_is_a_shared_latent_not_per_head():
     from head counts overstated it ~9x and put DeepSeek TPOT +114% at
     concurrency 256.
     """
-    common = dict(batch_size=128, num_heads=16, seq_len=1, head_dim=192,
-                  causal=False, dtype="bf16", seq_len_kv=2048,
-                  num_heads_kv=16, head_dim_v=128)
+    common = dict(
+        batch_size=128,
+        num_heads=16,
+        seq_len=1,
+        head_dim=192,
+        causal=False,
+        dtype="bf16",
+        seq_len_kv=2048,
+        num_heads_kv=16,
+        head_dim_v=128,
+    )
     per_head = _sdpa(**common)
     latent = _sdpa(**common, kv_bytes_per_token=(512 + 64) * 1.0)
     assert latent.forward_time_ms < per_head.forward_time_ms, (
@@ -122,7 +153,8 @@ def test_kernel_occupancy_is_additive_and_survives_graph_capture():
     from infera.projection.core.projection.training_config import InferenceRequestConfig
 
     req = InferenceRequestConfig(
-        decode_kernel_occupancy_us=6.0, kernels_per_layer=12,
+        decode_kernel_occupancy_us=6.0,
+        kernels_per_layer=12,
         cudagraph_mode="full",
     )
     occ = req.resolved_decode_occupancy_ms(num_layers=36)
@@ -132,7 +164,9 @@ def test_kernel_occupancy_is_additive_and_survives_graph_capture():
     # And the launch-latency floor, which models host dispatch, must still be
     # cancelled by capture -- the two terms are not the same thing.
     launch = InferenceRequestConfig(
-        kernel_launch_latency_us=6.0, kernels_per_layer=12, cudagraph_mode="full",
+        kernel_launch_latency_us=6.0,
+        kernels_per_layer=12,
+        cudagraph_mode="full",
     ).resolved_kernel_launch_floor_ms(num_layers=36)
     assert launch == 0.0
 
@@ -265,18 +299,18 @@ def test_a_layer_costs_the_kernels_it_actually_runs():
         decode_kernels_per_layer,
     )
 
-    gpt_oss = SimpleNamespace(num_experts=128, multi_latent_attention=False,
-                              moe_shared_expert_intermediate_size=None)
-    deepseek = SimpleNamespace(num_experts=256, multi_latent_attention=True,
-                               moe_shared_expert_intermediate_size=2048)
-    dense = SimpleNamespace(num_experts=0, multi_latent_attention=False,
-                            moe_shared_expert_intermediate_size=None)
-
-    n_gpt, n_ds, n_dense = (decode_kernels_per_layer(m)
-                            for m in (gpt_oss, deepseek, dense))
-    assert n_dense < n_gpt < n_ds, (
-        "a dense layer runs fewest, MLA plus a shared expert the most"
+    gpt_oss = SimpleNamespace(
+        num_experts=128, multi_latent_attention=False, moe_shared_expert_intermediate_size=None
     )
+    deepseek = SimpleNamespace(
+        num_experts=256, multi_latent_attention=True, moe_shared_expert_intermediate_size=2048
+    )
+    dense = SimpleNamespace(
+        num_experts=0, multi_latent_attention=False, moe_shared_expert_intermediate_size=None
+    )
+
+    n_gpt, n_ds, n_dense = (decode_kernels_per_layer(m) for m in (gpt_oss, deepseek, dense))
+    assert n_dense < n_gpt < n_ds, "a dense layer runs fewest, MLA plus a shared expert the most"
     # MLA adds five kernels over fused QKV; a shared expert adds three.
     assert n_ds - n_gpt == 8
 
@@ -299,16 +333,28 @@ def test_a_v4_layer_is_priced_as_latent_attention_despite_the_trainer_flag():
         uses_latent_attention,
     )
 
-    v4 = SimpleNamespace(multi_latent_attention=False, qk_pos_emb_head_dim=64,
-                         num_query_groups=1, num_experts=384,
-                         moe_shared_expert_intermediate_size=3072)
-    v3 = SimpleNamespace(multi_latent_attention=True, qk_pos_emb_head_dim=64,
-                         num_query_groups=1, num_experts=256,
-                         moe_shared_expert_intermediate_size=2048)
+    v4 = SimpleNamespace(
+        multi_latent_attention=False,
+        qk_pos_emb_head_dim=64,
+        num_query_groups=1,
+        num_experts=384,
+        moe_shared_expert_intermediate_size=3072,
+    )
+    v3 = SimpleNamespace(
+        multi_latent_attention=True,
+        qk_pos_emb_head_dim=64,
+        num_query_groups=1,
+        num_experts=256,
+        moe_shared_expert_intermediate_size=2048,
+    )
     # Grouped-query attention: several query groups, no compressed latent.
-    gqa = SimpleNamespace(multi_latent_attention=False, qk_pos_emb_head_dim=0,
-                          num_query_groups=8, num_experts=128,
-                          moe_shared_expert_intermediate_size=3072)
+    gqa = SimpleNamespace(
+        multi_latent_attention=False,
+        qk_pos_emb_head_dim=0,
+        num_query_groups=8,
+        num_experts=128,
+        moe_shared_expert_intermediate_size=3072,
+    )
 
     assert uses_latent_attention(v4), "V4 serves latent attention"
     assert uses_latent_attention(v3), "the flag alone is still sufficient"
@@ -333,9 +379,14 @@ def test_the_v4_latent_shape_prices_the_cache_and_the_step_the_same_way():
         uses_latent_attention,
     )
 
-    v4 = SimpleNamespace(multi_latent_attention=False, qk_pos_emb_head_dim=64,
-                         num_query_groups=1, kv_channels=512,
-                         num_attention_heads=128, group_query_attention=True)
+    v4 = SimpleNamespace(
+        multi_latent_attention=False,
+        qk_pos_emb_head_dim=64,
+        num_query_groups=1,
+        kv_channels=512,
+        num_attention_heads=128,
+        group_query_attention=True,
+    )
     assert uses_latent_attention(v4)
     assert kv_cache.uses_latent_attention is uses_latent_attention, (
         "the cache must share the predicate, not keep its own copy"
@@ -360,8 +411,9 @@ def test_the_step_floor_still_comes_out_where_it_was_measured():
         decode_kernels_per_layer,
     )
 
-    gpt_oss = SimpleNamespace(num_experts=128, multi_latent_attention=False,
-                              moe_shared_expert_intermediate_size=None)
+    gpt_oss = SimpleNamespace(
+        num_experts=128, multi_latent_attention=False, moe_shared_expert_intermediate_size=None
+    )
     assert 36 * decode_kernels_per_layer(gpt_oss) + 6 == 546
 
     floor = InferenceRequestConfig(
@@ -463,13 +515,12 @@ def test_expert_gemm_keeps_near_ideal_relief_when_sharded(name, k, ffn, experts)
     benchmark artifact: a lone [1 x k] x [k x n] call is latency-bound and reads
     ~10% of peak, which is not the kernel MoE decode actually issues.
     """
+    requires_origami()
     from infera.projection.core.projection.simulation_backends.origami_backend import (
         OrigamiGEMMBackend,
     )
 
     backend = OrigamiGEMMBackend(gpu_arch="mi355x")
-    if not backend.is_available():
-        pytest.skip("origami not installed")
 
     def t(etp):
         return backend.simulate_gemm(

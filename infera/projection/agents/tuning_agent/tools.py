@@ -22,8 +22,8 @@ Tools provided to the LLM:
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from datetime import datetime
-from typing import Callable
 
 from .config import AgentConfig
 from .evaluator import EvalResult, Evaluator
@@ -214,7 +214,8 @@ def build_tools(
                 "num_nodes": agent_cfg.target_cluster.num_nodes,
                 "gpus_per_node": agent_cfg.target_cluster.gpus_per_node,
                 "gpu_arch": agent_cfg.target_cluster.gpu_arch,
-                "world_size": agent_cfg.target_cluster.num_nodes * agent_cfg.target_cluster.gpus_per_node,
+                "world_size": agent_cfg.target_cluster.num_nodes
+                * agent_cfg.target_cluster.gpus_per_node,
                 "hbm_capacity_gb": agent_cfg.optimization.hbm_capacity_gb,
                 "memory_safety_margin": agent_cfg.optimization.memory_safety_margin,
                 "has_gpu_for_benchmark": agent_cfg.benchmark_host.has_gpu,

@@ -49,6 +49,7 @@ def test_the_saving_grows_with_context():
     model that applied a flat discount would pass the test above and fail this
     one.
     """
+
     def saving(ctx: int) -> float:
         bf16 = _tpot("bf16", ctx)
         return (bf16 - _tpot("fp8", ctx)) / bf16 * 100.0
@@ -81,7 +82,11 @@ def test_bf16_is_the_default_when_unset(ctx: int):
     """
     explicit = _tpot("bf16", ctx)
     implicit = project_spec(
-        model="gpt_oss_120B", concurrency=64, input_len=ctx, output_len=1024,
-        weight_dtype="mxfp4", tp=8,
+        model="gpt_oss_120B",
+        concurrency=64,
+        input_len=ctx,
+        output_len=1024,
+        weight_dtype="mxfp4",
+        tp=8,
     )["tpot_ms"]
     assert implicit == pytest.approx(explicit, rel=1e-9)

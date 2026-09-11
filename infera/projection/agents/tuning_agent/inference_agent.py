@@ -29,6 +29,7 @@ from __future__ import annotations
 import json
 import sys
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 
 import dspy
@@ -47,7 +48,6 @@ from .inference_tuning import (
     objective_is_minimize,
     resolve_objective,
     score_result,
-    validate_inference,
 )
 from .scratchpad import Scratchpad
 from .workload import ArchitectureRecord
@@ -241,6 +241,12 @@ def _best_by_score(history: History, objective: str):
     return best
 
 
+def _metric(result: dict, key: str, fmt: str = "{}") -> str:
+    """Format one trial metric, or an em dash when the trial never produced it."""
+    v = result.get(key)
+    return fmt.format(v) if isinstance(v, (int, float)) else "—"
+
+
 def _inference_history_summary(history: History, objective: str, k: int = 30) -> str:
     rows = history.trials[-k:] if k else history.trials
     obj = resolve_objective(objective)
@@ -249,13 +255,11 @@ def _inference_history_summary(history: History, objective: str, k: int = 30) ->
         r = t.result
         c = t.config
 
-        def _g(key, fmt="{}"):
-            v = r.get(key)
-            return fmt.format(v) if isinstance(v, (int, float)) else "—"
+        _g = partial(_metric, r)
 
         objval = r.get(obj)
         obj_s = f"{objval:,.2f}" if isinstance(objval, (int, float)) else "—"
-        tag = "OK" if r.get("legal") else f"REJECT({str(r.get('reason',''))[:48]})"
+        tag = "OK" if r.get("legal") else f"REJECT({str(r.get('reason', ''))[:48]})"
         cfg_s = (
             f"tp{c.get('tp')} pp{c.get('pp')} ep{c.get('ep')} bs{c.get('batch_size')} "
             f"w{c.get('weight_dtype')} kv{c.get('kv_cache_dtype')}"
@@ -274,9 +278,9 @@ def _inference_history_summary(history: History, objective: str, k: int = 30) ->
         cfg_s = cfg_s + ((" " + " ".join(extra)) if extra else "")
         lines.append(
             f"#{t.idx:03d} {tag:38s} {obj}={obj_s:>10s} "
-            f"ttft={_g('ttft_ms','{:.1f}')} itl={_g('itl_ms','{:.2f}')} "
-            f"dtps/gpu={_g('decode_throughput_tps_per_gpu','{:.0f}')} "
-            f"mem={_g('memory_per_gpu_gb','{:.1f}')}GB | {cfg_s}"
+            f"ttft={_g('ttft_ms', '{:.1f}')} itl={_g('itl_ms', '{:.2f}')} "
+            f"dtps/gpu={_g('decode_throughput_tps_per_gpu', '{:.0f}')} "
+            f"mem={_g('memory_per_gpu_gb', '{:.1f}')}GB | {cfg_s}"
         )
     return "\n".join(lines) if lines else "(no trials yet)"
 
@@ -329,7 +333,9 @@ def build_inference_tools(
                     return json.dumps({"already_evaluated": True, **t.result})
         if evaluator.n_simulate_calls >= budget.max_perf_calls:
             return json.dumps(
-                {"error": f"eval budget exhausted ({evaluator.n_simulate_calls}/{budget.max_perf_calls})"}
+                {
+                    "error": f"eval budget exhausted ({evaluator.n_simulate_calls}/{budget.max_perf_calls})"
+                }
             )
         idx = len(history.trials)
         tag = f"inf_{idx:03d}_tp{cfg.tp}_pp{cfg.pp}_ep{cfg.ep}_bs{cfg.batch_size}"

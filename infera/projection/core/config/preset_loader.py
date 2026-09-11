@@ -5,7 +5,6 @@
 ###############################################################################
 
 import os
-from typing import Dict
 
 from infera.projection.configs import models as MODELS_ROOT
 from infera.projection.core.config.merge_utils import deep_merge
@@ -21,7 +20,7 @@ class PresetLoader:
     """
 
     @staticmethod
-    def load(name: str, framework: str, config_type: str = "models") -> Dict:
+    def load(name: str, framework: str, config_type: str = "models") -> dict:
         """
         Load:
             configs/<config_type>/<framework>/<name>[.yaml]
@@ -48,7 +47,9 @@ class PresetLoader:
         abs_preset_path = os.path.abspath(preset_path)
         abs_configs_root = os.path.abspath(configs_root)
         if os.path.commonpath([abs_preset_path, abs_configs_root]) != abs_configs_root:
-            raise ValueError(f"[inferasim] Invalid preset path: path traversal detected for '{preset_path}'.")
+            raise ValueError(
+                f"[inferasim] Invalid preset path: path traversal detected for '{preset_path}'."
+            )
 
         if not os.path.exists(abs_preset_path):
             raise FileNotFoundError(
@@ -61,7 +62,7 @@ class PresetLoader:
         return preset
 
     @staticmethod
-    def merge_with_user_params(preset: Dict, params: Dict) -> Dict:
+    def merge_with_user_params(preset: dict, params: dict) -> dict:
         """
         Combine:
             - model preset (base)

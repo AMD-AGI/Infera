@@ -31,6 +31,17 @@ pip install ".[projection]"          # projection + simulation
 pip install ".[projection-tuning]"   # + the DSPy tuning agent
 ```
 
+`--profiling-mode simulate` prices every GEMM and attention tile through
+[Origami](https://github.com/ROCm/rocm-libraries/tree/develop/shared/origami),
+which no extra can pull in: it builds against ROCm/HIP, and the `origami` name
+on PyPI is an unrelated project. On a ROCm host:
+
+```bash
+pip install 'git+https://github.com/ROCm/rocm-libraries.git#subdirectory=shared/origami/python'
+```
+
+Without it the simulate path raises and `tests/unit/projection` skips.
+
 `torch` and the serving engine (`vllm`) come from the engine base image, not
 pip. Neither is needed for the no-GPU path.
 

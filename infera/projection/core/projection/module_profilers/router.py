@@ -1,5 +1,3 @@
-from typing import Optional
-
 from infera.projection.core.projection.base_module_profiler import BaseModuleProfiler
 
 ###############################################################################
@@ -10,7 +8,7 @@ from infera.projection.core.projection.base_module_profiler import BaseModulePro
 
 
 class RouterProfiler(BaseModuleProfiler):
-    def estimated_num_params(self, rank: Optional[int] = None) -> int:
+    def estimated_num_params(self, rank: int | None = None) -> int:
         return self.config.model_config.hidden_size * self.config.model_config.num_experts
 
     def estimated_activation_memory(self, batch_size: int, seq_len: int) -> int:

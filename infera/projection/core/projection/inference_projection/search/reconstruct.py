@@ -26,7 +26,7 @@ or escalate the recipe to a real run:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 from . import regime
 from .anchor_store import AnchorStore
@@ -34,15 +34,15 @@ from .anchor_store import AnchorStore
 
 @dataclass
 class ReconstructionResult:
-    perf: Any                       # InferencePerfResult
-    anchor: Dict[str, Any]          # the anchor store entry used
-    regime_distance: int            # 0 == same regime (fully transportable)
-    confidence: str                 # "high" | "interp" | "escalate"
+    perf: Any  # InferencePerfResult
+    anchor: dict[str, Any]  # the anchor store entry used
+    regime_distance: int  # 0 == same regime (fully transportable)
+    confidence: str  # "high" | "interp" | "escalate"
     reason: str = ""
     projector: Any = field(default=None, repr=False)
 
 
-def _confidence(recipe: Dict[str, Any], entry: Dict[str, Any], distance: int) -> tuple:
+def _confidence(recipe: dict[str, Any], entry: dict[str, Any], distance: int) -> tuple:
     if distance > 0:
         return "escalate", f"nearest anchor differs on {distance} regime axis(es)"
     t = entry.get("transport", {})
@@ -57,7 +57,10 @@ def _confidence(recipe: Dict[str, Any], entry: Dict[str, Any], distance: int) ->
     nl = t.get("num_layers")
     tgt_layers = recipe.get("num_layers")
     if full is None and nl and tgt_layers and int(tgt_layers) != int(nl):
-        return "interp", f"target depth {tgt_layers} != anchor depth {nl} (no depth restore in anchor)"
+        return (
+            "interp",
+            f"target depth {tgt_layers} != anchor depth {nl} (no depth restore in anchor)",
+        )
     return "high", "same regime, within measured coverage"
 
 
@@ -66,8 +69,8 @@ def reconstruct(
     store: AnchorStore,
     *,
     args: Any = None,
-    model: Optional[str] = None,
-) -> Optional[ReconstructionResult]:
+    model: str | None = None,
+) -> ReconstructionResult | None:
     """Reconstruct the target ``inference_config``'s performance from the nearest
     anchor in ``store``.  Returns ``None`` when the store has no anchors.
 

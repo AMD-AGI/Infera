@@ -23,7 +23,9 @@ Harvest a GPU-calibrated anchor (needs a ROCm GPU + vLLM), then project::
     python -m infera.projection anchor --model <hf-or-model-name> \
         --benchmark-gpus 1 --save anchor.json
 """
+
 import argparse
+import argparse as _argparse  # noqa: F401  (used by arg helpers)
 import sys
 
 from infera.projection.core.launcher.parser import add_pretrain_parser
@@ -31,7 +33,6 @@ from infera.projection.core.projection.inference_projection import (
     launch_projection_from_cli,
 )
 
-import argparse as _argparse  # noqa: F401  (used by arg helpers)
 
 def _add_pipeline_schedule_algorithm_arg(parser):
     parser.add_argument(
@@ -456,8 +457,7 @@ def _add_inference_args(parser):
         "--sampling-temperature",
         type=float,
         default=None,
-        help="Sampling temperature. !=1 adds a fused logits-scale pass. "
-        "Default: 1.0.",
+        help="Sampling temperature. !=1 adds a fused logits-scale pass. Default: 1.0.",
     )
     # ---- Runtime activation quantization / cast ----
     parser.add_argument(
@@ -602,11 +602,19 @@ def _add_inference_args(parser):
         action="store_true",
         help="Enable prefill/decode disaggregation (separate worker pools).",
     )
-    dis.add_argument("--prefill-tp", type=int, default=None, help="Prefill-pool tensor parallelism.")
-    dis.add_argument("--prefill-pp", type=int, default=None, help="Prefill-pool pipeline parallelism.")
-    dis.add_argument("--prefill-ep", type=int, default=None, help="Prefill-pool expert parallelism.")
+    dis.add_argument(
+        "--prefill-tp", type=int, default=None, help="Prefill-pool tensor parallelism."
+    )
+    dis.add_argument(
+        "--prefill-pp", type=int, default=None, help="Prefill-pool pipeline parallelism."
+    )
+    dis.add_argument(
+        "--prefill-ep", type=int, default=None, help="Prefill-pool expert parallelism."
+    )
     dis.add_argument("--decode-tp", type=int, default=None, help="Decode-pool tensor parallelism.")
-    dis.add_argument("--decode-pp", type=int, default=None, help="Decode-pool pipeline parallelism.")
+    dis.add_argument(
+        "--decode-pp", type=int, default=None, help="Decode-pool pipeline parallelism."
+    )
     dis.add_argument("--decode-ep", type=int, default=None, help="Decode-pool expert parallelism.")
     dis.add_argument(
         "--prefill-attention-dp",
@@ -739,46 +747,46 @@ def _add_inference_args(parser):
         type=float,
         default=None,
         help="Per-output-token host detokenization + streaming cost (us/token). Added to "
-             "ITL/TPOT and end-to-end latency only (not throughput), matching client-side "
-             "serving-harness ITL. Default 0.",
+        "ITL/TPOT and end-to-end latency only (not throughput), matching client-side "
+        "serving-harness ITL. Default 0.",
     )
     serv.add_argument(
         "--tokenize-overhead-us",
         type=float,
         default=None,
         help="Per-prompt-token host tokenization cost (us/token). The prompt is sent as text "
-             "and tokenized server-side after the TTFT clock starts, so it is added to TTFT "
-             "and end-to-end latency only (not throughput). Default 0.",
+        "and tokenized server-side after the TTFT clock starts, so it is added to TTFT "
+        "and end-to-end latency only (not throughput). Default 0.",
     )
     serv.add_argument(
         "--request-overhead-ms",
         type=float,
         default=None,
         help="Fixed per-request host cost on the TTFT path (ms): accept, parse, admit, "
-             "prefix-cache lookup, KV allocation, stream open. Constant in prompt length, "
-             "which is how it is measured -- difference TTFT across two prompt lengths at "
-             "concurrency 1 and take the intercept. Added to TTFT and end-to-end latency "
-             "only (not throughput). A property of the serving stack, so it has no default "
-             "worth guessing. Default 0.",
+        "prefix-cache lookup, KV allocation, stream open. Constant in prompt length, "
+        "which is how it is measured -- difference TTFT across two prompt lengths at "
+        "concurrency 1 and take the intercept. Added to TTFT and end-to-end latency "
+        "only (not throughput). A property of the serving stack, so it has no default "
+        "worth guessing. Default 0.",
     )
     serv.add_argument(
         "--prefill-rate-us-per-token",
         type=float,
         default=None,
         help="Measured prefill rate (us of TTFT per prompt token): the per-token slope from "
-             "the same concurrency-1 differencing that yields --request-overhead-ms. Used as a "
-             "level anchor, not as the cost -- the projector takes its own slope over the same "
-             "two lengths and scales modelled prefill compute by the ratio, so prefill keeps "
-             "its superlinear growth in context. Requires --prefill-rate-lo-tokens and "
-             "--prefill-rate-hi-tokens. Ignored in benchmark mode, which already prices "
-             "prefill from measured kernels. Default 0 (unanchored).",
+        "the same concurrency-1 differencing that yields --request-overhead-ms. Used as a "
+        "level anchor, not as the cost -- the projector takes its own slope over the same "
+        "two lengths and scales modelled prefill compute by the ratio, so prefill keeps "
+        "its superlinear growth in context. Requires --prefill-rate-lo-tokens and "
+        "--prefill-rate-hi-tokens. Ignored in benchmark mode, which already prices "
+        "prefill from measured kernels. Default 0 (unanchored).",
     )
     serv.add_argument(
         "--prefill-rate-lo-tokens",
         type=int,
         default=None,
         help="Shorter of the two prompt lengths --prefill-rate-us-per-token was fit over. "
-             "A rate is meaningless without the span it was measured on.",
+        "A rate is meaningless without the span it was measured on.",
     )
     serv.add_argument(
         "--prefill-rate-hi-tokens",
@@ -791,16 +799,16 @@ def _add_inference_args(parser):
         type=int,
         default=None,
         help="Output tokens buffered per streaming flush (vLLM/SGLang --stream-interval). "
-             "The client's first token, and so the measured TTFT, arrives only after this "
-             "many tokens are decoded. Default 1 (flush every token).",
+        "The client's first token, and so the measured TTFT, arrives only after this "
+        "many tokens are decoded. Default 1 (flush every token).",
     )
     serv.add_argument(
         "--decode-admission-steps",
         type=int,
         default=None,
         help="Decode-scheduler admission granularity in decode steps, i.e. "
-             "--num-continuous-decode-steps x --scheduler-recv-interval. A prefilled request "
-             "waits part of this window before joining the running batch; TTFT-only. Default 0.",
+        "--num-continuous-decode-steps x --scheduler-recv-interval. A prefilled request "
+        "waits part of this window before joining the running batch; TTFT-only. Default 0.",
     )
     serv.add_argument(
         "--mixed-batch-penalty",
@@ -1092,7 +1100,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser(
         "anchor",
         help="Harvest a GPU-calibrated anchor via the vLLM benchmark harness "
-             "(`inferasim anchor --help` lists its flags).",
+        "(`inferasim anchor --help` lists its flags).",
         add_help=False,
     )
     return parser
@@ -1109,6 +1117,7 @@ def main(argv=None):
         from infera.projection.core.projection.inference_projection import (
             benchmark_vllm,
         )
+
         return benchmark_vllm.main(argv[1:])
 
     parser = build_parser()

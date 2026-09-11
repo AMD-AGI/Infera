@@ -49,7 +49,6 @@ from __future__ import annotations
 import math
 import os
 from dataclasses import dataclass
-from typing import Dict, Optional
 
 from infera.projection.core.projection.simulation_backends.base import (
     SDPASimulationBackend,
@@ -108,7 +107,7 @@ _SDPA_MEM_EFF = 0.70
 
 
 # Pre-defined hardware profiles
-_HW_PROFILES: Dict[str, GPUHardwareSpec] = {
+_HW_PROFILES: dict[str, GPUHardwareSpec] = {
     "mi300x": GPUHardwareSpec(
         peak_tflops_bf16=1307.0,
         peak_tflops_fp16=1307.0,
@@ -164,8 +163,8 @@ _HW_PROFILES: Dict[str, GPUHardwareSpec] = {
 
 
 def _get_hardware_spec(
-    gpu_arch: Optional[str] = None,
-    gpu_clock_mhz: Optional[int] = None,
+    gpu_arch: str | None = None,
+    gpu_clock_mhz: int | None = None,
 ) -> GPUHardwareSpec:
     """Get hardware spec for the given (or detected) GPU architecture.
 
@@ -177,7 +176,9 @@ def _get_hardware_spec(
     spec = _HW_PROFILES.get(arch, _HW_PROFILES["mi300x"])
 
     # Apply clock override — scale TFLOPS linearly
-    clock_override = gpu_clock_mhz or (int(v) if (v := os.getenv("INFERASIM_GPU_CLOCK_MHZ")) else None)
+    clock_override = gpu_clock_mhz or (
+        int(v) if (v := os.getenv("INFERASIM_GPU_CLOCK_MHZ")) else None
+    )
     if clock_override is not None:
         # Derive the profile's implicit clock from a known reference.
         _PROFILE_CLOCK_MHZ = {
@@ -226,9 +227,9 @@ class SDPASimulator(SDPASimulationBackend):
 
     def __init__(
         self,
-        gpu_arch: Optional[str] = None,
-        hardware_spec: Optional[GPUHardwareSpec] = None,
-        gpu_clock_mhz: Optional[int] = None,
+        gpu_arch: str | None = None,
+        hardware_spec: GPUHardwareSpec | None = None,
+        gpu_clock_mhz: int | None = None,
     ):
         """
         Args:
@@ -249,9 +250,11 @@ class SDPASimulator(SDPASimulationBackend):
         if self._tile_gemm is None:
             raise RuntimeError(
                 "SDPASimulator requires the Origami backend but it is not "
-                "available.  Please install the 'origami' package or ensure "
-                "infera.projection.core.projection.simulation_backends.origami_backend "
-                "is importable."
+                "available.  Install it with: pip install "
+                "'git+https://github.com/ROCm/rocm-libraries.git"
+                "#subdirectory=shared/origami/python' (building it requires "
+                "ROCm/HIP on the host), or ensure infera.projection.core."
+                "projection.simulation_backends.origami_backend is importable."
             )
 
     def name(self) -> str:
@@ -272,10 +275,10 @@ class SDPASimulator(SDPASimulationBackend):
         head_dim: int,
         causal: bool = True,
         dtype: str = "bf16",
-        seq_len_kv: Optional[int] = None,
-        num_heads_kv: Optional[int] = None,
-        head_dim_v: Optional[int] = None,
-        kv_bytes_per_token: Optional[float] = None,
+        seq_len_kv: int | None = None,
+        num_heads_kv: int | None = None,
+        head_dim_v: int | None = None,
+        kv_bytes_per_token: float | None = None,
     ) -> SimulationResult:
         """
         Simulate FAv3 SDPA execution time using Origami 1-CU tile-level
@@ -334,8 +337,8 @@ class SDPASimulator(SDPASimulationBackend):
 
     def _create_tile_gemm_backend(
         self,
-        gpu_arch: Optional[str],
-        gpu_clock_mhz: Optional[int],
+        gpu_arch: str | None,
+        gpu_clock_mhz: int | None,
     ):
         """Try to create an Origami backend with 1 CU for per-tile simulation.
 
@@ -354,14 +357,20 @@ class SDPASimulator(SDPASimulationBackend):
             if backend.is_available():
                 is_rank_0 = int(os.getenv("RANK", "0")) == 0
                 if is_rank_0:
-                    print("[inferasim:SDPA] Using Origami 1-CU tile-level simulation " "for Flash Attention")
+                    print(
+                        "[inferasim:SDPA] Using Origami 1-CU tile-level simulation "
+                        "for Flash Attention"
+                    )
                 return backend
         except Exception as exc:
             # If Origami is not available or fails to initialize, fall back to
             # the analytic SDPA model by returning None here.
             is_rank_0 = int(os.getenv("RANK", "0")) == 0
             if is_rank_0:
-                print("[inferasim:SDPA] Origami 1-CU tile-level simulation disabled " f"due to error: {exc}")
+                print(
+                    "[inferasim:SDPA] Origami 1-CU tile-level simulation disabled "
+                    f"due to error: {exc}"
+                )
         return None
 
     def _one_cu_gemm_floor_ms(self, m: int, n: int, k: int, dtype: str) -> float:
@@ -375,8 +384,11 @@ class SDPASimulator(SDPASimulationBackend):
         compute analogue of that bound.
         """
         flops = 2.0 * max(1, m) * max(1, n) * max(1, k)
-        peak = (self._hw.peak_tflops_fp8 if "fp8" in (dtype or "").lower()
-                else self._hw.peak_tflops_bf16)
+        peak = (
+            self._hw.peak_tflops_fp8
+            if "fp8" in (dtype or "").lower()
+            else self._hw.peak_tflops_bf16
+        )
         peak_cu = peak / max(1, self._hw.n_cu)
         return flops / (peak_cu * 1e12 * _SDPA_MEM_EFF) * 1e3
 
@@ -392,7 +404,7 @@ class SDPASimulator(SDPASimulationBackend):
         causal: bool,
         dtype: str,
         bpe: int,
-        kv_bytes_per_token: Optional[float] = None,
+        kv_bytes_per_token: float | None = None,
     ) -> SimulationResult:
         """
         Tile-level SDPA simulation using Origami on a single CU.
@@ -459,26 +471,38 @@ class SDPASimulator(SDPASimulationBackend):
             kv_n = _FAV3_FWD.kv_tile_n
             kv_iters = max(1, math.ceil(s_k_tile / kv_n))
             r_fwd_qk = self._tile_gemm.simulate_gemm(
-                m=q_tile, n=kv_n, k=D_qk, dtype=dtype,
+                m=q_tile,
+                n=kv_n,
+                k=D_qk,
+                dtype=dtype,
             )
             r_fwd_pv = self._tile_gemm.simulate_gemm(
-                m=q_tile, n=D_v, k=kv_n, dtype=dtype,
+                m=q_tile,
+                n=D_v,
+                k=kv_n,
+                dtype=dtype,
             )
-            qk_ms = max(r_fwd_qk.forward_time_ms,
-                        self._one_cu_gemm_floor_ms(q_tile, kv_n, D_qk, dtype))
-            pv_ms = max(r_fwd_pv.forward_time_ms,
-                        self._one_cu_gemm_floor_ms(q_tile, kv_n, D_v, dtype))
+            qk_ms = max(
+                r_fwd_qk.forward_time_ms, self._one_cu_gemm_floor_ms(q_tile, kv_n, D_qk, dtype)
+            )
+            pv_ms = max(
+                r_fwd_pv.forward_time_ms, self._one_cu_gemm_floor_ms(q_tile, kv_n, D_v, dtype)
+            )
             fwd_tile_ms = (qk_ms + pv_ms) * kv_iters * fwd_waves * causal_factor
         else:
             r_fwd_qk = self._tile_gemm.simulate_gemm(
-                m=q_tile, n=s_k_tile, k=D_qk, dtype=dtype,
+                m=q_tile,
+                n=s_k_tile,
+                k=D_qk,
+                dtype=dtype,
             )
             r_fwd_pv = self._tile_gemm.simulate_gemm(
-                m=q_tile, n=D_v, k=s_k_tile, dtype=dtype,
+                m=q_tile,
+                n=D_v,
+                k=s_k_tile,
+                dtype=dtype,
             )
-            fwd_tile_ms = (
-                r_fwd_qk.forward_time_ms + r_fwd_pv.forward_time_ms
-            ) * fwd_waves
+            fwd_tile_ms = (r_fwd_qk.forward_time_ms + r_fwd_pv.forward_time_ms) * fwd_waves
 
         # ==============================================================
         # METADATA (FLOPs, bytes — for achieved-TFLOPS reporting)

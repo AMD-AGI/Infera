@@ -66,7 +66,9 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         ),
     )
     p.add_argument("--workload", required=True, type=Path, help="Path to a pretrain YAML.")
-    p.add_argument("--target-cluster", required=True, type=Path, help="Path to target_cluster.yaml.")
+    p.add_argument(
+        "--target-cluster", required=True, type=Path, help="Path to target_cluster.yaml."
+    )
     p.add_argument(
         "--out-dir", type=Path, default=None, help="Output directory for trials, plot, scratchpad."
     )
@@ -93,11 +95,18 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     )
     p.add_argument("--no-agent", action="store_true", help="Alias for --seed-only.")
     p.add_argument(
-        "--agent-only", action="store_true", help="Skip seed evaluation; run LLM agent on existing history."
+        "--agent-only",
+        action="store_true",
+        help="Skip seed evaluation; run LLM agent on existing history.",
     )
-    p.add_argument("--resume", action="store_true", help="Reuse an existing trials.jsonl in --out-dir.")
     p.add_argument(
-        "--seed-budget", type=int, default=12, help="Max seed candidates evaluated before the LLM takes over."
+        "--resume", action="store_true", help="Reuse an existing trials.jsonl in --out-dir."
+    )
+    p.add_argument(
+        "--seed-budget",
+        type=int,
+        default=12,
+        help="Max seed candidates evaluated before the LLM takes over.",
     )
     p.add_argument(
         "--inference",
@@ -142,16 +151,22 @@ def _run_inference(args, agent_cfg, arch, config_root) -> int:
 
     leg = derive_inference_legality(arch, agent_cfg.target_cluster)
     print(f"[tuning-agent] MODE: inference  objective={objective} ({direction})")
-    print(f"[tuning-agent] legal serving axes: TP={leg.tp} PP={leg.pp} EP={leg.ep} "
-          f"batch={leg.batch_size} kv_dtype={leg.kv_cache_dtype} "
-          f"weight_dtype={leg.weight_dtype}")
+    print(
+        f"[tuning-agent] legal serving axes: TP={leg.tp} PP={leg.pp} EP={leg.ep} "
+        f"batch={leg.batch_size} kv_dtype={leg.kv_cache_dtype} "
+        f"weight_dtype={leg.weight_dtype}"
+    )
 
     # ── 1. seed sweep (warm start) ───────────────────────────────────────
     if args.agent_only:
-        print(f"\n[tuning-agent] --agent-only: skipping seeds ({len(history.trials)} trials loaded)")
+        print(
+            f"\n[tuning-agent] --agent-only: skipping seeds ({len(history.trials)} trials loaded)"
+        )
     else:
         plan = build_inference_seed_plan(
-            arch, agent_cfg.target_cluster, agent_cfg.optimization,
+            arch,
+            agent_cfg.target_cluster,
+            agent_cfg.optimization,
             max_candidates=args.seed_budget,
         )
         print(f"\n[tuning-agent] seed plan: {plan.rationale}")
@@ -161,16 +176,20 @@ def _run_inference(args, agent_cfg, arch, config_root) -> int:
                 print(f"    [seed] skip (already evaluated): {sig}")
                 continue
             idx = len(history.trials)
-            tag = (f"inf_{idx:03d}_tp{cfg.tp}_pp{cfg.pp}_ep{cfg.ep}"
-                   f"_bs{cfg.batch_size}_{cfg.weight_dtype}_kv{cfg.kv_cache_dtype}")
+            tag = (
+                f"inf_{idx:03d}_tp{cfg.tp}_pp{cfg.pp}_ep{cfg.ep}"
+                f"_bs{cfg.batch_size}_{cfg.weight_dtype}_kv{cfg.kv_cache_dtype}"
+            )
             r = evaluator.evaluate_inference(cfg, tag)
             history.add(cfg.as_dict(), r, notes="inference[seed]")
             if not r.legal:
                 print(f"    [inf #{idx}] REJECT: {r.reason}")
                 continue
-            print(f"    [inf #{idx}] OK ttft={r.ttft_ms}ms itl={r.itl_ms}ms "
-                  f"dec_tps/gpu={r.decode_throughput_tps_per_gpu} "
-                  f"mem={r.memory_per_gpu_gb}GB maxconc={r.max_concurrent_sequences} cfg={sig}")
+            print(
+                f"    [inf #{idx}] OK ttft={r.ttft_ms}ms itl={r.itl_ms}ms "
+                f"dec_tps/gpu={r.decode_throughput_tps_per_gpu} "
+                f"mem={r.memory_per_gpu_gb}GB maxconc={r.max_concurrent_sequences} cfg={sig}"
+            )
 
     # ── 2. LLM agent stage ───────────────────────────────────────────────
     if not (args.seed_only or args.no_agent):
@@ -221,15 +240,15 @@ def _run_inference(args, agent_cfg, arch, config_root) -> int:
     print(f"  TP={cfg.tp} PP={cfg.pp} EP={cfg.ep} CP={cfg.cp}")
     print(f"  batch={cfg.batch_size} input_len={cfg.input_len} output_len={cfg.output_len}")
     print(f"  weight_dtype={cfg.weight_dtype} kv_cache_dtype={cfg.kv_cache_dtype}")
-    print(f"  chunked_prefill={cfg.chunked_prefill_size} "
-          f"speculative={cfg.speculative_num_tokens}")
+    print(f"  chunked_prefill={cfg.chunked_prefill_size} speculative={cfg.speculative_num_tokens}")
     print(f"  → TTFT               = {r.ttft_ms} ms")
     print(f"  → ITL / TPOT         = {r.itl_ms} ms")
-    print(f"  → decode throughput  = {r.decode_throughput_tps} tok/s "
-          f"({r.decode_throughput_tps_per_gpu} tok/s/gpu)")
+    print(
+        f"  → decode throughput  = {r.decode_throughput_tps} tok/s "
+        f"({r.decode_throughput_tps_per_gpu} tok/s/gpu)"
+    )
     print(f"  → prefill throughput = {r.prefill_throughput_tps} tok/s")
-    print(f"  → memory/GPU         = {r.memory_per_gpu_gb} GB "
-          f"(KV {r.kv_cache_gb} GB)")
+    print(f"  → memory/GPU         = {r.memory_per_gpu_gb} GB (KV {r.kv_cache_gb} GB)")
     print(f"  → max concurrency    = {r.max_concurrent_sequences} sequences")
 
     summary = {
@@ -242,8 +261,10 @@ def _run_inference(args, agent_cfg, arch, config_root) -> int:
     (agent_cfg.out_dir / "inference_summary.json").write_text(
         json.dumps(summary, indent=2, default=str)
     )
-    print(f"\n[tuning-agent] artifacts in {agent_cfg.out_dir}/ "
-          f"(inference_trials.jsonl, inference_summary.json, trials/*.yaml)")
+    print(
+        f"\n[tuning-agent] artifacts in {agent_cfg.out_dir}/ "
+        f"(inference_trials.jsonl, inference_summary.json, trials/*.yaml)"
+    )
     return 0
 
 
@@ -316,7 +337,9 @@ def main(argv: list[str] | None = None) -> int:
 
     # ── seed evaluation ─────────────────────────────────────────────────
     if args.agent_only:
-        print(f"\n[tuning-agent] --agent-only: skipping seeds ({len(history.trials)} trials loaded)")
+        print(
+            f"\n[tuning-agent] --agent-only: skipping seeds ({len(history.trials)} trials loaded)"
+        )
     seed = build_seed_plan(arch, agent_cfg, max_candidates=args.seed_budget)
     if not args.agent_only:
         print(f"\n[tuning-agent] seed plan: {seed.rationale}")
@@ -424,5 +447,5 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     print(f"\n[tuning-agent] artifacts in {agent_cfg.out_dir}/")
-    print(f"  trials.jsonl  trials.png  scratchpad.txt  summary.json  trials/*.yaml")
+    print("  trials.jsonl  trials.png  scratchpad.txt  summary.json  trials/*.yaml")
     return 0

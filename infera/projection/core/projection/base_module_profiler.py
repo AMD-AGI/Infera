@@ -1,5 +1,4 @@
 from abc import ABC
-from typing import Optional
 
 ###############################################################################
 # Copyright (c) 2025, Advanced Micro Devices, Inc. All rights reserved.
@@ -8,9 +7,14 @@ from typing import Optional
 ###############################################################################
 
 
-class BaseModuleProfiler(ABC):
+class BaseModuleProfiler(ABC):  # noqa: B024 -- see below
     """Abstract base class for transformer-like module profiler.
     Provides both estimated and measured statistics.
+
+    The hooks below are deliberately concrete and raise ``NotImplementedError``
+    rather than being ``@abstractmethod``: a profiler is expected to implement
+    only the axes it can model (params, memory, or performance), and marking
+    them abstract would make every partial profiler uninstantiable.
     """
 
     def __init__(self, config, sub_profilers=None):
@@ -18,7 +22,7 @@ class BaseModuleProfiler(ABC):
         self.sub_profilers = sub_profilers
 
     # -------- Parameter related --------
-    def estimated_num_params(self, rank: Optional[int] = None) -> int:
+    def estimated_num_params(self, rank: int | None = None) -> int:
         """Return estimated parameter count (based on formula).
         If rank is provided, return the parameter count for the given rank,
         otherwise return the total parameter count for the entire model.

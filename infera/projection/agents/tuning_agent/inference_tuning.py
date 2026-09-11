@@ -31,10 +31,10 @@ from typing import Any
 from .config import OptimizationConfig, TargetCluster
 from .workload import ArchitectureRecord
 
-
 # ---------------------------------------------------------------------------
 # Trial config
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class InferenceTrialConfig:
@@ -120,7 +120,7 @@ class InferenceTrialConfig:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: dict) -> "InferenceTrialConfig":
+    def from_dict(cls, d: dict) -> InferenceTrialConfig:
         f = cls()
         for k in f.as_dict():
             if k in d and d[k] is not None:
@@ -135,6 +135,7 @@ class InferenceTrialConfig:
 # ---------------------------------------------------------------------------
 # Legality
 # ---------------------------------------------------------------------------
+
 
 def _tier_tops(batch: int, dp: int, n: int = 6) -> list[int]:
     """Concurrencies at the top of an attention-DP tier, largest first.
@@ -219,9 +220,7 @@ class InferenceAxisLegality:
     kv_cache_dtype: list[str]
     chunked_prefill_size: list[int]
     speculative_num_tokens: list[int]
-    linear_weight_dtype: list[str] = field(
-        default_factory=lambda: ["bf16", "fp8", "mxfp4", "fp4"]
-    )
+    linear_weight_dtype: list[str] = field(default_factory=lambda: ["bf16", "fp8", "mxfp4", "fp4"])
     tp_allreduce_algo: list[str] = field(
         default_factory=lambda: ["auto", "ring", "one_shot", "two_shot", "hierarchical"]
     )
@@ -229,31 +228,17 @@ class InferenceAxisLegality:
         default_factory=lambda: ["auto", "direct", "single_shot", "hierarchical"]
     )
     use_turbo_deepep: list[bool] = field(default_factory=lambda: [False])
-    cudagraph_mode: list[str] = field(
-        default_factory=lambda: ["none", "piecewise", "full"]
-    )
-    kv_cache_memory_fraction: list[float] = field(
-        default_factory=lambda: [0.8, 0.85, 0.9]
-    )
-    transfer_backend: list[str] = field(
-        default_factory=lambda: ["nixl", "mooncake", "mori"]
-    )
+    cudagraph_mode: list[str] = field(default_factory=lambda: ["none", "piecewise", "full"])
+    kv_cache_memory_fraction: list[float] = field(default_factory=lambda: [0.8, 0.85, 0.9])
+    transfer_backend: list[str] = field(default_factory=lambda: ["nixl", "mooncake", "mori"])
     kv_block_size: list[int] = field(default_factory=lambda: [0, 16, 32])
-    max_num_batched_tokens: list[int] = field(
-        default_factory=lambda: [0, 2048, 8192]
-    )
+    max_num_batched_tokens: list[int] = field(default_factory=lambda: [0, 2048, 8192])
     ep_load_balance: list[float] = field(default_factory=lambda: [1.0, 1.2, 1.5])
     redundant_experts: list[int] = field(default_factory=lambda: [0, 8, 16])
-    arrival_model: list[str] = field(
-        default_factory=lambda: ["closed", "poisson", "deterministic"]
-    )
-    attention_backend: list[str] = field(
-        default_factory=lambda: ["aiter", "triton", "ck", "hip"]
-    )
+    arrival_model: list[str] = field(default_factory=lambda: ["closed", "poisson", "deterministic"])
+    attention_backend: list[str] = field(default_factory=lambda: ["aiter", "triton", "ck", "hip"])
     sparse_attention_topk: list[int] = field(default_factory=lambda: [0, 512, 2048])
-    moe_expert_dtype: list[str] = field(
-        default_factory=lambda: ["bf16", "fp8", "mxfp4"]
-    )
+    moe_expert_dtype: list[str] = field(default_factory=lambda: ["bf16", "fp8", "mxfp4"])
     # fused elementwise kernels (always available)
     fused_kernels: list[bool] = field(default_factory=lambda: [False, True])
     # TP-collective optimizations (only meaningful when TP>1)
@@ -262,7 +247,10 @@ class InferenceAxisLegality:
 
     def to_prompt_dict(self) -> dict:
         return {
-            "tp": self.tp, "pp": self.pp, "ep": self.ep, "cp": self.cp,
+            "tp": self.tp,
+            "pp": self.pp,
+            "ep": self.ep,
+            "cp": self.cp,
             "attention_dp": self.attention_dp,
             "batch_size": self.batch_size,
             "weight_dtype": self.weight_dtype,
@@ -296,8 +284,9 @@ def derive_inference_legality(
     world = cluster.num_nodes * cluster.gpus_per_node
     gpn = cluster.gpus_per_node
 
-    tp = sorted(set(_divisors(arch.num_attention_heads, gpn))
-                & set(_divisors(arch.hidden_size, gpn))) or [1]
+    tp = sorted(
+        set(_divisors(arch.num_attention_heads, gpn)) & set(_divisors(arch.hidden_size, gpn))
+    ) or [1]
     pp = _divisors(arch.num_layers, world) if arch.num_layers else [1]
     is_moe = bool(getattr(arch, "is_moe", False))
     if is_moe and arch.num_experts:
@@ -343,7 +332,10 @@ def derive_inference_legality(
     tp_collective = [False, True] if max(tp) > 1 else [False]
 
     return InferenceAxisLegality(
-        tp=tp, pp=pp, ep=ep, cp=cp,
+        tp=tp,
+        pp=pp,
+        ep=ep,
+        cp=cp,
         attention_dp=attention_dp,
         batch_size=batch_size,
         weight_dtype=weight_dtype,
@@ -371,32 +363,30 @@ def validate_inference(
     if cfg.ep not in legality.ep:
         return False, f"EP={cfg.ep} not in legal set {legality.ep}"
     if cfg.attention_dp not in legality.attention_dp:
-        return False, (
-            f"attention_dp={cfg.attention_dp} not in legal set {legality.attention_dp}"
-        )
+        return False, (f"attention_dp={cfg.attention_dp} not in legal set {legality.attention_dp}")
     if cfg.attention_dp > 1 and cfg.tp % cfg.attention_dp != 0:
         # The axis splits the TP group; a degree it does not divide describes no
         # rank layout, and the projector refuses it rather than rounding.
-        return False, (
-            f"attention_dp={cfg.attention_dp} must divide TP={cfg.tp}"
-        )
+        return False, (f"attention_dp={cfg.attention_dp} must divide TP={cfg.tp}")
     if cfg.batch_size <= 0:
         return False, f"batch_size must be positive, got {cfg.batch_size}"
     if cfg.weight_dtype not in legality.weight_dtype:
         return False, f"weight_dtype={cfg.weight_dtype} not in {legality.weight_dtype}"
     if cfg.kv_cache_dtype not in legality.kv_cache_dtype:
         return False, f"kv_cache_dtype={cfg.kv_cache_dtype} not in {legality.kv_cache_dtype}"
-    if (cfg.linear_weight_dtype is not None
-            and cfg.linear_weight_dtype not in legality.linear_weight_dtype):
+    if (
+        cfg.linear_weight_dtype is not None
+        and cfg.linear_weight_dtype not in legality.linear_weight_dtype
+    ):
         return False, (
-            f"linear_weight_dtype={cfg.linear_weight_dtype} not in "
-            f"{legality.linear_weight_dtype}"
+            f"linear_weight_dtype={cfg.linear_weight_dtype} not in {legality.linear_weight_dtype}"
         )
-    if (cfg.linear_weight_dtype is not None
-            and cfg.linear_weight_dtype not in legality.linear_weight_dtype):
+    if (
+        cfg.linear_weight_dtype is not None
+        and cfg.linear_weight_dtype not in legality.linear_weight_dtype
+    ):
         return False, (
-            f"linear_weight_dtype={cfg.linear_weight_dtype} not in "
-            f"{legality.linear_weight_dtype}"
+            f"linear_weight_dtype={cfg.linear_weight_dtype} not in {legality.linear_weight_dtype}"
         )
     if cfg.speculative_num_tokens < 0:
         return False, "speculative_num_tokens must be >= 0"
@@ -405,7 +395,10 @@ def validate_inference(
     if cfg.use_turbo_deepep and not getattr(arch, "is_moe", False):
         return False, "use_turbo_deepep is only meaningful for MoE workloads"
     if cfg.tp_allreduce_algo not in legality.tp_allreduce_algo:
-        return False, f"tp_allreduce_algo={cfg.tp_allreduce_algo} not in {legality.tp_allreduce_algo}"
+        return (
+            False,
+            f"tp_allreduce_algo={cfg.tp_allreduce_algo} not in {legality.tp_allreduce_algo}",
+        )
     if cfg.ep_a2a_algo not in legality.ep_a2a_algo:
         return False, f"ep_a2a_algo={cfg.ep_a2a_algo} not in {legality.ep_a2a_algo}"
     if cfg.cudagraph_mode is not None and cfg.cudagraph_mode not in legality.cudagraph_mode:
@@ -416,7 +409,10 @@ def validate_inference(
         if not cfg.disaggregate:
             return False, "transfer_backend only applies when disaggregate is set"
         if cfg.transfer_backend not in legality.transfer_backend:
-            return False, f"transfer_backend={cfg.transfer_backend} not in {legality.transfer_backend}"
+            return (
+                False,
+                f"transfer_backend={cfg.transfer_backend} not in {legality.transfer_backend}",
+            )
     if not (0.0 < cfg.des_range_ratio <= 1.0):
         return False, (
             f"des_range_ratio={cfg.des_range_ratio} must be in (0, 1] "
@@ -443,15 +439,24 @@ def validate_inference(
     if cfg.request_rate > 0 and cfg.arrival_model == "closed":
         return False, "request_rate>0 requires arrival_model in {poisson, deterministic}"
     # Kernel backend (attention library).
-    if cfg.attention_backend is not None and cfg.attention_backend not in legality.attention_backend:
-        return False, f"attention_backend={cfg.attention_backend} not in {legality.attention_backend}"
+    if (
+        cfg.attention_backend is not None
+        and cfg.attention_backend not in legality.attention_backend
+    ):
+        return (
+            False,
+            f"attention_backend={cfg.attention_backend} not in {legality.attention_backend}",
+        )
     # Native sparse attention.
     if cfg.sparse_attention_topk < 0:
         return False, f"sparse_attention_topk must be >= 0, got {cfg.sparse_attention_topk}"
     # MoE expert compute precision (MoE-only).
     if cfg.moe_expert_dtype is not None:
         if cfg.moe_expert_dtype not in legality.moe_expert_dtype:
-            return False, f"moe_expert_dtype={cfg.moe_expert_dtype} not in {legality.moe_expert_dtype}"
+            return (
+                False,
+                f"moe_expert_dtype={cfg.moe_expert_dtype} not in {legality.moe_expert_dtype}",
+            )
         if not is_moe:
             return False, "moe_expert_dtype is only meaningful for MoE workloads"
     # Speculative draft cost requires speculative decoding to be on.
@@ -502,9 +507,7 @@ def validate_inference(
             f"({cluster.num_nodes}×{cluster.gpus_per_node})"
         )
     if getattr(arch, "is_moe", False) and cfg.ep > 1 and replica_gpus % cfg.ep:
-        return False, (
-            f"EP={cfg.ep} must divide the replica's {replica_gpus} ranks (TP×PP)"
-        )
+        return False, (f"EP={cfg.ep} must divide the replica's {replica_gpus} ranks (TP×PP)")
 
     # Feature A: disaggregation — prefill/decode pools each need to fit.
     if cfg.disaggregate:
@@ -530,6 +533,7 @@ def validate_inference(
 # Seed plan
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class InferenceSeedPlan:
     candidates: list[InferenceTrialConfig]
@@ -549,7 +553,7 @@ def _profile_from_opt(opt: OptimizationConfig) -> dict:
 
 def default_inference_trial(
     arch: ArchitectureRecord, cluster: TargetCluster, opt: OptimizationConfig
-) -> "InferenceTrialConfig":
+) -> InferenceTrialConfig:
     """Profile-anchored baseline trial — the same defaults the seed sweep starts
     from (largest intra-budget TP, batch 1, bf16, request profile from opt).
 
@@ -579,7 +583,7 @@ def inference_trial_from_dict(
     arch: ArchitectureRecord,
     cluster: TargetCluster,
     opt: OptimizationConfig,
-) -> "InferenceTrialConfig":
+) -> InferenceTrialConfig:
     """Overlay a (possibly partial) proposal dict onto the profile baseline."""
     base = default_inference_trial(arch, cluster, opt)
     for k in base.as_dict():
@@ -633,15 +637,22 @@ def build_inference_seed_plan(
 
     def mk(**kw) -> InferenceTrialConfig:
         base = dict(
-            tp=base_tp, pp=1, ep=1, cp=1,
-            batch_size=1, input_len=in_len, output_len=out_len,
+            tp=base_tp,
+            pp=1,
+            ep=1,
+            cp=1,
+            batch_size=1,
+            input_len=in_len,
+            output_len=out_len,
             max_concurrency=profile["max_concurrency"],
             prefix_cache_hit_rate=profile["prefix_cache_hit_rate"],
-            weight_dtype="bf16", kv_cache_dtype="bf16",
+            weight_dtype="bf16",
+            kv_cache_dtype="bf16",
             chunked_prefill_size=0,
             max_num_batched_tokens=base_token_budget,
             sparse_attention_topk=base_sparse_topk,
-            speculative_num_tokens=0, speculative_acceptance_rate=0.0,
+            speculative_num_tokens=0,
+            speculative_acceptance_rate=0.0,
         )
         base.update(kw)
         return InferenceTrialConfig(**base)
@@ -676,20 +687,36 @@ def build_inference_seed_plan(
     #     the only precision they fit in, so it is seeded with the batch and the
     #     attention-DP degree that a fitting configuration would want.
     if "fp4" in leg.weight_dtype:
-        add(mk(batch_size=16, weight_dtype="fp4",
-               linear_weight_dtype="mxfp4", kv_cache_dtype="fp8"))
+        add(
+            mk(batch_size=16, weight_dtype="fp4", linear_weight_dtype="mxfp4", kv_cache_dtype="fp8")
+        )
         for dp in [d for d in leg.attention_dp if d > 1 and base_tp % d == 0]:
-            add(mk(batch_size=32, weight_dtype="fp4", linear_weight_dtype="mxfp4",
-                   kv_cache_dtype="fp8", attention_dp=dp))
+            add(
+                mk(
+                    batch_size=32,
+                    weight_dtype="fp4",
+                    linear_weight_dtype="mxfp4",
+                    kv_cache_dtype="fp8",
+                    attention_dp=dp,
+                )
+            )
     # 2c) 4-bit weights. Not one point on a precision sweep for these models but
     #     the only precision they fit in, so it is seeded with the batch and the
     #     attention-DP degree that a fitting configuration would want.
     if "fp4" in leg.weight_dtype:
-        add(mk(batch_size=16, weight_dtype="fp4",
-               linear_weight_dtype="mxfp4", kv_cache_dtype="fp8"))
+        add(
+            mk(batch_size=16, weight_dtype="fp4", linear_weight_dtype="mxfp4", kv_cache_dtype="fp8")
+        )
         for dp in [d for d in leg.attention_dp if d > 1 and base_tp % d == 0]:
-            add(mk(batch_size=32, weight_dtype="fp4", linear_weight_dtype="mxfp4",
-                   kv_cache_dtype="fp8", attention_dp=dp))
+            add(
+                mk(
+                    batch_size=32,
+                    weight_dtype="fp4",
+                    linear_weight_dtype="mxfp4",
+                    kv_cache_dtype="fp8",
+                    attention_dp=dp,
+                )
+            )
     # 2d) The high-throughput region. The deterministic plan used to stop at
     #     batch 64 with an unchunked prompt, which at agentic context is not a
     #     configuration that runs: batch 64 unchunked costs a ~50 s first token,
@@ -713,32 +740,61 @@ def build_inference_seed_plan(
         for dp in [d for d in leg.attention_dp if d > 1 and base_tp % d == 0]:
             for bs in [b for b in leg.batch_size if b in (64, 128, 256)]:
                 for mc in _tier_tops(bs, dp, n=9):
-                    add(mk(batch_size=bs, attention_dp=dp, max_concurrency=mc,
-                           weight_dtype="fp4", linear_weight_dtype="mxfp4",
-                           kv_cache_dtype="fp8", chunked_prefill_size=2048,
-                           max_num_batched_tokens=2048))
-                    add(mk(batch_size=bs, attention_dp=dp, max_concurrency=mc,
-                           weight_dtype="fp4", linear_weight_dtype="mxfp4",
-                           kv_cache_dtype="fp8"))
+                    add(
+                        mk(
+                            batch_size=bs,
+                            attention_dp=dp,
+                            max_concurrency=mc,
+                            weight_dtype="fp4",
+                            linear_weight_dtype="mxfp4",
+                            kv_cache_dtype="fp8",
+                            chunked_prefill_size=2048,
+                            max_num_batched_tokens=2048,
+                        )
+                    )
+                    add(
+                        mk(
+                            batch_size=bs,
+                            attention_dp=dp,
+                            max_concurrency=mc,
+                            weight_dtype="fp4",
+                            linear_weight_dtype="mxfp4",
+                            kv_cache_dtype="fp8",
+                        )
+                    )
                     if covering_budget != base_token_budget:
-                        add(mk(batch_size=bs, attention_dp=dp,
-                               max_concurrency=mc, weight_dtype="fp4",
-                               linear_weight_dtype="mxfp4",
-                               kv_cache_dtype="fp8",
-                               max_num_batched_tokens=covering_budget))
+                        add(
+                            mk(
+                                batch_size=bs,
+                                attention_dp=dp,
+                                max_concurrency=mc,
+                                weight_dtype="fp4",
+                                linear_weight_dtype="mxfp4",
+                                kv_cache_dtype="fp8",
+                                max_num_batched_tokens=covering_budget,
+                            )
+                        )
         # Elementwise fusion and the TP-collective optimizations are cheap and
         # compound with the above; kept as a separate point so their effect is
         # attributable rather than baked into every large-batch trial.
         best_dp = max([d for d in leg.attention_dp if base_tp % d == 0] or [1])
         for bs in [b for b in leg.batch_size if b in (64, 128)]:
-            add(mk(batch_size=bs, attention_dp=best_dp,
-                   max_concurrency=(_tier_tops(bs, best_dp) or [None])[0],
-                   weight_dtype="fp4", linear_weight_dtype="mxfp4",
-                   kv_cache_dtype="fp8", chunked_prefill_size=2048,
-                   max_num_batched_tokens=2048, fused_kernels=True,
-                   quick_reduce=(base_tp > 1),
-                   fuse_rmsnorm_allreduce=(base_tp > 1),
-                   attention_backend="aiter"))
+            add(
+                mk(
+                    batch_size=bs,
+                    attention_dp=best_dp,
+                    max_concurrency=(_tier_tops(bs, best_dp) or [None])[0],
+                    weight_dtype="fp4",
+                    linear_weight_dtype="mxfp4",
+                    kv_cache_dtype="fp8",
+                    chunked_prefill_size=2048,
+                    max_num_batched_tokens=2048,
+                    fused_kernels=True,
+                    quick_reduce=(base_tp > 1),
+                    fuse_rmsnorm_allreduce=(base_tp > 1),
+                    attention_backend="aiter",
+                )
+            )
         # Expert parallelism, seeded where the winners actually live. It used to
         # appear only at batch 16 in bf16, which always died on memory, so the
         # sweep never answered whether disjoint experts beat a TP all-reduce at
@@ -747,9 +803,17 @@ def build_inference_seed_plan(
         if ep_hi > 1:
             for bs in [b for b in leg.batch_size if b in (64, 128, 256)]:
                 for mc in _tier_tops(bs, best_dp, n=3):
-                    add(mk(batch_size=bs, attention_dp=best_dp, ep=ep_hi,
-                           max_concurrency=mc, weight_dtype="fp4",
-                           linear_weight_dtype="mxfp4", kv_cache_dtype="fp8"))
+                    add(
+                        mk(
+                            batch_size=bs,
+                            attention_dp=best_dp,
+                            ep=ep_hi,
+                            max_concurrency=mc,
+                            weight_dtype="fp4",
+                            linear_weight_dtype="mxfp4",
+                            kv_cache_dtype="fp8",
+                        )
+                    )
     # 3) batching / concurrency (throughput)
     for bs in [b for b in leg.batch_size if b in (4, 16, 64)]:
         add(mk(batch_size=bs))
@@ -764,8 +828,13 @@ def build_inference_seed_plan(
     if in_len >= 2048:
         add(mk(batch_size=16, chunked_prefill_size=1024))
     # 8) speculative decoding (latency)
-    add(mk(speculative_num_tokens=4, speculative_acceptance_rate=0.7,
-           speculative_draft_cost_factor=0.2))
+    add(
+        mk(
+            speculative_num_tokens=4,
+            speculative_acceptance_rate=0.7,
+            speculative_draft_cost_factor=0.2,
+        )
+    )
     # 8b) CUDA-graph capture (per-step launch overhead / mixed-step penalty).
     add(mk(batch_size=16, cudagraph_mode="full"))
     add(mk(batch_size=16, cudagraph_mode="piecewise"))
@@ -790,8 +859,7 @@ def build_inference_seed_plan(
     if is_moe:
         for ep in [e for e in leg.ep if e in (1, 2, 4, 8) and base_tp % e == 0]:
             if base_tp > 1 and base_tp in leg.attention_dp:
-                add(mk(ep=ep, batch_size=16,
-                       attention_dp=base_tp, kv_cache_dtype="fp8"))
+                add(mk(ep=ep, batch_size=16, attention_dp=base_tp, kv_cache_dtype="fp8"))
 
     # 9b) MoE DeepEP — overlap the EP All-to-All behind expert compute. Only
     #     meaningful with EP>1, so pair it with the largest feasible EP.
@@ -906,12 +974,23 @@ def build_inference_seed_plan(
 
 # Lower-is-better metrics.
 _MINIMIZE = {
-    "ttft_ms", "itl_ms", "request_latency_ms", "tpot_ms", "latency_ms",
+    "ttft_ms",
+    "itl_ms",
+    "request_latency_ms",
+    "tpot_ms",
+    "latency_ms",
     # Capacity and step-quality objectives: less is better.
-    "memory_per_gpu_gb", "kv_cache_gb", "decode_step_ms_pure",
-    "mixed_step_fraction_pct", "tpot_pollution_pct",
-    "decode_step_ms_mixed", "weights_gb", "activation_gb",
-    "prefill_comm_ms", "decode_comm_ms", "replica_gpus",
+    "memory_per_gpu_gb",
+    "kv_cache_gb",
+    "decode_step_ms_pure",
+    "mixed_step_fraction_pct",
+    "tpot_pollution_pct",
+    "decode_step_ms_mixed",
+    "weights_gb",
+    "activation_gb",
+    "prefill_comm_ms",
+    "decode_comm_ms",
+    "replica_gpus",
 }
 
 # Friendly aliases the user may put in the YAML `objective:` field.
@@ -976,30 +1055,30 @@ _OBJECTIVE_ALIASES = {
 # joules_per_{output,total}_token, and the projector models no power at all, so
 # there is nothing to optimize against and pretending otherwise would invent it.
 INFERENCEX_OBJECTIVES = {
-    "total_throughput_tps_per_gpu":  "tput_per_gpu (headline ranking)",
-    "total_throughput_tps":          "tput_per_gpu x GPUs (fleet total)",
+    "total_throughput_tps_per_gpu": "tput_per_gpu (headline ranking)",
+    "total_throughput_tps": "tput_per_gpu x GPUs (fleet total)",
     "decode_throughput_tps_per_gpu": "output_tput_per_gpu",
-    "decode_throughput_tps":         "output tokens/s (fleet)",
-    "prefill_throughput_tps_per_gpu":"input_tput_per_gpu",
-    "prefill_throughput_tps":        "input tokens/s (fleet)",
-    "interactivity_tok_s_per_user":  "mean_intvty",
-    "per_request_decode_tps":        "per-user generation rate",
-    "ttft_ms":                       "mean_ttft",
-    "itl_ms":                        "mean_tpot / mean_itl",
-    "request_latency_ms":            "mean_e2el",
-    "decode_step_ms_pure":           "uncontended step time",
-    "max_concurrent_sequences":      "kv_cache_pool_tokens (as sequences)",
-    "max_sustainable_concurrency":   "concurrency the pool sustains",
-    "memory_per_gpu_gb":             "HBM footprint",
-    "kv_cache_gb":                   "KV footprint",
-    "mixed_step_fraction_pct":       "prefill interference in decode",
-    "tpot_pollution_pct":            "TPOT inflation from interference",
-    "decode_step_ms_mixed":          "step time when a prefill chunk lands",
-    "weights_gb":                    "resident weight footprint",
-    "activation_gb":                 "activation working set",
-    "prefill_comm_ms":               "collective time in prefill",
-    "decode_comm_ms":                "collective time in decode",
-    "replica_gpus":                  "GPUs a replica costs",
+    "decode_throughput_tps": "output tokens/s (fleet)",
+    "prefill_throughput_tps_per_gpu": "input_tput_per_gpu",
+    "prefill_throughput_tps": "input tokens/s (fleet)",
+    "interactivity_tok_s_per_user": "mean_intvty",
+    "per_request_decode_tps": "per-user generation rate",
+    "ttft_ms": "mean_ttft",
+    "itl_ms": "mean_tpot / mean_itl",
+    "request_latency_ms": "mean_e2el",
+    "decode_step_ms_pure": "uncontended step time",
+    "max_concurrent_sequences": "kv_cache_pool_tokens (as sequences)",
+    "max_sustainable_concurrency": "concurrency the pool sustains",
+    "memory_per_gpu_gb": "HBM footprint",
+    "kv_cache_gb": "KV footprint",
+    "mixed_step_fraction_pct": "prefill interference in decode",
+    "tpot_pollution_pct": "TPOT inflation from interference",
+    "decode_step_ms_mixed": "step time when a prefill chunk lands",
+    "weights_gb": "resident weight footprint",
+    "activation_gb": "activation working set",
+    "prefill_comm_ms": "collective time in prefill",
+    "decode_comm_ms": "collective time in decode",
+    "replica_gpus": "GPUs a replica costs",
 }
 
 # Deliberately absent, because the serving projection reports none of them and
@@ -1008,8 +1087,12 @@ INFERENCEX_OBJECTIVES = {
 # at all, and MFU / TFLOP-per-second / iteration time are training-mode figures
 # the serving path never emits.
 UNSUPPORTED_OBJECTIVES = {
-    "avg_power_w", "joules_per_output_token", "joules_per_total_token",
-    "mfu", "tflops_per_s_per_gpu", "iteration_ms",
+    "avg_power_w",
+    "joules_per_output_token",
+    "joules_per_total_token",
+    "mfu",
+    "tflops_per_s_per_gpu",
+    "iteration_ms",
 }
 
 DEFAULT_INFERENCE_OBJECTIVE = "decode_throughput_tps_per_gpu"
@@ -1062,7 +1145,9 @@ _RE_PER_REQ_TPS = re.compile(rf"Per-request decode throughput:\s*{_FLOAT}", re.I
 _RE_STEP_PURE = re.compile(rf"Decode step latency \(pure\):\s*{_FLOAT}\s*ms", re.IGNORECASE)
 _RE_MIXED_FRAC = re.compile(rf"Mixed-step fraction:\s*{_FLOAT}\s*%", re.IGNORECASE)
 _RE_POLLUTION = re.compile(rf"TPOT pollution:\s*{_FLOAT}\s*%", re.IGNORECASE)
-_RE_STEP_MIXED = re.compile(rf"Decode step latency \(pure\):[^|]*\|\s*mixed:\s*{_FLOAT}\s*ms", re.IGNORECASE)
+_RE_STEP_MIXED = re.compile(
+    rf"Decode step latency \(pure\):[^|]*\|\s*mixed:\s*{_FLOAT}\s*ms", re.IGNORECASE
+)
 _RE_WEIGHTS = re.compile(rf"Weights \([^)]*\):\s*{_FLOAT}\s*GB", re.IGNORECASE)
 _RE_ACTIVATION = re.compile(rf"Activation working set:\s*{_FLOAT}\s*GB", re.IGNORECASE)
 _RE_PREFILL_COMM = re.compile(rf"prefill:\s*TP-AR.*?total\s+{_FLOAT}", re.IGNORECASE)
@@ -1075,51 +1160,51 @@ def _f(m) -> float | None:
 
 def parse_inference_metrics(stdout: str) -> dict[str, Any]:
     out: dict[str, Any] = {}
-    if (m := _RE_TTFT.search(stdout)):
+    if m := _RE_TTFT.search(stdout):
         out["ttft_ms"] = _f(m)
-    if (m := _RE_ITL.search(stdout)):
+    if m := _RE_ITL.search(stdout):
         out["itl_ms"] = _f(m)
-    if (m := _RE_REQ_LAT.search(stdout)):
+    if m := _RE_REQ_LAT.search(stdout):
         out["request_latency_ms"] = _f(m)
-    if (m := _RE_DEC_TPS.search(stdout)):
+    if m := _RE_DEC_TPS.search(stdout):
         out["decode_throughput_tps"] = _f(m)
-    if (m := _RE_DEC_TPS_GPU.search(stdout)):
+    if m := _RE_DEC_TPS_GPU.search(stdout):
         out["decode_throughput_tps_per_gpu"] = _f(m)
-    if (m := _RE_PREFILL_TPS.search(stdout)):
+    if m := _RE_PREFILL_TPS.search(stdout):
         out["prefill_throughput_tps"] = _f(m)
-    if (m := _RE_TOTAL_MEM.search(stdout)):
+    if m := _RE_TOTAL_MEM.search(stdout):
         out["memory_per_gpu_gb"] = _f(m)
-    if (m := _RE_KV.search(stdout)):
+    if m := _RE_KV.search(stdout):
         out["kv_cache_gb"] = _f(m)
-    if (m := _RE_MAXCONC.search(stdout)):
+    if m := _RE_MAXCONC.search(stdout):
         out["max_concurrent_sequences"] = int(m.group(1))
-    if (m := _RE_SUSTAINABLE.search(stdout)):
+    if m := _RE_SUSTAINABLE.search(stdout):
         out["max_sustainable_concurrency"] = int(m.group(1))
-    if (m := _RE_CONC_USED.search(stdout)):
+    if m := _RE_CONC_USED.search(stdout):
         out["concurrency_used"] = int(m.group(1))
-    if (m := _RE_TOTAL_TPS_GPU.search(stdout)):
+    if m := _RE_TOTAL_TPS_GPU.search(stdout):
         out["total_throughput_tps_per_gpu"] = _f(m)
-    if (m := _RE_REPLICA_GPUS.search(stdout)):
+    if m := _RE_REPLICA_GPUS.search(stdout):
         out["replica_gpus"] = int(m.group(1))
-    if (m := _RE_INTERACTIVITY.search(stdout)):
+    if m := _RE_INTERACTIVITY.search(stdout):
         out["interactivity_tok_s_per_user"] = _f(m)
-    if (m := _RE_PER_REQ_TPS.search(stdout)):
+    if m := _RE_PER_REQ_TPS.search(stdout):
         out["per_request_decode_tps"] = _f(m)
-    if (m := _RE_STEP_PURE.search(stdout)):
+    if m := _RE_STEP_PURE.search(stdout):
         out["decode_step_ms_pure"] = _f(m)
-    if (m := _RE_MIXED_FRAC.search(stdout)):
+    if m := _RE_MIXED_FRAC.search(stdout):
         out["mixed_step_fraction_pct"] = _f(m)
-    if (m := _RE_POLLUTION.search(stdout)):
+    if m := _RE_POLLUTION.search(stdout):
         out["tpot_pollution_pct"] = _f(m)
-    if (m := _RE_STEP_MIXED.search(stdout)):
+    if m := _RE_STEP_MIXED.search(stdout):
         out["decode_step_ms_mixed"] = _f(m)
-    if (m := _RE_WEIGHTS.search(stdout)):
+    if m := _RE_WEIGHTS.search(stdout):
         out["weights_gb"] = _f(m)
-    if (m := _RE_ACTIVATION.search(stdout)):
+    if m := _RE_ACTIVATION.search(stdout):
         out["activation_gb"] = _f(m)
-    if (m := _RE_PREFILL_COMM.search(stdout)):
+    if m := _RE_PREFILL_COMM.search(stdout):
         out["prefill_comm_ms"] = _f(m)
-    if (m := _RE_DECODE_COMM.search(stdout)):
+    if m := _RE_DECODE_COMM.search(stdout):
         out["decode_comm_ms"] = _f(m)
     # Per-GPU and fleet forms the projector prints only one side of. Ranking on
     # a fleet total rewards spending more GPUs, so both are kept and named.

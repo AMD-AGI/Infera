@@ -22,7 +22,8 @@ from infera.projection.core.projection.inference_projection import benchmark, be
 def _inference_config(concurrency=32, input_len=1024, output_len=128, tp=8, ep=1):
     return SimpleNamespace(
         model_parallel_config=SimpleNamespace(
-            tensor_model_parallel_size=tp, pipeline_model_parallel_size=1,
+            tensor_model_parallel_size=tp,
+            pipeline_model_parallel_size=1,
             expert_model_parallel_size=ep,
         ),
         request_config=SimpleNamespace(
@@ -58,6 +59,7 @@ def _argv_value(argv, flag):
 
 
 # --- the anchor has to cover the axes it will be asked about -----------------
+
 
 def test_benchmark_mode_asks_for_a_swept_anchor_not_a_single_batch(monkeypatch, tmp_path):
     """A one-batch anchor is not a curve, and the projector cannot make it one.

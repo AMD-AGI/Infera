@@ -4,12 +4,10 @@
 # See LICENSE for license information.
 ###############################################################################
 
-from typing import Optional, Tuple
 
 from infera.projection.core.projection.base_module_profiler import BaseModuleProfiler
 from infera.projection.core.projection.profiler_spec import ModuleProfilerSpec
 from infera.projection.core.projection.training_config import TrainingConfig
-
 
 
 class DenseMLPProfiler(BaseModuleProfiler):
@@ -34,7 +32,7 @@ class DenseMLPProfiler(BaseModuleProfiler):
         self._cached_results = None
         self._cache_key = None
 
-    def estimated_num_params(self, rank: Optional[int] = None) -> int:
+    def estimated_num_params(self, rank: int | None = None) -> int:
         # For SwiGLU: 3 projections (gate, up, down)
         # For standard FFN: 2 projections (up, down)
         num_ffn_projections = 3 if self.config.model_config.swiglu else 2
@@ -54,7 +52,9 @@ class DenseMLPProfiler(BaseModuleProfiler):
         # Memory after first projection(s)
         if self.config.model_config.swiglu:
             # Need to store both gate and up projections for backward
-            intermediate_memory = 2 * num_tokens * self.config.model_config.ffn_hidden_size * 2  # bf16
+            intermediate_memory = (
+                2 * num_tokens * self.config.model_config.ffn_hidden_size * 2
+            )  # bf16
         else:
             intermediate_memory = num_tokens * self.config.model_config.ffn_hidden_size * 2  # bf16
 
@@ -65,7 +65,7 @@ class DenseMLPProfiler(BaseModuleProfiler):
         # Peak memory is input + intermediate (both needed for backward)
         return intermediate_memory + activation_memory + output_memory
 
-    def _get_simulated_results(self, batch_size: int, seq_len: int) -> Tuple[float, int]:
+    def _get_simulated_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
         """Get simulated results from the GEMM simulation backend."""
         tp_size = self.config.model_parallel_config.tensor_model_parallel_size
         cp_size = self.config.model_parallel_config.context_model_parallel_size
@@ -73,9 +73,8 @@ class DenseMLPProfiler(BaseModuleProfiler):
 
         # The checkpoint's weight precision where it is known, else FP8-hybrid:
         # MLP projections (gate, up, down) run in FP8.
-        gemm_dtype = (
-            getattr(self.config.model_config, "linear_weight_dtype", None)
-            or ("fp8" if getattr(self.config.model_config, "fp8", None) else "bf16")
+        gemm_dtype = getattr(self.config.model_config, "linear_weight_dtype", None) or (
+            "fp8" if getattr(self.config.model_config, "fp8", None) else "bf16"
         )
         sim_result = self._gemm_backend.simulate_mlp_gemms(
             batch_tokens=batch_tokens,
@@ -90,19 +89,19 @@ class DenseMLPProfiler(BaseModuleProfiler):
             activation_memory,
         )
 
-    def _get_benchmark_results(self, batch_size: int, seq_len: int) -> Tuple[float, int]:
+    def _get_benchmark_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
         """Get or compute benchmark results (cached)."""
         cache_key = (batch_size, seq_len)
         if self._cached_results is None or self._cache_key != cache_key:
             if self._gemm_backend is not None:
                 self._cached_results = self._get_simulated_results(batch_size, seq_len)
             else:
-
                 # Imported here, not at module scope: this pulls in torch, which costs
                 # ~0.66 s and is only needed to benchmark on a real GPU. A simulate-only
                 # projection should not pay for it -- Hyperloom spawns one process per
                 # config, where that import dwarfed the ~28 ms the projection takes.
                 from .utils import benchmark_layer
+
                 self._cached_results = benchmark_layer(
                     self.module,
                     [(seq_len, batch_size, self.config.model_config.hidden_size)],

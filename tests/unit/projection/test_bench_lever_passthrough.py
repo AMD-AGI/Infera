@@ -28,10 +28,20 @@ from infera.projection.core.projection.inference_projection.search.regime import
 
 def bench_args(**over):
     defaults = dict(
-        model="openai/gpt-oss-120b", tp=8, pp=1, enable_expert_parallel=False,
-        quantization=None, kv_cache_dtype=None, enforce_eager=False,
-        num_hidden_layers=None, batch=32, input_len=1024, output_len=1024,
-        speculative_method=None, speculative_num_tokens=None, no_aiter=False,
+        model="openai/gpt-oss-120b",
+        tp=8,
+        pp=1,
+        enable_expert_parallel=False,
+        quantization=None,
+        kv_cache_dtype=None,
+        enforce_eager=False,
+        num_hidden_layers=None,
+        batch=32,
+        input_len=1024,
+        output_len=1024,
+        speculative_method=None,
+        speculative_num_tokens=None,
+        no_aiter=False,
         attention_backend=None,
     )
     defaults.update(over)
@@ -39,6 +49,7 @@ def bench_args(**over):
 
 
 # --- the levers reach the engine -------------------------------------------
+
 
 def test_empty_server_args_change_nothing():
     assert benchmark_vllm._engine_kwargs_from_server_args("") == {}
@@ -86,12 +97,15 @@ def test_aiter_defaults_on_when_unset(monkeypatch):
 
 # --- two runs under different levers stay distinguishable -------------------
 
+
 def test_attention_backend_is_part_of_the_regime():
     """An anchor measured on one attention backend cannot serve another."""
     triton = recipe_from_bench_args(
-        bench_args(attention_backend="TRITON_ATTN"), {"VLLM_ROCM_USE_AITER": "1"})
+        bench_args(attention_backend="TRITON_ATTN"), {"VLLM_ROCM_USE_AITER": "1"}
+    )
     default = recipe_from_bench_args(
-        bench_args(attention_backend="ROCM_AITER_FA"), {"VLLM_ROCM_USE_AITER": "1"})
+        bench_args(attention_backend="ROCM_AITER_FA"), {"VLLM_ROCM_USE_AITER": "1"}
+    )
     assert triton["attention_backend"] == "TRITON_ATTN"
     assert regime_distance(triton, default) == 1
     assert regime_signature(triton) != regime_signature(default)
@@ -124,27 +138,59 @@ def test_cache_key_separates_runs_made_under_different_levers(monkeypatch):
     """Two variants must not collide in the result cache and replay each other."""
     monkeypatch.setenv("VLLM_ROCM_USE_AITER", "1")
     monkeypatch.delenv("VLLM_ATTENTION_BACKEND", raising=False)
-    common = dict(decode_steps=1024, batches="32", bench_layers=None, full_layers=None,
-                  benchmark_gpus=1, random_tokens=False, vocab=30000, gpu_mem_util=0.9,
-                  routing_dist="none", zipf_s=1.0, moe_imbalance=None, load_format="auto",
-                  skip_tokenizer_init=False, max_model_len=None, seed=0, seeds="0,1,2",
-                  concurrency=None, decode_context_grid=None)
+    common = dict(
+        decode_steps=1024,
+        batches="32",
+        bench_layers=None,
+        full_layers=None,
+        benchmark_gpus=1,
+        random_tokens=False,
+        vocab=30000,
+        gpu_mem_util=0.9,
+        routing_dist="none",
+        zipf_s=1.0,
+        moe_imbalance=None,
+        load_format="auto",
+        skip_tokenizer_init=False,
+        max_model_len=None,
+        seed=0,
+        seeds="0,1,2",
+        concurrency=None,
+        decode_context_grid=None,
+    )
     a = benchmark_vllm._cache_key(bench_args(server_args="--max-num-seqs 512", env=[], **common))
     b = benchmark_vllm._cache_key(bench_args(server_args="--max-num-seqs 256", env=[], **common))
     c = benchmark_vllm._cache_key(
-        bench_args(server_args="--max-num-seqs 512",
-                   env=["VLLM_ROCM_USE_AITER_MOE=0"], **common))
+        bench_args(server_args="--max-num-seqs 512", env=["VLLM_ROCM_USE_AITER_MOE=0"], **common)
+    )
     assert len({a, b, c}) == 3
 
 
 @pytest.mark.parametrize("server_args", ["", "--max-num-seqs 512"])
 def test_cache_key_is_stable_for_one_config(monkeypatch, server_args):
     monkeypatch.setenv("VLLM_ROCM_USE_AITER", "1")
-    common = dict(decode_steps=1024, batches="32", bench_layers=None, full_layers=None,
-                  benchmark_gpus=1, random_tokens=False, vocab=30000, gpu_mem_util=0.9,
-                  routing_dist="none", zipf_s=1.0, moe_imbalance=None, load_format="auto",
-                  skip_tokenizer_init=False, max_model_len=None, seed=0, seeds="0,1,2",
-                  concurrency=None, decode_context_grid=None, server_args=server_args,
-                  env=["A=1", "B=2"])
-    assert benchmark_vllm._cache_key(bench_args(**common)) == \
-        benchmark_vllm._cache_key(bench_args(**common))
+    common = dict(
+        decode_steps=1024,
+        batches="32",
+        bench_layers=None,
+        full_layers=None,
+        benchmark_gpus=1,
+        random_tokens=False,
+        vocab=30000,
+        gpu_mem_util=0.9,
+        routing_dist="none",
+        zipf_s=1.0,
+        moe_imbalance=None,
+        load_format="auto",
+        skip_tokenizer_init=False,
+        max_model_len=None,
+        seed=0,
+        seeds="0,1,2",
+        concurrency=None,
+        decode_context_grid=None,
+        server_args=server_args,
+        env=["A=1", "B=2"],
+    )
+    assert benchmark_vllm._cache_key(bench_args(**common)) == benchmark_vllm._cache_key(
+        bench_args(**common)
+    )

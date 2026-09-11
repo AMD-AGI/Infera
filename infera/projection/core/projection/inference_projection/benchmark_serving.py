@@ -63,6 +63,7 @@ import time
 _ATTENTION_RE = re.compile(r"Overriding with ([A-Z0-9_]+)|Using ([A-Z0-9_]+) backend")
 _MOE_RE = re.compile(r"Using '([A-Za-z0-9_]+)' Mxfp4 MoE backend")
 
+
 def resolved_kernels(log_text: str) -> dict:
     """The attention and MoE backends vLLM actually chose, from its own log.
 
@@ -118,8 +119,16 @@ def _engine_argv(args, port: int, tp: int) -> list[str]:
     shared. Caller flags come last so they win over anything derived here.
     """
     if args.serving_backend == "sglang":
-        argv = ["--model-path", args.model, "--host", "127.0.0.1",
-                "--port", str(port), "--tp", str(tp)]
+        argv = [
+            "--model-path",
+            args.model,
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--tp",
+            str(tp),
+        ]
         if args.max_model_len:
             argv += ["--context-length", str(args.max_model_len)]
         if args.enable_expert_parallel:
@@ -131,9 +140,18 @@ def _engine_argv(args, port: int, tp: int) -> list[str]:
         # the torch-distributed MASTER_PORT, so the HTTP listener the client
         # and the health probe use is --server-port. Sharing one number here
         # would collide the rendezvous with the API.
-        argv = ["--model", args.model, "--host", "127.0.0.1",
-                "--server-port", str(port), "--port", str(_free_port()),
-                "--tensor-parallel-size", str(tp)]
+        argv = [
+            "--model",
+            args.model,
+            "--host",
+            "127.0.0.1",
+            "--server-port",
+            str(port),
+            "--port",
+            str(_free_port()),
+            "--tensor-parallel-size",
+            str(tp),
+        ]
         if args.max_model_len:
             argv += ["--max-model-len", str(args.max_model_len)]
         if args.enable_expert_parallel:
@@ -141,8 +159,15 @@ def _engine_argv(args, port: int, tp: int) -> list[str]:
         if args.enforce_eager:
             argv += ["--enforce-eager"]
     else:
-        argv = [args.model, "--host", "127.0.0.1", "--port", str(port),
-                "--tensor-parallel-size", str(tp)]
+        argv = [
+            args.model,
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--tensor-parallel-size",
+            str(tp),
+        ]
         if args.max_model_len:
             argv += ["--max-model-len", str(args.max_model_len)]
         if args.enable_expert_parallel:
@@ -177,16 +202,23 @@ def _build_engine(args, argv: list[str], port: int, tp: int):
     if args.serving_backend == "atom":
         from infera.engine.atom.worker import AtomEngine
 
-        return AtomEngine(atom_argv=argv, model_name=args.model,
-                          host="127.0.0.1", port=port)
+        return AtomEngine(atom_argv=argv, model_name=args.model, host="127.0.0.1", port=port)
     from infera.engine.vllm.worker import VllmEngine
 
-    return VllmEngine(vllm_argv=argv, model_name=args.model,
-                      host="127.0.0.1", port=port)
+    return VllmEngine(vllm_argv=argv, model_name=args.model, host="127.0.0.1", port=port)
 
 
-def _run_client(port: int, args, out_dir: str, tag: str, *, batch: int,
-                input_len: int, output_len: int, num_prompts: int) -> dict:
+def _run_client(
+    port: int,
+    args,
+    out_dir: str,
+    tag: str,
+    *,
+    batch: int,
+    input_len: int,
+    output_len: int,
+    num_prompts: int,
+) -> dict:
     """One closed-loop client run against the live server; its whole result."""
     result = os.path.join(out_dir, f"bench_{tag}.json")
     kind = client_kind(args)
@@ -195,30 +227,67 @@ def _run_client(port: int, args, out_dir: str, tag: str, *, batch: int,
         # plain OpenAI completions route rather than vLLM's own.
         client = "vllm" if args.serving_backend == "vllm" else "openai"
         cmd = [
-            "vllm", "bench", "serve", "--backend", client, "--model", args.model,
-            "--host", "127.0.0.1", "--port", str(port), "--endpoint", "/v1/completions",
-            "--dataset-name", "random",
-            "--random-input-len", str(input_len),
-            "--random-output-len", str(output_len),
-            "--num-prompts", str(num_prompts), "--max-concurrency", str(batch),
-            "--ignore-eos", "--percentile-metrics", "ttft,tpot,itl,e2el",
-            "--save-result", "--result-filename", result,
+            "vllm",
+            "bench",
+            "serve",
+            "--backend",
+            client,
+            "--model",
+            args.model,
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--endpoint",
+            "/v1/completions",
+            "--dataset-name",
+            "random",
+            "--random-input-len",
+            str(input_len),
+            "--random-output-len",
+            str(output_len),
+            "--num-prompts",
+            str(num_prompts),
+            "--max-concurrency",
+            str(batch),
+            "--ignore-eos",
+            "--percentile-metrics",
+            "ttft,tpot,itl,e2el",
+            "--save-result",
+            "--result-filename",
+            result,
         ]
     else:
         cmd = [
-            sys.executable, "-m", "sglang.bench_serving",
-            "--backend", "sglang-oai", "--model", args.model,
-            "--host", "127.0.0.1", "--port", str(port),
-            "--dataset-name", "random",
-            "--random-input-len", str(input_len),
-            "--random-output-len", str(output_len),
+            sys.executable,
+            "-m",
+            "sglang.bench_serving",
+            "--backend",
+            "sglang-oai",
+            "--model",
+            args.model,
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--dataset-name",
+            "random",
+            "--random-input-len",
+            str(input_len),
+            "--random-output-len",
+            str(output_len),
             # Exact lengths, not a sampled band. The anchor prices one prompt
             # length and one output length; left at its default this client
             # samples below both, and the TPOT it reported would belong to a
             # mixture of shapes rather than to the shape recorded beside it.
-            "--random-range-ratio", "1.0",
-            "--num-prompts", str(num_prompts), "--max-concurrency", str(batch),
-            "--output-file", result,
+            "--random-range-ratio",
+            "1.0",
+            "--num-prompts",
+            str(num_prompts),
+            "--max-concurrency",
+            str(batch),
+            "--output-file",
+            result,
         ]
         # This client appends, so a stale file from an earlier harvest at the
         # same tag would leave its last line -- another run's numbers -- as the
@@ -273,9 +342,16 @@ def _measure_concurrency(port: int, batch: int, args, out_dir: str) -> float:
     """Mean TPOT in ms at ``batch`` concurrent requests -- the decode step."""
     # Three waves is enough for the anchor concurrencies: re-running c128 with
     # ten waves and varied lengths moved TPOT by 5%, and c<=32 by less.
-    doc = _run_client(port, args, out_dir, f"c{batch}", batch=batch,
-                      input_len=args.input_len, output_len=args.output_len,
-                      num_prompts=max(24, batch * 3))
+    doc = _run_client(
+        port,
+        args,
+        out_dir,
+        f"c{batch}",
+        batch=batch,
+        input_len=args.input_len,
+        output_len=args.output_len,
+        num_prompts=max(24, batch * 3),
+    )
     return float(doc["mean_tpot_ms"])
 
 
@@ -331,19 +407,30 @@ def prefill_rate_ms_per_token(port: int, args, out_dir: str) -> tuple:
     lengths = prefill_probe_lengths(args)
     pts = []
     for length in lengths:
-        doc = _run_client(port, args, out_dir, f"prefill_L{length}", batch=1,
-                          input_len=length, output_len=_PREFILL_PROBE_OUTPUT_LEN,
-                          num_prompts=_PREFILL_PROBE_PROMPTS)
+        doc = _run_client(
+            port,
+            args,
+            out_dir,
+            f"prefill_L{length}",
+            batch=1,
+            input_len=length,
+            output_len=_PREFILL_PROBE_OUTPUT_LEN,
+            num_prompts=_PREFILL_PROBE_PROMPTS,
+        )
         ttft = float(doc["mean_ttft_ms"])
         pts.append((length, ttft))
-        print(f"[inferasim:Inference:Serving] prefill probe L={length} "
-              f"TTFT={ttft:.2f}ms")
+        print(f"[inferasim:Inference:Serving] prefill probe L={length} TTFT={ttft:.2f}ms")
 
     # Every adjacent pair is its own estimate of the slope; consistency between
     # them is the evidence that the cancelled terms really were constant.
-    pairwise = [{"from": pts[i][0], "to": pts[i + 1][0],
-                 "ms_per_token": (pts[i + 1][1] - pts[i][1]) / (pts[i + 1][0] - pts[i][0])}
-                for i in range(len(pts) - 1)]
+    pairwise = [
+        {
+            "from": pts[i][0],
+            "to": pts[i + 1][0],
+            "ms_per_token": (pts[i + 1][1] - pts[i][1]) / (pts[i + 1][0] - pts[i][0]),
+        }
+        for i in range(len(pts) - 1)
+    ]
     # Least squares over all points; identical to the lone difference when there
     # are only two, and a better estimate than any single pair when there are more.
     n = len(pts)
@@ -370,14 +457,18 @@ def prefill_rate_ms_per_token(port: int, args, out_dir: str) -> tuple:
         spread = max(rates) / min(rates)
         diag["pairwise_spread"] = spread
         if spread > 1.25:
-            print(f"[inferasim:Inference:Serving] WARNING: prefill probes "
-                  f"disagree by {spread:.2f}x across length ({rates}); the "
-                  f"prompt curve is not linear over this range, so the anchor "
-                  f"is a chord through it rather than a rate.")
+            print(
+                f"[inferasim:Inference:Serving] WARNING: prefill probes "
+                f"disagree by {spread:.2f}x across length ({rates}); the "
+                f"prompt curve is not linear over this range, so the anchor "
+                f"is a chord through it rather than a rate."
+            )
     if rate <= 0:
-        print("[inferasim:Inference:Serving] WARNING: prefill slope did not "
-              "resolve (non-increasing TTFT across length); leaving prefill "
-              "simulated.")
+        print(
+            "[inferasim:Inference:Serving] WARNING: prefill slope did not "
+            "resolve (non-increasing TTFT across length); leaving prefill "
+            "simulated."
+        )
         return 0.0, diag
     return rate, diag
 
@@ -387,15 +478,23 @@ def run_serving_benchmark(args) -> dict:
     # Package import; falls back to the flat form when this is run as a script,
     # which is how Hyperloom invokes it.
     try:
-        from .benchmark_vllm import (_capture_batches_up_to,
-                                     _default_capture_sizes, _regime_env,
-                                     _resolved_weight_dtype, _server_arg_value,
-                                     warmup_gpu_count)
+        from .benchmark_vllm import (
+            _capture_batches_up_to,
+            _default_capture_sizes,
+            _regime_env,
+            _resolved_weight_dtype,
+            _server_arg_value,
+            warmup_gpu_count,
+        )
     except ImportError:
-        from benchmark_vllm import (_capture_batches_up_to,  # type: ignore
-                                    _default_capture_sizes, _regime_env,
-                                    _resolved_weight_dtype, _server_arg_value,
-                                    warmup_gpu_count)
+        from benchmark_vllm import (
+            _capture_batches_up_to,  # type: ignore
+            _default_capture_sizes,
+            _regime_env,
+            _resolved_weight_dtype,
+            _server_arg_value,
+            warmup_gpu_count,
+        )
 
     # Resolved before anything is launched. A missing load generator makes the
     # run pointless, and finding that out after the weights are resident costs
@@ -416,8 +515,10 @@ def run_serving_benchmark(args) -> dict:
     capture_sizes = _default_capture_sizes(concurrency) if concurrency else None
     if concurrency:
         batches = _capture_batches_up_to(capture_sizes, concurrency)
-        print(f"[inferasim:Inference:Serving] concurrency={concurrency} -> "
-              f"capture-size batches {batches}")
+        print(
+            f"[inferasim:Inference:Serving] concurrency={concurrency} -> "
+            f"capture-size batches {batches}"
+        )
     elif args.batches:
         batches = [int(b) for b in args.batches.split(",") if b]
     else:
@@ -428,8 +529,10 @@ def run_serving_benchmark(args) -> dict:
 
     out_dir = tempfile.mkdtemp(prefix="inferasim_serving_")
     log_path = os.path.join(out_dir, "server.log")
-    print(f"[inferasim:Inference:Serving] {args.serving_backend} "
-          f"{' '.join(shlex.quote(c) for c in argv)}")
+    print(
+        f"[inferasim:Inference:Serving] {args.serving_backend} "
+        f"{' '.join(shlex.quote(c) for c in argv)}"
+    )
     started = time.time()
     try:
         with _capture_engine_output(log_path):
@@ -438,19 +541,18 @@ def run_serving_benchmark(args) -> dict:
         # The adapter tears down its own process group on a failed start; this
         # only makes sure a half-started engine cannot keep holding the GPUs.
         asyncio.run(engine.stop())
-        raise RuntimeError(
-            f"{args.serving_backend} did not come up; see {log_path}"
-        ) from exc
+        raise RuntimeError(f"{args.serving_backend} did not come up; see {log_path}") from exc
     boot_s = time.time() - started
     print(f"[inferasim:Inference:Serving] ready in {boot_s:.0f}s")
     try:
         client_started = time.time()
-        sweep = [{"batch": b,
-                  "decode_ms": _measure_concurrency(port, b, args, out_dir)}
-                 for b in batches]
+        sweep = [
+            {"batch": b, "decode_ms": _measure_concurrency(port, b, args, out_dir)} for b in batches
+        ]
         prefill_rate, prefill_diag = (
             prefill_rate_ms_per_token(port, args, out_dir)
-            if getattr(args, "prefill_anchor", False) else (0.0, None)
+            if getattr(args, "prefill_anchor", False)
+            else (0.0, None)
         )
         client_s = time.time() - client_started
     finally:
@@ -482,8 +584,7 @@ def run_serving_benchmark(args) -> dict:
         # None under --no-prefill-anchor or when the slope did not resolve. A
         # raw TTFT is not an invertible prefill observable, and is never
         # inverted here.
-        "measured": {"model": {"prefill_ms": ref.get("prefill_ms"),
-                               "decode_ms": ref["decode_ms"]}},
+        "measured": {"model": {"prefill_ms": ref.get("prefill_ms"), "decode_ms": ref["decode_ms"]}},
         "sweep": sweep,
         "meta": {
             "batch": ref["batch"],
@@ -503,18 +604,18 @@ def run_serving_benchmark(args) -> dict:
             "use_aiter": os.environ.get("VLLM_ROCM_USE_AITER", "0") == "1",
             "server_args": args.server_args or None,
             "env_overrides": dict(kv.split("=", 1) for kv in args.env or []) or None,
-            "attention_backend": _server_arg_value(args.server_args or "",
-                                                   "--attention-backend"),
+            "attention_backend": _server_arg_value(args.server_args or "", "--attention-backend"),
             "load_format": "auto",
             "real_weights": True,
             "model": args.model,
             # What this anchor cost, so its own artifact carries the accounting.
             "boot_s": round(boot_s, 1),
             "anchor_client_s": round(client_s, 1),
-            "derived_from": ("serving benchmark (mean TPOT; prefill by TTFT "
-                             "difference across prompt lengths)"
-                             if prefill_rate > 0
-                             else "serving benchmark (mean TPOT)"),
+            "derived_from": (
+                "serving benchmark (mean TPOT; prefill by TTFT difference across prompt lengths)"
+                if prefill_rate > 0
+                else "serving benchmark (mean TPOT)"
+            ),
             "prefill_anchor": prefill_diag,
             # Capture-size sweep mode: the projector pads decode UP to the
             # nearest measured size instead of interpolating.
@@ -530,7 +631,8 @@ def run_serving_benchmark(args) -> dict:
             from .search.regime import recipe_from_bench_args, regime_signature
         except ImportError:
             from search.regime import (  # type: ignore
-                recipe_from_bench_args, regime_signature,
+                recipe_from_bench_args,
+                regime_signature,
             )
         artifact["meta"]["regime_signature"] = regime_signature(
             recipe_from_bench_args(args, _regime_env())

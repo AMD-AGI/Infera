@@ -30,7 +30,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from . import regime
 
@@ -52,7 +52,7 @@ class AnchorStore:
     def __init__(self, root: str, discover: bool = True):
         self.root = os.path.abspath(root)
         self.index_path = os.path.join(self.root, "index.json")
-        self._entries: List[Dict[str, Any]] = []
+        self._entries: list[dict[str, Any]] = []
         self._load_index()
         if discover:
             self.discover()
@@ -112,9 +112,7 @@ class AnchorStore:
             isinstance(art, dict)
             and isinstance(art.get("meta"), dict)
             and isinstance(art.get("sweep"), list)
-            and any(
-                isinstance(e, dict) and e.get("decode_ms") for e in art["sweep"]
-            )
+            and any(isinstance(e, dict) and e.get("decode_ms") for e in art["sweep"])
         )
 
     def _load_index(self) -> None:
@@ -164,7 +162,7 @@ class AnchorStore:
 
     # -- ingestion -------------------------------------------------------------
 
-    def add_artifact(self, artifact_path: str) -> Dict[str, Any]:
+    def add_artifact(self, artifact_path: str) -> dict[str, Any]:
         """Index a benchmark artifact JSON already on disk.  Idempotent by path
         (re-adding refreshes the entry)."""
         path = os.path.abspath(artifact_path)
@@ -176,7 +174,7 @@ class AnchorStore:
         self._save_index()
         return entry
 
-    def add_result(self, result: Dict[str, Any], artifact_path: str) -> Dict[str, Any]:
+    def add_result(self, result: dict[str, Any], artifact_path: str) -> dict[str, Any]:
         """Write a benchmark result dict to ``artifact_path`` and index it."""
         path = os.path.abspath(artifact_path)
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
@@ -184,7 +182,7 @@ class AnchorStore:
             json.dump(result, f)
         return self.add_artifact(path)
 
-    def _make_entry(self, path: str, art: Dict[str, Any]) -> Dict[str, Any]:
+    def _make_entry(self, path: str, art: dict[str, Any]) -> dict[str, Any]:
         meta = art.get("meta", {})
         recipe = regime.recipe_from_meta(meta)
         sig = meta.get("regime_signature") or regime.regime_signature(recipe)
@@ -213,16 +211,16 @@ class AnchorStore:
 
     # -- query -----------------------------------------------------------------
 
-    def entries(self) -> List[Dict[str, Any]]:
+    def entries(self) -> list[dict[str, Any]]:
         return list(self._entries)
 
-    def load_artifact(self, entry: Dict[str, Any]) -> Dict[str, Any]:
+    def load_artifact(self, entry: dict[str, Any]) -> dict[str, Any]:
         with open(entry["path"]) as f:
             return json.load(f)
 
     def nearest(
-        self, recipe: Dict[str, Any], *, model: Optional[str] = None
-    ) -> Tuple[Optional[Dict[str, Any]], Optional[int]]:
+        self, recipe: dict[str, Any], *, model: str | None = None
+    ) -> tuple[dict[str, Any] | None, int | None]:
         """Return ``(entry, regime_distance)`` for the best anchor, or
         ``(None, None)`` if the store is empty.  Distance 0 => same regime
         (fully transportable).  Candidates are optionally filtered to a model;
@@ -239,7 +237,7 @@ class AnchorStore:
         target_tp = max(1, int(recipe.get("tp") or 1))
         preferred_tp = 4 if target_tp >= 4 else target_tp
 
-        def tp_policy_gap(e: Dict[str, Any]) -> float:
+        def tp_policy_gap(e: dict[str, Any]) -> float:
             """Distance from the anchor TP mandated for this target.
 
             TP1 and TP2 are cheap enough to benchmark directly and should not
@@ -255,7 +253,7 @@ class AnchorStore:
                 return float("inf")
             return abs(float(anchor_tp) - float(preferred_tp))
 
-        def shards_experts(e: Dict[str, Any]) -> int:
+        def shards_experts(e: dict[str, Any]) -> int:
             """1 if this anchor disagrees with the target on *whether* EP shards.
 
             Ranked ahead of transport distance rather than folded into it, because
@@ -264,10 +262,10 @@ class AnchorStore:
             EP proximity makes up for crossing the line. A weight would have to be
             larger than every distance the store can produce; an order does not.
             """
-            ep = (e.get("transport", {}).get("ep") or 1)
+            ep = e.get("transport", {}).get("ep") or 1
             return int(bool(ep > 1) != bool((recipe.get("ep") or 1) > 1))
 
-        def transport_gap(e: Dict[str, Any]) -> float:
+        def transport_gap(e: dict[str, Any]) -> float:
             t = e.get("transport", {})
             gap = 0.0
             # Prefer anchors whose measured parallelism matches the target

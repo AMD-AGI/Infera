@@ -150,7 +150,7 @@ def setup_logger(
     """
     create_path_if_not_exists(cfg.exp_root_path)
     if is_head:
-        log_path = os.path.join(cfg.exp_root_path, f"logs/master")
+        log_path = os.path.join(cfg.exp_root_path, "logs/master")
     else:
         log_path = os.path.join(cfg.exp_root_path, f"logs/{cfg.module_name}/rank-{cfg.rank}")
 
@@ -188,7 +188,7 @@ def setup_logger(
     loguru_logger = loguru_logger.bind(rank=cfg.rank)
     loguru_logger = loguru_logger.bind(world_size=cfg.world_size)
 
-    sink_file_prefix = f"master-" if is_head else ""
+    sink_file_prefix = "master-" if is_head else ""
     sinked_levels = ["debug", "info", "warning", "error"]
     for sinked_level in sinked_levels:
         handler_id = add_file_sink(
@@ -296,7 +296,6 @@ def debug(__message: str, *args: Any, **kwargs: Any) -> None:
 
     caller = inspect.stack()[1]
     caller_frame = caller.frame
-    caller_frame.f_code.co_name
     module_name = caller_frame.f_globals["__name__"].split(".")[-1]
     line = caller.lineno
     __message = f"{module_format(module_name, line)}: {__message}"
@@ -315,7 +314,6 @@ def log(__message: str, *args: Any, **kwargs: Any) -> None:
 
     caller = inspect.stack()[1]
     caller_frame = caller.frame
-    caller_frame.f_code.co_name
     module_name = caller_frame.f_globals["__name__"].split(".")[-1]
     line = caller.lineno
     __message = f"{module_format(module_name, line)}: {__message}"
@@ -345,7 +343,6 @@ def log_kv(key: str, value: str, width=18, fillchar=" ") -> None:
 
     caller = inspect.stack()[1]
     caller_frame = caller.frame
-    caller_frame.f_code.co_name
     module_name = caller_frame.f_globals["__name__"].split(".")[-1]
     line = caller.lineno
     __message = f"{key}:".ljust(width, fillchar) + f"{value}"
@@ -359,7 +356,6 @@ def info(__message: str, *args: Any, **kwargs: Any) -> None:
 
     caller = inspect.stack()[1]
     caller_frame = caller.frame
-    caller_frame.f_code.co_name
     module_name = caller_frame.f_globals["__name__"].split(".")[-1]
     line = caller.lineno
     __message = f"{module_format(module_name, line)}: {__message}"
@@ -378,7 +374,6 @@ def warning(__message: str, *args: Any, **kwargs: Any) -> None:
 
     caller = inspect.stack()[1]
     caller_frame = caller.frame
-    caller_frame.f_code.co_name
     module_name = caller_frame.f_globals["__name__"].split(".")[-1]
     line = caller.lineno
     __message = f"{module_format(module_name, line)}: {__message}"
@@ -397,7 +392,6 @@ def error(__message: str, *args: Any, **kwargs: Any) -> None:
 
     caller = inspect.stack()[1]
     caller_frame = caller.frame
-    caller_frame.f_code.co_name
     module_name = caller_frame.f_globals["__name__"].split(".")[-1]
     line = caller.lineno
     __message = f"{module_format(module_name, line)}: {__message}"

@@ -6,7 +6,6 @@
 
 import os
 from dataclasses import dataclass, field, fields
-from typing import Dict, List, Optional
 
 
 @dataclass
@@ -41,7 +40,7 @@ class ModelParallelConfig:
     recompute_granularity: str = None  # "full" or "selective"
     recompute_num_layers: int = 0
     # Megatron selective block recompute: global transformer layer indices (0..num_layers-1)
-    recompute_layer_ids: Optional[List[int]] = None
+    recompute_layer_ids: list[int] | None = None
     # Precision-aware optimizer (Megatron `--use-precision-aware-optimizer`).
     # When enabled the optimizer state dtypes follow the *_dtype fields below;
     # the projection's bytes-per-param formula uses these to size the static
@@ -306,7 +305,7 @@ def decode_kernels_per_layer(model_config, sparse_attention_topk: int = 0) -> in
     return kernels
 
 
-def dtype_num_bytes(dtype: Optional[str]) -> float:
+def dtype_num_bytes(dtype: str | None) -> float:
     """Return the byte width of a (loosely-named) tensor dtype.
 
     Accepts the informal names used throughout the projection layer
@@ -356,15 +355,15 @@ class InferenceRequestConfig:
     batch_size: int = 1
     # Max number of sequences whose KV cache is resident at once (for memory
     # sizing / continuous batching).  Defaults to ``batch_size``.
-    max_concurrency: Optional[int] = None
+    max_concurrency: int | None = None
     # Largest context (prompt + generated) any sequence can reach.  Drives
     # KV-cache capacity.  Defaults to ``input_seq_len + output_seq_len``.
-    max_context_len: Optional[int] = None
+    max_context_len: int | None = None
     # Fraction of per-GPU HBM the serving engine may use (vLLM
     # ``gpu_memory_utilization`` / SGLang ``mem_fraction_static``).  Bounds the
     # usable HBM for weights + KV + activations and therefore the max concurrent
     # sequences.  ``None`` = use the full HBM capacity (legacy behaviour).
-    kv_cache_memory_fraction: Optional[float] = None
+    kv_cache_memory_fraction: float | None = None
     # Paged-KV block (page) size in tokens.  Real serving engines allocate KV in
     # fixed-size blocks (vLLM ``block_size``, typically 16), so a sequence's
     # context is rounded UP to a whole number of blocks — the last partially
@@ -384,8 +383,8 @@ class InferenceRequestConfig:
     kv_offload_bw_gbps: float = 64.0
 
     # ---- Precision ----
-    weight_dtype: str = "bf16"     # weights kept resident (bf16 | fp8 | ...)
-    kv_cache_dtype: str = "bf16"   # KV cache precision (bf16 | fp8 | int8 | ...)
+    weight_dtype: str = "bf16"  # weights kept resident (bf16 | fp8 | ...)
+    kv_cache_dtype: str = "bf16"  # KV cache precision (bf16 | fp8 | int8 | ...)
 
     # ---- Inference features ----
     # Chunked prefill: split a long prompt into chunks of this many tokens
@@ -486,7 +485,7 @@ class InferenceRequestConfig:
     # cost alone cannot exceed the step that pays it. ``None`` resolves it from the
     # GPU architecture through ``DECODE_OCCUPANCY_PROFILES``; an explicit float
     # still wins, for measuring one specific engine. 0 = disabled.
-    decode_kernel_occupancy_us: Optional[float] = None
+    decode_kernel_occupancy_us: float | None = None
     # Per-output-token host cost for detokenization + response streaming
     # (microseconds/token). The serving harness (vLLM / InferenceX) measures ITL
     # client-side, so its per-token latency carries detok+stream that the GPU
@@ -576,7 +575,7 @@ class InferenceRequestConfig:
     # ``None`` leaves ``decode_step_overhead_us`` / ``mixed_batch_penalty`` at
     # their explicit values (legacy behaviour). An explicit non-zero value of
     # either low-level knob overrides the preset.
-    cudagraph_mode: Optional[str] = None
+    cudagraph_mode: str | None = None
     # Scheduler per-step token budget (vLLM ``--max-num-batched-tokens``).  The
     # scheduler caps the total tokens processed in one engine step: a mixed step
     # carries a prefill chunk plus the decode tokens of every running sequence,
@@ -613,7 +612,7 @@ class InferenceRequestConfig:
     # dependent on ROCm; modelled as a representative multiplier on attention
     # compute time (simulation path only). ``None`` = engine default (= triton
     # baseline, 1.0). Values: aiter | triton | ck | hip.
-    attention_backend: Optional[str] = None
+    attention_backend: str | None = None
 
     # ---- Native sparse attention (DeepSeek V3.2 / V4 NSA) ----
     # Number of KV tokens each query attends to under native sparse attention
@@ -629,18 +628,18 @@ class InferenceRequestConfig:
     # ``sink_sliding_window``. When set (or inherited) and the context exceeds
     # the window, decode/prefill attention compute and KV-cache footprint are
     # bounded by the window instead of the full context.
-    sliding_window: Optional[int] = None
+    sliding_window: int | None = None
     # Fraction of attention layers that are windowed (the remainder use full
     # attention) for models that interleave local/global layers. ``None``
     # follows the model's ``sink_window_even_layers_only`` flag (0.5 when set,
     # else 1.0 = every layer windowed).
-    sliding_window_layer_fraction: Optional[float] = None
+    sliding_window_layer_fraction: float | None = None
 
     # ---- MoE expert compute precision ----
     # Expert grouped-GEMM compute dtype (separate from ``weight_dtype`` which
     # sizes resident weights). Models the expert-MLP speedup of low-precision
     # expert kernels: mxfp4 | fp8 | bf16. ``None`` = follow bf16 (no speedup).
-    moe_expert_dtype: Optional[str] = None
+    moe_expert_dtype: str | None = None
 
     # ---- Non-expert linear weight precision ----
     # Attention's projections and the dense MLP: mxfp4 | fp4 | fp8 | bf16.
@@ -649,7 +648,7 @@ class InferenceRequestConfig:
     # attention projections as well -- so this cannot be inferred from
     # ``weight_dtype`` or ``moe_expert_dtype``. ``None`` follows the model's own
     # fp8 flag, which is what every model did before the field existed.
-    linear_weight_dtype: Optional[str] = None
+    linear_weight_dtype: str | None = None
 
     # ---- Runtime activation quantization / cast ----
     # Precision the runtime casts activations to before each low-precision GEMM
@@ -657,7 +656,7 @@ class InferenceRequestConfig:
     # are memory-bound overhead the GEMM simulator does not see. ``None``
     # auto-detects from ``weight_dtype`` / model fp8; ``"bf16"`` / ``"none"``
     # drops the cast term (e.g. a bf16 serving path).
-    act_quant_dtype: Optional[str] = None
+    act_quant_dtype: str | None = None
 
     # ---- Speculative decoding draft cost ----
     # Draft-model forward cost per proposed draft token, as a fraction of one
@@ -745,8 +744,9 @@ class InferenceRequestConfig:
             n_kernels *= _FUSED_KERNEL_OVERHEAD_FACTOR
         return n_kernels * lat_us / 1000.0
 
-    def resolved_decode_occupancy_ms(self, num_layers: int,
-                                     kernels_per_layer: int | None = None) -> float:
+    def resolved_decode_occupancy_ms(
+        self, num_layers: int, kernels_per_layer: int | None = None
+    ) -> float:
         """Additive per-kernel GPU occupancy for one decode step (ms).
 
         Same kernel count as the launch floor, but priced at the device-side
@@ -876,7 +876,7 @@ class InferenceRequestConfig:
             return 1.0
         return _MOE_EXPERT_DTYPE_SPEEDUP.get(str(self.moe_expert_dtype).lower(), 1.0)
 
-    def resolved_act_quant_dtype(self, model_fp8=None) -> Optional[str]:
+    def resolved_act_quant_dtype(self, model_fp8=None) -> str | None:
         """Precision of the runtime activation cast, or ``None`` to disable.
 
         An explicit ``act_quant_dtype`` wins (``"bf16"`` / ``"none"`` disables);
@@ -970,11 +970,11 @@ class InferenceCollectiveConfig:
     include_pp_p2p: bool = True
     # Optional hardware overrides forwarded to ``get_default_args`` (node_bw,
     # pod_bw, bw_eff, latencies, ...). ``None`` uses the model defaults.
-    hardware_config: Optional[Dict] = None
+    hardware_config: dict | None = None
     # Datasheet interconnect for this GPU, from ``INTERCONNECT_PROFILES``.
     # ``None`` resolves from the GPU architecture, falling back to the
     # collective model's own defaults (one 8-GPU server).
-    interconnect: Optional[Dict[str, float]] = None
+    interconnect: dict[str, float] | None = None
 
 
 # Published interconnect specs by GPU architecture: per-GPU link bandwidth
@@ -989,7 +989,7 @@ class InferenceCollectiveConfig:
 # analytical model here priced a 25 KB tensor-parallel all-reduce at the 10 us
 # floor, which over 78 layers is more than half of a whole measured gb300 decode
 # step -- so the floor, not the fit, is what does not transfer.
-INTERCONNECT_PROFILES: Dict[str, Dict[str, float]] = {
+INTERCONNECT_PROFILES: dict[str, dict[str, float]] = {
     # These racks switch 1.8 TB/s per GPU across all 72 GPUs in the domain, so
     # even a wide tensor-parallel or expert group stays on the fabric instead of
     # crossing a NIC. The link off the rack carries 800 Gb/s per GPU.
@@ -1029,7 +1029,7 @@ INTERCONNECT_PROFILES: Dict[str, Dict[str, float]] = {
 # is the very thing this table exists to record. They take the measured default.
 DEFAULT_DECODE_OCCUPANCY_US: float = 4.98
 
-DECODE_OCCUPANCY_PROFILES: Dict[str, float] = {
+DECODE_OCCUPANCY_PROFILES: dict[str, float] = {
     "mi300x": 4.98,
     "mi325x": 4.98,
     "mi355x": 4.98,
@@ -1041,13 +1041,11 @@ DECODE_OCCUPANCY_PROFILES: Dict[str, float] = {
 }
 
 
-def resolve_decode_occupancy_us(gpu_arch: Optional[str]) -> float:
+def resolve_decode_occupancy_us(gpu_arch: str | None) -> float:
     """Per-kernel decode occupancy (us) for a named GPU architecture."""
     if not gpu_arch:
         return DEFAULT_DECODE_OCCUPANCY_US
-    return DECODE_OCCUPANCY_PROFILES.get(
-        str(gpu_arch).lower().strip(), DEFAULT_DECODE_OCCUPANCY_US
-    )
+    return DECODE_OCCUPANCY_PROFILES.get(str(gpu_arch).lower().strip(), DEFAULT_DECODE_OCCUPANCY_US)
 
 
 @dataclass
@@ -1063,34 +1061,34 @@ class DisaggregationConfig:
     enabled: bool = False
     # Per-pool parallelism overrides. ``None`` falls back to the shared
     # ``model_parallel_config`` values.
-    prefill_tp: Optional[int] = None
-    prefill_pp: Optional[int] = None
-    prefill_ep: Optional[int] = None
-    decode_tp: Optional[int] = None
-    decode_pp: Optional[int] = None
-    decode_ep: Optional[int] = None
+    prefill_tp: int | None = None
+    prefill_pp: int | None = None
+    prefill_ep: int | None = None
+    decode_tp: int | None = None
+    decode_pp: int | None = None
+    decode_ep: int | None = None
     # Per-pool attention-DP degree. ``None`` falls back to the shared
     # ``attention_data_parallel_size``. Real disaggregated deployments routinely
     # differ here -- the measured GLM-5.2 deployments run DP attention on
     # prefill and plain TP attention on decode -- and a single global degree
     # cannot express that, nor a TP4 prefill beside a TP16 decode that each
     # want the full width. Each degree must divide its own pool's TP.
-    prefill_attention_dp: Optional[int] = None
-    decode_attention_dp: Optional[int] = None
+    prefill_attention_dp: int | None = None
+    decode_attention_dp: int | None = None
     # Number of replicas in each pool (for aggregate-throughput / GPU split).
     prefill_replicas: int = 1
     decode_replicas: int = 1
     # KV-cache transfer link. ``None`` bw uses the inter-node (pod) bandwidth
     # from the collective model; latency is a fixed per-transfer overhead (us).
-    kv_transfer_bw_gbps: Optional[float] = None
+    kv_transfer_bw_gbps: float | None = None
     kv_transfer_latency_us: float = 0.0
     # Friendly preset over the two link knobs above, naming the KV-transfer
     # engine: "nixl", "mooncake", or "mori".  ``None`` leaves the explicit link
     # values untouched.  An explicit non-zero/non-None link knob overrides the
     # preset value for that field.
-    transfer_backend: Optional[str] = None
+    transfer_backend: str | None = None
 
-    def resolved_kv_transfer_bw_gbps(self) -> Optional[float]:
+    def resolved_kv_transfer_bw_gbps(self) -> float | None:
         if self.kv_transfer_bw_gbps:
             return float(self.kv_transfer_bw_gbps)
         return _TRANSFER_BACKEND_PRESETS.get(self.transfer_backend, (None, 0.0))[0]
@@ -1102,7 +1100,12 @@ class DisaggregationConfig:
 
     def prefill_parallel(self, mp: ModelParallelConfig) -> "ModelParallelConfig":
         return _override_parallel(
-            mp, self.prefill_tp, self.prefill_pp, self.prefill_ep, self.prefill_attention_dp, "prefill"
+            mp,
+            self.prefill_tp,
+            self.prefill_pp,
+            self.prefill_ep,
+            self.prefill_attention_dp,
+            "prefill",
         )
 
     def decode_parallel(self, mp: ModelParallelConfig) -> "ModelParallelConfig":
@@ -1123,10 +1126,10 @@ _TRANSFER_BACKEND_PRESETS = {
 
 def _override_parallel(
     mp: ModelParallelConfig,
-    tp: Optional[int],
-    pp: Optional[int],
-    ep: Optional[int],
-    attn_dp: Optional[int] = None,
+    tp: int | None,
+    pp: int | None,
+    ep: int | None,
+    attn_dp: int | None = None,
     pool: str = "pool",
 ) -> ModelParallelConfig:
     """Return a copy of ``mp`` with TP/PP/EP/attention-DP optionally overridden."""
@@ -1143,9 +1146,7 @@ def _override_parallel(
         dp = max(1, int(attn_dp))
         pool_tp = max(1, out.tensor_model_parallel_size)
         if pool_tp % dp:
-            raise ValueError(
-                f"{pool}_attention_dp={dp} must divide {pool}_tp={pool_tp}"
-            )
+            raise ValueError(f"{pool}_attention_dp={dp} must divide {pool}_tp={pool_tp}")
         out.attention_data_parallel_size = dp
     return out
 
@@ -1163,12 +1164,8 @@ class InferenceConfig:
     model_config: ModelConfig
     request_config: InferenceRequestConfig
     model_parallel_config: ModelParallelConfig
-    collective_config: InferenceCollectiveConfig = field(
-        default_factory=InferenceCollectiveConfig
-    )
-    disaggregation_config: DisaggregationConfig = field(
-        default_factory=DisaggregationConfig
-    )
+    collective_config: InferenceCollectiveConfig = field(default_factory=InferenceCollectiveConfig)
+    disaggregation_config: DisaggregationConfig = field(default_factory=DisaggregationConfig)
 
     def __post_init__(self) -> None:
         mp = self.model_parallel_config
@@ -1179,8 +1176,7 @@ class InferenceConfig:
         # to be even and cannot be wider than the group it splits.
         if dp > 1 and (dp > tp or tp % dp):
             raise ValueError(
-                f"attention_data_parallel_size={dp} must divide "
-                f"tensor_model_parallel_size={tp}"
+                f"attention_data_parallel_size={dp} must divide tensor_model_parallel_size={tp}"
             )
 
     def as_training_config(self, *, batch_size: int, seq_len: int) -> TrainingConfig:
@@ -1202,9 +1198,9 @@ class InferenceConfig:
 
 
 def update_config_from_args(config, args):
-    for field in fields(config):
-        if hasattr(args, field.name):
-            setattr(config, field.name, getattr(args, field.name))
+    for f in fields(config):
+        if hasattr(args, f.name):
+            setattr(config, f.name, getattr(args, f.name))
     return config
 
 
@@ -1231,7 +1227,9 @@ def megatron_derive_default_args(args):
         args.context_parallel_size = 1
     if not hasattr(args, "data_parallel_size") or args.data_parallel_size is None:
         args.data_parallel_size = world_size // (
-            args.tensor_model_parallel_size * args.pipeline_model_parallel_size * args.context_parallel_size
+            args.tensor_model_parallel_size
+            * args.pipeline_model_parallel_size
+            * args.context_parallel_size
         )
     if not hasattr(args, "virtual_pipeline_model_parallel_size"):
         args.virtual_pipeline_model_parallel_size = None
@@ -1253,14 +1251,16 @@ def megatron_derive_default_args(args):
         args.moe_pattern = [0] * args.num_layers
     else:
         if isinstance(args.moe_layer_freq, int):
-            args.moe_pattern = [1 if (i % args.moe_layer_freq == 0) else 0 for i in range(args.num_layers)]
+            args.moe_pattern = [
+                1 if (i % args.moe_layer_freq == 0) else 0 for i in range(args.num_layers)
+            ]
         elif isinstance(args.moe_layer_freq, list):
             args.moe_pattern = args.moe_layer_freq
         elif isinstance(args.moe_layer_freq, str):
             try:
                 parsed = eval(args.moe_layer_freq)
-            except Exception:
-                raise ValueError(f"Invalid moe_layer_freq format: {args.moe_layer_freq}")
+            except Exception as e:
+                raise ValueError(f"Invalid moe_layer_freq format: {args.moe_layer_freq}") from e
 
             # Handle case where eval returns an int (e.g., "1" -> 1 means all layers are MoE)
             if isinstance(parsed, int):
@@ -1269,7 +1269,9 @@ def megatron_derive_default_args(args):
                     args.moe_pattern = [1] * args.num_layers
                 else:
                     # Every Nth layer is MoE
-                    args.moe_pattern = [1 if (i % parsed == 0) else 0 for i in range(args.num_layers)]
+                    args.moe_pattern = [
+                        1 if (i % parsed == 0) else 0 for i in range(args.num_layers)
+                    ]
             elif isinstance(parsed, list):
                 # Handle list-based moe_layer_freq pattern
                 if len(parsed) > args.num_layers:
@@ -1325,7 +1327,7 @@ def convert_config_to_projection_config(config) -> TrainingConfig:
 def convert_config_to_inference_config(
     config,
     *,
-    inference_overrides: Optional[dict] = None,
+    inference_overrides: dict | None = None,
 ) -> InferenceConfig:
     """Build an :class:`InferenceConfig` from an experiment config.
 
@@ -1404,6 +1406,6 @@ def _apply_prefixed(target, source: dict, *, prefix: str) -> None:
     for key, val in source.items():
         if not key.startswith(prefix):
             continue
-        name = key[len(prefix):]
+        name = key[len(prefix) :]
         if name in valid and val is not None:
             setattr(target, name, val)

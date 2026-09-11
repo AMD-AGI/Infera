@@ -195,7 +195,7 @@ def sendrecv(args, msg_size):
     return t
 
 
-def direct_alltoall(args, msg_size, gpus, groups=["ep"], protocol=None, original_msg_size=None):
+def direct_alltoall(args, msg_size, gpus, groups=("ep",), protocol=None, original_msg_size=None):
     """
     Direct alltoall for HP=1, hierarchical with parallel NIC utilization.
 
@@ -229,7 +229,8 @@ def direct_alltoall(args, msg_size, gpus, groups=["ep"], protocol=None, original
 
     # Intra-node time (with A2A contention derate)
     t_intra = (
-        intra_vol_adj / get_effective_node_bw(args, group_size=gpus_per_node, a2a=True) * 1.0e-3 + node_lat
+        intra_vol_adj / get_effective_node_bw(args, group_size=gpus_per_node, a2a=True) * 1.0e-3
+        + node_lat
     )
 
     # Inter-node time with all NICs — A2A uses P2P-like NIC streams
@@ -265,7 +266,7 @@ def direct_alltoall(args, msg_size, gpus, groups=["ep"], protocol=None, original
     return t_a2a
 
 
-def run_alltoall(args, msg_size, gpus, groups=["ep"], protocol=None):
+def run_alltoall(args, msg_size, gpus, groups=("ep",), protocol=None):
     """
     Run alltoall collective.
     Chooses between node, pod, or cluster domain based on GPU count.
@@ -325,7 +326,7 @@ def cp_allgather(args, msg_size, gpus, protocol=None):
     return t
 
 
-def run_allgather(args, msg_size, gpus, groups=["hp"], protocol=None):
+def run_allgather(args, msg_size, gpus, groups=("hp",), protocol=None):
     """
     Run allgather collective.
     Handles node and pod domains, and CP group special case.
@@ -363,7 +364,7 @@ def run_allgather(args, msg_size, gpus, groups=["hp"], protocol=None):
     return t
 
 
-def run_reduce_scatter(args, msg_size, gpus, groups=["hp"], protocol=None):
+def run_reduce_scatter(args, msg_size, gpus, groups=("hp",), protocol=None):
     """
     Run reduce_scatter collective.
     Handles node and pod domains, includes compute time for reduction.
@@ -401,7 +402,7 @@ def run_reduce_scatter(args, msg_size, gpus, groups=["hp"], protocol=None):
     return t
 
 
-def RingAllreduce(args, msg_size, gpus, groups=["dp"], protocol=None):
+def RingAllreduce(args, msg_size, gpus, groups=("dp",), protocol=None):
     """
     Ring Allreduce algorithm.
     Communication is performed in a ring, with two passes.
@@ -434,7 +435,7 @@ def RingAllreduce(args, msg_size, gpus, groups=["dp"], protocol=None):
     return t
 
 
-def RingAllgather(args, msg_size, gpus, groups=["dp"], protocol=None):
+def RingAllgather(args, msg_size, gpus, groups=("dp",), protocol=None):
     """
     Ring Allgather algorithm.
     Communication is performed in a ring, single pass.
@@ -461,7 +462,7 @@ def RingAllgather(args, msg_size, gpus, groups=["dp"], protocol=None):
     return t
 
 
-def RingRS(args, msg_size, gpus, groups=["hp"], protocol=None):
+def RingRS(args, msg_size, gpus, groups=("hp",), protocol=None):
     """
     Ring ReduceScatter algorithm.
     Communication is performed in a ring, single pass, includes compute.
@@ -490,7 +491,7 @@ def RingRS(args, msg_size, gpus, groups=["hp"], protocol=None):
     return t
 
 
-def oneshotHCallreduce(args, msg_size, gpus, groups=["dp"], protocol=None):
+def oneshotHCallreduce(args, msg_size, gpus, groups=("dp",), protocol=None):
     """
     One-shot Hypercube Allreduce algorithm.
     Uses log2 steps for communication, includes compute.
@@ -508,7 +509,7 @@ def oneshotHCallreduce(args, msg_size, gpus, groups=["dp"], protocol=None):
         t = node_msg_volume / bw * 1.0e-3
         lat += node_lat * np.ceil(np.log2(args.node_size))
         bw = args.pod_bw
-        pod_msg_volume = msg_size * np.ceil(np.log2((gpus - args.node_size)))
+        pod_msg_volume = msg_size * np.ceil(np.log2(gpus - args.node_size))
         t += pod_msg_volume / bw * 1.0e-3
         lat += pod_lat * np.ceil(np.log2(gpus / args.node_size))
     else:
@@ -552,7 +553,9 @@ def single_shot_alltoall(args, msg_size, gpus, groups=None, protocol=None):
     t_intra_node = 0
     t_inter_node = 0
     if intra_node_gpus > 0:
-        node_lat, msg_size_per_peer_adj = node_latency_and_volume_protocol(args, msg_size_per_peer, protocol)
+        node_lat, msg_size_per_peer_adj = node_latency_and_volume_protocol(
+            args, msg_size_per_peer, protocol
+        )
         node_bw = get_effective_node_bw(args, group_size=gpus_per_node, a2a=True)
         intra_node_rounds = ceil(intra_node_gpus / intra_node_fanout)
         t_intra_node = intra_node_rounds * node_lat
@@ -646,7 +649,9 @@ def single_shot_allgather(args, msg_size, gpus, groups=None, protocol=None):
     t_intra_node = 0
     t_inter_node = 0
     if intra_node_gpus > 0:
-        node_lat, msg_size_per_peer_node = node_latency_and_volume_protocol(args, msg_size_per_peer, protocol)
+        node_lat, msg_size_per_peer_node = node_latency_and_volume_protocol(
+            args, msg_size_per_peer, protocol
+        )
         node_bw = get_effective_node_bw(args)
         intra_node_rounds = ceil(intra_node_gpus / intra_node_fanout)
         t_intra_node = intra_node_rounds * node_lat
@@ -663,7 +668,7 @@ def single_shot_allgather(args, msg_size, gpus, groups=None, protocol=None):
     return t_ag
 
 
-def single_shot_reduce_scatter(args, msg_size, gpus, groups=["hp"], protocol=None):
+def single_shot_reduce_scatter(args, msg_size, gpus, groups=("hp",), protocol=None):
     """
     Single shot reduce scatter with max fanout and overlap.
     Includes compute time for reduction.
@@ -678,7 +683,9 @@ def single_shot_reduce_scatter(args, msg_size, gpus, groups=["hp"], protocol=Non
     t_intra_node = 0
     t_inter_node = 0
     if intra_node_gpus > 0:
-        node_lat, msg_size_per_peer_node = node_latency_and_volume_protocol(args, msg_size_per_peer, protocol)
+        node_lat, msg_size_per_peer_node = node_latency_and_volume_protocol(
+            args, msg_size_per_peer, protocol
+        )
         node_bw = get_effective_node_bw(args)
         intra_node_rounds = ceil(intra_node_gpus / intra_node_fanout)
         t_intra_node = intra_node_rounds * node_lat
@@ -698,7 +705,7 @@ def single_shot_reduce_scatter(args, msg_size, gpus, groups=["hp"], protocol=Non
     return t_rs
 
 
-def single_shot_allreduce(args, msg_size, gpus, groups=["hp"], protocol=None):
+def single_shot_allreduce(args, msg_size, gpus, groups=("hp",), protocol=None):
     """
     Single shot allreduce = reduce scatter + allgather.
     Combines single shot reduce scatter and allgather.
@@ -716,7 +723,7 @@ def single_shot_allreduce(args, msg_size, gpus, groups=["hp"], protocol=None):
 # ---------------------------
 
 
-def hierarchical_allreduce(args, msg_size, gpus, groups=["dp"], protocol=None):
+def hierarchical_allreduce(args, msg_size, gpus, groups=("dp",), protocol=None):
     """
     Hierarchical AllReduce: intra-RS → inter-AR → intra-AG with pipelining.
 
@@ -789,7 +796,7 @@ def hierarchical_allreduce(args, msg_size, gpus, groups=["dp"], protocol=None):
 # ---------------------------
 
 
-def allreduce(args, msg_size, gpus, groups=["dp"]):
+def allreduce(args, msg_size, gpus, groups=("dp",)):
     """
     Select best allreduce algorithm among several options.
     Tries multiple protocols and algorithms, returns fastest.
@@ -807,7 +814,9 @@ def allreduce(args, msg_size, gpus, groups=["dp"]):
         ss_allreduce = single_shot_allreduce(args, msg_size, gpus, protocol=p)
         ringallreduce = RingAllreduce(args, msg_size, gpus, protocol=p)
         hier_allreduce = hierarchical_allreduce(args, msg_size, gpus, groups, protocol=p)
-        min_ar_alg_time = min(ringallreduce, bruck_time, hypercubeallreduce, ss_allreduce, hier_allreduce)
+        min_ar_alg_time = min(
+            ringallreduce, bruck_time, hypercubeallreduce, ss_allreduce, hier_allreduce
+        )
         if min_ar_alg_time < min_ar_time:
             min_ar_time = min_ar_alg_time
     rccl_overhead = getattr(args, "rccl_overhead_us", 0.0)
@@ -825,7 +834,7 @@ def allreduce(args, msg_size, gpus, groups=["dp"]):
     return min_ar_time
 
 
-def alltoall(args, msg_size, gpus, groups=["ep"]):
+def alltoall(args, msg_size, gpus, groups=("ep",)):
     """
     Select best alltoall algorithm among several options.
     Tries multiple protocols and algorithms, returns fastest.
@@ -865,7 +874,7 @@ def alltoall(args, msg_size, gpus, groups=["ep"]):
     return min_a2a_time
 
 
-def allgather(args, msg_size, gpus, groups=["hp"]):
+def allgather(args, msg_size, gpus, groups=("hp",)):
     """
     Select best allgather algorithm among several options.
     Tries multiple protocols and algorithms, returns fastest.
@@ -881,7 +890,7 @@ def allgather(args, msg_size, gpus, groups=["hp"]):
     return min_ag_time
 
 
-def reduce_scatter(args, msg_size, gpus, groups=["hp"]):
+def reduce_scatter(args, msg_size, gpus, groups=("hp",)):
     """
     Select best reduce_scatter algorithm among several options.
     Tries multiple protocols and algorithms, returns fastest.

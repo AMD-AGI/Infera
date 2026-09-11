@@ -78,10 +78,12 @@ def test_turning_off_one_aiter_kernel_is_a_different_regime():
 def test_two_different_kernel_swaps_do_not_share_an_anchor():
     """Turning off MHA and turning off MoE are not the same measurement."""
     env = {"VLLM_ROCM_USE_AITER": "1"}
-    a = recipe_from_meta({"model": "m",
-                          "aiter_ops": aiter_ops_axis(dict(env, VLLM_ROCM_USE_AITER_MHA="0"))})
-    b = recipe_from_meta({"model": "m",
-                          "aiter_ops": aiter_ops_axis(dict(env, VLLM_ROCM_USE_AITER_MOE="0"))})
+    a = recipe_from_meta(
+        {"model": "m", "aiter_ops": aiter_ops_axis(dict(env, VLLM_ROCM_USE_AITER_MHA="0"))}
+    )
+    b = recipe_from_meta(
+        {"model": "m", "aiter_ops": aiter_ops_axis(dict(env, VLLM_ROCM_USE_AITER_MOE="0"))}
+    )
     assert regime_distance(a, b) >= 1
 
 
@@ -272,9 +274,7 @@ def test_a_directory_of_measurements_is_not_empty_just_because_nobody_indexed_it
         (16, 1, "tp4.json"),
     ],
 )
-def test_anchor_tp_policy_uses_tp4_at_four_and_above(
-    tmp_path, target_tp, target_ep, expected
-):
+def test_anchor_tp_policy_uses_tp4_at_four_and_above(tmp_path, target_tp, target_ep, expected):
     _artifact(tmp_path, "tp1.json", tp=1)
     _artifact(tmp_path, "tp2.json", tp=2)
     _artifact(tmp_path, "tp2ep2.json", tp=2, ep=2)
@@ -282,9 +282,7 @@ def test_anchor_tp_policy_uses_tp4_at_four_and_above(
     _artifact(tmp_path, "tp8.json", tp=8)
 
     store = AnchorStore(str(tmp_path))
-    entry, distance = store.nearest(
-        {"tp": target_tp, "ep": target_ep, "weight_dtype": "mxfp4"}
-    )
+    entry, distance = store.nearest({"tp": target_tp, "ep": target_ep, "weight_dtype": "mxfp4"})
 
     assert distance == 0
     assert os.path.basename(entry["path"]) == expected

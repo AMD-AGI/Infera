@@ -100,16 +100,27 @@ def test_every_catalogued_objective_resolves_to_something_real():
 
 def test_direction_is_right_for_each_objective():
     """Scoring is signed so higher always wins; a sign slip inverts the search."""
-    for obj in ("ttft_ms", "itl_ms", "request_latency_ms", "memory_per_gpu_gb",
-                "kv_cache_gb", "tpot_pollution_pct", "decode_step_ms_pure"):
+    for obj in (
+        "ttft_ms",
+        "itl_ms",
+        "request_latency_ms",
+        "memory_per_gpu_gb",
+        "kv_cache_gb",
+        "tpot_pollution_pct",
+        "decode_step_ms_pure",
+    ):
         assert objective_is_minimize(obj), f"{obj} should be minimized"
-    for obj in ("total_throughput_tps_per_gpu", "decode_throughput_tps_per_gpu",
-                "prefill_throughput_tps_per_gpu", "interactivity_tok_s_per_user",
-                "max_concurrent_sequences", "mfu"):
+    for obj in (
+        "total_throughput_tps_per_gpu",
+        "decode_throughput_tps_per_gpu",
+        "prefill_throughput_tps_per_gpu",
+        "interactivity_tok_s_per_user",
+        "max_concurrent_sequences",
+        "mfu",
+    ):
         assert not objective_is_minimize(obj), f"{obj} should be maximized"
     # Lower latency must score higher.
-    assert score_result({"ttft_ms": 100.0}, "ttft_ms") > \
-           score_result({"ttft_ms": 900.0}, "ttft_ms")
+    assert score_result({"ttft_ms": 100.0}, "ttft_ms") > score_result({"ttft_ms": 900.0}, "ttft_ms")
 
 
 def test_the_names_people_actually_use_reach_the_right_metric():
@@ -131,6 +142,7 @@ def test_what_cannot_be_projected_is_not_offered():
     from infera.projection.agents.tuning_agent.inference_tuning import (
         UNSUPPORTED_OBJECTIVES,
     )
+
     for absent in UNSUPPORTED_OBJECTIVES:
         assert absent not in INFERENCEX_OBJECTIVES
     assert {"avg_power_w", "mfu", "tflops_per_s_per_gpu"} <= UNSUPPORTED_OBJECTIVES

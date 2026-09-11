@@ -18,7 +18,7 @@ An SDPA simulation backend is provided in ``sdpa_simulator.py``.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass
@@ -29,11 +29,11 @@ class SimulationResult:
     forward_time_ms: float = 0.0
 
     # Optional: predicted TFLOPS / bandwidth
-    tflops: Optional[float] = None
-    bandwidth_gbps: Optional[float] = None
+    tflops: float | None = None
+    bandwidth_gbps: float | None = None
 
     # Optional: extra metadata from the backend
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class GEMMSimulationBackend(ABC):
@@ -50,7 +50,7 @@ class GEMMSimulationBackend(ABC):
         ...
 
     @property
-    def hbm_bandwidth_gbps(self) -> Optional[float]:
+    def hbm_bandwidth_gbps(self) -> float | None:
         """Peak HBM bandwidth in GB/s for the target GPU, or *None* if unknown.
 
         Concrete backends should override this when the target architecture is
@@ -138,18 +138,24 @@ class GEMMSimulationBackend(ABC):
 
         if swiglu:
             # Gate projection fwd:  [tokens, hidden] x [hidden, ffn] -> [tokens, ffn]
-            gate_fwd = self.simulate_gemm(batch_tokens, ffn_hidden_size, hidden_size, dtype, batch=b)
+            gate_fwd = self.simulate_gemm(
+                batch_tokens, ffn_hidden_size, hidden_size, dtype, batch=b
+            )
             # Up projection fwd:  same shape as gate
             up_fwd = self.simulate_gemm(batch_tokens, ffn_hidden_size, hidden_size, dtype, batch=b)
             # Down projection fwd:  [tokens, ffn] x [ffn, hidden] -> [tokens, hidden]
-            down_fwd = self.simulate_gemm(batch_tokens, hidden_size, ffn_hidden_size, dtype, batch=b)
+            down_fwd = self.simulate_gemm(
+                batch_tokens, hidden_size, ffn_hidden_size, dtype, batch=b
+            )
 
             fwd_time = gate_fwd.forward_time_ms + up_fwd.forward_time_ms + down_fwd.forward_time_ms
         else:
             # Up projection fwd:  [tokens, hidden] x [hidden, ffn] -> [tokens, ffn]
             up_fwd = self.simulate_gemm(batch_tokens, ffn_hidden_size, hidden_size, dtype, batch=b)
             # Down projection fwd:  [tokens, ffn] x [ffn, hidden] -> [tokens, hidden]
-            down_fwd = self.simulate_gemm(batch_tokens, hidden_size, ffn_hidden_size, dtype, batch=b)
+            down_fwd = self.simulate_gemm(
+                batch_tokens, hidden_size, ffn_hidden_size, dtype, batch=b
+            )
 
             fwd_time = up_fwd.forward_time_ms + down_fwd.forward_time_ms
 
@@ -219,9 +225,9 @@ class SDPASimulationBackend(ABC):
         head_dim: int,
         causal: bool = True,
         dtype: str = "bf16",
-        seq_len_kv: Optional[int] = None,
-        num_heads_kv: Optional[int] = None,
-        head_dim_v: Optional[int] = None,
+        seq_len_kv: int | None = None,
+        num_heads_kv: int | None = None,
+        head_dim_v: int | None = None,
     ) -> SimulationResult:
         """
         Simulate a Scaled Dot-Product Attention operation.

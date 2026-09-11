@@ -16,7 +16,7 @@ _GLOBAL_TARGET_PLATFORM = None
 
 def _ensure_var_is_initialized(var, name):
     """Make sure the input variable is not None."""
-    assert var is not None, "{} is not initialized.".format(name)
+    assert var is not None, f"{name} is not initialized."
 
 
 def is_initialized():
@@ -81,7 +81,7 @@ def _set_target_platform(cfg: InferaSimConfig):
             master_sink_level="INFO",
             gpus_per_node_env_key=None,
         )
-        setattr(cfg, "platform_config", platform_config)
+        cfg.platform_config = platform_config
     if platform_config.name and platform_config.name != "local":
         from infera.projection.platforms import RemotePlatform
 

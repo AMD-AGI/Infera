@@ -65,7 +65,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import math
 import os
 import shlex
 import statistics
@@ -80,10 +79,17 @@ try:  # pragma: no cover - import shim for in-container script execution
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from search.regime import (  # type: ignore
         aiter_ops_axis as _regime_aiter_ops,
+    )
+    from search.regime import (
         config_key as _regime_config_key,
+    )
+    from search.regime import (
         recipe_from_bench_args as _regime_recipe_from_bench_args,
+    )
+    from search.regime import (
         regime_signature as _regime_signature,
     )
+
     _HAVE_REGIME = True
 except Exception:  # noqa: BLE001 - any import failure => inline fallback
     _HAVE_REGIME = False
@@ -103,7 +109,7 @@ except Exception:  # noqa: BLE001 - any import failure => inline fallback
 
 
 def _harmonic(num_experts: int, s: float) -> float:
-    return sum(1.0 / (r ** s) for r in range(1, int(num_experts) + 1))
+    return sum(1.0 / (r**s) for r in range(1, int(num_experts) + 1))
 
 
 def _imbalance_for_s(num_experts: int, s: float) -> float:
@@ -174,8 +180,13 @@ def _num_experts(model: str, trust_remote_code: bool) -> int:
         cfg = AutoConfig.from_pretrained(model, trust_remote_code=trust_remote_code)
     except Exception:
         return 0
-    for attr in ("num_local_experts", "n_routed_experts", "num_experts",
-                 "moe_num_experts", "num_experts_per_tok"):
+    for attr in (
+        "num_local_experts",
+        "n_routed_experts",
+        "num_experts",
+        "moe_num_experts",
+        "num_experts_per_tok",
+    ):
         v = getattr(cfg, attr, None)
         if isinstance(v, int) and v > 1 and attr != "num_experts_per_tok":
             return v
@@ -254,9 +265,9 @@ _ZIPF_MARKER = "INFERASIM_ZIPF_ROUTING"
 # Bump when the injected strategy changes; the installer replaces older blocks.
 _ZIPF_VERSION = "v2-pooled"
 
-_ZIPF_PATCH = '''
+_ZIPF_PATCH = f'''
 
-# === BEGIN {marker} {version} (appended by InferaSim benchmark; idempotent) ===
+# === BEGIN {_ZIPF_MARKER} {_ZIPF_VERSION} (appended by InferaSim benchmark; idempotent) ===
 import os as _isim_os
 import torch as _isim_torch
 
@@ -343,8 +354,8 @@ class _ISimZipfRouting(RoutingStrategy):
 RoutingSimulator.register_strategy(
     "zipf", _ISimZipfRouting(s=float(_isim_os.environ.get("INFERASIM_ZIPF_S", "1.0")))
 )
-# === END {marker} ===
-'''.format(marker=_ZIPF_MARKER, version=_ZIPF_VERSION)
+# === END {_ZIPF_MARKER} ===
+'''
 
 
 def _install_zipf_routing(zipf_s: float) -> bool:
@@ -365,7 +376,7 @@ def _install_zipf_routing(zipf_s: float) -> bool:
     if spec is None or not spec.origin:
         return False
     path = spec.origin
-    with open(path, "r") as f:
+    with open(path) as f:
         src = f.read()
     want = f"BEGIN {_ZIPF_MARKER} {_ZIPF_VERSION}"
     if want not in src:
@@ -430,10 +441,7 @@ def _engine_kwargs_from_server_args(server_args: str) -> dict:
     }
     defaults = vars(parser.parse_args([]))
     given = vars(parser.parse_args(tokens))
-    return {
-        k: v for k, v in given.items()
-        if k != "model" and (k in named or v != defaults.get(k))
-    }
+    return {k: v for k, v in given.items() if k != "model" and (k in named or v != defaults.get(k))}
 
 
 def _server_arg_value(server_args: str, flag: str):
@@ -538,7 +546,7 @@ def _free_llm(llm) -> None:
         pass
 
 
-def _speculative_config(args) -> "dict | None":
+def _speculative_config(args) -> dict | None:
     """vLLM ``speculative_config`` from the CLI, or None when not requested.
 
     Returns None unless ``--speculative-method`` is given, so the default path is
@@ -570,8 +578,15 @@ def _measure(llm, prompts, out_len: int, reps: int) -> float:
     return best
 
 
-def _measure_batch(llm, input_len: int, batch: int, decode_steps: int,
-                   random_tokens: bool = False, vocab: int = 30000, seed: int = 0) -> dict:
+def _measure_batch(
+    llm,
+    input_len: int,
+    batch: int,
+    decode_steps: int,
+    random_tokens: bool = False,
+    vocab: int = 30000,
+    seed: int = 0,
+) -> dict:
     """Measure whole-model prefill + steady-state decode step latency at ``batch``.
 
     The decode step differences two long runs, K and K/2 tokens, which share the
@@ -670,12 +685,16 @@ def run_vllm_benchmark(args) -> dict:
             zipf_s = _s_for_imbalance(n_experts, float(imbalance_target))
             imbalance_realized = _imbalance_for_s(n_experts, zipf_s)
             routing = "zipf"
-            print(f"[inferasim:Inference:vLLM-Benchmark] MoE imbalance "
-                  f"I={float(imbalance_target):.2f} -> zipf s={zipf_s:.3f} "
-                  f"(N={n_experts} experts, realized I={imbalance_realized:.2f})")
+            print(
+                f"[inferasim:Inference:vLLM-Benchmark] MoE imbalance "
+                f"I={float(imbalance_target):.2f} -> zipf s={zipf_s:.3f} "
+                f"(N={n_experts} experts, realized I={imbalance_realized:.2f})"
+            )
         else:
-            print("[inferasim:Inference:vLLM-Benchmark] WARNING: could not read "
-                  "expert count; falling back to --zipf-s")
+            print(
+                "[inferasim:Inference:vLLM-Benchmark] WARNING: could not read "
+                "expert count; falling back to --zipf-s"
+            )
     if routing == "zipf":
         if _install_zipf_routing(zipf_s):
             routing_applied = f"zipf(s={zipf_s})"
@@ -718,7 +737,9 @@ def run_vllm_benchmark(args) -> dict:
     decode_ctx_grid = None
     if concurrency:
         if getattr(args, "decode_context_grid", None):
-            decode_ctx_grid = [int(x) for x in str(args.decode_context_grid).split(",") if x.strip()]
+            decode_ctx_grid = [
+                int(x) for x in str(args.decode_context_grid).split(",") if x.strip()
+            ]
         else:
             decode_ctx_grid = [args.input_len, 2 * args.input_len, 4 * args.input_len]
         decode_ctx_grid = sorted({c for c in decode_ctx_grid if c >= args.input_len})
@@ -744,23 +765,29 @@ def run_vllm_benchmark(args) -> dict:
     benchmark_gpus = getattr(args, "benchmark_gpus", None)
     if benchmark_gpus is None:
         benchmark_gpus = warmup_gpu_count(target_tp, target_ep, target_pp)
-        print(f"[inferasim:Inference:vLLM-Benchmark] warmup size not given; "
-              f"measuring on {benchmark_gpus} GPU(s) for a TP={target_tp} "
-              f"EP={target_ep} target (footprint capped at {WARMUP_GPU_CAP}). "
-              f"Pass --benchmark-gpus to measure on a different number.")
+        print(
+            f"[inferasim:Inference:vLLM-Benchmark] warmup size not given; "
+            f"measuring on {benchmark_gpus} GPU(s) for a TP={target_tp} "
+            f"EP={target_ep} target (footprint capped at {WARMUP_GPU_CAP}). "
+            f"Pass --benchmark-gpus to measure on a different number."
+        )
     bench_tp, bench_pp, bench_ep = _reduce_parallelism(
         target_tp, target_pp, target_ep, benchmark_gpus
     )
     reduced_parallelism = (bench_tp, bench_pp, bench_ep) != (target_tp, target_pp, target_ep)
     if reduced_parallelism:
-        print(f"[inferasim:Inference:vLLM-Benchmark] REDUCE PARALLELISM (pp->ep->tp) to fit "
-              f"{benchmark_gpus} GPU(s): TP {target_tp}->{bench_tp}, EP {target_ep}->{bench_ep}, "
-              f"PP {target_pp}->{bench_pp} (performance.py restores to target)")
+        print(
+            f"[inferasim:Inference:vLLM-Benchmark] REDUCE PARALLELISM (pp->ep->tp) to fit "
+            f"{benchmark_gpus} GPU(s): TP {target_tp}->{bench_tp}, EP {target_ep}->{bench_ep}, "
+            f"PP {target_pp}->{bench_pp} (performance.py restores to target)"
+        )
 
     server_kwargs = _engine_kwargs_from_server_args(getattr(args, "server_args", ""))
     if server_kwargs:
-        print(f"[inferasim:Inference:vLLM-Benchmark] server args -> engine kwargs: "
-              f"{json.dumps(server_kwargs, default=str)}")
+        print(
+            f"[inferasim:Inference:vLLM-Benchmark] server args -> engine kwargs: "
+            f"{json.dumps(server_kwargs, default=str)}"
+        )
 
     def _build_llm(num_layers_override):
         """Build a vLLM engine at the (possibly reduced) benchmark parallelism,
@@ -789,9 +816,7 @@ def run_vllm_benchmark(args) -> dict:
         # With this enabled, prefill_ms intentionally measures a near-100% cache
         # hit (block lookup), not cold prompt processing. Keep the mode explicit
         # in metadata so consumers can distinguish the two observables.
-        kwargs["enable_prefix_caching"] = bool(
-            getattr(args, "prefix_caching", False)
-        )
+        kwargs["enable_prefix_caching"] = bool(getattr(args, "prefix_caching", False))
         # Expert parallelism: shard MoE experts across the TP ranks (EP = TP)
         # instead of tensor-slicing each expert. Required to expose the
         # imbalance-sensitive effects — the MoE step is then gated by the BUSIEST
@@ -836,15 +861,23 @@ def run_vllm_benchmark(args) -> dict:
         raw = []
         for b in batches:
             for sd in seeds:
-                entry = _measure_batch(llm, args.input_len, b, args.decode_steps,
-                                       random_tokens=random_tokens, vocab=args.vocab,
-                                       seed=sd)
+                entry = _measure_batch(
+                    llm,
+                    args.input_len,
+                    b,
+                    args.decode_steps,
+                    random_tokens=random_tokens,
+                    vocab=args.vocab,
+                    seed=sd,
+                )
                 entry["seed"] = sd
                 raw.append(entry)
                 if len(seeds) > 1:
-                    print(f"[inferasim:Inference:vLLM-Benchmark]   batch={b} seed={sd} "
-                          f"prefill={entry['prefill_ms']:.2f}ms "
-                          f"decode_step={entry['decode_ms']:.2f}ms")
+                    print(
+                        f"[inferasim:Inference:vLLM-Benchmark]   batch={b} seed={sd} "
+                        f"prefill={entry['prefill_ms']:.2f}ms "
+                        f"decode_step={entry['decode_ms']:.2f}ms"
+                    )
         sweep = []
         for b in batches:
             pts = [e for e in raw if e["batch"] == b]
@@ -867,11 +900,16 @@ def run_vllm_benchmark(args) -> dict:
                 "n_seeds": len(dvals),
             }
             sweep.append(entry)
-            spread = (f" (+/-{entry['decode_ms_std']:.2f} over {len(dvals)} seeds)"
-                      if len(dvals) > 1 else "")
-            print(f"[inferasim:Inference:vLLM-Benchmark] batch={b} "
-                  f"prefill={entry['prefill_ms']:.2f}ms "
-                  f"decode_step={entry['decode_ms']:.2f}ms{spread}")
+            spread = (
+                f" (+/-{entry['decode_ms_std']:.2f} over {len(dvals)} seeds)"
+                if len(dvals) > 1
+                else ""
+            )
+            print(
+                f"[inferasim:Inference:vLLM-Benchmark] batch={b} "
+                f"prefill={entry['prefill_ms']:.2f}ms "
+                f"decode_step={entry['decode_ms']:.2f}ms{spread}"
+            )
         return sweep, raw
 
     def _resolve_capture_batches(llm):
@@ -880,9 +918,11 @@ def run_vllm_benchmark(args) -> dict:
         engine_caps = _engine_capture_sizes(llm)
         caps = engine_caps or _default_capture_sizes(concurrency)
         bs = _capture_batches_up_to(caps, concurrency)
-        print(f"[inferasim:Inference:vLLM-Benchmark] concurrency={concurrency} -> "
-              f"capture-size batches {bs} "
-              f"(source={'engine' if engine_caps else 'default'})")
+        print(
+            f"[inferasim:Inference:vLLM-Benchmark] concurrency={concurrency} -> "
+            f"capture-size batches {bs} "
+            f"(source={'engine' if engine_caps else 'default'})"
+        )
         return bs, caps
 
     def _measure_decode_context(llm):
@@ -893,12 +933,20 @@ def run_vllm_benchmark(args) -> dict:
         pts = []
         for c in decode_ctx_grid:
             for b in ctx_batches:
-                e = _measure_batch(llm, c, b, args.decode_steps,
-                                   random_tokens=random_tokens, vocab=args.vocab,
-                                   seed=seeds[0])
+                e = _measure_batch(
+                    llm,
+                    c,
+                    b,
+                    args.decode_steps,
+                    random_tokens=random_tokens,
+                    vocab=args.vocab,
+                    seed=seeds[0],
+                )
                 pts.append({"batch": b, "context": c, "decode_ms": e["decode_ms"]})
-                print(f"[inferasim:Inference:vLLM-Benchmark]   decode-ctx b={b} "
-                      f"ctx={c} decode_step={e['decode_ms']:.2f}ms")
+                print(
+                    f"[inferasim:Inference:vLLM-Benchmark]   decode-ctx b={b} "
+                    f"ctx={c} decode_step={e['decode_ms']:.2f}ms"
+                )
         return pts
 
     # --- REDUCE -> BENCHMARK -> RESTORE -------------------------------------
@@ -916,14 +964,18 @@ def run_vllm_benchmark(args) -> dict:
     sweep_raw = None
     decode_ctx = None
     if len(bench_counts) >= 2:
-        full_layers = int(args.full_layers or _full_num_layers(args.model, args.trust_remote_code) or 0)
+        full_layers = int(
+            args.full_layers or _full_num_layers(args.model, args.trust_remote_code) or 0
+        )
         if full_layers <= 0:
             raise SystemExit(
                 "[inferasim:Inference:vLLM-Benchmark] --bench-layers restore needs the full "
                 "layer count; could not read it from the HF config. Pass --full-layers."
             )
-        print(f"[inferasim:Inference:vLLM-Benchmark] REDUCE->BENCHMARK->RESTORE: "
-              f"bench layer counts {bench_counts} -> restore to {full_layers} layers")
+        print(
+            f"[inferasim:Inference:vLLM-Benchmark] REDUCE->BENCHMARK->RESTORE: "
+            f"bench layer counts {bench_counts} -> restore to {full_layers} layers"
+        )
         bench_sweeps = {}
         for li, L in enumerate(bench_counts):
             print(f"[inferasim:Inference:vLLM-Benchmark] --- benchmarking {L} layers ---")
@@ -937,21 +989,31 @@ def run_vllm_benchmark(args) -> dict:
         sweep = []
         per_layer = []
         for b in batches:
-            pre_pts = [(L, bench_sweeps[L][b]["prefill_ms"]) for L in bench_counts if b in bench_sweeps[L]]
-            dec_pts = [(L, bench_sweeps[L][b]["decode_ms"]) for L in bench_counts if b in bench_sweeps[L]]
+            pre_pts = [
+                (L, bench_sweeps[L][b]["prefill_ms"]) for L in bench_counts if b in bench_sweeps[L]
+            ]
+            dec_pts = [
+                (L, bench_sweeps[L][b]["decode_ms"]) for L in bench_counts if b in bench_sweeps[L]
+            ]
             bp, ap = _linfit(pre_pts)
             bd, ad = _linfit(dec_pts)
             full_prefill = max(1e-3, ap + bp * full_layers)
             full_decode = max(1e-6, ad + bd * full_layers)
             sweep.append({"batch": b, "prefill_ms": full_prefill, "decode_ms": full_decode})
-            per_layer.append({
-                "batch": b,
-                "per_layer_prefill_ms": bp, "overhead_prefill_ms": ap,
-                "per_layer_decode_ms": bd, "overhead_decode_ms": ad,
-            })
-            print(f"[inferasim:Inference:vLLM-Benchmark] RESTORED batch={b} "
-                  f"prefill={full_prefill:.2f}ms decode_step={full_decode:.2f}ms "
-                  f"(per-layer decode={bd:.3f}ms, overhead={ad:.2f}ms)")
+            per_layer.append(
+                {
+                    "batch": b,
+                    "per_layer_prefill_ms": bp,
+                    "overhead_prefill_ms": ap,
+                    "per_layer_decode_ms": bd,
+                    "overhead_decode_ms": ad,
+                }
+            )
+            print(
+                f"[inferasim:Inference:vLLM-Benchmark] RESTORED batch={b} "
+                f"prefill={full_prefill:.2f}ms decode_step={full_decode:.2f}ms "
+                f"(per-layer decode={bd:.3f}ms, overhead={ad:.2f}ms)"
+            )
         restore_meta = {
             "bench_layers": bench_counts,
             "full_layers": full_layers,
@@ -1022,9 +1084,8 @@ def run_vllm_benchmark(args) -> dict:
             # The lever set this run actually executed under. Without these an
             # anchor cannot be told apart from one measured on different flags.
             "server_args": getattr(args, "server_args", "") or None,
-            "env_overrides": dict(
-                kv.split("=", 1) for kv in getattr(args, "env", None) or []
-            ) or None,
+            "env_overrides": dict(kv.split("=", 1) for kv in getattr(args, "env", None) or [])
+            or None,
             "attention_backend": _server_arg_value(
                 getattr(args, "server_args", "") or "", "--attention-backend"
             ),
@@ -1071,17 +1132,37 @@ _CACHE_IGNORE_ARGS = {"save", "cache_dir", "no_cache", "force"}
 # as ``extra`` so the cache stays exact while regime/transport come from the
 # shared signature scheme.
 _CACHE_EXTRA_ARGS = (
-    "decode_steps", "batches", "bench_layers", "full_layers", "benchmark_gpus",
-    "random_tokens", "vocab", "gpu_mem_util", "routing_dist", "zipf_s",
-    "moe_imbalance", "load_format", "skip_tokenizer_init", "no_aiter",
-    "max_model_len", "output_len", "seed", "seeds", "concurrency",
-    "decode_context_grid", "server_args", "env",
+    "decode_steps",
+    "batches",
+    "bench_layers",
+    "full_layers",
+    "benchmark_gpus",
+    "random_tokens",
+    "vocab",
+    "gpu_mem_util",
+    "routing_dist",
+    "zipf_s",
+    "moe_imbalance",
+    "load_format",
+    "skip_tokenizer_init",
+    "no_aiter",
+    "max_model_len",
+    "output_len",
+    "seed",
+    "seeds",
+    "concurrency",
+    "decode_context_grid",
+    "server_args",
+    "env",
     # Serving and offline anchors of the same config are different measurements,
     # as are two engines serving it, so none of them may share a cache entry.
-    "offline", "serving_backend",
+    "offline",
+    "serving_backend",
     # A prefill-anchored artifact carries a measurement a decode-only one does
     # not, so the two cannot share an entry even at an identical config.
-    "prefill_anchor", "prefill_anchor_short", "prefill_anchor_validate",
+    "prefill_anchor",
+    "prefill_anchor_short",
+    "prefill_anchor_validate",
 )
 
 
@@ -1098,8 +1179,9 @@ def _regime_env() -> dict:
     server flag, and it reaches the regime through ``args`` instead.
     """
     env = {"VLLM_ROCM_USE_AITER": os.environ.get("VLLM_ROCM_USE_AITER", "0")}
-    env.update({k: v for k, v in os.environ.items()
-                if k.upper().startswith("VLLM_ROCM_USE_AITER_")})
+    env.update(
+        {k: v for k, v in os.environ.items() if k.upper().startswith("VLLM_ROCM_USE_AITER_")}
+    )
     return env
 
 
@@ -1124,17 +1206,26 @@ def _cache_path(cache_dir: str, key: str) -> str:
 def main(argv=None):
     ap = argparse.ArgumentParser(description="vLLM inference benchmark backend")
     ap.add_argument("--model", required=True, help="HF model id or local path")
-    ap.add_argument("--tp", type=int, default=1,
-                    help="TARGET tensor parallel size to project to (the benchmark "
-                         "may run at a smaller TP via --benchmark-gpus and restore).")
-    ap.add_argument("--pp", type=int, default=1,
-                    help="TARGET pipeline parallel size to project to.")
-    ap.add_argument("--benchmark-gpus", type=int, default=None,
-                    help="GPUs available for the actual vLLM run. When smaller than "
-                         "TP*PP, parallelism is reduced (pp->ep->tp) to fit and "
-                         "performance.py restores the whole-model latency to the "
-                         "target TP/EP/PP. E.g. --tp 8 --benchmark-gpus 1 runs TP=1 "
-                         "on 1 GPU and projects to TP=8.")
+    ap.add_argument(
+        "--tp",
+        type=int,
+        default=1,
+        help="TARGET tensor parallel size to project to (the benchmark "
+        "may run at a smaller TP via --benchmark-gpus and restore).",
+    )
+    ap.add_argument(
+        "--pp", type=int, default=1, help="TARGET pipeline parallel size to project to."
+    )
+    ap.add_argument(
+        "--benchmark-gpus",
+        type=int,
+        default=None,
+        help="GPUs available for the actual vLLM run. When smaller than "
+        "TP*PP, parallelism is reduced (pp->ep->tp) to fit and "
+        "performance.py restores the whole-model latency to the "
+        "target TP/EP/PP. E.g. --tp 8 --benchmark-gpus 1 runs TP=1 "
+        "on 1 GPU and projects to TP=8.",
+    )
     ap.add_argument("--quantization", default=None, help="e.g. fp8, mxfp4 (None=from config)")
     ap.add_argument("--kv-cache-dtype", default=None, help="e.g. fp8 (None=auto)")
     ap.add_argument("--input-len", type=int, default=1024)
@@ -1142,159 +1233,256 @@ def main(argv=None):
     ap.add_argument("--decode-steps", type=int, default=32, help="K for decode-step timing")
     ap.add_argument("--batch", type=int, default=16, help="ref batch (anchor) when no --batches")
     ap.add_argument("--batches", default=None, help="comma list to sweep, e.g. 4,8,16,32,64")
-    ap.add_argument("--concurrency", type=int, default=None,
-                    help="derive the sweep from the engine's CUDA-graph capture "
-                         "sizes up to this concurrency (overrides --batch/--batches). "
-                         "Decode is then looked up by padding the batch UP to the "
-                         "nearest captured size at projection time.")
-    ap.add_argument("--decode-context-grid", default=None,
-                    help="[capture mode] comma list of context (KV) lengths to "
-                         "measure the decode step at (default: input_len x {1,2,4}), "
-                         "so the projector fits the attention KV term instead of "
-                         "assuming decode is flat in context.")
-    ap.add_argument("--seed", type=int, default=0,
-                    help="single RNG seed for random token content (default 0)")
-    ap.add_argument("--seeds", default="0,1,2",
-                    help="comma list of seeds to sweep in ONE engine build, e.g. "
-                         "'0,1,2'. Each seed re-rolls random token content and adds "
-                         "an independent timing sample; the emitted sweep carries the "
-                         "per-batch mean + std across seeds (no engine re-init). "
-                         "Three by default because a single seed gives an artifact "
-                         "with no error bar at all: two independent single-seed runs "
-                         "of one identical config can disagree by enough to be "
-                         "mistaken for model error. Seeds are nearly free -- they "
-                         "reuse the engine, "
-                         "and the build is almost all of the cost.")
+    ap.add_argument(
+        "--concurrency",
+        type=int,
+        default=None,
+        help="derive the sweep from the engine's CUDA-graph capture "
+        "sizes up to this concurrency (overrides --batch/--batches). "
+        "Decode is then looked up by padding the batch UP to the "
+        "nearest captured size at projection time.",
+    )
+    ap.add_argument(
+        "--decode-context-grid",
+        default=None,
+        help="[capture mode] comma list of context (KV) lengths to "
+        "measure the decode step at (default: input_len x {1,2,4}), "
+        "so the projector fits the attention KV term instead of "
+        "assuming decode is flat in context.",
+    )
+    ap.add_argument(
+        "--seed", type=int, default=0, help="single RNG seed for random token content (default 0)"
+    )
+    ap.add_argument(
+        "--seeds",
+        default="0,1,2",
+        help="comma list of seeds to sweep in ONE engine build, e.g. "
+        "'0,1,2'. Each seed re-rolls random token content and adds "
+        "an independent timing sample; the emitted sweep carries the "
+        "per-batch mean + std across seeds (no engine re-init). "
+        "Three by default because a single seed gives an artifact "
+        "with no error bar at all: two independent single-seed runs "
+        "of one identical config can disagree by enough to be "
+        "mistaken for model error. Seeds are nearly free -- they "
+        "reuse the engine, "
+        "and the build is almost all of the cost.",
+    )
     ap.add_argument("--max-model-len", type=int, default=None)
-    ap.add_argument("--bench-layers", default=None,
-                    help="comma list of REDUCED layer counts to benchmark and "
-                         "RESTORE from, e.g. '4,8'. Enables the reduce->benchmark->"
-                         "restore policy: the engine is built at each count, the "
-                         "step latency is fit vs layer count, and the full model "
-                         "(--full-layers, or the HF config) is reconstructed. The "
-                         "emitted sweep is the restored full-model latency.")
-    ap.add_argument("--full-layers", type=int, default=None,
-                    help="full transformer layer count to restore to when using "
-                         "--bench-layers (default: read num_hidden_layers from the "
-                         "HF config)")
-    ap.add_argument("--num-hidden-layers", type=int, default=None,
-                    help="[legacy, no restore] override the model's transformer "
-                         "layer count for a single sub-scale run. Prefer "
-                         "--bench-layers for a full-model projection.")
-    ap.add_argument("--load-format", default="dummy",
-                    help="vLLM load_format: 'dummy' (random weights, needs an "
-                         "imposed routing dist) or 'auto'/'safetensors' (REAL "
-                         "weights -> the trained router sets the distribution; "
-                         "use with --routing-dist none for a constant-free run)")
-    ap.add_argument("--random-tokens", action="store_true",
-                    help="use independent random token ids per sequence "
-                         "(auto-on for real weights; matches InferenceX random data)")
-    ap.add_argument("--vocab", type=int, default=30000,
-                    help="upper bound for random token ids")
+    ap.add_argument(
+        "--bench-layers",
+        default=None,
+        help="comma list of REDUCED layer counts to benchmark and "
+        "RESTORE from, e.g. '4,8'. Enables the reduce->benchmark->"
+        "restore policy: the engine is built at each count, the "
+        "step latency is fit vs layer count, and the full model "
+        "(--full-layers, or the HF config) is reconstructed. The "
+        "emitted sweep is the restored full-model latency.",
+    )
+    ap.add_argument(
+        "--full-layers",
+        type=int,
+        default=None,
+        help="full transformer layer count to restore to when using "
+        "--bench-layers (default: read num_hidden_layers from the "
+        "HF config)",
+    )
+    ap.add_argument(
+        "--num-hidden-layers",
+        type=int,
+        default=None,
+        help="[legacy, no restore] override the model's transformer "
+        "layer count for a single sub-scale run. Prefer "
+        "--bench-layers for a full-model projection.",
+    )
+    ap.add_argument(
+        "--load-format",
+        default="dummy",
+        help="vLLM load_format: 'dummy' (random weights, needs an "
+        "imposed routing dist) or 'auto'/'safetensors' (REAL "
+        "weights -> the trained router sets the distribution; "
+        "use with --routing-dist none for a constant-free run)",
+    )
+    ap.add_argument(
+        "--random-tokens",
+        action="store_true",
+        help="use independent random token ids per sequence "
+        "(auto-on for real weights; matches InferenceX random data)",
+    )
+    ap.add_argument("--vocab", type=int, default=30000, help="upper bound for random token ids")
     ap.add_argument("--gpu-mem-util", type=float, default=0.9)
-    ap.add_argument("--prefix-caching", action="store_true",
-                    help="enable vLLM prefix caching. In the offline repeated-"
-                         "prompt sweep this measures near-100% cache-hit lookup "
-                         "latency, not cold-prefill latency.")
+    ap.add_argument(
+        "--prefix-caching",
+        action="store_true",
+        help="enable vLLM prefix caching. In the offline repeated-"
+        "prompt sweep this measures near-100% cache-hit lookup "
+        "latency, not cold-prefill latency.",
+    )
     ap.add_argument("--trust-remote-code", action="store_true")
-    ap.add_argument("--skip-tokenizer-init", action="store_true",
-                    help="skip loading the tokenizer (benchmark uses token ids "
-                         "directly; auto-on for --load-format dummy)")
-    ap.add_argument("--enable-expert-parallel", action="store_true",
-                    help="shard MoE experts across the TP ranks (EP=TP) instead of "
-                         "tensor-slicing each expert; exposes imbalance-sensitive "
-                         "busiest-rank + all-to-all effects")
+    ap.add_argument(
+        "--skip-tokenizer-init",
+        action="store_true",
+        help="skip loading the tokenizer (benchmark uses token ids "
+        "directly; auto-on for --load-format dummy)",
+    )
+    ap.add_argument(
+        "--enable-expert-parallel",
+        action="store_true",
+        help="shard MoE experts across the TP ranks (EP=TP) instead of "
+        "tensor-slicing each expert; exposes imbalance-sensitive "
+        "busiest-rank + all-to-all effects",
+    )
     ap.add_argument("--enforce-eager", action="store_true")
-    ap.add_argument("--speculative-method", default=None,
-                    help="speculative-decoding method, e.g. 'deepseek_mtp' "
-                         "(DeepSeek V3/R1 NextN head) or 'ngram'. Changes how "
-                         "many tokens a step emits, so it is regime-defining: "
-                         "an anchor measured without it cannot be transported "
-                         "to a target that uses it")
-    ap.add_argument("--speculative-num-tokens", type=int, default=None,
-                    help="draft tokens proposed per step (k). Bounded above by "
-                         "the checkpoint's num_nextn_predict_layers for "
-                         "'deepseek_mtp'")
-    ap.add_argument("--speculative-draft-model", default=None,
-                    help="draft model path for methods that need a separate "
-                         "checkpoint (unused for 'deepseek_mtp')")
-    ap.add_argument("--no-aiter", action="store_true",
-                    help="disable AMD AITER kernels (default: enabled on ROCm)")
-    ap.add_argument("--server-args", default="",
-                    help="vLLM server flags to apply to the engine, as one string "
-                         "(e.g. '--max-num-seqs 512 --enable-chunked-prefill'). "
-                         "Parsed with vLLM's own parser and applied as LLM() "
-                         "kwargs, so a flag means what it means to a real server. "
-                         "This is what lets a reduced-scale run screen a serving "
-                         "variant: the variant's own flags are what execute.")
-    ap.add_argument("--env", action="append", default=[], metavar="K=V",
-                    help="environment override applied before vLLM is imported "
-                         "(repeatable), e.g. --env VLLM_ROCM_USE_AITER=0. Needed "
-                         "for levers vLLM reads from the environment rather than "
-                         "from a flag.")
-    ap.add_argument("--routing-dist", default="zipf",
-                    choices=["zipf", "uniform", "normal", "none"],
-                    help="MoE token->expert distribution for the benchmark "
-                         "(default: zipf; 'none' uses the model's own router)")
-    ap.add_argument("--zipf-s", type=float, default=1.0,
-                    help="Zipfian skew exponent (0=uniform, larger=more skewed)")
-    ap.add_argument("--moe-imbalance", type=float, default=None,
-                    help="Target MoE expert-load imbalance I=max/mean tokens-per-"
-                         "expert (1.0=balanced). Overrides --zipf-s by solving for "
-                         "the Zipf exponent at the model's expert count. Use a "
-                         "measured/expected production value (random data ~ low I, "
-                         "domain-clustered traffic ~ higher I).")
-    ap.add_argument("--serving-backend", default="vllm",
-                    choices=("vllm", "sglang", "atom"),
-                    help="Which engine to launch for the anchor. Launched through "
-                         "the same adapters the platform serves with. Ignored with "
-                         "--offline, which is vLLM-only.")
-    ap.add_argument("--prefill-anchor", dest="prefill_anchor",
-                    action="store_true", default=None,
-                    help="Anchor prefill by differencing mean TTFT across two "
-                         "prompt lengths at concurrency 1. ON by default on the "
-                         "serving path, because the alternative is pricing "
-                         "prefill from the analytical roofline, whose absolute "
-                         "level the GEMM backend's own authors disclaim -- "
-                         "decode escapes it by being anchored, prefill has no "
-                         "such escape. Costs two extra client runs.")
-    ap.add_argument("--no-prefill-anchor", dest="prefill_anchor",
-                    action="store_false",
-                    help="Leave prefill simulated (the historical behaviour). "
-                         "Saves the probe runs; pays the roofline bias.")
-    ap.add_argument("--prefill-anchor-short", type=int, default=0,
-                    help="Short probe length for --prefill-anchor. The long "
-                         "probe is always --input-len, so the rate covers the "
-                         "lengths the anchor is used at. Default: half of it.")
-    ap.add_argument("--prefill-anchor-validate", action="store_true",
-                    help="Probe a third, interior length so the pairwise slopes "
-                         "can be compared. Checks the linearity the difference "
-                         "assumes, at the cost of one more client run.")
-    ap.add_argument("--offline", action="store_true",
-                    help="Measure with the offline LLM() entrypoint instead of a "
-                         "real server. Off by default: the two do not resolve the "
-                         "same kernels, so an offline anchor can mispredict a "
-                         "served target badly. See benchmark_serving.py.")
+    ap.add_argument(
+        "--speculative-method",
+        default=None,
+        help="speculative-decoding method, e.g. 'deepseek_mtp' "
+        "(DeepSeek V3/R1 NextN head) or 'ngram'. Changes how "
+        "many tokens a step emits, so it is regime-defining: "
+        "an anchor measured without it cannot be transported "
+        "to a target that uses it",
+    )
+    ap.add_argument(
+        "--speculative-num-tokens",
+        type=int,
+        default=None,
+        help="draft tokens proposed per step (k). Bounded above by "
+        "the checkpoint's num_nextn_predict_layers for "
+        "'deepseek_mtp'",
+    )
+    ap.add_argument(
+        "--speculative-draft-model",
+        default=None,
+        help="draft model path for methods that need a separate "
+        "checkpoint (unused for 'deepseek_mtp')",
+    )
+    ap.add_argument(
+        "--no-aiter",
+        action="store_true",
+        help="disable AMD AITER kernels (default: enabled on ROCm)",
+    )
+    ap.add_argument(
+        "--server-args",
+        default="",
+        help="vLLM server flags to apply to the engine, as one string "
+        "(e.g. '--max-num-seqs 512 --enable-chunked-prefill'). "
+        "Parsed with vLLM's own parser and applied as LLM() "
+        "kwargs, so a flag means what it means to a real server. "
+        "This is what lets a reduced-scale run screen a serving "
+        "variant: the variant's own flags are what execute.",
+    )
+    ap.add_argument(
+        "--env",
+        action="append",
+        default=[],
+        metavar="K=V",
+        help="environment override applied before vLLM is imported "
+        "(repeatable), e.g. --env VLLM_ROCM_USE_AITER=0. Needed "
+        "for levers vLLM reads from the environment rather than "
+        "from a flag.",
+    )
+    ap.add_argument(
+        "--routing-dist",
+        default="zipf",
+        choices=["zipf", "uniform", "normal", "none"],
+        help="MoE token->expert distribution for the benchmark "
+        "(default: zipf; 'none' uses the model's own router)",
+    )
+    ap.add_argument(
+        "--zipf-s",
+        type=float,
+        default=1.0,
+        help="Zipfian skew exponent (0=uniform, larger=more skewed)",
+    )
+    ap.add_argument(
+        "--moe-imbalance",
+        type=float,
+        default=None,
+        help="Target MoE expert-load imbalance I=max/mean tokens-per-"
+        "expert (1.0=balanced). Overrides --zipf-s by solving for "
+        "the Zipf exponent at the model's expert count. Use a "
+        "measured/expected production value (random data ~ low I, "
+        "domain-clustered traffic ~ higher I).",
+    )
+    ap.add_argument(
+        "--serving-backend",
+        default="vllm",
+        choices=("vllm", "sglang", "atom"),
+        help="Which engine to launch for the anchor. Launched through "
+        "the same adapters the platform serves with. Ignored with "
+        "--offline, which is vLLM-only.",
+    )
+    ap.add_argument(
+        "--prefill-anchor",
+        dest="prefill_anchor",
+        action="store_true",
+        default=None,
+        help="Anchor prefill by differencing mean TTFT across two "
+        "prompt lengths at concurrency 1. ON by default on the "
+        "serving path, because the alternative is pricing "
+        "prefill from the analytical roofline, whose absolute "
+        "level the GEMM backend's own authors disclaim -- "
+        "decode escapes it by being anchored, prefill has no "
+        "such escape. Costs two extra client runs.",
+    )
+    ap.add_argument(
+        "--no-prefill-anchor",
+        dest="prefill_anchor",
+        action="store_false",
+        help="Leave prefill simulated (the historical behaviour). "
+        "Saves the probe runs; pays the roofline bias.",
+    )
+    ap.add_argument(
+        "--prefill-anchor-short",
+        type=int,
+        default=0,
+        help="Short probe length for --prefill-anchor. The long "
+        "probe is always --input-len, so the rate covers the "
+        "lengths the anchor is used at. Default: half of it.",
+    )
+    ap.add_argument(
+        "--prefill-anchor-validate",
+        action="store_true",
+        help="Probe a third, interior length so the pairwise slopes "
+        "can be compared. Checks the linearity the difference "
+        "assumes, at the cost of one more client run.",
+    )
+    ap.add_argument(
+        "--offline",
+        action="store_true",
+        help="Measure with the offline LLM() entrypoint instead of a "
+        "real server. Off by default: the two do not resolve the "
+        "same kernels, so an offline anchor can mispredict a "
+        "served target badly. See benchmark_serving.py.",
+    )
     ap.add_argument("--save", required=True)
-    ap.add_argument("--cache-dir", default=os.environ.get("INFERASIM_BENCH_CACHE"),
-                    help="Directory of cached results keyed by run config. On a "
-                         "cache HIT the vLLM engine is never built (skips ~all the "
-                         "wall time). Defaults to $INFERASIM_BENCH_CACHE; caching is "
-                         "off when neither is set.")
-    ap.add_argument("--no-cache", action="store_true",
-                    help="Ignore any cached result and do not write one.")
-    ap.add_argument("--force", action="store_true",
-                    help="Re-run and OVERWRITE the cached result for this config.")
+    ap.add_argument(
+        "--cache-dir",
+        default=os.environ.get("INFERASIM_BENCH_CACHE"),
+        help="Directory of cached results keyed by run config. On a "
+        "cache HIT the vLLM engine is never built (skips ~all the "
+        "wall time). Defaults to $INFERASIM_BENCH_CACHE; caching is "
+        "off when neither is set.",
+    )
+    ap.add_argument(
+        "--no-cache", action="store_true", help="Ignore any cached result and do not write one."
+    )
+    ap.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-run and OVERWRITE the cached result for this config.",
+    )
     args = ap.parse_args(argv)
     # Asking for both is a contradiction rather than a preference: the offline
     # path measures a prefill step of its own, so honouring the flag there would
     # anchor on the offline kernels, which is the one thing it exists to avoid.
     if args.offline and args.prefill_anchor:
-        ap.error("--prefill-anchor is a serving-path measurement and --offline "
-                 "runs the LLM() entrypoint, which resolves different attention "
-                 "and MoE kernels and already reports its own prefill_ms. Drop "
-                 "one: --prefill-anchor alone for a served anchor, --offline "
-                 "alone for the offline one.")
+        ap.error(
+            "--prefill-anchor is a serving-path measurement and --offline "
+            "runs the LLM() entrypoint, which resolves different attention "
+            "and MoE kernels and already reports its own prefill_ms. Drop "
+            "one: --prefill-anchor alone for a served anchor, --offline "
+            "alone for the offline one."
+        )
     # Unset resolves per path: the serving anchor measures prefill, the offline
     # one already has its own. Resolved to a concrete value before the cache key
     # is built, so an anchored artifact cannot collide with a decode-only one.
@@ -1319,8 +1507,10 @@ def main(argv=None):
             result = json.load(f)
         with open(args.save, "w") as f:
             json.dump(result, f)
-        print(f"[inferasim:Inference:vLLM-Benchmark] CACHE HIT {cpath} "
-              f"(config key {key}); skipped vLLM run")
+        print(
+            f"[inferasim:Inference:vLLM-Benchmark] CACHE HIT {cpath} "
+            f"(config key {key}); skipped vLLM run"
+        )
         print("[inferasim:Inference:vLLM-Benchmark] " + json.dumps(result))
         print(f"[inferasim:Inference:vLLM-Benchmark] wrote {args.save}")
         return
@@ -1339,8 +1529,7 @@ def main(argv=None):
         os.makedirs(cache_dir, exist_ok=True)
         with open(cpath, "w") as f:
             json.dump(result, f)
-        print(f"[inferasim:Inference:vLLM-Benchmark] cached result -> {cpath} "
-              f"(config key {key})")
+        print(f"[inferasim:Inference:vLLM-Benchmark] cached result -> {cpath} (config key {key})")
     print("[inferasim:Inference:vLLM-Benchmark] " + json.dumps(result))
     print(f"[inferasim:Inference:vLLM-Benchmark] wrote {args.save}")
 

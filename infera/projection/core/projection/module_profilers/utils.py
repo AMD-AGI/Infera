@@ -7,12 +7,11 @@
 
 import os
 from contextlib import contextmanager, nullcontext
-from typing import List, Tuple, Union
 
 import torch
 
 
-def _bench_iter_count(default_warmup: int, default_iters: int) -> Tuple[int, int]:
+def _bench_iter_count(default_warmup: int, default_iters: int) -> tuple[int, int]:
     """Look up bench iteration counts, allowing runtime override.
 
     Env vars (intended for debugging slow MoE benches that hit NCCL
@@ -71,7 +70,9 @@ class _FP8ContextFactory:
 
                 self._ctx = get_fp8_context(self.transformer_config, layer_no=-1)
                 if not self._printed:
-                    print(f"  [FP8] Using FP8 autocast context for benchmarking (fp8={self.fp8_enabled})")
+                    print(
+                        f"  [FP8] Using FP8 autocast context for benchmarking (fp8={self.fp8_enabled})"
+                    )
                     self._printed = True
             except Exception as e:
                 try:
@@ -183,7 +184,7 @@ def _time_forward_cuda_graph(layer_module, inputs, fp8_context, num_iterations, 
 
 def benchmark_layer(
     layer_module: torch.nn.Module,
-    input_shapes: List[Union[Tuple[int, ...], Tuple[Tuple[int, ...], torch.dtype]]],
+    input_shapes: list[tuple[int, ...] | tuple[tuple[int, ...], torch.dtype]],
     num_iterations: int = 64,  # Match typical microbatch count
     transformer_config=None,  # Optional: pass config to enable FP8 context
     use_cuda_graph: bool = False,  # Inference: capture + replay under a CUDA/HIP graph
@@ -432,7 +433,7 @@ def _uninstall_routing_patches(restores) -> None:
 
 def benchmark_moe_layer_decomposed(
     moe_module: torch.nn.Module,
-    input_shapes: List[Union[Tuple[int, ...], Tuple[Tuple[int, ...], torch.dtype]]],
+    input_shapes: list[tuple[int, ...] | tuple[tuple[int, ...], torch.dtype]],
     num_iterations: int = 64,
     transformer_config=None,
 ) -> tuple[float, int, float]:
@@ -517,7 +518,9 @@ def benchmark_moe_layer_decomposed(
             for spec in input_shapes:
                 shape = (
                     spec[0]
-                    if isinstance(spec, tuple) and len(spec) == 2 and isinstance(spec[1], torch.dtype)
+                    if isinstance(spec, tuple)
+                    and len(spec) == 2
+                    and isinstance(spec[1], torch.dtype)
                     else spec
                 )
                 # [seq, batch, hidden]
