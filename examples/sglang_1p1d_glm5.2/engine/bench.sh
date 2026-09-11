@@ -25,7 +25,12 @@ for C in $CONCS; do
   log "=== $TAG ==="
   # Three of the flags below are load-bearing in non-obvious ways (range-ratio, temperature,
   # cache-report). Do not change them without reading "Reference sweep" in the README.
-  $SSH_CMD "$PREFILL_NODE" "docker exec $CTR bash -c 'mkdir -p $OUT && \
+
+  # -w / is load-bearing on a STOCK base: WORKDIR is /sgl-workspace and Python puts
+  # it at sys.path[0], so `sglang` resolves to the repo ROOT as a namespace package
+  # and bench_serving dies on `No module named 'sglang.benchmark.serving'`. Harmless
+  # on a baked image, where sglang resolves correctly from any directory.
+  $SSH_CMD "$PREFILL_NODE" "docker exec -w / $CTR bash -c 'mkdir -p $OUT && \
     python3 -m sglang.bench_serving \
       --backend sglang-oai-chat --base-url $URL \
       --model $SERVED --tokenizer ${TOKENIZER:-$MODEL} \

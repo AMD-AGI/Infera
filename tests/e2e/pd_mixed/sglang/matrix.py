@@ -15,26 +15,32 @@ from ...harness.matrix import (
     DEEPSEEK_V4_PRO,
     GLM_5_1_FP8,
     GLM_5_2_FP8,
+    GLM_5_3,
+    GLM_5_3_MXFP4,
     GPT_OSS,
     KIMI_K26_MXFP4,
     expand_cases,
 )
 
-# GLM-5.2 below is being brought up on the local MI300X fleet, where its weights
-# are staged and its recipe was measured. Whether the gfx950 CI fleet has it at
-# all is unconfirmed, so the skip claims only what is known — that nothing has
-# run it there — rather than asserting a staging fact. Retiring it is one edit,
-# and the row stays visible on both arches meanwhile.
+# GLM-5.2 below was brought up on the local MI300X fleet — weights staged there,
+# recipe measured there. Whether the gfx950 CI fleet has it at all is unconfirmed,
+# so the reason claims only what is known (nothing has run it there) rather than
+# asserting a staging fact; skip keeps the row visible on both arches meanwhile.
 _GFX950_UNMEASURED = {"skip": "brought up on gfx942; never run on the gfx950 CI fleet"}
+
+# The GLM-5.3 rows are the mirror image: brought up on gfx950 only. The recipe
+# below names gfx950 env and DSA backends throughout and has never been run on
+# MI300X, so the row stays visible there with its reason rather than silently
+# claiming coverage.
+_GFX950_ONLY = {"skip": "brought up on gfx950; never run on the gfx942 CI fleet"}
 
 # [enable, model, tp, ep, dp_attn] (+ optional opts dict). A tuple/list on an axis
 # enumerates it (e.g. (True, False) runs both). MoE models can exercise ep.
 CASES = [
-    # gpt-oss-120b: tp2, ep on/off. On triton, not the default aiter backend: the
-    # CK batch_prefill instance this case needs (page_size < kN0 over a >2GB KV
-    # cache, gfx950) is absent from the aiter in the v0.5.17 base, so both TP ranks
-    # raise "no matching kernel found" and the engine dies before serving. Drop this
-    # once a base image carries the instance; aiter stays on for MoE either way.
+    # gpt-oss-120b: tp2, ep on/off. Attention on triton, not aiter (which the env
+    # below keeps for MoE): the CK batch_prefill instance this case needs (page_size
+    # < kN0 over a >2GB KV cache, gfx950) is absent from the v0.5.17 base, so both TP
+    # ranks raise "no matching kernel found" and die before serving. Drop when it lands.
     [
         True,
         GPT_OSS,
@@ -121,48 +127,34 @@ CASES = [
                 "SGLANG_OPT_USE_TILELANG_MHC_POST": "false",
             },
             "server_ready_timeout": 2400,
-            # Two measured facts, and the second is why the first was not worth
-            # fixing. SGLang has no packed-MXFP4 expert kernel on gfx942, so this
-            # checkpoint needs an engine-side FP4->FP8 dequant to load at all —
-            # buildable, and built once: the dequant sits behind a branch
-            # `_is_fp8_fnuz` never lets gfx942 reach, and hoisting it ahead made
-            # the load log say "Dequantized FP4 expert weights to FP8". Then it
-            # does not fit. Unpacked, the experts need 186.5 GiB a card at tp8
-            # plus ~9.25 the runtime holds outside PyTorch, 195.8 against 191.98
-            # usable — short before a byte of KV cache, measured twice. So the
-            # patch is reverted rather than carried, and the dsv4 row SGLang
-            # actually serves here is DeepSeek-V4-Flash-FP8 below.
+            # No packed-MXFP4 expert kernel on gfx942, so the checkpoint needs an
+            # engine-side FP4->FP8 dequant to load at all. It is reachable — hoist
+            # it past `_is_fp8_fnuz` — and still does not fit, so the patch stays
+            # reverted: 186.5 GiB/card at tp8 + ~9.25 runtime = 195.8 vs 191.98 usable.
             "gfx942": {
                 "skip": "MXFP4 experts need an engine-side dequant SGLang cannot reach on gfx942, and unpacked they need 195.8 GiB/card against 191.98; run DeepSeek-V4-Flash-FP8 here, or Pro on vLLM which serves it packed",
             },
         },
     ],
-    # DeepSeek-V4-Flash-FP8 (MoE, tp4) — the dsv4 cell SGLang can actually serve
-    # on a 192 GiB card, and the reason is size rather than support. Same
-    # architecture as the Pro row above (43 layers / 4096 hidden against 61 /
-    # 7168) and block-FP8 throughout, so it never reaches the MXFP4 expert path
-    # that skips Pro: 274 GiB, 68.5 a card at tp4, against Pro's 195.8 unpacked.
+    # DeepSeek-V4-Flash-FP8 (MoE, tp4) — the dsv4 cell SGLang can actually serve on
+    # a 192 GiB card, for size rather than support: same architecture as the Pro row
+    # above (43 layers / 4096 hidden against 61 / 7168) and block-FP8 throughout, so
+    # it never reaches the MXFP4 path that skips Pro. 274 GiB, 68.5 a card at tp4.
     #
     # tp4, not tp8. It fits either way (34.2 a card at tp8) and tp4 keeps the row
     # to half a node, which is what makes it affordable next to the tp8 GLM-5.2
     # row below. Every dimension divides: 64 attention heads, 64 index heads,
     # moe_intermediate_size 2048, 256 experts.
     #
-    # The functional gfx942 knobs — `--attention-backend dsv4`,
-    # `--disable-shared-experts-fusion` and four env vars — are ALSO applied by
-    # infera.engine.dsv4_gfx942 at launch, set-if-unset. They are spelled out
-    # anyway so this row reads as a complete recipe, and because the MTP flags
-    # have to be: the speculation check reads `params.extra_args`, so flags that
-    # only ever appear inside the worker leave it reporting requested=False and
-    # unable to fail a run whose draft head silently did nothing.
+    # These gfx942 knobs are ALSO applied set-if-unset by infera.engine.dsv4_gfx942
+    # (dsv4 backend, --disable-shared-experts-fusion, four env vars); duplicated for
+    # a complete recipe, and required for the MTP flags — the speculation check reads
+    # `params.extra_args`, so worker-only flags cannot fail a no-op draft head.
     #
-    # NOTHING HERE IS MEASURED ON THIS FLEET. The env block is the Pro row's,
-    # which is the only dsv4-on-SGLang recipe that exists and was tuned on
-    # MI325X; the SGLANG_OPT_USE_TILELANG_* offs are the same gfx942 avoidance as
-    # the FlashMLA hack. MTP is on because the contract forces it for Flash — the
-    # claim being that Flash's compressed-MQA decode kernel is broken on gfx942
-    # and speculation routes around it, which no run here has checked either way.
-    # A first green run against `--speculative-*` removed would be a finding.
+    # NOTHING HERE IS MEASURED ON THIS FLEET. The env block is the Pro row's — the
+    # only dsv4-on-SGLang recipe that exists, tuned on MI325X. MTP is on because the
+    # contract forces it for Flash, on the unchecked claim that Flash's compressed-MQA
+    # decode kernel is broken on gfx942; a green run without `--speculative-*` is news.
     [
         True,
         DEEPSEEK_V4_FLASH_FP8,
@@ -234,13 +226,10 @@ CASES = [
             "gfx950": _GFX950_UNMEASURED,
         },
     ],
-    # GLM-5.1-FP8 (GlmMoeDsa = MLA + DSA lightning indexer, tp4). Minimal ON PURPOSE:
-    # SGLang routes GlmMoeDsaForCausalLM through the DeepSeek MLA+DSA path and
-    # auto-selects attention_backend=dsa / page_size=64 / tilelang / kv bf16 — do NOT
-    # force the DSv4 flags (--attention-backend dsv4, --page-size 256), they fight the
-    # auto-config. --reasoning-parser glm45 splits GLM reasoning_content; AITER on.
-    # Verified 2026-07-23 single-node mix, temp=0: France->Paris/China->Beijing/2+2->4.
-    # Long timeout covers the ~8-10 min silent tilelang-JIT + aiter-GEMM-tuning window.
+    # GLM-5.1-FP8 (GlmMoeDsa = MLA + DSA indexer, tp4). Minimal ON PURPOSE: SGLang
+    # routes GlmMoeDsaForCausalLM through the DeepSeek MLA+DSA path, auto-selecting
+    # dsa / page_size=64 / tilelang / kv bf16, and the DSv4 flags (dsv4, --page-size
+    # 256) fight it. Verified 2026-07-23; timeout covers a ~8-10 min silent JIT+tune.
     [
         True,
         GLM_5_1_FP8,
@@ -264,23 +253,18 @@ CASES = [
             "gfx942": {"skip": "GLM-5.1-FP8 not measured on gfx942 yet"},
         },
     ],
-    # GLM-5.2-FP8 (GlmMoeDsa, tp8 + dp-attention) — the knobs are the `aggregated`
-    # arm of manual/recipes/glm5.2-fp8-gfx942.md, which is the one GLM-5.2 shape
-    # measured on this hardware. Note this is a DIFFERENT model from the GLM-5.1
-    # row above (78 layers, index_topk 2048, 154880 vocab), not a newer tag for
-    # it, so both rows stand.
+    # GLM-5.2-FP8 (GlmMoeDsa, tp8 + dp-attention) — knobs are the `aggregated` arm of
+    # manual/recipes/glm5.2-fp8-gfx942.md, the one GLM-5.2 shape measured on this
+    # hardware. A DIFFERENT model from the GLM-5.1 row above (78 layers, index_topk
+    # 2048, 154880 vocab), not a newer tag for it, so both rows stand.
     #
     # tp8 is not a choice: ~700 GB of FP8 weights over 192 GB cards needs the whole
     # node, which also makes this the first mixed row to take one.
     #
-    # MTP is on because the checkpoint ships the draft head (a 79th layer,
-    # `model.layers.78.eh_proj.weight`, num_nextn_predict_layers 1) and the gfx942
-    # image exists partly to serve it: its SGLang v0.5.16 base is pinned because
-    # GLM-5.2 MTP needs sglang #30839 and GlmMoeDsaForCausalLMNextN, and on v0.5.15
-    # the draft weight-load and PD warmup fail. 5/1/6 is the recipe's measured
-    # depth — accept length 4.64 against a 4.00 break-even at 6.53 ms per draft
-    # step. 7/1/8 misses break-even AND runs prefill out of activation memory, so
-    # read it as a ceiling rather than a default.
+    # MTP is on: the checkpoint ships the draft head (num_nextn_predict_layers 1) and
+    # the image's SGLang v0.5.16 pin exists for it — v0.5.15 lacks #30839 /
+    # GlmMoeDsaForCausalLMNextN and fails draft load + PD warmup. 5/1/6 is measured
+    # (accept 4.64 vs 4.00 break-even at 6.53 ms/step); 7/1/8 misses it and OOMs.
     [
         True,
         GLM_5_2_FP8,
@@ -352,6 +336,99 @@ CASES = [
             # fresh container. Don't tighten this against a warm run.
             "server_ready_timeout": 5400,
             "gfx950": _GFX950_UNMEASURED,
+        },
+    ],
+    # ---- GLM-5.3 (big: glm_moe_dsa) -----------------------------------------
+    # Parked (enable=False) ON PURPOSE, not because they are unproven: each needs
+    # ~300-700 GB pre-staged and 4 GPUs for 10+ min of cold start. resolve_model()
+    # maps ids to <INFERA_E2E_MODEL_DIR>/<id>; symlink the vendor prefix on a flat tree.
+    [
+        False,
+        GLM_5_3_MXFP4,
+        4,
+        True,
+        False,
+        {
+            # Quantization is auto-detected from config.json; no --quantization.
+            # --disable-shared-experts-fusion is insurance, not a fix: the shared
+            # experts are themselves MXFP4 and #25261 shows the class failing
+            # SILENTLY with wrong output when shapes line up.
+            "args": [
+                "--kv-cache-dtype",
+                "fp8_e4m3",
+                "--moe-runner-backend",
+                "aiter",
+                "--dsa-prefill-backend",
+                "tilelang",
+                "--dsa-decode-backend",
+                "tilelang",
+                "--disable-shared-experts-fusion",
+                "--disable-custom-all-reduce",
+                "--reasoning-parser",
+                "glm45",
+                "--tool-call-parser",
+                "glm47",
+                "--context-length",
+                "262144",
+                "--mem-fraction-static",
+                "0.80",
+                "--chunked-prefill-size",
+                "65536",
+            ],
+            # MANDATORY on gfx950: without this block the model serves, returns
+            # 200s, and returns garbage, because the sparse-attention indexer
+            # takes a path not ported to this arch. Mirrors the ROCm defaults in
+            # infera/engine/rocm_dsa_env.py so a bare launch_server run matches.
+            "env": {
+                "SGLANG_USE_AITER": "1",
+                "SGLANG_ROCM_FUSED_DECODE_MLA": "0",
+                "SGLANG_OPT_USE_TILELANG_INDEXER": "1",
+                "SGLANG_OPT_USE_TOPK_V2": "0",
+                "SGLANG_OPT_USE_JIT_NORM": "0",
+            },
+            "server_ready_timeout": 3600,
+            "gfx942": _GFX950_ONLY,
+        },
+    ],
+    [
+        False,
+        GLM_5_3,
+        4,
+        True,
+        False,
+        {
+            # FP8 original of the big model. Same code path as the MXFP4 row;
+            # only the weights and the absent quantization flag differ. 704 GB
+            # at TP4 leaves ~55 GB per GPU for KV at GMU 0.80 -- measured, not
+            # estimated (max_total_num_tokens=1148288).
+            "args": [
+                "--kv-cache-dtype",
+                "fp8_e4m3",
+                "--dsa-prefill-backend",
+                "tilelang",
+                "--dsa-decode-backend",
+                "tilelang",
+                "--disable-custom-all-reduce",
+                "--reasoning-parser",
+                "glm45",
+                "--tool-call-parser",
+                "glm47",
+                "--context-length",
+                "262144",
+                "--mem-fraction-static",
+                "0.80",
+                "--chunked-prefill-size",
+                "65536",
+            ],
+            "env": {
+                "SGLANG_USE_AITER": "1",
+                "SGLANG_ROCM_FUSED_DECODE_MLA": "0",
+                "SGLANG_OPT_USE_TILELANG_INDEXER": "1",
+                "SGLANG_OPT_USE_TOPK_V2": "0",
+                "SGLANG_OPT_USE_JIT_NORM": "0",
+            },
+            "server_ready_timeout": 3600,
+            "gfx942": _GFX950_ONLY,
         },
     ],
 ]

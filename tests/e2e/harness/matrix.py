@@ -134,15 +134,17 @@ DEEPSEEK_V4_FLASH_FP8 = "sgl-project/DeepSeek-V4-Flash-FP8"
 GLM_5_1_FP8 = "zai-org/GLM-5.1-FP8"
 GLM_5_2_FP8 = "zai-org/GLM-5.2-FP8"
 
-# Which of GLM-5.2's 78 layers own a DSA lightning indexer and which reuse one.
-# The checkpoint's `indexer_types` marks layers 0, 1, 2 and then every 4th "full"
-# and the rest "shared", and it ships indexer weights for the "full" ones only.
-# ATOM spells the same thing as `index_topk_pattern`, where "S" means "skip the
-# top-k and reuse the last selection"; it is spelled out per layer because ATOM's
-# own index_topk_freq shorthand derives a different, off-by-one set of owners
-# (see the GLM-5.2 row in pd_mixed/atom/matrix.py). Consumed by the ATOM rows.
-# Hand-copied, so check it against the checkpoint's indexer_types, not by eye.
+# Which of GLM-5.2's 78 layers own a DSA lightning indexer ("F", per the checkpoint's
+# `indexer_types`: 0, 1, 2 then every 4th) and which reuse the last selection ("S").
+# Written out per layer for ATOM's `index_topk_pattern` because ATOM's index_topk_freq
+# shorthand derives an off-by-one owner set. Hand-copied — check it against the config.
 GLM_5_2_INDEXER_PATTERN = "FFFSSS" + "FSSS" * 18
+
+# GLM-5.3 "big": model_type glm_moe_dsa, GlmMoeDsaForCausalLM. Field-for-field
+# identical to GLM-5.2 except transformers_version, so the released engine already
+# serves both of these via glm4_moe.py on the stock Dockerfile.sglang image.
+GLM_5_3 = "zai-org/GLM-5.3"
+GLM_5_3_MXFP4 = "OneNexus/GLM-5.3-MXFP4"
 
 EXTRA_ARGS: dict[str, tuple[str, ...]] = {}  # default verbatim extra launch args
 

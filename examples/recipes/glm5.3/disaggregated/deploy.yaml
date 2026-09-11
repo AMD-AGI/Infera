@@ -1,0 +1,348 @@
+# GLM-5.3-MXFP4 — PD disaggregated — k3s + overlay
+#
+# The validated docker deployment expressed as an InferaDeployment: every engine
+# flag and env var below is one that was measured working, not a value copied
+# from another recipe. Where this file departs from the recipe templates it is
+# because the measurement said so, and each departure is commented.
+#
+# Structure from   examples/recipes/glm5.2-fp8-gfx942/disaggregated/deploy.yaml
+#                  (the only manifest in the repo with complete RDMA wiring)
+# Overlay pattern  examples/k8s-deployments/pd-1p1d-mooncake.yaml
+# Engine recipe    examples/sglang_1p1d_glm5.2/engine/leg.sh as driven by
+#                  examples/sglang_1p1d_glm5.3/cluster.2node.sh
+#
+# ---------------------------------------------------------------------------
+# THREE DEPARTURES FROM THE TEMPLATES, ALL DELIBERATE
+#
+# 1. No amd.com/gpu and no device plugin: the plugin advertises every GPU and
+#    cannot say WHICH ones a pod gets, and it renumbers the allocation from 0 so
+#    visible-device pinning on top of it silently masks GPUs. Pin with
+#    HIP_VISIBLE_DEVICES + nodeSelector; re-add the requests if you add the plugin.
+#
+# 2. The overlay payload is a hostPath staged on each node, NOT an initContainer
+#    copying an image into an emptyDir: the initContainer needs a registry the
+#    CLUSTER can pull from, and a locally-built tag it cannot resolve parks every
+#    pod in Init:ImagePullBackOff. Build the payload from THIS repo and stage it
+#    to <PAYLOAD_DIR> on both nodes — the published `inferaimage/infera-overlay`
+#    tag carries `patches/vllm/` only and its infera-exec gates the patch loop on
+#    `import vllm`, so on an SGLang base it applies nothing and the engine runs
+#    unpatched. See the README for both steps.
+#
+# 3. EAGLE MTP(3,1,4) on the decode leg, and TP4 rather than TP8. Both come from
+#    measurement: MTP is validated on all three deployment paths for this
+#    checkpoint, and the symmetric DP-attention result this whole deployment
+#    depends on was measured at TP4 per leg.
+#
+# ---------------------------------------------------------------------------
+# THE ONE THING THAT WILL SILENTLY RUIN THIS
+#
+# DP-attention must be SYMMETRIC — dp-size 4 on BOTH legs. Asymmetric (prefill
+# dp1 -> decode dp4) gives a clean first completion and then GARBAGE on every
+# one after it, with zero faults and zero HIP errors in any log. So the
+# acceptance test must READ THE OUTPUT, not check a status code.
+# ---------------------------------------------------------------------------
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: glm53-mxfp4-pd
+  namespace: infera
+spec:
+  backendFramework: sglang
+  # Replaces the etcd the docker recipe ran: workers self-register on their Pod
+  # annotation and the router watches them via the API server. No etcd tier, and
+  # therefore none of the 2379/2380 host-port contention the docker recipe hits.
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+
+    # ---- router: infera.server, kv-aware ------------------------------------
+    server:
+      componentType: server
+      port: 8110          # NOT 8100: that is the docker kit's port, kept free so
+                          # the two deployments can coexist if one is brought back.
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        containers:
+          - name: main
+            image: lmsysorg/sglang:v0.5.18-rocm720-mi35x
+            imagePullPolicy: IfNotPresent
+            # The overlay entrypoint, not python3 directly: infera lives only in
+            # the mounted payload on a stock base.
+            command: ["/overlay/bin/infera-exec",
+                      "python3","-m","infera.server",
+                      "--host","0.0.0.0","--port","8110","--router-backend","rust",
+                      "--router-tokenizer-path","/models/GLM-5.3-MXFP4",
+                      "--discovery-backend","kubernetes",
+                      "--request-transport","http","--kv-event-transport","zmq",
+                      "--router-policy","kv-aware",
+                      "--kv-prefill-overlap-weight","20.0",
+                      "--kv-decode-overlap-weight","2.0"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            # The operator injects a readiness probe for WORKERS only, so without
+            # this the Service takes traffic before uvicorn has bound the port.
+            readinessProbe:
+              httpGet: {path: /health, port: 8110}
+              periodSeconds: 5
+            resources:
+              requests: {cpu: "8", memory: 16Gi}
+              limits:   {cpu: "8", memory: 16Gi}
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+              - {name: model,   mountPath: /models,  readOnly: true}
+        volumes:
+          - {name: overlay, hostPath: {path: <PAYLOAD_DIR>, type: Directory}}
+          - {name: model,   hostPath: {path: <MODEL_DIR>,   type: Directory}}
+
+    # ---- prefill leg --------------------------------------------------------
+    prefill:
+      componentType: worker
+      role: prefill
+      replicas: 1
+      port: 30000
+      # Weight load is 408 GB over NFS. The startupProbe below is the readiness
+      # signal instead; an operator-injected readinessProbe would kill the pod
+      # long before the weights land.
+      skipReadinessProbe: true
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        # REQUIRED, not tuning. The RoCE rails are host interfaces, and a CNI pod
+        # IP has no route to a peer's rail.
+        hostNetwork: true
+        dnsPolicy: ClusterFirstWithHostNet
+        # Supplies /dev/shm at host size. Charged to the node, not to any limit.
+        hostIPC: true
+        containers:
+          - name: main
+            image: lmsysorg/sglang:v0.5.18-rocm720-mi35x
+            imagePullPolicy: IfNotPresent
+            # privileged is NOT redundant with IPC_LOCK. The repo records a case
+            # where IPC_LOCK plus memlock=-1 was insufficient for RDMA
+            # registration and adding --privileged was the whole fix. Failure
+            # signature is /health 503 forever with ranks spinning at 100% GPU.
+            securityContext: {privileged: true, capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
+            command: ["/overlay/bin/infera-exec",
+                      "python3","-m","infera.engine.sglang",
+                      "--model-path","/models/GLM-5.3-MXFP4",
+                      "--served-model-name","glm-5.3-mxfp4",
+                      "--host","0.0.0.0","--port","30000","--advertise-host","$(POD_IP)",
+                      "--discovery-backend","kubernetes",
+                      "--request-transport","http",
+                      "--kv-event-transport","zmq",
+                      "--kv-events-bind","tcp://0.0.0.0:5557","--kv-snapshot-port","8801",
+                      "--trust-remote-code",
+                      # --dsa-* rather than --nsa-*: verified equivalent on v0.5.18
+                      # (--nsa-* is a DeprecatedAliasStoreAction writing the same
+                      # attribute), but the alias is marked for removal.
+                      "--dsa-prefill-backend","tilelang","--dsa-decode-backend","tilelang",
+                      "--kv-cache-dtype","fp8_e4m3",
+                      "--tp-size","4",
+                      # ep-size is emitted UNCONDITIONALLY and outside the DP
+                      # branch: expert parallelism and attention parallelism are
+                      # different axes.
+                      "--ep-size","4",
+                      "--dp-size","4","--enable-dp-attention",
+                      # Batches arrivals so a DP step is not spent on one short
+                      # request. Only meaningful where there are DP ranks to fill.
+                      "--enable-prefill-delayer","--prefill-delayer-max-delay-ms","5000",
+                      "--mem-fraction-static","0.70",
+                      "--context-length","262144","--chunked-prefill-size","65536",
+                      "--cuda-graph-max-bs","128","--max-running-requests","2048",
+                      "--watchdog-timeout","3600",
+                      "--reasoning-parser","glm45",
+                      # Insurance, not a fix — this checkpoint's shared experts are
+                      # themselves MXFP4, and upstream #25261 shows the mismatch
+                      # failing SILENTLY with wrong output when shapes line up.
+                      "--disable-shared-experts-fusion",
+                      # The aiter custom all-reduce kernel deadlocks on gfx950.
+                      "--disable-custom-all-reduce",
+                      # Without it every client-side cache-hit metric reads 0.
+                      "--enable-cache-report",
+                      "--disaggregation-mode","prefill",
+                      "--disaggregation-bootstrap-port","8998",
+                      "--disaggregation-transfer-backend","mooncake",
+                      "--disaggregation-ib-device","<RDMA_IB_DEVICES>"]
+            env:
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              # Under hostNetwork $(POD_IP) is the node's primary address on the
+              # MANAGEMENT NIC, which is what the working deployment advertised.
+              # The RoCE rails are reached by DEVICE NAME via
+              # --disaggregation-ib-device, so the two do not conflict.
+              - {name: SGLANG_HOST_IP, value: "$(POD_IP)"}
+              - {name: HOST_IP,        value: "$(POD_IP)"}
+              # leg.sh derives the NIC at runtime by matching MY_IP; a manifest
+              # cannot, so these are literals read off the passing run.
+              - {name: SGLANG_LOCAL_IP_NIC,  value: "fenic"}
+              - {name: GLOO_SOCKET_IFNAME,   value: "fenic"}
+              # Per node, not per cluster. Two identical machines routinely
+              # differ; read it with show_gids on each node.
+              - {name: MC_GID_INDEX, value: "<PREFILL_GID_INDEX>"}
+              # Mode A registration (peer-mem present; ib_peer_mem is loaded).
+              - {name: MOONCAKE_DISABLE_HIP_DMABUF, value: "1"}
+              # Cards 0-3. All eight are visible because /dev/dri is a full
+              # hostPath, so this numbering is physical — the same convention the
+              # docker path uses.
+              - {name: HIP_VISIBLE_DEVICES, value: "0,1,2,3"}
+              - {name: SGLANG_DP_USE_GATHERV, value: "1"}
+              - {name: SGLANG_USE_AITER, value: "1"}
+              - {name: NCCL_IB_DISABLE, value: "1"}
+              - {name: NCCL_IGNORE_CPU_AFFINITY, value: "1"}
+              - {name: HSA_NO_SCRATCH_RECLAIM, value: "1"}
+              - {name: SAFETENSORS_FAST_GPU, value: "1"}
+              - {name: HIP_FORCE_DEV_KERNARG, value: "1"}
+              - {name: PYTHONHASHSEED, value: "0"}
+              # Fail LOUDLY if the payload has no mooncake, instead of degrading
+              # into a transport fallback we would then misdiagnose as a fabric
+              # problem.
+              - {name: INFERA_REQUIRE_NATIVE, value: "mooncake"}
+              - {name: SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT, value: "1800"}
+              - {name: SGLANG_DISAGGREGATION_WAITING_TIMEOUT, value: "1800"}
+              - {name: INFERA_SGLANG_READY_TIMEOUT, value: "3600"}
+            startupProbe:
+              httpGet: {path: /health, port: 30000}
+              periodSeconds: 15
+              timeoutSeconds: 10
+              # 90 min. The weights are 408 GB on NFS, and the repo records a
+              # shared NFS mount turning an 8-minute load into ~95 minutes. A warm
+              # page cache loads in seconds — do not size this from that.
+              failureThreshold: 360
+            resources:
+              requests: {cpu: "32", memory: 512Gi}
+              limits:   {cpu: "32", memory: 512Gi}
+            volumeMounts:
+              - {name: overlay,       mountPath: /overlay}
+              - {name: model,         mountPath: /models,  readOnly: true}
+              - {name: ib,            mountPath: /dev/infiniband}
+              - {name: kfd,           mountPath: /dev/kfd}
+              - {name: dri,           mountPath: /dev/dri}
+              - {name: host-libionic, mountPath: /host-libionic/libionic.so, readOnly: true}
+              - {name: dshm,          mountPath: /dev/shm}
+        volumes:
+          - {name: overlay, hostPath: {path: <PAYLOAD_DIR>, type: Directory}}
+          # The RESOLVED path. A symlink crossing an NFS mount boundary gives the
+          # container an EMPTY directory when its parent is bind-mounted, and the
+          # failure surfaces much later as an unrelated error.
+          - {name: model,   hostPath: {path: <MODEL_DIR>, type: Directory}}
+          - {name: ib,      hostPath: {path: /dev/infiniband, type: Directory}}
+          - {name: kfd,     hostPath: {path: /dev/kfd, type: CharDevice}}
+          - {name: dri,     hostPath: {path: /dev/dri, type: Directory}}
+          # The stock base ships libionic ABI 1; an ionic driver that accepts only
+          # ABI 4 makes libibverbs reject every device, after which Mooncake
+          # silently takes its HIP-IPC path, where a cross-NODE peer can never
+          # open the handle. infera-exec copies the host library in.
+          - {name: host-libionic, hostPath: {path: /usr/lib/x86_64-linux-gnu/libionic.so.1, type: File}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 64Gi}}
+
+    # ---- decode leg ---------------------------------------------------------
+    # Identical to prefill except: the node, the mode, no bootstrap port, no
+    # prefill delayer, GMU 0.85 instead of 0.70, and distinct KV-event ports.
+    decode:
+      componentType: worker
+      role: decode
+      replicas: 1
+      port: 30000
+      skipReadinessProbe: true
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <DECODE_NODE>}
+        hostNetwork: true
+        dnsPolicy: ClusterFirstWithHostNet
+        hostIPC: true
+        containers:
+          - name: main
+            image: lmsysorg/sglang:v0.5.18-rocm720-mi35x
+            imagePullPolicy: IfNotPresent
+            securityContext: {privileged: true, capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
+            command: ["/overlay/bin/infera-exec",
+                      "python3","-m","infera.engine.sglang",
+                      "--model-path","/models/GLM-5.3-MXFP4",
+                      "--served-model-name","glm-5.3-mxfp4",
+                      "--host","0.0.0.0","--port","30000","--advertise-host","$(POD_IP)",
+                      "--discovery-backend","kubernetes",
+                      "--request-transport","http",
+                      "--kv-event-transport","zmq",
+                      "--kv-events-bind","tcp://0.0.0.0:5567","--kv-snapshot-port","8811",
+                      "--trust-remote-code",
+                      "--dsa-prefill-backend","tilelang","--dsa-decode-backend","tilelang",
+                      "--kv-cache-dtype","fp8_e4m3",
+                      "--tp-size","4","--ep-size","4",
+                      # SYMMETRIC with prefill. See the header — asymmetry here
+                      # produced silently corrupt output.
+                      "--dp-size","4","--enable-dp-attention",
+                      # Decode wants KV pool where prefill wants activation
+                      # headroom. Do not equalise these: a prefill OOM is fixed by
+                      # LOWERING it, a decode retract by raising it.
+                      "--mem-fraction-static","0.85",
+                      "--context-length","262144","--chunked-prefill-size","65536",
+                      "--cuda-graph-max-bs","128","--max-running-requests","2048",
+                      "--watchdog-timeout","3600",
+                      "--reasoning-parser","glm45",
+                      "--disable-shared-experts-fusion",
+                      # Required WITH EAGLE, and kept independent of it: the aiter
+                      # custom all-reduce kernel deadlocks on gfx950 during
+                      # speculative verify. Letting it follow MTP would make any
+                      # "MTP on vs off" comparison a two-variable one.
+                      "--disable-custom-all-reduce",
+                      # EAGLE MTP(3,1,4), decode leg only. No draft path is passed
+                      # because the draft is the target's own MTP layer. Validated
+                      # on this manifest: 6/6 correct, 0/32 degenerate, acceptance
+                      # median 2.85. If missing: one token per decode step.
+                      "--speculative-algorithm","EAGLE",
+                      "--speculative-num-steps","3",
+                      "--speculative-eagle-topk","1",
+                      "--speculative-num-draft-tokens","4",
+                      "--enable-cache-report",
+                      "--disaggregation-mode","decode",
+                      "--disaggregation-transfer-backend","mooncake",
+                      "--disaggregation-ib-device","<RDMA_IB_DEVICES>"]
+            env:
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: SGLANG_HOST_IP, value: "$(POD_IP)"}
+              - {name: HOST_IP,        value: "$(POD_IP)"}
+              - {name: SGLANG_LOCAL_IP_NIC, value: "fenic"}
+              - {name: GLOO_SOCKET_IFNAME,  value: "fenic"}
+              - {name: MC_GID_INDEX, value: "<DECODE_GID_INDEX>"}
+              - {name: MOONCAKE_DISABLE_HIP_DMABUF, value: "1"}
+              - {name: HIP_VISIBLE_DEVICES, value: "0,1,2,3"}
+              - {name: SGLANG_DP_USE_GATHERV, value: "1"}
+              - {name: SGLANG_USE_AITER, value: "1"}
+              - {name: NCCL_IB_DISABLE, value: "1"}
+              - {name: NCCL_IGNORE_CPU_AFFINITY, value: "1"}
+              - {name: HSA_NO_SCRATCH_RECLAIM, value: "1"}
+              - {name: SAFETENSORS_FAST_GPU, value: "1"}
+              - {name: HIP_FORCE_DEV_KERNARG, value: "1"}
+              - {name: PYTHONHASHSEED, value: "0"}
+              - {name: INFERA_REQUIRE_NATIVE, value: "mooncake"}
+              - {name: SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT, value: "1800"}
+              - {name: SGLANG_DISAGGREGATION_WAITING_TIMEOUT, value: "1800"}
+              - {name: INFERA_SGLANG_READY_TIMEOUT, value: "3600"}
+            startupProbe:
+              httpGet: {path: /health, port: 30000}
+              periodSeconds: 15
+              timeoutSeconds: 10
+              failureThreshold: 360
+            resources:
+              requests: {cpu: "32", memory: 512Gi}
+              limits:   {cpu: "32", memory: 512Gi}
+            volumeMounts:
+              - {name: overlay,       mountPath: /overlay}
+              - {name: model,         mountPath: /models,  readOnly: true}
+              - {name: ib,            mountPath: /dev/infiniband}
+              - {name: kfd,           mountPath: /dev/kfd}
+              - {name: dri,           mountPath: /dev/dri}
+              - {name: host-libionic, mountPath: /host-libionic/libionic.so, readOnly: true}
+              - {name: dshm,          mountPath: /dev/shm}
+        volumes:
+          - {name: overlay, hostPath: {path: <PAYLOAD_DIR>, type: Directory}}
+          - {name: model,   hostPath: {path: <MODEL_DIR>, type: Directory}}
+          - {name: ib,      hostPath: {path: /dev/infiniband, type: Directory}}
+          - {name: kfd,     hostPath: {path: /dev/kfd, type: CharDevice}}
+          - {name: dri,     hostPath: {path: /dev/dri, type: Directory}}
+          - {name: host-libionic, hostPath: {path: /usr/lib/x86_64-linux-gnu/libionic.so.1, type: File}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 64Gi}}

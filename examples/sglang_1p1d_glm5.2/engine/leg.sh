@@ -57,8 +57,17 @@ CHUNK="${CHUNK:-65536}"
 # pool, or a 5-20x slower TCP fallback. See cluster/README.md section 3.
 export MOONCAKE_DISABLE_HIP_DMABUF="${MOONCAKE_DISABLE_HIP_DMABUF:-1}"
 export MC_GID_INDEX="${MC_GID_INDEX:?MC_GID_INDEX is required — read it off the preflight report}"
-export MC_DISABLE_HIP_TRANSPORT=1
+# MC_DISABLE_HIP_TRANSPORT AND MC_ENABLE_HIP_TRANSPORT ARE DEAD NAMES: neither
+# string exists in the shipped mooncake build, and a leg launched with
+# MC_DISABLE_HIP_TRANSPORT=1 in /proc/<pid>/environ still logged "HIP transport
+# installed" 4x per leg. Kept overridable, but it has never had an effect.
+export MC_DISABLE_HIP_TRANSPORT="${MC_DISABLE_HIP_TRANSPORT:-1}"
 unset MC_ENABLE_HIP_TRANSPORT
+# MC_DISABLE_HIP is the knob that works. Forwarded only when set, so unset ==
+# today's behaviour and the two-node path does not move. Set it to 1 to actually
+# disable the hip transport — the only way to run a meaningful hip-on/hip-off A/B.
+# It gates SELECTION, not install, so no log line confirms it; see the README.
+
 # MC_TE_FILTERS pins mooncake to named device(s). Required in the dma-buf mode so a non-ODP
 # rail is never picked (it would pin and double the KV pool); harmless to leave unset when a
 # peer-mem module is loaded and every rail can carry KV.
@@ -143,7 +152,11 @@ CAR_ARGS=()
 
 # --enable-cache-report populates usage.prompt_tokens_details.cached_tokens. Without it every
 # client-side cache-hit metric reads 0 and a prefix-reuse target cannot be checked at all.
-EXTRA_ARGS=(--enable-cache-report)
+
+# EXTRA_ENGINE_ARGS is the cluster wrapper's escape hatch for flags this script does
+# not model, e.g. --disable-shared-experts-fusion. Unquoted on purpose: several flags
+# in one string must word-split. Empty by default, so unchanged when unset.
+EXTRA_ARGS=(--enable-cache-report ${EXTRA_ENGINE_ARGS:-})
 
 log "$ROLE on $MY_IP:$PORT — tp=$TP dpa=$DPA mtp=$MTP kvaware=$KVAWARE kvd=$KVD gmu=$GMU chunk=$CHUNK ctx=$CTX nic=$NIC ib=$RDMA_IB_DEVICES"
 
@@ -152,7 +165,8 @@ log "$ROLE on $MY_IP:$PORT — tp=$TP dpa=$DPA mtp=$MTP kvaware=$KVAWARE kvd=$KV
 docker exec -d "$CTR" env \
   HIP_VISIBLE_DEVICES="$GPUS" \
   MOONCAKE_DISABLE_HIP_DMABUF="$MOONCAKE_DISABLE_HIP_DMABUF" \
-  MC_GID_INDEX="$MC_GID_INDEX" MC_DISABLE_HIP_TRANSPORT=1 \
+  MC_GID_INDEX="$MC_GID_INDEX" MC_DISABLE_HIP_TRANSPORT="$MC_DISABLE_HIP_TRANSPORT" \
+  ${MC_DISABLE_HIP:+MC_DISABLE_HIP="$MC_DISABLE_HIP"} \
   ${MC_TE_FILTERS:+MC_TE_FILTERS="$MC_TE_FILTERS"} \
   ${RDMAV_FORK_SAFE:+RDMAV_FORK_SAFE="$RDMAV_FORK_SAFE"} \
   NCCL_IB_DISABLE=1 NCCL_IGNORE_CPU_AFFINITY=1 HSA_NO_SCRATCH_RECLAIM=1 \
@@ -164,7 +178,8 @@ docker exec -d "$CTR" env \
   SGLANG_USE_AITER=1 \
   SAFETENSORS_FAST_GPU=1 HIP_FORCE_DEV_KERNARG=1 PYTHONHASHSEED=0 \
   ${SGLANG_DP_USE_GATHERV:+SGLANG_DP_USE_GATHERV=1} \
-  bash -c "python3 -m infera.engine.sglang \
+  ${INFERA_REQUIRE_NATIVE:+INFERA_REQUIRE_NATIVE="$INFERA_REQUIRE_NATIVE"} \
+  bash -c "${INFERA_EXEC:-} python3 -m infera.engine.sglang \
     --model-path '$MODEL' --served-model-name '$SERVED' --tp-size $TP --trust-remote-code \
     --host '$MY_IP' --port $PORT \
     --nsa-prefill-backend tilelang --nsa-decode-backend tilelang \

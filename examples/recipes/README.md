@@ -7,6 +7,7 @@ serve them. Pick a model, pick a combo, `kubectl apply`.
 |---|---|---|
 | GLM-5.2-MXFP4 | SGLang | [`glm5.2/`](glm5.2/README.md) |
 | GLM-5.2-FP8 (gfx942) | SGLang | [`glm5.2-fp8-gfx942/`](glm5.2-fp8-gfx942/README.md) |
+| GLM-5.3-MXFP4 | SGLang | [`glm5.3/`](glm5.3/README.md) |
 | Kimi-K3 | vLLM | [`kimi-k3/`](kimi-k3/README.md) |
 | Kimi-K3 optimized (DSpark) | vLLM | [`kimi-k3-optimized/`](kimi-k3-optimized/README.md) |
 

@@ -34,7 +34,13 @@ ${MC_TE_FILTERS:+MC_TE_FILTERS=$MC_TE_FILTERS} \
 ${RDMAV_FORK_SAFE:+RDMAV_FORK_SAFE=$RDMAV_FORK_SAFE} \
 ${HOST_RDMA_LIB:+HOST_RDMA_LIB=$HOST_RDMA_LIB} \
 ${ENTRYPOINT_KEEP:+ENTRYPOINT_KEEP=$ENTRYPOINT_KEEP} \
-${GMU_PREFILL:+GMU_PREFILL=$GMU_PREFILL} ${GMU_DECODE:+GMU_DECODE=$GMU_DECODE}"
+${GMU_PREFILL:+GMU_PREFILL=$GMU_PREFILL} ${GMU_DECODE:+GMU_DECODE=$GMU_DECODE} \
+${EXTRA_ENGINE_ARGS:+EXTRA_ENGINE_ARGS=\"$EXTRA_ENGINE_ARGS\"} \
+${MC_DISABLE_HIP:+MC_DISABLE_HIP=$MC_DISABLE_HIP} \
+${OVERLAY_PAYLOAD:+OVERLAY_PAYLOAD=$OVERLAY_PAYLOAD} \
+${HOST_LIBIONIC:+HOST_LIBIONIC=$HOST_LIBIONIC} \
+${INFERA_EXEC:+INFERA_EXEC=$INFERA_EXEC} \
+${INFERA_REQUIRE_NATIVE:+INFERA_REQUIRE_NATIVE=$INFERA_REQUIRE_NATIVE}"
 
 log "=== 1/4 containers ==="
 for h in "$PREFILL_NODE" "$DECODE_NODE"; do
@@ -63,11 +69,22 @@ if [ "${DECODE_KVD:-0}"  = "1" ]; then start_kvd "$DECODE_NODE"; fi
 log "=== 3/4 legs ==="
 # Launch both legs before waiting on either: they load ~400 GB of weights concurrently, and
 # serialising the waits doubles the bring-up for no reason.
+
+# GPUS and the KV-event ports are forwarded PER LEG with :+ (inject only when set),
+# so the two-node shape is unchanged — there leg.sh's own `seq 0..TP-1` and default
+# ports are already right. On a SINGLE-NODE pair, without these both legs land on the
+# same cards and the second leg dies at bind with "port_base at N is not available".
 on "$PREFILL_NODE" "$COMMON_ENV ROLE=prefill MY_IP=$PREFILL_IP PORT=$PREFILL_PORT \
   DPA=${PREFILL_DPA:-0} MTP=${PREFILL_MTP:-0} KVD=${PREFILL_KVD:-1} \
+  KV_PUB_PORT=${PREFILL_KV_PUB_PORT:-5557} KV_SNAP_PORT=${PREFILL_KV_SNAP_PORT:-8801} \
+  MC_DISABLE_HIP_TRANSPORT=${MC_DISABLE_HIP_TRANSPORT:-1} \
+  ${PREFILL_GPUS:+GPUS=$PREFILL_GPUS} \
   bash $KIT_DIR/engine/leg.sh"
 on "$DECODE_NODE" "$COMMON_ENV ROLE=decode MY_IP=$DECODE_IP PORT=$DECODE_PORT \
   DPA=${DECODE_DPA:-1} MTP=${DECODE_MTP:-1} KVD=${DECODE_KVD:-0} \
+  KV_PUB_PORT=${DECODE_KV_PUB_PORT:-5557} KV_SNAP_PORT=${DECODE_KV_SNAP_PORT:-8801} \
+  MC_DISABLE_HIP_TRANSPORT=${MC_DISABLE_HIP_TRANSPORT:-1} \
+  ${DECODE_GPUS:+GPUS=$DECODE_GPUS} \
   bash $KIT_DIR/engine/leg.sh"
 
 # Poll /health from INSIDE each node's container. Never curl a PD leg's port from another
