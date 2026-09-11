@@ -238,3 +238,97 @@ exit 1
     assert result.returncode == 1
     assert count_file.read_text().strip() == "5"
     assert "SLURM hold submission limit reached (5 attempts)" in result.stderr
+
+
+# Spur's refusal when the QoS's per-user ceiling on submitted jobs is full. It
+# creates no job, so it is not one of the five real submissions the ceiling
+# above counts -- the tier waits for one of its own sibling legs to free a slot,
+# bounded by INFERA_E2E_SLURM_SLOT_WAIT rather than by that counter.
+_SUBMIT_LIMIT_REFUSAL = (
+    "Error: job submission failed\n\n"
+    "Caused by:\n"
+    "    code: 'Client specified an invalid argument', message: \"you have reached "
+    'the QOS limit on submitted jobs per user (QOSMaxSubmitJobPerUserLimit)"\n'
+)
+
+
+def _slot_wait_env(tmp_path, mock_bin, count_file) -> dict[str, str]:
+    env = _runner_env(tmp_path, mock_bin, count_file)
+    # Two waits, then the budget is spent -- enough to prove both halves.
+    env.update(
+        {
+            "INFERA_E2E_SLURM_SLOT_WAIT": "60",
+            "INFERA_E2E_SLURM_SLOT_POLL": "30",
+        }
+    )
+    return env
+
+
+def test_per_user_submit_ceiling_is_waited_out_not_counted_as_an_attempt(tmp_path):
+    mock_bin = tmp_path / "bin"
+    mock_bin.mkdir()
+    count_file = tmp_path / "srun-count"
+    count_file.write_text("0\n")
+    _executable(mock_bin / "sleep", "exit 0\n")
+    _executable(mock_bin / "squeue", "echo '101 infera-ci-mixed-1-vllm'\nexit 0\n")
+    _executable(
+        mock_bin / "srun",
+        f"""
+n=$(cat "$COUNT_FILE")
+echo $((n + 1)) > "$COUNT_FILE"
+cat >&2 <<'EOF'
+{_SUBMIT_LIMIT_REFUSAL}
+EOF
+exit 1
+""",
+    )
+
+    result = _run_runner(_slot_wait_env(tmp_path, mock_bin, count_file), "engine")
+
+    assert result.returncode == 1
+    # Two waits of 30s, then give up: the five-submission ceiling never applies,
+    # because a refused submission never reached the queue.
+    assert count_file.read_text().strip() == "3"
+    assert "waiting 30s for one (30/60s)" in result.stderr
+    assert "no submit slot in this QoS after 60s" in result.stderr
+    assert "SLURM submission limit reached" not in result.stderr
+
+
+def test_disagg_hold_waits_for_a_submit_slot_and_names_that_wall(tmp_path):
+    mock_bin = tmp_path / "bin"
+    mock_bin.mkdir()
+    count_file = tmp_path / "sbatch-count"
+    count_file.write_text("0\n")
+    _executable(mock_bin / "sleep", "exit 0\n")
+    _executable(mock_bin / "srun", "exit 1\n")
+    _executable(mock_bin / "squeue", "echo '101 infera-ci-hold-1-vllm-disag'\nexit 0\n")
+    _executable(mock_bin / "sinfo", "printf 'node-a\\nnode-b\\nnode-c\\nnode-d\\n'\n")
+    _executable(
+        mock_bin / "scontrol",
+        """
+if [ "$1 $2" = "show node" ]; then
+  echo "NodeName=$3 State=IDLE CPUAlloc=0 AllocMem=0 AllocTRES="
+fi
+exit 0
+""",
+    )
+    _executable(
+        mock_bin / "sbatch",
+        f"""
+n=$(cat "$COUNT_FILE")
+echo $((n + 1)) > "$COUNT_FILE"
+cat >&2 <<'EOF'
+{_SUBMIT_LIMIT_REFUSAL}
+EOF
+exit 1
+""",
+    )
+
+    result = _run_runner(_slot_wait_env(tmp_path, mock_bin, count_file), "e2e", "sglang", "disag")
+
+    assert result.returncode == 1
+    assert count_file.read_text().strip() == "3"
+    assert "no submit slot in this QoS after 60s" in result.stderr
+    # The hold ceiling is a different wall and must not be the one reported.
+    assert "SLURM hold submission limit reached" not in result.stderr
+    assert "no SLURM submit slot for a node hold within 60s" in result.stderr
