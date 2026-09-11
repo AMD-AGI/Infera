@@ -117,6 +117,27 @@ def srun_argv(node: str, *, job: str = "") -> list[str]:
     return argv + shlex.split(os.environ.get(extra_var, ""))
 
 
+# The scheduler's own lines on the merged pseudo-TTY stream. srun writes them to
+# stderr, but a TTY is one fd: they arrive interleaved with the child's stdout,
+# and every caller here parses that stdout. Spur emits one for EVERY attached
+# step -- the pseudo-TTY turns --pty on implicitly, and srun then warns that the
+# --nodes/--ntasks in the step's own argv are ignored -- so `docker inspect -f
+# {{.State.Running}}` answered "srun: warning: --pty runs a single task on one
+# node; ... are ignored\ntrue" instead of "true". A live etcd read as one that
+# had exited, and the disagg tier failed on its first readiness wait every time.
+# Route them to stderr, where they are still in the log for diagnosis.
+_SRUN_CHATTER = re.compile(r"^(?:srun|salloc|sbatch|slurmstepd|spur): ")
+
+
+def _demux_srun_chatter(merged: str) -> tuple[str, str]:
+    """Split merged TTY output into (what the child printed, scheduler chatter)."""
+    child: list[str] = []
+    chatter: list[str] = []
+    for line in merged.splitlines(keepends=True):
+        (chatter if _SRUN_CHATTER.match(line) else child).append(line)
+    return "".join(child), "".join(chatter)
+
+
 def run_on_node(
     node: str,
     argv: list[str],
@@ -149,9 +170,9 @@ def run_on_node(
     def clean_pty(value: str | None) -> str:
         return (value or "").replace("\x00", "").replace("^@", "").replace("\r\n", "\n")
 
-    stdout = clean_pty(done.stdout)
-    stderr = clean_pty(done.stderr)
-    return subprocess.CompletedProcess(done.args, done.returncode, stdout, stderr)
+    child, chatter = _demux_srun_chatter(clean_pty(done.stdout))
+    stderr = clean_pty(done.stderr) + chatter
+    return subprocess.CompletedProcess(done.args, done.returncode, child, stderr)
 
 
 def require_step_access(node: str, *, timeout: float = 30) -> None:
