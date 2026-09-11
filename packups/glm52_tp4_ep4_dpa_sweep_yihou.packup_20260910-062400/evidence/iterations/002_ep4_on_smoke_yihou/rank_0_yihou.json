@@ -1,0 +1,103 @@
+{
+  "complete": false,
+  "batch_size": 1,
+  "input_len": 1024,
+  "output_len": 32,
+  "emitted_per_request": [
+    16
+  ],
+  "final_seq_lens": [
+    1040
+  ],
+  "verify_iterations": 4,
+  "useful_output_tokens": 16,
+  "raw_accept_tokens": 16,
+  "num_correct_drafts": 12,
+  "terminal_extra_tokens": 0,
+  "realized_accept_length": 4.0,
+  "accept_histogram": {
+    "4": 4
+  },
+  "elapsed_seconds": 0.10292397599550895,
+  "output_tokens_per_second": 155.4545463799237,
+  "effective_token_latency_ms_per_user": 6.43274849971931,
+  "tp_size": 4,
+  "ep_size": 4,
+  "dp_size": 4,
+  "enable_dp_attention": true,
+  "global_batch_size": 4,
+  "local_batch_size": 1,
+  "expected_accept_length": 3.61,
+  "accept_method": "match-expected",
+  "accept_token_mode": "real-draft-token",
+  "output_tokens_per_second_per_gpu": 38.863636594980925,
+  "target_graph_iterations": 4,
+  "warmup_steps_excluded": 3,
+  "graph_execution_counts": {
+    "target": 4,
+    "draft": 4,
+    "draft_extend": 4
+  },
+  "bootstrap_tokens_excluded": 1,
+  "rank": 0,
+  "parallel_state": {
+    "tp_rank": 0,
+    "tp_size": 4,
+    "pp_rank": 0,
+    "pp_size": 1,
+    "dp_rank": 0,
+    "dp_size": 4,
+    "attn_tp_rank": 0,
+    "attn_tp_size": 1,
+    "attn_cp_rank": 0,
+    "attn_cp_size": 1,
+    "attn_dcp_rank": 0,
+    "attn_dcp_size": 1,
+    "attn_dp_rank": 0,
+    "attn_dp_size": 4,
+    "moe_ep_rank": 0,
+    "moe_ep_size": 4,
+    "moe_dp_rank": 0,
+    "moe_dp_size": 1,
+    "gpu_id": 0
+  },
+  "report_scope": "local_attention_dp_shard",
+  "graph_execution_counts_scope": "local_rank",
+  "phase_seconds": {
+    "load_pool_capture": 63.72155091400782,
+    "physical_initialization": 0.1683900909993099,
+    "bootstrap": 10.389648790995125,
+    "warmup_and_reset": 1.934070253992104,
+    "decode": 0.10292397599550895,
+    "rank_total_to_result": 76.31926642499457
+  },
+  "moe_a2a_backend": "none",
+  "moe_runner_backend": "auto",
+  "cross_rank_progress_check": "every warmup and measured iteration; included in timing",
+  "synthetic_prefix": true,
+  "simulated_acceptance": true,
+  "real_model_weights": true,
+  "real_moe_routing": true,
+  "scheduler_used": false,
+  "pinned_sglang": "402df1e1e453e1e85ec0f5ac4052d36598cc691a",
+  "module_source_paths": {
+    "sglang.srt.server_args": "/sglang/python/sglang/srt/server_args.py",
+    "sglang.srt.speculative.eagle_worker_v2": "/sglang/python/sglang/srt/speculative/eagle_worker_v2.py"
+  },
+  "timing_boundary": "complete internal speculative loop + synchronization + bookkeeping; excludes bootstrap/warmup/load/capture",
+  "terminal_policy": "count only remaining useful tokens; pay full terminal computation; no subsequent forward",
+  "memory": {
+    "reserved_tokens": 1088,
+    "reserved_tokens_per_request": 1088,
+    "page_size": 64,
+    "speculative_reserve": 12,
+    "target_initialized_bytes": 115301203200,
+    "draft_initialized_bytes": 1711388928
+  },
+  "max_memory_allocated_bytes": 254778018816,
+  "model_path": "/shared_nfs/models/GLM-5.2-MXFP4",
+  "target_backend": "DeepseekSparseAttnBackend",
+  "draft_backend": "DeepseekSparseAttnBackend",
+  "draft_graph_available": true,
+  "draft_extend_graph_available": true
+}

@@ -1,0 +1,91 @@
+{
+  "audited_at": "2026-09-10T06:20:45.232894+00:00",
+  "python": "3.14.6 | packaged by Anaconda, Inc. | (main, Jun 18 2026, 21:28:09) [GCC 14.3.0]",
+  "no_gpu_docker_spur_git_commands": true,
+  "provenance_records_exact": 68,
+  "original_sources_content_and_mtime_unchanged": true,
+  "all_noncache_source_files_preserved": 59,
+  "python_syntax_files": 15,
+  "bash_syntax_files": 4,
+  "three_patches_apply_zero_fuzz_and_match_exactly": true,
+  "guard_red_green": {
+    "index_elision_cases": 72,
+    "topk_domain_cases": 48
+  },
+  "cold_relocation_fresh_only_and_protected_root_rejection": true,
+  "metrics": {
+    "points": [
+      {
+        "point": "c16",
+        "completed": 128,
+        "errors": 0,
+        "input_length": 10000,
+        "output_length": 500,
+        "duration_s": 35.493530965875834,
+        "output_tokens": 64000,
+        "output_tok_s_4gpu": 1803.1454819620747,
+        "output_tok_s_per_gpu": 450.78637049051866,
+        "p50_tpot_ms_reported": 8.775409124418346,
+        "p90_tpot_ms_reported": 8.91123659496302,
+        "p50_tpot_ms_itl_estimate": 8.775396980363913,
+        "p50_tpot_estimate_minus_reported_ms": -1.2144054432283724e-05,
+        "p50_itl_ms_recomputed": 7.862274767830968,
+        "p90_itl_ms_recomputed": 10.47509629279375,
+        "accept_length_reported": 3.5973348139922265,
+        "client_concurrency_reported": 15.971752202997589,
+        "client_concurrency_itl_estimate": 15.971728954720504,
+        "sampled_running_counts": {
+          "16": 114
+        },
+        "sampled_retracted_counts": [
+          0
+        ],
+        "all_sampled_cuda_graph": true,
+        "c32_192_row_flydsl_decline": false
+      },
+      {
+        "point": "c32",
+        "completed": 128,
+        "errors": 0,
+        "input_length": 10000,
+        "output_length": 500,
+        "duration_s": 24.911467759869993,
+        "output_tokens": 64000,
+        "output_tok_s_4gpu": 2569.0979197579804,
+        "output_tok_s_per_gpu": 642.2744799394951,
+        "p50_tpot_ms_reported": 11.632977723086137,
+        "p90_tpot_ms_reported": 13.871815338644959,
+        "p50_tpot_ms_itl_estimate": 11.632967292833214,
+        "p50_tpot_estimate_minus_reported_ms": -1.043025292268851e-05,
+        "p50_itl_ms_recomputed": 10.387635440565646,
+        "p90_itl_ms_recomputed": 13.830967713147402,
+        "accept_length_reported": 3.6180103301145294,
+        "client_concurrency_reported": 31.905417423865895,
+        "client_concurrency_itl_estimate": 31.905391886886722,
+        "sampled_running_counts": {
+          "16": 1,
+          "32": 56
+        },
+        "sampled_retracted_counts": [
+          0
+        ],
+        "all_sampled_cuda_graph": true,
+        "c32_192_row_flydsl_decline": true
+      }
+    ],
+    "c32_vs_c16_percent": {
+      "output_throughput": 42.478682139526654,
+      "p50_tpot": 32.563366085307145,
+      "p90_tpot": 55.66655862875252
+    },
+    "limits": [
+      "TPOT recorded from (request latency - TTFT)/(output_len-1); per-request latency was not serialized. ITL-sum estimates differ by final response overhead.",
+      "Acceptance cross-checked against embedded server_info, not independently reconstructed from raw acceptance counters (not saved).",
+      "Scheduler counts are sampled observations including warmup, not time-weighted occupancy.",
+      "One short run per point; synthetic input token throughput is not real served-prefill throughput."
+    ]
+  },
+  "recognizable_secret_pattern_hits": [],
+  "proposal_runtime_test": "NOT RERUN: local Python lacks Torch/SGLang; verbatim 4-case CPU test supplied for exact image. Patch-byte and syntax checks passed.",
+  "package_checksums": "Deferred until manifest freeze; rerun without --before-manifest"
+}

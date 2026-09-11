@@ -1,0 +1,50 @@
+{
+  "captured_at": "2026-09-09T12:11:46.935678+00:00",
+  "files": {
+    "README.md": {
+      "sha256": "c8f7a5718430bab367cf20ec67219063eabe2b9ee0e4e826ac2f1b01ab6559fb",
+      "mtime_ns": 1788950662712874761,
+      "bytes": 4346
+    },
+    "environment.md": {
+      "sha256": "8fe8d57eb4d1102bd156fba6d71ed6b852dd17f183ac051054fb9b563252c8a7",
+      "mtime_ns": 1788950662553035725,
+      "bytes": 7421
+    },
+    "notes.md": {
+      "sha256": "b259e700f23984774a67862866e51df7015677a3cf6473e46218c2a27e4ba205",
+      "mtime_ns": 1788951307415731779,
+      "bytes": 9459
+    },
+    "REPRODUCE.md": {
+      "sha256": "4dc570d72c6edd97ffaad9a5531cce5564b349304b8fd44e3c47dbfb368c4b35",
+      "mtime_ns": 1788951625133291913,
+      "bytes": 16308
+    },
+    "scripts/repo/Dockerfile": {
+      "sha256": "0754d740caa95230993720133815ef4eef44fcb852e2913b80a71052221a06fe",
+      "mtime_ns": 1788851672326033287,
+      "bytes": 1440
+    },
+    "scripts/repo/glm52/launch_sglang.sh": {
+      "sha256": "db17bc38f0d75f21a37d58cc667382ff648a6e97f7cb308bf2fc937c940ddb25",
+      "mtime_ns": 1788851672352472977,
+      "bytes": 9005
+    },
+    "provenance/later-image-validation.md": {
+      "sha256": "e4f7e741bf31bc4dc0bc888eb946ddaf9d8fab9b44f28e087ad99ca1013af4c9",
+      "mtime_ns": 1788950627651355290,
+      "bytes": 1698
+    },
+    "audit.md": {
+      "sha256": "ba35f98e2d0bd5fd0c2124724978d88dc9d94d81b6ec8e93cdd68eeffbb8eff7",
+      "mtime_ns": 1788951387957389577,
+      "bytes": 5970
+    },
+    "MANIFEST.sha256": {
+      "sha256": "93b579abb7c1768c6f3c808d0b60aaeed852609e16d5705bb5a81cf6bf52bae7",
+      "mtime_ns": 1788951655681791248,
+      "bytes": 1398498
+    }
+  }
+}

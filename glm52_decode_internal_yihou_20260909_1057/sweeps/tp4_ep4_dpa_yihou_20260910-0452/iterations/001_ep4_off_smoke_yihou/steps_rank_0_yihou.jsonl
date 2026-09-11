@@ -1,0 +1,4 @@
+{"iteration": 1, "accept_lens": [4, 4, 4, 4], "useful_accept_lens": [4, 4, 4, 4], "seq_lens": [1028, 1028, 1028, 1028], "seconds": 0.021170733001781628, "complete": false, "target_graph": true}
+{"iteration": 2, "accept_lens": [4, 4, 4, 4], "useful_accept_lens": [4, 4, 4, 4], "seq_lens": [1032, 1032, 1032, 1032], "seconds": 0.021063463005702943, "complete": false, "target_graph": true}
+{"iteration": 3, "accept_lens": [4, 4, 4, 4], "useful_accept_lens": [4, 4, 4, 4], "seq_lens": [1036, 1036, 1036, 1036], "seconds": 0.021062532003270462, "complete": false, "target_graph": true}
+{"iteration": 4, "accept_lens": [4, 4, 4, 4], "useful_accept_lens": [4, 4, 4, 4], "seq_lens": [1040, 1040, 1040, 1040], "seconds": 0.020828471999266185, "complete": false, "target_graph": true}

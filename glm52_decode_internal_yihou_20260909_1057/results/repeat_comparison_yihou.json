@@ -1,0 +1,14 @@
+{
+  "repeat_complete": false,
+  "repeat_useful_tokens": 14864,
+  "repeat_final_context": 70929,
+  "repeat_elapsed_seconds": 7.184349208138883,
+  "repeat_output_tokens_per_second": 2068.941746757121,
+  "repeat_realized_accept_length": 3.62890625,
+  "same_acceptance_and_context_trajectory": true,
+  "original_first_256_step_seconds": 7.185985301621258,
+  "repeat_256_step_seconds": 7.1834877682849765,
+  "step_time_delta_percent": -0.03475561431663943,
+  "original_median_ms": 27.996377553790808,
+  "repeat_median_ms": 27.928701136261225
+}
