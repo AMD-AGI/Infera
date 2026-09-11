@@ -241,6 +241,36 @@ def test_spur_attached_run_uses_pty_and_normalizes_output(monkeypatch):
     assert done.stdout == "node-a\n"
 
 
+def test_pty_output_keeps_srun_chatter_out_of_the_child_stdout(monkeypatch):
+    """A TTY is one fd, so srun's own lines arrive inside the child's stdout.
+
+    Spur prints one for every attached step (the pseudo-TTY enables --pty, and
+    srun then warns that the step argv's --nodes/--ntasks are ignored), so a
+    caller comparing stdout to a literal -- ``docker inspect -f
+    {{.State.Running}}`` against "true" -- read a running container as a dead
+    one, which failed the disagg tier on its first readiness wait."""
+    monkeypatch.setattr(cluster, "_SPUR", True)
+    monkeypatch.setenv("SLURM_JOB_ID", "4242")
+    monkeypatch.setattr(cluster.shutil, "which", lambda command: f"/usr/bin/{command}")
+    merged = (
+        "srun: warning: --pty runs a single task on one node; "
+        "--ntasks/--ntasks-per-node/--cpus-per-task/--nodes are ignored\r\n"
+        "true\r\n"
+    )
+
+    monkeypatch.setattr(
+        cluster.subprocess,
+        "run",
+        lambda argv, **kwargs: subprocess.CompletedProcess(argv, 0, merged, ""),
+    )
+
+    done = cluster.run_on_node("node-a", ["docker", "inspect", "container"])
+
+    assert done.stdout.strip() == "true"
+    # Diagnosable, not discarded.
+    assert "--pty runs a single task" in done.stderr
+
+
 def test_spur_detached_srun_keeps_submission_placement(monkeypatch):
     monkeypatch.setattr(cluster, "_SPUR", True)
     monkeypatch.delenv("SLURM_JOB_ID", raising=False)

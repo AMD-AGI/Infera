@@ -386,6 +386,48 @@ _accounting_blocked() {
     *) return 1 ;;
   esac
 }
+# The QoS's ceiling on how many jobs ONE USER may have submitted at once -- on
+# Spur: "you have reached the QOS limit on submitted jobs per user
+# (QOSMaxSubmitJobPerUserLimit)". Unlike the reasons above this is not a wrong
+# credential and not another team's queue: every runner in the fleet dispatches
+# as the same user, so the slots are held by this run's own other legs (a matrix
+# of three mixed, three disagg and engine against a ceiling of four), and one
+# frees the moment a sibling finishes. Rotating account/QoS pairs cannot help --
+# the ceiling is per user per QoS, so every pair that names the same QoS hits the
+# same wall.
+_submit_slot_blocked() {
+  case "$1" in
+    *QOSMaxSubmitJobPerUser* | *QOSMaxJobsPerUser* | *AssocMaxSubmitJob* | \
+    *"limit on submitted jobs per user"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+# How long one tier may wait, in total, for a slot of its own. The refusal
+# creates no job, so there is nothing queued to wait in: waiting means sitting
+# here and resubmitting. Bounded well inside the workflow's job timeouts (60min
+# for engine, 120 for the e2e tiers) so a tier that never gets a slot still ends
+# as a reported failure rather than being killed mid-step with no summary. The
+# wait stays on the account/QoS pair that was refused rather than re-walking the
+# ladder: the better pairs turned this tier away seconds ago, and re-trying them
+# submits real jobs, which is exactly what the five-submission ceiling is there
+# to stop.
+SLOT_WAIT="${INFERA_E2E_SLURM_SLOT_WAIT:-1200}"
+SLOT_POLL="${INFERA_E2E_SLURM_SLOT_POLL:-60}"
+_SLOT_WAITED=0
+_wait_for_slot() {
+  local label="$1" mine
+  if [ "$_SLOT_WAITED" -ge "$SLOT_WAIT" ]; then
+    echo "[$label] no submit slot in this QoS after ${_SLOT_WAITED}s — giving up" >&2
+    return 1
+  fi
+  # Count the jobs we are waiting on: if this ever prints 0, the ceiling is not
+  # the one described above and the log has to show that rather than imply it.
+  # `|| true` because grep exits 1 on a count of zero, which is an answer.
+  mine=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null | grep -c 'infera-' || true)
+  _SLOT_WAITED=$((_SLOT_WAITED + SLOT_POLL))
+  echo "[$label] QoS submit slots all taken (${mine} of this fleet's own jobs in the queue) — waiting ${SLOT_POLL}s for one (${_SLOT_WAITED}/${SLOT_WAIT}s)" >&2
+  sleep "$SLOT_POLL"
+}
 # _hold_pair's own window: its -N2 --gres=gpu:8 batch job needs longer to start
 # than a single-node srun, and giving up early only churns the pair-hold race.
 HOLD_WAIT="${INFERA_E2E_HOLD_WAIT:-60}"
@@ -566,7 +608,9 @@ _rival_holder() {
 # idle in between, so SLURM would hand one out and the fixed ports (etcd 2379,
 # router 8000, ...) collide. Our own no-gres steps co-schedule. Sets _HOLDER_JID.
 # 0 = held, 1 = another holder won the pair, 2 = SLURM never placed the hold,
-# 3 = the real sbatch submission ceiling was reached.
+# 3 = the real sbatch submission ceiling was reached, 4 = the QoS never had a
+# per-user submit slot free within SLOT_WAIT (no submission was ever accepted,
+# so 3's "ceiling reached" would name the wrong wall).
 _HOLD_SUBMISSIONS=0
 _hold_pair() {
   local pair="$1" script="$SCRATCH/hold.sh" jid st rs waited i other submit_out
@@ -597,6 +641,17 @@ _hold_pair() {
         "${account_flags[@]}" "$script" 2>&1)
       if [ "$?" -ne 0 ]; then
         echo "[e2e disagg] hold submission rejected: $submit_out" >&2
+        # Refused for the per-user submit ceiling: no job was created, so this
+        # was not one of the real submissions the ceiling below counts. Hand the
+        # count back and wait for a sibling leg to free a slot -- $i is left
+        # where it is (the loop's own i++ restores it) so the wait, not the
+        # credential retries, is what bounds this.
+        if _submit_slot_blocked "$submit_out"; then
+          _HOLD_SUBMISSIONS=$((_HOLD_SUBMISSIONS - 1))
+          _wait_for_slot "e2e disagg" || return 4
+          i=$((i - 1))
+          continue
+        fi
         _accounting_blocked "$submit_out" && break
         continue
       fi
@@ -894,6 +949,16 @@ _dispatch_slurm() {
       echo "[$label] job ${why:-held} — cancelled, retrying within the $max_attempts-submission limit in 5s" >&2
       retryable=1; sleep 5; continue
     fi
+    # Refused for the per-user submit ceiling (see _submit_slot_blocked): a queue
+    # to wait in, not a failure, and no pair rotation can clear it. The scheduler
+    # created no job, so this attempt is given back -- the wait is what is
+    # bounded here, by SLOT_WAIT rather than by the submission ceiling.
+    if _submit_slot_blocked "$(cat "$out" 2>/dev/null)"; then
+      attempt=$((attempt - 1))
+      _wait_for_slot "$label" || break
+      retryable=1
+      continue
+    fi
     # Invalid account/QoS associations can fail before a job id exists, so the
     # watchdog has nothing to inspect. Rotate on the submit error itself.
     if _accounting_blocked "$(cat "$out" 2>/dev/null)" && [ "$cred_count" -gt 0 ]; then
@@ -1186,6 +1251,10 @@ run_e2e_disagg() {
       if [ "$hold_rc" -ne 0 ]; then
         if [ "$hold_rc" -eq 3 ]; then
           echo "[e2e disagg] SLURM hold submission limit reached ($SLURM_MAX_ATTEMPTS attempts) — giving up on $e" >&2
+          break
+        fi
+        if [ "$hold_rc" -eq 4 ]; then
+          echo "[e2e disagg] no SLURM submit slot for a node hold within ${SLOT_WAIT}s — giving up on $e" >&2
           break
         fi
         races=$((races + 1))

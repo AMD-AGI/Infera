@@ -33,12 +33,15 @@ target="${BUILD_TARGET:-}"
 # $out holds srun client banners; remote build output goes to $logf on shared
 # NFS so tail -F can stream it live to GHA (buffered srun stdout would not show).
 out="${TMPDIR:-/tmp}/.dispatch-build-${INFERA_E2E_JOB_TAG:-$engine}.out"
-shared=0 logdir="" logf="" tailf="$out"
+shared=0 logroot="" logdir="" logf="" tailf="$out"
 if [ -n "${GITHUB_ACTIONS:-}" ] || [ "${CI:-}" = "true" ] || [ -n "${INFERA_DISPATCH_LOGDIR:-}" ]; then
   shared=1
-  logdir="${INFERA_DISPATCH_LOGDIR:-$HOME/infera-cicd-shared-logs}"
+  logroot="${INFERA_DISPATCH_LOGDIR:-$HOME/infera-cicd-shared-logs}"
+  # One folder per run, keyed by job tag -- the layout tests/run_tests.sh uses. A
+  # flat root left every dispatch ever made in one listing, traceable only by mtime.
+  logdir="$logroot/${INFERA_E2E_JOB_TAG:-$engine}"
   mkdir -p "$logdir" 2>/dev/null || true
-  logf="$logdir/build-${INFERA_E2E_JOB_TAG:-$engine}-$$.log"
+  logf="$logdir/build-${engine}-$$.log"
   tailf="$logf"
 fi
 
@@ -76,6 +79,9 @@ sleep 3; kill "$tailpid" 2>/dev/null; wait "$tailpid" 2>/dev/null || true
 if [ -s "$out" ]; then
   echo "[build] srun client output:"; sed 's/^/  /' "$out"
 fi
-find "$logdir" -maxdepth 1 -type f -name '*.log' \
-  -mmin "+${INFERA_DISPATCH_LOG_TTL_MIN:-14400}" -delete 2>/dev/null
+# Prune old logs (10 days) by whole folder: deleting only the *.log inside would
+# strand the folder for ever on any stray non-log file. Second sweep: legacy flat logs.
+ttl="${INFERA_DISPATCH_LOG_TTL_MIN:-14400}"
+find "$logroot" -mindepth 1 -maxdepth 1 -type d -mmin "+$ttl" -exec rm -rf {} + 2>/dev/null
+find "$logroot" -mindepth 1 -maxdepth 1 -type f -name '*.log' -mmin "+$ttl" -delete 2>/dev/null
 exit "$prc"
