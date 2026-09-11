@@ -219,6 +219,9 @@ jobs:
       INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
       INFERA_E2E_SLURM_TIME: "00:50:00"
       INFERA_E2E_JOB_TAG: ${{ github.run_id }}-engine
+      # Per-run folder is $INFERA_DISPATCH_LOGDIR/$INFERA_E2E_JOB_TAG. Shared NFS, not
+      # the runner user's $HOME: every runner host writes it, and anyone may read it.
+      INFERA_DISPATCH_LOGDIR: /shared_nfs/limou/infera-cicd-shared-logs
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -261,6 +264,7 @@ jobs:
       # reclaims the node even if the runner is killed before it can scancel.
       INFERA_E2E_SLURM_TIME: "01:50:00"
       INFERA_E2E_JOB_TAG: ${{ github.run_id }}-${{ matrix.engine }}
+      INFERA_DISPATCH_LOGDIR: /shared_nfs/limou/infera-cicd-shared-logs
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -271,7 +275,7 @@ jobs:
       - name: Show worker log tails
         if: always() && (failure() || cancelled())
         run: |
-          dir="$HOME/infera-cicd-shared-logs/$INFERA_E2E_JOB_TAG"
+          dir="$INFERA_DISPATCH_LOGDIR/$INFERA_E2E_JOB_TAG"
           [ -d "$dir" ] || exit 0
           for log in "$dir"/*.log; do
             [ -f "$log" ] || continue
@@ -314,6 +318,7 @@ jobs:
       INFERA_E2E_WORKER_ENV: MC_TE_FILTERS=mlx5_0,MOONCAKE_DISABLE_HIP_DMABUF=0
       INFERA_E2E_BUILD_ARGS: MOONCAKE_HIP_DMABUF=1
       INFERA_E2E_JOB_TAG: ${{ github.run_id }}-${{ matrix.engine }}-disag
+      INFERA_DISPATCH_LOGDIR: /shared_nfs/limou/infera-cicd-shared-logs
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -325,7 +330,7 @@ jobs:
       - name: Show worker log tails
         if: always() && (failure() || cancelled())
         run: |
-          dir="$HOME/infera-cicd-shared-logs/$INFERA_E2E_JOB_TAG"
+          dir="$INFERA_DISPATCH_LOGDIR/$INFERA_E2E_JOB_TAG"
           [ -d "$dir" ] || exit 0
           for log in "$dir"/*.log; do
             [ -f "$log" ] || continue

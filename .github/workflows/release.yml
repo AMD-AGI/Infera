@@ -113,6 +113,8 @@ jobs:
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
       INFERA_E2E_JOB_TAG: ${{ github.run_id }}-${{ matrix.engine }}
+      # Remote build log lands in $INFERA_DISPATCH_LOGDIR/$INFERA_E2E_JOB_TAG (see ci.yml).
+      INFERA_DISPATCH_LOGDIR: /shared_nfs/limou/infera-cicd-shared-logs
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -181,6 +183,7 @@ jobs:
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
       INFERA_E2E_JOB_TAG: ${{ github.run_id }}-overlay
+      INFERA_DISPATCH_LOGDIR: /shared_nfs/limou/infera-cicd-shared-logs
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
