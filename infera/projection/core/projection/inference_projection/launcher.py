@@ -404,11 +404,19 @@ def _print_des(des: dict[str, object]) -> None:
     print("[inferasim:Inference] Discrete-Event Simulation (arrival-driven)")
     print("=" * 100)
     sat = " [SATURATED]" if point.saturated else ""
-    print(
-        f"  Arrivals: {point.arrival_model} @ {point.offered_rate:g} req/s offered  "
-        f"(achieved {point.achieved_rate:.2f} req/s, "
-        f"utilization {point.utilization * 100:.0f}%){sat}"
-    )
+    clients = int((point.packing or {}).get("closed_loop_clients", 0))
+    if clients:
+        print(
+            f"  Arrivals: closed loop, {clients} client(s) resubmitting on completion  "
+            f"(achieved {point.achieved_rate:.2f} req/s, "
+            f"utilization {point.utilization * 100:.0f}%)"
+        )
+    else:
+        print(
+            f"  Arrivals: {point.arrival_model} @ {point.offered_rate:g} req/s offered  "
+            f"(achieved {point.achieved_rate:.2f} req/s, "
+            f"utilization {point.utilization * 100:.0f}%){sat}"
+        )
     print(
         f"  Simulated: {point.num_requests} requests over {point.makespan_ms / 1000.0:.2f} s  "
         f"→ system throughput {point.system_throughput_tps:.0f} tok/s"
@@ -719,6 +727,10 @@ def launch_projection_from_cli(args, overrides):
 
     mode = getattr(args, "inference_mode", "both") or "both"
     hbm_gb = getattr(args, "hbm_capacity_gb", None)
+    # Deliberately "simulate" rather than the CLI's "benchmark" default: this
+    # branch is only reached by a caller whose args object never mentioned a
+    # profiling mode, and an args object that never asked for GPUs should not
+    # spawn a serving engine. The CLI always sets the attribute explicitly.
     profiling_mode = getattr(args, "profiling_mode", "simulate") or "simulate"
 
     # Benchmark mode: measure this recipe on real GPUs, then calibrate the
@@ -767,13 +779,25 @@ def launch_projection_from_cli(args, overrides):
             )
         else:
             decode_floor = None
-    elif profiling_mode == "benchmark" and mode in ("performance", "both"):
+    if (benchmark_layer_times is None
+            and profiling_mode == "benchmark"
+            and mode in ("performance", "both")):
         # Measure this recipe on GPUs now. Asking for a benchmark and quietly
         # receiving a simulation would be the worst of both, so failures here
         # are raised rather than absorbed; --profiling-mode simulate is how you
         # ask for the projection that needs no GPU.
-        from .benchmark import spawn_inference_benchmark
+        #
+        # The guard is "no measurements yet", not "no decode floor". Both
+        # --load-benchmark and --anchor-store have already populated
+        # benchmark_layer_times by this point, while a floor artifact is an
+        # independent lower bound that does not stand in for an anchor. Written
+        # as an elif on floor_bench, this spawned a fresh GPU run whenever an
+        # anchor was loaded without a floor -- contradicting --load-benchmark's
+        # contract that the bench is skipped -- and conversely skipped the
+        # measurement entirely when a floor was passed without an anchor.
+        from .benchmark import assert_measurable, spawn_inference_benchmark
 
+        assert_measurable()
         benchmark_layer_times = spawn_inference_benchmark(args, inference_config)
 
     # Default multi-anchor policy ("TP=1 + TP=2 scaling"): when several
@@ -841,10 +865,15 @@ def launch_projection_from_cli(args, overrides):
         workload_file = getattr(args, "des_workload_file", None)
         dump_steps = getattr(args, "des_dump_steps", None)
         mooncake_trace = getattr(args, "des_mooncake_trace", None)
+        # Closed-loop is the benchmark-harness shape (fixed concurrency, no
+        # arrival stream), so it has no request rate to switch on and needs its
+        # own opt-in.
+        closed_loop = bool(getattr(args, "des_closed_loop", False))
         run_des_enabled = (
             (arrival_model in ("poisson", "deterministic") and (req.request_rate or 0) > 0)
             or bool(workload_file)
             or bool(mooncake_trace)
+            or closed_loop
         )
         if run_des_enabled:
             from .des import run_des
@@ -858,6 +887,7 @@ def launch_projection_from_cli(args, overrides):
                 rate_per_s=float(req.request_rate or 0.0),
                 num_requests=int(getattr(args, "des_num_requests", 400) or 400),
                 seed=int(getattr(args, "des_seed", 0) or 0),
+                warmup_frac=float(getattr(args, "des_warmup_frac", 0.1) or 0.0),
                 sweep=bool(getattr(args, "des_sweep", False)),
                 burstiness=float(getattr(args, "des_burstiness", 1.0) or 1.0),
                 range_ratio=float(getattr(args, "des_range_ratio", 1.0) or 1.0),
@@ -874,6 +904,9 @@ def launch_projection_from_cli(args, overrides):
                 block_size=int(getattr(args, "des_block_size", 0) or 0),
                 cache_blocks=int(getattr(args, "des_kv_blocks", 0) or 0),
                 mooncake_trace=mooncake_trace,
+                closed_loop=closed_loop,
+                prefill_exclusive=bool(getattr(args, "des_exclusive_prefill", False)),
+                new_seqs_per_step=int(getattr(args, "des_new_seqs_per_step", 0) or 0),
             )
             _print_des(des)
             results["des"] = des
@@ -889,7 +922,7 @@ def launch_projection_from_cli(args, overrides):
                         "max_num_batched_tokens": req.max_num_batched_tokens,
                         "chunked_prefill_size": req.chunked_prefill_size,
                         "request_rate": req.request_rate,
-                        "arrival_model": arrival_model,
+                        "arrival_model": "closed_loop" if closed_loop else arrival_model,
                         "burstiness": float(getattr(args, "des_burstiness", 1.0) or 1.0),
                         "range_ratio": float(getattr(args, "des_range_ratio", 1.0) or 1.0),
                         "kv_cache_tokens": int(getattr(args, "des_kv_cache_tokens", 0) or 0),

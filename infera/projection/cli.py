@@ -212,8 +212,12 @@ def _add_performance_args(parser):
             "  simulate   - Use simulation backends (origami for GEMM,\n"
             "               analytical model for SDPA). No GPU required.\n"
             "  both       - Run both benchmark and simulation, report side-by-side\n"
-            "'inference' defaults to 'simulate', so a projection needs no GPU\n"
-            "unless you ask for one; 'anchor' always measures.\n"
+            "Default 'benchmark', because a calibrated kernel is the only one\n"
+            "whose correlation against real serving has been established. An\n"
+            "anchor already in --anchor-store satisfies it without a GPU; with\n"
+            "neither an anchor nor a GPU the run stops rather than downgrading,\n"
+            "and '--profiling-mode simulate' is how you ask for the uncalibrated\n"
+            "analytical path on purpose. 'anchor' always measures.\n"
         ),
     )
     parser.add_argument(
@@ -852,11 +856,71 @@ def _add_inference_args(parser):
         "still report the analytical M/M/1 / D/M/1 mean.",
     )
     serv.add_argument(
+        "--des-closed-loop",
+        action="store_true",
+        default=False,
+        help="DES: simulate a fixed-concurrency benchmark harness instead of an "
+        "arrival stream -- --max-concurrency clients each resubmit the moment "
+        "their request completes. Makes TTFT an observed timestamp difference, "
+        "so a prefill chunk is charged the scheduler step it actually rides "
+        "(dilated by the resident decode batch) rather than standalone prefill "
+        "time. Set --chunked-prefill-size to the engine's per-request per-step "
+        "prefill allowance; without it a prompt prefills in one step.",
+    )
+    serv.add_argument(
+        "--des-exclusive-prefill",
+        action="store_true",
+        default=False,
+        help="DES: the engine does not co-schedule prefill with decode -- a "
+        "prefill batch carries one request and the whole token budget while "
+        "the resident decodes wait. Read this off the engine, not off the "
+        "errors: Atom logs 'Scheduled prefill batch: 1 reqs, 8192 new tokens' "
+        "against a 8192-token budget, vLLM's chunked prefill instead packs a "
+        "chunk in beside the decodes. It is not a small distinction. Blocking "
+        "decode re-synchronises a closed-loop population every round -- no one "
+        "advances while a request prefills, so all C clients start decoding "
+        "together, finish together and resubmit together -- which turns the "
+        "prefill queue from an opening transient into a standing one and makes "
+        "measured TTFT uniform on [0, 2*median]. Left off against such an "
+        "engine, TTFT reads an order of magnitude early at high concurrency.",
+    )
+    serv.add_argument(
         "--des-num-requests",
         type=int,
         default=400,
         help="DES: number of requests to simulate at the configured offered load "
-        "(--arrival-model poisson/deterministic). Default: 400.",
+        "(--arrival-model poisson/deterministic) or, with --des-closed-loop, in "
+        "total across all clients. Default: 400.",
+    )
+    serv.add_argument(
+        "--des-max-prefill-seqs",
+        "--des-new-seqs-per-step",
+        dest="des_new_seqs_per_step",
+        type=int,
+        default=0,
+        help="DES: cap on how many *new* sequences may enter one prefill step "
+        "(0 = only the token budget limits admission). The per-step token "
+        "budget is a ceiling on a prefill batch, not a target -- admitting a "
+        "request reserves KV for its whole prompt, so engines stay well under "
+        "it. Measured over 5.4M prefill batches from vLLM and SGLang on "
+        "MI355X, the median batch takes 1 new sequence with an empty queue and "
+        "2 with a backlog, against the 16 a 16384-token budget would hold at "
+        "ISL 1024. Leaving this unset makes a wave of C requests clear in "
+        "C*ISL/budget steps at the efficient large-batch token rate, which "
+        "reads TTFT an order of magnitude early at high concurrency.",
+    )
+    serv.add_argument(
+        "--des-warmup-frac",
+        type=float,
+        default=0.1,
+        help="DES: fraction of requests, in completion order, to exclude from "
+        "the reported latency distribution. This is a reporting convention, not "
+        "a property of the engine: it has to match what the harness being "
+        "compared against averaged over. Serving harnesses generally send a "
+        "separate warmup burst and then report over every measured request, in "
+        "which case this is 0 -- and it is not a small correction, because a "
+        "fixed-concurrency run is only a few waves long and the opening burst "
+        "carries the highest TTFT of any request in it. Default: 0.1.",
     )
     serv.add_argument(
         "--des-seed",
@@ -1092,7 +1156,12 @@ def build_parser() -> argparse.ArgumentParser:
     _add_save_benchmark_arg(inference)
     _add_load_benchmark_arg(inference, include_compute_baseline_alias=False)
     _add_inference_args(inference)
-    inference.set_defaults(profiling_mode="simulate", func="inference")
+    # No profiling_mode override here: the flag's own default ("benchmark")
+    # stands. Calibrated latency is the only kind with an established
+    # correlation against real serving, so the uncalibrated analytical path is
+    # opt-in rather than what you get for saying nothing. A matching anchor in
+    # --anchor-store satisfies the default without touching a GPU.
+    inference.set_defaults(func="inference")
 
     # anchor-harvest is a thin shim over the vLLM harness
     # Registered only so it appears in `--help`. Its flags are parsed by the

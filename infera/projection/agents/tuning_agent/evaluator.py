@@ -674,6 +674,13 @@ def _build_inference_cmd(
         cmd += ["--load-benchmark", str(load_benchmark)]
     elif profiling_mode == "benchmark" and bench_gpus:
         cmd += ["--profiling-mode", "benchmark"]
+    else:
+        # Say "simulate" out loud. The projection CLI defaults to measuring, so
+        # omitting the flag here would have the search spawn a serving engine
+        # per candidate -- the opposite of a search that scores thousands of
+        # them on the cost model. Measuring is requested explicitly, by the two
+        # branches above.
+        cmd += ["--profiling-mode", "simulate"]
     if decode_floor is not None:
         cmd += ["--decode-floor-benchmark", str(decode_floor)]
     return cmd

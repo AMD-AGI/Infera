@@ -18,9 +18,16 @@ import pytest
 
 from infera.projection.core.projection.inference_projection.performance import (
     InferencePerformanceProjector as Proj,
+    _split_replica_loads,
 )
 
 wait = Proj._closed_loop_wait_ms
+
+
+def test_replica_split_preserves_every_request():
+    assert _split_replica_loads(65, 2) == [33, 32]
+    assert sum(_split_replica_loads(3, 8)) == 3
+    assert _split_replica_loads(64, 4) == [16, 16, 16, 16]
 
 
 def test_single_client_never_queues():

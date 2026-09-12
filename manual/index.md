@@ -100,3 +100,32 @@ Work out how many prefill/decode replicas hold your TTFT and ITL targets.
 :::
 
 ::::
+
+## Simulation and capacity planning
+
+Before you buy the GPUs: **InferaSim** projects TTFT, latency, throughput and KV
+footprint for a serving recipe, and simulates a fleet under load. Measure one
+anchor per regime, then project everything else from it — no GPU per question.
+
+::::{grid} 1 1 3 3
+:gutter: 3
+
+:::{grid-item-card} Simulation overview
+:link: simulation/overview
+:link-type: doc
+What InferaSim is, the components, how the two engines differ, and where to start.
+:::
+
+:::{grid-item-card} Projection runs
+:link: simulation/projection_runs
+:link-type: doc
+One recipe in, steady-state means out — and how to read the report.
+:::
+
+:::{grid-item-card} Simulation runs
+:link: simulation/simulation_runs
+:link-type: doc
+Arrival-driven discrete-event simulation for p90/p99 and queueing.
+:::
+
+::::
