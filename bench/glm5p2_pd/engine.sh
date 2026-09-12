@@ -116,6 +116,8 @@ engine_args=(
 )
 [[ "$dp" -gt 1 ]] && engine_args+=(--dp-size "$dp")
 [[ "$dpa" == 1 ]] && engine_args+=(--enable-dp-attention)
+[[ -n "${JSON_MODEL_OVERRIDE_ARGS:-}" ]] &&
+    engine_args+=(--json-model-override-args "$JSON_MODEL_OVERRIDE_ARGS")
 [[ -n "${RDMA_DEVICE:-}" ]] && engine_args+=(--disaggregation-ib-device "$RDMA_DEVICE")
 if [[ "$role" == prefill ]]; then
     engine_args+=(--disaggregation-bootstrap-port "$bootstrap_port")

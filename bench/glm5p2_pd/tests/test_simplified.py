@@ -43,16 +43,16 @@ class ConfigAndTopologyTests(unittest.TestCase):
             stderr=subprocess.PIPE,
         )
         lines = result.stdout.splitlines()
-        self.assertEqual(lines[0], "8 8 1")
-        self.assertIn("prefill-0\x1fprefill\x1fcrsuse2-m2m-136", lines[1])
-        self.assertIn("decode-0\x1fdecode\x1fcrsuse2-m2m-137", lines[2])
+        self.assertEqual(lines[0], "4 8 1")
+        self.assertIn("prefill-0\x1fprefill\x1fcrsuse2-m2m-137", lines[1])
+        self.assertIn("decode-0\x1fdecode\x1fcrsuse2-m2m-138", lines[2])
 
     def test_command_line_override_is_validated(self):
         result = subprocess.run(
             [
                 "bash",
                 "-c",
-                "COMPONENT=test; source lib/common.sh; load_config PREFILL_TP=4",
+                "COMPONENT=test; source lib/common.sh; load_config PREFILL_TP=8",
             ],
             cwd=ROOT,
             check=False,
@@ -61,7 +61,7 @@ class ConfigAndTopologyTests(unittest.TestCase):
             stderr=subprocess.PIPE,
         )
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("TP(4) * DP(1)", result.stderr)
+        self.assertIn("TP(8) with DPA", result.stderr)
 
     def test_empty_command_line_override_wins(self):
         result = subprocess.run(
@@ -95,11 +95,18 @@ class ConfigAndTopologyTests(unittest.TestCase):
         )
         config = (ROOT / "config.sh").read_text(encoding="utf-8")
         self.assertIn("ROCM_OPT_BASE_IMAGE=", config)
-        self.assertIn("glm52-v518-402df1e-2c71811", config)
+        self.assertIn("glm52-v518-c29bd17-b02ab81", config)
 
     def test_launch_ssh_cannot_consume_topology_rows(self):
         script = (ROOT / "launch.sh").read_text(encoding="utf-8")
         self.assertIn('"${remote_overrides[@]}" </dev/null', script)
+        self.assertIn("--listen-peer-urls", script)
+        self.assertIn("$ETCD_PEER_PORT", script)
+
+    def test_preflight_supports_asymmetric_pd_gpu_counts(self):
+        script = (ROOT / "preflight.sh").read_text(encoding="utf-8")
+        self.assertIn("prefill_gpu_count < decode_gpu_count", script)
+        self.assertNotIn("requires equal P/D GPU counts", script)
 
 
 def service_fixture():
@@ -401,6 +408,7 @@ class SmokeTests(unittest.TestCase):
     def test_engine_sets_long_http_keep_alive(self):
         text = (ROOT / "engine.sh").read_text(encoding="utf-8")
         self.assertIn("SGLANG_TIMEOUT_KEEP_ALIVE", text)
+        self.assertIn("--json-model-override-args", text)
 
 
 if __name__ == "__main__":

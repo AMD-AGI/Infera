@@ -1,11 +1,141 @@
 # GLM-5.2 multi-P/D
 
 Hand-operated deployment and AgentX scripts for one or more Prefill and Decode
-workers. There is no study runner, resume state, service contract, node lock, or
-statistics layer. Run each step separately and fix a failed step before moving
-on.
+workers. Deployment and hardware measurement have no study runner, service
+contract, or node lock: run each step separately and fix a failed step before
+moving on. The offline projection sweep below is the only resumable study
+driver in this directory.
 
 The accepted `../glm5p2_1p1d` kit and all of its results remain unchanged.
+
+## Offline 1P1D projection sweep
+
+Projection is deliberately split into two independent stages:
+
+- `projection_sweep.py` creates the schedule, runs InferaSim, and writes only
+  append-only JSONL records plus one human-readable CLI report per attempt;
+- `analyze_projection_sweep.py` reads those records and writes derived CSV,
+  Pareto, shortlist, and summary artifacts to a separate directory.
+
+Run the scanner in the same Python environment as a working `inferasim`
+installation with the Origami backend:
+
+```bash
+RUN_DIR=results/projection-1p1d
+
+./projection_sweep.py --dry-run
+./projection_sweep.py --output-dir "$RUN_DIR"
+```
+
+The raw run directory is the stable experiment record:
+
+```text
+RUN_DIR/
+  run_config.json
+  raw/
+    schedule.jsonl
+    projections.jsonl
+    reports/                  # one human-readable .txt report per attempt
+```
+
+`schedule.jsonl` contains every intended call before execution starts.
+`projections.jsonl` is append-only and stores the full native performance,
+per-pool memory, resolved configuration, CLI arguments, status, and timing for
+every attempt. `reports/` retains the corresponding original InferaSim output,
+reproduction command, and Prefill/Decode memory limits. Thus both machines and
+people can inspect the raw scan without rerunning InferaSim.
+
+Resume or retry failures without rewriting completed raw records:
+
+```bash
+./projection_sweep.py --output-dir "$RUN_DIR" --resume
+
+# Add this flag to the same command to append a new attempt for failed points:
+#   --retry-errors
+```
+
+Analyze the same raw records repeatedly without changing them:
+
+```bash
+./analyze_projection_sweep.py "$RUN_DIR" \
+  --output-dir "$RUN_DIR/analysis/baseline"
+
+./analyze_projection_sweep.py "$RUN_DIR" \
+  --interactivity-floor 144 \
+  --output-dir "$RUN_DIR/analysis/interactivity-144"
+```
+
+Analysis may run while a scan is incomplete. Scheduled but unfinished
+points are marked `pending`; completed points remain available for intermediate
+inspection. Each analysis directory contains `results.csv`, `feasible.csv`,
+global and per-budget Pareto CSVs, `shortlist.csv`, `summary.txt`, and an
+`analysis_config.json` recording the exact raw-data hashes. It also writes
+`memory_limits_by_combination.csv` with each P/D combination's effective
+memory max concurrency and `memory_point_actions.csv` with explicit `CUT`,
+and `SUPPLEMENT` points. For a memory boundary above C64, supplemental points
+are selected from C96/C128/C192/C256/C512 below that boundary, followed by the
+exact max-concurrency boundary.
+
+Apply a reviewed memory action table with `apply_memory_followup.py`. It stages
+and runs all supplemental projections before deleting any Cut point, then
+atomically rewrites the JSONL files, removes Cut reports, archives the applied
+plan under `RUN_DIR/memory-plan-applied`, and discards stale derived analysis.
+
+The default matrix has 448 strategy/concurrency configurations:
+
+- exact fleet budgets `8,12,16` GPUs;
+- pool widths `4,8`, producing `P4+D4`, `P4+D8`, `P8+D4`, and `P8+D8`;
+- independent Prefill and Decode modes `TP`, `TP+EP`, `TP+DPA`, and
+  `TP+EP+DPA`;
+- `EP=TP` and `attention-DP=TP` whenever the corresponding mode is enabled;
+- concurrency `1,2,4,8,16,32,64`;
+- fixed workload `ISL=111787`, `OSL=911`, prefix hit `0.97369`;
+- Mooncake KV-transfer bandwidth `37.85 GB/s` per TP rank, measured from the
+  TP4/EP4 C8 run;
+- speculative draft cost factor `0.05`;
+- speculative `k=5` drafted tokens at acceptance `0.79067`, so a verify step
+  spans `k+1=6` query positions and emits `sum(a^0..a^5)=3.610` tokens --
+  matching the engine, which is launched with `--speculative-num-steps 5
+  --speculative-eagle-topk 1 --speculative-num-draft-tokens 6` and pinned to
+  `SGLANG_SIMULATE_ACC_LEN=3.61`. SGLang's `num-draft-tokens` counts the whole
+  verify tree (root + drafted), which is why `k` is 5 and not 6.
+
+  The `results/projection-*` directories predate that correction: they were
+  produced at `k=6` / acceptance `0.765763`, which is the pair that yields the
+  same 3.610 tokens per step but over a 7-position verify step the engine never
+  runs. Each directory's `run_config.json` records the pair it used. The error
+  is confined to decode step cost (roughly the 7/6 ratio, plus a slightly
+  different draft term); it does not touch the memory model, so the
+  feasibility and `max_conc` tables built from those runs still hold.
+
+This first pass intentionally uses only that single representative workload;
+there is no profile bucketing or cross-workload aggregation. The matrix is
+therefore exactly 448 raw projections. TP1 is HBM-infeasible. TP2 reaches only
+11 projected resident sequences for this workload, so the production scan
+accepts only TP4/TP8. Attention-DP subdivides TP and does not add GPUs.
+
+The Pareto x-axis is InferaSim's modeled mean interactivity, not P90. This
+script deliberately does not apply the TP4/EP4 AgentX correction or a shared
+GPU Anchor to other TP/EP regimes. Calibrate each shortlisted regime
+independently, then obtain P90 from its real AgentX run.
+
+### TP8+DPA replica scan above 16 GPUs
+
+Keep each worker at TP8/EP1/attention-DP8 and scale with P/D replicas rather
+than creating a cross-node TP16 worker. Inspect the proposed 26-point 24/32-GPU
+schedule with:
+
+```bash
+./projection_sweep.py --dry-run \
+  --budgets 24,32 --pool-widths 8 --modes tp_dpa \
+  --replica-plan \
+    '1x2:32,64,96,128,168;2x1:32,64,96,128,168;1x3:32,64,96,128,168;2x2:64,96,128,192,256,336;3x1:32,64,96,128,168'
+```
+
+For global concurrency `C`, memory is projected at
+`ceil(C / prefill_replicas)` and `ceil(C / decode_replicas)` on each worker.
+The analyzer reports both per-replica and fleet max concurrency. Remove
+`--dry-run` and add a new `--output-dir` only when the schedule is approved.
 
 ## 1. Configure
 
@@ -239,13 +369,16 @@ The normal entry points are:
 - `eval/smoke.sh`, `eval/gsm8k.sh`, `eval/long_context.sh`
 - `agentx_bench.sh`
 - `analyze_agentx.sh`
+- `projection_sweep.py`
+- `analyze_projection_sweep.py`
 - `stop.sh`
 
 Implementation helpers are limited to `lib/common.sh`,
 `tools/wait_healthy.py`, `tools/validate_preflight.py`, and
-`tools/agentx_env.py` (used only by AgentX). Analysis uses
+`tools/agentx_env.py` (used only by AgentX). AgentX analysis uses
 `tools/collect_agentx.py`, `tools/plot_agentx.py`, and the optional explicit
-reference updater.
+reference updater. Projection analysis is isolated in
+`analyze_projection_sweep.py` and reads only the raw run contract.
 
 ## Local checks
 

@@ -71,7 +71,7 @@ load_config() {
 validate_config() {
     local required value
     for required in IMAGE MODEL SERVED_MODEL CONTROL_NODE CONTAINER_PREFIX \
-        NODE_GPU_COUNT PREFILL_GPU_DEVICES DECODE_GPU_DEVICES ETCD_PORT \
+        NODE_GPU_COUNT PREFILL_GPU_DEVICES DECODE_GPU_DEVICES ETCD_PORT ETCD_PEER_PORT \
         ROUTER_PORT ENGINE_PORT_BASE BOOTSTRAP_PORT_BASE KV_EVENT_PORT_BASE \
         SNAPSHOT_PORT_BASE PREFILL_TP PREFILL_EP PREFILL_DP DECODE_TP \
         DECODE_EP DECODE_DP; do
@@ -82,7 +82,7 @@ validate_config() {
     [[ "$CONTAINER_PREFIX" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]] ||
         die "unsafe CONTAINER_PREFIX=$CONTAINER_PREFIX"
 
-    for required in NODE_GPU_COUNT ETCD_PORT ROUTER_PORT ENGINE_PORT_BASE \
+    for required in NODE_GPU_COUNT ETCD_PORT ETCD_PEER_PORT ROUTER_PORT ENGINE_PORT_BASE \
         BOOTSTRAP_PORT_BASE KV_EVENT_PORT_BASE SNAPSHOT_PORT_BASE PREFILL_TP \
         PREFILL_EP PREFILL_DP PREFILL_MAX_RUNNING PREFILL_GRAPH_MAX_BS \
         DECODE_TP DECODE_EP DECODE_DP DECODE_MAX_RUNNING DECODE_GRAPH_MAX_BS; do
@@ -96,12 +96,13 @@ validate_config() {
         die "Decode MTP and HiCache cannot both be enabled"
 
     python3 - "$PREFILL_GPU_DEVICES" "$DECODE_GPU_DEVICES" \
-        "$NODE_GPU_COUNT" "$PREFILL_TP" "$PREFILL_DP" "$DECODE_TP" "$DECODE_DP" <<'PY'
+        "$NODE_GPU_COUNT" "$PREFILL_TP" "$PREFILL_DP" "$(bool01 "$PREFILL_DPA")" \
+        "$DECODE_TP" "$DECODE_DP" "$(bool01 "$DECODE_DPA")" <<'PY'
 import sys
 
-for role, text, tp, dp in (
-    ("prefill", sys.argv[1], int(sys.argv[4]), int(sys.argv[5])),
-    ("decode", sys.argv[2], int(sys.argv[6]), int(sys.argv[7])),
+for role, text, tp, dp, dpa in (
+    ("prefill", sys.argv[1], int(sys.argv[4]), int(sys.argv[5]), sys.argv[6] == "1"),
+    ("decode", sys.argv[2], int(sys.argv[7]), int(sys.argv[8]), sys.argv[9] == "1"),
 ):
     devices = [part.strip() for part in text.split(",") if part.strip()]
     if not devices or len(devices) != len(set(devices)):
@@ -110,16 +111,23 @@ for role, text, tp, dp in (
         raise SystemExit(f"{role} GPU list must contain numeric device IDs")
     if any(int(item) >= int(sys.argv[3]) for item in devices):
         raise SystemExit(f"{role} GPU list exceeds NODE_GPU_COUNT={sys.argv[3]}")
-    if tp * dp != len(devices):
+    if dpa and (dp > tp or tp % dp):
         raise SystemExit(
-            f"{role}: TP({tp}) * DP({dp}) must equal selected GPUs({len(devices)})"
+            f"{role}: attention DP({dp}) must divide TP({tp}) without adding GPUs"
+        )
+    expected = tp if dpa else tp * dp
+    if expected != len(devices):
+        mode = f"TP({tp}) with DPA" if dpa else f"TP({tp}) * DP({dp})"
+        raise SystemExit(
+            f"{role}: {mode} must equal selected GPUs({len(devices)})"
         )
 PY
 }
 
 validate_topology() {
     python3 - "$TOPOLOGY_FILE" "$CONTROL_NODE" "$CONTAINER_PREFIX" \
-        "$ETCD_PORT" "$ROUTER_PORT" "$ENGINE_PORT_BASE" "$BOOTSTRAP_PORT_BASE" \
+        "$ETCD_PORT" "$ETCD_PEER_PORT" "$ROUTER_PORT" \
+        "$ENGINE_PORT_BASE" "$BOOTSTRAP_PORT_BASE" \
         "$KV_EVENT_PORT_BASE" "$SNAPSHOT_PORT_BASE" \
         "${INFERA_NODEPORT_RANGE:-30000-32767}" <<'PY'
 import csv
@@ -128,9 +136,9 @@ import re
 import sys
 
 path, control, prefix = sys.argv[1:4]
-service_ports = [int(value) for value in sys.argv[4:6]]
-bases = [int(value) for value in sys.argv[6:10]]
-low, high = (int(value) for value in sys.argv[10].split("-", 1))
+service_ports = [int(value) for value in sys.argv[4:7]]
+bases = [int(value) for value in sys.argv[7:11]]
+low, high = (int(value) for value in sys.argv[11].split("-", 1))
 with open(path, encoding="utf-8", newline="") as stream:
     reader = csv.DictReader(stream, delimiter="\t")
     if reader.fieldnames != ["role", "node", "data_ip"]:

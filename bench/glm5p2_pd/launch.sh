@@ -32,7 +32,10 @@ ssh_exec "$CONTROL_NODE" docker run -d --init \
     --name "$etcd_container" --network host \
     "${ETCD_IMAGE:-quay.io/coreos/etcd:v3.5.14}" etcd \
     --advertise-client-urls "http://$etcd_endpoint" \
-    --listen-client-urls "http://0.0.0.0:$ETCD_PORT"
+    --listen-client-urls "http://0.0.0.0:$ETCD_PORT" \
+    --listen-peer-urls "http://127.0.0.1:$ETCD_PEER_PORT" \
+    --initial-advertise-peer-urls "http://127.0.0.1:$ETCD_PEER_PORT" \
+    --initial-cluster "default=http://127.0.0.1:$ETCD_PEER_PORT"
 
 for ((attempt = 1; attempt <= 60; attempt++)); do
     if ssh_exec "$CONTROL_NODE" docker exec "$etcd_container" \

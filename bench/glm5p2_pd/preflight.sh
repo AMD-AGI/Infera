@@ -19,9 +19,10 @@ OUT_DIR="$(cd "$OUT_DIR" && pwd)"
 gpu_count() { awk -F, '{print NF}' <<<"$1"; }
 prefill_gpu_count="$(gpu_count "$PREFILL_GPU_DEVICES")"
 decode_gpu_count="$(gpu_count "$DECODE_GPU_DEVICES")"
-[[ "$prefill_gpu_count" == "$decode_gpu_count" ]] ||
-    die "preflight requires equal P/D GPU counts; got $prefill_gpu_count and $decode_gpu_count"
-expected_gpus="$prefill_gpu_count"
+expected_gpus="$((prefill_gpu_count < decode_gpu_count ? prefill_gpu_count : decode_gpu_count))"
+if [[ "$prefill_gpu_count" != "$decode_gpu_count" ]]; then
+    log "asymmetric P/D GPUs: validating $expected_gpus common WRITE paths ($prefill_gpu_count -> $decode_gpu_count)"
+fi
 
 docker_base=(
     docker run --rm --network host --ipc host

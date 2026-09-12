@@ -2,7 +2,7 @@
 # Copy to config.sh. Every value can be overridden as VAR=value on a command.
 
 # Shared paths and service identity.
-ROCM_LLM_BENCH_DIR="${ROCM_LLM_BENCH_DIR:-/path/to/rocm-llm-bench}"
+ROCM_LLM_BENCH_DIR="${ROCM_LLM_BENCH_DIR:/home/liyingli/bench_agentx/rocm-llm-bench}"
 ROCM_OPT_BASE_IMAGE="${ROCM_OPT_BASE_IMAGE:-rocm-llm-bench:glm52-v518-402df1e-2c71811}"
 IMAGE="${IMAGE:-infera/engine-sglang:glm52-v518-402df1e-2c71811}"
 MODEL="${MODEL:-/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4}"
@@ -23,6 +23,7 @@ CONTAINER_STOP_TIMEOUT="${CONTAINER_STOP_TIMEOUT:-300}"
 
 # Ports. A worker's row number is added to each worker port base.
 ETCD_PORT="${ETCD_PORT:-2379}"
+ETCD_PEER_PORT="${ETCD_PEER_PORT:-2380}"
 ROUTER_PORT="${ROUTER_PORT:-8000}"
 ENGINE_PORT_BASE="${ENGINE_PORT_BASE:-29001}"
 BOOTSTRAP_PORT_BASE="${BOOTSTRAP_PORT_BASE:-8998}"
@@ -65,6 +66,8 @@ DECODE_SPEC_DRAFT_TOKENS="${DECODE_SPEC_DRAFT_TOKENS:-6}"
 DECODE_SPEC_TOPK="${DECODE_SPEC_TOPK:-1}"
 # Empty disables simulated acceptance for correctness/final measurements.
 DECODE_SIMULATE_ACC_LEN="${DECODE_SIMULATE_ACC_LEN-3.61}"
+# Required by GLM-5.2 MTP with DP attention; empty keeps the model default.
+JSON_MODEL_OVERRIDE_ARGS="${JSON_MODEL_OVERRIDE_ARGS:-}"
 
 # KV transfer and router settings.
 RDMA_DEVICE="${RDMA_DEVICE:-ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7}"

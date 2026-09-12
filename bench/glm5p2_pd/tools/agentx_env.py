@@ -184,6 +184,7 @@ def expected_role(env: Mapping[str, str], role: str) -> dict[str, Any]:
         "hicache": parse_bool(env[f"{prefix}_HICACHE"]),
         "mtp": role == "decode" and parse_bool(env["DECODE_MTP"]),
         "max_running": int(env[f"{prefix}_MAX_RUNNING"]),
+        "model_override": env.get("JSON_MODEL_OVERRIDE_ARGS", ""),
     }
 
 
@@ -210,6 +211,7 @@ def actual_role(
         "kv_transfer": command_value(command, "--disaggregation-transfer-backend"),
         "model_path": command_value(command, "--model-path"),
         "simulate_acc_len": container_env.get("SGLANG_SIMULATE_ACC_LEN", ""),
+        "model_override": command_value(command, "--json-model-override-args"),
     }
     expected = expected_role(env, str(row["role"]))
     for key, expected_value in expected.items():

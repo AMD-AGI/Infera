@@ -11,7 +11,7 @@ start_log
 cleanup_rc=0
 
 stop_one() {
-    local node="$1" container="$2" state rc remove_output remove_rc
+    local node="$1" container="$2" state rc remove_output remove_rc attempt
     set +e
     state="$(ssh_exec "$node" docker inspect \
         --format '{{.State.Status}}' "$container" </dev/null 2>&1)"
@@ -41,9 +41,19 @@ stop_one() {
     remove_output="$(ssh_exec "$node" docker rm "$container" </dev/null 2>&1)"
     remove_rc=$?
     set -e
-    if (( remove_rc != 0 )) &&
-        [[ "${remove_output,,}" != *"no such object"* &&
-            "${remove_output,,}" != *"no such container"* ]]; then
+    if (( remove_rc != 0 )); then
+        if [[ "${remove_output,,}" == *"no such object"* ||
+            "${remove_output,,}" == *"no such container"* ]]; then
+            return
+        fi
+        if [[ "${remove_output,,}" == *"removal of container"* &&
+            "${remove_output,,}" == *"already in progress"* ]]; then
+            for ((attempt = 1; attempt <= 30; attempt++)); do
+                ssh_exec "$node" docker inspect "$container" \
+                    >/dev/null 2>&1 || return 0
+                sleep 1
+            done
+        fi
         log "failed to remove stopped container $container on $node: $remove_output"
         cleanup_rc=1
     fi
