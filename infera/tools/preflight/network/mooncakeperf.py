@@ -57,15 +57,12 @@ property that is identical across GPUs, so 1-2 GPUs already reproduce it; reserv
 the full sweep for when you need to confirm every GPU's affinity path individually.
 
 Coordination reuses netperf's shared-dir rendezvous: each ordered node pair is
-tested both directions; the target registers a buffer stamped with a
-per-(gpu,segment) pattern (numpy/torch + register_memory -- allocate_managed_buffer
-yields a non-registered address that fails remote reads) and publishes its
-address; the initiator batch-reads it (a batch of outstanding requests in
-flight, enough to saturate the link on the VRAM path), reports the average
-bandwidth, and verifies the bytes it
-pulled back match the pattern so an offset/mis-routed-NIC bug is caught rather
-than reported green. Runs in-container where Mooncake + the injected host
-libionic live.
+tested both directions. READ remains the default for compatibility: the target
+stamps a registered buffer and the initiator pulls and verifies it. Set
+``INFERA_PREFLIGHT_MOONCAKE_OPCODE=write`` to mirror SGLang's producer-push
+``send_kvcache`` path: the initiator stamps the source, writes it to the target,
+and the target verifies the received bytes. Runs in-container where Mooncake +
+the injected host libionic live.
 """
 
 from __future__ import annotations
@@ -247,6 +244,17 @@ class _Buf:
         if self.loc == "gpu":
             self._torch.cuda.synchronize(self.gpu_id)
 
+    def fill_inverse_pattern(self) -> None:
+        """Ensure every byte differs from the expected transfer pattern."""
+        for i in range(self.nchunk):
+            v = _chunk_byte(self.gpu_id, i) ^ 0xFF
+            if self.loc == "gpu":
+                self._t[i * self.chunk : (i + 1) * self.chunk].fill_(v)
+            else:
+                self._a[i * self.chunk : (i + 1) * self.chunk] = v
+        if self.loc == "gpu":
+            self._torch.cuda.synchronize(self.gpu_id)
+
     def host_bytes(self):
         if self.loc == "gpu":
             return self._t.cpu().numpy()
@@ -298,12 +306,29 @@ def _register(eng, ptr: int, size: int) -> bool:
     return not (isinstance(ret, int) and ret != 0)
 
 
-def _batch_read(eng, target_hostname: str, local: int, peer: int, chunk: int, nchunk: int) -> bool:
-    # One batch of `nchunk` outstanding reads; success is >=0 (matching sglang).
+def _operation() -> str:
+    operation = os.environ.get("INFERA_PREFLIGHT_MOONCAKE_OPCODE", "read").strip().lower()
+    if operation not in {"read", "write"}:
+        raise ValueError(f"invalid INFERA_PREFLIGHT_MOONCAKE_OPCODE={operation!r}")
+    return operation
+
+
+def _batch_transfer(
+    eng,
+    target_hostname: str,
+    local: int,
+    peer: int,
+    chunk: int,
+    nchunk: int,
+    operation: str,
+) -> bool:
+    # One batch of `nchunk` outstanding requests; success is >=0.
     srcs = [local + i * chunk for i in range(nchunk)]
     dsts = [peer + i * chunk for i in range(nchunk)]
     lens = [chunk] * nchunk
     try:
+        if operation == "write":
+            return eng.batch_transfer_sync_write(target_hostname, srcs, dsts, lens) >= 0
         return eng.batch_transfer_sync_read(target_hostname, srcs, dsts, lens) >= 0
     except Exception:
         return False
@@ -312,15 +337,25 @@ def _batch_read(eng, target_hostname: str, local: int, peer: int, chunk: int, nc
 def _target(
     sig: str, hostname: str, host: str, protocol: str, loc: str, gpu_id: int, device: str = ""
 ) -> None:
+    operation = _operation()
     eng = _engine(hostname, protocol, device)
-    info = {"ok": False, "host": host, "loc": loc, "gpu": gpu_id}
+    info = {
+        "ok": False,
+        "host": host,
+        "loc": loc,
+        "gpu": gpu_id,
+        "operation": operation,
+    }
     buf = None
     if eng is not None:
         buf = _make_buffer(loc, gpu_id)
         if buf is None:
             info["reason"] = "no_gpu"
         else:
-            buf.fill_pattern()  # the initiator reads this back and verifies it
+            if operation == "write":
+                buf.fill_inverse_pattern()
+            else:
+                buf.fill_pattern()
             if not _register(eng, buf.ptr, buf.size):
                 info["reason"] = "register_failed"
             else:
@@ -340,10 +375,17 @@ def _target(
         json.dump(info, fh)
     os.replace(tmp, os.path.join(sig, "target.json"))
     _wait_file(os.path.join(sig, "done"), _DONE_TIMEOUT)
+    if operation == "write" and info.get("ok") and buf is not None:
+        verified = _verify(buf.host_bytes(), gpu_id, buf.chunk, buf.nchunk)
+        verify_tmp = os.path.join(sig, "target-verify.json.tmp")
+        with open(verify_tmp, "w", encoding="utf-8") as fh:
+            json.dump({"verified": verified}, fh)
+        os.replace(verify_tmp, os.path.join(sig, "target-verify.json"))
     del buf  # keep the buffer registered until the initiator is done
 
 
 def _initiator(sig: str, protocol: str, loc: str, gpu_id: int, device: str = "") -> dict:
+    operation = _operation()
     rec: dict = {
         "gb_s": None,
         "gib": 0.0,
@@ -353,6 +395,7 @@ def _initiator(sig: str, protocol: str, loc: str, gpu_id: int, device: str = "")
         "verified": None,
         "reason": None,
         "dev": device,
+        "operation": operation,
     }
     if _wait_file(os.path.join(sig, "target.json"), _TARGET_TIMEOUT):
         with open(os.path.join(sig, "target.json"), encoding="utf-8") as fh:
@@ -370,15 +413,30 @@ def _initiator(sig: str, protocol: str, loc: str, gpu_id: int, device: str = "")
             elif not _register(eng, buf.ptr, buf.size):
                 rec["reason"] = "register_failed"
             else:
-                batch = buf.chunk * buf.nchunk  # bytes moved per batch_read
-                buf.fill(0)  # sentinel; a successful read overwrites it with the pattern
-                if _batch_read(
-                    eng, tgt["hostname"], buf.ptr, tgt["addr"], buf.chunk, buf.nchunk
+                batch = buf.chunk * buf.nchunk
+                if operation == "write":
+                    buf.fill_pattern()
+                else:
+                    buf.fill_inverse_pattern()
+                if _batch_transfer(
+                    eng,
+                    tgt["hostname"],
+                    buf.ptr,
+                    tgt["addr"],
+                    buf.chunk,
+                    buf.nchunk,
+                    operation,
                 ):  # warm up
                     moved, t0 = 0, time.monotonic()
                     while time.monotonic() - t0 < _MIN_SECONDS:
-                        if not _batch_read(
-                            eng, tgt["hostname"], buf.ptr, tgt["addr"], buf.chunk, buf.nchunk
+                        if not _batch_transfer(
+                            eng,
+                            tgt["hostname"],
+                            buf.ptr,
+                            tgt["addr"],
+                            buf.chunk,
+                            buf.nchunk,
+                            operation,
                         ):
                             moved = 0
                             break
@@ -387,12 +445,22 @@ def _initiator(sig: str, protocol: str, loc: str, gpu_id: int, device: str = "")
                     if moved > 0 and dt > 0:
                         rec["gb_s"] = round(moved / dt / 1e9, 2)
                         rec["gib"] = round(moved / (1 << 30), 1)
-                        rec["verified"] = _verify(buf.host_bytes(), gpu_id, buf.chunk, buf.nchunk)
+                        if operation == "read":
+                            rec["verified"] = _verify(
+                                buf.host_bytes(), gpu_id, buf.chunk, buf.nchunk
+                            )
                     else:
                         rec["reason"] = "transfer_failed"
                 else:
                     rec["reason"] = "transfer_failed"
     _touch(os.path.join(sig, "done"))
+    if operation == "write" and rec["gb_s"] is not None:
+        verify_path = os.path.join(sig, "target-verify.json")
+        if _wait_file(verify_path, _DONE_TIMEOUT):
+            with open(verify_path, encoding="utf-8") as fh:
+                rec.update(json.load(fh))
+        else:
+            rec["reason"] = "target_verify_timeout"
     return rec
 
 
@@ -536,6 +604,7 @@ def _load_result(
             "verified": None,
             "reason": _exit_reason(rc, out),
             "dev": dev,
+            "operation": _operation(),
         }
     # Enrich a register/transfer failure reason with any errno scraped from the
     # child's output (EFAULT vs ENOMEM etc.), same as the mori path.
@@ -554,6 +623,7 @@ def _load_result(
     rec["loc"] = rec.get("loc") or loc
     rec["dev"] = rec.get("dev") or dev
     rec["target"] = rec.get("target") or f"rank{target_rank}"
+    rec["operation"] = rec.get("operation") or _operation()
     return rec
 
 
@@ -563,7 +633,11 @@ def _is_pinned_rdma(label: str) -> bool:
 
 def _finding(r: dict, host: str) -> Finding:
     label = r["label"]
-    msg = f"{r['target']} -> {host} {label}"
+    operation = r.get("operation", "read")
+    if operation == "write":
+        msg = f"{host} -> {r['target']} {label}"
+    else:
+        msg = f"{r['target']} -> {host} {label}"
     if r["gb_s"] is not None:
         if _is_pinned_rdma(label):
             env = f"MC_GID_INDEX={_ref_gid()}"
@@ -575,6 +649,7 @@ def _finding(r: dict, host: str) -> Finding:
             "moved_GiB": r["gib"],
             "loc": r.get("loc"),
             "gpu": r.get("gpu"),
+            "operation": operation,
             "env": env,
             "verified": verified,
         }
@@ -589,6 +664,9 @@ def _finding(r: dict, host: str) -> Finding:
                     "never transferred"
                 )
             detail["reason"] = reason
+            return Finding("fail", msg, detail)
+        if verified is not True:
+            detail["reason"] = r.get("reason") or "transfer completed without data verification"
             return Finding("fail", msg, detail)
         return Finding("info", msg, detail)
     # rdma-default failing is the expected demonstration (warn, not fail): it shows

@@ -50,6 +50,7 @@ ones that matter.
 | `MORI_IB_GID_INDEX` | `1` | RoCEv2 GID index for the MoRI transport. |
 | `VLLM_HOST_IP` | *(none)* | Routable IP a vLLM worker advertises for KV transfer (cross-node). Pair with `--advertise-host`. |
 | `RDMAV_FORK_SAFE` | `1` | libibverbs fork-safety; set for RDMA workers. |
+| `INFERA_PREFLIGHT_MOONCAKE_OPCODE` | `read` | Mooncake preflight operation: `read` preserves the existing receiver-pull probe; `write` exercises the producer-push direction used by SGLang `send_kvcache`. This changes only the diagnostic probe, not engine traffic. |
 
 See [PD disaggregation](../features/pd_disaggregation.md) for the bring-up
 checklist and the RDMA self-check.
@@ -74,6 +75,7 @@ and the [CLI reference](cli.md).
 | Env | Default | What it does |
 |---|---|---|
 | `INFERA_NODEPORT_RANGE` | `30000-32767` | Port window every auto-allocated port must avoid (kv-event publishers, single or a per-DP-rank block, and the ATOM rendezvous port) — Kubernetes' NodePort range, where a Service claim makes the port unreachable from the node IP we advertise. Set `lo-hi` for a cluster that moved the range, `none` to drop the guard. Only `none`/`off` drop it — an empty or malformed value keeps the default. |
+| `INFERA_ENGINE_READY_TIMEOUT` | `1800` (s) | Maximum time the SGLang/vLLM wrapper waits for the child engine `/health` endpoint during startup. Increase for slow model storage or long JIT compilation; invalid values fall back to 1800. This is separate from disaggregation bootstrap and runtime watchdog timeouts. |
 
 ## Engine correctness
 

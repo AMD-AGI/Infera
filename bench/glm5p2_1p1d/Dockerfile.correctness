@@ -1,0 +1,12 @@
+ARG BASE_IMAGE=infera/engine-sglang:glm52-1p1d-8f04a68-pf2
+FROM ${BASE_IMAGE}
+
+LABEL org.opencontainers.image.description="GLM-5.2 v0.5.17 minimal correction-bias backport"
+
+COPY patches/patch_v017_glm52_opt.py /tmp/patch_v017_glm52_opt.py
+
+RUN python3 /tmp/patch_v017_glm52_opt.py --glm-correction-bias \
+    && python3 -m compileall -q \
+         /sgl-workspace/sglang/python/sglang/srt/layers/moe/topk.py \
+         /sgl-workspace/sglang/python/sglang/srt/models/deepseek_v2.py \
+    && rm -f /tmp/patch_v017_glm52_opt.py

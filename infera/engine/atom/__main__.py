@@ -34,7 +34,7 @@ import logging
 import os
 import signal
 
-from infera.common.net import free_tcp_port
+from infera.common.net import free_tcp_port_block
 from infera.common.registration import RegistrationClient
 from infera.engine.atom.args import parse_atom_args
 from infera.engine.atom.worker import AtomEngine
@@ -86,7 +86,9 @@ async def main() -> None:
                 "--enable-kv-events with host=0.0.0.0 and no --advertise-host; "
                 "the KV events endpoint won't be reachable by a remote router"
             )
-        port = free_tcp_port()
+        # ATOM can load the model before its event publisher binds. Keep the
+        # selected port out of the ephemeral allocator during that delay.
+        port = free_tcp_port_block(1)
         kv_events_bind = f"tcp://*:{port}"
         kv_events_endpoint = f"tcp://{advertise_host}:{port}"
         kv_block_size = args.kv_block_size

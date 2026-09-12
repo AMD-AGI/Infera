@@ -20,7 +20,7 @@ from infera.common.disagg_preflight import (
     validate_advertise_host,
     validate_vllm_transport,
 )
-from infera.common.net import free_tcp_port
+from infera.common.net import free_tcp_port_block
 from infera.common.registration import RegistrationClient
 from infera.common.worker_pool import DisaggMode, KvRegistrationMetadata
 from infera.engine.base import EngineDeath, watch_engine_death
@@ -51,7 +51,9 @@ def _inject_kv_events_config(args: VllmWorkerArgs) -> str | None:
     # vLLM to emit 8-byte ints rather than 32-byte sha256 digests.
     os.environ["VLLM_KV_EVENTS_USE_INT_BLOCK_HASHES"] = "1"
 
-    port = free_tcp_port()
+    # vLLM creates its KV-event publisher after model startup. Keep the chosen
+    # port below the ephemeral range so it is not recycled before that bind.
+    port = free_tcp_port_block(1)
     # vLLM's ZmqEventPublisher decides bind-vs-connect by a string heuristic:
     # `*` or `::` means bind, anything else means connect (see
     # vllm/distributed/kv_events.py _socket_setup). `tcp://*:<port>` is the
