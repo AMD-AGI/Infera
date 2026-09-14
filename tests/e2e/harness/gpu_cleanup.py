@@ -35,6 +35,7 @@ GPU_DIRTY_MARKER = "INFERA_E2E_GPU_NODE_DIRTY"
 GPU_DIRTY_NODE_PREFIX = f"{GPU_DIRTY_MARKER}_NODE="
 _VRAM_BUSY_FRACTION = 0.05
 _ROCM_SMI_TIMEOUT = 5
+_NO_JSON_WARNING = "No JSON data to report"
 # Sweeps below the dirty threshold: _VRAM_BUSY_FRACTION asks "is this node
 # unusable", this asks "is anything still here at all".
 _RECLAIM_VRAM_FRACTION = 0.01
@@ -102,10 +103,16 @@ def _rocm_smi_json(*args: str) -> object | None:
         return None
     if done.returncode != 0:
         return None
+    # rocm-smi exits 0 and writes no JSON when a query has nothing to report:
+    # `--showpids` on a node no process holds does exactly that. Empty, not unreadable.
+    stdout = done.stdout.strip()
+    if not stdout:
+        return {}
     try:
-        return json.loads(done.stdout)
+        return json.loads(stdout)
     except (json.JSONDecodeError, TypeError):
-        return None
+        # Some builds put that warning on stdout rather than stderr.
+        return {} if _NO_JSON_WARNING in stdout else None
 
 
 def _gpu_process_names() -> dict[int, str] | None:
