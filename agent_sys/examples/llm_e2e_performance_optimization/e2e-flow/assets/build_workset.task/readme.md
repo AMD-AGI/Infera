@@ -357,7 +357,7 @@ That validator re-runs one shape through this same script and compares its own
 number against your record; a producer measuring through a different arrangement
 than the validator would not be re-measured, it would be re-*interpreted*. If
 you find a reason to measure some other way, the validator is what you have to
-change first, and that is a conversation with the leader rather than an edit.
+change first, and that is a conversation with the package owner rather than an edit.
 
 You do **not** need `export PYTHONDONTWRITEBYTECODE=1` any more — the script
 passes it into the container, along with `TMPDIR` and `TRITON_CACHE_DIR`, and

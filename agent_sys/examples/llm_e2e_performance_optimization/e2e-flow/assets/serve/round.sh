@@ -10,7 +10,7 @@
 # two deployments that vary in more than the axis under test.
 #
 # Evidence is captured through stdout rather than read off a shared filesystem,
-# for the reason profiling-demo gives: a deployment record that only assembles on
+# for the reason the profiling stage gives: a deployment record that only assembles on
 # clusters where the store is reachable from the compute node is a worse artefact
 # than one that assembles anywhere.
 set -uo pipefail
@@ -83,7 +83,7 @@ if [ "$ARM" = "patched" ]; then
   # allowed to tear that deployment down.
   #
   # **This used to be a graph edge and is now a precondition.** In
-  # `integration-demo`, `serve_patched` consumed `bench_stock` — not because it
+  # the integration stage, `serve_patched` consumed `bench_stock` — not because it
   # needed the numbers but because the edge said "the stock arm has finished".
   # M5.2 merged the five leaves into one task, so there is no edge left to carry
   # that; what is left is this check, against the stock arm's steps record
@@ -258,7 +258,7 @@ EOF
 chmod +x "$ITEMS/command"
 
 # **The logs go in compressed, and that is not a size decision.** Measured on
-# profiling-demo, 817 of 818 absolute paths in one round's logs are false
+# the profiling stage, 817 of 818 absolute paths in one round's logs are false
 # positives of the kind handoff.locality's own docstring predicts:
 # container-internal paths the image owns, HTTP routes in an access log, an etcd
 # key prefix. None is a fact about this machine, and the mechanism that would let
@@ -285,7 +285,7 @@ prior_steps = json.load(open(prior)) if prior else None
 json.dump({
     "arm": "$ARM",
     "scripts": {
-        "package": "agent_sys/examples/llm_e2e_performance_optimization/integration-demo",
+        "package": "agent_sys/examples/llm_e2e_performance_optimization/the integration stage",
         "entrypoints": ["assets/serve/mix_up.sh", "assets/serve/mix_smoke.sh"],
         "commit": "$PKG_COMMIT",
     },
@@ -349,7 +349,7 @@ env/deployment.json records which mounts were withheld, so a reader can tell
 this deployment apart from one that never had a plan at all.
 
 It is the baseline, and it is measured in the same session as the patched arm
-for a measured reason: profiling-demo replayed the same trace against the same
+for a measured reason: the profiling stage replayed the same trace against the same
 configuration twice and got 631 output tok/s cold against 1004 with the
 deployment reused, because a Mooncake trace carries hash_ids and prefix hit rate
 decides how much prefill there is to do. A baseline from another session is not

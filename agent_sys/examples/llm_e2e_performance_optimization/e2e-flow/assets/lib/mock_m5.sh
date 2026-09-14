@@ -23,7 +23,7 @@
 #     than omit.
 set -euo pipefail
 
-: "${E2E_MOCK_ROOT:=/shared_nfs/yihou/agent_sys/cheat_for_mock}"
+: "${E2E_MOCK_ROOT:?set it to the sealed-handoff corpus (--var mock_root=)}"
 : "${E2E_MOCK_REPORT:=refused}"
 PKG="${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one of these}}"
 S="${E2E_MOCK_ROOT}/stage5-integration"
@@ -96,8 +96,8 @@ arms)
     # the sealed 2026-09-02 corpus from another node. Rung 1 produced precisely
     # that and `check_measurement_order` refused both arms, correctly:
     #
-    #   stock: environment.yaml says node='crsuse2-m2m-217' and the arm's
-    #          evidence says 'crsuse2-m2m-276'          (and slurm_jobid likewise)
+    #   stock: environment.yaml says node='node-217' and the arm's
+    #          evidence says 'node-276'          (and slurm_jobid likewise)
     #
     # At rung 0 the record came from the corpus too, so the two agreed **because
     # nothing in the run was real** — CONTRACT §4.6 from the other side: a
@@ -241,7 +241,7 @@ for row in d.get("performance", []):
 # `uninterpretable` path for real: those two arms were an hour and one neighbour
 # apart, and the floor says so.
 disp = {}
-mock_root = os.environ.get("E2E_MOCK_ROOT", "/shared_nfs/yihou/agent_sys/cheat_for_mock")
+mock_root = os.environ["E2E_MOCK_ROOT"]
 # **Only in `refused` mode, and the asymmetry is the honest half of this script.**
 # `accepted` swaps the two arms' *means* for the stock control measured under
 # matched load — but no per-request dispersion was recorded for that control, and
@@ -323,7 +323,7 @@ packup)
   # directory. That is recorded here rather than in a comment somewhere else,
   # because a reader meeting this artefact meets it through this script.
   out="$(out_for e2e_packup)"
-  src="${E2E_PACKUP_MOCK:-/shared_nfs/yihou/agent_sys/debugging/integration/packup-out-of-band}"
+  src="${E2E_PACKUP_MOCK:?set it to the out-of-band packup to replay}"
   # `content/` and not the directory above it: the out-of-band kit is already
   # handoff-shaped — `content/items/codes/{README.md,REPRODUCE.md,results,...}` —
   # because it was produced by a real `packup.py` writing into a real output

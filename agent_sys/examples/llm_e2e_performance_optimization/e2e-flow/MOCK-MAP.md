@@ -6,8 +6,9 @@ validators are unchanged**. A mock that writes something a validator accepts but
 a real producer would never emit proves nothing, so nothing here synthesises —
 `assets/lib/mock.sh` copies bytes a real run on this cluster produced.
 
-Source: `/shared_nfs/yihou/agent_sys/cheat_for_mock/`. **Read its `README.md`
-first**; it documents four things that mislead.
+Source: the sealed-handoff corpus a previous round produced, supplied as
+`--var mock_root=<path>`. **Read that corpus's own `README.md` first**; it
+documents four things that mislead.
 
 ## Mocking an AI task means swapping its agent, not its body
 
@@ -319,10 +320,9 @@ one of the three that were always fine, PASSes.
 ### (F) `e2e_packup` has no sealed source
 
 `integration_packup` was never sealed — the graph stopped at (E) before it was
-dispatched. An unsealed 47-file packup exists at
-`/shared_nfs/yihou/agent_sys/debugging/integration/packup-out-of-band/`,
-produced by `integration`'s own unmodified `packup.py` over the nine sealed
-handoffs and graded PASS against the real `check_packup_shape` body.
+dispatched. An unsealed 47-file packup was produced out of band by the stage's
+own unmodified `packup.py` over the nine sealed handoffs, and graded PASS
+against the real `check_packup_shape` body.
 
 Use it as the mock source, and note in the run's record that it is **not
 sealed** and its provenance is `PRODUCED-BY-DEPLOY.md` in that directory.
@@ -338,12 +338,11 @@ Verified PASS against `check_packup_shape` with the step yaml's verbatim `args`.
 
 ## Digests
 
-Every digest under `cheat_for_mock/` is invalid — a past `chmod -R 777` changed
-every file's executable bit, and the tree digest is git-shaped so it records
-exactly that. **Content is intact**;
-`/shared_nfs/yihou/agent_sys/temp/leader/repair_modes.py` restores the modes by
-searching candidate executable-sets for the one that reproduces the manifest's
-own digest, which is proof rather than a guess.
+Every digest in that corpus is invalid — a past `chmod -R 777` changed every
+file's executable bit, and the tree digest is git-shaped so it records exactly
+that. **Content is intact**; the modes can be restored by searching candidate
+executable-sets for the one that reproduces the manifest's own digest, which is
+proof rather than a guess.
 
 Nothing on the consuming path verifies a digest anyway
 (`env_mgr.fs.layout.copy_out` is a plain `copytree` — `todo.md` T9), so this

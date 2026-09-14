@@ -74,9 +74,9 @@ ENTRY = PKG / "assets" / "check_packup_shape.validator" / "entry.sh"
 #: against a real one — every case below has been confirmed identical against
 #: m5's 73-file `e2e_packup_real`, which is how we know the gaps were in the
 #: body and not in the fixture. A single-kit battery cannot make that claim.
-KIT = Path(os.environ.get(
-    "E2E_PACKUP_KIT",
-    "/shared_nfs/yihou/agent_sys/debugging/integration/packup-out-of-band/content"))
+#: No default: the fixture is a sealed artefact from a previous run, and a
+#: path here would be one machine's answer.
+KIT = Path(os.environ["E2E_PACKUP_KIT"])
 
 SCRATCH = Path(os.environ.get("E2E_PROBE_SCRATCH", tempfile.gettempdir())) / "packup-probe"
 

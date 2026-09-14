@@ -54,7 +54,7 @@ def _container_roots(document: dict) -> tuple[dict[str, str], dict[str, str]]:
     `container_roots.yaml`.
 
     Two shapes exist in this repository and they carry the same four roots with
-    the same four paths: `analyze-demo`'s is keyed by owner and names a
+    the same four paths: the analysis stage's is keyed by owner and names a
     `placeholder` field; **this package's is keyed by the placeholder itself**
     and carries no owner. Deriving the owner from the placeholder name --
     `AITER_ROOT` -> `aiter`, `SGL_KERNEL_ROOT` -> `sgl_kernel` -- is exact for
@@ -396,7 +396,7 @@ def bind_launcher(launcher: dict, repo_map: dict) -> tuple[str, str]:
     writes a frame path with the longest matching `sys.path` entry stripped off,
     and which entry that was is not recoverable from the string: `aiter/ops/x.py`
     is equally consistent with a `sys.path` entry of `/sgl-workspace/aiter` and
-    one of `/sgl-workspace`. So `profiling-demo` reports the path it saw and marks
+    one of `/sgl-workspace`. So the profiling stage reports the path it saw and marks
     it `path_form: sys_path_relative`, and the binding happens here, where the
     repository is checked out and a candidate can be tested against the
     filesystem instead of asserted.
@@ -654,7 +654,7 @@ def image_facts(image: str, root: str, relatives: list[str], timeout: int = 300)
     payload = base64.b64encode(inner.encode()).decode()
     args = base64.b64encode(json.dumps(relatives).encode()).decode()
     # Spaces around the pipe and the redirect: the unspaced form returns 255
-    # with no output on crsuse2-m2m-047 and works on 006. Measured on both.
+    # with no output on node-047 and works on 006. Measured on both.
     script = (f"echo {payload} | base64 -d > /tmp/_f.py; "
               f"python3 /tmp/_f.py \"$(echo {args} | base64 -d)\" {shlex.quote(root)}")
     try:
@@ -783,7 +783,7 @@ def main() -> int:
     # leader; do not read one green operator as this being solved.
     # `roots` maps NAME -> {path, description}, not NAME -> path. Both sigils
     # are accepted because `_container_roots` above emits `@NAME@` for this
-    # file's shape and `${NAME}` for `analyze-demo`'s, and a handoff sealed by
+    # file's shape and `${NAME}` for the analysis stage's, and a handoff sealed by
     # either must be readable here.
     _root_paths = {name: (spec or {}).get("path") if isinstance(spec, dict) else spec
                    for name, spec in (_ROOTS.get("roots") or {}).items()}

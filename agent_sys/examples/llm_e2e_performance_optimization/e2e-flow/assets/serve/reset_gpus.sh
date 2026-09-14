@@ -8,7 +8,7 @@
 # DIVERGES FROM examples/glm53flash-demo/scripts/reset_gpus.sh, on purpose.
 # That version does `kill -9` on every pid `rocm-smi --showpids` reports. On a
 # Slurm GPU node that set includes **slurmstepd**, which holds a KFD handle for
-# the step's cgroup — observed on smci355-ccs-aus-n04-33, where the original
+# the step's cgroup — observed on an MI355X node, where the original
 # script killed pid 2305766 (slurmstepd). Killing it can take down a job step
 # that has nothing to do with this experiment. The demo's node is a bare host
 # with no scheduler, so the difference never showed up there.

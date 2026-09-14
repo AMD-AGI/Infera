@@ -33,7 +33,7 @@ And it cannot prove the snapshot is a faithful copy of the real workset. A
 validator on an output phase is handed only the handoffs it declared in
 `inputs`, over `layout.stage(task.outputs, …)`; declaring `operator_workset`
 instead would bind this body to the *workset's* phases and fail an innocent
-producer, which is measured — `kernel-opt-demo/assets/
+producer, which is measured — the kernel-optimisation stage's original `
 check_speedup_substantiated.validator/check.py` carries the account. So the
 comparison against the real workset is **opportunistic**: `_cross_check` fires in
 any phase that happened to stage both, which m5's input validation does because

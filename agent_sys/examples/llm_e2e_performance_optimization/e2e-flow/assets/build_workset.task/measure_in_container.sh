@@ -15,7 +15,7 @@
 # header has always said `evidence/` is a *measurement* and cannot be
 # fabricated. What was wrong was *where* the measurement happened: the mock ran
 # the entrypoints wherever the runner sat, and the plan said to run rung 0 from
-# a host that has torch. Measured by the leader:
+# a host that has torch. Measured by the package owner:
 #
 #     spur exec 106253 python3 -c "import torch"   ->  ModuleNotFoundError
 #
@@ -173,7 +173,7 @@ fi
 # asserted.** This was `case "$ROOT" in /shared_nfs/*)`, which encoded a site
 # fact as a literal path: correct where it was written, and silently wrong one
 # mount change later. `/shared_nfs` went read-only on the login node, the run
-# root moved to `/home/yihou/agent_sys_runroot`, and rung 1's `build_workset`
+# root moved to `<run root>`, and rung 1's `build_workset`
 # refused after eleven seconds — a workset that would have measured fine, since
 # `/home` is NFS from the same server and the compute nodes mount it too
 # (measured on node 243: the run root is there and writable).
@@ -195,13 +195,13 @@ fi
 # `require_visible_on_node` cannot tell the two apart.
 #
 # Measured 2026-09-04: with a deliberately bad `E2E_TRANSPORT`, that helper
-# reports `the workset is not visible on : /home/yihou` — for a path that
+# reports `the workset is not visible on : <home>` — for a path that
 # plainly is. It runs `on "test -e …" >/dev/null 2>&1` and treats **any**
 # non-zero as absence, so an unset `E2E_JOBID`, a dead allocation, a spur error
 # and a genuinely missing path all produce the same sentence. That is the day's
 # own pattern one level in: **a plausible explanation attached to a failure it
 # did not produce**, and it is worse than no message, because it sends the
-# reader to fix a run root that is already correct. It sent the leader there.
+# reader to fix a run root that is already correct. It sent the package owner there.
 #
 # The helper is `assets/lib/remote.sh`, shared with six callers and not mine to
 # change. What is mine is not relaying its guess: a reachability probe first,
@@ -225,7 +225,7 @@ require_visible_on_node "$ROOT" "workset" || exit 1
 #
 # **The obvious derivation is refused by this cluster.** Taking the run root's
 # top-level component gives `/home` for `/home/<user>/agent_sys_runroot`, and
-# the leader measured the daemon's answer on node 243:
+# the package owner measured the daemon's answer on node 243:
 #
 #     Error response from daemon: authorization denied by plugin spur-authz:
 #     denied [BH]: /home:/home -- mount your own directory instead,
@@ -286,7 +286,7 @@ case "$ROOT" in
       # **Every row below is prefixed `ref:` and it is load-bearing.**
       # These are a *catalogue of forms measured previously*, not anything this
       # run attempted. Unprefixed, the `/home:/home` row was captured by
-      # `check_workset_runs`'s stderr tail and read — by the leader, by
+      # `check_workset_runs`'s stderr tail and read — by the package owner, by
       # checkpoint and by me — as a denial that had just occurred. Four people
       # then reasoned for an hour about a value that never existed, and it was
       # one message from being filed as a fact about validation zones.
@@ -448,7 +448,7 @@ trap _teardown EXIT HUP INT TERM
 # the silent-success class twice over.
 # **Spaces around the pipes, and they are load-bearing.** Measured 2026-09-04
 # across two nodes: `echo <b64>|base64 -d|bash` returns 255 with no output on
-# crsuse2-m2m-047 and works on 006; the identical command with spaces works on
+# node-047 and works on 006; the identical command with spaces works on
 # both. Same `spur exec bash -lc`, same image, no docker in the minimal case —
 # so it is a property of that node's shell path, not of this package. Why is
 # unknown; the spaced form is the one *seen* to work on both, which is the

@@ -129,7 +129,7 @@ buckets:
       # this whole effort.
       #
       # **Not applied because it changes which operator gets optimised**, and
-      # this round's goal is 跑通 rather than a better optimisation; the leader
+      # this round's goal is 跑通 rather than a better optimisation; the package owner
       # holds it until after the first green chain. **Do not "fix" it in
       # passing** — and if you do apply it, use the anchored form from
       # `fellows:`, never a bare `_kernel` substring, which takes 58 more

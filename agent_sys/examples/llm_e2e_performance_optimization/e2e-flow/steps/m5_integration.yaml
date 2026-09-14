@@ -1,9 +1,9 @@
 # Stage 5 — integration, and the flow's one export.
 #
-# **Skeleton, frozen by the leader.** Kinds, wiring and graph shape are contract;
+# **Skeleton, frozen by the package owner.** Kinds, wiring and graph shape are contract;
 # bodies and validator substance are m5's owner's.
 #
-# The biggest structural change in the whole refine is here. `integration-demo`
+# The biggest structural change in the whole refine is here. The integration stage
 # had eight leaves; this stage has three, because M5.2 says bring-up and use may
 # not be split across agents and therefore
 #
@@ -12,7 +12,7 @@
 # is **one task**. `seed_patch` is gone too (M5.1): its input is now m4's real
 # `kernel_optimization` rather than a mock.
 #
-# What that costs, and it is worth naming: `integration-demo`'s three
+# What that costs, and it is worth naming: the integration stage's three
 # argument-carrying edges — the ones that expressed "the stock arm has already
 # been measured, so it is safe to tear it down" — are no longer edges. They are
 # now *steps in one readme*, which is a weaker guarantee than a graph edge and a
@@ -100,7 +100,7 @@
     E2E_PORT_ROUTER: '${port_router:-8101}'
     E2E_PORT_WORKER: '${port_worker:-8102}'
     E2E_PORT_ETCD: '${port_etcd:-8103}'
-    E2E_WORK_ROOT: '${work_root:-/mnt/m2m_nobackup/yihou/e2e_flow}'
+    E2E_WORK_ROOT: '${work_root}'
     # The measurement knobs. Defaults are the shortened ones: a full two-arm run
     # at the package defaults does not fit inside the CLI's hard-coded 1800 s
     # settle budget, and work that finishes outside it is thrown away.
@@ -115,11 +115,11 @@
     # the two sealed arms, **two thirds of an arm**, and `--max-tokens` is what
     # sizes it.
     #
-    # Declaring them is what makes a reduced-scale arm possible at all — see
-    # `RUN-PLAN.md`, "Module 5 standalone". Defaults are the previous fallbacks
-    # exactly, so nothing about a normal run changes.
+    # Declaring them is what makes a reduced-scale arm possible at all.
+    # Defaults are the previous fallbacks exactly, so nothing about a normal run
+    # changes.
     #
-    # `runner` should mirror both; `shared.yaml` is the leader's file.
+    # `runner` should mirror both; `shared.yaml` is the package owner's file.
     E2E_EVAL_MAX_TOKENS: '${eval_max_tokens:-2048}'
     E2E_EVAL_THREADS: '${eval_threads:-32}'
     # **The same omission class again, and this one produces a NUMBER rather
@@ -159,7 +159,7 @@
     # default.
     E2E_TRACE_END_MS: '${trace_end_ms:-60000}'
     # **The replay's load shape, and leaving these undeclared was not cosmetic.**
-    # Found by re-running the leader's omission check over m5's own manifest
+    # Found by re-running the package owner's omission check over m5's own manifest
     # after `shared.yaml` grew: `assets/accept/measure.sh:120-122` reads all four,
     # none was declared here, and a name only `runner` declares does not reach a
     # `kind: ai` agent (`env_mgr/material.py:96`). So the script's own fallbacks
@@ -193,7 +193,7 @@
     # prompts go into the handoff beside the answers, because a generated case
     # whose text was thrown away cannot be audited.
     E2E_ADHOC_CASES: '${adhoc_cases:-3}'
-    E2E_MOCK_ROOT: '${mock_root:-/shared_nfs/yihou/agent_sys/cheat_for_mock}'
+    E2E_MOCK_ROOT: '${mock_root:-}'
     E2E_MOCK_STAGES: '${mock_stages:-all}'
     # `refused` (default) or `accepted` — see the block in `shared.yaml`. A
     # `kind: ai` agent receives only its own env block, so binding it there is
@@ -257,7 +257,7 @@
     require_container_hashes: true
     require_docker_mounts: true
     # **`true` since 2026-09-04, and the experiment that flipped it is the
-    # argument.** On crsuse2-m2m-047 an overlay whose in-container hash was
+    # argument.** An overlay whose in-container hash was
     # byte-equal to its own `sha256_patched`, whose file held a 2 ms sleep, and
     # whose `.pyc` was compiled that minute measured **identical to stock**.
     # The static evidence was perfect and told us nothing about whether the code
@@ -382,7 +382,7 @@
     #
     # Found by m2, scoped by m3 (32 vars are cross-owner and sharing is usually
     # the point; of the nine parameterised bars this was the only one that was
-    # both), decided by the leader.
+    # both), decided by the package owner.
     #
     # **The fix that would have kept the default linked does not exist.**
     # `'${integration_min_requests:-${min_requests:-50}}'` does not nest — it
@@ -480,14 +480,14 @@
     # legitimate kit that ships fewer of the right things.
     require_dirs: [results, logs, scripts]
     # This is the whole flow's export, not one stage's. Four is the floor from
-    # `integration-demo` and it is deliberately not raised here: raising it
+    # the integration stage and it is deliberately not raised here: raising it
     # without saying which four files are meant would refuse a kit for having
     # the wrong number of the right things.
     min_result_files: 4
   tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
 
 # --------------------------------------------------------------------------- #
-# The kinds. Six evidence kinds in `integration-demo` become two here, one per
+# The kinds. Six evidence kinds in the integration stage become two here, one per
 # arm, because one task now produces them and `${mode}.${result_type}` is the
 # naming rule (CONTRACT.md §1.1). Each carries its arm's deployment evidence,
 # its correctness results and its replay rounds.

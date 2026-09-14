@@ -36,7 +36,7 @@ package. Whether to close it is an open question in `DESIGN.md` section 11.
 
 A third layer was designed and not built: cut a short profiler window on the
 patched arm and check the kernel symbols against the stock arm's. The machinery
-exists in `profiling-demo`; the cost is a graph-off restart per arm.
+exists in the profiling stage; the cost is a graph-off restart per arm.
 
 ---
 

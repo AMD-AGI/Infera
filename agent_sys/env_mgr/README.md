@@ -80,7 +80,7 @@ without being added to either — so neither direction applied to it. Injecting
 passed. The list of what is *above* is now derived rather than typed, so the
 rule reads **below may import only from below** and a new module is covered from
 the moment it exists; a partition test keeps the two sides exhaustive. Probe:
-`scratch/impl-2026-08/env_mgr/p8_the_wall_had_a_gap.py`.
+A probe.
 
 ## What a consumer is staged: `content/`, not the version directory
 
@@ -107,8 +107,7 @@ a staged copy does not, so `validator`'s own Python and `agent/gate.py` are
 strictly better served by the store; `validator` confirmed their prior-verdict
 path is `store.read_verdicts` and never reads the staged tree.
 
-A **confined body** is a different matter. Measured
-(`scratch/impl-2026-08/env_mgr/p11_can_a_body_reach_the_store_root.py`), granted
+A **confined body** is a different matter. Measured, granted
 its zone and its inputs' `content/`:
 
 | | |
@@ -132,7 +131,7 @@ layout is unexpected. **The probe that measured this carried that fallback and
 therefore under-reported** — it showed five green suites for a narrowing the
 implementation does not perform, and the four tests the real change took red had
 been asserting against a store layout that never exists.
-`scratch/impl-2026-08/env_mgr/p10_what_narrowing_stage_would_cost.py` records it.
+A probe records it.
 
 ## The machine these numbers came from
 
@@ -255,8 +254,7 @@ as `EACCES` against a named path, and every one carries a positive control.
 ## The Landlock layer cap, measured
 
 `materials/07-env_mgr.md` records the man page saying 64 and 16 measured here,
-and calls the pair unreconciled. Re-measured for this implementation
-(`scratch/impl-2026-08/env_mgr/p1_layer_cap.py`):
+and calls the pair unreconciled. Re-measured for this implementation:
 
 ```
 landlock ABI = 3
@@ -387,8 +385,7 @@ own unsealed version. That is a new exposure created by §4.14, not the old
 
 **`claim` is this module's name** — the user ruled the destination and left the
 name here. A *directory* rather than a file, so a second claim needs no second
-ruling. Measured
-(`scratch/impl-2026-08/env_mgr/p9_a_sibling_claim_dir_survives_seal.py`): a
+ruling. Measured: a
 sibling survives `seal` and leaves the digest byte-identical at
 `718d7aeb31a76c32…` — the same value `handoff` measured from the other side,
 which is what makes the two comparable. Their probe found the alternative moves
@@ -606,8 +603,7 @@ auth header**, and the CLI then answers `Not logged in · Please run /login`.
 That is this module's characteristic failure once more — *the symptom names the
 wrong cause* — and it is why an AI task had never authenticated.
 
-Three arms, one prompt, one machine
-(`scratch/impl-2026-08/env_mgr/p7_relocated_config_loses_auth.py`):
+Three arms, one prompt, one machine:
 
 | arm | `CLAUDE_CONFIG_DIR` | block injected | |
 |---|---|---|---|
@@ -659,8 +655,7 @@ single-threaded caller, and `apply()` refuses above one thread, which the runner
 always is. **In any configuration that could run, an AI task was never confined.**
 The split made it honest, not worse.
 
-**Wrong about the word.** Measured
-(`scratch/impl-2026-08/env_mgr/p5_grandchild_inherits.py`): a **grandchild**
+**Wrong about the word.** Measured: a **grandchild**
 inherits the domain.
 
 ```
@@ -686,7 +681,7 @@ so that *soluble* is not read as *small*.
 
 ## The path environment-variable system, and the four names it refuses
 
-`refine.task_package.define.md` item 3 asks for *"一套路径环境变量系统"* — package
+The package-format requirement item 3 asks for *"一套路径环境变量系统"* — package
 root, workspace, handoff root, playground; local and remote; and per-agent `my_*`
 slots. `env_mgr/paths.py` is that system. This section records what was found
 before it was designed, because two of the findings changed the answer.

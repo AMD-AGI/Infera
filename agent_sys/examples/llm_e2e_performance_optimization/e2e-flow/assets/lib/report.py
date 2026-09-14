@@ -10,7 +10,7 @@ whole reason the payload emits JSON instead of prose.
 
 **Three tiers, not two, and the middle one is a correction.** The first version
 scored "no local base carrying m1's anchor" as `NO`, which put nodes like
-`crsuse2-m2m-179` — eight free cards, 22 T of disk, simply no sglang image
+`node-179` — eight free cards, 22 T of disk, simply no sglang image
 pulled yet — in the same bucket as a node with eight cards under another
 tenant. Those are not the same answer: one is unusable, the other costs an image
 pull. Reported as one, the table would have hidden most of the usable capacity
@@ -41,7 +41,7 @@ def verdict(r: dict, need: int, need_disk: int, need_root: int) -> tuple[str, st
         return "NO", f"{r['cards_free']}/{r['cards_total']} cards free — {r['busy'] or 'n/a'}"
     if r["disk_gb"] < need_disk:
         return "NO", f"{r['disk_gb']}G on /mnt/m2m_nobackup"
-    # **`/` is the one that stopped a build.** `crsuse2-m2m-186` had the right
+    # **`/` is the one that stopped a build.** `node-186` had the right
     # base and 3.4 G here; docker builds on `/`, so a node can pass the big
     # filesystem and still be unbuildable. A separate, smaller bar, because this
     # one holds a build tree rather than an image store.
@@ -146,7 +146,7 @@ def main() -> int:
 
     # **The tiers are costs, not grades**, which is why the recovery price is on
     # each. m5 measured it on 047: `docker load` of
-    # `/shared_nfs/yihou/images/infera-sglang-local.tar` (27 G) took **4m44s**
+    # `<image tar>` (27 G) took **4m44s**
     # and the node passed all three checks afterwards. So a node with no infera
     # image is not disqualified — it is five minutes away, and knowing that
     # before binding is worth those five minutes of planning rather than a

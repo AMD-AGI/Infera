@@ -2,7 +2,7 @@
 # A fixed-shape synthetic load against the router with AIPerf.
 # RUNS ON THE COMPUTE NODE.
 #
-# **This is `../../../integration-demo/assets/bench/aiperf_replay.sh` with the
+# **This is the integration stage's original `bench/aiperf_replay.sh` with the
 # trace swapped for AIPerf's synthetic generator, and nothing else changed.**
 # Mission M1.2.3.4 asks for a 1k-in / 1k-out, concurrency-16, three-minute load;
 # that package's script asks for a Mooncake trace replayed at its recorded

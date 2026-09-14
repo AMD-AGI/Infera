@@ -1,6 +1,6 @@
 """Stubs for the collaborators `monitor` resolves by name, and nothing else.
 
-`docs/implementation-stage.md` §4.1: *import the Protocol, never a sibling's
+The rule: *import the Protocol, never a sibling's
 implementation module; if you need a neighbour's behaviour to run a test, satisfy
 the Protocol with a stub in your own `tests/`.* Every stub here exists for that
 reason, and each names the seam it stands in for.
@@ -185,7 +185,7 @@ class StubAttempt:
     emptied only by `stop`. The stub encoded this module's assumption instead of
     the neighbour's behaviour, so every test agreed with it and the defect was
     invisible until `agent`'s code was read.
-    (`scratch/impl-2026-08/monitor/p7_nonleaf_wake_is_silent.py`.)
+    (a probe.)
     """
 
     def __init__(self, executor: StubBackend | None = None, *, is_running: bool = True) -> None:

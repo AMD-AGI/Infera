@@ -122,8 +122,7 @@ BIN_DIRS = (
 def executable_path(policy: Policy) -> str:
     """``PATH``, **projected from the granted set** rather than chosen.
 
-    **`PATH` is not a boundary and this does not pretend it is one.** Measured
-    (`scratch/impl-2026-08/env_mgr/p2_path_is_not_a_boundary.py`): with ``/usr``
+    **`PATH` is not a boundary and this does not pretend it is one.** Measured: with ``/usr``
     granted and ``PATH=""`` a confined process runs ``/usr/bin/git`` happily,
     and with ``/usr`` **un**granted but named in ``PATH`` the exec is ``EACCES``.
     What a process may execute is decided by the allow-list, in the kernel;

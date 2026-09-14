@@ -146,7 +146,7 @@ be repaired at every point and still not deliver**, which is `docs/interfaces.md
 §4.13; the instance is recorded here because the criterion is this package's.
 
 Verified where it matters rather than at this boundary —
-`scratch/impl-2026-08/closure/probe_criterion_6_arrives.py`, real package on
+A probe, real package on
 disk, real `build_registry`, escape hatch on:
 
 ```

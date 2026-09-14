@@ -114,7 +114,7 @@ while `_pin_outputs` fills `output_versions` from `handoff_store.allocate`, a
 **The two counters cannot converge, because their reuse rules differ.**
 `allocate` takes each number with an `os.mkdir` token, so a burned number stays
 burned; `Handoff.open_next` adopts a `CREATED` latest **in place**. Measured
-(`scratch/impl-2026-08/task_graph/probe_allocator_reuse.py`) — **one dispatch
+ — **one dispatch
 that does not write is enough**:
 
 ```

@@ -44,9 +44,8 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-PKG = Path(sys.argv[1] if len(sys.argv) > 1 else
-           "/home/yihou/dev/git/infera.aiopt.real.task_package/agent_sys/examples/"
-           "llm_e2e_performance_optimization/e2e-flow")
+#: `<package>/assets/<validator>/`, so the package root is two up from HERE.
+PKG = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE.parents[1]
 sys.path.insert(0, str(PKG / "assets/lib"))
 sys.path.insert(0, str(PKG / "assets/check_deploy_serves.validator"))
 

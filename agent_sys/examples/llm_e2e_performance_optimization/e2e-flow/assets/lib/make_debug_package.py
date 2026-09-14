@@ -26,10 +26,10 @@ is checkable rather than promised.
 Usage:
 
     # everything off — the first real walk on a node
-    python3 assets/lib/make_debug_package.py --out /home/yihou/e2e_flow_noval
+    python3 assets/lib/make_debug_package.py --out /tmp/e2e-flow-noval
 
     # converge back: keep the ones that pass reliably, argue about the rest
-    python3 assets/lib/make_debug_package.py --out /home/yihou/e2e_flow_noval \
+    python3 assets/lib/make_debug_package.py --out /tmp/e2e-flow-noval \
         --keep check_environment,check_command_parses
 
     # what would change, without writing anything

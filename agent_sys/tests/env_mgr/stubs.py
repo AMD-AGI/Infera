@@ -3,8 +3,8 @@
 """Stand-ins for the `task_graph` shapes this package reads.
 
 `Task.permissions`, `Grant` and `Access` are rev.-12 material that is being
-written in another package as this one is written. The implementation-stage plan
-says to code against the documented shape and to satisfy the neighbour with a
+written in another package as this one is written. The rule is to code against
+the documented shape and to satisfy the neighbour with a
 stub in one's own tests, so these are that stub: the shapes exactly as
 `task_graph/docs/design.md` §3.5 and §3.1 declare them.
 

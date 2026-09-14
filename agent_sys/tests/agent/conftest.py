@@ -2,7 +2,7 @@
 
 Wave 1's one unbendable rule: **import the Protocol, never a sibling's in-flight
 implementation.** Where a test needs a neighbour's behaviour it satisfies the
-Protocol here, in `agent`'s own tests — `docs/implementation-stage.md` §4.1.
+Protocol here, in `agent`'s own tests.
 
 Nothing here makes a model call, opens a socket, or needs a credential.
 """

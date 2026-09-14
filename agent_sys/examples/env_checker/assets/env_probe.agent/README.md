@@ -44,9 +44,9 @@ split is the point of both:
 | 4 `envchk_baseline` | the `.mcp.json` above | `assets/main.env_recipe.yaml` copies the server out of `agent_sys/env_mgr/addons/envchk-baseline/` |
 | 7 `serena` | the `.mcp.json` above | `recipes: [agent_sys:serena]` on the agent spec → `agent_sys/env_mgr/recipes/serena.yaml` |
 
-Run 1 (2026-09-03) is why the split is written down: serena installed cleanly and
-every `mcp__serena__*` call returned `No such tool available`, because nothing
-declared it. **An install is not a declaration**, in either direction.
+The split is written down because it was measured the hard way: serena installed
+cleanly and every `mcp__serena__*` call returned `No such tool available`,
+because nothing declared it. **An install is not a declaration**, in either direction.
 
 ## Why `settings.json` carries no explanation
 
@@ -85,4 +85,4 @@ correctly, because it does not exist. What section 4 measures instead is the
 route that replaced it: a recipe places a payload `agent_sys` ships, and the
 agent declares it. That is a weaker claim about ownership and an equally strong
 one about the server working, and both halves still fail loudly — the recipe item
-is `required`, and a missing declaration is run 1's `No such tool available`.
+is `required`, and a missing declaration produces `No such tool available`.

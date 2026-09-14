@@ -37,7 +37,7 @@
 # Argument handling, the record read, the ambient-vs-record refusal and every
 # diagnostic below were measured on the login node. **The `docker exec` was
 # closed on the node**, into m1's `yihou_e2e_sgl_m1real-20260904` on
-# `crsuse2-m2m-249`, card 4:
+# `node-249`, card 4:
 #
 #     torch 2.11.0+rocm7.2
 #     6b727fcde1724924c71c1148d89005500195527e827fe7ec8d51eef43d92a762  …/srt/layers/sampler.py
@@ -157,7 +157,7 @@ CONTAINER=$(_field runtime.container)
 # both when the node answers "no such container" and when the node is never
 # reached, and the message below then tells the reader m1 tore their container
 # down. Reproduced 2026-09-04 against m1's real record for
-# `yihou_e2e_flow_sgl_e2e-main-20260904` on `crsuse2-m2m-217`, twice, once with
+# `yihou_e2e_flow_sgl_e2e-main-20260904` on `node-217`, twice, once with
 # `SPUR_CONTROLLER_ADDR` present and once with `env -i` stripping it: **byte
 # for byte the same six lines**, though only the first had tested anything. The
 # stripped case is not exotic — `remote.sh:92-97` records that the closed
@@ -294,7 +294,7 @@ echo "run_in_container: record claims started_at=$(_field runtime.started_at)" >
 # a form you have SEEN, and every container this package has met pins by env.
 #
 # **Demonstrated against a real pinned deployment**, m1's
-# `yihou_e2e_flow_sgl_m1r1` on `crsuse2-m2m-006`, 2026-09-04, `docker inspect`
+# `yihou_e2e_flow_sgl_m1r1` on `node-006`, 2026-09-04, `docker inspect`
 # only and no exec: `HIP_VISIBLE_DEVICES=0,1,2,3` in `Config.Env` with
 # `HostConfig.Devices` = `/dev/kfd`, `/dev/dri` — the whole card set present and
 # only the variable narrowing it, confirming on a live container what
@@ -354,7 +354,7 @@ if [ -n "$CPIN_ALL" ]; then
   esac
 fi
 
-# **In the artefact, not only in the log** — the leader's ruling on T34,
+# **In the artefact, not only in the log** — the package owner's ruling on T34,
 # 2026-09-04: keep `premise.run_environment` meaning exactly what it means
 # today (m1's record, carried faithfully) and put the observation *beside* it,
 # so a later premise gate can compare the two instead of a reader comparing two

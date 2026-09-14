@@ -95,7 +95,7 @@ def test_the_store_stub_matches_the_real_seam() -> None:
     """The stub `conftest.py` uses is reconciled against `handoff`, not left to
     drift.
 
-    `docs/implementation-stage.md` §4.1 tells wave 1 to *satisfy the Protocol with
+    Wave 1 is told to *satisfy the Protocol with
     a stub in your own tests/*. A stub that is never checked against the real
     thing is a merge conflict scheduled for later, so the two verdict operations
     this module calls are compared signature for signature. Importing `handoff`

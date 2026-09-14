@@ -1,6 +1,6 @@
 """Fixtures, and the stubs that stand in for packages still being written.
 
-`docs/implementation-stage.md` §4.1: a wave-1 package is written against the
+A wave-1 package is written against the
 Protocol, not against a neighbour's in-flight implementation. **If you need a
 neighbour's behaviour to run a test, satisfy the Protocol with a stub in your own
 `tests/`.** Everything in this file that is not `validator`'s is such a stub:

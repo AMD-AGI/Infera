@@ -101,7 +101,7 @@ if [ "$rc" -eq 0 ]; then
   # first call cannot write its cache as anyone else — so every `__pycache__`
   # the entrypoints leave is root-owned inside a handoff the runner then tries
   # to copy and clean as `yihou`. The failure only appears on the *second* run,
-  # which is the worst kind. `analyze-demo` hit the same thing and recorded it;
+  # which is the worst kind. The analysis stage hit the same thing and recorded it;
   # this is the one-variable half of its fix.
   export PYTHONDONTWRITEBYTECODE=1
 
@@ -161,7 +161,7 @@ if [ "$rc" -eq 0 ]; then
   fi
 
   # **Measured in a container on the node, where the real path measures.**
-  # Not host-side: the leader measured that `spur exec <job> python3 -c "import
+  # Not host-side: the package owner measured that `spur exec <job> python3 -c "import
   # torch"` fails — the node's *host* has no torch, only the containers do — so
   # the old wiring was not merely unsatisfied here, it was unsatisfiable
   # anywhere. See measure_in_container.sh's header.

@@ -68,7 +68,7 @@ cannot express a change that is not a whole-file replacement. A registry hook or
 an import hook would be finer-grained and would not need a container restart.
 
 **Precedent if this is picked up:**
-`integration-demo/assets/bench/pythonpath/sitecustomize.py` already injects code
+the integration stage's original `bench/pythonpath/sitecustomize.py` already injects code
 into the engine's interpreter by `PYTHONPATH`.
 
 **`overlay_files` stays until then.** Two mechanisms would mean two proofs that
@@ -157,7 +157,7 @@ block is a warning rather than a blocker anyway.
 to its kernel symbols — carry that mapping into the workset and have `compare`
 read it instead of guessing.
 
-### T11 — ten closed `items_schema`s in `integration-demo` (was C23)
+### T11 — ten closed `items_schema`s in the integration stage (was C23)
 
 `additionalProperties: false` on an items schema rejects `logs` and `watchout`,
 which the content type itself lists as optional. Harmless until somebody adds a
@@ -210,7 +210,7 @@ distinction is real even though this instance of it was not. **Would settle it:*
 the first real consumer, or a decision to drop the requirement.
 
 ### T16 — `git`'s `index.lock` retry is not idempotent, and its no-op is silent
-*Opened 2026-09-03 by checkpoint, against a collision with the leader.*
+*Opened 2026-09-03 by checkpoint, against a collision with the package owner.*
 
 `CONTRACT §8a` told an owner whose commit hit `index.lock` to wait a second and
 retry. Measured: **the retry can silently do nothing.** In the seconds between
@@ -309,7 +309,7 @@ Until then the layout's `shared_identifiers` comment should say what it does
 measurement that `todo.md` exists to record.
 
 ### T19 — a GPU *set* is a bound identifier with no variable, and prose is not a validator
-*Found by m1 on 2026-09-04, composing rung 1 against `crsuse2-m2m-249`.*
+*Found by m1 on 2026-09-04, composing rung 1 against `node-249`.*
 
 Every other identifier this package binds on a shared host has a `--var`:
 container name, three ports, the container workdir. **The GPU set does not.**
@@ -358,9 +358,9 @@ inside the built image yields `torch.cuda.device_count() == 4`, so the mechanism
 works — it is only unparameterised and unchecked.
 
 ### T20 — a container left on a node we no longer hold, and the cleanup design that would have prevented it
-*Left by m1 on 2026-09-04. Recorded as a debt rather than a task, per the leader.*
+*Left by m1 on 2026-09-04. Recorded as a debt rather than a task, per the package owner.*
 
-**The artefact.** On `crsuse2-m2m-249`, possibly still running:
+**The artefact.** On `node-249`, possibly still running:
 
 ```
 name    yihou_e2e_sgl_m1real-20260904
@@ -394,7 +394,7 @@ only thing that should end it is somebody saying the verification is done."*
 That reasoning **assumed the node would outlive the decision.** It did not.
 
 The fix is not a timer — a timer would have been wrong too, and would have cut
-m4's verification. The leader's framing is the general one:
+m4's verification. The package owner's framing is the general one:
 
 > **A borrowed resource's cleanup has to be idempotent and unowned**, so that
 > anyone with access can do it and nobody has to be alive to decide.
@@ -419,7 +419,7 @@ belong to somebody else's live run. Both are about cleanup needing to be safe
 for a stranger to run.
 
 ### T21 — the completion probe grades shape, not answer, and the bar that would fix it needs a measurement
-*Found by the leader on 2026-09-04 reading rung 1's completion output; localised by
+*Found by the package owner on 2026-09-04 reading rung 1's completion output; localised by
 m1, who owns the probe. The `direction` text is corrected in the same commit as
 this entry — that half needed no measurement. The bar does.*
 
@@ -525,7 +525,7 @@ this list because **the next person to notice the empty stamp will "fix" it by
 passing `--var stage=`**, which is the one action that makes the record lie.
 
 ### T23 — `fixed.gpu_count` is the one required field with no definition, and 8 was defensible
-*Found by checkpoint in rung 1's own handoff, verified by the leader, localised
+*Found by checkpoint in rung 1's own handoff, verified by the package owner, localised
 by m1 who owns the producer. Third direction on T19.*
 
 Rung 1's record says `gpu_count: 8` on a node where four cards were held by a
@@ -603,7 +603,7 @@ reached this stage at all — a name only `runner` declares does not reach a
 `kind: ai` agent (`env_mgr/material.py:96`) — so the script's fallbacks won and
 m5 replayed at **concurrency 256 against m2's 32**, with `--var max_conc=` inert
 on one side of a comparison M5.1.3.1 requires to hold within
-`stock_vs_m2_tolerance`. Found by re-running the leader's omission check over
+`stock_vs_m2_tolerance`. Found by re-running the package owner's omission check over
 m5's manifest after `shared.yaml` grew; the checker's first pass named only
 `E2E_REMOTE_HOME` because these four were not yet on `runner`.
 
@@ -645,7 +645,7 @@ which instead cost a message or a run:
    declares `${expect_ranks:-8}`; the mocked trace is TP-2 while the real
    deployment was TP-4 — three numbers, and `expect_ranks` is deliberately not
    derived from `${tp}` (`steps/m2_profiling.yaml:93-100`). I predicted a
-   refusal I could not check; the leader had passed it. **The prediction was
+   refusal I could not check; the package owner had passed it. **The prediction was
    unverifiable, not wrong** — and the cost of asking was the same either way.
 2. **Was the run still alive?** It had been killed 20 minutes earlier and the
    tree does not say so. Two owners reported it as live and one committed that
@@ -674,7 +674,7 @@ the runner has the argument as well as the request.
 
 ### T26 — killing a run does not kill its agents
 
-**m2, from the leader's incident of 2026-09-04. Not blocking; the instance is
+**m2, from the package owner's incident of 2026-09-04. Not blocking; the instance is
 stopped. It changes what "I killed the run" can be relied on to mean.**
 
 **One level up from `41c8540`.** That record says a cancelled Slurm job does not
@@ -683,7 +683,7 @@ are therefore not in the job's cgroup. The same shape holds one layer further
 out: **an AI agent a run dispatched is not in the orchestrator's process tree**,
 so killing the orchestrator leaves it running.
 
-Measured. The leader ended run `20260904T062414-be315b` at 06:47. At 07:06:50 —
+Measured. The package owner ended run `20260904T062414-be315b` at 06:47. At 07:06:50 —
 twenty minutes later — the run tree was still being written:
 
 ```
@@ -693,7 +693,7 @@ newest write               07:04:29 -> 07:06:40
 
 under `zones/task.…/task.…/task.…/config/projects/…/<uuid>.jsonl`, an agent's
 own transcript: **490 entries, the last an `Edit` tool call**. All three task
-records in that chain still read `status=running`. The leader then found it
+records in that chain still read `status=running`. The package owner then found it
 directly — `PID 1097159`, 44:42 elapsed, `claude … --system-prompt "#
 deploy_and_prove — deploy the …"`, cwd inside that zone — and sent SIGTERM.
 
@@ -704,8 +704,8 @@ Both were attributed to a person; both were the orphaned agent. **Four owners
 were each asked whether the containers were theirs and each correctly answered
 no** — the object was ours the whole time, and no one could see it.
 
-**Why this is not merely untidy.** RUN-PLAN's own rule is that the first real
-run of a `kind: ai` closure happens with the leader watching, *because* an AI
+**Why this is not merely untidy.** the launch notes's own rule is that the first real
+run of a `kind: ai` closure happens with the package owner watching, *because* an AI
 agent with a live node and a docker daemon is the one thing here that can change
 state nobody asked for. It was unwatched for twenty minutes **precisely because
 everyone believed the run was dead** — the belief that made it unsupervised was
@@ -1001,7 +1001,7 @@ for seconds — makes it indistinguishable from a guess.
 > **ports** read as a comment about **cards** — are the *search* half of the
 > pattern CONTRACT §4.4's observer section and m2's fourth face already describe.
 > **One class, six people, one day:** m3's `ImportError` "pass", m2's verdict
-> reader, the leader's `bfs` predicate, m4's `/proc` scan, and these three.
+> reader, the package owner's `bfs` predicate, m4's `/proc` scan, and these three.
 > The shared shape is **an anticipated string standing in for the data** — and
 > in every instance the remedy was the same and cheap: *list what is there
 > instead of searching for what you expect.*
@@ -1065,7 +1065,7 @@ extending the range. Citations of **T28** or **T36** for the `/proc` subject sti
 resolve by title; the three are not confusable, which is the only reason a renumber is
 survivable at all.*
 
-*Reported independently by m3 and by `checkpoint`, neither of whom renumbered it —
+*Reported independently by m3 and by another owner, neither of whom renumbered it —
 correctly, since it touches other owners' entries. That is the second numbering
 collision today and the mechanism is unchanged: **`todo.md` has no allocator**, and
 `git status` cannot show you a number someone else is about to use in an editor.*
@@ -1158,7 +1158,7 @@ which is not m3's file.
 **Owner m3, 2026-09-04. Three instances in one session, none of them noticed
 by the person who had already read the record.**
 
-`RUN-PLAN.md`'s var table said, about m1's stage: *"A validator declares no
+the launch notes's var table said, about m1's stage: *"A validator declares no
 agent, so the package's `env` block never reaches it… With `transport_env`
 unset, `spur` has no `SPUR_CONTROLLER_ADDR`… It cost three rung-0 runs and two
 wrong attributions."* **I read that paragraph the same day**, while checking
@@ -1255,7 +1255,7 @@ leader had counted two before this one:
 | **m3** | **`E2E_MEASURE_GPU`** | **which card every number in `evidence/` came from** | **nothing; `measured_on` names the node** |
 
 **A configuration that determines the number and is invisible to everything that
-grades it.** The leader's sharpening is the part to keep, and it makes this the
+grades it.** The package owner's sharpening is the part to keep, and it makes this the
 purest of the three: `check_workset_runs` re-measures **on the same card**, so
 when the card is the fault **it agrees for exactly the reason the original was
 wrong**. The agreement is not evidence of correctness; it is evidence that both
@@ -1269,7 +1269,7 @@ and not only on their result.
 
 ### T33 — a mechanical reformat makes a diff unreviewable, so the semantic check moves before the commit
 
-**Owners m3 and the leader, 2026-09-04, the same error twice in one morning.**
+**Owners m3 and the package owner, 2026-09-04, the same error twice in one morning.**
 
 `json.dumps(indent=2)` re-serialises a whole schema, so a five-key change lands
 as **1074 insertions / 240 deletions** and no reader can see what changed. The
@@ -1303,7 +1303,7 @@ author*: in a shared worktree, `git commit -- <pathspec>` names a **file**, and
 the file contains whatever any teammate has uncommitted in it.
 
 `3b4d390` says *"four fixes to rung 3's launch section"* and also carries
-**m4's rewrite of RUN-PLAN §2a** — roughly 57 of its 100 insertions and 42 of
+**m4's rewrite of the launch notes §2a** — roughly 57 of its 100 insertions and 42 of
 its 44 deletions. Nothing was lost and the content is correctly placed, but my
 message does not describe my commit, m4's `b838fae` describes changes it does
 not contain, and I signed off on sixty lines I did not write.
@@ -1311,7 +1311,7 @@ not contain, and I signed off on sixty lines I did not write.
 **The standing rule — *commit by pathspec, never `git add`* — does not defend
 against this and was never meant to.** It stops you sweeping up *other files*.
 It says nothing about *other people's lines inside the same file*, and
-`RUN-PLAN.md` is the one file all six owners write to.
+the launch notes is the one file all six owners write to.
 
 **The mitigation is T33's own check, one step later:** run
 `git diff --stat <file>` *immediately before* committing and ask whether the
@@ -1387,7 +1387,7 @@ each tell the truth.
 
 **Not fixed, and neither of us changed the field.** `premise.run_environment`'s
 reader is m4's premise gate, so redefining it is a contract decision rather than
-an owner's; and `runtime.started_at` is the leader's schema. What m4 *did* do is
+an owner's; and `runtime.started_at` is the package owner's schema. What m4 *did* do is
 make the same `docker inspect` that checks liveness also log the observed
 `Id / Created / StartedAt / RestartCount` beside the record's claim — **the only
 place in the flow where the container that actually did the work identifies
@@ -1432,13 +1432,13 @@ measurement, and here it has produced two incompatible readings in one afternoon
 without either being a defect.
 
 **So the fix is cheaper and more definite than T34's three options suggest:
-define it.** One sentence in the schema, the leader's file, deciding between *when
+define it.** One sentence in the schema, the package owner's file, deciding between *when
 the container started* and *when the deployment became ready* — and if it is the
 first, it should be **read from `docker inspect` rather than written by the
 agent**, which makes it a fact rather than a claim and removes the 217 case
 entirely. `runtime.endpoint` wants the same sentence: 217 recorded loopback
 `http://127.0.0.1:8101` and 006 recorded the routable
-`http://10.245.151.128:8101`, and a consumer on another host can only use one of
+`http://<node ip>:8101`, and a consumer on another host can only use one of
 them.
 
 
@@ -1505,7 +1505,7 @@ on the answer.
 
 ### T36 — a claim about *who owns this* never looks like a claim, so nobody tests it
 
-**Six instances between the leader and m4 on 2026-09-04, all the same move: an
+**Six instances between the package owner and m4 on 2026-09-04, all the same move: an
 assertion about *who* or *what* — an owner, a boundary, a blocker, a row —
 stated before reading the thing that would have answered it.**
 
@@ -1517,7 +1517,7 @@ stated before reading the thing that would have answered it.**
   `def run(*args, **kwargs)`: **one file satisfying both consumers,
   demonstrated, in the artefact.** There was no contract to arbitrate, only a
   shim not copied.
-- **the leader, four times.** Ownership inferred from a filename rather than
+- **the package owner, four times.** Ownership inferred from a filename rather than
   read out of the manifest.
 
 **Why the existing rule does not cover it.** *"Read the artefact, not the exit
@@ -1564,7 +1564,7 @@ run_profiling_mode_on    froms: []   resources: {gpu: 8}
 merge_profiling_evidence froms: [run_profiling_mode_off, run_profiling_mode_on]
 ```
 
-**Both leaves depend on nothing.** The graph offers them together — the leader
+**Both leaves depend on nothing.** The graph offers them together — the package owner
 read exactly that in rung 0's log at 10:28, where both entered
 `waiting_resource` within three lines of each other and only *then* ran one
 after the other. **What serialises them is arithmetic: two tasks each asking for
@@ -1593,11 +1593,11 @@ runs on a node with more cards, removes the protection **and gets no error.**
 `run_profiling_mode_on` with `froms: [run_profiling_mode_off]`. It costs
 nothing today (they already run in that order) and it survives a change to the
 resource pool. Not done here because the ordering is m2's stage but the subgraph
-shape is the leader's to approve, and because a change that alters graph
+shape is the package owner's to approve, and because a change that alters graph
 topology deserves its own rung rather than riding on a fix.
 
 *Numbered T38 against a max of T37; `todo.md` currently has duplicate `T36`s and
-the leader is reconciling numbering, so treat this number as provisional.*
+the package owner is reconciling numbering, so treat this number as provisional.*
 
 ---
 
@@ -1614,7 +1614,7 @@ built for reading the event store reproduces the misdirection the store already
 has; see
 `temp/bugs/2026-09-04-output_absent-states-a-cause-that-is-false.md`.
 
-**Two owners have now paid for this in the same day** — the leader's four-run
+**Two owners have now paid for this in the same day** — the package owner's four-run
 stall study and m2's replayed-kit investigation — and **both ended up running
 `cat` on a raw event JSON** to find the same attribute.
 
@@ -1627,7 +1627,7 @@ three times on 2026-09-04. `read_events.py` has not had the equivalent.
 when present — or all non-empty attributes, which is what `runprobe` does and
 needs no per-kind knowledge.
 
-**Routed to checkpoint as the file's author**, with the diff, on the leader's
+**Routed to checkpoint as the file's author**, with the diff, on the package owner's
 rule that the author of a file cares most about its output being right and a
 change landed by someone else and merely attributed is worse than one landed by
 its owner.
@@ -1922,7 +1922,7 @@ consumer and no producer.
 
 
 **Third instance, and it is the one that cost something: `KFO_KERNELFORGE_REPO`.**
-Declared in this package (`m4_kernel_opt.yaml:358`) **and** in `kernel-opt-demo`,
+Declared in this package (`m4_kernel_opt.yaml:358`) **and** in the kernel-optimisation stage,
 and read by no body in either. The old readme calls it *"a KernelForge checkout,
 already `pip install -e`'d"* — so the environment was always prepared **out of
 band**, and the variable only ever told a *reader* where it was.
@@ -1965,7 +1965,7 @@ typo.**
 1. It is wrong about the artefact. A reader who wants the bar enforced concludes
    they must edit yaml and code, when they need only pass a var.
 2. **It made a defect look bigger than it was, in the direction of a finding.**
-   Both of us had it filed as an instance of the leader's "validators that grade
+   Both of us had it filed as an instance of the package owner's "validators that grade
    nothing" sweep. It is not one: `0.0` is a defended default with a written
    argument, and the arm is live. The true defect was one stale sentence. A
    stale comment does not merely fail to inform — it *manufactures* the finding
@@ -2031,7 +2031,7 @@ included a reachability step that felt like ordinary care at the time —
   nor `notes` in scope, so the gate **could not have run when enabled** — a gate
   that cannot fire when switched on, shipped as *written and ready*;
 - `_same`'s new vocabulary reporting was exercised by **monkeypatching the
-  pre-`d08047b` enums**, because the leader's own fix had made the divergence
+  pre-`d08047b` enums**, because the package owner's own fix had made the divergence
   branch unreachable on current schemas (`28c177d`). Shipping it unexercised was
   the alternative.
 
@@ -2155,7 +2155,7 @@ Six now, across five owners.** The sixth is the one that matters most for this
 entry's own reach: **T49 occurred inside the failure ledger itself**, where the
 recorded *reason* for four failures was a `note:` line the log had relabelled
 `PROBLEM:`. **Twice what the first summary of it said** — checkpoint reported two
-rows, readme-cn's audit found four. Recorded here
+rows, another owner's audit found four. Recorded here
 rather than in `T43` because `T43` is about a *field* copied faithfully and
 understood by nothing; this is about a *message* that describes a narrower check
 than the sentence it prints.
@@ -2179,8 +2179,8 @@ finds it false stops believing the *next* message from the same validator, which
 is the actual cost and it is unbounded.
 
 **Three of the four were found by someone reading the message rather than the
-code**, and none by its author. m5's two were found by m2 and m4; the leader's
-was found by `checkpoint` counting `PROBLEM:` lines for an unrelated reason and
+code**, and none by its author. m5's two were found by m2 and m4; the package owner's
+was found by another owner counting `PROBLEM:` lines for an unrelated reason and
 m3 noticing that seven of them sat under a `passed` heading. **The author knows
 what the check does, so the author reads the message as a summary of it** — the
 same blindness as T48's invisible working practice, pointed at prose.
@@ -2253,7 +2253,7 @@ demanded.
 
 **Three owners wrote one on the same afternoon; two were unexecutable the moment
 they were committed, and the third survives by where the ladder happens to be.**
-Routed to the leader by m4 rather than written by any of them, because T49 had
+Routed to the package owner by m4 rather than written by any of them, because T49 had
 just been three people one message from three copies of one class.
 
 | section | reads from | state when committed |
@@ -2314,7 +2314,7 @@ chose.
 **Direction 2 — the brief contradicts what the program does (m4), and this is
 the one that survives review.** The brief said the wrapper *"execs into the
 recorded container and never starts or removes one — CONTRACT §5.2 is absolute
-about that."* `48c3337` — the leader's own ruling — made that false: with no
+about that."* `48c3337` — the package owner's own ruling — made that false: with no
 running container the wrapper now starts an ephemeral one, `--rm`, trap-removed.
 
 **A gap reads as something to fill; a false prohibition reads as a constraint to
@@ -2388,7 +2388,7 @@ itself, and that requires doing the thing I was using the number to avoid.
 
 ### T53 — the var table's rung-2 advice for `expect_ranks` is right only at `tp=8`
 
-**m1, 2026-09-04. Not mine to edit — `RUN-PLAN.md:31` is the shared var table.**
+**m1, 2026-09-04. Not mine to edit — `the launch notes:31` is the shared var table.**
 
 ```
 | `expect_ranks` | **2** | **omit it** (defaults to 8), or track `--var tp` |
@@ -2460,7 +2460,7 @@ Not "a contract-wide migration", which is what I assumed before counting.
 
 **Not done, deliberately.** `environment.schema.json` is shared by all fifteen
 kinds (CONTRACT §2) and closing an object is the kind of change that turns a
-tolerated field into a hard failure mid-run. It wants the leader's call and a
+tolerated field into a hard failure mid-run. It wants the package owner's call and a
 green rung before it lands, not a quiet edit while rung 1 is in flight.
 
 **Mitigated at the one producer that is new, m5, `4e7a18d`.** m1's suggestion,
@@ -2490,7 +2490,7 @@ behaviour is identical and every check written for it passes.
 ### T55 — the CUDA graph ceiling belongs in the environment record and in `check_environment`'s compared set
 
 **m1, 2026-09-04. The half of the graph-ceiling defect that item 1 does not fix.
-Approved by the leader; deferred for the same reason as T54.**
+Approved by the package owner; deferred for the same reason as T54.**
 
 m2 measured **4.7x** in decode latency between two runs whose every *recorded*
 variable was equal — node, image id, model, `tp_size`, cards,
@@ -2571,7 +2571,7 @@ Their four zero-byte summaries came from that, not from the flow.
 
 **Why it is worth an entry anyway.** The mistake was *navigating between two
 copies of one file*, and that is the seam this whole effort exists to remove —
-`handoff.analysis.md`'s three seams are each one name over two things. Two
+the handoff analysis's three seams are each one name over two things. Two
 identical copies with owners on both sides is the same shape one level down: it
 is currently harmless because they agree, and the day they stop agreeing nothing
 will say so, because nothing compares them.
@@ -2600,9 +2600,9 @@ Spans m1, m4 and m5, and m4 found the same variable from the other end.**
 Three variables name one directory tree and **none derives from another**:
 
 ```
-work_root           '${work_root:-/mnt/m2m_nobackup/yihou/e2e_flow}'                    m5, m1, shared.yaml
-scratch_root        '${scratch_root:-/mnt/m2m_nobackup/yihou/e2e_flow/kfo}'             m4, five sites
-validate_work_root  '${validate_work_root:-/mnt/m2m_nobackup/yihou/e2e_flow/validate}'  m1
+work_root           '${work_root:-<work root>}'                    m5, m1, shared.yaml
+scratch_root        '${scratch_root:-<work root>}'             m4, five sites
+validate_work_root  '${validate_work_root:-<work root>}'  m1
 ```
 
 **They agree today because the rung-5 command passes `work_root` equal to its own
@@ -2610,7 +2610,7 @@ default.** Change it and the other two silently keep pointing at the shared
 default — a run whose work root is elsewhere and whose scratch and validate
 trees are not.
 
-**And the section invites exactly that.** RUN-PLAN's rung-5 §5 tells the reader
+**And the section invites exactly that.** the launch notes's rung-5 §5 tells the reader
 to pass a **run-unique `container=`** because the default is a fixed name on a
 shared host. Anybody applying that reasoning one variable over — a run-unique
 `work_root`, which is the same argument for the same reason — splits the three
@@ -2657,7 +2657,7 @@ or resolve the nesting fault upstream. **Neither is m5's alone.**
 
 ### T59 — the instruments that failed today, and not one failed toward "I cannot tell"
 
-**m1, 2026-09-04. An observation about the set, filed at the leader's request.
+**m1, 2026-09-04. An observation about the set, filed at the package owner's request.
 Deliberately untitled by count: it was four when written, six by evening, and a
 number in a heading is the thing this file has already had go stale twice.**
 
@@ -2667,14 +2667,14 @@ number in a heading is the thing this file has already had go stale twice.**
 worked all day, and it is not diligence — every catch came from someone
 distrusting a *convenient* result, not from someone being more thorough:
 the `df` differential, m2's second spelling, m3's argv print, checkpoint testing
-the leader's axis instead of adopting it.
+the package owner's axis instead of adopting it.
 
 **Knowing this list does not protect you.** I wrote it, named the mechanism, and
 then hit **three** of its members inside one four-minute check of whether a run
 had stalled — a `pgrep` that matched its own shell, a `ps` pattern too narrow to
 see the process, and a `git ls-files` run from the wrong directory. The
 catalogue is for **diagnosing afterwards**; it does not help you **avoid**.
-What stopped all three reaching the leader was widening the query a third time,
+What stopped all three reaching the package owner was widening the query a third time,
 and the third query was not more careful than the first two. **It was more
 sceptical of an answer I wanted.**
 
@@ -2689,7 +2689,7 @@ you are visibly not defending your own position — and that feeling occupies th
 place where the verification would have gone.
 
 Measured, 2026-09-04: m1 reported that `run_with_long_stall.py` was untracked. It
-was plausible, it was about a file the leader had written, and it meant work.
+was plausible, it was about a file the package owner had written, and it meant work.
 **Nothing about it felt wrong**, which is the point. It was checked only because
 the day had made checking reflexive:
 
@@ -2805,14 +2805,14 @@ shape (a name that resolves while the value it names is false).
 
 ### T58 — counting kits on disk counts how often we tested, not how often a producer chose
 
-**m1, 2026-09-04. Filed at the leader's request, with the fingerprint, because the
+**m1, 2026-09-04. Filed at the package owner's request, with the fingerprint, because the
 fingerprint is the only part anyone can act on.**
 
 A census of `packup` trees is the natural way to answer *"how often has a producer
 done X?"*, and it is wrong by construction. Measured over the frozen root:
 
 ```
-find /shared_nfs/yihou/agent_sys -path '*packup*' -name env.sh    ->  58 files
+find <shared path> -path '*packup*' -name env.sh    ->  58 files
 
 55   line 105, DK_TP_SIZE:=1     the 2026-09-02 sealed kit, byte-identical replays
  3   no ceiling variable at all  two are my own 13-line stubs, one a stripped copy
@@ -2887,7 +2887,7 @@ once the stages are one graph, which is the mission's whole premise — **the fi
 real chained run produced a defect that no amount of work on the five demos
 would have surfaced.**
 
-## What the code says, against the leader's first instinct
+## What the code says, against the package owner's first instinct
 
 The lead's initial lean was *"stage 1 should choose a higher ceiling"*. **Reading
 the code says the other path is the designed one:**
@@ -3096,7 +3096,7 @@ circular unless you measure twice. Recorded so the next person does not read
 ### T61 — a defect the instrument hides by functioning correctly
 
 **m5, 2026-09-05, from a warning of m2's that was about something else.** Named
-here because both the leader and m2 independently said it is a shape the day's
+here because both the package owner and m2 independently said it is a shape the day's
 collection did not already contain.
 
 `check_no_regression/check.py:567`, before `ce2d5a6`:
@@ -3300,7 +3300,7 @@ changes what a running agent reads.
 
 ### T67 — `reverify_shapes` counts operators, and its name says shapes
 
-*Opened 2026-09-05 by m3, at the leader's instruction, while confirming the cost
+*Opened 2026-09-05 by m3, at the package owner's instruction, while confirming the cost
 of raising it.*
 
 `assets/check_workset_runs.validator/check.py`:
@@ -3329,7 +3329,7 @@ meets after they have already read the verdict.
 **Not renamed today, deliberately.** `workset_reverify_shapes` is a launch
 `--var` on lines that are running; renaming an argument mid-run breaks the
 launch command rather than the code, which is the worse failure to introduce
-while a chain is live. The leader agreed and asked for the entry instead of the
+while a chain is live. The package owner agreed and asked for the entry instead of the
 rename.
 
 **What to do when the runs are quiet:** rename to `reverify_operators`, or make
@@ -3349,7 +3349,7 @@ that.
 ### T68 — an attested number and a claimed one are indistinguishable in the handoff
 
 *Opened 2026-09-05 by m3, from m4's question. m4 ranks it above both forge
-defects and the leader agrees; recording that because it is a consumer's
+defects and the package owner agrees; recording that because it is a consumer's
 ranking of a producer's defect.*
 
 **Re-verification is the validator's act and never writes back.**
@@ -3387,14 +3387,14 @@ process** — `reverify_shapes=1` samples the first in ranker order.
 already computes exactly what would go in it. `reverify_shapes=4` raises
 coverage but leaves a five-operator workset in the same state.
 
-**Holder: m3.** Not blocking; the leader has ruled the entry itself is the
+**Holder: m3.** Not blocking; the package owner has ruled the entry itself is the
 deliverable today.
 
 ---
 
 ### T69 — `identify` leaves `fellow` empty for most operators, and two producers write the tag
 
-*Opened 2026-09-05 by m3 at the leader's instruction. The unblock is landed;
+*Opened 2026-09-05 by m3 at the package owner's instruction. The unblock is landed;
 this is the root, filed separately so the workaround does not close it.*
 
 **This entry's original diagnosis was wrong and is corrected here.** It said
@@ -3466,7 +3466,7 @@ the dangerous outcome is gone even while the disagreement stands.
 
 ### T70 — `kernel_taxonomy.yaml` offers a fellow KernelForge does not have
 
-*Opened 2026-09-05 by m3 at the leader's instruction, split out of `62032fc`
+*Opened 2026-09-05 by m3 at the package owner's instruction, split out of `62032fc`
 rather than folded into it.*
 
 `assets/lib/kernel_taxonomy.yaml:129` maps a symbol shape to
@@ -3497,7 +3497,7 @@ change.
 
 ### T71 — three separate defects share one cause: the mock corpus has a shape the real path does not
 
-*Opened 2026-09-05 by m3 at the leader's instruction. **This entry exists
+*Opened 2026-09-05 by m3 at the package owner's instruction. **This entry exists
 because the third instance made it a pattern rather than a coincidence**, and
 until now each was filed only where it was found.*
 
@@ -3513,7 +3513,7 @@ output against the mock-injected m3 material gave **zero intersection on
 operator names**, and three of the files m4 required existed only because the
 mock adapter wrote them. m4's stage refused on the real path for that reason.
 
-**Instance 2 — the four-versus-one operator count.** *Relayed from the leader,
+**Instance 2 — the four-versus-one operator count.** *Relayed from the package owner,
 not measured by me; recorded so the set is complete and marked so nobody reads
 it as mine.*
 
@@ -3543,11 +3543,11 @@ should not be inferred to be m3's because m3 filed the entry.
 
 ### T72 — `expect_ranks` 在两份文档之间有缝,两份都没错
 
-**来源:readme-cn 的 RUN-PLAN 审计,2026-09-05;两处引用我都回源核对过。**
+**来源:another owner 的 the launch notes 审计,2026-09-05;两处引用我都回源核对过。**
 
 **没有哪一份文件写错了,缝在它们中间——所以两边都没有可改的东西。**
 
-- **`RUN-PLAN.md:32`** 把 `expect_ranks` 按 **rung 号**取值(rung-5 表 `L2139`
+- **`the launch notes:32`** 把 `expect_ranks` 按 **rung 号**取值(rung-5 表 `L2139`
   重复一次):rung 0–1 → `2`,rung 2 onward → 部署实际的 `tp`。
 - **同一份文件的正文 `L200–222` 写的原则是对的**:*「it is a fact about **the
   artefact being graded**, not about the run」*。
@@ -3558,8 +3558,8 @@ should not be inferred to be m3's because m3 filed the entry.
   **m2 被 mock** 的调试 run。此时 capture 是 `tp=4`,而表格按 rung 0–1 判它
   该是 `2`。**`check_trace_coverage` 会在一次完整 bring-up 和加载之后,拒绝一份
   完全正确的 capture。**
-- **`SKIP-AHEAD.md` 里 `expect_ranks` 出现 0 次**(实测 `grep -c`)。
-  readme-cn 认这个遗漏是自己的。
+- **the replay manual 里 `expect_ranks` 出现 0 次**(实测 `grep -c`)。
+  another owner 认这个遗漏是自己的。
 
 **形状**:和 `bug.record` 第 17 条的 `adhoc_cases` 同族,高一层——
 **一个键在常见情形下是正确的代理,在一个已写进文档的变体下静默失效。**
@@ -3574,24 +3574,24 @@ should not be inferred to be m3's because m3 filed the entry.
 | | `adhoc_cases`(第 17 条) | `expect_ranks`(本条) |
 |---|---|---|
 | 速查表 | **错** | **对**,在它自己的语境里 |
-| 另一处 | 正文,对,同一文件 | `SKIP-AHEAD.md`,**只字未提** |
+| 另一处 | 正文,对,同一文件 | the replay manual,**只字未提** |
 | 检查在比什么 | 格 vs 正文 —— 抓得到 | 格 vs **无** —— **没有可比对象** |
 
-**`RUN-PLAN.md:32` 不是陈的,那份文件里没有一个字是错的。** 缺陷是**缺席**,
+**`the launch notes:32` 不是陈的,那份文件里没有一个字是错的。** 缺陷是**缺席**,
 而缺席对一条「比对两个陈述」的检查不可见。
 
 **所以:跑完表格审计得到「干净」,不等于这一类被覆盖了。** 记在这里是因为
-下一个人最可能犯的错就是这个推论。本族只有纪律,没有检查(readme-cn 原话):
+下一个人最可能犯的错就是这个推论。本族只有纪律,没有检查(another owner 原话):
 
 > **当一份文档引入既有机制的变体时,义务在新文档一侧:把该变体作废掉的每一个
 > 键重新申明一遍。没有任何东西能检测到这个遗漏。**
 
 **为什么记成 todo 而不是 bug**:没有代码缺陷,也没有哪一行文档是错的。要补的是
-**`SKIP-AHEAD.md` 里缺的那一段**,以及把 `RUN-PLAN.md:32` 的键从 rung 号换成
+**the replay manual 里缺的那一段**,以及把 `the launch notes:32` 的键从 rung 号换成
 「被评的 artefact 的 tp」——后者是行为不变的措辞改动,但**要在链空闲时做**。
 
-**持有人:未分配。** 实例来自 readme-cn 的审计,`SKIP-AHEAD.md` 是 readme-cn 写的,
-但 `RUN-PLAN.md:32` 那一行是共享的,**不要因为是 readme-cn 报的就默认归他们。**
+**持有人:未分配。** 实例来自 another owner 的审计,the replay manual 是 another owner 写的,
+但 `the launch notes:32` 那一行是共享的,**不要因为是 another owner 报的就默认归他们。**
 
 ---
 
@@ -3689,7 +3689,7 @@ somebody decides whether 64 % unclassified is acceptable** — most of those
 kernels are never promoted by `rank`, so the practical exposure is much smaller
 than the raw ratio, and *how much* smaller is unmeasured.
 
-**Renumbered from T72 to T73, 2026-09-05.** readme-cn's `expect_ranks` entry
+**Renumbered from T72 to T73, 2026-09-05.** another owner's `expect_ranks` entry
 took T72 at 08:04 and this landed at 08:24 (`3d7a05e` before `f834fcf`), so this
 one is the duplicate. **I reused a number read from a heading listing taken
 before theirs existed** — the stale-pointer class again, this time on an
@@ -3745,7 +3745,7 @@ of this trace's prefill/decode mix. On a decode-heavier trace that kernel's
 share would rise and the omission would matter more. **I have not measured that
 and am not extrapolating.**
 
-**HELD by the leader, 2026-09-05, for the round's goal rather than the
+**HELD by the package owner, 2026-09-05, for the round's goal rather than the
 measurement.** This round is 跑通即可 — get the chain through, explicitly not real
 performance improvement. Expanding the pool changes *which operator gets
 optimised*: a 2.35 % newcomer at rank 2 means the next m3 run may hand m4 a
@@ -3841,7 +3841,7 @@ the accident stops covering us, and this stops being deferrable.**
 
 ### T76 — emitting `environment.yaml` is a producer's duty with no central enforcement, and three producers do not discharge it
 
-**Found by readme-cn 2026-09-05 offline against run `20260905T162032-4473f1`**, after
+**Found by another owner 2026-09-05 offline against run `20260905T162032-4473f1`**, after
 `check_environment` refused three kinds and the shape suggested one cause rather than three.
 
 **The failing condition is identical in all three: step (1) *present*.** No schema
@@ -3881,7 +3881,7 @@ Seven call sites exist — `apply_patch`, `build_workset`, `deploy_and_prove`,
   for the measurements and not for the report or the packup.
 - **`kernel_optimization` is not m4's live producer.** `_lib.py:340` calls
   `env_render`; the refusing artefact is the **replayed** one (its embedded YAML names
-  `node: crsuse2-m2m-088`). **m4's action is "confirm the live path emits it",
+  `node: node-088`). **m4's action is "confirm the live path emits it",
   not "fix the producer".**
 
 **A fix already exists for one of the three:** m1's
@@ -3897,7 +3897,7 @@ this round** — see T75 for the same reasoning.
 
 ### T77 — `redact` refuses by file suffix, and an evidence record is not a script — deferred, and it is a contract question
 
-**m4 answers a question the leader routed out of their own hands** (their words: three
+**m4 answers a question the package owner routed out of their own hands** (their words: three
 wrong calls on the same artefact today, so a fourth is the worst-quality opinion
 available). **The answer is: do not edit the builder. This is the same shape as T75.**
 
@@ -3906,8 +3906,8 @@ available). **The answer is: do not edit the builder. This is the same shape as 
 `set -eu` kills `packup.py` before `exec env_render`:
 
 ```
-:32  "model_path": "/shared_nfs/yihou/models/Qwen3.6-27B"
-:61  "work_root":  "/mnt/m2m_nobackup/yihou/e2e_flow_088a/088a-09051009"
+:32  "model_path": "<shared path>"
+:61  "work_root":  "<work root>"
 ```
 
 **`redact` is behaving correctly and this is not a `redact` bug.** Its prefix list is
@@ -3952,16 +3952,16 @@ field to launder into a placeholder.**
 **Both change a contract, so neither belongs in this round.** T75's reasoning applies
 unchanged.
 
-### Unblocking the leader's artefact today, and its cost
+### Unblocking the package owner's artefact today, and its cost
 
-Passing `WORKSET_ROOT=/mnt/m2m_nobackup/yihou/e2e_flow_088a` as a fourth prefix makes
+Passing `WORKSET_ROOT=<work root>` as a fourth prefix makes
 `packup.py` complete. **It is a workaround, it is one lap of the treadmill, and it
 should be labelled as such where it is added** — the next corpus with a different root
 fails the same way, after another deployment.
 
 ### T79 — a run does not record the `--var` values it was launched with, and at least five of today's incidents are that one fact
 
-**m4 files, 2026-09-05, at the leader's direction. T79 and not T78 is theirs to assign.**
+**m4 files, 2026-09-05, at the package owner's direction. T79 and not T78 is theirs to assign.**
 
 **The measurement.** A run stages its own copy of the package under
 `zones/<task>/package/`. **That copy is NOT rendered.** On `p9`
@@ -3993,14 +3993,14 @@ the `--var`, `check_trace_coverage` **would have refused during the real run too
 which would be a defect in a launch block, not a grading detail. m2 and m3 have been
 asked; the point of the entry is that **the question had to be asked of a person.**
 
-**m2 answered from the file, not from memory** — `/home/yihou/p9_chain_093.sh:18` reads
+**m2 answered from the file, not from memory** — `<home>:18` reads
 `--var expect_ranks=4`. **So `p9`'s PASS is a grading of the run**, and the tidy answer
 and the true one coincided here; m2 said so explicitly rather than letting it be taken
 on trust. **That does not weaken the item — the answer came from a shell script in
 somebody's home directory, which is exactly the storage this entry is about.**
 
 **And m2 named the case where the same variable is genuinely different**, which the
-worked example above would otherwise hide: RUN-PLAN precondition 2c gives
+worked example above would otherwise hide: the launch notes precondition 2c gives
 `expect_ranks` **2 for a mocked stage 2** (the 09-02 corpus is a TP-2 capture) and
 **`tp` for a real one**. Grading mocked and real artefacts in one sweep with a single
 value therefore manufactures refusals **that read exactly like producer defects**. A
@@ -4037,7 +4037,7 @@ launch value was known. It is not.)*
 
 ### Why this is one item and not five
 
-The leader's pairing, and it is the reason this is filed rather than mentioned:
+The package owner's pairing, and it is the reason this is filed rather than mentioned:
 
 | incident | the same fact |
 |---|---|

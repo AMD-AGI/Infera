@@ -117,7 +117,7 @@
     E2E_PORT_ETCD: '${port_etcd:-8103}'
     # Local disk. A network home with root_squash maps the container's root to
     # nobody and the engine then fails to write its logs silently.
-    E2E_WORK_ROOT: '${work_root:-/mnt/m2m_nobackup/yihou/e2e_flow}'
+    E2E_WORK_ROOT: '${work_root}'
     # The flow's own input, and the first line of this task's readme sends the
     # agent to it. **It was empty for the whole of rung 1**, which is how a site
     # fact routed through it — *"GPUs 0-3 belong to another tenant"* — was never
@@ -125,7 +125,7 @@
     E2E_INSTRUCTION: '${instruction:-Bring this model up in the requested mode on this host, prove it answers through the router, and hand back a kit somebody else can run.}'
     # STEP 0 reads both. Without them `mock.sh` cannot tell *unset* from *not
     # listed* and every run is a real one.
-    E2E_MOCK_ROOT: '${mock_root:-/shared_nfs/yihou/agent_sys/cheat_for_mock}'
+    E2E_MOCK_ROOT: '${mock_root:-}'
     E2E_MOCK_STAGES: '${mock_stages:-all}'
     # Read by two libs this readme names — `remote.sh` at STEP 2's `on` idiom and
     # `env_render.py` at STEP 5. Both survive undeclared on a code-level
@@ -148,7 +148,7 @@
     # any run can be stamped truthfully.
     E2E_STAGE: '${stage:-}'
     E2E_REMOTE_HOME: '${remote_home:-}'
-  # **No `skills:`, and that is a change from `../deploy-demo`.** That package
+  # **No `skills:`, and that is a change from the deploy stage.** That package
   # declared the packup skill because the skill was the authority for the kit's
   # layout. Here the authority is `assets/schemas/deploy_kit.layout.yaml` — that
   # is the whole of M1.1 — and the readme quotes it. Declaring the skill as well
@@ -178,7 +178,7 @@
 # a package standardising on a different layout re-points it rather than forking
 # the validator.
 #
-# The five checks mission M1.1 asks to be carried across from `../deploy-demo`
+# The five checks mission M1.1 asks to be carried across from the deploy stage
 # are all in that yaml — `served_name_not_a_path`, `mode_readback`,
 # `completion_evidence`, `results/` `min_files`, `Expected output`. The sixth,
 # `environment_facts`, is **replaced** as M1.1.1 asks: the record is
@@ -247,7 +247,7 @@
     # Where **this** deployment goes. Distinct from the producer's on purpose:
     # the run that produced the kit may still be up, and a validator that takes
     # its ports or its container name breaks the thing it is checking.
-    work_root: '${validate_work_root:-/mnt/m2m_nobackup/yihou/e2e_flow/validate}'
+    work_root: '${validate_work_root:-}'
     port_base: '${validate_port_base:-8140}'
     # AIPerf runs in its own container: the engine image ships Python 3.10 and
     # AIPerf needs >= 3.11. **Same variable and same default as `shared.yaml`'s

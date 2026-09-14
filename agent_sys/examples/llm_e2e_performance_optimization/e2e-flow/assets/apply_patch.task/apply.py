@@ -10,7 +10,7 @@ workset, and m4 only had to fill it in.
 
 **The contract, in one paragraph.** `kernel_optimization` carries
 `items/codes/<packup>/apply/manifest.json`. Its fields are patchkit's, the same
-ones `integration-demo` proposed to stage 4 and then proved on the cluster:
+ones the integration stage proposed to stage 4 and then proved on the cluster:
 `schema_version`, `operator_id`, `logical_operator`, `image`, `apply_mode`,
 `files[]` and an optional `runtime_marker` and `expect`. Each `files[]` entry
 names a `container_path` in `@ROOT@/...` form, the `base_sha256` of what it
@@ -623,7 +623,7 @@ def main() -> int:
         # collision would otherwise fail the run for a leftover of our own.
         f"docker rm -f '{cid_name}' >/dev/null 2>&1 || true",
         # `--label` as well as `--name`: `c5aec7f` gave this container a name
-        # carrying `yihou`, which fixed the anonymous case — but `RUN-PLAN:476`
+        # carrying an owner substring, which fixed the anonymous case — but
         # makes the **label** the ownership test, because three ownership errors
         # on 2026-09-04 came from reasoning about names. A name is a hint; the
         # label is the answer.
@@ -833,7 +833,7 @@ def main() -> int:
                     + ("…" if len(dropped) > 8 else "")
                     + "\nAnything importing one of those from this module breaks at "
                     "import, before a single token is served. Measured 2026-09-04 on "
-                    "crsuse2-m2m-047: a replacement for srt/layers/sampler.py that "
+                    "node-047: a replacement for srt/layers/sampler.py that "
                     "dropped all eight of its functions took the engine down with "
                     "`ImportError: cannot import name 'apply_custom_logit_processor'` "
                     "out of sglang/srt/speculative/dflash_utils.py, and it had already "
@@ -1080,7 +1080,7 @@ mounts are read-only; and a mount that is present is not yet a mount that ran.
     # afternoon on one node is readable on the next.
     #
     # **Not justified by the seal, and that correction matters here.** This pass
-    # was inherited from `integration-demo`, where it was argued for as *"the
+    # was inherited from the integration stage, where it was argued for as *"the
     # seal refuses the whole delivery over one absolute path"*. Measured since:
     # `handoff/store.py:447` reads `# locality.check — NOT CALLED`, so the seal
     # refuses nothing (CONTRACT.md §2.2). The pass stays on its own merit —

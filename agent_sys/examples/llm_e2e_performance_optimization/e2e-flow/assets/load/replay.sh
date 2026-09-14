@@ -32,20 +32,20 @@ TRACE_OUT="$WORK/profiles"
 # its work root at a path of the kit's choosing — `/workdir` in the proven kit —
 # and declares it in `deployment.json`'s `work_root_in_container`, so the caller
 # passes it down rather than this file assuming the two are equal. Defaults to
-# the host path, which is the same-path convention `profiling-demo` used.
+# the host path, which is the same-path convention the profiling stage used.
 TRACE_OUT_IN_CONTAINER="${E2E_TRACE_OUT_IN_CONTAINER:-$TRACE_OUT}"
 # The engine's own log as the container sees it. `capture.sh` section 2/6 waits
 # for batch lines in it; a wrong path there reads as an engine that never
 # worked, which is what it read as on 088 on 2026-09-05. Same shape as the
 # line above: the caller passes it, and the default is the path
-# `profiling-demo` used.
+# the profiling stage used.
 ENGINE_LOG_IN_CONTAINER="${E2E_ENGINE_LOG_IN_CONTAINER:-/tmp/glm53_mix.log}"
 CTR="${E2E_CONTAINER:?}"
 #: **The endpoint the kit BOUND, host included.** `line.sh` reads the whole
 #: endpoint out of the handshake and used to hand down only the corrected
 #: *port*, so this line recomposed the host from `E2E_NODE_IP` — and a kit
 #: that binds loopback then gets dialled on its node IP. Measured
-#: 2026-09-05 on crsuse2-m2m-093: two kits on one node, `E2E_KIT_BIND_HOST`
+#: 2026-09-05 on node-093: two kits on one node, `E2E_KIT_BIND_HOST`
 #: defaulting to `0.0.0.0` in one (`env.sh:108`) and `127.0.0.1` in the
 #: other (`env.sh:137`); the second bound and recorded loopback, this line
 #: dialled `http://<node_ip>:<bound_port>`, and a fully successful TP4

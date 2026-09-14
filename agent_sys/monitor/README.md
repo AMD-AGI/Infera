@@ -153,7 +153,7 @@ test per verb** — 24 says *reports* and *does not transition*, and only the
 second was covered. And the check that finds this class is *"for each event
 kind, who writes it?"* — then, of each write site, *"is its input already a
 record of that kind?"*, because a re-emission reads as a write
-(`scratch/impl-2026-08/monitor/p16_every_kind_has_a_producer.py`; the other
+(a probe; the other
 fourteen kinds are clean).
 
 ---

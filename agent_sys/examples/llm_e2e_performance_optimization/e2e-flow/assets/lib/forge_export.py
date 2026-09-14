@@ -10,7 +10,7 @@ Everything here is derived from `definitions/<...>.json` plus
 `workloads/<...>.jsonl` plus the operator's row in `workset.yaml`. Nothing is
 authored. That is the property `check_workset_shape` checks, by comparing the
 exported case list against the workload's — and the reason to check it is the
-one `analyze-demo` gave for grading `invocation_spec.json` against
+one the analysis stage gave for grading `invocation_spec.json` against
 `forge_task.yaml`: two files produced from one record, so a disagreement can
 only mean one of them was edited on its own.
 
@@ -381,7 +381,7 @@ def _kernel_rel(operator: dict) -> str:
     workspace"* on a path outside it, and raises again if the path is not a
     file. **Both frames accepted, containment enforced, existence enforced.**
 
-    **The checkout that decides is `/shared_nfs/hyperloom/KernelForge`** —
+    **The checkout that decides is `<KernelForge checkout>`** —
     `30_run_forge.sh` installs from it per container, and `kernel-agents` is
     not in the image — where the guard is `campaign_config.py:316`, called for
     the kernel at `:527`. Cited because the apparent disagreement about this

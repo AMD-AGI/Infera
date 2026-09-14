@@ -75,7 +75,7 @@ TARGET_USER = "user"
 #: to `blocked`.
 NOT_LIVE = {"succeeded", "cancelled", "failed"}
 
-DEFAULT_ROOT = "/home/yihou/agent_sys_runroot/runs"
+DEFAULT_ROOT = os.environ.get("AGENT_SYS_RUN_ROOT", "")
 
 
 def _load(path: pathlib.Path):
@@ -162,7 +162,7 @@ def probe(run: pathlib.Path) -> int:
     #
     # The newest mtime anywhere in the run tree is the signal the store lacks —
     # a live run is writing zone logs and handoff content constantly, and this
-    # is what the leader used to establish the death. Cheap, and it is part of
+    # is what the package owner used to establish the death. Cheap, and it is part of
     # answering question 3 honestly rather than a fourth question.
     newest = 0.0
     for path in run.rglob("*"):

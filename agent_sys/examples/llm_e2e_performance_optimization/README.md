@@ -1,26 +1,22 @@
 # `llm_e2e_performance_optimization`
 
-The six-stage end-to-end LLM performance-optimisation flow, as `agent_sys` task
-packages. **This directory is not itself a task package** — it is the container.
-Each stage is a self-contained package in its own folder, and `--package` points
-at the folder, never at this one.
+The end-to-end LLM performance-optimisation flow, as an `agent_sys` task
+package. **This directory is not itself a task package** — it is the container.
+The package is [`e2e-flow/`](e2e-flow/), and `--package` points at that folder,
+never at this one.
 
-The series book is `temp/mission.md`; `temp/bugs/` records `agent_sys` bugs found
-while driving these, and `temp/claude_code_skill_used_by_human/` carries the
-packup skill the deliverables are shaped by.
+`e2e-flow` runs five stages in **one** `agent-sys run`, because a handoff only
+travels inside one run's graph:
 
-| stage | folder | what it does |
+| stage | task | what it does |
 |---|---|---|
-| 1 · e2e 运行 | [`deploy-demo/`](deploy-demo/) | a plain instruction in, a proven deployment and a runnable delivery kit out |
-| 2 · profiling | [`profiling-demo/`](profiling-demo/) | replay a Mooncake trace against a live deployment, cut a profiler window, rank the kernels |
-| 3 · analysis + workset | [`analyze-demo/`](analyze-demo/) | turn that profile into a ranked operator list and a KernelForge workset per operator |
-| 4 · kernel optimization | [`kernel-opt-demo/`](kernel-opt-demo/) | hand one workset to KernelForge, hand back the optimised kernel and its evidence |
-| 5 · integration | [`integration-demo/`](integration-demo/) | put that kernel in front of the real service and decide whether it broke or slowed anything |
+| 1 · deploy | `m1_deploy` | a plain instruction in, a proven deployment and a runnable delivery kit out |
+| 2 · profiling | `m2_profiling` | replay a trace against the live deployment, cut a profiler window, rank the kernels |
+| 3 · analysis | `m3_analysis` | turn that profile into a ranked operator list and a KernelForge workset per operator |
+| 4 · kernel optimisation | `m4_kernel_opt` | hand one workset to KernelForge, hand back the optimised kernel and its evidence |
+| 5 · integration | `m5_integration` | put that kernel in front of the real service and decide whether it broke or slowed anything |
 | 6 · regression | — | not built yet |
 
-Each folder's `README.md` is how to run that stage and what it delivers; where a
-folder also carries `DESIGN.md`, that is the reviewed design behind it.
-
-A sixth package, `../llm_e2e_perf_opt_debug_workset/`, is not a stage: it is a
-one-leaf harness that checks a candidate workset against stage 4's contract in
-seconds, before committing to a campaign.
+Read, in this order: [`e2e-flow/README.md`](e2e-flow/README.md),
+[`e2e-flow/CONTRACT.md`](e2e-flow/CONTRACT.md) — the fifteen-kind cross-module
+contract — and [`todo.md`](todo.md), which carries everything the flow defers.

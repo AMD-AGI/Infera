@@ -37,7 +37,7 @@ is **copied** into the zone config.
 Renumbering serena to 6 would leave a reader to infer that a capability was
 never there.
 
-**What this package stopped proving.** Until 2026-09-04 section 4 measured a
+**What this package stopped proving.** Section 4 once measured a
 distinct third thing: that a `.claude/` tree **this repository ships** could be
 installed for an agent by naming it (`agent_plugins: [envchk-baseline]`). That
 declaration key is deleted, so no such route exists to measure. Sections 4 and 5

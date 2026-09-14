@@ -103,7 +103,7 @@ _transport() {
 # a machine where neither is right.
 _env_prelude() {
   local name val out=''
-  # **`E2E_` and not `IT_`.** This file arrived from `integration-demo`, whose
+  # **`E2E_` and not `IT_`.** This file arrived from the integration stage, whose
   # variables are `IT_*`; this package's are `E2E_*` (CONTRACT.md 6). Left as
   # carried, this loop forwarded a prefix nothing in this package sets, so NO
   # `E2E_*` variable reached the remote side at all -- and the symptom would
@@ -124,7 +124,7 @@ on() {
       # is not the same fact as "I am on the node", and guessing wrong would run
       # every GPU command on the login node. It has to be asked for.
       #
-      # Restored rather than invented: `profiling-demo` had this branch and the
+      # Restored rather than invented: the profiling stage had this branch and the
       # copy this file came from dropped it, while `environment.schema.json`'s
       # `transport` enum and `CONTRACT.md` §2.1 both still list `local`. So a
       # conforming environment record could say `transport: local`, validate,
@@ -182,8 +182,8 @@ on() {
 # `--demo-root` at a shared path"* while the zone **was** visible from the node
 # and `--demo-root` was already the NFS path the message recommends. The leader
 # nearly went and changed a correct path. m3 reproduced it in one command:
-# `E2E_TRANSPORT=bogus require_visible_on_node /home/yihou` → *"the workset is
-# not visible on : /home/yihou"*, for a path that plainly is.
+# `E2E_TRANSPORT=bogus require_visible_on_node <home>` → *"the workset is
+# not visible on : <home>"*, for a path that plainly is.
 #
 # **The fix is to stop reading the exit status as the answer.** A sentinel in
 # **stdout** is what proves the remote shell ran: `test -e` cannot print

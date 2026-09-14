@@ -155,8 +155,7 @@ class ScriptBodyRunner:
             # either.** The first half was here from the start; the second was
             # not, and the asymmetry was the defect. A nonzero exit with no
             # verdict file used to have `{hid: False}` fabricated for it, and a
-            # fabricated `False` is byte-identical to a considered one
-            # (`scratch/impl-2026-08/validator/p6_crashed_body_verdict.py`). So a
+            # fabricated `False` is byte-identical to a considered one. So a
             # segfaulting validator reported *the validator worked and the answer
             # is no*, which is the flattening `monitor` spec §2.1 exists to
             # prevent: `VALIDATION_FAILED` says a branch is **judged** dead,
@@ -465,8 +464,7 @@ def read_verdict_file(
     docstring first claimed a single type. Do not narrow it to an inventory of
     what this module raises: theirs would then exclude *"its own inputs were
     missing"*, which is a `KeyError` from `handoff_mgr`, and an inventory goes
-    stale — this one went stale within the hour of being written. Measured
-    (`scratch/impl-2026-08/validator/p5_what_escapes_run_phase.py`), two ways out
+    stale — this one went stale within the hour of being written. Measured, two ways out
     of five escaped as something else: malformed JSON left as a
     `json.JSONDecodeError`, and a body writing `null` as a `TypeError` from
     `"x" in None`. Both are a body producing garbage — the exact case — and both

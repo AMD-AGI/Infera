@@ -13,7 +13,7 @@ legitimately times out the occasional request under a fixed schedule; a bar of
 zero turns this into a flake detector rather than a completeness check.
 
 File sizes are read at check time with `stat`, not trusted from a listing taken
-when the file was written. Measured on `profiling-demo`: immediately after a
+when the file was written. Measured on the profiling stage: immediately after a
 write, `ls -l` and `du -sb` disagreed by three orders of magnitude on the same
 files, and a later `stat` agreed with neither.
 

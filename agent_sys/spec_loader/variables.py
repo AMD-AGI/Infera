@@ -67,10 +67,9 @@ from .yaml_source import position_of
 
 __all__ = ["ASSETS_VAR", "substitute"]
 
-#: The user's own spelling, from `refine.task_package.define.md` §2.2, kept
+#: The user's own spelling, from the package-format requirement §2.2, kept
 #: verbatim. It is their interface and renaming it — to `ASSETS`, which is what
-#: it means — is not this wave's call to make (`docs/ui-stage.md` §4 W2 says the
-#: same thing about the same token).
+#: it means — is not this change's call to make.
 ASSETS_VAR = "TASK_PACKAGE_ASSERT_DIR"
 
 #: `${NAME}` or `${NAME:-default}`, plus `$$` for a literal dollar.

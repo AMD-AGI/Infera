@@ -2,23 +2,21 @@
 # Who is running what, and is a card set free. **Use this instead of composing
 # the check inline.**
 #
-# **Why this exists.** On 2026-09-05 the check "is this node free" was written
-# ad hoc at least five times by two people, and **four of them silently matched
-# their own command line** and returned a plausible wrong answer:
+# **Why this exists.** The check "is this node free" was written ad hoc at least
+# five times, and **four of them silently matched their own command line** and
+# returned a plausible wrong answer:
 #
-#   m3   a `pgrep` loop whose body contained `088`            -> false positive
-#   m3   a loop whose body contained the run pid              -> false positive
-#   m3   `ps --forest | grep` matching its own `eval` string  -> false positive
-#   m3   a cleanup loop containing `088`, ten minutes after   -> "2822004 still on 088"
-#        writing their own entry in RUN-PLAN 3a about this
-#   lead `ps -eo args | grep -F node=… | grep -F gpu_devices=4 | grep -c`
+#   a `pgrep` loop whose body contained the node name      -> false positive
+#   a loop whose body contained the run pid                -> false positive
+#   `ps --forest | grep` matching its own `eval` string    -> false positive
+#   `ps -eo args | grep -F node=… | grep -F gpu=… | grep -c`
 #        -> `2`, which is the two greps in the pipeline. Four idle cards would
-#           have sat another cycle if I had believed it.
+#           have sat another cycle if that had been believed.
 #
-# Every one produced an answer that looked right. m3's conclusion is the one
-# worth keeping: **the fix is not knowing better, it is never composing the
-# check inline** — which is `CLAUDE.md`'s tier-1 shape, a rule that changes the
-# command rather than asking someone to remember something mid-pipeline.
+# Every one produced an answer that looked right. The conclusion worth keeping:
+# **the fix is not knowing better, it is never composing the check inline** — a
+# rule that changes the command rather than asking someone to remember
+# something mid-pipeline.
 #
 # Usage:
 #   sh assets/lib/lines.sh                 # every live chain: pid, age, node, cards

@@ -6,7 +6,7 @@ arm had finished.
 
 ## Why it exists: an ordering guarantee that stopped being a graph edge
 
-`integration-demo` had eight leaves, and three of its edges carried an
+The integration stage had eight leaves, and three of its edges carried an
 **argument** rather than a datum. The load-bearing one was
 `serve_patched ← measure_stock`. It did not exist because the patched bring-up
 needed the stock arm's numbers — it existed because **the patched bring-up's

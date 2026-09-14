@@ -35,7 +35,7 @@ if [ -z "${BASH_VERSION:-}" ]; then
 fi
 set -euo pipefail
 
-: "${E2E_MOCK_ROOT:=/shared_nfs/yihou/agent_sys/cheat_for_mock}"
+: "${E2E_MOCK_ROOT:?set it to the sealed-handoff corpus (--var mock_root=)}"
 : "${E2E_MOCK_STAGES:=all}"
 
 stage="${1:?usage: mock.sh <stage> <kind>[:<source-kind>] ...}"

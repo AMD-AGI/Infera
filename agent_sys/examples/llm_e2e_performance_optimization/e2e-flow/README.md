@@ -3,18 +3,9 @@
 Deploy → profile → analyse → optimise one kernel → integrate, as **one
 `agent-sys run`**.
 
-The five stages also exist as five separate packages next door
-(`../{deploy,profiling,analyze,kernel-opt,integration}-demo/`), each driven to a
-real cluster run on 2026-09-02. They are not a flow: **a handoff only travels
-inside one run's graph**, so five packages are five runs and nothing chains.
-This package is the join the repo-root `mission.md` asks for. The five demos are
-kept, untouched, as reference and as a fallback.
-
-## Status — 2026-09-04, late
-
-The contract is frozen, the graph loads, the bodies are written, and **the
-ladder has reached rung 1** (`RUN-PLAN.md:1644`): stage 1 real, stages 2–5 still
-replaying sealed handoffs. Rungs 2–5 have not run. See 中文报告 §5.
+The five stages began as five separate task packages, one per stage. They were
+not a flow: **a handoff only travels inside one run's graph**, so five packages
+are five runs and nothing chains. This package is the join.
 
 ```
 17 closures (11 leaves + 6 non-leaves) · 15 handoff kinds · 21 validators
@@ -24,15 +15,14 @@ replaying sealed handoffs. Rungs 2–5 have not run. See 中文报告 §5.
 
 | file | what it settles |
 |---|---|
-| [`CONTRACT.md`](CONTRACT.md) | **the frozen cross-module contract** — the fifteen kinds, the naming rule, the environment rule, the schema rule, and what each module deletes |
-| [`RUN-PLAN.md`](RUN-PLAN.md) | **the promotion ladder** — rung by rung, the vars that change with each, and a standalone verification section per module |
+| [`CONTRACT.md`](CONTRACT.md) | **the cross-module contract** — the fifteen kinds, the naming rule, the environment rule and the schema rule |
 | [`MOCK-MAP.md`](MOCK-MAP.md) | which sealed handoff stands in for which kind, and the six adaptations that are real work rather than a copy |
 | [`assets/schemas/README.md`](assets/schemas/README.md) | who writes which schema, and against which real artefact |
 | [`../todo.md`](../todo.md) | everything the mission deferred, with what would settle it |
 
 ## Run it
 
-Six variables carry no default, because they are facts about one allocation on
+Ten variables carry no default, because they are facts about one allocation on
 one cluster and a default would be one machine's answer shipped as everyone's.
 
 ```sh
@@ -45,11 +35,44 @@ python3 -m agent_sys.cli.main show \
 `show` loads and type-checks every yaml, derives the edge set from the handoff
 wiring, checks it against every `froms`, and dispatches nothing — **in under a
 second.** It is the loop; run it after every edit. `run --dry-run` is the next
-rung, `run` with `--var mock_stages=all` the one after.
+step, `run` with `--var mock_stages=all` the one after.
 
 Promote one stage at a time out of mock — `--var mock_stages=m2,m3,m4,m5`, then
 `m3,m4,m5`, and so on — so that a failure is attributable to the stage that was
 just promoted.
+
+### The variables a real run has to supply
+
+Derived from the package itself, not from a launch record:
+
+```sh
+# every `${name}` with no default anywhere in main.yaml / shared.yaml / steps/
+grep -rhoE '\$\{[a-z_0-9]+\}' main.yaml shared.yaml steps/*.yaml | tr -d '${}' | sort -u
+# every `${name:-}` — has a default, and the default is empty
+grep -rhoE '\$\{[a-z_0-9]+:-\}' main.yaml shared.yaml steps/*.yaml | sed -E 's/.\{(.*):-.$/\1/' | sort -u
+```
+
+| variable | what it is |
+|---|---|
+| `jobid`, `node`, `node_ip` | the allocation and the host the engine is brought up on. `_agree_or_die` refuses rather than guessing when one of these disagrees with the sealed environment record |
+| `model_name`, `model_path` | the served name and the weights directory on that host |
+| `image` | the engine image. **The sealed kit's when a stage is replayed, the node's when it is real** — these are different values and the difference has cost a run |
+| `tp`, `expect_ranks` | tensor parallelism, and the rank count a capture must contain. **`expect_ranks` must equal the deployment's `tp`** — its default does not track `tp`, and a mismatch makes `check_trace_coverage` refuse a correct capture |
+| `gpu_devices`, `measure_gpu` | the cards the engine takes, and the card measurements are taken on |
+| `mock_stages` | which stages replay a sealed handoff instead of running. `none`, `all`, or a comma list such as `m2,m3,m4,m5` |
+| `work_root`, `scratch_root` | **must be local disk.** A root-squashed network home makes the engine fail to write its logs *silently* |
+| `container` | the container name. An identifier bound on a shared host is a parameter, never a constant |
+| `transport`, `transport_env` | how a task reaches the work host. Both are needed and they are not the same variable: `transport` names the mechanism, `transport_env` carries what that mechanism needs |
+| `bench_rounds`, `adhoc_cases`, `aiperf_trace`, `gsm8k_data` | the measurement inputs. **`adhoc_cases` is conditioned on whether stage 5 is real, not on how far the chain has been promoted** |
+
+**Audit the whole table against your `mock_stages` every launch, not the rows you
+remember.** Several of these take one value when a stage is replayed and another
+when it is real, and a real value carried into a replayed stage produces a
+refusal that reads exactly like a producer defect.
+
+**A run does not record which `--var` it was given.** The staged package keeps
+`${var:-default}` unrendered, so the launch line cannot be read back out of the
+artefacts — write it down beside the run.
 
 ## The shape
 
@@ -90,7 +113,7 @@ the container m1 brought up.
 # 中文设计报告
 
 本节是给评审用的设计说明，事实全部来自本目录下的 `main.yaml`、`shared.yaml`、
-`steps/*.yaml`、`CONTRACT.md`、`RUN-PLAN.md`、`../todo.md`、`assets/*.validator/readme.md`
+`steps/*.yaml`、`CONTRACT.md`、`../todo.md`、`assets/*.validator/readme.md`
 与 `assets/lib/` 的 docstring，并与 `python3 -m agent_sys.cli.main show` 的输出交叉
 核对过（17 closures，与下表一致）。
 
@@ -131,11 +154,8 @@ decode 差 4.5 倍，而 `node`/`gpu_arch`/`image_id`/`model_path` 四个字段�
 是否空闲——它答不了。合起来是一句口诀：**要知道卡是否空闲就看卡，要知道卡是谁的就
 看队列。**
 
-§5.2 同时把删除规则收紧了：**路径里不含 `yihou` 或 `/tmp` 的，一律不删**；不再局限
-于 `/shared_nfs`，且**跟随 mount**（容器里删的就是宿主机的文件）；并且**不是一条可
-以权衡的启发式**。写入侧的对应原则是 m4 发现的：`pip install -e` 会往源码树里写
-`*.egg-info`，所以**你不会去删的地方，也不要去写**——先拷到本地 scratch（62 MB 用了
-12 秒）。
+删除规则是站点策略，不写在这里。写入侧的对应原则是通用的：`pip install -e` 会往
+源码树里写 `*.egg-info`，所以**你不会去删的地方，也不要去写**——先拷到本地 scratch。
 
 ## 1. Handoff 种类
 
@@ -293,7 +313,7 @@ m1/m3/m4/m5 都写成 `${mN_agent:-…}`，所以 m2 看起来不合群；它不
 | `integrate_and_verify` | `${m5_agent:-e2e_integrator}`（**AI**） | `patch_overlay`、`profiling_evidence`、`kernel_optimization`、`deploy_kit` | `stock.measurement`、`patched.measurement`、`integration_report` | 在一个 session、一个节点上依次测完两臂再比较：起 stock→测→拆→起 patched（挂 overlay）→同样地测→拆→对比 |
 | `packup` | `runner`（program） | 前八个 handoff 全部 | `e2e_packup` | 把整条流程装成一份复现 kit |
 
-这是整个 refine 里结构变化最大的阶段：`integration-demo` 有 8 个 leaf，这里 3 个。
+这是整个 refine 里结构变化最大的阶段：集成阶段原本有 8 个 leaf，这里 3 个。
 原来的
 `serve_stock → measure_stock → serve_patched → measure_patched → compare`
 被 M5.2 压成**一个 task**。代价是：原先三条"承载参数而非数据"的边（真正吃劲的是
@@ -349,8 +369,7 @@ replay_root.py --out <dir> --run <run> [--run <run> ...] [--kind K ...]
   彼此一致、比对通过——在一台这次运行没有使用的节点上。又一个 §0 §4.6：**比较看不见
   所有参与方共有的故障。** 真正强制同节点的 `_agree_or_die` 只在**真实执行**的 stage
   里生效，而跳级恰恰把前面那些变成了 mock。现在的守卫是 `replay_root.py` 自己的
-  `--node`（必填，不符 rc=2），且只在**构建 root 时**生效。详见
-  [`SKIP-AHEAD.md`](SKIP-AHEAD.md) §6.1。
+  `--node`（必填，不符 rc=2），且只在**构建 root 时**生效。
 - 它同样盖不住**失效的活资源**（记录里的节点镜像全对、容器却已不存在），也盖不住
   **引擎配置差异**——这就是 §0 里那个 4.5 倍，四个被比对的字段全都相同。
 
@@ -373,96 +392,3 @@ m2 的两条 profiling 线因为 8 卡资源互斥，会产生 **8–10 分钟**
 
 **它交易掉了什么，明说：** 一个真的挂死的运行，现在要等 `--stall-after` 秒才被判定为
 stall，而不是 20 秒。这就是被交易掉的全部安全属性，`--timeout`（默认 4 小时）仍然封顶。
-
-## 5. 阶梯位置（诚实版）
-
-promotion 阶梯定义在 `RUN-PLAN.md`：rung 0 全 mock，rung N 表示 stage 1..N 变真。
-**每一级是一次独立的 `agent-sys run`，不跳级。**
-
-| rung | `--var mock_stages=` | 变真的 stage | 状态 |
-|---|---|---|---|
-| 0 | `all` | 无 | 走过，但 rung 0 **在登录节点上不可能完成**，见下 |
-| 1 | `m2,m3,m4,m5` | m1 | **已到达**。2026-09-04 在节点 249（TP-1 bring-up）三个 validator 全绿 |
-| 2 | `m3,m4,m5` | +m2 | 未完成（rung 2b 被 stall detector 撕掉，见 §4） |
-| 3 | `m4,m5` | +m3 | **不存在任何 rung-3 运行** |
-| 4 | `m5` | +m4 | 未运行 |
-| 5 | `none` | +m5 | 未运行 |
-
-三件必须说清楚的事：
-
-**rung 0 在登录节点上跑不完，这是设计而非缺陷。** mock 图会一路干净地走到
-`build_workset` 然后停下：mock 唯一供不出来的是 `evidence/`，因为 evidence 是一次
-**测量**。一个伪造 `evidence/` 的 mock 正是 MOCK-MAP 明令禁止的，而且会直接击穿
-`check_workset_runs` 的全部意义。所以 mock 停在测量开始的地方，那是正确的停处。
-推论是：**"mock e2e green" 从来不等于"不需要硬件"**，它等于"不调模型、不做 bring-up、
-不跑 campaign"。stage 3 往后仍然要卡。
-
-**mock 运行的退出码是 5，而且 5 是正确输出。** 封存语料里的 `integration_report` 带的
-是一个**被拒绝**的 verdict，而 `check_no_regression` 不采信 `verdict` 字段、自己从原始
-数字重算，独立得到 `REJECTED`。于是一个 handoff 封为 `invalid`，完成规则给出 5。把它
-变成 0 的三条路都比 5 更糟：换一个能过的 fixture（不存在，因为 validator 会重算，"能过"
-就意味着改掉没人挑选过的数字）；放宽门槛（试过一次，`DELIVERY-NOTE-FROM-LEADER.md`
-明确说那是错的答案）；声明为 expected failure（框架真有这个功能，而且是个陷阱——声明
-**一个** promise 会把**全部 15 个 handoff** 的完成性检查一起关掉）。**所以退出码不承载
-结论**，要读的是文件。
-
-**每一级绿了各自不代表什么**：rung 1 绿只代表引擎答对了 11 个探针、一次负载过了门槛——
-一个模型、一个节点、一次。而且 rung 1 在 249 上三个 validator 全绿的**同时有四个
-`--var` 是失效的**（`kind: ai` agent 一个 `E2E_*` 都没收到，agent 从封存 kit 的默认值
-里把参数"找"了回来）——对的答案，错的机制。rung 5 绿也不代表这次优化是好的：两臂差异
-超标时，结论仍可能是关于节点而不是关于补丁，那是 `todo.md` **T7**，尚未实现。
-**不要放宽 5% / 10% 的门槛。**
-
-## 6. 开放问题与未解分歧
-
-`../todo.md` 现在有 59 条。这里只列会影响评审判断的几类，**不做粉饰**。
-
-**被用户明确否定、但按指示保留的设计（T5）。** 用户对当前 patch 机制的原话是
-*"这里的 patch 机制我都不是很认同，本身就应该是 hack sglang 的 registry 或者 python
-的运行"*，同时又说 *但现在就这样吧*。所以 `overlay_files` **保留**，分歧记在 todo 里。
-保留的技术理由是：两套机制意味着两套"补丁确实在跑"的证明，而证明是贵的那一半。
-
-**T7 —— bring-up 阶段的可比性门禁，未实现。** 这是 5%/10% 门槛唯一缺的对照。曾经有一
-轮把门槛放宽到 35%/30% 去应对一个**跨实例**的假象，那是错的方向。另外 m4 实测：在
-MI355X 上把同一件事跑 200 轮，rsd 是 **8.5%** 而不是常说的 ~2%——分布是重尾的
-（p90 4.19%、p95 9.15%、p99 51.6%），而"一轮"就是 mission 3.2.7 规定的 5 组 ×10 次协议
-下限。**诚实的修法是多采样或取中位数，不是放宽门槛。** 且那次测量是在**共享机箱**上做
-的（4-7 号卡被别的租户占到 90%），所以它给出的是上界和分布形状，不是下界。
-
-**T49 —— "结论对、解释错"，一天之内四个 owner 八个实例。** validator 给出的判定全部
-正确，只有人读的那句话描述了一个比实际更窄的检查。例如 `run_in_container.sh` 打印
-*"m1 的 bring-up 已经被拆掉了"*，而实际情况是**节点根本没连上**——一个传输故障穿着
-teardown 的外衣，还点了具体某个人的名。代价是无界的：一个读者查证一次发现是假的，
-从此不再相信这个 validator 的**下一条**消息。八个里三个是别人读消息读出来的，没有一个
-是作者自己发现的。
-
-**T43 / T54 —— 制造出来的 provenance。** 产物在出处上诚实、在含义上不诚实；
-`additionalProperties` 是那个洞，声明 `runtime.replayed_from` 并不能补上。
-
-**T19 / `measure_gpu` —— 一个被绑定的标识符，长期没有变量。** 现状是它**在每一个 rung
-（0–5）都必填**，因为 `build_workset/entry.sh:168` 在 **mock 路径上也**调用容器脚本。
-`shared.yaml` 与 `m3_analysis.yaml` 的注释一度都写着"body 会回落到 4 号卡"——那句话曾
-经是真的，回落被删掉之后注释没有报错，它只是开始撒谎，方向还是"你不需要传这个参数"。
-rung 1 就栽在这上面。
-
-**T22 —— `E2E_STAGE` 命名的是每个 stage 各自的事实，而 `--var` 一个运行只有一个值**，
-所以任何一次运行里最多只有一个 stage 的 `warnings[].stage` 是真的。
-
-**框架侧的 bug：绕过而非修复，共 12 份记录**（`../temp/bugs/`）。都是先记录、再绕过，
-只有证据毫无歧义时才修。其中影响评审的两条：`INVALID` 有两个含义而退出码只读成一个；
-声明一个 expected failure 会关掉整个运行的完成性检查。
-
-## 7. 待确认
-
-- **`kernel_table_min_rows` / `kernel_table_min_launchers` 实际由哪张表满足**：默认值
-  （20 / 10）可从 `steps/common.yaml` 读到，但 mock 用的是 34 行合成种子、真表是 124
-  行，两者同名（见 `cheat_for_mock/README.md`）。要定论需要读一次成功运行的
-  `check_kernel_table` findings。
-- **m3（部分）、m4、m5 在真实运行中的行为**：§3 里这三节的 in/out 与 agent 归属来自
-  yaml 且与 `show` 一致，但"做什么"一列来自 readme 与注释，**尚未被一次真实运行验证**
-  ——阶梯只到 rung 1。`check_speedup_substantiated` 更是从未评判过一个真实的 kernel。
-- **端口 8101-8103 只能用来"配置"一次 bring-up，不能用来"找到"一次 bring-up。** kit 自
-  己挑 base 并把实际绑定写进握手用的 `deployment.json`，那才是唯一权威。rung 1 实际绑
-  的是 **8114-8117**。对着一个正在服务的引擎去探 8101-8103 会返回 `000`，而这恰好也是
-  一个死掉的引擎返回的东西——leader 在一小时内就踩进了这个坑的读者侧。
-

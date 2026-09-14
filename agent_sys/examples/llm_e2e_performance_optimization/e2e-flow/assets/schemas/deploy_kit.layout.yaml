@@ -167,7 +167,7 @@ entries:
         # carrying a device set.
         #
         # **Not by giving the gate's fixture a `gpu_devices`.** That was
-        # considered and rejected by the leader, on the grounds it is changing
+        # considered and rejected by the package owner, on the grounds it is changing
         # the test to fit the rule — the same move as widening a bar to make a
         # measurement pass. The sealed 2026-09-02 record is *evidence*: it was
         # correct when written, and a rule that retroactively invalidates a
@@ -713,13 +713,13 @@ runtime_contract:
       # accept."** Node-local scratch. `/mnt/m2m_nobackup/...` was missing from
       # the list above, and the omission would have refused the one root a
       # measurement most needs: m4's `scratch_root` defaults to
-      # `/mnt/m2m_nobackup/yihou/e2e_flow/kfo`, and their own section records
+      # `<work root>`, and their own section records
       # why it must be node-local — *"on this cluster's NFS every ROCm kernel
       # launch segfaults after the copies and the first round."*
       #
       # **Seen accepted, not expected to be:** the sealed 2026-09-02 kit runs
       # `--volume "${DK_RUN_DIR}:/workdir"` (`start_container.sh:36`) with
-      # `DK_WORK_ROOT:=/mnt/m2m_nobackup/yihou/deploy` (`env.sh:83`), and that
+      # `DK_WORK_ROOT:=<work root>` (`env.sh:83`), and that
       # kit produced a working deployment. Every kit this package has built
       # since mounts the same way. The evidence was inside this stage the whole
       # time and the first two forms were copied from a file that had no reason

@@ -1,6 +1,6 @@
 """W4 — `assets/` auto-discovery.
 
-`refine.task_package.define.md` §2, and `docs/ui-stage.md` §4 W4. Four rules and
+The package-format requirement §2. Four rules and
 one prohibition:
 
 1. a readme is `${name}` plus an optional `${type}` plus an optional literal
@@ -160,8 +160,8 @@ def test_two_matches_are_a_conflict_naming_both(tmp_path: Path) -> None:
     """*"不允许冲突，冲突直接崩溃"*.
 
     `SpecInconsistent` and not a new type: `registry.py` already answers *"two
-    things claiming one name"* with it one layer up, and `docs/ui-stage.md` §4 W4
-    says to match the existing collision policy rather than invent an error
+    things claiming one name"* with it one layer up, and the rule is to match the
+    existing collision policy rather than invent an error
     shape.
     """
     (tmp_path / "collect.md").write_text("x")

@@ -1,7 +1,7 @@
 """The admission model — what makes a validator spec real.
 
 `protocols.Validator` is a static type and **not** the gate. Measured
-(`scratch/impl-2026-08/validator/p1_pydantic_shapes.py`, and design §3.2 before
+(a probe, and design §3.2 before
 it): `issubclass` raises outright on a Protocol with non-method members, and
 `isinstance` is presence-only, so `strength=None` passes it. Worse,
 `inputs="trace"` passes and then iterates as five characters — one declared kind

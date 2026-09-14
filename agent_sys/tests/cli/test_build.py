@@ -437,7 +437,7 @@ def test_resume_continues_from_disk(tmp_path: Path, package_root: Path) -> None:
     # it shows the state came back, not that the run continues. Criterion 12
     # says *continues*, and the part that continues is not exercised here;
     # driving it needs a real run, which the suite must not require
-    # (spec §14.3). `scratch/impl-2026-08/demo/p6_where_does_resume_duplicate.py`
+    # (spec §14.3). A probe
     # is that drive, and confirms four records and two slots after `run` plus
     # `run --resume` on the current tree.
     assert len(records) == 4, sorted(t.closure for t in records)

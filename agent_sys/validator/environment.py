@@ -72,8 +72,8 @@ __all__ = [
 #: test enumerates channels instead of checking a directory.
 #:
 #: **`PATH` is deliberately not in this list, and not in the block either.**
-#: `demo` F-D5 read that as a script body starting with an empty `PATH`; measured
-#: (`scratch/impl-2026-08/validator/p2_env_path.py`), it does not — POSIX `sh`
+#: `demo` F-D5 read that as a script body starting with an empty `PATH`; measured,
+#: it does not — POSIX `sh`
 #: substitutes a built-in default when none is inherited, so a body gets
 #: `/usr/local/sbin:…:/bin` and finds `python3`. The residue is real but is the
 #: opposite of the claim: the value comes from the **shell**, not from the

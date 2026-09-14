@@ -31,7 +31,7 @@ Written before the first run (`PREDICTIONS` below). Case 2 was predicted as
 *"inter_token_latency breaches, the other two hold"*. In fact
 **`output_token_throughput` breaches at -78.6 %, four times louder than ITL's
 +30.8 %.** For eager decode, throughput is the detector and ITL is the
-corroborator — the opposite emphasis to the one both m5 and the leader had been
+corroborator — the opposite emphasis to the one both m5 and the package owner had been
 using all afternoon in prose.
 
 The battery encodes which row actually moves, so the next reader inherits the

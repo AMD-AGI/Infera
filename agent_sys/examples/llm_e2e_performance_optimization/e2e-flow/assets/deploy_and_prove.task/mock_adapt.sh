@@ -148,7 +148,7 @@ if ! grep -q 'E2E_KIT_RUN_TAG' "$ENVSH"; then
 # honours, so an unset caller gets the sealed run's own defaults byte for byte.
 : "${E2E_KIT_RUN_TAG:=${DK_RUN_TAG:-$(date +%Y%m%d-%H%M%S)-$$}}"
 : "${E2E_KIT_PORT_BASE:=${DK_PORT_BAND_LO:-8100}}"
-: "${E2E_KIT_WORK_ROOT:=${DK_WORK_ROOT:-/mnt/m2m_nobackup/yihou/deploy}}"
+: "${E2E_KIT_WORK_ROOT:=${DK_WORK_ROOT:?set it to a writable path on local disk}}"
 : "${E2E_KIT_ENGINE_EXTRA_ARGS:=}"
 : "${E2E_KIT_ENGINE_EXTRA_ENV:=}"
 : "${E2E_KIT_ROUTER_EXTRA_ARGS:=}"

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Read a run's event store.
 
-Written 2026-09-04 by the checkpoint writer, at the leader's request, because
+Written 2026-09-04 by the checkpoint writer, at the package owner's request, because
 this query had answered three questions no log could and exactly one person
 knew how to ask it.
 
@@ -47,8 +47,8 @@ Usage:
 `<run_dir>` is a directory under a run root. There are two run roots as of
 2026-09-04 and a tally that reads only one will under-report:
 
-    /shared_nfs/yihou/agent_sys/ws_handoff_refine/runroot/runs   (frozen, ro)
-    /home/yihou/agent_sys_runroot/runs                           (live)
+    <archived run root>/runs   (frozen, ro)
+    <run root>/runs                           (live)
 """
 
 from __future__ import annotations
@@ -101,7 +101,7 @@ def _extras(event: dict) -> list[str]:
     files **were** delivered and the seal refused them. The reason lives in
     `attributes.seal_refused` and was invisible here. Two owners spent an
     investigation each on 2026-09-04 and both ended up running `cat` on a raw
-    event JSON to reach it — the leader's four-run stall study, where
+    event JSON to reach it — the package owner's four-run stall study, where
     `seal_refused` was identical across all four runs, and m2's replayed-kit
     A/B. See `temp/bugs/2026-09-04-output_absent-states-a-cause-that-is-false.md`
     and `todo.md` T39. Found and patched by m2; landed here because it is this

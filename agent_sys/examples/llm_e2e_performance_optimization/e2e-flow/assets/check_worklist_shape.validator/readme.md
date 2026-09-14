@@ -29,7 +29,7 @@ by arithmetic over a document that adds up or does not. Nothing is judged.
 A JSON Schema can bound one number and cannot sum a list, and it cannot compare
 two documents. Those are the two failures that actually happen: a `buckets` block
 edited by hand after the ranking changed, and a CSV regenerated from a stale
-run. Rule 7 is the same argument `analyze-demo` makes for grading
+run. Rule 7 is the same argument the analysis stage makes for grading
 `invocation_spec.json` against `forge_task.yaml` — two exports of one record, so
 a disagreement means one was edited alone, and it is invariably the CSV.
 

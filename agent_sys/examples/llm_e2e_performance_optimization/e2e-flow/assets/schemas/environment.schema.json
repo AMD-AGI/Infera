@@ -32,7 +32,7 @@
         "node": {
           "type": "string",
           "minLength": 1,
-          "description": "The host the deployment ran ON, as the scheduler names it (crsuse2-m2m-006). Not an address: node_ip may change or be absent, this may not."
+          "description": "The host the deployment ran ON, as the scheduler names it (node-006). Not an address: node_ip may change or be absent, this may not."
         },
         "node_ip": {
           "type": "string",

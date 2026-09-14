@@ -1,6 +1,6 @@
 # Stage 4 — kernel optimisation.
 #
-# **Skeleton, frozen by the leader.** One kind, one leaf, and the smallest stage
+# **Skeleton, frozen by the package owner.** One kind, one leaf, and the smallest stage
 # in the flow — which is the mission's design, not an omission.
 #
 # Two deletions:
@@ -99,9 +99,8 @@
     # `--var transport_env` has to drive m1's `check_deploy_serves`, m3's
     # `check_workset_runs` and this one; a second spelling would be a second
     # thing to keep in step, which is the failure that produced this whole
-    # class. RUN-PLAN's var table already records `transport_env` costing three
-    # rung-0 runs and two wrong attributions in m1's stage, and m3 lost three
-    # non-reproductions to the same hole in theirs.
+    # class. `transport_env` has already cost three runs and two wrong
+    # attributions in one stage, and three non-reproductions in another.
     #
     # A validator declares no agent, so it runs closed: no `SPUR_CONTROLLER_ADDR`
     # and a `PATH` of `/usr/bin:/bin` while `spur` lives in `/usr/local/bin`.
@@ -121,7 +120,7 @@
     # substituted denominator.
     #
     # **The "~2% round-to-round" this was justified by is a sampling artefact,
-    # measured 2026-09-04 on MI355X (`crsuse2-m2m-234`, cards 0-3 free).** Over
+    # measured on MI355X (four free cards).** Over
     # 40 rounds the rsd is 1.8-2.7%, which is where ~2% came from. Over **200**
     # rounds of the same thing on the same card it is **8.5%**, because the
     # distribution is heavy-tailed rather than Gaussian:
@@ -138,7 +137,7 @@
     # **The value is NOT widened, and widening it is the wrong response.** A bar
     # loosened to cover a tail stops discriminating; the honest fixes are more
     # than one sample, or a median-of-rounds reduction. That is a decision for
-    # the leader and for `todo.md` T7, not for this line.
+    # the package owner and for `todo.md` T7, not for this line.
     #
     # **Caveat, and it is why T7 is still open:** cards 4-7 were at 90% under
     # another tenant's job, so this is a *shared chassis*, not the quiet node T7
@@ -157,7 +156,7 @@
     # `--demo-root`. With a run root on this cluster's NFS every ROCm kernel
     # launch segfaults, *after* the copies and the first round, so the run is
     # lost at its most expensive point.
-    scratch_dir: '${scratch_root:-/mnt/m2m_nobackup/yihou/e2e_flow/kfo}/substantiate'
+    scratch_dir: '${scratch_root}/substantiate'
 
     # m3's shipped entrypoint contract:
     #   ./run_performance.sh [--operator ID] [--impl PATH] [--shape CASE_ID] [--json OUT]
@@ -273,8 +272,8 @@
 # point in the flow at which it could.
 #
 # **`env` is declared here and not in `shared.yaml`**, which is a departure from
-# `e2e_deployer` and is deliberate: `shared.yaml` is the leader's file
-# (CONTRACT §8a) and every name below is m4's alone. If the leader would rather
+# `e2e_deployer` and is deliberate: `shared.yaml` is the package owner's file
+# (CONTRACT §8a) and every name below is m4's alone. If the package owner would rather
 # have one declaration site, these move wholesale and nothing else changes.
 # No credential appears here or anywhere in this package; model credentials
 # reach a body from the operator's own settings allow-list, by name, through
@@ -302,7 +301,7 @@
     #
     # Only what m4's own bodies read, not all 36 — `run_in_container.sh` and
     # `assets/lib/remote.sh` need these three to reach the node. Spelling and
-    # default match `shared.yaml` exactly, which the leader's `show`-gate check
+    # default match `shared.yaml` exactly, which the package owner's `show`-gate check
     # enforces rather than trusts; the duplication is unavoidable because
     # `${...}` is textual per occurrence and YAML anchors do not cross files.
     #
@@ -362,7 +361,7 @@
     # writable is how the NFS root_squash trap gets re-set. The fallback below
     # is this cluster's node-local scratch and matches `shared.yaml`'s
     # `E2E_WORK_ROOT` — a cluster fact, not an allocation fact.
-    KFO_SCRATCH_ROOT: '${scratch_root:-/mnt/m2m_nobackup/yihou/e2e_flow/kfo}'
+    KFO_SCRATCH_ROOT: '${scratch_root}'
     # Where this task's `$W` goes — `readme.md` opens with
     # `W="${E2E_WORK_ROOT:?}/m4/<stamp>"`, and until 2026-09-04 `$W` was used in
     # eight command lines and defined nowhere at all.
@@ -377,15 +376,15 @@
     # The default is duplicated from `shared.yaml` rather than referenced,
     # matching m1 and m5 — one more copy of a cluster fact, and the alternative
     # is an unbound var that `show` cannot resolve.
-    E2E_WORK_ROOT: '${work_root:-/mnt/m2m_nobackup/yihou/e2e_flow}'
+    E2E_WORK_ROOT: '${work_root}'
 
     # --- the four that otherwise fail SILENTLY ------------------------------
     # `$HOME` on this class of host is NFS with root_squash, so a container's
     # root maps to nobody: `~/.triton` and the experience KB fail with no error,
     # and a `~/.cache` write once killed an sglang scheduler with an
     # unremarkable `PermissionError`.
-    TRITON_CACHE_DIR: '${scratch_root:-/mnt/m2m_nobackup/yihou/e2e_flow/kfo}/triton_cache'
-    KNOWLEDGE_LOCAL_ROOT: '${scratch_root:-/mnt/m2m_nobackup/yihou/e2e_flow/kfo}/knowledge'
+    TRITON_CACHE_DIR: '${scratch_root}/triton_cache'
+    KNOWLEDGE_LOCAL_ROOT: '${scratch_root}/knowledge'
     # **The one that fails with a signal rather than a message.** `env_mgr`
     # points `TMPDIR` at `<zone>/tmp` and the zone lives under `--demo-root`;
     # put the run root on this cluster's NFS and every ROCm kernel launch dies
@@ -400,7 +399,7 @@
     # `TMPDIR` in `_RESERVED` — never forwarded from the operator's ambient
     # environment — and then says an agent spec's declared `env` may still set
     # any of them, applied after that module.
-    TMPDIR: '${scratch_root:-/mnt/m2m_nobackup/yihou/e2e_flow/kfo}/tmp'
+    TMPDIR: '${scratch_root}/tmp'
     # The interpreter the measurement subprocesses use. Named because a
     # validator body's environment is closed and the PRODUCER row shadows
     # `AGENT_SYS_DEMO_PYTHON` on the output phase, so `python3` resolves to
@@ -435,12 +434,12 @@
     # `mock_adapt.py`. The mock path runs under `runner`, so it has to be
     # declared there too — and a name declared in two files with nothing
     # comparing them is the fault this package has now hit seven times.
-    # `E2E_*` puts it under the leader's `show`-gate agreement check, so the
+    # `E2E_*` puts it under the package owner's `show`-gate agreement check, so the
     # duplication is **checked rather than trusted**. `KFO_*` stays what it
     # is: names only m4's own steps read, which never need a `runner` twin.
     #
     # The `--var` spelling is unchanged, so no command line moves.
-    # `shared.yaml` is the leader's file; the twin line is requested, not added.
+    # `shared.yaml` is the package owner's file; the twin line is requested, not added.
     E2E_WORKSET_OPERATOR: '${workset_operator:-}'
     # See `check_speedup_substantiated`'s `args`: how a candidate implementation
     # is selected is not in `workset.schema.json` yet, and these two sides must

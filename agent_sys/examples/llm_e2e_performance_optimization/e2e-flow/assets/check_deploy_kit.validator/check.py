@@ -15,7 +15,7 @@ frozen-and-bound identifier rule over `scripts/`, and JSON-Schema validation of
 
 **The one replacement mission M1.1.1 asks for.** The previous stage checked the
 environment with three regexes over `environment.md`
-(`../deploy-demo/assets/check_deploy_kit.validator/check.py:71-80` — "does the
+(the deploy stage's original `check_deploy_kit.validator/check.py:71-80` — "does the
 word `image` appear on some line"). That is gone. The record is now
 `codes/environment.yaml`, validated against `environment.schema.json` through
 `assets/lib/schema.py`, and `environment.md` is checked as a *rendering* of it:
@@ -47,7 +47,7 @@ from pathlib import Path
 # validator misdiagnose every correct kit.** An output-phase validator body takes
 # §8.2's PRODUCER row, which **shadows** the GLOBAL row rather than merging with
 # it — and the GLOBAL row is the only one carrying `AGENT_SYS_DEMO_PYTHON`
-# (`kernel-opt-demo/bugs/002-validator-env-row-shadows-demo-python.md`). So the
+# (a recorded bug in the kernel-optimisation stage). So the
 # entry script's `"${AGENT_SYS_DEMO_PYTHON:-python3}"` resolves to
 # `/usr/bin/python3` on exactly the phase this validator runs in.
 #
@@ -252,7 +252,7 @@ def check_invariant(rule: dict, record, where: str) -> list[str]:
     embedded grammar is not. A second relation adds a key here, not a parser.
 
     `required_unless` is the half that makes this more than advisory. The field
-    is **optional in the schema** — the leader's call and the right one, because
+    is **optional in the schema** — the package owner's call and the right one, because
     a record written before the producer criterion existed is still a valid
     record and omitting the field honestly says *"this run did not record which
     devices it took"*, where `[]` would falsely claim it took none. But **a real

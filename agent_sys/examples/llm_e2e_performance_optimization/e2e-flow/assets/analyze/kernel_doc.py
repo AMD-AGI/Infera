@@ -8,12 +8,12 @@ reads, and it exists because those are two different jobs:
 * the head answers "is this table worth acting on", which is a question about
   this round and is `check_kernel_table`'s to answer;
 * the whole table is the next stage's input, and it must be whole, because
-  `analyze-demo`'s `rank` classifies every row into a bucket before it sorts --
+  the analysis stage's `rank` classifies every row into a bucket before it sorts --
   collectives held 79% of GPU time in the sample profile, so a top-25 hand-off
   would have thrown away most of the routable candidates along with the noise.
 
 **The field names here are the consumer's, not this package's.** They match
-`analyze-demo/assets/lib/csv_io.py:to_record` and `seed_table`'s document exactly
+the analysis stage's original `lib/csv_io.py:to_record` and `seed_table`'s document exactly
 -- `self_us` and not `self_cuda_us`, `pct_total`, `input_shapes`, and an optional
 `launcher` block per kernel. The consumer's `kernel_table` kind reserves that
 block (its DESIGN.md section 4.4) and its `identify` reads it as resolution level
@@ -36,7 +36,7 @@ import sys
 from pathlib import Path
 
 #: Magpie's base columns, matched by name and never by position. Duplicated from
-#: `analyze-demo/assets/lib/csv_io.py:BASE_COLUMNS`, which duplicates them from
+#: the analysis stage's original `lib/csv_io.py:BASE_COLUMNS`, which duplicates them from
 #: Magpie; the bound on the duplication is that it is only these six names.
 BASE_COLUMNS = [
     "Name",

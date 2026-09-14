@@ -4,7 +4,7 @@
 **This validator is what an ordering guarantee became when it stopped being a
 graph edge.**
 
-`integration-demo` had eight leaves, and three of its edges carried an *argument*
+The integration stage had eight leaves, and three of its edges carried an *argument*
 rather than a datum. The load-bearing one was `serve_patched ← measure_stock`: it
 did not exist because the patched bring-up needed the stock arm's numbers, it
 existed because the patched bring-up's *first act is to tear the stock deployment

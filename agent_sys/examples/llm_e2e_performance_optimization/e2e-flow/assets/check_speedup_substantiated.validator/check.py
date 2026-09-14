@@ -2,7 +2,7 @@
 """`check_speedup_substantiated` — was the claim taken from the workset, and did the premise hold?
 
 **This body is a reversal of the one it replaces, and the reversal is the whole
-of the difference.** `kernel-opt-demo`'s version re-measured the baseline here
+of the difference.** the kernel-optimisation stage's version re-measured the baseline here
 and disbelieved the workset's; its loudest rule was *"最要命的那条：不要拿
 workset 里印的数字当分母"*. Mission M4.3.5 overrules it:
 
@@ -97,7 +97,7 @@ def _interpreter(problems: list[str], notes: list[str]) -> str | None:
     default. The template idiom `"${AGENT_SYS_DEMO_PYTHON:-python3}"` then
     resolves to `/usr/bin/python3` on the **output** phase, because the PRODUCER
     row shadows the GLOBAL row that carries `AGENT_SYS_DEMO_PYTHON`
-    (`kernel-opt-demo/bugs/002-validator-env-row-shadows-demo-python.md`).
+    (a recorded bug in the kernel-optimisation stage).
 
     `/usr/bin/python3` has no `torch`, so the measurement died on the import in
     about 0.1 s — faithfully reported as "measurement failed" and folded into a
@@ -138,8 +138,8 @@ def _interpreter(problems: list[str], notes: list[str]) -> str | None:
     # `e2e_kernel_optimizer`, which a validation phase does not run under. That
     # advice sent the reader to a knob they cannot turn, and it arrives on a
     # `cost: gpu_hours` check on the OUTPUT phase, i.e. after a campaign has
-    # already been spent. Same family as the `transport_env` run that RUN-PLAN
-    # records, and more expensive.
+    # already been spent. Same family as the `transport_env` failure, and more
+    # expensive.
     #
     # So name the cause instead: there is no host on this cluster with torch
     # (`spur exec <job> python3 -c "import torch"` is `ModuleNotFoundError`,
@@ -178,7 +178,7 @@ def _transport_env(args: dict, card: str) -> dict[str, str]:
     so one `--var transport_env` drives all three -- m1's `check_deploy_serves`,
     m3's `check_workset_runs` and this. A second *spelling* would be a second
     thing to keep in step, which is the failure that produced the whole class.
-    The duplication of the *function* is real and is flagged to the leader
+    The duplication of the *function* is real and is flagged to the package owner
     rather than fixed here: `assets/lib/` is shared and a live run is walking
     toward it.
 
@@ -660,7 +660,7 @@ def _run_entrypoint(
         #     the two produced the number.
         #
         # where `l so no reader…` is the tail of the wrapper's own
-        # *"mode=ephemeral so no reader has to infer…"*. The leader read it as
+        # *"mode=ephemeral so no reader has to infer…"*. The package owner read it as
         # corruption — someone else's prose spliced into an error — which is a
         # reasonable reading and a wrong one, and on a day spent chasing
         # messages that name the wrong cause, an error that *looks* corrupted
@@ -778,7 +778,7 @@ def _remeasure(
     # of them can live on this side.** rung 0 stopped here on 2026-09-04:
     #
     #     cannot create the re-measurement scratch directory
-    #     '/mnt/m2m_nobackup/yihou/e2e_flow/kfo/substantiate': Permission denied
+    #     '<work root>': Permission denied
     #
     # The refusal named the path and the `--var`, which was right, and then
     # recommended putting the check "on the node", which was one step short. **A

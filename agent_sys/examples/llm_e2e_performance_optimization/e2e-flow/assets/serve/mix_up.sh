@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # GLM-5.3-Flash MIX bring-up. RUNS ON THE COMPUTE NODE.
 #
-# Adapted from profiling-demo/assets/serve/mix_up.sh, which came from
+# Adapted from the profiling stage's original `serve/mix_up`.sh, which came from
 # examples/glm53flash-demo/scripts/mix_up.sh. Two changes:
 #
 #   1. **MOUNT_SPEC**, the one variable the two arms of this package differ by.
@@ -86,9 +86,8 @@ mkdir -p "$WORK_ROOT/aiperf"
 #
 # The standing instruction is now *kill other tenants' GPU workloads on nodes we
 # hold*, so "is this ours" has to be answerable by whoever is sweeping — and
-# `RUN-PLAN.md:476` already says how: **check the label, not the name; three
-# ownership errors were made on 2026-09-04 by reasoning from names.** Four by
-# the evening.
+# and the answer is: **check the label, not the name.** Every ownership error
+# recorded here came from reasoning about a name.
 #
 # These two containers carried **no label at all**, and `CTR` defaults to
 # `glm53_int` (line 33) — a name with neither `yihou` nor `infera_e2e` in it.

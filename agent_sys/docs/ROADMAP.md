@@ -325,8 +325,8 @@ Naming a third would be the same mistake a third time, so the figures stand on
 their own and the reader is told they are not re-checkable in place.
 
 Copies were taken before the next drive — `demo-2` and `validator` each wrote one
-under `scratch/impl-2026-08/`. **That directory's own `.gitignore` is `*`**, so
-they survive `--clean` and not a fresh clone. Whether the day's evidence should
+into the scratch tree. **That directory's own `.gitignore` is `*`**, so they
+survive `--clean` and not a fresh clone. Whether the day's evidence should
 be tracked somewhere is a repository-convention question and open.
 
 `--clean` buys nothing: `layout_for` already gives each run its own root, and its
@@ -748,7 +748,7 @@ transcript differing by **exactly one line** (`main: agent 'compose'` versus
 ### The second half — three names that cannot be exported, ruled "record it, do not work on it"
 
 The UI stage added a path environment-variable system
-(`refine.task_package.define.md` item 3). **Three of the user's eleven names were
+(the package-format requirement item 3). **Three of the user's eleven names were
 refused, and the refusal is a measurement rather than an omission.**
 
 `agent_workspace_root`, `agent_handoff_root` and `agent_playground_root` resolve

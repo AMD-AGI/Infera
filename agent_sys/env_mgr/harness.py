@@ -9,8 +9,7 @@ relocation is also what stops the agent authenticating**: with
 ``Not logged in · Please run /login`` and exits, because the endpoint and the
 credentials live in the ``env`` block of the settings file that was just
 relocated away. Injecting that block as process environment restores it — the
-same prompt then answers ``OK``
-(`scratch/impl-2026-08/env_mgr/p7_relocated_config_loses_auth.py`).
+same prompt then answers ``OK``.
 
 So this module is the other half of the relocation: *if we move the config, we
 carry what the config provided.*

@@ -262,8 +262,7 @@ def test_a_program_body_is_escalated_not_pushed(
     `attempt.executor` whenever it was not `None`; for a program body that is a
     `ProgramExecutor`, so `decide` returned `Push` and `_push` called `instruct`
     on something that has none — measured as `PUSH_ATTEMPTED` then
-    `HANDLING_FAILED`, an `AttributeError` where a decision belongs
-    (`scratch/impl-2026-08/monitor/p11_program_body_push.py`).
+    `HANDLING_FAILED`, an `AttributeError` where a decision belongs.
 
     The guard is `isinstance(executor, Pushable)`, which is **what
     `runtime_checkable` was declared for** — until now the decorator was kept

@@ -382,8 +382,7 @@ class Scheduler:
         retry the version the previous attempt already wrote, overwriting an
         artefact criterion 16 promises is byte-identical forever.
 
-        **The two counters advance on different events, and that is measured**
-        (`scratch/impl-2026-08/task_graph/probe_slot_vs_store_version.py`):
+        **The two counters advance on different events, and that is measured**:
 
         | | advances on |
         |---|---|

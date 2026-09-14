@@ -291,7 +291,7 @@ def main(argv: list[str] | None = None) -> int:
     # declaration is missing"* from *"the checker never ran"*. Worse, they
     # nearly reported m4 clean from exactly that: grepped the output of a run
     # that had crashed before reading a single agent, found no rows, and was
-    # one step from telling the leader it passed. **§4.4 face 2, on the
+    # one step from telling the package owner it passed. **§4.4 face 2, on the
     # instrument built to catch §4.4.**
     if not (pkg / "shared.yaml").is_file():
         print(

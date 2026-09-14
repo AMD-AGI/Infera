@@ -13,7 +13,7 @@ exists to make would rest on nothing. The statistics come from
 what makes agreement meaningful, because the thing being checked is the
 report's *assembly*, not whether two copies of a Wilson interval match.
 
-`trustworthiness` rather than `usability`, which is what `integration-demo`
+`trustworthiness` rather than `usability`, which is what the integration stage
 called it: what it judges is not whether the report is legible but whether its
 conclusion is the one its own numbers support.
 

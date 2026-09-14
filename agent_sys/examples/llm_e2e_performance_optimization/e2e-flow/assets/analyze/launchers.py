@@ -5,7 +5,7 @@ Magpie's gap analysis answers "which kernel owns the GPU time". It cannot answer
 "which source file do I edit", because a device symbol is often a compilation
 artefact: `main_kernel` is what TileLang names every kernel it generates, and a
 Triton kernel's symbol is assembled from its own tuning constants. The next stage
-of this pipeline (`analyze-demo`'s `identify`) has to name a framework-level
+of this pipeline (the analysis stage's `identify`) has to name a framework-level
 entry point, and without a call stack its only evidence is a grep over the
 symbol name -- which cannot distinguish a definition from a test that mentions
 it, and has nothing at all to offer for `main_kernel`.
@@ -17,7 +17,7 @@ in the trace next to the kernel itself. This recovers it.
 **The output field names are Hyperloom's `LauncherFrame`, not this package's.**
 `Hyperloom/src/hyperloom/agents/kernel/tools/_trace_launcher_resolver.py` defines
 `source_file` / `line` / `function` / `sample_count` / `launch_api`, and
-`analyze-demo`'s `kernel_table` kind reserves a `launcher` block under exactly
+the analysis stage's `kernel_table` kind reserves a `launcher` block under exactly
 those names (its DESIGN.md section 4.4). Writing them here means neither side
 needs a translation layer.
 
@@ -101,7 +101,7 @@ _FRAME_RE = re.compile(r"^(?P<path>.+?)\((?P<line>\d+)\):\s*(?P<func>.+)$")
 #: sample profile under one meaningless name. Without these two, that kernel
 #: resolves to TileLang's own dispatcher, which is neither editable nor specific
 #: to it. With them, the walk continues outward to the sglang backend that called
-#: it, which is the framework-level entry `analyze-demo`'s DESIGN.md section 4.4
+#: it, which is the framework-level entry the analysis stage's DESIGN.md section 4.4
 #: says a workset's unit actually is.
 #:
 #: Scope matters, and it is the same distinction FlyDSL needs: only the
@@ -172,7 +172,7 @@ _PROBE_OVERSAMPLE = 4
 # checked rather than assumed: the same frames were recorded from `cwd=/` and
 # `cwd=/tmp` unchanged.
 #
-# **This table must agree with `analyze-demo/assets/lib/container_roots.yaml`,
+# **This table must agree with the analysis stage's original `lib/container_roots.yaml`,
 # and the two are separate files on purpose** -- see that file's own header. A
 # frame is published as a placeholder plus a relative path, never as an absolute
 # one, because a handoff should not name an absolute host path outside a small
@@ -582,7 +582,7 @@ def _wanted_from_csv(path: Path, top_n: int) -> list[str]:
 
     Bounded rather than "every row" because `_match_kernel`'s boundary scan runs
     per kernel event per unmatched name. The bound is generous against what the
-    consumer selects: `analyze-demo`'s `rank` picks its top N from the *routable*
+    consumer selects: the analysis stage's `rank` picks its top N from the *routable*
     bucket only, and collectives hold 79% of the time in the sample profile, so a
     routable winner can sit well down the raw ranking.
     """

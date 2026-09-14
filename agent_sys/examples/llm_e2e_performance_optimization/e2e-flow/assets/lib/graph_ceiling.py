@@ -167,7 +167,7 @@ def ceiling_from_argv(argv_path: pathlib.Path) -> tuple[int | None, str]:
     # the captured graph* has no answer, so **not applicable** is the honest
     # state — the same third state the rest of this module uses.
     # **`--disable-cuda-graph` does not always disable decode graphs, and the
-    # branch below used to assume it did.** Measured on crsuse2-m2m-217,
+    # branch below used to assume it did.** Measured on node-217,
     # 2026-09-05: an engine started with `--disable-cuda-graph` **and**
     # `--cuda-graph-backend-decode full` logged `Decode batch, ... cuda graph:
     # True` (prefill `False`), carried `server_args` with both

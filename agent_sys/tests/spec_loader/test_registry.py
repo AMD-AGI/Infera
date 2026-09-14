@@ -181,7 +181,7 @@ def test_load_package_collects_a_registry_raising_its_own_error_type(tmp_path) -
 
     Found by driving the real `RegistryViews` and the four real registry
     subclasses instead of this file's doubles —
-    `scratch/impl-2026-08/spec_loader/probe_real_registries.py`. Nothing in
+    A probe. Nothing in
     `tests/spec_loader` could have caught it, because every registry here is a
     `BaseSpecRegistry` with no `_validate` of its own.
     """

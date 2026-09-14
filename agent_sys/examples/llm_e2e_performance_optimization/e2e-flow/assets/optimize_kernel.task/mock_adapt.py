@@ -169,7 +169,7 @@ def _stock_from_image(container_path: str, image: str, scratch: Path) -> str | N
     # Deleting is permitted here and the check is not rhetorical -- the standing
     # rule is that nothing is removed whose path lacks `yihou` or `/tmp`, it
     # follows identity mounts into containers, and it admits no judgement. This
-    # path is under the run root, which is `/home/yihou/...`; the guard makes
+    # path is under the run root, which is `<home>`; the guard makes
     # that a precondition rather than an assumption.
     if "yihou" in str(scratch) or str(scratch).startswith("/tmp"):
         shutil.rmtree(scratch, ignore_errors=True)

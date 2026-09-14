@@ -288,7 +288,7 @@ def main() -> int:
     buckets = bucket_summary(rows)
 
     # **The environment comes from the input handoff, not from task variables**
-    # (CONTRACT.md 2, mission M2.1). `analyze-demo` read five `AD_*` variables
+    # (CONTRACT.md 2, mission M2.1). The analysis stage read five `AD_*` variables
     # here, which put the GPU target and the image in the *spec* — exactly the
     # localisation M2.1 asks to be removed. Every handoff now carries
     # `items/env/environment.yaml`, so the fact travels with the artefact and a

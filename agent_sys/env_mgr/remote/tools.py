@@ -106,7 +106,7 @@ def tools(
     **`remote_root` is not optional and was the defect.** This took `(conn,
     zone)` and passed `zone.root` — a *local* absolute path — as the `cwd` for a
     command run on another machine. `cd /var/tmp/yihou/…` on the far side finds
-    nothing, because the mirror lives at `/data/yihou/…`. The one configuration
+    nothing, because the mirror lives at `/data/projects/…`. The one configuration
     where it appeared to work is a **strong** mapping, where the two paths are
     the same by definition — which is the worst way for a defect to hide, since
     it would have shipped looking correct.

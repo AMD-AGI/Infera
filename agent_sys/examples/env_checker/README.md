@@ -37,7 +37,7 @@ there.
 
 ### What this package proves now, and what it stopped proving
 
-Until 2026-09-04 the table had a third column's worth of meaning: three *install
+The table once had a third column's worth of meaning: three *install
 levels*, where L2 was **a `.claude/` tree this repository ships, installed for an
 agent by naming it** (`agent_plugins: [envchk-baseline]`). That declaration key
 is deleted, so:
@@ -56,7 +56,7 @@ is deleted, so:
 - **Still proves, unchanged:** that each of the six capabilities reached the
   agent's zone, by a token the agent could not compute without doing so; that
   serena's *install* and *declaration* are two halves and neither implies the
-  other (run 1); and that a marketplace registered outside the run root installs
+  other; and that a marketplace registered outside the run root installs
   cleanly and then fails to load (row 3b).
 - **Newly proves:** that a recipe can install something `agent_sys` ships into an
   agent's zone with **no exported path pointing outside it** — section 4's
@@ -184,14 +184,13 @@ Written down rather than left to be discovered.
 5. **No `resources` block.** A leaf may declare a pool; nothing here needs one,
    and `cli/build.py:85` — the only reader — declares no pools anyway.
 
-6. ~~`recipes: [serena]` does not resolve from a wheel install.~~ **Closed
-   2026-09-04, and measured closed.** `agent_sys:serena` resolves against
+6. ~~`recipes: [serena]` does not resolve from a wheel install.~~ **Closed, and
+   measured closed.** `agent_sys:serena` resolves against
    `agent_sys/env_mgr/recipes/`, which `pyproject.toml` did not ship as package
    data, so section 7 installed from a checkout and refused from a wheel. Both
    recipe layers are now `package-data`; the wheel was built, its members
    counted, and the reference resolved through `_recipe_paths` against an
-   installed venv. See
-   `examples/llm_e2e_performance_optimization/temp/bugs/2026-09-04-two-declaration-routes-*`.
+   installed venv.
 
    Kept as a numbered entry because the *class* is the durable part: the same
    comment in `pyproject.toml` had already described this failure mode for
@@ -221,12 +220,12 @@ exists**, so the item survives only as the general point: any comparison this
 package makes against `payload["install_report"]` is consistency and not
 corroboration, because both sides come from the agent.
 
-### 2. The placeholder regex in four other files
+### 2. The placeholder regex in other files
 
 Described in full under *Out of scope, recorded* above. **Trigger: whoever next
-runs one of those four packages**, or a decision to build the shared helper.
-The repair wants to be **one shared change**, which is why it did not happen as
-four copies here.
+runs one of those packages**, or a decision to build the shared helper. The
+repair wants to be **one shared change**, which is why it did not happen as
+several copies here.
 
 ### 3. ~~`agent_sys`'s in-process tool factory~~ — closed by deletion
 
@@ -248,8 +247,8 @@ attempt.**
 `scribe`'s escalation, and the largest gap between what this round could verify
 and what it recorded. A run's artefacts say *a validation failed*; recovering
 **which validator** and **why** required re-running the validator by hand — it
-cost time twice on 2026-09-03, once at the worst possible moment, when the
-reason for run 2's FAIL was not recoverable from the files at all.
+has cost time twice, once at the worst possible moment, when the reason for a
+FAIL was not recoverable from the files at all.
 
 **Trigger: already met, twice.** This is the one item on this list that is not
 about `examples/env_checker`; it is about `validator`/`monitor` recording enough
@@ -270,14 +269,14 @@ compare `Capability.surface` against the names `env_mgr` records in
 of `.mcp.json` and `server` for the bundled one, as of `9a9fdff`). It is three
 lines in `check_capabilities_genuine`, which already reads that file.
 
-**It is deliberately not built for run 2**, and the reason is worth keeping:
-**run 2 is itself the empirical check for that class.** A declared server that
+**It is deliberately not built**, and the reason is worth keeping: **the run is
+itself the empirical check for that class.** A declared server that
 does not arrive makes its capability fail, and the acceptance table says so. A
 cheaper detector for something the expensive detector is about to run anyway
 buys a tree move, a pre-flight re-run and a fresh mutation baseline, and the
-tree moved six times on 2026-09-03.
+tree moves often enough already.
 
-If run 2 surfaces a declared-but-absent server, that is the evidence for
+If a run surfaces a declared-but-absent server, that is the evidence for
 building it — and its shape will come from a real failure rather than from a
 design. Written here rather than left in a thread, because *a comment is not a
 declaration* and neither is a mailbox.
@@ -298,43 +297,41 @@ instruments get less adversarial scrutiny precisely because they are the thing
 doing the measuring. The way to know is to make the check go red: delete the
 fix, rename the thing, point it at a copy.
 
-Two corollaries, both bought on 2026-09-03 and both about *this* package's
-tooling rather than about `agent_sys`:
+Two corollaries, both about *this* package's tooling rather than about
+`agent_sys`:
 
 - **A gate whose only self-test is a live launch will be tested by launching.**
   The dirty-tree gate in `selftest/launch.sh` was verified by running the
   script; the gate passed and the script then launched, starting a third run
-  that overwrote two of run 2's logs. The careful action and the destructive one
+  that overwrote two earlier logs. The careful action and the destructive one
   were the same command. Every gate now needs a `--check` that runs it and
   exits.
 - **Fixing one instance of a class does not inoculate you against the class.**
   `preflight.sh` erased its own hand-written verdict on every run; that was
   found, argued and fixed by generating the verdict instead. The *same* bug — a
   fixed filename for a per-run artefact — was then written into `launch.sh`, the
-  neighbouring script, and destroyed run 2's launch log. **The second instance
+  neighbouring script, and destroyed an earlier launch log. **The second instance
   arrives in the file nobody is looking at**, and having just fixed the first is
   what makes you not look.
 
-## Out of scope, recorded: the same placeholder defect is in four other files
+## Out of scope, recorded: the same placeholder defect is in other files
 
-Run 3's `check_env_report_shape` failed on **correct input** — the agent
-documented the token's format in its `## Schema` section, in backticks, and the
-`<…>` placeholder rule could not tell *documenting* a placeholder from *leaving*
+`check_env_report_shape` can fail on **correct input** — an agent that documents
+the token's format in its `## Schema` section, in backticks, trips the `<…>`
+placeholder rule, which cannot tell *documenting* a placeholder from *leaving*
 one. This package's copy is narrowed (code spans and fenced blocks are excluded
 from the angle rule; `TODO`/`TBD`/`FIXME`/`XXX` still match everywhere).
 
-**The same pattern is in four files this round did not touch:**
+**The same pattern is in files this round did not touch, among them:**
 
 ```
 examples/single_real_task/assets/check_packup_shape.validator/check.py
-examples/llm_e2e_performance_optimization/analyze-demo/assets/check_identity_resolved.validator/check.py
-examples/llm_e2e_performance_optimization/deploy-demo/assets/check_deploy_kit.validator/check.py
-examples/llm_e2e_performance_optimization/integration-demo/assets/lib/patchkit.py
 ```
 
 Verified rather than assumed: `single_real_task`'s copy was run against the exact
-line run 3 died on, and **it flags it too**. Nobody has hit it there only because
-no author has yet written an angle-bracketed placeholder inside a code span.
+line that triggered it here, and **it flags it too**. Nobody has hit it there
+only because no author has yet written an angle-bracketed placeholder inside a
+code span.
 
 **Not fixed here, and the reason is not etiquette.** Three of those are
 `llm_e2e_performance_optimization`, a different deliverable with its own
@@ -342,8 +339,8 @@ acceptance history; one is `single_real_task`, the template. Changing a
 validator in a package we are not running changes an acceptance criterion for
 work that was accepted under the old one, **without re-running it** — the same
 hazard as a drive-by edit to shared configuration. The right end state is one
-shared helper rather than five copies drifting apart, and that touches four
-files this round may not change.
+shared helper rather than several copies drifting apart, and that touches files
+this round may not change.
 
 **The mechanism is the part worth carrying.** This defect **propagates by
 copy**: the regex was lifted from another validator that already had it, without

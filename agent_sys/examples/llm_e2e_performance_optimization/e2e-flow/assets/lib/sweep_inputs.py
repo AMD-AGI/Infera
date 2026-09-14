@@ -41,19 +41,18 @@ from pathlib import Path
 
 #: Every run root a run tree may be under, **newest root first**.
 #:
-#: Two, because the root moved on 2026-09-04: `/shared_nfs` is mounted `ro` on
-#: the login node and `rw` on node 108891 — same volume, two mounts — so the
-#: leader moved runs to `--demo-root /home/yihou/agent_sys_runroot`. The old
-#: root stays in the list and is still *read*: it holds every run this package
-#: has produced, including `20260903T172821-6a3c24`, which is where eight of
-#: the fourteen kinds below come from. Dropping it would have silently demoted
-#: those eight to their sealed sources and changed what the sweep measures
-#: without changing a line of the sweep.
-RUN_ROOTS = [
-    Path("/home/yihou/agent_sys_runroot/runs"),
-    Path("/shared_nfs/yihou/agent_sys/ws_handoff_refine/runroot/runs"),
-]
-MOCK = Path("/shared_nfs/yihou/agent_sys/cheat_for_mock")
+#: More than one, because a run root can move mid-effort — a shared volume
+#: mounted `ro` on one host and `rw` on another is the same volume under two
+#: paths — and an older root is still *read*: it holds runs this package has
+#: already produced, and several kinds below come from them. Dropping one would
+#: silently demote those kinds to their sealed sources and change what the sweep
+#: measures without changing a line of the sweep.
+#:
+#: Supplied, never defaulted to one machine's path: `E2E_RUN_ROOTS` is a
+#: colon-separated list, `E2E_MOCK_ROOT` is the sealed-handoff corpus.
+RUN_ROOTS = [Path(p) / "runs"
+             for p in os.environ.get("E2E_RUN_ROOTS", "").split(":") if p]
+MOCK = Path(os.environ.get("E2E_MOCK_ROOT", ""))
 
 #: MOCK-MAP.md's table, for kinds no run tree carries. `profiling_evidence` is
 #: deliberately absent — (H) says the merge is real in every mode, so its four

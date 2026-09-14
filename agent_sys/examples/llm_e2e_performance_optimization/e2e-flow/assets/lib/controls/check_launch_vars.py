@@ -2,7 +2,7 @@
 """Every `--var NAME=` on a launch line must be a name the package reads.
 
 **`agent-sys` accepts an unrecognised `--var` silently.** Measured 2026-09-04 by
-m2 and confirmed by the leader against the real package:
+m2 and confirmed by the package owner against the real package:
 
     --var totally_made_up_var=xyz --var m2_agent=runner --var measrue_gpu=4
       ->  6 tasks in the graph; nothing was dispatched
@@ -18,7 +18,7 @@ transposition -- does nothing, and the body then refuses with
 `FIX: pass --var measure_gpu=<n>`, which the operator reads as *"but I did pass
 it"*. The refusal is correct, the instruction is correct, and they do not meet.
 
-Audited the leader's own rung-0 line the day this was written: **20 vars, one
+Audited the package owner's own rung-0 line the day this was written: **20 vars, one
 bogus** -- `m2_agent`, which exists in no yaml because m2's three leaves are
 literally `agent: runner`. Harmless only because that line also named m2 in
 `mock_stages`, so the intended effect happened for an unintended reason.

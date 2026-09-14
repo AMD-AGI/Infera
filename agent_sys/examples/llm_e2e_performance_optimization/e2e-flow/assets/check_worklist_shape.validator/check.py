@@ -19,7 +19,7 @@ a JSON Schema cannot express, and it is not a small part:
 3. **The two exports agreeing with each other.** `items/worklist.csv` and
    `items/text.json` are one ranking in two formats. They are produced from one
    record, so a disagreement means one of them was edited independently — the
-   same argument `analyze-demo` made for checking `invocation_spec.json` against
+   same argument the analysis stage made for checking `invocation_spec.json` against
    `forge_task.yaml`.
 4. **The schema copy is not a private fork** (CONTRACT.md §3.4). A
    `structured_text` handoff carries its schema in `items/schema`; if that copy

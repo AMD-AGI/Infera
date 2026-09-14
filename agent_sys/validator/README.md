@@ -35,7 +35,7 @@ in, what it may claim, and what stops the producer from grading itself.
 ## The 21 criteria, and the test that holds each
 
 `spec.md` §11. **Checked against the tree rather than transcribed** —
-`scratch/impl-2026-08/validator/p7_criteria_map.py` parses every
+A probe parses every
 `tests/validator/test_*.py` and fails if a name here does not exist. Two of these
 had been renamed since they were last written down in a message, which is why the
 probe is kept.
@@ -144,7 +144,7 @@ already declared or already used by a sibling package.
 | Concern | Considered | Chosen | Why |
 |---|---|---|---|
 | The name table | a private dict, a generic registry shared with the other three | **`spec_loader.BaseSpecRegistry`** | Design §10.1: the base supplies the dict, the collision policy and the error shape, and the subclass adds this kind's checks through `_validate`. It was a private dict here until `spec_loader` shipped the base; subclassing removed ~35 lines and brought `origin_of`, which §9.3 check 4's *name both sides* report needs |
-| The admission gate | JSON Schema alone, `dataclasses`, `attrs`, `typing.Protocol` | **pydantic v2** | Already installed and already `task_graph`'s. It catches the three faults no schema keyword reaches once the document is a Python object — the wrong type, the missing field, the extra key — each naming the field in `loc`, and it coerces `list → tuple`, which a YAML sequence needs (it was jsonnet's JSON array output that needed it before, and the coercion is the same one). Re-measured in `scratch/impl-2026-08/validator/p1_pydantic_shapes.py` rather than taken from the design |
+| The admission gate | JSON Schema alone, `dataclasses`, `attrs`, `typing.Protocol` | **pydantic v2** | Already installed and already `task_graph`'s. It catches the three faults no schema keyword reaches once the document is a Python object — the wrong type, the missing field, the extra key — each naming the field in `loc`, and it coerces `list → tuple`, which a YAML sequence needs (it was jsonnet's JSON array output that needed it before, and the coercion is the same one). Re-measured in a probe rather than taken from the design |
 | The static type | `abc.ABC`, pydantic model | **`typing.Protocol`, for typing only** | Structural typing suits a seam an external package implements. It is explicitly **not** the runtime gate, and the shipped fact is stronger than the design's: `Validator` is not `runtime_checkable`, so `isinstance` *and* `issubclass` both raise. There is no way to use it as a gate even by mistake |
 | Schema validation in tests | `jsonschema` directly | **`spec_loader.validate` + `schema_for`** | The schema lives in `spec_loader/schemas/` (design §2) and `$ref`s `_common.schema.json`, so it needs a registry; `validate` is the system's single enforcement point and already carries one. Calling `jsonschema` directly here would be a second reader of a file this package does not own |
 | Reading the shipped general specs | hand-written Python records, PyYAML, `ruamel.yaml` called directly | **`spec_loader.yaml_source.read_yaml`** | Main spec §4.5: the main repository gets no private path for its own specs, so the files on disk are ordinary YAML documents and `tests/validator/test_reference.py` reads them from disk rather than transcribing them into three dicts. **Amended 2026-08-29**: this row said `_jsonnet`, and said `spec_loader.render` was the real path to swap to. Both halves resolved in opposite directions — `render` no longer exists (main spec §7 rev. 10), and the intent survives. Not PyYAML and not `ruamel` called here: measured, round-trip is YAML 1.2 and `safe_load` is 1.1, so `12:30` is a string on one side and 750 on the other, and a second parser in a test is how a document comes to mean two things. `load_package` is deliberately *not* used — these are documents, not a package, and they have neither of §4.3's two mandatory names because they are not one |
@@ -436,8 +436,7 @@ feature includes the paragraph next to it.
 
 `task_graph` measured a consumer dispatched against an empty artefact with every
 guard reporting valid — the two version counters had diverged, so
-`input_versions` named a store directory that was allocated but never written
-(`scratch/impl-2026-08/task_graph/probe_consumer_staging.py`). Their path is
+`input_versions` named a store directory that was allocated but never written. Their path is
 **silent**: `allocate` must create `v<N>/content/` for the grant to resolve, and
 `layout.stage` skips only when `content/` is *absent*.
 
@@ -459,7 +458,7 @@ answer for the wrong reason.
 
 `inputs.json` and `materials.json`, both in the body's `cwd`. **There is no
 third.** `env_mgr` measured a confined body granted its zone and its inputs'
-`content/` (`scratch/impl-2026-08/env_mgr/p11_can_a_body_reach_the_store_root.py`):
+`content/`:
 the staged copy opens, the store root listing is `EACCES`, another version's
 manifest is `EACCES`, against an unconfined control where all four succeed.
 Nothing grants the store root.

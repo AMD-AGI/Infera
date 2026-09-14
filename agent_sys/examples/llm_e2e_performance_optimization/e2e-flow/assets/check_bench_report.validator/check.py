@@ -8,7 +8,7 @@ The rule that earns its place is `min_requests`. **AIPerf exits 0 after
 synthesising prompts if the schedule window turns out empty**, and every file
 below is then present, well formed, and describes no requests at all — a
 successful-looking round that measured nothing. It is the same failure
-`profiling-demo` guards, for the same reason.
+the profiling stage guards, for the same reason.
 
 `max_error_rate` is not zero. A saturated deployment legitimately times out the
 occasional request under a fixed schedule, and a bar of zero would turn this into
@@ -19,7 +19,7 @@ the same sequence of steps. "Round 1 was cold for this trace" is only true of an
 arm if the same things happened before it, and if the two arms disagree there
 then the comparison downstream is between two different experiments.
 
-**Carried across from `integration-demo` with one addition: the shared schema.**
+**Carried across from the integration stage with one addition: the shared schema.**
 `args.schema` names `bench_result`, which is m2's file in `assets/schemas/` and
 not a second copy — mission G2 puts one schema in front of the producer and the
 validator alike, and CONTRACT.md §4.1 says a shared definition is shared rather
@@ -76,7 +76,7 @@ def round_ok(round_dir: Path, args: dict, reasons: list) -> bool:
         if not path.is_file():
             ok = _fail(reasons, f"{tag}: {name} is missing")
         # Size is read at THIS moment rather than trusted from a listing taken
-        # when the file was written: measured on profiling-demo, `ls -l` and
+        # when the file was written: measured on the profiling stage, `ls -l` and
         # `du -sb` disagreed by three orders of magnitude immediately after a
         # write, and `stat` afterwards agreed with neither.
         elif path.stat().st_size == 0:

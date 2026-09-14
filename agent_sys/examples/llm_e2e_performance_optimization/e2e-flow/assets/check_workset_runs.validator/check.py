@@ -225,10 +225,9 @@ def _transport_env(args: dict) -> dict[str, str]:
     name and nothing pointed at it. A fixture more convenient than production
     (§4.4), where the convenience was my own login shell.
 
-    m1 solved this for `check_deploy_serves` (`check.py:95-111`) and
-    `RUN-PLAN.md`'s var table already recorded it as costing three rung-0 runs
-    and two wrong attributions — **in m1's stage**. This is the same hole in
-    mine, and the parameters are theirs by name so one `--var` drives both.
+    `check_deploy_serves` solved this (`check.py:95-111`), where the same hole
+    cost three runs and two wrong attributions. This is that hole again here,
+    and the parameters share their names so one `--var` drives both.
     """
     env = dict(os.environ)
     extra = str(args.get("transport_path") or "")
@@ -337,7 +336,7 @@ def _reverify(content: Path, document: dict, recorded: list[dict], args: dict,  
             inner = [*entry["cmd"].split(), flags["operator"], operator_id,
                      flags["shape"], case_id, flags["report"], str(out)]
 
-            # **Re-measure where the producer measured.** Measured by the leader:
+            # **Re-measure where the producer measured.** Measured by the package owner:
             # `spur exec <job> python3 -c "import torch"` fails — the node's
             # *host* has no torch, only the containers do. So a validator that
             # ran the entrypoint directly would fail on every host in this

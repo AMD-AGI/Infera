@@ -1293,7 +1293,7 @@ def test_a_program_spec_pinned_to_an_ai_backend_under_bwrap_is_refused(wired) ->
 
     Asking the executor is what fixes it, and this is the test that would have
     failed against both earlier versions. Measured before writing:
-    `scratch/impl-2026-08/agent/probe_r1_override.py`.
+    A probe.
     """
     wired.runner.override = "scripted"
     wired.registry.register(

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """`check_bench_result` — completeness, strong. Six rules over a bench.
 
-Carried across from `../../profiling-demo/assets/check_aiperf_report.validator/`,
+Carried across from the profiling stage's original `check_aiperf_report.validator/`,
 which had four of them and had been driven to a real cluster run. What is new
 here is mission M2.2.1: the bench's record is a JSON document with a schema in
 `assets/schemas/`, and the schema is checked from **both** sides — the producer

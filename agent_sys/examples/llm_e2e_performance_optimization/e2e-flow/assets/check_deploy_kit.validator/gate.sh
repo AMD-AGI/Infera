@@ -23,7 +23,7 @@
 # with the rule each exercises.
 set -eu
 
-: "${E2E_MOCK_ROOT:=/shared_nfs/yihou/agent_sys/cheat_for_mock}"
+: "${E2E_MOCK_ROOT:?set it to the sealed-handoff corpus}"
 SEALED="$E2E_MOCK_ROOT/stage1-deploy/deploy_kit/content"
 PKG="$(cd "$(dirname "$0")/../.." && pwd)"
 WORK="${1:-/tmp/check_deploy_kit_gate.$$}"
@@ -55,11 +55,11 @@ PACKUP="$(find "$GOOD/items/codes" -maxdepth 1 -type d -name '*.packup_*' | head
 # `env_render.build()` reads the run's `E2E_*` variables; outside a zone there
 # are none, so the facts the sealed run recorded are supplied here. They are that
 # run's own measured values, not invented ones.
-export E2E_NODE=crsuse2-m2m-079
+export E2E_NODE=node-079
 export E2E_NODE_IP=127.0.0.1
 export E2E_IMAGE=infera/engine-sglang:gfx950-local
 export E2E_MODEL_NAME=Qwen/Qwen3.6-27B
-export E2E_MODEL_PATH=/shared_nfs/yihou/models/Qwen3.6-27B
+export E2E_MODEL_PATH="${E2E_MODEL_PATH:?set it to the weights directory}"
 export E2E_CONTAINER=dbg_deploy_sgl_20260902-113414-81355
 export E2E_TRANSPORT=spur
 export E2E_TP=1

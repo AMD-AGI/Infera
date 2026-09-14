@@ -10,7 +10,7 @@ shape: `README.md`, `REPRODUCE.md`, `environment.md`, `notes.md`, and
 
 ## Not the integration stage's kit — the flow's
 
-`integration-demo`'s packup carried the two arms and the patch, which was right
+The integration stage's packup carried the two arms and the patch, which was right
 for a package whose input was a hand-written mock. This one is downstream of all
 four earlier stages, and a kit that carries only the integration numbers cannot
 tell a reproducer where the kernel under test came from, which service m1 brought

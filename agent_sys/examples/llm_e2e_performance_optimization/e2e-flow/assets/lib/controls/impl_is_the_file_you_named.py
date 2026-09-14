@@ -43,7 +43,7 @@ was execed, imported, shadowed, or never opened at all.
 
 Case 4 is the control's own control. A guard that fires on the regression is
 only worth adding if the field we already had would *not* have fired — otherwise
-the honest answer to the leader was "already covered, change nothing".
+the honest answer to the package owner was "already covered, change nothing".
 """
 
 from __future__ import annotations

@@ -25,7 +25,7 @@ contract (M5.1.1), and `kernel_optimization` because it is the thing under test.
 
 ## The one structural change to know about
 
-`integration-demo` had eight leaves. Five of them —
+The integration stage had eight leaves. Five of them —
 `serve_stock → measure_stock → serve_patched → measure_patched → compare` — are
 one task here, because M5.2 forbids splitting bring-up from use across agents:
 *"agent A 去把服务部署好，agent B 去使用：这是不被允许的"*. `seed_patch` is gone

@@ -44,8 +44,8 @@ import os
 import sys
 from pathlib import Path
 
-REPO = Path("/home/yihou/dev/git.16-19/infera/agent_sys/examples/"
-            "llm_e2e_performance_optimization/e2e-flow")
+#: This file lives at `<package>/assets/lib/`, so the package root is two up.
+REPO = Path(__file__).resolve().parents[2]
 REFUSABLE = {".py", ".sh", ".json", ".jsonl"}
 
 
@@ -171,17 +171,17 @@ def scan(mod, files: list[Path], mapping) -> list[tuple[Path, int, str]]:
 
 def self_test(mod) -> int:
     """A case whose answer is already known, before the instrument is trusted."""
-    mapping = [("/data/yihou/e2e_flow11", "WORK_ROOT"),
+    mapping = [("/data/example/e2e_flow11", "WORK_ROOT"),
                ("/apps/data/models", "MODEL_MOUNT"),
-               ("/home/yihou", "HOME"), ("/tmp", "TMPDIR")]
+               ("/home/example", "HOME"), ("/tmp", "TMPDIR")]
     mapping.sort(key=lambda p: len(p[0]), reverse=True)
     cases = [
-        ("/data/yihou/e2e_flow11/kfo/x.json", False),
+        ("/data/example/e2e_flow11/kfo/x.json", False),
         ("/apps/data/models/Qwen3-32B", False),
         ("/dev/md0", False),
         ("/shared_nfs", False),          # one segment: CANDIDATE needs two
-        ("/data/yihou/Magpie/tools", True),
-        ("/mnt/m2m_nobackup/yihou", True),
+        ("/data/example/Magpie/tools", True),
+        ("/mnt/example/work/yihou", True),
     ]
     bad = 0
     for text, expect in cases:

@@ -279,14 +279,14 @@ class SpecDocument:
 class PackageContents:
     """What a package hands across the seam: its documents, and its faults.
 
-    **Two fields and not one, and that is a departure from the approved sketch**
-    (`docs/ui-stage.md` §2 wrote `documents() -> Sequence[SpecDocument]`).
+    **Two fields and not one, and that is a departure from the approved sketch**,
+    which wrote `documents() -> Sequence[SpecDocument]`.
     Reported rather than done quietly, because a seam has two sides.
 
     A package can fail in ways that must not raise. One is fatal and structural
     — no `main.yaml`, no `assets/` — and one is deliberately *not* fatal: an
     explicit body binding where the convention would have found the file warns
-    at compile time and the package still loads (`refine.task_package.define.md`
+    at compile time and the package still loads (the package-format requirement
     §2.3.5). A `Sequence[SpecDocument]` can express neither. The alternatives
     were a second method, which makes a caller remember to call two things in
     the right order (`engineer_principle.md` §1), or raising, which cannot carry

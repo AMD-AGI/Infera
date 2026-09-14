@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Drive every body in the package under the shell and interpreter a run creates.
 
-Not part of the deliverable. Asked for by the leader after three
+Not part of the deliverable. Asked for by the package owner after three
 interpreter-shaped bugs, each invisible until something ran:
 
   1. bodies are `#!/usr/bin/env bash` + `set -o pipefail`, but agent_sys invokes
@@ -20,7 +20,7 @@ Three layers, cheapest first, because each catches a different thing:
   C. run every body for real          — what actually happens, and for a
      under PATH=/usr/bin:/bin            validator, does it leave a verdict
 
-Layer C's verdict column is the one the leader cares about. A validator that
+Layer C's verdict column is the one the package owner cares about. A validator that
 refuses is healthy; a validator that **dies without writing `verdict.json`** is
 read by the phase as a broken validator rather than as a refused handoff, so the
 graph reports the wrong thing about the wrong artefact.
@@ -88,7 +88,7 @@ import sweep_inputs  # noqa: E402  — sits beside this file
 #: path here was correct exactly once — in the worktree it was written in — and
 #: would have made the gate silently sweep the wrong tree for anyone else.
 PKG = Path(__file__).resolve().parents[2]
-MOCK = Path("/shared_nfs/yihou/agent_sys/cheat_for_mock")
+MOCK = Path(os.environ.get("E2E_MOCK_ROOT", ""))
 #: **Local disk, not `/shared_nfs`.** Measured 2026-09-04: the export is mounted
 #: `ro` on this login node (`mount | grep shared_nfs`), so the scratch tree this
 #: harness has always used cannot be written. Reads are unaffected and every

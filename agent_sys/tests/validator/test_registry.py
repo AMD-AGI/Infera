@@ -261,7 +261,7 @@ def test_users_of_is_recoverable_but_punishes_a_careless_split(
     reported the naive parse's behaviour as the format's, I reproduced their
     snippet rather than measuring `users_of`, and "the format is lossy" reached a
     commit with "measured" attached to it. Re-measured from scratch in
-    `scratch/impl-2026-08/validator/p4_users_of_recovery.py`. The guard is still
+    A probe. The guard is still
     worth having on the true, weaker premise: a display format that looks
     parseable invites a parse, and the easy one is wrong.
     """

@@ -30,7 +30,7 @@ a change to the loader.
 
 ## Done: the criterion-to-test mapping
 
-`implementation-stage.md` §5.1 calls this *"the deliverable, not a formality"*.
+This mapping is *"the deliverable, not a formality"*.
 `docs/design.md` §9.1 assigns main spec criteria **1–6** to this package; each
 maps to a named test that exists and passes, under the name the design gave it.
 
@@ -146,7 +146,7 @@ suffices, wrap it; implement it yourself only when nothing fits, and say why.*
 | Cross-schema `$ref` | **`referencing`** | Ships *with* `jsonschema` >= 4.18, so it adds no dependency. It is what lets `closure.schema.json` say `{"$ref": "task.schema.json"}` instead of inlining the task shape — two declarations of one shape being the duplication `engineer_principle.md` §1 forbids. The alternative was writing a local-`$ref` inliner, which is the wheel this library is |
 | Parsing, second parser | ~~PyYAML `safe_load`~~ **removed from this package's path** | It read the *rendered* document and argued that "neither the YAML 1.1 `norway: NO` trap nor the duplicate-key trap can reach us — jsonnet quotes every string and rejects a duplicate field statically". Both premises are gone. Worse, keeping it would mean **two parsers over one document**: measured, `12:30` is `'12:30'` under `ruamel`'s 1.2 and the integer `750` under PyYAML's 1.1, and `1e3` is `1000.0` against the string `'1e3'`. It stays a repository dependency for other packages; nothing here calls it |
 | **Variable substitution** | **own, ~40 lines** (`variables.py`) | Three candidates measured, all failed on something structural. `string.Template.safe_substitute` returns `'${inputs:-any}'` unchanged — no default-if-absent, which is one of the three needs. `os.path.expandvars` likewise, and it reads the *process* environment. `OmegaConf` 2.3.1 has both interpolation and a default form and **raises `ValidationError: Object of unsupported type: 'CommentedMap'`** — it will not accept the position-carrying tree at all, and costs `antlr4-python3-runtime` plus a second bundled PyYAML. That result answers for a **class**: `dynaconf`, `hydra` and `pydantic-settings` all own their container types too, so any of them means parsing twice or parsing without positions. `probe_substitution_libraries.py` |
-| **Assets discovery** | **own, ~120 lines** (`assets.py`) | Nothing was looked for and nothing would fit: the convention is `refine.task_package.define.md` §2.3's, invented for this system, and it resolves against this system's `body` shape. What *is* adopted is the error: a conflict raises `SpecInconsistent`, which is `registry.py`'s existing answer to "two things claiming one name" |
+| **Assets discovery** | **own, ~120 lines** (`assets.py`) | Nothing was looked for and nothing would fit: the convention is the package-format requirement §2.3's, invented for this system, and it resolves against this system's `body` shape. What *is* adopted is the error: a conflict raises `SpecInconsistent`, which is `registry.py`'s existing answer to "two things claiming one name" |
 | Error relevance | **`jsonschema.best_match`, plus `check-jsonschema`'s deep-match rule** | The format is adopted whole rather than invented, because the project shipped a **second** heuristic after finding stock `best_match` insufficient. Two guesses plus an escape hatch is the state of the art; a third invented here would be worse. `check-jsonschema` itself is not a dependency — it is a CLI whose internals are not an API, so the ~10 lines of `_best_deep_match` are the wrapper |
 | Parallel rendering | ~~`ThreadPoolExecutor`~~ **removed** | It was there for a measurement that no longer describes anything: a jsonnet render cost a fixed ~23 ms of VM construction whatever the spec's size, and `_jsonnet` released the GIL, so 8 threads beat serial 0.95 s to 6.98 s. A `read_text` plus a parse has no such floor. **Not replaced by a faster pool — removed, because nobody has measured a problem**, and a pool over an unmeasured cost is complexity bought on a guess |
 | Resource access | **`importlib.resources`** | `docs/design.md` D1. Behaves identically from a checkout, a wheel, and a zipimport, where a relative path works from the first and dies from the second |
@@ -339,7 +339,7 @@ no CLI.
   the gap is reported — and `test_an_agent_and_a_handoff_have_no_body_to_fill`
   keeps it visible in the suite rather than only here.
 - **The forward-reference rule is within a file, not across the package.**
-  `docs/ui-stage.md` §4 W3 step 6 reads as package-wide. Measured against
+  The approved pipeline's step 6 reads as package-wide. Measured against
   `examples/demo`, no total file order satisfies its own reference graph — sorted
   by path, `closures/produce` references `handoffs/facts` and
   `validators/check_facts`, both later; reversed, it references `agents/collect`,

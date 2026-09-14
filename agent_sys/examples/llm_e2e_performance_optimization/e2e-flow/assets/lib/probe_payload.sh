@@ -54,7 +54,7 @@ nfree=0; [ -n "$free_cards" ] && nfree="$(awk -F, '{print NF}' <<< "$free_cards"
 
 # --- 1a. is the shared filesystem here, and are the weights on it ------------
 # **The tier the first two do not cover, and it cost a hold to learn.** m5 took
-# `crsuse2-m2m-037` on a SERVABLE verdict and released it again: the node has
+# `node-037` on a SERVABLE verdict and released it again: the node has
 # **no `/shared_nfs` at all**. A servable image cannot tell you the node is
 # missing the filesystem the weights live on — the image is a fact about the
 # node's docker, the mount is a fact about the node.
@@ -69,7 +69,7 @@ nfree=0; [ -n "$free_cards" ] && nfree="$(awk -F, '{print NF}' <<< "$free_cards"
 # image-servable one directory over.
 shared_mnt=false; mount 2>/dev/null | grep -q ' /shared_nfs ' && shared_mnt=true
 model_ok=false
-[ -n "${E2E_MODEL_PATH:-}" ] || E2E_MODEL_PATH=/shared_nfs/yihou/models/Qwen3.6-27B
+: "${E2E_MODEL_PATH:?set it to the weights directory}"
 [ -d "$E2E_MODEL_PATH" ] && model_ok=true
 # Only mount what exists. A `-v /shared_nfs:/shared_nfs` on a node without it
 # **succeeds** — docker creates the source directory — which is how the old
@@ -93,7 +93,7 @@ while read -r img; do
   # `infera.engine.sglang` and `infera.server` importing asks *can this serve
   # right now*, and they are different answers with a four-minute build between
   # them — m1's correction: a base carrying the anchor does **not** mean a
-  # servable image exists. Measured 2026-09-04 on `crsuse2-m2m-037`, where both
+  # servable image exists. Measured 2026-09-04 on `node-037`, where both
   # `infera/engine-sglang` images answered `servable` and the node needed no
   # build at all, exactly as `006` had not. Two greps, one `docker run`, because
   # the container start is the whole cost.
@@ -116,7 +116,7 @@ while read -r img; do
   else                                              verdict="no"
   fi
   # The two modules the kit's `start_worker.sh` and `start_router.sh` exec, so
-  # this is the same reading the leader took by hand on 006 before spending it.
+  # this is the same reading the package owner took by hand on 006 before spending it.
   servable=false; grep -q E2E_SERVABLE <<< "$got" && servable=true
   # **m5's check, and it is the one that separates shape from substance.** An
   # image can carry `infera` and still not load *this* model: m1 measured a
@@ -131,7 +131,7 @@ done <<< "$imgs"
 # --- 3. disk, BOTH filesystems -----------------------------------------------
 # `/mnt/m2m_nobackup` holds dockerd's root, so it decides whether an image can
 # land. **`/` is a different number and it is the one that stopped a build**:
-# `crsuse2-m2m-186` had the right base, free-looking Slurm state, and **3.4 G on
+# `node-186` had the right base, free-looking Slurm state, and **3.4 G on
 # `/`**, which is where docker builds. Reporting only the big number would have
 # called that node fine. Two filesystems, two gates.
 disk_gb="$(df -BG --output=avail /mnt/m2m_nobackup 2>/dev/null | tail -1 | tr -dc '0-9')"
@@ -145,7 +145,7 @@ root_gb="$(df -BG --output=avail / 2>/dev/null | tail -1 | tr -dc '0-9')"
 #     authorization denied by plugin spur-authz: denied [BH]: /home:/home
 #     -- mount your own directory instead
 #
-# Measured on 243: `-v /home/yihou:/home/yihou` and `-v /shared_nfs:/shared_nfs`
+# Measured on 243: `-v <home>:<home>` and `-v /shared_nfs:/shared_nfs`
 # both pass, so the rule is about **whose** directory and not about depth. It
 # caught m3's derived mount before rung 3 could. Probed with the mounts this
 # flow actually uses rather than with a canonical example, because a probe that
@@ -173,10 +173,9 @@ ncontainers="$(d ps -q | grep -c . )"
 # other tenants' names and do nothing else with them.
 #
 # **This does NOT distinguish a corpse from live work, and must not be read as
-# if it did.** Measured 2026-09-04 (RUN-PLAN, `41c8540`): job `109192` was
-# cancelled while four of our containers were serving on 006, and fifteen
-# minutes later all four were still `Up`, the engine still answered `/health`
-# with 200, and all eight cards read 74–76 %. Containers talk to the **host**
+# if it did.** Measured: an allocation was cancelled while four of our
+# containers were serving, and fifteen minutes later all four were still `Up`,
+# the engine still answered `/health` with 200, and all eight cards read 74–76 %. Containers talk to the **host**
 # daemon, so they are not in the job's cgroup and nothing tears them down when
 # the hold ends. A corpse in that sense is *genuinely running* — `State.Running`
 # is true, `docker top` shows a full process table, and both are correct. What

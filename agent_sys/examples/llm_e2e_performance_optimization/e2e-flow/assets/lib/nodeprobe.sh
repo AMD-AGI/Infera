@@ -2,7 +2,7 @@
 # Find a node with a free GPU half, without taking a hold to find out.
 #
 #   ./nodeprobe.sh --auto              every idle/mix node sinfo lists
-#   ./nodeprobe.sh crsuse2-m2m-057 …   named nodes
+#   ./nodeprobe.sh node-057 …   named nodes
 #   ./nodeprobe.sh --auto --need 4     how many free cards counts as a candidate
 #
 # ---------------------------------------------------------------------------
@@ -45,7 +45,7 @@
 #
 # **Slurm's view is not the truth here.** Co-tenants run containers through the
 # host docker daemon, outside Slurm entirely, so `docker ps` inside the node
-# shows the whole machine and Slurm shows nothing. Measured: `crsuse2-m2m-057`
+# shows the whole machine and Slurm shows nothing. Measured: `node-057`
 # is `idle` to sinfo and has another tenant's `cell_e_e1_full` on all eight
 # cards at 42 % VRAM. Every node frustration of 2026-09-04 was that difference.
 #
@@ -87,7 +87,7 @@ mkdir -p "$RESULTS"
 
 #: A "free half" is the ask (M5 needs two arms; m1-m4 share one container).
 NEED=4
-#: `/mnt/m2m_nobackup` is dockerd's root. `crsuse2-m2m-186` was released over
+#: `/mnt/m2m_nobackup` is dockerd's root. `node-186` was released over
 #: 3.4 G there, so disk is a first-class reason and not a footnote.
 NEED_DISK_GB=200
 #: burst's `MaxSubmitPU` is 4 and **it counts jobs you already have**, including

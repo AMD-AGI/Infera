@@ -38,7 +38,7 @@
 # A zero means **this refusal says nothing about the artefact** — re-run before
 # attributing anything to a producer. It does **not** prove the artefact is
 # good, and a non-zero count does **not** prove the refusal is right; it only
-# means the validator was shown something. The stronger signal is the leader's
+# means the validator was shown something. The stronger signal is the package owner's
 # criterion, which this cannot compute: **a refusal quoting a number from inside
 # a file proves it read the file; a refusal that only says "X is missing" does
 # not.**

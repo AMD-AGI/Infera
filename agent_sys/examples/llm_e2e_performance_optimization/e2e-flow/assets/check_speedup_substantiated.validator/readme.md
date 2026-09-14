@@ -3,7 +3,7 @@
 A **program** validator (G4.1). The expensive half of m4's output gate —
 `tags.cost: gpu_hours`, so a phase runs it after `check_optimization_shape`.
 
-**This body is a reversal of the one it replaces.** `../../../kernel-opt-demo`'s
+**This body is a reversal of the one it replaces.** the kernel-optimisation stage's
 version re-measured the baseline here and disbelieved the workset's; its loudest
 rule was *"最要命的那条：不要拿 workset 里印的数字当分母"*. Mission M4.3.5
 overrules it:
@@ -68,7 +68,7 @@ an outright fabrication and it is worse, because it survives review.
 1. **The interpreter.** A validator body is started by `/bin/sh` with a closed
    environment and no `PATH`, and on the output phase the PRODUCER row shadows
    the GLOBAL row carrying `AGENT_SYS_DEMO_PYTHON`
-   (`kernel-opt-demo/bugs/002-…`). `"${AGENT_SYS_DEMO_PYTHON:-python3}"` then
+   (a recorded bug in the kernel-optimisation stage). `"${AGENT_SYS_DEMO_PYTHON:-python3}"` then
    resolves to `/usr/bin/python3`, which has no `torch`, and the measurement
    dies on the import in 0.1 s — reported as a measurement disagreement. The
    body probes candidates and verifies each really has `torch`.

@@ -21,7 +21,7 @@ root, which is the split spec §7 asks for.
 **Substitution is broad; refusal is narrow, and they are deliberately not the
 same set** (m1's shape, and it is the right one). A real host path is worth
 rewriting wherever it appears, prose included — a README naming
-`/shared_nfs/yihou/...` is still telling a reader about one machine. But the
+`<shared path>` is still telling a reader about one machine. But the
 hard refusal only reaches **executable and generated content**, `REFUSE_SUFFIXES`
 below, because that is the only content the portability argument reaches. Prose
 saying `` `/v1/models` `` bakes in no host's directory layout, and refusing it

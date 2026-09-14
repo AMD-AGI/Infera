@@ -15,7 +15,7 @@
 # `../../temp/bugs/002-handoff-dependencies-never-reach-locality-check.md`.
 #
 # So container roots travel as `@NAME@` and the expansion lives here, in the
-# package, which is staged rather than published. `analyze-demo` carries the same
+# package, which is staged rather than published. The analysis stage carries the same
 # file for the same reason.
 #
 # **`@NAME@` and not `${NAME}`.** `locality._CANDIDATE`'s lookbehind excludes

@@ -74,7 +74,7 @@ probes:
       json_all:
         - {path: 'workers[].status', equals: active}
     source: >-
-      First-hand: `integration-demo/assets/accept/probe.py:131` gates its whole
+      First-hand: the integration stage's original `accept/probe.py:131` gates its whole
       eval on this list, and the sealed stage-1 kit carries the same reading in
       `results/router_workers.json`. Upstream corroboration for the silent
       non-registration: sgl-project/sglang#20836.
@@ -223,7 +223,7 @@ probes:
         - {path: 'model', not_matches: '^/'}
     source: >-
       First-hand: this is the shape of the sealed kit's
-      `results/chat_completion.json` and of `integration-demo/assets/accept/probe.py`,
+      `results/chat_completion.json` and of the integration stage's original `accept/probe.py`,
       whose header records why each of the three faults *"produces a number
       rather than an error"*. The reasoning-budget half is documented as a trap
       in the stage-1 task brief.
@@ -317,7 +317,7 @@ probes:
 # --------------------------------------------------------------------------- #
 # The load, mission M1.2.3.4: 1k input / 1k output, concurrency 16, three
 # minutes. Sent by `assets/bench/aiperf_synthetic.sh`, which is
-# `../../../integration-demo/assets/bench/aiperf_replay.sh` with the trace
+# the integration stage's original `bench/aiperf_replay.sh` with the trace
 # swapped for AIPerf's synthetic generator — the same container idiom, the same
 # four load-bearing container settings, **not a third load generator**.
 #

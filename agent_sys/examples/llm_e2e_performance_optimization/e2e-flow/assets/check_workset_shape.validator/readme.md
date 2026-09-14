@@ -49,7 +49,7 @@ booked for it.
 10. No hard-coded host path in `.py` / `.sh` / `.json` / `.jsonl`, and no
     `TODO`/`TBD`/`FIXME` in any `.md` or `.yaml`.
 
-## Rule 10 does not rest on the seal, and `analyze-demo` says it does
+## Rule 10 does not rest on the seal, and the analysis stage says it does
 
 That package justifies the rule with *"the seal refuses the whole delivery over
 one"*. Measured against the framework: `handoff/store.py:447,494` decline to call

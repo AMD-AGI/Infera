@@ -136,7 +136,7 @@ def test_path_is_not_a_boundary(tmp_path: Path) -> None:
     `validator` found that a body handed an environment block with no `PATH`
     still reaches `python3` and `git`, because POSIX `sh` substitutes a built-in
     default, and asked whether that is an isolation hole. Measured
-    (`scratch/impl-2026-08/env_mgr/p2_path_is_not_a_boundary.py`) it is not:
+ it is not:
 
     | cell | result |
     |---|---|

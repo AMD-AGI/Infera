@@ -492,14 +492,14 @@ def test_a_far_root_outside_every_declared_root_is_refused() -> None:
     from env_mgr.sync import check_delete_scope
 
     with pytest.raises(PrepareRefused, match="rsync --delete"):
-        check_delete_scope({"/local": "/home/someone-else/work"}, ["/data/yihou"])
+        check_delete_scope({"/local": "/home/someone-else/work"}, ["/data/projects"])
 
 
 def test_a_declared_far_root_passes() -> None:
     from env_mgr.sync import check_delete_scope
 
-    check_delete_scope({"/local": "/data/yihou/handoffs"}, ["/data/yihou"])
-    check_delete_scope({"/local": "/data/yihou"}, ["/data/yihou"])  # the root itself
+    check_delete_scope({"/local": "/data/projects/handoffs"}, ["/data/projects"])
+    check_delete_scope({"/local": "/data/projects"}, ["/data/projects"])  # the root itself
 
 
 def test_no_declared_roots_refuses_rather_than_permits() -> None:
@@ -509,18 +509,18 @@ def test_no_declared_roots_refuses_rather_than_permits() -> None:
     from env_mgr.sync import check_delete_scope
 
     with pytest.raises(PrepareRefused):
-        check_delete_scope({"/local": "/data/yihou/handoffs"}, [])
+        check_delete_scope({"/local": "/data/projects/handoffs"}, [])
     # Control: no mapping at all has nothing to guard, and must not refuse —
     # that is every run before R1 and the whole test suite.
     check_delete_scope({}, [])
 
 
 def test_a_sibling_that_merely_shares_a_prefix_is_not_inside() -> None:
-    """`/data/yihou2` starts with `/data/yihou` and belongs to someone else, and
+    """`/data/projects2` starts with `/data/projects` and belongs to someone else, and
     `..` must not climb out of a root it appears to be under."""
     from env_mgr.protocols import PrepareRefused
     from env_mgr.sync import check_delete_scope
 
-    for far in ("/data/yihou2/work", "/data/yihou/../elsewhere", "/data/yihou_hf_cache"):
+    for far in ("/data/projects2/work", "/data/projects/../elsewhere", "/data/projects_hf_cache"):
         with pytest.raises(PrepareRefused):
-            check_delete_scope({"/local": far}, ["/data/yihou"])
+            check_delete_scope({"/local": far}, ["/data/projects"])

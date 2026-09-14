@@ -419,7 +419,7 @@ done
 cat > "$B/watchout" <<EOF
 Round 1 is cold for this trace and round 2 is warm, and they are not comparable
 to each other. Compare round 1 against round 1 and round 2 against round 2. This
-is not a precaution: profiling-demo replayed the same trace against the same
+is not a precaution: the profiling stage replayed the same trace against the same
 configuration twice and measured 631 output tok/s cold against 1004 warm, with
 mean TTFT 25.9 s against 484 ms, because a Mooncake trace carries hash_ids and
 prefix hit rate decides how much prefill there is to do.

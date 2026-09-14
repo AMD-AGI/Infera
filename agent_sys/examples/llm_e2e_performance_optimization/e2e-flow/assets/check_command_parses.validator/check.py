@@ -152,7 +152,7 @@ def main() -> int:
     # heading, which is a contradiction in the helper's own vocabulary and made
     # a reader ask whether this validator grades and then ignores its own grade.
     # It does not; the verdict was always right and only the rendering lied.
-    # Measured by `checkpoint` and reproduced by m3 across two runs: 7 of the 11
+    # Measured by another owner and reproduced by m3 across two runs: 7 of the 11
     # `PROBLEM:` lines in the whole run came from here, all under `passed`.
     findings: list[tuple[str, bool]] = []
 

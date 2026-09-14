@@ -65,7 +65,7 @@ if [ "$KFO_MOCK" = "1" ]; then
   echo "KFO_MOCK=1: no campaign will be run" >&2
   # **The seed is the Definition's `baseline`, NOT `edit_target.source_file`.**
   #
-  # Measured 2026-09-04 on crsuse2-m2m-217: seeding from the engine's stock
+  # Measured 2026-09-04 on node-217: seeding from the engine's stock
   # module made STEP 4 refuse with
   #
   #     the Definition's 'candidate:sampler_vocab_softmax' defines no `run`

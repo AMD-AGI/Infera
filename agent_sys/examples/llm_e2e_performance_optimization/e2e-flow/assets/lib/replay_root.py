@@ -93,8 +93,8 @@ every downstream handoff renders its record with `env_render --inherit <the
 replayed kit>`, so all four compared fields are copied from the replay and
 **agree with each other**, on a node the run is not using:
 
-    kit says node:        crsuse2-m2m-217
-    downstream inherits:  crsuse2-m2m-217
+    kit says node:        node-217
+    downstream inherits:  node-217
     fields that agree:    node, gpu_arch, image_id, model_path
 
 CONTRACT §4.6 once more, and this time *every* side shares the fault because
@@ -411,7 +411,7 @@ def produced_for_real(run: pathlib.Path, kind: str, hid: str) -> bool | None:
 
     ## The defect this exists for
 
-    The leader ran a survey and it reported `deploy_kit` **STABLE, 27 runs**.
+    The package owner ran a survey and it reported `deploy_kit` **STABLE, 27 runs**.
     Stage 1 has deployed to a GPU a single-digit number of times. **A mock leaf
     copies a previously sealed, previously validated artefact**, so it passes
     *the same validator set* by construction — it is the artefact that passed
@@ -433,7 +433,7 @@ def produced_for_real(run: pathlib.Path, kind: str, hid: str) -> bool | None:
         deploy_and_prove agent_spec=e2e_deployer  15 runs   real
           of which the kit also sealed `valid`:    4 runs
 
-    **27 -> 4**, and the leader's independent hand count of the ladder agrees.
+    **27 -> 4**, and the package owner's independent hand count of the ladder agrees.
 
     ## Why it is partial, and why that is reported rather than papered over
 
@@ -493,7 +493,7 @@ def streak(rows: list[dict]) -> tuple[int, str]:
 
     ## What counts as reaching a verdict, and the signal is real
 
-    The leader's criterion is *consecutive runs in which the stage reached a
+    The package owner's criterion is *consecutive runs in which the stage reached a
     terminal state — sealed valid, or sealed and refused — skipping runs
     terminated by an external cause*, and they asked me to print `cannot tell`
     rather than guess if the tree carries no such signal.
@@ -684,7 +684,7 @@ def stability(rows: list[dict], threshold: int) -> tuple[bool, str]:
         prov += f", {len(unknown)} with no recorded discriminator"
     if not rows:
         # **"cannot tell" and "did not happen" are different sentences**, and
-        # the message used to give the second for both. The leader caught it:
+        # the message used to give the second for both. The package owner caught it:
         # for `profiling_mode_off.bench_result` *no run executed this for real*
         # is true — but true because rung 2b exited before sealing, **not
         # because the discriminator said so**. A reader skimming would take an
@@ -750,7 +750,7 @@ def stability(rows: list[dict], threshold: int) -> tuple[bool, str]:
 def main() -> int:
     # `__doc__` is None under `python3 -OO`, which strips docstrings — so
     # `__doc__.splitlines()[0]` is an AttributeError before argparse ever runs,
-    # and `--help` dies with a traceback. Found by the leader; the package never
+    # and `--help` dies with a traceback. Found by the package owner; the package never
     # invokes with -OO, so this is a courtesy to whoever does.
     ap = argparse.ArgumentParser(
         description=(__doc__ or "Materialise a run's handoffs into a mock_root.").splitlines()[0])
@@ -769,7 +769,7 @@ def main() -> int:
     ap.add_argument("--allow-cross-node", action="store_true",
                     help="launch on a different node than the kit records. Nothing "
                          "downstream will catch it; this flag is the decision.")
-    ap.add_argument("--seed-from", default="/shared_nfs/yihou/agent_sys/cheat_for_mock",
+    ap.add_argument("--seed-from", default="",
                     help="corpus to symlink un-promoted stages from, so the root is "
                          "launchable. mock_root is ONE directory for all five stages.")
     ap.add_argument("--no-seed", action="store_true",
@@ -834,7 +834,7 @@ def main() -> int:
     # front, mock behind is exactly the configuration in which nothing checks
     # it.**
     #
-    # The leader's ruling, and the reason a banner was rejected: *a warning
+    # The package owner's ruling, and the reason a banner was rejected: *a warning
     # printed at materialise time is read once, by the person who already knows;
     # the failure happens an hour later to someone reading a bench number that
     # is 4x off and looking for a kernel regression.* That is the
@@ -913,7 +913,7 @@ def main() -> int:
     # `$E2E_MOCK_ROOT/<stage>/<kind>/content`. A root holding only the promoted
     # stage therefore breaks every *other* mocked stage, measured:
     #
-    #     mock: no such stage /home/yihou/replay_root_demo/stage2-profiling
+    #     mock: no such stage <home>
     #
     # Which makes a partial root useless for the thing it exists for: skip in
     # front, **mock behind** — the stages behind have nowhere to read from.
@@ -999,7 +999,7 @@ def main() -> int:
               "engine, and a stage that DEPLOYS from this kit will fail in a way that looks "
               "like that stage's defect."
               "\n  Expected to be unreachable — if you are reading this, the producer-side "
-              "fix has regressed. See SKIP-AHEAD.md §5.0.",
+              "fix has regressed.",
               file=sys.stderr)
 
     print(f"\nreplay_root: wrote {out}/PROMOTION.json — "

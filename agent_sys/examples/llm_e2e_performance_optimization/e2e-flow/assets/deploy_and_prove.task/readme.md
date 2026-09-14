@@ -243,7 +243,7 @@ lacks `yihou`.
 **It is an ownership marker, not a convention.** Four other owners share these
 hosts under a standing instruction to stop foreign GPU workloads, and the name
 is the first thing anyone reads. Measured 2026-09-04: two bring-ups named
-`infera_e2e_sgl_…` and `e2e_deploy_sgl_…`, and the leader — correctly following
+`infera_e2e_sgl_…` and `e2e_deploy_sgl_…`, and the package owner — correctly following
 the team's own rule — came within one message of classifying a live engine of
 ours as a stranger's.
 
@@ -343,7 +343,7 @@ off** — a downstream stage's scratch has to be node-local (*on this cluster's 
 every ROCm kernel launch segfaults after the copies*), so it lands on
 `/mnt/m2m_nobackup` and neither of the first two forms covers it. It is proven
 accepted rather than assumed: the sealed kit's own `start_container.sh:36` mounts
-`"${DK_RUN_DIR}:/workdir"` under `/mnt/m2m_nobackup/yihou/deploy`, and every kit
+`"${DK_RUN_DIR}:/workdir"` under `<work root>`, and every kit
 this stage has produced does the same.
 
 **Copy the derivation rather than writing one** — it is

@@ -104,7 +104,7 @@ def test_a_run_reads_its_weak_mappings_out_of_the_meta_file(
                 # far side nobody accepted as destroyable. Not this test's
                 # subject — the delete-scope pair below is — but a mapping can no
                 # longer be configured without it, which is that guard's point.
-                "deletable_roots": ["/var/tmp/example", "/data/yihou"],
+                "deletable_roots": ["/var/tmp/example", "/data/projects"],
             }
         )
     )
@@ -137,7 +137,7 @@ def test_a_run_builds_the_transport_its_mapping_declared(
                 "mappings": [
                     {
                         "local_root": "/var/tmp/example/state",
-                        "remote_root": "/data/yihou/handoffs",
+                        "remote_root": "/data/projects/handoffs",
                         "strength": "weak",
                         "transport": "ssh",
                         "target": "somehost",
@@ -148,7 +148,7 @@ def test_a_run_builds_the_transport_its_mapping_declared(
                 # far side nobody accepted as destroyable. Not this test's
                 # subject — the delete-scope pair below is — but a mapping can no
                 # longer be configured without it, which is that guard's point.
-                "deletable_roots": ["/var/tmp/example", "/data/yihou"],
+                "deletable_roots": ["/var/tmp/example", "/data/projects"],
             }
         )
     )
@@ -216,7 +216,7 @@ def test_the_run_path_refuses_a_delete_outside_the_declared_roots(
     meta_path = _meta_with(
         isolated_meta / "meta.json",
         far_root="/home/someone-else/work",
-        deletable=["/data/yihou"],
+        deletable=["/data/projects"],
     )
     monkeypatch.setenv("ENV_MGR_META", str(meta_path))
     layout = layout_for(isolated_meta / "run").create()
@@ -233,14 +233,14 @@ def test_the_run_path_allows_a_delete_inside_them(
     """
     meta_path = _meta_with(
         isolated_meta / "meta.json",
-        far_root="/data/yihou/handoffs",
-        deletable=["/data/yihou"],
+        far_root="/data/projects/handoffs",
+        deletable=["/data/projects"],
     )
     monkeypatch.setenv("ENV_MGR_META", str(meta_path))
     layout = layout_for(isolated_meta / "run").create()
     registry = _registry(package_root, layout, Stream(), resume=False, variables={})
     assert registry.get("env_mgr")._ctx.mapping == {
-        "/var/tmp/example/state": "/data/yihou/handoffs"
+        "/var/tmp/example/state": "/data/projects/handoffs"
     }
 
 
@@ -282,7 +282,7 @@ def test_a_strong_root_does_not_become_the_delete_target(
         [
             {
                 "local_root": "/var/tmp/example/state",
-                "remote_root": "/data/yihou/weak",
+                "remote_root": "/data/projects/weak",
                 "strength": "weak",
                 "transport": "ssh",
                 "target": "somehost",
@@ -295,13 +295,13 @@ def test_a_strong_root_does_not_become_the_delete_target(
                 "target": "somehost",
             },
         ],
-        deletable=["/data/yihou"],
+        deletable=["/data/projects"],
     )
     monkeypatch.setenv("ENV_MGR_META", str(meta_path))
     layout = layout_for(isolated_meta / "run").create()
     registry = _registry(package_root, layout, Stream(), resume=False, variables={})
     ctx = registry.get("env_mgr")._ctx
-    assert ctx.mapping == {"/var/tmp/example/state": "/data/yihou/weak"}
+    assert ctx.mapping == {"/var/tmp/example/state": "/data/projects/weak"}
     # CONTROL, and the reason this is two assertions. `far_roots` is *supposed*
     # to keep the strong one — it is the tool surface's map and every mapping is
     # in scope there — so a `mapping_roots` that simply returned `far_roots`
@@ -332,13 +332,13 @@ def test_a_mapping_whose_transport_cannot_sync_is_a_precondition_not_a_traceback
         [
             {
                 "local_root": "/var/tmp/example/state",
-                "remote_root": "/data/yihou/handoffs",
+                "remote_root": "/data/projects/handoffs",
                 "strength": "weak",
                 "transport": "docker",
                 "target": "some-container",
             }
         ],
-        deletable=["/data/yihou"],
+        deletable=["/data/projects"],
     )
     monkeypatch.setenv("ENV_MGR_META", str(meta_path))
     layout = layout_for(isolated_meta / "run").create()

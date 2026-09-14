@@ -2,7 +2,7 @@
 """Compose one arm's `{stock,patched}.measurement` from the pieces that produced it.
 
 **Six evidence kinds became two** (CONTRACT.md §7, a consequence of M5.2). In
-`integration-demo` one arm was three handoffs — `deployment_<arm>`,
+the integration stage one arm was three handoffs — `deployment_<arm>`,
 `acceptance_<arm>`, `bench_<arm>` — produced by two tasks. Here one task produces
 one handoff per arm, and this module is the join: it takes the directories the
 bring-up and the measurement scripts wrote and lays them out as a single

@@ -1,6 +1,6 @@
 """The criterion → test mapping is the deliverable, so something checks it.
 
-`docs/implementation-stage.md` §5's first condition for done is *"every
+The first condition for done is *"every
 acceptance criterion maps to a **named test that exists and passes**"*, and
 `agent/README.md` §4 is that mapping. A name in it that no longer resolves is
 the mapping quietly ceasing to be true — and it happened: a test removed when

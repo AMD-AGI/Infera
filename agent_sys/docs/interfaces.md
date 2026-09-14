@@ -1456,7 +1456,7 @@ Three instances in one afternoon, all *"the information exists"* mistaken for
 
 | | |
 |---|---|
-| non-fatal `Problem`s | computed by `check_closures`, filtered away by the composition root — `closure` criterion 6's reporting reached nobody after **three correct repairs on that path**. **A fourth landed and closed it** (`bootstrap.py:280`), and `closure` then did the thing the other three did not: measured *arrival* against the real `build_registry`, **with a negative control**, because a probe showing a pass deserves the same scepticism as one showing a failure. `scratch/impl-2026-08/closure/probe_criterion_6_arrives.py`, kept |
+| non-fatal `Problem`s | computed by `check_closures`, filtered away by the composition root — `closure` criterion 6's reporting reached nobody after **three correct repairs on that path**. **A fourth landed and closed it** (`bootstrap.py:280`), and `closure` then did the thing the other three did not: measured *arrival* against the real `build_registry`, **with a negative control**, because a probe showing a pass deserves the same scepticism as one showing a failure. a probe, kept |
 | `Execution.detail` | the runner held it, the field had a home, `on_task_done` took it — and the declared callback type could not carry it, so every failed task recorded `''` |
 | `demo`'s `_why_failed` | falls back to `Recorder.read` on every failure — a second reader of a fact that already has a home |
 
@@ -1885,7 +1885,7 @@ a reported fact, not a defect.**
 ### 5.11 An AI backend cannot be confined **in-process** — soluble, measured
 
 **Who is waiting: `agent`.** The word *"cannot"* was wrong and the measurement
-says so — `scratch/impl-2026-08/env_mgr/p5_grandchild_inherits.py`:
+says so — a probe:
 
 ```
 unconfined grandchild            rc=0     read succeeded
@@ -3243,11 +3243,11 @@ It generalises past types — it is the same instrument as renaming §5.15 from
 the old title **would still have read as true and meant something narrower.**
 
 **And the mirror of this section, from `handoff`, about a document I own.**
-`implementation-stage.md` §8 said *"probe scripts are kept, not deleted — they
+One rule said *"probe scripts are kept, not deleted — they
 are the evidence"*, while `scratch/.gitignore` says *"nothing here is
-committed."* Both hold. Together they mean **kept in this worktree, not kept in
-the repository** — 0 design probes and 0 implementation probes are tracked — so a
-citation like `handoff/docs/design.md:285` **dangles on a fresh clone.**
+committed."* Both hold. Together they mean **kept in the worktree that ran them,
+not kept in the repository** — 0 design probes and 0 implementation probes are
+tracked — so citing one from shipped source **dangles on a fresh clone.**
 
 > §8.7a is *an edit is published the moment it is written*; a gitignored
 > directory is ***an artefact is never published however long it sits*** — and
@@ -3266,19 +3266,18 @@ paths exists in a fresh clone.** *"Measured, not assumed"* followed by a path th
 resolves to nothing. **No test, no lint, no error — and it only breaks for the
 reader who was not here, which is the reader the citation is for.**
 
-**Ruled: leave all 48, and make it a known limit rather than a broken link.**
-Committing the probes contradicts the rule that keeps the tree clean;
-re-pointing at `docs/design-stage.md` is a doc edit in nine packages **and that
-file does not carry every probe.** `monitor` was right that a package diverging
-alone would make the tree inconsistent in a **new** way, which is worse than
-being consistently wrong in a **documented** one — so the statement goes in §8
-above, once, where it governs, rather than into 48 sites.
+**Ruled: the paths are removed and the measurements stay.** Committing the
+probes contradicts the rule that keeps the tree clean, and a path no reader can
+open is not provenance — it is a broken link wearing provenance's clothes. The
+citations are therefore dropped rather than re-pointed: there is no one record
+that carries every probe, and a package diverging alone would make the tree
+inconsistent in a **new** way.
 
-**What makes it survivable is `demo`'s property, and it is the condition of the
-ruling:** every measurement is **quoted inline** — the three `sh` PATH rows, the
-three grant-resolution rows, the store's `detail=''`. **The path is provenance;
-the numbers in the document are the artefact.** A citation whose result is *not*
-inline is a broken link and must be fixed, not accepted.
+**What makes the removal lossless is `demo`'s property, and it was the condition
+of the earlier ruling too:** every measurement is **quoted inline** — the three
+`sh` PATH rows, the three grant-resolution rows, the store's `detail=''`. **The
+numbers in the document are the artefact.** A measurement whose result is *not*
+inline has lost its evidence and must be re-measured, not asserted.
 
 **`monitor` corrected that wording and they are right — mine was too narrow.**
 *"The number is the artefact"* **holds only where there is a number.** Where the

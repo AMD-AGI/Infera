@@ -13,7 +13,7 @@ Two of the four are caught here and are catchable nowhere else:
 | `FilesystemStore(handoff_root)` built with no `KindSource` published a handoff missing four of its five required README sections, with `kind: ""` in the manifest — criteria 2 and 3 unenforced | all 137 `tests/handoff` tests inject a resolver |
 | the composition root reached for `load_report`, the registry spelled it `report`, and `getattr(..., lambda: None)` turned the mismatch into `None` — `closure`'s escape-hatch check then skipped itself | `handoff`, `closure`, `spec_loader` and `task_graph` each asserted their own half returned the right value |
 
-So the rule this file exists to enforce, `implementation-stage.md` §6.0:
+So the rule this file exists to enforce:
 **the assembled system must report something on a package built to fail**, and
 must actually work on one built to succeed. Both halves, because a gate that
 only checks the failure path passes when nothing runs at all.
@@ -223,7 +223,7 @@ def test_the_two_stores_are_two_roots_and_one_implementation(system, tmp_path: P
 
 
 # --------------------------------------------------------------------------- #
-# The negative half — `implementation-stage.md` §6.0
+# The negative half
 
 
 def test_the_assembled_system_refuses_a_malformed_handoff(system, tmp_path: Path) -> None:

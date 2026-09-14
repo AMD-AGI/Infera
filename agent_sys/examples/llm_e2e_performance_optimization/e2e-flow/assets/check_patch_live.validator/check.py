@@ -29,7 +29,7 @@ built to ask.
 **A marker is required by default since 2026-09-04, and the experiment that
 changed it is the argument.** The old default was `false`, on the reasoning that
 requiring markers would refuse every KernelForge patch that does not know about
-this package. Then a control overlay on crsuse2-m2m-047 produced *perfect*
+this package. Then a control overlay on node-047 produced *perfect*
 static evidence — in-container hash byte-equal to its own `sha256_patched`, the
 file demonstrably holding a 2 ms sleep, the `.pyc` compiled that minute — and
 measured **identical to stock**. Rules one and two both passed and neither could
@@ -173,7 +173,7 @@ def check(content: Path, args: dict, reasons: list) -> bool:
     hits = {row[0]: int(row[2]) for row in read_tsv(env / "marker_hits.tsv") if len(row) >= 3}
     if not declared:
         # **The default is now `true`, and it was measured into being.**
-        # 2026-09-04 on crsuse2-m2m-047: an overlay whose in-container hash was
+        # 2026-09-04 on node-047: an overlay whose in-container hash was
         # byte-equal to its own `sha256_patched`, whose file demonstrably held a
         # 2 ms sleep, and whose `.pyc` had been compiled that minute — and the
         # arm measured **identical** to stock. The static evidence was perfect

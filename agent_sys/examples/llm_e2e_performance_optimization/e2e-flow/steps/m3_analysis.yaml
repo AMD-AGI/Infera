@@ -1,9 +1,9 @@
 # Stage 3 — analysis, and the worksets.
 #
-# **Skeleton, frozen by the leader.** Kinds, wiring and graph shape are contract
+# **Skeleton, frozen by the package owner.** Kinds, wiring and graph shape are contract
 # (CONTRACT.md §1); bodies and validator substance are m3's owner's.
 #
-# `analyze-demo`'s design was judged sound — M3.1: "总体来说流程设计科学，质量较
+# the analysis stage's design was judged sound — M3.1: "总体来说流程设计科学，质量较
 # 高，但是 handoff 需要规范化". So this stage keeps its three-step shape
 # (rank → identify → build) and changes what crosses between the steps.
 #
@@ -68,7 +68,7 @@
 # program agent, which *is* `runner` and therefore does hold the block.
 #
 # Names and defaults below are `shared.yaml`'s verbatim where `runner` declares
-# the same variable, so the leader's agreement check has something to compare.
+# the same variable, so the package owner's agreement check has something to compare.
 # The five it does not declare are marked; they are read by this stage's bodies
 # and by `rank.py`, and they have never reached either.
 - module: agent
@@ -107,7 +107,7 @@
     # is a declared input and the record is inherited instead.
     E2E_NODE_IP: '${node_ip}'
     E2E_PORT_ROUTER: '${port_router:-8101}'
-    E2E_MOCK_ROOT: '${mock_root:-/shared_nfs/yihou/agent_sys/cheat_for_mock}'
+    E2E_MOCK_ROOT: '${mock_root:-}'
     # **The symbol-search index, read by `identify.task/identify.py:683`.**
     # Undeclared here until 2026-09-05, and invisible until m2 repaired
     # `check_agent_env`'s closure->assets mapping (`7507b74`): it matched by
@@ -115,7 +115,7 @@
     # and `rank.task` and `identify.task` were never scanned. One of three
     # closures, for the life of the check.
     #
-    # **Byte-identical to `shared.yaml:181`** — the leader's instruction, and
+    # **Byte-identical to `shared.yaml:181`** — the package owner's instruction, and
     # m2's `E2E_MOCK_STAGES` defect is the reason: two declarations of one
     # default drifted and silently changed which stages were mocked.
     #
@@ -199,7 +199,7 @@
 # 1. Validators.
 #
 # OWNER m3: placeholders with the right identity.
-# `../../analyze-demo/assets/check_worklist_shape.validator/`,
+# the analysis stage's original `check_worklist_shape.validator/`,
 # `check_identity_resolved.validator/`, `check_workset_shape.validator/` and
 # `check_workset_runs.validator/` are the bodies to carry across; each already
 # holds measured thresholds and the argument behind them.

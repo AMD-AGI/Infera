@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """`check_trace_coverage` — completeness, strong. Six rules over a capture.
 
-Carried across from `../../profiling-demo/assets/check_trace_coverage.validator/`,
+Carried across from the profiling stage's original `check_trace_coverage.validator/`,
 which had five of them and had been driven to a real cluster run. Rule 0 is new
 and is mission M2.2.2: *"profile result 应至少被对应解析工具正确 load"*.
 

@@ -4,7 +4,7 @@ Put m4's optimised kernel in front of the real service, measure the same things
 on an unpatched and a patched deployment, and write down whether the change is
 safe to keep.
 
-**One task, five leaves' worth of work.** `integration-demo` split this across
+**One task, five leaves' worth of work.** the integration stage split this across
 `serve_stock → measure_stock → serve_patched → measure_patched → compare`.
 Mission M5.2 forbids that split — *"agent A 去把服务部署好，agent B 去使用：这是
 不被允许的"* — so bring-up and use live here together.

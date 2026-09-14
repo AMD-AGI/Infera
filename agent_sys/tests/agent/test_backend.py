@@ -125,7 +125,7 @@ def test_stop_settles_a_running_agent() -> None:
 def test_a_loud_body_does_not_hang_the_executor() -> None:
     """**The pipe had no reader**, so a body that filled it blocked in `write()`
     and `_run` polled a child that could not exit — measured at 256 KiB in
-    `scratch/impl-2026-08/agent/probe_program_output_is_lost.py`, where
+    A probe, where
     `start()` never returned. A quiet body was fine, which is why every test
     here passed over it.
 
@@ -273,7 +273,7 @@ def _entry():
 
 
 def test_backend_py_imports_nothing_of_ours() -> None:
-    """`docs/implementation-stage.md` §4.2 and design §2: **`backend.py` imports
+    """Design §2: **`backend.py` imports
     nothing of ours**, which is what lets `selection`, `backends/` and `runner`
     all depend on it without a cycle. It is the one file in the package that
     could be written before anything else existed."""

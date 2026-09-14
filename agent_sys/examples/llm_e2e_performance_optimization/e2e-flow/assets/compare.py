@@ -663,7 +663,7 @@ def main() -> int:
         )
 
     # **The absolute bar beside the relative one** — m5's call site of
-    # `graph_ceiling`, the leader's two-call-site ruling (m2's bench is the
+    # `graph_ceiling`, the package owner's two-call-site ruling (m2's bench is the
     # other, `49fcbc3`). It is here rather than folded into `stock_vs_m2_block`
     # because that function is a *comparison* and CONTRACT §4.6 is exactly that
     # a comparison cannot see this: both arms can be in eager decode, agree

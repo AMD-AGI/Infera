@@ -52,7 +52,7 @@ class Direction(str, Enum):
 def _under(path: str, root: str) -> bool:
     """Is `path` at or below `root`, **by path component**?
 
-    Not `startswith`: `/data/yihou2` starts with `/data/yihou` and is somebody
+    Not `startswith`: `/data/projects2` starts with `/data/projects` and is somebody
     else's directory. `normpath` first, so a mapping written with `..` in it
     cannot climb out of a root it appears to be under.
     """

@@ -238,14 +238,12 @@ def stage(
 
     Two facts made the change safe rather than merely tidy, both first-hand:
     nothing in any consuming package reads a staged sibling, and narrowing broke
-    nothing across five suites with a control proving the narrowing was live
-    (`scratch/impl-2026-08/env_mgr/p9_what_narrowing_stage_would_cost.py`).
+    nothing across five suites with a control proving the narrowing was live.
     `validator` confirmed against their own code that their prior-verdict path
     goes to `store.read_verdicts` and never to the staged tree.
 
     **The route it leaves is checked, but it is not open to a body**, and that
-    distinction was measured after the change rather than before it
-    (`scratch/impl-2026-08/env_mgr/p11_can_a_body_reach_the_store_root.py`).
+    distinction was measured after the change rather than before it.
     `handoff.get_manifest` verifies a digest where a staged copy does not, so
     *in-process* code — `validator`'s own Python, `agent/gate.py` — is strictly
     better served by the store. A **confined body** is not: granted its zone and

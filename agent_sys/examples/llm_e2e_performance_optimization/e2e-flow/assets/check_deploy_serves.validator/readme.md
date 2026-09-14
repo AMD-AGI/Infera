@@ -73,7 +73,7 @@ probes are printed and recorded, and they do not refuse the handoff.
 ## The load is not a third load generator
 
 `assets/bench/aiperf_synthetic.sh` is
-`../../../integration-demo/assets/bench/aiperf_replay.sh` with one block
+the integration stage's original `bench/aiperf_replay.sh` with one block
 changed: `--input-file … --fixed-schedule …` becomes
 `--synthetic-input-tokens-* --output-tokens-* --concurrency
 --benchmark-duration`. It is a sibling rather than a flag on that script because

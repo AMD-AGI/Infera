@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
-"""The path environment-variable system — `refine.task_package.define.md` item 3.
+"""The path environment-variable system — the package-format requirement item 3.
 
 Two halves are asserted here and the second matters more than the first: the
 names that **are** exported, and the four the user asked for that are **not**,
@@ -279,7 +279,7 @@ def test_remote_root_answers_none_where_ends_refuses(tmp_path: Path) -> None:
 def test_the_root_names_the_user_asked_for_are_not_exported(tmp_path: Path, main_repo: str) -> None:
     """**A measurement, not an omission.**
 
-    `refine.task_package.define.md` item 3 asks for `agent_workspace_root`,
+    the package-format requirement item 3 asks for `agent_workspace_root`,
     `agent_handoff_root` and `agent_playground_root`. Each would resolve to a
     registered *domain* root, which sits outside the zone. Measured against a
     real Landlock ruleset built from exactly the policy `prepare` composes, with

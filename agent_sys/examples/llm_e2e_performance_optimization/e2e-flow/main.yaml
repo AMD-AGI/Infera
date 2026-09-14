@@ -13,7 +13,7 @@
 # acquire.
 #
 # The frozen cross-module contract is `CONTRACT.md`. Every name below is drawn
-# from its §1 table, and a sixteenth kind is a conversation with the leader
+# from its §1 table, and a sixteenth kind is a conversation with the package owner
 # rather than an edit here.
 module: task
 name: main
@@ -97,7 +97,7 @@ task:
   #
   # `froms` here is derived from the handoff wiring and checked against what is
   # written (`_check_froms_covers_derived`). Every entry below is **exactly** the
-  # dependency it expresses — unlike `integration-demo`'s, where three edges
+  # dependency it expresses — unlike the integration stage's earlier shape, where three edges
   # carried an argument rather than a datum.
   #
   # `deploy_kit` reaches all four later stages because it carries the

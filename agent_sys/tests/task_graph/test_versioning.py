@@ -277,7 +277,7 @@ def test_a_consumer_is_pinned_to_the_version_its_producer_actually_published(sto
     body receives an empty directory presented as the artefact.
 
     Measured end to end in
-    `scratch/impl-2026-08/task_graph/probe_consumer_staging.py`, which stages
+    A probe, which stages
     both numbers against one store and shows `[]` versus the artefact's files.
     """
     scheduler, runner = stored_registry.get("scheduler"), stored_registry.get("runner")

@@ -3,7 +3,7 @@
 """`env_mgr.harness` — what the operator's installation configured.
 
 The behaviour under test was measured before it was written:
-`scratch/impl-2026-08/env_mgr/p7_relocated_config_loses_auth.py` runs one prompt
+A probe runs one prompt
 three ways and finds that a relocated ``CLAUDE_CONFIG_DIR`` alone answers
 ``Not logged in · Please run /login`` (rc=1), while the same relocation with the
 settings `env` block injected answers ``OK`` (rc=0).

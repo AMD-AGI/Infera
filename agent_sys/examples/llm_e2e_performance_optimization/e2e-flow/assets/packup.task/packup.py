@@ -32,7 +32,7 @@ from pathlib import Path
 #: not here can follow, and a kit that carries only the integration numbers
 #: cannot explain where the kernel under test came from.
 #:
-#: Six of `integration-demo`'s nine collapsed into two (CONTRACT.md 7) and three
+#: Six of the integration stage's nine collapsed into two (CONTRACT.md 7) and three
 #: upstream stages joined.
 INPUTS = (
     "deploy_kit",
@@ -319,7 +319,7 @@ That is about twenty-five minutes, most of it the cold start.
   minutes from the Dockerfile in `examples/glm53flash-demo/patches/`
 - the GLM-5.3-Flash FP8 checkpoint readable from the node
 - the GSM8K test split, 1319 rows
-- the `integration-demo` package, reachable from the node by absolute path
+- the integration stage's package directory, reachable from the node by absolute path
 
 ## Steps
 
@@ -332,7 +332,7 @@ would make this document unpublishable. A shell variable in front of the slash
 does say otherwise, which is why they are written this way:
 
 ```bash
-export PKG=<the integration-demo package directory>
+export PKG=<the integration stage's package directory>
 export MODEL_MOUNT=<directory holding the checkpoint>
 export WORK_ROOT=<node-local work area, on local disk>
 export GSM8K_SRC=<the GSM8K test split>

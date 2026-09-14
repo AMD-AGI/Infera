@@ -19,7 +19,7 @@
 #
 # The honest fix is operational rather than clever: chown from inside the same
 # container that created the files, because that is the only context with the
-# privilege to do it. `analyze-demo` reached the same conclusion independently.
+# privilege to do it. The analysis stage reached the same conclusion independently.
 #
 #   reclaim.sh <container-name> <path-inside-container> [<path> ...]
 #

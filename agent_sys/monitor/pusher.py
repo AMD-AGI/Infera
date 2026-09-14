@@ -74,8 +74,7 @@ def live_handle(runner: AttemptRunner, task_id: TaskId) -> tuple[Pushable | None
         # raise from — no `status`, no `instruct`, no `query`. Without this the
         # handle is non-None, `decide` returns `Push`, and `_push` calls
         # `instruct` on something that has none: measured as `PUSH_ATTEMPTED`
-        # then `HANDLING_FAILED`, an `AttributeError` where a decision belongs
-        # (`scratch/impl-2026-08/monitor/p11_program_body_push.py`).
+        # then `HANDLING_FAILED`, an `AttributeError` where a decision belongs.
         #
         # Reachable **today** through `OUTPUT_ABSENT`, with nothing to do with
         # `done_by_self_check`. Found answering `agent`'s question about that

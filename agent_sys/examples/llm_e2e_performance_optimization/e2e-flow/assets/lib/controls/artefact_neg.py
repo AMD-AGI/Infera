@@ -56,7 +56,7 @@ import tempfile
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from zone_harness import show  # noqa: E402
 
-ARMS = pathlib.Path(os.environ.get("ARMS", "/home/yihou/m5ws/out"))
+ARMS = pathlib.Path(os.environ.get("ARMS", ""))
 WORK = pathlib.Path(tempfile.mkdtemp(prefix="artefact_neg."))
 
 AC = dict(require_frozen_checks=["arithmetic", "long_generation", "workers", "engine_log"],

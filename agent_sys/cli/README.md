@@ -18,9 +18,9 @@ demo may use nothing an out-of-repository task package could not use. The moment
 looking like what an out-of-repository package looks like;
 `test_examples_has_no_init` is what notices.
 
-### The package moved on 29 Aug, and every path below it did
+### The package layout moved, and every path below it did
 
-jsonnet is deleted (`docs/ui-stage.md`). The findings in this file were written
+jsonnet is deleted. The findings in this file were written
 against the old tree and are **left as they were measured** — a log that is
 retrofitted stops being evidence — so this is the map:
 
@@ -325,7 +325,7 @@ more than the finding.** I reported that a script body starts with an empty
 `PATH`, because `build_environment` sets `env = {**config.values, TMPDIR, HOME,
 PWD}`. `validator` disputed it with a measurement; re-measured here through the
 exact call `ScriptBodyRunner` makes
-(`scratch/impl-2026-08/demo/p2_sh_default_path.py`, and see the note on
+(a probe, and see the note on
 scratch below):
 
 ```
@@ -584,7 +584,7 @@ its arguments, and every handoff is declared *inside* it. Fixed with
 
 **Fixing it changed nothing, which is how the other half was found.** Isolated
 with a correct handoff map so only the version branch varies
-(`scratch/impl-2026-08/demo/p3_output_grant.py`, and see the note on scratch
+(a probe, and see the note on scratch
 below):
 
 ```
@@ -1123,7 +1123,7 @@ docstring carries the ruling in its first line. `main` caught the claim.
 `output_absent`. `task-graph-2` independently named the first as the thing a
 permissions-off mode must not recreate. So the question was *which*, and it is
 one print rather than an analysis
-(`scratch/impl-2026-08/demo/p4_which_seal_branch_skips.py`, kept):
+(a probe, kept):
 
 ```
 produce  store_is_none=False   store_type='FilesystemStore'
@@ -1444,7 +1444,7 @@ outside `zones/`. Either half alone is vacuous: the old test had the first, and
 a spec-only test would pass while the readme named something else.
 
 Shown to fire, on a **copy** of the tree, against all three regressions —
-`scratch/impl-2026-08/demo/p3_do_the_leak_tests_fire.py`:
+A probe:
 
 | break | result |
 |---|---|
@@ -1582,8 +1582,7 @@ on resume and built a second subgraph beside the first.
 
 **That half is closed** — `task_graph` `cc23f98` made `unfold` idempotent by
 having `Task.has_subgraph` resolve `task_mgr` instead of asking the declaration.
-Confirmed end to end through the CLI, which nothing else had done
-(`scratch/impl-2026-08/demo/p6_where_does_resume_duplicate.py`):
+Confirmed end to end through the CLI, which nothing else had done:
 
 ```
 after the first run   task records 4   handoff slots 2
@@ -1704,10 +1703,9 @@ would have caught **none** of these. They need the run.
 
 ## The probes this README cites are not in your checkout
 
-`agent_sys/scratch/.gitignore` is `*`, so `scratch/impl-2026-08/demo/` — three
-probe scripts, kept as evidence per `docs/implementation-stage.md` §8 — exists on
-the machine that ran them and **not in a fresh clone.** Following a citation here
-gets you nothing.
+`agent_sys/scratch/.gitignore` is `*`, so the probe scripts kept as evidence exist
+on the machine that ran them and **not in a fresh clone.** Following such a
+citation here gets you nothing.
 
 That is deliberate on the repository's part and worth naming rather than leaving
 for a reviewer to discover, because it is the shape this artefact spent the day

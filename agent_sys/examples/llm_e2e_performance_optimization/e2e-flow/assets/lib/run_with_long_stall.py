@@ -68,7 +68,7 @@ effort to hide the escalation-with-no-recipient diagnosis for a full hour, and i
 was this tool's own default, so anyone omitting the flag got the value the
 project's `CLAUDE.md` records as harmful. 900 covers a cold start (measured
 222 / 232 s) and m2's 8–10 minute quiet window while leaving a real hang legible.
-Found by readme-cn auditing `CLAUDE.md`: `900` appeared in exactly one launch
+Found by another owner auditing `CLAUDE.md`: `900` appeared in exactly one launch
 line while the tool, its usage example and `runlive.sh` all said 3600 — **the
 documented compromise was not what the tool did.**
 

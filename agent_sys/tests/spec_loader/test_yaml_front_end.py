@@ -1,6 +1,6 @@
 """W3 — scan, parse, discriminate, expand, substitute, order-check.
 
-`docs/ui-stage.md` §4 gives the pipeline as seven numbered steps. This file is
+The pipeline is seven numbered steps. This file is
 one section per step, in that order, so that a step with no test is visible as a
 gap rather than assumed to be covered somewhere.
 
@@ -166,7 +166,7 @@ def test_a_list_entry_that_is_not_an_object_says_which_one(builder: PackageBuild
 def test_an_inline_definition_is_registered_and_replaced_by_its_name(
     builder: PackageBuilder,
 ) -> None:
-    """`refine.task_package.define.md` §1.1.3 — an object written where it is used.
+    """The package-format requirement §1.1.3 — an object written where it is used.
 
     Two things are checked and the second is the one that matters: the inline
     object is admitted under its own name, **and** the host now holds a string
@@ -398,7 +398,7 @@ tags: {logic_source: external_static, cost: seconds}
 
 
 def test_a_forward_reference_within_a_file_is_an_error(builder: PackageBuilder) -> None:
-    """`refine.task_package.define.md` §1.1.2 — *"不能前面引用后面的定义引用不到"*."""
+    """The package-format requirement §1.1.2 — *"不能前面引用后面的定义引用不到"*."""
     builder.asset("collect_trace.md", "x")
     builder.asset("trace.md", "x")
     builder.write(

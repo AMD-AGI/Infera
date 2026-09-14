@@ -37,7 +37,7 @@ not symmetric — a missed stray is caught by the next reader, a spurious one ma
 the suite lie.
 
 So a `.yaml` is a spec source **iff it declares `module:`**, which is the
-discriminator the format itself uses (`refine.task_package.define.md` §1.1.1: an
+discriminator the format itself uses (the package-format requirement §1.1.1: an
 object is a validator because it says `module: validator`). One definition of
 what a spec is, and it is the loader's — this test does not get a second one.
 

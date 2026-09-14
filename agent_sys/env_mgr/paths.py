@@ -16,8 +16,8 @@ environment*, and this file is that answer rather than the nearest place:
 | `prepare.py` | is the composition. A sixth thing composed there is right; the sixth thing's *definition* living there is how `prepare` became 31 kB |
 
 **Is this a sixth source?** `env_mgr/README.md` counts five contributors to
-`Prepared.environment`, and `docs/ui-stage.md` asks the question directly. The
-answer is that it is **a sixth call site and not a sixth kind of source**:
+`Prepared.environment`. The answer is that this is **a sixth call site and not a
+sixth kind of source**:
 `AGENT_SYS_TASK_PACKAGE` was already a zone-path variable, exported by hand at
 `prepare.py`'s step 6a, and it folds in here as one member of the family it was
 the first of. So the count of *kinds* stays five — derived `PATH`, zone paths,
@@ -28,7 +28,7 @@ imports it from there.
 
 ## What is exported, and what the user asked for that is not
 
-The requirement (`refine.task_package.define.md` item 3) lists eleven names in
+The package-format requirement (item 3) lists eleven names in
 two halves. The ``my_*`` half is here. **The four ``*_root`` names are not, and
 that is a measurement rather than an omission.**
 

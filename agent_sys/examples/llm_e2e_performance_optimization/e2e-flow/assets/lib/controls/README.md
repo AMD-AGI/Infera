@@ -14,8 +14,8 @@ never "module 5 works".**
 | `degraded/` | stock + a 2 ms sleep in `Sampler.forward` | ITL **10.05 ms** — no change | **a control that failed to be a control** |
 | `marked20/` | stock + a 20 ms sleep **and** runtime markers | ITL **33.78 ms** (+233%), tps 421.00 (−6.2%) | `REGRESSED` |
 
-Predictions for all three were committed in `RUN-PLAN.md` (`d71d765`) **before**
-the run, with the timeline that makes that auditable.
+Predictions for all three were committed **before** the run, with a timeline
+that makes that auditable.
 
 ## Why `degraded/` is kept even though it does not work
 

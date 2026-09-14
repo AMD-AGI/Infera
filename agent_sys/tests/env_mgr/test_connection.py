@@ -67,9 +67,9 @@ def test_shell_metacharacters_do_not_reach_the_far_side_shell(sent: list[list[st
 def test_cwd_is_quoted_too(sent: list[list[str]]) -> None:
     """`cd {cwd} && …` has exactly the same hole, and a zone path is generated
     rather than typed — so it is the one most likely to contain a surprise."""
-    Ssh("h").run(["true"], cwd="/data/yihou/a dir")
+    Ssh("h").run(["true"], cwd="/data/projects/a dir")
     remote = sent[0][-1]
-    assert remote.startswith("cd '/data/yihou/a dir' && ")
+    assert remote.startswith("cd '/data/projects/a dir' && ")
 
 
 def test_the_host_and_options_are_argv_not_string(sent: list[list[str]]) -> None:

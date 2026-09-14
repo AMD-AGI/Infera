@@ -134,8 +134,7 @@ next. Renumbering would move an artefact a digest already names.
 
 `interfaces.md` §4.14 recorded *"whether a pre-allocated empty `v<N>` pollutes
 any other reader of `latest`"* as **not measured**. It does, and the failure
-mode is an uncaught exception rather than a wrong answer
-(`scratch/impl-2026-08/handoff/probe_hole.py`):
+mode is an uncaught exception rather than a wrong answer:
 
 | reader | with an unsealed `v<N>` on top | now |
 |---|---|---|

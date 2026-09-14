@@ -160,11 +160,11 @@ PY
 # co-tenant that is an OOM after a full bring-up — 249 was such a node this
 # morning, and 235 became one four minutes after a hold landed on it.
 #
-# **The escape hatch that saved rung 1 does not exist here.** m1 could route
-# "take only 4–7" through `E2E_INSTRUCTION` because their leaf is an agent that
-# reads prose. This leaf is a program. That makes RUN-PLAN's *"no `--var` names
-# a GPU set, only a count"* strictly worse one stage over, and it is why this
-# needs a variable rather than a note.
+# **The escape hatch the deploy stage has does not exist here.** That stage can
+# route "take only these cards" through `E2E_INSTRUCTION`, because its leaf is an
+# agent that reads prose. This leaf is a program, so the rule *"no `--var` names
+# a GPU set, only a count"* is strictly worse here, and that is why this needs a
+# variable rather than a note.
 #
 # Precedence, and the middle rule is the one worth arguing for:
 #   1. `$E2E_GPU_DEVICES` when it names a list — the operator said which, and
@@ -362,7 +362,7 @@ if [ "$HS_WORK_ROOT_ON_HOST" != "$E2E_KIT_WORK_ROOT" ]; then
   say "  (asked for $E2E_KIT_WORK_ROOT; the kit placed its run directory below it)"
 fi
 
-# ---- 5. the profiling control plane, profiler-attached line only -------------
+# ---- 5. The profiling control plane, profiler-attached line only -------------
 # Probed with a role that cannot exist: the engine checks the 403 gate BEFORE it
 # validates the role, so 400 means profiling is on and 403 means it is not, and
 # neither touches a running profile. **Fatal**, because a capture against a 403

@@ -3,7 +3,7 @@
 # a shared host is a parameter with a default.
 : "${E2E_KIT_RUN_TAG:=stub-$(date +%Y%m%d-%H%M%S)-$$}"
 : "${E2E_KIT_PORT_BASE:=8160}"
-: "${E2E_KIT_WORK_ROOT:=/mnt/m2m_nobackup/yihou/e2e_flow/stub/${E2E_KIT_RUN_TAG}}"
+: "${E2E_KIT_WORK_ROOT:=${TMPDIR:-/tmp}/e2e_flow/stub/${E2E_KIT_RUN_TAG}}"
 : "${E2E_KIT_ENGINE_EXTRA_ARGS:=}"
 : "${E2E_KIT_ENGINE_EXTRA_ENV:=}"
 : "${KIT_MODEL:=Qwen/Qwen3.6-27B}"

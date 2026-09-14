@@ -62,7 +62,7 @@ from .yaml_source import position_of, read_yaml
 
 __all__ = ["ENTRY_FILENAME", "MODULE_KEY", "YamlPackage", "load_package"]
 
-#: The discriminator. `refine.task_package.define.md` §1.1.1: an object is a
+#: The discriminator. The package-format requirement §1.1.1: an object is a
 #: validator because it says `module: validator`, not because of where it sits.
 MODULE_KEY = "module"
 
@@ -99,8 +99,8 @@ _MODULES: Mapping[str, str] = {
 #:
 #: `froms` is deliberately absent. It names siblings inside one subgraph and the
 #: rule over it is *"the listing order must be a valid topological order"*, which
-#: `docs/ui-stage.md` §4 assigns to W5 along with the cross-check against the
-#: derived edges. Two owners reporting one violation is worse than one.
+#: is checked where the derived edges are, not here. Two owners reporting one
+#: violation is worse than one.
 #:
 #: **`inputs` is absent too, and that one is a measurement.** A validator's
 #: `inputs` names handoff kinds and a handoff's `validators` names validators, so
@@ -445,7 +445,7 @@ def _objects_in(tree: Any, *, origin: str) -> tuple[list[tuple[Any, str]], list[
     """The declared objects at a file's root, each with its JSON pointer.
 
     A file holds **one mapping** or **a list of mappings** — the two shapes
-    `refine.task_package.define.md` §1.1 names. The pointer is empty for the
+    the package-format requirement §1.1 names. The pointer is empty for the
     first, which is what keeps a single-object file's `origin` reading exactly as
     it did before rev. 10.
     """
@@ -543,9 +543,8 @@ def _origin(path: Path, pointer: str) -> str:
     packages with the same internal layout must not produce the same origin —
     `task_graph/bootstrap.py`'s `_names_for` bridges origins to names by exact
     equality, and a collision there would map one package's failure onto
-    another's spec. `docs/ui-stage.md` §2 writes the shape as
-    `steps/collect.yaml#/2`; the pointer half is adopted and the relative half is
-    not, for that reason.
+    another's spec. The approved shape was `steps/collect.yaml#/2`; the pointer
+    half is adopted and the relative half is not, for that reason.
     """
     return f"{path}#{pointer}" if pointer else str(path)
 
@@ -562,7 +561,7 @@ def _line(node: Any) -> int | None:
 def _order_problems(documents: Sequence[SpecDocument], *, origin: str) -> list[Problem]:
     """A reference to a name defined **later in the same file** is an error.
 
-    `refine.task_package.define.md` §1.1.2, and the scope is the finding.
+    the package-format requirement §1.1.2, and the scope is the finding.
 
     **Within a file, not across the package**, and that is measured rather than
     chosen for convenience. `examples/demo` is the only real package in the tree,

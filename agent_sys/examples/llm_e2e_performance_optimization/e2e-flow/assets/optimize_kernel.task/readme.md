@@ -86,7 +86,7 @@ run, and STEP 6 reads an absent `engine.patch` as a mock** (see STEP 6). A lost
 workspace and a mocked campaign produce the same handoff, which is the one
 outcome this stage cannot interpret.
 
-Node-local (`/mnt/m2m_nobackup/yihou/...`) is the right default and is also
+Node-local (`<work root>`) is the right default and is also
 faster: measured 2026-09-04, copying the engine tree is **0 s node-local against
 17 s on `/shared_nfs`**, with the `git init && add -A && commit` a further 34 s
 on NFS. Nothing needs `$W` to outlive the node — the packup is sealed into the
@@ -106,7 +106,7 @@ It **execs** into the recorded container when that container is running, and
 never starts or removes *the deployment* — m4 did not create it. **When the
 record's container is not running it starts an ephemeral one of its own** from
 the image the record names: `--rm`, self-named, removed in a trap, and never a
-name it did not create. That is the leader's ruling of 2026-09-04, because in a
+name it did not create. That is the package owner's ruling of 2026-09-04, because in a
 mock chain nobody brings the deployment up and a step that could only run after
 a real one could not be in the mock e2e at all. §5 conflated *the deployment*,
 whose lifetime is m1's, with *the measurement apparatus*, which belongs to
@@ -386,7 +386,7 @@ Ordered by how quiet they are. Each has already cost a day.
 | 2 | **`--max-hours <= 2.0` silently degrades the campaign** | forge drops Analysis to static-only and the implementer turn cap falls 500 → 100. Nothing warns you; the campaign runs and produces a report (`kernel_agents/cli.py:47`, `:1391` — strictly greater) | STEP 3 refuses to pass a value it was not told to, and sets `degraded` |
 | 3 | **the floor on `--max-hours` is 1.0 and is enforced** | `click.BadParameter` below it. There is no five-minute forge run | STEP 3 clamps and records that it did |
 | 4 | **writes to an NFS `$HOME` fail, two of the three quietly** | `~/.triton` and the experience KB fail silently; a `~/.cache` write once killed an sglang scheduler with an unremarkable `PermissionError` | `TRITON_CACHE_DIR` and `KNOWLEDGE_LOCAL_ROOT` in the agent spec. **Do not unset them and write nothing under `$HOME`** |
-| 5 | ~~**`rocprof-compute` dependency conflict degrades profiling**~~ — **this row was wrong, and wrong in the direction that made installing KernelForge look risky.** Read from the checkout 2026-09-04: its **core** dependencies are six pure-python packages (`anthropic`, `click`, `httpx`, `openai`, `pandas`, `pyyaml`) and touch no part of the ROCm stack. The `astunparse`/`kaleido` pins live in an **optional extra** whose own comment reads *"Nothing in this repository imports them: they satisfy the profiler"* — and the pinned versions are the ones ROCm 7.2 wants. **The extra exists to satisfy rocprofiler-compute, not to fight it.** | nothing to avoid | `pip install -e /shared_nfs/hyperloom/KernelForge` installs the six; ask for the `profiling` extra only if you want the profiler's own pins |
+| 5 | ~~**`rocprof-compute` dependency conflict degrades profiling**~~ — **this row was wrong, and wrong in the direction that made installing KernelForge look risky.** Read from the checkout 2026-09-04: its **core** dependencies are six pure-python packages (`anthropic`, `click`, `httpx`, `openai`, `pandas`, `pyyaml`) and touch no part of the ROCm stack. The `astunparse`/`kaleido` pins live in an **optional extra** whose own comment reads *"Nothing in this repository imports them: they satisfy the profiler"* — and the pinned versions are the ones ROCm 7.2 wants. **The extra exists to satisfy rocprofiler-compute, not to fight it.** | nothing to avoid | `pip install -e <KernelForge checkout>` installs the six; ask for the `profiling` extra only if you want the profiler's own pins |
 | 6 | **`kernel-agents list`/`show` look in the wrong directory** | `No experiments found`, and you conclude the campaign produced nothing | pass `--dir "$W/forge/forge_experiments"` |
 | 7 | **a non-clean `CLAUDE_CONFIG_DIR` crashes forge's backend probe** | `AttributeError: 'list' object has no attribute 'get'`. At least this one is loud and immediate | STEP 3 exports a clean empty one under `$KFO_SCRATCH_ROOT`, for the nested process only |
 

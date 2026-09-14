@@ -27,8 +27,8 @@ yourself. Here is every third-party thing this package uses and the reason.
 | The transform helper | **Neither** | Design §3.5: an independent module whose release cadence is the union of the harnesses'. `rulesync`, which does exactly this job for ~30 harnesses, has 299 releases and seven major versions inside two weeks |
 
 **No dependency was added that was not already declared or already an extra.**
-`pyproject.toml` gains one line — the `claude` extra — which
-`docs/implementation-stage.md` §7 assigns to this package's §8.1.
+`pyproject.toml` gains one line — the `claude` extra — which belongs to this
+package's §8.1.
 
 ### 1.1 One departure from the design's own file list
 
@@ -175,7 +175,7 @@ None of these was changed here.
 | **F8 — an executor that cannot start confined must not start, and it is now every mechanism** | `interfaces.md` split step 7 (`b846c3c`): `prepare` **checks** a mechanism exists, `prepared.spawn(argv, **kw)` **applies** it in the child | `ClaudeSDKClient` spawns the `claude` CLI itself, so **there is no child of ours for `spawn` to start** — and since `prepare` no longer confines the runner's process, that CLI is not confined by inheritance either |
 | | **I first reported the split as widening this, and `env_mgr` corrected it: no capability was lost.** Pre-split, Landlock confining the runner's thread did mean a self-spawned CLI inherited the domain — but only from a single-threaded caller, and `apply()` refused above one thread, which `agent.Runner` always is. **So in any configuration that could actually run, an AI task was never confined.** The outcome is unchanged either side of the split — the task does not start — and only the message differs. F8 did not get worse; it got honest. |
 | | **And it is soluble, which "unconfinable" wrongly implied.** `env_mgr` measured that **a grandchild inherits**: a child confined the way `spawn` confines, spawning a grandchild itself with no wrapper, is denied (`rc=13`) — which is exactly the shape of an SDK spawning its own CLI. So the real statement is *an AI task cannot be confined **in-process***. Running the harness inside a `spawn`-ed child confines the CLI with no shim, no argv interception and no cooperation from the SDK. **The cost is level 2**: `interrupt`, `instruct` and `query` are built on an in-process `ClaudeSDKClient`, and `monitor`'s `Pushable` is that handle — out-of-process, all of it needs an IPC channel that does not exist. Roadmap, not alpha. `test_an_ai_agent_cannot_be_confined_under_any_mechanism` still asserts today's architecture honestly and is not weakened | |
-| | **Three versions, and the first two were wrong in the same direction — worth recording because the shape recurs.** (1) *"Does a wrapper exist?"* refused the honest case (no wrapper at all) and admitted the dishonest one (a wrapper this executor cannot apply); `wrap_argv` landing on `Prepared` silently disarmed it, because a bound method is truthy. (2) *"Is `AgentSpec.kind` ai?"* — but the kind is a **proxy** for the executor, and a CLI override resolves a backend entry in its own right (design D6, deliberately), so a `kind: program` spec pinned to an AI backend passed and ran unwrapped. **(3) Ask the executor.** `ExecutorBase.accept_confinement` refuses by default and `ProgramExecutor` overrides it — which is spec §3.3.1's own shape (an unimplementable method raises) and **not** the capability matrix §3.3.1 forbids, a distinction the docstring states because the two look alike. Found by `closure`'s review; measured at `scratch/impl-2026-08/agent/probe_r1_override.py`. `interfaces.md` §5.11 still holds whether bubblewrap is meant to cover AI tasks at all | |
+| | **Three versions, and the first two were wrong in the same direction — worth recording because the shape recurs.** (1) *"Does a wrapper exist?"* refused the honest case (no wrapper at all) and admitted the dishonest one (a wrapper this executor cannot apply); `wrap_argv` landing on `Prepared` silently disarmed it, because a bound method is truthy. (2) *"Is `AgentSpec.kind` ai?"* — but the kind is a **proxy** for the executor, and a CLI override resolves a backend entry in its own right (design D6, deliberately), so a `kind: program` spec pinned to an AI backend passed and ran unwrapped. **(3) Ask the executor.** `ExecutorBase.accept_confinement` refuses by default and `ProgramExecutor` overrides it — which is spec §3.3.1's own shape (an unimplementable method raises) and **not** the capability matrix §3.3.1 forbids, a distinction the docstring states because the two look alike. Found by `closure`'s review; measured at a probe. `interfaces.md` §5.11 still holds whether bubblewrap is meant to cover AI tasks at all | |
 | **F9 — `select_backend`'s fourth parameter was undeclared, with a default** | `agent/protocols.py` declared `(spec, *, override, config_order)` | The implementation had `assignment: Assignment \| None = None`, and the probe *is* the constructor — so a caller using the declared signature built an agent with no instruction, no entry point and no zone, and **it would start and do nothing** |
 | | **Declared, and the default dropped** — `interfaces.md` §4.11 verbatim, and the fourth instance of a fallback whose reason had expired. `closure` found it and named the reason their own signature test had missed the same shape: *a signature test that compares parameter names and not defaults is not a signature test; the default is the drift* | |
 
@@ -203,7 +203,7 @@ None of these was changed here.
 | | **Removed**, jointly with `monitor`, who enumerated all twelve of their spec §7.1 actions and both open questions: **no path wants a bare re-entry without the wake-or-resume decision** — a replacement monitor adopting a dead one's tasks wants `carry_on` *most*, being the caller least able to know whether a thread is parked. Removed on the plain ground that it was a published promise nobody used; the stronger-sounding argument — that publishing it invites a caller to decide which shape a task is — is bounded by `ThreadAlreadyHeld`, and `monitor` said so **against their own case**. `wake()` and `is_running` stay: `carry_on` is built on them. **Two `resume`s in this system and only one is gone** — the claude-agent-sdk session resume, ~5.5 s warm and losing `permission_mode` / `--mcp-config` / `--settings` / `--add-dir`, is untouched | |
 
 | **F19 — a confined `kind: program` task cannot read its own `entry.sh`** | `Assignment.entry` is a **package-relative** path joined against `Runner(package_root=)` — the task package, which is not the zone | Nothing stages the task **body** into the zone. `env_mgr` stages handoffs and `material.deploy` places `rules`/`hooks`/`skills` under `<zone>/config/`; `closure` spec §2.6's `readme.md` and `entry.sh` are placed by nobody |
-| | **Measured, end to end, first run of the real seam** — `scratch/impl-2026-08/agent/probe_end_to_end_spawn.py`, real `EnvManager`, real `prepare`, real `spawn`, real `ProgramExecutor`, Landlock ABI 3: `entry.sh` outside the zone → `cannot open …: Permission denied`; inside the zone → runs, and `home-read=DENIED root-write=denied home-write=denied zone-write=yes`. **So the confinement works and the body is unreachable** — same shape as M3, one artefact over. Either the package root is granted read-execute or the body is staged into the zone like a handoff; the second is more consistent, since the zone is what an agent reaches. Not mine alone: the grant is `env_mgr`'s and the body is `closure`'s | |
+| | **Measured, end to end, first run of the real seam** — a probe, real `EnvManager`, real `prepare`, real `spawn`, real `ProgramExecutor`, Landlock ABI 3: `entry.sh` outside the zone → `cannot open …: Permission denied`; inside the zone → runs, and `home-read=DENIED root-write=denied home-write=denied zone-write=yes`. **So the confinement works and the body is unreachable** — same shape as M3, one artefact over. Either the package root is granted read-execute or the body is staged into the zone like a handoff; the second is more consistent, since the zone is what an agent reaches. Not mine alone: the grant is `env_mgr`'s and the body is `closure`'s | |
 
 | **F20 — every failed task had an empty `Execution.detail`** | The field is documented *"from the runner; for a human"*, `Scheduler.on_task_done` has always taken `detail`, and `_crash` has the exception in hand | `OnDone` was `Callable[[TaskId, TaskStatus, dict[str, float]], None]` — **the declared type could not express the argument the implementation accepted** |
 | | Measured by `demo` on a live run: `detail=''` while the same exception sat complete in the monitor's record. **Not fixed by passing the keyword**, which would have worked in production and broken every conforming callback — F3's shape and F9's, a third time. `task_graph` widened `OnDone` to a Protocol (`f1faf74`) and I pass `f"{type(exc).__name__}: {exc}"`. That form is measured, not preferred: `str(KeyError('agent'))` is `"'agent'"`, a bare quoted word in the field a human reads first — and the joined form is exactly `exception_type` + `exception_message` from the recorder, so the two renderings are one fact | |
@@ -265,7 +265,7 @@ consumes Y and nobody checks that X's signature can accept Y.
 
 `claude-agent-sdk` 0.2.148 was installed on this machine and the adapter was
 driven against the live gateway for the first time. Probes kept in
-`scratch/impl-2026-08/agent/`, run with every `ANTHROPIC_*` variable scrubbed
+A probe, run with every `ANTHROPIC_*` variable scrubbed
 so nothing is an artifact of the operator's own shell.
 
 **It works.** `ClaudeSdkBackend.start()` returned `FINISHED` / `'success'`,
@@ -299,7 +299,7 @@ environment, a query still returned in 0.79 s. And
 were wrong in the same direction.** Recorded here because the file looks
 authoritative, is easy to grep, and answers a narrower question than anyone
 assumed. Probe:
-`scratch/impl-2026-08/agent/probe_transcript_records_system_prompt.py`.
+A probe.
 
 | grepped for | in the transcript | so a zero means |
 |---|---|---|
@@ -486,7 +486,7 @@ is still a legal caller.
 `task-graph` widened the shape from `getattr` to *"asking whether a collaborator
 can do its job and continuing when the answer is no"*, and `closure` supplied
 the question that is answerable before you know whether a guard is right:
-**has anything ever taken this branch?** `scratch/impl-2026-08/agent/probe_default_arms.py`
+**has anything ever taken this branch?** A probe
 answers it mechanically — it shadows `getattr` inside the package's modules,
 counts the arms where the attribute was genuinely *absent*, and runs the suite:
 
@@ -511,8 +511,7 @@ unattributed thread as the control.
 **One place the check cannot be applied.** `backends/claude_sdk.py` reads
 `terminal_reason`, `subtype`, `is_error`, `api_error_status` and `session_id`
 off SDK message objects. `claude-agent-sdk` is an extra and is not installed
-here, and driving it needs credentials, which `implementation-stage.md` forbids
-in the suite. Those five reads are **unverified against their subject** and
+here, and driving it needs credentials, which the suite does not carry. Those five reads are **unverified against their subject** and
 this is the honest state of them, not a claim that they are fine.
 
 ### 6.2 What another package owes nobody, but should know

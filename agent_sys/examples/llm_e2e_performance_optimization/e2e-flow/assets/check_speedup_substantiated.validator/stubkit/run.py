@@ -180,7 +180,7 @@ _REAL = {
 REAL_TRANSPORT = all(_REAL[k] for k in ("container", "node", "jobid", "root"))
 
 
-def _environment(node: str = "crsuse2-m2m-061") -> dict:
+def _environment(node: str = "node-061") -> dict:
     runtime = {"container": "stub", "endpoint": "http://127.0.0.1:30000",
                "started_at": "2026-09-03T00:00:00Z", "transport": "local"}
     if REAL_TRANSPORT:
@@ -195,7 +195,7 @@ def _environment(node: str = "crsuse2-m2m-061") -> dict:
             "node": node, "gpu_arch": "gfx950", "gpu_count": 8,
             "image": "infera/engine-sglang:gfx950-local", "image_id": "sha256:" + "a" * 12,
             "dockerfile": None, "rocm": "7.2.4", "torch": "2.10.0", "driver": "6.14.14",
-            "model_name": "Qwen/Qwen3-0.6B", "model_path": "/shared_nfs/models/Qwen3-0.6B",
+            "model_name": "Qwen/Qwen3-0.6B", "model_path": "<small model path>",
             "tp_size": 1,
         },
         "runtime": runtime,

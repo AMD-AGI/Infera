@@ -31,7 +31,7 @@ machinery.
 
 The previous stage checked the environment with three regexes over
 `environment.md` — *"does the word `image` appear on some line"*
-(`../../../deploy-demo/assets/check_deploy_kit.validator/check.py:71-80`). That
+(the deploy stage's original `check_deploy_kit.validator/check.py:71-80`). That
 is what M1.1.1 objects to and it is gone.
 
 The record is now `codes/environment.yaml`, validated as a document. Its

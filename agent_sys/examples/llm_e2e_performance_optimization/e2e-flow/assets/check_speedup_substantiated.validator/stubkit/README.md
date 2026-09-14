@@ -51,13 +51,13 @@ one. It does not mean any speedup anywhere is real.
 |---|---|---|
 | 1 | the candidate is genuinely faster and the claim is honest | — (PASS) |
 | 2 | the seed **disagrees** with the workset's recorded baseline | the premise silently did not hold; under the deleted rule this was a re-baseline, and the report stayed internally consistent while answering a different question |
-| 3 | `run_performance.sh` **exits non-zero** on the candidate | a crashed measurement read as a zero-speedup measurement — the failure the leader named, and the worst one here, because it looks like an honest null result |
+| 3 | `run_performance.sh` **exits non-zero** on the candidate | a crashed measurement read as a zero-speedup measurement — the failure the package owner named, and the worst one here, because it looks like an honest null result |
 | 4 | the report is **missing `weighted_mean_ms`** for a case | a case silently dropped from the mean, so a candidate slower on one shape is averaged over two |
 | 5 | the producer **over-claims** — 2.8× claimed, 1.1× re-measured | the number nobody downstream re-derives |
 | 6 | the candidate clears nothing — 1.01× against a 1.057 floor | noise reported as a win |
 | 7 | `noise_floor` absent from the claim | the consumer picks its own significance threshold (m3's objection, made executable) |
 
-Cases 2 and 3 are the two the leader asked for specifically, and they are the
+Cases 2 and 3 are the two the package owner asked for specifically, and they are the
 two a real workset cannot be asked to produce on demand.
 
 ## It found a real bug on its first proper run, which is case 4

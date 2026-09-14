@@ -7,8 +7,8 @@ reads the message against the code they just wrote and it always parses. Every
 other entry that day either carries a check or says plainly that nothing detects
 it; this one can be checked, and m5 is who noticed:
 
-    the leader's instance is the only one of the seven found by a MACHINE rather
-    than a person -- `checkpoint` counting `PROBLEM:` lines for an unrelated
+    the package owner's instance is the only one of the seven found by a MACHINE rather
+    than a person -- another owner counting `PROBLEM:` lines for an unrelated
     reason. Counting them under `passed` headings is a one-liner that would have
     caught it the day it landed.
 
@@ -17,7 +17,7 @@ finding that *refuses*, so under a `passed` heading it is a contradiction in the
 helper's own vocabulary. A bare `grep -c PROBLEM:` over a run finds eleven and
 mis-keys — four are `check_no_regression`'s under `REFUSED` and are correct.
 Only the pairing is the signal. (And `grep -c '^PROBLEM:'` finds **zero**: the
-lines are indented two spaces. `checkpoint` was one step from recording that
+lines are indented two spaces. another owner was one step from recording that
 the four expected reasons were absent from a run that carried them.)
 
 **What it does NOT catch.** T49 is *right verdict, wrong explanation*, and this

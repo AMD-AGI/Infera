@@ -37,7 +37,7 @@ phase it cannot be asked: a validator is handed only the handoffs it declared in
 `operator_workset` in `inputs` instead is not a route to it — it binds this body
 to the *workset kind's* phases and records a FAIL on a producer that did nothing
 wrong, which is measured and written up in
-`../../../kernel-opt-demo/assets/check_speedup_substantiated.validator/check.py`.
+the kernel-optimisation stage's original `check_speedup_substantiated.validator/check.py`.
 
 So `_cross_check` looks through `materials.json` for a staged handoff that
 *is* a workset and compares. In m4's output phase there is none and it **says

@@ -926,7 +926,7 @@ def _registry(
     # at the content it must read. F-D5, and `interfaces.md` §5.8 at its widest.
     #
     # **`PATH` is not a workaround and my first report of it was wrong.**
-    # Measured (`scratch/impl-2026-08/demo/p2_sh_default_path.py`): POSIX `sh`
+    # Measured: POSIX `sh`
     # substitutes a built-in default when none is inherited, so a body starts
     # with `/usr/local/sbin:...:/bin` and finds `python3` either way. Setting it
     # here is choosing a **policy** — which binaries a validation may reach —

@@ -146,7 +146,7 @@ def build(sets: list[str]) -> dict:
     # m1 met it in a mock run, and a real run reaches it identically.
     #
     # Same rule `remote.sh` dispatches on: `spur` wherever the binary exists,
-    # otherwise `srun`. On the AMD crsuse2-m2m cluster `srun` exists but is not
+    # otherwise `srun`. On some clusters `srun` exists but is not
     # Slurm's, so probing for the srun binary picks the wrong one — which is why
     # this probes for `spur` and falls back rather than the other way round.
     #

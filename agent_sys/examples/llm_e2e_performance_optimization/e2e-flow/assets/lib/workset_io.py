@@ -7,7 +7,7 @@ Three parties read this artefact and they must not read it differently:
 it. Four hand-rolled readers of one layout is four chances for the workset's
 "three shapes" to mean three different things.
 
-The arithmetic lives here for the reason `analyze-demo` put `bench_stats` in
+The arithmetic lives here for the reason the analysis stage put `bench_stats` in
 `assets/lib/`: the producer and the validator import the same
 `weighted_mean`, so a stored figure that disagrees with the raw per-group
 numbers **cannot** come from a different formula. It can only come from the
@@ -77,7 +77,7 @@ _URL = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://\S*")
 #: flagged three lines of a correct generated `run_forge.sh` on the first run of
 #: the full chain.
 #:
-#: `analyze-demo` works around this by building script paths in two steps and
+#: the analysis stage works around this by building script paths in two steps and
 #: telling the reader not to "simplify" them back. That contortion existed to
 #: satisfy the seal, and the seal does not run. The rule here is *no hard-coded
 #: host path*, so stripping the expansion before scanning is not a loosening —

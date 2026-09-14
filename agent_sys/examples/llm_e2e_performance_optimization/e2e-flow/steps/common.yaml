@@ -1,5 +1,5 @@
 # Validators that belong to no single module because they enforce a rule every
-# module shares. **Owned by the leader**, not by a module owner: a shared
+# module shares. **Owned by the package owner**, not by a module owner: a shared
 # validator that five people edit is five validators wearing one name, which is
 # one of the three seams `handoff.analysis.md` recorded in the五-package layout.
 #
@@ -110,7 +110,7 @@
 # --------------------------------------------------------------------------- #
 # The kernel table, mission M3.5: check_kernel_table 应该和 module 2 共享一个.
 #
-# `profiling-demo` and `analyze-demo` each carry a copy today, with different
+# the profiling stage and the analysis stage each carry a copy today, with different
 # `args` and different `min_rows`. Resolution is per-file so nothing was broken,
 # but a reader assumes one — and the two tables they graded turned out to be
 # different artefacts (a real 124-kernel capture, and a 34-row synthetic seed).

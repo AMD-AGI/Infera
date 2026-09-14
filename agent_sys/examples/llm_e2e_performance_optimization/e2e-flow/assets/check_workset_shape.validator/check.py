@@ -34,10 +34,10 @@ Schema cannot state, and on this kind it is most of the value:
    the single most common way a speedup number becomes meaningless, and it is
    invisible in a document where both fields are merely present.
 5. **The KernelForge add-on agrees with the base it was generated from**
-   (M3.7.6). Same argument `analyze-demo` made for `invocation_spec.json`
+   (M3.7.6). Same argument the analysis stage made for `invocation_spec.json`
    against `forge_task.yaml`: two files produced from one record, so a
    disagreement means one was edited on its own.
-6. **No hard-coded host path in executable or generated content.** `analyze-demo`
+6. **No hard-coded host path in executable or generated content.** the analysis stage
    justifies this rule by saying the seal refuses a delivery over one. Measured
    against the framework rather than inherited: it does not.
    `handoff/store.py:447,494` decline to call `locality.check` — user-ruled
@@ -573,7 +573,7 @@ def _check(content: Path, args: dict, problems: list[str], notes: list[str]) -> 
 
     # Rules 6 and 7.
     #
-    # **The premise `analyze-demo` gave for rule 6 is no longer true and the
+    # **The premise the analysis stage gave for rule 6 is no longer true and the
     # rule is kept anyway, rescoped.** That validator says an absolute path
     # "refuses the whole delivery" at the seal. Measured against the framework
     # rather than inherited: `handoff/store.py:447,494` do not call

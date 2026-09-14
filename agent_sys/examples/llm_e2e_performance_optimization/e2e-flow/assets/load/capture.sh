@@ -26,7 +26,7 @@ TRACE_OUT="${TRACE_OUT:?}"
 #: "same path inside" would overturn a working convention for every kit.
 #:
 #: Defaults to `$TRACE_OUT`, so the same-path convention keeps working unchanged
-#: and `profiling-demo`'s behaviour is byte-identical.
+#: and the profiling stage's behaviour is byte-identical.
 #:
 #: Getting this wrong is not a crash: SGLang writes to the path the **engine**
 #: sees, so a container-side path that is not the mount lands in the container
@@ -34,7 +34,7 @@ TRACE_OUT="${TRACE_OUT:?}"
 #: directory at the end with no error anywhere.
 TRACE_OUT_IN_CONTAINER="${TRACE_OUT_IN_CONTAINER:-$TRACE_OUT}"
 #: The engine's own log, **as the container sees it** — section 2/6 waits for
-#: batch lines in it. The default is the path `profiling-demo` used, kept so
+#: batch lines in it. The default is the path the profiling stage used, kept so
 #: that package stays byte-identical; every kit that puts the log somewhere else
 #: passes this. m1's kit writes `${work_root}/logs/worker.log` (measured on 088,
 #: 2026-09-05: 811 `Decode batch`/`Prefill batch` lines in a run where the
@@ -76,7 +76,7 @@ echo "===== 1/6 preflight ====="
 # **The mount does not have to sit exactly on the trace directory.** An earlier
 # version demanded `.Destination == $TRACE_OUT_IN_CONTAINER`, and that refused
 # every real bring-up: m1's kit mounts one rw parent
-# (`/mnt/m2m_nobackup/yihou`) and the traces land several levels below it. The
+# (`<work root>`) and the traces land several levels below it. The
 # directory was writable and the capture aborted anyway — measured on two nodes,
 # runs p4_b (275) and p4_a (088), 2026-09-05.
 #
@@ -204,7 +204,7 @@ echo "===== 5/6 start (window ${WINDOW_S}s, with_stack=${WITH_STACK}) ====="
 # `with_stack` MUST be explicit either way: SGLang defaults it to True, and a
 # measurement window taken with stacks on is one nobody can afford.
 #
-# **Measured on smci355-ccs-aus-n04-29, 2026-09-01** (`temp/manual/FINDINGS.md`),
+# **Measured on an MI355X node**,
 # same workload profiled twice in the engine image: 2,996,700 bytes of trace
 # against 228,553, so **13.1x uncompressed and 16.5x gzipped**, from 9,565
 # `python_function` events against none. The kernel count and the total kernel

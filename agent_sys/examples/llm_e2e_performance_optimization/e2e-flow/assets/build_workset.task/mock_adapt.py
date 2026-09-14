@@ -65,7 +65,7 @@ import workset_io as W  # noqa: E402
 from module_symbols import SNIPPET as MODULE_SYMBOLS_SNIPPET  # noqa: E402
 
 HARNESS = PKG / "assets" / "build_workset.task" / "harness"
-MOCK_ROOT = Path(os.environ.get("E2E_MOCK_ROOT") or "/shared_nfs/yihou/agent_sys/cheat_for_mock")
+MOCK_ROOT = Path(os.environ.get("E2E_MOCK_ROOT") or "")
 STAGE4 = MOCK_ROOT / "stage4-kernel-opt/workset/content/items/codes/sampler_vocab_softmax"
 
 OPERATOR = "sampler_vocab_softmax"
@@ -96,7 +96,7 @@ def _read_cases() -> list[tuple[str, int, int]]:
     """`(case_id, batch, vocab)` from the sealed driver's own `_CASES` tuple.
 
     Parsed out of the driver rather than restated, so a mock cannot drift from
-    the artefact it claims to represent. `kernel-opt-demo`'s
+    the artefact it claims to represent. The kernel-optimisation stage's
     `check_workset_shape` parses the same tuple for the same reason.
 
     **Parsed with `ast`, and the regex it replaces is worth recording.** A
@@ -324,7 +324,7 @@ def _image_facts(root: Path, target: str) -> tuple[dict | None, list | None]:
     )
     encoded = base64.b64encode(inner.encode()).decode()
     # Spaces around the pipes: unspaced returns 255 with no output on
-    # crsuse2-m2m-047 and works on 006. Measured on both; see
+    # node-047 and works on 006. Measured on both; see
     # `measure_in_container.sh` for the full 2x2.
     script = f"echo {encoded} | base64 -d | python3"
     probe = subprocess.run(

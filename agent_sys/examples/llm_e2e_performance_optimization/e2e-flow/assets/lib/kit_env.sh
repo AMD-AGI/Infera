@@ -16,9 +16,9 @@
 # reads like "no such handoff" and means "wrong content type". Found by aiming
 # the invalid-status test at the wrong kind.
 #
-# **One authority for a read that five RUN-PLAN sections do** (CONTRACT §4.3).
-# Every rung's section begins by taking deployment facts out of the rung below's
-# run, and until 2026-09-04 all five did it with the same one-liner:
+# **One authority for a read that every stage does** (CONTRACT §4.3).
+# Each stage begins by taking deployment facts out of the previous stage's run,
+# and all five once did it with the same one-liner:
 #
 #     find "$RUN" -path '*items/codes/environment.yaml' | head -1
 #

@@ -143,7 +143,7 @@ CONTENT_DIR = _CONTENT_DIR
 #:
 #: A directory rather than a file, so a second claim needs no second ruling, and
 #: a *sibling* of `content/` rather than a child. Measured
-#: (`scratch/impl-2026-08/env_mgr/p9_a_sibling_claim_dir_survives_seal.py`, and
+#: (a probe, and
 #: `handoff`'s `probe_claim_location.py` from the other side): a sibling survives
 #: `seal` and leaves the digest byte-identical at ``718d7aeb31a76c32…``, where
 #: putting it *inside* `content/` moves the digest — the claim would become part
