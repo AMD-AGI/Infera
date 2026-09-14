@@ -46,6 +46,18 @@ from .gpu_cleanup import dirty_message
 # mount — the normal case on these clusters).
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 GPU_CLEANUP = os.path.join(REPO, "tests", "e2e", "harness", "gpu_cleanup.py")
+# Preflight settings that must survive an srun step. Unset ones are omitted so
+# gpu_cleanup keeps its own defaults instead of receiving empty strings.
+_CLEANUP_ENV_PASSTHROUGH = (
+    "INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS",
+    "INFERA_E2E_RECLAIM_VRAM_FRACTION",
+    "INFERA_E2E_RECLAIM_KEEP",
+)
+
+
+def _forwarded_cleanup_env() -> list[str]:
+    return [f"{name}={os.environ[name]}" for name in _CLEANUP_ENV_PASSTHROUGH if name in os.environ]
+
 
 # Host libionic so in-container libibverbs matches the ionic RoCE kernel ABI
 # (same mount the preflight uses). Harmless if the image entrypoint ignores it.
@@ -241,6 +253,9 @@ class SrunDockerLauncher(WorkerLauncher):
                             "env",
                             "INFERA_E2E_EXCLUSIVE=1",
                             f"INFERA_E2E_SLURM_NODE={node}",
+                            # Named explicitly like the two above: a knob that
+                            # failed to propagate would read as a clean node.
+                            *_forwarded_cleanup_env(),
                             "python3",
                             GPU_CLEANUP,
                         ],

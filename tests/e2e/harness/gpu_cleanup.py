@@ -9,6 +9,13 @@ This helper runs on the compute-node host, before the test container starts.
 It deliberately signals only processes owned by the current uid.  An exclusive
 SLURM allocation makes same-uid GPU users stale by definition, but it does not
 make an unmanaged process owned by another user safe to kill.
+
+``INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS=1`` adds one opt-in exception: a
+``docker run`` container from inside a job sits outside the scheduler's cgroup
+and outlives it, so the node returns to ``idle`` still holding every GPU and the
+Spur hooks that would sweep it are pinned off here.  Sound only because the
+allocation is exclusive -- nothing else can hold this node, so such a container
+belongs to a job that already ended.  ``stop``, not ``rm``, so it can restart.
 """
 
 from __future__ import annotations
@@ -28,6 +35,20 @@ GPU_DIRTY_MARKER = "INFERA_E2E_GPU_NODE_DIRTY"
 GPU_DIRTY_NODE_PREFIX = f"{GPU_DIRTY_MARKER}_NODE="
 _VRAM_BUSY_FRACTION = 0.05
 _ROCM_SMI_TIMEOUT = 5
+# Sweeps below the dirty threshold: _VRAM_BUSY_FRACTION asks "is this node
+# unusable", this asks "is anything still here at all".
+_RECLAIM_VRAM_FRACTION = 0.01
+_DOCKER_TIMEOUT = 15
+# SIGTERM then SIGKILL: a rushed kill of a large allocation can wedge the GPU.
+_DOCKER_STOP_TIMEOUT = 30
+# Kubernetes pods, and our own containers -- the disagg tier preflights one node
+# while the pair's other node may already be serving this very run.
+_PROTECTED_CONTAINER_NAME_PREFIXES = ("k8s_", "infera-e2e-", "infera-utest-")
+_PROTECTED_CONTAINER_LABEL_PREFIXES = (
+    "io.kubernetes.",
+    "annotation.io.kubernetes.",
+    "infera.e2e.job_tag",
+)
 _SYSTEM_PROCESS_NAMES = frozenset(
     {
         "amd-smi",
@@ -172,12 +193,101 @@ def _gpu_vram() -> dict[int, tuple[int, int]] | None:
     return vram or None
 
 
-def _busy_gpus(vram: dict[int, tuple[int, int]] | None) -> dict[int, tuple[int, int]]:
+def _busy_gpus(
+    vram: dict[int, tuple[int, int]] | None, fraction: float = _VRAM_BUSY_FRACTION
+) -> dict[int, tuple[int, int]]:
     if not vram:
         return {}
-    return {
-        gpu: values for gpu, values in vram.items() if values[0] >= _VRAM_BUSY_FRACTION * values[1]
-    }
+    return {gpu: values for gpu, values in vram.items() if values[0] >= fraction * values[1]}
+
+
+def _reclaim_containers_enabled() -> bool:
+    return os.environ.get("INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS") == "1"
+
+
+def _reclaim_vram_fraction() -> float:
+    return float(os.environ.get("INFERA_E2E_RECLAIM_VRAM_FRACTION", str(_RECLAIM_VRAM_FRACTION)))
+
+
+def _docker(*args: str, timeout: int = _DOCKER_TIMEOUT) -> str | None:
+    """Run a docker command, returning stdout, or ``None`` when it cannot run."""
+    try:
+        done = subprocess.run(
+            ["docker", *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if done.returncode != 0:
+        return None
+    return done.stdout
+
+
+def _container_is_protected(name: str, labels: str) -> bool:
+    if name.startswith(_PROTECTED_CONTAINER_NAME_PREFIXES):
+        return True
+    if any(prefix in labels for prefix in _PROTECTED_CONTAINER_LABEL_PREFIXES):
+        return True
+    # Escape hatch for whatever this fleet grows next, without a code change.
+    keep = os.environ.get("INFERA_E2E_RECLAIM_KEEP", "")
+    return any(token and token in name for token in (part.strip() for part in keep.split(",")))
+
+
+def _reclaimable_containers() -> list[tuple[str, str]] | None:
+    """Running containers this job may stop, as ``[(name, image)]``.
+
+    ``None`` means docker could not be queried -- not that the node is empty.
+    """
+    listing = _docker("ps", "--format", "{{.Names}}\t{{.Image}}\t{{.Labels}}")
+    if listing is None:
+        return None
+    containers: list[tuple[str, str]] = []
+    for line in listing.splitlines():
+        fields = line.split("\t")
+        if len(fields) < 2 or not fields[0]:
+            continue
+        name, image = fields[0], fields[1]
+        labels = fields[2] if len(fields) > 2 else ""
+        if _container_is_protected(name, labels):
+            print(f"[gpu-cleanup] protected container left running: {name}", file=sys.stderr)
+            continue
+        containers.append((name, image))
+    return containers
+
+
+def _stop_foreign_containers() -> list[str]:
+    """``docker stop`` every reclaimable container. Returns the names stopped.
+
+    Best-effort: the VRAM re-check, not this sweep, is the verdict.
+    """
+    containers = _reclaimable_containers()
+    if containers is None:
+        print(
+            "[gpu-cleanup] docker could not be queried — skipping container reclaim",
+            file=sys.stderr,
+            flush=True,
+        )
+        return []
+    stopped: list[str] = []
+    for name, image in containers:
+        print(f"[gpu-cleanup] stopping foreign container {name} (image {image})", file=sys.stderr)
+        if (
+            _docker(
+                "stop",
+                "--time",
+                str(_DOCKER_STOP_TIMEOUT),
+                name,
+                timeout=_DOCKER_STOP_TIMEOUT + _DOCKER_TIMEOUT,
+            )
+            is None
+        ):
+            print(f"[gpu-cleanup] could not stop {name}", file=sys.stderr, flush=True)
+            continue
+        stopped.append(name)
+    return stopped
 
 
 def _expected_gpu_ids() -> set[int]:
@@ -418,6 +528,25 @@ def cleanup_exclusive_gpu_processes(
                 f"same-uid GPU processes kept appearing after {max_rounds} cleanup rounds: {detail}"
             )
         )
+
+    # VRAM still held after a same-uid-only sweep belongs to a container no
+    # signal of ours reaches. Stop those; the re-check below is the verdict.
+    if _reclaim_containers_enabled():
+        occupied = _busy_gpus(_gpu_vram(), _reclaim_vram_fraction())
+        if occupied:
+            print(
+                f"[gpu-cleanup] VRAM still held after same-uid cleanup "
+                f"({_format_busy(occupied)}) — reclaiming foreign containers",
+                file=sys.stderr,
+                flush=True,
+            )
+            stopped = _stop_foreign_containers()
+            print(
+                f"[gpu-cleanup] stopped {len(stopped)} foreign container(s)"
+                + (f": {', '.join(stopped)}" if stopped else ""),
+                file=sys.stderr,
+                flush=True,
+            )
 
     busy = _wait_for_vram(vram_timeout)
     if busy is None:

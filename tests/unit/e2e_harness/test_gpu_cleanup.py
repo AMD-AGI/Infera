@@ -299,3 +299,135 @@ def test_rocm_process_json_parser_handles_system_envelope(monkeypatch):
         17976: "gpuagent",
         22222: "python3",
     }
+
+
+def _reclaim_node(monkeypatch, *, stopped, containers, vram):
+    """Wire a node whose same-uid sweep is a no-op, so only reclaim is exercised."""
+    monkeypatch.setenv("INFERA_E2E_EXCLUSIVE", "1")
+    monkeypatch.setattr(gpu_cleanup.os, "getuid", lambda: 1001)
+    monkeypatch.setattr(gpu_cleanup, "_gpu_process_names", lambda: {})
+    monkeypatch.setattr(gpu_cleanup, "_gpu_vram", lambda: vram)
+    monkeypatch.setattr(gpu_cleanup, "_wait_for_vram", lambda timeout: {})
+
+    def docker(*args, timeout=None):
+        if args[0] == "ps":
+            return containers
+        if args[0] == "stop":
+            stopped.append(args[-1])
+            return ""
+        raise AssertionError(f"unexpected docker call: {args}")
+
+    monkeypatch.setattr(gpu_cleanup, "_docker", docker)
+
+
+def test_foreign_containers_are_left_alone_unless_reclaim_is_enabled(monkeypatch):
+    stopped: list[str] = []
+    _reclaim_node(
+        monkeypatch,
+        stopped=stopped,
+        containers="someone_elses_training\trocm/pytorch\t\n",
+        vram={0: (280 * 1024**3, 288 * 1024**3)},
+    )
+    monkeypatch.delenv("INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS", raising=False)
+
+    gpu_cleanup.cleanup_exclusive_gpu_processes()
+
+    assert stopped == []
+
+
+def test_reclaim_stops_foreign_container_holding_vram(monkeypatch):
+    stopped: list[str] = []
+    _reclaim_node(
+        monkeypatch,
+        stopped=stopped,
+        containers="someone_elses_training\trocm/pytorch\t\n",
+        vram={0: (280 * 1024**3, 288 * 1024**3)},
+    )
+    monkeypatch.setenv("INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS", "1")
+
+    gpu_cleanup.cleanup_exclusive_gpu_processes()
+
+    assert stopped == ["someone_elses_training"]
+
+
+def test_reclaim_does_not_run_on_an_empty_node(monkeypatch):
+    stopped: list[str] = []
+    _reclaim_node(
+        monkeypatch,
+        stopped=stopped,
+        containers="idle_sidecar\trocm/pytorch\t\n",
+        vram={0: (1 * 1024**3, 288 * 1024**3)},
+    )
+    monkeypatch.setenv("INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS", "1")
+
+    gpu_cleanup.cleanup_exclusive_gpu_processes()
+
+    assert stopped == []
+
+
+def test_reclaim_never_stops_a_kubernetes_pod(monkeypatch):
+    stopped: list[str] = []
+    _reclaim_node(
+        monkeypatch,
+        stopped=stopped,
+        containers=(
+            "k8s_serving_frontend\tnginx\t\n"
+            "pod_sidecar\tbusybox\tio.kubernetes.pod.name=serving\n"
+            "someone_elses_training\trocm/pytorch\t\n"
+        ),
+        vram={0: (280 * 1024**3, 288 * 1024**3)},
+    )
+    monkeypatch.setenv("INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS", "1")
+
+    gpu_cleanup.cleanup_exclusive_gpu_processes()
+
+    assert stopped == ["someone_elses_training"]
+
+
+def test_reclaim_keep_list_protects_named_containers(monkeypatch):
+    stopped: list[str] = []
+    _reclaim_node(
+        monkeypatch,
+        stopped=stopped,
+        containers="licence_daemon\tvendor/lic\t\nsomeone_elses_training\trocm/pytorch\t\n",
+        vram={0: (280 * 1024**3, 288 * 1024**3)},
+    )
+    monkeypatch.setenv("INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS", "1")
+    monkeypatch.setenv("INFERA_E2E_RECLAIM_KEEP", "licence_")
+
+    gpu_cleanup.cleanup_exclusive_gpu_processes()
+
+    assert stopped == ["someone_elses_training"]
+
+
+def test_reclaim_is_skipped_when_docker_cannot_be_queried(monkeypatch):
+    monkeypatch.setenv("INFERA_E2E_EXCLUSIVE", "1")
+    monkeypatch.setenv("INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS", "1")
+    monkeypatch.setattr(gpu_cleanup.os, "getuid", lambda: 1001)
+    monkeypatch.setattr(gpu_cleanup, "_gpu_process_names", lambda: {})
+    monkeypatch.setattr(gpu_cleanup, "_gpu_vram", lambda: {0: (280 * 1024**3, 288 * 1024**3)})
+    monkeypatch.setattr(gpu_cleanup, "_wait_for_vram", lambda timeout: {})
+    monkeypatch.setattr(gpu_cleanup, "_docker", lambda *args, timeout=None: None)
+
+    assert gpu_cleanup.cleanup_exclusive_gpu_processes() == 0
+
+
+def test_reclaim_never_stops_inferas_own_containers(monkeypatch):
+    """The disagg tier preflights one node while the other may already serve."""
+    stopped: list[str] = []
+    _reclaim_node(
+        monkeypatch,
+        stopped=stopped,
+        containers=(
+            "infera-e2e-disagg-run7-etcd\tetcd\t\n"
+            "infera-utest-run7-atom-e2e\trocm/vllm\t\n"
+            "tagged_by_label\trocm/vllm\tinfera.e2e.job_tag=run7\n"
+            "someone_elses_training\trocm/pytorch\t\n"
+        ),
+        vram={0: (280 * 1024**3, 288 * 1024**3)},
+    )
+    monkeypatch.setenv("INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS", "1")
+
+    gpu_cleanup.cleanup_exclusive_gpu_processes()
+
+    assert stopped == ["someone_elses_training"]
