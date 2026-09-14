@@ -1,0 +1,71 @@
+# The outermost graph. Its name is fixed and its presence is what makes this
+# directory a task package (main spec §4.3).
+#
+# Where `examples/demo2/` is thirteen leaves across two levels, this is the
+# other extreme: **one leaf, one handoff kind, two validators**, and every
+# construct in it is there because the mission needs it rather than because a
+# demo wanted to show it off.
+#
+# `main` is a **non-leaf**: it carries `assets/main.task/readme.md` and no
+# `entry.sh`, because its work *is* its subgraph and the two are mutually
+# exclusive (`closure` spec §2.6). It declares **no `agent`** —
+# `closure.schema.json` requires one of a leaf and of nothing else — and **no
+# `resources`**, because only a leaf may acquire.
+#
+# **Why a non-leaf root over a one-entry subgraph, rather than making `main`
+# itself the leaf.** `examples/demo` and `examples/demo2` both have a non-leaf
+# root and that shape is what the suite exercises; a leaf root is not. A
+# single-entry subgraph is the smallest step off the known-good shape, and the
+# cost of the extra level is one YAML block.
+#
+# There is **no `body:` key** here or anywhere else in this package. A folder
+# named `${name}.${type}` under `assets/` scopes the lookup and `readme.md` /
+# `entry.sh` are then found by their own names.
+module: task
+name: main
+description: Serve Qwen3.6-27B in mix mode on infera + sglang and hand back a reproduction kit.
+
+# One kind, declared here because the root's grants must cover the whole
+# subtree: permissions are inherited downwards, so the root is the one place
+# that has to know the full vocabulary. `runbook` is *defined* in
+# `steps/serve.yaml`, beside its producer; this list only references it.
+handoffs:
+  - runbook
+
+# A non-leaf runs nothing, so there is nothing of its own to validate. Both
+# validators in this package hang off the `runbook` kind, in the step file that
+# declares it.
+validators: []
+
+task:
+  goal: Serve Qwen3.6-27B in mix mode and hand back a reproduction kit.
+  version: '1'
+
+  # `main` consumes nothing from outside the package.
+  inputs: []
+
+  # `runbook`, and only `runbook`. The end entry's outputs are the sole route
+  # by which a handoff produced inside a subgraph leaves it (`task_graph`
+  # criterion 50), and `serve_qwen` is marked `is_end` below.
+  outputs: [runbook]
+
+  # One kind, one grant. **WRITE covers READ**, so this one line covers the
+  # producer and any future consumer.
+  permissions:
+    grants:
+      - {path: handoffs/runbook, access: write, kind: runbook}
+
+  # **`froms: []` is an answer, not an omission.** The edge set is *derived*
+  # from the handoff wiring (`task_graph/models.py:349-361`) and what is written
+  # here is checked against that derivation; a derived edge missing from `froms`
+  # is a load failure naming both sides. With one entry there is nothing earlier
+  # to point at, so the derived set is empty and so is this.
+  #
+  # **`is_start` is absent and `is_end` is not**, and the asymmetry is the
+  # schema's: absent, the *first* entry is the start — which a one-entry
+  # subgraph satisfies for free — while absent, the *last* entry is the end, so
+  # the mark carries no information today and starts carrying it the moment a
+  # second entry is appended. Writing it now is what keeps the one kind that
+  # escapes from moving silently later.
+  subgraph:
+    - {closure: serve_qwen, froms: [], is_end: true}

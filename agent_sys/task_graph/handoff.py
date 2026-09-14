@@ -59,6 +59,24 @@ class HandoffMgr:
         handoff = self._handoffs.get(hid)
         return handoff.latest if handoff is not None else None
 
+    def type_of(self, hid: HandoffId) -> str:
+        """Which **kind** this slot holds, by name, or `""` if that is unknown.
+
+        A question, not a getter: the alternative is a caller taking `get(hid)`
+        and reading `.type` off a live `Handoff`, which is the mutable handle
+        `test_authority.py` exists to keep out of the scheduler. It is the same
+        hazard wherever it happens, so the narrow read is offered instead.
+
+        **An undeclared slot and an untyped one both answer `""`**, deliberately.
+        The only caller is the composition root's `KindSource`, whose question is
+        "which kind does this id hold" — and "I do not know" is one answer, not
+        two. Distinguishing them would put an exception on a seam whose consumer
+        would only convert it back into `None`, and `handoff.put` already raises
+        with a message naming the wiring.
+        """
+        handoff = self._handoffs.get(hid)
+        return handoff.type if handoff is not None else ""
+
     def get(self, hid: HandoffId) -> Handoff:
         try:
             return self._handoffs[hid]

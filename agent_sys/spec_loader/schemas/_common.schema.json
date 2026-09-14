@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "_common.schema.json",
+  "title": "Shapes more than one spec schema names",
+  "description": "Not a spec kind. `closure` spec §2.6 and `validator` spec §6.1 describe `body` as deliberately the same thing — 'a validator is a special kind of task, so what does this thing do and how do I run it should have one answer in the system, not two'. This file is that one answer, `$ref`-ed from both.",
+  "$defs": {
+    "body": {
+      "type": "object",
+      "description": "What this thing actually is: what the work is, what to execute, and how. `readme.md` is always required — a task nobody can read is a step nobody can review, and that holds for a non-leaf too. `entry.sh` is required iff the body is programmatic, and it is what makes it programmatic. Whether exactly one of `entry` and a subgraph is present is a named load-time check, not a schema keyword: `if`/`then` produces a message nobody can act on.",
+      "additionalProperties": false,
+      "required": ["readme"],
+      "properties": {
+        "readme": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Package-relative path to the readme.md. For an agent task this IS the body — the description the agent works from."
+        },
+        "entry": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Package-relative path to the entry.sh: the exact execution entry point. May run something on the system or run material a handoff supplied."
+        },
+        "materials": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true,
+          "description": "Package-relative paths this body needs for itself. How these become a handoff is undecided — docs/interfaces.md §5.1b — so nothing reads them yet."
+        }
+      }
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$",
+      "description": "Unique within this spec kind's registry. This is the vocabulary entry every reference to this spec is drawn from, so it is an identifier rather than free text."
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "This spec's own revision. **Maintenance metadata only** — nothing at runtime reads it, nothing pins to it, and loading two versions of one spec at once is not supported (closure spec §1.2)."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What this is, for a human."
+    },
+    "handoff_kind_names": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Handoff KIND names, never ids. A grant or a declaration is written where no instance exists. **Deliberately not `uniqueItems`**: `handoff` criterion 11 requires that a task with two inputs of the same kind is unambiguous, so a repeated kind is a supported case rather than a typo."
+    }
+  }
+}

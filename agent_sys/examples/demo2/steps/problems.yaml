@@ -1,0 +1,141 @@
+# The second entry of `main`: the directions become concrete problems.
+#
+# Same layout rule as `directions.yaml` — parts first, step last, because a name
+# referenced before it is defined *in this file* is an error. `directions` and
+# `check_directions` are referenced from `directions.yaml` and a cross-file
+# reference has no ordering rule: a package's file order is not a total order
+# any real reference graph could satisfy.
+#
+# **Two validators on one kind, and they are not two attempts at one check.**
+# `check_problems` is completeness and `check_solvable` is trustworthiness —
+# different dimensions, different strengths, and the second is honestly `weak`.
+
+# --------------------------------------------------------------------------- #
+
+# The AI half. A teaching assistant writing the problem set.
+- module: agent
+  name: setter
+  kind: ai
+  version: '1'
+  description: Turns problem directions into concrete, stdin/stdout problems.
+
+  # The scale knob. The readme says `$DEMO2_N_PROBLEMS` and never a literal
+  # count, so `--var n_problems=3` shrinks a bring-up run without editing a
+  # prompt. It is paired with `check_problems.args.expected_count` below, which
+  # names the same package variable.
+  env:
+    DEMO2_N_PROBLEMS: '${n_problems:-12}'
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
+
+# Completeness: every problem is fully specified and refers to things that
+# exist.
+#
+# `strong`. The check is total over the document — every problem, every declared
+# field — and each rule is exact: a count, presence and non-emptiness, set
+# membership in the LeetCode index, referential integrity against the
+# `directions` artefact, uniqueness of ids. Nothing here is approximate.
+- module: validator
+  name: check_problems
+  version: '1'
+  brief: Every problem carries every field, cites a real slug, and names a direction that exists
+  dimension: completeness
+  strength: strong
+  inputs: [problems]
+  args:
+    # Through `args` rather than the agent's `env`, for the reason spelled out
+    # at `directions.yaml`'s copy of this key: a validator body's environment
+    # comes from `choose_configuration`, which gives an INPUT phase the global
+    # row only — and `solve_a`/`_b`/`_c` each re-run this validator against this
+    # artefact in their input phase. `args.json` does not vary by phase.
+    expected_count: '${n_problems:-12}'
+    catalog: assets/catalog/leetcode_index.json
+    # The kind whose artefact supplies the legal `direction_id` values. Named
+    # here so the body carries no kind name of its own.
+    origin_kind: directions
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [demo2]
+
+# --------------------------------------------------------------------------- #
+
+# Trustworthiness: a worked answer was supplied, for every problem.
+#
+# **`weak`, and the readme is blunt about why.** The name is the most that could
+# honestly be claimed for what this does: it counts examples and inspects their
+# shape. It does not run anything, it has no reference solution, and it cannot
+# tell a correct answer from a well-formed one. Calling this `strong` is exactly
+# the dishonesty `examples/demo/steps/describe.yaml` warns against — a
+# sophisticated-looking check that is silently approximate. A `weak` label
+# qualifies a PASS and never a failure (`validator` spec §5.4), which is the
+# right shape: when this fails, the examples really are missing or malformed.
+- module: validator
+  name: check_solvable
+  version: '1'
+  brief: Every problem ships at least two worked examples whose output fits its output_format
+  dimension: trustworthiness
+  strength: weak
+  inputs: [problems]
+  args:
+    # Two examples, because one is an illustration and two is the least that
+    # constrains a format. A knob rather than a literal, so a bring-up run and a
+    # real run can differ without a second validator spec.
+    min_examples: 2
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [demo2]
+
+# --------------------------------------------------------------------------- #
+
+# What `problems` writes: the problem set itself.
+#
+# `structured_text`, one JSON document. The stdin/stdout IO format in it is
+# load-bearing downstream rather than decorative: the three students compile
+# standalone programs that read stdin, so `input_format` and `output_format` are
+# what makes a problem answerable by a program at all.
+- module: handoff
+  name: problems
+  version: '1'
+  description: A concrete problem set with worked examples, in stdin/stdout form.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json']
+    properties:
+      'text.json': {type: string}
+  validators: [check_problems, check_solvable]
+
+# --------------------------------------------------------------------------- #
+
+# The step.
+#
+# **The only entry so far with both validation phases populated.** It consumes
+# `directions`, so its input phase runs `check_directions` — the same validator
+# `directions`' output phase ran, in the other position. A phase is a position
+# and not a kind of validator.
+- module: task
+  name: problems
+  description: Turn each direction into concrete problems with worked examples.
+  agent: setter
+  handoffs: [directions, problems]
+  validators: [check_directions, check_problems, check_solvable]
+  task:
+    # ≤ 100 characters, a human label. The instructions — the count, the
+    # catalogue, the IO discipline, the required README sections — are all in
+    # `assets/problems.task/readme.md`, which is the prompt.
+    goal: Turn the directions into concrete problems with worked examples.
+    version: '1'
+    inputs: [directions]
+    outputs: [problems]
+    permissions:
+      grants:
+        - {path: handoffs/directions, access: read, kind: directions}
+        - {path: handoffs/problems, access: write, kind: problems}

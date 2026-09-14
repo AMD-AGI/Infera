@@ -5,7 +5,11 @@ because a consumer that has already run has already recorded which version it
 saw, and one that has not will ask again.
 """
 
+import pytest
+
+from task_graph.bootstrap import build_registry
 from task_graph.models import HandoffStatus, TaskStatus
+from task_graph.store import MemoryStoreMgr
 
 from .conftest import make_task, new_handoffs
 
@@ -202,3 +206,93 @@ def test_resuming_over_an_abandoned_generating_version_appends(
     ]
     assert handoff.get(0).producer_agent_id == first_agent
     assert handoff.get(1).producer_agent_id == second_agent
+
+
+# ----------------------------------------- the two version spaces, and the gap
+
+
+@pytest.fixture
+def stored_registry(tmp_path):
+    """A registry with a real `handoff_store`, which the shared one has not."""
+    r = build_registry(store=MemoryStoreMgr(), handoff_root=str(tmp_path / "store"))
+    r.get("agent_mgr").register("profiler")
+    return r
+
+
+def test_the_slot_reuses_a_store_version_the_store_has_burned(stored_registry):
+    """**The two counters have incompatible reuse rules**, so they part company.
+
+    `handoff.FilesystemStore.allocate` takes each number with an `os.mkdir`
+    token, so a number it hands out is burned whether or not anything is written
+    into it. `Handoff.open_next` adopts a `CREATED` latest **in place**. So a
+    dispatch that allocates and never writes burns a store number that the slot
+    then goes on to use for a different artefact.
+
+    **One dispatch that does not write is enough** — and `handoff` records that
+    as the ordinary case rather than the exceptional one, since the directory
+    has to exist before `env_mgr.prepare` resolves the grant and a refused
+    `prepare` is *"no isolation, no start"*.
+
+    This is not the defect; it is the mechanism the defect rests on, and it is
+    correct on both sides. Asserted so that a later change to either allocator
+    has to come past it.
+    """
+    scheduler, runner = stored_registry.get("scheduler"), stored_registry.get("runner")
+    handoff_mgr, task_mgr = stored_registry.get("handoff_mgr"), stored_registry.get("task_mgr")
+    (hid,) = new_handoffs(1)
+    task = make_task(outputs=[hid])
+    scheduler.submit(task)
+
+    # A dispatch that allocates and never writes: no produce(), so nothing on
+    # the slot side advances at all.
+    runner.finish(task.id, TaskStatus.FAILED)
+    scheduler.resume_task(task.id)
+    runner.produce(stored_registry, task.id)
+
+    attempts = task_mgr.get(task.id).history
+    assert [e.output_versions[hid] for e in attempts] == [0, 1], "the store burned 0, then gave 1"
+    assert handoff_mgr.latest(hid).version == 0, "the slot adopted the burned number"
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="ruled and not yet built: `input_versions` is slot-space while the grant "
+    "resolves it as a store path. The fix moves the gate and the grant together and "
+    "spans task_graph, env_mgr and handoff — see task_graph/README.md. This xfail is "
+    "strict so the day it lands, this goes red and asks to be turned into an assertion.",
+)
+def test_a_consumer_is_pinned_to_the_version_its_producer_actually_published(stored_registry):
+    """**The defect, executable.** Nothing else in the suite can catch it.
+
+    `env_mgr/grants.py` resolves `input_versions` through `handoff_version_dir`
+    — a **store** path — but `scheduler.py` fills it from `HandoffMgr.latest`, a
+    **slot** number. Once the two have parted, a consumer is granted and staged
+    the directory of a version that was allocated, never written and never
+    sealed.
+
+    **And every guard reports valid.** `allocate` must create `v<N>/content/`
+    for the ruleset to open it, so the directory exists and confinement builds;
+    `env_mgr`'s staging skips only an *absent* `content/`; staging is a
+    `copytree` rather than `handoff.copy_out`, so no digest is verified. The
+    body receives an empty directory presented as the artefact.
+
+    Measured end to end in
+    `scratch/impl-2026-08/task_graph/probe_consumer_staging.py`, which stages
+    both numbers against one store and shows `[]` versus the artefact's files.
+    """
+    scheduler, runner = stored_registry.get("scheduler"), stored_registry.get("runner")
+    task_mgr = stored_registry.get("task_mgr")
+    (hid,) = new_handoffs(1)
+    producer = make_task(outputs=[hid])
+    scheduler.submit(producer)
+    runner.finish(producer.id, TaskStatus.FAILED)  # allocated v0, wrote nothing
+    scheduler.resume_task(producer.id)
+    runner.produce(stored_registry, producer.id)  # writes, and is pinned to v1
+    runner.finish(producer.id, TaskStatus.SUCCEEDED)
+
+    published = task_mgr.get(producer.id).history[-1].output_versions[hid]
+
+    consumer = make_task(inputs=[hid])
+    scheduler.submit(consumer)
+
+    assert task_mgr.get(consumer.id).current.input_versions[hid] == published

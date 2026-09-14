@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent.schema.json",
+  "title": "Agent",
+  "description": "What a kind of executor declares. `agent` spec §3.1. **Permissions are NOT here** — they live on the task, versioned with it (§3.2), because permission is a runtime fact about a particular piece of work rather than a property of a kind of executor.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "kind"],
+  "properties": {
+    "name": { "$ref": "_common.schema.json#/$defs/name" },
+    "version": { "$ref": "_common.schema.json#/$defs/version" },
+    "description": {
+      "$ref": "_common.schema.json#/$defs/description",
+      "description": "What this kind of executor is for."
+    },
+    "kind": {
+      "enum": ["ai", "program", "human"],
+      "description": "Every task has exactly one agent, and what an agent IS is open (main spec §4.8). A `kind: program` agent is not a degenerate case: a large part of the reference workflow is running a command someone already wrote, and wrapping that in an AI would add cost and non-determinism for nothing."
+    },
+    "backends": {
+      "oneOf": [
+        { "type": "array", "items": { "$ref": "#/$defs/backend_decl" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/backend_decl_unkeyed" } }
+      ],
+      "description": "For `kind: ai` — the implementations to try, **in order**, and the order is the preference (`agent` spec §3.3). A LIST, not a singleton: a backend either implements the interface or fails loudly, so the list is how a run survives one that cannot. A **mapping** whose keys are the `key`s is equally valid and is normalised to a list at load, preserving declaration order (design D2). No `uniqueItems`: an *identical* duplicate `key` is tolerated and a differing one is an error — matplotlib's entry-point rule, because duplicates arise from packaging outside the declarer's control — and that asymmetry is a model check, which `uniqueItems` would break by rejecting the identical case too.\n\n`backends/claude_sdk.py` is never imported at module scope: the SDK is a 376 MB extra costing ~1.3 s to import, so a missing extra must be a `BackendUnsupported` naming it rather than an `ImportError` at start-up."
+    },
+    "env": {
+      "type": "object",
+      "description": "Environment requirements, resolved by `env_mgr`. **A package may name its own variables here, and this is the only route by which it can** — every other contributor to a task body's environment is derived by `env_mgr` itself (the policy-derived `PATH`, the staged-package variable, the grant-derived input and output variables, and the harness block). It is also the last merge and therefore wins over all of them: `env_mgr.prepare` applies `material.deploy` last, and `deploy` applies this block last within that, *\"because an author saying so outranks a default\"*. Not further constrained here: `env_mgr` owns the vocabulary and a schema in this repository would be a second declaration of it — that is about not writing a second schema, and says nothing about whose names may appear in the block."
+    },
+    "knowledge": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Knowledge arrives as knowledge HANDOFFS — versioned, digested, checkable — not as inline prose in a YAML file (`agent` spec §3.4). Missing knowledge is a warning by default and fatal under a run-config flag (§3.5): a hard requirement blocks bring-up, and a silent absence is how zero-shot agents happen.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "knowledge_type"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The knowledge handoff KIND's name — **not a handoff's name**. It must resolve in the handoff registry (§3.6 check 3)."
+          },
+          "knowledge_type": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One of §3.4's six — `few_shot`, `runnable`, `official_reference`, `expert_experience`, `verifiable_resource`, `runtime_generated` — or a later one. Open on purpose rather than an enum: §3.4 says the list is extensible, and an enum would make the seventh type a code change in `agent`. The tokens are `agent/spec.py::KNOWLEDGE_TYPES`, which is what the coverage report enumerates."
+          },
+          "required": {
+            "type": "boolean",
+            "default": false,
+            "description": "**Load-bearing, and the only key that reconciles criteria 1 and 2.** A required ref whose kind does not resolve is fatal in *both* modes; a non-required one is fatal only under the run-config flag."
+          }
+        }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "description": "Package-relative paths. Stored in canonical form (`agent` spec §4.5)."
+    },
+    "hooks": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "description": "Package-relative paths. Stored in canonical form."
+    },
+    "skills": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "description": "Package-relative paths. Stored in canonical form."
+    }
+  },
+  "$defs": {
+    "backend_decl": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "backend_entry"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The backend's name, resolved at run time. `claude_code_sdk`, `cursor_sdk`."
+        },
+        "backend_entry": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A dotted path `pkg.mod:Class` naming THIS exact one, or a bare entry-point name in group `agent_sys.backends`. Both forms are admitted; `agent` design \u00a76.3 says why neither substitutes for the other. **Required**: it is what makes a declaration resolvable at all, and a spec carrying `key` alone would pass this gate and fail the model, putting the error one layer too late."
+        },
+        "config": {
+          "type": "object",
+          "description": "Backend-specific settings. Unconstrained: the vocabulary is the backend's."
+        },
+        "err": {
+          "type": "string",
+          "description": "The per-entry failure message. fsspec's `Install adlfs to access Azure Datalake Gen2` rather than a traceback about a missing submodule \u2014 the one thing a dotted string buys that an entry point cannot."
+        }
+      }
+    },
+    "backend_decl_unkeyed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "backend_entry"
+      ],
+      "properties": {
+        "backend_entry": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A dotted path `pkg.mod:Class` naming THIS exact one, or a bare entry-point name in group `agent_sys.backends`. Both forms are admitted; `agent` design \u00a76.3 says why neither substitutes for the other. **Required**: it is what makes a declaration resolvable at all, and a spec carrying `key` alone would pass this gate and fail the model, putting the error one layer too late."
+        },
+        "config": {
+          "type": "object",
+          "description": "Backend-specific settings. Unconstrained: the vocabulary is the backend's."
+        },
+        "err": {
+          "type": "string",
+          "description": "The per-entry failure message. fsspec's `Install adlfs to access Azure Datalake Gen2` rather than a traceback about a missing submodule \u2014 the one thing a dotted string buys that an entry point cannot."
+        }
+      },
+      "description": "As `backend_decl`, but the mapping key supplies `key`, so it is absent here rather than optional."
+    }
+  }
+}
