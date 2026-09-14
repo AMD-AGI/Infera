@@ -106,15 +106,21 @@ class AgentSpec(_Model):
     hooks: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
 
+    #: This agent's own directory under the package's `assets/`, package-relative,
+    #: or `""` when it has none. Filled by `spec_loader`, not written by hand,
+    #: from the same folder convention that scopes a task's body lookup.
+    assets: str = ""
+
+    #: `env_mgr` recipe YAMLs run before the session, each written
+    #: ``<scheme>:<ref>`` (``agent_sys:<name>`` or ``package:<relpath>``); a
+    #: reference always names its root. Also filled by convention from the
+    #: agent's own recipe under `assets/`; declaring it by hand warns and wins.
+    recipes: list[str] = Field(default_factory=list)
+
     @field_validator("backends", mode="before")
     @classmethod
     def _normalise(cls, value: Any) -> Any:
-        """A mapping form is normalised to a list, preserving declaration order.
-
-        Spec §3.1 permits "a list or dict"; design D2 stores a list, because the
-        order is load-bearing (criterion 3) and a dict that carries an ordering
-        is a dict whose ordering nobody can see at the call site.
-        """
+        """A mapping form is normalised to a list, preserving declaration order."""
         if isinstance(value, Mapping):
             return [{"key": key, **dict(decl)} for key, decl in value.items()]
         return value

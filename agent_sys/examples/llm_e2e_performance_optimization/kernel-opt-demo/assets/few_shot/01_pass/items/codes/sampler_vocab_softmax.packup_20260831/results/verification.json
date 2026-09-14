@@ -1,0 +1,26 @@
+{
+  "mock": false,
+  "operator": "sampler_vocab_softmax",
+  "rounds": 5,
+  "iters": 30,
+  "baseline_median_ms": {
+    "B1_V151936": 0.054521,
+    "B8_V151936": 0.055402,
+    "B32_V151936": 0.060049
+  },
+  "optimized_median_ms": {
+    "B1_V151936": 0.021311,
+    "B8_V151936": 0.020110,
+    "B32_V151936": 0.023795
+  },
+  "speedup_per_case": {
+    "B1_V151936": 2.558,
+    "B8_V151936": 2.755,
+    "B32_V151936": 2.524
+  },
+  "mean_case_speedup": 2.6123,
+  "forge_reported_mean_case_speedup": 2.8328,
+  "snr_db": 138.12,
+  "correctness_passed": true,
+  "noise_note": "Medians of 5 fresh processes per side. Optimized-side round-to-round spread was 20.9% (B1), 19.3% (B8), 5.4% (B32) against a baseline spread of 1.7-2.2%. The re-measured 2.6123x sits 7.8% below forge's 2.8328x; both were measured on the same host a day apart and the gap is inside that spread. The cause of the optimized side's spread is NOT identified."
+}

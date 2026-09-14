@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from handoff import canonical, tree_digest
+from handoff import canonical, tree_digest, version_dir
 from handoff.errors import Malformed
 
 # --------------------------------------------------------------------------- #
@@ -93,7 +93,7 @@ def test_copy_out_raises_on_a_tampered_version(kinded_store, tmp_path: Path) -> 
 
     store, hid = kinded_store
     version = store.put(hid, make_content(tmp_path / "produced"), producer=_task_id())
-    (store.root / str(hid) / f"v{version}" / "content" / "items" / "result").write_text("99\n")
+    (version_dir(store.root, hid, version) / "content" / "items" / "result").write_text("99\n")
 
     from handoff.errors import DigestMismatch
 

@@ -1,0 +1,49 @@
+# The outermost graph. Its name is fixed to `main` — `cli/main.py` calls
+# `build.root_task("main", registry)` — and its presence is what makes this
+# directory a runnable task package.
+#
+# `main` is a non-leaf: it carries a readme and no `entry.sh`, and it declares no
+# `agent`, because its work is its subgraph.
+#
+# Stage 3 of `temp/mission.md`: analyse profiling data, produce the list of
+# operators worth optimizing, and build a complete workset for each one.
+#
+# `seed_table` is the seam. It mocks the upstream `kernel_table` handoff from a
+# CSV on disk so this package runs standalone. When `profiling-demo` lands, drop
+# that one entry and point `rank` at its `kernel_scan` instead; nothing else
+# changes, because both produce the same handoff kind.
+module: task
+name: main
+description: Rank profiled kernels, resolve their sources, and build a KernelForge workset for each.
+
+handoffs: [kernel_table, kernel_worklist, operator_identity, operator_workset, workset_evidence, analyze_packup]
+validators: []
+
+task:
+  goal: Turn a kernel profile into worksets KernelForge can consume.
+  version: '1'
+  inputs: []
+  outputs: []
+
+  # Inherited by every subtask: the root's grants have to cover the whole
+  # subgraph. WRITE covers a READ requirement, so one grant per kind is enough.
+  permissions:
+    grants:
+      - {path: handoffs/kernel_table, access: write, kind: kernel_table}
+      - {path: handoffs/kernel_worklist, access: write, kind: kernel_worklist}
+      - {path: handoffs/operator_identity, access: write, kind: operator_identity}
+      - {path: handoffs/operator_workset, access: write, kind: operator_workset}
+      - {path: handoffs/workset_evidence, access: write, kind: workset_evidence}
+      - {path: handoffs/analyze_packup, access: write, kind: analyze_packup}
+
+  # `froms` is mandatory on every entry and `[]` is an answer. The listing order
+  # has to be a valid topological order, so index 0 needs no `is_start`.
+  # `is_end` is written rather than left to the positional default, so appending
+  # an entry later is not a silent semantic change.
+  subgraph:
+    - {closure: seed_table, froms: []}
+    - {closure: rank, froms: [seed_table]}
+    - {closure: identify, froms: [rank]}
+    - {closure: build_workset, froms: [rank, identify]}
+    - {closure: verify_workset, froms: [build_workset]}
+    - {closure: pack_analyze, froms: [rank, identify, build_workset, verify_workset], is_end: true}

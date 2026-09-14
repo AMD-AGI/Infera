@@ -4,59 +4,14 @@ A package root must hold `assets/` (main spec §4.3), and a document may leave
 `body.readme` and `body.entry` out: the file is found by matching its name
 against the object's `name` and its `type`.
 
-## The convention, as the user wrote it
-
-`refine.task_package.define.md` §2.3, restated as a rule rather than as a list of
-examples. A filename is a `.`-separated sequence of **tokens** plus an extension:
-
-| Role | Tokens | Extension |
-|---|---|---|
-| readme | the object's `name`, **mandatory**; its `type`, optional; the literal word `readme`, optional | `.md`, mandatory |
-| entry | the same, with the literal word `entry` | `.sh`, mandatory |
-
-**Order does not matter** — `collect.readme.md`, `readme.collect.md`,
-`task.collect.readme.md` and `collect.task.md` all name `collect`'s readme. The
-user's list is the permutations of a set, so this generates the permutations of
-the set rather than transcribing the list; transcribing it is how the tenth
-spelling gets forgotten.
-
-`type` is the `module:` word — `task`, `agent`, `handoff`, `validator`.
-
-## Folders do not fill a field; they scope a lookup
-
-The third rule is *"a `${name}.${type}` or `${name}` or `${type}.${name}` folder"*,
-and it is the one that needed working out, because **no schema field takes a
-folder path.** `task.body` and `validator.body` have `readme`, `entry` and
-`materials`, and `materials`' own description says nothing reads it yet
-(`interfaces.md` §5.1b). So a folder could not be bound to anything.
-
-What it does instead is what `validator` spec §9.1 already means by *"a validator
-is a folder"*: it groups one object's files, and inside it the name is implied.
-
-    assets/check_facts.validator/readme.md      -> check_facts' readme
-    assets/produce/entry.sh                     -> produce's entry
-
-Inside a matching folder the object's `name` becomes optional, because the folder
-already said it. Everywhere else it is mandatory, which is what keeps a bare
-`assets/readme.md` from being every object's readme at once.
-
-## Conflicts crash
-
-Two paths matching one query is a fault, and the error is
-`SpecInconsistent` — `registry.py`'s policy for the same situation one layer up,
-where *"two specs claiming one name is a fault"*. Adopting the existing shape
-rather than inventing one is `docs/ui-stage.md` §4 W4's instruction.
-
-## Paths are derived; semantics are not
-
-`user_interface.ai.draft.md` §4.9's one surviving rule, and it came from a real
-failure (opa#6509): finding an `entry.sh` fills `body.entry` and **changes
-nothing else**. It does not make a task programmatic behind the author's back,
-because it was always the *presence of the file* that said so — the author moved
-the declaration from a YAML key to a filename and kept the same control. The
-existing named check that `entry` and a subgraph are mutually exclusive
-(`closure` spec §2.6) then runs unchanged over the filled document, so a non-leaf
-that acquires an `entry.sh` fails loudly rather than quietly becoming a leaf.
+A filename is a `.`-separated sequence of tokens (the object's `name`,
+optionally its `type`, optionally the role word `readme`/`entry`) plus a
+mandatory extension (`.md` readme, `.sh` entry); order does not matter. A
+folder named `${name}`, `${name}.${type}` or `${type}.${name}` scopes a
+lookup to itself and makes `name` optional inside it; for an `agent`, that
+folder *is* the binding, since an agent has no `body`. Two paths matching
+one query raises `SpecInconsistent`; filling a path never changes any other
+field.
 """
 
 from __future__ import annotations
@@ -69,16 +24,24 @@ from typing import Any
 
 from .protocols import Problem, SpecInconsistent
 
-__all__ = ["ASSETS_DIRNAME", "AssetIndex", "fill_body"]
+__all__ = [
+    "ASSETS_DIRNAME",
+    "AssetIndex",
+    "fill_agent_assets",
+    "fill_agent_env_recipe",
+    "fill_body",
+]
 
 #: The mandatory directory (main spec §4.3). Not configurable: the whole point of
 #: fixing the name is that a document's unqualified paths have something to be
 #: relative to without the loader inferring it from the tree.
 ASSETS_DIRNAME = "assets"
 
-#: Role to the extension it requires. The extension is mandatory in both rows —
-#: it is the only token the user's rules never allow to be dropped.
-_ROLES: Mapping[str, str] = {"readme": ".md", "entry": ".sh"}
+#: Role to the extension it requires; the extension is mandatory in every row.
+#: `env_recipe` reuses `_stems`'s permutation generator, so it costs one row
+#: rather than a second mechanism. `.yaml` only — a `.yml` recipe is silently
+#: absent rather than an error.
+_ROLES: Mapping[str, str] = {"readme": ".md", "entry": ".sh", "env_recipe": ".yaml"}
 
 
 @dataclass(frozen=True)
@@ -106,15 +69,8 @@ class AssetIndex:
         )
 
     def resolve(self, role: str, *, name: str, type_: str | None) -> Path | None:
-        """The package-relative path for one object's `readme` or `entry`.
-
-        `None` when nothing matches, which is not an error here: `readme` is
-        required by the schema and `entry` is not, and the schema is the only
-        enforcement point (main spec §4.4). An absent required body path fails
-        there, with the message that field already has.
-
-        Raises `SpecInconsistent` when more than one path matches.
-        """
+        """The package-relative path for one object's `readme` or `entry`, or
+        `None`. Raises `SpecInconsistent` when more than one path matches."""
         found = sorted(self._candidates(role, name=name, type_=type_), key=lambda f: f.path)
         if not found:
             return None
@@ -131,6 +87,30 @@ class AssetIndex:
         # regression: `Path(staged) / "/abs"` is `/abs`, so a staged body would
         # never be reached.
         return Path(ASSETS_DIRNAME) / found[0].path.relative_to(self._root)
+
+    def resolve_folder(self, *, name: str, type_: str | None) -> Path | None:
+        """The package-relative path of this object's own directory, if any.
+
+        Matches the same three spellings `_folder_names` gives `resolve`.
+        `None` when nothing matches; raises `SpecInconsistent` on a conflict.
+        """
+        if not self._root.is_dir():
+            return None
+        wanted = _folder_names(name=name, type_=type_)
+        found = sorted(p for p in self._root.iterdir() if p.is_dir() and p.name in wanted)
+        if not found:
+            return None
+        if len(found) > 1:
+            raise SpecInconsistent(
+                f"{len(found)} directories under {self._root.name}/ could be "
+                f"{name!r}'s assets, and a conflict is not resolved by guessing:\n"
+                + "\n".join(f"  {p.name}/" for p in found)
+                + "\n  Merge them, or rename all but one."
+            )
+        # Package-relative for `resolve`'s reason, restated because it is the
+        # one that bit (F-D18): `agent` resolves this against the **staged**
+        # copy, and `Path(staged) / "/abs"` is `/abs`.
+        return Path(ASSETS_DIRNAME) / found[0].name
 
     # -- matching ----------------------------------------------------------- #
 
@@ -192,12 +172,7 @@ def _folder_of(path: Path, root: Path, folders: frozenset[str]) -> str:
 
 
 def _under_a_folder(path: Path, root: Path, folders: frozenset[str]) -> bool:
-    """Anywhere below a matching folder, not only directly inside it.
-
-    The user asked for recursion under `assets/` and said nothing about stopping
-    at a folder boundary; stopping would mean `check_facts.validator/logic/entry.sh`
-    is invisible for no reason a reader could reconstruct.
-    """
+    """Whether `path` is anywhere below a matching folder, not only directly in it."""
     return bool(_folder_of(path, root, folders))
 
 
@@ -214,26 +189,10 @@ def fill_body(
     origin: str,
     line: int | None,
 ) -> list[Problem]:
-    """Fill `body.readme` / `body.entry` from the index, or warn that they were
-    bound by hand.
+    """Fill `body.readme` / `body.entry` from the index, or warn if bound by hand.
 
-    **Two of the four kinds have no body and that is a gap, not an omission.**
-    The user's rule says a readme is found for *"某个命名的 agent/task/handoff/
-    validator"*, and measured against the schemas only `task.body` and
-    `validator.body` exist — `agent` has `knowledge` / `rules` / `skills` and
-    `handoff` has `readme_sections`, neither of which is a path. So there is
-    nothing to fill for those two, and inventing a field to fill would be
-    `engineer_principle.md` §2's failure mode. Reported rather than built.
-
-    **Explicit binding is legal and warns** (`refine.task_package.define.md`
-    §2.3.5), as a non-fatal `Problem` — the mechanism `closure/check.py`'s check
-    3 already uses for a report-severity finding, so a warning reaches the same
-    report and the same log rather than a second channel.
-
-    This reaches into `doc["task"]["body"]`, and that is allowed *here* and not
-    in `load_package`: a package owns its own content and the loader does not
-    (`access.py`'s note on the line this package does not cross). The seam is
-    what separates them, and this runs on the package's side of it.
+    Only `closure` and `validator` own a `body` (`_body_owner`), a closure's being
+    the nested task's; other kinds are untouched. An explicit binding warns.
     """
     body_owner, type_ = _body_owner(doc, kind)
     if body_owner is None:
@@ -268,6 +227,84 @@ def fill_body(
     if body:
         body_owner["body"] = body
     return problems
+
+
+def fill_agent_assets(
+    doc: MutableMapping[str, Any],
+    index: AssetIndex,
+    *,
+    kind: str,
+    name: str,
+    origin: str,
+    line: int | None,
+) -> list[Problem]:
+    """Fill an agent's `assets` from the index, or warn if bound by hand.
+
+    Only `kind == "agent"`; other kinds return `[]` untouched. Nothing here
+    reads what is inside the directory.
+    """
+    if kind != "agent":
+        return []
+
+    if doc.get("assets"):
+        return [
+            Problem(
+                origin=origin,
+                path="$.assets",
+                keyword="explicit-binding",
+                message=(
+                    f"assets is bound by hand to {doc['assets']!r}. That is legal "
+                    f"and it is not what this package format is for: name the "
+                    f"directory by convention under {ASSETS_DIRNAME}/ and drop the key."
+                ),
+                fatal=False,
+                line=line,
+            )
+        ]
+
+    found = index.resolve_folder(name=name, type_="agent")
+    if found is not None:
+        doc["assets"] = found.as_posix()
+    return []
+
+
+def fill_agent_env_recipe(
+    doc: MutableMapping[str, Any],
+    index: AssetIndex,
+    *,
+    kind: str,
+    name: str,
+    origin: str,
+    line: int | None,
+) -> list[Problem]:
+    """Fill an agent's `recipes` from an `env_recipe` file it carries.
+
+    Scoped to `assets/` only. A declared `recipes` wins and warns instead.
+    Only `kind == "agent"`; other kinds return `[]` untouched.
+    """
+    if kind != "agent":
+        return []
+
+    if doc.get("recipes"):
+        return [
+            Problem(
+                origin=origin,
+                path="$.recipes",
+                keyword="explicit-binding",
+                message=(
+                    f"recipes is bound by hand to {doc['recipes']!r}. That is legal "
+                    f"and it is not what this package format is for: name the file "
+                    f"by convention under {ASSETS_DIRNAME}/ and drop the key."
+                ),
+                fatal=False,
+                line=line,
+            )
+        ]
+
+    found = index.resolve("env_recipe", name=name, type_="agent")
+    if found is not None:
+        doc["recipes"] = [found.as_posix()]
+    return []
 
 
 def _body_owner(doc: MutableMapping[str, Any], kind: str) -> tuple[MutableMapping | None, str]:

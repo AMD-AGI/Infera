@@ -1,0 +1,53 @@
+# The outermost graph. Its name is fixed and its presence is what makes this
+# directory a task package (main spec §4.3).
+#
+# This package's subject is `agent_sys` itself: a single leaf whose job is to
+# answer whether the six Claude Code capabilities this agent declares actually
+# arrive, by both install routes. One leaf, one handoff kind, two validators —
+# nothing to parallelise or sequence.
+#
+# `main` is a non-leaf: it carries `assets/main.task/readme.md`, no `entry.sh`,
+# no `agent`, and no `resources` (only a leaf may acquire). There is no
+# `body:` key anywhere in this package — a folder named `${name}.${type}`
+# under `assets/` scopes the lookup, and `readme.md`/`entry.sh` are found by
+# their own names.
+module: task
+name: main
+description: Prove that six Claude Code capabilities install per-agent by both install routes.
+
+# One kind, declared here because the root's grants must cover the whole
+# subtree: permissions are inherited downwards, so the root is the one place
+# that has to know the full vocabulary. `env_report` is *defined* in
+# `steps/check.yaml`, beside its producer; this list only references it.
+handoffs:
+  - env_report
+
+# A non-leaf runs nothing, so there is nothing of its own to validate. Both
+# validators in this package hang off the `env_report` kind, in the step file
+# that declares it.
+validators: []
+
+task:
+  goal: Prove six Claude Code capabilities install per-agent by both install routes.
+  version: '1'
+
+  # `main` consumes nothing from outside the package.
+  inputs: []
+
+  # `env_report`, and only `env_report`. The end entry's outputs are the sole
+  # route by which a handoff produced inside a subgraph leaves it (`task_graph`
+  # criterion 50), and `probe_env` is marked `is_end` below.
+  outputs: [env_report]
+
+  # One kind, one grant. **WRITE covers READ**, so this one line covers the
+  # producer and any future consumer.
+  permissions:
+    grants:
+      - {path: handoffs/env_report, access: write, kind: env_report}
+
+  # `froms: []` is derived from handoff wiring and checked against what's
+  # written here; with one entry there's nothing earlier to point at. `is_end`
+  # is written explicitly even though a one-entry subgraph implies it, so the
+  # escaping kind doesn't move silently once a second entry is appended.
+  subgraph:
+    - {closure: probe_env, froms: [], is_end: true}

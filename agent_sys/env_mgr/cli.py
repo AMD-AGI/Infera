@@ -36,7 +36,7 @@ def _parse(argv: list[str]) -> argparse.Namespace:
             "--on-conflict",
             choices=("fail", "weak"),
             default="fail",
-            help="cross-layer version-conflict policy. 'fail' (default) records the "
+            help="version-conflict policy. 'fail' (default) records the "
             "conflict and halts before install (exit 2); 'weak' is a v1 no-op that "
             "skips conflict detection and proceeds (exit 0).",
         )

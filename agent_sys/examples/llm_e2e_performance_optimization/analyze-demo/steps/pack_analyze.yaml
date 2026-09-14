@@ -1,0 +1,115 @@
+# The deliverable.
+#
+# Assembles what the four producing leaves made into the layout
+# `temp/claude_code_skill_used_by_human/experiment-result-packup` defines, so a
+# colleague receives the same shape they receive from every other experiment in
+# this programme.
+#
+# **The task is `pack_analyze` and the validator is `check_analyze_packup_shape`,
+# and both carry the stage in their names on purpose.** `profiling-demo` has its
+# own final assembly step, and it was also called `packup` with a
+# `check_packup_shape` beside it. `spec_loader/registry.py` keys the registry on
+# `name` alone, so merging the two graphs made both of those `SpecInconsistent`
+# at load time — two names held by specs that are not byte-identical.
+#
+# They are not two implementations of one thing, which is why renaming is the
+# whole fix rather than a workaround. The two tasks share no input kind, no
+# output kind, no agent and no body: one packs a profiling run into something a
+# colleague can reproduce, the other packs this stage's operator worksets. They
+# only ever collided because each package independently chose the obvious word.
+#
+# Contrast `kernel_table`, which really is one kind declared twice and which
+# renaming would make worse rather than better — see `../README.md`, "Joining up
+# with profiling-demo".
+
+- module: validator
+  name: check_analyze_packup_shape
+  version: '1'
+  brief: The packup carries every file the deliverable layout mandates, with substance in each
+  dimension: completeness
+  strength: strong
+  inputs: [analyze_packup]
+  args:
+    required_files:
+      - README.md
+      - REPRODUCE.md
+      - environment.md
+      - notes.md
+    required_dirs: [results, logs]
+    # A file that exists and says nothing passes a presence check and fails a
+    # reader. The floor is low enough that a genuinely short section passes and
+    # high enough that a placeholder does not.
+    min_bytes: 400
+    forbidden_phrases: ['TBD', 'to be filled in', 'TODO: write', 'lorem ipsum']
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_perf]
+
+# --------------------------------------------------------------------------- #
+
+- module: handoff
+  name: analyze_packup
+  version: '1'
+  description: The analyze stage's deliverable, in the experiment-result-packup layout.
+  content_type: reproducible
+  scope: fixed.required
+  # **Every item `packup.py` writes has to be declared here, and four were
+  # not.** `FilesystemStore.seal` runs `content.check_items` against this
+  # schema as an admission check, and `additionalProperties: false` turns an
+  # undeclared item into a refusal:
+  #
+  #     items $: Additional properties are not allowed
+  #     ('REPRODUCE.md', 'environment.md', 'notes.md', 'results' were unexpected)
+  #
+  # The refusal is returned as a string that nothing reads — `seal_refused` has
+  # no consumer yet — so the version is simply never published, `agent/gate.py`
+  # then reports `output_absent`, the escalation reaches a sink that does not
+  # answer, and the run ends on `_settle`'s stall branch reporting
+  # `pack_analyze: running`. Measured twice, end to end, with the content on
+  # disk complete and passing its own validator. Nothing in that chain names
+  # the schema.
+  #
+  # The four are not optional extras: `check_analyze_packup_shape` **requires**
+  # them (`required_files` names REPRODUCE.md, environment.md and notes.md, and
+  # `required_dirs` names results). The producer, the validator and the kind
+  # had drifted apart, and the kind was the one nobody ran.
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [result, env, command, code, results, 'REPRODUCE.md', environment.md, notes.md]
+    properties:
+      result: {type: string}
+      env: {type: string}
+      command: {type: string}
+      code: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+      # The experiment-result-packup layout, which is the whole point of this
+      # handoff and is what `check_analyze_packup_shape` checks for.
+      results: {type: string}
+      'REPRODUCE.md': {type: string}
+      environment.md: {type: string}
+      notes.md: {type: string}
+  validators: [check_analyze_packup_shape]
+
+# --------------------------------------------------------------------------- #
+
+- module: task
+  name: pack_analyze
+  description: Assemble the stage's deliverable in the packup layout.
+  agent: run_script
+  handoffs: [kernel_worklist, operator_identity, operator_workset, workset_evidence, analyze_packup]
+  validators: [check_analyze_packup_shape]
+  task:
+    goal: Hand the analyze stage over as a reproducible deliverable.
+    version: '1'
+    inputs: [kernel_worklist, operator_identity, operator_workset, workset_evidence]
+    outputs: [analyze_packup]
+    permissions:
+      grants:
+        - {path: handoffs/kernel_worklist, access: read, kind: kernel_worklist}
+        - {path: handoffs/operator_identity, access: read, kind: operator_identity}
+        - {path: handoffs/operator_workset, access: read, kind: operator_workset}
+        - {path: handoffs/workset_evidence, access: read, kind: workset_evidence}
+        - {path: handoffs/analyze_packup, access: write, kind: analyze_packup}

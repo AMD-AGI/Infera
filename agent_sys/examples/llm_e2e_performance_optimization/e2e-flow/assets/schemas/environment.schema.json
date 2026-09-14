@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "environment.schema.json",
+  "title": "The environment record every handoff in this flow carries",
+  "description": "Mission M1.2.1 asks for two halves: \u53ef\u56fa\u5316\u73af\u5883 (configuration, dockerfile, node, machine state, software) and \u8fd0\u884c\u65f6\u90e8\u5206 (which machine's which container). Mission G5 says every handoff carries it. This document is that record, and it is promoted rather than invented: the same fields already existed unschema'd inside sealed handoffs as items/env/deployment.json and context.json. Produced once, by m1; carried by everything after it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixed",
+    "runtime"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "fixed": {
+      "type": "object",
+      "description": "What a reproduction has to match. Everything here is a fact about the machine and the software, not about one run of them.",
+      "additionalProperties": false,
+      "required": [
+        "node",
+        "gpu_arch",
+        "gpu_count",
+        "image",
+        "image_id",
+        "model_name",
+        "model_path",
+        "tp_size"
+      ],
+      "properties": {
+        "node": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The host the deployment ran ON, as the scheduler names it (crsuse2-m2m-006). Not an address: node_ip may change or be absent, this may not."
+        },
+        "node_ip": {
+          "type": "string",
+          "description": "The routable address of `node`. Present so a consumer on ANOTHER host can reach the deployment; a consumer on the same host does not need it."
+        },
+        "gpu_arch": {
+          "type": "string",
+          "pattern": "^(gfx[0-9a-f]{3,4}|sm_[0-9]+)$",
+          "description": "gfx950, gfx942, sm_90. Named rather than described, because 'MI355X' is a product and a kernel is compiled for an architecture."
+        },
+        "gpu_count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Cards PRESENT on the node, not cards this deployment could use. The two readings are different numbers on a shared host and this field is the first. Rung 1's record says 8 on a node where a co-tenant held four at 96-98% VRAM, and 21 validators passed: true under this reading, and the field had no description at all, alone among the eight required `fixed` fields. m1's line, which is why the sentence exists: a field that cannot be wrong cannot be a measurement. What the deployment actually took is `len(gpu_devices)` -- todo.md T19, unbuilt -- and until that exists this record cannot say `eight present, four usable, one taken`, which is what rung 1 needed to be honest. Do NOT add this field to `check_environment`'s `compare_fixed_across_inputs`: every stage inherits m1's record, so all five would agree on the same number and cross-input agreement cannot detect a field nobody has defined."
+        },
+        "image": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The image REFERENCE used, tag included (infera/engine-sglang:test-local). A tag is not an identity -- it is re-pointed in place, and two nodes carried different images under the same tag today. image_id is the identity; this field records what was asked for."
+        },
+        "image_id": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{12,64}$",
+          "description": "The digest, and it is required alongside the tag rather than instead of it. A floating tag is not a reproduction: a kit that names ':latest' names whatever happened to be on the node that day."
+        },
+        "dockerfile": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Path to the Dockerfile *inside this handoff*, or null when the image was pulled rather than built. A path outside the handoff is a path that will not exist for the reproducer."
+        },
+        "rocm": {
+          "type": "string",
+          "description": "ROCm version as reported INSIDE the container. Compared across stages as a warning, never a refusal: a mismatch changes numbers but does not invalidate them."
+        },
+        "driver": {
+          "type": "string",
+          "description": "Kernel driver version on the HOST. Not settable from inside a container, so a mismatch here means a different node, not a different image."
+        },
+        "torch": {
+          "type": "string",
+          "description": "torch version inside the container, as `torch.__version__` prints it. Warning-level like rocm."
+        },
+        "model_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The model's published name, e.g. Qwen/Qwen3.6-27B. Separate from model_path because conflating them is a measured fault: left unset, the engine registers the model under the filesystem path it loaded from, and every caller's \"model\" field then carries one machine's directory layout."
+        },
+        "model_path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The path the engine LOADED FROM, as the container saw it. Mounted read-only, and identity-mapped, so the same string resolves on host and inside."
+        },
+        "served_model_name": {
+          "type": "string",
+          "description": "The name the ENDPOINT answers to, which the request body must carry. Frequently not equal to model_name -- a deployment may serve `Qwen/Qwen3.6-27B` under the name `default`."
+        },
+        "tp_size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Tensor-parallel degree the engine was STARTED with. Distinct from gpu_count (cards on the node) and from len(gpu_devices) (cards this deployment took), though tp_size == len(gpu_devices) in every deployment seen so far."
+        },
+        "deploy_mode": {
+          "type": "string",
+          "enum": [
+            "mix",
+            "pd",
+            "1p1d"
+          ],
+          "description": "How the engine was brought up (sglang, vllm, ...). Records WHAT was run, so a consumer can tell whether an engine-specific flag or log format applies."
+        },
+        "context_length": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The context window the engine was started with. A measurement at a shape longer than this did not run the shape it claims."
+        },
+        "sglang": {
+          "type": "string",
+          "description": "The sglang version the engine was built against, when the producer recorded one. Emitted by 10 of 269 records measured 2026-09-05; declared so `fixed` can be closed rather than because a consumer requires it -- `rocm`, `driver` and `torch` beside it are the same shape."
+        },
+        "scripts": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "package",
+            "commit"
+          ],
+          "properties": {
+            "package": {
+              "type": "string"
+            },
+            "commit": {
+              "type": "string",
+              "minLength": 7
+            },
+            "entrypoints": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "description": "Where the entrypoints that produced this deployment live, and at what commit. The provenance of the RUN, not of the artefact -- so a later reader can re-run the same bring-up rather than reconstruct it."
+        },
+        "gpu_devices": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uniqueItems": true,
+          "description": "The device indices this deployment TOOK, not what was free. m1's distinction and the reason it is the right one: free-at-preflight is a measurement of a moment and is stale by the time the record is read, while taken-by-this-deployment stays true -- and it makes `len(gpu_devices) <= gpu_count` a real invariant rather than a coincidence. Not required, because a record written before T19's STEP 1 criterion exists is still a valid record; a run that omits it is saying it does not know, which is honest. Rung 1 needed this field to say `eight present, four usable, one taken` and could only say the first."
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "description": "Which machine's which container, right now. Mission M1.2.1.2. This is the half that makes 'modules 1-4 share one runtime' checkable instead of merely intended.",
+      "required": [
+        "container",
+        "endpoint",
+        "started_at"
+      ],
+      "properties": {
+        "slurm_jobid": {
+          "type": "string",
+          "description": "The hold under which this ran. Recorded because a cancelled hold does NOT reclaim the containers -- they belong to the host daemon -- so this identifies the hold, not the lifetime of what it started."
+        },
+        "container": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A host-wide identifier on a box whose `docker ps` shows every tenant's containers. It is a parameter for that reason, and nothing may `docker rm -f` a name it did not create."
+        },
+        "ports": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "description": "Host ports this deployment BOUND. Host-wide on a shared box, so these are the numbers a co-tenant would collide with, and the ones a leak probe can read without matching itself."
+        },
+        "endpoint": {
+          "type": "string",
+          "pattern": "^https?://",
+          "description": "The URL a CONSUMER ON ANOTHER HOST uses. Must be built from node_ip, never from 127.0.0.1 or localhost: a loopback address is correct for the producer and useless to every consumer, and both forms pass every check that only asks for a string. NOT YET ENFORCED -- see todo."
+        },
+        "transport": {
+          "type": "string",
+          "enum": [
+            "spur",
+            "srun",
+            "local"
+          ],
+          "description": "How a caller reaches `node` to act on this deployment (spur, ssh, local). The endpoint says where the service is; this says how to get to the machine at all."
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the CONTAINER started, RFC3339, read from `docker inspect -f '{{.State.StartedAt}}'` -- NOT when the agent decided to write the record, and NOT when the service became ready. Read it, do not compose it: an agent-written value has been 34 min early and 5 min late on two runs with zero restarts, and both validated. Readiness is a different fact; if a consumer needs it, it needs its own field."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Free text for a human. Nothing may parse this -- anything a consumer must read gets its own field."
+        },
+        "replayed_from": {
+          "type": "string",
+          "description": "Set when this record describes a REPLAYED kit rather than a bring-up on this node -- `mock_adapt.sh` writes it, and chains it when replaying a replay so provenance is not collapsed. Load-bearing and read by five consumers (`check_deploy_kit`, `kit_status`, `check_measurement_order`, m2's `line.sh:149`, and `deploy_kit.layout.yaml`'s `required_unless`). Declared 2026-09-05 after measuring that a transposed `replayed_form` validated with ZERO errors and read back as `None` -- and `None` means *this is not a replay* to every one of them, so one character turned a replayed kit into one the whole flow treats as real. Declaring it alone does NOT fix that; `additionalProperties: false` below is what does."
+        },
+        "work_root": {
+          "type": "string",
+          "description": "Where this invocation's workdir, logs and handshake went. Emitted by 9 of 269 records measured 2026-09-05; declared to close the object rather than because a consumer requires it."
+        }
+      },
+      "additionalProperties": false
+    },
+    "warnings": {
+      "type": "array",
+      "description": "Differences from an earlier stage's environment that were tolerated rather than fatal. M4.3.5's 'software \u73af\u5883\u4e0d\u592a\u4e00\u6837\u53ef\u4ee5\u62a5 warning' lands here, and it travels forward so that a later reader can see what was already known to differ.",
+      "items": {
+        "type": "object",
+        "required": [
+          "field",
+          "expected",
+          "actual"
+        ],
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "expected": {},
+          "actual": {},
+          "stage": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

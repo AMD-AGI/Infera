@@ -1,0 +1,68 @@
+run 9
+written_at        2026-09-06T22:33:37Z   (read with date -u)
+launched          2026-09-06T22:32:21Z
+run dir           /data/yihou/agent_sys_runroot/runs/20260906T223221-967186
+orchestrator pid  21292   ppid 1 (setsid)
+identity          bound via the agent child's readlink /proc/<child>/cwd.
+                  NOT mtime, NOT "newest".
+
+CHANGE FROM RUN 8 -- exactly one variable, plus the roots
+  --var gpu=4     NEW.  HIP_VISIBLE_DEVICES: '${gpu:-}' (m4_kernel_opt.yaml:359);
+                  optimize_kernel/steps/run_in_container.sh:136 exits 1 on empty.
+                  Run 8, 22:04:08, step4_attempt.log: "HIP_VISIBLE_DEVICES is
+                  empty and this host is shared. Pass --var gpu=<n>."
+                  measure_gpu=4 was already on the line and is a DIFFERENT
+                  variable for a different consumer; having it made gpu look
+                  covered.
+  work_root/scratch_root/validate_work_root -> /data/yihou/e2e_flow9[/kfo|/validate]
+  container                                 -> yihou_e2e_chain9
+  --var count guard 33 -> 34
+  do_launch.sh now computes every ${name:-} in steps/ + shared.yaml, subtracts
+  the launch line, prints the difference, and ABORTS on gpu. Control: the old
+  33-var line aborts. It only aborts on the one with a demonstrated abort; the
+  other six are printed, because a guard that refuses what it cannot classify
+  turns an unknown into a dead run.
+
+AUTHORITY -- stated plainly, second time tonight
+  I asked the leader to choose replay vs rerun and said that if I heard nothing
+  and the cards were idle I would launch the rerun. Run 8 self-terminated
+  22:30:51; no answer arrived; cards were 0% across all eight. I launched the
+  rerun because it is the acceptance path and replay is explicitly not
+  (SKIP-AHEAD.md page 1). IF REPLAY WAS THE RIGHT CALL, THAT IS MINE.
+
+RUN 8's END
+  22:10:51  two false verdicts on kernel_optimization
+  22:30:51  "run complete; the run did NOT finish: handoff kernel_optimization:
+            invalid, m4_kernel_opt: running, ..."   1200 s to the second
+  Clean: zero orphan agents, zero leftover containers, all 8 cards 0%,
+  run tree preserved, rc_26_7_902 and xiaoming-dev untouched.
+
+PRE-REGISTERED, BEFORE ANY RESULT
+  1. If m4 now measures >= 3 shapes and its two validators pass, --var gpu=4 was
+     the whole of that failure. It says nothing about the engine.
+  2. THEN apply_patch runs for the first time. I predict it REFUSES in seconds
+     with "drops N public name(s)" (6 for gemm), because the forge_mock seed is
+     the workset's 472-char harness wrapper and apply_mode is overlay_files.
+     Recorded as 1d71a809 BEFORE the fact; base_sha256 confirmed matching the
+     image so apply.py:691 will not pre-empt it.
+     If it does NOT refuse, the most likely place I am wrong is which file
+     apply_patch treats as the payload -- inferred from apply_mode, not traced
+     through a manifest m4 had not yet written.
+  3. If m4's validators still refuse for a NON-gpu reason, that is a third
+     distinct m4 finding and the next step is replay, not run 10.
+
+  Engine denominator carried forward:
+      measurement window (with_stack=0)   6 of 6 clean
+      stack window       (with_stack=1)   3 of 5 clean
+  Run 9's _on is attempt 6. A hit would be 4 of 6 and STILL a coin flip.
+
+DETECTION ARMED
+  After the stack window closes, count "Stop profiling" lines in the engine log
+  against the rank count. Fewer means the engine is dead; then run
+  capture_engine_stack.sh BEFORE stopping any container.
+
+UNCHANGED  jobid=29313 (RUNNING, 15:27 left at launch), --timeout 21600,
+           --stall-after 1200, transport=local, tp=4, expect_ranks=4,
+           mock_stages=none, trace_end_ms=120000, bench_rounds=3, adhoc_cases=3,
+           forge_mock=1, kernel_table_min_launchers=0, remote_home=/data/yihou,
+           transport_env=E2E_REMOTE_HOME=/data/yihou, setsid, env -u PYTHONPATH.

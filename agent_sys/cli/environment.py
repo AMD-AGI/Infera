@@ -34,9 +34,11 @@ from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any, NamedTuple
 
+from env_mgr import harness
 from env_mgr.fs.domain import DomainRegistry
 from env_mgr.isolation.policy import Granted, Mode, interpreter_grants
 from env_mgr.isolation.probe import Availability, probe, select
+from env_mgr.prefix import CLAUDE_CONFIG_ENV_VAR, Prefix
 from env_mgr.protocols import Context, DomainKind, NoConfinement, Tier
 
 __all__ = [
@@ -45,7 +47,9 @@ __all__ = [
     "Layout",
     "LiveHandoffs",
     "build_context",
+    "WORKROOT_ENV_VAR",
     "confinement",
+    "default_root",
     "demo_grants",
     "latest_run",
     "layout_for",
@@ -214,14 +218,48 @@ class LiveHandoffs(Mapping):
         return 0 if self._mgr is None else len(self._mgr.all_ids())
 
 
+#: The run root, named outright. `--demo-root` still wins; this is what a
+#: caller who cannot pass an argument sets.
+#:
+#: **It names the root itself, not a base to append to.** `XDG_STATE_HOME` is a
+#: base — the spec says what may go under it and every program appends its own
+#: name — so `agent-sys-demo` is this program's share of a directory it does not
+#: own. That is the wrong shape for the thing this variable exists to control:
+#: the run root has to be **one absolute path that resolves identically here and
+#: on the compute node**, because `remote.sh:require_visible_on_node` asserts
+#: exactly that and the bodies run out of `<run root>/runs/<id>/zones/…/package`
+#: by absolute path. A variable that only moves the parent leaves the operator
+#: composing the real answer in their head, and a container bind mount has to
+#: name the whole path anyway.
+#:
+#: `INFERA_` and not `AGENT_SYS_`: the `AGENT_SYS_*` namespace is what `env_mgr`
+#: *publishes to a body* — `AGENT_SYS_MY_ZONE`, `AGENT_SYS_MY_WORKSPACE`,
+#: `AGENT_SYS_TASK_PACKAGE` — and one of those set by a caller is either ignored
+#: or a collision. A variable read *from* the environment does not belong in a
+#: namespace whose other members are written *to* it.
+WORKROOT_ENV_VAR = "INFERA_AGENT_SYSTEM_WORKROOT"
+
+
 def default_root() -> Path:
-    """`$XDG_STATE_HOME/agent-sys-demo`, or `~/.local/state/...`.
+    """`$INFERA_AGENT_SYSTEM_WORKROOT`, else `$XDG_STATE_HOME/agent-sys-demo`.
+
+    Two sources and one rule: the specific name wins over the generic base. A
+    caller who set neither gets `~/.local/state/agent-sys-demo`.
 
     State rather than cache or data: it is *"state that should persist between
     restarts but is not important enough for the data directory"*, which is what
     a demo run is. A cache directory would be correct until somebody cleared it
     between the interrupt and the resume.
+
+    **An empty or relative value reads as unset.** `XDG_STATE_HOME`'s own
+    specification says exactly that of a base directory, and the reason applies
+    with more force here: a relative run root resolves against whatever `cwd` a
+    body inherited, which is the one thing `<run root>` may not depend on if the
+    compute node is to find the same directory.
     """
+    named = os.environ.get(WORKROOT_ENV_VAR, "").strip()
+    if named and os.path.isabs(named):
+        return Path(named)
     base = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local" / "state")
     return Path(base) / "agent-sys-demo"
 
@@ -282,6 +320,53 @@ def confinement(availability: Availability | None = None) -> str:
 # Credentials
 
 
+def _probe_environment() -> dict[str, str]:
+    """The ambient environment **plus** the o11y prefix's `CLAUDE_CONFIG_DIR`.
+
+    Gate 1 covers *agent* children; this subprocess is not one, so it dropped a
+    JSONL into `~/.claude/projects` every run — measured. Copied, not replaced:
+    a bare `env={...}` strips `PATH`, and a probe that cannot run refuses the
+    whole run. Never into our own `os.environ`.
+    """
+    env = dict(os.environ)
+    env[CLAUDE_CONFIG_ENV_VAR] = str(Prefix.resolve(os.environ).claude_home)
+    # The other half of the relocation, and `material.deploy` already carries
+    # the same line: moving `CLAUDE_CONFIG_DIR` moves away the block holding the
+    # endpoint and credentials, so a probe without this answers `Not logged in`
+    # and blames the machine. Masked on a host whose shell exports them; under
+    # `--docker` nothing does. Reserved keys stop it undoing the line above.
+    env.update(harness.harness_env())
+    return env
+
+
+#: Where the probe runs. Its own directory, because AgentsView names a project
+#: after the session's cwd — resolving the git *main repository* when there is
+#: one — so inheriting the caller's put ten identical probe transcripts into the
+#: real `infera` project. A plain directory falls back to its basename, and
+#: `probe` is what these sessions are.
+PROBE_DIR = "probe"
+
+
+def probe_cwd(prefix: Prefix) -> Path:
+    return prefix.state / PROBE_DIR
+
+
+def _probe_cwd_or_none(prefix: Prefix) -> str | None:
+    """The probe's own directory, or `None` if we could not make one.
+
+    **A cwd is not worth failing the run for.** `preflight_credentials` aborts
+    everything when it fails, and a child refuses a cwd that does not exist —
+    so an unwritable prefix must fall back to the old behaviour, not turn a
+    misfiled transcript into a dead deployment.
+    """
+    try:
+        cwd = probe_cwd(prefix)
+        cwd.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return None
+    return str(cwd)
+
+
 def preflight_credentials(*, cli: str = BACKEND, timeout: float = 90.0) -> str:
     """Ask the backend whether it can run at all, **before any zone is built**.
 
@@ -293,7 +378,12 @@ def preflight_credentials(*, cli: str = BACKEND, timeout: float = 90.0) -> str:
     `CredentialsMissing` carrying **stdout and stderr both** on failure.
 
     **It does not test what the run does, and saying so is the point.** This
-    runs `claude -p` *unconfined*, against the operator's own config directory.
+    runs `claude -p` *unconfined*, against the operator's own credentials — but
+    not their own config directory: `CLAUDE_CONFIG_DIR` points into
+    `~/.infera_agent_sys` like every other `claude` child we spawn, so the
+    transcript lands there. Measured to keep authentication working; see
+    `_probe_environment`. Not the relocation the table below is about.
+
     A confined task gets a different arm: `material.deploy` points
     `CLAUDE_CONFIG_DIR` into the zone — correctly, it is what removed the `$HOME`
     grant — which also moves away the `env` block in `~/.claude/settings.json`
@@ -330,6 +420,8 @@ def preflight_credentials(*, cli: str = BACKEND, timeout: float = 90.0) -> str:
     try:
         done = subprocess.run(  # noqa: S603 — `binary` came from `shutil.which`
             [binary, "-p", "Reply with exactly one word: ready"],
+            env=_probe_environment(),
+            cwd=_probe_cwd_or_none(Prefix.resolve(os.environ)),
             capture_output=True,
             text=True,
             timeout=timeout,

@@ -1,0 +1,243 @@
+# The baseline round: bring GLM-5.3-Flash up with decode CUDA graphs ON and the
+# profiling control plane OFF, and prove it serves.
+#
+# **One file per step, holding everything that step introduces.** Within a file
+# a name referenced before it is defined is an error, so the order is
+# validator -> handoff kind -> task. `runner`, the agent this task runs under, is
+# in `../shared.yaml` because every other task will use it too; a cross-file
+# reference has no ordering rule.
+#
+# Why this round exists at all: CUDA graphs are a start-up flag, so the
+# configuration that produces a quotable throughput number and the one that
+# produces an attributable kernel trace cannot be the same process. Measured on
+# glm53flash-demo, graphs on is ~7x graphs off at concurrency 1 (106.85 vs 15.32
+# tok/s); with graphs on the profiler sees one graph launch instead of the
+# kernels inside it. So: this round for the number, the profiled round for the
+# trace. DESIGN.md section 4.1.
+
+# --------------------------------------------------------------------------- #
+
+# Completeness: the deployment record carries every piece of evidence a reader
+# needs to believe the service was actually up, and none of it is a judgement.
+#
+# `strong`, and honestly so. Every rule is decided by looking at a file that
+# either says the thing or does not: one worker, its `disagg_mode`, an arithmetic
+# answer that is either 391 or is not, a log that either contains a fault line or
+# does not. There is nothing approximate in it.
+#
+# `inputs` lists both deployment kinds even though only the first exists today.
+# The binding is many-to-many (`validator.schema.json`), the two kinds carry the
+# same shape, and the checks differ only by what `env/deployment.json` says the
+# round was configured for -- which the body reads rather than assumes. Naming
+# the second kind now is what stops the profiled round from arriving with a
+# copy-pasted second validator.
+- module: validator
+  name: check_service_live
+  version: '1'
+  brief: One mixed worker registered, the model answers correctly, and the engine log is fault-free
+  dimension: completeness
+  strength: strong
+  inputs: [deployment_baseline, deployment_profiled]
+  args:
+    # The arithmetic probe's answer. A knob rather than a literal in the body so
+    # that the question and its expected answer stay in one place; the smoke
+    # script asks "Compute 17 * 23. Reply with only the number."
+    expect_arithmetic: '391'
+    # Exactly one worker, because this is a MIX (aggregated) deployment: prefill
+    # and decode are the same process. Two would mean a stale registration from a
+    # previous round is still in etcd, which silently halves every measurement
+    # that follows.
+    expect_workers: 1
+    expect_disagg_mode: mixed
+    # Lines that mean the ROCm path fell over. Checked against the engine log
+    # tail the body captured, not against a live log, so the verdict is
+    # reproducible from the handoff alone.
+    fault_patterns:
+      - 'memory access fault'
+      - 'HIP error'
+      - 'CUDA error'
+      - 'Traceback'
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [profiling-demo, deploy]
+
+# --------------------------------------------------------------------------- #
+
+# What `serve_baseline` hands on: a record of one deployment, and the evidence
+# that it served.
+#
+# **`content_type: reproducible`, and the choice was between this and
+# `structured_text`.** `structured_text` is the tidier-looking answer and it is
+# the wrong one: its optional items are exactly `text.json` / `text.yaml` /
+# `text.xml` / `schema`, and `handoff/content.py:check_items` rejects a top-level
+# item the type never declared. This handoff carries directories -- captured
+# smoke output, an environment snapshot, log tails, the scripts that ran -- and
+# under `structured_text` none of them has an item to be.
+#
+# `reproducible` requires `result` and `env` plus one of `script` / `command`,
+# which is a fair description of what a deployment record is: what happened, on
+# what, and how to make it happen again. Its README sections
+# (Purpose / How to run / Result / Environment / Watch out) are the same five the
+# experiment-result-packup skill asks for, so the packup step later inherits a
+# shape rather than inventing one.
+#
+# **`items_schema` is required here, and not because this package wanted one.**
+# `handoff`'s load check refuses a `reproducible` kind whose schema would admit a
+# document carrying `script` or `command` without `env`:
+#
+#   $.items_schema permits a document carrying 'script' or 'command' with no
+#   'env'. An executable with no declared environment is not reproducible,
+#   whatever it claims (spec §3.2).
+#
+# That is the right rule — a script with no record of what it ran against is a
+# reproduction kit in name only — and it means the schema states the shape rather
+# than restating the content type. `additionalProperties: false` closes it: the
+# two items this package never writes, `command` and `code`, would be a different
+# artefact and should fail to load rather than appear unannounced.
+#
+# Every value is `{type: string}` because that is how items reach the check.
+# `handoff/content.py:check_items` builds the instance as
+# `{key: item.value if data else item.path.name}`, so a directory item — which is
+# what `result/`, `env/`, `script/` and `logs/` all are — arrives as its own name.
+# What is *inside* those directories is `check_service_live`'s job; that is the
+# split the two mechanisms exist for.
+- module: handoff
+  name: deployment_baseline
+  version: '1'
+  description: A GLM-5.3-Flash MIX deployment with decode CUDA graphs on, and the evidence it served.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [result, env, command, logs, watchout]
+    properties:
+      result: {type: string}
+      env: {type: string}
+      # `command` and not `script`. The type takes either, and copying the
+      # bring-up scripts in was the first design; it does not survive the seal.
+      # `handoff.locality` rejects any absolute path outside a fixed allow-list,
+      # and a real bring-up script names its own log file under a temp directory.
+      # Substituting those away publishes scripts that no longer run, archiving
+      # them publishes something nobody can review, so the handoff carries the
+      # invocation and `env/deployment.json` says which package and commit the
+      # scripts came from.
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+  # A kind is never valid without at least one validator.
+  validators: [check_service_live]
+
+# --------------------------------------------------------------------------- #
+
+# The step.
+#
+# No inputs, so its input validation phase is empty and runs nothing.
+#
+# **The body does not deploy anything itself.** `agent-sys` runs on the login
+# node, which has no GPUs and cannot ssh to a compute node; the work happens
+# inside an already-running Slurm allocation, entered with
+# `srun --jobid=$PD_JOBID --overlap`. That is the same seam the 1P1D kit calls
+# `$SSH_CMD` -- see `assets/lib/remote.sh`.
+- module: task
+  name: serve_baseline
+  description: Bring GLM-5.3-Flash up in MIX mode with decode CUDA graphs on, and prove it serves.
+  agent: runner
+  handoffs: [deployment_baseline]
+  validators: [check_service_live]
+  task:
+    goal: Serve GLM-5.3-Flash in MIX mode with CUDA graphs on.
+    version: '1'
+    repos: [infera, sglang]
+    inputs: []
+    outputs: [deployment_baseline]
+    permissions:
+      grants:
+        - {path: handoffs/deployment_baseline, access: write, kind: deployment_baseline}
+        - {path: /usr/bin, access: read}
+        - {path: /data/agent_sys_profiling, access: write}
+
+# --------------------------------------------------------------------------- #
+# The load that measures this round.
+#
+# `check_aiperf_report` covers both rounds' reports; the binding is many-to-many
+# and the two kinds carry the same shape. What differs between them is what the
+# numbers mean, not what has to be present, and that difference is stated in each
+# handoff's own README rather than enforced here — a validator that failed a
+# profiled run for being slow would be encoding a policy nobody wrote.
+- module: validator
+  name: check_aiperf_report
+  version: '1'
+  brief: The replay produced every AIPerf export, sent requests, and kept the error rate under the bar
+  dimension: completeness
+  strength: strong
+  inputs: [aiperf_baseline, aiperf_profiled]
+  args:
+    # A replay that sent nothing is the failure mode this catches: AIPerf exits 0
+    # after synthesising prompts if the schedule window turns out empty, and every
+    # file below is then present and well-formed and describes no requests.
+    min_requests: 1
+    # Errored requests as a share of the total. Not zero: a saturated deployment
+    # legitimately times out the occasional request, and a bar of zero would make
+    # the validator a flake detector rather than a completeness check.
+    max_error_rate: '${max_error_rate:-0.05}'
+    # Metrics summarise.py must have found. Named here so that an AIPerf release
+    # that renames a row fails as "the metric is missing" rather than as a
+    # downstream KeyError three steps later.
+    require_metrics:
+      - request_count
+      - output_token_throughput_tps
+      - ttft_ms
+      - input_sequence_length
+      - output_sequence_length
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [profiling-demo, load]
+
+# --------------------------------------------------------------------------- #
+
+# `reproducible` for the same reason `deployment_baseline` is: this handoff
+# carries directories, and `structured_text` would reject every one of them.
+- module: handoff
+  name: aiperf_baseline
+  version: '1'
+  description: An AIPerf Mooncake trace replay against the graphs-on deployment, with no profiler attached.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [result, env, command, logs, watchout]
+    properties:
+      result: {type: string}
+      env: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+  validators: [check_aiperf_report]
+
+# --------------------------------------------------------------------------- #
+
+# The step. One input, so its input validation phase runs `check_service_live`
+# over the deployment it is about to drive — which is the useful half of a
+# validator being able to run in both phases: the same rules that admitted the
+# deployment as an output re-admit it as this task's input.
+- module: task
+  name: run_baseline
+  description: Replay two minutes of a Mooncake trace against the graphs-on deployment.
+  agent: runner
+  handoffs: [deployment_baseline, aiperf_baseline]
+  validators: [check_aiperf_report]
+  task:
+    goal: Replay a Mooncake trace and record what the deployment did.
+    version: '1'
+    inputs: [deployment_baseline]
+    outputs: [aiperf_baseline]
+    permissions:
+      grants:
+        - {path: handoffs/aiperf_baseline, access: write, kind: aiperf_baseline}
+        - {path: handoffs/deployment_baseline, access: read, kind: deployment_baseline}
+        - {path: /usr/bin, access: read}
+        - {path: /data/agent_sys_profiling, access: write}

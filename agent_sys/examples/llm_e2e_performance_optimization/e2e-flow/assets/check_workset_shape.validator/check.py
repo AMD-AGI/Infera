@@ -1,0 +1,751 @@
+#!/usr/bin/env python3
+"""`check_workset_shape` — completeness, strong.
+
+The workset validates against the merged schema and carries at least three
+shapes with runnable correctness and performance entrypoints.
+
+**Shape, not quality — and the split is deliberate.** Whether the entrypoints
+actually run, and whether their numbers are true, is `check_workset_runs`'s
+question and costs GPU hours. This one costs seconds and runs first, so a
+workset missing a file fails before a card is booked for it.
+
+Every rule below is decided by opening a file that either is there or is not, or
+by comparing two documents that either agree or do not. Nothing is judged. That
+is why `strong` needs no qualification here: it cannot be *approximately* right
+about whether `run_performance.sh` exists.
+
+The schema (`assets/schemas/workset.schema.json`) carries the field-level half
+and the producer validated against it too. What is left here is what a JSON
+Schema cannot state, and on this kind it is most of the value:
+
+1. **Every path the document names exists, is non-empty, and — for an
+   entrypoint — is executable.** A `workset.yaml` naming a `run_forge.sh` that
+   was never written is the single most likely way this artefact is wrong, and
+   the schema can only check that the *string* looks like a path.
+2. **`shapes` corresponds to `workload`, line for line.** The JSONL is the
+   source of truth for shapes and `shapes` is an index of it; an index that has
+   drifted means the `--shape CASE_ID` selector selects something other than
+   what a reader reading `workset.yaml` expects.
+3. **The Definition is a flashinfer-bench Definition.** `reference` and
+   `baseline` are Python source strings, so they are parsed, and both must
+   define `run`. A Definition whose reference does not parse is a correctness
+   gate that will fail at the first call with a SyntaxError hours later.
+4. **`reference` and `baseline` are not the same function.** Conflating them is
+   the single most common way a speedup number becomes meaningless, and it is
+   invisible in a document where both fields are merely present.
+5. **The KernelForge add-on agrees with the base it was generated from**
+   (M3.7.6). Same argument `analyze-demo` made for `invocation_spec.json`
+   against `forge_task.yaml`: two files produced from one record, so a
+   disagreement means one was edited on its own.
+6. **No hard-coded host path in executable or generated content.** `analyze-demo`
+   justifies this rule by saying the seal refuses a delivery over one. Measured
+   against the framework rather than inherited: it does not.
+   `handoff/store.py:447,494` decline to call `locality.check` — user-ruled
+   2026-08-31 at a measured 97% false-positive rate — and the sealed
+   `deploy_kit` in the mock set carries `/shared_nfs/...` in five files. The rule
+   survives on its own merit, which was always the real one: a script carrying
+   one host's directory does not run on the next host. It skips the environment
+   record, whose absolute paths are schema-required and are the point of it.
+7. **No template markers.** A workset that still says TODO is not a workset.
+
+What it cannot catch, stated so nobody assumes otherwise: it does not run
+anything. An entrypoint that is present, executable and measures the wrong
+operator passes here.
+"""
+
+from __future__ import annotations
+
+import ast
+import json
+import os
+import sys
+import traceback
+from pathlib import Path
+
+#: Where a crash puts its traceback. Beside `verdict.json` in the validation
+#: zone, because a validator's stdout is kept nowhere
+#: (`temp/bugs/2026-09-03-a-validators-stdout-is-not-kept-anywhere.md`) and a
+#: reason that exists only on a discarded stream is a reason nobody has.
+_CRASH_FILE = "validator_crash.txt"
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+
+import schema as S  # noqa: E402
+import workset_io as W  # noqa: E402
+import zone  # noqa: E402
+
+_PLACEHOLDERS = ("TODO", "TBD", "FIXME", "XXX", "to be filled in", "<fill", "REPLACE_ME")
+
+#: flashinfer-bench's Definition keys, as `rank0/definitions/` carries them.
+_DEFINITION_KEYS = ("name", "op_type", "axes", "inputs", "outputs", "reference", "baseline")
+
+
+def _exists(root: Path, relative: str, label: str, problems: list[str], *, executable: bool = False) -> bool:
+    target = root / relative
+    if not target.is_file():
+        problems.append(f"{label}: {relative} is absent")
+        return False
+    if target.stat().st_size == 0:
+        problems.append(f"{label}: {relative} is empty")
+        return False
+    if executable and not os.access(target, os.X_OK):
+        # `agent/gate.py:EXECUTABLE_ITEMS` refuses a seal for a non-executable
+        # `script` item *after* the body has returned, with a follow-up message
+        # that does not name the missing bit — an AI task once looped to its
+        # silent timeout over exactly this. Naming it here costs nothing.
+        problems.append(f"{label}: {relative} is not executable; run `chmod +x` on it")
+        return False
+    return True
+
+
+def _check_entrypoints(root: Path, block: dict, label: str, required: list, problems: list[str]) -> None:
+    for wanted in required:
+        if wanted not in block:
+            problems.append(f"{label}: no {wanted} entrypoint")
+    for kind, entry in block.items():
+        # The command may carry arguments; the script is the first word.
+        script = entry["cmd"].split()[0]
+        _exists(root, script, f"{label}.{kind}", problems, executable=True)
+
+
+def _check_definition(root: Path, operator: dict, problems: list[str]) -> None:
+    label = operator["operator_id"]
+    if not _exists(root, operator["definition"], label, problems):
+        return
+    try:
+        definition = W.load_definition(root.parent.parent, operator["definition"])
+    except (json.JSONDecodeError, OSError) as error:
+        problems.append(f"{label}: {operator['definition']} does not load: {error}")
+        return
+
+    for key in _DEFINITION_KEYS:
+        if key not in definition:
+            problems.append(f"{label}: the Definition has no {key!r}; flashinfer-bench requires it")
+    if definition.get("op_type") != operator["op_type"]:
+        problems.append(
+            f"{label}: workset.yaml says op_type {operator['op_type']!r}, "
+            f"the Definition says {definition.get('op_type')!r}"
+        )
+
+    # The dtype `ground_truth.dtypes` claims, against the Definition it claims it
+    # from. m4 aborts on a dtype mismatch, so a lifted copy that is wrong is a
+    # consumer aborting on the wrong premise or failing to abort on the right one.
+    declared = ((operator.get("_ground_dtypes") or {}).get(label))
+    if declared:
+        actual = {spec.get("dtype") for spec in (definition.get("inputs") or {}).values() if spec.get("shape")}
+        if actual and declared not in actual:
+            problems.append(
+                f"{label}: ground_truth.dtypes says {declared!r}, the Definition's inputs are "
+                f"{sorted(actual)}. The lifted copy has drifted from what it summarises"
+            )
+
+    sources = {}
+    for key in ("reference", "baseline"):
+        source = definition.get(key)
+        if not isinstance(source, str) or not source.strip():
+            problems.append(f"{label}: the Definition's {key!r} is not a source string")
+            continue
+        try:
+            tree = ast.parse(source)
+        except SyntaxError as error:
+            problems.append(f"{label}: the Definition's {key!r} does not parse: line {error.lineno}: {error.msg}")
+            continue
+        if not any(isinstance(n, ast.FunctionDef) and n.name == "run" for n in tree.body):
+            problems.append(f"{label}: the Definition's {key!r} defines no top-level `run`; that is the entry point")
+        sources[key] = source
+
+    # Rule 4. A reference and a baseline that are the same function mean the
+    # workset measures a speedup against the thing being checked for
+    # correctness, which is a ratio of one.
+    if len(sources) == 2 and sources["reference"].strip() == sources["baseline"].strip():
+        problems.append(
+            f"{label}: the Definition's reference and baseline are the same source. "
+            f"reference is what correctness is judged against; baseline is the incumbent "
+            f"fast implementation a speedup is judged against. Identical means the speedup is 1.0 by construction"
+        )
+
+
+def _check_shapes(content: Path, root: Path, operator: dict, args: dict, problems: list[str]) -> None:
+    label = operator["operator_id"]
+    shapes = operator["shapes"]
+    floor = W.arg_num(args, "min_shapes", 3, int)
+    if len(shapes) < floor:
+        problems.append(f"{label}: {len(shapes)} shape(s), M3.7.4.1.2 requires {floor}")
+
+    if not _exists(root, operator["workload"], label, problems):
+        return
+    try:
+        lines = W.load_workload(content, operator["workload"])
+    except (json.JSONDecodeError, OSError) as error:
+        problems.append(f"{label}: {operator['workload']} does not load: {error}")
+        return
+
+    if len(lines) != len(shapes):
+        problems.append(
+            f"{label}: the workload has {len(lines)} line(s), workset.yaml indexes {len(shapes)} shape(s). "
+            f"The JSONL is the source of truth; shapes is its index"
+        )
+    for i, (line, shape) in enumerate(zip(lines, shapes)):
+        payload = line.get("workload") or {}
+        if payload.get("uuid") != shape["uuid"]:
+            problems.append(
+                f"{label}: workload line {i} has uuid {payload.get('uuid')!r}, "
+                f"shapes[{i}] ({shape['case_id']}) says {shape['uuid']!r}"
+            )
+        if payload.get("axes") != shape["axes"]:
+            problems.append(f"{label}: workload line {i} axes {payload.get('axes')} != shapes[{i}].axes {shape['axes']}")
+        if line.get("definition") != Path(operator["definition"]).stem:
+            problems.append(
+                f"{label}: workload line {i} names definition {line.get('definition')!r}, "
+                f"the operator's definition file is {Path(operator['definition']).stem!r}"
+            )
+        for slot in ("solution", "evaluation"):
+            if line.get(slot) is not None:
+                problems.append(
+                    f"{label}: workload line {i} pre-fills {slot!r}. Those slots are the consumer's; "
+                    f"a workset that fills them asserts an answer it has not measured"
+                )
+
+    primaries = [s["case_id"] for s in shapes if s.get("is_primary")]
+    if len(primaries) != 1:
+        problems.append(f"{label}: {len(primaries)} primary shape(s) {primaries}, expected exactly 1")
+    # Not "at least one", which is what this said until m4 found the gap. One
+    # timed shape passes here and is refused twice downstream — by STEP 1 of
+    # m4's packup and again by `check_speedup_substantiated`'s
+    # `min_shapes_measured: 3` — so the loose reader was this one, at the output
+    # boundary of the stage that produces the artefact. The floor and the rule
+    # that satisfies it (`W.assign_roles`, used by the scaffold) now come from
+    # one module, so producer and validator cannot part company.
+    perf_floor = W.arg_num(args, "min_performance_shapes", W.PERFORMANCE_FLOOR, int)
+    timed = [s["case_id"] for s in shapes if W.is_performance(s["role"])]
+    if len(timed) < perf_floor:
+        problems.append(
+            f"{label}: {len(timed)} shape(s) carry a performance role {timed}, M3.7.4.1 requires "
+            f"{perf_floor}. A correctness-only shape cannot be shown to have got faster, so a "
+            f"workset that times fewer than {perf_floor} makes a claim about one shape rather "
+            f"than about an operator — and m4 refuses it at STEP 1"
+        )
+
+    ids = [s["case_id"] for s in shapes]
+    if len(set(ids)) != len(ids):
+        problems.append(f"{label}: duplicate case_id(s) {sorted({i for i in ids if ids.count(i) > 1})}")
+
+
+def _check_integration(operator: dict, problems: list[str]) -> None:
+    """`integration` describes a target that exists, or says it does not.
+
+    **The check m4 had to open a container to perform.** They read the stock
+    file out of the image and found `public_symbol: sampler_softmax` defined
+    nowhere in `target_files[0]` — so `integration` described installing a
+    named symbol into a file with no such symbol, and an overlay built from it
+    could not work. Nothing here could have caught that, because the file lives
+    in an image and this validator has no container.
+
+    It can now, because `identify` records the module-level symbol list in the
+    same read that produces `base_sha256`. **A recorded list turns a question
+    that needs a container into one that needs a comparison** — which is the
+    same move as `base_sha256` itself, and the reason both belong at identify
+    time.
+
+    Silent when `substitution` is absent: that is a workset produced before this
+    existed, and inventing a verdict about an unstated field would be worse than
+    the gap. `module_symbols: null` downgrades to unverified rather than passing,
+    and says which of the two it is.
+    """
+    label = operator["operator_id"]
+    integration = operator.get("integration") or {}
+    kind = integration.get("substitution")
+    symbol = integration.get("public_symbol")
+    if kind is None:
+        return
+    if kind == "call_site_fragment":
+        if symbol:
+            problems.append(
+                f"{label}: substitution is 'call_site_fragment' and public_symbol is {symbol!r}. "
+                f"A fragment inside {(operator.get('edit_target') or {}).get('entry_function') or 'a method'} "
+                f"has no symbol to install; naming one asserts an overlay target that does not exist"
+            )
+        return
+    if not symbol:
+        problems.append(f"{label}: substitution is 'module_symbol' and public_symbol is empty; "
+                        f"the whole claim of that kind is that a named target exists")
+        return
+    known = integration.get("module_symbols")
+    if known is None:
+        problems.append(
+            f"{label}: substitution is 'module_symbol' but module_symbols is null, so nothing here "
+            f"can confirm {symbol!r} exists in {(integration.get('target_files') or ['?'])[0]}. "
+            f"UNVERIFIED rather than wrong — identify could not read the image; a consumer must "
+            f"check before building an overlay"
+        )
+        return
+    if symbol not in known:
+        problems.append(
+            f"{label}: public_symbol {symbol!r} is not defined at module level in "
+            f"{(integration.get('target_files') or ['?'])[0]}. The image defines: "
+            f"{', '.join(sorted(known)[:8])}{' …' if len(known) > 8 else ''}. "
+            f"An overlay installing it would replace nothing"
+        )
+
+
+def _check_target_paths(operator: dict, problems: list[str], notes: list[str]) -> None:
+    """The two file paths inside one operator name the same file.
+
+    **Why an operator has two of them at all.** `scaffold.py` derives
+    `edit_target.source_file` from the identity's `source_file_path[0]` and
+    `integration.target_files` from its `editable_sources` — *two workset fields
+    from two different identity fields*. They agree today because the identity's
+    own two agree, which is a property of the identity and not of this artefact.
+
+    **Why a check rather than the derivation being enough.** The derivation is
+    `scaffold.py`'s, and at rung 3 `build_workset` is `kind: ai`: the agent runs
+    the scaffold at STEP 2 and then edits. The readme tells it to *read*
+    `edit_target` and never to write it — and nothing enforced that until this.
+    `todo.md` T51's shape aimed at a field: *the producer never writes a
+    divergent path* is true of the producer that will not be running.
+
+    **What this deliberately does NOT catch, stated so nobody reads it as
+    covered.** m5's k004 finding is `edit_target.source_file` disagreeing with
+    the **identity** (`mixed_moe_gemm_2stage.py` against
+    `moe_gemm_2stage.py`), and that comparison is **not available here**:
+    `check_workset_shape` declares `inputs: [operator_workset]`, and
+    `zone.materials()` is written per-validator — measured on run
+    `20260904T114914-0a0cdd`, every validator's `materials.json` holds exactly
+    one handoff. So this body cannot see `operator_identity` at all, and an arm
+    that pretended to would be grading one artefact against nothing.
+
+    Closing that half needs a definitions change — the identity reaching a
+    validator that grades the workset — which is not made here and is recorded
+    rather than done.
+
+    Membership rather than equality on `target_files`: an operator may
+    legitimately declare several editable files, in any order, and only the
+    claim that the primary one is among them is safe to make.
+    """
+    label = operator["operator_id"]
+    edit_target = operator.get("edit_target") or {}
+    source_file = edit_target.get("source_file") or ""
+    integration = operator.get("integration") or {}
+    target_files = [str(p) for p in (integration.get("target_files") or [])]
+
+    # **Against the identity, without the identity being here.** m5 found a
+    # workset naming `mixed_moe_gemm_2stage.py` where the identity said
+    # `moe_gemm_2stage.py`, and that comparison is not available to a validator
+    # in this graph: no phase stages both kinds, so a two-kind validator binds
+    # to nothing (written and measured 2026-09-04, selected nowhere).
+    # `scaffold.py` therefore records what it derived from, and this compares
+    # the pair inside one artefact — `base_sha256`'s move, one level up.
+    provenance = edit_target.get("from_identity")
+    if isinstance(provenance, dict):
+        recorded = [str(p) for p in (provenance.get("source_file_path") or [])]
+        if not recorded:
+            notes.append(
+                f"{label}: edit_target.from_identity carries no source_file_path, so "
+                f"{source_file!r} is UNVERIFIED — identify resolved no file for this operator"
+            )
+        elif source_file != recorded[0]:
+            problems.append(
+                f"{label}: edit_target.source_file is {source_file!r} but the identity this "
+                f"workset was scaffolded from said {recorded[0]!r} (from_identity.source_file_path "
+                f"{recorded}). The scaffold derives one from the other, so they disagree only if "
+                f"something wrote the field afterwards — and m4 optimises what this names"
+            )
+    elif provenance is None and "from_identity" in edit_target:
+        notes.append(
+            f"{label}: edit_target.from_identity is null — no identity described this operator, "
+            f"so {source_file!r} is UNVERIFIED rather than wrong. Not a pass of the comparison"
+        )
+    else:
+        notes.append(
+            f"{label}: edit_target has no from_identity, so nothing here confirms {source_file!r} "
+            f"against the identity. A workset scaffolded before 2026-09-04 — UNVERIFIED"
+        )
+
+    editable = [str(p) for p in (edit_target.get("editable_sources") or [])]
+    if source_file and editable and source_file not in editable:
+        problems.append(
+            f"{label}: edit_target.source_file is {source_file!r} but "
+            f"edit_target.editable_sources is {editable} and does not contain it. "
+            f"These are one operator's own two statements about which file it edits"
+        )
+
+    if not integration or not target_files:
+        return
+    if not source_file:
+        problems.append(
+            f"{label}: integration.target_files is {target_files} but "
+            f"edit_target.source_file is empty, so nothing here says the two agree"
+        )
+        return
+    if source_file not in target_files:
+        problems.append(
+            f"{label}: edit_target.source_file is {source_file!r} and is not in "
+            f"integration.target_files {target_files}. m5 applies the patch to "
+            f"target_files and m4 optimises what edit_target names, so a "
+            f"disagreement here has each of them editing a different file while "
+            f"both read this workset"
+        )
+
+
+def _check_forge(root: Path, operator: dict, problems: list[str]) -> None:
+    """The KernelForge add-on, M3.7.6. Optional as a block; internally consistent
+    when present. It is *layered over* the base — a consumer that does not use
+    KernelForge ignores it and loses nothing — so its absence is not a fault and
+    its disagreement with the base is."""
+    forge = operator.get("forge")
+    if not forge:
+        return
+    label = operator["operator_id"]
+    _exists(root, forge["one_line"], label, problems, executable=True)
+    _exists(root, forge["driver"], label, problems)
+
+    driver = root / forge["driver"]
+    if driver.is_file():
+        source = driver.read_text(encoding="utf-8", errors="replace")
+        try:
+            ast.parse(source)
+        except SyntaxError as error:
+            problems.append(f"{label}: {forge['driver']} does not parse: line {error.lineno}")
+        # forge-loop reads correctness and timing off this file's stdout and
+        # treats the file as protected. A driver that never prints `case_ms:`
+        # cannot be benchmarked, and the failure surfaces hours later as a
+        # campaign that ran and measured nothing. Four substring checks buy that
+        # back for free.
+        for token in ("SNR", "allclose", "--bench-mode", "CASE_ID"):
+            if token not in source:
+                problems.append(f"{label}: {forge['driver']} never mentions {token!r}; forge-loop's preflight rejects it")
+
+    cases_rel = forge.get("cases")
+    if cases_rel and _exists(root, cases_rel, label, problems):
+        try:
+            document = json.loads((root / cases_rel).read_text(encoding="utf-8"))
+        except json.JSONDecodeError as error:
+            problems.append(f"{label}: {cases_rel} does not load: {error}")
+            return
+        entries = document if isinstance(document, list) else (document.get("cases") or [])
+        exported = [e.get("case_id") for e in entries]
+        declared = [s["case_id"] for s in operator["shapes"]]
+        if exported != declared:
+            problems.append(
+                f"{label}: {cases_rel} exports cases {exported} but the workload declares {declared}. "
+                f"The export is generated from the base format; a disagreement means one of them was edited alone"
+            )
+
+    for key in ("invocation_spec", "task"):
+        if forge.get(key):
+            _exists(root, forge[key], label, problems)
+
+
+def _check(content: Path, args: dict, problems: list[str], notes: list[str]) -> bool:
+    root = W.workset_root(content)
+    if not root.is_dir():
+        problems.append("items/codes is not a directory")
+        return False
+
+    try:
+        document = W.load_workset(content)
+    except Exception as error:  # noqa: BLE001 — yaml raises several unrelated types
+        problems.append(f"items/codes/workset.yaml does not load: {error}")
+        return False
+
+    name = args.get("schema") or "workset"
+    # **A pre-`5c36cd3` workset fails the schema, and the bare error explains
+    # nothing.** `protocol.timing` was `event` while the harness measured
+    # wall-clock-around-a-sync; the enum now admits only the truth, so 51
+    # worksets already on disk refuse with `'event' is not one of
+    # ['wall_clock_sync']` — correct, and indistinguishable from a regression
+    # in whatever else changed that day. m2 predicted exactly that against
+    # their own gate before anyone met it.
+    #
+    # Naming it costs four lines and turns a cryptic enum error into a dated
+    # cause. The refusal stands: those numbers carry a method name that was
+    # never used, and re-labelling them without re-measuring would be asserting
+    # provenance nobody checked.
+    _LEGACY_TIMING = {"event", "wall", "hip_graph_replay", "cuda_graph_replay"}
+    declared = ((document.get("protocol") or {}).get("timing"))
+    if declared in _LEGACY_TIMING:
+        problems.append(
+            f"protocol.timing is {declared!r}, a value this package retired in 5c36cd3. The "
+            f"harness has only ever measured 'wall_clock_sync' — perf_counter around `iters` "
+            f"calls between two torch.cuda.synchronize() — so this workset is labelled with a "
+            f"method that was never used. **This is an old artefact, not a regression.** "
+            f"Re-produce it to re-label, or re-measure if the numbers are to be quoted"
+        )
+
+    try:
+        S.validate(name, document)
+    except S.SchemaError as error:
+        problems.extend(str(error).splitlines()[1:])
+        return False
+
+    # CONTRACT 2: a `code` kind puts the environment record here. `check_environment`
+    # grades its contents; this only refuses a workset that dropped it.
+    _exists(root, "environment.yaml", "workset", problems)
+
+    _check_entrypoints(root, document["entrypoints"], "workset", args.get("require_entrypoints") or [], problems)
+
+    # `ground_truth.noise_floor` and `.dtypes` are **summaries lifted for a
+    # consumer's convenience**, and a summary that can disagree with what it
+    # summarises is worse than no summary — the consumer reads the lifted copy
+    # and never sees the original. Both are checked against their source.
+    ground = document["ground_truth"]
+    highest = max((o["noise_floor"] for o in document["operators"]), default=0.0)
+    if abs(ground["noise_floor"] - highest) > 1e-9:
+        problems.append(
+            f"ground_truth.noise_floor is {ground['noise_floor']} but the highest operator floor "
+            f"is {highest}. The workset-wide bar is the largest of them; a lower one lets a claim "
+            f"clear the workset while failing the operator it is about"
+        )
+    for operator in document["operators"]:
+        declared = ground["dtypes"].get(operator["operator_id"])
+        if declared is None:
+            problems.append(f"ground_truth.dtypes has no entry for {operator['operator_id']}")
+
+    for operator in document["operators"]:
+        label = operator["operator_id"]
+        _check_entrypoints(root, operator["entrypoints"], label, args.get("require_entrypoints") or [], problems)
+        operator["_ground_dtypes"] = ground["dtypes"]
+        _check_definition(root, operator, problems)
+        operator.pop("_ground_dtypes", None)
+        _check_shapes(content, root, operator, args, problems)
+        _check_integration(operator, problems)
+        _check_target_paths(operator, problems, notes)
+        _check_forge(root, operator, problems)
+        if operator["reference"]["kind"] == "written":
+            _exists(root, operator["reference"]["path"], f"{label}.reference", problems)
+
+        # The apparatus is the set a consumer copies. A named file that is not
+        # there produces a copy that cannot run, an hour later, on the consumer's
+        # side — so it is checked here, where it costs nothing.
+        for relative in operator["apparatus"]:
+            _exists(root, relative, f"{label}.apparatus", problems)
+
+        # M5.1.1: the integration point has to be usable by a program. An empty
+        # `public_symbol` or a sentinel invariant means m5 is back to reading a
+        # report and deciding, which is what declaring it was for.
+        integration = operator["integration"]
+        if not integration["target_files"]:
+            problems.append(f"{label}: integration.target_files is empty; m5 has nothing to replace")
+        # **Empty and null are different answers now.** This required a
+        # non-empty symbol of every operator, which is the premise m4 disproved:
+        # an operator whose engine code is a fragment inside a method has no
+        # symbol, and `null` says so deliberately. An empty *string* still means
+        # nobody filled it in. `_check_integration` grades the deliberate case.
+        if integration["public_symbol"] is not None and not integration["public_symbol"].strip():
+            problems.append(
+                f"{label}: integration.public_symbol is an empty string. Use null with "
+                f"substitution: call_site_fragment if there is genuinely no symbol to install; "
+                f"an empty string is an unfilled field rather than a statement"
+            )
+
+    # The evidence is optional in the schema — a workset may be shape-checked
+    # before it has been measured — and required here, because a workset that
+    # reaches a consumer unmeasured is the state M4.3.5 was reversed against.
+    evidence = document.get("evidence")
+    if not evidence:
+        problems.append(
+            "no evidence block. m4 takes its ground truth strictly from this artefact, "
+            "so an unmeasured workset has nothing for it to take"
+        )
+    else:
+        for key, schema_def in (("correctness_report", "correctness_report"),
+                                ("performance_report", "performance_report")):
+            if _exists(root, evidence[key], "evidence", problems):
+                _validate_report(root / evidence[key], schema_def, f"evidence.{key}", problems)
+        # `noise_floor` is a **transcription of a computed figure**, so it is
+        # checked against the figure rather than merely required to be present.
+        # A workset declaring 1.01 on a host whose measured spread implies 1.09
+        # is one that will call noise a win, and it is the consumer who pays.
+        report_path = root / evidence["performance_report"]
+        if report_path.is_file():
+            try:
+                measured = json.loads(report_path.read_text(encoding="utf-8")).get("noise_floor")
+            except json.JSONDecodeError:
+                measured = None
+            if measured is not None:
+                for operator in document["operators"]:
+                    if operator["noise_floor"] < measured - 1e-9:
+                        problems.append(
+                            f"{operator['operator_id']}: noise_floor is {operator['noise_floor']}, but the "
+                            f"measured spread in {evidence['performance_report']} gives {measured}. "
+                            f"A floor below what the host's own noise supports calls noise a win"
+                        )
+
+    # Rules 6 and 7.
+    #
+    # **The premise `analyze-demo` gave for rule 6 is no longer true and the
+    # rule is kept anyway, rescoped.** That validator says an absolute path
+    # "refuses the whole delivery" at the seal. Measured against the framework
+    # rather than inherited: `handoff/store.py:447,494` do not call
+    # `locality.check` at all — user-ruled 2026-08-31 after the shape heuristic
+    # read an HTTP access-log line as a filesystem path and refused a correct
+    # artefact, at a measured 97% false-positive rate on a real kit. The sealed
+    # `deploy_kit` in the mock set carries `/shared_nfs/...` in five files and
+    # sealed cleanly, which is the same finding from the other side.
+    #
+    # So this is not a seal rule. It is a **portability rule**, and it applies
+    # to what a reproducer executes: a script that hard-codes one host's
+    # directory does not run on the next host, which is the entire reason the
+    # workset carries `${AITER_ROOT}` instead of a path.
+    #
+    # It therefore skips the environment record. `environment.yaml` and
+    # `workset.yaml`'s inlined `ground_truth.environment` carry `model_path`,
+    # which is absolute **by schema requirement** — recording where the weights
+    # were is the document's job. Scanning them would reject every conforming
+    # workset, which is how a rule this shape gets deleted rather than fixed.
+    offenders: list[str] = []
+    for path in sorted(p for p in W.workset_root(content).rglob("*") if p.is_file()):
+        if path.suffix in (".py", ".sh", ".json", ".jsonl"):
+            offenders.extend(
+                f"{path.relative_to(content)}: {hit.split(': ', 1)[-1]}" for hit in W.absolute_paths_in(path)
+            )
+    if offenders:
+        problems.append(
+            f"{len(offenders)} hard-coded absolute path(s) in executable or generated content, "
+            f"first: {offenders[0]}. A reproducer on another host cannot run it; use a "
+            f"${{PLACEHOLDER}} resolved from the environment"
+        )
+
+    # **Only content this workset declares as its own.**
+    #
+    # Scanning every `.md` under `content/` produced a false positive of the
+    # family that got `locality.check` disconnected: the sealed stage-3 operator
+    # directories, carried along for their ranking provenance, contain the
+    # sentence *"A `TODO:` line here is a gap that is stated rather than papered
+    # over"* — prose **about** the marker, in an artefact this validator has no
+    # business grading the wording of.
+    #
+    # So the scan follows the manifest: `workset.yaml`, the Definitions and
+    # Workloads, the generated forge add-on, and whatever `apparatus` names.
+    # That is exactly the set "a workset that is still a template" is about, and
+    # it still catches the one case that matters — the `integration.invariants`
+    # sentinel, because `workset.yaml` is always in `apparatus`.
+    declared: set[Path] = {root / "workset.yaml"}
+    for operator in document["operators"]:
+        declared.add(root / operator["definition"])
+        declared.add(root / operator["workload"])
+        declared.update(root / rel for rel in operator["apparatus"])
+        if operator["reference"]["kind"] == "written":
+            declared.add(root / operator["reference"]["path"])
+        for key, value in (operator.get("forge") or {}).items():
+            if isinstance(value, str) and "/" in value:
+                declared.add(root / value)
+    for path in sorted(declared):
+        if not path.is_file() or path.suffix not in (".md", ".yaml", ".yml", ".json"):
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for marker in _PLACEHOLDERS:
+            if marker in text:
+                problems.append(f"{path.relative_to(content)} still carries a {marker} placeholder")
+
+    return not problems
+
+
+def _validate_report(path: Path, definition: str, label: str, problems: list[str]) -> None:
+    """One `evidence/*.json` against `workset.schema.json#/$defs/<definition>`.
+
+    Resolved through `schema.py`'s **inlining**, not a `referencing` registry.
+
+    This function built its own `Registry` — and `schema.py:101` had already
+    deleted exactly that, with the reason written out: `referencing` is a
+    `jsonschema>=4.18` dependency that `/usr/bin/python3` on this host does not
+    have, and a body that reaches for it dies with `ModuleNotFoundError` before
+    it can decide anything. I re-solved a problem the shared module had solved,
+    twenty lines from the `import schema as S` that solves it — the third time
+    today I have hand-rolled something `assets/lib/` already owned (CONTRACT
+    §4.1).
+
+    **It cost the first run that ever got here.** `build_workset` sealed
+    `operator_workset` for the first time on 2026-09-04 and this validator then
+    crashed on the import, wrote no `verdict.json`, and the handoff was recorded
+    `invalid` — a missing dependency reported as a judgement about the artefact.
+
+    `$defs` travels with the subschema so its internal `#/$defs/...` pointers
+    still resolve; the cross-file `$ref` to `environment.schema.json` is already
+    inlined by the time we see it.
+    """
+    from jsonschema import Draft202012Validator
+
+    # `_inlined` is private to `schema.py`. A public accessor there would be
+    # better and belongs to that file's owner, not here — using the private name
+    # is deliberate and preferable to a fourth copy of the resolution logic.
+    inlined = S._inlined("workset")  # noqa: SLF001
+    defs = inlined.get("$defs") or {}
+    if definition not in defs:
+        problems.append(f"{label}: workset.schema.json has no $defs/{definition} to grade against")
+        return
+    validator = Draft202012Validator({**defs[definition], "$defs": defs})
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        problems.append(f"{label}: does not load: {error}")
+        return
+    for error in sorted(validator.iter_errors(document), key=lambda e: list(e.absolute_path)):
+        where = "$." + ".".join(str(p) for p in error.absolute_path) if error.absolute_path else "$"
+        problems.append(f"{label}: {where}: {error.message}")
+
+
+def main() -> int:
+    args = zone.args()
+    verdicts: dict[str, bool] = {}
+    findings: dict[str, tuple[list[str], list[str]]] = {}
+    for hid in zone.inputs():
+        problems: list[str] = []
+        # **A notes channel, which this validator has never had** — it wrote
+        # `(problems, [])` and threw away everything that was not a fault. The
+        # UNVERIFIED statements the provenance check produces are exactly what
+        # `write_report`'s second slot is for: a reader needs to know a
+        # comparison was skipped, and an empty notes list says the opposite.
+        notes: list[str] = []
+        content = zone.content_of(hid)
+        if content is None:
+            problems.append("the phase staged no content for this handoff")
+            verdicts[hid] = False
+        else:
+            try:
+                verdicts[hid] = _check(content, args, problems, notes)
+            except Exception as error:  # noqa: BLE001 — see below
+                # **A crash and a refusal are not the same event, and only the
+                # second is a judgement.** Measured 2026-09-04: a
+                # `ModuleNotFoundError` in `_validate_report` killed this body
+                # before `write_verdict`, the phase reported "nothing was
+                # decided", and `operator_workset` came out **invalid** — a
+                # missing dependency arriving downstream as a verdict about the
+                # artefact. That is the false attribution `check_workset_runs`
+                # exists to prevent, one layer up.
+                #
+                # `verdict.json` is `dict[str, bool]` (`zone.py:132`), so there
+                # is no third state to write and this **cannot** report "could
+                # not decide" as a verdict. What it can do is make the
+                # difference legible: say plainly that the instrument failed,
+                # keep the traceback where it survives, and still record False —
+                # because a validator that could not run has not established
+                # anything, and passing on that basis is the one option that is
+                # actually wrong.
+                #
+                # Bare `Exception` on purpose: the whole point is the failure
+                # nobody enumerated.
+                detail = f"{type(error).__name__}: {error}"
+                problems.append(
+                    f"THIS VALIDATOR DID NOT RUN — {detail}. This is an instrument failure, not a "
+                    f"finding about the workset: nothing here was graded. Verdict is False because "
+                    f"a check that did not execute has established nothing, NOT because the "
+                    f"artefact was judged. Traceback in {_CRASH_FILE}"
+                )
+                Path(_CRASH_FILE).write_text(
+                    f"{hid}\n{detail}\n\n{traceback.format_exc()}", encoding="utf-8")
+                verdicts[hid] = False
+        findings[hid] = (problems, notes)
+        for problem in problems:
+            print(f"{hid}: {problem}")
+    # §4.4: fix the convenience everywhere it appears, not only where it bit.
+    # This validator's reasons were on the same discarded stream; it happened to
+    # be `check_workset_runs` that refused first.
+    W.write_report("check_workset_shape", findings, verdicts)
+    zone.write_verdict(verdicts)
+    print(f"check_workset_shape: {sum(verdicts.values())}/{len(verdicts)} passed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

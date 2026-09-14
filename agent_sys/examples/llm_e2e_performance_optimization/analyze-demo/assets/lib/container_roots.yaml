@@ -1,0 +1,55 @@
+# Where each kernel owner's code lives **inside the serving container**, and the
+# placeholder name a handoff uses to refer to it.
+#
+# Two facts sit here rather than in a handoff, for one reason each.
+#
+# **The placeholder is what a handoff carries.** `handoff/locality.py` refuses to
+# seal content naming an absolute path outside an anchored allow-list, and
+# `/sgl-workspace/` is not on it. `Oracles.image_prefixes` exists for exactly
+# this case — "prefixes the declared container image makes portable" — and
+# `handoff.schema.json` has the matching `dependencies` field, but nothing
+# connects the two; see `temp/bugs/002-handoff-dependencies-never-reach-locality-check.md`.
+# So a handoff says `${AITER_ROOT}` and this file says what that is.
+#
+# **The expansion is per image, not per operator.** A different engine image
+# puts aiter somewhere else, and every operator identified against that image
+# moves with it. Keeping the mapping in one package file means retargeting is
+# one edit rather than one per operator.
+#
+# One placeholder per owner, never a placeholder plus a subpath: the locality
+# regex matches any run of two or more path segments regardless of what precedes
+# it, so `${IMAGE_ROOT}/sglang/python/sglang` is still refused while
+# `${SGLANG_ROOT}` passes. Measured, not assumed.
+
+version: 1
+
+# Keyed by `kernel_identity.source_owner`.
+owners:
+  aiter:
+    placeholder: AITER_ROOT
+    # `infera/engine-sglang:glm53-flash` and the `lmsysorg/sglang:*-rocm*-mi35x`
+    # base it derives from both install aiter here.
+    path: /sgl-workspace/aiter
+    description: AITER kernels — HIP, assembly and Triton, gated on SGLANG_USE_AITER=1
+
+  sglang:
+    placeholder: SGLANG_ROOT
+    # The editable install: `python/sglang` inside the checkout. For
+    # GLM-5.3-Flash this tree is the PR #36507 overlay, so the DSA, KDA and MoE
+    # entry points live here rather than in a released wheel.
+    path: /sgl-workspace/sglang/python/sglang
+    description: sglang's python tree, including the glm5_next model overlay
+
+  sgl_kernel:
+    placeholder: SGL_KERNEL_ROOT
+    path: /sgl-workspace/sglang/sgl-kernel
+    description: sgl-kernel's C++/HIP extension sources
+
+  tilelang:
+    placeholder: TILELANG_ROOT
+    # `Loading tilelang libs from dev root: /opt/tilelang/build` in the worker
+    # log. `/opt/` is on the framework allow-list, so this one needs no
+    # placeholder — it is given one anyway so that every owner is addressed the
+    # same way and a consumer needs no special case.
+    path: /opt/tilelang
+    description: TileLang, which supplies the DSA prefill and decode backends

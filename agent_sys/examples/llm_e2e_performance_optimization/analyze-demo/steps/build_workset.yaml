@@ -1,0 +1,140 @@
+# The AI leaf: write the material KernelForge reads.
+#
+# This is the only task in the package with a model behind it, and the choice is
+# argued in DESIGN.md section 7.2. The three steps before it are deterministic —
+# CSV arithmetic and a source search — and putting a model in any of them would
+# buy nothing and cost reproducibility. This one has to write code: a driver
+# meeting forge-loop's stdout contract, a PyTorch reference for the operator, and
+# a task brief in prose. A template covers the tidiest GEMM and nothing else.
+#
+# It is also what exercises the claude-code-sdk backend, which `temp/mission.md`
+# ISSUES item 2 requires.
+
+# --------------------------------------------------------------------------- #
+
+# The AI agent.
+#
+# `backend_entry` is the dotted form rather than an entry-point name: a task
+# package outside the installed distribution cannot register an entry point in
+# the `agent_sys.backends` group, and this package is data.
+#
+# The `env` block is the only route a package variable has into an AI body, so
+# everything the readme refers to by `$NAME` is declared here. The values
+# duplicate `shared.yaml`'s block because an agent's env is per-agent; the two
+# are kept in the same order so a diff between them is readable.
+- module: agent
+  name: workset_author
+  kind: ai
+  version: '1'
+  description: Reads an operator identity and writes the workset KernelForge consumes.
+  env:
+    AD_GPU_TARGET: '${gpu_target:-gfx950}'
+    AD_GPU_TYPE: '${gpu_type:-mi355x}'
+    AD_FRAMEWORK: '${framework:-sglang}'
+    AD_SNR_THRESHOLD: '${snr_threshold:-30.0}'
+    AD_IMAGE: '${image:-lmsysorg/sglang:v0.5.18-rocm720-mi35x}'
+    # Read-only source trees, so the model can open the files `identify` named
+    # rather than inventing what is in them.
+    AD_SGLANG_SRC: '${sglang_src:-}'
+    AD_AITER_SRC: '${aiter_src:-}'
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
+
+# Completeness of the workset as a set of files.
+#
+# It checks shape, not quality: whether a driver actually runs and whether its
+# numbers are right is `verify_workset`'s question, and no amount of static
+# checking answers it. Splitting the two is what lets the cheap check fail
+# before the GPU is ever booked — `validator` spec §5.3 orders a phase cheap
+# first, and these two are `seconds`/`external_static` against
+# `gpu_hours`/`external_dynamic`.
+- module: validator
+  name: check_workset_shape
+  version: '1'
+  brief: Every operator directory carries the files KernelForge reads, and the two exported formats agree
+  dimension: completeness
+  strength: strong
+  inputs: [operator_workset]
+  args:
+    # mission.md section 3.2.6: "正确性 test case 3个以上".
+    min_cases: 3
+    required_files:
+      - README.md
+      - invocation_spec.json
+      - forge_task.yaml
+      - program.md
+      - run_forge.sh
+      - reference/naive_torch.py
+      - scripts/task_runner.py
+      - scripts/forge_driver.py
+      - tests/cases.json
+      - provenance.json
+    # forge-loop's driver contract, checked statically here and for real in
+    # `verify_workset`. A driver missing one of these cannot be measured at all,
+    # and finding that out after the GPU is booked wastes the booking.
+    driver_must_mention: ['--bench-mode', '--profile-run', 'SNR']
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_perf, kernel]
+
+# --------------------------------------------------------------------------- #
+
+# The material KernelForge reads: one directory per operator.
+#
+# `reproducible` rather than `structured_text`, because this is the first handoff
+# in the package that claims something can be re-run. The type forces `result`
+# and `env`, requires `script` or `command`, and mandates a README carrying
+# Purpose / How to run / Result / Environment / Watch out — which is the same
+# checklist the `experiment-result-packup` skill applies, so `packup` inherits it.
+- module: handoff
+  name: operator_workset
+  version: '1'
+  description: Per-operator material for KernelForge — spec, task, drivers, reference, cases.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [result, env, script, code]
+    properties:
+      result: {type: string}
+      env: {type: string}
+      script: {type: string}
+      # One directory per operator. The tree inside is `check_workset_shape`'s
+      # subject; the schema types its presence.
+      code: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+  dependencies:
+    # What a consumer's machine must satisfy. Declared per `handoff` spec §7;
+    # note that nothing currently reads this into the locality check's
+    # `image_prefixes`, which is why container roots travel as `${PLACEHOLDER}`
+    # — see `temp/bugs/002-handoff-dependencies-never-reach-locality-check.md`.
+    image: '${image:-lmsysorg/sglang:v0.5.18-rocm720-mi35x}'
+    gpu: '${gpu_type:-mi355x}'
+    arch: '${gpu_target:-gfx950}'
+  validators: [check_workset_shape]
+
+# --------------------------------------------------------------------------- #
+
+- module: task
+  name: build_workset
+  description: Write the per-operator material KernelForge consumes.
+  agent: workset_author
+  handoffs: [kernel_worklist, operator_identity, operator_workset]
+  validators: [check_worklist_shape, check_identity_resolved, check_workset_shape]
+  task:
+    goal: Write a KernelForge workset for every selected operator.
+    version: '1'
+    inputs: [kernel_worklist, operator_identity]
+    outputs: [operator_workset]
+    permissions:
+      grants:
+        - {path: handoffs/kernel_worklist, access: read, kind: kernel_worklist}
+        - {path: handoffs/operator_identity, access: read, kind: operator_identity}
+        - {path: handoffs/operator_workset, access: write, kind: operator_workset}

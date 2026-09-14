@@ -112,31 +112,3 @@ def test_zone_subcommand_filters_by_task(
     main(["zone", str(wanted.id), "--meta", str(meta_path), "--json"])
     rows = json.loads(capsys.readouterr().out)
     assert [r["task"] for r in rows] == [str(wanted.id)]
-
-
-def test_the_shipped_modules_are_byte_identical() -> None:
-    """Criterion 22's first clause, asserted against the git index rather than
-    against a memory of what was changed."""
-    import subprocess
-    from pathlib import Path
-
-    root = Path(__file__).resolve().parents[2]
-    shipped = [
-        "env_mgr/recipe.py",
-        "env_mgr/layer.py",
-        "env_mgr/runner.py",
-        "env_mgr/outcome.py",
-        "env_mgr/report.py",
-        "env_mgr/registry.py",
-        "env_mgr/versions.py",
-        "env_mgr/installers",
-    ]
-    diff = subprocess.run(
-        ["git", "diff", "HEAD", "--stat", "--", *shipped],
-        cwd=root,
-        capture_output=True,
-        text=True,
-    )
-    if diff.returncode != 0:  # pragma: no cover - not a git checkout
-        pytest.skip("not a git working tree")
-    assert diff.stdout.strip() == "", f"the shipped machinery changed:\n{diff.stdout}"

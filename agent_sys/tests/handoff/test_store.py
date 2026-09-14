@@ -20,7 +20,7 @@ import pytest
 from handoff import FilesystemStore, Scope, store_name_for, version_dir
 from handoff.errors import Malformed
 from handoff.protocols import HandoffStore
-from handoff.store import STAGING_PREFIX
+from handoff.store import STAGING_PREFIX, handoff_dir
 from task_graph.ids import HandoffId, TaskId
 from tests.handoff.conftest import FixedKind, make_content, make_kind, open_kind
 
@@ -181,7 +181,7 @@ def test_a_failed_put_leaves_no_staging_directory(tmp_path: Path) -> None:
     with pytest.raises(Malformed, match="README.md"):
         store.put(hid, bad, producer=TaskId.new())
     assert store.list_versions(hid) == []
-    assert list((store.root / str(hid)).glob(f"{STAGING_PREFIX}*")) == []
+    assert list(handoff_dir(store.root, hid).glob(f"{STAGING_PREFIX}*")) == []
 
 
 def test_a_store_with_no_kind_source_reads_but_does_not_publish(tmp_path: Path) -> None:
@@ -294,8 +294,8 @@ def test_knowledge_instance_is_separate(tmp_path: Path) -> None:
 
     assert knowledge.exists(hid, 0)
     assert not handoffs.exists(hid)
-    assert (tmp_path / "knowledge" / str(hid) / "v0").is_dir()
-    assert not (tmp_path / "handoffs" / str(hid)).exists()
+    assert version_dir(tmp_path / "knowledge", hid, 0).is_dir()
+    assert not handoff_dir(tmp_path / "handoffs", hid).exists()
 
 
 def test_a_store_needs_a_root(tmp_path: Path) -> None:

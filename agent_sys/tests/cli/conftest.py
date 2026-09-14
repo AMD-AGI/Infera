@@ -20,8 +20,30 @@ from typing import Any
 import pytest
 
 from cli import build, package
+from cli import main as cli_main
 from cli.stream import Stream
 from task_graph import Task, build_registry
+
+
+@pytest.fixture(autouse=True)
+def _no_real_agentsview_install(monkeypatch):
+    """**No test here downloads 45 MB.**
+
+    `main(["run", ...])` reaches `_start_o11y`, and a test that patches only
+    `ensure_running` leaves `ensure_installed` real — which runs the recipe for
+    real. `tests/conftest.py` keeps that out of the operator's prefix; this
+    keeps it off the network, so the suite still passes offline and in seconds.
+
+    It reports "already present", not "missing", so `_start_o11y` goes on to
+    reach `ensure_running` — which is what the failure-mode tests are about. A
+    test that is genuinely about installing patches this itself, afterwards.
+    """
+    from env_mgr.o11y.agentsview import Status
+
+    monkeypatch.setattr(
+        cli_main, "ensure_installed",
+        lambda prefix, install_item: Status(True, "agentsview already present (skip)"),
+    )
 
 
 @pytest.fixture(scope="session")

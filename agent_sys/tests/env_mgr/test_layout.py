@@ -171,6 +171,85 @@ def test_find_zone_dir_picks_the_latest_attempt(domains: DomainRegistry) -> None
     assert layout.find_zone_dir(domains.storage_root(), task.id) == latest.root
 
 
+# ------------------------------------------------- the label on a directory
+#
+# A run tree is something a person reads. Every directory `agent_sys` creates
+# now leads with what it *is* and carries the name the system already knew, so
+# `ls` answers "which task is this" without a lookup. The tests below hold the
+# two properties that make the label safe: nothing resolves through it, and a
+# tree written before it existed still resolves.
+
+
+def test_a_zone_is_named_after_its_closure(domains: DomainRegistry) -> None:
+    task = Task(closure="describe")
+    zone = layout.create(task, task.push_execution(), domains)
+    assert os.path.basename(zone.root).startswith(f"task.describe.{task.id}.")
+
+
+def test_a_task_with_no_closure_keeps_the_unlabelled_name(domains: DomainRegistry) -> None:
+    """The label is optional and its absence is not a placeholder: a task that
+    has no closure gets exactly the name it got before labels existed."""
+    task = Task()
+    zone = layout.create(task, task.push_execution(), domains)
+    assert os.path.basename(zone.root).startswith(f"task.{task.id}.")
+
+
+def test_a_closure_name_cannot_add_a_field(domains: DomainRegistry) -> None:
+    """`find_zone_dir` reads the attempt from ``parts[-2]``, so a ``.`` in a
+    closure name would make it read the wrong field. The slug is what stops it."""
+    task = Task(closure="a.b/c d")
+    execution = task.push_execution()
+    zone = layout.create(task, execution, domains)
+    name = os.path.basename(zone.root)
+    assert name == f"task.a-b-c-d.{task.id}.0.{name.rsplit('.', 1)[-1]}"
+    assert layout.find_zone_dir(domains.storage_root(), task.id) == zone.root
+
+
+def test_find_zone_dir_still_finds_an_unlabelled_zone(domains: DomainRegistry) -> None:
+    """The compatibility claim, asserted rather than argued: a zone directory in
+    the shape written before labels existed is still this task's."""
+    task = Task()
+    legacy = os.path.join(domains.storage_root(), f"task.{task.id}.0.deadbeef")
+    os.makedirs(legacy)
+    assert layout.find_zone_dir(domains.storage_root(), task.id) == legacy
+
+
+def test_a_validation_zone_is_named_after_its_closure(
+    domains: DomainRegistry,
+) -> None:
+    task = Task(closure="describe")
+    layout.create(task, task.push_execution(), domains)
+    root = layout.validation_zone(task, "output_validation", domains)
+    assert os.path.basename(root).startswith(f"validation.describe.{task.id}.output_validation.")
+
+
+def test_a_staged_input_keeps_the_store_directory_s_name(
+    domains: DomainRegistry, tmp_path: Path
+) -> None:
+    """The staged copy inherits the label instead of recomputing it, so a body's
+    ``materials/`` reads like the store and no kind map has to be threaded
+    through `stage`."""
+    from task_graph.ids import HandoffId
+
+    from .stubs import context
+
+    store = tmp_path / "store"
+    hid = HandoffId.new()
+    published = store / f"handoff.facts.{hid}" / "v1" / "content"
+    published.mkdir(parents=True)
+    (published / "result.json").write_text("{}")
+
+    task = Task(inputs=[hid])
+    execution = task.push_execution()
+    execution.input_versions = {hid: 1}
+    zone = layout.create(task, execution, domains)
+
+    ctx = context(domains=domains, store_root=str(store))
+    staged = layout.stage_handoffs(task, execution, zone, ctx)
+
+    assert Path(staged[hid]).parent.name == f"handoff.facts.{hid}"
+
+
 def test_a_parent_without_a_zone_is_an_error(domains: DomainRegistry) -> None:
     orphan = Task(parent=Task().id)
     with pytest.raises(ValueError, match="has no zone under"):

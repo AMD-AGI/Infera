@@ -1,0 +1,41 @@
+--- a/agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/identify.task/identify.py
++++ b/agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/identify.task/identify.py
+@@
+     repo_map = {Path(r).name: Path(r) for r in repos if Path(r).is_dir()}
+     operators = [resolve(row, hits.get(row["name"]) or {}, repos, repo_map) for row in selected]
++    _disambiguate_logical_operators(operators)
+
+--- new helper, to be inserted directly after logical_operator() ---
+
+def _disambiguate_logical_operators(operators: list) -> None:
+    """Make `logical_operator` unique in place, because it becomes a directory.
+
+    `logical_operator()` is deliberately lossy: it drops tile and tuning tokens
+    and keeps four, so that a name survives a rebuild. Two genuinely different
+    kernels can therefore reduce to the same string -- measured on run
+    `20260906T154908-d9c7af`, where two distinct symbols both became
+    `layernorm_aiter_add_rmsnorm_quant` and `check_identity_resolved` refused
+    with *"It becomes a directory name in the workset, so two of them collide
+    silently."*
+
+    **The producer could not previously satisfy a validator requirement**, which
+    is the CONTRACT 5.3 shape, and the honest fix is here rather than in the
+    validator: uniqueness is a real requirement, the collapse is intentional,
+    so the collision has to be resolved where the name is minted.
+
+    The suffix is the `kernel_id`, not a counter: a counter would renumber every
+    operator when an unrelated kernel enters or leaves the worklist, and these
+    names appear in artefacts that get compared across runs. Only the colliding
+    entries are touched -- a name that is already unique is left byte-identical,
+    so this changes nothing on a worklist that did not collide.
+    """
+    from collections import Counter
+    counts = Counter(o["logical_operator"] for o in operators)
+    for o in operators:
+        base = o["logical_operator"]
+        if counts[base] < 2:
+            continue
+        suffixed = f"{base}_{o['kernel_id']}"[:96].strip("_")
+        o["logical_operator"] = suffixed
+        if isinstance(o.get("kernel_identity"), dict):
+            o["kernel_identity"]["logical_operator"] = suffixed

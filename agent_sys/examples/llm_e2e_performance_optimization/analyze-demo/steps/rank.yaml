@@ -1,0 +1,82 @@
+# Classify, filter, rank. The only step whose output a human reads directly.
+#
+# DESIGN.md section 6 is the algorithm. mission.md says the ranking algorithm is
+# not the point of this round ("待优化算子列表的产生算法暂时不知重点，存在即可"),
+# but the classification step in front of it is not optional: NCCL is 78.98% of
+# the sample profile and forge-loop has no path for a collective, so a plain
+# top-N would put an unusable entry first.
+
+# --------------------------------------------------------------------------- #
+
+# Completeness of the worklist as a document.
+#
+# `strong`, and the claim is checkable: every rule is counted rather than
+# judged. What it cannot check is whether the *selection* is a good one — that
+# is a question about the profile, not about the document, and no validator in
+# this package claims to answer it.
+- module: validator
+  name: check_worklist_shape
+  version: '1'
+  brief: Every kernel is classified, every exclusion carries a reason, and the selection is ordered and bounded
+  dimension: completeness
+  strength: strong
+  inputs: [kernel_worklist]
+  args:
+    # An unclassified kernel is recorded rather than dropped, so a rising
+    # `unknown` share is visible. Above this the taxonomy has fallen behind the
+    # workload and the rules in `assets/lib/kernel_taxonomy.yaml` need a look.
+    # Measured on the sample profile: 0.077.
+    max_unknown_ratio: 0.3
+    # A selection of zero is a failure, not an empty answer: it means every
+    # routable kernel was filtered out and the thresholds are wrong.
+    min_selected: 1
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_perf]
+
+# --------------------------------------------------------------------------- #
+
+# The list of operators worth optimizing — the deliverable mission.md section 3
+# names first.
+#
+# It carries **every** row of the input table, not only the selected ones, each
+# with its bucket and, when excluded, the reason. Dropping the excluded rows
+# would make the document unauditable: a reader could not tell a kernel that was
+# considered and rejected from one the profile never saw.
+- module: handoff
+  name: kernel_worklist
+  version: '1'
+  description: Every profiled kernel classified and ranked, with the selected candidates marked.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json', schema, 'worklist.csv']
+    properties:
+      'text.json': {type: string}
+      # The machine-readable schema of `text.json`, so a downstream reader need
+      # not infer it. `structured_text` lists `schema` as an optional item.
+      schema: {type: string}
+      # The same content as a CSV, for a human opening it in a spreadsheet.
+      'worklist.csv': {type: string}
+  validators: [check_worklist_shape]
+
+# --------------------------------------------------------------------------- #
+
+- module: task
+  name: rank
+  description: Classify every profiled kernel, filter to the routable ones, and rank them.
+  agent: run_script
+  handoffs: [kernel_table, kernel_worklist]
+  validators: [check_kernel_table, check_worklist_shape]
+  task:
+    goal: Produce the ranked list of operators worth optimizing.
+    version: '1'
+    inputs: [kernel_table]
+    outputs: [kernel_worklist]
+    permissions:
+      grants:
+        - {path: handoffs/kernel_table, access: read, kind: kernel_table}
+        - {path: handoffs/kernel_worklist, access: write, kind: kernel_worklist}

@@ -42,6 +42,7 @@ no good home, that is a finding to report, not a reason to pick the nearest file
 
 | MUST | |
 |---|---|
+| **Never add a responsibility an existing mechanism can already cover** | Before introducing a concept, find the mechanism that already owns that job and **change it**. Modifying, clarifying or narrowing an existing component's responsibility is the normal move; adding a parallel one is not. A new module or concept is admissible only after a full analysis shows no existing component can host the job, **and** that its responsibility conflicts with nobody else's — and the analysis is written down, not asserted |
 | **Name the owner before writing the code** | "Which object is this a fact *about*?" usually answers it in one sentence |
 | **Never put something in a semantically wrong module because it is convenient** | Convenience is a one-time saving. A misplaced concept is paid for at every later read |
 | **Never fuse two modules to avoid deciding** | A merge is easy and a split is expensive. When in doubt, keep them apart |
@@ -51,6 +52,20 @@ no good home, that is a finding to report, not a reason to pick the nearest file
 **The most common failure is not putting a thing in the wrong module — it is
 adding a thing at all so that some *other* module can compute with it.** That is
 §3, and §4.4 is what it looks like in practice.
+
+**A second concept covering a job the system already has a mechanism for is the
+same failure wearing a friendlier face, and it is harder to see because nothing
+is obviously in the wrong place.** Two mechanisms for one job do not merely cost
+twice; they drift, and every later reader has to learn which one is authoritative
+in which case — a question the code cannot answer for them. **More concepts make
+more to maintain**, and the maintenance is paid by whoever is not in the room
+when the second one is added.
+
+So the order is: **find the owner, change the owner, and only then consider a new
+component.** "The existing mechanism does not quite fit" is the beginning of the
+analysis, not its conclusion — most of the time the right change is to the
+existing mechanism, and the reason it looked unfit was that its responsibility had
+never been stated precisely enough to argue with.
 
 ---
 

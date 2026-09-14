@@ -15,6 +15,7 @@ import pytest
 
 from handoff import check_contained, version_dir
 from handoff.errors import NotContained
+from handoff.store import handoff_dir
 from task_graph.ids import HandoffId
 
 
@@ -89,9 +90,9 @@ def test_a_path_that_does_not_exist_yet_is_still_checkable(tmp_path: Path) -> No
 
 
 def test_the_store_layout_is_what_containment_is_asserted_against(tmp_path: Path) -> None:
-    """Against the real layout, not a synthetic one: `<root>/<hid>/v<N>/`."""
+    """Against the real layout, not a synthetic one: `<root>/handoff.<kind>.<hid>/v<N>/`."""
     root = tmp_path / "handoffs"
     mine, theirs = HandoffId.new(), HandoffId.new()
-    check_contained(version_dir(root, mine, 0), root / str(mine))
+    check_contained(version_dir(root, mine, 0), handoff_dir(root, mine))
     with pytest.raises(NotContained):
-        check_contained(version_dir(root, theirs, 0), root / str(mine))
+        check_contained(version_dir(root, theirs, 0), handoff_dir(root, mine))

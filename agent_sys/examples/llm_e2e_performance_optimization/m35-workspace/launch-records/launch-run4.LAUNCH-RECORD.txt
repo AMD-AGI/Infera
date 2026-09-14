@@ -1,0 +1,54 @@
+RUN 4 — launched_at (date -u, read not written) : 2026-09-06T15:48:54Z
+launcher    : /data/yihou/e2e_verify_20260906/m35/launch-run4/launch.sh
+instruction : /data/yihou/e2e_verify_20260906/m35/launch-run4/instruction.txt  (sha256 88e70cb77f56e0ee)
+supersedes  : 20260906T150155-79bca5, died 15:46:13Z; check_deploy_serves refused,
+              engine lost its detokenizer 1 s after reporting ready
+
+PRECONDITIONS AT LAUNCH
+  cards      : VRAM% ID) 0% 0% 0% 0% 0% 0% 0% 0% 
+  containers : rc_26_7_902 xiaoming-dev 
+  orphans    : 0 (verified by /proc scan excluding self; the counting one-liner
+               self-matches -- see run 3's record)
+  hold       : 29313, EndTime 2026-09-07T14:00:06
+
+CHANGES FROM RUN 3 (two, both in the instruction, both authorised)
+  (a) capture etcd and every started container's log UNCONDITIONALLY, success
+      path included. Two people read one missing etcd.log in opposite wrong
+      directions today; the absence established nothing either way.
+  (b) ONE retry on a named signature only: worker logs "fired up and ready to
+      roll!" then "Health check failed ... detokenizer" within seconds.
+      Bounds: named signature only; attempt 1's logs preserved as
+      logs/{worker,router}.attempt1-detokenizer-fail.log with a note in
+      notes.md; if the retry fails too, die loudly naming both. No third try.
+      Falls toward spending time, never toward a wrong verdict.
+
+CARRIED FORWARD UNCHANGED
+  the attributable-VRAM preflight (run 3's kit passed the known-answer test:
+    classify() returned stranger:{} with both /dev/kfd foreign containers up)
+  trace_end_ms=120000            Path A, still untested anywhere
+  kernel_table_min_launchers=0   deliberate; run 5 drops it
+  separate container/work_root   NOW THE DEFAULT, not a deviation (leader)
+
+WHAT THIS RUN TESTS, in order
+  0. bring-up survives, or the retry fires and says so in notes.md
+  1. m2 preflight: REPORT THE ACTUAL waited: VALUE.
+       non-zero  -> the unknown->wait branch is reachable; first spend of
+                    DK_GPU_WAIT_S anywhere
+       0s        -> the drain beat the read; branch STILL untested. STOP and
+                    tell the leader. Do not let it read as success.
+     NOTE: a 0 from a preflight that never called classify() (cards genuinely
+     free, as in m1's own) is CORRECT and is not this signature.
+  2. CAPTURE_OK -- Path A.
+       grep CAPTURE_OK <run>/.../load.profiling_mode_on/capture_stacks.log
+     ONE OF SEVERAL CONDITIONS. Any single false in the _on closure, at any
+     strength, invalidates all three siblings (runner.py:598,972).
+     Prior evidence: on 298750 three of five _on validators passed on their own
+     merits, the fourth was waived, and the fifth shares the fourth's cause --
+     so a successful capture plausibly closes the closure. NOT established.
+  3. merge_profiling_evidence -- never EXECUTED anywhere. If
+     check_profiling_evidence refuses, run refusal_saw_something.sh BEFORE
+     attributing: it is an "X is missing" refusal with no history at all.
+
+NOT A REPLAY. No acceptance caveat.
+orchestrator pid : 554448
+run dir: /data/yihou/agent_sys_runroot/runs/20260906T154908-d9c7af/

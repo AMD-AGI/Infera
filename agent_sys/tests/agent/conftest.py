@@ -51,6 +51,7 @@ class ScriptedBackend(ExecutorBase):
 
             raise BackendUnsupported(key, "run here", str(self.config["unavailable"]))
         self.deployed = 0
+        self.terminated = 0
         self.delivered: list[str] = []
         self.interrupted = 0
         self.results: list[AgentResult] = list(self.config.get("results") or [])
@@ -65,6 +66,9 @@ class ScriptedBackend(ExecutorBase):
 
     def _deliver(self, message: str) -> None:
         self.delivered.append(message)
+
+    def _terminate(self) -> None:
+        self.terminated += 1
 
     def interrupt(self) -> None:
         self.interrupted += 1
@@ -385,6 +389,9 @@ class StubEnvManager:
             # Spec §5.5's remote tool surface. Empty here: this double has no
             # far side, which is what every task without a mapping gets.
             tools=(),
+            # Per-agent components' external MCP servers. Empty here: this
+            # double's agent declares none, which is every task today.
+            mcp_servers={},
         )
 
 

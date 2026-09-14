@@ -1,0 +1,261 @@
+# The stock arm: the same deployment with none of the patch mounted, measured by
+# the same script in the same order. It is the baseline, and it exists because
+# there is no other honest one.
+#
+# Three candidate baselines were considered and two do not survive:
+#
+#   profiling-demo's aiperf_baseline -- no. That package measured the same
+#   configuration on the same trace twice and got 631 tok/s / 25.9 s TTFT cold
+#   against 1004 tok/s / 484 ms with the deployment reused, because a Mooncake
+#   trace carries hash_ids and prefix hit rate decides how much prefill there is.
+#   Numbers from another session are not comparable.
+#
+#   a published reference score -- no, and the 1P1D kit says so in its own words:
+#   an absolute eval score has no external baseline, and the comparison worth
+#   making is against a prior run or between gsm8k and its shared-prefix variant.
+#
+#   the same node, the same session, the same trace, unpatched -- this file.
+
+# --------------------------------------------------------------------------- #
+
+# Ported from profiling-demo unchanged except for what it expects of the round.
+#
+# `inputs` lists both deployment kinds. The binding is many-to-many
+# (`validator.schema.json`), the two kinds carry the same shape, and what differs
+# between the arms is which files are mounted, not what has to be present.
+#
+# Both arms run with CUDA graphs ON. profiling-demo turned them off in one round
+# because a profiler sees a graph launch instead of the kernels inside it; this
+# package captures no profile, so there is no reason to measure a configuration
+# nobody would deploy.
+- module: validator
+  name: check_service_live
+  version: '1'
+  brief: One mixed worker registered, the model answers correctly, and the engine log is fault-free
+  dimension: completeness
+  strength: strong
+  inputs: [deployment_stock, deployment_patched]
+  args:
+    # The smoke script asks "Compute 17 * 23. Reply with only the number."
+    expect_arithmetic: '391'
+    # Exactly one worker, because this is a MIX (aggregated) deployment. Two
+    # would mean a stale registration from a previous round is still in etcd,
+    # which silently halves every measurement that follows.
+    expect_workers: 1
+    expect_disagg_mode: mixed
+    # Read off the engine's OBSERVED argv, not off anything the task declares
+    # about itself. A self-declared flag is exactly no use against the failure
+    # this is looking for.
+    expect_cuda_graph: true
+    fault_patterns:
+      - 'memory access fault'
+      - 'HIP error'
+      - 'CUDA error'
+      - 'Traceback'
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [integration-demo, deploy]
+
+# --------------------------------------------------------------------------- #
+
+- module: handoff
+  name: deployment_stock
+  version: '1'
+  description: A GLM-5.3-Flash MIX deployment with nothing mounted over it, and the evidence it served.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [result, env, command, logs, watchout]
+    properties:
+      result: {type: string}
+      env: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+  validators: [check_service_live]
+
+# --------------------------------------------------------------------------- #
+
+- module: task
+  name: serve_stock
+  description: Bring GLM-5.3-Flash up in MIX mode with no patch mounted.
+  agent: runner
+  handoffs: [patch_overlay, deployment_stock]
+  validators: [check_service_live]
+  task:
+    goal: Serve GLM-5.3-Flash unpatched, as the arm to compare against.
+    version: '1'
+    repos: [infera, sglang]
+    # It reads the overlay but mounts none of it. The edge is what makes the
+    # ordering true, and reading the input is what makes the edge honest: this
+    # arm records which mounts it deliberately did NOT apply, so the two
+    # deployment records differ in a stated way rather than an implied one.
+    inputs: [patch_overlay]
+    outputs: [deployment_stock]
+    permissions:
+      grants:
+        - {path: handoffs/deployment_stock, access: write, kind: deployment_stock}
+        - {path: handoffs/patch_overlay, access: read, kind: patch_overlay}
+        - {path: /usr/bin, access: read}
+        - {path: /data/agent_sys_integration, access: write}
+
+# --------------------------------------------------------------------------- #
+
+# Completeness: all three kinds of correctness evidence arrived, each of them
+# readable on its own terms.
+#
+# Note what this validator does NOT do: it does not compare the arms. An eval
+# score is admitted whatever it is, because a single score has no baseline --
+# `check_no_regression` is where two of them become a judgement. What is checked
+# here is that the measurement happened and can be read: a needle run that
+# silently sent a 3000-token prompt is not a long-context test, and an eval whose
+# html holds fewer scored rows than its index claims is not a score.
+- module: validator
+  name: check_acceptance
+  version: '1'
+  brief: Smoke, needle and every eval produced readable evidence at the length and count they claim
+  dimension: completeness
+  strength: strong
+  inputs: [acceptance_stock, acceptance_patched]
+  args:
+    # The needle's gated length must actually have been reached.
+    # usage.prompt_tokens is read back from the server, so this catches a
+    # filler-to-token estimate that drifted with a tokenizer change. **This is
+    # the part of the needle that is gated**, because it is a fact about the
+    # request rather than a behaviour of the model.
+    needle_min_token_ratio: 0.95
+    # Retrieval is a floor of one depth, not a pass/fail on all three.
+    #
+    # Nine measurements on this deployment produced no configuration that
+    # retrieves at every depth twice: the outcome is not monotonic in prompt
+    # length, it moves with the needle's wording, and raising the generation
+    # budget from 256 to 2048 turned two passing depths into failures because the
+    # model reasons its way past the answer. The table is in
+    # assets/accept/needle.py. Requiring three would be requiring something
+    # nothing has achieved reliably; requiring one separates a working
+    # long-context path from a stack that dropped every prefill chunk but the
+    # last, which is the failure the test was added for.
+    #
+    # Where a needle result becomes evidence is the arm-to-arm comparison, and
+    # that is check_no_regression's job, not this one's.
+    needle_min_depths_retrieved: 1
+    # Below this the Wilson interval is so wide that the eval cannot see anything.
+    min_scored_per_eval: 20
+    require_smoke_checks: [arithmetic, long_generation, workers, engine_log]
+  tags:
+    logic_source: external_static
+    cost: minutes
+    domain: [integration-demo, accept]
+
+# --------------------------------------------------------------------------- #
+
+- module: handoff
+  name: acceptance_stock
+  version: '1'
+  description: Smoke, needle and llm-eval results from the unpatched deployment.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [result, env, command, logs, watchout]
+    properties:
+      result: {type: string}
+      env: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+  validators: [check_acceptance]
+
+# --------------------------------------------------------------------------- #
+
+- module: validator
+  name: check_bench_report
+  version: '1'
+  brief: Every replay round produced a complete AIPerf export, sent requests, and stayed under the error bar
+  dimension: completeness
+  strength: strong
+  inputs: [bench_stock, bench_patched]
+  args:
+    # A replay that sent nothing is the failure this catches: AIPerf exits 0
+    # after synthesising prompts if the schedule window turns out empty, and
+    # every file is then present, well-formed, and describes no requests.
+    #
+    # **50 and not 100, and the difference was a wasted run.** The bar has to sit
+    # below the smallest replay window anyone would legitimately shorten to, or
+    # it stops being "did this send anything" and becomes a second, undeclared
+    # constraint on `trace_end_ms`. Measured on this trace: 346 requests in the
+    # 120 s default window, 166 in 60 s, and roughly 80 in 30 s — at which point
+    # a bar of 100 failed a replay that had worked perfectly, invalidated both of
+    # `measure_stock`'s handoffs, and stopped the graph.
+    min_requests: '${min_requests:-50}'
+    # Not zero: a saturated deployment legitimately times out the occasional
+    # request, and a bar of zero makes this a flake detector.
+    max_error_rate: '${max_error_rate:-0.05}'
+    expect_rounds: '${bench_rounds:-2}'
+    require_metrics:
+      - request_count
+      - output_token_throughput_tps
+      - ttft_ms
+      - input_sequence_length
+      - output_sequence_length
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [integration-demo, bench]
+
+# --------------------------------------------------------------------------- #
+
+- module: handoff
+  name: bench_stock
+  version: '1'
+  description: Two Mooncake trace replays against the unpatched deployment, one trace-cold and one warm.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [result, env, command, logs, watchout]
+    properties:
+      result: {type: string}
+      env: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+  validators: [check_bench_report]
+
+# --------------------------------------------------------------------------- #
+
+# The step, and it produces TWO handoffs.
+#
+# Correctness and performance have to run against the same deployment instance
+# and must not overlap in time -- a saturating trace replay running during an
+# eval invalidates both. As two sibling tasks with the same `froms`, agent_sys
+# would schedule them concurrently and there is no synchronisation primitive
+# between them; lining them up would need a rendezvous file, which is an edge the
+# graph cannot see. The framework's rule is one producer per kind per subgraph,
+# not one kind per task.
+#
+# The order inside is fixed and recorded, because "round 1 is cold for this
+# trace" is only true if the same things happened before it in both arms.
+- module: task
+  name: measure_stock
+  description: Run smoke, needle, llm-eval and two trace replays against the unpatched deployment.
+  agent: runner
+  handoffs: [deployment_stock, acceptance_stock, bench_stock]
+  validators: [check_acceptance, check_bench_report]
+  task:
+    goal: Measure correctness and performance on the unpatched deployment.
+    version: '1'
+    inputs: [deployment_stock]
+    outputs: [acceptance_stock, bench_stock]
+    permissions:
+      grants:
+        - {path: handoffs/acceptance_stock, access: write, kind: acceptance_stock}
+        - {path: handoffs/bench_stock, access: write, kind: bench_stock}
+        - {path: handoffs/deployment_stock, access: read, kind: deployment_stock}
+        - {path: /usr/bin, access: read}
+        - {path: /data/agent_sys_integration, access: write}

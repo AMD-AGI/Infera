@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import re
+
 from ..outcome import Outcome
 from ..recipe import Item, Target
 from .base import _run_bootstrap, level_for_missing, run_cmd
@@ -16,17 +18,20 @@ class ClaudeInstaller:
         rc, out = run_cmd("claude plugin list")
         return rc == 0, out
 
+    #: One entry line of `claude plugin list`: a bullet glyph, then
+    #: `name@marketplace`, then end of line. Anchored on the `name@marketplace`
+    #: shape rather than the bullet glyph, since the glyph is not guaranteed
+    #: stable across CLI versions.
+    _ENTRY_RE = re.compile(r"^\s*\S\s+([^\s@]+)@\S+$", re.M)
+
     @staticmethod
     def _present_names(out: str) -> set[str]:
-        # `claude plugin list` prints one plugin per line, name first. Match the
-        # bare name of each non-empty line exactly, so a prefix name (e.g.
-        # "super") is not falsely matched against "superpowers".
-        names = set()
-        for line in out.splitlines():
-            line = line.strip()
-            if line:
-                names.add(line.split()[0])
-        return names
+        """The plugin names `claude plugin list` reports as installed.
+
+        Whole names only. Installed, not enabled: a disabled plugin is still
+        listed and its name is in this set although it will not load.
+        """
+        return {m.group(1) for m in ClaudeInstaller._ENTRY_RE.finditer(out)}
 
     def check(self, item: Item, target: Target) -> list[Outcome]:
         ok, out = self._installed()

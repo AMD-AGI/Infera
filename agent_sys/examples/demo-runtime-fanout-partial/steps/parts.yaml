@@ -1,0 +1,119 @@
+# One validator shared by three kinds, then the three kinds, then the four tasks.
+
+- module: validator
+  name: check_thing
+  version: '1'
+  brief: Every row carries the required keys and totals are consistent
+  dimension: completeness
+  strength: strong
+  inputs: [thing_a, thing_b, thing_c]
+  args:
+    required_row_keys: [name, value, tag]
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [runtime]
+
+- module: handoff
+  name: thing_a
+  version: '1'
+  description: Rows produced by emit_a, carrying name, value, and tag.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json']
+    properties:
+      'text.json': {type: string}
+  validators: [check_thing]
+
+- module: handoff
+  name: thing_b
+  version: '1'
+  description: Rows produced by emit_b — deliberately missing the tag field.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json']
+    properties:
+      'text.json': {type: string}
+  validators: [check_thing]
+
+- module: handoff
+  name: thing_c
+  version: '1'
+  description: Rows produced by emit_c, carrying name, value, and tag.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json']
+    properties:
+      'text.json': {type: string}
+  validators: [check_thing]
+
+- module: task
+  name: emit_a
+  description: Produce valid rows with all required fields.
+  agent: runner
+  handoffs: [thing_a]
+  validators: [check_thing]
+  task:
+    goal: Write rows with name, value, and tag.
+    version: '1'
+    inputs: []
+    outputs: [thing_a]
+    permissions:
+      grants:
+        - {path: handoffs/thing_a, access: write, kind: thing_a}
+
+- module: task
+  name: emit_b
+  description: Produce rows deliberately missing the tag field.
+  agent: runner
+  handoffs: [thing_b]
+  validators: [check_thing]
+  task:
+    goal: Write rows missing the required tag field.
+    version: '1'
+    inputs: []
+    outputs: [thing_b]
+    permissions:
+      grants:
+        - {path: handoffs/thing_b, access: write, kind: thing_b}
+
+- module: task
+  name: emit_c
+  description: Produce valid rows with all required fields.
+  agent: runner
+  handoffs: [thing_c]
+  validators: [check_thing]
+  task:
+    goal: Write rows with name, value, and tag.
+    version: '1'
+    inputs: []
+    outputs: [thing_c]
+    permissions:
+      grants:
+        - {path: handoffs/thing_c, access: write, kind: thing_c}
+
+- module: task
+  name: merge
+  description: Consume all three kinds. Never runs because thing_b is INVALID.
+  agent: runner
+  handoffs: [thing_a, thing_b, thing_c]
+  validators: [check_thing]
+  task:
+    goal: Merge the three producers' outputs into one document.
+    version: '1'
+    inputs: [thing_a, thing_b, thing_c]
+    outputs: []
+    permissions:
+      grants:
+        - {path: handoffs/thing_a, access: read, kind: thing_a}
+        - {path: handoffs/thing_b, access: read, kind: thing_b}
+        - {path: handoffs/thing_c, access: read, kind: thing_c}

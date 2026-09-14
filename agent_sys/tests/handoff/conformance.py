@@ -20,7 +20,7 @@ import pytest
 
 from handoff.digest import tree_digest
 from handoff.errors import Malformed, NotSealable
-from handoff.store import CLAIM_DIR
+from handoff.store import CLAIM_DIR, version_dir
 from task_graph.ids import HandoffId, TaskId
 from tests.handoff.conftest import FixedKind, make_content, make_kind, open_kind
 
@@ -173,7 +173,7 @@ class StoreConformance:
         # does not exist either raises in `prepare` or evaporates.
         shutil.copytree(
             tmp_path / "written",
-            store.root / str(hid) / f"v{version}" / "content",
+            version_dir(store.root, hid, version) / "content",
             dirs_exist_ok=True,
         )
 
@@ -191,7 +191,7 @@ class StoreConformance:
         store, hid = self._store_and_id(tmp_path)
         version = store.allocate(hid)
         # Something was written, and it is not a handoff: no README, no items.
-        (store.root / str(hid) / f"v{version}" / "content" / "stray.txt").write_text("x")
+        (version_dir(store.root, hid, version) / "content" / "stray.txt").write_text("x")
 
         why = store.seal(hid, version, producer=TaskId.new())
         assert why, "a refusal reports its reason rather than raising"
@@ -210,7 +210,7 @@ class StoreConformance:
         """
         store, hid = self._store_and_id(tmp_path)
         version = store.allocate(hid)
-        vdir = store.root / str(hid) / f"v{version}"
+        vdir = version_dir(store.root, hid, version)
         for granted in ("content", "claim"):
             assert (vdir / granted).is_dir(), f"{granted}/ exists before the body runs"
             assert list((vdir / granted).iterdir()) == [], f"{granted}/ is empty"
@@ -235,11 +235,11 @@ class StoreConformance:
         store, hid = self._store_and_id(tmp_path)
 
         plain = store.allocate(hid)
-        make_content(store.root / str(hid) / f"v{plain}" / "content")
+        make_content(version_dir(store.root, hid, plain) / "content")
         store.seal(hid, plain, producer=TaskId.new())
 
         claimed = store.allocate(hid)
-        vdir = store.root / str(hid) / f"v{claimed}"
+        vdir = version_dir(store.root, hid, claimed)
         make_content(vdir / "content")
         (vdir / CLAIM_DIR / "self_check.yaml").write_text("done: true\n", encoding="utf-8")
         store.seal(hid, claimed, producer=TaskId.new())
@@ -301,6 +301,6 @@ class StoreConformance:
         rather than `""`, so nothing reads a reason that is not there."""
         store, hid = self._store_and_id(tmp_path)
         version = store.allocate(hid)
-        make_content(store.root / str(hid) / f"v{version}" / "content")
+        make_content(version_dir(store.root, hid, version) / "content")
         assert store.seal(hid, version, producer=TaskId.new()) is None
         assert store.latest(hid) == version

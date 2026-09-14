@@ -1,0 +1,48 @@
+RUN 3 — launched_at (date -u, read not written) : 2026-09-06T15:01:14Z
+launcher      : /data/yihou/e2e_verify_20260906/m35/launch-run3/launch.sh
+instruction   : /data/yihou/e2e_verify_20260906/m35/launch-run3/instruction.txt  (sha256 8a2f11a6df550e91)
+supersedes    : 20260906T140831-026b96, died 14:58:23Z at _off preflight
+
+PRECONDITIONS AT LAUNCH
+  cards            : VRAM% ID) 0% 0% 0% 0% 0% 0% 0% 0% 
+  containers       : rc_26_7_902 xiaoming-dev    (both foreign, both map /dev/kfd, both hold zero VRAM)
+  orphan chains    : 0  (VERIFIED by /proc scan printing exe+cwd per match)
+                     NOTE: the counting one-liner I ran first said 3. It was
+                     self-matching: the pattern *launch_chain*|*cli.main* sits
+                     inside my own shell's cmdline. Same trap as pgrep -f, and
+                     I record it here rather than silently correcting because a
+                     launch record with an unexplained edited number is worse
+                     than one that shows its own near-miss. The three matches
+                     were my zsh and two transient subshells of the loop itself.
+  hold             : 29313
+
+KNOWN-ANSWER BASELINE for the fix, taken 2026-09-06T15:00:34Z on the quiet host
+  correct answer for "who holds a GPU" with all eight cards at zero : the EMPTY SET
+  OLD predicate (HostConfig.Devices ~ /dev/kfd) returned            : rc_26_7_902 xiaoming-dev
+  => the new kit's instrument 2 MUST return empty here. If it names either
+     container, the kit reproduced the defect and m2 will abort again.
+
+WHAT THIS RUN TESTS, in order
+  1. the preflight fix. The failing input reproduces for free: check_deploy_serves
+     tears down, VRAM drains ~40 s, m2 preflight reads busy with two permanently
+     /dev/kfd foreign containers present. That is the exact 14:43:22Z input.
+       old predicate on it -> abort (observed, with the text, run 026b96)
+       new predicate on it -> unknown -> wait -> proceed
+     REPORT THE ACTUAL waited: VALUE. Non-zero proves the branch is reachable and
+     is the first time DK_GPU_WAIT_S will ever have been spent.
+     waited: 0s AGAIN means the drain beat the read and the branch is STILL
+     untested — that is a weaker outcome. STOP and tell the leader; do not let it
+     read as success.
+  2. CAPTURE_OK — Path A, still untested anywhere.
+       grep CAPTURE_OK <run>/.../load.profiling_mode_on/capture_stacks.log
+     It is ONE OF SEVERAL CONDITIONS, not the condition: any single false verdict
+     in the _on closure, at any strength, invalidates all three sibling handoffs
+     (agent/runner.py:598,972; report.py "a failure binds at every strength").
+  3. merge_profiling_evidence — has never EXECUTED anywhere. If
+     check_profiling_evidence refuses, run refusal_saw_something.sh BEFORE any
+     attribution: it is a "X is missing" refusal with no history at all.
+
+NOT A REPLAY. m1 runs real. A replayed deploy_kit would carry the broken
+preflight, because m2 executes deploy.sh/preflight.sh from the kit.
+So this run has no acceptance caveat.
+PID=163036

@@ -5,7 +5,7 @@ behaviour rather than intuition, and this surface follows: every guarantee here
 has a probe behind it in `scratch/design/probes-envmgr/`.
 
 Everything in this file sits **above** the decoupling wall. Nothing here imports
-the installer machinery (`recipe`, `layer`, `runner`, `outcome`, `report`,
+the installer machinery (`recipe`, `runner`, `outcome`, `report`,
 `registry`, `versions`, `installers/`), and nothing there learns about domains or
 zones. A test asserts the wall in both directions.
 
@@ -400,64 +400,31 @@ class Prepared(NamedTuple):
     #: the copy. Same type, different path; one name for both would make
     #: substituting either silent.
     staged_package: str | None = None
-    #: **`remote.tools.ToolDef`s for this attempt's far side, or `()`.**
-    #:
-    #: On the returned value and **not** a third `EnvManager` method, which is
-    #: `interfaces.md` §4.6's own precedent: `wrap_argv` sits here for the same
-    #: reason, and `test_env_manager_exposes_exactly_these` pins the component's
-    #: method set at two so that a third is a decision rather than a drift.
-    #:
-    #: Spec §5.5 is why this exists at all: the remote surface reaches an agent
-    #: as **tool calls**, because *"an agent given a natural-language
-    #: description of how to sync a directory will improvise, and the
-    #: improvisation will be wrong in a way nobody notices"*. Until this field
-    #: there was no route from `remote/tools.py` to any backend, so criterion 18
-    #: was built and unreachable.
-    #:
-    #: Typed loosely for the same reason `Assignment.confinement` is: it crosses
-    #: to `agent`, which may not import `env_mgr`.
+    #: `remote.tools.ToolDef`s for this attempt's far side, or `()`. The remote
+    #: surface reaches an agent as tool calls (spec section 5.5), and
+    #: `remote/tools.py` is the one standing exception to spec section 6's rule
+    #: against adding tools from Python code: injected live, never on disk, so
+    #: no installer can carry them. Typed loosely since it crosses to `agent`.
     tools: tuple[Any, ...] = ()
+    #: External MCP servers for this attempt, keyed by the name the model
+    #: addresses them under. A second field rather than a widening of `tools`:
+    #: a `ToolDef` is an object this process calls, while these declare a
+    #: process the harness starts and this one never sees.
+    mcp_servers: Mapping[str, Any] = MappingProxyType({})
 
     def spawn(self, argv: Sequence[str], **popen_kwargs: Any) -> Any:
-        """Start `argv` **confined**, and hand back the process. One verb.
+        """Start `argv` confined, and hand back the process. One verb.
 
-        `wrap_argv`'s shape does not carry over to Landlock: bubblewrap *is* the
-        exec, so its confinement crosses the fork/exec boundary as **data** in a
-        command line, while Landlock is a syscall against a live thread and must
-        be executed in the child, after fork, before exec. So the caller gets a
-        spawn rather than a wrapper, and branches on the mechanism nowhere.
-
-        The child's whole job is two syscalls, deliberately. Forking a threaded
-        process hands the child locks held by threads that do not exist in it —
-        the documented reason `preexec_fn` is unsafe — and the runner is
-        threaded by construction. A ruleset fd survives fork, so it is built in
-        the parent and the child only restricts.
-
-        Raises `NoConfinement` when there is no mechanism. This is where *no
-        isolation, no start* lands for a caller that could not be confined in
-        its own process.
+        Landlock is applied in the child after fork, before exec, unlike
+        bubblewrap's data-in-argv confinement. Raises `NoConfinement` if none.
         """
         ...
 
     def wrap_argv(self, argv: Sequence[str]) -> list[str]:
-        """The executor's command line, confined. **Ask, do not assemble.**
+        """The executor's command line, confined. Ask, do not assemble.
 
-        On the bubblewrap rung `apply()` confines nothing, because **bwrap *is*
-        the exec** — so the policy only becomes real when something runs this.
-        The caller cannot build it: a bwrap argv needs the policy *and* the
-        binary, and `Availability` is not a type `agent` may import. Handing
-        over the raw material would be this module publishing its internals so
-        somebody else can do its job.
-
-        Returns `argv` unchanged under Landlock, where the process was already
-        confined when `prepare` returned. Raises `NoConfinement` when there is
-        nothing to wrap with — including the binary having vanished since probe
-        time, which is resolved here rather than remembered, the same rule as
-        canonicalising per check.
-
-        **It does not close the hole underneath it.** Under bubblewrap an *AI*
-        backend cannot be wrapped by anyone, because the SDK spawns its own CLI
-        and no caller ever sees that argv.
+        Returns `argv` unchanged under Landlock, already confined by `prepare`.
+        Raises `NoConfinement` when there is nothing to wrap with.
         """
         ...
 
@@ -465,24 +432,8 @@ class Prepared(NamedTuple):
 class ValidationZone(NamedTuple):
     """Where a validation's materials go, and what was put there.
 
-    `root` is a **sibling** of the producing task's zone, never a descendant —
-    design D5, and criterion 13 is untrue without it, because anything under the
-    producing task's directory is inside its subtree and permissions cover a
-    task's own subtree recursively. Two modules were found answering *where does
-    a validation go*; this is the one that owns the layout.
-
-    `materials` are **copies** staged out of the store, which is what dissolves
-    the seam where a body was handed handoff ids as strings in a zone with
-    nothing pointing at the store. Copies rather than a grant, because a
-    validation must not be able to edit what it is validating.
-
-    It maps **handoff id → staged path**. A validator taking more than one input
-    must know which copy is which — the binding is many-to-many and a verdict is
-    per handoff — and the two sides' orderings do not correspond, so a bare list
-    could not be zipped against one. Recovering the association by parsing
-    `<materials>/<hid>/v<N>` would make this module's directory shape a contract
-    another package quotes; handing over the association instead is the same
-    rule as handing over an ordering rather than a sort key.
+    `root` is a sibling of the producing task's zone, never a descendant.
+    `materials` are copies staged out of the store, keyed by handoff id.
     """
 
     root: str

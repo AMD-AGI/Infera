@@ -1,0 +1,263 @@
+#!/usr/bin/env python3
+"""Run one of the workset's entrypoints and enforce its acceptance criterion.
+
+Shared by STEP 4 and STEP 5, because the two differ only in which entrypoint
+they name and what counts as acceptance. Writing it twice would be two places
+for the candidate-selection convention to drift.
+
+The contract m3 shipped::
+
+    ./run_correctness.sh [--operator ID] [--impl PATH] [--shape CASE_ID] [--json OUT]
+    ./run_performance.sh [--operator ID] [--impl PATH] [--shape CASE_ID] [--json OUT]
+
+**No `--impl` means the workset's own baseline; `--impl PATH` means the
+candidate**, against the same reference, the same shapes and the same protocol.
+Exit 0 means every shape passed. Both scripts are `protected` in the workset:
+editing one makes every number in this stage incomparable with every number in
+m3's.
+
+The two flag names stay configurable (`KFO_IMPL_FLAG`, `KFO_REPORT_FLAG`) for
+one reason, and it is not that the contract is unsettled. This module and
+`check_speedup_substantiated` must drive the workset **identically**, and two
+sets of literals in two files can be edited apart. The failure mode if they ever
+disagree is silent: a wrong flag that runs the baseline while the caller records
+it as the candidate yields two measurements of the same code, a ratio of 1.000,
+and no error anywhere.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import _lib as lib  # noqa: E402
+
+#: A PATH a compiler can actually work in. A Triton kernel compiles
+#: `hip_utils.c` through `/bin/gcc`, which then needs `as`, `ld` and
+#: `collect2`. The baseline side survives a missing PATH because plain torch
+#: compiles nothing, so the symptom is *only the candidate fails* — which reads
+#: exactly like a broken kernel and is not one. Measured 2026-09-01.
+_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+
+def _interpreter() -> str | None:
+    """An interpreter that can actually `import torch`, or `None`.
+
+    **A task body never reaches `AGENT_SYS_DEMO_PYTHON`** (`cli/main.py:668`
+    puts it in `validation_env`), so a bare `python3` gets the policy `PATH`'s
+    `/usr/bin/python3`, which has no torch. m1 found that; m3 hardened
+    `build_workset`'s `entry.sh` for it and asked whether this had the same
+    exposure. It does.
+    """
+    seen: list[str] = []
+    for candidate in (os.environ.get("KFO_PYTHON"), sys.executable,
+                      "/opt/venv/bin/python3", "python3"):
+        if not candidate or candidate in seen:
+            continue
+        seen.append(candidate)
+        try:
+            probe = subprocess.run([candidate, "-c", "import torch"],
+                                   capture_output=True, timeout=180)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if probe.returncode == 0:
+            return candidate
+    lib.die(
+        "no interpreter with torch found; tried " + ", ".join(seen) + ". Running the workset's "
+        "entrypoints under one without torch writes an evidence file full of failures that look "
+        "like the workset's fault. Set KFO_PYTHON to one that has it"
+    )
+    return None
+
+
+def _env(scratch: Path) -> dict[str, str]:
+    env = dict(os.environ)
+    env["PATH"] = env.get("PATH") or _PATH
+    env.setdefault("TRITON_CACHE_DIR", str(scratch / "triton_cache"))
+    env.setdefault("KNOWLEDGE_LOCAL_ROOT", str(scratch / "knowledge"))
+    env["TMPDIR"] = env.get("TMPDIR") or str(scratch / "tmp")
+    for key in ("TRITON_CACHE_DIR", "TMPDIR"):
+        Path(env[key]).mkdir(parents=True, exist_ok=True)
+
+    # **The interpreter has to reach the entrypoint.** `_PATH` above carries no
+    # venv on purpose (it is the compiler's PATH, not the ML stack's), and the
+    # workset's entrypoint is a *shell script* — so the only way the right
+    # interpreter reaches it is the environment. Both channels, because a
+    # workset may honour either: `KFO_PYTHON` for one that reads it, and the
+    # interpreter's own directory first on `PATH` for one that says `python3`.
+    #
+    # Refusing here rather than letting the entrypoint fail is the point: run
+    # under an interpreter with no torch and every case in the evidence file
+    # fails, which reads as a broken workset rather than a missing dependency.
+    python = _interpreter()
+    if python:
+        env["KFO_PYTHON"] = python
+        directory = os.path.dirname(os.path.abspath(python))
+        if directory:
+            env["PATH"] = directory + os.pathsep + env["PATH"]
+
+    # HIP_VISIBLE_DEVICES is deliberately NOT defaulted: on a shared host card 0
+    # is somebody else's, and a default here moves the measurement onto it
+    # silently.
+    return env
+
+
+def _accept_correctness(report: dict, declared: list[str], operator_id: str) -> list[str]:
+    problems: list[str] = []
+    if report.get("passed") is not True:
+        problems.append("the report says passed != true")
+    seen: set[str] = set()
+    for entry in report.get("operators") or ():
+        if not isinstance(entry, dict) or entry.get("operator_id") != operator_id:
+            continue
+        if entry.get("ran") is not True:
+            problems.append(f"{operator_id}: ran != true ({entry.get('failure')!r})")
+        if entry.get("passed") is not True:
+            problems.append(f"{operator_id}: passed != true ({entry.get('failure')!r})")
+        for shape in entry.get("shapes") or ():
+            if not isinstance(shape, dict):
+                continue
+            seen.add(str(shape.get("case_id")))
+            if shape.get("passed") is not True:
+                problems.append(f"{shape.get('case_id')}: failed ({shape.get('failure')!r})")
+    missing = sorted(c for c in declared if c not in seen)
+    if missing:
+        problems.append(f"the workset declares correctness cases that were never run: {missing}")
+    return problems
+
+
+def _accept_performance(report: dict, declared: list[str], operator_id: str) -> list[str]:
+    problems: list[str] = []
+    measured = lib.report_per_case_ms(report, operator_id)
+    missing = sorted(c for c in declared if c not in measured)
+    if missing:
+        problems.append(f"no figure for {missing}")
+    for entry in report.get("operators") or ():
+        if not isinstance(entry, dict) or entry.get("operator_id") != operator_id:
+            continue
+        if entry.get("ran") is not True:
+            problems.append(f"{operator_id}: ran != true ({entry.get('failure')!r})")
+        for shape in entry.get("shapes") or ():
+            if isinstance(shape, dict) and not isinstance(shape.get("rsd"), (int, float)):
+                problems.append(f"{shape.get('case_id')}: no rsd recorded, so the spread is unknown")
+    return problems
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--inputs", required=True)
+    ap.add_argument("--role", required=True, choices=("correctness", "performance"))
+    ap.add_argument("--candidate", default=None, help="omit to run the workset's own baseline")
+    ap.add_argument("--shape", default=None, help="one case_id, to re-measure a single shape")
+    ap.add_argument("--out", required=True)
+    a = ap.parse_args()
+
+    pinned = lib.load_json(Path(a.inputs))
+    operator_id = str(pinned["operator_id"])
+    root = Path(pinned["workset_root"])
+    entry = (pinned["entrypoints"] or {})[a.role]
+    cmd = str(entry.get("cmd") or "").strip()
+    if not cmd:
+        lib.die(f"the workset declares no {a.role} entrypoint")
+
+    out = Path(a.out).resolve()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    # **The spelling comes from the workset, which pins it as data
+    # (`workset.schema.json $defs/entrypoint.flags`).** The env vars are the
+    # fallback for a workset that predates the field, not a second authority:
+    # m3 made it data precisely because m4 guessed a three-flag form once, and
+    # a wrong selector runs the *baseline* while the caller records it as the
+    # candidate — two measurements of one kernel, ratio 1.000, no error
+    # anywhere. `check_speedup_substantiated._run_entrypoint` reads the same
+    # block the same way, which is the point of it being one block.
+    flags = dict(entry.get("flags") or {})
+
+    argv = [*cmd.split(), str(flags.get("report") or os.environ.get("KFO_REPORT_FLAG") or "--json"), str(out)]
+    argv += [str(flags.get("operator") or "--operator"), operator_id]
+
+    # **M4.3.5, and it needs THIS run's record rather than the workset's.**
+    # `harness/_common.py:_run_record` falls back to a record beside the harness
+    # — which here is the workset's own `items/codes/environment.yaml`, i.e. the
+    # document `ground_truth.environment` was taken from. Letting the fallback
+    # win would compare that record with itself and agree by construction, which
+    # is the failure m3's commit message calls "a paragraph asserting a
+    # behaviour". The `deploy_kit`'s record is the other document.
+    record = lib.input_content("deploy_kit") / "items" / "codes" / "environment.yaml"
+    if record.is_file():
+        argv += [str(flags.get("environment") or "--environment"), str(record)]
+    else:
+        print(
+            f"warning: no environment record at {record}, so the entrypoint's M4.3.5 gate runs "
+            "unchecked and the report will carry environment.premise_checked_against: null",
+            file=sys.stderr,
+        )
+
+    if a.shape:
+        # `--shape` exists so one case can be re-measured rather than the whole
+        # workset; `check_workset_runs` uses it to spot-check the primary. It is
+        # the cheap way to sanity-check a candidate mid-campaign, and it is
+        # never how the recorded numbers are produced.
+        argv += [str(flags.get("shape") or "--shape"), a.shape]
+    if a.candidate:
+        argv += [
+            str(flags.get("impl") or os.environ.get("KFO_IMPL_FLAG") or "--impl"),
+            str(Path(a.candidate).resolve()),
+        ]
+
+    timeout = float(entry.get("timeout_s") or 3600)
+    print(f"running: {' '.join(argv)}  (cwd {root})", file=sys.stderr)
+    try:
+        proc = subprocess.run(
+            argv, cwd=root, env=_env(lib.scratch()), timeout=timeout,
+            capture_output=True, text=True,
+        )
+    except FileNotFoundError:
+        lib.die(f"{argv[0]} is not executable from {root}")
+    except subprocess.TimeoutExpired:
+        lib.die(f"the {a.role} entrypoint exceeded {timeout:.0f}s")
+    sys.stderr.write(proc.stderr[-4000:])
+    if proc.returncode != 0:
+        lib.die(f"the {a.role} entrypoint exited {proc.returncode}")
+    if not out.is_file():
+        lib.die(f"the {a.role} entrypoint wrote no report at {out}")
+
+    report = json.loads(out.read_text(encoding="utf-8"))
+    # No `schema.validate` call here: the report's schema is
+    # `workset.schema.json#/$defs/{correctness,performance}_report`, a `$defs`
+    # entry rather than a top-level schema, and `assets/lib/schema.py` resolves
+    # by *file name*. The acceptance criteria below read the same fields those
+    # `$defs` require, so the check is made rather than skipped — it is just not
+    # made by the loader.
+    declared = (pinned.get("shapes") or {}).get(a.role) or []
+    if a.role == "correctness":
+        problems = _accept_correctness(report, declared, operator_id)
+    else:
+        problems = _accept_performance(report, declared, operator_id)
+
+    if problems:
+        for problem in problems:
+            print(f"error: {problem}", file=sys.stderr)
+        if a.role == "correctness":
+            print(
+                "Correctness is not a percentage. Do not proceed to STEP 5; go to STEP 6 and "
+                "write the handoff with this failure in it.",
+                file=sys.stderr,
+            )
+        return 1
+
+    if a.role == "performance":
+        medians = lib.report_per_case_ms(report, operator_id)
+        print("ok: " + ", ".join(f"{c} {medians[c] * 1000:.2f}us" for c in sorted(medians)))
+    else:
+        print(f"ok: {len(declared)} correctness case(s) passed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

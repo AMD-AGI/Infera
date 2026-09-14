@@ -5,7 +5,7 @@ writers of one path shape, and this is the price of that.
 on-disk shape is private"**, with Bazel #23576 as the reason: a path-shape change
 survived there only because consumers use `file.path` rather than composing
 strings. `env_mgr` composes the string anyway — `grants.py` and `meta.py` need
-`<root>/<hid>/v<N>/` to grant access to it.
+`<root>/handoff.<kind>.<hid>/v<N>/` to grant access to it.
 
 **It is duplicated by construction, not by carelessness.** `docs/interfaces.md`
 §4.6 permits `env_mgr` to import `task_graph` and nothing else of ours, so it
@@ -31,6 +31,8 @@ from pathlib import Path
 import pytest
 
 from env_mgr.fs.layout import handoff_version_dir
+from env_mgr.fs.zone import slug as zone_slug
+from handoff.store import slug as handoff_slug
 from handoff.store import version_dir
 
 CASES = [
@@ -52,13 +54,46 @@ def test_the_two_writers_of_the_layout_agree(root: str, hid: str, version: int) 
     assert Path(handoff_version_dir(root, hid, version)) == version_dir(Path(root), hid, version)
 
 
-def test_the_shape_is_root_then_id_then_v_number() -> None:
+def test_the_shape_is_root_then_labelled_id_then_v_number() -> None:
     """Pin the shape itself, so a *matching* change to both still gets read.
 
     Without this, the pair could agree on something neither design describes.
     """
-    assert version_dir(Path("/r"), "h-9", 3) == Path("/r/h-9/v3")
-    assert handoff_version_dir("/r", "h-9", 3) == "/r/h-9/v3"
+    assert version_dir(Path("/r"), "h-9", 3) == Path("/r/handoff.h-9/v3")
+    assert handoff_version_dir("/r", "h-9", 3) == "/r/handoff.h-9/v3"
+
+
+def test_the_label_is_the_kind_and_only_handoff_knows_it() -> None:
+    """`handoff` writes the label; `env_mgr` only ever finds what is already there.
+
+    So the two are *not* symmetric on the write path, and pinning that is the
+    point: a caller with a kind in hand gets ``handoff.<kind>.<hid>``, and the
+    one without gets the unlabelled form.
+    """
+    assert version_dir(Path("/r"), "h-9", 3, "trace") == Path("/r/handoff.trace.h-9/v3")
+
+
+@pytest.mark.parametrize(
+    ("dirname", "hid"), [("h-9", "h-9"), ("handoff.h-9", "h-9"), ("handoff.trace.h-9", "h-9")]
+)
+def test_both_readers_find_a_directory_whatever_its_label(
+    tmp_path: Path, dirname: str, hid: str
+) -> None:
+    """Including ``<hid>`` bare — the shape written before labels existed.
+
+    This is the whole backwards-compatibility claim, and it is asserted on both
+    sides of the duplication because either could regress alone.
+    """
+    (tmp_path / dirname / "v3").mkdir(parents=True)
+    assert version_dir(tmp_path, hid, 3) == tmp_path / dirname / "v3"
+    assert handoff_version_dir(str(tmp_path), hid, 3) == str(tmp_path / dirname / "v3")
+
+
+def test_a_label_never_gains_a_field_separator() -> None:
+    """A kind with a ``.`` in it must not add a field: the uuid is the last one,
+    and `handoff_dir`/`find_zone_dir` both key on that."""
+    assert version_dir(Path("/r"), "h-9", 0, "a.b c") == Path("/r/handoff.a-b-c.h-9/v0")
+    assert zone_slug("a.b c") == handoff_slug("a.b c") == "a-b-c"
 
 
 def test_the_two_spellings_of_the_granted_subdirectories_agree() -> None:

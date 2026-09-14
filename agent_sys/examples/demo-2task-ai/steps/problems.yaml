@@ -1,0 +1,134 @@
+# The second and last entry of `main`: the directions become concrete problems.
+#
+# Same layout rule as `directions.yaml` — parts first, step last, because a name
+# referenced before it is defined *in this file* is an error. `directions` and
+# `check_directions` are referenced from `directions.yaml`, and a cross-file
+# reference has no ordering rule.
+#
+# Two validators on one kind, and they are not two attempts at one check.
+# `check_problems` is completeness and `check_solvable` is trustworthiness —
+# different dimensions, different strengths, and the second is honestly `weak`.
+
+# --------------------------------------------------------------------------- #
+
+# The AI half. A teaching assistant writing the problem set.
+- module: agent
+  name: setter
+  kind: ai
+  version: '1'
+  description: Turns problem directions into concrete, stdin/stdout problems.
+
+  # The scale knob. The readme says `$TWO_TASK_N_PROBLEMS` and never a literal
+  # count. Paired with `check_problems.args.expected_count` below, which names
+  # the same package variable.
+  env:
+    TWO_TASK_N_PROBLEMS: '${n_problems:-3}'
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
+
+# Completeness: every problem is fully specified and refers to things that
+# exist.
+#
+# `strong`. The check is total over the document — every problem, every declared
+# field — and each rule is exact: a count, presence and non-emptiness, set
+# membership in the LeetCode index, referential integrity against the
+# `directions` artefact, uniqueness of ids.
+- module: validator
+  name: check_problems
+  version: '1'
+  brief: Every problem carries every field, cites a real slug, and names a direction that exists
+  dimension: completeness
+  strength: strong
+  inputs: [problems]
+  args:
+    # Through `args` rather than the agent's `env`. Nothing consumes `problems`
+    # here, so only the output phase runs — where either route would work — but
+    # `args.json` does not vary by phase, so this spelling keeps working the day
+    # a consumer is added.
+    expected_count: '${n_problems:-3}'
+    catalog: assets/catalog/leetcode_index.json
+    # The kind whose artefact supplies the legal `direction_id` values. Named
+    # here so the body carries no kind name of its own.
+    origin_kind: directions
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [demo]
+
+# --------------------------------------------------------------------------- #
+
+# Trustworthiness: a worked answer was supplied, for every problem.
+#
+# `weak`, and the readme is blunt about why. It counts examples and inspects
+# their shape. It runs nothing, has no reference solution, and cannot tell a
+# correct answer from a well-formed one. A `weak` label qualifies a PASS and
+# never a failure (`validator` spec §5.4): when this fails, the examples really
+# are missing or malformed.
+- module: validator
+  name: check_solvable
+  version: '1'
+  brief: Every problem ships at least two worked examples whose output fits its output_format
+  dimension: trustworthiness
+  strength: weak
+  inputs: [problems]
+  args:
+    # Two, because one is an illustration and two is the least that constrains a
+    # format. A knob rather than a literal, so a bring-up run and a real run can
+    # differ without a second validator spec.
+    min_examples: 2
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [demo]
+
+# --------------------------------------------------------------------------- #
+
+# What `problems` writes: the problem set itself.
+#
+# `structured_text`, one JSON document. The stdin/stdout IO format in it is what
+# would make a problem answerable by a standalone program, which is what
+# `check_solvable` inspects the examples against.
+- module: handoff
+  name: problems
+  version: '1'
+  description: A concrete problem set with worked examples, in stdin/stdout form.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json']
+    properties:
+      'text.json': {type: string}
+  validators: [check_problems, check_solvable]
+
+# --------------------------------------------------------------------------- #
+
+# The step.
+#
+# The only entry with both validation phases populated. It consumes
+# `directions`, so its input phase runs `check_directions` — the same validator
+# `directions`' output phase ran, in the other position. A phase is a position
+# and not a kind of validator.
+- module: task
+  name: problems
+  description: Turn each direction into concrete problems with worked examples.
+  agent: setter
+  handoffs: [directions, problems]
+  validators: [check_directions, check_problems, check_solvable]
+  task:
+    # ≤ 100 characters, a human label. The instructions — the count, the
+    # catalogue, the IO discipline, the required README sections — are all in
+    # `assets/problems.task/readme.md`, which is the prompt.
+    goal: Turn the directions into concrete problems with worked examples.
+    version: '1'
+    inputs: [directions]
+    outputs: [problems]
+    permissions:
+      grants:
+        - {path: handoffs/directions, access: read, kind: directions}
+        - {path: handoffs/problems, access: write, kind: problems}

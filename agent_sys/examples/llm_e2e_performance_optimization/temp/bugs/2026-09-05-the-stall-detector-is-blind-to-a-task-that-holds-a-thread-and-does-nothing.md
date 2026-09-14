@@ -1,0 +1,293 @@
+# The stall detector is blind to a task that holds a thread and does nothing
+
+**This is the other arm of `main.py:1015`, and it is a different defect from the
+one in `2026-09-03-the-stall-detector-ends-a-run-while-a-task-is-still-working.md`.**
+That file is entirely about **false positives** — a run cut while a leaf works.
+This one is a **false negative**: a run that is genuinely hung is never cut, and
+holds a GPU node until `--timeout`.
+
+Recorded 2026-09-05 by m1, from a run of my own that I killed by hand.
+
+## The condition, and which arm fails
+
+```python
+elif (not holding or blocked) and time.monotonic() - last_change > stall_after:
+```
+
+`holding = [t for t in live if _is_running(runner, t) and not _awaiting_a_decision(t, registry)]`.
+
+**`_is_running` is not wrong; it answers a different question than the guard
+needs.** Read rather than assumed — `main.py:1155` is
+`attempt is not None and attempt.is_running`, and `runner.py:420` documents
+`is_running` as *"whether a thread is currently carrying this attempt"*. For an
+agent that has stopped producing, **a thread genuinely is carrying the attempt**;
+it is alive and making no progress. The predicate reports that truthfully, and
+`holding` therefore stays non-empty for ever.
+
+So the defect is not in `_is_running`. It is that `holding` is used as a proxy
+for *progress* while measuring *occupancy*, and the two come apart exactly when
+you need them not to. With `blocked` empty (the normal case for a healthy graph,
+established by m4 in the companion file), the guard is `not holding`, which is
+`False`, and the elapsed-time test is never reached. **`stall_after` has no
+effect on this case at any value.**
+
+## Measured, not inferred
+
+Run `20260905T081811-6e8750` — `p4_d`, real `deploy_and_prove` on 088 cards 4–7,
+launched 08:18:11 with `--stall-after 900`.
+
+```
+08:28:20   agent transcript last write
+08:28:20   newest write anywhere in the zone tree (excluding the package snapshot)
+08:28:20   last store event, +609 s into the run
+09:11      still deploy_kit=generating; 43 minutes with no write of any kind
+           orchestrator alive; no cut; --stall-after 900 never fired
+```
+
+`runprobe.py` on that run's store:
+
+```
+1. escalations reaching the user: 0   (all escalation hops: 0)
+   -> `blocked` was EMPTY as of the last record.
+3. latest event +609s into the run
+   tasks NOT terminal: deploy_and_prove[running], m1_deploy[running],
+   m2_profiling[waiting_handoff], m3_analysis[waiting_handoff],
+   m4_kernel_opt[waiting_handoff], m5_integration[waiting_handoff], main[running]
+```
+
+Seven tasks, no status change for 43 minutes, no escalation. `_snapshot` is
+`(id, status, len(history))` per task, so it was constant throughout and
+`last_change` was 43 minutes stale — **more than 2.8× the 900 s threshold.**
+`blocked` empty, so the only way the guard stayed `False` is `holding` being
+non-empty. **The hung task was counted as working.**
+
+**The one residual, stated:** `last_change` is computed from the live task
+manager, not from the store, so strictly I measured that no *store event*
+occurred, not that `len(t.history)` never moved. History appends are events, so
+the two should coincide; I did not verify that they must.
+
+## Why this is not the companion file's bug turned around
+
+The companion file's open question is *"has a leaf that is legitimately
+executing ever been cut?"* — nobody has an instance. **This is not an instance
+of that and does not bear on it.** Here nothing was executing; the detector's
+error is in the opposite direction, and the two arms fail on different inputs:
+
+| | `holding` | `blocked` | elapsed | outcome |
+|---|---|---|---|---|
+| companion file | non-empty (working) | non-empty | > threshold | cut — **wrong** |
+| this file | non-empty (**hung**) | empty | > threshold | not cut — **wrong** |
+
+Fixing one does not fix the other. Making the code implement its own docstring
+(`and no attempt holds a thread`) — the companion file's recommendation —
+**makes this case strictly worse**, because it removes the `or blocked` arm that
+is the only path to a cut when a task is stuck holding.
+
+## What it cost, and what it will cost
+
+Forty-three minutes of four MI355X cards on a node under an 8 h wall, plus the
+time to notice. Nothing recovered it: with `--timeout` unset the run would have
+sat there for the 4 h default. **On this effort the detector has never once
+ended a hung run; every hang so far has been ended by a person watching a log.**
+
+The stage that will meet this next is `optimize_kernel` — hours long and quiet
+by construction — where "quiet because working" and "quiet because hung" are
+indistinguishable from outside, and where the companion file already notes the
+re-run cost is highest.
+
+## What a fix would need, and what it is not
+
+**Not a threshold.** No value of `stall_after` reaches this branch.
+
+**Not progress output.** The companion file already closes that door: the
+detector watches the task table, and a body cannot change the task table from
+inside itself.
+
+What would actually separate the two cases is a liveness signal `_is_running`
+does not currently consult — the attempt's own last-activity timestamp, or the
+executor's. That is a runner design question and it is the runner owner's to
+answer.
+
+**Not fixed here.** `agent_sys/cli/` is outside this effort's activity scope.
+Recorded with the line number, the predicate, the run id, and the probe output
+so whoever owns the runner has the whole case.
+
+## The workaround in force
+
+None inside the package. Operationally: a run is polled by hand, and the
+signature to look for is **the newest write in the zone tree, excluding
+`package/`** — the package snapshot is copied per task at dispatch and its
+mtimes are recent on a run that has not written anything for an hour, which is
+how a hung run can look busy to `ls -t`.
+
+---
+
+## A mechanism for the permanent hold, and a reproduction that needs no GPU
+
+**Appended 2026-09-05 by the leader.** m1's record establishes that `holding`
+can be permanently non-empty. This is *one way it gets that way*, and it is
+cheap to reproduce.
+
+**A task's agent process outlives the task's own `succeeded`.** Fully-mocked
+run `20260905T102718-cc5813`, on the login node, no GPU, `--package
+e2e-flow-noval`:
+
+```
+store/task    closure: deploy_and_prove | status: succeeded
+ps            pid 3999039  etime 14:52  claude --output-format stream-json
+                           --system-prompt "# `deploy_and_prove` — …"
+/proc/3999039/cwd   …/task.1343fddf…/task.696097be…   <- deploy_and_prove's zone
+```
+
+Fifteen minutes of a live attempt thread belonging to a task the store calls
+finished. While that process exists, `_is_running` is true for it, `holding`
+contains it, `not holding` is false, and — with `blocked` empty — the `elif`
+at `main.py:1015` **cannot fire whatever else the graph does**.
+
+**And something else in the same run was genuinely stuck**, which is how it was
+noticed. `merge_profiling_evidence` is `agent: '${m2_agent:-runner}'`, so with
+no `--var m2_agent` it is a **program** task:
+
+```
+store           status: running          (since 10:28, read at 10:42)
+zone/handoffs/  4 input handoffs staged, complete
+```
+
+> **CORRECTION, same day, by readme-cn.** The two lines that used to stand here
+> — `zone/logs/ empty <- nothing ever wrote a log` and `ps: no merge process` —
+> were offered as evidence that **no body ever started**, and that conclusion is
+> **false**. The body ran for 11.7 seconds, exited 1, and said why:
+>
+> ```
+> store/task    started_at 2026-09-05T10:28:22.125958Z   agent_id 97369b15
+> store/event   10:28:33.858  output_absent
+>               detail = "exit 1: merge: …/v0 carries no environment record
+>                         at items/env/environment.yaml"
+> ```
+>
+> **Both of my instruments failed, each in a way already written down.**
+> `zone/logs/` is empty for `run_profiling_mode_off` too, which **succeeded** —
+> so it discriminates nothing, and I reported a numerator without its
+> denominator. And `ps` found no process because I looked at 10:42 for one that
+> exited at 10:28:33; that is the `ps --ppid` timing trap this project has
+> recorded twice. **A zero I did not test is what produced the wrong reading,
+> not a missing artefact.**
+>
+> The cause was in the event store the whole time, in `attributes` rather than
+> `message` (`message` is `None` on all 22 events — T39).
+
+So the task is stuck at `running` for the reason the *other* record already
+gives: the body failed, the runner recorded `output_absent`, and the escalation
+never returned. `2026-09-05-a-program-task-is-marked-running-with-no-program.md`
+states this and already marks its own title as wrong.
+
+**What is new, and belongs to this file rather than that one:** the escalation's
+`why` names the program case specifically —
+
+```
+escalated  why = "nothing to push: the executor is a program body:
+                  there is no agent to instruct"
+```
+
+**A failing program task is structurally un-escalatable.** There is no agent to
+send the failure to, so it cannot fail the run; it hangs. That is why the runs
+that hang are the `--var mN_agent=runner` runs. And here it could not even be
+cut after `stall_after`, because a *different*, already-succeeded task was
+holding the slot.
+
+### Why this appendix is worth its length
+
+**It is the first reproduction of this arm that costs nothing.** m1's was a real
+run they killed by hand; every other instance today has been a GPU chain. This
+one is a login-node mock that reaches the state in about fifteen minutes and can
+be left running while other work proceeds.
+
+**It also narrows what a fix must do.** m1's *"what a fix would need"* section
+asks the guard to distinguish a thread that is working from one that is not.
+This instance says part of that is bookkeeping rather than inference: a task in
+a terminal status has no business appearing in `holding` at all, and that test
+needs no heuristic.
+
+### One inference of mine that this weakens
+
+I told m5 that the 217 full-real chain, silent 50 minutes and not killed, must
+have `blocked` empty. That still follows. But I let it carry the suggestion that
+the chain was therefore *working*, and it does not: `holding` being non-empty is
+equally consistent with a leftover agent from a finished stage. **"Not killed by
+the detector" is not evidence of health** — it is evidence that `blocked` is
+empty, and nothing more.
+
+---
+
+## Why the task is still `running`: the recovery path is unreachable
+
+Appended 2026-09-05 by m2. **This is not the stall detector. It is what puts a
+task into the state the detector then fails to cut**, and it is measured rather
+than inferred — the framework's own exception, not a reading of its behaviour.
+
+Two chains, `p6_chain_217` (run `20260905T104942-e6bd81`, task `2d0e7dba`) and
+`p8_chain_093` (run `20260905T143051-a18de0`, task `9360c458`), both
+`mock_stages=none`, both stage 4. Byte-identical event triples:
+
+```
+14:18:47.089  agent writes its final report
+14:18:47.119  output_absent   seal_refused: ".../v1/content/README.md: every handoff
+                              opens with a README.md (spec §3.1). An artefact only a
+                              program can open is a blob, and blobs do not get reviewed"
+14:18:47.151  push_attempted  "continue, do it until finished"
+14:18:47.169  handling_failed
+```
+
+`handling_failed`'s `exception_message`, verbatim:
+
+> `'claude_code_sdk': instruct('continue, do it until finished') has no loop to
+> deliver it. The agent is finished and `mainloop` has returned, so this message
+> would be queued and never read. Restart the agent with `start_async` before
+> instructing it.`
+
+**Thirty milliseconds, not eighty-two minutes.** The framework detected the
+missing output, decided to retry, and could not deliver the retry. Nothing tried
+again. The task then sat `running` until the hold expired — `112699`, lost to
+this.
+
+**The general shape: `output_absent` is only detectable after the agent has
+finished, and once it has finished there is no loop to instruct.** The recovery
+path is unreachable at exactly the moment it is needed.
+
+**The event kind tells you which twin you have, without opening anything else.**
+This is the cheapest thing on this page: the last event on a stuck task
+discriminates the two mechanisms before you pay for a transcript read.
+
+| last event | executor | entry | why undeliverable |
+|---|---|---|---|
+| `escalated` | program body | `2026-09-05-a-failing-program-task-is-recorded-succeeded-when-its-outputs-exist.md` | there was never an agent to instruct |
+| `handling_failed` | `kind: ai` | this file | the agent's `mainloop` had already returned |
+
+Both were seen on 2026-09-05 in the same chain: stage 4 (`optimize_kernel`,
+`kind: ai`) gave `handling_failed`; stage 5 (`apply_patch`,
+`${m5_agent:-runner}`) gave `escalated`. **Same silence, different mechanism.**
+
+**It has a twin, and the pair is the finding.** `2a5b4e8` records a **program**
+body whose escalation is undeliverable because *"the executor is a program body:
+there is no agent to instruct."* This is the **ai** case: undeliverable because
+the receiver stopped being one. **Both executor kinds have an unreachable
+recovery path, for opposite reasons, and every leaf in this package is one or
+the other.**
+
+### Two corrections that belong with it
+
+**`ep_poll` is not a fault signature.** The parked agent (17 threads, `S`) is
+real and is what made anyone read that task at all — but m4 measured two more
+parked agents belonging to stages that had **succeeded**, one for 1 h 51 m. **A
+finished healthy stage looks identical.** The only discriminator is a stale
+agent transcript while the task is still `running`; `ep_poll` is corroboration
+of nothing.
+
+`mainloop` having returned is **not** the process exiting, which is why both
+readings above are true at once — the exception describes the loop, `ps`
+describes the process.
+
+**Still open.** m4's `cbe0bb4` adds the three required root sections to the
+stage-4 brief, which removes *today's* trigger. It does not touch this: any
+future `output_absent` on any `kind: ai` leaf reaches the same undeliverable
+retry. **A fixed brief is not a closed class.**

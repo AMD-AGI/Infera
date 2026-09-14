@@ -240,10 +240,184 @@ _DEMO_DROPPED: dict[str, str] = {}
 DEMO = ExpectationSet(_DEMO_PROMISES, _DEMO_DROPPED, _demo_task, _demo_verdict)
 
 
+# --------------------------------------------------------------------------- #
+# examples/demo-runtime-grounding-fail — deterministic grounding violation
+#
+# Pure-program version of demo's check_grounded failure. `transform` writes a
+# summary containing "99999", which does not appear in the facts manifest.
+# check_grounded detects the ungrounded numeral → FAIL → summary sealed INVALID
+# → consume stuck in WAITING_HANDOFF.
+
+
+def _rt_grounding_verdict_exists(registry: Any) -> bool:
+    """Did `check_grounded` record a verdict on a **summary** in this package?"""
+    store, handoff_mgr = registry.get("handoff_store"), registry.get("handoff_mgr")
+    return any(
+        verdict.validator == "check_grounded"
+        for hid in handoff_mgr.all_ids()
+        if handoff_mgr.get(hid).type == "summary"
+        for version in store.list_versions(hid)
+        for verdict in store.read_verdicts(hid, version)
+    )
+
+
+def _rt_grounding_consumer_exists(registry: Any) -> bool:
+    return any(task.closure == "consume" for task in registry.get("task_mgr").all())
+
+
+def _rt_grounding_task(task: Any) -> str | None:
+    if task.status is TaskStatus.WAITING_HANDOFF and task.closure == "consume":
+        return "consumer_waits"
+    return None
+
+
+def _rt_grounding_verdict(verdict: Any, handoff: Any) -> str | None:
+    if (
+        verdict.validator == "check_grounded"
+        and handoff.type == "summary"
+        and not verdict.result
+    ):
+        return "grounded_verdict_fails"
+    return None
+
+
+_RT_GROUNDING_PROMISES = {
+    "grounded_verdict_fails": Expectation(
+        "check_grounded records a failing verdict on the summary",
+        _rt_grounding_verdict_exists,
+    ),
+    "consumer_waits": Expectation(
+        "consume ends the run still in WAITING_HANDOFF",
+        _rt_grounding_consumer_exists,
+    ),
+}
+
+RT_GROUNDING = ExpectationSet(
+    _RT_GROUNDING_PROMISES, {}, _rt_grounding_task, _rt_grounding_verdict
+)
+
+
+# --------------------------------------------------------------------------- #
+# examples/demo-runtime-fanout-partial — fan-out partial failure
+#
+# Three producers fan out; emit_b writes rows missing a required field.
+# check_thing detects the missing key → FAIL → thing_b sealed INVALID →
+# merge (needing all three) stuck in WAITING_HANDOFF.
+
+
+def _rt_fanout_verdict_exists(registry: Any) -> bool:
+    """Did `check_thing` record a verdict on a **thing_b**?"""
+    store, handoff_mgr = registry.get("handoff_store"), registry.get("handoff_mgr")
+    return any(
+        verdict.validator == "check_thing"
+        for hid in handoff_mgr.all_ids()
+        if handoff_mgr.get(hid).type == "thing_b"
+        for version in store.list_versions(hid)
+        for verdict in store.read_verdicts(hid, version)
+    )
+
+
+def _rt_fanout_merge_exists(registry: Any) -> bool:
+    return any(task.closure == "merge" for task in registry.get("task_mgr").all())
+
+
+def _rt_fanout_task(task: Any) -> str | None:
+    if task.status is TaskStatus.WAITING_HANDOFF and task.closure == "merge":
+        return "merge_waits"
+    return None
+
+
+def _rt_fanout_verdict(verdict: Any, handoff: Any) -> str | None:
+    if (
+        verdict.validator == "check_thing"
+        and handoff.type == "thing_b"
+        and not verdict.result
+    ):
+        return "thing_b_verdict_fails"
+    return None
+
+
+_RT_FANOUT_PROMISES = {
+    "thing_b_verdict_fails": Expectation(
+        "check_thing records a failing verdict on thing_b",
+        _rt_fanout_verdict_exists,
+    ),
+    "merge_waits": Expectation(
+        "merge ends the run still in WAITING_HANDOFF",
+        _rt_fanout_merge_exists,
+    ),
+}
+
+RT_FANOUT = ExpectationSet(
+    _RT_FANOUT_PROMISES, {}, _rt_fanout_task, _rt_fanout_verdict
+)
+
+
+# --------------------------------------------------------------------------- #
+# examples/demo-runtime-disagree — body succeeds, content disagrees
+#
+# Two reviewers produce well-formed reviews but disagree on student_a.
+# reconcile merges them (exit 0), check_agree detects the non-empty
+# disagreement list → FAIL → review sealed INVALID → downstream stuck.
+
+
+def _rt_disagree_verdict_exists(registry: Any) -> bool:
+    """Did `check_agree` record a verdict on a **review**?"""
+    store, handoff_mgr = registry.get("handoff_store"), registry.get("handoff_mgr")
+    return any(
+        verdict.validator == "check_agree"
+        for hid in handoff_mgr.all_ids()
+        if handoff_mgr.get(hid).type == "review"
+        for version in store.list_versions(hid)
+        for verdict in store.read_verdicts(hid, version)
+    )
+
+
+def _rt_disagree_downstream_exists(registry: Any) -> bool:
+    return any(task.closure == "downstream" for task in registry.get("task_mgr").all())
+
+
+def _rt_disagree_task(task: Any) -> str | None:
+    if task.status is TaskStatus.WAITING_HANDOFF and task.closure == "downstream":
+        return "downstream_waits"
+    return None
+
+
+def _rt_disagree_verdict(verdict: Any, handoff: Any) -> str | None:
+    if (
+        verdict.validator == "check_agree"
+        and handoff.type == "review"
+        and not verdict.result
+    ):
+        return "agree_verdict_fails"
+    return None
+
+
+_RT_DISAGREE_PROMISES = {
+    "agree_verdict_fails": Expectation(
+        "check_agree records a failing verdict on the merged review",
+        _rt_disagree_verdict_exists,
+    ),
+    "downstream_waits": Expectation(
+        "downstream ends the run still in WAITING_HANDOFF",
+        _rt_disagree_downstream_exists,
+    ),
+}
+
+RT_DISAGREE = ExpectationSet(
+    _RT_DISAGREE_PROMISES, {}, _rt_disagree_task, _rt_disagree_verdict
+)
+
+
 #: Package directory name -> what that package promises. **Absent means `EMPTY`**,
 #: so `examples/demo2` needs no entry: it promises that nothing will fail, which
 #: is a complete statement and the one its run makes.
-_BY_PACKAGE: dict[str, ExpectationSet] = {"demo": DEMO}
+_BY_PACKAGE: dict[str, ExpectationSet] = {
+    "demo": DEMO,
+    "demo-runtime-grounding-fail": RT_GROUNDING,
+    "demo-runtime-fanout-partial": RT_FANOUT,
+    "demo-runtime-disagree": RT_DISAGREE,
+}
 
 
 def for_package(root: Path) -> ExpectationSet:

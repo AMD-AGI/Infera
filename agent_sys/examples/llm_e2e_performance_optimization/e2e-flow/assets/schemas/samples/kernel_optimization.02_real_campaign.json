@@ -1,0 +1,204 @@
+{
+  "schema_version": 1,
+  "operator": "sampler_vocab_softmax",
+  "workset_ref": {
+    "handoff_id": "cd5440dc-0163-407e-9c0e-ed6d06f4bec8",
+    "version": "v0",
+    "digest": null,
+    "workset_id": "sampler_vocab_softmax.workset_20260831",
+    "snapshot": "results/workset.snapshot.yaml"
+  },
+  "premise": {
+    "abort_on_mismatch": [
+      "fixed.gpu_arch",
+      "fixed.gpu_count",
+      "operator",
+      "shapes",
+      "dtype"
+    ],
+    "warn_on_mismatch": [
+      "fixed.rocm",
+      "fixed.image_id",
+      "fixed.torch",
+      "fixed.driver"
+    ],
+    "workset_environment": {
+      "schema_version": 1,
+      "fixed": {
+        "node": "crsuse2-m2m-019",
+        "gpu_arch": "gfx950",
+        "gpu_count": 8,
+        "image": "lmsysorg/sglang:v0.5.17-rocm720-mi35x",
+        "image_id": "sha256:111111111111",
+        "dockerfile": null,
+        "rocm": "7.2.4",
+        "driver": "6.14.14",
+        "torch": "2.10.0+rocm7.2.4.git3d3aa833",
+        "model_name": "Qwen/Qwen3-0.6B",
+        "model_path": "/shared_nfs/models/Qwen3-0.6B",
+        "tp_size": 1
+      },
+      "runtime": {
+        "container": "yihou_kfo_20260902",
+        "endpoint": "http://127.0.0.1:30000",
+        "started_at": "2026-09-02T09:32:18Z",
+        "transport": "spur"
+      }
+    },
+    "run_environment": {
+      "schema_version": 1,
+      "fixed": {
+        "node": "crsuse2-m2m-019",
+        "gpu_arch": "gfx950",
+        "gpu_count": 8,
+        "image": "lmsysorg/sglang:v0.5.17-rocm720-mi35x",
+        "image_id": "sha256:111111111111",
+        "dockerfile": null,
+        "rocm": "7.2.4",
+        "driver": "6.14.14",
+        "torch": "2.10.0+rocm7.2.4.git3d3aa833",
+        "model_name": "Qwen/Qwen3-0.6B",
+        "model_path": "/shared_nfs/models/Qwen3-0.6B",
+        "tp_size": 1
+      },
+      "runtime": {
+        "container": "yihou_kfo_20260902",
+        "endpoint": "http://127.0.0.1:30000",
+        "started_at": "2026-09-02T09:32:18Z",
+        "transport": "spur"
+      }
+    },
+    "verdict": {
+      "held": true,
+      "aborted_on": [],
+      "warnings": []
+    },
+    "dtypes": {
+      "sampler_vocab_softmax": "fp32"
+    }
+  },
+  "apply": {
+    "apply_mode": "overlay_files",
+    "manifest": "apply/manifest.json",
+    "image": "lmsysorg/sglang:v0.5.17-rocm720-mi35x",
+    "logical_operator": "sampler_vocab_softmax",
+    "integration_point": {
+      "source_file": "python/sglang/srt/layers/sampler.py",
+      "entry_function": "sampler_softmax",
+      "entry_function_line": 183,
+      "repo_root_var": "${SGLANG_REPO}"
+    },
+    "files": [
+      {
+        "container_path": "@SGLANG_ROOT@/srt/layers/sampler.py",
+        "base_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "change": "modify",
+        "replacement": "results/optimized_kernel.py"
+      }
+    ],
+    "must_preserve": {
+      "signature": "sampler_softmax(logits: Tensor[B, V] fp32, out: Tensor[B, V] fp32) -> Tensor",
+      "dtype": "fp32",
+      "no_build_step": true
+    },
+    "revert": "Remove the overlay file and restart the engine. Nothing in the stock tree was modified; `action: add` means the target did not exist before.",
+    "runtime_marker": {
+      "import": "sampler_softmax_kernel",
+      "first_call": "sampler_softmax\\("
+    },
+    "expect": {
+      "source": "forge",
+      "speedup": 2.5854
+    }
+  },
+  "evidence": {
+    "correctness": {
+      "entrypoint": "./operators/sampler_vocab_softmax/run_correctness.sh",
+      "report": "results/correctness_report.json",
+      "passed": true,
+      "shapes": [
+        {
+          "case_id": "B1_V151936",
+          "passed": true,
+          "snr_db": 135.01,
+          "allclose": true,
+          "extra": {
+            "rows_sum_to_1": true
+          }
+        },
+        {
+          "case_id": "B8_V151936",
+          "passed": true,
+          "snr_db": 129.63,
+          "allclose": true,
+          "extra": {
+            "rows_sum_to_1": true
+          }
+        },
+        {
+          "case_id": "B32_V151936",
+          "passed": true,
+          "snr_db": 128.74,
+          "allclose": true,
+          "extra": {
+            "rows_sum_to_1": true
+          }
+        }
+      ]
+    },
+    "performance": {
+      "entrypoint": "./operators/sampler_vocab_softmax/run_performance.sh",
+      "protocol": {
+        "groups": 5,
+        "iters_per_group": 30,
+        "warmup": 10,
+        "timing": "hip_graph_replay",
+        "reduction": "median"
+      },
+      "baseline": {
+        "source": "workset",
+        "report": "evidence/performance_baseline.json",
+        "per_case_ms": {
+          "B1_V151936": 0.04896,
+          "B8_V151936": 0.050201,
+          "B32_V151936": 0.058201
+        }
+      },
+      "measured": {
+        "report": "results/performance_measured.json",
+        "per_case_ms": {
+          "B1_V151936": 0.0181,
+          "B8_V151936": 0.0189,
+          "B32_V151936": 0.0243
+        },
+        "rsd_per_case": {
+          "B1_V151936": 0.081,
+          "B8_V151936": 0.079,
+          "B32_V151936": 0.068
+        }
+      },
+      "claim": {
+        "speedup_per_case": {
+          "B1_V151936": 2.705,
+          "B8_V151936": 2.6561,
+          "B32_V151936": 2.3951
+        },
+        "mean_case_speedup": 2.5854,
+        "noise_floor": 1.057
+      }
+    },
+    "forge": {
+      "ran": true,
+      "mock": false,
+      "degraded": false,
+      "result_json": "results/forge_result.json",
+      "mean_case_speedup": 2.8328,
+      "improved": true,
+      "snr_db": 138.12,
+      "iteration_count": 4,
+      "max_hours": 3.0,
+      "gpu_target": "gfx950"
+    }
+  },
+  "notes": "The accept-direction sample for a run that produced something: the premise held, forge ran a real campaign, and a claim is therefore expressible. Sample 01 exercises every branch except this one, and a schema branch that is only ever exercised in the reject direction is a branch nobody has confirmed can be satisfied.\n\nGrounding, field by field, because this sample is assembled rather than sealed. The baseline is sample 01's own measured seed medians on gfx950 -- the same host, which is what makes the premise hold and is what e2e-flow produces, since m1 mints the environment record and m3 and m4 carry it. The optimised figures and the ~8% spread are the 2026-08-31 campaign's, recorded in the workset's `baseline_measurement.md` ('an optimized replacement spread ~8% round to round against this baseline's 0.3%') and in the task brief's worked `verification.json` (B8 optimised 18.9 us, 2.924x per-case, 2.83x mean, forge reporting 2.8328x, SNR 138.12 dB). Nothing here is a plausible number chosen to look right.\n\n`claim.noise_floor` is 1.057, transcribed from the workset rather than chosen: m3 derives it in `run_performance.sh` as `1 + 2.83 x rsd_max`, the two-sample 2-sigma separation, so a noisier host demands a bigger win. At the ~2% spread measured on a quiet node that is 1.057x, which is where the previous round's ~1.05x rule of thumb came from. Nothing on m4's side may default it -- a consumer with a fallback floor is one that silently picks its own significance threshold.\n\nTwo things worth reading off it. `claim.mean_case_speedup` is 2.5854 against forge's 2.8328 -- they disagree by 9%, and that is the realistic case rather than a defect in the sample. One is this run's measurement over all three shapes under the workset's protocol; the other is forge's own, taken during forge's campaign and dominated by the shape it optimised against. The task brief's standing instruction for exactly this is to report both and say which you believe and why, which is why both fields exist side by side instead of one overwriting the other. And the optimised side's rsd is an order of magnitude above the baseline's -- measured, unexplained since 2026-08-31, and the reason a single sample of the optimised side is not a measurement."
+}

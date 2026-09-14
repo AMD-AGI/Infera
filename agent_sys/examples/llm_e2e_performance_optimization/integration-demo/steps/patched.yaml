@@ -1,0 +1,184 @@
+# The patched arm. Same node, same image, same weights, same trace, same engine
+# argv, same measurement script in the same order. One variable differs: the
+# per-file bind mounts from `patch_overlay`.
+#
+# `check_service_live`, `check_acceptance` and `check_bench_report` are declared
+# in `stock.yaml` and reused here. The binding is many-to-many and the kinds
+# carry the same shape; what differs between the arms is what the numbers mean,
+# not what has to be present, and that difference is stated in each handoff's own
+# README rather than enforced by a second copy of a validator.
+
+# --------------------------------------------------------------------------- #
+
+# **The most important validator in this package**, and the only one whose
+# dimension is `trustworthiness`: it does not ask whether the record is complete,
+# it asks whether the thing the record describes actually happened.
+#
+# The failure it exists for is a patch that is mounted and never executed. That
+# produces two arms with identical numbers and a comparison that cheerfully
+# reports "no regression" -- a green result for a change that was never tested.
+# Nothing else in the graph can see it.
+#
+# Two layers of evidence, and the first one is not the obvious one:
+#
+#   `__file__` proves nothing. A bind mount does not change the path inside the
+#   container, so `sglang.srt.models.glm5_next.__file__` reads identically on a
+#   stock and a patched deployment. Measured, not assumed. What does prove it is
+#   re-hashing the file INSIDE the running container and comparing against the
+#   overlay's `sha256_patched`, plus `docker inspect` showing the mount is there.
+#
+#   The static layer still only proves the bytes are in place. Whether the code
+#   ran is a different question, and it is answered by the markers the patch's
+#   manifest declares: one at import, one on first call. `runtime_marker` is
+#   optional in the contract, so a real forge patch that declares none gets the
+#   static proof and this validator says so in its findings rather than pretending.
+#
+# The evidence is collected by `serve_patched`, not by this body: by the time a
+# validator runs, the deployment may already have been torn down by the next
+# step, so everything it reads has to be in the handoff.
+- module: validator
+  name: check_patch_live
+  version: '1'
+  brief: The mounted files are what the running container holds, and the patch's markers fired
+  dimension: trustworthiness
+  strength: strong
+  inputs: [deployment_patched]
+  args:
+    # Every entry in mounts.json must appear in `docker inspect`'s Mounts and
+    # must hash inside the container to sha256_patched.
+    require_all_mounts: true
+    require_container_hash_match: true
+    # When the manifest declares runtime_marker, both patterns must have been
+    # seen in the engine log. When it declares none, this drops to a finding.
+    require_declared_markers: true
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [integration-demo, patch]
+
+# --------------------------------------------------------------------------- #
+
+- module: handoff
+  name: deployment_patched
+  version: '1'
+  description: The same MIX deployment with the patch bind-mounted in, and the proof the mounts are live.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [result, env, command, logs, watchout]
+    properties:
+      result: {type: string}
+      env: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+  # Two validators on one kind: one asks whether it served, the other whether it
+  # served the patched code.
+  validators: [check_service_live, check_patch_live]
+
+# --------------------------------------------------------------------------- #
+
+- module: task
+  name: serve_patched
+  description: Bring the same deployment up with the patch bind-mounted, and record that the mounts are live.
+  agent: runner
+  handoffs: [patch_overlay, kernel_patch, bench_stock, deployment_patched]
+  validators: [check_service_live, check_patch_live, check_bench_report]
+  task:
+    goal: Serve GLM-5.3-Flash with the optimised kernel mounted in.
+    version: '1'
+    repos: [infera, sglang]
+    # Three inputs, and the third is the load-bearing one.
+    #
+    # `patch_overlay` is the mount plan. `kernel_patch` carries the runtime
+    # markers to look for, and the evidence has to be gathered while the
+    # deployment is still up.
+    #
+    # **`bench_stock` is here because `froms` alone does not order anything.**
+    # This task's first act is to tear the stock deployment down, so it must not
+    # start until the stock arm has been measured — and `main.yaml` said exactly
+    # that with `froms: [..., measure_stock]`. Measured, on 2026-08-31: the two
+    # serve tasks were dispatched concurrently anyway and collided on the
+    # container name, because `task_graph` derives the schedule from handoff
+    # wiring and a `froms` entry backed by no handoff is admitted with a warning
+    # and then ignored. Recorded as
+    # `../../temp/bugs/004-froms-without-a-handoff-does-not-order-execution.md`.
+    #
+    # Consuming the stock arm's last output is what makes the edge real. It is
+    # not a workaround dressed up as a feature: the patched deployment record
+    # ought to state that it was created after the stock arm finished, because
+    # the entire comparison depends on that being true, and taking the handoff is
+    # what makes the claim checkable rather than asserted.
+    inputs: [patch_overlay, kernel_patch, bench_stock]
+    outputs: [deployment_patched]
+    permissions:
+      grants:
+        - {path: handoffs/deployment_patched, access: write, kind: deployment_patched}
+        - {path: handoffs/patch_overlay, access: read, kind: patch_overlay}
+        - {path: handoffs/kernel_patch, access: read, kind: kernel_patch}
+        - {path: handoffs/bench_stock, access: read, kind: bench_stock}
+        - {path: /usr/bin, access: read}
+        - {path: /data/agent_sys_integration, access: write}
+
+# --------------------------------------------------------------------------- #
+
+- module: handoff
+  name: acceptance_patched
+  version: '1'
+  description: Smoke, needle and llm-eval results from the patched deployment.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [result, env, command, logs, watchout]
+    properties:
+      result: {type: string}
+      env: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+  validators: [check_acceptance]
+
+# --------------------------------------------------------------------------- #
+
+- module: handoff
+  name: bench_patched
+  version: '1'
+  description: Two Mooncake trace replays against the patched deployment, one trace-cold and one warm.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [result, env, command, logs, watchout]
+    properties:
+      result: {type: string}
+      env: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+  validators: [check_bench_report]
+
+# --------------------------------------------------------------------------- #
+
+- module: task
+  name: measure_patched
+  description: Run the same five measurements, in the same order, against the patched deployment.
+  agent: runner
+  handoffs: [deployment_patched, acceptance_patched, bench_patched]
+  validators: [check_acceptance, check_bench_report]
+  task:
+    goal: Measure correctness and performance on the patched deployment.
+    version: '1'
+    inputs: [deployment_patched]
+    outputs: [acceptance_patched, bench_patched]
+    permissions:
+      grants:
+        - {path: handoffs/acceptance_patched, access: write, kind: acceptance_patched}
+        - {path: handoffs/bench_patched, access: write, kind: bench_patched}
+        - {path: handoffs/deployment_patched, access: read, kind: deployment_patched}
+        - {path: /usr/bin, access: read}
+        - {path: /data/agent_sys_integration, access: write}

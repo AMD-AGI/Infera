@@ -455,6 +455,60 @@ def test_resume_continues_from_disk(tmp_path: Path, package_root: Path) -> None:
     assert tasks["consume"].history == []
 
 
+def test_the_named_work_root_outranks_the_xdg_base(tmp_path: Path, monkeypatch: Any) -> None:
+    """`INFERA_AGENT_SYSTEM_WORKROOT` names the run root; `XDG_STATE_HOME` a base.
+
+    The two are not two spellings of one setting and the test says which is
+    which: with both set the specific name wins **whole**, and the loser's value
+    does not appear in the answer even as a prefix. A first version appended
+    `agent-sys-demo` to it too, which reads the same in a passing test and puts
+    the run somewhere the operator did not name.
+    """
+    from cli.environment import WORKROOT_ENV_VAR, default_root
+
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "xdg"))
+    monkeypatch.setenv(WORKROOT_ENV_VAR, str(tmp_path / "work"))
+    assert default_root() == tmp_path / "work"
+
+    monkeypatch.delenv(WORKROOT_ENV_VAR)
+    assert default_root() == tmp_path / "xdg" / "agent-sys-demo"
+
+
+@pytest.mark.parametrize("value", ["", "   ", "relative/path", "./runs"])
+def test_an_unusable_work_root_reads_as_unset(
+    value: str, tmp_path: Path, monkeypatch: Any
+) -> None:
+    """Empty or relative falls back rather than being obeyed.
+
+    A relative run root resolves against whatever `cwd` a body inherited, and
+    `<run root>` is the one path that may not depend on that: the bodies reach
+    their own staged package by absolute path and
+    `remote.sh:require_visible_on_node` asserts the compute node resolves the
+    same string. Obeying `./runs` would put the run somewhere that reads
+    correctly here and is not findable from the other side.
+
+    Its non-vacuity control is the test above, which must still return the
+    named path — otherwise this one would pass against a function that had
+    stopped reading the variable at all.
+    """
+    from cli.environment import WORKROOT_ENV_VAR, default_root
+
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "xdg"))
+    monkeypatch.setenv(WORKROOT_ENV_VAR, value)
+    assert default_root() == tmp_path / "xdg" / "agent-sys-demo"
+
+
+def test_an_explicit_root_outranks_the_environment(tmp_path: Path, monkeypatch: Any) -> None:
+    """`--demo-root` wins over both. The flag is the most specific statement."""
+    from cli.environment import WORKROOT_ENV_VAR, layout_for
+
+    monkeypatch.setenv(WORKROOT_ENV_VAR, str(tmp_path / "work"))
+    assert layout_for(tmp_path / "explicit").root == tmp_path / "explicit"
+    # And with no argument the variable is what answers, so the assertion above
+    # is about precedence rather than about `layout_for` ignoring the environment.
+    assert layout_for().root == tmp_path / "work"
+
+
 def test_two_runs_under_one_root_get_separate_stores(tmp_path: Path) -> None:
     """**Criterion 13's real case: two runs, one root, back to back.**
 
