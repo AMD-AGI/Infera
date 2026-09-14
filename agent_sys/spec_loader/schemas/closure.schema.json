@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "closure.schema.json",
+  "title": "Closure",
+  "description": "The predefined binding of the four objects: `< handoff spec set, task spec, agent spec, validator set >`. Keys are `closure` spec §2's. A closure is a spec-level, code-management artefact — it is consulted when a graph is assembled and never again, and nothing at run time points at one (§1.1).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "description", "task", "handoffs", "validators"],
+  "if": {
+    "required": ["task"],
+    "properties": {
+      "task": {
+        "required": ["subgraph"],
+        "properties": { "subgraph": { "minItems": 1 } }
+      }
+    }
+  },
+  "else": { "required": ["agent"] },
+  "properties": {
+    "name": {
+      "$ref": "_common.schema.json#/$defs/name",
+      "description": "Unique. By convention it names the workflow step: `prepare_e2e`, `collect_trace`."
+    },
+    "description": {
+      "$ref": "_common.schema.json#/$defs/description",
+      "description": "What this step is, for a human."
+    },
+    "task": {
+      "$ref": "task.schema.json",
+      "description": "The task spec, declared inline. It is not separately loadable, which is why there is no `tasks/` directory in a package."
+    },
+    "agent": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The agent spec name that executes it. **Required of a LEAF, and of nothing else** — `closure` spec §2.2 and criterion 3. Where there is an executor its `kind` may be `ai`, `human` or `program`; the axis the system is decoupled along is not 'agent or no agent' but what an agent may be. A NON-LEAF has no executor to name: its work IS its subgraph, and the name it was previously forced to invent was read by nothing — `agent/runner.py:682` returns before `_deploy`, so `env_mgr/prepare.py:447`'s `material.deploy(agent_spec, zone)` never runs for one, and output validation already falls through to the GLOBAL row when `producer` is `None` (`validator/environment.py:140`). A required field nobody reads is a field every author must guess at."
+    },
+    "handoffs": {
+      "$ref": "_common.schema.json#/$defs/handoff_kind_names",
+      "description": "The handoff kinds the task names, listed explicitly. Derivable from the task's `inputs` and `outputs`, and listed anyway: the redundant field is CHECKED AGAINST the derivable one and catches the mistake that actually happens — adding an input and forgetting to bring its kind into the closure (§2.3). The check is one-directional: a kind here that the task does not name is legal, because a closure may declare a kind its subgraph uses internally."
+    },
+    "validators": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "The PHASE validators — the checks that run in this task's input_validation and output_validation phases (`validator` spec §3). They are a property of the task rather than of any one handoff kind, which is why the handoff specs cannot carry them. Distinct from the validators a handoff kind names for itself, which run when that handoff is produced (§2.4)."
+    }
+  },
+  "$comment": "There is deliberately no `version` key, and `additionalProperties: false` is what rejects one — `closure` criterion 11. A closure that carried a version would be a fifth object with state, and a run would then have two answers to 'what was this made of' that can disagree (§1.2). The members carry their own.\n\nThe `if`/`else` pair is the only conditional in these five schemas and is introduced against a stated house rule, so the reason is recorded here. `_common.schema.json`'s `body` refuses `if`/`then` for the entry-vs-subgraph exclusion because it 'produces a message nobody can act on', and routes that rule to a named load-time check (`closure/check.py:243`). Measured, that reason holds for THAT shape and not for this one: the exclusion is 'exactly one of', which needs `not`/`allOf` and reports `{...whole document...} should not be valid under {...whole subschema...}` on keyword `not`; this is a one-keyword `else`, and `jsonschema` reports it as path `$`, keyword `required`, message `'agent' is a required property` — byte-identical to what a flat `required` produced before, since `Problem` carries `json_path` and `str(validator)` and never the schema path (`spec_loader/validate.py:96-104`). The probe is `scratch/ui-yaml-2026-08/w1/probe_if_then_message.py`.\n\n`minItems: 1` inside the `if` is what keeps the conditional total: `subgraph: []` would otherwise satisfy `required: [subgraph]` and excuse the `agent` of a closure that has no subtasks and no executor either. An empty subgraph is treated as a leaf here, which is the safe direction — it demands the name rather than waiving it.\n\nThe rule has two writers on purpose, as it did before: this schema catches a leaf with no agent for any document that reached it, and `closure/check.py` check 4 catches it for any document that did not, with a message naming the known agent specs. Both must carry the leaf-only qualification or they disagree."
+}

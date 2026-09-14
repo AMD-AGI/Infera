@@ -3,10 +3,11 @@
 | | |
 |---|---|
 | Status | Draft, pending review |
-| Revision | 7 — 2026-08-20. References to the task-definition file made self-contained. (rev. 6: consumable balances and agents persist; `depends_on` checked at submit) |
+| Revision | 14 — 2026-08-28. **The monitor becomes the task's event loop**, so §3.5's "its job is the task's exceptions" widens to two kinds — planned advances handled by code, unplanned outcomes decided. §3.2.1 gains **how a non-leaf gets back to its output validation**, which the phase table had left open: the `is_end` subtask's monitor tells the parent's monitor, which transitions and asks the runner for a thread. **The scheduler is not in that chain** — routing it there would have one task's progress decided by observing another's, against §2 principles 2 and 4 and against this section's own rule that `is_end` gets no special treatment at completion. No criterion changed here; the monitor's are 19–26. (rev. 13: 2026-08-27. **The user-interface brief.** `Task` gains `closure` (the link back to its task spec, regularising design D23), `kinds` (uuid → handoff kind, without which a permission grant matches nothing) and `monitor_spec` (§3.2, §3.2.5, §3.2.6). **The monitor moves into the alpha** with its own mainloop, `set_task`, and the task's exceptions as its job (§3.5); ROADMAP §2 keeps the analysing dispatcher. (rev. 12: 2026-08-26. Consistency pass: §5.2's lease argument says *a leaf's* lease, matching §6.2. No criterion changed. (rev. 11: 2026-08-26. Only a leaf task acquires resources; the hold-and-wait invariant is re-derived for subgraphs (§6.2). Criteria 53–54. (rev. 10: 2026-08-26. A task owns its transitions; a transition is the only thing that triggers the scheduler (§3.2.3). Cascading cancel, distinguished from cascading invalidation, reversing §1.2 / §6.3 / §8.1 for cancel only (§3.2.4). Criteria 45–52. Second-review defects fixed: `Resumable.resume_system`, `Scheduler.resume_system` existence, criterion 8's phase states. (rev. 9: 2026-08-26. Review of PR #132: validation phases are invisible to the scheduler and run inside `TaskRunner`; two phase statuses; permissions are a versioned task attribute; the default policy is depth-first. (rev. 8: subgraph nesting; rev. 7 and earlier unchanged)))))) |
 | Date | 2026-08-19 |
 | Scope | Task management substrate for the Infera AI-optimization agent loop |
 | Source | The task definition; an internal prior-art survey (rev. 2, 2026-08-18) |
+| Part of | [`../../docs/spec.md`](../../docs/spec.md) — the whole-system specification |
 
 ---
 
@@ -34,7 +35,10 @@ The following are explicitly delegated to other mechanisms; this system only
 guarantees it does not obstruct them:
 
 - Retry, backoff, and failure recovery.
-- Cascading invalidation of downstream tasks.
+- **Cascading invalidation** of downstream tasks — an inference that content
+  derived from a bad artefact is itself bad. Only a validator decides that, and
+  only about a specific version. Cascading *cancel* is a different thing and is
+  in scope (§3.2.4).
 - Re-running a `SUCCEEDED` task. That state is final; a caller dissatisfied with
   a result submits a *new* task and wires up its dependencies. (`FAILED` and
   `SUSPENDED` tasks *are* resumable — see §3.2.)
@@ -58,8 +62,8 @@ guarantees it does not obstruct them:
 | 1 | Composition over inheritance | Inheritance appears only in the `ResourceMgr` hierarchy. Everything else is a `Protocol` resolved from the registry. |
 | 2 | Content-agnostic scheduler | A resource is a `(name, amount)` pair the task declares. The scheduler does arithmetic on counters and asks one yes/no question about each input. |
 | 3 | Single source of truth | Task state lives in `TaskMgr`; handoff state lives in `HandoffMgr`. The scheduler's pools are a derived index, never a second copy. |
-| 4 | The engine decides when, the agent decides what | The scheduler owns task state and never writes handoff state. An agent owns its handoffs' content and validity, and may submit tasks, but may not redirect the graph. |
-| 5 | Algorithm decoupled from mechanism | Ordering lives behind `SchedulePolicy`. The first implementation is naive FIFO. |
+| 4 | The engine decides when, the agent decides what | The scheduler owns task state and never writes handoff state. An agent owns its handoffs' content and validity, and may submit tasks, but may not redirect the graph. Nothing outside a task writes its status: a task owns its transitions, and a transition is the only thing that triggers the scheduler (§3.2.3). |
+| 5 | Algorithm decoupled from mechanism | Ordering lives behind `SchedulePolicy`. The first implementation is depth-first over the subgraph (§5.2). |
 | 6 | Simplicity is a requirement | Where a mature solution exists, use it (§9). Where none fits, the implementation stays small enough to read in one sitting. |
 | 7 | One fact, one place — reuse the implementation | Where two operations mean the same thing, one is expressed in terms of the other rather than reimplemented. `update_task` is `remove_queued` + `submit` (§5.1); "which agent is running this" is `history[-1].agent_id`, not a field (§3.2); eligibility is a query, not a cached counter (§3.2). Structural clarity comes first — this is not licence to collapse two genuinely different concerns into one. |
 
@@ -200,8 +204,24 @@ mutation (§7).
 
 **No manager and no scheduler advances a handoff.** Whether content is usable is a
 question about the content, and only the agents on either side can answer it. The
-producing agent opens a new version when it starts writing and records the verdict
-when it finishes. A consuming agent may re-check its inputs on its own terms.
+producing task opens a new version when it starts writing and records the verdict
+when it finishes. A consuming task may re-check its inputs on its own terms.
+
+**"The producing task", not "the agent that wrote it" — and the distinction is
+the whole design.** A task is three phases (§3.2.1), and they are isolated from
+each other: the main phase's agent writes the content, and the **output
+validation phase** records the verdict, in an environment rebuilt from
+configuration that the main phase's agent cannot reach (`validator` spec §8.2).
+
+From outside, the task is one producer and it answers for its own output. From
+inside, the thing that answers is never the thing that produced. Both are true,
+which is why this section and main spec §5.2 — "the verdict is recorded by the
+validator, never reported by the producer" — say the same thing at two scales
+rather than contradicting each other.
+
+Read at the wrong scale, this passage says a writer grades its own work, which
+is the Hyperloom failure the system exists to prevent. It does not: no agent
+seals a version it wrote.
 
 `HandoffMgr` holds the handoffs and serves queries over them. It has no
 validation logic, no content schema, and no opinion. It does not open versions on
@@ -247,14 +267,52 @@ previous version, so a downstream task may be dispatched against it. See §10.
 | `inputs` | `list[HandoffId]` | Handoff slots required to run |
 | `outputs` | `list[HandoffId]` | Handoff slots this task will fill |
 | `depends_on` | `list[TaskId]` | Upstream tasks. The graph edge (below) |
-| `resources` | `dict[str, float]` | Pool **name** → amount. Declared, never inferred, e.g. `{"gpu": 2, "token": 100_000}` |
+| `resources` | `dict[str, float]` | Pool **name** → amount. Declared, never inferred, e.g. `{"gpu": 2, "token": 100_000}`. **Only a leaf task may declare any**; a non-leaf is rejected at load (§6.2) |
 | `status` | `TaskStatus` | See below |
 | `created_at` | `datetime` | FIFO ordering key |
 | `expedited` | `bool` | Set by `expedite()`; a policy hint |
 | `history` | `list[Execution]` | Append-only; one entry per run |
+| `parent` | `TaskId \| None` | The task this one expands from. `None` for the system whole task. Structure, not scheduling (§3.2.1) |
+| `is_start` | `bool` | This task is its parent's start entry subtask (§3.2.1) |
+| `is_end` | `bool` | This task is its parent's end entry subtask (§3.2.1) |
+| `permissions` | `Permissions` | What this task's executor may reach. **Versioned with the task**, not carried on the agent (§3.2.2) |
+| `closure` | `str \| None` | The declaration this instance was made from, by name. **The link back to the task spec** — §3.2.5. `None` for a task submitted directly |
+| `kinds` | `dict[HandoffId, str]` | Which handoff **kind** each of this task's slots holds. §3.2.6 |
+| `monitor_spec` | `str \| None` | Which monitor loop watches this task, by name, resolved from the component registry. `None` takes the global default (§3.5) |
 
 `outputs` holds ids, not handoffs. Verdicts live on the handoff version (§3.1),
 not on the task.
+
+#### 3.2.5 `closure` is the link, and it is what keeps this table short
+
+A task instance is made from a task spec, and that spec says far more than this
+table does: the goal, the body, the materials, the dependency repositories
+(closure spec §2). **None of that is copied here.** The runtime object carries
+the *name* of its declaration and whoever needs the rest resolves `closures` by
+name at use time — the same discipline `agent_spec` already uses, and the one
+`replace_with` and `unfold` already rely on.
+
+The alternative — a field per spec key — was rejected because it makes the
+runtime model a second copy of the spec, and the two would then be able to
+disagree about what a task is.
+
+**The scheduler still never reads a closure** (closure spec criterion 8). The
+prohibition is on the scheduler, not on the package: a `Task` transition may
+resolve the catalogue it came from, and so may the runner and `env_mgr`.
+
+#### 3.2.6 `kinds` — because a uuid does not say what it is
+
+`inputs` and `outputs` are ids, and an id carries no kind. The **task spec** names
+kinds (`inputs: ['facts']`); the **runtime** names instances. `kinds` is the
+mapping between them, and it is not derivable from either side alone: a task may
+legitimately have two inputs of the same kind, which is exactly why lookup is by
+uuid (handoff spec §5.1) and why positional correspondence with the spec's list
+is not a substitute.
+
+`submit` passes it straight to `HandoffMgr.declare(..., types=...)`, which already
+takes it. Without it `Handoff.type` stays `""`, and a permission grant naming a
+kind then matches **no** handoff — so the executor is confined to a zone
+containing none of its own inputs, and finds out by failing to read one.
 
 `agent_spec` is a *spec* name, not an agent. An `Agent` is a concrete object with
 an `AgentId`, created per run; the task says which kind to create. `AgentMgr`
@@ -357,13 +415,13 @@ and have nothing to derive from.
       submit
         │
         ├──────────────────┐
-        ↓                  ↓
-WAITING_HANDOFF ──→ WAITING_RESOURCE ──→ RUNNING ──→ SUCCEEDED  [final]
-  (Ineligible)         (Eligible)          │  │
-       ↑                    ↑              │  └─→ FAILED     ┐
-       │                    │              ↓                 │ resumable
-       │                    │          STOPPING ─→ SUSPENDED ┘
-       └────────────────────┴───── resume ──────────────────┘
+        ↓                  ↓                ┌── the three phases, all leased ──┐
+WAITING_HANDOFF ──→ WAITING_RESOURCE ──→ INPUT_VALIDATING → RUNNING → OUTPUT_VALIDATING ──→ SUCCEEDED  [final]
+  (Ineligible)         (Eligible)          │                  │  │             │
+       ↑                    ↑              └──────────────────┴──┴─────────────┴─→ FAILED     ┐
+       │                    │                                 ↓                               │ resumable
+       │                    │                             STOPPING ────────────→ SUSPENDED ───┘
+       └────────────────────┴──────────────── resume ──────────────────────────────────────┘
 
 remove_queued:  WAITING_HANDOFF | WAITING_RESOURCE  ──→  CANCELLED  [final]
 ```
@@ -371,17 +429,33 @@ remove_queued:  WAITING_HANDOFF | WAITING_RESOURCE  ──→  CANCELLED  [final
 | State | Meaning | Exit |
 |---|---|---|
 | `WAITING_HANDOFF` | Not every input's latest version is `VALID` | Re-checked at each decision point; all valid → `WAITING_RESOURCE` |
-| `WAITING_RESOURCE` | Inputs ready, competing for resources | Full resource set granted atomically → `RUNNING` |
-| `RUNNING` | Holds a lease; the runner is executing | Runner reports done, or `stop()` → `STOPPING` |
+| `WAITING_RESOURCE` | Inputs ready, competing for resources | Full resource set granted atomically → `INPUT_VALIDATING` |
+| `INPUT_VALIDATING` | Holds a lease; the runner is running the input validation phase (§3.2.1) | Phase passes → `RUNNING`; fails → `FAILED`. Skipped entirely → straight to `RUNNING` |
+| `RUNNING` | Holds a lease; the runner is executing the main phase | Main work done → `OUTPUT_VALIDATING`, or `stop()` → `STOPPING` |
+| `OUTPUT_VALIDATING` | Holds a lease; the runner is running the output validation phase | Runner reports done → `SUCCEEDED` \| `FAILED` |
 | `STOPPING` | Stop requested; the runner has not confirmed | `on_stopped()` → `SUSPENDED` |
-| `SUCCEEDED` | The task ran to completion. Its outputs carry whatever verdict the agent recorded — not necessarily `VALID` (§6.3). **Final** | — |
+| `SUCCEEDED` | The task ran to completion. Its outputs carry whatever verdict the validations recorded — not necessarily `VALID` (§6.3). **Final** | — |
 | `FAILED` | Finished unsuccessfully. Resumable | `resume_task()` |
 | `SUSPENDED` | Stopped on request. Resumable | `resume_task()` |
 | `CANCELLED` | Removed while queued. **Final** | — |
 
-`STOPPING` is a transient of `RUNNING`, present because a runner cannot terminate
-a process instantaneously. It holds its resources until `on_stopped()` confirms.
-Recovery treats it as `SUSPENDED` (§6.4).
+**The three phase states are one lease** — for a leaf. A leaf task acquires its
+full resource set once, at the `WAITING_RESOURCE` → `INPUT_VALIDATING`
+transition, and holds it until it reaches a terminal state. A non-leaf acquires
+nothing and holds nothing (§6.2); its three states are structural throughout.
+
+For the leaf, the single lease is what lets the output validation run **without a
+second admission** — its environment is rebuilt from the main work's
+configuration, never inherited from it (validator spec §8.2) — and it means the
+all-or-nothing acquisition of §6.2 is unchanged: there is still exactly one
+acquisition point.
+
+`stop()` is accepted in all three phase states, since all three are a running
+task from the outside.
+
+`STOPPING` is a transient of the phase states, present because a runner cannot
+terminate a process instantaneously. It holds its resources until `on_stopped()`
+confirms. Recovery treats it as `SUSPENDED` (§6.4).
 
 `resume_task()` accepts `FAILED` and `SUSPENDED`. It rejects `SUCCEEDED` and
 `CANCELLED`. The resumed task re-enters `WAITING_RESOURCE` if
@@ -399,6 +473,356 @@ set: there is no decision to make there, only a question to re-ask.
 `WAITING_RESOURCE` is ordered: it is the single place in the system where a
 scheduling decision occurs. Merging them into one queue with a filter would hide
 that distinction.
+
+### 3.2.1 Subgraph nesting
+
+A task may expand into a subgraph. The expansion is **declared in the task's
+spec**, not produced at runtime (see *Static definition only*, below), and the
+resulting subtasks are ordinary tasks — same states, same dispatch, same audit
+record.
+
+Four fields carry the structure, and all four are structure only: **nothing in
+scheduling reads them.** They join `depends_on` in the category §3.2 already
+establishes — the graph exists for traversal, display, and analysis, while
+eligibility remains `check_if_latest_valid` over `inputs`.
+
+| Field | Answers |
+|---|---|
+| `parent` | Which task did this one expand from |
+| `is_start` | Is this the subgraph's entry point |
+| `is_end` | Is this the subgraph's exit point |
+
+There is **no `phase` field on `Task`**. Only the `main` phase produces
+scheduler-visible tasks, so every task in a pool is by definition a `main`-phase
+task and the field would be a constant. The two validation phases are not tasks
+at all — see below.
+
+#### The start and end entry subtasks
+
+Every task that expands has a **start entry subtask** and an **end entry
+subtask**. Either may be the task itself.
+
+- **`is_start` being dispatched means the subgraph has begun.**
+- **`is_end` completing means the subgraph has finished.**
+
+These are markers, not gates. The scheduler does not wait for `is_start` before
+dispatching a sibling, and does not treat `is_end` specially at completion — it
+dispatches on input validity as always. What the markers give is a definite
+answer to "has this subgraph started, and has it finished", which display,
+progress reporting, and the parent's own completion accounting all need and which
+is otherwise a search over the subtask set.
+
+A task that is its own start and end entry subtask is a leaf: it expands into
+nothing, and `is_start` and `is_end` are both true of itself. That is the common
+case, and it is why the fields are on `Task` rather than on a separate subgraph
+record — the alternative would be a record for every leaf saying it has no
+subgraph.
+
+#### The three phases, and why the scheduler sees only one
+
+A task runs in three phases, in this order:
+
+```
+task  ──dispatched once──►  ┌─────────────────────────────┐
+                            │ 1. input validations        │  ← invisible to
+                            │ 2. main / subgraph          │    the scheduler
+                            │ 3. output validations       │
+                            └─────────────────────────────┘
+```
+
+**Only the `main` phase is a graph.** The two validation phases are **not
+visible from the scheduler side**: they are not tasks it dispatches, they take no
+pool slot, and no policy orders them. `TaskRunner` runs all three in order for
+the one task the scheduler dispatched.
+
+| Phase | What it does | Who runs it |
+|---|---|---|
+| **input validations** | Checks over the task's inputs | `TaskRunner`, before it starts the main work |
+| **main** | The task's work. A **subgraph expands here**, and those subtasks *are* scheduler-visible tasks | The scheduler, if there is a subgraph; the runner, if this is a leaf |
+| **output validations** | Checks over the task's outputs | `TaskRunner`, after the main work reports done |
+
+The scheduler dispatches a task and gets a completion. What happened between is
+the runner's business — which is exactly the boundary §2 principle 4 already
+draws, applied to validation.
+
+#### How a non-leaf gets back to its output validation
+
+Added 2026-08-28, because the table above left it open. A non-leaf's middle phase
+is a subgraph the scheduler runs, which may take hours; the task **holds no
+thread meanwhile**, so something has to bring it back for phase 3.
+
+```
+is_end subtask completes ──▶ its monitor walks `parent` ──▶ the PARENT's monitor
+                                                                  │
+                                    parent.enter_phase(OUTPUT_VALIDATING)
+                                    then asks the runner for a thread
+```
+
+**The scheduler is not in that chain, and that is the requirement rather than an
+implementation detail.** Routing it through the scheduler would make one task's
+progress depend on the scheduler *observing another task's status*, which breaks
+§2 principle 2 (it does arithmetic on counters and one yes/no question per input)
+and principle 4 (a transition is the only thing that triggers it), and would
+contradict this section's own rule that the scheduler **does not treat `is_end`
+specially at completion**. It never sees `is_end`.
+
+**A monitor still transitions only its own task.** The subtask's monitor reports;
+the parent's monitor transitions. And **the re-entry is the same `Execution`** —
+the parent was dispatched once, no second execution record is pushed and no second
+agent is bound.
+
+The mechanism is [`../../monitor/docs/spec.md`](../../monitor/docs/spec.md) §5.3.
+
+**A validation phase keeps every other property of a task**, and this is what
+makes it more than a callback:
+
+- **It gets a fresh agent environment**, and may have an AI agent inside it. It
+  is not run in the producing agent's context, ever — see
+  [`../../validator/docs/spec.md`](../../validator/docs/spec.md).
+- **Its inputs are handoffs.** Same lookup, same versions.
+- **It produces no output handoff.** It calls
+  `handoff.update_validation_status(versioned_handoff, ...)` instead. That update
+  is persisted — a YAML record maintained alongside — and is **excluded from the
+  handoff's checksum**, so recording a verdict does not change the artefact's
+  identity.
+- **It has a life status**, which is why `Task.status` grows two members below.
+
+**A phase can be skipped** — by config, or because the handoff was already
+validated by someone else. A CLI switch (`--validation-strict-level`) controls
+how permissive that is.
+
+#### Two new statuses
+
+Because a validation phase has a life status, a task in one is neither `RUNNING`
+in the ordinary sense nor idle:
+
+```
+WAITING_RESOURCE ──► INPUT_VALIDATING ──► RUNNING ──► OUTPUT_VALIDATING ──► SUCCEEDED
+                            │                │                │
+                            └────────────────┴────────────────┴──► FAILED
+```
+
+`TaskStatus` gains `INPUT_VALIDATING` and `OUTPUT_VALIDATING`. This makes the
+real task status more complex than it was, and it is worth it: without them,
+"where is this task" has no answer during the phase that most often blocks.
+
+For a leaf, all three are lease-holding states: the task holds its resources
+across the whole run, so no phase needs a second admission. For a non-leaf they
+hold nothing — only leaves acquire (§6.2). Recovery treats all three as `RUNNING`
+does (§6.4).
+
+#### Task status is a superset of its agent's
+
+An agent has its own status — pending, deploying, running, and so on
+([`../../agent/docs/spec.md`](../../agent/docs/spec.md)). **`Task.status` is a
+superset of the status of the agent at the top of its execution stack**: it adds
+the states that exist when no agent is bound (`WAITING_HANDOFF`,
+`WAITING_RESOURCE`, `CANCELLED`) and the phase states above.
+
+#### The system whole task
+
+One task has `parent = None`: the **system whole task**, whose expansion is the
+entire graph. It exists so that "has the system finished" is the same question as
+"has this task's `is_end` completed", rather than a separate accounting.
+
+#### What does not change
+
+Stated explicitly, because the risk in adding structural fields is that
+scheduling quietly starts reading them:
+
+- **Dispatch reads `inputs` and `resources`.** Nothing else. Eligibility is still
+  `all(check_if_latest_valid(h) for h in task.inputs)` (§6.2 step 1).
+- **The pools are still keyed by `TaskStatus` alone.** A subtask sits in the same
+  pool as any other task in the same state; there is no per-subgraph pool, and no
+  pool for a validation phase.
+- **The scheduler does not know validators exist.** It never reads a validator
+  spec, never dispatches a validation, and never orders one.
+- **The authority boundary is unchanged.** The scheduler still never writes
+  handoff state, and criterion 14 still holds with subgraphs and validation
+  phases present.
+
+Criterion 42 asserts the first two directly, the same way criterion 31 asserts it
+for `depends_on`: blank the fields and nothing about dispatch changes.
+
+### 3.2.2 Permissions are a versioned task attribute
+
+**What an executor may reach is a property of the task, not of the agent.**
+
+A task is strongly bound to its current agent — `history[-1].agent_id` is the
+binding (§3.2) — and a task must be able to reach everything in its own subgraph.
+Putting permissions on the agent would mean re-deriving a subtree's reach every
+time an agent is minted; putting them on the task means they are versioned with
+the task and inherited by construction.
+
+By default a task's executor reaches exactly:
+
+| | |
+|---|---|
+| Its **own input and output handoffs** | Nothing else in handoff storage |
+| Its **workspace** | |
+| Its **playground** | |
+| Its **log location** | |
+| Everything belonging to its **subtasks**, recursively | Because it owns them |
+
+The last row is what makes nesting the natural storage layout: a subtask's
+storage lives inside its parent's, so "may this task reach that path" is answered
+by containment. [`../../env_mgr/docs/spec.md`](../../env_mgr/docs/spec.md) §4
+specifies the layout and the enforcement.
+
+#### Static definition only
+
+**A subgraph is declared, never generated.** A task cannot decide at runtime that
+it needs a subtask nobody declared.
+
+This is the system-level record-and-replay constraint (`../../docs/spec.md` §6)
+seen from the scheduler: the graph may *grow* — `submit` accepts new tasks at any
+time, and always has — but a task's own expansion is fixed by its spec. What a
+task can do when it finds it needs an undeclared step is report it, through the
+risk exit, and let a human amend the recording.
+
+### 3.2.3 A task owns its own transitions
+
+**A task's state changes through its own transition functions, and a transition
+is the only thing that triggers the scheduler.** Nothing outside a task writes
+its status.
+
+This extends outward the discipline the implementation already keeps internally:
+`Scheduler._move` is documented as *"the single writer. Nothing else assigns
+`task.status` or writes pools"*, and criterion 12 asserts the pools and
+`TaskMgr` never disagree. `_move` stays the only writer; a transition becomes the
+only caller of the paths that reach it.
+
+#### Why state it now, when nothing is broken
+
+**The rule is preventive, and that is the case for it.** Today's state
+maintenance is not scattered: `_move` is the single writer, and structure fields
+drive no scheduling (criteria 31 and 42). Nothing there needs changing, and a
+reader taking this as a repair would be tempted to refactor the parts of the
+system that are already clean and mechanically tested.
+
+What is true is that **three capabilities now being asked for have no home** —
+cascading cancel, `replace_with`, and monitor-driven restart. Without a rule,
+each lands wherever its first caller happens to be, and that is how state
+maintenance ends up spread across a system. This is cheapest to state before the
+first of the three is built. It applies to *new* transitions.
+
+#### The monitor writes no status
+
+The monitor (§3.5; its analysing form is `../../docs/ROADMAP.md` §2) analyses a
+stalled or failed task and
+acts — restart it, submit a copy, reconcile related tasks. **Every one of those
+is a transition it calls**, never a status it assigns.
+
+This is what keeps §2 principle 4 intact. "The scheduler owns task state… an
+agent may submit tasks, but may not redirect the graph" would be violated by a
+monitor writing status from outside; it is untouched by a monitor calling
+`task.cancel()` and letting the task decide what that means.
+
+#### A transition resolves the scheduler through the registry
+
+**A transition must not import the scheduler.** §4 requires the module
+dependency graph stay one-way and acyclic, and today it is: `scheduler.py`
+imports `models`, and `models.py` imports ids and pydantic only. A transition on
+`Task` calling the scheduler, written the obvious way, closes that cycle and
+fails at import time.
+
+The registry (§4.1) is what this is for:
+
+```python
+# in the model — no new import
+self._registry.get("scheduler").try_dispatch()
+```
+
+`registry.get` resolves by name at use time and creates no import edge. The
+scheduler already does exactly this for `agent_mgr` and `runner`.
+
+**One consequence to acknowledge rather than discover:** a `Task` then holds a
+registry reference, and it is currently pure data with no collaborators. How the
+reference is supplied — constructor, `TaskMgr` on load, or a context — and how it
+is kept out of `model_dump` are design-stage questions. That `Task` stops being
+pure data is a specification-level fact.
+
+#### The transition set
+
+Each transition declares its precondition, its effect on this task, what it
+cascades, and whether it calls the scheduler.
+
+| Transition | Precondition | Cascades |
+|---|---|---|
+| `cancel()` | A waiting state. `CANCELLED` is reachable only from a waiting pool (§5.1) | Downstream, within this graph (§3.2.4) |
+| `restart()` | `FAILED` or `SUSPENDED` | Nothing. This is `resume_task` expressed as a transition |
+| `fail()` | A running state | Nothing. Already exists implicitly via `on_task_done` |
+| `replace_with(...)` | A waiting or terminal state | Cancels this graph's downstream, then regenerates (§3.2.4) |
+
+**Re-entrancy needs a stated rule.** A transition calls the scheduler, which
+dispatches, which completes a task, which fires a transition. The implementation
+already carries re-entrancy flags for today's paths; a cascade walking a subgraph
+level by level goes deeper than anything present. Either the work is queued and
+drained at the top of the call, or the recursion is explicitly bounded — the
+design stage picks one, and the choice is not optional.
+
+### 3.2.4 Cascading cancel, and what bounds it
+
+**A task maintains its own subgraph's consistency.** Cancelling cascades to its
+downstream, level by level, reporting upward.
+
+#### This reverses three earlier decisions, deliberately
+
+Three passages say the opposite, and the strongest of them states an intent
+rather than an omission:
+
+| Said | Where |
+|---|---|
+| "Cascading invalidation of downstream tasks" is out of scope | §1.2 |
+| "Cascading failure — out of scope by §1.2" | §8.1 |
+| "**Downstream tasks are not cancelled. That is deliberate**" | §6.3 |
+
+They are reversed **for cancel and not for invalidation**, and the distinction is
+what makes the reversal consistent with the rest of the design:
+
+| | |
+|---|---|
+| **Cascading invalidation** | An *inference about content* that has already been produced: this artefact is bad, so what was derived from it is bad. Still out of scope — nothing in the system is entitled to decide that except a validator, over a specific version |
+| **Cascading cancel** | An *explicit act on tasks that have not run*. It decides nothing about content. It is the same authority `remove_queued` already has, applied transitively |
+
+§6.3's "the system does not cancel them, and does not pretend to" was right about
+the *scheduler*, which still does not. What changed is that the task does.
+
+#### The downstream index is a requirement, not an optimisation
+
+**This is the concrete blocker, and it is worth being plain about.** A cascade
+needs to know a task's consumers, and nothing provides that:
+
+- `depends_on` is the **upstream** edge. §3.2 is explicit that it exists for
+  traversal — but the direction it gives is backwards for a cascade.
+- The reverse direction means scanning every task, or an index. §6.2 names "a
+  reverse index from handoff to consumers" as a **known optimisation that is not
+  built**.
+
+Cascade promotes it to a requirement. What it is keyed by, who maintains it, and
+how `submit` and `update_task` keep it current must be specified before a
+cascade can be.
+
+#### `replace_with` has a precondition its containment claim depends on
+
+"Cancel this graph's downstream and regenerate, **without propagating outside**"
+is sound only if a subgraph's downstream is genuinely internal.
+
+That holds **only if a subgraph's handoffs do not escape it** except through its
+declared boundary — the `is_end` task's outputs. If an internal subtask produces
+a handoff some other graph consumes, cancelling it silently blocks a consumer
+nobody told, and the containment claim is false.
+
+**It is an invariant, and it is checked at load**: no handoff produced inside a
+subgraph is consumed outside it, except through the end entry subtask's outputs.
+This is exactly the graph-level check `closure` spec §4.1 defers to "the system
+whole task", and it now has a concrete reason to exist.
+
+**`replace_with` may only instantiate declared closures.** Regenerating tasks is
+graph construction, and it is compatible with record-and-replay only under the
+framing `../../docs/spec.md` §6.1 sets out — the catalogue is static, the
+instance count is not. Without that restriction `replace_with` is the hole
+through which the whole record-and-replay constraint is bypassed.
 
 ### 3.3 Agent
 
@@ -455,6 +879,63 @@ The reservation part is still discarded: a reservation is a lease like any other
 and its task is not running any more. Only the settled spend survives, which is
 exactly the part that was never a lease.
 
+### 3.5 Monitor
+
+**Every task has a monitor, and the monitor is alpha scope.** It was previously
+carried entirely in [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md) §2; what
+moves here is the mechanism, and what stays there is the *analysing dispatcher*
+— the richer action set an AI monitor would choose from.
+
+**Its job is everything that happens to a task and is not the task's work.** Two
+kinds, and [`../../monitor/docs/spec.md`](../../monitor/docs/spec.md) §2.2 owns
+the distinction:
+
+| | |
+|---|---|
+| **Planned** | A phase finished and the next one begins. Handled **by code, always** — no analysis, no model, ever |
+| **Unplanned** | An agent that stopped behaving, a broken node, a failed validation. A decision |
+
+That is a different job from the agent's own loop (`agent` spec §4.4), and the two
+are not one mechanism with two users.
+
+**The planned half is what advances a task through its three phases**, and until
+2026-08-28 nothing in this system owned it: §3.2.1 says `TaskRunner` runs all
+three in order, and said nothing about what wakes it for the second one, or about
+a non-leaf whose middle phase is a subgraph that may take hours. The monitor is
+that owner — see §3.2.1's re-entry note below.
+
+| | |
+|---|---|
+| **It has its own mainloop** | It polls the status of the agents it watches. A monitor that only reacted to being called could not notice a *stall*, which is the failure it exists for |
+| **It has `set_task`** | A monitor is told what to watch; it does not go looking |
+| **Two kinds** | With an AI in it, and without. Both have a mainloop; only the first can analyse |
+| **Per task or global** | A task may hand its job to a global monitor that round-robins. Handling one task's job, the global monitor holds only that task's permission scope |
+
+`Task.monitor_spec` names which loop watches a task, resolved by name from the
+component registry. Absent takes the global default. **A name, not an object** —
+the same discipline `agent_spec` and `resources` already use, and it is what keeps
+the monitor injectable and the task free of a second collaborator handle.
+
+#### The authority rule is unchanged, and it is what makes a second loop safe
+
+**Every monitor action is a task transition the monitor *calls*, never a status
+it *assigns*.** §2 principle 4 stands unamended because of it, and §3.2.3 already
+routes every transition through the scheduler's single writer. A monitor running
+its own loop therefore mutates nothing directly: it observes, and it calls the
+same verbs an operator would.
+
+That is also what bounds the concurrency question. §9's model already
+contemplates a second thread — an asynchronous runner calling `on_task_done` from
+its own — and the answer is the same here: the monitor blocks on the scheduler's
+lock for the duration of a transition, and holds nothing between calls.
+
+#### Somewhere records the exception
+
+A stalled agent, a broken node, a monitor that gave up: each is recorded rather
+than only acted on. The alpha's monitor is the simple pusher ROADMAP §2 describes
+— a status check plus *continue, do it until finished* — and even that must leave
+a trace, because a push that did not work is invisible otherwise.
+
 ---
 
 ## 4. Architecture
@@ -484,7 +965,7 @@ exactly the part that was never a lease.
 
               ┌────────────┐  ┌──────────────┐
               │  StoreMgr  │  │SchedulePolicy│
-              │ (json file)│  │ (FIFO first) │
+              │ (json file)│  │(depth-first) │
               └─────▲──────┘  └──────────────┘
                     │  write-through, four kinds (§7):
                     │  task · handoff · agent · resource
@@ -780,10 +1261,10 @@ The splits are deliberate:
 | `submit(task)` | `declare` its output handoffs; warn on a `depends_on` gap (§3.2); place in the pool its inputs dictate; dispatch | Duplicate id; undeclared resource pool |
 | `expedite(task)` | `submit`, but requires every input already valid and marks the task for front-of-queue ordering | Any input failing `check_if_latest_valid` |
 | `remove_queued(tid)` | `→ CANCELLED` | Task not in a waiting pool |
-| `stop(tid)` | `RUNNING → STOPPING`; calls `runner.stop(tid, self.on_stopped)` | Task not `RUNNING` |
+| `stop(tid)` | any phase state → `STOPPING`; calls `runner.stop(tid, self.on_stopped)` | Task not in a phase state (§3.2) |
 | `resume_task(tid)` | `FAILED \| SUSPENDED →` recomputed waiting pool; dispatch. Does not touch handoffs | `SUCCEEDED`, `CANCELLED`, or any live state |
 | `update_task(tid, ...)` | Sugar: remove and re-submit under the same id, with new inputs/outputs/resources | Task not queued |
-| `on_task_done(tid, outcome)` | Release resources; close the execution record; dispatch | Task not `RUNNING` |
+| `on_task_done(tid, outcome)` | Release resources; close the execution record; dispatch | Task not in a phase state |
 | `on_stopped(tid)` | `STOPPING → SUSPENDED`; release resources; close the execution record | Task not `STOPPING` |
 | `resume_system()` | Rebuild the pool index from task status; demote interrupted runs. Called by `resume_all`, last (§6.4) | — |
 | `try_dispatch()` | Grant resources and start tasks, as capacity allows | — |
@@ -799,6 +1280,30 @@ task-level one with no argument. `on_stopped` takes the
 callback the runner was handed, which is why `TaskRunner.stop` carries one: a
 runner that had to resolve `scheduler` from the registry would be the only
 component depending on it by name.
+
+### 5.2 The default policy is depth-first
+
+The first `SchedulePolicy` implementation is **stack-like: always expand and run
+the subgraph of the task on top of the stack, as far down as it will go, before
+starting a sibling.**
+
+FIFO was the earlier choice and is wrong for this system. With three phases per
+task (§3.2.1), a breadth-first order interleaves unrelated tasks between a task's
+input validation, its main work, and its output validation.
+
+The cost is **not** an environment rebuild — each phase gets a fresh environment
+rebuilt from configuration in any order, because a validation may never inherit
+the producer's (validator spec §8.2). What interleaving costs is the three things
+that make the phases worth keeping together: **a leaf's lease is held** across
+all three, so an interleaved order holds resources while running someone else's
+work; the **artefacts are local**; and an operator watching the run sees one
+task's three phases in sequence rather than scattered.
+
+Depth-first makes an `input validation → main → output validation` flow
+**continuous**, which is what makes the held lease worth holding.
+
+It is still a policy, behind the same interface, and swapping it changes dispatch
+order and nothing else (criterion 10).
 
 ---
 
@@ -860,8 +1365,32 @@ for tid in registry.get("policy").select(eligible, resource_snapshot()):
 
 **The whole declared set is verified before anything is mutated.** A task that
 does not fit takes nothing and stays queued. Never acquire incrementally; never
-let a queued task hold anything. This makes hold-and-wait deadlock structurally
-impossible, and costs one extra loop.
+let a queued task hold anything. That costs one extra loop.
+
+#### Why hold-and-wait cannot happen, restated for subgraphs
+
+At rev. 7 the argument was short: a queued task holds nothing, so nothing that
+holds is ever waiting. **Subgraphs broke that.** A parent in `RUNNING` holds a
+lease while its subtasks queue for their own — which is hold-and-wait, and two
+tasks in one graph competing for the same pool can deadlock on it.
+
+The invariant is restored by narrowing who holds:
+
+> **Only a leaf task acquires resources.** A non-leaf task's `RUNNING` is a
+> structural state — its subgraph is in progress — not a resourced one.
+
+The argument then runs: the only thing that holds is a leaf; a leaf has no
+subtasks; so nothing that holds is ever waiting on something that must first
+hold. It is the rev. 7 property, re-derived over the right set.
+
+**A non-leaf declaring `resources` is rejected at load**, naming the task. The
+alternative — ignoring the field — leaves a lie in the record: a reader sees a
+declaration the system does not honour.
+
+**A non-leaf's validation phases may still run an AI agent and spend tokens.**
+That does not reintroduce the problem: the rule is about *acquisition*, and a
+non-leaf acquires nothing, so its phases' spend is recorded rather than reserved.
+Reserve-then-settle (§3.4) is unchanged for the leaf tasks that do acquire.
 
 Step 1 is what replaces a dependency counter. Re-checking every waiting task at
 each decision point is O(waiting × inputs) — acceptable at this scale, and it
@@ -929,8 +1458,13 @@ expected state.
 A failed task releases its resources and is recorded `FAILED`. Whatever its agent
 last wrote to the handoff stands; if the agent opened a version and never sealed
 it, that version remains `GENERATING`, and `check_if_latest_valid` is false — so
-consumers correctly stay blocked. Downstream tasks are not cancelled. That is
-deliberate: the system does not cancel them, and does not pretend to.
+consumers correctly stay blocked.
+
+**The scheduler does not cancel downstream tasks**, and does not pretend to.
+Whether they are cancelled is a decision about the work, which belongs to the
+task itself through `cancel()` (§3.2.4) — invoked by whoever is analysing the
+failure, in the alpha nobody and later the monitor. What the scheduler does on a
+failure is stop scheduling.
 
 ### 6.4 Recovery
 
@@ -943,9 +1477,13 @@ state it does not own (§2, principle 3).
 
 ```python
 class Resumable(Protocol):
-    def resume(self) -> None:
+    def resume_system(self) -> None:
         """Rebuild this component's own state from whatever it persisted."""
 ```
+
+The name is `resume_system`, never `resume` — §5.1 argues why at length, and the
+reason is mechanical: `@runtime_checkable` matches on method name alone, so a
+`Resumable` declaring `resume` would match `Scheduler.resume_task` by accident.
 
 Components with nothing to restore — `SchedulePolicy`, `StoreMgr` itself, and a
 renewable pool's lease state — simply do not implement it, or restore trivially.
@@ -1021,7 +1559,7 @@ ResourceMgr.resume_system()
 
 Scheduler.resume_system()
   ├─ rebuild the pool index from each task's stored status
-  ├─ RUNNING  → WAITING_RESOURCE      (its lease is gone)
+  ├─ INPUT_VALIDATING | RUNNING | OUTPUT_VALIDATING → WAITING_RESOURCE  (the lease is gone)
   ├─ STOPPING → SUSPENDED             (the runner it was waiting on is gone)
   └─ try_dispatch()                   # eligibility is recomputed, never restored
 ```
@@ -1029,9 +1567,11 @@ Scheduler.resume_system()
 Eligibility needs no reconstruction: it is a query, so recovery only has to
 ensure the handoff versions the query reads are present.
 
-`resume_all` is the whole-system entry point. `Scheduler.resume_system()` no
-longer exists; calling one component's resume without the others is a partial
-recovery and the API should not offer it.
+`resume_all` is the whole-system entry point. `Scheduler.resume_system()` exists
+and is what the table above describes, but it is **not part of the public API**:
+`resume_all` calls it, a caller does not. Calling one component's resume without
+the others is a partial recovery, and the entry point is deliberately the only
+thing offered.
 
 #### Why handoffs persist themselves
 
@@ -1124,7 +1664,8 @@ than running against unverified content. Cross-manager atomicity is not attempte
 | Resource kinds beyond a name | The scheduler cannot tell a GPU from an API quota. That is the point. |
 | Duration model | Agent durations are unknown, heavy-tailed, and not reproducible. |
 | Graph library | The only graph operation is asking whether a task's inputs are valid. No traversal, no topological order. |
-| Cascading failure | Out of scope by §1.2. Versioning (§3.1) removes the need for it in the re-run case. |
+| Cascading failure | **Owned by the monitor through task transitions, not by scheduler machinery.** The re-run justification no longer covers the case that now occurs routinely — a task fails its output validation and its consumers wait for ever (`validator` spec §3.4). The monitor analyses and calls `cancel()` or `restart()` (§3.2.3); it writes no status, so §2 principle 4 is untouched and no separate cascading mechanism is needed. `ROADMAP.md` §2 |
+| The downstream index | §3.2.4 makes it a requirement for cascade and not built. Today's cascade-free paths do not need it. |
 | Event bus | Deferred. A hook callback is left at each transition point, and the registry (§4.1) gives a later bus a natural place to live. |
 | Lease TTL sweep | Deferred; noted in §10. |
 
@@ -1200,6 +1741,10 @@ The rationale is recorded in `agent_sys/task_graph/README.md`, as the task defin
 | Re-check cost | Eligibility is recomputed for every waiting task at every decision point (§6.2, step 1). Fine at this scale; a reverse handoff→consumer index is the known optimisation. |
 | Agent retirement | Agent records now persist (§7) and one is created per run, so the store grows with every attempt ever made and `retire` is the only thing that shrinks it. Nothing calls it. A retention rule — or archiving agents whose task is final — is the answer; not built. |
 | Consumable top-up | A persisted balance is never replenished. A token budget that is meant to reset monthly has no way to say so, and raising `capacity` does not raise `available`. An explicit `refill(amount)` is the obvious API; deliberately not invented before there is a caller. |
+| **The downstream index** | §3.2.4 makes it a requirement rather than an optimisation. Keyed by what, maintained by whom, kept current how — none decided, and a cascade cannot be built first. [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md) §7 |
+| **Cascade at the edges** | §3.2.4 specifies what a cascade *is* and not what it does at three boundaries: reaching a `RUNNING` task, failing halfway, and reporting upward. The first changes `cancel()`'s signature if the answer is "stop it", so it is not a detail. Roadmap §7 |
+| **Transition re-entrancy** | §3.2.3 states the rule must exist and does not pick one: a drained queue or a bounded recursion. The existing flags cover today's depth, not a cascade's. |
+| **`is_end` under a cancelled subgraph** | A cancelled subgraph never completes its end entry subtask, so "has this subgraph finished" has no answer for it. §3.2.1's markers assume completion. |
 
 ---
 
@@ -1223,8 +1768,10 @@ test:
    `WAITING_HANDOFF`; an output whose version the agent left `GENERATING` does not
    satisfy `check_if_latest_valid`.
 8. `resume_all` reconstructs pools from persisted tasks and versions from
-   persisted handoffs, with `RUNNING` and `STOPPING` tasks demoted to
-   `WAITING_RESOURCE` and `SUSPENDED` respectively.
+   persisted handoffs, with `RUNNING`, `INPUT_VALIDATING`, and
+   `OUTPUT_VALIDATING` tasks demoted to `WAITING_RESOURCE` and `STOPPING` to
+   `SUSPENDED`. All three lease-holding phase states demote identically, because
+   the lease is gone in each (§6.4).
 9. `expedite` places a task ahead of earlier-submitted eligible tasks, and is
    rejected when any input is not valid.
 10. Swapping `SchedulePolicy` changes dispatch order and nothing else.
@@ -1235,8 +1782,14 @@ test:
     exactly the pool matching its stored status.
 13. A run reporting `SUCCEEDED` whose agent sealed its output `INVALID` leaves its
     consumers in `WAITING_HANDOFF` — completion and validity are independent
-    (§6.3). The scheduler records `output_versions` by reading `HandoffMgr`, not
-    from anything the runner passed.
+    (§6.3). The scheduler pins `output_versions` **at dispatch**, from the store
+    that allocates the directory the write grant names, and never from anything
+    the runner passed. *(Rev.: `interfaces.md` §4.14. This used to read "by
+    reading `HandoffMgr`, not from anything the runner passed", and the second
+    half is the part that was load-bearing — it still holds. The first half named
+    the wrong allocator: `HandoffMgr` owns the **slot** version and `env_mgr`'s
+    grant is built from the **store** version, and reading one where the other
+    was meant agrees at v0 and diverges at the first retry.)*
 14. **The scheduler never writes handoff state.** Across a full submit → dispatch →
     complete → resume → re-dispatch cycle, a `HandoffMgr` spy records `persist`
     originating only from the agent, and calls from the scheduler only to
@@ -1303,3 +1856,78 @@ test:
 35. `submit` warns when `depends_on` omits the producer of one of the task's
     `inputs`, and submits the task anyway; it does not warn when `depends_on`
     names a task the inputs do not point at (§3.2).
+
+### Added at revisions 8–9 — subgraph nesting and validation phases (§3.2.1)
+
+Criteria 1–35 are unchanged and continue to hold with subgraphs present.
+
+36. A subtask carries `parent` naming the task it expanded from, and every
+    subtask of one parent agrees on it. Exactly one task in a graph has
+    `parent = None`: the system whole task.
+37. **Dispatching a task marked `is_start` is observable as "the subgraph has
+    begun", and completing one marked `is_end` as "the subgraph has finished"** —
+    both answerable without scanning the subtask set.
+38. A leaf task is its own start and end entry subtask: `is_start` and `is_end`
+    are both true, and it has no subtasks.
+39. **A validation phase is invisible to the scheduler.** Across a full run of a
+    task with both validation phases populated, the scheduler dispatches exactly
+    one task, no validator occupies a pool, and the policy is never asked to
+    order one — asserted over a spy, not inferred.
+40. **A leaf task** passes through `INPUT_VALIDATING → RUNNING →
+    OUTPUT_VALIDATING` on **a single lease**: resources are acquired once, at the
+    `WAITING_RESOURCE` transition, and released once, at the terminal state.
+    Every pool is unchanged between the phase transitions.
+41. A skipped validation phase — by config or because the handoff was already
+    validated — moves the task straight to the next state, and the skip is
+    reported rather than silent.
+42. **`parent`, `is_start`, and `is_end` drive no scheduling.** Blanking all
+    three on every task changes no dispatch order and no pool membership — the
+    same mechanical check criterion 31 applies to `depends_on`.
+43. **The default policy is depth-first** (§5.2): given a parent whose subgraph is
+    dispatchable and an unrelated sibling of equal age, the subgraph runs first.
+    Swapping the policy back to FIFO changes the order and nothing else.
+44. `Task.permissions` is versioned with the task and covers its subtasks
+    recursively; an agent minted for a task inherits it rather than carrying its
+    own (§3.2.2).
+
+### Added at revision 10 — task-owned transitions (§3.2.3, §3.2.4)
+
+Criteria 1–44 are unchanged. `_move` remains the single writer; these criteria
+constrain what may call it.
+
+45. **Nothing outside a task writes its status.** A spy over `TaskStatus`
+    assignment records writes originating only inside a task transition or
+    inside `Scheduler._move` called from one — no frame belonging to a monitor,
+    an agent, or a runner assigns it directly.
+46. **A transition is what triggers the scheduler.** Across a full run, every
+    `try_dispatch` originates in a task transition or in the public API that
+    calls one; none originates in a monitor or an agent frame.
+47. **The monitor's actions are transitions.** Restarting a failed task,
+    submitting a copy, and reconciling related tasks are each expressed as a
+    call on a task, and a monitor that assigns a status instead is rejected by
+    criterion 45's spy.
+48. **A transition does not import the scheduler.** `models` imports no
+    scheduler symbol; the module dependency graph stays acyclic under
+    `importlib` inspection, and the scheduler is resolved through the registry
+    at use time (§3.2.3).
+49. **`cancel()` cascades downstream within its own graph, and no further.**
+    A cancelled task's downstream consumers inside the subgraph reach
+    `CANCELLED`; a task in another graph consuming the same handoff kind is
+    untouched.
+50. **The subgraph boundary invariant is checked at load.** A graph in which an
+    internal subtask's handoff is consumed outside the subgraph — other than
+    through the end entry subtask's outputs — is rejected, naming both tasks
+    (§3.2.4).
+51. **`replace_with` instantiates only declared closures.** Regenerating a
+    subgraph from a closure not in the catalogue is rejected, so
+    record-and-replay is not bypassed (`../../docs/spec.md` §6.1).
+52. **Cascading cancel is not cascading invalidation.** After a cascade, no
+    handoff version's validation record has changed — cancel decides about
+    tasks, never about content (§3.2.4).
+53. **Only a leaf acquires resources.** A parent holds nothing while its subgraph
+    runs: every pool is unchanged across the parent's `RUNNING`, and a non-leaf
+    declaring `resources` is rejected at load naming the task (§6.2).
+54. **A parent and its child declaring the same pool do not deadlock.** With a
+    pool that could satisfy only one of them, the subgraph runs and the graph
+    completes — the case the rev. 7 invariant covered by construction and
+    subgraphs broke.
