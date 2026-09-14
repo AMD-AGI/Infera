@@ -40,6 +40,11 @@ permissions:
 # including account/QoS fallback and scheduler-hold resubmissions.
 env:
   INFERA_E2E_SLURM_MAX_ATTEMPTS: "5"
+  # TEMPORARY: containers outlive their job's cgroup and the Spur hooks that
+  # would sweep them are pinned off, so a run burns every attempt on `idle`
+  # nodes whose GPUs are all taken. Lets the preflight `docker stop` those.
+  # Drop this line once the hooks reclaim orphans again.
+  INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS: "1"
 
 jobs:
   # Classify the change: does it touch package code, or only docs/examples? A
