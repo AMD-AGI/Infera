@@ -332,3 +332,75 @@ exit 1
     # The hold ceiling is a different wall and must not be the one reported.
     assert "SLURM hold submission limit reached" not in result.stderr
     assert "no SLURM submit slot for a node hold within 60s" in result.stderr
+
+
+def _pending_hold_env(tmp_path, mock_bin, count_file) -> dict[str, str]:
+    env = _runner_env(tmp_path, mock_bin, count_file)
+    env.update(
+        {
+            "INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS": "acct-a:qos-a,acct-b:qos-b,acct-a:qos-burst",
+            "INFERA_E2E_HOLD_WAIT": "5",
+        }
+    )
+    return env
+
+
+def _pending_hold_mocks(tmp_path, reason: str) -> tuple[Path, Path]:
+    mock_bin = tmp_path / "bin"
+    mock_bin.mkdir()
+    count_file = tmp_path / "sbatch-count"
+    count_file.write_text("0\n")
+    _executable(mock_bin / "sleep", "exit 0\n")
+    _executable(mock_bin / "srun", "exit 1\n")
+    _executable(mock_bin / "squeue", "exit 0\n")
+    _executable(mock_bin / "scancel", "exit 0\n")
+    _executable(mock_bin / "sinfo", "printf 'node-a\\nnode-b\\nnode-c\\nnode-d\\n'\n")
+    _executable(
+        mock_bin / "scontrol",
+        f"""
+if [ "$1 $2" = "show node" ]; then
+  echo "NodeName=$3 State=IDLE CPUAlloc=0 AllocMem=0 AllocTRES="
+elif [ "$1 $2" = "show job" ]; then
+  echo "JobId=$3 JobState=PENDING Reason={reason}"
+fi
+exit 0
+""",
+    )
+    _executable(
+        mock_bin / "sbatch",
+        """
+n=$(cat "$COUNT_FILE")
+echo $((n + 1)) > "$COUNT_FILE"
+echo $((1000 + n))
+exit 0
+""",
+    )
+    return mock_bin, count_file
+
+
+def test_busy_nodes_do_not_walk_the_account_qos_ladder(tmp_path):
+    """No credential can free a node held by someone else -- re-pick the pair instead."""
+    mock_bin, count_file = _pending_hold_mocks(tmp_path, "Resources")
+
+    result = _run_runner(
+        _pending_hold_env(tmp_path, mock_bin, count_file), "e2e", "sglang", "disag"
+    )
+
+    assert result.returncode == 1
+    assert "trying the next SLURM account/QoS pair" not in result.stderr
+    # One submission per pair, not one per credential: both pairs get tried and
+    # the five-submission budget is never the wall.
+    assert count_file.read_text().strip() == "2"
+    assert "SLURM hold submission limit reached" not in result.stderr
+
+
+def test_qos_refusal_still_walks_the_account_qos_ladder(tmp_path):
+    mock_bin, count_file = _pending_hold_mocks(tmp_path, "QOSGrpNodeLimit")
+
+    result = _run_runner(
+        _pending_hold_env(tmp_path, mock_bin, count_file), "e2e", "sglang", "disag"
+    )
+
+    assert result.returncode == 1
+    assert "trying the next SLURM account/QoS pair" in result.stderr
+    assert "qos=qos-burst" in result.stdout + result.stderr
