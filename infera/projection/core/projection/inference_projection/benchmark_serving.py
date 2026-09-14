@@ -444,13 +444,33 @@ def _measure_concurrency(port: int, batch: int, args, out_dir: str) -> float:
 # Both probes share the value, which is what matters -- an identical tail is one
 # more constant the difference cancels.
 _PREFILL_PROBE_OUTPUT_LEN = 4
-_PREFILL_PROBE_PROMPTS = 12
+# Samples per length probe. Twelve is enough when the prompt-length signal is
+# large against TTFT's own spread, and not enough when it is not: at ISL 1024
+# the whole 128..1024 sweep moves TTFT by about the same few milliseconds that
+# run-to-run noise does, so the fit sees noise and the slope check rejects it
+# -- DeepSeek-R1-0528 probed 77.6, 67.5, 74.6, 66.9 ms across increasing
+# lengths and left prefill simulated, which is the fallback the anchor exists
+# to avoid. The averaging only improves as sqrt(n), so raising this is the
+# blunt instrument; the sharp one is probing at a length where prefill is a
+# larger share of TTFT. Env-settable so a short-prompt harvest can pay for the
+# samples without making every harvest pay.
+_PREFILL_PROBE_PROMPTS = max(
+    2, int(os.environ.get("INFERASIM_PREFILL_PROBE_PROMPTS", "12") or 12))
 # Repeats per packed-probe point. The wave must be exactly as wide as the point
 # under test, so the sample count per run is fixed by the point itself and p99
 # is the max of that many; repeating the wave and taking the median restores a
 # stable estimate without changing what is being estimated. Three is enough to
 # reject a single outlier, which is what went wrong without it.
-_PACKED_PROBE_REPEATS = 3
+#
+# Three is not enough when the packed points sit within a few ms of each other,
+# which is what a short prompt does to them: MiniMax-M2.7 at ISL 1024 probed
+# 70.5, 75.1, 75.2, 71.3 ms across 1..8 sequences, one run in three came back
+# at 120.6 ms, and the fitted slope went negative and was discarded -- leaving
+# the packed regime, the one the scheduler actually runs at ISL 1024, with
+# nothing measured behind it. Env-settable so a short-prompt harvest can buy
+# the extra waves.
+_PACKED_PROBE_REPEATS = max(
+    1, int(os.environ.get("INFERASIM_PACKED_PROBE_REPEATS", "3") or 3))
 # Below this the difference is comparable to run-to-run TTFT noise and the slope
 # is not resolvable.
 _PREFILL_MIN_TOKEN_DELTA = 256
@@ -786,13 +806,28 @@ def prefill_rate_ms_per_token(port: int, args, out_dir: str) -> tuple:
               f"the two-point chord called {lin_fixed:.1f} ms of this fixed.")
         # Only worth probing once the curve exists, since the packed rate is
         # read as a correction to its per-token terms rather than on its own.
-        packed = packed_prefill_probe(port, args, out_dir, min(lengths))
+        #
+        # The shortest probed length is the default because it is what lets the
+        # most sequences into one step, but short is also where the packing
+        # signal is weakest: at 256 tokens the four points land within a few ms
+        # of each other on top of a 60-80 ms floor, and on DeepSeek-R1-0528,
+        # gpt-oss-120b and Qwen3-14B-FP8 the ladder came back non-monotonic and
+        # was discarded, leaving the packed regime unmeasured. It is also not
+        # the regime being billed: a run at ISL 1024 packs 1024-token
+        # sequences, and probing at 256 makes the rate lean on the curve's
+        # quadratic to be re-centred four times further than it need be.
+        # Overridable so a harvest can probe at the length it will be used at,
+        # as long as the budget still holds two of them.
+        _pk_len = int(os.environ.get("INFERASIM_PACKED_PROBE_SEQ_LEN", "0") or 0)
+        packed = packed_prefill_probe(
+            port, args, out_dir, _pk_len if _pk_len > 0 else min(lengths))
         if packed:
             diag["packed"] = packed
-            single = curve["ms_per_token"] + curve["ms_per_token_sq"] * min(lengths)
+            _l0 = int(packed.get("seq_len") or min(lengths))
+            single = curve["ms_per_token"] + curve["ms_per_token_sq"] * _l0
             print(f"[inferasim:Inference:Serving] packed prefill: "
                   f"{packed['ms_per_token'] * 1000:.2f} us/token at "
-                  f"{min(lengths)}-token sequences, against "
+                  f"{_l0}-token sequences, against "
                   f"{single * 1000:.2f} us/token read off the single-sequence "
                   f"curve at the same length "
                   f"({single / packed['ms_per_token']:.2f}x).")

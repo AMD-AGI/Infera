@@ -53,7 +53,7 @@ from .collectives import (
     deepep_overlap_efficiency,
 )
 
-def _usable_packed_probe(packed):
+def _usable_packed_probe(packed, seq_rate_ms_per_tok=0.0, seq_cost_at=None):
     """A packed-prefill probe block, or None if it is not a measurement.
 
     Checked on read rather than trusted, because artifacts already on disk
@@ -70,6 +70,11 @@ def _usable_packed_probe(packed):
     honestly labelled, instead of a confident wrong one.
     """
     if not packed or not packed.get("ms_per_token"):
+        return None
+    # Diagnostic only: drop the packed term and fall back to the single-
+    # sequence curve, to separate "the probe is wrong" from "the step the
+    # probe measured is not the step the scheduler builds under load".
+    if os.environ.get("INFERASIM_IGNORE_PACKED_PROBE"):
         return None
     # Each point's p99 is taken over exactly as many requests as the wave is
     # wide, so a single pass is the max of a handful of samples and one slow
@@ -103,6 +108,98 @@ def _usable_packed_probe(packed):
             f"scheduler tail rather than a step cost. Ignoring it and falling "
             f"back to the single-sequence curve. Re-harvest to measure the "
             f"packing term."
+        )
+        return None
+    # Monotonic and repeated is still not measured. Going from one sequence to
+    # two adds a step's worth of latency on top of the tokens, so the first
+    # rung is inflated on every probe on file and the rungs above it are the
+    # marginal cost; least squares lets that first rung set the rate whenever
+    # it is large enough to, leaving the packed term describing the scheduler
+    # rather than the step.
+    #
+    # Rejected only when both tests fail, because either alone takes good
+    # probes with it: a rate several times the single-sequence one (packing
+    # cannot do that -- same attention per token, no less efficient a GEMM),
+    # and a first rung that dwarfs the rest. MiniMax-M2.7 at 256 tokens fails
+    # both -- 27.4 us/token against the curve's 10.1 -- and scored +55.9% TTFT.
+    # DeepSeek-R1-0528 at 1024 reads 2.67x but its implied 8192-token step
+    # matches Atom's scheduler logs to 10%; DeepSeek-V4-Flash-0731 has the
+    # steep rung but a rate 1.06x the curve's.
+    pr = float(packed["ms_per_token"])
+    slopes = [(y2 - y1) / (n2 - n1) for (n1, y1), (n2, y2) in zip(pts, pts[1:])]
+    later = sorted(slopes[1:])
+    first_dominates = bool(
+        later and slopes[0] > 5.0 * later[len(later) // 2] > 0.0)
+    # The widest rung is the one the probe exists to measure, and it can be
+    # checked against something independent: a step holding N tokens does about
+    # the work of one sequence of N tokens. Packing changes the GEMM shape and
+    # removes the attention a long context would have cost, so the packed step
+    # should come in a little under the curve, never far over it.
+    #
+    # Across every probe on file the ratio sits between 0.63 and 1.39 when the
+    # measurement is real. The failures are not near that band: a DeepSeek-V4-Pro
+    # probe reads 320.7 ms for an 8192-token step whose single-sequence curve
+    # says 89.3, and one probed at 2048 reads 7.06x. Both are the requests
+    # behind the first one waiting their turn -- serialisation recorded as
+    # packing -- and both pass the rate-and-first-rung test below, because
+    # their rungs are uniformly inflated rather than front-loaded.
+    if seq_cost_at is not None:
+        n_wide, t_wide = pts[-1]
+        expect = float(seq_cost_at(n_wide) or 0.0)
+        if expect > 0.0 and not (0.5 <= t_wide / expect <= 1.5):
+            print(
+                f"[inferasim:Inference] WARNING: this anchor's packed-prefill "
+                f"probe times a {n_wide}-token step at {t_wide:.1f} ms, where "
+                f"the single-sequence curve puts {n_wide} tokens at "
+                f"{expect:.1f} ms ({t_wide / expect:.2f}x). A step does not "
+                f"change what its tokens cost by that much, so the probe is "
+                f"timing queued sequences rather than one step. Ignoring it "
+                f"and falling back to the single-sequence curve; re-harvest "
+                f"with a token budget that admits the whole wave at once."
+            )
+            return None
+    # Last, the combination that will actually be used has to reproduce the
+    # measurement it came from. The projector prices a step as the curve's
+    # intercept plus the packed rate over the step's tokens, and those two
+    # numbers come from different fits: if the probe's intercept is far from
+    # the curve's, the pair prices a step at something neither fit ever saw.
+    #
+    # Qwen3.6-35B-A3B is the case. Its probe times an 8192-token step at 79.0
+    # ms and solves 66.6 ms fixed + 1.5 us/token; the length sweep solves 17.5
+    # ms fixed for a single sequence, because the probe's p99-over-a-wave
+    # method carries about 36 ms the sweep does not. Pairing the sweep's
+    # intercept with the probe's slope prices that same step at 29.6 ms, and
+    # scored -76.9% on TTFT. Taking the probe's intercept instead is not the
+    # fix -- that 36 ms is the measurement, not the step, and substituting it
+    # cost DeepSeek-V4-Flash 42 points. The pair simply cannot be used.
+    if seq_cost_at is not None:
+        n_wide, t_wide = pts[-1]
+        modelled = float(seq_cost_at(0) or 0.0) + pr * n_wide
+        if t_wide > 0.0 and not (0.6 <= modelled / t_wide <= 1.4):
+            print(
+                f"[inferasim:Inference] WARNING: this anchor's packed rate of "
+                f"{pr * 1000:.1f} us/token, on the single-sequence curve's "
+                f"fixed cost, prices a {n_wide}-token step at "
+                f"{modelled:.1f} ms, against the {t_wide:.1f} ms the probe "
+                f"timed for that step ({modelled / t_wide:.2f}x). The slope "
+                f"and the intercept were fitted against different baselines "
+                f"and do not describe one step together. Ignoring the packed "
+                f"term and falling back to the single-sequence curve."
+            )
+            return None
+    if (seq_rate_ms_per_tok > 0.0 and pr > 2.0 * seq_rate_ms_per_tok
+            and first_dominates):
+        print(
+            f"[inferasim:Inference] WARNING: this anchor's packed-prefill "
+            f"probe reads {pr * 1000:.1f} us/token against the "
+            f"single-sequence curve's {seq_rate_ms_per_tok * 1000:.1f} at the "
+            f"same sequence length, and its 1->2 rung "
+            f"({slopes[0] * 1000:.1f} us/token) dwarfs the rungs above it "
+            f"({[round(s * 1000, 1) for s in slopes[1:]]}). That is the one-off "
+            f"latency of widening the step, not the cost of the tokens in it. "
+            f"Ignoring it and falling back to the single-sequence curve; "
+            f"re-harvest at a sequence length where the packing signal clears "
+            f"the step's fixed cost."
         )
         return None
     return packed
@@ -464,6 +561,7 @@ class InferencePerformanceProjector:
         self._decode_kv_slope_ms: float = 0.0  # ms per KV token (batch-independent)
         self._decode_ctx_ref: float = 0.0  # context the batch curve was measured at
         self._decode_ctx_max: float = 0.0  # largest measured context (guard)
+        self._decode_kv_slope_by_batch: list = []  # (batch, ms per KV token)
         self._meas_prefill_rate_ms_per_tok: float = 0.0  # for sub-prompt prefill pieces
         # Fixed per-prefill-step cost measured alongside that rate.
         self._meas_prefill_fixed_ms: float = 0.0
@@ -538,23 +636,51 @@ class InferencePerformanceProjector:
         (the grid is only emitted un-restored)."""
         self._decode_ctx_ref = ref_ctx
         self._decode_ctx_max = ref_ctx
-        dec = self._meas_whole.get("decode")
-        if not decode_ctx or not dec or self._restore or ref_ctx <= 0:
+        # Differenced against the sweep as measured, not as restored: the grid
+        # is recorded at the anchor's own parallelism, so the KV term is fitted
+        # there and carried to the target width below.
+        dec = getattr(self, "_meas_decode_bench", None) or self._meas_whole.get("decode")
+        if not decode_ctx or not dec or ref_ctx <= 0:
             return
-        slopes = []
+        slopes, per_batch = [], {}
         for e in decode_ctx:
             try:
                 b, c, ms = int(e["batch"]), float(e["context"]), float(e["decode_ms"])
             except (KeyError, TypeError, ValueError):
                 continue
             self._decode_ctx_max = max(self._decode_ctx_max, c)
-            if b > 0 and c > ref_ctx:
+            # Points on either side of the reference are equally informative:
+            # below it the step is measured cheaper and the numerator turns
+            # negative along with the denominator, so the slope comes out
+            # positive from the same expression. Only points AT the reference
+            # say nothing.
+            if b > 0 and c != ref_ctx:
                 s = (ms - self._bucket_up(b, dec)) / (c - ref_ctx)
                 if s > 0:
                     slopes.append(s)
+                    per_batch.setdefault(b, []).append(s)
+        # Reading the KV of one sequence is work, and work shards: the
+        # attention heads that do the reading divide across ranks like
+        # everything else in the step. So the term moves to the target width by
+        # the same ratio the restore applies to the part of the step above the
+        # floor, which is where this term lives.
+        shard = (self._bench_tp / self._tgt_tp
+                 if (self._restore and self._tgt_tp > 0) else 1.0)
+        # Held per batch rather than as one median over all of them. The step
+        # carries the KV of every resident sequence, so the cost of context
+        # grows with how many are in flight, and measured it does: carrying
+        # DeepSeek-V4-Flash at TP4 from 1024 tokens of context to 8192 costs
+        # 0.15 us per token of context at batch 1, 1.07 at 4, 1.26 at 16 and
+        # 1.92 at 64. One median over that span reproduces none of them, and
+        # collapsing it cost DeepSeek-V4-Pro's ISL-1024 rows 6.0% -> 12.5% on
+        # TPOT against reading their own matched-length sweep directly.
+        if per_batch:
+            self._decode_kv_slope_by_batch = sorted(
+                (b, sorted(v)[len(v) // 2] * shard) for b, v in per_batch.items()
+            )
         if slopes:
             slopes.sort()
-            self._decode_kv_slope_ms = slopes[len(slopes) // 2]
+            self._decode_kv_slope_ms = slopes[len(slopes) // 2] * shard
 
     @staticmethod
     def _bucket_up(batch: int, pts: list) -> float:
@@ -619,6 +745,18 @@ class InferencePerformanceProjector:
 
     # -- measured-time accessors (benchmark-based projection) ------------------
 
+    def _decode_kv_slope_at(self, batch: int) -> float:
+        """Per-token cost of resident context at ``batch``.
+
+        Interpolated across the batches the grid was measured at, the same way
+        the decode sweep itself is, and held flat outside them: the term grows
+        with how many sequences are resident, so one number for every batch
+        fits neither end."""
+        pts = getattr(self, "_decode_kv_slope_by_batch", None)
+        if not pts:
+            return self._decode_kv_slope_ms
+        return self._loglog_transport(batch, pts) if len(pts) >= 2 else pts[0][1]
+
     def _measured_decode_step_ms(self, batch: int, context: float | None = None) -> float:
         """Measured whole-model / composed decode *step* latency at ``batch``.
 
@@ -636,7 +774,24 @@ class InferencePerformanceProjector:
                 and self._decode_kv_slope_ms > 0.0
                 and self._decode_ctx_ref > 0.0
             ):
-                base += self._decode_kv_slope_ms * max(0.0, float(context) - self._decode_ctx_ref)
+                # Signed, not one-sided. The batch sweep is measured at one
+                # context and the attention in it reads exactly that much KV,
+                # so billing it at a shorter context charges for KV that is
+                # not resident -- which is the larger of the two errors here,
+                # because anchors get harvested long and read short. On
+                # MI355X, DeepSeek-V4-Flash at TP4 batch 16 steps in 22.12 ms
+                # at 8192 tokens of context and 15.72 at 1024; holding the
+                # first for ISL-1024 rows is what puts their TPOT +27% out.
+                #
+                # Held above zero because the line is only a local statement
+                # about the KV term: extrapolated far enough below the
+                # reference it eventually crosses the context-free cost of the
+                # step, which is weights and compute and does not go away.
+                slope = self._decode_kv_slope_at(batch)
+                base = max(
+                    base + slope * (float(context) - self._decode_ctx_ref),
+                    self._decode_floor_ms(batch),
+                )
             return base
         # Per-layer schema: restore each layer to the target TP/EP, then sum by
         # layer count. Decode processes 1 token/step.
@@ -815,12 +970,19 @@ class InferencePerformanceProjector:
                 )
                 pre_pts = []
             pre_pts_bench = list(pre_pts)
+            dec_pts_bench = list(dec_pts)
             if self._restore:
                 # Prefill processes ``ref_input`` tokens/seq; decode 1 token/step.
                 pre_pts = [
                     (b, self._restore_whole(ms, b, ref_input, "prefill")) for b, ms in pre_pts
                 ]
                 dec_pts = [(b, self._restore_whole(ms, b, 1, "decode")) for b, ms in dec_pts]
+            # Kept at the width it was measured at. The decode-vs-context grid
+            # is recorded un-restored, so the KV term has to be differenced
+            # against the un-restored sweep and carried across parallelism
+            # afterwards; differencing a raw grid against a restored sweep
+            # would read the width transport as context dependence.
+            self._meas_decode_bench = sorted(dec_pts_bench)
             self._meas_whole = {
                 k: v for k, v in (("prefill", sorted(pre_pts)), ("decode", sorted(dec_pts))) if v
             }
@@ -1029,10 +1191,70 @@ class InferencePerformanceProjector:
                     # at ISL 1024, where the same budget packs sixteen, it
                     # over-reads by 39% at 8 concurrent and 157% at 256, while
                     # its TPOT and throughput stay right.
-                    packed = _usable_packed_probe(anchor_diag.get("packed"))
+                    _pk_l0 = float((anchor_diag.get("packed") or {})
+                                   .get("seq_len") or at_n or 0.0)
+                    packed = _usable_packed_probe(
+                        anchor_diag.get("packed"), a + b * _pk_l0,
+                        seq_cost_at=lambda n: (float(curve.get("fixed_ms") or 0.0)
+                                               + a * n + b * n * n))
                     budget = float(getattr(self.cfg.request_config,
                                            "max_num_batched_tokens", 0) or 0)
                     seqs = (budget / at_n) if (budget > 0 and at_n > 0) else 1.0
+                    # A packed rate describes a step holding several sequences.
+                    # When the budget admits one -- ISL 8192 against an
+                    # 8192-token budget, which is most of the corpus's long
+                    # prompts -- the step the engine builds is the step the
+                    # length sweep measured, and the packed rate is an answer
+                    # to a question nobody asked. It was being applied anyway:
+                    # GLM-5.2-MXFP4's 39 single-sequence configs were billed
+                    # 290 ms for a step its own curve prices at 446 and the
+                    # server takes about 509.
+                    if seqs < 1.5:
+                        packed = None
+                    # And it describes a step built from sequences of the
+                    # length it probed. Re-centring by the curve's ``b`` below
+                    # adds back the attention a longer context would cost, but
+                    # that is a correction, not a transport: across an 8x
+                    # change in context it does not hold. GLM-5.2-MXFP4's probe
+                    # is taken at 1024 and 32 of its configs run at 8192, where
+                    # the re-centred rate prices a 16384-token step at 696 ms
+                    # against the 1017 the server takes, while simply reading
+                    # two sequences off the curve lands at 892. Every model the
+                    # packed term measurably helps -- MiniMax-M2.7,
+                    # DeepSeek-V4-Flash, Qwen3-14B-FP8, DeepSeek-R1-0528 --
+                    # runs at the length its probe was taken at.
+                    # It also describes steps no wider than the widest it
+                    # timed. The probe fits a rate *because* the rate moves
+                    # with step width, so reading it past the last rung is
+                    # extrapolating the one thing it exists to measure.
+                    if packed and budget > 0:
+                        _wide = max((int(q.get("step_tokens") or 0)
+                                     for q in (packed.get("points") or [])),
+                                    default=0)
+                        if _wide > 0 and budget > 1.5 * _wide:
+                            print(
+                                f"[inferasim:Inference] WARNING: this config's "
+                                f"token budget builds steps of {int(budget)} "
+                                f"tokens and the packed probe timed nothing "
+                                f"wider than {_wide}. Using the single-"
+                                f"sequence curve rather than reading the "
+                                f"packed rate past its last measured step."
+                            )
+                            packed = None
+                    if packed:
+                        _l0 = float(packed.get("seq_len") or 0.0)
+                        if _l0 > 0 and not (0.5 <= at_n / _l0 <= 2.0):
+                            print(
+                                f"[inferasim:Inference] WARNING: the packed "
+                                f"prefill probe holds {int(_l0)}-token "
+                                f"sequences and this config runs at "
+                                f"{int(at_n)}. Attention per token differs by "
+                                f"{at_n / _l0:.1f}x between them, which is too "
+                                f"far to carry a packed rate across. Using the "
+                                f"single-sequence curve; re-harvest the packed "
+                                f"probe at this prompt length."
+                            )
+                            packed = None
                     if packed and packed.get("ms_per_token"):
                         # Measured in the regime being billed. Re-centred on
                         # this prompt length by the curve's own ``b``, which is
@@ -1066,6 +1288,15 @@ class InferencePerformanceProjector:
                             f"--prefill-packed-points 4 to measure it."
                         )
                     self._meas_prefill_rate_ms_per_tok = rate_at_n * shard
+                    # The intercept stays the curve's even when the rate comes
+                    # from the packed probe, which looks like mixing two fits
+                    # and is worth saying why it is not. The probe's own
+                    # intercept carries what it costs to ask: it times p99 TTFT
+                    # over a client-side wave, and reads 68.1 ms for the single
+                    # 1024-token sequence that the length sweep times at 31.8.
+                    # That 36 ms is the measurement, not the step. Substituting
+                    # it moved DeepSeek-V4-Flash from +1.1% to +43.2% on TTFT
+                    # and Qwen3-14B-FP8 from -4.4% to -49.3%.
                     self._meas_prefill_fixed_ms = float(
                         curve.get("fixed_ms") or 0.0) * fixed_shard
                     probed = [int(p.get("input_len") or 0)

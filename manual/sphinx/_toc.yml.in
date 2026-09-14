@@ -75,6 +75,8 @@ subtrees:
             title: Tuning agent (inferasim-tune)
           - file: simulation/modeled_features.md
             title: Modeled features
+          - file: simulation/environment.md
+            title: Environment variables
           - file: simulation/boundaries.md
             title: Boundaries and verification
 
