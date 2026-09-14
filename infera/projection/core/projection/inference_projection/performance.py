@@ -53,6 +53,7 @@ from .collectives import (
     deepep_overlap_efficiency,
 )
 
+
 def _usable_packed_probe(packed, seq_rate_ms_per_tok=0.0, seq_cost_at=None):
     """A packed-prefill probe block, or None if it is not a measurement.
 
@@ -86,16 +87,17 @@ def _usable_packed_probe(packed, seq_rate_ms_per_tok=0.0, seq_cost_at=None):
     repeats = int(packed.get("repeats") or 1)
     if repeats < 2:
         print(
-            f"[inferasim:Inference] WARNING: this anchor's packed-prefill "
-            f"probe recorded one pass per point, so each is the p99 of a "
-            f"handful of requests rather than a repeatable measurement. "
-            f"Ignoring it and falling back to the single-sequence curve; "
-            f"re-harvest to measure the packing term."
+            "[inferasim:Inference] WARNING: this anchor's packed-prefill "
+            "probe recorded one pass per point, so each is the p99 of a "
+            "handful of requests rather than a repeatable measurement. "
+            "Ignoring it and falling back to the single-sequence curve; "
+            "re-harvest to measure the packing term."
         )
         return None
-    pts = sorted((int(p.get("step_tokens") or 0),
-                  float(p.get("last_ttft_ms") or 0.0))
-                 for p in (packed.get("points") or []))
+    pts = sorted(
+        (int(p.get("step_tokens") or 0), float(p.get("last_ttft_ms") or 0.0))
+        for p in (packed.get("points") or [])
+    )
     if len(pts) < 2:
         return None
     if any(pts[i + 1][1] <= pts[i][1] for i in range(len(pts) - 1)):
@@ -128,8 +130,7 @@ def _usable_packed_probe(packed, seq_rate_ms_per_tok=0.0, seq_cost_at=None):
     pr = float(packed["ms_per_token"])
     slopes = [(y2 - y1) / (n2 - n1) for (n1, y1), (n2, y2) in zip(pts, pts[1:])]
     later = sorted(slopes[1:])
-    first_dominates = bool(
-        later and slopes[0] > 5.0 * later[len(later) // 2] > 0.0)
+    first_dominates = bool(later and slopes[0] > 5.0 * later[len(later) // 2] > 0.0)
     # The widest rung is the one the probe exists to measure, and it can be
     # checked against something independent: a step holding N tokens does about
     # the work of one sequence of N tokens. Packing changes the GEMM shape and
@@ -187,8 +188,7 @@ def _usable_packed_probe(packed, seq_rate_ms_per_tok=0.0, seq_cost_at=None):
                 f"term and falling back to the single-sequence curve."
             )
             return None
-    if (seq_rate_ms_per_tok > 0.0 and pr > 2.0 * seq_rate_ms_per_tok
-            and first_dominates):
+    if seq_rate_ms_per_tok > 0.0 and pr > 2.0 * seq_rate_ms_per_tok and first_dominates:
         print(
             f"[inferasim:Inference] WARNING: this anchor's packed-prefill "
             f"probe reads {pr * 1000:.1f} us/token against the "
@@ -348,10 +348,13 @@ def _prefix_caching_from_server_args(server_args) -> bool | None:
         return None
     text = server_args if isinstance(server_args, str) else " ".join(server_args)
     flat = text.replace("_", "-")
-    off = ("--no-enable-prefix-caching", "--disable-prefix-caching",
-           # SGLang. --disable-radix-cache is the documented switch;
-           # --enable-radix-cache does not exist, the cache being on by default.
-           "--disable-radix-cache")
+    off = (
+        "--no-enable-prefix-caching",
+        "--disable-prefix-caching",
+        # SGLang. --disable-radix-cache is the documented switch;
+        # --enable-radix-cache does not exist, the cache being on by default.
+        "--disable-radix-cache",
+    )
     if any(flag in flat for flag in off):
         return False
     if "--enable-prefix-caching" in flat:
@@ -664,8 +667,7 @@ class InferencePerformanceProjector:
         # everything else in the step. So the term moves to the target width by
         # the same ratio the restore applies to the part of the step above the
         # floor, which is where this term lives.
-        shard = (self._bench_tp / self._tgt_tp
-                 if (self._restore and self._tgt_tp > 0) else 1.0)
+        shard = self._bench_tp / self._tgt_tp if (self._restore and self._tgt_tp > 0) else 1.0
         # Held per batch rather than as one median over all of them. The step
         # carries the KV of every resident sequence, so the cost of context
         # grows with how many are in flight, and measured it does: carrying
@@ -902,8 +904,7 @@ class InferencePerformanceProjector:
                     self._fit_tp_scaling(_phase)
                 # Resolved before the report so it can name the law it will use,
                 # and before any restore call consumes it.
-                self._anchor_decode_floor_ms = self._anchor_floor_from(
-                    benchmark_layer_times)
+                self._anchor_decode_floor_ms = self._anchor_floor_from(benchmark_layer_times)
                 self._report_tp_scaling()
             sweep = benchmark_layer_times.get("sweep") or []
             pre_pts, dec_pts = [], []
@@ -944,8 +945,7 @@ class InferencePerformanceProjector:
                 # is usually the number the projection was run for. Only an
                 # explicit flag counts; a server_args string that never mentions
                 # caching leaves this None and stays untrusted.
-                cache_mode = _prefix_caching_from_server_args(
-                    meta.get("server_args"))
+                cache_mode = _prefix_caching_from_server_args(meta.get("server_args"))
                 if cache_mode is not None:
                     print(
                         f"[inferasim:Inference] anchor records no prefix_caching "
@@ -1010,8 +1010,7 @@ class InferencePerformanceProjector:
                     f"concurrency. Re-harvest to record median inter-token "
                     f"latency instead."
                 )
-            elif (observable == "median_itl"
-                  and str(self._bench_backend).lower() == "vllm"):
+            elif observable == "median_itl" and str(self._bench_backend).lower() == "vllm":
                 # Right observable, refilling loop. Harmless where prefill is
                 # exclusive, because a handful of huge stalls do not move a
                 # median; wrong where it is chunked and co-scheduled, because
@@ -1046,9 +1045,11 @@ class InferencePerformanceProjector:
             # the mismatch is reported and the harvest is named as the fix.
             bench_isl = meta.get("input_len")
             target_isl = self.cfg.request_config.input_seq_len
-            if (bench_isl and target_isl
-                    and max(bench_isl, target_isl)
-                    >= 2 * min(bench_isl, target_isl)):
+            if (
+                bench_isl
+                and target_isl
+                and max(bench_isl, target_isl) >= 2 * min(bench_isl, target_isl)
+            ):
                 print(
                     f"[inferasim:Inference] WARNING: decode sweep was measured "
                     f"at {int(bench_isl)}-token prompts and is being applied at "
@@ -1070,8 +1071,7 @@ class InferencePerformanceProjector:
             # sits within 3% on TPOT at every concurrency from 2 to 256. A
             # width-matched anchor is the fix; short of one, the size of this
             # term is unknown rather than small, so it is said out loud.
-            if self._bench_tp != max(1, self.cfg.model_parallel_config
-                                     .tensor_model_parallel_size):
+            if self._bench_tp != max(1, self.cfg.model_parallel_config.tensor_model_parallel_size):
                 print(
                     f"[inferasim:Inference] WARNING: decode sweep was measured "
                     f"at TP{self._bench_tp} and is being restored to TP"
@@ -1110,9 +1110,7 @@ class InferencePerformanceProjector:
                 rates = [ms / (b * ref_input) for b, ms in pre_pts_bench if b > 0]
                 rate_bench = sum(rates) / len(rates) if rates else 0.0
                 _diag = meta.get("prefill_anchor") or {}
-                _probed = sorted(
-                    int(p.get("input_len") or 0)
-                    for p in (_diag.get("points") or []))
+                _probed = sorted(int(p.get("input_len") or 0) for p in (_diag.get("points") or []))
                 # Recorded before the scale is asked for, not after it is used.
                 # A second anchor registers its curve during setup, so leaving
                 # this one until the rate is being written left exactly one
@@ -1170,8 +1168,7 @@ class InferencePerformanceProjector:
                     a = float(curve.get("ms_per_token") or 0.0)
                     b = float(curve.get("ms_per_token_sq") or 0.0)
                     self._bench_prefill_curves[self._bench_tp] = curve
-                    at_n = float(self.cfg.request_config.input_seq_len
-                                 or ref_input or 1)
+                    at_n = float(self.cfg.request_config.input_seq_len or ref_input or 1)
                     rate_at_n = a + b * at_n
                     # The length sweep runs at concurrency 1, so every point it
                     # holds has one sequence in the step and the step's token
@@ -1191,14 +1188,17 @@ class InferencePerformanceProjector:
                     # at ISL 1024, where the same budget packs sixteen, it
                     # over-reads by 39% at 8 concurrent and 157% at 256, while
                     # its TPOT and throughput stay right.
-                    _pk_l0 = float((anchor_diag.get("packed") or {})
-                                   .get("seq_len") or at_n or 0.0)
+                    _pk_l0 = float((anchor_diag.get("packed") or {}).get("seq_len") or at_n or 0.0)
                     packed = _usable_packed_probe(
-                        anchor_diag.get("packed"), a + b * _pk_l0,
-                        seq_cost_at=lambda n: (float(curve.get("fixed_ms") or 0.0)
-                                               + a * n + b * n * n))
-                    budget = float(getattr(self.cfg.request_config,
-                                           "max_num_batched_tokens", 0) or 0)
+                        anchor_diag.get("packed"),
+                        a + b * _pk_l0,
+                        seq_cost_at=lambda n: (
+                            float(curve.get("fixed_ms") or 0.0) + a * n + b * n * n
+                        ),
+                    )
+                    budget = float(
+                        getattr(self.cfg.request_config, "max_num_batched_tokens", 0) or 0
+                    )
                     seqs = (budget / at_n) if (budget > 0 and at_n > 0) else 1.0
                     # A packed rate describes a step holding several sequences.
                     # When the budget admits one -- ISL 8192 against an
@@ -1228,9 +1228,10 @@ class InferencePerformanceProjector:
                     # with step width, so reading it past the last rung is
                     # extrapolating the one thing it exists to measure.
                     if packed and budget > 0:
-                        _wide = max((int(q.get("step_tokens") or 0)
-                                     for q in (packed.get("points") or [])),
-                                    default=0)
+                        _wide = max(
+                            (int(q.get("step_tokens") or 0) for q in (packed.get("points") or [])),
+                            default=0,
+                        )
                         if _wide > 0 and budget > 1.5 * _wide:
                             print(
                                 f"[inferasim:Inference] WARNING: this config's "
@@ -1297,10 +1298,10 @@ class InferencePerformanceProjector:
                     # That 36 ms is the measurement, not the step. Substituting
                     # it moved DeepSeek-V4-Flash from +1.1% to +43.2% on TTFT
                     # and Qwen3-14B-FP8 from -4.4% to -49.3%.
-                    self._meas_prefill_fixed_ms = float(
-                        curve.get("fixed_ms") or 0.0) * fixed_shard
-                    probed = [int(p.get("input_len") or 0)
-                              for p in (anchor_diag.get("points") or [])]
+                    self._meas_prefill_fixed_ms = float(curve.get("fixed_ms") or 0.0) * fixed_shard
+                    probed = [
+                        int(p.get("input_len") or 0) for p in (anchor_diag.get("points") or [])
+                    ]
                     # Said out loud when the curve is being read outside the
                     # span it was fitted over, where a quadratic stops being a
                     # local approximation and starts being an extrapolation.
@@ -1491,13 +1492,11 @@ class InferencePerformanceProjector:
         Concurrency caps it at the low end: two requests in flight cannot fill
         a step past two prompts however large the budget is.
         """
-        budget = float(getattr(self.cfg.request_config,
-                               "max_num_batched_tokens", 0) or 0)
+        budget = float(getattr(self.cfg.request_config, "max_num_batched_tokens", 0) or 0)
         # Falling back to batch size the way the rest of the codebase does:
         # ``max_concurrency`` is optional and means the batch when unset.
         rc = self.cfg.request_config
-        conc = float(getattr(rc, "max_concurrency", 0) or
-                     getattr(rc, "batch_size", 0) or 0)
+        conc = float(getattr(rc, "max_concurrency", 0) or getattr(rc, "batch_size", 0) or 0)
         if at_n <= 0:
             return at_n
         packed = at_n
@@ -1528,9 +1527,11 @@ class InferencePerformanceProjector:
             return None
 
         def step(c):
-            return (float(c.get("fixed_ms") or 0.0)
-                    + float(c.get("ms_per_token") or 0.0) * tokens
-                    + float(c.get("ms_per_token_sq") or 0.0) * tokens * tokens)
+            return (
+                float(c.get("fixed_ms") or 0.0)
+                + float(c.get("ms_per_token") or 0.0) * tokens
+                + float(c.get("ms_per_token_sq") or 0.0) * tokens * tokens
+            )
 
         at_lo, at_hi = step(curves[lo]), step(curves[hi])
         if at_lo <= 0.0 or at_hi <= 0.0:
@@ -1631,8 +1632,7 @@ class InferencePerformanceProjector:
         if not self._restore:
             return 1.0, 1.0
         ideal = self._bench_tp / self._tgt_tp
-        at_n = int(self.cfg.request_config.input_seq_len
-                   or self._meas_ref_input or 1)
+        at_n = int(self.cfg.request_config.input_seq_len or self._meas_ref_input or 1)
         measured = self._measured_width_ratio()
         if self._scaling_mode == "origami":
             # The ISL probe measures a prefill step as a per-step cost plus a
@@ -1724,10 +1724,14 @@ class InferencePerformanceProjector:
                         # that reports sharding there is wrong, and the floor is
                         # what notices.
                         rf, lo, hi = at_len
-                        r, floored = rf, (
-                            f" Raised to {rf:.3f}, which is what TP{lo} and "
-                            f"TP{hi} measured for a {at_n}-token step and "
-                            f"sharding cannot beat.")
+                        r, floored = (
+                            rf,
+                            (
+                                f" Raised to {rf:.3f}, which is what TP{lo} and "
+                                f"TP{hi} measured for a {at_n}-token step and "
+                                f"sharding cannot beat."
+                            ),
+                        )
                     elif measured is not None and measured > r:
                         # Sharding does not improve as a model is spread wider.
                         # Each doubling adds collectives and halves every GEMM
@@ -1748,9 +1752,13 @@ class InferencePerformanceProjector:
                         # disaster: taking the *lower* of the two hands GLM
                         # 0.507 against a true 0.68 to 0.825, which is the
                         # ideal-sharding error that read its TTFT 39% low.
-                        r, floored = measured, (
-                            f" Raised to the {measured:.3f} its own anchor "
-                            f"widths measured, which sharding cannot beat.")
+                        r, floored = (
+                            measured,
+                            (
+                                f" Raised to the {measured:.3f} its own anchor "
+                                f"widths measured, which sharding cannot beat."
+                            ),
+                        )
                     print(
                         f"[inferasim:Inference] prefill width scaling from the "
                         f"simulator's whole-step TP{self._bench_tp} -> "
@@ -1840,8 +1848,7 @@ class InferencePerformanceProjector:
         measurement is not a floor, it is just that measurement, and treating
         it as one would pin the whole curve to it.
         """
-        pts = [float(e["decode_ms"]) for e in (blob.get("sweep") or [])
-               if e.get("decode_ms")]
+        pts = [float(e["decode_ms"]) for e in (blob.get("sweep") or []) if e.get("decode_ms")]
         return min(pts) if len(pts) >= 2 else 0.0
 
     def _report_tp_scaling(self) -> None:
@@ -2078,15 +2085,20 @@ class InferencePerformanceProjector:
         # Solving the two measured parallelisms for the split puts the invariant
         # at 14.4-15.5 ms at every batch from 1 to 64, i.e. 51-99% of the TP8
         # step, so a law that shrinks it cannot be close.
-        if (phase == "decode" and self._tgt_tp != self._bench_tp
-                and getattr(self, "_anchor_decode_floor_ms", 0.0) > 0.0):
+        if (
+            phase == "decode"
+            and self._tgt_tp != self._bench_tp
+            and getattr(self, "_anchor_decode_floor_ms", 0.0) > 0.0
+        ):
             floor = self._anchor_decode_floor_ms
             excess = max(0.0, ms_bench - floor)
             restored = floor + excess * (self._bench_tp / self._tgt_tp)
             if os.getenv("INFERASIM_DEBUG_RESTORE"):
-                print(f"[dbg-restore] phase=decode b={batch} floor={floor:.3f} "
-                      f"ms_bench={ms_bench:.3f} restored={restored:.3f} "
-                      f"(floor-preserving, TP{self._bench_tp}->TP{self._tgt_tp})")
+                print(
+                    f"[dbg-restore] phase=decode b={batch} floor={floor:.3f} "
+                    f"ms_bench={ms_bench:.3f} restored={restored:.3f} "
+                    f"(floor-preserving, TP{self._bench_tp}->TP{self._tgt_tp})"
+                )
             return restored
 
         # Origami-ratio: scale the measured anchor by the simulator's
@@ -3559,9 +3571,7 @@ class InferencePerformanceProjector:
         extras = {"speculative_tokens_per_step": self._spec_tokens_per_step()}
         extras.update(conc["extras"])
         extras.update(
-            decode_proj._comm_extras(
-                decode_batch, input_len, output_len, prefill_batch=1
-            )
+            decode_proj._comm_extras(decode_batch, input_len, output_len, prefill_batch=1)
         )
         if self.is_benchmark_calibrated:
             extras["benchmark_calibrated"] = 1.0

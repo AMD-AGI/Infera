@@ -52,8 +52,8 @@ import os
 import re
 import shlex
 import shutil
-import statistics
 import socket
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -204,9 +204,11 @@ def _engine_argv(args, port: int, tp: int) -> list[str]:
             if load_format == "dummy":
                 argv += ["--load_dummy", "empty"]
             else:
-                print(f"[inferasim:Inference:Serving] WARNING: ATOM has no "
-                      f"--load-format; ignoring --load-format {load_format} "
-                      f"and letting the engine load the checkpoint.")
+                print(
+                    f"[inferasim:Inference:Serving] WARNING: ATOM has no "
+                    f"--load-format; ignoring --load-format {load_format} "
+                    f"and letting the engine load the checkpoint."
+                )
         else:
             argv += ["--load-format", load_format]
     if getattr(args, "trust_remote_code", False):
@@ -454,8 +456,7 @@ _PREFILL_PROBE_OUTPUT_LEN = 4
 # blunt instrument; the sharp one is probing at a length where prefill is a
 # larger share of TTFT. Env-settable so a short-prompt harvest can pay for the
 # samples without making every harvest pay.
-_PREFILL_PROBE_PROMPTS = max(
-    2, int(os.environ.get("INFERASIM_PREFILL_PROBE_PROMPTS", "12") or 12))
+_PREFILL_PROBE_PROMPTS = max(2, int(os.environ.get("INFERASIM_PREFILL_PROBE_PROMPTS", "12") or 12))
 # Repeats per packed-probe point. The wave must be exactly as wide as the point
 # under test, so the sample count per run is fixed by the point itself and p99
 # is the max of that many; repeating the wave and taking the median restores a
@@ -469,8 +470,7 @@ _PREFILL_PROBE_PROMPTS = max(
 # the packed regime, the one the scheduler actually runs at ISL 1024, with
 # nothing measured behind it. Env-settable so a short-prompt harvest can buy
 # the extra waves.
-_PACKED_PROBE_REPEATS = max(
-    1, int(os.environ.get("INFERASIM_PACKED_PROBE_REPEATS", "3") or 3))
+_PACKED_PROBE_REPEATS = max(1, int(os.environ.get("INFERASIM_PACKED_PROBE_REPEATS", "3") or 3))
 # Below this the difference is comparable to run-to-run TTFT noise and the slope
 # is not resolvable.
 _PREFILL_MIN_TOKEN_DELTA = 256
@@ -498,13 +498,14 @@ def prefill_probe_lengths(args) -> list[int]:
         step = (long_len - short) / (want - 1)
         lengths = sorted({int(round(short + i * step)) for i in range(want)})
         # A ladder so tight that adjacent differences are noise measures noise.
-        if all(b - a >= _PREFILL_MIN_TOKEN_DELTA
-               for a, b in zip(lengths, lengths[1:])):
+        if all(b - a >= _PREFILL_MIN_TOKEN_DELTA for a, b in zip(lengths, lengths[1:])):
             return lengths
-        print(f"[inferasim:Inference:Serving] WARNING: {want} probe points over "
-              f"{short}..{long_len} tokens would space them under "
-              f"{_PREFILL_MIN_TOKEN_DELTA} apart, which is TTFT noise; falling "
-              f"back to the two-point chord.")
+        print(
+            f"[inferasim:Inference:Serving] WARNING: {want} probe points over "
+            f"{short}..{long_len} tokens would space them under "
+            f"{_PREFILL_MIN_TOKEN_DELTA} apart, which is TTFT noise; falling "
+            f"back to the two-point chord."
+        )
     lengths = [short, long_len]
     if getattr(args, "prefill_anchor_validate", False):
         # A third, interior point turns the assumption into something checkable:
@@ -541,9 +542,11 @@ def _fit_prefill_curve(pts) -> dict | None:
     # Scaled by the longest probe so the columns are comparable: raw n^4 at
     # 8192 tokens is ~4.5e15 and the pivot search is meaningless against it.
     s = max(float(x) for x, _ in pts)
-    m = [[n, sx / s, sx2 / s ** 2, sy],
-         [sx / s, sx2 / s ** 2, sx3 / s ** 3, sxy / s],
-         [sx2 / s ** 2, sx3 / s ** 3, sx4 / s ** 4, sx2y / s ** 2]]
+    m = [
+        [n, sx / s, sx2 / s**2, sy],
+        [sx / s, sx2 / s**2, sx3 / s**3, sxy / s],
+        [sx2 / s**2, sx3 / s**3, sx4 / s**4, sx2y / s**2],
+    ]
     for c in range(3):
         p = max(range(c, 3), key=lambda r: abs(m[r][c]))
         if abs(m[p][c]) < 1e-12:
@@ -556,7 +559,7 @@ def _fit_prefill_curve(pts) -> dict | None:
             for k in range(c, 4):
                 m[r][k] -= f * m[c][k]
     fixed, a, b = (m[i][3] / m[i][i] for i in range(3))
-    a, b = a / s, b / s ** 2
+    a, b = a / s, b / s**2
 
     def model(x):
         return fixed + a * x + b * x * x
@@ -618,14 +621,23 @@ def packed_prefill_probe(port: int, args, out_dir: str, length: int) -> dict | N
         counts.append(s)
         s *= 2
     if len(counts) < 2:
-        print(f"[inferasim:Inference:Serving] packed prefill probe skipped: a "
-              f"{budget}-token budget holds under two {length}-token "
-              f"sequences, so there is no packing to measure here.")
+        print(
+            f"[inferasim:Inference:Serving] packed prefill probe skipped: a "
+            f"{budget}-token budget holds under two {length}-token "
+            f"sequences, so there is no packing to measure here."
+        )
         return None
 
-    _run_client(port, args, out_dir, "packed_warmup", batch=counts[-1],
-                input_len=length, output_len=_PREFILL_PROBE_OUTPUT_LEN,
-                num_prompts=counts[-1])
+    _run_client(
+        port,
+        args,
+        out_dir,
+        "packed_warmup",
+        batch=counts[-1],
+        input_len=length,
+        output_len=_PREFILL_PROBE_OUTPUT_LEN,
+        num_prompts=counts[-1],
+    )
     pts = []
     for s in counts:
         # The wave has to be exactly ``s`` requests for its last first-token to
@@ -637,10 +649,16 @@ def packed_prefill_probe(port: int, args, out_dir: str, length: int) -> dict | N
         # completion, and it stops being a single draw from the tail.
         seen = []
         for rep in range(_PACKED_PROBE_REPEATS):
-            doc = _run_client(port, args, out_dir, f"packed_S{s}_r{rep}",
-                              batch=s, input_len=length,
-                              output_len=_PREFILL_PROBE_OUTPUT_LEN,
-                              num_prompts=s)
+            doc = _run_client(
+                port,
+                args,
+                out_dir,
+                f"packed_S{s}_r{rep}",
+                batch=s,
+                input_len=length,
+                output_len=_PREFILL_PROBE_OUTPUT_LEN,
+                num_prompts=s,
+            )
             # p99 rather than mean: the wave's last first-token is what bounds
             # the whole packed prefill. At one request the two coincide.
             last = doc.get("p99_ttft_ms")
@@ -649,9 +667,11 @@ def packed_prefill_probe(port: int, args, out_dir: str, length: int) -> dict | N
             seen.append(float(last))
         last = statistics.median(seen)
         pts.append((s * length, last))
-        print(f"[inferasim:Inference:Serving] packed prefill probe S={s} "
-              f"({s * length} tok) last-TTFT={last:.2f}ms "
-              f"(median of {[round(v, 1) for v in seen]})")
+        print(
+            f"[inferasim:Inference:Serving] packed prefill probe S={s} "
+            f"({s * length} tok) last-TTFT={last:.2f}ms "
+            f"(median of {[round(v, 1) for v in seen]})"
+        )
 
     n = len(pts)
     mean_x = sum(x for x, _ in pts) / n
@@ -659,10 +679,12 @@ def packed_prefill_probe(port: int, args, out_dir: str, length: int) -> dict | N
     var = sum((x - mean_x) ** 2 for x, _ in pts)
     rate = (sum((x - mean_x) * (y - mean_y) for x, y in pts) / var) if var else 0.0
     if rate <= 0.0:
-        print(f"[inferasim:Inference:Serving] WARNING: packed prefill slope is "
-              f"{rate:.6f} ms/token -- the wave did not get slower as it got "
-              f"wider, which is not a prefill curve. Leaving the packed term "
-              f"unmeasured; check prefix caching and the warmup.")
+        print(
+            f"[inferasim:Inference:Serving] WARNING: packed prefill slope is "
+            f"{rate:.6f} ms/token -- the wave did not get slower as it got "
+            f"wider, which is not a prefill curve. Leaving the packed term "
+            f"unmeasured; check prefix caching and the warmup."
+        )
         return None
     # A positive overall slope is not enough, because least squares will report
     # one through points that are not a curve at all. Three vLLM harvests came
@@ -677,17 +699,18 @@ def packed_prefill_probe(port: int, args, out_dir: str, length: int) -> dict | N
     # single-sequence curve plus a warning naming this as the unmeasured term,
     # which is a worse prediction but an honest one; a rate fitted through
     # non-monotonic points is neither.
-    falling = [(pts[i], pts[i + 1]) for i in range(len(pts) - 1)
-               if pts[i + 1][1] <= pts[i][1]]
+    falling = [(pts[i], pts[i + 1]) for i in range(len(pts) - 1) if pts[i + 1][1] <= pts[i][1]]
     if falling:
-        print(f"[inferasim:Inference:Serving] WARNING: packed prefill probe is "
-              f"not monotonic -- "
-              f"{', '.join(f'{a[0]}tok={a[1]:.1f}ms then {b[0]}tok={b[1]:.1f}ms' for a, b in falling)}"
-              f". A wider step cannot be cheaper, so this is scheduler tail "
-              f"rather than step cost, and the fitted "
-              f"{rate * 1000:.1f} us/token is not a measurement of it. "
-              f"Discarding. Raise the request count per point so p99 is not "
-              f"the max of a handful of samples.")
+        print(
+            f"[inferasim:Inference:Serving] WARNING: packed prefill probe is "
+            f"not monotonic -- "
+            f"{', '.join(f'{a[0]}tok={a[1]:.1f}ms then {b[0]}tok={b[1]:.1f}ms' for a, b in falling)}"
+            f". A wider step cannot be cheaper, so this is scheduler tail "
+            f"rather than step cost, and the fitted "
+            f"{rate * 1000:.1f} us/token is not a measurement of it. "
+            f"Discarding. Raise the request count per point so p99 is not "
+            f"the max of a handful of samples."
+        )
         return None
     return {
         "method": "p99 TTFT difference across simultaneous sequence count",
@@ -698,8 +721,7 @@ def packed_prefill_probe(port: int, args, out_dir: str, length: int) -> dict | N
         # repeats it is the max of a handful and one slow request sets it.
         "repeats": _PACKED_PROBE_REPEATS,
         "output_len": _PREFILL_PROBE_OUTPUT_LEN,
-        "points": [{"step_tokens": x, "seqs": x // length, "last_ttft_ms": y}
-                   for x, y in pts],
+        "points": [{"step_tokens": x, "seqs": x // length, "last_ttft_ms": y} for x, y in pts],
         "ms_per_token": rate,
         "implied_fixed_ms": mean_y - rate * mean_x,
     }
@@ -737,12 +759,17 @@ def prefill_rate_ms_per_token(port: int, args, out_dir: str) -> tuple:
     # correctly rejected -- leaving that model's TTFT on the analytical
     # roofline, which is where its error came from. Warming at the longest
     # length covers every shorter one, so a single extra client run fixes it.
-    _run_client(port, args, out_dir, "prefill_warmup", batch=1,
-                input_len=max(lengths),
-                output_len=_PREFILL_PROBE_OUTPUT_LEN,
-                num_prompts=_PREFILL_PROBE_PROMPTS)
-    print(f"[inferasim:Inference:Serving] prefill warmup at L={max(lengths)} "
-          f"complete (discarded)")
+    _run_client(
+        port,
+        args,
+        out_dir,
+        "prefill_warmup",
+        batch=1,
+        input_len=max(lengths),
+        output_len=_PREFILL_PROBE_OUTPUT_LEN,
+        num_prompts=_PREFILL_PROBE_PROMPTS,
+    )
+    print(f"[inferasim:Inference:Serving] prefill warmup at L={max(lengths)} complete (discarded)")
     pts = []
     for length in lengths:
         doc = _run_client(
@@ -798,12 +825,14 @@ def prefill_rate_ms_per_token(port: int, args, out_dir: str) -> tuple:
         # curvature. Whatever the gap is, the old path was carrying it across
         # parallelism as though it did not shard.
         lin_fixed = diag["implied_fixed_ms"]
-        print(f"[inferasim:Inference:Serving] prefill curve: "
-              f"{curve['fixed_ms']:.1f} ms fixed + "
-              f"{curve['ms_per_token'] * 1000:.2f} us/token + "
-              f"{curve['ms_per_token_sq'] * 1e6:.4f} us/token^2 "
-              f"(R2={curve['r2']:.4f}, max resid {curve['max_resid_ms']:.2f} ms); "
-              f"the two-point chord called {lin_fixed:.1f} ms of this fixed.")
+        print(
+            f"[inferasim:Inference:Serving] prefill curve: "
+            f"{curve['fixed_ms']:.1f} ms fixed + "
+            f"{curve['ms_per_token'] * 1000:.2f} us/token + "
+            f"{curve['ms_per_token_sq'] * 1e6:.4f} us/token^2 "
+            f"(R2={curve['r2']:.4f}, max resid {curve['max_resid_ms']:.2f} ms); "
+            f"the two-point chord called {lin_fixed:.1f} ms of this fixed."
+        )
         # Only worth probing once the curve exists, since the packed rate is
         # read as a correction to its per-token terms rather than on its own.
         #
@@ -819,18 +848,19 @@ def prefill_rate_ms_per_token(port: int, args, out_dir: str) -> tuple:
         # Overridable so a harvest can probe at the length it will be used at,
         # as long as the budget still holds two of them.
         _pk_len = int(os.environ.get("INFERASIM_PACKED_PROBE_SEQ_LEN", "0") or 0)
-        packed = packed_prefill_probe(
-            port, args, out_dir, _pk_len if _pk_len > 0 else min(lengths))
+        packed = packed_prefill_probe(port, args, out_dir, _pk_len if _pk_len > 0 else min(lengths))
         if packed:
             diag["packed"] = packed
             _l0 = int(packed.get("seq_len") or min(lengths))
             single = curve["ms_per_token"] + curve["ms_per_token_sq"] * _l0
-            print(f"[inferasim:Inference:Serving] packed prefill: "
-                  f"{packed['ms_per_token'] * 1000:.2f} us/token at "
-                  f"{_l0}-token sequences, against "
-                  f"{single * 1000:.2f} us/token read off the single-sequence "
-                  f"curve at the same length "
-                  f"({single / packed['ms_per_token']:.2f}x).")
+            print(
+                f"[inferasim:Inference:Serving] packed prefill: "
+                f"{packed['ms_per_token'] * 1000:.2f} us/token at "
+                f"{_l0}-token sequences, against "
+                f"{single * 1000:.2f} us/token read off the single-sequence "
+                f"curve at the same length "
+                f"({single / packed['ms_per_token']:.2f}x)."
+            )
     rates = [p["ms_per_token"] for p in pairwise]
     # A negative pairwise slope means TTFT fell as the prompt grew, which is
     # not a prefill curve at all. Reported before the spread check rather than
@@ -840,14 +870,16 @@ def prefill_rate_ms_per_token(port: int, args, out_dir: str) -> tuple:
     negative = [p for p in pairwise if p["ms_per_token"] <= 0]
     if negative:
         diag["negative_pairs"] = negative
-        print(f"[inferasim:Inference:Serving] WARNING: TTFT fell as the prompt "
-              f"grew over {len(negative)} of {len(pairwise)} length pairs "
-              f"({[round(p['ms_per_token'], 6) for p in negative]} ms/token). "
-              f"That is not a prefill curve. The usual causes are a cold first "
-              f"probe (one-time graph capture or JIT billed to the shortest "
-              f"prompt) or prefix caching serving a later probe from an earlier "
-              f"one's tokens. Re-harvest with the warmup pass and "
-              f"prefix caching off before trusting any prefill number here.")
+        print(
+            f"[inferasim:Inference:Serving] WARNING: TTFT fell as the prompt "
+            f"grew over {len(negative)} of {len(pairwise)} length pairs "
+            f"({[round(p['ms_per_token'], 6) for p in negative]} ms/token). "
+            f"That is not a prefill curve. The usual causes are a cold first "
+            f"probe (one-time graph capture or JIT billed to the shortest "
+            f"prompt) or prefix caching serving a later probe from an earlier "
+            f"one's tokens. Re-harvest with the warmup pass and "
+            f"prefix caching off before trusting any prefill number here."
+        )
     if len(rates) > 1 and min(rates) > 0:
         spread = max(rates) / min(rates)
         diag["pairwise_spread"] = spread
@@ -1006,8 +1038,7 @@ def run_serving_benchmark(args) -> dict:
             # cache times a block lookup rather than prompt processing, so a
             # consumer that cannot tell which it holds has to refuse the curve
             # and simulate TTFT instead.
-            "prefix_caching": _prefix_caching_from_server_args(
-                args.server_args or ""),
+            "prefix_caching": _prefix_caching_from_server_args(args.server_args or ""),
             # Which decode observable the sweep holds. Artifacts harvested
             # before this key recorded mean TPOT, which carries the prefill
             # stalls the simulator also schedules, so a reader that cannot tell

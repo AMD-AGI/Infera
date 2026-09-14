@@ -23,8 +23,8 @@ from types import SimpleNamespace
 
 import pytest
 
-
 # --- the default itself ------------------------------------------------------
+
 
 def test_inference_defaults_to_measuring():
     """The subparser must not override the flag back to ``simulate``."""
@@ -47,6 +47,7 @@ def test_the_uncalibrated_path_is_still_reachable():
 
 # --- what a laptop sees now --------------------------------------------------
 
+
 def test_no_accelerator_names_every_way_out(monkeypatch):
     """Measuring by default means an ordinary laptop run lands on this error.
 
@@ -68,18 +69,24 @@ def test_no_accelerator_names_every_way_out(monkeypatch):
 
 # --- the search paths must not inherit the new default -----------------------
 
+
 def _cfg():
     return SimpleNamespace(
-        input_len=1024, output_len=1024, batch_size=32, max_concurrency=32,
-        weight_dtype="fp8", kv_cache_dtype="fp8",
-        chunked_prefill_size=0, speculative_num_tokens=0, ep_load_balance=1.0,
+        input_len=1024,
+        output_len=1024,
+        batch_size=32,
+        max_concurrency=32,
+        weight_dtype="fp8",
+        kv_cache_dtype="fp8",
+        chunked_prefill_size=0,
+        speculative_num_tokens=0,
+        ep_load_balance=1.0,
     )
 
 
 def _agent_cfg():
     return SimpleNamespace(
-        target_cluster=SimpleNamespace(gpu_arch="mi355x", gpu_clock_mhz=None,
-                                       num_nodes=1),
+        target_cluster=SimpleNamespace(gpu_arch="mi355x", gpu_clock_mhz=None, num_nodes=1),
         optimization=SimpleNamespace(hbm_capacity_gb=288.0),
     )
 
@@ -94,7 +101,10 @@ def test_the_tuning_agent_asks_for_simulate_out_loud(tmp_path: Path):
     from infera.projection.agents.tuning_agent.evaluator import _build_inference_cmd
 
     cmd = _build_inference_cmd(
-        tmp_path / "w.yaml", _cfg(), _agent_cfg(), tmp_path,
+        tmp_path / "w.yaml",
+        _cfg(),
+        _agent_cfg(),
+        tmp_path,
     )
     assert "--profiling-mode" in cmd
     assert cmd[cmd.index("--profiling-mode") + 1] == "simulate"
@@ -104,8 +114,12 @@ def test_an_explicit_measurement_request_still_measures(tmp_path: Path):
     from infera.projection.agents.tuning_agent.evaluator import _build_inference_cmd
 
     cmd = _build_inference_cmd(
-        tmp_path / "w.yaml", _cfg(), _agent_cfg(), tmp_path,
-        profiling_mode="benchmark", bench_gpus=4,
+        tmp_path / "w.yaml",
+        _cfg(),
+        _agent_cfg(),
+        tmp_path,
+        profiling_mode="benchmark",
+        bench_gpus=4,
     )
     assert cmd[cmd.index("--profiling-mode") + 1] == "benchmark"
 
@@ -116,7 +130,10 @@ def test_a_loaded_anchor_needs_no_mode_at_all(tmp_path: Path):
     from infera.projection.agents.tuning_agent.evaluator import _build_inference_cmd
 
     cmd = _build_inference_cmd(
-        tmp_path / "w.yaml", _cfg(), _agent_cfg(), tmp_path,
+        tmp_path / "w.yaml",
+        _cfg(),
+        _agent_cfg(),
+        tmp_path,
         load_benchmark=tmp_path / "anchor.json",
     )
     assert "--load-benchmark" in cmd

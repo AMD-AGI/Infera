@@ -18,6 +18,8 @@ import pytest
 
 from infera.projection.core.projection.inference_projection.performance import (
     InferencePerformanceProjector as Proj,
+)
+from infera.projection.core.projection.inference_projection.performance import (
     _split_replica_loads,
 )
 

@@ -207,8 +207,10 @@ class _CostKernel:
             v = self._p.mixed_step_latency_ms(num_decode, key[1], key[2], key[3], self._q)
             self._mixed[key] = v
             if os.getenv("INFERASIM_DEBUG_DES_STEPS"):
-                print(f"[dbg-des] mixed num_decode={key[0]} prefill_tok={key[1]} "
-                      f"ctx={key[2]} prefill_kv={key[3]} -> {v:.2f} ms")
+                print(
+                    f"[dbg-des] mixed num_decode={key[0]} prefill_tok={key[1]} "
+                    f"ctx={key[2]} prefill_kv={key[3]} -> {v:.2f} ms"
+                )
         return v
 
 
@@ -372,9 +374,7 @@ def simulate_once(
         # previous one retires. Everything past the first ``clients`` is issued
         # from the retirement handler below, so its arrival is unknown up front.
         n_total = max(clients, int(num_requests))
-        pending = _build_workload(
-            n_total, [0.0] * n_total, input_len, output_len, range_ratio, rng
-        )
+        pending = _build_workload(n_total, [0.0] * n_total, input_len, output_len, range_ratio, rng)
         for i, r in enumerate(pending):
             r.arrival_ms = 0.0 if i < clients else math.inf
     elif prebuilt is not None:
@@ -530,8 +530,7 @@ def simulate_once(
                     scheduled.append((r, q, True, r.kv_len))
                     budget -= q
                     prefill_step = True
-            while (waiting and len(running) < max_running and budget >= 1
-                   and admitted < admit_cap):
+            while waiting and len(running) < max_running and budget >= 1 and admitted < admit_cap:
                 head = waiting[0]
                 if kv_pool > 0 and kv_used + head.reserved_kv > kv_pool:
                     break
@@ -559,9 +558,13 @@ def simulate_once(
         # Phase 2 — admit new waiting requests (full-ISL KV reservation gate).
         # Under exclusive prefill, admission is Phase 0's job: admitting here
         # would start a second prefill in a step that is meant to hold one.
-        while (not prefill_exclusive and waiting
-               and len(running) < max_running and budget >= 1
-               and admitted < admit_cap):
+        while (
+            not prefill_exclusive
+            and waiting
+            and len(running) < max_running
+            and budget >= 1
+            and admitted < admit_cap
+        ):
             cand = waiting[0]
             if kv_pool > 0 and kv_used + cand.reserved_kv > kv_pool:
                 break  # head-of-line block until KV frees up

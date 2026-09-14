@@ -63,18 +63,19 @@ def test_the_two_entrypoints_do_not_run_the_same_kernels():
     assert offline != served
 
 
-@pytest.mark.parametrize("backend, expected", [
-    ("vllm", ["--load-format", "dummy"]),
-    ("sglang", ["--load-format", "dummy"]),
-    # ATOM names the fill, not the loader, and rejects the vLLM spelling hard
-    # enough that the server dies during argv parsing. The fill is "empty"
-    # because zero-filling a packed-MXFP4 checkpoint has no torch kernel.
-    ("atom", ["--load_dummy", "empty"]),
-])
-def test_random_weights_are_requested_the_way_each_engine_spells_it(
-        backend, expected):
-    argv = _engine_argv(spec(serving_backend=backend, load_format="dummy"),
-                        port=8000, tp=4)
+@pytest.mark.parametrize(
+    "backend, expected",
+    [
+        ("vllm", ["--load-format", "dummy"]),
+        ("sglang", ["--load-format", "dummy"]),
+        # ATOM names the fill, not the loader, and rejects the vLLM spelling hard
+        # enough that the server dies during argv parsing. The fill is "empty"
+        # because zero-filling a packed-MXFP4 checkpoint has no torch kernel.
+        ("atom", ["--load_dummy", "empty"]),
+    ],
+)
+def test_random_weights_are_requested_the_way_each_engine_spells_it(backend, expected):
+    argv = _engine_argv(spec(serving_backend=backend, load_format="dummy"), port=8000, tp=4)
     assert "--load-format" not in argv or backend != "atom"
     for i in range(len(argv) - 1):
         if argv[i] == expected[0]:
@@ -85,8 +86,12 @@ def test_random_weights_are_requested_the_way_each_engine_spells_it(
 
 
 def probe_spec(**over) -> Namespace:
-    base = dict(input_len=8192, prefill_anchor_short=1024,
-                prefill_anchor_points=0, prefill_anchor_validate=False)
+    base = dict(
+        input_len=8192,
+        prefill_anchor_short=1024,
+        prefill_anchor_points=0,
+        prefill_anchor_validate=False,
+    )
     base.update(over)
     return Namespace(**base)
 
@@ -108,8 +113,8 @@ def test_asking_for_more_points_spaces_them_evenly_to_the_anchor_length():
 def test_a_ladder_too_tight_to_resolve_falls_back_rather_than_measuring_noise():
     """Adjacent points closer than the noise floor measure the noise floor."""
     lengths = prefill_probe_lengths(
-        probe_spec(input_len=1024, prefill_anchor_short=512,
-                   prefill_anchor_points=6))
+        probe_spec(input_len=1024, prefill_anchor_short=512, prefill_anchor_points=6)
+    )
     assert lengths == [512, 1024]
 
 
@@ -117,8 +122,7 @@ def test_the_curve_fit_recovers_coefficients_it_was_given():
     """Fixed cost, per-token and per-token^2 are separable when the probe has
     enough points; this is the whole reason for taking more than two."""
     fixed, a, b = 180.0, 0.012, 1.5e-6
-    pts = [(n, fixed + a * n + b * n * n)
-           for n in (1024, 2816, 4608, 6400, 8192)]
+    pts = [(n, fixed + a * n + b * n * n) for n in (1024, 2816, 4608, 6400, 8192)]
     fit = _fit_prefill_curve(pts)
     assert fit["fixed_ms"] == pytest.approx(fixed, abs=1e-3)
     assert fit["ms_per_token"] == pytest.approx(a, rel=1e-6)
@@ -139,8 +143,10 @@ def test_a_two_point_chord_hides_curvature_in_its_intercept():
     real fixed cost, and that intercept is what gets carried across tensor
     parallelism as though it did not shard."""
     fixed, a, b = 146.4, 0.0558, -1.74e-6
+
     def truth(n):
         return fixed + a * n + b * n * n
+
     lo, hi = 4096, 8192
     chord_rate = (truth(hi) - truth(lo)) / (hi - lo)
     chord_fixed = truth(lo) - chord_rate * lo
@@ -371,8 +377,7 @@ def test_the_packed_probe_varies_how_many_sequences_share_a_step(monkeypatch):
     """
     calls = []
 
-    def fake_client(port, args, out_dir, tag, *, batch, input_len, output_len,
-                    num_prompts):
+    def fake_client(port, args, out_dir, tag, *, batch, input_len, output_len, num_prompts):
         calls.append((tag, batch, input_len, num_prompts))
         # 80 ms floor plus 20 us per token in the step: a clean packed curve.
         return {"p99_ttft_ms": 80.0 + 0.020 * batch * input_len}
@@ -410,9 +415,12 @@ def test_a_wider_step_cannot_be_cheaper(monkeypatch):
     ladder = {1024: 114.7, 2048: 481.6, 4096: 532.9, 8192: 334.8}
 
     monkeypatch.setattr(
-        benchmark_serving, "_run_client",
-        lambda port, args, out_dir, tag, *, batch, input_len, output_len,
-        num_prompts: {"p99_ttft_ms": ladder[batch * input_len]})
+        benchmark_serving,
+        "_run_client",
+        lambda port, args, out_dir, tag, *, batch, input_len, output_len, num_prompts: {
+            "p99_ttft_ms": ladder[batch * input_len]
+        },
+    )
 
     args = Namespace(prefill_packed_points=4, max_num_batched_tokens=16384)
     assert benchmark_serving.packed_prefill_probe(0, args, "/tmp", 1024) is None
@@ -420,23 +428,31 @@ def test_a_wider_step_cannot_be_cheaper(monkeypatch):
 
 def test_the_packed_probe_declines_rather_than_measuring_nothing(monkeypatch):
     """Three ways it can have nothing to say, each said rather than guessed."""
-    monkeypatch.setattr(benchmark_serving, "_run_client",
-                        lambda *a, **k: {"p99_ttft_ms": 100.0})
+    monkeypatch.setattr(benchmark_serving, "_run_client", lambda *a, **k: {"p99_ttft_ms": 100.0})
 
     # Off by request.
-    assert benchmark_serving.packed_prefill_probe(
-        0, Namespace(prefill_packed_points=0, max_num_batched_tokens=16384),
-        "/tmp", 1024) is None
+    assert (
+        benchmark_serving.packed_prefill_probe(
+            0, Namespace(prefill_packed_points=0, max_num_batched_tokens=16384), "/tmp", 1024
+        )
+        is None
+    )
 
     # A prompt as long as the budget cannot be packed with anything, so there
     # is no packing axis here to measure.
-    assert benchmark_serving.packed_prefill_probe(
-        0, Namespace(prefill_packed_points=4, max_num_batched_tokens=16384),
-        "/tmp", 16384) is None
+    assert (
+        benchmark_serving.packed_prefill_probe(
+            0, Namespace(prefill_packed_points=4, max_num_batched_tokens=16384), "/tmp", 16384
+        )
+        is None
+    )
 
     # A flat or falling wave is not a prefill curve; returning None leaves the
     # projector on the single-sequence curve and warning about it, rather than
     # anchoring on noise.
-    assert benchmark_serving.packed_prefill_probe(
-        0, Namespace(prefill_packed_points=4, max_num_batched_tokens=16384),
-        "/tmp", 1024) is None
+    assert (
+        benchmark_serving.packed_prefill_probe(
+            0, Namespace(prefill_packed_points=4, max_num_batched_tokens=16384), "/tmp", 1024
+        )
+        is None
+    )

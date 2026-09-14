@@ -779,9 +779,11 @@ def launch_projection_from_cli(args, overrides):
             )
         else:
             decode_floor = None
-    if (benchmark_layer_times is None
-            and profiling_mode == "benchmark"
-            and mode in ("performance", "both")):
+    if (
+        benchmark_layer_times is None
+        and profiling_mode == "benchmark"
+        and mode in ("performance", "both")
+    ):
         # Measure this recipe on GPUs now. Asking for a benchmark and quietly
         # receiving a simulation would be the worst of both, so failures here
         # are raised rather than absorbed; --profiling-mode simulate is how you

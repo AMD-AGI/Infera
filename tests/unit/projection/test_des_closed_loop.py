@@ -71,11 +71,7 @@ class _Kernel:
         return _BASE_MS + _PER_SEQ_MS * batch
 
     def mixed_step_latency_ms(self, num_decode, prefill_tokens, ctx, prefill_kv, q_len):
-        return (
-            _BASE_MS
-            + _PER_SEQ_MS * num_decode
-            + _PER_PREFILL_TOKEN_MS * prefill_tokens
-        )
+        return _BASE_MS + _PER_SEQ_MS * num_decode + _PER_PREFILL_TOKEN_MS * prefill_tokens
 
 
 def _run(concurrency: int, chunk: int = 256, requests_per_client: int = 6, **kw):
@@ -116,9 +112,7 @@ def test_a_closed_load_holds_every_client_in_flight():
 def test_ttft_dilates_with_the_decode_batch():
     """The whole point: TTFT must grow with load, not stay flat in ms."""
     ttfts = [_run(c).ttft["mean"] for c in (4, 16, 64, 256)]
-    assert all(
-        later > earlier for earlier, later in zip(ttfts, ttfts[1:])
-    ), ttfts
+    assert all(later > earlier for earlier, later in zip(ttfts, ttfts[1:])), ttfts
     # And it is a large effect, not a rounding one.
     assert ttfts[-1] > 3.0 * ttfts[0], ttfts
 
