@@ -854,7 +854,7 @@ _dispatch_slurm() {
   fi
 
   local prc=1 attempt=0 max_attempts="$SLURM_MAX_ATTEMPTS" exclude="" ran dirty_nodes retryable=0
-  local fixed_one_node=0
+  local fixed_one_node=0 pin=""
   local cred=0 cred_count="${#_SLURM_ACCOUNT_QOS_PAIRS[@]}"
   local holdflag="$SCRATCH/.hold-$label"
   # Node failures cannot be re-placed inside a one-node inherited allocation.
@@ -866,8 +866,11 @@ _dispatch_slurm() {
   while [ "$attempt" -lt "$max_attempts" ]; do
     attempt=$((attempt + 1))
     retryable=0
-    local xflag=()
+    local xflag=() wflag=()
     [ -n "$exclude" ] && xflag=(-x "$exclude")
+    # A pin that has since been excluded (dirty GPUs) must not be re-requested.
+    case ",$exclude," in *,"$pin",*) pin="" ;; esac
+    [ -n "$pin" ] && wflag=(-w "$pin")
     # Use the reservation while it has free nodes; when full, spill to the open
     # partition up to INFERA_E2E_SPILL_MAX borrowed nodes (else queue on it).
     # Anything else -- gone, or a query that could not answer -- drops
@@ -921,7 +924,7 @@ _dispatch_slurm() {
     fi
     INFERA_E2E_LOCAL=1 INFERA_E2E_EXCLUSIVE="$exclusive_owner" \
       srun -N1 -p "$SLURM_PART" --gres=gpu:8 "${exclusive[@]}" -t "$SLURM_TIME" \
-        -J "$jobname" "${xflag[@]}" "${resv[@]}" ${INFERA_E2E_SRUN_EXTRA:-} \
+        -J "$jobname" "${xflag[@]}" "${wflag[@]}" "${resv[@]}" ${INFERA_E2E_SRUN_EXTRA:-} \
         "${remote[@]}" > "$out" 2>&1 &
     local srunpid=$!
     _watch_job "$out" "$holdflag" "$label" &
@@ -949,6 +952,14 @@ _dispatch_slurm() {
       if [[ "$why" = accounting:* ]] && [ "$cred_count" -gt 0 ]; then
         echo "[$label] all $cred_count SLURM account/QoS pairs are blocked (${why#accounting:}) — giving up" >&2
         break
+      fi
+      # JobLaunchFailure names no node, so the scheduler keeps re-offering the same
+      # undispatchable one. Pin our own pick; a repeat then names a node to exclude.
+      if [[ "$why" = JobLaunchFailure* ]] && [ -z "${SLURM_JOB_ID:-${SLURM_JOBID:-}}" ]; then
+        [ -n "$pin" ] && exclude="${exclude:+$exclude,}$pin"
+        pin="$(_pick_idle_nodes 1 "$exclude" | head -1)"
+        echo "[$label] $why — scheduler names no node; pinning ${pin:-nothing free}${exclude:+, excluding $exclude}" >&2
+        retryable=1; sleep 5; continue
       fi
       echo "[$label] job ${why:-held} — cancelled, retrying within the $max_attempts-submission limit in 5s" >&2
       retryable=1; sleep 5; continue
