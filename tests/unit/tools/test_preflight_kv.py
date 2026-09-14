@@ -16,6 +16,11 @@ report names the real cause instead of a bare mismatch.
 
 from __future__ import annotations
 
+import json
+
+import numpy as np
+import pytest
+
 from infera.tools.preflight.network import mooncakeperf, moriperf
 from infera.tools.preflight.network.netperf import _parse_rdma_errno
 
@@ -103,8 +108,6 @@ def test_gpu_geometry_stays_kv_cache_sized():
 
 
 def test_verify_respects_passed_geometry():
-    import numpy as np
-
     # A buffer stamped with the per-segment pattern for chunk/nchunk verifies;
     # a different geometry (wrong chunk boundaries) does not.
     chunk, nchunk = 16 << 10, 4
@@ -174,3 +177,97 @@ def test_mooncake_selected_device_pins_gpu_variants(monkeypatch):
         ("rdma-gpu0", "rdma", "gid", "gpu", 0, "mlx5_0"),
         ("rdma-gpu1", "rdma", "gid", "gpu", 1, "mlx5_0"),
     ]
+
+
+def test_mooncake_operation_defaults_to_read(monkeypatch):
+    monkeypatch.delenv("INFERA_PREFLIGHT_MOONCAKE_OPCODE", raising=False)
+    assert mooncakeperf._operation() == "read"
+
+
+def test_mooncake_write_dispatches_producer_push(monkeypatch):
+    calls = []
+
+    class Engine:
+        def batch_transfer_sync_write(self, *args):
+            calls.append(args)
+            return 0
+
+    monkeypatch.setenv("INFERA_PREFLIGHT_MOONCAKE_OPCODE", "write")
+    operation = mooncakeperf._operation()
+
+    assert mooncakeperf._batch_transfer(Engine(), "peer", 100, 200, 8, 2, operation)
+    assert calls == [("peer", [100, 108], [200, 208], [8, 8])]
+
+
+def test_mooncake_operation_rejects_unknown_value(monkeypatch):
+    monkeypatch.setenv("INFERA_PREFLIGHT_MOONCAKE_OPCODE", "copy")
+    with pytest.raises(ValueError, match="invalid INFERA_PREFLIGHT_MOONCAKE_OPCODE"):
+        mooncakeperf._operation()
+
+
+def test_mooncake_write_finding_reports_source_direction(monkeypatch):
+    monkeypatch.setattr(mooncakeperf, "_ref_gid", lambda: 1)
+    finding = mooncakeperf._finding(
+        {
+            "label": "rdma-gpu0",
+            "target": "decode",
+            "operation": "write",
+            "gb_s": 42.0,
+            "gib": 10.0,
+            "loc": "gpu",
+            "gpu": 0,
+            "verified": True,
+            "dev": "ionic_0",
+        },
+        "prefill",
+    )
+
+    assert finding.level == "info"
+    assert finding.message == "prefill -> decode rdma-gpu0"
+
+
+def test_mooncake_write_is_verified_on_target(monkeypatch, tmp_path):
+    chunk, nchunk, gpu_id = 4, 2, 3
+
+    class Buffer:
+        ptr = 100
+        size = chunk * nchunk
+
+        def __init__(self):
+            self.chunk = chunk
+            self.nchunk = nchunk
+            self.arr = np.empty(self.size, dtype=np.uint8)
+
+        def fill_inverse_pattern(self):
+            for index in range(self.nchunk):
+                self.arr[index * self.chunk : (index + 1) * self.chunk] = (
+                    mooncakeperf._chunk_byte(gpu_id, index) ^ 0xFF
+                )
+
+        def host_bytes(self):
+            return self.arr
+
+    class Engine:
+        @staticmethod
+        def get_rpc_port():
+            return 19001
+
+    buf = Buffer()
+
+    def complete_write(_path, _timeout):
+        for index in range(buf.nchunk):
+            buf.arr[index * buf.chunk : (index + 1) * buf.chunk] = mooncakeperf._chunk_byte(
+                gpu_id, index
+            )
+        return True
+
+    monkeypatch.setenv("INFERA_PREFLIGHT_MOONCAKE_OPCODE", "write")
+    monkeypatch.setattr(mooncakeperf, "_engine", lambda *_args: Engine())
+    monkeypatch.setattr(mooncakeperf, "_make_buffer", lambda *_args: buf)
+    monkeypatch.setattr(mooncakeperf, "_register", lambda *_args: True)
+    monkeypatch.setattr(mooncakeperf, "_wait_file", complete_write)
+
+    mooncakeperf._target(str(tmp_path), "10.0.0.1:17000", "decode", "rdma", "gpu", gpu_id)
+
+    result = json.loads((tmp_path / "target-verify.json").read_text())
+    assert result == {"verified": True}

@@ -1,0 +1,20 @@
+ARG BASE_IMAGE=infera/engine-sglang:glm52-1p1d-8f04a68-pf2
+FROM ${BASE_IMAGE}
+
+LABEL org.opencontainers.image.description="GLM-5.2 v0.5.17 combined experimental backports"
+
+COPY patches/sglang_37118.patch /tmp/sglang_37118.patch
+COPY patches/patch_v017_glm52_opt.py /tmp/patch_v017_glm52_opt.py
+
+RUN cd /sgl-workspace/sglang \
+    && git apply --check /tmp/sglang_37118.patch \
+    && git apply /tmp/sglang_37118.patch \
+    && python3 /tmp/patch_v017_glm52_opt.py \
+         --glm-correction-bias \
+         --aiter-large-logits-gate \
+    && python3 -m compileall -q \
+         /sgl-workspace/sglang/python/sglang/srt/layers/attention/dsa \
+         /sgl-workspace/sglang/python/sglang/srt/layers/moe/topk.py \
+         /sgl-workspace/sglang/python/sglang/srt/models/deepseek_v2.py \
+         /sgl-workspace/aiter/aiter/ops/triton/attention/fp8_mqa_logits.py \
+    && rm -f /tmp/sglang_37118.patch /tmp/patch_v017_glm52_opt.py

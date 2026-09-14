@@ -1,9 +1,7 @@
 # sglang PD disaggregation patches
 
-Patches against the sglang source tree bundled in the ROCm engine images (sglang is an
-editable checkout at `/sgl-workspace/sglang`, so `python/sglang/...` is what actually
-runs — there is no separate site-packages copy to patch). Each is a self-locating,
-idempotent Python script, applied at image build time by the patch loop in
+Patches against the sglang source tree bundled in the ROCm engine images. Each
+is a self-locating, idempotent Python script, applied at image build time by the patch loop in
 `Dockerfile.sglang` / `Dockerfile.sglang.gfx942`.
 
 ## `patch_responses_pd_bootstrap.py`
@@ -186,3 +184,18 @@ A/B above is the piece that report was missing.
 The cost of the fix should be measured when upstreaming: the new
 `wait_event.synchronize()` in the transfer worker blocks that thread, which in principle
 trades some transfer overlap for correctness.
+
+## Fork-only rejection-sampling patch
+
+`../sglang_disagg_fork/patch_pd_disable_implicit_rocm_rejection_sampling.py` is
+not a shared v0.5.18 fix. It applies only to the xiaobochen GLM-5.2 optimization
+source used by this repository's benchmark (`sglang` commit `402df1e`): that
+fork implicitly enables ROCm EAGLE rejection sampling, while its PD handoff does
+not carry `EagleDraftInput.draft_probs` to decode, so warmup crashes at
+`torch.stack`.
+
+The patch is outside this directory so the shared glob, the gfx942 image, and
+the GLM-5.3 image cannot run it. `Dockerfile.sglang` applies it only when built
+with `--build-arg APPLY_SGLANG_PD_ROCM_REJECTION_PATCH=1`; the argument defaults
+off. Drop it when that fork either transfers `draft_probs` across PD or no
+longer selects the incompatible path implicitly.

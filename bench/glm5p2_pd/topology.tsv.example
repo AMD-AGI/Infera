@@ -1,0 +1,3 @@
+role	node	data_ip
+prefill	worker-01	10.245.0.11
+decode	worker-02	10.245.0.12

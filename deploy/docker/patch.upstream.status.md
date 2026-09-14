@@ -71,6 +71,23 @@ PD + DP-attention + MTP, i.e. **no CI covers this topology today**.
 > script accepts explicit v0.5.16 and v0.5.18 source shapes. Both apply and
 > second-run idempotence checks pass.
 
+## sglang PD fork-only — `patches/sglang_disagg_fork/`
+
+This directory is not part of the shared SGLang patch set. Its source contract
+is the xiaobochen GLM-5.2 optimization fork at `402df1e`; official v0.5.18,
+`Dockerfile.sglang.gfx942`, and `Dockerfile.sglang.glm53` must not execute it.
+`Dockerfile.sglang` applies the named patch only with
+`APPLY_SGLANG_PD_ROCM_REJECTION_PATCH=1` (default off).
+
+| patch | fixes | upstream issue | upstream PR | ours? | PR state |
+|---|---|---|---|---|---|
+| `sglang_disagg_fork/patch_pd_disable_implicit_rocm_rejection_sampling.py` | That fork implicitly enables ROCm EAGLE rejection sampling, but its PD handoff does not carry `EagleDraftInput.draft_probs` to decode, so warmup stacks `None` and crashes; leave the incompatible path off unless explicitly requested | none found for this fork | none found | — | — |
+
+Retire this patch when the pinned fork either transfers `draft_probs` across PD
+or stops enabling the path implicitly. An anchor miss remains a build failure;
+it is a signal to re-evaluate that source, not permission to apply the patch to
+another SGLang tree.
+
 ## sglang Responses API — `patches/sglang_disagg/` and `patches/sglang_responses/`
 
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
