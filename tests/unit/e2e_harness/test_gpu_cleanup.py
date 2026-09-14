@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import signal
+import subprocess
 
 import pytest
 
@@ -426,6 +427,62 @@ def test_reclaim_never_stops_inferas_own_containers(monkeypatch):
         ),
         vram={0: (280 * 1024**3, 288 * 1024**3)},
     )
+    monkeypatch.setenv("INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS", "1")
+
+    gpu_cleanup.cleanup_exclusive_gpu_processes()
+
+    assert stopped == ["someone_elses_training"]
+
+
+def _rocm_smi(monkeypatch, *, stdout, stderr="", returncode=0):
+    def run(argv, **kwargs):
+        return subprocess.CompletedProcess(argv, returncode, stdout, stderr)
+
+    monkeypatch.setattr(gpu_cleanup.subprocess, "run", run)
+
+
+def test_empty_showpids_is_no_processes_not_an_unreadable_node(monkeypatch):
+    """rocm-smi exits 0 and prints nothing when no process holds a KFD handle."""
+    _rocm_smi(monkeypatch, stdout="", stderr="WARNING: No JSON data to report\n")
+
+    assert gpu_cleanup._gpu_process_names() == {}
+
+
+def test_no_json_warning_on_stdout_is_also_empty(monkeypatch):
+    _rocm_smi(monkeypatch, stdout="WARNING: No JSON data to report\n")
+
+    assert gpu_cleanup._gpu_process_names() == {}
+
+
+def test_rocm_smi_failure_is_still_unreadable(monkeypatch):
+    _rocm_smi(monkeypatch, stdout="", returncode=1)
+
+    assert gpu_cleanup._gpu_process_names() is None
+
+
+def test_malformed_rocm_smi_json_is_still_unreadable(monkeypatch):
+    _rocm_smi(monkeypatch, stdout="{not json")
+
+    assert gpu_cleanup._gpu_process_names() is None
+
+
+def test_empty_vram_query_still_fails_closed(monkeypatch):
+    """An empty answer is fine for a process list; a node with no cards is not."""
+    _rocm_smi(monkeypatch, stdout="", stderr="WARNING: No JSON data to report\n")
+
+    assert gpu_cleanup._gpu_vram() is None
+
+
+def test_container_held_node_with_no_kfd_processes_reaches_reclaim(monkeypatch):
+    """The regression: an empty --showpids marked exactly the nodes reclaim targets dirty."""
+    stopped: list[str] = []
+    _reclaim_node(
+        monkeypatch,
+        stopped=stopped,
+        containers="someone_elses_training\trocm/pytorch\t\n",
+        vram={0: (280 * 1024**3, 288 * 1024**3)},
+    )
+    monkeypatch.setattr(gpu_cleanup, "_wait_for_process_names", lambda timeout: {})
     monkeypatch.setenv("INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS", "1")
 
     gpu_cleanup.cleanup_exclusive_gpu_processes()

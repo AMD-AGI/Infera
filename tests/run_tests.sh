@@ -615,7 +615,7 @@ _HOLD_SUBMISSIONS=0
 _hold_pair() {
   local pair="$1" script="$SCRATCH/hold.sh" jid st rs waited i other submit_out
   local cred=0 cred_count="${#_SLURM_ACCOUNT_QOS_PAIRS[@]}"
-  local account_flags=() retries=3
+  local account_flags=() retries=3 rotate=0
   # A real script file, not --wrap: on Spur --wrap always NODE_FAILs at -N2.
   printf '#!/bin/bash\nsleep %s\n' "${INFERA_E2E_HOLD_SLEEP:-10800}" > "$script"
   # No site credentials configured (e.g. stock SLURM): preserve the old three
@@ -625,6 +625,7 @@ _hold_pair() {
   [ "$cred_count" -gt 0 ] || cred_count=1
   while [ "$cred" -lt "$cred_count" ]; do
     [ "${#_SLURM_ACCOUNT_QOS_PAIRS[@]}" -gt 0 ] && _set_slurm_account_qos "$cred"
+    rotate=0
     account_flags=()
     [ -n "$_SLURM_ACCOUNT" ] && account_flags=(-A "$_SLURM_ACCOUNT" -q "$_SLURM_QOS")
     for ((i = 1; i <= retries; i++)); do
@@ -652,7 +653,7 @@ _hold_pair() {
           i=$((i - 1))
           continue
         fi
-        _accounting_blocked "$submit_out" && break
+        _accounting_blocked "$submit_out" && { rotate=1; break; }
         continue
       fi
       # `--parsable` prints "jobid" (or "jobid;cluster" when federated) on stdout,
@@ -690,8 +691,11 @@ _hold_pair() {
       done
       scancel "$jid" >/dev/null 2>&1
       echo "[e2e disagg] hold attempt $i on $pair not started (${st:-?}/${rs:-?})" >&2
-      _accounting_blocked "$rs" && break
+      _accounting_blocked "$rs" && { rotate=1; break; }
     done
+    # Only a credential refusal is fixable by the next pair. Resources/Priority
+    # means the nodes are busy, so hand back and let the caller re-pick a pair.
+    [ "$rotate" = 1 ] || break
     cred=$((cred + 1))
     [ "$cred" -lt "$cred_count" ] &&
       echo "[e2e disagg] trying the next SLURM account/QoS pair" >&2
