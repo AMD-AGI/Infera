@@ -462,7 +462,7 @@ def test_this_machine_has_one_and_the_demo_can_say_which() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# The layout duplication `examples/demo/assets/lib/store.py` carries
+# The layout duplication `examples/ok.filetree_grounded_report.4/assets/lib/store.py` carries
 
 
 def test_the_store_layout_this_package_reads_is_handoffs(tmp_path: Path) -> None:
@@ -471,7 +471,7 @@ def test_the_store_layout_this_package_reads_is_handoffs(tmp_path: Path) -> None
 
     A validator body runs as a subprocess with `inputs.json` — handoff **ids** —
     and, for a handoff it was not handed, no route to the content. So
-    `examples/demo/assets/lib/store.py` reads `<root>/<hid>/v<N>/` directly: a second
+    `examples/ok.filetree_grounded_report.4/assets/lib/store.py` reads `<root>/<hid>/v<N>/` directly: a second
     reader of a fact `handoff` owns, admissible only with a test that fails the
     day the two disagree.
 

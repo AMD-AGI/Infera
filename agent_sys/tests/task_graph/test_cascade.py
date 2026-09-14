@@ -303,7 +303,7 @@ def test_a_member_of_the_subgraph_may_consume_from_a_sibling():
     assert check_graph(task_specs(CONTAINED)) == []
 
 
-# `examples/demo2/`'s shape, reduced to the two links that matter: `main` ->
+# `examples/ok.algorithms_solve_grade.14/`'s shape, reduced to the two links that matter: `main` ->
 # `grade` -> `review`, with `review` consuming a kind `main`'s own entry
 # produces. `review` is a grandchild, so it is strictly inside `main`'s
 # subgraph and reachable only through `grade`.
@@ -332,7 +332,7 @@ NESTED = {
 
 
 def test_a_grandchild_may_consume_a_kind_produced_in_its_grandparents_subgraph():
-    """The false positive `examples/demo2/` measured. `review` consumes
+    """The false positive `examples/ok.algorithms_solve_grade.14/` measured. `review` consumes
     `problems`, which `main`'s own `problems` entry produces, and `review` is not
     one of `main`'s *direct* entries — but it is `grade`'s, and `grade` is
     `main`'s, so it is inside.

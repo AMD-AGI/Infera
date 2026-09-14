@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Status | Draft, rev. 2 |
-| Revision | 4 — 2026-08-29. **The package format is YAML and the layout changed with it** (`spec.md` rev. 7). §3's tree and §8.4's paths are updated to what is on disk; the rest of this document's prose about jsonnet is **kept as the record of a decision that was reversed**, not as a description of the tree — the reasoning is still why things are shaped as they are. Three substantive changes: the per-kind directories are gone (the directory no longer claims a kind, `module:` does), `bodies/` and `logic/` and `bin/` are gone into `assets/` where every filename is found by convention, and `examples/demo/broken/` is now the sibling package `examples/demo-broken/` because the YAML scan reaches every `*.yaml` under a root. (rev. 3: 2026-08-27. **Every task in the demo package carries a body** (§3, §4.2.1), following `closure` spec §2.6 rev. 9: `produce` and `consume` are `readme.md` + `entry.sh`, `describe` is `readme.md` alone, and the non-leaf `main` has a readme and no entry — which is what makes the entry-versus-subgraph rule visible. (rev. 2: 2026-08-27. Every task has an agent (main spec §4.8 rev. 9, `demo` spec rev. 6): §5 rewritten and D1 retired. No other section changes. (rev. 1: initial, written after the composition research for the demo module)) |
+| Revision | 4 — 2026-08-29. **The package format is YAML and the layout changed with it** (`spec.md` rev. 7). §3's tree and §8.4's paths are updated to what is on disk; the rest of this document's prose about jsonnet is **kept as the record of a decision that was reversed**, not as a description of the tree — the reasoning is still why things are shaped as they are. Three substantive changes: the per-kind directories are gone (the directory no longer claims a kind, `module:` does), `bodies/` and `logic/` and `bin/` are gone into `assets/` where every filename is found by convention, and `examples/ok.filetree_grounded_report.4/broken/` is now the sibling package `examples/fail.dangling_handoff_kind.1/` because the YAML scan reaches every `*.yaml` under a root. (rev. 3: 2026-08-27. **Every task in the demo package carries a body** (§3, §4.2.1), following `closure` spec §2.6 rev. 9: `produce` and `consume` are `readme.md` + `entry.sh`, `describe` is `readme.md` alone, and the non-leaf `main` has a readme and no entry — which is what makes the entry-versus-subgraph rule visible. (rev. 2: 2026-08-27. Every task has an agent (main spec §4.8 rev. 9, `demo` spec rev. 6): §5 rewritten and D1 retired. No other section changes. (rev. 1: initial, written after the composition research for the demo module)) |
 | Implements | [`spec.md`](spec.md) rev. 7, §6 — 17 acceptance criteria |
 | Language | Python ≥ 3.10, YAML. `ruff`, line length 100 |
 | Part of | [`../../docs/design.md`](../../docs/design.md) — the whole-system design |
@@ -55,7 +55,7 @@ one — it will be run by the whole-system CLI that does not exist yet.
 
 **So the demo is two artefacts, and the split is the enforcement of §1.1:**
 
-| | `examples/demo/` | `cli/` |
+| | `examples/ok.filetree_grounded_report.4/` | `cli/` |
 |---|---|---|
 | What | The task package: YAML specs, and the one program the program node runs | The runner: `run`, `show`, `--dry-run` |
 | Contains | No Python that any component imports; no `__init__.py`; not on `sys.path` | An ordinary top-level Python package like `handoff/` or `closure/` |
@@ -64,14 +64,14 @@ one — it will be run by the whole-system CLI that does not exist yet.
 | Imported by a component | Never — criterion 15 | Never — criterion 15 |
 
 Main design §2 projects this differently: *"`demo/` docs only — the package
-itself is `examples/demo/`"*. That projection cannot carry a console script
+itself is `examples/ok.filetree_grounded_report.4/`"*. That projection cannot carry a console script
 (§12 measured what happens when it tries), and it also weakens §1.1 — the moment
-`examples/demo/` holds an installed Python module, the example stops looking like
+`examples/ok.filetree_grounded_report.4/` holds an installed Python module, the example stops looking like
 what an out-of-repository package looks like. **§16 D2.**
 
 The rule that keeps the split honest is one sentence, and §14 tests it:
 
-> `examples/demo/` contains no file that `cli/` imports as a module.
+> `examples/ok.filetree_grounded_report.4/` contains no file that `cli/` imports as a module.
 
 `cli/` locates the package by path and hands it to `load_package` exactly as
 the whole-system CLI would hand it any other. That is criterion 16 in one line:
@@ -87,7 +87,7 @@ agent_sys/
 ├── demo/                       NEW. The runner
 │   ├── __init__.py
 │   ├── cli.py                  argparse: run | show, --dry-run. §8
-│   ├── package.py              locating examples/demo/. §12
+│   ├── package.py              locating examples/ok.filetree_grounded_report.4/. §12
 │   ├── build.py                closure -> the root Task. §6
 │   ├── events.py               Event, EventKind, SCHEMA_VERSION. §7.1
 │   ├── stream.py               the emitter; two renderers subscribe. §7.2
@@ -100,7 +100,7 @@ agent_sys/
 │       ├── spec.md
 │       └── design.md           this document
 │
-├── examples/demo/              The task package. Not installed, not imported
+├── examples/ok.filetree_grounded_report.4/              The task package. Not installed, not imported
 │   ├── README.md               what a reviewer reads before running it
 │   ├── main.yaml               MANDATORY. the outermost graph. §4.1
 │   ├── shared.yaml             what more than one step uses — the `collect` agent
@@ -117,7 +117,7 @@ agent_sys/
 │       ├── check_grounded.validator/        readme.md, entry.sh, check.py
 │       └── lib/store.py                     shared by the two validator bodies
 │
-├── examples/demo-broken/       loaded only by --dry-run --with-broken. §8.4
+├── examples/fail.dangling_handoff_kind.1/       loaded only by --dry-run --with-broken. §8.4
 │   ├── main.yaml               the dangling closure
 │   └── assets/dangling.task/readme.md
 │
@@ -149,12 +149,12 @@ agent_sys/
   ═══════════════════ the wall ═══════════════════
       NOTHING above this line is imported by any
       component.  Nothing below imports `cli`.
-      examples/demo/ is imported by nobody at all.
+      examples/ok.filetree_grounded_report.4/ is imported by nobody at all.
 ```
 
 The wall is criterion 15, and it is checked twice in §14: once by grepping every
 component package for the token `cli`, and once by asserting that
-`examples/demo/` holds no `__init__.py`.
+`examples/ok.filetree_grounded_report.4/` holds no `__init__.py`.
 
 `cli/stream.py` importing nothing is deliberate. The event stream is the
 demo's own vocabulary (§7), and a stream that imported `task_graph` would
@@ -207,7 +207,7 @@ Criteria 2, 3 and 4 fall out of that shape and are not arranged for:
 
 ### 4.2 What `produce` actually does
 
-`examples/demo/assets/produce.task/collect.py` walks a directory the closure names — by default
+`examples/ok.filetree_grounded_report.4/assets/produce.task/collect.py` walks a directory the closure names — by default
 the demo package itself — and writes a `facts` handoff: a JSON document of one
 row per file, each row `{path, lines, sha256_prefix}`, plus a `totals` object.
 
@@ -330,7 +330,7 @@ along.
 
 ### 5.1 What the demo declares
 
-The `collect` agent, in `examples/demo/shared.yaml`, is an ordinary agent spec (shown here in the jsonnet this design was written against; it is YAML now, unchanged in content):
+The `collect` agent, in `examples/ok.filetree_grounded_report.4/shared.yaml`, is an ordinary agent spec (shown here in the jsonnet this design was written against; it is YAML now, unchanged in content):
 
 ```jsonnet
 { name: 'collect', kind: 'program', version: '1',
@@ -613,20 +613,20 @@ Criterion 11's second half: *"a deliberately broken closure makes it fail with
 the offending file path"*. That collides with criterion 13 — running twice
 without hand-editing — if the broken file is in the package.
 
-`examples/demo-broken/` is a **sibling package** that the ordinary discovery pass
+`examples/fail.dangling_handoff_kind.1/` is a **sibling package** that the ordinary discovery pass
 does not reach, and `--dry-run --with-broken` adds it. One flag, two runs, no
 editing:
 
 ```
 $ demo run --dry-run                 → exit 0
 $ demo run --dry-run --with-broken   → exit 1
-    examples/demo-broken/main.yaml::$.task: closure 'dangling' names handoff
+    examples/fail.dangling_handoff_kind.1/main.yaml::$.task: closure 'dangling' names handoff
     kind 'nonexistent', which does not resolve. known kinds: facts, summary
 ```
 
 **It was a subdirectory of the package and could not stay one.** `YamlPackage`
 scans every `*.yaml` under a root except `assets/`, so a broken document anywhere
-inside `examples/demo/` would load on every ordinary run and criterion 13 would
+inside `examples/ok.filetree_grounded_report.4/` would load on every ordinary run and criterion 13 would
 be dead. Two mandatory names are what make a directory a package, so a sibling
 with both is the smallest thing that is unambiguously outside the demo.
 
@@ -874,7 +874,7 @@ first command someone types.
 **setuptools ships `.py` only.** A task package's specs are data, so from a wheel
 they simply are not there.
 
-So `cli/` is the installed package and `examples/demo/` is data found by path:
+So `cli/` is the installed package and `examples/ok.filetree_grounded_report.4/` is data found by path:
 
 ```toml
 [project.scripts]
@@ -889,7 +889,7 @@ include = ["env_mgr*", "task_graph*", "agent_sys_helper*",
 what keeps it honest:
 
 1. `--package DIR`, if given. Always wins.
-2. `<the repository root>/agent_sys/examples/demo`, derived from
+2. `<the repository root>/agent_sys/examples/ok.filetree_grounded_report.4`, derived from
    `demo.__file__`. This is the editable-install case, and criterion 1 says
    `pip install -e`.
 3. Otherwise **fail with the two paths it tried**, and the sentence *"the demo
@@ -989,7 +989,7 @@ land.
 |---|---|---|
 | 0 | *(precondition)* `task_graph` criteria 36–54 — nesting, `unfold`, `parent` | — |
 | 1 | `events.py` + `stream.py` + the two renderers | nothing. Testable alone, and everything else emits into it |
-| 2 | `examples/demo/` — the specs, `assets/produce.task/collect.py`, the two validator logics | `spec_loader`, `handoff`, `validator`, `agent`, `closure` |
+| 2 | `examples/ok.filetree_grounded_report.4/` — the specs, `assets/produce.task/collect.py`, the two validator logics | `spec_loader`, `handoff`, `validator`, `agent`, `closure` |
 | 3 | `package.py` + `test_package_loads.py` — **the CI half of §11** | 2 |
 | 4 | `build.py` + `show` | 3, step 0 |
 | 5 | `--dry-run` and the broken-closure case | 4 |
@@ -1013,7 +1013,7 @@ what was measured.
 | # | Spec says | Design does | Why |
 |---|---|---|---|
 | **D1** | ~~Criterion 7 — one node runs as a program **"with no agent at all"**~~ | **No longer a deviation.** Criterion 7 rev. 6 asks for an agent of `kind: program`, which is what the package declares | §5. Rev. 1 of this document reported the old wording as unsatisfiable and measured why: `Task.agent_spec: str` and `Execution.agent_id: AgentId` are both required and `_dispatch_pass` calls `instantiate` unconditionally, all in code that is frozen and 423-tests green. Four modules had deferred it — `agent` D1, `closure` D1, `env_mgr`'s carried notes, this one. **It was resolved by removing the gap rather than filling it**: main spec §4.8 rev. 9 makes every task have an agent and `kind` the thing that varies. The demo's program node was going to declare a `kind: program` spec either way; what changed is that it is now the specified answer rather than a workaround |
-| **D2** | Main design §2 — *"`demo/` docs only — the package itself is `examples/demo/`"* | `cli/` is an installed Python package (the runner); `examples/demo/` is specs and data, not installed | §2, §12, M13. A console script pointing into an unpackaged directory installs successfully and dies with `ModuleNotFoundError` when run. Making `examples*` an installed Python package would fix that and break something better: spec §1.1's rule that the demo uses nothing an out-of-repository package could use. The split is what makes that rule checkable — §14's `test_examples_has_no_init` |
+| **D2** | Main design §2 — *"`demo/` docs only — the package itself is `examples/ok.filetree_grounded_report.4/`"* | `cli/` is an installed Python package (the runner); `examples/ok.filetree_grounded_report.4/` is specs and data, not installed | §2, §12, M13. A console script pointing into an unpackaged directory installs successfully and dies with `ModuleNotFoundError` when run. Making `examples*` an installed Python package would fix that and break something better: spec §1.1's rule that the demo uses nothing an out-of-repository package could use. The split is what makes that rule checkable — §14's `test_examples_has_no_init` |
 | **D3** | `closure` D5 — nobody owns turning a closure into the root `Task` | `cli/build.py` owns it, in ~60 lines, and says it is in the wrong package | §6. The two named callers are this module's `show` and `--dry-run`, so the choice was to build it or to have no verbs. It moves to the whole-system CLI (TODO item 5) unchanged. **This is a component boundary crossed knowingly**, recorded so the move is a relocation and not a rediscovery |
 | **D4** | `env_mgr` §4.5.1 / design §5.2's default granted set | Three more grants: `/dev/urandom`, `/run/systemd/resolve/stub-resolv.conf`, and a zone-local temp directory | §9.1, M1–M3. Each was found by being refused, and each broke differently: a 3 ms abort blaming Bun, a 184-second hang, and a clean actionable refusal. `env_mgr` D2 already extended §4.5.1 once for the same reason; this is the second extension and it will not be the last, which is O2 |
 | **D5** | Nothing in the spec set mentions the backend's config directory | `CLAUDE_CONFIG_DIR=<zone>/config`, and no part of `$HOME` is granted beyond the backend's install directory and the CA file | §9.3, M5. Measured: with `~/.claude` granted, the confined demo agent read the operator's personal `CLAUDE.md` and changed language. A demo whose transcript depends on the reviewer's dotfiles is not reproducible, and criterion 13 is a reproducibility claim |

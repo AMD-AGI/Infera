@@ -254,7 +254,7 @@ def stage(
     So for a body both routes are now closed, and the second was already closed
     before this change — what narrowing removed is the *accidental* one, a
     manifest that happened to ride along in a directory copy. Anything relying
-    on it was relying on the accident. `examples/demo/logic/store.py` reads
+    on it was relying on the accident. `examples/ok.filetree_grounded_report.4/logic/store.py` reads
     ``AGENT_SYS_DEMO_STORE`` and walks to a manifest as its F-D5 fallback for
     *"a validator that must reach a handoff it was not handed"*; that fallback
     does not work under confinement and did not before. Naming it here because

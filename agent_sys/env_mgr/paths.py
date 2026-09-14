@@ -106,7 +106,7 @@ ZONE_ENV_VAR = "AGENT_SYS_MY_ZONE"
 #: the name is unchanged from `prepare.py`'s, where it lived alone.
 #:
 #: Our own namespace deliberately, and **not** a value any package invents for
-#: itself: `examples/demo` reads `AGENT_SYS_DEMO_PACKAGE`, which `cli/main.py`
+#: itself: `examples/ok.filetree_grounded_report.4` reads `AGENT_SYS_DEMO_PACKAGE`, which `cli/main.py`
 #: sets to the *original* checkout. Under `interfaces.md` §4.16 that path is no
 #: longer granted, so a package with its own variable must derive it from this.
 PACKAGE_ENV_VAR = "AGENT_SYS_TASK_PACKAGE"

@@ -1,4 +1,4 @@
-"""Finding `examples/demo/`, and handing it over as an ordinary task package.
+"""Finding `examples/ok.filetree_grounded_report.4/`, and handing it over as an ordinary task package.
 
 **Criterion 16 in one line: there is no privileged path because there is no
 path at all** — only a directory argument, resolved here and handed to
@@ -31,15 +31,15 @@ from spec_loader import YamlPackage
 __all__ = ["BROKEN", "PackageNotFound", "broken_package", "locate", "task_package"]
 
 #: The task package, relative to the repository checkout root.
-_RELATIVE = Path("agent_sys") / "examples" / "demo"
+_RELATIVE = Path("agent_sys") / "examples" / "ok.filetree_grounded_report.4"
 
 #: The deliberately broken package, a **sibling directory** of the demo rather
 #: than a directory inside it. `YamlPackage` scans every `*.yaml` under a root
-#: except `assets/`, so a broken document anywhere under `examples/demo/` would
+#: except `assets/`, so a broken document anywhere under `examples/ok.filetree_grounded_report.4/` would
 #: be loaded on every ordinary run — which is criterion 13's *"two runs, no
 #: hand-editing"* gone. Not reached by the ordinary pass, so criterion 13 is
 #: unaffected by its existence.
-BROKEN = "demo-broken"
+BROKEN = "fail.dangling_handoff_kind.1"
 
 
 class PackageNotFound(RuntimeError):
@@ -73,7 +73,7 @@ def locate(explicit: str | Path | None = None) -> Path:
     checkout = Path(__file__).resolve().parent.parent.parent
     for candidate in (
         checkout / _RELATIVE,
-        Path(__file__).resolve().parent.parent / "examples" / "demo",
+        Path(__file__).resolve().parent.parent / "examples" / "ok.filetree_grounded_report.4",
     ):
         if _is_package(candidate):
             return candidate
@@ -94,7 +94,7 @@ def locate(explicit: str | Path | None = None) -> Path:
 def _is_package(path: Path) -> bool:
     """A directory holding the two names that make one.
 
-    Not "the directory exists": an empty `examples/demo` left behind by a partial
+    Not "the directory exists": an empty `examples/ok.filetree_grounded_report.4` left behind by a partial
     checkout would then resolve and load zero specs, and a package that loads
     nothing is indistinguishable from a package that loaded — which is
     `docs/interfaces.md` §4.11's rule, applied to discovery.
@@ -121,5 +121,5 @@ def task_package(root: Path, **variables: str) -> YamlPackage:
 
 
 def broken_package(root: Path, **variables: str) -> YamlPackage:
-    """`examples/demo-broken/`, for `--dry-run --with-broken` only."""
+    """`examples/fail.dangling_handoff_kind.1/`, for `--dry-run --with-broken` only."""
     return task_package(root.parent / BROKEN, **variables)

@@ -108,7 +108,7 @@ def substitute(
     A reference to a variable that is neither supplied nor defaulted is a fault
     rather than a value left literal. `${NOPE}/readme.md` left alone is a path
     that resolves to nothing later, in another module, with nothing to say why —
-    and `examples/demo`'s own history has the version of that bug where an
+    and `examples/ok.filetree_grounded_report.4`'s own history has the version of that bug where an
     unfilled value concatenated to `'' + "/leak.txt"` and produced a plausible
     absolute path that demonstrated nothing (`demo/lib/demo.libsonnet`).
 

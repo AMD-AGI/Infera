@@ -1071,7 +1071,7 @@ def test_the_switch_does_not_move_a_body_s_input(ctx, monkeypatch, tmp_path) -> 
 
     Widening moves every staged input **down one level** — the artefact's files
     land at `<materials>/<hid>/v<N>/content/…` instead of at
-    `<materials>/<hid>/v<N>/…`. `examples/demo/bin/render.py:67` reads the narrow
+    `<materials>/<hid>/v<N>/…`. `examples/ok.filetree_grounded_report.4/bin/render.py:67` reads the narrow
     shape, so the switch would break a body **by moving its input**, and it
     would present as a body reading one level short rather than as a switch.
 

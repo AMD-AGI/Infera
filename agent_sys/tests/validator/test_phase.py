@@ -205,7 +205,7 @@ def test_a_task_with_no_output_has_nothing_unchecked(
 
     §4.15's sentence is *nothing checked what this task **produced***. A task
     that produced nothing has nothing unchecked, so this is not the fault — and
-    the wide reading is not a theoretical difference: `examples/demo/closures/`
+    the wide reading is not a theoretical difference: `examples/ok.filetree_grounded_report.4/closures/`
     gives `main` (`outputs: []`, `validators: []`) and `consume` (`outputs: []`,
     one validator declared), so it would block the demo's **root** task and end
     the run before it started.

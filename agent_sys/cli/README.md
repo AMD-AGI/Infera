@@ -8,13 +8,13 @@
 
 ```
 demo/                    the RUNNER — installed, and where [project.scripts] points
-examples/demo/           the TASK PACKAGE — YAML and data, not installed, imported by nobody
-examples/demo-broken/    a SECOND package, deliberately broken. Only --with-broken loads it
+examples/ok.filetree_grounded_report.4/           the TASK PACKAGE — YAML and data, not installed, imported by nobody
+examples/fail.dangling_handoff_kind.1/    a SECOND package, deliberately broken. Only --with-broken loads it
 ```
 
 Two artefacts, and **the split is the enforcement** of spec §1.1's rule that the
 demo may use nothing an out-of-repository task package could not use. The moment
-`examples/demo/` holds an `__init__.py` it is importable and the example stops
+`examples/ok.filetree_grounded_report.4/` holds an `__init__.py` it is importable and the example stops
 looking like what an out-of-repository package looks like;
 `test_examples_has_no_init` is what notices.
 
@@ -33,7 +33,7 @@ retrofitted stops being evidence — so this is the map:
 | `logic/store.py` | `assets/lib/store.py` |
 | `bin/collect.py`, `bin/render.py` | `assets/produce.task/collect.py`, `assets/consume.task/render.py` — beside the body that execs them |
 | `agents/compose.jsonnet` | **deleted.** A non-leaf declares no agent; `task_graph` supplies `SUBGRAPH_AGENT_SPEC` |
-| `broken/closures/dangling.jsonnet` | `../demo-broken/main.yaml` — a sibling *package*, because the YAML scan reaches every `*.yaml` under a root |
+| `broken/closures/dangling.jsonnet` | `../fail.dangling_handoff_kind.1/main.yaml` — a sibling *package*, because the YAML scan reaches every `*.yaml` under a root |
 | the `config` fill: `package_root`, `store_root`, `outside` | one variable, `${outside}` |
 
 **The run is byte-for-byte the same afterwards — measured, not argued.** The
@@ -65,7 +65,7 @@ agent-sys run                      # the whole thing. Needs credentials and a sa
 agent-sys run --resume             # continue the last run
 agent-sys run --clean              # remove every run and exit
 
-agent-sys show --package agent_sys/examples/demo2 --var n_problems=2
+agent-sys show --package agent_sys/examples/ok.algorithms_solve_grade.14 --var n_problems=2
 ```
 
 ### `--package` and `--var` — the two things that make this generic
@@ -80,7 +80,7 @@ package's runner. Two flags carry that, and both are on `show` and on `run`:
 
 `--var` replaced a hardcoded `outside=` keyword, which was the entire variable
 channel: a package could declare `${n_problems:-12}` and had no way to be told
-otherwise. `examples/demo2` declares three such knobs, so a cheap bring-up run
+otherwise. `examples/ok.algorithms_solve_grade.14` declares three such knobs, so a cheap bring-up run
 of it is `--var n_problems=2 --var n_extra=2` and the full run is the default.
 
 **`outside` is refused from `--var`, by name.** It is per-run and absolute and
@@ -101,7 +101,7 @@ preparing a run.
 
 `build.py`, `environment.py`, `package.py` and `render/` name no closure, no
 handoff kind and no validator. The **expected-failure accounting** did: what
-`examples/demo` promises will go wrong is `consume`, `check_grounded` and
+`examples/ok.filetree_grounded_report.4` promises will go wrong is `consume`, `check_grounded` and
 `summary`, and those three words were in `cli/main.py`.
 
 They are now in `cli/expectations.py`, a table keyed by **package directory
@@ -111,7 +111,7 @@ CLI — and the module docstring says so and says what a future fix looks like: 
 change on both sides of a module seam, so it is out of scope here.
 
 **An empty set is a statement, not a gap.** It says *this package promises
-nothing will fail*, which is `examples/demo2`'s whole claim, and it exits `OK`
+nothing will fail*, which is `examples/ok.algorithms_solve_grade.14`'s whole claim, and it exits `OK`
 rather than `UNEXPECTED_SUCCESS`. The run's own report keeps the two apart —
 *"promises no failure, so nothing here was tested for one"* rather than
 *"0 of 0 expected failures observed"* — because `ok: true` is the same byte for
@@ -348,7 +348,7 @@ independently and neither invented a call site; in both branches the caller is
 whoever prepares the zone, which is none of the three of us.
 
 **Worked around:** `validation_env` carries the store root and
-`examples/demo/logic/store.py` reads the store's on-disk layout — a **second
+`examples/ok.filetree_grounded_report.4/logic/store.py` reads the store's on-disk layout — a **second
 reader of a fact `handoff` owns**, so
 `test_the_store_layout_this_package_reads_is_handoffs` asserts it against
 `handoff.version_dir` itself. `interfaces.md` §8.1's price, paid.
@@ -372,7 +372,7 @@ It needed no new component and no §5.8 branch: `prepare_validation` already
 `.root` and discarding `.materials`. The third option neither of us listed was
 that the value was already being received.
 
-`examples/demo/logic/store.py::materials` reads it and the bodies prefer it, so
+`examples/ok.filetree_grounded_report.4/logic/store.py::materials` reads it and the bodies prefer it, so
 **a body reading its own inputs now needs to know neither that a store exists
 nor where it is.** Two residues, both reported and neither worked around:
 
@@ -992,7 +992,7 @@ measurement inside one run:
 ```
 output_absent | agent.Runner |
   exit_status: "failed"
-  detail: "exit 2: /bin/sh: 0: cannot open …/examples/demo/bodies/produce/entry.sh:
+  detail: "exit 2: /bin/sh: 0: cannot open …/examples/ok.filetree_grounded_report.4/bodies/produce/entry.sh:
            Permission denied"
 ```
 
@@ -1644,7 +1644,7 @@ first phase, the unfold, and `produce`'s zone placement, and stopped at F-D12:
 
 ```
   confined  confinement is available and the backend answered: 'ready'    landlock
-   package  loaded 1 task package(s) from .../examples/demo
+   package  loaded 1 task package(s) from .../examples/ok.filetree_grounded_report.4
       done  the graph stopped making progress 20 s ago; still in a phase: main:running
      graph  4 tasks: 1 root and 3 subtasks
      phase  produce: input validation runs nothing
@@ -1782,7 +1782,7 @@ reviewer.
 | **D8** | §3's tree puts the validator logic at `logic/check_facts.py` | `logic/<name>/{readme.md, entry.sh, check.py}` | `validator` spec §9.1 makes a validator a **folder** carrying its readme, its entry and its material, and a body needs all three. One directory per validator is that shape; a bare `.py` beside a `.jsonnet` is not |
 | **D9** | Nothing in the design mentions `validation_env` | `cli/main.py` registers it | F-D5. Without it a script-bodied validator has no `PATH`, and the demo's two validators are both script-bodied |
 | **D10** | ~~§4.1 shows three subtasks and does not say what agent `main` has~~ | **RETIRED, 29 Aug.** `main` declares no agent | The deviation existed because *every task has an agent* forced a name for something that executes nothing, and `compose`'s whole description was that it executes nothing. `closure.schema.json` now requires `agent` of a leaf and of nothing else and `task_graph` supplies `SUBGRAPH_AGENT_SPEC`, so the hand-written spec is deleted rather than converted — a system-owned structural name is also *more* truthful than `compose`, since a run report printed `agent='compose'` for `main`, indistinguishable from a real executor |
-| **D11** | §3's tree and `spec.md` §1.1 say the demo is *the only task package in this repository* | `examples/demo-broken/` is a second one | Forced, not chosen. `YamlPackage` scans every `*.yaml` under a root except `assets/`, so criterion 11's broken closure cannot live inside the demo without loading on every run and killing criterion 13. It was already described as *"a sibling package"* while being a subdirectory; it is now literally one |
+| **D11** | §3's tree and `spec.md` §1.1 say the demo is *the only task package in this repository* | `examples/fail.dangling_handoff_kind.1/` is a second one | Forced, not chosen. `YamlPackage` scans every `*.yaml` under a root except `assets/`, so criterion 11's broken closure cannot live inside the demo without loading on every run and killing criterion 13. It was already described as *"a sibling package"* while being a subdirectory; it is now literally one |
 
 Still open, and not this package's to close: `interfaces.md` §5.1b (nobody wraps
 `materials` into a handoff), §5.4 (which reference kinds *who uses this*

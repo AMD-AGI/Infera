@@ -434,7 +434,7 @@ def test_a_staged_input_is_exported_under_its_declared_kind() -> None:
     oversight was already in the code: `prepare` called `stage_handoffs`, which
     returns handoff id → staged path, and **discarded the mapping**. The only
     remaining way to find a staged input was to parse this module's directory
-    layout, which `examples/demo/logic/store.py` had already become a reader of.
+    layout, which `examples/ok.filetree_grounded_report.4/logic/store.py` had already become a reader of.
     """
     hid = HandoffId.new()
     task = Task(inputs=[hid], kinds={hid: "summary"})

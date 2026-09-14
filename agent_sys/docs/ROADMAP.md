@@ -587,7 +587,7 @@ disconnected caller, not a deleted module, and re-wiring it is one line.
 ### Why it was disabled
 
 It **refused a correct artefact, and would have refused every correct one.** On
-the first end-to-end run of `examples/single_real_task` the seal rejected the
+the first end-to-end run of `examples/ok.sglang_real_model.2` the seal rejected the
 agent's reproduction kit at `README.md:42`, on this line:
 
     `"POST /v1/chat/completions HTTP/1.1" 200 OK`
@@ -711,7 +711,7 @@ measurements instead of from the same instincts.
 
 ### The measurement that prompted it
 
-The UI stage's goal was `examples/demo` converted to YAML and **running end to
+The UI stage's goal was `examples/ok.filetree_grounded_report.4` converted to YAML and **running end to
 end**. With permissions enforced it does not:
 
 ```
@@ -957,8 +957,8 @@ row.
 **Why not today, measured rather than assumed:**
 
 ```
-examples/demo/validators/check_facts.yaml        entry: logic/check_facts/entry.sh
-examples/demo/validators/check_grounded.yaml     entry: logic/check_grounded/entry.sh
+examples/ok.filetree_grounded_report.4/validators/check_facts.yaml        entry: logic/check_facts/entry.sh
+examples/ok.filetree_grounded_report.4/validators/check_grounded.yaml     entry: logic/check_grounded/entry.sh
 ```
 
 **Both of the demo's validators are script-bodied.** No AI validator runs in the

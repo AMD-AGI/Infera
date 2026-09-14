@@ -118,7 +118,7 @@ def _parse_variables(top: argparse.ArgumentParser, raw: Sequence[str] | None) ->
     **What replaced a hardcoded keyword.** `_registry` used to call
     `package.task_package(root, outside=...)`, and that one word was the whole
     variable channel: a package could declare `${n_problems:-12}` and had no way
-    to be told otherwise. `examples/demo2` declares three such knobs, and a
+    to be told otherwise. `examples/ok.algorithms_solve_grade.14` declares three such knobs, and a
     cheap bring-up run of it is `--var n_problems=2`.
 
     Both faults are `parser.error`, which is argparse's own usage failure: it
@@ -165,7 +165,7 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--with-broken",
         action="store_true",
-        help="also load examples/demo-broken/, a sibling package that is deliberately broken",
+        help="also load examples/fail.dangling_handoff_kind.1/, a sibling package that is deliberately broken",
     )
     run.add_argument("--resume", action="store_true", help="continue the last run")
     run.add_argument(
@@ -894,7 +894,7 @@ def _registry(
                 # Criterion 8's leak target, and the only route it has: it is
                 # per-run and absolute, and nothing in `Prepared.environment`
                 # takes a value from here (F-D17). See the `describe` agent's
-                # `env` block in `examples/demo/steps/describe.yaml`.
+                # `env` block in `examples/ok.filetree_grounded_report.4/steps/describe.yaml`.
                 #
                 # **The only variable the CLI itself supplies.** `package_root` and
                 # `store_root` used to be passed beside it: the first filled body
@@ -1672,7 +1672,7 @@ def _strict(
 
     **And it is applied only to the empty set, which is a gap and not an
     oversight.** A package with promises has declared what its own ending looks
-    like, and `examples/demo`'s ending is a task deliberately left in
+    like, and `examples/ok.filetree_grounded_report.4`'s ending is a task deliberately left in
     `WAITING_HANDOFF` and a handoff deliberately never made valid — every one of
     which `_completion_gaps` names. So a generic completion rule applied there
     would contradict the package's own specification. What is missing is the

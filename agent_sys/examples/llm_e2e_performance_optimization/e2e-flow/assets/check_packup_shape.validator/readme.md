@@ -1,6 +1,6 @@
 # check_packup_shape
 
-Completeness, `strong`. Adapted from `single_real_task`'s validator of the same
+Completeness, `strong`. Adapted from `ok.sglang_real_model.2`'s validator of the same
 name, against the same layout reference.
 
 ## Presence is not enough, and the reason is measurable
@@ -31,7 +31,7 @@ an empty directory behind.
 
 ## What it does not check
 
-That the commands work. `single_real_task` pairs its shape check with an
+That the commands work. `ok.sglang_real_model.2` pairs its shape check with an
 `external_dynamic` validator that hands a fresh Claude Code session the packup and
 nothing else, and sees whether it reproduces. That validator is the natural next
 addition here and is not yet written; the design records it as the one place in

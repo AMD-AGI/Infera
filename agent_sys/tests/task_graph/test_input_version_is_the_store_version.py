@@ -17,7 +17,7 @@ between them has no owner. This is the third place in one stage where a caller
 spent one as the other, after `validator.PhaseRunner._targets`' output branch and
 its input branch.
 
-**Measured** on the first full `examples/demo2` run to reach the last task
+**Measured** on the first full `examples/ok.algorithms_solve_grade.14` run to reach the last task
 (`scratch/demo2-2026-08/runs/full3.log`), handoff `52c75d0a`, kind `scores`:
 store `v0` a hole, store `v1` published, the non-leaf `grade` pinned v0 and never
 wrote it, its end entry `score` wrote v1 — and `optimise` recorded
@@ -25,7 +25,7 @@ wrote it, its end entry `score` wrote v1 — and `optimise` recorded
 
 **The counters agree whenever every handoff is dispatched exactly once**, which
 is every graph this repository had before a non-leaf declared an output. So
-`examples/demo/` cannot show this and neither can a fixture built to its shape,
+`examples/ok.filetree_grounded_report.4/` cannot show this and neither can a fixture built to its shape,
 which is why the first test below asserts the divergence before anything else
 looks at it (`interfaces.md` §8.11g).
 
@@ -108,7 +108,7 @@ def registry(store: FilesystemStore) -> Any:
 
 @pytest.fixture
 def diverged(registry: Any, store: FilesystemStore):
-    """`examples/demo2`'s state at the moment `optimise` was dispatched.
+    """`examples/ok.algorithms_solve_grade.14`'s state at the moment `optimise` was dispatched.
 
     A non-leaf and its end entry declare one handoff as an output — which is not
     a contrivance: `models.py::_instantiate` gives the end entry *the parent's

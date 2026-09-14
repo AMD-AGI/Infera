@@ -71,7 +71,7 @@ docker run -d --name agent-sys \
 docker exec -it agent-sys bash
 
 # Or pass commands through
-docker exec agent-sys agent-sys show --package /opt/Infera/agent_sys/examples/demo
+docker exec agent-sys agent-sys show --package /opt/Infera/agent_sys/examples/ok.filetree_grounded_report.4
 ```
 
 A convenience script is provided at the repository root:
@@ -134,7 +134,7 @@ docker exec agent-sys python3 -m pytest -q /opt/Infera/agent_sys
 
 docker exec agent-sys \
   agent-sys run --dry-run \
-    --package /opt/Infera/agent_sys/examples/demo
+    --package /opt/Infera/agent_sys/examples/ok.filetree_grounded_report.4
 ```
 
 ## Exit codes

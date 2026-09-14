@@ -204,7 +204,7 @@ nobody notices."*
 ## 8. What is deliberately not settled here
 
 - **`env_mgr/recipes/*.yaml` do not ship in a wheel.** `recipes: [serena]` in
-  `examples/env_checker` cannot resolve from a wheel install. Recorded in
+  `examples/ok.agent_capabilities.2` cannot resolve from a wheel install. Recorded in
   `temp/bugs/2026-09-04-*`; the one-line `package-data` candidate is unrun.
 - **Cross-layer version conflicts** — §2.1.
 - **A registry sweep for runs killed by a signal** — `TODO.md` 4j.

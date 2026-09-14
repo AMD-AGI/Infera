@@ -302,7 +302,7 @@ def test_instruct_refuses_once_the_loop_has_returned() -> None:
     """**A push into a dead queue is a silent deadlock, and it cost 65 minutes.**
 
     Measured 2026-08-31 on the first end-to-end run of
-    `examples/single_real_task`: the agent finished, the seal was refused, the
+    `examples/ok.sglang_real_model.2`: the agent finished, the seal was refused, the
     monitor decided to push *continue, do it until finished*, `PUSH_ATTEMPTED`
     was written to the store — and the message was never read. `mainloop` had
     already broken out on terminal status (`backend.py:410-413`), and

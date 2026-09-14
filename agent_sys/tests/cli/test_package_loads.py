@@ -252,7 +252,7 @@ def test_broken_closure_names_its_file(tmp_path: Path) -> None:
     broken file is in the package — so it is a **sibling package** the ordinary
     discovery pass does not reach, behind one flag. Two runs, no editing.
 
-    It used to be `examples/demo/broken/`, a subdirectory. `YamlPackage` scans
+    It used to be `examples/ok.filetree_grounded_report.4/broken/`, a subdirectory. `YamlPackage` scans
     every `*.yaml` under a root except `assets/`, so that would now load on every
     ordinary run; a sibling directory with its own `main.yaml` and `assets/` is
     the smallest thing that is unambiguously not part of the demo."""
@@ -262,7 +262,7 @@ def test_broken_closure_names_its_file(tmp_path: Path) -> None:
     rejected = stream.of_kind(EventKind.SPEC_REJECTED)
     assert len(rejected) == 1
     message = rejected[0].message
-    assert "demo-broken/main.yaml" in message
+    assert "fail.dangling_handoff_kind.1/main.yaml" in message
     assert "nonexistent" in message  # the kind, named
     # A cross-registry fault: no schema can catch it, and the message says which
     # kinds *do* exist rather than only that this one does not.
@@ -390,7 +390,7 @@ def test_no_fake_backend_exists(package_root: Path) -> None:
     ]
     # And the runner substitutes nothing: `demo/` never names the fake, so there
     # is no branch that could reach for it.
-    for source in (REPO / "demo").rglob("*.py"):
+    for source in (REPO / "ok.filetree_grounded_report.4").rglob("*.py"):
         tree = ast.parse(source.read_text(), filename=str(source))
         imported = {
             alias.name
@@ -451,7 +451,7 @@ def test_no_component_names_the_token_at_all(tmp_path: Path) -> None:
 
 
 def test_examples_has_no_init(package_root: Path) -> None:
-    """`examples/demo/` is **data**, not a Python package.
+    """`examples/ok.filetree_grounded_report.4/` is **data**, not a Python package.
 
     This is what makes spec §1.1's rule checkable rather than a promise: the
     moment it holds an `__init__.py` it is importable, and the example stops
@@ -461,7 +461,8 @@ def test_examples_has_no_init(package_root: Path) -> None:
     `demo` design D2 is the split that resolves both.
     """
     assert not list(package_root.rglob("__init__.py"))
-    assert (package_root.parent.name, package_root.name) == ("examples", "demo")
+    assert (package_root.parent.name, package_root.name) == (
+        "examples", "ok.filetree_grounded_report.4")
 
 
 def test_the_examples_tree_is_not_installed() -> None:
@@ -481,7 +482,7 @@ def test_the_examples_tree_is_not_installed() -> None:
 
 def test_the_package_imports_no_component(package_root: Path) -> None:
     """The other direction of the wall, and the one design §2 states as a rule:
-    *`examples/demo/` contains no file that `demo/` imports as a module* — and,
+    *`examples/ok.filetree_grounded_report.4/` contains no file that `demo/` imports as a module* — and,
     symmetrically, nothing in it reaches into `agent_sys`.
 
     The programs there are run as subprocesses and told what they need through
@@ -599,7 +600,7 @@ def test_python_target_is_310(package_root: Path) -> None:
     """
     assert sys.version_info >= (3, 10)
     banned = {"StrEnum", "Self", "assert_never", "TypeVarTuple", "override"}
-    for source in [*(REPO / "demo").rglob("*.py"), *package_root.rglob("*.py")]:
+    for source in [*(REPO / "ok.filetree_grounded_report.4").rglob("*.py"), *package_root.rglob("*.py")]:
         tree = ast.parse(source.read_text(), filename=str(source))
         used = {
             node.id

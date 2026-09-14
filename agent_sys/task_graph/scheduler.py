@@ -305,7 +305,7 @@ class Scheduler:
         is `HandoffMgr`'s **slot** version. One field, two currencies, merged
         into one dictionary.
 
-        **Measured, on the first full `examples/demo2` run that reached the end**
+        **Measured, on the first full `examples/ok.algorithms_solve_grade.14` run that reached the end**
         (`scratch/demo2-2026-08/runs/full3.log`). Handoff `52c75d0a`, kind
         `scores`:
 
@@ -326,7 +326,7 @@ class Scheduler:
 
         They agree whenever every handoff is dispatched exactly once, which is
         every graph this repository had before a non-leaf declared an output —
-        so `examples/demo/` cannot show it and neither can any fixture built to
+        so `examples/ok.filetree_grounded_report.4/` cannot show it and neither can any fixture built to
         its shape.
 
         **`store.latest`, not `list_versions()[-1]`**: it filters on the

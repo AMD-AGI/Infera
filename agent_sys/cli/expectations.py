@@ -3,7 +3,7 @@
 **This file is a compromise and says so.** `cli/` is the program's single entry
 point over *any* task package, and everything else in it — `build.py`,
 `environment.py`, `package.py`, `render/` — names no closure, no handoff kind
-and no validator. This table names three of `examples/demo`'s: the closure
+and no validator. This table names three of `examples/ok.filetree_grounded_report.4`'s: the closure
 `consume`, the validator `check_grounded` and the kind `summary`. **A package
 name appearing in the CLI is a leak**, and enumerating it here does not stop
 being one just because it is now in a file of its own; what it buys is that the
@@ -22,10 +22,10 @@ observed_when, judged_when}]` where the two conditions are expressed in terms
 the loader already has (a closure name and a task status; a validator name, a
 handoff kind and a result). `for_package` then becomes a read of the loaded
 registry instead of a dict lookup, this module keeps only `EMPTY` and the two
-NamedTuples, and the `demo` entry below moves into `examples/demo/main.yaml`.
+NamedTuples, and the `demo` entry below moves into `examples/ok.filetree_grounded_report.4/main.yaml`.
 
 **The default is `EMPTY`, and an empty set is a statement rather than a gap.**
-It says *this package promises nothing will fail* — which for `examples/demo2`
+It says *this package promises nothing will fail* — which for `examples/ok.algorithms_solve_grade.14`
 is the whole claim its run makes. It does **not** say every promise was kept:
 see `main._strict`, which reports the two differently, because "no promise was
 tested" and "every promise held" are the same green and different facts.
@@ -109,7 +109,7 @@ EMPTY = ExpectationSet({}, {}, _nothing_from_task, _nothing_from_verdict)
 
 
 # --------------------------------------------------------------------------- #
-# examples/demo — the first reference package
+# examples/ok.filetree_grounded_report.4 — the first reference package
 
 
 def _grounded_verdict_exists(registry: Any) -> bool:
@@ -187,7 +187,7 @@ def _demo_verdict(verdict: Any, handoff: Any) -> str | None:
     return None
 
 
-#: What `examples/demo` promises will go wrong, and therefore what it FAILS for
+#: What `examples/ok.filetree_grounded_report.4` promises will go wrong, and therefore what it FAILS for
 #: if it does not. `demo` design §7.5, and pytest's vocabulary adopted directly:
 #: these are `xfail(strict=True)`, so an expected failure that passes is a
 #: failure.
@@ -207,7 +207,7 @@ _DEMO_PROMISES = {
     ),
 }
 
-#: Validations `examples/demo` deliberately did **not** perform, and why.
+#: Validations `examples/ok.filetree_grounded_report.4` deliberately did **not** perform, and why.
 #:
 #: `docs/interfaces.md` §4.17 — *a green run that is itself the corruption*. The
 #: vocabulary already separated three outcomes: observed, **did not happen**
@@ -241,7 +241,7 @@ DEMO = ExpectationSet(_DEMO_PROMISES, _DEMO_DROPPED, _demo_task, _demo_verdict)
 
 
 # --------------------------------------------------------------------------- #
-# examples/demo-runtime-grounding-fail — deterministic grounding violation
+# examples/fail.ungrounded_number.4 — deterministic grounding violation
 #
 # Pure-program version of demo's check_grounded failure. `transform` writes a
 # summary containing "99999", which does not appear in the facts manifest.
@@ -298,7 +298,7 @@ RT_GROUNDING = ExpectationSet(
 
 
 # --------------------------------------------------------------------------- #
-# examples/demo-runtime-fanout-partial — fan-out partial failure
+# examples/fail.fanout_partial.5 — fan-out partial failure
 #
 # Three producers fan out; emit_b writes rows missing a required field.
 # check_thing detects the missing key → FAIL → thing_b sealed INVALID →
@@ -354,7 +354,7 @@ RT_FANOUT = ExpectationSet(
 
 
 # --------------------------------------------------------------------------- #
-# examples/demo-runtime-disagree — body succeeds, content disagrees
+# examples/fail.judge_disagreement.5 — body succeeds, content disagrees
 #
 # Two reviewers produce well-formed reviews but disagree on student_a.
 # reconcile merges them (exit 0), check_agree detects the non-empty
@@ -410,13 +410,13 @@ RT_DISAGREE = ExpectationSet(
 
 
 #: Package directory name -> what that package promises. **Absent means `EMPTY`**,
-#: so `examples/demo2` needs no entry: it promises that nothing will fail, which
+#: so `examples/ok.algorithms_solve_grade.14` needs no entry: it promises that nothing will fail, which
 #: is a complete statement and the one its run makes.
 _BY_PACKAGE: dict[str, ExpectationSet] = {
-    "demo": DEMO,
-    "demo-runtime-grounding-fail": RT_GROUNDING,
-    "demo-runtime-fanout-partial": RT_FANOUT,
-    "demo-runtime-disagree": RT_DISAGREE,
+    "ok.filetree_grounded_report.4": DEMO,
+    "fail.ungrounded_number.4": RT_GROUNDING,
+    "fail.fanout_partial.5": RT_FANOUT,
+    "fail.judge_disagreement.5": RT_DISAGREE,
 }
 
 

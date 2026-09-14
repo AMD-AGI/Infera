@@ -110,7 +110,7 @@ class PhaseOutcome:
           §4.15's first row, and the reason the fault rule cannot be read as the
           knob deciding an outcome;
         - the task has **no handoff in this position**, so there was nothing to
-          check. `main` and `consume` in `examples/demo/closures/` are both this:
+          check. `main` and `consume` in `examples/ok.filetree_grounded_report.4/closures/` are both this:
           `outputs: []`. §4.15's sentence is *nothing checked what this task
           **produced***, and a task that produced nothing has nothing unchecked —
           the narrow reading, taken deliberately and reported, because the wide

@@ -27,7 +27,7 @@ import sys
 #: ENVCHK_SALT: 48d7f4c12e751bebb631ff42ffe54656
 SALT = "48d7f4c12e751bebb631ff42ffe54656"
 
-#: Which of `examples/env_checker`'s six capabilities this one is.
+#: Which of `examples/ok.agent_capabilities.2`'s six capabilities this one is.
 LABEL = "mcp_external"
 
 #: Which of the two install routes delivered it. This file is not copied

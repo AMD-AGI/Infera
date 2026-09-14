@@ -229,7 +229,7 @@ PERMS = Permissions(
 )
 
 # Each sub-closure declares **its own** grants, covering its own handoffs and
-# nothing else — which is the shape a real package has: `examples/demo`'s three
+# nothing else — which is the shape a real package has: `examples/ok.filetree_grounded_report.4`'s three
 # sub-closures each name exactly the kinds they touch.
 CATALOGUE = {
     "pipeline": closure_doc(

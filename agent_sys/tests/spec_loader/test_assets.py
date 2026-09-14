@@ -211,7 +211,7 @@ def test_two_objects_of_different_kinds_may_share_a_name(builder: PackageBuilder
     """`${type}` is what disambiguates them, and it must actually work.
 
     The registries are per kind, so `describe` may be both an agent and a task —
-    `examples/demo` has exactly that pair. Without the type token their assets
+    `examples/ok.filetree_grounded_report.4` has exactly that pair. Without the type token their assets
     would collide and both would crash.
     """
     builder.asset("describe.task.md", "the task")

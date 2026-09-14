@@ -405,7 +405,7 @@ def input_env(task: Any, staged: Mapping[Any, str]) -> dict[str, str]:
     `engineer_principle.md` §4.4's named smell in the direction that hurts —
     discarding an association the module had in hand, leaving the only way to
     find a staged input to be parsing this module's directory layout, which
-    `examples/demo/logic/store.py` had already become the second reader of.
+    `examples/ok.filetree_grounded_report.4/logic/store.py` had already become the second reader of.
 
     The value is the **staged copy in the zone**, not the store path, because
     spec §6.3 rule 2 is that an agent works on a copy — the store path is a

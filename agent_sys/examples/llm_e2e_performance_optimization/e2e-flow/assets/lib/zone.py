@@ -5,10 +5,10 @@
 `materials.json`, `verdict.json`. A validator body is started with `cwd` set to
 a freshly allocated zone holding the first three, and it owes the fourth.
 
-**This is deliberately not `examples/demo2/assets/lib/store.py`.** That module
+**This is deliberately not `examples/ok.algorithms_solve_grade.14/assets/lib/store.py`.** That module
 reads `handoff`'s on-disk store layout directly — version-directory naming, the
 manifest filename, the `content/` hop — through `AGENT_SYS_DEMO_STORE`, and it
-is admissible there only because it is a verbatim copy of `examples/demo`'s and
+is admissible there only because it is a verbatim copy of `examples/ok.filetree_grounded_report.4`'s and
 `tests/cli/test_isolation_shown.py` pins *that* copy against `handoff`'s real
 constants. A third copy here would be a third reader of a layout `handoff` owns,
 and an unpinned one.
@@ -23,7 +23,7 @@ package's only phase, so a body reaching for the store root would die on
 
 There is one consequence and it is stated rather than worked around: a check
 that must reach a handoff it was *not* handed cannot be written with this
-module. That is F-D5 (`examples/demo/README.md`) and neither check here is one.
+module. That is F-D5 (`examples/ok.filetree_grounded_report.4/README.md`) and neither check here is one.
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ def materials() -> dict[str, Path]:
     """The staged copies of what this phase validates, **by handoff id**.
 
     Written unconditionally (`validator/phase.py:269`), so an empty mapping is a
-    record rather than an absence. It is a JSON **object**; `demo2`'s copy of
+    record rather than an absence. It is a JSON **object**; `ok.algorithms_solve_grade.14`'s copy of
     this idea read it as a list once and every lookup silently missed.
     """
     path = Path("materials.json")

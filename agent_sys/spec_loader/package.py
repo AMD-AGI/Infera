@@ -105,7 +105,7 @@ _MODULES: Mapping[str, str] = {
 #: **`inputs` is absent too, and that one is a measurement.** A validator's
 #: `inputs` names handoff kinds and a handoff's `validators` names validators, so
 #: the two keys are a **cycle in the reference graph** — not a hypothetical one:
-#: in `examples/demo/steps/produce.yaml` the handoff `facts` says
+#: in `examples/ok.filetree_grounded_report.4/steps/produce.yaml` the handoff `facts` says
 #: `validators: [check_facts]` and the validator `check_facts` says
 #: `inputs: [facts]`, **in one file**. With both keys in this set, no ordering of
 #: those two objects is legal, and the rule would forbid a package the system
@@ -564,7 +564,7 @@ def _order_problems(documents: Sequence[SpecDocument], *, origin: str) -> list[P
     the package-format requirement §1.1.2, and the scope is the finding.
 
     **Within a file, not across the package**, and that is measured rather than
-    chosen for convenience. `examples/demo` is the only real package in the tree,
+    chosen for convenience. `examples/ok.filetree_grounded_report.4` is the only real package in the tree,
     and no total file order satisfies its own reference graph: sorted by path,
     `closures/produce` (index 4) references `handoffs/facts` (5) and
     `validators/check_facts` (7); reversed, it references `agents/collect`, which

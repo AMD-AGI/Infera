@@ -593,7 +593,7 @@ def test_no_member_of_a_claude_tree_is_ever_imported_into_the_supervisor(
 
     # **And inert.** Nothing under either the source tree or the placed copy is
     # in `sys.modules`. Both roots, because "load the placed copy, not the
-    # source" was the property `env_checker` lost -- importing either is the
+    # source" was the property `ok.agent_capabilities.2` lost -- importing either is the
     # defect, and naming only one would let the other through.
     leaked = [
         (name, origin)

@@ -459,13 +459,13 @@ def test_a_name_defined_in_another_file_is_not_a_forward_reference(
 ) -> None:
     """**The rule is within a file, and this is the measurement that says why.**
 
-    `examples/demo` is the only real package in the tree and no total file order
+    `examples/ok.filetree_grounded_report.4` is the only real package in the tree and no total file order
     satisfies its own reference graph: sorted by path, `closures/produce`
     references `handoffs/facts` and `validators/check_facts`, both later;
     reversed, it references `agents/collect`, which is then last. Ordering by
     kind fails too, because a handoff names its validators and a validator names
     its input handoff kinds — a real 2-cycle
-    (`examples/demo/handoffs/facts.jsonnet` and
+    (`examples/ok.filetree_grounded_report.4/handoffs/facts.jsonnet` and
     `validators/check_facts.jsonnet`).
 
     So a package-wide rule would be one no author could satisfy except by
@@ -499,7 +499,7 @@ def test_a_validator_and_its_handoff_kind_can_share_a_file(builder: PackageBuild
     kinds. **Both are references and only one may count**: with both in
     `_REFERENCE_KEYS`, neither order of these two objects is legal and the pair
     cannot share a file at all — which is a rule no package can satisfy, over a
-    pair `examples/demo` already ships.
+    pair `examples/ok.filetree_grounded_report.4` already ships.
 
     So `inputs` is out, and what that buys is exactly one legal order. This
     asserts both halves, because asserting only the clean one would leave the

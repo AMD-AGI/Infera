@@ -90,7 +90,7 @@ asked" sites call `PhaseOutcome.nothing_expected`.
 
 **The reading is the narrow one, deliberately.** §4.15's sentence is *nothing
 checked what this task **produced***, so a task with no output has nothing
-unchecked. Measured: `examples/demo/closures/` gives `main` (`outputs: []`,
+unchecked. Measured: `examples/ok.filetree_grounded_report.4/closures/` gives `main` (`outputs: []`,
 `validators: []`) and `consume` (`outputs: []`, one validator declared), so the
 wide reading blocks the demo's **root** task. No demo task has an output with
 nothing bound, so the fault arm is unreachable in `demo run` as it stands.

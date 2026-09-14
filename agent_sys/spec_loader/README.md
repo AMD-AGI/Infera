@@ -103,7 +103,7 @@ spec §10's.
 **Criterion 17** — no `.jsonnet` or `.libsonnet` remains, nothing imports
 `_jsonnet` or `rjsonnet`, neither is a declared dependency — is only partly this
 package's. `render.py`, its two dependencies and `RenderError` are gone from
-here; `examples/demo/**` and `validator/general_specs/**` still hold `.jsonnet`
+here; `examples/ok.filetree_grounded_report.4/**` and `validator/general_specs/**` still hold `.jsonnet`
 sources and are W6's and `validator`'s.
 
 Design §9.2's three, which guard measured facts rather than criteria:
@@ -340,7 +340,7 @@ no CLI.
   keeps it visible in the suite rather than only here.
 - **The forward-reference rule is within a file, not across the package.**
   The approved pipeline's step 6 reads as package-wide. Measured against
-  `examples/demo`, no total file order satisfies its own reference graph — sorted
+  `examples/ok.filetree_grounded_report.4`, no total file order satisfies its own reference graph — sorted
   by path, `closures/produce` references `handoffs/facts` and
   `validators/check_facts`, both later; reversed, it references `agents/collect`,
   which is then last — and no ordering by kind works either, because

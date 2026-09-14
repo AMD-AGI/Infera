@@ -22,8 +22,8 @@ from cli.stream import Stream
 # A package small enough to read, declaring one variable and nothing else.
 #
 # Built here rather than borrowed from `examples/`: the one variable
-# `examples/demo` declares is `outside`, which is exactly the name this flag
-# refuses, and `examples/demo2` is a large package whose contents are not this
+# `examples/ok.filetree_grounded_report.4` declares is `outside`, which is exactly the name this flag
+# refuses, and `examples/ok.algorithms_solve_grade.14` is a large package whose contents are not this
 # test's subject. Four files is the whole of what `YamlPackage` needs.
 
 _MAIN = """\

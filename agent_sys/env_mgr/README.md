@@ -121,7 +121,7 @@ against an unconfined control where all four succeed. Nothing in `prepare` or
 and by `stage`. **So for a body both routes are closed, and the store route was
 already closed before this change**: what narrowing removed is the *accidental*
 route, a manifest that happened to ride along in a directory copy.
-`examples/demo/logic/store.py`'s F-D5 fallback — read `AGENT_SYS_DEMO_STORE`,
+`examples/ok.filetree_grounded_report.4/logic/store.py`'s F-D5 fallback — read `AGENT_SYS_DEMO_STORE`,
 walk to a manifest — does not work under confinement and did not before.
 
 A version with no `content/` stages nothing rather than falling back to the wide
@@ -489,7 +489,7 @@ prose, so a substring search answers a different question.
 **The third ruled row was reversed, by applying the ruling's own line.**
 Widening `stage` moves every staged input **down one level** — the artefact's
 files land at `<materials>/<hid>/v<N>/content/…` instead of at
-`<materials>/<hid>/v<N>/…` — and `examples/demo/bin/render.py:67` reads the
+`<materials>/<hid>/v<N>/…` — and `examples/ok.filetree_grounded_report.4/bin/render.py:67` reads the
 narrow shape. So the switch would have broken a body **by moving its input**,
 presenting as a body reading one level short rather than as a switch. `task_graph`
 measured it (`probe_narrow_staging.py`) and it collided with a `demo` fix landed
@@ -819,7 +819,7 @@ name→path table; it expands nothing.**
 |---|---|
 | `os.path.expandvars` | Reads `os.environ` and nothing else — its signature is `expandvars(path)`, with no mapping parameter, so it cannot expand against a prepared environment that does not yet exist in this process |
 | `string.Template` | The right shape if expansion were needed: `${name}`, `safe_substitute(mapping)`, `idpattern` `[_a-z][_a-z0-9]*`. Recorded as the answer for whoever needs one — `spec_loader`'s `${TASK_PACKAGE_ASSERT_DIR}` is that caller, not this module |
-| POSIX shell parameter expansion | **Already in use and already sufficient.** `examples/demo/bodies/produce/entry.sh` writes `${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?…}}` — default-if-absent and fail-loudly-if-absent, which is the whole measured need, performed by `/bin/sh` at no cost to us |
+| POSIX shell parameter expansion | **Already in use and already sufficient.** `examples/ok.filetree_grounded_report.4/bodies/produce/entry.sh` writes `${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?…}}` — default-if-absent and fail-loudly-if-absent, which is the whole measured need, performed by `/bin/sh` at no cost to us |
 | XDG base directories | The naming *pattern* is worth copying and the mechanism is not: `_HOME` for the single directory, `_DIRS` for a search path. We have no search path, so every name here is singular |
 | Kubernetes downward API | The closest prior art for the `my_*` half: `env.valueFrom.fieldRef` injects a pod's *own* identity, on the stated principle that a container should be able to learn about itself without coupling to the platform's API. Its documented caveat is ours too — the values are static for the process's lifetime, which is why the index has to be the zone and not something re-minted mid-attempt |
 | bubblewrap / OCI | No prior art at all. `--bind SRC DEST` names paths positionally; neither runtime has a vocabulary for *"the root of this sandbox's scratch"* |

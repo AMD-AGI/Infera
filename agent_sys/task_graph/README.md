@@ -369,7 +369,7 @@ returns, so the parent's zone was created after its children's — always, for a
 root non-leaf as much as for a nested one. What kept it working was a margin, and
 the margin is `layout.create`'s `os.walk` of the whole zones tree, which grows
 with the run: 11 ms empty, 540 ms over the 1669 directories one full
-`examples/demo2/` run accumulated. `grade`, four minutes in, lost both children
+`examples/ok.algorithms_solve_grade.14/` run accumulated. `grade`, four minutes in, lost both children
 to *"declares parent bd890c07, which has no zone"*.
 
 `env_mgr` is **resolved by name**, as `scheduler` and `closures` already are —

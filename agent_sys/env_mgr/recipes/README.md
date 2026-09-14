@@ -48,7 +48,7 @@ The three layers, most general to most specific, all in
 
 **Both are classed as demonstrations by the owner. `serena.yaml` is not only a
 demonstration in practice, and you need to know that before you touch it:**
-`examples/env_checker/steps/check.yaml` declares `recipes: [agent_sys:serena]` as a live
+`examples/ok.agent_capabilities.2/steps/check.yaml` declares `recipes: [agent_sys:serena]` as a live
 dependency, and its capability 7 fails without it. The label and the usage
 disagree; that disagreement is recorded here rather than resolved, because which
 one gives is the owner's call and not this file's.

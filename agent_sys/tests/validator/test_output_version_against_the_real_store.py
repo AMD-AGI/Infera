@@ -20,7 +20,7 @@ would mean nothing — `interfaces.md` §8.11g, *a working instrument pointed at
 the safe case*, which is precisely what the rest of this directory was.
 
 Measured on `scratch/demo2-2026-08/bringup/n1`, whose non-leaf `main` is the
-first in the tree to declare an output. `examples/demo/`'s `main` declares
+first in the tree to declare an output. `examples/ok.filetree_grounded_report.4/`'s `main` declares
 `outputs: []`, so no parent ever pinned and slot == store == 0 everywhere.
 
 Tests may import `handoff` — `tests/interfaces/test_handoff_layout.py` states the

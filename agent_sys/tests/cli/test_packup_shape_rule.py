@@ -31,7 +31,7 @@ import pytest
 def check(package_root: Path) -> Any:
     body = (
         package_root.parent
-        / "single_real_task"
+        / "ok.sglang_real_model.2"
         / "assets"
         / "check_packup_shape.validator"
         / "check.py"

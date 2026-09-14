@@ -67,7 +67,7 @@ agent_sys/
 ├── schemas/             the spec of the spec — one JSON Schema per object
 ├── general_specs/       workflow-independent specs. Templates with an empty
 │                        `config`; loaded by the ordinary path (docs/spec.md §4.5)
-└── examples/demo/       the demo task package — jsonnet specs, like any package's
+└── examples/ok.filetree_grounded_report.4/       the demo task package — jsonnet specs, like any package's
 
 <anywhere else>/
 └── <a task package>/    one workflow's specs. Not in this repository (§4.3)

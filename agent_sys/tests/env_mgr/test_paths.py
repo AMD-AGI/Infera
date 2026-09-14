@@ -86,7 +86,7 @@ def test_every_zone_directory_has_a_declared_name(tmp_path: Path, main_repo: str
     were granted read-write, and a body could reach none of them except by
     parsing this module's directory layout — which
     `engineer_principle.md` §4.4 names as the smell, and which
-    `examples/demo/logic/store.py` had already become a reader of.
+    `examples/ok.filetree_grounded_report.4/logic/store.py` had already become a reader of.
     """
     ctx = _ctx(tmp_path, main_repo, kinds=ALL_KINDS)
     task = Task()
@@ -158,7 +158,7 @@ def test_the_task_package_variable_is_unchanged(tmp_path: Path, main_repo: str) 
     spelling, its value, and its importability from `env_mgr.prepare`.
 
     `tests/cli/test_isolation_shown.py` imports `PACKAGE_ENV_VAR` from there and
-    `examples/demo/**` reads the literal, so moving the definition into `paths`
+    `examples/ok.filetree_grounded_report.4/**` reads the literal, so moving the definition into `paths`
     had to leave both alone.
     """
     package = tmp_path / "pkg"

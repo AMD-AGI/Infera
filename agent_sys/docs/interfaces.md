@@ -713,7 +713,7 @@ two "nothing was asked" sites call `PhaseOutcome.nothing_expected(kind, skipped=
 
 **Read narrowly, and measured.** §4.15's sentence is *nothing checked what this
 task **produced***, so a task with **no output handoff** has nothing unchecked.
-The wide reading blocks `examples/demo/closures/main.jsonnet` — `outputs: []`,
+The wide reading blocks `examples/ok.filetree_grounded_report.4/closures/main.jsonnet` — `outputs: []`,
 `validators: []` — which is the demo's root. `agent`'s side is unchanged: it
 reads `blocks_the_task` and `evidence` through `getattr`.
 
@@ -2008,8 +2008,8 @@ package with the orphan removed and nothing else changed: one `notes` slot with
 numbers, and both non-leaves' output phases pass. It cannot rescue an orphan,
 because there is no version to resolve to.
 
-**Only `depth2` has one.** Scanned across the tree: `examples/demo`'s `main`
-declares `outputs: []`, and `demo2`'s `main`/`grade` and `bringup/n1`'s `main`
+**Only `depth2` has one.** Scanned across the tree: `examples/ok.filetree_grounded_report.4`'s `main`
+declares `outputs: []`, and `ok.algorithms_solve_grade.14`'s `main`/`grade` and `bringup/n1`'s `main`
 each match their end entry exactly. So the shape is rare enough to have gone
 unnoticed and cheap enough to reject at load.
 
@@ -4305,7 +4305,7 @@ a string is now a contract.
 The symptom:
 
 ```
-KeyError: 'AGENT_SYS_DEMO_STORE'   in store_root(), examples/demo/logic/store.py:53
+KeyError: 'AGENT_SYS_DEMO_STORE'   in store_root(), examples/ok.filetree_grounded_report.4/logic/store.py:53
 ```
 
 The cause: `validator` writes `materials.json` as a **JSON object**, `hid -> staged
