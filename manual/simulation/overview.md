@@ -180,5 +180,6 @@ regime and how many GPUs a harvest should use.
 | Grid a space you can enumerate | [Sweeps and tuning](sweeps.md) |
 | Find the best recipe under a latency SLO | [Tuning agent](tuning_agent.md) |
 | Check whether a feature is modeled at all | [Modeled features](modeled_features.md) |
+| Look up a flag or an `INFERASIM_*` variable | [Harvest flags](anchors.md#harvest-flag-reference), [Environment variables](environment.md) |
 | Size HBM and KV rather than time anything | [The memory projection](projection_runs.md#the-memory-projection) |
 | Find out what the tool will not tell you | [Boundaries and verification](boundaries.md) |

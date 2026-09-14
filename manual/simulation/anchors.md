@@ -108,6 +108,114 @@ meaning *one* harvest and it meaning one harvest per question.
 If anchor-calibrated results look wrong after you changed dtype or backend, this
 is why: an anchor certifies its own execution regime. Harvest another.
 
+## Harvest flag reference
+
+`inferasim anchor` forwards its flags straight to the harness, so
+`inferasim anchor --help` is authoritative. The groups below are what the flags
+are *for*; most harvests only touch the first two.
+
+### What to measure
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--model` | *(required)* | HF id or local path of the checkpoint to serve. |
+| `--serving-backend {vllm,sglang,atom}` | `vllm` | Which engine's kernels the anchor describes. Two engines serving one config are two measurements and never share a cache entry. Ignored under `--offline`, which is vLLM-only. |
+| `--tp` / `--pp` | `1` / `1` | **Target** parallel shape to project to — not necessarily the shape that runs. |
+| `--benchmark-gpus` | *(all of `tp*pp`)* | GPUs the run may actually use. Below `tp*pp`, parallelism is reduced in `pp → ep → tp` order to fit and the projector restores the target. `--tp 8 --benchmark-gpus 1` measures TP=1 and projects TP=8. |
+| `--save` | *(required)* | Where to write the anchor JSON. |
+
+### Shape of the measurement
+
+`--concurrency` is the usual way to set the batch axis: it derives the sweep
+from the engine's own CUDA-graph capture sizes, which is the ladder decode is
+later looked up against. Name batches explicitly only when you want to override
+that.
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--concurrency` | *(unset)* | Sweep the capture ladder up to this concurrency. Overrides `--batch`/`--batches`. |
+| `--batch` | `16` | Single reference batch when no sweep is requested. |
+| `--batches` | *(unset)* | Explicit comma list, e.g. `4,8,16,32,64`. |
+| `--input-len` | `1024` | Prompt length the step is measured at. |
+| `--output-len` | `1024` | Recorded in `meta` only; decode length comes from `--decode-steps`. |
+| `--decode-steps` | `32` | K in the K-token minus 1-token difference that isolates the steady-state decode step. |
+| `--decode-context-grid` | `input_len × {1,2,4}` | Context lengths to time decode at, so the projector fits the attention KV term instead of assuming decode is flat in context. Offline capture mode. |
+| `--max-model-len` | *(from config)* | Engine context limit. |
+| `--gpu-mem-util` | `0.9` | vLLM `gpu_memory_utilization`. |
+
+### Reduce, measure, restore
+
+Depth reduction is the counterpart to parallelism reduction: build a shallow
+model, fit step latency against layer count, and evaluate the fit at the real
+depth.
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--bench-layers` | *(unset)* | Comma list of **reduced** layer counts to measure and restore from, e.g. `4,8`. |
+| `--full-layers` | *(HF config)* | Depth to restore to when using `--bench-layers`. |
+| `--num-hidden-layers` | *(unset)* | Legacy single sub-scale run with **no** restore. Prefer `--bench-layers`. |
+
+### Anchoring prefill
+
+Decode escapes the analytical roofline by being measured. Prefill only escapes
+it if you measure prefill too, which is why the probe is on by default on the
+served path.
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--prefill-anchor` / `--no-prefill-anchor` | on (served) | Difference mean TTFT across two prompt lengths at concurrency 1 to price prefill from measurement instead of the roofline. Turning it off saves the probe runs and pays the roofline bias. |
+| `--prefill-anchor-short` | `input_len / 2` | Short probe length. The long probe is always `--input-len`, so the fitted rate covers the lengths the anchor is used at. |
+| `--prefill-anchor-points` | `0` (two points) | Probe this many lengths and fit `fixed + per-token + per-token²`. Two points can only draw a chord, so curvature in prompt length lands inside the intercept — which is then carried across TP as if it were fixed cost. |
+| `--prefill-packed-points` | `4` | Also probe this many simultaneous sequences at fixed length, so a step that packs many sequences is measured rather than inferred. The length probe cannot supply this: at concurrency 1, token count and attention context are the same number. |
+| `--prefill-anchor-validate` | off | Probe a third, interior length so pairwise slopes can be compared — a linearity check, at the cost of one more client run. |
+
+### MoE routing and expert placement
+
+Expert-load imbalance changes which rank is busiest, so a dummy-weight run needs
+a routing distribution imposed on it. With real weights the trained router
+supplies one and `--routing-dist none` is the constant-free choice.
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--enable-expert-parallel` | off | Shard experts across ranks (EP=TP) instead of tensor-slicing each expert. Exposes busiest-rank and all-to-all effects. |
+| `--routing-dist {zipf,uniform,normal,none}` | `zipf` | Token→expert distribution for the benchmark; `none` uses the model's own router. |
+| `--zipf-s` | `1.0` | Zipf skew exponent — `0` is uniform, larger is more skewed. |
+| `--moe-imbalance` | *(unset)* | Target imbalance `I = max/mean` tokens per expert; solves for the Zipf exponent at the model's expert count and overrides `--zipf-s`. Random data sits at low `I`, domain-clustered traffic higher. |
+| `--load-format` | `dummy` | `dummy` for random weights (needs an imposed distribution), `auto`/`safetensors` for real ones. |
+
+### Regime-defining engine settings
+
+Everything here changes which kernels run, so it changes the regime the anchor
+certifies. An anchor measured without speculation cannot be transported to a
+target that uses it.
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--quantization` | *(from config)* | e.g. `fp8`, `mxfp4`. |
+| `--kv-cache-dtype` | auto | e.g. `fp8`. |
+| `--speculative-method` | *(unset)* | e.g. `deepseek_mtp` (NextN head) or `ngram`. Changes how many tokens a step emits. |
+| `--speculative-num-tokens` | *(unset)* | Draft tokens per step, bounded by the checkpoint's `num_nextn_predict_layers` for `deepseek_mtp`. |
+| `--speculative-draft-model` | *(unset)* | Draft checkpoint for methods that need a separate one. |
+| `--enforce-eager` | off | Disable graph capture — which removes the pad-up staircase decode is normally looked up against. |
+| `--no-aiter` | off | Disable AITER kernels (enabled by default on ROCm). |
+| `--prefix-caching` | off | Enable vLLM prefix caching. In the offline repeated-prompt sweep this measures near-100%-hit lookup latency, not cold prefill. |
+| `--server-args` | `""` | Engine flags as one string, e.g. `'--max-num-seqs 512 --enable-chunked-prefill'`. Parsed by vLLM's own parser, so a flag means what it means to a real server — this is what lets a reduced-scale run screen a serving variant. |
+| `--env KEY=VAL` | *(none)* | Repeatable environment override applied before vLLM is imported, for levers the engine reads from the environment rather than a flag. |
+| `--trust-remote-code` | off | Required by remote-code architectures. |
+| `--skip-tokenizer-init` | auto with `dummy` | Benchmark drives token ids directly. |
+
+### Sampling, determinism, and caching
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--seed` | `0` | Single RNG seed for random token content. |
+| `--seeds` | `0,1,2` | Comma list swept inside **one** engine build. Each seed re-rolls token content and adds an independent sample, so the artifact carries a per-batch mean and standard deviation instead of a point with no error bar. |
+| `--random-tokens` | auto with real weights | Independent random token ids per sequence. |
+| `--vocab` | `30000` | Upper bound for random token ids. |
+| `--cache-dir` | `$INFERASIM_BENCH_CACHE` | Cache keyed by run config; a hit never builds the engine, which is nearly all the wall time. Caching is off when neither is set. |
+| `--no-cache` / `--force` | off | Ignore the cache / re-run and overwrite the entry. |
+| `--offline` | off | Measure through the offline `LLM()` entrypoint instead of a real server. Off by default because the two do not resolve the same kernels, so an offline anchor can mispredict a served target badly. |
+
 ## How many GPUs a harvest should use
 
 A 1-GPU anchor cannot observe cross-GPU communication — TP all-reduce, EP
