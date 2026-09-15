@@ -145,7 +145,7 @@ root_gb="$(df -BG --output=avail / 2>/dev/null | tail -1 | tr -dc '0-9')"
 #     authorization denied by plugin spur-authz: denied [BH]: /home:/home
 #     -- mount your own directory instead
 #
-# Measured on 243: `-v <home>:<home>` and `-v /shared_nfs:/shared_nfs`
+# Measured: `-v <home>:<home>` and `-v /shared_nfs:/shared_nfs`
 # both pass, so the rule is about **whose** directory and not about depth. It
 # caught m3's derived mount before rung 3 could. Probed with the mounts this
 # flow actually uses rather than with a canonical example, because a probe that

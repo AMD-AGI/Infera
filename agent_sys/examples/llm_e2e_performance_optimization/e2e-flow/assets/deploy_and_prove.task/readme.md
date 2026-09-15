@@ -222,11 +222,11 @@ nodes, so it is not the cards — and a plain retry with nothing changed has
 already fixed it once, observed.
 
 **This instruction exists because the alternative was measured and cost more.**
-On 217 an agent met this and spent **fourteen minutes** on fourteen probe
+An agent met this and spent **fourteen minutes** on fourteen probe
 scripts — RCCL allreduce, IPC namespace, IPC privileges, the sglang process
 group — and **every probe passed**, including the bare kit container flags. The
 failure does not reproduce in isolation, so there is nothing for a probe
-campaign to find. On 088 an agent met the same signature, retried immediately,
+campaign to find. Another agent met the same signature, retried immediately,
 and was serving. **Retry first; diagnose only if the second attempt fails the
 same way**, and if it does, that is new information worth the time.
 

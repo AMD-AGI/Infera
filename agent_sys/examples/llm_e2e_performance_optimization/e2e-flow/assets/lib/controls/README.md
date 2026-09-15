@@ -8,7 +8,7 @@ exist to test the instrument, not the engine.
 these is "the plumbing works and the gate does not hallucinate a difference",
 never "module 5 works".**
 
-| | what it is | measured on 047 | verdict |
+| | what it is | measured | verdict |
 |---|---|---|---|
 | `null/` | stock + a marker constant. Semantically identical. | ITL 10.02 ms vs stock 10.14, tps 448.63 vs 448.82 | `same` |
 | `degraded/` | stock + a 2 ms sleep in `Sampler.forward` | ITL **10.05 ms** — no change | **a control that failed to be a control** |

@@ -1587,7 +1587,7 @@ is not.
 
 **Why it matters beyond tidiness.** A kill decision made from a PID list taken
 this way would be operating on a table that is both incomplete and
-unfalsifiable. The kill actually performed on 006 was decided through
+unfalsifiable. The kill actually performed was decided through
 `docker inspect` and its mounts and verified by cards going 90 % → 0 % and the
 container list emptying — both daemon-side, so sound by this rule; that was not
 luck, but it was not checked against this rule either, because the rule did not
@@ -2197,8 +2197,8 @@ authors had read their own briefs many times.**
 **Measured, and it overturns the refusal it looks like it justifies.**
 
 Declining to `docker load` a 28.5 GB engine-image backup because every node
-looked too small: 006 70 G free, 047 87 G, 217 57 G, against an image whose
-`docker images` SIZE reads **110GB**. m2 ran the load anyway, on 047, and it
+looked too small: three nodes with 57 G to 87 G free, against an image whose
+`docker images` SIZE reads **110GB**. m2 ran the load anyway and it
 succeeded in 2m16s.
 
 **047's disk did not move.** Before the load and after it, by two independent
@@ -3015,7 +3015,7 @@ Those are different states and the record should not let them read alike.
 
 **m5 answered: (a)** — and for a stronger reason than m3 had.
 `SGL_KERNEL_ROOT` names **build sources**, so the site-packages module is a file
-object no manifest ever references. **m5 also measured on 287 that
+object no manifest ever references. **m5 also measured that
 `/sgl-workspace/sglang/sgl-kernel` does not exist in the image at all** — the
 root points at nothing.
 
@@ -3498,7 +3498,7 @@ remaining case: mangled names that *are* otherwise valid identifiers.
 The `(?!_Z)` is load-bearing: it is what keeps an Itanium-mangled name out of
 the Triton bucket regardless of rule order.
 
-**Not landed, deliberately.** m1's full real chain is on 217 and m3 is
+**Not landed, deliberately.** m1's full real chain is in flight and m3 is
 downstream of it. The change turns two refusals into two campaigns — it makes
 the pipeline do *more* work, on a matcher validated against **five symbols**.
 Landing a widened matcher into a live chain's downstream stage is the same call
@@ -3769,9 +3769,9 @@ to locate anything — the record's own note says a consumer must read the hands
 not this field. **They exist to say which host established the premise, so naming the
 host is the entire content.** A `.json` suffix put them in the executable bucket.
 
-**And today gave the cost of the alternative.** `e2e_flow_088a` in an artefact
-circulating on 093 is exactly the provenance signal that took a `store/task` read to
-settle. **A field whose job is to say "this came from somewhere else" is the last
+**And the alternative has a measured cost.** A stale container name in a
+circulating artefact is exactly the provenance signal that took a `store/task`
+read to settle. **A field whose job is to say "this came from somewhere else" is the last
 field to launder into a placeholder.**
 
 #### Options, none decided here

@@ -104,7 +104,7 @@ def surface_regressions(stock: Path, patched: Path) -> tuple[set[str], set[str]]
 
     **Refusing on dropped *definitions* is right** — a module's own functions and
     classes are exactly what a replacement takes responsibility for, and dropping
-    one is the failure measured on 047. **Refusing on dropped *imports* would be
+    one is the failure measured. **Refusing on dropped *imports* would be
     too strict**: 26 of them are `Optional`, `Callable`, `torch` and friends, and
     a legitimate rewrite that imports differently would be refused for nothing.
     Something *can* do `from sampler import Optional`, so it is not free either —

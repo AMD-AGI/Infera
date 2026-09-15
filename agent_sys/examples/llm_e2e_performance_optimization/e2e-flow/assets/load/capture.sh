@@ -36,9 +36,9 @@ TRACE_OUT_IN_CONTAINER="${TRACE_OUT_IN_CONTAINER:-$TRACE_OUT}"
 #: The engine's own log, **as the container sees it** — section 2/6 waits for
 #: batch lines in it. The default is the path the profiling stage used, kept so
 #: that package stays byte-identical; every kit that puts the log somewhere else
-#: passes this. m1's kit writes `${work_root}/logs/worker.log` (measured on 088,
-#: Measured: 811 `Decode batch`/`Prefill batch` lines in a run where the
-#: hard-coded default matched nothing).
+#: passes this. m1's kit writes `${work_root}/logs/worker.log` (measured: 811
+#: `Decode batch`/`Prefill batch` lines in a run where the hard-coded default
+#: matched nothing).
 ENGINE_LOG_IN_CONTAINER="${ENGINE_LOG_IN_CONTAINER:-/tmp/glm53_mix.log}"
 WARMUP_S="${WARMUP_S:-30}"
 WINDOW_S="${WINDOW_S:-15}"
@@ -137,8 +137,8 @@ echo "===== 2/6 wait for requests to actually reach the engine ====="
 # "the container is up" and "the engine is busy" can be minutes apart. Warm-up is
 # only meaningful once the second is true.
 #: **Checked once, before the loop, because a missing log is indistinguishable
-#: from an idle engine from inside it.** Measured on 088: with the
-#: path wrong the loop span 39 times over ~195 s, the load finished underneath
+#: from an idle engine from inside it.** Measured: with the path wrong the
+#: loop span 39 times over ~195 s, the load finished underneath
 #: it at 209 s, and the abort that came out blamed the load — "exited before
 #: sending anything" — for a replay that had just served 721 requests. The
 #: engine log had 811 batch lines the whole time, at a path this script was not

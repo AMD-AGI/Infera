@@ -46,7 +46,7 @@ def verdict(r: dict, need: int, need_disk: int, need_root: int) -> tuple[str, st
     # one holds a build tree rather than an image store.
     if r.get("root_gb", 0) < need_root:
         return "NO", f"{r.get('root_gb', 0)}G on / — docker builds there"
-    # The daemon's authorization plugin, measured on 243. Its refusal names
+    # The daemon's authorization plugin, measured. Its refusal names
     # neither docker's usual vocabulary nor the variable at fault, so a node it
     # would reject is worth knowing about before the hold, not during rung 3.
     # **The tier that cost m5 a hold.** They took 037 on a SERVABLE verdict and
@@ -71,7 +71,7 @@ def verdict(r: dict, need: int, need_disk: int, need_root: int) -> tuple[str, st
     if serve:
         # The config class is reported beside the image, never gated on. m5's
         # check answers "can this image read *these* weights", which is
-        # independent of "can this image serve": measured on 217,
+        # independent of "can this image serve": measured,
         # `rocm/atom-dev:sglang-latest` reads `Qwen3_5Config` fine and has no
         # `infera` at all, so a config check alone would have promoted an image
         # that cannot serve at any version.
@@ -149,8 +149,8 @@ def main() -> int:
     # image is not disqualified — it is five minutes away, and knowing that
     # before binding is worth those five minutes of planning rather than a
     # failed bring-up.
-    for tier, blurb in (("SERVABLE", "brings up as-is — no build, no load. 006 was in this state; "
-                                     "037 also was, and was still useless for want of /shared_nfs"),
+    for tier, blurb in (("SERVABLE", "brings up as-is — no build, no load. A node can be "
+                                     "servable and still useless for want of /shared_nfs"),
                         ("BUILDABLE", "free half, disk, and a base to build from — NOT a servable "
                                       "image; ~4m44s to load infera-sglang-local.tar, then build"),
                         ("USABLE", "free half and disk — costs one image pull or load, then a build")):

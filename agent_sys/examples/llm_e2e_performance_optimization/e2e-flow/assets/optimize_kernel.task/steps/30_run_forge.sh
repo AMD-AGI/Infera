@@ -368,8 +368,7 @@ cp "$KERNEL" "$WORKDIR/optimized_kernel.py"
 
 # **Against the BASELINE, not against `HEAD`.** This line said `git diff HEAD`
 # when it was written and that is empty on every successful campaign — measured
-# on 275, driving the whole chain with a hand edit standing in for
-# forge:
+# by driving the whole chain with a hand edit standing in for forge:
 #
 #     git diff HEAD          0 lines
 #     git diff $BASELINE     9 lines, the marker
