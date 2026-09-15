@@ -76,6 +76,38 @@ class AccountingTests(unittest.TestCase):
         state.record([4] * 16, 0.1)
         self.assertFalse(state.summary(0.1)["complete"])
 
+    def test_uniform_scalar_and_vector_are_interchangeable(self):
+        scalar, vector = self.Accounting(3, 70000, 10), self.Accounting(3, [70000] * 3, 10)
+        self.assertEqual(scalar.input_lens, vector.input_lens)
+        for state in (scalar, vector):
+            state.record([3, 3, 3], 0.02)
+        report = scalar.summary(0.02)
+        self.assertEqual(report, vector.summary(0.02))
+        self.assertEqual(report["input_len"], 70000)
+        self.assertTrue(report["input_len_uniform"])
+        self.assertEqual(report["input_lens"], [70000] * 3)
+
+    def test_mixed_lengths_track_per_request_and_suppress_the_scalar(self):
+        state = self.Accounting(3, [8000, 70000, 12], 10)
+        self.assertEqual(state.seq_lens, [8000, 70000, 12])
+        step = state.record([3, 3, 3], 0.02)
+        self.assertEqual(step["seq_lens"], [8003, 70003, 15])
+        state.record([4, 4, 4], 0.02)
+        report = state.summary(0.04)
+        self.assertEqual(report["final_seq_lens"], [8007, 70007, 19])
+        self.assertEqual(report["input_lens"], [8000, 70000, 12])
+        self.assertIsNone(report["input_len"], "a mixed batch has no single ISL to report")
+        self.assertFalse(report["input_len_uniform"])
+        # ISL does not enter acceptance accounting at all.
+        self.assertEqual(report["raw_accept_tokens"], 21)
+        self.assertEqual(report["realized_accept_length"], 3.5)
+
+    def test_rejects_length_mismatch_and_nonpositive_entries(self):
+        for lengths in ([70000, 70000], [70000] * 4, [70000, 0, 70000], [70000, -1, 70000],
+                        [70000, 70000.0, 70000]):
+            with self.assertRaises(ValueError):
+                self.Accounting(3, lengths, 10)
+
 
 class StateContractTests(unittest.TestCase):
     def helper(self, name):

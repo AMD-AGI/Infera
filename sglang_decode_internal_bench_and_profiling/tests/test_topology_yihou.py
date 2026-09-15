@@ -90,6 +90,83 @@ class TopologyTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate([good, good, changed, good])
 
+    def test_rank_guard_covers_every_position_of_a_heterogeneous_batch(self):
+        signature = self.helper("rank_progress_signature")
+        validate = self.helper("validate_rank_progress")
+        mixed = signature(1, [70, 800, 90], [4, 4, 4], [74, 804, 94], [75, 805, 95])
+        validate([mixed] * 4)  # identical vectors across ranks: Plan 1's normal case
+        # profile_decode.py preallocates torch.empty(7) all-gather buffers.
+        self.assertEqual(len(mixed), 7)
+        self.assertTrue(all(isinstance(value, int) and abs(value) < 2 ** 63 for value in mixed))
+        for changed in (
+            # Divergence outside element 0 — invisible to the old previous_lens[0] comparison.
+            signature(1, [70, 801, 90], [4, 4, 4], [74, 805, 94], 75),
+            signature(1, [70, 800, 91], [4, 4, 4], [74, 804, 95], 75),
+            # Same multiset, different order: Plan 1 guarantees order, so this is a real bug.
+            signature(1, [90, 800, 70], [4, 4, 4], [94, 804, 74], 75),
+        ):
+            with self.assertRaises(ValueError):
+                validate([mixed, mixed, changed, mixed])
+
+    def test_completion_is_elementwise_against_each_request_own_final(self):
+        signature = self.helper("rank_progress_signature")
+        # ISL [70, 800] with output_len 5: request 0 finishes at 75, request 1 at 805.
+        finals = [75, 805]
+        done = signature(9, [71, 801], [4, 4], [75, 805], finals)
+        self.assertEqual(done[6], 1, "every request at its own final is complete")
+        partial = signature(9, [71, 96], [4, 4], [75, 100], finals)
+        self.assertEqual(partial[6], 0, "request 1 is far from 805, so the batch is not complete")
+        self.assertTrue(partial[0], "an incomplete batch is still a valid one")
+        # A single scalar cannot express this: min(finals) would call `partial` complete and
+        # max(finals) would call `done` incomplete. Both are wrong for a ragged batch.
+        self.assertTrue(all(length >= min(finals) for length in [75, 100]))
+        self.assertFalse(all(length >= max(finals) for length in [75, 805]))
+
+    def test_final_lens_length_mismatch_is_encoded_not_raised(self):
+        signature = self.helper("rank_progress_signature")
+        validate = self.helper("validate_rank_progress")
+        bad = signature(9, [71, 801], [4, 4], [75, 805], [75])
+        self.assertEqual((bad[0], bad[6]), (0, 0), "a mismatch must travel as invalidity, not a hang")
+        with self.assertRaises(ValueError):
+            validate([bad] * 4)
+
+    def test_scalar_final_len_still_broadcasts_for_uniform_callers(self):
+        signature = self.helper("rank_progress_signature")
+        self.assertEqual(signature(1, [70, 70], [4, 4], [74, 74], 75),
+                         signature(1, [70, 70], [4, 4], [74, 74], [75, 75]))
+
+    def test_rank_guard_still_rejects_non_uniform_acceptance_when_lengths_differ(self):
+        signature = self.helper("rank_progress_signature")
+        validate = self.helper("validate_rank_progress")
+        bad = signature(1, [70, 800], [4, 3], [74, 803], 75)
+        self.assertFalse(bad[0], "non-uniform accept_lens must be encoded as invalid, not raised")
+        with self.assertRaises(ValueError):
+            validate([bad] * 4)
+
+    def test_aggregate_rejects_divergent_isl_vectors(self):
+        from batch_state import DecodeAccounting
+        aggregate = self.helper("aggregate_rank_summaries")
+        topology = self.topology(concurrency=8, enabled=True)
+        lengths = [70, 800]
+        reports = []
+        for rank in range(4):
+            state = DecodeAccounting(topology.local_batch_size, lengths, 5)
+            state.record([3] * topology.local_batch_size, 0.1)
+            report = state.summary(1.0)
+            report.update(rank=rank, graph_execution_counts={})
+            reports.append(report)
+        merged = aggregate(reports, topology)
+        self.assertIsNone(merged["input_len"])
+        self.assertFalse(merged["input_len_uniform"])
+        self.assertEqual(merged["final_seq_lens"], [73, 803] * 4)
+        # Global view: zipping these two must not silently truncate.
+        self.assertEqual(merged["input_lens"], lengths * 4)
+        self.assertEqual(len(merged["input_lens"]), len(merged["final_seq_lens"]))
+        self.assertEqual(len(merged["input_lens"]), merged["batch_size"])
+        reports[2]["input_lens"] = [800, 70]
+        with self.assertRaises(ValueError):
+            aggregate(reports, topology)
+
     def test_aggregate_counts_each_dp_shard_once_and_uses_max_elapsed(self):
         from batch_state import DecodeAccounting
         aggregate = self.helper("aggregate_rank_summaries")
@@ -114,6 +191,8 @@ class TopologyTests(unittest.TestCase):
             self.assertEqual(report["output_tokens_per_second_per_gpu"], 6.25)
             self.assertEqual(report["effective_token_latency_ms_per_user"], 800.0)
             self.assertEqual(report["final_seq_lens"], [75] * 20)
+            self.assertEqual((report["input_len"], report["input_len_uniform"]), (70, True))
+            self.assertEqual(report["input_lens"], [70] * 20)  # global in both DPA and non-DPA
             self.assertEqual(report["graph_execution_counts_scope"], "rank_0")
             reports[-1]["verify_iterations"] += 1
             with self.assertRaises(ValueError):

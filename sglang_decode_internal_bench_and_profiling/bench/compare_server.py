@@ -184,6 +184,12 @@ def main():
     parser.add_argument('--warmup-requests',type=int,default=16)
     parser.add_argument('--initial-state',choices=['sikl','fake-server'],default='fake-server')
     args, extra = parser.parse_known_args()
+    # This tool inherits profile_decode's parser, so --input-len-spec is accepted by the parser
+    # but nothing here honours it: initialize_state() builds seq_lens from the scalar args.input_len
+    # and check_rank_progress() is called with a scalar final length. Rejecting it explicitly beats
+    # silently measuring a uniform batch while the operator believes it is ragged.
+    if getattr(args, 'input_len_spec', None) is not None:
+        raise ValueError('Server reference comparison supports only a uniform --input-len; use profile_decode.py for --input-len-spec')
     base.validate_args(args)
     wave_sizes(args.num_requests,args.batch_size)
     if args.warmup_requests:wave_sizes(args.warmup_requests,args.batch_size)

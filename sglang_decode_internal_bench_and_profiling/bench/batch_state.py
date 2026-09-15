@@ -55,7 +55,7 @@ def required_token_capacity(batch_size, input_len, output_len, page_size, reserv
 @dataclass
 class DecodeAccounting:
     batch_size: int
-    input_len: int
+    input_lens: list  # one entry per request; a bare int is broadcast (uniform-ISL callers)
     output_len: int
     max_accept_len: int = 6
     emitted: list = field(init=False)
@@ -66,13 +66,24 @@ class DecodeAccounting:
     iteration_seconds: list = field(default_factory=list)
 
     def __post_init__(self):
-        if min(self.batch_size, self.input_len, self.output_len, self.max_accept_len) <= 0:
+        if isinstance(self.input_lens, int):
+            self.input_lens = [self.input_lens] * self.batch_size
+        self.input_lens = list(self.input_lens)
+        if min(self.batch_size, self.output_len, self.max_accept_len) <= 0:
             raise ValueError("batch and lengths must be positive")
+        if len(self.input_lens) != self.batch_size:
+            raise ValueError(f"input_lens has {len(self.input_lens)} entries for batch_size {self.batch_size}")
+        if any(not isinstance(length, int) or length <= 0 for length in self.input_lens):
+            raise ValueError(f"every input length must be a positive int: {self.input_lens}")
         self.emitted = [0] * self.batch_size
 
     @property
+    def input_len_uniform(self):
+        return len(set(self.input_lens)) == 1
+
+    @property
     def seq_lens(self):
-        return [self.input_len + count for count in self.emitted]
+        return [base + count for base, count in zip(self.input_lens, self.emitted)]
 
     @property
     def complete(self):
@@ -104,7 +115,10 @@ class DecodeAccounting:
         return {
             "complete": self.complete,
             "batch_size": self.batch_size,
-            "input_len": self.input_len,
+            # None, never a mean or a max: downstream reads this field as "the ISL of the run".
+            "input_len": self.input_lens[0] if self.input_len_uniform else None,
+            "input_lens": list(self.input_lens),
+            "input_len_uniform": self.input_len_uniform,
             "output_len": self.output_len,
             "emitted_per_request": self.emitted[:],
             "final_seq_lens": self.seq_lens,

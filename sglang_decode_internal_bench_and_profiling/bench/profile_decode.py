@@ -28,6 +28,9 @@ from topology import (
     validate_rank_progress,
 )
 
+# Stdlib-only, like the two modules above: this is imported in the parent before mp.spawn.
+from isl_spec import parse_isl_spec
+
 # Opt-in profiling. This module is stdlib-only at import time (torch and SGLang are
 # imported lazily inside it) and nothing it owns is constructed unless --profile.
 from profiling_yihou import (
@@ -38,13 +41,19 @@ from profiling_yihou import (
 )
 
 PINNED_SGLANG = "402df1e1e453e1e85ec0f5ac4052d36598cc691a"
+DEFAULT_INPUT_LEN = 70000
 
 
 def make_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-path", required=True)
     parser.add_argument("--batch-size", type=int, default=16)
-    parser.add_argument("--input-len", type=int, default=70000, help="decimal tokens per request")
+    # Default stays None so that passing both this and --input-len-spec is detectable; an
+    # unspecified run still resolves to DEFAULT_INPUT_LEN.
+    parser.add_argument("--input-len", type=int, default=None, help="decimal tokens per request, uniform across the batch")
+    parser.add_argument("--input-len-spec", default=None,
+                        help="heterogeneous ISL, per attention-DP rank: uniform:N | bimodal:A,B,ratio "
+                             "| normal:mean,std[,lo,hi] | list:a,b,... | list:@file")
     parser.add_argument("--output-len", type=int, default=10000, help="useful emitted tokens per request")
     parser.add_argument("--accept-length", type=float, default=3.61, help="expected bonus-inclusive length, not probability")
     parser.add_argument("--accept-method", choices=("match-expected", "multinomial"), default="match-expected")
@@ -64,15 +73,35 @@ def make_parser():
 
 def validate_args(args):
     DecodeTopology(args.tp_size, args.ep_size, args.batch_size, args.enable_dp_attention)
-    if min(args.batch_size, args.input_len, args.output_len, args.tp_size) <= 0:
-        raise ValueError("batch size, lengths and TP size must be positive")
+    if min(args.batch_size, args.output_len, args.tp_size) <= 0:
+        raise ValueError("batch size, output length and TP size must be positive")
     if args.max_steps < 0 or args.warmup_steps < 0:
         raise ValueError("max-steps and warmup-steps must be nonnegative")
     if not 1 <= args.accept_length <= 6:
         raise ValueError("accept-length must be in [1, 6] for steps=5/draft=6")
-    if args.input_len < 2:
-        raise ValueError("input-len must be at least 2 for a populated-prefix bootstrap")
+    if args.input_len is not None and args.input_len <= 0:
+        raise ValueError("input-len must be positive")
+    if args.input_len is not None and args.input_len_spec is not None:
+        raise ValueError("Pass either --input-len or --input-len-spec, not both")
     validate_profile_args(args)
+
+
+def resolve_input_lens(args):
+    """Resolve the ISL spec ONCE in the parent, then ship the vector to every rank.
+
+    Plan 1 requires all attention-DP ranks to hold the same ISL multiset in the same order.
+    Resolving here and letting mp.spawn pickle the result makes that true by construction,
+    rather than by having eight processes redraw and trusting them to agree.
+    """
+    topology = DecodeTopology(args.tp_size, args.ep_size, args.batch_size, args.enable_dp_attention)
+    text = args.input_len_spec if args.input_len_spec is not None else str(
+        DEFAULT_INPUT_LEN if args.input_len is None else args.input_len)
+    spec = parse_isl_spec(text)
+    lens = spec.generate(topology.local_batch_size, args.seed)
+    if min(lens) < 2:
+        raise ValueError("every input length must be at least 2 for a populated-prefix bootstrap")
+    args.input_lens = lens
+    return spec
 
 
 def server_cli(args, extra):
@@ -205,7 +234,12 @@ def allocate_batch(target, args, topology, rank):
     page_size = runner.token_to_kv_pool_allocator.page_size
     reserve = get_alloc_reserve_per_decode()
     local_batch_size = topology.local_batch_size
-    num_tokens = required_token_capacity(local_batch_size, args.input_len, args.output_len, page_size, reserve)
+    # Allocation is uniform-max on purpose. prepare_for_extend() below runs before the
+    # per-request truncation, so every row is sized for the longest request and shorter ones
+    # simply over-reserve. Consequence worth knowing: a mixed batch costs the same KV as an
+    # all-max batch, so heterogeneity buys capacity headroom nowhere.
+    max_input_len = max(args.input_lens)
+    num_tokens = required_token_capacity(local_batch_size, max_input_len, args.output_len, page_size, reserve)
     reserved_len = num_tokens // local_batch_size
     pool = runner.req_to_token_pool
     allocator = runner.token_to_kv_pool_allocator
@@ -213,7 +247,7 @@ def allocate_batch(target, args, topology, rank):
         raise RuntimeError(f"KV capacity insufficient: need {num_tokens} tokens, available {allocator.available_size()}")
     if pool.req_to_token.shape[1] < reserved_len:
         raise RuntimeError(f"Request row too short: need {reserved_len}, have {pool.req_to_token.shape[1]}")
-    if runner.model_config.context_len < args.input_len + args.output_len + reserve:
+    if runner.model_config.context_len < max_input_len + args.output_len + reserve:
         raise RuntimeError("Model context length does not cover requested progression plus speculative reserve")
     reqs = prepare_synthetic_inputs_for_latency_test(local_batch_size, reserved_len)
     for index, req in enumerate(reqs):
@@ -228,35 +262,41 @@ def allocate_batch(target, args, topology, rank):
     batch.prepare_for_extend()  # allocation and page mappings only; no model prefill
     # Prefix contents remain synthetic. All mapped future pages are reserved once,
     # so speculative prepare_for_decode cannot allocate or recycle a live page.
-    for req in reqs:
-        req.origin_input_ids = req.origin_input_ids[:args.input_len]
+    for req, length in zip(reqs, args.input_lens):
+        req.origin_input_ids = req.origin_input_ids[:length]
         req.full_untruncated_fill_ids = req.origin_input_ids
-        req.set_extend_range(args.input_len - 1, args.input_len)
-        req.kv_committed_len = args.input_len
+        req.set_extend_range(length - 1, length)
+        req.kv_committed_len = length
     prompt_tokens = torch.tensor([req.origin_input_ids[-1] for req in reqs], dtype=torch.int64, device=runner.device)
-    return batch, prompt_tokens, {"reserved_tokens": num_tokens, "reserved_tokens_per_request": reserved_len, "page_size": page_size, "speculative_reserve": reserve}
+    return batch, prompt_tokens, {"reserved_tokens": num_tokens, "reserved_tokens_per_request": reserved_len,
+                                  "page_size": page_size, "speculative_reserve": reserve,
+                                  "max_input_len": max_input_len, "min_input_len": min(args.input_lens)}
 
 
 def bootstrap(batch, prompt_tokens, worker, args, topology):
     """One real last-prompt-token target+draft forward over the synthetic prefix."""
     import torch
     from sglang.srt.model_executor.forward_batch_info import ForwardMode
-    size, length = topology.local_batch_size, args.input_len
+    size, lengths = topology.local_batch_size, args.input_lens
     batch.forward_mode = ForwardMode.EXTEND
     prepare_dp_metadata(batch, topology, is_extend=True, disable_cuda_graph=args.disable_cuda_graph)
     batch.spec_info = None
     batch.input_ids = prompt_tokens.clone()
     batch.prefill_input_ids_cpu = None
-    batch.seq_lens_cpu = torch.full((size,), length, dtype=torch.int64)
+    batch.seq_lens_cpu = torch.tensor(lengths, dtype=torch.int64)
     batch.seq_lens = batch.seq_lens_cpu.to(prompt_tokens.device)
     batch.orig_seq_lens = batch.seq_lens.to(torch.int32)
-    batch.seq_lens_sum = size * length
-    batch.prefix_lens = [length - 1] * size
+    batch.seq_lens_sum = sum(lengths)
+    batch.prefix_lens = [length - 1 for length in lengths]
     batch.extend_lens = [1] * size
     batch.extend_num_tokens = size
     batch.extend_logprob_start_lens = [1] * size
-    batch.out_cache_loc = batch.req_to_token_pool.req_to_token[batch.req_pool_indices.long(), length - 1].to(torch.int64)
-    for req in batch.reqs:
+    # Each request's last prompt token sits in its own column, so this is a per-row gather
+    # rather than one shared column index. Both index tensors must live where req_to_token does.
+    req_to_token = batch.req_to_token_pool.req_to_token
+    columns = torch.tensor([length - 1 for length in lengths], dtype=torch.int64, device=req_to_token.device)
+    batch.out_cache_loc = req_to_token[batch.req_pool_indices.long(), columns].to(torch.int64)
+    for req, length in zip(batch.reqs, lengths):
         req.kv_committed_len = length
     result = worker.forward_batch_generation(batch)
     torch.cuda.synchronize()
@@ -319,6 +359,8 @@ def run_rank(rank, server_args, port_args, args):
     log(rank, f"topology={topology.parallel_state_kwargs(rank)} local_batch={topology.local_batch_size} global_batch={args.batch_size} moe_a2a={server_args.moe_a2a_backend} moe_runner={server_args.moe_runner_backend}")
     progress_buffers = (torch.empty(7, dtype=torch.int64, device="cuda"),
                         [torch.empty(7, dtype=torch.int64, device="cuda") for _ in range(args.tp_size)])
+    # Each request finishes at its own ISL + OSL, so completion is elementwise, not a scalar bound.
+    final_lens = [length + args.output_len for length in args.input_lens]
     import sglang.srt.server_args as server_args_module
     import sglang.srt.speculative.eagle_worker_v2 as eagle_worker_module
     source_paths = module_source_paths([server_args_module, eagle_worker_module])
@@ -348,7 +390,7 @@ def run_rank(rank, server_args, port_args, args):
             torch.cuda.synchronize()
             new_lens = result.new_seq_lens.cpu().tolist()
             check_rank_progress(iteration, previous_lens, result.accept_lens.cpu().tolist(), new_lens,
-                                args.input_len + args.output_len, progress_buffers)
+                                final_lens, progress_buffers)
             commit_result(batch, result, new_lens)
         if args.warmup_steps:
             bootstrap(batch, prompt_tokens, worker, args, topology)
@@ -358,7 +400,7 @@ def run_rank(rank, server_args, port_args, args):
         torch.manual_seed(args.seed)
         torch.cuda.synchronize()
         dist.barrier()
-        accounting = DecodeAccounting(topology.local_batch_size, args.input_len, args.output_len)
+        accounting = DecodeAccounting(topology.local_batch_size, args.input_lens, args.output_len)
         steps = []
         graph_steps = 0
         graph_execution_counts = count_graph_executions({
@@ -387,7 +429,7 @@ def run_rank(rank, server_args, port_args, args):
             torch.cuda.synchronize()  # result tensors and cross-stream keep-alives stay live through here
             accept_lens = result.accept_lens.cpu().tolist()
             check_rank_progress(accounting.verify_ct, accounting.seq_lens, accept_lens,
-                                result.new_seq_lens.cpu().tolist(), args.input_len + args.output_len,
+                                result.new_seq_lens.cpu().tolist(), final_lens,
                                 progress_buffers)
             validate_worker_progress(
                 accounting.seq_lens, accept_lens, result.new_seq_lens.cpu().tolist()
@@ -402,7 +444,11 @@ def run_rank(rank, server_args, port_args, args):
             graph_steps += int(step["target_graph"])
             steps.append(step)
             if rank == 0 and (accounting.verify_ct <= 3 or accounting.verify_ct % max(1, args.log_interval) == 0):
-                log(rank, f"iteration={accounting.verify_ct} context={accounting.seq_lens[0]} useful={sum(accounting.emitted)} target_graph={step['target_graph']}")
+                # Report the span, not seq_lens[0]: with a ragged batch a single element is not
+                # "the" context and reading it as one is how a mixed run gets misfiled as uniform.
+                contexts = accounting.seq_lens
+                log(rank, f"iteration={accounting.verify_ct} context_min={min(contexts)} context_max={max(contexts)} "
+                          f"useful={sum(accounting.emitted)} target_graph={step['target_graph']}")
         torch.cuda.synchronize()
         elapsed = time.perf_counter() - start
         phase_seconds["decode"] = elapsed
@@ -460,6 +506,7 @@ def run_rank(rank, server_args, port_args, args):
 def main():
     args, extra = make_parser().parse_known_args()
     validate_args(args)
+    isl_spec = resolve_input_lens(args)
     if int(os.environ.get("WORLD_SIZE", "1")) != 1:
         raise RuntimeError("Run with plain python, not torchrun; this driver spawns TP ranks")
     configure_acceptance(args)
@@ -491,11 +538,19 @@ def main():
         # environment before CUDA-graph capture, which runs inside each spawned rank.
         profile_env = configure_profile_env(args)
         print(f"[INTERNAL-DECODE] profiling enabled; env={profile_env}", flush=True)
-    # Keep config_yihou.json byte-compatible with the published packup when profiling
-    # is off: the new --profile* defaults are recorded only on a profiled run.
+    # Keep config_yihou.json byte-compatible with the published packup when the new features are
+    # off: the --profile* defaults are recorded only on a profiled run, and the heterogeneous-ISL
+    # keys only when a spec was actually given. A uniform run must still diff clean against the
+    # packup, otherwise the regression reference stops being usable as one.
+    heterogeneous = args.input_len_spec is not None
     recorded = {key: value for key, value in vars(args).items()
-                if args.profile or not (key == "profile" or key.startswith("profile_") or key == "device_timer")}
-    (result_dir / "config_yihou.json").write_text(json.dumps({"benchmark": recorded, "server_cli": cli, "expected_sglang_commit": PINNED_SGLANG}, indent=2, sort_keys=True) + "\n")
+                if (args.profile or not (key == "profile" or key.startswith("profile_") or key == "device_timer"))
+                and (heterogeneous or key not in ("input_len_spec", "input_lens"))}
+    payload = {"benchmark": recorded, "server_cli": cli, "expected_sglang_commit": PINNED_SGLANG}
+    if heterogeneous:
+        payload["input_len_spec_resolved"] = isl_spec.describe()
+        payload["input_lens_realized"] = list(args.input_lens)
+    (result_dir / "config_yihou.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
     _set_envs_and_config(server_args)
     port_args = PortArgs.init_new(server_args)
     if args.tp_size == 1:

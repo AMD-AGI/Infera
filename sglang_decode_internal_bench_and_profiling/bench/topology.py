@@ -63,15 +63,33 @@ def prepare_dp_metadata(batch, topology, *, is_extend, disable_cuda_graph):
     batch.can_run_dp_breakable_cuda_graph = False
 
 
-def rank_progress_signature(iteration, previous_lens, accept_lens, new_lens, final_len):
+_DIGEST_MOD = (1 << 61) - 1
+
+
+def lens_digest(values):
+    """Order-sensitive rolling hash; fits int64. Divergence in ANY position or in
+    ordering changes the digest, which element-0 comparison could not detect."""
+    digest = 0
+    for value in values:
+        digest = (digest * 1000003 + int(value) + 1) % _DIGEST_MOD
+    return digest
+
+
+def rank_progress_signature(iteration, previous_lens, accept_lens, new_lens, final_lens):
     """Never raise locally before the collective: encode invalid state instead."""
-    valid = bool(previous_lens) and len(previous_lens) == len(accept_lens) == len(new_lens)
-    valid = valid and len(set(accept_lens)) == 1 and len(set(previous_lens)) == 1
+    if isinstance(final_lens, int):
+        final_lens = [final_lens] * len(new_lens)  # uniform-ISL callers (compare_server.py)
+    sized = len(final_lens) == len(new_lens)
+    valid = bool(previous_lens) and len(previous_lens) == len(accept_lens) == len(new_lens) and sized
+    # Acceptance stays uniform by upstream construction (one scalar drawn per iteration and
+    # broadcast); sequence lengths do not, so they are covered by a digest instead.
+    valid = valid and len(set(accept_lens)) == 1
     valid = valid and all(1 <= count <= 6 for count in accept_lens)
     valid = valid and all(new == old + count for old, count, new in zip(previous_lens, accept_lens, new_lens))
-    return [int(valid), iteration, len(previous_lens), previous_lens[0] if previous_lens else -1,
-            accept_lens[0] if accept_lens else -1, new_lens[0] if new_lens else -1,
-            int(bool(new_lens) and all(length >= final_len for length in new_lens))]
+    # Each request finishes at its own isl_i + output_len, so completion is elementwise.
+    complete = sized and bool(new_lens) and all(new >= final for new, final in zip(new_lens, final_lens))
+    return [int(valid), iteration, len(previous_lens), lens_digest(previous_lens),
+            accept_lens[0] if accept_lens else -1, lens_digest(new_lens), int(complete)]
 
 
 def validate_rank_progress(signatures):
@@ -85,8 +103,9 @@ def aggregate_rank_summaries(reports, topology):
     reports = sorted(reports, key=lambda report: report["rank"])
     first = reports[0]
     # Uniform shared coins keep every process in the same collective sequence.
-    fields = ("complete", "verify_iterations", "batch_size", "input_len", "output_len",
-              "emitted_per_request", "final_seq_lens", "raw_accept_tokens", "accept_histogram")
+    fields = ("complete", "verify_iterations", "batch_size", "input_lens", "input_len_uniform",
+              "output_len", "emitted_per_request", "final_seq_lens", "raw_accept_tokens",
+              "accept_histogram")
     for report in reports:
         if report["batch_size"] != topology.local_batch_size or any(report[key] != first[key] for key in fields):
             raise ValueError("Rank reports disagree on completion or acceptance exposure")
@@ -100,6 +119,9 @@ def aggregate_rank_summaries(reports, topology):
         result[key] = sum(report[key] for report in replicas)
     for key in ("emitted_per_request", "final_seq_lens"):
         result[key] = [value for report in replicas for value in report[key]]
+    # Every replica holds the same vector (asserted above), so repeating it aligns elementwise
+    # with the concatenations and keeps len(input_lens) == len(final_seq_lens) == batch_size.
+    result["input_lens"] = list(first["input_lens"]) * len(replicas)
     histogram = Counter()
     for report in replicas:
         histogram.update({int(key): value for key, value in report["accept_histogram"].items()})

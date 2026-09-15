@@ -102,6 +102,54 @@ All runners accept `--dry-run` as the first argument — **use it before spendin
 
 ---
 
+## Heterogeneous input lengths
+
+`--input-len N` gives every request the same prefix. `--input-len-spec` gives them different ones.
+The two are mutually exclusive; passing both is an error.
+
+| spec | meaning |
+|---|---|
+| `70000` or `uniform:70000` | every request 70000 — identical to `--input-len 70000` |
+| `bimodal:8192,70000,0.1` | 10 % of requests at 8192, the rest at 70000 |
+| `normal:40000,8000[,lo,hi]` | draws from `N(40000, 8000²)`, rounded, clamped to `[lo, hi]` |
+| `list:4096,4096,70000,...` | verbatim; `list:@path` reads one integer per line |
+
+```bash
+bash scripts/run_decode.sh mixed_yihou \
+    --tp-size 8 --ep-size 1 --enable-dp-attention \
+    --batch-size 256 --max-running-requests 256 \
+    --input-len-spec bimodal:8192,70000,0.25 \
+    --output-len 10000 --accept-length 3.61
+```
+
+**The spec describes one attention-DP rank, not the global batch.** The count it must fill is
+`local_batch_size = batch_size // dp_size` — 32 for `--batch-size 256` at dp=8. Every rank then
+receives that same multiset **in the same order**, resolved once in the parent process and shipped
+to the ranks, so all eight stay in lockstep and the cross-rank progress check still proves it. A
+`list:` whose length is the global batch will be rejected, with the arithmetic in the message.
+
+Four things worth knowing before you use this:
+
+- **A mixed batch costs the same KV as an all-longest batch.** Allocation is uniform-max: rows are
+  sized for `max(ISL)` before the per-request prefix is truncated, so short requests over-reserve.
+  Heterogeneity buys you no capacity headroom — if the all-70000 batch does not fit, neither does
+  `{8k, 70k}`.
+- **`realized_accept_length` and `verify_iterations` are unchanged by ISL**, so the usual acceptance
+  gate still applies to a mixed run. Acceptance is simulated as one scalar per iteration broadcast
+  across the batch, and every request shares `output_len`, so they all finish on the same iteration.
+- **`input_len` in the result JSON is `null` for a mixed run**, deliberately — no single number is
+  "the" ISL. Read `input_lens` (per request, global length), `input_len_uniform`, or the
+  `context_min` / `context_max` pair in the progress log. `verify_point.py --expect-heterogeneous`
+  checks the ragged case instead of pinning one length.
+- **Whether a mixed run's TPOT is interpretable is an open question.** DSA is sparse with
+  `index_topk = 2048`; how per-step cost varies with sequence length here has not been measured.
+  The harness will give you the number. It will not tell you what it means.
+
+`compare_server.py` does not support this and rejects `--input-len-spec` explicitly rather than
+silently measuring a uniform batch.
+
+---
+
 ## Profiling
 
 `--profile` is **opt-in and off by default**; with it absent the harness is byte-compatible with the
