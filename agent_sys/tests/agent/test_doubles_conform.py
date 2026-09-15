@@ -8,7 +8,7 @@ seen from four sides:
 | **invented** | `FakeClient.session_id`, `FakeClient.get_session_messages` | has neither | driving the real SDK |
 | **missing** | `StubEnvManager.prepare()` returned six fields | `Prepared` had gained a seventh, `agent_cli` | 11 red tests, after the fact |
 | **absent** | `StubStore` had no `seal` at all | `FilesystemStore` does | the runner's broad `except` turned every `AttributeError` into a "refusal" — 174 green, the seal never running once |
-| **contract** | `StubStore.seal` **raised** | `FilesystemStore.seal` **returns** the reason (`fd31a6c`) | `handoff` said so; **no test did**, because both objects had a `seal` and presence was all this file checked |
+| **contract** | `StubStore.seal` **raises** | `FilesystemStore.seal` **returns** the reason | the specs say so and **no test does**, because both objects have a `seal` and presence is all a surface check sees |
 
 The fourth is the one that widened the rule. Presence is not a contract: a
 double that raises where the real object returns keeps every test green while
@@ -48,13 +48,12 @@ the vendor's API. `seal`, `prepare` and the client's six methods are stand-ins.
 
 > **Conform on what production calls; leave alone what the test reads.**
 
-**Both drafts of this file overreached, in opposite directions, within an hour
-of each other** — and so did `monitor`'s. Mine compared whole public surfaces
-and flagged a spy's bookkeeping as surplus; theirs was about to tighten a spy's
-`**kw` into a `TypeError`, which would have replaced a *recorded* unexpected
-call with a crash and broken four tests that assert `executions == 0`. **A
-conformance rule that does not know what a double is for will delete the thing
-that makes it useful.**
+**A conformance rule overreaches in two directions, and both are easy.**
+Comparing whole public surfaces flags a spy's bookkeeping as surplus; tightening
+a spy's `**kw` into a `TypeError` replaces a *recorded* unexpected call with a
+crash and breaks every test that asserts `executions == 0`. **A conformance rule
+that does not know what a double is for will delete the thing that makes it
+useful.**
 
 **Stand-ins are also where the whole class of bug lives** — all four rows above
 are stand-ins — which is why the rule is worth having despite both overreaches.
@@ -249,15 +248,14 @@ def test_everything_agent_reads_on_a_store_exists_on_the_real_one() -> None:
 
 
 def test_the_store_double_agrees_on_seal_s_return_contract() -> None:
-    """**Presence was not enough, and this is the instance that proved it.**
+    """**Presence is not enough, and this is where that shows.**
 
-    `handoff` changed `seal` from *raises on an unpublishable artefact* to
-    *returns the reason* (`fd31a6c`, two and a half minutes after the runner
-    started calling it). `StubStore.seal` still raised. Both objects had a
-    `seal`, so every presence check above passed — and the suite stayed
-    **green** while the runner dropped every real refusal on the floor.
+    `seal` *returns the reason* for an unpublishable artefact rather than
+    raising. A `StubStore.seal` that raises still satisfies every presence check
+    above, because both objects have a `seal` — and the suite stays **green**
+    while the runner drops every real refusal on the floor.
 
-    That is the fourth instance of one bug today and the first where the drift
+    It is the instance where the drift
     was in the **contract** rather than the surface. A return annotation is the
     cheapest part of a contract to compare, and it is the part that moved.
     """
@@ -282,10 +280,10 @@ def test_the_store_double_agrees_on_seal_s_return_contract() -> None:
 #: is `∅`. **The guard against a drifted double would go quiet in exactly the way
 #: the double did**, and nothing would be red.
 #:
-#: `demo`'s sentence, and it is about this: *a negative grep is
-#: indistinguishable from a grep for the wrong name.* The client scan already
-#: has its floor in `test_the_ast_reader_finds_a_member_no_test_run_touches`;
-#: this is the store's, and it was missing.
+#: *A negative grep is indistinguishable from a grep for the wrong name.* The
+#: client scan has its floor in
+#: `test_the_ast_reader_finds_a_member_no_test_run_touches`; this is the
+#: store's.
 _STORE_FLOOR = frozenset({"exists", "list_versions", "get_manifest", "copy_out", "seal"})
 
 
@@ -344,12 +342,11 @@ def test_the_rule_rejects_the_prepared_double_as_it_actually_was() -> None:
     the double built before `env_mgr` added a seventh, an eighth and a ninth.
 
     **Every addition is replayed, and the third is what settles the argument.**
-    `agent_cli` and `staged_package` (`086c12e`) were fields this package asked
-    for, so a reader could call them special. `permissions_enforced` (`ad730a2`)
-    is a kill switch `agent` did not ask for and does not read — and the double
-    needed it just the same. A stand-in for a closed `NamedTuple` does not drift
-    once and does not drift only when you are involved; it drifts every time the
-    far side grows.
+    `agent_cli` and `staged_package` are fields this package asked for, so a
+    reader could call them special. `permissions_enforced` is a kill switch
+    `agent` did not ask for and does not read — and the double needs it just the
+    same. A stand-in for a closed `NamedTuple` drifts every time the far side
+    grows, whether or not this package was involved.
 
     `env_mgr` named this one *before* it turned the suite red, which is the
     first time that has happened and is the outcome this test exists to make

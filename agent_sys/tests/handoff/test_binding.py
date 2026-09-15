@@ -21,7 +21,7 @@ class FakeValidatorRegistry:
     not imported to run this package's tests.
 
     **`get` raises `SpecNotFound`, not `KeyError`, and that is not cosmetic.**
-    It used to be a bare `self._specs[name]`, which is a different exception
+    A bare `self._specs[name]` raises a different exception
     from the real `spec_loader/registry.py` — *"raises `SpecNotFound`,
     naming the kind, the name, and the candidates."* Unreachable today, because
     `check_bindings` guards with `vname not in validators` before it calls

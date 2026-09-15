@@ -44,10 +44,10 @@ def test_filesystem_store_satisfies_the_protocol() -> None:
     whatever `getmembers` returns, so if that ever returns nothing it checks
     nothing and passes. Measured — the same body over an empty `Protocol`
     passes — and it is one bad import away from being the object it iterates.
-    `agent`'s `9528305` is the same hole in a different instrument: their AST
-    scan for `store.<attr>` went vacuous when the local was renamed, so a
-    one-word edit silenced the guard. **A discovery loop needs a floor, and the
-    floor has to be the thing that fails.**
+    `agent`'s AST scan for `store.<attr>` is the same hole in a different
+    instrument: it goes vacuous when the local is renamed, so a one-word edit
+    silences the guard. **A discovery loop needs a floor, and the floor has to
+    be the thing that fails.**
     """
     declared_names = {
         n for n, _ in inspect.getmembers(HandoffStore, inspect.isfunction) if not n.startswith("_")
@@ -185,14 +185,14 @@ def test_a_failed_put_leaves_no_staging_directory(tmp_path: Path) -> None:
 
 
 def test_a_store_with_no_kind_source_reads_but_does_not_publish(tmp_path: Path) -> None:
-    """The fallback that used to sit here decided the absent case was normal.
+    """A fallback here would decide the absent case was normal. It is not.
 
-    It is not. As `interfaces.md` §2 builds it — `FilesystemStore(handoff_root)`,
-    no resolver — `put` used to publish a handoff whose README was missing four
+    As `interfaces.md` §2 builds it — `FilesystemStore(handoff_root)`, no
+    resolver — a tolerant `put` publishes a handoff whose README is missing four
     of its five required sections, carrying an item no content type defines,
-    with `kind: ""` in the manifest. **Criteria 2 and 3 were unenforced on the
-    production path** while all 135 tests here passed, because every one of them
-    injects a resolver.
+    with `kind: ""` in the manifest. **Criteria 2 and 3 go unenforced on the
+    production path** while every other test here passes, because they all
+    inject a resolver.
 
     Reads need no kind and still work; publication refuses and names the wiring.
     """
@@ -304,12 +304,12 @@ def test_a_store_needs_a_root(tmp_path: Path) -> None:
 
 
 def test_an_absent_version_names_what_exists_and_what_was_wanted(store, tmp_path: Path) -> None:
-    """Two facts in the message, and `validator` asked for the second.
+    """Two facts in the message, and the second is the one a caller needs.
 
-    `_require` serves content reads and verdict reads alike, and used to answer
-    both in the manifest's vocabulary — so a `read_verdicts` refusal said *"has
-    no published version 3"* about a file that is a sibling of `content/` and
-    outside the digest. It now names what the caller was after.
+    `_require` serves content reads and verdict reads alike. Answering both in
+    the manifest's vocabulary makes a `read_verdicts` refusal say *"has no
+    published version 3"* about a file that is a sibling of `content/` and
+    outside the digest, so the message names what the caller was after instead.
     """
     hid = HandoffId.new()
     assert store.list_versions(hid) == []

@@ -77,11 +77,10 @@ def test_a_parse_failure_travels_on_its_own_keyword(
     `check-jsonschema` returns parse failure as a value for the same reason, so
     the two never share a channel.
 
-    **It moved across the seam and kept its keyword.** `validate` used to parse
-    and owned this; the package parses now, so the test goes through
-    `load_package` and asserts that the distinction survived the move rather
-    than that `validate` still makes it — which it cannot, having nothing to
-    parse.
+    **The package parses, so the distinction is asserted through
+    `load_package`.** `validate` cannot make it, having nothing to parse; the
+    keyword is the same on either side of the seam, and this asserts the
+    distinction survives it.
     """
     broken = builder.write("broken.yaml", "{: not yaml")
     builder.asset("trace.md", "x")

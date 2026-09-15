@@ -15,12 +15,11 @@ holds both (`interfaces.md` §2.6). Every test in `tests/handoff` injects
 `FixedKind` instead; the real implementation is
 `task_graph/bootstrap.py::_KindSource`, and **nothing compared them.**
 
-**That gap has already cost once, and `store.put`'s docstring records it**:
-`put` used to publish without a kind — no README sections checked, `items`
-validated against nothing, `kind: ""` in the manifest — and *"all 135 of
-`handoff`'s tests were green because every one injects a resolver."* The
-double was the reason the hole was invisible, which is this file's whole
-subject.
+**What the gap costs is what `store.put`'s docstring records**: a `put` that
+publishes without a kind checks no README sections, validates `items` against
+nothing, and writes `kind: ""` in the manifest — invisible to `handoff`'s own
+tests, because every one of them injects a resolver. The double is what makes
+the hole invisible, which is this file's whole subject.
 
 **Behaviour, not signatures.** `_KindSource.kind_for` is annotated
 `(hid: Any) -> Any` where the Protocol says `HandoffId -> HandoffKind | None`,

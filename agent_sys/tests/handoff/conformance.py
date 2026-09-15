@@ -200,9 +200,9 @@ class StoreConformance:
     def test_allocate_creates_the_directory_the_grant_names(self, tmp_path: Path) -> None:
         """**`content/` must exist at allocation, not at first write.**
 
-        `interfaces.md` §4.14 with `0c2df28`'s narrowing grants the agent
-        `v<N>/content/`, and `env_mgr` measured both outcomes for a granted
-        path that does not exist: non-optional raises `FileNotFoundError` in
+        `interfaces.md` §4.14 grants the agent `v<N>/content/`, and both
+        outcomes for a granted path that does not exist are measured:
+        non-optional raises `FileNotFoundError` in
         `prepare` — no isolation, no start, on every output-producing
         dispatch — and optional drops the rule silently. The agent cannot
         create it either, since `mkdir` inside `v<N>/` needs write on `v<N>/`,

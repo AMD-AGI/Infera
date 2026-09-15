@@ -145,11 +145,11 @@ def test_a_failed_input_phase_reports_and_stops(wired) -> None:
 
 
 def test_an_empty_phase_advances_and_records_that_nothing_ran(wired) -> None:
-    """`demo` F-D9, and **this test previously asserted the defect.**
+    """An empty phase advances; it does not report `validation_unreached`.
 
-    It was `test_an_empty_phase_is_unreached_not_failed`, and it pinned
-    `["validation_unreached"]` — which was the runner reporting an unplanned
-    event and ending the thread, leaving the task in its phase for ever.
+    Pinning `["validation_unreached"]` here would pin the defect: the runner
+    reporting an unplanned event and ending the thread, leaving the task in its
+    phase for ever.
     Measured live: `main` sat in `INPUT_VALIDATING` for 300 s. The test was
     green the whole time, because it encoded a reading of the requirement
     rather than the requirement.
@@ -189,8 +189,8 @@ def _evidences(wired) -> list[str]:
 
 
 def test_a_failing_phase_still_blocks(wired) -> None:
-    """The other half. Advancing on empty must not advance on a failure — the
-    two used to share an arm, which is how the fix could break this."""
+    """The other half. Advancing on empty must not advance on a failure, and a
+    single arm for both is how one fix breaks the other."""
     wired.registry.register(
         "phase_runner", StubPhaseRunner(passes=False, empty=False, evidence="failed")
     )
@@ -519,14 +519,13 @@ def test_the_deployed_environment_reaches_the_executor(wired) -> None:
 def test_a_body_path_resolves_against_the_staged_package(wired, tmp_path) -> None:
     """§4.16 copies the package into the zone and leaves the original outside
     every grant, so a body path resolved against the original names a file the
-    kernel refuses — `demo` measured `/bin/sh: cannot open …: Permission
-    denied`.
+    kernel refuses with `/bin/sh: cannot open …: Permission denied`.
 
-    **`Runner.resolve_path` could not have been fixed in place**: `package_root`
-    is a constructor argument and the staged copy is per attempt. This asserts
-    the attempt's copy wins, and that the readme arrives as its **contents** —
-    the schema calls the declared value a path, and it used to reach the SDK as
-    `system_prompt` unread.
+    **`Runner.resolve_path` cannot answer this**: `package_root` is a
+    constructor argument and the staged copy is per attempt. This asserts the
+    attempt's copy wins, and that the readme arrives as its **contents** — the
+    schema calls the declared value a path, so passing it to the SDK as
+    `system_prompt` unread would make the brief its own filename.
     """
     staged = tmp_path / "staged-package"
     (staged / "bodies").mkdir(parents=True)
@@ -556,13 +555,13 @@ def test_a_body_path_resolves_against_the_staged_package(wired, tmp_path) -> Non
 
 
 def test_the_agent_is_told_where_each_output_goes(wired) -> None:
-    """`demo`'s first real model call produced nothing because **nothing in the
-    conversation named the output**. `AGENT_SYS_OUTPUT_SUMMARY` was in the
-    process environment the whole time; a model is not a process reading
-    `os.environ`.
+    """A model told nothing about its output produces nothing. Having
+    `AGENT_SYS_OUTPUT_SUMMARY` in the process environment does not help: a model
+    is not a process reading `os.environ`, so the fact has to be in the
+    conversation.
 
-    `main` ruled the runner states the facts only it possesses — the declared
-    output, its kind, its resolved path — and authors no guidance.
+    The runner states the facts only it possesses — the declared output, its
+    kind, its resolved path — and authors no guidance.
     """
     hid = HandoffId.new()
     env = _confining_env(str(wired.tmp_path), spawn=None, mechanism=None)
@@ -704,11 +703,10 @@ class _FailsOutputOnly(StubPhaseRunner):
 def _real_handoff_mgr(wired, hid):
     """The **real** `HandoffMgr`, not a double.
 
-    Every other stand-in in this file is a double, and four of them drifted
-    from the real type today. This seam is the one where a double would be
-    worst: the whole point is that `check_if_latest_valid` — the consumer's
+    Every other stand-in in this file is a double, and a double is worst at
+    this seam: the whole point is that `check_if_latest_valid` — the consumer's
     eligibility question, three calls deep in `task_graph`'s state machine —
-    answers `True` afterwards. A double would answer whatever I taught it to.
+    answers `True` afterwards, and a double answers whatever it was taught.
     """
     from task_graph.handoff import HandoffMgr
     from task_graph.store import MemoryStoreMgr
@@ -854,10 +852,8 @@ def test_a_gate_failure_does_not_deadlock_the_next_dispatch(wired) -> None:
     # `run`'s `finally`, so it only holds once the thread has ended — and
     # `join(5)` returns whether or not it did. Without this, a slow run reports
     # `generating != invalid`, which reads as the defect being back rather than
-    # as a test that did not wait long enough. `env_mgr` saw this fail 2 of 4
-    # full-suite runs while it passed alone; I could not reproduce it (15/15
-    # isolated, 0/5 across `tests/agent`), so this does not claim to fix a cause
-    # — it makes the failure name itself if it returns.
+    # as a test that did not wait long enough. This does not remove the race —
+    # it makes the failure name itself.
     assert not attempt._thread.is_alive(), (
         "the attempt thread was still running after join(5); the assertion "
         "below is about state that is only written when the thread ends"
@@ -1114,7 +1110,7 @@ def test_the_default_monitor_rule_has_one_owner(wired) -> None:
 
     Latent under `build_registry`'s own wiring, where only `default` exists;
     live the moment `monitors=[...]` puts another name first, which it
-    supports. So the test registers them in the order that used to diverge.
+    supports. So the test registers them in the order that diverges.
     """
     import monitor as monitor_pkg
 
@@ -1351,13 +1347,11 @@ def test_a_program_executor_accepts_and_actually_starts_through_it(wired) -> Non
 
 
 def test_a_package_relative_entry_resolves_against_the_package_root(wired) -> None:
-    """`demo` F-D3. `_common.schema.json` types `entry` as a **package-relative**
-    path and nothing else carries the package root into this package, so the
-    two consumers of one schema key disagreed: `validator.ScriptBodyRunner`
-    joined and this one did not.
-
-    A package that wrote the relative path the schema documents failed only
-    under this executor, and only at run time.
+    """`_common.schema.json` types `entry` as a **package-relative** path and
+    nothing else carries the package root into this package, so both consumers
+    of that key must join against it. If `validator.ScriptBodyRunner` joins and
+    this one does not, a package that writes the relative path the schema
+    documents fails under this executor only, and only at run time.
     """
     from agent.runner import Runner
 
@@ -1368,8 +1362,7 @@ def test_a_package_relative_entry_resolves_against_the_package_root(wired) -> No
 
 def test_an_absolute_entry_is_unaffected_by_the_package_root(wired) -> None:
     """`Path("/a") / "/abs"` is `/abs`, so a package that renders its body paths
-    absolute — which `demo` does through the standard `config` fill — keeps
-    working either way."""
+    absolute — as the standard `config` fill does — keeps working either way."""
     from agent.runner import Runner
 
     assert Runner(wired.registry, package_root=Path("/pkg")).resolve_path("/abs/entry.sh") == (
@@ -1502,12 +1495,12 @@ def test_carry_on_on_an_unknown_task_raises(wired) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# `demo` F-D8 — and the runner is NOT the one that tells the monitor
+# Watching a task — and the runner is NOT the one that tells the monitor
 
 
 def test_the_runner_does_not_call_set_task(wired) -> None:
-    """**Ruled to `Scheduler._dispatch_pass`, not here** — `interfaces.md` §2.1
-    rev. 5, after three rulings and a window in which `task_graph` and `agent`
+    """**`Scheduler._dispatch_pass` owns this call, not the runner** —
+    `interfaces.md` §2.1, and a window in which `task_graph` and `agent`
     had both built it. Safe only because `_Watch.add` dedupes, which neither of
     us designed for.
 
@@ -1539,11 +1532,11 @@ def test_a_phase_that_raises_is_unreached_not_a_handler_failure(wired) -> None:
     """`monitor` spec §2.1: *no verdict reachable — its `entry.sh` crashed, its
     agent died, its own inputs were missing. Nothing was decided.*
 
-    That is what `VALIDATION_UNREACHED` was always for. It used to reach
-    `_crash` and be reported `HANDLING_FAILED`, which their pusher routes to
-    `GiveUp` where the right kind routes to `Escalate` — **so a crashed
-    validator died at its own monitor instead of walking `Task.parent` to the
-    user**, the quietest possible dead branch.
+    That is what `VALIDATION_UNREACHED` is for. Reaching `_crash` and reporting
+    `HANDLING_FAILED` instead routes through the pusher's `GiveUp` where the
+    right kind routes to `Escalate` — **so a crashed validator would die at its
+    own monitor instead of walking `Task.parent` to the user**, the quietest
+    possible dead branch.
 
     Caught by behaviour rather than by type: `agent` may not import
     `validator`, and *any* exception out of `run_phase` means no verdict was
@@ -1595,11 +1588,11 @@ def test_the_runner_asks_whether_the_task_may_proceed(wired) -> None:
 
 
 def test_a_non_leaf_gets_a_container_zone_before_it_releases(wired) -> None:
-    """`demo` F-D10, live: *"task f2990b0f declares parent 04c8eb73, which has
-    no zone"*. A subtask's storage nests inside its parent's, and **a non-leaf
-    never reached `prepare`** — `_main` returns before `_deploy`, its only
-    caller — so no nested graph could run, which is the one thing `cli` spec
-    §2 exists to prove.
+    """A subtask's storage nests inside its parent's, so a non-leaf that never
+    reaches `prepare` leaves every child raising *"declares parent …, which has
+    no zone"*. `_main` returns before `_deploy`, its only caller, so without
+    this no nested graph runs at all — the one thing `cli` spec §2 exists to
+    prove.
 
     `place_zone`, not `prepare`: confines nothing, cuts no workspace.
 
@@ -1632,14 +1625,14 @@ def test_a_leaf_gets_no_container_zone(wired) -> None:
 
 
 def test_a_dead_attempt_closes_with_a_reason(wired) -> None:
-    """`Execution.detail` is *"from the runner; for a human"* and was empty for
-    every failed task in the system — `demo` measured `detail=''` on a real run
-    while the same exception sat complete in the monitor's record.
+    """`Execution.detail` is *"from the runner; for a human"*. Left empty it
+    reports `detail=''` while the same exception sits complete in the monitor's
+    record.
 
     **A failure that is recorded somewhere is not the same as a failure that is
-    reported.** The exception was always in hand and the scheduler always took
-    the argument; what was missing was a type that could express it, which
-    `task_graph` widened rather than my passing an undeclared keyword.
+    reported.** The reason travels because `task_graph`'s `OnDone` is a Protocol
+    and can declare the keyword; an undeclared keyword would work in production
+    and break every conforming callback.
     """
     wired.registry._items.pop("recorder")  # raises KeyError inside the attempt
     _, done = _run(wired, "writer", "leaf_ai")

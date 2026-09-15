@@ -3,8 +3,7 @@
 `docs/interfaces.md` §4 gives each package a row saying what it may import. Every
 one of those rows exists because a specific thing goes wrong when it is broken,
 and the reasons are in the design documents. These tests are the enforcement, so
-the rows do not become aspirations — which is what happened to the composition
-root, and what the cross-module consistency pass had to unpick.
+the rows do not become aspirations.
 
 They walk the AST rather than grepping the source. `"scheduler" in runner.py` is
 `True` today, from two docstring mentions, so a substring check would fail for
@@ -109,12 +108,10 @@ def test_spec_loader_is_the_leaf() -> None:
     Main spec §4.4 says the loader does not read, audit, or constrain a package's
     source. This is the import half of that.
 
-    **The other half got stronger at rev. 10 and moved, so the citation here had
-    to change rather than be retyped.** It used to read *"`validate(data: bytes,
-    ...)` having no path parameter is half of that"*. `validate` now takes a
-    parsed document, and the property it demonstrates is no longer an ordering
-    convention inside `load_package` — *render, then check* — but a **type
-    boundary**: what crosses the seam is a `SpecDocument`, which has no field
+    **The other half is a type boundary, not an ordering convention.**
+    `validate` takes a parsed document rather than `bytes`, so the property is
+    not *render, then check* inside `load_package`: what crosses the seam is a
+    `SpecDocument`, which has no field
     through which a path could arrive. Two tests guard that, and neither belongs
     in a file about imports:
 
@@ -194,13 +191,12 @@ def test_nothing_imports_the_cli() -> None:
     nothing. If a component ever needs it, the runnable proof has stopped being a
     proof and has become a dependency.
 
-    **The package name is load-bearing here, and it silently was not.** This rule
-    was written when the package was `demo/`, and both `OURS` and the assertion
-    named that string. After the rename nothing in the tree is called `demo`, so
-    `_imported_packages` — which intersects with `OURS` — could never return it
-    and this test passed against every possible tree. A component importing `cli`
-    was admitted by a green suite. Asserting on a name means the name has to be
-    checked, which is what `test_every_allowed_package_exists` now does.
+    **The package name is load-bearing, and a wrong one fails silently.** If
+    `OURS` and the assertion name a string no directory in the tree carries,
+    `_imported_packages` — which intersects with `OURS` — can never return it,
+    and this test passes against every possible tree while a component importing
+    `cli` is admitted by a green suite. Asserting on a name means the name has
+    to be checked, which is what `test_every_allowed_package_exists` does.
     """
     for pkg in OURS - {"cli"}:
         for path in _sources(pkg):
@@ -210,10 +206,10 @@ def test_nothing_imports_the_cli() -> None:
 def test_every_allowed_package_exists() -> None:
     """Every name in `OURS` is a real directory, so no rule here can go vacuous.
 
-    A rule keyed on a package name is only as good as the name. `OURS` held
-    `demo` for as long as `demo/` had been renamed to `cli/`, and the cost was
-    not a failure — it was `test_nothing_imports_the_cli` quietly checking
-    nothing. This is the cheapest thing that would have caught it.
+    A rule keyed on a package name is only as good as the name. A name in
+    `OURS` that no directory carries costs no failure — it makes
+    `test_nothing_imports_the_cli` quietly check nothing. This is the cheapest
+    thing that catches that.
     """
     missing = sorted(p for p in OURS if not (ROOT / p).is_dir())
     assert not missing, f"{missing} named in OURS but not a package directory"

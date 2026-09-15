@@ -224,11 +224,10 @@ def test_a_task_without_a_registry_cannot_transition(registry):
 def test_a_resumed_non_leaf_does_not_build_its_subgraph_twice(registry):
     """A non-leaf's main phase **is** the unfold, so a resume re-enters it.
 
-    `demo` drove `--resume` on the real path — the first time anyone had — and
-    measured 2x every subtask and 2x every handoff slot, all parented to the one
-    root that had resumed correctly. `has_subgraph()` asks the *declaration*,
-    which is still true the second time; nothing asked whether this task had
-    already unfolded.
+    Measured on the real `--resume` path: 2x every subtask and 2x every handoff
+    slot, all parented to the one root that resumed correctly. `has_subgraph()`
+    asks the *declaration*, which is still true the second time, so something
+    has to ask whether this task has already unfolded.
     """
     docs = {
         "main": closure_doc("main", subgraph=[{"closure": "produce"}, {"closure": "consume"}]),

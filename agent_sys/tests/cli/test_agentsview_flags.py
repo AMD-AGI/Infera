@@ -104,12 +104,12 @@ def test_the_installers_two_ok_messages_still_discriminate() -> None:
         "bin", "suggested", "system", spec={"name": "agentsview", "check_cmd": "", "install": ":"}
     )
     # **Both branches are driven for real; neither string is written here.**
-    # An earlier version fell back to a literal when the skip branch produced
-    # nothing (`... ] or [f"{name} already present (skip)"]`) and then asserted
-    # only that the result was truthy — so the test invented the very string it
-    # was meant to be guarding. Rephrasing `BinInstaller`'s skip message to
-    # "installed {name} (cached)" — the exact change that makes the 45 MB
-    # notice fire on *every* run — left it green. `satisfied` therefore gets a
+    # Falling back to a literal when the skip branch produces nothing
+    # (`... ] or [f"{name} already present (skip)"]`) and asserting only that the
+    # result is truthy makes the test invent the very string it is guarding.
+    # Rephrasing `BinInstaller`'s skip message to "installed {name} (cached)" —
+    # the exact change that makes the 45 MB notice fire on *every* run — leaves
+    # that green. `satisfied` therefore gets a
     # `check_cmd` that really succeeds, which is what reaches the skip branch.
     (fresh_msg,) = [o.message for o in BinInstaller().install(fresh, target) if o.level == "ok"]
     (skip_msg,) = [
@@ -425,7 +425,7 @@ def test_the_probe_still_runs_when_its_directory_cannot_be_made(monkeypatch) -> 
 
 
 def test_the_panel_url_reaches_the_run(monkeypatch) -> None:
-    """`main` discarded `_start_o11y`'s return value until this feature needed it.
+    """`_start_o11y`'s return value is threaded through, not discarded.
 
     The mapping call lives in `_real_run` because the run id does not exist when
     the panel starts, so the URL has to be threaded through two frames. Both

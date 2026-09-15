@@ -69,12 +69,11 @@ def test_restriction_precedes_any_thread(tmp_path: Path) -> None:
         "leaves the sibling unrestricted while the status reports enforced"
     )
     assert "restricts only the calling thread" in message
-    # The refusal names **both** consequences, because the first is the one that
-    # stops a caller working and the message used to state only the second.
-    # Measured with the guard removed (p3_confine_from_a_thread.py): the thread
-    # that applies it can no longer write outside the zone — so a runner thread
-    # that must record an outcome afterwards is permanently crippled — while the
-    # main thread stays writable and the status would report enforced.
+    # The refusal names **both** consequences, and the first is the one that
+    # stops a caller working. Measured with the guard removed: the thread that
+    # applies it can no longer write outside the zone — so a runner thread that
+    # must record an outcome afterwards is permanently crippled — while the main
+    # thread stays writable and the status reports enforced.
     assert "irreversibly" in message
     assert "between fork and exec" in message
 

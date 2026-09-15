@@ -131,7 +131,7 @@ def test_an_unresolvable_agent_raises_rather_than_falling_back(
     registry, dispatched, tmp_path
 ) -> None:
     """**Absent and unresolvable are different questions and must not share an
-    answer** — `closure`'s correction of a conflation of mine.
+    answer.**
 
     Absent is the declared way to take the global row. A validator naming
     `profilr` wanted a specific environment, and falling back would give it a
@@ -175,12 +175,11 @@ def test_an_empty_agent_name_raises_rather_than_reading_as_absent(
     shared argument look stronger than it is, and it travels between packages
     faster than anyone re-measures it.
 
-    Where the belief came from is the part worth keeping. This package briefly
-    had **two readers of the same key that disagreed on this input**: the
-    withdrawn `agent_of` normalised `""` to `None` — deliberately, the `entry: ""`
-    lesson — and `_bound_environment` never called it, reading `spec.agent` off
-    the model instead. I described the accessor's semantics as the package's.
-    The accessor is gone, so one answer remains; the test is what keeps it one.
+    The hazard is worth keeping in view: **two readers of the same key that
+    disagree on this input**. An `agent_of` accessor normalising `""` to `None`
+    — deliberately, the `entry: ""` rule — beside a `_bound_environment` that
+    reads `spec.agent` off the model gives the package two answers. There is one
+    reader, and this test is what keeps it one.
 
     It also matters beyond this file: `validator.schema.json`'s `minLength: 1`
     is the reason `""` is unreachable from a real document, and
@@ -218,10 +217,10 @@ def test_a_validator_naming_no_agent_still_takes_the_global_row(
     """Absent is legal, and it is the ordinary case: most validators name no
     agent and take §8.2's last row.
 
-    This test used to say *the chain is dead in the phase runner* — three of four
-    rows had no source at all, fed by `getattr(spec, "environment", None)` against
-    a model with `extra="forbid"`. `bound` is now reachable; `consumer` and
-    `producer` still are not, and the enumeration below is what keeps that
+    Fed by `getattr(spec, "environment", None)` against a model with
+    `extra="forbid"`, three of the four rows would have no source at all and the
+    chain would be dead in the phase runner. `bound` and `producer` are
+    reachable; `consumer` is not, and the enumeration below is what keeps that
     visible rather than implicit.
 
     `test_configuration_chain_order` above exercises all four rows and passes —
@@ -263,7 +262,7 @@ def test_a_validator_naming_no_agent_still_takes_the_global_row(
     assert outcome.ran[0].verdict.environment["source"] == ConfigSource.GLOBAL.value
 
     # And what is still unsourced is enumerated rather than implicit. **One row,
-    # not two, since `agent` 3155ca2** — and the one that remains is unreachable
+    # not two** — and the one that remains is unreachable
     # in principle rather than unbuilt: `env.prepare` has a single call site
     # inside `_deploy`, which `_one_phase` reaches only in `RUNNING`, so at
     # `INPUT_VALIDATING` no `Prepared` exists for the task. §8.2 calls this row
@@ -275,7 +274,7 @@ def test_a_validator_naming_no_agent_still_takes_the_global_row(
 def test_the_producer_row_is_live_when_the_runner_has_one(
     registry, dispatched, tmp_path: Path
 ) -> None:
-    """Criterion 9's third row, built by `agent` on request (`3155ca2`).
+    """Criterion 9's third row.
 
     §8.2: *"otherwise, output validation — the producer's, the task that just
     ran."* The configuration is `TaskAttempt.environment`, a read-only mapping
@@ -460,8 +459,8 @@ def test_the_standard_is_asserted_unreachable_not_arranged(tmp_path: Path) -> No
 
     SWE-bench's answer key was physically absent for two years and still leaked:
     `git remote remove origin` leaves the fix commit reachable through
-    `git cat-file --batch-all-objects`. Their fix is the lesson — the clone now
-    ends with a count that must be zero or it exits nonzero.
+    `git cat-file --batch-all-objects`. Their fix is to end the clone with a
+    count that must be zero or it exits nonzero.
     """
     zone = tmp_path / "zone"
     zone.mkdir()
@@ -578,12 +577,12 @@ def test_the_zone_comes_from_env_mgr_when_it_is_wired(registry, dispatched, tmp_
 
 
 def test_the_body_is_told_where_its_materials_are(registry, dispatched, tmp_path) -> None:
-    """`demo` F-D5's residue, and it was one name wide.
+    """The gap this closes is one name wide.
 
     `env_mgr.prepare_validation` stages copies under `<placed.root>/materials/`
-    and returns the paths; this module allocated its zone *inside* that root and
-    discarded them, so a body sat in `<placed.root>/validation-XXXX/` with the
-    copies at `../materials` — reachable, and named by nothing. A body reading
+    and returns the paths. Allocating the zone *inside* that root and discarding
+    them leaves a body in `<placed.root>/validation-XXXX/` with the copies at
+    `../materials` — reachable, and named by nothing. A body reading
     `../materials` would rely on a relative path no document declares.
 
     `materials.json` is now beside `args.json` and `inputs.json` in the body's
@@ -604,11 +603,12 @@ def test_the_body_is_told_where_its_materials_are(registry, dispatched, tmp_path
             return SimpleNamespace(
                 root=str(placed_root),
                 phase=str(phase),
-                # A **mapping**, matching `env_mgr.ValidationZone.materials`
-                # since 789796d. It was a bare tuple, and `tuple()` over the new
-                # shape yields the *keys* — so this stub is what would have kept
-                # a real break green. `test_the_validation_zone_stub_matches_the_real_seam`
-                # is the guard that stops that happening a second time.
+                # A **mapping**, matching `env_mgr.ValidationZone.materials`.
+                # A bare tuple here still satisfies `tuple()`, which over a
+                # mapping yields the *keys* — so a stub of the wrong shape keeps
+                # a real break green.
+                # `test_the_validation_zone_stub_matches_the_real_seam` is the
+                # guard against that.
                 materials={hid: str(placed_root / "materials" / str(hid) / "v0")},
             )
 
@@ -663,11 +663,11 @@ def test_materials_json_is_written_even_when_nothing_is_staged(
 
 
 def test_a_script_body_gets_a_shell_default_path_not_an_empty_one(tmp_path: Path) -> None:
-    """`demo` F-D5 claims a script body starts with an empty `PATH`. Measured, it
-    does not — POSIX `sh` substitutes a built-in default when none is inherited.
+    """A script body does **not** start with an empty `PATH`: POSIX `sh`
+    substitutes a built-in default when none is inherited.
 
-    Pinned because the residue is real but is the *opposite* of the claim: the
-    value comes from the shell rather than from the configuration, so it is not
+    Pinned because the residue is real but points the other way: the value comes
+    from the shell rather than from the configuration, so it is not
     something `CHANNELS` records or a `config` can reason about, and it will
     differ on another platform. If a future change starts passing an explicit
     `PATH`, this test is where that decision becomes visible.

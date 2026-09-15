@@ -412,7 +412,7 @@ def test_resume_continues_from_disk(tmp_path: Path, package_root: Path) -> None:
         store=store,
         # Reloaded on a resume, and that is not optional: the spec registries
         # come back empty, and `agent_mgr` with them, so every dispatch would
-        # raise `unknown agent spec`. F-D2 in `demo/README.md`.
+        # raise `unknown agent spec`.
         packages=[package.task_package(package_root)],
         handoff_root=str(tmp_path / "store" / "h"),
         knowledge_root=str(tmp_path / "store" / "k"),
@@ -425,10 +425,10 @@ def test_resume_continues_from_disk(tmp_path: Path, package_root: Path) -> None:
 
     # **Counted, not collapsed.** `{task.closure: task}` and `set(...)` over its
     # keys both fold duplicates away, so seven records under four names would
-    # satisfy the name assertion — and `--resume` really did produce seven for a
-    # while (`task_graph` `cc23f98`: a non-leaf's main phase *is* the unfold, and
-    # `has_subgraph()` asked the declaration rather than the graph, so resuming
-    # rebuilt the whole subgraph beside the first).
+    # satisfy the name assertion — and seven is what `--resume` produces if
+    # `has_subgraph()` asks the declaration rather than the graph: a non-leaf's
+    # main phase *is* the unfold, so resuming rebuilds the whole subgraph beside
+    # the first.
     #
     # **This assertion would not have caught that, and the limit is worth more
     # than the guard.** Measured: `resume_all` alone yields four records even on

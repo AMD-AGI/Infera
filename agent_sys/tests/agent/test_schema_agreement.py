@@ -2,14 +2,13 @@
 
 `spec_loader` owns `agent.schema.json`; this package owns its content and
 `AgentSpec` is the validated form behind it. **Two declarations of one shape**,
-which is what `engineer_principle.md` §1 names — and the cost was not
-hypothetical: the first version of the schema invented `{type, handoff}` for a
-knowledge reference against the model's `{kind, knowledge_type, required}`, and
-with `additionalProperties: false` on both sides **every knowledge-bearing agent
-spec in the system would have been rejected**, by a file neither reader wrote.
+which is what `engineer_principle.md` §1 names, and the cost is not
+hypothetical. A schema that spells a knowledge reference `{type, handoff}`
+against the model's `{kind, knowledge_type, required}`, with
+`additionalProperties: false` on both sides, rejects **every knowledge-bearing
+agent spec in the system** — from a file neither reader wrote.
 
-It was caught by `spec-loader` asking rather than shipping. This is what makes
-the next one mechanical.
+This is what makes catching the next one mechanical.
 
 Validation goes through `spec_loader.validate`, not a bare `Draft202012Validator`:
 the schema `$ref`s `_common.schema.json`, and only the real pipeline resolves it.

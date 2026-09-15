@@ -114,14 +114,14 @@ def test_loading_packages_without_the_spec_registries_fails_loudly():
 
 
 def test_the_root_reaches_for_the_accessor_handoff_actually_ships():
-    """Pinned from this side too, and the reason is a defect this exact line had.
+    """Pinned from this side too, because a spelling mismatch here is silent.
 
-    The call used to be `getattr(handoff_specs, "load_report", lambda: None)()`
-    while the registry spelled it `report()`. The mismatch **did not fail**: the
-    default produced `None`, `check_closures` returns early on `None`, and an
-    escape-hatch admission went unreported in the assembled system — with
-    `tests/handoff`, `tests/closure` and `tests/task_graph` all green, because
-    each package tested only its own side.
+    A `getattr(handoff_specs, "load_report", lambda: None)()` against a registry
+    that spells it `report()` **does not fail**: the default produces `None`,
+    `check_closures` returns early on `None`, and an escape-hatch admission goes
+    unreported in the assembled system — with `tests/handoff`, `tests/closure`
+    and `tests/task_graph` all green, because each package tests only its own
+    side.
 
     `handoff` pins the name from their end, which catches a rename by them. This
     catches a rename by *me* — the half their test structurally cannot see.
@@ -380,13 +380,13 @@ def test_an_incomplete_view_raises_rather_than_registering_four_of_five():
         build_registry(registries=Views(handoff_specs=Stub()))
 
 
-# ---------------------------------------------- the agent_specs bridge, F-D2
+# ----------------------------------------------------- the agent_specs bridge
 
 
 def test_every_admitted_agent_spec_is_instantiable(tmp_path):
-    """`demo` F-D2. Two tables and nothing joined them: `agent_specs` holds the
-    admitted documents, `AgentMgr`'s table is what `submit` checks — so a graph
-    whose spec loaded cleanly still got `unknown agent spec 'collect'`.
+    """Two tables, and nothing else joins them: `agent_specs` holds the admitted
+    documents, `AgentMgr`'s table is what `submit` checks — so unjoined, a graph
+    whose spec loaded cleanly still gets `unknown agent spec 'collect'`.
 
     A root that has run both whole-catalogue passes and raised on nothing, then
     returns a registry that cannot dispatch anything, has not finished
@@ -420,10 +420,9 @@ def test_the_bridge_carries_the_name_and_not_the_document():
 
 
 def test_bridging_twice_is_harmless():
-    """`demo` has the same bridge in `build.py` and will delete it when ready.
-    Until then both run, so this pins that the second is a no-op rather than a
-    duplicate-registration raise — measured, because that is what makes the
-    handover safe to do in either order."""
+    """The CLI carries the same bridge in `build.py`, so both may run. This pins
+    that the second is a no-op rather than a duplicate-registration raise, which
+    is what makes removing either one safe in either order."""
     supplied = Views(**{k: Stub("collect") if k == "agent_specs" else Stub() for k in FIVE})
     r = build_registry(registries=supplied)
 
@@ -449,7 +448,7 @@ def test_the_public_id_base_is_exported_and_is_what_monitor_subclasses():
     assert not hasattr(task_graph.ids, "_Id")
 
 
-# ------------------------------------------- set_task at dispatch, demo F-D8
+# ------------------------------------------------------ set_task at dispatch
 
 
 class WatchingMonitor:
@@ -472,8 +471,8 @@ def watched_system(store=None, **kw):
 
 
 def test_a_dispatched_task_is_given_to_its_monitor(store):
-    """`demo` F-D8: nobody called `set_task`, so no task was watched and every
-    planned advance raised `ScopeViolation`."""
+    """Without this call no task is watched, and every planned advance raises
+    `ScopeViolation`."""
     r, watcher = watched_system(store)
     task = make_task()
     r.get("scheduler").submit(task)
@@ -492,7 +491,7 @@ def test_a_queued_task_is_not_watched_until_it_runs(store):
 
 
 def test_subtasks_born_inside_unfold_are_watched(registry, store):
-    """The case `demo` could not reach: they submit the root only, and `unfold`
+    """The case a root-only submit does not reach directly: `unfold`
     instantiates the subtasks inside `enter_phase(RUNNING)`."""
     from .conftest import closure_doc, with_closures
 

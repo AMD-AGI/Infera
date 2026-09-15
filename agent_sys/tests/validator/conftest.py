@@ -130,7 +130,7 @@ class StubClosureRegistry:
     validators plus the per-handoff ones joined through the handoff registry.
     That join is `closure`'s and the stub models it as one already-computed set,
     because that is exactly what the real one hands over: asking for the parts
-    and joining them here was the defect `demo` found.
+    and joining them here would be a second writer of that join.
     """
 
     def __init__(self) -> None:

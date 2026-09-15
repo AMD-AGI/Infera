@@ -137,12 +137,11 @@ def test_no_live_agent_escalates_rather_than_pushing(
 ) -> None:
     """`Push` needs a live agent, and a non-leaf never has one.
 
-    **This test used to assert the wrong thing.** It registered a runner with no
-    `attempt_of` at all and asserted the pusher degraded — which was right while
-    `agent` was declaration-only and became meaningless the day `attempt_of`
-    landed. Worse, `live_handle`'s `getattr` fallback made a *renamed* accessor
-    produce the same `Escalate`, so a regression would have looked exactly like
-    the documented degraded state — `interfaces.md` §4.11's first row.
+    **Registering a runner with no `attempt_of` would not assert this.** That
+    tests a degradation rather than the rule, and under a `getattr` fallback in
+    `live_handle` a *renamed* accessor produces the same `Escalate` — so a
+    regression looks exactly like the documented degraded state,
+    `interfaces.md` §4.11's first row.
 
     The case that actually occurs is this one: the attempt exists and has no
     executor, because it has not reached its main phase or is a non-leaf and

@@ -129,7 +129,7 @@ class StubOutcome:
 
         Not a stub constant — `not empty and not passed` is the rule, and a stub
         that hard-coded `False` would pass every test here while the real one
-        blocked, which is this week's recurring failure.
+        blocked.
         """
         return not self.empty and not self.passed
 
@@ -187,9 +187,8 @@ class StubMonitor:
         proves nothing about `set_task` being called.
 
         The real `_run_guarded` raises `ScopeViolation` for a task it was never
-        given, and `demo` F-D8 was exactly that firing on the first planned
-        advance. A permissive stub is how the gap survived eight packages'
-        unit suites.
+        given, which fires on the first planned advance if nothing calls
+        `set_task`. A permissive stub is how that gap survives a unit suite.
         """
         if record.task_id not in self.watching:
             raise AssertionError(
@@ -234,10 +233,11 @@ def _next_phase(status: TaskStatus) -> TaskStatus | None:
 class StubManifest:
     """**No `items`, because the real one has none.**
 
-    It had one for weeks, and `tests/agent/test_gate_against_the_real_store.py`
-    is what found it: `handoff.protocols.Manifest` is `digest` / `algorithm` /
-    `kind` / `producer` / `created_at`, so the gate's pre-check read a field
-    that never existed and `OUTPUT_NOT_EXECUTABLE` was unreachable. Keeping the
+    `handoff.protocols.Manifest` is `digest` / `algorithm` / `kind` /
+    `producer` / `created_at`. A double that adds `items` makes the gate's
+    pre-check read a field that does not exist and `OUTPUT_NOT_EXECUTABLE`
+    unreachable — which is what `tests/agent/test_gate_against_the_real_store.py`
+    catches. Keeping the
     field here would let the same shape come back.
     """
 
@@ -297,12 +297,11 @@ class StubStore:
         empty `content/` is *the agent wrote nothing*, which is `monitor`
         criterion 5's "never attempted" and is not the same as malformed.
 
-        **Returns the refusal, and raising it was this double's second version
-        of the same mistake.** `handoff` moved the boundary in `fd31a6c` — a
-        refusal is a return value and only `NotSealable` escapes — because
+        **Returns the refusal rather than raising it.** At the real boundary a
+        refusal is a return value and only `NotSealable` escapes, because
         `agent` may not import `handoff` and so cannot name a type to catch. A
-        double that still raises would keep the runner's deleted `except` alive
-        in the tests after the code stopped having one.
+        double that raises would keep an `except` alive in the tests that the
+        runner does not have.
         """
         if hid not in self.written:
             return (
@@ -350,18 +349,17 @@ class StubEnvManager:
         self.placed: list[Any] = []
 
     def place_zone(self, task: Any, execution: Any) -> Any:
-        """`prepare`'s first step and none of the rest — `env_mgr` `6fa6a6e`."""
+        """`prepare`'s first step and none of the rest."""
         self.placed.append((task.id, execution))
         return type("Zone", (), {"root": self.zone_root})()
 
     def prepare(self, task: Any, execution: Any, agent_spec: Any = None) -> Any:
         """**All seven fields**, because the real `Prepared` has all seven.
 
-        It used to return `zone` alone, and a probe over the suite counted the
-        runner's `getattr` defaults being taken 34 times for `confinement` and
-        17 for `environment` — **every one of them from this stub and none from
-        production**. The defaults existed to paper over a thin double, and the
-        `confinement` one meant a dropped field would have started a task
+        Returning `zone` alone makes the runner take a `getattr` default for
+        `confinement` and `environment` on every call — **from this stub and
+        never from production**. Such a default papers over a thin double, and
+        the `confinement` one means a dropped field would start a task
         unconfined instead of raising. `env_mgr.protocols.Prepared` is
         `zone` / `workspace` / `policy` / `confinement` / `sync` / `environment`
         / `agent_cli`.
@@ -475,9 +473,9 @@ def wired(specs: AgentSpecRegistry, tmp_path: Path):
     entry.write_text("#!/bin/sh\nexit 0\n")
     entry.chmod(0o755)
     # **A real file, because `readme` is a path and the runner now reads it.**
-    # The schema always said so (`_common.schema.json`); until `4d43017` the
-    # runner passed the declared string through as the agent's prompt, so a
-    # fixture could say `"R"` and nothing noticed.
+    # The schema says so (`_common.schema.json`). A runner that passed the
+    # declared string through as the agent's prompt would let a fixture say
+    # `"R"` with nothing noticing.
     readme = tmp_path / "readme.md"
     readme.write_text("Do the thing.\n")
 
@@ -493,9 +491,9 @@ def wired(specs: AgentSpecRegistry, tmp_path: Path):
             },
             # A subgraph entry is `{closure, is_start?, is_end?}` and the
             # closure must be declared — `Task.unfold` raises otherwise, before
-            # the runner's main phase is reached at all. The first version of
-            # this fixture named a closure that did not exist, and the
-            # `TaskStateError` looked like a runner fault.
+            # the runner's main phase is reached at all. A fixture naming a
+            # closure that does not exist raises `TaskStateError`, which reads
+            # as a runner fault.
             "branch": {
                 "agent": "writer",
                 "task": {
@@ -511,10 +509,9 @@ def wired(specs: AgentSpecRegistry, tmp_path: Path):
     scheduler = StubScheduler()
     r.register("scheduler", scheduler)
     # **The real `TaskMgr`, not a stub.** `Task.has_subgraph` resolves it
-    # (`task_graph/models.py`) since `task_graph` made `unfold` idempotent
-    # for `--resume` (`cc23f98`) — before that, a non-leaf's declaration was the
-    # whole answer and this harness needed nothing. `task_graph` rejected a
-    # tolerant lookup with the reason worth repeating: *a harness with no task
+    # (`task_graph/models.py`), because `unfold` is idempotent for `--resume`
+    # and a non-leaf's declaration is therefore not the whole answer. A tolerant
+    # lookup is refused for the reason worth repeating: *a harness with no task
     # graph is not the same fact as a task with no children*, so the fixture
     # supplies the component rather than the runner shrugging at its absence.
     r.register("task_mgr", TaskMgr(r))

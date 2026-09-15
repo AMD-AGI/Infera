@@ -227,13 +227,12 @@ def test_the_two_stores_are_two_roots_and_one_implementation(system, tmp_path: P
 
 
 def test_the_assembled_system_refuses_a_malformed_handoff(system, tmp_path: Path) -> None:
-    """**The regression test for the defect this file exists for.**
+    """**The defect this file exists for, asserted on the assembled path.**
 
-    Before `e81a81c` the store as the root builds it had no `KindSource`, so
-    `put` had no content type to take required sections from and no
-    `items_schema` to check against — and published this exact directory as v0
-    with `kind: ""`. Criteria 2 and 3, unenforced on the assembled path, with
-    every package suite green.
+    A store the root builds without a `KindSource` has no content type to take
+    required sections from and no `items_schema` to check against, so it
+    publishes this exact directory as v0 with `kind: ""` — criteria 2 and 3
+    unenforced on the assembled path, with every package suite green.
     """
     from handoff.errors import Malformed
 

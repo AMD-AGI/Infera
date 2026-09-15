@@ -223,10 +223,10 @@ def test_malformed_is_not_a_spec_fault_and_the_conversion_is_deliberate() -> Non
         "spec fault from an artefact fault has only the type to go on"
     )
 
-    # `validator`'s pattern, and it is better than mine here: **keep the broken
-    # shape in the assertion** rather than applying the refactor once by hand
-    # and watching it go red. A tamper-and-restore proves the guard worked on
-    # the day someone ran it; this proves it still can, on every run, including
+    # **Keep the broken shape in the assertion** rather than applying the
+    # refactor once by hand and watching it go red. A tamper-and-restore proves
+    # the guard worked on the day someone ran it; this proves it still can, on
+    # every run, including
     # after somebody refactors the guard itself.
     class TidiedUp(HandoffSpecRegistry):
         """The "simplification" this test exists to catch: re-raise the

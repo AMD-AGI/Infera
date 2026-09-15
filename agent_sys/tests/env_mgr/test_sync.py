@@ -312,8 +312,8 @@ def test_the_conflict_pre_pass_follows_the_host_and_not_the_direction(
     zone with the one guard against both-sides-changed data loss never having run,
     in a function whose docstring promises "never a silent skip".
 
-    **And the repair has its own trap, which the first version of this test walked
-    into.** `remote_dst=bool(prefix)` fixes the branch and breaks the probe: with
+    **And the repair has its own trap.** `remote_dst=bool(prefix)` fixes the
+    branch and breaks the probe: with
     `REMOTE_TO_LOCAL` the destination is the *local* zone, so `test -e dst` gets
     sent to the far side about a path that exists only here, comes back "no", and
     passes silently — the same answer in the same reassuring direction, one layer

@@ -196,8 +196,8 @@ def test_a_second_declaration_of_the_same_server_warns_and_starts_nothing(zone, 
 
 
 def test_a_dead_entry_does_not_block_a_restart(zone, reaper):
-    """A server that has since died is not a reason to refuse a restart, even
-    though its registry entry outlives it until shutdown."""
+    """A server that has died is not a reason to refuse a restart, even though
+    its registry entry outlives it until shutdown."""
     target, registry = zone
     port = _free_port()
     (dead,) = RunServerInstaller().install(

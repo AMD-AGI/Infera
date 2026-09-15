@@ -194,15 +194,14 @@ def test_the_child_gets_the_prefix_environment_and_os_environ_is_untouched(
 
 
 def test_ensure_running_passes_replace_to_serve(prefix, monkeypatch) -> None:
-    """Measured directly (scratch/port_repro, reported to team lead): without
+    """Measured directly: without
     `--replace`, `serve --background --port N` silently attaches to any
     daemon already running for this `AGENTSVIEW_DATA_DIR` and reports *its*
-    port, ignoring `N` entirely -- exit 0, no error, and our own health check
-    on `N` then times out (correctly producing a warning, but only after
-    burning the full launch+health timeout, and only ever reporting failure,
-    never actually landing on the port we asked for). `--replace` is the flag
-    that makes our chosen port actually take effect regardless of any stray
-    daemon left over from an earlier run.
+    port, ignoring `N` entirely -- exit 0, no error, and the health check on
+    `N` then times out: a warning, but only after the full launch+health
+    timeout, and never landing on the requested port. `--replace` is the flag
+    that makes the chosen port take effect regardless of a stray daemon left
+    over from an earlier run.
     """
     seen_cmd: list[str] = []
 
@@ -463,9 +462,9 @@ def test_a_truncated_identity_response_is_not_an_identity(prefix, monkeypatch) -
 
     **Chunked, and measured rather than assumed.** A truncated
     `Content-Length` body does *not* reach this: `HTTPResponse.read(amt)`
-    returns a short read for that case and raises nothing (checked directly —
-    the first version of this test used it and passed against the unfixed
-    code). Chunked framing is the path that raises, and it is the framing a Go
+    returns a short read for that case and raises nothing, so a test built on
+    it passes against unfixed code. Chunked framing is the path that raises,
+    and it is the framing a Go
     HTTP server uses whenever it does not set a length — which is to say, a
     realistic stranger.
     """

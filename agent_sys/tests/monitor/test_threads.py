@@ -95,23 +95,22 @@ def test_the_monitor_never_starts_a_task(
 def test_a_released_attempt_is_resumed_not_woken(
     monitor: PusherMonitor, task_mgr: StubTaskMgr, runner
 ) -> None:
-    """The regression test for the defect `p7_nonleaf_wake_is_silent.py` found.
+    """A non-leaf's wake must not be silent.
 
-    `_advance` used to branch on `attempt_of(tid) is None`, which **never fires
-    for a non-leaf**: the attempt object survives its thread — `monitor` spec
-    §5.3 says so, `agent`'s `release()` docstring says so, and
-    `Runner._attempts` is emptied only by `stop`. So the monitor called `wake()`,
-    which is `Event.set()` on an Event no thread is waiting on, and the parent
-    sat in `OUTPUT_VALIDATING` for ever **with nothing reported**.
+    Branching on `attempt_of(tid) is None` **never fires for a non-leaf**: the
+    attempt object survives its thread — `monitor` spec §5.3 says so, `agent`'s
+    `release()` docstring says so, and `Runner._attempts` is emptied only by
+    `stop`. The monitor then calls `wake()`, which is `Event.set()` on an Event
+    no thread is waiting on, and the parent sits in `OUTPUT_VALIDATING` for ever
+    **with nothing reported**.
 
     The branch is now `attempt is None or not attempt.is_running`, and the
     predicate is the attempt's own because only it knows that all three of its
     terms matter — `halt()` sets `_halted` before the thread notices.
 
-    **This test could not have caught the defect before the stub was fixed**,
-    and that is the lesson worth keeping: the old `StubAttempt` had no
-    `is_running` and modelled a non-leaf as an absent entry, so it agreed with
-    the design rather than with the neighbour.
+    **This test depends on the stub modelling the neighbour rather than the
+    design.** A `StubAttempt` with no `is_running`, modelling a non-leaf as an
+    absent entry, agrees with the design and cannot catch this.
     """
     parent = task_mgr.add(StubTask(status=Status.RUNNING))
     monitor.set_task(parent.id)

@@ -252,10 +252,11 @@ def test_broken_closure_names_its_file(tmp_path: Path) -> None:
     broken file is in the package — so it is a **sibling package** the ordinary
     discovery pass does not reach, behind one flag. Two runs, no editing.
 
-    It used to be `examples/ok.filetree_grounded_report.4/broken/`, a subdirectory. `YamlPackage` scans
-    every `*.yaml` under a root except `assets/`, so that would now load on every
-    ordinary run; a sibling directory with its own `main.yaml` and `assets/` is
-    the smallest thing that is unambiguously not part of the demo."""
+    A subdirectory such as `examples/ok.filetree_grounded_report.4/broken/`
+    would not do: `YamlPackage` scans every `*.yaml` under a root except
+    `assets/`, so it would load on every ordinary run. A sibling directory with
+    its own `main.yaml` and `assets/` is the smallest thing that is
+    unambiguously not part of the demo."""
     code, stream = _run_cli("run", "--dry-run", "--with-broken", "--demo-root", str(tmp_path))
     assert code == cli_main.LOAD_ERROR == 1
 
@@ -626,10 +627,9 @@ def test_python_target_is_310(package_root: Path) -> None:
 
 @pytest.mark.xfail(
     strict=True,
-    reason="F-D1: no component calls HandoffStore.put, so nothing publishes a "
-    "handoff and agent/gate.py reports OUTPUT_ABSENT for every task. Reported "
-    "to `handoff` and `agent`; when it is closed this XPASSes and the demo's "
-    "run path gets its publication step.",
+    reason="no component calls HandoffStore.put, so nothing publishes a "
+    "handoff and agent/gate.py reports OUTPUT_ABSENT for every task. When that "
+    "is closed this XPASSes and the demo's run path gets its publication step.",
 )
 def test_something_publishes_a_handoff() -> None:
     """Measured, not predicted: three `HandoffStore.put` call sites in the tree
@@ -652,20 +652,14 @@ def test_something_publishes_a_handoff() -> None:
 
 
 def test_a_task_is_given_to_a_monitor_by_set_task() -> None:
-    """F-D8, **closed by `task_graph` while this was xfailing.**
+    """Something gives a monitor a task to watch.
 
-    It landed as `Scheduler._watch` — `self._r.get("monitor_for")(task,
+    `Scheduler._watch` is the site — `self._r.get("monitor_for")(task,
     self._r).set_task(task.id)`, guarded by `if "monitor_for" not in self._r`, so
-    a declaration-only `monitor` still works. That is the right site: the
-    scheduler is one of the two places that sees every task at birth, and the
-    subtasks are why it had to be one of them — `Task.unfold` creates them inside
+    a declaration-only `monitor` still works. It is the right one: the scheduler
+    is one of the two places that sees every task at birth, and the subtasks are
+    why it has to be one of them — `Task.unfold` creates them inside
     `enter_phase(RUNNING)`, so no caller outside `task_graph` ever holds one.
-
-    This was `xfail(strict=True)` for about an hour and **XPASSed**, which is
-    `engineer_principle.md` §5.1's handshake working as a protocol rather than as a
-    check: it went red the moment the other side landed, and named both sides
-    while doing it. Nobody had to remember to come back. Kept as a plain
-    assertion so a regression is still caught.
     """
     callers: list[str] = []
     for component in COMPONENTS:
@@ -684,12 +678,11 @@ def test_a_task_is_given_to_a_monitor_by_set_task() -> None:
 def test_body_paths_are_package_relative(package_root: Path) -> None:
     """`_common.schema.json`: *"Package-relative path to the readme.md"*.
 
-    They were absolute for a while, filled from `config.package_root`. That was
-    the **F-D3 workaround and it was correct when written** — `agent` had no
-    `package_root` and `validator` did, so absolute was the only form both
-    accepted. §4.16 then staged the package into the zone and absolute stopped
-    being resolvable against anything: `Path(staged) / "/abs"` is `/abs`, so a
-    staged body would never be reached. A reversal caused by a change elsewhere.
+    Filling them absolute from `config.package_root` is defensible only while
+    one consumer has a `package_root` and the other does not, which makes
+    absolute the single form both accept. Once §4.16 stages the package into the
+    zone, absolute stops being resolvable against anything: `Path(staged) /
+    "/abs"` is `/abs`, so a staged body is never reached.
 
     **Now nothing in the package writes a body path at all** — the assets
     resolver derives them — so this pins the *resolver's* output rather than a

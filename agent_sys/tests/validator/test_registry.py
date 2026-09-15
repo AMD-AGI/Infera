@@ -226,10 +226,10 @@ def test_a_re_registration_does_not_double_an_edge(registry: ValidatorSpecRegist
 
 
 def test_a_closure_phase_edge_is_recorded(registry: ValidatorSpecRegistry) -> None:
-    """The **third** edge kind — *"a closure naming a phase
-    validator"* — which `EDGE_KINDS` was missing until `demo` found it.
+    """The **third** edge kind — *"a closure naming a phase validator"*.
 
-    Its absence was precisely the failure the module docstring cites: Airflow
+    Omitting it from `EDGE_KINDS` reproduces exactly the failure the module
+    docstring cites: Airflow
     reported live assets dead because one reference kind was not in its join, and
     a `users_of` counting only two of three edges reports a validator that two
     closures run as used by nothing. Quoting #58058 and then committing it is
@@ -257,13 +257,10 @@ def test_users_of_is_recoverable_but_punishes_a_careless_split(
     `split(":", 1)[1]` round-trips exactly — measured here over names chosen to
     break it. The naive `split(":")[1]` does not.
 
-    **This test asserted the opposite an hour ago and was wrong.** `closure`
-    reported the naive parse's behaviour as the format's, I reproduced their
-    snippet rather than measuring `users_of`, and "the format is lossy" reached a
-    commit with "measured" attached to it. Re-measured from scratch in
-    A probe. The guard is still
-    worth having on the true, weaker premise: a display format that looks
-    parseable invites a parse, and the easy one is wrong.
+    **The format is not lossy**, and reading the naive parse's behaviour as the
+    format's is how the opposite gets asserted. The guard is worth having on the
+    true, weaker premise: a display format that looks parseable invites a parse,
+    and the easy one is wrong.
     """
     registry.add("shape", validator_record("shape"), origin="a")
     for awkward in ("a:b", "::", ":y", "x:", "analyse"):

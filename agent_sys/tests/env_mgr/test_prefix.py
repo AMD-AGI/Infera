@@ -22,12 +22,12 @@ def test_env_var_overrides_home(tmp_path: Path) -> None:
 def test_resolving_without_home_does_not_raise() -> None:
     """`resolve` is total, because two of its three call sites cannot degrade.
 
-    It used to do `environ["HOME"]` and raise `KeyError`. `material.py` caught
-    that and warned; `prepare.py` and `cli/environment.py` did not, so under a
-    systemd unit or a stripped cron environment the o11y feature killed a run
-    that never asked for a panel — the one rule this whole change is built
-    around. One behaviour at all three call sites is the fix, and the
-    behaviour is *resolve to somewhere*, never raise.
+    An `environ["HOME"]` here raises `KeyError`. `material.py` catches that and
+    warns; `prepare.py` and `cli/environment.py` do not, so under a systemd unit
+    or a stripped cron environment the o11y feature would kill a run that never
+    asked for a panel — the one rule this whole feature is built around. One
+    behaviour at all three call sites is what avoids it, and the behaviour is
+    *resolve to somewhere*, never raise.
     """
     p = Prefix.resolve({})
     assert p.root.is_absolute()

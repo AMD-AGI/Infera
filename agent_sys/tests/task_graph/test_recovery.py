@@ -370,7 +370,7 @@ def test_a_generating_version_is_still_generating_after_a_restart(
 
 def test_a_spec_removed_before_a_restart_does_not_take_recovery_down_with_it(scheduler, store):
     """The spec table is deliberately not restored, so a task naming a spec the
-    operator has since removed cannot be dispatched. Recovery must fail that
+    operator had removed cannot be dispatched. Recovery must fail that
     one task, not abort — otherwise every healthy task behind it stays parked
     with no later event to release it."""
     for spec in ("profiler", "tuner", "profiler"):

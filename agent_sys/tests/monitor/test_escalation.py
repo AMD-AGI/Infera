@@ -36,8 +36,8 @@ def test_walks_parent_chain_to_root(
 
     **Up the task tree, never the monitor topology.** Global monitors are a flat
     pool; the tree that matters is `task_graph`'s, and `Task.parent` is the edge
-    `unfold` sets. So the target is always *the monitor of my task's parent*,
-    whichever kind either one is — and the scope always moves in the right
+    `unfold` sets. So the target is always *the monitor of the reporting task's
+    parent*, whichever kind either one is — and the scope always moves in the right
     direction, because a parent's zone contains its children's.
     """
     root = task_mgr.add(StubTask(parent=None))
@@ -142,7 +142,7 @@ def test_escalate_makes_exactly_one_hop(task_mgr: StubTaskMgr, monitor: PusherMo
 def test_reached_the_user_separates_a_resting_state_from_a_stall(
     registry: Registry, task_mgr: StubTaskMgr, monitor: PusherMonitor
 ) -> None:
-    """`demo`'s requirement, as a question rather than two magic strings.
+    """The requirement, as a question rather than two magic strings.
 
     > *A state the system is specified to rest in must be distinguishable, from
     > the outside, from one it is stuck in.*

@@ -33,8 +33,8 @@ def test_a_validator_agent_name_is_never_empty() -> None:
 
     The two dependants are **not symmetric**, and the difference is the whole
     reason this test is in `tests/interfaces/` rather than in either of theirs.
-    Measured, not relayed — both packages' own accounts of this had it wrong,
-    including mine in the first version of this docstring:
+    Measured, not relayed — a module's own account of its dependency on this
+    clause is not reliable:
 
     - **`agent/validator_executor.py` is the silent one.** `_agent_spec` is
       `spec.agent or self.agent_spec`, so `""` is falsy and takes the
@@ -47,20 +47,19 @@ def test_a_validator_agent_name_is_never_empty() -> None:
       because the code is behaving exactly as designed on an input the schema
       was supposed to have made impossible.
 
-    - **`validator/phase.py` is loud, and its own report said otherwise.**
-      `_bound_environment` branches on `if name is None`, and `""` is not
-      `None`, so an empty name falls through to the resolve and **raises
-      `ValidatorInvalid`**. `validator` reported it as taking the quiet-`None`
-      branch; it does not, and they have since pinned the raise in `4445c97`.
-      Not re-asserted here — that behaviour is theirs and their pin is its one
-      writer. The clause still matters there, as what keeps the *absent* and
+    - **`validator/phase.py` is loud.** `_bound_environment` branches on
+      `if name is None`, and `""` is not `None`, so an empty name falls through
+      to the resolve and **raises `ValidatorInvalid`** — not the quiet-`None`
+      branch it might be read as taking. Not re-asserted here: that behaviour is
+      `validator`'s and their own pin is its one writer. The clause still
+      matters there, as what keeps the *absent* and
       *unresolvable* answers from being reachable by one input, but it is not
       where silence would come from.
 
-    So: one silent dependant is enough, and the count in the first version of
-    this docstring was wrong in the direction that made the argument look
-    stronger than it is. The precise claim is that **`agent` cannot notice this
-    clause going**, and that is sufficient, because the clause lives in a third
+    So: one silent dependant is enough, and counting two would make the argument
+    look stronger than it is. The precise claim is that **`agent` cannot notice
+    this clause going**, and that is sufficient, because the clause lives in a
+    third
     package and nothing in `tests/agent` reaches it.
     """
     agent = schema_for("validator")["properties"]["agent"]

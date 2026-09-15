@@ -189,10 +189,10 @@ def test_a_payload_must_be_serialisable(store):
     raise below would keep passing while reporting a constraint that no longer
     binds. So the route is asserted too, and it is the route that will fail.
 
-    `handoff` found this shape the hard way one file over: their escape-hatch
-    marker asserted that the root's default registry is strict, which stayed
-    true after `registries=` gave the flag a route, so it would have gone on
-    reporting a gap that was closed.
+    `handoff`'s escape-hatch marker is the same shape one file over: asserting
+    that the root's default registry is strict stays true once `registries=`
+    gives the flag a route, so the marker goes on reporting a gap that has
+    closed.
     """
     import pytest
     from pydantic_core import PydanticSerializationError

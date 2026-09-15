@@ -272,11 +272,10 @@ def test_env_manager_exposes_exactly_these(ctx) -> None:
     still fails a test and still needs a decision. Deleting it would have
     removed the pressure; leaving it at one would have blocked a correct change.
 
-    It has since fired twice and been right both times. `place_zone` is the
-    third, added after `demo` found that a non-leaf never gets a zone and
-    `agent` measured that the obvious repair — calling `prepare` — would be
-    refused. The guard is what made each of those a decision with a stated
-    reason rather than an accretion.
+    `place_zone` is the third entry, and it exists because a non-leaf never gets
+    a zone while the obvious repair — calling `prepare` — is refused. The guard
+    is what makes each such addition a decision with a stated reason rather than
+    an accretion.
     """
     public = {
         name
@@ -416,19 +415,17 @@ def test_prepared_matches_the_declared_surface(ctx) -> None:
 
     `zone` was exempt and should not have been — `Any` only because it sat
     beside something that had to be, when `from env_mgr.fs.zone import Zone` is
-    intra-package and breaks nothing. Narrowed in `af97f51`. **An exemption list
-    earns its keep only if every entry is forced**; the moment a fixable thing
+    intra-package and breaks nothing. **An exemption list earns its keep only if
+    every entry is forced**; the moment a fixable thing
     rests in one because of its neighbours, the list stops meaning *cannot* and
     starts meaning *did not*, which is a stale docstring wearing a structure
     built to prevent them.
 
-    `confinement` **was** a third entry and is now fixed rather than exempted:
-    the declaration typed it non-optional while `None` is how the system says
-    *unconfined*. It was accurate until `ad730a2` made `None` reachable, and the
-    comment explaining `confinement is None` sat nine lines above the annotation
-    denying it the whole time. Widened on a ruling, because the frozen
-    cross-module surface is not something a test should quietly encode either
-    answer to.
+    `confinement` is fixed rather than exempted: typing it non-optional denies
+    that `None` is how the system says *unconfined*, which the comment
+    explaining `confinement is None` states nine lines above the annotation. The
+    declaration is widened rather than exempted, because the frozen cross-module
+    surface is not something a test should quietly encode either answer to.
     """
     import inspect
 
@@ -855,7 +852,7 @@ def test_the_switch_is_read_in_exactly_one_place() -> None:
 
     Structural, not behavioural: nothing outside `prepare.permissions_enforced`
     may look the variable up. `grants` and `layout` take it as an argument, and
-    `agent` and `demo` read `Prepared.permissions_enforced` rather than the
+    `agent` and the CLI read `Prepared.permissions_enforced` rather than the
     environment. Asserted over the source because "one reader" is a claim about
     the code and the code is checkable.
     """
@@ -941,7 +938,7 @@ def test_by_default_a_run_that_would_be_refused_proceeds(ctx, monkeypatch) -> No
 
     **And it is not vacuous**: the first half is the control, running under the
     directory fixture's explicit `AGENT_SYS_NO_PERMISSIONS=0`, and it must still
-    raise. If enforcement had been removed rather than defaulted off, this test
+    raise. If enforcement were removed rather than defaulted off, this test
     fails on its first assertion rather than passing quietly.
     """
     from .stubs import Grant, Permissions
@@ -1111,11 +1108,13 @@ def test_the_switch_does_not_move_a_body_s_input(ctx, monkeypatch, tmp_path) -> 
 
 
 def test_a_declared_env_wins_over_every_other_contributor(ctx, tmp_path: Path) -> None:
-    """**`spec_loader`'s schema now asserts this ordering, in a file we do not read.**
+    """**`spec_loader`'s schema asserts this ordering, in a file this package
+    does not read.**
 
-    `a816f39` tells every package author that a declared `env` is applied last
-    and wins. That is true of five contributors to `Prepared.environment` and
-    only one of them was pinned: `test_a_declared_env_may_override_the_derived_path`
+    It tells every package author that a declared `env` is applied last and
+    wins. That is true of five contributors to `Prepared.environment` and only
+    one of them is pinned elsewhere:
+    `test_a_declared_env_may_override_the_derived_path`
     checks `PATH`, set at the top of the block, while `PACKAGE_ENV_VAR`,
     `output_env` and `input_env` sit **between** it and `material.deploy`.
 

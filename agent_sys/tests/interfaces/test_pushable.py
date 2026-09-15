@@ -187,9 +187,9 @@ def test_a_program_body_is_not_pushable() -> None:
     already. Adding `instruct` alone leaves this `False`, so a reviewer sees no
     consequence; adding `query` afterwards "for symmetry" completes the set and
     `isinstance` silently becomes `True`. `_push` would then call an `instruct`
-    that cannot work, which is the `AttributeError` of 2026-08-29 restored —
-    and `demo`'s escalation, *"the executor is a program body: there is no
-    agent to instruct"*, would become a traceback.
+    that cannot work — an `AttributeError` where a decision belongs, turning the
+    escalation *"the executor is a program body: there is no agent to
+    instruct"* into a traceback.
 
     **`status` is asserted present on purpose.** Without it this test would
     still pass if `ProgramExecutor` stopped satisfying `Pushable` for some

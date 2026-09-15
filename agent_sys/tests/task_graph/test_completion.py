@@ -4,8 +4,8 @@ There is no result object: the runner reports a status and what it spent.
 
 **Output versions are no longer read here.** `interfaces.md` §4.14 moved them to
 dispatch, where the store allocates the directory the write grant resolves to,
-so completion records nothing about them and the two tests that used to assert
-it now assert the pin at the moment it happens.
+so completion records nothing about them and the pin is asserted at the moment
+it happens instead.
 """
 
 import pytest

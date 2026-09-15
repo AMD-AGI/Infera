@@ -475,18 +475,16 @@ def test_the_store_layout_this_package_reads_is_handoffs(tmp_path: Path) -> None
     reader of a fact `handoff` owns, admissible only with a test that fails the
     day the two disagree.
 
-    **The first version of this test did not fail on that day.** It built its
-    fixture by writing `real / "manifest.json"` — *the demo module's own
-    constant* — and then asserted the demo module read it. It compared a thing
-    to itself. `handoff` writes `manifest.yaml`, so `kind_of` returned `""` and
-    `latest_of_kind("facts")` returned `None` for a genuinely published handoff,
-    with this test green. Found by `handoff` running the real store, not here.
+    **A fixture built from the demo module's own constants cannot fail on that
+    day.** Writing `real / "manifest.json"` and then asserting the demo module
+    reads it compares a thing to itself: `handoff` writes `manifest.yaml`, so
+    `kind_of` returns `""` and `latest_of_kind("facts")` returns `None` for a
+    genuinely published handoff, with the test green.
 
-    That is precisely the failure this package spent two days reporting in other
-    people's code — *a duplicated fact needs an agreement test; a duplicated
-    decision needs one that **fires***. So the fixture is now built with
-    **`handoff`'s** names and the constants are compared directly: nothing below
-    can pass by agreeing with itself.
+    *A duplicated fact needs an agreement test; a duplicated decision needs one
+    that **fires***. So the fixture is built with **`handoff`'s** names and the
+    constants are compared directly: nothing below can pass by agreeing with
+    itself.
     """
     import importlib.util
     import uuid
@@ -623,8 +621,8 @@ def test_the_two_declared_names_point_at_the_same_level() -> None:
 
     Kept rather than deleted because the strings still differ and a reader still
     compares strings. `tests/env_mgr` pins the property against a real staged
-    tree (`test_the_two_declared_names_point_at_the_same_level`, `86a6818`);
-    this pins the half `demo`'s bodies depend on — that neither body hops.
+    tree (`test_the_two_declared_names_point_at_the_same_level`); this pins the
+    half the demo's bodies depend on — that neither body hops.
     """
     from env_mgr.grants import INPUT_ENV_PREFIX, OUTPUT_ENV_PREFIX, _env_name
 

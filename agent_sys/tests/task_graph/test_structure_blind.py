@@ -263,18 +263,16 @@ def test_permissions_are_versioned_with_the_task_and_persist(scheduler, store):
 
 
 def test_a_subtask_carries_its_own_declared_permissions_not_its_parents(registry, scheduler):
-    """**This test used to assert the opposite, and the opposite was the defect.**
+    """**A subtask does not inherit its parent's permissions.**
 
-    It read *"a subtask inherits its parent's permissions"*, and `_instantiate`
-    passed `self.permissions` down — so what a sub-closure declared was
-    discarded and every subtask received the **root's** full set. Every other
-    field on the instantiated `Task` already comes from the sub-closure's own
-    `task_spec`; permissions were the one exception, and nothing consumed the
-    declaration `closure` check 6 validates at load.
+    `_instantiate` passing `self.permissions` down discards what the sub-closure
+    declared and gives every subtask the **root's** full set. Every other field
+    on the instantiated `Task` comes from the sub-closure's own `task_spec`, and
+    nothing would consume the declaration `closure` check 6 validates at load.
 
-    `demo` measured the cost: `produce` produces only `facts`, inherited the
-    root's `summary` grant, and `env_mgr.resolve` refused a kind-named grant
-    that matches no slot on the task — so a correctly-declared package could not
+    The cost: a `produce` that produces only `facts` inherits the root's
+    `summary` grant, and `env_mgr.resolve` refuses a kind-named grant that
+    matches no slot on the task — so a correctly-declared package cannot
     dispatch its first subtask.
 
     Criterion 44's *"covers its subtasks recursively"* is not lost. It is a

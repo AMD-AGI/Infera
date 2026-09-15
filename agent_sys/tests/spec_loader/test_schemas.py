@@ -58,12 +58,11 @@ def test_undeclared_field_rejected(builder: PackageBuilder, registries: FakeRegi
     this is also the check that every shipped schema carries
     `additionalProperties: false` where it counts.
 
-    **The smuggling route changed with the format and the test is stronger for
-    it.** It used to be a jsonnet overlay — `(import "t.libsonnet") + {sneak: …}`
-    — which is a thing only jsonnet could do. Now it is an ordinary key in an
-    ordinary document, which is the case every package can produce, so what is
-    demonstrated is no longer "the overlay did not escape the render" but "the
-    schema is what stops it".
+    **The smuggling route is an ordinary key in an ordinary document**, which is
+    the case every package can produce — not a jsonnet overlay such as
+    `(import "t.libsonnet") + {sneak: …}`, which only jsonnet can do. So what is
+    demonstrated is "the schema is what stops it", not "the overlay did not
+    escape the render".
     """
     path = builder.write(
         "kinds.yaml",
@@ -319,10 +318,9 @@ def test_permissions_are_not_on_the_agent_spec() -> None:
     ],
 )
 def test_tags_and_two_of_its_fields_are_required(label: str, doc: dict, path: str) -> None:
-    """`validator` settled this, and the reason is stronger than the one I gave.
+    """Required, and the decisive reason is not §5.3's cheap-first ordering.
 
-    I argued §5.3's cheap-first ordering needs `cost`. The decisive argument is
-    what optional would *cost*: `Tags` cannot be constructed empty, because
+    It is what optional would *cost*: `Tags` cannot be constructed empty, because
     `logic_source` and `cost` have no defaults. So an optional container means
     either a default `logic_source` — a default **trust** claim, which §9.3
     check 2 forbids in the words *"an unlabelled validator would default to
@@ -364,8 +362,8 @@ def test_a_validator_may_name_an_agent_spec(label: str, doc: dict, path: str | N
 
     A **name**, not an inline environment block: `agent.env` already declares
     the environment, so a second copy here would be two writers of one fact.
-    That reading was mine, `agent-mod` assented, and `closure` owns the resolve
-    because the agent registry may not be loaded when this document is.
+    `closure` owns the resolve, because the agent registry may not be loaded
+    when this document is.
 
     Step 2 of three. It could not land until `validator` added `_PENDING` to
     their conformance test, which asserts exact set equality between this

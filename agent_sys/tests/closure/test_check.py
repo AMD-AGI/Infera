@@ -122,10 +122,10 @@ def test_no_agent_key_rejected(regs: Regs) -> None:
 def test_a_non_leaf_needs_no_agent_key(regs: Regs) -> None:
     """Main spec §4.8, narrowed at rev. 10: a non-leaf's work *is* its subgraph.
 
-    The schema had already been narrowed by `fbac040` — `agent` left `required`
-    and an if/else reinstates it unless `task.subgraph` is present and non-empty
-    — and this check had not, so the two disagreed and a non-leaf that the
-    schema admitted was rejected here. Pinned against the schema's own
+    The schema is narrowed for it — `agent` stays in `required` and an if/else
+    reinstates it unless `task.subgraph` is present and non-empty — so a check
+    here that is not narrowed the same way rejects a non-leaf the schema
+    admits. Pinned against the schema's own
     condition: `has_subgraph` is `bool(subgraph_of(task))`, which is
     `required` + `minItems: 1` said in Python.
     """

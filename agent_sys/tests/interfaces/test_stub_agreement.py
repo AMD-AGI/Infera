@@ -3,7 +3,7 @@
 `docs/interfaces.md` §8 ships both: the `.py` is importable at runtime and
 carries the reasons, the `.pyi` is the shape a type checker reads. That is two
 declarations of one contract, which is the failure `engineer_principle.md` §1
-names and which the stage-three consistency pass found fifteen instances of.
+names.
 
 These tests are what makes the duplication safe rather than merely convenient.
 """

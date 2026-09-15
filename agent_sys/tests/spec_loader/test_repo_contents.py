@@ -107,12 +107,12 @@ PERMITTED_COMPONENTS = {"general_specs", "tests"}
 #:
 #: **Two roots for one demo, and the second exists because of W3's own scan
 #: rule** — kept because it explains a layout a reader would otherwise misread.
-#: `examples/fail.dangling_handoff_kind.1/` used to be `examples/ok.filetree_grounded_report.4/broken/`, inside the
-#: package. `YamlPackage` scans every `*.yaml` under a root except `assets/`, so a
-#: deliberately-broken document nested inside the good package would be loaded on
-#: every ordinary run — `cli` criterion 13's *"two runs, no hand-editing"* gone.
-#: `cli/package.py` records the move; nothing but
-#: `cli.package.broken_package()` reaches it, for `--dry-run --with-broken`.
+#: `examples/fail.dangling_handoff_kind.1/` is a sibling rather than a
+#: subdirectory of the good package. `YamlPackage` scans every `*.yaml` under a
+#: root except `assets/`, so a deliberately-broken document nested inside the
+#: good package would load on every ordinary run — `cli` criterion 13's *"two
+#: runs, no hand-editing"* gone. Nothing but `cli.package.broken_package()`
+#: reaches it, for `--dry-run --with-broken`.
 #:
 #: **An example may need hardware this test cannot assume**, and that is §4.3's
 #: business rather than this guard's: nothing here loads or runs a package, it

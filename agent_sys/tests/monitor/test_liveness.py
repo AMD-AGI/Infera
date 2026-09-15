@@ -1,9 +1,8 @@
 """The monitor's own liveness — criteria 25 and 26.
 
-Rev. 14 put the planned path through this module, so "nothing monitors the
-monitor" stopped being a recorded risk and became a requirement: before, a dead
-monitor meant exceptions went unhandled; now it means **every task stops
-advancing, silently**.
+The planned path runs through this module, so "nothing monitors the monitor" is
+a requirement rather than a recorded risk: a dead monitor does not merely leave
+exceptions unhandled, it stops **every task advancing, silently**.
 """
 
 from __future__ import annotations
@@ -185,17 +184,17 @@ def test_a_running_loop_keeps_beating(monitor: PusherMonitor) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Starting the loops — the gap `demo`'s first end-to-end run found (F-D7)
+# Starting the loops
 
 
 def test_start_monitors_gives_every_registered_monitor_a_thread(registry) -> None:
-    """`demo` got through confinement, preflight, load and dispatch, and then sat
-    in `INPUT_VALIDATING` for 300 s: **nothing ever started a monitor's loop.**
+    """A run can clear confinement, preflight, load and dispatch and then sit in
+    `INPUT_VALIDATING` for ever if **nothing starts a monitor's loop.**
 
     `build_registry` registers `monitor:<name>` and gives it no thread, and a
     monitor that is never started still *accepts* reports — `report()` persists
     and enqueues exactly as it should — so the queue fills and the task never
-    advances. That is `interfaces.md` §2.1 rev. 4's failure reached from the
+    advances. That is `interfaces.md` §2.1's failure reached from the
     other direction: the name resolves and the loop is not running.
     """
     from monitor import DEFAULT_MONITOR_NAME, PusherMonitor, start_monitors

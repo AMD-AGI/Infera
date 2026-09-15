@@ -144,8 +144,8 @@ def test_a_loud_body_does_not_hang_the_executor() -> None:
 
 
 def test_a_failed_body_says_what_it_said_before_it_stopped() -> None:
-    """`exit 1` alone ends the investigation where it starts — `demo` measured
-    an hour lost to a body whose `KeyError` reached no reader."""
+    """`exit 1` alone ends the investigation where it starts: a body that dies
+    on a `KeyError` reaches no reader at all."""
     script = "echo on-stdout; echo the-traceback >&2; exit 3"
     program = ProgramExecutor(config={"command": ["/bin/sh", "-c", script]})
 

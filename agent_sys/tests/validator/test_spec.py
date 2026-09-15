@@ -249,11 +249,10 @@ def test_validator_invalid_is_a_spec_invalid() -> None:
     spec aborted the whole multi-package load, against its first stated property:
     *one broken spec must not hide the other nine.*
 
-    `spec_loader` repaired it at their end by catching `ValueError` (80e2f42),
-    which holds without four packages remembering a docstring. This is the
-    belt-and-braces half: `handoff` and `agent` raise `SpecInvalid` itself, and
-    now the kinship is in the type rather than resting on both happening to
-    descend from `ValueError`.
+    `load_package` catches `ValueError`, which holds without four packages
+    remembering a docstring. This is the belt-and-braces half: `handoff` and
+    `agent` raise `SpecInvalid` itself, and the kinship is in the type rather
+    than resting on both happening to descend from `ValueError`.
     """
     from spec_loader.protocols import SpecInvalid
     from validator.protocols import NestedComposite
@@ -264,10 +263,10 @@ def test_validator_invalid_is_a_spec_invalid() -> None:
 
     # **The behaviour, not just the relationship** — and the old shape beside it,
     # so the assertion is shown capable of failing rather than merely passing.
-    # `handoff` pinned their inverse property by applying the refactor that would
+    # `handoff` pins their inverse property by applying the refactor that would
     # break it and watching the test go red; this is the cheap version of that.
     class BareValueError(ValueError):
-        """What `ValidatorInvalid` was until 6f5c6ef."""
+        """A `ValidatorInvalid` that descends from `ValueError` alone."""
 
     caught = []
     for cls in (BareValueError, ValidatorInvalid, NestedComposite):

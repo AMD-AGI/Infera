@@ -101,10 +101,11 @@ def test_write_access_maps_to_read_write(store: str) -> None:
 def test_the_two_unresolvable_conditions_say_which(store: str) -> None:
     """A kind that matches nothing, and a kind that matches with no version.
 
-    The second is F-D12's shape: an **output** grant cannot resolve before the
-    output is written, because a version is pinned for an input at dispatch and
-    for an output only when the attempt closes. Reported by `demo`, who fixed a
-    genuinely different bug and got the identical error message.
+    The second matters because an **output** grant cannot resolve before the
+    output is written: a version is pinned for an input at dispatch and for an
+    output only when the attempt closes. Folded into one message, the two are
+    indistinguishable, so a caller who fixes a different bug gets the identical
+    error back.
     """
     hid = HandoffId.new()
     task = Task(outputs=[hid], permissions=Permissions((Grant(kind="facts"),)))
@@ -175,9 +176,9 @@ def test_no_permissions_grants_nothing_extra(store: str) -> None:
 
 
 def test_a_grant_for_a_kind_this_task_has_no_part_in_is_a_no_op(store: str) -> None:
-    """`demo`'s measurement: grants are inherited wholesale from a root, so two
-    of three subtasks carried a kind-named grant for a kind they have no slot
-    for, and resolution raised on every one.
+    """Grants are inherited wholesale from a root, so a subtask routinely
+    carries a kind-named grant for a kind it has no slot for — and a resolution
+    that raises on that raises on the ordinary case.
 
     Under `interfaces.md` §4.16 permission management is **wide** and its only
     job is stopping agents cross-contaminating. **A wide model that raises on
@@ -201,9 +202,9 @@ def test_a_declared_kind_that_does_not_resolve_still_raises(store: str) -> None:
     """The half the no-op must not swallow.
 
     A kind the task **declares** and cannot resolve is the forgotten
-    `Handoff.type` defect the raise was added for. `demo`'s case and this one
-    differ by exactly one fact — whether `Task.kinds` names the kind — and that
-    is the whole discriminator.
+    `Handoff.type` defect the raise exists for. It differs from the no-op above
+    by exactly one fact — whether `Task.kinds` names the kind — and that is the
+    whole discriminator.
     """
     hid = HandoffId.new()
     task = Task(
@@ -233,16 +234,16 @@ def test_an_empty_kinds_cannot_discriminate_so_it_still_raises(store: str) -> No
         resolve(task.permissions.grants[0], task, execution, {hid: Handoff(id=hid)}, store)
 
 
-# ------------------------------------ one output, two granted paths (the ruling)
+# ------------------------------------------- one output, two granted paths
 
 
 def test_a_write_grant_resolves_to_content_and_a_claim_directory(store: str) -> None:
-    """**The user's ruling, and it corrects a contradiction between two others.**
+    """**Two rules meet here and neither alone is satisfiable.**
 
-    `done_by_self_check`'s claim was ruled a *sibling* of `content/`, and the
-    grant was separately ruled to narrow *to* `content/`. Under both the agent
-    cannot write the thing it is asked to write. So an output resolves to two
-    paths, and `manifest.yaml` and `validation.yaml` are reachable by neither.
+    `done_by_self_check`'s claim is a *sibling* of `content/`, and the grant
+    narrows *to* `content/`. Under both the agent cannot write the thing it is
+    asked to write. So an output resolves to two paths, and `manifest.yaml` and
+    `validation.yaml` are reachable by neither.
 
     The narrowing is not tidiness: under §4.14 the **manifest is the seal**, so
     an agent granted `v<N>/` could publish its own unsealed version.
@@ -336,16 +337,16 @@ def test_an_unallocated_version_is_still_only_resolved_never_created(store: str)
     assert not os.path.exists(os.path.join(store, str(hid), "v0"))
 
 
-# ------------------------------- the output's declared name (demo's F-D17)
+# ----------------------------------------------- the output's declared name
 
 
 def test_an_output_is_exported_under_its_declared_kind(store: str) -> None:
-    """**`demo`'s F-D17**, and it is `AGENT_SYS_TASK_PACKAGE`'s argument one slot
-    over: a path known only at prepare time that the body cannot compute.
+    """`AGENT_SYS_TASK_PACKAGE`'s argument one slot over: a path known only at
+    prepare time that the body cannot compute.
 
-    Since §4.14 the directory exists at dispatch and is granted; until this it
-    lived only in `prepared.policy.granted`, which no body ever sees, and a
-    demo body died with `KeyError` that reached the run as `output_absent`.
+    Since §4.14 the directory exists at dispatch and is granted. Without the
+    export it lives only in `prepared.policy.granted`, which no body ever sees,
+    and a body dies with a `KeyError` that reaches the run as `output_absent`.
     """
     hid = HandoffId.new()
     task = Task(outputs=[hid], kinds={hid: "facts"})
@@ -424,16 +425,16 @@ def test_inputs_are_not_exported(store: str) -> None:
     assert output_env(task, execution, store) == {}
 
 
-# ---------------------------- the input's declared name (demo's mirror report)
+# ------------------------------------------------ the input's declared name
 
 
 def test_a_staged_input_is_exported_under_its_declared_kind() -> None:
-    """`demo` asked whether the asymmetry was deliberate. **It was not.**
+    """**The asymmetry with outputs is not deliberate.**
 
-    Outputs had a declared name and inputs did not, and the proof that it was an
-    oversight was already in the code: `prepare` called `stage_handoffs`, which
-    returns handoff id → staged path, and **discarded the mapping**. The only
-    remaining way to find a staged input was to parse this module's directory
+    `prepare` calls `stage_handoffs`, which returns handoff id → staged path.
+    Discarding that mapping leaves outputs with a declared name and inputs
+    without one, and the only remaining way to find a staged input is to parse
+    this module's directory
     layout, which `examples/ok.filetree_grounded_report.4/logic/store.py` had already become a reader of.
     """
     hid = HandoffId.new()
@@ -475,11 +476,11 @@ def test_an_input_that_staged_nothing_is_not_exported() -> None:
 def test_the_two_declared_names_point_at_the_same_level(tmp_path, store: str) -> None:
     """**Both names hand a body the artefact's own files.** Measured, not argued.
 
-    `demo` read the two path *shapes* — `<zone>/handoffs/<hid>/v<N>` against
-    `<store>/<hid>/v<N>/content` — and reported them as one directory apart,
-    which they were until `stage` narrowed. Since then `stage` copies
-    ``<v>/content`` **to** ``<into>/<hid>/v<N>``, so the staged directory holds
-    the content's own files and there is no `content/` hop on the input side.
+    The two path *shapes* — `<zone>/handoffs/<hid>/v<N>` against
+    `<store>/<hid>/v<N>/content` — read as one directory apart, and are not:
+    `stage` copies ``<v>/content`` **to** ``<into>/<hid>/v<N>``, so the staged
+    directory holds the content's own files and there is no `content/` hop on
+    the input side.
 
     The strings still differ and the levels do not, which is worth a test
     precisely because the strings are what a reader compares. It pins the

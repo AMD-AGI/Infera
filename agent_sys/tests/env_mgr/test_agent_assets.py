@@ -1376,8 +1376,8 @@ def test_a_marketplace_name_that_is_not_a_single_directory_name_is_refused(
 
 def _placing_recipe(pkg: Path, *, relative: str) -> None:
     """A package-layer recipe that writes one file into `$CLAUDE_CONFIG_DIR`,
-    used to exercise the case where a recipe and the agent's own `.claude/`
-    tree write the same path.
+    for the case where a recipe and the agent's own `.claude/` tree write the
+    same path.
     """
     _write(
         pkg / "assets" / "main.env_recipe.yaml",

@@ -121,7 +121,7 @@ def registry(store: FilesystemStore) -> Any:
 
 @pytest.fixture
 def diverged(registry: Any, store: FilesystemStore, tmp_path: Path):
-    """`n1`'s state, built through the shipped scheduler and the real store.
+    """The divergent state, built through the shipped scheduler and the real store.
 
     One handoff and **two tasks declaring it as an output**, which is not a
     contrivance: `task_graph/models.py::_instantiate` gives the end entry *the

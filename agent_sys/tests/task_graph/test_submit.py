@@ -275,10 +275,10 @@ def test_a_storeless_dispatch_of_a_task_with_outputs_says_so(scheduler, registry
 
     assert "no handoff_store is registered" in caplog.text
     assert "declares 2 output(s)" in caplog.text
-    # The consequence, stated correctly. The first version of this message said
-    # the gate would report `OUTPUT_ABSENT` naming the wrong cause. `monitor`
-    # measured the real methods: `_gate` returns `[]` for want of the same
-    # store, so there are no failures and `_main` reports the task planned.
+    # The consequence, stated correctly — and it is not `OUTPUT_ABSENT` naming
+    # the wrong cause. Measured against the real methods: `_gate` returns `[]`
+    # for want of the same store, so there are no failures and `_main` reports
+    # the task planned.
     # **It succeeds, having published nothing it declared** — worse than a
     # misattributed absence, and asserted here so the message cannot drift back.
     assert "will nevertheless succeed" in caplog.text

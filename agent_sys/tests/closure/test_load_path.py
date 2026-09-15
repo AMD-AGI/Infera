@@ -6,12 +6,12 @@
 > while inert. A test that a violating catalogue, loaded through the real
 > `load_package` path, produces a problem.
 
-Nothing wrote `task_specs` until `2215158`. `check_graph` walked an empty
-catalogue, so `task_graph` criteria 50 and 53 returned `[]` on inputs that
-violate both — green, and inert. The reason it went unnoticed is sharper than
-the defect: **the fixture supplied what production did not.** `conftest.py` used
-to do the `add` that the real admission path never did, so every unit test saw a
-populated registry and the assembled system did not.
+With nothing writing `task_specs`, `check_graph` walks an empty catalogue and
+`task_graph` criteria 50 and 53 return `[]` on inputs that violate both — green,
+and inert. What hides that is sharper than the defect: **a fixture supplying
+what production does not.** A `conftest.py` that performs the `add` the real
+admission path never performs gives every unit test a populated registry the
+assembled system does not have.
 
 So this test uses no fixture registries. Real YAML on disk, a real
 `YamlPackage`, the real `load_package`, then the real pass, then `task_graph`'s
@@ -233,12 +233,11 @@ def test_the_origin_survives_the_whole_path(tmp_path, regs) -> None:
     """A task spec's origin is the file the author wrote, so a problem
     `check_graph` raises names something openable.
 
-    **It no longer asserts a filename, and the reason is a real one rather than
-    churn.** It used to say `parent.jsonnet`, one file per object named after the
-    object. A package may now put several objects in one file and must put its
-    outermost graph in `main.yaml`, so the file an object came from is not
-    derivable from its name — asserting one would pin this fixture's layout and
-    call it the contract.
+    **It asserts no filename, and the reason is a real one rather than churn.**
+    A package may put several objects in one file and must put its outermost
+    graph in `main.yaml`, so the file an object came from is not derivable from
+    its name — asserting one would pin this fixture's layout and call it the
+    contract.
 
     What the test is actually for survives intact, and is the failure
     `closure/check.py`'s `origin_of` comment records: a degraded origin labels a

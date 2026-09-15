@@ -91,18 +91,15 @@ class StubTask:
         caller. The `lock` models the scheduler's `RLock`: a real transition
         routes through `_move` under it.
 
-        **It rejects what the real one rejects, and that was not true at first.**
-        `Task.enter_phase` raises `TaskStateError` twice — once if the task is
-        not in a phase state, once if `phase` is not the *successor* of the
-        current one, so a runner cannot skip output validation by advancing
-        twice. This stub used to accept any phase from any status, so a
-        `next_phase` that returned the wrong member would have passed every test
-        here and raised in production.
+        **It rejects what the real one rejects.** `Task.enter_phase` raises
+        `TaskStateError` twice — once if the task is not in a phase state, once
+        if `phase` is not the *successor* of the current one, so a runner cannot
+        skip output validation by advancing twice. A stub accepting any phase
+        from any status lets a `next_phase` that returns the wrong member pass
+        every test here and raise in production.
 
-        A **permissive stub** is the shape behind four of this week's defects
-        (`agent`'s `set_task` no-ops, and three `_advance` tests here): the double
-        that accepts more than the real thing turns its suite into a record of
-        what the author expected rather than of what the collaborator promises.
+        A **permissive stub** turns its suite into a record of what the author
+        expected rather than of what the collaborator promises.
         """
         if self.lock is not None:
             with self.lock:
@@ -250,7 +247,7 @@ class StubRunner:
 
     def make_released_attempt(self, task_id: TaskId) -> StubAttempt:
         """A non-leaf awaiting re-entry: the attempt is present, its thread is
-        not. The shape the first version of this stub could not express.
+        not — a shape a stub without `is_running` cannot express.
 
         **`make_` because the real `Runner` has no such method.** It was
         `released()`, which reads like a query a caller could make — and *a name

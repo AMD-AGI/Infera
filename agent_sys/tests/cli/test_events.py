@@ -595,7 +595,7 @@ def test_consumer_reachability_is_asked_of_the_graph(registry: Any, submitted: A
 def test_awaiting_a_decision_is_not_reported_as_a_stall(registry: Any, submitted: Any) -> None:
     """**A resting state that looks identical to a hang is not a resting state.**
 
-    `monitor` measured the end state after fixing F-D16: a handled gate failure
+    The end state is measured: a handled gate failure
     legitimately leaves the task `running` — criterion 4 says the gate cycle must
     not move task status — and once the escalation reaches the root, *what the
     alpha does at the top of an escalation chain* is their spec §11, open.

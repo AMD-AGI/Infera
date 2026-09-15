@@ -207,21 +207,19 @@ def landlock_or_fail() -> int:
 def _switch_off_the_kill_switch(monkeypatch: pytest.MonkeyPatch) -> None:
     """**This directory asserts the enforcing mode, and now it has to say so.**
 
-    Measured, before the default flipped: with `AGENT_SYS_NO_PERMISSIONS=1`
-    exported, fourteen tests here fail — correctly, because they assert the
-    enforcement the switch turns off. But the failure names the assertion rather
-    than the variable, which is this module's characteristic defect (*the
-    symptom names the wrong cause*) pointed at its own suite.
+    Measured: with `AGENT_SYS_NO_PERMISSIONS=1` exported, fourteen tests here
+    fail — correctly, because they assert the enforcement the switch turns off.
+    But the failure names the assertion rather than the variable, which is this
+    module's characteristic defect (*the symptom names the wrong cause*) pointed
+    at its own suite.
 
-    So the fixture used to `delenv`, and that was enough while **unset meant
-    enforced**. Since 2026-08-30 unset means *off* (`interfaces.md` §4.22f), and
-    a `delenv` would hand every test here the mode it does not assert. Pinning
-    the value states the mode instead of relying on a default that has now moved
-    once — which is the point of the flip's test rule: a test that asserts a
-    denial says which mode it asserts under.
+    A `delenv` is not enough, because **unset means off** (`interfaces.md`
+    §4.22f) and would hand every test here the mode it does not assert. Pinning
+    the value states the mode instead of relying on a default: a test that
+    asserts a denial says which mode it asserts under.
 
-    The deeper reason is unchanged and is `demo`'s: a run whose result changes
-    with the reviewer's dotfiles is not reproducible. A test suite is a run.
+    The deeper reason: a run whose result changes with the reviewer's dotfiles
+    is not reproducible. A test suite is a run.
 
     A test that wants the switch sets it with `monkeypatch.setenv`, which is
     applied after this and wins.

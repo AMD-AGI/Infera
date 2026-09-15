@@ -1,13 +1,11 @@
 """`monitor`'s `Attempt` / `AttemptRunner` and `agent`'s `TaskAttempt` / `Runner`.
 
-The second half of the same duplication `test_pushable.py` guards, and it exists
-because the first half's lesson was learned the expensive way.
+The second half of the same duplication `test_pushable.py` guards.
 
-`monitor` may not import `agent`, so the *backend* shape it needs was declared
-locally as `Pushable` and guarded here from the start. **The `runner` shape it
-needs was not declared at all** — four members across two objects, checked by
-nothing — and `interfaces.md` §4.9 says `monitor` resolves `runner` without
-saying what `runner` must provide.
+`monitor` may not import `agent`, so the *backend* shape it needs is declared
+locally as `Pushable` and guarded there. **The `runner` shape it needs has no
+such declaration** — four members across two objects — and `interfaces.md` §4.9
+says `monitor` resolves `runner` without saying what `runner` must provide.
 
 That gap produced a real defect. `monitor`'s `_advance` branched on
 `attempt_of(tid) is None` and called it "the non-leaf case: no live thread"; an

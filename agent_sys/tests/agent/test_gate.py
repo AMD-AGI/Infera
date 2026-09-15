@@ -116,9 +116,9 @@ def test_a_gate_report_carries_how_the_body_ended(wired) -> None:
     terminated in, and both of those terminated in the same phase.
 
     Separate keys rather than prose folded into the message: a value a reader
-    branches on. The `None` case is pinned too, because the first version of
-    the lift left a `None` in `**extra`, where `EventRecord`'s `extra="forbid"`
-    raised on the very case meaning "there is nothing to add".
+    branches on. The `None` case is pinned too: a `None` left in `**extra`
+    meets `EventRecord`'s `extra="forbid"` and raises on the very case meaning
+    "there is nothing to add".
     """
     wired.registry.register("handoff_store", StubStore())
     wired.registry.register("budget", Budget())

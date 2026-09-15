@@ -101,12 +101,12 @@ def test_verdict_does_not_move_digest(registry, dispatched, zone_root, package_r
 
 
 def test_a_closure_phase_validator_runs(registry, dispatched, zone_root, package_root) -> None:
-    """The defect `demo` found on the first assembly of all eight.
+    """A closure's phase validators must actually run.
 
     `closure.schema.json` calls these *"the PHASE validators… a property of the
     task rather than of any one handoff kind, **which is why the handoff specs
-    cannot carry them**"* — and this module used to build its set from the handoff
-    kinds, so a closure declaring `validators: ['check_grounded']` ran **nothing**.
+    cannot carry them**"* — so a module building its set from the handoff kinds
+    runs **nothing** for a closure declaring `validators: ['check_grounded']`.
 
     Declared on the closure and on **no handoff kind**, which is the case that
     silently did nothing before.
@@ -285,7 +285,7 @@ def test_the_phase_resolves_its_collaborators_by_name(
 
     `handoff_specs` is deliberately **not** among them any more: the phase asks
     `closures` for the whole validator set rather than joining the kinds' lists
-    itself, and doing that join twice was the defect `demo` found.
+    itself, and doing that join twice would be two writers of one invariant.
     """
     import ast
 
@@ -470,9 +470,9 @@ def test_the_verdict_names_the_checking_agent_not_the_producer(
 def test_a_script_verdict_records_no_agent(registry, dispatched, zone_root, package_root) -> None:
     """A script body has no agent, and the verdict says so in the field itself.
 
-    This carried the **producer's** id until `handoff` widened
-    `Verdict.agent_id` to `AgentId | None` (f9142aa) — a record asserting that
-    the producer validated its own artefact, which is the claim §8.1 forbids.
+    `Verdict.agent_id` is `AgentId | None` for this reason. Carrying the
+    **producer's** id instead would be a record asserting that the producer
+    validated its own artefact, which is the claim §8.1 forbids.
 
     `None` rather than a sentinel: a sentinel `AgentId` is a UUID, so a reader
     who does not know it takes it for a real agent and one who looks it up in
@@ -553,16 +553,14 @@ def test_a_crashed_body_reaches_no_verdict_rather_than_failing(
 def test_a_crashed_body_reports_the_tail_of_its_stderr_not_the_head(
     registry, dispatched, zone_root, tmp_path
 ) -> None:
-    """**The end of a traceback is the part worth keeping**, and the message used
-    to keep the other one.
+    """**The end of a traceback is the part worth keeping.**
 
-    `[:200]` took the head, which for a Python body is
+    `[:200]` takes the head, which for a Python body is
     `Traceback (most recent call last):` plus the outermost frames — the file,
-    the line and the exception type all live at the tail. `demo` measured the
-    consequence against a real body: the recorded message was cut mid-path inside
-    the zone, before the first frame, and named none of the three, so the only
-    reason anyone knew what had failed was that they had captured the child's
-    stderr themselves.
+    the line and the exception type all live at the tail. Measured against a
+    real body: the recorded message is cut mid-path inside the zone, before the
+    first frame, and names none of the three, so what failed is recoverable only
+    from a separately captured stderr.
     """
     package_root = tmp_path / "verbose"
     package_root.mkdir()
@@ -624,12 +622,12 @@ def test_every_unusable_verdict_file_raises_validator_invalid(
     handler raised* — rather than being reported as a validation outcome at all.
     Measured: malformed JSON left as a `json.JSONDecodeError` and `null` as a
     `TypeError` from `"x" in None`. Both are a body producing garbage — exactly
-    the case — and both would have surfaced as *the monitor's own handler raised*,
+    the case — and both would surface as *the monitor's own handler raised*,
     which routes to `GiveUp` rather than escalating to the user.
 
-    So a crashed validator was the quietest dead branch in the system, and it was
-    reachable only by someone reading my raise sites against their event
-    taxonomy.
+    A crashed validator is therefore the quietest dead branch available, and it
+    is visible only by reading this module's raise sites against `monitor`'s
+    event taxonomy.
     """
     from task_graph.ids import HandoffId
     from validator.environment import ConfigSource, EnvironmentConfig, ValidationEnvironment

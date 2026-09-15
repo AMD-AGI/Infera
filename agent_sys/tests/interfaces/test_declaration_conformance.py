@@ -132,7 +132,7 @@ def _compare(declared: inspect.Signature, actual: inspect.Signature) -> list[str
 def _declared_constructors(protocols: ModuleType) -> dict[str, object]:
     """Classes in `__all__` whose own body defines `__init__`.
 
-    Two exclusions, and the first cost me a wrong measurement before I made it.
+    Two exclusions, and the first is easy to miss.
 
     `"__init__" in vars(cls)` rather than `hasattr`, because everything inherits
     `object.__init__`. But that alone is not enough: **`typing.Protocol` injects
@@ -193,8 +193,8 @@ def test_every_declared_constructor_matches_its_implementation(package_name: str
     `EnvManager(ctx)` — and §2's root constructs twenty-odd types, while **no
     Protocol in the tree declares a constructor**. That is finding C1's shape
     applied to construction rather than to resolution, and closing it is a
-    decision for `main` rather than a test I can write alone. This is the half
-    that costs nothing and waits.
+    decision that needs an owner rather than a test. This is the half that
+    costs nothing and waits.
     """
     package = _module(package_name)
     protocols = _module(f"{package_name}.protocols")

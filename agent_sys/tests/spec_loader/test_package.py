@@ -91,13 +91,10 @@ task:
 def test_two_packages_same_document_indistinguishable(tmp_path: Path) -> None:
     """One document, two wildly different packages, and both load.
 
-    **Strengthened at rev. 10 rather than replaced.** It used to compare two
-    *jsonnet sources* — a plain object against a function-and-overlay pile — and
-    assert that rendering both gave one document. There is no rendering, so the
-    thing it demonstrated moved: what varies now is the **package's layout**,
-    which is what the amended criterion names, and the property is no longer
-    "the loader renders first" but "the loader is handed documents and cannot
-    tell". The name is kept because the criterion it maps to is the same one.
+    **What varies is the package's layout, not a rendering step.** There is no
+    rendering, so this cannot be "the loader renders first"; the criterion names
+    the layout, and the property is "the loader is handed documents and cannot
+    tell".
     """
     per_file = _build(tmp_path / "per_file", PER_FILE_LAYOUT)
     inline = _build(tmp_path / "inline", {ENTRY_FILENAME: ALL_INLINE})
@@ -350,12 +347,10 @@ def test_cross_package_symlink_loads(tmp_path: Path) -> None:
     another"* — and the loader must not need to know that packages can be
     nested, adjacent, or shared.
 
-    **What it demonstrates moved with the seam, and the criterion says so.** It
-    used to be a jsonnet `import` crossing the boundary, which reached the
-    loader through `render`. A package now resolves its own files, so what
-    crosses is a *scanned document* and an *asset* found through a link — and
-    criterion 6's rev. 10 note is explicit that a test reaching into the loader
-    would no longer be demonstrating it.
+    **What crosses the boundary is a document, not an `import`.** A package
+    resolves its own files, so what crosses is a *scanned document* and an
+    *asset* found through a link — and criterion 6 is explicit that a test
+    reaching into the loader would not be demonstrating it.
     """
     other = tmp_path / "other_package"
     (other / "shared").mkdir(parents=True)

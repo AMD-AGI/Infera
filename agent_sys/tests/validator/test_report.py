@@ -102,11 +102,11 @@ def test_long_term_strong_renders_as_itself() -> None:
 
 
 def test_an_empty_phase_does_not_block_the_task() -> None:
-    """`demo` F-D9: a task whose phase was empty never advanced past it.
+    """A task whose phase is empty must still advance past it.
 
-    `agent.Runner` had only `passed` to ask, and `passed` answers *what the phase
-    found* — the same question as *may the task proceed?* only when the phase ran
-    something. So the third state fell into the failure arm and a graph sat in
+    With only `passed` to ask, and `passed` answering *what the phase found* —
+    the same question as *may the task proceed?* only when the phase ran
+    something — the third state falls into the failure arm and a graph sits in
     `INPUT_VALIDATING` for 300 s on the ordinary case.
 
     **Empty not blocking is derived, not chosen.** `StrictLevel.NONE` switches a

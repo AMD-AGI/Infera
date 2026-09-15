@@ -1,10 +1,9 @@
 """`env_mgr.Prepared.agent_cli` reaching `agent.Assignment.agent_cli`.
 
-**The defect this replaces was a green test.** The backend used to read the CLI
-out of `Assignment.environment` under the key `AGENT_SYS_CLAUDE_CLI`, a name
-`env_mgr` never published, and the guard —
-`test_the_cli_env_var_matches_env_mgrs_name` — asserted the literal against
-itself:
+**A green test is not enough on its own here.** A backend reading the CLI out of
+`Assignment.environment` under a key `env_mgr` never publishes — say
+`AGENT_SYS_CLAUDE_CLI` — is guarded by nothing if the guard asserts the literal
+against itself:
 
     assert CLI_ENV_VAR == "AGENT_SYS_CLAUDE_CLI"
 

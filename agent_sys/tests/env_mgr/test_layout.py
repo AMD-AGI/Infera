@@ -368,11 +368,11 @@ def test_prepare_validation_reads_the_phase_structurally(
     )
 
 
-# ---------------------------- F-D10: a non-leaf's zone, and why it must exist
+# --------------------------------- a non-leaf's zone, and why it must exist
 
 
 def test_a_subtask_cannot_be_placed_before_its_parent(domains: DomainRegistry) -> None:
-    """The failure `demo` hit in a live run, reproduced.
+    """The failure a live nested graph hits, reproduced.
 
     A non-leaf never executes — the scheduler runs its main phase by unfolding —
     so it reaches no path that calls `prepare` and never gets a zone. Its

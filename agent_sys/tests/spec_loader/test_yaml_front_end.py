@@ -323,9 +323,9 @@ def test_an_unsupplied_variable_with_no_default_is_a_fault(builder: PackageBuild
     """Not left literal, and the reason is on record in this tree.
 
     `${NOPE}/readme.md` passed through unchanged is a path that resolves to
-    nothing later, in another module, with nothing to say why. `demo`'s own
-    history has that bug: an unfilled value concatenated to `'' + "/leak.txt"`
-    and produced a plausible absolute path that demonstrated nothing.
+    nothing later, in another module, with nothing to say why. An unfilled value
+    concatenated as `'' + "/leak.txt"` produces a plausible absolute path that
+    demonstrates nothing.
     """
     builder.write(
         "kinds.yaml",
@@ -367,10 +367,9 @@ def test_a_value_that_would_break_the_document_does_not(builder: PackageBuilder)
 def test_the_assets_token_is_supplied_and_is_package_relative(builder: PackageBuilder) -> None:
     """`${TASK_PACKAGE_ASSERT_DIR}` — the user's spelling, kept.
 
-    **Package-relative and not absolute**, and that is a reversal already paid
-    for once: `demo/README.md` F-D18 records body paths being made absolute and
-    then becoming unresolvable when `interfaces.md` §4.16 moved the tree into the
-    zone, because `Path(staged) / "/abs"` is `/abs`.
+    **Package-relative and not absolute.** An absolute path is unresolvable
+    once `interfaces.md` §4.16 moves the tree into the zone, because
+    `Path(staged) / "/abs"` is `/abs`.
     """
     builder.asset("logic/x.md", "x")
     builder.write(

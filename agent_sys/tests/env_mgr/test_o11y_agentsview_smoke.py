@@ -16,13 +16,12 @@ in what the binary does with what we hand it, and two real bugs proved it:
 Both are invisible to a fake. So this test writes the config we really produce,
 starts the real daemon, and asks it for the sessions we really planted.
 
-**On the second one, this file was itself wrong first, and that is the lesson
-it now encodes.** The empty response is real, but it is the *CLI's* endpoint
-applying a documented one-shot exclusion — and we read it as "the panel is
-broken". It never was: a real browser loading the plain `/` renders the session,
+**On the second one, an empty response does not mean the panel is broken.**
+The empty response is real, but it is the *CLI's* endpoint applying a documented
+one-shot exclusion. A real browser loading the plain `/` renders the session,
 because the web UI's session list calls a **different endpoint**
 (`sessions/sidebar-index`) and sends `include_one_shot=true` in its own request.
-Settled by reading a rendered page, twice, after hours spent on a non-bug.
+The two surfaces are pinned separately below for that reason.
 
 So the load-bearing assertion is against `UI_SESSIONS` — the request a browser
 actually makes — and the CLI surface is pinned separately. **A non-zero session
@@ -80,9 +79,8 @@ LAUNCH_TIMEOUT_S = 30.0
 #: `sidebar-index` with no parameters also returns nothing, so the parameter
 #: comes from the *frontend*, not from a different default on the endpoint.
 #:
-#: An earlier version of this file asserted only the CLI surface and concluded
-#: the panel was broken. It was not. The whole campaign's most expensive
-#: mistake was treating an API response as a proxy for what a person sees.
+#: Asserting only the CLI surface would conclude the panel is broken when it is
+#: not: an API response is not a proxy for what a person sees.
 UI_SESSIONS = (
     "/api/v1/sessions/sidebar-index?timezone=UTC&include_one_shot=true&limit=500&order_by=recent"
 )

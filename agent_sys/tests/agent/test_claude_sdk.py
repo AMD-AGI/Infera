@@ -42,11 +42,10 @@ class FakeClient:
 
     def __init__(self) -> None:
         # **No `session_id` and no `get_session_messages`.** The real
-        # `ClaudeSDKClient` has neither, and an earlier version of this double
-        # defined both — so the adapter's guesses at the SDK's surface were
-        # ratified by the fake instead of checked, and `session_ref` returned
-        # `None` and `query()` raised `AttributeError` on every real run while
-        # this file stayed green.
+        # `ClaudeSDKClient` has neither, and a double that defines them ratifies
+        # the adapter's guess at the SDK surface instead of checking it —
+        # `session_ref` returning `None` and `query()` raising `AttributeError`
+        # on every real run while this file stays green.
         self.connected = False
         self.disconnects = 0
         self.queries: list[str] = []
@@ -380,11 +379,10 @@ def test_the_harness_layer_stays_on_while_we_enforce() -> None:
     than the bug it fixes: it is silent, and it is in the one direction that
     matters.
 
-    **This used to read the default and now states the mode**, because on
-    2026-08-30 the default flipped to unenforced (`interfaces.md` §4.22f) and
-    `_with_outputs()` with no argument now means *off*. Reading a default would
-    have made this test change its meaning without anyone editing it — it would
-    still pass, against the other mode. So the mode is named.
+    **The mode is stated, never read from the default.** `_with_outputs()` with
+    no argument means *off* (`interfaces.md` §4.22f), so reading the default
+    would let this test change its meaning without anyone editing it — still
+    passing, against the other mode.
     """
     backend = _with_outputs(readme="R", permissions_enforced=True)
 
