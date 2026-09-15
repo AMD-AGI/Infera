@@ -1239,7 +1239,30 @@ class InferencePerformanceProjector:
                     b = float(curve.get("ms_per_token_sq") or 0.0)
                     self._bench_prefill_curves[self._bench_tp] = curve
                     at_n = float(self.cfg.request_config.input_seq_len or ref_input or 1)
-                    rate_at_n = a + b * at_n
+                    # The curvature is read no further out than it was measured.
+                    # ``b`` carries GEMM efficiency improving with step width,
+                    # so it is routinely negative -- DeepSeek-V4-Pro's TP4
+                    # anchor fits -1.05e-6 over 1024..8192 at R2=0.98, which is
+                    # a good fit and a fine local approximation. Continued as a
+                    # quadratic it crosses zero at about 53.5k tokens, and at
+                    # ISL 130000 the same curve prices prefill at -80.7 us/token:
+                    # negative per-token work, which then reads out as a 2450
+                    # tok/s prefill and a 480-second disaggregated TTFT, and
+                    # ranked that config 31st on a metric where the trace puts
+                    # it first. Past the last probed length the marginal rate is
+                    # therefore held where the measurement left it rather than
+                    # allowed to keep improving, which is the conservative half
+                    # of the choice: it stops crediting efficiency nobody timed,
+                    # and it leaves the fixed cost and the linear term exactly
+                    # as fitted. An anchor that brackets the target length needs
+                    # none of this and the warning below names that re-harvest.
+                    _probed_n = [
+                        int(p.get("input_len") or 0) for p in (anchor_diag.get("points") or [])
+                    ]
+                    _curv_n = at_n
+                    if _probed_n and at_n > max(_probed_n):
+                        _curv_n = float(max(_probed_n))
+                    rate_at_n = a + b * _curv_n
                     # The length sweep runs at concurrency 1, so every point it
                     # holds has one sequence in the step and the step's token
                     # count is that sequence's attention context. GEMM
@@ -1358,6 +1381,24 @@ class InferencePerformanceProjector:
                             f"concurrency. Re-harvest with "
                             f"--prefill-packed-points 4 to measure it."
                         )
+                    # Per-token prefill compute cannot be negative or zero
+                    # however the fit was shaped, so this is a floor on the
+                    # arithmetic rather than a modelling choice. Placed after
+                    # the packed branch because that one re-centres by ``b`` too
+                    # and would otherwise escape it. Held at the rate of the
+                    # shortest length probed: the slowest per-token cost the
+                    # anchor actually measured.
+                    if rate_at_n <= 0.0:
+                        _floor = a + b * float(min(_probed_n)) if _probed_n else a
+                        print(
+                            f"[inferasim:Inference] WARNING: the prefill curve "
+                            f"prices per-token work at {rate_at_n * 1000:.1f} "
+                            f"us/token, which is not physical. Holding it at "
+                            f"{max(1e-9, _floor) * 1000:.1f} us/token, the "
+                            f"slowest rate this anchor measured. Re-harvest a "
+                            f"probe that brackets ISL {int(at_n)}."
+                        )
+                        rate_at_n = max(1e-9, _floor)
                     self._meas_prefill_rate_ms_per_tok = rate_at_n * shard
                     # The intercept stays the curve's even when the rate comes
                     # from the packed probe, which looks like mixing two fits
@@ -1369,9 +1410,7 @@ class InferencePerformanceProjector:
                     # it moved DeepSeek-V4-Flash from +1.1% to +43.2% on TTFT
                     # and Qwen3-14B-FP8 from -4.4% to -49.3%.
                     self._meas_prefill_fixed_ms = float(curve.get("fixed_ms") or 0.0) * fixed_shard
-                    probed = [
-                        int(p.get("input_len") or 0) for p in (anchor_diag.get("points") or [])
-                    ]
+                    probed = _probed_n
                     # Said out loud when the curve is being read outside the
                     # span it was fitted over, where a quadratic stops being a
                     # local approximation and starts being an extrapolation.
@@ -1384,11 +1423,19 @@ class InferencePerformanceProjector:
                             f"re-harvest with a probe that brackets this "
                             f"prompt length."
                         )
+                    if _curv_n != at_n:
+                        print(
+                            f"[inferasim:Inference] prefill curvature held at "
+                            f"{int(_curv_n)} tokens, the longest prompt the "
+                            f"curve was fitted over, rather than continued to "
+                            f"{int(at_n)}: the quadratic term would read "
+                            f"{(a + b * at_n) * 1000:.1f} us/token there."
+                        )
                     print(
                         f"[inferasim:Inference] prefill curve fit: "
                         f"{self._meas_prefill_fixed_ms:.1f} ms fixed (x{fixed_shard:.3f}) + "
                         f"{rate_at_n * 1000:.1f} us/token at "
-                        f"{int(at_n)} tokens, sharded by {shard:.3f}; "
+                        f"{int(_curv_n)} tokens, sharded by {shard:.3f}; "
                         f"R2={curve.get('r2')}"
                     )
                     self._fit_decode_kv_slope(
