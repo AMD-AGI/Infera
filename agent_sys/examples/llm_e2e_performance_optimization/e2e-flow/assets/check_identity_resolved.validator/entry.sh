@@ -13,5 +13,5 @@ PKG="${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one 
 # `assets/lib/schema.py`. Measured: the body dies with `ModuleNotFoundError`
 # before writing `verdict.json`, and the phase reports "nothing was decided"
 # rather than a verdict -- a validator that cannot start looks like one that
-# was never asked. Found by m5 driving their leaves through the graph.
+# was never asked.
 exec "${AGENT_SYS_DEMO_PYTHON:-python3}" "$PKG/assets/check_identity_resolved.validator/check.py" "$@"

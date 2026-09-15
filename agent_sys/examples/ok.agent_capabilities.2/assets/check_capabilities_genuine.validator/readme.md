@@ -149,23 +149,21 @@ worse than one whose edges are known.
   neither says which copy. **Whoever turns them green again owes this bullet a
   replacement**, and the failure is what will tell them.
 
-- **A registry search that is no longer needed, recorded because its absence is
-  a change.** `mcp_external`'s artefact used to live at
-  `agent_sys/env_mgr/addons/envchk-baseline/…`, a *repository* path that a staged
-  task package cannot reach, so this body took `$AGENT_SYS_ADDONS_ROOT` first and
-  walked up the filesystem second — a guess that can find the wrong checkout on a
-  machine with two — and reported the capability unverifiable by name when
-  neither answered. None of that exists now: the package's own recipe layer
-  **copies the server into the zone**, so the artefact is one directory from the
-  staged package and no variable names anything outside it. The variable itself
-  is deleted (`env_mgr/docs/spec.md` §6.6).
+- **No registry search, and its absence is the point.** An `mcp_external`
+  artefact living at a *repository* path a staged task package cannot reach
+  forces this body to take `$AGENT_SYS_ADDONS_ROOT` first and walk up the
+  filesystem second — a guess that can find the wrong checkout on a machine with
+  two — and to report the capability unverifiable by name when neither answers.
+  None of that is needed: the package's own recipe layer **copies the server into
+  the zone**, so the artefact is one directory from the staged package and no
+  variable names anything outside it. The variable does not exist
+  (`env_mgr/docs/spec.md` §6.6).
 
-  A note that went with it and is worth keeping: a validation zone is built by
+  The note that goes with it: a validation zone is built by
   `validator/environment.py` in a `mkdtemp`, **not** through `env_mgr.prepare`,
   so no grant is composed for it at all. Harmless today because nothing is
   enforced in a validator zone — and the day validator zones are confined, every
-  read this body makes outside its own zone is a candidate, not just the one that
-  used to be here.
+  read this body makes outside its own zone is a candidate.
 
 Every one of these is a **false negative**: this validator does not report a
 report that has the problem. There is no configuration under which it reports a

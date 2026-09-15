@@ -255,10 +255,10 @@ def main() -> int:
             shapes.append({
                 "case_id": case["case_id"], "uuid": uuid, "axes": var_axes or {"batch": 1},
                 # Filled below, once every shape is known: the rule reads the
-                # whole list. Keying it on `is_primary` alone — which is what
-                # this line did until m4 found it — yields exactly one timed
-                # shape per operator by construction, and m4's packup refuses at
-                # three. `assign_roles` is shared with the validator so the
+                # whole list. Keying it on `is_primary` alone yields exactly
+                # one timed shape per operator by construction, and the packup
+                # refuses at three. `assign_roles` is shared with the validator
+                # so the
                 # producer cannot be the looser of the two readers.
                 "role": None,
                 "is_primary": bool(case.get("is_primary")), "observed": True,

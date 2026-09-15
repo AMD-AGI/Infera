@@ -210,13 +210,13 @@ else is a replay of bytes sealed on 2026-09-02.
 def _repair_readme(content: Path) -> None:
     """Add the README sections a `code` handoff needs and the sealed one lacks.
 
-    **MOCK-MAP's own rule, and the one I missed.** *An adaptation is a step
-    after the copy* — `mock.sh` lays the sealed bytes down faithfully, and every
-    gap between what was sealed and what this package requires is a step
-    somebody wires. I wired four (the `items/code` rename, `workset.yaml`, the
-    Definitions and Workloads, `environment.yaml`) and not this one.
+    **MOCK-MAP's own rule.** *An adaptation is a step after the copy* —
+    `mock.sh` lays the sealed bytes down faithfully, and every gap between what
+    was sealed and what this package requires is a step somebody wires. There are
+    five: the `items/code` rename, `workset.yaml`, the Definitions and Workloads,
+    `environment.yaml`, and this one.
 
-    **The cost was rung 0, twice.** `handoff/content.py` requires
+    **Missing it costs a run, twice.** `handoff/content.py` requires
     `Purpose, Interface, Boundary` of a `code` README; the sealed document has
     `Purpose, How to run, Result, Environment, Watch out`, written for a
     content type whose list was different. So the body ran, measured correctly,
@@ -301,12 +301,11 @@ def _image_facts(root: Path, target: str) -> tuple[dict | None, list | None]:
     # what is in this file in this image — and asking twice would be two
     # container starts and two chances to disagree.
     #
-    # **The inner python travels base64**, for the reason `b9849a7` records
-    # about the measurement payload: this crosses `spur exec bash -lc`, then a
+    # **The inner python travels base64**, for the same reason the measurement
+    # payload does: this crosses a remote `bash -lc`, then a
     # `docker run ... bash -c`, and a quote anywhere in it is eaten by one of
-    # those layers. Written with quotes first, and it died with
-    # `-c: line 2: syntax error: unexpected end of file` — the same defect, in
-    # the same file, hours after fixing it once. base64 has no metacharacters.
+    # those layers — `-c: line 2: syntax error: unexpected end of file`. base64
+    # has no metacharacters.
     # `MODULE_SYMBOLS_SNIPPET` comes from `assets/lib/module_symbols.py`, shared
     # with `identify.py` (the other producer of this field) and with any
     # validator that needs the same rule in its own interpreter. It cannot be a
@@ -458,10 +457,10 @@ def main() -> int:
         primary = batch == 8  # the traced production shape; the sealed README says so
         shapes.append({
             # `role` is filled after the loop by the *production* rule rather
-            # than written here. It used to say `correctness-and-performance`
-            # outright, which is CONTRACT 4.4: the fixture was more generous
-            # than the scaffold, so no mock run ever exercised the scaffold's
-            # one-timed-shape-per-operator defect and m4 found it instead.
+            # than written here. Writing `correctness-and-performance`
+            # outright is CONTRACT 4.4: the fixture becomes more generous than
+            # the scaffold, so no mock run exercises the scaffold's
+            # one-timed-shape-per-operator defect.
             "case_id": case_id, "uuid": uuid, "axes": {"batch": batch},
             "role": None, "is_primary": primary,
             "observed": primary,
@@ -526,8 +525,8 @@ def main() -> int:
                     f":{os.environ.get('E2E_PORT_ROUTER', '8101')}"),
             ]
         # `sys.executable` and not a bare `python3`: `env_render.py` validates
-        # before it writes and `schema.py` imports `referencing` to do it, which
-        # m1 measured to be absent from `/usr/bin/python3` on this host. The
+        # before it writes and `schema.py` imports `referencing` to do it,
+        # which the system interpreter may not have. The
         # interpreter already running this file imported `yaml`, so it is the
         # one to hand the job to.
         rendered = subprocess.run(
@@ -541,9 +540,8 @@ def main() -> int:
     environment = yaml.safe_load((root / "environment.yaml").read_text(encoding="utf-8"))
 
     # **After the environment record exists**, because the image comes from it.
-    # Placed before it on the first attempt and the run died on a missing
-    # `environment.yaml` — the ordering constraint is the same one the header
-    # already records for the `items/code` rename, and I broke it the same way.
+    # Placed before it the run dies on a missing `environment.yaml` — the same
+    # ordering constraint the header records for the `items/code` rename.
     TARGET_FILE = "python/sglang/srt/layers/sampler.py"
     base_sha256, module_symbols = _image_facts(root, TARGET_FILE)
 

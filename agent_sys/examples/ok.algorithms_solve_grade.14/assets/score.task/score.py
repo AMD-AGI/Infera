@@ -198,14 +198,14 @@ def snippet(text: str) -> str:
 def run_pair(binary: Path, unit: dict, cases: list[tuple[str, int, dict]]) -> list[dict]:
     """Every case for one (student, problem) pair, through the one binary.
 
-    **The case id goes on `argv[1]`, and it has to.** It used to go on the first
-    line of stdin, because `cpp.run` took no argv; the harness read it there with
-    `fgets`, and every solution begins `std::ios::sync_with_stdio(false)`, which
-    discards the position an earlier stdio read left. So the harness pulled the
-    whole input into the C buffer and the solution's first `std::cin >> n`
-    failed: empty stdout, return code 0, **every case wrong**. The first full
-    run scored every student exactly 30.0 — `0.2*within_time +
-    0.1*review`, with correctness zero — and every validator passed, because
+    **The case id goes on `argv[1]`, and it has to.** On the first line of
+    stdin it cannot work: the harness reads it with `fgets`, and every solution
+    begins `std::ios::sync_with_stdio(false)`, which discards the position an
+    earlier stdio read left. The harness pulls the whole input into the C buffer
+    and the solution's first `std::cin >> n` fails — empty stdout, return code 0,
+    **every case wrong**. A full run then scores every student exactly 30.0 —
+    `0.2*within_time + 0.1*review`, with correctness zero — and every validator
+    passes, because
     `check_one_binary` asks whether one executable dispatches and `check_scores`
     asks whether the arithmetic is reproducible, and both were true of a
     completely wrong result.

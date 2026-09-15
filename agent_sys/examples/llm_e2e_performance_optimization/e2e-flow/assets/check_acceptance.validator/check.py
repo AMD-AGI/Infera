@@ -378,7 +378,7 @@ def main() -> int:
 def _report(findings: dict, results: dict) -> None:
     """`workset_io.write_report`, and never a second implementation of it.
 
-    m3 measured 16 of 21 validators persisting nothing; seven were this stage's.
+    Measured: 16 of 21 validators persist nothing; seven are this stage's.
     It matters most here because **stage 5 has never been reached** — every
     other stage has had refusals to learn from, and m5's first would otherwise
     arrive with the diagnostics off.

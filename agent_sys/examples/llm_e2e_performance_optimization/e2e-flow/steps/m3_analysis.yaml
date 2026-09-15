@@ -85,11 +85,9 @@
     E2E_JOBID: '${jobid}'
     E2E_NODE: '${node}'
     E2E_TRANSPORT: '${transport:-auto}'
-    # **A reader this stage did not have until `0ca4635` added one.** Choosing
-    # the container's bind mount, `measure_in_container.sh` adopted
-    # `remote.sh`'s `${E2E_REMOTE_HOME:-$HOME}` — so the fix for one undeclared
-    # site fact introduced a second, and the checker caught it in the same
-    # commit that reported this stage complete.
+    # **A reader this stage acquired with the container bind mount.** Adopting
+    # `remote.sh`'s `${E2E_REMOTE_HOME:-$HOME}` in `measure_in_container.sh`
+    # makes the fix for one undeclared site fact introduce a second.
     #
     # The fallback expands `$HOME` in the **local** shell, so it is right here
     # only because `/home` is NFS the compute nodes mount — the very fact the
@@ -99,9 +97,10 @@
     # which m1 met as `mkdir /opt/spur/.docker: permission denied` — a message
     # naming neither docker nor HOME. Third agent to need it.
     #
-    # `:-` and not `=`: m5 measured that the colon form fills a present-but-
-    # empty variable in both shells, so declaring it cannot reintroduce
-    # `60bd848`. Byte-identical to `runner`'s line and to m1's and m5's.
+    # `:-` and not `=`: measured, the colon form fills a present-but-empty
+    # variable in both shells, so declaring it cannot reintroduce the
+    # declared-empty trap. Byte-identical to `runner`'s line and to m1's and
+    # m5's.
     E2E_REMOTE_HOME: '${remote_home:-}'
     # `mock_adapt.py`'s standalone `--new` path only; in the graph `deploy_kit`
     # is a declared input and the record is inherited instead.
@@ -109,14 +108,13 @@
     E2E_PORT_ROUTER: '${port_router:-8101}'
     E2E_MOCK_ROOT: '${mock_root:-}'
     # **The symbol-search index, read by `identify.task/identify.py`.**
-    # Undeclared here until 2026-09-05, and invisible until m2 repaired
-    # `check_agent_env`'s closure->assets mapping (`7507b74`): it matched by
-    # name-containment, so this agent was audited against `build_workset` alone
-    # and `rank.task` and `identify.task` were never scanned. One of three
-    # closures, for the life of the check.
+    # An omission here is invisible while `check_agent_env`'s closure->assets
+    # mapping matches by name-containment: this agent is then audited against
+    # `build_workset` alone and `rank.task` and `identify.task` are never
+    # scanned — one of three closures, for the life of the check.
     #
-    # **Byte-identical to `shared.yaml`** — the package owner's instruction, and
-    # m2's `E2E_MOCK_STAGES` defect is the reason: two declarations of one
+    # **Byte-identical to `shared.yaml`**, and the `E2E_MOCK_STAGES` defect is
+    # the reason: two declarations of one
     # default drifted and silently changed which stages were mocked.
     #
     # **What its absence cost on the first real run: nothing, measured.** It
@@ -139,22 +137,18 @@
     # answer rather than a fix: the default is still an index, and which cards
     # are free is a site fact nothing here validates. `rocm-smi` immediately
     # before use remains the only thing that knows.
-    # Empty, matching `runner` after `4c97c71`. m4 refused to import a real card
-    # as a package default because it makes a consumer's refuse-when-empty guard
-    # unreachable, and that is right.
+    # Empty, matching `runner`. Importing a real card as a package default
+    # makes a consumer's refuse-when-empty guard unreachable.
     #
-    # **This comment used to end by saying the body falls back to card 4** —
-    # `: "${E2E_MEASURE_GPU:=4}"`, so an unset var and an empty one both land on
-    # 4, described as "the residual T19". That stopped being true when
-    # `measure_in_container.sh` was changed to refuse: it now prints the
-    # node's live `rocm-smi` and exits 1 with `FIX: pass --var measure_gpu=<n>`.
-    # So there is no residual fallback and this variable is **required** wherever
-    # `build_workset` runs, mock or real. Found 2026-09-04 while writing rung 3's
-    # launch line — `todo.md` T45's class, in my own file, eight hours after
-    # filing it: a comment describing behaviour in another file, gone stale
-    # silently because nothing loads it. The rule I wrote there applies here —
-    # describe the code in front of you, or re-read the file you are describing
-    # at the moment you write the sentence.
+    # **There is no fallback to card 4.** A `: "${E2E_MEASURE_GPU:=4}"` in the
+    # body would land an unset var and an empty one both on 4;
+    # `measure_in_container.sh` refuses instead, printing the node's live
+    # `rocm-smi` and exiting 1 with `FIX: pass --var measure_gpu=<n>`. So this
+    # variable is **required** wherever `build_workset` runs, mock or real.
+    #
+    # A sentence here about what another file does is `todo.md` T45's class: it
+    # goes stale silently because nothing loads it. Describe the code in front of
+    # you, or re-read the file you are describing at the moment you write it.
     E2E_MEASURE_GPU: '${measure_gpu:-}'
     # **Deliberately empty, and not `runner`'s value if it takes one.** The
     # body's fallback is `yihou_m3_measure_$$`, unique per invocation, which no
@@ -349,12 +343,10 @@
 # base rather than replacing it; and one handoff per operator **deferred** to
 # `todo.md` — M3.7.7 itself says 目前可合成一个.
 #
-# **That flashinfer-bench clause used to end "for which `../../../../rank0/` is
-# this repository's own worked instance", and it is not in this repository.**
-# `git ls-files rank0` returns nothing — 20 files, 49 K, not ignored, just never
-# added, so it exists only in a working tree that happens to have it. The level
-# count was one short of the root besides, but correcting it would have fixed
-# nothing. Replaced by the keys rather than by a better path: the keys are what
+# **That flashinfer-bench clause names no worked instance, because there is none
+# in this repository.** A path such as `../../../../rank0/` resolves only in a
+# working tree that happens to carry an untracked directory. The keys are the
+# contract rather than a better path: the keys are what
 # `check_workset_shape` grades, and a pointer to an untracked directory should
 # not be repaired into a tidier pointer to an untracked directory.
 # `assets/build_workset.task/readme.md` carries the same reference **in an

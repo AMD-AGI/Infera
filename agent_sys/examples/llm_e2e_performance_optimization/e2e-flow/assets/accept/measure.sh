@@ -55,20 +55,19 @@ on "curl -sf -m10 '$R/health'" >/dev/null 2>&1 || {
 # Copy what has completed so far into the output slots, without deleting
 # anything. Called after every step.
 #
-# **The only change to this arm that provably costs nothing in comparability.**
-# The slots used to be assembled once, at the very end, so a hold cancelled at
-# minute 30 left them empty even though smoke, needle and probe had all
-# finished — everything sat in `$WORKDIR` on the node, unsealed, and went with
-# the allocation. Four holds died today, the shortest at 28 minutes against a
-# ~105-minute arm.
+# **Banking the slots as they complete costs nothing in comparability.**
+# Assembling them once at the very end means a hold cancelled at minute 30
+# leaves them empty even though smoke, needle and probe have all finished —
+# everything sits in `$WORKDIR` on the node, unsealed, and goes with the
+# allocation. A hold can die at 28 minutes against a ~105-minute arm.
 #
 # Reordering the steps to bank the gated numbers earlier was considered and
 # **ruled out**: `probe` warms the prefix cache by construction (its `isolated`
 # property exists to exercise the radix cache), and `compare.py`'s own header
 # records that cold and warm differ *by an order of magnitude on this trace*.
 # Moving `bench` ahead of it would make every number incomparable with every
-# number already taken, and would break `stock_vs_m2` — m2 measured in m2's
-# order. So the workload, its order and its state are all untouched here; only
+# number already taken, and would break `stock_vs_m2`, which compares against
+# m2's order. So the workload, its order and its state are untouched here; only
 # the moment the bytes are copied changes.
 #
 # It does **not** make the arm resumable, and `bench` is still last and still
@@ -101,13 +100,11 @@ bank_partial() {
   return 0
 }
 
-# **Per ROUND, not per step, and that difference is the whole point.** m2's
-# `7e3e13f` samples the neighbour at `round.sh`'s four step boundaries —
-# preconditions, deployed, evidence, assemble — all of which are *outside* the
-# window these measurements run in. T7 asks what the neighbour was doing *while
-# the numbers were being taken*, and only a sample inside this file answers it.
-# m2 flagged the gap rather than papering over it and left the line to me,
-# because `accept/measure.sh` is m5's.
+# **Per ROUND, not per step, and that difference is the whole point.** Sampling
+# the neighbour at `round.sh`'s four step boundaries — preconditions, deployed,
+# evidence, assemble — samples *outside* the window these measurements run in.
+# T7 asks what the neighbour was doing *while the numbers were being taken*, and
+# only a sample inside this file answers it.
 #
 # Two of 2026-09-04's worst numbers needed exactly this and could not be
 # recovered afterwards: the DELIVERY-NOTE refusal blamed a patch for a

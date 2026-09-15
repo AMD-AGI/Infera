@@ -150,8 +150,8 @@ tool's whole result object in `proof.raw` — `token`, `label`, `installed_by`,
 it** — `env_mgr` registered it because of the file's location and suffix.
 
 That is the whole difference between this section and section 4, and it is
-narrower than it used to be: both servers are now `type: stdio`, both are spawned
-by the harness, and both entries reach it through your own `.claude/`. Section 4
+narrow: both servers are `type: stdio`, both are spawned by the harness, and both
+entries reach it through your own `.claude/`. Section 4
 is *declared explicitly and installed by a recipe*; this one is *declared by
 where the file sits and installed by the copy*. Nothing else separates them.
 
@@ -258,7 +258,7 @@ to work for or an honest failure you could point at.
 
 | field | rule |
 |---|---|
-| `installed_by` | `recipe` or `copied`, and it must be the one this brief gives for that section. It is not a guess — it says which of the two install routes you are claiming worked. **The key used to be `level` with `L1`/`L2`/`L3`; those levels no longer exist.** A report still carrying `level` fails on a missing key, which is the intended message |
+| `installed_by` | `recipe` or `copied`, and it must be the one this brief gives for that section. It is not a guess — it says which of the two install routes you are claiming worked. **The key is not `level`, and there are no `L1`/`L2`/`L3` tiers.** A report carrying `level` fails on a missing key, which is the intended message |
 | `status` | `ok` or `unavailable`. `unavailable` is permitted for `serena` only, under the condition in section 7 |
 | `token` | the string, or `null` when `status` is not `ok`. Never a token you did not obtain |
 | `how` | at least **80 characters** of non-whitespace: the tool or command you used, and how you know it was that route rather than a file read. This is the field a human reads when a token mismatches |

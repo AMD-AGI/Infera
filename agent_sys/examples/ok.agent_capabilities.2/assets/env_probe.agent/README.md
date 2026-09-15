@@ -44,9 +44,9 @@ split is the point of both:
 | 4 `envchk_baseline` | the `.mcp.json` above | `assets/main.env_recipe.yaml` copies the server out of `agent_sys/env_mgr/addons/envchk-baseline/` |
 | 7 `serena` | the `.mcp.json` above | `recipes: [agent_sys:serena]` on the agent spec → `agent_sys/env_mgr/recipes/serena.yaml` |
 
-The split is written down because it was measured the hard way: serena installed
-cleanly and every `mcp__serena__*` call returned `No such tool available`,
-because nothing declared it. **An install is not a declaration**, in either direction.
+The split is written down because it is measurable: serena installs cleanly and
+every `mcp__serena__*` call returns `No such tool available` when nothing
+declares it. **An install is not a declaration**, in either direction.
 
 ## Why `settings.json` carries no explanation
 
@@ -68,15 +68,15 @@ here.
   would sit through wondering whether the run had begun.
 - **No `matcher`.** `SessionStart` has no tool to match on.
 
-## Why `.mcp.json` is here, when it used to be somewhere else
+## Why `.mcp.json` is here and not beside the add-ons
 
-Both entries in it were previously carried by add-ons under
-`agent_sys/env_mgr/addons/{serena,envchk-baseline}/.claude/.mcp.json`, reached by
-an `agent_plugins:` key on the agent spec. That key is deleted and this is the
-one retained copy route, so the declarations moved here **byte for byte** —
-serena's keeps `--project ${AGENT_SYS_MY_WORKSPACE}`, which is the reason it
-could not have stayed shared: the directory serena indexes differs per agent and
-has no environment-variable equivalent.
+Carrying these entries under
+`agent_sys/env_mgr/addons/{serena,envchk-baseline}/.claude/.mcp.json` needs an
+`agent_plugins:` key on the agent spec, and there is no such key. This is the one
+retained copy route, so the declarations live here — and serena's
+`--project ${AGENT_SYS_MY_WORKSPACE}` is why it could not be shared anyway: the
+directory serena indexes differs per agent and has no environment-variable
+equivalent.
 
 **What this package stopped proving by that move.** Section 4 used to
 demonstrate that a `.claude/` tree *this repository ships* could be installed for

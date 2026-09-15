@@ -35,13 +35,13 @@ def read_text_tree(content: Path) -> str:
 
 
 def main() -> int:
-    # **This body reads only what it was handed, and that is the whole change.**
-    # It used to reach outside itself for the `facts`, because *grounded in its
-    # input* compares two handoffs and an output phase stages only the one it
-    # validates. Two routes out were tried and both are shut — a store scan
-    # (`EACCES` from a confined body) and adding `facts` to this validator's own
-    # inputs (overtaken: not the system's job). The ruling put the second
-    # artefact **inside the first**, so there is nothing to reach for.
+    # **This body reads only what it was handed.** *Grounded in its input*
+    # compares two handoffs while an output phase stages only the one it
+    # validates, so a body that reaches outside itself for the `facts` needs a
+    # route out — and both are shut: a store scan gets `EACCES` from a confined
+    # body, and adding `facts` to this validator's own inputs is not the
+    # system's job. The second artefact travels **inside the first**, so there is
+    # nothing to reach for.
     results = {}
     for hid in store.inputs():
         content = store.staged_content(hid) or store.content_dir(hid)

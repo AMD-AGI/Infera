@@ -58,10 +58,10 @@ its own `.claude/` tree, which is not the package that ran — the server file i
 shipped under `env_mgr/addons/` and placed by a recipe — and the whole point of
 this example is which route delivered what.
 
-**The key is `installed_by` and it used to be `level`, with `L1`/`L2`/`L3`.**
-Those levels named an install hierarchy `env_mgr/docs/spec.md` §6 and §9
-supersedes; its middle rung, a declaration key reaching `env_mgr/addons/`, was
-deleted outright. Renaming the key rather than reusing it with new values is
+**The key is `installed_by`, not a `level` of `L1`/`L2`/`L3`.** Those levels
+name an install hierarchy `env_mgr/docs/spec.md` §6 and §9 supersedes, and its
+middle rung — a declaration key reaching `env_mgr/addons/` — does not exist.
+Renaming the key rather than reusing it with new values is
 deliberate: an agent working from an older brief fails on a **missing key**,
 which names the change, rather than on a value mismatch that reads like it got
 the answer wrong.

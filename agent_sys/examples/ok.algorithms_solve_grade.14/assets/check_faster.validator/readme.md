@@ -64,6 +64,6 @@ Because `strength` qualifies a PASS, and it is the one field a consumer reads
 before deciding how much a green tick is worth. A sophisticated check that is
 silently approximate is worse than a crude one that says what it is —
 `examples/ok.filetree_grounded_report.4/steps/describe.yaml` is the long-form argument, and it is the
-failure mode this repository cares most about. Naming this `strong` would make
-every downstream reader believe an optimised solution had been benchmarked.
-None of them have been.
+failure mode this repository cares most about. Naming this `strong` would tell
+every downstream reader that an optimised solution had been benchmarked. None
+has been.

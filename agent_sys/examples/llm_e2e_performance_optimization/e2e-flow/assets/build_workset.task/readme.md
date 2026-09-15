@@ -181,12 +181,10 @@ PY
 **Acceptance:** that command exits 0, and any operator it reports as NOT CHECKED
 is re-run after `integration.module_symbols` is filled.
 
-**There are no worked examples to imitate, and this paragraph used to point at
-two.** It named `../../../../../rank0/definitions/`. That directory is not in
-this repository — `git ls-files rank0` returns nothing, and the level count was
-one short of the root besides, so it resolved nowhere from the zone this brief
-runs in. You looked, found nothing, and improvised; that is the state this
-sentence replaces. The keys above are the contract, and
+**There are no worked examples to imitate.** A relative path such as
+`../../../../../rank0/definitions/` names nothing in this repository and
+resolves nowhere from the zone this brief runs in, so following it means looking,
+finding nothing, and improvising. The keys above are the contract, and
 `check_workset_shape` grades them.
 
 ```sh

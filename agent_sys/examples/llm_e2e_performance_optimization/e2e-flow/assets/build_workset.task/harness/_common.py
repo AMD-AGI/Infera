@@ -26,13 +26,12 @@ was a measured failure somewhere in this effort:
   claim.
 * **The abort is a behaviour, not a paragraph.** `ground_truth.abort_on_mismatch`
   is checked here, so a run on the wrong architecture stops rather than
-  producing a number somebody later divides by. **That sentence was false for
-  the life of this file** — the check read `E2E_<FIELD>` variables that nothing
-  in this package declares, so it compared against `None` and passed every
-  time. It now compares this run's environment record against the workset's,
-  and says so in the report; see `_run_record`. The lesson is not about the
-  seven names: a paragraph asserting a behaviour is not one, and this one was
-  read many times by its own author without being run.
+  producing a number somebody later divides by. **A check reading `E2E_<FIELD>`
+  variables that nothing in this package declares compares against `None` and
+  passes every time**, so the sentence would be false while reading as true. It
+  compares this run's environment record against the workset's, and says so in
+  the report; see `_run_record`. The point is not the seven names: a paragraph
+  asserting a behaviour is not one, however many times it is read.
 """
 
 from __future__ import annotations
@@ -140,12 +139,10 @@ def setup(what: str) -> Ctx:
     # strings in the manifest — one fact, two readers, and the reader that could
     # not be told was this one. m4 drives these entrypoints by reading `flags`
     # from the manifest, so a workset declaring a different spelling would have
-    # produced a consumer passing `--implementation` to a parser that only knew
-    # `--impl`. That is the shape m4 named — *one authority, two readers, one of
-    # them narrower* — and it was the fourth instance between us in two days.
-    #
-    # Found by auditing my own code for the shape after claiming it was clean.
-    # It was not.
+    # produces a consumer passing `--implementation` to a parser that only
+    # knows `--impl`. That is the *one authority, two readers, one of them
+    # narrower* shape, and it is found by auditing for it rather than by
+    # believing a file is clean.
     flags = {"operator": "--operator", "shape": "--shape", "impl": "--impl", "report": "--json",
              "environment": "--environment"}
     flags.update((doc.get("entrypoints") or {}).get(what, {}).get("flags") or {})
@@ -178,12 +175,11 @@ def setup(what: str) -> Ctx:
         # **The resolved record IS the workset's own, so the loops below compare
         # a document with itself and agree by construction.**
         #
-        # Found by m4 in review, in the fallback rather than in the flag: the
-        # record beside this module is the one `ground_truth.environment` was
-        # copied from. Their reading, and it is the right one — this file's own
-        # "a paragraph asserting a behaviour is not one", one layer out. A field
-        # asserting `checked` for a run that checked nothing is that sentence
-        # with a JSON key instead of a docstring.
+        # It is in the fallback rather than in the flag: the record beside this
+        # module is the one `ground_truth.environment` was copied from. That is
+        # this file's own "a paragraph asserting a behaviour is not one", one
+        # layer out — a field asserting `checked` for a run that checked nothing
+        # is that sentence with a JSON key instead of a docstring.
         #
         # **This is a legitimate state, not a fault**, and the wording says so
         # in both places deliberately. m3's own measurement resolves here and is

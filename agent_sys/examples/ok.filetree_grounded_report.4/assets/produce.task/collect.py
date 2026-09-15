@@ -2,7 +2,7 @@
 """What `produce` runs: walk a tree and write a `facts` content directory.
 
 **This file imports nothing from `agent_sys`.** It is package data, run as a
-subprocess by `agent.backends.program.ProgramExecutor`, and the wall in `demo`
+subprocess by `agent.backends.program.ProgramExecutor`, and the wall in `cli`
 design §3.1 says `examples/ok.filetree_grounded_report.4/` is imported by nobody at all — including by
 itself. Everything it needs arrives as an environment variable.
 

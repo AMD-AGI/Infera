@@ -83,11 +83,11 @@ add_mount "$COMPAT" ro
 # `ignore_eos:true` **with** `min_tokens`, and the pairing is specific to this
 # script rather than inherited from the replay one.
 #
-# **Corrected by m2, who checked the sibling rather than taking my word.** I had
-# written "the same reason the replay script sets it" — `aiperf_replay.sh` does
-# **not** set `min_tokens`, and its own comment says why: the `mooncake_trace`
-# loader gives every request a `max_tokens` from the trace, so `ignore_eos` alone
-# pins the length to what the trace asked for. Their sealed evidence agrees —
+# **Not "the same reason the replay script sets it": `aiperf_replay.sh` does
+# not set `min_tokens` at all**, and its own comment says why — the
+# `mooncake_trace` loader gives every request a `max_tokens` from the trace, so
+# `ignore_eos` alone pins the length to what the trace asked for. Its sealed
+# evidence agrees —
 # `output_sequence_length` avg 111.9, min 64, max 160, std 28.3, which is
 # trace-shaped rather than model-shaped.
 #

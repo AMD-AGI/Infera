@@ -146,14 +146,13 @@ no boundary that can fail closed. Serena stays section **7**.
   in this run's zone** rather than the component source — the one check in this
   repository that could see `env_mgr`'s *load the copy, not the source*
   isolation property break for **every package that ever shipped a tooldef**.
-  That is `e1b9f54`'s bug. With the route deleted the property has no subject,
-  so nothing is currently unguarded.
+  With that route deleted the property has no subject, so nothing is currently
+  unguarded.
 
-  **A check enforces the return, and it is not this package's.** The sentence
-  here used to be *"if an in-process route ever returns, this row has to return
-  with it"* — a paragraph asking a future reader to remember, which is the same
-  species of non-check this package spends its length arguing against. It is now
-  a test:
+  **A check enforces the return, and it is not this package's.** *"If an
+  in-process route ever returns, this row has to return with it"* would be a
+  paragraph asking a future reader to remember, which is the same species of
+  non-check this package spends its length arguing against. It is a test:
 
       agent_sys/tests/env_mgr/test_agent_assets.py
         test_nothing_under_tools_is_ever_imported_into_the_supervisor
@@ -253,13 +252,12 @@ Read this before deciding the run succeeded. Stated per capability in
   | rows 1, 2, 3, 7 | the artefact **exists and is reachable** |
   | **neither tier** | **that the agent obtained the token through the capability rather than by reading the file** |
 
-  That last row is the one an earlier version of this document quietly claimed.
-  No test in this package establishes it, and none can while the agent and the
-  artefacts share a zone by construction.
+  That last row is the one this document must not quietly claim. No test in this
+  package establishes it, and none can while the agent and the artefacts share a
+  zone by construction.
 
 - **Row 2 is the only row in this package with genuine agent-side evidence**,
-  and it was previously hidden by being grouped with the file-borne tier. The
-  hook's `session_id` and `hook_event_name` arrive on the hook's stdin from
+  and grouping it with the file-borne tier hides that. The hook's `session_id` and `hook_event_name` arrive on the hook's stdin from
   Claude Code, so an agent that ran the script by hand gets an empty payload and
   the validator says so. It is the one place where something the agent could not
   have produced is checked.

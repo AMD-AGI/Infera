@@ -99,8 +99,7 @@
     # `--var transport_env` has to drive m1's `check_deploy_serves`, m3's
     # `check_workset_runs` and this one; a second spelling would be a second
     # thing to keep in step, which is the failure that produced this whole
-    # class. `transport_env` has already cost three runs and two wrong
-    # attributions in one stage, and three non-reproductions in another.
+    # class.
     #
     # A validator declares no agent, so it runs closed: no `SPUR_CONTROLLER_ADDR`
     # and a `PATH` of `/usr/bin:/bin` while `spur` lives in `/usr/local/bin`.
@@ -289,8 +288,8 @@
     # **`env_mgr/material.py` reads the `env` block off the agent that is
     # RUNNING**, and `shared.yaml` declares all 36 `E2E_*` on `runner`. A
     # `kind: ai` agent therefore receives none of them: measured across the
-    # package, `runner` 36, `e2e_kernel_optimizer` **1**. m1 found it in rung
-    # 1's own transcript, where the agent ran `env | grep` and got seven
+    # package, `runner` 36, `e2e_kernel_optimizer` **1**. Visible in a
+    # transcript as an agent running `env | grep` and getting seven
     # `AGENT_SYS_*` names and zero `E2E_*`.
     #
     # This is the same seam as `check_speedup_substantiated` naming `KFO_PYTHON`

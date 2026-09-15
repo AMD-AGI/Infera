@@ -167,7 +167,7 @@
   task:
     # The gap is here, in one clause, and it is deliberate: `facts` carries no
     # duration, so the figure this asks for cannot be grounded in the input. The
-    # agent answers in good faith and `check_grounded` records False — `demo`
+    # agent answers in good faith and `check_grounded` records False — `cli`
     # design §4.3. The failure is a property of the specification, not of the
     # model or of the validator.
     #

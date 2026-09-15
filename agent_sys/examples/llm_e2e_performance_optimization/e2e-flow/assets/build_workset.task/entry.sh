@@ -13,8 +13,8 @@
 #
 # **Without that switch a mocked m3 is not mocked at all.** A `kind: ai` task
 # never runs `entry.sh`, so promoting this closure to `ai` took it off the mock
-# path; m5 hit exactly this and its first full mock run sat at
-# `integrate_and_verify: running` while an agent prepared to do the real thing.
+# path, so a full mock run sits at `integrate_and_verify: running` while an
+# agent prepares to do the real thing.
 # The default is the real agent, so **the mock is the thing you have to ask
 # for**, and this file exists so that asking is possible.
 #
@@ -34,11 +34,10 @@ PKG="${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one 
 # has its stdout captured into the `output_absent` event's `detail`, and we
 # have read real causes out of it. A body that exits **0** has its output
 # discarded entirely — which is precisely the case where something went wrong
-# quietly, and it is the case that cost the 047 investigation two runs and most
-# of an hour. The reason existed; nothing kept it.
+# quietly, and it is what costs an investigation two runs: the reason existed and
+# nothing kept it.
 #
-# The three properties are `dff2bcb`'s, which earned them on the validator side
-# within an hour and which m1 and m4 have since adopted:
+# The three properties, adopted from the validator side:
 #
 # * **written always**, not only on failure — a body that succeeds while doing
 #   only part of its work looks identical to one that succeeded, and the log is
@@ -82,8 +81,8 @@ rc=0
 # CONTRACT §3.2a — the runner invokes `["/bin/sh", entry]` and `/bin/sh` here is
 # dash — but `mock.sh` uses `${!var}` indirect expansion, which dash does not
 # have. Running it under `sh` fails with a syntax error at parse time, before
-# any branch below is reached. Every other owner's entry.sh does the same and
-# says so; this comment is here because I wrote `sh` first.
+# any branch below is reached. Every other stage's entry.sh does the same and
+# says so.
 bash "$PKG/assets/lib/mock.sh" stage3-analyze operator_workset || rc=$?
 if [ "$rc" -eq 0 ]; then
   # MOCK-MAP (C). The sealed bytes alone do not satisfy this package's

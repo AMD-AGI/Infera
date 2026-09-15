@@ -36,7 +36,7 @@
 # measurement scripts are byte-identical between arms by construction, because
 # they are the same file.
 #
-# **The ordering that used to be a graph edge is now step 4 of that list**, and
+# **The ordering is step 4 of that list rather than a graph edge**, and
 # `check_measurement_order` is what makes the difference visible: the body
 # timestamps each step into `env/steps.json` and the validator refuses a pair of
 # arms that overlap or that ran different sequences.
@@ -109,9 +109,9 @@
     # **The generation budget, and it is the cost knob of the most expensive
     # step in the flow.** `assets/accept/measure.sh` reads both of these
     # and **nothing declared either** — not `runner`, not this agent — so the
-    # `:-2048` and `:-32` fallbacks always won and neither could be set from a
-    # command line. Same omission class as the four in `6ec7e42`, found the same
-    # way, and this time it is load-bearing: `probe` costs 2062 s and 2001 s on
+    # `:-2048` and `:-32` fallbacks always win and neither can be set from a
+    # command line. The same omission class as the others in this file, and
+    # load-bearing here: `probe` costs 2062 s and 2001 s on
     # the two sealed arms, **two thirds of an arm**, and `--max-tokens` is what
     # sizes it.
     #
@@ -130,7 +130,7 @@
     # reasoning parser. `assets/accept/lm_eval.sh` records the consequence:
     # a healthy deployment answers every request and **scores 0.00**, which
     # `check_acceptance` cannot distinguish from a model that got the questions
-    # wrong. Found by m2's variable audit, 2026-09-06.
+    # wrong.
     #
     # **The default is today's fallback, character for character**, so a
     # first-cluster reproduction is unchanged and this declaration cannot break
@@ -283,7 +283,7 @@
   tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
 
 # --------------------------------------------------------------------------- #
-# OWNER m5: the ordering guarantee that used to be a graph edge.
+# OWNER m5: the ordering guarantee, held here rather than by a graph edge.
 - module: validator
   name: check_measurement_order
   version: '1'
@@ -380,9 +380,9 @@
     # that reason, and m2's stage-2 bar drops too on a window that did not
     # change — and neither owner can see it from their own file.
     #
-    # Found by m2, scoped by m3 (32 vars are cross-owner and sharing is usually
-    # the point; of the nine parameterised bars this was the only one that was
-    # both), decided by the package owner.
+    # Scoped deliberately: 32 vars are cross-owner and sharing is usually the
+    # point, and of the nine parameterised bars this is the only one that is
+    # both shared and a bar.
     #
     # **The fix that would have kept the default linked does not exist.**
     # `'${integration_min_requests:-${min_requests:-50}}'` does not nest — it
@@ -469,9 +469,9 @@
     # a reproducer executes.
     min_command_lines: 8
     # **Counted by substance, not presence** — `min_dir_files`, default 1, a
-    # non-empty file found recursively. Not `is_dir()`: m2 measured that `logs/`
-    # cut to one *empty subdirectory*, and `scripts/` cut to one *zero-byte*
-    # `run.sh`, both graded complete under the presence test this started as. The
+    # non-empty file found recursively. Not `is_dir()`: measured, `logs/` cuts
+    # to one *empty subdirectory* and `scripts/` to one *zero-byte* `run.sh`,
+    # both of which a presence test grades complete. The
     # same argument that makes `min_content_lines` exist makes this exist.
     # Recursive because the real kit nests — `logs/` is 17 files under seven
     # subdirectories, which a top-level count reads as zero.
@@ -604,7 +604,7 @@
 # would force `check_acceptance` to also understand AIPerf's CSV.
 #
 # `agent: e2e_integrator` (`kind: ai`), with a STEPS readme per G4.2.1. The
-# ordering that used to be graph edges is now that readme's numbered list, and
+# ordering lives in that readme's numbered list rather than in graph edges, and
 # `check_measurement_order` is what makes the difference visible if it is not
 # followed: both arms timestamp every step into `env/steps.json`, and a pair
 # that overlaps in time or disagrees on the sequence is refused.

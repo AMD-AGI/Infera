@@ -1,7 +1,8 @@
 # `ok.sglang_real_model.2` — one real workload, end to end
 
 The third example package, and the first whose subject is a real workload rather
-than a synthetic one. `demo` and `ok.algorithms_solve_grade.14` exist to exercise graph shapes; this one
+than a synthetic one. `ok.filetree_grounded_report.4` and
+`ok.algorithms_solve_grade.14` exist to exercise graph shapes; this one
 exists to answer a different question — **does the system hold up when the task
 is something a person would actually be asked to do?**
 
@@ -52,7 +53,7 @@ main                     non-leaf, no agent, one entry
 One leaf, one handoff kind, two validators. Every construct is there because the
 task needs it, not because an example wanted to show it off.
 
-## What this package shows that `demo` and `ok.algorithms_solve_grade.14` cannot
+## What this package shows that the graph-shape examples cannot
 
 - **A validator with `kind: ai`.** Both other packages use AI for *agents* only;
   neither has an AI validator at all.

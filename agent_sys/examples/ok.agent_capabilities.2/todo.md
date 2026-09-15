@@ -141,7 +141,7 @@ It does **not** catch **declared-but-did-not-arrive** — a mis-set `${VAR}`, an
 unplaced file, a recipe item whose install failed. That check exists in design:
 compare `Capability.surface` against the names `env_mgr` records in
 `$AGENT_SYS_INSTALL_REPORT` (`agent_assets` records `names` for entries read out
-of `.mcp.json` and `server` for the bundled one, as of `9a9fdff`). It is three
+of `.mcp.json` and `server` for the bundled one). It is three
 lines in `check_capabilities_genuine`, which already reads that file.
 
 **It is deliberately not built**, and the reason is worth keeping: **the run is

@@ -423,12 +423,11 @@ def check_apply_manifest(manifest: dict, apply_dir: Path, packup: Path) -> list[
         # build itself. Failing here is what stops such a patch being mounted,
         # never executed, and reported as no regression.
         #
-        # **`patch_in_place` used to land here and the message was false.** This
-        # read `mode != APPLY_OVERLAY`, so the moment m3's enum gained a second
-        # value a `call_site_fragment` workset would have been refused by the
-        # one mechanism that can install it — and told to rebuild the image,
-        # which is not what it needs. T49, in the branch that exists to explain
-        # itself.
+        # **The test is on the mode that cannot install, not on inequality to
+        # `APPLY_OVERLAY`.** Written the second way, the moment the enum gains a
+        # value a `call_site_fragment` workset is refused by the one mechanism
+        # that can install it — and told to rebuild the image, which is not what
+        # it needs. T49, in the branch that exists to explain itself.
         bad.append(
             f"apply_mode {mode!r} is declared and not implemented here. A patch that must be "
             "compiled needs the image rebuilt; this stage only does read-only bind mounts."
@@ -622,11 +621,10 @@ def main() -> int:
         # `rm -f` the name first: a previous hard kill may have left one, and a
         # collision would otherwise fail the run for a leftover of our own.
         f"docker rm -f '{cid_name}' >/dev/null 2>&1 || true",
-        # `--label` as well as `--name`: `c5aec7f` gave this container a name
-        # carrying an owner substring, which fixed the anonymous case — but
-        # makes the **label** the ownership test, because three ownership errors
-        # on 2026-09-04 came from reasoning about names. A name is a hint; the
-        # label is the answer.
+        # `--label` as well as `--name`: a name carrying an owner substring
+        # fixes the anonymous case and is still only a hint. The **label** is the
+        # ownership test, because reasoning about names is where ownership
+        # misattributions come from.
         f"CID=$(docker create --name '{cid_name}' "
         f"--label 'infera_e2e_run={run_tag}' --label 'infera_e2e_arm=apply_extract' "
         f"'{image}' true)",
@@ -692,11 +690,9 @@ def main() -> int:
             # **Two opposite problems read identically here, and the producer
             # knows which.** A mismatch is either a real patch/image
             # disagreement, or a producer that could not reach the stock file
-            # and hashed something else. m4's `base_sha256_from` (schema
-            # `7ff962a`) carries the answer, so say it in the line rather than
-            # sending the reader to the handoff's notes — which is what the
-            # first real run of this gate did on 2026-09-04, correctly and
-            # unhelpfully.
+            # and hashed something else. `base_sha256_from` carries the answer,
+            # so say it in the line rather than sending the reader to the
+            # handoff's notes — correct and unhelpful.
             #
             # `.get`, and absent is not a fault: every already-sealed handoff
             # predates the field and the schema keeps it optional. An old
@@ -1114,10 +1110,10 @@ mounts are read-only; and a mount that is present is not yet a mount that ran.
     # in `check_environment`'s `compare_fixed_across_inputs` as "these two
     # handoffs describe different machines". That is worse than a refusal.
     #
-    # This ordering was the fix here until m2 found that `redact.py` rewrote a
-    # conforming record and exited 0 — three call sites reach that module and two
-    # were safe only by ordering, which nothing enforced. **`redact.py` now skips
-    # the record itself**, so this ordering is redundant. Kept because it costs
+    # Ordering alone is not the fix: `redact.py` rewriting a conforming record
+    # and exiting 0 reaches three call sites, two of which are safe only by an
+    # ordering nothing enforces. **`redact.py` skips the record itself**, which
+    # makes this ordering redundant. Kept because it costs
     # nothing and because a body that renders its record last cannot be broken by
     # a future pass that forgets the rule.
     subprocess.run(

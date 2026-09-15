@@ -14,7 +14,8 @@ worth less. **Do the work first, then pack up what you actually did.**
 
 `mix` is this repository's own word and it is **not** mixed precision. The repo
 defines it — `examples/` and `docs/` are the reference and you should read them
-rather than take my word for it. What you are aiming at is a deployment where
+rather than take this brief's word for it. What you are aiming at is a deployment
+where
 one worker does both phases, on a single node, with no RDMA.
 
 The criterion is checkable and you should check it: **the worker and the router

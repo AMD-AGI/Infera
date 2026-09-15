@@ -1,9 +1,9 @@
 # Loaded only by `--dry-run --with-broken`. Criterion 11's second half.
 #
-# **It is a separate package now, and it had to become one.** It used to be
-# `examples/ok.filetree_grounded_report.4/broken/closures/dangling.jsonnet` — a subdirectory the old
-# per-kind discovery pass did not walk. The YAML front end scans *every* `*.yaml`
-# under a package root except `assets/`, so a broken document anywhere inside
+# **It is a separate package, and it has to be one.** A subdirectory such as
+# `examples/ok.filetree_grounded_report.4/broken/` will not do: the YAML front end
+# scans *every* `*.yaml` under a package root except `assets/`, so a broken
+# document anywhere inside
 # `examples/ok.filetree_grounded_report.4/` would now be loaded on every ordinary run and criterion 13's
 # *"two runs, no hand-editing"* would be dead. Two mandatory names — `main.yaml`
 # and `assets/` — are what make a directory a package, so a sibling directory
