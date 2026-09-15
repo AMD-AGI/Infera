@@ -69,11 +69,13 @@ def detect_conflicts(items: list[Item]) -> list[Outcome]:
             for j in range(i + 1, len(versions))
         )
         if conflict:
+            # A list, not a mapping: no field distinguishes two items sharing a
+            # name, so keying on anything else could collide and drop a version.
             outs.append(
                 Outcome(
                     "fail",
-                    f"cross-layer version conflict for {name}",
-                    {"versions": {g.layer: g.version for g in group}},
+                    f"version conflict for {name}",
+                    {"versions": [g.version for g in group]},
                 )
             )
     return outs

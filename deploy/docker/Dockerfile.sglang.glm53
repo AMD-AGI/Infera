@@ -175,11 +175,11 @@ RUN set -eu; \
 # repo path IS the pairing; it is not a "latest wins" archive.
 #
 # Default below targets the gfx950 fleet this image is built for
-# (crsuse2-m2m-*, ionic_rdma 25.08.4.004, fw 1.117.1-a-63, uverbs abi 4).
+# (ionic_rdma 25.08.4.004, fw 1.117.1-a-63, uverbs abi 4).
 # The MI355X/ionic-26.03 fleet that Dockerfile.sglang was written for is the
-# OTHER case -- it wants abi 1, i.e. 54.0-187. Do not copy one into the other;
-# that is precisely the regression this block replaces, and it cost a full
-# benchmark run of TCP-transported KV before anyone noticed.
+# OTHER case -- it wants abi 1, i.e. 54.0-187. Do not copy one into the other:
+# a mismatched deb leaves RDMA down and KV silently falls back to TCP, which
+# reads as a slow benchmark rather than as a broken fabric.
 ARG INSTALL_LIBIONIC=1
 ARG LIBIONIC_DEB_URL=https://repo.radeon.com/amdainic/pensando/ubuntu/1.117.1-a-63/pool/main/r/rdma-core/libionic1_54.0-149.g3304be71_amd64.deb
 # Build fails unless the provider that ends up installed declares this range.

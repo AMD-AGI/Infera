@@ -8,7 +8,7 @@ import graphlib
 
 from task_graph.models import TaskStatus
 
-from .conftest import make_task, new_handoffs
+from .conftest import DISPATCHED, make_task, new_handoffs
 
 # --------------------------------------------------------- the two-way links
 
@@ -155,7 +155,7 @@ def test_a_declared_edge_does_not_gate_dispatch(scheduler, task_mgr):
     scheduler.submit(dependent)
 
     assert task_mgr.get(blocker.id).status is TaskStatus.WAITING_HANDOFF
-    assert task_mgr.get(dependent.id).status is TaskStatus.RUNNING
+    assert task_mgr.get(dependent.id).status is DISPATCHED
 
 
 def test_depends_on_survives_a_restart(scheduler, store):

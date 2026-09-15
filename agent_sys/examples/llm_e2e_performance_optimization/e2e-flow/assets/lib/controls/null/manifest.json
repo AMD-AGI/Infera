@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "operator_id": "m5_control_null",
+  "logical_operator": "m5_control_null",
+  "image": "inferaimage/infera:sglang-local",
+  "apply_mode": "overlay_files",
+  "expect": {
+    "source": "null_overlay",
+    "speedup": 1.0,
+    "note": "control: semantically identical to stock. No optimisation."
+  },
+  "files": [
+    {
+      "container_path": "@SGLANG_ROOT@/srt/layers/sampler.py",
+      "base_sha256": "6b727fcde1724924c71c1148d89005500195527e827fe7ec8d51eef43d92a762",
+      "change": "modify",
+      "replacement": "results/optimized_kernel.py"
+    }
+  ]
+}
