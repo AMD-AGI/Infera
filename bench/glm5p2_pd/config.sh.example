@@ -3,8 +3,10 @@
 
 # Shared paths and service identity.
 ROCM_LLM_BENCH_DIR="${ROCM_LLM_BENCH_DIR:/home/liyingli/bench_agentx/rocm-llm-bench}"
-ROCM_OPT_BASE_IMAGE="${ROCM_OPT_BASE_IMAGE:-rocm-llm-bench:glm52-v518-402df1e-2c71811}"
-IMAGE="${IMAGE:-infera/engine-sglang:glm52-v518-402df1e-2c71811}"
+SGLANG_SHA="${SGLANG_SHA:-c29bd17d3584ccc9fa7ef2fc5510ddb8874f4e12}"
+AITER_SHA="${AITER_SHA:-b02ab811e5fea6deda9b56f546731f5285739d68}"
+ROCM_OPT_BASE_IMAGE="${ROCM_OPT_BASE_IMAGE:-rocm-llm-bench:glm52-v518-c29bd17-b02ab81}"
+IMAGE="${IMAGE:-infera/engine-sglang:glm52-v518-c29bd17-b02ab81}"
 MODEL="${MODEL:-/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4}"
 SERVED_MODEL="${SERVED_MODEL:-glm5.2-mxfp4}"
 CONTROL_NODE="${CONTROL_NODE:-worker-01}"

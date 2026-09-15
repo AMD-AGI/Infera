@@ -88,7 +88,11 @@ class ConfigAndTopologyTests(unittest.TestCase):
     def test_image_build_layers_infera_on_pinned_rocm_base(self):
         script = (ROOT / "build_image.sh").read_text(encoding="utf-8")
         self.assertIn('$ROCM_LLM_BENCH_DIR/Dockerfile', script)
+        self.assertIn('--build-arg "SGLANG_SHA=$SGLANG_SHA"', script)
+        self.assertIn('--build-arg "AITER_SHA=$AITER_SHA"', script)
         self.assertIn('SGLANG_BASE_IMAGE=$ROCM_OPT_BASE_IMAGE', script)
+        self.assertIn('actual_sglang" == "$SGLANG_SHA', script)
+        self.assertIn('actual_aiter" == "$AITER_SHA', script)
         self.assertLess(
             script.index("building optimized ROCm base"),
             script.index("building Infera PD engine"),
@@ -96,6 +100,14 @@ class ConfigAndTopologyTests(unittest.TestCase):
         config = (ROOT / "config.sh").read_text(encoding="utf-8")
         self.assertIn("ROCM_OPT_BASE_IMAGE=", config)
         self.assertIn("glm52-v518-c29bd17-b02ab81", config)
+        self.assertIn("c29bd17d3584ccc9fa7ef2fc5510ddb8874f4e12", config)
+        self.assertIn("b02ab811e5fea6deda9b56f546731f5285739d68", config)
+
+    def test_launch_rejects_image_tag_drift(self):
+        common = (ROOT / "lib" / "common.sh").read_text(encoding="utf-8")
+        self.assertIn('image IDs differ:', common)
+        self.assertIn('actual_sglang" == "$SGLANG_SHA', common)
+        self.assertIn('actual_aiter" == "$AITER_SHA', common)
 
     def test_launch_ssh_cannot_consume_topology_rows(self):
         script = (ROOT / "launch.sh").read_text(encoding="utf-8")

@@ -22,6 +22,8 @@ build_images() {
     local -a base_build final_build
     base_build=(
         docker build --network "${BUILD_NETWORK:-host}"
+        --build-arg "SGLANG_SHA=$SGLANG_SHA"
+        --build-arg "AITER_SHA=$AITER_SHA"
         --tag "$ROCM_OPT_BASE_IMAGE"
         --file "$ROCM_LLM_BENCH_DIR/Dockerfile"
     )
@@ -58,7 +60,7 @@ distribute_image() {
 }
 
 verify_node() {
-    local node="$1"
+    local node="$1" actual_sglang actual_aiter
     log "verifying $IMAGE on $node"
     ssh_exec "$node" docker image inspect \
         --format 'image_id={{.Id}},created={{.Created}},size={{.Size}}' "$IMAGE"
@@ -80,6 +82,15 @@ echo "sglang_commit=$(git -C "$sglang_root" rev-parse HEAD)"
 echo "aiter_commit=$(git -C /aiter rev-parse HEAD)"
 /usr/local/bin/infera-router --help >/dev/null
 VERIFY_IMAGE
+    actual_sglang="$(ssh_exec "$node" docker run --rm --entrypoint /bin/bash \
+        "$IMAGE" -lc 'git -C /sglang rev-parse HEAD')"
+    actual_aiter="$(ssh_exec "$node" docker run --rm --entrypoint /bin/bash \
+        "$IMAGE" -lc 'git -C /aiter rev-parse HEAD')"
+    [[ "$actual_sglang" == "$SGLANG_SHA" ]] ||
+        die "$node image has sglang=$actual_sglang, expected $SGLANG_SHA"
+    [[ "$actual_aiter" == "$AITER_SHA" ]] ||
+        die "$node image has aiter=$actual_aiter, expected $AITER_SHA"
+    log "PASS: $node source commits sglang=$actual_sglang aiter=$actual_aiter"
 }
 
 verify_images() {

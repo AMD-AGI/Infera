@@ -70,26 +70,32 @@ load_config() {
 
 validate_config() {
     local required value
-    for required in IMAGE MODEL SERVED_MODEL CONTROL_NODE CONTAINER_PREFIX \
+    for required in IMAGE SGLANG_SHA AITER_SHA MODEL SERVED_MODEL CONTROL_NODE CONTAINER_PREFIX \
         NODE_GPU_COUNT PREFILL_GPU_DEVICES DECODE_GPU_DEVICES ETCD_PORT ETCD_PEER_PORT \
         ROUTER_PORT ENGINE_PORT_BASE BOOTSTRAP_PORT_BASE KV_EVENT_PORT_BASE \
         SNAPSHOT_PORT_BASE PREFILL_TP PREFILL_EP PREFILL_DP DECODE_TP \
-        DECODE_EP DECODE_DP; do
+        DECODE_EP DECODE_DP SGLANG_FAILED_SESSION_PROBE_INTERVAL_S; do
         [[ -n "${!required:-}" ]] || die "config is missing $required"
     done
     [[ "$CONTROL_NODE" =~ ^[A-Za-z0-9][A-Za-z0-9_.@-]*$ ]] ||
         die "unsafe CONTROL_NODE=$CONTROL_NODE"
     [[ "$CONTAINER_PREFIX" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]] ||
         die "unsafe CONTAINER_PREFIX=$CONTAINER_PREFIX"
+    [[ "$SGLANG_SHA" =~ ^[0-9a-f]{40}$ ]] ||
+        die "SGLANG_SHA must be a full lowercase 40-character commit"
+    [[ "$AITER_SHA" =~ ^[0-9a-f]{40}$ ]] ||
+        die "AITER_SHA must be a full lowercase 40-character commit"
 
     for required in NODE_GPU_COUNT ETCD_PORT ETCD_PEER_PORT ROUTER_PORT ENGINE_PORT_BASE \
         BOOTSTRAP_PORT_BASE KV_EVENT_PORT_BASE SNAPSHOT_PORT_BASE PREFILL_TP \
         PREFILL_EP PREFILL_DP PREFILL_MAX_RUNNING PREFILL_GRAPH_MAX_BS \
-        DECODE_TP DECODE_EP DECODE_DP DECODE_MAX_RUNNING DECODE_GRAPH_MAX_BS; do
+        DECODE_TP DECODE_EP DECODE_DP DECODE_MAX_RUNNING DECODE_GRAPH_MAX_BS \
+        SGLANG_FAILED_SESSION_PROBE_INTERVAL_S; do
         value="${!required:-}"
         [[ "$value" =~ ^[1-9][0-9]*$ ]] || die "$required must be a positive integer"
     done
-    for required in PREFILL_DPA PREFILL_HICACHE DECODE_DPA DECODE_HICACHE DECODE_MTP; do
+    for required in PREFILL_DPA PREFILL_HICACHE DECODE_DPA DECODE_HICACHE DECODE_MTP \
+        PD_DP_RANK_AFFINITY SGLANG_ENABLE_FAILED_SESSION_PROBE; do
         bool01 "${!required:-0}" >/dev/null
     done
     [[ "$(bool01 "${DECODE_HICACHE:-0}")" == 0 || "$(bool01 "${DECODE_MTP:-0}")" == 0 ]] ||
@@ -355,12 +361,29 @@ REMOTE
 }
 
 record_image_ids() {
-    local node image_id
+    local node image_id expected_image_id="" commits actual_sglang actual_aiter
     for node in "$@"; do
         image_id="$(ssh_exec "$node" docker image inspect --format '{{.Id}}' "$IMAGE")" ||
             die "$IMAGE is unavailable on $node"
         log "image node=$node ref=$IMAGE id=$image_id"
+        if [[ -z "$expected_image_id" ]]; then
+            expected_image_id="$image_id"
+        elif [[ "$image_id" != "$expected_image_id" ]]; then
+            die "image IDs differ: $node has $image_id, expected $expected_image_id"
+        fi
+
+        commits="$(ssh_exec "$node" docker run --rm --entrypoint /bin/bash \
+            "$IMAGE" -lc \
+            'printf "%s %s\n" "$(git -C /sglang rev-parse HEAD)" "$(git -C /aiter rev-parse HEAD)"')" ||
+            die "cannot inspect source commits in $IMAGE on $node"
+        read -r actual_sglang actual_aiter <<<"$commits"
+        [[ "$actual_sglang" == "$SGLANG_SHA" ]] ||
+            die "$node image has sglang=$actual_sglang, expected $SGLANG_SHA"
+        [[ "$actual_aiter" == "$AITER_SHA" ]] ||
+            die "$node image has aiter=$actual_aiter, expected $AITER_SHA"
+        log "image source node=$node sglang=$actual_sglang aiter=$actual_aiter"
     done
+    log "PASS: every topology node has Image ID $expected_image_id and pinned source commits"
 }
 
 start_log() {
