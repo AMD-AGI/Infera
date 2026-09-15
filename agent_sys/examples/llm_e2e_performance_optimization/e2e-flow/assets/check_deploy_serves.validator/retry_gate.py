@@ -2,7 +2,7 @@
 """Negative control for `check_deploy_serves`' NCCL retry.
 
 **Why this exists.** The retry has never executed a line. It fires only on an
-intermittent fault, and three real deploys on 2026-09-05 all took the clean
+intermittent fault, and three real deploys all take the clean
 path. Unexecuted code that runs *only* when something has already gone wrong is
 the worst kind to leave untested — and `_note`'s missing `file=` keyword,
 found the same day two lines below this block, is what that looks like when it

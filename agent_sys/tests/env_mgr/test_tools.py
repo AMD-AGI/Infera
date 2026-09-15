@@ -190,7 +190,7 @@ def test_the_remote_argument_cannot_leave_the_far_zone(
     **Note for anyone re-running this against the unfixed code**: it does not
     merely fail, it writes. A relative `remote` handed straight to `rsync`
     resolves against the *process's* working directory, so `"../outside"` put a
-    real directory beside the repository root — observed 2026-09-01 while
+    real directory beside the repository root — observed while
     checking that this control is not vacuous. That is the finding demonstrating
     itself, and it is a better argument for the guardrail than the docstring is.
     """

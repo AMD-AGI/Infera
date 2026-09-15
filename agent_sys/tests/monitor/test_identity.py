@@ -13,7 +13,7 @@ from .conftest import StubTask, StubTaskMgr
 def test_monitor_holds_no_lease_no_zone_and_is_not_in_the_graph(
     monitor: PusherMonitor, task_mgr: StubTaskMgr
 ) -> None:
-    """Criterion 11. Decided 2026-08-27: **the gap between a monitor and the task
+    """Criterion 11. Settled: **the gap between a monitor and the task
     model is too wide to be worth closing.** A task is a function
     `<handoffs, agent>` with inputs, outputs and validators, and a monitor has
     none of those.

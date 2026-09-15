@@ -202,7 +202,7 @@ def test_a_stale_layer_key_is_rejected_and_says_where_the_concept_went(tmp_path)
         load_recipe(p)
     msg = str(exc.value)
     assert "items[0]" in msg
-    assert "removed on 2026-09-04" in msg
+    assert "is not a recipe key" in msg
     assert "§9.1" in msg
 
 
@@ -223,7 +223,7 @@ def test_the_layer_guard_rejects_every_value_including_the_ones_that_were_legal(
                 layer: {value}
         """,
         )
-        with pytest.raises(RecipeError, match="removed on 2026-09-04"):
+        with pytest.raises(RecipeError, match="is not a recipe key"):
             load_recipe(p)
 
 

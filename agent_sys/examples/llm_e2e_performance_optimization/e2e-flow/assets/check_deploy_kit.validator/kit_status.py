@@ -3,7 +3,7 @@
 
     python3 kit_status.py <run-root-or-handoff-dir> [...]
 
-**Why this exists.** A `deploy_and_prove` run on 2026-09-04 was killed at 58
+**Why this exists.** A `deploy_and_prove` run killed at 58
 minutes by an actor nobody has identified. The kit was **complete on disk twenty
 minutes before the kill** — a real bring-up, a real record, `gpu_devices` from an
 obeyed operator directive — and *nothing in the graph knew it*. Establishing that

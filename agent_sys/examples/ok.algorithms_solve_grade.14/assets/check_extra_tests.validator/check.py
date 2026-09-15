@@ -125,7 +125,7 @@ def check(content: Path, args: dict) -> tuple[bool, str]:
         # "what to print when the answer is empty or absent", and the problems
         # artefact ships worked examples that do exactly that.
         #
-        # Measured 2026-09-02. A `merging-k-sorted-runs` problem specified *"If
+        # Measured. A `merging-k-sorted-runs` problem specified *"If
         # the total number of values is zero, print an empty line: a single
         # newline character and nothing before it"* and shipped `output='\n'` as
         # a worked example. The examiner then wrote an extra case with

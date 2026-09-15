@@ -292,7 +292,7 @@ def check_invariant(rule: dict, record, where: str) -> list[str]:
         # **`err` is the *absent* case's message and must not be appended here.**
         # It reads "fixed.gpu_devices is absent", which is false when the field is
         # present and too long — so the verdict said the field was missing while
-        # quoting its nine entries. Caught in the gate's own output 2026-09-04.
+        # quoting its nine entries. Caught in the gate's own output.
         return [
             f"{where}: {rule['count_of']} has {len(values)} entries "
             f"({values}) but {rule['at_most']} is {limit} — a deployment cannot "
@@ -621,7 +621,7 @@ def check_runtime_contract(contract: dict, scan_rule: dict, roots: dict[str, Pat
 
     # **`scripts/stub/` is excluded, and the gate is what found this.**
     # A replayed kit carries a stub deployment beside its real scripts, for
-    # `check_deploy_serves` alone (`mock_adapt.sh`, 2026-09-05). The stub honours
+    # `check_deploy_serves` alone (`mock_adapt.sh`). The stub honours
     # the contracted parameters — it was written to — so scanning it makes the
     # kit's *real* scripts unnecessary: a kit whose own `env.sh` ignores every
     # parameter would pass on the strength of a fixture sitting next to it.
@@ -820,7 +820,7 @@ def _report(
     Six owners each met "a verdict without its reasons" and six fixed it in their
     own stage; m3 wrote the shared one and m4 was the first to reuse rather than
     re-derive. This is the seventh instance and the second reuse — measured on
-    2026-09-04, when `check_deploy_kit` refused a kit on 047 and its zone held no
+    Measured: `check_deploy_kit` refuses a kit and its zone holds no
     report, so the cause had to be inferred from `docker images`.
 
     Wrapped only so that a failure to write the report cannot fail the

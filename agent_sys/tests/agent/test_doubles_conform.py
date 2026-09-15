@@ -1,6 +1,6 @@
 """**One rule: a double is checked against the real type in both directions.**
 
-**Four green suites measured a fiction on 2026-08-29**, and they are one bug
+**Four green suites can measure a fiction**, and they are one bug
 seen from four sides:
 
 | | the double | the real type | found by |

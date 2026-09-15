@@ -374,7 +374,7 @@ class Prepared(NamedTuple):
     #: different reasons — no mechanism on the machine, or the switch — and
     #: §4.17a is that a fact a reader must infer is a fact a reader can miss.
     #:
-    #: **Default `False` since 2026-08-30**, tracking the switch's own default
+    #: **Default `False`**, tracking the switch's own default
     #: (§4.22f). The declaration and `prepare.Prepared` must agree, or the two
     #: halves of the seam disagree about what an omitted field means.
     permissions_enforced: bool = False

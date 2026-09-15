@@ -19,7 +19,7 @@ _CLI_KEYS = {"installer", "importance", "tags", "version"}
 #: `layer:` key is rejected rather than silently passed through as an
 #: ordinary spec key. Can be dropped once none remain in circulation.
 _LAYER_REMOVED = (
-    "{where}: 'layer' was removed on 2026-09-04; the destination of an install "
+    "{where}: 'layer' is not a recipe key; the destination of an install "
     "is derived, not declared — see env_mgr/docs/spec.md §9.1"
 )
 

@@ -106,7 +106,7 @@ bank_partial() {
 # T7 asks what the neighbour was doing *while the numbers were being taken*, and
 # only a sample inside this file answers it.
 #
-# Two of 2026-09-04's worst numbers needed exactly this and could not be
+# The hardest numbers to explain need exactly this and cannot be
 # recovered afterwards: the DELIVERY-NOTE refusal blamed a patch for a
 # neighbour, and the sealed arms' `probe` read 2062 s where the same budget
 # re-measured at 37 s on an idle chassis — 56x, and nothing in either artefact

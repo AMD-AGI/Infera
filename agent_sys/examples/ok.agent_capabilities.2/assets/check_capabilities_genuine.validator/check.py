@@ -253,7 +253,7 @@ def check_serena_proof(where: str, proof: object, salt: str) -> list[str]:
             faults.append(
                 f"{where}.proof.raw: the hit for {SERENA_SYMBOL} lacks {missing}. "
                 f"Serena 1.28.1 supplies all of {list(SERENA_HIT_KEYS)} — measured "
-                f"2026-09-03. If serena's response schema has changed, this is a "
+                f"If serena's response schema has changed, this is a "
                 f"validator update and not a capability failure"
             )
         if not str(hit.get("relative_path", "")).endswith(SERENA_FILE):

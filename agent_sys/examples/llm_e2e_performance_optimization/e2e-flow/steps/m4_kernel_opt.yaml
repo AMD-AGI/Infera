@@ -63,8 +63,8 @@
     # is **not** recorded in `run_environment.warnings[]` is still a failure:
     # differing is tolerated, hiding it is not.
     warn_on_mismatch: [rocm, image_id, torch, driver]
-    # **`gpu_devices` is deliberately on neither list, decided 2026-09-04 by the
-    # leader, and here is the condition that would change it** — recorded at the
+    # **`gpu_devices` is deliberately on neither list, and here is the condition
+    # that would change it** — recorded at the
     # site where somebody would otherwise add it, because a decision that lives
     # only in a message reads later as an oversight.
     #
@@ -362,8 +362,8 @@
     # `E2E_WORK_ROOT` — a cluster fact, not an allocation fact.
     KFO_SCRATCH_ROOT: '${scratch_root}'
     # Where this task's `$W` goes — `readme.md` opens with
-    # `W="${E2E_WORK_ROOT:?}/m4/<stamp>"`, and until 2026-09-04 `$W` was used in
-    # eight command lines and defined nowhere at all.
+    # `W="${E2E_WORK_ROOT:?}/m4/<stamp>"`. Undeclared, `$W` is used in eight
+    # command lines and defined nowhere at all.
     #
     # **Declared here because a `kind: ai` agent receives only its own env
     # block.** `shared.yaml` binds the var and that is not inheritance;

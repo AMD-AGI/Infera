@@ -66,7 +66,7 @@ def check_delete_scope(mapping: Mapping[str, str], deletable_roots: Sequence[str
     `sync` runs ``rsync --delete``, and where it points is decided by a **meta
     file somebody edits** — a value supplied from outside deciding what gets
     destroyed, on a machine nobody in the session is watching. That is the shape
-    of the 2026-08-31 accident, and the operator's `rm` hook does not reach it:
+    of that accident, and the operator's `rm` hook does not reach it:
     that hook intercepts a shell `rm`, and this deletion happens inside `rsync`,
     invoked from Python, which never goes near a shell.
 

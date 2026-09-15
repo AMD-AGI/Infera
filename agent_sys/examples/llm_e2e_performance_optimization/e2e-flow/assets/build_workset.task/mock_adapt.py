@@ -202,7 +202,7 @@ ratio.
 
 **This is a mock artefact.** It is assembled by `mock_adapt.py` from two sealed
 handoffs; the measurement is real and taken on this hardware, and everything
-else is a replay of bytes sealed on 2026-09-02.
+else is a replay of sealed bytes.
 """,
 }
 

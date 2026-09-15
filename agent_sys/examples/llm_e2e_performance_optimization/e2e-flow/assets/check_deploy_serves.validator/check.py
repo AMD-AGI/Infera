@@ -310,7 +310,7 @@ def judge_load(summary: dict, accept: dict, load_shape: dict) -> list[str]:
         # **Measure the per-request time; do not estimate it.** `probes.yaml`
         # already said this — *"derived from the window and the **measured**
         # per-request time"* — and the code used a constant instead. That
-        # divergence refused rung 1 on 2026-09-04: the engine measured 42.51 ms
+        # divergence refuses a bring-up: the engine measures 42.51 ms
         # ITL against the 32.5 ms the constant was calibrated on, so 1024 tokens
         # took 43.5 s not 33 s, four rounds fit in 180 s not five, and the run
         # completed **exactly** the 64 requests its own speed allows against a
@@ -931,7 +931,7 @@ def main() -> int:
     # **Before the verdict, so a crash in the writer cannot take the reasons with
     # it** — `check_command_parses` carries the same ordering for the same reason.
     #
-    # This validator wrote no report at all until 2026-09-05: 0 of 55 verdicts,
+    # Without this the validator writes no report at all: 0 of 55 verdicts,
     # **7 of them failures**, and `verdict.json` holds only `{hid: false}` with no
     # reason field — so every one of those refusals is permanently unexplainable.
     # The incident that ended it: m2's treatment arm refused here at 07:15, their

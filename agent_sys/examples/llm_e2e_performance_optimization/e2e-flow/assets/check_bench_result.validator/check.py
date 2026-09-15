@@ -278,7 +278,7 @@ def graph_ceiling_ok(content: Path, reasons: list) -> bool:
     because in that case they agree, 8 == 8. Only an absolute bar sees it
     (CONTRACT §4.6).
 
-    **What it is worth, measured on this cluster 2026-09-04.** Same image, same
+    **What it is worth, measured on this cluster.** Same image, same
     node 047, same cards, same tp=4, same 1024/1024/conc-16 load, one flag:
 
         --cuda-graph-max-bs  8   ITL 42.15 ms    64 requests    312 tps

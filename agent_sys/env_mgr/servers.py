@@ -56,7 +56,7 @@ STOP_GRACE_SECONDS = 5.0
 #: `ss -ltnp` renders the holder as ``users:(("python3",pid=728122,fd=3))``.
 #: Parsed rather than reformatted by a second tool: this is the output of a
 #: program this repository does not author, and the shape was read off this host
-#: on 2026-09-04 rather than remembered.
+#: rather than remembered.
 _SS_PID = re.compile(r"pid=(\d+)")
 
 

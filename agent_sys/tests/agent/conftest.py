@@ -290,7 +290,7 @@ class StubStore:
         This method was missing when the runner started calling it, and the
         runner's `except Exception` turned every `AttributeError` into a
         "refusal": 169 tests stayed green with the seal never running once.
-        Same failure as the `FakeClient` and `Prepared` doubles on 2026-08-29,
+        Same failure as the `FakeClient` and `Prepared` doubles,
         and `test_doubles_conform.py` now checks this store's surface for it.
 
         Refuses with the real store's distinction (`handoff/store.py`): an

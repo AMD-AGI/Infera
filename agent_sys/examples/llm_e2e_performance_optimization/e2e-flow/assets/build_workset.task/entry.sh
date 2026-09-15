@@ -30,7 +30,7 @@ PKG="${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one 
 # --------------------------------------------------------------------------- #
 # **Keep this body's output, because the runner only keeps it when we fail.**
 #
-# Measured across five failures on 2026-09-04: a body that exits **non-zero**
+# Measured across five failures: a body that exits **non-zero**
 # has its stdout captured into the `output_absent` event's `detail`, and we
 # have read real causes out of it. A body that exits **0** has its output
 # discarded entirely — which is precisely the case where something went wrong

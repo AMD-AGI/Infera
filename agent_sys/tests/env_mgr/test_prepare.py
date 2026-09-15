@@ -901,7 +901,7 @@ def test_these_spellings_leave_it_on(value: str) -> None:
     truthy would disable enforcement for exactly the person trying to say "no
     thanks" — a switch that fails open on a typo.
 
-    **Since 2026-08-30 these spellings are the only way to enforcement at all**
+    **These spellings are the only way to enforcement at all**
     (§4.22f), so this stopped being a courtesy to a typo and became the opt-in
     path. It is also the non-vacuity control for `test_unset_leaves_it_off`
     below: without it, a `permissions_enforced` hard-wired to `False` would pass
@@ -913,7 +913,7 @@ def test_these_spellings_leave_it_on(value: str) -> None:
 
 
 def test_unset_leaves_it_off() -> None:
-    """**The 2026-08-30 ruling, at the one place that decides it.**
+    """**The ruling, at the one place that decides it.**
 
     *关闭agent_sys的权限系统（干脆改成默认关闭吧）* — off, and off as the default
     rather than as an opt-in. `interfaces.md` §4.22f.

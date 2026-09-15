@@ -256,8 +256,8 @@
   args:
     require_container_hashes: true
     require_docker_mounts: true
-    # **`true` since 2026-09-04, and the experiment that flipped it is the
-    # argument.** An overlay whose in-container hash was
+    # **`true`, and the experiment behind it is the argument.** An overlay whose
+    # in-container hash was
     # byte-equal to its own `sha256_patched`, whose file held a 2 ms sleep, and
     # whose `.pyc` was compiled that minute measured **identical to stock**.
     # The static evidence was perfect and told us nothing about whether the code
@@ -373,7 +373,7 @@
     # **`integration_min_requests`, not `min_requests`, and the duplicated 50 is
     # deliberate.** The other bar measuring this same quantity is m2's
     # `check_bench_result` at `steps/m2_profiling.yaml`, from the same trace
-    # and with the same default. Until 2026-09-04 both read `'${min_requests:-50}'`
+    # and with the same default. Spelled the same way, both read `'${min_requests:-50}'`
     # — **one `--var` moving two owners' grading bars.** The default being shared
     # was right; the *override* was not, because the reason to override is
     # stage-local: shorten this stage's replay window, drop the bar to 20 for
@@ -388,7 +388,6 @@
     # `'${integration_min_requests:-${min_requests:-50}}'` does not nest — it
     # expands to the literal string `'${min_requests:-50}'`, reports **zero**
     # problems, passes `show`, and reaches this body as text `float()` throws on.
-    # See `temp/bugs/2026-09-02-an-unparseable-variable-reference-is-passed-through-silently.md`.
     # The **arg** stays `min_requests` — `check_bench_report/check.py` reads
     # that key, and it is this validator's private vocabulary. Only the `--var`
     # is renamed, which is the thing that was shared.

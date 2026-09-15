@@ -46,7 +46,7 @@
     #
     # **The other bar measuring this same quantity is m5's `check_bench_report`**
     # (`steps/m5_integration.yaml`), from the same trace and with the same
-    # default of 50. Until 2026-09-04 both read `'${min_requests:-50}'` — **one
+    # default of 50. Spelled the same way, both read `'${min_requests:-50}'` — **one
     # `--var` moving two owners' grading bars**, and neither owner could see it
     # from their own file, because each reads a floor of 50 here and each is
     # right about their own file. CONTRACT.md §4.4, sixth face, rung 3.
@@ -295,7 +295,7 @@
 # point rather than a caveat. `agent/runner.py`: *"an env var cannot
 # instruct an agent. A conversation is not a process reading os.environ."* So
 # every guard below is reachable, and only the ones the task's `readme.md`
-# STATES are actually applied. Audited 2026-09-05 — three are named nowhere in
+# STATES are actually applied. Audited — three are named nowhere in
 # any of this stage's three briefs:
 #
 #     AIPERF_TRACE      0 mentions   the var whose absence killed a run today
@@ -379,14 +379,14 @@
   description: Bring the service up with CUDA graph on, run the load with no profiler, tear it down.
   # ------------------------------------------------------------------------- #
   # **`${m2_agent:-runner}` — switchable, and the default is byte-identical to
-  # what this was.** Until 2026-09-05 this read `agent: runner` literally with a
-  # note saying never to change it. The note's reasoning was right and is now
-  # stated as a cost rather than a prohibition, because the user wants the flip
+  # what an `agent: runner` literal is.** A note saying never to change it has
+  # the right reasoning, and it is stated here as a cost rather than a
+  # prohibition, because the flip has to be
   # available during bring-up: an ai agent absorbs small handoff-shape
   # differences that would otherwise fail a run outright.
   #
   # **What you lose the moment you pass `--var m2_agent=e2e_profiler`**, audited
-  # against all three briefs on 2026-09-05: `AIPERF_TRACE`, `gpu_devices` and
+  # against all three briefs: `AIPERF_TRACE`, `gpu_devices` and
   # `replayed_from` appear in **no** readme in this stage, so an agent is never
   # told about them. They do not degrade — they disappear.
   #
@@ -417,9 +417,9 @@
   # both modes, so its guards **gain** effect
   # at promotion instead of vanishing. **That gain is what passing
   # `--var m2_agent=e2e_profiler` forfeits** — it is the cost stated above, not
-  # a reason the line must stay literal. This clause read "that only holds while
-  # this line is literal" until 2026-09-05, contradicting this note's own first
-  # sentence while being the authority two other sites pointed at.
+  # a reason the line must stay literal. Phrased as "that only holds while this
+  # line is literal" it contradicts this note's own first sentence, while being
+  # the authority two other sites point at.
   # CONTRACT.md §4.4 sixth face; `todo.md` T51's preventive shape.
   agent: '${m2_agent:-runner}'
   handoffs: [deploy_kit, profiling_mode_off.bench_result]
@@ -440,9 +440,9 @@
   description: Bring the service up with CUDA graph off, run the same load under the profiler, rank the kernels, tear it down.
   # **Switchable, defaulting to `runner` — see the note above
   # `run_profiling_mode_off` for what `--var m2_agent=e2e_profiler` costs.**
-  # This comment said "literal on purpose … do not make it `${m2_agent:-…}`"
-  # while sitting directly above the thing it prohibited: the line was switched
-  # on 2026-09-05 and only the first of the three sites had its note updated.
+  # A comment saying "literal on purpose … do not make it `${m2_agent:-…}`"
+  # sits directly above the thing it prohibits whenever the line is switched and
+  # only the first of the three sites has its note updated.
   agent: '${m2_agent:-runner}'
   handoffs:
     - deploy_kit
@@ -472,9 +472,9 @@
   description: Fold both lines into stage 2's single export.
   # **Switchable, defaulting to `runner` — see the note above
   # `run_profiling_mode_off` for what `--var m2_agent=e2e_profiler` costs.**
-  # This comment said "literal on purpose … do not make it `${m2_agent:-…}`"
-  # while sitting directly above the thing it prohibited: the line was switched
-  # on 2026-09-05 and only the first of the three sites had its note updated.
+  # A comment saying "literal on purpose … do not make it `${m2_agent:-…}`"
+  # sits directly above the thing it prohibits whenever the line is switched and
+  # only the first of the three sites has its note updated.
   agent: '${m2_agent:-runner}'
   handoffs:
     - profiling_mode_off.bench_result

@@ -89,8 +89,8 @@ env:
   # **These three are NOT where a consumer learns the endpoint.** A kit picks its
   # own base -- a caller may pass `E2E_KIT_PORT_BASE` -- and records what it bound
   # in the handshake `deployment.json`, which `deploy_kit.layout.yaml`'s
-  # `runtime_contract.handshake` makes the one authority. Rung 1 on 2026-09-04
-  # bound **8114-8117** while these still read 8101-8103, and both are correct:
+  # `runtime_contract.handshake` makes the one authority. A bring-up can bind
+  # **8114-8117** while these read 8101-8103, and both are correct:
   # the defaults describe what an unconfigured bring-up would take, the handshake
   # describes what this one did.
   #

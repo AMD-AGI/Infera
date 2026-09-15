@@ -88,7 +88,7 @@ def check(content: Path, args: dict, reasons: list) -> bool:
     reasons.extend(patchkit.check_published_files(plan, result / "files"))
 
     # `APPLY_MODES_IMPLEMENTED`, not `APPLY_OVERLAY`. This read `!= APPLY_OVERLAY`
-    # until 2026-09-04, which was correct while the enum had one value and became
+    # while the enum has one value, which stops being correct and becomes
     # a false refusal the moment m3's `patch_in_place` landed: the plan produced
     # by the one mechanism that can install a fragment would have been refused
     # here, one validator after `apply_patch` built it.

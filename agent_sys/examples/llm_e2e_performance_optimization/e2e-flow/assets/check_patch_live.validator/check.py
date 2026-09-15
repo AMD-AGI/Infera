@@ -26,10 +26,9 @@ interpreter compiled the mounted bytes. The first-call marker says a real reques
 entered the patched code. Only the second answers the question this stage was
 built to ask.
 
-**A marker is required by default since 2026-09-04, and the experiment that
-changed it is the argument.** The old default was `false`, on the reasoning that
-requiring markers would refuse every KernelForge patch that does not know about
-this package. Then a control overlay on a real node produces *perfect*
+**A marker is required by default, and the experiment is the argument.** A
+default of `false` is defensible on the reasoning that requiring markers refuses
+every KernelForge patch that does not know about this package. Then a control overlay on a real node produces *perfect*
 static evidence — in-container hash byte-equal to its own `sha256_patched`, the
 file demonstrably holding a 2 ms sleep, the `.pyc` compiled that minute — and
 measured **identical to stock**. Rules one and two both passed and neither could
@@ -191,9 +190,8 @@ def check(content: Path, args: dict, reasons: list) -> bool:
                 reasons,
                 "the patch declares no `runtime_marker`, so whether the patched code was "
                 "ENTERED cannot be shown. The mounts and the in-container hash are proven, "
-                "and both are satisfied by a file that is never executed — measured on "
-                "2026-09-04, where a hash-perfect overlay produced numbers identical to "
-                "stock.\n"
+                "and both are satisfied by a file that is never executed — measured: "
+                "a hash-perfect overlay produces numbers identical to stock.\n"
                 "  A marker is two regexes in the patch manifest's `runtime_marker`, matched "
                 "against the engine log:\n"
                 '    "runtime_marker": {"import": "MYPATCH_IMPORT\\\\s+<op>\\\\s+rev1",\n'

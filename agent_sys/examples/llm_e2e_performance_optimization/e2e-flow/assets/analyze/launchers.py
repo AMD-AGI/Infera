@@ -154,7 +154,7 @@ _PROBE_OVERSAMPLE = 4
 #
 # **torch writes a frame path with the longest matching `sys.path` entry stripped
 # off the front, so the same capture yields absolute and relative paths side by
-# side.** Measured in the engine image on 2026-09-01 (`temp/manual/FINDINGS.md`):
+# side.** Measured in the engine image:
 #
 #     aiter/ops/triton/softmax.py(10): softmax
 #     torch/profiler/profiler.py(812): __enter__

@@ -217,7 +217,7 @@ class Assignment(BaseModel):
 
     #: `env_mgr.Prepared.permissions_enforced` — **False unless the operator
     #: spelled the `AGENT_SYS_NO_PERMISSIONS` switch off** (`=0`). Off is the
-    #: default since 2026-08-30; before that, False required setting it.
+    #: the default; setting False is what asks for enforcement.
     #:
     #: An AI harness has a permission layer of its own, and it is not ours. With
     #: our enforcement switched off and the harness's left at its default, a run
@@ -226,7 +226,7 @@ class Assignment(BaseModel):
     #: own zone — every tool call died at the SDK's ask-for-approval step with
     #: no approval channel to answer it.
     #:
-    #: **Default `False` since 2026-08-30 — and here that is not "fails open".**
+    #: **Default `False` — and here that is not "fails open".**
     #: The paragraph above is why: with *our* enforcement off and the harness's
     #: own layer left at its ask-for-approval default, an `Assignment` built
     #: without this field cannot run a single tool call. `True` was the safe
@@ -512,7 +512,7 @@ class ExecutorBase:
         **Refuses when no loop is running, and that refusal is the whole point.**
         `queue.Queue` is unbounded, so a `put` after `mainloop` has returned
         succeeds and the message is never read by anyone. Measured on
-        2026-08-31: the agent finished, the seal was refused, the monitor pushed
+        Measured: the agent finished, the seal was refused, the monitor pushed
         *continue, do it until finished*, `PUSH_ATTEMPTED` was written — and the
         message sat in this queue at `qsize=1` while the run hung for 65 minutes
         and was killed by the deadline.

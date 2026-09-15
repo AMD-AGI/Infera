@@ -986,7 +986,7 @@ a benign one.
 
 **Do not build on span events.** They were the obvious shape and are no longer
 one: recording exceptions on spans is **Deprecated** as of semconv v1.40.0
-(PR #3256, merged 2026-01-28), in favour of the logs conventions, with
+(PR #3256, merged), in favour of the logs conventions, with
 `Span.RecordException` and `Span.AddEvent` slated for deprecation under OTEP
 4430. Verified against the merged PR, not recalled.
 

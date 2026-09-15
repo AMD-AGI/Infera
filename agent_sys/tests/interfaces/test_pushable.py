@@ -11,7 +11,7 @@ checks it. **A test may import both**, because tests are not under the import
 rule.
 
 **The runtime check now exists** — `test_a_constructed_backend_is_pushable`.
-`claude-agent-sdk` was installed on 2026-08-29 and the premise that held this
+`claude-agent-sdk` being installed is what ends the premise that held this
 file to static comparison expired the same day.
 
 That premise had already been wrong once. The docstring first claimed neither

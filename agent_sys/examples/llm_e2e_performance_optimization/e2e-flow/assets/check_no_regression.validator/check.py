@@ -63,7 +63,7 @@ def _mentioned(needles: list[list[str]], stated: list[str]) -> bool:
     They do not: `compare` writes for a human — *"output token throughput (avg)
     in r1: 193.59 -> 46.7, -75.9% against a bar of 35%"* — and the recomputation
     writes a metric id. Measured against the real refused report from
-    2026-09-02: every one of its seven reasons was reported as "a reason the
+    Measured: every one of its seven reasons is reported as "a reason the
     report does not list", while the report listed all seven. The rule had never
     fired before because the only report it had ever graded was an accepted one,
     where both sides carry zero reasons and the comparison is vacuous.
@@ -675,7 +675,7 @@ def check(content: Path, args: dict, reasons: list) -> bool:
         # regressed" over a list of `uninterpretable` findings is the exact
         # confusion `uninterpretable` exists to prevent: it blames the change for
         # a measurement that could not answer. That is the mistake the sealed
-        # 2026-09-02 report made, and printing it here would reintroduce it in
+        # sealed report makes, and printing it here would reintroduce it in
         # the validator's own summary line while the per-row text said otherwise.
         # Case-insensitive: the word appears shouted in the finding text and
         # lower-cased inside a verdict-disagreement message, and a disagreement

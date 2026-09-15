@@ -310,7 +310,7 @@ def test_a_package_relative_recipe_runs_and_reports_its_status(tmp_path: Path) -
     ("declared", "expect"),
     [
         # **Declared and absent, per root**, and the two are separate cases
-        # because before 2026-09-04 neither of them existed: a missing
+        # because without them neither route exists: a missing
         # `package:` file silently became a bare-name lookup in the shipped
         # directory, and only *both* missing was an error.
         ("package:absent.yaml", "does not exist"),

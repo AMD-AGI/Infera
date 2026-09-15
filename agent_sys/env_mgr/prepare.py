@@ -119,7 +119,7 @@ def permissions_enforced(environ: Mapping[str, str] | None = None) -> bool:
     the variable would be answered by whatever the environment held when the
     first import happened.
 
-    **Unset means not enforced**, since 2026-08-30. Enforcement is still fully
+    **Unset means not enforced.** Enforcement is still fully
     available and is reached by spelling the switch off —
     ``AGENT_SYS_NO_PERMISSIONS=0`` (or ``false`` / ``no`` / ``off`` / empty).
 

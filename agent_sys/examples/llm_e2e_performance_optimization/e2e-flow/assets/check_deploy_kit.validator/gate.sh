@@ -108,7 +108,7 @@ d['fixed']['gpu_devices'] = [0, 1, 2, 3, 4, 5, 6, 7, 8]
 yaml.safe_dump(d, open(p, 'w'), sort_keys=False)
 PY
 # 13. the handoff's own README, whose absence the seal refuses and this layout
-# could not see until 2026-09-04. Planted by REMOVAL, which is how it occurred:
+# could not see. Planted by REMOVAL, which is how it occurs:
 # two real bring-ups produced kits complete in items/ and missing this file.
 rm -f "$BAD/README.md"
 # 14. the CUDA graph ceiling bound with no parameter. Planted by REMOVAL of the
