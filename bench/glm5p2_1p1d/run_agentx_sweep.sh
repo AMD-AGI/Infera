@@ -26,6 +26,11 @@ for concurrency in "${concurrencies[@]}"; do
         exit 64
     }
 done
+SWEEP_ATTEMPTS="${SWEEP_ATTEMPTS:-2}"
+[[ "$SWEEP_ATTEMPTS" =~ ^[1-9][0-9]*$ ]] || {
+    echo "invalid SWEEP_ATTEMPTS: $SWEEP_ATTEMPTS" >&2
+    exit 64
+}
 
 {
     echo "run_id=$RUN_ID"
@@ -35,6 +40,7 @@ done
     echo "topology=prefill_tp${PREFILL_TP_SIZE}_ep${PREFILL_EP_SIZE}_dp${PREFILL_DP_SIZE}+decode_tp${DECODE_TP_SIZE}_ep${DECODE_EP_SIZE}_dp${DECODE_DP_SIZE}"
     echo "concurrencies=${concurrencies[*]}"
     echo "duration_seconds=$AGENTX_DURATION"
+    echo "aiperf_warmup_requests_per_lane=${AIPERF_WARMUP_REQUESTS_PER_LANE:-10}"
     echo "simulate_acc_len=$SIMULATE_ACC_LEN"
     echo "started_at=$(date -Is)"
 } >"$ROOT/agentx/run_manifest.txt"
@@ -64,14 +70,19 @@ write_point_signature() {
             image "$IMAGE" image_id "$prefill_image_id" \
             model "$MODEL" served_model "$SERVED_MODEL" \
             concurrency "$concurrency" duration_seconds "$AGENTX_DURATION" \
+            aiperf_warmup_requests_per_lane "${AIPERF_WARMUP_REQUESTS_PER_LANE:-10}" \
             agentx_cache_root "${AGENTX_CACHE_ROOT:-$WORKSPACE_ROOT/.cache/agentx}" \
             topology "prefill_tp${PREFILL_TP_SIZE}_ep${PREFILL_EP_SIZE}_dp${PREFILL_DP_SIZE}+decode_tp${DECODE_TP_SIZE}_ep${DECODE_EP_SIZE}_dp${DECODE_DP_SIZE}" \
             context_length "$CONTEXT_LENGTH" chunked_prefill_size "$CHUNKED_PREFILL_SIZE" \
+            max_total_tokens "$MAX_TOTAL_TOKENS" \
             prefill_mem_fraction "$PREFILL_MEM_FRACTION" \
             decode_mem_fraction "$DECODE_MEM_FRACTION" \
             prefill_dpa "$PREFILL_DPA" decode_dpa "$DECODE_DPA" \
             enable_mtp "$ENABLE_MTP" spec_steps "$SPEC_STEPS" \
             spec_draft_tokens "$SPEC_DRAFT_TOKENS" spec_topk "$SPEC_TOPK" \
+            json_model_override_args "$JSON_MODEL_OVERRIDE_ARGS" \
+            disable_custom_all_reduce "$DISABLE_CUSTOM_ALL_REDUCE" \
+            enable_aiter_allreduce_fusion "$ENABLE_AITER_ALLREDUCE_FUSION" \
             simulate_acc_len "$SIMULATE_ACC_LEN" enable_kv_aware "$ENABLE_KV_AWARE" \
             kv_prefill_overlap_weight "$KV_PREFILL_OVERLAP_WEIGHT" \
             kv_decode_overlap_weight "$KV_DECODE_OVERLAP_WEIGHT" \
@@ -83,6 +94,9 @@ write_point_signature() {
             kv_p2p_transfer "$KV_P2P_TRANSFER" rdma_device "$RDMA_DEVICE" \
             mc_te_filters "$MC_TE_FILTERS" mc_gid_index "$MC_GID_INDEX" \
             failed_request_threshold "$AGENTX_FAILED_REQUEST_THRESHOLD" \
+            gpu_liveness_vram_threshold "${GPU_LIVENESS_VRAM_THRESHOLD:-10}" \
+            gpu_liveness_failure_samples "${GPU_LIVENESS_FAILURE_SAMPLES:-3}" \
+            gpu_liveness_poll_seconds "${GPU_LIVENESS_POLL_SECONDS:-10}" \
             gpu_idle_timeout "$GPU_IDLE_TIMEOUT" \
             source_id "${SOURCE_ID:-standalone}" config_id "${CONFIG_ID:-standalone}"
         printf 'config_sha256=%s\n' "$(sha256sum "$DIR/config.sh" | awk '{print $1}')"
@@ -112,7 +126,7 @@ for concurrency in "${concurrencies[@]}"; do
     fi
 
     passed=0
-    for attempt in 1 2; do
+    for ((attempt = 1; attempt <= SWEEP_ATTEMPTS; attempt++)); do
         if [[ -d "$point" ]]; then
             failed_point="${point}.failed_$(date -u +%Y%m%dT%H%M%S%NZ)_pid$$"
             [[ ! -e "$failed_point" ]] || {
@@ -122,7 +136,7 @@ for concurrency in "${concurrencies[@]}"; do
             mv "$point" "$failed_point"
         fi
         mkdir -p "$point"
-        echo "[sweep] C$concurrency attempt $attempt/2"
+        echo "[sweep] C$concurrency attempt $attempt/$SWEEP_ATTEMPTS"
 
         set +e
         RUN_ID="$RUN_ID" \
@@ -160,7 +174,7 @@ for concurrency in "${concurrencies[@]}"; do
 
     if (( passed == 0 )); then
         overall_rc=1
-        echo "[sweep] C$concurrency failed both attempts; continuing on the same nodes"
+        echo "[sweep] C$concurrency failed all $SWEEP_ATTEMPTS attempt(s); continuing on the same nodes"
     fi
     rm -f "$signature_tmp"
 done

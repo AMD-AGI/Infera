@@ -9,6 +9,23 @@ acquire_bench_lock
 
 CONC="${1:?usage: $0 CONC [OUT_DIR]}"
 [[ "$CONC" =~ ^[0-9]+$ ]] || { echo "CONC must be an integer" >&2; exit 64; }
+AIPERF_WARMUP_REQUESTS_PER_LANE="${AIPERF_WARMUP_REQUESTS_PER_LANE:-10}"
+[[ "$AIPERF_WARMUP_REQUESTS_PER_LANE" =~ ^[1-9][0-9]*$ ]] || {
+    echo "AIPERF_WARMUP_REQUESTS_PER_LANE must be a positive integer" >&2
+    exit 64
+}
+GPU_LIVENESS_VRAM_THRESHOLD="${GPU_LIVENESS_VRAM_THRESHOLD:-10}"
+GPU_LIVENESS_FAILURE_SAMPLES="${GPU_LIVENESS_FAILURE_SAMPLES:-3}"
+GPU_LIVENESS_POLL_SECONDS="${GPU_LIVENESS_POLL_SECONDS:-10}"
+for value in \
+    "$GPU_LIVENESS_VRAM_THRESHOLD" \
+    "$GPU_LIVENESS_FAILURE_SAMPLES" \
+    "$GPU_LIVENESS_POLL_SECONDS"; do
+    [[ "$value" =~ ^[1-9][0-9]*$ ]] || {
+        echo "GPU liveness settings must be positive integers" >&2
+        exit 64
+    }
+done
 OUT="${2:-$RUN_ROOT/agentx/c$CONC}"
 mkdir -p "$OUT"
 
@@ -28,7 +45,11 @@ capture_stack_logs() {
 
 cleanup() {
     local pid
-    for pid in "${monitor_prefill:-}" "${monitor_decode:-}"; do
+    for pid in \
+        "${monitor_prefill:-}" \
+        "${monitor_decode:-}" \
+        "${liveness_prefill:-}" \
+        "${liveness_decode:-}"; do
         [[ -n "$pid" ]] || continue
         kill "$pid" >/dev/null 2>&1 || true
         wait "$pid" >/dev/null 2>&1 || true
@@ -221,6 +242,10 @@ PY
     echo "image=$IMAGE"
     echo "concurrency=$CONC"
     echo "duration=$AGENTX_DURATION"
+    echo "aiperf_warmup_requests_per_lane=$AIPERF_WARMUP_REQUESTS_PER_LANE"
+    echo "gpu_liveness_vram_threshold=$GPU_LIVENESS_VRAM_THRESHOLD"
+    echo "gpu_liveness_failure_samples=$GPU_LIVENESS_FAILURE_SAMPLES"
+    echo "gpu_liveness_poll_seconds=$GPU_LIVENESS_POLL_SECONDS"
     echo "max_total_tokens=${MAX_TOTAL_TOKENS:-uncapped}"
     echo "simulate_acc_len=${SIMULATE_ACC_LEN:-off}"
     echo "agentx_cache_root=$REMOTE_CACHE_ROOT"
@@ -249,6 +274,64 @@ monitor_prefill=$!
 monitor_gpu "$DECODE_NODE" "$OUT/gpu_decode.log" &
 monitor_decode=$!
 
+watch_gpu_residency() {
+    local node="$1" role="$2" expected="$3"
+    local sample active failures=0 attempt
+    while true; do
+        sample="$(ssh $SSH_OPTS "$node" rocm-smi --showmemuse 2>/dev/null)" || {
+            sleep "$GPU_LIVENESS_POLL_SECONDS"
+            continue
+        }
+        active="$(
+            awk -F': ' -v threshold="$GPU_LIVENESS_VRAM_THRESHOLD" '
+                /GPU Memory Allocated \(VRAM%\)/ {
+                    seen += 1
+                    if ($NF + 0 >= threshold) active += 1
+                }
+                END {
+                    if (seen == 8) print active + 0
+                }
+            ' <<<"$sample"
+        )"
+        if [[ -z "$active" ]]; then
+            sleep "$GPU_LIVENESS_POLL_SECONDS"
+            continue
+        fi
+        if (( active < expected )); then
+            ((failures += 1))
+        else
+            failures=0
+        fi
+        if (( failures >= GPU_LIVENESS_FAILURE_SAMPLES )); then
+            {
+                echo "detected_at=$(date -Is)"
+                echo "role=$role"
+                echo "node=$node"
+                echo "active_gpus=$active"
+                echo "expected_gpus=$expected"
+                echo "vram_threshold_pct=$GPU_LIVENESS_VRAM_THRESHOLD"
+                echo "consecutive_failure_samples=$failures"
+                printf '%s\n' "$sample"
+                ssh $SSH_OPTS "$node" 'rocm-smi --showpids 2>&1' || true
+                ssh $SSH_OPTS "$node" \
+                    "docker inspect 'glm52-pd-$role' 2>&1" || true
+            } >"$OUT/engine_liveness_${role}.FAIL"
+            # The serving container can remain green after a scheduler rank
+            # exits. Stop the client so the point fails now rather than after
+            # hours of request-level timeouts.
+            for ((attempt = 1; attempt <= 30; attempt++)); do
+                if ssh $SSH_OPTS "$PREFILL_NODE" \
+                    docker rm -f glm52-agentx-client >/dev/null 2>&1; then
+                    break
+                fi
+                sleep 1
+            done
+            return
+        fi
+        sleep "$GPU_LIVENESS_POLL_SECONDS"
+    done
+}
+
 cp "$OUT/server.env" "$OUT/client.env"
 cat >>"$OUT/client.env" <<EOF
 # Replay inputs.
@@ -275,6 +358,7 @@ AIPERF_REQUIRED_SERVER_METRIC_PREFIX=sglang:
 AIPERF_FAILED_REQUEST_THRESHOLD=$AGENTX_FAILED_REQUEST_THRESHOLD
 AIPERF_LIVE_FAILED_REQUEST_THRESHOLD=$AGENTX_FAILED_REQUEST_THRESHOLD
 AIPERF_HTTP_TCP_USER_TIMEOUT=900000
+AIPERF_WARMUP_REQUESTS_PER_LANE=$AIPERF_WARMUP_REQUESTS_PER_LANE
 AIPERF_SERVER_URL=http://localhost:$ROUTER_PORT
 AIPERF_SERVER_METRICS_URLS=http://localhost:$ROUTER_PORT/metrics,http://$PREFILL_IP:$PREFILL_PORT/metrics,http://$DECODE_IP:$DECODE_PORT/metrics
 
@@ -292,6 +376,12 @@ PYTHONNOUSERSITE=1
 EOF
 
 echo "[agentx] C$CONC for ${AGENTX_DURATION}s on $PREFILL_NODE/$DECODE_NODE"
+watch_gpu_residency \
+    "$PREFILL_NODE" prefill "$PREFILL_TP_SIZE" &
+liveness_prefill=$!
+watch_gpu_residency \
+    "$DECODE_NODE" decode "$DECODE_TP_SIZE" &
+liveness_decode=$!
 set +e
 ssh $SSH_OPTS "$PREFILL_NODE" docker run -i --rm \
     --name glm52-agentx-client \
@@ -333,9 +423,36 @@ run_agentic_replay_and_write_outputs "$out"
 AGENTX_CLIENT
 client_rc=${PIPESTATUS[0]}
 set -e
+for pid in "$liveness_prefill" "$liveness_decode"; do
+    kill "$pid" >/dev/null 2>&1 || true
+    wait "$pid" >/dev/null 2>&1 || true
+done
+liveness_prefill=""
+liveness_decode=""
 
-ssh $SSH_OPTS "$PREFILL_NODE" "tar -C '$REMOTE_OUT' -cf - ." \
+# The raw server-metrics JSON can be several GiB at high concurrency. It has
+# already passed validation and aggregation inside the client at this point.
+# Keep the canonical file on the large remote result volume and copy its
+# location, size and digest locally instead of exhausting the /home quota.
+remote_metrics="$REMOTE_OUT/aiperf_artifacts/server_metrics_export.json"
+if ssh $SSH_OPTS "$PREFILL_NODE" "test -s '$remote_metrics'"; then
+    {
+        echo "remote_path=$remote_metrics"
+        ssh $SSH_OPTS "$PREFILL_NODE" \
+            "stat -c 'size_bytes=%s' '$remote_metrics'; sha256sum '$remote_metrics'" |
+            awk '
+                /^size_bytes=/ {print; next}
+                {print "sha256=" $1}
+            '
+    } >"$OUT/remote_server_metrics.txt"
+fi
+ssh $SSH_OPTS "$PREFILL_NODE" \
+    "tar --exclude='./aiperf_artifacts/server_metrics_export.json' -C '$REMOTE_OUT' -cf - ." \
     | tar -C "$OUT" -xf -
+if compgen -G "$OUT/engine_liveness_*.FAIL" >/dev/null; then
+    echo "[agentx] serving GPU rank disappeared; see engine_liveness_*.FAIL" >&2
+    exit 70
+fi
 (( client_rc == 0 )) || {
     echo "[agentx] remote client failed with rc=$client_rc; copied partial artifacts" >&2
     exit "$client_rc"
