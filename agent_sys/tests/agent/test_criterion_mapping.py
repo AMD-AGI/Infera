@@ -2,7 +2,7 @@
 
 The first condition for done is *"every
 acceptance criterion maps to a **named test that exists and passes**"*, and
-`agent/README.md` §4 is that mapping. A name in it that no longer resolves is
+`agent/docs/design.md` carries that mapping. A name in it that no longer resolves is
 the mapping quietly ceasing to be true — and it happened: a test removed when
 `set_task` moved to the scheduler stayed in the table for four commits, which
 is the same shape as a comment outliving the fact beneath it.
@@ -18,12 +18,14 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-README = ROOT / "agent" / "README.md"
+MAPPING = ROOT / "agent" / "docs" / "design.md"
 
 
 def _section() -> str:
-    text = README.read_text()
-    return text[text.index("## 4. Criterion → test") : text.index("## 5.")]
+    text = MAPPING.read_text()
+    start = text.index("## 16. Criterion → test")
+    nxt = text.find("\n## ", start + 1)
+    return text[start : nxt if nxt != -1 else len(text)]
 
 
 def _named() -> set[str]:
@@ -40,7 +42,7 @@ def _defined() -> set[str]:
 def test_every_test_the_mapping_names_exists() -> None:
     missing = sorted(_named() - _defined())
     assert not missing, (
-        f"README §4 names tests that no longer exist: {missing}. "
+        f"design.md names tests that no longer exist: {missing}. "
         f"The mapping is the definition of done; a dangling name makes it untrue."
     )
 

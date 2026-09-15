@@ -30,13 +30,14 @@ something real.
 | 1 | What the demo's task actually does | OPEN | package |
 | 2 | A package's layout must separate a task's `bin` from the validators' `bin` | OPEN | user |
 | 3 | The `assets/` mechanism resolves entry points and pretends to be a resource mechanism | OPEN | user |
-| 4 | A validator cannot reach the artefact its target was produced *from* | OPEN | `validator` + `env_mgr`, jointly |
+| 4 | Five packages scan the store instead of declaring a pass-through | OPEN | package authors |
 | 5 | Nothing owns *which* interpreter runs a body | OPEN | `validator` |
 | 6 | A non-leaf pins a store version it can never fill | OPEN | `task_graph` |
 | 7 | User-level AI material outlives the run that declared it | OPEN | user |
 | 8 | A run killed by a signal leaks its servers, and nothing reaps the registry | OPEN | — |
 | 9 | The backend's `claude` child processes do not exit when their task completes | OPEN | — |
 | 10 | A typo'd `kind` in `Task.kinds` is caught by nothing at runtime | OPEN | — |
+| 10a | A closure's `validators` list has no runtime consumer | OPEN | `validator` + `closure`, jointly |
 | 11 | `test_a_gate_failure_does_not_deadlock_the_next_dispatch` is intermittent | OPEN | — |
 | 12 | The per-caller install pins are not repointed at the shared root | OPEN | `env_mgr` |
 | 13 | Installs run unconfined, and `env_mgr` spec §4 does not say so | OPEN | `env_mgr` |
@@ -94,7 +95,7 @@ a layout change breaks them one by one at run time rather than at load.
 **Closes when:** a small-scope refactor gives an object a resource manifest. Not
 a rewrite — the user has ruled it small.
 
-### 4 — A validator cannot reach the artefact its target was produced *from*
+### 4 — Five packages scan the store instead of declaring a pass-through
 
 A validator's `inputs` is a **filter over the task's slots on this phase's side,
 not a request**. `validator/phase.py`:
@@ -132,13 +133,24 @@ and `PhaseRunner` gets **no `verdict.json` at all** rather than a `False`. So
 confining validations — [`ROADMAP.md`](ROADMAP.md) §6.1's P0 — silently converts
 a grounding check into a missing file.
 
-**Closes when:** the output phase is given read access to the producer's inputs —
-stage `task.inputs` read-only alongside `task.outputs` in `prepare_validation`,
-and let `inputs:` select from the union. Then the declaration becomes true and
-the store scan deletes from all five copies. **A design question for `validator`
-and `env_mgr` jointly, not a patch**: it widens what an output validation may
-see, which is an anti-gaming question and must be argued there before it is
-built.
+**Ruled by the user, and the ruling cancels the design question rather than
+answering it:**
+
+> 这是任务声明的问题，系统不处理。如果需要，用户需要在定义任务时自己把自己的输入透传到自己的输出。
+>
+> *This is a task-declaration problem. The system does not handle it. If a task
+> needs its input visible to its own output validation, the task author passes
+> that input through to their own output when they declare the task.*
+
+**So what remains open is not the mechanism — it is the five packages that have
+not been rewritten to obey the ruling.** Each still carries a `lib/store.py`
+that scans, and each still declares an `inputs:` its body contradicts. Until
+they pass their inputs through, the declaration stays false and the scan stays
+load-bearing.
+
+**Closes when:** the five packages declare pass-through outputs and their
+`lib/store.py` copies delete. No framework change; the framework side is
+settled.
 
 **Not measured:** whether a confined *validation* body fails the same way an
 agent body does. That needs a policy applied to one validation zone and a run.
@@ -279,6 +291,23 @@ removed the last place it would have raised.
 
 **Closes when:** it becomes a load-time check — probably `closure` check 6.
 Reported twice by `env_mgr` and still unowned.
+
+### 10a — A closure's `validators` list has no runtime consumer
+
+`validator`'s phase runner builds a phase's validator set from the **handoff
+kind's** own `validators`. A closure's `validators` key — and the accessors over
+it, `closure.phase_validators` and `ClosureRegistry.validators_for` — are read by
+`closure`'s own query and load-check modules and **by nothing else in the tree**.
+
+`closure.schema.json` describes that key as *the phase validators, the checks
+that run in this task's input and output validation phases*. Nothing runs them.
+So a package author can declare a phase validator on the closure, load cleanly,
+and have it silently never execute.
+
+**Closes when:** either the phase runner consults the closure's list as well as
+the kind's, or the key is withdrawn from the schema and the accessors with it.
+The two are opposite answers to *who owns the phase's validator set*, and that
+question belongs to `validator` and `closure` jointly.
 
 ### 11 — `test_a_gate_failure_does_not_deadlock_the_next_dispatch` is intermittent
 

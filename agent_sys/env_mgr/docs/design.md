@@ -1722,3 +1722,64 @@ One component today. Its design is **`../o11y/agentsview/design.md`** — the
 panel, the five gates that keep it to `agent_sys`'s own sessions, one project
 per run, and the measurements each of those rests on. It lives beside the code
 rather than here because it is a component's design, not the module's.
+
+---
+
+## 18. Every acceptance criterion, and the test that holds it
+
+`docs/spec.md` §10's 22 criteria. **Names checked against the tree**, not against
+the design's plan — the plan named tests before they existed and three of them
+ended up called something else.
+
+**Four criteria are not fully closed** — 9, 13, 17 and 21 — and each says so in
+its own row rather than in a footnote, because a mapping that reads 22/22 over a
+half-covered property is the failure this suite spends its time finding in other
+people's code. Two of the four are *half* rather than *absent*, and the rows say
+which half.
+
+| # | Criterion | Test |
+|---|---|---|
+| 1 | domain registered, reloaded idempotently, kind decides layout | `test_register_idempotent`, `test_reload_preserves_playground`, `test_kind_decides_layout`, `test_register_rejects_a_changed_root`, `test_get_names_the_candidates`, `test_storage_root_needs_exactly_one` |
+| 2 | subtask nested in parent; reach is containment | `test_subtask_nested_under_parent`, `test_reach_is_containment`, `test_the_zone_has_the_four_directories`, `test_a_retry_gets_its_own_zone` |
+| 3 | `startswith` is not the check — **two layers** | userspace: `test_sibling_prefix_denied`, `test_symlink_out_denied`, `test_dotdot_denied`, `test_inside_is_allowed`. kernel: `test_startswith_defeats_denied_by_the_kernel` |
+| 4 | canonicalisation fails closed | `test_broken_symlink_denied`, `test_symlink_loop_denied`, `test_nonstrict_resolve_is_not_used` |
+| 5 | NUL byte rejected | `test_nul_byte_rejected`, `test_valueerror_is_caught_too` |
+| 6 | scripted bypass blocked, same script inside succeeds | `test_scripted_bypass_denied`, `test_same_script_inside_zone_succeeds` |
+| 7 | confinement inherited | `test_bash_child_inherits`, `test_second_ruleset_cannot_widen` |
+| 8 | no sandbox, no start | `test_no_mechanism_refuses_to_start`, `test_refusal_names_the_reason`, `test_nothing_in_the_package_catches_noconfinement`, `test_no_confinement_propagates_out_of_prepare` |
+| 9 | chain degrades in order — **decomposed, D7** | `test_prefers_bwrap`, `test_falls_back_to_landlock`, `test_refuses_when_neither` over an injected `Availability`, plus `test_end_to_end_against_the_declared_mechanism`. **No machine runs all three branches**: `bwrap` is absent so rung 1 cannot run, and a Landlock-capable kernel cannot be made to look incapable |
+| 10 | zone root never from agent input | `test_zone_root_not_from_agent_input`, `test_a_traversal_proposal_is_denied`, `test_a_proposal_inside_the_subtree_is_honoured`, `test_tool_takes_no_zone_argument`, `test_a_path_argument_cannot_leave_the_zone` |
+| 11 | policy, `.git/hooks`, `.git/config`, shell rc not writable | `test_policy_not_writable_by_agent`, `test_main_git_hooks_denied`, `test_main_git_config_denied`, `test_shell_rc_denied`, `test_a_read_write_grant_would_permit_the_hook_write` (negative control), `test_the_agents_own_hooks_are_its_own` (the bounded residual) |
+| 12 | read outside the granted set denied | `test_ungranted_read_denied`, `test_ungoverned_path_denied`, `test_the_grant_is_what_denies_it` (negative control), `test_granted_read_does_not_widen_beyond_dac` |
+| 13 | producer cannot read a validation's standard — **one route closed, one open** | zone route: `test_validation_is_a_sibling_not_a_descendant`, `test_producer_cannot_read_validation`, `test_the_placement_is_what_denies_it` (negative control). **package route: `test_a_staged_package_still_carries_the_validators`, a strict `xfail`** — §4.16 stages a copy instead of granting the root, and the copy still carries `validators/` until `TODO.md` 4a names a task's executable set. `test_a_staged_package_is_reachable_and_the_original_is_not` holds what staging *did* buy |
+| 14 | a sibling zone created later is unreachable, no rebuild | `test_sibling_zone_created_later_unreachable`, `test_no_rebuild_required` |
+| 15 | sync once, at start, scoped to the task | `test_sync_once_at_start`, `test_destination_matches_source`, `test_scoped_to_task_not_root`, `test_direction_is_required` |
+| 16 | playground not synced | `test_playground_not_synced`, `test_playground_dir_created_empty` |
+| 17 | playground survives a resume — **half, D7** | `test_playground_survives_resume`. *"Nothing depends on its contents having survived"* is a property of all future code, not an observable of a run: a review rule, not a test |
+| 18 | remote operations are tool calls with schemas | `test_remote_tools_have_schemas`, `test_tool_call_round_trip`, `test_push_and_pull_round_trip` |
+| 19 | agent works on a copy; the stored artefact is unchanged | `test_agent_works_on_a_copy`, `test_stored_artefact_byte_identical`, `test_copy_out_refuses_to_copy_onto_itself` |
+| 20 | shared object store, main checkout unmodified — **D1**, not "is a worktree" | `test_workspace_shares_object_store`, `test_main_checkout_unmodified`, `test_the_agent_can_commit`, `test_collect_returns_work_by_a_supervisor_side_fetch`, `test_cut_refuses_a_main_repository_without_precious_objects`, `test_precious_objects_blocks_the_prune` |
+| 21 | conventions from a knowledge handoff, no code change | `test_conventions_come_from_a_knowledge_handoff`, `test_a_missing_knowledge_handoff_is_the_empty_default`. **The consumption half only** — the system-level task that would *produce* one is unspecified, so the test builds the artefact. The design recorded this as untestable; it is half-testable |
+| 22 | the shipped machinery **keeps working** | `test_cli_subcommands_preserve_shipped_shapes`, plus the machinery's own tests. **Revised** (`fc200a2`): the criterion read *untouched*, and a test — test_the_shipped_modules_are_byte_identical, named here **without backticks on purpose**, because `test_every_test_the_readme_cites_exists` scans backticked `test_*` names and cannot tell *citing a test as cover* from *naming one that was removed* — asserted that literally, over `git diff HEAD`. That was a scope fence for the round that built the new subsystems, and this round is a design-level change to the machinery itself, so the fence is retired. The **65** is a snapshot, not a live count. See `docs/spec.md` §10 criterion 22 for the full reason |
+
+**Beyond the criteria**, three suites hold properties nothing else would catch:
+`test_imports.py` (the decoupling wall, both directions, plus `fs/path.py`
+importing only `os` and `pathlib`), `test_threads.py` (§4.4(c), the ABI-3 thread
+scope), and `test_task_graph_agreement.py` (the seam driven with the **real**
+`task_graph` types, so the stub in `tests/env_mgr/stubs.py` cannot rot).
+
+### A note on how these tests are built, because it is not optional here
+
+**Every denial is asserted as `EACCES` against a named path**, never as a
+non-zero exit status. A design measurement produced a false PASS from
+`returncode != 0` because both children were failing to exec the interpreter
+rather than being denied.
+
+**Every denial carries a positive control** — the same operation succeeding
+inside the zone, in the same confined process — which rules out *"the binary
+could not run"*.
+
+**And the load-bearing ones carry a negative control**: the arrangement under
+which the denial would *not* happen. Without it, *"it is denied"* and *"it would
+be denied whatever we did"* are the same green — which is how criterion 13's
+separation was held by an accident of location for a week before anyone noticed.

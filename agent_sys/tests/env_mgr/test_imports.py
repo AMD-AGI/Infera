@@ -207,21 +207,21 @@ def test_env_mgr_imports_nothing_of_ours_but_task_graph() -> None:
 def test_every_test_the_readme_cites_exists() -> None:
     """The criterion-to-test mapping is a claim, and a claim is checkable.
 
-    `README.md` maps all 22 acceptance criteria to named tests, and that mapping
+    `docs/design.md` maps all 22 acceptance criteria to named tests, and that mapping
     is the deliverable rather than a formality. A mapping nobody checks decays
     the same way a §5.x-settled-but-§4.x-stale row does — it keeps reading as
     true while the thing it names has been renamed or deleted.
 
-    So this fails the moment the README cites a test that does not exist. It
+    So this fails the moment the design cites a test that does not exist. It
     deliberately does **not** require the reverse: most tests hold a design
     decision or a deviation rather than a criterion, and demanding every one be
     cited would turn the mapping into an inventory.
     """
     import re
 
-    readme = (ROOT / "README.md").read_text()
-    cited = set(re.findall(r"`(test_\w+)`", readme))
-    assert cited, "the README cites no tests at all; the mapping has been lost"
+    mapping = (ROOT / "docs" / "design.md").read_text()
+    cited = set(re.findall(r"`(test_\w+)`", mapping))
+    assert cited, "the design cites no tests at all; the mapping has been lost"
 
     here = Path(__file__).parent
     real: set[str] = set()
@@ -230,7 +230,7 @@ def test_every_test_the_readme_cites_exists() -> None:
 
     missing = sorted(cited - real)
     assert not missing, (
-        f"README.md cites {len(missing)} test(s) that do not exist: {missing}. "
+        f"design.md cites {len(missing)} test(s) that do not exist: {missing}. "
         f"Either the test was renamed and the mapping was not, or the criterion "
         f"lost its cover."
     )

@@ -16,6 +16,81 @@ is a defect that takes months to surface.
 
 ---
 
+## 0. Spec first, and one home for every fact
+
+**The order is `spec → design → code`, and it is an order of *decisions*, not a
+schedule.** Each stage answers a question the next one is not allowed to reopen:
+
+| Stage | Answers | Does not answer |
+|---|---|---|
+| **spec** | What must be true. The properties, guarantees, invariants, failure modes, and the acceptance criteria that would falsify them | How anything is built, or what anything is called |
+| **design** | How it is built. Modules, types, the public surface, the call sequences, the libraries adopted and why | What the code looks like line by line |
+| **code** | The rest | Anything the two above already settled |
+
+Work backwards and the cost is not a bad document — it is a property nobody can
+tell you was ever intended. **If implementation forces a change, change the
+spec.** A design that quietly diverges is worse than one that says it deviates:
+`interfaces.md` is normative for what crosses a module boundary precisely
+because that is where divergence used to hide.
+
+### 0.1 What each document is for
+
+**One fact, one home.** A reader must be able to answer "where would this be
+written down?" without opening anything. Duplication is not redundancy here — it
+is a second thing to keep true, and it is always the copy that goes stale.
+
+| Document | Holds | Never holds |
+|---|---|---|
+| `<module>/README.md` | **≤150 lines.** What the module is for, who uses it, how to call it, and a table of what is inside | Rationale, prior art, measurements, findings, history |
+| `<module>/docs/spec.md` | The properties, and numbered acceptance criteria | An API, a file layout, a library choice |
+| `<module>/docs/design.md` | The build: types, public surface, call sequences, adopted libraries and the reason for each. Its deviations from the spec, stated | Properties the spec should own |
+| `docs/spec.md` | The whole system: architecture, the four objects, the authority boundaries, system-level criteria, the index of every component's criteria | Anything one module could own alone |
+| `docs/design.md` | How the system is assembled, and the loader | — |
+| `docs/interfaces.md` | **Normative for what crosses a module boundary**, and for nothing else. The composition root, the shared vocabulary, the permitted import edges, and the seams left deliberately open | Anything internal to one module |
+| `docs/ROADMAP.md` | Long-term subsystems and deferred design questions | Near-term work |
+| `docs/TODO.md` | Near-term decisions and pieces, each with what would close it | Long-term subsystems |
+| `spec_loader/schemas/*.json` | The spec of a spec. The only enforcement point | Prose a reader needs |
+
+A module with no `docs/spec.md` is not exempt; it means some other document is
+specifying it, and its README must say which.
+
+### 0.2 A document names a file, and stops there
+
+**Never cite a line number.** Not in a document, not in a docstring, not in a
+comment. A position is not a fact about the code — it is a fact about a
+particular revision of a file, it goes stale on the next edit, and it goes stale
+*silently*: the citation still looks valid and now points at something else.
+
+| Instead of | Write |
+|---|---|
+| `runner.py` + a line number | `runner.py`, or `runner.py::_seal_outputs` |
+| "the check at line 40" | the name of the check |
+| a path into working space | the conclusion the probe reached |
+
+The same rule is why **evidence is stated rather than pointed at**. A measurement
+belongs in the document as its result and its conditions; a reader who cannot
+check the claim without opening something that is not in the repository cannot
+check it at all.
+
+### 0.3 Keep the reason, drop the incident
+
+A comment that explains **why the code is the way it is, stated as a property of
+the code**, stays and is worth more than the code. A comment that narrates the
+day it was discovered, who found it, which run, or how many attempts it took is
+process information and belongs in neither the code nor the documents.
+
+> *"`expect_ranks` must equal `tp`, because the probe counts ranks and the
+> engine counts shards"* — a reason. Keep it.
+>
+> *"m3 found this on the 4th of September after two failed runs"* — an incident.
+> It answers a question nobody will ask again.
+
+The same test applies to a dated measurement presented as a constant, to a test
+count quoted in a README, and to a revision history: each is a fact that was true
+once, written where a reader will take it as true now.
+
+---
+
 ## 1. A module is independent, and owns its own consistency
 
 **Outside code may not read or write a module's internal state.** It calls an

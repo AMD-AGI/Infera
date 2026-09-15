@@ -19,4 +19,5 @@ travels inside one run's graph:
 
 Read, in this order: [`e2e-flow/README.md`](e2e-flow/README.md),
 [`e2e-flow/CONTRACT.md`](e2e-flow/CONTRACT.md) — the fifteen-kind cross-module
-contract — and [`todo.md`](todo.md), which carries everything the flow defers.
+contract — [`e2e-flow/DESIGN.md`](e2e-flow/DESIGN.md), and [`todo.md`](todo.md),
+which carries everything the flow defers.

@@ -142,9 +142,8 @@ CONTENT_DIR = _CONTENT_DIR
 #: creates it — §8.1's forced duplication, the same as `CONTENT_DIR`.
 #:
 #: A directory rather than a file, so a second claim needs no second ruling, and
-#: a *sibling* of `content/` rather than a child. Measured
-#: (a probe, and
-#: `handoff`'s `probe_claim_location.py` from the other side): a sibling survives
+#: a *sibling* of `content/` rather than a child. Measured from both sides: a
+#: sibling survives
 #: `seal` and leaves the digest byte-identical at ``718d7aeb31a76c32…``, where
 #: putting it *inside* `content/` moves the digest — the claim would become part
 #: of the artefact's identity, so the same artefact claimed differently would be

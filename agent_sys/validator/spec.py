@@ -1,8 +1,7 @@
 """The admission model — what makes a validator spec real.
 
-`protocols.Validator` is a static type and **not** the gate. Measured
-(a probe, and design §3.2 before
-it): `issubclass` raises outright on a Protocol with non-method members, and
+`protocols.Validator` is a static type and **not** the gate. Measured, and
+design §3.2 says so too: `issubclass` raises outright on a Protocol with non-method members, and
 `isinstance` is presence-only, so `strength=None` passes it. Worse,
 `inputs="trace"` passes and then iterates as five characters — one declared kind
 silently becoming five nonexistent ones.
