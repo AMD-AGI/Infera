@@ -138,6 +138,41 @@ class ConfigAndTopologyTests(unittest.TestCase):
             "0,1,2,3,4,5,6,7|8|8|1|0,1,2,3,4,5,6,7|8|8|1|32|32|32|32|10",
         )
 
+    def test_port_collision_names_both_settings(self):
+        """A four-instance topology is where closely spaced bases first collide.
+
+        Two prefill plus one decode leaves exactly one port of slack between
+        ENGINE_PORT_BASE and a BOOTSTRAP_PORT_BASE three below it, so every
+        shape run before this one passed.  The fourth instance lands bootstrap
+        on engine-0, and the refusal has to name both settings -- "ports
+        overlap" alone sends the reader to this script to work out which.
+        """
+        with tempfile.TemporaryDirectory() as scratch:
+            topology = Path(scratch) / "topology.tsv"
+            with topology.open("w", encoding="utf-8", newline="") as stream:
+                writer = csv.writer(stream, delimiter="\t", lineterminator="\n")
+                writer.writerow(["role", "node", "data_ip"])
+                for index in range(3):
+                    writer.writerow([f"prefill", f"node{index}", f"10.0.0.{index + 1}"])
+                writer.writerow(["decode", "node3", "10.0.0.4"])
+            command = (
+                "COMPONENT=test; source lib/common.sh; load_config; "
+                f"TOPOLOGY_FILE={topology}; CONTROL_NODE=node0; "
+                "ENGINE_PORT_BASE=19001; BOOTSTRAP_PORT_BASE=18998; "
+                "validate_topology"
+            )
+            result = subprocess.run(
+                ["bash", "-c", command],
+                cwd=ROOT,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("19001", result.stdout)
+        self.assertIn("ENGINE_PORT_BASE+0", result.stdout)
+        self.assertIn("BOOTSTRAP_PORT_BASE+3", result.stdout)
+
     def test_preflight_supports_asymmetric_pd_gpu_counts(self):
         script = (ROOT / "preflight.sh").read_text(encoding="utf-8")
         self.assertIn("prefill_gpu_count < decode_gpu_count", script)

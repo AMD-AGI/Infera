@@ -153,9 +153,18 @@ with open(path, encoding="utf-8", newline="") as stream:
 if not rows:
     raise SystemExit(f"{path}: topology is empty")
 
+SERVICE_NAMES = ("ETCD_PORT", "ETCD_PEER_PORT", "ROUTER_PORT")
+BASE_NAMES = ("ENGINE_PORT_BASE", "BOOTSTRAP_PORT_BASE",
+              "KV_EVENT_PORT_BASE", "SNAPSHOT_PORT_BASE")
+
 seen_nodes, seen_ips = set(), set()
 counts = {"prefill": 0, "decode": 0}
+# Carried with the setting each port came from: a collision is between two
+# bases that are closer together than the instance count, and saying which two
+# is the difference between a one-line config fix and reading this script.
+owners = dict(zip(service_ports, SERVICE_NAMES))
 all_ports = list(service_ports)
+collisions = []
 for number, row in enumerate(rows, 2):
     role = (row.get("role") or "").strip().lower()
     node = (row.get("node") or "").strip()
@@ -176,7 +185,14 @@ for number, row in enumerate(rows, 2):
     seen_ips.add(ip)
     counts[role] += 1
     index = number - 2
-    all_ports.extend(base + index for base in bases)
+    for name, base in zip(BASE_NAMES, bases):
+        port = base + index
+        label = f"{name}+{index}"
+        if port in owners:
+            collisions.append(f"{port} is both {owners[port]} and {label}")
+        else:
+            owners[port] = label
+        all_ports.append(port)
 
 if not all(counts.values()):
     raise SystemExit(f"{path}: at least one prefill and one decode are required")
@@ -184,11 +200,16 @@ if control not in seen_nodes:
     raise SystemExit(f"{path}: CONTROL_NODE={control!r} is not listed")
 if any(not 1 <= port <= 65535 for port in all_ports):
     raise SystemExit("a configured port is outside 1..65535")
-if len(all_ports) != len(set(all_ports)):
-    raise SystemExit("configured service/worker ports overlap")
-inside = [port for port in all_ports if low <= port <= high]
+if collisions:
+    raise SystemExit(
+        f"{path}: {len(rows)} instances put two settings on the same port: "
+        + "; ".join(collisions)
+        + ". The bases are spaced closer than the instance count -- move one "
+        "further out."
+    )
+inside = [f"{port} ({owners[port]})" for port in all_ports if low <= port <= high]
 if inside:
-    raise SystemExit(f"ports overlap NodePort range {low}-{high}: {inside}")
+    raise SystemExit(f"ports overlap NodePort range {low}-{high}: {', '.join(inside)}")
 PY
 }
 
