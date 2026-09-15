@@ -58,7 +58,27 @@ pub async fn dispatch(
             w.worker_id.as_str()
         });
     let p_pick = state.policy.pick(&p_avail, request, Role::Prefill);
-    let d_pick = state.policy.pick(&d_avail, request, Role::Decode);
+    let d_pick = if state.pd_dp_rank_affinity {
+        let Some(rank) = p_pick.target.effective_dp_rank() else {
+            return json_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "PD DP-rank affinity requires a ranked Prefill target",
+            );
+        };
+        let Some(pick) =
+            state
+                .policy
+                .pick_at_rank(&d_avail, request, Role::Decode, Some(rank))
+        else {
+            return json_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                &format!("PD DP-rank affinity found no Decode target for rank {rank}"),
+            );
+        };
+        pick
+    } else {
+        state.policy.pick(&d_avail, request, Role::Decode)
+    };
     let p = p_pick.target;
     let d = d_pick.target;
     // One guard for both legs; dropped when the decode body finishes streaming

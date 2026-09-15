@@ -42,7 +42,24 @@ pub struct Pick {
 
 pub trait Policy: Send + Sync {
     /// Pick one target. Callers guarantee `candidates` is non-empty.
-    fn pick(&self, candidates: &[Arc<Worker>], request: &Value, role: Role) -> Pick;
+    fn pick(&self, candidates: &[Arc<Worker>], request: &Value, role: Role) -> Pick {
+        self.pick_at_rank(candidates, request, role, None)
+            .expect("non-empty candidates must expand to at least one target")
+    }
+
+    /// Pick one target, optionally constrained to an effective DP rank.
+    ///
+    /// `None` is the normal unconstrained policy path. `Some(rank)` is used by
+    /// PD rank affinity after Prefill has been selected. It returns `None`
+    /// rather than silently crossing ranks when the Decode pool cannot serve
+    /// that rank.
+    fn pick_at_rank(
+        &self,
+        candidates: &[Arc<Worker>],
+        request: &Value,
+        role: Role,
+        required_dp_rank: Option<i64>,
+    ) -> Option<Pick>;
 
     /// Mark a request in-flight on `route_key` (increments the load term).
     fn on_request_started(&self, _route_key: &str, _blocks: &[u64]) {}
@@ -133,8 +150,20 @@ impl Default for RoundRobin {
 }
 
 impl Policy for RoundRobin {
-    fn pick(&self, candidates: &[Arc<Worker>], _request: &Value, role: Role) -> Pick {
-        let targets = expand_targets(candidates);
+    fn pick_at_rank(
+        &self,
+        candidates: &[Arc<Worker>],
+        _request: &Value,
+        role: Role,
+        required_dp_rank: Option<i64>,
+    ) -> Option<Pick> {
+        let mut targets = expand_targets(candidates);
+        if let Some(rank) = required_dp_rank {
+            targets.retain(|target| target.effective_dp_rank() == Some(rank));
+        }
+        if targets.is_empty() {
+            return None;
+        }
         let key: Vec<String> = targets.iter().map(|t| t.route_key()).collect();
         let mut counters = self.counters.lock().expect("policy counter mutex poisoned");
         let idx = counters.entry(key).or_insert(0);
@@ -142,10 +171,10 @@ impl Policy for RoundRobin {
         *idx = idx.wrapping_add(1);
         let target = targets[i].clone();
         tracing::info!(policy = "round-robin", role = ?role, picked = %target.route_key(), "pick");
-        Pick {
+        Some(Pick {
             target,
             blocks: Vec::new(),
-        }
+        })
     }
 }
 
@@ -486,9 +515,21 @@ impl KvEventAwarePolicy {
 }
 
 impl Policy for KvEventAwarePolicy {
-    fn pick(&self, candidates: &[Arc<Worker>], request: &Value, role: Role) -> Pick {
+    fn pick_at_rank(
+        &self,
+        candidates: &[Arc<Worker>],
+        request: &Value,
+        role: Role,
+        required_dp_rank: Option<i64>,
+    ) -> Option<Pick> {
         // Fan out rank-multiplexed workers so each DP rank is scored separately.
-        let targets = expand_targets(candidates);
+        let mut targets = expand_targets(candidates);
+        if let Some(rank) = required_dp_rank {
+            targets.retain(|target| target.effective_dp_rank() == Some(rank));
+        }
+        if targets.is_empty() {
+            return None;
+        }
 
         // Hash the request once per distinct (block_size, render variant).
         //
@@ -625,10 +666,10 @@ impl Policy for KvEventAwarePolicy {
             "pick"
         );
         self.note_hit_outcome(&picked, blocks.len(), hits, w_overlap > 0.0);
-        Pick {
+        Some(Pick {
             target: picked,
             blocks,
-        }
+        })
     }
 
     fn on_request_started(&self, route_key: &str, blocks: &[u64]) {

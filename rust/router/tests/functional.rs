@@ -24,7 +24,7 @@ use infera_router::block_hasher::BlockHasher;
 use infera_router::breaker::CircuitBreaker;
 use infera_router::handlers::{app, AppState};
 use infera_router::kv_event::KvEventClient;
-use infera_router::policy::{KvEventAwarePolicy, RoundRobin};
+use infera_router::policy::{KvEventAwarePolicy, Role, RoundRobin};
 use infera_router::pool::{Snapshot, Worker};
 use infera_router::proxy;
 
@@ -122,6 +122,7 @@ fn make_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
         http: proxy::build_upstream_client().unwrap(),
         started: Instant::now(),
         retries,
+        pd_dp_rank_affinity: false,
         breaker: Arc::new(CircuitBreaker::default()),
         nats: None,
     }
@@ -276,6 +277,7 @@ fn make_kv_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
         http: proxy::build_upstream_client().unwrap(),
         started: Instant::now(),
         retries,
+        pd_dp_rank_affinity: false,
         breaker: Arc::new(CircuitBreaker::default()),
         nats: None,
     }
@@ -582,6 +584,14 @@ fn decode(url: &str) -> Arc<Worker> {
     }))
 }
 
+fn decode_dp(url: &str, dp_size: i64) -> Arc<Worker> {
+    worker(json!({
+        "worker_id": "d", "url": url, "model_name": "m", "disagg_mode": "decode",
+        "dp_size": dp_size,
+        "disagg_meta": {"protocol": "sglang-bootstrap"}
+    }))
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pd_unary_injects_matching_bootstrap_room() {
     let (p_url, p) = spawn_mock(200, false, json!({"who": "prefill"})).await;
@@ -668,6 +678,37 @@ async fn pd_dp_multiplexed_prefill_pins_rank() {
     assert_eq!(room % 2, 0);
     // Decode is told the prefill DP rank holding its KV.
     assert_eq!(d_hits[0].body["disagg_prefill_dp_rank"], 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_dp_rank_affinity_constrains_decode_to_prefill_rank() {
+    let (p_url, p) = spawn_mock(200, false, json!({"who": "prefill"})).await;
+    let (d_url, d) = spawn_mock(200, false, json!({"who": "decode"})).await;
+    let p_worker = prefill(&p_url, Some(2));
+    let d_worker = decode_dp(&d_url, 2);
+    let mut state = make_state(vec![p_worker.clone(), d_worker], 0);
+
+    // Advance only Prefill's independent RR counter. Without the rank
+    // constraint, the routed request would therefore pick P1 and D0.
+    let _ = state
+        .policy
+        .pick(&[p_worker], &json!({}), Role::Prefill);
+    state.pd_dp_rank_affinity = true;
+    let router = spawn_router(state).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": false}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+
+    let p_hits = p.hits.lock().unwrap();
+    let d_hits = d.hits.lock().unwrap();
+    assert_eq!(p_hits[0].dp_rank.as_deref(), Some("1"));
+    assert_eq!(d_hits[0].dp_rank.as_deref(), Some("1"));
+    assert_eq!(d_hits[0].body["disagg_prefill_dp_rank"], 1);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

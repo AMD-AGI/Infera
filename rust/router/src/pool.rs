@@ -132,6 +132,15 @@ impl RouteTarget {
             Some(r) => format!("{}#dp{r}", self.worker.worker_id),
         }
     }
+
+    /// Rank used for affinity decisions. A rank-multiplexed worker stores it
+    /// on the target, a dedicated DP worker stores it on the worker, and a
+    /// single-rank worker is effectively rank zero.
+    pub fn effective_dp_rank(&self) -> Option<i64> {
+        self.dp_rank.or(self.worker.dp_rank).or_else(|| {
+            (self.worker.dp_size.unwrap_or(1) == 1).then_some(0)
+        })
+    }
 }
 
 fn is_rank_multiplexed(w: &Worker) -> bool {

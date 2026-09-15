@@ -34,6 +34,9 @@ pub struct AppState {
     pub http: reqwest::Client,
     pub started: Instant,
     pub retries: usize,
+    /// When set, PD dispatch preserves the Prefill policy choice and restricts
+    /// Decode to the same effective DP rank.
+    pub pd_dp_rank_affinity: bool,
     /// Per-worker failure memory. Shared across threads and across requests —
     /// that persistence across requests is the whole point (see breaker.rs).
     pub breaker: Arc<CircuitBreaker>,

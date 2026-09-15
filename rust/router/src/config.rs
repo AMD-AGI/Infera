@@ -44,6 +44,17 @@ pub struct Config {
     #[arg(long, default_value = "round-robin")]
     pub router_policy: String,
 
+    /// PD only: constrain Decode to the same effective DP rank selected for
+    /// Prefill. This preserves Prefill cache-aware selection while keeping
+    /// multi-rail Mooncake transfers on the target GPU's local rail.
+    #[arg(
+        long,
+        env = "INFERA_PD_DP_RANK_AFFINITY",
+        default_value_t = false,
+        action = clap::ArgAction::Set
+    )]
+    pub pd_dp_rank_affinity: bool,
+
     /// `etcd` (external) or `kubernetes` (workers publish into their own Pod
     /// annotation and the API server is watched).
     #[arg(long, default_value = "etcd")]

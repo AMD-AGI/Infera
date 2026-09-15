@@ -155,6 +155,7 @@ async fn main() -> anyhow::Result<()> {
         http: upstream,
         started: Instant::now(),
         retries: cfg.request_max_retries,
+        pd_dp_rank_affinity: cfg.pd_dp_rank_affinity,
         breaker,
         nats,
     };

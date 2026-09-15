@@ -91,9 +91,15 @@ if [[ "$(bool01 "$ENABLE_KV_AWARE")" == 1 ]]; then
 else
     router_args+=(--router-policy round-robin)
 fi
+if [[ "$(bool01 "$PD_DP_RANK_AFFINITY")" == 1 ]]; then
+    pd_dp_rank_affinity=true
+else
+    pd_dp_rank_affinity=false
+fi
 log "starting router on $CONTROL_NODE"
 ssh_exec "$CONTROL_NODE" docker run -d --init \
     --name "$router_container" --network host \
+    -e "INFERA_PD_DP_RANK_AFFINITY=$pd_dp_rank_affinity" \
     -v "$MODEL:$MODEL:ro" "$IMAGE" "${router_args[@]}"
 
 python3 "$DIR/tools/wait_healthy.py" \
