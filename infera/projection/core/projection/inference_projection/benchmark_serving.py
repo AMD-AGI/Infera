@@ -531,6 +531,11 @@ def run_serving_benchmark(args) -> dict:
             "tp": bench_tp,
             "ep": min(target_ep, bench_tp),
             "pp": 1,
+            # Attention-DP shards the batch instead of the heads, so it is a
+            # different attention kernel and KV layout per rank -- and TP/EP/PP
+            # can be identical across the switch, which means the restore never
+            # engages to catch it. Recorded so the projector can compare.
+            "attention_dp": int(getattr(args, "attention_dp", 1) or 1),
             "target_tp": target_tp,
             "target_pp": target_pp,
             "benchmark_gpus": bench_tp,

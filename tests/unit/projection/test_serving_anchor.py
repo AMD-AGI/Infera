@@ -349,3 +349,11 @@ def test_the_artifact_says_which_decode_observable_it_carries(monkeypatch):
     assert spec["meta"]["speculative_num_tokens"] == 6
     assert spec["meta"]["simulate_acc_len"] == 1.0
 
+
+def test_the_artifact_says_which_attention_parallelism_it_ran(monkeypatch):
+    """TP, EP and PP are identical between plain TP and TP+DPA, so this is the
+    only field that can tell the projector the two curves differ."""
+    _, plain = _sweep_batches(monkeypatch, batches="8,16")
+    assert plain["meta"]["attention_dp"] == 1
+    _, dpa = _sweep_batches(monkeypatch, batches="8,16", attention_dp=8)
+    assert dpa["meta"]["attention_dp"] == 8

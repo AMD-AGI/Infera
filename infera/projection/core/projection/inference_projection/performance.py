@@ -538,6 +538,33 @@ class InferencePerformanceProjector:
             return n_ar * tp_ar_one + _estimate_moe_a2a_time_ms(self._view, batch, q_len, self._gemm)
         return _dense_tp_allreduce_count(self._view) * tp_ar_one
 
+    def _attention_dp_refusal(self, meta: dict) -> Optional[str]:
+        """Why this artifact's attention parallelism is not the target's, or None.
+
+        Attention-DP gives every rank the whole head dimension over a slice of
+        the batch, where plain TP gives it a slice of the heads over the whole
+        batch. Those are different kernel shapes and a different per-rank KV
+        layout, and nothing downstream converts between them. Worse, TP, EP and
+        PP can all be identical across the switch, so the parallelism restore
+        does not even engage -- the curve would be reused verbatim.
+        """
+        mp = self.cfg.model_parallel_config
+        target_dp = max(1, int(getattr(mp, "attention_data_parallel_size", 1) or 1))
+        if "attention_dp" not in meta:
+            # Predates the field. Warn rather than refuse, so anchors already on
+            # disk keep working; only attention-DP targets are actually at risk.
+            if target_dp > 1:
+                print("[inferasim:Inference] WARNING: this artifact does not record "
+                      f"its attention-DP degree, and the target uses {target_dp}. If "
+                      "it was measured without attention-DP its curve describes "
+                      "different attention kernels. Re-measure to have it checked.")
+            return None
+        anchor_dp = max(1, int(meta.get("attention_dp") or 1))
+        if anchor_dp == target_dp:
+            return None
+        return (f"it ran attention-DP {anchor_dp} and the target uses {target_dp}. "
+                "Attention-DP is not transportable; note the engine needs both "
+                "--dp-size and --enable-dp-attention for it to engage at all")
 
     def _usable_decode_points(self, dec_pts: list, meta: dict) -> list:
         """The measured decode curve, or empty when it cannot be consumed.
@@ -642,6 +669,11 @@ class InferencePerformanceProjector:
         # curve; fall back to the single ``model`` anchor at ``ref_batch``.
         model_step = measured.get("model")
         if model_step:
+            dp_refusal = self._attention_dp_refusal(meta)
+            if dp_refusal:
+                print("[inferasim:Inference] WARNING: NOT CALIBRATED: "
+                      f"{dp_refusal}. Projecting analytically instead.")
+                return
             # Restore a reduced-parallelism (benchmark) whole-model measurement to
             # the target TP/EP/PP, in the same pp -> ep -> tp order as the Megatron
             # per-layer path. Builds the bench/target collective models; a no-op

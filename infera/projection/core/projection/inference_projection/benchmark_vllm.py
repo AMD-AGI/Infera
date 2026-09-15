@@ -474,6 +474,23 @@ def _lift_speculative_args(args) -> None:
         args.speculative_num_tokens = max(0, int(verify_tokens) - 1)
 
 
+def _lifted_attention_dp(server_args: str) -> int:
+    """Attention-DP degree the engine flags actually produce.
+
+    SGLang's own rule is ``dp_size if enable_dp_attention else 1``
+    (``server_args.py``), so the two flags are needed together. A launch giving
+    only one of them runs at 1, which is what this reports -- and comparing that
+    against a target expecting attention-DP is what makes the omission visible.
+    """
+    if "--enable-dp-attention" not in shlex.split(server_args or ""):
+        return 1
+    for flag in ("--dp-size", "--data-parallel-size"):
+        value = _server_arg_value(server_args, flag)
+        if value:
+            return max(1, int(value))
+    return 1
+
+
 def _simulated_acc_len():
     """SGLang's forced speculative acceptance length, or None when unforced.
 
@@ -1393,6 +1410,9 @@ def main(argv=None):
     # of what the run is. Read from the environment the engine inherits, which
     # is also where it can have been exported rather than passed via --env.
     args.simulate_acc_len = _simulated_acc_len()
+    # Attention-DP is not a transportable axis, so the artifact has to say which
+    # one it measured. Nothing but --server-args can turn it on here.
+    args.attention_dp = _lifted_attention_dp(args.server_args)
 
     cache_dir = args.cache_dir
     key = _cache_key(args) if cache_dir else None
