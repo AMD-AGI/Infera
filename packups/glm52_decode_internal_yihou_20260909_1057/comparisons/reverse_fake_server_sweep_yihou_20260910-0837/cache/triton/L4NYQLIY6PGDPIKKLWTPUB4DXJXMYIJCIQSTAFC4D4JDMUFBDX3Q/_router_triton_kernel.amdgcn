@@ -1,0 +1,2379 @@
+	.amdgcn_target "amdgcn-amd-amdhsa--gfx950"
+	.amdhsa_code_object_version 5
+	.text
+	.globl	_router_triton_kernel           ; -- Begin function _router_triton_kernel
+	.p2align	8
+	.type	_router_triton_kernel,@function
+_router_triton_kernel:                  ; @_router_triton_kernel
+.Lfunc_begin0:
+	.cfi_sections .debug_frame
+	.cfi_startproc
+; %bb.1:
+	.file	1 "/sglang/python/sglang/kernels/ops/moe" "moe_fused_gate.py"
+	.loc	1 90 0 prologue_end             ; moe_fused_gate.py:90:0
+	s_load_dwordx2 s[2:3], s[0:1], 0x0
+	s_load_dwordx8 s[4:11], s[0:1], 0x8
+	s_load_dwordx2 s[12:13], s[0:1], 0x28
+	s_load_dword s14, s[0:1], 0x30
+	s_waitcnt lgkmcnt(0)
+	s_branch .LBB0_0
+	.loc	1 0 0 is_stmt 0                 ; :0:0
+.Ltmp0:
+	.p2align	8
+; %bb.2:
+.LBB0_0:
+.Ltmp1:
+	.loc	1 126 14 is_stmt 1              ; moe_fused_gate.py:126:14
+	s_cmp_lt_i32 s15, 1
+	.loc	1 137 28                        ; moe_fused_gate.py:137:28
+	s_mul_i32 s12, s12, s15
+	.loc	1 125 14                        ; moe_fused_gate.py:125:14
+	v_lshlrev_b32_e32 v2, 2, v0
+	s_mov_b64 s[28:29], s[6:7]
+	s_mov_b64 s[16:17], s[2:3]
+	.loc	1 139 14                        ; moe_fused_gate.py:139:14
+	v_add_lshl_u32 v3, s12, v2, 1
+	v_bfrev_b32_e32 v1, 1
+	.loc	1 126 14                        ; moe_fused_gate.py:126:14
+	s_cselect_b64 s[0:1], -1, 0
+	s_mov_b32 s7, 0x27000
+	s_mov_b32 s6, 0x7ffffffe
+	.loc	1 139 14                        ; moe_fused_gate.py:139:14
+	s_and_b32 s17, s17, 0xffff
+	s_mov_b32 s18, s6
+	s_mov_b32 s19, s7
+	v_cndmask_b32_e64 v3, v1, v3, s[0:1]
+	buffer_load_dwordx2 v[6:7], v3, s[16:19], 0 offen
+	.loc	1 130 12                        ; moe_fused_gate.py:130:12
+	v_lshlrev_b32_e32 v8, 4, v0
+	s_and_b32 s5, s5, 0xffff
+	buffer_load_dwordx4 v[14:17], v8, s[4:7], 0 offen
+	s_mov_b32 s12, 0xbfb8aa3b
+	s_mov_b32 s11, 0xc2fc0000
+.Ltmp2:
+	.file	2 "/opt/venv/lib/python3.10/site-packages/triton/language" "standard.py"
+	.loc	2 50 21                         ; standard.py:50:21 @[ moe_fused_gate.py:145:21 ]
+	v_mov_b32_e32 v3, 0x42800000
+	v_not_b32_e32 v4, 63
+.Ltmp3:
+	.loc	1 137 58                        ; moe_fused_gate.py:137:58
+	v_or_b32_e32 v5, 1, v2
+	v_or_b32_e32 v12, 2, v2
+	v_or_b32_e32 v13, 3, v2
+	.loc	1 199 14                        ; moe_fused_gate.py:199:14
+	v_and_b32_e32 v11, 3, v0
+	.loc	1 200 20                        ; moe_fused_gate.py:200:20
+	v_cmp_ne_u32_e64 s[16:17], 3, v11
+	.loc	1 199 14                        ; moe_fused_gate.py:199:14
+	v_and_b32_e32 v10, 15, v0
+	.loc	1 250 5                         ; moe_fused_gate.py:250:5
+	v_and_b32_e32 v0, 48, v0
+	.loc	1 200 20                        ; moe_fused_gate.py:200:20
+	v_cmp_gt_u32_e64 s[2:3], 9, v10
+	.loc	1 250 5                         ; moe_fused_gate.py:250:5
+	s_and_b32 s29, s29, 0xffff
+	s_mov_b32 s31, s7
+	.loc	1 247 27                        ; moe_fused_gate.py:247:27
+	s_mul_i32 s14, s14, s15
+	.loc	1 251 5                         ; moe_fused_gate.py:251:5
+	s_and_b32 s9, s9, 0xffff
+	.loc	1 139 14                        ; moe_fused_gate.py:139:14
+	s_waitcnt vmcnt(1)
+	v_and_b32_e32 v9, 0xffff0000, v6
+	v_lshlrev_b32_e32 v8, 16, v6
+	v_and_b32_e32 v19, 0xffff0000, v7
+	v_lshlrev_b32_e32 v18, 16, v7
+.Ltmp4:
+	.loc	2 50 21                         ; standard.py:50:21 @[ moe_fused_gate.py:145:21 ]
+	v_pk_mul_f32 v[6:7], v[8:9], s[12:13] op_sel_hi:[1,0]
+	v_pk_mul_f32 v[8:9], v[18:19], s[12:13] op_sel_hi:[1,0]
+	v_cmp_gt_f32_e32 vcc, s11, v7
+	v_cmp_gt_f32_e64 s[4:5], s11, v6
+	v_cmp_gt_f32_e64 s[18:19], s11, v9
+	v_cndmask_b32_e32 v18, 0, v3, vcc
+	v_cndmask_b32_e64 v19, 0, v3, s[4:5]
+	v_cmp_gt_f32_e64 s[20:21], s11, v8
+	v_add_f32_e32 v7, v7, v18
+	v_add_f32_e32 v6, v6, v19
+	v_cndmask_b32_e64 v20, 0, v3, s[18:19]
+	v_cndmask_b32_e64 v3, 0, v3, s[20:21]
+	v_exp_f32_e32 v7, v7
+	v_exp_f32_e32 v6, v6
+	v_add_f32_e32 v9, v9, v20
+	v_add_f32_e32 v3, v8, v3
+	v_exp_f32_e32 v8, v9
+	v_exp_f32_e32 v3, v3
+	v_cndmask_b32_e32 v18, 0, v4, vcc
+	v_cndmask_b32_e64 v19, 0, v4, s[4:5]
+	v_ldexp_f32 v7, v7, v18
+	v_ldexp_f32 v6, v6, v19
+	v_cndmask_b32_e64 v20, 0, v4, s[18:19]
+	v_cndmask_b32_e64 v4, 0, v4, s[20:21]
+	.loc	2 50 17 is_stmt 0               ; standard.py:50:17 @[ moe_fused_gate.py:145:21 ]
+	v_pk_add_f32 v[6:7], v[6:7], 1.0 op_sel_hi:[1,0]
+	.loc	2 50 21                         ; standard.py:50:21 @[ moe_fused_gate.py:145:21 ]
+	v_ldexp_f32 v9, v8, v20
+	v_ldexp_f32 v8, v3, v4
+	.loc	2 50 12                         ; standard.py:50:12 @[ moe_fused_gate.py:145:21 ]
+	v_div_scale_f32 v3, s[4:5], v7, v7, 1.0
+	v_div_scale_f32 v18, s[4:5], v6, v6, 1.0
+	v_rcp_f32_e32 v21, v3
+	v_rcp_f32_e32 v22, v18
+	.loc	2 50 17                         ; standard.py:50:17 @[ moe_fused_gate.py:145:21 ]
+	v_pk_add_f32 v[8:9], v[8:9], 1.0 op_sel_hi:[1,0]
+	.loc	2 50 12                         ; standard.py:50:12 @[ moe_fused_gate.py:145:21 ]
+	v_div_scale_f32 v4, vcc, 1.0, v7, 1.0
+	v_fma_f32 v25, -v3, v21, 1.0
+	v_div_scale_f32 v20, s[18:19], v9, v9, 1.0
+	v_fma_f32 v26, -v18, v22, 1.0
+	v_fmac_f32_e32 v21, v25, v21
+	v_div_scale_f32 v19, s[4:5], 1.0, v6, 1.0
+	v_rcp_f32_e32 v23, v20
+	v_fmac_f32_e32 v22, v26, v22
+	v_mul_f32_e32 v25, v4, v21
+	v_mul_f32_e32 v26, v19, v22
+	v_fma_f32 v28, -v3, v25, v4
+	v_fma_f32 v29, -v18, v26, v19
+	v_fmac_f32_e32 v25, v28, v21
+	v_fmac_f32_e32 v26, v29, v22
+	v_fma_f32 v3, -v3, v25, v4
+	v_fma_f32 v27, -v20, v23, 1.0
+	v_fma_f32 v4, -v18, v26, v19
+	v_div_fmas_f32 v3, v3, v21, v25
+	s_mov_b64 vcc, s[4:5]
+	v_div_scale_f32 v24, s[18:19], 1.0, v9, 1.0
+	v_fmac_f32_e32 v23, v27, v23
+	v_div_fixup_f32 v7, v3, v7, 1.0
+	v_div_fmas_f32 v3, v4, v22, v26
+	v_mul_f32_e32 v27, v24, v23
+	v_div_fixup_f32 v6, v3, v6, 1.0
+	v_div_scale_f32 v3, s[4:5], v8, v8, 1.0
+	v_fma_f32 v30, -v20, v27, v24
+	v_rcp_f32_e32 v4, v3
+	v_fmac_f32_e32 v27, v30, v23
+	v_fma_f32 v18, -v20, v27, v24
+	s_mov_b64 vcc, s[18:19]
+	v_div_fmas_f32 v18, v18, v23, v27
+	v_div_fixup_f32 v9, v18, v9, 1.0
+	v_fma_f32 v18, -v3, v4, 1.0
+	v_fmac_f32_e32 v4, v18, v4
+	v_div_scale_f32 v18, vcc, 1.0, v8, 1.0
+	v_mul_f32_e32 v19, v18, v4
+	v_fma_f32 v20, -v3, v19, v18
+	v_fmac_f32_e32 v19, v20, v4
+	v_fma_f32 v3, -v3, v19, v18
+	v_div_fmas_f32 v3, v3, v4, v19
+	v_div_fixup_f32 v8, v3, v8, 1.0
+.Ltmp5:
+	.loc	1 146 18 is_stmt 1              ; moe_fused_gate.py:146:18
+	s_waitcnt vmcnt(0)
+	v_pk_add_f32 v[16:17], v[16:17], v[8:9]
+	.loc	1 171 14                        ; moe_fused_gate.py:171:14
+	v_mov_b32_e32 v3, 0xf149f2ca
+	.loc	1 171 23 is_stmt 0              ; moe_fused_gate.py:171:23
+	v_cmp_o_f32_e32 vcc, v17, v17
+	.loc	1 146 18 is_stmt 1              ; moe_fused_gate.py:146:18
+	v_pk_add_f32 v[14:15], v[14:15], v[6:7]
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_mov_b32_e32 v23, 0xff800000
+	.loc	1 171 14                        ; moe_fused_gate.py:171:14
+	v_cndmask_b32_e32 v4, v3, v17, vcc
+	.loc	1 171 23 is_stmt 0              ; moe_fused_gate.py:171:23
+	v_cmp_o_f32_e32 vcc, v16, v16
+	.loc	1 244 27 is_stmt 1              ; moe_fused_gate.py:244:27
+	s_mul_i32 s13, s13, s15
+	.loc	1 171 14                        ; moe_fused_gate.py:171:14
+	s_nop 0
+	v_cndmask_b32_e32 v20, v3, v16, vcc
+	.loc	1 171 23 is_stmt 0              ; moe_fused_gate.py:171:23
+	v_cmp_o_f32_e32 vcc, v15, v15
+	.loc	1 171 14                        ; moe_fused_gate.py:171:14
+	s_nop 1
+	v_cndmask_b32_e32 v15, v3, v15, vcc
+	.loc	1 171 23                        ; moe_fused_gate.py:171:23
+	v_cmp_o_f32_e32 vcc, v14, v14
+	.loc	1 171 14                        ; moe_fused_gate.py:171:14
+	s_nop 1
+	v_cndmask_b32_e32 v3, v3, v14, vcc
+.Ltmp6:
+	.loc	2 170 12 is_stmt 1              ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v14, v3, v15
+	v_max3_f32 v14, v14, v20, v4
+.Ltmp7:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v16, v14 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp8:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v16, v16
+	v_max_f32_e32 v14, v14, v16
+.Ltmp9:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v16, v14 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp10:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v16, v16
+	v_max_f32_e32 v14, v14, v16
+.Ltmp11:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v16, v14 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp12:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v16, v16
+	v_max_f32_e32 v14, v14, v16
+.Ltmp13:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v16, v14 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp14:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v16, v16
+	v_max_f32_e32 v14, v14, v16
+.Ltmp15:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	v_mov_b32_e32 v16, v14
+	s_nop 1
+	v_mov_b32_dpp v16, v16 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp16:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v16, v16
+	v_max_f32_e32 v14, v14, v16
+.Ltmp17:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v16, v14 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp18:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v16, v16
+	v_max_f32_e32 v14, v14, v16
+.Ltmp19:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 0
+	v_readlane_b32 s4, v14, 63
+.Ltmp20:
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	v_mov_b32_e32 v14, 0x101
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	s_nop 0
+	v_cmp_eq_f32_e32 vcc, s4, v3
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e32 v16, v14, v2, vcc
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e32 vcc, s4, v15
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e32 v17, v14, v5, vcc
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e32 vcc, s4, v20
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e32 v18, v14, v12, vcc
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e32 vcc, s4, v4
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e32 v19, v14, v13, vcc
+.Ltmp21:
+	.loc	2 229 12                        ; standard.py:229:12 @[ standard.py:250:16 @[ moe_fused_gate.py:210:20 ] ]
+	v_min_u32_e32 v18, v18, v19
+	v_min3_u32 v16, v16, v17, v18
+.Ltmp22:
+	.loc	1 216 16                        ; moe_fused_gate.py:216:16
+	v_cmp_eq_u32_e32 vcc, 0, v11
+.Ltmp23:
+	.loc	2 229 12                        ; standard.py:229:12 @[ standard.py:250:16 @[ moe_fused_gate.py:210:20 ] ]
+	s_nop 0
+	v_min_i32_dpp v16, v16, v16 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp24:
+	.loc	2 250 16                        ; standard.py:250:16 @[ moe_fused_gate.py:210:20 ]
+	v_mov_b32_e32 v17, v16
+	s_nop 1
+	v_mov_b32_dpp v17, v17 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp25:
+	.loc	2 229 12                        ; standard.py:229:12 @[ standard.py:250:16 @[ moe_fused_gate.py:210:20 ] ]
+	v_min_i32_e32 v16, v16, v17
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp26:
+	.loc	2 250 16                        ; standard.py:250:16 @[ moe_fused_gate.py:210:20 ]
+	s_nop 0
+	v_readlane_b32 s11, v16, 63
+.Ltmp27:
+	.loc	1 212 22                        ; moe_fused_gate.py:212:22
+	s_nop 1
+	v_cmp_eq_u32_e64 s[4:5], s11, v2
+	v_cmp_eq_u32_e64 s[18:19], s11, v5
+	v_cmp_eq_u32_e64 s[20:21], s11, v12
+	v_cmp_eq_u32_e64 s[22:23], s11, v13
+	.loc	1 212 13 is_stmt 0              ; moe_fused_gate.py:212:13
+	v_cndmask_b32_e64 v16, 0, v6, s[4:5]
+	v_cndmask_b32_e64 v17, 0, v7, s[18:19]
+	v_cndmask_b32_e64 v18, 0, v8, s[20:21]
+	v_cndmask_b32_e64 v19, 0, v9, s[22:23]
+.Ltmp28:
+	.loc	2 293 12 is_stmt 1              ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	v_pk_add_f32 v[16:17], v[16:17], v[18:19]
+.Ltmp29:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v3, v3, v23, s[4:5]
+.Ltmp30:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_e32 v16, v16, v17
+.Ltmp31:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v15, v15, v23, s[18:19]
+	v_cndmask_b32_e64 v20, v20, v23, s[20:21]
+.Ltmp32:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_dpp v16, v16, v16 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp33:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v4, v4, v23, s[22:23]
+.Ltmp34:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	s_nop 0
+	v_add_f32_dpp v16, v16, v16 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_add_f32_dpp v16, v16, v16 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_add_f32_dpp v16, v16, v16 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp35:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	v_mov_b32_e32 v17, v16
+	s_nop 1
+	v_mov_b32_dpp v17, v17 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp36:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_e32 v16, v17, v16
+	s_nop 1
+	v_add_f32_dpp v16, v16, v16 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp37:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	s_nop 0
+	v_readlane_b32 s12, v16, 63
+.Ltmp38:
+	.loc	1 217 25                        ; moe_fused_gate.py:217:25
+	s_nop 1
+	v_mov_b32_e32 v16, s12
+	v_cndmask_b32_e32 v21, 0, v16, vcc
+	.loc	1 218 24                        ; moe_fused_gate.py:218:24
+	v_mov_b32_e32 v16, s11
+	v_cndmask_b32_e32 v22, 0, v16, vcc
+.Ltmp39:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v3, v15
+	v_max3_f32 v16, v16, v20, v4
+.Ltmp40:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp41:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp42:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp43:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp44:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp45:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp46:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp47:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp48:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	v_mov_b32_e32 v17, v16
+	s_nop 1
+	v_mov_b32_dpp v17, v17 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp49:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp50:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp51:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp52:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 0
+	v_readlane_b32 s11, v16, 63
+.Ltmp53:
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	s_nop 1
+	v_cmp_eq_f32_e64 s[4:5], s11, v3
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v16, v14, v2, s[4:5]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[4:5], s11, v15
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v17, v14, v5, s[4:5]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[4:5], s11, v20
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v18, v14, v12, s[4:5]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[4:5], s11, v4
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v19, v14, v13, s[4:5]
+.Ltmp54:
+	.loc	2 229 12                        ; standard.py:229:12 @[ standard.py:250:16 @[ moe_fused_gate.py:210:20 ] ]
+	v_min_u32_e32 v18, v18, v19
+	v_min3_u32 v16, v16, v17, v18
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp55:
+	.loc	2 250 16                        ; standard.py:250:16 @[ moe_fused_gate.py:210:20 ]
+	v_mov_b32_e32 v17, v16
+	s_nop 1
+	v_mov_b32_dpp v17, v17 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp56:
+	.loc	2 229 12                        ; standard.py:229:12 @[ standard.py:250:16 @[ moe_fused_gate.py:210:20 ] ]
+	v_min_i32_e32 v16, v16, v17
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp57:
+	.loc	2 250 16                        ; standard.py:250:16 @[ moe_fused_gate.py:210:20 ]
+	s_nop 0
+	v_readlane_b32 s11, v16, 63
+.Ltmp58:
+	.loc	1 212 22                        ; moe_fused_gate.py:212:22
+	s_nop 1
+	v_cmp_eq_u32_e64 s[4:5], s11, v2
+	v_cmp_eq_u32_e64 s[18:19], s11, v5
+	v_cmp_eq_u32_e64 s[20:21], s11, v12
+	v_cmp_eq_u32_e64 s[22:23], s11, v13
+	.loc	1 212 13 is_stmt 0              ; moe_fused_gate.py:212:13
+	v_cndmask_b32_e64 v16, 0, v6, s[4:5]
+	v_cndmask_b32_e64 v17, 0, v7, s[18:19]
+	v_cndmask_b32_e64 v18, 0, v8, s[20:21]
+	v_cndmask_b32_e64 v19, 0, v9, s[22:23]
+.Ltmp59:
+	.loc	2 293 12 is_stmt 1              ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	v_pk_add_f32 v[16:17], v[16:17], v[18:19]
+.Ltmp60:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v3, v3, v23, s[4:5]
+.Ltmp61:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_e32 v16, v16, v17
+.Ltmp62:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v15, v15, v23, s[18:19]
+	v_cndmask_b32_e64 v20, v20, v23, s[20:21]
+.Ltmp63:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_dpp v16, v16, v16 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp64:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v4, v4, v23, s[22:23]
+.Ltmp65:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	s_nop 0
+	v_add_f32_dpp v16, v16, v16 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_add_f32_dpp v16, v16, v16 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_add_f32_dpp v16, v16, v16 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp66:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	v_mov_b32_e32 v17, v16
+	s_nop 1
+	v_mov_b32_dpp v17, v17 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp67:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_e32 v16, v17, v16
+	s_nop 1
+	v_add_f32_dpp v16, v16, v16 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp68:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	s_nop 0
+	v_readlane_b32 s12, v16, 63
+.Ltmp69:
+	.loc	1 217 25                        ; moe_fused_gate.py:217:25
+	s_nop 1
+	v_mov_b32_e32 v16, s12
+	v_cndmask_b32_e32 v24, 0, v16, vcc
+	.loc	1 218 24                        ; moe_fused_gate.py:218:24
+	v_mov_b32_e32 v16, s11
+	v_cndmask_b32_e32 v25, 0, v16, vcc
+.Ltmp70:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v3, v15
+	v_max3_f32 v16, v16, v20, v4
+.Ltmp71:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp72:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp73:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp74:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp75:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp76:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp77:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp78:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp79:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	v_mov_b32_e32 v17, v16
+	s_nop 1
+	v_mov_b32_dpp v17, v17 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp80:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp81:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp82:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp83:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 0
+	v_readlane_b32 s11, v16, 63
+.Ltmp84:
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	s_nop 1
+	v_cmp_eq_f32_e64 s[4:5], s11, v3
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v16, v14, v2, s[4:5]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[4:5], s11, v15
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v17, v14, v5, s[4:5]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[4:5], s11, v20
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v18, v14, v12, s[4:5]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[4:5], s11, v4
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v19, v14, v13, s[4:5]
+.Ltmp85:
+	.loc	2 229 12                        ; standard.py:229:12 @[ standard.py:250:16 @[ moe_fused_gate.py:210:20 ] ]
+	v_min_u32_e32 v18, v18, v19
+	v_min3_u32 v16, v16, v17, v18
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp86:
+	.loc	2 250 16                        ; standard.py:250:16 @[ moe_fused_gate.py:210:20 ]
+	v_mov_b32_e32 v17, v16
+	s_nop 1
+	v_mov_b32_dpp v17, v17 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp87:
+	.loc	2 229 12                        ; standard.py:229:12 @[ standard.py:250:16 @[ moe_fused_gate.py:210:20 ] ]
+	v_min_i32_e32 v16, v16, v17
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp88:
+	.loc	2 250 16                        ; standard.py:250:16 @[ moe_fused_gate.py:210:20 ]
+	s_nop 0
+	v_readlane_b32 s12, v16, 63
+.Ltmp89:
+	.loc	1 212 22                        ; moe_fused_gate.py:212:22
+	s_nop 1
+	v_cmp_eq_u32_e64 s[4:5], s12, v2
+	v_cmp_eq_u32_e64 s[18:19], s12, v5
+	v_cmp_eq_u32_e64 s[20:21], s12, v12
+	v_cmp_eq_u32_e64 s[22:23], s12, v13
+	.loc	1 212 13 is_stmt 0              ; moe_fused_gate.py:212:13
+	v_cndmask_b32_e64 v16, 0, v6, s[4:5]
+	v_cndmask_b32_e64 v17, 0, v7, s[18:19]
+	v_cndmask_b32_e64 v18, 0, v8, s[20:21]
+	v_cndmask_b32_e64 v19, 0, v9, s[22:23]
+.Ltmp90:
+	.loc	2 293 12 is_stmt 1              ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	v_pk_add_f32 v[16:17], v[16:17], v[18:19]
+.Ltmp91:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v3, v3, v23, s[4:5]
+.Ltmp92:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_e32 v16, v16, v17
+.Ltmp93:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v15, v15, v23, s[18:19]
+	v_cndmask_b32_e64 v20, v20, v23, s[20:21]
+.Ltmp94:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_dpp v16, v16, v16 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp95:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v4, v4, v23, s[22:23]
+.Ltmp96:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	s_nop 0
+	v_add_f32_dpp v16, v16, v16 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_add_f32_dpp v16, v16, v16 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_add_f32_dpp v16, v16, v16 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp97:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	v_mov_b32_e32 v17, v16
+	s_nop 1
+	v_mov_b32_dpp v17, v17 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp98:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_e32 v16, v17, v16
+	s_nop 1
+	v_add_f32_dpp v16, v16, v16 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp99:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	s_nop 0
+	v_readlane_b32 s11, v16, 63
+.Ltmp100:
+	.loc	1 218 24                        ; moe_fused_gate.py:218:24
+	v_mov_b32_e32 v16, s12
+	v_cndmask_b32_e32 v26, 0, v16, vcc
+.Ltmp101:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v3, v15
+	v_max3_f32 v16, v16, v20, v4
+.Ltmp102:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp103:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp104:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp105:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp106:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp107:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp108:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp109:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp110:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	v_mov_b32_e32 v17, v16
+	s_nop 1
+	v_mov_b32_dpp v17, v17 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp111:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp112:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp113:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp114:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 0
+	v_readlane_b32 s12, v16, 63
+.Ltmp115:
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	s_nop 1
+	v_cmp_eq_f32_e64 s[4:5], s12, v3
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v16, v14, v2, s[4:5]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[4:5], s12, v15
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v17, v14, v5, s[4:5]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[4:5], s12, v20
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v18, v14, v12, s[4:5]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[4:5], s12, v4
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v19, v14, v13, s[4:5]
+.Ltmp116:
+	.loc	2 229 12                        ; standard.py:229:12 @[ standard.py:250:16 @[ moe_fused_gate.py:210:20 ] ]
+	v_min_u32_e32 v18, v18, v19
+	v_min3_u32 v16, v16, v17, v18
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp117:
+	.loc	2 250 16                        ; standard.py:250:16 @[ moe_fused_gate.py:210:20 ]
+	v_mov_b32_e32 v17, v16
+	s_nop 1
+	v_mov_b32_dpp v17, v17 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp118:
+	.loc	2 229 12                        ; standard.py:229:12 @[ standard.py:250:16 @[ moe_fused_gate.py:210:20 ] ]
+	v_min_i32_e32 v16, v16, v17
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp119:
+	.loc	2 250 16                        ; standard.py:250:16 @[ moe_fused_gate.py:210:20 ]
+	s_nop 0
+	v_readlane_b32 s24, v16, 63
+.Ltmp120:
+	.loc	1 212 22                        ; moe_fused_gate.py:212:22
+	s_nop 1
+	v_cmp_eq_u32_e64 s[4:5], s24, v2
+	v_cmp_eq_u32_e64 s[18:19], s24, v5
+	v_cmp_eq_u32_e64 s[20:21], s24, v12
+	v_cmp_eq_u32_e64 s[22:23], s24, v13
+	.loc	1 212 13 is_stmt 0              ; moe_fused_gate.py:212:13
+	v_cndmask_b32_e64 v16, 0, v6, s[4:5]
+	v_cndmask_b32_e64 v17, 0, v7, s[18:19]
+	v_cndmask_b32_e64 v18, 0, v8, s[20:21]
+	v_cndmask_b32_e64 v19, 0, v9, s[22:23]
+.Ltmp121:
+	.loc	2 293 12 is_stmt 1              ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	v_pk_add_f32 v[16:17], v[16:17], v[18:19]
+.Ltmp122:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v3, v3, v23, s[4:5]
+.Ltmp123:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_e32 v16, v16, v17
+.Ltmp124:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v15, v15, v23, s[18:19]
+	v_cndmask_b32_e64 v20, v20, v23, s[20:21]
+.Ltmp125:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_dpp v16, v16, v16 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp126:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v4, v4, v23, s[22:23]
+.Ltmp127:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	s_nop 0
+	v_add_f32_dpp v16, v16, v16 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_add_f32_dpp v16, v16, v16 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_add_f32_dpp v16, v16, v16 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp128:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	v_mov_b32_e32 v17, v16
+	s_nop 1
+	v_mov_b32_dpp v17, v17 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp129:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_e32 v16, v17, v16
+	s_nop 1
+	v_add_f32_dpp v16, v16, v16 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp130:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	s_nop 0
+	v_readlane_b32 s12, v16, 63
+.Ltmp131:
+	.loc	1 218 24                        ; moe_fused_gate.py:218:24
+	v_mov_b32_e32 v16, s24
+	v_cndmask_b32_e32 v27, 0, v16, vcc
+.Ltmp132:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v3, v15
+	v_max3_f32 v16, v16, v20, v4
+.Ltmp133:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp134:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp135:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp136:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp137:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp138:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp139:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp140:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp141:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	v_mov_b32_e32 v17, v16
+	s_nop 1
+	v_mov_b32_dpp v17, v17 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp142:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp143:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v17, v16 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp144:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v17, v17, v17
+	v_max_f32_e32 v16, v16, v17
+.Ltmp145:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 0
+	v_readlane_b32 s18, v16, 63
+.Ltmp146:
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	s_nop 1
+	v_cmp_eq_f32_e64 s[4:5], s18, v3
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v16, v14, v2, s[4:5]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[4:5], s18, v15
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v17, v14, v5, s[4:5]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[4:5], s18, v20
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v18, v14, v12, s[4:5]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[4:5], s18, v4
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v19, v14, v13, s[4:5]
+.Ltmp147:
+	.loc	2 229 12                        ; standard.py:229:12 @[ standard.py:250:16 @[ moe_fused_gate.py:210:20 ] ]
+	v_min_u32_e32 v18, v18, v19
+	v_min3_u32 v16, v16, v17, v18
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp148:
+	.loc	2 250 16                        ; standard.py:250:16 @[ moe_fused_gate.py:210:20 ]
+	v_mov_b32_e32 v17, v16
+	s_nop 1
+	v_mov_b32_dpp v17, v17 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp149:
+	.loc	2 229 12                        ; standard.py:229:12 @[ standard.py:250:16 @[ moe_fused_gate.py:210:20 ] ]
+	v_min_i32_e32 v16, v16, v17
+	s_nop 1
+	v_min_i32_dpp v16, v16, v16 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp150:
+	.loc	2 250 16                        ; standard.py:250:16 @[ moe_fused_gate.py:210:20 ]
+	s_nop 0
+	v_readlane_b32 s26, v16, 63
+.Ltmp151:
+	.loc	1 212 22                        ; moe_fused_gate.py:212:22
+	s_nop 1
+	v_cmp_eq_u32_e64 s[18:19], s26, v2
+	v_cmp_eq_u32_e64 s[20:21], s26, v5
+	v_cmp_eq_u32_e64 s[22:23], s26, v12
+	v_cmp_eq_u32_e64 s[24:25], s26, v13
+	.loc	1 212 13 is_stmt 0              ; moe_fused_gate.py:212:13
+	v_cndmask_b32_e64 v16, 0, v6, s[18:19]
+	v_cndmask_b32_e64 v17, 0, v7, s[20:21]
+	v_cndmask_b32_e64 v18, 0, v8, s[22:23]
+	v_cndmask_b32_e64 v19, 0, v9, s[24:25]
+.Ltmp152:
+	.loc	2 293 12 is_stmt 1              ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	v_pk_add_f32 v[16:17], v[16:17], v[18:19]
+.Ltmp153:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v28, v3, v23, s[18:19]
+.Ltmp154:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_e32 v16, v16, v17
+.Ltmp155:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v15, v15, v23, s[20:21]
+	v_cndmask_b32_e64 v20, v20, v23, s[22:23]
+.Ltmp156:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_dpp v16, v16, v16 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp157:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v4, v4, v23, s[24:25]
+.Ltmp158:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v3, v28, v15
+.Ltmp159:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_dpp v16, v16, v16 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp160:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max3_f32 v3, v3, v20, v4
+.Ltmp161:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	s_nop 0
+	v_add_f32_dpp v16, v16, v16 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_add_f32_dpp v16, v16, v16 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp162:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	v_mov_b32_e32 v17, v16
+	s_nop 1
+	v_mov_b32_dpp v17, v17 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp163:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_e32 v16, v17, v16
+	s_nop 1
+	v_add_f32_dpp v16, v16, v16 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp164:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	s_nop 0
+	v_readlane_b32 s4, v16, 63
+.Ltmp165:
+	.loc	1 217 25                        ; moe_fused_gate.py:217:25
+	s_nop 1
+	v_mov_b32_e32 v16, s4
+	.loc	1 216 16                        ; moe_fused_gate.py:216:16
+	v_cmp_eq_u32_e64 s[4:5], 1, v11
+	.loc	1 217 25                        ; moe_fused_gate.py:217:25
+	s_nop 1
+	v_cndmask_b32_e64 v21, v21, v16, s[4:5]
+	.loc	1 218 24                        ; moe_fused_gate.py:218:24
+	v_mov_b32_e32 v16, s26
+	v_cndmask_b32_e64 v22, v22, v16, s[4:5]
+.Ltmp166:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 0
+	v_mov_b32_dpp v16, v3 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp167:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v16, v16
+	v_max_f32_e32 v3, v3, v16
+.Ltmp168:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v16, v3 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp169:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v16, v16
+	v_max_f32_e32 v3, v3, v16
+.Ltmp170:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v16, v3 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp171:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v16, v16
+	v_max_f32_e32 v3, v3, v16
+.Ltmp172:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v16, v3 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp173:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v16, v16
+	v_max_f32_e32 v3, v3, v16
+.Ltmp174:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	v_mov_b32_e32 v16, v3
+	s_nop 1
+	v_mov_b32_dpp v16, v16 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp175:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v16, v16
+	v_max_f32_e32 v3, v3, v16
+.Ltmp176:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v16, v3 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp177:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v16, v16
+	v_max_f32_e32 v3, v3, v16
+.Ltmp178:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 0
+	v_readlane_b32 s20, v3, 63
+.Ltmp179:
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	s_nop 1
+	v_cmp_eq_f32_e64 s[18:19], s20, v28
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v3, v14, v2, s[18:19]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[18:19], s20, v15
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v16, v14, v5, s[18:19]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[18:19], s20, v20
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v17, v14, v12, s[18:19]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[18:19], s20, v4
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v18, v14, v13, s[18:19]
+.Ltmp180:
+	.loc	2 229 12                        ; standard.py:229:12 @[ standard.py:250:16 @[ moe_fused_gate.py:210:20 ] ]
+	v_min_u32_e32 v17, v17, v18
+	v_min3_u32 v3, v3, v16, v17
+	s_nop 1
+	v_min_i32_dpp v3, v3, v3 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v3, v3, v3 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v3, v3, v3 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v3, v3, v3 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp181:
+	.loc	2 250 16                        ; standard.py:250:16 @[ moe_fused_gate.py:210:20 ]
+	v_mov_b32_e32 v16, v3
+	s_nop 1
+	v_mov_b32_dpp v16, v16 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp182:
+	.loc	2 229 12                        ; standard.py:229:12 @[ standard.py:250:16 @[ moe_fused_gate.py:210:20 ] ]
+	v_min_i32_e32 v3, v3, v16
+	s_nop 1
+	v_min_i32_dpp v3, v3, v3 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp183:
+	.loc	2 250 16                        ; standard.py:250:16 @[ moe_fused_gate.py:210:20 ]
+	s_nop 0
+	v_readlane_b32 s26, v3, 63
+.Ltmp184:
+	.loc	1 212 22                        ; moe_fused_gate.py:212:22
+	s_nop 1
+	v_cmp_eq_u32_e64 s[18:19], s26, v2
+	v_cmp_eq_u32_e64 s[20:21], s26, v5
+	v_cmp_eq_u32_e64 s[22:23], s26, v12
+	v_cmp_eq_u32_e64 s[24:25], s26, v13
+	.loc	1 212 13 is_stmt 0              ; moe_fused_gate.py:212:13
+	v_cndmask_b32_e64 v16, 0, v6, s[18:19]
+	v_cndmask_b32_e64 v17, 0, v7, s[20:21]
+	v_cndmask_b32_e64 v18, 0, v8, s[22:23]
+	v_cndmask_b32_e64 v19, 0, v9, s[24:25]
+.Ltmp185:
+	.loc	2 293 12 is_stmt 1              ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	v_pk_add_f32 v[16:17], v[16:17], v[18:19]
+.Ltmp186:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v15, v15, v23, s[20:21]
+.Ltmp187:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_e32 v3, v16, v17
+.Ltmp188:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v20, v20, v23, s[22:23]
+.Ltmp189:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	s_nop 0
+	v_add_f32_dpp v3, v3, v3 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_add_f32_dpp v3, v3, v3 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_add_f32_dpp v3, v3, v3 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_add_f32_dpp v3, v3, v3 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp190:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	v_mov_b32_e32 v16, v3
+	s_nop 1
+	v_mov_b32_dpp v16, v16 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp191:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_e32 v3, v16, v3
+	s_nop 1
+	v_add_f32_dpp v3, v3, v3 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp192:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	s_nop 0
+	v_readlane_b32 s27, v3, 63
+.Ltmp193:
+	.loc	1 218 24                        ; moe_fused_gate.py:218:24
+	v_mov_b32_e32 v3, s26
+	v_cndmask_b32_e64 v3, v25, v3, s[4:5]
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v25, v28, v23, s[18:19]
+	v_cndmask_b32_e64 v28, v4, v23, s[24:25]
+.Ltmp194:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v4, v25, v15
+	v_max3_f32 v4, v4, v20, v28
+.Ltmp195:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v16, v4 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp196:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v16, v16
+	v_max_f32_e32 v4, v4, v16
+.Ltmp197:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v16, v4 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp198:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v16, v16
+	v_max_f32_e32 v4, v4, v16
+.Ltmp199:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v16, v4 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp200:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v16, v16
+	v_max_f32_e32 v4, v4, v16
+.Ltmp201:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v16, v4 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp202:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v16, v16
+	v_max_f32_e32 v4, v4, v16
+.Ltmp203:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	v_mov_b32_e32 v16, v4
+	s_nop 1
+	v_mov_b32_dpp v16, v16 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp204:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v16, v16
+	v_max_f32_e32 v4, v4, v16
+.Ltmp205:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v16, v4 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp206:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v16, v16, v16
+	v_max_f32_e32 v4, v4, v16
+.Ltmp207:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 0
+	v_readlane_b32 s20, v4, 63
+.Ltmp208:
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	s_nop 1
+	v_cmp_eq_f32_e64 s[18:19], s20, v25
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v4, v14, v2, s[18:19]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[18:19], s20, v15
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v16, v14, v5, s[18:19]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[18:19], s20, v20
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v17, v14, v12, s[18:19]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[18:19], s20, v28
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v18, v14, v13, s[18:19]
+.Ltmp209:
+	.loc	2 229 12                        ; standard.py:229:12 @[ standard.py:250:16 @[ moe_fused_gate.py:210:20 ] ]
+	v_min_u32_e32 v17, v17, v18
+	v_min3_u32 v4, v4, v16, v17
+	s_nop 1
+	v_min_i32_dpp v4, v4, v4 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v4, v4, v4 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v4, v4, v4 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v4, v4, v4 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp210:
+	.loc	2 250 16                        ; standard.py:250:16 @[ moe_fused_gate.py:210:20 ]
+	v_mov_b32_e32 v16, v4
+	s_nop 1
+	v_mov_b32_dpp v16, v16 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp211:
+	.loc	2 229 12                        ; standard.py:229:12 @[ standard.py:250:16 @[ moe_fused_gate.py:210:20 ] ]
+	v_min_i32_e32 v4, v4, v16
+	s_nop 1
+	v_min_i32_dpp v4, v4, v4 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp212:
+	.loc	2 250 16                        ; standard.py:250:16 @[ moe_fused_gate.py:210:20 ]
+	s_nop 0
+	v_readlane_b32 s26, v4, 63
+.Ltmp213:
+	.loc	1 212 22                        ; moe_fused_gate.py:212:22
+	s_nop 1
+	v_cmp_eq_u32_e64 s[18:19], s26, v2
+	v_cmp_eq_u32_e64 s[20:21], s26, v5
+	v_cmp_eq_u32_e64 s[22:23], s26, v12
+	v_cmp_eq_u32_e64 s[24:25], s26, v13
+	.loc	1 212 13 is_stmt 0              ; moe_fused_gate.py:212:13
+	v_cndmask_b32_e64 v16, 0, v6, s[18:19]
+	v_cndmask_b32_e64 v17, 0, v7, s[20:21]
+	v_cndmask_b32_e64 v18, 0, v8, s[22:23]
+	v_cndmask_b32_e64 v19, 0, v9, s[24:25]
+.Ltmp214:
+	.loc	2 293 12 is_stmt 1              ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	v_pk_add_f32 v[16:17], v[16:17], v[18:19]
+.Ltmp215:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v15, v15, v23, s[20:21]
+.Ltmp216:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_e32 v4, v16, v17
+.Ltmp217:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v17, v20, v23, s[22:23]
+	v_cndmask_b32_e64 v18, v28, v23, s[24:25]
+.Ltmp218:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_dpp v4, v4, v4 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_movk_i32 s23, 0xf8
+	s_nop 0
+	v_add_f32_dpp v4, v4, v4 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_add_f32_dpp v4, v4, v4 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_add_f32_dpp v4, v4, v4 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp219:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	v_mov_b32_e32 v16, v4
+	s_nop 1
+	v_mov_b32_dpp v16, v16 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp220:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_e32 v4, v16, v4
+.Ltmp221:
+	.loc	1 219 15                        ; moe_fused_gate.py:219:15
+	v_cndmask_b32_e64 v16, v25, v23, s[18:19]
+.Ltmp222:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v19, v16, v15
+	v_max3_f32 v19, v19, v17, v18
+.Ltmp223:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_dpp v4, v4, v4 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp224:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 0
+	v_mov_b32_dpp v20, v19 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp225:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v20, v20, v20
+	v_max_f32_e32 v19, v19, v20
+.Ltmp226:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	v_readlane_b32 s30, v4, 63
+.Ltmp227:
+	.loc	1 218 24                        ; moe_fused_gate.py:218:24
+	v_mov_b32_e32 v4, s26
+.Ltmp228:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	v_mov_b32_dpp v20, v19 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp229:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v20, v20, v20
+	v_max_f32_e32 v19, v19, v20
+.Ltmp230:
+	.loc	1 218 24                        ; moe_fused_gate.py:218:24
+	v_cndmask_b32_e64 v4, v26, v4, s[4:5]
+.Ltmp231:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 0
+	v_mov_b32_dpp v20, v19 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp232:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v20, v20, v20
+	v_max_f32_e32 v19, v19, v20
+.Ltmp233:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v20, v19 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp234:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v20, v20, v20
+	v_max_f32_e32 v19, v19, v20
+.Ltmp235:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	v_mov_b32_e32 v20, v19
+	s_nop 1
+	v_mov_b32_dpp v20, v20 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp236:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v20, v20, v20
+	v_max_f32_e32 v19, v19, v20
+.Ltmp237:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 1
+	v_mov_b32_dpp v20, v19 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp238:
+	.loc	2 170 12                        ; standard.py:170:12 @[ standard.py:191:16 @[ moe_fused_gate.py:207:19 ] ]
+	v_max_f32_e32 v20, v20, v20
+	v_max_f32_e32 v19, v19, v20
+.Ltmp239:
+	.loc	2 191 16                        ; standard.py:191:16 @[ moe_fused_gate.py:207:19 ]
+	s_nop 0
+	v_readlane_b32 s20, v19, 63
+.Ltmp240:
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	s_nop 1
+	v_cmp_eq_f32_e64 s[18:19], s20, v16
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v16, v14, v2, s[18:19]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[18:19], s20, v15
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v15, v14, v5, s[18:19]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[18:19], s20, v17
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v17, v14, v12, s[18:19]
+	.loc	1 208 18                        ; moe_fused_gate.py:208:18
+	v_cmp_eq_f32_e64 s[18:19], s20, v18
+	.loc	1 209 19                        ; moe_fused_gate.py:209:19
+	s_nop 1
+	v_cndmask_b32_e64 v14, v14, v13, s[18:19]
+.Ltmp241:
+	.loc	2 229 12                        ; standard.py:229:12 @[ standard.py:250:16 @[ moe_fused_gate.py:210:20 ] ]
+	v_min_u32_e32 v14, v17, v14
+	v_min3_u32 v14, v16, v15, v14
+	s_nop 1
+	v_min_i32_dpp v14, v14, v14 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v14, v14, v14 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v14, v14, v14 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_min_i32_dpp v14, v14, v14 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp242:
+	.loc	2 250 16                        ; standard.py:250:16 @[ moe_fused_gate.py:210:20 ]
+	v_mov_b32_e32 v15, v14
+	s_nop 1
+	v_mov_b32_dpp v15, v15 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp243:
+	.loc	2 229 12                        ; standard.py:229:12 @[ standard.py:250:16 @[ moe_fused_gate.py:210:20 ] ]
+	v_min_i32_e32 v14, v14, v15
+	s_nop 1
+	v_min_i32_dpp v14, v14, v14 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp244:
+	.loc	2 250 16                        ; standard.py:250:16 @[ moe_fused_gate.py:210:20 ]
+	s_nop 0
+	v_readlane_b32 s20, v14, 63
+.Ltmp245:
+	.loc	1 212 22                        ; moe_fused_gate.py:212:22
+	s_nop 1
+	v_cmp_eq_u32_e64 s[18:19], s20, v5
+	.loc	1 212 13 is_stmt 0              ; moe_fused_gate.py:212:13
+	s_nop 1
+	v_cndmask_b32_e64 v7, 0, v7, s[18:19]
+	.loc	1 212 22                        ; moe_fused_gate.py:212:22
+	v_cmp_eq_u32_e64 s[18:19], s20, v2
+	.loc	1 212 13                        ; moe_fused_gate.py:212:13
+	s_nop 1
+	v_cndmask_b32_e64 v6, 0, v6, s[18:19]
+	.loc	1 212 22                        ; moe_fused_gate.py:212:22
+	v_cmp_eq_u32_e64 s[18:19], s20, v13
+	.loc	1 212 13                        ; moe_fused_gate.py:212:13
+	s_nop 1
+	v_cndmask_b32_e64 v9, 0, v9, s[18:19]
+	.loc	1 212 22                        ; moe_fused_gate.py:212:22
+	v_cmp_eq_u32_e64 s[18:19], s20, v12
+	.loc	1 212 13                        ; moe_fused_gate.py:212:13
+	s_nop 1
+	v_cndmask_b32_e64 v8, 0, v8, s[18:19]
+.Ltmp246:
+	.loc	2 293 12 is_stmt 1              ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	v_pk_add_f32 v[6:7], v[6:7], v[8:9]
+.Ltmp247:
+	.loc	1 217 25                        ; moe_fused_gate.py:217:25
+	v_mov_b32_e32 v8, s11
+.Ltmp248:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_e32 v2, v6, v7
+.Ltmp249:
+	.loc	1 217 25                        ; moe_fused_gate.py:217:25
+	v_cndmask_b32_e32 v8, 0, v8, vcc
+	.loc	1 201 21                        ; moe_fused_gate.py:201:21
+	v_cmp_gt_u32_e64 s[18:19], 2, v11
+.Ltmp250:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_dpp v2, v2, v2 row_shr:8 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp251:
+	.loc	1 221 25                        ; moe_fused_gate.py:221:25
+	s_nop 0
+	v_cndmask_b32_e64 v6, 0, v21, s[18:19]
+.Ltmp252:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_dpp v2, v2, v2 row_shr:4 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_add_f32_dpp v2, v2, v2 row_shr:2 row_mask:0xf bank_mask:0xf bound_ctrl:1
+	s_nop 1
+	v_add_f32_dpp v2, v2, v2 row_shr:1 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp253:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	v_mov_b32_e32 v5, v2
+	s_nop 1
+	v_mov_b32_dpp v5, v5 row_bcast:15 row_mask:0xa bank_mask:0xf bound_ctrl:1
+.Ltmp254:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:211:25 ] ]
+	v_add_f32_e32 v2, v5, v2
+	s_nop 1
+	v_add_f32_dpp v2, v2, v2 row_bcast:31 row_mask:0xf bank_mask:0xf bound_ctrl:1
+.Ltmp255:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:211:25 ]
+	s_nop 0
+	v_readlane_b32 s22, v2, 63
+.Ltmp256:
+	.loc	1 218 24                        ; moe_fused_gate.py:218:24
+	v_mov_b32_e32 v2, s20
+	v_cndmask_b32_e64 v5, v27, v2, s[4:5]
+	.loc	1 217 25                        ; moe_fused_gate.py:217:25
+	v_mov_b32_e32 v2, s27
+	v_cndmask_b32_e64 v12, v24, v2, s[4:5]
+	v_mov_b32_e32 v2, s12
+	v_cndmask_b32_e32 v2, 0, v2, vcc
+	v_mov_b32_e32 v9, s22
+	v_cndmask_b32_e64 v13, v2, v9, s[4:5]
+	v_mov_b32_e32 v2, s30
+	v_cndmask_b32_e64 v14, v8, v2, s[4:5]
+	.loc	1 221 25                        ; moe_fused_gate.py:221:25
+	v_cndmask_b32_e64 v7, 0, v12, s[18:19]
+	v_cndmask_b32_e64 v8, 0, v14, s[18:19]
+	v_cndmask_b32_e64 v9, 0, v13, s[18:19]
+.Ltmp257:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:221:18 ]
+	v_pk_add_f32 v[6:7], v[6:7], v[8:9]
+.Ltmp258:
+	.loc	1 228 22                        ; moe_fused_gate.py:228:22
+	v_cmp_lt_u32_e64 s[20:21], 1, v11
+.Ltmp259:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:221:18 ] ]
+	v_add_f32_e32 v2, v6, v7
+.Ltmp260:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:221:18 ]
+	v_mov_b32_e32 v6, v2
+.Ltmp261:
+	.loc	1 250 5                         ; moe_fused_gate.py:250:5
+	s_mov_b32 s30, s6
+.Ltmp262:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:221:18 ]
+	s_nop 0
+	v_mov_b32_dpp v6, v6 quad_perm:[2,3,0,1] row_mask:0xf bank_mask:0xf
+.Ltmp263:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:221:18 ] ]
+	v_add_f32_e32 v2, v2, v6
+.Ltmp264:
+	.loc	2 293 12                        ; standard.py:293:12 @[ moe_fused_gate.py:221:18 ]
+	v_mov_b32_e32 v6, v2
+	s_nop 1
+	v_mov_b32_dpp v6, v6 quad_perm:[1,0,3,2] row_mask:0xf bank_mask:0xf
+.Ltmp265:
+	.loc	2 263 12                        ; standard.py:263:12 @[ standard.py:293:12 @[ moe_fused_gate.py:221:18 ] ]
+	v_add_f32_e32 v6, v2, v6
+.Ltmp266:
+	.loc	1 229 25                        ; moe_fused_gate.py:229:25
+	v_div_scale_f32 v7, s[4:5], s10, s10, v6
+	v_rcp_f32_e32 v8, v7
+	.loc	1 228 21                        ; moe_fused_gate.py:228:21
+	s_and_b64 s[4:5], s[20:21], s[16:17]
+	.loc	1 230 23                        ; moe_fused_gate.py:230:23
+	v_lshl_add_u32 v2, v11, 2, s23
+	.loc	1 232 24                        ; moe_fused_gate.py:232:24
+	v_cndmask_b32_e64 v2, v22, v2, s[4:5]
+	.loc	1 229 25                        ; moe_fused_gate.py:229:25
+	v_fma_f32 v9, -v7, v8, 1.0
+	v_fmac_f32_e32 v8, v9, v8
+	v_div_scale_f32 v9, vcc, v6, s10, v6
+	v_mul_f32_e32 v15, v9, v8
+	v_fma_f32 v16, -v7, v15, v9
+	v_fmac_f32_e32 v15, v16, v8
+	v_fma_f32 v7, -v7, v15, v9
+	v_div_fmas_f32 v7, v7, v8, v15
+	v_div_fixup_f32 v7, v7, s10, v6
+	.loc	1 238 25                        ; moe_fused_gate.py:238:25
+	v_cmp_lt_f32_e32 vcc, 0, v6
+	.loc	1 231 25                        ; moe_fused_gate.py:231:25
+	v_cndmask_b32_e64 v7, v21, v7, s[4:5]
+	.loc	1 250 5                         ; moe_fused_gate.py:250:5
+	v_lshl_add_u32 v11, v11, 4, 0
+	.loc	1 238 16                        ; moe_fused_gate.py:238:16
+	v_cndmask_b32_e32 v15, 1.0, v6, vcc
+	.loc	1 250 5                         ; moe_fused_gate.py:250:5
+	v_div_scale_f32 v6, s[4:5], v15, v15, v7
+	v_rcp_f32_e32 v8, v6
+	s_nop 0
+	v_fma_f32 v9, -v6, v8, 1.0
+	v_fmac_f32_e32 v8, v9, v8
+	v_div_scale_f32 v9, vcc, v7, v15, v7
+	v_mul_f32_e32 v16, v9, v8
+	v_fma_f32 v17, -v6, v16, v9
+	v_fmac_f32_e32 v16, v17, v8
+	v_fma_f32 v6, -v6, v16, v9
+	v_div_scale_f32 v9, s[4:5], v15, v15, v13
+	v_rcp_f32_e32 v17, v9
+	v_div_fmas_f32 v6, v6, v8, v16
+	v_div_fixup_f32 v6, v6, v15, v7
+	v_fma_f32 v7, -v9, v17, 1.0
+	v_fmac_f32_e32 v17, v7, v17
+	v_div_scale_f32 v7, vcc, v13, v15, v13
+	v_mul_f32_e32 v8, v7, v17
+	v_fma_f32 v16, -v9, v8, v7
+	v_fmac_f32_e32 v8, v16, v17
+	v_div_scale_f32 v16, s[4:5], v15, v15, v14
+	v_rcp_f32_e32 v18, v16
+	v_fma_f32 v7, -v9, v8, v7
+	v_div_fmas_f32 v7, v7, v17, v8
+	v_div_fixup_f32 v9, v7, v15, v13
+	v_fma_f32 v7, -v16, v18, 1.0
+	v_fmac_f32_e32 v18, v7, v18
+	v_div_scale_f32 v7, vcc, v14, v15, v14
+	v_mul_f32_e32 v8, v7, v18
+	v_fma_f32 v13, -v16, v8, v7
+	v_fmac_f32_e32 v8, v13, v18
+	v_div_scale_f32 v13, s[4:5], v15, v15, v12
+	v_fma_f32 v7, -v16, v8, v7
+	v_rcp_f32_e32 v16, v13
+	v_div_fmas_f32 v7, v7, v18, v8
+	v_div_fixup_f32 v8, v7, v15, v14
+	v_pk_mul_f32 v[8:9], s[10:11], v[8:9] op_sel_hi:[0,1]
+	v_fma_f32 v7, -v13, v16, 1.0
+	v_fmac_f32_e32 v16, v7, v16
+	v_div_scale_f32 v7, vcc, v12, v15, v12
+	v_mul_f32_e32 v14, v7, v16
+	v_fma_f32 v17, -v13, v14, v7
+	v_fmac_f32_e32 v14, v17, v16
+	v_fma_f32 v7, -v13, v14, v7
+	v_div_fmas_f32 v7, v7, v16, v14
+	v_div_fixup_f32 v7, v7, v15, v12
+	v_pk_mul_f32 v[6:7], s[10:11], v[6:7] op_sel_hi:[0,1]
+	ds_write_b128 v11, v[6:9]
+	v_lshl_add_u32 v6, v10, 2, 0
+	; wave barrier
+	ds_read_b32 v7, v6
+	v_cmp_eq_u32_e32 vcc, 0, v0
+	s_and_b64 s[2:3], s[2:3], vcc
+	v_add_lshl_u32 v0, s13, v10, 2
+	s_and_b64 vcc, s[0:1], s[2:3]
+	v_cndmask_b32_e32 v0, v1, v0, vcc
+	s_waitcnt lgkmcnt(0)
+	buffer_store_dword v7, v0, s[28:31], 0 offen
+	.loc	1 251 5                         ; moe_fused_gate.py:251:5
+	s_waitcnt lgkmcnt(0)
+	; wave barrier
+	ds_write_b128 v11, v[2:5]
+	; wave barrier
+	ds_read_b32 v2, v6
+	v_add_lshl_u32 v0, s14, v10, 2
+	s_mov_b32 s10, s6
+	s_mov_b32 s11, s7
+	v_cndmask_b32_e32 v0, v1, v0, vcc
+	s_waitcnt lgkmcnt(0)
+	buffer_store_dword v2, v0, s[8:11], 0 offen
+	.loc	1 90 1                          ; moe_fused_gate.py:90:1
+	s_endpgm
+.Ltmp267:
+	.section	.rodata,"a",@progbits
+	.p2align	6, 0x0
+	.amdhsa_kernel _router_triton_kernel
+		.amdhsa_group_segment_fixed_size 0
+		.amdhsa_private_segment_fixed_size 0
+		.amdhsa_kernarg_size 72
+		.amdhsa_user_sgpr_count 15
+		.amdhsa_user_sgpr_dispatch_ptr 0
+		.amdhsa_user_sgpr_queue_ptr 0
+		.amdhsa_user_sgpr_kernarg_segment_ptr 1
+		.amdhsa_user_sgpr_dispatch_id 0
+		.amdhsa_user_sgpr_kernarg_preload_length 13
+		.amdhsa_user_sgpr_kernarg_preload_offset 0
+		.amdhsa_user_sgpr_private_segment_size 0
+		.amdhsa_uses_dynamic_stack 0
+		.amdhsa_enable_private_segment 0
+		.amdhsa_system_sgpr_workgroup_id_x 1
+		.amdhsa_system_sgpr_workgroup_id_y 0
+		.amdhsa_system_sgpr_workgroup_id_z 0
+		.amdhsa_system_sgpr_workgroup_info 0
+		.amdhsa_system_vgpr_workitem_id 0
+		.amdhsa_next_free_vgpr 31
+		.amdhsa_next_free_sgpr 32
+		.amdhsa_accum_offset 32
+		.amdhsa_reserve_vcc 1
+		.amdhsa_reserve_xnack_mask 1
+		.amdhsa_float_round_mode_32 0
+		.amdhsa_float_round_mode_16_64 0
+		.amdhsa_float_denorm_mode_32 3
+		.amdhsa_float_denorm_mode_16_64 3
+		.amdhsa_dx10_clamp 1
+		.amdhsa_ieee_mode 1
+		.amdhsa_fp16_overflow 0
+		.amdhsa_tg_split 0
+		.amdhsa_exception_fp_ieee_invalid_op 0
+		.amdhsa_exception_fp_denorm_src 0
+		.amdhsa_exception_fp_ieee_div_zero 0
+		.amdhsa_exception_fp_ieee_overflow 0
+		.amdhsa_exception_fp_ieee_underflow 0
+		.amdhsa_exception_fp_ieee_inexact 0
+		.amdhsa_exception_int_div_zero 0
+	.end_amdhsa_kernel
+	.text
+.Lfunc_end0:
+	.size	_router_triton_kernel, .Lfunc_end0-_router_triton_kernel
+	.cfi_endproc
+                                        ; -- End function
+	.set _router_triton_kernel.num_vgpr, 31
+	.set _router_triton_kernel.num_agpr, 0
+	.set _router_triton_kernel.numbered_sgpr, 32
+	.set _router_triton_kernel.num_named_barrier, 0
+	.set _router_triton_kernel.private_seg_size, 0
+	.set _router_triton_kernel.uses_vcc, 1
+	.set _router_triton_kernel.uses_flat_scratch, 0
+	.set _router_triton_kernel.has_dyn_sized_stack, 0
+	.set _router_triton_kernel.has_recursion, 0
+	.set _router_triton_kernel.has_indirect_call, 0
+	.section	.AMDGPU.csdata,"",@progbits
+; Kernel info:
+; codeLenInByte = 6112
+; TotalNumSgprs: 38
+; NumVgprs: 31
+; NumAgprs: 0
+; TotalNumVgprs: 31
+; ScratchSize: 0
+; MemoryBound: 0
+; FloatMode: 240
+; IeeeMode: 1
+; LDSByteSize: 0 bytes/workgroup (compile time only)
+; SGPRBlocks: 4
+; VGPRBlocks: 3
+; NumSGPRsForWavesPerEU: 38
+; NumVGPRsForWavesPerEU: 31
+; AccumOffset: 32
+; Occupancy: 8
+; WaveLimiterHint : 0
+; COMPUTE_PGM_RSRC2:SCRATCH_EN: 0
+; COMPUTE_PGM_RSRC2:USER_SGPR: 15
+; COMPUTE_PGM_RSRC2:TRAP_HANDLER: 0
+; COMPUTE_PGM_RSRC2:TGID_X_EN: 1
+; COMPUTE_PGM_RSRC2:TGID_Y_EN: 0
+; COMPUTE_PGM_RSRC2:TGID_Z_EN: 0
+; COMPUTE_PGM_RSRC2:TIDIG_COMP_CNT: 0
+; COMPUTE_PGM_RSRC3_GFX90A:ACCUM_OFFSET: 7
+; COMPUTE_PGM_RSRC3_GFX90A:TG_SPLIT: 0
+	.text
+	.p2alignl 6, 3212836864
+	.fill 256, 4, 3212836864
+	.section	.AMDGPU.gpr_maximums,"",@progbits
+	.set amdgpu.max_num_vgpr, 0
+	.set amdgpu.max_num_agpr, 0
+	.set amdgpu.max_num_sgpr, 0
+	.set amdgpu.max_num_named_barrier, 0
+	.text
+	.section	.debug_abbrev,"",@progbits
+	.byte	1                               ; Abbreviation Code
+	.byte	17                              ; DW_TAG_compile_unit
+	.byte	1                               ; DW_CHILDREN_yes
+	.byte	37                              ; DW_AT_producer
+	.byte	14                              ; DW_FORM_strp
+	.byte	19                              ; DW_AT_language
+	.byte	5                               ; DW_FORM_data2
+	.byte	3                               ; DW_AT_name
+	.byte	14                              ; DW_FORM_strp
+	.byte	16                              ; DW_AT_stmt_list
+	.byte	23                              ; DW_FORM_sec_offset
+	.byte	27                              ; DW_AT_comp_dir
+	.byte	14                              ; DW_FORM_strp
+	.byte	17                              ; DW_AT_low_pc
+	.byte	1                               ; DW_FORM_addr
+	.byte	18                              ; DW_AT_high_pc
+	.byte	6                               ; DW_FORM_data4
+	.byte	0                               ; EOM(1)
+	.byte	0                               ; EOM(2)
+	.byte	2                               ; Abbreviation Code
+	.byte	46                              ; DW_TAG_subprogram
+	.byte	0                               ; DW_CHILDREN_no
+	.byte	3                               ; DW_AT_name
+	.byte	14                              ; DW_FORM_strp
+	.byte	32                              ; DW_AT_inline
+	.byte	11                              ; DW_FORM_data1
+	.byte	0                               ; EOM(1)
+	.byte	0                               ; EOM(2)
+	.byte	3                               ; Abbreviation Code
+	.byte	46                              ; DW_TAG_subprogram
+	.byte	1                               ; DW_CHILDREN_yes
+	.byte	17                              ; DW_AT_low_pc
+	.byte	1                               ; DW_FORM_addr
+	.byte	18                              ; DW_AT_high_pc
+	.byte	6                               ; DW_FORM_data4
+	.byte	49                              ; DW_AT_abstract_origin
+	.byte	19                              ; DW_FORM_ref4
+	.byte	0                               ; EOM(1)
+	.byte	0                               ; EOM(2)
+	.byte	4                               ; Abbreviation Code
+	.byte	29                              ; DW_TAG_inlined_subroutine
+	.byte	0                               ; DW_CHILDREN_no
+	.byte	49                              ; DW_AT_abstract_origin
+	.byte	19                              ; DW_FORM_ref4
+	.byte	85                              ; DW_AT_ranges
+	.byte	23                              ; DW_FORM_sec_offset
+	.byte	88                              ; DW_AT_call_file
+	.byte	11                              ; DW_FORM_data1
+	.byte	89                              ; DW_AT_call_line
+	.byte	11                              ; DW_FORM_data1
+	.byte	87                              ; DW_AT_call_column
+	.byte	11                              ; DW_FORM_data1
+	.byte	0                               ; EOM(1)
+	.byte	0                               ; EOM(2)
+	.byte	5                               ; Abbreviation Code
+	.byte	29                              ; DW_TAG_inlined_subroutine
+	.byte	1                               ; DW_CHILDREN_yes
+	.byte	49                              ; DW_AT_abstract_origin
+	.byte	19                              ; DW_FORM_ref4
+	.byte	85                              ; DW_AT_ranges
+	.byte	23                              ; DW_FORM_sec_offset
+	.byte	88                              ; DW_AT_call_file
+	.byte	11                              ; DW_FORM_data1
+	.byte	89                              ; DW_AT_call_line
+	.byte	11                              ; DW_FORM_data1
+	.byte	87                              ; DW_AT_call_column
+	.byte	11                              ; DW_FORM_data1
+	.byte	0                               ; EOM(1)
+	.byte	0                               ; EOM(2)
+	.byte	6                               ; Abbreviation Code
+	.byte	29                              ; DW_TAG_inlined_subroutine
+	.byte	0                               ; DW_CHILDREN_no
+	.byte	49                              ; DW_AT_abstract_origin
+	.byte	19                              ; DW_FORM_ref4
+	.byte	85                              ; DW_AT_ranges
+	.byte	23                              ; DW_FORM_sec_offset
+	.byte	88                              ; DW_AT_call_file
+	.byte	11                              ; DW_FORM_data1
+	.byte	89                              ; DW_AT_call_line
+	.byte	5                               ; DW_FORM_data2
+	.byte	87                              ; DW_AT_call_column
+	.byte	11                              ; DW_FORM_data1
+	.byte	0                               ; EOM(1)
+	.byte	0                               ; EOM(2)
+	.byte	0                               ; EOM(3)
+	.section	.debug_info,"",@progbits
+.Lcu_begin0:
+	.long	.Ldebug_info_end0-.Ldebug_info_start0 ; Length of Unit
+.Ldebug_info_start0:
+	.short	4                               ; DWARF version number
+	.long	.debug_abbrev                   ; Offset Into Abbrev. Section
+	.byte	8                               ; Address Size (in bytes)
+	.byte	1                               ; Abbrev [1] 0xb:0xaa DW_TAG_compile_unit
+	.long	.Linfo_string0                  ; DW_AT_producer
+	.short	2                               ; DW_AT_language
+	.long	.Linfo_string1                  ; DW_AT_name
+	.long	.Lline_table_start0             ; DW_AT_stmt_list
+	.long	.Linfo_string2                  ; DW_AT_comp_dir
+	.quad	.Lfunc_begin0                   ; DW_AT_low_pc
+	.long	.Lfunc_end0-.Lfunc_begin0       ; DW_AT_high_pc
+	.byte	2                               ; Abbrev [2] 0x2a:0x6 DW_TAG_subprogram
+	.long	.Linfo_string3                  ; DW_AT_name
+	.byte	1                               ; DW_AT_inline
+	.byte	3                               ; Abbrev [3] 0x30:0x84 DW_TAG_subprogram
+	.quad	.Lfunc_begin0                   ; DW_AT_low_pc
+	.long	.Lfunc_end0-.Lfunc_begin0       ; DW_AT_high_pc
+	.long	42                              ; DW_AT_abstract_origin
+	.byte	4                               ; Abbrev [4] 0x41:0xc DW_TAG_inlined_subroutine
+	.long	42                              ; DW_AT_abstract_origin
+	.long	.Ldebug_ranges0                 ; DW_AT_ranges
+	.byte	1                               ; DW_AT_call_file
+	.byte	145                             ; DW_AT_call_line
+	.byte	21                              ; DW_AT_call_column
+	.byte	5                               ; Abbrev [5] 0x4d:0x19 DW_TAG_inlined_subroutine
+	.long	42                              ; DW_AT_abstract_origin
+	.long	.Ldebug_ranges1                 ; DW_AT_ranges
+	.byte	1                               ; DW_AT_call_file
+	.byte	207                             ; DW_AT_call_line
+	.byte	19                              ; DW_AT_call_column
+	.byte	4                               ; Abbrev [4] 0x59:0xc DW_TAG_inlined_subroutine
+	.long	42                              ; DW_AT_abstract_origin
+	.long	.Ldebug_ranges2                 ; DW_AT_ranges
+	.byte	2                               ; DW_AT_call_file
+	.byte	191                             ; DW_AT_call_line
+	.byte	16                              ; DW_AT_call_column
+	.byte	0                               ; End Of Children Mark
+	.byte	5                               ; Abbrev [5] 0x66:0x19 DW_TAG_inlined_subroutine
+	.long	42                              ; DW_AT_abstract_origin
+	.long	.Ldebug_ranges3                 ; DW_AT_ranges
+	.byte	1                               ; DW_AT_call_file
+	.byte	210                             ; DW_AT_call_line
+	.byte	20                              ; DW_AT_call_column
+	.byte	4                               ; Abbrev [4] 0x72:0xc DW_TAG_inlined_subroutine
+	.long	42                              ; DW_AT_abstract_origin
+	.long	.Ldebug_ranges4                 ; DW_AT_ranges
+	.byte	2                               ; DW_AT_call_file
+	.byte	250                             ; DW_AT_call_line
+	.byte	16                              ; DW_AT_call_column
+	.byte	0                               ; End Of Children Mark
+	.byte	5                               ; Abbrev [5] 0x7f:0x1a DW_TAG_inlined_subroutine
+	.long	42                              ; DW_AT_abstract_origin
+	.long	.Ldebug_ranges5                 ; DW_AT_ranges
+	.byte	1                               ; DW_AT_call_file
+	.byte	211                             ; DW_AT_call_line
+	.byte	25                              ; DW_AT_call_column
+	.byte	6                               ; Abbrev [6] 0x8b:0xd DW_TAG_inlined_subroutine
+	.long	42                              ; DW_AT_abstract_origin
+	.long	.Ldebug_ranges6                 ; DW_AT_ranges
+	.byte	2                               ; DW_AT_call_file
+	.short	293                             ; DW_AT_call_line
+	.byte	12                              ; DW_AT_call_column
+	.byte	0                               ; End Of Children Mark
+	.byte	5                               ; Abbrev [5] 0x99:0x1a DW_TAG_inlined_subroutine
+	.long	42                              ; DW_AT_abstract_origin
+	.long	.Ldebug_ranges7                 ; DW_AT_ranges
+	.byte	1                               ; DW_AT_call_file
+	.byte	221                             ; DW_AT_call_line
+	.byte	18                              ; DW_AT_call_column
+	.byte	6                               ; Abbrev [6] 0xa5:0xd DW_TAG_inlined_subroutine
+	.long	42                              ; DW_AT_abstract_origin
+	.long	.Ldebug_ranges8                 ; DW_AT_ranges
+	.byte	2                               ; DW_AT_call_file
+	.short	293                             ; DW_AT_call_line
+	.byte	12                              ; DW_AT_call_column
+	.byte	0                               ; End Of Children Mark
+	.byte	0                               ; End Of Children Mark
+	.byte	0                               ; End Of Children Mark
+.Ldebug_info_end0:
+	.section	.debug_ranges,"",@progbits
+.Ldebug_ranges0:
+	.quad	.Ltmp2-.Lfunc_begin0
+	.quad	.Ltmp3-.Lfunc_begin0
+	.quad	.Ltmp4-.Lfunc_begin0
+	.quad	.Ltmp5-.Lfunc_begin0
+	.quad	0
+	.quad	0
+.Ldebug_ranges1:
+	.quad	.Ltmp6-.Lfunc_begin0
+	.quad	.Ltmp20-.Lfunc_begin0
+	.quad	.Ltmp39-.Lfunc_begin0
+	.quad	.Ltmp53-.Lfunc_begin0
+	.quad	.Ltmp70-.Lfunc_begin0
+	.quad	.Ltmp84-.Lfunc_begin0
+	.quad	.Ltmp101-.Lfunc_begin0
+	.quad	.Ltmp115-.Lfunc_begin0
+	.quad	.Ltmp132-.Lfunc_begin0
+	.quad	.Ltmp146-.Lfunc_begin0
+	.quad	.Ltmp158-.Lfunc_begin0
+	.quad	.Ltmp159-.Lfunc_begin0
+	.quad	.Ltmp160-.Lfunc_begin0
+	.quad	.Ltmp161-.Lfunc_begin0
+	.quad	.Ltmp166-.Lfunc_begin0
+	.quad	.Ltmp179-.Lfunc_begin0
+	.quad	.Ltmp194-.Lfunc_begin0
+	.quad	.Ltmp208-.Lfunc_begin0
+	.quad	.Ltmp222-.Lfunc_begin0
+	.quad	.Ltmp223-.Lfunc_begin0
+	.quad	.Ltmp224-.Lfunc_begin0
+	.quad	.Ltmp226-.Lfunc_begin0
+	.quad	.Ltmp228-.Lfunc_begin0
+	.quad	.Ltmp230-.Lfunc_begin0
+	.quad	.Ltmp231-.Lfunc_begin0
+	.quad	.Ltmp240-.Lfunc_begin0
+	.quad	0
+	.quad	0
+.Ldebug_ranges2:
+	.quad	.Ltmp6-.Lfunc_begin0
+	.quad	.Ltmp7-.Lfunc_begin0
+	.quad	.Ltmp8-.Lfunc_begin0
+	.quad	.Ltmp9-.Lfunc_begin0
+	.quad	.Ltmp10-.Lfunc_begin0
+	.quad	.Ltmp11-.Lfunc_begin0
+	.quad	.Ltmp12-.Lfunc_begin0
+	.quad	.Ltmp13-.Lfunc_begin0
+	.quad	.Ltmp14-.Lfunc_begin0
+	.quad	.Ltmp15-.Lfunc_begin0
+	.quad	.Ltmp16-.Lfunc_begin0
+	.quad	.Ltmp17-.Lfunc_begin0
+	.quad	.Ltmp18-.Lfunc_begin0
+	.quad	.Ltmp19-.Lfunc_begin0
+	.quad	.Ltmp39-.Lfunc_begin0
+	.quad	.Ltmp40-.Lfunc_begin0
+	.quad	.Ltmp41-.Lfunc_begin0
+	.quad	.Ltmp42-.Lfunc_begin0
+	.quad	.Ltmp43-.Lfunc_begin0
+	.quad	.Ltmp44-.Lfunc_begin0
+	.quad	.Ltmp45-.Lfunc_begin0
+	.quad	.Ltmp46-.Lfunc_begin0
+	.quad	.Ltmp47-.Lfunc_begin0
+	.quad	.Ltmp48-.Lfunc_begin0
+	.quad	.Ltmp49-.Lfunc_begin0
+	.quad	.Ltmp50-.Lfunc_begin0
+	.quad	.Ltmp51-.Lfunc_begin0
+	.quad	.Ltmp52-.Lfunc_begin0
+	.quad	.Ltmp70-.Lfunc_begin0
+	.quad	.Ltmp71-.Lfunc_begin0
+	.quad	.Ltmp72-.Lfunc_begin0
+	.quad	.Ltmp73-.Lfunc_begin0
+	.quad	.Ltmp74-.Lfunc_begin0
+	.quad	.Ltmp75-.Lfunc_begin0
+	.quad	.Ltmp76-.Lfunc_begin0
+	.quad	.Ltmp77-.Lfunc_begin0
+	.quad	.Ltmp78-.Lfunc_begin0
+	.quad	.Ltmp79-.Lfunc_begin0
+	.quad	.Ltmp80-.Lfunc_begin0
+	.quad	.Ltmp81-.Lfunc_begin0
+	.quad	.Ltmp82-.Lfunc_begin0
+	.quad	.Ltmp83-.Lfunc_begin0
+	.quad	.Ltmp101-.Lfunc_begin0
+	.quad	.Ltmp102-.Lfunc_begin0
+	.quad	.Ltmp103-.Lfunc_begin0
+	.quad	.Ltmp104-.Lfunc_begin0
+	.quad	.Ltmp105-.Lfunc_begin0
+	.quad	.Ltmp106-.Lfunc_begin0
+	.quad	.Ltmp107-.Lfunc_begin0
+	.quad	.Ltmp108-.Lfunc_begin0
+	.quad	.Ltmp109-.Lfunc_begin0
+	.quad	.Ltmp110-.Lfunc_begin0
+	.quad	.Ltmp111-.Lfunc_begin0
+	.quad	.Ltmp112-.Lfunc_begin0
+	.quad	.Ltmp113-.Lfunc_begin0
+	.quad	.Ltmp114-.Lfunc_begin0
+	.quad	.Ltmp132-.Lfunc_begin0
+	.quad	.Ltmp133-.Lfunc_begin0
+	.quad	.Ltmp134-.Lfunc_begin0
+	.quad	.Ltmp135-.Lfunc_begin0
+	.quad	.Ltmp136-.Lfunc_begin0
+	.quad	.Ltmp137-.Lfunc_begin0
+	.quad	.Ltmp138-.Lfunc_begin0
+	.quad	.Ltmp139-.Lfunc_begin0
+	.quad	.Ltmp140-.Lfunc_begin0
+	.quad	.Ltmp141-.Lfunc_begin0
+	.quad	.Ltmp142-.Lfunc_begin0
+	.quad	.Ltmp143-.Lfunc_begin0
+	.quad	.Ltmp144-.Lfunc_begin0
+	.quad	.Ltmp145-.Lfunc_begin0
+	.quad	.Ltmp158-.Lfunc_begin0
+	.quad	.Ltmp159-.Lfunc_begin0
+	.quad	.Ltmp160-.Lfunc_begin0
+	.quad	.Ltmp161-.Lfunc_begin0
+	.quad	.Ltmp167-.Lfunc_begin0
+	.quad	.Ltmp168-.Lfunc_begin0
+	.quad	.Ltmp169-.Lfunc_begin0
+	.quad	.Ltmp170-.Lfunc_begin0
+	.quad	.Ltmp171-.Lfunc_begin0
+	.quad	.Ltmp172-.Lfunc_begin0
+	.quad	.Ltmp173-.Lfunc_begin0
+	.quad	.Ltmp174-.Lfunc_begin0
+	.quad	.Ltmp175-.Lfunc_begin0
+	.quad	.Ltmp176-.Lfunc_begin0
+	.quad	.Ltmp177-.Lfunc_begin0
+	.quad	.Ltmp178-.Lfunc_begin0
+	.quad	.Ltmp194-.Lfunc_begin0
+	.quad	.Ltmp195-.Lfunc_begin0
+	.quad	.Ltmp196-.Lfunc_begin0
+	.quad	.Ltmp197-.Lfunc_begin0
+	.quad	.Ltmp198-.Lfunc_begin0
+	.quad	.Ltmp199-.Lfunc_begin0
+	.quad	.Ltmp200-.Lfunc_begin0
+	.quad	.Ltmp201-.Lfunc_begin0
+	.quad	.Ltmp202-.Lfunc_begin0
+	.quad	.Ltmp203-.Lfunc_begin0
+	.quad	.Ltmp204-.Lfunc_begin0
+	.quad	.Ltmp205-.Lfunc_begin0
+	.quad	.Ltmp206-.Lfunc_begin0
+	.quad	.Ltmp207-.Lfunc_begin0
+	.quad	.Ltmp222-.Lfunc_begin0
+	.quad	.Ltmp223-.Lfunc_begin0
+	.quad	.Ltmp225-.Lfunc_begin0
+	.quad	.Ltmp226-.Lfunc_begin0
+	.quad	.Ltmp229-.Lfunc_begin0
+	.quad	.Ltmp230-.Lfunc_begin0
+	.quad	.Ltmp232-.Lfunc_begin0
+	.quad	.Ltmp233-.Lfunc_begin0
+	.quad	.Ltmp234-.Lfunc_begin0
+	.quad	.Ltmp235-.Lfunc_begin0
+	.quad	.Ltmp236-.Lfunc_begin0
+	.quad	.Ltmp237-.Lfunc_begin0
+	.quad	.Ltmp238-.Lfunc_begin0
+	.quad	.Ltmp239-.Lfunc_begin0
+	.quad	0
+	.quad	0
+.Ldebug_ranges3:
+	.quad	.Ltmp21-.Lfunc_begin0
+	.quad	.Ltmp22-.Lfunc_begin0
+	.quad	.Ltmp23-.Lfunc_begin0
+	.quad	.Ltmp27-.Lfunc_begin0
+	.quad	.Ltmp54-.Lfunc_begin0
+	.quad	.Ltmp58-.Lfunc_begin0
+	.quad	.Ltmp85-.Lfunc_begin0
+	.quad	.Ltmp89-.Lfunc_begin0
+	.quad	.Ltmp116-.Lfunc_begin0
+	.quad	.Ltmp120-.Lfunc_begin0
+	.quad	.Ltmp147-.Lfunc_begin0
+	.quad	.Ltmp151-.Lfunc_begin0
+	.quad	.Ltmp180-.Lfunc_begin0
+	.quad	.Ltmp184-.Lfunc_begin0
+	.quad	.Ltmp209-.Lfunc_begin0
+	.quad	.Ltmp213-.Lfunc_begin0
+	.quad	.Ltmp241-.Lfunc_begin0
+	.quad	.Ltmp245-.Lfunc_begin0
+	.quad	0
+	.quad	0
+.Ldebug_ranges4:
+	.quad	.Ltmp21-.Lfunc_begin0
+	.quad	.Ltmp22-.Lfunc_begin0
+	.quad	.Ltmp23-.Lfunc_begin0
+	.quad	.Ltmp24-.Lfunc_begin0
+	.quad	.Ltmp25-.Lfunc_begin0
+	.quad	.Ltmp26-.Lfunc_begin0
+	.quad	.Ltmp54-.Lfunc_begin0
+	.quad	.Ltmp55-.Lfunc_begin0
+	.quad	.Ltmp56-.Lfunc_begin0
+	.quad	.Ltmp57-.Lfunc_begin0
+	.quad	.Ltmp85-.Lfunc_begin0
+	.quad	.Ltmp86-.Lfunc_begin0
+	.quad	.Ltmp87-.Lfunc_begin0
+	.quad	.Ltmp88-.Lfunc_begin0
+	.quad	.Ltmp116-.Lfunc_begin0
+	.quad	.Ltmp117-.Lfunc_begin0
+	.quad	.Ltmp118-.Lfunc_begin0
+	.quad	.Ltmp119-.Lfunc_begin0
+	.quad	.Ltmp147-.Lfunc_begin0
+	.quad	.Ltmp148-.Lfunc_begin0
+	.quad	.Ltmp149-.Lfunc_begin0
+	.quad	.Ltmp150-.Lfunc_begin0
+	.quad	.Ltmp180-.Lfunc_begin0
+	.quad	.Ltmp181-.Lfunc_begin0
+	.quad	.Ltmp182-.Lfunc_begin0
+	.quad	.Ltmp183-.Lfunc_begin0
+	.quad	.Ltmp209-.Lfunc_begin0
+	.quad	.Ltmp210-.Lfunc_begin0
+	.quad	.Ltmp211-.Lfunc_begin0
+	.quad	.Ltmp212-.Lfunc_begin0
+	.quad	.Ltmp241-.Lfunc_begin0
+	.quad	.Ltmp242-.Lfunc_begin0
+	.quad	.Ltmp243-.Lfunc_begin0
+	.quad	.Ltmp244-.Lfunc_begin0
+	.quad	0
+	.quad	0
+.Ldebug_ranges5:
+	.quad	.Ltmp28-.Lfunc_begin0
+	.quad	.Ltmp29-.Lfunc_begin0
+	.quad	.Ltmp30-.Lfunc_begin0
+	.quad	.Ltmp31-.Lfunc_begin0
+	.quad	.Ltmp32-.Lfunc_begin0
+	.quad	.Ltmp33-.Lfunc_begin0
+	.quad	.Ltmp34-.Lfunc_begin0
+	.quad	.Ltmp38-.Lfunc_begin0
+	.quad	.Ltmp59-.Lfunc_begin0
+	.quad	.Ltmp60-.Lfunc_begin0
+	.quad	.Ltmp61-.Lfunc_begin0
+	.quad	.Ltmp62-.Lfunc_begin0
+	.quad	.Ltmp63-.Lfunc_begin0
+	.quad	.Ltmp64-.Lfunc_begin0
+	.quad	.Ltmp65-.Lfunc_begin0
+	.quad	.Ltmp69-.Lfunc_begin0
+	.quad	.Ltmp90-.Lfunc_begin0
+	.quad	.Ltmp91-.Lfunc_begin0
+	.quad	.Ltmp92-.Lfunc_begin0
+	.quad	.Ltmp93-.Lfunc_begin0
+	.quad	.Ltmp94-.Lfunc_begin0
+	.quad	.Ltmp95-.Lfunc_begin0
+	.quad	.Ltmp96-.Lfunc_begin0
+	.quad	.Ltmp100-.Lfunc_begin0
+	.quad	.Ltmp121-.Lfunc_begin0
+	.quad	.Ltmp122-.Lfunc_begin0
+	.quad	.Ltmp123-.Lfunc_begin0
+	.quad	.Ltmp124-.Lfunc_begin0
+	.quad	.Ltmp125-.Lfunc_begin0
+	.quad	.Ltmp126-.Lfunc_begin0
+	.quad	.Ltmp127-.Lfunc_begin0
+	.quad	.Ltmp131-.Lfunc_begin0
+	.quad	.Ltmp152-.Lfunc_begin0
+	.quad	.Ltmp153-.Lfunc_begin0
+	.quad	.Ltmp154-.Lfunc_begin0
+	.quad	.Ltmp155-.Lfunc_begin0
+	.quad	.Ltmp156-.Lfunc_begin0
+	.quad	.Ltmp157-.Lfunc_begin0
+	.quad	.Ltmp159-.Lfunc_begin0
+	.quad	.Ltmp160-.Lfunc_begin0
+	.quad	.Ltmp161-.Lfunc_begin0
+	.quad	.Ltmp165-.Lfunc_begin0
+	.quad	.Ltmp185-.Lfunc_begin0
+	.quad	.Ltmp186-.Lfunc_begin0
+	.quad	.Ltmp187-.Lfunc_begin0
+	.quad	.Ltmp188-.Lfunc_begin0
+	.quad	.Ltmp189-.Lfunc_begin0
+	.quad	.Ltmp193-.Lfunc_begin0
+	.quad	.Ltmp214-.Lfunc_begin0
+	.quad	.Ltmp215-.Lfunc_begin0
+	.quad	.Ltmp216-.Lfunc_begin0
+	.quad	.Ltmp217-.Lfunc_begin0
+	.quad	.Ltmp218-.Lfunc_begin0
+	.quad	.Ltmp221-.Lfunc_begin0
+	.quad	.Ltmp223-.Lfunc_begin0
+	.quad	.Ltmp224-.Lfunc_begin0
+	.quad	.Ltmp226-.Lfunc_begin0
+	.quad	.Ltmp227-.Lfunc_begin0
+	.quad	.Ltmp246-.Lfunc_begin0
+	.quad	.Ltmp247-.Lfunc_begin0
+	.quad	.Ltmp248-.Lfunc_begin0
+	.quad	.Ltmp249-.Lfunc_begin0
+	.quad	.Ltmp250-.Lfunc_begin0
+	.quad	.Ltmp251-.Lfunc_begin0
+	.quad	.Ltmp252-.Lfunc_begin0
+	.quad	.Ltmp256-.Lfunc_begin0
+	.quad	0
+	.quad	0
+.Ldebug_ranges6:
+	.quad	.Ltmp30-.Lfunc_begin0
+	.quad	.Ltmp31-.Lfunc_begin0
+	.quad	.Ltmp32-.Lfunc_begin0
+	.quad	.Ltmp33-.Lfunc_begin0
+	.quad	.Ltmp34-.Lfunc_begin0
+	.quad	.Ltmp35-.Lfunc_begin0
+	.quad	.Ltmp36-.Lfunc_begin0
+	.quad	.Ltmp37-.Lfunc_begin0
+	.quad	.Ltmp61-.Lfunc_begin0
+	.quad	.Ltmp62-.Lfunc_begin0
+	.quad	.Ltmp63-.Lfunc_begin0
+	.quad	.Ltmp64-.Lfunc_begin0
+	.quad	.Ltmp65-.Lfunc_begin0
+	.quad	.Ltmp66-.Lfunc_begin0
+	.quad	.Ltmp67-.Lfunc_begin0
+	.quad	.Ltmp68-.Lfunc_begin0
+	.quad	.Ltmp92-.Lfunc_begin0
+	.quad	.Ltmp93-.Lfunc_begin0
+	.quad	.Ltmp94-.Lfunc_begin0
+	.quad	.Ltmp95-.Lfunc_begin0
+	.quad	.Ltmp96-.Lfunc_begin0
+	.quad	.Ltmp97-.Lfunc_begin0
+	.quad	.Ltmp98-.Lfunc_begin0
+	.quad	.Ltmp99-.Lfunc_begin0
+	.quad	.Ltmp123-.Lfunc_begin0
+	.quad	.Ltmp124-.Lfunc_begin0
+	.quad	.Ltmp125-.Lfunc_begin0
+	.quad	.Ltmp126-.Lfunc_begin0
+	.quad	.Ltmp127-.Lfunc_begin0
+	.quad	.Ltmp128-.Lfunc_begin0
+	.quad	.Ltmp129-.Lfunc_begin0
+	.quad	.Ltmp130-.Lfunc_begin0
+	.quad	.Ltmp154-.Lfunc_begin0
+	.quad	.Ltmp155-.Lfunc_begin0
+	.quad	.Ltmp156-.Lfunc_begin0
+	.quad	.Ltmp157-.Lfunc_begin0
+	.quad	.Ltmp159-.Lfunc_begin0
+	.quad	.Ltmp160-.Lfunc_begin0
+	.quad	.Ltmp161-.Lfunc_begin0
+	.quad	.Ltmp162-.Lfunc_begin0
+	.quad	.Ltmp163-.Lfunc_begin0
+	.quad	.Ltmp164-.Lfunc_begin0
+	.quad	.Ltmp187-.Lfunc_begin0
+	.quad	.Ltmp188-.Lfunc_begin0
+	.quad	.Ltmp189-.Lfunc_begin0
+	.quad	.Ltmp190-.Lfunc_begin0
+	.quad	.Ltmp191-.Lfunc_begin0
+	.quad	.Ltmp192-.Lfunc_begin0
+	.quad	.Ltmp216-.Lfunc_begin0
+	.quad	.Ltmp217-.Lfunc_begin0
+	.quad	.Ltmp218-.Lfunc_begin0
+	.quad	.Ltmp219-.Lfunc_begin0
+	.quad	.Ltmp220-.Lfunc_begin0
+	.quad	.Ltmp221-.Lfunc_begin0
+	.quad	.Ltmp223-.Lfunc_begin0
+	.quad	.Ltmp224-.Lfunc_begin0
+	.quad	.Ltmp248-.Lfunc_begin0
+	.quad	.Ltmp249-.Lfunc_begin0
+	.quad	.Ltmp250-.Lfunc_begin0
+	.quad	.Ltmp251-.Lfunc_begin0
+	.quad	.Ltmp252-.Lfunc_begin0
+	.quad	.Ltmp253-.Lfunc_begin0
+	.quad	.Ltmp254-.Lfunc_begin0
+	.quad	.Ltmp255-.Lfunc_begin0
+	.quad	0
+	.quad	0
+.Ldebug_ranges7:
+	.quad	.Ltmp257-.Lfunc_begin0
+	.quad	.Ltmp258-.Lfunc_begin0
+	.quad	.Ltmp259-.Lfunc_begin0
+	.quad	.Ltmp261-.Lfunc_begin0
+	.quad	.Ltmp262-.Lfunc_begin0
+	.quad	.Ltmp266-.Lfunc_begin0
+	.quad	0
+	.quad	0
+.Ldebug_ranges8:
+	.quad	.Ltmp259-.Lfunc_begin0
+	.quad	.Ltmp260-.Lfunc_begin0
+	.quad	.Ltmp263-.Lfunc_begin0
+	.quad	.Ltmp264-.Lfunc_begin0
+	.quad	.Ltmp265-.Lfunc_begin0
+	.quad	.Ltmp266-.Lfunc_begin0
+	.quad	0
+	.quad	0
+	.section	.debug_str,"MS",@progbits,1
+.Linfo_string0:
+	.asciz	"triton"                        ; string offset=0 ; triton
+.Linfo_string1:
+	.asciz	"moe_fused_gate.py"             ; string offset=7 ; moe_fused_gate.py
+.Linfo_string2:
+	.asciz	"/sglang/python/sglang/kernels/ops/moe" ; string offset=25 ; /sglang/python/sglang/kernels/ops/moe
+.Linfo_string3:
+	.asciz	"_router_triton_kernel"         ; string offset=63 ; _router_triton_kernel
+	.section	".note.GNU-stack","",@progbits
+	.amdgpu_metadata
+---
+amdhsa.kernels:
+  - .agpr_count:     0
+    .args:
+      - .address_space:  global
+        .offset:         0
+        .size:           8
+        .value_kind:     global_buffer
+      - .address_space:  global
+        .offset:         8
+        .size:           8
+        .value_kind:     global_buffer
+      - .address_space:  global
+        .offset:         16
+        .size:           8
+        .value_kind:     global_buffer
+      - .address_space:  global
+        .offset:         24
+        .size:           8
+        .value_kind:     global_buffer
+      - .offset:         32
+        .size:           4
+        .value_kind:     by_value
+      - .offset:         36
+        .size:           4
+        .value_kind:     by_value
+      - .offset:         40
+        .size:           4
+        .value_kind:     by_value
+      - .offset:         44
+        .size:           4
+        .value_kind:     by_value
+      - .offset:         48
+        .size:           4
+        .value_kind:     by_value
+      - .address_space:  global
+        .offset:         56
+        .size:           8
+        .value_kind:     global_buffer
+      - .address_space:  global
+        .offset:         64
+        .size:           8
+        .value_kind:     global_buffer
+    .group_segment_fixed_size: 0
+    .kernarg_segment_align: 8
+    .kernarg_segment_size: 72
+    .max_flat_workgroup_size: 64
+    .name:           _router_triton_kernel
+    .private_segment_fixed_size: 0
+    .sgpr_count:     38
+    .sgpr_spill_count: 0
+    .symbol:         _router_triton_kernel.kd
+    .uniform_work_group_size: 1
+    .uses_dynamic_stack: false
+    .vgpr_count:     31
+    .vgpr_spill_count: 0
+    .wavefront_size: 64
+amdhsa.target:   amdgcn-amd-amdhsa--gfx950
+amdhsa.version:
+  - 1
+  - 2
+...
+
+	.end_amdgpu_metadata
+	.section	.debug_line,"",@progbits
+.Lline_table_start0:

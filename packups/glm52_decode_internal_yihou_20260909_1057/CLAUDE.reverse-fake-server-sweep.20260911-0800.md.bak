@@ -1,0 +1,28 @@
+# Task: reverse-validate the internal sweep with a fake-input decode server
+
+## Goal
+Run TP4/EP4, global concurrency 4/8/16/20/24, DPA off/on, ISL70000/OSL10000, simulated acceptance3.61 using the reference fake-input server method. Compare native client mean/P50/P90 TPOT and output throughput with the sealed internal sweep. User explicitly stopped eager/graph numerical investigation; leave it unresolved and do not resume.
+
+## Latest user decision: DPA-on paused
+User explicitly said to leave DPA-on alone for now. Do not investigate, restart, or seek replacement resources for DPA-on. Complete only the five DPA-off points on existing131080/node271: AllfiveDPAoffpointsCOMPLETEDandverified128success/exactlengths;finalshellb1qram9my exit0,ownfinalserverstoppedexit0 at12:09:23Z. Authoritativereport comparisons/reverse_fake_server_sweep_yihou_20260910-0837/results/dpa_off_report_yihou.md anddpa_off_final_yihou.csv. TPOTgapsC4+23.74%,C8+22.53%,C16+0.49%,C20-0.71%,C24-0.95%;C20startupmemoryconfoundretained. Reminder02ab19ee cancelled. Noactivebenchmark;do not restart oldtasks. Seven-minute polling must follow this narrowed scope. Older DPA-on plans below are historical and superseded.
+
+## Latest user correction
+Use the supplied packup launch.sh and bench.sh directly; only change workload/topology and destination/container/port parameters. Do not write a new launcher/validation framework. The extra run_point/run_remaining/collector/test scripts are retained but inactive. Initial off/C16 was externally killed,not a validmeasurement. Active original-script shell loops: boaxyar8h on271/job131080(DPAoff remainingC8/20/24/4 retry4;retry3blockedbyATOM8GPUtask,C16retry1completed,C4retry2interrupted137 at10:03:42Z),215/job131219 CANCELLED as verified10:21Z; bhtc8zr1b exited255,diagnostic invalid,no finalmetrics. Do not exec cancelled215job. Userhold131749/node266 discovered but not yet coordinated; noGPUoperations there until ownership resolved. Only271offloopboaxyar8h currentlyrunning,each C16,4,8,20,24. Prior br8sfihuk stopped after warmup stalled; retain evidence and do not claim rootcause. DPAon retry3 rounds original_on_c{C}_lmhead_off_retry3_yihou,containers yihou-reverse-on-c{C}-r3. Containers yihou-reverse-{off,on}-c{C}-r1; rounds original_{off,on}_c{C}_retry1_yihou. User explicitly requires continuous autonomous progress with7minpolling; recover authorized resourceconflicts without waiting for furtherconfirmation.
+
+## Background and plan
+Use the fixed image and three original fake-server overlays unchanged. Keep native rolling admission,128 measured requests and16 warmup requests with output32. Start with off/C16, validate artifacts, then run remaining points. Capture per-request lengths,realized acceptance,actual topology,backend fallback and startup/measurement boundaries. Performance agreement is not semantic correctness or real P-to-D validation.
+
+## Workspace
+All new code and results belong in comparisons/reverse_fake_server_sweep_yihou_20260910-0837/. Do not change the internal benchmark or old packups. Previous CLAUDE saved as CLAUDE.fake-server-comparison.20260910-0837.md.bak. Git HEAD at setup4b2b3bc; preserve dirty changes. No commit/push. English files,Chinese reports.
+
+## References
+- Internal baseline: /home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/packups/glm52_tp4_ep4_dpa_sweep_yihou.packup_20260910-062400
+- Server method: /shared_nfs/yihou/packups/glm52_fake_tp4ep4_10k500_c16_c32.packup_20260910-055810
+- Image sha256:b9a83742f631d7321c6b75aceb031a8b347c70f97c62ef8c62370c686853de7d;SGLang402df1e1e453e1e85ec0f5ac4052d36598cc691a;AITER2c71811b32c8ce2e1266aedaec199df7d90f597d.
+- Model /shared_nfs/models/GLM-5.2-MXFP4 (read-only).
+
+## Resource and safety
+User now assigns both existing allocations131080/node271 and131219/node215 to this task. Verify owner/state/node. No allocation requests/cancellation; no249/234/036 operations. Explicit authorization: inspect exactidentity then stop conflicting non-our-party GPUworkloads,including ordinary CI GPUtasks; do not stop system/clustercollector/daemon services. Do not stall waiting for user on already-authorizedcleanup. New unique yihou containers; retain stoppedcontainers andallfiles. Preserve ourparty work. Do not replay reference cleanup commands. Four GPUs0-3; inspect usage before launch. All runtime writes in dedicated workspace or disposable container layers,not other projects.
+
+## Evidence discipline
+One independent source-research teammate determines DPA server admission/graph semantics;leader implements and verifies harness. No agents to verify leader work. Check global vs local concurrency from exact source and resolvedserver-info. Report refill/tail effect for128/C20,C24. Keep outliers. Do not tune numbers into agreement. No further numerical-path debugging.

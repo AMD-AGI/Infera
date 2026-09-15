@@ -1,0 +1,50 @@
+--- /home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/scripts/run_decode.sh	2026-09-10 05:01:59.469489196 +0000
++++ /home/yihou/dev/git/infera.dev.yihou.sglang.bench.fast.script/packups/glm52_tp4_highconc_ep_sweep_yihou.packup_20260914-0800/scripts/run_decode_env_yihou.sh	2026-09-14 05:06:53.583010391 +0000
+@@ -1,11 +1,19 @@
+ #!/usr/bin/env bash
++# Copy of ../../../scripts/run_decode.sh with ONE addition: DOCKER_ENV entries are
++# injected into the `docker exec` as -e NAME=VALUE. Everything else -- the allocation
++# check, the node denylist, the image-digest and owner re-assertion, the code/hash/git
++# snapshot and launch_status.json -- is byte-for-byte the same behaviour.
++#
++# Why a copy and not an edit of the shared script: the shared run_decode.sh is part of
++# the audited harness referenced by a published packup, and bash reads a script
++# incrementally, so editing it while a sweep is mid-flight can corrupt a running point.
+ set -euo pipefail
+-ROOT=$(cd "$(dirname "$0")/.." && pwd)
++ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
+ IMAGE=sha256:b9a83742f631d7321c6b75aceb031a8b347c70f97c62ef8c62370c686853de7d
+ DRY_RUN=0
+ if [[ "${1:-}" == --dry-run ]]; then DRY_RUN=1; shift; fi
+ if [[ $# -lt 1 ]]; then
+-    printf 'Usage: JOB_ID=... NODE=... CONTAINER=... bash %s [--dry-run] ITERATION [benchmark arguments...]\n' "$0" >&2
++    printf 'Usage: JOB_ID=... NODE=... CONTAINER=... [DOCKER_ENV="A=1 B=2"] bash %s [--dry-run] ITERATION [args...]\n' "$0" >&2
+     exit 2
+ fi
+ ITERATION=$1
+@@ -16,11 +24,16 @@
+ : "${JOB_ID:?Set an existing authorized JOB_ID}" "${NODE:?Set its NODE}" "${CONTAINER:?Set the owned CONTAINER}"
+ [[ "$JOB_ID" =~ ^[0-9]+$ && "$NODE" =~ ^crsuse2-m2m-[0-9]+$ && "$CONTAINER" =~ ^yihou-[A-Za-z0-9_-]+$ ]] || exit 2
+ case "$NODE" in crsuse2-m2m-234|crsuse2-m2m-036|crsuse2-m2m-249) printf 'Forbidden or peer-owned node: %s\n' "$NODE" >&2; exit 2;; esac
++ENV_FLAGS=()
++for entry in ${DOCKER_ENV:-}; do
++    [[ "$entry" =~ ^[A-Za-z_][A-Za-z0-9_]*=[A-Za-z0-9_,:.=-]+$ ]] || { printf 'Rejecting DOCKER_ENV entry: %s\n' "$entry" >&2; exit 2; }
++    ENV_FLAGS+=(-e "$entry")
++done
+ OUT="${OUTPUT_ROOT:-$ROOT/iterations}/$ITERATION"
+ INNER=(python3 "$ROOT/bench/profile_decode.py" --model-path /shared_nfs/models/GLM-5.2-MXFP4 --result-dir "$OUT" "$@")
+ printf -v INNER_CMD '%q ' "${INNER[@]}"
+ printf -v LIVE_LOG '%q' "$OUT/runtime.log"
+-CMD=(docker exec -w / "$CONTAINER" bash -lc "set -o pipefail; $INNER_CMD 2>&1 | tee $LIVE_LOG")
++CMD=(docker exec -w / "${ENV_FLAGS[@]}" "$CONTAINER" bash -lc "set -o pipefail; $INNER_CMD 2>&1 | tee $LIVE_LOG")
+ if [[ "$DRY_RUN" == 1 ]]; then
+     printf 'Existing allocation: %s; required node: %s\nBenchmark command: %s\n' "$JOB_ID" "$NODE" "$INNER_CMD"
+     printf '%q ' "${CMD[@]}"; printf '\n'; exit 0
+@@ -30,6 +43,7 @@
+ [[ ! -e "$OUT" ]] || { printf 'Refusing existing iteration: %s\n' "$OUT" >&2; exit 1; }
+ mkdir -p "$OUT"
+ printf '%q ' "${CMD[@]}" > "$OUT/command.txt"; printf '\n' >> "$OUT/command.txt"
++printf '%s\n' "${DOCKER_ENV:-}" > "$OUT/docker_env_yihou.txt"
+ git -C "$ROOT" rev-parse HEAD > "$OUT/git_head.txt"
+ git -C "$ROOT" diff --binary > "$OUT/code.diff"
+ sha256sum "$ROOT"/bench/*.py > "$OUT/code_hashes.sha256"

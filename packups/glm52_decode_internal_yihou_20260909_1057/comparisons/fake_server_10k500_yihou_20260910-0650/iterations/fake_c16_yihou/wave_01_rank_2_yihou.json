@@ -1,0 +1,72 @@
+{
+  "complete": true,
+  "batch_size": 16,
+  "input_len": 10000,
+  "output_len": 499,
+  "emitted_per_request": [
+    499,
+    499,
+    499,
+    499,
+    499,
+    499,
+    499,
+    499,
+    499,
+    499,
+    499,
+    499,
+    499,
+    499,
+    499,
+    499
+  ],
+  "final_seq_lens": [
+    10499,
+    10499,
+    10499,
+    10499,
+    10499,
+    10499,
+    10499,
+    10499,
+    10499,
+    10499,
+    10499,
+    10499,
+    10499,
+    10499,
+    10499,
+    10499
+  ],
+  "verify_iterations": 140,
+  "useful_output_tokens": 7984,
+  "raw_accept_tokens": 8016,
+  "num_correct_drafts": 5776,
+  "terminal_extra_tokens": 32,
+  "realized_accept_length": 3.5785714285714287,
+  "accept_histogram": {
+    "3": 944,
+    "4": 1296
+  },
+  "elapsed_seconds": 4.489280508831143,
+  "output_tokens_per_second": 1778.4587049738095,
+  "effective_token_latency_ms_per_user": 8.996554125914114,
+  "wave": 1,
+  "output_tokens": 8000,
+  "decode_tokens": 7984,
+  "handoff_tokens": 16,
+  "seconds": 4.489280508831143,
+  "setup_seconds": 0.029667694121599197,
+  "graph_execution_counts": {
+    "target": 140,
+    "draft": 139,
+    "draft_extend": 140
+  },
+  "memory": {
+    "reserved_tokens": 168960,
+    "reserved_tokens_per_request": 10560,
+    "page_size": 64,
+    "speculative_reserve": 12
+  }
+}

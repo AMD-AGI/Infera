@@ -1,0 +1,269 @@
+	.amdgcn_target "amdgcn-amd-amdhsa--gfx950"
+	.amdhsa_code_object_version 5
+	.text
+	.globl	_vocab_parallel_embedding_kernel ; -- Begin function _vocab_parallel_embedding_kernel
+	.p2align	8
+	.type	_vocab_parallel_embedding_kernel,@function
+_vocab_parallel_embedding_kernel:       ; @_vocab_parallel_embedding_kernel
+.Lfunc_begin0:
+	.cfi_sections .debug_frame
+	.cfi_startproc
+; %bb.1:
+	.file	1 "/sglang/python/sglang/kernels/ops/embeddings" "vocab_parallel_embedding.py"
+	.loc	1 9 0 prologue_end              ; vocab_parallel_embedding.py:9:0
+	s_load_dwordx2 s[2:3], s[0:1], 0x0
+	s_load_dwordx8 s[4:11], s[0:1], 0x8
+	s_waitcnt lgkmcnt(0)
+	s_branch .LBB0_0
+	.loc	1 0 0 is_stmt 0                 ; :0:0
+.Ltmp0:
+	.p2align	8
+; %bb.2:
+.LBB0_0:
+.Ltmp1:
+	.loc	1 29 34 is_stmt 1               ; vocab_parallel_embedding.py:29:34
+	v_readfirstlane_b32 s0, v0
+	.loc	1 53 5                          ; vocab_parallel_embedding.py:53:5
+	s_and_b32 s0, s0, 0x1c0
+	.loc	1 29 12                         ; vocab_parallel_embedding.py:29:12
+	s_lshl_b32 s10, s13, 10
+	.loc	1 32 13                         ; vocab_parallel_embedding.py:32:13
+	s_ashr_i32 s13, s12, 31
+	.loc	1 29 34                         ; vocab_parallel_embedding.py:29:34
+	v_and_or_b32 v0, v0, 63, s0
+	.loc	1 32 13                         ; vocab_parallel_embedding.py:32:13
+	s_lshl_b64 s[0:1], s[12:13], 3
+	s_add_u32 s0, s2, s0
+	s_addc_u32 s1, s3, s1
+	s_mov_b64 s[8:9], s[6:7]
+	s_load_dwordx2 s[6:7], s[0:1], 0x0
+	.loc	1 29 34                         ; vocab_parallel_embedding.py:29:34
+	v_lshlrev_b32_e32 v2, 1, v0
+	.loc	1 29 12 is_stmt 0               ; vocab_parallel_embedding.py:29:12
+	v_or_b32_e32 v3, s10, v2
+	s_movk_i32 s0, 0x1800
+	.loc	1 33 22 is_stmt 1               ; vocab_parallel_embedding.py:33:22
+	v_mov_b64_e32 v[0:1], 0x9740
+	.loc	1 30 16                         ; vocab_parallel_embedding.py:30:16
+	v_cmp_gt_i32_e32 vcc, s0, v3
+	.loc	1 33 22                         ; vocab_parallel_embedding.py:33:22
+	s_waitcnt lgkmcnt(0)
+	v_cmp_lt_u64_e64 s[0:1], s[6:7], v[0:1]
+	.loc	1 50 14                         ; vocab_parallel_embedding.py:50:14
+	s_and_b64 s[2:3], s[0:1], vcc
+	.loc	1 49 9                          ; vocab_parallel_embedding.py:49:9
+	s_mulk_i32 s6, 0x1800
+	.loc	1 47 16                         ; vocab_parallel_embedding.py:47:16
+	s_and_b64 s[0:1], s[0:1], exec
+	s_cselect_b32 s0, s6, 0
+	.loc	1 48 12                         ; vocab_parallel_embedding.py:48:12
+	v_bfrev_b32_e32 v4, 1
+	v_add_lshl_u32 v0, v3, s0, 1
+	s_and_b32 s5, s5, 0xffff
+	s_mov_b32 s7, 0x27000
+	s_mov_b32 s6, 0x7ffffffe
+	v_cndmask_b32_e64 v0, v4, v0, s[2:3]
+	buffer_load_dword v1, v0, s[4:7], 0 offen
+	.loc	1 53 24                         ; vocab_parallel_embedding.py:53:24
+	s_mul_i32 s0, s12, 0x1800
+	.loc	1 53 14 is_stmt 0               ; vocab_parallel_embedding.py:53:14
+	s_add_i32 s10, s10, s0
+	v_or_b32_e32 v0, s10, v2
+	.loc	1 53 5                          ; vocab_parallel_embedding.py:53:5
+	v_lshlrev_b32_e32 v0, 1, v0
+	s_and_b32 s9, s9, 0xffff
+	s_mov_b32 s10, s6
+	s_mov_b32 s11, s7
+	v_cndmask_b32_e32 v0, v4, v0, vcc
+	s_waitcnt vmcnt(0)
+	buffer_store_dword v1, v0, s[8:11], 0 offen
+	.loc	1 9 1 is_stmt 1                 ; vocab_parallel_embedding.py:9:1
+	s_endpgm
+.Ltmp2:
+	.section	.rodata,"a",@progbits
+	.p2align	6, 0x0
+	.amdhsa_kernel _vocab_parallel_embedding_kernel
+		.amdhsa_group_segment_fixed_size 0
+		.amdhsa_private_segment_fixed_size 0
+		.amdhsa_kernarg_size 40
+		.amdhsa_user_sgpr_count 12
+		.amdhsa_user_sgpr_dispatch_ptr 0
+		.amdhsa_user_sgpr_queue_ptr 0
+		.amdhsa_user_sgpr_kernarg_segment_ptr 1
+		.amdhsa_user_sgpr_dispatch_id 0
+		.amdhsa_user_sgpr_kernarg_preload_length 10
+		.amdhsa_user_sgpr_kernarg_preload_offset 0
+		.amdhsa_user_sgpr_private_segment_size 0
+		.amdhsa_uses_dynamic_stack 0
+		.amdhsa_enable_private_segment 0
+		.amdhsa_system_sgpr_workgroup_id_x 1
+		.amdhsa_system_sgpr_workgroup_id_y 1
+		.amdhsa_system_sgpr_workgroup_id_z 0
+		.amdhsa_system_sgpr_workgroup_info 0
+		.amdhsa_system_vgpr_workitem_id 0
+		.amdhsa_next_free_vgpr 5
+		.amdhsa_next_free_sgpr 14
+		.amdhsa_accum_offset 8
+		.amdhsa_reserve_vcc 1
+		.amdhsa_reserve_xnack_mask 1
+		.amdhsa_float_round_mode_32 0
+		.amdhsa_float_round_mode_16_64 0
+		.amdhsa_float_denorm_mode_32 3
+		.amdhsa_float_denorm_mode_16_64 3
+		.amdhsa_dx10_clamp 1
+		.amdhsa_ieee_mode 1
+		.amdhsa_fp16_overflow 0
+		.amdhsa_tg_split 0
+		.amdhsa_exception_fp_ieee_invalid_op 0
+		.amdhsa_exception_fp_denorm_src 0
+		.amdhsa_exception_fp_ieee_div_zero 0
+		.amdhsa_exception_fp_ieee_overflow 0
+		.amdhsa_exception_fp_ieee_underflow 0
+		.amdhsa_exception_fp_ieee_inexact 0
+		.amdhsa_exception_int_div_zero 0
+	.end_amdhsa_kernel
+	.text
+.Lfunc_end0:
+	.size	_vocab_parallel_embedding_kernel, .Lfunc_end0-_vocab_parallel_embedding_kernel
+	.cfi_endproc
+                                        ; -- End function
+	.set _vocab_parallel_embedding_kernel.num_vgpr, 5
+	.set _vocab_parallel_embedding_kernel.num_agpr, 0
+	.set _vocab_parallel_embedding_kernel.numbered_sgpr, 14
+	.set _vocab_parallel_embedding_kernel.num_named_barrier, 0
+	.set _vocab_parallel_embedding_kernel.private_seg_size, 0
+	.set _vocab_parallel_embedding_kernel.uses_vcc, 1
+	.set _vocab_parallel_embedding_kernel.uses_flat_scratch, 0
+	.set _vocab_parallel_embedding_kernel.has_dyn_sized_stack, 0
+	.set _vocab_parallel_embedding_kernel.has_recursion, 0
+	.set _vocab_parallel_embedding_kernel.has_indirect_call, 0
+	.section	.AMDGPU.csdata,"",@progbits
+; Kernel info:
+; codeLenInByte = 468
+; TotalNumSgprs: 20
+; NumVgprs: 5
+; NumAgprs: 0
+; TotalNumVgprs: 5
+; ScratchSize: 0
+; MemoryBound: 0
+; FloatMode: 240
+; IeeeMode: 1
+; LDSByteSize: 0 bytes/workgroup (compile time only)
+; SGPRBlocks: 2
+; VGPRBlocks: 0
+; NumSGPRsForWavesPerEU: 20
+; NumVGPRsForWavesPerEU: 5
+; AccumOffset: 8
+; Occupancy: 8
+; WaveLimiterHint : 0
+; COMPUTE_PGM_RSRC2:SCRATCH_EN: 0
+; COMPUTE_PGM_RSRC2:USER_SGPR: 12
+; COMPUTE_PGM_RSRC2:TRAP_HANDLER: 0
+; COMPUTE_PGM_RSRC2:TGID_X_EN: 1
+; COMPUTE_PGM_RSRC2:TGID_Y_EN: 1
+; COMPUTE_PGM_RSRC2:TGID_Z_EN: 0
+; COMPUTE_PGM_RSRC2:TIDIG_COMP_CNT: 0
+; COMPUTE_PGM_RSRC3_GFX90A:ACCUM_OFFSET: 1
+; COMPUTE_PGM_RSRC3_GFX90A:TG_SPLIT: 0
+	.text
+	.p2alignl 6, 3212836864
+	.fill 256, 4, 3212836864
+	.section	.AMDGPU.gpr_maximums,"",@progbits
+	.set amdgpu.max_num_vgpr, 0
+	.set amdgpu.max_num_agpr, 0
+	.set amdgpu.max_num_sgpr, 0
+	.set amdgpu.max_num_named_barrier, 0
+	.text
+	.section	.debug_abbrev,"",@progbits
+	.byte	1                               ; Abbreviation Code
+	.byte	17                              ; DW_TAG_compile_unit
+	.byte	0                               ; DW_CHILDREN_no
+	.byte	37                              ; DW_AT_producer
+	.byte	14                              ; DW_FORM_strp
+	.byte	19                              ; DW_AT_language
+	.byte	5                               ; DW_FORM_data2
+	.byte	3                               ; DW_AT_name
+	.byte	14                              ; DW_FORM_strp
+	.byte	16                              ; DW_AT_stmt_list
+	.byte	23                              ; DW_FORM_sec_offset
+	.byte	27                              ; DW_AT_comp_dir
+	.byte	14                              ; DW_FORM_strp
+	.byte	17                              ; DW_AT_low_pc
+	.byte	1                               ; DW_FORM_addr
+	.byte	18                              ; DW_AT_high_pc
+	.byte	6                               ; DW_FORM_data4
+	.byte	0                               ; EOM(1)
+	.byte	0                               ; EOM(2)
+	.byte	0                               ; EOM(3)
+	.section	.debug_info,"",@progbits
+.Lcu_begin0:
+	.long	.Ldebug_info_end0-.Ldebug_info_start0 ; Length of Unit
+.Ldebug_info_start0:
+	.short	4                               ; DWARF version number
+	.long	.debug_abbrev                   ; Offset Into Abbrev. Section
+	.byte	8                               ; Address Size (in bytes)
+	.byte	1                               ; Abbrev [1] 0xb:0x1f DW_TAG_compile_unit
+	.long	.Linfo_string0                  ; DW_AT_producer
+	.short	2                               ; DW_AT_language
+	.long	.Linfo_string1                  ; DW_AT_name
+	.long	.Lline_table_start0             ; DW_AT_stmt_list
+	.long	.Linfo_string2                  ; DW_AT_comp_dir
+	.quad	.Lfunc_begin0                   ; DW_AT_low_pc
+	.long	.Lfunc_end0-.Lfunc_begin0       ; DW_AT_high_pc
+.Ldebug_info_end0:
+	.section	.debug_str,"MS",@progbits,1
+.Linfo_string0:
+	.asciz	"triton"                        ; string offset=0 ; triton
+.Linfo_string1:
+	.asciz	"vocab_parallel_embedding.py"   ; string offset=7 ; vocab_parallel_embedding.py
+.Linfo_string2:
+	.asciz	"/sglang/python/sglang/kernels/ops/embeddings" ; string offset=35 ; /sglang/python/sglang/kernels/ops/embeddings
+	.section	".note.GNU-stack","",@progbits
+	.amdgpu_metadata
+---
+amdhsa.kernels:
+  - .agpr_count:     0
+    .args:
+      - .address_space:  global
+        .offset:         0
+        .size:           8
+        .value_kind:     global_buffer
+      - .address_space:  global
+        .offset:         8
+        .size:           8
+        .value_kind:     global_buffer
+      - .address_space:  global
+        .offset:         16
+        .size:           8
+        .value_kind:     global_buffer
+      - .address_space:  global
+        .offset:         24
+        .size:           8
+        .value_kind:     global_buffer
+      - .address_space:  global
+        .offset:         32
+        .size:           8
+        .value_kind:     global_buffer
+    .group_segment_fixed_size: 0
+    .kernarg_segment_align: 8
+    .kernarg_segment_size: 40
+    .max_flat_workgroup_size: 512
+    .name:           _vocab_parallel_embedding_kernel
+    .private_segment_fixed_size: 0
+    .sgpr_count:     20
+    .sgpr_spill_count: 0
+    .symbol:         _vocab_parallel_embedding_kernel.kd
+    .uniform_work_group_size: 1
+    .uses_dynamic_stack: false
+    .vgpr_count:     5
+    .vgpr_spill_count: 0
+    .wavefront_size: 64
+amdhsa.target:   amdgcn-amd-amdhsa--gfx950
+amdhsa.version:
+  - 1
+  - 2
+...
+
+	.end_amdgpu_metadata
+	.section	.debug_line,"",@progbits
+.Lline_table_start0:

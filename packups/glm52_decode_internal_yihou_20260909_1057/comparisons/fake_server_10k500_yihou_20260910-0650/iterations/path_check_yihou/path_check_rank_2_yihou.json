@@ -1,0 +1,30 @@
+[
+  {
+    "graph_target_used": true,
+    "eager_target_used": false,
+    "accept_lens_equal": true,
+    "new_seq_lens_equal": true,
+    "bonus_tokens_equal": false,
+    "topk_index_equal": false,
+    "hidden_states_finite": true,
+    "hidden_states_max_abs_diff": 11.3125,
+    "hidden_states_relative_l2": 0.8065838813781738,
+    "topk_p_finite": true,
+    "topk_p_max_abs_diff": 0.8849174976348877,
+    "topk_p_relative_l2": 0.9410516023635864
+  },
+  {
+    "graph_target_used": true,
+    "eager_target_used": false,
+    "accept_lens_equal": true,
+    "new_seq_lens_equal": true,
+    "bonus_tokens_equal": false,
+    "topk_index_equal": false,
+    "hidden_states_finite": true,
+    "hidden_states_max_abs_diff": 27.46875,
+    "hidden_states_relative_l2": 1.0486900806427002,
+    "topk_p_finite": true,
+    "topk_p_max_abs_diff": 0.8291870951652527,
+    "topk_p_relative_l2": 1.1369730234146118
+  }
+]

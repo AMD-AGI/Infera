@@ -1,0 +1,19 @@
+#blocked = #ttg.blocked<{sizePerThread = [1], threadsPerWarp = [64], warpsPerCTA = [2], order = [0]}>
+#loc = loc("/torch-cache/cj/ccji5zhcgcyw635n7fek7wa5sj23kqpcx667qxq43ahhxzr4e4js.py":18:1)
+#loc5 = loc("in_ptr0"(#loc))
+#loc6 = loc("out_ptr0"(#loc))
+module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 2 : i32, ttg.target = "hip:gfx950", "ttg.threads-per-warp" = 64 : i32} {
+  tt.func public @triton_poi_fused_gather_max_view_1(%in_ptr0: !tt.ptr<i64> {tt.divisibility = 16 : i32} loc("in_ptr0"(#loc)), %out_ptr0: !tt.ptr<i64> {tt.divisibility = 16 : i32} loc("out_ptr0"(#loc))) attributes {noinline = false} {
+    %tmp0 = tt.load %in_ptr0 : !tt.ptr<i64> loc(#loc7)
+    %tmp1 = tt.splat %tmp0 : i64 -> tensor<1xi64, #blocked> loc(#loc8)
+    %0 = tt.splat %out_ptr0 : !tt.ptr<i64> -> tensor<1x!tt.ptr<i64>, #blocked> loc(#loc3)
+    tt.store %0, %tmp1 : tensor<1x!tt.ptr<i64>, #blocked> loc(#loc4)
+    tt.return loc(#loc)
+  } loc(#loc)
+} loc(#loc)
+#loc1 = loc("/torch-cache/cj/ccji5zhcgcyw635n7fek7wa5sj23kqpcx667qxq43ahhxzr4e4js.py":23:12)
+#loc2 = loc("/torch-cache/cj/ccji5zhcgcyw635n7fek7wa5sj23kqpcx667qxq43ahhxzr4e4js.py":24:12)
+#loc3 = loc("/torch-cache/cj/ccji5zhcgcyw635n7fek7wa5sj23kqpcx667qxq43ahhxzr4e4js.py":25:14)
+#loc4 = loc("/torch-cache/cj/ccji5zhcgcyw635n7fek7wa5sj23kqpcx667qxq43ahhxzr4e4js.py":25:5)
+#loc7 = loc("tmp0"(#loc1))
+#loc8 = loc("tmp1"(#loc2))

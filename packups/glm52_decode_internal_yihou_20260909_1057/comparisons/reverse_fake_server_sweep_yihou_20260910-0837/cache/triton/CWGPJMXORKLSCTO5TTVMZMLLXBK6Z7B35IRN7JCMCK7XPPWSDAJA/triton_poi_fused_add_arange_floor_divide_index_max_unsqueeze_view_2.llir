@@ -1,0 +1,374 @@
+; ModuleID = 'LLVMDialectModule'
+source_filename = "LLVMDialectModule"
+target datalayout = "e-m:e-p:64:64-p1:64:64-p2:32:32-p3:32:32-p4:64:64-p5:32:32-p6:32:32-p7:160:256:256:32-p8:128:128:128:48-p9:192:256:256:32-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-v2048:2048-n32:64-S32-A5-G1-ni:7:8:9"
+target triple = "amdgcn-amd-amdhsa"
+
+; Function Attrs: mustprogress nofree norecurse nounwind willreturn memory(argmem: readwrite)
+define amdgpu_kernel void @triton_poi_fused_add_arange_floor_divide_index_max_unsqueeze_view_2(ptr addrspace(1) inreg readonly captures(none) %0, ptr addrspace(1) inreg writeonly captures(none) %1, i32 inreg %2, ptr addrspace(1) inreg readnone captures(none) %3, ptr addrspace(1) inreg readnone captures(none) %4) local_unnamed_addr #0 !dbg !4 {
+  %6 = tail call i32 @llvm.amdgcn.workitem.id.x(), !dbg !10
+  %7 = tail call i32 @llvm.amdgcn.readfirstlane.i32(i32 %6), !dbg !11
+  %8 = and i32 %7, 192, !dbg !10
+  %9 = tail call i32 @llvm.amdgcn.workgroup.id.x(), !dbg !12
+  %10 = shl i32 %9, 12, !dbg !12
+  %11 = and i32 %6, 63, !dbg !11
+  %12 = or disjoint i32 %8, %11, !dbg !11
+  %13 = shl nuw nsw i32 %12, 3, !dbg !11
+  %14 = or disjoint i32 %13, %10, !dbg !13
+  %15 = or disjoint i32 %14, 1, !dbg !13
+  %16 = or disjoint i32 %14, 2, !dbg !13
+  %17 = or disjoint i32 %14, 3, !dbg !13
+  %18 = or disjoint i32 %14, 4, !dbg !13
+  %19 = or disjoint i32 %14, 5, !dbg !13
+  %20 = or disjoint i32 %14, 6, !dbg !13
+  %21 = or disjoint i32 %14, 7, !dbg !13
+  %22 = or disjoint i32 %14, 2048, !dbg !13
+  %23 = or disjoint i32 %14, 2049, !dbg !13
+  %24 = or disjoint i32 %14, 2050, !dbg !13
+  %25 = or disjoint i32 %14, 2051, !dbg !13
+  %26 = or disjoint i32 %14, 2052, !dbg !13
+  %27 = or disjoint i32 %14, 2053, !dbg !13
+  %28 = or disjoint i32 %14, 2054, !dbg !13
+  %29 = or disjoint i32 %14, 2055, !dbg !13
+  %30 = icmp slt i32 %14, %2, !dbg !14
+  %31 = icmp slt i32 %15, %2, !dbg !14
+  %32 = icmp slt i32 %16, %2, !dbg !14
+  %33 = icmp slt i32 %17, %2, !dbg !14
+  %34 = icmp slt i32 %18, %2, !dbg !14
+  %35 = icmp slt i32 %19, %2, !dbg !14
+  %36 = icmp slt i32 %20, %2, !dbg !14
+  %37 = icmp slt i32 %21, %2, !dbg !14
+  %38 = icmp slt i32 %22, %2, !dbg !14
+  %39 = icmp slt i32 %23, %2, !dbg !14
+  %40 = icmp slt i32 %24, %2, !dbg !14
+  %41 = icmp slt i32 %25, %2, !dbg !14
+  %42 = icmp slt i32 %26, %2, !dbg !14
+  %43 = icmp slt i32 %27, %2, !dbg !14
+  %44 = icmp slt i32 %28, %2, !dbg !14
+  %45 = icmp slt i32 %29, %2, !dbg !14
+  %46 = sext i32 %15 to i64, !dbg !15
+  %47 = getelementptr [2 x i8], ptr addrspace(1) %0, i64 %46, !dbg !15
+  %48 = sext i32 %16 to i64, !dbg !15
+  %49 = getelementptr [2 x i8], ptr addrspace(1) %0, i64 %48, !dbg !15
+  %50 = sext i32 %17 to i64, !dbg !15
+  %51 = getelementptr [2 x i8], ptr addrspace(1) %0, i64 %50, !dbg !15
+  %52 = sext i32 %18 to i64, !dbg !15
+  %53 = getelementptr [2 x i8], ptr addrspace(1) %0, i64 %52, !dbg !15
+  %54 = sext i32 %19 to i64, !dbg !15
+  %55 = getelementptr [2 x i8], ptr addrspace(1) %0, i64 %54, !dbg !15
+  %56 = sext i32 %20 to i64, !dbg !15
+  %57 = getelementptr [2 x i8], ptr addrspace(1) %0, i64 %56, !dbg !15
+  %58 = sext i32 %21 to i64, !dbg !15
+  %59 = getelementptr [2 x i8], ptr addrspace(1) %0, i64 %58, !dbg !15
+  %60 = sext i32 %22 to i64, !dbg !15
+  %61 = getelementptr [2 x i8], ptr addrspace(1) %0, i64 %60, !dbg !15
+  %62 = sext i32 %23 to i64, !dbg !15
+  %63 = getelementptr [2 x i8], ptr addrspace(1) %0, i64 %62, !dbg !15
+  %64 = sext i32 %24 to i64, !dbg !15
+  %65 = getelementptr [2 x i8], ptr addrspace(1) %0, i64 %64, !dbg !15
+  %66 = sext i32 %25 to i64, !dbg !15
+  %67 = getelementptr [2 x i8], ptr addrspace(1) %0, i64 %66, !dbg !15
+  %68 = sext i32 %26 to i64, !dbg !15
+  %69 = getelementptr [2 x i8], ptr addrspace(1) %0, i64 %68, !dbg !15
+  %70 = sext i32 %27 to i64, !dbg !15
+  %71 = getelementptr [2 x i8], ptr addrspace(1) %0, i64 %70, !dbg !15
+  %72 = sext i32 %28 to i64, !dbg !15
+  %73 = getelementptr [2 x i8], ptr addrspace(1) %0, i64 %72, !dbg !15
+  %74 = sext i32 %29 to i64, !dbg !15
+  %75 = getelementptr [2 x i8], ptr addrspace(1) %0, i64 %74, !dbg !15
+  br i1 %30, label %76, label %80, !dbg !16
+
+76:                                               ; preds = %5
+  %77 = sext i32 %14 to i64
+  %78 = getelementptr [2 x i8], ptr addrspace(1) %0, i64 %77
+  %79 = load <1 x bfloat>, ptr addrspace(1) %78, align 2, !dbg !16
+  br label %80, !dbg !16
+
+80:                                               ; preds = %76, %5
+  %81 = phi <1 x bfloat> [ %79, %76 ], [ zeroinitializer, %5 ], !dbg !16
+  br i1 %31, label %82, label %84, !dbg !16
+
+82:                                               ; preds = %80
+  %83 = load <1 x bfloat>, ptr addrspace(1) %47, align 2, !dbg !16
+  br label %84, !dbg !16
+
+84:                                               ; preds = %82, %80
+  %85 = phi <1 x bfloat> [ %83, %82 ], [ zeroinitializer, %80 ], !dbg !16
+  br i1 %32, label %86, label %88, !dbg !16
+
+86:                                               ; preds = %84
+  %87 = load <1 x bfloat>, ptr addrspace(1) %49, align 2, !dbg !16
+  br label %88, !dbg !16
+
+88:                                               ; preds = %86, %84
+  %89 = phi <1 x bfloat> [ %87, %86 ], [ zeroinitializer, %84 ], !dbg !16
+  br i1 %33, label %90, label %92, !dbg !16
+
+90:                                               ; preds = %88
+  %91 = load <1 x bfloat>, ptr addrspace(1) %51, align 2, !dbg !16
+  br label %92, !dbg !16
+
+92:                                               ; preds = %90, %88
+  %93 = phi <1 x bfloat> [ %91, %90 ], [ zeroinitializer, %88 ], !dbg !16
+  br i1 %34, label %94, label %96, !dbg !16
+
+94:                                               ; preds = %92
+  %95 = load <1 x bfloat>, ptr addrspace(1) %53, align 2, !dbg !16
+  br label %96, !dbg !16
+
+96:                                               ; preds = %94, %92
+  %97 = phi <1 x bfloat> [ %95, %94 ], [ zeroinitializer, %92 ], !dbg !16
+  br i1 %35, label %98, label %100, !dbg !16
+
+98:                                               ; preds = %96
+  %99 = load <1 x bfloat>, ptr addrspace(1) %55, align 2, !dbg !16
+  br label %100, !dbg !16
+
+100:                                              ; preds = %98, %96
+  %101 = phi <1 x bfloat> [ %99, %98 ], [ zeroinitializer, %96 ], !dbg !16
+  br i1 %36, label %102, label %104, !dbg !16
+
+102:                                              ; preds = %100
+  %103 = load <1 x bfloat>, ptr addrspace(1) %57, align 2, !dbg !16
+  br label %104, !dbg !16
+
+104:                                              ; preds = %102, %100
+  %105 = phi <1 x bfloat> [ %103, %102 ], [ zeroinitializer, %100 ], !dbg !16
+  br i1 %37, label %106, label %108, !dbg !16
+
+106:                                              ; preds = %104
+  %107 = load <1 x bfloat>, ptr addrspace(1) %59, align 2, !dbg !16
+  br label %108, !dbg !16
+
+108:                                              ; preds = %106, %104
+  %109 = phi <1 x bfloat> [ %107, %106 ], [ zeroinitializer, %104 ], !dbg !16
+  br i1 %38, label %110, label %112, !dbg !16
+
+110:                                              ; preds = %108
+  %111 = load <1 x bfloat>, ptr addrspace(1) %61, align 2, !dbg !16
+  br label %112, !dbg !16
+
+112:                                              ; preds = %110, %108
+  %113 = phi <1 x bfloat> [ %111, %110 ], [ zeroinitializer, %108 ], !dbg !16
+  br i1 %39, label %114, label %116, !dbg !16
+
+114:                                              ; preds = %112
+  %115 = load <1 x bfloat>, ptr addrspace(1) %63, align 2, !dbg !16
+  br label %116, !dbg !16
+
+116:                                              ; preds = %114, %112
+  %117 = phi <1 x bfloat> [ %115, %114 ], [ zeroinitializer, %112 ], !dbg !16
+  br i1 %40, label %118, label %120, !dbg !16
+
+118:                                              ; preds = %116
+  %119 = load <1 x bfloat>, ptr addrspace(1) %65, align 2, !dbg !16
+  br label %120, !dbg !16
+
+120:                                              ; preds = %118, %116
+  %121 = phi <1 x bfloat> [ %119, %118 ], [ zeroinitializer, %116 ], !dbg !16
+  br i1 %41, label %122, label %124, !dbg !16
+
+122:                                              ; preds = %120
+  %123 = load <1 x bfloat>, ptr addrspace(1) %67, align 2, !dbg !16
+  br label %124, !dbg !16
+
+124:                                              ; preds = %122, %120
+  %125 = phi <1 x bfloat> [ %123, %122 ], [ zeroinitializer, %120 ], !dbg !16
+  br i1 %42, label %126, label %128, !dbg !16
+
+126:                                              ; preds = %124
+  %127 = load <1 x bfloat>, ptr addrspace(1) %69, align 2, !dbg !16
+  br label %128, !dbg !16
+
+128:                                              ; preds = %126, %124
+  %129 = phi <1 x bfloat> [ %127, %126 ], [ zeroinitializer, %124 ], !dbg !16
+  br i1 %43, label %130, label %132, !dbg !16
+
+130:                                              ; preds = %128
+  %131 = load <1 x bfloat>, ptr addrspace(1) %71, align 2, !dbg !16
+  br label %132, !dbg !16
+
+132:                                              ; preds = %130, %128
+  %133 = phi <1 x bfloat> [ %131, %130 ], [ zeroinitializer, %128 ], !dbg !16
+  br i1 %44, label %134, label %136, !dbg !16
+
+134:                                              ; preds = %132
+  %135 = load <1 x bfloat>, ptr addrspace(1) %73, align 2, !dbg !16
+  br label %136, !dbg !16
+
+136:                                              ; preds = %134, %132
+  %137 = phi <1 x bfloat> [ %135, %134 ], [ zeroinitializer, %132 ], !dbg !16
+  br i1 %45, label %138, label %140, !dbg !16
+
+138:                                              ; preds = %136
+  %139 = load <1 x bfloat>, ptr addrspace(1) %75, align 2, !dbg !16
+  br label %140, !dbg !16
+
+140:                                              ; preds = %138, %136
+  %141 = phi <1 x bfloat> [ %139, %138 ], [ zeroinitializer, %136 ], !dbg !16
+  %142 = getelementptr [2 x i8], ptr addrspace(1) %1, i64 %46, !dbg !17
+  %143 = getelementptr [2 x i8], ptr addrspace(1) %1, i64 %48, !dbg !17
+  %144 = getelementptr [2 x i8], ptr addrspace(1) %1, i64 %50, !dbg !17
+  %145 = getelementptr [2 x i8], ptr addrspace(1) %1, i64 %52, !dbg !17
+  %146 = getelementptr [2 x i8], ptr addrspace(1) %1, i64 %54, !dbg !17
+  %147 = getelementptr [2 x i8], ptr addrspace(1) %1, i64 %56, !dbg !17
+  %148 = getelementptr [2 x i8], ptr addrspace(1) %1, i64 %58, !dbg !17
+  %149 = getelementptr [2 x i8], ptr addrspace(1) %1, i64 %60, !dbg !17
+  %150 = getelementptr [2 x i8], ptr addrspace(1) %1, i64 %62, !dbg !17
+  %151 = getelementptr [2 x i8], ptr addrspace(1) %1, i64 %64, !dbg !17
+  %152 = getelementptr [2 x i8], ptr addrspace(1) %1, i64 %66, !dbg !17
+  %153 = getelementptr [2 x i8], ptr addrspace(1) %1, i64 %68, !dbg !17
+  %154 = getelementptr [2 x i8], ptr addrspace(1) %1, i64 %70, !dbg !17
+  %155 = getelementptr [2 x i8], ptr addrspace(1) %1, i64 %72, !dbg !17
+  %156 = getelementptr [2 x i8], ptr addrspace(1) %1, i64 %74, !dbg !17
+  br i1 %30, label %157, label %160, !dbg !10
+
+157:                                              ; preds = %140
+  %158 = sext i32 %14 to i64
+  %159 = getelementptr [2 x i8], ptr addrspace(1) %1, i64 %158
+  store <1 x bfloat> %81, ptr addrspace(1) %159, align 2, !dbg !10
+  br label %160, !dbg !10
+
+160:                                              ; preds = %157, %140
+  br i1 %31, label %161, label %162, !dbg !10
+
+161:                                              ; preds = %160
+  store <1 x bfloat> %85, ptr addrspace(1) %142, align 2, !dbg !10
+  br label %162, !dbg !10
+
+162:                                              ; preds = %161, %160
+  br i1 %32, label %163, label %164, !dbg !10
+
+163:                                              ; preds = %162
+  store <1 x bfloat> %89, ptr addrspace(1) %143, align 2, !dbg !10
+  br label %164, !dbg !10
+
+164:                                              ; preds = %163, %162
+  br i1 %33, label %165, label %166, !dbg !10
+
+165:                                              ; preds = %164
+  store <1 x bfloat> %93, ptr addrspace(1) %144, align 2, !dbg !10
+  br label %166, !dbg !10
+
+166:                                              ; preds = %165, %164
+  br i1 %34, label %167, label %168, !dbg !10
+
+167:                                              ; preds = %166
+  store <1 x bfloat> %97, ptr addrspace(1) %145, align 2, !dbg !10
+  br label %168, !dbg !10
+
+168:                                              ; preds = %167, %166
+  br i1 %35, label %169, label %170, !dbg !10
+
+169:                                              ; preds = %168
+  store <1 x bfloat> %101, ptr addrspace(1) %146, align 2, !dbg !10
+  br label %170, !dbg !10
+
+170:                                              ; preds = %169, %168
+  br i1 %36, label %171, label %172, !dbg !10
+
+171:                                              ; preds = %170
+  store <1 x bfloat> %105, ptr addrspace(1) %147, align 2, !dbg !10
+  br label %172, !dbg !10
+
+172:                                              ; preds = %171, %170
+  br i1 %37, label %173, label %174, !dbg !10
+
+173:                                              ; preds = %172
+  store <1 x bfloat> %109, ptr addrspace(1) %148, align 2, !dbg !10
+  br label %174, !dbg !10
+
+174:                                              ; preds = %173, %172
+  br i1 %38, label %175, label %176, !dbg !10
+
+175:                                              ; preds = %174
+  store <1 x bfloat> %113, ptr addrspace(1) %149, align 2, !dbg !10
+  br label %176, !dbg !10
+
+176:                                              ; preds = %175, %174
+  br i1 %39, label %177, label %178, !dbg !10
+
+177:                                              ; preds = %176
+  store <1 x bfloat> %117, ptr addrspace(1) %150, align 2, !dbg !10
+  br label %178, !dbg !10
+
+178:                                              ; preds = %177, %176
+  br i1 %40, label %179, label %180, !dbg !10
+
+179:                                              ; preds = %178
+  store <1 x bfloat> %121, ptr addrspace(1) %151, align 2, !dbg !10
+  br label %180, !dbg !10
+
+180:                                              ; preds = %179, %178
+  br i1 %41, label %181, label %182, !dbg !10
+
+181:                                              ; preds = %180
+  store <1 x bfloat> %125, ptr addrspace(1) %152, align 2, !dbg !10
+  br label %182, !dbg !10
+
+182:                                              ; preds = %181, %180
+  br i1 %42, label %183, label %184, !dbg !10
+
+183:                                              ; preds = %182
+  store <1 x bfloat> %129, ptr addrspace(1) %153, align 2, !dbg !10
+  br label %184, !dbg !10
+
+184:                                              ; preds = %183, %182
+  br i1 %43, label %185, label %186, !dbg !10
+
+185:                                              ; preds = %184
+  store <1 x bfloat> %133, ptr addrspace(1) %154, align 2, !dbg !10
+  br label %186, !dbg !10
+
+186:                                              ; preds = %185, %184
+  br i1 %44, label %187, label %188, !dbg !10
+
+187:                                              ; preds = %186
+  store <1 x bfloat> %137, ptr addrspace(1) %155, align 2, !dbg !10
+  br label %188, !dbg !10
+
+188:                                              ; preds = %187, %186
+  br i1 %45, label %189, label %190, !dbg !10
+
+189:                                              ; preds = %188
+  store <1 x bfloat> %141, ptr addrspace(1) %156, align 2, !dbg !10
+  br label %190, !dbg !10
+
+190:                                              ; preds = %189, %188
+  ret void, !dbg !18
+}
+
+; Function Attrs: mustprogress nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare noundef range(i32 0, 1024) i32 @llvm.amdgcn.workitem.id.x() #1
+
+; Function Attrs: convergent mustprogress nocallback nocreateundeforpoison nofree nounwind willreturn memory(none)
+declare i32 @llvm.amdgcn.readfirstlane.i32(i32) #2
+
+; Function Attrs: mustprogress nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare noundef i32 @llvm.amdgcn.workgroup.id.x() #1
+
+attributes #0 = { mustprogress nofree norecurse nounwind willreturn memory(argmem: readwrite) "amdgpu-agpr-alloc"="0" "amdgpu-cluster-dims"="1,1,1" "amdgpu-flat-work-group-size"="1,256" "amdgpu-no-cluster-id-x" "amdgpu-no-cluster-id-y" "amdgpu-no-cluster-id-z" "amdgpu-no-completion-action" "amdgpu-no-default-queue" "amdgpu-no-dispatch-id" "amdgpu-no-dispatch-ptr" "amdgpu-no-flat-scratch-init" "amdgpu-no-heap-ptr" "amdgpu-no-hostcall-ptr" "amdgpu-no-implicitarg-ptr" "amdgpu-no-lds-kernel-id" "amdgpu-no-multigrid-sync-arg" "amdgpu-no-queue-ptr" "amdgpu-no-workgroup-id-x" "amdgpu-no-workgroup-id-y" "amdgpu-no-workgroup-id-z" "amdgpu-no-workitem-id-x" "amdgpu-no-workitem-id-y" "amdgpu-no-workitem-id-z" "amdgpu-no-wwm" "amdgpu-waves-per-eu"="0, 0" "denormal-fp-math-f32"="ieee" "uniform-work-group-size" }
+attributes #1 = { mustprogress nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+attributes #2 = { convergent mustprogress nocallback nocreateundeforpoison nofree nounwind willreturn memory(none) }
+
+!llvm.dbg.cu = !{!0}
+!llvm.module.flags = !{!2, !3}
+
+!0 = distinct !DICompileUnit(language: DW_LANG_C, file: !1, producer: "triton", isOptimized: true, runtimeVersion: 0, emissionKind: LineTablesOnly)
+!1 = !DIFile(filename: "cyu2qkho2py7n5ssazaueexpnlsypolm74j42djqlkcwynh74sgu.py", directory: "/torch-cache/yu")
+!2 = !{i32 2, !"Debug Info Version", i32 3}
+!3 = !{i32 1, !"amdhsa_code_object_version", i32 500}
+!4 = distinct !DISubprogram(name: "triton_poi_fused_add_arange_floor_divide_index_max_unsqueeze_view_2", linkageName: "triton_poi_fused_add_arange_floor_divide_index_max_unsqueeze_view_2", scope: !1, file: !1, line: 18, type: !5, scopeLine: 18, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0)
+!5 = !DISubroutineType(cc: DW_CC_normal, types: !6)
+!6 = !{null, !7, !7, !9, !7, !7}
+!7 = !DIDerivedType(tag: DW_TAG_pointer_type, name: "pointer", baseType: !8, size: 64, dwarfAddressSpace: 1)
+!8 = !DIBasicType(name: "unknown_type", encoding: DW_ATE_signed)
+!9 = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
+!10 = !DILocation(line: 24, column: 5, scope: !4)
+!11 = !DILocation(line: 20, column: 24, scope: !4)
+!12 = !DILocation(line: 19, column: 15, scope: !4)
+!13 = !DILocation(line: 20, column: 14, scope: !4)
+!14 = !DILocation(line: 21, column: 13, scope: !4)
+!15 = !DILocation(line: 23, column: 20, scope: !4)
+!16 = !DILocation(line: 23, column: 12, scope: !4)
+!17 = !DILocation(line: 24, column: 14, scope: !4)
+!18 = !DILocation(line: 18, column: 1, scope: !4)
