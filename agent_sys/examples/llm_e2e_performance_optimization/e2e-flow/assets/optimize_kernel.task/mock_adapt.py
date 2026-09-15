@@ -417,7 +417,7 @@ def main() -> int:
         forge_result = lib.load_json(packup / "results" / "forge_result.json")
 
     # Kept for the notes and for `correctness`, NOT for `evidence.performance.
-    # measured` -- see the comment there. These are 2026-09-02 numbers.
+    # measured` -- see the comment there. These are the sealed numbers.
     measured = {k: float(v) for k, v in (verification.get("baseline_median_ms") or {}).items()}
     target = operator.get("edit_target") or {}
     kernel = packup / "results" / "optimized_kernel.py"
@@ -523,7 +523,7 @@ def main() -> int:
                 "container_path": container_path,
                 "base_sha256": base_sha256,
                 # **Structured, at m5's request, because they branch on it.**
-                # The prose in `notes` stays -- it is what made the 2026-09-04
+                # The prose in `notes` stays -- it is what makes the
                 # failure diagnosable in one read -- but a consumer should not
                 # have to grep a sentence to learn the hash came from a
                 # fallback. m5 prints this in `apply.py`'s mismatch refusal.
@@ -583,9 +583,9 @@ def main() -> int:
                 # sealed run's numbers, and it was.**
                 #
                 # This read `"per_case_ms": measured or baseline` with `measured`
-                # taken from the 2026-09-02 `verification.json`, i.e. a different
+                # taken from the sealed `verification.json`, i.e. a different
                 # machine, image and container on a different day. rung 0 refused
-                # it on 2026-09-04, correctly and by a margin that gave the game
+                # it, correctly and by a margin that gives the game
                 # away: **-17.7 %, -17.1 %, -17.5 % across three cases**, three
                 # digits of agreement between them. Noise does not do that; two
                 # different worlds do.

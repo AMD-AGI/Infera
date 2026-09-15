@@ -34,8 +34,8 @@ if [ "$rc" = 0 ]; then
   # `items/env/` faithfully — `engine_argv.txt`, `image.txt`, `load.json`,
   # `router_cmd.txt` — and those artefacts predate `environment.yaml`, so the
   # copy is right and incomplete. `check_environment` is `strong`, so without
-  # this the handoff is invalid however good the bench is. Measured in run
-  # 20260903T150156-33c6b8: `check_bench_result` PASS, `check_command_parses`
+  # this the handoff is invalid however good the bench is. Measured:
+  # `check_bench_result` PASS, `check_command_parses`
   # PASS, `check_environment` FAIL.
   #
   # **Inherited verbatim from m1, with no `--set`.** In mock mode there is no

@@ -437,7 +437,7 @@ def _check_against_snapshot(doc: dict, snapshot: dict, problems: list[str],
     # the other by suffix meant no spelling of the workset's
     # `integration.target_files` could satisfy both readers: the frame that let
     # the path resolve was refused here, and the frame that passed here resolved
-    # to a doubled path that exists in no image. Measured both ways 2026-09-04.
+    # to a doubled path that exists in no image. Measured both ways.
     #
     # `entry_function` stays strict. It is a symbol, not a path; there are no two
     # frames for it, and a suffix rule on a name would accept `fwd_o` for
@@ -595,7 +595,7 @@ def _check(content: Path, args: dict, problems: list[str], notes: list[str]) -> 
                 # things, and one is live: with `referencing` unimportable it
                 # falls back to a registry-less validator, and this schema
                 # `$ref`s `environment.schema.json`, so `iter_errors` raises
-                # `_WrappedReferencingError: Unresolvable`. Measured 2026-09-03.
+                # `_WrappedReferencingError: Unresolvable`. Measured.
                 #
                 # Uncaught, that kills the body — non-zero exit and **no
                 # `verdict.json`**, which `PhaseRunner` sees as a broken
@@ -803,11 +803,11 @@ def main() -> int:
     verdicts: dict[str, bool] = {}
     # **The reasons, on disk, beside the verdict** — m3's `workset_io.write_report`,
     # reused rather than re-implemented. A validator's stdout is kept nowhere
-    # (`temp/bugs/2026-09-03-a-validators-stdout-is-not-kept-anywhere.md`), so a
+    # anywhere, so a
     # zone holds `args.json`, `inputs.json`, `materials.json`, `verdict.json` and
     # **not one word about why**.
     #
-    # This stage supplied the sixth instance: on 2026-09-04 rung 0 reached
+    # This stage supplies an instance of it: a run reaches
     # `optimize_kernel` for the first time, this validator refused, and the only
     # thing recoverable was `kernel_optimization: invalid`. The finding was real
     # and the reason was gone before anyone could read it.
@@ -832,7 +832,7 @@ def main() -> int:
     # arrives without them is the state this exists to end.
     # **`verdicts` so the heading comes from the verdict, not from a proxy
     # for it.** Every `return False` in this body appends a problem first —
-    # verified path by path, 2026-09-04 — so the problems list is non-empty
+    # verified path by path — so the problems list is non-empty
     # exactly when the verdict is false, and passing it changes nothing
     # today. **It is true by inspection and not by construction**: one bare
     # `return False` added later and `write_report` would head a refusal as

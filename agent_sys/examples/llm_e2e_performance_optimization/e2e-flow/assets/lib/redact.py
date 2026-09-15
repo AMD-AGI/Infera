@@ -3,7 +3,7 @@
 
 **The rule this enforces is portability, and it is NOT the seal's.** CONTRACT
 §2.2, which this file spent two rounds contradicting: `handoff/store.py` and
-`:493` both read `# locality.check — NOT CALLED. User-ruled 2026-08-31` — the
+`:493` both read `# locality.check — NOT CALLED. User-ruled` — the
 shape heuristic read an HTTP access-log line as a filesystem path and refused a
 correct artefact, 97% false positive on a real kit. Corroborated from the other
 side: the sealed `stage1-deploy/deploy_kit` carries `/shared_nfs/...` in five

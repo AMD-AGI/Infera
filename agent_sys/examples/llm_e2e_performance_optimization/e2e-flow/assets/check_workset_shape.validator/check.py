@@ -41,7 +41,7 @@ Schema cannot state, and on this kind it is most of the value:
    justifies this rule by saying the seal refuses a delivery over one. Measured
    against the framework rather than inherited: it does not.
    `handoff/store.py` decline to call `locality.check` — user-ruled
-   2026-08-31 at a measured 97% false-positive rate — and the sealed
+   at a measured 97% false-positive rate — and the sealed
    `deploy_kit` in the mock set carries `/shared_nfs/...` in five files. The rule
    survives on its own merit, which was always the real one: a script carrying
    one host's directory does not run on the next host. It skips the environment
@@ -64,7 +64,7 @@ from pathlib import Path
 
 #: Where a crash puts its traceback. Beside `verdict.json` in the validation
 #: zone, because a validator's stdout is kept nowhere
-#: (`temp/bugs/2026-09-03-a-validators-stdout-is-not-kept-anywhere.md`) and a
+#: at all, and a
 #: reason that exists only on a discarded stream is a reason nobody has.
 _CRASH_FILE = "validator_crash.txt"
 
@@ -309,9 +309,8 @@ def _check_target_paths(operator: dict, problems: list[str], notes: list[str]) -
     the **identity** (`mixed_moe_gemm_2stage.py` against
     `moe_gemm_2stage.py`), and that comparison is **not available here**:
     `check_workset_shape` declares `inputs: [operator_workset]`, and
-    `zone.materials()` is written per-validator — measured on run
-    `20260904T114914-0a0cdd`, every validator's `materials.json` holds exactly
-    one handoff. So this body cannot see `operator_identity` at all, and an arm
+    `zone.materials()` is written per-validator — measured, every validator's
+    `materials.json` holds exactly one handoff. So this body cannot see `operator_identity` at all, and an arm
     that pretended to would be grading one artefact against nothing.
 
     Closing that half needs a definitions change — the identity reaching a
@@ -358,7 +357,7 @@ def _check_target_paths(operator: dict, problems: list[str], notes: list[str]) -
     else:
         notes.append(
             f"{label}: edit_target has no from_identity, so nothing here confirms {source_file!r} "
-            f"against the identity. A workset scaffolded before 2026-09-04 — UNVERIFIED"
+            f"against the identity. A workset scaffolded without one — UNVERIFIED"
         )
 
     editable = [str(p) for p in (edit_target.get("editable_sources") or [])]

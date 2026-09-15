@@ -42,7 +42,7 @@ import _lib as lib  # noqa: E402
 #: `hip_utils.c` through `/bin/gcc`, which then needs `as`, `ld` and
 #: `collect2`. The baseline side survives a missing PATH because plain torch
 #: compiles nothing, so the symptom is *only the candidate fails* — which reads
-#: exactly like a broken kernel and is not one. Measured 2026-09-01.
+#: exactly like a broken kernel and is not one. Measured.
 _PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 

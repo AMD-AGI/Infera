@@ -8,13 +8,13 @@
 #
 # ## Why it exists as a FILE
 #
-# It lived as a one-line shell snippet pasted into messages, and on 2026-09-04
+# Written as a one-line shell snippet pasted into messages, it
 # that cost a wrong published claim: the form that was *run* used a snapshot
 # file, the form that was *pasted* used `awk … - -`, and those behave
 # differently (see below). **A tool that is quoted rather than executed drifts
 # between the quoting and the running.** There is now one form and it is this.
 #
-# ## The four defects this fixes, all measured 2026-09-04
+# ## The four defects this fixes, all measured
 #
 # The naive `ps … | grep agent_sys.cli.main` has all four:
 #

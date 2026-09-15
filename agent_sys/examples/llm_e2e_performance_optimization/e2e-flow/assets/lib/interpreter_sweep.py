@@ -45,8 +45,8 @@ shape `grants.input_env` hands a body. `--no-inputs` restores the old behaviour,
 which is how the change is shown to make a difference rather than asserted to:
 **prove the probe can fail before believing that it passed.**
 
-C1 grades real artefacts too — 2026-09-04
------------------------------------------
+C1 grades real artefacts too
+----------------------------
 **A gate whose fixtures are simpler than reality certifies the fixtures.**
 
 C1 handed every validator one stub of empty `items/` directories. Against that,
@@ -261,7 +261,7 @@ def run_validator(name: str, entry: Path, materials: dict[str, Path], args: dict
     """Layer C for a validator: a real zone, and did it leave a verdict.
 
     **`materials` is one real artefact per declared kind**, not one thin
-    directory. Until 2026-09-04 this handed every validator the same stub of
+    directory. Handing every validator the same stub of
     empty `items/` subdirectories, and the fixture was thinner than the
     artefacts these bodies meet — so `check_workset_shape` returned rc=0 *with*
     a verdict here and, against the real `operator_workset` rung 0 produced,
@@ -455,7 +455,7 @@ def main() -> int:
             print(f"    {k:36s} {'** MISSING **' if v is None else v[1]:46s}"
                   f"{'  ** ' + bad + ' **' if bad else ''}")
     else:
-        print("  --no-inputs: output slots only, the way this layer ran before 2026-09-04")
+        print("  --no-inputs: output slots only, with no staged inputs")
     if not str(SCRATCH).startswith("/shared_nfs"):
         # **Name the instrument's condition before reading any row as a verdict**
         # (§4.4). A body whose output slot has to be visible from the GPU node —

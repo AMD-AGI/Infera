@@ -11,7 +11,7 @@
 #
 # Read the `rsd` before the medians. The baseline side is tight (~2% on a
 # steady node) and an optimised kernel has measured ~8% round to round on this
-# hardware, unexplained since 2026-08-31. A single sample of the loose side is
+# hardware, and unexplained. A single sample of the loose side is
 # not a measurement.
 set -eu
 

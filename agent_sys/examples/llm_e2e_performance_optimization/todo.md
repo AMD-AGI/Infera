@@ -2272,7 +2272,7 @@ present and changes nothing about a misspelling, because the object stays open.
 Demonstrated against the real rung-1 record with a stock `Draft202012Validator`:
 
 ```
-key=replayed_from    schema_errors=0   consumers read '20260904T110647-fbaba0'
+key=replayed_from    schema_errors=0   consumers read '<a run name>'
 key=replayed_form    schema_errors=0   consumers read None      <- one character
 key=zzz_not_a_field  schema_errors=0   consumers read None
 ```
@@ -2888,7 +2888,7 @@ trace, with no statement of what it must cover.
 
 ### T60b closed by rung 2f — and 25.42 was a symptom, not a requirement
 
-**The fix worked end to end.** rung 2f (`20260904T225556-55e566`), node 088:
+**The fix worked end to end.** On rung 2f:
 
 ```
 m1_deploy                succeeded  (59 min; kit/environment/deploy_serves all true)
@@ -3214,8 +3214,7 @@ elementwise_…act_and_mul          recorded, NOT re-measured
 layernorm_layer_norm_fwd_1pass    recorded, NOT re-measured
 ```
 
-All four look identical in the handoff. Run `20260905T064703-5fbd66`, workset
-`91ea967b`.
+All four look identical in the handoff, on workset `91ea967b`.
 
 **And precision does not substitute for it.** All four rsd values are ≤ 1 %.
 m4 declined to infer attestation from that and was right to; the attested one
@@ -3240,7 +3239,7 @@ this is the root, filed separately so the workaround does not close it.*
 *"the tags `identify` writes are bare language names"*, inferred from workset
 `91ea967b`'s Definitions carrying
 `['attention', 'linear-attention', 'triton', 'gated-delta-rule']`. Reading a
-real `operator_identity` — run `20260905T074905-9ec798`, 287 — shows the
+real `operator_identity` of 287 kernels shows the
 opposite: **`identify` writes a suffixed `fellow`** (`identify.py`), and
 `scaffold.py` copies it straight into the Definition's tags. The original
 `_fellow`, matching a tag ending in `-fellow`, was **correct by design**.
@@ -3439,7 +3438,7 @@ should not be inferred to be m3's because m3 filed the entry.
 reports `lang='unknown'` for Triton files it resolved to a source path.*
 
 **Measured** by running `taxonomy.fellow_of` against the five device symbols in
-`operator_identity`, run `20260905T074905-9ec798` (287):
+a real 287-kernel `operator_identity`:
 
 ```
 k004  chunk_fwd_kernel_o                              -> {'fellow': '', 'language': ''}
@@ -3798,8 +3797,8 @@ fails the same way, after another deployment.
 **T79 and not T78 is deliberate: the number is the package owner's to assign.**
 
 **The measurement.** A run stages its own copy of the package under
-`zones/<task>/package/`. **That copy is NOT rendered.** On `p9`
-(`20260905T163424-bdb4d8`), `zones/.../package/steps/m2_profiling.yaml` still reads:
+`zones/<task>/package/`. **That copy is NOT rendered.** In a real run,
+`zones/.../package/steps/m2_profiling.yaml` still reads:
 
 ```yaml
     expect_ranks: '${expect_ranks:-8}'

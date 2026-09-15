@@ -25,7 +25,7 @@
 # which binary is on PATH, so neither cluster has to be told.
 #
 # Two differences make `spur exec` more than a command swap, both measured
-# 2026-09-02 and both silent failures if ignored:
+# and both silent failures if ignored:
 #
 #   1. **It carries none of the caller's environment.** `--export=ALL` has no
 #      equivalent; `spur exec <job> bash -lc 'echo $FOO'` prints nothing for an
@@ -48,7 +48,7 @@
 # And it detaches srun from the body's stdin so nothing downstream is holding a
 # descriptor the framework is waiting on. `agent/backends/program.py` drains the
 # body's stdout on a thread; a grandchild that keeps the write end open after the
-# body exits leaves that drain blocked. Observed on 2026-08-31: `serve_patched`
+# body exits leaves that drain blocked. Observed: `serve_patched`
 # wrote its complete handoff at 17:21:55 and the framework still reported the
 # task `running` and the handoff `generating` seventeen minutes later, until the
 # settle budget expired.
@@ -178,7 +178,7 @@ on() {
 # and a genuinely missing path all produced one sentence — and that sentence
 # blames the filesystem and recommends changing `--demo-root`.
 #
-# **It cost a rung on 2026-09-04.** `check_workset_runs` refused with *"point
+# **It costs a run.** `check_workset_runs` refuses with *"point
 # `--demo-root` at a shared path"* while the zone **was** visible from the node
 # and `--demo-root` was already the NFS path the message recommends. The leader
 # nearly went and changed a correct path. m3 reproduced it in one command:

@@ -63,8 +63,8 @@ def test_the_descriptions_name_the_far_side_so_a_package_need_not(
     address.**
 
     The descriptions said *"the remote side of this task's mapping"*, which is
-    true and tells an agent nothing about *where its work goes*. Measured in run
-    `20260901T080901-50ecb9`: the agent's first act was to ask
+    true and tells an agent nothing about *where its work goes*. Measured: the
+    agent's first act was to ask
     `env_remote_run(["hostname","-f"])`, because only its task readme said the
     work was remote and the tool surface did not.
 

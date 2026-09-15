@@ -120,8 +120,7 @@ module-level name the file it replaces defines — the `sampler.py`
 precedent, where a replacement that dropped eight functions took the engine down
 with an `ImportError` *after* passing the compile check.
 
-**Measured**, run `20260906T203956-3bf8c2`, on a workset built by
-following the previous wording:
+**Measured** on a workset built by following the previous wording:
 
 ```
 target  /sgl-workspace/aiter/aiter/ops/gemm_op_a16w16.py   6 module-level names
@@ -462,8 +461,7 @@ therefore a *sibling* of the `##` above it and terminates its body. **A section
 whose content is entirely in subsections measures zero and the seal is refused
 with `required section '<name>' is empty`.**
 
-**Measured**, run `20260906T224100-ef6374`, by running that parser on
-the README a previous run of this step produced:
+**Measured** by running that parser on a README this step produced:
 
 ```
 total bytes 12552

@@ -96,8 +96,8 @@ arms)
     # the sealed corpus from another node. Rung 1 produced precisely
     # that and `check_measurement_order` refused both arms, correctly:
     #
-    #   stock: environment.yaml says node='node-217' and the arm's
-    #          evidence says 'node-276'          (and slurm_jobid likewise)
+    #   stock: environment.yaml names one node and the arm's
+    #          evidence names another    (and slurm_jobid likewise)
     #
     # At rung 0 the record came from the corpus too, so the two agreed **because
     # nothing in the run was real** — CONTRACT §4.6 from the other side: a
@@ -155,11 +155,11 @@ d = json.load(open(path))
 # certain because it is writing against that contract.
 d["schema_version"] = 1
 
-# The two blocks the mission added. The 2026-09-02 run predates both.
+# The two blocks the mission added. The sealed run predates both.
 d["stock_vs_m2"] = {
     "source": None,
     "unavailable_because": (
-        "mock: the 2026-09-02 integration run was a standalone package and had no m2 "
+        "mock: the sealed integration run was a standalone package and had no m2 "
         "profiling_evidence as an input, so there is no profiling_mode_off bench for the "
         "stock arm to be compared against. A real run of this flow has one."
     ),
@@ -235,7 +235,7 @@ for row in d.get("performance", []):
     slot["n_stock"].append(rc.get("stock"))
     slot["n_patched"].append(rc.get("patched"))
 # The sealed arms' own per-request dispersion, out of the sealed summary.json --
-# `std`, `avg` and `request_count`, all three already recorded on 2026-09-02. The
+# `std`, `avg` and `request_count`, all three already recorded. The
 # noise floor is derived from them, so it is measured evidence about that run
 # rather than anything this script chose. It is also why the mock exercises the
 # `uninterpretable` path for real: those two arms were an hour and one neighbour
@@ -338,7 +338,7 @@ packup)
   cat > "$out/items/watchout" <<'EOF'
 This packup was NOT produced by this run and was never sealed as a handoff.
 
-It is the 47-file kit produced out of band on 2026-09-02 by integration's own
+It is the 47-file kit produced out of band by integration's own
 unmodified packup.py over that run's nine sealed handoffs, after the graph
 stopped at a correctly refused integration_report. Its provenance record is
 PRODUCED-BY-DEPLOY.md in the directory it was copied from.

@@ -209,12 +209,12 @@ Keep the failed worker log — rename it `logs/worker.attempt1-nccl-fail.log` �
 and if the retry succeeds, say in `notes.md` that it took two attempts. That
 record is the only evidence anyone has that this is intermittent.
 
-**Measured three times on /05, and the ranks move:**
+**Measured three times, and the ranks move:**
 
 ```
-19:06:26  node 217   TP1 TP2 TP3        (TP0 survived)
-19:36:36  node 217   TP0 TP1 TP2        (TP3 survived)
-06:05:41  node 088   TP0 TP1 TP2 TP3    (all four)
+run 1   node A   TP1 TP2 TP3        (TP0 survived)
+run 2   node A   TP0 TP1 TP2        (TP3 survived)
+run 3   node B   TP0 TP1 TP2 TP3    (all four)
 ```
 
 **A fixed bad device fails the same ranks every time.** These do not, across two
@@ -428,7 +428,7 @@ what may a consumer rely on"*. It needs all three of `## Purpose`,
 heading with `token.level == 0`, and markdown-it's `level` is **nesting depth,
 not heading depth** — so a document-root `###` is a *sibling* that ends the
 section above it, and a section whose content is entirely in subsections measures
-zero. **Measured**, run `20260906T224100-ef6374`: 12,552 bytes,
+zero. **Measured**: 12,552 bytes,
 `Boundary` carrying about 8 KB across eight `###` subsections, **its own body 0**,
 seal refused with `required section 'Boundary' is empty`, run lost. The other two
 sections passed only by happening to have prose at their own level.

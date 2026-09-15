@@ -262,8 +262,8 @@ def disambiguate_logical_operators(operators: list[dict]) -> list[str]:
 
     The collapse is deliberate and stays: `logical_operator` drops tile and
     tuning tokens and keeps four, so a name survives a rebuild. That is exactly
-    why two genuinely different kernels can reduce to one string. Measured on
-    run `20260906T154908-d9c7af`: two distinct symbols both became
+    why two genuinely different kernels can reduce to one string. Measured:
+    two distinct symbols both became
     `layernorm_aiter_add_rmsnorm_quant`, and the refusal read *"It becomes a
     directory name in the workset, so two of them collide silently."*
 
@@ -592,7 +592,7 @@ def resolve(row: dict, hit: dict, roots: list[str], repo_map: dict) -> dict:
 # `MODULE_SYMBOLS_SNIPPET` is `assets/lib/module_symbols.py`'s `SNIPPET` --
 # `inspect.getsource` of the same functions that file exports as a callable, so
 # the text this sends into a container and the rule a validator imports cannot
-# disagree. It lived inline here and in `mock_adapt.py` until 2026-09-04 (two
+# disagree. Inline here and in `mock_adapt.py` it would be two
 # producers, `todo.md` T34) and moved to the library on m4's argument that their
 # gate needs the same rule in a normal interpreter. The boundary -- which
 # assignment forms count, and why imports do not -- is documented there.
@@ -664,7 +664,7 @@ def image_facts(image: str, root: str, relatives: list[str], timeout: int = 300)
              # **`--name`, so a container of mine is attributable on a shared
              # node.** Without it docker assigns a random name and this probe is
              # indistinguishable from another tenant's work in `docker ps` —
-             # which stopped being cosmetic on 2026-09-04, when the standing
+             # which stops being cosmetic once the standing
              # instruction became "kill other people's GPU tasks on nodes we
              # hold". An unattributable container of ours is one a teammate must
              # either kill or hesitate over. `--rm` and seconds long, so the
@@ -766,7 +766,7 @@ def main() -> int:
     # path. `image_facts` needs the *real* path: it `os.path.join`s this onto
     # each relative and opens the result inside the container.
     #
-    # Until 2026-09-05 the placeholder went through verbatim, so every open was
+    # Unexpanded, the placeholder goes through verbatim, so every open is
     # `@SGLANG_ROOT@/…`, every one raised `OSError`, the payload's
     # `except OSError: continue` swallowed all of them, and `base_sha256` and
     # `module_symbols` came back null for every operator of every real run.

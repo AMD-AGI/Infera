@@ -325,9 +325,9 @@ CTR="$HS_CONTAINER"
 # port may be taken. So the computed base is what we asked for and `HS_ENDPOINT`
 # is what we got, and they are equal only when nothing else held the ports.
 #
-# **Serial runs cannot show the difference.** Measured on
-# `20260905T051720-a95d9e`: a fully successful `profiling_mode_on` bring-up —
-# worker serving after 208 s, 6/6 probes, a real completion — bound
+# **Serial runs cannot show the difference.** Measured: a fully successful
+# `profiling_mode_on` bring-up — worker serving after 208 s, 6/6 probes, a
+# real completion — bound
 # `router 8115` while this script benched `8111`, because the other line was
 # holding 8111-8114 on the same node. `ABORT: no answer from the router`, after
 # everything that could go wrong had gone right.

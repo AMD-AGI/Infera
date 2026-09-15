@@ -132,7 +132,7 @@ if [ "$rc" -eq 0 ]; then
 
   # **The adaptation produced the artefact, or this body refuses.**
   #
-  # Measured on node 047: `build_workset` **sealed** an
+  # Measured: `build_workset` **sealed** an
   # `operator_workset` containing the harness, the sealed fold and the two MoE
   # directories — and **no `workset.yaml`, no `definitions/`, no
   # `environment.yaml`**. Both validators then refused with the same line, which

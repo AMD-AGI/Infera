@@ -20,7 +20,7 @@
 #
 # 1. **Was any validator handed an empty directory?** A zero-file zone makes a
 #    refusal say nothing about the artefact, and makes a pass say nothing at all.
-#    Four instances on 2026-09-05, one of which killed a healthy run. **The rate
+#    Four measured instances, one of which killed a healthy run. **The rate
 #    is an open question**: ~1-in-13 on real paths, 0-in-80 on a mock loop. Every
 #    real run is a sample and the two numbers currently contradict each other, so
 #    the counts are recorded even when nothing is wrong.
@@ -105,7 +105,7 @@ echo
 echo "## where it stopped"
 if [ -n "$LOG" ] && [ -f "$LOG" ]; then
   # tail -1 is not enough: the terminal line reads like an ordinary stop and the
-  # cause is above it. Measured twice on 2026-09-05.
+  # cause is above it. Measured twice.
   tail -3 "$LOG" | sed 's/^/  /'
 else
   echo "  (no log given)"

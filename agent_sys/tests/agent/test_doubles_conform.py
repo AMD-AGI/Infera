@@ -322,10 +322,10 @@ def test_the_rule_catches_a_missing_member() -> None:
 def test_the_rule_rejects_the_adapter_as_it_actually_was() -> None:
     """**Replayed against the real vendor type, not a synthetic set.**
 
-    Before 2026-08-29 the adapter read `self._client.get_session_messages()` and
-    `self._client.session_id`. Both are fed back in here and checked against the
-    real `ClaudeSDKClient`, so this asserts the rule would have caught the two
-    shipped bugs on the day they were written — which a pair of hand-made sets
+    An adapter reaching for `self._client.get_session_messages()` or
+    `self._client.session_id` is reaching for names the real `ClaudeSDKClient`
+    does not have. Both are fed back in here and checked against the real type,
+    so this asserts the rule catches them — which a pair of hand-made sets
     cannot show.
     """
     from claude_agent_sdk import ClaudeSDKClient

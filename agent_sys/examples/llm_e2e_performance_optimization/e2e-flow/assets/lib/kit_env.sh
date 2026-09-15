@@ -31,7 +31,7 @@
 # and carry the record at the same relative path — plus fourteen staged copies
 # under `zones/…/handoffs/` and validation `materials/`.
 #
-# Measured on `20260904T112414-cf3e82`, ten invocations of the one-liner against
+# Measured over ten invocations of the one-liner against
 # an unchanging tree: **six returned `kernel_optimization`, four returned
 # `deploy_kit`.** `find` here is `bfs`, which does not promise directory order,
 # so `head -1` is a coin flip between three handoffs rather than a fixed wrong

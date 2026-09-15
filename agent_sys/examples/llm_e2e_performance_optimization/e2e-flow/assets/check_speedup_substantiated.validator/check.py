@@ -25,8 +25,8 @@ baseline I measured"* to two questions:
 
 **Why an abort rather than a smaller pass.** A speedup measured against a
 different architecture is not a weaker result, it is the answer to a different
-question, and the damage is that it looks entirely legitimate. Measured: the
-2026-09-02 run timed `B8_V151936` at 50.18 µs on gfx950 against the workset's
+question, and the damage is that it looks entirely legitimate. Measured: a
+sealed run times `B8_V151936` at 50.18 µs on gfx950 against the workset's
 55.40 µs on gfx942 — 9.6% of speedup available for free from a comparison
 nobody downstream could detect. The old rule's response was to silently
 re-baseline, which makes the report internally consistent and still answers the
@@ -164,7 +164,7 @@ def _interpreter(problems: list[str], notes: list[str]) -> str | None:
 #: Triton does on this backend is compile `hip_utils.c` by shelling out to
 #: `/bin/gcc` — which then needs `as`, `ld` and `collect2` off `PATH`. A
 #: validator body's environment is closed and carries no `PATH`, so a subprocess
-#: started from it inherits none and the compile dies. Measured 2026-09-01. The
+#: started from it inherits none and the compile dies. Measured. The
 #: baseline side survives it because plain `torch.softmax` compiles nothing, so
 #: the symptom is *only the optimised side fails*, which reads exactly like a
 #: broken optimised kernel. It is not.
@@ -771,7 +771,7 @@ def _remeasure(
     # *after* the copies and the first round, so the run is lost at its most
     # expensive point.
     # **Two different directories were being asked of one variable, and only one
-    # of them can live on this side.** rung 0 stopped here on 2026-09-04:
+    # of them can live on this side.** A run stops here:
     #
     #     cannot create the re-measurement scratch directory
     #     '<work root>': Permission denied
@@ -1154,7 +1154,7 @@ def main() -> int:
     # Before the verdict, so a crash in the writer cannot take the reasons.
     # **`verdicts` so the heading comes from the verdict, not from a proxy
     # for it.** Every `return False` in this body appends a problem first —
-    # verified path by path, 2026-09-04 — so the problems list is non-empty
+    # verified path by path — so the problems list is non-empty
     # exactly when the verdict is false, and passing it changes nothing
     # today. **It is true by inspection and not by construction**: one bare
     # `return False` added later and `write_report` would head a refusal as

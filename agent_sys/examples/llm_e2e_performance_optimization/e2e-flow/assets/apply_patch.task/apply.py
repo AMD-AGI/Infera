@@ -189,7 +189,7 @@ def find_apply(kopt: Path) -> tuple[Path, Path]:
 #: **The fourth is exactly the disagreement the policy calls a hard stop**, and
 #: it takes the note branch only because both return an empty dict.
 #:
-#: Measured on m1's `20260905T140115-db48a7`: the manifest named
+#: Measured on a real run: the manifest named
 #: `attention_recompute_w_u_fwd`, the workset declared `sampler_vocab_softmax`,
 #: and the patch was applied on the optimisation's own say-so. It then stopped on
 #: the base hash, so nothing wrong was installed — **by luck of a second check,

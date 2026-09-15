@@ -160,9 +160,9 @@ env:
   # `check_trace_coverage` and `check_kernel_table` BOTH refuse — for something
   # that is not the producer's fault.
   #
-  # **Measured on run `20260906T113811-fdb0bd`** (`--var trace_end_ms=60000`):
-  # the load ended 12:14:58, the measurement window ran to 12:15:19, the stack
-  # capture started after that and aborted. That run's two refusals blocked
+  # **Measured** with `--var trace_end_ms=60000`: the measurement window
+  # outran the load by some twenty seconds, and the stack capture started after
+  # that and aborted. That run's two refusals blocked
   # `merge_profiling_evidence`, so `profiling_evidence` was never produced and
   # m3/m4/m5 never started. **One override, four stages lost.**
   #

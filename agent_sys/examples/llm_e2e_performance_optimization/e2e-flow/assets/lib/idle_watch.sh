@@ -1,5 +1,5 @@
 #!/bin/bash
-# idle_watch v2 -- 2026-09-05. Supersedes p8/p9_idle_watch.sh; older copies
+# idle_watch v2. Supersedes the earlier per-run copies; older ones
 # report on the WRONG STAGE and should be replaced, not just left running.
 #
 # WHAT IT DETECTS: a kind:ai task whose agent has FINISHED -- wrote its report,

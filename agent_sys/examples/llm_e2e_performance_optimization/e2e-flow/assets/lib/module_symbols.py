@@ -22,7 +22,7 @@ functions stay ordinary, importable and testable, and nothing has to be trusted.
 
 ### History, because the shape of the bug argues for the shape of the fix
 
-Until 2026-09-04 this text existed **twice**, inline in the two producers, and
+Inline in the two producers this text exists **twice**, and
 took `def` / `async def` / `class` only. Two consequences, both found the same
 day:
 

@@ -32,12 +32,11 @@
 # So "point `KFO_PYTHON` at a better interpreter" was never the fix; there is no
 # such interpreter on any host in this cluster.
 #
-# ## Verified end to end, 2026-09-04
+# ## Verified end to end
 #
 # Argument handling, the record read, the ambient-vs-record refusal and every
 # diagnostic below were measured on the login node. **The `docker exec` was
-# closed on the node**, into m1's `yihou_e2e_sgl_m1real-20260904` on
-# `node-249`, card 4:
+# closed on the node**, into m1's container, card 4:
 #
 #     torch 2.11.0+rocm7.2
 #     6b727fcde1724924c71c1148d89005500195527e827fe7ec8d51eef43d92a762  …/srt/layers/sampler.py
@@ -131,7 +130,7 @@ CONTAINER=$(_field runtime.container)
 : "${HIP_VISIBLE_DEVICES:=}"
 [ -n "$HIP_VISIBLE_DEVICES" ] || {
   echo "run_in_container: HIP_VISIBLE_DEVICES is empty and this host is shared." >&2
-  echo "  Pass --var gpu=<n>. Cards 0-3 are another tenant's; 4-7 were free on 2026-09-04." >&2
+  echo "  Pass --var gpu=<n>; check which cards are free before binding." >&2
   exit 1
 }
 
@@ -152,8 +151,8 @@ CONTAINER=$(_field runtime.container)
 # and repeated its shape: `on "docker inspect … | grep -qx true"` is non-zero
 # both when the node answers "no such container" and when the node is never
 # reached, and the message below then tells the reader m1 tore their container
-# down. Reproduced 2026-09-04 against m1's real record for
-# `yihou_e2e_flow_sgl_e2e-main-20260904` on `node-217`, twice, once with
+# down. Reproduced against a real record for
+# a real m1 container, twice, once with
 # `SPUR_CONTROLLER_ADDR` present and once with `env -i` stripping it: **byte
 # for byte the same six lines**, though only the first had tested anything. The
 # stripped case is not exotic — `remote.sh` records that the closed
@@ -182,7 +181,7 @@ esac
 # **When the record's container is not up, measure in an ephemeral one of our
 # own — and say so in the artefact.**
 #
-# Until 2026-09-04 this refused, on CONTRACT §5: *m1 owns the container's
+# Refusing here is defensible on CONTRACT §5: *m1 owns the container's
 # lifetime; m4 execs into it.* Obeying that exactly is what stopped rung 0 —
 # **in a mock chain nobody brings the deployment up**, so the container the
 # record names has never existed, and a check that can only run after a real
@@ -351,7 +350,7 @@ if [ -n "$CPIN_ALL" ]; then
 fi
 
 # **In the artefact, not only in the log** — the package owner's ruling on T34,
-# 2026-09-04: keep `premise.run_environment` meaning exactly what it means
+# Keep `premise.run_environment` meaning exactly what it means
 # today (m1's record, carried faithfully) and put the observation *beside* it,
 # so a later premise gate can compare the two instead of a reader comparing two
 # log lines. A field that silently changed meaning would be worse than one that
@@ -412,7 +411,7 @@ fi
 #
 # which contains two, and which died with `syntax error near unexpected token`
 # from the outer shell rather than anything to do with the container. Caught
-# 2026-09-04 by assembling the real probe against a stub docker before the node
+# by assembling the real probe against a stub docker before the node
 # window opened, which is the only reason it did not burn it.
 _sq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
 
@@ -472,7 +471,7 @@ echo "run_in_container: $_VERB $CONTAINER on ${E2E_NODE:-the node}, GPU $HIP_VIS
 # `TMPDIR` and `TRITON_CACHE_DIR` point at node-local storage
 # (`/mnt/m2m_nobackup/...`), which is an NVMe volume on the compute node; the
 # login node's copy of that path is not writable by us, so a caller cannot
-# create them before calling and rung 0 died on 2026-09-04 trying
+# create them before calling, and a run dies trying
 # (`check_speedup_substantiated` → `PermissionError`).
 #
 # **An absent `TMPDIR` is not a harmless default here.** A `TMPDIR` naming a

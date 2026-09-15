@@ -51,7 +51,7 @@ def marker_line(operator_id: str, rev: str, indent: str, *, no_optimisation: boo
     `check_patch_live` green on a patch that optimises nothing, and a green mock
     rung must not be readable as evidence of an optimisation — six months out a
     reader has the overlay and not the thread that produced it. So the *token
-    itself* carries it, not a note beside it (leader's condition, 2026-09-04).
+    itself* carries it, not a note beside it.
     """
     token = ("M4_MARKER_ONLY_NO_OPTIMISATION" if no_optimisation else "M4_FRAGMENT_FIRST_CALL")
     why = "  # marker only: this patch applies NO optimisation" if no_optimisation else ""

@@ -2,7 +2,7 @@
 #
 # **One package, one run, five stages.** The five stages exist separately under
 # `../{deploy,profiling,analyze,kernel-opt,integration}-demo/`, each proven on
-# the cluster on 2026-09-02. They are not a flow: **a handoff only travels
+# the cluster. They are not a flow: **a handoff only travels
 # inside one run's graph**, so five packages are five `agent-sys run`
 # invocations and nothing chains. This file is the join the repo-root
 # `mission.md` asks for.

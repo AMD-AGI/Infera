@@ -48,8 +48,6 @@ here.
 **Why a launcher rather than a fix.** `agent_sys/cli/` is outside this effort's
 activity scope, and both halves of the failure are already recorded:
 
-    temp/bugs/2026-09-03-the-stall-detector-ends-a-run-while-a-task-is-still-working.md
-    temp/bugs/2026-09-04-an-escalation-with-no-recipient.md
 
 The first states that `stall_after` is **not exposed on the CLI, so there is no
 operator-side knob** — true, and the reason this file exists. `--timeout` is an

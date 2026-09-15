@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Grade a sealed handoff with a validator's real body, offline, no node.
 
-**Method is m2's** (2026-09-05, on `p9`'s `profiling_evidence`): build the zone
+**The method** (on a real `profiling_evidence`): build the zone
 `validator/phase.py` builds, then run the validator's own `check.py` in it. The
 verdict comes from the validator, not from a person reading numbers.
 
@@ -21,7 +21,7 @@ that already build one:
 and those blocks carry `${var}` / `${var:-default}` templates. An unrendered
 template does not fail cleanly: it reaches the body as a literal string and the
 body crashes, and a crash READS AS A REFUSAL. That exact mistake was made on
-this package on 2026-09-05 -- ten lines of crash reported as ten rejections.
+this package -- ten lines of crash reported as ten rejections.
 So `render()` below refuses to write an args.json still containing `${`, and
 `main()` reports that as SKIPPED rather than as a verdict.
 
@@ -126,7 +126,7 @@ def sealed(run: Path):
             if v.get("status") != "valid":
                 continue
             # **Do NOT trust `v['version']` for the directory name.** Measured
-            # 2026-09-05 on run 20260905T163424-bdb4d8, handoff ae9d7162: the
+            # on a real run: the
             # store records `version: 0, status: valid` while the content is in
             # `v1/` and `v0/content/` is an EMPTY DIRECTORY.
             #

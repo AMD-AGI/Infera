@@ -39,7 +39,7 @@ PY=$(kfo_python) || exit 1
 #
 # `mktemp -d` also removes the recursive-delete-of-a-variable hazard entirely:
 # there is nothing to delete before use. `rm -rf "$d"/*` with `$d` unset is
-# `rm -rf /*`, and that happened on this class of host on 2026-08-31.
+# `rm -rf /*`, and that has happened on this class of host.
 ZONE=$(mktemp -d "$KFO_SCRATCH_ROOT/selfcheck.XXXXXX")
 
 # The args the step yaml declares. Kept in step with `steps/m4_kernel_opt.yaml`

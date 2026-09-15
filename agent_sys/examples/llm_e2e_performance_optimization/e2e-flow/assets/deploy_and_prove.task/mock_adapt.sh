@@ -169,7 +169,7 @@ if ! grep -q 'E2E_KIT_RUN_TAG' "$ENVSH"; then
 # The eighth, added the same day and by the same rule: rename, never new
 # behaviour. The sealed kit already binds a graph ceiling — `DK_CUDA_GRAPH_MAX_BS`
 # at its own `env.sh`, value **8** — so an unset caller still gets the
-# 2026-09-02 run's own choice byte for byte, and the replayed numbers stay
+# sealed run's own choice byte for byte, and the replayed numbers stay
 # exactly as reproducible as they were.
 #
 # **The sealed 8 is deliberately not corrected here.** It is right for the kit it
@@ -222,7 +222,7 @@ if ! grep -q 'MOCKED DEPLOYMENT ENTRYPOINTS' "$PACKUP/notes.md"; then
 ## `scripts/stub/` — what it is, and who it is for
 
 **`scripts/` is untouched and real.** `deploy.sh`, `wait_ready.sh` and
-`teardown.sh` are the entrypoints the 2026-09-02 bring-up ran, byte for byte, and
+`teardown.sh` are the entrypoints the sealed bring-up ran, byte for byte, and
 a consumer that runs them is running the real thing.
 
 `scripts/stub/` is a **stand-in for one reader only**: `check_deploy_serves` must

@@ -107,7 +107,7 @@ def main() -> int:
             # sealed shape is rejected naming what it lacks. That proves the
             # required-list is doing work; the other direction would only have
             # proved the schema is loose enough to accept an old artefact.
-            "the SEALED 2026-09-02 shape, before adaptation (G) renders it — "
+            "the SEALED shape, before adaptation (G) renders it — "
             "operator and evidence only, no workset_ref, no apply, no premise",
             {k: v for k, v in good.items()
              if k in ("schema_version", "operator", "evidence", "notes")},

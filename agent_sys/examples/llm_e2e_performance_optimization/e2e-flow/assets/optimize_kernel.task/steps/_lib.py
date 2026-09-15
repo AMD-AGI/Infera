@@ -422,7 +422,7 @@ def validate(name: str, doc) -> list[str]:
         # One is live: with `referencing` unimportable the loader falls back to
         # a registry-less validator, and both `kernel_optimization` and
         # `workset` `$ref` `environment.schema.json`, so validation raises
-        # `Unresolvable` rather than returning problems. Measured 2026-09-03.
+        # `Unresolvable` rather than returning problems. Measured.
         # Reported as a problem, because "could not be validated" and "is valid"
         # are not the same answer.
         return [f"the schema loader raised {type(exc).__name__}: {exc}; {name} was NOT validated"]

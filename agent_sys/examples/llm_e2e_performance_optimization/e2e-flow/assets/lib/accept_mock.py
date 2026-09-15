@@ -42,7 +42,7 @@ right and is the reason this is modelled on it rather than on a skip.
 The framework has this concept already — `EXPECTED_FAILURE` / `UNEXPECTED_SUCCESS`
 / `EXPECTATION_UNREACHED`, pytest's vocabulary, and it is *better* than what a
 package would invent. Three measured reasons it is not used here, recorded in
-`temp/bugs/2026-09-04-declaring-one-expected-failure-disables-completion-\
+`todo.md`'s completion-gate entry\
 checking-for-the-whole-run.md`:
 
 1. `_BY_PACKAGE` is a hardcoded `{"demo": DEMO}` keyed on directory name, so
@@ -212,8 +212,8 @@ def collect(run: pathlib.Path) -> tuple[int, list[dict], list[dict]]:
             validation, manifest = version / "validation.yaml", version / "manifest.yaml"
             if not validation.is_file():
                 continue
-            # `kind`, and `type` only as a fallback. Measured on
-            # `20260904T114914-0a0cdd`: a version manifest carries
+            # `kind`, and `type` only as a fallback. Measured: a version
+            # manifest carries
             # `digest, algorithm, kind, producer, created_at`. The first draft
             # read `type` alone — the spelling the *spec* uses — and every
             # handoff came back `?`, which the claim then reported as the

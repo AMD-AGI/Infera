@@ -18,7 +18,7 @@
 #
 # Written against the real sealed kit at
 # `$E2E_MOCK_ROOT/stage1-deploy/deploy_kit/` — 38 files, produced by a real
-# bring-up on this cluster on 2026-09-02. Every floor below is at or under what
+# bring-up on this cluster. Every floor below is at or under what
 # that kit actually carries; nothing here is aspirational.
 
 schema_version: 1
@@ -43,7 +43,7 @@ schema_version: 1
 # means a reproducer has to guess which one worked.
 anchors:
   # The content root itself. Needed because the seal's own requirement lives
-  # *above* `items/`, and until 2026-09-04 nothing in this file could name that
+  # *above* `items/`, and without this entry nothing in this file names that
   # level — see the `README.md` entry below.
   content:
     path: '.'
@@ -146,7 +146,7 @@ entries:
         # implemented and tested.
         #
         # It is off because turning it on **refuses the sealed kit**, measured:
-        # `gate.sh`'s positive fixture is the real 2026-09-02 kit with
+        # `gate.sh`'s positive fixture is the real sealed kit with
         # `replayed_from` cleared on purpose (so the strict path stays tested),
         # and that record predates this field, so the gate went red on a correct
         # artefact. Whether an artefact that can never be re-produced becomes
@@ -674,7 +674,7 @@ runtime_contract:
       succeeds, and the host sees nothing.
 
   # **The container must be able to host a measurement, not only serve.** Added
-  # 2026-09-04 after m4 found it from the far side, and the finding is theirs:
+  # Found from the far side:
   #
   #   /shared_nfs   : No such file or directory
   #   the run root  : No such file or directory

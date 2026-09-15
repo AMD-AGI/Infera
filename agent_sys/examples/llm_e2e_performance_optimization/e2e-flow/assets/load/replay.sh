@@ -36,7 +36,7 @@ TRACE_OUT="$WORK/profiles"
 TRACE_OUT_IN_CONTAINER="${E2E_TRACE_OUT_IN_CONTAINER:-$TRACE_OUT}"
 # The engine's own log as the container sees it. `capture.sh` section 2/6 waits
 # for batch lines in it; a wrong path there reads as an engine that never
-# worked, which is what it read as on 088 on 2026-09-05. Same shape as the
+# worked, which is what it reads as. Same shape as the
 # line above: the caller passes it, and the default is the path
 # the profiling stage used.
 ENGINE_LOG_IN_CONTAINER="${E2E_ENGINE_LOG_IN_CONTAINER:-/tmp/glm53_mix.log}"

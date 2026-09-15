@@ -112,7 +112,7 @@ _GPU_HOURS: set[str] = set()
 #: its launch line, not just its defaults.
 #:
 #: Measured, each one resolving a row that was otherwise a correct refusal of
-#: the wrong question (m2, 2026-09-05):
+#: the wrong question:
 #:
 #:     expect_ranks=2   check_trace_coverage    "expected 8 rank(s), the manifest lists 2"
 #:                      — the sealed torch_trace is a TP-2 capture (`m2_profiling.yaml`)
@@ -130,7 +130,7 @@ _GPU_HOURS: set[str] = set()
 #:
 #: **And a green row here is not an exercised arm — `adhoc_cases=0` is the
 #: case.** It resolves `check_acceptance` by setting the floor to **zero**, and
-#: no sealed handoff carries ad-hoc cases at all: the 2026-09-02 corpus predates
+#: no sealed handoff carries ad-hoc cases at all: the corpus predates
 #: M5.4, and m5 searched for the material under other names on the same lesson
 #: that found `aiperf_profiled` and found none. So the validator's ad-hoc arm is
 #: **read and never exercised** — a state the final stage must not perpetuate.
@@ -238,7 +238,7 @@ def build_index(run: pathlib.Path) -> dict[str, pathlib.Path]:
           -> head.split()[0] == "Kernel"        -> kernel_optimization never indexed
 
     A missing key is not a loud failure here — `corpus_content` falls back to
-    `cheat_for_mock`, sealed **2026-09-02**, which predates `environment.yaml`
+    `cheat_for_mock`, which predates `environment.yaml`
     and `results/kernel_optimization.json`. So three validators were shown a
     pre-new-format artefact and correctly reported the new files absent, and the
     table read that as three defects in m4's stage.
@@ -362,7 +362,7 @@ def main() -> int:
                          "repeatable, later ones win")
     # **Without this the probe grades a run against variables the run did not
     # use, and reports the difference as a defect.** `MOCK_VARS` is two entries
-    # — `expect_ranks=2`, `adhoc_cases=0` — chosen for the 2026-09-02 corpus.
+    # — `expect_ranks=2`, `adhoc_cases=0` — chosen for the sealed corpus.
     # Graded against the first completed chain, which ran `expect_ranks=4` and
     # `bench_rounds=3`, that produced three refusals that were the probe's own
     # defaults and not the artefacts': `check_trace_coverage` "expected 2

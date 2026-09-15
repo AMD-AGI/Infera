@@ -119,8 +119,8 @@ buckets:
       # mislabels and the wrapper refuses — visible. Here, a miss **excludes
       # from the candidate pool** and nothing reports it.
       #
-      # Measured on the 124-row real kernel table (run
-      # `20260905T074905-9ec798`): the anchored form moves **seven** kernels
+      # Measured on a 124-row real kernel table: the anchored form moves
+      # **seven** kernels
       # from `unknown` to `routable`, +3.220 % of profiled GPU time, pool
       # 18 -> 25. The largest, `fused_recurrent_gated_delta_rule_packed_
       # decode_kernel` at 2.350 %, would rank **#2** — so one kernel that
@@ -168,7 +168,7 @@ fellows:
       # **Was `^_[a-z0-9_]+_kernel$`, needing a leading underscore AND `_kernel`
       # as the final token.** Real flash-linear-attention kernels are
       # `<op>_kernel_<suffix>` with no leading underscore, so they missed on two
-      # independent counts. Measured on run `20260905T074905-9ec798`:
+      # independent counts. Measured:
       # `chunk_fwd_kernel_o` and `chunk_gated_delta_rule_fwd_kernel_h_blockdim64`
       # returned no language; `_layer_norm_fwd_1pass_kernel` matched. One of
       # three, and the one that passed is why the rule looked like it worked.

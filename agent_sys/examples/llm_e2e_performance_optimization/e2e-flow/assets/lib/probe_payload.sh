@@ -131,7 +131,7 @@ done <<< "$imgs"
 # --- 3. disk, BOTH filesystems -----------------------------------------------
 # `/mnt/m2m_nobackup` holds dockerd's root, so it decides whether an image can
 # land. **`/` is a different number and it is the one that stopped a build**:
-# `node-186` had the right base, free-looking Slurm state, and **3.4 G on
+# A node has had the right base, free-looking Slurm state, and **3.4 G on
 # `/`**, which is where docker builds. Reporting only the big number would have
 # called that node fine. Two filesystems, two gates.
 disk_gb="$(df -BG --output=avail /mnt/m2m_nobackup 2>/dev/null | tail -1 | tr -dc '0-9')"

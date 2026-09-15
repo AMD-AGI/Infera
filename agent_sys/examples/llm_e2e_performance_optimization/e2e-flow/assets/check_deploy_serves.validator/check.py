@@ -69,9 +69,9 @@ class NodeError(RuntimeError):
 
 #: Bound for an `on()` call that does not name its own timeout.
 #
-# **`None` was the default and `None` means wait for ever.** Measured 2026-09-05
-# on run `20260905T110552` (`p4_i`): bring-up fine, probes fine, load finished
-# 11:28:56 with its export written — then nothing. The next step is
+# **A `None` default means wait for ever.** Measured on a real run: bring-up
+# fine, probes fine, load finished with its export written — then nothing. The
+# next step is
 # `summarise.py` over the load's CSV, called with no timeout, and the validator
 # sat there until the run was torn down at 12:02 and it took a SIGTERM. It wrote
 # no `verdict.json`, no report, and — because the kill landed before the
@@ -472,7 +472,7 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict,
                         timeout=seconds(parameters, "bringup_timeout_seconds", 3600))
         except NodeError as exc:
             # **Retry once on the intermittent NCCL bring-up failure, and only on
-            # that.** Measured four times on 2026-09-04/05 across two nodes:
+            # that.** Measured four times across two nodes:
             #
             #     19:06:26  217  TP1 TP2 TP3        HIP failure: 'invalid argument'
             #     19:36:36  217  TP0 TP1 TP2        NCCL error: unhandled cuda error

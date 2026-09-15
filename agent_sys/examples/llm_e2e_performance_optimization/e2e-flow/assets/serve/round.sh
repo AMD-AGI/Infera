@@ -36,7 +36,7 @@ say() { printf '[%s] %s\n' "$ARM" "$*"; }
 # `gpu.txt` below is a `rocm-smi` *product-info* dump taken once, so the card
 # **set** survives and the **occupancy during the measurement** does not — and
 # that second thing is what separates "the artefact is wrong" from "the
-# producer's card had a neighbour". Two of 2026-09-04's worst numbers needed it
+# producer's card had a neighbour". The hardest numbers to explain need it
 # and neither was recoverable afterwards: the DELIVERY-NOTE refusal blamed a
 # patch for a neighbour, and the sealed arms' `probe` read 2062 s against 37 s
 # on the same budget, 56x, on a contended chassis.

@@ -175,7 +175,7 @@ fi
 # root moved to `<run root>`, and rung 1's `build_workset`
 # refused after eleven seconds — a workset that would have measured fine, since
 # `/home` is NFS from the same server and the compute nodes mount it too
-# (measured on node 243: the run root is there and writable).
+# (measured: the run root is there and writable on the compute node).
 #
 # The property wanted was never "under /shared_nfs"; it is "a path the node can
 # also see". A second literal for `/home` would be the same defect with a
@@ -225,7 +225,7 @@ require_visible_on_node "$ROOT" "workset" || exit 1
 #
 # **The obvious derivation is refused by this cluster.** Taking the run root's
 # top-level component gives `/home` for `/home/<user>/agent_sys_runroot`, and
-# the package owner measured the daemon's answer on node 243:
+# the package owner measured the daemon's answer on a compute node:
 #
 #     Error response from daemon: authorization denied by plugin spur-authz:
 #     denied [BH]: /home:/home -- mount your own directory instead,
@@ -411,8 +411,7 @@ trap _teardown EXIT HUP INT TERM
 
 # **The payload travels base64, because `bash -c '$COMMAND'` silently ate it.**
 #
-# Measured on node 006, the first time this `docker run` ever
-# executed: a payload containing a single quote produced **no output, exit 0,
+# Measured the first time this `docker run` ever executed: a payload containing a single quote produced **no output, exit 0,
 # and the success line below**. The default payload contains four —
 # `echo '  [1/2] correctness'` and its pair — so the real measurement path was
 # the broken one. The command crosses `spur exec bash -lc`, then this string,
@@ -438,7 +437,7 @@ trap _teardown EXIT HUP INT TERM
 # `rc=$?` around it so the measurement's exit status is what leaves the
 # container: a reclaim that swallowed a failing measurement would turn this into
 # the silent-success class twice over.
-# **Spaces around the pipes, and they are load-bearing.** Measured 2026-09-04
+# **Spaces around the pipes, and they are load-bearing.** Measured
 # across two nodes: `echo <b64>|base64 -d|bash` returns 255 with no output on
 # some nodes and works on others; the identical command with spaces works on
 # both. Same `spur exec bash -lc`, same image, no docker in the minimal case —

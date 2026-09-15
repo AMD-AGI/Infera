@@ -218,7 +218,7 @@ def same_load(content: Path, args: dict, reasons: list) -> bool:
     # **`.get(key, default)` and not `x or default`.** An explicitly empty list is
     # an operator saying "do not compare loads", and `or` cannot tell that from
     # an absent key — it silently reinstates the pair. Same class of fault as
-    # `reverify_shapes: 0` being unreachable in m3's guard, raised 2026-09-03.
+    # `reverify_shapes: 0` being unreachable in m3's guard.
     names = list(args.get("compare_load_of", ["bench_profiling_mode_off", "bench_profiling_mode_on"]))
     if not names:
         reasons.append("(note) compare_load_of is empty — the two benches' loads were not compared")

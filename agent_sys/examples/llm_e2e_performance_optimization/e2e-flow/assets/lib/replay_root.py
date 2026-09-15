@@ -21,7 +21,7 @@ on a skip-ahead run: that is the thing this sentence is here to stop.
 `E2E_MOCK_ROOT: '${mock_root:-…}'`), and a mock leaf already copies
 `<stage>/<kind>/content/` into `$AGENT_SYS_OUTPUT_<KIND>`. That *is* handoff
 injection; the whole package has been doing it all day from the sealed
-2026-09-02 corpus. This tool only points the same machinery at **the last good
+sealed corpus. This tool only points the same machinery at **the last good
 real run** instead, so there is no new injection mechanism to trust — only a new
 source directory, in a layout `mock.sh` already reads.
 
@@ -44,7 +44,7 @@ repeated here. Two consequences copied verbatim:
 ## "Stable" is about verdicts, not exits
 
 **A run that finished is not a run that passed**, and the two came apart on
-2026-09-04: rung 1 *sealed* `deploy_kit` — README with all three headings, every
+Measured: a run *seals* `deploy_kit` — README with all three headings, every
 probe green, load clean — and a validator then refused it on one number. So
 stability here is computed from `handoffs/<id>/v<N>/validation.yaml`, which
 records, per handoff version, **which validator, what result, what strength and
@@ -93,8 +93,8 @@ every downstream handoff renders its record with `env_render --inherit <the
 replayed kit>`, so all four compared fields are copied from the replay and
 **agree with each other**, on a node the run is not using:
 
-    kit says node:        node-217
-    downstream inherits:  node-217
+    kit says node:        node-A
+    downstream inherits:  node-A
     fields that agree:    node, gpu_arch, image_id, model_path
 
 CONTRACT §4.6 once more, and this time *every* side shares the fault because
@@ -189,7 +189,7 @@ SKIPPABLE: dict[str, bool | None] = {k: None for k in STAGE_OF}
 #: is a write.
 #:
 #: **Confirmed by the consumer, not only inferred from the producer.** m2,
-#: 2026-09-04: `load/line.sh` reads `fixed.{node,image,image_id,
+#: Measured: `load/line.sh` reads `fixed.{node,image,image_id,
 #: model_name,served_model_name,tp_size,gpu_devices}` and `runtime.replayed_from`
 #: — a static provenance string that cannot go stale — **and nothing else**.
 #:
@@ -510,7 +510,7 @@ def streak(rows: list[dict]) -> tuple[int, str]:
     **And the `INVALID` two-writer ambiguity does not bite**, which it easily
     could have: `agent/runner.py` seals `INVALID` when an attempt ends with
     the slot open, which is indistinguishable from a validator refusal
-    (`temp/bugs/2026-09-04-invalid-means-two-things…`). It does not arise for
+    (`todo.md` T29). It does not arise for
     these runs because the killed ones never got that far.
 
     **It arises elsewhere, so it is guarded rather than assumed.** Run
@@ -722,7 +722,7 @@ def stability(rows: list[dict], threshold: int) -> tuple[bool, str]:
     #
     # **The obvious gate does not work.** Excluding `invalid` would be wrong
     # (m2: `invalid` also means *every validator ran and one refused*, a
-    # complete and informative set — `20260904T125637`'s `deploy_kit` is that).
+    # complete and informative set, and real runs produce it).
     # And gating on the run's completion is impossible: **the task store's
     # `status` is never finalised.** Measured across 36 runs, every one of them
     # — including runs that finished cleanly — is left with `running: 2` and

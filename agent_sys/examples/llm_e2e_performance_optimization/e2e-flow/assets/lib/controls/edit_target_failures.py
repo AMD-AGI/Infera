@@ -7,7 +7,7 @@ Exit 0 = each case behaves as recorded below. No node, no GPU, no torch.
 
 ### Why this exists
 
-`edit_target` was hit from two directions on 2026-09-04 and both were scheduled
+`edit_target` is reachable from two directions and both are scheduled
 to be discovered *during* the first rung-3 run, on a held node, three stages
 downstream of their cause:
 
@@ -26,7 +26,7 @@ span, while everything downstream validates, is what costs a rung.
 **A refuses, once the workset carries provenance.** `from_identity` records what
 the identity said; `check_workset_shape._check_target_paths` compares. Case A1
 shows it refusing. **A2 is the honest limit**: a workset with no `from_identity`
-— every artefact sealed before 2026-09-04, k004's included — is UNVERIFIED and
+— every artefact sealed without one, k004's included — is UNVERIFIED and
 reported as a note, not a refusal. Nothing can compare against a record that was
 never made.
 

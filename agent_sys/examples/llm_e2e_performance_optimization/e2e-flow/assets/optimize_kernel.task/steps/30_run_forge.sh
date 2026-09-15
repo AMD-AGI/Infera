@@ -65,7 +65,7 @@ if [ "$KFO_MOCK" = "1" ]; then
   echo "KFO_MOCK=1: no campaign will be run" >&2
   # **The seed is the Definition's `baseline`, NOT `edit_target.source_file`.**
   #
-  # Measured on node-217: seeding from the engine's stock
+  # Measured: seeding from the engine's stock
   # module made STEP 4 refuse with
   #
   #     the Definition's 'candidate:sampler_vocab_softmax' defines no `run`
@@ -144,7 +144,7 @@ if [ "$CLAMPED" != "$KFO_MAX_HOURS" ]; then
   echo "note: KFO_MAX_HOURS=$KFO_MAX_HOURS is below the enforced floor; clamped to $CLAMPED" >&2
 fi
 # At or below 2.0 forge SILENTLY drops two things. Read from the source
-# 2026-09-04, correcting an earlier note here that named a constant this
+# Corrected: an earlier note here named a constant this
 # checkout does not have:
 #
 #   `LONG_HORIZON_THRESHOLD_HOURS = 2.0`  (cli.py:55)
@@ -181,7 +181,7 @@ fi
 
 # --- the workspace: OUR copy of the engine sources, with OUR baseline --------
 #
-# Ruled 2026-09-04 after reading KernelForge rather than inferring it. Forge
+# Settled by reading KernelForge rather than inferring it. Forge
 # stages `git add -u` and commits with `cwd=self.ic.workspace_dir`
 # (`loop/runner.py`), i.e. `--workspace` (`cli.py`, `required=True`)
 # and nothing else. So the tree forge edits is a CALLER DECISION, and there are
@@ -225,7 +225,7 @@ fi
 # in this package; siting the init removes the mismatch instead of compensating
 # for it.
 #
-# **152 MB and 8870 files, measured inside the graph 2026-09-05** on
+# **152 MB and 8870 files, measured inside the graph** on
 # `infera/engine-sglang:test-local-mooncake_hip_dmabuf1`. The 110 MB / 3158
 # figure this line carried until then came from `infera/engine-sglang:final-pr`
 # on a probe node — a different revision, and the smaller of the two. Same
@@ -301,7 +301,7 @@ for candidate in "$RUN/forge_experiments/forge_result.json" "$WORKDIR/forge_resu
 done
 
 # **The campaign does not write `forge_result.json`. It writes `best_result.json`,
-# in the WORKSPACE, and until 2026-09-05 this step threw every real result away.**
+# in the WORKSPACE, and without it this step throws every real result away.**
 #
 # Bug 28. Measured on the 217 rescue: a campaign ran, improved 1.0748x, correctness
 # passed -- and this step exited 1 with "the campaign wrote no forge_result.json".

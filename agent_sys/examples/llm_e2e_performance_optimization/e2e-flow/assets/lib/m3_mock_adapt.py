@@ -14,8 +14,7 @@ workset — **this is the third owner to need it, and it is one lesson rather th
 three**: the mock copies bytes, and every per-kind adaptation is a step each
 owner wires themselves.
 
-Three gaps, each measured against the run at
-`ws_handoff_refine/runroot/runs/20260903T150709-4be7ad`, not guessed:
+Three gaps, each measured against a real run, not guessed:
 
 1. **`items/env/environment.yaml` is absent.** `check_environment` FAIL. The
    sealed handoff predates the record entirely (mission G5 is this round's

@@ -22,7 +22,7 @@ the `done` line at the cut — by which point the run is over. So "is this run
 exposed?" was, until this file, a question you could only answer after losing
 the run, or with a grep composed on the spot.
 
-That cost a full day. On 2026-09-04 the question *"will a KernelForge campaign
+That costs a day. The question *"will a KernelForge campaign
 at rung 4 be cut 20 s in?"* was answered **twice, confidently, in opposite
 directions**, both times by reading run logs — first "no, only a failed run is
 cut", then "yes, the escalation is structural". Both wrong. What settled it was

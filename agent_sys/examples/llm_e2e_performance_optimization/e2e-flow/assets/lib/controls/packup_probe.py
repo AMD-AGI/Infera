@@ -12,7 +12,7 @@ check either of us has, which is m5's call and their words.
 
 ## WHY IT RUNS THE ENTRY AND NOT `check()`
 
-`check_packup_shape` was, until 2026-09-04, **the only validator in the package
+`check_packup_shape` is the one validator in the package
 that had never produced a verdict** — `e2e_packup` is `created` in all 69 run
 trees, so nothing ever asked it a question. m5's battery already reached its
 refusal text, but that calls the function. This starts the real `entry.sh` in a

@@ -349,7 +349,7 @@ not heading depth**. So a `##` followed immediately by a `###` has an empty body
 and the seal refuses it with `required section '<name>' is empty`. **Put at
 least one sentence of prose directly under each `##` before any `###`.**
 
-**Measured**, run `20260906T224100-ef6374`: a 12,552-byte README with
+**Measured**: a 12,552-byte README with
 eight `###` subsections under `## Boundary` carrying about 8 KB between them —
 `Boundary`'s own body measured **0**, the seal was refused, and the run was lost
 because the framework's remedy is to instruct an agent that had already exited.

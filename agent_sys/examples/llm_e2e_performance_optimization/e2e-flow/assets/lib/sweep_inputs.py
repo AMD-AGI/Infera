@@ -23,7 +23,7 @@ with no `content/` hop. Every path this module returns has that shape, and
      bodies produced, already adapted (m1's `environment.yaml`, m2's reshaped
      `kernel_table`). Closest to what the graph stages;
   2. a **sealed handoff** under `cheat_for_mock/` — real bytes from the
-     2026-09-02 cluster run, but predating this package's adaptations;
+     sealed cluster run, but predating this package's adaptations;
   3. the package's **own m5 mock producer**, `assets/lib/mock_m5.sh`, for the
      kinds MOCK-MAP (D)/(F) say have no one-to-one sealed source.
 
@@ -152,8 +152,8 @@ def shape_problem(d: Path) -> str | None:
 def from_runs() -> dict[str, tuple[Path, str]]:
     """kind -> (best non-empty version tree, provenance), newest run first.
 
-    **Largest wins within a run, not lowest-numbered.** Measured on
-    `20260903T172821-6a3c24`: `deploy_kit`'s `v0/content` is empty while a `v1`
+    **Largest wins within a run, not lowest-numbered.** Measured:
+    `deploy_kit`'s `v0/content` is empty while a `v1`
     the store record never lists carries the whole 237 KB kit. Taking `v0`
     because it is the version the record names would have handed every consumer
     an empty directory and called it a real input — face 2 of §4.4, built in.
@@ -177,7 +177,7 @@ def from_runs() -> dict[str, tuple[Path, str]]:
             if not kind or not hid or kind in out:
                 continue
             # **Only a handoff the graph accepted.** Newest-run-wins alone took
-            # `deploy_kit` from `20260903T174638-046322`, a run aborted while
+            # `deploy_kit` from a run aborted while
             # that kit was still `generating`: 38 files, no
             # `items/codes/environment.yaml`, because MOCK-MAP (A)'s render had
             # not run yet. Every consumer would then have been handed a partial
@@ -204,7 +204,7 @@ def from_runs() -> dict[str, tuple[Path, str]]:
                 note = "" if sealed_valid else ", NOT valid"
                 # The root, not just the run: two roots are live since the move
                 # and a run directory is named only for its start time, so
-                # `run 20260903T172821-6a3c24` alone no longer says where from.
+                # the run name alone no longer says where from.
                 root = "home" if str(run).startswith("/home/") else "nfs"
                 out[kind] = (best, f"run[{root}] {run.name} ({best_n} files{note})")
     return out

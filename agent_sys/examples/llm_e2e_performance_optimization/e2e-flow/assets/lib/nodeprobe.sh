@@ -47,7 +47,7 @@
 # host docker daemon, outside Slurm entirely, so `docker ps` inside the node
 # shows the whole machine and Slurm shows nothing. Measured: a node
 # is `idle` to sinfo and has another tenant's `cell_e_e1_full` on all eight
-# cards at 42 % VRAM. Every node frustration of 2026-09-04 was that difference.
+# cards at 42 % VRAM. Every node frustration here is that difference.
 #
 # Why this does not take a hold
 #
@@ -87,7 +87,7 @@ mkdir -p "$RESULTS"
 
 #: A "free half" is the ask (M5 needs two arms; m1-m4 share one container).
 NEED=4
-#: `/mnt/m2m_nobackup` is dockerd's root. `node-186` was released over
+#: `/mnt/m2m_nobackup` is dockerd's root. A node has been released over
 #: 3.4 G there, so disk is a first-class reason and not a footnote.
 NEED_DISK_GB=200
 #: burst's `MaxSubmitPU` is 4 and **it counts jobs you already have**, including

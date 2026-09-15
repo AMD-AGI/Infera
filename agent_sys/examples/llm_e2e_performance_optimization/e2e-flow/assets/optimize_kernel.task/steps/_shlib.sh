@@ -13,7 +13,7 @@
 #     30_run_forge.sh: 35: /opt/venv/bin/python3: not found
 #
 # Exit 127, from the shell, naming neither the variable nor the reason. Measured
-# 2026-09-04 on the login node, in `30_run_forge.sh` and `70_selfcheck.sh` both.
+# on the login node, in `30_run_forge.sh` and `70_selfcheck.sh` both.
 #
 # `run_entrypoint.py::_interpreter()` in this same directory has always done the
 # right thing — probe each candidate, refuse with a sentence naming `KFO_PYTHON`.

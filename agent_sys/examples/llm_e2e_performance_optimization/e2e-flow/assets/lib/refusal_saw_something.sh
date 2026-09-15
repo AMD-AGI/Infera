@@ -84,7 +84,7 @@ PYEOF
     # **Report the KIND being validated, not just the closure.** The closure came
     # from mapping the zone name's task id through the store, which is an
     # inference; the kind comes from the handoff the zone actually lists in
-    # inputs.json, which is what was being judged. On 2026-09-06 the two were
+    # inputs.json, which is what is being judged. The two can be
     # read differently by two people on the same zone and produced opposite
     # conclusions -- one "e2e_packup", one "m2_profiling" -- while the kind was
     # unambiguous and the same in all seven runs: profiling_evidence.

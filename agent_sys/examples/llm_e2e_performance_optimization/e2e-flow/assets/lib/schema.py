@@ -111,7 +111,7 @@ def _inline_refs(node, root: pathlib.Path, seen: frozenset[str] = frozenset()):
     resolves `python3` to `/usr/bin/python3`, which on this host has `yaml` and
     `jsonschema` and **no `referencing`** — and `env_render.py` validates before
     it writes, so every module's MOCK-MAP (A) rendering died there with a
-    `ModuleNotFoundError`. Reported by m1, measured in-zone 2026-09-03.
+    `ModuleNotFoundError`. Measured in-zone.
 
     The obvious repair — try `referencing`, else validate without a registry —
     was written here and **its stated justification was false**. It claimed no

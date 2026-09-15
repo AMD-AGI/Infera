@@ -9,10 +9,9 @@ whole reason the payload emits JSON instead of prose.
     ./report.py results/<stamp>/rows.jsonl [--need 4] [--disk 200] [--asked a,b,c]
 
 **Three tiers, not two, and the middle one is a correction.** The first version
-scored "no local base carrying m1's anchor" as `NO`, which put nodes like
-`node-179` — eight free cards, 22 T of disk, simply no sglang image
-pulled yet — in the same bucket as a node with eight cards under another
-tenant. Those are not the same answer: one is unusable, the other costs an image
+scored "no local base carrying m1's anchor" as `NO`, which put a node with
+eight free cards, 22 T of disk and simply no sglang image pulled yet in the
+same bucket as a node with eight cards under another tenant. Those are not the same answer: one is unusable, the other costs an image
 pull. Reported as one, the table would have hidden most of the usable capacity
 on the cluster behind a reason that is not a blocker.
 """
@@ -41,7 +40,7 @@ def verdict(r: dict, need: int, need_disk: int, need_root: int) -> tuple[str, st
         return "NO", f"{r['cards_free']}/{r['cards_total']} cards free — {r['busy'] or 'n/a'}"
     if r["disk_gb"] < need_disk:
         return "NO", f"{r['disk_gb']}G on /mnt/m2m_nobackup"
-    # **`/` is the one that stopped a build.** `node-186` had the right
+    # **`/` is the one that stopped a build.** A node has had the right
     # base and 3.4 G here; docker builds on `/`, so a node can pass the big
     # filesystem and still be unbuildable. A separate, smaller bar, because this
     # one holds a build tree rather than an image store.

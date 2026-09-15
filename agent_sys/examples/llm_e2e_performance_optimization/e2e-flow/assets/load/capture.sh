@@ -37,7 +37,7 @@ TRACE_OUT_IN_CONTAINER="${TRACE_OUT_IN_CONTAINER:-$TRACE_OUT}"
 #: batch lines in it. The default is the path the profiling stage used, kept so
 #: that package stays byte-identical; every kit that puts the log somewhere else
 #: passes this. m1's kit writes `${work_root}/logs/worker.log` (measured on 088,
-#: 2026-09-05: 811 `Decode batch`/`Prefill batch` lines in a run where the
+#: Measured: 811 `Decode batch`/`Prefill batch` lines in a run where the
 #: hard-coded default matched nothing).
 ENGINE_LOG_IN_CONTAINER="${ENGINE_LOG_IN_CONTAINER:-/tmp/glm53_mix.log}"
 WARMUP_S="${WARMUP_S:-30}"

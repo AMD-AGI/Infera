@@ -118,8 +118,8 @@
     # default drifted and silently changed which stages were mocked.
     #
     # **What its absence cost on the first real run: nothing, measured.** It
-    # feeds `kernel_finder`, which is resolution *level 2*; run
-    # `20260905T051226-559e5f` resolved all five operators at level 1
+    # feeds `kernel_finder`, which is resolution *level 2*; a real run
+    # resolved all five operators at level 1
     # (`trace_python_stack`, `resolve_ratio: 1.0`) from the kernel_table's own
     # launcher frames, so the fallback was never reached. The body also guards
     # it — `os.environ.get(...) or "/nonexistent"` — so an empty value makes a

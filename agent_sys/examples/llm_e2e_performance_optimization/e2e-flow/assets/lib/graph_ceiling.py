@@ -2,7 +2,7 @@
 """Did decode fit inside the captured CUDA graph, or fall back to eager?
 
 **One implementation, two call sites** — m2's bench and m5's arms — on the
-leader's ruling 2026-09-04. Not two implementations: `min_requests` went wrong
+and it is one on purpose. Not two implementations: `min_requests` goes wrong
 because the same bar was *written twice*, and the fix there was one name with
 two overrides. This is the same predicate asked of **different engines**, which
 is a different thing and needs one body.
@@ -111,8 +111,8 @@ FLAG = "--cuda-graph-bs-decode"
 #: versions and a bar that silently finds none would be the `items_schema`
 #: shape again — present, and checking nothing.
 #:
-#: **`--cuda-graph-max-bs-decode` added by the lead**, from rung 2f
-#: (`20260904T225556-55e566`). Matching is exact token membership below, so the
+#: **`--cuda-graph-max-bs-decode` is spelled out separately.** Matching is
+#: exact token membership below, so the
 #: longer spelling does **not** match `--cuda-graph-max-bs` by prefix and the
 #: module would have taken its own "or the flag was renamed again" fallback —
 #: correctly refusing, but blocking a run whose kit is right.

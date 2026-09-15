@@ -281,7 +281,7 @@ def main() -> int:
     # had no artefact to read and refused with *"no environment.yaml at any of
     # …"* — correctly, and for the whole life of this body.
     #
-    # Invisible until 2026-09-05, because that is the first day a real
+    # Invisible until a real
     # `integration_report` existed to grade: at every earlier rung stage 5 was
     # mocked and `mock_m5.sh` renders the record itself. **The mock satisfied a
     # check the real path could not** — the inverse of the usual worry, and the
@@ -591,7 +591,7 @@ def main() -> int:
             # **The bars do not move; what moves is whether the run is allowed to
             # answer.** A measurement whose own noise floor exceeds the bar
             # cannot tell a real regression from its own scatter, and the sealed
-            # 2026-09-02 report is the worked example of what happens then: it
+            # sealed report is the worked example of what happens then: it
             # blamed a patch for a neighbour's load. `noise_floor` separates a
             # bad patch from a bad measurement.
             #

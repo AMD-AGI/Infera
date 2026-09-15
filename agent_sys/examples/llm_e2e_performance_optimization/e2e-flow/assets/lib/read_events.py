@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Read a run's event store.
 
-Written 2026-09-04 by the checkpoint writer, at the package owner's request, because
+Written because
 this query had answered three questions no log could and exactly one person
 knew how to ask it.
 
@@ -44,8 +44,8 @@ Usage:
     python3 read_events.py <run_dir> --task 356505d8
     python3 read_events.py <run_dir> --phases     # per-task phase durations
 
-`<run_dir>` is a directory under a run root. There are two run roots as of
-2026-09-04 and a tally that reads only one will under-report:
+`<run_dir>` is a directory under a run root. There are two run roots, and a
+tally that reads only one will under-report:
 
     <archived run root>/runs   (frozen, ro)
     <run root>/runs                           (live)
@@ -110,7 +110,7 @@ def _extras(event: dict) -> list[str]:
     `detail` is `"exit 1: mock: … operator_workset (27 files)"`, i.e. the half
     that says the body ran and produced 27 files. Hiding it leaves the reader
     with a refusal and no evidence there was ever an artefact. That combination
-    cost this writer a wrong published answer on 2026-09-04
+    is how a wrong answer gets published
     (`work.checkpoint.summary.md`, T+1062).
 
     Every remaining attribute rather than a per-kind list, which is what m4 did

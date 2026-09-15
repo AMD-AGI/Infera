@@ -133,7 +133,7 @@ PERFORMANCE_FLOOR = 3
 #:
 #: **Derived rather than written down twice.** Both producers —
 #: `build_workset.task/scaffold.py` and `.../mock_adapt.py` — hardcoded
-#: `overlay_files` until 2026-09-04, which is `todo.md` T34's shape and was
+#: `overlay_files` alone, which is `todo.md` T34's shape and is
 #: harmless only while the enum had one value. It no longer does.
 #:
 #: **The mapping is a fact, not a policy.** `call_site_fragment` means the edit
@@ -153,7 +153,7 @@ def apply_mode_for(substitution: str | None) -> str:
     """The install this substitution kind requires.
 
     Falls back to `overlay_files` for an unset or unknown kind, which is the
-    pre-2026-09-04 behaviour and the right default for a workset produced
+    the older behaviour and the right default for a workset produced
     before `substitution` existed: it is what those worksets meant, and the
     schema's binding only constrains the `call_site_fragment` branch.
     """
@@ -217,7 +217,7 @@ CRASH_MARKER = "THIS VALIDATOR DID NOT RUN"
 
 #: **What `--impl PATH` must be**, as data rather than prose.
 #:
-#: Undeclared until 2026-09-04, when m4's STEP 4 reached the harness and got
+#: Undeclared, it lets m4's STEP 4 reach the harness and get
 #: *"the Definition's `candidate:sampler_vocab_softmax` defines no `run`"*. Two
 #: sides disagreed about what the flag means and nothing stated it — the same
 #: shape as the flag *spellings*, which are data for exactly this reason and
@@ -249,8 +249,7 @@ def write_report(validator: str, findings: dict[str, tuple[list[str], list[str]]
     """Every problem and note this validator produced, on disk in the zone.
 
     **A verdict without its reasons is a number nobody can act on.** Measured
-    five times on 2026-09-04: a validator's stdout is kept nowhere
-    (`temp/bugs/2026-09-03-a-validators-stdout-is-not-kept-anywhere.md`), so a
+    five times: a validator's stdout is kept nowhere, so a
     zone holds `args.json`, `inputs.json`, `materials.json` and `verdict.json`
     and **not one word about why**. The last instance was `check_workset_runs`
     refusing a workset **correctly** — a real finding about a real

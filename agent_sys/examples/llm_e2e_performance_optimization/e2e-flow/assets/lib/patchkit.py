@@ -27,7 +27,7 @@ SCHEMA_VERSION = 1
 #: itself. Declaring the mode makes an out-of-scope patch fail at the first
 #: validator instead of being mounted and never executed.
 APPLY_OVERLAY = "overlay_files"
-#: **Patch the stock file in place, then mount the result.** Added 2026-09-04
+#: **Patch the stock file in place, then mount the result.** Added
 #: with m3's `workset.schema.json` enum, for a `call_site_fragment` operator
 #: whose edit lives inside an existing function: overlaying the whole file with
 #: a replacement that defines only the optimised fragment deletes every symbol
