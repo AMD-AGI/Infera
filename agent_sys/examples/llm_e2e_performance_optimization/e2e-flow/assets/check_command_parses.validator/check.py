@@ -2,8 +2,7 @@
 """`check_command_parses` — a `reproducible` handoff's `command` must be a script.
 
 `agent.gate` requires the `command` item to be **executable**. Nothing anywhere
-requires it to **parse**. Found by m2 while sweeping for a fault class they had
-just fixed in their own generators, and confirmed here first-hand:
+requires it to **parse**. Confirmed first-hand:
 
     11 of the 14 sealed `items/command` scripts under `cheat_for_mock/`
     do not parse.
@@ -52,7 +51,7 @@ CANDIDATES = ("items/command", "items/script")
 def judge(path: pathlib.Path) -> str:
     """The shell to check with: **the one this file's own shebang names.**
 
-    Measured, and it is why the first version of this validator passed a broken
+    Measured, and it is why checking with the wrong shell passes a broken
     script. On `stage2-profiling/aiperf_baseline`:
 
         shebang   #!/usr/bin/env bash
@@ -95,8 +94,7 @@ _GUARD = __import__("re").compile(r"\$\{[A-Za-z_][A-Za-z0-9_]*:[?=]([^}]*)\}")
 def quoted_guards(path: pathlib.Path) -> list[str]:
     """Apostrophes inside a `${VAR:?…}` message. **Parsing cannot find these.**
 
-    Found by m5 while fixing their own generators, and it is the sharper half of
-    the fault this validator was written for.
+    The sharper half of the fault this validator exists for.
 
     An **odd** number of apostrophes leaves a quote open to end of file and
     `bash -n` says so. An **even** number pairs up: the first opens a quote, the
@@ -146,13 +144,13 @@ def main() -> int:
 
     verdict: dict[str, bool] = {}
     # `(line, is_fault)`. **The flag is set where the line is written, not
-    # recovered from its wording afterwards.** Every line used to go into
-    # `write_report`'s *problems* slot, so a passing handoff's report read
+    # recovered from its wording afterwards.** Putting every line into
+    # `write_report`'s *problems* slot makes a passing handoff's report read
     # `PROBLEM: items/command bash -n clean` — a `PROBLEM:` under a `passed`
-    # heading, which is a contradiction in the helper's own vocabulary and made
-    # a reader ask whether this validator grades and then ignores its own grade.
-    # It does not; the verdict was always right and only the rendering lied.
-    # Measured by another owner and reproduced by m3 across two runs: 7 of the 11
+    # heading, a contradiction in the helper's own vocabulary that leads a reader
+    # to ask whether this validator grades and then ignores its own grade. The
+    # verdict is right either way; only the rendering lies. Measured across two
+    # runs: 7 of the 11
     # `PROBLEM:` lines in the whole run came from here, all under `passed`.
     findings: list[tuple[str, bool]] = []
 

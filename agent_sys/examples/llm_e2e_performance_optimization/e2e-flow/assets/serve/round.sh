@@ -82,11 +82,11 @@ if [ "$ARM" = "patched" ]; then
   # The stock arm's own record of what it did, and the reason this task is
   # allowed to tear that deployment down.
   #
-  # **This used to be a graph edge and is now a precondition.** In
-  # the integration stage, `serve_patched` consumed `bench_stock` — not because it
-  # needed the numbers but because the edge said "the stock arm has finished".
-  # M5.2 merged the five leaves into one task, so there is no edge left to carry
-  # that; what is left is this check, against the stock arm's steps record
+  # **A precondition rather than a graph edge.** With five leaves,
+  # `serve_patched` can consume `bench_stock` — not because it needs the numbers
+  # but because the edge says "the stock arm has finished". M5.2 merges them into
+  # one task, so there is no edge to carry that; what is left is this check,
+  # against the stock arm's steps record
   # written earlier in this same task. It is weaker than a scheduler constraint
   # and stronger than a sentence in a readme: the patched bring-up refuses to
   # start if the stock arm did not finish, and `check_measurement_order` refuses

@@ -66,9 +66,8 @@ env:
   E2E_DEPLOY_MODE: '${deploy_mode:-mix}'
   E2E_TP: '${tp:-8}'
   # The engine's context window. The one flag a model substitution cannot
-  # survive by luck: the round that proved Qwen3.6-27B works here worked because
-  # its `max_position_embeddings` is *exactly* the value that used to be
-  # hard-coded.
+  # survive by luck: a model works against a hard-coded value only when its
+  # `max_position_embeddings` happens to equal it exactly.
   E2E_CTX: '${context_length:-262144}'
   # The two model-specific engine flag groups. A model with no DSA attention
   # path does not take `--dsa-*-backend`, and the wrong `--reasoning-parser`
@@ -96,13 +95,13 @@ env:
   # describes what this one did.
   #
   # `check_deploy_serves` gets it right -- `check.py` reads the handshake
-  # and takes `deployment["endpoint"]`. The trap is for the NEXT consumer, and the
-  # leader walked into the reader's half of it within the hour: probing 8101-8103
-  # against a serving engine returns `000`, which is exactly what a dead engine
-  # returns. Nothing was wrong; the probe was aimed by a default.
+  # and takes `deployment["endpoint"]`. The trap is for the NEXT consumer:
+  # probing 8101-8103 against a serving engine returns `000`, which is exactly
+  # what a dead engine returns. Nothing is wrong; the probe was aimed by a
+  # default.
   #
   # So: **read the handshake. Use these only to CONFIGURE a bring-up, never to
-  # find one.** m3 flagged the hazard for a future prober in their own stage.
+  # find one.**
   E2E_PORT_ROUTER: '${port_router:-8101}'
   E2E_PORT_WORKER: '${port_worker:-8102}'
   E2E_PORT_ETCD: '${port_etcd:-8103}'
@@ -130,9 +129,9 @@ env:
   # An absolute path rather than a file inside the package: the whole package is
   # copied into every attempt's zone, and a trace is megabytes. A cluster fact,
   # so it carries a default — unlike the six node facts, which do not.
-  # **No default, on purpose.** This used to default to
-  # a site-specific absolute path in a spec, which M2.1 and CONTRACT §6 forbid,
-  # and a *debugging* workspace besides. It was caught from the consumer end: their consumer is `assets/accept/measure.sh`, `'${E2E_AIPERF_TRACE:?}'`,
+  # **No default, on purpose.** A site-specific absolute path here is what M2.1
+  # and CONTRACT §6 forbid, and it would name a *debugging* workspace besides.
+  # The consumer is `assets/accept/measure.sh`, `'${E2E_AIPERF_TRACE:?}'`,
   # so an operator who passes no `--var aiperf_trace=…` gets a loud failure
   # naming the variable instead of a replay silently driven by somebody's
   # scratch trace. Empty is what makes that guard reachable.
@@ -283,18 +282,16 @@ env:
   # m3's five. `E2E_SNR_THRESHOLD` has two producers — `scaffold.py` into
   # `gates.snr_db` and `rank.py` into the worklist — so it belongs here
   # regardless of any one agent's block.
-  # **Empty, not `4`.** It was `${measure_gpu:-4}` for one commit, copied from
-  # m3's body default. m4 refused to declare it on that basis and they were
-  # right: a **real card** as a package default makes a consumer's
+  # **Empty, not `4`.** A `${measure_gpu:-4}` copied from a body default puts a
+  # **real card** in as a package default, which makes a consumer's
   # refuse-when-empty guard unreachable and picks a card silently on a shared
   # host — the outcome the guard exists to prevent, arriving through a fallback
-  # instead of a decision. **m3's body REFUSES rather than
-  # defaulting** -- `measure_in_container.sh` prints the node's live
-  # `rocm-smi` and exits 1 naming the fix. This comment used to say the body
-  # falls back to card 4; that was true once, the fallback was removed, and the
-  # comment did not fail -- it started lying, in the direction of "you do not
-  # need to pass this". Third instance today of a default that became a refusal
-  # (T49), and the most consequential copy, because THIS is the file someone
+  # instead of a decision. **m3's body REFUSES rather than defaulting** --
+  # `measure_in_container.sh` prints the node's live `rocm-smi` and exits 1
+  # naming the fix. A comment here saying the body falls back to card 4 does not
+  # fail when that stops being true; it starts lying, in the direction of "you do
+  # not need to pass this" (T49). This is the most consequential place for that,
+  # because THIS is the file someone
   # reads to decide whether the var is optional. It is not: `measure_gpu` is
   # required on EVERY rung 0-5, because `build_workset/entry.sh` calls the
   # container script on the MOCK path too. Omitting it cost rung 1 (2026-09-04):
@@ -323,9 +320,9 @@ env:
   # to compare. **A checker's blind spot is not the same as a clean result** —
   # this pair is why that sentence is in the file.
   #
-  # **One correction to how this was first written here.** m4 reported the
-  # `m4` default as living in the shared `env_render.py`, and the package owner wrote
-  # that down without opening the file. Measured: `env_render.py` is
+  # **The `m4` default does not live in the shared `env_render.py`**, which is
+  # the obvious place to record it and the wrong one. Measured: `env_render.py`
+  # is
   # `os.environ.get("E2E_STAGE", "")` — **empty** — and the `setdefault(…, "m4")`
   # is at `optimize_kernel.task/steps/_lib.py`, which is m4's own module
   # naming itself and is correct. So the defect is smaller and different:

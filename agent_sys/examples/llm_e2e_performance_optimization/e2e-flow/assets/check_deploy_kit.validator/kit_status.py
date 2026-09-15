@@ -17,11 +17,10 @@ way to say so.** A run that loses its verdict should not also lose its kit.
 **This changes no producer behaviour.** It is a reader, run by a person after the
 fact, over a directory that already exists. The alternative shapes — a marker the
 producer writes, an early record write — all require touching
-`deploy_and_prove.task/readme.md`, and the next real bring-up is the acceptance
-test for two producer changes already in flight (`c1c10ba`, `a32f06d`). Changing
-a third thing between attempts would make a failure unattributable. **If the
-graph should learn this live, that is a different change and it should wait for a
-rung that is not also testing something else.**
+`deploy_and_prove.task/readme.md`, so they land inside whatever bring-up is
+already the acceptance test for other producer changes, and a failure becomes
+unattributable. **If the graph should learn this live, that is a different change
+and it belongs to a run that is not also testing something else.**
 
 **It must not look like a seal, and that is the first design constraint.**
 A partial artefact that reads as complete is worse than one that reads as absent

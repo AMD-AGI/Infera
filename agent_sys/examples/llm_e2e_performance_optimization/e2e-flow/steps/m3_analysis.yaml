@@ -46,16 +46,16 @@
 # package outside this repository cannot register an entry point in the
 # `agent_sys.backends` group without being installed, and this package is data.
 #
-# **This block used to say there was no `env` block**, on the grounds that
+# **Omitting the `env` block here is the obvious position**, on the grounds that
 # `shared.yaml` is the package's only declaration site and a second one is a
 # second place for a default to go stale. The reasoning is right and the premise
-# was never checked: `env_mgr/material.py` builds an agent's environment from
+# is false: `env_mgr/material.py` builds an agent's environment from
 # `_declared_env(agent_spec)` — the `env` of **the agent that is running** — and
-# `shared.yaml`'s 36 `E2E_*` are declared on `runner`. m1 measured it off rung
-# 1's transcript: a `kind: ai` agent's first command was
-# `env | grep -E '^(E2E_|AGENT_SYS_)'` and it returned seven `AGENT_SYS_*` and
-# **zero `E2E_*`**. So the cost of the second declaration site was already being
-# paid, in the form of every variable below silently taking its fallback.
+# `shared.yaml`'s 36 `E2E_*` are declared on `runner`. Measured from a
+# transcript: a `kind: ai` agent's first `env | grep -E '^(E2E_|AGENT_SYS_)'`
+# returns seven `AGENT_SYS_*` and **zero `E2E_*`**. So the cost of the second
+# declaration site is paid either way, in the form of every variable below
+# silently taking its fallback.
 #
 # This matters more here than at most stages because this is the stage that
 # *measures*. It bites in the `${VAR:-default}` form and not the `set -u` form:

@@ -25,13 +25,12 @@
 # package outside this repository cannot register an entry point in the
 # `agent_sys.backends` group without being installed, and this package is data.
 #
-# **This agent declares its own `env` block, and the sentence that used to stand
-# here said the opposite.** It read: *"No `env` block here. `shared.yaml` is this
-# package's only variable declaration site by design, and every `E2E_*` name this
-# task reads is declared there."* Declared there — **on a different agent**, and
-# that is the whole of the bug.
+# **This agent declares its own `env` block.** *"No `env` block here;
+# `shared.yaml` is this package's only variable declaration site by design, and
+# every `E2E_*` name this task reads is declared there"* is the obvious position
+# and it is wrong: declared there means **on a different agent**.
 #
-# Measured 2026-09-04, from rung 1's own transcript. The agent's first command
+# Measured, from a run's own transcript. The agent's first command
 # was `env | grep -E '^(E2E_|AGENT_SYS_)'`, and it returned **seven
 # `AGENT_SYS_*` names and zero `E2E_*`**. `env_mgr/material.py` is
 # `env.update(_declared_env(agent_spec))`, and `_declared_env` reads
@@ -57,7 +56,7 @@
 #
 # **The duplication below is deliberate and cannot be designed away.** `${...}`
 # substitution is textual per occurrence and YAML anchors do not cross files, so
-# a default reachable by `runner` is not reachable from here. The leader's ruling
+# a default reachable by `runner` is not reachable from here. The rule
 # (2026-09-04) is that each `kind: ai` agent declares what it needs — m5's
 # `e2e_integrator` has done exactly this all along — and that a checker in the
 # `show` gate compares every name and default here against `runner`'s. **Every

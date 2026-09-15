@@ -259,9 +259,9 @@ def bucket_summary(rows: list[dict]) -> dict:
 
 
 def main() -> int:
-    # **The input is `profiling_evidence`, not `kernel_table`** (M3.2). The
-    # `seed_table` task that used to supply a 34-row synthetic seed is deleted:
-    # it existed because stage 2's real output was not reachable, and it now is.
+    # **The input is `profiling_evidence`, not `kernel_table`** (M3.2). There is
+    # no `seed_table` task supplying a synthetic seed: stage 2's real output is
+    # reachable, so a seed would be a second source for one fact.
     staged = store.declared_dir("profiling_evidence", direction="INPUT")
     if staged is None:
         raise SystemExit(

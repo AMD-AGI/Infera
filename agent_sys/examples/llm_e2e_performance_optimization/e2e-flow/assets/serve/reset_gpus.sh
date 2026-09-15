@@ -8,10 +8,9 @@
 # DIVERGES FROM examples/glm53flash-demo/scripts/reset_gpus.sh, on purpose.
 # That version does `kill -9` on every pid `rocm-smi --showpids` reports. On a
 # Slurm GPU node that set includes **slurmstepd**, which holds a KFD handle for
-# the step's cgroup — observed on an MI355X node, where the original
-# script killed pid 2305766 (slurmstepd). Killing it can take down a job step
-# that has nothing to do with this experiment. The demo's node is a bare host
-# with no scheduler, so the difference never showed up there.
+# the step's cgroup — observed on an MI355X node, where the broad version kills
+# slurmstepd itself. That can take down a job step with nothing to do with this
+# experiment. On a bare host with no scheduler the difference never shows up.
 #
 # So: kill only process names that are plausibly a leftover inference engine,
 # never anything else. Whatever is left is reported and the VRAM floor below is

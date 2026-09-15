@@ -121,9 +121,9 @@ arrivals, same lengths, so a difference between them is the engine and not the
 load.
 
 Without it there is nothing to send and the load aborts (`aiperf_replay.sh`
-requires it). **This is not hypothetical**: a bring-up succeeded
-completely — worker serving, six verification probes green, a real completion —
-and the run then died at the load because no trace had been passed. The
+requires it). **This is not hypothetical**: a bring-up can succeed completely —
+worker serving, six verification probes green, a real completion — and the run
+then die at the load because no trace was passed. The
 operator supplies the path; your job is to make sure it reaches the load step,
 and to stop with a clear message if it has not, rather than loading something
 else. The default is empty **on purpose**, so that a missing trace is loud.

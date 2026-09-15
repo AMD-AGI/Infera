@@ -90,8 +90,8 @@ class NodeError(RuntimeError):
 # minutes is generous by an order of magnitude for every one of them. A call
 # that genuinely needs longer says so, and the four that do already did.
 #
-# The trade, stated: a command that legitimately exceeds this now raises
-# `TimeoutExpired` where it previously hung. That is a legible failure with a
+# The trade, stated: a command that legitimately exceeds this raises
+# `TimeoutExpired` rather than hanging. That is a legible failure with a
 # message instead of a lost run with leaked GPUs, and it is recoverable.
 DEFAULT_ON_TIMEOUT_SECONDS = 600
 
@@ -285,8 +285,8 @@ def judge_load(summary: dict, accept: dict, load_shape: dict) -> list[str]:
     # **An absent key and an empty list are different facts and this line used to
     # conflate them.** `.get()` returns `None` when the emitter did not write the
     # field at all and `[]` when it wrote "nothing was missing"; `or []` collapsed
-    # both to silence. So a rename on the emitter's side — m2 is renaming this
-    # very key to `missing_wanted` — would have stopped these messages appearing
+    # both to silence. So a rename on the emitter's side — this key is a
+    # candidate for `missing_wanted` — would stop these messages appearing
     # with no error and no trace, and a run with a genuinely complete summary
     # looks identical. Same *unset versus not listed* conflation `mock.sh` had,
     # in a line written to surface a distinction.
@@ -393,24 +393,21 @@ def _note(notes: list[str], message: str, *, file=None) -> None:
     """A note: context that is true whether the verdict passes or fails.
 
     **Tagged here, at the write, and never recovered from its wording later.**
-    That is `77ed4be`'s shape and the reason for it is measured: four ledger rows
-    quoted a `note:` as a failure reason, two of them because a log relabelled
-    `note:` as `PROBLEM:`. A line's kind is a property of where it was produced,
-    not of how it reads.
+    The reason is measured: four ledger rows quote a `note:` as a failure reason,
+    two of them because a log relabels `note:` as `PROBLEM:`. A line's kind is a
+    property of where it was produced, not of how it reads.
 
     Still printed, because someone watching a live run should see it — but stdout
     is not the channel that survives: `grep -c "check_deploy_serves:"` over a
     completed run's orchestrator log returns **0**. The report is what is left.
 
-    **`file` exists because two call sites already passed it and this signature
-    did not accept it** — the teardown-path handlers at the bottom of
-    `check_one`. Found 2026-09-05 by reading every `_note(` call site after the
-    first real report came back; `77ed4be` converted twelve `print(...)` calls
-    mechanically and carried the kwarg across on the two that had it. Both sit in
-    `except` blocks, so the `TypeError` would have fired **only when a teardown
-    had already failed** — the moment the note matters most. Neither `ast.parse`
-    nor `symtable` sees an arity error, which is the third instrument in this
-    package to be unable to fail in the way it was being trusted to.
+    **`file` exists because two call sites pass it** — the teardown-path
+    handlers at the bottom of `check_one`. A mechanical conversion of
+    `print(...)` calls carries the kwarg across without widening this signature,
+    and both sites sit in `except` blocks, so the `TypeError` fires **only when a
+    teardown has already failed** — the moment the note matters most. Neither
+    `ast.parse` nor `symtable` sees an arity error, which makes this another
+    instrument that cannot fail in the way it is being trusted to.
     """
     notes.append(message)
     print(f"check_deploy_serves: {message}", file=file if file is not None else sys.stdout)
@@ -486,13 +483,13 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict,
             # device; and the 06:05 instance was cleared by a retry that changed
             # nothing, observed in that kit's own `worker.attempt1-nccl-fail.log`.
             #
-            # **Why this exists here as well as in the brief.** `78909fc` gave the
-            # producer this retry by writing it into `deploy_and_prove`'s readme —
-            # and a readme instructs an **agent**. This validator performs the same
-            # bring-up in **program code** and read nothing, so the stage healed
-            # itself in one half and refused in the other, on one fault, two hours
-            # apart. m2's controlled experiment was the cost: their treatment arm
-            # died here at 07:15 and produced no data at all.
+            # **Why this exists here as well as in the brief.** Writing the
+            # retry into `deploy_and_prove`'s readme instructs an **agent**. This
+            # validator performs the same bring-up in **program code** and reads
+            # no readme, so with the retry in one place only the stage heals
+            # itself in one half and refuses in the other, on one fault — enough
+            # to kill a controlled experiment's treatment arm and produce no data
+            # at all.
             #
             # `runner.py` is the mirror of this: *an environment variable
             # cannot instruct an agent.* **A brief cannot instruct a program.**
@@ -747,25 +744,26 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict,
         faults += judge_load(summary, load["accept"], load)
 
         # ---- 3b. did the graph ceiling actually cover this load? -------------
-        # **`e390abb` made "ceiling >= the load's concurrency" a criterion in the
-        # brief and left it checked by nobody.** This is the half that catches a
-        # violation instead of asking for compliance: four real bring-ups shipped
+        # **"ceiling >= the load's concurrency" is a criterion in the brief,
+        # and a criterion in a brief is checked by nobody.** This is the half
+        # that catches a violation instead of asking for compliance: four real
+        # bring-ups ship
         # 16, 16, 8 and 32, and the one that shipped 8 against a concurrency-16
         # load ran decode eager and was 4.5x slower — invisible to every field the
         # environment record carries, which is why a cross-input comparison
         # cannot see it (`todo.md` T55).
         #
         # **Adopted, not re-implemented.** `assets/lib/graph_ceiling.py` is m5's
-        # and m2's, validated against four real artefacts including both sides of
-        # the flag. Writing a second copy here is `todo.md` T56 committed by the
-        # person who filed it. It is read the way it asks to be read: `None` is
-        # **not a pass**, and `--disable-cuda-graph` means *not applicable*
-        # rather than *ceiling zero* (`982a4d5`) — a caller that treats graphs-off
-        # as a low ceiling refuses valid deployments.
+        # and m2's, validated against four real artefacts including both sides
+        # of the flag. A second copy here would be `todo.md` T56. It is read the
+        # way it asks to be read: `None` is **not a pass**, and
+        # `--disable-cuda-graph` means *not applicable* rather than *ceiling
+        # zero* — a caller that treats graphs-off as a low ceiling refuses valid
+        # deployments.
         #
-        # **Both inputs are read from the world, not from what we asked for.**
+        # **Both inputs are read from the world, not from what was asked for.**
         # The ceiling comes off the engine's own `/proc/<pid>/cmdline` — m5's
-        # `serve/round.sh` idiom — because a launch flag we passed is not
+        # `serve/round.sh` idiom — because a launch flag that was passed is not
         # evidence of a flag the engine took. The concurrency comes from the
         # aiperf export's `effective_decode_concurrency`, and **not** from this
         # summary's `effective_concurrency`, which is a different number (15.35
@@ -835,8 +833,8 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict,
         #
         # Reading root-owned files works, which is what makes this easy to miss:
         # `copy_out`, the seal and every validator succeed, and the failure lands
-        # on the *next* run when the zone's own user cannot clean up. Found by m3
-        # on the first real GPU run; CONTRACT.md §5.0.
+        # on the *next* run when the zone's own user cannot clean up.
+        # CONTRACT.md §5.0.
         try:
             container = locals().get("deployment", {}).get("container")
             if container:

@@ -8,5 +8,4 @@ Program validator (mission G4.1). One rule: a `reproducible` handoff's
 `cheat_for_mock/` do not, all from one cause: an apostrophe inside a
 `${VAR:?word}` message opens a single-quoted string that runs to end of file.
 
-Found by m2 sweeping for a class they had just fixed in their own generators.
 See `check.py` for the full account.

@@ -236,7 +236,7 @@ def adhoc_ok(result: Path, args: dict, reasons: list) -> list[str]:
     # `or` form reads a deliberate `min_adhoc_cases: 0` as the default and
     # silently re-arms a rule the operator turned off. Harmless here because
     # both values are 0 — kept in the safe shape so that changing the default
-    # later cannot introduce the bug. Raised by m3, who found the live case.
+    # later cannot introduce the bug.
     floor = int(args.get("min_adhoc_cases", 0))
     payload = read_json(result / "adhoc.json")
     if payload is None:

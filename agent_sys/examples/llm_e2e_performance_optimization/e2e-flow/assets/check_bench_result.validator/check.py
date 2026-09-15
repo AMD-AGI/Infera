@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """`check_bench_result` — completeness, strong. Six rules over a bench.
 
-Carried across from the profiling stage's original `check_aiperf_report.validator/`,
-which had four of them and had been driven to a real cluster run. What is new
-here is mission M2.2.1: the bench's record is a JSON document with a schema in
+Carried across from the profiling stage's `check_aiperf_report.validator/`,
+which has four of them. What is new here is mission M2.2.1: the bench's record
+is a JSON document with a schema in
 `assets/schemas/`, and the schema is checked from **both** sides — the producer
 validates before it seals, this validates after.
 
@@ -268,11 +268,11 @@ def check(content: Path, args: dict, reasons: list) -> bool:
 def graph_ceiling_ok(content: Path, reasons: list) -> bool:
     """The engine captured a decode graph big enough for the load it was given.
 
-    m5's `assets/lib/graph_ceiling.py` (`7d57dda`), one implementation and two
-    call sites — this one and their two arms. Not re-derived here.
+    `assets/lib/graph_ceiling.py` is the one implementation, with two call
+    sites — this one and m5's two arms. Not re-derived here.
 
-    **Why an absolute bar and not a comparison.** m5 measured that a
-    stock-vs-m2 reconciliation catches one arm in eager decode (throughput
+    **Why an absolute bar and not a comparison.** Measured: a stock-vs-m2
+    reconciliation catches one arm in eager decode (throughput
     −78.6 %) and **passes when both arms are in it**, byte-identical to a healthy
     agreement — and comparing the two engine command lines does not help either,
     because in that case they agree, 8 == 8. Only an absolute bar sees it
@@ -291,7 +291,7 @@ def graph_ceiling_ok(content: Path, reasons: list) -> bool:
     mission-mandated concurrency of 16.
 
     **`None` is a note, never a fault, and that is what makes this safe on both
-    of my lines.** This validator grades `profiling_mode_off` *and*
+    lines.** This validator grades `profiling_mode_off` *and*
     `profiling_mode_on` and cannot tell them apart — `zone.inputs()` yields
     handoff ids, not kinds. `profiling_mode_on` runs CUDA graph **off by design**
     (CONTRACT §1.1: a graph launch hides the kernels the profiler exists to see),

@@ -84,15 +84,15 @@
         on_absent: skip
     # **`fixed` is compared strictly; `runtime` is reported and never judged.**
     #
-    # I first wrote this as `require_runtime_agrees_across_inputs: true`, which
-    # would have been wrong in the one place it matters: **module 5's two arms
-    # have different containers by construction**. A container holds one state
+    # `require_runtime_agrees_across_inputs: true` would be wrong in the one
+    # place it matters: **module 5's two arms have different containers by
+    # construction**. A container holds one state
     # for its life — that is the entire reason the two-arm design exists, and
     # CONTRACT.md §5 grants it. A `strong` validator failing on that stops the
     # graph on exactly the stage the contract says must differ.
     #
-    # What is left is weaker than "modules 1–4 shared one container", which is
-    # what I wanted to assert and cannot from here: the body sees handoff
+    # What is left is weaker than "modules 1–4 shared one container", which
+    # cannot be asserted from here: the body sees handoff
     # **ids**, not kinds (`zone.materials()` is keyed by id), so it cannot tell
     # an m5 arm from an m2 line. Said out loud rather than approximated — an
     # assertion that is right four times in five and stops the graph the fifth
@@ -172,8 +172,7 @@
 # **parse** — and **11 of the 14 sealed `items/command` scripts under
 # `cheat_for_mock/` do not**, all from one cause: an apostrophe inside a
 # `${VAR:?word}` message opens a single-quoted string that runs to end of file.
-# Six in stage 2, one in stage 3, four in stage 5. Found by m2 sweeping for a
-# class they had just fixed in their own generators; confirmed here first-hand.
+# Six in stage 2, one in stage 3, four in stage 5; confirmed first-hand.
 #
 # **Judged by the shell the file's own shebang names**, which is the part that
 # decides the verdict. Measured on `stage2-profiling/aiperf_baseline`: shebang

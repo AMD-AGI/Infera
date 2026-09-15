@@ -57,7 +57,7 @@
             "patch_in_place",
             "rebuild"
           ],
-          "description": "How the optimisation was installed, copied from the patch manifest. **Three values, and they are not equally real.** `overlay_files` replaces a whole file; `patch_in_place` applies a diff to the stock file and preserves its public surface by construction, which is what a `call_site_fragment` operator requires (m3's workset.schema.json, 5f5c1af). Both are implemented by `apply_patch` — `patchkit.APPLY_MODES_IMPLEMENTED`. `rebuild` is neither implemented nor emittable by any producer in this package (todo.md T44) and is kept only so that a report from a future rebuild path validates against this schema rather than being retrofitted. Reading a `rebuild` here today means somebody hand-wrote it."
+          "description": "How the optimisation was installed, copied from the patch manifest. **Three values, and they are not equally real.** `overlay_files` replaces a whole file; `patch_in_place` applies a diff to the stock file and preserves its public surface by construction, which is what a `call_site_fragment` operator requires (`workset.schema.json`). Both are implemented by `apply_patch` — `patchkit.APPLY_MODES_IMPLEMENTED`. `rebuild` is neither implemented nor emittable by any producer in this package (todo.md T44) and is kept only so that a report from a future rebuild path validates against this schema rather than being retrofitted. Reading a `rebuild` here today means somebody hand-wrote it."
         },
         "image": {
           "type": "string",

@@ -89,14 +89,12 @@ mkdir -p "$WORK_ROOT/aiperf"
 # and the answer is: **check the label, not the name.** Every ownership error
 # recorded here came from reasoning about a name.
 #
-# These two containers carried **no label at all**, and `CTR` defaults to
-# `glm53_int` (line 33) — a name with neither `yihou` nor `infera_e2e` in it.
-# So an unlabelled, generically-named GPU container of mine on a shared host was
-# indistinguishable from a stranger's by every available test. m1 hit the mirror
-# of this from the other side: they nearly reported `infera_e2e_sgl_solo47` on
-# cards 4-7 as a violation of their own pinning, and it was **mine**.
+# An unlabelled container whose `CTR` defaults to a generic name carries nothing
+# that identifies it, so on a shared host it is indistinguishable from a
+# stranger's by every available test — in both directions: another stage can
+# just as easily report one of these as a violation of its own pinning.
 #
-# `infera_e2e_arm` as well as `infera_e2e_run`, on m1's point: the run label says
+# `infera_e2e_arm` as well as `infera_e2e_run`: the run label says
 # *ours rather than a stranger's*, and the arm label says *m5's stock arm rather
 # than m1's stage* — which name-matching cannot do, because we share a prefix.
 LABELS=(--label "infera_e2e_run=${E2E_RUN_TAG:-$CTR}")
