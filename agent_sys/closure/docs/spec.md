@@ -357,11 +357,11 @@ places and satisfy neither.
 3. A closure naming an agent spec that does not exist is rejected, and **so is a
    LEAF naming no agent spec at all**; a `kind: program` spec is how a task runs a
    plain executable. **A non-leaf naming none loads**, and one that names an agent
-   anyway is still checked for resolution. *Amended at rev. 10: it said "so is a
-   closure naming no agent spec at all", which rev. 8 had made unconditional. §2.2
-   records the three code reads that show a non-leaf's `agent` is read by nothing.
-   The criterion needs four cases tested, not two — leaf/non-leaf crossed with
-   named/absent — because the change turns one of the four from reject to accept
+   anyway is still checked for resolution. *An unconditional "so is a closure
+   naming no agent spec at all" would be wrong: §2.2 records the three code reads
+   that show a non-leaf's `agent` is read by nothing. The criterion needs four
+   cases tested, not two — leaf/non-leaf crossed with named/absent — because one
+   of the four goes from reject to accept
    and a test suite that only covers the leaf column would pass either way.*
 4. A closure naming a phase validator that resolves to a general task is
    rejected.

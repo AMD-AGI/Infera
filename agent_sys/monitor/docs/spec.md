@@ -243,8 +243,8 @@ escalation target is the user.
 
 **Escalation follows the *task* tree, never the monitor topology.** Global
 monitors are a flat pool; the tree that matters is the one `task_graph` already
-has. So the target is always "the monitor of my task's parent", whether either
-monitor is per-task or global.
+has. So the target is always "the monitor of the reporting task's parent",
+whether either monitor is per-task or global.
 
 **This is what makes principle 1 affordable.** Principle 1 sends every departure
 from the plan to *a* monitor; without escalation, a monitor that cannot act is
@@ -662,8 +662,7 @@ reason this case is written out:
                   then asks the runner for a thread; output validation runs
 ```
 
-**Three properties this is built to preserve, each of which an earlier draft
-broke:**
+**Three properties this is built to preserve, and each is easy to break:**
 
 | | |
 |---|---|
@@ -677,11 +676,10 @@ resuming. Nothing pushes a second execution record and no second agent is bound.
 
 ### 5.4 The monitor's own liveness
 
-**Rev. 14 put the planned path through this module, so "nothing monitors the
-monitor" stops being a recorded risk and becomes a requirement.** Before, a dead
-monitor meant exceptions went unhandled. Now it means **every task stops
-advancing, silently** — which is the defect class §2.1 exists to remove, applied
-to the whole system.
+**The planned path runs through this module, so "nothing monitors the monitor"
+is a requirement rather than a recorded risk.** A dead monitor does not merely
+leave exceptions unhandled; it stops **every task advancing, silently** — the
+defect class §2.1 exists to remove, applied to the whole system.
 
 **Two mechanisms, both small, both alpha scope.**
 
@@ -836,10 +834,10 @@ reachable from a planned advance, which has one fixed behaviour and no action se
 at all (§2.2, §5.3). That is what the table means by an alpha column: it bounds
 the *response to trouble*, and bounds nothing about ordinary progress.
 
-**The action set belongs here, in full.** It had been carried as a bullet in
-[`../../docs/ROADMAP.md`](../../docs/ROADMAP.md) §2.3 and quoted in this section
-as seven of its twelve entries — an abbreviation of a normative list, which is how
-entries go missing.
+**The action set belongs here, in full.** Carried as a bullet in
+[`../../docs/ROADMAP.md`](../../docs/ROADMAP.md) §2.3 and quoted here as seven of
+its twelve entries, it would be an abbreviation of a normative list — which is
+how entries go missing.
 
 | Action | | Alpha |
 |---|---|---|
@@ -866,10 +864,9 @@ belongs to the agent-bearing monitor by construction, not by policy.
 
 ### 7.2 `answer` needs no new channel — the question is already in the history
 
-An earlier revision recorded `answer` as unreachable, on the reasoning that
-`AgentBackend` has `instruct` (monitor → agent) and no reverse. **That assumed the
-wrong shape.** The agent does not have to *push* a question; the monitor *reads*
-one.
+`answer` reads as unreachable if the only channel considered is `AgentBackend`'s
+`instruct` (monitor → agent) with no reverse. **That is the wrong shape.** The
+agent does not have to *push* a question; the monitor *reads* one.
 
 | | |
 |---|---|
@@ -925,9 +922,9 @@ wedged-monitor case diagnosable at all.
 
 ### 8.1 The carrier was never open
 
-Rev. 1 said *"nothing in this system records an exception today — there is no
-existing shape to be consistent with."* **That is true of exceptions and false as
-a licence to choose freely.** This repository has already fixed the *carrier*, in
+*"Nothing in this system records an exception, so there is no existing shape to
+be consistent with"* is **true of exceptions and false as a licence to choose
+freely.** This repository has already fixed the *carrier*, in
 three places and with its reason: a record is **a persisted value written through
 `task_graph`'s `StoreMgr`, not a log line.** A test that asserts on `caplog` is
 testing the logging configuration, not the behaviour.
@@ -1058,10 +1055,9 @@ are the routes this spec depends on, and their status as measured.
 
 **On the row that was missing.** §8 required a record and this table, then eight
 rows long, listed no place to put one. **The table whose entire purpose is to catch
-"X consumes Y, and X cannot receive Y" had that defect itself**, and it was found
-by the research rather than by the table. Recorded here rather than quietly fixed,
-because the failure mode is the point: a checklist does not check itself, and this
-one had been written two days earlier for exactly this class of miss.
+"X consumes Y, and X cannot receive Y" had that defect itself**, and the table
+did not catch it. Recorded rather than quietly fixed, because the failure mode is
+the point: a checklist does not check itself.
 
 ---
 

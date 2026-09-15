@@ -303,12 +303,10 @@ Criterion 7 rev. 6: *"One node runs on `claude-agent-sdk` and one runs as a
 program — an agent of `kind: program`, with no AI in it — and the handoff state
 each produces is indistinguishable in kind."*
 
-Both halves are satisfiable, and the second is the interesting one. The first
-half read differently until recently, and the change is worth recording
-because a chain of four modules ended with it.
+Both halves are satisfiable, and the second is the interesting one.
 
-**What the criterion used to say** was *"a program with no agent at all"*, and
-that is not expressible. Measured in shipped and frozen code (findings M12):
+**The first half cannot read *"a program with no agent at all"***, because that
+is not expressible. Measured in shipped and frozen code:
 
 | | |
 |---|---|
@@ -922,7 +920,7 @@ touched.
 | expected-failure vocabulary | invented | **pytest's**, adopted | S6. `xfail` / `xpass` / `strict` already name exactly the three cases §7.5 needs, and every Python reviewer already knows them |
 | CI guard | run the demo, run nothing, load the demo | **load it**, Airflow's shape | S1. It is the only option that satisfies both spec §1 and spec §5 |
 | the task's content | a toy, a benchmark, a file manifest | **a file manifest** | §4.2. Verifiable by recomputation, deterministic, needs nothing, and has enough structure for a summary to get wrong |
-| store | `MemoryStoreMgr`, `JsonFileStoreMgr` | **`JsonFileStoreMgr`** | Criterion 12 needs a durable store across processes, and M8 measured it surviving all twelve interruption points. Its records also stay readable with `cat`, which is a demo virtue |
+| store | `MemoryStoreMgr`, `JsonFileStoreMgr` | **`JsonFileStoreMgr`** | Criterion 12 needs a durable store across processes, and it is measured surviving all twelve interruption points. Its records also stay readable with `cat`, which is a demo virtue |
 
 Nothing new is built that any component already provides. The three files with
 real content — `build.py`, `events.py`, `environment.py` — exist because §6, §7
@@ -1006,5 +1004,5 @@ Found by this design, and not in spec §7.
 | **O3** | **Criterion 12 costs a model call.** Resume re-runs the interrupted attempt (M10), correctly. So *where* a reviewer interrupts determines whether the demonstration costs one model call or two, and the demo can only suggest. If a future task caches an attempt's output, that changes; nothing plans to |
 | **O4** | **`SCHEMA_VERSION` has no owner once the whole-system CLI exists.** §7 makes the demo's event stream a versioned interface because criterion 14 asserts over it. The whole-system CLI will want the same stream, and at that point two artefacts share one version constant with no policy for who bumps it. Terraform's answer is one constant in one package with a comment; ours would need the same, in `cli/` or somewhere better |
 | **O5** | **Which model, and which tools** — spec §7's third open question, still open. This design fixes only what it must: the SDK's default is Claude Code's full tool set and system prompt, and §9.3 already narrows the config directory. What `describe` should actually be *given* — a model name, an allowed-tools list, a system prompt — is a package-content choice, and pinning a model name in a checked-in example has a cost the moment that name is retired |
-| **O6** | **`JsonFileStoreMgr` has no cross-record transaction**, as its own docstring says, and M9 measured a task record being written *before* the handoff it names. Twelve interruption points produced no dangling reference only because the consumer happens to be written after the handoff — an accident of this graph's write order. The demo is the first artefact that kills a real process on purpose, so it is where this would first be seen |
+| **O6** | **`JsonFileStoreMgr` has no cross-record transaction**, as its own docstring says, and a task record is measurably written *before* the handoff it names. Twelve interruption points produce no dangling reference only because the consumer happens to be written after the handoff — an accident of this graph's write order. The demo is the only artefact that kills a real process on purpose, so it is where this would first be seen |
 | **O7** | **The exemption list starts the moment there are two examples.** Airflow's example suite carries two hand-maintained ignore tuples and a per-file timeout table (S2), accumulated one postponement at a time. Spec §1.1 says this repository holds exactly one task package, so the list is empty and stays empty — but that guarantee is a *spec* rule, and §11's CI guard silently depends on it |

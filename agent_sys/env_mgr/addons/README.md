@@ -24,14 +24,14 @@ a hook — so that more than one task package does not carry a private copy.
 `agent_assets._child_env` pins `PYTHONPATH` to the package root, which
 `installers/base.py::run_cmd` inherits.
 
-## What changed, and why the previous shape is gone
+## What this directory is not
 
-There used to be an `agent_plugins: [<name>]` key on the agent spec that named a
-directory here and copied its whole `.claude/` tree into the zone. It is
-deleted — the key, its JSON-schema property, `isolation/policy.py::addon_grants`
-and the exported `AGENT_SYS_ADDONS_ROOT`.
+**There is no `agent_plugins: [<name>]` key on the agent spec.** A key naming a
+directory here and copying its whole `.claude/` tree into the zone would need a
+grant, and there is none: no JSON-schema property, no
+`isolation/policy.py::addon_grants`, no exported `AGENT_SYS_ADDONS_ROOT`.
 
-**Deleting the grant was the point.** `AGENT_SYS_ADDONS_ROOT` was the only path
+**Not granting is the point.** `AGENT_SYS_ADDONS_ROOT` would be the only path
 `env_mgr` exported that pointed *outside* the zone, and it needed a `READ_EXEC`
 grant to be usable at all. A recipe needs neither: installs run at `prepare`
 step 6b, before any confinement is applied, so a recipe reads this directory
@@ -81,8 +81,8 @@ values that differ per agent. Both add-ons' `.mcp.json` files were moved into
 `examples/ok.agent_capabilities.2/assets/env_probe.agent/.claude/.mcp.json` for exactly that
 reason. What stays here is the **payload** the entry points at.
 
-**There is no `recipe.yaml` here either.** It used to be found beside `.claude/`
-and run by `agent_assets`; the key that found the add-on is gone, so an add-on's
+**There is no `recipe.yaml` here either.** Nothing finds an add-on by name, so
+there is nothing for a recipe beside `.claude/` to hang off; an add-on's
 prerequisites are declared in whichever recipe installs it.
 
 ## Paths inside one

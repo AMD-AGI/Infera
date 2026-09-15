@@ -14,10 +14,10 @@ anyone — nobody has it.
 | **PARKED** | Deliberately not worked, with a reason. Not a backlog item |
 | **CLOSED** | Settled. Kept because an item closed by construction is worth knowing about |
 
-The seams that implementation opened are here, as items 25–30. They used to be
-a separate section of `interfaces.md`, which made sense while nobody knew who
-owned what; now that the system is built, an open question is either a near-term
-decision (here) or a subsystem ([`ROADMAP.md`](ROADMAP.md)), and there is no
+The seams that implementation opened are here, as items 25–30. A separate
+register of open seams makes sense only while nobody knows who owns what; in a
+built system an open question is either a near-term decision (here) or a
+subsystem ([`ROADMAP.md`](ROADMAP.md)), and there is no
 third place.
 
 ---
@@ -139,8 +139,8 @@ and `PhaseRunner` gets **no `verdict.json` at all** rather than a `False`. So
 confining validations — [`ROADMAP.md`](ROADMAP.md) §6.1's P0 — silently converts
 a grounding check into a missing file.
 
-**Ruled by the user, and the ruling cancels the design question rather than
-answering it:**
+**Settled, and the ruling cancels the design question rather than answering
+it:**
 
 > 这是任务声明的问题，系统不处理。如果需要，用户需要在定义任务时自己把自己的输入透传到自己的输出。
 >
@@ -197,7 +197,7 @@ for whoever owns `validator/`.
 
 **A second defect, independent of the code:** `entry.sh`'s comment and
 `validator/phase.py`'s docstring both assert the input-phase story and are silent
-on output. The same wrong belief has cost two investigations.
+on output, so a reader of either arrives at the wrong belief.
 
 ### 6 — A non-leaf pins a store version it can never fill, and the dead directory is permanent
 
@@ -427,8 +427,8 @@ end-to-end runs showed a good model **declining to fabricate one** instead, so t
 validator's **failing** direction — what its `strong` claim is about — has never
 executed.
 
-**The user's ruling: not a framework question and not a principle question.** This
-is `check_grounded`'s own business semantics and it is not worth the time. The
+**Settled: not a framework question and not a principle question.** This is
+`check_grounded`'s own business semantics and it is not worth the time. The
 shape suggested if anyone picks it up: **split it in two** — one validator over
 the other fields, and a second that judges only whether the agent's answer about
 the missing value is *reasonable*, passing if it is.
@@ -521,10 +521,10 @@ that chain still gets wrong.**
 
 `interfaces.md` §4 gives each package the set it may import and
 `tests/interfaces/test_import_rules.py` walks every file's AST against it. The
-rule keyed on the package *name* went vacuous once at the `demo` → `cli` rename —
-a name that matches no package can never appear in an import set, so the
-assertion passed against every possible tree. `test_every_allowed_package_exists`
-is the guard against that class.
+rule is keyed on the package *name*, so a name that matches no package can never
+appear in an import set and the assertion passes against every possible tree —
+vacuous rather than failing. `test_every_allowed_package_exists` is the guard
+against that class.
 
 ### 25 — `materials` is declared by two schemas and read by nothing
 

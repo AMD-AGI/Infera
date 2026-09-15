@@ -13,10 +13,10 @@
 ## 1. What this file is for, and how binding it is
 
 Eight design documents exist and every one of them specifies interfaces. What
-none of them could specify is **the other side of its own seams**, and the
-consistency pass found the cost: five of the eight modules cannot be wired as
-written, because four documents each wrote a different part of one composition
-root and two components were resolved by name and registered by nobody.
+none of them can specify is **the other side of its own seams**, and the cost
+of leaving that unwritten is concrete: four documents each writing a different
+part of one composition root leaves five of the eight modules unwireable as
+written, with components resolved by name and registered by nobody.
 
 So this file exists to hold exactly what no single module can hold:
 
@@ -203,8 +203,7 @@ going through `add`, and cannot** — `add` is the new-task path and raises on a
 duplicate id. So birth needs **two** call sites, and the second is easy to
 forget. **That is how this gap arose in the first place.**
 
-**The site is `Scheduler._dispatch_pass`, immediately before `runner.start`.
-Settled after four positions, three of them mine and wrong.**
+**The site is `Scheduler._dispatch_pass`, immediately before `runner.start`.**
 
 **The argument that survives is about the interface, not about today's runner:**
 
@@ -219,18 +218,16 @@ register it with the monitor produces an unwatched task, so calling `set_task` i
 an obligation of *any* real runner — **declared nowhere and carried by each
 implementation separately.** §4.12's shape.
 
-**`FakeRunner` is not a counterexample to that**, and the measurement that looked
-like one was mine: `advance()` calls `task.enter_phase` directly and never routes
-through a monitor. **A double that does not participate is not evidence that a
-real implementation should not be obliged** — it escapes the obligation by not
-having the collaborator at all.
+**`FakeRunner` is not a counterexample to that.** `advance()` calls
+`task.enter_phase` directly and never routes through a monitor, so it escapes
+the obligation by not having the collaborator at all — and **a double that does
+not participate is not evidence that a real implementation should not be
+obliged**.
 
-**One consequence stated in an earlier revision here was wrong and is corrected
-by measurement:** *"`tests/task_graph`, `demo`'s dry-run and the G3 gate would
-hit `ScopeViolation` on the first advance."* They do not — nothing in
-`task_graph` raises, because `FakeRunner.advance` bypasses the monitor. The
-`ScopeViolation` appears only where `monitor._advance` is the route, which today
-is `demo` with a loop running.
+It also means `tests/task_graph`, the dry-run and the G3 gate do **not** hit
+`ScopeViolation` on the first advance: nothing in `task_graph` raises, because
+`FakeRunner.advance` bypasses the monitor. The `ScopeViolation` appears only
+where `monitor._advance` is the route, which is the CLI with a loop running.
 
 **What the site buys, precisely:** *the watch set is populated wherever a task is
 dispatched, whatever runner is installed* — **not** that the planned channel is
@@ -302,13 +299,12 @@ That is §2.2's ordering argument generalised from *these two are ordered* to
 **The two failure signatures are why the distinction earns its place:**
 
 - **A skipped *report* pass reports nothing — which reads exactly like a clean
-  catalogue.** That was the `skip=` origin/name mismatch and `check_graph`
-  reading the wrong shape: two of this week's defects, both in this phase, both
-  invisible.
-- **A skipped *effect* pass leaves a system that fails later and elsewhere.**
-  That was `agent_mgr` empty after a successful load, which `demo` met as
-  `unknown agent spec 'collect'` at submit — **three layers from its cause, and
-  the signature that gets reported as somebody else's bug.**
+  catalogue.** A `skip=` origin/name mismatch, or `check_graph` reading the
+  wrong shape, is invisible in exactly this way.
+- **A skipped *effect* pass leaves a system that fails later and elsewhere.** An
+  `agent_mgr` left empty after a successful load surfaces as `unknown agent spec
+  'collect'` at submit — **three layers from its cause, and the signature that
+  gets reported as somebody else's bug.**
 
 #### `check_knowledge`'s `mandatory` flag — ruled: a run configuration object
 
@@ -394,18 +390,15 @@ signature §4.2 calls out by name, on two sides, for something the root can just
 supply. **`handoff` resolving `handoff_mgr` itself** is forbidden — §4.2 is *it
 is called, it does not call*, and that is the whole of its position in the graph.
 
-`put` now raises and names the wiring rather than publishing something
-half-checked. **Loud and unwired beats quiet and wrong**, and `demo` will meet
-this on day one, which is the point.
+`put` raises and names the wiring rather than publishing something
+half-checked. **Loud and unwired beats quiet and wrong**, and the composition
+root meets it on day one, which is the point.
 
-**The pseudo-code this section first carried had three wrong names**, and the
-implementer checked all three against the shipped code rather than against the
-listing — `engineer_principle.md` §5.2, *check before you edit, including when the instruction came from
-the lead.* `KindSource` is a Protocol with `kind_for`; the registry accessor is
-`kind_of`; `type_of` did not exist and `handoff` declined to guess it.
+**Check the names in this listing against the shipped code before using them** —
+`engineer_principle.md` §5.2. `KindSource` is a Protocol with `kind_for`; the
+registry accessor is `kind_of`; there is no `type_of`.
 
-**All three fail loudly, and this section previously claimed one of them would
-not.** That claim was wrong and was corrected by measurement: a `KindSource`
+**All three fail loudly.** A `KindSource`
 returning the raw mapping makes `put` die at
 `AttributeError: 'dict' object has no attribute 'content_type'`, before the
 staging directory exists.
@@ -617,8 +610,8 @@ agent, environment, timestamp.
 
 **`runner` is added for `validator` spec §8.2's `producer` row, and `agent` built the field it
 reads.** `validator` spec §8.2 gives output validation *"the producer's — the
-task that just ran"* configuration, and until `agent` `3155ca2` that value was a
-discarded local of `_deploy`. It is now `TaskAttempt.environment`, a read-only
+task that just ran"* configuration, which would otherwise be a discarded local
+of `_deploy`. It is `TaskAttempt.environment`, a read-only
 `Mapping[str, str]`, reached as `attempt_of(task.id).environment`. **A resolve,
 not an import** — `test_import_rules.py`'s `ALLOWED` is unchanged and `validator`
 still may not import `agent`.
@@ -652,11 +645,10 @@ already takes a root and allocates inside it, so **a fresh directory inside a
 correctly-placed sibling is still a sibling**. That the seam was already in the
 signature, with the doubt documented beside it, is why the ruling cost one line.
 
-**`closures` is added rev. 5, and without it a closure's declared phase
-validators never run.** Found by `demo`'s first assembly. `PhaseRunner._select`
-built a phase's set from the **handoff kind's** list; the closure's `validators`
-list was read by nothing in the tree — `grep phase_validators` hits `closure`
-and nowhere else. `closure.schema.json` says why the kind cannot carry them:
+**Without `closures` a closure's declared phase validators never run.** A
+`PhaseRunner._select` that builds a phase's set from the **handoff kind's** list
+leaves the closure's `validators` list read by nothing in the tree.
+`closure.schema.json` says why the kind cannot carry them:
 
 > *"They are a property of the task rather than of any one handoff kind, **which
 > is why the handoff specs cannot carry them**."*
@@ -739,7 +731,7 @@ The binding field is **`inputs`**. Both this design and `handoff` called it
 |---|---|
 | **Exports** | `Executor`, `AgentBackend` (Protocols); `AgentStatus`, `AgentResult`, `AgentHistory`, `BackendUnsupported`; `AgentSpec`, `AgentSpecRegistry`; `Selection`, `select_backend`; **`Runner`** — the real `TaskRunner`; `ProgramExecutor` |
 | **Imports** | `spec_loader`, `task_graph` (`TaskRunner`, `Task`, `Agent`, `TaskId`, `TaskStatus`), **`monitor`** — added rev. 5. The runner reports every phase boundary, planned or not, so `runner.py` and `gate.py` name `EventKind` and `Budget`. **The edge is one-way and that is the whole of §4.9**: `agent` imports `monitor` concretely; `monitor` declares `Pushable` structurally and imports nothing back |
-| **Resolves** | measured rev. 5: `agent_specs`, `task_specs`, `env_mgr`, `phase_runner`, `handoff_store`, `budget`. **And `handoff_mgr` as of rev. 6** — rev. 4 declared it, rev. 5 measured that nothing resolved it, and rev. 6 is why: **the agent-facing write path had no production caller at all.** `agent` raised the contradiction rather than resolving a name this row denied them; **the conclusion they had drawn was right and the premise I gave for it was false**, which is the distinction §8.8 is about. `task_specs` is §5.1b's route — `task.closure` → the task spec |
+| **Resolves** | `agent_specs`, `task_specs`, `env_mgr`, `phase_runner`, `handoff_store`, `budget`, and **`handoff_mgr`** — the last because the runner is the agent-facing write path's only production caller. `task_specs` is §5.1b's route — `task.closure` → the task spec |
 
 **`TaskAttempt`, `Runner.attempt_of` and `Runner.carry_on` are declared — rev. 5,
 and this paragraph is the fifth §4 row to have trailed a settled decision.**
@@ -945,13 +937,12 @@ mechanical check this file exists for — *a document says X
 consumes Y; check whether X's signature can accept Y* — and it failed. The
 default keeps every existing two-argument call working.
 
-**`Prepared` gains a sixth field for the deployed environment — added rev. 5, and
-this one is functional rather than tidy.** `material.deploy` computes
-`CLAUDE_CONFIG_DIR`, `CLAUDE_CODE_TMPDIR` and the spec's own `env`, and a
-five-field frozen `NamedTuple` had nowhere to put them, so `prepare` dropped them
-and the runner could not see them. Measured (`demo` research, and it is the
-reason this is not cosmetic): **with `~/.claude` granted, a confined agent read
-the *operator's personal* `CLAUDE.md` and obeyed its language rule.** Pointing
+**`Prepared` carries the deployed environment, and the field is functional
+rather than tidy.** `material.deploy` computes `CLAUDE_CONFIG_DIR`,
+`CLAUDE_CODE_TMPDIR` and the spec's own `env`; without a field for them `prepare`
+drops them and the runner cannot see them. Measured, and the reason this is not
+cosmetic: **with `~/.claude` granted, a confined agent reads the *operator's
+personal* `CLAUDE.md` and obeys its language rule.** Pointing
 `CLAUDE_CONFIG_DIR` into the zone is what removes the `$HOME` grant entirely. The
 rejected alternative was `agent` calling `material.deploy` itself, which puts an
 environment decision in the runner — the thing *one method, and it stays one*
@@ -1032,13 +1023,13 @@ it. The narrower rule that actually holds: *the scheduler never reads a spec; a
 them because a helper returning a `Task` would make it import `task_graph`; `cli`
 took them knowingly and its design records the deviation.
 
-**The rule is keyed on the package name, so the name is itself checked.** This
-row said `demo` for as long as the package had been called `cli`, and the
-enforcement degraded silently rather than failing: the test intersects a file's
-imports with a set of our package names, that set held `demo`, no such package
-existed, so the intersection could never contain it and the assertion passed
-against every possible tree. `test_every_allowed_package_exists` is the cheap
-guard against the class — a rule whose subject does not exist checks nothing.
+**The rule is keyed on the package name, so the name is itself checked.** A
+name in this row that no directory carries degrades the enforcement silently
+rather than failing it: the test intersects a file's imports with a set of our
+package names, and a set holding a name no package has can never contain it, so
+the assertion passes against every possible tree.
+`test_every_allowed_package_exists` is the cheap guard against the class — a rule
+whose subject does not exist checks nothing.
 
 ### 4.9 `monitor` — added rev. 4
 

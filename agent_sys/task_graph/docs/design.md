@@ -1252,9 +1252,9 @@ class AgentMgr:
         """Reload instances under kind "agent". The spec table is NOT restored."""
 ```
 
-**The mgr keeps what it creates.** Previously it was a factory that instantiated
-and forgot, which left `Execution.agent_id` pointing at nothing — the audit trail
-would name agents nobody could resolve. Criterion 28 tests retention.
+**The mgr keeps what it creates.** A factory that instantiated and forgot would
+leave `Execution.agent_id` pointing at nothing, and the audit trail would name
+agents nobody could resolve. Criterion 28 tests retention.
 
 **`instantiate` mints a fresh id every call and binds `task_id`.** The fresh id
 is forced by criterion 21: after a resume the stack top must report a different
@@ -1272,7 +1272,7 @@ at the call site, and `instantiate` is where the task binding is supplied.
 | | Restored by | Because |
 |---|---|---|
 | instances | `resume_system` | They are state — `task_id` and `handoffs` are links nothing else records, and every `agent_id` in a restored execution history points at one |
-| spec table | whoever builds the registry | It is configuration. Reading it back from a store would mean the system remembers a spec the operator has since removed |
+| spec table | whoever builds the registry | It is configuration. Reading it back from a store would mean the system remembers a spec the operator had removed |
 
 A restored instance is a *record*, not a live agent. Nothing tries to resume the
 agent's own process — that is out of scope (spec §1.2) — and nothing dispatches
@@ -1405,9 +1405,9 @@ thing in the test suite that calls `open_next` or `seal`. That is what makes
 criterion 14 meaningful — if the scheduler ever started writing handoff state,
 this would no longer be the only writer and the test would catch it.
 
-`open_next` collapses what used to be a two-branch conditional here (adopt v0 on
-a first run, fork v+1 on a re-run). The fake no longer knows which case it is in,
-which is the same simplification a real runner gets.
+`open_next` is one verb where a caller would otherwise need a two-branch
+conditional (adopt v0 on a first run, fork v+1 on a re-run). The fake does not
+know which case it is in, which is the same simplification a real runner gets.
 
 Appending the `HandoffRef` is the agent-side half of the two-way link. It is
 `produce`'s job because it is the agent's job (spec §3.3) — the scheduler never
@@ -1507,12 +1507,12 @@ rev. 11** — the two phase statuses create two more by construction, since the
 dict comprehends over the whole enum.
 
 **Four are load-bearing for scheduling, not three.** Spec §4.4 names
-`WAITING_HANDOFF`, `WAITING_RESOURCE` and `RUNNING`, which was right before the
-phase states existed. Dispatch now lands a task in `INPUT_VALIDATING`, so the
-third entry has become a three-member group — a task holding a lease is in
-whichever of `PHASES` it has reached, and every guard that used to name
-`RUNNING` now names the group (§8.2). The rest still exist so that "which tasks
-are suspended" is a lookup rather than a scan. D24(b).
+`WAITING_HANDOFF`, `WAITING_RESOURCE` and `RUNNING`, which holds only without the
+phase states. Dispatch lands a task in `INPUT_VALIDATING`, so the third entry is
+a three-member group — a task holding a lease is in whichever of `PHASES` it has
+reached, and every guard names the group rather than `RUNNING` (§8.2). The rest
+exist so that "which tasks are suspended" is a lookup rather than a scan.
+D24(b).
 
 ### 8.1 The single writer, and the pool's order
 
@@ -2494,7 +2494,7 @@ adopted them. They are now specification, not deviation.
 | D21 | spec §3.2.4 says the subgraph boundary check is one "`closure` spec §4.1 defers to 'the system whole task'" | this design claims it, in `graph.py`, run by the composition root | The citation does not hold. Read whole, `closure` §4.1 defers graph-level checks to **nobody** — it names only `task_graph` §10's cycle detection — and the phrase "the system whole task" lives at `closure/docs/spec.md` inside an **open question**: "it has to live somewhere. The likely home is the system whole task." Main design §6.3 declines it explicitly too: "it is still not this pass's." **The two documents that touch this check each think the other is holding it**, and criterion 50 requires it to exist. Claimed here on the argument that the graph is this module's subject; the spec sentence needs correcting either way |
 | D22 | spec §3.2.1 says "**Four** fields carry the structure" | three are listed and three are designed — `parent`, `is_start`, `is_end` | The table immediately below that sentence has three rows, and no fourth field is named anywhere in §3.2.1. The sentence continues "They join `depends_on` in the category §3.2 already establishes", which suggests the count absorbed `depends_on` and then the table did not. Nothing depends on the resolution; recorded so a reader does not go looking for a missing field |
 | D23 | ~~spec §3.2's `Task` field table has fourteen fields and no `closure`~~ **No longer a deviation** — spec §3.2 rev. 13 declares it, and §3.2.5 gives it the wider job of being the link back to the whole task spec | `Task` gains `closure: str \| None` | Criterion 51 requires `replace_with` to instantiate **only declared closures**, and §3.2.1 requires a subgraph to be "declared in the task's spec" — but **the runtime `Task` has no link back to its own declaration.** `agent_spec` names the agent spec and nothing names the task's. So either the catalogue is searched for whichever closure happens to contain this task — a scan whose answer is not unique — or the task carries the name. It carries the name: a `str` resolved against the `closures` registry at use time, never an object, the same discipline `agent_spec` already uses. It is `None` for a task submitted directly rather than instantiated from a closure. **This is the smallest addition that makes criteria 51 and the `unfold` path expressible**, and it is an addition to a spec'd model, so it is declared here rather than left in §3.2 |
-| D24 | three places in the spec were not updated when rev. 9 added the phase states and rev. 10 added the cascade | the design follows the section that is current in each case, and names the stale one | **Reported, not fixed — a design does not amend the spec.** (a) **§6.2's dispatch pseudocode still ends `task.status = RUNNING`**, while §3.2's diagram and status table both say `WAITING_RESOURCE → INPUT_VALIDATING`; §8.3 follows the diagram. (b) **§4.4 names the load-bearing pools as `WAITING_HANDOFF`, `WAITING_RESOURCE`, `RUNNING`** — dispatch now lands in `INPUT_VALIDATING`, so the third entry is one member of a three-member phase group rather than the state a task is dispatched into. (c) **§8.1 still lists "The downstream index" under *Not built*** with the justification "Today's cascade-free paths do not need it" — rev. 10 added the cascade and criterion 49 asserts it, so §6.2.1 builds it. Each of the three is a sentence that was true of an earlier revision |
+| D24 | three places in the spec do not account for the phase states and the cascade | the design follows the section that is current in each case, and names the stale one | **Reported, not fixed — a design does not amend the spec.** (a) **§6.2's dispatch pseudocode ends `task.status = RUNNING`**, while §3.2's diagram and status table both say `WAITING_RESOURCE → INPUT_VALIDATING`; §8.3 follows the diagram. (b) **§4.4 names the load-bearing pools as `WAITING_HANDOFF`, `WAITING_RESOURCE`, `RUNNING`** — dispatch lands in `INPUT_VALIDATING`, so the third entry is one member of a three-member phase group rather than the state a task is dispatched into. (c) **§8.1 lists "The downstream index" under *Not built*** with the justification "Today's cascade-free paths do not need it" — the cascade exists and criterion 49 asserts it, so §6.2.1 builds it |
 
 ---
 

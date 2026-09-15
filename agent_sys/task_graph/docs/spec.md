@@ -1487,8 +1487,8 @@ reason is mechanical: `@runtime_checkable` matches on method name alone, so a
 
 Components with nothing to restore — `SchedulePolicy`, `StoreMgr` itself, and a
 renewable pool's lease state — simply do not implement it, or restore trivially.
-`AgentMgr` used to be in that list and no longer is: an `Agent` carries the
-`task_id` and `handoffs` links (§3.3), which is real state. Not implementing `Resumable` is the
+`AgentMgr` is **not** in that list: an `Agent` carries the `task_id` and
+`handoffs` links (§3.3), which is real state. Not implementing `Resumable` is the
 declaration that a component is stateless; an empty `resume_system()` would be
 indistinguishable from one somebody forgot to write.
 
@@ -1762,12 +1762,10 @@ test:
     consumers in `WAITING_HANDOFF` — completion and validity are independent
     (§6.3). The scheduler pins `output_versions` **at dispatch**, from the store
     that allocates the directory the write grant names, and never from anything
-    the runner passed. *(Rev.: `interfaces.md` §4.14. This used to read "by
-    reading `HandoffMgr`, not from anything the runner passed", and the second
-    half is the part that was load-bearing — it still holds. The first half named
-    the wrong allocator: `HandoffMgr` owns the **slot** version and `env_mgr`'s
-    grant is built from the **store** version, and reading one where the other
-    was meant agrees at v0 and diverges at the first retry.)*
+    the runner passed. *(`interfaces.md` §4.14. **Not** by reading `HandoffMgr`:
+    it owns the **slot** version and `env_mgr`'s grant is built from the
+    **store** version, and reading one where the other was meant agrees at v0 and
+    diverges at the first dispatch that does not write.)*
 14. **The scheduler never writes handoff state.** Across a full submit → dispatch →
     complete → resume → re-dispatch cycle, a `HandoffMgr` spy records `persist`
     originating only from the agent, and calls from the scheduler only to

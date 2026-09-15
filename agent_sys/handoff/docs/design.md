@@ -525,7 +525,7 @@ their conclusion would over-fit. If a verdict is ever signed, DSSE's
 pre-authentication-encoding shape is the model, and that is a future document's
 problem.
 
-**And the counter-lesson: an unenforced integrity sidecar is worse than none.**
+**And the converse: an unenforced integrity sidecar is worse than none.**
 PEP 815 is removing `RECORD.jws`, and its Motivation is the general form —
 *"neither pip nor uv validate the hashes in `RECORD`… potentially resulting in
 user confusion"*. So the digest is checked on every consumption (§5.2), or it
@@ -638,9 +638,8 @@ class HandoffStore(Protocol):
 | **Delete** | Six MLflow backends refuse it in **two different exception types** — `NotImplementedError` in four files, `MlflowException("Not implemented yet")` in `dbfs_artifact_repo.py` | **Not in the Protocol at all.** §15 O3 |
 
 **`Verdict` is this module's type, and it is the one that crosses the seam.**
-Both this design and `validator` design §2 list a type by that name, which the
-cross-module consistency pass found and which would have been two records of one
-fact. The split:
+Both this design and `validator` design §2 list a type by that name, and without
+the split below they would be two records of one fact:
 
 | | Owner | What it is |
 |---|---|---|
@@ -1255,7 +1254,7 @@ it into the build-path check** — its own fixture expects a hit under
 role**, because a playground path in a changelog is still a record of one
 machine. §15 O5 records it as a question rather than settling it.
 
-**The meta-lesson, and why this section is long.** Debian's detection apparatus
+**And the general form.** Debian's detection apparatus
 is *differential* — diffoscope requires two inputs and has no single-artefact
 path heuristic — and once they froze the build path (commit `8c2c7fb42d5`,
 *"stop variying the build path, we want reproducible builds"*), differential

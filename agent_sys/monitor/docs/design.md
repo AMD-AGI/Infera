@@ -140,8 +140,7 @@ the purpose. That makes `_Id` a private name crossing a package boundary, which
 ### 3.2 `EventKind` — the closed enum, and nothing defaults to benign
 
 Spec §8.2.1: Erlang's `Context` widened. **Every value names a phase, and none of
-them is a safe default** — the rule `validator` learned the hard way and spec
-§8.2.1 restates.
+them is a safe default** — the rule spec §8.2.1 states.
 
 ```python
 class EventKind(str, Enum):
@@ -803,8 +802,8 @@ def _escalate(self, unit: Unit, why: str) -> None:
 
 **Up the task tree, never the monitor topology** (spec §3.1). Global monitors are
 a flat pool; the tree that matters is `task_graph`'s, and `Task.parent` is the
-edge `unfold` sets. So the target is always *the monitor of my task's parent*,
-whichever kind either one is.
+edge `unfold` sets. So the target is always *the monitor of the reporting task's
+parent*, whichever kind either one is.
 
 `_monitor_for(task)` is `registry.get(f"monitor:{task.monitor_spec or DEFAULT}")` —
 the same by-name resolution `task_graph` design §3.8 already specifies, and the
@@ -945,11 +944,11 @@ and 18 hold. **The planned channel is unaffected either way**, because §6.1 nee
 One item remains in the sequencing class rev. 1 opened:
 
 - **`Task.parent` and the four verbs are designed and not yet implemented.**
-  `task_graph` design rev. 11 puts `cancel` / `restart` / `fail` / `replace_with`
-  on `Task` (§3.4) and adds `parent` (§3.3); the shipped `models.py` is at design
-  rev. 10 and has neither — the verbs are still `Scheduler.stop` /
-  `resume_task`. Spec §9's table says these "exist", and against the *design* they
-  do. §5.5 and §7 are written to the design, so they are correct and untestable
+  `task_graph` design puts `cancel` / `restart` / `fail` / `replace_with` on
+  `Task` (§3.4) and adds `parent` (§3.3); the shipped `models.py` has neither —
+  the verbs are `Scheduler.stop` / `resume_task`. Spec §9's table says these
+  "exist", and against the *design* they do. §5.5 and §7 are written to the
+  design, so they are correct and untestable
   until rev. 11 lands. Not a defect; a sequencing fact, and it is what puts steps
   5 and 6 last in §12. **Rev. 2 adds `enter_phase` to that list** — §6.1's one
   line of behaviour is a `task_graph` design rev. 11 method too.

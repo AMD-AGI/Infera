@@ -269,8 +269,8 @@ runner reads one thing either way, and `Validator.__call__` (§3.1) is what it
 looks like once read. A code-shaped check gets the shipped pytest harness and
 puts its assembly and run commands in `entry.sh`.
 
-**Rev. 2 had a registered Python callable here, and it is withdrawn.** The
-reason is spec §6.1's and it is not about taste: a callable cannot express *a
+**A registered Python callable here does not work.** The reason is spec §6.1's
+and it is not about taste: a callable cannot express *a
 validator an agent is responsible for* without a wrapper whose whole job is to
 run an agent — so the callable becomes a layer that exists to be worked around,
 and the two kinds of validator stop being one thing. §14 D6 records what that
@@ -693,11 +693,11 @@ introduce `resultsToPrint` for the filtered set, keep `countErrors(results)` on
 the unfiltered one, with the comment *"Errors and warnings from the original
 unfiltered results should determine the exit code."*
 
-That the split is the lesson and enumeration is not is shown by what happened
-next: the optimisation was reintroduced one layer down by an RFC that
-**explicitly claimed verdict-neutrality** and handled the one exception it knew
-about — and #19625 found the missed case **22 months later**, closed as
-working-as-intended. ESLint enumerated and was still wrong.
+That the split is the answer and enumeration is not is shown by what followed:
+the optimisation was reintroduced one layer down by an RFC that **explicitly
+claimed verdict-neutrality** and handled the one exception it knew about — and
+#19625 found the missed case **22 months later**, closed as working-as-intended.
+ESLint enumerated and was still wrong.
 
 So here the knob decides membership of the **run set** only, and the verdict
 folds over a set the knob cannot reach. That makes criterion 20 structural
@@ -792,14 +792,12 @@ separately attributable** — which on this SDK means a subagent or a distinct
 session, because those are the only shapes that carry `agent_id`.
 
 **That is a requirement, not a mechanism, and the distinction was worth making.**
-Rev. 1 wrote it as *"runs each phase as its own subagent or session"*, and
-`agent` design O6 records the same question as still open, having narrowed it:
-one client with several `session_id`s is **ruled out**, because `interrupt()`
-takes no `session_id` and acts on the whole connection. The cross-module
-consistency pass found the two documents giving different answers.
+Written as *"runs each phase as its own subagent or session"* this collides with
+`agent` design O6, which records the same question as still open, having narrowed
+it: one client with several `session_id`s is **ruled out**, because `interrupt()`
+takes no `session_id` and acts on the whole connection.
 
-They are reconciled by splitting the question, and neither document was wrong
-about its half:
+The two are not one question, and neither document is wrong about its half:
 
 | | Owner |
 |---|---|
@@ -1049,9 +1047,9 @@ must have a unique method name.`
 
 ### 10.2 One registry, and how a body is found
 
-Rev. 2 had **two** registries here — the spec registry, and an implementation
-registry a `@validator` decorator wrote at import time, joined by name through
-`ValidatorSpec.logic`. **Rev. 3 has one.**
+**There is one registry, not two.** A second — an implementation registry a
+`@validator` decorator writes at import time, joined by name through
+`ValidatorSpec.logic` — is what §3.8 removes the need for.
 
 A body is a set of paths in the validator's own folder (§3.8), so finding it is
 resolving a path against the package the spec was loaded from. There is no second
@@ -1250,9 +1248,9 @@ and `PhaseOutcome` renders it.
 **Two names, one fact, and the ownership is `handoff`'s.** The persisted shape is
 `handoff.Verdict` (`handoff` design §6.1) — that module writes it, reads it, and
 has to keep it readable across versions. `VerdictRecord` here is this module's
-*view* of one, which `top()` returns and `may_skip()` reads. Rev. 1 of both
-documents declared a type called `Verdict`; the cross-module consistency pass found it, and
-two records of one fact is `engineer_principle.md` §1's failure.
+*view* of one, which `top()` returns and `may_skip()` reads. Both documents
+naming their type `Verdict` would be two records of one fact, which is
+`engineer_principle.md` §1's failure.
 
 **There are three strengths, not two, and `long_term_strong` needs saying.**
 Spec §5.3: it is *"not a weaker `strong`. The rigour is the same; the **timing**
@@ -1480,7 +1478,7 @@ criterion.**
 | **D3** | Spec §6.0 cites Dagster #16569 as convergence on separating severity from blocking | Cites it as a **contrast** | The reading is backwards. #16569 is Dagster *deliberately decoupling* the two, not users conflating them. And `AssetCheckResult(passed=True, severity=WARN)` is constructible then **ignored at every consumption site**, so a qualified pass is structurally unrepresentable there. Ours is decided statically, so their stated objection does not bind us — but the convergence claim does not hold |
 | **D4** | §9.3 lists five load-time checks; criterion 11 is separate | Criterion 11 runs as a **sixth check in the closure pass** | It needs the task registry and the validator registry both loaded, which is [`../../docs/design.md`](../../docs/design.md) §6.1's argument for the pass existing. Placement, not substance |
 | **D5** | §6.1: instances come from a `{name, args}` table | The args live in the **validator spec**, one spec per instance | §10.6. The alternatives — args in the binding (dbt) or a schema shipped by the implementation (Gatekeeper) — both have precedent, and the first would change the type of `validators_for(kind)` and force handoff design §8.3 to rule on differing args per binding. Recorded as a choice because spec open question 2 leaves it open |
-| **D6** | Spec §6.1 rev. 8 — a validator's logic is a body | **Implemented as written, and it costs a check that rev. 2 had** | §3.8, §10.2, §10.6. The model is right and the user's argument decides it: a callable cannot express a validator an agent is responsible for without a wrapper that runs an agent. What goes with the callable is **pandera's `inspect.signature` check** — four lines that rejected args a check would silently ignore, shipped because pandera#480 was a check that validated a frame it should have rejected. A shell script has no signature and a description has none either. Three weaker things stand in its place (§10.6) and they do not add up to it. Recorded as a deviation from *this document's rev. 2* rather than from the spec, because the spec never asked for the check — but a reader comparing the two revisions should not have to work out what was traded |
+| **D6** | Spec §6.1 — a validator's logic is a body | **Implemented as written, and it costs a check a registered callable would have** | §3.8, §10.2, §10.6. The model is right: a callable cannot express a validator an agent is responsible for without a wrapper that runs an agent. What goes with the callable is **pandera's `inspect.signature` check** — four lines that reject args a check would silently ignore, shipped because pandera#480 was a check that validated a frame it should have rejected. A shell script has no signature and a description has none either. Three weaker things stand in its place (§10.6) and they do not add up to it. Recorded as a deviation from the callable form rather than from the spec, because the spec never asked for the check |
 
 ---
 
@@ -1492,7 +1490,7 @@ Found by this design, and **not** in spec §12.
 |---|---|
 | **O1** | **Criterion 5's "no validator occupies a pool" is ambiguous, and the literal reading is unsatisfiable.** `Scheduler.pools` comprehends over the whole `TaskStatus` enum, so the two validating statuses create two index pools by construction. §12.3 reads it as *resource* pool and asserts `task_graph` criterion 40 instead, but the criterion's wording should be tightened |
 | **O2** | **A reused verdict does not prove a re-run would agree.** §7.4. The record names the validator, not its implementation, and §9.3 forbids reading `version` at runtime. Nix names this exactly — *"there is no way to audit a build trace entry except for by performing the build again"* — and calls trust in it a subjective policy choice. If a stronger identity is ever wanted, Bazel's is the shape: the tool's bytes plus a hand-bumped GUID per action class, under the contract *"if the work to be performed changes, the key must change"* |
-| **O3** | **Nothing checks that a body reads the args it was configured with.** §10.6. Rev. 2 asked this only of *agent-run* validators, because `inspect.signature` covered the code-backed ones; rev. 3's body has no signature in either case, so the asymmetry is gone and the gap now applies to both. Gatekeeper's answer is still the one with precedent — the implementation ships a schema for its own args — and it would fit a body: a validator folder could carry an `args.schema.json` beside its `entry.sh`. Not built. **This is the one place rev. 3 is strictly weaker than rev. 2**, and §14 D6 says so |
+| **O3** | **Nothing checks that a body reads the args it was configured with.** §10.6. A registered callable narrows this to *agent-run* validators, because `inspect.signature` covers the code-backed ones; a body has no signature in either case, so the gap applies to both. Gatekeeper's answer is the one with precedent — the implementation ships a schema for its own args — and it would fit a body: a validator folder could carry an `args.schema.json` beside its `entry.sh`. Not built. **This is the one place the body form is strictly weaker**, and §14 D6 says so |
 | **O4** | **May a handoff kind supply args to the validator it binds?** Spec open question 2 raises it. Under D5 it cannot, and the question does not arise; if it later can, `validators_for(kind)` changes type and handoff design §8.3 must rule on two kinds binding one validator with different args |
 | **O5** | **`TaskStatus` lacks `INPUT_VALIDATING` and `OUTPUT_VALIDATING`.** `task_graph` spec §3.2.2 rev. 12 specifies them; `models.py` has eight members and neither. Module 4's change, but this design's §5 is written against a state that does not exist yet |
 | **O6** | **Nothing detects a wrong `cost` tag.** §5.3. Ordering by a declared cost tag has no prior art at all; the two nearest systems warn advisorily (Bazel, off by default, with an irreducible false-positive rate under variance) or degrade silently (pytest-split substitutes the population mean and discards orphans). The design records actual durations so a later change can report disagreement; nothing consumes them yet |

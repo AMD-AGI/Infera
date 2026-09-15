@@ -39,24 +39,25 @@ component shares:
 
 ### 1.2 What it defers
 
-Each module's own `docs/design.md`. **All seven now exist**; this document was
-written when none did, and every deferral it made has since been taken up:
+Each module's own `docs/design.md`. **All seven exist**, and every deferral this
+document makes is taken up by one of them:
 
-| Deferred | To | Since |
-|---|---|---|
-| What a handoff kind's schema actually declares, and storage | `handoff` | **rev. 2** |
-| The `Validator` protocol, composites, the phase runner | `validator` | **rev. 2** |
-| Subgraphs, validation phases, task-owned transitions | `task_graph` | **rev. 12** |
-| Backends, the SDK adapter, the two interface levels | `agent` | **rev. 4** |
-| The closure's own query helpers | `closure` | **rev. 3** |
-| Isolation, domains, sync | `env_mgr` | **rev. 2** |
-| The demo package and its CLI | `demo` | **rev. 3** |
+| Deferred | To |
+|---|---|
+| What a handoff kind's schema actually declares, and storage | `handoff` |
+| The `Validator` protocol, composites, the phase runner | `validator` |
+| Subgraphs, validation phases, task-owned transitions | `task_graph` |
+| Backends, the SDK adapter, the two interface levels | `agent` |
+| The closure's own query helpers | `closure` |
+| Isolation, domains, sync | `env_mgr` |
+| The demo package and its CLI | `cli` |
 
-**Four of the seven reach back into this document**, which is why it is at rev. 2
-rather than rev. 1: `task_graph` put a graph-level load pass in the composition
-root, `closure` moved the closure pass there too and gave the reason (§3.6),
-`handoff` registers two stores nothing here listed, and `demo` measured that
-`cli/` must be an installed package.
+**Four of the seven reach back into this document**, which is why §7's
+composition root is a shared surface rather than this document's alone:
+`task_graph` puts a graph-level load pass in the root, `closure` moves the
+closure pass there too and gives the reason (§3.6), `handoff` registers two
+stores not listed here, and `cli` requires that `cli/` be an installed
+package.
 
 **The composition root is therefore not this document's alone**, and pretending
 otherwise is what let four documents each write a different half of it.
@@ -234,10 +235,10 @@ into module boundaries, because the ordering is the design.
  touches source
 ```
 
-**Rev. 2 had a `render.py` in front of that and it is deleted**, along with
-jsonnet, `ImportResolver`, `SpecSource` and `DirectoryPackage`. Spec §4.4 rev. 10
-carries the measurement: the templating language was carrying constants, string
-concatenation, and default-if-absent, and nothing else. §3.2 below keeps the
+**There is no `render.py` in front of that**, and no jsonnet, `ImportResolver`,
+`SpecSource` or `DirectoryPackage`. Spec §4.4 carries the measurement: a
+templating language here would carry constants, string concatenation, and
+default-if-absent, and nothing else. §3.2 below keeps the
 findings from that module that still teach something, marked as history, and says
 of each whether it transfers.
 
@@ -319,11 +320,11 @@ makes this a thin wrapper rather than a layer:
 | **Duplicate keys are rejected**, with a position | PyYAML's `safe_load` silently keeps the last |
 | **The tree is `dict` and `list`** | `CommentedMap` / `CommentedSeq` subclass them, so `jsonschema` validates the position-carrying tree directly and `err.json_path` is correct. Nothing is converted, so nothing is lost on the way to `validate` |
 
-**Two traps that jsonnet used to close, and how they are closed now.** Rev. 2's
-§8 argued that "`norway: NO` parses as `False` under PyYAML; jsonnet always
-quotes strings, so the rendered form does not", and that "jsonnet rejects
-duplicate keys statically". **Both premises died with the render step**, and a
-hand-written document has no upstream to lean on. Neither is avoided by
+**Two traps a render step would close, and how they are closed here instead.**
+Behind jsonnet, "`norway: NO` parses as `False` under PyYAML" does not bite
+because jsonnet always quotes strings, and duplicate keys are rejected
+statically. **Without a render step both premises are gone**, and a hand-written
+document has no upstream to lean on. Neither is avoided by
 convention: `ruamel.yaml`'s round-trip loader is **YAML 1.2**, so `NO` is the
 string `NO`, and duplicate keys raise. The library closed both, which is why this
 module is the only place a package document is parsed.
@@ -420,14 +421,13 @@ be a construct with no measured user, which is `engineer_principle.md` §2's "do
 not put it anywhere yet". `${TASK_PACKAGE_ASSERT_DIR}` is added on top and cannot
 be overridden: it is a fact about the package, not about the run.
 
-### 3.4 `ruamel.yaml`'s errors need no adapter, and `_jsonnet`'s did
+### 3.4 `ruamel.yaml`'s errors need no adapter, and `_jsonnet`'s do
 
-Rev. 2 had a section here on parsing `_jsonnet`'s output. It is worth one
-paragraph of history, because the contrast is the argument for the library.
+The contrast is the argument for the library.
 
-`_jsonnet` raised `RuntimeError` with a message beginning `STATIC ERROR:` or
-`RUNTIME ERROR:`, and **two of four measured error classes carried no location in
-the first line** — for a RUNTIME ERROR it was recoverable only from a trailing
+`_jsonnet` raises `RuntimeError` with a message beginning `STATIC ERROR:` or
+`RUNTIME ERROR:`, and **two of four measured error classes carry no location in
+the first line** — for a RUNTIME ERROR it is recoverable only from a trailing
 tab-delimited stack, with no machine-readable output at all. That is
 google/jsonnet#786, open since 2020 and raised by a Flycheck maintainer:
 *"jsonnet only supports human-readable output"*. So `render.py` carried a parser
@@ -534,11 +534,11 @@ def load_package(pkg: TaskPackage, registries: Registries) -> LoadReport:
     return LoadReport(admitted=tuple(admitted), problems=tuple(problems))
 ```
 
-**Rev. 2's steps 1 and 2 — discover, then render in parallel — are one call to
-`pkg.documents()`.** That is the seam change: scanning, parsing, variable
-substitution, discrimination and ordering all moved *inside* the package, and
-what crosses is `PackageContents`, a pair of document and problem tuples. The
-function that used to know about files knows about neither files nor bytes.
+**Discovery and parsing are one call to `pkg.documents()`.** That is where the
+seam falls: scanning, parsing, variable substitution, discrimination and ordering
+are all *inside* the package, and what crosses is `PackageContents`, a pair of
+document and problem tuples. `load_package` knows about neither files nor
+bytes.
 
 Two properties of the code that are not obvious from the shape, both first-hand
 from `spec_loader/package.py`:
@@ -689,11 +689,11 @@ hand-written checks for what the declarative layer cannot express well. Each
 module's spec already lists its own such checks — `handoff` §8 has five,
 `validator` §9.3 has five, `closure` §4 has six — and they run in step 3 of §3.6.
 
-### 4.4 Two properties the pipeline used to get for free, and now buys
+### 4.4 Two properties the pipeline buys rather than gets for free
 
-Rev. 2 recorded both of these as free consequences of rendering, and closed with
-*"a hand-written YAML spec would not have that property"*. **Rev. 10 of the spec
-made every spec hand-written**, so this section is the one place in the design
+Both are free consequences of a render step — *"a hand-written YAML spec would
+not have that property"*. **Every spec is hand-written**, so this section is the
+one place in the design
 where the deletion took something away rather than simplifying. Both were
 recovered, by choosing the parser rather than by convention (§3.2):
 
@@ -934,9 +934,9 @@ sees both.
 
 `closure` spec §4.1 explicitly defers graph-level composition — cycles,
 reachability, whether every input has a producer. This design does not
-smuggle a partial version in. `task_graph` spec §3.2.4 has since given that
-check a concrete reason to exist (`replace_with`'s containment claim depends on
-it), which strengthens the case for a home; it is still not this pass's.
+smuggle a partial version in. `task_graph` spec §3.2.4 gives that check a
+concrete reason to exist (`replace_with`'s containment claim depends on it),
+which strengthens the case for a home; it is still not this pass's.
 
 **No prior art was found for our exact check** — symmetric name-vs-name
 agreement where disagreement crashes. Bazel visibility is set membership;
@@ -985,9 +985,9 @@ scheduler reading a closure, and `closure` design D5 identified this sentence as
 the only attribution of a job nobody owns. `Scheduler.submit` takes `Task`
 objects a caller already built; who builds the root is
 [`interfaces.md`](interfaces.md) §4.6, and today it is `cli/build.py`
-(`demo` D3).
+(`cli` D3).
 
-#### The graph pass lives here, and `task_graph` rev. 11 put it here
+#### The graph pass lives here, and it is `task_graph`'s
 
 `check_graph` is `task_graph`'s (its design §8.7), and it runs at this line
 because this is the only moment when every spec is present and nothing has run.
@@ -1029,7 +1029,7 @@ readers who do not open `docs/`.
 |---|---|---|---|
 | ~~`render`~~ | Jinja2, Kustomize overlays, `rjsonnet`, `_gojsonnet` | **`jsonnet` — adopted at rev. 2, removed at rev. 3** | The module is gone (§3). Spec §7 rev. 10 carries the measurement: across all 21 sources the templating was constants, string concatenation and default-if-absent. Kept as a row rather than dropped, because the aarch64-wheel caveat and the two-runtime seam it forced (O2) are the concrete cost of the decision, and a table that only lists what is currently carried teaches nobody what a dependency costs |
 | `validate` | pydantic-generated schemas, `fastjsonschema`, `cfgv` | **`jsonschema` 4.26** | Already installed. Spec §4.4 makes JSON Schema the only enforcement point, and §4.1 above records why a generated model is not a substitute. `fastjsonschema` compiles to Python for speed we do not need and has weaker error objects — no `json_path`, no `context` tree, which §3.5 depends on |
-| parse | `json.loads`, PyYAML `safe_load` | **`ruamel.yaml`, round-trip mode** | §3.2. Rev. 2 chose `safe_load` on the argument that rendered JSON is a YAML subset and that the YAML loader kept the door open to a non-jsonnet source — the door it kept open is the one the system walked through, and the argument for `safe_load` did not survive it. Round-trip mode is what carries `lc` positions into a diagnostic, and it is YAML 1.2, which closes the `norway: NO` trap the render step used to close (§4.4). **PyYAML stays a dependency** — `env_mgr/recipe.py`, `handoff/verdict.py` and `handoff/store.py` use it — and no longer parses a package document |
+| parse | `json.loads`, PyYAML `safe_load` | **`ruamel.yaml`, round-trip mode** | §3.2. `safe_load` is defensible only behind a render step, on the argument that rendered JSON is a YAML subset; with documents hand-written there is no upstream to lean on. Round-trip mode is what carries `lc` positions into a diagnostic, and it is YAML 1.2, which closes the `norway: NO` trap a render step would close (§4.4). **PyYAML stays a dependency** — `env_mgr/recipe.py`, `handoff/verdict.py` and `handoff/store.py` use it — and does not parse a package document |
 | `report` | writing our own relevance heuristic | **`jsonschema.best_match` + check-jsonschema's four-part format** | §3.5. The project shipped a *second* heuristic after finding one insufficient; a third invented here would be worse than adopting both |
 | `registry` | `pluggy`, entry points, one generic registry | **own, ~40 lines** | §5.3. `pluggy` solves 1-to-N hook broadcast with ordering and wrappers; a spec lookup is a dict with a collision policy. Its duplicate-rejection *behaviour* is adopted; its machinery is not. Entry points come later, if specs ever ship out of tree |
 | `package` | dbt packages, Helm dependencies, Ansible collections | **own** | §3.2, §12. No surveyed system has a lockfile with content hashes, so there is nothing to adopt for the part that matters. What is adopted is the *shape* of the discovery-then-resolve pass |
@@ -1118,11 +1118,11 @@ changes an acceptance criterion.
 | D1 | `README.md` projects `agent_sys/schemas/` at top level | `spec_loader/schemas/`, read through `importlib.resources` | §2.2. A bare directory of `.json` is not a package: `find_packages` with the declared `include` does not see it and setuptools does not install it. Reading it by relative path works from a checkout and fails from a wheel. **This corrects the README's projection, not the spec** — §4.3 says only that this repository holds the schemas |
 | D2 | Four independent registries (§4.1) | Four registry *objects*, in three packages — the task registry lives in `closure/` | §2.3. A task spec is not independently loadable; closure spec §2 declares it as the closure's `task` key. A `task/` package would hold one registry and nothing else. The four objects and their four collision policies are intact |
 | D3 | "The loader resolves a path; it does not interpret a package's layout" (spec §4.3) | **Both halves changed at rev. 3 and the direction is opposite for each.** The loader resolves no path at all now — it is handed documents (§3.1), which is stronger than the sentence claimed. But spec §4.3 rev. 10 fixes two names, `main.yaml` and `assets/`, so *something* interprets layout; §4.3 rev. 11 places that on the package rather than on the loader | §3.2, §3.6. `ImportResolver` is gone with the imports; O3 restates the containment question against `_scan` |
-| D4 | A spec is "a rendered YAML document" (spec §4) | It is a position-carrying `dict` — a `ruamel.yaml` `CommentedMap`, which subclasses `dict` — and the YAML text is never retained | §4.1. Nothing downstream reads the serialised form, and keeping it would invite someone to re-parse instead of using the loaded object. **Amended at rev. 3**: rev. 2 said "the rendered bytes are available to `report` while a load is in flight", and there are no rendered bytes. What survives instead is better — the *tree* carries `lc`, so a diagnostic gets a line without anyone holding the text (§3.2) |
+| D4 | A spec is "a rendered YAML document" (spec §4) | It is a position-carrying `dict` — a `ruamel.yaml` `CommentedMap`, which subclasses `dict` — and the YAML text is never retained | §4.1. Nothing downstream reads the serialised form, and keeping it would invite someone to re-parse instead of using the loaded object. There are no rendered bytes for `report` to reach: the *tree* carries `lc` instead, so a diagnostic gets a line without anyone holding the text (§3.2) |
 | D5 | §4.6 says "a `ValidatorId` joins them on the same terms" as `TaskId` / `AgentId` / `HandoffId` | no `ValidatorId` exists in any design | **Reported, not resolved.** `grep -rn "ValidatorId"` over every design returns nothing, and the `validator` design identifies a validator by **name** throughout — its spec registry is keyed by name, and the implementation registry is joined to it by name. So the spec asks for a fourth typed id and three designs have quietly gone another way. The two are not equivalent: a name is a vocabulary entry that must be unique across a registry, an id is minted per object and survives renaming. Which one a validator needs depends on whether a validator is ever *instantiated* per run the way an `Agent` is — `validator` design §3.2 says it is not, which is the argument for names, but that argument is nowhere written down as a departure from §4.6. Whose change and which direction is a **spec** question |
 | D7 | §2 of rev. 1 projected `demo/` as "docs only — the package itself is `examples/ok.filetree_grounded_report.4/`" | `cli/` is an installed Python package; `examples/ok.filetree_grounded_report.4/` is YAML and data and is **not** importable | `cli` design D2 measured it (M13): a console script pointing into an unpackaged directory installs successfully and dies with `ModuleNotFoundError` when run. Making `examples*` a Python package would fix that and break `cli` spec §1.1's rule that the demo uses nothing an out-of-repository package could use. The split is what makes that rule checkable |
 | D8 | §3.6 of rev. 1 ran the closure pass inside `load_package` | it runs once at the composition root | `closure` design D3, adopted in full: `spec_loader` may not import `closure` (§2.3), and `load_package` runs once per package so the pass would fire before a second package's specs exist (§6.1). **This is the first correction another module's design made to this one that this document has accepted rather than merely recorded** |
-| D6 | §7 is written as though this document's composition root is the last word on it | `check_graph` was added to it by `task_graph` design rev. 11, after this document was written | Recorded because the coupling runs *backwards* from the usual direction. This document defers module detail to seven module designs (§1.2); `task_graph` rev. 11 is the first of them to put something back — a pass that must run in the composition root, between package loading and scheduler registration, because that is the only point at which every spec is present and nothing has run. §7 now shows it. Expect the same from `env_mgr` and `demo`, and read §7's `build_registry` as a shared surface rather than as this document's alone |
+| D6 | §7 is written as though this document's composition root is the last word on it | `check_graph` is put there by `task_graph` design §8.7 | Recorded because the coupling runs *backwards* from the usual direction. This document defers module detail to seven module designs (§1.2), and a module may put something back — a pass that must run in the composition root, between package loading and scheduler registration, because that is the only point at which every spec is present and nothing has run. §7 shows it. Expect the same from `env_mgr` and `cli`, and read §7's `build_registry` as a shared surface rather than as this document's alone |
 
 ---
 

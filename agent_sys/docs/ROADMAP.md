@@ -122,9 +122,8 @@ The mechanism, for the record, and points 1–2 now duplicated by
    agent running to push. **The failure is still reported and recorded**
    (`monitor` spec §2.1 and §7): under principle 1 every departure from the plan
    reaches the monitor, and a terminal task means the graph will not finish
-   whether or not anything malfunctioned. Amended — this paragraph
-   previously said such a branch goes quiescent with nothing surfacing an error,
-   and main spec §10 has withdrawn that too.
+   whether or not anything malfunctioned. Such a branch does **not** go quiescent
+   with nothing surfacing an error; main spec §10 says so too.
 
 **An ad-hoc push, for agents that pass the gate.** `monitor` spec §4.1.0's
 completeness gate reacts to an agent that delivered *nothing*. The observation
@@ -299,101 +298,43 @@ on the agent cooperating.
   (`socat` is present). Anything written here would be green for the wrong
   reason. `engineer_principle.md` §5.3.
 
-### Measured, on the first real model calls this repository made
+### Measured against a real backend
 
-Three of these were **reassuring for the wrong reason**, which is the hazard this
-section exists for. All are first-hand from `AGENT_SYS_NO_PERMISSIONS=1` runs.
+Three of these are **reassuring for the wrong reason**, which is the hazard this
+section exists for. All are first-hand, from `AGENT_SYS_NO_PERMISSIONS=1` runs.
 
-**The harness confines the agent even when we do not — and that is the direction
-that hides whether our confinement works.** With permission management switched
-*off*, the `claude` CLI was still in its default ask-for-approval mode with no
-approval channel: `printenv` blocked, `Write` blocked **inside the agent's own
-zone**. The run was *more* restricted with permissions off than on. See
-`interfaces.md` §4.22d. **So any future measurement of our sandbox must first
+**The harness confines the agent even when this system does not — and that is the
+direction that hides whether our confinement works.** With permission management
+switched *off*, the `claude` CLI is still in its default ask-for-approval mode
+with no approval channel: `printenv` blocked, `Write` blocked **inside the
+agent's own zone**. The run is *more* restricted with permissions off than on.
+See `interfaces.md` §4.22d. **So any measurement of this sandbox must first
 establish that the harness is not the thing doing the refusing.**
 
-**Criterion 8 measured the harness, not us.** The agent ran the leak probe and
-reported, unprompted: `Error: Contains simple_expansion`, then
-`Error: This command requires approval` — **no shell exit code, the shell never ran
-the command**, whether `leak.txt` appeared is **unknown**, and *"the interception
-happened at the command parse/approval layer, and the boundary was drawn by the
-harness rather than the OS."* The readme's expected layering (hook allows → OS
-refuses) **was not observed.**
+**Criterion 8 can measure the harness rather than the OS.** Running the leak
+probe under the CLI produces `Error: Contains simple_expansion`, then
+`Error: This command requires approval` — **no shell exit code, the shell never
+runs the command**, and whether `leak.txt` appeared is unknown. The readme's
+expected layering (hook allows → OS refuses) is not what is observed.
 
-**And before that, the probe was writing to a root-owned `/`.** `AGENT_SYS_DEMO_OUTSIDE`
-was never exported, so the command was `echo leaked > "/leak.txt"` and returned a
-convincing `Permission denied` **on any machine, for ever, with the sandbox off
-entirely.** Fixed (`5cc00c9`), but it had been green for months.
+**A leak probe with no target directory is a permanent false green.** With
+`AGENT_SYS_DEMO_OUTSIDE` unexported the command becomes
+`echo leaked > "/leak.txt"`, which returns a convincing `Permission denied` **on
+any machine, for ever, with the sandbox off entirely.** The probe must write to a
+real out-of-zone directory, and the export is what makes it a measurement.
 
-**Relocating `CLAUDE_CONFIG_DIR` is load-bearing for cost, not only for isolation.**
-Same model, same one-turn prompt: **$0.782 unrelocated versus $0.024 relocated —
-32×.** The operator's entire environment (plugins, skills, personal `CLAUDE.md`)
-enters every unrelocated agent's context. This is the earlier finding — a confined
-agent read the operator's personal `CLAUDE.md` and obeyed its language rule — with a
-price attached.
+**Relocating `CLAUDE_CONFIG_DIR` is load-bearing for cost, not only for
+isolation.** Same model, same one-turn prompt: **$0.782 unrelocated versus $0.024
+relocated — 32×.** The operator's entire environment (plugins, skills, personal
+`CLAUDE.md`) enters every unrelocated agent's context — which is also how a
+confined agent comes to read the operator's personal `CLAUDE.md` and obey its
+language rule.
 
-### The first end-to-end run, 124 s
+### What an end-to-end run establishes, and what it does not
 
-**All four tasks succeeded, the root terminated, both validators recorded real
-verdicts, exit 3.** Zero stalls, zero timeouts — the run ended because it finished.
-
-**Three consecutive completions: 124 s, 114 s, 109 s.** Not a lucky run.
-
-**No run store here is expected to survive, and this section names none as
-current.** The standard invocation is **two commands on one shell line** —
-`agent-sys run --clean; … agent-sys run …` — which `validator` read off
-`ps` rather than from a habit report. A run never deletes a run (`_clean` returns
-at `cli.py` before either run path is reached); **the preceding `--clean`
-does, and it runs before every drive**, whether or not anything is concurrent. Run *n* is deleted by run *n+1*, unconditionally. Two of the three
-stores above were gone within minutes; **an earlier amendment here named the
-second as "the one with artefacts on disk" and was false seven minutes later.**
-Naming a third would be the same mistake a third time, so the figures stand on
-their own and the reader is told they are not re-checkable in place.
-
-Copies were taken before the next drive — `demo-2` and `validator` each wrote one
-into the scratch tree. **That directory's own `.gitignore` is `*`**, so they
-survive `--clean` and not a fresh clone. Whether the day's evidence should
-be tracked somewhere is a repository-convention question and open.
-
-`--clean` buys nothing: `layout_for` already gives each run its own root, and its
-docstring says why — *"what can collide is the store root, so each run gets its
-own."* **Its real cost is that criterion 12 has never been reachable.** Resume
-needs the previous run's state to still be there, and there has never been a
-previous run. Not failing — unreachable, which reads as untested.
-
-**The third run is also the first to execute the user's `check_grounded` ruling**
-(`fd4a9d3` + `c8c1d37`): the `summary` kind declares `items/grounding/` required
-and the AI body is asked for one `cp -r` of its own input. Verified on disk —
-`diff -r` between the `facts` handoff content and the summary's `grounding/`
-is **byte-identical**, so the model copied rather than curated, and
-`check_grounded`'s external-route fallback arm fired zero times. **Only a run
-could establish that**; the guard test proves the readme asks, not that a model
-complies.
-
-**And it changes what a `strong` verdict from `check_grounded` means.** The
-grounding set now reaches the validator *through the producer it judges*, so the
-check is exact about the summary's internal consistency and inherits the
-producer's honesty about the copy — `validator` spec §8's *"the producer cannot"*
-territory. The ruling settles where the mechanism lives, not what the resulting
-check is worth. Not rigging: fabricating a number now also requires planting it
-in the copied facts. Recorded so the narrowing is visible rather than inferred
-from a green line.
-
-`validator` placed it as a report rather than a spec row (`3bc2c36`), which is
-the right form — §8.1's fourth row forbids *the producer seeing the hidden
-reference*, and this shape is **stronger than that row anticipated: the producer
-does not see the reference, it authors it.** Their statement of what a verdict
-now asserts:
-
-> A `strong` verdict from this validator asserts that **the summary is internally
-> consistent with the grounding copy the producer carried** — not that it is
-> grounded in the facts. The two differ exactly when the copy is not faithful.
-
-**The exposure is inherent to the ruling, not to the implementation**, and it is
-open rather than deferred: nothing in the confined path can distinguish a
-faithful copy from an unfaithful one. A body cannot reach the store, and the
-ruling forecloses declaring the original as a second input. **Closing it needs a
-party that sees both, and the current design has none.**
+A full drive of `examples/ok.filetree_grounded_report.4` completes in
+**109–124 s** with all four tasks succeeding, the root terminating, both
+validators recording real verdicts, and exit 3. No stalls, no timeouts.
 
 ```
 produce: succeeded   facts   v0 valid   check_facts:    PASS  completeness/strong
@@ -401,91 +342,105 @@ describe: succeeded  summary v0 valid   check_grounded: PASS  trustworthiness/st
 consume: succeeded   main: succeeded    0 validation(s) dropped
 ```
 
-**What it establishes:** the nine packages compose. Dispatch, staging, pre-allocated
-grants, a program body writing into its own grant, a store seal, a published handoff,
-**an AI node making a real model call** (12 turns, $0.409), an artefact written into
-its granted directory, two `strong` verdicts on two dimensions, a consumer running on
-a validated input, **and a root that leaves `RUNNING`** — `04a5b76`'s producer
-executing for the first time in this repository, on a chain its author had declined
-to claim worked.
+**What it establishes:** the nine packages compose. Dispatch, staging,
+pre-allocated grants, a program body writing into its own grant, a store seal, a
+published handoff, **an AI node making a real model call** (12 turns, $0.409), an
+artefact written into its granted directory, two `strong` verdicts on two
+dimensions, a consumer running on a validated input, **and a root that leaves
+`RUNNING`**.
 
 **What it establishes about isolation: nothing, and the run says so in its second
-line.** `NO SANDBOX — PERMISSION MANAGEMENT IS OFF for this run… A pass here is not
-evidence that the sandbox works.`
-
-**Criterion 8 is now measured rather than fictional, and it is inverted by design.**
-The agent ran the probe and reported verbatim:
-
-```
-$ echo leaked > "$AGENT_SYS_DEMO_OUTSIDE/leak.txt"; echo "exit=$?"
-exit=0
-$ cat "$AGENT_SYS_DEMO_OUTSIDE/leak.txt"
-leaked
-```
-
-> *The mode is `drwxrwxr-x` owned by the current user, so the OS forms no boundary
-> here. **I have not deleted `leak.txt`; it is left as evidence.** As to why this run
-> produced no restricted mode — `env_mgr` unwired, or confinement not in effect — **I
-> have no first-hand evidence and will not infer.**
-
-**The write succeeding is correct with the switch on.** This supersedes the earlier
-note that the probe measured a root-owned `/`: that defect is fixed (`5cc00c9`), the
-probe now writes to a real out-of-zone directory, and **it is a working measurement
-whose current answer is "there is no boundary", because there is not.**
+line.** `NO SANDBOX — PERMISSION MANAGEMENT IS OFF for this run… A pass here is
+not evidence that the sandbox works.` With the switch on, the leak probe writes
+successfully to a `drwxrwxr-x` directory owned by the current user — a working
+measurement whose answer is *there is no boundary*, because there is not.
 
 **Still unexercised:** criterion 9's refusal, and the version-space seam —
-`produce` succeeded on attempt 0, **where slot 0 and store 0 coincide by
-construction.**
+`produce` succeeds on attempt 0, **where slot 0 and store 0 coincide by
+construction**.
 
-### Open for the user: criterion 5's scenario assumes a model that fabricates
+**No run store survives to be re-read.** A run never deletes a run (`_clean`
+returns before either run path is reached); a preceding `--clean` does, so run
+*n* is deleted by run *n+1* unconditionally. Figures from a drive therefore stand
+on their own and are not re-checkable in place.
+
+`--clean` buys nothing: `layout_for` already gives each run its own root, and its
+docstring says why — *"what can collide is the store root, so each run gets its
+own."* **Its real cost is that criterion 12 has never been reachable.** Resume
+needs the previous run's state to still be there. Not failing — unreachable,
+which reads as untested.
+
+### What the `check_grounded` grounding rule costs, measured
+
+The `summary` kind declares `items/grounding/` required and the AI body is asked
+for one `cp -r` of its own input. Verified on disk: `diff -r` between the `facts`
+handoff content and the summary's `grounding/` is **byte-identical**, so the
+model copies rather than curates, and `check_grounded`'s external-route fallback
+arm fires zero times. **Only a run can establish that** — a guard test proves the
+readme asks, not that a model complies.
+
+**And it changes what a `strong` verdict from `check_grounded` means.** The
+grounding set reaches the validator *through the producer it judges*, so the
+check is exact about the summary's internal consistency and inherits the
+producer's honesty about the copy — `validator` spec §8's *"the producer cannot"*
+territory. Not rigging: fabricating a number also requires planting it in the
+copied facts. Recorded so the narrowing is visible rather than inferred from a
+green line.
+
+This is the **report** form rather than a spec row, and it is the right one —
+§8.1's fourth row forbids *the producer seeing the hidden reference*, and this
+shape is **stronger than that row anticipated: the producer does not see the
+reference, it authors it.** What a verdict now asserts:
+
+> A `strong` verdict from this validator asserts that **the summary is internally
+> consistent with the grounding copy the producer carried** — not that it is
+> grounded in the facts. The two differ exactly when the copy is not faithful.
+
+**The exposure is inherent to the rule, not to the implementation**, and it is
+open rather than deferred: nothing in the confined path can distinguish a
+faithful copy from an unfaithful one. A body cannot reach the store, and
+declaring the original as a second input is foreclosed. **Closing it needs a
+party that sees both, and the current design has none.**
+
+### Open: criterion 5's scenario assumes a model that fabricates
 
 **Not a defect. A premise that a good model defeats.** `describe`'s body asks in
-good faith for a duration `facts` cannot ground, and `check_grounded` exists to catch
-the invented numeral. **The model declined to invent one, twice, and cited our own
-validator by name:**
+good faith for a duration `facts` cannot ground, and `check_grounded` exists to
+catch the invented numeral. A model that declines to invent one — citing
+`check_grounded` by name as the reason — writes a summary `check_grounded`
+**passes**, and a passing `check_grounded` is `UNEXPECTED_SUCCESS`, **exit 3**,
+which this artefact treats as worse than red. The demo is wired to report it
+loudly and **nobody should "fix" it when it fires.**
 
-> *"Writing any duration would be an ungrounded numeral and `check_grounded` would
-> fail it, so I honestly leave it out."*
+**Do not soften the scenario.** Whether criterion 5 needs a harder task is a spec
+question. Recorded here so it is decided rather than patched by whoever next sees
+exit 3. A readme that adds *"if the facts do not contain a number you were asked
+for, say so instead of estimating"* sounds helpful and **rigs the strict expected
+failure into an xpass** — no test catches that, only a reader.
 
-So when a summary is finally written, `check_grounded` **passes** — and a passing
-`check_grounded` is `UNEXPECTED_SUCCESS`, **exit 3**, which this artefact treats as
-worse than red. The demo is wired to report it loudly and **nobody should "fix" it
-when it fires.**
+**The same premise leaves criterion 10 undemonstrated: `check_grounded` has never
+been observed catching anything.** A good model closes the gap, so the
+validator's **failing** direction — which is what its `strong` claim is about —
+has never executed.
 
-**Ruled: do not soften the scenario.** Whether criterion 5 needs a harder
-task is a spec question and the user's. Recorded here so it is decided rather than
-patched by whoever next sees exit 3.
+**Parked, and not a roadmap item.** This is `check_grounded`'s own business
+semantics rather than a framework or principle question. The suggested shape, if
+anyone ever does it: **split it in two** — one validator for the other fields,
+one that judges only whether the agent's answer about the missing duration is
+*reasonable*, passing if it is. Filed as `TODO.md` 4f with the measurement that
+bears on it.
 
-**And the near-miss is the reason this is written down.** A draft of `describe`'s
-readme added *"if the facts do not contain a number you were asked for, say so
-instead of estimating"* — helpful-sounding, and it would have **rigged the strict
-expected failure into an xpass**. Caught by its author re-reading their own edit, not
-by a test.
-
-**The same premise leaves criterion 10 undemonstrated — `check_grounded` has never
-been observed catching anything** (`demo`). Three runs showed a good model closing
-the gap; the validator's **failing** direction, which is what its `strong` claim is
-about, has never executed.
-
-**Ruled: parked, and not a roadmap item.** *"Not a framework question and
-not a principle question — this is `check_grounded`'s own business semantics, and we
-do not spend time on it."* The suggested shape, if anyone ever does: **split it in
-two** — one validator for the other fields, one that judges only whether the agent's
-answer about the missing duration is *reasonable*, passing if it is. Filed as
-`TODO.md` 4f with the measurement that bears on it. **Nothing here is waiting on the
-user.**
-
-**One thing from the run is worth keeping regardless of that.** The model argued the
+**One thing from the run is worth keeping regardless.** The model argued the
 design's own case back at it, unprompted, in its `## Grounding` section:
 
 > *copied with a single `cp -r` and neither edited nor filtered, **so whoever checks
 > this handoff can check my numbers against the same bytes I read rather than against
 > a list I curated for myself.***
 
-That is verbatim the argument `demo` used to reject *"the numerals you used"* — reached
-independently by the party the rule constrains. It is the strongest evidence the shape
-is right, and it is also exactly why the failing direction stays unobserved.
-
+That is the argument for rejecting *"the numerals you used"*, reached
+independently by the party the rule constrains. It is the strongest evidence the
+shape is right, and it is also exactly why the failing direction stays
+unobserved.
 ### The fallback, if the standard route does not close it
 
 Vendor the SDK and patch the fork site so the child is started through
@@ -539,10 +494,9 @@ tasks. Cheap now, not automatically cheap later.
 
 ## 6.3 **Rebuild the permission system** — user-ruled, and the demo is the evidence
 
-**Ruled by the user, in as many words: the permission system as implemented
-"感觉问题百出" — it feels riddled with problems — and it is to be rebuilt rather
-than patched.** This entry records what is known so the rebuild starts from
-measurements instead of from the same instincts.
+**The permission system as implemented is to be rebuilt rather than patched.**
+This entry records what is known so the rebuild starts from measurements instead
+of from the same instincts.
 
 ### The measurement that prompted it
 
@@ -566,10 +520,9 @@ summary v0 valid     check_grounded: PASS  trustworthiness / strong
 ```
 
 **So the confinement layer is the only thing between this system and a working
-end-to-end run**, and it has been for longer than the format change: the
-pre-stage jsonnet tree, measured in a temporary worktree at `8274a5b`, produces a
-transcript differing by **exactly one line** (`main: agent 'compose'` versus
-`main: agent None`) and the same exit 4.
+end-to-end run**, and the package format is not implicated: the pre-stage tree
+produces a transcript differing by **exactly one line** (`main: agent 'compose'`
+versus `main: agent None`) and the same exit 4.
 
 ### What is already known about why, so it is not rediscovered
 
@@ -609,8 +562,8 @@ that is granted), `AGENT_SYS_TASK_PACKAGE`, and `MY_WORKSPACE` / `MY_PLAYGROUND`
 / `MY_HANDOFFS` / `MY_LOGS` plus a `_REMOTE` mirror of each where a mapping
 covers the zone. A directory that does not exist gets no name.
 
-**The user's ruling: record it, do not work on it.** The choice the rebuild has to
-make, stated so it is not re-derived: either the `*_root` names stay unexportable
+**Recorded, not worked on.** The choice the rebuild has to make, stated so it
+is not re-derived: either the `*_root` names stay unexportable
 and an agent only ever names things inside its own zone, **or** the authorisation
 model changes to grant those roots read-only — which opens lateral visibility
 between zones and is a specification change against `env_mgr` spec §4's
@@ -696,10 +649,9 @@ measurement of 650 matches with 627 needing suppression.
 `locality.py`'s own docstring records that the shape refinement was proposed on
 **Debian #1002451 and refused on the record**: *"you cannot recognise a build
 path by its shape, because the shape is a property of whoever built it."* Two
-patches were made — one for scheme-less request-targets, then a
-stricter version anchored on the `HTTP/x.y` token after a review found the first
-opened a cloak — and each revealed the next shape. The module was right and the
-patches were treading the path it warned about.
+successive patches bear that out — one for scheme-less request-targets, then a
+stricter version anchored on the `HTTP/x.y` token because the first opened a
+cloak — and each revealed the next shape.
 
 ### What the rebuild must do
 
@@ -790,55 +742,54 @@ control any rebuild must keep firing.
 
 ## 6.5 **P1 — the stream cannot tell a working phase from a wedged one, and the signal that can is inside the backend**
 
-Three runs hung and **all three were found by a human reading an
-agent's transcript**, not by anything the system emits. `8b4b3ff` fixed half of
-it — `_settle` now emits `phase_start` / `phase_complete` as tasks move, so a
-reader can follow a run's shape from `stream.jsonl`, which was impossible
-before. This is the other half.
+A hung run is found by a human reading an agent's transcript, not by anything
+the system emits. Half of that is closed — `_settle` emits `phase_start` /
+`phase_complete` as tasks move, so a reader can follow a run's shape from
+`stream.jsonl`. This is the other half.
 
-### What the fix does not reach, measured on B6
+### What that does not reach, measured
 
-`stream.jsonl` carried 21 lines, 5 of them live, and they span the run rather
-than clustering at startup. But the largest gap between consecutive events is
-**1456 s — 24 m 16 s**, the whole agent working phase, and the second largest is
-561 s. Everything else is 1 s. So the stream says *which phase a task is in* and
-never *whether it is progressing* — and "wedged inside `running`" is the state
-B4 died in for 65 minutes.
+Across a healthy 24-minute run `stream.jsonl` carries 21 lines, 5 of them live,
+spanning the run rather than clustering at startup. But the largest gap between
+consecutive events is **1456 s — 24 m 16 s**, the whole agent working phase, and
+the second largest is 561 s. Everything else is 1 s. So the stream says *which
+phase a task is in* and never *whether it is progressing* — and "wedged inside
+`running`" is a state a run can sit in for over an hour.
 
 A liveness check cannot be built on this. "No events for N minutes" fires on a
 healthy run too, because a healthy run is also silent for 24 minutes.
 
 ### The signal that works, with the number
 
-`run-watchdog` measured the agent transcript's inter-entry gaps across every
-session watched that day:
+The agent transcript's inter-entry gaps, measured across five watched
+sessions:
 
 | session | outcome | entries | span | largest gap |
 |---|---|---|---|---|
-| B6 agent | healthy | 396 | 24.2 min | **87 s** |
-| B6 reproducer | healthy | 106 | 9.3 min | **162 s** |
-| B5 agent | healthy | 311 | 30.5 min | **257 s** |
-| B5 reproducer | healthy | 105 | 10.0 min | **257 s** |
-| B4 agent | **hung** | 348 | 23.2 min | 120 s working, then **65 min** |
+| agent, long run | healthy | 396 | 24.2 min | **87 s** |
+| reproducer | healthy | 106 | 9.3 min | **162 s** |
+| agent, cold start | healthy | 311 | 30.5 min | **257 s** |
+| reproducer | healthy | 105 | 10.0 min | **257 s** |
+| agent | **hung** | 348 | 23.2 min | 120 s working, then **65 min** |
 
 Healthy work never goes quiet longer than **257 s**, and that worst case is a
-deliberate cold-start wait. The hang was **65 minutes** — nearly an order of
-magnitude of separation. A threshold anywhere in 600–900 s catches B4 within a
-quarter hour and fires on none of the four healthy sessions.
+deliberate cold-start wait. The hang is **65 minutes** — nearly an order of
+magnitude of separation. A threshold anywhere in 600–900 s catches the hang
+within a quarter hour and fires on none of the four healthy sessions.
 
 ### Three limits, because the number is worth less without them
 
-1. **n = 4 sessions, one package.** A package that waits on a longer build, or
-   makes one very long model call, could legitimately exceed 257 s. This is a
-   floor measured here, not a constant to hardcode.
+1. **n = 4 healthy sessions, one package.** A package that waits on a longer
+   build, or makes one very long model call, could legitimately exceed 257 s.
+   This is a floor measured here, not a constant to hardcode.
 2. **It detects *stopped*, not *stuck*.** An agent in a retry loop grows its
-   transcript while making no progress. Watched for specifically in B4 and B6
-   and not seen — all three hangs that day were the *stopped* kind — so this
-   covers what happened, not everything that could.
-3. **In B4 the agent had legitimately finished.** Its transcript stopping was
-   *correct*; the fault was the engine not terminating. The alarm this raises is
-   therefore **"this session is over"**, not "this session is broken" — which,
-   for all three of that day's hangs, is exactly the alarm that was needed.
+   transcript while making no progress. Watched for specifically and not
+   observed, so this covers the hangs that have been seen, not everything that
+   could happen.
+3. **In the hung session the agent had legitimately finished.** Its transcript
+   stopping was *correct*; the fault was the engine not terminating. The alarm
+   this raises is therefore **"this session is over"**, not "this session is
+   broken" — which is the alarm that was needed in every hang observed.
 
 ### Why it is a seam and not another line in `_settle`
 
@@ -987,8 +938,8 @@ examples/ok.filetree_grounded_report.4/validators/check_grounded.yaml     entry:
 
 **Both of the demo's validators are script-bodied.** No AI validator runs in the
 demo, so neither the CLI-identity divergence nor the `Not logged in` arm can bite
-today's run — and three packages composing a validation environment while
-`demo run` is the goal is a cost with no matching benefit this week.
+today's run — and three packages composing a validation environment is a cost
+with no matching benefit while the run path is the goal.
 
 **`agent` owes nothing either way**: `Assignment.agent_cli` is already the field,
 and `TaskAttempt.environment` already carries the resolved configuration a
@@ -1009,20 +960,20 @@ disconnected.
 A per-poll descendant census over `ok.algorithms_solve_grade.14` at
 `--var n_problems=2`, sampling every 5 s:
 
-           pid   first   last   alive     task
-       2299467      16    264     248     `directions`  — succeeded at t≈33
-       2309338      81    264     183     `problems`
-       2323081     178    264      86     solve_a / _b / _c, at the fan-out
-       2323109     178    264      86
-       2323117     178    264      86
-       run exited at t=270
+         first   last   alive     task
+            16    264     248     `directions`  — succeeded at t≈33
+            81    264     183     `problems`
+           178    264      86     solve_a / _b / _c, at the fan-out
+           178    264      86
+           178    264      86
+         run exited at t=270
 
     departures after t=11 : 0
     peak concurrent       : 5, and it never came down
 
-`directions` reached `final: succeeded` at log line 67; its CLI lived another
-three minutes. **The set is monotonically non-decreasing for the whole run.**
-A fourteen-task package would end holding fourteen.
+`directions` reaches `final: succeeded` a third of the way in; its CLI lives
+another three minutes. **The set is monotonically non-decreasing for the whole
+run.** A fourteen-task package would end holding fourteen.
 
 **Why it is not just tidiness.** Each is a node process, and unrelated `claude`
 processes on the same box measured 237 MB–960 MB RSS. These five were not

@@ -28,9 +28,8 @@ one of them drifts.
 YAML specs, exactly like the one a real workflow ships. Its handoff kinds, its
 validators, its closures are its own; nothing in `agent_sys` imports any of them.
 
-That used to be a discipline this document had to state and defend. Now it is
-structural: a task package is outside the system by construction, and the demo is
-one.
+That is structural rather than a discipline this document has to defend: a task
+package is outside the system by construction, and the demo is one.
 
 **It is the only task package that lives in this repository**, and the exception
 is deliberate.

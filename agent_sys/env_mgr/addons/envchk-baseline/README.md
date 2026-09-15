@@ -60,9 +60,9 @@ reaches a session through the *agent's own* `.claude/.mcp.json` →
 `env_mgr/docs/spec.md` §6.7 assigns to every stdio server: the harness spawns it,
 so the harness has to be told about it in a file it reads.
 
-There used to be a copy of that entry in `.claude/.mcp.json` **here**, reached by
-an `agent_plugins: [envchk-baseline]` key. Both are gone. What is left in this
-directory is the payload and nothing that configures anything —
+**There is no second copy of that entry in a `.claude/.mcp.json` here**, and no
+`agent_plugins: [envchk-baseline]` key to reach one. This directory holds the
+payload and nothing that configures anything —
 `examples/ok.agent_capabilities.2/assets/env_probe.agent/.claude/.mcp.json` is the one
 declaration.
 

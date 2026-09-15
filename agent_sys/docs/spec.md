@@ -104,7 +104,7 @@ so a section that seems thin is usually deferring, not omitting.
 | [`agent`](../agent/docs/spec.md) | adding an executor or a backend |
 | [`closure`](../closure/docs/spec.md) | binding the four into one workflow step |
 | [`env_mgr`](../env_mgr/docs/spec.md) | touching storage, workspaces, or isolation |
-| [`demo`](../cli/docs/spec.md) | checking that all of it actually composes |
+| [`cli`](../cli/docs/spec.md) | checking that all of it actually composes |
 
 Two documents beside these carry work rather than specification:
 [`ROADMAP.md`](ROADMAP.md) for deferred subsystems, [`TODO.md`](TODO.md) for
@@ -181,7 +181,7 @@ Seven. Each has its own specification; this table is the map.
 | `agent` | What an executor declares, and the backend abstraction | [`../agent/docs/spec.md`](../agent/docs/spec.md) |
 | `closure` | The predefined binding of the four objects | [`../closure/docs/spec.md`](../closure/docs/spec.md) |
 | `env_mgr` | All interaction with the operating system, including isolation | [`../env_mgr/docs/spec.md`](../env_mgr/docs/spec.md) |
-| `demo` | The runnable proof that the above compose | [`../cli/docs/spec.md`](../cli/docs/spec.md) |
+| `cli` | The runnable proof that the above compose | [`../cli/docs/spec.md`](../cli/docs/spec.md) |
 
 `task_graph` and `env_mgr` are implemented; the rest are specified here and built
 in later stages.
@@ -547,12 +547,12 @@ The rule, in order:
 4. Only build it yourself when nothing fits, and **record why** in the module's
    README.
 
-This is not only about saving effort. Two of the decisions in this document were
-reversed by research after they had been written down and looked reasonable: the
-validator's template system (no surveyed system does it; two explicitly prohibit
-the nesting variant) and the isolation mechanism (path-prefix matching is a
-CVSS 9.1 CVE in the harness we build on). Both would have shipped. §7 records
-what was adopted and what was rejected.
+This is not only about saving effort. Two decisions in this document are what
+research reversed: the validator's template system (no surveyed system does it;
+two explicitly prohibit the nesting variant) and the isolation mechanism
+(path-prefix matching is a CVSS 9.1 CVE in the harness this builds on). Both
+read as reasonable on paper. §7 records what was adopted and what was
+rejected.
 
 ---
 
@@ -767,8 +767,8 @@ A spec is a **YAML document**. Loading one is two steps, in this order:
                                           └── against the object's JSON Schema (§4.3)
 ```
 
-**There is no third step, and there used to be.** Revisions 4–9 put a jsonnet
-render in front of this, adopted for the reason
+**There is no third step, and a render step is the one that is absent.**
+Putting a jsonnet render in front of this is adoptable for the reason
 [Kustomize](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomize/)'s
 overlays are: a workflow runs the same shape against different models and
 hardware, and the alternative to templating is copy-paste.
@@ -791,10 +791,10 @@ directory tree the author likes — all of it is the package's business. Only th
 result is checked.
 
 The deletion makes that promise **structural rather than conventional.** A
-package now delivers *parsed documents* across the seam, so the loader has no
+package delivers *parsed documents* across the seam, so the loader has no
 parameter through which a path could arrive and cannot open a source file even by
-accident. It was previously an ordering convention inside one function. Criterion
-4 pins the new form.
+accident — a type boundary rather than an ordering convention inside one
+function. Criterion 4 pins it.
 
 #### What replaced `config`: three needs, two homes
 
@@ -1057,9 +1057,8 @@ there are.
 
 ### 6.1 The catalogue is static; the instance count need not be
 
-An earlier revision said fan-out over a runtime-discovered set "is not
-expressible as N tasks". **That was too strong**, and it contradicted
-`task_graph` spec §3.2.2, which states that the graph may grow while a task's own
+Fan-out over a runtime-discovered set is **not** inexpressible as N tasks.
+`task_graph` spec §3.2.2 states that the graph may grow while a task's own
 expansion stays fixed — an agent is permitted to *submit* tasks (§2 principle 4
 forbids only redirecting the graph).
 
@@ -1094,8 +1093,8 @@ task definition asks for it.
 | Need | Adopted | Why |
 |---|---|---|
 | Domain models, validation, serialisation | **pydantic v2** | Already installed via `fastapi`, so it costs nothing. `model_dump` / `model_validate` remove hand-written deserialisers that would drift on every field added |
-| YAML files elsewhere in the system | **PyYAML** | Already an `agent_sys` dependency. **It no longer parses a package document, and the row is kept because the reason is instructive.** `spec_loader/validate.py` used to `safe_load` and argue that "neither the YAML 1.1 `norway: NO` trap nor the duplicate-key trap can reach us — jsonnet quotes every string and rejects a duplicate field statically". Deleting jsonnet removed that upstream and made both traps live; the row below closed them by parser choice, and `validate` now takes a parsed document and does not parse at all. PyYAML remains in use where nothing is hand-authored against a schema — `env_mgr/recipe.py`, `handoff/verdict.py`, `handoff/store.py` |
-| **The parse of a package document** | **`ruamel.yaml`, round-trip mode** | A diagnostic that cannot say *which line* sends an author to grep a package. Round-trip mode keeps `lc.line`, `lc.key(k)`, `lc.value(k)` and `lc.item(i)` on the parsed node and reports a syntax error as `MarkedYAMLError.problem_mark`, both 0-based; PyYAML exposes no equivalent. **It also settles the two traps the row above raises, and that was not why it was chosen** — round-trip is **YAML 1.2**, so `NO` is the string `NO`, and duplicate keys raise `DuplicateKeyError` with a position where `safe_load` silently keeps the last. `CommentedMap` subclasses `dict`, so `jsonschema` validates the position-carrying tree directly and `json_path` is correct. **Exactly one parser may touch a package document**: the two disagree on real values (`12:30` is `'12:30'` or `750`), so a second reader is how one document comes to mean two things |
+| YAML files elsewhere in the system | **PyYAML** | Already an `agent_sys` dependency. **It does not parse a package document, and the row is kept because the reason is instructive.** `safe_load` is defensible behind a render step, on the argument that "neither the YAML 1.1 `norway: NO` trap nor the duplicate-key trap can reach us — jsonnet quotes every string and rejects a duplicate field statically". With no render step both traps are live; the row below closes them by parser choice, and `validate` takes a parsed document and does not parse at all. PyYAML remains in use where nothing is hand-authored against a schema — `env_mgr/recipe.py`, `handoff/verdict.py`, `handoff/store.py` |
+| **The parse of a package document** | **`ruamel.yaml`, round-trip mode** | A diagnostic that cannot say *which line* sends an author to grep a package. Round-trip mode keeps `lc.line`, `lc.key(k)`, `lc.value(k)` and `lc.item(i)` on the parsed node and reports a syntax error as `MarkedYAMLError.problem_mark`, both 0-based; PyYAML exposes no equivalent. **It also settles the two traps the row above raises, which is a consequence rather than the reason** — round-trip is **YAML 1.2**, so `NO` is the string `NO`, and duplicate keys raise `DuplicateKeyError` with a position where `safe_load` silently keeps the last. `CommentedMap` subclasses `dict`, so `jsonschema` validates the position-carrying tree directly and `json_path` is correct. **Exactly one parser may touch a package document**: the two disagree on real values (`12:30` is `'12:30'` or `750`), so a second reader is how one document comes to mean two things |
 | Spec schema constraint | **jsonschema** | Already installed. The task definition requires the YAML be schema-constrained, and JSON Schema is the standard for that — and §4.4 makes it the system's only enforcement point, so `const` and `additionalProperties` carry real weight |
 | Identity | **`uuid.UUID` subclasses** | Generation, comparison, and formatting are solved in the standard library. Subclassing keeps the id types mutually incompatible |
 | Agent backend | **claude-agent-sdk** | Satisfies every level-2 capability — history, interrupt, instruct, hooks, permission callback, sessions. Mapping in agent spec §5, verified against the SDK reference |
@@ -1107,14 +1106,14 @@ task definition asks for it.
 | Scheduling | Prefect, Hatchet, Temporal, Ray, Airflow, Slurm | Each is a platform whose scheduling core is not separable; adopting a server to obtain one primitive. Recorded in full in `task_graph` spec §9 |
 | Graph algorithms | networkx, `graphlib` | The only graph question asked at dispatch time is whether one task's inputs are valid. `graphlib.TopologicalSorter` additionally refuses nodes after `prepare()`, and this graph grows at runtime |
 | Plugin framework | pluggy | Solves 1-to-N hook broadcast with ordering and wrappers. A validator is a 1-to-1 call and needs none of it. A decorator writing to a dict is the whole requirement; setuptools entry points come later, if validators ever ship out of tree |
-| **Spec templating** | **jsonnet** — adopted at rev. 4, **removed at rev. 10** | §4.4. Not rejected on principle: it was adopted, shipped, and then measured. Across every non-comment line of all 21 `.jsonnet` / `.libsonnet` sources in the tree, the whole computation surface is constants, string concatenation, and default-if-absent — and every general spec uses one construct, `if std.objectHas(config, 'inputs') then config.inputs else ['any']`. No arithmetic, no loops, no comprehensions, no overlays. A runtime dependency with a compiled extension and a fallback binding (`jsonnet` had no aarch64 wheel, hence `rjsonnet`) was buying three things a variable set and a schema `default` do for nothing. **Recorded here rather than quietly dropped, because §3.2's rule cuts both ways**: research before building, and re-measure before continuing to carry |
-| Templating | Jinja2 | **Text** templating: it renders strings and can emit a document that is not valid YAML at all. That was the reason at rev. 4 and it still holds — with the template layer itself now gone (§4.4), nothing is looking for a replacement |
-| Config overlays | **Kustomize** | Rev. 4 rejected the *patch model* as the wrong shape. That reasoning is superseded: the real blocker is that Kustomize is not adoptable from Python at all. Its embeddable API is the Go package `krusty`, and there is no Python binding — the three routes are cgo, a subprocess, or a Go sidecar, all to obtain a patch engine this system does not need. **One idea from it is still wanted and is not adopted here**: `LoadRestrictions`, which refuses to load anything outside the package root. That is `spec_loader` design **O3** and is open |
+| **Spec templating** | **jsonnet — rejected on measurement, not on principle** | §4.4. Measured over every non-comment line of a 21-file `.jsonnet` / `.libsonnet` tree: the whole computation surface is constants, string concatenation, and default-if-absent, and every general spec uses one construct, `if std.objectHas(config, 'inputs') then config.inputs else ['any']`. No arithmetic, no loops, no comprehensions, no overlays. A runtime dependency with a compiled extension and a fallback binding (`jsonnet` has no aarch64 wheel, hence `rjsonnet`) buys three things a variable set and a schema `default` do for nothing. **Recorded rather than quietly dropped, because §3.2's rule cuts both ways**: research before building, and re-measure before continuing to carry |
+| Templating | Jinja2 | **Text** templating: it renders strings and can emit a document that is not valid YAML at all. With no template layer at all (§4.4), nothing is looking for a replacement either |
+| Config overlays | **Kustomize** | The *patch model* is the wrong shape here, but that is not the binding reason: Kustomize is not adoptable from Python at all. Its embeddable API is the Go package `krusty`, and there is no Python binding — the three routes are cgo, a subprocess, or a Go sidecar, all to obtain a patch engine this system does not need. **One idea from it is still wanted and is not adopted here**: `LoadRestrictions`, which refuses to load anything outside the package root. That is `spec_loader` design **O3** and is open |
 
 ### 7.1 Two decisions research reversed
 
-Both had been written down and both looked reasonable. Recording them because
-§3.2 is otherwise an untested rule.
+Both read as reasonable on paper. Recorded because §3.2 is otherwise an
+untested rule.
 
 **The validator template system.** The spec had a template validator with
 declared blanks, composing other validators recursively to a configured depth. A

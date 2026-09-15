@@ -564,7 +564,7 @@ They are genuinely different things and both should exist:
 | | Type | Answers |
 |---|---|---|
 | `task_graph.Access` | `str, Enum` — `READ` \| `WRITE` | *What did the package author declare?* A grant is read or it is write |
-| `env_mgr.Mode` | `Flag` — `READ_EXEC` \| `READ_WRITE` | *What rights does the kernel get?* Combinable, and `READ_EXEC` has no declaration-side meaning at all — it exists because M3 measured that the interpreter's own prefix must be executable |
+| `env_mgr.Mode` | `Flag` — `READ_EXEC` \| `READ_WRITE` | *What rights does the kernel get?* Combinable, and `READ_EXEC` has no declaration-side meaning at all — it exists because the interpreter's own prefix is measurably required to be executable |
 
 So this module renames its own, because the declared vocabulary is the shared one
 and the kernel vocabulary is local. `grants.resolve` (§6.1) is the seam that maps
@@ -1388,20 +1388,19 @@ default. So everything is copied except `agent_assets._NOT_PLACED` —
 Claude Code puts *installed* plugins). A directory the harness invents next year
 is placed the day it appears.
 
-The same ruling fixes a latent one: a bundled `tools/*.mcp.py` is now registered
-at its **placed** path. It used to be registered at its source, which worked only
-because the staged package is inside the zone — and being readable is not the
-same as being the tree `CLAUDE_CONFIG_DIR` names, which is the path the harness
-actually reads.
+The same rule covers a bundled `tools/*.mcp.py`: it is registered at its
+**placed** path. Registering it at its source works only because the staged
+package is inside the zone — and being readable is not the same as being the tree
+`CLAUDE_CONFIG_DIR` names, which is the path the harness actually reads.
 
 **A marketplace name is validated before anything is copied.** `manifest["name"]`
 is author-controlled and was joined straight into a path with the check running
 *after* `copy_out`; measured with `"../../../ESCAPED"`, the tree was written
 outside the zone and only then refused. `contained_syntactically` — which needs
 no filesystem and so can run before the destination exists — is now consulted
-first, and the same check guards `assets:` and a `package:` recipe reference,
-where F-D18's `Path(staged) / "/abs" == "/abs"` had been applied to the loader's
-output but not to these two consumers of it.
+first, and the same check guards `assets:` and a `package:` recipe reference:
+`Path(staged) / "/abs" == "/abs"` applies to those two consumers exactly as it
+applies to the loader's output.
 
 **`${VAR}` in a component's `.mcp.json` is expanded against the zone
 environment, and an unresolved name refuses.** That is what lets a component
@@ -1533,7 +1532,7 @@ rather than here because it is a component's design, not the module's.
 |---|---|---|---|
 | Landlock binding | `rust-landlock` (not Python), a `ctypes` binding, `pylandlock` | **own `ctypes`, ~120 lines** | There is no maintained Python binding. The instrument that took every measurement in this document is already written and is that size. The three syscalls have no libc wrapper, so any binding is `syscall(2)` by number regardless |
 | Sandbox mechanism | Write our own namespace code | **`bwrap` binary, else Landlock** | Spec §4.2. Codex moved *to* bundled bwrap after shipping Landlock (F16), which is the same direction |
-| Rights masking | Grant uniformly and catch `EINVAL` | **`fstat` and mask per target type** | M5 measured the `EINVAL`; `rust-landlock/src/fs.rs:316` does exactly this and its comment names the same errno (F13) |
+| Rights masking | Grant uniformly and catch `EINVAL` | **`fstat` and mask per target type** | The `EINVAL` is measured; `rust-landlock/src/fs.rs` does exactly this and its comment names the same errno |
 | Rule construction | `path_beneath_rules`-style skip-on-missing | **raise, unless `optional`** | F14: the ecosystem default is silently fail-open, and spec principle 3 is fail-closed. §5.4 |
 | Workspace | worktree; full clone; **clone with alternates** | **clone with alternates** | §7.1 measured that a worktree cannot satisfy §4.5; a full clone copies the object store the spec wants shared |
 | Sync | `mutagen`, `unison`, `syncthing`, **`rsync`** | **`rsync`** | Spec §5.2 names it, and §9.1 needs a one-shot copy, not a reconciler. §9.3 adds the one thing it cannot do |
@@ -1577,9 +1576,9 @@ the property under test; never skip the property.**
 
 ### 15.2 Denials are asserted by errno against a named path
 
-The pattern is not a preference. My own instrument produced a **false PASS** from
-a `returncode != 0` check, because both children were failing to exec the
-interpreter rather than being denied (M4). The kernel's suite has zero
+The pattern is not a preference. A `returncode != 0` check produces a **false
+PASS** when both children fail to exec the interpreter rather than being denied.
+The kernel's suite has zero
 occurrences of `ASSERT_NE(0, …)` on an access check; every site is
 `ASSERT_EQ(EACCES, test_open(path, flags))` with the helper returning errno (S3,
 F4). Codex's `expect_denied` is `assert_ne!(exit_code, 0)` and cannot tell a
@@ -1733,8 +1732,8 @@ could not run"*.
 
 **And the load-bearing ones carry a negative control**: the arrangement under
 which the denial would *not* happen. Without it, *"it is denied"* and *"it would
-be denied whatever we did"* are the same green — which is how criterion 13's
-separation was held by an accident of location for a week before anyone noticed.
+be denied whatever we did"* are the same green — which is how a separation held
+by an accident of location goes unnoticed.
 
 ---
 
