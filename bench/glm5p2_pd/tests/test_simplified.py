@@ -133,6 +133,7 @@ def service_fixture():
         "IMAGE": "infera:test",
         "INFERENCEX_DIR": "/repo/InferenceX",
         "AGENTX_FAILED_REQUEST_THRESHOLD": "0.10",
+        "AGENTX_WARMUP_REQUESTS_PER_LANE": "10",
         "KV_P2P_TRANSFER": "mooncake",
         "PREFILL_TP": "4",
         "PREFILL_EP": "4",
@@ -140,6 +141,7 @@ def service_fixture():
         "PREFILL_DPA": "0",
         "PREFILL_HICACHE": "1",
         "PREFILL_MAX_RUNNING": "32",
+        "PREFILL_GRAPH_MAX_BS": "32",
         "DECODE_TP": "4",
         "DECODE_EP": "4",
         "DECODE_DP": "1",
@@ -147,6 +149,7 @@ def service_fixture():
         "DECODE_HICACHE": "0",
         "DECODE_MTP": "1",
         "DECODE_MAX_RUNNING": "32",
+        "DECODE_GRAPH_MAX_BS": "32",
         "DECODE_SIMULATE_ACC_LEN": "3.61",
         "TOTAL_CPU_DRAM_GB": "",
     }
@@ -207,6 +210,8 @@ def service_fixture():
             "4",
             "--max-running-requests",
             "32",
+            "--cuda-graph-max-bs",
+            "32",
             "--disaggregation-transfer-backend",
             "mooncake",
         ]
@@ -265,6 +270,18 @@ class AgentXEnvironmentTests(unittest.TestCase):
         self.assertEqual(values["MODEL"], "/models/glm")
         self.assertIn("sha256:prefill", values["IMAGE_IDS"])
         self.assertIn("http://10.0.0.1:29001/metrics", values["AIPERF_SERVER_METRICS_URLS"])
+        self.assertEqual(values["AIPERF_WARMUP_REQUESTS_PER_LANE"], "10")
+
+    def test_warmup_requests_per_lane_override_is_forwarded(self):
+        values = self.make(env={"AGENTX_WARMUP_REQUESTS_PER_LANE": "1"})
+        self.assertEqual(values["AIPERF_WARMUP_REQUESTS_PER_LANE"], "1")
+
+    def test_warmup_requests_per_lane_must_be_positive(self):
+        with self.assertRaisesRegex(
+            agentx_env.InspectError,
+            "AGENTX_WARMUP_REQUESTS_PER_LANE must be a positive integer",
+        ):
+            self.make(env={"AGENTX_WARMUP_REQUESTS_PER_LANE": "0"})
 
     def test_live_drift_fails_before_agentx(self):
         env, topology, workers, infos, containers, hardware, dram = service_fixture()
@@ -273,6 +290,29 @@ class AgentXEnvironmentTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             with self.assertRaisesRegex(agentx_env.InspectError, "live max_running=64"):
+                agentx_env.make_runtime_env(
+                    topology=topology,
+                    workers_payload=workers,
+                    infos=infos,
+                    containers=containers,
+                    hardware=hardware,
+                    dram=dram,
+                    env=env,
+                    router_url="http://10.0.0.2:8000",
+                    concurrency=8,
+                    duration=3600,
+                    output_dir=root / "out",
+                    runtime_dir=root / "cache" / "aiperf",
+                    hf_home=root / "cache" / "hf",
+                )
+
+    def test_live_graph_max_drift_fails_before_agentx(self):
+        env, topology, workers, infos, containers, hardware, dram = service_fixture()
+        command = containers["decode-0"]["Config"]["Cmd"]
+        command[command.index("--cuda-graph-max-bs") + 1] = "64"
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with self.assertRaisesRegex(agentx_env.InspectError, "live graph_max_bs=64"):
                 agentx_env.make_runtime_env(
                     topology=topology,
                     workers_payload=workers,
@@ -331,6 +371,16 @@ class AgentXAnalysisTests(unittest.TestCase):
         self.assertEqual(row["Total GPUs"], 16)
         self.assertEqual(row["Token Throughput per Chip (tok/s/chip)"], 100)
         self.assertEqual(row["Topology"], "2P2D pTP4/EP4 dTP4/EP4")
+
+    def test_failed_partial_aggregate_is_not_collected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            point = Path(temporary)
+            (point / "agentx_conc64.json").write_text("{}")
+            (point / "runner.log").write_text(
+                "ERROR: agentic trace replay exited with code 1 "
+                "after writing available results\n"
+            )
+            self.assertIsNone(collect_agentx.one(point, "c64"))
 
     def test_bundled_reference_is_newer_than_august_snapshot(self):
         path = ROOT / "tools" / "ref" / "InferenceX_GLM-5.2_interactivity.csv"

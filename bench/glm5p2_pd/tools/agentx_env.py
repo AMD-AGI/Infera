@@ -184,6 +184,7 @@ def expected_role(env: Mapping[str, str], role: str) -> dict[str, Any]:
         "hicache": parse_bool(env[f"{prefix}_HICACHE"]),
         "mtp": role == "decode" and parse_bool(env["DECODE_MTP"]),
         "max_running": int(env[f"{prefix}_MAX_RUNNING"]),
+        "graph_max_bs": int(env[f"{prefix}_GRAPH_MAX_BS"]),
         "model_override": env.get("JSON_MODEL_OVERRIDE_ARGS", ""),
     }
 
@@ -208,6 +209,7 @@ def actual_role(
         "hicache": "--enable-hierarchical-cache" in command,
         "mtp": "--speculative-algorithm" in command,
         "max_running": int(command_value(command, "--max-running-requests")),
+        "graph_max_bs": int(command_value(command, "--cuda-graph-max-bs")),
         "kv_transfer": command_value(command, "--disaggregation-transfer-backend"),
         "model_path": command_value(command, "--model-path"),
         "simulate_acc_len": container_env.get("SGLANG_SIMULATE_ACC_LEN", ""),
@@ -296,6 +298,12 @@ def make_runtime_env(
     runtime_dir: Path,
     hf_home: Path,
 ) -> dict[str, str]:
+    warmup_requests_per_lane = env.get("AGENTX_WARMUP_REQUESTS_PER_LANE", "10")
+    if not warmup_requests_per_lane.isdigit() or int(warmup_requests_per_lane) <= 0:
+        raise InspectError(
+            "AGENTX_WARMUP_REQUESTS_PER_LANE must be a positive integer"
+        )
+
     discovered = {worker_url(item): item for item in worker_list(workers_payload)}
     expected_urls = {normalize_url(str(row["url"])) for row in topology}
     if set(discovered) != expected_urls:
@@ -384,6 +392,7 @@ def make_runtime_env(
         "AIPERF_LIVE_FAILED_REQUEST_THRESHOLD": env[
             "AGENTX_FAILED_REQUEST_THRESHOLD"
         ],
+        "AIPERF_WARMUP_REQUESTS_PER_LANE": warmup_requests_per_lane,
         "AIPERF_HTTP_TCP_USER_TIMEOUT": "900000",
         "CONC": concurrency,
         "DURATION": duration,

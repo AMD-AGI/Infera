@@ -97,6 +97,12 @@ def one(directory: Path, point: str) -> dict[str, Any] | None:
         return None
     if len(results) != 1:
         raise ValueError("directory contains more than one AgentX aggregate JSON")
+    runner_log = directory / "runner.log"
+    if runner_log.is_file() and "ERROR: agentic trace replay exited with code" in (
+        runner_log.read_text(encoding="utf-8", errors="replace")
+    ):
+        print(f"skipping failed AgentX point: {directory}", file=sys.stderr)
+        return None
     record = json.loads(results[0].read_text(encoding="utf-8"))
     shape = gpu_shape(record)
     throughput = record["request_metrics"]["throughput"]
