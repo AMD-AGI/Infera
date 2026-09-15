@@ -16,61 +16,61 @@ Format: what · why it is not done · what would settle it.
 | T4 | the analysis programs are hand-written and may be narrow | — | 10 |
 | T5 | the patch mechanism should hack the registry, not bind-mount files | — | 18 |
 | T6 | permission and visibility management for the shared container | — | 14 |
-| T7 | the comparability gate at bring-up (was E9′) | — | 17 |
+| T7 | the comparability gate at bring-up (was E9′) | — | 18 |
 | T8 | `seal_refused` has no reader (was C9b) | — | 7 |
 | T9 | `env_mgr.fs.layout` has two `copy_out` functions (was E14/C-two-copy_out) | — | 6 |
-| T10 | `check_workset_runs` hard-fails on rsd while `min_pass_ratio` forgives correctness (was C24 an | — | 6 |
+| T10 | `check_workset_runs` hard-fails on rsd while `min_pass_ratio` forgives correctness (was C24 and  | — | 6 |
 | T11 | ten closed `items_schema`s in the integration stage (was C23) | CLOSED | 6 |
 | T12 | the mock cannot exercise M5.4's ad-hoc correctness rules | — | 14 |
 | T13 | `compare.py` finds the kernel's profile share by substring | — | 18 |
 | T14 | a task body cannot name the interpreter the run is using | — | 27 |
 | T15 | `E2E_KIT_ENGINE_EXTRA_ENV` is a seam with no consumer | — | 19 |
-| T16 | `git`'s `index.lock` retry is not idempotent, and its no-op is silent | — | 24 |
+| T16 | `git`'s `index.lock` retry is not idempotent, and its no-op is silent | — | 19 |
 | T17 | the model-specific engine flag groups are free-form strings and cannot be checked | — | 34 |
 | T18 | `shared_identifiers` sees flags, and a shared host is bound by more than flags | — | 41 |
 | T19 | a GPU *set* is a bound identifier with no variable, and prose is not a validator | — | 49 |
-| T20 | a container left on a node we no longer hold, and the cleanup design that would have prevented | — | 61 |
-| T21 | the completion probe grades shape, not answer, and the bar that would fix it needs a measureme | — | 61 |
+| T20 | a borrowed resource's cleanup must be idempotent and unowned | — | 49 |
+| T21 | the completion probe grades shape, not answer, and the bar that would fix it needs a measurement | — | 59 |
 | T22 | `E2E_STAGE` names a per-stage fact and `--var` carries one value per run | — | 45 |
-| T23 | `fixed.gpu_count` is the one required field with no definition, and 8 was defensible | — | 64 |
+| T23 | `fixed.gpu_count` is the one required field with no definition | — | 61 |
 | T24 | a fallback nobody can reach is still a second reader of the number | CLOSED | 36 |
-| T25 | a run records the environment it minted, but not the vars it was started with | — | 48 |
-| T26 | killing a run does not kill its agents | — | 57 |
-| T27 | a default that takes everything free is not a default | — | 277 |
-| T28 | T21's bar, measured: 7 characters against 526 | — | 42 |
-| T29 | a crashed instrument and a refused artefact are the same value in `verdict.json` | — | 33 |
-| T30 | a finding recorded against one stage is a question for every stage | — | 24 |
-| T31 | naming a class is not sweeping for it | CLOSED | 40 |
-| T32 | the evidence records which node, and not which card | — | 50 |
-| T33 | a mechanical reformat makes a diff unreviewable, so the semantic check moves before the commit | — | 74 |
-| T34 | the environment record can outlive the container it names, and a downstream field repeats it a | — | 105 |
-| T35 | a sealed handoff from the old layout is not consumable by the definition that replaced it | — | 27 |
-| T36 | a claim about *who owns this* never looks like a claim, so nobody tests it | — | 43 |
+| T25 | a run records the environment it minted, but not the vars it was started with | — | 43 |
+| T26 | killing a run does not kill its agents | — | 52 |
+| T27 | a default that takes everything free is not a default | — | 137 |
+| T28 | T21's bar, measured: 7 characters against 526 | — | 40 |
+| T29 | a crashed instrument and a refused artefact are the same value in `verdict.json` | — | 30 |
+| T30 | a finding recorded against one stage is a question for every stage | — | 18 |
+| T31 | naming a class is not sweeping for it | CLOSED | 36 |
+| T32 | the evidence records which node, and not which card | — | 43 |
+| T33 | a mechanical reformat makes a diff unreviewable, so the semantic check moves before the commit | — | 61 |
+| T34 | the environment record can outlive the container it names, and a downstream field repeats it as  | — | 105 |
+| T35 | a sealed handoff from the old layout is not consumable by the definition that replaced it | — | 25 |
+| T36 | a claim about *who owns this* never looks like a claim, so nobody tests it | — | 42 |
 | T37 | two producers disagreeing is what a schema-shaped defect looks like | — | 35 |
 | T38 | nothing in the graph orders m2's two lines; only the GPU count does | — | 55 |
-| T39 | `read_events.py` prints `message` and hides the attribute that holds the cause | — | 32 |
-| T40 | treat every probe as a control, because the slot decides whether you check the null | — | 93 |
-| T41 | `/proc` is namespaced under `spur exec`, so PID-based attribution from a node lies | CLOSED | 72 |
-| T42 | a validation zone is not a normal process environment, and anything read from it that names a  | — | 32 |
-| T43 | the artefact is honest about provenance and dishonest about meaning | — | 125 |
+| T39 | `read_events.py` prints `message` and hides the attribute that holds the cause | — | 31 |
+| T40 | treat every probe as a control, because the slot decides whether you check the null | — | 86 |
+| T41 | `/proc` is namespaced under `spur exec`, so PID-based attribution from a node lies | CLOSED | 71 |
+| T42 | a validation zone is not a normal process environment, and anything read from it that names a ho | — | 32 |
+| T43 | the artefact is honest about provenance and dishonest about meaning | — | 121 |
 | T44 | `rebuild` is reachable in one schema and emittable by none | — | 63 |
-| T45 | a comment that asserts a wiring gap sends the next reader to change code, when only a number w | — | 49 |
-| T46 | a fix verified correct is not a fix verified reached | — | 52 |
-| T47 | the pathspec window is irreducible, so the check has to be after the commit | — | 47 |
-| T48 | the control that caught it is invisible because it worked, so remedy-selection reaches for the | — | 53 |
-| T49 | the verdict is right and the message says why it is right, wrongly | — | 101 |
+| T45 | a comment that asserts a wiring gap sends the next reader to change code, when only a number was | — | 44 |
+| T46 | a fix verified correct is not a fix verified reached | — | 48 |
+| T47 | the pathspec window is irreducible, so the check has to be after the commit | — | 45 |
+| T48 | the control that caught it is invisible because it worked, so remedy-selection reaches for the p | — | 52 |
+| T49 | the verdict is right and the message says why it is right, wrongly | — | 92 |
 | T50 | an instruction verified correct against a world that does not exist yet | — | 41 |
-| T51 | at promotion only the brief travels, and the brief drifts in both directions | — | 51 |
-| T52 | no `df` reachable from `spur exec` predicts whether a `docker load` fits | — | 45 |
+| T51 | at promotion only the brief travels, and the brief drifts in both directions | — | 50 |
+| T52 | no `df` reachable from `spur exec` predicts whether a `docker load` fits | — | 44 |
 | T53 | the var table's rung-2 advice for `expect_ranks` is right only at `tp=8` | — | 23 |
-| T54 | declaring `runtime.replayed_from` would not close the hole m5 found; `additionalProperties` is | — | 79 |
-| T55 | the CUDA graph ceiling belongs in the environment record and in `check_environment`'s compared | — | 57 |
-| T56 | `summarise.py` exists twice, byte-identical, with call sites split across both copies | — | 48 |
+| T54 | declaring `runtime.replayed_from` would not close the hole; `additionalProperties` is the hole | — | 76 |
+| T55 | the CUDA graph ceiling belongs in the environment record and in `check_environment`'s compared s | — | 59 |
+| T56 | `summarise.py` exists twice, byte-identical, with call sites split across both copies | — | 47 |
 | T57 | one scratch path, three independent literals, agreeing by coincidence | — | 64 |
-| T58 | counting kits on disk counts how often we tested, not how often a producer chose | — | 59 |
-| T59 | the instruments that failed today, and not one failed toward "I cannot tell" | — | 148 |
-| T60 | the graph ceiling is chosen by stage 1's load and spent by stage 2's | — | 59 |
-| T60a | addendum — the override channel already exists and is one line from working | — | 125 |
+| T58 | counting kits on disk counts how often we tested, not how often a producer chose | — | 55 |
+| T59 | the instruments that failed, and not one failed toward "I cannot tell" | — | 145 |
+| T60 | the graph ceiling is chosen by stage 1's load and spent by stage 2's | — | 58 |
+| T60a | addendum — the override channel already exists and is one line from working | — | 123 |
 | T60b | closed by rung 2f — and 25.42 was a symptom, not a requirement | CLOSED | 47 |
 | T61 | a defect the instrument hides by functioning correctly | — | 67 |
 | T62 | `base_sha256` defects 2 and 3, held pending an answer that may not exist | CLOSED | 41 |
@@ -81,15 +81,15 @@ Format: what · why it is not done · what would settle it.
 | T67 | `reverify_shapes` counts operators, and its name says shapes | — | 48 |
 | T68 | an attested number and a claimed one are indistinguishable in the handoff | — | 46 |
 | T69 | `identify` leaves `fellow` empty for most operators, and two producers write the tag | CLOSED | 72 |
-| T70 | `kernel_taxonomy.yaml` offers a fellow KernelForge does not have | — | 31 |
+| T70 | `kernel_taxonomy.yaml` offers a fellow KernelForge does not have | — | 30 |
 | T71 | three separate defects share one cause: the mock corpus has a shape the real path does not | — | 46 |
 | T72 | `expect_ranks` 在两份文档之间有缝,两份都没错 | — | 54 |
-| T73 | the Triton fellow pattern needs a leading underscore and a terminal `_kernel`; real kernels ha | — | 170 |
+| T73 | the Triton fellow pattern needs a leading underscore and a terminal `_kernel`; real kernels have | — | 167 |
 | T74 | a killed validator leaves its own deployment holding the cards | — | 33 |
-| T75 | constrain the `optimized_kernel.py` slot by KIND, not by filename — deferred, and the deferral | — | 41 |
-| T76 | emitting `environment.yaml` is a producer's duty with no central enforcement, and three produc | — | 55 |
-| T77 | `redact` refuses by file suffix, and an evidence record is not a script — deferred, and it is  | — | 64 |
-| T79 | a run does not record the `--var` values it was launched with, and at least five of today's in | — | 108 |
+| T75 | constrain the `optimized_kernel.py` slot by KIND, not by filename — deferred, and the deferral i | — | 41 |
+| T76 | emitting `environment.yaml` is a producer's duty with no central enforcement, and three producer | — | 55 |
+| T77 | `redact` refuses by file suffix, and an evidence record is not a script — deferred, and it is a  | — | 64 |
+| T79 | a run does not record the `--var` values it was launched with, and at least five of today's inci | — | 107 |
 
 **80 entries.** `CLOSED` and `HELD` are set only where the entry says so
 explicitly; **`—` means the status was never recorded**, which is true of
@@ -190,9 +190,10 @@ Measured: a patched arm at 475.7 ms mean ITL against a stock control at
 470.3 ms — 1.1% apart — while the recorded run showed the same two arms 12%
 apart, because they were measured fifteen minutes and one co-tenant apart.
 
-**Do not widen the bars.** 5% / 10% were measured to be right: the within-arm
-round-to-round spread on a steady node is ~2%. A previous round widened them to
-35% / 30% in response to this and that was the wrong response.
+**Do not widen the bars.** 5% / 10% are measured to be right: the within-arm
+round-to-round spread on a steady node is ~2%. Widening them to 35% / 30% is the
+wrong response to the gap above — it hides the comparability problem instead of
+measuring it.
 
 **Would settle it:** a quiet-node baseline, or interleaving the two arms'
 measurements round for round.
@@ -255,13 +256,13 @@ to its kernel symbols — carry that mapping into the workset and have `compare`
 read it instead of guessing.
 
 ### T14 — a task body cannot name the interpreter the run is using
-*Confirmed by m2, m3 and m4 independently.*
+*Reproduced in three stages.*
 
 `cli/main.py` exports `AGENT_SYS_DEMO_PYTHON` into **`validation_env` only**,
 and the comment above it says a task body never reaches it. So a task body's
-policy `PATH` resolves `python3` to `/usr/bin/python3`, which on this host has
-`yaml` and `jsonschema` and **not `referencing`** — and had no `torch` at all,
-which is what m3's `build_workset` entrypoints actually need.
+policy `PATH` resolves `python3` to the system interpreter, which may have
+`yaml` and `jsonschema` and **not `referencing`**, and may have no `torch` at
+all — which is what m3's `build_workset` entrypoints need.
 
 **Worked around in the package, four different ways**, which is itself the
 argument for fixing it upstream: `schema.py` stopped needing `referencing` by
@@ -277,9 +278,9 @@ work (`agent_sys/cli/`), not package work, which is why it is here.
 
 **The failure mode is why it is worth fixing rather than working around.** In a
 validator the missing import produces a non-zero exit and **no `verdict.json`**,
-so the phase reads a broken validator rather than a refused handoff — measured
-by m2, and it is the same signature as `check_deploy_serves`'s crash. Twelve of
-twenty-one validators had it.
+so the phase reads a broken validator rather than a refused handoff — the same
+signature as `check_deploy_serves`'s crash. Twelve of twenty-one validators are
+exposed to it.
 
 ### T15 — `E2E_KIT_ENGINE_EXTRA_ENV` is a seam with no consumer
 
@@ -290,10 +291,10 @@ it is how m2's two lines differ by CUDA graph on/off. **The second has no
 consumer**: both m2 lines leave it empty, and the profiler-attached line needs a
 *router* flag (`E2E_KIT_ROUTER_EXTRA_ARGS`) that no engine seam can reach.
 
-It was asked for on the strength of `SGLANG_TORCH_PROFILER_DIR`, which **nothing
+The example that motivated it was `SGLANG_TORCH_PROFILER_DIR`, which **nothing
 in this package sets** — the engine is told where to write per capture, in
-`/start_profile`'s `output_dir`. m2 gave the example and retracted it; by then it
-had propagated into two contract documents.
+`/start_profile`'s `output_dir`. The requirement reached two contract documents
+before that was checked.
 
 **Kept and labelled rather than removed**, because a required parameter is
 cheaper to keep than to re-negotiate, and because the argv/environment
@@ -301,32 +302,27 @@ distinction is real even though this instance of it was not. **Would settle it:*
 the first real consumer, or a decision to drop the requirement.
 
 ### T16 — `git`'s `index.lock` retry is not idempotent, and its no-op is silent
-*Against a collision with the package owner.*
 
-`CONTRACT §8a` told an owner whose commit hit `index.lock` to wait a second and
+`CONTRACT §8a` tells a writer whose commit hits `index.lock` to wait a second and
 retry. Measured: **the retry can silently do nothing.** In the seconds between
-the failure and the retry, another owner's commit named a tree and took the
-first owner's dirty file; the retry then found nothing to commit for that path
-and **said so by exiting quietly**.
+the failure and the retry, a concurrent commit may name a tree and take the first
+writer's dirty file; the retry then finds nothing to commit for that path and
+**exits quietly**, so the writer believes their work is committed when another
+commit carries it.
 
-The owner reported *"T+60 is committed"* and it was not — by them. `3b2ffde` is
-the artefact: one owner's subject over 187 lines of another's file.
+**Verifying the path does not catch it**, which is what lets it survive:
+`git show --stat --name-only HEAD` prints exactly the expected path, because HEAD
+is the other commit **holding that path**. **Confirming the path is not
+confirming the commit.** §8a's check therefore leads with
+`git log -1 --format='%h %s'`.
 
-**§8a's own verification step did not catch it**, which is the part that made it
-survive twenty minutes: `git show --stat --name-only HEAD` printed exactly the
-expected path, because HEAD was somebody else's commit **holding that path**.
-**Confirming the path is not confirming the commit.** Fixed in §8a — the check
-now leads with `git log -1 --format='%h %s'`.
-
-**Would settle it properly:** one worktree per owner, which is the structurally
-clean answer §8a declined in the morning because work was already in flight in
-one tree. That reason no longer holds as strongly — every module is complete and
-the remaining work is runs rather than edits. **Worth doing before the next
-effort, not during this one.**
+**Would settle it properly:** one worktree per writer. The reason to decline that
+is work already in flight in one tree; it does not hold once the remaining work
+is runs rather than edits.
 
 ### T17 — the model-specific engine flag groups are free-form strings and cannot be checked
-*Comparing the sealed GLM-5.3-Flash recipe against
-what `shared.yaml` can express.*
+*From comparing a second model's sealed recipe against what `shared.yaml` can
+express.*
 
 `E2E_DSA_ARGS` and `E2E_PARSER_ARGS` exist because their contents are **traps
 that do not error when wrong**: a model with no DSA attention path does not take
@@ -359,8 +355,8 @@ out of `/get_server_info` and record it in `environment.yaml`, which turns a
 silent wrong answer into a recorded one.
 
 ### T18 — `shared_identifiers` sees flags, and a shared host is bound by more than flags
-*Running a **second** model's kit. Qwen's kit could
-not have shown it.*
+*From running a **second** model's kit; the first model's kit could not have
+shown it.*
 
 `check_deploy_kit`'s `shared_identifiers` scan is a deliberate list of flags —
 `--name`, `--publish`, `--volume`, `--mount`, `--port`, `-p`, `-v` — on the
@@ -377,9 +373,9 @@ list is **narrower than the property it stands for**, and in four measured ways:
 
 The third is the instructive one. **Parameterising the producer of a shared
 identifier and not its consumer leaves the deployment broken in a way that looks
-like something else** — the router failed with `ConnectError: All connection
-attempts failed`, naming neither the port nor the mismatch. m1 committed exactly
-this mistake while writing the fix for the other three.
+like something else** — the router fails with `ConnectError: All connection
+attempts failed`, naming neither the port nor the mismatch. It is an easy mistake
+to make while fixing the other three.
 
 **Would settle it, and it is a design question rather than a patch:**
 
@@ -400,7 +396,7 @@ Until then the layout's `shared_identifiers` comment should say what it does
 measurement that `todo.md` exists to record.
 
 ### T19 — a GPU *set* is a bound identifier with no variable, and prose is not a validator
-*Composing rung 1 against `node-249`.*
+*From composing a bring-up against a shared node.*
 
 Every other identifier this package binds on a shared host has a `--var`:
 container name, three ports, the container workdir. **The GPU set does not.**
@@ -413,16 +409,16 @@ others — *"container names, host ports, the container workdir and the GPU inde
 sit in one namespace with everybody else"* — so the property is agreed and the
 parameter is simply missing.
 
-**Measured on the node this matters on.** GPUs 0–3 hold ~300 GB each with no
-`docker ps` entry behind them (the co-tenant class m1 refused to `kill -9`);
-4–7 are free. An agent that takes the default devices takes 0–3 and OOMs against
+**Measured on a node where this matters.** GPUs 0–3 hold ~300 GB each with no
+`docker ps` entry behind them — a co-tenant no kit may `kill -9` — while 4–7 are
+free. An agent that takes the default devices takes 0–3 and OOMs against
 another tenant's work — and the failure surfaces as a bring-up problem, not as a
 placement problem, which is the expensive kind.
 
-**What was done instead, and why it is a workaround rather than a fix:** the
-sentence *"GPUs 0-3 on this node are held by another tenant … take only 4-7"*
-was routed through `--var instruction=`, which is the declared channel for a
-plain-words site fact and the right refusal to change the package mid-rung.
+**The available workaround, and why it is not a fix:** a sentence of the form
+*"GPUs 0-3 on this node are held by another tenant … take only 4-7"* goes through
+`--var instruction=`, which is the declared channel for a plain-words site fact
+and the right way to avoid changing the package mid-run.
 But **a site fact carried in prose is a site fact nothing validates.** No
 validator can tell that the agent read it, no schema records what was asked, and
 `environment.yaml` has no field that would let `check_deploy_kit` compare the
@@ -444,77 +440,64 @@ devices requested against the devices used.
 
 Note this is the **same shape as T17**: a variable that makes a fact *sayable*
 does nothing to make it *right*, and here there is not even a variable to say it
-with. Verified green on the node before rung 1: `HIP_VISIBLE_DEVICES=4,5,6,7`
-inside the built image yields `torch.cuda.device_count() == 4`, so the mechanism
-works — it is only unparameterised and unchecked.
+with. The mechanism itself is verified — `HIP_VISIBLE_DEVICES=4,5,6,7` inside the
+built image yields `torch.cuda.device_count() == 4` — so it is only
+unparameterised and unchecked.
 
-### T20 — a container left on a node we no longer hold, and the cleanup design that would have prevented it
-*Left by m1. Recorded as a debt rather than a task, per the package owner.*
+### T20 — a borrowed resource's cleanup must be idempotent and unowned
+*From a probe container left behind on a node the run no longer holds.*
 
-**The artefact.** On `node-249`, possibly still running:
+**The shape.** A body stands up a container on a node it does not own, so that
+another stage can close an unverified line — a `docker exec` — without acquiring
+a container lifetime that `CONTRACT` §5 puts elsewhere. It carries a label naming
+the run, holds one GPU visible and no GPU memory, publishes no ports, and its
+teardown is explicitly owned by the creator: *"teardown is mine and I am holding
+it; no timer, because the only thing that should end it is somebody saying the
+verification is done."*
 
-```
-name    <container>
-image   <engine image>:<tag>
-cmd     sleep infinity
-labels  infera_e2e_run=m1real-20260904 · m1_probe_container=true
-holds   GPU 4 visible (HIP_VISIBLE_DEVICES=4), zero GPU memory, no published ports
-```
+**That reasoning assumes the node outlives the decision.** It need not. A
+scheduler allocation can be cancelled between the work finishing and the
+`docker rm`, after which no `exec` into that node is available and the container
+is stranded — possibly still running, on hardware now allocated to somebody else.
+Whether such a container survives cancellation is **unmeasured**: nobody has
+checked whether the scheduler reaps containers at job teardown.
 
-It was stood up so m4 could close the one unverified line in `run_in_container.sh`
-— the `docker exec` itself — without m4 acquiring a container lifetime that
-CONTRACT §5 puts with m1. It did that job: m4's exec returned `EXIT=0` with
-`torch 2.11.0+rocm7.2` and the sampler hash matching m1's reference run.
+**Cleaning it afterwards is the wrong response.** Taking a hold on a node
+specifically to reach into it while another tenant is working there is worse than
+the thing being cleaned up, and the rule that says *never `docker rm -f` what you
+did not create* protects that tenant exactly as it protects this run. The
+container is reclaimed when a hold on that node next exists, and not before.
 
-**Why it is still there.** Job `108891` was **CANCELLED at 05:13:17**, 1 h 21 m
-into an ~8 h hold and **38 seconds before** the `docker rm`. `spur exec` then
-refused: *"job 108891 is not running (state: CANCELLED)"*. The node is now
-allocated to job `108943`, a different user.
-
-**It is deliberately not being cleaned, and that is the right call.** Taking a
-hold on a node specifically to reach into it while another tenant is working
-there is worse than the thing being cleaned up, and the rule that says *never
-`docker rm -f` what you did not create* protects that tenant from us in exactly
-the same way it protects us. If a hold on 249 returns, clear it then.
-Whether the container survived the cancellation is **unmeasured** — nobody has
-checked whether this scheduler reaps containers at job teardown.
-
-**The design error, which is the part worth keeping.** The container was created
-with an explicit *"teardown is mine and I am holding it; no timer, because the
-only thing that should end it is somebody saying the verification is done."*
-That reasoning **assumed the node would outlive the decision.** It did not.
-
-The fix is not a timer — a timer would have been wrong too, and would have cut
-m4's verification. The package owner's framing is the general one:
+**A timer is also the wrong fix** — it would have cut the verification that was
+still in progress. The general form:
 
 > **A borrowed resource's cleanup has to be idempotent and unowned**, so that
 > anyone with access can do it and nobody has to be alive to decide.
 
 Concretely, for anything this package stands up on a node it does not own:
 
-1. the container carries a label naming the run (this one did — that is why it
-   is identifiable at all, and it is the only reason this entry can be precise);
+1. the container carries a label naming the run — which is the only reason a
+   stranded one is identifiable at all;
 2. **a reclaim pass keyed on that label is runnable by anyone**, at any time,
-   with no knowledge of who created what — `assets/lib/reclaim.sh` is the
-   existing place for it, and CONTRACT §5.0 already requires bodies to call it
-   in a `finally`. What is missing is the case where the *creator* never gets to
-   run its `finally`;
+   with no knowledge of who created what. `assets/lib/reclaim.sh` is the existing
+   place for it, and `CONTRACT` §5.0 already requires bodies to call it in a
+   `finally`. What is missing is the case where the *creator* never gets to run
+   its `finally`;
 3. so a run's **first** act on a node should be to reclaim the labels of runs
    that are provably over, and a hold's **last** act should not be the only
    chance. Cleanup that depends on a specific process still being alive is the
    same class as a rule that depends on someone remembering.
 
-Pairs with the reclaim finding already in `check_deploy_serves`'s history: a
-teardown that crashes warns that ports may be held, and the ports it names may
-belong to somebody else's live run. Both are about cleanup needing to be safe
-for a stranger to run.
+Pairs with the reclaim finding in `check_deploy_serves`: a teardown that crashes
+warns that ports may be held, and the ports it names may belong to somebody
+else's live run. Both are about cleanup needing to be safe for a stranger to run.
+
 
 ### T21 — the completion probe grades shape, not answer, and the bar that would fix it needs a measurement
-*Reading rung 1's completion output; localised by
-m1, who owns the probe. The `direction` text is corrected in the same commit as
-this entry — that half needed no measurement. The bar does.*
+*From reading a bring-up's completion output. The probe's `direction` text is
+corrected; the bar is what needs a measurement.*
 
-**What passed.** Rung 1, Qwen3.6-27B, no `--reasoning-parser`:
+**What passes.** A reasoning model with no `--reasoning-parser`:
 
 ```
 finish_reason : stop
@@ -525,24 +508,22 @@ content       : "Here's a thinking process:\n\n1.  **Analyze User Input:** …"
 157 tokens of chain-of-thought in `content`, `reasoning_tokens: 0`, to the prompt
 *"What is the capital of France? Answer with one word."*
 
-**Why it passed.** `probes.yaml`'s `completion_nonstreaming` asserts
+**Why it passes.** `probes.yaml`'s `completion_nonstreaming` asserts
 `status: 200`, `finish_reason equals stop`, `content nonempty: true`, and
-`model not_matches ^/`. All four hold. **`nonempty: true` was written against a
-parser that removes too much and is structurally blind to one that removes
-nothing.** The probe's `direction` claimed it discriminated the reasoning-parser
-fault; it discriminates one direction of it.
+`model not_matches ^/`. All four hold. **`nonempty: true` catches a parser that
+removes too much and is structurally blind to one that removes nothing.** So the
+probe discriminates one direction of the reasoning-parser fault, not both.
 
-Same rotation as the GLM finding in `fa49319` — *"had the parser been wrong,
-`content` would have been empty on a request that still returned 200"* — with the
-sign flipped and nobody having thought to flip it.
+It is the same rotation as *"had the parser been wrong, `content` would have been
+empty on a request that still returned 200"*, with the sign flipped.
 
-**Three fixes considered and rejected, each for a failure this effort has already
-paid for:**
+**Three fixes considered and rejected, each for a failure this package has
+already paid for elsewhere:**
 
 | candidate | why not |
 |---|---|
 | match `Paris` in `content` | **does not discriminate.** A reasoning preamble ends with the right answer, so it passes both ways |
-| bound `content` length | discriminates, and the bound would be a number invented from **one observation** — the 35 % / 30 % widening of the previous round, pointed the other way |
+| bound `content` length | discriminates, and the bound would be a number invented from **one observation** — T7's 35 % / 30 % widening, pointed the other way |
 | require `usage.reasoning_tokens > 0` | precise about the property, and **refuses a legitimate non-reasoning model.** It asserts a fact about the model while claiming to test the deployment |
 
 **Proposed shape, needing one measurement before it is written:**
@@ -554,7 +535,7 @@ A statement about **the parser** rather than about the model, and it fails in th
 loud direction. "Short" is the number nobody has.
 
 **The measurement that would set it**, small enough to ride along with a future
-rung rather than needing its own: send this exact one-word prompt to (a) a
+bring-up rather than needing its own: send this exact one-word prompt to (a) a
 reasoning model **with** a correct `--reasoning-parser`, and (b) a non-reasoning
 model, and record `len(content)` for each. The bar goes between them, nearer (a).
 Two requests against a deployment that exists for another purpose. **Until that
@@ -562,17 +543,18 @@ is taken, do not invent the number** — a validator bar chosen on the login nod
 the artefact-tuned-to-the-instrument mistake this package refuses elsewhere.
 
 **Related, and separable:** `E2E_PARSER_ARGS` defaults to `none`, which is correct
-only for a non-reasoning model. Qwen3.6-27B is not one — its chat template carries
-`<think>` ×4 and `</think>` ×5, and the built image's `ReasoningParser.DetectorMap`
-offers both `qwen3` and `qwen3-thinking`. **Which of the two is right is
-untested**, and T17 is why that matters: a free-form string accepts
-`qwen3-thnking` as happily as `qwen3` and the wrong one produces no error.
+only for a non-reasoning model. A reasoning model whose chat template carries
+`<think>` / `</think>` is not one, and an image's
+`ReasoningParser.DetectorMap` may offer two candidates — `qwen3` and
+`qwen3-thinking`. **Which of the two is right is untested**, and T17 is why that
+matters: a free-form string accepts `qwen3-thnking` as happily as `qwen3` and the
+wrong one produces no error.
 Setting the default is not this entry's fix — a correct default would have
 *hidden* the probe's blindness rather than removed it.
 
 ### T22 — `E2E_STAGE` names a per-stage fact and `--var` carries one value per run
-*While declaring the variable `check_agent_env.py`
-flagged. Declaring it was correct and does not make it right.*
+*From declaring the variable `check_agent_env.py` flags. Declaring it is correct
+and does not make it right.*
 
 `env_render.py` stamps every tolerated difference with
 `{"stage": os.environ.get("E2E_STAGE", "")}` so that a reader of
@@ -615,17 +597,14 @@ Not urgent — no run is blocked, and the empty string is the safe state. It is 
 this list because **the next person to notice the empty stamp will "fix" it by
 passing `--var stage=`**, which is the one action that makes the record lie.
 
-### T23 — `fixed.gpu_count` is the one required field with no definition, and 8 was defensible
-*Found by checkpoint in rung 1's own handoff, verified by the package owner, localised
-by m1 who owns the producer. Third direction on T19.*
+### T23 — `fixed.gpu_count` is the one required field with no definition
+*Third direction on T19.*
 
-Rung 1's record says `gpu_count: 8` on a node where four cards were held by a
-co-tenant at 96–98 % VRAM. All 21 verdicts passed.
+A bring-up record can say `gpu_count: 8` on a node where four cards are held by a
+co-tenant at 96–98 % VRAM, and all 21 verdicts pass.
 
-**The framing this arrived with is not how the code works, and the correction
-matters because it changes the fix.** It was reported as *`gpu_arch` and
-`image_id` are discovered at bring-up; `gpu_count` is a claim*. Measured —
-`env_render.py`:
+**`gpu_count` is not a claim among two measurements, and the difference changes
+the fix.** `env_render.py` says:
 
 > `gpu_arch`, `gpu_count` and `image_id` are absent on purpose: they are
 > discovered during bring-up, and a variable holding them would be a claim
@@ -651,15 +630,15 @@ of which otherwise explains what it means and why (`gpu_arch` says why an
 architecture and not a product name; `image_id` says why a digest and not a tag).
 
 So `gpu_count` has two defensible readings — **cards present on the node** and
-**cards this deployment could use** — and `8` is *true* under the first. The
-agent was not wrong. **A field that cannot be wrong cannot be a measurement**,
+**cards this deployment could use** — and `8` is *true* under the first, so an
+agent writing it is not wrong. **A field that cannot be wrong cannot be a
+measurement**,
 and `fixed` is promised as 可固化环境, which is the second reading.
 
 **Deliberately not proposed: adding `gpu_count` to `check_environment`'s
 `compare_fixed_across_inputs`.** Those four fields are four on purpose and the
 rule is explicit that bars are not widened. A cross-input comparison
-would also not have caught this — every stage would have agreed on the same
-undefined 8.
+would also not catch this — every stage agrees on the same undefined value.
 
 **What would settle it, and it is one decision, not three:** say which reading
 `fixed.gpu_count` requires, in the schema, in a `description` like every
@@ -670,18 +649,18 @@ generates it, and `check_deploy_kit` can check the record against something.
 which is why these are one problem: with a device list, `gpu_count` keeps the
 node fact and `len(gpu_devices)` carries what the deployment used, and neither
 reading has to lose. Without it, whichever meaning is chosen makes the other
-unrecordable — and the run above needed both to be honest: *eight present, four
+unrecordable — and the case above needs both to be honest: *eight present, four
 usable, one taken.*
 
 Not blocking. Recorded rather than fixed **because the fix is a definition and
 the definition is entangled with T19** — writing a criterion first would bake in
-whichever meaning m1 happened to pick.
+whichever meaning the producer happened to pick.
 
 ---
 
 ### T24 — a fallback nobody can reach is still a second reader of the number
 
-**m5. Not blocking; the live half is fixed and this is what is left of it.**
+**Stage m5. Not blocking; the live half is fixed and this is what is left.**
 
 `assets/accept/measure.sh` reads its load shape as
 `${E2E_MAX_CONC:-256}`, `${E2E_WORKERS:-16}`, `${E2E_BLOCK_SIZE:-512}`,
@@ -691,12 +670,12 @@ four, plus 60000 for the trace window, deliberately.
 
 **The live defect is fixed.** Until those declarations landed, none of the four
 reached this stage at all — a name only `runner` declares does not reach a
-`kind: ai` agent (`env_mgr/material.py`) — so the script's fallbacks won and
-m5 replayed at **concurrency 256 against m2's 32**, with `--var max_conc=` inert
-on one side of a comparison M5.1.3.1 requires to hold within
-`stock_vs_m2_tolerance`. Found by re-running the package owner's omission check over
-m5's manifest after `shared.yaml` grew; the checker's first pass named only
-`E2E_REMOTE_HOME` because these four were not yet on `runner`.
+`kind: ai` agent (`env_mgr/material.py`) — so the script's fallbacks win and m5
+replays at **concurrency 256 against m2's 32**, with `--var max_conc=` inert on
+one side of a comparison M5.1.3.1 requires to hold within
+`stock_vs_m2_tolerance`. An omission check over m5's manifest only reports this
+once the names are on `runner`, which is why it has to be re-run when
+`shared.yaml` grows.
 
 **What is left is three numbers for one knob** and no way to tell which is
 intended: `E2E_TRACE_END_MS` is 180000 on `runner`, 60000 here, 120000 in the
@@ -706,19 +685,18 @@ hand, which is the case the fallbacks exist for, and by hand it measures
 something the graph never would.
 
 **Not reconciled here, because the right value is a measurement and not an
-edit.** 256/16 was the shape some earlier run wanted; 32/8 is what `runner`
-carries now; nobody has said which the two-arm comparison should use, and
-picking one in a comment is how a number acquires a third reader. What settles
-it: one owner states the offered load the m2-vs-stock comparison assumes, once,
-and both the declaration and the fallback cite it.
+edit.** 256/16 and 32/8 are both defensible shapes, nothing says which the
+two-arm comparison should use, and picking one in a comment is how a number
+acquires a third reader. What settles it: the offered load the m2-vs-stock
+comparison assumes is stated once, and both the declaration and the fallback
+cite it.
 
 
 ---
 
 ### T25 — a run records the environment it minted, but not the vars it was started with
 
-**m2. Not blocking. Cheapest item on this list, and it would have prevented three
-incidents alone.**
+**Not blocking. Cheapest item on this list.**
 
 Every `--var` a run is launched with shapes what the graph does, and **none of
 them survive into the run tree.** `handoffs/<hid>/v<N>/content/items/*/
@@ -726,30 +704,27 @@ environment.yaml` records the environment m1 *minted* — node, image, image_id,
 tp_size — which is a fact about the deployment, not about the request. The
 store keeps tasks, events and handoffs. Nothing keeps the command line.
 
-So *"what was this run asked to do"* is unanswerable from the artefact, and it
-is asked constantly, by people who were not the one who typed it.
+So *"what was this run asked to do"* is unanswerable from the artefact, and it is
+asked constantly, by people who were not the one who typed it.
 
-**Three questions on one day that this record would have answered**, each of
-which instead cost a message or a run:
+**Three questions the record would answer**, each of which otherwise costs a
+message or a run:
 
 1. **Was `--var expect_ranks=2` passed?** `check_trace_coverage` is `strong` and
-   declares `${expect_ranks:-8}`; the mocked trace is TP-2 while the real
-   deployment was TP-4 — three numbers, and `expect_ranks` is deliberately not
-   derived from `${tp}` (`steps/m2_profiling.yaml`). I predicted a
-   refusal I could not check; the package owner had passed it. **The prediction was
-   unverifiable, not wrong** — and the cost of asking was the same either way.
-2. **Was the run still alive?** It had been killed 20 minutes earlier and the
-   tree does not say so. Two owners reported it as live and one committed that
-   into a checkpoint.
-3. **Was its agent still alive?** Also not recorded, and the answer was yes —
-   see T26.
+   declares `${expect_ranks:-8}`; a mocked TP-2 trace against a TP-4 deployment
+   is three numbers, and `expect_ranks` is deliberately not derived from `${tp}`
+   (`steps/m2_profiling.yaml`). Whether a refusal is expected cannot be checked
+   from the tree either way.
+2. **Was the run still alive?** A killed run leaves a tree that does not say so.
+3. **Was its agent still alive?** Also not recorded — see T26.
 
-The same gap in the other direction is the more expensive half: rung 0 returned
-`check_deploy_kit: FAIL` on a stage that had been green, because `--var image=`
-named a tag present on the node instead of the one the sealed kit renders. The
-validator refused correctly. **Believing that failure would have sent two owners
-auditing their commits for a defect that was in a command line** (CONTRACT §4.4,
-face 2) — and no reading of the run tree could have distinguished the two.
+The same gap in the other direction is the more expensive half: a
+`check_deploy_kit: FAIL` on a previously green stage can be caused by `--var
+image=` naming a tag present on the node instead of the one the sealed kit
+renders. The validator refuses correctly, and **believing that failure sends
+somebody auditing commits for a defect that is in a command line**
+(`CONTRACT` §4.4, face 2) — with no reading of the run tree able to distinguish
+the two.
 
 **What would settle it:** the run writes its resolved variables — every `--var`
 plus every default that was taken — into the run root at launch, once. Resolved
@@ -758,351 +733,205 @@ can reconstruct afterwards. `spec_loader/variables.py` already computes it; the
 value is thrown away after substitution.
 
 **Not fixed here**: `agent_sys/cli/` and `agent_sys/spec_loader/` are outside
-this effort's activity scope. Recorded with the three instances so whoever owns
-the runner has the argument as well as the request.
+this package.
 
 ---
 
 ### T26 — killing a run does not kill its agents
 
-**Not blocking; the instance is
-stopped. It changes what "I killed the run" can be relied on to mean.**
+**Not blocking. It changes what "the run was killed" can be relied on to mean.**
 
-**One level up from `41c8540`.** That record says a cancelled Slurm job does not
+**One level up from the cgroup problem.** A cancelled scheduler job does not
 reclaim its GPUs, because the containers talk to the **host** docker daemon and
 are therefore not in the job's cgroup. The same shape holds one layer further
 out: **an AI agent a run dispatched is not in the orchestrator's process tree**,
 so killing the orchestrator leaves it running.
 
-Measured. The package owner ended run `20260904T062414-be315b` at 06:47. At 07:06:50 —
-twenty minutes later — the run tree was still being written:
+Measured. Twenty minutes after a run was ended, its tree was still being written:
 
 ```
-files written since 06:47   29 -> 30      (two readings, two minutes apart)
-newest write               07:04:29 -> 07:06:40
+files written since the kill   29 -> 30      (two readings, two minutes apart)
+newest write                   moving forward
 ```
 
-under `zones/task.…/task.…/task.…/config/projects/…/<uuid>.jsonl`, an agent's
-own transcript: **490 entries, the last an `Edit` tool call**. All three task
-records in that chain still read `status=running`. The package owner then found it
-directly — `PID 1097159`, 44:42 elapsed, `claude … --system-prompt "#
-deploy_and_prove — deploy the …"`, cwd inside that zone — and sent SIGTERM.
+under `zones/task.…/task.…/task.…/config/projects/…/<uuid>.jsonl`, an agent's own
+transcript, with its last entry an `Edit` tool call. All three task records in
+that chain still read `status=running`, and the process is findable only by
+matching its `--system-prompt` against the task's brief.
 
-**What it did while unattended.** It created container
-`infera_e2e_sgl_m1-20260904` at **06:57:38, ten minutes after the kill**, and
-replaced the `selftest` pair with `infera_e2e_sgl_kitselftest-m1` at 07:06:24.
-Both were attributed to a person; both were the orphaned agent. **Four owners
-were each asked whether the containers were theirs and each correctly answered
-no** — the object was ours the whole time, and no one could see it.
+**What an orphan does while unattended.** It creates containers and replaces
+others on the shared host, ten to twenty minutes after the kill. Those containers
+are attributable to nobody: each person asked correctly answers that they are not
+theirs, and the object belongs to a run everyone believes is dead.
 
-**Why this is not merely untidy.** the launch notes's own rule is that the first real
-run of a `kind: ai` closure happens with the package owner watching, *because* an AI
-agent with a live node and a docker daemon is the one thing here that can change
-state nobody asked for. It was unwatched for twenty minutes **precisely because
-everyone believed the run was dead** — the belief that made it unsupervised was
-caused by the same event that orphaned it.
+**Why this is not merely untidy.** The rule is that the first real run of a
+`kind: ai` closure happens supervised, *because* an AI agent with a live node and
+a docker daemon is the one thing here that can change state nobody asked for. An
+orphan is unsupervised **precisely because everyone believes the run is dead** —
+the belief that removes the supervision is caused by the same event that creates
+the orphan.
 
-And nothing it produced could ever land: the orchestrator was gone, so no
-handoff could be sealed and no task could progress. It held a node and mutated a
-shared host for an outcome with no consumer.
+And nothing it produces can land: the orchestrator is gone, so no handoff can be
+sealed and no task can progress. It holds a node and mutates a shared host for an
+outcome with no consumer.
 
 **What would settle it:** a run that is ending terminates the agents it
 dispatched, and says how many, before it reports that it stopped. Failing that,
 the run root records agent PIDs at dispatch so a person can check — which is
 T25's record in a second use.
 
-**A note on how it was found, because the method is the transferable part.** The
-first probe reported *"zero files modified in the run tree in the last eight
-minutes"* and it was **not a measurement**: `find` on the login node is `bfs`,
-which does not support `-newermt` and errors to stderr, while stdout was piped
-to `wc -l` and the empty result read as zero. A check that could not fail.
-What worked instead was opening a file and counting its entries — **a file you
-have opened cannot lie to you about whether it exists.** CONTRACT §4.4, in the
-instrument built to catch §4.4.
+**A note on the method, because it is the transferable part.** A probe reporting
+*"zero files modified in the run tree in the last N minutes"* is **not a
+measurement** if `find` on that host is `bfs`, which does not support `-newermt`
+and errors to stderr while stdout is piped to `wc -l` — the empty result reads as
+zero. That is a check that cannot fail. What works instead is opening a file and
+counting its entries: **a file you have opened cannot lie to you about whether it
+exists.** `CONTRACT` §4.4, in the instrument built to catch §4.4.
+
 
 ### T27 — a default that takes everything free is not a default
-**T19's third direction, and the one that stopped being an
-argument and became an incident.** Three items, one cause; they belong together
-because fixing any two leaves the third failure available.*
+*T19's third direction. Five items, one cause; they belong together because
+fixing any four leaves the fifth failure available.*
 
-**What happened.** The orphaned `deploy_and_prove` agent (`T26`) re-ran its own
-kit's `deploy.sh` at 06:57:38 **without the two safety variables its earlier
-invocation had passed** — no `E2E_KIT_NAME_PREFIX`, no `E2E_KIT_GPU_DEVICES`.
-`env.sh`:
+**The shape.** A kit's `env.sh` fills its device list from a picker when the
+caller passes none:
 
 ```sh
 : "${E2E_KIT_GPU_DEVICES:=$(_pick_gpus)}"
 ```
 
-`_pick_gpus` returned **every free card**, the worker took all eight, and it
-collided with a container that had *already named its own four*.
+`_pick_gpus` returns **every free card**, so a worker started without the safety
+variables takes the whole node and collides with a deployment that had already
+named its own four.
 
-**The victim was the well-behaved container.** Of the three deployments on that
-node, the selftest pair was the only one that had declared `HIP_VISIBLE_DEVICES`
-— and it is the one that got stepped on. That is the strongest argument for
-pinning there is: **declaring your cards protects you from nothing if the next
-process declares nothing**, because "nothing" means "all of them".
+**The victim is the well-behaved container.** The only deployment on the node
+that declared `HIP_VISIBLE_DEVICES` is the one that gets stepped on. That is the
+strongest argument for pinning there is: **declaring your cards protects you from
+nothing if the next process declares nothing**, because "nothing" means "all of
+them".
 
-#### The three items
+#### The five items
 
-**1. Pin the container, not the worker process.** `mix_worker.sh` sets
-`HIP_VISIBLE_DEVICES="$GPUS"` inline on the `exec`, so it binds the processes
-that carry it and nothing else. `docker inspect` on such a container shows no
-device restriction at all — which is exactly how this one was first read as
-"unpinned and greedy" when its *worker* was in fact pinned. Pin at `docker run`
-and **the record and the runtime agree by construction rather than by the worker
-remembering.**
+**1. Pin the container, not the worker process.** `HIP_VISIBLE_DEVICES="$GPUS"`
+set inline on an `exec` binds the processes that carry it and nothing else, so
+`docker inspect` on such a container shows no device restriction at all — which
+is how a container whose *worker* is pinned reads as "unpinned and greedy". Pin
+at `docker run` and a new process inside inherits the right default instead of
+seeing every card.
 
 **2. Bound `_pick_gpus` to `tp_size`.** A picker asked for a deployment of width
 N should return N cards. Returning everything free is not a conservative default,
 it is a land grab that happens to be quiet on an empty node and hostile on a
 shared one. Note the shape: **it is `E2E_DSA_ARGS`'s trap inverted** — there the
-danger was a value that is wrong and does not error; here it is an *absent* value
-that is filled in maximally and does not error.
+danger is a value that is wrong and does not error; here it is an *absent* value
+filled in maximally, which also does not error.
 
-**3. Record what was picked** — *m3's item, and the one that makes the other two
-checkable.* `fixed.gpu_count` records **how many** and cannot record **which**,
-so two runs on disjoint halves of one node produce identical records. The cost is
-not hypothetical: reconstructing who owned which card today required
-`rocm-smi --showpids` and PID matching, twice, by two different people. Whatever
-`_pick_gpus` decides must land in `fixed.gpu_devices`.
+**3. Record what was picked.** `fixed.gpu_count` records **how many** and cannot
+record **which**, so two runs on disjoint halves of one node produce identical
+records, and attributing a card afterwards costs `rocm-smi --showpids` and PID
+matching. Whatever `_pick_gpus` decides must land in `fixed.gpu_devices`.
 
-**Why all three.** Pin without bounding and a caller who passes no list still
+**4. The pick must come from the probe, not sit beside it.** Items 1–3 assume the
+device set is *chosen*; it need not be. A kit whose `env.sh` is a literal
+`: "${E2E_KIT_GPU_DEVICES:=0,1,2,3}"` — written by an agent that ran `rocm-smi`
+first and then hardcoded the first four cards — satisfies item 2 exactly,
+matching `E2E_TP=4`, and still binds four cards a co-tenant is mid-load on. **A
+probe reading that does not reach the parameter is decoration.**
+
+  And nothing checks it: a `deploy.sh` that prints `preflight ok: PORTS free,
+  NAMES free` preflights the port band and the container names and **never looks
+  at a card**. The port check is the model — it exists, and it aborts rather than
+  waiting or stealing. The cards are simply not treated as a namespace.
+
+**5. Nothing compares a document's conclusion to its own numbers.** A kit's
+`results/preflight.json` can carry, under one `measured_at`, a structured
+`gpu_cards[]` reading of **198–199 GiB used, 89–90 GiB free** and a prose
+`gpu_devices_rationale` claiming *"all eight were free (≤300 MB used each, no
+co-tenant)"* — wrong by a factor of three against the numbers two keys above it.
+It is not two readings with nothing to tell them apart; it is **one honest
+reading and a conclusion that ignores it**, and the rationale can be perfectly
+considered while resting on a stale premise.
+
+  `check_deploy_kit` grades the layout and validates `environment.yaml` against
+  its schema; it never opens `preflight.json`, and the `results/` floor asks for
+  *two non-empty `.json` files* — which such a file satisfies while contradicting
+  itself.
+
+  **It is not expressible as an evidence rule today**, which is the obstacle
+  rather than an excuse: the existing rules are regexes over a directory
+  (`forbid`, `require_each`, `require_together`), and *"this sentence disagrees
+  with that array"* is not a regex. A directory-level *"some file carries a
+  `*_at`"* rule discriminates nothing — it passes a well-formed kit and a
+  self-contradicting one alike.
+
+  What catches it is narrower and belongs to the producer: **STEP 1 requires the
+  rationale to cite the numbers it rests on**, free VRAM per card quoted from the
+  same reading, so a stale premise is visible in the sentence rather than only in
+  the array. A conclusion that restates its evidence cannot silently outlive it.
+  Written into `deploy_and_prove.task/readme.md` STEP 1.
+
+**Why all five.** Pin without bounding and a caller who passes no list still
 grabs the node — pinned, but pinned to everything. Bound without pinning and the
 container still sees cards the worker was told to avoid. Do both without
-recording and the next person attributing a card is back to PID matching. **T19
-is the field; this is the three things that have to be true for the field to mean
-anything.**
+recording and attribution is back to PID matching. Do all three and the pick can
+still be a literal the probe never reached. **T19 is the field; these are the
+things that have to be true for the field to mean anything.**
 
-#### Item 1 has been met once, unprompted — recorded because the run that did it produced no verdict
+#### The env pin is intent, not enforcement — and both are wanted
 
-m1's standalone on 217 was killed before any validator ran, so it has
-no verdict and is not a pass. **Three facts survive it, read from artefacts, and
-this is the one that belongs here:**
+`start_container.sh` exposes every card's device node and narrows with a
+variable:
 
 ```
-docker inspect …_sgl_e2e-main-20260904
-  Config.Env   HIP_VISIBLE_DEVICES=0,1,2,3     <- the CONTAINER, not just the worker
-  a new process inside: torch.cuda.device_count() -> 4
+--device /dev/kfd
+--device /dev/dri                                  <- EVERY card on the host
+--env "HIP_VISIBLE_DEVICES=${E2E_KIT_GPU_DEVICES}" <- the pin
 ```
 
-**The first kit whose container is pinned rather than only its worker process**,
-and the operator's `--var gpu_devices=0,1,2,3` was obeyed exactly — the
-*obey-or-stop* branch running for the first time, with the value landing in
-`fixed.gpu_devices`. The two kits before it pinned the worker only, which is why
-`docker inspect` showed no restriction on the container that took eight cards.
+So `docker exec -e HIP_VISIBLE_DEVICES=4` overrides it and runs on a card the
+deployment was never allocated. It does not fail; it returns a number. **A
+convention a later process can override is not construction.**
 
-**It was immediately load-bearing rather than cosmetic.** m4 was about to `docker
-exec` in, assumed they would land on the free 4–7 because those read 0%, and
-would have landed on **0–3 beside a live engine** — the pin is what made that
-knowable in advance instead of a confusing measurement afterwards.
+**What construction would look like:** `--device /dev/dri/renderD<N>` per card
+rather than the whole `/dev/dri`, so the cards the deployment did not take are
+not present in the container at all. Unmeasured — nobody has checked whether the
+cluster's authorisation layer accepts per-card device flags, and **that is the
+question to answer before it is written into a brief.**
 
-*No producer instruction asked for this; the agent did it on its own. So item 1
-is demonstrated possible and still unspecified — a brief that required it would
-make it reliable rather than fortunate.*
+**Keep both. Do not replace the env pin with the whitelist.**
+`run_in_container.sh` refuses an exec whose requested card is outside the
+container's own `HIP_VISIBLE_DEVICES`. A container pinned only by device
+whitelist has no such variable, so that check finds nothing to compare, falls
+into its *unpinned, constrains nothing* branch, and **waves the exec through**.
+The work still would not run on an absent card — but it would fail deep inside
+HIP instead of being refused by name. *Safe by absence rather than safe by
+refusal*, which is the wrong direction.
 
-> **⚠ "by construction" is wrong, and m4 found it within the hour. Corrected
-> here rather than edited away.**
->
-> The pin is an **environment default, not a device whitelist**.
-> `start_container.sh`:
->
-> ```
-> --device /dev/kfd
-> --device /dev/dri                                  <- EVERY card on the host
-> --env "HIP_VISIBLE_DEVICES=${E2E_KIT_GPU_DEVICES}" <- the pin
-> ```
->
-> **Every card's device node is exposed and only an env var says which to use**,
-> so `docker exec -e HIP_VISIBLE_DEVICES=4` overrides it and runs on a card the
-> deployment was never allocated. It does not fail; it returns a number.
->
-> **So item 1 as met is strictly better than pinning the worker and is not
-> enforcement.** A new process inside inherits the right default instead of
-> seeing all eight — that is the real gain, and it is what made m4's landing
-> spot knowable in advance. But *"record and runtime agree by construction"*
-> overstates it: a convention a later process can override is not construction.
->
-> **What construction would look like:** `--device /dev/dri/renderD<N>` per card
-> rather than the whole `/dev/dri`, so the cards the deployment did not take are
-> not present in the container at all. Unmeasured — nobody has checked whether
-> this cluster's `spur-authz` accepts per-card device flags, and **that is the
-> question to answer before anyone writes it into a brief.**
->
-> **KEEP BOTH. Do not replace the env pin with the whitelist** — m4's coupling,
-> and the paragraph above would have caused a regression without it.
->
-> m4's `run_in_container.sh` refuses an exec whose requested card is outside the
-> container's own `HIP_VISIBLE_DEVICES`. **A container pinned only by device
-> whitelist has no such variable**, so that check finds nothing to compare, falls
-> into its *unpinned, constrains nothing* branch, and **waves the exec through**.
-> The work would still not run on a card that is absent — but it would fail
-> **deep inside HIP** instead of being refused by name. *Safe by absence rather
-> than safe by refusal*, which is the exact direction this effort has spent the
-> day converting failures **out** of.
->
-> So the two are not alternatives:
->
-> | | what it gives |
-> |---|---|
-> | `--env HIP_VISIBLE_DEVICES` | a **readable statement of intent** a consumer can check against and refuse by name |
-> | per-card `--device` | **enforcement** a later process cannot override |
->
-> **Verified on a live container** — not read off the script:
-> `HostConfig.Devices` is `/dev/kfd` and `/dev/dri` whole, with
-> `Config.Env HIP_VISIBLE_DEVICES=0,1,2,3`. Every card's node present, one
-> variable narrowing it.
->
-> *Recorded because a correction that would itself cause a regression is worth
-> more than the correction: I wrote "whitelist is the real answer" and m4, who
-> reads the field I would have removed, is the only person positioned to notice.
-> Their wrapper now carries the same coupling as a note beside the check, so the
-> two point at each other and neither can be changed in ignorance of the other.*
->
-> Until then the honest division is m4's: **the kit states the intent, and the
-> consumer refuses to violate it.** Their `run_in_container.sh` check reads the
-> container's own `HIP_VISIBLE_DEVICES` and refuses a request outside it —
-> which is the mirror of `start_container.sh`'s inside-out check, and is
-> where the enforcement actually lives today.
-
-#### Item 4, added after the entry above was demonstrated on a live node
-
-**The pick must come from the probe, not sit beside it.**
-
-Items 1–3 assume the device set is *chosen*. The 07:16 run showed it need not be.
-That agent's kit contained **no `_pick_gpus` at all** — `env.sh` is a literal
-
-```sh
-: "${E2E_KIT_GPU_DEVICES:=0,1,2,3}"
-```
-
-**and the agent had probed the node at transcript record 92 before writing it.**
-It ran `rocm-smi`, read the output, and then hardcoded the first four cards. The
-probe informed its *narrative* and not its *parameter*.
-
-**This is strictly worse than the land grab it replaced**, and worth stating
-plainly because "bound to `tp_size`" would have called this kit compliant: it
-takes exactly four cards, matching `E2E_TP=4`. Item 2 is *satisfied* here. The
-deployment still bound four cards a co-tenant was mid-load on, and rose them from
-198 GB to 220 GB before it was stopped.
-
-**Nothing checked.** `deploy.sh` prints `preflight ok: PORTS free, NAMES free`
-— it preflights the port band and the container names and **never looks at a
-card**. A `rocm-smi` reading that does not reach the variable is decoration.
-
-**Two agents, two kits, two device policies, neither validated.** That is the
-finding above the incident: **the device policy is not a property of this package
-at all.** It is whatever the day's agent writes, and no validator, schema or
-brief constrains it. Items 1–3 fix the kit; item 4 says the kit is not the unit
-of repair.
-
-**What would settle it:** STEP 1's criterion must make the probe's output the
-*source* of `fixed.gpu_devices` and of the kit's default — a named command whose
-result is the value, not a reading the agent is invited to consider. And
-`deploy.sh`'s preflight must refuse a card it cannot verify free, on the same
-footing as the port band it already refuses. **The port check is the model: it
-exists, it aborts rather than waiting or stealing, and it was written by the same
-agent on the same day.** The cards simply were not thought of as a namespace.
-
-*Corrected while writing this: `env.sh`'s comment — "checks each is free and
-aborts rather than waiting or stealing" — is **about the ports**, and it sits two
-lines from where a grep for card handling lands. It was nearly reported as a card
-check that exists. Opening `deploy.sh` gave the opposite answer.*
-
-**The documentary proof, found after the above was written, and it is sharper
-than the claim it supports.** The kit's own `results/preflight.json` contains
-**the true reading and a false claim derived from a stale one, in the same
-file**:
-
-| | |
+| | what it gives |
 |---|---|
-| structured, `gpu_cards[]` | all eight cards **198–199 GiB used, 89–90 GiB free** |
-| prose, `gpu_devices_rationale` | *"All eight were free (**<=300 MB used each, no co-tenant**)"* |
-| prose, `vram_headroom_note` | *"**~288 GiB free per card** … mem-fraction-static 0.85 leaves ~232 GiB"* |
-| `captured_at` | **absent** |
+| `--env HIP_VISIBLE_DEVICES` | a **readable statement of intent** a consumer can check against and refuse by name |
+| per-card `--device` | **enforcement** a later process cannot override |
 
-The prose is wrong by a factor of three against the numbers two keys above it.
+Until the second exists, the division is: **the kit states the intent, and the
+consumer refuses to violate it.** `run_in_container.sh`'s check is the mirror of
+`start_container.sh`'s inside-out check, and is where enforcement lives today.
 
-**So the agent did re-probe, and the late reading reached the record's structured
-half and neither the prose nor the parameter.** That is worse than "the probe
-informed its narrative": the narrative was written from the *early* reading and
-never revised, the numbers were refreshed and never reconciled, and **with no
-timestamp on either half a reader cannot tell they describe different moments.**
+#### The class behind three of the five
 
-The decision was not careless — `gpu_devices_rationale` reasons that *"0-3 was
-taken so that the low half is this deployment's and 4-7 stays available for the
-step-6 self-test"*. **A considered rationale resting on a stale premise, and the
-evidence refuting it is in the same document.**
+`captured_at` searched for where the file says `measured_at`; transcript greps
+matching *file reads* and reported as *decisions*; a comment about **ports** read
+as a comment about **cards**. All three are the *search* half of the pattern
+`CONTRACT` §4.4's observer section describes: **an anticipated string standing in
+for the data.** The remedy is the same and cheap in every instance — *list what
+is there instead of searching for what you expect.*
 
-**Nothing catches this.** `check_deploy_kit` grades the layout and validates
-`environment.yaml` against its schema; it does not read `preflight.json`, and no
-rule anywhere compares a document's prose against its own numbers. The layout's
-`results/` floor asks for *two non-empty `.json` files* — this file satisfies it
-while contradicting itself.
-
-**A fifth item follows and it is cheap:** any evidence file that records a
-measurement must carry **when it was taken**. A reading without a timestamp
-cannot be known to be stale, which on this cluster — where a card reading is true
-for seconds — makes it indistinguishable from a guess.
-
-> **⚠ The paragraph above is wrong, and the table above it has one wrong row.
-> Corrected by m1 within the hour, before anything was built on it.**
->
-> **`captured_at` is not absent. The file carries `measured_at`, at the top
-> level, and it holds a timestamp.** I searched the document for
-> the key name I expected instead of listing the keys it has, which is the third
-> time today a search for an anticipated string returned the wrong answer where
-> opening the data returned the right one.
->
-> **This makes the finding simpler and worse, not weaker.** 07:26:58 is *after*
-> the co-tenant arrived at 07:19:39 — so the `gpu_cards[]` array is **correct for
-> the moment the file declares**, and the prose contradicts numbers captured at
-> that same declared moment. It is not two readings in one file with nothing to
-> tell them apart; it is **one honest reading and a conclusion that ignores it.**
->
-> **So item 5 as scoped is void — the timestamp was already there and did not
-> help.** The defect it was aimed at is real and needs a different fix:
->
-> **Item 5, restated: nothing compares a document's conclusion to its own
-> numbers.** `check_deploy_kit` validates `environment.yaml` against a schema and
-> counts files in `results/`; it never opens `preflight.json`, and no rule
-> anywhere reads a prose field against a structured one beside it. The `results/`
-> floor asks for two non-empty `.json` files, **which this file satisfies while
-> contradicting itself.**
->
-> **And it is not expressible as an evidence rule today**, which is the honest
-> obstacle rather than an excuse. The existing rules are regexes over a
-> directory (`forbid`, `require_each`, `require_together`); *"this sentence
-> disagrees with that array"* is not a regex. Tested before claiming it: a
-> directory-level "some file carries a `*_at`" rule passes **both** the sealed
-> kit (5 of 14 files) and this one (1 of 1), so it discriminates nothing.
->
-> What would actually catch it is narrower and belongs to the producer: **STEP 1
-> should require the rationale to cite the numbers it rests on** — free VRAM per
-> card, quoted from the same reading — so that a stale premise is visible in the
-> sentence rather than only in the array two keys above it. A conclusion that
-> restates its evidence cannot silently outlive it.
->
-> **Written, `deploy_and_prove.task/readme.md` STEP 1** — approved on its own
-> merits after item 5 was withdrawn.
->
-> **Where the class belongs.** The three instances behind this entry —
-> `captured_at` searched for where the file says `measured_at`; transcript greps
-> matching *file reads* and reported as *decisions*; `env.sh`'s comment about
-> **ports** read as a comment about **cards** — are the *search* half of the
-> pattern CONTRACT §4.4's observer section and m2's fourth face already describe.
-> **One class, six people, one day:** m3's `ImportError` "pass", m2's verdict
-> reader, the package owner's `bfs` predicate, m4's `/proc` scan, and these three.
-> The shared shape is **an anticipated string standing in for the data** — and
-> in every instance the remedy was the same and cheap: *list what is there
-> instead of searching for what you expect.*
 
 ### T28 — T21's bar, measured: 7 characters against 526
 *T21 said "do not invent the number". The number exists now.*
 
-Both engines were alive on `006` at the same moment — the kit-launched one with
-`--reasoning-parser qwen3`, the agent's earlier ad-hoc one without — so the A/B
-is one model, one node, one image, two `curl`s.
+Two engines alive at the same moment on one node — one launched with
+`--reasoning-parser qwen3`, one without — so the A/B is one model, one node, one
+image, two `curl`s.
 
 | | parsed (`:8101`) | unparsed (`:8118`) |
 |---|---|---|
@@ -1115,10 +944,9 @@ is one model, one node, one image, two `curl`s.
 **Both pass today's probe.** T21 demonstrated rather than argued.
 
 **`completion_tokens` is not the discriminating axis** — 160 vs 151, the wrong
-way round and inside noise. Had the rule been written against it, it would have
-been a check that cannot fail, in the validator whose blindness it was written to
-fix. That is CONTRACT §4.4's third face, caught before it was written instead of
-after.
+way round and inside noise. A rule written against it would be a check that
+cannot fail, in the validator whose blindness it exists to fix: `CONTRACT` §4.4's
+third face.
 
 **The rule, now with numbers behind it:** `usage.reasoning_tokens > 0` **OR**
 `len(content) <= 200`. Parsed passes on the first clause (157); unparsed fails
@@ -1131,27 +959,24 @@ sentences fails a 200-character bound, and `reasoning_tokens > 0` does not
 protect it, because such a model reports 0 too.* The bound is defensible and not
 proven general, and this entry is where it says which.
 
-**Not implemented yet, deliberately.** It needs two new things in
+**Not implemented yet.** It needs two new things in
 `probes.yaml`/`probe_runner.py` — a length assertion and a disjunction — and
-**rung 1 was live in `check_deploy_serves`'s path when the measurement landed.**
-Editing a validator whose body is being copied into a zone mid-run is how a run
-gets a fault nobody can attribute. It goes in after the rung, not during it.
+**editing a validator whose body is being copied into a zone mid-run is how a run
+gets a fault nobody can attribute.** It goes in between runs, not during one.
 
 ---
 
 ### T29 — a crashed instrument and a refused artefact are the same value in `verdict.json`
 
-**Found by fixing the wrong half of it.**
-
 `zone.py` writes `verdict.json` as `dict[str, bool]`. A validator that
 **refused** and a validator that **could not run** therefore produce the same
 value, and the graph reads no difference between them.
 
-**Measured, twice in one hour.** `check_workset_shape` crashed on a
-`ModuleNotFoundError`, wrote no verdict at all, and `operator_workset` came out
-`invalid` — *a missing dependency reported as a judgement about the artefact*.
-That is the false attribution `check_workset_runs` exists to prevent, arriving
-one layer up, in the validator itself.
+Measured: `check_workset_shape` crashing on a `ModuleNotFoundError` writes no
+verdict at all, and `operator_workset` comes out `invalid` — *a missing
+dependency reported as a judgement about the artefact*. That is the false
+attribution `check_workset_runs` exists to prevent, arriving one layer up, in the
+validator itself.
 
 **Worked around, not fixed.** Both workset validators now catch, say `THIS
 VALIDATOR DID NOT RUN`, keep the traceback, and write **False** — because a
@@ -1167,78 +992,65 @@ the graph, and the second should stop *and name the instrument*, because
 re-running it after fixing the artefact will fail identically.
 
 **Related and separate:** a validator's stdout is not kept anywhere, which is
-why the prose had nowhere to live either. `workset_io.write_report` now puts
-it beside `verdict.json` for m3's two workset validators; the other validators
-in this package still discard theirs, and a general fix belongs in `zone.py`,
-which is not m3's file.
+why the prose has nowhere to live either. `workset_io.write_report` puts it
+beside `verdict.json` for m3's two workset validators; every other validator in
+this package discards its own, and a general fix belongs in `zone.py`.
 
 ### T30 — a finding recorded against one stage is a question for every stage
 
-**Three instances in one session, none of them noticed
-by the person who had already read the record.**
+A record of the form *"a validator declares no agent, so the package's `env`
+block never reaches it, and with `transport_env` unset the scheduler client has
+no controller address"* reads as history about the stage it is filed under. The
+same hole is in every other stage's validators, and reading the paragraph does
+not surface that — the construct is not named, so nobody searches for it.
 
-the launch notes's var table said, about m1's stage: *"A validator declares no
-agent, so the package's `env` block never reaches it… With `transport_env`
-unset, `spur` has no `SPUR_CONTROLLER_ADDR`… It cost three rung-0 runs and two
-wrong attributions."* **I read that paragraph the same day**, while checking
-whether rung 0's stop was a stale claim, took it as history about deploy, and
-never asked whether the same hole was in `check_workset_runs`. It was. It then
-cost a fourth run, and m4 called it *"the third run this shape has cost"*.
+Two more of the same shape: `require_visible_on_node`'s misattributing message is
+shared by six call sites across four stages, and `_pick_gpus` taking every free
+card is the same property as a `:=4` default in a different file (T27).
 
-Two more of the same: `require_visible_on_node`'s misattributing message is
-shared by **six call sites across four owners**, and `_pick_gpus` taking every
-free card was reported against m1 while m3's `:=4` default was the same
-property in a different file.
-
-**The remedy is not diligence, it is a grep.** When a defect is recorded
-against any stage, the recording owner names the *construct* — a variable, a
-helper, a default, a message — and every other owner greps their own files for
-it before the next run. **A finding filed against one stage is unowned by
-everyone else, and unowned is where it stays.**
+**The remedy is not diligence, it is a grep.** When a defect is recorded against
+any stage, the record names the *construct* — a variable, a helper, a default, a
+message — and every other stage greps its own files for it before the next run.
+**A finding filed against one stage is unowned by everyone else, and unowned is
+where it stays.**
 
 ### T31 — naming a class is not sweeping for it
 
-**The operational half of `T30`, and it fires on your
-own findings rather than other people's.**
+**The operational half of T30, and it fires on your own findings rather than
+other people's.**
 
-At layer 4 of the `build_workset` stack I found `SPUR_CONTROLLER_ADDR` absent
-from a validation zone, wrote the class down — *a variable present in my shell
-and absent in a closed zone* — and **did not then grep my own file for other
-ambient reads.** Layer 5, an hour later, was `$HOME` being `/home` in that same
-closed zone, in the same file, producing `-v /home:/home` and a denial from
-`spur-authz`. One `grep -nE '\$(HOME|USER|PWD|PATH)'` at layer 4 would have
-found it.
+Finding a scheduler-client variable absent from a validation zone names the
+class — *a variable present in an interactive shell and absent in a closed zone*
+— and does not by itself find the next instance. In the same file, `$HOME`
+resolving to `/home` inside that zone produces `-v /home:/home` and a denial from
+the authorisation layer. One `grep -nE '\$(HOME|USER|PWD|PATH)'` at the first
+finding reaches the second.
 
-The same session produced the same shape twice more: after fixing a fixture
-that was more convenient than production, I built the next fixture **by
-subtracting the variables I suspected from my own contaminated shell** rather
-than taking the environment from the zone — and kept the one that mattered.
+The same shape appears in fixtures: building a replacement fixture **by
+subtracting the variables you suspect from your own contaminated shell**, rather
+than taking the environment from the zone, keeps whichever one you did not
+suspect.
 
-**Naming a class produces the search term. Doing the search is a separate
-act,** and the gap between them is where the next instance lives. When you
-write down a class, the same commit should carry the sweep, or say why it did
-not.
+**Naming a class produces the search term. Doing the search is a separate act,**
+and the gap between them is where the next instance lives. When a class is
+written down, the same commit carries the sweep, or says why it does not.
 
-**The sharpest instance, and it is not about sweeping — it is about what a
-comment cannot do.** Building the task-body output capture (`cff4571`), m3
-wrote `{ /bin/sh "$0" "$@" 2>&1; echo $? > "$_st"; }` and a body exiting 7
-produced a wrapper exiting 2: `set -e` killed the subshell before `echo $?`
-ran. **The comment twenty lines below in that same file says exactly that** —
-*"under `set -e` a simple command exiting non-zero kills the script before the
-assignment runs"*. The trap was documented, in the file, by the same author,
-and was walked into anyway while adding a mechanism whose entire purpose is to
-preserve exit information.
+**The sharpest instance is not about sweeping — it is about what a comment cannot
+do.** A task-body output capture written as
+`{ /bin/sh "$0" "$@" 2>&1; echo $? > "$_st"; }` turns a body exiting 7 into a
+wrapper exiting 2: `set -e` kills the subshell before `echo $?` runs. **A comment
+twenty lines below in that same file says exactly that** — *"under `set -e` a
+simple command exiting non-zero kills the script before the assignment runs"*.
+The trap is documented, in the file, and walked into anyway while adding a
+mechanism whose entire purpose is to preserve exit information.
 
-**A comment warning about a trap does not prevent the trap. The test did.** And
-the transferable half is what the test had to be: *a capture mechanism verified
-only on the success path would have been worse than none, because it would have
-looked like evidence.* m5 reached the same conclusion about a null overlay in a
-different subsystem within the hour — **an instrument that cannot be observed
-failing is not an instrument.**
+**A comment warning about a trap does not prevent the trap. The test does.** And
+the transferable half is what the test has to be: *a capture mechanism verified
+only on the success path is worse than none, because it looks like evidence.*
+The same holds for a null overlay in any other subsystem — **an instrument that
+cannot be observed failing is not an instrument.**
 
 ### T32 — the evidence records which node, and not which card
-
-**Found while closing `T19` on this stage.**
 
 `evidence.measured_on` carries `node`, `gpu_arch`, `container` and `at`. It
 does **not** carry the GPU index the measurement ran on, and neither does
@@ -1257,15 +1069,12 @@ choose a card at all (`T19`), so the index is at least *deliberate* on both
 sides. Recording it would make it *checkable*, which is a different property
 and the one that closes this.
 
-**STILL OPEN, and said so deliberately.** The stage has
-been exercised standalone all afternoon and this is the one thing in it that a
+**STILL OPEN, and said so deliberately.** It is the one thing in this stage a
 fixture cannot reach: it needs two measurements on two cards to show itself, and
-every control here runs on a login node with no card at all. Closing it on the
-strength of *"the guards are deliberate now"* would be its own instance of the
-class below.
+a control on a login node has no card at all. Closing it on the strength of
+*"the guards are deliberate now"* would be its own instance of the class below.
 
-**It is the third member of a class the afternoon produced three of**, and the
-leader had counted two before this one:
+**It is the third member of a class with three known instances:**
 
 | | the configuration | what it decides | what grades it |
 |---|---|---|---|
@@ -1274,32 +1083,26 @@ leader had counted two before this one:
 | **m3** | **`E2E_MEASURE_GPU`** | **which card every number in `evidence/` came from** | **nothing; `measured_on` names the node** |
 
 **A configuration that determines the number and is invisible to everything that
-grades it.** The package owner's sharpening is the part to keep, and it makes this the
-purest of the three: `check_workset_runs` re-measures **on the same card**, so
-when the card is the fault **it agrees for exactly the reason the original was
-wrong**. The agreement is not evidence of correctness; it is evidence that both
-readings share a premise nobody recorded.
+grades it**, and this is the purest of the three: `check_workset_runs`
+re-measures **on the same card**, so when the card is the fault **it agrees for
+exactly the reason the original was wrong**. The agreement is not evidence of
+correctness; it is evidence that both readings share a premise nobody recorded.
 
-That is m5's *"a relative check cannot detect a fault both sides share"*,
-arriving in this stage from a third direction and hours before they proved it in
-theirs. The fix is unchanged and unbuilt: **record the index in
+That is *"a relative check cannot detect a fault both sides share"*, reached in
+this stage from a third direction. The fix is unbuilt: **record the index in
 `evidence.measured_on`**, so the two readings can be compared on their premise
 and not only on their result.
 
 ### T33 — a mechanical reformat makes a diff unreviewable, so the semantic check moves before the commit
 
-**The same error twice in one morning.**
-
 `json.dumps(indent=2)` re-serialises a whole schema, so a five-key change lands
-as **1074 insertions / 240 deletions** and no reader can see what changed. The
-leader hit it first — 164 lines for one sentence in
-`environment.schema.json` — and m3 hit it hours later in
-`workset.schema.json`. **Both of us verified afterwards and disclosed
-afterwards**, which is the right check in the wrong order: an
+as **1074 insertions / 240 deletions** and no reader can see what changed — 164
+lines for one sentence is an ordinary instance. Verifying and disclosing
+*afterwards* is the right check in the wrong order: an
 after-the-fact semantic diff reassures the author and does nothing for the
 reviewer, who has already been handed a diff they cannot read.
 
-**Ruled: do not restore hand-formatting.** Canonical `json.dumps` form is
+**Do not restore hand-formatting.** Canonical `json.dumps` form is
 stable and reproducible, and the next programmatic edit would reformat it
 again — restoring buys one reviewable diff at the price of the next one.
 
@@ -1321,57 +1124,48 @@ T33 was about a diff being *unreadable*. This is a diff being *wider than its
 author*: in a shared worktree, `git commit -- <pathspec>` names a **file**, and
 the file contains whatever any teammate has uncommitted in it.
 
-`3b4d390` says *"four fixes to rung 3's launch section"* and also carries
-**m4's rewrite of the launch notes §2a** — roughly 57 of its 100 insertions and 42 of
-its 44 deletions. Nothing was lost and the content is correctly placed, but my
-message does not describe my commit, m4's `b838fae` describes changes it does
-not contain, and I signed off on sixty lines I did not write.
+A commit whose message says *"four fixes to one section"* can carry a
+concurrent rewrite of another section in the same file — a hundred insertions
+where thirty were written. Nothing is lost and the content may be correctly
+placed, but the message does not describe the commit, the other writer's commit
+describes changes it does not contain, and each has signed off on lines they did
+not write.
 
 **The standing rule — *commit by pathspec, never `git add`* — does not defend
-against this and was never meant to.** It stops you sweeping up *other files*.
-It says nothing about *other people's lines inside the same file*, and
-the launch notes is the one file all six owners write to.
+against this and was never meant to.** It stops you sweeping up *other files*. It
+says nothing about *other lines inside the same file*, which is the hazard in any
+document several writers share.
 
 **The mitigation is T33's own check, one step later:** run
 `git diff --stat <file>` *immediately before* committing and ask whether the
-number matches what you wrote. m4 caught this because their commit reported
-`65 insertions, 0 deletions` and a rewrite that replaces a section cannot have
+number matches what you wrote. A rewrite that replaces a section reporting
+`65 insertions, 0 deletions` refutes itself, because a replacement cannot have
 zero deletions.
 
 **The check is *compare to what you did*, not *look at the stat*, and the
-difference is not pedantry.** m4's limit, and it is the one that keeps this from
-hardening into a bad rule: an **impossible** number only turns up in
-replacement-shaped work. Their rewrite could not have had zero deletions, so the
-stat refuted itself. **Sweep an additive edit and the number is merely bigger** —
-`+43` where you expected `+30` — and *plausible-but-larger* is not impossible.
-**Nobody rejects a number that is only larger than they remembered**, which is
-precisely the failure this entry records: `100 / 44` did not look absurd to me,
-it looked like a commit.
+difference is not pedantry.** An **impossible** number only turns up in
+replacement-shaped work. **Sweep an additive edit and the number is merely
+bigger** — `+43` where you expected `+30` — and *plausible-but-larger* is not
+impossible. **Nobody rejects a number that is only larger than they
+remembered.**
 
-So the rule needs the second operand. Stated as *"check the stat"* it invites
-the substitution I actually made — `git status --short`, which answers a
-different question — and **a check that reports presence where you needed
-magnitude is not the check you thought you ran.**
-
-**And I had the baseline and did not compare it**, which is the part worth the
-entry. My own stat after the first edit was **43 insertions, 2 deletions**; at
-commit time it was **100 / 44**. I ran `git status --short` in between — which
-prints `M` and not counts — and committed on that. *A check that reports
-presence where you needed magnitude is not the check you thought you ran*, and
-the correct number was in my own scrollback.
+So the rule needs the second operand. Stated as *"check the stat"* it invites the
+substitution of `git status --short`, which prints `M` and not counts — and **a
+check that reports presence where you needed magnitude is not the check you
+thought you ran.**
 
 ### T34 — the environment record can outlive the container it names, and a downstream field repeats it as observation
-*From two ends of the same artefact. Nobody's defect
-individually; the join is unowned.*
+*From two ends of the same artefact. Neither side's defect individually; the join
+is unowned.*
 
-**The producer half.** m1's rung-1 record on 217 said:
+**The producer half.** A bring-up record can say:
 
 ```
 runtime.container   <container>
 runtime.started_at  T+00:00
 ```
 
-and `docker inspect` on the container of that name said:
+while `docker inspect` on the container of that name says:
 
 ```
 Created       T+34:00
@@ -1389,7 +1183,7 @@ first was torn down. The record describes an instance that no longer exists, and
 **every field in it still validates.** `check_environment` and `check_deploy_kit`
 both pass it, correctly: nothing they check is wrong.
 
-**The consumer half, m4's, and it is the sharper one.** `optimize_kernel`'s
+**The consumer half, and it is the sharper one.** `optimize_kernel`'s
 `10_read_inputs.py` fills `premise.run_environment` from
 `lib.load_environment()` — **m1's record, verbatim, with no observation
 anywhere.** So a field named for *the environment m4 ran in* is m4 repeating m1's
@@ -1408,13 +1202,13 @@ stale, and the join unchecked.** Different in one way that matters — that one 
 a conclusion contradicting data in the same file, and this one is two files that
 each tell the truth.
 
-**Not fixed, and neither of us changed the field.** `premise.run_environment`'s
-reader is m4's premise gate, so redefining it is a contract decision rather than
-an owner's; and `runtime.started_at` is the package owner's schema. What m4 *did* do is
-make the same `docker inspect` that checks liveness also log the observed
-`Id / Created / StartedAt / RestartCount` beside the record's claim — **the only
-place in the flow where the container that actually did the work identifies
-itself.** That is a good stopgap and it is a log line, not a check.
+**Not fixed, and the field is unchanged on both sides.**
+`premise.run_environment`'s reader is m4's premise gate, so redefining it is a
+contract decision rather than one stage's; and `runtime.started_at` belongs to
+the shared schema. What exists today is a stopgap: the same `docker inspect` that
+checks liveness also logs the observed `Id / Created / StartedAt / RestartCount`
+beside the record's claim — **the only place in the flow where the container that
+actually did the work identifies itself.** That is a log line, not a check.
 
 **What would settle it, cheapest first:**
 
@@ -1438,8 +1232,8 @@ re-creation at all:
 
 | run | record `started_at` | container `Created` | `RestartCount` | gap |
 |---|---|---|---|---|
-| 217 | 09:03:51 | **09:37:18** | 0 | record is **34 min early** — it describes a container that no longer existed |
-| 006 | **10:21:54** | 10:16:46 | 0 | record is **5 min late** — same container throughout, still up |
+| A | 09:03:51 | **09:37:18** | 0 | record is **34 min early** — it describes a container that no longer existed |
+| B | **10:21:54** | 10:16:46 | 0 | record is **5 min late** — same container throughout, still up |
 
 **Neither is wrong, because nothing says what the field means.**
 `environment.schema.json`'s `runtime.started_at` is `{"type": "string"}` —
@@ -1448,21 +1242,21 @@ recorded a moment before the container it eventually used; the other recorded
 something like *when the service became ready*, five minutes after its container
 started. Both validate.
 
-**This is T23's shape, in a second section of the same document.** T23 called
-`fixed.gpu_count` *"the one required field with no description"* — that was true
-of `fixed` and `runtime` has two more. A field that cannot be wrong cannot be a
-measurement, and here it has produced two incompatible readings in one afternoon
-without either being a defect.
+**This is T23's shape, in a second section of the same document.** T23 calls
+`fixed.gpu_count` *"the one required field with no description"* — true of
+`fixed`, and `runtime` has two more. A field that cannot be wrong cannot be a
+measurement, and here it produces two incompatible readings without either being
+a defect.
 
 **So the fix is cheaper and more definite than T34's three options suggest:
-define it.** One sentence in the schema, the package owner's file, deciding between *when
-the container started* and *when the deployment became ready* — and if it is the
-first, it should be **read from `docker inspect` rather than written by the
-agent**, which makes it a fact rather than a claim and removes the 217 case
-entirely. `runtime.endpoint` wants the same sentence: 217 recorded loopback
-`http://127.0.0.1:8101` and 006 recorded the routable
-`http://<node ip>:8101`, and a consumer on another host can only use one of
-them.
+define it.** One sentence in the schema, deciding between *when the container
+started* and *when the deployment became ready* — and if it is the first, it
+should be **read from `docker inspect` rather than written by the agent**, which
+makes it a fact rather than a claim and removes case A entirely.
+`runtime.endpoint` wants the same sentence: one run recording loopback
+`http://127.0.0.1:8101` and another recording the routable
+`http://<node ip>:8101` are not interchangeable, and a consumer on another host
+can only use one of them.
 
 
 ### T35 — a sealed handoff from the old layout is not consumable by the definition that replaced it
@@ -1474,11 +1268,9 @@ them.
 `sampler_softmax_kernel.py`. **So the one real stage-4 artefact this effort
 owns cannot be fed to the validator that grades stage-4 artefacts.**
 
-Not a regression. The sealed handoff is output from an earlier run of the
-five-separate-packages layout, and `e2e-flow`'s definitions were rewritten
-against the chained definitions afterwards; `mock_adapt.py` is the bridge and
-exists for
-exactly this. **Ruled: leave it.**
+Not a regression. The sealed handoff is output from the five-separate-packages
+layout, and `e2e-flow`'s definitions are written against the chained ones;
+`mock_adapt.py` is the bridge and exists for exactly this. **Left as is.**
 
 **Recorded because the assumption it breaks is easy to make and expensive to
 discover.** Reaching for the sealed artefact as a ready-made fixture is the
@@ -1494,15 +1286,15 @@ on the answer.
 
 ### T36 — a claim about *who owns this* never looks like a claim, so nobody tests it
 
-**Six instances between the package owner and m4, all the same move: an
-assertion about *who* or *what* — an owner, a boundary, a blocker, a row —
-stated before reading the thing that would have answered it.**
+**Six instances, all the same move: an assertion about *who* or *what* — an
+owner, a boundary, a blocker, a row — stated before reading the thing that would
+have answered it.**
 
-- **m4, twice.** *"The mount question belongs to m1, m4 or the contract; I am
-  not picking"* — while m1's sealed kits already mounted the answer, and m4's
-  own `scratch_root` default already pointed at the third form. And *"blocked on
-  m3's `--impl` contract"* — while the Definition's `baseline`, in a file m4 was
-  reading for other reasons, already carried `def sampler_softmax` beside
+- **Twice in one stage.** *"The mount question belongs to m1, m4 or the
+  contract; I am not picking"* — while m1's sealed kits already mounted the
+  answer, and m4's own `scratch_root` default already pointed at the third form.
+  And *"blocked on m3's `--impl` contract"* — while the Definition's `baseline`,
+  in a file already open for other reasons, carried `def sampler_softmax` beside
   `def run(*args, **kwargs)`: **one file satisfying both consumers,
   demonstrated, in the artefact.** There was no contract to arbitrate, only a
   shim not copied.
@@ -1529,9 +1321,8 @@ read, and in all six cases here the answer was already on disk.** Naming an
 owner is not research, and *"I am not guessing across the boundary"* is only
 discipline when you have first checked whether the boundary exists.
 
-**No code change. This is a habit item**, recorded because it cost real time
-today and because — unlike every other entry here — **there is nothing to
-detect it with.**
+**No code change. This is a habit item**, recorded because — unlike every other
+entry here — **there is nothing to detect it with.**
 
 ---
 
@@ -1564,8 +1355,8 @@ both are, in the only way the schema allowed.
 
 **Remedy, applied:** `substitution: module_symbol | call_site_fragment` with
 `public_symbol` nullable and `if/then` binding them, plus `module_symbols`
-recorded from the image so the claim is *checked* rather than asserted
-(`4d5a6e6`, `d206fc6`). **What it does not do** is say how a
+recorded from the image so the claim is *checked* rather than asserted.
+**What it does not do** is say how a
 fragment-inside-a-method optimisation reaches the engine — that is M5.1.1, a
 design question for the user, and the package can now state which case it is in
 without being able to install the second.
@@ -1637,14 +1428,13 @@ true reason sits in `attributes.seal_refused` and is not printed. So the tool
 built for reading the event store reproduces the misdirection the store already
 has — `output_absent` states a cause that is false.
 
-**Two owners have now paid for this in the same day** — the package owner's four-run
-stall study and m2's replayed-kit investigation — and **both ended up running
-`cat` on a raw event JSON** to find the same attribute.
+**Two separate investigations have paid for this** — a stall study and a
+replayed-kit investigation — and **both ended up running `cat` on a raw event
+JSON** to find the same attribute.
 
-**The precedent already exists.** m4 hit it from the other side and fixed *their*
-reader: `runprobe` prints **every** attribute of a triggering event, and the
-leader credits that change with turning a lost reason into a one-command answer
-three times. `read_events.py` has not had the equivalent.
+**The precedent already exists.** `runprobe` prints **every** attribute of a
+triggering event, which turns a lost reason into a one-command answer.
+`read_events.py` has no equivalent.
 
 **What would settle it:** print `seal_refused` and `detail` beside `message`
 when present — or all non-empty attributes, which is what `runprobe` does and
@@ -1659,36 +1449,30 @@ its owner.
 
 ### T40 — treat every probe as a control, because the slot decides whether you check the null
 
-**Owner: checkpoint writer. Sharpening of `T31`, and m3 asked for it
-to carry my name; the pattern it names is theirs as much as mine.**
+**Sharpening of `T31`.**
 
-**The observation.** m3 reported that **two** of their wrong turns today were
-probes that *could not have succeeded* — a null that looked like an answer: the
-`abc` payload that decoded to a non-command, and the `-p $W` probe that dumped
-the whole process table. I had just done the same: my positive control for
-`runlive.sh` used `exec -a`, which **`dash` does not have** (`sh: 1: exec: -a:
-not found`), so the subject never existed. I chased it.
+**The observation.** Several wrong turns in this package were probes that *could
+not have succeeded* — a null that looked like an answer: an `abc` payload that
+decoded to a non-command, a `-p $W` probe that dumped the whole process table,
+and a positive control for `runlive.sh` using `exec -a`, which **`dash` does not
+have** (`sh: 1: exec: -a: not found`), so the subject never existed.
 
-**But I only chased it because it was labelled a control.** Had that same failing
-probe been sitting in the *measurement* slot, I would very likely have written
-down the null and moved on — which is exactly what happened to me at 07:12, when
-I read empty `logs/`, `playground/` and `tmp/` in a task zone as "the body never
-ran" and had to throw the inference away after checking tasks that certainly did
-run and finding those directories empty for every one of them.
+**It only gets chased because it is labelled a control.** The same failing probe
+sitting in the *measurement* slot gets its null written down and moved past —
+which is what happens to empty `logs/`, `playground/` and `tmp/` in a task zone
+read as "the body never ran", an inference that has to be thrown away once tasks
+that certainly did run show the same empty directories.
 
 **So the variable is not care, it is the slot.** Same person, same hour, same
 diligence: a null in a control is *by definition* suspicious, and a null in a
-measurement reads as data. m3 confirmed the same split — their wrong turns in
-the measurement slot, their catches in the control slot.
+measurement reads as data — and the split holds across stages: wrong turns in
+the measurement slot, catches in the control slot.
 
-**Corrected at m3's request, and the correction matters to the
-entry's own argument.** This first said *four* of m3's wrong turns were dead
-probes. **It was two.** I merged two different counts of two different things:
-they had said *"my four wrong turns were all in the measurement slot"*, which is
-about the **slot**, not about dead probes. Their other two were **reasoning
-errors from artefacts they had not opened** — endorsing a duration signature
-while `evidence/performance.json` sat on disk saying otherwise, and the
-killed-mid-work hypothesis.
+**Two counts are easy to merge here, and the distinction matters to the entry's
+own argument.** *"Four wrong turns, all in the measurement slot"* is about the
+**slot**; it does not say four were dead probes. The others are **reasoning
+errors from artefacts nobody opened** — endorsing a duration signature while
+`evidence/performance.json` sits on disk saying otherwise.
 
 **That is a different cause with a different cure, and conflating them
 overstated this entry's evidence.** A dead probe is cured by *name the result
@@ -1717,7 +1501,7 @@ dumped the process table) and not at all on the other four.
   `ppid=1` with nothing killed. Escalated before the control existed.
 - `exec -a` positive control — the subject never existed.
 - `readlink /proc/<pid>/exe || continue` — an unreadable `exe` dropped silently,
-  so "cannot decide" and "nothing there" produced identical output (`01f768c`).
+  so "cannot decide" and "nothing there" produce identical output.
 
 **Sharpening — which control failure to spend the extra minute
 on when you cannot afford both.**
@@ -1728,71 +1512,69 @@ on when you cannot afford both.**
 The rule above is about whether a probe *could have succeeded*. This is about
 **direction, and who pays for the error**, which the rule does not say.
 
-**A broken positive control refuses, and a refusal makes you look at it.** m3's
-three schema fixtures were this shape — an unresolvable `$ref`, a bad
-`gpu_arch`, a `kernel_id` pattern miss — each looked exactly like a working
-probe, and each cost an hour of **their own**.
+**A broken positive control refuses, and a refusal makes you look at it.** Three
+schema fixtures of this shape — an unresolvable `$ref`, a bad `gpu_arch`, a
+`kernel_id` pattern miss — each look exactly like a working probe, and each costs
+the time of whoever built them.
 
 **A broken negative control passes, and its output is a claim about somebody
-else's artefact: *"your binding is toothless."*** m4 had one within the hour: a
-dict merge that re-added the key it was meant to strip, printing `NOT CAUGHT`
-for the `impl`/`impl_path` binding m3 had just landed. **They rebuilt the probe
-before concluding anything.** Had they not, the claim would have travelled to m3
-as evidence, and **the action it invites is weakening a correct contract.**
+else's artefact: *"your binding is toothless."*** A dict merge that re-adds the
+key it was meant to strip prints `NOT CAUGHT` against a binding that is in fact
+sound. Unless the probe is rebuilt before anything is concluded, that claim
+travels as evidence — and **the action it invites is weakening a correct
+contract.**
 
 So the two failures are not the same size. One is self-limiting; the other
 propagates, propagates *as evidence*, and reaches someone with no access to the
 instrument that produced it. **When you can only afford to verify one control,
 verify the negative one** — its false output is the one that leaves your hands.
 
-**Not blocking.** It is a habit, not a defect, and the four instances above are
+**Not blocking.** It is a habit, not a defect, and the instances above are
 already fixed or recorded. Filed because `T31` says naming a class is not
-sweeping for it, and this is the sweep condition for a class that has produced
-at least four instances across two owners in one day.
+sweeping for it, and this is the sweep condition for that class.
 
 ### T41 — `/proc` is namespaced under `spur exec`, so PID-based attribution from a node lies
 
-*Renumbered twice: **T28 → T36 → T41**. Six owners append here and two keep picking
-the same next integer; my own T28→T36 renumber (`f867a62`) landed on a number a
-second owner had already taken, so the fix collided the same way the fault did.*
+*Renumbered twice. Several writers append here and pick the same next integer,
+and a renumber can collide the same way the original allocation did.*
 
-***This*** *item moved rather than the other T36, and the rule is worth stating because
-it will recur:* **the entry with external citations keeps its number.** `2d521c1`'s
-commit message and `CONTRACT.md` both cite T36 meaning *"a claim about who owns
-this never looks like a claim"*; nothing outside this file cites T36 meaning `/proc`.
-Renumbering the cited one would have broken two references to save one.
+*The rule is worth stating because it will recur:* **the entry with external
+citations keeps its number.** A commit message and `CONTRACT.md` both cite T36
+meaning *"a claim about who owns this never looks like a claim"*; nothing outside
+this file cites T36 meaning `/proc`. Renumbering the cited one would break two
+references to save one.
 
 *T41 was free — the numbers otherwise run 1–47 — so this consumes the gap rather than
 extending the range. Citations of **T28** or **T36** for the `/proc` subject still
 resolve by title; the three are not confusable, which is the only reason a renumber is
 survivable at all.*
 
-*Reported independently by m3 and by another owner, neither of whom renumbered it —
-correctly, since it touches other owners' entries. That is the second numbering
-collision today and the mechanism is unchanged: **`todo.md` has no allocator**, and
-`git status` cannot show you a number someone else is about to use in an editor.*
+*Reported independently twice, and renumbered by neither — correctly, since a
+renumber touches other entries. That is the second numbering collision and the
+mechanism is unchanged: **`todo.md` has no allocator**, and
+`git status` cannot show a number someone else is about to use in an editor.*
 
-**Not blocking. Recorded because three ownership misattributions
-today were name-based, and the obvious fix — attribute by PID instead — is
-broken in the one place people will reach for it.**
+**Not blocking. Recorded because ownership misattributions here are name-based,
+and the obvious fix — attribute by PID instead — is broken in the one place
+people will reach for it.**
 
-**The control is the finding.** On node 006, `docker top` reported PID
-`3260888` running inside `kimik3-vllm-kimi-k3`. From a `spur exec 109260`
-shell, `/proc/3260888` **does not exist**:
+**The control is the finding.** `docker top` reports a PID running inside a
+container; from a `spur exec` shell on the same node, `/proc/<pid>` **does not
+exist**:
 
 ```
-docker top kimik3-vllm-kimi-k3 -eo pid   ->  … 3260888 …     (via the daemon)
-[ -d /proc/3260888 ]                     ->  NO              (via /proc)
+docker top <container> -eo pid   ->  … <pid> …     (via the daemon)
+[ -d /proc/<pid> ]               ->  NO            (via /proc)
 ```
 
 So `spur exec` puts you in a PID namespace that cannot see the host's
 processes. **A `/proc` miss there means "not visible from here", not "not
 running"** — and the two are indistinguishable without a control.
 
-I nearly reported the opposite. `rocm-smi --showpids` listed PID `90546`; it was
-absent from `/proc`, and I was one sentence from *"stale, does not exist"*. The
-only thing that stopped it was checking whether a **known-live** PID was visible
-either — it was not.
+The opposite conclusion is one sentence away: `rocm-smi --showpids` lists a PID,
+it is absent from `/proc`, and the obvious reading is *"stale, does not exist"*.
+What refutes that is checking whether a **known-live** PID is visible either — it
+is not.
 
 **What is reliable from `spur exec`, and what is not:**
 
@@ -1903,8 +1685,8 @@ had.
 illegal combinations — `call_site_fragment` says the edit lives inside an
 existing function, `overlay_files` says replace the whole file — and **no code
 anywhere knows they are a pair.** Each validates alone: both are strings from
-their enum. So m4 emits an impossible `apply` block in silence and the first
-thing to notice is m5, two stages later.
+their enum. So m4 can emit an impossible `apply` block in silence, and the first thing to
+notice is m5, two stages later.
 
 **A constraint between two fields is invisible to a schema that validates them
 separately.** That is the sharper form and it is not covered by the three
@@ -1916,18 +1698,14 @@ difference decides where the rule belongs.** `if/then` relates a value to a
 non-empty string, which m3 bound exactly that way. It cannot relate a value to a
 *sibling's value* — `len(gpu_devices) <= gpu_count` needs `$data`, an Ajv
 extension absent from draft 2020-12, and `spec_loader/validate.py` runs a stock
-`Draft202012Validator`. **So "nobody looked" is the wrong diagnosis for half of
-them**; m1 looked, found it inexpressible in the schema, and put it in
-`deploy_kit.layout.yaml`'s invariants with a gate fault behind it (`53bc783`).
-Corrected here after I asserted the general form and was wrong — see the
-carrier case below, which is what actually survived.
+`Draft202012Validator`. **So "nobody looked" is the wrong diagnosis for half of them**: the constraint
+is inexpressible in the schema and lives instead in
+`deploy_kit.layout.yaml`'s invariants, with a gate fault behind it.
 
-**And the rule that generalises out of that mistake, m3's wording:** reading an
-unexpressed constraint as an oversight is **cheap to say and expensive to be
-wrong about.** It converts someone's deliberate placement into a defect, and the
-fix it implies — *move it into the schema* — is one the schema cannot execute.
-m1 had looked, found it inexpressible there, and put it in a layout invariant
-with a gate fault behind it; **the evidence that they looked was not in the
+**The rule that generalises:** reading an unexpressed constraint as an oversight
+is **cheap to say and expensive to be wrong about.** It converts a deliberate
+placement into a defect, and the fix it implies — *move it into the schema* — is
+one the schema cannot execute. **The evidence that somebody looked is not in the
 schema, which is exactly why the schema reads as if nobody did.** An absent
 constraint is silent about whether it was considered. So: check before claiming,
 or claim only about the case you checked.
@@ -1940,9 +1718,9 @@ exactly enough to know something is wrong and not enough to know what: for
 `entry_function` it said `''` differed from `Sampler.forward` without saying the
 producer had read a different field, and for `protocol.timing` it said `'event'`
 differed from `'wall_clock_sync'` without saying one end permitted five values
-and the other one. Neither `d08047b` nor m3's narrowing was wrong in isolation
-and no review of either would have caught it; **the defect existed only in the
-relation, and the relation is what the comparison had refused to print.**
+and the other one. Neither end's narrowing is wrong in isolation and no review
+of either would catch it; **the defect exists only in the relation, and the
+relation is what the comparison refuses to print.**
 
 Fixed rather than only recorded: `_same` now names the differing *keys* instead
 of dumping two dicts, and prints both ends' declared vocabularies when it can
@@ -2029,8 +1807,8 @@ never was one. **There is no prior art to restore** — whatever gets built is n
 work, and the demo that produced this effort's proven assets ran on a machine
 somebody had prepared by hand, which nothing in the package records.
 
-**m3's statement of the class, which covers all three:** *a variable that was
-never a mechanism, only a note to a reader spelled as configuration.* And the
+**The class, which covers all three:** *a variable that was never a mechanism,
+only a note to a reader spelled as configuration.* And the
 tell is the same in both directions — `rebuild` has a reader and no producer,
 `must_preserve` and this one have producers or declarations and no reader:
 
@@ -2044,14 +1822,14 @@ the entry describing it.
 
 ### T45 — a comment that asserts a wiring gap sends the next reader to change code, when only a number was missing
 
-**Found by m2 measuring instead of reading.**
+**Found by measuring instead of reading.**
 
 `check_identity_resolved.check.py` said `min_resolve_ratio` *"is not passed
 by `steps/m3_analysis.yaml`, so the arm above cannot refuse in this package as
 configured."* The yaml passes it —
 `min_resolve_ratio: '${min_resolve_ratio:-0.0}'` — so the arm is fully
 parameterised and `--var min_resolve_ratio=0.8` reaches it with no edit at all.
-m2 measured both directions on one operator with an honest unresolved entry:
+Measured in both directions on one operator with an honest unresolved entry:
 `0.0` passes, `0.8` refuses with `resolve_ratio 0.500 is below the floor 0.8`.
 
 **Two distinct costs, and the second is the reason this is a todo and not a
@@ -2066,15 +1844,14 @@ typo.**
    stale comment does not merely fail to inform — it *manufactures* the finding
    the sweep is looking for, and a sweep that trusts comments will report it.
 
-**And the fix I shipped first was itself unreachable.** `212773d` added an
-"unset — this arm did not grade" wording behind `if raw is None or raw == ""`.
-Because the yaml *does* pass the arg, `raw` is never absent and that branch
-could never execute in this package: the default path still printed
-`floor 0.0`. I checked that the new wording was correct and not that it was
-reachable — the same omission in a different costume, since a comment claiming
-the arg is unpassed is exactly what makes an `is None` branch look sufficient.
-Verified after correcting, by driving `_check` over a real `operator_identity`
-with all three arg values and reading the note each produced.
+**And the obvious first fix is itself unreachable.** An "unset — this arm did
+not grade" wording behind `if raw is None or raw == ""` cannot execute here,
+because the yaml *does* pass the arg and `raw` is never absent: the default path
+still prints `floor 0.0`. Checking that the new wording is correct is not
+checking that it is reachable — the same omission in a different costume, since a
+comment claiming the arg is unpassed is exactly what makes an `is None` branch
+look sufficient. Verified by driving `_check` over a real `operator_identity`
+with all three arg values and reading the note each produces.
 
 **The rule.** A comment that describes *wiring* — what is passed, what is
 reachable, what cannot fire — is a claim about a file other than the one it sits
@@ -2085,29 +1862,22 @@ The second is usually the better sentence anyway: *"a floor of zero grades
 nothing"* is true wherever the value comes from.
 
 **The general form of the second half is `T46`** — *a fix verified correct is
-not a fix verified reached*. m4 filed it with both instances while this
-paragraph was still in my working tree, and theirs is the better entry: it has
-the asymmetry (their `NameError` announced itself, mine would have been silent
-forever) and it has the two cases where the check was already being applied
-without a name. Cut to a pointer rather than kept as a second copy.
+not a fix verified reached*. Kept as a pointer rather than a second copy.
 
 ### T46 — a fix verified correct is not a fix verified reached
 
-**Two instances, one from m3 and one from m4, in the same stretch
-of work.** Both of us changed code, checked the change was *right*, and shipped
-without checking it was *executed*. Those are different questions, and only the
-second needs the surrounding wiring in view.
+**Two instances in the same stretch of work**, both a change checked for being
+*right* and shipped without being checked for being *executed*. Those are
+different questions, and only the second needs the surrounding wiring in view.
 
-**m3's would have been silent forever.** They replaced a validator note that
-printed `floor 0.0` with one saying *"this arm did not grade"*, and guarded it
-with `if raw is None or raw == ""`. **The yaml always passes the argument, so
-`raw` is never absent** — the branch could not execute, and the default path
-went on printing the exact string the fix had removed, in a file whose comment
-now claimed the fix was needed. Caught by m2 (`5ca132e`).
+**The silent one.** A validator note that printed `floor 0.0`, replaced by one
+saying *"this arm did not grade"* and guarded with `if raw is None or raw == ""`.
+**The yaml always passes the argument, so `raw` is never absent** — the branch
+cannot execute, the default path goes on printing the exact string the fix
+removed, and the file's comment now claims the fix was needed.
 
-**m4's announced itself.** The stubkit's entrypoint referenced the shell's
-`$IMPL` from inside the Python emitter — `NameError` on the first candidate run,
-loud and immediate.
+**The loud one.** A stubkit entrypoint referencing the shell's `$IMPL` from
+inside the Python emitter — `NameError` on the first candidate run, immediate.
 
 **The asymmetry is the entry.** An entry carrying only the second instance would
 teach that this class announces itself. **It does not; that was luck.** The
@@ -2116,26 +1886,25 @@ silent wrong answer when it is well-formed — and *well-formed* is the normal
 case, because the code was written carefully and only the reachability was
 assumed. **The better the fix, the quieter the failure.**
 
-**What makes it actionable rather than cautionary: people already do this
-intermittently, without naming it.** Both of m4's other changes that day
-included a reachability step that felt like ordinary care at the time —
+**What makes it actionable rather than cautionary: the step is already
+performed intermittently, without being named.** Two examples of it passing for
+ordinary care —
 
-- the `substitution` × `apply_mode` gate was **armed, run against a real
-  artefact to watch it refuse, then switched off** (`fc0784c`). That step caught
-  a `NameError` waiting in the disabled path: the call site had neither `packup`
-  nor `notes` in scope, so the gate **could not have run when enabled** — a gate
-  that cannot fire when switched on, shipped as *written and ready*;
-- `_same`'s new vocabulary reporting was exercised by **monkeypatching the
-  pre-`d08047b` enums**, because the package owner's own fix had made the divergence
-  branch unreachable on current schemas (`28c177d`). Shipping it unexercised was
-  the alternative.
+- the `substitution` × `apply_mode` gate **armed, run against a real artefact to
+  watch it refuse, then switched off**. That step catches a `NameError` waiting
+  in the disabled path: the call site has neither `packup` nor `notes` in scope,
+  so the gate **could not have run when enabled** — a gate that cannot fire when
+  switched on, shipped as *written and ready*;
+- `_same`'s vocabulary reporting exercised by **monkeypatching the older enums**,
+  because a fix elsewhere had made the divergence branch unreachable on current
+  schemas. Shipping it unexercised is the alternative.
 
 **So the rule is not new behaviour, it is a name for something already done half
 the time.** The half where it is skipped is the half where the change looks too
 small to need it — a guard, a message, a default.
 
-**The check, and it is one question:** *what would I have to do to make this new
-line run, and has that happened?* If the answer is "nothing, it runs on every
+**The check, and it is one question:** *what would have to be true for this new
+line to run, and has that happened?* If the answer is "nothing, it runs on every
 call", say so. If it is "a variable would have to be absent" or "an enum would
 have to differ", go and make that true once, on purpose, before shipping.
 
@@ -2145,23 +1914,21 @@ result is not being read, and nothing about the slot prompts suspicion.
 
 ### T47 — the pathspec window is irreducible, so the check has to be after the commit
 
-**The mechanism is `CONTRACT` §8a, not this entry** (`8b1057d`, and `5e61480`
-for the post-check). `git commit -- <path>` takes the *working tree*, so it also
-takes a co-owner's uncommitted edits to that same path. Three owners found it
-independently — m1 first, then the checkpoint writer, then m4 — which is
-stronger evidence than any one report.
+**The mechanism is `CONTRACT` §8a, not this entry.** `git commit -- <path>`
+takes the *working tree*, so it also takes a concurrent writer's uncommitted
+edits to that same path. Found independently three times, which is stronger
+evidence than any one report.
 
 **What is new here is that no pre-commit check can close it, and that was
 established by accident.** Both earlier reports assumed a pre-commit check was
 sufficient and argued about *which one*.
 
-**Measured.** This entry originally prescribed *read
-`git diff -- <path>` immediately before committing*. That check was run against
-this very entry — one hunk at EOF, one heading, thirty-nine lines, all mine —
-the commit was issued seconds later, and it returned **`no changes added to
-commit`**: the checkpoint writer had committed `todo.md` in the interval,
-sweeping this entry into `5281a4e`, a commit about T40. **The remedy was
-falsified by the act of committing it.**
+**Measured.** The obvious prescription is *read `git diff -- <path>`
+immediately before committing*. Run against a one-hunk addition to this file, the
+check passes, the commit is issued seconds later, and it returns **`no changes
+added to commit`** — a concurrent writer committed `todo.md` in the interval and
+swept the addition into their own commit. **The remedy is falsified by the act of
+committing it.**
 
 **The window is between the check and the commit.** `git commit -- <path>` reads
 the tree at commit time and there is no atomic verify-then-commit for a path.
@@ -2192,20 +1959,20 @@ independently from the other direction at 04:09.
 
 ### T48 — the control that caught it is invisible because it worked, so remedy-selection reaches for the prescribed check instead
 
-**Owner: checkpoint writer. Found by m4 in my own correction, and
-deliberately kept out of `T47` by them because that entry is about a git
-mechanism and this is about how a remedy gets chosen after an incident.**
+**Deliberately separate from `T47`: that entry is about a git mechanism, this is
+about how a remedy gets chosen after an incident.**
 
-**The incident.** I swept 39 lines of m4's `T47` into `5281a4e`. What caught it
-was the **post-commit** check I had been running all day without thinking about
-it: `git show --numstat HEAD` printed **`66 0`** against the 27 lines I had
-written, and that discrepancy is the only reason I looked.
+**The shape.** A commit sweeps up 39 lines of somebody else's entry. What catches
+it is a **post-commit** check that had been running all along without being
+thought of as a control: `git show --numstat HEAD` printing **`66 0`** against
+the 27 lines actually written, and that discrepancy is the only reason anyone
+looks.
 
-**The near-regression.** Asked what I would change, I wrote an addendum adopting
-**`git diff -- <path>` before committing** — a check m4 had **already falsified**,
-by running it correctly on `T47` itself and losing the race anyway. So I was one
-step from replacing a control that had *demonstrably just caught the bug* with
-one already known not to close the window.
+**The near-regression.** The obvious remedy to write down is **`git diff --
+<path>` before committing** — a check already falsified in T47, by being run
+correctly and losing the race anyway. That is one step from replacing a control
+that *demonstrably just caught the bug* with one already known not to close the
+window.
 
 **Why the working control was not in reach.** It had never produced a story. A
 check that quietly succeeds every time generates no incident, no message, no
@@ -2222,24 +1989,23 @@ is in remedy-selection, not in measurement.
 **The rule:**
 
 > **After an incident, before adopting a remedy, name what actually caught it —
-> and check whether that is already in your routine.** If the answer is "a thing
-> I was already doing", the remedy is to make it explicit and load-bearing, not
-> to add a new check beside it.
+> and check whether that is already in the routine.** If it is something already
+> being done, the remedy is to make it explicit and load-bearing, not to add a
+> new check beside it.
 
-**Two more instances, both mine, both named by someone else on the same day:**
+**Two more instances of the same shape:**
 
-- I recorded that I had referenced findings **by identifier rather than by
-  value** and called it *"partly luck"*. m3 corrected it: a habit, not an
-  accident, and structurally immune to mis-attribution — **the only rule that
-  day which prevented rather than detected.**
-- m4 named `numstat` as the load-bearing check above, which I had been running
-  since morning and had never once described as a control.
+- referencing findings **by identifier rather than by value**, recorded as
+  *"partly luck"* when it is a habit — and structurally immune to
+  mis-attribution, which makes it the one rule that **prevents rather than
+  detects**;
+- `numstat` as the load-bearing check above, run for a long time and never once
+  described as a control.
 
-**m4's summary is the tell and it is worth keeping verbatim: *twice today you
-have filed something that worked as luck.*** A practice that works produces no
-evidence of itself, so its owner is the last person able to see it. **That makes
-this one of the few classes here that an outside reader finds more easily than
-the author** — and unlike the tool defects, it fires when nothing is broken.
+**The tell: a practice that works is filed as luck.** It produces no evidence of
+itself, so its owner is the last person able to see it. **That makes this one of
+the few classes here an outside reader finds more easily than the author** — and
+unlike the tool defects, it fires when nothing is broken.
 
 **Not blocking.** No defect; a reasoning habit with one near-miss recorded.
 
@@ -2273,12 +2039,12 @@ only defect is in the sentence a human reads. A reader who checks the claim and
 finds it false stops believing the *next* message from the same validator, which
 is the actual cost and it is unbounded.
 
-**Three of the four were found by someone reading the message rather than the
-code**, and none by its author. m5's two were found by m2 and m4; the package owner's
-was found by another owner counting `PROBLEM:` lines for an unrelated reason and
-m3 noticing that seven of them sat under a `passed` heading. **The author knows
-what the check does, so the author reads the message as a summary of it** — the
-same blindness as T48's invisible working practice, pointed at prose.
+**Three of the four are found by someone reading the message rather than the
+code**, and none by its author — one of them only because somebody counting
+`PROBLEM:` lines for an unrelated reason noticed seven of them under a `passed`
+heading. **The author knows what the check does, so the author reads the message
+as a summary of it** — the same blindness as T48's invisible working practice,
+pointed at prose.
 
 **The tell, and it is cheap:** read the message *as if you did not write the
 check*, then ask what would have to be true for it to be exactly right. In all
@@ -2287,27 +2053,18 @@ four the answer was a strictly broader condition than the code tests.
 true of a module-level assignment, and the check cannot see one, so the message
 is a correct English sentence about a case the code would get wrong.
 
-**Eight, and the eighth is the one that changes the entry.** m3's is the only
-instance written by someone who had **filed the class themselves that morning** —
-T45 is theirs, eight hours earlier, about a comment describing another file that
-goes stale silently. Every other instance here is someone who did not know the
-class existed. **Theirs says that knowing it does not cure it**, which is worth
-more than the count going from seven to eight, and it is why this entry ends with
-a detector rather than with advice.
+**Eight, and the eighth is the one that changes the entry.** One instance is
+written by an author who had **filed the class themselves** — T45, about a
+comment describing another file that goes stale silently. Every other instance is
+someone who did not know the class existed. **Knowing it did not help**, which is
+worth more than the count going from seven to eight, and it is why this entry
+ends with a detector rather than with advice.
 
-m4 declined to hold it when m3 handed it to them *"for the collection"* — they do
-not own this entry and letting it sit with them is the gap the entry describes,
-which nearly happened once already when three people each assumed someone else
-would file it.
+**And the count only reaches eight once the class is named**, which is itself the
+point: **each author can see the others' instances and not their own, until
+somebody else reads it.**
 
-**Seven, not four.** m4 added three of their own after m5 named the class and I
-had already filed it — which is itself the point: **each of us could see only our
-own, and none of us could see our own until someone else read it.** m4 offered
-the entry to m5 rather than taking it; m5 had offered it to nobody; I filed it
-without either of them knowing. That is three people declining to claim a class
-none of them could have assembled alone, and one person assembling it badly.
-
-**m4's asymmetry, which decides the fix and is not obvious:** *narrowing the
+**The asymmetry that decides the fix, and it is not obvious:** *narrowing the
 message cannot break a consumer; widening the field can.* `check_workset_shape`
 presence-checks against `module_symbols`, so adding assignments to it makes some
 previously-refused worksets pass — correct if they were correct, a **silent
@@ -2340,9 +2097,9 @@ assert a fact the producer does not have."*
 **Why it is a different entry and not a fifth instance of T49.** T49's damage is
 that a reader is sent the wrong way and can recover by checking. Here the
 artefact *survives* checking: *"was this measured?"* returns yes, and only
-*"measured on **what**?"* catches it. Two of the four were found by someone
-volunteering the history of their own instrument, which no reader could have
-demanded.
+*"measured on **what**?"* catches it. Two of the four are only findable because
+the author volunteered the history of their own instrument, which no reader could
+have demanded.
 
 ### T50 — an instruction verified correct against a world that does not exist yet
 
@@ -2370,7 +2127,7 @@ recorded them"* — and specificity is what made it wrong. **A cross-reference t
 future artefact is indistinguishable from a cross-reference to a present one, in
 the only place anyone looks: the sentence.**
 
-**The fix is m5's and it is a generalisation rather than a correction:** the
+**The fix is a generalisation rather than a correction:** the
 values are m1's to mint, so **every rung from 1 upward records them in the same
 `items/codes/environment.yaml`** — name the *nearest run that has them*, not a
 rung. Both m5 and m4 repeated the caveat rather than cross-referencing it, and it
@@ -2406,11 +2163,11 @@ removes the container step and the card check together, silently. First symptom:
 a torch import error, or worse, a plausible number measured on a card nobody
 chose.
 
-**Direction 2 — the brief contradicts what the program does (m4), and this is
-the one that survives review.** The brief said the wrapper *"execs into the
-recorded container and never starts or removes one — CONTRACT §5.2 is absolute
-about that."* `48c3337` — the package owner's own ruling — made that false: with no
-running container the wrapper now starts an ephemeral one, `--rm`, trap-removed.
+**Direction 2 — the brief contradicts what the program does, and this is the one
+that survives review.** A brief saying the wrapper *"execs into the recorded
+container and never starts or removes one — CONTRACT §5.2 is absolute about
+that"* goes false the moment the wrapper gains an ephemeral-container path: with
+no running container it starts one, `--rm`, trap-removed.
 
 **A gap reads as something to fill; a false prohibition reads as a constraint to
 respect.** An agent handed a mock-chain record whose container nobody brought up
@@ -2429,18 +2186,17 @@ someone should have done; an instruction that cannot be followed without doing i
 first is a different object.* Where a brief must stay in step with code, put the
 dependency in the step the reader has to execute, not in prose next to it.
 
-**Neither was found by reading the brief.** m3's came from listing what rung 3
-reads; m4's came from being asked the question m3's finding raised. **Both authors
-had read their own briefs many times.**
+**Neither is found by reading the brief.** One comes from listing what a later
+run reads; the other from being asked the question the first raised. **Both
+authors had read their own briefs many times.**
 
-**Not blocking for m4** — theirs is corrected. **Blocking for rung 3** until
-`workset_builder`'s brief is written.
+**Blocking** until `workset_builder`'s brief is written.
 
 ### T52 — no `df` reachable from `spur exec` predicts whether a `docker load` fits
 
-**Measured, and it overturned a refusal I had already made.**
+**Measured, and it overturns the refusal it looks like it justifies.**
 
-I declined to `docker load` the 28.5 GB engine-image backup because every node
+Declining to `docker load` a 28.5 GB engine-image backup because every node
 looked too small: 006 70 G free, 047 87 G, 217 57 G, against an image whose
 `docker images` SIZE reads **110GB**. m2 ran the load anyway, on 047, and it
 succeeded in 2m16s.
@@ -2470,20 +2226,19 @@ is nearer the 28.5 GB tar).
 **Until someone finds the real path: do not gate a `docker load` on free space.
 Try it.** A load that runs out of space fails and leaves partial blobs; that is
 recoverable-by-retry, whereas *not loading* on a number that measures the wrong
-device is how a verification gets skipped for no reason. That is exactly what I
-did.
+device is how a verification gets skipped for no reason.
 
-**How I got it wrong is the reusable part.** I checked whether my instrument was
-pointed at the right device — I mounted the host's docker root through the
-daemon specifically to rule out the exec namespace, and got the same number,
-which I read as confirmation. **Two routes to one wrong answer is not
+**The reusable part is how the wrong answer survives a check.** Checking whether
+the instrument is pointed at the right device — mounting the host's docker root
+through the daemon specifically to rule out the exec namespace — returns the same
+number, which reads as confirmation. **Two routes to one wrong answer is not
 corroboration when both routes share the assumption under test.** The only
-measurement that would have settled it was the before/after across the load
-itself, and that requires doing the thing I was using the number to avoid.
+measurement that settles it is the before/after across the load itself, which
+requires doing the thing the number was being used to avoid.
 
 ### T53 — the var table's rung-2 advice for `expect_ranks` is right only at `tp=8`
 
-**Not mine to edit — `the launch notes:31` is the shared var table.**
+**In the shared var table rather than in this package.**
 
 ```
 | `expect_ranks` | **2** | **omit it** (defaults to 8), or track `--var tp` |
@@ -2504,13 +2259,10 @@ The yaml's own comment has the same soft spot — *"a real run leaves it alone a
 sets `--var tp=` if the deployment is not eight-way"* reads as though setting
 `tp` moves `expect_ranks`. It does not, by the design two lines above it.
 
-### T54 — declaring `runtime.replayed_from` would not close the hole m5 found; `additionalProperties` is the hole
+### T54 — declaring `runtime.replayed_from` would not close the hole; `additionalProperties` is the hole
 
-**m5's observation, measured and then corrected in the direction
-that matters.**
-
-m5 found that `runtime.replayed_from` is **consumed in five places and declared
-in none** — `check_deploy_kit/check.py`, `kit_status.py`,
+`runtime.replayed_from` is **consumed in five places and declared in none** —
+`check_deploy_kit/check.py`, `kit_status.py`,
 `check_measurement_order/check.py`, `load/line.sh` — validating only
 because `environment.schema.json`'s `runtime` has `additionalProperties: true`.
 Confirmed: it is absent from `runtime.properties`, and `fixed` is open too.
@@ -2551,22 +2303,22 @@ runtime.work_root         9
 
 **Three keys, and that is all.** So the change is: declare those three, then
 close both objects — bounded, and verifiable by re-running the sweep to zero.
-Not "a contract-wide migration", which is what I assumed before counting.
+Not a contract-wide migration, which is what it looks like before counting.
 
 **Not done, deliberately.** `environment.schema.json` is shared by all fifteen
-kinds (CONTRACT §2) and closing an object is the kind of change that turns a
-tolerated field into a hard failure mid-run. It wants the package owner's call and a
-green rung before it lands, not a quiet edit while rung 1 is in flight.
+kinds (CONTRACT §2) and closing an object turns a tolerated field into a hard
+failure mid-run. It wants a decision and a green run behind it, not a quiet edit
+while a run is in flight.
 
-**Mitigated at the one producer that is new, m5, `4e7a18d`.** m1's suggestion,
-and it needs no schema change: `replay_root.py` writes the record, then **reads
-`replayed_from` back through the accessor a consumer uses** and refuses the whole
-run if it does not name this hop. Proved by injecting m1's exact typo into a copy
-of the tool — `rc=1`, with the refusal saying *"shipping this root would hand the
-flow a replayed kit wearing a real one's face."*
+**Mitigated at the one producer that is new**, and it needs no schema change:
+`replay_root.py` writes the record, then **reads `replayed_from` back through the
+accessor a consumer uses** and refuses the whole run if it does not name this
+hop. Proved by injecting the exact typo into a copy of the tool — `rc=1`, with
+the refusal saying *"shipping this root would hand the flow a replayed kit
+wearing a real one's face."*
 
 That does not close T54; it closes the hole where a **new** producer could open
-it. The 217 existing occurrences and the other two undeclared keys are still
+it. Every existing occurrence and the other two undeclared keys are still
 governed only by `additionalProperties: true`.
 
 **And running that test found a second defect, in m5's own tool.** The refusal
@@ -2588,8 +2340,8 @@ behaviour is identical and every check written for it passes.
 **The half of the graph-ceiling defect that item 1 does not fix.
 Approved by the package owner; deferred for the same reason as T54.**
 
-m2 measured **4.7x** in decode latency between two runs whose every *recorded*
-variable was equal — node, image id, model, `tp_size`, cards,
+Measured: **4.7x** in decode latency between two runs whose every *recorded*
+variable is equal — node, image id, model, `tp_size`, cards,
 `mem-fraction-static`, load shape. The difference was the CUDA graph ceiling,
 against a load at concurrency 16 (M1.2.3.4): below the ceiling decode runs
 captured, above it the engine falls to eager.
@@ -2609,15 +2361,15 @@ real (d)   4            32       in flight
 ```
 
 **16, 16, 8, 32 over four real bring-ups**, and the setting sits at a different
-place in the file each time because `env.sh` is regenerated rather than
-edited. That is **strictly worse
-than a wrong default, because a wrong default is at least reproducible.** Two of
-the four shipped a ceiling below the concurrency the mission grades at, and the
-run in flight is right **by luck, not by construction**. The `:=8` that looked
+place in the file each time because `env.sh` is regenerated rather than edited.
+That is **strictly worse than a wrong default, because a wrong default is at
+least reproducible.** Two of the four ship a ceiling below the concurrency the
+mission grades at, and any run that is right is right **by luck, not by
+construction**. The `:=8` that looks
 like a default is a `tp_size: 1` record replayed eighteen times — *a value fixed
 in an artefact, mistaken for a default because the artefact is replayed*.
 
-**Landed already (item 1, this commit):** the eighth contracted parameter
+**Landed already (item 1):** the eighth contracted parameter
 `E2E_KIT_CUDA_GRAPH_MAX_BS`, the brief's `>= concurrency` criterion with *say
 what you chose and why*, the adapter line that keeps the sealed kit passing, and
 gate fault 14. That binds the producer.
@@ -2644,9 +2396,9 @@ a cross-input equality.
 
 ### T56 — `summarise.py` exists twice, byte-identical, with call sites split across both copies
 
-**Found while verifying m2's account of four empty summary files;
-recorded rather than acted on, and I could not establish whether it is
-deliberate.**
+**Found while verifying an account of four empty summary files; recorded rather
+than acted on, because whether the duplication is deliberate is not
+establishable from the tree.**
 
 ```
 9246d23165e72b5cdb359689b7892dc0  assets/load/summarise.py
@@ -2663,37 +2415,36 @@ check_deploy_serves/check.py               -> assets/bench/summarise.py
 
 **Every one passes both arguments and is correct.** The script refuses on
 `len(argv) != 2` with a usage message and rc 2, so a one-argument call produces
-an empty file rather than a wrong one — which is the right failure and is what
-m2's own experiment harness hit, reaching for `$BENCH/../load/summarise.py`.
-Their four zero-byte summaries came from that, not from the flow.
+an empty file rather than a wrong one — which is the right failure, and is what
+an experiment harness reaching for `$BENCH/../load/summarise.py` produces: zero-byte
+summaries, from the navigation rather than from the flow.
 
-**Why it is worth an entry anyway.** The mistake was *navigating between two
-copies of one file*, and that is the seam this whole effort exists to remove —
-the handoff analysis's three seams are each one name over two things. Two
-identical copies with owners on both sides is the same shape one level down: it
-is currently harmless because they agree, and the day they stop agreeing nothing
-will say so, because nothing compares them.
+**Why it is worth an entry anyway.** The mistake is *navigating between two
+copies of one file*, and that is the seam this package exists to remove — each of
+the handoff analysis's three seams is one name over two things. Two identical
+copies with owners on both sides is the same shape one level down: harmless while
+they agree, and the day they stop agreeing nothing will say so, because nothing
+compares them.
 
 **Not acted on, and the uncertainty is real.** `assets/load/` is m2's stage
-directory and `assets/bench/` is where my validator reaches; the duplication may
+directory and `assets/bench/` is where the validator reaches; the duplication may
 be a deliberate ownership boundary rather than an accident, and deleting either
 copy breaks live call sites. **This wants its two owners to agree on one home,
-not a unilateral edit** — and m2 asked me not to chase the empty-file question
-further, which I have not.
+not a unilateral edit.**
 
-**Unrelated but measured on the way past, and it corrects something I told m2:**
+**Unrelated but measured on the way past, and it corrects a plausible reading:**
 an empty summary in `check_deploy_serves` does not fall back with a warning, it
 **fails** — `check.py` catches the `ValueError` from `json.loads` and
 returns *"the load ran but produced no readable summary … A load with no numbers
 has not shown the deployment serves under load"*. The announcing-`WARNING` path
 is the different case of a summary that parses but carries neither
 `request_latency_ms` nor `output_sequence_length x inter_token_latency_ms`.
-Two failure modes, two behaviours, and I conflated them in a message.
+Two failure modes, two behaviours, and they are easy to conflate.
 
 ### T57 — one scratch path, three independent literals, agreeing by coincidence
 
-**From dry-running rung 5's launch line against rung 1's tree.
-Spans m1, m4 and m5, and m4 found the same variable from the other end.**
+**From dry-running a late stage's launch line against an early stage's tree.
+Spans m1, m4 and m5, and the same variable is reachable from either end.**
 
 Three variables name one directory tree and **none derives from another**:
 
@@ -2708,9 +2459,9 @@ default.** Change it and the other two silently keep pointing at the shared
 default — a run whose work root is elsewhere and whose scratch and validate
 trees are not.
 
-**And the section invites exactly that.** the launch notes's rung-5 §5 tells the reader
-to pass a **run-unique `container=`** because the default is a fixed name on a
-shared host. Anybody applying that reasoning one variable over — a run-unique
+**And the guidance invites exactly that.** A reader is told to pass a
+**run-unique `container=`** because the default is a fixed name on a shared host.
+Anybody applying that reasoning one variable over — a run-unique
 `work_root`, which is the same argument for the same reason — splits the three
 without a word from anything.
 
@@ -2751,13 +2502,12 @@ be split and this one cannot be joined.**
 
 Three owners, and the only correct fix — deriving two from one — is the
 unspellable form. The options are: pass all three explicitly on every launch
-line (verbose, and the launch lines are where every defect this week has been),
+line (verbose, and a launch line is where this class of defect lives),
 or resolve the nesting fault upstream. **Neither is m5's alone.**
 
 ### T58 — counting kits on disk counts how often we tested, not how often a producer chose
 
-**Filed at the package owner's request, with the fingerprint, because the
-fingerprint is the only part anyone can act on.**
+**The fingerprint is the only part anyone can act on.**
 
 A census of `packup` trees is the natural way to answer *"how often has a producer
 done X?"*, and it is wrong by construction. Measured over the frozen root:
@@ -2766,14 +2516,14 @@ done X?"*, and it is wrong by construction. Measured over the frozen root:
 find <shared path> -path '*packup*' -name env.sh    ->  58 files
 
 55   line 105, DK_TP_SIZE:=1     the sealed kit, byte-identical replays
- 3   no ceiling variable at all  two are my own 13-line stubs, one a stripped copy
+ 3   no ceiling variable at all  two 13-line stubs, one a stripped copy
 --
  0   produced by an agent
 ```
 
 **Most of the 55 are `ws_handoff_refine/m1/gate*/{good,bad}` — copies `gate.sh`
 makes of the sealed kit on every invocation, two per run.** So the corpus is
-mostly a record of my own testing, and **the ratio gets worse every time anyone
+mostly a record of testing, and **the ratio gets worse every time anyone
 runs a gate.** Our diligence tilts the evidence, monotonically, in the direction
 of "this happened constantly".
 
@@ -2800,41 +2550,39 @@ happened"*), so they are a design decision working, not a producer failing.
 
 #### Why it is worth an entry rather than a correction
 
-**Our own discipline generates the false signal, and being more careful makes it
-worse.** That is the same shape as m5's grep trap the same afternoon — there,
-good comments made a naive detector fire; here, thorough testing makes a naive
-census over-count. **Neither is fixable by care.** Both need the artefact's
+**The discipline itself generates the false signal, and being more careful makes
+it worse.** It is the same shape as the grep trap in T57 — there, good comments
+make a naive detector fire; here, thorough testing makes a naive census
+over-count. **Neither is fixable by care.** Both need the artefact's
 provenance established *before* it is counted, which is what the fingerprint is
 for.
 
 Applies to any future sweep of `packup` trees, which is exactly what someone will
 reach for the next time the question is *"how often has this happened?"*
 
-### T59 — the instruments that failed today, and not one failed toward "I cannot tell"
+### T59 — the instruments that failed, and not one failed toward "I cannot tell"
 
-**An observation about the set, filed at the package owner's request.
-Deliberately untitled by count: it was four when written, six by evening, and a
-number in a heading is the thing this file has already had go stale twice.**
+**An observation about the set. Deliberately untitled by count: the count grows,
+and a number in a heading is the thing this file has already had go stale
+twice.**
 
 #### What to do about it, which is not "be careful"
 
-**Re-ask any question whose answer you liked.** That is the only thing that has
-worked all day, and it is not diligence — every catch came from someone
-distrusting a *convenient* result, not from someone being more thorough:
-the `df` differential, m2's second spelling, m3's argv print, checkpoint testing
-the package owner's axis instead of adopting it.
+**Re-ask any question whose answer you liked.** It is the only thing that works,
+and it is not diligence — every catch here comes from distrusting a *convenient*
+result rather than from being more thorough: the `df` differential, a second
+spelling, an argv print, testing an axis instead of adopting it.
 
-**Knowing this list does not protect you.** I wrote it, named the mechanism, and
-then hit **three** of its members inside one four-minute check of whether a run
-had stalled — a `pgrep` that matched its own shell, a `ps` pattern too narrow to
-see the process, and a `git ls-files` run from the wrong directory. The
-catalogue is for **diagnosing afterwards**; it does not help you **avoid**.
-What stopped all three reaching the package owner was widening the query a third time,
-and the third query was not more careful than the first two. **It was more
-sceptical of an answer I wanted.**
+**Knowing this list does not protect you.** Three of its members can turn up
+inside one four-minute check of whether a run has stalled — a `pgrep` that
+matches its own shell, a `ps` pattern too narrow to see the process, and a
+`git ls-files` run from the wrong directory. The catalogue is for **diagnosing
+afterwards**; it does not help you **avoid**. What stops all three is widening
+the query a third time, and the third query is not more careful than the first
+two. **It is more sceptical of an answer you wanted.**
 
 **The mirror: an inconvenient answer is waved through because accepting it feels
-like rigour.** (leader's, worded by them, landed verbatim.)
+like rigour.**
 
 *"Re-ask any question whose answer you liked"* catches the flattering case. The
 unflattering one has no such trigger, and the reason is that **accepting a cost
@@ -2843,8 +2591,8 @@ something that means more work for you, taking it on the chin reads as honesty �
 you are visibly not defending your own position — and that feeling occupies the
 place where the verification would have gone.
 
-Measured: m1 reported that `run_with_long_stall.py` was untracked. It
-was plausible, it was about a file the package owner had written, and it meant work.
+Measured: a report that `run_with_long_stall.py` is untracked. It is plausible,
+it is about somebody else's file, and it means work.
 **Nothing about it felt wrong**, which is the point. It was checked only because
 the day had made checking reflexive:
 
@@ -2873,11 +2621,11 @@ anything a reader would treat as "unknown".**
 find -newermt '-6 minutes'   returned NOTHING one minute after a file was written.
                              Reporting it would have called a working run stalled.
                              The shell here is `bfs`, which rejects GNU relative
-                             time spellings -- and we had all been discarding that
-                             complaint with `2>/dev/null`.
+                             time spellings -- and that complaint is routinely
+                             discarded with `2>/dev/null`.
 
 df /var/lib/docker           reported 123G/70G on a filesystem a 28.5 GB `docker
-                             load` does not move. I refused the load on it.
+                             load` does not move, and the load was refused on it.
                              **Two independent routes agreed** -- the exec
                              namespace and a host bind-mount through the daemon --
                              and both were wrong, because both shared the
@@ -2890,7 +2638,7 @@ pgrep -f "docker save"       matched its own command line, because the pattern w
 docker inspect --format
   '{{if hasPrefix ...}}'     `hasPrefix` is not a docker template function. It
                              printed EMPTY rather than erroring, so "the container
-                             has no GPU pin" and "my template is broken" were the
+                             has no GPU pin" and "the template is broken" were the
                              same output. The pins were there: 0,1,2,3 and 4,5,6,7.
 ```
 
@@ -2925,22 +2673,21 @@ actionable, confident misattribution**: a real diagnosis, of the wrong thing.
 help, because the query was fine** — only a *different* tool exposes it, and
 here the tool with the right answer was already installed and one word away.
 
-**The fifth is the sharpest of the set** and it arrived after this entry was
-filed. A character class that silently starts matching mid-token, used to check
-what a name *is*. It failed in the same direction as the other four -- confident,
-wrong, no error -- and it did so **inside the act of verifying**, which is the one
-place we had been treating as safe.
+**The fifth is the sharpest of the set.** A character class that silently starts
+matching mid-token, used to check what a name *is*. It fails in the same
+direction as the other four -- confident, wrong, no error -- and it does so
+**inside the act of verifying**, which is the one place that reads as safe.
 
 **The property is the direction, not the count.** A tool that degrades toward
 *"I cannot tell"* costs a second measurement. These four cost a **finding** —
-each one had a false conclusion already drafted behind it, and three of those
-conclusions would have landed on somebody else's work: a stalled run, a corrupt
-backup, a container with no pin.
+each one has a false conclusion already drafted behind it, and three of those
+conclusions would land on somebody else's work: a stalled run, a corrupt backup,
+a container with no pin.
 
 **What actually caught all four was a second, independent measurement**, never
 care or suspicion. `-newermt` fell to `-printf '%T@' | sort -rn`; the `df` fell
 to a before/after across the operation itself; `hasPrefix` fell to a plain dump.
-**The `df` is the instructive one: I had already sought a second route and got
+**The `df` is the instructive one: a second route was already sought and gave
 the same wrong answer, because agreement between two routes is not corroboration
 when both rest on the assumption being tested.**
 
@@ -2960,8 +2707,8 @@ shape (a name that resolves while the value it names is false).
 
 ### T60 — the graph ceiling is chosen by stage 1's load and spent by stage 2's
 
-**First real cross-stage refusal, rung 2e.** `check_bench_result`
-refused `profiling_mode_off.bench_result`, `strong`:
+**The first cross-stage refusal.** `check_bench_result` refuses
+`profiling_mode_off.bench_result`, `strong`:
 
 ```
 kit ceiling (--cuda-graph-max-bs)      16
@@ -3007,8 +2754,7 @@ arms would inherit the same wrong value.
    but stage 1 cannot know what stage 2 will demand, so it is a guess dressed as
    a default.
 
-**Not decided here.** Recorded because the team was unreachable for 75+ minutes
-when it was found and the next rung will hit it again within the hour.
+**Not decided here**, and recorded because the next run hits it again.
 
 #### What must not happen
 
@@ -3050,11 +2796,9 @@ when unset and makes the hook usable. **One line, behaviour-identical by default
 * it makes the ceiling settable, it does not decide **what it should be**. 32
   covers the 25.42 observed once; nothing says that generalises to another trace.
 
-**Deliberately not done by the lead.** It is m2's file and T60's decision is m1's
-and m2's jointly; the lead recorded the exact fix instead of applying it, so that
-landing it is a minute's work rather than a rediscovery. The team was unreachable
-for 2 h 20 min when this was written, and 217 sat idle rather than being spent on
-a run that would refuse identically.
+**Recorded rather than applied.** It is m2's file and the decision spans m1 and
+m2, so the exact fix is written down instead — landing it is a minute's work
+rather than a rediscovery.
 
 #### Correction to the addendum — the direct parameter is the better lever, and the real gap is `KIT_ENV_PREFIX`
 
@@ -3159,9 +2903,9 @@ instead of 16; the producer used the non-deprecated `--cuda-graph-max-bs-decode`
 and verified from `/get_server_info` that capture buckets reached 32; and
 `graph_ceiling` was taught that spelling so it read the kit instead of refusing it.
 
-#### The part that corrects the brief I wrote
+#### The part that corrects the brief
 
-**rung 2e measured decode concurrency 25.42. rung 2f measured 4.909 — same trace
+**Two runs of one trace measure decode concurrency 25.42 and 4.909 — same trace
 (721 records both times), same tp, same model.**
 
 The ratio is ~5.2x, and the eager-fallback penalty measured on this cluster is
@@ -3171,8 +2915,8 @@ eager decode, eager decode is ~4.6x slower, slower decode leaves more requests
 in flight, and the in-flight count is the concurrency. **A positive feedback loop
 in which the symptom looks like the requirement.**
 
-**This makes the number I put in `deploy_and_prove.task/readme.md` misleading.**
-I wrote *"stage 2's Mooncake trace replay reached 25.42, so `>= 16` is not
+**This makes the number in `deploy_and_prove.task/readme.md` misleading.** It
+says *"stage 2's Mooncake trace replay reached 25.42, so `>= 16` is not
 sufficient"*. The first half is a true measurement of a *degraded* run; a future
 producer sizing to cover 25.42 would over-provision on a rationale that does not
 hold once the ceiling is right.
@@ -3195,7 +2939,7 @@ circular unless you measure twice. Recorded so the next person does not read
 here because both the package owner and m2 independently said it is a shape the day's
 collection did not already contain.
 
-`check_no_regression/check.py`, before `ce2d5a6`:
+`check_no_regression/check.py`, before the fix:
 
 ```python
 name = args.get("schema")
@@ -3214,18 +2958,18 @@ That much is ordinary — `items_schema`'s shape, present and checking nothing.
 
 It surfaced only because `probe_validators.py` was passing `args={}` to every
 validator — a *defect* in the probe. Under that defect, `check_no_regression`
-returned **True** with all six args discarded, and the passing row is what m2
-flagged: *a validator stripped of its thresholds passes trivially.*
+returns **True** with all six args discarded, and the passing row is the tell:
+*a validator stripped of its thresholds passes trivially.*
 
-The probe has since been fixed to pass the real args. **So the condition that
-reveals this can no longer occur through the tool.** Every other instrument
-failure recorded today was visible *because* something was broken:
+Once the probe passes the real args, **the condition that reveals this can no
+longer occur through the tool.** Every other instrument failure recorded here is
+visible *because* something is broken:
 
 | shape | how it becomes visible |
 |---|---|
 | a check that cannot fail (§4.4) | by asking what it would report if the subject were broken |
 | a bar neutralised by a default | by reading the default |
-| a probe that reads a warning as the thing warned about (entry 20) | by reading the matched line |
+| a probe that reads a warning as the thing warned about | by reading the matched line |
 | **this** | **only while a second tool is malfunctioning** |
 
 A working probe supplies `schema`, the branch is taken, and the validator does
@@ -3243,9 +2987,9 @@ accident once the callers are correct.
 
 #### What was done
 
-`ce2d5a6`: absent `schema` is now a refusal that names the missing arg. Verified
-both directions — with the step's args it refuses on the documented 35 %/30 %
-bars, with `schema` removed it refuses on the arg.
+Absent `schema` is now a refusal that names the missing arg. Verified both
+directions — with the step's args it refuses on the documented 35 %/30 % bars,
+with `schema` removed it refuses on the arg.
 
 #### Where else to look
 
@@ -3351,11 +3095,11 @@ could have shared its defect; the fourth could not.
 still held, stage still `running`. **The run is healthy in every field a reader
 would check.**
 
-**Holder: m2**, who has built the right instrument for it — a two-arm control on
-088, `p5_m2cap` on cards 0–3 with the fix and `p5_ctl` on cards 4–7 without.
+**Holder: m2**, where the right instrument for it exists — a two-arm control,
+one arm with the fix and one without, on disjoint cards of one node.
 
-**Do not merge with m2's `475f2fc`** (the capture step waiting on another
-package's log) until m2 rules. **Their proximity in time is not evidence.**
+**Do not merge with the capture step waiting on another package's log.** Their
+proximity in time is not evidence that they are one fault.
 
 ---
 
@@ -3526,12 +3270,12 @@ the two producers it named.
 
 **The mock is a third vocabulary and the worst of them.**
 `mock_adapt.py` hard-codes `"tags": ["softmax", "sglang", "generic-fellow"]`
-— a literal name KernelForge does not register. Before `62032fc` that flowed
-through untouched. So mock did not merely fail to show the defect; **the mock
-corpus is where `generic-fellow` comes from in the first place.**
+— a literal name KernelForge does not register, and unguarded it flows through
+untouched. So the mock does not merely fail to show the defect; **the mock corpus
+is where `generic-fellow` comes from in the first place.**
 
-**Landed (`62032fc`, `f92e42b`), and it is better than the wrong diagnosis
-deserved.** The generator accepts **both** vocabularies — suffixed from
+**Landed, and it is better than the wrong diagnosis deserved.** The generator
+accepts **both** vocabularies — suffixed from
 `scaffold`, bare from the agent — validates against `fellows/constants.py`, and
 refuses instead of substituting. It would have been correct under either
 diagnosis, which is why the wrong one survived a landing. **The defect is
@@ -3551,8 +3295,8 @@ build time rather than at campaign time; (c) delete `generic-fellow` from
 **How the wrong diagnosis got here, since it is the day's shape once more:** it
 was inferred from one artefact — a workset whose Definitions happened to be
 agent-written — without opening the `operator_identity` that fed it. One
-artefact, one producer assumed, a cause named. The correction cost one
-`json.load` of a file that had been sealed for twenty minutes.
+artefact, one producer assumed, a cause named. The correction costs one
+`json.load` of a file that was already sealed.
 
 **Holder: m3.** Not blocking — the wrapper refuses rather than substitutes, so
 the dangerous outcome is gone even while the disagreement stands.
@@ -3561,8 +3305,7 @@ the dangerous outcome is gone even while the disagreement stands.
 
 ### T70 — `kernel_taxonomy.yaml` offers a fellow KernelForge does not have
 
-*M3 at the package owner's instruction, split out of `62032fc`
-rather than folded into it.*
+*Split out of the T69 fix rather than folded into it.*
 
 `assets/lib/kernel_taxonomy.yaml` maps a symbol shape to
 **`tilelang-fellow`**. KernelForge registers seven backends
@@ -3570,7 +3313,7 @@ rather than folded into it.*
 `aiter`, `hip`, `hipblaslt`, `intellikit`. **`tilelang` is not among them**, so
 that row can never be honoured.
 
-**Before `62032fc` it would have substituted**; now it refuses. That is the
+**Unguarded it would substitute**; it now refuses. That is the
 safe direction and it is also why this needs an entry: **the refusal reads like
 a configuration error at the point of use**, hours away from the row that
 caused it, to somebody who did not write either. The wrapper prints the seven
@@ -3608,11 +3351,11 @@ output against the mock-injected m3 material gave **zero intersection on
 operator names**, and three of the files m4 required existed only because the
 mock adapter wrote them. m4's stage refused on the real path for that reason.
 
-**Instance 2 — the four-versus-one operator count.** *Relayed from the package owner,
-not measured by me; recorded so the set is complete and marked so nobody reads
-it as mine.*
+**Instance 2 — the four-versus-one operator count.** *Relayed rather than
+measured here; recorded so the set is complete, and marked so nobody reads it as
+first-hand.*
 
-**Instance 3 — the fellow tag's spelling.** *m3, measured.* T69: the corpus
+**Instance 3 — the fellow tag's spelling.** *Measured.* T69: the corpus
 carries `<lang>-fellow`, real `identify` writes bare `<lang>`. The generator
 matched the corpus, so mock took the matching branch on every operator and real
 took the fallback on every operator — **100 % divergence, and both sides
@@ -3737,8 +3480,8 @@ void at::native::index_elementwise_kernel<128, 4, …>
 PyTorch ATen, rocprim, sgl_hip. `fellows:` says *"first match wins"* and
 `triton-fellow` is **first in the list**, so every one of those would be handed
 to the Triton fellow **before `hip-fellow` is ever consulted** — **58 of 124,
-47 % of the table.** That is the wrong-fellow hazard `62032fc` was built to
-stop, reintroduced at scale by the fix for it. **In the five-operator sample it
+47 % of the table.** That is the wrong-fellow hazard T69's fix exists to stop,
+reintroduced at scale by relaxing the pattern. **In the five-operator sample it
 looked like a 20 % edge case.**
 
 Full anchoring is what does the work — a symbol containing a space, `::` or `<`
@@ -3779,16 +3522,15 @@ triton-fellow         9                     20
 fellow — 64 % of the real kernel table.** The taxonomy classifies about a third
 of what the profiler actually sees. That is not a pattern bug and it is not
 fixed by this change; it is the size of the gap between the taxonomy and the
-workload, and nobody has measured it before today. **Worth its own entry once
+workload, and it is otherwise unmeasured. **Worth its own entry once
 somebody decides whether 64 % unclassified is acceptable** — most of those
 kernels are never promoted by `rank`, so the practical exposure is much smaller
 than the raw ratio, and *how much* smaller is unmeasured.
 
-**Renumbered from T72 to T73.** Another owner's `expect_ranks` entry
-took T72 at 08:04 and this landed at 08:24 (`3d7a05e` before `f834fcf`), so this
-one is the duplicate. **I reused a number read from a heading listing taken
-before theirs existed** — the stale-pointer class again, this time on an
-identifier rather than a line number, which is exactly what checkpoint's
+**Renumbered from T72 to T73**, because a concurrent `expect_ranks` entry took
+T72 first and this one is the duplicate. **A number read from a heading listing
+taken before the other entry existed** is the stale-pointer class again, this
+time on an identifier rather than a line number, which is exactly what
 *quote a finding by its name, not its number* rule is for. References in
 `assets/lib/kernel_taxonomy.yaml` updated in the same commit.
 
@@ -3825,20 +3567,18 @@ gained            7 kernels    3.220 %          pool +30 %
 `% Total`; the pool's current top is `chunk_fwd_kernel_o` at 2.860 %, so the
 largest newcomer at **2.350 % would land at rank 2** — ahead of everything
 currently selected except k004. The other six are <= 0.54 % and would not be
-promoted. **So: one kernel that should have been a top-two candidate has been
-invisible to `rank` for this entire effort**, and six pool members that change
-nothing.
+promoted. **So: one kernel that should be a top-two candidate is invisible to
+`rank`**, and six pool members that change nothing.
 
-**It does not invalidate existing worksets.** The four operators m4 is
-optimising were selected correctly; none of the seven displaces them below rank
-5. The distortion is an **omission at rank 2**, not a wrong ordering of what was
+**It does not invalidate existing worksets.** The four operators m4 optimises are
+selected correctly; none of the seven displaces them below rank 5. The distortion is an **omission at rank 2**, not a wrong ordering of what was
 chosen.
 
 **Scope limit, and the number is only as general as the trace:** this is one
 profile, one workload, one node. `2.350 %` for a *decode* kernel is a property
 of this trace's prefill/decode mix. On a decode-heavier trace that kernel's
-share would rise and the omission would matter more. **I have not measured that
-and am not extrapolating.**
+share would rise and the omission would matter more. **That is unmeasured, and
+nothing here extrapolates to it.**
 
 **HELD, for the round's goal rather than the
 measurement.** This round is 跑通即可 — get the chain through, explicitly not real
@@ -3862,21 +3602,20 @@ measurement already behind it.
 
 ### T74 — a killed validator leaves its own deployment holding the cards
 
-**Filed by m1**, from a `p4_i` run. Recorded as a
-todo rather than fixed, because the observed cause is already fixed and this is
-the residual.
+**Recorded as a todo rather than fixed**, because the observed cause is already
+fixed and this is the residual.
 
-`check_deploy_serves` brings a deployment up itself. When the run was torn down
-at 12:02 it took **SIGTERM mid-flight**, so the `finally` that runs
-`teardown.sh` never ran, and the serving container plus its etcd
-sidecar **kept four MI355X cards at 75 % for thirty-three minutes** after the
-orchestrator was gone. Nothing in the run reclaims them: the containers outlive
-the job by design, and the run's own exit path does not know the validator had
-brought anything up.
+`check_deploy_serves` brings a deployment up itself. A run torn down while it is
+in flight delivers **SIGTERM mid-`finally`**, so `teardown.sh` never runs, and
+the serving container plus its etcd sidecar keep four cards at 75 % for as long
+as anyone leaves them — measured at thirty-three minutes after the orchestrator
+was gone. Nothing in the run reclaims them: the containers outlive the job by
+design, and the run's own exit path does not know the validator brought anything
+up.
 
-**What is already done.** `a2eb6a4` bounds every `on()` call at 600 s, which
-removes the hang that got this validator killed in the first place. That closes
-the instance, not the class.
+**What is already done.** Every `on()` call is bounded at 600 s, which removes
+the hang that gets this validator killed in the first place. That closes the
+instance, not the class.
 
 **What is left, and why it is not obviously worth doing.** A `SIGTERM` handler
 in the validator that runs the teardown would close it. Against that: a handler
@@ -3886,27 +3625,28 @@ job is to be trustworthy, and the leak is detectable in one command
 mitigation is operational** — after any run that ends in `ValidatorInvalid`,
 check the node for `*_serves-*` containers before launching on those cards.
 
-**And it is not only mine.** Any validator that brings something up on a node
-has this shape; `check_patch_live` and m5's arms are the same construction. So
-if it is worth a handler, it is worth one in a shared helper rather than four.
+**And it is not one validator's problem.** Any validator that brings something
+up on a node has this shape; `check_patch_live` and m5's arms are the same
+construction. So if it is worth a handler, it is worth one in a shared helper
+rather than four.
 
 **Holder: m1**, pending someone wanting the class closed rather than the
 instance.
 
 ### T75 — constrain the `optimized_kernel.py` slot by KIND, not by filename — deferred, and the deferral is the decision
 
-**Raised by m4 and explicitly handed up rather than taken.**
-That was right: it changes a handoff contract, which is not a module owner's call.
+**Handed up rather than taken**, because it changes a handoff contract, which is
+not a module owner's call.
 
 **The defect** (29's thesis, and it has two instances today): 「一个优化后的 kernel」
 和「一个内嵌了优化后 kernel 的测量候选」**同名、同后缀、同位置**。
 `60_write_handoff.py` publishes whatever is there as `results/optimized_kernel.py`,
 and `apply_patch` overlays it into a real image.
 
-- **Instance A (leader, morning):** the slot held the workset's `reference.md` --
-  prose. `ast.parse` fails outright. Guarded only by `base_sha256`, **and I removed
-  that guard myself** by measuring the true hash on a node and filling it in.
-- **Instance B (m4, 14:08):** the slot held a valid, self-documenting, correct
+- **Instance A:** the slot holds the workset's `reference.md` -- prose.
+  `ast.parse` fails outright. Guarded only by `base_sha256`, **and that guard is
+  removed by anyone who measures the true hash on a node and fills it in.**
+- **Instance B:** the slot holds a valid, self-documenting, correct
   three-part composite -- an `--impl` for the workset harness whose Part 2
   monkey-patches sglang at import and whose Part 3 defines `run`.
   **Part 1 verifiably IS iteration 2; the file does not lie.**
@@ -4071,8 +3811,8 @@ history and nowhere else, and the process table loses it the moment the run ends
 
 #### The worked example: a verdict that is a function of an unrecorded argument
 
-Grading `p9`'s and `217d`'s `profiling_mode_on.profile_result` offline
-(`assets/lib/grade_offline.py`, `3313f79`) with `check_trace_coverage`:
+Grading two runs' `profiling_mode_on.profile_result` offline
+(`assets/lib/grade_offline.py`) with `check_trace_coverage`:
 
 | `expect_ranks` | verdict |
 |---|---|
@@ -4102,32 +3842,30 @@ grading table needs a mocked/real column, not one value for the sweep. *(This sw
 graded only real runs, so it is not affected — but nothing in the harness would have
 noticed if it had not been.)*
 
-**m3 answered for `217d`: `--var expect_ranks=4`, and they checked before answering** —
+**The launch value for one such run is recoverable only by asking**:
 `grep -rl expect_ranks` across that run tree returns only unrendered package sources,
-and `E2E_EXPECT_RANKS` appears in no staged environment anywhere in the run. **Two
-owners independently confirmed the entry's central claim while answering a question
-about something else.**
+and `E2E_EXPECT_RANKS` appears in no staged environment anywhere in the run — which
+is the entry's central claim, confirmed twice while answering a question about
+something else.
 
-**m3's caveat, which is the more careful reading and cuts against the tidy answer:**
-their 4 and m4's 4 are **not independent** — m4's came from `tp_size: 4`, theirs from a
-canonical block whose rule is literally `--var expect_ranks=<the kit's tp_size>`.
+**And the careful reading cuts against the tidy answer:** two reports of `4` are
+**not independent** — one comes from `tp_size: 4`, the other from a canonical block
+whose rule is literally `--var expect_ranks=<the kit's tp_size>`.
 **Both terminate at the same field**, so the agreement establishes that the run was
 launched with 4, **not that 4 is correct**. The one genuinely independent leg comes
 from the artefact: `items/env/trace_manifest.json` enumerates ranks 0–3, four entries,
-each with its own bytes/sha256/event count — **and on `p9` the four per-rank
-`gpu_kernels` sum to exactly the 823736 the validator reached by re-parsing the traces
-from scratch.**
+each with its own bytes/sha256/event count — **and the four per-rank `gpu_kernels`
+sum to exactly the 823736 the validator reaches by re-parsing the traces from
+scratch.**
 
-**And m3's correction to the framing, which is sharper than the version above:**
-both runs were `-noval`, so `check_trace_coverage` **never executed during the run at
-all**. The counterfactual *"would it have refused"* is therefore **unreachable from the
+**And the sharper framing:** both runs were `-noval`, so `check_trace_coverage`
+**never executed during the run at all**. The counterfactual *"would it have refused"* is therefore **unreachable from the
 run in either direction** — there is no in-run verdict to compare against, only
 `check_nothing`. **Knowing the launch value does not make it answerable**; offline
 grading establishes what the validator says now, and nothing about what it would have
 said then.
 
-*(Superseded note: this entry first treated the counterfactual as answerable once the
-launch value was known. It is not.)*
+*The counterfactual is not answerable merely because the launch value is known.*
 
 #### Why this is one item and not five
 
