@@ -77,3 +77,14 @@ cache/flashinfer/
 **/benchmark.jsonl
 **/console.log
 **/bench_snapshot/
+
+# --- Agent scratch workspaces (yihou) ---
+# Per-experiment working directories: iterations, logs, raw traces, scratch notes.
+# They hold NO code — the shared harness lives in
+# sglang_decode_internal_bench_and_profiling/ and published results live in packups/.
+# Kept on disk for reference, deliberately out of the repo: they are ~390 MB of
+# regenerable artefacts and committing them would grow git history permanently.
+temp_workspace/
+
+# Serena (LSP agent) per-project cache — tool state, not a deliverable.
+.serena/

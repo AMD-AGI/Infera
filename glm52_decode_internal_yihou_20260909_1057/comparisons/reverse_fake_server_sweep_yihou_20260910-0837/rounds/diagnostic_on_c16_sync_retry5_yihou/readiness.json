@@ -1,8 +1,0 @@
-{
-  "time": "2026-09-10T09:51:11.479389+00:00",
-  "round": "diagnostic_on_c16_sync_retry5_yihou",
-  "job": "131219",
-  "elapsed_seconds": 225,
-  "state": "ready",
-  "curl_exit": 0
-}
