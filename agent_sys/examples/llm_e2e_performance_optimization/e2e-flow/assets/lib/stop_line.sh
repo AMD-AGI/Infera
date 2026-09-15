@@ -8,13 +8,12 @@
 # rejects at RUNTIME with `Illegal option -o pipefail`. `dash -n` accepts it
 # — a syntax check cannot fail on an invalid option — so this was verified by
 # running it, not by parsing it. Do not 'simplify' it back to `sh`.
-#     sh assets/lib/stop_line.sh 287927 112862 yihou_w17m1f
+#     sh assets/lib/stop_line.sh <run pid> <jobid> <container>
 #
-# **THREE steps. Every teardown on 2026-09-05 did two.** Mine did, and so did the
-# leader's when they stopped a run of mine that had a live engine at the time —
-# that one got away with it only because the container went down with the run.
-# *That a given teardown happened to create nothing does not make the omission
-# safe.* The step that is missing is always the third.
+# **THREE steps, and an ad-hoc teardown reliably does two.** A teardown that
+# happens to leave nothing behind does so because the container went down with
+# the run, not because the omission was safe. *The step that is missing is always
+# the third.*
 #
 #     1. agents        by PROCESS PARENTAGE
 #     2. orchestrator

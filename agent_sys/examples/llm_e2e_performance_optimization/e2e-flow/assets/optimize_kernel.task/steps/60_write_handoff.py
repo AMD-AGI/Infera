@@ -77,8 +77,8 @@ Ordered and copy-pasteable. Every command was run.
 # local path, and the seal rejects the handoff at this file's line number.
 # Inside the quotes the preceding character is the variable's last letter,
 # which is in the class. `cd "$PACKUP"` first and going relative is equally
-# safe. Measured 2026-09-04 against `_CANDIDATE`; found by m5 at rung 5,
-# because `packup` carries this file verbatim and nothing before that seals it.
+# safe. Measured against `_CANDIDATE`, and it matters because `packup` carries
+# this file verbatim and nothing before that stage seals it.
 ```
 
 ## Expected output
@@ -137,11 +137,12 @@ def _engine_patch(forge_dir: Path) -> str:
     """STEP 3's `engine.patch`, read rather than re-derived.
 
     **Empty is a result and absent is a mock**, so neither is an error here.
-    Forge reverting every candidate is `improved: false`, and since `f1c088b`
-    that is *distinguishable* from a plumbing failure — the diff used to be cut
-    against `HEAD`, which is empty exactly when a campaign succeeds because
-    forge commits its keeps. Measured on 275: `git diff HEAD` 0 lines,
-    `git diff $BASELINE` 9. Re-deriving it here would reintroduce that choice in
+    Forge reverting every candidate is `improved: false`, and that is
+    *distinguishable* from a plumbing failure only because the diff is cut
+    against the baseline rather than `HEAD` — `HEAD` is empty exactly when a
+    campaign succeeds, because forge commits its keeps. Measured:
+    `git diff HEAD` 0 lines, `git diff $BASELINE` 9. Re-deriving it here would
+    reintroduce that choice in
     a second place, which is the whole reason STEP 3 writes the file.
     """
     path = forge_dir / "engine.patch"
@@ -401,13 +402,13 @@ def main() -> int:
 
     premise = lib.load_json(state / "premise.json")
 
-    # **The observation beside the claim, never merged into it** (leader's
-    # ruling on T34). `premise.run_environment` is m1's record carried
-    # verbatim — true of the container it was written about, and silent about
-    # whether that is the container that did this work. m1 measured the gap:
-    # a record saying `started_at 09:03:51` against a container whose `Created`
-    # and `StartedAt` were both `09:37:18` with `RestartCount 0`, which is a
-    # different container wearing the same name while every field validates.
+    # **The observation beside the claim, never merged into it** (T34).
+    # `premise.run_environment` is m1's record carried verbatim — true of the
+    # container it was written about, and silent about whether that is the
+    # container that did this work. The gap is measurable: a record saying
+    # `started_at 09:03:51` against a container whose `Created` and `StartedAt`
+    # are both `09:37:18` with `RestartCount 0` is a different container wearing
+    # the same name while every field validates.
     #
     # `run_in_container.sh` is the only code here that touches docker, so it is
     # the only place that can observe this, and it writes what it saw into the

@@ -18,11 +18,11 @@ CTR="${CTR:?CTR=the engine container this capture drives}"
 #: Where the traces land **on the host**. mkdir, du and ls use this one.
 TRACE_OUT="${TRACE_OUT:?}"
 #: The same directory **as the engine container sees it**, which is not the same
-#: string. This file used to assume it was — `docker exec test -d "$OUT"` was
-#: literally that assumption written down — and it held only because the
-#: bring-up it was written against mounted the trace directory at the same path
-#: inside. m1's `deploy_kit` mounts its work root at `/workdir`, declares where
-#: in `deployment.json`'s `work_root_in_container`, and is right to: mandating
+#: string, and assuming it is — `docker exec test -d "$OUT"` is that assumption
+#: written down — holds only for a bring-up that mounts the trace directory at
+#: the same path inside. A `deploy_kit` that mounts its work root at `/workdir`
+#: and declares where in `deployment.json`'s `work_root_in_container` is right
+#: to: mandating
 #: "same path inside" would overturn a working convention for every kit.
 #:
 #: Defaults to `$TRACE_OUT`, so the same-path convention keeps working unchanged

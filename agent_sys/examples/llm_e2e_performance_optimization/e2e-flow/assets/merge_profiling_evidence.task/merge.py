@@ -68,7 +68,7 @@ PARTS = {
 #: nested. Nesting it was the first shape and `check_profiling_evidence` caught
 #: it: the validator looked for `trace/manifest.json` and the merge had written
 #: `trace/result/manifest.json`. One rule for four parts is what stops a
-#: consumer having to know which content type each part used to be.
+#: consumer having to know which content type each part came from.
 #:
 #: `env/` travels for every part because the load configuration in it is what
 #: makes the two benches comparable, and is not recoverable from the numbers.

@@ -59,15 +59,15 @@ def _hash_from_image(container_path: str, image: str) -> str | None:
 
     **A mock may obtain a real fact by a route the producer does not use; it may
     not assert a fact the producer does not have.** Leader's ruling,
-    2026-09-04, drawing the line between this and synthesising a
-    `public_symbol`: `60_write_handoff.py` writes this same field hashed from
-    the stock file, so extracting it from the image is *the same fact by another
-    route*. A `public_symbol` the real workset records as `null` would be a
-    *different fact*, and both m5 and I refused that one.
+    The line between this and synthesising a `public_symbol`:
+    `60_write_handoff.py` writes this same field hashed from the stock file, so
+    extracting it from the image is *the same fact by another route*. A
+    `public_symbol` the real workset records as `null` would be a *different
+    fact*, and that one is refused.
 
     **Why it is needed.** `mock_adapt` runs on a login node with no engine tree,
-    so the fallback below hashes the *replacement* and says so. m5's
-    `apply.py` then refuses — correctly — with *"the patch was cut against
+    so the fallback below hashes the *replacement* and says so. `apply.py`
+    then refuses — correctly — with *"the patch was cut against
     fcd3c924e48d…"*, and the run stops two gates before their compile check and
     both surface refusals ever see input. Measured 2026-09-04 by driving
     `apply.py` standalone against rung 0's own artefact.
@@ -75,9 +75,8 @@ def _hash_from_image(container_path: str, image: str) -> str | None:
     **The idiom is m5's, copied rather than re-derived** (`apply.py`,
     CONTRACT §4.1): `docker create` starts no process and touches no GPU, the
     `trap` removes the handle, and `patchkit.expand` turns the `@ROOT@` form
-    into the path the image actually has — a lesson their comment already paid
-    for once, when a doubled `python/sglang` made `docker cp` refuse a path no
-    image contains.
+    into the path the image actually has, which is what stops a doubled
+    `python/sglang` making `docker cp` refuse a path no image contains.
 
     **Returns `None` rather than raising.** No allocation, no reachable node and
     no such path in the image are all ordinary on a login node, and a mock that
@@ -123,10 +122,9 @@ def _stock_from_image(container_path: str, image: str, scratch: Path) -> str | N
     **A shared destination, not a stream, and not a login-node tempdir.**
     `_hash_from_image` streams through `sha256sum` because a digest is all it
     needs and streaming removes the locality question entirely. A diff needs the
-    *bytes*, so there is something to transport and the question comes back —
-    and the first version of `_hash_from_image` got it wrong by writing to a
+    *bytes*, so there is something to transport and the question comes back. A
     `tempfile.TemporaryDirectory()` created here while `docker cp` runs on the
-    **node** (*invalid output path*). So `scratch` must be a path both hosts
+    **node** gives *invalid output path*. So `scratch` must be a path both hosts
     mount; the caller passes one under the run root, which is NFS.
 
     Streaming the content back through `nodecall.on` was the alternative and is
@@ -284,7 +282,7 @@ def _reseat_quotes(packup: Path) -> list[str]:
     local path. Inside the quotes the preceding character is the variable's last
     letter, which is in the class, so `cp "$PACKUP/scripts/kernel/"*.py` seals.
 
-    Found by m5 at rung 5: `packup` carries this file verbatim into the terminal
+    It matters because `packup` carries this file verbatim into the terminal
     kit, and nothing before that stage seals a `kernel_optimization` at all.
 
     **This is an adaptation, not a redaction.** No number, path or claim
@@ -310,10 +308,10 @@ def main() -> int:
     ap.add_argument(
         "--premise",
         default=os.environ.get("E2E_MOCK_PREMISE", "matched"),
-        # `matched` is MOCK-MAP (G)'s word and is canonical. `held` is accepted
-        # because an earlier draft of this script used it and the value travels
-        # through a `--var`; an operator who types the old one should get the
-        # behaviour they meant rather than an argparse error two stages in.
+        # `matched` is MOCK-MAP (G)'s word and is canonical. `held` is
+        # accepted as a synonym because the value travels through a `--var`, and
+        # an operator who types it should get the behaviour they meant rather
+        # than an argparse error two stages in.
         choices=("matched", "held", "mismatched"),
         help="`mismatched` reproduces the sealed run's gfx942-vs-gfx950 abort on purpose",
     )
@@ -482,8 +480,8 @@ def main() -> int:
             lib.die(
                 f"this operator is `call_site_fragment`, so it must be installed as a diff, and "
                 f"the stock {target_files[0]} could not be read out of {image}. Without it there "
-                "is nothing to cut a patch against -- and the whole-file overlay that used to be "
-                "emitted here is the shape m5's applier refuses by name"
+                "is nothing to cut a patch against -- and a whole-file overlay is the shape "
+                "the applier refuses by name"
             )
         # **The diff is cut in the CONTAINER frame, not the workset's.**
         # `apply.py` does `split_placeholder(container_path)` and extracts
@@ -653,9 +651,9 @@ def main() -> int:
                 "measured by m3 in this run on this node, because in mock mode "
                 "results/optimized_kernel.py IS that baseline source verbatim and no campaign "
                 "was run. It is a real measurement of exactly this source on this host; it is "
-                "NOT a measurement m4 made. It used to carry the sealed 2026-09-02 numbers, "
-                "which rung 0 refused at -17.5% across three cases on 2026-09-04 -- different "
-                "machine, different day."
+                "NOT a measurement m4 made. Carrying the sealed corpus's numbers here instead "
+                "is refused at -17.5% across three cases -- a different machine on a different "
+                "day."
             )
             + (
                 f" A `run(*args, **kwargs)` entry point delegating to `{impl_entry}` was appended "

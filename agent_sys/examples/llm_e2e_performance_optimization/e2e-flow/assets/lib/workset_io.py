@@ -282,8 +282,8 @@ def write_report(validator: str, findings: dict[str, tuple[list[str], list[str]]
       evidence the gate did its job; keeping reasons only when they are bad
       makes the record of a working gate the one thing never kept.
     * **Call it *before* `zone.write_verdict`.** A crash in the verdict writer
-      then cannot take the reasons with it. This ordering is the lesson from a
-      teardown that ran after the thing it protected and therefore never ran.
+      then cannot take the reasons with it — the same ordering a teardown needs
+      if it is to run at all.
     * **A crash is not a refusal.** Wrap `_check` and record
       `THIS VALIDATOR DID NOT RUN` as a problem, so a broken instrument does
       not read as a judgement about the artefact. `verdict.json` cannot express
@@ -292,10 +292,10 @@ def write_report(validator: str, findings: dict[str, tuple[list[str], list[str]]
     ## Pass `verdicts`, and why the optional argument exists
 
     **Without it the heading is *inferred* from `problems` being non-empty,
-    and a caller whose list holds anything else makes it lie.** m2 hit exactly
-    that within the hour: their bodies keep refusals and informational lines in
-    one `reasons` list, so a **passing** artefact wrote `verdict.json
-    {"h": true}` under a heading of `REFUSED`. **That is the same
+    and a caller whose list holds anything else makes it lie.** A body that keeps
+    refusals and informational lines in one `reasons` list writes a **passing**
+    artefact's `verdict.json {"h": true}` under a heading of `REFUSED`. **That is
+    the same
     heading-contradicts-its-own-text defect the crash split had just removed,
     one field over, and on every passing run rather than only on crashes.**
 

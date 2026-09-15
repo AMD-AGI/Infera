@@ -662,9 +662,9 @@ def main() -> int:
             f"the two arms ran different sequences: {order['stock']} vs {order['patched']}"
         )
 
-    # **The absolute bar beside the relative one** — m5's call site of
-    # `graph_ceiling`, the package owner's two-call-site ruling (m2's bench is the
-    # other, `49fcbc3`). It is here rather than folded into `stock_vs_m2_block`
+    # **The absolute bar beside the relative one** — this is one of
+    # `graph_ceiling`'s two call sites, the other being m2's bench. It is here
+    # rather than folded into `stock_vs_m2_block`
     # because that function is a *comparison* and CONTRACT §4.6 is exactly that
     # a comparison cannot see this: both arms can be in eager decode, agree
     # perfectly, and produce a block indistinguishable from a healthy one.
@@ -703,11 +703,11 @@ def main() -> int:
             f"{args.stock_vs_m2_tolerance:.0%}: " + ", ".join(breached)
             + " — the two stages measured something different, so this comparison is between "
             "numbers that were never comparable.\n"
-            # **It used to say "different machines", and this body cannot know
-            # that.** Two stages can disagree on the same host: a different
-            # engine build, a different serving configuration, or another
-            # tenant's load. Measured 2026-09-04 on rung 1 — the deployed engine
-            # gave 42.51 ms ITL where m1's floor was calibrated at 32.5 ms, a
+            # **Not "different machines": this body cannot know that.** Two
+            # stages can disagree on the same host: a different engine build, a
+            # different serving configuration, or another tenant's load.
+            # Measured — a deployed engine giving 42.51 ms ITL against a floor
+            # calibrated at 32.5 ms, a
             # 31 % gap on one node with nothing moved. Naming the machine would
             # have sent the reader to check the node, which was fine.
             #

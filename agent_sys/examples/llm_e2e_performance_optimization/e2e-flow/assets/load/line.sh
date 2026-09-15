@@ -19,9 +19,9 @@
 # 的 output 已经包含了如何部署的全量信息"* — so the bring-up is `deploy.sh` out of
 # the `deploy_kit` handoff, the readiness criterion is that kit's
 # `wait_ready.sh`, and the teardown is its `teardown.sh`. What this file adds is
-# the two-line configuration, the load, and the evidence. An earlier version
-# drove `assets/serve/mix_up.sh` directly; that worked and was a second copy of
-# m1's launch, which is precisely the duplication M2.3 removes.
+# the two-line configuration, the load, and the evidence. Driving
+# `assets/serve/mix_up.sh` directly works and is a second copy of m1's launch,
+# which is precisely the duplication M2.3 removes.
 #
 # **There is no `serve_*` task and no `deployment_*` handoff** — M2.5: *"agent A
 # 去把服务部署好，agent B 去使用：这是不被允许的"*. A task that needs a service
@@ -65,8 +65,8 @@ export E2E_KIT_PORT_BASE=$((E2E_PORT_ROUTER + PORT_OFFSET))
 # `run.env` and `env.sh` sources it after any export, so the mount is
 # `${WORK_ROOT}/${TAG}` and no amount of exporting from here wins that race.
 # **Neither side of the trace directory is computed from this** — both are read
-# out of the handshake in step 4. An earlier version derived the host side here
-# and would have collected traces from a directory the engine never wrote to.
+# out of the handshake in step 4. Deriving the host side here collects traces
+# from a directory the engine never wrote to.
 export E2E_KIT_WORK_ROOT="$WORK/$SUFFIX"
 
 # The two configuration values that are the whole difference between the lines.
@@ -85,8 +85,8 @@ if [ "$CAPTURE" = "1" ]; then
   E2E_KIT_ENGINE_EXTRA_ARGS="--disable-cuda-graph"
   E2E_KIT_ROUTER_EXTRA_ARGS="--enable-profiling"
   # **`E2E_KIT_ENGINE_EXTRA_ENV` stays empty, and `SGLANG_TORCH_PROFILER_DIR` is
-  # not set at all.** I named it as the example when asking m1 for the seams and
-  # it was wrong: the working pipeline never sets it. The engine is told where to
+  # not set at all.** It is the obvious example and it is wrong: the working
+  # pipeline never sets it. The engine is told where to
   # write **per capture**, in the `/start_profile` request body's `output_dir`
   # (`../load/capture.sh`) — which is also what makes the two windows able to
   # write to different subdirectories of one round.

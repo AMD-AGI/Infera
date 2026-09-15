@@ -209,8 +209,8 @@ def _check_shapes(content: Path, root: Path, operator: dict, args: dict, problem
     primaries = [s["case_id"] for s in shapes if s.get("is_primary")]
     if len(primaries) != 1:
         problems.append(f"{label}: {len(primaries)} primary shape(s) {primaries}, expected exactly 1")
-    # Not "at least one", which is what this said until m4 found the gap. One
-    # timed shape passes here and is refused twice downstream — by STEP 1 of
+    # Not "at least one": under that reading one timed shape passes here and is
+    # refused twice downstream — by STEP 1 of
     # m4's packup and again by `check_speedup_substantiated`'s
     # `min_shapes_measured: 3` — so the loose reader was this one, at the output
     # boundary of the stage that produces the artefact. The floor and the rule
@@ -328,11 +328,11 @@ def _check_target_paths(operator: dict, problems: list[str], notes: list[str]) -
     integration = operator.get("integration") or {}
     target_files = [str(p) for p in (integration.get("target_files") or [])]
 
-    # **Against the identity, without the identity being here.** m5 found a
-    # workset naming `mixed_moe_gemm_2stage.py` where the identity said
+    # **Against the identity, without the identity being here.** A workset can
+    # name `mixed_moe_gemm_2stage.py` where the identity says
     # `moe_gemm_2stage.py`, and that comparison is not available to a validator
     # in this graph: no phase stages both kinds, so a two-kind validator binds
-    # to nothing (written and measured 2026-09-04, selected nowhere).
+    # to nothing — written and measured, selected nowhere.
     # `scaffold.py` therefore records what it derived from, and this compares
     # the pair inside one artefact — `base_sha256`'s move, one level up.
     provenance = edit_target.get("from_identity")
@@ -449,15 +449,14 @@ def _check(content: Path, args: dict, problems: list[str], notes: list[str]) -> 
         return False
 
     name = args.get("schema") or "workset"
-    # **A pre-`5c36cd3` workset fails the schema, and the bare error explains
-    # nothing.** `protocol.timing` was `event` while the harness measured
-    # wall-clock-around-a-sync; the enum now admits only the truth, so 51
-    # worksets already on disk refuse with `'event' is not one of
-    # ['wall_clock_sync']` — correct, and indistinguishable from a regression
-    # in whatever else changed that day. m2 predicted exactly that against
-    # their own gate before anyone met it.
+    # **A workset predating the enum narrowing fails the schema, and the bare
+    # error explains nothing.** `protocol.timing` of `event` beside a harness
+    # measuring wall-clock-around-a-sync is what the narrowing rejects, so every
+    # such workset already on disk refuses with `'event' is not one of
+    # ['wall_clock_sync']` — correct, and indistinguishable from a regression in
+    # whatever else changed at the same time.
     #
-    # Naming it costs four lines and turns a cryptic enum error into a dated
+    # Naming it costs four lines and turns a cryptic enum error into a stated
     # cause. The refusal stands: those numbers carry a method name that was
     # never used, and re-labelling them without re-measuring would be asserting
     # provenance nobody checked.
@@ -465,7 +464,7 @@ def _check(content: Path, args: dict, problems: list[str], notes: list[str]) -> 
     declared = ((document.get("protocol") or {}).get("timing"))
     if declared in _LEGACY_TIMING:
         problems.append(
-            f"protocol.timing is {declared!r}, a value this package retired in 5c36cd3. The "
+            f"protocol.timing is {declared!r}, a value this package has retired. The "
             f"harness has only ever measured 'wall_clock_sync' — perf_counter around `iters` "
             f"calls between two torch.cuda.synchronize() — so this workset is labelled with a "
             f"method that was never used. **This is an old artefact, not a regression.** "
@@ -646,17 +645,16 @@ def _validate_report(path: Path, definition: str, label: str, problems: list[str
 
     Resolved through `schema.py`'s **inlining**, not a `referencing` registry.
 
-    This function built its own `Registry` — and `schema.py` had already
-    deleted exactly that, with the reason written out: `referencing` is a
+    Building a `Registry` here is what `schema.py` exists to avoid, with the
+    reason written out: `referencing` is a
     `jsonschema>=4.18` dependency that `/usr/bin/python3` on this host does not
     have, and a body that reaches for it dies with `ModuleNotFoundError` before
-    it can decide anything. I re-solved a problem the shared module had solved,
-    twenty lines from the `import schema as S` that solves it — the third time
-    today I have hand-rolled something `assets/lib/` already owned (CONTRACT
-    §4.1).
+    it can decide anything. Re-solving it here, twenty lines from the
+    `import schema as S` that solves it, is hand-rolling something
+    `assets/lib/` already owns (CONTRACT §4.1).
 
-    **It cost the first run that ever got here.** `build_workset` sealed
-    `operator_workset` for the first time on 2026-09-04 and this validator then
+    **It costs the first run that gets here.** Once `build_workset` seals
+    `operator_workset` for the first time, this validator
     crashed on the import, wrote no `verdict.json`, and the handoff was recorded
     `invalid` — a missing dependency reported as a judgement about the artefact.
 

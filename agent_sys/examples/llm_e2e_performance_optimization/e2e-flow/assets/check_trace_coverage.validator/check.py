@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """`check_trace_coverage` — completeness, strong. Six rules over a capture.
 
-Carried across from the profiling stage's original `check_trace_coverage.validator/`,
-which had five of them and had been driven to a real cluster run. Rule 0 is new
-and is mission M2.2.2: *"profile result 应至少被对应解析工具正确 load"*.
+Carried across from the profiling stage's `check_trace_coverage.validator/`,
+which has five of them. Rule 0 is mission M2.2.2: *"profile result 应至少被对应解析工具正确 load"*.
 
 **The question is not "did eight files arrive".** A profiler window that opened
 on an idle scheduler produces eight perfectly well-formed trace files holding

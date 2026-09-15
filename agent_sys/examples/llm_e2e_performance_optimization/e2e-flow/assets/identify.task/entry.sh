@@ -11,10 +11,9 @@ bash "$PKG/assets/lib/mock.sh" stage3-analyze operator_identity || rc=$?
 if [ "$rc" -eq 0 ]; then
   # MOCK-MAP (A) + CONTRACT 3.4. `mock.sh` copies the sealed bytes faithfully
   # and on purpose; three things the sealed artefact could not have carried are
-  # added here, as a step after the copy. m1 hit this, then m2, then me — one
-  # lesson, three owners. Measured against the run at
-  # runroot/runs/20260903T150709-4be7ad, where this kind was `invalid` on
-  # check_environment AND, independently, on check_worklist_shape.
+  # added here, as a step after the copy. Without them this kind comes out
+  # `invalid` on check_environment AND, independently, on
+  # check_worklist_shape.
   exec "${AGENT_SYS_DEMO_PYTHON:-python3}" "$PKG/assets/lib/m3_mock_adapt.py" \
     --kind operator_identity --out "${AGENT_SYS_OUTPUT_OPERATOR_IDENTITY:?the runner exports this for an output slot}"
 fi

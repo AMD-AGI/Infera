@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """The other tenants' occupancy at a moment, in the shape `round_noise.py` reads.
 
-`round_noise.py` consumes `r["neighbour"]` per round and **nothing writes it** —
-which is m5's own objection turned on the field itself: *I will not build a
-comparison against a field nobody writes.* This is the producer.
+`round_noise.py` consumes `r["neighbour"]` per round, and without a producer
+nothing writes it — *a comparison against a field nobody writes is not a
+comparison.* This is the producer.
 
-T32, as m5 refined it. m3's `gpu.txt` is a `rocm-smi` **product-info** dump taken
-once at bring-up, so the card *set* is recoverable and the *occupancy during the
-measurement* is not. That second thing is what separates **"the artefact is
-wrong"** from **"the producer's card had a neighbour"**, and two of the worst
-numbers of 2026-09-04 needed exactly it:
+T32 refined. A `gpu.txt` holding a `rocm-smi` **product-info** dump taken once at
+bring-up makes the card *set* recoverable and the *occupancy during the
+measurement* not. That second thing is what separates **"the artefact is
+wrong"** from **"the producer's card had a neighbour"**, which is exactly what
+the hardest numbers to explain need:
 
 * the DELIVERY-NOTE refusal blamed a patch for a neighbour;
 * the sealed arms' `probe` read **2062 s** and re-measured at **37 s** on the

@@ -86,8 +86,8 @@ onto card 0, which on a shared host is somebody else's.
 
 ## The driver has to have measured the file we handed it
 
-m3's harness records `impl_read = {path, sha256, bytes, loaded_by}` **at the
-moment it reads** (`_common.py`, `782bb08`); this body compares that digest
+The harness records `impl_read = {path, sha256, bytes, loaded_by}` **at the
+moment it reads** (`_common.py`); this body compares that digest
 against the file it named on `--impl`, before any number in the report is read.
 
 **`impl_path` cannot do this.** It is `args.impl` copied at parse time — an echo
@@ -105,8 +105,8 @@ an honest `improved: false`. A wrong answer that looks exactly like the right
 one is the only kind this check exists for.
 
 An absent or `null` `impl_read` is **not** a failure: that is what a baseline
-run writes and what a pre-`782bb08` workset writes, and refusing those would
-fail correct artefacts for being older than the check.
+run writes, and what a harness predating the field writes, and refusing those
+would fail correct artefacts for being older than the check.
 
 **Seeing it refuse:**
 

@@ -61,10 +61,10 @@ while [ $# -gt 0 ]; do
     *) shift ;;
   esac
 done
-# **A bare `python3`, deliberately.** An earlier version said
-# `${KFO_PYTHON:-python3}` and masked a real bug: it honoured a variable the
-# validator was not setting, so the kit could not see that the chosen
-# interpreter never reached the entrypoint. A real workset script says
+# **A bare `python3`, deliberately.** A `${KFO_PYTHON:-python3}` here masks a
+# real bug: it honours a variable the validator may not be setting, so the kit
+# cannot see that the chosen interpreter never reached the entrypoint. A real
+# workset script says
 # `python3`, so this one does too.
 # **Where did this actually run?** The kit's real-transport mode passes 8/8 the
 # same as the local mode does, so a passing run is no evidence at all that the
@@ -108,13 +108,12 @@ for case_id, ms in side["per_case_ms"].items():
 json.dump({"schema_version": 1, "generated_by": "stubkit",
            "impl": "candidate" if a.side == "candidate" else "baseline",
            # **`impl_path` beside `impl`, because the real harness always sets
-           # both** (`_common.py`, `"impl_path": args.impl`). This stub
-           # omitted it entirely, so the kit exercised a report shape production
-           # cannot emit -- and once m3 bound the pair (`8ae9094`: candidate
-           # REQUIRES a non-empty `impl_path`), a stub candidate report became
-           # one the schema refuses. Nothing validates these reports today, so
-           # it was silent; the fixture was simply wrong. m3 predicted exactly
-           # this when they landed the binding -- *a second producer would not
+           # both** (`_common.py`, `"impl_path": args.impl`). Omitting it makes
+           # the kit exercise a report shape production cannot emit -- and once
+           # the schema binds the pair (candidate REQUIRES a non-empty
+           # `impl_path`), a stub candidate report is one the schema refuses.
+           # Nothing validates these reports today, so that is silent; the
+           # fixture is simply wrong -- *a second producer would not
            # have been caught, and you have one.*
            "impl_path": (a.impl_path or None) if a.side == "candidate" else None,
            # **`impl_read` beside them, for the same reason `impl_path` had to be
@@ -283,12 +282,11 @@ def _document(claim_speedup: float | None, measured: dict, *, noise_floor=NOISE_
                 # comparing a copy against its own source. Recorded because a
                 # reader cannot otherwise tell whether the values matter.
                 #
-                # **Aligned to the real workset now that m3 has landed the
-                # wording** (`8ae9094` narrows the enum to `wall_clock_sync`,
-                # the one thing `run_performance.sh` actually does). m2
-                # found the three-way split and I held this back deliberately
-                # until the owner decided, so it changed once rather than
-                # twice. The counts follow for the same reason the value does:
+                # **Aligned to the real workset**, whose enum is narrowed to
+                # `wall_clock_sync`, the one thing `run_performance.sh` actually
+                # does. A three-way split between stub, schema and harness is
+                # what this avoids. The counts follow for the same reason the
+                # value does:
                 # a fixture whose protocol no real workset can emit is a
                 # fixture testing itself.
                 "protocol": {"groups": 5, "iters_per_group": 10, "warmup": 3, "timing": "wall_clock_sync"},

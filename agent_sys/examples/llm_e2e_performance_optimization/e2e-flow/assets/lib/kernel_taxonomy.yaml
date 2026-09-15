@@ -49,9 +49,8 @@ buckets:
       # better. Whoever reads this next should know the bucket earns its keep
       # under both behaviours, and that the sentence describes the first.
       #
-      # Found 2026-09-05 while measuring `buckets:` for `todo.md` T73 — third
-      # comment in m3's own files that day describing a prior state as a live
-      # one, after `rank0` and `forge_fellow`.
+      # Found while measuring `buckets:` for `todo.md` T73 — a comment
+      # describing a prior state as a live one.
       #
       # The general shape of the miss is worth naming: the two patterns above
       # are written for a name a human wrote. A mangled C++ symbol carries

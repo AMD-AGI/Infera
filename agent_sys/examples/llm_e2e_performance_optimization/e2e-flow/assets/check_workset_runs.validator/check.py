@@ -223,9 +223,8 @@ def _transport_env(args: dict) -> dict[str, str]:
     nothing points at it. A fixture more convenient than production (§4.4), where
     the convenience is the login shell.
 
-    `check_deploy_serves` solved this (`check.py`), where the same hole
-    cost three runs and two wrong attributions. This is that hole again here,
-    and the parameters share their names so one `--var` drives both.
+    `check_deploy_serves` solves the same hole in its own `check.py`, and the
+    parameters share their names so one `--var` drives both.
     """
     env = dict(os.environ)
     extra = str(args.get("transport_path") or "")

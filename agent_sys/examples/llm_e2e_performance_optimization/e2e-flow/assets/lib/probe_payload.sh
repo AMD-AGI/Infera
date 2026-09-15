@@ -1,12 +1,12 @@
 #!/bin/bash
 # Runs ON a candidate node, as the submitting user, on the host.
 #
-# Answers the only two questions that decide whether a node is worth holding,
-# plus the one that cost us a node after we took it:
+# Answers the two questions that decide whether a node is worth holding, plus
+# the one that costs a node after it is taken:
 #
 #   1. which GPUs are ACTUALLY free    -- rocm-smi, not Slurm
-#   2. can Dockerfile.sglang build here -- m1's anchor line in a local base
-#   3. is there disk                    -- 186 was released for 3.4 G
+#   2. can Dockerfile.sglang build here -- the anchor line in a local base
+#   3. is there disk                    -- a node can be released over 3.4 G
 #
 # **Slurm's view is not the truth here.** Co-tenants run containers through the
 # host docker daemon, outside Slurm entirely, so a node Slurm calls `idle` can
@@ -116,11 +116,11 @@ while read -r img; do
   else                                              verdict="no"
   fi
   # The two modules the kit's `start_worker.sh` and `start_router.sh` exec, so
-  # this is the same reading the package owner took by hand on 006 before spending it.
+  # this is the same reading a person takes by hand before spending a node.
   servable=false; grep -q E2E_SERVABLE <<< "$got" && servable=true
-  # **m5's check, and it is the one that separates shape from substance.** An
-  # image can carry `infera` and still not load *this* model: m1 measured a
-  # config that passed in shape and failed in substance on 249. Reported as the
+  # **The check that separates shape from substance.** An image can carry
+  # `infera` and still not load *this* model — a config passing in shape and
+  # failing in substance. Reported as the
   # class name the image resolved (`Qwen3_5Config`), or empty when it could not
   # — never folded into `servable`, because "cannot serve" and "cannot read
   # these weights" send you to different places.

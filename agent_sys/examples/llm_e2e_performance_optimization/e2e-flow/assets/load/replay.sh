@@ -42,12 +42,11 @@ TRACE_OUT_IN_CONTAINER="${E2E_TRACE_OUT_IN_CONTAINER:-$TRACE_OUT}"
 ENGINE_LOG_IN_CONTAINER="${E2E_ENGINE_LOG_IN_CONTAINER:-/tmp/glm53_mix.log}"
 CTR="${E2E_CONTAINER:?}"
 #: **The endpoint the kit BOUND, host included.** `line.sh` reads the whole
-#: endpoint out of the handshake and used to hand down only the corrected
-#: *port*, so this line recomposed the host from `E2E_NODE_IP` — and a kit
-#: that binds loopback then gets dialled on its node IP. Measured
-#: 2026-09-05 on node-093: two kits on one node, `E2E_KIT_BIND_HOST`
-#: defaulting to `0.0.0.0` in one (`env.sh`) and `127.0.0.1` in the
-#: other (`env.sh`); the second bound and recorded loopback, this line
+#: endpoint out of the handshake; handing down only the corrected *port* makes
+#: this line recompose the host from `E2E_NODE_IP`, so a kit that binds loopback
+#: gets dialled on its node IP. Measured with two kits on one node,
+#: `E2E_KIT_BIND_HOST` defaulting to `0.0.0.0` in one and `127.0.0.1` in the
+#: other: the second binds and records loopback, this line
 #: dialled `http://<node_ip>:<bound_port>`, and a fully successful TP4
 #: bring-up died with "no answer from the router". The port half of this
 #: was already fixed once; **the host is its sibling field and was left

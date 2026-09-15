@@ -66,11 +66,11 @@ def main() -> int:
     iters = int(protocol["iters_per_group"])
     # **`timing` is read here, and that is the whole point of this block.**
     # It was declared in `workset.yaml` as `event` and consumed by nothing —
-    # while every measurement below is `perf_counter()` wrapped in syncs. m2
-    # found it by reading both harnesses side by side: the word `timing`
-    # appeared only in a docstring. A field nothing reads cannot be wrong, so
-    # it stayed wrong, and a reader of the workset reasonably believed HIP
-    # events had been used.
+    # while every measurement below is `perf_counter()` wrapped in syncs. It is
+    # findable only by reading both harnesses side by side, because the word
+    # `timing` appears only in a docstring: a field nothing reads cannot be
+    # wrong, so it stays wrong, and a reader of the workset reasonably believes
+    # HIP events were used.
     #
     # Refusing an unimplemented value is the half that keeps it honest. Naming
     # the method truthfully would fix it once; making the harness *read* the

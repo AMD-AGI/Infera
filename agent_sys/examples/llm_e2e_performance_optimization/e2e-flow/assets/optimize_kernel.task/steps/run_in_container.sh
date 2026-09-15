@@ -425,8 +425,8 @@ for name in TRITON_CACHE_DIR KNOWLEDGE_LOCAL_ROOT TMPDIR; do
   [ -n "$value" ] && EXEC_ENV="$EXEC_ENV -e $name=$(_sq "$value")"
 done
 
-# **`AGENT_SYS_*`, `KFO_*` and `E2E_*` by PREFIX, never by name — and the
-# enumeration that used to be here was itself the defect.**
+# **`AGENT_SYS_*`, `KFO_*` and `E2E_*` by PREFIX, never by name: an enumeration
+# is itself the defect.**
 #
 # Two failures on this wrapper's first real use, both from the same
 # hand-maintained list:

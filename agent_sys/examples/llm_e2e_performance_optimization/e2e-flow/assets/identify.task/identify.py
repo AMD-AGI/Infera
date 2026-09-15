@@ -461,8 +461,8 @@ def resolve(row: dict, hit: dict, roots: list[str], repo_map: dict) -> dict:
         # Level 1. The profile carried the Python call site.
         #
         # **Bound to a file before it is claimed, and it falls through when it
-        # cannot be.** Level 1 used to be entered on the presence of the block
-        # alone, which meant a frame this package could not place still reported
+        # cannot be.** Entering level 1 on the presence of the block alone
+        # means a frame this package cannot place still reports
         # `trace_python_stack` with an empty `source_file_path` — a claim
         # `check_identity_resolved` rejects, and one that had already skipped the
         # symbol search that would have answered.
@@ -648,9 +648,9 @@ def image_facts(image: str, root: str, relatives: list[str], timeout: int = 300)
     )
     # **base64, and the reason is recorded rather than rediscovered.** This
     # crosses `spur exec bash -lc`, then `docker run ... bash -c`; a quote
-    # anywhere in the payload is eaten by one of those layers, which cost
-    # `b9849a7` a silent no-op and cost `mock_adapt` the same defect hours
-    # later. `--entrypoint bash` because the image's own entrypoint is a server.
+    # anywhere in the payload is eaten by one of those layers, producing a
+    # silent no-op. `--entrypoint bash` because the image's own entrypoint is a
+    # server.
     payload = base64.b64encode(inner.encode()).decode()
     args = base64.b64encode(json.dumps(relatives).encode()).decode()
     # Spaces around the pipe and the redirect: the unspaced form returns 255
@@ -793,7 +793,7 @@ def main() -> int:
     for root, relatives in by_root.items():
         resolved = expansion.get(root)
         if resolved is None:
-            # **Named, not skipped.** An unexpandable root used to become a
+            # **Named, not skipped.** An unexpandable root otherwise becomes a
             # silent zero; saying which one and what it stands for is the
             # difference between a null a reader can act on and one they cannot.
             print(f"identify: {root!r} has no expansion in container_roots.yaml, so the "

@@ -80,9 +80,8 @@ def input_version_dir(kind: str) -> Path:
     from. Deriving them by walking up from `input_content()` reads one level too
     high under the default, which is the bug this function exists to remove:
     `workset_ref.version` came out as the handoff's uuid and `handoff_id` as the
-    name of the staging directory. Found by m2's input-wired sweep, and it had
-    never shown because rung 0 stops at `build_workset` and `optimize_kernel`
-    has never run in-graph.
+    name of the staging directory. It stays invisible until `optimize_kernel`
+    runs in-graph.
     """
     var = "AGENT_SYS_INPUT_" + "".join(c if c.isalnum() else "_" for c in kind).upper()
     root = os.environ.get(var)
@@ -274,7 +273,7 @@ def container_path_for(target_file: str, repo_root_var: str = "") -> str | None:
 def _strip_root_tail(relative: str, entry) -> tuple[int, str] | None:
     """Drop the root's own trailing path segments from the front of `relative`.
 
-    **Both callers, and it used to be only one.** `/sgl-workspace/sglang/python/sglang`
+    **Both callers, because one is not enough.** `/sgl-workspace/sglang/python/sglang`
     against `sglang/python/sglang/kernels/ops/…` shares `sglang/python/sglang`,
     and joining the two without dropping it yields
     `/sgl-workspace/sglang/python/sglang/sglang/python/sglang/kernels/…` — a path
@@ -348,13 +347,13 @@ def render_environment(out: Path, warnings: list[dict] | None = None) -> None:
     # `stage: ''`, and a warning that does not say which stage noticed the
     # difference is markedly less useful to m5 than one that does.
     #
-    # **Empty, not just missing** — and the distinction became load-bearing the
-    # moment `shared.yaml` declared the name. This was `setdefault`, which fills
-    # a *missing* key and leaves a present-but-empty one alone; `60bd848` added
-    # `E2E_STAGE: '${stage:-}'` to `runner`, so the variable now arrives **set to
-    # the empty string** and `setdefault` stopped firing. Measured: unset ->
-    # 'm4', declared-empty -> ''. The commit that declared the name silently
-    # broke the one stage that was stamping it correctly.
+    # **Empty, not just missing** — and the distinction is load-bearing the
+    # moment `shared.yaml` declares the name. `setdefault` fills a *missing* key
+    # and leaves a present-but-empty one alone, and `E2E_STAGE: '${stage:-}'` on
+    # `runner` makes the variable arrive **set to the empty string**, so
+    # `setdefault` stops firing. Measured: unset -> 'm4', declared-empty -> ''.
+    # Declaring the name silently breaks the one stage that stamps it
+    # correctly.
     #
     # A declared-with-empty-default variable is *present*. Any body that guarded
     # with `setdefault` or `${VAR:=…}`-style "if unset" logic has the same

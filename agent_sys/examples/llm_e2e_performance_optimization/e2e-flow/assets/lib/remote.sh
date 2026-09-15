@@ -65,10 +65,10 @@
 # **`auto` is a value to resolve, not a value to return.** This returned
 # `$E2E_TRANSPORT` verbatim whenever it was non-empty, so the shipped default —
 # `shared.yaml`'s `E2E_TRANSPORT: '${transport:-auto}'` — reached the `case`
-# below and exited 2 with `unknown E2E_TRANSPORT: auto`. Every body that did not
-# pass `--var transport=spur` hit it; m1 found it and worked around it in their
-# own body. Only the three real transports short-circuit now; everything else,
-# including `auto` and the empty string, falls through to the probe.
+# below and exit 2 with `unknown E2E_TRANSPORT: auto` — which every body that
+# does not pass `--var transport=spur` then hits. Only the three real transports
+# short-circuit; everything else, including `auto` and the empty string, falls
+# through to the probe.
 #
 # **Two readers of one rule.** `assets/lib/env_render.py:build()` resolves `auto`
 # by mirroring this probe in Python, so that the environment record says which

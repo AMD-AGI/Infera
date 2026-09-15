@@ -44,8 +44,7 @@ if [ "$rc" = 0 ]; then
   # was marked succeeded and handed on a `deploy_kit` with no environment
   # record. `check_environment` then refused it two phases later and the graph
   # blamed the handoff instead of the task — precisely the three-layers-from-the
-  # -effect problem the log above exists to prevent. Found by m2 sweeping every
-  # body in the package; one site, this one.
+  # -effect problem the log above exists to prevent.
   log="${TMPDIR:-/tmp}/m1_mock_adapt.$$.log"
   arc=0
   bash "$PKG/assets/deploy_and_prove.task/mock_adapt.sh" \

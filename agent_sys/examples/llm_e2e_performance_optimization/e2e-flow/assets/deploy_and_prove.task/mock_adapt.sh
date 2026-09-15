@@ -192,14 +192,13 @@ fi
 # serve from means the `gpu_hours` validator is **exercised** in every mock run,
 # passes only by earning it, and grades a kit the record already says is mocked.
 #
-# **The stub goes BESIDE the kit's scripts, never over them** — leader's ruling
-# 2026-09-05, and it reverses what this block used to do.
+# **The stub goes BESIDE the kit's scripts, never over them.**
 #
-# It used to `mv` the real entrypoints to `scripts/sealed/` and write the stub
-# into `scripts/`. That satisfied the one consumer it was for —
-# `check_deploy_serves`, which must run `deploy.sh` to prove the kit serves and
-# on a *mocked* stage would otherwise pay a full bring-up — by lying to every
-# other reader of the same path. Measured on rung 2h: m2's `mode_on` came up in
+# `mv`-ing the real entrypoints to `scripts/sealed/` and writing the stub into
+# `scripts/` satisfies the one consumer it is for — `check_deploy_serves`, which
+# must run `deploy.sh` to prove the kit serves and on a *mocked* stage would
+# otherwise pay a full bring-up — by lying to every other reader of the same
+# path. Measured: m2's `mode_on` comes up in
 # **1 second** against `stub_…_pmon`, probed 404 and exited 1. Nothing was
 # broken; the swap did exactly what it said, and "cheap for the validator" and
 # "true for the consumer" were the same file.

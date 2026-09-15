@@ -2,9 +2,8 @@
 # Give a container-written output back to the user who owns the zone.
 #
 # **Every body in this package that runs work inside a container hits this**,
-# not one module. Found by m3 on the first real GPU run, and it is the second
-# half of a problem whose first half (`__pycache__`) `PYTHONDONTWRITEBYTECODE=1`
-# already solves.
+# not one module. It is the second half of a problem whose first half
+# (`__pycache__`) `PYTHONDONTWRITEBYTECODE=1` already solves.
 #
 # The container runs as **root**, and it has to: a framework compiling kernels
 # on first call cannot write its cache as a user who does not exist inside the

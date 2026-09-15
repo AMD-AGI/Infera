@@ -23,22 +23,22 @@
 #     `agent_sys.cli.main` at all. Both launch forms are in live use —
 #     `CLAUDE.md` writes `agent-sys run`, `CONTRACT.md` §9 writes
 #     `python3 -m agent_sys.cli.main`. Missing a live run reads as "stopped",
-#     which is the escalating direction. Found by m3.
+#     which is the escalating direction.
 #   2 **`show` is not a run and matched.** It type-checks yaml and dispatches
 #     nothing, runs in ~1 s, and is run dozens of times a day by owners editing
-#     specs. Every one was a window reporting a run that was not one. Found by m3.
+#     specs. Every one is a window reporting a run that is not one.
 #   3 **One run is up to three lines** — `zsh -c` -> `timeout 7200` -> `python3`.
 #     A wrapper's command line contains the run's **verbatim**, so *no textual
 #     exclusion can separate them*; a regex written specifically to try still
 #     kept 5 of 6 shapes. Leaves are therefore selected by **process tree**.
 #   4 **Line count has no fixed relation to run count.** Two live runs were once
 #     seen as 3 + 1 lines, asymmetric because only one was wrapped. So the count
-#     cannot be recovered by dividing. Found by m3.
+#     cannot be recovered by dividing.
 #
 # ## Known limits — read before trusting a result
 #
 # * `grep -v grep` filters **by content**, so a genuine run whose command line
-#   contained the string "grep" would be silently dropped (m2). A false negative
+#   contained the string "grep" would be silently dropped. A false negative
 #   on a liveness check is the worse direction. Fixing this properly needs a
 #   reading that cannot contain the query — `/proc/<pid>/cwd` — which is not
 #   done here.
@@ -63,13 +63,12 @@ trap 'rm -f "$SNAP"' EXIT
 
 # ## The argv match is a candidate filter, NOT the decision
 #
-# **A launcher that outlives its matching child reports as a live run.** Measured
-# 2026-09-04 (m3 reasoned it, this file's author constructed it): with
-# `sh -c '<run>; sleep 20'`, once `<run>` exits the shell has no matching child,
-# so it is a leaf, and its argv still contains the run's command verbatim —
-# reported as `run pid=1347340 root=/tmp/ATTACK;`. **A run that had ended, read
-# as live.** That is the reassuring direction and the one this tool exists to
-# stop being wrong in.
+# **A launcher that outlives its matching child reports as a live run.**
+# Measured with `sh -c '<run>; sleep 20'`: once `<run>` exits the shell has no
+# matching child, so it is a leaf, and its argv still contains the run's command
+# verbatim — reported as a live run with a root the run never had. **A run that
+# has ended, read as live.** That is the reassuring direction and the one this
+# tool exists to stop being wrong in.
 #
 # No argv rule can fix it, because the wrapper's argv legitimately *contains* the
 # run's. So the decision is made on `/proc/<pid>/exe` — **the kernel's record of

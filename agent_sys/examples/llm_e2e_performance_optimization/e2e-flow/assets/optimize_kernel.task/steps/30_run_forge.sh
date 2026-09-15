@@ -200,7 +200,7 @@ fi
 # committed-into there is no stock arm and the comparison silently measures
 # nothing. (3) A commit inside a container dies at teardown, so the deliverable
 # would live in the one place guaranteed not to outlive the stage. (4) Measured
-# on 047 in `inferaimage/infera:sglang-local`: **the image's tree is DIRTY** --
+# in a real engine image: **the image's tree is DIRTY** --
 # `git status --porcelain` is 35 lines, 18 modified tracked files and 17
 # untracked, all under `python/`. `git diff HEAD` there would have swept
 # eighteen unrelated AMD engine modifications into this stage's patch, and every
@@ -277,15 +277,15 @@ KFO_FORGE_WORKDIR="$WORKDIR"; export KFO_FORGE_WORKDIR
 # unmodified one, and **every ratio would come back ~1.0 with no error
 # anywhere** — a wrong answer byte-identical to "the optimiser found nothing".
 #
-# **That is now checked rather than asserted** (m3, `782bb08`). The harness
+# **That is checked rather than asserted.** The harness
 # records `impl_read.sha256` of the bytes it compiled, and
 # `check_speedup_substantiated._impl_read_problem` compares it against the file
 # `--impl` named, refusing before any number in the report is read.
 #
-# The guard is on the OUTCOME, not the mechanism, and that is m3's improvement
-# on what this comment used to say. "The loader execs rather than imports" is a
-# claim about their implementation that goes stale the moment someone finds a
-# third way to load a file, and this comment could not fail. "The bytes measured
+# The guard is on the OUTCOME, not the mechanism, and that is the stronger
+# form. "The loader execs rather than imports" is a claim about an
+# implementation that goes stale the moment someone finds a third way to load a
+# file, and such a comment cannot fail. "The bytes measured
 # are the bytes at the path you named" is what this workspace actually depends
 # on, and it survives any rewrite that keeps the promise.
 echo "running the workset's own one-liner: $ONELINE" >&2

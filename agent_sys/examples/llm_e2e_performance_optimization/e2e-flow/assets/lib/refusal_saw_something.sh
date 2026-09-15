@@ -9,10 +9,10 @@
 # — a syntax check cannot fail on an invalid option — so this was verified by
 # running it, not by parsing it. Do not 'simplify' it back to `sh`.
 #
-# **Why.** 2026-09-05: `check_profiling_evidence` refused a handoff with eight
-# `PROBLEM: items/... is missing` lines while every one of those files was
-# present in the same run. The validator had been staged a version directory
-# containing **zero files**; the content was in the sibling version, 47 files.
+# **Why.** `check_profiling_evidence` can refuse a handoff with eight
+# `PROBLEM: items/... is missing` lines while every one of those files is present
+# in the same run: the validator is staged a version directory containing **zero
+# files** and the content sits in the sibling version.
 #
 # The refusal is **accurate about what it was pointed at and false about the
 # artefact**, and there is no way to tell from the report: it is well formed, it

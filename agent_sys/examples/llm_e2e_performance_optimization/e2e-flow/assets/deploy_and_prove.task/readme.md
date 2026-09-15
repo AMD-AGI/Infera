@@ -81,11 +81,11 @@ bash "$AGENT_SYS_TASK_PACKAGE/assets/lib/mock.sh" stage1-deploy deploy_kit
 - **anything else** is a fault. Report it and stop.
 
 The distinction between 0 and 3 is the whole of this step and it is not
-cosmetic: `mock.sh` used to exit 0 for both, and a caller that could not tell
-them apart ran `mock.sh … && exit 0` — which made a task in **real** mode exit
-successfully having written nothing. That is the "ten validators PASS over a run
-in which every result was zero" failure. **This brief told you to read the
-message rather than the code for one revision, which would have stopped a real
+cosmetic: a `mock.sh` that exits 0 for both leaves a caller running
+`mock.sh … && exit 0`, which makes a task in **real** mode exit successfully
+having written nothing. That is the "ten validators PASS over a run in which
+every result was zero" failure. **Reading the message rather than the code would
+have stopped a real
 run at step 0.**
 
 ### 1. Preflight — is this host able to run what you were asked for
@@ -102,9 +102,8 @@ on "ss -ltn | awk 'NR>1{print \$4}' | sed 's/.*://' | sort -n | uniq"
   `environment.yaml` as `fixed.image_id`**. A tag is not a reproduction.
 
   **If `docker image inspect` says `No such image`, that is a fork in the road
-  and not a failure.** This brief said "nothing needs building or pulling" for
-  one revision, and that was an assumption from the one model it had been run
-  against rather than a fact about models. Measured: GLM-5.3-Flash is
+  and not a failure.** "Nothing needs building or pulling" is an assumption from
+  one model rather than a fact about models. Measured: GLM-5.3-Flash is
   `Glm5NextForConditionalGeneration`, and **no released sglang image carries
   `glm5_next`** — support lives in an unmerged upstream PR, so the engine image
   has to be *built* before anything can be served. A second model met this on
@@ -248,20 +247,20 @@ the team's own rule — came within one message of classifying a live engine of
 ours as a stranger's.
 
 **Do not read this as a name schema, because there is not one.** Across seven
-container names that day the prefix varied three ways, the role segment varied
+observed container names the prefix varied three ways, the role segment varied
 (`sgl`, `engine`, `etcd`) and the tail varied four ways. **Nothing in the name
 held still except the requirement above.** So this asks for one token to be
 present, not for a shape to be matched — a rule about *content*, which survives
 the next arrangement somebody invents.
 
-**And the bar is demonstrably reachable:** three of five bring-ups that day
+**And the bar is demonstrably reachable:** three of five observed bring-ups
 composed `$E2E_CONTAINER` into the name unprompted, one of them twice in a
 single run. This is asking for consistency in something already done, not a new
 capability.
 
-**The label is not a substitute.** `infera_e2e_run` was correct on every
-container that day *including the two whose names were wrong*, and it is the
-right instrument for a program. A person reads the name first.
+**The label is not a substitute.** `infera_e2e_run` is correct on every observed
+container *including the two whose names were wrong*, and it is the right
+instrument for a program. A person reads the name first.
 
 **Set the CUDA graph ceiling to at least the concurrency the heaviest consumer of
 this kit will load it at, and write down why you chose the number.** Expose it as
@@ -497,8 +496,8 @@ launch line had named **0,1,2,3**, so the stage held eight cards on a host it ha
 been given four on. Ninety-four seconds earlier a co-tenant had started a
 container with every card visible to it. It allocated nothing and exited, so
 nothing collided — **and if it had loaded, the collision would have been on
-hardware assigned to neither of us, with ours the run that had been told which
-four to take.**
+hardware assigned to neither party, with this run the one that had been told
+which four to take.**
 
 It is the same rule as `gpu_devices` at STEP 1, applied where the brief did not
 previously look: **a caller that names cards must be obeyed for the whole task,

@@ -4,9 +4,8 @@
 One resolver, because STEP 3 needs it twice — the seed on the mock branch and
 the campaign's output on the real one — and two heredocs computing one path is
 two chances for them to compute it differently. That is not hypothetical here:
-both heredocs previously resolved `edit_target.source_file` against the
-*workset*, and the real branch's copy would have failed after the campaign
-hours rather than before it.
+resolving `edit_target.source_file` against the *workset* in both heredocs makes
+the real branch's copy fail after the campaign hours rather than before them.
 
 **The file is in the engine container, not in the workset.** `edit_target`
 names a path relative to `edit_target.repo_root_var`, and the workset carries

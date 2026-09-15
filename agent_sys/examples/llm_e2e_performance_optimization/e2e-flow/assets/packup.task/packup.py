@@ -123,9 +123,9 @@ def main() -> int:
     # ---- the upstream stages -------------------------------------------------
     # **This is the flow's export, not the integration stage's.** A kit that
     # carries only the two arms' numbers cannot explain where the kernel under
-    # test came from, which m1 brought the service up, or what m2 measured that
-    # made m3 pick this operator — and a reproducer who was not here needs all
-    # four to get back to the same place.
+    # test came from, which service m1 brought up, or what m2 measured that made
+    # m3 pick this operator — and a reproducer needs all four to get back to the
+    # same place.
     #
     # One representative artefact per stage rather than the whole handoff: the
     # handoffs themselves are the record, and a packup is the path through them.

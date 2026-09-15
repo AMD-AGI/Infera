@@ -17,7 +17,7 @@ scheduler.**
 
 So the guarantee moves here, from `froms` to evidence. The producing task
 timestamps every step into each arm's `env/steps.json` as it goes, and this body
-reads the two records back and asks the four questions that edge used to answer:
+reads the two records back and asks the four questions the edge would answer:
 
 1. **Both arms ran the same steps in the same order.** "Round 1 is cold against
    this trace" is only true of an arm if the same things happened before it. Two
