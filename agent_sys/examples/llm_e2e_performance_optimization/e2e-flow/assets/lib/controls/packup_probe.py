@@ -110,9 +110,9 @@ def run(label: str, mutate, *, stage: bool = True) -> dict:
                 p.chmod(p.stat().st_mode | 0o200)
             mutate(content)
         # Deterministic, so a schema complaint about the id reads as a schema
-        # complaint rather than as this harness's spelling. Learned the hard way
-        # on the interpreter sweep, where naming staged inputs by kind made m4's
-        # error indistinguishable from mine.
+        # complaint rather than as this harness's spelling. Naming staged
+        # inputs by kind instead makes a body's own error indistinguishable from
+        # the harness's.
         hid = str(uuid.uuid5(uuid.NAMESPACE_URL, f"packup-probe/{label}"))
         (zone / "args.json").write_text(json.dumps(args_from_yaml()))
         (zone / "inputs.json").write_text(json.dumps([hid]))
@@ -191,16 +191,16 @@ def m_results_emptied(c):
 
 
 def m_logs_one_empty_subdir(c):
-    """REGRESSION for m5's `ad6d431`. Passed before it; must refuse after.
+    """REGRESSION: this must refuse.
 
-    The real `logs/` is 17 files under seven subdirectories, and `require_dirs`
-    used to accept `any(path.iterdir())` — so all of it could go, leaving one
-    empty directory, and the kit still graded complete."""
+    The real `logs/` is 17 files under seven subdirectories, and a `require_dirs`
+    that accepts `any(path.iterdir())` lets all of it go, leaving one empty
+    directory, with the kit still graded complete."""
     _wipe(c, "logs"); (c / "items" / "codes" / "logs" / "bench_stock").mkdir()
 
 
 def m_scripts_one_zero_byte(c):
-    """REGRESSION for `ad6d431`. The same shape on the other unmeasured dir."""
+    """REGRESSION: the same shape on the other unmeasured directory."""
     _wipe(c, "scripts"); (c / "items" / "codes" / "scripts" / "run.sh").write_text("")
 
 
@@ -208,9 +208,9 @@ def m_readme_fenced_output(c):
     """NOT a defect, and kept to record that it was considered.
 
     25 lines of pasted terminal output clear the 20-line README floor, because
-    `content_lines` counts inside fences. m5's judgement, which I accept: the
-    floor is a *substance* floor and pasted output is the most valuable thing a
-    README carries. Only the name misleads. Expected PASS — if this ever starts
+    `content_lines` counts inside fences, and that is right: the floor is a
+    *substance* floor and pasted output is the most valuable thing a README
+    carries. Only the name misleads. Expected PASS — if this ever starts
     refusing, someone narrowed the floor to prose without saying so."""
     (c / "items" / "codes" / "README.md").write_text(
         "# Kit\n\n```\n" + "\n".join(f"[rank0] step {i} ok" for i in range(25)) + "\n```\n")

@@ -95,10 +95,10 @@ def relative_change(a: float, b: float) -> float | None:
 def reduce_rounds(values: list) -> tuple[float | None, dict]:
     """One number from a metric's per-round values, plus what was reduced.
 
-    **Why this exists: the gate used to judge every round separately, and that
-    made it worse the more evidence it was given.** `compare` emitted one row
-    per (round, metric, column) and `check_no_regression` refused if any row
-    breached, so R rounds were 7R independent tests at the bar. Measured
+    **Why this exists: a gate that judges every round separately gets worse the
+    more evidence it is given.** With `compare` emitting one row per
+    (round, metric, column) and `check_no_regression` refusing if any row
+    breaches, R rounds are 7R independent tests at the bar. Measured
     family-wise false-refusal at a 1% per-row rate: 6.8% at R=1, 29.7% at R=5,
     50.5% at R=10. An instrument that gets less trustworthy as evidence
     accumulates is the wrong shape, and no choice of bar fixes it.

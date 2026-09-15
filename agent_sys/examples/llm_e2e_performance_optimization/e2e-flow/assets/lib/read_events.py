@@ -99,13 +99,10 @@ def _extras(event: dict) -> list[str]:
     **`message` alone is not enough, and on one kind it is actively false.** An
     `output_absent` reads *"declared output … was never delivered"* while the
     files **were** delivered and the seal refused them. The reason lives in
-    `attributes.seal_refused` and was invisible here. Two owners spent an
-    investigation each on 2026-09-04 and both ended up running `cat` on a raw
-    event JSON to reach it — the package owner's four-run stall study, where
-    `seal_refused` was identical across all four runs, and m2's replayed-kit
-    A/B. See `temp/bugs/2026-09-04-output_absent-states-a-cause-that-is-false.md`
-    and `todo.md` T39. Found and patched by m2; landed here because it is this
-    file.
+    `attributes.seal_refused` and is invisible here. Two separate investigations
+    both end up running `cat` on a raw event JSON to reach it — a stall study
+    where `seal_refused` is identical across four runs, and a replayed-kit A/B.
+    `todo.md` T39.
 
     **Suppress only the key the summary actually used, not all of
     `_SUMMARY_KEYS`.** `_text` returns `message` when it is set, so a fixed

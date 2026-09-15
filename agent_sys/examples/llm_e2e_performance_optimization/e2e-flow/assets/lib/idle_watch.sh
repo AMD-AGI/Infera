@@ -7,11 +7,11 @@
 # cannot see it: the artefacts exist, the phase line says running, the node is
 # quiet, and all of that is equally true of a healthy agent mid-thought.
 #
-# WHAT v1 GOT WRONG (found by m4): it took the newest .jsonl ANYWHERE in the run
-# tree. On a mixed graph -- ai at stages 1 and 4, `runner` at stage 2 -- the
-# stuck stage is a program body with no transcript, so the probe silently
-# adopted a DIFFERENT stage's transcript and reported confidently about a stage
-# that had already succeeded. Every word true, the subject wrong.
+# WHAT MUST NOT BE DONE: take the newest .jsonl ANYWHERE in the run tree. On a
+# mixed graph -- ai at stages 1 and 4, `runner` at stage 2 -- the stuck stage is
+# a program body with no transcript, so such a probe silently adopts a DIFFERENT
+# stage's transcript and reports confidently about a stage that has already
+# succeeded. Every word true, the subject wrong.
 #   Silence is detectable. A substituted subject is not.
 # So v2 names the transcript's owning stage and refuses to compare across
 # stages: if the running stage has no transcript, it says so.

@@ -106,11 +106,10 @@ def _task_dirs(doc, agent_name: str, assets: pathlib.Path) -> list[pathlib.Path]
 
     **The assets live at `assets/<closure name>.task`, not at anything the
     closure's `task:` key says** — `task:` is a *dict* (`goal`, `version`,
-    `repos`, …), not a path. The first version of this function read it as a
-    path, found nothing, and reported every agent clean: **a probe that could
-    not fail, written into the check whose entire purpose is catching probes
-    that cannot fail.** Caught by asserting the directory count is non-zero
-    before trusting a pass, which is the only reason it is not still here.
+    `repos`, …), not a path. Reading it as a path finds nothing and reports
+    every agent clean: **a probe that cannot fail, inside the check whose entire
+    purpose is catching probes that cannot fail.** Asserting the directory count
+    is non-zero before trusting a pass is what catches that.
     """
     dirs: list[pathlib.Path] = []
 
@@ -166,8 +165,8 @@ def _task_dirs(doc, agent_name: str, assets: pathlib.Path) -> list[pathlib.Path]
 #: `entry.sh`** — the mock switch works precisely because `--var mN_agent=runner`
 #: swaps in the program agent that does. So a variable read only there is not a
 #: dependency of the ai path, and requiring it would declare one that cannot
-#: exist. m4's objection, and they were right: the first version of this check
-#: demanded `E2E_MOCK_STAGES` on an agent that can never reach `mock.sh`.
+#: exist — demanding `E2E_MOCK_STAGES` on an agent that can never reach
+#: `mock.sh` is exactly that.
 _PROGRAM_ONLY = {"entry.sh"}
 
 
@@ -185,11 +184,11 @@ _LIB_REF = re.compile(r"\b([a-z_][a-z0-9_]*\.(?:sh|py))\b")
 def _consequence(reference: str, key: str) -> str:
     """What an empty value actually does *at the site that reads it*.
 
-    **The verdict was always right and the reason was asserted, not checked.**
-    This message used to end *"and the body silently takes whatever default it
-    wrote"* — true for `${VAR:-…}` and false for `${VAR:?…}`, which fails
-    naming the variable. m4 hit it 2026-09-04 on `E2E_WORK_ROOT`, where the
-    readme uses `:?`; the defect was real and the stated consequence was not.
+    **A verdict can be right while the reason beside it is asserted rather than
+    checked.** Ending this message with *"and the body silently takes whatever
+    default it wrote"* is true for `${VAR:-…}` and false for `${VAR:?…}`, which
+    fails naming the variable — so on a readme that uses `:?` the defect is real
+    and the stated consequence is not.
 
     That distinction is not cosmetic here: a `:-` where a `:?` was meant is the
     exact fault that kept a gate printing PASS for a day (CONTRACT §3.2a). A

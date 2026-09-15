@@ -122,10 +122,10 @@ def targets(run: Path, scan_all: bool) -> list[Path]:
     if scan_all:
         return [p for p in handoffs.rglob("*") if p.is_file() and p.suffix in REFUSABLE]
     # **Modelled per SOURCE KIND, not per handoff**, because `packup.py` takes a
-    # different slice from each one. An earlier version of this function scanned
-    # `items/codes` for every kind and reported sixteen offenders, of which zero
-    # travel: twelve were `deploy_kit`'s kit scripts and four were
-    # `operator_workset`'s, and `packup.py` copies neither. **A probe with the
+    # different slice from each one. Scanning `items/codes` for every kind
+    # reports sixteen offenders of which zero travel: twelve are `deploy_kit`'s
+    # kit scripts and four are `operator_workset`'s, and `packup.py` copies
+    # neither. **A probe with the
     # wrong population is not a conservative probe, it is a wrong one.**
     kind_of = {}
     for rec in sorted((run / "store" / "handoff").glob("*.json")):

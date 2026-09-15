@@ -50,8 +50,8 @@ not have been invented:
   ([sgl-project/sglang#20836](https://github.com/sgl-project/sglang/issues/20836))
 
 **What the eleven probes cannot do, stated because the adjacent trap is real.**
-m3 measured, on real torch, that a *numerically perfect but unsubstitutable*
-softmax scored **151.9 dB against the baseline's 142.4** — higher, because it
+Measured on real torch: a *numerically perfect but unsubstitutable* softmax
+scores **151.9 dB against the baseline's 142.4** — higher, because it
 returns fresh fp32 while the baseline rounds through the caller's buffer: the
 artefact that makes it wrong is the same one that makes it score better, and a
 gate reading only output quality would **prefer** it.
@@ -62,8 +62,8 @@ identity, not on output quality.** The only quality-shaped assertion anywhere in
 them is `completion_nonstreaming`'s "non-empty `content` with
 `finish_reason: stop`", which an implementation that refuses to do the job
 *fails* rather than passes. Nothing here scores an answer, so nothing here can
-rank a refusal above a real one. The exposure m3 found arrives in this flow at
-m5's two-arm comparison, where a number is compared against another number.
+rank a refusal above a real one. That exposure arrives in this flow at m5's
+two-arm comparison, where a number is compared against another number.
 
 `severity: warn` is used where a hard gate would be dishonest rather than where
 the check is unimportant: `/metrics` is absent unless the server was launched

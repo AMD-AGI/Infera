@@ -46,9 +46,9 @@ from pathlib import Path
 
 #: CONTRACT §2.2: *"scope it to executable and generated content (`.py`, `.sh`,
 #: `.json`, `.jsonl`), skipping the environment record."* Verbatim, because this
-#: file previously refused over **every** file it could decode as UTF-8 —
-#: `.md` prose included — and that is what made `packup` unable to write
-#: `e2e_packup` over m1's and m4's perfectly good documentation.
+#: file refusing over **every** file it can decode as UTF-8 — `.md` prose
+#: included — is what makes `packup` unable to write `e2e_packup` over perfectly
+#: good documentation.
 #:
 #: The environment record needs no entry here: `.yaml` is not in the set, so the
 #: suffix alone already excludes it. `is_environment_record` below is the second

@@ -88,9 +88,8 @@ def check(content: Path, args: dict, reasons: list) -> bool:
     # use, graded complete.
     #
     # `rglob` and not `iterdir` because the real kit nests: `logs/` is 17 files
-    # under seven subdirectories, so a top-level count reads it as zero. m2 hit
-    # that too, in their own instrument, and reported it against my kit before
-    # catching it — which is the reason this counts the way `find -type f` does.
+    # under seven subdirectories, so a top-level count reads it as zero — which
+    # is why this counts the way `find -type f` does.
     #
     # `st_size > 2` is `min_result_files`' own test, reused rather than re-picked
     # so the two agree about what an empty file is.
@@ -151,7 +150,7 @@ def check(content: Path, args: dict, reasons: list) -> bool:
         # non-empty file(s)"* when it holds one. The verdict was right and the
         # number was a lie, which is the worse half — a reader who goes to check
         # finds a file where the message says there is none and stops believing
-        # the next message too. Found by m2 reading `ad6d431`.
+        # the next message too.
         found = [p for p in results.rglob("*") if p.is_file() and p.stat().st_size > 2]
         floor = int(args.get("min_result_files", 4))
         if len(found) < floor:

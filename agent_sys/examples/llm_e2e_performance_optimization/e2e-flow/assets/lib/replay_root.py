@@ -409,12 +409,12 @@ def produced_for_real(run: pathlib.Path, kind: str, hid: str) -> bool | None:
 
     ## The defect this exists for
 
-    The package owner ran a survey and it reported `deploy_kit` **STABLE, 27 runs**.
-    Stage 1 has deployed to a GPU a single-digit number of times. **A mock leaf
-    copies a previously sealed, previously validated artefact**, so it passes
-    *the same validator set* by construction — it is the artefact that passed
-    them originally. Twenty-seven runs was **one confirmation counted twenty-
-    seven times**, and certifying a stage on runs in which it never executed
+    A survey can report `deploy_kit` **STABLE, 27 runs** while stage 1 has
+    deployed to a GPU a single-digit number of times. **A mock leaf copies a
+    previously sealed, previously validated artefact**, so it passes *the same
+    validator set* by construction — it is the artefact that passed them
+    originally. Twenty-seven runs is **one confirmation counted twenty-seven
+    times**, and certifying a stage on runs in which it never executed
     grants exactly the skip the mechanism must never grant.
 
     It is CONTRACT §4.6 one level up: the validator set cannot distinguish a
@@ -861,7 +861,7 @@ def main() -> int:
 
     record = {
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
-        # Required field, per the ruling. A reader of this root an hour later can
+        # Required field. A reader of this root an hour later can
         # answer "may I launch this here?" without opening a handoff.
         "required_node": args.node or "ANY (--allow-cross-node was passed)",
         "kit_nodes": sorted(kit_nodes),

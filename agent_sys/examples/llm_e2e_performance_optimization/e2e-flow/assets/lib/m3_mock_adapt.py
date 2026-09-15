@@ -79,8 +79,8 @@ def _interpreter() -> str:
 
     A task body never reaches `AGENT_SYS_DEMO_PYTHON` (`cli/main.py` puts it
     in `validation_env` only), so a bare `python3` is the policy PATH's. Probed
-    rather than assumed — m1 measured that `/usr/bin/python3` here has `yaml`
-    and `jsonschema`, so it will usually be fine, and "usually" is the reason to
+    rather than assumed — a system `/usr/bin/python3` often has `yaml` and
+    `jsonschema`, so it will usually be fine, and "usually" is the reason to
     check rather than the reason not to.
     """
     for candidate in (os.environ.get("AGENT_SYS_DEMO_PYTHON"), sys.executable, "python3"):

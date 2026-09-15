@@ -144,10 +144,9 @@ def _check(content: Path, args: dict, problems: list[str], notes: list[str]) -> 
     # it got there. `steps/m3_analysis.yaml` DOES pass this arg
     # (`min_resolve_ratio: '${min_resolve_ratio:-0.0}'`), so the arm is fully
     # parameterised and `--var min_resolve_ratio=0.8` reaches it with no code
-    # change — m2 measured both directions: 0.0 passes an honest unresolved
-    # entry, 0.8 refuses it. An earlier version of this comment said the arg was
-    # unpassed, which would have told the next reader that wiring was needed
-    # when only a number was.
+    # change — measured in both directions: 0.0 passes an honest unresolved
+    # entry, 0.8 refuses it. A comment here saying the arg is unpassed tells the
+    # next reader that wiring is needed when only a number is.
     #
     # The consequence for the note is that `raw` is never absent here, so the
     # "unset" wording alone would never print. The three cases are separated

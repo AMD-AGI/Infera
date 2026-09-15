@@ -30,16 +30,15 @@ day:
   `SGLANG_RETURN_ORIGINAL_LOGPROB` and `SYNC_TOKEN_IDS_ACROSS_TP` are
   module-level assignments and were absent, so `check_workset_shape` reported a
   `public_symbol` naming one of them as *"not defined at module level"* — false,
-  and a refusal of a legitimate workset. m4 traced it from a 12-vs-9
-  disagreement against m5's import surface.
-- **It had two producers** (`todo.md` T34) that agreed only because neither had
-  been changed. Fixing one would have made the mock and the real path disagree
-  about what a file defines — a mock-only refusal, worse than the original bug.
+  and a refusal of a legitimate workset — visible as a 12-vs-9 disagreement
+  against the import surface.
+- **Two producers of the rule** (`todo.md` T34) agree only while neither is
+  changed. Fixing one makes the mock and the real path disagree about what a
+  file defines — a mock-only refusal, worse than the original bug.
 
-`51af864` unified the two producers on one constant; this file is the third step,
-on m4's argument: their gate is about **the importable surface**, so it must
-mirror the same rule, and a third copy would undo the unification on the day it
-was made.
+One constant unifies the two producers, and this file is the third step: the
+importable-surface gate must mirror the same rule, and a third copy would undo
+the unification.
 
 ### The boundary, which decides whether a refusal is honest
 

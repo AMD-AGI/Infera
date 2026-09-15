@@ -18,9 +18,9 @@ transposition -- does nothing, and the body then refuses with
 `FIX: pass --var measure_gpu=<n>`, which the operator reads as *"but I did pass
 it"*. The refusal is correct, the instruction is correct, and they do not meet.
 
-Audited the package owner's own rung-0 line the day this was written: **20 vars, one
-bogus** -- `m2_agent`, which exists in no yaml because m2's three leaves are
-literally `agent: runner`. Harmless only because that line also named m2 in
+Audited against a real launch line: **20 vars, one bogus** -- `m2_agent`, which
+exists in no yaml because m2's three leaves are literally `agent: runner`.
+Harmless only because that line also named m2 in
 `mock_stages`, so the intended effect happened for an unintended reason.
 
     python3 check_launch_vars.py <package-dir> NAME=VALUE [NAME=VALUE ...]
@@ -31,8 +31,8 @@ kept apart from *judged and clean*.
 
 **What it does NOT check.** That the value is sane, that the var reaches the
 closure you meant, or that a var you *omitted* was needed -- `transport_env` is
-consumed by the runner and appears in no yaml at all, so this tool is structurally
-blind to it, which is why it cost three rung-0 runs. Names only.
+consumed by the runner and appears in no yaml at all, so this tool is
+structurally blind to it. Names only.
 """
 from __future__ import annotations
 

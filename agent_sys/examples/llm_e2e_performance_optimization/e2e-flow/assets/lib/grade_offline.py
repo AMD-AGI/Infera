@@ -53,9 +53,9 @@ the run does not record, and a row like that should be reported as conditional
 rather than as a pass. Prefer values read from the run's own artefacts
 (`environment.yaml`'s `tp_size`) over ones you remember, and say which you did.
 
-**Run a case with a known answer first.** Defect 1 below was caught only because
-m2 had independently passed `p9`'s `profiling_evidence` and my harness said the
-opposite. Nothing in here detected it; the contradiction did.
+**Run a case with a known answer first.** Defect 1 below is catchable only by
+contradiction — an independent pass on the same artefact where this harness says
+the opposite. Nothing in here detects it.
 """
 
 from __future__ import annotations

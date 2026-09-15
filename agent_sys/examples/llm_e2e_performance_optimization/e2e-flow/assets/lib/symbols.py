@@ -40,9 +40,9 @@ from pathlib import Path
 
 #: A run of snake_case identifier characters. The unit the search keeps whole.
 #:
-#: **Nothing is stripped from the middle of a compound name**, and that was
-#: measured. An earlier version removed tokens it classified as tuning, which
-#: turned `gemm_a16_w16_kernel_BLOCK_SIZE_M` into `gemm_kernel` and matched
+#: **Nothing is stripped from the middle of a compound name**, and that is
+#: measured. Removing tokens classified as tuning turns
+#: `gemm_a16_w16_kernel_BLOCK_SIZE_M` into `gemm_kernel` and matches
 #: `aiter/tuned_gemm.py` — a dispatch table, not the kernel. `a16` and `w16` name
 #: the operand precisions and are part of the operator's identity; no rule
 #: separates them from `t32x128x256` reliably, because the difference is

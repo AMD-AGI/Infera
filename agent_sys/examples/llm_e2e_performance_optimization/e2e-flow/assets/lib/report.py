@@ -145,9 +145,8 @@ def main() -> int:
         print(f"  {n:<22} {v:<8} {why}")
 
     # **The tiers are costs, not grades**, which is why the recovery price is on
-    # each. m5 measured it on 047: `docker load` of
-    # `<image tar>` (27 G) took **4m44s**
-    # and the node passed all three checks afterwards. So a node with no infera
+    # each. Measured: a `docker load` of a 27 G image tar takes **4m44s** and the
+    # node passes all three checks afterwards. So a node with no infera
     # image is not disqualified — it is five minutes away, and knowing that
     # before binding is worth those five minutes of planning rather than a
     # failed bring-up.

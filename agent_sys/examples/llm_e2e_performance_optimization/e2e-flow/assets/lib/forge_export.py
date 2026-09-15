@@ -114,9 +114,8 @@ _ONE_LINE = '''#!/bin/sh
 # **`kernel-agents forge-loop`, not `forge-loop`.** KernelForge declares exactly
 # one console script -- `kernel-agents = "kernel_agents.cli:main"`,
 # pyproject.toml:66 -- and `forge-loop` is a click subcommand of it, cli.py:722.
-# A bare `forge-loop` does not exist even after a correct install. Found by m4
-# while scoping the install, and it was wrong under every option for installing
-# it, which is why it was worth fixing before the decision.
+# A bare `forge-loop` does not exist even after a correct install, and that is
+# true under every option for installing it.
 #
 # **`--workspace` is required and this wrapper cannot supply it.** cli.py:725,
 # `required=True`. It names the git checkout KernelForge edits in place, which
@@ -124,11 +123,10 @@ _ONE_LINE = '''#!/bin/sh
 # defaulted, and for the same reason: a wrong checkout does not fail, it edits
 # the wrong tree.
 #
-# **`--kernel` is required too, and was missing until 2026-09-05.** A fresh
-# campaign raises `fresh campaign requires --kernel and --driver` -- forge's
-# `cli.py`, at the point it builds the campaign config -- and `--driver` was
-# being passed while `--kernel` was not. Found by m4 on a real campaign with a
-# held node in front of it, after the workspace had already been built.
+# **`--kernel` is required too, and is easy to omit.** A fresh campaign raises
+# `fresh campaign requires --kernel and --driver` -- forge's `cli.py`, at the
+# point it builds the campaign config -- so passing `--driver` alone fails only
+# once a node is held and the workspace is already built.
 #
 # Unlike `--workspace`, this wrapper *can* supply it: it is the operator's own
 # `edit_target.source_file`. What the wrapper cannot know is the **frame**.
@@ -372,10 +370,9 @@ def _kernel_rel(operator: dict) -> str:
     recorded string straight to forge names a path that does not exist there.
     Third time this frame has bitten this package.
 
-    **A wrong value fails loudly, and the paragraph that used to stand here
-    said the opposite.** `f92e42b` recorded that an absolute `--kernel` would
-    silently ignore `--workspace`, edit outside the tree, and leave `git diff`
-    empty. That is false. `_relative_file` validates the value before the
+    **A wrong value fails loudly.** An absolute `--kernel` does *not* silently
+    ignore `--workspace`, edit outside the tree and leave `git diff` empty:
+    `_relative_file` validates the value before the
     `(workspace / kernel_path)` join that suggested the hazard: it accepts
     either frame, resolves both sides, raises *"kernel must be inside
     workspace"* on a path outside it, and raises again if the path is not a
@@ -389,11 +386,10 @@ def _kernel_rel(operator: dict) -> str:
     are hyperloom's, not the `chaojhou` tree's, whose numbers differ by roughly
     two hundred and which nothing installs from.
 
-    The claim came to this file through a teammate's message rather than
-    through a tool or a memory, which is the one channel with no independent
-    check — and it was retracted by its author within the hour. It is written
-    out here rather than deleted because the fix it justified is still the
-    right one for a different reason: the wrapper's own check turns forge's
+    A claim that arrives through a message rather than through a tool or an
+    artefact has no independent check behind it. It is written out here rather
+    than deleted because the fix it justified is still the right one for a
+    different reason: the wrapper's own check turns forge's
     exception, raised from inside a campaign that has already booked the node,
     into a refusal that names both frames before anything starts.
 
@@ -428,9 +424,9 @@ def _fellow(operator: dict, definition: dict) -> str:
     wrong fellow does not error — it optimises with the wrong idioms and
     reports a plausible failure hours later.
 
-    **This used to look only for a tag ending in `-fellow` and fall back to
-    `generic-fellow`.** Measured on the first real campaign (287, workset
-    `91ea967b`): the tags `identify` writes are bare language names —
+    **Looking only for a tag ending in `-fellow`, with a fallback to
+    `generic-fellow`, does not work.** Measured on a real campaign: the tags
+    `identify` writes are bare language names —
     `['attention', 'linear-attention', 'triton', 'gated-delta-rule']` — so
     nothing ever ended in `-fellow`, the fallback was not a rare branch but
     **the only branch**, and `generic` is not a backend forge knows. Every

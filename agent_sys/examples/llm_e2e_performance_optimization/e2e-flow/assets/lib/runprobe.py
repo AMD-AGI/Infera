@@ -153,17 +153,16 @@ def probe(run: pathlib.Path) -> int:
     # status below is a *last known* state, and without a liveness signal the
     # tool reports a corpse in the present tense.
     #
-    # Measured the hard way, 2026-09-04: I read this tool's own output — "latest
-    # event +1s into the run, 2357s ago" — and reported "39 minutes in,
-    # deploy_and_prove still running". The run had been dead for 39 minutes and
-    # 2357 was the evidence. I had written that wall-clock line specifically so
-    # a *live* run would not be misread as stale, and then misread a *dead* run
-    # as live off the same number.
+    # Measured the hard way: this tool's own output — "latest event +1s into the
+    # run, 2357s ago" — reads as "39 minutes in, still running" when the run has
+    # been dead for 39 minutes and 2357 is the evidence of that. A wall-clock
+    # line written so a *live* run is not misread as stale is the same line that
+    # lets a *dead* run be misread as live.
     #
     # The newest mtime anywhere in the run tree is the signal the store lacks —
-    # a live run is writing zone logs and handoff content constantly, and this
-    # is what the package owner used to establish the death. Cheap, and it is part of
-    # answering question 3 honestly rather than a fourth question.
+    # a live run is writing zone logs and handoff content constantly, and that is
+    # what establishes death. Cheap, and it is part of answering question 3
+    # honestly rather than a fourth question.
     newest = 0.0
     for path in run.rglob("*"):
         try:

@@ -25,8 +25,8 @@ it. A `strong` validator that failed on that would stop the graph on the one
 stage the contract says must differ.
 
 So `fixed` is compared strictly and `runtime` is only described. That is weaker
-than "modules 1–4 shared one container", which is what I wanted to assert and
-cannot from here: this body sees handoff **ids**, not kinds
+than "modules 1–4 shared one container", which cannot be asserted from here:
+this body sees handoff **ids**, not kinds
 (`zone.materials()` is keyed by id), so it cannot tell an m5 arm from an m2 line.
 Stated rather than approximated — an assertion that is right four times out of
 five and stops the graph the fifth is worse than one that reports.
@@ -82,10 +82,10 @@ def deep(doc: dict, path: str):
 def check_invariants(doc: dict, rules: list) -> list[str]:
     """Relations BETWEEN two fields of the environment record.
 
-    Lifted from m1's `check_deploy_kit.check_invariant` (`53bc783`) rather than
-    rewritten, keeping their `count_of` / `at_most` / `on_absent` spelling so the
-    two read alike — theirs governs the kit's copy, this one governs the same
-    record in the other fourteen kinds.
+    Lifted from `check_deploy_kit.check_invariant` rather than rewritten,
+    keeping its `count_of` / `at_most` / `on_absent` spelling so the two read
+    alike — that one governs the kit's copy, this one governs the same record in
+    the other fourteen kinds.
 
     **Why it is here and not in the schema.** JSON Schema relates a value to a
     *constant*: `maxItems` takes a literal, and bounding an array by a sibling
@@ -98,8 +98,7 @@ def check_invariants(doc: dict, rules: list) -> list[str]:
     **Why the layout was not enough.** The same `environment.yaml` travels in all
     fifteen kinds (CONTRACT section 2), and the layout governs `deploy_kit` only.
     A `profiling_evidence` could carry `gpu_count: 4` beside eight devices and
-    validate cleanly. m4 found this by looking in the wrong place and being right
-    about fourteen kinds for a reason they had not found; m1 found the reason.
+    validate cleanly.
 
     The reading that makes it worth fixing rather than noting: **a rule enforced
     at one carrier of a shared document is indistinguishable, from the artefact,

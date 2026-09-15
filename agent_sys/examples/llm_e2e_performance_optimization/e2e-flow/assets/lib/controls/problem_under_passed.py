@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 """T49's detector: a `PROBLEM:` line under a `passed` heading.
 
-**T49 is the one class filed on 2026-09-04 that had no detector.** Seven
-instances, four owners, one day, and *not one found by its author* — the author
-reads the message against the code they just wrote and it always parses. Every
-other entry that day either carries a check or says plainly that nothing detects
-it; this one can be checked, and m5 is who noticed:
+**T49 is the one class in `todo.md` with no detector.** Seven instances across
+four stages, and *not one found by its author* — the author reads the message
+against the code they just wrote and it always parses. This one can be checked:
 
-    the package owner's instance is the only one of the seven found by a MACHINE rather
-    than a person -- another owner counting `PROBLEM:` lines for an unrelated
-    reason. Counting them under `passed` headings is a one-liner that would have
+    exactly one of the seven is found by a MACHINE rather than a person --
+    somebody counting `PROBLEM:` lines for an unrelated reason. Counting them
+    under `passed` headings is a one-liner that would have
     caught it the day it landed.
 
 **Why this shape and not a grep.** `PROBLEM:` is `write_report`'s marker for a

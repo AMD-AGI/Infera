@@ -103,8 +103,8 @@ def _inline_refs(node, root: pathlib.Path, seen: frozenset[str] = frozenset()):
 
     **One code path, no optional dependency, and that is the point.**
 
-    The first version of this module used a `referencing` registry, copied from
-    `spec_loader/validate.py`. That works for a *validator*, which runs under
+    A `referencing` registry, copied from `spec_loader/validate.py`, works for a
+    *validator*, which runs under
     the interpreter `AGENT_SYS_DEMO_PYTHON` names, and **not for a task body**:
     `cli/main.py` puts that variable in `validation_env` only, and its own
     comment says a task body never reaches it. So a mock body's policy `PATH`

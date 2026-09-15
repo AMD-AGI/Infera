@@ -91,11 +91,11 @@ for f in sorted(store.glob("*.json")):
         continue
     if d.get("type") != kind:
         continue
-    # **The store's version number and the on-disk `vN` are two namespaces**, and
-    # m3 found the disagreement: on `20260904T114914-0a0cdd`, five handoffs —
-    # `deploy_kit` among them — carry a `v1` directory while the store records
-    # only version 0. Measured before acting on it: in **every** one of those
-    # five, `v0` holds **zero files** and `v1` holds the content. So the two
+    # **The store's version number and the on-disk `vN` are two namespaces**,
+    # and they can disagree: five handoffs in one run — `deploy_kit` among them —
+    # carry a `v1` directory while the store records only version 0. Measured
+    # before acting on it: in **every** one of those five, `v0` holds **zero
+    # files** and `v1` holds the content. So the two
     # rules do not disagree about which artefact — there is exactly one
     # populated directory and both select it.
     #

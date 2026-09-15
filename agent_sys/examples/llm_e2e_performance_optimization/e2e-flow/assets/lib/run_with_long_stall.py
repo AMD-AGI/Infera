@@ -6,16 +6,15 @@
 
     (not holding or blocked) and now - last_change > stall_after
 
-**Corrected 2026-09-04 by m2, who read the code where I had read the comment.**
-My first version of this docstring said `holding` counts only an attempt
-*mid-model-call*, so a long program stage could never hold. That is false:
+**`holding` does not count only an attempt *mid-model-call***, so it is not the
+case that a long program stage can never hold:
 
     holding = [t for t in live if _is_running(runner, t)
                                   and not _awaiting_a_decision(t, registry)]
 
 `_is_running` **and** not parked on an escalation. "Mid-model-call" is the
-comment's illustration at `main.py`, not the predicate — I inferred the code
-from the prose, which is the class this package has spent a day cataloguing.
+comment's illustration at `main.py`, not the predicate — inferring the code from
+the prose is the class this package catalogues.
 
 So a long program stage **does** hold, and a quiet productive window is
 explicitly survivable: `main.py` — *"the deadline is the only exit for a run
@@ -34,13 +33,12 @@ Measured on rung 2b, 2026-09-04:
     profiling_mode_off.bench_result   GENERATING
     -> "Nothing has changed for 20 s" -> run ended
 
-**What is true about m2's stage, after the correction.** Both profiling lines
-declare `resources: {gpu: 8}`, so on an eight-GPU node they can never run
-concurrently, and everything downstream waits on both. m2 measured the resulting
-quiet window at **8–10 minutes**, and it recurs at every rung from 2 onward.
-That window is survivable by design — but it is ten minutes in which a single
-escalation ends the run instantly, and the run that died had produced three
-`strong` verdicts and a `generating` bench_result by then.
+**What is true about m2's stage.** Both profiling lines declare
+`resources: {gpu: 8}`, so on an eight-GPU node they can never run concurrently,
+and everything downstream waits on both. The resulting quiet window measures at
+**8–10 minutes**, and it recurs on every run. That window is survivable by
+design — but it is ten minutes in which a single escalation ends the run
+instantly, after three `strong` verdicts and a `generating` bench_result.
 
 **So this launcher does not unblock a structural blocker, because there is not
 one.** It widens the window in which an escalation is survivable long enough to

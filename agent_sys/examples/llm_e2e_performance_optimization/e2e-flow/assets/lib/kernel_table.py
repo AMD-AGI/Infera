@@ -20,10 +20,10 @@ bring-up each came from. So the table is one level deeper and its CSV is a
 the failure was not subtle: `rank` reports "no document" against a perfectly
 good handoff.
 
-I had reasoned from the old MOCK-MAP row — the `results/` → `result/` reshape of
-`profile_packup` — which the package owner has since replaced with **(H)**: no mock for
-`profiling_evidence` at all, because the merge now runs for real over mocked
-inputs. **The layout I tested against was not the layout that will arrive.**
+The `results/` → `result/` reshape of `profile_packup` is the wrong row to
+reason from: MOCK-MAP **(H)** replaces it with no mock for `profiling_evidence`
+at all, because the merge runs for real over mocked inputs. **A layout tested
+against is not necessarily the layout that will arrive.**
 
 The difference is not a disagreement anybody chose. `reproducible` requires
 `result` and `env` and one of `script`/`command`, which is what makes a real

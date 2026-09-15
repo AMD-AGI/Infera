@@ -33,9 +33,10 @@ it parse would be inventing history rather than recording it.
 *The step order.* `env/steps.json` is the record `check_measurement_order` reads,
 and no source carries the merged version: the measurement script knows about its
 own five steps and nothing about the bring-up that preceded them. **The bring-up
-has to be in it**, because the ordering guarantee that used to be the graph edge
-`serve_patched ← measure_stock` is precisely "the patched arm's bring-up did not
-start until the stock arm had finished measuring" — and a steps record that omits
+has to be in it**, because the ordering guarantee — which a graph edge
+`serve_patched ← measure_stock` would carry — is precisely "the patched arm's
+bring-up did not start until the stock arm had finished measuring", and a steps
+record that omits
 bring-up cannot express it. So `--serve-started` and `--serve-seconds` are
 required, and there is no default: a guessed bring-up window would make the
 disjointness check pass by construction.
@@ -196,8 +197,8 @@ def merged_steps(sources: list[Path], arm: str, started: str, seconds: float) ->
     if not found:
         raise SystemExit(
             "merge_arm: no source carried items/env/steps.json. Without it "
-            "check_measurement_order has nothing to read, and the ordering guarantee that "
-            "used to be a graph edge would be an assertion in a readme and nothing more."
+            "check_measurement_order has nothing to read, and the ordering guarantee "
+            "is then an assertion in a readme and nothing more."
         )
     serve = {"step": "serve", "rc": "0", "seconds": float(seconds), "started": started}
     return {"arm": arm, "steps": [serve] + found}
@@ -292,9 +293,9 @@ timestamps:
     {names}
 
 That record is what `check_measurement_order` reads. It exists because the
-ordering it describes used to be a graph edge and is now a numbered list in a
-readme, which is a weaker guarantee — so the guarantee moved from the scheduler
-to the evidence.
+ordering it describes is a numbered list in a readme rather than a graph edge,
+which is a weaker guarantee — so the guarantee lives in the evidence rather than
+in the scheduler.
 
 ## Watch out
 

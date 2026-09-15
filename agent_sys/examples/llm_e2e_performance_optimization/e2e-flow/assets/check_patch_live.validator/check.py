@@ -172,10 +172,10 @@ def check(content: Path, args: dict, reasons: list) -> bool:
     declared = overlay.get("runtime_marker") or {}
     hits = {row[0]: int(row[2]) for row in read_tsv(env / "marker_hits.tsv") if len(row) >= 3}
     if not declared:
-        # **The default is now `true`, and it was measured into being.**
-        # 2026-09-04 on node-047: an overlay whose in-container hash was
-        # byte-equal to its own `sha256_patched`, whose file demonstrably held a
-        # 2 ms sleep, and whose `.pyc` had been compiled that minute — and the
+        # **The default is `true`, and it is measured into being.** An overlay
+        # whose in-container hash is byte-equal to its own `sha256_patched`,
+        # whose file demonstrably holds a 2 ms sleep, and whose `.pyc` was
+        # compiled that minute — and the
         # arm measured **identical** to stock. The static evidence was perfect
         # and could not distinguish *mounted and never executed* from *executed
         # and had no effect*, which is the single distinction this validator

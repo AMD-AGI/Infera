@@ -44,9 +44,9 @@ def declared() -> list[tuple[str, str, dict]]:
     The first version walked the *handoffs* and took args from the validator
     entry there. Every handoff in this package writes the string form —
     `validators: [check_environment, check_profiling_evidence]` — so that
-    branch returned `{}` for all 44 pairs and **118 declared args across 21
-    validators were silently discarded**. Found by m2, 2026-09-05, by running
-    their own row both ways on the same body and corpus:
+    branch returns `{}` for all 44 pairs and **118 declared args across 21
+    validators are silently discarded**. Measured by running one row both ways
+    on the same body and corpus:
 
         args = {}           verdict FALSE  "parts.json claims part(s) … that
                                             this kind does not declare"
@@ -166,9 +166,8 @@ def _substitute(node, overrides: dict[str, str] | None = None):
     was HIDING a real refusal, not manufacturing a false one, which is the
     opposite of what a bare "12 of 14 were this" implies. Three counts, three
     different questions: 12 rows contain a template, 10 crashed on one, 6 are
-    resolved by substituting. Across four owners, and every owner
-    correctly refused to convert an artefact to satisfy it. Found by m5 and m3
-    independently within a minute of each other; m2 classified the whole table.
+    resolved by substituting. Across four stages, and in every case converting
+    the artefact to satisfy the template would be the wrong move.
 
     A bare `${name}` with no default resolves to `""`, which is what an
     unset var gives a run. CONTRACT §4.2: these arrive as strings, which is why
@@ -246,8 +245,8 @@ def build_index(run: pathlib.Path) -> dict[str, pathlib.Path]:
 
     **Had that table been worked, three validators would have been rewritten to
     accept a format their own producer stopped emitting** — deleting the checks
-    that catch a producer regressing to the old shape. Found by m4, 2026-09-05,
-    who ran their rows against the right handoff and got PASS with zero changes.
+    that catch a producer regressing to the old shape. Running the same rows
+    against the right handoff gives PASS with zero changes.
 
     `store/handoff/*.json` carries `type` exactly, which is why `kit_env.sh`
     reads it that way. Prose is not an identifier.

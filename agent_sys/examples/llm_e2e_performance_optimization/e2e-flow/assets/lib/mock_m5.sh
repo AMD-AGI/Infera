@@ -103,12 +103,12 @@ arms)
     # nothing in the run was real** — CONTRACT §4.6 from the other side: a
     # comparison cannot fire while both sides share a source.
     #
-    # The validator is right and the artefact was missing a marker my own gate
+    # The validator is right and the artefact is missing a marker the gate
     # already looks for: `check_measurement_order/check.py` skips the
     # arm-vs-own-record comparison when `runtime.replayed_from` is set, on
-    # `check_deploy_kit:341`'s precedent, and `deploy_and_prove/mock_adapt.sh`
-    # sets it for m1. This is the same convention, one stage later — so rung 1's
-    # count returns to one refusal by fixing the producer, not by widening a bar.
+    # `check_deploy_kit`'s precedent, and `deploy_and_prove/mock_adapt.sh` sets
+    # it for m1. This is the same convention one stage later — so the refusal
+    # count comes down by fixing the producer, not by widening a bar.
     #
     # Edited in place rather than re-rendered: `merge_arm.py` has already written
     # this record, and a second `env_render` pass would rebuild fields it owns.

@@ -46,8 +46,8 @@ WHY THIS IS IN `assets/lib/` AND NOT AN m5 DIRECTORY
     It measures the instrument rather than this stage. m3's harness and m4's
     microbenchmark have the same question about their own rounds, and the answer
     — a count with an exact binomial bound, not a moment — is the same answer for
-    all three. Placement ruled by the package owner; `nodeprobe.sh`, `runprobe.py`,
-    `read_events.py` and `check_agent_env.py` are the neighbours it belongs with.
+    all three. `nodeprobe.sh`, `runprobe.py`, `read_events.py` and
+    `check_agent_env.py` are the neighbours it belongs with.
 
 USAGE
     round_noise.py --out <dir> --rounds N --label idle|contaminated

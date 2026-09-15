@@ -117,9 +117,9 @@ PERFORMANCE_ROLES = frozenset({"performance", "correctness-and-performance"})
 #:
 #: `minItems: 3` on `shapes` counts every shape, correctness-only ones included,
 #: so a workset can satisfy it while timing exactly one — and `build_workset`'s
-#: scaffold did precisely that, keying `role` on `is_primary`, of which there is
-#: exactly one per operator by construction. m4 found it: STEP 1 of its packup
-#: refuses with `1 performance shapes, the workset contract requires >= 3`, and
+#: keying `role` on `is_primary` does precisely that, since there is exactly one
+#: per operator by construction. STEP 1 of a packup then refuses with
+#: `1 performance shapes, the workset contract requires >= 3`, and
 #: `check_speedup_substantiated` refuses again at the output boundary under
 #: `min_shapes_measured: 3`. So the floor belongs on the *role* count as well as
 #: on the shape count, and M3.7.4.1 is where both come from: 必须提供所有 test

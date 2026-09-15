@@ -40,20 +40,18 @@ The output is a package directory; point `--package` at it.
 **The invariant, and it is checkable:** a kind carries `check_nothing` **if and
 only if it lost something.** A `validators:` list that comes through unchanged is
 left byte-identical and gets no marker, because there is no degradation to
-announce. I described this to the team as *"it leaves `check_nothing` on every
-kind"*, which is the over-general version — m1 diffed the four unchanged kinds
-against the strict package and found them identical. The invariant lives here
-rather than in a message because it can be verified against the output:
+announce. *"It leaves `check_nothing` on every kind"* is the over-general
+version: the unchanged kinds diff identical against the strict package. The
+invariant lives here rather than in a message because it can be verified against
+the output:
 
     diff <(grep -c check_nothing <strict>/steps/*.yaml) \\
          <(grep -c check_nothing <generated>/steps/*.yaml)
 
-**Written down because I have now had three descriptions of my own artefacts
-corrected in one day** — the corpus's `kernel_table` shape, its rank count, and
-this. Each time I described what I intended rather than what the thing does. The
-fix that worked elsewhere was deriving the description from the artefact; here
-it is stating an invariant a reader can check rather than a behaviour they must
-take on trust.
+**Written down because a description of one's own artefact tends to state what
+was intended rather than what the thing does.** The fix that works elsewhere is
+deriving the description from the artefact; here it is stating an invariant a
+reader can check rather than a behaviour they must take on trust.
 """
 from __future__ import annotations
 
@@ -245,9 +243,8 @@ def main(argv: list[str] | None = None) -> int:
     # is pointing at deletes the tree out from under it mid-run -- and the
     # failure would surface later, somewhere else, as a missing asset.
     #
-    # m2 hit this as a near miss and worked around it by giving every chain its
-    # own output path (`e2e-flow-noval`, `-237`, `-093`). That discipline is
-    # right, and it should not depend on remembering: the check is one `ps`.
+    # Giving every chain its own output path avoids it, and that discipline is
+    # right — but it should not depend on remembering: the check is one `ps`.
     live = []
     try:
         ps = subprocess.run(["ps", "-eo", "pid=,args="], capture_output=True,

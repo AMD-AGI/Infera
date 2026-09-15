@@ -8,7 +8,7 @@ Exit 1 = one of the four cases below came out wrong. No node, no GPU, no torch.
 
 ### The dependency this exists for
 
-m4's third-tree workspace (`63bcaca`) is on **no interpreter's import path**.
+m4's third-tree workspace is on **no interpreter's import path**.
 That is safe only while `_common.load_impl` reads the file it was handed rather
 than resolving a module through `sys.path`. If it ever became an import, forge
 would keep editing its tree, the driver would keep measuring the container's

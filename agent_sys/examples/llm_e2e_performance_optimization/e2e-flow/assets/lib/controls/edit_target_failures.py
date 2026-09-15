@@ -122,11 +122,11 @@ def main() -> int:
           f"{'confirmed' if b2 else 'IT DOES — B is reachable in production'}")
     ok &= b2
 
-    # **Parsed, not grepped, and the first version of this was grepped.** A text
-    # search cannot tell a live constant from a comment explaining why it was
-    # removed — so the moment the fix landed with a comment naming the field,
-    # B3 kept failing. That is the same defect this control exists to catch, in
-    # the control: an instrument that answers a question adjacent to the one
+    # **Parsed, not grepped.** A text search cannot tell a live constant from a
+    # comment explaining why it was removed — so a fix that lands with a comment
+    # naming the field keeps B3 failing. That is the same defect this control
+    # exists to catch, in the control: an instrument that answers a question
+    # adjacent to the one
     # asked. `ast` looks for the key in a dict literal, which is the fact.
     import ast
 

@@ -3,9 +3,9 @@
 
     ARMS=<dir with stock.measurement/ and e2e_packup/> python3 artefact_neg.py
 
-**Why this exists.** m2's sweep found two validators with zero refusals across
-269 recorded verdicts, and produced the refusal by breaking an ARTEFACT. Applying
-that method to m5's seven split my own coverage in two:
+**Why this exists.** A sweep can find validators with zero refusals across
+hundreds of recorded verdicts, and the way to produce the refusal is to break an
+ARTEFACT. Applying that method to m5's seven splits the coverage in two:
 
     artefact-driven   check_measurement_order, check_no_regression,
                       check_overlay_applies, check_patch_live          (4)
@@ -15,8 +15,8 @@ that method to m5's seven split my own coverage in two:
 **Three of seven had only ever been shown to READ their bars** — `min_requests=500`,
 `min_result_files=9999`, `needle_min_depths_retrieved=99`. That proves the
 argument is consulted. It does not prove the check detects a broken artefact.
-*A bar that is read* and *a check that detects* are different claims, and I had
-been reporting the first as the second.
+*A bar that is read* and *a check that detects* are different claims, and the
+first reads as the second.
 
 ## WHAT SIX PASSING PROBES DO AND DO NOT LICENSE
 
@@ -27,10 +27,8 @@ green run of this file is evidence about six cases, not about the class.
 
 ## THE THREE PROBES THAT WERE WRONG, KEPT BECAUSE THEY ARE THE INSTRUCTIVE PART
 
-All three returned a confident PASS and none of them changed anything. Had I
-stopped there I would have filed three defects against three working validators
-— the mirror of m2's near-miss, reproduced three times in a row an hour after
-they warned me.
+All three return a confident PASS and none of them changes anything. Stopping
+there means filing three defects against three working validators.
 
     A1  the packup has TWO README.md, and `next(a.rglob("README.md"))` handed me
         the handoff's own rather than `items/codes/README.md`, which is the one

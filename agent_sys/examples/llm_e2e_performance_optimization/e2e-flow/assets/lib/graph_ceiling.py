@@ -9,9 +9,8 @@ is a different thing and needs one body.
 
 ## Why an absolute bar and not a comparison
 
-m5 measured this standalone with constructed inputs. `stock_vs_m2_block`
-compares m2's bench against m5's stock arm at 10 %, and it cannot see this
-fault:
+Measured standalone with constructed inputs. `stock_vs_m2_block` compares m2's
+bench against m5's stock arm at 10 %, and it cannot see this fault:
 
     case                          m2_bs  stock_bs   argv differ?  ceiling>=conc?
     1 agree   (healthy)             512       512   False         both True
@@ -166,9 +165,9 @@ def ceiling_from_argv(argv_path: pathlib.Path) -> tuple[int | None, str]:
     # `None` rather than a verdict: with graphs disabled, *did decode fit inside
     # the captured graph* has no answer, so **not applicable** is the honest
     # state — the same third state the rest of this module uses.
-    # **`--disable-cuda-graph` does not always disable decode graphs, and the
-    # branch below used to assume it did.** Measured on node-217,
-    # 2026-09-05: an engine started with `--disable-cuda-graph` **and**
+    # **`--disable-cuda-graph` does not always disable decode graphs**, so the
+    # branch below must not assume it does. Measured: an engine started with
+    # `--disable-cuda-graph` **and**
     # `--cuda-graph-backend-decode full` logged `Decode batch, ... cuda graph:
     # True` (prefill `False`), carried `server_args` with both
     # `disable_cuda_graph=True` and `cuda_graph_backend_decode='full'`, and a
@@ -211,13 +210,11 @@ def ceiling_from_argv(argv_path: pathlib.Path) -> tuple[int | None, str]:
         if not nums:
             return None, f"{flag} is present with no numeric value{overridden}"
         return max(nums), f"{flag} -> {nums if len(nums) > 1 else nums[0]}{overridden}"
-    # **The `profiling_mode_on` sentence used to live here and has moved up into
-    # the `--disable-cuda-graph` branch, which is the branch that now receives
-    # that case.** Landing the branch without moving it left two `None` returns
-    # each claiming to be the mode_on explanation, and the wrong one was the
-    # fallback — the one a reader reaches by default. m1 predicted that before
-    # the branch landed and m5 agreed both should change together; the branch
-    # went in additively (`982a4d5`), so this is the other half.
+    # **The `profiling_mode_on` explanation belongs in the
+    # `--disable-cuda-graph` branch, which is the branch that receives that
+    # case.** Leaving a copy here as well gives two `None` returns each claiming
+    # to be the mode_on explanation, with the wrong one as the fallback — the one
+    # a reader reaches by default.
     #
     # What reaches here now is narrower and genuinely puzzling: an argv with
     # **neither** a ceiling flag **nor** `--disable-cuda-graph`.
@@ -235,12 +232,11 @@ def decode_concurrency(aiperf: dict) -> tuple[float | None, str]:
     an export that predates it.
 
     **It is a `{unit, avg, p50, p90}` object, not a scalar**, exactly like every
-    metric beside it. The first version of this function accepted only
-    `int | float` — so it returned `None` on **every real artefact** while
-    passing a fixture that wrote a bare number, which is §4.4.1 in the fixture
-    of the check written to demonstrate §4.4.1. Caught by running against the
-    sealed `aiperf_baseline` rather than against the battery; the battery was
-    green and the bar would never have fired in production.
+    metric beside it. Accepting only `int | float` returns `None` on **every real
+    artefact** while passing a fixture that writes a bare number — §4.4.1 in the
+    fixture of the check written to demonstrate §4.4.1. Running against a sealed
+    artefact rather than against the battery is what catches it; the battery
+    stays green and the bar never fires in production.
 
     A scalar is still accepted, because nothing costs less and an export that
     ever writes one should not silently disable the bar.

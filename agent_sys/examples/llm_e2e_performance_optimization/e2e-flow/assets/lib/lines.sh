@@ -24,11 +24,10 @@
 #   sh assets/lib/lines.sh <node> 4        # does a line DECLARE that half? rc=0 yes, rc=1 no
 #
 # **The `DECLARES` column is what a line asked for, NOT what is occupied**, and
-# the two can differ. 2026-09-05: m5's line declared `gpu_devices=4,5,6,7` while
-# its engine sat on cards 0-3 at 232 GB each -- opposite sets. I read this
-# script's output as occupancy and told m3 that 237 cards 0-3 were free; they
-# checked `rocm-smi` at the precondition and stopped, which is the only reason a
-# TP4 bring-up did not land on top of the deepest stage-5 chain of the day.
+# the two can differ: a line declaring `gpu_devices=4,5,6,7` while its engine
+# sits on cards 0-3 at 232 GB each is opposite sets. Reading this script's output
+# as occupancy then reports the occupied half as free, and only a `rocm-smi` at
+# the precondition stops a bring-up landing on top of a live chain.
 #
 # **So `rc=1` means "nobody declared it", not "the cards are free."** For the
 # occupancy question there is exactly one authority and it is on the node:

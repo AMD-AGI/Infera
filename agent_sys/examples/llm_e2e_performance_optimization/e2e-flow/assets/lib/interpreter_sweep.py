@@ -29,11 +29,11 @@ graph reports the wrong thing about the wrong artefact.
 inputs, so refusals are expected and uninteresting. The question is only whether
 the body got far enough to have an opinion.
 
-C2 supplies inputs — 2026-09-04
-------------------------------
-C2 used to hand a task body its **output** slots and nothing else. Every
-non-zero row there was therefore ambiguous between "correctly refuses without an
-input" and "broken", which is CONTRACT §4.4 in the harness's own instrument: the
+C2 supplies inputs
+------------------
+Handing a task body its **output** slots and nothing else makes every non-zero
+row ambiguous between "correctly refuses without an input" and "broken", which
+is CONTRACT §4.4 in the harness's own instrument: the
 graph never dispatches a task without staging its declared inputs, and
 `run_profiling_mode_off.task`'s *mock* branch reads
 `$AGENT_SYS_INPUT_DEPLOY_KIT/items/codes/environment.yaml` on its second line —
@@ -62,11 +62,11 @@ So C1 now feeds each validator one real artefact per kind it declares in its own
 **Shown to fire, not assumed to.** Same artefact, same interpreter, two versions
 of that body:
 
-    check_workset_shape @ 4b4c9ce^   rc=1  verdict=False  ModuleNotFoundError: referencing
-    check_workset_shape @ HEAD       rc=0  verdict=True   1/1 passed
+    check_workset_shape, before the fix   rc=1  verdict=False  ModuleNotFoundError: referencing
+    check_workset_shape, after            rc=0  verdict=True   1/1 passed
 
-The gate catches the class, and it passes today because m3 fixed the cause. Both
-halves were needed: a gate that has only ever passed is not evidence.
+The gate catches the class, and it passes because the cause is fixed. Both halves
+are needed: a gate that has only ever passed is not evidence.
 """
 
 from __future__ import annotations
@@ -102,7 +102,7 @@ SCRATCH = Path(os.environ.get("E2E_SWEEP_SCRATCH",
 
 #: The PATH a body actually gets. `/usr/bin/python3` is jsonschema 4.10.3 with
 #: no `referencing`; the login shell's python is miniconda's, which has both —
-#: which is exactly why nobody saw (2) or (3) in testing.
+#: which is exactly how (2) and (3) stay invisible in testing.
 RUN_PATH = "/usr/bin:/bin"
 
 #: Which module owns which body, from CONTRACT §8a. Only used to address the
@@ -154,9 +154,9 @@ _VKINDS: dict[str, list[str]] = {}
 def args_of(validator: str) -> dict:
     """Every validator's declared `args`, substituted the way a run substitutes.
 
-    **Not `{}`.** The first version of this sweep handed every body empty args,
-    so every `args.get(k, default)` returned the *typed* default and a missing
-    coercion was invisible — the same structural blindness layer B had against
+    **Not `{}`.** Handing every body empty args makes every
+    `args.get(k, default)` return the *typed* default, so a missing coercion is
+    invisible — the same structural blindness layer B has against
     `schema.validate()`. CONTRACT §4.2's arithmetic half only bites on the
     substituted, string-typed form, so a gate that does not deliver strings
     cannot gate it.
