@@ -126,6 +126,20 @@ def _engine_argv(args, port: int, tp: int) -> list[str]:
             argv += ["--enable-ep-moe"]
         if args.enforce_eager:
             argv += ["--disable-cuda-graph"]
+        if getattr(args, "decode_only_fake", False):
+            # Run the engine as the decode half of a P/D pair, with the fake
+            # transfer backend concluding every handoff instantly. No prefill
+            # worker, bootstrap server or RDMA device has to exist, and no
+            # prompt is processed on this engine at all -- so the decode step
+            # is measured without the prefill of a later wave landing in the
+            # same batch, which is what a co-located measurement cannot avoid.
+            #
+            # The KV pages the handoff claims to have filled are left as they
+            # were. That makes the generated text meaningless and the step
+            # timing unaffected: the shapes, kernels and page count are the
+            # ones a real decode worker runs.
+            argv += ["--disaggregation-mode", "decode",
+                     "--disaggregation-transfer-backend", "fake"]
     elif args.serving_backend == "atom":
         # ATOM splits the two ports the other engines fold together: --port is
         # the torch-distributed MASTER_PORT, so the HTTP listener the client
@@ -220,6 +234,13 @@ def _run_client(port: int, args, out_dir: str, tag: str, *, batch: int,
             "--num-prompts", str(num_prompts), "--max-concurrency", str(batch),
             "--output-file", result,
         ]
+        if getattr(args, "decode_only_fake", False):
+            # Annotates each request with the reserved fake bootstrap host so
+            # the decode server admits it without a prefill peer. The client
+            # sends the same bootstrap room for every request, which is safe
+            # here only because the fake receiver keeps its handshake state
+            # per instance and never looks the room up.
+            cmd.append("--fake-prefill")
         # This client appends, so a stale file from an earlier harvest at the
         # same tag would leave its last line -- another run's numbers -- as the
         # one read back.
@@ -245,7 +266,15 @@ def client_kind(args) -> str:
     engine that can serve it. SGLang's own client stands in there, and the
     artifact records which one ran, because two clients pacing one server are
     two measurements.
+
+    A decode-only anchor is the exception. The bootstrap annotation its server
+    requires is emitted by SGLang's client flag and by nothing in vLLM's, so
+    that measurement exists under SGLang's client whatever else is installed --
+    preferring vLLM's there would send unannotated requests to a decode server
+    that rejects them.
     """
+    if getattr(args, "decode_only_fake", False):
+        return "sglang"
     if shutil.which("vllm"):
         return "vllm"
     if args.serving_backend == "sglang":
@@ -473,6 +502,15 @@ def run_serving_benchmark(args) -> dict:
     if prefill_rate > 0:
         for entry in sweep:
             entry["prefill_ms"] = prefill_rate * entry["batch"] * args.input_len
+    decode_only_fake = bool(getattr(args, "decode_only_fake", False))
+    if decode_only_fake:
+        derived_from = ("serving benchmark, decode-only pool (mean TPOT; "
+                        "prefill faked at the handoff, never executed)")
+    elif prefill_rate > 0:
+        derived_from = ("serving benchmark (mean TPOT; prefill by TTFT "
+                        "difference across prompt lengths)")
+    else:
+        derived_from = "serving benchmark (mean TPOT)"
     artifact = {
         "backend": args.serving_backend,
         # Which client paced the server. Two clients driving one engine are two
@@ -507,14 +545,17 @@ def run_serving_benchmark(args) -> dict:
                                                    "--attention-backend"),
             "load_format": "auto",
             "real_weights": True,
+            # A decode-only artifact describes one pool rather than a whole
+            # engine: it carries no prefill measurement at all, so a consumer
+            # handed it leaves prefill and TTFT on the simulator. Recorded so
+            # that is visible in the artifact instead of inferred from a
+            # missing key.
+            "decode_only_fake": decode_only_fake,
             "model": args.model,
             # What this anchor cost, so its own artifact carries the accounting.
             "boot_s": round(boot_s, 1),
             "anchor_client_s": round(client_s, 1),
-            "derived_from": ("serving benchmark (mean TPOT; prefill by TTFT "
-                             "difference across prompt lengths)"
-                             if prefill_rate > 0
-                             else "serving benchmark (mean TPOT)"),
+            "derived_from": derived_from,
             "prefill_anchor": prefill_diag,
             # Capture-size sweep mode: the projector pads decode UP to the
             # nearest measured size instead of interpolating.

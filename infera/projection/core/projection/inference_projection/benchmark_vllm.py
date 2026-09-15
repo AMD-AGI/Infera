@@ -1082,6 +1082,11 @@ _CACHE_EXTRA_ARGS = (
     # A prefill-anchored artifact carries a measurement a decode-only one does
     # not, so the two cannot share an entry even at an identical config.
     "prefill_anchor", "prefill_anchor_short", "prefill_anchor_validate",
+    # A decode pool and a co-located engine are different measurements of the
+    # same config: the co-located TPOT carries the prefill of later waves in its
+    # batches and the decode-only one does not, which is the whole reason to run
+    # it. Serving one as the other is the error this keeps out of the cache.
+    "decode_only_fake",
 )
 
 
@@ -1270,6 +1275,17 @@ def main(argv=None):
                     help="Probe a third, interior length so the pairwise slopes "
                          "can be compared. Checks the linearity the difference "
                          "assumes, at the cost of one more client run.")
+    ap.add_argument("--decode-only-fake", action="store_true",
+                    help="Anchor decode alone, by launching SGLang as the "
+                         "decode half of a P/D pair whose KV handoff is faked "
+                         "(--disaggregation-mode decode with the fake transfer "
+                         "backend, paced by a --fake-prefill client). No prompt "
+                         "is processed on the engine, so the measured step is "
+                         "decode and nothing else -- a co-located run instead "
+                         "mixes the prefill of later waves into the same "
+                         "batches as the TPOT it reports. The artifact carries "
+                         "no prefill measurement, which leaves prefill and TTFT "
+                         "on the simulator. SGLang only.")
     ap.add_argument("--offline", action="store_true",
                     help="Measure with the offline LLM() entrypoint instead of a "
                          "real server. Off by default: the two do not resolve the "
@@ -1295,11 +1311,32 @@ def main(argv=None):
                  "and MoE kernels and already reports its own prefill_ms. Drop "
                  "one: --prefill-anchor alone for a served anchor, --offline "
                  "alone for the offline one.")
+    # A decode-only engine never processes a prompt, so there is no prefill to
+    # anchor there: the probes would difference two TTFTs that are both the fake
+    # handoff plus a first decode step, and the slope they resolve would be
+    # noise wearing a measurement's name. Rejected rather than ignored, because
+    # a silently dropped --prefill-anchor is the case where prefill quietly
+    # stays simulated.
+    if args.decode_only_fake and args.prefill_anchor:
+        ap.error("--decode-only-fake runs an engine that processes no prompts, "
+                 "so --prefill-anchor has nothing to measure there. Drop one: "
+                 "--decode-only-fake for a decode-pool anchor, --prefill-anchor "
+                 "for a co-located one that measures both.")
+    if args.decode_only_fake and args.offline:
+        ap.error("--decode-only-fake is a serving-path measurement and "
+                 "--offline runs the LLM() entrypoint, which has no "
+                 "disaggregation mode to put a decode pool into.")
+    if args.decode_only_fake and args.serving_backend != "sglang":
+        ap.error(f"--decode-only-fake needs SGLang: the decode-only launch and "
+                 f"the faked handoff are its flags, and its client is the only "
+                 f"one that annotates requests for them. Got "
+                 f"--serving-backend {args.serving_backend}.")
     # Unset resolves per path: the serving anchor measures prefill, the offline
-    # one already has its own. Resolved to a concrete value before the cache key
-    # is built, so an anchored artifact cannot collide with a decode-only one.
+    # one already has its own, and a decode-only pool has none to measure.
+    # Resolved to a concrete value before the cache key is built, so an anchored
+    # artifact cannot collide with a decode-only one.
     if args.prefill_anchor is None:
-        args.prefill_anchor = not args.offline
+        args.prefill_anchor = not args.offline and not args.decode_only_fake
     # Before anything imports vLLM: several ROCm levers are read once at import.
     # Sorted so the same lever set always produces the same cache key.
     args.env = sorted(args.env)

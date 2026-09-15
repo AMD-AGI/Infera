@@ -39,7 +39,7 @@ def spec(**over) -> Namespace:
     base = dict(model="openai/gpt-oss-120b", serving_backend="vllm",
                 max_model_len=8192, enable_expert_parallel=False,
                 enforce_eager=False, quantization=None, kv_cache_dtype=None,
-                server_args="")
+                server_args="", decode_only_fake=False)
     base.update(over)
     return Namespace(**base)
 
@@ -247,3 +247,83 @@ def test_each_client_is_read_the_way_it_writes(tmp_path):
     with pytest.raises(RuntimeError, match="no result"):
         (tmp_path / "empty.jsonl").write_text("")
         benchmark_serving._client_result(str(tmp_path / "empty.jsonl"), "sglang")
+
+
+# --- anchoring one pool instead of a whole engine ---------------------------
+# A co-located anchor cannot report a decode step on its own: its client paces
+# several waves against one engine, so a later wave's prefill shares batches
+# with the TPOT being recorded. Launching the engine as a decode pool whose KV
+# handoff is faked removes the prefill rather than trying to subtract it.
+
+def test_a_decode_pool_anchor_launches_an_engine_that_prefills_nothing():
+    argv = _engine_argv(spec(serving_backend="sglang", decode_only_fake=True),
+                        port=8123, tp=8)
+    assert argv[argv.index("--disaggregation-mode") + 1] == "decode"
+    # The faked backend is what lets the pool stand alone: a real one would
+    # wait on a prefill peer, a bootstrap server and an RDMA device, none of
+    # which an anchor has any reason to bring up.
+    assert argv[argv.index("--disaggregation-transfer-backend") + 1] == "fake"
+
+
+def test_a_co_located_anchor_is_still_the_default_launch():
+    """The decode-pool flags must not appear unasked: they change the engine."""
+    argv = _engine_argv(spec(serving_backend="sglang"), port=1, tp=1)
+    assert "--disaggregation-mode" not in argv
+
+
+def test_the_decode_pool_anchor_is_paced_by_the_client_that_can_annotate_it(
+        monkeypatch):
+    """vLLM's client would send requests a decode server refuses.
+
+    The bootstrap annotation the faked handoff admits on is SGLang's own client
+    flag. Preferring vLLM's client here because it happens to be installed
+    would leave the requests unannotated, which fails at the server rather than
+    at the flag.
+    """
+    monkeypatch.setattr(benchmark_serving.shutil, "which", lambda _: "/usr/bin/vllm")
+    args = spec(serving_backend="sglang", decode_only_fake=True)
+    assert benchmark_serving.client_kind(args) == "sglang"
+
+
+def test_the_decode_pool_anchor_cannot_also_claim_to_measure_prefill():
+    """Both flags together is a contradiction, and refused as one.
+
+    Dropping --prefill-anchor silently would leave prefill simulated in an
+    artifact whose caller asked for it measured, which is exactly the failure
+    the flag exists to prevent.
+    """
+    from infera.projection.core.projection.inference_projection import benchmark_vllm
+
+    common = ["--model", "m", "--save", "/tmp/a.json",
+              "--serving-backend", "sglang", "--decode-only-fake"]
+    with pytest.raises(SystemExit):
+        benchmark_vllm.main([*common, "--prefill-anchor"])
+    # And an engine without the mode says so at the flag rather than failing
+    # once the weights are already resident.
+    with pytest.raises(SystemExit):
+        benchmark_vllm.main(["--model", "m", "--save", "/tmp/a.json",
+                             "--decode-only-fake"])
+
+
+def test_a_decode_pool_measurement_never_serves_as_a_co_located_one():
+    """The two differ in the one number they both report, so they cannot share
+    a cache entry at an identical config."""
+    from infera.projection.core.projection.inference_projection import benchmark_vllm
+
+    assert "decode_only_fake" in benchmark_vllm._CACHE_EXTRA_ARGS
+
+
+def test_the_artifact_says_which_pool_it_describes(monkeypatch):
+    """A decode-only artifact carries no prefill, and states that it is one.
+
+    Left to be inferred from a missing prefill_ms, a consumer cannot tell a
+    decode-pool anchor from a co-located run whose prefill probe failed to
+    resolve -- and the second is a reason to re-run, while the first is not.
+    """
+    measured, artifact = _sweep_batches(monkeypatch, serving_backend="sglang",
+                                        decode_only_fake=True, batches="8,16")
+    assert artifact["meta"]["decode_only_fake"] is True
+    assert "decode-only" in artifact["meta"]["derived_from"]
+    assert artifact["measured"]["model"]["prefill_ms"] is None
+    assert all("prefill_ms" not in e for e in artifact["sweep"])
+

@@ -245,6 +245,23 @@ def _add_performance_args(parser):
         ),
     )
     parser.add_argument(
+        "--bench-decode-only-fake",
+        action="store_true",
+        help=(
+            "Anchor the decode pool alone, for --profiling-mode benchmark.\n"
+            "Launches SGLang as the decode half of a P/D pair whose KV handoff\n"
+            "is faked, so the engine processes no prompt and the measured step\n"
+            "is decode and nothing else. A co-located anchor cannot separate\n"
+            "them: its client runs several waves against one engine, so the\n"
+            "prefill of a later wave shares batches with the TPOT it reports.\n"
+            "The artifact carries no prefill measurement, which leaves prefill\n"
+            "and TTFT on the simulator -- calibrate a P/D decode pool with this\n"
+            "and read TTFT as simulated.\n"
+            "Requires --bench-serving-backend sglang.\n"
+            "Env: INFERASIM_BENCH_DECODE_ONLY_FAKE=1.\n"
+        ),
+    )
+    parser.add_argument(
         "--gemm-backend",
         type=str,
         required=False,

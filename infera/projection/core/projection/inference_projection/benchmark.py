@@ -81,6 +81,15 @@ def spawn_inference_benchmark(args, inference_config):
                or os.environ.get("INFERASIM_BENCH_SERVING_BACKEND"))
     if backend:
         argv += ["--serving-backend", str(backend)]
+    # Anchor the decode pool on its own, with no prompt processing on the
+    # engine. Implies SGLang, since the decode-only launch and the faked handoff
+    # are its flags; passed rather than inferred so the harness rejects the
+    # combination instead of this deciding the engine behind the caller's back.
+    decode_only_fake = (getattr(args, "bench_decode_only_fake", False)
+                        or os.environ.get("INFERASIM_BENCH_DECODE_ONLY_FAKE")
+                        in ("1", "true", "True"))
+    if decode_only_fake:
+        argv.append("--decode-only-fake")
     # Flags the checkpoint needs before it will load at all -- a remote-code
     # architecture, a non-default attention backend. Without a way through,
     # such a model is unmeasurable for a reason that has nothing to do with
