@@ -3,8 +3,9 @@
 | | |
 |---|---|
 | Status | Normative |
-| Revision | 13 |
-| Scope | The whole system: what it is, which components exist, and what each owes the others |
+| Version | 13 |
+| Updated | 2026-09-15 |
+| Summary | The whole system, most-important-first: the architecture, the four objects, the two authority boundaries, and the index of every component's acceptance criteria. |
 | Source | The task definition; a survey of evaluation frameworks and of agent-harness isolation (§7.1) |
 
 ---
@@ -524,13 +525,13 @@ come up constantly:
 | 1 | **Reproducible or it did not happen** | Any deliverable, conclusion, or performance number rests on a reproducible basis |
 | 2 | **Develop against the validator** | The goal is not "the output looks right" but "the output passes its validator". The validator is specified first, the implementation second |
 | 3 | **`<context, worker>`** | A worker is `<executor, knowledge, rules>`; a context is `<content, protocol, validation programs>`. Each has a clear, complete, checkable input and output, and does only its own job |
-| 4 | **Observability** | Levelled logging, an outside view of whether an agent has drifted or is looping, and a final process summary. A system that can be observed can be repaired. The subsystem is on the roadmap |
-| 5 | **Interventionability** | An agent can be interrupted and instructed; a control surface can abort |
+| 4 | **Observability** | *Goal.* Levelled logging, an outside view of whether an agent has drifted or is looping, and a final process summary. A system that can be observed can be repaired. **Not built** — [`ROADMAP.md`](ROADMAP.md) §1 |
+| 5 | **Interventionability** | *Partly held.* A backend exposes interrupt and instruct (`agent` spec §4.3). **What drives them is not specified** — it lands with the whole-system CLI, [`TODO.md`](TODO.md) |
 | 6 | **Risk has an exit** | What an agent cannot decide, it reports. Some reports may not be self-issued, which is why §5.2 exists |
-| 7 | **Measurable** | A scoring mechanism exists. Where two results are equal, per-token and per-time efficiency break the tie |
+| 7 | **Measurable** | *Goal.* A scoring mechanism, and per-token and per-time efficiency to break a tie between equal results. **v1 is boolean throughout** and nothing specifies how a score is produced — §10, [`ROADMAP.md`](ROADMAP.md) §10 |
 | 8 | **Composable and pluggable** | The optimisation flow does not change, so each new external tool integrates through a thin wrapper against a standard interface |
-| 9 | **Composition over inheritance** | Inheritance appears only where two things genuinely differ in behaviour |
-| 10 | **One fact, one place** | Where two operations mean the same thing, one is expressed in terms of the other — not licence to collapse two genuinely different concerns |
+| 9 | **Composition over inheritance** | `engineer_principle.md` §1, which is binding and is not restated here |
+| 10 | **One fact, one place** | `engineer_principle.md` §1. It applies to documents as well as to code: a fact with two homes has two things to keep true |
 | 11 | **Use the existing wheel** | §3.2 |
 
 ### 3.2 Use the existing wheel
@@ -1127,11 +1128,11 @@ Two prohibit the nesting variant outright. **Removed** — validator spec §6.
 > At rev. 4 this had to be reconciled with §4.4 adopting jsonnet, because the two
 > read alike: the removed system templated a validator's **checking logic** — its
 > source, with blanks an agent filled in — while §4.4 templated a spec's
-> **configuration**, and filling in a parameter is not writing code. **The
-> reconciliation is no longer needed**, since rev. 10 removed the spec templating
-> too (§7) — for a different and weaker reason, that nothing was using it. The
-> distinction is kept on the record anyway: it is the one that decides whether a
-> future proposal to template something is this rule or that one.
+> **configuration**, and filling in a parameter is not writing code. **Neither
+> exists now** — the spec templating went too (§7), for the different and weaker
+> reason that nothing was using it. The distinction is kept on the record anyway:
+> it is the one that decides whether a future proposal to template something is
+> this rule or that one.
 
 **Path-prefix isolation.** The spec confined an agent with a `PreToolUse` hook
 matching an unguessable path prefix. Measured: an agent that writes a Python
@@ -1273,7 +1274,7 @@ within one.
 | **this document** | §8 — 18 | §10 |
 | [`handoff`](../handoff/docs/spec.md) | §9 — 17 | §10 |
 | [`validator`](../validator/docs/spec.md) | §11 — 21 | §12 |
-| [`task_graph`](../task_graph/docs/spec.md) | §11 — 54 | §10 |
+| [`task_graph`](../task_graph/docs/spec.md) | §10 — 54 | §11 |
 | [`agent`](../agent/docs/spec.md) | §8 — 16 | §9 |
 | [`closure`](../closure/docs/spec.md) | §5 — 12 | §6 |
 | [`env_mgr`](../env_mgr/docs/spec.md) | §10 — 22 | §11 |

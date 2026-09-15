@@ -3,9 +3,12 @@
 | | |
 |---|---|
 | Status | Normative for how this package is built |
-| Revision | 4 |
-| Implements | [`spec.md`](spec.md) rev. 3, acceptance criteria 1–22 |
+| Version | 4 |
+| Updated | 2026-09-15 |
+| Summary | Paths, zones, the granted set, grant resolution, the workspace, sync, remote access, and preparing an environment. |
+| Implements | [`spec.md`](spec.md), acceptance criteria 1–22 |
 | Language | Python ≥ 3.10. `ctypes` for the Landlock syscalls; no third-party sandbox dependency |
+| Part of | [`../../docs/design.md`](../../docs/design.md) — the whole-system design |
 
 ---
 
@@ -1511,7 +1514,20 @@ that, and no documented invocation does either.
 
 ---
 
-## 13. Build versus adopt
+## 13. o11y
+
+Side-cars that watch a run. **The rule that outranks every feature here: o11y
+may never fail the thing it observes.** Every failure is one `log.warning` and a
+skip, and there is a test per mode holding that line.
+
+One component today. Its design is **`../o11y/agentsview/design.md`** — the
+panel, the five gates that keep it to `agent_sys`'s own sessions, one project
+per run, and the measurements each of those rests on. It lives beside the code
+rather than here because it is a component's design, not the module's.
+
+---
+
+## 14. Build versus adopt
 
 | Concern | Considered | Chosen | Why |
 |---|---|---|---|
@@ -1526,13 +1542,13 @@ that, and no documented invocation does either.
 
 ---
 
-## 14. Test plan
+## 15. Test plan
 
 `tests/env_mgr/` gains the new suites beside the shipped 65. Criteria 2–14 are
 CI-enforced on every commit (spec §10) and need a subprocess and a filesystem —
 no agent, no API key.
 
-### 14.1 The environment is a declared input, not a discovered condition
+### 15.1 The environment is a declared input, not a discovered condition
 
 Spec §10: "When no sandbox mechanism is available, the suite fails. It does not
 skip."
@@ -1559,7 +1575,7 @@ times, always for optional *filesystems* (`overlayfs`, `tracefs`), never for
 Landlock (S2). The rule adopted: **skip for environmental variation orthogonal to
 the property under test; never skip the property.**
 
-### 14.2 Denials are asserted by errno against a named path
+### 15.2 Denials are asserted by errno against a named path
 
 The pattern is not a preference. My own instrument produced a **false PASS** from
 a `returncode != 0` check, because both children were failing to exec the
@@ -1584,7 +1600,7 @@ Two reinforcements taken from the survey:
   leaving 126/127 free to mean "the harness itself is broken" (F5). Used for the
   cross-`exec` cases in §14.3.
 
-### 14.3 The harness forks; tests do not
+### 15.3 The harness forks; tests do not
 
 Landlock restriction is irreversible and inherited, so a test that sandboxes the
 pytest process poisons every later test. The kernel's answer is that **isolation
@@ -1612,14 +1628,14 @@ errno**, per §14.2.
 `all_threads()` does not exist, so a sibling thread started before `restrict`
 would remain unrestricted while the status still reports enforced.
 
-### 14.4 The decoupling wall
+### 15.4 The decoupling wall
 
 `test_imports.py` walks the module graph and asserts both directions of §2.1:
 nothing new imports the installer machinery, and nothing in the installer
 machinery imports `fs`, `isolation`, `grants`, `workspace`, `sync`, or `remote`.
 `cli.py` is the single allowed exception.
 
-### 14.5 Criteria
+### 15.5 Criteria
 
 | # | Test | File |
 |---|---|---|
@@ -1646,7 +1662,7 @@ machinery imports `fs`, `isolation`, `grants`, `workspace`, `sync`, or `remote`.
 | 21 | — **no artefact exists**; §14.6 | — |
 | 22 | The shipped 65, unchanged, plus `test_cli_subcommands_preserve_shipped_shapes` (§12.2) | `tests/env_mgr/` |
 
-### 14.6 Three criteria that cannot be satisfied as written
+### 15.6 Three criteria that cannot be satisfied as written
 
 Stated here rather than quietly approximated.
 
@@ -1661,71 +1677,7 @@ needs `handoff`'s digest. §15 orders them last for that reason.
 
 ---
 
-## 15. Implementation order
-
-Each step leaves the suite green.
-
-| # | Step | Unblocks |
-|---|---|---|
-| 1 | `fs/path.py` and its tests — criteria 3, 4, 5 | everything; it is the bottom of §2's graph |
-| 2 | `isolation/landlock.py` + `probe.py` + `policy.py`, promoting the probe instrument | criteria 6, 7, 12, 14 |
-| 3 | `isolation/apply.py` and the chain — criteria 8, 9 | the §14.3 fixture, which every later confinement test needs |
-| 4 | `fs/domain.py`, `fs/zone.py`, `fs/layout.py` — criteria 1, 2, 13 | §8.3's sibling rule |
-| 5 | `grants.py` — §6, and `canonical_syntax` into the grant schema | criterion 10 |
-| 6 | `workspace.py` — criteria 11, 20 | the module's largest deviation, and the one most worth reviewing early |
-| 7 | `sync.py` — criteria 15, 16 | |
-| 8 | `remote/` — criterion 18 | needs `agent`'s tool surface |
-| 9 | `prepare.py` — criterion 17, and the composition | needs 1–8 |
-| 10 | `cli.py` sub-commands — criterion 22 | last, because it is the only shipped file touched |
-| 11 | The handoff entry — criterion 19 | needs `handoff` implemented |
-
-Steps 1–3 are the safety claims and should land before anything that depends on
-them looks finished.
-
----
-
-## 16. Deviations, and new open questions
-
-### 16.1 Deviations from the spec
-
-The spec set is agreed and a design does not amend it. Each of these is reported.
-
-| # | Deviation | Why | Effect |
-|---|---|---|---|
-| **D1** | **The workspace is a `git clone --shared`, not a worktree.** Contradicts §6.1's mechanism and criterion 20's wording | §7.1 measured that a worktree's index lives in the main repository, so the only configuration in which an agent can commit lets it write `<main>/.git/hooks` — where the hook then **runs**. That is CVE-2026-26268, which §4.4 cites as criterion 11's reason for existing | §6.1's stated *purpose* is preserved exactly; its mechanism changes. Both apparent costs have measured answers (§7.2), one of which — `extensions.preciousObjects` in the main repository — becomes a precondition `prepare()` enforces |
-| **D2** | **§4.5.1's default granted set is extended**: `/dev/null` read-**write**, the `/dev` character devices, and the task's declared interpreter | Measured: without `/dev/null` writable, git dies before any repository question; with the interpreter under `$HOME`, `subprocess` fails at exec naming the interpreter rather than the sandbox (M5, M3) | The spec's own clause ("the interpreter and toolchain paths a task declares") is what makes this an extension rather than a contradiction — but the default is never sufficient alone, which the spec does not say |
-| **D3** | **Fail-closed is implemented at two tiers**, where §4.2 states one rule | Every surveyed project splits it: production errors only on `NotEnforced`; the test suite demands full enforcement (F15). Stating one rule for both is stricter than anything surveyed | §4.5 steps (3) and (4). The strict tier is kept because a suite that passes under partial enforcement cannot detect degradation |
-| **D4** | **A grant path must be canonical, and is rejected otherwise** — a rule the spec does not have | §6.3 measured that exact-equality and realpath disagree on all four forms tried, always in the direction `closure` §6.3 forbids. Requiring canonical form makes the two interpreters agree by construction | Syntactic half belongs in the grant schema (load time); the realpath half runs at zone build. Adds a load-time failure mode that did not exist |
-| **D5** | **A validation's materials are a sibling of the producing task's zone** — an addition to §5.1's layout | Criterion 13 says containment resolves the property, but §5.1's layout has no place for a validation, and the only place it has room is inside the producing subtree, which is reachable (M22) | Small, but it is an addition rather than a reading, and criterion 13 is untrue without it |
-| **D6** | **The zone is built per attempt, not per task** | Grants resolve to `<root>/<hid>/v<N>/` and `N` lives on `Execution`, not `Task` (M14) | §4.5's "the sandbox is built once, at task start" is true of one attempt. A retry rebuilds |
-| **D7** | **Criteria 9, 17 and 21 are not satisfied as written**, and §14.6 says so rather than approximating | No machine runs criterion 9's three branches; criterion 17's second half is not an observable; criterion 21 has no artefact | Reported. 9 is decomposed, 17 is half-tested, 21 is blocked on the system-level tasks spec §11 already lists as unspecified |
-
-### 16.2 New open questions
-
-| # | Question |
-|---|---|
-| **O1** | **The chain's two rungs are different kinds of confinement.** bubblewrap isolates network and PID; Landlock at ABI ≤ 3 isolates neither and cannot touch the network before ABI 4. §4.1 reports the difference in `Confinement`, but nothing decides whether a task that *needs* network isolation may run on rung 2 at all. That is a policy question and it is not this document's to settle |
-| **O2** | **Below ABI 8, `restrict_self()` restricts only the calling thread.** §11.1 restricts before any thread starts and §14.3 asserts it, which is sufficient today. It stops being sufficient the moment anything in the executor's startup path spawns a thread first, and the failure is silent — the status still reports enforced |
-| **O3** | **Nothing enumerates what the next tool probes.** §5.5's three git variables were found by running git under confinement. The list grows by field report, and there is no mechanism that would have predicted them. A per-tool neutralisation table has no owner |
-| **O4** | **`Handoff.type` defaults to `""` and nothing requires it to be a registered kind.** A handoff whose type was never set matches no kind-named grant, so the grant covers nothing and the agent gets an empty granted set rather than an error. The fix belongs in `task_graph` or in admission, not here |
-| **O5** | **Whether executors nest as processes decides whether task depth is capped at 16.** §8.4 chooses supervisor-spawned executors, which avoids the cap. Nothing outside this document records that the choice has that consequence, and `task_graph` treats depth as unbounded |
-| **O6** | **§9.3 detects a conflict and refuses; it does not resolve one.** Refusing is right for a one-shot sync at task start. It is not right for whatever eventually wants to sync mid-task, and that caller does not exist yet |
-| **O7** | **Remote execution is less isolated than local, and now says so.** §10.4 reports it per side rather than resolving it. The moment a validation runs remotely, criterion 13 stops being enforced by anything this document specifies |
-
-## 17. o11y
-
-Side-cars that watch a run. **The rule that outranks every feature here: o11y
-may never fail the thing it observes.** Every failure is one `log.warning` and a
-skip, and there is a test per mode holding that line.
-
-One component today. Its design is **`../o11y/agentsview/design.md`** — the
-panel, the five gates that keep it to `agent_sys`'s own sessions, one project
-per run, and the measurements each of those rests on. It lives beside the code
-rather than here because it is a component's design, not the module's.
-
----
-
-## 18. Every acceptance criterion, and the test that holds it
+### 15.7 Every acceptance criterion, and the test that holds it
 
 `docs/spec.md` §10's 22 criteria. **Names checked against the tree**, not against
 the design's plan — the plan named tests before they existed and three of them
@@ -1768,7 +1720,7 @@ importing only `os` and `pathlib`), `test_threads.py` (§4.4(c), the ABI-3 threa
 scope), and `test_task_graph_agreement.py` (the seam driven with the **real**
 `task_graph` types, so the stub in `tests/env_mgr/stubs.py` cannot rot).
 
-### A note on how these tests are built, because it is not optional here
+#### A note on how these tests are built, because it is not optional here
 
 **Every denial is asserted as `EACCES` against a named path**, never as a
 non-zero exit status. A design measurement produced a false PASS from
@@ -1783,3 +1735,53 @@ could not run"*.
 which the denial would *not* happen. Without it, *"it is denied"* and *"it would
 be denied whatever we did"* are the same green — which is how criterion 13's
 separation was held by an accident of location for a week before anyone noticed.
+## 16. Implementation order
+
+Each step leaves the suite green.
+
+| # | Step | Unblocks |
+|---|---|---|
+| 1 | `fs/path.py` and its tests — criteria 3, 4, 5 | everything; it is the bottom of §2's graph |
+| 2 | `isolation/landlock.py` + `probe.py` + `policy.py`, promoting the probe instrument | criteria 6, 7, 12, 14 |
+| 3 | `isolation/apply.py` and the chain — criteria 8, 9 | the §14.3 fixture, which every later confinement test needs |
+| 4 | `fs/domain.py`, `fs/zone.py`, `fs/layout.py` — criteria 1, 2, 13 | §8.3's sibling rule |
+| 5 | `grants.py` — §6, and `canonical_syntax` into the grant schema | criterion 10 |
+| 6 | `workspace.py` — criteria 11, 20 | the module's largest deviation, and the one most worth reviewing early |
+| 7 | `sync.py` — criteria 15, 16 | |
+| 8 | `remote/` — criterion 18 | needs `agent`'s tool surface |
+| 9 | `prepare.py` — criterion 17, and the composition | needs 1–8 |
+| 10 | `cli.py` sub-commands — criterion 22 | last, because it is the only shipped file touched |
+| 11 | The handoff entry — criterion 19 | needs `handoff` implemented |
+
+Steps 1–3 are the safety claims and should land before anything that depends on
+them looks finished.
+
+---
+
+## 17. Deviations from the spec
+
+
+The spec set is agreed and a design does not amend it. Each of these is reported.
+
+| # | Deviation | Why | Effect |
+|---|---|---|---|
+| **D1** | **The workspace is a `git clone --shared`, not a worktree.** Contradicts §6.1's mechanism and criterion 20's wording | §7.1 measured that a worktree's index lives in the main repository, so the only configuration in which an agent can commit lets it write `<main>/.git/hooks` — where the hook then **runs**. That is CVE-2026-26268, which §4.4 cites as criterion 11's reason for existing | §6.1's stated *purpose* is preserved exactly; its mechanism changes. Both apparent costs have measured answers (§7.2), one of which — `extensions.preciousObjects` in the main repository — becomes a precondition `prepare()` enforces |
+| **D2** | **§4.5.1's default granted set is extended**: `/dev/null` read-**write**, the `/dev` character devices, and the task's declared interpreter | Measured: without `/dev/null` writable, git dies before any repository question; with the interpreter under `$HOME`, `subprocess` fails at exec naming the interpreter rather than the sandbox (M5, M3) | The spec's own clause ("the interpreter and toolchain paths a task declares") is what makes this an extension rather than a contradiction — but the default is never sufficient alone, which the spec does not say |
+| **D3** | **Fail-closed is implemented at two tiers**, where §4.2 states one rule | Every surveyed project splits it: production errors only on `NotEnforced`; the test suite demands full enforcement (F15). Stating one rule for both is stricter than anything surveyed | §4.5 steps (3) and (4). The strict tier is kept because a suite that passes under partial enforcement cannot detect degradation |
+| **D4** | **A grant path must be canonical, and is rejected otherwise** — a rule the spec does not have | §6.3 measured that exact-equality and realpath disagree on all four forms tried, always in the direction `closure` §6.3 forbids. Requiring canonical form makes the two interpreters agree by construction | Syntactic half belongs in the grant schema (load time); the realpath half runs at zone build. Adds a load-time failure mode that did not exist |
+| **D5** | **A validation's materials are a sibling of the producing task's zone** — an addition to §5.1's layout | Criterion 13 says containment resolves the property, but §5.1's layout has no place for a validation, and the only place it has room is inside the producing subtree, which is reachable (M22) | Small, but it is an addition rather than a reading, and criterion 13 is untrue without it |
+| **D6** | **The zone is built per attempt, not per task** | Grants resolve to `<root>/<hid>/v<N>/` and `N` lives on `Execution`, not `Task` (M14) | §4.5's "the sandbox is built once, at task start" is true of one attempt. A retry rebuilds |
+| **D7** | **Criteria 9, 17 and 21 are not satisfied as written**, and §14.6 says so rather than approximating | No machine runs criterion 9's three branches; criterion 17's second half is not an observable; criterion 21 has no artefact | Reported. 9 is decomposed, 17 is half-tested, 21 is blocked on the system-level tasks spec §11 already lists as unspecified |
+
+## 18. New open questions
+
+| # | Question |
+|---|---|
+| **O1** | **The chain's two rungs are different kinds of confinement.** bubblewrap isolates network and PID; Landlock at ABI ≤ 3 isolates neither and cannot touch the network before ABI 4. §4.1 reports the difference in `Confinement`, but nothing decides whether a task that *needs* network isolation may run on rung 2 at all. That is a policy question and it is not this document's to settle |
+| **O2** | **Below ABI 8, `restrict_self()` restricts only the calling thread.** §11.1 restricts before any thread starts and §14.3 asserts it, which is sufficient today. It stops being sufficient the moment anything in the executor's startup path spawns a thread first, and the failure is silent — the status still reports enforced |
+| **O3** | **Nothing enumerates what the next tool probes.** §5.5's three git variables were found by running git under confinement. The list grows by field report, and there is no mechanism that would have predicted them. A per-tool neutralisation table has no owner |
+| **O4** | **`Handoff.type` defaults to `""` and nothing requires it to be a registered kind.** A handoff whose type was never set matches no kind-named grant, so the grant covers nothing and the agent gets an empty granted set rather than an error. The fix belongs in `task_graph` or in admission, not here |
+| **O5** | **Whether executors nest as processes decides whether task depth is capped at 16.** §8.4 chooses supervisor-spawned executors, which avoids the cap. Nothing outside this document records that the choice has that consequence, and `task_graph` treats depth as unbounded |
+| **O6** | **§9.3 detects a conflict and refuses; it does not resolve one.** Refusing is right for a one-shot sync at task start. It is not right for whatever eventually wants to sync mid-task, and that caller does not exist yet |
+| **O7** | **Remote execution is less isolated than local, and now says so.** §10.4 reports it per side rather than resolving it. The moment a validation runs remotely, criterion 13 stops being enforced by anything this document specifies |
+

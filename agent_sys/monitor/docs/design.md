@@ -3,9 +3,12 @@
 | | |
 |---|---|
 | Status | Normative for how this package is built |
-| Revision | 2 |
-| Implements | [`spec.md`](spec.md) rev. 14 |
+| Version | 2 |
+| Updated | 2026-09-15 |
+| Summary | The record, the two queues, the monitor and its two handlers, and escalation. |
+| Implements | [`spec.md`](spec.md) |
 | Language | Python ≥ 3.10. Standard library plus pydantic v2 |
+| Part of | [`../../docs/design.md`](../../docs/design.md) — the whole-system design |
 
 ---
 
@@ -908,8 +911,7 @@ reasoning that the runner *must already* hold the mapping because
 "Already" was false — `agent/` is declaration-only and the sole `TaskRunner` is
 `FakeRunner`. And the map a runner is forced to hold is
 `dict[TaskId, tuple[Task, Agent, OnDone]]` (`FakeRunner.running`), which contains
-**no executor at all**; `executor_of` assumed more than existed
-.
+**no executor at all**; `executor_of` assumed more than existed.
 
 **`agent` design rev. 7 supplies the owner rather than the accessor.**
 `TaskAttempt` — one object per dispatch, holding the thread, the executor and the

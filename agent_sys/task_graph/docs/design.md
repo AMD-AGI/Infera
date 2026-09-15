@@ -3,9 +3,12 @@
 | | |
 |---|---|
 | Status | Normative for how this package is built. **Partly implemented** — §1.1 says which half |
-| Revision | 14 |
-| Implements | `docs/spec.md` rev. 13 |
+| Version | 14 |
+| Updated | 2026-09-15 |
+| Summary | The data model, the managers, the runner and policy, the scheduler, and the concurrency model. |
+| Implements | `docs/spec.md` |
 | Language | Python ≥ 3.10. Standard library plus pydantic v2 |
+| Part of | [`../../docs/design.md`](../../docs/design.md) — the whole-system design |
 
 ---
 

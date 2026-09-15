@@ -23,7 +23,7 @@ MAPPING = ROOT / "agent" / "docs" / "design.md"
 
 def _section() -> str:
     text = MAPPING.read_text()
-    start = text.index("## 16. Criterion → test")
+    start = text.index("### 12.1 Criterion → test")
     nxt = text.find("\n## ", start + 1)
     return text[start : nxt if nxt != -1 else len(text)]
 

@@ -26,6 +26,7 @@ are single decisions.
 | 7 | Scheduling | decisions | — |
 | 8 | Configuration and quality | decisions | — |
 | 9 | Agent backends | decisions | — |
+| 10 | Scoring and measurement | subsystem | — |
 
 **The numbers are stable and the order is not a priority ranking.** §6.1 and
 §6.4 are cited from shipped source (`handoff/store.py`, `cli/README.md`), so a
@@ -857,7 +858,7 @@ its own failure and one that needs somebody to notice.
 |---|---|
 | **Status-triggered ordering** | "Task B must start after task A's status reaches point X" — richer than the current handoff-validity dependency |
 | **Together / peer start** | Ensure two agents start together. Neither is expressible today |
-| **Cycle detection** | Inherited from `task_graph` spec §10 |
+| **Cycle detection** | Inherited from `task_graph` spec §11 |
 | **The downstream index** | `task_graph` spec §3.2.4 promotes it from an optimisation to a requirement: a cascade needs a task's consumers, and `depends_on` gives the upstream direction only. What it is keyed by, who maintains it, and how `submit` / `update_task` keep it current are unspecified, and a cascade cannot be built without them |
 | **Cascade semantics at the edges** | Three questions `task_graph` spec §3.2.4 leaves open: what a cascade does on reaching a `RUNNING` task (stop it via `STOPPING`, which makes `cancel()` asynchronous and changes its signature; skip it; or refuse the whole cascade); whether a cascade is atomic, since half-cancelled is a state nothing describes; and to whom the cascade reports upward, in what form, and whether a parent may veto |
 
@@ -1041,3 +1042,32 @@ written for. The third is the honest one and it is the largest.
 loop — is retained for the runner's lifetime by the same gap. Three file
 descriptors per loop, GC-reclaimed only when the reference goes, against
 `RLIMIT_NOFILE` of 1,048,576: not a hazard, and the same root.
+
+---
+
+## 10. Scoring and measurement — subsystem
+
+Main spec §3.1 principle 7 wants results to be **measurable**: a score, and
+per-token and per-time efficiency to break a tie between two results that are
+otherwise equal. **v1 is boolean throughout**, and that is deliberate rather than
+unfinished — a threshold set before run-to-run variance has been measured is
+indistinguishable from noise.
+
+`validator` reserves the field, so the shape of a verdict does not have to change
+when this lands. What is unspecified is everything else:
+
+| | |
+|---|---|
+| **How a score is produced** | A validator returns pass/fail today. Whether a score is a second return value, a dimension of the verdict, or a separate artefact is undecided |
+| **How two scores compare across runs** | Two runs differ in model, in machine and in input. A number that is not comparable is worse than no number |
+| **How a task's score aggregates from its handoffs'** | The composite already folds verdicts; folding scores is a different operation and the reducers are not it |
+| **What the tie-break measures** | Per-token and per-time efficiency are named in the principle and defined nowhere |
+
+**The dependency is §1.** Per-run and per-task metrics — cost, wall-clock,
+resume count, failure count — are o11y's to record, and scoring without them
+would be a judgement with nothing under it.
+
+**Related, and distinct:** *agent work quality over time* (main spec §10) is a
+judgement about an executor, not about a handoff. It consumes the same metrics
+and answers a different question.
+

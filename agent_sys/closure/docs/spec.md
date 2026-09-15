@@ -3,8 +3,9 @@
 | | |
 |---|---|
 | Status | Normative |
-| Revision | 10 |
-| Scope | The predefined binding of a task's handoffs, its agent, and its validators |
+| Version | 10 |
+| Updated | 2026-09-15 |
+| Summary | The predefined binding of a task's handoffs, its agent and its validators, and what makes one well-formed. |
 | Source | The task definition §3.3 |
 | Part of | [`../../docs/spec.md`](../../docs/spec.md) — the whole-system specification |
 | Depends on | [`../../handoff/docs/spec.md`](../../handoff/docs/spec.md), [`../../validator/docs/spec.md`](../../validator/docs/spec.md), [`../../agent/docs/spec.md`](../../agent/docs/spec.md), [`../../task_graph/docs/spec.md`](../../task_graph/docs/spec.md) |
@@ -341,7 +342,7 @@ at rev. 10 rather than added.
 
 **Whether the closures compose into a valid graph.** A closure is one step; a
 graph is many. Cycle detection, reachability, and whether every input has a
-producer are graph-level questions — `task_graph` spec §10 already carries cycle
+producer are graph-level questions — `task_graph` spec §11 already carries cycle
 detection as an open item. A partial version here would put the check in two
 places and satisfy neither.
 

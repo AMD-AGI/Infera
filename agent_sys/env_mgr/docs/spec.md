@@ -3,8 +3,9 @@
 | | |
 |---|---|
 | Status | Normative |
-| Revision | 3 |
-| Scope | All interaction with the Linux system: storage, workspaces, isolation, local↔remote mapping |
+| Version | 3 |
+| Updated | 2026-09-15 |
+| Summary | All interaction with the operating system: isolation, the filesystem manager, the agent's environment, and what this module does not own. |
 | Source | The task definition §7; a survey of agent-harness isolation mechanisms (§4) |
 | Part of | [`../../docs/spec.md`](../../docs/spec.md) — the whole-system specification |
 
@@ -49,9 +50,9 @@ table says which modules this round moved and why.
 
 ### 1.3 Out of scope
 
-**The runtime environment of the program under test.** sglang, vllm, and infera
-environments — and whether one is consistent before and after a change — are not
-this component's business:
+**The runtime environment of the program under test.** §7 owns the detail; in
+short, sglang, vllm and infera environments — and whether one is consistent
+before and after a change — are not this component's business:
 
 - Consistency and its rules belong to the handoffs and validators that name them.
   Concretely: **a versioned handoff carrying executable content must record its
@@ -75,8 +76,8 @@ internally.
 | 4 | **Write narrowly, read broadly** | A task may not write outside its zones; reads get a generous but **declared** set. Both are allow-lists — the mechanisms enforce nothing else (§4.2). §4.5 |
 | 5 | **Work on a copy** | An agent copies a handoff into its playground and works there. §6.3 |
 | 6 | **A mechanism, not a manager** | §1.1 |
-| 7 | **Reuse what shipped** | The recipe and installer machinery is reused, not reimplemented. It is no longer *frozen*, for **two** independent reasons, both the layer model was removed from it by design, and `installers/claude.py`'s plugin check was fixed — a check that could never pass, held in place by the fence along with two tests encoding a CLI output format that does not exist. Either alone would have retired the fence. §9 |
-| 8 | **Adopt Claude Code's user/project split; invent no levels of our own** | Non-AI installs go system-wide. AI material splits exactly as the harness already splits it: package-declared is *user level*, agent-declared is *project level*. There is no layer field and no layer vocabulary. §9.1 |
+| 7 | **Reuse what shipped** | The recipe and installer machinery is reused, not reimplemented. It is **not frozen**: it may be corrected and extended like any other code, and §9 is where a change to it is argued. §9 |
+| 8 | **Adopt Claude Code's user/project split; invent no levels of our own** | Non-AI installs go system-wide. AI material splits exactly as the harness already splits it: package-declared is *user level*, agent-declared is *project level*. §9.1 |
 
 ---
 
@@ -214,11 +215,11 @@ The asymmetry is deliberate: writes are how an agent affects the world and how i
 could corrupt another task's materials; reads are mostly how it does its job. So
 the read set is **broad** — but broad means *generously declared*, not open.
 
-An earlier revision said "a governed path the permissions do not cover is denied;
-everything else is allowed". That is a deny-list, and §4.2 records why neither
-mechanism can enforce one. The intent behind it survives intact: an agent must
-reach ordinary system locations, because refusing that damages the work. That is
-a granted set, and a granted set is exactly what Landlock expresses natively.
+**It is an allow-list and not a deny-list**, because §4.2 records that neither
+mechanism can enforce a deny-list. The intent a deny-list would have expressed
+survives intact: an agent must reach ordinary system locations, because refusing
+that damages the work. That is a granted set, and a granted set is exactly what
+Landlock expresses natively.
 
 **The granted read set:**
 

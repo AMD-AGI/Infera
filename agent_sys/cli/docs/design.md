@@ -1,10 +1,12 @@
-# Demo — Design
+# CLI — Design
 
 | | |
 |---|---|
 | Status | Normative for how this package is built |
-| Revision | 4 |
-| Implements | [`spec.md`](spec.md) rev. 7, §6 — 17 acceptance criteria |
+| Version | 4 |
+| Updated | 2026-09-15 |
+| Summary | The composition root: the graph a package declares, the event stream, the three verbs, and what CI does with it. |
+| Implements | [`spec.md`](spec.md), §6 — 17 acceptance criteria |
 | Language | Python ≥ 3.10, YAML. `ruff`, line length 100 |
 | Part of | [`../../docs/design.md`](../../docs/design.md) — the whole-system design |
 
@@ -1003,9 +1005,8 @@ before the parts that need a machine with an API key exist.
 
 ---
 
-## 16. Deviations, and new open questions
+## 16. Deviations from the spec
 
-### 16.1 Deviations from the spec
 
 Places where implementing the specification literally does not work. Each names
 what was measured.
@@ -1020,7 +1021,7 @@ what was measured.
 | **D6** | Spec §5 — *"The demo is not a test, and CI does not run it"* | CI runs `--dry-run` over the demo package on every commit | §11, S1. Not a contradiction, and the distinction is Airflow's: CI **loads** the example, a human **runs** it. `--dry-run` dispatches nothing, needs no credentials, no sandbox and no model. Without it, spec §1's claim that the demo is "the first thing to break when one of them drifts" is guarded by nobody — which is what happened to `jaffle_shop` (S3) |
 | **D7** | Criterion 1 — *"`pip install -e agent_sys` then the run verb"* | Implemented as written, and a **wheel** install produces a working command that refuses to run, naming why | §12, M13. setuptools ships `.py` only, so a wheel carries the runner and not the specs. Packaging the specs as package data would make the example behave differently depending on how it was installed, which is worse than a clear refusal — but the refusal is a deviation from what a reader would expect of an installed command, so it is named |
 
-### 16.2 New open questions
+## 17. New open questions
 
 Found by this design, and not in spec §7.
 

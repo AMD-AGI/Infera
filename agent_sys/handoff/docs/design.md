@@ -3,10 +3,11 @@
 | | |
 |---|---|
 | Status | Normative for how this package is built |
-| Revision | 2 |
-| Implements | [`spec.md`](spec.md) rev. 5, criteria 1–17 |
+| Version | 2 |
+| Updated | 2026-09-15 |
+| Summary | Content and the digest, the consumption protocol, storage, containment, the validator binding, and the README check. |
+| Implements | [`spec.md`](spec.md), criteria 1–17 |
 | Language | Python ≥ 3.10. PyYAML, `python-jsonpath`, `markdown-it-py` |
-| Scope | Content, the digest, storage, the validator binding, and the two checks that gate admission |
 | Part of | [`../../docs/design.md`](../../docs/design.md) — the system design |
 
 ---

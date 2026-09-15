@@ -38,6 +38,7 @@ something real.
 | 9 | The backend's `claude` child processes do not exit when their task completes | OPEN | — |
 | 10 | A typo'd `kind` in `Task.kinds` is caught by nothing at runtime | OPEN | — |
 | 10a | A closure's `validators` list has no runtime consumer | OPEN | `validator` + `closure`, jointly |
+| 10b | `handoff` spec §5.3's escape hatch has no way in | OPEN | `cli` |
 | 11 | `test_a_gate_failure_does_not_deadlock_the_next_dispatch` is intermittent | OPEN | — |
 | 12 | The per-caller install pins are not repointed at the shared root | OPEN | `env_mgr` |
 | 13 | Installs run unconfined, and `env_mgr` spec §4 does not say so | OPEN | `env_mgr` |
@@ -308,6 +309,22 @@ and have it silently never execute.
 the kind's, or the key is withdrawn from the schema and the accessors with it.
 The two are opposite answers to *who owns the phase's validator set*, and that
 question belongs to `validator` and `closure` jointly.
+
+### 10b — `handoff` spec §5.3's escape hatch has no way in
+
+§5.3 permits a kind with no validator **for bring-up and debugging**, off by
+default and reporting every kind it lets through. The mechanism exists —
+`HandoffSpecRegistry` takes `allow_no_validator` — and **nothing exposes it**:
+the composition root builds the registry with the default, so the only callers
+that can reach the hatch are tests.
+
+So the rule holds today without exception, which is the safe direction. What is
+missing is the *debugging* half the spec promises: bringing up a package whose
+validators are not written yet means editing the composition root.
+
+**Closes when:** the CLI grows the flag, off by default, and the run record names
+every kind it admitted without a validator. Small, and it is the CLI's because
+the registry side is already built.
 
 ### 11 — `test_a_gate_failure_does_not_deadlock_the_next_dispatch` is intermittent
 

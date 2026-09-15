@@ -1,10 +1,11 @@
-# Demo — Specification
+# CLI — Specification
 
 | | |
 |---|---|
 | Status | Normative |
-| Revision | 7 |
-| Scope | The runnable proof that the components compose |
+| Version | 7 |
+| Updated | 2026-09-15 |
+| Summary | The runnable proof that the components compose: what it must demonstrate, what it must not require, and the CLI surface. |
 | Source | The task definition, goal 2 |
 | Part of | [`../../docs/spec.md`](../../docs/spec.md) — the whole-system specification |
 

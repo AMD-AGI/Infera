@@ -3,8 +3,9 @@
 | | |
 |---|---|
 | Status | Normative |
-| Revision | 14 |
-| Scope | Task management substrate for the Infera AI-optimization agent loop |
+| Version | 14 |
+| Updated | 2026-09-15 |
+| Summary | Which task runs when: the domain model, the architecture, the interfaces, data flow, and persistence. |
 | Source | The task definition; an internal prior-art survey (rev. 2) |
 | Part of | [`../../docs/spec.md`](../../docs/spec.md) — the whole-system specification |
 
@@ -58,13 +59,13 @@ guarantees it does not obstruct them:
 
 | # | Principle | Consequence |
 |---|---|---|
-| 1 | Composition over inheritance | Inheritance appears only in the `ResourceMgr` hierarchy. Everything else is a `Protocol` resolved from the registry. |
+| 1 | Composition over inheritance | `engineer_principle.md` §1. A collaborator is a `Protocol` resolved from the registry, not a base class. Inheritance is for genuine behavioural variation — the `ResourceMgr` hierarchy is the case this module has. |
 | 2 | Content-agnostic scheduler | A resource is a `(name, amount)` pair the task declares. The scheduler does arithmetic on counters and asks one yes/no question about each input. |
 | 3 | Single source of truth | Task state lives in `TaskMgr`; handoff state lives in `HandoffMgr`. The scheduler's pools are a derived index, never a second copy. |
 | 4 | The engine decides when, the agent decides what | The scheduler owns task state and never writes handoff state. An agent owns its handoffs' content and validity, and may submit tasks, but may not redirect the graph. Nothing outside a task writes its status: a task owns its transitions, and a transition is the only thing that triggers the scheduler (§3.2.3). |
 | 5 | Algorithm decoupled from mechanism | Ordering lives behind `SchedulePolicy`. The first implementation is depth-first over the subgraph (§5.2). |
-| 6 | Simplicity is a requirement | Where a mature solution exists, use it (§9). Where none fits, the implementation stays small enough to read in one sitting. |
-| 7 | One fact, one place — reuse the implementation | Where two operations mean the same thing, one is expressed in terms of the other rather than reimplemented. `update_task` is `remove_queued` + `submit` (§5.1); "which agent is running this" is `history[-1].agent_id`, not a field (§3.2); eligibility is a query, not a cached counter (§3.2). Structural clarity comes first — this is not licence to collapse two genuinely different concerns into one. |
+| 6 | Adopt before building | Where a mature solution exists, use it; where none fits, build the smallest thing that satisfies the spec and record the comparison (§9). |
+| 7 | One fact, one place — reuse the implementation | `engineer_principle.md` §1. Where two operations mean the same thing, one is expressed in terms of the other rather than reimplemented; where a fact can be derived, it is derived rather than stored beside its source. Structural clarity comes first — this is not licence to collapse two genuinely different concerns into one. |
 
 ---
 
@@ -1725,29 +1726,7 @@ The rationale is recorded in `agent_sys/task_graph/README.md`, as the task defin
 
 ---
 
-## 10. Open questions
-
-| Item | Status |
-|---|---|
-| Lease TTL and sweep | A runner that dies while `RUNNING` never reports done, and its resources leak until the next `resume_all`. Deferred, not solved. A TTL plus a periodic sweep is the known fix. |
-| Handoff payload storage | §8.2. The interface is left open. |
-| Fairness across submitters | Naive FIFO lets one submitter monopolise a pool. A future `SchedulePolicy` keyed by submitter is the reference solution. |
-| Better ordering than FIFO | The composite rule from the prior art (priority tier → estimated cost → most-total-successors → FIFO) is a drop-in `SchedulePolicy`. Not built first. |
-| Cycle detection | A task whose inputs transitively depend on its own outputs will never run. Now cheaper than before: `depends_on` (§3.2) is the edge list, so this is a DFS over it at submit rather than a join across every task's `outputs`. Still not in the first version. |
-| **Re-run window** | A new version is opened by the producing agent when it starts writing (§3.1), so between `resume_task(t)` and that moment, `latest` is still the previous version. A downstream task dispatched in that window runs against stale-but-valid content. Accepted as the price of the scheduler never touching handoff state. Mitigations if it bites: have the runner open versions at `start`, or have `resume` mark outputs pending. Neither is built. |
-| Cross-manager atomicity | Four managers now persist independently (§7), so a crash between any two writes leaves them briefly inconsistent. Recovery fails safe in the handoff direction — a consumer stays blocked — and in the consumable direction the worst case is a settlement lost, which under-charges by one task. A shared transaction, or a single append-only log every manager writes to, is the known fix. Not built. |
-| Version retention | Nothing says when an old version's content may be discarded (§8.2). Unbounded re-runs mean unbounded payloads. |
-| Re-check cost | Eligibility is recomputed for every waiting task at every decision point (§6.2, step 1). Fine at this scale; a reverse handoff→consumer index is the known optimisation. |
-| Agent retirement | Agent records now persist (§7) and one is created per run, so the store grows with every attempt ever made and `retire` is the only thing that shrinks it. Nothing calls it. A retention rule — or archiving agents whose task is final — is the answer; not built. |
-| Consumable top-up | A persisted balance is never replenished. A token budget that is meant to reset monthly has no way to say so, and raising `capacity` does not raise `available`. An explicit `refill(amount)` is the obvious API; deliberately not invented before there is a caller. |
-| **The downstream index** | §3.2.4 makes it a requirement rather than an optimisation. Keyed by what, maintained by whom, kept current how — none decided, and a cascade cannot be built first. [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md) §7 |
-| **Cascade at the edges** | §3.2.4 specifies what a cascade *is* and not what it does at three boundaries: reaching a `RUNNING` task, failing halfway, and reporting upward. The first changes `cancel()`'s signature if the answer is "stop it", so it is not a detail. Roadmap §7 |
-| **Transition re-entrancy** | §3.2.3 states the rule must exist and does not pick one: a drained queue or a bounded recursion. The existing flags cover today's depth, not a cascade's. |
-| **`is_end` under a cancelled subgraph** | A cancelled subgraph never completes its end entry subtask, so "has this subgraph finished" has no answer for it. §3.2.1's markers assume completion. |
-
----
-
-## 11. Acceptance criteria
+## 10. Acceptance criteria
 
 The implementation is complete when each of the following is demonstrated by a
 test:
@@ -1930,3 +1909,28 @@ constrain what may call it.
     pool that could satisfy only one of them, the subgraph runs and the graph
     completes — the case the rev. 7 invariant covered by construction and
     subgraphs broke.
+
+---
+
+## 11. Open questions
+
+| Item | Status |
+|---|---|
+| Lease TTL and sweep | A runner that dies while `RUNNING` never reports done, and its resources leak until the next `resume_all`. Deferred, not solved. A TTL plus a periodic sweep is the known fix. |
+| Handoff payload storage | §8.2. The interface is left open. |
+| Fairness across submitters | Naive FIFO lets one submitter monopolise a pool. A future `SchedulePolicy` keyed by submitter is the reference solution. |
+| Better ordering than FIFO | The composite rule from the prior art (priority tier → estimated cost → most-total-successors → FIFO) is a drop-in `SchedulePolicy`. Not built first. |
+| Cycle detection | A task whose inputs transitively depend on its own outputs will never run. Now cheaper than before: `depends_on` (§3.2) is the edge list, so this is a DFS over it at submit rather than a join across every task's `outputs`. Still not in the first version. |
+| **Re-run window** | A new version is opened by the producing agent when it starts writing (§3.1), so between `resume_task(t)` and that moment, `latest` is still the previous version. A downstream task dispatched in that window runs against stale-but-valid content. Accepted as the price of the scheduler never touching handoff state. Mitigations if it bites: have the runner open versions at `start`, or have `resume` mark outputs pending. Neither is built. |
+| Cross-manager atomicity | Four managers now persist independently (§7), so a crash between any two writes leaves them briefly inconsistent. Recovery fails safe in the handoff direction — a consumer stays blocked — and in the consumable direction the worst case is a settlement lost, which under-charges by one task. A shared transaction, or a single append-only log every manager writes to, is the known fix. Not built. |
+| Version retention | Nothing says when an old version's content may be discarded (§8.2). Unbounded re-runs mean unbounded payloads. |
+| Re-check cost | Eligibility is recomputed for every waiting task at every decision point (§6.2, step 1). Fine at this scale; a reverse handoff→consumer index is the known optimisation. |
+| Agent retirement | Agent records now persist (§7) and one is created per run, so the store grows with every attempt ever made and `retire` is the only thing that shrinks it. Nothing calls it. A retention rule — or archiving agents whose task is final — is the answer; not built. |
+| Consumable top-up | A persisted balance is never replenished. A token budget that is meant to reset monthly has no way to say so, and raising `capacity` does not raise `available`. An explicit `refill(amount)` is the obvious API; deliberately not invented before there is a caller. |
+| **The downstream index** | §3.2.4 makes it a requirement rather than an optimisation. Keyed by what, maintained by whom, kept current how — none decided, and a cascade cannot be built first. [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md) §7 |
+| **Cascade at the edges** | §3.2.4 specifies what a cascade *is* and not what it does at three boundaries: reaching a `RUNNING` task, failing halfway, and reporting upward. The first changes `cancel()`'s signature if the answer is "stop it", so it is not a detail. Roadmap §7 |
+| **Transition re-entrancy** | §3.2.3 states the rule must exist and does not pick one: a drained queue or a bounded recursion. The existing flags cover today's depth, not a cascade's. |
+| **`is_end` under a cancelled subgraph** | A cancelled subgraph never completes its end entry subtask, so "has this subgraph finished" has no answer for it. §3.2.1's markers assume completion. |
+
+---
+

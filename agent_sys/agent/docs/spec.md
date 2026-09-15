@@ -3,8 +3,9 @@
 | | |
 |---|---|
 | Status | Normative |
-| Revision | 6 |
-| Scope | What wraps a task spec for execution, and the backend abstraction |
+| Version | 6 |
+| Updated | 2026-09-15 |
+| Summary | What wraps a task spec for execution: the agent spec, the two interface levels, and the backend abstraction. |
 | Source | The task definition §6, §7.8; the Claude Code and Cursor SDK references |
 | Part of | [`../../docs/spec.md`](../../docs/spec.md) — the whole-system specification |
 | Depends on | [`../../task_graph/docs/spec.md`](../../task_graph/docs/spec.md) §3.2.2, §3.3 |
@@ -77,7 +78,7 @@ so phase one is not blocked on covering every harness's full surface.
 | # | Principle | Consequence |
 |---|---|---|
 | 1 | **The executor is interchangeable** | AI, human, or program. The interface is the handoff |
-| 2 | **Two levels, kept apart** | §1.1 |
+| 2 | **Two levels, kept apart** | `Executor` is what a task runner talks to and every executor satisfies it; `AgentBackend` is the AI-harness abstraction and only an AI executor has one. Two protocols, not one with holes. §1.1 |
 | 3 | **The agent node is coarse** | Whatever a backend organises internally is invisible and unmanaged. §4.2 |
 | 4 | **Knowledge is expected, warned about, and optionally enforced** | Not silently mandatory. §3.4 |
 | 5 | **Prepared, not negotiated** | An agent spec arrives fully set up. There is no runtime interface for changing its rules. §4.4 |

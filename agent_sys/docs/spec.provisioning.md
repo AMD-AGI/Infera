@@ -2,7 +2,10 @@
 
 | | |
 |---|---|
-| Status | **Normative for this round.** Written from the owner's rulings on PR 155 plus measurement |
+| Status | **Normative** for how an agent gets its environment |
+| Version | 1 |
+| Updated | 2026-09-15 |
+| Summary | How an agent gets its environment — recipes, add-ons, MCP servers, tools, skills, hooks and plugins — under one rule: declarative first, separate processes over shared ones. |
 | Scope | Everything installed or declared for an agent: recipes, add-ons, MCP servers, tools, skills, hooks, plugins |
 | Spans | `env_mgr`, `agent`, `spec_loader` — which is why it is here and not in one component's `docs/` |
 | Supersedes | the L1/L2/L3 vocabulary, entirely. There are no levels |

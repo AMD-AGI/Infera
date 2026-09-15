@@ -3,9 +3,12 @@
 | | |
 |---|---|
 | Status | Normative for how this package is built |
-| Revision | 3 |
-| Implements | [`spec.md`](spec.md) rev. 8, acceptance criteria 1–21 |
+| Version | 3 |
+| Updated | 2026-09-15 |
+| Summary | What admits a validator, the phases, the composite, re-validation, isolation, and reporting a verdict. |
+| Implements | [`spec.md`](spec.md), acceptance criteria 1–21 |
 | Language | Python ≥ 3.10. pydantic v2; the harness SDK behind a seam (§8.1) |
+| Part of | [`../../docs/design.md`](../../docs/design.md) — the whole-system design |
 
 ---
 
@@ -1332,7 +1335,29 @@ of alerts.
 
 ---
 
-## 12. Test plan
+## 12. Build versus adopt
+
+| Module | Considered | Chosen | Why |
+|---|---|---|---|
+| `protocol` | `abc.ABC`, `typing.Protocol`, pydantic model | **`Protocol`, for typing only** | Structural typing suits a seam an external package implements. It is explicitly *not* the runtime gate — §3.2 measures why `issubclass` raises and `isinstance` is presence-only |
+| `spec` | JSON Schema alone, `dataclasses`, `attrs` | **pydantic v2** | Already installed. Catches the wrong type, the missing field, and the extra key that no schema keyword reaches once the document is a Python object. Coerces `list → tuple`, which jsonnet's output needs |
+| `registry` | a generic registry shared with the other three | **`SpecRegistry` subclass** | [`../../docs/design.md`](../../docs/design.md) §5.1. Four registries with three different index sets; the shared part is the loader-facing base |
+| `composite` | Inspect AI's `multi_scorer`, DeepEval's `DAGMetric`, OpenAI's multigrader | **own, ~40 lines** | The shape is Inspect's (reduce per key across members) and is worth copying; the code is not adoptable — Inspect's reducers are `Score`-typed and epoch-oriented, and it rejects the mismatched keys spec §4.1 permits |
+| `reducers` | `all`/`any` builtins, Inspect's registry | **stdlib `all`, behind the Protocol** | The alpha needs one reducer and it is a builtin. The Protocol is what makes the second one an addition |
+| the body | a registered Python callable; **a task-shaped body** | **a task-shaped body** |
+| `history` | a content-addressed verdict cache, `pytest-cache`, dbt `state:` | **the verdict record** | §7.1. The record already carries the answer; a cache would be an index into it, and every key scheme measured has a stale hit on "the implementation changed" |
+| `separation` | Bazel visibility, `import-linter`, `dependency-cruiser` | **own, ~20 lines** | The comparison is two declared path sets. Every candidate is a tool for a different graph, and two of the three are symlink-defeated (§9.3) |
+| the hook seam | `claude-agent-sdk` directly | **a Protocol, one adapter** | §8.1. Undeclared; 376 MB installed, 26 extra packages, ~1.3 s to import (`agent` design §8.1, correcting rev. 1's figures). The design cannot pin a seam the repository has not chosen, and `agent` made it an optional extra for the import cost alone |
+| tests | — | `pytest` | Already the repository's |
+
+**Nothing new is adopted.** pydantic is already installed and already used by
+`task_graph`. The one dependency this module *would* add — the agent SDK — is
+behind a Protocol precisely so the choice can be made when there is code to
+make it against.
+
+---
+
+## 13. Test plan
 
 `pytest`. Tests in `agent_sys/tests/validator/`, with an `__init__.py` for the
 import-mode reason
@@ -1340,7 +1365,7 @@ import-mode reason
 Every test builds its own `Registry` via `bootstrap.build_registry(...)` with a
 `MemoryStoreMgr` and a `FakeRunner`; nothing is process-global.
 
-### 12.1 Spec criteria, mapped
+### 13.1 Spec criteria, mapped
 
 | # | Criterion | Test | File |
 |---|---|---|---|
@@ -1366,7 +1391,7 @@ Every test builds its own `Registry` via `bootstrap.build_registry(...)` with a
 | 20 | The strict level changes which phases run, **never which verdicts bind** | `test_strict_level_cannot_reach_the_fold`, `test_reused_failure_still_fails` | `test_history.py` |
 | 21 | A validation environment is a **rebuild, not a reuse** | `test_producer_leavings_absent`, `test_rebuild_not_reuse_across_consecutive_runs` | `test_isolation.py` |
 
-### 12.2 Tests beyond the criteria
+### 13.2 Tests beyond the criteria
 
 Measured facts a future change could silently break:
 
@@ -1389,7 +1414,7 @@ Measured facts a future change could silently break:
 | `test_body_paths_resolve_at_load` | §3.8. A dangling `entry` or `material` is a load error naming the path |
 | `test_agent_bodied_and_script_bodied_validators_are_substitutable` | §3.8. One verdict file, two ways of producing it — the property the callable could not have |
 
-### 12.3 Two tests that carry more weight than their size
+### 13.3 Two tests that carry more weight than their size
 
 **`test_invisibility.py`** is criterion 5, and it reuses all three devices of
 `tests/task_graph/test_authority.py`: subclass-and-log rather than stack
@@ -1424,7 +1449,7 @@ and imports returns **0**. `test_authority.py`'s existing static check *is* a
 substring grep (`test_the_scheduler_never_takes_a_mutable_handle`), so copying it
 naively produces a test that fails for the wrong reason.
 
-### 12.4 Naming the freshness tests after their ancestors
+### 13.4 Naming the freshness tests after their ancestors
 
 Criterion 21 decomposes into two tests, and only two surveyed systems test this
 property at all. Their names are ours, deliberately:
@@ -1441,29 +1466,7 @@ directory — §8.4 lists the six a fresh directory does not close.
 
 ---
 
-## 13. Build versus adopt
-
-| Module | Considered | Chosen | Why |
-|---|---|---|---|
-| `protocol` | `abc.ABC`, `typing.Protocol`, pydantic model | **`Protocol`, for typing only** | Structural typing suits a seam an external package implements. It is explicitly *not* the runtime gate — §3.2 measures why `issubclass` raises and `isinstance` is presence-only |
-| `spec` | JSON Schema alone, `dataclasses`, `attrs` | **pydantic v2** | Already installed. Catches the wrong type, the missing field, and the extra key that no schema keyword reaches once the document is a Python object. Coerces `list → tuple`, which jsonnet's output needs |
-| `registry` | a generic registry shared with the other three | **`SpecRegistry` subclass** | [`../../docs/design.md`](../../docs/design.md) §5.1. Four registries with three different index sets; the shared part is the loader-facing base |
-| `composite` | Inspect AI's `multi_scorer`, DeepEval's `DAGMetric`, OpenAI's multigrader | **own, ~40 lines** | The shape is Inspect's (reduce per key across members) and is worth copying; the code is not adoptable — Inspect's reducers are `Score`-typed and epoch-oriented, and it rejects the mismatched keys spec §4.1 permits |
-| `reducers` | `all`/`any` builtins, Inspect's registry | **stdlib `all`, behind the Protocol** | The alpha needs one reducer and it is a builtin. The Protocol is what makes the second one an addition |
-| the body | a registered Python callable; **a task-shaped body** | **a task-shaped body** |
-| `history` | a content-addressed verdict cache, `pytest-cache`, dbt `state:` | **the verdict record** | §7.1. The record already carries the answer; a cache would be an index into it, and every key scheme measured has a stale hit on "the implementation changed" |
-| `separation` | Bazel visibility, `import-linter`, `dependency-cruiser` | **own, ~20 lines** | The comparison is two declared path sets. Every candidate is a tool for a different graph, and two of the three are symlink-defeated (§9.3) |
-| the hook seam | `claude-agent-sdk` directly | **a Protocol, one adapter** | §8.1. Undeclared; 376 MB installed, 26 extra packages, ~1.3 s to import (`agent` design §8.1, correcting rev. 1's figures). The design cannot pin a seam the repository has not chosen, and `agent` made it an optional extra for the import cost alone |
-| tests | — | `pytest` | Already the repository's |
-
-**Nothing new is adopted.** pydantic is already installed and already used by
-`task_graph`. The one dependency this module *would* add — the agent SDK — is
-behind a Protocol precisely so the choice can be made when there is code to
-make it against.
-
----
-
-## 14. Deviations
+## 14. Deviations from the spec
 
 Each is a place where implementing the spec literally does not work, or where
 the spec's stated evidence does not hold. **None changes an acceptance

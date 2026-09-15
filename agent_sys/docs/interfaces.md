@@ -2,8 +2,10 @@
 
 | | |
 |---|---|
-| Status | Stage four. **Normative for what crosses a module boundary**, and for nothing else |
-| Revision | 5 |
+| Status | **Normative for what crosses a module boundary**, and for nothing else |
+| Version | 5 |
+| Updated | 2026-09-15 |
+| Summary | What crosses a module boundary: the composition root, the shared vocabulary, the permitted import edges, and the seams left deliberately open. |
 | Companion | `spec_loader/`, `handoff/`, `validator/`, `agent/`, `closure/`, `env_mgr/`, `monitor/` — each a `protocols.py` plus its `.pyi`, the same contract importable and type-checkable |
 
 ---

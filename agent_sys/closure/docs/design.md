@@ -3,9 +3,12 @@
 | | |
 |---|---|
 | Status | Normative for how this package is built |
-| Revision | 4 |
-| Implements | [`spec.md`](spec.md) rev. 9, acceptance criteria 1–11 |
+| Version | 4 |
+| Updated | 2026-09-15 |
+| Summary | The two documents, the two registries, the six load checks, and the read-only query helpers. |
+| Implements | [`spec.md`](spec.md), acceptance criteria 1–11 |
 | Language | Python ≥ 3.10. No pydantic models here — a spec is a `dict` (main design §4.1) |
+| Part of | [`../../docs/design.md`](../../docs/design.md) — the whole-system design |
 
 ---
 

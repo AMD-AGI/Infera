@@ -54,6 +54,40 @@ is a second thing to keep true, and it is always the copy that goes stale.
 A module with no `docs/spec.md` is not exempt; it means some other document is
 specifying it, and its README must say which.
 
+**Every spec and every design opens with the same four rows**, in this order,
+and nothing else goes above them:
+
+| Row | |
+|---|---|
+| `Status` | Normative, and for what |
+| `Version` | A single integer. **It lives here and nowhere else** — a second copy in another document's `Implements` row is a second thing to keep true, and it drifted in three of nine before anyone read them against each other |
+| `Updated` | The date this version was written |
+| `Summary` | One sentence: what this document settles |
+
+**No revision history.** What changed at version N−1 is what the document said
+at version N−1, and the document no longer says it. A changelog inside a
+normative document is read as though it were still normative, and it is the part
+that cannot be checked against anything.
+
+### 0.1.1 The two canonical structures
+
+A reader who knows one document knows where to look in all of them.
+
+| | **spec** | **design** |
+|---|---|---|
+| 1 | Purpose | Scope |
+| 2 | Design principles | Layout and import graph |
+| 3…N | the module's own substance | the module's own substance |
+| N+1 | *(optional)* What this module does not own | Build versus adopt |
+| N+2 | **Acceptance criteria** | **Test plan** — including the criterion→test map |
+| N+3 | **Open questions** — always last | Deviations from the spec |
+| N+4 | — | **New open questions** — always last |
+
+**Section numbers are load-bearing and are not renumbered casually**: roughly 700
+places in this repository cite a document by `§N`. Reordering a *body* section is
+a repo-wide edit; reordering the tail is usually free, and was, because nothing
+cites it.
+
 ### 0.2 A document names a file, and stops there
 
 **Never cite a line number.** Not in a document, not in a docstring, not in a

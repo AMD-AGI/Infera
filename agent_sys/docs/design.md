@@ -3,10 +3,11 @@
 | | |
 |---|---|
 | Status | Normative for how this package is built |
-| Revision | 3 |
-| Implements | [`spec.md`](spec.md) rev. 11, criteria 1–18 |
+| Version | 3 |
+| Updated | 2026-09-15 |
+| Summary | How the system is assembled: the loader, the five schemas, the four spec registries, the closure pass, and the composition root. |
+| Implements | [`spec.md`](spec.md), criteria 1–18 |
 | Language | Python ≥ 3.10. pydantic v2, `ruamel.yaml`, jsonschema. PyYAML remains a dependency and no longer touches a package document (§3.2) |
-| Scope | The loader, the five schemas, the four spec registries, the closure check, and the composition root |
 
 ---
 

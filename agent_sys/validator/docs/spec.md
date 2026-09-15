@@ -3,8 +3,9 @@
 | | |
 |---|---|
 | Status | Normative |
-| Revision | 8 |
-| Scope | What makes a handoff checkable, how far a check can be trusted, and how validators are organised |
+| Version | 8 |
+| Updated | 2026-09-15 |
+| Summary | What makes a handoff checkable and how far a check can be trusted: the four elements, the strength model, and the producer-cannot-grade rule. |
 | Source | The task definition §4, §5; a survey of evaluation and data-validation frameworks (§6) |
 | Part of | [`../../docs/spec.md`](../../docs/spec.md) — the whole-system specification |
 | Depends on | [`../../handoff/docs/spec.md`](../../handoff/docs/spec.md), [`../../task_graph/docs/spec.md`](../../task_graph/docs/spec.md) §3.2.1 |
@@ -58,7 +59,7 @@ check declares honestly how much it actually proves (§5).
 |---|---|---|
 | 1 | **The producer never grades its own output** | Enforced by hook and by environment, not by convention. §8 |
 | 2 | **Cheap gates before expensive ones** | A schema check that costs milliseconds runs before a benchmark that costs GPU-hours |
-| 3 | **Anything that can be code is code** | The agent's role is to run a procedure someone else wrote, not to invent one |
+| 3 | **A check is a procedure, not an opinion** | Where a property can be decided by code, this module runs code; an agent-bodied validator runs a procedure someone else wrote rather than inventing one. What it may *claim* is §5's business |
 | 4 | **The standard is external** | Both the checking logic and the criterion come from outside the thing being checked. §5 |
 | 5 | **Label honestly** | A weak check labelled strong is worse than no check: it stops anyone looking further. §5.6 |
 | 6 | **A failure binds at every strength** | The strength label qualifies a *pass*, never a failure. A failing `weak` validator fails the phase. §5.4 |

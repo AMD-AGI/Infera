@@ -3,8 +3,9 @@
 | | |
 |---|---|
 | Status | Normative |
-| Revision | 5 |
-| Scope | What a unit of transfer carries: content shape, digest, scope tags, validator binding, storage |
+| Version | 5 |
+| Updated | 2026-09-15 |
+| Summary | What a unit of transfer carries: content shape, digest, scope tags, validator binding, storage, and locality independence. |
 | Source | The task definition §3 |
 | Part of | [`../../docs/spec.md`](../../docs/spec.md) — the whole-system specification |
 | Depends on | [`../../task_graph/docs/spec.md`](../../task_graph/docs/spec.md) §3.1 — the versioned slot |
@@ -61,7 +62,7 @@ Handoff       the slot      HandoffSpec    the kind
 | 3 | **Checkable by construction** | A kind with no validator cannot be admitted. §5 |
 | 4 | **Local-independent** | It names its dependencies and contains no local paths, so any suitable machine can consume it. §7 |
 | 5 | **Tamper-evident** | Content carries a digest. §3.3 |
-| 6 | **Storage is a tree, and so is permission** | §6 |
+| 6 | **Storage is a tree, and so is permission** | A handoff's versions nest under it, a subtask's storage nests under its parent's, and a grant is a subtree — so containment answers both "where does this live" and "may this be reached". §6 |
 
 ---
 
@@ -248,13 +249,16 @@ answerable from the handoff alone.
 
 ### 5.3 Every kind carries at least one validator
 
-A kind with no validator cannot be admitted to the registry. A command-line flag
-permits it for bring-up and debugging:
+A kind with no validator cannot be admitted to the registry. An escape hatch
+exists for bring-up and debugging, and it is **off by default**: the registry
+takes `allow_no_validator`, every kind it lets through is **reported** by name,
+and it permits an absent validator rather than disabling a present one.
 
-- **off by default**;
-- every kind it lets through is **reported** by name at startup and in the run
-  record;
-- it does not disable existing validators, only permits absent ones.
+**The escape hatch is a constructor argument and nothing exposes it.** The
+composition root builds the registry with the default, so today the rule holds
+without exception and the hatch is unreachable from outside the process. Giving
+it a command-line flag is [`../../docs/TODO.md`](../../docs/TODO.md); until then
+this paragraph describes a capability of the code, not of the product.
 
 ### 5.4 Admitting a kind is a review of coverage
 
@@ -424,4 +428,4 @@ reverse index — which kinds a given validator covers.
 | **`addons.temp` retention** | "Discardable when the run ends" is not "discarded", and nothing sweeps a playground. The playground is also part of what makes an agent resumable (`env_mgr` spec §6), so the sweep cannot be unconditional |
 | **Knowledge handoff provenance** | It outlives every run, so a `producer_task_id` may point at a task no live graph contains. Whether that reference must stay resolvable is unspecified |
 | **Large payloads** | The tree holds them today. Whether a `reproducible` handoff's logs belong inline or behind a reference is unanswered, and it is the case that will force the question |
-| **Version retention** | Inherited from `task_graph` spec §10: nothing says when an old version's content may be discarded, and re-running a producer is unbounded |
+| **Version retention** | Inherited from `task_graph` spec §11: nothing says when an old version's content may be discarded, and re-running a producer is unbounded |

@@ -3,9 +3,12 @@
 | | |
 |---|---|
 | Status | Normative for how this package is built |
-| Revision | 7 |
-| Implements | [`spec.md`](spec.md) rev. 6, acceptance criteria 1–16 |
+| Version | 7 |
+| Updated | 2026-09-15 |
+| Summary | The runner and the attempt, backend selection, the two backends, and the completeness gate. |
+| Implements | [`spec.md`](spec.md), acceptance criteria 1–16 |
 | Language | Python ≥ 3.10. pydantic v2; `claude-agent-sdk` an **extra**, imported lazily (§8.1) |
+| Part of | [`../../docs/design.md`](../../docs/design.md) — the whole-system design |
 
 ---
 
@@ -1259,6 +1262,121 @@ the extra is absent, which is also how CI runs without a key.
 
 ---
 
+### 12.1 Criterion → test
+
+Every one of the 16, and each test exists and passes.
+
+| # | Test | File |
+|---|---|---|
+| 1 | `test_load_rejects_unknown_backend`, `test_load_rejects_unresolvable_knowledge` | `test_registry.py` |
+| 2 | `test_knowledge_missing_warns_then_fatal` | `test_registry.py` |
+| 3 | `test_selection_precedence` (parametrised over the three sources), `test_cli_override_does_not_fall_through`, `test_first_available_in_declared_order_wins` | `test_selection.py` |
+| 4 | `test_unsupported_method_raises`, `test_a_program_executor_has_nothing_to_raise_from` | `test_backend.py` |
+| 5 | `test_agent_spec_has_no_permissions_field`, `test_same_spec_two_tasks_two_reaches` | `test_spec.py` |
+| 6 | `test_backend_is_not_a_runner`, `test_runner_holds_level_one_only`, `test_runner_unchanged_across_backends` | `test_runner.py` |
+| 7 | `test_start_async_returns_before_started`, `test_start_equals_async_plus_wait` | `test_backend.py` |
+| 8 | `test_status_sequence`, `test_task_status_is_superset` | `test_backend.py` |
+| 9 | `test_interrupt_drains_before_next_query`, `test_the_drain_is_bounded` | `test_claude_sdk.py` |
+| 10 | `test_instruct_does_not_end_run` | `test_claude_sdk.py` |
+| 11 | `test_query_history_session_matches_agent_id`, `test_the_session_ref_is_learned_from_messages_not_from_the_client`, `test_query_before_anything_ran_is_empty_not_an_error` | `test_claude_sdk.py` |
+| 12 | `test_no_interface_reaches_a_subagent` | `test_backend.py` |
+| 13 | `test_material_stored_canonically`; **`test_transform_lossless` — `xfail(strict=True)`, O1** | `test_spec.py`, `test_transform.py` |
+| 14 | `test_backend_has_no_configuration_method` | `test_backend.py` |
+| 15 | `test_swap_backend_same_handoff_state` | `test_runner.py` |
+| 16 | `test_records_hold_no_prompt_text` | `test_records.py` |
+| — | **`validator_executor`**, which belongs to no criterion of ours: `test_each_phase_runs_as_a_different_agent_from_the_producer`, `test_the_phase_agent_is_unbound` | `test_validator_executor.py` |
+
+**Criteria 9 and 11 do not need the extra.** The adapter takes its client from
+`config["client"]`, which is the same seam a third party uses to pin a
+pre-configured handle — so the two tests the design marked `claude` and
+`skipif` run everywhere instead, against a fake transport. Nothing in
+`pytest agent_sys` needs a credential, a network, or a sandbox.
+
+**Criterion 13's `xfail` is `strict=True`**, so a green result is a failure.
+O1 is not answered by making the test pass.
+
+#### 12.1.1 Four tests that belong to no criterion, and are here anyway
+
+Each guards a seam obligation that **fails silently** if it is skipped — the
+category where a document says X consumes Y and nobody checks that X's
+signature can accept Y.
+
+| Test | What would otherwise be silent |
+|---|---|
+| `test_prepare_is_given_the_agent_spec` | `rules` / `hooks` / `skills` / `env` deployed by nobody: four spec keys an author can write and nothing reads |
+| `test_prepare_is_called_once_per_attempt_with_the_execution` | A retry reusing the first attempt's granted set, because `N` in `<root>/<hid>/v<N>/` lives on the `Execution` |
+| `test_a_refused_environment_never_reaches_an_executor` | A `try` that logged a `NoConfinement` and continued: the system reports the agent is sandboxed while it runs with the operator's privileges |
+| `test_the_runner_refuses_a_bwrap_confinement_it_cannot_apply`, `test_an_ai_agent_under_bwrap_refuses_to_start` | Rung 1 applied by nobody. `bwrap` is absent on this machine, so these are the only things that would catch it |
+| `test_a_missing_recorder_is_loud` | Criterion 14's empty-versus-missing distinction voided by a wiring gap, silently |
+| `test_is_running_tells_a_parked_leaf_from_a_released_non_leaf` | A non-leaf's re-entry stalling for ever, because `wake()` on a released attempt sets an `Event` nobody waits on |
+| `test_a_phase_that_raises_is_unreached_not_a_handler_failure` | A crashed validator routed to `GiveUp` instead of `Escalate`, so the branch it killed was the quietest kind of dead branch |
+| `test_a_task_the_scheduler_watched_can_report`, `test_the_runner_does_not_call_set_task` | Every planned advance raising `ScopeViolation`, so no task advances a phase — `demo` F-D8, invisible to eight unit suites because every stub `set_task` was a no-op. The call is `Scheduler._dispatch_pass`'s; these assert the fixture models it and that a fourth round of building it here is a red test |
+| `test_the_schema_and_the_model_both_admit_it` / `..._reject_it` | The schema and `AgentSpec` drifting apart. `spec_loader` owns `agent.schema.json` and this package owns its content, so they are two records of one shape — and the first version invented `{type, handoff}` for a knowledge reference against the model's `{kind, knowledge_type, required}`, which under `additionalProperties: false` would have rejected **every knowledge-bearing agent spec in the system**. Caught by `spec-loader` asking; this makes the next one mechanical |
+
+#### 12.1.2 The first run against a real backend
+
+`claude-agent-sdk` 0.2.148 was installed on this machine and the adapter was
+driven against the live gateway for the first time. Probes kept in
+A probe, run with every `ANTHROPIC_*` variable scrubbed
+so nothing is an artifact of the operator's own shell.
+
+**It works.** `ClaudeSdkBackend.start()` returned `FINISHED` / `'success'`,
+`duration_ms=5178`, `num_turns=2`, real cost. **Three defects were invisible
+until it did**, and all three share one cause: *the adapter guessed the SDK's
+surface and the test double ratified the guess.*
+
+| | measured | fixed |
+|---|---|---|
+| `session_ref` was `None` on **every** real run | `ClaudeSDKClient` has no `session_id` attribute at all — `hasattr` is `False`. The id is on the messages | recorded as messages stream past, one writer |
+| `query()` raised `AttributeError` on **every** real run | `get_session_messages` is a **module-level function**, synchronous, taking `(session_id, directory=...)` — not a client method | called as the function it is; the zone is the project directory |
+| a failed run recorded `detail='success'` | the SDK sets `subtype='success'` even with `is_error=True`; `terminal_reason='api_error'` is what distinguishes the cases | `_detail_of` consults `terminal_reason` **on failures only**, so successes still read `'success'` |
+
+The old `FakeClient` defined `session_id = "sess-abc"` and an async
+`get_session_messages`. **Neither exists.** The suite was green against a
+fiction, which is why the double is now forbidden to re-invent them
+(`test_the_session_ref_is_learned_from_messages_not_from_the_client` asserts
+`not hasattr(client, "session_id")`).
+
+**Credentials need no threading, measured.** The CLI reads
+`~/.claude/settings.json` itself: with `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`,
+`ANTHROPIC_CUSTOM_HEADERS` and `ANTHROPIC_MODEL` all absent from the
+environment, a query still returned in 0.79 s. And
+`ClaudeAgentOptions.env` is **merged over** `os.environ`
+(`subprocess_cli.py`), not a replacement — so passing
+`Assignment.environment` as `env` strips nothing the CLI needs.
+
+#### 12.1.3 What a session transcript cannot tell you
+
+**Three people concluded a defect from a `.jsonl` and all three
+were wrong in the same direction.** Recorded here because the file looks
+authoritative, is easy to grep, and answers a narrower question than anyone
+assumed.
+
+| grepped for | in the transcript | so a zero means |
+|---|---|---|
+| the **system prompt** | **never recorded** | nothing. The brief may have arrived and worked |
+| an **environment variable** | **never recorded** | nothing. The agent may have had it |
+| **idle since timestamp T** | writes stop before the turn does | nothing. *Transcript idle is not conversation over* |
+
+**The control is what makes the first two conclusive.** A system prompt of
+*"whatever you are asked, reply with exactly the single word BANANA"*, asked
+`What is 2+2?`, answered `BANANA` — so the prompt demonstrably arrived and took
+effect — **and the marker appears nowhere in the file**, across six line types
+(`queue-operation`, `attachment`, `user`, `last-prompt`, `atis-latch`,
+`assistant`). Reproduced three times.
+
+The third is `agent-mod`'s, from the process table rather than a probe: a CLI
+alive at 14 minutes with its transcript quiet for 5. It nearly became a
+`DRAIN_SECONDS` defect report against this package.
+
+> **A negative grep is indistinguishable from a grep for the wrong name** — and
+> here the file itself is the wrong name. The process table answered all three
+> questions the transcript could not.
+
+---
+
+---
+
 ## 13. Implementation order
 
 1. `spec.py` and `backend.py`. No dependencies; they unblock everything.
@@ -1301,118 +1419,3 @@ test the chain against nothing that can actually fail to be available.
 | **O5** | **Two objects hold "the agent spec table".** `AgentSpecRegistry` here, and `AgentMgr.register(spec, **config)` in `task_graph`, which copies its dict onto every minted `Agent.config`. This design assumes the loader feeds the second from the first and that nothing else writes either — but the direction is not stated in any spec, and `engineer_principle.md` §1 forbids two writers for one fact |
 | **O6** | **How each phase becomes separately attributable** — narrowed twice, and the question is now smaller than rev. 3 stated it. `validator` design §8.2 rev. 2 owns the **requirement**: a phase must carry an `agent_id`, because criterion 10 there is untestable otherwise, and the SDK's `agent_id` is *"absent on the main thread"*. This module owns the **mechanism**, and one candidate is ruled out: not one client with several `session_id`s, because `interrupt()` takes no `session_id` and acts on the whole connection (§8.4). `fork_session`, `resume`, a subagent per phase, and a second client remain, and none was tested. The cross-module consistency pass found this document and `validator`'s giving different answers to what turned out to be two different questions; splitting them is what made the residue this small |
 | **O7** | **Mid-run backend failure.** §3.3's "pins the whole run" implies no fallback after the chosen backend dies, and every surveyed project except LiteLLM agrees. LiteLLM's cost is on record — a depth bound, an attempted-targets set against looping graphs, a pin predicate, cooldown feedback and per-failure-class chains, threaded through a loosely-typed `kwargs` at four call sites. Worth knowing before anyone proposes it, and worth stating in the spec either way |
-
----
-
-## 16. Criterion → test
-
-Every one of the 16, and each test exists and passes.
-
-| # | Test | File |
-|---|---|---|
-| 1 | `test_load_rejects_unknown_backend`, `test_load_rejects_unresolvable_knowledge` | `test_registry.py` |
-| 2 | `test_knowledge_missing_warns_then_fatal` | `test_registry.py` |
-| 3 | `test_selection_precedence` (parametrised over the three sources), `test_cli_override_does_not_fall_through`, `test_first_available_in_declared_order_wins` | `test_selection.py` |
-| 4 | `test_unsupported_method_raises`, `test_a_program_executor_has_nothing_to_raise_from` | `test_backend.py` |
-| 5 | `test_agent_spec_has_no_permissions_field`, `test_same_spec_two_tasks_two_reaches` | `test_spec.py` |
-| 6 | `test_backend_is_not_a_runner`, `test_runner_holds_level_one_only`, `test_runner_unchanged_across_backends` | `test_runner.py` |
-| 7 | `test_start_async_returns_before_started`, `test_start_equals_async_plus_wait` | `test_backend.py` |
-| 8 | `test_status_sequence`, `test_task_status_is_superset` | `test_backend.py` |
-| 9 | `test_interrupt_drains_before_next_query`, `test_the_drain_is_bounded` | `test_claude_sdk.py` |
-| 10 | `test_instruct_does_not_end_run` | `test_claude_sdk.py` |
-| 11 | `test_query_history_session_matches_agent_id`, `test_the_session_ref_is_learned_from_messages_not_from_the_client`, `test_query_before_anything_ran_is_empty_not_an_error` | `test_claude_sdk.py` |
-| 12 | `test_no_interface_reaches_a_subagent` | `test_backend.py` |
-| 13 | `test_material_stored_canonically`; **`test_transform_lossless` — `xfail(strict=True)`, O1** | `test_spec.py`, `test_transform.py` |
-| 14 | `test_backend_has_no_configuration_method` | `test_backend.py` |
-| 15 | `test_swap_backend_same_handoff_state` | `test_runner.py` |
-| 16 | `test_records_hold_no_prompt_text` | `test_records.py` |
-| — | **`validator_executor`**, which belongs to no criterion of ours: `test_each_phase_runs_as_a_different_agent_from_the_producer`, `test_the_phase_agent_is_unbound` | `test_validator_executor.py` |
-
-**Criteria 9 and 11 do not need the extra.** The adapter takes its client from
-`config["client"]`, which is the same seam a third party uses to pin a
-pre-configured handle — so the two tests the design marked `claude` and
-`skipif` run everywhere instead, against a fake transport. Nothing in
-`pytest agent_sys` needs a credential, a network, or a sandbox.
-
-**Criterion 13's `xfail` is `strict=True`**, so a green result is a failure.
-O1 is not answered by making the test pass.
-
-### 4.1 Four tests that belong to no criterion, and are here anyway
-
-Each guards a seam obligation that **fails silently** if it is skipped — the
-category where a document says X consumes Y and nobody checks that X's
-signature can accept Y.
-
-| Test | What would otherwise be silent |
-|---|---|
-| `test_prepare_is_given_the_agent_spec` | `rules` / `hooks` / `skills` / `env` deployed by nobody: four spec keys an author can write and nothing reads |
-| `test_prepare_is_called_once_per_attempt_with_the_execution` | A retry reusing the first attempt's granted set, because `N` in `<root>/<hid>/v<N>/` lives on the `Execution` |
-| `test_a_refused_environment_never_reaches_an_executor` | A `try` that logged a `NoConfinement` and continued: the system reports the agent is sandboxed while it runs with the operator's privileges |
-| `test_the_runner_refuses_a_bwrap_confinement_it_cannot_apply`, `test_an_ai_agent_under_bwrap_refuses_to_start` | Rung 1 applied by nobody. `bwrap` is absent on this machine, so these are the only things that would catch it |
-| `test_a_missing_recorder_is_loud` | Criterion 14's empty-versus-missing distinction voided by a wiring gap, silently |
-| `test_is_running_tells_a_parked_leaf_from_a_released_non_leaf` | A non-leaf's re-entry stalling for ever, because `wake()` on a released attempt sets an `Event` nobody waits on |
-| `test_a_phase_that_raises_is_unreached_not_a_handler_failure` | A crashed validator routed to `GiveUp` instead of `Escalate`, so the branch it killed was the quietest kind of dead branch |
-| `test_a_task_the_scheduler_watched_can_report`, `test_the_runner_does_not_call_set_task` | Every planned advance raising `ScopeViolation`, so no task advances a phase — `demo` F-D8, invisible to eight unit suites because every stub `set_task` was a no-op. The call is `Scheduler._dispatch_pass`'s; these assert the fixture models it and that a fourth round of building it here is a red test |
-| `test_the_schema_and_the_model_both_admit_it` / `..._reject_it` | The schema and `AgentSpec` drifting apart. `spec_loader` owns `agent.schema.json` and this package owns its content, so they are two records of one shape — and the first version invented `{type, handoff}` for a knowledge reference against the model's `{kind, knowledge_type, required}`, which under `additionalProperties: false` would have rejected **every knowledge-bearing agent spec in the system**. Caught by `spec-loader` asking; this makes the next one mechanical |
-
-### 4.2 The first run against a real backend
-
-`claude-agent-sdk` 0.2.148 was installed on this machine and the adapter was
-driven against the live gateway for the first time. Probes kept in
-A probe, run with every `ANTHROPIC_*` variable scrubbed
-so nothing is an artifact of the operator's own shell.
-
-**It works.** `ClaudeSdkBackend.start()` returned `FINISHED` / `'success'`,
-`duration_ms=5178`, `num_turns=2`, real cost. **Three defects were invisible
-until it did**, and all three share one cause: *the adapter guessed the SDK's
-surface and the test double ratified the guess.*
-
-| | measured | fixed |
-|---|---|---|
-| `session_ref` was `None` on **every** real run | `ClaudeSDKClient` has no `session_id` attribute at all — `hasattr` is `False`. The id is on the messages | recorded as messages stream past, one writer |
-| `query()` raised `AttributeError` on **every** real run | `get_session_messages` is a **module-level function**, synchronous, taking `(session_id, directory=...)` — not a client method | called as the function it is; the zone is the project directory |
-| a failed run recorded `detail='success'` | the SDK sets `subtype='success'` even with `is_error=True`; `terminal_reason='api_error'` is what distinguishes the cases | `_detail_of` consults `terminal_reason` **on failures only**, so successes still read `'success'` |
-
-The old `FakeClient` defined `session_id = "sess-abc"` and an async
-`get_session_messages`. **Neither exists.** The suite was green against a
-fiction, which is why the double is now forbidden to re-invent them
-(`test_the_session_ref_is_learned_from_messages_not_from_the_client` asserts
-`not hasattr(client, "session_id")`).
-
-**Credentials need no threading, measured.** The CLI reads
-`~/.claude/settings.json` itself: with `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`,
-`ANTHROPIC_CUSTOM_HEADERS` and `ANTHROPIC_MODEL` all absent from the
-environment, a query still returned in 0.79 s. And
-`ClaudeAgentOptions.env` is **merged over** `os.environ`
-(`subprocess_cli.py`), not a replacement — so passing
-`Assignment.environment` as `env` strips nothing the CLI needs.
-
-### 4.3 What a session transcript cannot tell you
-
-**Three people concluded a defect from a `.jsonl` and all three
-were wrong in the same direction.** Recorded here because the file looks
-authoritative, is easy to grep, and answers a narrower question than anyone
-assumed.
-
-| grepped for | in the transcript | so a zero means |
-|---|---|---|
-| the **system prompt** | **never recorded** | nothing. The brief may have arrived and worked |
-| an **environment variable** | **never recorded** | nothing. The agent may have had it |
-| **idle since timestamp T** | writes stop before the turn does | nothing. *Transcript idle is not conversation over* |
-
-**The control is what makes the first two conclusive.** A system prompt of
-*"whatever you are asked, reply with exactly the single word BANANA"*, asked
-`What is 2+2?`, answered `BANANA` — so the prompt demonstrably arrived and took
-effect — **and the marker appears nowhere in the file**, across six line types
-(`queue-operation`, `attachment`, `user`, `last-prompt`, `atis-latch`,
-`assistant`). Reproduced three times.
-
-The third is `agent-mod`'s, from the process table rather than a probe: a CLI
-alive at 14 minutes with its transcript quiet for 5. It nearly became a
-`DRAIN_SECONDS` defect report against this package.
-
-> **A negative grep is indistinguishable from a grep for the wrong name** — and
-> here the file itself is the wrong name. The process table answered all three
-> questions the transcript could not.
-
----

@@ -3,9 +3,10 @@
 | | |
 |---|---|
 | Status | Normative |
-| Revision | 14 |
-| Scope | Every event in a task's life that is not the task's own work: the planned phase advances, every unplanned outcome, who reports each, the loop that handles both, the escalation chain, and where it is recorded |
-| Source | `image.how.to.usedb.yuser.md` §2.4; [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md) §2; `task_graph` spec §3.5 and design §8.9; the user's answers of |
+| Version | 14 |
+| Updated | 2026-09-15 |
+| Summary | The task's event loop on two channels: what counts as an exception, the loop and its two queues, the escalation chain, and where an event is recorded. |
+| Source | [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md) §2; `task_graph` spec §3.5 and design §8.9 |
 | Part of | [`../../docs/spec.md`](../../docs/spec.md) — the whole-system specification |
 
 ---
@@ -87,8 +88,8 @@ itself, it reports here.
 "Advances" is mechanical and stays mechanical; "decides" is where the judgement
 is. A monitor that blurred them would put a model on the path every task takes.
 
-**The domain is the plan, not component health.** This is the distinction that
-matters and the one an earlier revision got wrong:
+**The domain is the plan, not component health.** This is the distinction the
+whole module turns on:
 
 | | |
 |---|---|
@@ -150,9 +151,7 @@ alpha can do anything clever about it.
 pusher has nothing to push — the agent is gone and the task is terminal (§7). So
 the alpha's monitor records the exception and surfaces it, and the richer
 responses wait for the analysing dispatcher. **The point is that the branch is no
-longer silent**, which was the whole of the recorded defect.
-
-Both other documents need amending; §9 carries them.
+longer silent**, which is the whole of the property.
 
 **2. Every monitor action is a task transition it *calls*, never a status it
 *assigns*.** This is inherited, not invented here: `task_graph` spec §2 principle
@@ -165,7 +164,7 @@ the duration of a call and holding nothing between calls.
 reason this module can be specified without reopening the scheduler's authority
 model.
 
-**3. A monitor is not a task.** Decided. It has no zone, no lease, no
+**3. A monitor is not a task.** It has no zone, no lease, no
 agent spec of the task kind, and it does not appear in the graph. The gap between
 a monitor and the task model is too wide to be worth closing — a task is a
 function `<handoffs, agent>` with inputs, outputs and validators, and a monitor
@@ -176,15 +175,15 @@ A monitor that dies takes its watch with it, and the alpha accepts that.
 
 **4. It receives; it does not hunt.** The stall is reported to the monitor by the
 component that is already standing where the failure is visible (§4.1). A design
-in which the monitor discovers everything by polling was the starting assumption
- and is not what this spec adopts —
+in which the monitor discovers everything by polling is not what this spec
+adopts —
 polling remains available for the case §4.3 records as uncovered.
 
 **5. An event is recorded, not only acted on.** A push that did not work is
 invisible otherwise, and "the monitor handled it" with no trace is
-indistinguishable from "nothing happened". **Rev. 14 widens this from exceptions
-to every event**, which is what makes the planned path auditable at no extra cost:
-a phase advance that never happened is now as visible as one that failed.
+indistinguishable from "nothing happened". **This covers every event, not only
+exceptions**, which is what makes the planned path auditable at no extra cost: a
+phase advance that never happened is as visible as one that failed.
 
 ### 2.2 Two channels, and the line between them is permanent
 
@@ -313,9 +312,8 @@ unreachable by the analysing dispatcher that replaces the pusher later.
 
 **It has nothing to do with `on_task_done`**, which happens after output
 validation, when the task is being closed. The two instants are separated by the
-entire validation phase, and an earlier revision of this section conflated them —
-corrected here, and the "who owns the fact" question that rested on the confusion
-is void.
+entire validation phase. **They are easy to conflate and must not be**: a check
+placed at the wrong instant asks about an artefact that does not exist yet.
 
 **The whole cycle is absorbed below the scheduler.** It does not move task status,
 does not reach the scheduler, and does not involve `on_task_done`. A task cycling
@@ -563,10 +561,9 @@ thing recorded is a **record**.
 
 **The asynchrony is sound, under five rules.** Each is a requirement, not an
 implementation: the design chooses the structure, the spec fixes what must hold.
-Kubernetes' `client-go` workqueue is the prior art and the source of the shape
-.
+Kubernetes' `client-go` workqueue is the prior art and the source of the shape.
 
-**Which rule governs which queue**, since rev. 14 there are two:
+**Which rule governs which queue.** There are two:
 
 | | Planned | Unplanned |
 |---|---|---|
@@ -615,7 +612,7 @@ inherit — criterion 9 requires *every* exception to be recorded.
 monitor is inside a transition — blocked on the scheduler's `RLock` — is
 re-queued exactly once, after the current handling completes.
 
-**Since rev. 14 this spans both queues**, and it has to: a planned advance for
+**This spans both queues**, and it has to: a planned advance for
 task T while T's exception is being decided would have the monitor moving a task
 forward and repairing it at the same instant. **One task, one handling, whichever
 queue it came from.**
@@ -812,8 +809,7 @@ A `ResultMessage` ends a **turn**, not the session and not the process: the SDK'
 `query()` has no already-finished guard, its only precondition being that the
 client is connected, and a string prompt is one JSON line written to a live stdin
 (claude-agent-sdk 0.2.145, `client.py`). A live probe pushed a returned agent and
-got an answer on the **same session id, in the same process, in ~2 s**
-.
+got an answer on the **same session id, in the same process, in ~2 s**.
 
 **The agent-directed actions are ordered by cost, and the order is
 load-bearing:**
@@ -1194,7 +1190,7 @@ it would be worse than leaving it visible.
 | Does an AI ever end up on the ordinary path | **No, and the queue split is what guarantees it** rather than a convention | §2.2 |
 | Does an uncaught exception in a thread reach anyone | **No — measured.** Traceback to stderr, thread dies, exit code unchanged, producers see nothing. It needs a `threading.excepthook` | §5.4 |
 | Is "nothing monitors the monitor" still affordable | **Not once the planned path runs through it.** Two mechanisms, both alpha: the excepthook, and a heartbeat checked against N stale periods by something trivial | §5.4 |
-| Where the non-delivery check sits | **In the runner, at an admission gate between the main phase and output validation.** Nothing to do with `on_task_done`, which is after validation; an earlier revision conflated the two instants | §4.1.0 |
+| Where the non-delivery check sits | **In the runner, at an admission gate between the main phase and output validation.** Nothing to do with `on_task_done`, which is after validation — the two instants are separated by the whole validation phase | §4.1.0 |
 | Is `report()` one step or two | **One, with synchronous persistence inside it**, so rule 3 holds structurally instead of by the caller's discipline. Affordable because the call sits on no lock and no scheduler path | §5.1 |
 | Is non-delivery rare | **No — it is common**, which is why the gate is a loop and not an error path | §4.1 |
 | How the agent's claim of completeness is carried | **`done_by_self_check` on the handoff**, a weak check whose *description* is the instruction. Its purpose is cutting main↔validation round-trips, not catching errors | §4.1.2 |
