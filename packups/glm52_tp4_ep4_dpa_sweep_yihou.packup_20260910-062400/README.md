@@ -21,10 +21,32 @@ All points emitted exactlyC*10000 useful tokens; all four ranks executed2768 tar
 - [REPRODUCE.md](REPRODUCE.md): fresh output directory, explicit existing allocation/container, exact image/model validation, smoke+sweep commands.
 - [environment.md](environment.md): pins, hardware evidence and external inputs/gaps.
 - [evidence/report.md](evidence/report.md): complete original result report; [summary.csv](evidence/summary.csv): machine-readable table.
-- [evidence/iterations](evidence/iterations): ten full points, two smokes and setup logs; full rank/step outputs, config, source snapshots, code diffs and timing.
+- [evidence/iterations](evidence/iterations): ten full points, two smokes and setup logs; per-rank result JSON, config, source snapshots, code diffs and timing. **Per-step JSONL traces were removed on 2026-09-15 — see "Removed after packing" below.**
 - [scripts/original](scripts/original): exact runnable bench, scripts and tests; no dependency on old scratch source.
 - [notes.md](notes.md), [patches/README.md](patches/README.md): semantics, failures and changes.
 - [provenance/source-files.json](provenance/source-files.json): original paths, hashes, byte counts, mtimes; Git HEAD/branch/diff also retained.
 - [audit.md](audit.md): offline verification; MANIFEST.sha256: complete delivered-byte checksums.
 
-Image archive and model weights are deliberately external and not copied. No copied source file exceeds4MB. Generated Python caches are excluded; all source, result JSON/JSONL and original log streams retained. No commit/push was requested or performed.
+Image archive and model weights are deliberately external and not copied. Generated Python caches are excluded; all source, result JSON and original log streams retained.
+
+## Removed after packing (2026-09-15)
+
+**60 per-step JSONL traces** (`steps_yihou.jsonl` + `steps_rank_{0..3}_yihou.jsonl` in each of the
+12 iteration directories, **34.98 MB**) were deleted. This packup was the only one that shipped
+them; every later packup excludes this class of file for the stated reason that it is *"needed only
+for per-iteration forensics, not to reproduce or check the result"*. Keeping them here made this
+packup 37 MB against 0.7–1.7 MB for its siblings.
+
+**What still works without them:** every iteration retains `result_yihou.json`, the per-rank
+`rank_N_yihou.json`, `config_yihou.json`, `command.txt`, `code_hashes.sha256`, `code.diff`,
+`git_head.txt`, `launch_status.json`, `bench_snapshot/`, and the gzipped `runtime.log` /
+`console.log`. `audit.md` and every script in `scripts/` were checked and reference none of the
+deleted files, so offline verification is unaffected.
+
+**What is lost:** per-iteration forensics — the acceptance count and wall time of each individual
+decode step. If you need those, re-run the point; `REPRODUCE.md` is unchanged and still produces them.
+
+**Recovery:** the files were committed before removal, so each is recoverable from git history:
+`git show <commit-before-removal>:<path>`.
+
+`MANIFEST.sha256` was regenerated after the removal and covers the current contents exactly.
