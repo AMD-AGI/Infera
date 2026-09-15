@@ -9,7 +9,7 @@
 # for determinism and not for reachability. What is genuinely missing is a route
 # to the content: this body is handed handoff **ids** and nothing that resolves
 # one. `AGENT_SYS_DEMO_STORE` arrives through `validation_env`, which
-# `PhaseRunner._build_environment` already resolves. F-D5 in `demo/README.md`;
+# `PhaseRunner._build_environment` already resolves;
 # a workaround, not a mechanism.
 set -eu
 exec "${AGENT_SYS_DEMO_PYTHON:-python3}" \

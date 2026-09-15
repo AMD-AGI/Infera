@@ -94,7 +94,7 @@ def _required(name: str) -> str:
             f"{name} is not set. Since interfaces.md §4.14 a task writes its "
             f"output into the pre-allocated <store>/<hid>/v<N>/content/, which is "
             f"granted to it — but nothing exports that path under a declared "
-            f"name, so this body has nowhere to write. See demo/README.md F-D17."
+            f"name, so this body has nowhere to write."
         )
     return value
 

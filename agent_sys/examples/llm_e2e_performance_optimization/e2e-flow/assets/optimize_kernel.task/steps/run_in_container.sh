@@ -290,7 +290,7 @@ echo "run_in_container: record claims started_at=$(_field runtime.started_at)" >
 # a form you have SEEN, and every container this package has met pins by env.
 #
 # **Demonstrated against a real pinned deployment**, m1's
-# `yihou_e2e_flow_sgl_m1r1` on `node-006`, 2026-09-04, `docker inspect`
+# a live engine container, `docker inspect`
 # only and no exec: `HIP_VISIBLE_DEVICES=0,1,2,3` in `Config.Env` with
 # `HostConfig.Devices` = `/dev/kfd`, `/dev/dri` — the whole card set present and
 # only the variable narrowing it, confirming on a live container what

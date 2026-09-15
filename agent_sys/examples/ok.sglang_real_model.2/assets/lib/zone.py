@@ -23,7 +23,7 @@ package's only phase, so a body reaching for the store root would die on
 
 There is one consequence and it is stated rather than worked around: a check
 that must reach a handoff it was *not* handed cannot be written with this
-module. That is F-D5 (`examples/ok.filetree_grounded_report.4/README.md`) and neither check here is one.
+module. Neither check here is one.
 """
 
 from __future__ import annotations

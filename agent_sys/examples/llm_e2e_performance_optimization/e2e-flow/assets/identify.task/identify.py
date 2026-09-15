@@ -654,7 +654,7 @@ def image_facts(image: str, root: str, relatives: list[str], timeout: int = 300)
     payload = base64.b64encode(inner.encode()).decode()
     args = base64.b64encode(json.dumps(relatives).encode()).decode()
     # Spaces around the pipe and the redirect: the unspaced form returns 255
-    # with no output on node-047 and works on 006. Measured on both.
+    # with no output on some nodes and works on others. Measured on both.
     script = (f"echo {payload} | base64 -d > /tmp/_f.py; "
               f"python3 /tmp/_f.py \"$(echo {args} | base64 -d)\" {shlex.quote(root)}")
     try:

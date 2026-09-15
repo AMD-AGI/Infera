@@ -84,7 +84,7 @@
   agent: collect
   handoffs: [facts]
   # Declared because the specs call this the phase-validator list. See
-  # `demo/README.md` F-D4: `validator.PhaseRunner` selects from the handoff
+  # `validator.PhaseRunner` selects from the handoff
   # kind's own list instead, and the two agree here on purpose.
   validators: [check_facts]
   task:

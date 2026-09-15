@@ -323,7 +323,7 @@ def _image_facts(root: Path, target: str) -> tuple[dict | None, list | None]:
     )
     encoded = base64.b64encode(inner.encode()).decode()
     # Spaces around the pipes: unspaced returns 255 with no output on
-    # node-047 and works on 006. Measured on both; see
+    # some nodes and works on others. Measured on both; see
     # `measure_in_container.sh` for the full 2x2.
     script = f"echo {encoded} | base64 -d | python3"
     probe = subprocess.run(

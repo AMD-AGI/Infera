@@ -179,7 +179,7 @@ _REAL = {
 REAL_TRANSPORT = all(_REAL[k] for k in ("container", "node", "jobid", "root"))
 
 
-def _environment(node: str = "node-061") -> dict:
+def _environment(node: str = "node-000") -> dict:
     runtime = {"container": "stub", "endpoint": "http://127.0.0.1:30000",
                "started_at": "2026-09-03T00:00:00Z", "transport": "local"}
     if REAL_TRANSPORT:

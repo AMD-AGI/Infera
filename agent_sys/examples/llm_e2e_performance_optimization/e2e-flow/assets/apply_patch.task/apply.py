@@ -829,7 +829,7 @@ def main() -> int:
                     + ("…" if len(dropped) > 8 else "")
                     + "\nAnything importing one of those from this module breaks at "
                     "import, before a single token is served. Measured 2026-09-04 on "
-                    "node-047: a replacement for srt/layers/sampler.py that "
+                    "a replacement for srt/layers/sampler.py that "
                     "dropped all eight of its functions took the engine down with "
                     "`ImportError: cannot import name 'apply_custom_logit_processor'` "
                     "out of sglang/srt/speculative/dflash_utils.py, and it had already "

@@ -3716,7 +3716,7 @@ Seven call sites exist — `apply_patch`, `build_workset`, `deploy_and_prove`,
   for the measurements and not for the report or the packup.
 - **`kernel_optimization` is not m4's live producer.** `_lib.py` calls
   `env_render`; the refusing artefact is the **replayed** one (its embedded YAML names
-  `node: node-088`). **m4's action is "confirm the live path emits it",
+  a replayed node name). **m4's action is "confirm the live path emits it",
   not "fix the producer".**
 
 **A fix already exists for one of the three:** a machine-generated patch that is

@@ -17,7 +17,7 @@
 # the entrypoints wherever the runner sat, and the plan said to run rung 0 from
 # a host that has torch. Measured by the package owner:
 #
-#     spur exec 106253 python3 -c "import torch"   ->  ModuleNotFoundError
+#     spur exec <jobid> python3 -c "import torch"  ->  ModuleNotFoundError
 #
 # **The node's host environment has no torch. Only the containers do.** So there
 # was no host anywhere in this cluster that satisfied the old wiring — the mock
@@ -440,7 +440,7 @@ trap _teardown EXIT HUP INT TERM
 # the silent-success class twice over.
 # **Spaces around the pipes, and they are load-bearing.** Measured 2026-09-04
 # across two nodes: `echo <b64>|base64 -d|bash` returns 255 with no output on
-# node-047 and works on 006; the identical command with spaces works on
+# some nodes and works on others; the identical command with spaces works on
 # both. Same `spur exec bash -lc`, same image, no docker in the minimal case —
 # so it is a property of that node's shell path, not of this package. Why is
 # unknown; the spaced form is the one *seen* to work on both, which is the

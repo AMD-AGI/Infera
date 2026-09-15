@@ -29,7 +29,7 @@ built to ask.
 **A marker is required by default since 2026-09-04, and the experiment that
 changed it is the argument.** The old default was `false`, on the reasoning that
 requiring markers would refuse every KernelForge patch that does not know about
-this package. Then a control overlay on node-047 produced *perfect*
+this package. Then a control overlay on a real node produces *perfect*
 static evidence — in-container hash byte-equal to its own `sha256_patched`, the
 file demonstrably holding a 2 ms sleep, the `.pyc` compiled that minute — and
 measured **identical to stock**. Rules one and two both passed and neither could

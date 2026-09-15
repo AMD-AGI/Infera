@@ -54,7 +54,7 @@ nfree=0; [ -n "$free_cards" ] && nfree="$(awk -F, '{print NF}' <<< "$free_cards"
 
 # --- 1a. is the shared filesystem here, and are the weights on it ------------
 # **The tier the first two do not cover, and it cost a hold to learn.** m5 took
-# `node-037` on a SERVABLE verdict and released it again: the node has
+# a node on a SERVABLE verdict and released it again: the node has
 # **no `/shared_nfs` at all**. A servable image cannot tell you the node is
 # missing the filesystem the weights live on — the image is a fact about the
 # node's docker, the mount is a fact about the node.
@@ -93,7 +93,7 @@ while read -r img; do
   # `infera.engine.sglang` and `infera.server` importing asks *can this serve
   # right now*, and they are different answers with a four-minute build between
   # them — m1's correction: a base carrying the anchor does **not** mean a
-  # servable image exists. Measured 2026-09-04 on `node-037`, where both
+  # servable image exists. Measured on a real node, where both
   # `infera/engine-sglang` images answered `servable` and the node needed no
   # build at all, exactly as `006` had not. Two greps, one `docker run`, because
   # the container start is the whole cost.

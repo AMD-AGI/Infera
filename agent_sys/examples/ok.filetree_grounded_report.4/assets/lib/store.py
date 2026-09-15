@@ -5,7 +5,7 @@ A validator body runs as a subprocess in a fresh zone and is handed
 `inputs.json` — handoff **ids**, as strings — and nothing else. There is no
 route from an id to the content it names: `docs/TODO.md` item 26 leaves
 *"who materialises the value a JSON Pointer addresses"* open, and this is that
-question one level wider. Reported as F-D5 in `demo/README.md`.
+question one level wider.
 
 So this module reads the store's on-disk layout directly, through
 `AGENT_SYS_DEMO_STORE`. That layout is `handoff`'s — `<root>/<hid>/v<N>/` with
@@ -181,7 +181,7 @@ def latest_of_kind(kind: str) -> Path | None:
     compare two handoffs — which is what *grounded in its input* means — can
     only go looking. With one `facts` handoff in the demo there is one answer;
     in a real graph there would be several and this would be wrong. That is
-    F-D5, and it is why the demo reports it rather than tidying it away.
+    It is why the demo reports it rather than tidying it away.
     """
     root = store_root()
     if not root.is_dir():
