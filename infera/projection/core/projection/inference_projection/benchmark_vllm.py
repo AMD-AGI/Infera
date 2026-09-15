@@ -453,6 +453,43 @@ def _server_arg_value(server_args: str, flag: str):
     return None
 
 
+def _lift_speculative_args(args) -> None:
+    """Move speculation from the engine flag string onto ``args``.
+
+    The serving path has no flag of its own for it, so speculation arrives
+    inside ``--server-args`` -- where it reaches neither the regime axes nor the
+    artifact. Unlifted, a speculative anchor hashes as non-speculative and
+    shares a cache entry with one, while emitting an artifact unable to say
+    which it is. The caller's own flags win, so the offline path is unaffected.
+
+    SGLang counts the bonus token in ``--speculative-num-draft-tokens``; the
+    regime axes and the projector count drafted tokens only, hence the -1.
+    """
+    if not args.speculative_method:
+        args.speculative_method = _server_arg_value(args.server_args,
+                                                    "--speculative-algorithm")
+    verify_tokens = _server_arg_value(args.server_args,
+                                      "--speculative-num-draft-tokens")
+    if verify_tokens and args.speculative_num_tokens is None:
+        args.speculative_num_tokens = max(0, int(verify_tokens) - 1)
+
+
+def _simulated_acc_len():
+    """SGLang's forced speculative acceptance length, or None when unforced.
+
+    At 1.0 every draft token is rejected, so a verify step advances each request
+    by exactly its bonus token and the measured per-output-token latency *is*
+    that step. It is the only setting a speculative anchor is consumable at: any
+    other folds an acceptance rate into the measurement, and on the benchmark's
+    random prompts that rate is one no real corpus has.
+    """
+    try:
+        value = float(os.environ.get("SGLANG_SIMULATE_ACC_LEN"))
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
 def _full_num_layers(model: str, trust_remote_code: bool) -> int:
     """Best-effort full transformer layer count from the HF config (0 if unknown)."""
     try:
@@ -1087,6 +1124,10 @@ _CACHE_EXTRA_ARGS = (
     # batches and the decode-only one does not, which is the whole reason to run
     # it. Serving one as the other is the error this keeps out of the cache.
     "decode_only_fake",
+    # Two speculative runs at different forced acceptance lengths report
+    # different observables (a verify step vs a per-output-token average), and
+    # the setting can come from the ambient environment rather than --env.
+    "simulate_acc_len",
 )
 
 
@@ -1346,6 +1387,12 @@ def main(argv=None):
     # Lift the backend out of the flag string so it reaches the regime axes,
     # which cannot parse server flags themselves.
     args.attention_backend = _server_arg_value(args.server_args, "--attention-backend")
+    _lift_speculative_args(args)
+    # Whether the acceptance length was forced decides whether a speculative
+    # decode measurement is a step or a per-output-token average, so it is part
+    # of what the run is. Read from the environment the engine inherits, which
+    # is also where it can have been exported rather than passed via --env.
+    args.simulate_acc_len = _simulated_acc_len()
 
     cache_dir = args.cache_dir
     key = _cache_key(args) if cache_dir else None

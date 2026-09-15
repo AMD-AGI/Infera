@@ -331,6 +331,11 @@ class InferencePerformanceProjector:
         # caching enabled. Such a curve is a cache-hit lookup curve and is only
         # usable for a target configured as a full prefix hit.
         self._meas_prefill_cache_hit: bool = False
+        # Query positions the measured decode point spans, when the benchmark ran
+        # speculatively: its step is a VERIFY step over the target's own q_len
+        # with the draft head included, so nothing is synthesised on top of it.
+        # 0 => a single-token step, which is what the synthesis builds from.
+        self._meas_verify_q_len: int = 0
         self._meas_layer: Dict[tuple, float] = {}        # {(phase, ltype): ms}
         self._meas_ref_input: int = 0
         self._bench_backend: str = "megatron"
@@ -533,6 +538,66 @@ class InferencePerformanceProjector:
             return n_ar * tp_ar_one + _estimate_moe_a2a_time_ms(self._view, batch, q_len, self._gemm)
         return _dense_tp_allreduce_count(self._view) * tp_ar_one
 
+
+    def _usable_decode_points(self, dec_pts: list, meta: dict) -> list:
+        """The measured decode curve, or empty when it cannot be consumed.
+
+        A speculative benchmark's decode point is a VERIFY step -- ``q_len``
+        tokens per sequence with the draft head running -- while the consumers
+        below build that step out of a single-token one. Reading the first as
+        the second multiplies by ``q_len`` a measurement that already spans it,
+        so the two are told apart here rather than downstream.
+
+        Each mismatch is refused rather than approximated: the result would be
+        a confident number several-fold off, not a visible failure.
+        """
+        self._meas_verify_q_len = 0
+        if not dec_pts:
+            return dec_pts
+        target_q = int(self.cfg.request_config.speculative_num_tokens or 0) + 1
+        if not meta.get("speculative_method"):
+            if target_q > 1:
+                print(
+                    "[inferasim:Inference] WARNING: non-speculative anchor for a "
+                    f"target that verifies {target_q} tokens/step. The verify step "
+                    "is synthesised as q_len x the measured single-token step, "
+                    "which over-charges it -- one step reads the weights and the "
+                    "KV once for all q_len. Anchor with speculation at "
+                    "SGLANG_SIMULATE_ACC_LEN=1.0 to measure the step instead."
+                )
+            return dec_pts
+        anchor_q = int(meta.get("speculative_num_tokens") or 0) + 1
+        acc_len = meta.get("simulate_acc_len")
+        try:
+            forced_one = float(acc_len) == 1.0
+        except (TypeError, ValueError):
+            forced_one = False
+        refusal = None
+        if not forced_one:
+            # Anything else leaves an acceptance rate folded into the measured
+            # per-output-token latency, and the benchmark's random prompts give
+            # one no real corpus has.
+            refusal = (f"it is speculative at simulate_acc_len={acc_len!r}, so its "
+                       "per-output-token latency carries an acceptance rate and is "
+                       "not a step. Re-run with SGLANG_SIMULATE_ACC_LEN=1.0")
+        elif anchor_q != target_q:
+            refusal = (f"it verifies {anchor_q} tokens/step and the target "
+                       f"{target_q}, which are different steps")
+        elif self._restore:
+            # ``_origami_steps`` prices a decode step at one token, so the
+            # restore would move a verify step by a single-token delta.
+            refusal = ("a speculative anchor cannot be restored across "
+                       "parallelism. Re-run it at the target parallelism "
+                       "(--benchmark-gpus)")
+        if refusal:
+            print("[inferasim:Inference] WARNING: DECODE IS NOT CALIBRATED: "
+                  f"{refusal}. Decode remains simulated.")
+            return []
+        self._meas_verify_q_len = anchor_q
+        print(f"[inferasim:Inference] using measured VERIFY step ({anchor_q} "
+              f"tokens/step, draft head included).")
+        return dec_pts
+
     def set_benchmark_calibration(self, benchmark_layer_times: dict) -> None:
         """Ingest measured silicon times for a **benchmark-based** projection.
 
@@ -635,6 +700,7 @@ class InferencePerformanceProjector:
                     "hit fraction to 1.0 for repeated-prefix traffic."
                 )
                 pre_pts = []
+            dec_pts = self._usable_decode_points(dec_pts, meta)
             if self._restore:
                 # Prefill processes ``ref_input`` tokens/seq; decode 1 token/step.
                 pre_pts = [(b, self._restore_whole(ms, b, ref_input, "prefill")) for b, ms in pre_pts]
@@ -1534,8 +1600,11 @@ class InferencePerformanceProjector:
         The draft runs ``speculative_num_tokens`` times per verify step; each
         draft pass costs ``speculative_draft_cost_factor`` of one target decode
         token.  ``0`` for either knob is a no-op (legacy behaviour that only
-        credited the accepted-token speedup).
+        credited the accepted-token speedup), and so is a verify-step anchor,
+        whose measurement ran the draft head and already carries its cost.
         """
+        if self._meas_verify_q_len:
+            return 0.0
         req = self.cfg.request_config
         spec_k = int(req.speculative_num_tokens or 0)
         dcf = float(req.speculative_draft_cost_factor or 0.0)
@@ -1543,13 +1612,26 @@ class InferencePerformanceProjector:
             return dcf * spec_k * max(0.0, per_token_step_ms)
         return 0.0
 
+    def _measured_decode_span_ms(self, per_token: float, q_len: int) -> float:
+        """Measured cost of the ``q_len`` tokens one decode step processes.
+
+        A verify-step anchor already spans them. A single-token one has the span
+        built by multiplication, which holds only as far as a decode step is
+        linear in its query count -- it is not, since the weights and the KV are
+        read once for all of them, so this over-charges a speculative step.
+        """
+        if self._meas_verify_q_len:
+            return per_token
+        return per_token * max(1, int(q_len))
+
     def _decode_step_latency_ms(self, batch: int, kv_len: int, q_len: int = 1) -> float:
         # Benchmark-based: use the measured decode step directly (memory-bound,
         # ~flat in context over a generation, so no simulator context-scaling).
         if self._measured_mode:
             per_token = self._measured_decode_step_ms(batch, kv_len)
-            step = per_token * q_len if q_len > 1 else per_token  # verify q_len tokens/step
-            step = step + self._draft_overhead_ms(per_token) + self._decode_step_overhead_ms()
+            step = (self._measured_decode_span_ms(per_token, q_len)
+                    + self._draft_overhead_ms(per_token)
+                    + self._decode_step_overhead_ms())
             return max(step, self._decode_floor_ms(batch))
         ft = self._forward_times(batch, q_len, "decode", kv_len)
         per_token = ft.total_ms / max(1, q_len)
@@ -1588,9 +1670,10 @@ class InferencePerformanceProjector:
         chunk_tokens = max(1, int(chunk_tokens))
         num_decode = max(0, int(num_decode))
         if self._measured_mode:
-            spec = q_len if q_len > 1 else 1
             prefill_piece = self._measured_prefill_tokens_ms(chunk_tokens)
-            dec_piece = self._measured_decode_step_ms(num_decode, decode_ctx) * spec if num_decode > 0 else 0.0
+            dec_piece = (self._measured_decode_span_ms(
+                self._measured_decode_step_ms(num_decode, decode_ctx), q_len)
+                if num_decode > 0 else 0.0)
             return (prefill_piece + dec_piece) * (1.0 + penalty) + ov
         prefill_piece = (self._forward_times(1, chunk_tokens, "prefill", max(1, prefill_kv_len)).total_ms
                          * self._prefill_rate_scale())
@@ -1711,7 +1794,6 @@ class InferencePerformanceProjector:
             # Benchmark-based: average the pure/mixed step over the context window
             # [ISL, ISL+OSL]. The measured decode step carries its fitted KV term,
             # so this is flat only when that slope is ~0 (prior behaviour).
-            spec = q_len if q_len > 1 else 1
             n_samples = min(8, max(2, int(OSL)))
             # Benchmark mode prices prefill from measured kernels, so the anchor
             # is inert there and the two steps coincide.
@@ -1720,9 +1802,11 @@ class InferencePerformanceProjector:
                 frac = i / (n_samples - 1) if n_samples > 1 else 0.0
                 ctx = int(ISL + frac * OSL)
                 d_pure = self._measured_decode_step_ms(C, ctx)
-                pure.append(d_pure * spec + self._draft_overhead_ms(d_pure) + ov)
+                pure.append(self._measured_decode_span_ms(d_pure, q_len)
+                            + self._draft_overhead_ms(d_pure) + ov)
                 prefill_piece = self._measured_prefill_tokens_ms(chunk_tokens)
-                dec_piece = self._measured_decode_step_ms(max(1, C - 1), ctx) * spec
+                dec_piece = self._measured_decode_span_ms(
+                    self._measured_decode_step_ms(max(1, C - 1), ctx), q_len)
                 mixed.append((prefill_piece + dec_piece) * (1.0 + penalty) + ov)
                 pf_only.append(prefill_piece * (1.0 + penalty))
             t_pure = sum(pure) / len(pure)

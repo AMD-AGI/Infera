@@ -125,7 +125,9 @@ def _sweep_batches(monkeypatch, **over):
     )
     fields = dict(tp=8, pp=1, benchmark_gpus=4, batch=16, batches=None,
                   concurrency=None, input_len=1024, output_len=128, env=[],
-                  quantization="mxfp4")
+                  quantization="mxfp4", speculative_method=None,
+                  speculative_num_tokens=None, simulate_acc_len=None,
+                  attention_dp=1)
     fields.update(over)
     return measured, benchmark_serving.run_serving_benchmark(spec(**fields))
 
@@ -326,4 +328,24 @@ def test_the_artifact_says_which_pool_it_describes(monkeypatch):
     assert "decode-only" in artifact["meta"]["derived_from"]
     assert artifact["measured"]["model"]["prefill_ms"] is None
     assert all("prefill_ms" not in e for e in artifact["sweep"])
+
+
+def test_the_artifact_says_which_decode_observable_it_carries(monkeypatch):
+    """A speculative run's decode point is a verify step, a plain run's is a
+    single-token step, and the consumer reconstructs differently from each. The
+    forced acceptance length is what makes the first readable as a step at all,
+    so all three travel with the measurement."""
+    _, plain = _sweep_batches(monkeypatch, batches="8,16")
+    assert plain["meta"]["speculative_method"] is None
+    # Positively "off" rather than absent: an artifact with no speculative key
+    # at all means "predates the tracking", which matches differently.
+    assert "speculative_method" in plain["meta"]
+
+    _, spec = _sweep_batches(monkeypatch, batches="8,16",
+                             serving_backend="sglang",
+                             speculative_method="EAGLE3",
+                             speculative_num_tokens=6, simulate_acc_len=1.0)
+    assert spec["meta"]["speculative_method"] == "EAGLE3"
+    assert spec["meta"]["speculative_num_tokens"] == 6
+    assert spec["meta"]["simulate_acc_len"] == 1.0
 

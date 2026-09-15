@@ -551,6 +551,15 @@ def run_serving_benchmark(args) -> dict:
             # that is visible in the artifact instead of inferred from a
             # missing key.
             "decode_only_fake": decode_only_fake,
+            # Speculation, lifted out of --server-args by the CLI so it reaches
+            # the regime axes. ``speculative_num_tokens`` counts drafted tokens
+            # only -- SGLang's own flag includes the bonus token -- matching what
+            # the projector builds its q_len from. ``simulate_acc_len`` is what
+            # makes the decode point readable as a step rather than as a
+            # per-output-token average; see _simulated_acc_len.
+            "speculative_method": getattr(args, "speculative_method", None),
+            "speculative_num_tokens": getattr(args, "speculative_num_tokens", None),
+            "simulate_acc_len": getattr(args, "simulate_acc_len", None),
             "model": args.model,
             # What this anchor cost, so its own artifact carries the accounting.
             "boot_s": round(boot_s, 1),
