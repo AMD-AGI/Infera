@@ -105,6 +105,23 @@ def _add_load_benchmark_arg(parser, *, include_compute_baseline_alias: bool):
             "loaded measurements."
         ),
     )
+    for _pool in ("prefill", "decode"):
+        parser.add_argument(
+            f"--{_pool}-benchmark",
+            type=str,
+            required=False,
+            default=None,
+            metavar="PATH",
+            help=(
+                f"Path to a bench artifact measured on the {_pool} pool, used "
+                f"only when --disaggregation is on. A disaggregated deployment "
+                f"runs its two pools at different parallelism, attention layout "
+                f"and batch composition, so one colocated anchor describes "
+                f"neither pool exactly; these let each pool be calibrated "
+                f"against its own measurement. Falls back to --load-benchmark "
+                f"for whichever pool is not given."
+            ),
+        )
     parser.add_argument(
         "--load-benchmark-scaling",
         type=str,

@@ -90,6 +90,19 @@ class InferenceTrialConfig:
     disaggregate: bool = False
     prefill_tp: int | None = None
     decode_tp: int | None = None
+    prefill_ep: int | None = None
+    decode_ep: int | None = None
+    # Per-pool attention-DP. ``None`` falls back to the global ``attention_dp``.
+    # The two pools genuinely want different layouts: prefill is compute-bound on
+    # a long prompt, while decode is gated by the KV cache a rank holds -- and for
+    # a latent-cache model (MLA, or DeepSeek-V4's latent without the flag) tensor
+    # parallelism replicates that cache instead of sharding it, so a TP8 decode
+    # pool at attention-DP 1 stores the same cache eight times. A single global
+    # degree cannot express the split, which left the search unable to propose
+    # the shape these models are actually served in.
+    prefill_attention_dp: int | None = None
+    decode_attention_dp: int | None = None
+    prefill_replicas: int = 1
     decode_replicas: int = 1
     # KV-transfer engine preset for disaggregation: nixl | mooncake | mori
     transfer_backend: str | None = None
@@ -349,6 +362,94 @@ def derive_inference_legality(
     )
 
 
+#: Floor on the seed slots reserved for disaggregated candidates when any are
+#: legal. Four buys two pool shapes with a layout control each, which is the
+#: smallest set that answers both "should I split" and "how should the pools be
+#: laid out" rather than only the first.
+DISAGG_SEED_QUOTA = 4
+
+
+def _truncate_keeping_disagg(
+    cands: list[InferenceTrialConfig], limit: int, *, quota: int = DISAGG_SEED_QUOTA
+) -> list[InferenceTrialConfig]:
+    """Cut the plan to ``limit`` without cutting disaggregation out of it.
+
+    The generated order is a priority order, so a plain head slice is right for
+    everything that differs from the baseline by one knob. Disaggregation is not
+    one knob: it is a different topology, and it is emitted late because it
+    depends on the widths settled earlier. With the attention-DP sweep alone
+    producing hundreds of candidates, the two disaggregated shapes landed at
+    positions 297 and 298 of 307 against a default seed budget of 12 -- present
+    in the plan, never once scored, and the reported winner was colocated
+    because nothing else was ever on the table.
+
+    Reserving slots keeps the existing priority order for the rest rather than
+    promoting disaggregation over it: the reserved candidates displace the
+    *lowest*-priority survivors, so the head of the plan is untouched.
+    """
+    if limit <= 0 or len(cands) <= limit:
+        return list(cands)
+    head = list(cands[:limit])
+    if any(c.disaggregate for c in head):
+        return head
+    # Scaled to the budget so a small plan is not swamped by one topology.
+    quota = max(1, min(quota, limit // 3))
+    reserved = [c for c in cands[limit:] if c.disaggregate][:quota]
+    if not reserved:
+        return head
+    keep = min(len(reserved), max(0, limit - 1))  # never crowd out the baseline
+    return head[: limit - keep] + reserved[:keep]
+
+
+def disagg_splits(
+    world: int, legal_tp: list[int], *, max_splits: int = 3
+) -> list[tuple[int, int, int]]:
+    """Prefill/decode pool shapes that actually fit the cluster.
+
+    Returns ``(prefill_tp, decode_tp, decode_replicas)`` triples that consume the
+    whole world, widest prefill pool first -- prefill width is what buys TTFT,
+    and leftover GPUs are pure waste in a topology whose entire argument is
+    spending them where they pay.
+
+    The plan used to derive one shape arithmetically as ``prefill_tp = max(TP)``
+    with ``decode_tp = min(TP)``, which on a single node hands the whole world to
+    prefill and leaves nothing for decode: the candidate needed 9 GPUs out of 8,
+    failed legality, and was dropped silently. Disaggregation was therefore never
+    scored at all on a one-node cluster, and the search reported a colocated
+    winner because that was the only topology it ever saw.
+
+    Both pool widths are swept, not just the diagonal. Taking the first decode
+    width that fit each prefill width returned only ``p_tp == d_tp`` shapes --
+    (4,4,1) and (2,2,3) on one node -- so the search saw the two pools as one
+    knob and never priced the asymmetry that is the topology's actual argument:
+    a prefill pool wide enough to keep TTFT down beside several narrow decode
+    replicas, which is how these deployments are run. Ordering still puts the
+    widest prefill first, and the widest decode within it, because prefill width
+    is what buys TTFT and the seed budget only reaches the first few.
+    """
+    out: list[tuple[int, int, int]] = []
+    for p_tp in sorted(legal_tp, reverse=True):
+        if p_tp >= world:
+            # Nothing left for a decode pool, which is the bug above.
+            continue
+        for d_tp in sorted(legal_tp, reverse=True):
+            if d_tp > world - p_tp:
+                continue
+            replicas = (world - p_tp) // d_tp
+            if replicas < 1:
+                continue
+            # Only shapes that use the cluster up; a split leaving GPUs idle is
+            # strictly worse than the same split with another decode replica.
+            if p_tp + d_tp * replicas != world:
+                continue
+            shape = (p_tp, d_tp, replicas)
+            if shape not in out:
+                out.append(shape)
+            if len(out) >= max_splits:
+                return out
+    return out
+
+
 def validate_inference(
     cfg: InferenceTrialConfig,
     arch: ArchitectureRecord,
@@ -517,9 +618,40 @@ def validate_inference(
             return False, f"prefill_tp={p_tp} not in legal TP set {legality.tp}"
         if d_tp not in legality.tp:
             return False, f"decode_tp={d_tp} not in legal TP set {legality.tp}"
+        if cfg.prefill_replicas < 1:
+            return False, "prefill_replicas must be >= 1"
         if cfg.decode_replicas < 1:
             return False, "decode_replicas must be >= 1"
-        prefill_gpus = p_tp * cfg.pp
+        # Each pool's attention-DP splits *its own* TP group, not the global one.
+        # Checking these against ``cfg.tp`` would reject a legal TP4 prefill pool
+        # beside a TP8 decode pool, and accept a degree that describes no rank
+        # layout in either.
+        for pool, pool_tp, pool_dp in (
+            ("prefill", p_tp, cfg.prefill_attention_dp),
+            ("decode", d_tp, cfg.decode_attention_dp),
+        ):
+            if pool_dp is None:
+                continue
+            if pool_dp < 1:
+                return False, f"{pool}_attention_dp={pool_dp} must be >= 1"
+            if pool_dp > 1 and pool_tp % pool_dp:
+                return False, (
+                    f"{pool}_attention_dp={pool_dp} must divide {pool}_tp={pool_tp}"
+                )
+        for pool, pool_tp, pool_ep in (
+            ("prefill", p_tp, cfg.prefill_ep),
+            ("decode", d_tp, cfg.decode_ep),
+        ):
+            if pool_ep is None:
+                continue
+            if pool_ep not in legality.ep:
+                return False, f"{pool}_ep={pool_ep} not in legal EP set {legality.ep}"
+            if pool_ep > 1 and (pool_tp * cfg.pp) % pool_ep:
+                return False, (
+                    f"{pool}_ep={pool_ep} must divide the {pool} pool's "
+                    f"{pool_tp * cfg.pp} ranks"
+                )
+        prefill_gpus = p_tp * cfg.pp * cfg.prefill_replicas
         decode_gpus = d_tp * cfg.pp * cfg.decode_replicas
         if prefill_gpus + decode_gpus > world:
             return False, (
@@ -895,36 +1027,128 @@ def build_inference_seed_plan(
 
     # 11) Feature A — prefill/decode disaggregation. Split the cluster into a
     #     latency-tuned prefill pool (higher TP) and a throughput-tuned decode
-    #     pool (lower TP, more replicas), keeping the total within ``world``.
-    if len(leg.tp) > 1:
-        hi_tp = max(leg.tp)
-        lo_tp = min(t for t in leg.tp if t > 0)
-        ep = 1
-        # Number of decode replicas that fit alongside one prefill pool.
-        remaining = world - hi_tp
-        dec_replicas = max(1, remaining // max(1, lo_tp)) if remaining > 0 else 1
-        add(
-            mk(
-                tp=lo_tp,
-                batch_size=16,
-                disaggregate=True,
-                prefill_tp=hi_tp,
-                decode_tp=lo_tp,
-                decode_replicas=dec_replicas,
-            )
+    #     pool (lower TP, more replicas), spending the whole world.
+    #     Emitted in rounds -- every split's most informative variant before any
+    #     split's second -- because the seed budget only ever reaches the first
+    #     few. Grouping by split instead spent the whole disaggregation quota on
+    #     variants of one pool shape and never priced a second one.
+    disagg_rounds: list[list[InferenceTrialConfig]] = [[], [], [], [], [], []]
+    # Two shapes, which the quota below is sized for: it reserves four slots,
+    # enough for a layout variant and its no-attention-DP control per shape.
+    # Asking for more shapes spends those four on layout variants alone and the
+    # control -- the thing that makes a disaggregated win attributable to the
+    # split rather than the layout -- stops being emitted at all. Now that both
+    # pool widths are swept, two shapes buy one symmetric and one asymmetric
+    # split rather than two points on the diagonal.
+    for p_tp, d_tp, dec_reps in disagg_splits(world, leg.tp, max_splits=2):
+        disagg = dict(
+            disaggregate=True,
+            prefill_tp=p_tp,
+            decode_tp=d_tp,
+            decode_replicas=dec_reps,
         )
-        # Same split, naming the KV-transfer engine (NIXL link preset).
-        add(
-            mk(
-                tp=lo_tp,
-                batch_size=16,
-                disaggregate=True,
-                prefill_tp=hi_tp,
-                decode_tp=lo_tp,
-                decode_replicas=dec_replicas,
-                transfer_backend="nixl",
+        # Widest attention-DP each pool can take. Without these the topology was
+        # only ever scored at attention-DP 1, which for a latent-cache model is
+        # its worst case: tensor parallelism replicates the KV cache rather than
+        # sharding it, so a TP8 decode pool holds the same cache eight times and
+        # the decode pool's concurrency ceiling -- the whole reason to
+        # disaggregate -- is understated eightfold.
+        p_dp = max((d for d in _divisors(p_tp) if d > 1), default=1)
+        d_dp = max((d for d in _divisors(d_tp) if d > 1), default=1)
+
+        both_pools_dp = dict(prefill_attention_dp=p_dp, decode_attention_dp=d_dp)
+
+        # Round 1: both pools data-parallel at a precision the pools can hold.
+        # Splitting a cluster gives each pool a *narrower* TP group than the
+        # colocated case, so a frontier MoE that just fits at TP8 does not fit
+        # in either pool at bf16 -- GLM-5.2 needs 346 GB per rank at TP4 against
+        # 288 GB of HBM. Seeded only at bf16, every disaggregated candidate for
+        # exactly the model class that motivates the topology was rejected on
+        # memory before its performance was ever read, which is the same "never
+        # scored" outcome by a different route.
+        if p_dp > 1 or d_dp > 1:
+            disagg_rounds[0].append(
+                mk(
+                    tp=d_tp,
+                    batch_size=64,
+                    weight_dtype="fp4",
+                    kv_cache_dtype="fp8",
+                    **both_pools_dp,
+                    **disagg,
+                )
             )
+        # Round 2: the topology with no attention-DP at all, the control that
+        # makes the layout's contribution readable -- a disaggregated winner
+        # could be winning on the split or on the layout, and they are separate
+        # decisions.
+        disagg_rounds[1].append(
+            mk(tp=d_tp, batch_size=64, weight_dtype="fp4", kv_cache_dtype="fp8", **disagg)
         )
+        # Round 3: the batch sizes aggregate throughput is actually won at.
+        # Every other disaggregated round runs at batch 16 or 64, while the
+        # colocated sweep reaches 128 and 256 and the reported headline winner
+        # is a batch-128 candidate at concurrency 256. Comparing a batch-64
+        # split against that is not a verdict on the topology -- it reads as the
+        # split losing throughput 80-fold when most of the gap is the batch --
+        # so the topology has to be offered the same batches its competition is.
+        for bs in [b for b in leg.batch_size if b in (128, 256)]:
+            disagg_rounds[2].append(
+                mk(
+                    tp=d_tp,
+                    batch_size=bs,
+                    weight_dtype="fp4",
+                    kv_cache_dtype="fp8",
+                    **both_pools_dp,
+                    **disagg,
+                )
+            )
+            disagg_rounds[2].append(
+                mk(
+                    tp=d_tp,
+                    batch_size=bs,
+                    weight_dtype="fp4",
+                    kv_cache_dtype="fp8",
+                    **disagg,
+                )
+            )
+        # Round 4: the same layout at full precision, for a model that fits.
+        if p_dp > 1 or d_dp > 1:
+            disagg_rounds[3].append(mk(tp=d_tp, batch_size=16, **both_pools_dp, **disagg))
+        disagg_rounds[3].append(mk(tp=d_tp, batch_size=16, **disagg))
+        # Round 5: the two asymmetries, offered rather than assumed because the
+        # pools want different things and which way it falls is the question the
+        # search exists to answer -- the measured GLM-5.2 deployments run DP
+        # attention on prefill with plain tensor-parallel attention on decode,
+        # while the cache argument above points the other way.
+        if d_dp > 1:
+            disagg_rounds[4].append(
+                mk(
+                    tp=d_tp,
+                    batch_size=64,
+                    weight_dtype="fp4",
+                    kv_cache_dtype="fp8",
+                    decode_attention_dp=d_dp,
+                    **disagg,
+                )
+            )
+        if p_dp > 1:
+            disagg_rounds[4].append(
+                mk(
+                    tp=d_tp,
+                    batch_size=64,
+                    weight_dtype="fp4",
+                    kv_cache_dtype="fp8",
+                    prefill_attention_dp=p_dp,
+                    **disagg,
+                )
+            )
+        # Round 6: naming the KV-transfer engine (NIXL link preset) rather than
+        # leaving the link at the collective model's inter-node bandwidth. Last,
+        # because it moves TTFT by the transfer, not the topology decision.
+        disagg_rounds[5].append(mk(tp=d_tp, batch_size=16, transfer_backend="nixl", **disagg))
+    for round_cands in disagg_rounds:
+        for c in round_cands:
+            add(c)
 
     # 12) Kernel backend (ROCm attention library) — shape-dependent best pick.
     add(mk(batch_size=16, attention_backend="aiter"))
@@ -956,7 +1180,7 @@ def build_inference_seed_plan(
     # 18) Offered-load probe — a Poisson arrival rate to expose the queueing knee.
     add(mk(batch_size=16, request_rate=8.0, arrival_model="poisson"))
 
-    cands = cands[:max_candidates]
+    cands = _truncate_keeping_disagg(cands, max_candidates)
     return InferenceSeedPlan(
         candidates=cands,
         rationale=(

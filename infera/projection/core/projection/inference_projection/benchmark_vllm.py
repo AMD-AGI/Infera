@@ -1090,6 +1090,16 @@ def run_vllm_benchmark(args) -> dict:
                 getattr(args, "server_args", "") or "", "--attention-backend"
             ),
             "load_format": args.load_format,
+            # The attention layout this run executed under. Data-parallel
+            # attention changes what a rank holds and how often it all-reduces,
+            # so a non-DP anchor describes a different machine than a DP target
+            # and the projector has to be able to tell. The offline engine is a
+            # single process, so the layout is whatever the server-arg string
+            # asked for -- absent that, every rank saw the whole batch.
+            "attention_data_parallel_size": int(
+                _server_arg_value(getattr(args, "server_args", "") or "", "--data-parallel-size")
+                or 1
+            ),
             # Explicitly distinguishes cold prefill from the repeated-prompt
             # cache-hit measurement selected by --prefix-caching.
             "prefix_caching": bool(getattr(args, "prefix_caching", False)),

@@ -373,8 +373,24 @@ def simulate_once(
         # No arrival process: a client slot releases the next request when its
         # previous one retires. Everything past the first ``clients`` is issued
         # from the retirement handler below, so its arrival is unknown up front.
-        n_total = max(clients, int(num_requests))
-        pending = _build_workload(n_total, [0.0] * n_total, input_len, output_len, range_ratio, rng)
+        #
+        # A caller-supplied request list is kept and only its arrivals are
+        # replaced. That is what lets a trace's real lengths and its
+        # content-addressed cache hits be measured at a fixed concurrency
+        # instead of at the rate the trace happens to have been recorded at: an
+        # under-loaded replay leaves concurrency inert and every configuration
+        # tied on throughput. The hits survive the substitution because
+        # ``_route_and_warm`` derives them from request *order*, which the
+        # retirement handler preserves -- it issues ``pending`` by index -- and
+        # not from arrival timestamps.
+        if prebuilt is not None:
+            pending = prebuilt
+            clients = min(clients, len(pending))
+        else:
+            n_total = max(clients, int(num_requests))
+            pending = _build_workload(
+                n_total, [0.0] * n_total, input_len, output_len, range_ratio, rng
+            )
         for i, r in enumerate(pending):
             r.arrival_ms = 0.0 if i < clients else math.inf
     elif prebuilt is not None:
@@ -1096,6 +1112,11 @@ def _aggregate_instances(results: list[DESResult], prefix_summary: dict[str, flo
     Latency distributions are recomputed from the pooled raw samples; system
     throughput / achieved rate sum across instances; makespan is the slowest
     instance; utilization is the per-instance mean.
+
+    Packing is averaged across instances rather than dropped. Every field in it
+    describes one engine's steps -- batch size, prefill-step share, KV
+    utilisation, client count -- so a fleet mean is the meaningful pooling and a
+    single instance passes through unchanged.
     """
 
     def _pool(key: str) -> list[float]:
@@ -1115,6 +1136,10 @@ def _aggregate_instances(results: list[DESResult], prefix_summary: dict[str, flo
 
     n_inst = max(1, len(results))
     makespan = max((r.makespan_ms for r in results), default=0.0)
+    packing: dict[str, float] = {}
+    for key in {k for r in results for k in (r.packing or {})}:
+        vals = [float(r.packing[key]) for r in results if r.packing and key in r.packing]
+        packing[key] = sum(vals) / len(vals) if vals else 0.0
     return DESResult(
         arrival_model=results[0].arrival_model if results else "poisson",
         offered_rate=sum(r.offered_rate for r in results),
@@ -1130,7 +1155,7 @@ def _aggregate_instances(results: list[DESResult], prefix_summary: dict[str, flo
         tpot=dist(_pool("tpot")),
         itl=dist(_pool("itl")),
         e2e=dist(_pool("e2e")),
-        packing={},
+        packing=packing,
         prefix=prefix_summary,
     )
 
@@ -1156,6 +1181,7 @@ def simulate_multi_instance(
     block_size: int,
     cache_blocks: int,
     mooncake_rows: list[tuple[float, int, int, list[int]]] | None = None,
+    closed_loop_clients: int = 0,
 ) -> DESResult:
     """Route one arrival stream across ``num_instances`` replicas and pool.
 
@@ -1223,6 +1249,9 @@ def simulate_multi_instance(
                 kv_cache_tokens=kv_cache_tokens,
                 prebuilt=sub,
                 return_samples=True,
+                # Concurrency is per engine, so every replica runs the full
+                # client count rather than a share of it.
+                closed_loop_clients=closed_loop_clients,
             )
         )
     agg = _aggregate_instances(results, prefix_summary)
@@ -1270,7 +1299,38 @@ def run_des(
     sweep is meaningless (concurrency is the load axis), so it is skipped.
     """
     out: dict[str, object] = {}
+    # ``cache_blocks`` is the block-cache capacity; fall back to the legacy
+    # ``cache_slots`` flag when the new one is unset.
+    eff_cache_blocks = max(0, cache_blocks or cache_slots or 0)
+    mooncake_rows = _load_mooncake_trace(mooncake_trace) if mooncake_trace else None
     if closed_loop:
+        clients = inference_config.request_config.resolved_max_concurrency()
+        if mooncake_rows is not None or (num_prefixes or 0) > 0 or (num_instances or 1) > 1:
+            # There is a block cache to model, so the requests have to be built
+            # and warmed before the arrivals are replaced by client slots.
+            out["point"] = simulate_multi_instance(
+                inference_config,
+                projector,
+                rate_per_s=0.0,
+                arrival_model="poisson",
+                num_requests=num_requests,
+                seed=seed,
+                warmup_frac=warmup_frac,
+                burstiness=burstiness,
+                range_ratio=range_ratio,
+                kv_cache_tokens=kv_cache_tokens,
+                num_instances=max(1, num_instances or 1),
+                routing=routing if routing in _ROUTING_POLICIES else "round_robin",
+                overlap_weight=overlap_weight,
+                num_prefixes=max(0, num_prefixes or 0),
+                prefix_len=max(0, prefix_len or 0),
+                prefix_zipf=max(0.0, prefix_zipf or 0.0),
+                block_size=max(0, block_size or 0),
+                cache_blocks=eff_cache_blocks,
+                mooncake_rows=mooncake_rows,
+                closed_loop_clients=clients,
+            )
+            return out
         out["point"] = simulate_once(
             inference_config,
             projector,
@@ -1282,15 +1342,11 @@ def run_des(
             range_ratio=range_ratio,
             kv_cache_tokens=kv_cache_tokens,
             record_steps=record_steps,
-            closed_loop_clients=inference_config.request_config.resolved_max_concurrency(),
+            closed_loop_clients=clients,
             prefill_exclusive=prefill_exclusive,
             new_seqs_per_step=new_seqs_per_step,
         )
         return out
-    # ``cache_blocks`` is the block-cache capacity; fall back to the legacy
-    # ``cache_slots`` flag when the new one is unset.
-    eff_cache_blocks = max(0, cache_blocks or cache_slots or 0)
-    mooncake_rows = _load_mooncake_trace(mooncake_trace) if mooncake_trace else None
     # A block cache is modelled whenever there is a fleet, a synthetic prefix
     # pool, or a trace to replay.
     multi = (num_instances or 1) > 1 or (num_prefixes or 0) > 0 or mooncake_rows is not None

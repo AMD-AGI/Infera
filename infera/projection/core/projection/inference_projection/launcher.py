@@ -584,6 +584,43 @@ def _assert_anchor_is_this_model(path, artifact, args=None):
     )
 
 
+def _load_pool_benchmarks(args, *, disaggregation_enabled: bool) -> dict[str, dict]:
+    """Per-pool anchors for a disaggregated projection, keyed by pool name.
+
+    A disaggregated deployment runs its two pools at different parallelism,
+    attention layout and batch composition, so the single colocated artifact
+    ``--load-benchmark`` supplies is a compromise between a prefill that is
+    compute-bound on long prompts and a decode that is memory-bound on single
+    tokens -- it describes neither pool exactly. Each pool that names its own
+    measurement is calibrated against it; whatever is not named here keeps
+    falling back to the shared anchor, so a run without these flags is
+    unchanged.
+    """
+    import json as _json
+
+    out: dict[str, dict] = {}
+    for pool in ("prefill", "decode"):
+        path = getattr(args, f"{pool}_benchmark", None)
+        if not path:
+            continue
+        with open(path) as fh:
+            blob = _json.load(fh)
+        # Same guard the shared anchor gets: this path skips the store, and a
+        # foreign anchor routed to a pool is no safer than one routed to both.
+        _assert_anchor_is_this_model(path, blob, args)
+        out[pool] = blob
+        print(f"[inferasim:Inference] loaded {pool}-pool benchmark from {path}")
+    if out and not disaggregation_enabled:
+        # Ignoring them would report a colocated projection while the flags
+        # claim two pools were calibrated -- and both read as equally confident.
+        raise ValueError(
+            "--prefill-benchmark/--decode-benchmark describe the pools of a "
+            "disaggregated deployment, but disaggregation is not enabled. Pass "
+            "--disaggregate, or use --load-benchmark for a colocated projection."
+        )
+    return out
+
+
 def _anchor_from_store(args, inference_config):
     """Find a warmup measurement this projection can be calibrated against.
 
@@ -779,6 +816,15 @@ def launch_projection_from_cli(args, overrides):
             )
         else:
             decode_floor = None
+
+    pool_benchmarks: dict[str, dict] = {}
+    if mode in ("performance", "both"):
+        pool_benchmarks = _load_pool_benchmarks(
+            args,
+            disaggregation_enabled=bool(
+                getattr(inference_config.disaggregation_config, "enabled", False)
+            ),
+        )
     if (
         benchmark_layer_times is None
         and profiling_mode == "benchmark"
@@ -854,6 +900,7 @@ def launch_projection_from_cli(args, overrides):
             benchmark_layer_times=benchmark_layer_times,
             scaling_benchmarks=scaling_benchmarks,
             decode_floor=decode_floor,
+            pool_benchmarks=pool_benchmarks or None,
         )
         perf = projector.project()
         _print_performance(inference_config, perf, getattr(args, "gpu_cost_per_hour", None))

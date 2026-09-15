@@ -362,6 +362,54 @@ def _prefix_caching_from_server_args(server_args) -> bool | None:
     return None
 
 
+def _attention_dp_from_server_args(server_args, *, tp: int) -> int | None:
+    """The attention-DP degree the anchor's server actually ran at.
+
+    Unlike prefix caching, this is safe to infer from silence: data-parallel
+    attention is opt-in on every engine, so server flags that do not ask for it
+    describe a run without it. ``None`` is therefore reserved for having no flag
+    string at all -- an artifact that predates this tracking, which may have run
+    either way and must not be assumed to match.
+
+    Each engine spells the same layout differently. SGLang and ATOM gate it
+    behind ``--enable-dp-attention`` and size it with ``--dp-size``, defaulting
+    to the whole tensor-parallel group; vLLM drives it from
+    ``--data-parallel-size`` alongside expert parallelism.
+    """
+    if not server_args:
+        return None
+    text = server_args if isinstance(server_args, str) else " ".join(server_args)
+    flat = text.replace("_", "-")
+    tokens = flat.split()
+
+    def value(flag: str) -> str | None:
+        for i, tok in enumerate(tokens):
+            if tok == flag and i + 1 < len(tokens):
+                return tokens[i + 1]
+            if tok.startswith(flag + "="):
+                return tok.split("=", 1)[1]
+        return None
+
+    def as_degree(flag: str) -> int | None:
+        got = value(flag)
+        try:
+            return max(1, int(got)) if got else None
+        except ValueError:
+            return None
+
+    if "--disable-dp-attention" in flat:
+        return 1
+    if "--enable-dp-attention" in flat or "--enable-dp-attn" in flat:
+        for flag in ("--dp-size", "--attention-dp-size", "--data-parallel-size"):
+            got = as_degree(flag)
+            if got:
+                return got
+        # Sized to the tensor-parallel group when left implicit, which is what
+        # both engines do and how the MLA recipes are actually served.
+        return max(1, int(tp))
+    return as_degree("--data-parallel-size") or 1
+
+
 class InferencePerformanceProjector:
     """Builds the profiler once and answers prefill / decode timing queries."""
 
@@ -372,9 +420,14 @@ class InferencePerformanceProjector:
         benchmark_layer_times=None,
         scaling_benchmarks=None,
         decode_floor=None,
+        pool_benchmarks=None,
     ):
         self.cfg = inference_config
         self._args_ref = args
+        # Optional per-pool anchors {"prefill": artifact, "decode": artifact}
+        # for a disaggregated projection. Each pool prefers its own measurement
+        # and falls back to the shared anchor -- see ``_project_disaggregated``.
+        self._pool_benchmarks = dict(pool_benchmarks or {})
         # Optional measured decode latency floor {batch: ms} from a sharded
         # probe. Applied as decode = max(restored, floor(batch)) — see
         # ``_decode_floor_ms``.
@@ -585,6 +638,20 @@ class InferencePerformanceProjector:
         self._bench_tp = 1
         self._bench_ep = 1
         self._bench_pp = 1
+        # Attention layout the anchor was harvested at. ``None`` means the
+        # artifact never recorded it, which is not the same as 1: it may have
+        # run either way, so it is reported as unverifiable rather than assumed
+        # to match. See ``_setup_restoration``.
+        self._bench_attn_dp: int | None = None
+        # Set by ``_setup_restoration``: the layout the bench view is actually
+        # built at, and whether it differs from the target's.
+        self._bench_attn_dp_eff = 1
+        self._restore_layout_moved = False
+        # Draft depth the anchor itself was harvested at. This decides what a
+        # measured decode number *means*: harvested with speculation it is a
+        # per-output-token time with acceptance already folded in, harvested
+        # without it is a single-token step. 0 = no speculation on the anchor.
+        self._bench_spec_k = 0
         # phase -> batch -> tp -> (ms, ep, pp), and the split fitted from it.
         self._bench_scaling_raw: dict = {}
         self._bench_scaling_fit: dict = {}
@@ -883,6 +950,9 @@ class InferencePerformanceProjector:
         self._bench_tp = int(meta.get("benchmark_tp") or meta.get("tp") or 1)
         self._bench_ep = int(meta.get("benchmark_ep") or meta.get("ep") or 1)
         self._bench_pp = int(meta.get("benchmark_pp") or meta.get("pp") or 1)
+        _attn_dp = meta.get("attention_data_parallel_size")
+        self._bench_attn_dp = int(_attn_dp) if _attn_dp else None
+        self._bench_spec_k = int(meta.get("speculative_num_tokens") or 0)
         self._decode_pad_to_capture = bool(meta.get("decode_pad_to_capture"))
 
         self._meas_ref_input = ref_input
@@ -1379,18 +1449,53 @@ class InferencePerformanceProjector:
             self._meas_prefill_rate_ms_per_tok = full_pre / (ref_batch * ref_input)
 
     def _setup_restoration(self) -> None:
-        """Prepare TP/EP restoration when a per-layer benchmark was captured at a
-        reduced parallelism (mirrors training's benchmark-at-fewer-GPUs → target
-        extrapolation). Builds analytical collective models at the benchmark and
-        target TP/EP so ``_restore_per_layer`` can strip the benchmark's comm,
-        scale the sharded compute, and add the target comm back."""
+        """Prepare restoration when a per-layer benchmark was captured at a
+        different parallelism than the target (mirrors training's
+        benchmark-at-fewer-GPUs → target extrapolation). Builds analytical
+        collective models at the benchmark and target layout so
+        ``_restore_per_layer`` can strip the benchmark's comm, scale the sharded
+        compute, and add the target comm back.
+
+        Attention-DP is one of the axes here, and the only one the fallback laws
+        cannot express -- see the refusal at the end."""
         mp = self.cfg.model_parallel_config
         self._tgt_tp = max(1, mp.tensor_model_parallel_size)
         tgt_ep = max(1, getattr(mp, "expert_model_parallel_size", 1) or 1)
         tgt_pp = max(1, mp.pipeline_model_parallel_size)
+        tgt_attn_dp = max(1, getattr(mp, "attention_data_parallel_size", 1) or 1)
+
+        # An anchor that never recorded its attention layout cannot be checked
+        # against a data-parallel target, and neither available guess is free:
+        # calling it non-DP applies a ratio the measurement may already contain,
+        # while calling it a match is precisely how an attn_dp=1 anchor gets
+        # reused at attn_dp=8 unchanged. So it is reported instead, with the
+        # re-harvest named, and the number is left as measured.
+        bench_attn_dp = self._bench_attn_dp
+        if bench_attn_dp is None:
+            if tgt_attn_dp > 1:
+                print(
+                    f"[inferasim:Inference] anchor does not record the attention "
+                    f"layout it was harvested at and the target runs "
+                    f"attention-DP={tgt_attn_dp}; the measured step is being used "
+                    f"as-is and is NOT transported across the layout change. "
+                    f"Re-harvest to record it."
+                )
+            bench_attn_dp = tgt_attn_dp
+        # Attention-DP subdivides the tensor-parallel group, so it cannot exceed
+        # it; a recorded degree wider than the bench TP is a malformed artifact.
+        bench_attn_dp = max(1, min(int(bench_attn_dp), self._bench_tp))
+
+        layout_moved = bench_attn_dp != tgt_attn_dp
         self._restore = (
-            self._bench_tp != self._tgt_tp or self._bench_ep != tgt_ep or self._bench_pp != tgt_pp
+            self._bench_tp != self._tgt_tp
+            or self._bench_ep != tgt_ep
+            or self._bench_pp != tgt_pp
+            or layout_moved
         )
+        # Recorded because the fallback laws below cannot express it: they are
+        # all functions of the GPU count, which attention-DP does not change.
+        self._restore_layout_moved = layout_moved
+        self._bench_attn_dp_eff = bench_attn_dp
         if not self._restore:
             return
         mc = self.cfg.model_config
@@ -1399,6 +1504,7 @@ class InferencePerformanceProjector:
             tensor_model_parallel_size=self._bench_tp,
             expert_model_parallel_size=self._bench_ep,
             pipeline_model_parallel_size=self._bench_pp,
+            attention_data_parallel_size=bench_attn_dp,
         )
         self._comm_bench = InferenceCollectiveModel(mc, bench_mp, self._cc)
         self._comm_tgt = InferenceCollectiveModel(mc, mp, self._cc)
@@ -1460,6 +1566,37 @@ class InferencePerformanceProjector:
                     f"[inferasim:Inference] origami-ratio unavailable ({e}); "
                     "falling back to measured fit / blind TP^-1."
                 )
+
+        # The simulator ratio is the only mechanism here that describes a change
+        # of attention layout. Every other law is a function of the GPU count --
+        # the measured TP fit, the ideal TP^-1 sharding -- and attention-DP does
+        # not change the GPU count, so with the ratio gone they leave the layout
+        # change entirely unpriced and report the result as transported anyway.
+        # That holds whether or not TP also moved, so the refusal is on the
+        # layout alone rather than on it being the only axis.
+        if self._restore_layout_moved and self._lm_ratio_bench is None:
+            if not os.getenv("INFERASIM_ALLOW_LAYOUT_MISMATCH"):
+                raise ValueError(
+                    f"The measured anchor was harvested at attention-DP="
+                    f"{self._bench_attn_dp_eff} but the target runs attention-DP="
+                    f"{tgt_attn_dp}, and the analytical ratio that would transport "
+                    "that change is unavailable here (no simulating GEMM/SDPA "
+                    "backend for this architecture, or INFERASIM_RESTORE_SCALING "
+                    "set away from 'origami'). Data-parallel attention changes the "
+                    "batch a rank holds and removes one all-reduce per layer, and "
+                    "no remaining scaling law describes either. Harvest an anchor "
+                    "at the target attention layout, project this point "
+                    "analytically instead of from the anchor, or set "
+                    "INFERASIM_ALLOW_LAYOUT_MISMATCH=1 to reuse it unchanged and "
+                    "accept the error."
+                )
+            print(
+                f"[inferasim:Inference] attention-DP {self._bench_attn_dp_eff} -> "
+                f"{tgt_attn_dp} is NOT being transported "
+                "(INFERASIM_ALLOW_LAYOUT_MISMATCH set); the measured step is "
+                "reused unchanged and the decode number is wrong by whatever the "
+                "layout change is worth."
+            )
 
     def _comm_model_at_tp(self, tp: int, ep: int, pp: int) -> InferenceCollectiveModel:
         """Collective model at an arbitrary parallelism, for the scaling fit."""
@@ -2656,13 +2793,46 @@ class InferencePerformanceProjector:
             return dcf * spec_k * max(0.0, per_token_step_ms)
         return 0.0
 
+    def _measured_verify_step_scale(self) -> float:
+        """Factor turning one measured decode number into one verify-step time.
+
+        What the anchor measured decides this. Harvested *with* speculation, the
+        differenced decode timing is a per-output-token latency with acceptance
+        already folded in -- see the note in ``benchmark_vllm`` where the
+        speculative config is applied -- so a step emitting
+        ``_spec_tokens_per_step()`` tokens costs that many times the
+        measurement.
+
+        Scaling such an anchor by the verify width ``k + 1`` instead charges the
+        draft twice. It inflated decode by ``(k + 1) / tokens_per_step`` -- 1.09x
+        at ``k=1, accept=0.84``, 1.58x at ``k=3, accept=0.7``, exact only at
+        perfect acceptance -- and understated throughput by the same ratio, so
+        speculation read worse the better it was accepted.
+
+        Harvested *without* speculation there is nothing folded in, and a verify
+        pass is not derivable from a single-token step: that is why speculation
+        is regime-defining. The anchor store refuses that pairing, but
+        ``--load-benchmark`` does not, so the old width scaling stays for it
+        rather than inventing a number that would look calibrated.
+        """
+        spec_k = int(self.cfg.request_config.speculative_num_tokens or 0)
+        if spec_k <= 0:
+            return 1.0
+        if self._bench_spec_k > 0:
+            return max(1e-6, self._spec_tokens_per_step())
+        return float(spec_k + 1)
+
     def _decode_step_latency_ms(self, batch: int, kv_len: int, q_len: int = 1) -> float:
         # Benchmark-based: use the measured decode step directly (memory-bound,
         # ~flat in context over a generation, so no simulator context-scaling).
         if self._measured_mode:
             per_token = self._measured_decode_step_ms(batch, kv_len)
-            step = per_token * q_len if q_len > 1 else per_token  # verify q_len tokens/step
-            step = step + self._draft_overhead_ms(per_token) + self._decode_step_overhead_ms()
+            step = per_token * self._measured_verify_step_scale()
+            # A speculation-harvested anchor already paid for the draft pass, so
+            # adding the modelled overhead would bill it a second time.
+            if self._bench_spec_k <= 0:
+                step += self._draft_overhead_ms(per_token)
+            step += self._decode_step_overhead_ms()
             return max(step, self._decode_floor_ms(batch))
         ft = self._forward_times(batch, q_len, "decode", kv_len)
         per_token = ft.total_ms / max(1, q_len)
@@ -2701,7 +2871,10 @@ class InferencePerformanceProjector:
         chunk_tokens = max(1, int(chunk_tokens))
         num_decode = max(0, int(num_decode))
         if self._measured_mode:
-            spec = q_len if q_len > 1 else 1
+            # See ``_measured_verify_step_scale``: a speculation-harvested decode
+            # number is per output token, so the step scales by the tokens it
+            # emits rather than by the verify width ``q_len``.
+            spec = self._measured_verify_step_scale()
             prefill_piece = self._measured_prefill_tokens_ms(chunk_tokens)
             dec_piece = (
                 self._measured_decode_step_ms(num_decode, decode_ctx) * spec
@@ -2832,7 +3005,11 @@ class InferencePerformanceProjector:
             # Benchmark-based: average the pure/mixed step over the context window
             # [ISL, ISL+OSL]. The measured decode step carries its fitted KV term,
             # so this is flat only when that slope is ~0 (prior behaviour).
-            spec = q_len if q_len > 1 else 1
+            # Same anchor semantics as ``_decode_step_latency_ms``: a
+            # speculation-harvested decode number is per output token, so the
+            # step scales by the tokens a step emits, not by the verify width.
+            spec = self._measured_verify_step_scale()
+            draft_billed_by_anchor = self._bench_spec_k > 0
             n_samples = min(8, max(2, int(OSL)))
             # Benchmark mode prices prefill from measured kernels, so the anchor
             # is inert there and the two steps coincide.
@@ -2841,7 +3018,8 @@ class InferencePerformanceProjector:
                 frac = i / (n_samples - 1) if n_samples > 1 else 0.0
                 ctx = int(ISL + frac * OSL)
                 d_pure = self._measured_decode_step_ms(C, ctx)
-                pure.append(d_pure * spec + self._draft_overhead_ms(d_pure) + ov)
+                draft = 0.0 if draft_billed_by_anchor else self._draft_overhead_ms(d_pure)
+                pure.append(d_pure * spec + draft + ov)
                 prefill_piece = self._measured_prefill_tokens_ms(chunk_tokens)
                 dec_piece = self._measured_decode_step_ms(max(1, C - 1), ctx) * spec
                 mixed.append((prefill_piece + dec_piece) * (1.0 + penalty) + ov)
@@ -3338,7 +3516,16 @@ class InferencePerformanceProjector:
             step_latency = self._decode_step_latency_ms(batch, mid_ctx, q_len=q_len)
             itl = (decode_total / output_len) if output_len > 0 else step_latency
             per_req_decode_tps = (1000.0 / itl) if itl > 0 else 0.0
-            decode_tps = (batch * 1000.0 / step_latency) if step_latency > 0 else 0.0
+            # One step emits ``_spec_tokens_per_step()`` tokens per sequence, not
+            # one. ``step_latency`` is already the longer verify step, so without
+            # the matching numerator speculation showed up as a throughput loss
+            # here -- the bug the disaggregated path above was fixed for, which
+            # this static branch kept.
+            decode_tps = (
+                (batch * self._spec_tokens_per_step() * 1000.0 / step_latency)
+                if step_latency > 0
+                else 0.0
+            )
 
         # Per-token detokenization + streaming (client-side host cost). Serving
         # harnesses measure ITL client-side, so it carries this; the GPU decode
@@ -3431,6 +3618,19 @@ class InferencePerformanceProjector:
             latency_us=disagg.resolved_kv_transfer_latency_us(),
         )
 
+    def _pool_anchor(self, pool: str):
+        """The measurement a disaggregated pool is calibrated against.
+
+        The two pools are not the same experiment. They run at different
+        parallelism and attention layout, and one is compute-bound on long
+        prompts while the other is memory-bound on single tokens, so the single
+        colocated artifact ``--load-benchmark`` supplies is a compromise that
+        describes neither exactly. A pool that names its own measurement gets
+        it; the shared anchor stays the fallback, so a run without the per-pool
+        flags is unchanged.
+        """
+        return self._pool_benchmarks.get(pool) or self._bench_measured
+
     def _project_disaggregated(self) -> InferencePerfResult:
         from dataclasses import replace
 
@@ -3459,11 +3659,14 @@ class InferencePerformanceProjector:
             model_parallel_config=disagg.decode_parallel(mp),
             disaggregation_config=replace(disagg, enabled=False),
         )
+        for _pool in ("prefill", "decode"):
+            if self._pool_benchmarks.get(_pool):
+                print(f"[inferasim:Inference] {_pool} pool calibrated from its own anchor")
         prefill_proj = InferencePerformanceProjector(
-            prefill_cfg, args=self._args_ref, benchmark_layer_times=self._bench_measured
+            prefill_cfg, args=self._args_ref, benchmark_layer_times=self._pool_anchor("prefill")
         )
         decode_proj = InferencePerformanceProjector(
-            decode_cfg, args=self._args_ref, benchmark_layer_times=self._bench_measured
+            decode_cfg, args=self._args_ref, benchmark_layer_times=self._pool_anchor("decode")
         )
 
         # Decode phase on the decode pool (drives ITL + decode throughput).

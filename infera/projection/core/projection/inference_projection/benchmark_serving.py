@@ -900,7 +900,10 @@ def prefill_rate_ms_per_token(port: int, args, out_dir: str) -> tuple:
     return rate, diag
 
 
-from .performance import _prefix_caching_from_server_args  # noqa: E402
+from .performance import (  # noqa: E402
+    _attention_dp_from_server_args,
+    _prefix_caching_from_server_args,
+)
 
 
 def run_serving_benchmark(args) -> dict:
@@ -1039,6 +1042,14 @@ def run_serving_benchmark(args) -> dict:
             # consumer that cannot tell which it holds has to refuse the curve
             # and simulate TTFT instead.
             "prefix_caching": _prefix_caching_from_server_args(args.server_args or ""),
+            # The attention layout the anchor ran at. Data-parallel attention
+            # changes what a rank holds and how often it all-reduces, so a
+            # non-DP measurement describes a different machine than a DP target
+            # -- and without this key the projector could not tell, and reused
+            # it unchanged.
+            "attention_data_parallel_size": _attention_dp_from_server_args(
+                args.server_args or "", tp=bench_tp
+            ),
             # Which decode observable the sweep holds. Artifacts harvested
             # before this key recorded mean TPOT, which carries the prefill
             # stalls the simulator also schedules, so a reader that cannot tell

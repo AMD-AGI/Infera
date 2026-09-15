@@ -194,6 +194,111 @@ def test_every_request_is_served_exactly_once():
     assert res.num_requests == 16 * 5
 
 
+def _trace(tmp_path, n=48, prompt=1024, output=64, shared_blocks=8, block=64):
+    """A Mooncake trace whose requests share a leading run of blocks.
+
+    Shared leading hashes are what a multi-turn agentic trace actually looks
+    like, and they are the reason the closed-loop composition below has to
+    preserve request order rather than rebuild the workload.
+    """
+    import json
+
+    path = tmp_path / "trace.jsonl"
+    with path.open("w") as fh:
+        for i in range(n):
+            nblocks = prompt // block
+            hids = list(range(shared_blocks)) + [
+                1000 + i * nblocks + j for j in range(nblocks - shared_blocks)
+            ]
+            fh.write(
+                json.dumps(
+                    {
+                        "timestamp": i * 1000,
+                        "input_length": prompt,
+                        "output_length": output,
+                        "hash_ids": hids,
+                    }
+                )
+                + "\n"
+            )
+    return str(path)
+
+
+def _trace_run(tmp_path, concurrency, closed, **kw):
+    cfg = _Cfg(_Req(input_seq_len=4096, max_concurrency=concurrency, chunked_prefill_size=256))
+    return des_mod.run_des(
+        cfg,
+        _Kernel(),
+        arrival_model="poisson",
+        rate_per_s=1.0,
+        num_requests=48,
+        warmup_frac=0.0,
+        mooncake_trace=_trace(tmp_path, **kw),
+        block_size=64,
+        num_instances=1,
+        routing="kv",
+        closed_loop=closed,
+    )["point"]
+
+
+def test_a_traces_cache_hits_survive_being_driven_as_a_closed_loop(tmp_path):
+    """The composition that makes a trace answer a capacity question.
+
+    A trace carries three things: per-request lengths, block hashes, and the
+    arrival times it was recorded at. The first two are the workload; the third
+    is the load, and replaying it at the rate it was captured at can leave an
+    engine almost idle. Replacing only the arrivals keeps the workload and asks
+    what the configuration can do, and the hit rate is what proves the
+    substitution was lossless -- hits come from walking requests through a block
+    cache in *order*, and client slots issue in the same order the trace does.
+    """
+    opened = _trace_run(tmp_path, 8, closed=False)
+    closed = _trace_run(tmp_path, 8, closed=True)
+    assert opened.prefix["trace_driven"] == 1.0
+    assert closed.prefix["trace_driven"] == 1.0
+    assert closed.prefix["hit_rate"] == opened.prefix["hit_rate"]
+    assert closed.prefix["block_hit_rate"] == opened.prefix["block_hit_rate"]
+    # And the hit is real, not a degenerate zero that would match trivially.
+    assert closed.prefix["block_hit_rate"] > 0.1
+    assert closed.num_requests == opened.num_requests == 48
+
+
+def test_an_underloaded_replay_leaves_concurrency_inert_and_a_closed_loop_does_not(tmp_path):
+    """Why the composition is needed at all, rather than a nicety.
+
+    At one request per second against this stub kernel the engine is never
+    asked for more than a couple of concurrent sequences, so every concurrency
+    returns the same throughput -- and a matrix that ranks configurations on
+    throughput would score them all identically. The closed loop is what puts
+    the engine at full utilisation and makes concurrency a real axis.
+    """
+    flat = [_trace_run(tmp_path, c, closed=False).system_throughput_tps for c in (2, 8, 32)]
+    assert max(flat) - min(flat) < 0.01 * max(flat), flat
+
+    live = [_trace_run(tmp_path, c, closed=True).system_throughput_tps for c in (2, 8, 32)]
+    assert all(later > earlier for earlier, later in zip(live, live[1:])), live
+    assert live[-1] > 3.0 * live[0], live
+
+
+def test_a_closed_loop_over_a_trace_runs_the_engine_full(tmp_path):
+    """Utilisation is the check that the load is no longer the trace's rate."""
+    opened = _trace_run(tmp_path, 8, closed=False)
+    closed = _trace_run(tmp_path, 8, closed=True)
+    assert opened.utilization < 0.5
+    assert closed.utilization > 0.95
+
+
+def test_the_client_count_cannot_exceed_the_requests_the_trace_supplies(tmp_path):
+    """Asking for 256 clients from a 48-request trace is 48 clients.
+
+    Left uncapped the extra slots hold requests that never exist, and the run
+    reports a concurrency it never reached.
+    """
+    point = _trace_run(tmp_path, 256, closed=True, n=48)
+    assert point.packing["closed_loop_clients"] == 48.0
+    assert point.num_requests == 48
+
+
 def test_run_des_takes_the_client_count_from_the_configured_concurrency():
     """The launcher entry point, which is what ``--des-closed-loop`` reaches.
 

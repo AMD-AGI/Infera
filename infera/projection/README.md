@@ -520,17 +520,27 @@ from infera.projection.core.projection.inference_projection.sweep import sweep
 
 res = sweep(
     "gpt_oss_120B",
-    tp=[1, 2, 4, 8], ep=[1, 2, 4, 8], pp=[1],
+    tp=[1, 2, 4, 8],
+    ep=[1, 2, 4, 8],
+    pp=[1],
     concurrency=[1, 8, 32, 128],
-    isl=1024, osl=1024,
-    gpu_arch="mi355x", hbm_gb=288.0,
-    valid=lambda tp, ep, pp: ep <= tp,      # your own legality rules
+    isl=1024,
+    osl=1024,
+    gpu_arch="mi355x",
+    hbm_gb=288.0,
+    valid=lambda tp, ep, pp: ep <= tp,  # your own legality rules
 )
 
 for p in res.points:
     if p.feasible:
-        print(p.tp, p.ep, p.concurrency, round(p.ttft_ms, 1),
-              round(p.tpot_ms, 2), round(p.decode_tps_per_gpu, 1))
+        print(
+            p.tp,
+            p.ep,
+            p.concurrency,
+            round(p.ttft_ms, 1),
+            round(p.tpot_ms, 2),
+            round(p.decode_tps_per_gpu, 1),
+        )
 ```
 
 Sweeps force `--profiling-mode simulate`, so they need **zero GPUs**.
