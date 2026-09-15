@@ -35,7 +35,7 @@ holds the constant and the field together; it cannot hold the constant and the
 
 **1.1** — `HANDOFF_TRANSITION.version` and `VERDICT_RECORDED.version` became
 `slot_version` and `store_version`. There are two allocators and nothing
-forces them to agree (`docs/interfaces.md` §5.12), and one field named
+forces them to agree (`docs/TODO.md` item 27), and one field named
 `version` on both events implied a single number that does not exist. The
 bump is the obligation above being honoured on the first change that needed
 it, which is the only evidence that the obligation is real.
@@ -78,7 +78,7 @@ visible and successes were not, and the tests did not notice because
 is meant to read belongs in the stream, which is the thing in this package
 whose job is being read; `logging` here is for the operator's diary.
 
-`docs/interfaces.md` §5.7: once the whole-system CLI wants the same stream,
+`docs/TODO.md` item 30: once the whole-system CLI wants the same stream,
 two artefacts share this constant with no bump policy. That is open.
 """
 

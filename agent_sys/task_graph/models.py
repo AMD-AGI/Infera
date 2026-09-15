@@ -56,7 +56,7 @@ __all__ = [
 #: `scheduler.py` calls `instantiate(task.agent_spec, tid)` and feeds
 #: `agent.id` into a required `Execution.agent_id`. So a hole here does not stop
 #: at the model — it reaches the execution record, which is the shape
-#: `docs/interfaces.md` §5.13 already has open for `Verdict.agent_id`, and a
+#: `Verdict.agent_id` already answers, and a
 #: second instance of it would make every downstream reader re-derive
 #: "non-leaf ⇒ no attribution".
 #:
@@ -375,8 +375,7 @@ def agent_spec_for(doc: Mapping[str, Any], task_spec: Mapping[str, Any]) -> str:
 
     **Public, and it became public because it had a second writer.** It was
     module-private and `cli/build.py::root_task` — the one place a `Task` is
-    built outside `unfold`, and a job `docs/interfaces.md` §5.3 records as
-    nobody's — copied it, named the copy a defect in its own docstring, and
+    built outside `unfold`, and a job nobody owned — copied it, named the copy a defect in its own docstring, and
     reported it here rather than living with it. That was the right call and
     this is the other half of it: the rule is one invariant, so it gets one
     writer, and the caller deletes its copy.

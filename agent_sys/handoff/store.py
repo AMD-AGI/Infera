@@ -99,7 +99,7 @@ def store_name_for(scope: Scope) -> str:
 HANDOFF_PREFIX = "handoff"
 
 #: A label's cap. `env_mgr.fs.zone._SLUG_CHARS`, duplicated across the package
-#: boundary on `docs/interfaces.md` §8.1's terms, like `CONTENT_DIR` already is.
+#: boundary on `engineer_principle.md` §5.1's terms, like `CONTENT_DIR` already is.
 _SLUG_CHARS = 40
 
 

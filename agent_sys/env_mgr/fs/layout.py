@@ -139,7 +139,7 @@ def validation_zone(task: Any, phase: str, domains: DomainRegistry) -> str:
 #: The artefact, inside a version directory. `handoff/store.py::CONTENT_DIR`,
 #: spelled again rather than imported: `env_mgr` does not import `handoff`, and
 #: an import edge is permanent where a duplicated constant is one grep.
-#: `interfaces.md` §8.1's forced duplication;
+#: `engineer_principle.md` §5.1's forced duplication;
 #: `tests/interfaces/test_handoff_layout.py` is the price and pins the spelling
 #: against `handoff`'s.
 #:

@@ -98,7 +98,7 @@ def phase_validators(doc: ClosureDoc) -> tuple[str, ...]:
 
     A property of the task rather than of any one handoff kind, so the handoff
     specs cannot carry them. That is why `check_closures` hands them to
-    `validator_specs.bind_phase` — the third of `docs/interfaces.md` §5.4's edge
+    `validator_specs.bind_phase` — the third edge
     kinds, and the one `users_of` had no other way to learn.
     """
     return _strings(doc.get("validators"))

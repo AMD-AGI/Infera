@@ -160,7 +160,7 @@ def test_no_source_format_survives_the_deletion() -> None:
     clause was written about. Measured rather than reasoned: with `import
     _jsonnet` planted back into `tests/validator/test_reference.py` the first
     draft printed `1 passed`. A working instrument pointed at the safe case,
-    which `docs/interfaces.md` §8.11g has thirteen recorded instances of; the
+    which `engineer_principle.md` §5.4 has thirteen recorded instances of; the
     probe that caught this one is kept so the next person can re-aim the
     instrument rather than trust it.
     """

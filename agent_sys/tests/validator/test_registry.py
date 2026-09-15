@@ -226,7 +226,7 @@ def test_a_re_registration_does_not_double_an_edge(registry: ValidatorSpecRegist
 
 
 def test_a_closure_phase_edge_is_recorded(registry: ValidatorSpecRegistry) -> None:
-    """`interfaces.md` §5.4's **third** edge kind — *"a closure naming a phase
+    """The **third** edge kind — *"a closure naming a phase
     validator"* — which `EDGE_KINDS` was missing until `demo` found it.
 
     Its absence was precisely the failure the module docstring cites: Airflow

@@ -682,7 +682,7 @@ def test_a_parked_escalated_task_does_not_hold_the_run_open(registry: Any, submi
         Faithful on purpose. A first version returned `is_running=True` for every
         task, which made `main` hold the run open and the test fail for a reason
         the real run does not have — a stub encoding an assumption instead of the
-        neighbour's behaviour, `interfaces.md` §8.1's fifth row. A non-leaf calls
+        neighbour's behaviour, `engineer_principle.md` §5.1's fifth row. A non-leaf calls
         `release()`, which sets `_halted`, so `is_running` is False for it.
         """
 

@@ -391,8 +391,8 @@ def _wire_monitors(r: Registry, *, monitors: Sequence[Any] | None) -> None:
     # **process-global**: `threading.excepthook` is one slot for the whole
     # interpreter, and a library function that installs one takes a decision
     # belonging to whoever owns the process. Two registries built in one test
-    # session would fight over it. `interfaces.md` §5.9 is open on this; whoever
-    # owns the entry point calls it with `r.get("recorder")`.
+    # session would fight over it. Whoever owns the entry point calls it with
+    # `r.get("recorder")`; `cli/main.py` is that owner.
 
 
 # --------------------------------------------------------------------------- #

@@ -320,7 +320,7 @@ class Scheduler:
         `validator.PhaseRunner._targets` handed that 0 to `store.read_verdicts`
         and the input phase died on *"cannot read verdicts of 52c75d0a v0: it is
         not published (published: [1])"*, with thirteen of fourteen tasks already
-        succeeded. `interfaces.md` §5.12 names the two counters and says the
+        succeeded. `docs/TODO.md` item 27 names the two counters and says the
         reference between them has no owner; this is the third time in one stage
         that a caller has spent one as the other.
 

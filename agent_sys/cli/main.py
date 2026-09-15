@@ -908,8 +908,8 @@ def _registry(
         handoff_root=str(layout.handoffs),
         knowledge_root=str(layout.knowledge),
     )
-    # `interfaces.md` §5.9: `install_excepthook` is named by §2 and called by
-    # nobody, and `task_graph` declined it for the right reason —
+    # `interfaces.md` §2 names `install_excepthook` and `task_graph` declined
+    # to call it, for the right reason —
     # `threading.excepthook` is **one slot for the whole interpreter**, so a
     # composition root claiming it takes a decision belonging to whoever owns
     # the process. This IS that owner. Without it, an uncaught exception on an
@@ -923,7 +923,7 @@ def _registry(
     #
     # **The workaround** is the store root: a script body is handed `args.json`
     # and `inputs.json` — handoff **ids** — in a fresh zone with nothing pointing
-    # at the content it must read. F-D5, and `interfaces.md` §5.8 at its widest.
+    # at the content it must read. F-D5, and `docs/TODO.md` item 26 at its widest.
     #
     # **`PATH` is not a workaround and my first report of it was wrong.**
     # Measured: POSIX `sh`
@@ -1553,7 +1553,7 @@ def _report(
             # the stored bytes — and nothing forces them to agree. They both
             # start at 0, so a graph that publishes once per handoff sees
             # `0 == 0` and looks consistent until something re-runs.
-            # `interfaces.md` §5.12: the reference between them has no owner, so
+            # `docs/TODO.md` item 27: the reference between them has no owner, so
             # this stream names which one it is holding rather than implying
             # there is one number. Naming them is the whole of what `demo` can
             # do about §5.12 without inventing the reference.

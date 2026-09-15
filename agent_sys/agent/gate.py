@@ -145,7 +145,7 @@ def _self_check(hid: HandoffId, manifest: Any) -> list[GateFailure]:
     | agent-bodied | the agent **could have claimed and did not** | fault |
     | `kind: program` | **there was no agent to claim** | not a fault |
 
-    **This is `interfaces.md` §5.13's answer reused, not a new one.** A script
+    **This reuses the answer already settled for `Verdict.agent_id`.** A script
     body has no agent, which is why `Verdict.agent_id` became `AgentId | None` —
     route (a), *"the record says 'no agent' by having no agent"*.
     `done_by_self_check` is **an agent's claim**, so for a program body absent is

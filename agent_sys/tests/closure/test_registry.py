@@ -126,7 +126,7 @@ def test_freeze_before_the_pass_is_a_programming_error() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# The third edge kind — `docs/interfaces.md` §5.4, wired from the pass.
+# The third edge kind, wired from the pass.
 
 
 def test_the_pass_records_the_closure_to_phase_validator_edge(regs: Regs) -> None:

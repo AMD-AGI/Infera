@@ -72,7 +72,7 @@ class MemoryHandoffStore:
         phase reads is the subject of
         `test_output_version_against_the_real_store.py`, and a stub that models
         publication would be this suite deciding its own answer to the question
-        that file exists to ask (`interfaces.md` §8.11g).
+        that file exists to ask (`engineer_principle.md` §5.4).
 
         **This stub's tolerance is why the defect it now guards could not surface
         here.** `read_verdicts` below returns `[]` for a version nobody wrote; the
@@ -296,7 +296,7 @@ def dispatched(registry: Any) -> Any:
     anything.
 
     The handoff's kind travels through `Task.kinds`, which `submit` passes to
-    `declare(..., types=...)` — `docs/interfaces.md` §5.1, closed 2026-08-27. The
+    `declare(..., types=...)`, since closed. The
     phase reads `Handoff.type` and nothing here restates it.
     """
     from task_graph.models import Task

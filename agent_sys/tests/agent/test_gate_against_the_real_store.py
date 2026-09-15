@@ -1,6 +1,6 @@
 """The gate, driven against the real `FilesystemStore` exactly once.
 
-`docs/interfaces.md` §8.7: drift has a trigger, **wrong-on-the-day has none** —
+`engineer_principle.md` §5.3: drift has a trigger, **wrong-on-the-day has none** —
 nothing ever happens and the stub is as wrong on day 300 as on day 1. The only
 thing that catches it is running the stub's subject rather than the stub.
 

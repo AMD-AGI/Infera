@@ -116,7 +116,7 @@ def test_stub_declares_the_same_defaults(pkg: str) -> None:
     **off** — wrong in the direction where being wrong costs something.
 
     The suite was green throughout, because the instrument above records
-    annotations. This is `interfaces.md` §8.11's case: a check that cannot fail
+    annotations. This is `engineer_principle.md` §5.7's case: a check that cannot fail
     for the reason it exists reports a coverage it does not have.
     """
     disagree = _default_disagreements(ROOT / pkg / "protocols.py", ROOT / pkg / "protocols.pyi")

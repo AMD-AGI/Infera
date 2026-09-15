@@ -27,6 +27,7 @@ are single decisions.
 | 8 | Configuration and quality | decisions | — |
 | 9 | Agent backends | decisions | — |
 | 10 | Scoring and measurement | subsystem | — |
+| 11 | Garbage collection between an artefact and its verdict | subsystem | — |
 
 **The numbers are stable and the order is not a priority ranking.** §6.1 and
 §6.4 are cited from shipped source (`handoff/store.py`, `cli/README.md`), so a
@@ -296,7 +297,7 @@ on the agent cooperating.
 - **This machine cannot test any of it:** `claude-agent-sdk` is not installed,
   driving it needs credentials the suite forbids, and **`bwrap` is absent**
   (`socat` is present). Anything written here would be green for the wrong
-  reason. `interfaces.md` §8.7.
+  reason. `engineer_principle.md` §5.3.
 
 ### Measured, on the first real model calls this repository made
 
@@ -1070,4 +1071,25 @@ would be a judgement with nothing under it.
 **Related, and distinct:** *agent work quality over time* (main spec §10) is a
 judgement about an executor, not about a handoff. It consumes the same metrics
 and answers a different question.
+
+---
+
+## 11. Garbage collection between an artefact and its verdict — subsystem
+
+**`delete_version` is absent from `HandoffStore` on purpose.** Nothing in this
+system deletes a stored artefact, and that is the safe direction while the
+question is open.
+
+The question is what a verdict refers to once its artefact is gone. A verdict is
+a record *about* a version; delete the version and the verdict becomes a claim
+about nothing, which is worse than either keeping both or deleting both.
+
+**The prior art is not encouraging.** The OCI distribution spec has carried an
+open issue on exactly this since 2023. The one design that makes the harmful case
+unrepresentable is Nix's: roots point **at** content, so a content-orphan cannot
+arise — nothing can be referenced and absent at the same time.
+
+**Decide before anything is deleted, not after.** A store that has already
+dropped an artefact cannot be given a policy retroactively, and holes are
+permanent by design ([`TODO.md`](TODO.md) item 16).
 

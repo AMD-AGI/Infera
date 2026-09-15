@@ -3,7 +3,7 @@
 
 A validator body runs as a subprocess in a fresh zone and is handed
 `inputs.json` — handoff **ids**, as strings — and nothing else. There is no
-route from an id to the content it names: `docs/interfaces.md` §5.8 leaves
+route from an id to the content it names: `docs/TODO.md` item 26 leaves
 *"who materialises the value a JSON Pointer addresses"* open, and this is that
 question one level wider. Reported as F-D5 in `demo/README.md`.
 
@@ -15,7 +15,7 @@ alternative is a task package importing a component, and it is bounded: this
 file reads directory names and `manifest.json`'s `kind`, and nothing else.
 
 `tests/cli/test_isolation_shown.py::test_the_store_layout_this_package_reads_is_handoffs`
-is the price of that duplication, on the terms `docs/interfaces.md` §8.1 sets:
+is the price of that duplication, on the terms `engineer_principle.md` §5.1 sets:
 it fails the day `handoff.version_dir` disagrees with what is read here.
 
 **Most of this is now a fallback rather than the route.** `validator` landed

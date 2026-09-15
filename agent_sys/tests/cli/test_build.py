@@ -1,6 +1,6 @@
 """`cli/build.py`, and the graph it makes. Criteria 2, 3, 7, 12.
 
-`docs/interfaces.md` §5.3: turning a closure into the root `Task` is owned by
+Turning a closure into the root `Task` is owned by
 this package knowingly, so it is tested here knowingly too — and when it moves
 to the whole-system CLI these tests move with it unchanged.
 """

@@ -49,7 +49,7 @@ __all__ = ["RunRecord", "RunState", "ValidatorSpecRegistry"]
 #:
 #: **`closure` was missing until `demo` found it**, and its absence was the exact
 #: bug the paragraph above cites: a validator two closures run reported as used by
-#: nothing. `interfaces.md` §5.4 names three edge kinds — *"a handoff kind naming
+#: nothing. There are three edge kinds — *"a handoff kind naming
 #: a validator; a composite naming a member; a closure naming a phase validator"*
 #: — and this tuple had two. Quoting Airflow #58058 and then committing it is
 #: worth recording rather than quietly correcting.

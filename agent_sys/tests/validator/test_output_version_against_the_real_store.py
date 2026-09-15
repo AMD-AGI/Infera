@@ -9,14 +9,14 @@ fatal against the store.
 
 The wrong number was `handoff_mgr.get(hid).latest.version` — `HandoffMgr`'s
 **slot** version, where every consumer of a `Target` wants the **store**
-directory version (`interfaces.md` §5.12). The two counters advance on different
+directory version (`docs/TODO.md` item 27). The two counters advance on different
 events: the store on **every dispatch**, because `task_graph`'s `_pin_outputs`
 allocates unconditionally so `env_mgr` has a path to grant; the slot on **every
 agent write**. One dispatch that does not write is enough to part them.
 
 **Both tests here therefore assert the two numbers differ before asserting
 anything about the phase.** With slot == store the subject is absent and a pass
-would mean nothing — `interfaces.md` §8.11g, *a working instrument pointed at
+would mean nothing — `engineer_principle.md` §5.4, *a working instrument pointed at
 the safe case*, which is precisely what the rest of this directory was.
 
 Measured on a real bring-up whose non-leaf `main` is the first in the tree to

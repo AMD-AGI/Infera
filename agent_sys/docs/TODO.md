@@ -14,12 +14,11 @@ anyone — nobody has it.
 | **PARKED** | Deliberately not worked, with a reason. Not a backlog item |
 | **CLOSED** | Settled. Kept because an item closed by construction is worth knowing about |
 
-Nine seams opened during implementation are **not** here: they live in
-[`interfaces.md`](interfaces.md) §5, which is normative where this file is not.
-§5.8 (who materialises a Pointer's value), §5.12 (two version allocators with no
-join), §5.13 (a script body has no agent and `Verdict.agent_id` is required) and
-§5.14 (what publishes a handoff, and from where) are the four that block
-something real.
+The seams that implementation opened are here, as items 25–30. They used to be
+a separate section of `interfaces.md`, which made sense while nobody knew who
+owned what; now that the system is built, an open question is either a near-term
+decision (here) or a subsystem ([`ROADMAP.md`](ROADMAP.md)), and there is no
+third place.
 
 ---
 
@@ -53,6 +52,12 @@ something real.
 | 22 | The mandatory-knowledge CLI option | OPEN | `cli` |
 | 23 | Agent-harness format transform helper | OPEN | — |
 | 24 | Remote↔local operations as agent tool calls | OPEN | — |
+| 25 | `materials` is declared by two schemas and read by nothing | OPEN | `closure` + `validator` |
+| 26 | `handoff.resolve` has no caller | OPEN | `validator` |
+| 27 | Two version allocators for one artefact, and nothing joins them | OPEN | `handoff` + `task_graph` |
+| 28 | A non-leaf may declare an output no entry can produce | OPEN | `task_graph` |
+| 29 | `ValidatorId` — a fourth typed id the spec asks for and nothing needs | OPEN | — |
+| 30 | `SCHEMA_VERSION` will have two owners once the whole-system CLI exists | BLOCKED | `cli` |
 | C1–C5 | Closed | CLOSED | — |
 
 ---
@@ -520,3 +525,80 @@ rule keyed on the package *name* went vacuous once at the `demo` → `cli` renam
 a name that matches no package can never appear in an import set, so the
 assertion passed against every possible tree. `test_every_allowed_package_exists`
 is the guard against that class.
+
+### 25 — `materials` is declared by two schemas and read by nothing
+
+A task spec carries a `materials` key — *things this task may need for itself* —
+and a validator body carries the same key. **Nothing reads either.** Every
+occurrence in the design set is a reference to the key existing.
+
+The intent is that the system eventually wraps what is declared there into a
+handoff, while leaving the author free about its content. Until something does,
+a package that declares `materials` gets silence.
+
+**Closes when:** either a consumer is built, or the key is withdrawn from both
+schemas. Those are opposite answers and the choice belongs to `closure` and
+`validator` jointly.
+
+### 26 — `handoff.resolve` has no caller
+
+`resolve` is the RFC 6901 addressing into a handoff's content, and **no module
+calls it.** Three documents say `validator` consumes it, two of them
+`validator`'s own.
+
+The reason is structural rather than an oversight: a validator's implementation
+is a **body** now, not a registered Python callable, and a body reads its
+staged inputs from disk. So the in-process addressing surface has no caller by
+construction.
+
+**Closes when:** either a body is given a route that goes through it, or
+`resolve` is recorded as a library function for package authors rather than an
+internal seam.
+
+### 27 — Two version allocators for one artefact, and nothing joins them
+
+One artefact has two independent version numbers: the **slot** version, advanced
+by the handoff record, and the **store** version, the directory the bytes land
+in. Nothing reconciles them, and they diverge whenever a dispatch allocates a
+version the task never fills (item 6 is one way that happens).
+
+**What it costs is legibility, not correctness** — every store reader filters on
+the manifest, so a hole is invisible to them. The cost is a reader comparing the
+log against the tree and finding two counters.
+
+**Closes when:** one of the two is derived from the other, or the two are named
+differently everywhere so nobody reads them as the same number.
+
+### 28 — A non-leaf may declare an output no entry can produce
+
+A parent's outputs are wired to its subgraph **through the end entry alone**. A
+kind the parent declares and the end entry does not produce therefore gets a
+fresh, unconnected handoff: the parent's declaration is satisfied by something
+nothing writes into.
+
+**Nothing catches it.** It is legal at load and silent at run time.
+
+**Closes when:** the graph check rejects a parent output that no entry produces.
+`task_graph`'s, and the check does not exist.
+
+### 29 — `ValidatorId` — a fourth typed id the spec asks for and nothing needs
+
+The whole-system spec asks for a typed id joining `TaskId` / `AgentId` /
+`HandoffId`. Three designs key validators **by name** instead, consistently, and
+the reason is good: a validator is not instantiated per run the way an agent is,
+so what it needs is a unique vocabulary entry, not a per-object identity.
+
+**Nothing is blocked.** Build on names.
+
+**Closes when:** either the spec drops the request, or something appears that
+genuinely needs per-instance validator identity — at which point the id is an
+addition rather than a migration.
+
+### 30 — `SCHEMA_VERSION` will have two owners once the whole-system CLI exists — BLOCKED
+
+`cli`'s event stream is a versioned interface because an acceptance criterion
+asserts over it. The whole-system CLI (item 18) will want the same stream, and
+then two artefacts share one constant with no bump policy.
+
+**Fine until item 18 lands.** Closes with it.
+

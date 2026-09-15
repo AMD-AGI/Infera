@@ -737,7 +737,7 @@ class PhaseRunner:
 
         **Every number here is a `handoff` *store* version — the directory the
         bytes are in — and never `HandoffMgr`'s *slot* version.** They are two
-        counters with no owned reference between them (`interfaces.md` §5.12)
+        counters with no owned reference between them (`docs/TODO.md` item 27)
         and everything downstream of a `Target` wants the first:
         `store.read_verdicts`, `store.record_verdict` and `history.priors` all
         resolve `<store>/<hid>/v<N>/`.
@@ -926,8 +926,7 @@ class PhaseRunner:
         **`prepare_validation` confines nothing**, and that is a boundary rather
         than an omission: `prepare` applies Landlock to its own process, and a
         phase runner calling this is the supervisor. Who confines a validation
-        *body* is `interfaces.md` §5.15, open with three candidates and no owner.
-        So placement makes the standard unreachable by *where it is*, and nothing
+        *body* is settled — `prepare` checks and `spawn` applies. So placement makes the standard unreachable by *where it is*, and nothing
         yet makes it unreachable by *what the kernel permits*.
 
         The fallback is the documented stand-in, not a second answer: without an

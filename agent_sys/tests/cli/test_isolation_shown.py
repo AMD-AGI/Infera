@@ -453,7 +453,7 @@ def test_this_machine_has_one_and_the_demo_can_say_which() -> None:
     available, and the demo's precondition is the same claim one layer up.
 
     `bwrap` is absent on the development machine and Landlock ABI is 3, so this
-    is the Landlock rung — and `docs/interfaces.md` §5.11 records that the other
+    is the Landlock rung — and `docs/ROADMAP.md` §6.1 records that the other
     rung plus a `kind: ai` task is currently **unconfinable at all**, because
     `ClaudeSDKClient` spawns the `claude` CLI itself and no caller ever sees that
     argv. `agent` refuses such a task and the demo would exit 2 with it.
@@ -466,7 +466,7 @@ def test_this_machine_has_one_and_the_demo_can_say_which() -> None:
 
 
 def test_the_store_layout_this_package_reads_is_handoffs(tmp_path: Path) -> None:
-    """`docs/interfaces.md` §8.1's price, paid — **and this test failed to pay it
+    """`engineer_principle.md` §5.1's price, paid — **and this test failed to pay it
     once, which is why it is written the way it now is.**
 
     A validator body runs as a subprocess with `inputs.json` — handoff **ids** —

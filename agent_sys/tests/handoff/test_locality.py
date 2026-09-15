@@ -156,7 +156,7 @@ def test_the_request_target_rule_does_not_make_the_check_vacuous(tmp_path: Path)
 
     An over-broad fix — stop matching absolute paths, or strip anything that
     looks API-shaped — passes the test above and leaves a check that finds
-    nothing. `interfaces.md` §8.11g: an instrument pointed only at the safe case
+    nothing. `engineer_principle.md` §5.4: an instrument pointed only at the safe case
     proves nothing.
 
     So a genuinely local path on an ordinary line must still be caught, and a

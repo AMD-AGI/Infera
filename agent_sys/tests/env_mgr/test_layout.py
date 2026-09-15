@@ -262,7 +262,7 @@ def test_a_parent_without_a_zone_is_an_error(domains: DomainRegistry) -> None:
 def test_prepare_validation_places_a_sibling_and_stages_the_materials(
     domains: DomainRegistry, tmp_path: Path
 ) -> None:
-    """`interfaces.md` §5.8 dissolves here: a body was handed handoff **ids as
+    """`docs/TODO.md` item 26 dissolves here: a body was handed handoff **ids as
     strings** in a zone with nothing pointing at the store, so it could not read
     what it was validating. It could not, because the zone was allocated by a
     module that does not know the layout — so nothing staged anything into it.

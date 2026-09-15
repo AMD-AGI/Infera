@@ -1,6 +1,6 @@
 """Five dicts and a closure builder.
 
-`docs/interfaces.md` §6: *"The six checks need only `Registries`, which is a
+`docs/interfaces.md` §4.5: *"The six checks need only `Registries`, which is a
 Protocol a test satisfies with five dicts."* This file is that sentence, made to
 run. Nothing here imports a sibling package's implementation, and nothing needs a
 composition root.

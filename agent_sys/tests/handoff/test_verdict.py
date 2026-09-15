@@ -189,7 +189,7 @@ def test_a_row_that_never_mentioned_the_field_is_unreadable(tmp_path: Path) -> N
 
 
 def test_the_manifest_does_not_carry_done_by_self_check() -> None:
-    """A **deadline**, guarded rather than remembered — `interfaces.md` §5.14.
+    """A **deadline**, guarded rather than remembered.
 
     `monitor` §4.1.2 and §9 carry `done_by_self_check` as an unbuilt `handoff`
     item, and the obvious home is `Manifest`. **Do not put it there.** §5.14

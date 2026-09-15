@@ -328,7 +328,7 @@ class Runner:
         **`task_specs`, not `closures`, and it is one lookup rather than two.**
         `closure/check.py` keys each closure's nested task spec into
         `task_specs` under the closure's own name, so `Task.closure` indexes it
-        directly. `interfaces.md` §5.1b names this route — *"resolve them
+        directly. `docs/TODO.md` item 25 names this route — *"resolve them
         through `task.closure` → the task spec"* — and taking it means this
         package never touches a closure *document* and needs none of
         `closure`'s document accessors.
@@ -938,7 +938,7 @@ class TaskAttempt:
         held `status=created, verdicts=0`.
 
         **Two version numbers for one artefact, and this is the other one**
-        (`interfaces.md` §5.12). `_pin_outputs` allocates the *store* directory
+        (`docs/TODO.md` item 27). `_pin_outputs` allocates the *store* directory
         version at dispatch; this opens `HandoffMgr`'s *slot* version. They
         advance on different events and neither substitutes for the other.
 
@@ -965,7 +965,7 @@ class TaskAttempt:
         > where both appear.** Each is unambiguous inside its own package; the
         > collision exists here, so the disambiguation lives here.
         >
-        > `interfaces.md` §5.12 is the same seam — two version numbers for one
+        > `docs/TODO.md` item 27 is the same seam — two version numbers for one
         > artefact — and the names over them collide the same way. Raised by
         > `handoff` after checking the ordering **because the name made them**,
         > and finding nothing wrong: a thing that is correct but re-derived by

@@ -1,6 +1,6 @@
 """Turning a closure into the root `Task`. **In the wrong package, knowingly.**
 
-`docs/interfaces.md` §5.3 and `closure` D5: nobody owns this. `closure` declined
+`closure` D5: nobody owned this. `closure` declined
 it and gave the right reason — a helper returning a `Task` would make `closure`
 import `task_graph`, and would make the module that reads four other modules'
 objects the thing that decides a task's initial permissions. The only two named

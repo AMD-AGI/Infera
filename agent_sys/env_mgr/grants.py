@@ -130,7 +130,7 @@ def resolve(
 #: The artefact. Re-exported from `fs/layout.py`, which is where it is now
 #: defined: `stage` needs it and `layout` sits below this module, so keeping the
 #: literal here would have meant two spellings of it *inside* `env_mgr` — which
-#: is the duplication `interfaces.md` §8.1 tolerates across a package boundary
+#: is the duplication `engineer_principle.md` §5.1 tolerates across a package boundary
 #: and not within one. The name is unchanged, so
 #: `test_the_store_layout_names_match` still pins it against `handoff`'s.
 CONTENT_DIR = _CONTENT_DIR

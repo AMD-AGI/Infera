@@ -28,7 +28,7 @@ from tests.handoff.conftest import FixedKind, make_content, make_kind, open_kind
 def test_filesystem_store_satisfies_the_protocol() -> None:
     """Every operation the Protocol declares, with the same signature.
 
-    **This compares types, not names** — `docs/interfaces.md` §8.7, where five
+    **This compares types, not names** — `engineer_principle.md` §5.3, where five
     packages wrote guards over field *names* and a name survives exactly the
     change that breaks a caller. `Signature.__eq__` includes annotations, so a
     `dst: Path` quietly becoming `dst: str` fails here with the name unchanged.

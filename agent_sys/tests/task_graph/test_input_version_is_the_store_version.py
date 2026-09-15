@@ -12,7 +12,7 @@ so `input_versions` had to be one too. It was not: `_dispatch_pass` filled it
 from `handoff_mgr.latest(hid).version`, which is `HandoffMgr`'s **slot** version.
 One field, two currencies, in one dictionary.
 
-`interfaces.md` §5.12 names the two counters and records that the reference
+`docs/TODO.md` item 27 names the two counters and records that the reference
 between them has no owner. This is the third place in one stage where a caller
 spent one as the other, after `validator.PhaseRunner._targets`' output branch and
 its input branch.
@@ -27,7 +27,7 @@ wrote it, its end entry `score` wrote v1 — and `optimise` recorded
 is every graph this repository had before a non-leaf declared an output. So
 `examples/ok.filetree_grounded_report.4/` cannot show this and neither can a fixture built to its shape,
 which is why the first test below asserts the divergence before anything else
-looks at it (`interfaces.md` §8.11g).
+looks at it (`engineer_principle.md` §5.4).
 
 `MemoryStoreMgr` is the task/handoff record store and is unrelated;
 `handoff_store` is the artefact store, and only the real `FilesystemStore`

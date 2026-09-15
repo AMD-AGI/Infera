@@ -314,7 +314,7 @@ def test_consuming_what_the_end_entry_exports_is_legal(tmp_path, regs) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# `docs/interfaces.md` §8.7 — the wrong-on-the-day check.
+# `engineer_principle.md` §5.3 — the wrong-on-the-day check.
 #
 # Distinct from drift, and `handoff` drew the line: drift has a trigger, a
 # neighbour changed. **Wrong-on-the-day has no trigger at all** — the stub is as

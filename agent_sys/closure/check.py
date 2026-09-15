@@ -504,8 +504,7 @@ def _escape_hatch_report(
 def _bind_phase_validators(regs: Registries, names: Sequence[str]) -> None:
     """Tell `validator_specs` which closures name each phase validator.
 
-    **`docs/interfaces.md` §5.4's third edge kind, and the one `users_of` could
-    not see.** A closure's phase validators are a property of the task, so the
+    **The third edge kind, and the one `users_of` could not see.** A closure's phase validators are a property of the task, so the
     handoff specs cannot carry them — a `users_of` counting only handoff-kind
     bindings reports a validator two closures run in every output phase as used
     by nothing. That is Airflow #58058's false-negative deadness, and dbt#14436 is

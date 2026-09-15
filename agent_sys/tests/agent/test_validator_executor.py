@@ -237,7 +237,7 @@ def test_the_named_agent_also_chooses_the_backend(validating) -> None:
 
 
 def test_the_real_validator_spec_has_the_field_and_defaults_to_none() -> None:
-    """Driven against the subject, not the stub — `interfaces.md` §8.7.
+    """Driven against the subject, not the stub — `engineer_principle.md` §5.3.
 
     `StubValidatorSpec` above declares `agent` because the real one does; this
     is the assertion that keeps that true. A stub agreeing with a field that

@@ -324,3 +324,70 @@ when someone asked *"why does the policy need a key at all?"*
 **When a problem resists, re-examine the shape of the question before researching
 the answer harder.** Re-read the specification first; in that case it had said
 "that collection is ordered" from the beginning.
+
+---
+
+## 5. Rules that only appear once you build it
+
+Each of these was paid for. They are stated as rules rather than as the episodes
+that produced them, and every one is about the same thing: **a check that looks
+like it is working while it checks nothing.**
+
+### 5.1 A duplicate that cannot be avoided needs a drift test
+
+Sometimes one fact must exist twice — a type and its stub, a schema and the
+model that mirrors it, a shipped file and its copy in a package. **Duplication
+you have decided to keep is duplication you must test.** The test asserts the
+two are the same, so the day they diverge is the day something goes red rather
+than the day somebody notices.
+
+### 5.2 On a seam, read the other side's code — not its description
+
+A module's document describes what its author intended. The caller needs what
+the code does. When the two disagree, the code is what runs, and the disagreement
+is the finding. **Confirm a key, a name or a default with the owner before
+treating it as settled** — and "the README says so" is not confirmation.
+
+### 5.3 A guard must compare the thing, not a name for it
+
+A stub guard that compares symbol *names* passes when the types beneath them have
+diverged. A conformance check on members passes when the container's element type
+changed. **Whatever a check is about, it must touch that thing** — the cheap
+proxy is how a guard becomes decoration.
+
+### 5.4 Point the instrument at the failing case before you trust it
+
+A test whose subject is reachable and whose premise is not will pass forever. So
+will a probe made tolerant of unexpected input, and a control a display flag can
+silence. **Before believing a green check, make it red on purpose.** If it cannot
+be made red, it is not measuring what its name says.
+
+### 5.5 An outward measurement is the one that most needs a control
+
+Measuring your own code, a mistake shows up as a wrong number. Measuring
+something outside — a library, a host, another team's artefact — a mistake shows
+up as a *plausible* number, because there is nothing to contradict it. The
+further out the subject, the more the null case has to be run.
+
+### 5.6 Two weak arguments converging are still two weak arguments
+
+Corroboration means two independent observations. Two derivations from the same
+misreading feel like corroboration and are not. **Ask what would have to be true
+for both to be wrong at once** — if the answer is "one thing", they are one
+observation.
+
+### 5.7 A grep result has a shelf life
+
+A search answers a question about the tree as it was when you ran it. In a shared
+worktree an edit is published the moment it is written, so a result minutes old
+may already be false — and a grep of the committed tree is not a grep of the
+tree. **Re-run the search at the point you act on it**, and say which tree you
+searched.
+
+### 5.8 When a ruling moves a premise, enumerate what rested on it
+
+A decision that changes one fact silently invalidates every conclusion drawn
+from it, and those conclusions are scattered. Nobody will notice on their own.
+**The person who moves the premise owns the sweep** — and the sweep is a list,
+written down, not a recollection.
+

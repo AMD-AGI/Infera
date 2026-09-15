@@ -311,8 +311,7 @@ def start_monitors(registry: Registry) -> RunningMonitors:
     **Not from `build_registry`, and not from a constructor.** A thread is a
     process-level decision and a library that spawns one has taken it on the
     owner's behalf — the same argument that puts `install_excepthook` in the
-    entry point rather than in `BaseMonitor.__init__`, and `interfaces.md` §5.9's
-    shape.
+    entry point rather than in `BaseMonitor.__init__`.
 
     **But the assembly is this module's, not the caller's.** Resolving
     `monitor:*`, spawning a daemon thread each, and remembering that stopping is

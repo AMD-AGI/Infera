@@ -617,7 +617,7 @@ def test_python_target_is_310(package_root: Path) -> None:
 # --------------------------------------------------------------------------- #
 # The two seams that block the `run` verb, as strict-xfail handshakes.
 #
-# `docs/interfaces.md` §8.1 names this mechanism: **`xfail(strict=True)` as a
+# `engineer_principle.md` §5.1 names this mechanism: **`xfail(strict=True)` as a
 # handshake between two packages** — the test lands green today and goes red the
 # instant the other side changes, so nobody has to remember anything. Both of
 # these are red-when-fixed on purpose: the day one of them XPASSes, the demo's
@@ -662,7 +662,7 @@ def test_a_task_is_given_to_a_monitor_by_set_task() -> None:
     `enter_phase(RUNNING)`, so no caller outside `task_graph` ever holds one.
 
     This was `xfail(strict=True)` for about an hour and **XPASSed**, which is
-    `docs/interfaces.md` §8.1's handshake working as a protocol rather than as a
+    `engineer_principle.md` §5.1's handshake working as a protocol rather than as a
     check: it went red the moment the other side landed, and named both sides
     while doing it. Nobody had to remember to come back. Kept as a plain
     assertion so a regression is still caught.

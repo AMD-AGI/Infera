@@ -21,7 +21,7 @@
     "materials": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
-      "description": "Things this task may need for itself; the author is free about what goes in. The system is meant to wrap them into a handoff and **nothing does yet** — which kind, which checks, which scope, and who mints it are all open (docs/interfaces.md §5.1b). Resolve them through the task spec and treat the wrapping as one call behind a name."
+      "description": "Things this task may need for itself; the author is free about what goes in. The system is meant to wrap them into a handoff and **nothing does yet** — which kind, which checks, which scope, and who mints it are all open (`docs/TODO.md` item 25). Resolve them through the task spec and treat the wrapping as one call behind a name."
     },
     "repos": {
       "type": "array",

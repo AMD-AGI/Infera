@@ -373,7 +373,7 @@ def test_the_escape_hatch_flag_reaches_the_root_and_reports(tmp_path: Path) -> N
 
 
 # --------------------------------------------------------------------------- #
-# Stubs, driven against the real thing — `docs/interfaces.md` §8.7
+# Stubs, driven against the real thing — `engineer_principle.md` §5.3
 
 
 def test_check_bindings_agrees_with_a_real_validator_registry() -> None:

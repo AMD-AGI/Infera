@@ -24,7 +24,7 @@
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
           "uniqueItems": true,
-          "description": "Package-relative paths this body needs for itself. How these become a handoff is undecided — docs/interfaces.md §5.1b — so nothing reads them yet."
+          "description": "Package-relative paths this body needs for itself. How these become a handoff is undecided — `docs/TODO.md` item 25 — so nothing reads them yet."
         }
       }
     },
