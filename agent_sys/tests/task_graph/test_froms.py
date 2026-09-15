@@ -137,7 +137,7 @@ def test_an_explicit_is_start_on_an_entry_with_predecessors_is_rejected():
 
 
 def test_an_explicit_is_end_on_an_entry_with_a_successor_is_rejected():
-    """Not cosmetic. `monitor/base.py:663` has the end subtask's completion tell
+    """Not cosmetic. `monitor/base.py` has the end subtask's completion tell
     the parent's monitor the subgraph has finished, and `_instantiate` wires the
     parent's outputs to it — so this reports completion, and transitions the
     parent, with declared work still ahead."""

@@ -2,7 +2,7 @@
 """Build a `patch` entry for a `call_site_fragment` operator.
 
 **The applier could always do this; the producer could never ask for it.**
-`apply.py:643-659` has run `patch -p1 --batch --forward` since it was written and
+`apply.py` has run `patch -p1 --batch --forward` since it was written and
 `patchkit.FILE_REQUIRED` lists `patch` — but `60_write_handoff.py` only ever
 emitted `replacement`, and `workset.schema.json`'s `apply_mode` enum had exactly
 one value. So a fragment operator had no way to ask for the path that already
@@ -24,7 +24,7 @@ line, so the thing that proves execution is the thing that was installed.
 
 Two properties the inserted line must have, and a comment satisfies neither:
 
-* **it must execute** — a comment changes bytes, so it passes `apply.py:747`'s
+* **it must execute** — a comment changes bytes, so it passes `apply.py`'s
   *"applied but changed nothing"* gate, and then produces no log hit and fails
   `check_patch_live` at the far end of a bring-up;
 * **it must fire once per process**, not once per token. The reference figure is

@@ -31,7 +31,7 @@ machinery.
 
 The previous stage checked the environment with three regexes over
 `environment.md` — *"does the word `image` appear on some line"*
-(the deploy stage's original `check_deploy_kit.validator/check.py:71-80`). That
+(the deploy stage's original `check_deploy_kit.validator/check.py`). That
 is what M1.1.1 objects to and it is gone.
 
 The record is now `codes/environment.yaml`, validated as a document. Its
@@ -69,7 +69,7 @@ mentions `docker`, because `mkdir -p` is not a port binding.
 ## Gate — both directions, against the real sealed kit
 
 Run against `$E2E_MOCK_ROOT/stage1-deploy/deploy_kit` (38 files, a real bring-up
-on this cluster on 2026-09-02):
+on this cluster):
 
 - **positive** — the untouched kit plus a conforming `codes/environment.yaml` and
   the `runtime_contract` parameters: **passes**. Nothing this validator inherited

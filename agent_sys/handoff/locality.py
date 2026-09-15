@@ -80,7 +80,7 @@ _URL = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://\S*")
 #: Measured 2026-08-31: this refused a *correct* handoff. The task's brief
 #: ordered its agent to prove the completion had gone through the router rather
 #: than the engine's own port, the natural evidence is the router's access log,
-#: and the seal then rejected the artefact at `README.md:42`. Every correct kit
+#: and the seal then rejected the artefact at `README.md`. Every correct kit
 #: for that task contains the string, so the check refused the right answer
 #: every time rather than occasionally.
 #:
@@ -120,7 +120,7 @@ _URL = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://\S*")
 #: playground oracle, `GET /var/tmp/playground-7/run3/out.json HTTP/1.1` yields
 #: an `oracle` hit; only the non-minted `/home/alice/...` escapes. So the gap
 #: is confined to the half that already says it is best effort, and closing it
-#: needs the oracles wired (they are not, `store.py:140`), not more regex.
+#: needs the oracles wired (they are not, `store.py`), not more regex.
 _REQUEST_TARGET = re.compile(
     r"\b(?:GET|HEAD|POST|PUT|PATCH|DELETE|CONNECT|OPTIONS|TRACE)"
     r"\s+(/\S*)\s+HTTP/\d(?:\.\d)?\b"

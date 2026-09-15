@@ -59,12 +59,12 @@ kind of validator.
 
 Both counts reach it through `args.json` rather than the environment, and that
 is measured rather than stylistic. `validator.choose_configuration`
-(`validator/environment.py:116-142`) uses the producing task's configuration on
+(`validator/environment.py`) uses the producing task's configuration on
 the **output** phase only, and there is no source for the consumer row at all,
 so an input phase falls through to the global row —
 `{PATH, AGENT_SYS_DEMO_PACKAGE, AGENT_SYS_DEMO_STORE, AGENT_SYS_DEMO_PYTHON}`
-(`cli/main.py:601-615`). `TWO_TASK_N_DIRECTIONS` is not in it. `args.json` is
+(`cli/main.py`). `TWO_TASK_N_DIRECTIONS` is not in it. `args.json` is
 written by the phase runner and does not vary by phase, and the `${...}` in the
 spec is expanded at load time over every string in the file
-(`spec_loader/package.py:335`), so one `--var n_directions=3` still moves the
+(`spec_loader/package.py`), so one `--var n_directions=3` still moves the
 prompt and the check together.

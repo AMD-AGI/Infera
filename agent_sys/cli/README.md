@@ -1,13 +1,18 @@
-# `demo` — the runnable proof that the components compose
+# `cli` — the runnable proof that the components compose
 
 | | |
 |---|---|
-| Implements | [`docs/spec.md`](docs/spec.md) rev. 7 — 17 acceptance criteria; [`docs/design.md`](docs/design.md) rev. 4 |
-| Seam | [`../docs/interfaces.md`](../docs/interfaces.md) §4.8 — **imports all eight, and nothing imports it** |
+| Implements | [`docs/spec.md`](docs/spec.md) — 17 acceptance criteria; [`docs/design.md`](docs/design.md) |
+| Seam | [`../docs/interfaces.md`](../docs/interfaces.md) §4.8 — the composition root: it may import anything of ours, and **nothing may import it** |
 | Tests | `../tests/cli/` — none makes a model call, needs a credential, or needs a sandbox |
 
+It imports six of the eight component packages today — `agent`, `env_mgr`,
+`monitor`, `spec_loader`, `task_graph`, `validator`. `closure` and `handoff` it
+reaches only through the registries, which is why the seam is stated as a
+permission rather than as a list: the list is a measurement and will move.
+
 ```
-demo/                    the RUNNER — installed, and where [project.scripts] points
+cli/                     the RUNNER — installed, and where [project.scripts] points
 examples/ok.filetree_grounded_report.4/           the TASK PACKAGE — YAML and data, not installed, imported by nobody
 examples/fail.dangling_handoff_kind.1/    a SECOND package, deliberately broken. Only --with-broken loads it
 ```
@@ -48,7 +53,7 @@ elapsed times, the two transcripts differ by **one line**:
 
 Everything else is identical, including the exit code (4), the `1 of 2 expected
 failures observed, 1 never reached` accounting, and the
-`usage names 'seconds' … is not booked` warning from `task_graph/scheduler.py:616`
+`usage names 'seconds' … is not booked` warning from `task_graph/scheduler.py`
 — which is therefore pre-existing too, and not something the conversion
 introduced.
 
@@ -191,7 +196,7 @@ reported to the packages on both sides.
 
 ```
 $ grep -rn "\.put(" --include="*.py" agent/ validator/ env_mgr/ task_graph/ monitor/ closure/
-agent/backend.py:271,315,358      # queue.Queue.put
+agent/backend.py      # queue.Queue.put
 ```
 
 Three `HandoffStore.put` call sites in the tree, all in `tests/handoff`. **No
@@ -913,7 +918,7 @@ Reported by me as *"§4.14 grants the output directory and nothing names it"*.
 **That was wrong, and `demo-2` found the mechanism I had missed.**
 
 `env_mgr.grants.output_env` — *"the declared name for each output's `content/`,
-for the body that writes it"* — runs at `prepare.py:299` on every dispatch:
+for the body that writes it"* — runs at `prepare.py` on every dispatch:
 
 ```
 >>> from env_mgr.grants import _env_name
@@ -1233,13 +1238,13 @@ noticing.
 
 ### `--clean` did not delete that run, and the layout says so — but a real collision was behind it
 
-`main` reported that a run destroyed the previous one and that `cli.py:346` is
+`main` reported that a run destroyed the previous one and that `cli.py` is
 the only thing that removes `runs/`. **The second half is right and the first is
 not**, read first-hand:
 
 - `Layout.create()` only `mkdir(parents=True, exist_ok=True)` and re-points the
   `latest` symlink. It removes nothing.
-- `_clean` at `cli.py:344` `return`s before `_dry_run` or `_real_run` is
+- `_clean` at `cli.py` `return`s before `_dry_run` or `_real_run` is
   reached, so `run --clean` **deletes and exits**. A run cannot delete a run.
 - `Layout`'s own docstring already states the property: *"Nothing is cleaned
   automatically: criterion 12 needs the previous run's state to still be

@@ -12,7 +12,7 @@
 #
 # `#!/bin/sh` and `set -eu`, not bash and not `pipefail`: agent_sys never
 # consults a body's shebang, it invokes one as `["/bin/sh", entry]`
-# (`agent/backends/program.py:83`), and `/bin/sh` here is dash, which exits 2 on
+# (`agent/backends/program.py`), and `/bin/sh` here is dash, which exits 2 on
 # `set -o pipefail` before line 3 runs (CONTRACT §3.2a). `line.sh` is invoked
 # with `bash` explicitly below, because it does use arrays.
 set -eu

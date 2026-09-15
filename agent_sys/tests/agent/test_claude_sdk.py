@@ -645,7 +645,7 @@ def _defs(call=None):  # noqa: ANN001, ANN202
 def test_tools_become_an_in_process_server_with_the_names_the_cli_uses() -> None:
     """`mcp__<server>__<tool>` is **measured**, not read: that spelling appears
     nowhere in the SDK, because it is the CLI's
-    (`scratch/single-real-task-2026-08/c_probe_sdk_tool_reachable.py`).
+.
 
     A wrong name here is a tool the model cannot call, which is indistinguishable
     from the tool not existing — so it is pinned.
@@ -695,8 +695,7 @@ def test_the_handler_runs_the_blocking_call_off_the_event_loop() -> None:
 def test_a_refusing_tool_propagates_its_message(monkeypatch) -> None:
     """`remote.tools._inside` raises `PermissionError`, and the SDK turns a
     raising handler into an `isError` result carrying `str(e)` — measured end to
-    end in `scratch/single-real-task-2026-08/c_probe_tool_refusal_visible.py`,
-    where the text reached the model verbatim and it kept working.
+    end, where the text reached the model verbatim and it kept working.
 
     So the adapter deliberately does **not** catch. This pins that: the
     exception must escape the handler with its message intact, because a

@@ -195,8 +195,7 @@ serena has to find:
 $AGENT_SYS_AGENT_ASSETS/serena_probe.py     symbol: envchk_serena_token
 ```
 
-Call it exactly like this — measured working against Serena 1.28.1 on this host
-on 2026-09-03:
+Call it exactly like this — measured working against Serena 1.28.1 on this host:
 
 ```
 mcp__serena__find_symbol
@@ -213,7 +212,7 @@ package's asset directory name; if `ls $AGENT_SYS_MY_WORKSPACE` shows a
 different one, use that and say so in `how`.
 
 **Supply `relative_path`. Do not omit it.** Measured on this host on
-2026-09-03 against a copy of this repository's tracked tree — 1458 files, 794
+ against a copy of this repository's tracked tree — 1458 files, 794
 of them Python: with `relative_path`, the call answered in **2.3 s** cold; with
 it omitted, **no response came back at all** within 6.3 s and the language
 server shut down. Why is not established and this brief does not guess; what is

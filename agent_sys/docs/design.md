@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Status | Draft — stage two of spec → design → test & code |
-| Revision | 3 — 2026-08-29. **The user-interface stage: the render step is deleted.** §3 was written around `render.py` and jsonnet, and neither exists. `render.py`, `ImportResolver`, `SpecSource` and `DirectoryPackage` are gone; §3.2 is now the YAML source reader, §3.3 the variable set, §3.4 `ruamel.yaml`'s diagnostics, and §3.6 the two-step `load_package` the code actually has. **Three measurements are kept as history rather than deleted** and each says which it is (§3.2): jsonnet's GIL-release and fixed ~23 ms per-render, which no longer describe anything and whose *conclusion* — parallelise — is unmeasured for YAML; the import-containment evidence, which outlived the resolver it was attached to and is now O3; and the IEEE-754 finding, which the format change **closes** for integers (measured) and leaves untouched for floats. Adopt table, criteria map, D4, O1, O2, O4 follow. (rev. 2: 2026-08-27. **The stage-three consistency pass.** The closure pass moves out of `load_package` and into the composition root (§3.6, §7 — `closure` design D3); §7 becomes the *whole* composition root rather than the spec layer's half of it (§7, and [`interfaces.md`](interfaces.md) §2, which is now normative for it); `Registries` is defined here rather than used undefined (§3.7); `cli/`'s layout is corrected to what `demo` design D2 measured (§2). (rev. 1: 2026-08-26. Initial) |
+| Status | Normative for how this package is built |
+| Revision | 3 |
 | Implements | [`spec.md`](spec.md) rev. 11, criteria 1–18 |
 | Language | Python ≥ 3.10. pydantic v2, `ruamel.yaml`, jsonschema. PyYAML remains a dependency and no longer touches a package document (§3.2) |
 | Scope | The loader, the five schemas, the four spec registries, the closure check, and the composition root |
@@ -153,22 +153,29 @@ says only that this repository holds the schemas, which it still does.
 
 ### 2.3 Import graph
 
-```
-                        spec_loader/     (ruamel.yaml, jsonschema, referencing)
-                             ▲
-        ┌──────────┬─────────┼─────────┬──────────┐
-    handoff    validator   task*     agent     closure
-        ▲          ▲                   ▲          ▲
-        └──────────┴─────────┬─────────┴──────────┘
-                             │
-                    bootstrap (§7) — the only module importing all of them
+An adjacency list rather than a picture, because this one is checked and a
+picture is not: each row is the package's row in
+`tests/interfaces/test_import_rules.py::ALLOWED`.
 
-    task_graph/  ──── imports nothing above. Nothing above imports it either,
-                      except through the Registry, by name, at use time.
-    env_mgr/     ──── likewise.
+```
+    cli          → everything below.  The composition root (§7): it may import
+                   anything of ours, and nothing of ours may import it.
+    ─────────────────────────────────────────────────────────────────────────
+    validator    → spec_loader, handoff, task_graph, monitor
+    agent        → spec_loader, task_graph, monitor
+    handoff      → spec_loader, task_graph
+    monitor      → task_graph
+    env_mgr      → task_graph
+    task_graph   → spec_loader
+    closure      → spec_loader
+    spec_loader  → nothing of ours.  The leaf.
+                   (ruamel.yaml, jsonschema, referencing)
 ```
 
-`*` The **task** spec registry lives in `closure/`, not in a package of its own.
+Every edge points downward and `spec_loader` is the sink, so the graph is
+acyclic by construction rather than by care.
+
+**There is no `task/` package.** The **task** spec registry lives in `closure/`.
 A task spec is not independently loadable — spec §2 of the closure document
 declares it inside the closure, as the `task` key — so a `task/` package would
 contain one registry and no other reason to exist. The four registries are still
@@ -176,10 +183,23 @@ four objects; three of them have their own package and one is homed with the
 document that declares its contents. **Stated rather than hidden**, because a
 reader counting packages will otherwise count four and find three.
 
-**No module package imports another.** They resolve collaborators through the
-`Registry` by name at call time, exactly as `task_graph`'s managers already do
-([`../task_graph/docs/design.md`](../task_graph/docs/design.md) §2). That is
-what keeps the graph acyclic without anyone maintaining it.
+**A module package may import another, and exactly which is a table, not a
+convention.** The permitted edges are
+[`interfaces.md`](interfaces.md) §4, and
+`tests/interfaces/test_import_rules.py` walks every file's AST against them, so
+the graph is maintained by a test rather than by anyone remembering. Collaborators
+that need no import are still resolved through the `Registry` by name at call
+time, exactly as `task_graph`'s managers do
+([`../task_graph/docs/design.md`](../task_graph/docs/design.md) §2) — `closure`
+is the case worth knowing, because its whole job is looking at four other
+modules' objects and it imports none of them.
+
+**This paragraph said "No module package imports another" for as long as that was
+untrue** — measured over the tree, `validator` imports `handoff`, `agent` imports
+`monitor`, and five packages import `task_graph`, all at run time with no
+`TYPE_CHECKING` guard. The property the sentence was reaching for — acyclic, one
+leaf — does hold. Stating it as a prohibition made a reader who checked the code
+disbelieve the part that was true.
 
 `spec_loader` imports nothing from this repository. It is the leaf, and it must
 stay one: the moment it imports `handoff` to understand a handoff spec, the

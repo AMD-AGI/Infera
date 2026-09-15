@@ -2,9 +2,8 @@
 
 | | |
 |---|---|
-| Status | Draft, revised after review |
-| Revision | 13 — 2026-08-30. **`examples/` is the exception to §4.3, as a directory rather than an enumerated list.** Rev. 4 put a workflow's specs outside this repository and admitted the demo as a named exception; the guard (`tests/spec_loader/test_repo_contents.py`) enumerated `examples/ok.filetree_grounded_report.4/`, `examples/fail.dangling_handoff_kind.1/` and `examples/ok.algorithms_solve_grade.14/` and required a fourth root to be argued for in that file. The enumeration bought "nobody adds a workflow package silently" and cost the obvious thing: **there is no number of examples at which a framework has enough**, so every example was a specification amendment. Widened to the directory. §4.3 gains the exception and says what it does *not* relax — an example is a task package like any other, uses nothing an outside package could not, and is never a dependency of this repository's suite — and records that an example may require real hardware, weights or credentials, since that is a property of the workload being shown. Criterion 5 amended and stays non-vacuous: a workflow spec anywhere but `examples/` still fails it. No other criterion changed. (rev. 12: 2026-08-29. **Three §7 rows corrected against the landed code, not against the plan.** `spec_loader` now parses with `ruamel.yaml` round-trip and `validate` takes a parsed document, so: the **PyYAML** row no longer claims it reads specs (it does not — `env_mgr/recipe.py`, `handoff/verdict.py` and `handoff/store.py` still use it); the **`ruamel.yaml`** row records that round-trip mode is YAML 1.2 and rejects duplicate keys, which **closes the two traps rev. 10 flagged as live** — closed by parser choice, not by convention, and exactly one parser may touch a package document because the two disagree on real values; and §4.4's **shared-constants** row says the values are supplied to a package rather than declared in one, with the measurement (across the 21 replaced sources, every reference was to a run-level fact and no package declared a constant of its own), so no `vars:` block is built. No criterion changed. (rev. 11: 2026-08-29. **`main.yaml` is a role, not a requirement on every directory.** Rev. 10's criterion 16 fused two rules of different arity and one of them over-reached. `assets/` is about *being a package* — every document may write an unqualified path — so it is required of every package and that half is unchanged. `main.yaml` is about *being a run's entry*, which is one per **run**: `task_graph/bootstrap.py:47` takes `packages: Sequence[Any]` and `:255` loads each into one shared set of registries, so demanding the file of every package answers "where does a run start" N times and therefore not at all — and makes a kinds-only library package inexpressible, three paragraphs after §4.3 permits exactly that. **Presence is now the statement**: a package carrying `main.yaml` is runnable, one without is a library, and a `main.yaml` present but declaring no `module: task` is rejected because it is an entry to nothing. The per-run half — exactly one entry package — has no owner (nothing reads the file's contents; `cli/main.py:668,687` choose the root by closure name) and is a new §10 row naming both sides of the seam. Criterion 16 split, 18 added, nothing deleted. (rev. 10: 2026-08-29. **The user-interface stage: YAML replaces jsonnet, and the agent rule becomes leaf-only.** Four amendments, and the first three are one change. **§4.4** is now `YAML → schema`: the render step is gone, because measurement over all 21 `.jsonnet` / `.libsonnet` sources found the whole computation surface to be constants, string concatenation, and default-if-absent. `config` / `extVar` is replaced by naming where each of those three now lives — a package-level variable set for the first two, a schema `default` for the third — and "the schema is the only enforcement point" survives intact and slightly stronger. **§2.3**'s three tiers become two: tier ② was jsonnet and stopped existing rather than moving. **§4.3** admits **two mandatory names**, `main.yaml` and `assets/`, and replaces the unqualified "the loader does not interpret a package's layout" with what the exception costs. **§7** moves jsonnet to rejected with the measurement, replaces Kustomize's reason with the real one (its API is the Go package `krusty`; there is no Python binding), and adopts `ruamel.yaml` for a parse that carries source positions. **§4.8** narrows to leaf-only: a non-leaf's `agent` was read by nothing (`agent/runner.py:682`, `env_mgr/prepare.py:447`, `validator/environment.py:140`). Criteria 3, 4, 5, 6 and 9 amended in place, 16 and 17 added; this is the first revision to amend a criterion rather than only add one. (rev. 9: 2026-08-27. **Every task has an agent, and an agent need not be an AI** — `ai`, `human` or `program` (§4.8). The previous wording, "a task may have no agent at all", was inexpressible in `task_graph` and had been deferred by four design modules; `kind: program` is what a task without an AI has. (rev. 8: 2026-08-26. Four diagrams added to §2, no specification changed: the system as a reader meets it — four core subjects framed by `task_graph`, substrate below, registries above, O11y and the monitor vertical; the same structure as a strict dependency order; and a spec's three tiers of definition — contract, template, declaration — which together are what lets the core run a package end to end (§2.3). Plus the life of one task as a state machine and the same life zoomed out to a task package (§2.4). (rev. 7: 2026-08-26. Restructured most-important-first: a whole-system architecture diagram, a component map, and the life of one task in a new §2; the design principles follow as §3; a reading guide in §1.4. No specification changed — the survey count and the leaf/lease wording were reconciled with the component specs. (rev. 6: 2026-08-26. The monitor acts through a task's own transitions, never on its status; cascading cancel is in scope, cascading invalidation is not (§5.1). (rev. 5: 2026-08-26. Runtime fan-out is a framing, not a prohibition: the catalogue is static, the instance count is not (§6.1). Producer means the agent, not the task (§5.2). Isolation criteria are CI-enforced. (rev. 4: A workflow's specs live in a task package outside this repository; this repository holds the schemas, the loader, and the general specs. jsonnet adopted for templating, with the JSON Schema as the only enforcement point (§4.3–§4.5). rev. 3: Failure reaction belongs to the graph's monitor, not the scheduler (§5.1). rev. 2: Review of PR #132: `decoupled` promoted to the first principle; the use-the-existing-wheel rule; a task may have no agent; validations invisible to the scheduler; two research-reversed decisions recorded. rev. 1: initial))))))))) |
-| Date | 2026-08-24 |
+| Status | Normative |
+| Revision | 13 |
 | Scope | The whole system: what it is, which components exist, and what each owes the others |
 | Source | The task definition; a survey of evaluation frameworks and of agent-harness isolation (§7.1) |
 
@@ -74,6 +73,10 @@ one — which is what §5.2 makes structural.
 - **Dynamic task graphs.** §6 states the record-and-replay scope and its cost.
 
 ### 1.4 How to read this document, and the eight others
+
+> The eight are `handoff`, `validator`, `task_graph`, `agent`, `closure`,
+> `env_mgr`, `monitor` and `cli`. `spec_loader` has no spec of its own: §4.3–§4.5
+> here and [`design.md`](design.md) §3–§5 are what specify it.
 
 This document is written **most important first**. A reader who stops after §5
 has the whole architecture and both constraints the design turns on; §6 onward is
@@ -681,7 +684,7 @@ them and an over-reach for the other, and the difference is arity:**
 | Consequently | required of every package, and a missing one is fatal | required of the package a run starts from — which is a role, not a property of the directory |
 
 **Requiring `main.yaml` of every package defeats the reason given for it.**
-`task_graph/bootstrap.py:47` takes `packages: Sequence[Any]` — several — and
+`task_graph/bootstrap.py` takes `packages: Sequence[Any]` — several — and
 `:255` loads each into one shared set of registries. A two-package run holds two
 files each claiming to declare *the outermost graph*, and the rationale above —
 "something has to say where a run starts" — is answered twice and therefore not
@@ -720,8 +723,8 @@ the name and forgot the graph is told.
 
 **The other half has no home today, and is not invented here.** Nothing can
 currently ask "is this the run's entry": `spec_loader` is handed one package at a
-time (`bootstrap.py:255`, `load_package(pkg, views)` per package), and the root
-is chosen by *closure name* by whoever calls in — `cli/main.py:668,687` pass the
+time (`bootstrap.py`, `load_package(pkg, views)` per package), and the root
+is chosen by *closure name* by whoever calls in — `cli/main.py` pass the
 literal `"main"` to `build.root_task`. **`main.yaml`'s contents are read by
 nothing today**: `spec_loader/package.py` references the name at `:184` for this
 check and at `:237` to sort the file last in the scan, and nowhere else. §10
@@ -849,7 +852,6 @@ Verified against `jsonschema`, and re-verified over a hand-written YAML document
 now that there is no render to go through: giving a `const` field another value
 fails with `'reproducible' was expected`, and smuggling an undeclared field fails
 with `Additional properties are not allowed ('secretly_added' was unexpected)`.
-The probe is `scratch/ui-yaml-2026-08/w1/probe_enforcement_point.py`.
 
 **The deletion of jsonnet strengthened this rather than weakening it**, and it is
 worth saying why, because the obvious reading is the opposite — a layer was
@@ -917,9 +919,9 @@ wording forced every author to invent a name for a thing that does not run, and
 
 | Claim | Evidence |
 |---|---|
-| A non-leaf never deploys its agent spec | `agent/runner.py:682` returns before `_deploy`, so `env_mgr/prepare.py:447`'s `material.deploy(agent_spec, zone)` is never reached for one |
-| Its zone stages nothing | `_place_container_zone` "confines nothing, cuts no workspace, stages nothing" (`agent/runner.py:678,687`) |
-| Output validation is already safe without one | `producer=None` falls through to the GLOBAL row (`validator/environment.py:140`) — the path exists and is exercised |
+| A non-leaf never deploys its agent spec | `agent/runner.py` returns before `_deploy`, so `env_mgr/prepare.py`'s `material.deploy(agent_spec, zone)` is never reached for one |
+| Its zone stages nothing | `_place_container_zone` "confines nothing, cuts no workspace, stages nothing" (`agent/runner.py`) |
+| Output validation is already safe without one | `producer=None` falls through to the GLOBAL row (`validator/environment.py`) — the path exists and is exercised |
 
 So dropping the requirement removes a field, deletes no behaviour, and needs no
 new fallback. The rule is now enforced in the two places it was enforced before,
@@ -1266,34 +1268,28 @@ Nine documents, each with its own numbered acceptance criteria. The 18 above are
 system-level and are demonstrated *across* components; these are demonstrated
 within one.
 
-| Document | Rev. | Criteria | Its own open questions |
-|---|---|---|---|
-| **this document** | 12 | §8 — 18 | §10 |
-| [`handoff`](../handoff/docs/spec.md) | 4 | §9 — 17 | §10 |
-| [`validator`](../validator/docs/spec.md) | 6 | §11 — 21 | §12 |
-| [`task_graph`](../task_graph/docs/spec.md) | 12 | §11 — 54 | §10 |
-| [`agent`](../agent/docs/spec.md) | 4 | §8 — 16 | §9 |
-| [`closure`](../closure/docs/spec.md) | 10 | §5 — 12 | §6 |
-| [`env_mgr`](../env_mgr/docs/spec.md) | 3 | §10 — 22 | §11 |
-| [`demo`](../cli/docs/spec.md) | 5 | §6 — 16 | §7 |
+| Document | Criteria | Its own open questions |
+|---|---|---|
+| **this document** | §8 — 18 | §10 |
+| [`handoff`](../handoff/docs/spec.md) | §9 — 17 | §10 |
+| [`validator`](../validator/docs/spec.md) | §11 — 21 | §12 |
+| [`task_graph`](../task_graph/docs/spec.md) | §11 — 54 | §10 |
+| [`agent`](../agent/docs/spec.md) | §8 — 16 | §9 |
+| [`closure`](../closure/docs/spec.md) | §5 — 12 | §6 |
+| [`env_mgr`](../env_mgr/docs/spec.md) | §10 — 22 | §11 |
+| [`monitor`](../monitor/docs/spec.md) | §10 — 26 | §11 |
+| [`cli`](../cli/docs/spec.md) | §6 — 17 | §7 |
 
-**176 criteria in total, and three facts about the set are worth stating:**
+**203 criteria in total.** There is no revision column: each document states its
+own revision in its own header, and a second copy of that fact is a second thing
+to keep true — `engineer_principle.md` §1. The last one drifted in six rows of
+eight before anyone read it against the documents.
 
-- **Rev. 10 was the first revision to amend criteria rather than only add them,
-  and rev. 11 amended one of its own.** Rev. 10: this document's 3, 4, 5, 6 and 9
-  changed wording and `closure`'s 3 changed meaning, with 16, 17 and `closure` 12
-  added. Rev. 11: 16 was split, its `main.yaml` half becoming 18. Each says so
-  inline and **none was deleted**. Flagged because until rev. 10 the set had the
-  property in the next bullet, and a reader who assumes it still holds everywhere
-  will trust a stale quotation.
-  Flagged because until now the set had the property in the next bullet, and a
-  reader who assumes it still holds everywhere will trust a stale quotation.
+Two facts about the set are worth stating:
 
-- **`task_graph`'s 54 are stratified by revision**: 1–35 at rev. 7 are
-  **implemented and green** (423 tests); 36–44 (subgraphs and validation phases),
-  45–52 (task-owned transitions, cascading cancel), and 53–54 (leaf-only
-  acquisition) are specified and unbuilt. No earlier criterion was amended by a
-  later revision.
+- **`task_graph`'s 54 are stratified**: 1–35 are implemented and green; 36–44
+  (subgraphs and validation phases), 45–52 (task-owned transitions, cascading
+  cancel), and 53–54 (leaf-only acquisition) are specified and unbuilt.
 - **`env_mgr`'s 2–14 and this document's 14–15 are CI-enforced** and are the only
   ones with that status today. They are the isolation properties, which is
   deliberate: they are what the system's safety claim rests on (§8).
@@ -1307,12 +1303,12 @@ System-level only. Component-level questions live in each component's spec.
 | Item | Status |
 |---|---|
 | **Scoring** | §3.1 principle 7 wants a scoring mechanism; the validator spec reserves the field. Nothing specifies how a score is produced, compared across runs, or aggregated to a task. v1 is boolean throughout, because a threshold set before run-to-run variance is measured is indistinguishable from noise |
-| **The observer, and the monitor** | §3.1 principle 4 wants an outside view of whether an agent has drifted or is looping. It is not the scheduler's job (§5.1) and an agent cannot be trusted to report it of itself (§5.2). **The monitor moved into the alpha on 2026-08-27** — `task_graph` spec §3.5 specifies it, with its own mainloop. **On 2026-08-28 its job widened from the task's exceptions to the task's events**, on two channels: planned phase advances handled by code, and the unplanned outcomes this row is about (`monitor` spec §2.2). The alpha still ships a simple pusher, and the *analysing* dispatcher stays in [`ROADMAP.md`](ROADMAP.md) §2 — bound to the unplanned channel, so no model is ever on the ordinary path |
+| **The observer, and the monitor** | §3.1 principle 4 wants an outside view of whether an agent has drifted or is looping. It is not the scheduler's job (§5.1) and an agent cannot be trusted to report it of itself (§5.2). **The monitor moved into the alpha on ** — `task_graph` spec §3.5 specifies it, with its own mainloop. **On its job widened from the task's exceptions to the task's events**, on two channels: planned phase advances handled by code, and the unplanned outcomes this row is about (`monitor` spec §2.2). The alpha still ships a simple pusher, and the *analysing* dispatcher stays in [`ROADMAP.md`](ROADMAP.md) §2 — bound to the unplanned channel, so no model is ever on the ordinary path |
 | **The control surface** | §3.1 principle 5 wants abort and instruct. The backend exposes both (agent spec §4.3); what drives them — a CLI, a panel, a queue — is not specified. The whole-system CLI ([`TODO.md`](TODO.md)) is where it will land |
 | **Cross-closure knowledge accumulation** | Knowledge handoffs are specified, but nothing says how a good result *becomes* one, or who decides. "Excellent work feeds back into the few-shot examples" is a goal, not a mechanism |
 | **Runtime fan-out** | §6.1 settles the framing — the catalogue is static, the instance count is not — and merges `closure` spec's "parameterised closures" into this row. Four things are undecided: **who submits** (the executing agent, permitted today, or the monitor, which is roadmap); **`is_end` accounting**, which breaks if N siblings appear after a statically declared end entry subtask, so "has this subgraph finished" can report finished while children run; **parentage**, since a runtime-submitted task needs a parent for its storage to nest; and **what bounds N**, because 200 tasks against an 8-GPU pool is fine for the scheduler and probably not for the operator |
-| **A failed branch is reported, but the alpha cannot repair it** | ~~The branch stops and nothing surfaces an error.~~ **Withdrawn 2026-08-27.** `monitor` spec §2 principle 1 makes every departure from the plan the monitor's, and a task that fails a validation is terminal — its dependents will never run and the graph will not finish, whether or not any component malfunctioned. So the failure **is reported and recorded** (`monitor` spec §2.1); it does not go quiescent. What remains a limitation is only the *response*: the alpha's pusher has no push for a terminal task with no agent running, so deciding what to do about a dead branch — retry with more knowledge, reassign, escalate to a human — waits for the analysing dispatcher ([`ROADMAP.md`](ROADMAP.md) §2.3). **The ceiling is on the reaction, never on the reporting.** `demo` criterion 5 still requires demonstrating a validation failure |
-| **Which package a run starts from** | §4.3 settles the per-package half — `main.yaml` present means runnable, absent means library — and leaves the per-run half unowned. A run takes `packages: Sequence[Any]` (`task_graph/bootstrap.py:47`) and loads each into one shared set of registries (`:255`); nothing designates one as the entry, and nothing reads `main.yaml`'s contents at all. Today the root is chosen by *closure name* by the caller — `cli/main.py:668,687` pass the literal `"main"` to `build.root_task`. So three things are undecided: **who selects the entry package**, **what happens when two of the packages carry `main.yaml`** (legal, since each may be runnable alone) and when none does, and **whether the closure-name route survives** or is replaced by reading the entry package's `main.yaml`. The seam is `task_graph/bootstrap.py`'s `packages=` parameter on one side and `spec_loader`'s `TaskPackage` on the other; neither can answer it alone, which is why it is here and not in either module |
+| **A failed branch is reported, but the alpha cannot repair it** | ~~The branch stops and nothing surfaces an error.~~ **Withdrawn.** `monitor` spec §2 principle 1 makes every departure from the plan the monitor's, and a task that fails a validation is terminal — its dependents will never run and the graph will not finish, whether or not any component malfunctioned. So the failure **is reported and recorded** (`monitor` spec §2.1); it does not go quiescent. What remains a limitation is only the *response*: the alpha's pusher has no push for a terminal task with no agent running, so deciding what to do about a dead branch — retry with more knowledge, reassign, escalate to a human — waits for the analysing dispatcher ([`ROADMAP.md`](ROADMAP.md) §2.3). **The ceiling is on the reaction, never on the reporting.** `demo` criterion 5 still requires demonstrating a validation failure |
+| **Which package a run starts from** | §4.3 settles the per-package half — `main.yaml` present means runnable, absent means library — and leaves the per-run half unowned. A run takes `packages: Sequence[Any]` (`task_graph/bootstrap.py`) and loads each into one shared set of registries (`:255`); nothing designates one as the entry, and nothing reads `main.yaml`'s contents at all. Today the root is chosen by *closure name* by the caller — `cli/main.py` pass the literal `"main"` to `build.root_task`. So three things are undecided: **who selects the entry package**, **what happens when two of the packages carry `main.yaml`** (legal, since each may be runnable alone) and when none does, and **whether the closure-name route survives** or is replaced by reading the entry package's `main.yaml`. The seam is `task_graph/bootstrap.py`'s `packages=` parameter on one side and `spec_loader`'s `TaskPackage` on the other; neither can answer it alone, which is why it is here and not in either module |
 | **Multi-graph concurrency** | One system whole task is specified. Two running at once against the same handoff storage is not. Nested per-task storage (`env_mgr` spec §5.1) handles most of it; two runs of the *same* task is the case it does not |
 | **Where agent work quality is scored** | Distinct from scoring a handoff: the task definition wants agent work quality quantified over time. o11y records the metrics ([`ROADMAP.md`](ROADMAP.md) §1); nothing turns them into a judgement |
 | **The isolation ceiling** | `env_mgr` spec §4.6 states it plainly: a process sandbox is necessary and not inviolable, and for genuinely untrusted input the answer is a VM per task. The alpha runs trusted-but-fallible agents, so this is a threat-model judgement — and it should be revisited if that changes |

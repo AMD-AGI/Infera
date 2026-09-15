@@ -171,14 +171,14 @@
 # 2. The kinds. `${mode}.${result_type}`, mission M2.2's own example spelling.
 #
 # Every `reproducible` kind below carries the same `items_schema`, and it is not
-# optional: `handoff/kind.py:144` rejects a `reproducible` kind whose schema
+# optional: `handoff/kind.py` rejects a `reproducible` kind whose schema
 # "permits a document carrying 'script' or 'command' with no 'env'" — an
 # executable with no declared environment is not reproducible whatever it
 # claims. Mission G5 wants the environment on every handoff anyway, so the
 # framework rule and the mission rule agree.
 #
 # `type: string` throughout, because for a file or tree item the value validated
-# is the item's **name**, not its contents (`handoff/content.py:184-197`). That
+# is the item's **name**, not its contents (`handoff/content.py`). That
 # is also why this is not the schema layer G2 asks for; that one is
 # `assets/schemas/`, loaded by producer and validator alike.
 - module: handoff
@@ -286,20 +286,20 @@
 #
 # **Defined here rather than in `shared.yaml`.** The package owner asked for
 # `shared.yaml`; all four existing ai agents live in their own step file
-# (`m1_deploy.yaml:325`, `m3_analysis.yaml:390`, `m4_kernel_opt.yaml:458`,
-# `m5_integration.yaml:592`) and `shared.yaml` holds only `runner`. Copying the
+# (`m1_deploy.yaml`, `m3_analysis.yaml`, `m4_kernel_opt.yaml`,
+# `m5_integration.yaml`) and `shared.yaml` holds only `runner`. Copying the
 # convention the maintainers converged on rather than starting a second one;
 # flagged rather than done silently.
 #
 # **Declaring `env` here does NOT make this switch safe**, and the gap is the
-# point rather than a caveat. `agent/runner.py:801`: *"an env var cannot
+# point rather than a caveat. `agent/runner.py`: *"an env var cannot
 # instruct an agent. A conversation is not a process reading os.environ."* So
 # every guard below is reachable, and only the ones the task's `readme.md`
 # STATES are actually applied. Audited 2026-09-05 — three are named nowhere in
 # any of this stage's three briefs:
 #
 #     AIPERF_TRACE      0 mentions   the var whose absence killed a run today
-#                                    (`aiperf_replay.sh:38`, `${AIPERF_TRACE:?}`)
+#                                    (`aiperf_replay.sh`, `${AIPERF_TRACE:?}`)
 #     gpu_devices       0 mentions   the seventh kit variable and its three-branch
 #                                    precedence (`line.sh`, `03e3bae`)
 #     replayed_from     0 mentions   provenance carried into the numbers, not a message
@@ -323,7 +323,7 @@
   description: Brings its own service up from m1's kit, loads it twice — profiler detached and attached — and folds both into one evidence handoff.
   env:
     # The allocation. As m3 says of theirs, the bodies do not trust these over
-    # the handoff: `line.sh:193` refuses when the kit's `fixed.node` disagrees
+    # the handoff: `line.sh` refuses when the kit's `fixed.node` disagrees
     # with the ambient `E2E_NODE`, and the record wins where both exist.
     E2E_JOBID: '${jobid}'
     E2E_NODE: '${node}'
@@ -332,14 +332,14 @@
     # Byte-identical to `runner`'s line and to m1's, m3's and m5's — the `:-`
     # form, which m5 measured fills a present-but-empty variable in both shells.
     E2E_REMOTE_HOME: '${remote_home:-}'
-    # **The one that killed a run.** `aiperf_replay.sh:38` is `${AIPERF_TRACE:?}`
-    # and `shared.yaml:136` says an operator who passes no `--var aiperf_trace=`
+    # **The one that killed a run.** `aiperf_replay.sh` is `${AIPERF_TRACE:?}`
+    # and `shared.yaml` says an operator who passes no `--var aiperf_trace=`
     # gets a loud failure. Both profiling lines read it; there is no second var.
     E2E_AIPERF_TRACE: '${aiperf_trace:-}'
     E2E_AIPERF_IMAGE: '${aiperf_image:-nvcr.io/nvidia/ai-dynamo/aiperf:0.12.0}'
     # The bring-up this stage performs itself (M2.5). `E2E_PORT_ROUTER` is the
     # base the kit SEARCHES FROM, never the port to load against — `025d84c`.
-    E2E_CONTAINER: '${container:-yihou_e2e_flow}'
+    E2E_CONTAINER: '${container}'
     E2E_PORT_ROUTER: '${port_router:-8101}'
     E2E_WORK_ROOT: '${work_root}'
     E2E_GPU_DEVICES: '${gpu_devices:-none}'
@@ -391,8 +391,8 @@
   # told about them. They do not degrade — they disappear.
   #
   # That edit is the natural tidying for someone to do: m1, m3, m4 and m5 all
-  # read `agent: '${mN_agent:-…}'` (`m1_deploy.yaml:325`, `m3_analysis.yaml:390`,
-  # `m4_kernel_opt.yaml:458`, `m5_integration.yaml:592`), so m2 looks like the
+  # read `agent: '${mN_agent:-…}'` (`m1_deploy.yaml`, `m3_analysis.yaml`,
+  # `m4_kernel_opt.yaml`, `m5_integration.yaml`), so m2 looks like the
   # odd one out. It is not; it is the one stage with no `kind: ai` body, and the
   # asymmetry is the design.
   #
@@ -403,7 +403,7 @@
   # on required variables, among them the node-identity check at `:192` that
   # refuses when the kit's node is not the node we are on.
   #
-  # **An `env:` block cannot carry them.** `agent/runner.py:801` is explicit:
+  # **An `env:` block cannot carry them.** `agent/runner.py` is explicit:
   # *"an env var cannot instruct an agent. A conversation is not a process
   # reading `os.environ`."* An `env:` entry makes a value reachable; only a
   # brief makes it used. So the refusals would not degrade — they would be
@@ -541,7 +541,7 @@
       # measurement, and anyone correcting it to match reality removes the
       # protection and gets no error. Found by m2, T38.
       #
-      # `graph.py:358-371` is explicit that this is what the field is for: "an edge
+      # `graph.py` is explicit that this is what the field is for: "an edge
       # no handoff supports is the one thing `froms` buys", and the check on it is
       # deliberately non-fatal for that reason.
       - {closure: run_profiling_mode_on, froms: [run_profiling_mode_off]}

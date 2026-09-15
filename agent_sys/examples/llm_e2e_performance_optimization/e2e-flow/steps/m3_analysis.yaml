@@ -49,7 +49,7 @@
 # **This block used to say there was no `env` block**, on the grounds that
 # `shared.yaml` is the package's only declaration site and a second one is a
 # second place for a default to go stale. The reasoning is right and the premise
-# was never checked: `env_mgr/material.py:96` builds an agent's environment from
+# was never checked: `env_mgr/material.py` builds an agent's environment from
 # `_declared_env(agent_spec)` — the `env` of **the agent that is running** — and
 # `shared.yaml`'s 36 `E2E_*` are declared on `runner`. m1 measured it off rung
 # 1's transcript: a `kind: ai` agent's first command was
@@ -108,14 +108,14 @@
     E2E_NODE_IP: '${node_ip}'
     E2E_PORT_ROUTER: '${port_router:-8101}'
     E2E_MOCK_ROOT: '${mock_root:-}'
-    # **The symbol-search index, read by `identify.task/identify.py:683`.**
+    # **The symbol-search index, read by `identify.task/identify.py`.**
     # Undeclared here until 2026-09-05, and invisible until m2 repaired
     # `check_agent_env`'s closure->assets mapping (`7507b74`): it matched by
     # name-containment, so this agent was audited against `build_workset` alone
     # and `rank.task` and `identify.task` were never scanned. One of three
     # closures, for the life of the check.
     #
-    # **Byte-identical to `shared.yaml:181`** — the package owner's instruction, and
+    # **Byte-identical to `shared.yaml`** — the package owner's instruction, and
     # m2's `E2E_MOCK_STAGES` defect is the reason: two declarations of one
     # default drifted and silently changed which stages were mocked.
     #
@@ -146,7 +146,7 @@
     # **This comment used to end by saying the body falls back to card 4** —
     # `: "${E2E_MEASURE_GPU:=4}"`, so an unset var and an empty one both land on
     # 4, described as "the residual T19". That stopped being true when
-    # `measure_in_container.sh:142` was changed to refuse: it now prints the
+    # `measure_in_container.sh` was changed to refuse: it now prints the
     # node's live `rocm-smi` and exits 1 with `FIX: pass --var measure_gpu=<n>`.
     # So there is no residual fallback and this variable is **required** wherever
     # `build_workset` runs, mock or real. Found 2026-09-04 while writing rung 3's
@@ -285,7 +285,7 @@
     # **This validator re-measures on the node, so it needs the transport — and
     # a validator declares no agent, so it is started with a closed
     # environment.** Both names and both defaults are m1's
-    # (`m1_deploy.yaml:234-241`) so that one `--var` drives every validator that
+    # (`m1_deploy.yaml`) so that one `--var` drives every validator that
     # steps onto a node; a second spelling would be a second thing to keep in
     # step. Measured 2026-09-04: without `transport_env`, `spur` exits with
     # `Connection refused` and `require_visible_on_node` reports it as the
@@ -357,7 +357,7 @@
 # nothing. Replaced by the keys rather than by a better path: the keys are what
 # `check_workset_shape` grades, and a pointer to an untracked directory should
 # not be repaired into a tidier pointer to an untracked directory.
-# `assets/build_workset.task/readme.md:98` carries the same reference **in an
+# `assets/build_workset.task/readme.md` carries the same reference **in an
 # agent's system prompt** — held while the full-real chain is live, since that
 # is the file the chain dispatches.
 #

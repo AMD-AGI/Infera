@@ -305,7 +305,7 @@ def test_instruct_refuses_once_the_loop_has_returned() -> None:
     `examples/ok.sglang_real_model.2`: the agent finished, the seal was refused, the
     monitor decided to push *continue, do it until finished*, `PUSH_ATTEMPTED`
     was written to the store — and the message was never read. `mainloop` had
-    already broken out on terminal status (`backend.py:410-413`), and
+    already broken out on terminal status (`backend.py`), and
     `queue.Queue` is unbounded, so `_enqueue_instruction`'s `put` succeeded into
     a queue with no consumer. The run then sat for 65 minutes with both
     processes alive, ~1 s CPU per 20 s, and nothing written anywhere.
@@ -320,7 +320,6 @@ def test_instruct_refuses_once_the_loop_has_returned() -> None:
     same whether the message landed or vanished. Raising gives it one, because
     `monitor.base._run_guarded` catches and records `handling_failed`.
 
-    Probe: `scratch/single-real-task-2026-08/probe_push_after_settle.py`.
     """
     from agent.backend import AgentNotListening
 

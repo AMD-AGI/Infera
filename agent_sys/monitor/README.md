@@ -146,7 +146,7 @@ created the first one. That test **constructs the record by hand**, so it was
 itself standing in for the missing production. It proved the relay forwards,
 which was true, and was structurally incapable of noticing that nobody upstream
 ever spoke. Every non-leaf, the root included, sat in `RUNNING` for ever
-(`04a5b76`; first green end-to-end run 2026-08-29, `main: succeeded`).
+(`04a5b76`; first green end-to-end run, `main: succeeded`).
 
 The row now names the producer first. **A criterion with a verb in it needs a
 test per verb** — 24 says *reports* and *does not transition*, and only the

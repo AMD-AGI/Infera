@@ -1,4 +1,4 @@
-# main — the whole of demo2, as one task
+# main — the whole package, as one task
 
 This task runs nothing itself. Its work is its subgraph, and it carries this
 readme and **no `entry.sh`** — the rule is *`entry.sh` versus a subgraph*, not

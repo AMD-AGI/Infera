@@ -13,7 +13,7 @@
 # table fail *silently*, and four of them are an unset variable.
 #
 # POSIX `/bin/sh`: agent_sys invokes a body as `["/bin/sh", entry]`
-# (`agent/backends/program.py:83`), so the shebang is never consulted and
+# (`agent/backends/program.py`), so the shebang is never consulted and
 # `set -o pipefail` would be a hard exit 2 under dash.
 set -eu
 
@@ -71,7 +71,7 @@ if [ "$KFO_MOCK" = "1" ]; then
   #     the Definition's 'candidate:sampler_vocab_softmax' defines no `run`
   #
   # m3's `--impl` contract is a **self-contained** source file exporting a
-  # top-level `run(**inputs)`, exec'd in a fresh namespace (`harness/_common.py:278-290`)
+  # top-level `run(**inputs)`, exec'd in a fresh namespace (`harness/_common.py`)
   # — no module, no package, no relative imports. The stock `srt/layers/sampler.py`
   # is an sglang module: it exports `Sampler.forward`, not the workset's
   # `integration.public_symbol` (`sampler_softmax`), so even appending a
@@ -135,7 +135,7 @@ fi
 # --- the real campaign ------------------------------------------------------
 [ -n "$ONELINE" ] || { echo "the workset declares no forge.one_line for $OPERATOR; nothing to run" >&2; exit 1; }
 
-# The floor is 1.0 and it is ENFORCED (`kernel_agents/cli.py:46` MIN_MAX_HOURS,
+# The floor is 1.0 and it is ENFORCED (`kernel_agents/cli.py` MIN_MAX_HOURS,
 # `_validate_max_hours` raises `click.BadParameter` below it) -- there is no
 # such thing as a five-minute forge run. Clamp, and say so, rather than passing
 # a smaller value and letting the CLI reject it.
@@ -171,7 +171,7 @@ echo "$DEGRADED" > "$WORKDIR/degraded"
 #
 # **No `git init` here.** There was one, on the belief that forge commits in the
 # directory it is run from. It does not — it commits in `--workspace`
-# (`loop/runner.py:1600`), which is the tree built below. A repo here would be
+# (`loop/runner.py`), which is the tree built below. A repo here would be
 # one nothing ever writes to.
 RUN="$WORKDIR/repo"
 if [ ! -d "$RUN" ]; then
@@ -183,7 +183,7 @@ fi
 #
 # Ruled 2026-09-04 after reading KernelForge rather than inferring it. Forge
 # stages `git add -u` and commits with `cwd=self.ic.workspace_dir`
-# (`loop/runner.py:1600`), i.e. `--workspace` (`cli.py:725`, `required=True`)
+# (`loop/runner.py`), i.e. `--workspace` (`cli.py`, `required=True`)
 # and nothing else. So the tree forge edits is a CALLER DECISION, and there are
 # three candidates, not two:
 #
@@ -209,7 +209,7 @@ fi
 #
 # **The baseline commit is load-bearing, not tidiness.** `git add -u` stages
 # only *tracked* files, so a `git init` with nothing committed gives forge
-# nothing to stage. It does not then emit an empty patch: `runner.py:1600` is
+# nothing to stage. It does not then emit an empty patch: `runner.py` is
 # `check=True`, so it raises `GitError`. Loud, which is the good direction, but
 # still the campaign hours already spent.
 #
@@ -220,7 +220,7 @@ fi
 #
 # **`git init` at SGLANG_ROOT's level, not at the repo root three above it.**
 # Then `git diff HEAD` emits `srt/layers/sampler.py` natively, which is exactly
-# `apply.py:637`'s frame — no `--relative`, no path surgery. Cutting the diff in
+# `apply.py`'s frame — no `--relative`, no path surgery. Cutting the diff in
 # the wrong frame is what produced `No file to patch. Skipping patch.` earlier
 # in this package; siting the init removes the mismatch instead of compensating
 # for it.
@@ -251,7 +251,7 @@ if [ ! -d "$WS/.git" ]; then
   cp -a "$ENGINE_ROOT/." "$WS/"
   # **Identity in the REPO, not on our one commit.** `-c user.name=…` would
   # cover the baseline below and nothing else; forge's own commit at
-  # `runner.py:1600` passes no identity, so a container with no git config
+  # `runner.py` passes no identity, so a container with no git config
   # would fail there -- after the campaign hours, which is the expensive place
   # to find it. Same for signing: forge does not pass `--no-gpg-sign`.
   ( cd "$WS" \
@@ -374,7 +374,7 @@ cp "$KERNEL" "$WORKDIR/optimized_kernel.py"
 #     git diff HEAD          0 lines
 #     git diff $BASELINE     9 lines, the marker
 #
-# because **forge commits its keeps** (`runner.py:1600`), so `HEAD` has already
+# because **forge commits its keeps** (`runner.py`), so `HEAD` has already
 # moved to include them and the working tree matches it. The failure would have
 # been silent and it would have looked exactly like `improved: false` — an empty
 # patch from a campaign that worked. The one outcome this stage cannot tell

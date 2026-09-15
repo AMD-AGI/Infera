@@ -1,14 +1,106 @@
 # `llm_e2e_performance_optimization` — deferred work
 
-Opened 2026-09-03 alongside the `e2e-flow/` refine. Every item here was **named
-and deferred by the mission**, or carried over from the 2026-09-02 effort with a
-measured symptom. Nothing is here because it was forgotten.
+Every item here was **named and deferred by the mission**, or carried over from
+an earlier effort with a measured symptom. Nothing is here because it was
+forgotten.
 
 Format: what · why it is not done · what would settle it.
 
----
+## Index
 
-## From `mission.md`, deferred by the mission itself
+| # | Item | Status | Lines |
+|---|---|---|---|
+| T1 | `check_trace_coverage` against the sglang source and the model structure | — | 12 |
+| T2 | the `vendor_tuned` bucket | — | 12 |
+| T3 | one handoff per operator | — | 12 |
+| T4 | the analysis programs are hand-written and may be narrow | — | 10 |
+| T5 | the patch mechanism should hack the registry, not bind-mount files | — | 18 |
+| T6 | permission and visibility management for the shared container | — | 14 |
+| T7 | the comparability gate at bring-up (was E9′) | — | 17 |
+| T8 | `seal_refused` has no reader (was C9b) | — | 7 |
+| T9 | `env_mgr.fs.layout` has two `copy_out` functions (was E14/C-two-copy_out) | — | 6 |
+| T10 | `check_workset_runs` hard-fails on rsd while `min_pass_ratio` forgives correctness (was C24 an | — | 6 |
+| T11 | ten closed `items_schema`s in the integration stage (was C23) | CLOSED | 6 |
+| T12 | the mock cannot exercise M5.4's ad-hoc correctness rules | — | 14 |
+| T13 | `compare.py` finds the kernel's profile share by substring | — | 18 |
+| T14 | a task body cannot name the interpreter the run is using | — | 27 |
+| T15 | `E2E_KIT_ENGINE_EXTRA_ENV` is a seam with no consumer | — | 19 |
+| T16 | `git`'s `index.lock` retry is not idempotent, and its no-op is silent | — | 24 |
+| T17 | the model-specific engine flag groups are free-form strings and cannot be checked | — | 34 |
+| T18 | `shared_identifiers` sees flags, and a shared host is bound by more than flags | — | 41 |
+| T19 | a GPU *set* is a bound identifier with no variable, and prose is not a validator | — | 49 |
+| T20 | a container left on a node we no longer hold, and the cleanup design that would have prevented | — | 61 |
+| T21 | the completion probe grades shape, not answer, and the bar that would fix it needs a measureme | — | 61 |
+| T22 | `E2E_STAGE` names a per-stage fact and `--var` carries one value per run | — | 45 |
+| T23 | `fixed.gpu_count` is the one required field with no definition, and 8 was defensible | — | 64 |
+| T24 | a fallback nobody can reach is still a second reader of the number | CLOSED | 36 |
+| T25 | a run records the environment it minted, but not the vars it was started with | — | 48 |
+| T26 | killing a run does not kill its agents | — | 57 |
+| T27 | a default that takes everything free is not a default | — | 277 |
+| T28 | T21's bar, measured: 7 characters against 526 | — | 42 |
+| T29 | a crashed instrument and a refused artefact are the same value in `verdict.json` | — | 33 |
+| T30 | a finding recorded against one stage is a question for every stage | — | 24 |
+| T31 | naming a class is not sweeping for it | CLOSED | 40 |
+| T32 | the evidence records which node, and not which card | — | 50 |
+| T33 | a mechanical reformat makes a diff unreviewable, so the semantic check moves before the commit | — | 74 |
+| T34 | the environment record can outlive the container it names, and a downstream field repeats it a | — | 105 |
+| T35 | a sealed handoff from the old layout is not consumable by the definition that replaced it | — | 27 |
+| T36 | a claim about *who owns this* never looks like a claim, so nobody tests it | — | 43 |
+| T37 | two producers disagreeing is what a schema-shaped defect looks like | — | 35 |
+| T38 | nothing in the graph orders m2's two lines; only the GPU count does | — | 55 |
+| T39 | `read_events.py` prints `message` and hides the attribute that holds the cause | — | 32 |
+| T40 | treat every probe as a control, because the slot decides whether you check the null | — | 93 |
+| T41 | `/proc` is namespaced under `spur exec`, so PID-based attribution from a node lies | CLOSED | 72 |
+| T42 | a validation zone is not a normal process environment, and anything read from it that names a  | — | 32 |
+| T43 | the artefact is honest about provenance and dishonest about meaning | — | 125 |
+| T44 | `rebuild` is reachable in one schema and emittable by none | — | 63 |
+| T45 | a comment that asserts a wiring gap sends the next reader to change code, when only a number w | — | 49 |
+| T46 | a fix verified correct is not a fix verified reached | — | 52 |
+| T47 | the pathspec window is irreducible, so the check has to be after the commit | — | 47 |
+| T48 | the control that caught it is invisible because it worked, so remedy-selection reaches for the | — | 53 |
+| T49 | the verdict is right and the message says why it is right, wrongly | — | 101 |
+| T50 | an instruction verified correct against a world that does not exist yet | — | 41 |
+| T51 | at promotion only the brief travels, and the brief drifts in both directions | — | 51 |
+| T52 | no `df` reachable from `spur exec` predicts whether a `docker load` fits | — | 45 |
+| T53 | the var table's rung-2 advice for `expect_ranks` is right only at `tp=8` | — | 23 |
+| T54 | declaring `runtime.replayed_from` would not close the hole m5 found; `additionalProperties` is | — | 79 |
+| T55 | the CUDA graph ceiling belongs in the environment record and in `check_environment`'s compared | — | 57 |
+| T56 | `summarise.py` exists twice, byte-identical, with call sites split across both copies | — | 48 |
+| T57 | one scratch path, three independent literals, agreeing by coincidence | — | 64 |
+| T58 | counting kits on disk counts how often we tested, not how often a producer chose | — | 59 |
+| T59 | the instruments that failed today, and not one failed toward "I cannot tell" | — | 148 |
+| T60 | the graph ceiling is chosen by stage 1's load and spent by stage 2's | — | 59 |
+| T60a | addendum — the override channel already exists and is one line from working | — | 125 |
+| T60b | closed by rung 2f — and 25.42 was a symptom, not a requirement | CLOSED | 47 |
+| T61 | a defect the instrument hides by functioning correctly | — | 67 |
+| T62 | `base_sha256` defects 2 and 3, held pending an answer that may not exist | CLOSED | 41 |
+| T63 | `snr_db: inf` is non-monotonic on `layernorm`, and both proposed mechanisms are disproved | — | 14 |
+| T64 | `rank.task` and `identify.task` are 15-line skeletons, not briefs | — | 26 |
+| T65 | four profiling lines died in one morning, cause open | — | 22 |
+| T66 | the agent's system prompt points at a path that is not in the repository | — | 34 |
+| T67 | `reverify_shapes` counts operators, and its name says shapes | — | 48 |
+| T68 | an attested number and a claimed one are indistinguishable in the handoff | — | 46 |
+| T69 | `identify` leaves `fellow` empty for most operators, and two producers write the tag | CLOSED | 72 |
+| T70 | `kernel_taxonomy.yaml` offers a fellow KernelForge does not have | — | 31 |
+| T71 | three separate defects share one cause: the mock corpus has a shape the real path does not | — | 46 |
+| T72 | `expect_ranks` 在两份文档之间有缝,两份都没错 | — | 54 |
+| T73 | the Triton fellow pattern needs a leading underscore and a terminal `_kernel`; real kernels ha | — | 170 |
+| T74 | a killed validator leaves its own deployment holding the cards | — | 33 |
+| T75 | constrain the `optimized_kernel.py` slot by KIND, not by filename — deferred, and the deferral | — | 41 |
+| T76 | emitting `environment.yaml` is a producer's duty with no central enforcement, and three produc | — | 55 |
+| T77 | `redact` refuses by file suffix, and an evidence record is not a script — deferred, and it is  | — | 64 |
+| T79 | a run does not record the `--var` values it was launched with, and at least five of today's in | — | 108 |
+
+**80 entries.** `CLOSED` and `HELD` are set only where the entry says so
+explicitly; **`—` means the status was never recorded**, which is true of
+73 of them and is a gap in this file rather than a claim that they are open.
+Setting those is the owner's call, entry by entry.
+
+Numbering is stable and never reused: entries are cited by number from the
+assets and from each other, so a gap in the sequence is a retired entry rather
+than a mistake.
+
+---
 
 ### T1 — `check_trace_coverage` against the sglang source and the model structure
 *M2.8.2, which says 先不做.*
@@ -43,7 +135,7 @@ not invalidate the rest.
 
 **Would settle it:** agent_sys has no "one output slot per element of a runtime
 list". A kind naming two output slots is **exported for neither**
-(`env_mgr/grants.py:340-355`, which names this as a hole and declines to close
+(`env_mgr/grants.py`, which names this as a hole and declines to close
 it), so this needs framework work, not package work.
 
 ### T4 — the analysis programs are hand-written and may be narrow
@@ -87,7 +179,6 @@ owner, or an environment with no owner, and then say what a task may do to it.
 
 ---
 
-## Carried over from the 2026-09-02 effort
 
 ### T7 — the comparability gate at bring-up (was E9′)
 
@@ -108,7 +199,7 @@ measurements round for round.
 
 ### T8 — `seal_refused` has no reader (was C9b)
 
-A correct refusal is computed and then discarded. The 2026-09-02 run's refused
+A correct refusal is computed and then discarded. The refused
 `integration_report` is the worked example: the verdict was right, it stopped
 the graph as designed, and the artefact that records *why* is not read by
 anything downstream.
@@ -117,7 +208,7 @@ anything downstream.
 
 One verifies the tree it copied and one is a plain `shutil.copytree`. The
 consuming path uses the plain one, so **nothing on the way out of a zone
-verifies a digest**. Recorded in `temp/bugs/`.
+verifies a digest**.
 
 ### T10 — `check_workset_runs` hard-fails on rsd while `min_pass_ratio` forgives correctness (was C24 and E16)
 
@@ -125,8 +216,14 @@ A saturated node fails `max_rsd` on evidence that is otherwise correct, while a
 kernel that is wrong on a minority of shapes can still pass. The two knobs
 express opposite philosophies in one validator.
 
+### T11 — ten closed `items_schema`s in the integration stage (was C23)
+
+`additionalProperties: false` on an items schema rejects `logs` and `watchout`,
+which the content type itself lists as optional. Harmless until somebody adds a
+log.
+
 ### T12 — the mock cannot exercise M5.4's ad-hoc correctness rules
-*Opened 2026-09-03 by m5.*
+
 
 `check_acceptance` requires `min_adhoc_cases` per-run correctness cases with
 their generator prompt recorded, none repeating a frozen case or each other, and
@@ -140,7 +237,7 @@ rules are untested until the first real m5 run.
 a green mock is not read as coverage it does not have.
 
 ### T13 — `compare.py` finds the kernel's profile share by substring
-*Opened 2026-09-03 by m5.*
+
 
 M5.1.3.2 needs the optimised kernel's fraction of m2's profile. `compare.py`
 finds it by matching `operator_id` case-insensitively against the `Name` column
@@ -157,16 +254,10 @@ block is a warning rather than a blocker anyway.
 to its kernel symbols — carry that mapping into the workset and have `compare`
 read it instead of guessing.
 
-### T11 — ten closed `items_schema`s in the integration stage (was C23)
-
-`additionalProperties: false` on an items schema rejects `logs` and `watchout`,
-which the content type itself lists as optional. Harmless until somebody adds a
-log.
-
 ### T14 — a task body cannot name the interpreter the run is using
-*Opened 2026-09-03 by m1, confirmed by m2, m3 and m4 independently.*
+*Confirmed by m2, m3 and m4 independently.*
 
-`cli/main.py:668` exports `AGENT_SYS_DEMO_PYTHON` into **`validation_env` only**,
+`cli/main.py` exports `AGENT_SYS_DEMO_PYTHON` into **`validation_env` only**,
 and the comment above it says a task body never reaches it. So a task body's
 policy `PATH` resolves `python3` to `/usr/bin/python3`, which on this host has
 `yaml` and `jsonschema` and **not `referencing`** — and had no `torch` at all,
@@ -191,7 +282,7 @@ by m2, and it is the same signature as `check_deploy_serves`'s crash. Twelve of
 twenty-one validators had it.
 
 ### T15 — `E2E_KIT_ENGINE_EXTRA_ENV` is a seam with no consumer
-*Opened 2026-09-03.*
+
 
 `deploy_kit.layout.yaml`'s `runtime_contract` requires a kit to honour both
 `E2E_KIT_ENGINE_EXTRA_ARGS` and `E2E_KIT_ENGINE_EXTRA_ENV`. The first is used —
@@ -210,7 +301,7 @@ distinction is real even though this instance of it was not. **Would settle it:*
 the first real consumer, or a decision to drop the requirement.
 
 ### T16 — `git`'s `index.lock` retry is not idempotent, and its no-op is silent
-*Opened 2026-09-03 by checkpoint, against a collision with the package owner.*
+*Against a collision with the package owner.*
 
 `CONTRACT §8a` told an owner whose commit hit `index.lock` to wait a second and
 retry. Measured: **the retry can silently do nothing.** In the seconds between
@@ -234,7 +325,7 @@ the remaining work is runs rather than edits. **Worth doing before the next
 effort, not during this one.**
 
 ### T17 — the model-specific engine flag groups are free-form strings and cannot be checked
-*Found by m1 on 2026-09-03, comparing the sealed GLM-5.3-Flash recipe against
+*Comparing the sealed GLM-5.3-Flash recipe against
 what `shared.yaml` can express.*
 
 `E2E_DSA_ARGS` and `E2E_PARSER_ARGS` exist because their contents are **traps
@@ -268,7 +359,7 @@ out of `/get_server_info` and record it in `environment.yaml`, which turns a
 silent wrong answer into a recorded one.
 
 ### T18 — `shared_identifiers` sees flags, and a shared host is bound by more than flags
-*Found by m1 on 2026-09-03, running a **second** model's kit. Qwen's kit could
+*Running a **second** model's kit. Qwen's kit could
 not have shown it.*
 
 `check_deploy_kit`'s `shared_identifiers` scan is a deliberate list of flags —
@@ -309,7 +400,7 @@ Until then the layout's `shared_identifiers` comment should say what it does
 measurement that `todo.md` exists to record.
 
 ### T19 — a GPU *set* is a bound identifier with no variable, and prose is not a validator
-*Found by m1 on 2026-09-04, composing rung 1 against `node-249`.*
+*Composing rung 1 against `node-249`.*
 
 Every other identifier this package binds on a shared host has a `--var`:
 container name, three ports, the container workdir. **The GPU set does not.**
@@ -358,13 +449,13 @@ inside the built image yields `torch.cuda.device_count() == 4`, so the mechanism
 works — it is only unparameterised and unchecked.
 
 ### T20 — a container left on a node we no longer hold, and the cleanup design that would have prevented it
-*Left by m1 on 2026-09-04. Recorded as a debt rather than a task, per the package owner.*
+*Left by m1. Recorded as a debt rather than a task, per the package owner.*
 
 **The artefact.** On `node-249`, possibly still running:
 
 ```
-name    yihou_e2e_sgl_m1real-20260904
-image   infera/engine-sglang:m1-rung1-20260904
+name    <container>
+image   <engine image>:<tag>
 cmd     sleep infinity
 labels  infera_e2e_run=m1real-20260904 · m1_probe_container=true
 holds   GPU 4 visible (HIP_VISIBLE_DEVICES=4), zero GPU memory, no published ports
@@ -419,7 +510,7 @@ belong to somebody else's live run. Both are about cleanup needing to be safe
 for a stranger to run.
 
 ### T21 — the completion probe grades shape, not answer, and the bar that would fix it needs a measurement
-*Found by the package owner on 2026-09-04 reading rung 1's completion output; localised by
+*Reading rung 1's completion output; localised by
 m1, who owns the probe. The `direction` text is corrected in the same commit as
 this entry — that half needed no measurement. The bar does.*
 
@@ -480,10 +571,10 @@ Setting the default is not this entry's fix — a correct default would have
 *hidden* the probe's blindness rather than removed it.
 
 ### T22 — `E2E_STAGE` names a per-stage fact and `--var` carries one value per run
-*Found by m1 on 2026-09-04 while declaring the variable `check_agent_env.py`
+*While declaring the variable `check_agent_env.py`
 flagged. Declaring it was correct and does not make it right.*
 
-`env_render.py:173` stamps every tolerated difference with
+`env_render.py` stamps every tolerated difference with
 `{"stage": os.environ.get("E2E_STAGE", "")}` so that a reader of
 `warnings[].stage` can tell **who** tolerated it. The name is now declared on
 `runner` and on the `kind: ai` agents that reach `env_render.py`, spelled
@@ -534,7 +625,7 @@ co-tenant at 96–98 % VRAM. All 21 verdicts passed.
 **The framing this arrived with is not how the code works, and the correction
 matters because it changes the fix.** It was reported as *`gpu_arch` and
 `image_id` are discovered at bring-up; `gpu_count` is a claim*. Measured —
-`env_render.py:64-66`:
+`env_render.py`:
 
 > `gpu_arch`, `gpu_count` and `image_id` are absent on purpose: they are
 > discovered during bring-up, and a variable holding them would be a claim
@@ -566,7 +657,7 @@ and `fixed` is promised as 可固化环境, which is the second reading.
 
 **Deliberately not proposed: adding `gpu_count` to `check_environment`'s
 `compare_fixed_across_inputs`.** Those four fields are four on purpose and the
-DELIVERY-NOTE is explicit that bars are not widened. A cross-input comparison
+rule is explicit that bars are not widened. A cross-input comparison
 would also not have caught this — every stage would have agreed on the same
 undefined 8.
 
@@ -592,7 +683,7 @@ whichever meaning m1 happened to pick.
 
 **m5. Not blocking; the live half is fixed and this is what is left of it.**
 
-`assets/accept/measure.sh:120-122,184-185,315-316` reads its load shape as
+`assets/accept/measure.sh` reads its load shape as
 `${E2E_MAX_CONC:-256}`, `${E2E_WORKERS:-16}`, `${E2E_BLOCK_SIZE:-512}`,
 `${E2E_REQ_TIMEOUT:-900}` and `${E2E_TRACE_END_MS:-120000}`. `shared.yaml`'s
 `runner` declares 32, 8, 512 and 900; `e2e_integrator` now declares the same
@@ -600,7 +691,7 @@ four, plus 60000 for the trace window, deliberately.
 
 **The live defect is fixed.** Until those declarations landed, none of the four
 reached this stage at all — a name only `runner` declares does not reach a
-`kind: ai` agent (`env_mgr/material.py:96`) — so the script's fallbacks won and
+`kind: ai` agent (`env_mgr/material.py`) — so the script's fallbacks won and
 m5 replayed at **concurrency 256 against m2's 32**, with `--var max_conc=` inert
 on one side of a comparison M5.1.3.1 requires to hold within
 `stock_vs_m2_tolerance`. Found by re-running the package owner's omission check over
@@ -627,7 +718,7 @@ and both the declaration and the fallback cite it.
 ### T25 — a run records the environment it minted, but not the vars it was started with
 
 **m2. Not blocking. Cheapest item on this list, and it would have prevented three
-incidents on 2026-09-04 alone.**
+incidents alone.**
 
 Every `--var` a run is launched with shapes what the graph does, and **none of
 them survive into the run tree.** `handoffs/<hid>/v<N>/content/items/*/
@@ -644,7 +735,7 @@ which instead cost a message or a run:
 1. **Was `--var expect_ranks=2` passed?** `check_trace_coverage` is `strong` and
    declares `${expect_ranks:-8}`; the mocked trace is TP-2 while the real
    deployment was TP-4 — three numbers, and `expect_ranks` is deliberately not
-   derived from `${tp}` (`steps/m2_profiling.yaml:93-100`). I predicted a
+   derived from `${tp}` (`steps/m2_profiling.yaml`). I predicted a
    refusal I could not check; the package owner had passed it. **The prediction was
    unverifiable, not wrong** — and the cost of asking was the same either way.
 2. **Was the run still alive?** It had been killed 20 minutes earlier and the
@@ -674,7 +765,7 @@ the runner has the argument as well as the request.
 
 ### T26 — killing a run does not kill its agents
 
-**m2, from the package owner's incident of 2026-09-04. Not blocking; the instance is
+**Not blocking; the instance is
 stopped. It changes what "I killed the run" can be relied on to mean.**
 
 **One level up from `41c8540`.** That record says a cancelled Slurm job does not
@@ -730,14 +821,14 @@ have opened cannot lie to you about whether it exists.** CONTRACT §4.4, in the
 instrument built to catch §4.4.
 
 ### T27 — a default that takes everything free is not a default
-*m1, 2026-09-04. **T19's third direction, and the one that stopped being an
+**T19's third direction, and the one that stopped being an
 argument and became an incident.** Three items, one cause; they belong together
 because fixing any two leaves the third failure available.*
 
 **What happened.** The orphaned `deploy_and_prove` agent (`T26`) re-ran its own
 kit's `deploy.sh` at 06:57:38 **without the two safety variables its earlier
 invocation had passed** — no `E2E_KIT_NAME_PREFIX`, no `E2E_KIT_GPU_DEVICES`.
-`env.sh:230`:
+`env.sh`:
 
 ```sh
 : "${E2E_KIT_GPU_DEVICES:=$(_pick_gpus)}"
@@ -754,7 +845,7 @@ process declares nothing**, because "nothing" means "all of them".
 
 #### The three items
 
-**1. Pin the container, not the worker process.** `mix_worker.sh:89` sets
+**1. Pin the container, not the worker process.** `mix_worker.sh` sets
 `HIP_VISIBLE_DEVICES="$GPUS"` inline on the `exec`, so it binds the processes
 that carry it and nothing else. `docker inspect` on such a container shows no
 device restriction at all — which is exactly how this one was first read as
@@ -785,7 +876,7 @@ anything.**
 
 #### Item 1 has been met once, unprompted — recorded because the run that did it produced no verdict
 
-m1's 2026-09-04 standalone on 217 was killed before any validator ran, so it has
+m1's standalone on 217 was killed before any validator ran, so it has
 no verdict and is not a pass. **Three facts survive it, read from artefacts, and
 this is the one that belongs here:**
 
@@ -814,7 +905,7 @@ make it reliable rather than fortunate.*
 > here rather than edited away.**
 >
 > The pin is an **environment default, not a device whitelist**.
-> `start_container.sh:37-44`:
+> `start_container.sh`:
 >
 > ```
 > --device /dev/kfd
@@ -857,7 +948,7 @@ make it reliable rather than fortunate.*
 > | `--env HIP_VISIBLE_DEVICES` | a **readable statement of intent** a consumer can check against and refuse by name |
 > | per-card `--device` | **enforcement** a later process cannot override |
 >
-> **Verified on a live container, 2026-09-04** — not read off the script:
+> **Verified on a live container** — not read off the script:
 > `HostConfig.Devices` is `/dev/kfd` and `/dev/dri` whole, with
 > `Config.Env HIP_VISIBLE_DEVICES=0,1,2,3`. Every card's node present, one
 > variable narrowing it.
@@ -871,15 +962,15 @@ make it reliable rather than fortunate.*
 > Until then the honest division is m4's: **the kit states the intent, and the
 > consumer refuses to violate it.** Their `run_in_container.sh` check reads the
 > container's own `HIP_VISIBLE_DEVICES` and refuses a request outside it —
-> which is the mirror of `start_container.sh:67`'s inside-out check, and is
+> which is the mirror of `start_container.sh`'s inside-out check, and is
 > where the enforcement actually lives today.
 
-#### Item 4, added 2026-09-04 after the entry above was demonstrated on a live node
+#### Item 4, added after the entry above was demonstrated on a live node
 
 **The pick must come from the probe, not sit beside it.**
 
 Items 1–3 assume the device set is *chosen*. The 07:16 run showed it need not be.
-That agent's kit contained **no `_pick_gpus` at all** — `env.sh:62` is a literal
+That agent's kit contained **no `_pick_gpus` at all** — `env.sh` is a literal
 
 ```sh
 : "${E2E_KIT_GPU_DEVICES:=0,1,2,3}"
@@ -895,7 +986,7 @@ takes exactly four cards, matching `E2E_TP=4`. Item 2 is *satisfied* here. The
 deployment still bound four cards a co-tenant was mid-load on, and rose them from
 198 GB to 220 GB before it was stopped.
 
-**Nothing checked.** `deploy.sh:61` prints `preflight ok: PORTS free, NAMES free`
+**Nothing checked.** `deploy.sh` prints `preflight ok: PORTS free, NAMES free`
 — it preflights the port band and the container names and **never looks at a
 card**. A `rocm-smi` reading that does not reach the variable is decoration.
 
@@ -913,7 +1004,7 @@ footing as the port band it already refuses. **The port check is the model: it
 exists, it aborts rather than waiting or stealing, and it was written by the same
 agent on the same day.** The cards simply were not thought of as a namespace.
 
-*Corrected while writing this: `env.sh:99`'s comment — "checks each is free and
+*Corrected while writing this: `env.sh`'s comment — "checks each is free and
 aborts rather than waiting or stealing" — is **about the ports**, and it sits two
 lines from where a grep for card handling lands. It was nearly reported as a card
 check that exists. Opening `deploy.sh` gave the opposite answer.*
@@ -958,7 +1049,7 @@ for seconds — makes it indistinguishable from a guess.
 > Corrected by m1 within the hour, before anything was built on it.**
 >
 > **`captured_at` is not absent. The file carries `measured_at`, at the top
-> level, and its value is `2026-09-04T07:26:58Z`.** I searched the document for
+> level, and it holds a timestamp.** I searched the document for
 > the key name I expected instead of listing the keys it has, which is the third
 > time today a search for an anticipated string returned the wrong answer where
 > opening the data returned the right one.
@@ -997,7 +1088,7 @@ for seconds — makes it indistinguishable from a guess.
 >
 > **Where the class belongs.** The three instances behind this entry —
 > `captured_at` searched for where the file says `measured_at`; transcript greps
-> matching *file reads* and reported as *decisions*; `env.sh:99`'s comment about
+> matching *file reads* and reported as *decisions*; `env.sh`'s comment about
 > **ports** read as a comment about **cards** — are the *search* half of the
 > pattern CONTRACT §4.4's observer section and m2's fourth face already describe.
 > **One class, six people, one day:** m3's `ImportError` "pass", m2's verdict
@@ -1007,7 +1098,7 @@ for seconds — makes it indistinguishable from a guess.
 > instead of searching for what you expect.*
 
 ### T28 — T21's bar, measured: 7 characters against 526
-*m1, 2026-09-04. T21 said "do not invent the number". The number exists now.*
+*T21 said "do not invent the number". The number exists now.*
 
 Both engines were alive on `006` at the same moment — the kit-launched one with
 `--reasoning-parser qwen3`, the agent's earlier ad-hoc one without — so the A/B
@@ -1048,83 +1139,11 @@ gets a fault nobody can attribute. It goes in after the rung, not during it.
 
 ---
 
-### T41 — `/proc` is namespaced under `spur exec`, so PID-based attribution from a node lies
-
-*Renumbered twice: **T28 → T36 → T41**. Six owners append here and two keep picking
-the same next integer; my own T28→T36 renumber (`f867a62`) landed on a number a
-second owner had already taken, so the fix collided the same way the fault did.*
-
-***This*** *item moved rather than the other T36, and the rule is worth stating because
-it will recur:* **the entry with external citations keeps its number.** `2d521c1`'s
-commit message and `CONTRACT.md:927` both cite T36 meaning *"a claim about who owns
-this never looks like a claim"*; nothing outside this file cites T36 meaning `/proc`.
-Renumbering the cited one would have broken two references to save one.
-
-*T41 was free — the numbers otherwise run 1–47 — so this consumes the gap rather than
-extending the range. Citations of **T28** or **T36** for the `/proc` subject still
-resolve by title; the three are not confusable, which is the only reason a renumber is
-survivable at all.*
-
-*Reported independently by m3 and by another owner, neither of whom renumbered it —
-correctly, since it touches other owners' entries. That is the second numbering
-collision today and the mechanism is unchanged: **`todo.md` has no allocator**, and
-`git status` cannot show you a number someone else is about to use in an editor.*
-
-**m2, 2026-09-04. Not blocking. Recorded because three ownership misattributions
-today were name-based, and the obvious fix — attribute by PID instead — is
-broken in the one place people will reach for it.**
-
-**The control is the finding.** On node 006, `docker top` reported PID
-`3260888` running inside `kimik3-vllm-kimi-k3`. From a `spur exec 109260`
-shell, `/proc/3260888` **does not exist**:
-
-```
-docker top kimik3-vllm-kimi-k3 -eo pid   ->  … 3260888 …     (via the daemon)
-[ -d /proc/3260888 ]                     ->  NO              (via /proc)
-```
-
-So `spur exec` puts you in a PID namespace that cannot see the host's
-processes. **A `/proc` miss there means "not visible from here", not "not
-running"** — and the two are indistinguishable without a control.
-
-I nearly reported the opposite. `rocm-smi --showpids` listed PID `90546`; it was
-absent from `/proc`, and I was one sentence from *"stale, does not exist"*. The
-only thing that stopped it was checking whether a **known-live** PID was visible
-either — it was not.
-
-**What is reliable from `spur exec`, and what is not:**
-
-| reading | reliable? | why |
-|---|---|---|
-| `docker ps` / `docker inspect` / `docker top` | **yes** | goes to the host daemon, which is outside the namespace |
-| `rocm-smi --showmemuse` | **yes** | reads the devices |
-| `/proc/<pid>/*` | **no** | namespaced; host PIDs are absent |
-| `rocm-smi --showpids` | **not as an inventory** | listed a single row holding **0 bytes** while all eight cards read 90 % |
-
-**Why it matters beyond tidiness.** A kill decision made from a PID list taken
-this way would be operating on a table that is both incomplete and
-unfalsifiable. The kill actually performed on 006 was decided through
-`docker inspect` and its mounts and verified by cards going 90 % → 0 % and the
-container list emptying — both daemon-side, so sound by this rule; that was not
-luck, but it was not checked against this rule either, because the rule did not
-exist yet.
-
-**One consumer to check:** any liveness probe reading `/proc/<pid>/cwd` is
-correct **on the login node** — same namespace as the run — and would be
-silently wrong if moved onto a node. That is a real move somebody will make,
-because the node is where the containers are.
-
-**Not fixed, because there is nothing to fix** — this is a property of the
-transport. It is a rule about which instrument answers which question, and the
-generalisation is the one this package keeps relearning: **when a reading can
-only come back one way, it is not a reading.** Establish that the instrument can
-see a positive before believing a negative.
-
 ### T29 — a crashed instrument and a refused artefact are the same value in `verdict.json`
 
-**Owner m3, 2026-09-04, found by fixing the wrong half of it.**
+**Found by fixing the wrong half of it.**
 
-`zone.py:132` writes `verdict.json` as `dict[str, bool]`. A validator that
+`zone.py` writes `verdict.json` as `dict[str, bool]`. A validator that
 **refused** and a validator that **could not run** therefore produce the same
 value, and the graph reads no difference between them.
 
@@ -1147,15 +1166,15 @@ without parsing prose. The consumer difference is real: the first should stop
 the graph, and the second should stop *and name the instrument*, because
 re-running it after fixing the artefact will fail identically.
 
-**Related and separate:** `temp/bugs/2026-09-03-a-validators-stdout-is-not-kept-anywhere.md`
-is why the prose had nowhere to live either. `workset_io.write_report` now puts
+**Related and separate:** a validator's stdout is not kept anywhere, which is
+why the prose had nowhere to live either. `workset_io.write_report` now puts
 it beside `verdict.json` for m3's two workset validators; the other validators
 in this package still discard theirs, and a general fix belongs in `zone.py`,
 which is not m3's file.
 
 ### T30 — a finding recorded against one stage is a question for every stage
 
-**Owner m3, 2026-09-04. Three instances in one session, none of them noticed
+**Three instances in one session, none of them noticed
 by the person who had already read the record.**
 
 the launch notes's var table said, about m1's stage: *"A validator declares no
@@ -1179,7 +1198,7 @@ everyone else, and unowned is where it stays.**
 
 ### T31 — naming a class is not sweeping for it
 
-**Owner m3, 2026-09-04. The operational half of `T30`, and it fires on your
+**The operational half of `T30`, and it fires on your
 own findings rather than other people's.**
 
 At layer 4 of the `build_workset` stack I found `SPUR_CONTROLLER_ADDR` absent
@@ -1219,7 +1238,7 @@ failing is not an instrument.**
 
 ### T32 — the evidence records which node, and not which card
 
-**Owner m3, 2026-09-04, found while closing `T19` on this stage.**
+**Found while closing `T19` on this stage.**
 
 `evidence.measured_on` carries `node`, `gpu_arch`, `container` and `at`. It
 does **not** carry the GPU index the measurement ran on, and neither does
@@ -1238,7 +1257,7 @@ choose a card at all (`T19`), so the index is at least *deliberate* on both
 sides. Recording it would make it *checkable*, which is a different property
 and the one that closes this.
 
-**STILL OPEN, 2026-09-04 end of day, and said so deliberately.** The stage has
+**STILL OPEN, and said so deliberately.** The stage has
 been exercised standalone all afternoon and this is the one thing in it that a
 fixture cannot reach: it needs two measurements on two cards to show itself, and
 every control here runs on a login node with no card at all. Closing it on the
@@ -1269,7 +1288,7 @@ and not only on their result.
 
 ### T33 — a mechanical reformat makes a diff unreviewable, so the semantic check moves before the commit
 
-**Owners m3 and the package owner, 2026-09-04, the same error twice in one morning.**
+**The same error twice in one morning.**
 
 `json.dumps(indent=2)` re-serialises a whole schema, so a five-key change lands
 as **1074 insertions / 240 deletions** and no reader can see what changed. The
@@ -1297,7 +1316,7 @@ again — restoring buys one reviewable diff at the price of the next one.
 is not the same act as checking for it before.
 
 
-**Extended 2026-09-04, evening — the same check, a failure it did not cover.**
+**Extended — the same check, a failure it did not cover.**
 T33 was about a diff being *unreadable*. This is a diff being *wider than its
 author*: in a shared worktree, `git commit -- <pathspec>` names a **file**, and
 the file contains whatever any teammate has uncommitted in it.
@@ -1342,23 +1361,27 @@ presence where you needed magnitude is not the check you thought you ran*, and
 the correct number was in my own scrollback.
 
 ### T34 — the environment record can outlive the container it names, and a downstream field repeats it as observation
-*m1 and m4, 2026-09-04, from two ends of the same artefact. Nobody's defect
+*From two ends of the same artefact. Nobody's defect
 individually; the join is unowned.*
 
 **The producer half.** m1's rung-1 record on 217 said:
 
 ```
-runtime.container   yihou_e2e_flow_sgl_e2e-main-20260904
-runtime.started_at  2026-09-04T09:03:51Z
+runtime.container   <container>
+runtime.started_at  T+00:00
 ```
 
 and `docker inspect` on the container of that name said:
 
 ```
-Created       2026-09-04T09:37:18Z
-StartedAt     2026-09-04T09:37:18Z
+Created       T+34:00
+StartedAt     T+34:00
 RestartCount  0
 ```
+
+**The gap is the finding**: the record names a container that had not been
+created when the record claims the run started, so the two cannot describe the
+same process.
 
 **`Created` equals `StartedAt` and restarts are zero**, so it was not restarted —
 it is **a different container carrying the same name**, brought up after the
@@ -1367,7 +1390,7 @@ first was torn down. The record describes an instance that no longer exists, and
 both pass it, correctly: nothing they check is wrong.
 
 **The consumer half, m4's, and it is the sharper one.** `optimize_kernel`'s
-`10_read_inputs.py:137` fills `premise.run_environment` from
+`10_read_inputs.py` fills `premise.run_environment` from
 `lib.load_environment()` — **m1's record, verbatim, with no observation
 anywhere.** So a field named for *the environment m4 ran in* is m4 repeating m1's
 claim, and a re-created container makes that claim wrong **while the handoff that
@@ -1442,61 +1465,27 @@ entirely. `runtime.endpoint` wants the same sentence: 217 recorded loopback
 them.
 
 
-### T37 — two producers disagreeing is what a schema-shaped defect looks like
-
-*Renumbered from **T34**, which collided with an earlier item of the same number — six owners append to this file and two picked the same next integer. Commits and messages citing T34 for *this* item still resolve: the other T34 is a different subject and the two are not confusable by title.*
-
-**Owner m3, 2026-09-04, from m4's finding that `public_symbol: sampler_softmax`
-is defined nowhere in the file it names.**
-
-`integration.public_symbol` was `required`, `type: string`, `minLength: 1`. An
-operator whose engine code is a fragment inside a method **has no such symbol**,
-and the schema had nowhere to say so — so both producers filled the field, and
-filled it differently. `mock_adapt` wrote the Definition's own function name
-six lines below an `entry_function` that names a method; `scaffold` wrote the
-method qualname itself. **Neither producer was careless. The schema left them
-nowhere to put the truth.**
-
-**The generalisable part is the symptom, and its default reading is wrong.** A
-required field with no representable *not applicable* does not announce itself
-as a schema defect. It announces as **two producers disagreeing about one
-field** — and that reads as carelessness, or as one producer being wrong, until
-somebody checks the value against ground truth. Here that took reading the
-file out of the image; m4 did it, and the premise became visible only because
-one value was *provably* wrong.
-
-**So: when two producers of one field disagree, ask what the field cannot
-express before asking which producer is wrong.** The answer is sometimes that
-both are, in the only way the schema allowed.
-
-**Remedy, applied:** `substitution: module_symbol | call_site_fragment` with
-`public_symbol` nullable and `if/then` binding them, plus `module_symbols`
-recorded from the image so the claim is *checked* rather than asserted
-(`4d5a6e6`, `d206fc6`). **What it does not do** is say how a
-fragment-inside-a-method optimisation reaches the engine — that is M5.1.1, a
-design question for the user, and the package can now state which case it is in
-without being able to install the second.
-
 ### T35 — a sealed handoff from the old layout is not consumable by the definition that replaced it
 
 `check_speedup_substantiated` looks for the measurement apparatus at
-`scripts/workset` (`check.py:81`, `_APPARATUS`). The sealed stage-4
+`scripts/workset` (`check.py`, `_APPARATUS`). The sealed stage-4
 `kernel_optimization` in `cheat_for_mock/` carries its apparatus at
 `scripts/kernel/` — `driver.py`, `graph_harness.py`, `measure_baseline.py`,
 `sampler_softmax_kernel.py`. **So the one real stage-4 artefact this effort
 owns cannot be fed to the validator that grades stage-4 artefacts.**
 
-Not a regression. The sealed handoff is 2026-09-02 output from the
+Not a regression. The sealed handoff is output from an earlier run of the
 five-separate-packages layout, and `e2e-flow`'s definitions were rewritten
-against `mission.md` afterwards; `mock_adapt.py` is the bridge and exists for
-exactly this. **Leader's ruling, 2026-09-04: leave it.**
+against the chained definitions afterwards; `mock_adapt.py` is the bridge and
+exists for
+exactly this. **Ruled: leave it.**
 
 **Recorded because the assumption it breaks is easy to make and expensive to
 discover.** Reaching for the sealed artefact as a ready-made fixture is the
 obvious move when a validator needs a real input — it is the only stage-4
 artefact that ever came off a cluster — and it fails at a path lookup rather
 than at anything that names the layout change. It cost a wrong turn on
-2026-09-04 while looking for an input to exercise the container path.
+while looking for an input to exercise the container path.
 
 **The open question, if anyone ever wants it:** whether sealed output of a
 stage should stay *directly* consumable by that stage's next definition, or
@@ -1505,7 +1494,7 @@ on the answer.
 
 ### T36 — a claim about *who owns this* never looks like a claim, so nobody tests it
 
-**Six instances between the package owner and m4 on 2026-09-04, all the same move: an
+**Six instances between the package owner and m4, all the same move: an
 assertion about *who* or *what* — an owner, a boundary, a blocker, a row —
 stated before reading the thing that would have answered it.**
 
@@ -1546,9 +1535,44 @@ detect it with.**
 
 ---
 
+### T37 — two producers disagreeing is what a schema-shaped defect looks like
+
+*Renumbered from **T34**, which collided with an earlier item of the same number — six owners append to this file and two picked the same next integer. Commits and messages citing T34 for *this* item still resolve: the other T34 is a different subject and the two are not confusable by title.*
+
+**From m4's finding that `public_symbol: sampler_softmax`
+is defined nowhere in the file it names.**
+
+`integration.public_symbol` was `required`, `type: string`, `minLength: 1`. An
+operator whose engine code is a fragment inside a method **has no such symbol**,
+and the schema had nowhere to say so — so both producers filled the field, and
+filled it differently. `mock_adapt` wrote the Definition's own function name
+six lines below an `entry_function` that names a method; `scaffold` wrote the
+method qualname itself. **Neither producer was careless. The schema left them
+nowhere to put the truth.**
+
+**The generalisable part is the symptom, and its default reading is wrong.** A
+required field with no representable *not applicable* does not announce itself
+as a schema defect. It announces as **two producers disagreeing about one
+field** — and that reads as carelessness, or as one producer being wrong, until
+somebody checks the value against ground truth. Here that took reading the
+file out of the image; m4 did it, and the premise became visible only because
+one value was *provably* wrong.
+
+**So: when two producers of one field disagree, ask what the field cannot
+express before asking which producer is wrong.** The answer is sometimes that
+both are, in the only way the schema allowed.
+
+**Remedy, applied:** `substitution: module_symbol | call_site_fragment` with
+`public_symbol` nullable and `if/then` binding them, plus `module_symbols`
+recorded from the image so the claim is *checked* rather than asserted
+(`4d5a6e6`, `d206fc6`). **What it does not do** is say how a
+fragment-inside-a-method optimisation reaches the engine — that is M5.1.1, a
+design question for the user, and the package can now state which case it is in
+without being able to install the second.
+
 ### T38 — nothing in the graph orders m2's two lines; only the GPU count does
 
-**m2, 2026-09-04. Not blocking — today's configuration is correct. It is a
+**Not blocking — today's configuration is correct. It is a
 constraint on changing that configuration, and the failure mode is a wrong
 number rather than an error.**
 
@@ -1603,7 +1627,7 @@ the package owner is reconciling numbering, so treat this number as provisional.
 
 ### T39 — `read_events.py` prints `message` and hides the attribute that holds the cause
 
-**m2, 2026-09-04. Not blocking. One line, and it is in checkpoint's file, so it
+**Not blocking. One line, and it is in checkpoint's file, so it
 is routed rather than done here.**
 
 `assets/lib/read_events.py` renders each event as its `message`. For
@@ -1611,8 +1635,7 @@ is routed rather than done here.**
 *"declared output … was never delivered"* — **which can be false** — while the
 true reason sits in `attributes.seal_refused` and is not printed. So the tool
 built for reading the event store reproduces the misdirection the store already
-has; see
-`temp/bugs/2026-09-04-output_absent-states-a-cause-that-is-false.md`.
+has — `output_absent` states a cause that is false.
 
 **Two owners have now paid for this in the same day** — the package owner's four-run
 stall study and m2's replayed-kit investigation — and **both ended up running
@@ -1621,7 +1644,7 @@ stall study and m2's replayed-kit investigation — and **both ended up running
 **The precedent already exists.** m4 hit it from the other side and fixed *their*
 reader: `runprobe` prints **every** attribute of a triggering event, and the
 leader credits that change with turning a lost reason into a one-command answer
-three times on 2026-09-04. `read_events.py` has not had the equivalent.
+three times. `read_events.py` has not had the equivalent.
 
 **What would settle it:** print `seal_refused` and `detail` beside `message`
 when present — or all non-empty attributes, which is what `runprobe` does and
@@ -1636,7 +1659,7 @@ its owner.
 
 ### T40 — treat every probe as a control, because the slot decides whether you check the null
 
-**Owner: checkpoint writer, 2026-09-04. Sharpening of `T31`, and m3 asked for it
+**Owner: checkpoint writer. Sharpening of `T31`, and m3 asked for it
 to carry my name; the pattern it names is theirs as much as mine.**
 
 **The observation.** m3 reported that **two** of their wrong turns today were
@@ -1658,7 +1681,7 @@ diligence: a null in a control is *by definition* suspicious, and a null in a
 measurement reads as data. m3 confirmed the same split — their wrong turns in
 the measurement slot, their catches in the control slot.
 
-**Corrected 2026-09-04 at m3's request, and the correction matters to the
+**Corrected at m3's request, and the correction matters to the
 entry's own argument.** This first said *four* of m3's wrong turns were dead
 probes. **It was two.** I merged two different counts of two different things:
 they had said *"my four wrong turns were all in the measurement slot"*, which is
@@ -1685,7 +1708,7 @@ tidier failure than they had.
 m3 reports using it twice today by accident (the `abc` payload; the `-p $W` that
 dumped the process table) and not at all on the other four.
 
-**Instances already in the record**, all 2026-09-04:
+**Instances already in the record:**
 
 - empty zone `logs/`/`playground/` read as "the body did not run" — control:
   those dirs are empty for *every* task, including ones that sealed valid
@@ -1696,7 +1719,7 @@ dumped the process table) and not at all on the other four.
 - `readlink /proc/<pid>/exe || continue` — an unreadable `exe` dropped silently,
   so "cannot decide" and "nothing there" produced identical output (`01f768c`).
 
-**Sharpening, m3, 2026-09-04 — which control failure to spend the extra minute
+**Sharpening — which control failure to spend the extra minute
 on when you cannot afford both.**
 
 > **A broken positive control wastes your own time. A broken negative control
@@ -1727,11 +1750,83 @@ already fixed or recorded. Filed because `T31` says naming a class is not
 sweeping for it, and this is the sweep condition for a class that has produced
 at least four instances across two owners in one day.
 
+### T41 — `/proc` is namespaced under `spur exec`, so PID-based attribution from a node lies
+
+*Renumbered twice: **T28 → T36 → T41**. Six owners append here and two keep picking
+the same next integer; my own T28→T36 renumber (`f867a62`) landed on a number a
+second owner had already taken, so the fix collided the same way the fault did.*
+
+***This*** *item moved rather than the other T36, and the rule is worth stating because
+it will recur:* **the entry with external citations keeps its number.** `2d521c1`'s
+commit message and `CONTRACT.md` both cite T36 meaning *"a claim about who owns
+this never looks like a claim"*; nothing outside this file cites T36 meaning `/proc`.
+Renumbering the cited one would have broken two references to save one.
+
+*T41 was free — the numbers otherwise run 1–47 — so this consumes the gap rather than
+extending the range. Citations of **T28** or **T36** for the `/proc` subject still
+resolve by title; the three are not confusable, which is the only reason a renumber is
+survivable at all.*
+
+*Reported independently by m3 and by another owner, neither of whom renumbered it —
+correctly, since it touches other owners' entries. That is the second numbering
+collision today and the mechanism is unchanged: **`todo.md` has no allocator**, and
+`git status` cannot show you a number someone else is about to use in an editor.*
+
+**Not blocking. Recorded because three ownership misattributions
+today were name-based, and the obvious fix — attribute by PID instead — is
+broken in the one place people will reach for it.**
+
+**The control is the finding.** On node 006, `docker top` reported PID
+`3260888` running inside `kimik3-vllm-kimi-k3`. From a `spur exec 109260`
+shell, `/proc/3260888` **does not exist**:
+
+```
+docker top kimik3-vllm-kimi-k3 -eo pid   ->  … 3260888 …     (via the daemon)
+[ -d /proc/3260888 ]                     ->  NO              (via /proc)
+```
+
+So `spur exec` puts you in a PID namespace that cannot see the host's
+processes. **A `/proc` miss there means "not visible from here", not "not
+running"** — and the two are indistinguishable without a control.
+
+I nearly reported the opposite. `rocm-smi --showpids` listed PID `90546`; it was
+absent from `/proc`, and I was one sentence from *"stale, does not exist"*. The
+only thing that stopped it was checking whether a **known-live** PID was visible
+either — it was not.
+
+**What is reliable from `spur exec`, and what is not:**
+
+| reading | reliable? | why |
+|---|---|---|
+| `docker ps` / `docker inspect` / `docker top` | **yes** | goes to the host daemon, which is outside the namespace |
+| `rocm-smi --showmemuse` | **yes** | reads the devices |
+| `/proc/<pid>/*` | **no** | namespaced; host PIDs are absent |
+| `rocm-smi --showpids` | **not as an inventory** | listed a single row holding **0 bytes** while all eight cards read 90 % |
+
+**Why it matters beyond tidiness.** A kill decision made from a PID list taken
+this way would be operating on a table that is both incomplete and
+unfalsifiable. The kill actually performed on 006 was decided through
+`docker inspect` and its mounts and verified by cards going 90 % → 0 % and the
+container list emptying — both daemon-side, so sound by this rule; that was not
+luck, but it was not checked against this rule either, because the rule did not
+exist yet.
+
+**One consumer to check:** any liveness probe reading `/proc/<pid>/cwd` is
+correct **on the login node** — same namespace as the run — and would be
+silently wrong if moved onto a node. That is a real move somebody will make,
+because the node is where the containers are.
+
+**Not fixed, because there is nothing to fix** — this is a property of the
+transport. It is a rule about which instrument answers which question, and the
+generalisation is the one this package keeps relearning: **when a reading can
+only come back one way, it is not a reading.** Establish that the instrument can
+see a positive before believing a negative.
+
 ### T42 — a validation zone is not a normal process environment, and anything read from it that names a host path is suspect
 
 **A validator does not run in the environment you think it does.** The zone
 rewrites variables a body would take for granted, and every one of them named a
-host path that turned out to be somewhere else. Four instances on 2026-09-04,
+host path that turned out to be somewhere else. Four instances,
 each found only by something failing:
 
 | variable | what the zone makes it | what it cost |
@@ -1739,7 +1834,7 @@ each found only by something failing:
 | `HOME` | `<zone>/home` | m4's ephemeral container mounted a *subdirectory of the zone* instead of the run root, and rung 0 died on `./run_performance.sh: No such file or directory` — a container that came up perfectly and could not see its own script |
 | `PATH` | `/usr/bin:/bin` | `spur` lives in `/usr/local/bin`, so the transport is simply absent |
 | `SPUR_CONTROLLER_ADDR` | **unset** | m3 lost three non-reproductions to it, because their own login shell had it |
-| `TMPDIR` | `<zone>/tmp` | forced by the zone as an invariant (`validator/environment.py:233,86`), so a producer's `env` cannot reach it — and on this cluster's NFS a `TMPDIR` there SIGSEGVs every HIP kernel launch |
+| `TMPDIR` | `<zone>/tmp` | forced by the zone as an invariant (`validator/environment.py`), so a producer's `env` cannot reach it — and on this cluster's NFS a `TMPDIR` there SIGSEGVs every HIP kernel launch |
 
 **The general rule, which is the point of the entry:** *anything read from a
 validation zone's environment that names a host path is suspect.* Not "`HOME` is
@@ -1762,18 +1857,18 @@ answers a different question does not.**
 ### T43 — the artefact is honest about provenance and dishonest about meaning
 
 **The baseline first, because it is the reason the class exists rather than an
-example of it.** Swept all eight schemas under `assets/schemas/` on 2026-09-04:
+example of it.** Swept all eight schemas under `assets/schemas/`:
 **four express no cross-field constraint at all** — `bench_result`,
 `environment`, `kernel_table`, and `integration_report`, the last at 786 lines
 with zero. The other four carry thirteen `if/then` between them. So the package
 has **eight schemas that check fields and four that check meaning**, and the
 instances below are what that ratio produces.
 
-**Three instances on 2026-09-04, one shape.** A field carries something
+**Three instances, one shape.** A field carries something
 faithfully — the copy is exact, the producer did nothing wrong — and the field's
 *name* says it is something else. Every field validates; the document is false.
 
-- **`premise.run_environment`** — `10_read_inputs.py:137` fills it with
+- **`premise.run_environment`** — `10_read_inputs.py` fills it with
   `lib.load_environment()`: m1's `deploy_kit` record, verbatim, no observation
   anywhere. A field named for *the environment m4 ran in* is m4 repeating m1's
   claim. m1 then measured a record whose `started_at` was 09:03:51 against a
@@ -1784,7 +1879,7 @@ faithfully — the copy is exact, the producer did nothing wrong — and the fie
   `docker exec -e HIP_VISIBLE_DEVICES=…` overrides it. Convention described as
   enforcement. m1 corrected their own entry.
 - **`protocol.timing: event`** — declared in `workset.yaml`, read by nothing;
-  `run_performance.sh:44-55` is `perf_counter` around a
+  `run_performance.sh` is `perf_counter` around a
   `torch.cuda.synchronize()`. Copied into `kernel_optimization` by
   `check_optimization_shape`'s field-for-field comparison.
 
@@ -1897,15 +1992,15 @@ to tell a deferred option from a live one.** `kernel_optimization`'s own
 `const` says the alternative is *"deferred rather than unimagined"* and cites
 M5.3; m5's enum says nothing, so the same decision reads as available there.
 
-**One line, not three owners' attention** (leader's call, 2026-09-04). The fix,
+**One line, not three owners' attention** (leader's call). The fix,
 whenever the mechanism question is settled, is for the three to agree — either
 `rebuild` becomes emittable or it stops being acceptable.
 
 **The same defect facing the other way: `must_preserve`, emitted and read by
-none.** `60_write_handoff.py:272-281` populates it from the workset's
+none.** `60_write_handoff.py` populates it from the workset's
 `integration` — signature, invariants, `requires_restart`, `build_step` —
-`kernel_optimization.schema.json:320` documents it, two samples carry it, and
-**no consumer anywhere reads it.** Found 2026-09-04 when the mock's empty
+`kernel_optimization.schema.json` documents it, two samples carry it, and
+**no consumer anywhere reads it.** Found when the mock's empty
 `must_preserve` looked like the `dtypes` omission that had cost a rung-0
 attempt; m5 grepped their whole stage and there is nothing to feed.
 
@@ -1922,7 +2017,7 @@ consumer and no producer.
 
 
 **Third instance, and it is the one that cost something: `KFO_KERNELFORGE_REPO`.**
-Declared in this package (`m4_kernel_opt.yaml:358`) **and** in the kernel-optimisation stage,
+Declared in this package (`m4_kernel_opt.yaml`) **and** in the kernel-optimisation stage,
 and read by no body in either. The old readme calls it *"a KernelForge checkout,
 already `pip install -e`'d"* — so the environment was always prepared **out of
 band**, and the variable only ever told a *reader* where it was.
@@ -1949,9 +2044,9 @@ the entry describing it.
 
 ### T45 — a comment that asserts a wiring gap sends the next reader to change code, when only a number was missing
 
-**m3, 2026-09-04, found by m2 measuring instead of reading.**
+**Found by m2 measuring instead of reading.**
 
-`check_identity_resolved.check.py:143` said `min_resolve_ratio` *"is not passed
+`check_identity_resolved.check.py` said `min_resolve_ratio` *"is not passed
 by `steps/m3_analysis.yaml`, so the arm above cannot refuse in this package as
 configured."* The yaml passes it —
 `min_resolve_ratio: '${min_resolve_ratio:-0.0}'` — so the arm is fully
@@ -1998,7 +2093,7 @@ without a name. Cut to a pointer rather than kept as a second copy.
 
 ### T46 — a fix verified correct is not a fix verified reached
 
-**Two instances on 2026-09-04, one from m3 and one from m4, in the same stretch
+**Two instances, one from m3 and one from m4, in the same stretch
 of work.** Both of us changed code, checked the change was *right*, and shipped
 without checking it was *executed*. Those are different questions, and only the
 second needs the surrounding wiring in view.
@@ -2060,7 +2155,7 @@ stronger evidence than any one report.
 established by accident.** Both earlier reports assumed a pre-commit check was
 sufficient and argued about *which one*.
 
-**Measured 2026-09-04.** This entry originally prescribed *read
+**Measured.** This entry originally prescribed *read
 `git diff -- <path>` immediately before committing*. That check was run against
 this very entry — one hunk at EOF, one heading, thirty-nine lines, all mine —
 the commit was issued seconds later, and it returned **`no changes added to
@@ -2097,7 +2192,7 @@ independently from the other direction at 04:09.
 
 ### T48 — the control that caught it is invisible because it worked, so remedy-selection reaches for the prescribed check instead
 
-**Owner: checkpoint writer, 2026-09-04. Found by m4 in my own correction, and
+**Owner: checkpoint writer. Found by m4 in my own correction, and
 deliberately kept out of `T47` by them because that entry is about a git
 mechanism and this is about how a remedy gets chosen after an incident.**
 
@@ -2150,7 +2245,7 @@ the author** — and unlike the tool defects, it fires when nothing is broken.
 
 ### T49 — the verdict is right and the message says why it is right, wrongly
 
-**Named as a class by m5 on 2026-09-04 after the third instance in one afternoon.
+**Named as a class by m5 after the third instance in one afternoon.
 Six now, across five owners.** The sixth is the one that matters most for this
 entry's own reach: **T49 occurred inside the failure ledger itself**, where the
 recorded *reason* for four failures was a `note:` line the log had relabelled
@@ -2170,7 +2265,7 @@ than the sentence it prints.
 | `run_in_container.sh` (m4) | *"m1's bring-up has been torn down"* | the node was never reached — **a transport failure wearing a teardown's clothes, and it named a specific person** |
 | `run_in_container.sh` (m4) | a blank where the container list goes | *none* — an empty diagnostic is indistinguishable from one that failed to look |
 | `check_speedup_substantiated` (m4) | `exited 127: l so no reader has to infer…` | `stderr.strip()[-400:]` — a slice by character, splicing a comment fragment into the error |
-| `m3_analysis.yaml` (m3) | *"the body falls back to card 4 via `${E2E_MEASURE_GPU:=4}`"* | `measure_in_container.sh:142` **refuses** — prints the node's live `rocm-smi` and exits 1. There is no fallback |
+| `m3_analysis.yaml` (m3) | *"the body falls back to card 4 via `${E2E_MEASURE_GPU:=4}`"* | `measure_in_container.sh` **refuses** — prints the node's live `rocm-smi` and exits 1. There is no fallback |
 
 **Every one gives the correct verdict.** That is what makes it the hardest kind
 to notice: nothing downstream is wrong, no run fails that should pass, and the
@@ -2223,7 +2318,7 @@ message, which is evidence about the base rate and not about any particular case
 the entry exists because the fifth will be written by whoever writes the next
 refusal, and the cost lands on a reader rather than on a run.
 
-**The sibling class, recorded 2026-09-04 because the afternoon produced four of
+**The sibling class, recorded because one afternoon produced four of
 it: manufactured provenance.** T49 is a *true* verdict with a false reason. This
 is a *false record* that reads as a true one — and it is worse, because the check
 you would run against it passes:
@@ -2294,7 +2389,7 @@ not arrange.**
 
 **Promotion swaps a program for a conversation.** A `kind: ai` task never runs
 `entry.sh`, so everything the program knew is lost unless the brief says it —
-and `agent/runner.py:801` closes the cheap escape: *"an env var cannot instruct
+and `agent/runner.py` closes the cheap escape: *"an env var cannot instruct
 an agent. A conversation is not a process reading `os.environ`."* An `env:` block
 makes a value **reachable**; only the brief makes it **used**.
 
@@ -2305,7 +2400,7 @@ readme is 330 lines and ten STEPS with **zero** occurrences of
 `measure_in_container.sh`, `E2E_MEASURE_GPU`, or `rocm-smi`. STEP 7/8 say
 `cd "$WS" && ./run_correctness.sh` **directly, on whatever host the agent is on**,
 and those hosts have no torch. Everything that knows better is on the branch the
-promotion turns off — `entry.sh:168`. **The mock is not a weaker version of the
+promotion turns off — `entry.sh`. **The mock is not a weaker version of the
 real path here; it is the only version carrying the knowledge**, so promoting m3
 removes the container step and the card check together, silently. First symptom:
 a torch import error, or worse, a plausible number measured on a card nobody
@@ -2343,7 +2438,7 @@ had read their own briefs many times.**
 
 ### T52 — no `df` reachable from `spur exec` predicts whether a `docker load` fits
 
-**m1, 2026-09-04. Measured, and it overturned a refusal I had already made.**
+**Measured, and it overturned a refusal I had already made.**
 
 I declined to `docker load` the 28.5 GB engine-image backup because every node
 looked too small: 006 70 G free, 047 87 G, 217 57 G, against an image whose
@@ -2388,18 +2483,18 @@ itself, and that requires doing the thing I was using the number to avoid.
 
 ### T53 — the var table's rung-2 advice for `expect_ranks` is right only at `tp=8`
 
-**m1, 2026-09-04. Not mine to edit — `the launch notes:31` is the shared var table.**
+**Not mine to edit — `the launch notes:31` is the shared var table.**
 
 ```
 | `expect_ranks` | **2** | **omit it** (defaults to 8), or track `--var tp` |
 ```
 
 The second half is correct and the first half is a trap at any `tp` but 8.
-`m2_profiling.yaml:119` is `expect_ranks: '${expect_ranks:-8}'` and it
+`m2_profiling.yaml` is `expect_ranks: '${expect_ranks:-8}'` and it
 deliberately does **not** track `tp` (a `${}` default may contain no `}`, so
 `${expect_ranks:-${tp:-8}}` is not spellable — the yaml says so at :114-116).
 So at rung 2 with the `tp=4` we are actually running, omitting it yields 8 and
-`check_trace_coverage.validator/check.py:72` fails with `expected 8 rank(s), the
+`check_trace_coverage.validator/check.py` fails with `expected 8 rank(s), the
 manifest lists 4` — a real deployment graded against a rank count nobody chose.
 
 Suggested: drop "omit it (defaults to 8)" and leave "**must equal the
@@ -2411,12 +2506,12 @@ sets `--var tp=` if the deployment is not eight-way"* reads as though setting
 
 ### T54 — declaring `runtime.replayed_from` would not close the hole m5 found; `additionalProperties` is the hole
 
-**m1, 2026-09-04. m5's observation, measured and then corrected in the direction
+**m5's observation, measured and then corrected in the direction
 that matters.**
 
 m5 found that `runtime.replayed_from` is **consumed in five places and declared
-in none** — `check_deploy_kit/check.py:404-425`, `kit_status.py:66,158`,
-`check_measurement_order/check.py:280,330`, `load/line.sh:149` — validating only
+in none** — `check_deploy_kit/check.py`, `kit_status.py`,
+`check_measurement_order/check.py`, `load/line.sh` — validating only
 because `environment.schema.json`'s `runtime` has `additionalProperties: true`.
 Confirmed: it is absent from `runtime.properties`, and `fixed` is open too.
 
@@ -2436,7 +2531,7 @@ the precise thing the field exists to prevent.
 
 **This is the second instance of one shape at the schema layer, and naming it is
 the point of this entry.** The first is `items_schema`, measured to validate the
-*filename string* and never the contents (`handoff/content.py:184-197`, mission
+*filename string* and never the contents (`handoff/content.py`, mission
 rule G2). Both are **a check that is present and does not check the property** —
 and in both the presence of the check is what stops anyone looking. Declaring
 `replayed_from` would have *added* to that: the schema would then name the field
@@ -2476,7 +2571,8 @@ governed only by `additionalProperties: true`.
 
 **And running that test found a second defect, in m5's own tool.** The refusal
 printed the value it read back, and it was **not `None`** — rung 1's `deploy_kit`
-already carried `replayed_from: /shared_nfs/…/cheat_for_mock/stage1-deploy/deploy_kit`,
+already carried a `replayed_from` pointing into the mock set's
+`stage1-deploy/deploy_kit`,
 because that run mocked stage 1. The rewrite was **overwriting** it, collapsing
 `sealed corpus → run X → here` into `run X → here` and telling a reader the
 numbers came from a real bring-up one hop back when they never came from one at
@@ -2489,7 +2585,7 @@ behaviour is identical and every check written for it passes.
 
 ### T55 — the CUDA graph ceiling belongs in the environment record and in `check_environment`'s compared set
 
-**m1, 2026-09-04. The half of the graph-ceiling defect that item 1 does not fix.
+**The half of the graph-ceiling defect that item 1 does not fix.
 Approved by the package owner; deferred for the same reason as T54.**
 
 m2 measured **4.7x** in decode latency between two runs whose every *recorded*
@@ -2504,15 +2600,17 @@ producing agent invents a value each bring-up. Measured across every kit in the
 run root:
 
 ```
-env.sh:105  DK_TP_SIZE:=1  MAX_BS:=8    x18   the sealed 2026-09-02 kit, replayed
-env.sh:170  DK_TP_SIZE:=4  MAX_BS:=16         062229-2695b9   real
-env.sh:169  DK_TP_SIZE:=4  MAX_BS:=16         110626-43f0de   real
-env.sh:193  DK_TP_SIZE:=4  MAX_BS:=8          125637-e1ddf6   real
-env.sh:222  DK_TP_SIZE:=4  MAX_BS:=32         143952-bec7da   real, in flight
+kit        DK_TP_SIZE   MAX_BS   note
+sealed     1            8        replayed x18, byte-identical every time
+real (a)   4            16
+real (b)   4            16
+real (c)   4            8
+real (d)   4            32       in flight
 ```
 
-**16, 16, 8, 32 over four real bring-ups**, the line number moving each time
-because `env.sh` is regenerated rather than edited. That is **strictly worse
+**16, 16, 8, 32 over four real bring-ups**, and the setting sits at a different
+place in the file each time because `env.sh` is regenerated rather than
+edited. That is **strictly worse
 than a wrong default, because a wrong default is at least reproducible.** Two of
 the four shipped a ceiling below the concurrency the mission grades at, and the
 run in flight is right **by luck, not by construction**. The `:=8` that looked
@@ -2546,7 +2644,7 @@ a cross-input equality.
 
 ### T56 — `summarise.py` exists twice, byte-identical, with call sites split across both copies
 
-**m1, 2026-09-04. Found while verifying m2's account of four empty summary files;
+**Found while verifying m2's account of four empty summary files;
 recorded rather than acted on, and I could not establish whether it is
 deliberate.**
 
@@ -2558,9 +2656,9 @@ deliberate.**
 Three call sites, split between them:
 
 ```
-assets/accept/measure.sh:218,:408              -> $BENCH/summarise.py
-assets/load/replay.sh:147                      -> $LOAD/summarise.py
-check_deploy_serves/check.py:592               -> assets/bench/summarise.py
+assets/accept/measure.sh              -> $BENCH/summarise.py
+assets/load/replay.sh                      -> $LOAD/summarise.py
+check_deploy_serves/check.py               -> assets/bench/summarise.py
 ```
 
 **Every one passes both arguments and is correct.** The script refuses on
@@ -2585,7 +2683,7 @@ further, which I have not.
 
 **Unrelated but measured on the way past, and it corrects something I told m2:**
 an empty summary in `check_deploy_serves` does not fall back with a warning, it
-**fails** — `check.py:592-601` catches the `ValueError` from `json.loads` and
+**fails** — `check.py` catches the `ValueError` from `json.loads` and
 returns *"the load ran but produced no readable summary … A load with no numbers
 has not shown the deployment serves under load"*. The announcing-`WARNING` path
 is the different case of a summary that parses but carries neither
@@ -2594,7 +2692,7 @@ Two failure modes, two behaviours, and I conflated them in a message.
 
 ### T57 — one scratch path, three independent literals, agreeing by coincidence
 
-**m5, 2026-09-04, from dry-running rung 5's launch line against rung 1's tree.
+**From dry-running rung 5's launch line against rung 1's tree.
 Spans m1, m4 and m5, and m4 found the same variable from the other end.**
 
 Three variables name one directory tree and **none derives from another**:
@@ -2616,7 +2714,7 @@ shared host. Anybody applying that reasoning one variable over — a run-unique
 `work_root`, which is the same argument for the same reason — splits the three
 without a word from anything.
 
-## The part that closes a loop: they *cannot* be derived
+#### The part that closes a loop: they *cannot* be derived
 
 The natural spelling is:
 
@@ -2625,7 +2723,8 @@ scratch_dir: '${scratch_root:-${work_root:-/mnt/…/e2e_flow}/kfo}'
 ```
 
 **That is the nested default**, which expands to a literal string with **zero
-problems reported** (`temp/bugs/2026-09-02-an-unparseable-variable-reference-is-passed-through-silently.md`).
+problems reported** — an unparseable variable reference is passed through
+silently.
 So the derivation is not merely unwritten — **it is unspellable**, and three
 owners each wrote the constant out because the loader gives them no other
 option.
@@ -2634,34 +2733,90 @@ option.
 afternoon**, not by breaking anything, but by making the correct expression
 unavailable and the incorrect one silent.
 
-## The other end, m4's
+#### The other end, m4's
 
 `work_root` is on m4's launch line and **never read by their stage** — they
 carry a variable whose value does not reach them, while `scratch_root`, which
 does, is a separate name nobody passes. Two halves of one thing: a var passed
 and not read, and a var read and not passed.
 
-## Shape
+#### Shape
 
 `min_requests` for paths (T-series, the `integration_min_requests` split): one
 name that should be one thing, spelled independently by owners who each read a
 correct value in their own file. **The difference is that `min_requests` could
 be split and this one cannot be joined.**
 
-## Not fixed, deliberately
+#### Not fixed, deliberately
 
 Three owners, and the only correct fix — deriving two from one — is the
 unspellable form. The options are: pass all three explicitly on every launch
 line (verbose, and the launch lines are where every defect this week has been),
 or resolve the nesting fault upstream. **Neither is m5's alone.**
 
+### T58 — counting kits on disk counts how often we tested, not how often a producer chose
+
+**Filed at the package owner's request, with the fingerprint, because the
+fingerprint is the only part anyone can act on.**
+
+A census of `packup` trees is the natural way to answer *"how often has a producer
+done X?"*, and it is wrong by construction. Measured over the frozen root:
+
+```
+find <shared path> -path '*packup*' -name env.sh    ->  58 files
+
+55   line 105, DK_TP_SIZE:=1     the sealed kit, byte-identical replays
+ 3   no ceiling variable at all  two are my own 13-line stubs, one a stripped copy
+--
+ 0   produced by an agent
+```
+
+**Most of the 55 are `ws_handoff_refine/m1/gate*/{good,bad}` — copies `gate.sh`
+makes of the sealed kit on every invocation, two per run.** So the corpus is
+mostly a record of my own testing, and **the ratio gets worse every time anyone
+runs a gate.** Our diligence tilts the evidence, monotonically, in the direction
+of "this happened constantly".
+
+It already misled a real sweep: eight pre-contract runs were read as eight
+producers choosing a ceiling of 8, when six were one artefact replayed. The
+corrected producer record is **four runs — `16, 16, 8, 32`, one below the bar**.
+
+#### The fingerprint
+
+**A produced `env.sh` is regenerated each run, so the same setting lands in a
+different place each time. A replayed one is byte-identical, so it does not
+move — and every replay therefore carries `DK_TP_SIZE:=1`, while every real
+bring-up carries `DK_TP_SIZE:=4`.**
+
+So: **before counting a kit as evidence of a choice, read the `tp_size`.** A kit
+whose `tp_size` is 1 is the sealed artefact, whatever
+directory it is sitting in. Anyone can apply that; nobody would infer it.
+
+And the second reason those 55 do not count even as failures: their ceiling of 8
+is **correct for the deployment they describe**, which is `tp_size: 1` — not the
+concurrency-16 shape the bar is about. `mock_adapt.sh` preserves it deliberately
+(*"adapts a record forward; it does not re-tune a deployment that already
+happened"*), so they are a design decision working, not a producer failing.
+
+#### Why it is worth an entry rather than a correction
+
+**Our own discipline generates the false signal, and being more careful makes it
+worse.** That is the same shape as m5's grep trap the same afternoon — there,
+good comments made a naive detector fire; here, thorough testing makes a naive
+census over-count. **Neither is fixable by care.** Both need the artefact's
+provenance established *before* it is counted, which is what the fingerprint is
+for.
+
+Applies to any future sweep of `packup` trees, which is exactly what someone will
+reach for the next time the question is *"how often has this happened?"*
+
 ### T59 — the instruments that failed today, and not one failed toward "I cannot tell"
 
-**m1, 2026-09-04. An observation about the set, filed at the package owner's request.
+**An observation about the set, filed at the package owner's request.
 Deliberately untitled by count: it was four when written, six by evening, and a
 number in a heading is the thing this file has already had go stale twice.**
 
-## What to do about it, which is not "be careful"
+#### What to do about it, which is not "be careful"
 
 **Re-ask any question whose answer you liked.** That is the only thing that has
 worked all day, and it is not diligence — every catch came from someone
@@ -2688,7 +2843,7 @@ something that means more work for you, taking it on the chin reads as honesty �
 you are visibly not defending your own position — and that feeling occupies the
 place where the verification would have gone.
 
-Measured, 2026-09-04: m1 reported that `run_with_long_stall.py` was untracked. It
+Measured: m1 reported that `run_with_long_stall.py` was untracked. It
 was plausible, it was about a file the package owner had written, and it meant work.
 **Nothing about it felt wrong**, which is the point. It was checked only because
 the day had made checking reflexive:
@@ -2744,7 +2899,7 @@ grep -oE '[A-Z_]*CUDA_GRAPH_MAX_BS'          returned `E_KIT_CUDA_GRAPH_MAX_BS`.
                              **`2` is not in `[A-Z_]`**, so the match began mid-token
                              and the variable NAME came back wrong by two characters
                              -- inside a verification of a claim ABOUT variable names.
-                             (checkpoint's, 2026-09-04. The value and timestamp it was
+                             (checkpoint's. The value and timestamp it was
                              checking were unaffected, which is why it survived: the
                              answer was right and the label on it was not.)
 ```
@@ -2803,68 +2958,9 @@ when both rest on the assumption being tested.**
 Related in kind, different in layer: see **T52** for the `df` case in full, and CONTRACT §4.4's sixth face for the launch-var version of the same
 shape (a name that resolves while the value it names is false).
 
-### T58 — counting kits on disk counts how often we tested, not how often a producer chose
+### T60 — the graph ceiling is chosen by stage 1's load and spent by stage 2's
 
-**m1, 2026-09-04. Filed at the package owner's request, with the fingerprint, because the
-fingerprint is the only part anyone can act on.**
-
-A census of `packup` trees is the natural way to answer *"how often has a producer
-done X?"*, and it is wrong by construction. Measured over the frozen root:
-
-```
-find <shared path> -path '*packup*' -name env.sh    ->  58 files
-
-55   line 105, DK_TP_SIZE:=1     the 2026-09-02 sealed kit, byte-identical replays
- 3   no ceiling variable at all  two are my own 13-line stubs, one a stripped copy
---
- 0   produced by an agent
-```
-
-**Most of the 55 are `ws_handoff_refine/m1/gate*/{good,bad}` — copies `gate.sh`
-makes of the sealed kit on every invocation, two per run.** So the corpus is
-mostly a record of my own testing, and **the ratio gets worse every time anyone
-runs a gate.** Our diligence tilts the evidence, monotonically, in the direction
-of "this happened constantly".
-
-It already misled a real sweep: eight pre-contract runs were read as eight
-producers choosing a ceiling of 8, when six were one artefact replayed. The
-corrected producer record is **four runs — `16, 16, 8, 32`, one below the bar**.
-
-## The fingerprint
-
-**A produced `env.sh` is regenerated each run, so its line numbers move. A
-replayed one is byte-identical, so they do not.**
-
-```
-produced   env.sh:169  env.sh:193  env.sh:222     DK_TP_SIZE:=4
-replayed   env.sh:105  every time                 DK_TP_SIZE:=1
-```
-
-So: **before counting a kit as evidence of a choice, check the line number and
-the `tp_size`.** Line 105 with `tp_size: 1` is the 2026-09-02 artefact, whatever
-directory it is sitting in. Anyone can apply that; nobody would infer it.
-
-And the second reason those 55 do not count even as failures: their ceiling of 8
-is **correct for the deployment they describe**, which is `tp_size: 1` — not the
-concurrency-16 shape the bar is about. `mock_adapt.sh` preserves it deliberately
-(*"adapts a record forward; it does not re-tune a deployment that already
-happened"*), so they are a design decision working, not a producer failing.
-
-## Why it is worth an entry rather than a correction
-
-**Our own discipline generates the false signal, and being more careful makes it
-worse.** That is the same shape as m5's grep trap the same afternoon — there,
-good comments made a naive detector fire; here, thorough testing makes a naive
-census over-count. **Neither is fixable by care.** Both need the artefact's
-provenance established *before* it is counted, which is what the fingerprint is
-for.
-
-Applies to any future sweep of `packup` trees, which is exactly what someone will
-reach for the next time the question is *"how often has this happened?"*
-
-# T60 — the graph ceiling is chosen by stage 1's load and spent by stage 2's
-
-**First real cross-stage refusal, rung 2e, 2026-09-04 20:45.** `check_bench_result`
+**First real cross-stage refusal, rung 2e.** `check_bench_result`
 refused `profiling_mode_off.bench_result`, `strong`:
 
 ```
@@ -2880,20 +2976,20 @@ decode concurrency the load achieved   25.42
 load runs at conc=16 and 16 >= 16. **Stage 1 chose a ceiling adequate for the
 load stage 1 runs, and stage 2 then ran a heavier one against the same kit.**
 
-## Why five separate packages could never have found it
+#### Why five separate packages could never have found it
 
 Stage 2 has never consumed stage 1's kit before this run. The seam only exists
 once the stages are one graph, which is the mission's whole premise — **the first
 real chained run produced a defect that no amount of work on the five demos
 would have surfaced.**
 
-## What the code says, against the package owner's first instinct
+#### What the code says, against the package owner's first instinct
 
 The lead's initial lean was *"stage 1 should choose a higher ceiling"*. **Reading
 the code says the other path is the designed one:**
 
-* `deploy_and_prove/mock_adapt.sh:180` — `: "${E2E_KIT_CUDA_GRAPH_MAX_BS:=${DK_CUDA_GRAPH_MAX_BS:-8}}"`, i.e. `:=`, so a consumer that exports it first **wins**;
-* `check_deploy_kit.validator/gate.sh:163` — planted fault **14** is *"the graph ceiling bound with no parameter"*, so the gate already treats an unparameterised ceiling as a defect. **The parameter exists so someone downstream can bind it.**
+* `deploy_and_prove/mock_adapt.sh` — `: "${E2E_KIT_CUDA_GRAPH_MAX_BS:=${DK_CUDA_GRAPH_MAX_BS:-8}}"`, i.e. `:=`, so a consumer that exports it first **wins**;
+* `check_deploy_kit.validator/gate.sh` — planted fault **14** is *"the graph ceiling bound with no parameter"*, so the gate already treats an unparameterised ceiling as a defect. **The parameter exists so someone downstream can bind it.**
 * and `E2E_KIT_CUDA_GRAPH_MAX_BS` is **not** a `--var` in `shared.yaml` or any step yaml — it is bound only inside the kit.
 
 **Nothing in stage 2 sets it.** No reference in the profiling assets or
@@ -2901,7 +2997,7 @@ the code says the other path is the designed one:**
 exactly the condition CONTRACT §4.6 says no comparison can detect, because both
 arms would inherit the same wrong value.
 
-## The open decision, for m1 and m2 jointly
+#### The open decision, for m1 and m2 jointly
 
 1. **stage 2 binds the ceiling before running the kit's `deploy.sh`** — matches
    `:=`, keeps the kit a recipe, and puts the choice with the module that knows
@@ -2914,29 +3010,29 @@ arms would inherit the same wrong value.
 **Not decided here.** Recorded because the team was unreachable for 75+ minutes
 when it was found and the next rung will hit it again within the hour.
 
-## What must not happen
+#### What must not happen
 
-**Do not raise the bar to make this pass.** The 5 % / 10 % precedent from
-2026-09-02 is in `DELIVERY-NOTE-FROM-LEADER.md`: widening a bar that refused
-correctly was already tried once and was the wrong response. A ceiling of 16
+**Do not raise the bar to make this pass.** The 5 % / 10 % precedent applies:
+widening a bar that refused correctly was already tried once and was the wrong
+response. A ceiling of 16
 against concurrency 25.42 is a real 4.6x, not a threshold artefact.
 
-## T60 addendum — the override channel already exists and is one line from working
+### T60a addendum — the override channel already exists and is one line from working
 
-Found 2026-09-04 21:50 by the lead, reading `assets/load/line.sh` after rung 2e died.
+Found while reading `assets/load/line.sh` after rung 2e died.
 
 **`E2E_KIT_ENGINE_EXTRA_ARGS` is the designed override channel**, and the file
-says so itself at `line.sh:74-76`:
+says so itself at `line.sh`:
 
 > *"`EXTRA_ARGS` is appended to the worker's argv **last**, so it overrides an
 > earlier occurrence of the same flag rather than racing it."*
 
 So `--cuda-graph-max-bs 32` passed through that channel **beats the kit's own 16**,
 by design, with no change to the kit and no decision about what stage 1 should
-choose. It is already plumbed end to end — `line.sh:258-262` passes three
+choose. It is already plumbed end to end — `line.sh` passes three
 `E2E_KIT_*` overrides into the kit's `deploy.sh`, and this is one of them.
 
-**The only obstacle is `line.sh:78`:**
+**The only obstacle is `line.sh`:**
 
 ```bash
 export E2E_KIT_ENGINE_EXTRA_ARGS=""        # hardcoded; an inherited value is discarded
@@ -2947,7 +3043,7 @@ when unset and makes the hook usable. **One line, behaviour-identical by default
 
 **Two things that are NOT solved by it**, so nobody reads this as the whole fix:
 
-* the `CAPTURE=1` branch at `line.sh:85` **overwrites** the variable with
+* the `CAPTURE=1` branch at `line.sh` **overwrites** the variable with
   `--disable-cuda-graph`, so an inherited value is still lost on the
   `profiling_mode_on` line. Only `profiling_mode_off` — which is the line that
   refused — is covered.
@@ -2960,17 +3056,17 @@ landing it is a minute's work rather than a rediscovery. The team was unreachabl
 for 2 h 20 min when this was written, and 217 sat idle rather than being spent on
 a run that would refuse identically.
 
-### Correction to the addendum — the direct parameter is the better lever, and the real gap is `KIT_ENV_PREFIX`
+#### Correction to the addendum — the direct parameter is the better lever, and the real gap is `KIT_ENV_PREFIX`
 
 The addendum above recommended unpinning `E2E_KIT_ENGINE_EXTRA_ARGS` at
-`line.sh:78`. **Reading the sealed kit itself shows a cleaner lever and a
+`line.sh`. **Reading the sealed kit itself shows a cleaner lever and a
 different gap.** From rung 2e's own `deploy_kit`, not from a comment:
 
 ```
-scripts/env.sh:95            : "${E2E_KIT_CUDA_GRAPH_MAX_BS:=16}"
-scripts/env.sh:101           : "${E2E_KIT_ENGINE_EXTRA_ARGS:=}"
-scripts/start_worker.sh:91       --cuda-graph-max-bs '${E2E_KIT_CUDA_GRAPH_MAX_BS}' \
-scripts/start_worker.sh:95       ${E2E_KIT_ENGINE_EXTRA_ARGS}
+scripts/env.sh            : "${E2E_KIT_CUDA_GRAPH_MAX_BS:=16}"
+scripts/env.sh           : "${E2E_KIT_ENGINE_EXTRA_ARGS:=}"
+scripts/start_worker.sh       --cuda-graph-max-bs '${E2E_KIT_CUDA_GRAPH_MAX_BS}' \
+scripts/start_worker.sh       ${E2E_KIT_ENGINE_EXTRA_ARGS}
 ```
 
 **Both are `:=`**, so an inherited value wins for either. And `EXTRA_ARGS` really
@@ -2982,7 +3078,7 @@ value the kit is built around, where the EXTRA_ARGS route sets the same flag a
 second time and relies on last-wins. One is configuration; the other is an
 override of an override.
 
-**And the gap is not `line.sh:78`. It is `line.sh:223`:**
+**And the gap is not `line.sh`. It is `line.sh`:**
 
 ```bash
 KIT_ENV_PREFIX="E2E_KIT_RUN_TAG='$E2E_KIT_RUN_TAG' \
@@ -2993,17 +3089,17 @@ KIT_ENV_PREFIX="E2E_KIT_RUN_TAG='$E2E_KIT_RUN_TAG' \
 Three variables. **The ceiling is not among them, so it never reaches the kit at
 all** — which is why stage 2 inherits stage 1's choice silently. Adding a fourth
 line in the identical pattern is the whole change, and **passing it empty is safe
-precisely because `env.sh:95` uses `:=`** — a null value takes the default 16, so
+precisely because `env.sh` uses `:=`** — a null value takes the default 16, so
 the behaviour is identical until someone sets it.
 
 **Still m2's file and still not applied by the lead.** The correction is recorded
 because the addendum's advice would have worked by the weaker route while leaving
 the actual gap in place.
 
-### Root cause — the producer was briefed to choose 16, and did
+#### Root cause — the producer was briefed to choose 16, and did
 
 Both entries above look for a **lever** to override the ceiling. Reading
-`assets/deploy_and_prove.task/readme.md:239-249` shows there is nothing to
+`assets/deploy_and_prove.task/readme.md` shows there is nothing to
 override: **the kit shipped 16 because the brief asks for 16.**
 
 > *"Set the CUDA graph ceiling to at least the concurrency **this deployment will
@@ -3037,7 +3133,7 @@ lead, still m1's file):
 * scope the instruction to **the heaviest load any consumer will apply**, not to
   this deployment's own;
 * name the measured datum — stage 2's trace replay reached **25.42** on
-  2026-09-04, so `>= 16` is not sufficient for the flow;
+  so `>= 16` is not sufficient for the flow;
 * keep the *"write down why"* requirement unchanged. It is the best part of the
   brief and it is what makes a wrong number auditable: *"a number with no reason
   fails this even when the number is right."*
@@ -3046,7 +3142,7 @@ lead, still m1's file):
 mistake with a bigger constant — a number that happens to cover one observed
 trace, with no statement of what it must cover.
 
-### T60 closed by rung 2f — and 25.42 was a symptom, not a requirement
+### T60b closed by rung 2f — and 25.42 was a symptom, not a requirement
 
 **The fix worked end to end.** rung 2f (`20260904T225556-55e566`), node 088:
 
@@ -3063,7 +3159,7 @@ instead of 16; the producer used the non-deprecated `--cuda-graph-max-bs-decode`
 and verified from `/get_server_info` that capture buckets reached 32; and
 `graph_ceiling` was taught that spelling so it read the kit instead of refusing it.
 
-## The part that corrects the brief I wrote
+#### The part that corrects the brief I wrote
 
 **rung 2e measured decode concurrency 25.42. rung 2f measured 4.909 — same trace
 (721 records both times), same tp, same model.**
@@ -3095,11 +3191,11 @@ circular unless you measure twice. Recorded so the next person does not read
 
 ### T61 — a defect the instrument hides by functioning correctly
 
-**m5, 2026-09-05, from a warning of m2's that was about something else.** Named
+**From a warning of m2's that was about something else.** Named
 here because both the package owner and m2 independently said it is a shape the day's
 collection did not already contain.
 
-`check_no_regression/check.py:567`, before `ce2d5a6`:
+`check_no_regression/check.py`, before `ce2d5a6`:
 
 ```python
 name = args.get("schema")
@@ -3112,7 +3208,7 @@ and nothing says so.** The other five args are thresholds that degrade to safe
 defaults and still bite (`0.05`, `0.10`, `0.10`). This one degrades to nothing.
 That much is ordinary — `items_schema`'s shape, present and checking nothing.
 
-## What makes it its own entry
+#### What makes it its own entry
 
 **It is invisible exactly when the tooling is correct.**
 
@@ -3137,7 +3233,7 @@ its job. There is no observation, from inside the package's own tooling, that
 distinguishes *"this check ran"* from *"this check would silently not run if
 asked differently"*.
 
-## The general form
+#### The general form
 
 **A guard that is conditional on its own configuration is only as present as the
 caller's discipline, and no test that supplies the configuration can see its
@@ -3145,13 +3241,13 @@ absence.** The absent-arg path has to be tested *deliberately* — the way a
 refusal path has to be tested deliberately — because nothing produces it by
 accident once the callers are correct.
 
-## What was done
+#### What was done
 
 `ce2d5a6`: absent `schema` is now a refusal that names the missing arg. Verified
 both directions — with the step's args it refuses on the documented 35 %/30 %
 bars, with `schema` removed it refuses on the arg.
 
-## Where else to look
+#### Where else to look
 
 Not swept. The candidate shape is `if args.get(X):` guarding a check rather than
 selecting between behaviours — as distinct from `args.get(X, <safe default>)`,
@@ -3162,7 +3258,7 @@ whoever next has a quiet hour; it is not urgent and it is not one owner's.**
 
 ### T62 — `base_sha256` defects 2 and 3, held pending an answer that may not exist
 
-*Opened 2026-09-05 by checkpoint, from the day's traffic. Defect 1 is landed.*
+*From the day's traffic. Defect 1 is landed.*
 
 **Defect 1 shipped with its own one-third caveat attached** — the fix states what
 it does *not* cover rather than leaving the reader to find out. Defects **2 and
@@ -3173,7 +3269,7 @@ is *"the manifest has never run against an `sgl_kernel` operator"*, then 2 and 3
 are **not a choice we are postponing — they are an unknown we have not measured.**
 Those are different states and the record should not let them read alike.
 
-**m5 answered 2026-09-05: (a)** — and for a stronger reason than m3 had.
+**m5 answered: (a)** — and for a stronger reason than m3 had.
 `SGL_KERNEL_ROOT` names **build sources**, so the site-packages module is a file
 object no manifest ever references. **m5 also measured on 287 that
 `/sgl-workspace/sglang/sgl-kernel` does not exist in the image at all** — the
@@ -3187,9 +3283,9 @@ operator:
 @SGLANG_ROOT@        38 across every manifest that has ever existed (leader's count,
                      history-wide; 31 in the current tree excluding runs/ — checkpoint)
 @AITER_ROOT@          0 in any manifest.  The single occurrence in the tree is a
-                     `description` string in workset.schema.json:495, not a use
+                     `description` string in workset.schema.json, not a use
 @SGL_KERNEL_ROOT@     1, and it is the guard constant at
-                     optimize_kernel.task/steps/60_write_handoff.py:115
+                     optimize_kernel.task/steps/60_write_handoff.py
 ```
 
 **So both the `_NOT_OVERLAYABLE` refusal and the `rebuild` branch are unexercised
@@ -3203,7 +3299,7 @@ one are still different things.
 
 ### T63 — `snr_db: inf` is non-monotonic on `layernorm`, and both proposed mechanisms are disproved
 
-*Opened 2026-09-05 by checkpoint, from the day's traffic.*
+*From the day's traffic.*
 
 **Two mechanisms were proposed and both were disproved. One candidate remains
 untested.** The entry exists so the two dead ones are not re-proposed: an
@@ -3217,7 +3313,7 @@ whoever touched `layernorm` last.**
 
 ### T64 — `rank.task` and `identify.task` are 15-line skeletons, not briefs
 
-*Opened 2026-09-05 by checkpoint. Measured.*
+*Checkpoint. Measured.*
 
 ```
 rank.task/readme.md            15 lines
@@ -3243,8 +3339,7 @@ is promoted.
 
 ### T65 — four profiling lines died in one morning, cause open
 
-*Opened 2026-09-05 by checkpoint. Placeholder so m2's answer has somewhere to
-land — see `bug.record.2026-09-05.md` entry 15.*
+*Placeholder so m2's answer has somewhere to land.*
 
 `p4_a`, `p4_b`, `p4_m4real`, and **`p4_b_m1real`**.
 
@@ -3266,9 +3361,9 @@ package's log) until m2 rules. **Their proximity in time is not evidence.**
 
 ### T66 — the agent's system prompt points at a path that is not in the repository
 
-*Opened 2026-09-05 by m3's sweep; verified by checkpoint.*
 
-`build_workset.task/readme.md:98` — **the live system prompt for a `kind: ai`
+
+`build_workset.task/readme.md` — **the live system prompt for a `kind: ai`
 agent** — tells it that `../../../../../rank0/definitions/` *"holds two worked
 examples and is the thing to imitate."* Three references, all off by one level.
 
@@ -3290,7 +3385,7 @@ Definition.** Nothing fails; the output is merely unanchored.
 **Why nobody noticed:** damage is bounded because `check_workset_shape` enforces
 the Definition keys downstream. **A validator caught the consequence and so the
 cause never surfaced** — which is the same relationship as
-`bug.record.2026-09-05.md` entry 20, where good comments hid a bad grep.
+a defect where good comments hid a bad grep.
 
 **Holder: m3**, who is holding the fix until the full-real chain clears their
 stage, because that readme is the live system prompt and editing it mid-run
@@ -3300,7 +3395,7 @@ changes what a running agent reads.
 
 ### T67 — `reverify_shapes` counts operators, and its name says shapes
 
-*Opened 2026-09-05 by m3, at the package owner's instruction, while confirming the cost
+*M3, at the package owner's instruction, while confirming the cost
 of raising it.*
 
 `assets/check_workset_runs.validator/check.py`:
@@ -3348,7 +3443,7 @@ that.
 
 ### T68 — an attested number and a claimed one are indistinguishable in the handoff
 
-*Opened 2026-09-05 by m3, from m4's question. m4 ranks it above both forge
+*M3, from m4's question. m4 ranks it above both forge
 defects and the package owner agrees; recording that because it is a consumer's
 ranking of a producer's defect.*
 
@@ -3394,7 +3489,7 @@ deliverable today.
 
 ### T69 — `identify` leaves `fellow` empty for most operators, and two producers write the tag
 
-*Opened 2026-09-05 by m3 at the package owner's instruction. The unblock is landed;
+*At the package owner's instruction. The unblock is landed;
 this is the root, filed separately so the workaround does not close it.*
 
 **This entry's original diagnosis was wrong and is corrected here.** It said
@@ -3402,8 +3497,8 @@ this is the root, filed separately so the workaround does not close it.*
 `91ea967b`'s Definitions carrying
 `['attention', 'linear-attention', 'triton', 'gated-delta-rule']`. Reading a
 real `operator_identity` — run `20260905T074905-9ec798`, 287 — shows the
-opposite: **`identify` writes a suffixed `fellow`** (`identify.py:547`), and
-`scaffold.py:264` copies it straight into the Definition's tags. The original
+opposite: **`identify` writes a suffixed `fellow`** (`identify.py`), and
+`scaffold.py` copies it straight into the Definition's tags. The original
 `_fellow`, matching a tag ending in `-fellow`, was **correct by design**.
 
 **What actually happens, measured on that run's five operators:**
@@ -3430,7 +3525,7 @@ entry stands: **two producers disagreed and nothing compared them** — just not
 the two producers it named.
 
 **The mock is a third vocabulary and the worst of them.**
-`mock_adapt.py:451` hard-codes `"tags": ["softmax", "sglang", "generic-fellow"]`
+`mock_adapt.py` hard-codes `"tags": ["softmax", "sglang", "generic-fellow"]`
 — a literal name KernelForge does not register. Before `62032fc` that flowed
 through untouched. So mock did not merely fail to show the defect; **the mock
 corpus is where `generic-fellow` comes from in the first place.**
@@ -3442,7 +3537,7 @@ refuses instead of substituting. It would have been correct under either
 diagnosis, which is why the wrong one survived a landing. **The defect is
 that two producers disagreed about a spelling and nothing compared them.**
 `identify`'s taxonomy also offers `tilelang-fellow`
-(`assets/lib/kernel_taxonomy.yaml:129`), which is not a KernelForge backend
+(`assets/lib/kernel_taxonomy.yaml`), which is not a KernelForge backend
 either — that row can never be honoured and now refuses.
 
 **What would actually close it, revised:** (a) find out why `identify` reports
@@ -3451,7 +3546,7 @@ a source path — that is the real gap, and it is upstream of every vocabulary
 question; (b) one declared vocabulary shared by `identify`, `scaffold`, the
 agent's brief and `mock_adapt`, validated against KernelForge's constants at
 build time rather than at campaign time; (c) delete `generic-fellow` from
-`mock_adapt.py:451`.
+`mock_adapt.py`.
 
 **How the wrong diagnosis got here, since it is the day's shape once more:** it
 was inferred from one artefact — a workset whose Definitions happened to be
@@ -3466,12 +3561,12 @@ the dangerous outcome is gone even while the disagreement stands.
 
 ### T70 — `kernel_taxonomy.yaml` offers a fellow KernelForge does not have
 
-*Opened 2026-09-05 by m3 at the package owner's instruction, split out of `62032fc`
+*M3 at the package owner's instruction, split out of `62032fc`
 rather than folded into it.*
 
-`assets/lib/kernel_taxonomy.yaml:129` maps a symbol shape to
+`assets/lib/kernel_taxonomy.yaml` maps a symbol shape to
 **`tilelang-fellow`**. KernelForge registers seven backends
-(`kernel_agents/fellows/constants.py:17-26`): `ck`, `flydsl`, `triton`,
+(`kernel_agents/fellows/constants.py`): `ck`, `flydsl`, `triton`,
 `aiter`, `hip`, `hipblaslt`, `intellikit`. **`tilelang` is not among them**, so
 that row can never be honoured.
 
@@ -3497,7 +3592,7 @@ change.
 
 ### T71 — three separate defects share one cause: the mock corpus has a shape the real path does not
 
-*Opened 2026-09-05 by m3 at the package owner's instruction. **This entry exists
+*M3 at the package owner's instruction. **This entry exists
 because the third instance made it a pattern rather than a coincidence**, and
 until now each was filed only where it was found.*
 
@@ -3543,7 +3638,7 @@ should not be inferred to be m3's because m3 filed the entry.
 
 ### T72 — `expect_ranks` 在两份文档之间有缝,两份都没错
 
-**来源:another owner 的 the launch notes 审计,2026-09-05;两处引用我都回源核对过。**
+**来源:the launch notes 的审计;两处引用均已回源核对。**
 
 **没有哪一份文件写错了,缝在它们中间——所以两边都没有可改的东西。**
 
@@ -3561,12 +3656,12 @@ should not be inferred to be m3's because m3 filed the entry.
 - **the replay manual 里 `expect_ranks` 出现 0 次**(实测 `grep -c`)。
   another owner 认这个遗漏是自己的。
 
-**形状**:和 `bug.record` 第 17 条的 `adhoc_cases` 同族,高一层——
+**形状**:与 `adhoc_cases` 同族,高一层——
 **一个键在常见情形下是正确的代理,在一个已写进文档的变体下静默失效。**
 `adhoc_cases` 是同一文件内两节打架;这一条是**两份文件之间**,所以连
 「读全文就能发现」都不成立。
 
-### ⚠ `bug.record` 第 17 条的那条检查**找不到这一条**——不要跑完表格审计就以为覆盖了
+#### ⚠ 针对 `adhoc_cases` 的那条检查**找不到这一条**——不要跑完表格审计就以为覆盖了
 
 第 17 条的可执行检查是**「拿速查表逐格对正文核,单方向」**。它对
 `adhoc_cases` 那一族有效,**对 T72 无效**:
@@ -3597,7 +3692,7 @@ should not be inferred to be m3's because m3 filed the entry.
 
 ### T73 — the Triton fellow pattern needs a leading underscore and a terminal `_kernel`; real kernels have neither
 
-*Opened 2026-09-05 by m3. This answers T69's revised close (a) — why `identify`
+*M3. This answers T69's revised close (a) — why `identify`
 reports `lang='unknown'` for Triton files it resolved to a source path.*
 
 **Measured** by running `taxonomy.fellow_of` against the five device symbols in
@@ -3665,7 +3760,7 @@ the Triton bucket regardless of rule order.
 downstream of it. The change turns two refusals into two campaigns — it makes
 the pipeline do *more* work, on a matcher validated against **five symbols**.
 Landing a widened matcher into a live chain's downstream stage is the same call
-as `build_workset.task/readme.md:98`, and the same answer. **Ready to land the
+as `build_workset.task/readme.md`, and the same answer. **Ready to land the
 moment 217 clears m3.**
 
 **Run against the population, and the result is the table above.** On all 124
@@ -3689,7 +3784,7 @@ somebody decides whether 64 % unclassified is acceptable** — most of those
 kernels are never promoted by `rank`, so the practical exposure is much smaller
 than the raw ratio, and *how much* smaller is unmeasured.
 
-**Renumbered from T72 to T73, 2026-09-05.** another owner's `expect_ranks` entry
+**Renumbered from T72 to T73.** Another owner's `expect_ranks` entry
 took T72 at 08:04 and this landed at 08:24 (`3d7a05e` before `f834fcf`), so this
 one is the duplicate. **I reused a number read from a heading listing taken
 before theirs existed** — the stale-pointer class again, this time on an
@@ -3699,12 +3794,12 @@ identifier rather than a line number, which is exactly what checkpoint's
 
 ---
 
-**`buckets:` measured 2026-09-05, and it is the more consequential copy.** The
-same old pattern sits at `kernel_taxonomy.yaml:96`, under `buckets:` rather than
+**`buckets:` measured, and it is the more consequential copy.** The
+same old pattern sits at `kernel_taxonomy.yaml`, under `buckets:` rather than
 `fellows:`, and the consequence is not symmetrical:
 
 - in `fellows:`, a miss means **no label, then the wrapper refuses** — visible;
-- in `buckets:`, `taxonomy.py:43-48` puts an unmatched symbol in `unknown` with
+- in `buckets:`, `taxonomy.py` puts an unmatched symbol in `unknown` with
   **`routable: False`**, so a miss means **excluded from the candidate pool**.
   `rank` never sees it. **A defect that mislabels is visible; a defect that
   excludes is not.**
@@ -3745,7 +3840,7 @@ of this trace's prefill/decode mix. On a decode-heavier trace that kernel's
 share would rise and the omission would matter more. **I have not measured that
 and am not extrapolating.**
 
-**HELD by the package owner, 2026-09-05, for the round's goal rather than the
+**HELD, for the round's goal rather than the
 measurement.** This round is 跑通即可 — get the chain through, explicitly not real
 performance improvement. Expanding the pool changes *which operator gets
 optimised*: a 2.35 % newcomer at rank 2 means the next m3 run may hand m4 a
@@ -3767,13 +3862,13 @@ measurement already behind it.
 
 ### T74 — a killed validator leaves its own deployment holding the cards
 
-**Filed 2026-09-05T12:08:45Z by m1**, from run `20260905T110552` (`p4_i`). Recorded as a
+**Filed by m1**, from a `p4_i` run. Recorded as a
 todo rather than fixed, because the observed cause is already fixed and this is
 the residual.
 
 `check_deploy_serves` brings a deployment up itself. When the run was torn down
 at 12:02 it took **SIGTERM mid-flight**, so the `finally` that runs
-`teardown.sh` never ran, and `yihou_p4i_sgl_serves-3871cafe` plus its etcd
+`teardown.sh` never ran, and the serving container plus its etcd
 sidecar **kept four MI355X cards at 75 % for thirty-three minutes** after the
 orchestrator was gone. Nothing in the run reclaims them: the containers outlive
 the job by design, and the run's own exit path does not know the validator had
@@ -3800,7 +3895,7 @@ instance.
 
 ### T75 — constrain the `optimized_kernel.py` slot by KIND, not by filename — deferred, and the deferral is the decision
 
-**Raised by m4 in `bug.record` entry 29 and explicitly handed up rather than taken.**
+**Raised by m4 and explicitly handed up rather than taken.**
 That was right: it changes a handoff contract, which is not a module owner's call.
 
 **The defect** (29's thesis, and it has two instances today): 「一个优化后的 kernel」
@@ -3831,7 +3926,7 @@ that rather than on the filename.
 3. **The hazard is currently contained, by accident and knowingly.** `apply_patch`
    refuses B -- `_module_surface` is `ast`-based and Part 1's defs sit inside a
    string literal, so every stock name reads as dropped. **Correct outcome,
-   unrelated mechanism**, and `apply.py:103`'s docstring already says *"this is a
+   unrelated mechanism**, and `apply.py`'s docstring already says *"this is a
    one-artefact rule"*. **Recording that we are relying on an accident is the
    point of deferring in writing rather than silently.**
 
@@ -3841,7 +3936,7 @@ the accident stops covering us, and this stops being deferrable.**
 
 ### T76 — emitting `environment.yaml` is a producer's duty with no central enforcement, and three producers do not discharge it
 
-**Found by another owner 2026-09-05 offline against run `20260905T162032-4473f1`**, after
+**Found offline against a recorded run**, after
 `check_environment` refused three kinds and the shape suggested one cause rather than three.
 
 **The failing condition is identical in all three: step (1) *present*.** No schema
@@ -3864,29 +3959,28 @@ glob works.** (The evidence here is the miss, not a grep hit; see the audit rule
 writes `environment.yaml` (its `_REL` map at `:58-60` is the source of those three
 contract paths). **It is invoked per producer and nothing enforces the invocation.**
 Seven call sites exist — `apply_patch`, `build_workset`, `deploy_and_prove`,
-`merge_arm.py:312`, `merge_profiling_evidence`, `optimize_kernel/steps/_lib.py:340`,
+`merge_arm.py`, `merge_profiling_evidence`, `optimize_kernel/steps/_lib.py`,
 `run_profiling_mode_off`. **`packup.py` is not among them, and neither is
 `integrate_and_verify`.**
 
 | kind | what sits where the record belongs | site |
 |---|---|---|
 | `integration_report` | nothing; `items/` is flat | `integrate_and_verify` never calls `env_render` |
-| `e2e_packup` | `items/codes/environment.md`, prose + a markdown table, no YAML | `packup.task/packup.py:189-197` writes only the `.md` |
+| `e2e_packup` | `items/codes/environment.md`, prose + a markdown table, no YAML | `packup.task/packup.py` writes only the `.md` |
 | `kernel_optimization` | `items/codes/<packup>/environment.md`, first line *"Copied verbatim from the workset's `environment.yaml`"* | same `packup.py` writer; **this artefact is the replayed one** |
 
 **Routing, and two corrections to the obvious assignment:**
 
-- **m5 is two sites, not one.** `merge_arm.py:312` *does* call `env_render`, which is
+- **m5 is two sites, not one.** `merge_arm.py` *does* call `env_render`, which is
   why `stock.measurement` and `patched.measurement` pass in the same run. m5 emits
   for the measurements and not for the report or the packup.
-- **`kernel_optimization` is not m4's live producer.** `_lib.py:340` calls
+- **`kernel_optimization` is not m4's live producer.** `_lib.py` calls
   `env_render`; the refusing artefact is the **replayed** one (its embedded YAML names
   `node: node-088`). **m4's action is "confirm the live path emits it",
   not "fix the producer".**
 
-**A fix already exists for one of the three:** m1's
-`/tmp/yihou_m5_integration_report_env.patch`, `git apply --check` clean, machine-
-generated. **It closes `integration_report` only.** `e2e_packup` needs `packup.py`
+**A fix already exists for one of the three:** a machine-generated patch that is
+`git apply --check` clean. **It closes `integration_report` only.** `e2e_packup` needs `packup.py`
 to emit the YAML beside the `.md` it already writes — it has the data in hand there.
 
 **The item is the layer above, not the three sites.** Closing all three leaves the
@@ -3901,7 +3995,7 @@ this round** — see T75 for the same reasoning.
 wrong calls on the same artefact today, so a fourth is the worst-quality opinion
 available). **The answer is: do not edit the builder. This is the same shape as T75.**
 
-**The failure.** `packup.py:529` shells to `redact.py` with `check=True`; two paths in
+**The failure.** `packup.py` shells to `redact.py` with `check=True`; two paths in
 `results/kernel_optimization.json` cannot be named, so it exits 1 and `entry.sh`'s
 `set -eu` kills `packup.py` before `exec env_render`:
 
@@ -3911,7 +4005,7 @@ available). **The answer is: do not edit the builder. This is the same shape as 
 ```
 
 **`redact` is behaving correctly and this is not a `redact` bug.** Its prefix list is
-built at `packup.py:515-527` from **this** run's environment — `E2E_WORK_ROOT`,
+built at `packup.py` from **this** run's environment — `E2E_WORK_ROOT`,
 `E2E_MODEL_PATH`, `E2E_MOCK_ROOT`. The embedded record carries **another run's** root
 (`e2e_flow_088a`). A prefix list assembled from the live environment can never cover a
 foreign root, and the codebase already knows this: **`MOCK_ROOT` exists precisely
@@ -3922,9 +4016,9 @@ known foreign root; verbatim inheritance produces an unbounded set of them.
 `exit 1` after a real deployment has already run.** That is the expensive place to
 find out.
 
-### The real question, and why it is not about paths
+#### The real question, and why it is not about paths
 
-`redact.py:56` — `REFUSE_SUFFIXES = frozenset({".py", ".sh", ".json", ".jsonl"})`.
+`redact.py` — `REFUSE_SUFFIXES = frozenset({".py", ".sh", ".json", ".jsonl"})`.
 **The refusal is scoped by file suffix.** Its own docstring scopes it by *merit*:
 
 > *a script carrying one host's directory layout does not run on the next host*
@@ -3941,7 +4035,7 @@ circulating on 093 is exactly the provenance signal that took a `store/task` rea
 settle. **A field whose job is to say "this came from somewhere else" is the last
 field to launder into a placeholder.**
 
-### Options, none decided here
+#### Options, none decided here
 
 - **Scope the refusal by what the content is, not by its suffix** — the same
   correction T75 asks for on the `optimized_kernel.py` slot (kind, not filename).
@@ -3952,7 +4046,7 @@ field to launder into a placeholder.**
 **Both change a contract, so neither belongs in this round.** T75's reasoning applies
 unchanged.
 
-### Unblocking the package owner's artefact today, and its cost
+#### Unblocking the package owner's artefact today, and its cost
 
 Passing `WORKSET_ROOT=<work root>` as a fourth prefix makes
 `packup.py` complete. **It is a workaround, it is one lap of the treadmill, and it
@@ -3961,11 +4055,11 @@ fails the same way, after another deployment.
 
 ### T79 — a run does not record the `--var` values it was launched with, and at least five of today's incidents are that one fact
 
-**m4 files, 2026-09-05, at the package owner's direction. T79 and not T78 is theirs to assign.**
+**T79 and not T78 is deliberate: the number is the package owner's to assign.**
 
 **The measurement.** A run stages its own copy of the package under
 `zones/<task>/package/`. **That copy is NOT rendered.** On `p9`
-(`20260905T163424-bdb4d8`), `zones/.../package/steps/m2_profiling.yaml:119` still reads:
+(`20260905T163424-bdb4d8`), `zones/.../package/steps/m2_profiling.yaml` still reads:
 
 ```yaml
     expect_ranks: '${expect_ranks:-8}'
@@ -3975,7 +4069,7 @@ fails the same way, after another deployment.
 not from `store/task`, not from any artefact. It exists in the operator's shell
 history and nowhere else, and the process table loses it the moment the run ends.
 
-### The worked example: a verdict that is a function of an unrecorded argument
+#### The worked example: a verdict that is a function of an unrecorded argument
 
 Grading `p9`'s and `217d`'s `profiling_mode_on.profile_result` offline
 (`assets/lib/grade_offline.py`, `3313f79`) with `check_trace_coverage`:
@@ -4035,7 +4129,7 @@ said then.
 *(Superseded note: this entry first treated the counterfactual as answerable once the
 launch value was known. It is not.)*
 
-### Why this is one item and not five
+#### Why this is one item and not five
 
 The package owner's pairing, and it is the reason this is filed rather than mentioned:
 
@@ -4051,7 +4145,7 @@ The package owner's pairing, and it is the reason this is filed rather than ment
 as five incidents is what kept them separate; **the fifth was found by grading, the
 fourth by a collision, the first by an audit — three different accidents for one cause.**
 
-### Options, none decided here
+#### Options, none decided here
 
 - **Render the staged copy**, so the package a run actually used says what it used.
 - **Write the resolved variables into the run record**, e.g. a `store/run.json`, and
@@ -4060,7 +4154,7 @@ fourth by a collision, the first by an audit — three different accidents for o
 **Both change a contract, so both defer like T75/T76/T77. The item does not:** it was
 unfiled, not deferred, and the difference matters because nothing was tracking it.
 
-### One consequence already visible
+#### One consequence already visible
 
 Offline grading must report a verdict that depends on a supplied `--var` as
 **conditional**, naming the value and where it came from. `grade_offline.py`'s

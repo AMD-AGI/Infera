@@ -2,9 +2,8 @@
 
 | | |
 |---|---|
-| Status | Draft, revised after review |
-| Revision | 7 — 2026-08-29. **The package format is YAML.** §1.1 and criterion 16 said *jsonnet*; the user-interface stage deleted it. Criterion 16's substance is unchanged — the ordinary task-package path, no privileged import, no schema of its own — and only the format word moves. Criterion 7's *"an agent of `kind: program`"* now describes the two program **leaves** only: a non-leaf declares no agent at all (`closure.schema.json` requires one of a leaf and of nothing else), so the hand-written `compose` spec is deleted rather than converted. (rev. 6: 2026-08-27. Every task has an agent; the program node's agent is `kind: program` rather than absent (§2 item 6, criterion 7). (rev. 5: 2026-08-26. The isolation properties are CI-enforced in tests/env_mgr; the demo additionally shows them against a real agent (§5). (rev. 4: The demo is a task package — the first, and the only one in this repository (§1.1). rev. 3: The e2e test is a separate artefact with its own tasks, not this demo under CI (§5). rev. 2: Review of PR #132: lives in `examples/`; a whole-system CLI is separate and larger; credentials come from config via `env_mgr`; cost is not a constraint. rev. 1: initial)) |
-| Date | 2026-08-24 |
+| Status | Normative |
+| Revision | 7 |
 | Scope | The runnable proof that the components compose |
 | Source | The task definition, goal 2 |
 | Part of | [`../../docs/spec.md`](../../docs/spec.md) — the whole-system specification |
@@ -199,7 +198,7 @@ similar shape, different jobs:
 | Proves | The components compose, against a real backend | The components compose, deterministically and on every commit |
 
 **The e2e test is not this demo, run under CI.** It is written separately, at the
-system-level implementation stage, modelled on this demo's *shape* and choosing
+whole-system CLI, modelled on this demo's *shape* and choosing
 its own tasks. Nothing here constrains what those tasks are or what runner they
 use.
 
@@ -215,7 +214,7 @@ credentials is correct *because* CI is not the thing running it. A test that
 needed an API key would be a bad test for unrelated reasons — non-deterministic,
 costly, and failing on a fork.
 
-When the system-level implementation stage arrives, the e2e test is written
+When the whole-system CLI is built, the e2e test is written
 there. This document specifies only the demo.
 
 ---
@@ -269,5 +268,5 @@ there. This document specifies only the demo.
 | Item | Status |
 |---|---|
 | **What the demo's task actually does** | §2.1 is illustrative, and it is a *package-content* question rather than a system one (§1.1) — the demo package can change its task without any spec here changing. Wanted: something small, verifiable, and not contrived, so a validator has something to be honestly `strong` about |
-| **What tasks the e2e test picks** | §5 settles that it is a separate artefact modelled on this demo's shape, choosing its own tasks. Which ones is a system-level implementation-stage decision, not this document's |
-| **Which model, and which tools** | Cost is not a constraint, but the SDK's default is Claude Code's full tool set and system prompt. What the demo agent should actually be given is a design-stage choice |
+| **What tasks the e2e test picks** | §5 settles that it is a separate artefact modelled on this demo's shape, choosing its own tasks. Which ones is a whole-system decision, not this document's |
+| **Which model, and which tools** | Cost is not a constraint, but the SDK's default is Claude Code's full tool set and system prompt. What the demo agent should actually be given is a design choice |

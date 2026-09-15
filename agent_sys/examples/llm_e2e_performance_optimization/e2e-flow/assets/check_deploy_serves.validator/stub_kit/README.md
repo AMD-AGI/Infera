@@ -22,7 +22,7 @@ Everything in `check_deploy_serves` that is not the engine:
   being refused rather than passed;
 - teardown in the `finally`, on every path.
 
-All of that was measured on `node-061` on 2026-09-03, and it **found a
+All of that was measured on `node-061`, and it **found a
 real bug on its first run**: `build_plan` was expanding the oversize-prompt
 probe's ~200 KB of filler into the plan, which travels to the node inside a
 command string, so the call died with `OSError: [Errno 7] Argument list too

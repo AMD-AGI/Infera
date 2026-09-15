@@ -71,7 +71,7 @@ Ordered and copy-pasteable. Every command was run.
 #     cp "$PACKUP/scripts/workset/"*.py "$W/"
 # and this is REFUSED, for a reason that is nothing to do with the command:
 #     cp "$PACKUP"/scripts/workset/*.py "$W/"
-# `handoff/locality.py:67 _CANDIDATE` has a lookbehind of `[A-Za-z0-9._~@+-]`,
+# `handoff/locality.py::_CANDIDATE` has a lookbehind of `[A-Za-z0-9._~@+-]`,
 # and `"` is not in it — so a closing quote does not shield the path after it
 # the way an ordinary character does, `/scripts/workset/` reads as a rooted
 # local path, and the seal rejects the handoff at this file's line number.
@@ -272,7 +272,7 @@ def _apply_block(pinned: dict, packup: Path, kernel: Path, premise: dict,
         }
 
         # **Two shapes, and `apply.py` picks between them by the entry's shape,
-        # never by `apply_mode`.** `apply.py:665` is a bare
+        # never by `apply_mode`.** `apply.py` is a bare
         # `if entry.get("patch")`: present means *use the diff at
         # `apply/patches/<name>`*, absent means *generate one from
         # `replacement` against the stock file it just extracted*. The schema
@@ -293,12 +293,12 @@ def _apply_block(pinned: dict, packup: Path, kernel: Path, premise: dict,
         patch_text = _engine_patch(forge_dir)
         touched = _diff_targets(patch_text)
         # `patchkit.split_placeholder` and not a local partition: the same split
-        # decides where `apply.py:655` stages the file, and two implementations
+        # decides where `apply.py` stages the file, and two implementations
         # of one frame conversion is how this package earned its "No file to
         # patch" (CONTRACT §4.3, one authority).
         _root, rel = patchkit.split_placeholder(str(container_path))
         if patch_text.strip():
-            # **Refused rather than trimmed.** `apply.py:655-663` stages exactly
+            # **Refused rather than trimmed.** `apply.py` stages exactly
             # this entry's own file into `tree/<rel>` and runs `patch -p1`
             # there, so hunks for any other path have nothing to apply to and
             # the run dies with `No file to patch` — after the campaign hours.
@@ -317,7 +317,7 @@ def _apply_block(pinned: dict, packup: Path, kernel: Path, premise: dict,
             name = f"{pinned['operator_id']}.patch"
             (packup / "apply" / "patches").mkdir(parents=True, exist_ok=True)
             (packup / "apply" / "patches" / name).write_text(patch_text, encoding="utf-8")
-            # A BARE FILENAME. `apply.py:409` and `:666` both resolve it under
+            # A BARE FILENAME. `apply.py` and `:666` both resolve it under
             # `apply/patches/`, so a prefixed value lands at
             # `apply/patches/apply/patches/x.patch`.
             entry["patch"] = name

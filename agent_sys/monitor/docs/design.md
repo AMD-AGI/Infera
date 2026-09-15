@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Status | Not implemented. No file of this module exists yet |
-| Revision | 2 — 2026-08-28. **Spec rev. 14: two channels.** A second queue for planned advances, an `EventRecord` where rev. 1 had an `ExceptionRecord`, the phase-advance handler (§6.1), and the liveness pair §5.6 owes to the fact that ordinary progress now runs through here. **O1 is closed** — `Runner.attempt_of` is the accessor, and `TaskAttempt` the owner rev. 1 could not find. (rev. 1: 2026-08-27, against spec rev. 13) |
+| Status | Normative for how this package is built |
+| Revision | 2 |
 | Implements | [`spec.md`](spec.md) rev. 14 |
 | Language | Python ≥ 3.10. Standard library plus pydantic v2 |
 
@@ -657,7 +657,7 @@ planned advance (§6.1) needs no exception to any of this.
 Spec §5.4. Two mechanisms, ~40 lines together, and neither is new machinery.
 
 **1. The excepthook, and why it is not optional.** Measured, not assumed
-(`scratch/design/probes-monitor/p4_thread_death.py`, re-run 2026-08-28 on
+(re-run on
 3.13.13): a `Thread` whose target raises prints a traceback to stderr and dies;
 the process keeps running, **the exit code is unchanged, and producers see no
 error** — subsequent `add`s are accepted and pile up behind a consumer that no
@@ -692,7 +692,7 @@ slow round is not a death.
 **The checker is a pure function over a timestamp**, called from the main thread,
 which is already sitting there. That is what makes this an answer rather than an
 infinite regress — and it is deliberately the *cheapest* of the three answers the
-prior art gives (`scratch/design/findings-arch-super.md`): s6 makes its top-level
+prior art gives: s6 makes its top-level
 supervisor unable to fail (no heap, under 500 lines, a full DFA), systemd hands
 the problem to a hardware watchdog, Ray hands it outward to KubeRay. **Comparing
 one float is at the trivial end of that scale.**
@@ -909,7 +909,7 @@ reasoning that the runner *must already* hold the mapping because
 `FakeRunner`. And the map a runner is forced to hold is
 `dict[TaskId, tuple[Task, Agent, OnDone]]` (`FakeRunner.running`), which contains
 **no executor at all**; `executor_of` assumed more than existed
-(`scratch/design/findings-arch-ours.md`).
+.
 
 **`agent` design rev. 7 supplies the owner rather than the accessor.**
 `TaskAttempt` — one object per dispatch, holding the thread, the executor and the
@@ -921,7 +921,7 @@ subgraph.
 **It was not a missing accessor. It was a missing object**, and the survey said
 so before this document did: four of the six comparable systems make their
 runner-equivalent per-unit-of-work, and each does it because that object holds the
-per-task state a supervisory loop reads (`scratch/design/findings-arch-workflow.md`).
+per-task state a supervisory loop reads.
 Ours was shared and kept that state nowhere.
 
 ### 9.2 What is still owed, and by whom

@@ -66,16 +66,16 @@
     # **The count reaches the check through `args`, not through the agent's
     # `env`, and that is measured rather than stylistic.** A validator body's
     # environment comes from `validator.choose_configuration`
-    # (`validator/environment.py:116-142`): the producing task's configuration
+    # (`validator/environment.py`): the producing task's configuration
     # is used on the OUTPUT phase only, and no source exists for the consumer
     # row at all, so an INPUT phase falls through to the global row —
     # `{PATH, AGENT_SYS_DEMO_PACKAGE, AGENT_SYS_DEMO_STORE, AGENT_SYS_DEMO_PYTHON}`
-    # (`cli/main.py:601-615`). `DEMO2_N_DIRECTIONS` is simply absent there, and
+    # (`cli/main.py`). `DEMO2_N_DIRECTIONS` is simply absent there, and
     # `problems`' input phase re-runs this validator against the same artefact.
     #
     # `args.json` is written into the zone by the phase runner and does not
     # depend on the phase. The `${...}` is expanded at load time over every
-    # string in the file (`spec_loader/package.py:335`), so one `--var` still
+    # string in the file (`spec_loader/package.py`), so one `--var` still
     # moves both this and the prompt.
     expected_count: '${n_directions:-5}'
     # The closed list, named rather than hardcoded in the body: two validators
@@ -94,7 +94,7 @@
 # `structured_text` because that is what it is — a JSON document with a declared
 # shape and nothing that ran. The type requires one of
 # `text.json` / `text.yaml` / `text.xml` and a README carrying `Purpose` and
-# `Schema` (`handoff/content.py:75-80`), which is the whole contract a consumer
+# `Schema` (`handoff/content.py`), which is the whole contract a consumer
 # needs.
 #
 # **The kind is declared in the file of the step that produces it.** A handoff

@@ -23,7 +23,7 @@ dependencies = [
     # package. Measured here rather than taken from the row: it is also YAML 1.2,
     # so `NO`, `yes` and `12:30` are the strings they look like, and it rejects a
     # duplicate key with a position — the two traps that went live when jsonnet's
-    # static rejection was deleted. `scratch/ui-yaml-2026-08/w3/`.
+    # static rejection was deleted.
     #
     # **`jsonnet` and `rjsonnet` are gone** (main spec criterion 17). They were
     # a compiled extension plus a fallback binding, carried for a computation

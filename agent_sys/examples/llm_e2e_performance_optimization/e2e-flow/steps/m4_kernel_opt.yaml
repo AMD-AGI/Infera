@@ -152,7 +152,7 @@
     tolerance: 0.15
     timeout_seconds: 1800
     # Local disk. `TMPDIR` is only the fallback, and a validation zone forces it
-    # to `<zone>/tmp` (`validator/environment.py:233`) — which sits under
+    # to `<zone>/tmp` (`validator/environment.py`) — which sits under
     # `--demo-root`. With a run root on this cluster's NFS every ROCm kernel
     # launch segfaults, *after* the copies and the first round, so the run is
     # lost at its most expensive point.
@@ -286,7 +286,7 @@
   env:
     # --- the allocation, re-declared because an ai agent inherits nothing ----
     #
-    # **`env_mgr/material.py:96` reads the `env` block off the agent that is
+    # **`env_mgr/material.py` reads the `env` block off the agent that is
     # RUNNING**, and `shared.yaml` declares all 36 `E2E_*` on `runner`. A
     # `kind: ai` agent therefore receives none of them: measured across the
     # package, `runner` 36, `e2e_kernel_optimizer` **1**. m1 found it in rung
@@ -315,7 +315,7 @@
     # version of this comment got that wrong: it said a `kind: ai` task never
     # runs `entry.sh` and therefore never reaches `mock.sh`. The first half is
     # true and the second does not follow — **a readme can invoke `mock.sh`
-    # directly, and m1's does**: `deploy_and_prove.task/readme.md:71` is STEP 0,
+    # directly, and m1's does**: `deploy_and_prove.task/readme.md` is STEP 0,
     # with the 0-vs-3 exit contract as its criterion, so `e2e_deployer` needs
     # both names and is right to declare them. Corrected by m1, who measured all
     # four ai readmes (deploy 3 references, the other three 0).
@@ -367,8 +367,8 @@
     # eight command lines and defined nowhere at all.
     #
     # **Declared here because a `kind: ai` agent receives only its own env
-    # block.** `shared.yaml:113` binds the var and that is not inheritance;
-    # `m1_deploy.yaml:120` and `m5_integration.yaml:103` each repeat the line for
+    # block.** `shared.yaml` binds the var and that is not inheritance;
+    # `m1_deploy.yaml` and `m5_integration.yaml` each repeat the line for
     # the same reason. Adding the readme line without this one turned
     # `check_agent_env` red within three minutes, which is the gate doing exactly
     # its job.
@@ -395,7 +395,7 @@
     # of bisection down to a hand-written HIP program, because nothing in the
     # failure names a filesystem.
     #
-    # An agent spec may set it at all because `env_mgr/harness.py:39-44` lists
+    # An agent spec may set it at all because `env_mgr/harness.py` lists
     # `TMPDIR` in `_RESERVED` — never forwarded from the operator's ambient
     # environment — and then says an agent spec's declared `env` may still set
     # any of them, applied after that module.
@@ -410,9 +410,9 @@
     # --- forge's own knobs ---------------------------------------------------
     # **Do not lower below 3.0.** At or below 2.0 KernelForge silently drops
     # Analysis to static-only and the implementer turn cap falls 500 -> 100
-    # (`kernel_agents/cli.py:47`, `:1391`, strictly greater); nothing warns you
+    # (`kernel_agents/cli.py`, strictly greater); nothing warns you
     # and the campaign still produces a report. The enforced floor is 1.0
-    # (`cli.py:46`), so there is no five-minute forge run.
+    # (`cli.py`), so there is no five-minute forge run.
     KFO_MAX_HOURS: '${forge_max_hours:-3.0}'
     # The **inner** model, on forge's own command line. Distinct from this
     # agent's own model, which is `config.options.model` — a *process* variable

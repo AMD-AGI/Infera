@@ -95,7 +95,7 @@ worse than one whose edges are known.
   carries `name_path`, `kind`, `relative_path` naming `serena_probe.py`, a
   `body_location` with integer line numbers, and a `body` containing the salt.
 
-  That schema was **measured on this host on 2026-09-03**, by starting the
+  That schema was **measured on this host**, by starting the
   binary probe D installed and calling the tool, rather than remembered. It is a
   **forgery-cost increase and not a closure**, and the difference matters: it
   moves the bar from *read one file* to *read the file **and** know serena's

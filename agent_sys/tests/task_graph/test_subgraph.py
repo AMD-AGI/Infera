@@ -297,7 +297,7 @@ def test_a_nested_non_leaf_with_no_agent_runs_under_the_system_spec(registry, sc
     `is_registered` and `_dispatch_pass` feeds `instantiate(...).id` into a
     required `Execution.agent_id`. A hole would reach the execution record.
     Measured before the fix: `KeyError: 'agent'`
-    (`scratch/ui-yaml-2026-08/w5/probe_nested_nonleaf_agent.py`).
+.
     """
     docs = {
         "root": closure_doc("root", subgraph=[{"closure": "mid", "froms": []}]),
@@ -414,8 +414,7 @@ def test_a_nested_non_leaf_is_zoned_before_its_subgraph_is_dispatched(store):
     """Depth 2, through dispatch: root -> mid -> leaf, and `mid` is the shape
     that failed.
 
-    `scratch/demo2-2026-08/runs/full2.log`, and the diagnosis in
-    `scratch/demo2-2026-08/zone-ordering.md`. `enter_phase(RUNNING)` unfolds
+    `enter_phase(RUNNING)` unfolds
     **and submits**, and `submit` ends in `try_dispatch` — so every child is
     already running before the call returns. While the container zone was placed
     by the parent's *attempt thread*, which the monitor wakes only afterwards,

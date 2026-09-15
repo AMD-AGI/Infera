@@ -80,13 +80,13 @@ entries:
   # **The handoff's own README, and the file this layout could not see.**
   # Added 2026-09-04 after m2 traced an unexplained `output_absent` to it: the
   # seal refuses a `code` handoff whose content root has no `README.md`
-  # (`handoff/content.py:69-74`, `readme_sections=("Purpose","Interface",
+  # (`handoff/content.py`, `readme_sections=("Purpose","Interface",
   # "Boundary")`), and **nothing here looked above `items/`.**
   #
   # So `check_deploy_kit` could return **green on a kit that cannot be sealed** —
   # which is exactly what happened: two real bring-ups produced kits complete in
   # `items/` and missing the one file every handoff must open with. One agent
-  # wrote it, two did not, because `deploy_and_prove.task/readme.md:306` draws it
+  # wrote it, two did not, because `deploy_and_prove.task/readme.md` draws it
   # in a diagram and no criterion required it. *Demonstrated possible, never
   # required* — the same shape as T27 item 1, and this time it cost a seal.
   #
@@ -516,7 +516,7 @@ runtime_contract:
       # A `skip_if_replayed` escape was written and then removed — every replay in
       # this flow goes through `mock_adapt.sh`, which **exists to bring a sealed
       # kit up to the current contract and already synthesises the other six
-      # parameters** (`mock_adapt.sh:143-154`). An exemption would therefore never
+      # parameters** (`mock_adapt.sh`). An exemption would therefore never
       # have fired, while quietly weakening the rule for any replay that did.
       # The seventh is now synthesised there like its siblings, so this parameter
       # is required of **every** kit, replayed or produced, with no escape.
@@ -579,7 +579,7 @@ runtime_contract:
       # agent invents a value each bring-up — `16, 16, 8, 32` over four real
       # runs at `tp_size: 4`, the line number moving each time because `env.sh`
       # is regenerated rather than edited. The `:=8` that looked like a default
-      # is `env.sh:105` of the sealed 2026-09-02 kit — a **`tp_size: 1`** record
+      # is `env.sh` of the sealed 2026-09-02 kit — a **`tp_size: 1`** record
       # replayed verbatim eighteen times.
       #
       # That is **strictly worse than a wrong default, because a wrong default
@@ -603,7 +603,7 @@ runtime_contract:
       brief: >-
         The largest decode batch the engine captures a CUDA graph for. **It must
         be at least the concurrency this deployment will be loaded at** — 16 for
-        this flow (mission M1.2.3.4, `probes.yaml:331`) — because a batch above
+        this flow (mission M1.2.3.4, `probes.yaml`) — because a batch above
         the ceiling is not merely uncaptured, it silently changes what every
         downstream number measures. m2's throughput figures, m3's worksets and
         m5's stock arm all inherit whichever value the kit shipped.
@@ -704,7 +704,7 @@ runtime_contract:
     declared_by: runtime_contract.handshake.work_root_on_host
     # **The two forms m3 measured this cluster's docker authorization plugin
     # accepting — not a third that looks reasonable.** Reuse the derivation at
-    # `build_workset.task/measure_in_container.sh:249-266`; do not write a second.
+    # `build_workset.task/measure_in_container.sh`; do not write a second.
     accepted_mount_forms:
       - '-v /shared_nfs:/shared_nfs'
       - '-v /home/<user>:/home/<user>'
@@ -718,8 +718,8 @@ runtime_contract:
       # launch segfaults after the copies and the first round."*
       #
       # **Seen accepted, not expected to be:** the sealed 2026-09-02 kit runs
-      # `--volume "${DK_RUN_DIR}:/workdir"` (`start_container.sh:36`) with
-      # `DK_WORK_ROOT:=<work root>` (`env.sh:83`), and that
+      # `--volume "${DK_RUN_DIR}:/workdir"` (`start_container.sh`) with
+      # `DK_WORK_ROOT:=<work root>` (`env.sh`), and that
       # kit produced a working deployment. Every kit this package has built
       # since mounts the same way. The evidence was inside this stage the whole
       # time and the first two forms were copied from a file that had no reason

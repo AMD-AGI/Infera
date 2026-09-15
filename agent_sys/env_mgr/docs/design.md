@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Status | Draft — stage two of spec → design → test & code |
-| Revision | 4 — 2026-08-27. **`prepare` gains `agent_spec`** (§11.1, §11.5). The spec-key-to-runtime trace found four agent-spec keys — `env`, `rules`, `hooks`, `skills` — whose declared consumer is this module and whose signature could not receive them. (rev. 3: 2026-08-27. **Dependency repositories are per task** (§7.1.1), following `closure` spec §2.5 rev. 9; the main repository stays global. (rev. 2: 2026-08-27. **The stage-three consistency pass.** `Access` is renamed `Mode`, because `task_graph` owns that name and `prepare()` mixed both in one `Policy` (§5.3.1). A grant that resolves to nothing now **raises** instead of returning an empty granted set (§6.1). `Context` is defined rather than used undefined, and gains the two attributes §6 needs (§11.1). Step 6's `handoffs.stage` becomes `layout.stage_handoffs`, a module that exists (§11.1). The environment manager's registration name is fixed (§11.4). (rev. 1: 2026-08-27. Initial))) |
+| Status | Normative for how this package is built |
+| Revision | 4 |
 | Implements | [`spec.md`](spec.md) rev. 3, acceptance criteria 1–22 |
 | Language | Python ≥ 3.10. `ctypes` for the Landlock syscalls; no third-party sandbox dependency |
 
@@ -28,10 +28,7 @@ wrong about the mechanisms. It is right about all of them. The finding is that
 those re-creates the vulnerability another of its sections exists to prevent
 (§7.1).
 
-Evidence is in `scratch/design/findings-envmgr-mine.md` (M1–M23),
-`findings-envmgr-selftests.md` (S1–S5), `findings-envmgr-sbxtest.md` (F1–F16),
-with probes in `scratch/design/probes-envmgr/`. Where this document says
-"measured", there is a script.
+Where this document says "measured", a probe produced the number.
 
 **This document specifies interfaces, not bodies.** A method is a signature and a
 sentence. A body appears only where the ordering of steps *is* the design
@@ -226,7 +223,7 @@ class DomainRegistry:
     def __iter__(self) -> Iterator[Domain]: ...
 ```
 
-`get` names the candidates on a miss, following `env_mgr/registry.py:27` — which
+`get` names the candidates on a miss, following `env_mgr/registry.py` — which
 already does exactly this (`have {sorted(REGISTRY)}`, M15) and is the precedent
 main design O5 cites.
 
@@ -345,9 +342,8 @@ of the granted entry rather than of the mechanism, so both rungs agree.
 ### 4.4 Landlock — a ctypes binding, ~120 lines, and three things that bite
 
 There is no libc wrapper for any of the three syscalls, so this is `syscall(2)`
-by number: 444 / 445 / 446 on x86-64. A working instrument already exists at
-`scratch/design/probes-envmgr/landlock.py` and every measurement in this document
-was taken with it.
+by number: 444 / 445 / 446 on x86-64. Every measurement in this document was
+taken with a working instrument, promoted into `env_mgr/isolation/landlock.py`.
 
 ```python
 def abi_version() -> int: ...
@@ -554,7 +550,7 @@ class Policy(NamedTuple):
 #### 5.3.1 Why it is `Mode` and not `Access`
 
 Rev. 1 called this `Access`, and `task_graph` design §3.5 also declares an
-`Access` — `class Access(str, Enum): READ, WRITE`. The stage-three consistency
+`Access` — `class Access(str, Enum): READ, WRITE`. The cross-module consistency
 pass found that **`prepare()` mixes both in one `Policy`**: `Granted(zone.root,
 Access.READ_WRITE)` uses this one, while the grants resolved from `Permissions`
 carry that one. One name, two types, one call site, and `READ_WRITE` is not a
@@ -637,7 +633,7 @@ the moment it builds the zone".
 
 ### 6.1 The mapping is already on the runtime object
 
-Measured (M13). `task_graph/models.py:107`:
+Measured (M13). `task_graph/models.py`:
 
 ```python
 class Handoff(Model):
@@ -664,7 +660,7 @@ def resolve_all(task: Task, execution: Execution, ctx: Context) -> tuple[Granted
 defining only `resolve`. The two differ in more than arity: `resolve` needs a
 handoff mapping and a store root that `Context` carries and a single `Grant` does
 not know about, so the wrapper is where the context is unpacked. Found in the
-stage-three consistency pass.
+cross-module consistency pass.
 
 #### The hole, and the half of it that is this module's to close
 
@@ -675,7 +671,7 @@ silently covers nothing and the agent gets an empty granted set instead of an
 error** — and then left it there.
 
 Half of that is not this module's: who fills `type` is a `task_graph` spec
-question, reported in the stage-three pass and not yet answered.
+question, reported in the cross-module consistency pass and not yet answered.
 
 **The other half is, and rev. 2 closes it.** `resolve` **raises
 `UnresolvedGrant`** naming the grant, the kind, and the task, rather than
@@ -694,7 +690,7 @@ silent. `prepare()` does not catch it, for the same reason it does not catch
 ### 6.2 The version comes from the attempt
 
 `Task.inputs` is a list of ids; the *versions* live on `Execution.input_versions`
-(`models.py:158`), and a retry pushes a new `Execution`. Since a grant resolves to
+(`models.py`), and a retry pushes a new `Execution`. Since a grant resolves to
 `<root>/<hid>/v<N>/`, **`N` is attempt-dependent** — which is why `resolve` takes
 an `Execution` and why §11.3 rebuilds the zone per attempt. §16 D6.
 
@@ -1151,7 +1147,7 @@ class Context(NamedTuple):
 ```
 
 Rev. 1 used five of those attributes and defined none of them. `handoffs` and
-`store_root` are the two the stage-three pass added: §6.1's `resolve` needs both
+`store_root` are the two the cross-module consistency pass added: §6.1's `resolve` needs both
 and `resolve_all` had nowhere to get them.
 
 **Step 7 is last, and that is load-bearing twice over.** Everything before it
@@ -1195,7 +1191,7 @@ contents; §14.6 says why that half is not testable.
 
 `agent` design §7.1 says its `Runner` *"resolves `agent_specs`, `env_mgr` and the
 validator's phase runner from the registry, by name, at use time"*. **No document
-registered this module under any name**, which the stage-three consistency pass
+registered this module under any name**, which the cross-module consistency pass
 found while assembling the one normative composition root
 ([`../../docs/interfaces.md`](../../docs/interfaces.md) §2). Rev. 1 of this
 document never mentions the component registry at all, because everything above
@@ -1296,7 +1292,7 @@ fact drift (§1's rule, one layer out).
 wins a name collision —
 `material.deploy`'s existing precedence, *an author saying so outranks a default*.
 
-**One measurement cuts across that order.** 2026-09-03: `claude plugin
+**One measurement cuts across that order.** `claude plugin
 marketplace add` and `claude plugin install` respect `CLAUDE_CONFIG_DIR` fully,
 and they **merge** into an existing `settings.json` rather than clobbering it — a
 hand-written `hooks` key survived a subsequent install, which only added
@@ -1313,7 +1309,7 @@ servers, and a component install produces `Outcome`s; neither fits a
 collision policy the `env_mgr` tool server already had: a name already present
 is a named `BackendUnsupported`, never a silent replacement.
 
-`Deployed` carried a fourth field, `tools`, until 2026-09-04: a component's
+`Deployed` carried a fourth field, `tools`, until recently: a component's
 `tools/*.tooldef.py`, imported into the supervisor's own process and appended to
 `Prepared.tools`. That route is **deleted** — spec §6 of `docs/spec.provisioning.md`
 — and a component offering a tool now ships a server that runs on its own.
@@ -1366,7 +1362,7 @@ Two details of the invocation are load-bearing. **`PYTHONPATH` is derived from
 `Target.path` is each item's `cwd`, a shipped recipe carries a placeholder, and
 `subprocess.run` *raises* rather than returning non-zero when `cwd` is absent.
 
-**Three measurements shape the rest**, all 2026-09-03:
+**Three measurements shape the rest**, all :
 
 | probe | what it settles |
 |---|---|
@@ -1483,11 +1479,11 @@ removed, `spec.md` §9.1.
 earlier revision of this line did paraphrase it — *"criterion 22 requires them to
 keep passing untouched"* — and the paraphrase drifted from the criterion, which
 reads *"The shipped recipe and installer machinery is **untouched**: `pytest
-agent_sys/tests/env_mgr` passes unchanged."* On 2026-09-04 that drift was quoted
+agent_sys/tests/env_mgr` passes unchanged."* On that drift was quoted
 back as if it were the criterion, and an argument for relaxing the enforcing test
 was built on it before anyone opened `spec.md`. One writer per fact: the
-criterion's wording lives in the spec. The 65 is likewise a snapshot of
-2026-08-30, not a live count — `tests/env_mgr` collects 476 today.
+criterion's wording lives in the spec. The 65 is likewise a snapshot, not a
+live count — `tests/env_mgr` collects 476 today.
 
 `registry.py` already lists candidates on a miss (M15) — the precedent main design
 O5 cites — so nothing here needs it changed.

@@ -3,7 +3,6 @@
 | | |
 |---|---|
 | What | The loader, the five JSON Schemas, and the vocabulary every other package shares |
-| Wave | 0, and W3+W4 of the user-interface stage. Six packages wait on `Problem` and `SpecRegistry` |
 | Specified by | [`../docs/spec.md`](../docs/spec.md) §4.3–§4.5 · [`../docs/design.md`](../docs/design.md) §3–§5 · [`../docs/interfaces.md`](../docs/interfaces.md) §3, §4.1 |
 | Imports of ours | **none, ever** |
 
@@ -20,7 +19,7 @@
 
 **The seam moved at rev. 10 of the main spec.** It was `SpecSource(path, kind)` —
 one file, one object, kind claimed by the directory it sat in — and three of the
-user-interface stage's five requirements break that shape at once: several
+the YAML front end's five requirements break that shape at once: several
 objects per file, kind claimed by a `module:` key, and inline definitions with no
 file of their own. What crosses now is `SpecDocument`s, and `load_package` is
 validate-and-admit. A second source format would be a second `TaskPackage`, not
@@ -73,7 +72,7 @@ Two things came out of it that generalise:
   in scan() if pred]` does not.** Empty is the claim in the first and vacuous in
   the second. `test_no_source_format_survives_the_deletion` is the first shape
   and needs nothing; this file is the second and now carries the non-vacuity
-  assertion `tests/env_mgr/test_imports.py:225` already had.
+  assertion `tests/env_mgr/test_imports.py` already had.
 - **A `.yaml` glob would have been the wrong widening.** Ten `.yaml` files live
   under `agent_sys/` and one — `env_mgr/recipes/sglang.repo.yaml` — is not a
   spec, so an extension scan condemns a valid repository. A file is a spec source
@@ -81,14 +80,14 @@ Two things came out of it that generalise:
   one definition of "a spec" in the system.
 
 Verified by breaking it on purpose, both ways
-(`scratch/ui-yaml-2026-08/w5/probe_stray_spec_guard.py` and `w3/probe_criterion_5_guard.py`).
+(and `w3/probe_criterion_5_guard.py`).
 
 **Criteria 16 and 18 were one criterion, and the split reversed a test.** Rev. 10
 demanded both `main.yaml` and `assets/` of every package and this package
 implemented that. `spec-author` split it at rev. 11 after measuring that the two
 have different **arity**: `assets/` is about *being a package* and is required of
 every one, while `main.yaml` is about *being a run's entry*, which is one per
-**run** — `task_graph/bootstrap.py:47` takes `packages: Sequence[Any]`, so
+**run** — `task_graph/bootstrap.py` takes `packages: Sequence[Any]`, so
 demanding the file of each answers *"where does a run start"* N times and
 therefore not at all, and it made a kinds-only library package inexpressible
 three paragraphs after §4.3 permits one.
@@ -140,7 +139,7 @@ suffices, wrap it; implement it yourself only when nothing fits, and say why.*
 
 | Need | Adopted | Why, and what was rejected |
 |---|---|---|
-| **Parsing, with positions** | **`ruamel.yaml` 0.18.16, round-trip mode** | Main spec §7 adopts it and this package settles what §7 hands over. Four things measured here rather than read from a changelog (`scratch/ui-yaml-2026-08/w3/probe_ruamel_positions.py`, `probe_ruamel_semantics.py`) — see "What the parser settled" below. It is a **thin wrapper**: `yaml_source.py` is ~90 lines of load-plus-adapt, because the tree the library returns needs no conversion |
+| **Parsing, with positions** | **`ruamel.yaml` 0.18.16, round-trip mode** | Main spec §7 adopts it and this package settles what §7 hands over. Four things measured here rather than read from a changelog (`probe_ruamel_semantics.py`) — see "What the parser settled" below. It is a **thin wrapper**: `yaml_source.py` is ~90 lines of load-plus-adapt, because the tree the library returns needs no conversion |
 | Templating | ~~`jsonnet` / `rjsonnet`~~ **deleted** | Main spec §7 rev. 10 and criterion 17. Not rejected on principle: adopted at rev. 4, shipped, then measured. Across every non-comment line of all 21 `.jsonnet` / `.libsonnet` sources the whole computation surface was constants, string concatenation and default-if-absent, and every general spec used one construct. A compiled extension plus a fallback binding, for three things a variable set and a schema `default` do for nothing |
 | Schema constraint | **`jsonschema` 4.26** | Main spec §4.4 makes JSON Schema the *only* enforcement point, and this is the reference implementation. `fastjsonschema` compiles to Python for speed we do not need and has weaker error objects — no `json_path`, no `context` tree, and `report` depends on both. A pydantic model generated from the schema was measured and rejected: `datamodel-code-generator` publishes the keywords generated models do not represent, so such a model **accepts instances the schema rejects** |
 | Cross-schema `$ref` | **`referencing`** | Ships *with* `jsonschema` >= 4.18, so it adds no dependency. It is what lets `closure.schema.json` say `{"$ref": "task.schema.json"}` instead of inlining the task shape — two declarations of one shape being the duplication `engineer_principle.md` §1 forbids. The alternative was writing a local-`$ref` inliner, which is the wheel this library is |

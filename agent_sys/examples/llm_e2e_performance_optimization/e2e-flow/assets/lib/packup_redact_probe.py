@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Predict `redact.py`'s verdict on a packup BEFORE `packup` runs.
 
-**Why this exists.** `packup.py:529` runs `redact.py` with `check=True`. One
+**Why this exists.** `packup.py` runs `redact.py` with `check=True`. One
 unnameable absolute path in a `.py`/`.sh`/`.json`/`.jsonl` exits 1, the exception
 propagates, `packup.py` dies, and `e2e_packup` — `is_end: true` — is never
 written. **A successful five-stage chain dies at its last rung.** This answers
@@ -32,7 +32,7 @@ Usage
     python3 packup_redact_probe.py <run-dir> [--pid <orchestrator pid>] [--all]
     python3 packup_redact_probe.py --self-test
 
-Prefixes are reconstructed the way `packup.py:511-527` builds them. With
+Prefixes are reconstructed the way `packup.py` builds them. With
 `--pid` they are read from the live launch line, which is the only place a run
 records what it was launched with.
 """
@@ -95,7 +95,7 @@ def vars_from_pid(pid: str) -> dict:
 
 
 def prefixes(v: dict) -> list[tuple[str, str]]:
-    """`packup.py:511-527`, rebuilt. Absolute and non-root only, as it requires."""
+    """`packup.py`, rebuilt. Absolute and non-root only, as it requires."""
     pairs = [
         ("TASK_PACKAGE", str(REPO)),
         ("TMPDIR", "/tmp"),

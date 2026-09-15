@@ -10,7 +10,7 @@ task without staging its declared inputs, and `run_profiling_mode_off.task`'s
 environment.yaml` — so a sweep that withholds inputs cannot see anything past
 that line.
 
-**The shape a body is handed.** `env_mgr/grants.py:396-431` — the value of
+**The shape a body is handed.** `env_mgr/grants.py` — the value of
 `AGENT_SYS_INPUT_<KIND>` is the *staged copy* at `<zone>/handoffs/<hid>/v<N>`,
 and since `stage` narrowed it copies `v<N>/content` **to** `<into>/<hid>/v<N>`.
 So a body finds `README.md` and `items/` directly at the end of the variable,
@@ -95,7 +95,7 @@ PREFER_RUN_TREE = {"operator_workset"}
 
 
 def env_name(kind: str) -> str:
-    """`env_mgr/grants.py:450` verbatim — uppercase, non-alphanumerics to `_`."""
+    """`env_mgr/grants.py` verbatim — uppercase, non-alphanumerics to `_`."""
     return "".join(c if c.isalnum() else "_" for c in kind).upper()
 
 

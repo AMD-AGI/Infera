@@ -2,7 +2,7 @@
 
 The safety-critical module. Its spec is the one written against measured
 behaviour rather than intuition, and this surface follows: every guarantee here
-has a probe behind it in `scratch/design/probes-envmgr/`.
+has a probe behind it.
 
 Everything in this file sits **above** the decoupling wall. Nothing here imports
 the installer machinery (`recipe`, `runner`, `outcome`, `report`,
@@ -348,7 +348,7 @@ class Prepared(NamedTuple):
     workspace: Any
     policy: Policy
     #: **`None` is a value, not an absence** — it is how this says *unconfined*,
-    #: and four sites branch on it: `prepare.py:286`, `agent/runner.py:749` and
+    #: and four sites branch on it: `prepare.py`, `agent/runner.py` and
     #: `:1343`, and `demo`'s §4.17a banner.
     #:
     #: It was accurate as `Confinement` until `ad730a2`. Before the kill switch

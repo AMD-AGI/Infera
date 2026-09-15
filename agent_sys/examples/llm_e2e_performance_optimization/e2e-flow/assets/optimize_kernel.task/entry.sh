@@ -7,7 +7,7 @@
 # without reading the readme.
 #
 # POSIX: bodies are invoked as `["/bin/sh", entry]`
-# (`agent/backends/program.py:83`), so the shebang is never consulted and
+# (`agent/backends/program.py`), so the shebang is never consulted and
 # `set -o pipefail` would be a hard exit 2 under dash.
 set -eu
 PKG="${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one of these}}"

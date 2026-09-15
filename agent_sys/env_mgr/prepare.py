@@ -508,7 +508,7 @@ def prepare(
     # `_remote_tools`, reading `far_roots`, handed the same agent
     # `env_remote_run`/`push`/`pull`. Tools pointed at a far side, and no
     # variable saying where it is. That is the configuration the accepted
-    # remote run used (`scratch/remote-mode-2026-09/acceptance.md`), so this was
+    # remote run used, so this was
     # live rather than latent.
     environment.update(
         paths.zone_env(

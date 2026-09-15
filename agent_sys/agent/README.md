@@ -46,7 +46,7 @@ end — the other side closed each one, which is what reporting them was for.
 
 | | |
 |---|---|
-| **`Selection.backend` is typed `Executor`, not `AgentBackend`** | A `kind: program` spec selects a `ProgramExecutor`, which has no level 2 by construction, and the runner holds level 1 only. `agent/protocols.py:191` narrows it to `AgentBackend`; that is §3's finding F5 |
+| **`Selection.backend` is typed `Executor`, not `AgentBackend`** | A `kind: program` spec selects a `ProgramExecutor`, which has no level 2 by construction, and the runner holds level 1 only. `agent/protocols.py` narrows it to `AgentBackend`; that is §3's finding F5 |
 | **`select_backend` gained `assignment=`, and it is required** | Design §7.2.1 lists the four things the executor gets and never says through which call. They arrive at construction, because the probe *is* the constructor (§6.4). **No default** — `interfaces.md` §4.11: a caller that omitted it would build an agent with no instruction, no entry and no zone, one that starts and does nothing (F9) |
 | **Every adapter's constructor is `(key, config, assignment)`** | One contract, so `_probe` needs no per-backend knowledge |
 | **`MonitorUnresolved` is raised** | `docs/interfaces.md` §2.1 rev. 4 says such a task "never advances a phase". It fails visibly instead: a task that hangs for ever and a task that says why are the same outcome told two ways, and only one is debuggable |
@@ -156,7 +156,7 @@ None of these was changed here.
 
 | | Side A | Side B |
 |---|---|---|
-| **F1 — `EnvManager.prepare` arity** | `docs/interfaces.md` §4.6 and `env_mgr/protocols.py:261`: `prepare(task, execution)` | `env_mgr/docs/design.md` §11.1 and §11.4: `prepare(task, execution, agent_spec)`, which §11.5's `material.deploy(agent_spec, zone)` needs |
+| **F1 — `EnvManager.prepare` arity** | `docs/interfaces.md` §4.6 and `env_mgr/protocols.py`: `prepare(task, execution)` | `env_mgr/docs/design.md` §11.1 and §11.4: `prepare(task, execution, agent_spec)`, which §11.5's `material.deploy(agent_spec, zone)` needs |
 | | **Resolved, and neither side had to change.** `env-mgr` shipped `prepare(self, task, execution, agent_spec=None)`, so the frozen two-argument call still works. The runner passes the spec — without it, `agent` spec §3.1's `env` and design §3.4's `rules` / `hooks` / `skills` have **no consumer at all**, which is four spec keys an author can write and nothing ever reads. `test_prepare_is_given_the_agent_spec` | |
 | **F2 — `closure.body_of` is unreachable** | `agent/docs/design.md` §7.2.1 walks the route as `closure.body_of(closure.task_of(spec))` | `closure/protocols.py` exports six accessors and **no `body_of`**, though `closure/docs/design.md` §3.5 declares it; and `docs/interfaces.md` §4.4 plus `tests/interfaces/test_import_rules.py::ALLOWED` forbid `agent` importing `closure` at all |
 | | **Closed.** `Body`, `body_of` and `subgraph_of` are in `spec_loader`; `agent/body.py` is deleted and `runner.py` imports the leaf's. The argument that decided it was `closure`'s: `_common.schema.json` already held **one** `$defs.body` that both `task.schema.json` and `validator.schema.json` `$ref`, against three Python types. One consequence worth knowing — `body_of` returns the mapping **as written**, so a task with no body is `{}` (falsy) rather than `Body(readme="")` (truthy, and reports a body that is present and empty) | |
@@ -164,11 +164,11 @@ None of these was changed here.
 | | **The value is passed instead.** `PhaseKind` is a `(str, Enum)`, so a `run_phase` comparing by `==` works and one comparing by `is` does not. `validator` should be told | |
 | **F4 — `EventRecord` had no factory** | `monitor` design §8 requires the runner to build and `report()` a record at every phase boundary | It was written against a `monitor` that was declaration-only, so `agent/events.py` resolved the class by name and fell back to a local model of §3.3's shape |
 | | **Closed the same day, by the other side.** `monitor` now exports `event(kind, task_id, **fields)` and `EventRecord` self-fills its fingerprint, so `agent/events.py` and its drift test are deleted and the runner calls `monitor.event`. Recorded because the shape recurs: a wave-1 package that has to *build* a neighbour's value type needs the neighbour to export a factory, and the seam file listed only the Protocol | |
-| **F5 — `Selection.backend`'s type** | `agent/protocols.py:191` and design §6.1: `AgentBackend` | Criterion 15 and design §9 require a `ProgramExecutor`, which is `Executor` and deliberately not `AgentBackend` |
+| **F5 — `Selection.backend`'s type** | `agent/protocols.py` and design §6.1: `AgentBackend` | Criterion 15 and design §9 require a `ProgramExecutor`, which is `Executor` and deliberately not `AgentBackend` |
 | | The concrete `Selection` annotates `Executor`. The `.pyi` was not edited | |
 | **F6 — `Recorder` is registered by no name** | `monitor` design §9.2 assigns `Recorder.open(task, attempt)` at attempt start to `agent` | `docs/interfaces.md` §2 registers no `recorder` |
 | | **Closed, and `monitor` supplied the decisive argument**: §2 line 129's `install_excepthook(recorder=...)` is a literal `...`, so the root must build a `Recorder` anyway and registering it is finishing an unfinished line rather than adding a row. My alternative — open-on-first-use — is withdrawn: `Recorder.write` already calls `open()`, so the only case left uncovered is the attempt that reports *nothing*, which is the sole case the marker exists for. The skip is now a raise | |
-| **F7 — `Prepared` drops the deployed environment, and cannot apply rung 1** | `env_mgr` design §11.5's `material.deploy` computes `CLAUDE_CONFIG_DIR`, `CLAUDE_CODE_TMPDIR`, `TMPDIR` and the agent spec's `env`; and on rung 1 bubblewrap **is** the exec, so `apply()` confines nothing and the caller must run `bwrap_argv(policy, availability, argv)` | `env_mgr/protocols.py:247` — `Prepared` is a five-field frozen `NamedTuple` carrying neither. `bwrap_argv` also needs an `Availability`, which is on neither `Prepared` nor anything `agent` may import |
+| **F7 — `Prepared` drops the deployed environment, and cannot apply rung 1** | `env_mgr` design §11.5's `material.deploy` computes `CLAUDE_CONFIG_DIR`, `CLAUDE_CODE_TMPDIR`, `TMPDIR` and the agent spec's `env`; and on rung 1 bubblewrap **is** the exec, so `apply()` confines nothing and the caller must run `bwrap_argv(policy, availability, argv)` | `env_mgr/protocols.py` — `Prepared` is a five-field frozen `NamedTuple` carrying neither. `bwrap_argv` also needs an `Availability`, which is on neither `Prepared` nor anything `agent` may import |
 | | **Both fields shipped (`b96fb80`), and the runner uses them.** `wrap_argv` is on `Prepared` rather than `Confinement`, which is right: building a command line needs the policy too, and the `bwrap` binary is resolved at exec rather than remembered from probe time. **What remains is the AI half, and it is not closable by either package** — see the row below. Original finding: |
 | | **Both halves matter and one of them fails silently.** First: measured, with `~/.claude` granted a confined demo agent read the *operator's personal* `CLAUDE.md` and obeyed its language rule, so `CLAUDE_CONFIG_DIR` pointing into the zone is what removes the `$HOME` grant. Second: skip the wrap on a bwrap machine and `prepare` succeeded, the task ran, and there was no sandbox. **The runner reads both defensively and refuses to start when a bwrap confinement has no wrapper** (`ConfinementNotApplied`), so the silent case is loud. Two fields to agree with `env-mgr`: `Prepared.environment` and `Prepared.wrap_argv`. `bwrap` is absent here, so nothing local would have caught it | |
 
@@ -246,8 +246,8 @@ O1 is not answered by making the test pass.
 ### 4.1 Four tests that belong to no criterion, and are here anyway
 
 Each guards a seam obligation that **fails silently** if it is skipped — the
-category `materials/00-architecture.md` §7 names, where a document says X
-consumes Y and nobody checks that X's signature can accept Y.
+category where a document says X consumes Y and nobody checks that X's
+signature can accept Y.
 
 | Test | What would otherwise be silent |
 |---|---|
@@ -261,7 +261,7 @@ consumes Y and nobody checks that X's signature can accept Y.
 | `test_a_task_the_scheduler_watched_can_report`, `test_the_runner_does_not_call_set_task` | Every planned advance raising `ScopeViolation`, so no task advances a phase — `demo` F-D8, invisible to eight unit suites because every stub `set_task` was a no-op. The call is `Scheduler._dispatch_pass`'s; these assert the fixture models it and that a fourth round of building it here is a red test |
 | `test_the_schema_and_the_model_both_admit_it` / `..._reject_it` | The schema and `AgentSpec` drifting apart. `spec_loader` owns `agent.schema.json` and this package owns its content, so they are two records of one shape — and the first version invented `{type, handoff}` for a knowledge reference against the model's `{kind, knowledge_type, required}`, which under `additionalProperties: false` would have rejected **every knowledge-bearing agent spec in the system**. Caught by `spec-loader` asking; this makes the next one mechanical |
 
-### 4.2 The first run against a real backend, 2026-08-29
+### 4.2 The first run against a real backend
 
 `claude-agent-sdk` 0.2.148 was installed on this machine and the adapter was
 driven against the live gateway for the first time. Probes kept in
@@ -290,16 +290,15 @@ fiction, which is why the double is now forbidden to re-invent them
 `ANTHROPIC_CUSTOM_HEADERS` and `ANTHROPIC_MODEL` all absent from the
 environment, a query still returned in 0.79 s. And
 `ClaudeAgentOptions.env` is **merged over** `os.environ`
-(`subprocess_cli.py:809`), not a replacement — so passing
+(`subprocess_cli.py`), not a replacement — so passing
 `Assignment.environment` as `env` strips nothing the CLI needs.
 
 ### 4.3 What a session transcript cannot tell you
 
-**Three people concluded a defect from a `.jsonl` on 2026-08-29 and all three
+**Three people concluded a defect from a `.jsonl` and all three
 were wrong in the same direction.** Recorded here because the file looks
 authoritative, is easy to grep, and answers a narrower question than anyone
-assumed. Probe:
-A probe.
+assumed.
 
 | grepped for | in the transcript | so a zero means |
 |---|---|---|
@@ -329,11 +328,11 @@ alive at 14 minutes with its transcript quiet for 5. It nearly became a
 | | |
 |---|---|
 | The transform helper | §1's last row, design §3.5. Criterion 13's second half is O1 and is not testable as written |
-| ~~Resolving a body's paths against the **staged** package~~ | **Built, `c43dcba`.** §4.16 left the original tree outside every grant, so `/bin/sh <entry>` was denied — `demo` measured `exit 2: … Permission denied`, visible only because `detail` travels now (`8beb4f9`). `Runner.resolve_path` could not be fixed in place: `package_root` is a constructor argument and the staged copy is per attempt, so resolution moved into `_deploy` against `Prepared.staged_package` (`env_mgr` `086c12e`), with `resolve_path` as the unprepared fallback. **`readme` was the worse half**: the schema calls it a path, nothing here read the file, and `claude_sdk.py:221` handed the string to the SDK as `system_prompt` — a `kind: ai` task's brief was the path to its brief. It never crashed and no AI task had run. Now read; a missing file raises rather than falling back (§4.11) |
+| ~~Resolving a body's paths against the **staged** package~~ | **Built, `c43dcba`.** §4.16 left the original tree outside every grant, so `/bin/sh <entry>` was denied — `demo` measured `exit 2: … Permission denied`, visible only because `detail` travels now (`8beb4f9`). `Runner.resolve_path` could not be fixed in place: `package_root` is a constructor argument and the staged copy is per attempt, so resolution moved into `_deploy` against `Prepared.staged_package` (`env_mgr` `086c12e`), with `resolve_path` as the unprepared fallback. **`readme` was the worse half**: the schema calls it a path, nothing here read the file, and `claude_sdk.py` handed the string to the SDK as `system_prompt` — a `kind: ai` task's brief was the path to its brief. It never crashed and no AI task had run. Now read; a missing file raises rather than falling back (§4.11) |
 | A `human` executor | Spec §9. `kind: human` loads and fails at selection, which is the honest outcome |
 | Mid-run backend fallback | O7. §3.3's "pins the whole run" implies none, and every surveyed project except LiteLLM agrees |
 | Relocating the SDK's transcript | O3. `~/.claude/projects/<encoded-cwd>/*.jsonl` lands outside the confinement zone; three levers exist and the choice is `env_mgr`'s |
-| Choosing which `claude` CLI runs | **O2 — closed 2026-08-29, and it was a real defect.** Measured: `_find_cli()` returns the SDK's bundled executable *before* it ever calls `shutil.which`, and the two are **different binaries at different versions** — `_bundled/claude` is 2.1.251, the `PATH` one `env_mgr` installs plugins into is 2.1.246. Both work, so the run succeeded and the agent silently lacked its own recipe's plugins. `env_mgr.Prepared.agent_cli` reports the CLI the environment was provisioned for — **declared** on the `Context`, not re-resolved, because `PATH` can differ between the process that ran the recipe and the process that runs the agent. The runner carries it onto `Assignment.agent_cli`; this backend pins it, and **refuses** when a prepared run reports none rather than falling back (`interfaces.md` §4.11). `tests/interfaces/test_agent_cli_seam.py` pins the field from both sides. **The first version of this row described an env var, `AGENT_SYS_CLAUDE_CLI`, that `env_mgr` never published** — and its guard asserted the literal against a copy of itself, so it stayed green while `material.deploy`'s `CLAUDE_CONFIG_DIR` made every prepared AI run take the refusal branch. `ROADMAP.md` §9.2 |
+| Choosing which `claude` CLI runs | **O2 — closed, and it was a real defect.** Measured: `_find_cli()` returns the SDK's bundled executable *before* it ever calls `shutil.which`, and the two are **different binaries at different versions** — `_bundled/claude` is 2.1.251, the `PATH` one `env_mgr` installs plugins into is 2.1.246. Both work, so the run succeeded and the agent silently lacked its own recipe's plugins. `env_mgr.Prepared.agent_cli` reports the CLI the environment was provisioned for — **declared** on the `Context`, not re-resolved, because `PATH` can differ between the process that ran the recipe and the process that runs the agent. The runner carries it onto `Assignment.agent_cli`; this backend pins it, and **refuses** when a prepared run reports none rather than falling back (`interfaces.md` §4.11). `tests/interfaces/test_agent_cli_seam.py` pins the field from both sides. **The first version of this row described an env var, `AGENT_SYS_CLAUDE_CLI`, that `env_mgr` never published** — and its guard asserted the literal against a copy of itself, so it stayed green while `material.deploy`'s `CLAUDE_CONFIG_DIR` made every prepared AI run take the refusal branch. `ROADMAP.md` §9.2 |
 | ~~Closing F11's check-then-act race~~ | **Built** — `Runner.carry_on(task_id)`, §2.2 |
 
 ---
@@ -364,7 +363,7 @@ the tree it appears as a field.
 both worth keeping visible rather than overwriting:
 
 1. It claimed *"there is no manifest when the gate runs"*. Measurably wrong, and
-   contradicted by my own code — `gate.py:90` calls `store.get_manifest`. I had
+   contradicted by my own code — `gate.py` calls `store.get_manifest`. I had
    asserted F-D1's proposed shape as though it were settled. It is not.
 2. The deadline is gone. It read *"the window closes when `handoff` builds it on
    the manifest"*; `handoff` has now declined to build it there, and for a
@@ -396,7 +395,7 @@ calls `put`, `allocate` or `seal`. I am not writing a reader for a file nothing
 writes — §6.1.1 is what that costs. The open interface is the artefact's **name
 and shape**, which belongs to three packages and currently has no owner.
 
-#### The shape, settled 2026-08-29 — and then deliberately not built
+#### The shape, settled — and then deliberately not built
 
 **Recorded so the next person does not re-derive it.** Three agents have now
 spent real effort here; the design question is answered and the *build* is
@@ -412,8 +411,8 @@ producer and an inapplicable question for a `kind: program` one, reusing
 | | |
 |---|---|
 | `Manifest` | `digest` / `algorithm` / `kind` / `producer` / `created_at` |
-| `Manifest.producer` | **`TaskId`, not `AgentId`** — `handoff/protocols.py:126` |
-| `seal(hid, version, *, producer: TaskId)` | `handoff/store.py:296`, same |
+| `Manifest.producer` | **`TaskId`, not `AgentId`** — `handoff/protocols.py` |
+| `seal(hid, version, *, producer: TaskId)` | `handoff/store.py`, same |
 | `run_gate(outputs, usage, *, store, budget)` | no producer-class parameter |
 
 So *"there was no agent to claim"* is **not computable in `_self_check`**.
@@ -498,7 +497,7 @@ counts the arms where the attribute was genuinely *absent*, and runs the suite:
 | `test_claude_sdk.Message.*` ×8 | **Kept.** My own SDK-message double is thinner than the real thing, and see below |
 
 `hasattr` and `except AttributeError` appear once between them in the package —
-`backends/__init__.py:64`, which **raises** `BackendUnsupported` rather than
+`backends/__init__.py`, which **raises** `BackendUnsupported` rather than
 continuing, so it is not the shape.
 
 **One line owed to `monitor`, now paid.** `monitor/base.py`'s excepthook reads

@@ -56,7 +56,7 @@
   args:
     # The count reaches the check through `args`, not the agent's `env`, and
     # that is measured. A validator body's environment comes from
-    # `validator.choose_configuration` (`validator/environment.py:116-142`):
+    # `validator.choose_configuration` (`validator/environment.py`):
     # an INPUT phase falls through to the global row, which does not carry
     # `TWO_TASK_N_DIRECTIONS`, and `problems` re-runs this validator there.
     expected_count: '${n_directions:-2}'
@@ -76,7 +76,7 @@
 # `structured_text` because that is what it is — a JSON document with a declared
 # shape and nothing that ran. The type requires one of
 # `text.json` / `text.yaml` / `text.xml` and a README carrying `Purpose` and
-# `Schema` (`handoff/content.py:75-80`).
+# `Schema` (`handoff/content.py`).
 - module: handoff
   name: directions
   version: '1'

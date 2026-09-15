@@ -21,7 +21,7 @@ from .conftest import DISPATCHED, gpu, make_task, new_handoffs, token
 def stored_registry(tmp_path):
     """A registry **with** a `handoff_store`, which the shared one has not.
 
-    `bootstrap.py:214` registers the store only when a root is supplied, and the
+    `bootstrap.py` registers the store only when a root is supplied, and the
     rest of this suite deliberately runs without one — it exercises the
     scheduler against `FakeRunner`, and an artefact store rooted at a default
     nobody chose is worse than a loud `KeyError`. Pinning an output version
@@ -78,7 +78,7 @@ def test_an_output_version_is_pinned_at_dispatch_and_survives_completion(stored_
     """§4.14, and the half `env_mgr` is blocked on.
 
     The number has to be on the `Execution` **while the attempt is open**: that
-    is the whole point of moving it. `env_mgr/grants.py:85` reads it there to
+    is the whole point of moving it. `env_mgr/grants.py` reads it there to
     build `<store>/<hid>/v<N>/`, and before this it was empty until close, so
     every output write grant raised `UnresolvedGrant` for the duration of the
     attempt that was supposed to fill it.

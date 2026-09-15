@@ -13,7 +13,7 @@ convenience.
 ## The scan was aimed at a format nobody can add any more
 
 Measured, with each plant removed in a `finally`
-(`scratch/ui-yaml-2026-08/w5/probe_stray_spec_guard.py`, reproduced before this
+(reproduced before this
 was changed):
 
     baseline, nothing planted            1 passed
@@ -49,7 +49,7 @@ what a spec is, and it is the loader's — this test does not get a second one.
 | `assert not [p for p in scan() if pred]` | vacuous. The claim is about each item, and there are none |
 
 This test is the second shape and always was, so it needs the non-vacuity
-assertion that `tests/env_mgr/test_imports.py:225` already carries for a
+assertion that `tests/env_mgr/test_imports.py` already carries for a
 README-derived set — *"the README cites no tests at all; the mapping has been
 lost"*. Copied rather than invented, because a local precedent is worth more than
 an argument.
@@ -111,7 +111,7 @@ PERMITTED_COMPONENTS = {"general_specs", "tests"}
 #: package. `YamlPackage` scans every `*.yaml` under a root except `assets/`, so a
 #: deliberately-broken document nested inside the good package would be loaded on
 #: every ordinary run — `demo` criterion 13's *"two runs, no hand-editing"* gone.
-#: `cli/package.py:36-42` records the move; nothing but
+#: `cli/package.py` records the move; nothing but
 #: `cli.package.broken_package()` reaches it, for `--dry-run --with-broken`.
 #:
 #: **An example may need hardware this test cannot assume**, and that is §4.3's
@@ -183,7 +183,7 @@ def test_the_scan_finds_something_to_check() -> None:
     when the format changed under a `.jsonnet`-only scan — the guard stayed green
     and stopped guarding, and only a planted file revealed it.
 
-    Copied from `tests/env_mgr/test_imports.py:225`, which carries the same one
+    Copied from `tests/env_mgr/test_imports.py`, which carries the same one
     line for a README-derived set: *"the README cites no tests at all; the
     mapping has been lost"*. A local precedent rather than an invention.
 

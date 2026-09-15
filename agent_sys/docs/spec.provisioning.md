@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | **Normative for this round.** Written 2026-09-04 from the owner's rulings on PR 155 plus measurement |
+| Status | **Normative for this round.** Written from the owner's rulings on PR 155 plus measurement |
 | Scope | Everything installed or declared for an agent: recipes, add-ons, MCP servers, tools, skills, hooks, plugins |
 | Spans | `env_mgr`, `agent`, `spec_loader` — which is why it is here and not in one component's `docs/` |
 | Supersedes | the L1/L2/L3 vocabulary, entirely. There are no levels |
@@ -36,7 +36,7 @@ tree, which is copied. §3.
 **There is no `layer` field on an item and there must not be one.** The layer is
 carried by the path, and a field restating it would be a second writer of one
 fact. A recipe carrying a stale `layer:` key is **rejected** with a dated
-migration message (`recipe.py:73`) rather than silently passed into `Item.spec`.
+migration message (`recipe.py`) rather than silently passed into `Item.spec`.
 
 **`env_mgr/recipes/*.yaml` are demos** — the namespace of things you *name* in
 `recipes: [x]`. The default is the one you never name, which is why it is not in
@@ -59,7 +59,7 @@ two layers both declaring `uv` is not an error and should not be.
 ### 2.2 Absence
 
 **Declared and absent is an error. Undeclared and absent is simply absent.**
-(`material.py:62-86`'s existing rule.) There is no third case. Both agent-level
+(`material.py`'s existing rule.) There is no third case. Both agent-level
 systems — its own recipe and its `.claude/` tree — may be absent independently.
 
 ## 3. Where an installed thing lands
@@ -140,14 +140,14 @@ Measured from the installed `claude_agent_sdk`:
 
 So the overlap is **real, known to the SDK, and resolved by switches rather than
 by precedence** — additive by default. Because the SDK arbitrates nothing,
-**whoever merges two sources owns the collision**: `claude_sdk.py:375-386` names
+**whoever merges two sources owns the collision**: `claude_sdk.py` names
 it and refuses rather than overwriting, since the model addresses servers as
 `mcp__<server>__<tool>` and a silent replacement makes one side's tools vanish.
 
 **Derived, and it resolves a claim that looked contradicted:** `.mcp.json` is a
 **project-scope** filename — the CLI and SDK both say *"project `.mcp.json`"*,
 and `--mcp-config` exists precisely to load one from elsewhere. A zone's
-`$CLAUDE_CONFIG_DIR` is **user** scope. So `agent_assets.py:287`'s *"placing it
+`$CLAUDE_CONFIG_DIR` is **user** scope. So `agent_assets.py`'s *"placing it
 would put a file in the zone that nothing reads"* and the SDK's *"the CLI would
 otherwise load project `.mcp.json`"* are **about different locations and both
 true**. If the declarative route is ever wanted for MCP, its destination is the
@@ -173,7 +173,7 @@ a live Python object does not survive a subprocess.
 
 **The standing exception** is `env_mgr/remote/tools.py` — `env_remote_run`,
 `env_remote_push`, `env_remote_pull`. It is delivered by **injection**:
-`claude_sdk.py:393` puts a live `create_sdk_mcp_server` object into
+`claude_sdk.py` puts a live `create_sdk_mcp_server` object into
 `ClaudeAgentOptions`, and **nothing is written to disk**, so no installer can
 carry it. It works and has a live user. **Closing condition**: reprovide the
 three as a standalone server started by `run_server`, after which this section
@@ -192,7 +192,7 @@ add-on ships a server that runs on its own.
 
 ## 7. How an agent knows it is working remotely
 
-Not from prose. `prepare.py:645` returns the three remote tools if the zone has a
+Not from prose. `prepare.py` returns the three remote tools if the zone has a
 far side and `()` if it does not — **whether `env_remote_run` is in the toolbox
 is the answer** — and `AGENT_SYS_*_REMOTE` mirrors every local path name.
 
@@ -205,7 +205,7 @@ nobody notices."*
 
 - **`env_mgr/recipes/*.yaml` do not ship in a wheel.** `recipes: [serena]` in
   `examples/ok.agent_capabilities.2` cannot resolve from a wheel install. Recorded in
-  `temp/bugs/2026-09-04-*`; the one-line `package-data` candidate is unrun.
+  recorded elsewhere; the one-line `package-data` candidate is unrun.
 - **Cross-layer version conflicts** — §2.1.
 - **A registry sweep for runs killed by a signal** — `TODO.md` 4j.
 - **Installs run unconfined** and §4 of `env_mgr`'s spec does not say so —

@@ -55,7 +55,7 @@ env:
   E2E_MODEL_PATH: '${model_path}'
   # Empty by default, and a body resolves it with `: "${E2E_SERVED_NAME:=$E2E_MODEL_NAME}"`.
   # **Not `${served_name:-${model_name}}`** — a default may contain no `}`, so a
-  # nested reference is not a thing this syntax has (`spec_loader/variables.py:79`:
+  # nested reference is not a thing this syntax has (`spec_loader/variables.py`:
   # *"a nested reference would make this a grammar"*). Written wrong it does not
   # error; it substitutes a literal `${model_name` and leaves a stray brace.
   E2E_SERVED_NAME: '${served_name:-}'
@@ -86,7 +86,7 @@ env:
   # every tenant's containers and both held nodes are carrying other people's
   # work right now. A body writes `: "${VAR:=…}"`, never `export VAR=`, and
   # **never `docker rm -f` a name it did not create**.
-  E2E_CONTAINER: '${container:-yihou_e2e_flow}'
+  E2E_CONTAINER: '${container}'
   # **These three are NOT where a consumer learns the endpoint.** A kit picks its
   # own base -- a caller may pass `E2E_KIT_PORT_BASE` -- and records what it bound
   # in the handshake `deployment.json`, which `deploy_kit.layout.yaml`'s
@@ -95,7 +95,7 @@ env:
   # the defaults describe what an unconfigured bring-up would take, the handshake
   # describes what this one did.
   #
-  # `check_deploy_serves` gets it right -- `check.py:314,362` reads the handshake
+  # `check_deploy_serves` gets it right -- `check.py` reads the handshake
   # and takes `deployment["endpoint"]`. The trap is for the NEXT consumer, and the
   # leader walked into the reader's half of it within the hour: probing 8101-8103
   # against a serving engine returns `000`, which is exactly what a dead engine
@@ -132,7 +132,7 @@ env:
   # so it carries a default — unlike the six node facts, which do not.
   # **No default, on purpose.** This used to default to
   # a site-specific absolute path in a spec, which M2.1 and CONTRACT §6 forbid,
-  # and a *debugging* workspace besides. It was caught from the consumer end: their consumer is `assets/accept/measure.sh:119`, `'${E2E_AIPERF_TRACE:?}'`,
+  # and a *debugging* workspace besides. It was caught from the consumer end: their consumer is `assets/accept/measure.sh`, `'${E2E_AIPERF_TRACE:?}'`,
   # so an operator who passes no `--var aiperf_trace=…` gets a loud failure
   # naming the variable instead of a replay silently driven by somebody's
   # scratch trace. Empty is what makes that guard reachable.
@@ -148,7 +148,7 @@ env:
   #
   # **THERE IS A FLOOR, AND NOTHING ENFORCES IT.** The m2 profiling arm cuts TWO
   # captures in sequence inside ONE load, and the second one requires the load to
-  # still be running (`assets/load/capture.sh:130`, `load_running`):
+  # still be running (`assets/load/capture.sh`, `load_running`):
   #
   #     measurement   E2E_WARMUP_S + E2E_WINDOW_S        60 + 10 = 70 s
   #     stack window  WARMUP_S=0   + E2E_STACK_WINDOW_S   0 +  3 =  3 s
@@ -157,7 +157,7 @@ env:
   #
   # **Below the floor the second capture is scheduled into a period with no
   # load.** `capture_stacks.log` reads `ABORT: no aiperf load in flight`,
-  # `replay.sh:114-121` treats that as non-fatal by design, and then
+  # `replay.sh` treats that as non-fatal by design, and then
   # `check_trace_coverage` and `check_kernel_table` BOTH refuse — for something
   # that is not the producer's fault.
   #
@@ -168,7 +168,7 @@ env:
   # m3/m4/m5 never started. **One override, four stages lost.**
   #
   # Both defaults below the two that exist clear the floor — this one at 180 s
-  # and `assets/load/aiperf_replay.sh:38`'s own fallback at 120 s. **The failure
+  # and `assets/load/aiperf_replay.sh`'s own fallback at 120 s. **The failure
   # was introduced by a deliberate time-saving `--var`, not by the package.**
   # If you shorten this, keep it above the floor, or raise `stack_window_s=0`
   # deliberately and accept losing `identify` resolution level 1.
@@ -239,13 +239,13 @@ env:
   #
   # **The default is a real refusal and must stay the default.** The sealed
   # report's verdict is `accepted: false`, and replaying it verbatim correctly
-  # stops the graph — `mock_m5.sh:139` calls that *"the only cheap end-to-end
+  # stops the graph — `mock_m5.sh` calls that *"the only cheap end-to-end
   # test of a strong refusal this package has"*, and it is.
   #
   # **But it also means a fully-mocked run can never reach the end**, which is
   # Brief item 2. Measured 2026-09-05: across **45 runs**, `m5_integration` has
   # never reached `succeeded` — the best is 4/5 with stage 5 stopped on that
-  # refusal. `mock_m5.sh:141` already builds the way out, swapping the
+  # refusal. `mock_m5.sh` already builds the way out, swapping the
   # performance rows for the stock control measured under matched load on the
   # same node (patched 475.7 ms vs stock 470.3 ms, 1.1 % apart).
   #
@@ -280,8 +280,8 @@ env:
   # never use.
   E2E_MOCK_PREMISE: '${mock_premise:-matched}'
 
-  # m3's five. `E2E_SNR_THRESHOLD` has two producers — `scaffold.py:304` into
-  # `gates.snr_db` and `rank.py:302` into the worklist — so it belongs here
+  # m3's five. `E2E_SNR_THRESHOLD` has two producers — `scaffold.py` into
+  # `gates.snr_db` and `rank.py` into the worklist — so it belongs here
   # regardless of any one agent's block.
   # **Empty, not `4`.** It was `${measure_gpu:-4}` for one commit, copied from
   # m3's body default. m4 refused to declare it on that basis and they were
@@ -289,14 +289,14 @@ env:
   # refuse-when-empty guard unreachable and picks a card silently on a shared
   # host — the outcome the guard exists to prevent, arriving through a fallback
   # instead of a decision. **m3's body REFUSES rather than
-  # defaulting** -- `measure_in_container.sh:142` prints the node's live
+  # defaulting** -- `measure_in_container.sh` prints the node's live
   # `rocm-smi` and exits 1 naming the fix. This comment used to say the body
   # falls back to card 4; that was true once, the fallback was removed, and the
   # comment did not fail -- it started lying, in the direction of "you do not
   # need to pass this". Third instance today of a default that became a refusal
   # (T49), and the most consequential copy, because THIS is the file someone
   # reads to decide whether the var is optional. It is not: `measure_gpu` is
-  # required on EVERY rung 0-5, because `build_workset/entry.sh:168` calls the
+  # required on EVERY rung 0-5, because `build_workset/entry.sh` calls the
   # container script on the MOCK path too. Omitting it cost rung 1 (2026-09-04):
   # the guard fired, refused, printed the fix, wrote no `evidence/`, and two
   # validators then correctly refused the absence.
@@ -325,9 +325,9 @@ env:
   #
   # **One correction to how this was first written here.** m4 reported the
   # `m4` default as living in the shared `env_render.py`, and the package owner wrote
-  # that down without opening the file. Measured: `env_render.py:173` is
+  # that down without opening the file. Measured: `env_render.py` is
   # `os.environ.get("E2E_STAGE", "")` — **empty** — and the `setdefault(…, "m4")`
-  # is at `optimize_kernel.task/steps/_lib.py:351`, which is m4's own module
+  # is at `optimize_kernel.task/steps/_lib.py`, which is m4's own module
   # naming itself and is correct. So the defect is smaller and different:
   # **every stage except m4 has been stamping `warnings[].stage` with the empty
   # string**, so a tolerated difference is recorded without saying who tolerated

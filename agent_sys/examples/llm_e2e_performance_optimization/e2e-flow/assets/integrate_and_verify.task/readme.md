@@ -66,7 +66,7 @@ rather than a stop:** *which cards are ours*. In this stage it does **not**
 select GPUs — it tells `neighbour.py` which devices belong to this deployment so
 the neighbour sample describes **someone else's** load and not our own. Absent,
 every card reads as un-owned and the neighbour label degrades to `unknown`.
-`measure.sh:118-121` records why `unknown` is the honest degradation and a
+`measure.sh` records why `unknown` is the honest degradation and a
 per-card dict is not: on TP-8 every card is ours, and a false `busy` would be
 worse than no label.
 
@@ -296,7 +296,7 @@ python3 "$AGENT_SYS_TASK_PACKAGE/assets/compare.py" \
 **`--environment` is not optional in practice.** G5 puts the environment record
 in every handoff and `check_environment` is `strong` over all fifteen kinds.
 Without this flag the report carries none and that validator refuses with *"no
-environment.yaml at any of …"* — measured 2026-09-05 against the first real
+environment.yaml at any of …"* — measured against the first real
 `integration_report` this flow ever produced, and true for the whole life of
 this body before that. It was invisible because at every earlier rung stage 5
 was mocked and `mock_m5.sh` renders the record itself: **the mock satisfied a
@@ -334,7 +334,7 @@ outputs empty. It cost hold `112699` on another stage. **Write these before you
 seal, not after the seal complains.**
 
 You produce three handoffs and they do not want the same sections
-(`agent_sys/handoff/content.py:62-87`, read there rather than trusting this
+(`agent_sys/handoff/content.py`, read there rather than trusting this
 table if they ever disagree):
 
 | handoff | content type | required README sections |
@@ -361,7 +361,7 @@ Three rules that are not obvious, all from the checker itself
 `agent_sys/handoff/readme.py`'s `template(required)` will emit the skeleton if
 you would rather start from one than compose it.
 
-**Why this section exists.** Until 2026-09-05 this brief named none of the
+**Why this section exists.** Until this brief named none of the
 twelve, and it is the brief asking for the most. It had not bitten *this* stage —
 the agent improvised them correctly at least once — but m4's stage was bitten by
 two different agents on two nodes improvising differently, which is what a

@@ -9,9 +9,8 @@ answer that with a check that nothing checks — so the rule has a test, and eve
 case here carries the case that must still pass beside the one that must fail.
 
 The kits are synthetic and minimal on purpose. The real discriminating pair is
-B5's own kit against a copy whose assignments were rewritten to `:=`; that lives
-in `scratch/single-real-task-2026-08/` with the probe that runs it, because it is
-evidence of a specific run and not a regression fixture. What is pinned here is
+B5's own kit against a copy whose assignments were rewritten to `:=`. That is
+evidence of a specific run and not a regression fixture, so it is not kept here. What is pinned here is
 the rule's *shape*, which is what a later edit would break.
 
 Loaded by path, not imported: the validator body is package data — it is not on

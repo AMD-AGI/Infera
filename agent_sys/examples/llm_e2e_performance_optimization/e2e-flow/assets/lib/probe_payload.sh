@@ -59,7 +59,7 @@ nfree=0; [ -n "$free_cards" ] && nfree="$(awk -F, '{print NF}' <<< "$free_cards"
 # missing the filesystem the weights live on — the image is a fact about the
 # node's docker, the mount is a fact about the node.
 #
-# It is also what `require_visible_on_node` needs (`assets/lib/remote.sh:170`):
+# It is also what `require_visible_on_node` needs (`assets/lib/remote.sh`):
 # this package runs bodies on the node by absolute path and exchanges files
 # through the zone, so **both hosts must mount the run root**. A node without
 # the shared filesystem fails that three layers from its symptom.

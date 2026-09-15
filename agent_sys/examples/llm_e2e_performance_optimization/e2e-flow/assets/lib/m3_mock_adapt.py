@@ -77,7 +77,7 @@ def _interpreter() -> str:
     """An interpreter that can run `env_render.py`, which validates before it
     writes and therefore needs `yaml` and `jsonschema`.
 
-    A task body never reaches `AGENT_SYS_DEMO_PYTHON` (`cli/main.py:668` puts it
+    A task body never reaches `AGENT_SYS_DEMO_PYTHON` (`cli/main.py` puts it
     in `validation_env` only), so a bare `python3` is the policy PATH's. Probed
     rather than assumed — m1 measured that `/usr/bin/python3` here has `yaml`
     and `jsonschema`, so it will usually be fine, and "usually" is the reason to

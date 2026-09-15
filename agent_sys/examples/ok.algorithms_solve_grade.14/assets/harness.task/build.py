@@ -26,11 +26,11 @@ symbols without editing a line of what the student wrote.
 typing `harness < case.txt` by hand, and it is documented as unsafe rather than
 removed, because a reader who finds it needs to know why not to use it.
 
-Measured (`scratch/demo2-2026-08/probe_fgets_eats_stdin.py`, seven programs): a
+Measured (seven programs): a
 solution's `std::ios::sync_with_stdio(false)` discards the position **any**
 earlier stdio read left, so `fgets`, `getchar` and `getline` all starve it
 equally. The function is not the variable; reading stdin at all before the
-solution runs is. The first full demo2 run went through the stdin form and every
+solution runs is. The first full run went through the stdin form and every
 case produced empty output with return code 0 — every student scored exactly
 30.0 and every validator passed.
 """
@@ -173,7 +173,7 @@ def submissions(root: Path, student: str) -> list[dict]:
     **The problem id is the first path component below `codes/`**, which is what
     `assets/solve_a.task/readme.md` asks the students for —
     `items/codes/<problem_id>/solution.cpp` — and all that
-    `scratch/demo2-2026-08/CONTRACT.md` §1 fixes: *"one dir per problem"*. The
+    this package fixes: *"one dir per problem"*. The
     file name is not assumed: the search is a recursive glob and the id comes
     from the top of the relative path, so a student who nests or renames still
     lands in the right place.

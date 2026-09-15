@@ -2,9 +2,8 @@
 
 | | |
 |---|---|
-| Status | Draft, revised after review |
-| Revision | 5 — 2026-08-27. **Addressing into content is an RFC 6901 JSON Pointer, not a jsonpath** (§5.1, criterion 11). RFC 9535 §2.5.1.2 forbids a valid JSONPath query from erroring, so no implementation can distinguish a wrong path from an absent value — the silent pass this system exists to prevent. Raised by `design.md` D1 and decided in the stage-three consistency pass. (rev. 4: 2026-08-26. A handoff kind is a jsonnet source in a task package (§8). (rev. 3: The kind spec carries a maintenance-only `version` (§8). rev. 2: Review of PR #132: content is README + typed dict; v1 storage is a filesystem tree; knowledge handoffs get their own storage and loose checking; validator binding is many-to-many. rev. 1: initial)) |
-| Date | 2026-08-24 |
+| Status | Normative |
+| Revision | 5 |
 | Scope | What a unit of transfer carries: content shape, digest, scope tags, validator binding, storage |
 | Source | The task definition §3 |
 | Part of | [`../../docs/spec.md`](../../docs/spec.md) — the whole-system specification |
@@ -137,7 +136,7 @@ security boundary: an agent that can write a handoff can write its digest. The
 boundary that matters is the producer/validator context separation (main spec
 §5.2), and no hash substitutes for it.
 
-Canonicalisation — key order, float formatting, line endings — is a design-stage
+Canonicalisation — key order, float formatting, line endings — is a design
 decision recorded in [`../../docs/TODO.md`](../../docs/TODO.md), because getting
 it wrong makes the field useless and it should not be decided by accident.
 
@@ -403,7 +402,7 @@ reverse index — which kinds a given validator covers.
 16. **Permission is containment.** A task reaches its own subtree and its
     subtasks'; a sibling's subtree is denied. Asserted against the real layout.
 17. A handoff whose content declares an absolute local path fails its
-    locality-independence check. **NOT ENFORCED as of 2026-08-31** — user-ruled
+    locality-independence check. **NOT ENFORCED today** — user-ruled
     after the check refused a correct artefact, and every correct one it would
     have been given: measured 97% false positive on a real kit, because it reads
     a path's *shape* and `locality.py`'s own docstring records that Debian

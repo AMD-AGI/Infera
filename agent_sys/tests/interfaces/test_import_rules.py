@@ -4,7 +4,7 @@
 one of those rows exists because a specific thing goes wrong when it is broken,
 and the reasons are in the design documents. These tests are the enforcement, so
 the rows do not become aspirations — which is what happened to the composition
-root, and what the stage-three consistency pass had to unpick.
+root, and what the cross-module consistency pass had to unpick.
 
 They walk the AST rather than grepping the source. `"scheduler" in runner.py` is
 `True` today, from two docstring mentions, so a substring check would fail for
@@ -30,7 +30,7 @@ OURS = {
     "closure",
     "env_mgr",
     "task_graph",
-    "demo",
+    "cli",
     "monitor",
 }
 
@@ -53,6 +53,10 @@ ALLOWED: dict[str, set[str]] = {
     # on a live agent, and declares `Pushable` locally rather than import `agent`.
     # `tests/interfaces/test_pushable.py` is what keeps the two shapes in step.
     "monitor": {"task_graph"},
+    # The composition root, and the only package with no restriction: its job is
+    # to import everything and wire it. The rule that matters for `cli` runs the
+    # other way — `test_nothing_imports_the_cli`.
+    "cli": OURS - {"cli"},
 }
 
 
@@ -157,9 +161,8 @@ def test_no_source_format_survives_the_deletion() -> None:
     _jsonnet` planted back into `tests/validator/test_reference.py` the first
     draft printed `1 passed`. A working instrument pointed at the safe case,
     which `docs/interfaces.md` §8.11g has thirteen recorded instances of; the
-    probe that caught this one is
-    `scratch/ui-yaml-2026-08/w3/probe_criterion_17_guard.py` and it is kept so
-    the next person can re-aim the instrument rather than trust it.
+    probe that caught this one is kept so the next person can re-aim the
+    instrument rather than trust it.
     """
     banned = {"_jsonnet", "rjsonnet", "jsonnet"}
 
@@ -186,13 +189,34 @@ def test_no_source_format_survives_the_deletion() -> None:
         assert not stripped.startswith(('"jsonnet', '"rjsonnet')), stripped
 
 
-def test_nothing_imports_demo() -> None:
-    """`demo` criterion 15: the demo is downstream of everything and upstream of
-    nothing. If a component ever needs it, the demo has stopped being an example
-    and has become a dependency."""
-    for pkg in OURS - {"demo"}:
+def test_nothing_imports_the_cli() -> None:
+    """`cli` criterion 15: the CLI is downstream of everything and upstream of
+    nothing. If a component ever needs it, the runnable proof has stopped being a
+    proof and has become a dependency.
+
+    **The package name is load-bearing here, and it silently was not.** This rule
+    was written when the package was `demo/`, and both `OURS` and the assertion
+    named that string. After the rename nothing in the tree is called `demo`, so
+    `_imported_packages` — which intersects with `OURS` — could never return it
+    and this test passed against every possible tree. A component importing `cli`
+    was admitted by a green suite. Asserting on a name means the name has to be
+    checked, which is what `test_every_allowed_package_exists` now does.
+    """
+    for pkg in OURS - {"cli"}:
         for path in _sources(pkg):
-            assert "demo" not in _imported_packages(path), f"{path.relative_to(ROOT)} imports demo"
+            assert "cli" not in _imported_packages(path), f"{path.relative_to(ROOT)} imports cli"
+
+
+def test_every_allowed_package_exists() -> None:
+    """Every name in `OURS` is a real directory, so no rule here can go vacuous.
+
+    A rule keyed on a package name is only as good as the name. `OURS` held
+    `demo` for as long as `demo/` had been renamed to `cli/`, and the cost was
+    not a failure — it was `test_nothing_imports_the_cli` quietly checking
+    nothing. This is the cheapest thing that would have caught it.
+    """
+    missing = sorted(p for p in OURS if not (ROOT / p).is_dir())
+    assert not missing, f"{missing} named in OURS but not a package directory"
 
 
 def test_env_mgr_wall_holds_downward() -> None:

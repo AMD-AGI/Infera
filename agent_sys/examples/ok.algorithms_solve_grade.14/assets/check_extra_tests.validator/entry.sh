@@ -10,7 +10,7 @@
 # `AGENT_SYS_DEMO_PACKAGE` is the checkout and arrives on the GLOBAL row, which
 # is what an *input* phase takes: `_configuration_sources` supplies no
 # `consumer`, so `choose_configuration` falls through
-# (`validator/phase.py:297-358`). `AGENT_SYS_DEMO_PYTHON` is on the global row
+# (`validator/phase.py`). `AGENT_SYS_DEMO_PYTHON` is on the global row
 # too; `python3` is the fallback for the other.
 set -eu
 exec "${AGENT_SYS_DEMO_PYTHON:-python3}" \

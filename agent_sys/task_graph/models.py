@@ -51,9 +51,9 @@ __all__ = [
 #: author no longer writes one (main spec §4.8, narrowed at rev. 10).
 #:
 #: **Not `None`, and the reason is that the field is read unconditionally on a
-#: path a non-leaf takes.** `scheduler.py:53` gates `submit` on
+#: path a non-leaf takes.** `scheduler.py` gates `submit` on
 #: `agent_mgr.is_registered(task.agent_spec)` for every task, and
-#: `scheduler.py:274` calls `instantiate(task.agent_spec, tid)` and feeds
+#: `scheduler.py` calls `instantiate(task.agent_spec, tid)` and feeds
 #: `agent.id` into a required `Execution.agent_id`. So a hole here does not stop
 #: at the model — it reaches the execution record, which is the shape
 #: `docs/interfaces.md` §5.13 already has open for `Verdict.agent_id`, and a
@@ -61,10 +61,10 @@ __all__ = [
 #: "non-leaf ⇒ no attribution".
 #:
 #: **A name, not a document.** `AgentMgr.register` takes a bare name with empty
-#: config (`agent.py:28`), which satisfies both the submit gate and
+#: config (`agent.py`), which satisfies both the submit gate and
 #: `instantiate`. Nothing resolves it in `agent_specs`: the only reader that
 #: would is `runner.agent_spec_of`, reached from `_deploy`, and `_main` returns
-#: before `_deploy` for a non-leaf (`agent/runner.py:679-685`). So the system
+#: before `_deploy` for a non-leaf (`agent/runner.py`). So the system
 #: invents no spec — it registers one more name, the way the composition root
 #: already supplies `DEFAULT_MONITOR_NAME` and `FakeRunner`.
 #:
@@ -630,11 +630,11 @@ class Task(Model):
         child was already running — the ordering was never in the parent's
         favour, only in its favour by a margin.
 
-        The margin is one monitor round, and it is not enough. Measured, in
-        `scratch/demo2-2026-08/zone-ordering.md`: `layout.create` for a non-leaf
+        The margin is one monitor round, and it is not enough. Measured:
+        `layout.create` for a non-leaf
         begins with `find_zone_dir`, an `os.walk` of the **whole** zones tree to
         locate its own parent's zone, and that walk grows with the run — 11 ms
-        over an empty tree, 540 ms over the 1669 directories a demo2 run had
+        over an empty tree, 540 ms over the 1669 directories a fourteen-task run had
         accumulated by the time `grade` unfolded. A child's input-validation
         phase is shorter than that, so the deeper into a run a non-leaf unfolds,
         the more reliably it loses. `full2.log`: *"task caf4fb37 declares parent

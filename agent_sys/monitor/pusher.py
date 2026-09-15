@@ -8,7 +8,7 @@ going.
 **"Keep going" is expressible on a returned agent. Measured, not assumed.** A
 `ResultMessage` ends a *turn*, not the session and not the process; a live probe
 pushed a returned agent and got an answer on the same session id, in the same
-process, in ~2 s (`scratch/design/findings-monitor-push.md` §1–2).
+process, in ~2 s.
 """
 
 from __future__ import annotations

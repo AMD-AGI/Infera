@@ -494,7 +494,7 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict,
             # apart. m2's controlled experiment was the cost: their treatment arm
             # died here at 07:15 and produced no data at all.
             #
-            # `runner.py:801` is the mirror of this: *an environment variable
+            # `runner.py` is the mirror of this: *an environment variable
             # cannot instruct an agent.* **A brief cannot instruct a program.**
             # Wherever a brief and a body do the same job, a fix to one is half a
             # fix (`todo.md` T56).
@@ -765,7 +765,7 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict,
         #
         # **Both inputs are read from the world, not from what we asked for.**
         # The ceiling comes off the engine's own `/proc/<pid>/cmdline` — m5's
-        # `serve/round.sh:174` idiom — because a launch flag we passed is not
+        # `serve/round.sh` idiom — because a launch flag we passed is not
         # evidence of a flag the engine took. The concurrency comes from the
         # aiperf export's `effective_decode_concurrency`, and **not** from this
         # summary's `effective_concurrency`, which is a different number (15.35
@@ -892,7 +892,7 @@ def main() -> int:
         probes["load"][key] = seconds(parameters, arg, int(probes["load"][key]))
 
     # `assets/lib/remote.sh` reads these three and forwards the whole `E2E_*`
-    # block to the far side of an `spur exec` (`remote.sh:84` — the transport
+    # block to the far side of an `spur exec` (`remote.sh` — the transport
     # carries no environment of its own, measured).
     # `auto` is `remote.sh`'s to resolve and it does (`_transport`, fixed by m2
     # after this body worked around it). The workaround that lived here is gone

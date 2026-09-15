@@ -4,7 +4,7 @@
 
 Mission rule 5 says use a de facto standard, wrap it if a thin wrapper suffices,
 write it only when nothing fits **and say why**. Three candidates were measured
-(`scratch/ui-yaml-2026-08/w3/probe_substitution_libraries.py`):
+:
 
 | Candidate | Measured |
 |---|---|

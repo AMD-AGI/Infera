@@ -90,7 +90,7 @@ fi
 
 # **Not bare `python3`.** `env_render.py` validates before it writes, so its
 # interpreter must be able to import the validator stack. A task body cannot name
-# the run's interpreter — `cli/main.py:668` puts `AGENT_SYS_DEMO_PYTHON` in
+# the run's interpreter — `cli/main.py` puts `AGENT_SYS_DEMO_PYTHON` in
 # `validation_env` only, and its own comment says a task body never reaches it —
 # so the policy `PATH` decides, and on this host that is `/usr/bin/python3`.
 #
@@ -168,7 +168,7 @@ if ! grep -q 'E2E_KIT_RUN_TAG' "$ENVSH"; then
 : "${E2E_KIT_GPU_DEVICES:=${DK_GPU_ID:-4}}"
 # The eighth, added the same day and by the same rule: rename, never new
 # behaviour. The sealed kit already binds a graph ceiling — `DK_CUDA_GRAPH_MAX_BS`
-# at its own `env.sh:105`, value **8** — so an unset caller still gets the
+# at its own `env.sh`, value **8** — so an unset caller still gets the
 # 2026-09-02 run's own choice byte for byte, and the replayed numbers stay
 # exactly as reproducible as they were.
 #
@@ -186,7 +186,7 @@ fi
 #
 # **The alternative was to drop `check_deploy_serves` in mock mode, and that is
 # worse.** It is `strength: strong`, and strength qualifies a PASS and never a
-# failure (`validator/report.py:177`) — so there is no "record the refusal and
+# failure (`validator/report.py`) — so there is no "record the refusal and
 # carry on" switch to build, and a validator skipped because the run was a mock
 # is the failure this package exists against. Installing a kit it can genuinely
 # serve from means the `gpu_hours` validator is **exercised** in every mock run,
@@ -207,7 +207,7 @@ fi
 # They are now two files. The kit keeps its real entrypoints, the stub lives at
 # `scripts/stub/`, and the validator is pointed at it by the parameters it
 # already had — `deploy_entrypoint` / `teardown_entrypoint`
-# (`m1_deploy.yaml:245-246`, confirmed present in a real run's `args.json`).
+# (`m1_deploy.yaml`, confirmed present in a real run's `args.json`).
 # **No new plumbing, and `scripts/sealed/` stops being needed** because nothing
 # is displaced.
 STUB="$PKG/assets/check_deploy_serves.validator/stub_kit"

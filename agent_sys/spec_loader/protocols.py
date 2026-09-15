@@ -347,7 +347,7 @@ def validate(doc: Any, schema: Mapping[str, Any], *, origin: str) -> list[Proble
     document back so this function could parse it again, and the two parsers do
     not agree: `ruamel.yaml` is YAML 1.2 and PyYAML's `safe_load` is 1.1, so
     `12:30` is the string on one side and the integer 750 on the other
-    (`scratch/ui-yaml-2026-08/w3/probe_ruamel_semantics.py`). One document, two
+. One document, two
     readings, decided by which side of a needless round trip you look from.
 
     The return is a bare problem list. The pair existed to carry `None` for "did

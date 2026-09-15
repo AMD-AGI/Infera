@@ -53,7 +53,7 @@ Two traps that have both bitten here and are worth knowing before editing it:
 ## Mock
 
 `mock_m5.sh packup` (MOCK-MAP adaptation F). There is no sealed `e2e_packup` —
-the 2026-09-02 graph stopped at a correctly refused report before the packup step
+the graph stopped at a correctly refused report before the packup step
 was dispatched — so the source is the 47-file kit produced out of band by
 `integration`'s own unmodified `packup.py` over that run's nine sealed handoffs.
 **It is not sealed**, its provenance is `PRODUCED-BY-DEPLOY.md` in the directory

@@ -39,15 +39,15 @@ def submitted_pairs(students: list) -> set[tuple[str, str]] | None:
     exported for the producing task's own input slots. So this resolves in the
     phase whose configuration is `review_x`'s or `review_y`'s, and not in
     `reconcile`'s input phase, which takes the GLOBAL row
-    (`validator/phase.py:297-358`).
+    (`validator/phase.py`).
 
     `None` means *could not be determined*, which the caller must not fold into
     a pass. Absent evidence and satisfied evidence are the same shape and only
     one of them has been demonstrated.
 
     The problem id is the first path component below `items/codes/`, which is
-    the only thing `scratch/demo2-2026-08/CONTRACT.md` §1 fixes about a
-    solutions artefact.
+    the only thing this package fixes about a solutions artefact: one
+    directory per problem.
     """
     pairs: set[tuple[str, str]] = set()
     for student in students:

@@ -237,8 +237,7 @@ def install_excepthook(
 ) -> Callable[[Any], None]:
     """Turn an escaped thread exception into a record and surface it.
 
-    **Measured, not assumed** (`scratch/design/probes-monitor/p4_thread_death.py`,
-    re-run on 3.13.13): a `threading.Thread` whose target raises prints a
+    **Measured, not assumed** (re-run on 3.13.13): a `threading.Thread` whose target raises prints a
     traceback to stderr and dies; the process keeps running, the exit code does
     not change, and producers see no error — further reports are accepted and
     queue up behind a consumer that no longer exists.

@@ -17,7 +17,7 @@
 # because a fallback nobody can reach is not a feature to carry forward.
 #
 # `inputs` is `required` with `minItems: 1` in `validator.schema.json` and
-# `validator/spec.py:102` types it `tuple[str, ...]` non-optional, so the key has
+# `validator/spec.py` types it `tuple[str, ...]` non-optional, so the key has
 # to be here — there is no layer below that would supply it.
 module: validator
 name: downstream_loads

@@ -278,7 +278,7 @@ class StoreConformance:
         the other, and asserted rather than left to the docstrings.
 
         `agent`'s runner is the only caller in prospect and
-        `tests/interfaces/test_import_rules.py:42` forbids it from importing
+        `tests/interfaces/test_import_rules.py` forbids it from importing
         this package. It cannot name `Malformed` to catch it, and
         `except Exception` would swallow the wiring bug — which is the re-run
         case, where a second body writes into a sealed version and the loop

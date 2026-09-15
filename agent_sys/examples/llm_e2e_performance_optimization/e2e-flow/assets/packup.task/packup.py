@@ -47,7 +47,7 @@ INPUTS = (
 
 
 def env_name(kind: str) -> str:
-    """`env_mgr/grants.py:450 _env_name`, duplicated: uppercase, non-alphanumerics to `_`.
+    """`env_mgr/grants.py::_env_name`, duplicated: uppercase, non-alphanumerics to `_`.
 
     `kind.upper()` was enough while every kind was an identifier. It is not now:
     `stock.measurement` reaches a body as `AGENT_SYS_INPUT_STOCK_MEASUREMENT`,

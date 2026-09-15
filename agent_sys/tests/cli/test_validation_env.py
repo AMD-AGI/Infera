@@ -3,10 +3,8 @@
 """The block a validator body is given — §8.2's GLOBAL row, which the CLI owns.
 
 **These are unit tests over a mapping, and a unit test is not the evidence.**
-The measurement is `scratch/single-real-task-2026-08/probe_validator_env/`, run
-end to end against the real `claude` CLI, with the artefacts in
-`scratch/single-real-task-2026-08/probe_out/` and the reasoning in
-`scratch/single-real-task-2026-08/validator-env.md`. What it found:
+The measurement was a probe run end to end against the real `claude` CLI. What
+it found:
 
 | | INPUT phase | OUTPUT phase |
 |---|---|---|
@@ -14,7 +12,7 @@ end to end against the real `claude` CLI, with the artefacts in
 | `ANTHROPIC_API_KEY`, before | **ABSENT** | PRESENT |
 | `claude -p 'reply with the single word OK'` | `Not logged in · Please run /login` | `OK` |
 
-The output phase already worked, because `env_mgr/material.py:69` fills
+The output phase already worked, because `env_mgr/material.py` fills
 `Prepared.environment` from `harness_env`. The input phase did not, because this
 block is where it lands and this block did not carry it. The two rows disagreed
 about whether a validation may reach a model, and only one had a reason.
@@ -94,7 +92,7 @@ def test_the_runs_own_four_keys_outrank_the_operators_file(
     an opinion about them.
 
     The reverse precedence is what `material.deploy` reserves its own three keys
-    for (`env_mgr/harness.py:31-43`), and `PATH` is already in that reserved set,
+    for (`env_mgr/harness.py`), and `PATH` is already in that reserved set,
     so this only has to hold the line for the three `AGENT_SYS_DEMO_*`.
     """
     hostile = {

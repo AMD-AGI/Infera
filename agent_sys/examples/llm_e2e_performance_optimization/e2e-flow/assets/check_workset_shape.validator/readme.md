@@ -52,8 +52,8 @@ booked for it.
 ## Rule 10 does not rest on the seal, and the analysis stage says it does
 
 That package justifies the rule with *"the seal refuses the whole delivery over
-one"*. Measured against the framework: `handoff/store.py:447,494` decline to call
-`locality.check` at all — user-ruled 2026-08-31 after the shape heuristic read an
+one"*. Measured against the framework: `handoff/store.py` decline to call
+`locality.check` at all — user-ruled after the shape heuristic read an
 HTTP access-log line as a filesystem path, at a measured 97% false-positive rate.
 The sealed `deploy_kit` in the mock set carries `/shared_nfs/...` in five files.
 

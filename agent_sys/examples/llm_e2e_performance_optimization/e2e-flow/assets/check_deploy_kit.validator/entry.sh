@@ -1,6 +1,6 @@
 #!/bin/sh
 # The body of `check_deploy_kit`. Run by `validator.ScriptBodyRunner` as
-# `["/bin/sh", entry]` (`agent_sys/validator/phase.py:147`) — the shebang is
+# `["/bin/sh", entry]` (`agent_sys/validator/phase.py`) — the shebang is
 # never consulted, so this must be POSIX. `/bin/sh` is dash here and
 # `set -o pipefail` is a hard exit 2 on line 1 under it, which arrives as an
 # UNREACHED phase rather than as a verdict.

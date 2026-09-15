@@ -768,7 +768,7 @@ def _check_apply(doc: dict, packup: Path, problems: list[str]) -> None:
             problems.append(f"{where}.replacement names {replacement!r}, which is not in the packup")
         # **`patch` is a bare filename under `apply/patches/`; `replacement`
         # above is packup-relative. The two siblings genuinely differ**, because
-        # `apply.py:409,643` do `apply_dir / "patches" / entry["patch"]`.
+        # `apply.py` do `apply_dir / "patches" / entry["patch"]`.
         #
         # This read `packup / patch` and was correct until `0712fbc`, when I
         # narrowed the schema from `^apply/patches/….patch$` to a bare name so

@@ -21,7 +21,7 @@
 # `${!var}` indirect expansion that turns a kind name into its
 # `AGENT_SYS_OUTPUT_*` variable. Every other body is `#!/bin/sh` + `set -eu`,
 # because agent_sys invokes a body as `["/bin/sh", entry]`
-# (`validator/phase.py:147`, `agent/backends/program.py:83`) — the shebang is
+# (`validator/phase.py`, `agent/backends/program.py`) — the shebang is
 # never consulted — and `/bin/sh` here is dash, which exits 2 on
 # `set -o pipefail` before line 2 runs.
 #
@@ -68,7 +68,7 @@ for spec in "$@"; do
   src="${spec#*:}"; [ "${src}" = "${spec}" ] && src="${kind}"
 
   # The output directory is named by the kind, uppercased with every
-  # non-alphanumeric turned into `_` (`env_mgr/grants.py:450 _env_name`), so
+  # non-alphanumeric turned into `_` (`env_mgr/grants.py::_env_name`), so
   # `profiling_mode_on.bench_result` arrives as
   # `$AGENT_SYS_OUTPUT_PROFILING_MODE_ON_BENCH_RESULT`.
   var="AGENT_SYS_OUTPUT_$(printf '%s' "${kind}" | tr -c '[:alnum:]' '_' | tr '[:lower:]' '[:upper:]')"

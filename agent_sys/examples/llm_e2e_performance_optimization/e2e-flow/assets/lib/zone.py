@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The four body-facing files a validation zone carries, and nothing else.
 
-`validator/phase.py:236` names them: `args.json`, `inputs.json`,
+`validator/phase.py` names them: `args.json`, `inputs.json`,
 `materials.json`, `verdict.json`. A validator body is started with `cwd` set to
 a freshly allocated zone holding the first three, and it owes the fourth.
 
@@ -63,7 +63,7 @@ def args() -> dict:
 def materials() -> dict[str, Path]:
     """The staged copies of what this phase validates, **by handoff id**.
 
-    Written unconditionally (`validator/phase.py:269`), so an empty mapping is a
+    Written unconditionally (`validator/phase.py`), so an empty mapping is a
     record rather than an absence. It is a JSON **object**; `ok.algorithms_solve_grade.14`'s copy of
     this idea read it as a list once and every lookup silently missed.
     """

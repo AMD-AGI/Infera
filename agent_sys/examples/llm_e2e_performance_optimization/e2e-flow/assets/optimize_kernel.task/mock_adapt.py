@@ -72,7 +72,7 @@ def _hash_from_image(container_path: str, image: str) -> str | None:
     both surface refusals ever see input. Measured 2026-09-04 by driving
     `apply.py` standalone against rung 0's own artefact.
 
-    **The idiom is m5's, copied rather than re-derived** (`apply.py:510-524`,
+    **The idiom is m5's, copied rather than re-derived** (`apply.py`,
     CONTRACT §4.1): `docker create` starts no process and touches no GPU, the
     `trap` removes the handle, and `patchkit.expand` turns the `@ROOT@` form
     into the path the image actually has — a lesson their comment already paid
@@ -180,7 +180,7 @@ def _ensure_impl_entry(packup: Path, workset_root: Path, operator: dict) -> str 
     """Give the sealed kernel the `run` entry point m3's `--impl` contract needs.
 
     **The sealed candidate predates the contract it now has to satisfy.**
-    `_common.py:289` refuses a candidate whose source defines no top-level
+    `_common.py` refuses a candidate whose source defines no top-level
     `run`, and `results/optimized_kernel.py` from the 2026-09-02 run defines
     only `sampler_softmax` — so `run_performance.sh --impl` would have exited
     *"defines no `run`"* before measuring anything. Found 2026-09-04 by reading
@@ -278,7 +278,7 @@ def _reseat_quotes(packup: Path) -> list[str]:
     """Make the sealed markdown survive `handoff.locality.check`.
 
     **The seal refuses `cp "$PACKUP"/scripts/kernel/*.py`**, and the reason has
-    nothing to do with the command: `handoff/locality.py:67 _CANDIDATE` has a
+    nothing to do with the command: `handoff/locality.py::_CANDIDATE` has a
     lookbehind of `[A-Za-z0-9._~@+-]`, `"` is not in it, so a closing quote does
     not shield the path that follows — `/scripts/kernel/` is read as a rooted
     local path. Inside the quotes the preceding character is the variable's last
@@ -381,7 +381,7 @@ def main() -> int:
         "workset_environment": workset_env,
         "run_environment": run_env,
         # **The mock dropped this and the real path does not**
-        # (`20_premise_gate.py:135`). `dtype` is on M4.3.5's abort list, so a
+        # (`20_premise_gate.py`). `dtype` is on M4.3.5's abort list, so a
         # premise without it is not a weaker premise — it is one the consumer
         # reads as `None`, and `check_speedup_substantiated` correctly aborts
         # with *"optimised … at dtype None; the workset's ground truth says
@@ -456,7 +456,7 @@ def main() -> int:
         sha_from = {"method": "replacement_fallback", "image": None}
 
     # **A `call_site_fragment` operator is installed as a diff, not as a file.**
-    # `apply.py:643-659` has run `patch -p1` all along and the producer could
+    # `apply.py` has run `patch -p1` all along and the producer could
     # never ask for it: the enum had one value, so the only shape m4 could emit
     # was a whole-file overlay, which drops the target's entire public surface
     # and is what m5's applier refuses by name. Leader's ruling, 2026-09-04.
@@ -486,7 +486,7 @@ def main() -> int:
                 "emitted here is the shape m5's applier refuses by name"
             )
         # **The diff is cut in the CONTAINER frame, not the workset's.**
-        # `apply.py:637` does `split_placeholder(container_path)` and extracts
+        # `apply.py` does `split_placeholder(container_path)` and extracts
         # into `tree/<rel>`, so `rel` is `srt/layers/sampler.py` — while the
         # workset's `target_files[0]` is `python/sglang/srt/layers/sampler.py`,
         # repo-relative. A diff headed with the workset's path made `patch -p1`
@@ -660,7 +660,7 @@ def main() -> int:
             + (
                 f" A `run(*args, **kwargs)` entry point delegating to `{impl_entry}` was appended "
                 "to results/optimized_kernel.py: the sealed kernel predates m3's `--impl` "
-                "contract, which requires a top-level `run` (`_common.py:289`), and without it "
+                "contract, which requires a top-level `run` (`_common.py`), and without it "
                 "the re-measurement exits before measuring. Additive only -- the engine symbol "
                 "m5 installs is unchanged, and the delegated name is read from the Definition's "
                 "own `baseline` rather than chosen here. See `_ensure_impl_entry`."

@@ -104,8 +104,8 @@ ago had already been closed by somebody else.
 section rather than a row because the measurement is the part that will be
 argued with, and it is not one line.
 
-`env_mgr/grants.py:49-52` merges both version maps and resolves **both** through
-`handoff_version_dir` — a store path. But `scheduler.py:278` fills
+`env_mgr/grants.py` merges both version maps and resolves **both** through
+`handoff_version_dir` — a store path. But `scheduler.py` fills
 `input_versions` from `handoff_mgr.latest(hid).version`, a **slot** number,
 while `_pin_outputs` fills `output_versions` from `handoff_store.allocate`, a
 **store** number. **Two fields of one `Execution`, in two spaces.** It predates
@@ -174,14 +174,14 @@ strictly stronger than the pin's**, so the two cannot disagree
 (`probe_unpinned_input_reachable.py` — every dispatched task, `missing=0`).
 
 `env_mgr` has **three silent skips** waiting on the state where they do
-disagree — `layout.py:242`, `layout.py:246`, `grants.py:415` — and `prepare`
+disagree — `layout.py`, `layout.py`, `grants.py` — and `prepare`
 then returns a healthy-looking `Prepared` with nothing staged and no
 `AGENT_SYS_INPUT_*` exported. **That state is unreachable today and becomes
 reachable the moment the pin and the gate are sourced separately.** Measured by
 `env-mgr-2` against `prepare()` directly; unreachable through dispatch,
 confirmed here.
 
-**Who is waiting: `validator`** — `phase.py:638`'s output branch is the other
+**Who is waiting: `validator`** — `phase.py`'s output branch is the other
 slot-space read, and they cannot pick a space while one of ours is inconsistent.
 Their path fails loudly; **ours does not.**
 
@@ -213,7 +213,7 @@ gate:
 | **before** the gate | `_seal_outputs` → `store.seal` → published | store |
 | **after** output validation | `HandoffVersion.seal(VALID\|INVALID)` | slot |
 
-The ordering is deliberate — `agent/runner.py:880`: sealing the slot beside the
+The ordering is deliberate — `agent/runner.py`: sealing the slot beside the
 store seal *"would make a consumer eligible for an output that nothing has
 checked yet."* **Publication is not validity.** A version that failed output
 validation is published and has a manifest, so `store.latest` returns it, and
@@ -236,8 +236,8 @@ questions.
 |---|---|
 | `handoff` | **No store-side `latest_valid`.** The store holds verdicts and deliberately never folds them: `verdict.py` serialises `result` and nothing reads one to decide anything. The fold — `strength`, `dimension`, an empty phase — is `validator`'s policy, and a store-side answer would reimplement it (§4.4) and be a second writer of a fact whose chain is §4.2's own worked example. `allocate`, `seal`, `latest` are stable and will not move |
 | `agent` | **The field is `int \| None`**, and `_seal_model_versions` loops `task.outputs`, so it reaches a hid `_seal_outputs` skipped. Put it on the seal — `seal(status, content=None, store_version=None)` — because a separate setter reopens §1's *must remember to also call*. `None` whenever `INVALID`, and there are **two** ways to get there: refused (the store gave a reason) and skipped (nothing was pinned) |
-| `env_mgr` | **A third site**, below. Their `grants.py:58-61` and `handoff_version_dir` do not move. They **declined** a defensive emptiness check in `layout.stage`, and the reason is right: the real discriminator is *unpublished*, not *empty*, and spelling `manifest.yaml` there would make `env_mgr` a second judge of what published means — the same two-answers defect they removed from that function hours earlier |
-| `validator` | Holding `phase.py:747` until the **source** settles, not just the space, because the join changes which attribute they read |
+| `env_mgr` | **A third site**, below. Their `grants.py` and `handoff_version_dir` do not move. They **declined** a defensive emptiness check in `layout.stage`, and the reason is right: the real discriminator is *unpublished*, not *empty*, and spelling `manifest.yaml` there would make `env_mgr` a second judge of what published means — the same two-answers defect they removed from that function hours earlier |
+| `validator` | Holding `phase.py` until the **source** settles, not just the space, because the join changes which attribute they read |
 
 **Six sites, not two, and my sweep could only ever have found two of them.**
 `env_mgr` grepped rather than recalled. I searched for `.latest` reads feeding a
@@ -247,12 +247,12 @@ an unbounded question.
 
 | site | reads |
 |---|---|
-| `grants.py:59-60` `_versions` | both maps, merged — feeds `resolve` |
-| **`grants.py:356` `output_env`** | `output_versions` — **the second exit, below** |
-| `layout.py:241-248` `stage` | the mapping it is handed |
-| `layout.py:260` `stage_handoffs` | `input_versions` |
-| `prepare.py:482-484` `prepare_validation` | either map, by phase — **and not through `prepare`** |
-| `meta.py:106` `from_knowledge` | a version passed as an **argument** |
+| `grants.py` `_versions` | both maps, merged — feeds `resolve` |
+| **`grants.py` `output_env`** | `output_versions` — **the second exit, below** |
+| `layout.py` `stage` | the mapping it is handed |
+| `layout.py` `stage_handoffs` | `input_versions` |
+| `prepare.py` `prepare_validation` | either map, by phase — **and not through `prepare`** |
+| `meta.py` `from_knowledge` | a version passed as an **argument** |
 
 **`output_env` makes the defect worse than mis-staging.** It turns
 `output_versions[hid]` into `AGENT_SYS_OUTPUT_<KIND>` — the path a body is *told
@@ -268,7 +268,7 @@ wires it faces the same fork.
 **One invariant to pin rather than inherit.** After `agent`'s `b029c80`, a
 `VALID` slot implies *this attempt published* — `_seal_model_versions` now
 requires membership in `_store_sealed`, which `_seal_outputs` populates only
-when the store returned no reason (`runner.py:943`, `:1061`). Positive evidence
+when the store returned no reason (`runner.py`, `:1061`). Positive evidence
 rather than absence of a refusal. The read side wants exactly that invariant, so
 it should be asserted here rather than assumed from their file.
 
@@ -315,8 +315,7 @@ out of the prior-art survey.
 entry list is static and complete at load. So the rejection was re-derived from
 scratch rather than inherited, and two measurements decide it.
 
-**Its `CycleError` is good, and that is not the question.**
-`scratch/ui-yaml-2026-08/w5/probe_graphlib_cycleerror.py`:
+**Its `CycleError` is good, and that is not the question.** Measured:
 
 ```
 CycleError args : ('nodes are in a cycle', ['b', 'c', 'a', 'b'])
@@ -355,7 +354,7 @@ and "the engine owns routing".
 
 ---
 
-## `enter_phase` places a non-leaf's container zone — 2026-08-30
+## `enter_phase` places a non-leaf's container zone
 
 `env_mgr.place_zone` is called from `Task.enter_phase(RUNNING)`, immediately
 before the unfold. It used to be called by `agent.TaskAttempt._main`, whose
@@ -377,6 +376,5 @@ no import edge, and a system assembled without it skips the call
 (`docs/interfaces.md` §2.4). The verb and its `place_zone`-not-`prepare`
 derivation are `env_mgr`'s and are unchanged.
 
-Measurement, probes and the differential transcript:
-`scratch/demo2-2026-08/zone-ordering.md`. Regression:
+Regression:
 `tests/task_graph/test_subgraph.py::test_a_nested_non_leaf_is_zoned_before_its_subgraph_is_dispatched`.

@@ -182,7 +182,7 @@ class ProgramExecutor(ExecutorBase):
         **Only on failure**, because a successful body's stdout is its own
         business and belongs wherever the task's logs go, not in a status field.
         Where that is remains open: `<zone>/logs/` exists and `env_mgr` creates
-        it, but `logs` is `env_mgr`'s name (`fs/layout.py:47`) and `Zone` carries
+        it, but `logs` is `env_mgr`'s name (`fs/layout.py`) and `Zone` carries
         only `root`, so writing there from here would duplicate a seam name —
         the mistake `AGENT_SYS_CLAUDE_CLI` just cost a fortnight of green tests.
         Asked rather than assumed.

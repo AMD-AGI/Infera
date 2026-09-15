@@ -5,7 +5,9 @@ self-contained YAML recipe, it can **check / dry-run / install / bootstrap**
 an environment (Python, apt, binaries, Claude plugins/MCP) and report per-item
 status plus delivered artifacts (path/version/deps).
 
-Design spec: `../docs/superpowers/specs/2026-08-17-env-mgr-design.md`.
+Specification: [`docs/spec.md`](docs/spec.md) — 22 acceptance criteria.
+Design: [`docs/design.md`](docs/design.md). Seam:
+[`../docs/interfaces.md`](../docs/interfaces.md) §4.6.
 
 ## Installers and the mature tool each wraps (ai.env.md rule 4)
 
@@ -62,7 +64,7 @@ now lives entirely in this recipe and the installers above.
 
 Everything above is the **shipped installer machinery**, reused rather than
 reimplemented (spec §9, criterion 22 — no longer *frozen*: the layer model was
-removed from it on 2026-09-04). Everything below is `docs/design.md` §2's subtree:
+removed from it). Everything below is `docs/design.md` §2's subtree:
 `meta.py`, `fs/`, `isolation/`, `grants.py`, `workspace.py`, `material.py`,
 `sync.py`, `remote/`, `prepare.py`, and the CLI's two new sub-commands.
 
@@ -79,8 +81,7 @@ without being added to either — so neither direction applied to it. Injecting
 `from env_mgr import harness` into `installers/bin.py` left the file at 41
 passed. The list of what is *above* is now derived rather than typed, so the
 rule reads **below may import only from below** and a new module is covered from
-the moment it exists; a partition test keeps the two sides exhaustive. Probe:
-A probe.
+the moment it exists; a partition test keeps the two sides exhaustive.
 
 ## What a consumer is staged: `content/`, not the version directory
 
@@ -131,7 +132,6 @@ layout is unexpected. **The probe that measured this carried that fallback and
 therefore under-reported** — it showed five green suites for a narrowing the
 implementation does not perform, and the four tests the real change took red had
 been asserting against a store layout that never exists.
-A probe records it.
 
 ## The machine these numbers came from
 
@@ -217,7 +217,7 @@ helper binary rather than a Python `preexec_fn`.
 
 | Concern | Considered | Chosen | Why |
 |---|---|---|---|
-| **Landlock** | `rust-landlock` (not Python), `pylandlock`, a hand-written `ctypes` binding | **own `ctypes` binding**, `isolation/landlock.py` | **There is no maintained Python binding.** The three syscalls — `landlock_create_ruleset`, `landlock_add_rule`, `landlock_restrict_self` — have **no libc wrapper**, so *any* Python binding is `syscall(2)` by number regardless of who writes it; there is no library to wrap. The file is promoted from the measuring instrument at `scratch/design/probes-envmgr/landlock.py` that took every measurement the design cites |
+| **Landlock** | `rust-landlock` (not Python), `pylandlock`, a hand-written `ctypes` binding | **own `ctypes` binding**, `isolation/landlock.py` | **There is no maintained Python binding.** The three syscalls — `landlock_create_ruleset`, `landlock_add_rule`, `landlock_restrict_self` — have **no libc wrapper**, so *any* Python binding is `syscall(2)` by number regardless of who writes it; there is no library to wrap. The file is promoted from the measuring instrument at that took every measurement the design cites |
 | **Sandbox mechanism** | writing our own namespace code | **the `bwrap` binary, else Landlock** | bubblewrap is the mature tool and the mechanism is a *process*, so there is nothing to bind: `isolation/bwrap.py` builds an argument vector and nothing else. Codex migrated *to* a bundled bwrap after shipping Landlock, which is the same direction the chain orders them |
 | **Sync** | `mutagen`, `unison`, `syncthing`, `rsync` | **`rsync`**, via `subprocess` | Spec §5.2 names it, and what is needed is a one-shot copy at task start, not a reconciler. The three reconcilers all solve the continuous problem we explicitly do not have. §9.3 adds the one thing rsync cannot do — see below |
 | **Remote access** | `fabric`, `paramiko`, plain `ssh` / `docker exec` | **plain `ssh` and `docker exec`**, behind one Protocol | Two mechanisms, three methods. A library would add a dependency to hide a `subprocess` call, and neither `fabric` nor `paramiko` expresses `docker exec` at all |
@@ -253,8 +253,8 @@ as `EACCES` against a named path, and every one carries a positive control.
 
 ## The Landlock layer cap, measured
 
-`materials/07-env_mgr.md` records the man page saying 64 and 16 measured here,
-and calls the pair unreconciled. Re-measured for this implementation:
+The man page says 64; 16 was what an earlier measurement here found, and the
+pair was left unreconciled. Re-measured for this implementation:
 
 ```
 landlock ABI = 3
@@ -395,8 +395,8 @@ self-assessment part of the artefact's **identity**.
 **A read grant gets `content/` alone**, because a consumer has nothing to claim.
 That forecloses a body reading its input's `manifest.yaml`. That was raised as
 an open question and **`handoff` has answered it: nothing needs to.** Checked
-from this side rather than relayed — `agent/gate.py:91` is the only
-`get_manifest` caller outside `handoff` and its tests, and `runner.py:574`
+from this side rather than relayed — `agent/gate.py` is the only
+`get_manifest` caller outside `handoff` and its tests, and `runner.py`
 reaches it *after the executor returns*, supervisor-side. By design too: spec
 §6.3 has a consumer work on a copy and `copy_out` verifies the digest before
 returning, so integrity arrives as content the body can trust rather than a
@@ -412,13 +412,13 @@ The two spellings of these directory names are pinned across the packages by
 nothing.** §4.18 ruled it — *the allocator creates every directory it expects to
 be granted* — and this module is what found it, by measuring both outcomes for a
 granted path that does not exist: non-optional is a `FileNotFoundError` that
-kills every output-producing dispatch, because `landlock.py:198` opens every
+kills every output-producing dispatch, because `landlock.py` opens every
 granted path and `Granted.optional` defaults `False`; optional drops the rule
 silently. **The agent cannot create it either**, since `mkdir` inside `v<N>/`
 needs write on `v<N>/` — which is exactly what the narrowing removed.
 
 `grants.py` did create `claim/` for one commit, as a bridge, because the user
-left the *name* here and `handoff` could not act without one. `store.py:334`
+left the *name* here and `handoff` could not act without one. `store.py`
 does it now and the bridge is gone. **A resolver with a side effect is a
 resolver a test cannot call twice**, and `allocate`'s `os.mkdir` is not
 `exist_ok`, so a racing creation would turn a dispatch into `FileExistsError`.
@@ -459,7 +459,7 @@ body's own refusal fires, and the gap is named here.
 ### The switch: `AGENT_SYS_NO_PERMISSIONS`, and it is **on by default**
 
 Ruled by the user, twice. Set it — **or leave it unset, which is the default
-since 2026-08-30** — and this run performs **no permission management at all**.
+since that change** — and this run performs **no permission management at all**.
 
 ```sh
 # nothing to do: no confinement, no grant enforcement
@@ -489,7 +489,7 @@ prose, so a substring search answers a different question.
 **The third ruled row was reversed, by applying the ruling's own line.**
 Widening `stage` moves every staged input **down one level** — the artefact's
 files land at `<materials>/<hid>/v<N>/content/…` instead of at
-`<materials>/<hid>/v<N>/…` — and `examples/ok.filetree_grounded_report.4/bin/render.py:67` reads the
+`<materials>/<hid>/v<N>/…` — and `examples/ok.filetree_grounded_report.4/bin/render.py` reads the
 narrow shape. So the switch would have broken a body **by moving its input**,
 presenting as a body reading one level short rather than as a switch. `task_graph`
 measured it (`probe_narrow_staging.py`) and it collided with a `demo` fix landed
@@ -568,7 +568,7 @@ empty   content: seal -> "nothing was written to <…>/v0/content. That director
 written content: seal -> None (sealed), list_versions=[0] latest=0
 ```
 
-`handoff/store.py:434` refuses to publish empty content, so **a sealed version
+`handoff/store.py` refuses to publish empty content, so **a sealed version
 always has non-empty content, and an empty staged input is therefore always a
 hole** — never a legitimately empty artefact. The discriminator exists; it is
 simply not local to `stage`, and nothing needs adding to the store.
@@ -755,7 +755,7 @@ to registered **domain** roots, which sit outside the zone — and a fourth
 candidate, `Context.store_root`, sits outside it too. Measured against a real
 Landlock ruleset built from exactly the policy `prepare` composes, with an
 in-zone positive control succeeding in the same confined child
-(`scratch/ui-yaml-2026-08/w2/p13_are_the_root_paths_reachable.py`):
+:
 
 ```
 CONTROL my_agent_workspace       errno=0  OK
@@ -918,7 +918,7 @@ which half.
 | 19 | agent works on a copy; the stored artefact is unchanged | `test_agent_works_on_a_copy`, `test_stored_artefact_byte_identical`, `test_copy_out_refuses_to_copy_onto_itself` |
 | 20 | shared object store, main checkout unmodified — **D1**, not "is a worktree" | `test_workspace_shares_object_store`, `test_main_checkout_unmodified`, `test_the_agent_can_commit`, `test_collect_returns_work_by_a_supervisor_side_fetch`, `test_cut_refuses_a_main_repository_without_precious_objects`, `test_precious_objects_blocks_the_prune` |
 | 21 | conventions from a knowledge handoff, no code change | `test_conventions_come_from_a_knowledge_handoff`, `test_a_missing_knowledge_handoff_is_the_empty_default`. **The consumption half only** — the system-level task that would *produce* one is unspecified, so the test builds the artefact. The design recorded this as untestable; it is half-testable |
-| 22 | the shipped machinery **keeps working** | `test_cli_subcommands_preserve_shipped_shapes`, plus the machinery's own tests. **Revised 2026-09-04** (`fc200a2`): the criterion read *untouched*, and a test — test_the_shipped_modules_are_byte_identical, named here **without backticks on purpose**, because `test_every_test_the_readme_cites_exists` scans backticked `test_*` names and cannot tell *citing a test as cover* from *naming one that was removed* — asserted that literally, over `git diff HEAD`. That was a scope fence for the round that built the new subsystems, and this round is a design-level change to the machinery itself, so the fence is retired. The **65** is a 2026-08-30 snapshot, not a live count. See `docs/spec.md` §10 criterion 22 for the full reason |
+| 22 | the shipped machinery **keeps working** | `test_cli_subcommands_preserve_shipped_shapes`, plus the machinery's own tests. **Revised** (`fc200a2`): the criterion read *untouched*, and a test — test_the_shipped_modules_are_byte_identical, named here **without backticks on purpose**, because `test_every_test_the_readme_cites_exists` scans backticked `test_*` names and cannot tell *citing a test as cover* from *naming one that was removed* — asserted that literally, over `git diff HEAD`. That was a scope fence for the round that built the new subsystems, and this round is a design-level change to the machinery itself, so the fence is retired. The **65** is a snapshot, not a live count. See `docs/spec.md` §10 criterion 22 for the full reason |
 
 **Beyond the criteria**, three suites hold properties nothing else would catch:
 `test_imports.py` (the decoupling wall, both directions, plus `fs/path.py`

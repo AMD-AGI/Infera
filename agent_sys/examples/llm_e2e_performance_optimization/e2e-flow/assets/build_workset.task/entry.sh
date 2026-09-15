@@ -107,7 +107,7 @@ if [ "$rc" -eq 0 ]; then
 
   # **Pick an interpreter that can do the job, and say so if none can.**
   #
-  # m1's finding, and it applies here more sharply than to them: `cli/main.py:668`
+  # m1's finding, and it applies here more sharply than to them: `cli/main.py`
   # puts `AGENT_SYS_DEMO_PYTHON` in `validation_env` **only**, and the comment
   # above it says a task body never reaches it. So a bare `python3` resolves
   # against the policy PATH, which on this host is `/usr/bin/python3`.

@@ -225,7 +225,7 @@ def _transport_env(args: dict) -> dict[str, str]:
     name and nothing pointed at it. A fixture more convenient than production
     (§4.4), where the convenience was my own login shell.
 
-    `check_deploy_serves` solved this (`check.py:95-111`), where the same hole
+    `check_deploy_serves` solved this (`check.py`), where the same hole
     cost three runs and two wrong attributions. This is that hole again here,
     and the parameters share their names so one `--var` drives both.
     """

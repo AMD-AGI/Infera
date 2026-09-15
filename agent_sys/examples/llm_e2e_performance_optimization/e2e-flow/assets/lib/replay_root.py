@@ -99,7 +99,7 @@ replayed kit>`, so all four compared fields are copied from the replay and
 
 CONTRACT §4.6 once more, and this time *every* side shares the fault because
 every side inherits the one record. **What actually enforces it is
-`_agree_or_die`** (`run_in_container.sh:105`, `measure_in_container.sh:127`),
+`_agree_or_die`** (`run_in_container.sh`, `measure_in_container.sh`),
 comparing the ambient `E2E_NODE` against `fixed.node` — and only in a stage that
 **runs for real**. In a skip-in-front / mock-behind run where the middle stages
 are also mocked, nothing checks it at all; the mismatch is harmless there only
@@ -189,20 +189,20 @@ SKIPPABLE: dict[str, bool | None] = {k: None for k in STAGE_OF}
 #: is a write.
 #:
 #: **Confirmed by the consumer, not only inferred from the producer.** m2,
-#: 2026-09-04: `load/line.sh:131-149` reads `fixed.{node,image,image_id,
+#: 2026-09-04: `load/line.sh` reads `fixed.{node,image,image_id,
 #: model_name,served_model_name,tp_size,gpu_devices}` and `runtime.replayed_from`
 #: — a static provenance string that cannot go stale — **and nothing else**.
 #:
 #: The precision that makes it checkable rather than asserted: `runtime.endpoint`,
 #: `container` and `ports` *do* appear in `line.sh`, and they come from
 #: `deployment.json` — **the handshake m2's own `deploy.sh` just wrote**
-#: (`:288`, `:300`, `:306`) — not from the injected kit. `:263` runs
+#: (`:288`) — not from the injected kit. `:263` runs
 #: `deploy.sh` out of the kit and brings up m2's own engine; `:288` refuses if
 #: it wrote no handshake. **The kit supplies *how to deploy*; the deployment
 #: supplies *where to send traffic*.**
 #:
 #: And it is the design rather than a shortcut that happens to work while m1
-#: runs first: M2.5, quoted at `line.sh:19` — *"m1 的 output 已经包含了如何部署
+#: runs first: M2.5, quoted at `line.sh` — *"m1 的 output 已经包含了如何部署
 #: 的全量信息"* — the same rule that removed `serve_*` and `check_service_live`
 #: from stage 2.
 SKIPPABLE["deploy_kit"] = True
@@ -216,8 +216,8 @@ def rewrite_environment(record: dict, source_run: str) -> list[str]:
 
     ## The blocker this exists for
 
-    `_agree_or_die` (`run_in_container.sh:96-104`, and the same three lines in
-    m3's `measure_in_container.sh:127-129`) **exits 1** when an ambient value
+    `_agree_or_die` (`run_in_container.sh`, and the same three lines in
+    m3's `measure_in_container.sh`) **exits 1** when an ambient value
     and the record's value are both non-empty and differ. It guards
     `fixed.node`, `runtime.slurm_jobid` and `runtime.transport`.
 
@@ -256,7 +256,7 @@ def rewrite_environment(record: dict, source_run: str) -> list[str]:
     `RestartCount: 0`.
 
     A name that **cannot** resolve takes m4's ephemeral path
-    (`run_in_container.sh:210-232`), which builds a fresh container from
+    (`run_in_container.sh`), which builds a fresh container from
     `fixed.image`, records `mode=ephemeral`, and states that a speedup measured
     there is a different claim from one measured in the live deployment. Wrong
     loudly beats wrong silently, and here the loud path is also correct.
@@ -282,8 +282,8 @@ def rewrite_environment(record: dict, source_run: str) -> list[str]:
         runtime["endpoint"] = f"http://replayed-from-{source_run}.invalid:0"
 
     # **The marker already exists and is already consumed** — five readers:
-    # `check_deploy_kit/check.py:404-425`, `kit_status.py:66,158`,
-    # `check_measurement_order/check.py:280,330`, and m2's `line.sh:149`, which
+    # `check_deploy_kit/check.py`, `kit_status.py`,
+    # `check_measurement_order/check.py`, and m2's `line.sh`, which
     # carries it into the numbers rather than into a log line because a reader
     # meets the number long after the message that qualified it. `mock_adapt.sh`
     # sets it for the mock path, so this is the second producer of an understood
@@ -303,7 +303,7 @@ def rewrite_environment(record: dict, source_run: str) -> list[str]:
     # Chained into the one field rather than into a second one: consumers treat
     # this value as opaque and truthy — `required_unless` in m1's layout,
     # a message in `check_deploy_kit`, a column in `kit_status`, and m2's
-    # `line.sh:149` carrying it into the numbers — so a longer string is safe,
+    # `line.sh` carrying it into the numbers — so a longer string is safe,
     # where a new undeclared key would be the hazard m1 just measured.
     prior = runtime.get("replayed_from")
     value = source_run if not prior or prior == source_run else f"{source_run} <- {prior}"
@@ -510,7 +510,7 @@ def streak(rows: list[dict]) -> tuple[int, str]:
     not an inference here; it is `generating`, which this tool already excludes.
 
     **And the `INVALID` two-writer ambiguity does not bite**, which it easily
-    could have: `agent/runner.py:980` seals `INVALID` when an attempt ends with
+    could have: `agent/runner.py` seals `INVALID` when an attempt ends with
     the slot open, which is indistinguishable from a validator refusal
     (`temp/bugs/2026-09-04-invalid-means-two-things…`). It does not arise for
     these runs because the killed ones never got that far.

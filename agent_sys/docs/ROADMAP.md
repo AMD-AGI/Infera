@@ -8,6 +8,30 @@ than re-having it. Entries marked **subsystem** get the full
 spec → research → design → implement treatment when their turn comes; the rest
 are single decisions.
 
+## Index
+
+| § | Item | Kind | Risk |
+|---|---|---|---|
+| 1 | Observability (`o11y`) | subsystem | — |
+| 2 | Monitor agent system — the analysing dispatcher | subsystem | — |
+| 3 | Human in the loop | subsystem | — |
+| 4 | Knowledge record system | subsystem | — |
+| 5 | Validator — deferred pieces | decisions | — |
+| 6 | Environment and execution | — | — |
+| 6.1 | An AI task is not confined, and confinement is the anti-cheating property | risk | **P0** |
+| 6.2 | `extensions.preciousObjects` means the object store only grows | risk | P2 |
+| 6.3 | Rebuild the permission system | rebuild | user-ruled |
+| 6.4 | Rebuild the locality check on oracles; the shape heuristic is disconnected | risk | P2 |
+| 6.5 | The stream cannot tell a working phase from a wedged one | risk | P1 |
+| 7 | Scheduling | decisions | — |
+| 8 | Configuration and quality | decisions | — |
+| 9 | Agent backends | decisions | — |
+
+**The numbers are stable and the order is not a priority ranking.** §6.1 and
+§6.4 are cited from shipped source (`handoff/store.py`, `cli/README.md`), so a
+section keeps its number even when the file is reordered; read the **Risk**
+column for what to do first.
+
 ---
 
 ## 1. Observability (`o11y`) — subsystem
@@ -42,13 +66,13 @@ The alpha records nothing beyond what `task_graph` already persists.
 
 ## 2. Monitor agent system — subsystem
 
-**The mechanism moved into the alpha on 2026-08-27** — `task_graph` spec §3.5
+**The mechanism is in the alpha** — `task_graph` spec §3.5
 now specifies it: every task has a monitor, the monitor has its own mainloop and
 a `set_task`, `Task.monitor_spec` names which loop watches it, and its job is the
 *task's* exceptions. A monitor that could only be called cannot notice a stall,
 which is the failure it exists for.
 
-**Widened again on 2026-08-28** — `monitor` spec rev. 14 makes it the task's
+**Widened again** — `monitor` spec rev. 14 makes it the task's
 **event loop**, on two channels: planned phase advances, handled by code and never
 by a model, and the unplanned outcomes this entry has always been about. **That
 does not move anything out of this section**: the analysing dispatcher is still
@@ -75,7 +99,7 @@ The mechanism, for the record, and points 1–2 now duplicated by
    - **Later: an analysing dispatcher.** An agent gives a short analysis and
      picks from the action set. **The canonical list now lives in `monitor` spec
      §7.1**, which is where it belongs and which marks what the alpha reaches;
-     it gained `answer` on 2026-08-27, an action none of the earlier lists had.
+     it gained `answer`, an action none of the earlier lists had.
      For reference: `[push, answer, help (assign a helper agent), add
      input/knowledge, create coordinator, create teammate/rival, change agent
      spec, escalate to upper scope, report to user, restart the task, submit a
@@ -96,7 +120,7 @@ The mechanism, for the record, and points 1–2 now duplicated by
    agent running to push. **The failure is still reported and recorded**
    (`monitor` spec §2.1 and §7): under principle 1 every departure from the plan
    reaches the monitor, and a terminal task means the graph will not finish
-   whether or not anything malfunctioned. Amended 2026-08-27 — this paragraph
+   whether or not anything malfunctioned. Amended — this paragraph
    previously said such a branch goes quiescent with nothing surfacing an error,
    and main spec §10 has withdrawn that too.
 
@@ -150,7 +174,7 @@ knowledge storage is updated, so the accumulation is itself auditable.
 ### 4.1 **P0 — organise the agent-facing prompt corpus; `knowledge/` is a holding pen**
 
 `agent_sys/knowledge/general/` exists and has its first document
-(`working-on-a-remote-host.md`, distilled 2026-09-01 from the remote-mode stage).
+(`working-on-a-remote-host.md`).
 **It is parked there, not designed there.** Nothing reads it: `knowledge` is a
 *handoff kind* resolved by `agent/registry.py:check_knowledge`, and a directory
 on disk is not a handoff. So today the corpus reaches an agent only if a package
@@ -212,7 +236,7 @@ how much of the verdict it sees — both alpha-dependent, neither measured.
 | **Agent env reuse** | A task, or a validation phase, reusing an existing agent environment directly or with light modification. **Careful:** this must not blur the system's isolation standard, which is the whole reason each validation gets a fresh environment |
 | **Movable handoff storage** | A handoff record should carry enough detail to be trackable *and* be movable between storage locations. The alpha does the first and not the second |
 | **Sync direction and conflict** | The weak local↔remote mapping is `rsync`, which has a direction. Which side wins when both changed is unspecified, and "the caller decides" will lose data eventually |
-| **If `agent_sys` must ever serve MCP itself** — *the **component-supplied** in-process route was deleted 2026-09-04; `remote/tools.py` stays as a named exception, and this row is its closing condition* | The owner's sketch, in their words: **一个单独的线程，在初始化的时候load起来** — a separate thread, loaded at init — **with the declaration installed into Claude as a plugin.** What was deleted is different and is not what this describes: a component's `tools/*.tooldef.py` ran **that component's Python inside the supervisor process**, so a third party's code shared an address space with the process holding the run's credentials, and there was no boundary to configure. **Only the component-supplied half went.** `ToolDef` itself is still defined and still running, in `env_mgr/remote/tools.py`, which is the one thing `Prepared.tools` now carries. A thread is still in-process and would not fix that on its own; what makes the sketch tolerable is that the *declaration* goes through the plugin mechanism like every other capability, so there is one install route and no parallel one. **Why it is not needed now:** an add-on that wants to offer a tool ships a standalone MCP server, and both transports are already served — **stdio** is spawned by the harness from a declaration, and **port-based** is started by `env_mgr` via the `run_server` installer (`env_mgr/installers/run_server.py`). Nothing an add-on can express today requires `agent_sys` to be the server. Revisit only if something does. **How this touches the one route that was kept:** `spec.provisioning.md` §6 leaves `env_mgr/remote/tools.py` as a standing exception — `env_remote_run` / `_push` / `_pull` are injected into `ClaudeAgentOptions` as a live object with nothing written to disk, so no installer can carry them — and its **closing condition** is reproviding those three as a standalone server started by `run_server`. That is the same `run_server` this row argues already suffices, so the exception closes on the route above and **not** on the sketch: building the thread is not what retires it. Until somebody does that work, §6 has exactly one exception and a second added by analogy is the rule being ignored |
+| **If `agent_sys` must ever serve MCP itself** — *the **component-supplied** in-process route was deleted; `remote/tools.py` stays as a named exception, and this row is its closing condition* | The owner's sketch, in their words: **一个单独的线程，在初始化的时候load起来** — a separate thread, loaded at init — **with the declaration installed into Claude as a plugin.** What was deleted is different and is not what this describes: a component's `tools/*.tooldef.py` ran **that component's Python inside the supervisor process**, so a third party's code shared an address space with the process holding the run's credentials, and there was no boundary to configure. **Only the component-supplied half went.** `ToolDef` itself is still defined and still running, in `env_mgr/remote/tools.py`, which is the one thing `Prepared.tools` now carries. A thread is still in-process and would not fix that on its own; what makes the sketch tolerable is that the *declaration* goes through the plugin mechanism like every other capability, so there is one install route and no parallel one. **Why it is not needed now:** an add-on that wants to offer a tool ships a standalone MCP server, and both transports are already served — **stdio** is spawned by the harness from a declaration, and **port-based** is started by `env_mgr` via the `run_server` installer (`env_mgr/installers/run_server.py`). Nothing an add-on can express today requires `agent_sys` to be the server. Revisit only if something does. **How this touches the one route that was kept:** `spec.provisioning.md` §6 leaves `env_mgr/remote/tools.py` as a standing exception — `env_remote_run` / `_push` / `_pull` are injected into `ClaudeAgentOptions` as a live object with nothing written to disk, so no installer can carry them — and its **closing condition** is reproviding those three as a standalone server started by `run_server`. That is the same `run_server` this row argues already suffices, so the exception closes on the route above and **not** on the sketch: building the thread is not what retires it. Until somebody does that work, §6 has exactly one exception and a second added by analogy is the rule being ignored |
 
 ## 6.1 **P0 RISK — an AI task is not confined, and confinement is the anti-cheating property**
 
@@ -235,7 +259,7 @@ current one asks the executor rather than guessing from a wrapper or a `kind`.
 ### What the standard mechanism gives, and what it does not
 
 Claude Code ships a sandbox; on Linux it is **bubblewrap**, which is a mechanism
-`env_mgr` already supports (`isolation/apply.py:30`). It is configurable from
+`env_mgr` already supports (`isolation/apply.py`). It is configurable from
 the SDK:
 
 ```python
@@ -273,7 +297,7 @@ on the agent cooperating.
   (`socat` is present). Anything written here would be green for the wrong
   reason. `interfaces.md` §8.7.
 
-### Measured 2026-08-29, on the first real model calls this repository has made
+### Measured, on the first real model calls this repository made
 
 Three of these were **reassuring for the wrong reason**, which is the hazard this
 section exists for. All are first-hand from `AGENT_SYS_NO_PERMISSIONS=1` runs.
@@ -306,7 +330,7 @@ enters every unrelocated agent's context. This is the earlier finding — a conf
 agent read the operator's personal `CLAUDE.md` and obeyed its language rule — with a
 price attached.
 
-### The first end-to-end run, 2026-08-29 10:05:57 → 10:08:01, 124 s
+### The first end-to-end run, 124 s
 
 **All four tasks succeeded, the root terminated, both validators recorded real
 verdicts, exit 3.** Zero stalls, zero timeouts — the run ended because it finished.
@@ -317,7 +341,7 @@ verdicts, exit 3.** Zero stalls, zero timeouts — the run ended because it fini
 current.** The standard invocation is **two commands on one shell line** —
 `agent-sys run --clean; … agent-sys run …` — which `validator` read off
 `ps` rather than from a habit report. A run never deletes a run (`_clean` returns
-at `cli.py:344` before either run path is reached); **the preceding `--clean`
+at `cli.py` before either run path is reached); **the preceding `--clean`
 does, and it runs before every drive**, whether or not anything is concurrent. Run *n* is deleted by run *n+1*, unconditionally. Two of the three
 stores above were gone within minutes; **an earlier amendment here named the
 second as "the one with artefacts on disk" and was false seven minutes later.**
@@ -426,7 +450,7 @@ So when a summary is finally written, `check_grounded` **passes** — and a pass
 worse than red. The demo is wired to report it loudly and **nobody should "fix" it
 when it fires.**
 
-**Ruled 2026-08-29: do not soften the scenario.** Whether criterion 5 needs a harder
+**Ruled: do not soften the scenario.** Whether criterion 5 needs a harder
 task is a spec question and the user's. Recorded here so it is decided rather than
 patched by whoever next sees exit 3.
 
@@ -441,7 +465,7 @@ been observed catching anything** (`demo`). Three runs showed a good model closi
 the gap; the validator's **failing** direction, which is what its `strong` claim is
 about, has never executed.
 
-**Ruled 2026-08-29: parked, and not a roadmap item.** *"Not a framework question and
+**Ruled: parked, and not a roadmap item.** *"Not a framework question and
 not a principle question — this is `check_grounded`'s own business semantics, and we
 do not spend time on it."* The suggested shape, if anyone ever does: **split it in
 two** — one validator for the other fields, one that judges only whether the agent's
@@ -478,7 +502,7 @@ the CLI it installed into, and the backend uses that one **or refuses.**
 ## 6.2 **P2 RISK — `extensions.preciousObjects` means the object store only grows**
 
 **Accepted, not a defect.** `env_mgr.workspace.cut` is `git clone --shared
---no-hardlinks` (`workspace.py:129`), so every task workspace **borrows** the main
+--no-hardlinks` (`workspace.py`), so every task workspace **borrows** the main
 repository's objects through `.git/objects/info/alternates`. If the lender ever
 deletes an object a borrower is using, the borrower breaks **totally** —
 `env_mgr` reproduced `fatal: bad object HEAD`, triggered by nothing more exotic
@@ -486,7 +510,7 @@ than an ordinary `git commit` in the source firing automatic maintenance. So
 `cut` refuses on a repository without `extensions.preciousObjects`, and the flag
 makes git refuse to delete objects.
 
-**Measured 2026-08-29 on the development repository**, which is where the cost
+**Measured on a development repository**, which is where the cost
 shows first because nine worktrees share one object database:
 
 | | |
@@ -501,7 +525,7 @@ one object database — there is no alternates link and no borrower — so the n
 worktrees would be safe with the flag off. **The flag exists for the per-task
 shared clones**, which are the only borrowers in the design.
 
-**Ruled 2026-08-29: accept the growth.** Manual cleanup now or later is fine.
+**Ruled: accept the growth.** Manual cleanup now or later is fine.
 The clean sequence, when it is wanted, is to let every task workspace finish,
 then `--unset` → `git gc --prune=now` → set it back; **the flag must be on before
 the next `cut`, or every output-producing dispatch dies in `prepare`.**
@@ -511,9 +535,260 @@ eventually becomes a disk problem, and the repair window requires *no live
 workspaces* — which gets harder to find, not easier, as the system runs more
 tasks. Cheap now, not automatically cheap later.
 
+## 6.3 **Rebuild the permission system** — user-ruled, and the demo is the evidence
+
+**Ruled by the user, in as many words: the permission system as implemented
+"感觉问题百出" — it feels riddled with problems — and it is to be rebuilt rather
+than patched.** This entry records what is known so the rebuild starts from
+measurements instead of from the same instincts.
+
+### The measurement that prompted it
+
+The UI stage's goal was `examples/ok.filetree_grounded_report.4` converted to YAML and **running end to
+end**. With permissions enforced it does not:
+
+```
+describe: failed — ConfinementNotApplied: backend 'claude_code_sdk' cannot start
+          confined: it does not spawn a command line of its own … (criterion 14)
+exit 4    1 of 2 expected failures observed, 1 never reached
+```
+
+With `AGENT_SYS_NO_PERMISSIONS=1` **every task succeeds**, both handoffs reach
+`valid`, and `check_grounded` executes for the first time in this repository's
+history:
+
+```
+consume: succeeded   describe: succeeded   main: succeeded   produce: succeeded
+facts   v0 valid     check_facts:    PASS  completeness / strong
+summary v0 valid     check_grounded: PASS  trustworthiness / strong
+```
+
+**So the confinement layer is the only thing between this system and a working
+end-to-end run**, and it has been for longer than the format change: the
+pre-stage jsonnet tree, measured in a temporary worktree at `8274a5b`, produces a
+transcript differing by **exactly one line** (`main: agent 'compose'` versus
+`main: agent None`) and the same exit 4.
+
+### What is already known about why, so it is not rediscovered
+
+| | |
+|---|---|
+| **§5.11** (`interfaces.md`) | An AI backend cannot be confined **in-process**, and the word *cannot* was wrong: a Landlock domain is inherited by **every descendant**, so a harness running inside a `spawn`-ed child confines the `claude` CLI it spawns — no shim, no argv interception, no SDK cooperation. **Measured**: `unconfined grandchild rc=0`, `grandchild of a confined child rc=13 EACCES` |
+| the price | **level 2 entirely.** All three `AgentBackend` methods are calls on an in-process `ClaudeSDKClient`; `monitor`'s `Pushable` *is* that handle; `interrupt`'s drain reads `terminal_reason` off the message stream. *"That is not a plumbing change. It is the whole reason `AgentBackend` is a second protocol."* |
+| **§6.1** (this file) | P0 RISK, already open on the same subject |
+| the switch | `AGENT_SYS_NO_PERMISSIONS`, read in exactly one place (`env_mgr/prepare.py`) and deliberately a function rather than a constant. **This is the escape hatch that makes the demo work today** |
+
+### The second half — three names that cannot be exported, ruled "record it, do not work on it"
+
+The UI stage added a path environment-variable system
+(the package-format requirement item 3). **Three of the user's eleven names were
+refused, and the refusal is a measurement rather than an omission.**
+
+`agent_workspace_root`, `agent_handoff_root` and `agent_playground_root` resolve
+to domain roots **outside the zone**:
+
+| the name | resolves to | where that sits |
+|---|---|---|
+| `agent_handoff_root` | `domains.storage_root()` | the zone's **ancestor** |
+| `agent_workspace_root` | the WORKSPACE domain's root | unrelated to the zone |
+| `agent_playground_root` | the PLAYGROUND domain's root | unrelated to the zone |
+
+A confined body gets **EACCES on all three**, measured against an **in-zone
+positive control that succeeds in the same child** — the control is what rules
+out "the probe over-confined its own subject", which is the shape a wall of
+EACCES otherwise has.
+
+Exporting them would break `env_mgr`'s own rule that **exported and granted agree
+by construction** — *"an exported path we did not grant would be the evaporating
+allow-list one level up: the body failing on our own instruction."*
+
+**What shipped instead**: `AGENT_SYS_MY_ZONE` (the one root in the user's sense
+that is granted), `AGENT_SYS_TASK_PACKAGE`, and `MY_WORKSPACE` / `MY_PLAYGROUND`
+/ `MY_HANDOFFS` / `MY_LOGS` plus a `_REMOTE` mirror of each where a mapping
+covers the zone. A directory that does not exist gets no name.
+
+**The user's ruling: record it, do not work on it.** The choice the rebuild has to
+make, stated so it is not re-derived: either the `*_root` names stay unexportable
+and an agent only ever names things inside its own zone, **or** the authorisation
+model changes to grant those roots read-only — which opens lateral visibility
+between zones and is a specification change against `env_mgr` spec §4's
+isolation goal, not an implementation one.
+
+### What a rebuild must not lose
+
+Recorded because each was bought with a measurement and a rewrite is where they
+get dropped:
+
+- **Path-prefix isolation does not work.** Main spec §7.1: an agent that writes a
+  Python script and runs it defeats a `PreToolUse` hook entirely — the hook sees
+  `python3 x.py` and no path — and prefix matching is CVE-2025-54794 in Claude
+  Code itself, CVSS 9.1, three defeats reproduced. Replaced by canonical
+  containment plus an OS sandbox, and that replacement is the current design.
+- **Refusing to run unconfined is a feature, not the bug.** Criterion 14 is why
+  `describe` fails rather than silently running an AI agent outside the sandbox.
+  A rebuild that makes the demo pass by relaxing this has removed the property
+  the system exists to have.
+- **Confinement is irreversible within a thread** — a confined thread can no
+  longer write outside the zone, so it cannot record its own outcome afterwards.
+  That is why `_place_container_zone` uses `place_zone` and not `prepare`.
+- **`apply()` refuses with more than one thread alive.**
+
+---
+
+---
+
+### 6.6 **P2 — a container is a valid tool target and there is no way to declare one**
+
+Raised in review and verified, and **half-closed
+rather than closed**: the CLI now reports the configuration fault as a
+precondition instead of a traceback, and a `docker` mapping is still
+unconstructible.
+
+`tools.py`'s own docstring says *"a container is a valid tool target and an
+invalid sync transport"*, and `RemoteMapping.target`'s comment says *"host for
+ssh, container for docker exec"*. Both describe an intent no code implements:
+`sync_transport` is the only constructor a mapping reaches, it returns a
+`SyncTransport`, and `DockerExec` deliberately is not one. So `DockerExec` joins
+the list of mechanisms in this repository that are written, correct, and reached
+by no production caller.
+
+**The change is a seam, which is why it is not in the review's scope.**
+`Context.transports` is a `SyncTransport` map read by two consumers that want
+different things: `sync` needs a transport that can `rsync --delete`, and
+`_remote_tools` needs only a `Connection`. Separating them means either two
+fields or one field of the weaker type with `sync` narrowing — and
+`interfaces.md` §1.1 applies, because `Context` has two sides.
+
+Worth doing when something actually needs to reach into a container. Until then
+the honest state is a documented refusal, which is what it now gives.
+
+## 6.4 **P2 — rebuild the locality check on oracles; the shape heuristic is disconnected**
+
+**User-ruled: disable it now, rebuild later.** `handoff/store.py` no
+longer calls `locality.check`, so **`handoff` spec criterion 17 is not enforced
+today**. The module and its twenty tests are kept intact and correct; this is a
+disconnected caller, not a deleted module, and re-wiring it is one line.
+
+### Why it was disabled
+
+It **refused a correct artefact, and would have refused every correct one.** On
+the first end-to-end run of `examples/ok.sglang_real_model.2` the seal rejected the
+agent's reproduction kit at `README.md`, on this line:
+
+    `"POST /v1/chat/completions HTTP/1.1" 200 OK`
+
+A quoted HTTP access-log record, in the evidence section, showing the completion
+had gone through the infera router rather than the engine's own port — which is
+**criterion 2 of that task's own brief**. The check read the request-target as an
+absolute filesystem path. Any correct kit for that task contains the string, so
+the refusal was systematic rather than unlucky.
+
+Measured over the produced kit: **778 flagged occurrences, of which ~97% are
+false positives** — 618 container-internal (`/sgl-workspace/`, `/tmp/aiter_configs/`),
+106 HTTP request-targets, 10 an etcd key prefix, and **35 genuinely local**. That
+reproduces, on a second independent corpus, the module's own docstring
+measurement of 650 matches with 627 needing suppression.
+
+### Why more regex is not the fix, and this is the load-bearing paragraph
+
+`locality.py`'s own docstring records that the shape refinement was proposed on
+**Debian #1002451 and refused on the record**: *"you cannot recognise a build
+path by its shape, because the shape is a property of whoever built it."* Two
+patches were made — one for scheme-less request-targets, then a
+stricter version anchored on the `HTTP/x.y` token after a review found the first
+opened a cloak — and each revealed the next shape. The module was right and the
+patches were treading the path it warned about.
+
+### What the rebuild must do
+
+**The design is already correct and is simply not wired.** The module splits its
+evidence honestly: an **oracle** hit is *certain* (a prefix this system minted),
+the **shape heuristic** is *best effort*, and its docstring says the heuristic
+"runs only where no oracle applies". Production inverted that:
+
+| | today |
+|---|---|
+| `Oracles` | **constructed nowhere.** `store.py` falls back to `Oracles(store_root=...)`, so `playground_root` is never supplied — half the certain signal is off |
+| `image_prefixes` | spec §7's mechanism for a declared container image. Read at `locality.py`, **set by nobody** — so a containerised workload's paths could never be allowed, by construction |
+| `check()` | raises identically for an oracle hit and a heuristic hit, so the best-effort half was the hard gate |
+
+So the sound half was unwired and the unsound half was load-bearing. Three things
+to settle, and the third is why this is not a pure bug fix:
+
+1. **Wire `Oracles`** — supply `playground_root` as well as `store_root` at the
+   composition root. Pure plumbing.
+2. **Separate the two verdicts.** An oracle hit stays fatal; a heuristic hit
+   becomes a recorded finding on the handoff rather than a refusal. That is
+   arguably what criterion 17 already means, but it is a criterion edit and needs
+   saying out loud.
+3. **Wire `image_prefixes`** — and this needs a *convention*, because
+   `handoff.schema.json`'s `dependencies` is deliberately an unconstrained object
+   (*"fixing a shape here would be inventing a requirement"*). Choosing where
+   inside it the prefixes live is a specification decision, not a code change.
+
+### What is lost meanwhile, stated so it is not discovered by accident
+
+The check was aimed at exactly the right thing, and **this stage's own task is
+the case it was built for**: the mission's second half is *a second AI reproduces
+the run from the kit alone*, and a kit naming one machine's paths is what breaks
+that. Concretely, the kit that triggered all this bakes in
+
+    /data/<user>_hf_cache/models/Qwen3.6-27B      — 20 occurrences
+
+which is a **true positive**: it should say "point this at your weights". With
+the check off, nothing catches that class, and a reproduction failure caused by
+it will present as the reproducer's fault rather than the kit's.
+
+### Keeping only the sound half would not have worked either — measured
+
+An automated review proposed the obvious refinement: disable the shape heuristic
+and keep the oracle branch, which is sound and cheap. It is the right instinct
+and the measurement refutes it.
+
+`store.py` does supply `store_root`, so the oracle branch **is live** — this
+is a correction to an earlier claim in this entry's neighbourhood that the oracle
+half was unwired; only `playground_root` is missing. Run against the real kit
+with that oracle supplied, it produces **two hits**, and both are genuine:
+
+    logs/run_all.second-run.out:85  '… ALL CHECKS PASSED -- evidence in /var/tmp/…/handoffs/…'
+    logs/run_all.second-run.out:87  'Tear down with: bash /var/tmp/…/handoffs/…'
+
+Two instead of 778, and **a refusal is still a refusal** — the run would have
+been blocked either way.
+
+**And the two hits expose a conflict that soundness cannot resolve.** The task's
+brief tells the agent to capture its logs as evidence; the agent's logs record
+where it wrote; where it wrote is under the store root. So *"a handoff carries no
+path from the machine that produced it"* and *"capture your own logs as
+evidence"* are in direct conflict, and this artefact satisfies both briefs while
+failing the check. A rebuild has to answer this — plausibly by weighting file
+role, which `check()`'s own docstring already flags as an open question
+(`design.md` O5: *"No weighting by file role … a playground path in a changelog
+is still a record of one machine"*) — and not by making the oracle branch more
+precise, which it already is.
+
+### The wiring was never tested, and that is how this survived
+
+Disconnecting the call changed **no test result**: 2059 passed before and after.
+`tests/handoff/test_locality.py` has twenty tests and every one of them calls
+`locality.check` directly; **nothing anywhere puts or seals content containing a
+local path and asserts the store refuses it.** So the criterion had unit
+coverage and no wiring coverage, which is why a check with a measured 97% false
+positive rate could sit as a hard gate in the publish path without anything
+saying so until a real artefact arrived.
+
+That is the same shape as three other findings from the same day — `Oracles`
+constructed nowhere, `image_prefixes` set by nobody, `env_mgr`'s `Ssh`/`DockerExec`
+with no production caller. **A rebuild that does not add a wiring test leaves the
+next inversion just as invisible**, in either direction: nothing today would fail
+if the check silently came back, either.
+
+The probe that established this had a fourth case which is the non-vacuity
+control any rebuild must keep firing.
+
 ## 6.5 **P1 — the stream cannot tell a working phase from a wedged one, and the signal that can is inside the backend**
 
-Three runs hung on 2026-08-31 and **all three were found by a human reading an
+Three runs hung and **all three were found by a human reading an
 agent's transcript**, not by anything the system emits. `8b4b3ff` fixed half of
 it — `_settle` now emits `phase_start` / `phase_complete` as tasks move, so a
 reader can follow a run's shape from `stream.jsonl`, which was impossible
@@ -574,260 +849,7 @@ one. The distinguishing fact lives where the transcript is written, so exposing
 it crosses `agent` ↔ `cli` and `interfaces.md` §1.1 applies.
 
 **P1 rather than P2** because it is the difference between a run that reports
-its own failure and one that needs somebody to notice. Evidence:
-`scratch/single-real-task-2026-08/stream-not-a-view.md`.
-
-## 6.4 **P2 — rebuild the locality check on oracles; the shape heuristic is disconnected**
-
-**User-ruled 2026-08-31: disable it now, rebuild later.** `handoff/store.py` no
-longer calls `locality.check`, so **`handoff` spec criterion 17 is not enforced
-today**. The module and its twenty tests are kept intact and correct; this is a
-disconnected caller, not a deleted module, and re-wiring it is one line.
-
-### Why it was disabled
-
-It **refused a correct artefact, and would have refused every correct one.** On
-the first end-to-end run of `examples/ok.sglang_real_model.2` the seal rejected the
-agent's reproduction kit at `README.md:42`, on this line:
-
-    `"POST /v1/chat/completions HTTP/1.1" 200 OK`
-
-A quoted HTTP access-log record, in the evidence section, showing the completion
-had gone through the infera router rather than the engine's own port — which is
-**criterion 2 of that task's own brief**. The check read the request-target as an
-absolute filesystem path. Any correct kit for that task contains the string, so
-the refusal was systematic rather than unlucky.
-
-Measured over the produced kit: **778 flagged occurrences, of which ~97% are
-false positives** — 618 container-internal (`/sgl-workspace/`, `/tmp/aiter_configs/`),
-106 HTTP request-targets, 10 an etcd key prefix, and **35 genuinely local**. That
-reproduces, on a second independent corpus, the module's own docstring
-measurement of 650 matches with 627 needing suppression.
-
-### Why more regex is not the fix, and this is the load-bearing paragraph
-
-`locality.py`'s own docstring records that the shape refinement was proposed on
-**Debian #1002451 and refused on the record**: *"you cannot recognise a build
-path by its shape, because the shape is a property of whoever built it."* Two
-patches were made on 2026-08-31 — one for scheme-less request-targets, then a
-stricter version anchored on the `HTTP/x.y` token after a review found the first
-opened a cloak — and each revealed the next shape. The module was right and the
-patches were treading the path it warned about.
-
-### What the rebuild must do
-
-**The design is already correct and is simply not wired.** The module splits its
-evidence honestly: an **oracle** hit is *certain* (a prefix this system minted),
-the **shape heuristic** is *best effort*, and its docstring says the heuristic
-"runs only where no oracle applies". Production inverted that:
-
-| | today |
-|---|---|
-| `Oracles` | **constructed nowhere.** `store.py:140` falls back to `Oracles(store_root=...)`, so `playground_root` is never supplied — half the certain signal is off |
-| `image_prefixes` | spec §7's mechanism for a declared container image. Read at `locality.py:151`, **set by nobody** — so a containerised workload's paths could never be allowed, by construction |
-| `check()` | raises identically for an oracle hit and a heuristic hit, so the best-effort half was the hard gate |
-
-So the sound half was unwired and the unsound half was load-bearing. Three things
-to settle, and the third is why this is not a pure bug fix:
-
-1. **Wire `Oracles`** — supply `playground_root` as well as `store_root` at the
-   composition root. Pure plumbing.
-2. **Separate the two verdicts.** An oracle hit stays fatal; a heuristic hit
-   becomes a recorded finding on the handoff rather than a refusal. That is
-   arguably what criterion 17 already means, but it is a criterion edit and needs
-   saying out loud.
-3. **Wire `image_prefixes`** — and this needs a *convention*, because
-   `handoff.schema.json`'s `dependencies` is deliberately an unconstrained object
-   (*"fixing a shape here would be inventing a requirement"*). Choosing where
-   inside it the prefixes live is a specification decision, not a code change.
-
-### What is lost meanwhile, stated so it is not discovered by accident
-
-The check was aimed at exactly the right thing, and **this stage's own task is
-the case it was built for**: the mission's second half is *a second AI reproduces
-the run from the kit alone*, and a kit naming one machine's paths is what breaks
-that. Concretely, the kit that triggered all this bakes in
-
-    /data/<user>_hf_cache/models/Qwen3.6-27B      — 20 occurrences
-
-which is a **true positive**: it should say "point this at your weights". With
-the check off, nothing catches that class, and a reproduction failure caused by
-it will present as the reproducer's fault rather than the kit's.
-
-### Keeping only the sound half would not have worked either — measured
-
-An automated review proposed the obvious refinement: disable the shape heuristic
-and keep the oracle branch, which is sound and cheap. It is the right instinct
-and the measurement refutes it.
-
-`store.py:140` does supply `store_root`, so the oracle branch **is live** — this
-is a correction to an earlier claim in this entry's neighbourhood that the oracle
-half was unwired; only `playground_root` is missing. Run against the real kit
-with that oracle supplied, it produces **two hits**, and both are genuine:
-
-    logs/run_all.second-run.out:85  '… ALL CHECKS PASSED -- evidence in /var/tmp/…/handoffs/…'
-    logs/run_all.second-run.out:87  'Tear down with: bash /var/tmp/…/handoffs/…'
-
-Two instead of 778, and **a refusal is still a refusal** — the run would have
-been blocked either way.
-
-**And the two hits expose a conflict that soundness cannot resolve.** The task's
-brief tells the agent to capture its logs as evidence; the agent's logs record
-where it wrote; where it wrote is under the store root. So *"a handoff carries no
-path from the machine that produced it"* and *"capture your own logs as
-evidence"* are in direct conflict, and this artefact satisfies both briefs while
-failing the check. A rebuild has to answer this — plausibly by weighting file
-role, which `check()`'s own docstring already flags as an open question
-(`design.md` O5: *"No weighting by file role … a playground path in a changelog
-is still a record of one machine"*) — and not by making the oracle branch more
-precise, which it already is.
-
-### The wiring was never tested, and that is how this survived
-
-Disconnecting the call changed **no test result**: 2059 passed before and after.
-`tests/handoff/test_locality.py` has twenty tests and every one of them calls
-`locality.check` directly; **nothing anywhere puts or seals content containing a
-local path and asserts the store refuses it.** So the criterion had unit
-coverage and no wiring coverage, which is why a check with a measured 97% false
-positive rate could sit as a hard gate in the publish path without anything
-saying so until a real artefact arrived.
-
-That is the same shape as three other findings from the same day — `Oracles`
-constructed nowhere, `image_prefixes` set by nobody, `env_mgr`'s `Ssh`/`DockerExec`
-with no production caller. **A rebuild that does not add a wiring test leaves the
-next inversion just as invisible**, in either direction: nothing today would fail
-if the check silently came back, either.
-
-Evidence: `scratch/single-real-task-2026-08/seal-refusal.md`, and
-`probe_locality_url_fp.py` beside it — whose fourth case is the non-vacuity
-control any rebuild must keep firing.
-
-## 6.3 **Rebuild the permission system** — user-ruled 2026-08-29, and the demo is the evidence
-
-**Ruled by the user, in as many words: the permission system as implemented
-"感觉问题百出" — it feels riddled with problems — and it is to be rebuilt rather
-than patched.** This entry records what is known so the rebuild starts from
-measurements instead of from the same instincts.
-
-### The measurement that prompted it
-
-The UI stage's goal was `examples/ok.filetree_grounded_report.4` converted to YAML and **running end to
-end**. With permissions enforced it does not:
-
-```
-describe: failed — ConfinementNotApplied: backend 'claude_code_sdk' cannot start
-          confined: it does not spawn a command line of its own … (criterion 14)
-exit 4    1 of 2 expected failures observed, 1 never reached
-```
-
-With `AGENT_SYS_NO_PERMISSIONS=1` **every task succeeds**, both handoffs reach
-`valid`, and `check_grounded` executes for the first time in this repository's
-history:
-
-```
-consume: succeeded   describe: succeeded   main: succeeded   produce: succeeded
-facts   v0 valid     check_facts:    PASS  completeness / strong
-summary v0 valid     check_grounded: PASS  trustworthiness / strong
-```
-
-**So the confinement layer is the only thing between this system and a working
-end-to-end run**, and it has been for longer than the format change: the
-pre-stage jsonnet tree, measured in a temporary worktree at `8274a5b`, produces a
-transcript differing by **exactly one line** (`main: agent 'compose'` versus
-`main: agent None`) and the same exit 4.
-
-### What is already known about why, so it is not rediscovered
-
-| | |
-|---|---|
-| **§5.11** (`interfaces.md`) | An AI backend cannot be confined **in-process**, and the word *cannot* was wrong: a Landlock domain is inherited by **every descendant**, so a harness running inside a `spawn`-ed child confines the `claude` CLI it spawns — no shim, no argv interception, no SDK cooperation. **Measured**: `unconfined grandchild rc=0`, `grandchild of a confined child rc=13 EACCES` |
-| the price | **level 2 entirely.** All three `AgentBackend` methods are calls on an in-process `ClaudeSDKClient`; `monitor`'s `Pushable` *is* that handle; `interrupt`'s drain reads `terminal_reason` off the message stream. *"That is not a plumbing change. It is the whole reason `AgentBackend` is a second protocol."* |
-| **§6.1** (this file) | P0 RISK, already open on the same subject |
-| the switch | `AGENT_SYS_NO_PERMISSIONS`, read in exactly one place (`env_mgr/prepare.py:96`) and deliberately a function rather than a constant. **This is the escape hatch that makes the demo work today** |
-
-### The second half — three names that cannot be exported, ruled "record it, do not work on it"
-
-The UI stage added a path environment-variable system
-(the package-format requirement item 3). **Three of the user's eleven names were
-refused, and the refusal is a measurement rather than an omission.**
-
-`agent_workspace_root`, `agent_handoff_root` and `agent_playground_root` resolve
-to domain roots **outside the zone**:
-
-| the name | resolves to | where that sits |
-|---|---|---|
-| `agent_handoff_root` | `domains.storage_root()` | the zone's **ancestor** |
-| `agent_workspace_root` | the WORKSPACE domain's root | unrelated to the zone |
-| `agent_playground_root` | the PLAYGROUND domain's root | unrelated to the zone |
-
-A confined body gets **EACCES on all three**, measured against an **in-zone
-positive control that succeeds in the same child** — the control is what rules
-out "the probe over-confined its own subject", which is the shape a wall of
-EACCES otherwise has. Probe: `scratch/ui-yaml-2026-08/w2/p13_are_the_root_paths_reachable.py`.
-
-Exporting them would break `env_mgr`'s own rule that **exported and granted agree
-by construction** — *"an exported path we did not grant would be the evaporating
-allow-list one level up: the body failing on our own instruction."*
-
-**What shipped instead**: `AGENT_SYS_MY_ZONE` (the one root in the user's sense
-that is granted), `AGENT_SYS_TASK_PACKAGE`, and `MY_WORKSPACE` / `MY_PLAYGROUND`
-/ `MY_HANDOFFS` / `MY_LOGS` plus a `_REMOTE` mirror of each where a mapping
-covers the zone. A directory that does not exist gets no name.
-
-**The user's ruling: record it, do not work on it.** The choice the rebuild has to
-make, stated so it is not re-derived: either the `*_root` names stay unexportable
-and an agent only ever names things inside its own zone, **or** the authorisation
-model changes to grant those roots read-only — which opens lateral visibility
-between zones and is a specification change against `env_mgr` spec §4's
-isolation goal, not an implementation one.
-
-### What a rebuild must not lose
-
-Recorded because each was bought with a measurement and a rewrite is where they
-get dropped:
-
-- **Path-prefix isolation does not work.** Main spec §7.1: an agent that writes a
-  Python script and runs it defeats a `PreToolUse` hook entirely — the hook sees
-  `python3 x.py` and no path — and prefix matching is CVE-2025-54794 in Claude
-  Code itself, CVSS 9.1, three defeats reproduced. Replaced by canonical
-  containment plus an OS sandbox, and that replacement is the current design.
-- **Refusing to run unconfined is a feature, not the bug.** Criterion 14 is why
-  `describe` fails rather than silently running an AI agent outside the sandbox.
-  A rebuild that makes the demo pass by relaxing this has removed the property
-  the system exists to have.
-- **Confinement is irreversible within a thread** — a confined thread can no
-  longer write outside the zone, so it cannot record its own outcome afterwards.
-  That is why `_place_container_zone` uses `place_zone` and not `prepare`.
-- **`apply()` refuses with more than one thread alive.**
-
----
-
----
-
-### 6.6 **P2 — a container is a valid tool target and there is no way to declare one**
-
-Raised by the ver1 review's finding #5, verified 2026-09-01, and **half-closed
-rather than closed**: the CLI now reports the configuration fault as a
-precondition instead of a traceback, and a `docker` mapping is still
-unconstructible.
-
-`tools.py`'s own docstring says *"a container is a valid tool target and an
-invalid sync transport"*, and `RemoteMapping.target`'s comment says *"host for
-ssh, container for docker exec"*. Both describe an intent no code implements:
-`sync_transport` is the only constructor a mapping reaches, it returns a
-`SyncTransport`, and `DockerExec` deliberately is not one. So `DockerExec` joins
-the list of mechanisms in this repository that are written, correct, and reached
-by no production caller.
-
-**The change is a seam, which is why it is not in the review's scope.**
-`Context.transports` is a `SyncTransport` map read by two consumers that want
-different things: `sync` needs a transport that can `rsync --delete`, and
-`_remote_tools` needs only a `Connection`. Separating them means either two
-fields or one field of the weaker type with `sync` narrowing — and
-`interfaces.md` §1.1 applies, because `Context` has two sides.
-
-Worth doing when something actually needs to reach into a container. Until then
-the honest state is a documented refusal, which is what it now gives.
+its own failure and one that needs somebody to notice.
 
 ## 7. Scheduling
 
@@ -843,7 +865,7 @@ the honest state is a documented refusal, which is what it now gives.
 
 `agent` spec §4.3 gives every agent its own mainloop, because an agent is a live
 stateful thing and nothing can interact with one that has no loop. **What it does
-not give it is a thread** — amended 2026-08-28: the task owns one thread per
+not give it is a thread** — amended: the task owns one thread per
 dispatch and the agent borrows it for the main phase (`agent` design §7.5). So the
 alpha runs one thread per *executing leaf task*, which for a graph of leaves is
 the same number as before and is now one set rather than two.
@@ -870,7 +892,7 @@ been.
 | Item | Note |
 |---|---|
 | **Config dispatch and dissemination** | The alpha is one global YAML with well-classified partitions that everyone reads. A real dispatch system comes later. Distinct from **spec** templating, which is settled — main spec §4.4 |
-| **Task-package distribution** | Packages are directories the loader is pointed at, and cross-package references are symlinks the package author places (main spec §4.3). Fetching a package by name and version, or publishing one, is not specified and will be wanted the first time two teams share a workflow. **Two things moved under it on 2026-08-29 and neither is resolved**: a package with no `main.yaml` is now a *library* rather than an error (spec §4.3, criterion 18), which is the shape a shared package takes — and *which* package a run starts from has no owner, carried as a new row in spec §10 |
+| **Task-package distribution** | Packages are directories the loader is pointed at, and cross-package references are symlinks the package author places (main spec §4.3). Fetching a package by name and version, or publishing one, is not specified and will be wanted the first time two teams share a workflow. **Two things moved under it and neither is resolved**: a package with no `main.yaml` is now a *library* rather than an error (spec §4.3, criterion 18), which is the shape a shared package takes — and *which* package a run starts from has no owner, carried as a new row in spec §10 |
 | **A standard for admitting parts to `agent_sys`** | There should be a rule, a checker, and a review process for adding to the system. Every module should carry hard and soft standards that guarantee the quality of its code or of an object spec. This is the meta-item that makes the others enforceable |
 | ~~Templating mechanism~~ | **Closed twice, and the second answer is the opposite of the first.** Closed at spec rev. 4 by adopting jsonnet; **re-closed at rev. 10 by deleting it**, after measuring that across all 21 sources the templating was constants, string concatenation and default-if-absent. There is no spec templating layer now: the schema at tier ① carries a kind's shape and its `default`s, and a package parameterises itself with its own variable set (main spec §4.4, §2.3). **Recorded as reopened-then-reclosed rather than left reading as a settled adoption**, because a reader looking for "is templating decided" would otherwise find the wrong answer. The one thing that genuinely *did* reopen is **cross-package reuse**: with no template artefact there is nothing to share, and if two packages ever need the same shape this row is where that argument starts |
 
@@ -885,9 +907,9 @@ read from 2.35.3:
 
 | `AgentBackend` | `pydantic_ai` |
 |---|---|
-| `interrupt()` | `AgentRun.cancel()` — `run.py:555` |
-| `instruct(msg)` | `AgentRun.enqueue(*content, priority='asap'\|'when_idle')` — `run.py:514` |
-| `query() -> AgentHistory` | `AgentRun.all_messages()` — `run.py:163` |
+| `interrupt()` | `AgentRun.cancel()` — `run.py` |
+| `instruct(msg)` | `AgentRun.enqueue(*content, priority='asap'\|'when_idle')` — `run.py` |
+| `query() -> AgentHistory` | `AgentRun.all_messages()` — `run.py` |
 | `mainloop()` | `async for node in agent.iter(...)` |
 | `status` | `AgentRun.next_node` / `.result` |
 
@@ -920,11 +942,11 @@ engine.
 
 ### 9.2 A validation gets no composed environment — same root as the CLI question
 
-**Ruled 2026-08-29: yes, and deliberately not built the same day.** Recorded as
+**Ruled: yes, and deliberately not built at the same time.** Recorded as
 one entry because it is one question, and placed here rather than in §7 because
 its root is §6.1's: **who owns the CLI process.**
 
-`validator/phase.py:325-361` offers two environment rows and **neither is an
+`validator/phase.py` offers two environment rows and **neither is an
 `env_mgr`-composed environment**, so an agent-bodied validator gets no config
 relocation and no `agent_cli`. That is arm B — the measured one — for
 validators:
@@ -942,7 +964,7 @@ verdict. **A wrong verdict that arrives is worse than no verdict.**
 **The shape, and `validator` holds the binding constraint.**
 `env_mgr.prepare_validation` should compose **configuration values that feed
 `build_environment`** — a mapping, never a pre-built environment and never a
-live `os.environ`. `validator`'s `CHANNELS` (`environment.py:84`) enumerates the
+live `os.environ`. `validator`'s `CHANNELS` (`environment.py`) enumerates the
 five channels criterion 21's isolation test closes, `environ` among them, **on
 the strength of `build_environment` not inheriting.** If the environment arrives
 pre-built, **criterion 21 stops measuring what it says it measures**: the test
@@ -972,7 +994,7 @@ validation's producer row wants.
 
 ### 9.3 **P1 — a finished AI task's CLI subprocess lives to the end of the run**
 
-Measured 2026-09-01, not inferred. `agent/backends/claude_sdk.py:_terminate` —
+Measured, not inferred. `agent/backends/claude_sdk.py::_terminate` —
 which is the only caller of `self._client.disconnect()` — is reached solely from
 `ExecutorBase.stop()`, and:
 
@@ -982,8 +1004,8 @@ which is the only caller of `self._client.disconnect()` — is reached solely fr
 calls `stop()` at all. So on every path a run actually takes, no backend is ever
 disconnected.
 
-A per-poll descendant census over demo2 at `--var n_problems=2`, sampling every
-5 s (`scratch/review-ver1-2026-09/`, and the script is kept):
+A per-poll descendant census over `ok.algorithms_solve_grade.14` at
+`--var n_problems=2`, sampling every 5 s:
 
            pid   first   last   alive     task
        2299467      16    264     248     `directions`  — succeeded at t≈33
@@ -998,7 +1020,7 @@ A per-poll descendant census over demo2 at `--var n_problems=2`, sampling every
 
 `directions` reached `final: succeeded` at log line 67; its CLI lived another
 three minutes. **The set is monotonically non-decreasing for the whole run.**
-A fourteen-task demo2 would end holding fourteen.
+A fourteen-task package would end holding fourteen.
 
 **Why it is not just tidiness.** Each is a node process, and unrelated `claude`
 processes on the same box measured 237 MB–960 MB RSS. These five were not

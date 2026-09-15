@@ -299,14 +299,14 @@ class Scheduler:
             versions.update(execution.output_versions)
 
         — and resolves every entry under ``<store>/<hid>/v<N>/``
-        (`env_mgr/grants.py::_versions`, `:60`). `output_versions` is a store
+        (`env_mgr/grants.py::_versions`). `output_versions` is a store
         directory version by construction, so `input_versions` had to be one
         too, and it was not: this read `handoff_mgr.latest(hid).version`, which
         is `HandoffMgr`'s **slot** version. One field, two currencies, merged
         into one dictionary.
 
         **Measured, on the first full `examples/ok.algorithms_solve_grade.14` run that reached the end**
-        (`scratch/demo2-2026-08/runs/full3.log`). Handoff `52c75d0a`, kind
+. Handoff `52c75d0a`, kind
         `scores`:
 
         | | |
@@ -416,7 +416,7 @@ class Scheduler:
         scheduler will not judge. Nothing here reads or writes a slot.
 
         **An absent `handoff_store` pins nothing, and is a supported mode
-        rather than a guard.** `bootstrap.py:214` registers the name only when
+        rather than a guard.** `bootstrap.py` registers the name only when
         a root was supplied — deliberately, so that "an artefact store rooted
         at a default nobody chose" cannot happen — and `tests/task_graph` runs
         entirely in that mode against `FakeRunner`. With no store there is no
@@ -442,12 +442,12 @@ class Scheduler:
                 # **It cannot raise.** The storeless mode is real —
                 # `tests/task_graph` runs entirely in it — so the honest empty
                 # map stays. What was wrong is that it was *silent*:
-                # `bootstrap.py:216` deliberately leaves the name unregistered
+                # `bootstrap.py` deliberately leaves the name unregistered
                 # so the first resolution is a loud `KeyError`, and this early
                 # return is the first of **three** tolerant readers that turn
                 # that loudness back into nothing. `agent._seal_outputs` skips
                 # an output with no pinned version, and `agent._gate`
-                # (`runner.py:1066`) returns `[]` when there is no store.
+                # (`runner.py`) returns `[]` when there is no store.
                 #
                 # **So the task succeeds.** `_main` is
                 # `if not failures: return self._report_planned()`, and with no

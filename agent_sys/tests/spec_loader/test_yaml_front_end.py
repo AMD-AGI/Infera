@@ -4,9 +4,8 @@ The pipeline is seven numbered steps. This file is
 one section per step, in that order, so that a step with no test is visible as a
 gap rather than assumed to be covered somewhere.
 
-The parser's own behaviour — positions, YAML 1.2, duplicate keys — is measured in
-`scratch/ui-yaml-2026-08/w3/probe_ruamel_semantics.py` and asserted here only
-where the front end *depends* on it, which is the difference between testing our
+The parser's own behaviour — positions, YAML 1.2, duplicate keys — is measured by
+its own probe and asserted here only where the front end *depends* on it, which is the difference between testing our
 code and testing `ruamel.yaml`'s.
 """
 

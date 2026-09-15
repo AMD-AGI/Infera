@@ -204,13 +204,13 @@ def run_pair(binary: Path, unit: dict, cases: list[tuple[str, int, dict]]) -> li
     discards the position an earlier stdio read left. So the harness pulled the
     whole input into the C buffer and the solution's first `std::cin >> n`
     failed: empty stdout, return code 0, **every case wrong**. The first full
-    demo2 run scored every student exactly 30.0 — `0.2*within_time +
+    run scored every student exactly 30.0 — `0.2*within_time +
     0.1*review`, with correctness zero — and every validator passed, because
     `check_one_binary` asks whether one executable dispatches and `check_scores`
     asks whether the arithmetic is reproducible, and both were true of a
     completely wrong result.
 
-    `scratch/demo2-2026-08/probe_fgets_eats_stdin.py` measures seven programs:
+    Measured over seven programs:
     `fgets`, `getchar` and `getline` all starve a desynced solution, and all
     three are fine with a synced one. Reading stdin at all before the solution
     runs is the fault; the function is not the variable. There is no correct

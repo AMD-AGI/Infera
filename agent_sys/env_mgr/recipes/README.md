@@ -9,7 +9,7 @@ root**:
 
 `agent_assets.py::_recipe_paths` resolves `agent_sys:<name>` to
 `<this dir>/<name>.yaml`. **A reference names its root and there is no bare
-form**: until 2026-09-04 `recipes: [serena]` was resolved by trying a
+form**: until recently `recipes: [serena]` was resolved by trying a
 package-relative path first and falling back here, so which root was meant
 depended on which file existed — measured, a package carrying a file named
 exactly `serena` shadowed this directory's `serena.yaml` in silence. A bare name

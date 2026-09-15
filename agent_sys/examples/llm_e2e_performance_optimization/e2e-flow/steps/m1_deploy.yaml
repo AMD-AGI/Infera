@@ -33,7 +33,7 @@
 #
 # Measured 2026-09-04, from rung 1's own transcript. The agent's first command
 # was `env | grep -E '^(E2E_|AGENT_SYS_)'`, and it returned **seven
-# `AGENT_SYS_*` names and zero `E2E_*`**. `env_mgr/material.py:96` is
+# `AGENT_SYS_*` names and zero `E2E_*`**. `env_mgr/material.py` is
 # `env.update(_declared_env(agent_spec))`, and `_declared_env` reads
 # `agent_spec.env` — of **the agent that is running**. `shared.yaml`'s block
 # belongs to `runner`. So under `--var m1_agent=runner` every variable arrives,
@@ -133,7 +133,7 @@
     # once it followed the libs a readme names.
     #
     # **`E2E_REMOTE_HOME` is the parameter for a fault this stage has already
-    # hit.** `remote.sh:150` exports `HOME=${E2E_REMOTE_HOME:-$HOME}` on the far
+    # hit.** `remote.sh` exports `HOME=${E2E_REMOTE_HOME:-$HOME}` on the far
     # side, and `spur exec` otherwise lands with `HOME=/opt/spur`, which is not
     # writable: measured 2026-09-04, a `docker build` there dies
     # `mkdir /opt/spur/.docker: permission denied`, a message naming neither

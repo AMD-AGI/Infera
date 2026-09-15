@@ -27,7 +27,7 @@
 # were written without this script.** It read: *"the real path already measures
 # in a container: `build_workset` is a `kind: ai` closure running inside the
 # shared container of CONTRACT §5, so its STEP 7 and STEP 8 execute there."*
-# The agent is **not** inside it. `agent/backends/claude_sdk.py:303` sets the
+# The agent is **not** inside it. `agent/backends/claude_sdk.py` sets the
 # session's `cwd` to `assignment.zone` — the host running `agent-sys`, in a
 # validation zone — and CONTRACT §5 says m2, m3 and m4 **exec into** the shared
 # container, which is a thing somebody has to do rather than a place they start.
@@ -249,7 +249,7 @@ require_visible_on_node "$ROOT" "workset" || exit 1
 # fitted parameter, not a measurement**, and it is corrected rather than deleted
 # because the correction is the useful part. I never echoed `$HOME` anywhere; I
 # picked the value that would explain the mount string I had. `HOME=/home` does
-# explain it — and `validator/environment.py:235` sets a validator's `HOME` to
+# explain it — and `validator/environment.py` sets a validator's `HOME` to
 # `<zone>/home`, under which this code would have taken the *refusal* branch
 # instead. **So the two do not reconcile and the real value is still unknown**:
 # either that denial came from a task body rather than the validator, or the

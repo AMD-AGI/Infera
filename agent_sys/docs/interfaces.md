@@ -3,9 +3,8 @@
 | | |
 |---|---|
 | Status | Stage four. **Normative for what crosses a module boundary**, and for nothing else |
-| Revision | 5 — 2026-08-28. **Written from implementation, which is the first time any of this was executed.** Eight packages were built in parallel against rev. 4 and reported back; every change below is a finding with both sides named, in the shape §1.1 asks for. Three `Imports` rows were provably wrong — `tests/interfaces/test_import_rules.py` enforces an `ALLOWED` table that had already diverged from §4, so **the test was the truth and the document was stale**. §3 gains `BaseSpecRegistry`, which two packages independently found missing from opposite ends. §4.7 gains the composition-root clause that §2 always needed. §5 gains three seams that only appeared once there was code. (rev. 4: 2026-08-28. **`monitor` gets a seam (§4.9) and a `protocols.py`.** It was registered in §2 by a name nothing defined — the same shape as finding C1, one day old. `budget` and `install_excepthook` join it, both named by `monitor` spec rev. 14 and neither having anywhere to live. `monitor` enters wave 1 rather than waiting on `agent`, which is what §4.9's locally-declared `Pushable` buys. (rev. 3: 2026-08-27. §5.1b, from the spec-key-to-runtime trace. (rev. 2: 2026-08-27. The user-interface brief: the composition root gains `monitor:<name>`, `agent` gains `mainloop()`, `validator` swaps its callable for a `Body`, and §5.1's `Handoff.type` blank closes — `Task.kinds` now carries it)) |
+| Revision | 5 |
 | Companion | `spec_loader/`, `handoff/`, `validator/`, `agent/`, `closure/`, `env_mgr/`, `monitor/` — each a `protocols.py` plus its `.pyi`, the same contract importable and type-checkable |
-| Produced by | The stage-three consistency pass. Findings in `scratch/design/findings-consistency.md` |
 
 ---
 
@@ -54,7 +53,7 @@ and this one is a prediction about eight of them at once.
 What is asked instead is narrow: **do not change a cross-module signature
 quietly.** A seam has two sides and only one of them is in front of you. Raise
 it, name both sides, and let it be changed in one place — which is how the
-fifteen contradictions in `findings-consistency.md` would each have been caught
+fifteen contradictions that pass turned up would each have been caught
 at the cost of one message instead of a whole design revision.
 
 Inside a module, nothing here binds you. Choose your own file split, your own
@@ -175,7 +174,7 @@ def build_registry(
 | `budget` | `Budget` | `monitor` | `agent.Runner`, at the completeness gate. One global value: nobody yet knows what a normal task costs, so a per-task limit would be authored out of numbers no one has |
 | `validator_executor` | `Executor` | `agent` | `validator.phase` resolves it for an agent-bodied validator. **Registered by nobody — added to this table rev. 5 so integration reads it rather than discovers it.** It is C1's third instance and the least bad one: `validator` raises naming the component and citing `agent` O6, so it fails loudly. Whoever closes O6 registers the name |
 | `scheduler` | `Scheduler` | `task_graph` | every `Task` transition, via `_registry` |
-| `agent_spec:subgraph` | a **name**, not a spec | `task_graph` | `AgentMgr.is_registered` at `Scheduler.submit`, and `instantiate` at dispatch. **Added by the UI stage, and it is a name nobody authored.** A non-leaf no longer carries an `agent` (main spec §4.8, leaf-only), but `submit` gates every task on the name resolving and `_dispatch_pass` writes `agent.id` into a required `Execution.agent_id` — so removing the field would have reached persistence, and `interfaces.md` §5.13 is already open on exactly that shape. `SUBGRAPH_AGENT_SPEC = "subgraph"` is registered unconditionally by `_bridge_agent_specs`, **before** the `agent_specs` loop, because a graph can be built with no agent specs admitted at all and a non-leaf in one still has to pass the gate. **No document is invented**: `AgentMgr`'s table is `dict[str, dict]` and the one reader that would need a real spec, `runner.agent_spec_of`, is unreachable for a non-leaf — `_main` releases and returns at `agent/runner.py:679-685`, before `_deploy`. An authored spec of the same name warns rather than colliding |
+| `agent_spec:subgraph` | a **name**, not a spec | `task_graph` | `AgentMgr.is_registered` at `Scheduler.submit`, and `instantiate` at dispatch. **Added by the UI stage, and it is a name nobody authored.** A non-leaf no longer carries an `agent` (main spec §4.8, leaf-only), but `submit` gates every task on the name resolving and `_dispatch_pass` writes `agent.id` into a required `Execution.agent_id` — so removing the field would have reached persistence, and `interfaces.md` §5.13 is already open on exactly that shape. `SUBGRAPH_AGENT_SPEC = "subgraph"` is registered unconditionally by `_bridge_agent_specs`, **before** the `agent_specs` loop, because a graph can be built with no agent specs admitted at all and a non-leaf in one still has to pass the gate. **No document is invented**: `AgentMgr`'s table is `dict[str, dict]` and the one reader that would need a real spec, `runner.agent_spec_of`, is unreachable for a non-leaf — `_main` releases and returns at `agent/runner.py`, before `_deploy`. An authored spec of the same name warns rather than colliding |
 
 **`env_mgr`, `phase_runner` and `monitor:<name>` are the three that were missing.**
 The first two were resolved by name and registered by nobody; the monitor arrived
@@ -248,7 +247,7 @@ is `demo` with a loop running.
 dispatched, whatever runner is installed* — **not** that the planned channel is
 exercised end to end, which no current configuration does.
 
-`task_graph/docs/design.md:480`'s *"Nothing in this module runs a monitor"* holds:
+`task_graph/docs/design.md`'s *"Nothing in this module runs a monitor"* holds:
 **calling one method is not running one**, and the implementation resolves
 `monitor_for` by name, so the scheduler learns neither the default-name rule nor
 the resolution.
@@ -636,7 +635,7 @@ not an import** — `test_import_rules.py`'s `ALLOWED` is unchanged and `validat
 still may not import `agent`.
 
 **Two facts a reader of that row needs.** The component registered as `runner` is
-**not one protocol**: `task_graph/bootstrap.py:101` registers the shipped
+**not one protocol**: `task_graph/bootstrap.py` registers the shipped
 `FakeRunner`, which has `start` and `stop` and no attempts, so the capability is
 checked rather than assumed. And **`TaskAttempt.environment` is `{}` until
 `_deploy`** — which for a **non-leaf** is forever, since the scheduler runs its
@@ -645,7 +644,7 @@ through to the global row. §8.2's row is *the configuration already resolved*,
 and a task that resolved none has not got one.
 
 **`consumer` stays unreachable, and in principle rather than for want of a
-field.** `env.prepare` has one call site, `agent/runner.py:668`, inside
+field.** `env.prepare` has one call site, `agent/runner.py`, inside
 `_deploy`, and `_one_phase` reaches `_main` only in `RUNNING` — so at
 `INPUT_VALIDATING` no `Prepared` exists. §8.2 calls that row *"the task about to
 run"*, and about-to-run is exactly before `prepare`.
@@ -678,7 +677,7 @@ handoff kind declaring one ran it in both phases of every task touching that
 kind. Two behaviours; the specs describe the first.
 
 **The fix is not "read the closure's list as well" — it is "ask `closures` for
-the set and stop deriving it here."** `closure/query.py:99` already computes the
+the set and stop deriving it here."** `closure/query.py` already computes the
 union and `closure` spec §217 states it: *"Every validator that will run, phase
 validators and per-handoff ones together."* Reading both lists here would make
 `validator` a second computer of something `closure` already computes —
@@ -758,10 +757,10 @@ and this paragraph is the fifth §4 row to have trailed a settled decision.**
 Measured rather than restated:
 
 ```
-agent/protocols.py:232   class TaskAttempt(Protocol)
-agent/protocols.py:281   class Runner(Protocol)
-agent/protocols.py:301       def attempt_of(task_id) -> TaskAttempt | None
-agent/protocols.py:309       def carry_on(task_id) -> str
+agent/protocols.py   class TaskAttempt(Protocol)
+agent/protocols.py   class Runner(Protocol)
+agent/protocols.py       def attempt_of(task_id) -> TaskAttempt | None
+agent/protocols.py       def carry_on(task_id) -> str
 ```
 
 They were owed and undeclared, and `monitor` reached the live handle as
@@ -953,7 +952,7 @@ to hide.
 keys have no consumer.** `agent` spec §3.1's `env` and `agent` design §3.4's
 `rules` / `hooks` / `skills` all name this module as the thing that reads them,
 and `prepare` had no parameter they could arrive through. That is exactly the
-mechanical check `materials/00-architecture.md` §7 describes — *a document says X
+mechanical check this file exists for — *a document says X
 consumes Y; check whether X's signature can accept Y* — and it failed. The
 default keeps every existing two-argument call working.
 
@@ -1022,26 +1021,33 @@ says internal means named in one. The alternative — a fourth id class in
 `task_graph` has undertaken not to change `_Id`'s shape or name without messaging
 `monitor` first.
 
-**423 tests are green and stay green.** Rev. 12 changes three things inside the
-package and each is small: `Grant.handoff: HandoffId` becomes `Grant.kind: str`,
-the cascade puts its reason in the report rather than on the task, and
-`resume_system` rebuilds `OrderedIdSet` pools. None is in shipped code — all
-three are rev. 11 material that was never implemented.
+**The suite stays green across these.** Three things changed inside the package
+and each is small: `Grant.handoff: HandoffId` became `Grant.kind: str`, the
+cascade puts its reason in the report rather than on the task, and
+`resume_system` rebuilds `OrderedIdSet` pools.
 
 **The scheduler never names a spec registry**, and `test_authority.py` enforces
 it. The narrower rule that actually holds: *the scheduler never reads a spec; a
 `Task` transition may read the catalogue it came from.* `unfold` and
 `replace_with` resolve `closures`, and that adds no scheduler edge.
 
-### 4.8 `demo`
+### 4.8 `cli`
 
 | | |
 |---|---|
-| **Exports** | nothing. **Nothing imports `demo`**, and a test greps every component package for the token to prove it |
-| **Imports** | all seven |
+| **Exports** | nothing. **Nothing may import `cli`**, and `tests/interfaces/test_import_rules.py::test_nothing_imports_the_cli` walks every component package's AST to prove it |
+| **Imports** | anything of ours. It is the composition root, so it is the one package with no restriction |
 | **Resolves** | via `build_registry` |
 
 `cli/build.py` holds `root_task`, `handoff_ids` and `wire` — §5.3.
+
+**The rule is keyed on the package name, so the name is itself checked.** This
+row said `demo` for as long as the package had been called `cli`, and the
+enforcement degraded silently rather than failing: the test intersects a file's
+imports with a set of our package names, that set held `demo`, no such package
+existed, so the intersection could never contain it and the assertion passed
+against every possible tree. `test_every_allowed_package_exists` is the cheap
+guard against the class — a rule whose subject does not exist checks nothing.
 
 ### 4.9 `monitor` — added rev. 4
 
@@ -1456,7 +1462,7 @@ Three instances in one afternoon, all *"the information exists"* mistaken for
 
 | | |
 |---|---|
-| non-fatal `Problem`s | computed by `check_closures`, filtered away by the composition root — `closure` criterion 6's reporting reached nobody after **three correct repairs on that path**. **A fourth landed and closed it** (`bootstrap.py:280`), and `closure` then did the thing the other three did not: measured *arrival* against the real `build_registry`, **with a negative control**, because a probe showing a pass deserves the same scepticism as one showing a failure. a probe, kept |
+| non-fatal `Problem`s | computed by `check_closures`, filtered away by the composition root — `closure` criterion 6's reporting reached nobody after **three correct repairs on that path**. **A fourth landed and closed it** (`bootstrap.py`), and `closure` then did the thing the other three did not: measured *arrival* against the real `build_registry`, **with a negative control**, because a probe showing a pass deserves the same scepticism as one showing a failure. a probe, kept |
 | `Execution.detail` | the runner held it, the field had a home, `on_task_done` took it — and the declared callback type could not carry it, so every failed task recorded `''` |
 | `demo`'s `_why_failed` | falls back to `Recorder.read` on every failure — a second reader of a fact that already has a home |
 
@@ -1472,7 +1478,7 @@ widened, because changing what G3 asserts changes what every package owes it.
 
 `interfaces.md` §4.7 does not name `OnDone`, by shape or by name, so the
 Protocol change needs nothing here. **The break was real and located** —
-`tests/agent/test_runner.py:226` and `:739`, `lambda *a:` → `lambda *a, **k:` —
+`tests/agent/test_runner.py` and `:739`, `lambda *a:` → `lambda *a, **k:` —
 and 1642 green says nothing else depended on the alias.
 
 **Found by a caller refusing a signature that would have worked.** `agent-mod`
@@ -1489,7 +1495,7 @@ declares.
 The conflict was read as *`monitor` §4.1.1 says the producer calls `put` from
 inside its zone; `env_mgr` §4.5 says an executor may not write outside its
 zones.* **Measured, the mechanism was already most of the way there:**
-`env_mgr/grants.py:96` resolves a kind-named grant to
+`env_mgr/grants.py` resolves a kind-named grant to
 `<store_root>/<hid>/v<N>/` — **a store path, not a zone path.** An agent holding
 a `WRITE` grant on its own output is already granted a location in the store.
 
@@ -1497,8 +1503,8 @@ a `WRITE` grant on its own output is already granted a location in the store.
 
 | | pinned when |
 |---|---|
-| **input** version | at **dispatch** — `Task.push_execution(agent_id, input_versions)`, `models.py:322` |
-| **output** version | at **close** — and *read*, not allocated: `scheduler.py:187` takes `handoff_mgr.latest(hid)` |
+| **input** version | at **dispatch** — `Task.push_execution(agent_id, input_versions)`, `models.py` |
+| **output** version | at **close** — and *read*, not allocated: `scheduler.py` takes `handoff_mgr.latest(hid)` |
 
 So `versions.get(hid)` is `None` during the attempt, `resolve` skips the slot,
 and `UnresolvedGrant` fires. **`put` was the thing that allocated the version**,
@@ -1550,7 +1556,7 @@ needs no reaper.** Disk hygiene does, and **has no owner**; named rather than
 absorbed.
 
 **The grant moves to `<store>/<hid>/v<N>/content/`.** Verified:
-`handoff/store.py:114` is `v<N>/{content/, validation.yaml, manifest.yaml}` and
+`handoff/store.py` is `v<N>/{content/, validation.yaml, manifest.yaml}` and
 `layout.handoff_version_dir` returns the `v<N>` level — so **a WRITE grant today
 reaches the manifest.** Harmless while `put` did the writing; **with the manifest
 as the seal, an agent could forge a seal.** Spec §3.3 says the digest is not a
@@ -1647,11 +1653,11 @@ anyone is waiting on. Ordered by who is blocked.
 
 **`done_by_self_check` is CLOSED, and the entry above was wrong about why.**
 It claimed *"no manifest exists when the gate runs"*. **Measured,
-`agent/gate.py:90` does `store.get_manifest(hid, version)`** — the gate runs
+`agent/gate.py` does `store.get_manifest(hid, version)`** — the gate runs
 against the **store**, so a manifest is exactly what it has. The claim came from
 relaying a README rather than reading the call path.
 
-**It is a `handoff` schema field on the `Manifest`**, and `gate.py:101` is
+**It is a `handoff` schema field on the `Manifest`**, and `gate.py` is
 already written for it — deliberately tolerant of absence (*"absent means
 `handoff` has not landed the field; only present-and-false is a failure"*), so
 **it activates the day `handoff` lands it, with no change to `agent`.** It is
@@ -1708,7 +1714,7 @@ broadcast to the document and not to a person**, and one field fixes that.
 
 ### 5.1 ~~Who fills `Handoff.type`~~ — closed
 
-**Closed 2026-08-27.** `Task` gains `kinds: dict[HandoffId, str]`
+**Closed.** `Task` gains `kinds: dict[HandoffId, str]`
 (`task_graph` spec §3.2.6) and `submit` passes it to
 `declare(..., types=...)`, which has taken the argument since spec rev. 4 and
 which **nothing had ever passed**, because `Task` had no field to pass.
@@ -1787,7 +1793,7 @@ on every run.
 
 ### 5.4 ~~Which reference kinds "who uses this" enumerates~~ — **closed**
 
-**Closed 2026-08-28 — by giving the enumeration one owner, not by deleting a
+**Closed — by giving the enumeration one owner, not by deleting a
 query.** `users_of` now spans **every** edge kind, because `check_closures` feeds
 `bind_phase`. So there is no union at the composition root for a fourth kind to
 break, which is what this section was open about.
@@ -1962,8 +1968,7 @@ join that is missing, not the caller.
 
 ### 5.20 A non-leaf may declare an output no entry can produce — **`task_graph`'s, and it has no check**
 
-**Found by `validator` while fixing §5.12's runtime half, on
-`scratch/demo2-2026-08/depth2`.** `models.py::_instantiate` wires a parent's
+**Found by `validator` while fixing §5.12's runtime half, on a two-deep graph.** `models.py::_instantiate` wires a parent's
 outputs to its subgraph through **the end entry alone**:
 
 ```python
@@ -2035,7 +2040,7 @@ the misreading criterion 10 exists to prevent. Three honest routes, none chosen:
 | a sentinel for "no agent ran" | explicit, and every reader must know it |
 | the system accepts that programmatic validators are unattributed | and the schema says so |
 
-**Closed 2026-08-28: `Verdict.agent_id` is `AgentId | None`** — route (a), and
+**Closed: `Verdict.agent_id` is `AgentId | None`** — route (a), and
 the two rejected routes are worth keeping.
 
 **A sentinel is strictly worse than `None`.** An `AgentId` is a UUID, so a reader
@@ -2195,12 +2200,12 @@ close it. **The output is written into the zone and published from there.**
 set by `close_execution`, at the *end* of an attempt. For the scheduler to put a
 number there at dispatch it would have to decide which version the run will
 write — and allocating one is `Handoff.open_next`'s, called by the agent.
-`tests/task_graph/test_authority.py:235` **fails if a scheduler frame reaches
+`tests/task_graph/test_authority.py` **fails if a scheduler frame reaches
 `open_next` or `seal`**, and `scheduler.py` never mentions it. So any answer that
 resolves an output grant from the `Execution` asks `task_graph` to break its own
 authority boundary.
 
-**2. The runner cannot publish.** `agent/gate.py:73,81` calls `store.exists` and
+**2. The runner cannot publish.** `agent/gate.py` calls `store.exists` and
 `store.list_versions` — **the gate reads the store, not the zone.** Publish after
 it and the gate finds nothing (`OUTPUT_ABSENT` for every task, which is what
 `demo` observes). Publish before it and **the gate is checking its own
@@ -2347,7 +2352,7 @@ decision rather than a mechanical one:
 
 #### The gate reads the store, which rules out the second shape
 
-Measured — `agent/gate.py:73,81`:
+Measured — `agent/gate.py`:
 
 ```python
 if not store.exists(hid): ...          # OUTPUT_ABSENT
@@ -2385,9 +2390,9 @@ task's argv alike.
 **It is not closed, and the distinction matters here more than anywhere:**
 
 ```
-env_mgr/protocols.py:277   def spawn(argv, **popen_kwargs)     declared
-env_mgr/prepare.py:79      def spawn(...) -> subprocess.Popen  built
-agent/runner.py:789        "...prepared.spawn(argv, **kw) applies"   a comment
+env_mgr/protocols.py   def spawn(argv, **popen_kwargs)     declared
+env_mgr/prepare.py      def spawn(...) -> subprocess.Popen  built
+agent/runner.py        "...prepared.spawn(argv, **kw) applies"   a comment
 ```
 
 **`agent` has not called it.** Until it does, `spawn` is **§4.12's own shape — a
@@ -2608,7 +2613,7 @@ what §3 and §4 are for.
 
 ## 7. The dependency declaration
 
-**Landed 2026-08-28** — `handoff` owns the block and all eight entries are in
+**Landed** — `handoff` owns the block and all eight entries are in
 `agent_sys/pyproject.toml`, plus `[tool.setuptools.package-data]` from
 `spec_loader` so the five schemas actually ship. What follows is the measurement
 that produced it. `agent_sys/pyproject.toml` declared three
@@ -2732,7 +2737,7 @@ not: `from spec_loader.protocols import Body` satisfies §4.3 unchanged and leav
 one declaration — probed against both interface tests rather than reasoned, since
 an import is not a `ClassDef` and the stub comparison sees it in neither file.
 
-Five instances, all found on 2026-08-28:
+Five instances, all of one shape:
 
 | One fact | Two writers | Forced by | Guard |
 |---|---|---|---|
@@ -2813,7 +2818,7 @@ of respect for the rule.
 > sides, only one of which the sender can see.
 
 **Every stale item this week was true when it was written.** `handoff`'s
-accessor name was one commit old when quoted; `task_graph`'s `models.py:435`
+accessor name was one commit old when quoted; `task_graph`'s `models.py`
 was three; three of §2.6's spellings were wrong by the time the implementer read
 them, and that section was written by the person ruling on it.
 
@@ -2891,8 +2896,8 @@ you edit, including when the instruction came from the lead.**
 
 **`spec-loader`'s README points here and at `closure` for whether the move
 stands. It stands.** Measured, not summarised: `task_of` is declared in
-`spec_loader/access.py:81`, `closure/model.py:35` imports and re-exports it, and
-`closure/check.py:337` calls it. Neither package declares a second copy.
+`spec_loader/access.py`, `closure/model.py` imports and re-exports it, and
+`closure/check.py` calls it. Neither package declares a second copy.
 
 It went **over `closure`'s objection**, and the objection is recorded in
 `closure/model.py` rather than dropped, which is the right disposal of a losing
@@ -3165,7 +3170,7 @@ accepts a document the gate rejects.
 every file in the tree. The writer-side one costs the writer nothing.**
 
 **And the reader-side defence does not cover the worst case, measured
-2026-08-29.** `main` read `cli/environment.py`, saw `uuid.uuid4()` with no
+**A run id that is regenerated per process.** `main` read `cli/environment.py`, saw `uuid.uuid4()` with no
 `import uuid`, and was composing the defect report when a re-read showed the
 author had added the import a minute earlier. **`git log -1 -- <path>` would not
 have helped**: the edit was uncommitted *and still in progress*, so the last
@@ -3298,7 +3303,7 @@ That is *candidates, not verdicts* arriving **in their own tooling, within the
 hour of their saying it about `closure`'s tell.**
 
 **All eleven of theirs pass, and they named the weakest rather than counting it
-equal:** spec §5.2's `findings-monitor-loop.md`, cited with **no number at all**,
+equal:** spec §5.2's citation, given with **no number at all**,
 passes on the stronger reading because **the artefact there is a structure and
 the structure is the next sixty lines** — all five rules, in full, in the
 document. **Nothing has to be fetched to check the claim**, which is the
@@ -3449,8 +3454,8 @@ reverted. **The accessor is correct, needed, and unreachable from its only
 cross-package caller.**
 
 **Ruled: it goes to `spec_loader`, under a name that is not `agent_of`** —
-verified, `validator/spec.py:208` returns `str | None` over a validator spec and
-`closure/model.py:107` returns `str` over a `ClosureDoc`, **both take a mapping
+verified, `validator/spec.py` returns `str | None` over a validator spec and
+`closure/model.py` returns `str` over a `ClosureDoc`, **both take a mapping
 and neither raises on the wrong document.** Two of that name in the leaf puts the
 collision **where nobody can alias around it.** `subgraph_of`'s precedent: **the
 leaf owns that the key exists, the owner owns what it means.**
@@ -3512,7 +3517,7 @@ me and `env_mgr` that §8.2's `consumer` and `producer` rows were **one question
 first-hand against `agent/runner.py`, it is wrong:
 
 ```
-env.prepare       exactly one call site, runner.py:668, from _deploy
+env.prepare       exactly one call site, runner.py, from _deploy
 _deploy           reached from _main, 604/587
 _one_phase        reaches _main only in RUNNING, 466-471
 _validation(INPUT_PHASE)  runs at INPUT_VALIDATING — strictly before that
@@ -3534,12 +3539,12 @@ none of them stated: **an aside is unverified because it is not doing the work;
 a simplification is unverified because it appears to be doing less work.**
 
 `env_mgr` produced the day's fourth in the same exchange — *"`Runner.attempt_of`
-is declared and unbuilt"*. **It is built** (`runner.py:163`, declared at
-`protocols.py:313`). Their conclusion survived it; the aside did not.
+is declared and unbuilt"*. **It is built** (`runner.py`, declared at
+`protocols.py`). Their conclusion survived it; the aside did not.
 
 **I produced the fourth within the hour, in a ruling.** Ruling the `minLength: 1`
 clause into `tests/interfaces/`, I wrote *"nothing asserts this one"* — **it was
-asserted**, at `tests/spec_loader/test_access.py:209`. My grep was
+asserted**, at `tests/spec_loader/test_access.py`. My grep was
 `grep -rn minLength tests/ | head -3`, and **I concluded from a truncated
 output.** An aside inside a ruling, which is the worst carrier for one, since a
 ruling is the thing nobody re-derives.
@@ -3772,7 +3777,7 @@ TaskStatus.OUTPUT_VALIDATING.name    'OUTPUT_VALIDATING'   → True
 ```
 
 `PHASE_ORDER` is **name-keyed**, and `monitor`'s own `next_phase` proves it —
-`base.py:80` is `PHASE_ORDER.index(status.name)`. **With `.value` their
+`base.py` is `PHASE_ORDER.index(status.name)`. **With `.value` their
 `finished == PHASE_ORDER[-1]` is dead: the terminal phase stays an advance, the
 `HANDLING_FAILED` still lands on every success, and the fix looks applied.**
 
@@ -3846,7 +3851,7 @@ non-vacuity by reinstating the `except` and watching it go red.
 
 **A correction I recorded wrongly, withdrawn by its author against himself.**
 I wrote here that `handoff` *"inferred the red rather than running it."* **They
-ran it** — `1 failed, 173 passed` at `test_runner.py:488`, **inside the
+ran it** — `1 failed, 173 passed` at `test_runner.py`, **inside the
 two-minute window** between `fd31a6c` (06:58) and `0e6bf7e` (07:00).
 
 **`agent` saw green afterwards, inferred backwards about how the other party had
@@ -3883,7 +3888,7 @@ doubles-conformance test written that morning, against the previous instance of
 this exact class, did not catch this one.** A guard is not proven by the case it
 was written for.
 
-**Already closed by the time it was reported** — `conftest.py:282` is now
+**Already closed by the time it was reported** — `conftest.py` is now
 `-> str | None`, and its docstring records that the method *"was missing when the
 runner started calling it"*, which is §4.20's first layer.
 
@@ -4128,7 +4133,7 @@ where the fault is absent — so the set that is easy to enumerate and the set t
 claim is about coincide **today**, and diverge on the day the guard matters.
 
 **The defence is cheap and already existed in this repository**, at
-`tests/env_mgr/test_imports.py:225`:
+`tests/env_mgr/test_imports.py`:
 
 ```python
 cited = set(re.findall(r"`(test_\w+)`", readme))
@@ -4227,7 +4232,7 @@ From here, say what was verified and when, or verify the staged state.
 
 **§8.7a's writer-side rule has a reader-side twin, and nobody had written it
 down.** `handoff` told `task_graph` *"nothing calls `allocate` yet"*, citing
-`scheduler.py:187-192`.
+`scheduler.py`.
 
 > **That was a read of `HEAD`, not of the working tree** — the wiring was sitting
 > uncommitted in front of them.
@@ -4305,7 +4310,7 @@ a string is now a contract.
 The symptom:
 
 ```
-KeyError: 'AGENT_SYS_DEMO_STORE'   in store_root(), examples/ok.filetree_grounded_report.4/logic/store.py:53
+KeyError: 'AGENT_SYS_DEMO_STORE'   in store_root(), examples/ok.filetree_grounded_report.4/logic/store.py
 ```
 
 The cause: `validator` writes `materials.json` as a **JSON object**, `hid -> staged
@@ -4416,7 +4421,7 @@ if prepared.confinement is None:
 **The inference is correct, and it is correct because of `env_mgr`:**
 
 ```python
-env_mgr/prepare.py:465-467
+env_mgr/prepare.py
     conf = None
     if enforcing:
         conf = _apply.confinement_for(select(av), av.landlock_abi)   # select RAISES
@@ -4427,7 +4432,7 @@ env_mgr/prepare.py:465-467
 cannot be produced. **Today.**
 
 **What it costs if the invariant moves is not small.** `_apply_confinement`'s early
-return means the executor never receives `spawn`, and `backends/program.py:109` is
+return means the executor never receives `spawn`, and `backends/program.py` is
 `start = self._spawn or subprocess.Popen` — **a `ProgramExecutor` that never receives
 `spawn` runs with the operator's privileges.** A one-line change in `env_mgr` —
 returning `None` where it now raises, or a fourth reason for an absent confinement —
@@ -4458,7 +4463,7 @@ neither, is invisible to both suites and to any reviewer of either side.**
 
 ### 4.25 An `Any` the implementation could have named is a defect, not a convention
 
-**Ruled as a class 2026-08-29**, after the same shape was ruled twice as instances
+**Ruled as a class**, after the same shape was ruled twice as instances
 and a third arrived:
 
 > **An `Any` on a cross-module surface that the implementation *could* name is a
@@ -4469,7 +4474,7 @@ and a third arrived:
 
 | | |
 |---|---|
-| `Prepared.confinement` | `Confinement` was importable at `prepare.py:41` — **never an exemption case at all** |
+| `Prepared.confinement` | `Confinement` was importable at `prepare.py` — **never an exemption case at all** |
 | `Prepared.zone` | one intra-package import away |
 | `EnvManager.place_zone -> Any` | same, in a **return** annotation, so outside the field ruling's words *and* outside the test it produced |
 | `Prepared.output_paths` | **genuinely forced** — naming `HandoffId` means importing `task_graph`; the seam is one-way |
@@ -4527,7 +4532,7 @@ argument for removing the default is better than the rule that found it:
 
 > **A convenience that makes the refused state the default state is not one.**
 
-Eighty lines from `protocols.py:66`'s *"`UnresolvedGrant` is raised rather than
+Eighty lines from `protocols.py`'s *"`UnresolvedGrant` is raised rather than
 resolving to an empty granted set"*, the module whose central rule is that an empty
 granted set must be **loud** had made *grant nothing* the easiest thing to write.
 
@@ -4579,15 +4584,15 @@ exemption list, which covers **fields**, to the module, which is mostly
 **`protocols.Prepared.confinement: Confinement` → `Confinement | None`, `5e9e063`.**
 
 `None` was not an edge case: it is **the declared way to say unconfined**, branched on
-in four places across three packages — `prepare.spawn`, `agent/runner.py:749` and
+in four places across three packages — `prepare.spawn`, `agent/runner.py` and
 `:1343`, and `demo`, which verified it as *"a supported value on a declared field"*
-before building the §4.17a banner on it. `runner.py:749`'s comment exists **because**
+before building the §4.17a banner on it. `runner.py`'s comment exists **because**
 a `getattr` default would answer *"no confinement"* to a missing field. **The
 declaration forbade the value whose careful handling is the reason that comment was
 written.**
 
 **And the declaration documented the value its own type forbade** — nine lines above
-the annotation, `protocols.py:329`: *"`confinement is None` would otherwise mean
+the annotation, `protocols.py`: *"`confinement is None` would otherwise mean
 unconfined for two different reasons…"* §8.7d again, in its worst placement: **two
 contradictory statements nine lines apart in one file**, with no boundary to cross in
 order to miss it, and **the prose is the more convincing of the two.**
@@ -4670,7 +4675,7 @@ nobody had allowed for.
 
 ### 4.23 A deliberate loudness, silenced twice by tolerant readers
 
-**`task_graph/bootstrap.py:211` arranges for a loud failure, in a comment that
+**`task_graph/bootstrap.py` arranges for a loud failure, in a comment that
 states the reasoning:**
 
 > A root that was not supplied leaves the name unregistered: an artefact store
@@ -4681,8 +4686,8 @@ states the reasoning:**
 
 | | |
 |---|---|
-| `scheduler.py:355` | `if "handoff_store" not in self._r: return {}` — *"an absent `handoff_store` pins nothing, and is a supported mode rather than a guard"* |
-| `agent/runner.py:1046` | `store = runner.component("handoff_store"); if store is None: return {}` |
+| `scheduler.py` | `if "handoff_store" not in self._r: return {}` — *"an absent `handoff_store` pins nothing, and is a supported mode rather than a guard"* |
+| `agent/runner.py` | `store = runner.component("handoff_store"); if store is None: return {}` |
 
 Each is locally justified. `tests/task_graph` runs entirely without a store, so the
 storeless mode is real and neither reader can raise. **But at the point of
@@ -4735,7 +4740,7 @@ so in the record, not in a log.
 
 ### 4.22 The permission kill switch — one reader, and it must be loud
 
-**Ruled by the user 2026-08-29**, to get an end-to-end run today:
+**Ruled by the user**, to get an end-to-end run today:
 
 > 所有权限管理追加一键关闭开关，本次调通 demo 把权限管理模块关了。不进行任何权限管理。
 
@@ -4789,7 +4794,7 @@ replaced, or joined by a second one. It defaulted to `True`, so a hand-built
 `Prepared` claimed the ordinary case — **the failing-open default would have been
 `False`.**
 
-> **Superseded 2026-08-30 — the field now defaults to `False`.** The paragraph
+> **Superseded — the field now defaults to `False`.** The paragraph
 > above is kept because its *rule* survives and only its answer moved: the default
 > claims **the ordinary case**, and the ordinary case is now unenforced. See
 > §4.22f. The rest of this section is unchanged and still describes the built
@@ -4823,7 +4828,7 @@ variable**, which is this module's own symptom-names-the-wrong-cause defect poin
 at its own suite. *A run whose result changes with the reviewer's dotfiles is not
 reproducible, and a suite is a run.*
 
-#### 4.22f The default is now OFF — a user ruling, 2026-08-30
+#### 4.22f The default is now OFF — a user ruling
 
 **Ruled by the user, verbatim:**
 
@@ -4877,7 +4882,7 @@ direction that silently breaks the agent, while `claude_sdk.py`'s
 | `closure/check.py`'s *every kind needs a covering grant* | a **spec-load** gate, never read by `prepare`. Out of the ruling's scope (权限系统 = runtime enforcement) |
 | `isolation/policy.anchor_zone_root` | the CVE-2025-59532-class cwd guard, independent of the flag and always on |
 | every `pytest.raises` denial assertion | kept. A test asserting a denial now **states its mode** — `tests/env_mgr/conftest.py` pins `=0` for that directory, and `test_the_harness_layer_stays_on_while_we_enforce` names it inline |
-| `PERMISSIONS_DISABLED` (§4.17a, `cli/main.py:359`) | unchanged, and now fires on an ordinary run. That is the point: the loud banner is what keeps the new default from being silent |
+| `PERMISSIONS_DISABLED` (§4.17a, `cli/main.py`) | unchanged, and now fires on an ordinary run. That is the point: the loud banner is what keeps the new default from being silent |
 
 **The pair that proves it is a default and not a removal**, because a green suite
 proves neither on its own: `test_unset_leaves_it_off` (the default) against
@@ -4924,9 +4929,9 @@ wrong wall; `agent`'s stderr capture, landing between two runs, is what caught i
 criterion.** `04a5b76`:
 
 ```
-protocols.py:78   SUBGRAPH_DONE = "subgraph_done"        declared
-base.py:602                                              consumed
-base.py:682   rekeyed(record, parent.id, SUBGRAPH_DONE)  re-emitted
+protocols.py   SUBGRAPH_DONE = "subgraph_done"        declared
+base.py                                              consumed
+base.py   rekeyed(record, parent.id, SUBGRAPH_DONE)  re-emitted
 ```
 
 **`:682` only forwards one it already received. Nothing anywhere created the
@@ -4954,7 +4959,7 @@ after.** Its author ran it to completion over all fifteen kinds rather than stop
 at the one that bit, and found the trap in their own method:
 
 ```
-monitor/base.py:724   rekeyed(record, parent.id, EventKind.SUBGRAPH_DONE)
+monitor/base.py   rekeyed(record, parent.id, EventKind.SUBGRAPH_DONE)
 ```
 
 **A re-emission is a write.** Classify hits as read-or-write and ask *does a write
@@ -4977,7 +4982,7 @@ has no case for it, which is the same standing as `decide` being replaceable at 
 The discriminator applied was the right one — *does anything require it now?*
 Criterion 24 required `SUBGRAPH_DONE`'s producer and its absence broke the running
 system; and `_to_user` was checked to be reachable by another route
-(`base.py:793`), so the capability `demo` depends on has a live path.
+(`base.py`), so the capability `demo` depends on has a live path.
 
 **The companion rule, and it is the general one:**
 
@@ -5034,7 +5039,7 @@ case the ruling named is pinned** — a task that produced nothing still reports
 `OUTPUT_ABSENT`, carrying the store's own words, *"produced no content at all."*
 
 **One thing stronger than the ruling assumed:** **no production code called the
-store's `seal` at all.** The only non-test `.seal(` was `task_graph/runner.py:101`
+store's `seal` at all.** The only non-test `.seal(` was `task_graph/runner.py`
 — `HandoffVersion.seal`, **a different verb on a different object.**
 
 **And one dependency flagged rather than assumed:** `Execution.output_versions`
@@ -5045,7 +5050,7 @@ re-pinned mid-attempt, the seal would target the wrong directory silently.**
 
 **This entry described the shape weeks before we did it.**
 
-§4.14 moved publication from close to `_seal_outputs` (`agent/runner.py:636`), which
+§4.14 moved publication from close to `_seal_outputs` (`agent/runner.py`), which
 is **before the gate and well before `OUTPUT_VALIDATING`**. So `demo`'s
 `_summary_was_published` — *does a summary version exist in the store?* — **flips true
 at a moment the validator provably has not run.** It was defensible when `put`
@@ -5100,7 +5105,7 @@ closed by a clean sweep of one of them.
 having written the discriminator down.
 
 **And the general form of the correct predicate arrived twice from opposite ends of
-one afternoon.** `agent/runner.py:945` seals a slot `VALID` only on
+one afternoon.** `agent/runner.py` seals a slot `VALID` only on
 `passed and hid in self._store_sealed` — **positive evidence that this attempt
 published** — after measuring a slot sealed `VALID` for an attempt that published
 nothing. Same rule as the predicate given to `demo`: **require positive evidence, not
@@ -5188,7 +5193,7 @@ criterion 5 — refused versus never attempted, which **only the producer can
 distinguish**.* §4.14 preserved it by keeping the producer writing from inside.
 
 **The store distinguishes them, and already does.** Verified at
-`handoff/store.py:381-392` — `seal` runs the admission checks rather than
+`handoff/store.py` — `seal` runs the admission checks rather than
 blessing whatever bytes are present, and **an empty grant directory is checked
 before its contents**, so the two cases fail at *different* checks:
 
@@ -5326,7 +5331,7 @@ that does not exist:
 
 | | |
 |---|---|
-| non-optional | `FileNotFoundError` — **every output-producing dispatch dies in `prepare`** (`landlock.py:198` opens every granted path; `Granted.optional` defaults `False`) |
+| non-optional | `FileNotFoundError` — **every output-producing dispatch dies in `prepare`** (`landlock.py` opens every granted path; `Granted.optional` defaults `False`) |
 | optional | the rule is dropped **silently** |
 
 **And the agent cannot create it either** — `mkdir` inside `v<N>/` needs write on
@@ -5708,7 +5713,7 @@ structural, not luck:**
 
 Their trace (no coverage module here; `sys.settrace` over seven candidate
 branches, probe kept) found six taken 33–92 times and **one never**:
-`content.py:241`'s `except (TypeError, AttributeError)`. Driving it showed the
+`content.py`'s `except (TypeError, AttributeError)`. Driving it showed the
 guard **caught the wrong exceptions**: `"notaschema"` — **main design §3.5's own
 worked example** — makes `dict()` raise `ValueError`, uncaught, escaping every
 caller catching `Malformed`; and `[("a", 1)]` makes `dict()` **succeed**, a list
@@ -5821,7 +5826,7 @@ wrong and they measured it rather than agreeing with me.** And
 spend path had no test at all. *A correct path in the state where it stops being
 correct.*
 
-`monitor`'s is the fourth: `base.py:196` reads `getattr(args.thread, "task_id",
+`monitor`'s is the fourth: `base.py` reads `getattr(args.thread, "task_id",
 NO_TASK)` and **nothing in production sets it** — the only assignment anywhere is
 in their own test. **Every thread death in a real run records `NO_TASK`**, and
 criterion 25's attribution half is dead. Not a false shape: `Thread` genuinely

@@ -698,7 +698,7 @@ def _impl_read_problem(report: Path, handed: Path) -> str | None:
     that keeps the promise.
 
     `impl_path` cannot do this job and it is the reason this is not already
-    covered: it is `args.impl` copied at parse time (`_common.py:257`), an echo
+    covered: it is `args.impl` copied at parse time (`_common.py`), an echo
     of the request that reads identically whether the file was exec'd, imported,
     shadowed by another copy of the same module name, or never opened.
 
@@ -769,7 +769,7 @@ def _remeasure(
 
     # `scratch_dir` is an argument and `TMPDIR` only the fallback. A validation
     # zone forces `TMPDIR` to `<zone>/tmp` and treats that as an invariant of
-    # the zone (`validator/environment.py:233,86`), so the producer's `env`
+    # the zone (`validator/environment.py`), so the producer's `env`
     # cannot reach it. The zone sits under `--demo-root`; with a run root on
     # this cluster's NFS every ROCm kernel launch segfaults, and it does so
     # *after* the copies and the first round, so the run is lost at its most
@@ -802,7 +802,7 @@ def _remeasure(
     #
     # **(1) goes in the zone, which is m3's answer to the same seam** and is
     # load-bearing for the same reason they give in
-    # `check_workset_runs.validator/check.py:325-332`: the zone is on the shared
+    # `check_workset_runs.validator/check.py`: the zone is on the shared
     # filesystem, so a path here resolves identically on the node and inside the
     # container, and it is disposable with the zone. Their re-measurement passed
     # at rung 0 today with the tree staged exactly this way — *recorded 0.0415,

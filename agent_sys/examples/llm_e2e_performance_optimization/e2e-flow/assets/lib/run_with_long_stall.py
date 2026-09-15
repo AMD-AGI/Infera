@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Launch `agent-sys run` with a stall threshold a real stage can survive.
 
-**Why this exists.** `agent_sys/cli/main.py:911` defaults `stall_after` to
-**20 seconds**, and `main.py:1015` ends the run when
+**Why this exists.** `agent_sys/cli/main.py` defaults `stall_after` to
+**20 seconds**, and `main.py` ends the run when
 
     (not holding or blocked) and now - last_change > stall_after
 
@@ -14,11 +14,11 @@ My first version of this docstring said `holding` counts only an attempt
                                   and not _awaiting_a_decision(t, registry)]
 
 `_is_running` **and** not parked on an escalation. "Mid-model-call" is the
-comment's illustration at `main.py:980`, not the predicate — I inferred the code
+comment's illustration at `main.py`, not the predicate — I inferred the code
 from the prose, which is the class this package has spent a day cataloguing.
 
 So a long program stage **does** hold, and a quiet productive window is
-explicitly survivable: `main.py:890` — *"the deadline is the only exit for a run
+explicitly survivable: `main.py` — *"the deadline is the only exit for a run
 that is working, because `holding`…"* — and the comment above the condition says
 a healthy run without such an escalation is untouched.
 
@@ -76,7 +76,7 @@ Usage — identical to `python3 -m agent_sys.cli.main`, plus one flag:
 
     python3 assets/lib/run_with_long_stall.py --stall-after 900 run --package … --var …
 
-**Verified before use** (2026-09-04): `_settle` is called at `main.py:405` with
+**Verified before use** (2026-09-04): `_settle` is called at `main.py` with
 only `timeout=`, so `stall_after` genuinely comes from the default; and
 `__kwdefaults__` is externally mutable with the change visible to that caller.
 Both checked by measurement, not by reading.

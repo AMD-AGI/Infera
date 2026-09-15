@@ -2,11 +2,10 @@
 
 | | |
 |---|---|
-| Status | Draft |
-| Revision | **14** — 2026-08-28. The monitor becomes the task's event loop: two channels, one planned and one not. **Full history: §12** |
-| Date | 2026-08-28 |
+| Status | Normative |
+| Revision | 14 |
 | Scope | Every event in a task's life that is not the task's own work: the planned phase advances, every unplanned outcome, who reports each, the loop that handles both, the escalation chain, and where it is recorded |
-| Source | `image.how.to.usedb.yuser.md` §2.4; [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md) §2; `task_graph` spec §3.5 and design §8.9; the user's answers of 2026-08-27 |
+| Source | `image.how.to.usedb.yuser.md` §2.4; [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md) §2; `task_graph` spec §3.5 and design §8.9; the user's answers of |
 | Part of | [`../../docs/spec.md`](../../docs/spec.md) — the whole-system specification |
 
 ---
@@ -166,7 +165,7 @@ the duration of a call and holding nothing between calls.
 reason this module can be specified without reopening the scheduler's authority
 model.
 
-**3. A monitor is not a task.** Decided 2026-08-27. It has no zone, no lease, no
+**3. A monitor is not a task.** Decided. It has no zone, no lease, no
 agent spec of the task kind, and it does not appear in the graph. The gap between
 a monitor and the task model is too wide to be worth closing — a task is a
 function `<handoffs, agent>` with inputs, outputs and validators, and a monitor
@@ -178,7 +177,7 @@ A monitor that dies takes its watch with it, and the alpha accepts that.
 **4. It receives; it does not hunt.** The stall is reported to the monitor by the
 component that is already standing where the failure is visible (§4.1). A design
 in which the monitor discovers everything by polling was the starting assumption
-(`image.how.to.usedb.yuser.md` §2.4.3.1) and is not what this spec adopts —
+ and is not what this spec adopts —
 polling remains available for the case §4.3 records as uncovered.
 
 **5. An event is recorded, not only acted on.** A push that did not work is
@@ -421,7 +420,7 @@ the gate cycles forever; with it, the cycle has an exit that is a *decision* —
 monitor's — rather than a hard-coded retry count buried in the runner.
 
 **In the alpha the thresholds are one global setting.** Not per task, not per
-agent spec. Decided 2026-08-27, and it is the right first move for a reason worth
+agent spec. Decided, and it is the right first move for a reason worth
 recording: **nobody yet knows what a normal task costs.** A per-task limit would
 have to be authored per task, out of numbers no one has, and would mostly be
 copied from a default — which is a global setting with extra steps and a worse
@@ -433,7 +432,7 @@ a cost distribution; §11 keeps that.
 
 ### 4.2 The agent's status while an exception is open
 
-**Decided 2026-08-27: the alpha keeps `running`, and `fixing` goes to the
+**Decided: the alpha keeps `running`, and `fixing` goes to the
 roadmap.** `AgentStatus` is unchanged — `pending → deploying → running →
 {finished | failed | interrupted}` — so no backend adapter and no superset rule
 (`task_graph` spec §3.2.1) has to learn a new state. The condition is legible from
@@ -538,7 +537,7 @@ travels through this call is a phase finishing normally, and a record type calle
 `Exception` would make every ordinary advance read as a fault. §8 keeps the
 vocabulary; only the noun changed.
 
-**One call, not two, and the persistence is synchronous.** Decided 2026-08-27.
+**One call, not two, and the persistence is synchronous.** Decided.
 Rule 3 requires the record durable before the buffer sees it; making that one
 call's internal ordering means the rule holds **structurally** rather than by the
 caller remembering to do two things in order. A caller that forgets the first of
@@ -565,7 +564,7 @@ thing recorded is a **record**.
 **The asynchrony is sound, under five rules.** Each is a requirement, not an
 implementation: the design chooses the structure, the spec fixes what must hold.
 Kubernetes' `client-go` workqueue is the prior art and the source of the shape
-(`scratch/design/findings-monitor-loop.md`).
+.
 
 **Which rule governs which queue**, since rev. 14 there are two:
 
@@ -690,8 +689,7 @@ to the whole system.
 **Two mechanisms, both small, both alpha scope.**
 
 **1. An uncaught exception must reach a human.** It does not by default, and this
-is measured rather than assumed (`scratch/design/probes-monitor/p4_thread_death.py`,
-re-run on 3.13.13): a `threading.Thread` whose target raises prints a traceback to
+is measured rather than assumed (re-run on 3.13.13): a `threading.Thread` whose target raises prints a traceback to
 stderr and dies; **the process keeps running, the exit code does not change, and
 producers see no error** — further reports are accepted and queue up behind a
 consumer that no longer exists.
@@ -711,7 +709,7 @@ and which is chosen here for the same reason: one slow round is not a death.
 
 **The checker must be trivial enough that nothing needs to watch it.** That is
 the answer every surveyed supervision system gives to this question in one form or
-another (`scratch/design/findings-arch-super.md`): s6 makes its top-level
+another: s6 makes its top-level
 supervisor unable to fail — no heap allocation, under 500 lines, a full
 deterministic automaton — while systemd hands the same problem to a hardware
 watchdog and Ray hands it outward to KubeRay. **Comparing a timestamp is at the
@@ -746,7 +744,7 @@ record store — **never in a task's zone.** The claim here is precise and shoul
 stay that way: the monitor needs no reach into any *task's* environment.
 
 **A monitor must not enter a task's sandbox**, and there are four independent
-reasons, each probed (`scratch/design/findings-monitor-sandbox.md`, M2–M8):
+reasons, each probed:
 
 | | |
 |---|---|
@@ -815,7 +813,7 @@ A `ResultMessage` ends a **turn**, not the session and not the process: the SDK'
 client is connected, and a string prompt is one JSON line written to a live stdin
 (claude-agent-sdk 0.2.145, `client.py`). A live probe pushed a returned agent and
 got an answer on the **same session id, in the same process, in ~2 s**
-(`scratch/design/findings-monitor-push.md` §1–2).
+.
 
 **The agent-directed actions are ordered by cost, and the order is
 load-bearing:**
@@ -1033,7 +1031,7 @@ creating a two-writer problem rather than a record. The design says which it is.
 
 Stated as its own section because the recurring defect of this stage has been a
 document declaring that X consumes Y when X's signature cannot receive Y. These
-are the routes this spec depends on, and their status as measured on 2026-08-27.
+are the routes this spec depends on, and their status as measured.
 
 | Required | From | Status |
 |---|---|---|
@@ -1055,8 +1053,8 @@ are the routes this spec depends on, and their status as measured on 2026-08-27.
 | **`instruct` mapped to a form that can actually be pushed** | `agent` | **Defect, reported not edited.** Spec §5.1's `instruct` row maps to `query(AsyncIterable[dict])` — the one form that closes stdin at the first turn boundary. Measured: `CLIConnectionError: ProcessTransport is not ready for writing` |
 | **A way to learn what the agent asked** | `agent` | **Exists, and needs no new channel** — §7.2. `AgentBackend.query() -> AgentHistory` while the agent lives, and `get_session_messages(session_id)` across a restart. Both public |
 | **A route from the validator to the monitor**, for **both** of §2.1's outcomes | `validator` | **Does not exist**, and is the same shape as the runner's missing route one row up. Widened by principle 1 |
-| **Withdrawing the "quiescent branch" limitation** | `docs/spec.md` §10, `docs/ROADMAP.md` §2 | **Both still say a failed validation surfaces no error.** Principle 1 contradicts them: the branch is reported. An amendment to two documents, decided by the user 2026-08-27 and carried here |
-| **`done_by_self_check`, with its description** (§4.1.2) | `handoff` | **Does not exist.** Decided by the user on 2026-08-27; a `handoff` spec change, carried in this module's propagation set rather than made here |
+| **Withdrawing the "quiescent branch" limitation** | `docs/spec.md` §10, `docs/ROADMAP.md` §2 | **Both still say a failed validation surfaces no error.** Principle 1 contradicts them: the branch is reported. An amendment to two documents, decided by the user and carried here |
+| **`done_by_self_check`, with its description** (§4.1.2) | `handoff` | **Does not exist.** Decided by the user on; a `handoff` spec change, carried in this module's propagation set rather than made here |
 | **Budget figures at the gate** — tokens, elapsed (§4.1.3) | `agent` | **Exists.** `ResultMessage` already carries `duration_ms`, `num_turns`, `total_cost_usd`, `usage`, `model_usage` (spec §5.1). What does not exist is a threshold to compare them against |
 | **Somewhere to put a record** (§8) | `task_graph` | **Exists.** `StoreMgr` (`task_graph/store.py`), needing a new kind and no new dependency. **This row was absent from rev. 2** — see the note below |
 | `Monitor` protocol, and a `PusherMonitor` default | [`../../docs/interfaces.md`](../../docs/interfaces.md) §2 | **Registered by name, defined nowhere.** This module is what defines them |
@@ -1186,7 +1184,7 @@ it would be worse than leaving it visible.
 
 | Was | Answer | Where |
 |---|---|---|
-| Can a returned agent be pushed at all | **Yes** — a `ResultMessage` ends a turn, not the session or the process | §7, `findings-monitor-push.md` |
+| Can a returned agent be pushed at all | **Yes** — a `ResultMessage` ends a turn, not the session or the process | §7 |
 | Can a monitor enter a task's sandbox | **It cannot, and it must not** — four independent reasons, and entering would escalate rather than scope | §6 |
 | Is a tree-shaped view over a subgraph available | **Yes, and free** — it is `env_mgr`'s nested layout plus one hierarchy grant, and it is the same measurement as `env_mgr` criterion 14 | §6 |
 | Is a "basic schema check" available where §4.1 needs it | **Partly the question dissolved, partly not.** README and locality cannot be wrong in storage, so presence is one `exists()`. Executability is *not* one of `put`'s checks and is genuinely the gate's | §4.1.1 |
@@ -1206,176 +1204,3 @@ it would be worse than leaving it visible.
 | Does the alpha need a poller for the never-returning agent | **No, and the reason is not "later"** — a wedged agent is a wedged thread, and Python cannot kill a thread, so detection would come without remedy. Build the seam only | §4.3 |
 | `running` or `fixing` while an exception is open | **`running`; `fixing` to the roadmap.** It would be the first agent status written by the *monitor* rather than the runner, and agent status does not go through `_move` — so it opens "who may write agent status", which the authority rule does not cover | §4.2 |
 
----
-
-## 12. Revision history
-
-Newest first. Kept as prose blocks rather than one nested parenthetical: at
-thirteen revisions the single-line form had become a 5,000-character string ten
-parentheses deep, and keeping it balanced by hand had become a recurring source
-of error rather than a record of anything.
-
-### rev. 14 — 2026-08-28
-
-**The monitor becomes the task's event loop.** Rev. 13 owned every *unplanned*
-outcome and left the *planned* phase advances with no owner at all — nothing
-said what wakes a runner for its second phase, and for a non-leaf nothing said
-what happens after the subgraph finishes. **Two channels through one call**
-(§2.2): planned advances are handled by code, always, and the unplanned channel
-keeps the decision and the action set. The queues differ in their collapse rule
-because deduplicating an advance skips a phase. `ExceptionRecord` becomes
-`EventRecord`.
-
-**§5.3 writes out both walks.** A leaf holds one thread for its whole dispatch;
-a non-leaf holds none while its subgraph runs, and its re-entry goes
-subtask-monitor → parent-monitor → `enter_phase` → a thread from the runner —
-**never through the scheduler**, which would have meant one task's completion
-being decided by observing another's, against `task_graph` §2 principles 2 and 4
-and §3.2.1's rule on `is_end`.
-
-**§5.4 turns "nothing monitors the monitor" from a recorded risk into two built
-mechanisms**, because the planned path now depends on this module: a
-`threading.excepthook` (the default is measured to be silent — a dead thread, an
-unchanged exit code, producers none the wiser) and a heartbeat timestamp checked
-against N stale periods. The checker is a timestamp comparison, which is the
-"make the top trivial" answer s6 gives and systemd and Ray answer differently.
-
-Criteria 19–26. The action set (§7.1) is unchanged and is now explicitly the
-unplanned channel's alone.
-
-### rev. 13 — 2026-08-27
-
-**`answer` needs no new channel** (§7.2). Rev. 11 recorded it as unreachable
-because `AgentBackend` has `instruct` and no reverse — which assumed the agent
-must *push* a question. It does not: the monitor **reads** the history.
-`AgentBackend.query()` while the agent lives,
-`get_session_messages(session_id)` across a restart, both public in
-claude-agent-sdk 0.2.145 and both mirrored by Cursor's `list_messages()`. §9's
-row flips from a missing route to an existing one.
-
-### rev. 12 — 2026-08-27
-
-**A consistency pass over eleven revisions**, several of which reversed earlier
-ones and left residue. Three real contradictions: §6 claimed the monitor
-touches no filesystem while §5.1 puts a synchronous write on the recording path
-— corrected to *no reach into a task's zone*, which is the precise and
-still-true claim; §9 said `exists()` was the whole check while §4.1.1 says
-executability is a second state `put` does not cover; and criterion 12 said the
-alpha's action set is a status check plus one instruction while §7.1's alpha
-column also carries escalation and recording. The rest was reference drift —
-eleven actions vs twelve, "§9's single real gap" when six routes are missing,
-"eight routes" in a table now sixteen rows long — plus stale pre-decision
-framing in §4.1 and §4.2.
-
-### rev. 11 — 2026-08-27
-
-**The action set moves here in full** (§7.1). It had lived as a roadmap bullet
-and been quoted in §7 as seven of its entries — an abbreviated normative list,
-which is how entries go missing. **`answer` was missing from every recorded
-list** and is added: it replies to a question the agent *actually asked*, which
-distinguishes it from content-free `push`, unprompted *add context*, and
-*report to user*, and makes it the one action the pusher structurally cannot
-perform. §9 gains the consequence — **no channel exists for an agent to ask
-anything**.
-
-### rev. 10 — 2026-08-27
-
-**Escalation is specified** (§3.1) — it had been carried only as one line in
-the roadmap's eleven-action list, which names an action without giving it a
-target. A monitor that cannot resolve passes up **the task tree** to the parent
-task's monitor, terminating at the root, whose target is the user; the chain is
-the same for per-task and global monitors, and it always moves into a scope
-that already contains the reporter's. Without it, principle 1 sends every
-departure to a monitor and a monitor that cannot act becomes where the plan
-quietly dies. **Alpha thresholds are one global setting** (§4.1.3), because
-nobody yet knows what a normal task costs. Criteria 17–18.
-
-### rev. 9 — 2026-08-27
-
-**The test was wrong and is replaced** (§2 principle 1). Rev. 8 asked *did a
-component malfunction*; the right question is *is the graph still going to
-finish as planned*. A component can work perfectly and still break the plan — a
-validator returning "fail" is exactly that — so **both** of §2.1's validator
-outcomes are reported, not one. This **closes** the quiescent-branch hole
-rather than reopening it as a question: main spec §10 and ROADMAP §2 must
-withdraw the limitation, and §9 carries the amendment. §7 says the alpha's
-ceiling is on the *response*, never on the *reporting*.
-
-### rev. 8 — 2026-08-27
-
-**Scope, raised to the module's definition** (§1, §2 principle 1): the monitor
-is the system's *single decision-maker for all exceptional work*, and any
-module that cannot resolve a condition deterministically reports here rather
-than growing a private recovery path. `report()`'s callers widen; its interface
-does not. Criteria 16–17.
-
-### rev. 7 — 2026-08-27
-
-**The runner never pushes** — it reports, and the monitor decides; rev. 6's
-diagram drew the retry as the runner's own edge, which would have made a second
-failure policy the record cannot see (§4.1.0). The agent's claim of
-completeness is **`done_by_self_check`**, a weak check whose field
-*description* carries the instruction, existing to cut main↔validation
-round-trips (§4.1.2). **Budget thresholds are gate failures too**, and they are
-what bounds the loop — with the exit a monitor decision rather than a retry
-count (§4.1.3).
-
-### rev. 6 — 2026-08-27
-
-**The detection point was wrong and is corrected** (§4.1.0): non-delivery is
-caught by an **admission gate inside the runner, between the main phase and
-output validation** — rev. 4's claim that `on_task_done` already computes it
-conflated two instants separated by the whole validation phase, and is
-retracted. The gate is a **loop the runner absorbs**, not an error path: this
-is a *common* occurrence. It checks three things, and executability is
-genuinely its own because `put` does not check it (§4.1.1). **`report()` is one
-call with synchronous persistence** (§5.1). The speculative post-pass push goes
-to the roadmap.
-
-### rev. 5 — 2026-08-27
-
-Two terms the document used without defining, both raised by the user.
-**"report" meant two things** — a call and, in the borrowed Erlang vocabulary,
-the record itself; §8.2.1 separates them and this spec now says "record" for
-the noun. **`Context` is defined** from the SASL source: the closed enum naming
-*in which phase* a child failed, which is why criterion 9 needs an enum and not
-prose. Also a correction: rev. 3's justification for an unbounded buffer said
-the reporter holds the scheduler's lock, and it does not — `on_task_done`
-acquires the lock itself (§5.2 rule 1).
-
-### rev. 4 — 2026-08-27
-
-**`report()` is defined** (§5.1) — rev. 3 used the name five times without ever
-introducing it, the same defect §9 exists to catch. `fixing` is decided out of
-the alpha (§4.2) with its real cost recorded: it would be the first agent
-status written by the monitor, and agent status does not pass through `_move`.
-And §4.1 gains a measured correction — **the scheduler already computes
-non-delivery** under its lock in `on_task_done` and discards it, so the open
-question is ownership, not detection.
-
-### rev. 3 — 2026-08-27
-
-The other two research threads land. **The buffer's asynchrony is sound under
-five rules** (§5), unbounded because the reporter holds the scheduler's lock.
-**The record's carrier was never open** — a persisted value through `StoreMgr`,
-not a log line; only the vocabulary was, and it is an OTel/OTP/Sentry hybrid at
-zero dependency cost (§8). Span events for exceptions are deprecated upstream.
-§4.3 takes a position on the never-returning agent instead of deferring. §9
-gains the store row **it was missing** — the table that exists to catch this
-class of omission had one. Criteria 13–15.
-
-### rev. 2 — 2026-08-27
-
-Two of §11's questions close on measurement. **The pusher works**: a
-`ResultMessage` ends a turn, not the session, so §7 gains a cost-ordered action
-set and a requirement on the backend's client lifetime. **The monitor needs no
-environment reach and must not enter a sandbox** (§6, four probed reasons),
-which makes criterion 8 a statement about verbs — §6.1 says why that is honest
-rather than weakened. §9 gains two `agent`-side rows.
-
-### rev. 1 — 2026-08-27
-
-First revision. The mechanism moves here from
-[`../../task_graph/docs/spec.md`](../../task_graph/docs/spec.md) §3.5, which
-was written before this module existed; that section keeps the boundary and the
-`Task.monitor_spec` field.

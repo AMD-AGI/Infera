@@ -259,7 +259,7 @@ def test_resource_names_come_from_the_registry_not_a_fixed_list(store):
 
 
 def test_a_storeless_dispatch_of_a_task_with_outputs_says_so(scheduler, registry, caplog):
-    """`bootstrap.py:216` deliberately leaves `handoff_store` unregistered when
+    """`bootstrap.py` deliberately leaves `handoff_store` unregistered when
     no root was supplied, so the first resolution is a loud `KeyError` rather
     than a store rooted at a default nobody chose.
 

@@ -200,7 +200,7 @@ def _check_subgraph_froms(
 
     - The cross-check has to *run* the derivation, and the derivation is
       `task_graph`'s (`models.derived_edges`, called by `Task._instantiate`).
-      `closure` may not import this package — `closure/check.py:50` says so in as
+      `closure` may not import this package — `closure/check.py` says so in as
       many words — so a check hosted there would have to re-implement the
       producer walk. That is `engineer_principle.md` §3's exact failure mode and
       §1's "never let an invariant have two writers": when the derivation
@@ -410,7 +410,7 @@ def _check_marks_agree(name: str, entries: Sequence[SubgraphEntry]) -> list[Prob
     Both directions matter for a different reason. `is_start` is observational —
     spec §3.2.1, "dispatching it means the subgraph has begun" — so a mark on an
     entry with a predecessor announces a beginning that already happened.
-    `is_end` is not observational: `monitor/base.py:663` has the end subtask's
+    `is_end` is not observational: `monitor/base.py` has the end subtask's
     completion tell the parent's monitor that the subgraph has finished, and
     `models.py`'s `mine.get(kind) if entry.is_end` wires the parent's outputs to
     it. Marking an entry that has a successor therefore reports completion, and

@@ -1,8 +1,8 @@
 # The fan-out: three students, one problem set, three disjoint shares.
 #
 # **Why three kinds and not one.** `task_graph` keeps exactly one producer per
-# kind per subgraph: `models.py:360` does `producer_of[kind] = index` and
-# `models.py:747,757` do `available[kind] = hid`, and both are single-slot
+# kind per subgraph: `models.py` does `producer_of[kind] = index` and
+# `models.py` do `available[kind] = hid`, and both are single-slot
 # assignments over a plain dict. Three tasks all producing `solutions` would
 # therefore leave only the last of them visible to any consumer — `grade` would
 # silently grade one student and report a full graph. So the shape here is
@@ -11,9 +11,9 @@
 # three into one will get a green run that measures a third of the work.
 #
 # Fan-out itself is free: N entries consuming `problems` each derive an edge to
-# the one earlier producer of `problems` (`models.py:349-361`), and dispatch is
+# the one earlier producer of `problems` (`models.py`), and dispatch is
 # a per-pass sweep over every eligible task with `runner.start` spawning a
-# thread (`scheduler.py:236-289`, `agent/runner.py:164`), so the three really do
+# thread (`scheduler.py`, `agent/runner.py`), so the three really do
 # run at the same time.
 #
 # **Definition order is load-bearing within a file** — a name referenced before
@@ -140,7 +140,7 @@
 # the top of this file.
 #
 # `content_type: code`, whose requirements are the type's and not this
-# package's: `handoff/content.py:69-74` requires an item named **`codes`** and a
+# package's: `handoff/content.py` requires an item named **`codes`** and a
 # README carrying **Purpose, Interface and Boundary**. That is why the layout in
 # each readme is `items/codes/<problem_id>/...` and not `items/<problem_id>/...`
 # — a top-level item the type never defined is rejected by

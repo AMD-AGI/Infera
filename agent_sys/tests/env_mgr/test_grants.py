@@ -283,9 +283,9 @@ def test_a_read_grant_gets_content_alone(store: str) -> None:
 def test_resolve_creates_nothing_and_the_allocator_owns_both_directories(store: str) -> None:
     """§4.18: **the allocator creates every directory it expects to be granted.**
 
-    `handoff.allocate` makes `content/` and `claim/`; `handoff/store.py:334` is
+    `handoff.allocate` makes `content/` and `claim/`; `handoff/store.py` is
     the second one. A granted path that does not exist is either a
-    `FileNotFoundError` that kills every output dispatch — `landlock.py:198`
+    `FileNotFoundError` that kills every output dispatch — `landlock.py`
     opens every granted path and `Granted.optional` defaults `False` — or, if
     made optional, a rule dropped silently. **And the agent cannot create it
     either**: `mkdir` inside `v<N>/` needs write on `v<N>/`, which is what the

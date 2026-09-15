@@ -36,7 +36,7 @@
 # It takes the problems and three students' solutions and produces one thing:
 # `scores`. Everything else it makes — two independent reviews, their
 # reconciliation, the unified test harness, the examiner's extra cases — is
-# **internal**, and `task_graph/graph.py:82-137` makes consuming any of them
+# **internal**, and `task_graph/graph.py` makes consuming any of them
 # from outside a *fatal* load error. Only the `is_end` entry's outputs escape.
 
 # =========================================================================== #
@@ -117,7 +117,7 @@
 # What `review_x` writes. `review_y` below is the same document from the other
 # reviewer, and the two kinds are distinct because **one kind can have only one
 # producer per subgraph**: `producer_of[kind]` and `available[kind]` are
-# single-slot (`task_graph/models.py:360,747,757`), so two entries producing
+# single-slot (`task_graph/models.py`), so two entries producing
 # `review` would leave only the second visible to `reconcile`. The same
 # measurement is why the three students have three solution kinds.
 - module: handoff
@@ -156,7 +156,7 @@
 # It consumes four kinds and depends on nothing, which looks wrong and is not:
 # every one of `problems`, `solutions_a`, `solutions_b` and `solutions_c` is
 # produced *outside* this subgraph, so `derived_edges` resolves each to the
-# parent's own input and yields no edge (`models.py:349-361`). The dependency is
+# parent's own input and yields no edge (`models.py`). The dependency is
 # real and it is `grade`'s, recorded once on `main`'s entry for `grade` rather
 # than four times here.
 - module: task
@@ -291,7 +291,7 @@
 #
 # `content_type: code` is the only one of the four that fits, and it brings two
 # requirements this kind has to satisfy rather than describe. It **requires an
-# item named `codes`** (`handoff/content.py:69-74`), which is why the sources
+# item named `codes`** (`handoff/content.py`), which is why the sources
 # and the binary live under `items/codes/` rather than at the top of `items/`;
 # and its README must carry `Purpose`, `Interface` and `Boundary`, not the
 # `Purpose`/`Schema` pair every `structured_text` kind in this package uses.
@@ -476,7 +476,7 @@
 # are produced inside the subgraph and consumed only inside it; this is produced
 # by the `is_end` entry, which is the declared boundary and the only way a
 # handoff made inside a subgraph reaches anything outside it
-# (`task_graph` criterion 50, enforced at `graph.py:82-137`).
+# (`task_graph` criterion 50, enforced at `graph.py`).
 - module: handoff
   name: scores
   version: '1'
@@ -527,7 +527,7 @@
 #
 # **No `resources`.** Only a leaf may acquire. A parent holding a lease while
 # its subtasks queue for the same pool is hold-and-wait, and `task_graph`
-# criterion 53 rejects it at load (`graph.py:54-80`).
+# criterion 53 rejects it at load (`graph.py`).
 #
 # **No `body:`.** `assets/grade.task/readme.md` is found by the folder's name.
 #
@@ -557,7 +557,7 @@
     outputs: [scores]
 
     # A subtask is instantiated with **its own** declared permissions and not
-    # the parent's (`task_graph/models.py:772-786`), so these grants cover
+    # the parent's (`task_graph/models.py`), so these grants cover
     # `grade`'s own five slots and nothing below inherits them. Each of the six
     # entries above carries its own set for the same reason.
     permissions:
@@ -571,14 +571,14 @@
     # **Every `froms` here is exactly what the derived edges require.** A derived
     # edge this list omits is an error; an entry it names that no handoff derives
     # is reported non-fatally; a name that is not an *earlier* entry is an error
-    # (`task_graph/graph.py:139-226`). So the lists are neither shortened nor
+    # (`task_graph/graph.py`). So the lists are neither shortened nor
     # padded.
     #
     # **`review_x` and `review_y` both take `froms: []`, and that is the whole
     # point of the parent-input rule.** Each consumes four kinds — `problems`,
     # `solutions_a`, `solutions_b`, `solutions_c` — and *no entry of this
     # subgraph produces any of them*, so `derived_edges` resolves each to
-    # `grade`'s own input and yields no edge at all (`models.py:349-361`). An
+    # `grade`'s own input and yields no edge at all (`models.py`). An
     # empty list is a statement, not an omission: the schema separates `[]` from
     # a missing key on purpose.
     #

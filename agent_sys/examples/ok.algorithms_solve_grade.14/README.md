@@ -96,7 +96,7 @@ leaves, two non-leaves, and ten validators.
 ## The one engine fact this package is shaped around
 
 **One producer per kind, per subgraph.** `producer_of[kind]` and
-`available[kind]` are single-slot (`task_graph/models.py:360,747,757`), so if
+`available[kind]` are single-slot (`task_graph/models.py`), so if
 the three students all wrote a kind called `solutions`, `grade` would see only
 the last one and the other two would vanish — no error, no warning, just two
 missing answer sets.
@@ -110,7 +110,7 @@ The second consequence is `review_x` and `review_y` both declaring `froms: []`.
 Everything they consume is an *input of `grade`* rather than something produced
 inside it, so no edge is derived and there is nothing earlier to point at. A
 kind nobody inside a subgraph produces resolves to the parent's own input
-(`models.py:349-361`), and this package is where that stops being a footnote.
+(`models.py`), and this package is where that stops being a footnote.
 
 ## Layout
 
@@ -165,7 +165,7 @@ ever must fail as *timed out* and not hang the run; `run()` returns
 `TIMEOUT_RETURNCODE` (124, `timeout(1)`'s convention) rather than raising, and
 getting that right once beats getting it nearly right in four validators.
 
-Measured, not assumed — `scratch/demo2-2026-08/probe_cpp.py`, kept as evidence:
+Measured, not assumed:
 compile and run a hello-world, a correct case *and a deliberately wrong one*
 (the instrument is not stuck on PASS), a `while(true)` that returns 124 after
 30.03 s, and a source that does not build returning `(False, diagnostics)`.

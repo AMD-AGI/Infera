@@ -59,7 +59,7 @@ here.
   about a tool call the agent chose to make.
 - **`python3 "$CLAUDE_CONFIG_DIR/hooks/..."`** and not an absolute path. The
   variable is expanded by the shell Claude Code runs the command in, using the
-  value `env_mgr` set (`material.py:63`), so the same file works in every zone.
+  value `env_mgr` set (`material.py`), so the same file works in every zone.
   An absolute path here would be one machine's answer, and a hook whose command
   does not resolve **does not fail the session** — it is a hook that quietly
   never fires, which is the exact failure this package is built to detect.

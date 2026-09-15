@@ -346,7 +346,7 @@ def _configuration_sources(task: Any, spec: ValidatorSpec, registry: Any) -> dic
     correct.** They are the same *task* — both phases run inside `TaskRunner` for
     one task — but not the same *moment*, and the configuration exists at one and
     not the other. Measured: `env.prepare` has exactly one call site,
-    `agent/runner.py:668`, reached from `_deploy` inside `_main`, and
+    `agent/runner.py`, reached from `_deploy` inside `_main`, and
     `_one_phase` reaches `_main` only in `RUNNING`. So at `INPUT_VALIDATING`
     there is no `Prepared` for this task at all.
     """
@@ -387,7 +387,7 @@ def _producer_environment(task: Any, registry: Any) -> Mapping[str, str] | None:
     fire: the component registered as `runner` is not one protocol. `task_graph`
     registers the shipped `FakeRunner`, which has `start` and `stop` and no
     attempts at all, while `agent.Runner` declares `attempt_of`
-    (`agent/protocols.py:313`). A runner with no attempts has no resolved
+    (`agent/protocols.py`). A runner with no attempts has no resolved
     configuration to report, which is an answer and not a missing field.
     """
     if "runner" not in registry:
@@ -750,8 +750,8 @@ class PhaseRunner:
         **non-leaf declares an output**. The slot advances on every agent write,
         the store on every dispatch (`task_graph/scheduler.py::_pin_outputs`), so
         with one dispatch that does not write between them the two disagree and
-        the phase reads a directory that is not the artefact. Measured on
-        `scratch/demo2-2026-08/bringup/n1`: parent `main` pinned store v0, its
+        the phase reads a directory that is not the artefact. Measured on a
+        real bring-up: parent `main` pinned store v0, its
         end entry `directions` pinned store v1 and published there, the slot read
         0, and the output phase died on *"cannot read verdicts of … v0: it is not
         published (published: [1])"*.

@@ -293,7 +293,7 @@ class StubStore:
         Same failure as the `FakeClient` and `Prepared` doubles on 2026-08-29,
         and `test_doubles_conform.py` now checks this store's surface for it.
 
-        Refuses with the real store's distinction (`handoff/store.py:380`): an
+        Refuses with the real store's distinction (`handoff/store.py`): an
         empty `content/` is *the agent wrote nothing*, which is `monitor`
         criterion 5's "never attempted" and is not the same as malformed.
 
@@ -367,7 +367,7 @@ class StubEnvManager:
         / `agent_cli`.
 
         **`agent_cli` was the seventh, and its absence here took eleven tests
-        red the moment the runner read it** (`runner.py:617`). That is the same
+        red the moment the runner read it** (`runner.py`). That is the same
         failure this docstring already describes, one field later and from the
         other direction: a double that has drifted from the object it stands
         in for. It is `None` rather than a path because these tests do not
@@ -511,7 +511,7 @@ def wired(specs: AgentSpecRegistry, tmp_path: Path):
     scheduler = StubScheduler()
     r.register("scheduler", scheduler)
     # **The real `TaskMgr`, not a stub.** `Task.has_subgraph` resolves it
-    # (`task_graph/models.py:473`) since `task_graph` made `unfold` idempotent
+    # (`task_graph/models.py`) since `task_graph` made `unfold` idempotent
     # for `--resume` (`cc23f98`) — before that, a non-leaf's declaration was the
     # whole answer and this harness needed nothing. `task_graph` rejected a
     # tolerant lookup with the reason worth repeating: *a harness with no task

@@ -385,7 +385,7 @@ fi
 # **`E2E_ROUTER_ENDPOINT` carries the host from the same handshake field the
 # port comes from.** Handing down `E2E_PORT_ROUTER` alone left `replay.sh`
 # composing `http://${E2E_NODE_IP}:${port}`, which is wrong for any kit that
-# binds loopback — and one does (`env.sh:137`, `E2E_KIT_BIND_HOST:=127.0.0.1`)
+# binds loopback — and one does (`env.sh`, `E2E_KIT_BIND_HOST:=127.0.0.1`)
 # while the kit this line usually gets binds `0.0.0.0`. **A comment cannot go
 # inside this block**: it would be joined onto the preceding backslash
 # continuation and swallow the rest of the command, and `bash -n` accepts it.

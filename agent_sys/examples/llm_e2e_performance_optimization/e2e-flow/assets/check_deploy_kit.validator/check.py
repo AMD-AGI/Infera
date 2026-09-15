@@ -15,7 +15,7 @@ frozen-and-bound identifier rule over `scripts/`, and JSON-Schema validation of
 
 **The one replacement mission M1.1.1 asks for.** The previous stage checked the
 environment with three regexes over `environment.md`
-(the deploy stage's original `check_deploy_kit.validator/check.py:71-80` — "does the
+(the deploy stage's original `check_deploy_kit.validator/check.py` — "does the
 word `image` appear on some line"). That is gone. The record is now
 `codes/environment.yaml`, validated against `environment.schema.json` through
 `assets/lib/schema.py`, and `environment.md` is checked as a *rendering* of it:
@@ -52,7 +52,7 @@ from pathlib import Path
 # `/usr/bin/python3` on exactly the phase this validator runs in.
 #
 # Measured on this host: `/usr/bin/python3` has `yaml` and `jsonschema` but
-# **not `referencing`**, which `../lib/schema.py:109` imports to build its
+# **not `referencing`**, which `../lib/schema.py` imports to build its
 # `$ref` registry. The failure would have arrived inside `validate()` as a
 # `ModuleNotFoundError`, been caught by the broad handler around document
 # loading, and been reported as *"environment.yaml: not loadable as a

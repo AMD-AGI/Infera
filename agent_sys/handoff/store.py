@@ -67,7 +67,7 @@ MANIFEST_FILE = "manifest.yaml"
 #:
 #: A directory rather than a file for two reasons: a grant is on a directory,
 #: so a file has no representation on `env_mgr`'s side at all; and a second
-#: claim then needs no second ruling. `env_mgr/grants.py:137` spells it again
+#: claim then needs no second ruling. `env_mgr/grants.py` spells it again
 #: rather than importing it — they do not import this package, and an import
 #: edge is permanent where a duplicated constant is one grep and one test.
 CLAIM_DIR = "claim"
@@ -244,8 +244,8 @@ class FilesystemStore:
         compacted — renumbering would move an artefact a digest already names.
 
         Measured before it was filtered: an unpublished `v3` on top made
-        `agent/gate.py:90` (`versions[-1]`, then `get_manifest`) raise a bare
-        `FileNotFoundError`, and `cli/main.py:761`'s verdict loop raise
+        `agent/gate.py` (`versions[-1]`, then `get_manifest`) raise a bare
+        `FileNotFoundError`, and `cli/main.py`'s verdict loop raise
         `Malformed`. Filtering here fixes both readers without either of them
         learning that allocation exists.
         """
@@ -275,7 +275,7 @@ class FilesystemStore:
 
         That is *not* a general hazard, and the narrowing is the honest form of
         a claim I first made too widely. `task_graph`'s dispatch re-asks its
-        gate immediately before pinning, in the same lock (`scheduler.py:245`),
+        gate immediately before pinning, in the same lock (`scheduler.py`),
         so it has no stale window — and reading the newer version there is
         required rather than wrong, by its criterion 17. The hazard is specific
         to a caller that evaluates a gate **once** and pins **later**. Whether
@@ -382,7 +382,7 @@ class FilesystemStore:
         grant had no `N` to resolve against and raised `UnresolvedGrant` for
         the whole of the attempt that was supposed to fill it. This is the call
         that pins it early: the caller allocates before the body runs, records
-        `N` on the `Execution`, and `env_mgr/grants.py:96` resolves the grant to
+        `N` on the `Execution`, and `env_mgr/grants.py` resolves the grant to
         this very directory.
 
         **What is created is `v<N>/` and its `content/`, and no manifest.**
@@ -446,7 +446,7 @@ class FilesystemStore:
         Returns **`None` when it published**, and otherwise **the reason the
         artefact was not publishable** — a string for the record, not a code to
         branch on. The only caller in prospect is `agent`'s runner, and
-        `tests/interfaces/test_import_rules.py:42` lets it import
+        `tests/interfaces/test_import_rules.py` lets it import
         `spec_loader`, `task_graph` and `monitor` — **not this package**. So it
         cannot name an exception of mine to catch one, and `except Exception`
         would swallow exactly the wiring bug below. A return value crosses that
@@ -682,7 +682,7 @@ class FilesystemStore:
         verdict can only be recorded against a sealed version, which is a real
         coupling I introduced — `b1b356e` changed this from `path.is_dir()`
         without my noticing that these two call sites shared it. It is **not
-        live**: `agent/runner.py:636-637` seals before the gate and
+        live**: `agent/runner.py` seals before the gate and
         `OUTPUT_VALIDATING` is later, so a version is always sealed by the time
         a verdict is written. `validator` verified that themselves and declined
         the lifecycle change that would decouple them, on the grounds that

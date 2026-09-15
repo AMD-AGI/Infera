@@ -81,9 +81,9 @@ def _tool_server(tools: Sequence[Any]) -> tuple[Any, list[str]]:
     **Refusals propagate, and that is measured, not assumed.**
     `remote.tools._inside` raises `PermissionError`, and the SDK catches a
     raising handler and returns `isError` with `str(e)`
-    (`claude_agent_sdk/__init__.py:595-615`). That is the SDK speaking for its
+    (`claude_agent_sdk/__init__.py`). That is the SDK speaking for its
     own layer, so it was checked end to end
-    (`scratch/single-real-task-2026-08/c_probe_tool_refusal_visible.py`): the
+: the
     text reaches the model verbatim **and the model keeps working afterwards**
     rather than treating the tool as broken. So there is no catch-and-re-wrap
     here — it would only hide the message that already arrives.
@@ -328,7 +328,7 @@ class ClaudeSdkBackend(ExecutorBase):
         if not self.assignment.permissions_enforced:
             # **The harness's own permission layer, switched off with ours.**
             #
-            # `interfaces.md:1560` records it as an aside — *"in practice a
+            # `interfaces.md` records it as an aside — *"in practice a
             # harness runs with `bypassPermissions` on"* — and nothing set it.
             # Measured live under `AGENT_SYS_NO_PERMISSIONS=1`: the agent knew
             # its output path, tried `echo`, `grep` and `printenv` to read it,
@@ -402,8 +402,7 @@ class ClaudeSdkBackend(ExecutorBase):
             # *permitted*, and they are separate gates. Measured 2026-09-01, SDK
             # 0.2.148: the CLI addresses an in-process tool as
             # `mcp__<server>__<tool>` -- a spelling that appears nowhere in the
-            # SDK, because it is the CLI's. See
-            # `scratch/single-real-task-2026-08/c_probe_sdk_tool_reachable.py`.
+            # SDK, because it is the CLI's.
             options["allowed_tools"] = [*options.get("allowed_tools", []), *names]
         cli_path = self.config.get("cli_path") or self._prepared_cli()
         if cli_path:

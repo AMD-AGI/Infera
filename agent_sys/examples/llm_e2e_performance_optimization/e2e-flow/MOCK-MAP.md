@@ -78,7 +78,7 @@ producer — **owner: leader**, since it is the one piece all fifteen kinds shar
 
 ### (B) the sealed `kernel_table` is `reproducible`; the kind is `structured_text`
 
-**Corrected 2026-09-03 — the original row here was wrong**, and it named the
+**Corrected — the original row here was wrong**, and it named the
 wrong handoff. Found by m2, verified: the sealed
 `stage2-profiling/kernel_table` carries `items/{command,env,logs,result,
 watchout}`, which is `reproducible`. CONTRACT §1 declares the kind
@@ -200,7 +200,7 @@ Two mock modes, and the run should exercise both. **Done**, as
 
 **Two blocks have to be added in either mode, and they are the interesting
 part.** `integration_report.schema.json` requires `stock_vs_m2` (M5.1.3.1) and
-`kernel_reconciliation` (M5.1.3.2), and the 2026-09-02 run predates both — fed
+`kernel_reconciliation` (M5.1.3.2), and the run predates both — fed
 the sealed `text.json`, the schema returns exactly two problems and nothing else,
 which is the schema being written against the real artefact rather than around
 it. The mock fills both in as *not measured, and here is why*, which is the case
@@ -214,7 +214,7 @@ its own threshold.
 
 ### (G) the sealed `kernel_optimization` has no `apply` and no `premise`
 
-Found by m4 on 2026-09-03, and it is structural rather than a detail to patch.
+Found by m4, and it is structural rather than a detail to patch.
 
 That run was `KFO_MOCK=1`: no campaign, no optimised kernel, `mean_case_speedup:
 1.0` by construction. `operator` and the evidence half are there; `workset_ref`

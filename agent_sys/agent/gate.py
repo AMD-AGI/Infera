@@ -85,7 +85,7 @@ def _no_store(hid: HandoffId) -> list[GateFailure]:
     with no cause named anywhere. Measured by `monitor`,
     `p15_storeless_outputs.py`.
 
-    **Storeless is a supported mode and stays one.** `bootstrap.py:216` leaves
+    **Storeless is a supported mode and stays one.** `bootstrap.py` leaves
     the name unregistered rather than rooting a store nobody chose, and
     `task_graph` runs its whole suite that way. The fault is the *conjunction* —
     declares outputs, no store — which is exactly what `_pin_outputs` already
@@ -189,7 +189,7 @@ def _self_check(hid: HandoffId, manifest: Any) -> list[GateFailure]:
     **The blocker, measured.** This function cannot tell the two producer classes
     apart from anything it is given. `Manifest` is `digest` / `algorithm` /
     `kind` / `producer` / `created_at`, and `producer` is a **`TaskId`, not an
-    `AgentId`** (`handoff/protocols.py:126`); `seal` takes `producer: TaskId`
+    `AgentId`** (`handoff/protocols.py`); `seal` takes `producer: TaskId`
     too, and `run_gate` has no parameter for it. So *"there was no agent"* is not
     computable where the check lives. Reported to `main` and `handoff`; until it
     is resolved the tolerance clause below stays, and it stays **with this note

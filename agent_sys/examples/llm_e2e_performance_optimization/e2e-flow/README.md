@@ -100,7 +100,7 @@ the container m1 brought up.
    kinds relative to the demos.
 2. **`items_schema` is not the schema layer.** For a file item it validates the
    *filename string*; the contents are never read
-   (`handoff/content.py:184-197`). The schema layer mission G2 asks for is
+   (`handoff/content.py`). The schema layer mission G2 asks for is
    `assets/schemas/`, loaded from both sides by `assets/lib/schema.py`.
 3. **The 5% / 10% regression bars are measured and must not be widened.** The
    within-arm round-to-round spread on a steady node is ~2%. A previous round
@@ -220,10 +220,10 @@ decode 差 4.5 倍，而 `node`/`gpu_arch`/`image_id`/`model_path` 四个字段�
 | 13 | `check_optimization_shape` | m4 | `kernel_optimization` | completeness | seconds | m4 输出门的**便宜那一半**：文档过 `kernel_optimization` schema；随件 workset 快照有效；`apply.integration_point` 与 workset 声明的 `edit_target` 逐字段一致；四份文档的内容行下限、REPRODUCE.md 里 ≥4 条命令、六个证据文件存在 |
 | 14 | `check_speedup_substantiated` | m4 | `kernel_optimization` | trustworthiness | **gpu_hours** | 昂贵那一半，且是对上一版规则的**反转**（M4.3.5）：不再自己重测 baseline，而是证明"用的就是 workset 的 baseline，且前提成立"。`gpu_arch/shapes/dtype/operator` 不符→abort；`rocm/image_id/torch/driver` 不符→warning 但必须记进 `run_environment.warnings[]`；正确性必须全过。同样加了 `transport_path`/`transport_env`/`measure_gpu`——**在此之前它的重测根本离不开登录节点，所以这个 validator 从未评判过一个真实的 kernel** |
 | 15 | `check_overlay_applies` | m5 | `patch_overlay` | completeness | seconds | mount 计划成形、文件在 handoff 里、hash 与计划相符，**并且与被替换的文件不同**（最后这条最关键：能干净打上却什么都没改，会让两臂字节相同、下游全部因为错误的理由通过）；Python 文件额外 `compile()` |
-| 16 | `check_patch_live` | m5 | `patched.measurement` | trustworthiness | seconds | 补丁**真的在跑**：`docker inspect` 看到只读 mount；在运行中的容器里重新 hash 出 `sha256_patched`；**运行期 marker 自 2026-09-04 起默认必须有**（`require_runtime_marker` 由 `false` 改为 `${require_runtime_marker:-true}`）。翻转它的实验：一个 in-container hash 完全正确、文件里塞了 2 ms sleep、`.pyc` 当分钟编译的 overlay，测出来**和 stock 一模一样**——静态证据完美，却分不清"挂上了但没执行"和"执行了但没效果"，而这正是这个 validator 存在的唯一理由。`__file__` 证明不了任何事——bind mount 不改容器内路径 |
+| 16 | `check_patch_live` | m5 | `patched.measurement` | trustworthiness | seconds | 补丁**真的在跑**：`docker inspect` 看到只读 mount；在运行中的容器里重新 hash 出 `sha256_patched`；**运行期 marker 自 起默认必须有**（`require_runtime_marker` 由 `false` 改为 `${require_runtime_marker:-true}`）。翻转它的实验：一个 in-container hash 完全正确、文件里塞了 2 ms sleep、`.pyc` 当分钟编译的 overlay，测出来**和 stock 一模一样**——静态证据完美，却分不清"挂上了但没执行"和"执行了但没效果"，而这正是这个 validator 存在的唯一理由。`__file__` 证明不了任何事——bind mount 不改容器内路径 |
 | 17 | `check_measurement_order` | m5 | `stock.measurement`、`patched.measurement` | trustworthiness | seconds | 两臂跑了同样的步骤、同样的顺序（`smoke, needle, probe, lm_eval, bench`）、时间上不重叠、patched 在 stock 结束之后才开始；并用 AIPerf 自己的 `start_time`/`end_time` 交叉印证——因为 `steps.json` 是被测者自己写的 |
 | 18 | `check_acceptance` | m5 | `stock.measurement`、`patched.measurement` | completeness | seconds | 三类正确性证据都到齐且各自可读：固化的四个 smoke check、≥3 个临时生成的 case（M5.4 防作弊）、每个 eval ≥20 题被判分、needle 的实际 prompt token 数达到声称的 95%。**它不比较两臂** |
-| 19 | `check_bench_report` | m5 | `stock.measurement`、`patched.measurement` | completeness | seconds | 每一轮 replay 都真的发了流量并写了机器可读报告；与 m2 **共用** `bench_result` schema（G2）；请求数 ≥50（`--var **integration_min_requests**`）、轮数对得上、错误率 ≤5%。这个 `--var` 名字是 2026-09-04 拆出来的：此前它和 m2 的 `check_bench_result` **共用 `min_requests`，一个 `--var` 同时移动两个 owner 的判分线**，而任何一方从自己的文件里都看不出来。默认值仍是 50 且**故意重复**——共享默认值是对的，共享 override 不是 |
+| 19 | `check_bench_report` | m5 | `stock.measurement`、`patched.measurement` | completeness | seconds | 每一轮 replay 都真的发了流量并写了机器可读报告；与 m2 **共用** `bench_result` schema（G2）；请求数 ≥50（`--var **integration_min_requests**`）、轮数对得上、错误率 ≤5%。这个 `--var` 名字是 拆出来的：此前它和 m2 的 `check_bench_result` **共用 `min_requests`，一个 `--var` 同时移动两个 owner 的判分线**，而任何一方从自己的文件里都看不出来。默认值仍是 50 且**故意重复**——共享默认值是对的，共享 override 不是 |
 | 20 | `check_no_regression` | m5 | `integration_report` | trustworthiness | seconds | **不读 `verdict` 字段**，而是从原始数字重算整个接受/拒绝论证，与报告的结论不符即失败（哪怕自己算出来是"接受"）。吞吐回退 ≤5%、TTFT 回退 ≤10%；stock 臂必须复现 m2 的 `profiling_mode_off`（容差 `--var stock_vs_m2_tolerance`，**这条检查本身不可关闭**）；与 m4 单核加速比的对账只报 warning |
 | 21 | `check_packup_shape` | m5 | `e2e_packup` | usability | seconds | 四份文档 + 三个目录存在，且按**内容行**（去掉空行、标题、代码围栏）计量，不是只看文件在不在；REPRODUCE.md 按命令行数计量；`results/` 至少 4 个文件。目录也**按实质计量**（`min_dir_files`，递归找非空文件）而不是 `is_dir()`——m2 实测过 `logs/` 只剩一个空子目录、`scripts/` 只剩一个零字节 `run.sh`，在原来的"存在即通过"下都判为完整 |
 
@@ -259,7 +259,7 @@ decode 差 4.5 倍，而 `node`/`gpu_arch`/`image_id`/`model_path` 四个字段�
 `resources: {gpu: 8}`，硬件上因此被串行化，"第二条为什么要等"被如实记录成
 `WAITING_RESOURCE` 而不是 `WAITING_HANDOFF`。
 
-**但 2026-09-04 补上了一条纯排序边**：`run_profiling_mode_on` 的 `froms` 现在写着
+**但 补上了一条纯排序边**：`run_profiling_mode_on` 的 `froms` 现在写着
 `[run_profiling_mode_off]`（T38）。原因是那个串行化只是**算术的副作用**——两个各要
 8 卡的 task 在 8 卡机器上装不下——而这个保证没人写下来过。两条线用不同的端口段和 run
 tag，真要并发起来**两边都会正常起来、什么都不会失败**，只是
@@ -268,14 +268,14 @@ tag，真要并发起来**两边都会正常起来、什么都不会失败**，�
 运行一律 `tp=4`），所以是**这个过度声明在保护测量**，任何人把它"改对"都会移除保护且
 不会得到任何报错。`show` 会把这条边报成"admitted with reservations"，因为它分不清
 "无 handoff 支撑的依赖边"和"handoff 被删后遗留的边"——这正是 `froms` 存在的意义
-（`graph.py:358-371`），所以那条 reservation 是预期输出。
+（`graph.py`），所以那条 reservation 是预期输出。
 
 **三个 leaf 的 `agent: runner` 是字面量，不要改成 `${m2_agent:-<某个 ai>}`。**
 m1/m3/m4/m5 都写成 `${mN_agent:-…}`，所以 m2 看起来不合群；它不是，它是唯一没有
 `kind: ai` body 的 stage，这个不对称就是设计。改了要付的代价：`kind: ai` 的 task 不跑
 `entry.sh`，而 `assets/load/line.sh` 有 402 行、**16 个 exit 点和 7 个 `:?` 守卫**，
 其中 `:192` 会在"kit 记录的节点不是我们所在的节点"时拒绝。`env:` 块搬不动它们——
-`agent/runner.py:801` 写得很直白：*一个环境变量无法指挥一个 agent；对话不是一个读
+`agent/runner.py` 写得很直白：*一个环境变量无法指挥一个 agent；对话不是一个读
 `os.environ` 的进程*。`env:` 只让值可达，只有 brief 让值被用上。所以那些拒绝不会退化，
 它们会**消失**，而第一个症状是一个看起来合理的数字，测自一个没人检查过的部署。
 
@@ -350,12 +350,12 @@ replay_root.py --out <dir> --run <run> [--run <run> ...] [--kind K ...]
 
 它之所以很小，是因为不引入任何新的注入机制：`mock_root` 本来就是 `--var`，mock leaf
 本来就把 `<stage>/<kind>/content/` 拷进 `$AGENT_SYS_OUTPUT_<KIND>`。这个工具只是把同
-一套机制指向**上一次好的真实运行**而不是 2026-09-02 的封存语料。
+一套机制指向**上一次好的真实运行**而不是 的封存语料。
 
 两个设计要点值得记：
 
 - **"稳定"说的是 verdict，不是退出码。** 一次跑完了的运行不等于一次通过了的运行，两者
-  在 2026-09-04 分了家：rung 1 **封存**了 `deploy_kit`，随后一个 validator 因为一个数
+  后来分了家：rung 1 **封存**了 `deploy_kit`，随后一个 validator 因为一个数
   字拒绝了它。所以稳定性从 `handoffs/<id>/v<N>/validation.yaml` 算——**整个 run tree
   里只有这个文件保留了 validator 的名字**。一个 kind 在阈值 N 上"稳定"，要求 N 次不同
   运行都用**同一组** validator 产出它，且每个 `result: true`。**validator 组不同不算
@@ -363,7 +363,7 @@ replay_root.py --out <dir> --run <run> [--run <run> ...] [--kind K ...]
   平均掉。
 - **曾被当成"免费安全网"的那条，实测不成立。** 这里一度写着
   `check_environment` 的 `compare_fixed_across_inputs` 会让"来自另一台节点的注入
-  handoff"当场被拒。**它不会。** m5 于 2026-09-04 晚实测（`270710f`、`5458dfd`）：
+  handoff"当场被拒。**它不会。** m5 实测（`270710f`、`5458dfd`）：
   每个下游 handoff 都用 `env_render --inherit <被 replay 的 kit>` 渲染自己的记录，
   所以 `node`/`gpu_arch`/`image_id`/`model_path` 四个字段**全是从 replay 里拷来的**、
   彼此一致、比对通过——在一台这次运行没有使用的节点上。又一个 §0 §4.6：**比较看不见
@@ -375,7 +375,7 @@ replay_root.py --out <dir> --run <run> [--run <run> ...] [--kind K ...]
 
 ### `assets/lib/run_with_long_stall.py` —— 抬高 stall 门槛
 
-`agent_sys/cli/main.py:911` 把 `stall_after` 默认成 **20 秒**，而这个值在 CLI 上**没有
+`agent_sys/cli/main.py` 把 `stall_after` 默认成 **20 秒**，而这个值在 CLI 上**没有
 暴露成开关**，所以只能用一个 launcher 包一层（`agent_sys/cli/` 不在本次活动范围内，
 两个半边都已记在 `temp/bugs/`）。
 

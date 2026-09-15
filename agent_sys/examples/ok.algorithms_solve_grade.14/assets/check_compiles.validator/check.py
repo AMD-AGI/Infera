@@ -103,7 +103,7 @@ def check_one(directory: Path, examples: list[dict], timeout: float) -> tuple[bo
             # **`output`, and this said `expected` until `author-front` supplied
             # the frozen `problems` schema.** `cpp.check_cases` takes
             # `{"input", "expected"}` as *its own parameter* shape
-            # (`cpp.py:124-153`), which is a different thing from what the
+            # (`cpp.py`), which is a different thing from what the
             # artefact calls the field; conflating the two would have read
             # `None` for every example and failed every handoff.
             expected = str(example.get("output") or "")

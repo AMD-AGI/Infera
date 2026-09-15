@@ -284,7 +284,7 @@ def test_the_root_names_the_user_asked_for_are_not_exported(tmp_path: Path, main
     registered *domain* root, which sits outside the zone. Measured against a
     real Landlock ruleset built from exactly the policy `prepare` composes, with
     an in-zone positive control succeeding in the same confined child
-    (`scratch/ui-yaml-2026-08/w2/p13_are_the_root_paths_reachable.py`): all four
+: all four
     give `EACCES`, and all four read cleanly unconfined — a denial, not an
     absence.
 

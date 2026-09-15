@@ -391,7 +391,7 @@ def check_closure(
     #    Measured before narrowing: this branch fired on an agent-less non-leaf
     #    that the schema had already admitted, so the schema and the load check
     #    disagreed and the ruling was unreachable in practice
-    #    (`scratch/ui-yaml-2026-08/w5/probe_agentless_nonleaf_load_check.py`).
+    #.
     #
     #    Present-and-wrong does **not** narrow. An author may still name one on
     #    a non-leaf, and a name that does not resolve is still a typo.

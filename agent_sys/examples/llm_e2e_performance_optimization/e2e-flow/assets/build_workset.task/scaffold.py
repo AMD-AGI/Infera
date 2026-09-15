@@ -182,7 +182,7 @@ def _package_commit() -> str:
     grafted into the mock corpus and consumed by two downstream stages. The
     commit is knowable -- the package is a git tree and this body runs inside
     it -- so the field was recording "nobody said" rather than provenance.
-    `assets/serve/round.sh:272` already does exactly this; it is copied, not
+    `assets/serve/round.sh` already does exactly this; it is copied, not
     invented.
 
     **It records the STAGED COPY's commit, and that is surprising on purpose.**

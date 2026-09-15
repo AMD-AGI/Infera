@@ -21,7 +21,7 @@ refusal rather than as an empty kernel.
 **`--relative` prints the tail instead, and that is not a convenience.** After
 the campaign the optimised file is not in the container's tree — STEP 3 hands
 forge a *copy* as `--workspace` and forge edits and commits there
-(`kernel_agents/loop/runner.py:1600`). The tail is the one part of the answer
+(`kernel_agents/loop/runner.py`). The tail is the one part of the answer
 that is the same in both trees, because the copy is taken at `SGLANG_ROOT`
 itself. An earlier note here said forge edits the container's checkout because
 m3's spec carries `image_repo_path: @SGLANG_ROOT@`; `image_repo_path` appears
@@ -68,7 +68,7 @@ def main() -> int:
 
     if a.relative:
         # `patchkit.split_placeholder` and not a local partition: the same split
-        # decides where `apply.py:637` extracts to, and two implementations of
+        # decides where `apply.py` extracts to, and two implementations of
         # one frame conversion is how this package earned its "No file to patch"
         # (CONTRACT §4.3, one authority).
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "lib"))

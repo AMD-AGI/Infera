@@ -1071,7 +1071,7 @@ def test_the_switch_does_not_move_a_body_s_input(ctx, monkeypatch, tmp_path) -> 
 
     Widening moves every staged input **down one level** — the artefact's files
     land at `<materials>/<hid>/v<N>/content/…` instead of at
-    `<materials>/<hid>/v<N>/…`. `examples/ok.filetree_grounded_report.4/bin/render.py:67` reads the narrow
+    `<materials>/<hid>/v<N>/…`. `examples/ok.filetree_grounded_report.4/bin/render.py` reads the narrow
     shape, so the switch would break a body **by moving its input**, and it
     would present as a body reading one level short rather than as a switch.
 
@@ -1211,7 +1211,7 @@ def test_a_declared_skill_reaches_the_zone(ctx, tmp_path: Path) -> None:
     `env_mgr` redirects `CLAUDE_CONFIG_DIR` into the zone (`material.py`), and a
     Claude Code session reads personal skills from `$CLAUDE_CONFIG_DIR/skills/`
     — measured with a planted skill whose name cannot come from the model's
-    prior, `scratch/single-real-task-2026-08/r0_probe_skill_in_config_dir.sh`.
+    prior.
     So a skill arrives in a zone only if the agent spec declares it.
 
     None did. Measured 2026-08-31, mid-run: the agent called

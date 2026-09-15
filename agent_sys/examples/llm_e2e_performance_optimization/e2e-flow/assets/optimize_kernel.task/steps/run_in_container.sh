@@ -160,7 +160,7 @@ CONTAINER=$(_field runtime.container)
 # `yihou_e2e_flow_sgl_e2e-main-20260904` on `node-217`, twice, once with
 # `SPUR_CONTROLLER_ADDR` present and once with `env -i` stripping it: **byte
 # for byte the same six lines**, though only the first had tested anything. The
-# stripped case is not exotic — `remote.sh:92-97` records that the closed
+# stripped case is not exotic — `remote.sh` records that the closed
 # validator environment is exactly where that variable is absent.
 #
 # Only the far side can print `E2E_STATE=`, so its presence is what separates
@@ -196,7 +196,7 @@ esac
 # whoever measures and is gone when they finish.
 #
 # m3 hit this first and their shape is copied rather than re-derived
-# (`build_workset.task/measure_in_container.sh:156`): self-named, `--rm`,
+# (`build_workset.task/measure_in_container.sh`): self-named, `--rm`,
 # started from the image the record names, torn down in a trap, and **never a
 # name we did not create** — `STARTED` gates the teardown so a caller who points
 # `KFO_MEASURE_CONTAINER` at an existing name cannot have it removed by us.
@@ -243,7 +243,7 @@ fi
 #
 # For the exec it does not bite — the name reached a live container of the right
 # image on the right node. For provenance it does, and this stage's handoff
-# carries `premise.run_environment`, which `10_read_inputs.py:137` fills with
+# carries `premise.run_environment`, which `10_read_inputs.py` fills with
 # `lib.load_environment()`: m1's record, verbatim, no observation. So the one
 # line below is the only place in m4 where the container that actually ran the
 # work identifies itself. Printed rather than folded into the handoff, because
@@ -269,7 +269,7 @@ echo "run_in_container: record claims started_at=$(_field runtime.started_at)" >
 
 # **The card this exec asks for must be one the container was actually given.**
 #
-# Measured 2026-09-04 in m1's own kit, `start_container.sh:37-44`: the container
+# Measured 2026-09-04 in m1's own kit, `start_container.sh`: the container
 # is started with `--device /dev/kfd --device /dev/dri`, which exposes **every**
 # card on the host, and is pinned only by `--env
 # HIP_VISIBLE_DEVICES=${E2E_KIT_GPU_DEVICES}`. So the pin is an environment
@@ -298,7 +298,7 @@ echo "run_in_container: record claims started_at=$(_field runtime.started_at)" >
 # only and no exec: `HIP_VISIBLE_DEVICES=0,1,2,3` in `Config.Env` with
 # `HostConfig.Devices` = `/dev/kfd`, `/dev/dri` — the whole card set present and
 # only the variable narrowing it, confirming on a live container what
-# `start_container.sh:37-44` says on disk. Asking for card 4 and card 7 each
+# `start_container.sh` says on disk. Asking for card 4 and card 7 each
 # refused with exit 1, and the command the wrapper was given (an `echo` that
 # would have proved an exec happened) never ran.
 #

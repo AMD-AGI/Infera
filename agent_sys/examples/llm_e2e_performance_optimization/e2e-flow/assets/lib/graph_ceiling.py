@@ -30,7 +30,7 @@ tolerance: **a relative check cannot detect a fault both sides share**
 ## What it reads, and both numbers are already in the handoffs
 
 * **the ceiling** — `env/engine_argv.txt`, the engine's own `/proc/<pid>/cmdline`.
-  m5's arms capture it at `serve/round.sh:174-175` and publish it at `:222`;
+  m5's arms capture it at `serve/round.sh` and publish it at `:222`;
   m2's `merge.py` `LIFT` carries `env/` for every part, with a comment that
   already states the reason — *"the load configuration in it is what makes the
   two benches comparable, and is not recoverable from the numbers."* **The data
@@ -120,7 +120,7 @@ FLAG = "--cuda-graph-bs-decode"
 #:
 #: **Evidence it is real, not the kit's claim about itself.** rung 2f's producer
 #: recorded that `--cuda-graph-max-bs` is a deprecated alias that warns in
-#: sglang 0.5.17 and emitted the `-decode` form at `start_worker.sh:78`. That is
+#: sglang 0.5.17 and emitted the `-decode` form at `start_worker.sh`. That is
 #: the kit describing itself. What settles it is that **the engine came up on it**
 #: — cards 0–3 at 75 %, and the producer read `/get_server_info` back and saw
 #: decode graphs captured at `1 2 4 8 12 16 24 32`, i.e. the flag was accepted
@@ -146,10 +146,10 @@ def ceiling_from_argv(argv_path: pathlib.Path) -> tuple[int | None, str]:
     # **Graphs explicitly off beats a ceiling that is present but inert**, and it
     # has to be checked FIRST because both flags appear together.
     #
-    # A real `profiling_mode_on` carries both: `assets/load/line.sh:85` adds
+    # A real `profiling_mode_on` carries both: `assets/load/line.sh` adds
     # `--disable-cuda-graph` when `CAPTURE=1`, and the kit emits
     # `--cuda-graph-max-bs` **unconditionally** (`start_worker.sh`, and m1's
-    # `deploy_kit.layout.yaml:591` says the kit "cannot express an override
+    # `deploy_kit.layout.yaml` says the kit "cannot express an override
     # without passing the flag twice"). Without this branch the search below
     # finds the ceiling, the bar passes, and the caller prints *"decode ran under
     # a captured graph"* about a line where graphs are off by design
@@ -172,7 +172,7 @@ def ceiling_from_argv(argv_path: pathlib.Path) -> tuple[int | None, str]:
     # `--cuda-graph-backend-decode full` logged `Decode batch, ... cuda graph:
     # True` (prefill `False`), carried `server_args` with both
     # `disable_cuda_graph=True` and `cuda_graph_backend_decode='full'`, and a
-    # `py-spy` dump caught rank TP2 inside `torch/cuda/graphs.py:141 replay`.
+    # `py-spy` dump caught rank TP2 inside `torch/cuda/graphs.py::replay`.
     # The legacy flag reaches prefill; the newer config path wins for decode.
     #
     # **The abstention fired exactly where the check matters.** The early return

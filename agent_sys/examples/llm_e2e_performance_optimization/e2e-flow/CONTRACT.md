@@ -1,6 +1,6 @@
 # `e2e-flow` — the frozen cross-module contract
 
-**Frozen 2026-09-03 by the package owner, before any module work started.** Everything
+**Frozen by the package owner, before any module work started.** Everything
 in this file is what the five modules agree on so that they can be written in
 parallel. A module owner who needs something here to change **asks the package owner
 and does not change it locally** — five owners silently disagreeing about a kind
@@ -59,7 +59,7 @@ one package's story rather than a configuration.
 - `stock` / `patched` — m5's two arms.
 
 **Dots are legal and safe.** `_common.schema.json#/$defs/name` is
-`^[A-Za-z_][A-Za-z0-9_.-]*$`, and `env_mgr/grants.py:450 _env_name` maps every
+`^[A-Za-z_][A-Za-z0-9_.-]*$`, and `env_mgr/grants.py _env_name` maps every
 non-alphanumeric to `_` before uppercasing, so
 `profiling_mode_on.bench_result` reaches a body as
 `$AGENT_SYS_OUTPUT_PROFILING_MODE_ON_BENCH_RESULT`.
@@ -67,7 +67,7 @@ non-alphanumeric to `_` before uppercasing, so
 **The collision trap, checked once and never again by anything:** two kinds that
 differ only in a separator — `stock.measurement` and `stock_measurement` — map
 to the same variable name, and `_by_unique_kind` then **silently exports
-neither** (`grants.py:435-447` keeps only names claimed by exactly one row). The
+neither** (`grants.py` keeps only names claimed by exactly one row). The
 fifteen names above were checked; a new kind must be checked against all fifteen
 before it is added.
 
@@ -125,7 +125,7 @@ runtime:                    # M1.2.1.2 — 哪个机器的哪个 docker containe
 Carried validators inherit a rule — *no absolute host path in a handoff* —
 justified by *"the seal refuses the whole delivery over one"*. **Measured
 against the framework: that premise is false.**
-`handoff/store.py:447` reads `# locality.check — NOT CALLED`, and `:494` gives
+`handoff/store.py` reads `# locality.check — NOT CALLED`, and `:494` gives
 the reason: the shape heuristic read an HTTP access-log line as a filesystem
 path and refused a correct artefact, **97% false positive on a real kit**.
 Corroborated from the other side — a sealed `deploy_kit` carries absolute site
@@ -154,10 +154,10 @@ exactly what M1.1.1 objects to.
 
 ### 3.1 `items_schema` does **not** satisfy this, and that is measured
 
-`handoff/content.py:184-197` validates a file or tree item by building
+`handoff/content.py` validates a file or tree item by building
 `{item_name: <filename string>}` and checking *that* against `items_schema`. The
 file's **contents are never read**. It is an admission check at the seal
-boundary (`store.py:448,501`), it is never exported to a body, and **no
+boundary (`store.py`), it is never exported to a body, and **no
 validator in any of the five demos imports `jsonschema`** — all of them
 hand-roll (the analysis stage's original `check_workset_shape` body).
 
@@ -180,15 +180,15 @@ assets/lib/schema.py               # the ~40-line loader both sides import
 ```
 
 `jsonschema>=4.18` is a declared agent_sys dependency
-(`agent_sys/pyproject.toml:37`); 4.26.0 is importable here. Copy the idiom from
-`agent_sys/spec_loader/validate.py:34-56` — `Draft202012Validator` plus a
+(`agent_sys/pyproject.toml`); 4.26.0 is importable here. Copy the idiom from
+`agent_sys/spec_loader/validate.py` — `Draft202012Validator` plus a
 `referencing` registry so schemas may `$ref` each other.
 
 ### 3.2a Every body is `#!/bin/sh` + `set -eu`, and the shebang is decoration
 
 **agent_sys never consults a body's shebang.** It invokes one as
-`["/bin/sh", entry]` — `validator/phase.py:147` and
-`agent/backends/program.py:83`. On this host `/bin/sh` is **dash**:
+`["/bin/sh", entry]` — `validator/phase.py` and
+`agent/backends/program.py`. On this host `/bin/sh` is **dash**:
 
 ```
 $ /bin/sh -c 'set -euo pipefail; echo REACHED'
@@ -197,7 +197,7 @@ $ /bin/sh -c 'set -euo pipefail; echo REACHED'
 
 So a body written `#!/usr/bin/env bash` + `set -euo pipefail` **exits 2 on line
 1**, the phase reports UNREACHED rather than a verdict, and the failure reads as
-the validator's rather than the shell's. Measured 2026-09-03 by m1 across all 31
+the validator's rather than the shell's. Measured by m1 across all 31
 skeleton bodies at once; the whole package was swept.
 
 Write `#!/bin/sh` and `set -eu`. Where a body genuinely needs bash — today only
@@ -214,7 +214,7 @@ python3 "$PKG/assets/lib/schema.py" --schema bench_result --doc "$OUT/items/resu
 ```
 
 **And run `"${AGENT_SYS_DEMO_PYTHON:-python3}"`, never a bare `python3`.**
-`cli/main.py:668` exports the interpreter the run itself is using. A validation
+`cli/main.py` exports the interpreter the run itself is using. A validation
 zone gets a policy-derived `PATH` on which `python3` resolves to
 `/usr/bin/python3`, which on this host has **no `referencing`** and therefore
 cannot import `assets/lib/schema.py`.
@@ -226,7 +226,7 @@ asked.** Found by m5 driving their leaves through the graph; twelve of the
 twenty-one validators had it, across all five modules.
 
 **`${VAR:-default}` and `${VAR-default}` are not the same test, and the colon is
-the one that disarms a guard.** m1's, 2026-09-03, found while wiring
+the one that disarms a guard.** m1's, found while wiring
 `replayed_from`.
 
 `${VAR:-d}` substitutes when `VAR` is unset **or set-but-empty**. `${VAR-d}`,
@@ -463,7 +463,7 @@ container" and it was in two places.
 
 #### A half-parameterised identifier is worse than an unparameterised one
 
-m1's, 2026-09-03, committed **while writing the fix for the same class**. They
+m1's, committed **while writing the fix for the same class**. They
 parameterised etcd's port at its *producer* — `--listen-client-urls
 http://0.0.0.0:${PORT}` — and left the literal in its *consumer*,
 `--etcd-endpoint $MY_IP:2379`. The router died with `ConnectError`, **naming
@@ -505,7 +505,7 @@ was never broken, and it arrives with your authority attached.
 
 ### 4.4 A check that happens to be right and cannot be wrong is not a check
 
-**m3's, 2026-09-04, and it is the sentence the rest of this section is
+**m3's, and it is the sentence the rest of this section is
 instances of.** They arrived at it after finding four in their own stage in one
 day, each returning the correct answer for a reason that had nothing to do with
 the subject:
@@ -599,7 +599,7 @@ rule is.
 per validator: `validator`, `result`, `strength`, `dimension`, `task_id`, the
 zone path and `at`.
 
-**Nothing else in a run tree carries a validator's name.** Measured 2026-09-04
+**Nothing else in a run tree carries a validator's name.** Measured
 while building `assets/lib/replay_root.py`:
 
 - the validation zone holds `args.json`, `inputs.json`, `materials.json`,
@@ -613,7 +613,7 @@ while building `assets/lib/replay_root.py`:
 
 **So the answer to *"did validator X pass on handoff Y in run Z"* has exactly
 one source, and grepping run output for `REFUSED` is not it** — the package owner did
-that on 2026-09-04 and nearly reported four false failures, because a
+that and nearly reported four false failures, because a
 `validator_report.txt` is written by the bodies that adopted `write_report` and
 by no others, and its heading is a rendering rather than the record.
 
@@ -628,7 +628,7 @@ of the verdict** and a change in it is reported rather than averaged away.
 
 ### 4.6 A relative check cannot detect a fault both sides share
 
-**m5, 2026-09-04, measured standalone on constructed inputs.** Not a fact about
+**m5, measured standalone on constructed inputs.** Not a fact about
 one validator — a fact about **every cross-comparison in this package**, and the
 reason some of them need an absolute bar beside them rather than a tighter
 tolerance.
@@ -702,7 +702,7 @@ records it in `environment.runtime`; m2, m3 and m4 exec into it.
 
 **"One container" means one DEPLOYMENT container. It does not forbid an
 ephemeral measurement container**, and the two must not be conflated — that
-conflation stopped rung 0 on 2026-09-04.
+conflation stopped rung 0.
 
 A deployment container serves the model, m1 owns its lifetime, and nobody else
 starts or stops one. A **measurement** container is apparatus: it runs a kernel,
@@ -710,7 +710,7 @@ prints a number and dies. In a **mock** chain no deployment container is ever
 brought up, so a check that can only re-measure inside one cannot run at all —
 and the mock e2e is a deliverable.
 
-m3 established the shape first (`measure_in_container.sh:156`, and read 325–392
+m3 established the shape first (`measure_in_container.sh`, and read 325–392
 before copying it — the lifecycle notes there were learned the hard way):
 
 ```bash
@@ -787,7 +787,7 @@ over other tenants on a shared machine comes from the site, not from a package.
 **A mock may obtain a real fact by a route the producer does not use. It may not
 assert a fact the producer does not have.**
 
-Both halves were decided on the same afternoon, 2026-09-04, on two cases that
+Both halves were decided on the same afternoon, on two cases that
 look identical from a distance and are not:
 
 | field | real producer | may the mock write it? |

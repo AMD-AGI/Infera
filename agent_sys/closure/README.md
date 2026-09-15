@@ -170,7 +170,7 @@ points here rather than restating it, which is the right shape: a row asserting
 a *state* goes stale in a file its owner does not control, and this one did once
 already.
 
-One writer, `spec_loader.access.task_of`; `task_graph/models.py:20` imports it;
+One writer, `spec_loader.access.task_of`; `task_graph/models.py` imports it;
 `closure/model.py` re-exports it so this file stays the one place a `closure`
 reader looks for a key name, and it is deliberately absent from `__all__` and
 from `protocols.py`.

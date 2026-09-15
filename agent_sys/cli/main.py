@@ -87,7 +87,7 @@ UNEXPECTED_FAILURE = 4
 #: read that as nothing being wrong: a graph with one task stuck in
 #: `output_validating`, another in `running` and its only handoff `invalid`
 #: exited 0, because zero promises were missed and zero were left unreached.
-#: Measured by `main` on `scratch/demo2-2026-08/bringup/n1`.
+#: Measured on a real bring-up.
 #:
 #: **Its own code, and specifically not 3 or 4.** `UNEXPECTED_SUCCESS` says *a
 #: promise stopped being kept*, which is a claim about the system under test and
@@ -962,9 +962,9 @@ def _validation_env(root: Path, layout: Layout) -> dict[str, str]:
         # validator body can authenticate against a model.**
         #
         # Measured, one run, both phases
-        # (`scratch/single-real-task-2026-08/probe_out/`): an *output* phase
+        #: an *output* phase
         # takes §8.2's PRODUCER row, which is `Prepared.environment`, which
-        # `env_mgr/material.py:69` already fills from `harness_env` — so a body
+        # `env_mgr/material.py` already fills from `harness_env` — so a body
         # shelling out to `claude` there answers `OK`. An *input* phase has no
         # consumer row and falls through to this one, where the same body
         # answered `Not logged in · Please run /login`. The two rows disagreed
@@ -1312,7 +1312,7 @@ def _settle(
         ]
         # **And a task waiting for a user is waiting for nobody, in this entry
         # point, by construction.** `_run` installs `NullUserSink`, whose
-        # `deliver` appends to a list and returns (`monitor/base.py:212-225`) —
+        # `deliver` appends to a list and returns (`monitor/base.py`) —
         # *"how a monitor reaches a human is unspecified anywhere in this
         # system"*. So an escalation that reaches the top here is terminal, and
         # waiting it out buys nothing.

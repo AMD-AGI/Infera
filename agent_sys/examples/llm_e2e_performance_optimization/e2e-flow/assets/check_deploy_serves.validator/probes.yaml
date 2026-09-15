@@ -74,7 +74,7 @@ probes:
       json_all:
         - {path: 'workers[].status', equals: active}
     source: >-
-      First-hand: the integration stage's original `accept/probe.py:131` gates its whole
+      First-hand: the integration stage's original `accept/probe.py` gates its whole
       eval on this list, and the sealed stage-1 kit carries the same reading in
       `results/router_workers.json`. Upstream corroboration for the silent
       non-registration: sgl-project/sglang#20836.

@@ -18,7 +18,7 @@ trees, so nothing ever asked it a question. m5's battery already reached its
 refusal text, but that calls the function. This starts the real `entry.sh` in a
 real zone — `args.json` read out of `steps/m5_integration.yaml`, `inputs.json`,
 `materials.json`, the producer env row, `/usr/bin/python3` — which is the shape
-`validator/phase.py:146` starts it in.
+`validator/phase.py` starts it in.
 
 *A bar that is read* and *a check that detects* are different claims (m5); *the
 function refuses* and *the validator refuses* are two more.

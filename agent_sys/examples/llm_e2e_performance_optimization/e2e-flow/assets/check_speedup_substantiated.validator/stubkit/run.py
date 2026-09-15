@@ -108,7 +108,7 @@ for case_id, ms in side["per_case_ms"].items():
 json.dump({"schema_version": 1, "generated_by": "stubkit",
            "impl": "candidate" if a.side == "candidate" else "baseline",
            # **`impl_path` beside `impl`, because the real harness always sets
-           # both** (`_common.py:255-256`, `"impl_path": args.impl`). This stub
+           # both** (`_common.py`, `"impl_path": args.impl`). This stub
            # omitted it entirely, so the kit exercised a report shape production
            # cannot emit -- and once m3 bound the pair (`8ae9094`: candidate
            # REQUIRES a non-empty `impl_path`), a stub candidate report became
@@ -120,7 +120,7 @@ json.dump({"schema_version": 1, "generated_by": "stubkit",
            # **`impl_read` beside them, for the same reason `impl_path` had to be
            # added: a fixture that cannot emit production's shape tests the
            # fixture** (CONTRACT §4.4). m3's harness writes this at the moment it
-           # reads (`_common.py:333`), null on a baseline run, and
+           # reads (`_common.py`), null on a baseline run, and
            # `_impl_read_problem` compares its digest against the file `--impl`
            # named. Hashing the real bytes here, not a constant -- a constant
            # would make the check refuse every stub run and the kit would grade
@@ -285,7 +285,7 @@ def _document(claim_speedup: float | None, measured: dict, *, noise_floor=NOISE_
                 #
                 # **Aligned to the real workset now that m3 has landed the
                 # wording** (`8ae9094` narrows the enum to `wall_clock_sync`,
-                # the one thing `run_performance.sh:44-55` actually does). m2
+                # the one thing `run_performance.sh` actually does). m2
                 # found the three-way split and I held this back deliberately
                 # until the owner decided, so it changed once rather than
                 # twice. The counts follow for the same reason the value does:

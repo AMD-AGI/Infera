@@ -57,7 +57,7 @@ between two validators, written here because there is nowhere else to write it.
 
 ## Why the abort, in one measured example
 
-The 2026-09-02 run timed `B8_V151936` at **50.18 µs on gfx950** against the
+The run timed `B8_V151936` at **50.18 µs on gfx950** against the
 workset's **55.40 µs on gfx942** — 9.6% apart. Divide one by the other and 9.6%
 of newer silicon appears as a speedup, in a comparison that reads as entirely
 legitimate and that nobody downstream can detect. That is far more likely than
@@ -78,7 +78,7 @@ an outright fabrication and it is worse, because it survives review.
    *only the optimised side fails* — which reads exactly like a broken kernel.
 3. **`TMPDIR` pointing at a directory that does not exist** makes every HIP
    kernel launch segfault with no output while `torch.cuda.is_available()` still
-   returns `True`. It cost the 2026-09-02 run 25 minutes.
+   returns `True`. It cost the run 25 minutes.
 
 `HIP_VISIBLE_DEVICES` is deliberately **not** defaulted: it arrives from the
 agent spec's `env:` block, and inventing a default would move the measurement
@@ -87,7 +87,7 @@ onto card 0, which on a shared host is somebody else's.
 ## The driver has to have measured the file we handed it
 
 m3's harness records `impl_read = {path, sha256, bytes, loaded_by}` **at the
-moment it reads** (`_common.py:333`, `782bb08`); this body compares that digest
+moment it reads** (`_common.py`, `782bb08`); this body compares that digest
 against the file it named on `--impl`, before any number in the report is read.
 
 **`impl_path` cannot do this.** It is `args.impl` copied at parse time — an echo

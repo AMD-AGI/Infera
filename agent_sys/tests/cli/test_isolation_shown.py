@@ -8,7 +8,7 @@ across `exec`, and fail-closed. `demo` design §1.2 draws that line and §14.3
 says why the other side of it is deliberately not tested here: a test that
 started a model call is non-deterministic, costs money, and fails on a fork.
 
-Measured end to end (`materials/08-demo.md` §1), in one Landlock domain with
+Measured end to end, in one Landlock domain with
 `cwd` set to the zone:
 
 | | |

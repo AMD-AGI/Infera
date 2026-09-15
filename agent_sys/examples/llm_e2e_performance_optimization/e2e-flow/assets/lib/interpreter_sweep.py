@@ -193,7 +193,7 @@ def agent_env() -> dict[str, str]:
     """`shared.yaml`'s `runner` env block, substituted the way a run substitutes.
 
     The third slot of the same §4.4 hole as the inputs, and it is what
-    `deploy_and_prove`'s row was actually about: `mock_adapt.sh:70` branches on
+    `deploy_and_prove`'s row was actually about: `mock_adapt.sh` branches on
     `$E2E_IMAGE`, which the package declares here and nowhere else —
     `agent.schema.json` makes an agent's `env` block the only route by which a
     package may name a variable. Withheld, m1's body refused on an unset image
@@ -282,7 +282,7 @@ def run_validator(name: str, entry: Path, materials: dict[str, Path], args: dict
             # either resolves, which is the friendlier of the two cases.
             "AGENT_SYS_TASK_PACKAGE": str(PKG),
             "AGENT_SYS_DEMO_PACKAGE": str(PKG),
-            # Exported for a validation zone (`cli/main.py:668`), so a validator
+            # Exported for a validation zone (`cli/main.py`), so a validator
             # legitimately has it. Pointed at the system interpreter on purpose:
             # this sweep asks what happens on the interpreter without the deps.
             "AGENT_SYS_DEMO_PYTHON": "/usr/bin/python3",

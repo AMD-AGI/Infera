@@ -27,9 +27,9 @@ the instruction the examiner was actually given. A literal `10` here would fail
 every bring-up run for a reason that has nothing to do with the examiner.
 
 The variable is present in the phase whose configuration is the producing
-task's, and absent in one that takes the global row — `validator/phase.py:297-358`
+task's, and absent in one that takes the global row — `validator/phase.py`
 supplies `bound`, `producer` and `global_` and no `consumer`, so an *input*
-phase falls through to `cli/main.py:601`'s four variables. Concretely: it is
+phase falls through to `cli/main.py`'s four variables. Concretely: it is
 there in `extra_tests`' output phase, and not in `score`'s input phase.
 
 `args.default_n_extra` is the fallback, and it is used **only** when the
@@ -46,7 +46,7 @@ requirement. The transcript says which rule applied.
 
 In practice the second row is usually never reached: `PhaseRunner` finds a prior
 verdict for the same handoff version and reuses it
-(`validator/phase.py:660-667`). That is a scheduling property this body does not
+(`validator/phase.py`). That is a scheduling property this body does not
 rely on, which is why the fallback is written and says what it is.
 
 ## Reaching the shipped examples

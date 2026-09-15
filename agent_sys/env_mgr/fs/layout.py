@@ -165,7 +165,7 @@ def handoff_dir(store_root: str, handoff_id: Any) -> str:
     **Resolved by scanning, not composed**, and that is not a style choice: the
     label in the middle is the handoff's *kind*, which lives on `task_graph`'s
     `Handoff.type` and is not a fact this module has. It does not need it — the
-    store allocates the directory at dispatch (`task_graph/scheduler.py:470`),
+    store allocates the directory at dispatch (`task_graph/scheduler.py`),
     before anything here resolves a grant, so by the time this runs the
     directory is on disk and the uuid identifies it.
 

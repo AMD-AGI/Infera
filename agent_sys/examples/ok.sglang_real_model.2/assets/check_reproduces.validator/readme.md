@@ -113,7 +113,7 @@ same decision one layer down. It is recorded here rather than buried because it
 is the sharpest edge in this package.
 
 **The whole transcript goes to a file, never to stderr.**
-`validator/phase.py:167-172` folds a body's stderr tail into an exception
+`validator/phase.py` folds a body's stderr tail into an exception
 message, so anything written there travels into the event stream. The transcript
 is `<validation zone>/reproduce/<handoff id>/claude.log`, and a failing verdict
 is meant to be read there.

@@ -56,7 +56,7 @@ time.
 
 **A producer may not widen its own bar.** The report records the thresholds it
 was decided against; if any is looser than this validator's `args`, that is a
-failure on its own. The sealed 2026-09-02 report is exactly that case — it
+failure on its own. The sealed report is exactly that case — it
 declares 0.35/0.30, widened in response to two arms measured fifteen minutes and
 one co-tenant apart. The right response to that was a comparability gate at
 bring-up (`../../../todo.md` T7), and **the bars are not to be widened**: the

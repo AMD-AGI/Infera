@@ -19,8 +19,8 @@ anything about the phase.** With slot == store the subject is absent and a pass
 would mean nothing — `interfaces.md` §8.11g, *a working instrument pointed at
 the safe case*, which is precisely what the rest of this directory was.
 
-Measured on `scratch/demo2-2026-08/bringup/n1`, whose non-leaf `main` is the
-first in the tree to declare an output. `examples/ok.filetree_grounded_report.4/`'s `main` declares
+Measured on a real bring-up whose non-leaf `main` is the first in the tree to
+declare an output. `examples/ok.filetree_grounded_report.4/`'s `main` declares
 `outputs: []`, so no parent ever pinned and slot == store == 0 everywhere.
 
 Tests may import `handoff` — `tests/interfaces/test_handoff_layout.py` states the
@@ -240,7 +240,7 @@ def test_a_non_leafs_output_phase_reads_the_version_its_subgraph_published(
     rather than trusting a pin nothing filled.
 
     Measured before the fix on `n1`: with fault one repaired the leaf succeeded
-    and the parent then died at `validator/phase.py:660` on *"cannot read
+    and the parent then died at `validator/phase.py` on *"cannot read
     verdicts of … v0"*, stranded in `output_validating` for the whole run.
     """
     parent, _, hid = diverged

@@ -74,7 +74,7 @@ def test_the_marks_say_what_they_come_from(registry: Any, graph: list[Any]) -> N
       fails here and has to be argued for.
     - **`is_end` is declared, and this fails if it is deleted.** Its default is
       positional, so appending a fourth entry would move the end silently, and
-      `monitor/base.py:663` is where that lands. The declaration is what stops an
+      `monitor/base.py` is where that lands. The declaration is what stops an
       append from being a semantic change nobody wrote.
     """
     entries = registry.get("closures").get("main")["task"]["subgraph"]
@@ -229,7 +229,7 @@ def _run_leaf(registry: Any, task: Any, *, valid: bool) -> None:
 def test_depends_on_is_derived_and_the_log_is_silent(
     registry: Any, graph: list[Any], caplog: Any
 ) -> None:
-    """§6.2 and `materials/08-demo.md` §5.
+    """§6.2.
 
     `scheduler._warn_depends_on` logs on every dispatch whose `depends_on` omits
     the producer of one of its inputs. It is a warning by design — *rejecting
@@ -443,7 +443,7 @@ def test_resume_continues_from_disk(tmp_path: Path, package_root: Path) -> None:
     assert len(records) == 4, sorted(t.closure for t in records)
     assert set(tasks) == {"main", "produce", "describe", "consume"}
     produce = tasks["produce"]
-    # The evidence, and it is what `materials/08-demo.md` §5 measured:
+    # The evidence, and it is what was measured:
     # `attempts=[(0, 'SUSPENDED'), (1, None)]`. The interrupted attempt is
     # demoted rather than lost, and a **second** one is open — which is the
     # observable form of "continued from persisted state", and also why the

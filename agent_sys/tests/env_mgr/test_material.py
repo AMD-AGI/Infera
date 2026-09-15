@@ -4,7 +4,8 @@
 
 The zone-local `CLAUDE_CONFIG_DIR` is deliberate and stays (see `material.py`'s
 own comment). But it also relocated the *transcripts*, and the o11y panel reads
-one fixed directory. Measured on demo2: nine agent transcripts landed under
+one fixed directory. Measured on a fourteen-task package: nine agent
+transcripts landed under
 `<zone>/config/projects/` and none reached the prefix, so the panel showed
 nothing. These tests hold the seam that fixes it — `projects` alone is shared —
 and the surrounding behaviour it must not disturb.

@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Status | Draft — stage two of spec → design → test & code |
-| Revision | 3 — 2026-08-27. **A validator's implementation is a body, following spec §6.1 rev. 8.** `readme.md` always, `entry.sh` when programmatic, plus its own `materials` (§3.8) — the same shape `closure` spec §2.6 gives a task. The registered Python callable, its implementation registry and its `inspect.signature` argument check are all withdrawn (§10.2, §10.6); D6 records what that costs, because it costs a real check. Everything about *verdicts* is untouched. (rev. 2: 2026-08-27. **The stage-three consistency pass.** The binding field is `inputs`, not the `binds_to` this document named in §10.3 and `handoff` §8.3 read. `Verdict` is `handoff`'s and is re-exported, not re-declared (§2, §11.1). The SDK's measured cost replaces the superseded figures (§8.1, §13). §8.2's per-phase-session decision is reconciled with `agent` O6 rather than left as two answers. (rev. 1: 2026-08-26. Initial)) |
+| Status | Normative for how this package is built |
+| Revision | 3 |
 | Implements | [`spec.md`](spec.md) rev. 8, acceptance criteria 1–21 |
 | Language | Python ≥ 3.10. pydantic v2; the harness SDK behind a seam (§8.1) |
 
@@ -158,7 +158,7 @@ surface.
 
 ### 3.2 The Protocol is a static type. It is not the admission gate
 
-Measured (`scratch/design/validator/t_protocol.py`, `t_protocol2.py`, 3.13.13):
+Measured (`t_protocol2.py`, 3.13.13):
 
 | | result |
 |---|---|
@@ -371,7 +371,7 @@ scheduler dispatches ONE task, holding ONE lease
 
 `task_graph` spec §3.2.2 rev. 12 specifies `INPUT_VALIDATING` and
 `OUTPUT_VALIDATING`, with their transitions. Measured: `TaskStatus`
-(`task_graph/models.py:44`) has **eight** members and contains neither.
+(`task_graph/models.py`) has **eight** members and contains neither.
 
 **That is `task_graph`'s change, not this module's** — module 4 raises the design
 from rev. 10 to rev. 11 and its criteria 36–54 include them. This design is
@@ -457,7 +457,7 @@ the boundary the whole system rests on (main spec §5.1).
 `phase.py`'s `run_phase` is a method, and rev. 1 never said what it is a method
 *on* or how `agent`'s `Runner` gets hold of one. `agent` design §7.1 says the
 runner *"resolves the validator's phase runner from the registry, by name, at use
-time"* — and no document registered anything. Found in the stage-three
+time"* — and no document registered anything. Found in the cross-module
 consistency pass, along with the same gap on `env_mgr`'s side.
 
 ```python
@@ -597,7 +597,7 @@ duplicate-rejection §5.2 already guarantees.
 
 ### 6.4 Two silent passes the composite must refuse
 
-Both measured (`scratch/design/validator/t_reduce.py`), both arriving from the
+Both measured, both arriving from the
 standard library rather than from a bug.
 
 **`all([])` is `True`.** A handoff that *no member validator declares* would be
@@ -648,7 +648,7 @@ This is the whole mechanism, and it is worth saying what it replaces. The
 natural instinct at this seam is a content-addressed verdict cache keyed on the
 handoff digest plus something identifying the checker. Five such key schemes were
 measured against six things that can change the answer
-(`scratch/design/validator/t_cachekey.py`), and **"the validator's implementation
+, and **"the validator's implementation
 changed" is a stale hit under every one of them**, because implementation source
 appears in no spec file. The record answers the question the cache was being
 built to answer — *did this exact validator run against this exact version, and
@@ -737,7 +737,7 @@ mistake is not available.
 Criterion 10. Spec §8.1: by hook, not by convention.
 
 Measured against `claude-agent-sdk` **0.2.144**
-(`scratch/design/probes-validator/p1_sdk_hook_dispatch.py`): a single
+: a single
 synchronous `PreToolUse` callback **logs every attempt before deciding, and then
 denies** — so criterion 10's "spy" and criterion 10's "the hook denies" are the
 same object, not two. The async form cannot block (*"Async outputs can't block,
@@ -767,7 +767,7 @@ seam exists to defer.
 
 Two registration details measured, recorded because each costs an afternoon:
 `hook_callbacks` is populated only inside `Query.initialize()`
-(`_internal/query.py:242-259`), not `__init__` — a `Query` built with hooks but
+(`_internal/query.py`), not `__init__` — a `Query` built with hooks but
 never initialised dispatches nothing. And `HookMatcher` matches the **tool
 name**; there is no agent-scoped matcher, so a hook is session-wide and filters
 on identity itself.
@@ -792,7 +792,7 @@ session, because those are the only shapes that carry `agent_id`.
 Rev. 1 wrote it as *"runs each phase as its own subagent or session"*, and
 `agent` design O6 records the same question as still open, having narrowed it:
 one client with several `session_id`s is **ruled out**, because `interrupt()`
-takes no `session_id` and acts on the whole connection. The stage-three
+takes no `session_id` and acts on the whole connection. The cross-module
 consistency pass found the two documents giving different answers.
 
 They are reconciled by splitting the question, and neither document was wrong
@@ -885,7 +885,7 @@ the channels a producer leaves state in. `/tmp`, `os.environ`, an inherited
 fds are clean, CPython defaulting them non-inheritable. `env_mgr` §4.5.1 already
 excludes `$HOME` from the granted set — one channel closed by policy; the rest
 are unmeasurable until `env_mgr` implements the sandbox its own spec §4.2
-specifies — its design stage, not this one.
+specifies — its design, not this one.
 
 Nix specifies its own version of this guarantee in the right shape, and this
 design copies the shape: *"what matters for determinism is what the build
@@ -903,7 +903,7 @@ Two failure modes to design away from, both first-hand from the survey:
 succeeding is not a guarantee.
 
 **A staleness check with a hidden off-switch is worse than none.** nox's, in
-full (`nox/virtualenv.py:133`):
+full (`nox/virtualenv.py`):
 
 ```python
 def _check_reused_environment_interpreter(self) -> bool:
@@ -1039,7 +1039,7 @@ checks and its own indexes.
 `fsspec`'s shape — error by default, an identical re-registration a no-op. The
 alternative is on record as a mistake, verified first-hand: Great Expectations
 logs `Overwriting declaration` and proceeds, and Inspect AI's `registry_add` is
-a bare dict assignment with no check at all (`_util/registry.py:141`). Spec §6.1
+a bare dict assignment with no check at all (`_util/registry.py`). Spec §6.1
 names pandera as the system that raises, and pandera does — with a message that
 names the collision: `method with name 'lt_limit' already defined. Check methods
 must have a unique method name.`
@@ -1141,7 +1141,7 @@ tombstones — `REMOVED = "Task vanished from DAG before it ran"` is a *state*, 
 reconciliation is bidirectional (a restored task is un-removed), and it never
 runs while the DAG run is active. dbt does the opposite and it is worse: a
 `unique_id` present in `run_results` and gone from the manifest is dropped by a
-silent set intersection (`graph/selector_methods.py:822`) with no error, warning
+silent set intersection (`graph/selector_methods.py`) with no error, warning
 or count. "Has this ever run" is meaningless if deletion erases the answer.
 
 **A derived static index goes wrong by forgetting a reference kind.** Airflow's
@@ -1232,7 +1232,7 @@ Criterion 19: a passing `weak` validator is reported as a low-confidence pass an
 is distinguishable from a passing `strong` one.
 
 Measured against the shipped `task_graph`
-(`scratch/design/validator/t_verdict_shape.py`), there are three candidate homes
+, there are three candidate homes
 and only one is free:
 
 | | |
@@ -1248,7 +1248,7 @@ and `PhaseOutcome` renders it.
 `handoff.Verdict` (`handoff` design §6.1) — that module writes it, reads it, and
 has to keep it readable across versions. `VerdictRecord` here is this module's
 *view* of one, which `top()` returns and `may_skip()` reads. Rev. 1 of both
-documents declared a type called `Verdict`; the stage-three pass found it, and
+documents declared a type called `Verdict`; the cross-module consistency pass found it, and
 two records of one fact is `engineer_principle.md` §1's failure.
 
 **There are three strengths, not two, and `long_term_strong` needs saying.**
@@ -1275,7 +1275,7 @@ consequence:
 **Criterion 19 is close to unprecedented, and the one precedent is a cautionary
 tale.** No surveyed system qualifies a *pass* in its aggregate view. Dagster's
 `AssetCheckResult(passed=True, severity=WARN)` is constructible and then ignored
-at every consumption site — `execute_step.py:521` requires `not passed` before
+at every consumption site — `execute_step.py` requires `not passed` before
 severity is read — so a qualified success is structurally unrepresentable there.
 Great Expectations is the same. SARIF chose a different axis entirely: confidence
 is a `kind` (`pass` / `open` / `notApplicable` / `fail`), and if `kind ≠ fail`
@@ -1397,7 +1397,7 @@ inspection, bracket-and-assert-set-membership, and a third test that **plants th
 erosion** so the spy is known to be able to fail.
 
 There are exactly three surfaces to spy, verified against the real scheduler
-(`probes-validator/p4_c5_invisibility.py`): `runner.start` (`scheduler.py:246`),
+(`probes-validator/p4_c5_invisibility.py`): `runner.start` (`scheduler.py`),
 `resource:<name>.take` (`:227`), and `policy.select` (`:203`). A validation phase
 adds to none of them, **because the runner never returns to the scheduler between
 phases** — that structural fact is what makes the criterion assertable rather
@@ -1409,7 +1409,7 @@ Two things the test must get right, both measured:
 tasks, two of them with an empty eligible list. So the assertion is *"no
 validator name ever appears in a `select` argument"*, not a call count.
 
-**"Pool" means the resource pool.** `Scheduler.pools` (`scheduler.py:26`) is a
+**"Pool" means the resource pool.** `Scheduler.pools` (`scheduler.py`) is a
 derived index over the whole `TaskStatus` enum, so adding `INPUT_VALIDATING` and
 `OUTPUT_VALIDATING` **creates two index pools by construction**. A test asserting
 "no validator occupies a pool" over `Scheduler.pools` would fail on a correct
@@ -1491,7 +1491,7 @@ Found by this design, and **not** in spec §12.
 | **O2** | **A reused verdict does not prove a re-run would agree.** §7.4. The record names the validator, not its implementation, and §9.3 forbids reading `version` at runtime. Nix names this exactly — *"there is no way to audit a build trace entry except for by performing the build again"* — and calls trust in it a subjective policy choice. If a stronger identity is ever wanted, Bazel's is the shape: the tool's bytes plus a hand-bumped GUID per action class, under the contract *"if the work to be performed changes, the key must change"* |
 | **O3** | **Nothing checks that a body reads the args it was configured with.** §10.6. Rev. 2 asked this only of *agent-run* validators, because `inspect.signature` covered the code-backed ones; rev. 3's body has no signature in either case, so the asymmetry is gone and the gap now applies to both. Gatekeeper's answer is still the one with precedent — the implementation ships a schema for its own args — and it would fit a body: a validator folder could carry an `args.schema.json` beside its `entry.sh`. Not built. **This is the one place rev. 3 is strictly weaker than rev. 2**, and §14 D6 says so |
 | **O4** | **May a handoff kind supply args to the validator it binds?** Spec open question 2 raises it. Under D5 it cannot, and the question does not arise; if it later can, `validators_for(kind)` changes type and handoff design §8.3 must rule on two kinds binding one validator with different args |
-| **O5** | **`TaskStatus` lacks `INPUT_VALIDATING` and `OUTPUT_VALIDATING`.** `task_graph` spec §3.2.2 rev. 12 specifies them; `models.py:44` has eight members and neither. Module 4's change, but this design's §5 is written against a state that does not exist yet |
+| **O5** | **`TaskStatus` lacks `INPUT_VALIDATING` and `OUTPUT_VALIDATING`.** `task_graph` spec §3.2.2 rev. 12 specifies them; `models.py` has eight members and neither. Module 4's change, but this design's §5 is written against a state that does not exist yet |
 | **O6** | **Nothing detects a wrong `cost` tag.** §5.3. Ordering by a declared cost tag has no prior art at all; the two nearest systems warn advisorily (Bazel, off by default, with an irreducible false-positive rate under variance) or degrade silently (pytest-split substitutes the population mean and discards orphans). The design records actual durations so a later change can report disagreement; nothing consumes them yet |
 | **O7** | **Who owns the enumeration of reference kinds for "who uses this"?** §10.5. There are two edges today — a kind naming a validator, a composite naming a member. Airflow's asset orphanage reported live assets dead because one reference kind was missing from its join (#58058). Nothing here owns that list, and a missing edge produces false-positive deadness, which is the failure mode of every derived static index |
 | **O8** | **Does a validator's deletion erase its history?** §10.5. Airflow tombstones and keeps the record; dbt drops orphans in a silent set intersection. "Has this ever run" is meaningless if deletion erases the answer and unbounded if nothing ever prunes. This is the same GC problem [`../../handoff/docs/design.md`](../../handoff/docs/design.md) §15 O3 records between an artefact and its verdict, arriving from the registry side |

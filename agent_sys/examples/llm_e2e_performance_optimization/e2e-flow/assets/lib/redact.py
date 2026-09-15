@@ -2,7 +2,7 @@
 """Make evidence publishable: replace site-specific roots with placeholders.
 
 **The rule this enforces is portability, and it is NOT the seal's.** CONTRACT
-§2.2, which this file spent two rounds contradicting: `handoff/store.py:447` and
+§2.2, which this file spent two rounds contradicting: `handoff/store.py` and
 `:493` both read `# locality.check — NOT CALLED. User-ruled 2026-08-31` — the
 shape heuristic read an HTTP access-log line as a filesystem path and refused a
 correct artefact, 97% false positive on a real kit. Corroborated from the other
@@ -113,7 +113,7 @@ def is_environment_record(path, root) -> bool:
     CONTRACT §2.2 ends *"skipping the environment record"*, and the mechanism is
     sharper than the reason first written here. The old note said rewriting it
     fails `check_environment`'s `compare_fixed_across_inputs`. That comparison
-    is real — `model_path` is in the list at `steps/common.yaml:76` — but it is
+    is real — `model_path` is in the list at `steps/common.yaml` — but it is
     not what arrives first. Measured: `PLACEHOLDER` is `@NAME@`, and
     `model_path: @MODEL_MOUNT@/Qwen3.6-27B` is **not valid YAML**, because a
     bare `@` cannot start a plain scalar. A rewritten record is unparseable to

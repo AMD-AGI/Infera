@@ -43,8 +43,7 @@ def _inside(zone: Zone, rel: str) -> str:
     not accept one.
 
     **The message is read by a model.** It is `str(e)` on an `isError` tool
-    result — measured, `scratch/single-real-task-2026-08/c_probe_tool_refusal_visible.py`
-    — so it has to say what the agent should do differently, and it must name a
+    result — measured — so it has to say what the agent should do differently, and it must name a
     path that exists on the side the argument was about. This one is about the
     local zone, which is the agent's own `cwd`, so naming it is actionable.
     """

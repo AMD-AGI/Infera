@@ -2,9 +2,8 @@
 
 | | |
 |---|---|
-| Status | Draft, revised after review |
-| Revision | 3 — 2026-08-26. The read rule is an allow-list, because neither mechanism can enforce a deny-list (§4.2, §4.5). A default granted system set (§4.5.1). Isolation criteria are CI-enforced (§10). (rev. 2: Review of PR #132: isolation is OS-enforced, not prefix-matched; `env_mgr` is a provider of mechanisms, not a process; playground is unsynced scratch; sync is a one-time job at task start. rev. 1: widened scope from environment recipes) |
-| Date | 2026-08-24 |
+| Status | Normative |
+| Revision | 3 |
 | Scope | All interaction with the Linux system: storage, workspaces, isolation, local↔remote mapping |
 | Source | The task definition §7; a survey of agent-harness isolation mechanisms (§4) |
 | Part of | [`../../docs/spec.md`](../../docs/spec.md) — the whole-system specification |
@@ -76,7 +75,7 @@ internally.
 | 4 | **Write narrowly, read broadly** | A task may not write outside its zones; reads get a generous but **declared** set. Both are allow-lists — the mechanisms enforce nothing else (§4.2). §4.5 |
 | 5 | **Work on a copy** | An agent copies a handoff into its playground and works there. §6.3 |
 | 6 | **A mechanism, not a manager** | §1.1 |
-| 7 | **Reuse what shipped** | The recipe and installer machinery is reused, not reimplemented. It is no longer *frozen*, for **two** independent reasons, both 2026-09-04: the layer model was removed from it by design, and `installers/claude.py`'s plugin check was fixed — a check that could never pass, held in place by the fence along with two tests encoding a CLI output format that does not exist. Either alone would have retired the fence. §9 |
+| 7 | **Reuse what shipped** | The recipe and installer machinery is reused, not reimplemented. It is no longer *frozen*, for **two** independent reasons, both the layer model was removed from it by design, and `installers/claude.py`'s plugin check was fixed — a check that could never pass, held in place by the fence along with two tests encoding a CLI output format that does not exist. Either alone would have retired the fence. §9 |
 | 8 | **Adopt Claude Code's user/project split; invent no levels of our own** | Non-AI installs go system-wide. AI material splits exactly as the harness already splits it: package-declared is *user level*, agent-declared is *project level*. There is no layer field and no layer vocabulary. §9.1 |
 
 ---
@@ -441,7 +440,7 @@ The last row is a hard requirement, not a best effort.
 ## 9. Relationship to the shipped `env_mgr`
 
 Reused, not rewritten — but **no longer frozen**, and that distinction is the
-point of the table. Until 2026-09-04 these modules were held *byte-identical* by
+point of the table. Until these modules were held *byte-identical* by
 a test, which was a scope fence for the round that built the new subsystems and
 not a quality gate. The fence is retired with criterion 22 (§10), so "reused"
 now means what it says: the same modules, changed where the design says to.
@@ -637,7 +636,7 @@ Landlock-capable kernel, or the suite is red.
 22. **The shipped recipe and installer machinery keeps working**: `pytest
     agent_sys/tests/env_mgr` passes.
 
-    **Revised 2026-09-04, and the earlier wording is kept here because the
+    **Revised, and the earlier wording is kept here because the
     change is the point.** It read *"is **untouched**: … passes unchanged"*, and
     a test asserted that first clause literally — `git diff HEAD` over eight
     paths had to be empty. That was a **scope fence** for the round that built

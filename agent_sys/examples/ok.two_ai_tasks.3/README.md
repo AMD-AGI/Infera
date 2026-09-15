@@ -87,7 +87,8 @@ warns at compile time.
 
 ## What is copied from `../ok.algorithms_solve_grade.14/`
 
-`assets/lib/store.py` and both catalogues are **byte-identical** to demo2's.
+`assets/lib/store.py` and both catalogues are **byte-identical** to
+`ok.algorithms_solve_grade.14`'s.
 `store.py`'s own docstring sets the rule: it is a verbatim copy of demo-1's, an
 agreement test pins demo-1's copy against `handoff`'s real constants, and a copy
 that drifted would be a second unpinned reader of a layout `handoff` owns. Fix

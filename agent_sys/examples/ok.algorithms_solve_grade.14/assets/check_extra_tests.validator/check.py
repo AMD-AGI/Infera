@@ -41,7 +41,7 @@ def expected_count(args: dict) -> tuple[int | None, str]:
     with the instruction the examiner was actually given.
 
     It is present in the phase whose configuration is the producing task's, and
-    absent in the one that takes the GLOBAL row (`validator/phase.py:297-358`).
+    absent in the one that takes the GLOBAL row (`validator/phase.py`).
     `args.default_n_extra` is the fallback, and it matches the agent's own
     default — so a full run agrees with itself and a shrunk one would not.
 

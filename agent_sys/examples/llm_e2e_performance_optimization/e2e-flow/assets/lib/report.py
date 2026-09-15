@@ -54,7 +54,7 @@ def verdict(r: dict, need: int, need_disk: int, need_root: int) -> tuple[str, st
     # released it: the node has no `/shared_nfs`. A servable image is a fact
     # about the node's docker; the mount is a fact about the node, and this
     # package runs bodies on the node by absolute path
-    # (`remote.sh:170 require_visible_on_node`), so a missing shared filesystem
+    # (`remote.sh::require_visible_on_node`), so a missing shared filesystem
     # fails three layers from its symptom. Ordered above the image checks
     # because no image makes up for it.
     if r.get("shared_nfs") is False:

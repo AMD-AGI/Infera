@@ -22,7 +22,7 @@ class FakeValidatorRegistry:
 
     **`get` raises `SpecNotFound`, not `KeyError`, and that is not cosmetic.**
     It used to be a bare `self._specs[name]`, which is a different exception
-    from the real `spec_loader/registry.py:193` — *"raises `SpecNotFound`,
+    from the real `spec_loader/registry.py` — *"raises `SpecNotFound`,
     naming the kind, the name, and the candidates."* Unreachable today, because
     `check_bindings` guards with `vname not in validators` before it calls
     `get`, so the only divergence sits behind a membership test. **A double
@@ -162,7 +162,7 @@ def test_the_double_refuses_an_unknown_name_the_way_the_real_registry_does() -> 
 
     class RealValidatorRegistry(BaseSpecRegistry):
         # `kind` is a class attribute on every concrete registry —
-        # `agent/registry.py:44`, `closure/registry.py:31`. Subclassing is how
+        # `agent/registry.py`, `closure/registry.py`. Subclassing is how
         # the real `get` is reached, so this exercises production's code path
         # rather than a second copy of it.
         kind = "validator"

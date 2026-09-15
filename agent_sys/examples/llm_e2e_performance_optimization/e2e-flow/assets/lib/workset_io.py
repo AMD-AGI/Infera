@@ -47,7 +47,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 #: `handoff/locality.py`'s allow-list, duplicated.
 #:
-#: **Not because the seal enforces it — it does not.** `handoff/store.py:447`
+#: **Not because the seal enforces it — it does not.** `handoff/store.py`
 #: and `:494` decline to call `locality.check`, user-ruled 2026-08-31 after the
 #: shape heuristic read an HTTP access-log line as a filesystem path and refused
 #: a correct artefact; measured 97% false positive on a real kit. The module is
@@ -261,7 +261,7 @@ def write_report(validator: str, findings: dict[str, tuple[list[str], list[str]]
     that the gate did its job; keeping it only when it fails would make the
     record of a working trust chain the one thing never kept.
 
-    `dict[str, bool]` is all `verdict.json` can carry (`zone.py:132`), so this
+    `dict[str, bool]` is all `verdict.json` can carry (`zone.py`), so this
     is the only place a *reason* can live until the verdict type grows a third
     state. Named beside it deliberately: whoever finds one finds the other.
 

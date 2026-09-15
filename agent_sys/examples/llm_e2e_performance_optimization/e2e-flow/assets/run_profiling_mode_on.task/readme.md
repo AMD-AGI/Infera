@@ -122,7 +122,7 @@ Executed in order by `entry.sh` → `../load/line.sh`.
 **This section exists because a `kind: ai` task never runs `entry.sh`.** The
 program body below it enforces guards that you now enforce yourself, and reads
 values from the environment that no environment can tell you about
-(`agent/runner.py:801` — *"an env var cannot instruct an agent"*). Declaring a
+(`agent/runner.py` — *"an env var cannot instruct an agent"*). Declaring a
 variable makes it reachable; only this page makes it used.
 
 ### Three values the shell reads and you would not know to look for
@@ -136,7 +136,7 @@ arrivals, same lengths, so a difference between them is the engine and not the
 load.
 
 Without it there is nothing to send and the load aborts (`aiperf_replay.sh`
-requires it). **This is not hypothetical**: on 2026-09-05 a bring-up succeeded
+requires it). **This is not hypothetical**: a bring-up succeeded
 completely — worker serving, six verification probes green, a real completion —
 and the run then died at the load because no trace had been passed. The
 operator supplies the path; your job is to make sure it reaches the load step,
@@ -222,7 +222,7 @@ which flips all three of this stage's leaves to `kind: ai` at once.
 The file is `.../<handoff-id>/v1/content/README.md`, at the **content root** —
 not a README inside a subdirectory, and not the one in a packup. The seal
 requires specific section headings, **per content type**, and they are not the
-same set for every output (`agent_sys/handoff/content.py:62-87`):
+same set for every output (`agent_sys/handoff/content.py`):
 
 ```
 reproducible     ## Purpose · ## How to run · ## Result · ## Environment · ## Watch out
@@ -245,11 +245,10 @@ that is the seal's own sentence and the one you will see if you get it wrong.
 met.** That heading belongs to this document; the seal reads the README you
 write, not the brief you read.
 
-**Why this is spelled out rather than left to judgement.** On 2026-09-05 two
+**Why this is spelled out rather than left to judgement.** On two
 stage-4 agents on two nodes both failed this seal within four minutes, and
 neither failure resembled the other — one wrote no root README, one invented
 its own headings. The refusal arrives **after** you have finished, and the
 framework's retry cannot reach a finished agent
-(`temp/bugs/2026-09-05-the-stall-detector-is-blind-to-a-task-that-holds-a-thread-and-does-nothing.md`),
 so a wrong heading here is not a correctable mistake — it ends the run and the
 GPU hold with it. One of those cost hold `112699`.

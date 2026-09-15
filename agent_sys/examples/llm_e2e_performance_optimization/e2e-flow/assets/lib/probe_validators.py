@@ -115,7 +115,7 @@ _GPU_HOURS: set[str] = set()
 #: the wrong question (m2, 2026-09-05):
 #:
 #:     expect_ranks=2   check_trace_coverage    "expected 8 rank(s), the manifest lists 2"
-#:                      — the sealed torch_trace is a TP-2 capture (`m2_profiling.yaml:116`)
+#:                      — the sealed torch_trace is a TP-2 capture (`m2_profiling.yaml`)
 #:     adhoc_cases=0    check_acceptance x2     "adhoc.json is missing and 3 ad-hoc case(s)
 #:                      are required (M5.4)" — no sealed handoff carries them (MOCK-MAP D")
 #:

@@ -148,7 +148,7 @@ HEALTH_TIMEOUT_S = 30.0
 #: a test can shrink it.
 REUSE_PROBE_TIMEOUT_S = 2.0
 
-#: AgentsView's own JSON endpoint (`docs/session-api.md:112`), used as the
+#: AgentsView's own JSON endpoint (`docs/session-api.md`), used as the
 #: identity probe. Not `/`: every web server answers that with a 200.
 IDENTITY_PATH = "/api/v1/agents"
 

@@ -138,8 +138,8 @@ mode is an uncaught exception rather than a wrong answer:
 
 | reader | with an unsealed `v<N>` on top | now |
 |---|---|---|
-| `agent/gate.py:90` — `list_versions[-1]`, then `get_manifest` | bare `FileNotFoundError`, out of `run_gate` | the hole is not in the list; the gate reports `OUTPUT_ABSENT`, which is the truth about the attempt |
-| `cli/main.py:761` — `read_verdicts` per version | `Malformed` | skipped |
+| `agent/gate.py` — `list_versions[-1]`, then `get_manifest` | bare `FileNotFoundError`, out of `run_gate` | the hole is not in the list; the gate reports `OUTPUT_ABSENT`, which is the truth about the attempt |
+| `cli/main.py` — `read_verdicts` per version | `Malformed` | skipped |
 | `exists(hid, N)` | `True` | `False` |
 | `_next_guess` | correct already — it counts holes, and **must**, or allocation would hand out a number in use | unchanged |
 
@@ -156,7 +156,7 @@ criterion covers today. It is cheap to add later and expensive to undo.
 The reason recorded here was that `docs/interfaces.md` §5.14 resolved
 publication to a supervisor-side pull, under which the completeness gate ran
 before any manifest existed. **That premise is dead**: §4.14 dissolves §5.14,
-and §4.16 measured `agent/gate.py:90` calling `store.get_manifest(hid, version)`
+and §4.16 measured `agent/gate.py` calling `store.get_manifest(hid, version)`
 — the gate runs against the store, so a manifest is exactly what it has. A
 manifest field could carry it.
 
@@ -170,7 +170,7 @@ wrong:
 |---|---|
 | `False` | every existing producer trips `SELF_CHECK_UNSET`; the gate blocks the demo |
 | `True` | the check is inert, and now lies about being satisfied |
-| `None` | behaviour identical to absence — but `agent/gate.py:101`'s tolerance clause (*"absent means `handoff` has not landed the field"*) becomes permanently untrue, so the guard can never be tightened |
+| `None` | behaviour identical to absence — but `agent/gate.py`'s tolerance clause (*"absent means `handoff` has not landed the field"*) becomes permanently untrue, so the guard can never be tightened |
 
 **So it lands with a channel or not at all.** The shape that works is
 `seal(..., done_by_self_check: bool)` as a **required** keyword — `seal` is only

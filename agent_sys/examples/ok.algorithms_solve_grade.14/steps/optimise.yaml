@@ -77,7 +77,7 @@
 # What `optimise` writes: one improved implementation per problem.
 #
 # `content_type: code` because that is what it is — sources that compile and
-# run. **The type's shape was measured, not assumed** (`handoff/content.py:69`):
+# run. **The type's shape was measured, not assumed** (`handoff/content.py`):
 # `code` requires exactly one item, `codes`, and its README sections are
 # `Purpose`, `Interface` and `Boundary`. So the per-problem directories live
 # *inside* `items/codes/`, which reaches `Content.load` as a single `tree` item;

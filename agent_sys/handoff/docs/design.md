@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Status | Draft — stage two of spec → design → test & code |
-| Revision | 2 — 2026-08-27. **The stage-three consistency pass.** D1 is retired: spec rev. 5 adopts JSON Pointer, so the design no longer deviates (§8.4, §14). The two-way agreement check reads `inputs`, not the `binds_to` that exists in no model (§8.3). `Verdict` is named as this module's type and `validator`'s `VerdictRecord` as its payload (§6.1). O2's dependency picture is corrected against measurement (§15). (rev. 1: 2026-08-26. Initial) |
+| Status | Normative for how this package is built |
+| Revision | 2 |
 | Implements | [`spec.md`](spec.md) rev. 5, criteria 1–17 |
 | Language | Python ≥ 3.10. PyYAML, `python-jsonpath`, `markdown-it-py` |
 | Scope | Content, the digest, storage, the validator binding, and the two checks that gate admission |
@@ -282,7 +282,7 @@ accident".
 
 ### 4.1 Digest the `content/` subtree; the verdict is its sibling
 
-Measured (`scratch/design/probes-handoff/probe_yaml_sidecar.py`): the content
+Measured: the content
 digest is unchanged by creating and then rewriting a sibling `validation.yaml`,
 and survives a `copytree` of the whole version directory.
 
@@ -559,7 +559,7 @@ class HandoffStore(Protocol):
 
 **`dst` is mandatory and there is no `get_local_path`.** MLflow's
 `LocalArtifactRepository.download_artifacts(dst_path=None)` returns **the
-store's own path, not a copy** (`local_artifact_repo.py:230-247`) — an agent
+store's own path, not a copy** (`local_artifact_repo.py`) — an agent
 handed that return value is editing the store in place, and nothing in the type
 signature says so. Making the parameter mandatory is a one-word decision that
 makes the failure unrepresentable.
@@ -634,11 +634,11 @@ class HandoffStore(Protocol):
 | **Append** | *"It is not possible to append efficiently to S3 objects"* (`s3fs.cc:3469`) | No append. A version is written once |
 | **`stat`, mtime, permissions** | Arrow's `FileInfo` is 4 fields with no symlink; S3A reports directory permissions as 777 and files as 666 | Not in the interface. §4.4 already excludes all of it from the digest |
 | **Locking** | Nothing surveyed has one. MLflow *has* `ExclusiveFileLock` and does not use it where the race is — and it raises on Windows | §6.3's allocator needs no lock |
-| **Delete** | Six MLflow backends refuse it in **two different exception types** — `NotImplementedError` in four files, `MlflowException("Not implemented yet")` in `dbfs_artifact_repo.py:185` | **Not in the Protocol at all.** §15 O3 |
+| **Delete** | Six MLflow backends refuse it in **two different exception types** — `NotImplementedError` in four files, `MlflowException("Not implemented yet")` in `dbfs_artifact_repo.py` | **Not in the Protocol at all.** §15 O3 |
 
 **`Verdict` is this module's type, and it is the one that crosses the seam.**
 Both this design and `validator` design §2 list a type by that name, which the
-stage-three consistency pass found and which would have been two records of one
+cross-module consistency pass found and which would have been two records of one
 fact. The split:
 
 | | Owner | What it is |
@@ -653,9 +653,9 @@ second one.
 
 **Capability goes in mixins and a conformance suite, never a flags dict.**
 MLflow pushed backend-specific operations into four ABCs
-(`MultipartUploadMixin`, `MultipartDownloadMixin`, …, `artifact_repo.py:629+`);
+(`MultipartUploadMixin`, `MultipartDownloadMixin`, …, `artifact_repo.py+`);
 Arrow put 13 deviation predicates in its **test** header
-(`test_util.h:164-194` — `allow_move_dir`, `have_implicit_directories`) and has
+(`test_util.h` — `allow_move_dir`, `have_implicit_directories`) and has
 **no `supports_*` field at runtime**. This is
 [`../../docs/design.md`](../../docs/design.md)'s "backends raise; no capability
 matrix" arriving from a second direction, and it means `tests/handoff/` ships a
@@ -719,14 +719,14 @@ Four measured facts hold this up:
 the working tree are **different filesystems on this machine** (`st_dev`
 differs), so a `/tmp` stage cannot be renamed into the store — the rename would
 fall back to a copy or fail. This is not hypothetical: `fsspec` calls its own
-transaction *"semi-atomic"* (`fsspec/transaction.py:5-10`) because
+transaction *"semi-atomic"* (`fsspec/transaction.py`) because
 `LocalFileOpener._open` calls `mkstemp()` with **no `dir=`**; a 200 MB write with
 target on tmpfs and temp on ext4 showed **185 of 248 polls seeing a partial
 size**, and 0 on one filesystem. Atomicity decided by mount layout, silently.
 
 **`os.mkdir` is a free atomic allocator.** MLflow's FileStore is read-max+1
-(`file_store.py:681-684`) whose guard calls `write_yaml` with `overwrite=False`
-— and `write_yaml` (`file_utils.py:854-875`) **ignores its own `overwrite`
+(`file_store.py`) whose guard calls `write_yaml` with `overwrite=False`
+— and `write_yaml` (`file_utils.py`) **ignores its own `overwrite`
 argument**, so two writers both allocate v3 and the second wins. `FileExistsError`
 costs nothing and cannot be ignored.
 
@@ -735,13 +735,13 @@ versions are never overwritten this never fires — and if it ever did, it fires
 loudly rather than clobbering.
 
 **MLflow gets the single-file case right and says why** —
-`local_artifact_repo.py:125-151` stages with `mkstemp(dir=artifact_dir)` then
+`local_artifact_repo.py` stages with `mkstemp(dir=artifact_dir)` then
 `os.replace`, commented *"so readers never see a partially-written artifact"* —
 **and does not do it for directories**: `log_artifacts` (line 226) is a plain
 copytree into the live directory. We do for directories what they do for files.
 
 `.staging-` is a reserved prefix and the lister filters it, as MLflow's does
-(`local_artifact_repo.py:262`).
+(`local_artifact_repo.py`).
 
 ### 6.4 Versions are integers; the digest is the identity
 
@@ -894,7 +894,7 @@ proceeds past is not a rule.
 
 Arrow states the same limit about its own `SubTreeFileSystem`: *"This makes no
 security guarantee. For example, symlinks may allow to 'escape' the subtree"*
-(`filesystem.h:418`).
+(`filesystem.h`).
 
 ---
 
@@ -948,7 +948,7 @@ for kind in handoffs.names():
 `binds_to` is rejected at admission. Rev. 1 of this document and `validator`
 design §10.3 check 4 had **two names for one field**, and the two-way agreement
 check — the thing criterion 10 is about — read the one that cannot exist. Found
-in the stage-three consistency pass; corrected on both sides.
+in the cross-module consistency pass; corrected on both sides.
 
 The error message below still says `binds_to:` in its example because that is the
 *label a reader sees*, and `inputs:` would be ambiguous next to the handoff's own
@@ -1375,7 +1375,7 @@ None changes an acceptance criterion.
 
 | # | Spec says | Design does | Why |
 |---|---|---|---|
-| **D1** | ~~"a jsonpath into the content" (§5.1)~~ | **No longer a deviation.** Spec §5.1 rev. 5 and `validator` spec §4.1 rev. 7 both say RFC 6901 JSON Pointer | Rev. 1 reported it and declined to edit the spec, which was right. Decided by the user in the stage-three consistency pass, on the argument rev. 1 made: RFC 9535 §2.5.1.2 **forbids a valid JSONPath query from erroring**, so no implementation can distinguish a wrong path from an absent value. The reason now lives in the spec, where the next reader will meet it before the library choice rather than after |
+| **D1** | ~~"a jsonpath into the content" (§5.1)~~ | **No longer a deviation.** Spec §5.1 rev. 5 and `validator` spec §4.1 rev. 7 both say RFC 6901 JSON Pointer | Rev. 1 reported it and declined to edit the spec, which was right. Decided by the user in the cross-module consistency pass, on the argument rev. 1 made: RFC 9535 §2.5.1.2 **forbids a valid JSONPath query from erroring**, so no implementation can distinguish a wrong path from an absent value. The reason now lives in the spec, where the next reader will meet it before the library choice rather than after |
 | **D2** | "the two-way binding … crashes at load" (§5.1) | Implemented as written, **with no precedent** | §8.3. SQLAlchemy's `back_populates` — the closest analogue — **does not check that the two sides agree** (verified on 2.0.44: a flat contradiction configures with no error or warning; `relationships.py::_add_reverse_property` never compares `other.back_populates == self.key`). GraphQL Federation **deleted** the requirement in Fed 2 (`KEY_NOT_SPECIFIED` in the removed-codes list). Kubernetes treats a dangling ownerRef as *absent*, not an error. Django derives one side. **The design implements the spec; the deviation is that nobody else does this**, and §15 O6 states the strongest argument against |
 | **D3** | Content is "a README plus a dict" (§3.1) | The dict is split — file-valued items are files, data-valued items live in `items.json` | §3.1. Forcing a `reproducible` handoff's `logs` through JSON is a decision nobody could undo. The spec's model is preserved; only its on-disk realisation is two files |
 | **D4** | "the validators are limited to schema conformance and internal consistency" for knowledge handoffs (§4.1) | The restriction lives in the **kind**, not in a `KnowledgeStore` | §6.5. It is a property of what a knowledge kind may declare, and enforcing it in the store would put a policy in the layer that has no access to the validator registry |
@@ -1389,7 +1389,7 @@ Found by this design, and **not** in spec §10.
 | # | Question |
 |---|---|
 | **O1** | **Nothing in the spec set names the tree-digest algorithm.** §3.3 fixes sha256 and its scope but not what the walk covers, and §4.2 had to specify it. in-toto registers `dirHash` with a shell equivalent precisely because leaving it implicit makes implementations disagree silently — and note that in-toto's own definition's `-type f` **silently drops symlinks and empty directories**, which is exactly the kind of exclusion that must be written down. Should §3.3 name `agent_sys.handoff.tree.v1` and point here? |
-| **O2** | **Three runtime dependencies are undeclared, and the accident is wider than rev. 1 thought.** Re-measured in the stage-three pass: `python-jsonpath` is **still not installed** — it is the one library this design actually chose, and the two it rejected (`jsonpath-ng` 1.8.0, `jsonpointer` 3.1.1) both are. `markdown-it-py` 4.0.0 is installed transitively via `rich`. **`rfc8785` 0.1.4 IS installed**, which rev. 1 recorded as absent. So a test would pass today, on this machine, using a library this design rejected — and fail on a clean install. This compounds [`../../docs/design.md`](../../docs/design.md) §12 O1, which now carries the full list, and [`../../docs/interfaces.md`](../../docs/interfaces.md) §7 carries the declaration |
+| **O2** | **Three runtime dependencies are undeclared, and the accident is wider than rev. 1 thought.** Re-measured in the cross-module consistency pass: `python-jsonpath` is **still not installed** — it is the one library this design actually chose, and the two it rejected (`jsonpath-ng` 1.8.0, `jsonpointer` 3.1.1) both are. `markdown-it-py` 4.0.0 is installed transitively via `rich`. **`rfc8785` 0.1.4 IS installed**, which rev. 1 recorded as absent. So a test would pass today, on this machine, using a library this design rejected — and fail on a clean install. This compounds [`../../docs/design.md`](../../docs/design.md) §12 O1, which now carries the full list, and [`../../docs/interfaces.md`](../../docs/interfaces.md) §7 carries the declaration |
 | **O3** | **Garbage collection between an artefact and its verdict is unsolved everywhere, and this design does not solve it.** `delete_version` is deliberately absent from §6.1's Protocol. OCI distribution-spec#378 — *"How are registries expected to behave when a subject is deleted?"* — has been open since 2023 with maintainers disagreeing in-thread (*"They're decoupled"* versus *"you wind up with zombie objects"*); mark-and-sweep does not traverse `subject`, so GitLab#966 notes referrers *"would be GC'ed soon after being pushed"*, and zot#4271 is a **single dangling reference that silently disabled GC estate-wide** while ~90 GiB accumulated. REAPI#138 (retraction) has been open ~7 years. **Nix's direction is the one design that makes the harmful case unrepresentable** — GC roots point *at* content, so a dead root is auto-unlinked and a content-orphan cannot arise. Worth deciding before anything is deleted, rather than after |
 | **O4** | **NFC and NFD are two distinct keys, and JCS mandates that they stay so** (§3.1: *"MUST preserve Unicode string data 'as is'"*). Two `items` keys that render identically on screen produce different digests, with no warning. They also coexist as two visually identical **filenames** on Linux and **collide on macOS**. Nothing in the spec set says a key must be NFC, and §7.3's mint-time allow-list is where it would go |
 | **O5** | **Should the locality check weight by file role?** §10.4. A path in a re-executable script is stronger evidence than one in a log. lintian has the mechanism (`Item.pm::mentions_in_operation`) and **does not wire it in**; this design follows lintian and does not either. It is the first refinement anyone will ask for after the first false positive |

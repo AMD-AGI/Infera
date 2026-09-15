@@ -58,7 +58,7 @@ esac
 envyaml="${2:?the environment.yaml to carry forward, out of the deploy_kit m1 produced}"
 
 out_for() {
-  # `env_mgr/grants.py:450 _env_name`: uppercase, every non-alphanumeric to `_`.
+  # `env_mgr/grants.py::_env_name`: uppercase, every non-alphanumeric to `_`.
   local var
   var="AGENT_SYS_OUTPUT_$(printf '%s' "$1" | tr -c '[:alnum:]' '_' | tr '[:lower:]' '[:upper:]')"
   printf '%s' "${!var:?$var is unset — the task does not declare $1 as an output}"
@@ -104,9 +104,9 @@ arms)
     # comparison cannot fire while both sides share a source.
     #
     # The validator is right and the artefact was missing a marker my own gate
-    # already looks for: `check_measurement_order/check.py:330` skips the
+    # already looks for: `check_measurement_order/check.py` skips the
     # arm-vs-own-record comparison when `runtime.replayed_from` is set, on
-    # `check_deploy_kit:341`'s precedent, and `deploy_and_prove/mock_adapt.sh:124`
+    # `check_deploy_kit:341`'s precedent, and `deploy_and_prove/mock_adapt.sh`
     # sets it for m1. This is the same convention, one stage later — so rung 1's
     # count returns to one refusal by fixing the producer, not by widening a bar.
     #

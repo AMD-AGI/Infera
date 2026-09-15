@@ -40,7 +40,7 @@ Schema cannot state, and on this kind it is most of the value:
 6. **No hard-coded host path in executable or generated content.** the analysis stage
    justifies this rule by saying the seal refuses a delivery over one. Measured
    against the framework rather than inherited: it does not.
-   `handoff/store.py:447,494` decline to call `locality.check` — user-ruled
+   `handoff/store.py` decline to call `locality.check` — user-ruled
    2026-08-31 at a measured 97% false-positive rate — and the sealed
    `deploy_kit` in the mock set carries `/shared_nfs/...` in five files. The rule
    survives on its own merit, which was always the real one: a script carrying
@@ -576,7 +576,7 @@ def _check(content: Path, args: dict, problems: list[str], notes: list[str]) -> 
     # **The premise the analysis stage gave for rule 6 is no longer true and the
     # rule is kept anyway, rescoped.** That validator says an absolute path
     # "refuses the whole delivery" at the seal. Measured against the framework
-    # rather than inherited: `handoff/store.py:447,494` do not call
+    # rather than inherited: `handoff/store.py` do not call
     # `locality.check` at all — user-ruled 2026-08-31 after the shape heuristic
     # read an HTTP access-log line as a filesystem path and refused a correct
     # artefact, at a measured 97% false-positive rate on a real kit. The sealed
@@ -646,7 +646,7 @@ def _validate_report(path: Path, definition: str, label: str, problems: list[str
 
     Resolved through `schema.py`'s **inlining**, not a `referencing` registry.
 
-    This function built its own `Registry` — and `schema.py:101` had already
+    This function built its own `Registry` — and `schema.py` had already
     deleted exactly that, with the reason written out: `referencing` is a
     `jsonschema>=4.18` dependency that `/usr/bin/python3` on this host does not
     have, and a body that reaches for it dies with `ModuleNotFoundError` before
@@ -714,7 +714,7 @@ def main() -> int:
                 # artefact. That is the false attribution `check_workset_runs`
                 # exists to prevent, one layer up.
                 #
-                # `verdict.json` is `dict[str, bool]` (`zone.py:132`), so there
+                # `verdict.json` is `dict[str, bool]` (`zone.py`), so there
                 # is no third state to write and this **cannot** report "could
                 # not decide" as a verdict. What it can do is make the
                 # difference legible: say plainly that the instrument failed,

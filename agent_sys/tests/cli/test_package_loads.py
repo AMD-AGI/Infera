@@ -311,9 +311,8 @@ def test_overhead_budget(tmp_path: Path) -> None:
     """*Under one minute excluding model latency, no GPU, no cluster, no setup.*
 
     Asserted at **30 s — half the budget** — over the part CI can measure: the
-    whole load path, twice. The other half is `git clone`, which
-    `materials/08-demo.md` §7 measured at ~0.56 s per zone and which needs a
-    sandbox this test does not have. Measured here at well under a second, so
+    whole load path, twice. The other half is `git clone`, measured at ~0.56 s
+    per zone and needing a sandbox this test does not have. Measured here at well under a second, so
     the headroom is two orders of magnitude and the assertion is a guard against
     something going quadratic rather than a stopwatch.
     """

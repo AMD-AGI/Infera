@@ -92,7 +92,7 @@ class HumanRenderer:
     """Writes to a stream, one line per event. Defaults to stdout.
 
     **Not stderr**, and not only stderr: criterion 6's message arrives on stdout
-    from the backend (`materials/08-demo.md` §4), and a demo that printed only
+    from the backend, and a demo that printed only
     stderr would lose the one message that criterion is about.
     """
 

@@ -51,8 +51,8 @@ validator's input is the score sheet. It is reached through
 the producing task, `score`, consumes `harness`.
 
 That resolves on §8.2's PRODUCER row and not on the GLOBAL one:
-`validator/phase.py:297-358` supplies `bound`, `producer` and `global_` and no
-`consumer`, so an *input* phase falls through to `cli/main.py:601`'s four
+`validator/phase.py` supplies `bound`, `producer` and `global_` and no
+`consumer`, so an *input* phase falls through to `cli/main.py`'s four
 variables, which carry no `AGENT_SYS_INPUT_*`. Concretely: the coverage check
 runs in `score`'s output phase, and not in `grade`'s.
 

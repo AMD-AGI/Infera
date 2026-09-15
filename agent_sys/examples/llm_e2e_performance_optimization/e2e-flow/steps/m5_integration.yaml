@@ -54,10 +54,10 @@
     E2E_NODE_IP: '${node_ip}'
     E2E_TRANSPORT: '${transport:-auto}'
     # **Declared because this stage's readme sends the agent to `remote.sh`**
-    # (STEPS names it twice), and `remote.sh:150` exports
+    # (STEPS names it twice), and `remote.sh` exports
     # `HOME=${E2E_REMOTE_HOME:-$HOME}` on the far side. Without the declaration
     # the variable never reaches a `kind: ai` agent at all —
-    # `env_mgr/material.py:96` reads the `env` block off the agent that is
+    # `env_mgr/material.py` reads the `env` block off the agent that is
     # running, so a name only `runner` declares is absent here.
     #
     # m1's account, and it is a fault rather than a hypothetical: `spur exec`
@@ -72,7 +72,7 @@
     # the login home is not visible from the node it is silently wrong, and this
     # variable is the only fix.
     #
-    # Empty default, matching `runner` (`shared.yaml:260`) and `m1_deploy.yaml:142`
+    # Empty default, matching `runner` (`shared.yaml`) and `m1_deploy.yaml`
     # exactly. Safe here: nothing in m5's manifest reads it through
     # `os.environ.setdefault` or `${E2E_REMOTE_HOME=…}`, the two forms that fill a
     # *missing* key and leave a present-but-empty one alone. Checked rather than
@@ -107,7 +107,7 @@
     E2E_EVAL_NAMES: '${eval_names:-gsm8k mixed_prefix_gsm8k}'
     E2E_EVAL_EXAMPLES: '${eval_examples:-100}'
     # **The generation budget, and it is the cost knob of the most expensive
-    # step in the flow.** `assets/accept/measure.sh:149,157` reads both of these
+    # step in the flow.** `assets/accept/measure.sh` reads both of these
     # and **nothing declared either** — not `runner`, not this agent — so the
     # `:-2048` and `:-32` fallbacks always won and neither could be set from a
     # command line. Same omission class as the four in `6ec7e42`, found the same
@@ -123,27 +123,27 @@
     E2E_EVAL_MAX_TOKENS: '${eval_max_tokens:-2048}'
     E2E_EVAL_THREADS: '${eval_threads:-32}'
     # **The same omission class again, and this one produces a NUMBER rather
-    # than an error.** `assets/accept/measure.sh:193` and `:265` read
+    # than an error.** `assets/accept/measure.sh` and `:265` read
     # `E2E_EVAL_THINKING` with the fallback `--thinking-mode glm-45`, and
     # nothing declared it — so on any model that is not GLM-4.5/5.3 the
     # evaluator sends `enable_thinking: True` to a model with no matching
-    # reasoning parser. `assets/accept/lm_eval.sh:11` records the consequence:
+    # reasoning parser. `assets/accept/lm_eval.sh` records the consequence:
     # a healthy deployment answers every request and **scores 0.00**, which
     # `check_acceptance` cannot distinguish from a model that got the questions
     # wrong. Found by m2's variable audit, 2026-09-06.
     #
     # **The default is today's fallback, character for character**, so a
     # first-cluster reproduction is unchanged and this declaration cannot break
-    # anyone. `--var eval_thinking=none` is the other value: `lm_eval.sh:47`
+    # anyone. `--var eval_thinking=none` is the other value: `lm_eval.sh`
     # turns `none` into an empty flag, which is what a model without a
     # reasoning parser needs.
     #
-    # `measure.sh:265` writes the value it used into the arm's `context.json`,
+    # `measure.sh` writes the value it used into the arm's `context.json`,
     # so which one a run took is readable afterwards rather than inferred —
     # which the launch line is not.
     E2E_EVAL_THINKING: '${eval_thinking:---thinking-mode glm-45}'
     E2E_BENCH_ROUNDS: '${bench_rounds:-1}'
-    # **This is the SAME `--var` as `shared.yaml:149`, with a DIFFERENT default,
+    # **This is the SAME `--var` as `shared.yaml`, with a DIFFERENT default,
     # and the two stages must not be given different values.**
     #
     # `check_no_regression`'s `stock_vs_m2` compares this stage's stock arm
@@ -155,14 +155,14 @@
     #
     # One `--var` feeds both declaration sites, so passing it once is correct and
     # is what every launch has done. **The hazard is raising it for m2 alone**
-    # (see the floor documented at `shared.yaml:149`) and leaving m5 on this
+    # (see the floor documented at `shared.yaml`) and leaving m5 on this
     # default.
     E2E_TRACE_END_MS: '${trace_end_ms:-60000}'
     # **The replay's load shape, and leaving these undeclared was not cosmetic.**
     # Found by re-running the package owner's omission check over m5's own manifest
-    # after `shared.yaml` grew: `assets/accept/measure.sh:120-122` reads all four,
+    # after `shared.yaml` grew: `assets/accept/measure.sh` reads all four,
     # none was declared here, and a name only `runner` declares does not reach a
-    # `kind: ai` agent (`env_mgr/material.py:96`). So the script's own fallbacks
+    # `kind: ai` agent (`env_mgr/material.py`). So the script's own fallbacks
     # won — `MAX_CONC=256`, `WORKERS=16` — against `runner`'s 32 and 8.
     #
     # That is an 8x and a 2x difference in offered load between m2's bench and
@@ -372,7 +372,7 @@
     #
     # **`integration_min_requests`, not `min_requests`, and the duplicated 50 is
     # deliberate.** The other bar measuring this same quantity is m2's
-    # `check_bench_result` at `steps/m2_profiling.yaml:46`, from the same trace
+    # `check_bench_result` at `steps/m2_profiling.yaml`, from the same trace
     # and with the same default. Until 2026-09-04 both read `'${min_requests:-50}'`
     # — **one `--var` moving two owners' grading bars.** The default being shared
     # was right; the *override* was not, because the reason to override is
@@ -389,7 +389,7 @@
     # expands to the literal string `'${min_requests:-50}'`, reports **zero**
     # problems, passes `show`, and reaches this body as text `float()` throws on.
     # See `temp/bugs/2026-09-02-an-unparseable-variable-reference-is-passed-through-silently.md`.
-    # The **arg** stays `min_requests` — `check_bench_report/check.py:124` reads
+    # The **arg** stays `min_requests` — `check_bench_report/check.py` reads
     # that key, and it is this validator's private vocabulary. Only the `--var`
     # is renamed, which is the thing that was shared.
     min_requests: '${integration_min_requests:-50}'
@@ -442,7 +442,7 @@
     #
     # The tolerance stays a `--var` because a tolerance is a judgement about
     # this cluster's noise; whether the comparison happens at all is not.
-    # `check_no_regression.validator/check.py:249-267` is the branch.
+    # `check_no_regression.validator/check.py` is the branch.
     stock_vs_m2_tolerance: '${stock_vs_m2_tolerance:-0.10}'
     # M5.1.3.2 — reconcile m4's single-kernel speedup against the end-to-end
     # change via the kernel's share of the profile. **Warning, not a blocker**,
@@ -497,7 +497,7 @@
   description: The per-file bind-mount plan that puts m4's kernel in front of the engine, with each file's before and after hash.
   content_type: reproducible
   scope: fixed.required
-  # `handoff/kind.py:144` rejects a `reproducible` kind whose `items_schema`
+  # `handoff/kind.py` rejects a `reproducible` kind whose `items_schema`
   # permits 'script' or 'command' with no 'env'. Mission G5 wants the
   # environment on every handoff anyway, so the two rules agree.
   items_schema:
@@ -518,7 +518,7 @@
   description: The unpatched arm — its deployment, its correctness results, its replay rounds.
   content_type: reproducible
   scope: fixed.required
-  # `handoff/kind.py:144` rejects a `reproducible` kind whose `items_schema`
+  # `handoff/kind.py` rejects a `reproducible` kind whose `items_schema`
   # permits 'script' or 'command' with no 'env'. Mission G5 wants the
   # environment on every handoff anyway, so the two rules agree.
   items_schema:
@@ -539,7 +539,7 @@
   description: The patched arm — the same measurements, plus the proof the patch was live.
   content_type: reproducible
   scope: fixed.required
-  # `handoff/kind.py:144` rejects a `reproducible` kind whose `items_schema`
+  # `handoff/kind.py` rejects a `reproducible` kind whose `items_schema`
   # permits 'script' or 'command' with no 'env'. Mission G5 wants the
   # environment on every handoff anyway, so the two rules agree.
   items_schema:

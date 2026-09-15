@@ -49,7 +49,7 @@ class Policy(NamedTuple):
     #: passes a granted set — and which quietly made *grant nothing* the easiest
     #: thing to write in the module whose central rule is the opposite:
     #: `UnresolvedGrant` exists because a grant that resolves to nothing is
-    #: *"raised rather than resolving to an empty granted set"* (`protocols.py:66`).
+    #: *"raised rather than resolving to an empty granted set"* (`protocols.py`).
     #: A convenience that makes the refused state the default state is not one.
     granted: tuple[Granted, ...]
 

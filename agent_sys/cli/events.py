@@ -3,7 +3,7 @@
 `demo` criterion 14 makes the machine-readable stream sufficient to assert
 criteria 2–10 without parsing prose, and something a test asserts over is an
 interface whether or not anyone says so. Terraform's answer to owning one is
-adopted whole (`materials/08-demo.md` §8): a **closed** enumeration of message
+adopted whole: a **closed** enumeration of message
 types, a version constant with a comment obliging a bump, and — the part that
 matters most — **one stream rendered twice rather than two writers**.
 

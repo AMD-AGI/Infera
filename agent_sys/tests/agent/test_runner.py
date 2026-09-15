@@ -397,7 +397,7 @@ def test_a_confinement_starts_the_executor_through_spawn(wired) -> None:
 def _storeless(wired) -> None:
     """Unregister `handoff_store`, the way a composition that chose none leaves it.
 
-    `bootstrap.py:216` leaves the name unregistered rather than rooting a store
+    `bootstrap.py` leaves the name unregistered rather than rooting a store
     nobody asked for, and `task_graph` runs its whole suite that way — so this
     is a supported mode, not a broken fixture.
     """
@@ -630,7 +630,7 @@ def _first_report(wired, timeout: float = 5.0):
 
 def _with_output(wired, hid) -> tuple:
     """A dispatched task that actually declares an output, with its version
-    pinned the way `Scheduler._dispatch_pass` pins it (`scheduler.py:280`).
+    pinned the way `Scheduler._dispatch_pass` pins it (`scheduler.py`).
 
     **No fixture task declares an output**, which is why 171 tests passed while
     the seal never ran once: `run_gate` loops over `task.outputs` and so does
@@ -1608,8 +1608,7 @@ def test_a_non_leaf_gets_a_container_zone_before_it_releases(wired) -> None:
     advances the phase, the transition places the zone, and by the time the
     attempt releases its thread the zone is there. `agent` had to give the call
     up because `enter_phase` submits — and therefore dispatches — every child
-    before this thread is woken at all; `scratch/demo2-2026-08/zone-ordering.md`
-    holds the measurement, and
+    before this thread is woken at all. The regression is
     `tests/task_graph/test_subgraph.py::test_a_nested_non_leaf_is_zoned_before_its_subgraph_is_dispatched`
     is the ordering half.
     """

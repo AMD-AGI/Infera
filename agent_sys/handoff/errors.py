@@ -50,7 +50,7 @@ class NotSealable(RuntimeError):
     `agent` was about to wrap `seal` in `except Malformed` so an unpublishable
     attempt could be reported through the gate — correct, and with one
     exception type it would also have swallowed *already published*. That is
-    the re-run case: `agent/runner.py:621` re-runs the body inside one attempt
+    the re-run case: `agent/runner.py` re-runs the body inside one attempt
     after a gate failure, against a grant pinned to the same `v<N>`, so a
     second `seal` refuses. Swallowed, the loop would look like it worked while
     the second body's output was discarded — **silent, and only on retries.**

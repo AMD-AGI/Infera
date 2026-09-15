@@ -517,7 +517,6 @@ class ExecutorBase:
         *continue, do it until finished*, `PUSH_ATTEMPTED` was written — and the
         message sat in this queue at `qsize=1` while the run hung for 65 minutes
         and was killed by the deadline.
-        (`scratch/single-real-task-2026-08/probe_push_after_settle.py`.)
 
         **The cost of the silence, not of the failed push.** A push that cannot
         be delivered is an ordinary outcome — the agent settled first, which is

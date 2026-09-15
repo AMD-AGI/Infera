@@ -32,7 +32,7 @@ WORK="${1:-/tmp/check_deploy_kit_gate.$$}"
 mkdir -p "$WORK"
 
 # A validation zone is a directory holding args.json / inputs.json /
-# materials.json, with the body run in it (`validator/phase.py:236`).
+# materials.json, with the body run in it (`validator/phase.py`).
 zone() {
   mkdir -p "$1"
   printf '%s\n' '{"layout": "deploy_kit.layout"}' > "$1/args.json"
@@ -55,13 +55,13 @@ PACKUP="$(find "$GOOD/items/codes" -maxdepth 1 -type d -name '*.packup_*' | head
 # `env_render.build()` reads the run's `E2E_*` variables; outside a zone there
 # are none, so the facts the sealed run recorded are supplied here. They are that
 # run's own measured values, not invented ones.
-export E2E_NODE=node-079
+export E2E_NODE=fixture-node
 export E2E_NODE_IP=127.0.0.1
 export E2E_IMAGE=infera/engine-sglang:gfx950-local
 export E2E_MODEL_NAME=Qwen/Qwen3.6-27B
 export E2E_MODEL_PATH="${E2E_MODEL_PATH:?set it to the weights directory}"
-export E2E_CONTAINER=dbg_deploy_sgl_20260902-113414-81355
-export E2E_TRANSPORT=spur
+export E2E_CONTAINER=fixture_deploy_sgl
+export E2E_TRANSPORT=local
 export E2E_TP=1
 export E2E_CTX=32768
 export E2E_PORT_ROUTER=8106

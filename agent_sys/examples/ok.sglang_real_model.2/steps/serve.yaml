@@ -56,7 +56,7 @@
   # without this line the agent cannot reach it.** Measured 2026-08-31: mid-run
   # it called `Skill{"experiment-result-packup"}`, got `Unknown skill`, and went
   # looking for the directory by hand. `env_mgr` redirects `CLAUDE_CONFIG_DIR`
-  # into the zone (`material.py:63`) and a session reads skills from
+  # into the zone (`material.py`) and a session reads skills from
   # `$CLAUDE_CONFIG_DIR/skills/`, so a skill only arrives if it is declared:
   # `material.deploy` copies `MATERIAL_KEYS` and nothing else. The mechanism was
   # wired and working; no package had ever used it.
@@ -165,7 +165,7 @@
 # **`content_type: code`, and the choice was between this and `reproducible`.**
 # `reproducible` is the type named after what a packup is, and it is the wrong
 # one here: its required items are `result` and `env` plus one of
-# `script`/`command` (`handoff/content.py:69-74` and `_ALTERNATIVES`), and
+# `script`/`command` (`handoff/content.py` and `_ALTERNATIVES`), and
 # `check_items` rejects a top-level item the type never declared. Laying a
 # packup into it means `results/` becomes `items/result`, `environment.md`
 # becomes `items/env`, `scripts/` becomes `items/script` and `REPRODUCE.md` —
@@ -184,7 +184,7 @@
 #
 # **`runbook` has no consumer**, because `serve_qwen` is the only task. Nothing
 # ever takes it as an input, so these two validators only ever run in
-# `serve_qwen`'s **output** phase — `agent/runner.py:579,598` runs the input
+# `serve_qwen`'s **output** phase — `agent/runner.py` runs the input
 # phase over the task's own `inputs`, which are `[]`. That decides which of
 # `validator` spec §8.2's four rows a body gets: the PRODUCER row, whose
 # environment is `Prepared.environment` and therefore carries
@@ -210,7 +210,7 @@
 # found by convention from the folder name.
 #
 # **No `resources`.** A leaf may declare a pool and this one legitimately wants
-# a GPU, but `cli/build.py:85` is the only reader and the CLI composition root
+# a GPU, but `cli/build.py` is the only reader and the CLI composition root
 # declares no pools, so a `resources` block here names a pool that does not
 # exist. Recorded in `README.md` as a known gap rather than written as a claim
 # nothing enforces.

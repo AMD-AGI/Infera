@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Every `kind: ai` agent must declare the `E2E_*` it reads, and agree with `runner`.
 
-**Why this exists, measured 2026-09-04 on rung 1.** `env_mgr/material.py:96` calls
+**Why this exists, measured 2026-09-04 on rung 1.** `env_mgr/material.py` calls
 `_declared_env(agent_spec)` on **the agent that is actually running**, and
 `_declared_env` returns `{}` when the agent has no `env` block. `shared.yaml`
 declares all 36 `E2E_*` on `runner`. So a `kind: ai` agent that declares none
@@ -174,7 +174,7 @@ _PROGRAM_ONLY = {"entry.sh"}
 #: `assets/lib/<name>` mentioned by a task's readme is followed. **A readme is
 #: the program for a `kind: ai` closure**, so a script it tells the agent to run
 #: is part of that agent's dependency set even though it lives outside the task
-#: directory. m1's counterexample: `deploy_and_prove.task/readme.md:71` invokes
+#: directory. m1's counterexample: `deploy_and_prove.task/readme.md` invokes
 #: `mock.sh` at STEP 0, and `mock.sh` reads `E2E_MOCK_STAGES` — a variable that,
 #: **undeclared, makes `mock.sh` unable to tell *unset* from *not listed*, so
 #: `--var mock_stages=all` runs the stage for real.** That is rung 1's own bug,

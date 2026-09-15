@@ -4,7 +4,7 @@
 Committed because `artefact_neg.py` beside it cannot run without it, and a
 negative-test battery nobody can execute is not much better than no battery.
 
-`validator/phase.py:236` names the four files a zone carries — `args.json`,
+`validator/phase.py` names the four files a zone carries — `args.json`,
 `inputs.json`, `materials.json`, `verdict.json`. The body is started with `cwd`
 set to a fresh zone holding the first three and owes the fourth.
 
@@ -26,7 +26,7 @@ import tempfile
 
 PKG = pathlib.Path(__file__).resolve().parents[3]
 
-#: The GLOBAL row and nothing else. `cli/main.py:666,668` exports these two.
+#: The GLOBAL row and nothing else. `cli/main.py` exports these two.
 BASE_ENV = {
     "PATH": "/usr/local/bin:/usr/local/sbin:/usr/bin:/bin",
     "LANG": "C.UTF-8",

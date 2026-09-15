@@ -49,7 +49,7 @@ _PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 def _interpreter() -> str | None:
     """An interpreter that can actually `import torch`, or `None`.
 
-    **A task body never reaches `AGENT_SYS_DEMO_PYTHON`** (`cli/main.py:668`
+    **A task body never reaches `AGENT_SYS_DEMO_PYTHON`** (`cli/main.py`
     puts it in `validation_env`), so a bare `python3` gets the policy `PATH`'s
     `/usr/bin/python3`, which has no torch. m1 found that; m3 hardened
     `build_workset`'s `entry.sh` for it and asked whether this had the same

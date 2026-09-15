@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Status | Draft — stage two of spec → design → test & code |
-| Revision | 7 — 2026-08-28. **The runner becomes a factory; `TaskAttempt` becomes the thread's owner** (§7.1, §7.5). One attempt object per dispatch holds the thread, the executor and the next phase — answering in one place who spawns the phase thread (which no design document said, for either loop), what maps a task id to a live executor (`monitor` design O1), and what survives a non-leaf's subgraph so its re-entry is the same `Execution`. The attempt no longer advances itself: each phase ends in `report()` and the monitor calls `enter_phase` (§7.2). An agent keeps its `mainloop` and stops owning a thread — it borrows the task's (§5.1.1). **No thread pool**, and not for the 50 μs: the scheduler's leases are already the admission control, and a pool would be a second one it cannot see (§7.5). (rev. 6: 2026-08-27. **§7.2.1 says what the runner hands the executor**, which rev. 5 described the phases without ever stating. Found by the spec-key-to-runtime trace: `body` was declared and reachable and nobody walked the route. `prepare` now takes the agent spec, so the runner passes it. (rev. 5: 2026-08-27. **An agent has its own `mainloop()`**, following spec §4.3 rev. 5 (§5.1, §5.1.1). Rev. 4 had five verbs and no answer to "who is executing after `start()` returns". Every synchronous verb becomes sugar this level wraps, as one rule rather than per method. The program executor gets a loop too. (rev. 4: 2026-08-27. **The stage-three consistency pass.** §7.1 named three registry entries and two of them were registered by nobody; the names and their owners are now stated, and [`../../docs/interfaces.md`](../../docs/interfaces.md) §2 is the normative listing. O6 splits into a requirement `validator` owns and a mechanism this module owns, which is what the two documents were actually disagreeing about. (rev. 3: 2026-08-27. D1 is resolved upstream: main spec §4.8 rev. 9 makes every task have an agent and `kind` the thing that varies, so §9's program executor **is** what a task without an AI has (§9, D1). No interface changes. (rev. 2: 2026-08-26. Spec-consistency pass: the two levels are **two protocols**, `Executor` and `AgentBackend`, because rev. 1 read spec §1.1's level 1 as `TaskRunner` and merged the levels (D5). The runner holds level 1 only; the program executor raises nothing. (rev. 1: initial)))))) |
+| Status | Normative for how this package is built |
+| Revision | 7 |
 | Implements | [`spec.md`](spec.md) rev. 6, acceptance criteria 1–16 |
 | Language | Python ≥ 3.10. pydantic v2; `claude-agent-sdk` an **extra**, imported lazily (§8.1) |
 
@@ -375,9 +375,9 @@ instruct("...") ──────────► queue it
 ```
 
 **The loop is the agent's; the thread is not.** Rev. 3 of this document said "one
-thread per agent" and left unsaid — as `scratch/design/findings-arch-ours.md`
-confirmed across every design document, with zero occurrences of `Thread(` or
-`.join()` anywhere — **who creates that thread and who ends it.**
+thread per agent" and left unsaid — across every design document, with zero
+occurrences of `Thread(` or `.join()` anywhere — **who creates that thread and
+who ends it.**
 
 **The answer is that the task owns the thread and the agent borrows it** (§7.5).
 `TaskAttempt` starts one thread per dispatch; during the main phase it is
@@ -710,7 +710,7 @@ for, and one of them (`resume`) is precisely the one the scheduler must not have
 (`task_graph` design §8.9).
 
 **Rev. 3 named those three and no document registered two of them.** The
-stage-three consistency pass found it while assembling one normative composition
+cross-module consistency pass found it while assembling one normative composition
 root: `env_mgr` design rev. 1 never mentions the component registry, and
 `validator` design rev. 1 registers nothing either. Both now do —
 `env_mgr` design §11.4 and `validator` design §5.5 — and
@@ -831,7 +831,7 @@ attempt's completion path, carrying the terminal `TaskStatus` and the usage dict
 **`start` is called while the scheduler holds its `RLock`**
 (`task_graph/scheduler.py`, `_dispatch_pass` runs inside `try_dispatch`'s `with
 self._lock`), so what it does has to be cheap. Creating and starting a thread is:
-**71 μs measured** (`scratch/design/probes-arch/p5_thread_cost.py`, 3.13.13,
+**71 μs measured** (3.13.13,
 start+join over 2000 iterations), against a task that will run an agent for
 seconds or minutes.
 
@@ -880,7 +880,7 @@ questions that all wanted the same holder:
 
 | Question | Answer |
 |---|---|
-| Who spawns and joins the phase thread (`findings-arch-ours.md`, observation a) | this object |
+| Who spawns and joins the phase thread | this object |
 | What maps a task id to the live executor (`monitor` design §9, O1) | this object, via `Runner.attempt_of` |
 | What survives a non-leaf's subgraph so the re-entry is the same attempt | this object; only its thread ends |
 
@@ -993,7 +993,7 @@ is what a monitor wants, and `get_server_info()` is where a monitor gets it.
 **A docstring here would have added a constraint that does not exist.**
 `interrupt()` says "(only works with streaming mode)" and the reference tabulates
 interrupts as unsupported in single mode — but **both** entry points hard-code
-`is_streaming_mode=True` (`client.py:191`; `_internal/client.py:137`,
+`is_streaming_mode=True` (`client.py`; `_internal/client.py`,
 `# Always streaming internally`). The adapter is *not* forced to pass an
 `AsyncIterable` prompt to get `interrupt()`.
 
@@ -1299,5 +1299,5 @@ test the chain against nothing that can actually fail to be available.
 | **O3** | **The backend's transcript lands outside the confinement zone.** `~/.claude/projects/<encoded-cwd>/*.jsonl`, containing prompts and reasoning, written by default. Criterion 16 is about the system's record and stays true, but "an agent reaches only its own zone" does not. Three levers exist (`CLAUDE_CONFIG_DIR`, `CLAUDE_CODE_SKIP_PROMPT_HISTORY`, a `SessionStore`); choosing one is `env_mgr`'s, and its spec does not mention the directory |
 | **O4** | **ANSWERED — the declarative `settings.json` surface is canonical.** The question was whether *"Claude Code's format"* meant the `.claude/settings.json` tree or the SDK's `ClaudeAgentOptions(hooks={...})` callbacks; every surveyed converter targets the first and **nobody converts programmatic callbacks at all.** Per-agent components forced the ruling, because they had to be *stored* somewhere: L2 and L3 are `.claude/` trees, `env_mgr/agent_assets.py` writes `<zone>/config/settings.json` and points `CLAUDE_CONFIG_DIR` at it, and `spec.md` §4.5 now says so. The warned-of consequence is therefore not incurred — criterion 13 rests on the surface the prior art covers. The callback form stays legal in a backend `config` and is passed through; it is simply not the stored form. **What is still open is narrower and belongs to O1**: no converter exists, so "canonical" is currently a claim about one harness rather than a demonstrated N-to-1 |
 | **O5** | **Two objects hold "the agent spec table".** `AgentSpecRegistry` here, and `AgentMgr.register(spec, **config)` in `task_graph`, which copies its dict onto every minted `Agent.config`. This design assumes the loader feeds the second from the first and that nothing else writes either — but the direction is not stated in any spec, and `engineer_principle.md` §1 forbids two writers for one fact |
-| **O6** | **How each phase becomes separately attributable** — narrowed twice, and the question is now smaller than rev. 3 stated it. `validator` design §8.2 rev. 2 owns the **requirement**: a phase must carry an `agent_id`, because criterion 10 there is untestable otherwise, and the SDK's `agent_id` is *"absent on the main thread"*. This module owns the **mechanism**, and one candidate is ruled out: not one client with several `session_id`s, because `interrupt()` takes no `session_id` and acts on the whole connection (§8.4). `fork_session`, `resume`, a subagent per phase, and a second client remain, and none was tested. The stage-three consistency pass found this document and `validator`'s giving different answers to what turned out to be two different questions; splitting them is what made the residue this small |
+| **O6** | **How each phase becomes separately attributable** — narrowed twice, and the question is now smaller than rev. 3 stated it. `validator` design §8.2 rev. 2 owns the **requirement**: a phase must carry an `agent_id`, because criterion 10 there is untestable otherwise, and the SDK's `agent_id` is *"absent on the main thread"*. This module owns the **mechanism**, and one candidate is ruled out: not one client with several `session_id`s, because `interrupt()` takes no `session_id` and acts on the whole connection (§8.4). `fork_session`, `resume`, a subagent per phase, and a second client remain, and none was tested. The cross-module consistency pass found this document and `validator`'s giving different answers to what turned out to be two different questions; splitting them is what made the residue this small |
 | **O7** | **Mid-run backend failure.** §3.3's "pins the whole run" implies no fallback after the chosen backend dies, and every surveyed project except LiteLLM agrees. LiteLLM's cost is on record — a depth bound, an attempted-targets set against looping graphs, a pin predicate, cooldown feedback and per-failure-class chains, threaded through a loosely-typed `kwargs` at four call sites. Worth knowing before anyone proposes it, and worth stating in the spec either way |

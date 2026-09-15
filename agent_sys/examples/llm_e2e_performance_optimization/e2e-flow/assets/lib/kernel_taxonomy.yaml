@@ -40,7 +40,7 @@ buckets:
       #
       # **"was marked routable" describes a state the code no longer has, and
       # it is written above in the past tense against code that reads in the
-      # present.** `taxonomy.py:43-48` now returns `routable: False` and
+      # present.** `taxonomy.py` now returns `routable: False` and
       # `excluded_reason: no_taxonomy_rule_matched` for an unmatched symbol, so
       # falling through to `unknown` today *excludes* rather than promotes.
       # Left standing rather than deleted because the rule below exists for
@@ -112,7 +112,7 @@ buckets:
       # requires a leading underscore AND `_kernel` as the final token. Real
       # flash-linear-attention kernels are `<op>_kernel_<suffix>` and miss on
       # both counts, so they fall through to `unknown`, which
-      # `taxonomy.py:43-48` marks **`routable: False`** — i.e. `rank` never sees
+      # `taxonomy.py` marks **`routable: False`** — i.e. `rank` never sees
       # them. `fellows:` below had the identical pattern and was fixed; **this
       # copy was not**, and the asymmetry is on purpose.
       #

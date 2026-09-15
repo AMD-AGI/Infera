@@ -170,8 +170,8 @@ def _version_paths(version_dir: str, mode: Mode) -> tuple[Granted, ...]:
 
     *Whether a body needs to read its input's `manifest.yaml`* was raised here
     as open and **`handoff` has closed it: no.** Verified from this side rather
-    than relayed — `agent/gate.py:91` is the only `get_manifest` caller outside
-    `handoff` and its own tests, and `runner.py:574` reaches it **after the
+    than relayed — `agent/gate.py` is the only `get_manifest` caller outside
+    `handoff` and its own tests, and `runner.py` reaches it **after the
     executor returns**, in the supervisor's process rather than inside the
     confinement. And by design: spec §6.3 has a consumer work on a copy and
     `copy_out` verifies the digest *before returning*, so integrity arrives as
@@ -185,14 +185,14 @@ def _version_paths(version_dir: str, mode: Mode) -> tuple[Granted, ...]:
     **Both are created by `handoff.allocate`, and this function creates
     nothing.** §4.18 ruled it: *the allocator creates every directory it expects
     to be granted*. A granted path that does not exist is either a
-    `FileNotFoundError` that kills every output dispatch — `landlock.py:198`
+    `FileNotFoundError` that kills every output dispatch — `landlock.py`
     opens every granted path and `Granted.optional` defaults `False` — or, if
     made optional, a rule dropped silently. **And the agent cannot create it
     either**, since `mkdir` inside `v<N>/` needs write on `v<N>/`, which is
     exactly what the narrowing removed.
 
     This briefly did create `claim/` itself, because the user left the *name*
-    here and `handoff` could not act until it had one. `handoff/store.py:334`
+    here and `handoff` could not act until it had one. `handoff/store.py`
     now does it in `allocate`, so the bridge is gone: **a resolver with a side
     effect is a resolver a test cannot call twice**, and `allocate`'s `os.mkdir`
     is not `exist_ok`.

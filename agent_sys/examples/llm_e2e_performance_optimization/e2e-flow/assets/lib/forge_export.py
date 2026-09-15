@@ -344,7 +344,7 @@ def export_operator(root: pathlib.Path, operator: dict) -> dict:
 
 
 #: The fellow backends KernelForge actually registers, read from
-#: `kernel_agents/fellows/constants.py:17-26` (`FELLOW_AGENT_MODULES`, whose keys
+#: `kernel_agents/fellows/constants.py` (`FELLOW_AGENT_MODULES`, whose keys
 #: become `FELLOW_BACKENDS`). Held here as data because the failure mode is
 #: silent: `cli.py`'s `--fellow` help says in as many words *"Unsupported
 #: fellows fall back to flydsl-fellow"*, so a name outside this set does not
@@ -383,7 +383,7 @@ def _kernel_rel(operator: dict) -> str:
 
     **The checkout that decides is `<KernelForge checkout>`** —
     `30_run_forge.sh` installs from it per container, and `kernel-agents` is
-    not in the image — where the guard is `campaign_config.py:316`, called for
+    not in the image — where the guard is `campaign_config.py`, called for
     the kernel at `:527`. Cited because the apparent disagreement about this
     behaviour was two people reading two different copies: line numbers here
     are hyperloom's, not the `chaojhou` tree's, whose numbers differ by roughly

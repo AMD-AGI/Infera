@@ -10,7 +10,7 @@ stops.
 
 ## Why this exists, and why the run log cannot answer it
 
-`cli/main.py:1015` ends a run when `(not holding or blocked)` and nothing has
+`cli/main.py` ends a run when `(not holding or blocked)` and nothing has
 changed for 20 s. **`blocked` is the whole question**, because a non-empty
 `blocked` satisfies that condition *regardless of `holding`* — so a leaf that is
 genuinely executing gets torn down. And `blocked` is
@@ -33,10 +33,10 @@ under a second.
 ## The three questions, and what each one is for
 
 1. **Are there escalations that reached the user, and how many.** This is
-   exactly `blocked`'s input: `monitor/base.py:145 reached_the_user` is
+   exactly `blocked`'s input: `monitor/base.py::reached_the_user` is
    `kind == ESCALATED and attributes["target"] == "user"`. None of these, and
    the stall guard reduces to `not holding` — a working leaf is safe.
-2. **What triggered each one.** `_escalate` (`base.py:783-789`) writes an
+2. **What triggered each one.** `_escalate` (`base.py`) writes an
    `ESCALATED` record carrying `why` at **every hop** of the walk, and only at
    the root does `_to_user` (`:799-808`) add `target: user`. So the *first*
    record of a chain names the task that started it and the reason — the fact
@@ -62,7 +62,7 @@ import sys
 import time
 from datetime import datetime
 
-#: `monitor/protocols.py:93` and `monitor/base.py:141`. Named here rather than
+#: `monitor/protocols.py` and `monitor/base.py`. Named here rather than
 #: matched loosely, so a rename upstream makes this file wrong out loud instead
 #: of quietly reporting "no escalations" — which is the reassuring answer and
 #: therefore the dangerous one to get by accident.
@@ -70,7 +70,7 @@ ESCALATED = "escalated"
 TARGET = "target"
 TARGET_USER = "user"
 
-#: `task_graph/models.py:105`, plus the two the CLI treats as done-for-now. A
+#: `task_graph/models.py`, plus the two the CLI treats as done-for-now. A
 #: task in any of these is not `live`, so its escalation no longer contributes
 #: to `blocked`.
 NOT_LIVE = {"succeeded", "cancelled", "failed"}

@@ -56,7 +56,7 @@ task:
   #
   # **`is_end` stays.** Its default is *positional*: absent, the last entry is
   # the end. So appending a fourth entry would silently move it, and
-  # `monitor/base.py:663` is where that lands. The mark is what stops an append
+  # `monitor/base.py` is where that lands. The mark is what stops an append
   # from being a semantic change nobody wrote.
   subgraph:
     - {closure: produce, froms: []}

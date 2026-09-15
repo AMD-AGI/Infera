@@ -47,7 +47,7 @@ checking-for-the-whole-run.md`:
 
 1. `_BY_PACKAGE` is a hardcoded `{"demo": DEMO}` keyed on directory name, so
    declaring anything means editing framework code;
-2. `main.py:1409` — `gaps = ... if nothing_promised else []`. Declaring **one**
+2. `main.py` — `gaps = ... if nothing_promised else []`. Declaring **one**
    promise switches off `_completion_gaps` for **all fifteen handoffs**;
 3. the sealed verdict record has **no reason field** (`validator`, `result`,
    `strength`, `dimension`, `task_id`, `agent_id`, `environment`, `at`), so a
@@ -90,7 +90,7 @@ DEFAULT_ROOT = pathlib.Path("~/agent_sys_runroot").expanduser()
 #: **The marker the `accepted` mock leaves in its own artefact**, and the reason
 #: this is a re-derivation rather than a rubber stamp.
 #:
-#: `mock_report=accepted` (`mock_m5.sh:181-207`) swaps the performance rows for
+#: `mock_report=accepted` (`mock_m5.sh`) swaps the performance rows for
 #: the **measured stock control** — real numbers from the same node under the
 #: same co-tenant load, 1.1 % apart — and sets `bars` to the validator's own
 #: `0.05`/`0.10`. The `refused` default keeps the sealed report, whose producer
@@ -344,7 +344,7 @@ def main() -> int:
     # behaving exactly as the switch intends.
     #
     # **And the converse is the point of saying it out loud:** in `accepted`
-    # mode the chain no longer exercises the refusal at all, and `mock_m5.sh:140`
+    # mode the chain no longer exercises the refusal at all, and `mock_m5.sh`
     # calls that refusal *"the only cheap end-to-end test of a strong refusal
     # this package has"*. A green run in this mode has not tested it. That is
     # not a defect and it is not a pass either — it is a **narrower claim**, and

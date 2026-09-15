@@ -41,7 +41,7 @@ name. Hence the name.
 ### Why it still enumerates rather than writing a constant
 
 `zone.write_verdict` wants *one entry per declared handoff* and
-`zone.py:133` says a missing one "raises at `PhaseRunner`'s seam rather than
+`zone.py` says a missing one "raises at `PhaseRunner`'s seam rather than
 folding as falsy". So the enumeration is load-bearing even though the value is
 not: getting the key set wrong would fail the phase for a reason that has
 nothing to do with the chain under test, which is precisely the noise this file

@@ -304,8 +304,8 @@ def same_machine(contents: dict[str, Path], reasons: list) -> bool:
 
     **Arm against its own record is conditional on `runtime.replayed_from`.**
     A record that names the kit it stood in for is describing evidence that
-    legitimately predates this allocation — `deploy_and_prove.task/mock_adapt.sh:124`
-    sets it and `check_deploy_kit.validator/check.py:341` already relaxes on it,
+    legitimately predates this allocation — `deploy_and_prove.task/mock_adapt.sh`
+    sets it and `check_deploy_kit.validator/check.py` already relaxes on it,
     which is the precedent followed here rather than a second convention. With
     it absent — a real bring-up — a record naming a machine the evidence does
     not is the failure this whole function exists for: the arms came up

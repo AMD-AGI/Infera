@@ -567,7 +567,7 @@ def check(content: Path, args: dict, reasons: list) -> bool:
     # **An absent `schema` is a refusal, not a skip.** This was `if name:` — so
     # with the arg missing the validator's *first and strongest* check quietly
     # did not run and said nothing, while the other five args degrade to safe
-    # defaults that still bite (`0.05`, `0.10`, `0.10` at `:145`, `:146`, `:446`).
+    # defaults that still bite (`0.05`, `0.10`, `0.10` at `:145`).
     #
     # Surfaced by m2's warning that the probe was passing `args={}` to every
     # validator: mine returned **True** with all six args discarded, which is

@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Status | Draft, rev. 2 |
-| Revision | 4 — 2026-08-29. **The package format is YAML and the layout changed with it** (`spec.md` rev. 7). §3's tree and §8.4's paths are updated to what is on disk; the rest of this document's prose about jsonnet is **kept as the record of a decision that was reversed**, not as a description of the tree — the reasoning is still why things are shaped as they are. Three substantive changes: the per-kind directories are gone (the directory no longer claims a kind, `module:` does), `bodies/` and `logic/` and `bin/` are gone into `assets/` where every filename is found by convention, and `examples/ok.filetree_grounded_report.4/broken/` is now the sibling package `examples/fail.dangling_handoff_kind.1/` because the YAML scan reaches every `*.yaml` under a root. (rev. 3: 2026-08-27. **Every task in the demo package carries a body** (§3, §4.2.1), following `closure` spec §2.6 rev. 9: `produce` and `consume` are `readme.md` + `entry.sh`, `describe` is `readme.md` alone, and the non-leaf `main` has a readme and no entry — which is what makes the entry-versus-subgraph rule visible. (rev. 2: 2026-08-27. Every task has an agent (main spec §4.8 rev. 9, `demo` spec rev. 6): §5 rewritten and D1 retired. No other section changes. (rev. 1: initial, written after the composition research for the demo module)) |
+| Status | Normative for how this package is built |
+| Revision | 4 |
 | Implements | [`spec.md`](spec.md) rev. 7, §6 — 17 acceptance criteria |
 | Language | Python ≥ 3.10, YAML. `ruff`, line length 100 |
 | Part of | [`../../docs/design.md`](../../docs/design.md) — the whole-system design |
@@ -34,7 +34,7 @@ together.
 | | |
 |---|---|
 | The whole-system CLI | Spec §1.3, [`../../docs/TODO.md`](../../docs/TODO.md) item 5. The demo's entry point is a stand-in for it, and §8.5 says which parts should migrate |
-| The e2e test | Spec §5. A separate artefact at the system-level implementation stage, modelled on this shape, choosing its own tasks |
+| The e2e test | Spec §5. A separate artefact when the whole-system CLI is built, modelled on this shape, choosing its own tasks |
 | The isolation properties | `env_mgr` spec §10 — criteria 2–14 there are CI-enforced in `tests/env_mgr` on every commit. The demo *shows* one of them to a person (§9.4) |
 | Any component's behaviour | Criterion 15. If the demo needs something, that is a missing feature, not a demo detail (spec §1.1) |
 
@@ -302,7 +302,7 @@ program — an agent of `kind: program`, with no AI in it — and the handoff st
 each produces is indistinguishable in kind."*
 
 Both halves are satisfiable, and the second is the interesting one. The first
-half read differently until 2026-08-27, and the change is worth recording
+half read differently until recently, and the change is worth recording
 because a chain of four modules ended with it.
 
 **What the criterion used to say** was *"a program with no agent at all"*, and
@@ -969,7 +969,7 @@ requires a sandbox** — §11 is why that is a property and not a limitation.
 ### 14.3 What is deliberately not tested here
 
 The confined agent's behaviour. §9's measurements are real and reproducible
-(`scratch/design/probes-demo/p3_confined_agent.py`), but a test that starts a
+, but a test that starts a
 model call is non-deterministic, costs money, and fails on a fork — the reasons
 spec §5 gives. The *properties* it demonstrates are CI-enforced in
 `tests/env_mgr`; what `tests/cli` checks is that the demo **reports** them

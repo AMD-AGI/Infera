@@ -9,12 +9,12 @@ if prepared.confinement is None:
 ```
 
 **And a `ProgramExecutor` that never receives `spawn` runs unconfined** —
-`backends/program.py:109` is `start = self._spawn or subprocess.Popen`. So if
+`backends/program.py` is `start = self._spawn or subprocess.Popen`. So if
 `env_mgr` ever reported no confinement *while enforcing*, a program task would
 start with the operator's privileges and nothing would say so.
 
 **It cannot today, and the reason lives in the other package**
-(`env_mgr/prepare.py:465-467`):
+(`env_mgr/prepare.py`):
 
 ```python
 conf = None

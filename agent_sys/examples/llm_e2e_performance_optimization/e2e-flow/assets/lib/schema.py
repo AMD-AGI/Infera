@@ -7,7 +7,7 @@ resolution rule, so a producer and the validator that grades it cannot be
 looking at two different documents.
 
 **The framework's `items_schema` does not do this job**, which is why this
-exists. `handoff/content.py:184-197` validates a file or tree item by building
+exists. `handoff/content.py` validates a file or tree item by building
 ``{item_name: <filename string>}`` and checking *that*: the file's contents are
 never read. It is an admission check at the seal boundary and it is never
 exported to a body. Both facts were measured before this module was written.
@@ -104,9 +104,9 @@ def _inline_refs(node, root: pathlib.Path, seen: frozenset[str] = frozenset()):
     **One code path, no optional dependency, and that is the point.**
 
     The first version of this module used a `referencing` registry, copied from
-    `spec_loader/validate.py:56`. That works for a *validator*, which runs under
+    `spec_loader/validate.py`. That works for a *validator*, which runs under
     the interpreter `AGENT_SYS_DEMO_PYTHON` names, and **not for a task body**:
-    `cli/main.py:668` puts that variable in `validation_env` only, and its own
+    `cli/main.py` puts that variable in `validation_env` only, and its own
     comment says a task body never reaches it. So a mock body's policy `PATH`
     resolves `python3` to `/usr/bin/python3`, which on this host has `yaml` and
     `jsonschema` and **no `referencing`** — and `env_render.py` validates before

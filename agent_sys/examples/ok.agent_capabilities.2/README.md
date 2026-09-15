@@ -182,7 +182,7 @@ Written down rather than left to be discovered.
    literal, and not the search path.
 
 5. **No `resources` block.** A leaf may declare a pool; nothing here needs one,
-   and `cli/build.py:85` — the only reader — declares no pools anyway.
+   and `cli/build.py` — the only reader — declares no pools anyway.
 
 6. ~~`recipes: [serena]` does not resolve from a wheel install.~~ **Closed, and
    measured closed.** `agent_sys:serena` resolves against

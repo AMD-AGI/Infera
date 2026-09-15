@@ -69,7 +69,7 @@ def input_version_dir(kind: str) -> Path:
     """An input handoff's **version** directory, `<store>/<handoff_id>/v<N>`.
 
     **This shape is the same in both staging modes and `content/` is not.**
-    `env_mgr/fs/layout.py:245-247` stages to `os.path.join(into, hid, f"v{version}")`
+    `env_mgr/fs/layout.py` stages to `os.path.join(into, hid, f"v{version}")`
     either way and varies only what it copies *into* it: with `narrow=True` —
     the default, and what every real run uses — the source is `<v>/content`, so
     the staged directory holds `README.md` and `items/` directly; with

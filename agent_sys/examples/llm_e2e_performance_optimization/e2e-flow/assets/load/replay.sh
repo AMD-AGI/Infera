@@ -46,8 +46,8 @@ CTR="${E2E_CONTAINER:?}"
 #: *port*, so this line recomposed the host from `E2E_NODE_IP` — and a kit
 #: that binds loopback then gets dialled on its node IP. Measured
 #: 2026-09-05 on node-093: two kits on one node, `E2E_KIT_BIND_HOST`
-#: defaulting to `0.0.0.0` in one (`env.sh:108`) and `127.0.0.1` in the
-#: other (`env.sh:137`); the second bound and recorded loopback, this line
+#: defaulting to `0.0.0.0` in one (`env.sh`) and `127.0.0.1` in the
+#: other (`env.sh`); the second bound and recorded loopback, this line
 #: dialled `http://<node_ip>:<bound_port>`, and a fully successful TP4
 #: bring-up died with "no answer from the router". The port half of this
 #: was already fixed once; **the host is its sibling field and was left

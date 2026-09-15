@@ -104,7 +104,7 @@ on "ss -ltn | awk 'NR>1{print \$4}' | sed 's/.*://' | sort -n | uniq"
   **If `docker image inspect` says `No such image`, that is a fork in the road
   and not a failure.** This brief said "nothing needs building or pulling" for
   one revision, and that was an assumption from the one model it had been run
-  against rather than a fact about models. Measured 2026-09-03: GLM-5.3-Flash is
+  against rather than a fact about models. Measured: GLM-5.3-Flash is
   `Glm5NextForConditionalGeneration`, and **no released sglang image carries
   `glm5_next`** — support lives in an unmerged upstream PR, so the engine image
   has to be *built* before anything can be served. A second model met this on
@@ -164,7 +164,7 @@ reading at `<timestamp>`"**, with the same figures that are in the structured
 array beside it. This is one sentence of discipline and it is here because its
 absence cost a deployment:
 
-> Measured 2026-09-04. A kit's `preflight.json` recorded `gpu_cards[]` showing
+> Measured. A kit's `preflight.json` recorded `gpu_cards[]` showing
 > every card at **198 GiB used, 90 GiB free**, stamped `measured_at
 > 07:26:58Z` — accurate, current, and correct for the moment it declared. Two
 > keys away, `gpu_devices_rationale` read *"All eight were free (≤300 MB used
@@ -210,7 +210,7 @@ Keep the failed worker log — rename it `logs/worker.attempt1-nccl-fail.log` �
 and if the retry succeeds, say in `notes.md` that it took two attempts. That
 record is the only evidence anyone has that this is intermittent.
 
-**Measured three times on 2026-09-04/05, and the ranks move:**
+**Measured three times on /05, and the ranks move:**
 
 ```
 19:06:26  node 217   TP1 TP2 TP3        (TP0 survived)
@@ -242,7 +242,7 @@ lacks `yihou`.
 
 **It is an ownership marker, not a convention.** Four other owners share these
 hosts under a standing instruction to stop foreign GPU workloads, and the name
-is the first thing anyone reads. Measured 2026-09-04: two bring-ups named
+is the first thing anyone reads. Measured: two bring-ups named
 `infera_e2e_sgl_…` and `e2e_deploy_sgl_…`, and the package owner — correctly following
 the team's own rule — came within one message of classifying a live engine of
 ours as a stranger's.
@@ -269,7 +269,7 @@ this kit will load it at, and write down why you chose the number.** Expose it a
 parameter, and `check_deploy_kit` refuses a kit that binds it with no parameter.
 
 **Your own load is concurrency 16** (mission M1.2.3.4). **That is not the largest
-one.** Corrected 2026-09-04 by the lead after rung 2e, where this brief previously
+one.** Corrected by the lead after rung 2e, where this brief previously
 said *"the load is concurrency 16"* full stop, and it was true of stage 1 and
 false of the flow:
 
@@ -297,7 +297,7 @@ nobody could tell a considered 32 from an accidental 8.
 chosen to clear it is the same mistake this correction is repairing, one size
 larger. State what your number covers.
 
-**Why this criterion exists, measured 2026-09-04.** Two runs whose every recorded
+**Why this criterion exists, measured.** Two runs whose every recorded
 variable was equal — same node, same image id, same model, same `tp_size`, same
 cards, same `mem-fraction-static`, same load — differed **4.7x** in decode
 latency. The only difference was this ceiling. A decode batch above it is not
@@ -316,7 +316,7 @@ needs to serve.** Your container is not only a server: **m3 and m4 `docker exec`
 into the one your record names**, because CONTRACT §5 gives its lifetime to you
 and a consumer that created its own would be acquiring something it does not
 own. **The consequence is that a consumer inherits your mounts and cannot add
-any.** Measured 2026-09-04, from inside a container of this stage's that was
+any.** Measured, from inside a container of this stage's that was
 otherwise perfect — torch present, four cards visible:
 
 ```
@@ -342,12 +342,12 @@ authorization plugin has been measured to accept, and no third:**
 off** — a downstream stage's scratch has to be node-local (*on this cluster's NFS
 every ROCm kernel launch segfaults after the copies*), so it lands on
 `/mnt/m2m_nobackup` and neither of the first two forms covers it. It is proven
-accepted rather than assumed: the sealed kit's own `start_container.sh:36` mounts
+accepted rather than assumed: the sealed kit's own `start_container.sh` mounts
 `"${DK_RUN_DIR}:/workdir"` under `<work root>`, and every kit
 this stage has produced does the same.
 
 **Copy the derivation rather than writing one** — it is
-`assets/build_workset.task/measure_in_container.sh:249-266`, and it already
+`assets/build_workset.task/measure_in_container.sh`, and it already
 carries the two corrections that cost m3 a run: derive the mount from the
 **root** and never from `$HOME` (in a closed zone `$HOME` is `/home`, the one
 form that is refused), and **refuse anything outside the two forms, naming
@@ -429,13 +429,13 @@ what may a consumer rely on"*. It needs all three of `## Purpose`,
 heading with `token.level == 0`, and markdown-it's `level` is **nesting depth,
 not heading depth** — so a document-root `###` is a *sibling* that ends the
 section above it, and a section whose content is entirely in subsections measures
-zero. **Measured 2026-09-07**, run `20260906T224100-ef6374`: 12,552 bytes,
+zero. **Measured**, run `20260906T224100-ef6374`: 12,552 bytes,
 `Boundary` carrying about 8 KB across eight `###` subsections, **its own body 0**,
 seal refused with `required section 'Boundary' is empty`, run lost. The other two
 sections passed only by happening to have prose at their own level.
 
 **Write it, and do not treat the sketch above as the only mention.** Measured
-2026-09-04: **two real bring-ups produced kits complete in `items/` and missing
+**two real bring-ups produced kits complete in `items/` and missing
 this file**, because it was drawn in a diagram and required by no criterion. Both
 would have been **refused by the seal** — `handoff/content.py` will not seal a
 `code` handoff without it — and neither would have become a handoff at all. One
@@ -492,7 +492,7 @@ subset of `$E2E_GPU_DEVICES`. If you were given `0,1,2,3`, then `0,1,2,3` is
 what the node sees you holding at every moment, including this step.
 
 **This is not a style rule, and it nearly cost a colleague a job today.**
-Measured 2026-09-04: this step brought its arm up on cards **4,5,6,7** while the
+Measured: this step brought its arm up on cards **4,5,6,7** while the
 launch line had named **0,1,2,3**, so the stage held eight cards on a host it had
 been given four on. Ninety-four seconds earlier a co-tenant had started a
 container with every card visible to it. It allocated nothing and exited, so

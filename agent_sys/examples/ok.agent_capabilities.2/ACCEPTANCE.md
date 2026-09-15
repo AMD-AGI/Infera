@@ -47,7 +47,7 @@ filesystem — `$RUN_ROOT` is where this task's scratch belongs.
 
 | `--var` | why no default |
 |---|---|
-| `nonce` | Every token is `sha256(f"{salt}:{label}:{nonce}")[:12]`. A default is a constant; a constant nonce makes every run's six tokens identical, and the **first published handoff then contains the answers to every run after it**. `${nonce}` with no `:-` is a load-time fault naming file and line — measured: `steps/check.yaml:75:5` |
+| `nonce` | Every token is `sha256(f"{salt}:{label}:{nonce}")[:12]`. A default is a constant; a constant nonce makes every run's six tokens identical, and the **first published handoff then contains the answers to every run after it**. `${nonce}` with no `:-` is a load-time fault naming file and line — measured: `steps/check.yaml` |
 | `uv_root` | serena's install is `uv tool install`, whose defaults write `~/.local/share/uv`, `~/.local/bin` and `~/.cache/uv` — host state outside every zone, on a box that may be shared, **and it succeeds while doing it**. A default here would ship one machine's scratch path, with a username in it, as everyone's |
 
 ### The fourth pin: the package must be in a commit

@@ -37,12 +37,12 @@ what it validates. So:
    artefact the producing task actually consumed. **Exact, and available in
    `problems`' output phase only**: `validator.choose_configuration` uses the
    producer's configuration on the output phase and there is no consumer row at
-   all (`validator/environment.py:116-142`).
+   all (`validator/environment.py`).
 2. `store.latest_of_kind("directions")` — *the newest `directions` anywhere in
    the store*. Its own docstring calls this crude, and in a graph with several
    producers of one kind it would be wrong. Here it is not: `main` has exactly
    one producer of `directions`, and the single-slot `producer_of[kind]`
-   (`task_graph/models.py:360`) means a consumer could not see a second one
+   (`task_graph/models.py`) means a consumer could not see a second one
    even if there were. It reaches the store through `AGENT_SYS_DEMO_STORE`,
    which the global configuration row does carry, so it is the route that fires
    in the three students' input phases.

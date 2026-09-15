@@ -162,7 +162,7 @@ def run(*args, **kwargs):
 '''
 
 
-#: What `content.py:73` requires of a `code` handoff's README, and what the
+#: What `content.py` requires of a `code` handoff's README, and what the
 #: sealed one is missing. The sealed document has `Purpose`, `How to run`,
 #: `Result`, `Environment` and `Watch out` — it was written for a content type
 #: whose section list was different, and it predates this one.
@@ -216,7 +216,7 @@ def _repair_readme(content: Path) -> None:
     somebody wires. I wired four (the `items/code` rename, `workset.yaml`, the
     Definitions and Workloads, `environment.yaml`) and not this one.
 
-    **The cost was rung 0, twice.** `handoff/content.py:73` requires
+    **The cost was rung 0, twice.** `handoff/content.py` requires
     `Purpose, Interface, Boundary` of a `code` README; the sealed document has
     `Purpose, How to run, Result, Environment, Watch out`, written for a
     content type whose list was different. So the body ran, measured correctly,
@@ -254,7 +254,7 @@ def _repair_readme(content: Path) -> None:
 
 
 #: The sealed `reproducible` items that a `code` handoff does not define.
-#: `content.py:69-73` gives `code` exactly `codes` (required) plus `logs` and
+#: `content.py` gives `code` exactly `codes` (required) plus `logs` and
 #: `watchout` (optional), so `watchout` stays where it is and these three have
 #: nowhere to be. They are the same leftover as the `items/code` → `items/codes`
 #: rename: the sealed half was a different content type.
@@ -612,7 +612,7 @@ def main() -> int:
                             # **No `entry_function_line`, and its removal is the
                             # fix rather than a tidy-up.** This carried `183`;
                             # the fragment is at **207** in the deployed image
-                            # (`optimize_kernel.task/steps/_fragment_patch.py:14`,
+                            # (`optimize_kernel.task/steps/_fragment_patch.py`,
                             # measured), so m4 met an offset that was precise,
                             # plausible and 24 lines wrong — which invites use in
                             # a way an absent one does not.

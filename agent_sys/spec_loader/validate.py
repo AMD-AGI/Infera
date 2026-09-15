@@ -14,7 +14,7 @@ jsonnet is a YAML subset by construction"*. There is no render, the package
 parses its own documents with `ruamel.yaml`, and a second parse here would be a
 second reading of the same file: measured, the two disagree on ordinary scalars —
 `12:30` is the string under `ruamel`'s YAML 1.2 and the integer 750 under
-PyYAML's 1.1 (`scratch/ui-yaml-2026-08/w3/probe_ruamel_semantics.py`). One
+PyYAML's 1.1. One
 document must have one reading, so the parse lives in exactly one place and it is
 not here.
 

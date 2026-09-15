@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Status | Draft — stage two of spec → design → test & code |
-| Revision | 4 — 2026-08-27. **A task spec has a `body`**, following spec §2.6 rev. 9 — three accessors and a seventh load check, `entry.sh` mutually exclusive with a subgraph while `readme.md` is required of every task (§3.6). `repos` and `monitor` join the accessors. (rev. 3: 2026-08-27. **The stage-three consistency pass.** §5's check table said "if one is named" where §3.3 and criterion 3 make check 4 unconditional — one stale cell from rev. 2. D2 and D3 are both **adopted upstream** and retire: `task_graph` design §3.5 rev. 12 types the grant by kind name, and main design §3.6 rev. 2 moves the pass to the composition root. §7.3's `Registries` is now defined in `spec_loader`, without the `handoff_report` field that would have made the leaf import `handoff` (main design §3.7). (rev. 2: 2026-08-27. `agent` is **required**, following spec §2.2 rev. 8: §3.3 rewritten, criterion 3's tests renamed, D1 retired. The loader still synthesises nothing. (rev. 1: initial))) |
+| Status | Normative for how this package is built |
+| Revision | 4 |
 | Implements | [`spec.md`](spec.md) rev. 9, acceptance criteria 1–11 |
 | Language | Python ≥ 3.10. No pydantic models here — a spec is a `dict` (main design §4.1) |
 
@@ -395,7 +395,7 @@ The one addition is **a computed repair**, and it comes from the survey. Every
 system that ships this class of message names both sides; the ones users called
 actionable name a third thing — what to do, enumerated from what is actually in
 scope. Dagster's is the model
-(`resource_requirement.py:64`, read first-hand):
+(`resource_requirement.py`, read first-hand):
 
 ```
 io manager with key 'foo' required by SourceAsset with key ["foo"] was not provided.
@@ -699,7 +699,7 @@ This is a change to the main design, so §13 D3 records it.
 **Independent confirmation, from a system that hit this in production.** Dagster
 makes its per-job coverage check *conditional* and defers the mandatory one to
 repository build, with the reason in a source comment read first-hand
-(`repository_data_builder.py:460`):
+(`repository_data_builder.py`):
 
 ```python
 # Late validate all jobs' resource requirements are satisfied, since

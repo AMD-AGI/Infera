@@ -2,9 +2,8 @@
 
 | | |
 |---|---|
-| Status | Draft, revised after review |
-| Revision | 8 — 2026-08-27. **The user-interface brief.** A validator's checking logic is a **`readme.md`, plus an `entry.sh` when programmatic, plus its own `materials`** — the same body `closure` spec §2.6 gives a task, because §3 already says a validator is a special kind of task (§6.1). **The registered Python callable is withdrawn**: it cannot express a validator an agent is responsible for without a wrapper that runs an agent, so the callable becomes a layer that exists to be worked around. A code-shaped check uses the shipped pytest harness from its `entry.sh`. (rev. 7: 2026-08-27. **Addressing into content is an RFC 6901 JSON Pointer, not a jsonpath** (§4.1), following `handoff` spec §5.1 rev. 5, which carries the reason. Decided in the stage-three consistency pass. (rev. 6: 2026-08-26. Consistency pass across the spec set: output validation's admission is a leaf's lease or a non-leaf's absence of one (§3); the survey count is sixteen throughout (§6.3). (rev. 5: 2026-08-26. A failure binds at every strength; the label qualifies a pass (§5.4). One fails, all fail (§5.5). A validation environment is rebuilt, never reused (§8.2). Dagster asset checks added to the survey (§6.0). (rev. 4: Validators live in task packages; a symlink may cross packages (§9.1). Spec templating is configuration, not the removed source templating (§6.3). rev. 3: A failed phase is an ordinary task failure; reacting to it is the monitor's job (§3.4). rev. 2: Review of PR #132: validations are phases inside `TaskRunner`, invisible to the scheduler; three quality dimensions; `<purpose, inputs, implementation, result>`; the template-with-blanks system removed; simplified against prior art. rev. 1: initial)))) |
-| Date | 2026-08-24 |
+| Status | Normative |
+| Revision | 8 |
 | Scope | What makes a handoff checkable, how far a check can be trusted, and how validators are organised |
 | Source | The task definition §4, §5; a survey of evaluation and data-validation frameworks (§6) |
 | Part of | [`../../docs/spec.md`](../../docs/spec.md) — the whole-system specification |
@@ -749,6 +748,6 @@ surface with a hole in it.
 | Item | Status |
 |---|---|
 | **Score-typed results** | §4.2. Reserved, unbuilt. Requires first specifying how a threshold is derived from measured run-to-run variance |
-| **The parameterisation table** | §6.3 names `{name, args}` as the mechanism and the roadmap carries it. The exact shape — where the table lives, whether a handoff kind may supply args — is a design-stage decision |
+| **The parameterisation table** | §6.3 names `{name, args}` as the mechanism and the roadmap carries it. The exact shape — where the table lives, whether a handoff kind may supply args — is a design decision |
 | **Dynamic logic provenance** | §5.2's `external_dynamic` is trusted because the producing task is not the checked task. Nothing verifies that at load time: the graph shape is what makes it true, and the registry does not see the graph |
 | **Cost-aware ordering within a phase** | §2 principle 2 wants cheap gates first and §9.2 tags cost, but nothing consumes the tag. Ordering *within* a phase is the runner's, so this is answerable — just unspecified |

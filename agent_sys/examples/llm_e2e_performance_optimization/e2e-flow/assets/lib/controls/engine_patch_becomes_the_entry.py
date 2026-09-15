@@ -4,7 +4,7 @@
 **Shown failing first, and the four cases are the four things STEP 3 can hand
 it.** No node, no torch, no container.
 
-`apply.py:665` selects by the entry's shape and never by `apply_mode` — a bare
+`apply.py` selects by the entry's shape and never by `apply_mode` — a bare
 `if entry.get("patch")` — and `kernel_optimization.schema.json`'s
 `apply/files/items` carries a `oneOf` making the two exclusive. So the entry is
 a choice, and this control is what decides it is made from evidence rather than
@@ -14,8 +14,8 @@ from a default:
      `improved: false`, a result and not an error. The whole-file path stays.
   3. **one-file diff -> `patch`,** a bare filename, with the diff written to
      `apply/patches/<name>`. A prefixed value would resolve to
-     `apply/patches/apply/patches/x.patch` (`apply.py:409`, `:666`).
-  4. **many-file diff -> refusal.** `apply.py:655-663` stages exactly this
+     `apply/patches/apply/patches/x.patch` (`apply.py`).
+  4. **many-file diff -> refusal.** `apply.py` stages exactly this
      entry's own file into `tree/<rel>` and runs `patch -p1` there, so a hunk
      for any other path dies as `No file to patch` — after the campaign hours.
      Trimming the diff to fit would deliver part of a change and call it the

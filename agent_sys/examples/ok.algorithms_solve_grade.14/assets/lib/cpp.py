@@ -113,8 +113,7 @@ def run(
     `check_one_binary` asks whether one executable exists and dispatches, and
     `check_scores` asks whether the arithmetic is reproducible. Both were true.
 
-    Measured over seven programs in
-    `scratch/demo2-2026-08/probe_fgets_eats_stdin.py`: `fgets`, `getchar` and
+    Measured over seven programs: `fgets`, `getchar` and
     `getline` **all** starve a desynced solution, and all three are fine with a
     synced one. The choice of function is not the variable; reading stdin at all
     before the solution runs is. So there is no correct stdin fallback, and the

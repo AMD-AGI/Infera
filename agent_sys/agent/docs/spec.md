@@ -2,9 +2,8 @@
 
 | | |
 |---|---|
-| Status | Draft, revised after review |
-| Revision | 6 — 2026-08-28. **§4.3: the loop is the agent's, the thread is not.** Rev. 5's "one thread per agent is the alpha's shape" named an owner while no document named one at all — nothing said who created an agent's thread or joined it. The task owns it and the agent borrows it for the main phase (`design.md` §7.5's `TaskAttempt`). The count is unchanged, so this corrects ownership rather than adding a requirement. §4.3's note on the monitor's loop widens with `monitor` spec rev. 14 — that loop now carries the task's planned advances as well as its exceptions, and is still the one thread that may not be shared. (rev. 5: 2026-08-27. **The user-interface brief.** An agent has its own **`mainloop()`** (§4.3): an agent is a live, stateful thing, and `start()` returning immediately raises the question of who is then executing. Every synchronous verb is sugar this layer wraps, not a subclass's to implement. ROADMAP §7.1 records attaching an agent's loop to a shared round-robin thread. (rev. 4: 2026-08-26. An agent spec is a jsonnet source in a task package (§3.1). (rev. 3: Backend order and its config/CLI fallbacks (§3.3); a backend implements the whole interface or raises (§3.3.1). rev. 2: Review of PR #132: two interface levels; permissions moved to the task; six knowledge types; async lifecycle with status; backend ≠ runner; logging moved to o11y. rev. 1: initial))) |
-| Date | 2026-08-24 |
+| Status | Normative |
+| Revision | 6 |
 | Scope | What wraps a task spec for execution, and the backend abstraction |
 | Source | The task definition §6, §7.8; the Claude Code and Cursor SDK references |
 | Part of | [`../../docs/spec.md`](../../docs/spec.md) — the whole-system specification |
@@ -325,11 +324,11 @@ an interface, it is a wish.
 **The monitor's loop is a different loop with a different job**
 (`task_graph` spec §3.5): this one runs *the agent*, that one handles the
 **task's events** — its planned phase advances and its exceptions alike
-(`../../monitor/docs/spec.md` §2.2, widened 2026-08-28). They are not one
+(`../../monitor/docs/spec.md` §2.2, widened). They are not one
 mechanism serving two callers, and unlike the agent's loop, **the monitor's owns
 its own thread** — §4.3 below on why that one is not shared.
 
-**The loop is the agent's; the thread is not.** Amended 2026-08-28 — this said
+**The loop is the agent's; the thread is not.** Amended — this said
 *"one thread per agent is the alpha's shape"*, which named an owner at a time when
 **no document named one at all**: nothing anywhere said who created an agent's
 thread or who joined it.
@@ -420,7 +419,7 @@ table that replaced it.
 `settings.json`, `skills/<name>/`, `plugins/` (a local marketplace),
 `.mcp.json`, and `tools/*.mcp.py`. It is the harness's own layout rather than
 ours, so a file is placed and not converted. (A `tools/*.tooldef.py` was a fourth
-member until 2026-09-04, when the in-process route it used was deleted —
+member until recently, when the in-process route it used was deleted —
 `docs/spec.provisioning.md` §6.)
 
 **A package's own material is undeclared on purpose.** A declaration would be a

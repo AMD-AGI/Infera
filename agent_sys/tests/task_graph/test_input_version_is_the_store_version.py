@@ -18,7 +18,7 @@ spent one as the other, after `validator.PhaseRunner._targets`' output branch an
 its input branch.
 
 **Measured** on the first full `examples/ok.algorithms_solve_grade.14` run to reach the last task
-(`scratch/demo2-2026-08/runs/full3.log`), handoff `52c75d0a`, kind `scores`:
+, handoff `52c75d0a`, kind `scores`:
 store `v0` a hole, store `v1` published, the non-leaf `grade` pinned v0 and never
 wrote it, its end entry `score` wrote v1 — and `optimise` recorded
 `input_versions: 0`. Thirteen of fourteen tasks had already succeeded.

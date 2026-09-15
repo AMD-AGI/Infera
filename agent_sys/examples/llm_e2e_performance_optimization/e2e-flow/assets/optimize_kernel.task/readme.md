@@ -61,7 +61,7 @@ side.
 
 ## `$W` — set this first, and it is not free
 
-Every step below writes under `$W`, and until 2026-09-04 **this file used it in
+Every step below writes under `$W`, and until recently **this file used it in
 eight command lines and defined it nowhere.** Set it from the run's own work
 root:
 
@@ -70,10 +70,10 @@ W="${E2E_WORK_ROOT:?}/m4/$(date -u +%Y%m%dT%H%M%S)"
 mkdir -p "$W/state" "$W/forge"
 ```
 
-**`E2E_WORK_ROOT` is the launch line's `--var work_root`** (`shared.yaml:113`),
-and **every other stage already reads it** — `deploy_and_prove/readme.md:32`
-documents it, `load/line.sh:42`, `analyze/scan.sh:243`, `apply_patch/apply.py:458`
-and `accept/measure.sh:34` all take it. This task was the only one that did not,
+**`E2E_WORK_ROOT` is the launch line's `--var work_root`** (`shared.yaml`),
+and **every other stage already reads it** — `deploy_and_prove/readme.md`
+documents it, `load/line.sh`, `analyze/scan.sh`, `apply_patch/apply.py`
+and `accept/measure.sh` all take it. This task was the only one that did not,
 so a var on the rung-4 command line *looked* like it placed this stage's workdir
 and did not, while `$W` was chosen unguided.
 
@@ -87,7 +87,7 @@ workspace and a mocked campaign produce the same handoff, which is the one
 outcome this stage cannot interpret.
 
 Node-local (`<work root>`) is the right default and is also
-faster: measured 2026-09-04, copying the engine tree is **0 s node-local against
+faster: measured, copying the engine tree is **0 s node-local against
 17 s on `/shared_nfs`**, with the `git init && add -A && commit` a further 34 s
 on NFS. Nothing needs `$W` to outlive the node — the packup is sealed into the
 run tree under `--demo-root` — only to outlive the *container*.
@@ -106,7 +106,7 @@ It **execs** into the recorded container when that container is running, and
 never starts or removes *the deployment* — m4 did not create it. **When the
 record's container is not running it starts an ephemeral one of its own** from
 the image the record names: `--rm`, self-named, removed in a trap, and never a
-name it did not create. That is the package owner's ruling of 2026-09-04, because in a
+name it did not create. That is the package owner's ruling of, because in a
 mock chain nobody brings the deployment up and a step that could only run after
 a real one could not be in the mock e2e at all. §5 conflated *the deployment*,
 whose lifetime is m1's, with *the measurement apparatus*, which belongs to
@@ -194,12 +194,12 @@ was measuring.
 
 The wrapper sets the five environment facts that otherwise fail *silently* —
 see the pitfall table below — and it supplies `--workspace`, which the workset's
-one-liner refuses to default (`forge_export.py:147`; it describes an operator,
+one-liner refuses to default (`forge_export.py`; it describes an operator,
 not a checkout).
 
 **`--workspace` is a copy of the engine sources, made here, and none of the
 three obvious candidates is right by default.** Forge stages `git add -u` and
-commits in `--workspace` and nowhere else (`loop/runner.py:1600`), so the tree
+commits in `--workspace` and nowhere else (`loop/runner.py`), so the tree
 it edits is this step's decision. It is not the container's
 `/sgl-workspace/sglang`: modules 1–4 share that container, m5's two-arm design
 needs a *stock* arm, a commit inside a container dies at teardown, and —
@@ -263,7 +263,7 @@ performance shape with `rsd` recorded per case.
 
 Read the `rsd` before you read the medians. The baseline side is tight (~2% on
 a steady node) and an optimised kernel has measured ~8% round to round on this
-hardware — unexplained since 2026-08-31. A single sample of the loose side is
+hardware — unexplained since that change. A single sample of the loose side is
 not a measurement.
 
 ### STEP 6 — write the handoff
@@ -327,7 +327,7 @@ a confident one, and the expensive validator re-measures in public.
 the whole handoff without it.** It sits at the content root beside `items/` —
 `.../<handoff-id>/v1/content/README.md`, not the one inside the packup
 directory. **STEP 6 does not write it and no skeleton exists for it**
-(`60_write_handoff.py:16` says so deliberately; that is a design decision, not
+(`60_write_handoff.py` says so deliberately; that is a design decision, not
 an omission to route around).
 
 It needs all three of these as sections **at document root**:
@@ -349,12 +349,12 @@ not heading depth**. So a `##` followed immediately by a `###` has an empty body
 and the seal refuses it with `required section '<name>' is empty`. **Put at
 least one sentence of prose directly under each `##` before any `###`.**
 
-**Measured 2026-09-07**, run `20260906T224100-ef6374`: a 12,552-byte README with
+**Measured**, run `20260906T224100-ef6374`: a 12,552-byte README with
 eight `###` subsections under `## Boundary` carrying about 8 KB between them —
 `Boundary`'s own body measured **0**, the seal was refused, and the run was lost
 because the framework's remedy is to instruct an agent that had already exited.
 
-**Why this paragraph exists.** On 2026-09-05 two stage-4 agents, on two chains,
+**Why this paragraph exists.** On two stage-4 agents, on two chains,
 on the same node, both failed here within four minutes of each other, and
 **neither failure looked like the other**:
 
@@ -369,7 +369,7 @@ do it until finished"*, and **the push had no receiver because the agent had
 already exited**. Both runs then sat at `running` with `ended_at: None`.
 
 **Two symptoms, one cause: this page did not say it.** `deploy_and_prove.task`
-(`readme.md:413`, `:424`, `:572`) and `build_workset.task` (`readme.md:364-367`)
+(`readme.md`, `:424`, `:572`) and `build_workset.task` (`readme.md`)
 both spell the three sections out; **stage 4 was the only stage whose brief did
 not**, and stage 4 is a `kind: ai` body, so this page is the only channel that
 can reach it.
@@ -382,11 +382,11 @@ Ordered by how quiet they are. Each has already cost a day.
 
 | # | trap | symptom | handled by |
 |---|---|---|---|
-| 1 | **`$TMPDIR` points at a directory that does not exist** | *every* HIP kernel launch segfaults with **no output**, while `torch.cuda.is_available()` still returns `True`. Cost 25 minutes of bisection down to a hand-written HIP program on 2026-09-02, because nothing in the failure names a filesystem | the agent spec's `env`, and every step script creates it |
-| 2 | **`--max-hours <= 2.0` silently degrades the campaign** | forge drops Analysis to static-only and the implementer turn cap falls 500 → 100. Nothing warns you; the campaign runs and produces a report (`kernel_agents/cli.py:47`, `:1391` — strictly greater) | STEP 3 refuses to pass a value it was not told to, and sets `degraded` |
+| 1 | **`$TMPDIR` points at a directory that does not exist** | *every* HIP kernel launch segfaults with **no output**, while `torch.cuda.is_available()` still returns `True`. Cost 25 minutes of bisection down to a hand-written HIP program, because nothing in the failure names a filesystem | the agent spec's `env`, and every step script creates it |
+| 2 | **`--max-hours <= 2.0` silently degrades the campaign** | forge drops Analysis to static-only and the implementer turn cap falls 500 → 100. Nothing warns you; the campaign runs and produces a report (`kernel_agents/cli.py`, `:1391` — strictly greater) | STEP 3 refuses to pass a value it was not told to, and sets `degraded` |
 | 3 | **the floor on `--max-hours` is 1.0 and is enforced** | `click.BadParameter` below it. There is no five-minute forge run | STEP 3 clamps and records that it did |
 | 4 | **writes to an NFS `$HOME` fail, two of the three quietly** | `~/.triton` and the experience KB fail silently; a `~/.cache` write once killed an sglang scheduler with an unremarkable `PermissionError` | `TRITON_CACHE_DIR` and `KNOWLEDGE_LOCAL_ROOT` in the agent spec. **Do not unset them and write nothing under `$HOME`** |
-| 5 | ~~**`rocprof-compute` dependency conflict degrades profiling**~~ — **this row was wrong, and wrong in the direction that made installing KernelForge look risky.** Read from the checkout 2026-09-04: its **core** dependencies are six pure-python packages (`anthropic`, `click`, `httpx`, `openai`, `pandas`, `pyyaml`) and touch no part of the ROCm stack. The `astunparse`/`kaleido` pins live in an **optional extra** whose own comment reads *"Nothing in this repository imports them: they satisfy the profiler"* — and the pinned versions are the ones ROCm 7.2 wants. **The extra exists to satisfy rocprofiler-compute, not to fight it.** | nothing to avoid | `pip install -e <KernelForge checkout>` installs the six; ask for the `profiling` extra only if you want the profiler's own pins |
+| 5 | ~~**`rocprof-compute` dependency conflict degrades profiling**~~ — **this row was wrong, and wrong in the direction that made installing KernelForge look risky.** Read from the checkout its **core** dependencies are six pure-python packages (`anthropic`, `click`, `httpx`, `openai`, `pandas`, `pyyaml`) and touch no part of the ROCm stack. The `astunparse`/`kaleido` pins live in an **optional extra** whose own comment reads *"Nothing in this repository imports them: they satisfy the profiler"* — and the pinned versions are the ones ROCm 7.2 wants. **The extra exists to satisfy rocprofiler-compute, not to fight it.** | nothing to avoid | `pip install -e <KernelForge checkout>` installs the six; ask for the `profiling` extra only if you want the profiler's own pins |
 | 6 | **`kernel-agents list`/`show` look in the wrong directory** | `No experiments found`, and you conclude the campaign produced nothing | pass `--dir "$W/forge/forge_experiments"` |
 | 7 | **a non-clean `CLAUDE_CONFIG_DIR` crashes forge's backend probe** | `AttributeError: 'list' object has no attribute 'get'`. At least this one is loud and immediate | STEP 3 exports a clean empty one under `$KFO_SCRATCH_ROOT`, for the nested process only |
 
@@ -401,12 +401,12 @@ Ordered by how quiet they are. Each has already cost a day.
   carrying other tenants' containers right now. If a directory is in your way,
   fail and say so.
 - **Never write a recursive delete whose target is a variable.** `rm -rf "$d"/*`
-  with `$d` unset is `rm -rf /*`. That happened on this class of host on
-  2026-08-31 and destroyed another engineer's git history.
+  with `$d` unset is `rm -rf /*`. That has happened on this class of host and
+  destroyed another engineer's git history.
 - **Nothing whose path lacks the substring `yihou` may be deleted, ever.**
 - **Do not change `$HIP_VISIBLE_DEVICES`.** Other people are on the other cards.
 - **Never pass an explicit mode when you create a directory.** Measured
-  2026-09-01: a run created `results/raw_measurements/` at `0644`, wrote seven
+  a run created `results/raw_measurements/` at `0644`, wrote seven
   files into it, and could not read them back — a directory without its execute
   bit cannot be traversed *by anyone, including its owner*. It failed with
   `PermissionError` on a path it had just written, which reads like a sandbox

@@ -5,9 +5,8 @@
 **Why this is written by hand.** There is no maintained Python binding for
 Landlock; the canonical one is `rust-landlock`, and the three syscalls have no
 libc wrapper at all, so *any* Python binding is ``syscall(2)`` by number
-regardless of who writes it. This is promoted from the measuring instrument at
-``scratch/design/probes-envmgr/landlock.py`` that took every measurement the
-design cites.
+regardless of who writes it. This is promoted from the measuring instrument that
+took every measurement the design cites.
 
 Three details that are not obvious and each cost a measurement:
 

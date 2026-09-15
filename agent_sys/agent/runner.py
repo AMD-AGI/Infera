@@ -944,7 +944,7 @@ class TaskAttempt:
 
         **Criterion 14 is why it is here**: `persist` must originate only from
         the agent, so `task_graph` may not do it and neither may `monitor` —
-        `test_authority.py:235` asserts the scheduler calls neither verb.
+        `test_authority.py` asserts the scheduler calls neither verb.
         """
         mgr = self.runner.component("handoff_mgr")
         if mgr is None:
@@ -1039,7 +1039,7 @@ class TaskAttempt:
 
         **Why the runner and not `task_graph`.** The symmetric answer — *the
         allocator seals* — cannot be adopted: `task_graph` pins the version at
-        dispatch (`scheduler.py:280`) and would seal at close, and **close is
+        dispatch (`scheduler.py`) and would seal at close, and **close is
         after the gate**. The gate asks whether an output exists, and
         `FilesystemStore.exists` means *published* — its own docstring says an
         allocated-but-unsealed directory is not a version that exists. So with
@@ -1075,7 +1075,7 @@ class TaskAttempt:
 
         **`Malformed` is not a refusal either, and catching it would be the
         same mistake one type over.** Inside `seal` it is raised in exactly one
-        place — a store built without a `KindSource` (`handoff/store.py:383`) —
+        place — a store built without a `KindSource` (`handoff/store.py`) —
         which is a composition error, not a fact about the producer. It escapes
         for the same reason `NotSealable` does. An earlier version of this
         docstring called the empty-content refusal a `Malformed`; `monitor`
@@ -1165,7 +1165,7 @@ class TaskAttempt:
         `monitor` asked for `.value` and compares against
         `PHASE_ORDER = ("INPUT_VALIDATING", "RUNNING", "OUTPUT_VALIDATING")` —
         which is keyed by `.name`, as their own `next_phase` shows
-        (`monitor/base.py:80`, `PHASE_ORDER.index(status.name)`). Measured:
+        (`monitor/base.py`, `PHASE_ORDER.index(status.name)`). Measured:
         `"output_validating" == "OUTPUT_VALIDATING"` is `False`, so the fix
         they proposed would never have matched and the terminal phase would
         still have been treated as an advance. Two sides, one name, and only

@@ -142,7 +142,8 @@ def _share_projects(config: str) -> None:
     **Everything else in ``config/`` stays per-attempt.** Only ``projects/`` is
     shared: it is Claude Code's *output*, nobody in the zone reads it, and one
     physical directory cannot collide because each subdirectory is named after
-    the slugified cwd. Measured on demo2: nine transcripts in nine zones, and
+    the slugified cwd. Measured on a fourteen-task package: nine transcripts in
+    nine zones, and
     the panel showed none. **Never raises** — a degraded panel beats a dead run.
     """
     link = Path(config) / PROJECTS_DIR

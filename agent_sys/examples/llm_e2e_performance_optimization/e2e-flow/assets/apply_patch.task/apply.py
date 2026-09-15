@@ -1082,7 +1082,7 @@ mounts are read-only; and a mount that is present is not yet a mount that ran.
     # **Not justified by the seal, and that correction matters here.** This pass
     # was inherited from the integration stage, where it was argued for as *"the
     # seal refuses the whole delivery over one absolute path"*. Measured since:
-    # `handoff/store.py:447` reads `# locality.check — NOT CALLED`, so the seal
+    # `handoff/store.py` reads `# locality.check — NOT CALLED`, so the seal
     # refuses nothing (CONTRACT.md §2.2). The pass stays on its own merit —
     # `host_path` names one node's scratch directory and a mount plan carrying it
     # verbatim does not replay anywhere else — and it is **scoped to the

@@ -27,9 +27,9 @@ Omit any of them and the load fails naming the file, the line and the variable.
 at the door.** `model_path` and `image` are the two a reader expects to supply;
 the third is a path to the skill `serve.yaml` hands the agent, and it cannot
 have a default for the reason its own comment gives — a default would put one
-machine's home directory into a package that is data. Measured 2026-09-02: a run
+machine's home directory into a package that is data. Measured: a run
 configured from this README alone exited `LOAD_ERROR` on
-`steps/serve.yaml:73`. The diagnostic was exact, which is why this cost a minute
+`steps/serve.yaml`. The diagnostic was exact, which is why this cost a minute
 rather than an hour; it should still not have been reachable from the
 documentation.
 

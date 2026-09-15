@@ -2,9 +2,8 @@
 
 | | |
 |---|---|
-| Status | Draft, revised after review |
-| Revision | 10 — 2026-08-29. **`agent` becomes leaf-only, and a closure is YAML.** Rev. 8 made `agent` required of every task; that was wrong and the review did not catch it. A non-leaf has no executor — its work *is* its subgraph (§2.1) — and the name it was forced to invent was read by nothing: `agent/runner.py:682` returns before `_deploy`, so `env_mgr/prepare.py:447`'s `material.deploy(agent_spec, zone)` is never reached for one, and output validation already falls through to the GLOBAL row on `producer=None` (`validator/environment.py:140`). §2's key table, §2.2, §2.3's `agent_of`, §4 check 4 and criterion 3 all narrow together. Separately, a closure is a **YAML document in a task package** rather than a jsonnet source: main spec §4.4 deleted the render step after measuring that its templating was unused. Two smaller consequences: §2.5's subgraph entries now carry a required **`froms`** (main spec §4.4, `task.schema.json`), and §4 gains check 9 for it. (rev. 9: 2026-08-27. **The user-interface brief.** A task spec gains **`body`** — always a `readme.md`, plus an `entry.sh` when programmatic — which is how a package author states what the task *is*, what to run, and how (§2.5, §2.6). `goal` shrinks to one sentence of at most 100 characters. `materials`, `repos` and `monitor` join the key list. `entry.sh` and a subgraph are mutually exclusive; `readme.md` is required of every task, leaf or not. (rev. 8: 2026-08-27. **Every task has an agent; what varies is its `kind` — `ai`, `human` or `program`.** `agent` becomes a required key and criterion 3 rejects a closure that names none (§2.2). Closes a question four design modules had deferred. (rev. 7: 2026-08-26. Consistency pass: a leaf binds to an *executor* runtime, which may be a program (§2.1, reconciling with main spec §4.8). (rev. 6: 2026-08-26. The task spec's key list names `goal`, reconciling it with `agent` spec §1 (§2). (rev. 5: 2026-08-26. Parameterised closures merged into main spec §10's runtime-fan-out question. (rev. 4: A closure is a jsonnet source in a task package (§2). rev. 3: A closure carries no version; each of the four member specs carries its own (§1.2). rev. 2: Review of PR #132: a closure is a spec-level / code-management artefact — a load checker plus read-only query helpers, and nothing at runtime. rev. 1: initial)))))) |
-| Date | 2026-08-24 |
+| Status | Normative |
+| Revision | 10 |
 | Scope | The predefined binding of a task's handoffs, its agent, and its validators |
 | Source | The task definition §3.3 |
 | Part of | [`../../docs/spec.md`](../../docs/spec.md) — the whole-system specification |
@@ -92,7 +91,7 @@ it required.
 
 **Users write `task`, never `closure`.** A package author declares a
 `module: task` document; the closure and the task spec are produced from it
-internally, which is what `closure/check.py:709` already does by splitting one out
+internally, which is what `closure/check.py` already does by splitting one out
 of the other. `closure` is the name of the group, not a thing anyone types.
 
 | Key | Meaning |
@@ -144,9 +143,9 @@ Three code reads rather than an argument:
 
 | Claim | Evidence |
 |---|---|
-| A non-leaf never deploys its agent spec | `agent/runner.py:682` returns before `_deploy`, so `env_mgr/prepare.py:447`'s `material.deploy(agent_spec, zone)` is never reached for one |
-| Its zone stages nothing to deploy into | `_place_container_zone` "confines nothing, cuts no workspace, stages nothing" (`agent/runner.py:678,687`) |
-| Output validation is already correct without one | `producer=None` falls through to the GLOBAL row (`validator/environment.py:140`) — an existing, exercised path, not a new fallback |
+| A non-leaf never deploys its agent spec | `agent/runner.py` returns before `_deploy`, so `env_mgr/prepare.py`'s `material.deploy(agent_spec, zone)` is never reached for one |
+| Its zone stages nothing to deploy into | `_place_container_zone` "confines nothing, cuts no workspace, stages nothing" (`agent/runner.py`) |
+| Output validation is already correct without one | `producer=None` falls through to the GLOBAL row (`validator/environment.py`) — an existing, exercised path, not a new fallback |
 
 So the requirement was costing every package author a decision with no
 consequence, and the usual defence of a redundant field — that it is *checked
@@ -242,7 +241,7 @@ by their `closure` name, **required even when empty**. `[]` is how an entry says
 it has no predecessor; omitting the key is how an author forgets to think about
 it, which is why the schema demands it rather than defaulting it.
 
-**The edge already exists and is derived.** `task_graph/models.py:560-569` walks
+**The edge already exists and is derived.** `task_graph/models.py` walks
 each entry's input kinds and takes the producer recorded in `available[kind]`, so
 today the graph is a consequence of handoff wiring plus list order, and nothing in
 the spec says what it is. That derivation is **kept**, and `froms` is checked
@@ -261,7 +260,7 @@ corresponding reading of a declared edge that no handoff supports — except the
 case that is the point of the field:
 
 > **`froms` can express a dependency that shares no handoff, and derivation
-> cannot.** `task_graph/scheduler.py:639`'s `_warn_depends_on` warns rather than
+> cannot.** `task_graph/scheduler.py`'s `_warn_depends_on` warns rather than
 > rejects precisely so `depends_on` may hold an edge no input accounts for. Until
 > now there was nowhere to *declare* such an edge; `froms` is that place.
 
@@ -388,7 +387,7 @@ places and satisfy neither.
     predecessor the derivation did not produce is rejected naming both, and so is
     one omitting a predecessor the derivation *did* produce; and a name referring
     to a later entry is rejected naming the entry and the edge. **The derivation
-    stays the reference** — `task_graph/models.py:560-569` is not replaced, and a
+    stays the reference** — `task_graph/models.py` is not replaced, and a
     test that only checks `froms` against itself would pass with the derivation
     deleted.
 

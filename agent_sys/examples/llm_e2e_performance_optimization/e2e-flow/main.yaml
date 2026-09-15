@@ -91,8 +91,8 @@ task:
       - {path: handoffs/e2e_packup, access: write, kind: e2e_packup}
 
   # **Five non-leaves, each unfolding its own subgraph.** Nesting is supported to
-  # any depth — `graph.py:165` walks "every closure strictly inside a subgraph,
-  # at any depth", and `graph.py:111` states that "every nesting level runs its
+  # any depth — `graph.py` walks "every closure strictly inside a subgraph,
+  # at any depth", and `graph.py` states that "every nesting level runs its
   # own check", so each stage's internal wiring is checked in its own right.
   #
   # `froms` here is derived from the handoff wiring and checked against what is

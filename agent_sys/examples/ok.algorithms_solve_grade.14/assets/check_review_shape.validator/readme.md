@@ -37,10 +37,10 @@ siblings — the **declared** route, `AGENT_SYS_INPUT_SOLUTIONS_A`, exported for
 the producing task's own input slots.
 
 That variable is present in the phase whose configuration is the *producer's*,
-and absent in the one that takes the global row. `validator/phase.py:297-358` is
+and absent in the one that takes the global row. `validator/phase.py` is
 the account: `_configuration_sources` supplies `bound`, `producer` and
 `global_`, and **no `consumer`** — so an input phase falls through to the global
-row, which is `cli/main.py:601`'s four variables and no `AGENT_SYS_INPUT_*` at
+row, which is `cli/main.py`'s four variables and no `AGENT_SYS_INPUT_*` at
 all.
 
 Concretely: in `review_x`'s and `review_y`'s **output** phases the coverage
@@ -51,7 +51,7 @@ this was.
 
 In practice the second case is usually never reached: `PhaseRunner` finds a
 prior verdict for the same handoff version and reuses it
-(`validator/phase.py:660-667`). That is a scheduling property and not something
+(`validator/phase.py`). That is a scheduling property and not something
 this body relies on, which is why the fallback is written and says what it is.
 
 `strong` is honest under that limit because `strength` qualifies a **pass**

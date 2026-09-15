@@ -37,7 +37,7 @@ resolve to registered *domain* roots, which sit outside the zone. Measured
 against a real Landlock ruleset built by `isolation.apply` from exactly the
 policy `prepare.py` composes, with an in-zone positive control reading
 successfully in the same confined child
-(`scratch/ui-yaml-2026-08/w2/p13_are_the_root_paths_reachable.py`):
+:
 
     CONTROL my_agent_workspace       errno=0  OK
     agent_handoff_root (zone tree)   errno=13 EACCES

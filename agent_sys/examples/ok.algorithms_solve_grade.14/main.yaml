@@ -57,7 +57,7 @@ task:
   version: '1'
 
   # `main` consumes nothing from outside the package. **A kind nobody inside a
-  # subgraph produces resolves to the parent's own input** (`models.py:349-361`),
+  # subgraph produces resolves to the parent's own input** (`models.py`),
   # so an empty list here is also what makes `grade`'s `review_x` and `review_y`
   # correctly edge-free — they read `problems` and the three `solutions_*`, all
   # of which are `grade`'s inputs rather than anything `grade` produces.
@@ -110,7 +110,7 @@ task:
   #
   # **The fan-in is why they have three different output kinds.**
   # `producer_of[kind]` and `available[kind]` are single-slot
-  # (`models.py:360,747,757`), so three producers of one `solutions` kind would
+  # (`models.py`), so three producers of one `solutions` kind would
   # leave only the last one visible to `grade` and the other two would vanish
   # silently. `solutions_a` / `_b` / `_c` is not a naming style; it is the only
   # way to write a three-way join in this engine today.

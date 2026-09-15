@@ -121,7 +121,7 @@ def wire(tasks: Sequence[Task]) -> None:
     is a warning by design there: *rejecting would make declaration order
     matter*. So if the builder does not derive it, the reference example of this
     system prints a warning on every run, which is precisely the kind of
-    accepted noise a demo exists to prevent (`materials/08-demo.md` §5).
+    accepted noise a demo exists to prevent.
 
     Derived from the only source that has the information: the input and output
     sets of the tasks that exist at this moment. **Idempotent** — `Task.unfold`

@@ -6,7 +6,7 @@ path at all** — only a directory argument, resolved here and handed to
 other package.
 
 The three-step resolution and its refusal are `demo` design §12, and step 3 is
-what keeps it honest. Measured (`materials/08-demo.md` §6): a console script
+what keeps it honest. Measured: a console script
 pointing into an unpackaged directory is **not an install-time error** — `pip`
 writes the script, the install reports success, and the failure arrives when a
 reviewer runs it. And setuptools ships `.py` only, so from a wheel a task

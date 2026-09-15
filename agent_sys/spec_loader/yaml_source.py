@@ -9,8 +9,7 @@ module had for a different reason — **a fault names a place**.
 Main spec §7 adopts it, and the reason is that PyYAML's `safe_load` throws the
 positions away. Four facts, all measured here rather than taken from §7's web
 research, because §7 was written before anything in this tree parsed a
-hand-written document — `scratch/ui-yaml-2026-08/w3/probe_ruamel_positions.py`
-and `probe_ruamel_semantics.py`:
+hand-written document. Two probes established positions and semantics:
 
 | | |
 |---|---|

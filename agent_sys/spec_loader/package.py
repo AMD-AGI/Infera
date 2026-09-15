@@ -81,7 +81,7 @@ ENTRY_FILENAME = "main.yaml"
 #: What a user writes, to the schema kind it produces. Four words in and five
 #: kinds out is not a mismatch: **users write `task`, never `closure`**
 #: (`closure` spec §2), and `task` produces the closure document with the task
-#: spec nested inside it — which is what `closure/check.py:709` already does by
+#: spec nested inside it — which is what `closure/check.py` already does by
 #: splitting one out of the other.
 _MODULES: Mapping[str, str] = {
     "handoff": "handoff",
@@ -191,7 +191,7 @@ class YamlPackage:
         *arity*: `assets/` is about **being a package** — every document may
         write an unqualified path, so the question arises for all of them —
         while `main.yaml` is about **being a run's entry**, which is one per
-        *run*. `task_graph/bootstrap.py:47` takes `packages: Sequence[Any]` and
+        *run*. `task_graph/bootstrap.py` takes `packages: Sequence[Any]` and
         loads each into one shared set of registries, so demanding the file of
         every package answers *"where does a run start"* N times and therefore
         not at all. It also made a kinds-only library package inexpressible,

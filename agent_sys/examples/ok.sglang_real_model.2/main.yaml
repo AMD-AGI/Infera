@@ -56,7 +56,7 @@ task:
       - {path: handoffs/runbook, access: write, kind: runbook}
 
   # **`froms: []` is an answer, not an omission.** The edge set is *derived*
-  # from the handoff wiring (`task_graph/models.py:349-361`) and what is written
+  # from the handoff wiring (`task_graph/models.py`) and what is written
   # here is checked against that derivation; a derived edge missing from `froms`
   # is a load failure naming both sides. With one entry there is nothing earlier
   # to point at, so the derived set is empty and so is this.

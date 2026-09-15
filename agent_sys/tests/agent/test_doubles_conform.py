@@ -133,7 +133,7 @@ def test_the_prepared_double_carries_exactly_env_mgrs_fields() -> None:
     different one.
 
     `agent_cli` was the seventh field. The runner reads it unconditionally
-    (`runner.py:617`), the double built six, and eleven tests went red.
+    (`runner.py`), the double built six, and eleven tests went red.
     """
     env = StubEnvManager(zone_root="/tmp/z")
     built = public(env.prepare(_task(), execution=1, agent_spec=None))

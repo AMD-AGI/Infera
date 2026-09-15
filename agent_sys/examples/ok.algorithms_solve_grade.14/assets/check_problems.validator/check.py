@@ -72,13 +72,13 @@ def direction_ids(kind: str) -> set | None:
     `AGENT_SYS_INPUT_DIRECTIONS`, which names the artefact the producing task
     actually consumed — but it is exported only where the producing task's
     configuration is in scope, and `validator.choose_configuration` uses that
-    row on the OUTPUT phase only (`validator/environment.py:116-142`). In the
+    row on the OUTPUT phase only (`validator/environment.py`). In the
     three students' input phases it is simply absent.
 
     So the fallback is `latest_of_kind`, whose own docstring calls it crude:
     it answers *the newest `directions` anywhere in the store*, which would be
     wrong in a graph with several. This graph has exactly one producer of
-    `directions` — the single-slot rule in `models.py:360` guarantees a
+    `directions` — the single-slot rule in `models.py` guarantees a
     consumer could not see a second one anyway — so here the crude answer and
     the exact one coincide. It reaches the store through
     `AGENT_SYS_DEMO_STORE`, which the global configuration row does carry.
@@ -95,9 +95,8 @@ def direction_ids(kind: str) -> set | None:
     `verdict.json` at all. That is strictly worse than a False: `PhaseRunner`
     is owed one boolean per declared handoff and gets nothing, so the failure
     surfaces as a missing file rather than as this check reporting that it
-    could not run. Measured in
-    `scratch/demo2-2026-08/probe_front_validators.py`; the real run always
-    carries the variable (`cli/main.py:601-615`), which is exactly why the
+    could not run. Measured; the real run always
+    carries the variable (`cli/main.py`), which is exactly why the
     crash would have waited for the first run that did not.
     """
     content = store.declared_dir(kind)

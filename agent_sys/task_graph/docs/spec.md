@@ -2,11 +2,10 @@
 
 | | |
 |---|---|
-| Status | Draft, pending review |
-| Revision | 14 — 2026-08-28. **The monitor becomes the task's event loop**, so §3.5's "its job is the task's exceptions" widens to two kinds — planned advances handled by code, unplanned outcomes decided. §3.2.1 gains **how a non-leaf gets back to its output validation**, which the phase table had left open: the `is_end` subtask's monitor tells the parent's monitor, which transitions and asks the runner for a thread. **The scheduler is not in that chain** — routing it there would have one task's progress decided by observing another's, against §2 principles 2 and 4 and against this section's own rule that `is_end` gets no special treatment at completion. No criterion changed here; the monitor's are 19–26. (rev. 13: 2026-08-27. **The user-interface brief.** `Task` gains `closure` (the link back to its task spec, regularising design D23), `kinds` (uuid → handoff kind, without which a permission grant matches nothing) and `monitor_spec` (§3.2, §3.2.5, §3.2.6). **The monitor moves into the alpha** with its own mainloop, `set_task`, and the task's exceptions as its job (§3.5); ROADMAP §2 keeps the analysing dispatcher. (rev. 12: 2026-08-26. Consistency pass: §5.2's lease argument says *a leaf's* lease, matching §6.2. No criterion changed. (rev. 11: 2026-08-26. Only a leaf task acquires resources; the hold-and-wait invariant is re-derived for subgraphs (§6.2). Criteria 53–54. (rev. 10: 2026-08-26. A task owns its transitions; a transition is the only thing that triggers the scheduler (§3.2.3). Cascading cancel, distinguished from cascading invalidation, reversing §1.2 / §6.3 / §8.1 for cancel only (§3.2.4). Criteria 45–52. Second-review defects fixed: `Resumable.resume_system`, `Scheduler.resume_system` existence, criterion 8's phase states. (rev. 9: 2026-08-26. Review of PR #132: validation phases are invisible to the scheduler and run inside `TaskRunner`; two phase statuses; permissions are a versioned task attribute; the default policy is depth-first. (rev. 8: subgraph nesting; rev. 7 and earlier unchanged)))))) |
-| Date | 2026-08-19 |
+| Status | Normative |
+| Revision | 14 |
 | Scope | Task management substrate for the Infera AI-optimization agent loop |
-| Source | The task definition; an internal prior-art survey (rev. 2, 2026-08-18) |
+| Source | The task definition; an internal prior-art survey (rev. 2) |
 | Part of | [`../../docs/spec.md`](../../docs/spec.md) — the whole-system specification |
 
 ---
@@ -547,7 +546,7 @@ draws, applied to validation.
 
 #### How a non-leaf gets back to its output validation
 
-Added 2026-08-28, because the table above left it open. A non-leaf's middle phase
+Added, because the table above left it open. A non-leaf's middle phase
 is a subgraph the scheduler runs, which may take hours; the task **holds no
 thread meanwhile**, so something has to bring it back for phase 3.
 
@@ -739,7 +738,7 @@ scheduler already does exactly this for `agent_mgr` and `runner`.
 **One consequence to acknowledge rather than discover:** a `Task` then holds a
 registry reference, and it is currently pure data with no collaborators. How the
 reference is supplied — constructor, `TaskMgr` on load, or a context — and how it
-is kept out of `model_dump` are design-stage questions. That `Task` stops being
+is kept out of `model_dump` are design questions. That `Task` stops being
 pure data is a specification-level fact.
 
 #### The transition set
@@ -759,7 +758,7 @@ dispatches, which completes a task, which fires a transition. The implementation
 already carries re-entrancy flags for today's paths; a cascade walking a subgraph
 level by level goes deeper than anything present. Either the work is queued and
 drained at the top of the call, or the recursion is explicitly bounded — the
-design stage picks one, and the choice is not optional.
+design picks one, and the choice is not optional.
 
 ### 3.2.4 Cascading cancel, and what bounds it
 
@@ -899,7 +898,7 @@ That is a different job from the agent's own loop (`agent` spec §4.4), and the 
 are not one mechanism with two users.
 
 **The planned half is what advances a task through its three phases**, and until
-2026-08-28 nothing in this system owned it: §3.2.1 says `TaskRunner` runs all
+ nothing in this system owned it: §3.2.1 says `TaskRunner` runs all
 three in order, and said nothing about what wakes it for the second one, or about
 a non-leaf whose middle phase is a subgraph that may take hours. The monitor is
 that owner — see §3.2.1's re-entry note below.
