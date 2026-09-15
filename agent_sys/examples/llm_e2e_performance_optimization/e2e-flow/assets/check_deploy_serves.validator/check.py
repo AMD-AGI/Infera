@@ -247,7 +247,7 @@ def build_plan(probes: dict, bindings: dict[str, str], available: set[str]) -> t
         # `oversize_prompt_tokens` stays in the plan as a **number** and is
         # expanded by `probe_runner.py` on the node.
         #
-        # **Measured 2026-09-03, first run against a live node.** Expanding it
+        # **Measured, first run against a live node.** Expanding it
         # here put a ~200 KB prompt into the plan, and the plan travels to the
         # node inside the command string — so the call died with
         # `OSError: [Errno 7] Argument list too long: 'bash'`, after a successful

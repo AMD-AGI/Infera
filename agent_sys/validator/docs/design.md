@@ -650,9 +650,9 @@ def top(task, validator, registry) -> VerdictRecord | None:
 This is the whole mechanism, and it is worth saying what it replaces. The
 natural instinct at this seam is a content-addressed verdict cache keyed on the
 handoff digest plus something identifying the checker. Five such key schemes were
-measured against six things that can change the answer
-, and **"the validator's implementation
-changed" is a stale hit under every one of them**, because implementation source
+measured against six things that can change the answer, and **"the validator's
+implementation changed" is a stale hit under every one of them**, because
+implementation source
 appears in no spec file. The record answers the question the cache was being
 built to answer — *did this exact validator run against this exact version, and
 what did it say* — without needing a key at all, because the record **is** the
@@ -739,8 +739,7 @@ mistake is not available.
 
 Criterion 10. Spec §8.1: by hook, not by convention.
 
-Measured against `claude-agent-sdk` **0.2.144**
-: a single
+Measured against `claude-agent-sdk` **0.2.144**: a single
 synchronous `PreToolUse` callback **logs every attempt before deciding, and then
 denies** — so criterion 10's "spy" and criterion 10's "the hook denies" are the
 same object, not two. The async form cannot block (*"Async outputs can't block,
@@ -1232,9 +1231,8 @@ no check.** Ours is now no check, which is at least not that.
 Criterion 19: a passing `weak` validator is reported as a low-confidence pass and
 is distinguishable from a passing `strong` one.
 
-Measured against the shipped `task_graph`
-, there are three candidate homes
-and only one is free:
+Measured against the shipped `task_graph`, there are three candidate homes and
+only one is free:
 
 | | |
 |---|---|

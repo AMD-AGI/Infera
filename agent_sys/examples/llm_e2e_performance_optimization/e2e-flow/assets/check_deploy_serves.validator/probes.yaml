@@ -126,7 +126,7 @@ probes:
       serving, and will hang the first real request.
     severity: fail
     # **GET, and the documented method is POST.** Measured against SGLang 0.5.17
-    # on gfx950, 2026-09-03, on a live deployment:
+    # on gfx950, on a live deployment:
     #     GET  /health_generate -> 200
     #     POST /health_generate -> 405 Method Not Allowed
     #     GET  /nonexistent     -> 404
@@ -192,7 +192,7 @@ probes:
       leaves it **empty** while the request still succeeds; a token budget too
       small for a reasoning preamble, which returns `finish_reason: "length"`;
       and a router that accepts but does not forward.
-      **What it does NOT check, corrected 2026-09-04 after this text claimed
+      **What it does NOT check, corrected after this text claimed
       otherwise:** it does not look at what the content *says*. The assertions
       below are `stop`, non-empty, and a model id that is not a path — so the
       inverse of the first fault passes. Measured on rung 1: with no
@@ -348,7 +348,7 @@ load:
     # 1. At the real 180 s it is comfortably above concurrency; at 30 s it is
     # exactly concurrency, which is the honest bar for a window that short —
     # every slot completed once.
-    # **Corrected 2026-09-04: the per-request time is now MEASURED, and the
+    # **Corrected: the per-request time is now MEASURED, and the
     # paragraph above always said it was.** The code read a constant, and the
     # divergence refused rung 1 — a healthy deployment that completed exactly
     # the 64 requests its own speed allows, against a floor of 80 derived from

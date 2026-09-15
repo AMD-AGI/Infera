@@ -9,7 +9,7 @@
 #
 # ## Why this exists
 #
-# **A run does not record the line that launched it.** Measured 2026-09-05: the
+# **A run does not record the line that launched it.** Measured: the
 # staged copy of a step still reads `expect_ranks: '${expect_ranks:-8}'`, so
 # whether a run passed 4 or fell back to 8 is unrecoverable afterwards — and at
 # least four separate incidents traced to a launch variable nobody could check.

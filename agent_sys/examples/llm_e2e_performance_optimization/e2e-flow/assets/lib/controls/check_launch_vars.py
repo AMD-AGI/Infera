@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Every `--var NAME=` on a launch line must be a name the package reads.
 
-**`agent-sys` accepts an unrecognised `--var` silently.** Measured 2026-09-04 by
+**`agent-sys` accepts an unrecognised `--var` silently.** Measured by
 m2 and confirmed by the package owner against the real package:
 
     --var totally_made_up_var=xyz --var m2_agent=runner --var measrue_gpu=4

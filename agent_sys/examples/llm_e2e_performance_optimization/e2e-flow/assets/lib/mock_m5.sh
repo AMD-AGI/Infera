@@ -17,7 +17,7 @@
 #     measured step and after the other arm's last, which is what the real
 #     ordering was, and marks it `"note": "mock ..."`.
 #   * `stock_vs_m2` and `kernel_reconciliation` in the report — these are the two
-#     blocks the mission added (M5.1.3.1, M5.1.3.2) and the 2026-09-02 run
+#     blocks the mission added (M5.1.3.1, M5.1.3.2) and the sealed run
 #     predates both, so `stock_vs_m2` is filled in as *not measured, and here is
 #     why*, which is the case the schema requires a producer to state rather
 #     than omit.
@@ -34,7 +34,7 @@ what="${1:?usage: mock_m5.sh arms|report|packup <environment.yaml>}"
 #
 # `mock.sh` gates on `$E2E_MOCK_STAGES` and this did not, which is a real bug
 # rather than an omission: a body calling `mock_m5.sh` in a REAL run got the
-# sealed 2026-09-02 evidence written into its output slot and exited 0. The graph
+# sealed evidence written into its output slot and exited 0. The graph
 # would then have reported a green m5 over three handoffs describing a run that
 # never happened — the "ten validators PASS over a run in which every result was
 # zero" failure this whole package is built against, reproduced by the mock
@@ -93,7 +93,7 @@ arms)
     #
     # `--environment` above inherits m1's record, so at any rung where m1 is
     # REAL and m5 is mocked the arm claims m1's machine while its evidence is
-    # the sealed 2026-09-02 corpus from another node. Rung 1 produced precisely
+    # the sealed corpus from another node. Rung 1 produced precisely
     # that and `check_measurement_order` refused both arms, correctly:
     #
     #   stock: environment.yaml says node='node-217' and the arm's

@@ -277,7 +277,7 @@ def _substitution_matches_apply_mode(packup, operator: dict, doc: dict,
     are strings from their enum — so a schema that checks them separately cannot
     see it, and m4 emits the impossible combination in silence.
 
-    The case, measured on rung 0's own workset, 2026-09-04::
+    The case, measured on rung 0's own workset::
 
         substitution:   call_site_fragment      # the edit is INSIDE Sampler.forward
         apply_mode:     overlay_files           # replace the whole file

@@ -57,7 +57,7 @@
 # **The duplication below is deliberate and cannot be designed away.** `${...}`
 # substitution is textual per occurrence and YAML anchors do not cross files, so
 # a default reachable by `runner` is not reachable from here. The rule
-# (2026-09-04) is that each `kind: ai` agent declares what it needs — m5's
+# is that each `kind: ai` agent declares what it needs — m5's
 # `e2e_integrator` has done exactly this all along — and that a checker in the
 # `show` gate compares every name and default here against `runner`'s. **Every
 # entry below must stay byte-identical to `shared.yaml`'s**; that is not a
@@ -101,7 +101,7 @@
     E2E_GPU_DEVICES: '${gpu_devices:-none}'
     # Both carry the literal `none` for "this model wants neither", which is
     # different from nobody having said. **`none` is right only for a
-    # non-reasoning model** — measured 2026-09-04, Qwen3.6-27B's chat template
+    # non-reasoning model** — measured, Qwen3.6-27B's chat template
     # carries `<think>`/`</think>` and without a parser the chain-of-thought
     # lands in `content` with `reasoning_tokens: 0`, which
     # `check_deploy_serves`'s completion probe passes.
@@ -134,7 +134,7 @@
     # **`E2E_REMOTE_HOME` is the parameter for a fault this stage has already
     # hit.** `remote.sh` exports `HOME=${E2E_REMOTE_HOME:-$HOME}` on the far
     # side, and `spur exec` otherwise lands with `HOME=/opt/spur`, which is not
-    # writable: measured 2026-09-04, a `docker build` there dies
+    # writable: measured, a `docker build` there dies
     # `mkdir /opt/spur/.docker: permission denied`, a message naming neither
     # docker nor HOME. The fallback saves us **only because** `$HOME` is expanded
     # in the *local* shell and `/home` happens to be shared, writable NFS on this
@@ -229,7 +229,7 @@
     # closed environment in which `PATH` is absent, so `sh` substitutes
     # `/usr/bin:/bin` — and `spur` is in `/usr/local/bin`. Without this the call
     # dies `rc=127, spur: command not found`, reported as the *kit's* deploy.sh
-    # failing. Measured 2026-09-03; a site fact, so a variable.
+    # failing. Measured; a site fact, so a variable.
     transport_path: '${transport_path:-/usr/local/bin:/usr/local/sbin}'
     # **And what the transport binary itself needs.** Space-separated `K=V`.
     # `spur` reads `SPUR_CONTROLLER_ADDR`; without it, it exits 1 with

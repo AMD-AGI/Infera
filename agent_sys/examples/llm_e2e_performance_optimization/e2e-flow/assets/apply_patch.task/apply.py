@@ -238,7 +238,7 @@ def workset_integration(workset: str | None, operator_id: str | None) -> tuple[d
         # manifest that *does* name one gets `_DISAGREES` when it is wrong.
         # **The absence is treated better than the presence.**
         #
-        # Measured 2026-09-05: the `kernel_optimization` one chain replayed had no
+        # Measured: the `kernel_optimization` one chain replayed had no
         # `operator_id`, silently matched `sampler_vocab_softmax`, and reported a
         # declared integration point. m1's artefact had the field, which is the
         # only reason a mismatch was ever visible; two attempts to reproduce
@@ -602,7 +602,7 @@ def main() -> int:
     # One container handle for every extraction. `docker create` starts no
     # process and touches no GPU; the image's entrypoint never runs.
     #
-    # **`--name`, added 2026-09-04, and it is a coordination fix rather than a
+    # **`--name`, added, and it is a coordination fix rather than a
     # cosmetic one.** This was an unnamed `docker create`, so docker assigned an
     # `adjective_scientist` name — exactly the shape of the unidentified
     # `charming_turing` the team spent time on today. The trap below removes it
@@ -828,7 +828,7 @@ def main() -> int:
                     + ", ".join(sorted(dropped)[:8])
                     + ("…" if len(dropped) > 8 else "")
                     + "\nAnything importing one of those from this module breaks at "
-                    "import, before a single token is served. Measured 2026-09-04 on "
+                    "import, before a single token is served. Measured on "
                     "a replacement for srt/layers/sampler.py that "
                     "dropped all eight of its functions took the engine down with "
                     "`ImportError: cannot import name 'apply_custom_logit_processor'` "

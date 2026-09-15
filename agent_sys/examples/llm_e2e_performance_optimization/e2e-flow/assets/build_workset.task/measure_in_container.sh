@@ -23,7 +23,7 @@
 # was no host anywhere in this cluster that satisfied the old wiring — the mock
 # was not merely unsatisfied, it was unsatisfiable.
 #
-# **Corrected 2026-09-04, and the original sentence is why STEP 7 and STEP 8
+# **Corrected, and the original sentence is why STEP 7 and STEP 8
 # were written without this script.** It read: *"the real path already measures
 # in a container: `build_workset` is a `kind: ai` closure running inside the
 # shared container of CONTRACT §5, so its STEP 7 and STEP 8 execute there."*
@@ -411,7 +411,7 @@ trap _teardown EXIT HUP INT TERM
 
 # **The payload travels base64, because `bash -c '$COMMAND'` silently ate it.**
 #
-# Measured on node 006, 2026-09-04, the first time this `docker run` ever
+# Measured on node 006, the first time this `docker run` ever
 # executed: a payload containing a single quote produced **no output, exit 0,
 # and the success line below**. The default payload contains four —
 # `echo '  [1/2] correctness'` and its pair — so the real measurement path was

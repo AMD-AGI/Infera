@@ -281,7 +281,7 @@
     # environment.** Both names and both defaults are m1's
     # (`m1_deploy.yaml`) so that one `--var` drives every validator that
     # steps onto a node; a second spelling would be a second thing to keep in
-    # step. Measured 2026-09-04: without `transport_env`, `spur` exits with
+    # step. Measured: without `transport_env`, `spur` exits with
     # `Connection refused` and `require_visible_on_node` reports it as the
     # workset not being visible — a filesystem claim for a missing variable,
     # which cost four rung-0 runs across two stages.

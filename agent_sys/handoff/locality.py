@@ -77,7 +77,7 @@ _URL = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://\S*")
 #: `_URL` does not fire and `_CANDIDATE` reads a three-segment API path as a
 #: local one.
 #:
-#: Measured 2026-08-31: this refused a *correct* handoff. The task's brief
+#: Measured: this refused a *correct* handoff. The task's brief
 #: ordered its agent to prove the completion had gone through the router rather
 #: than the engine's own port, the natural evidence is the router's access log,
 #: and the seal then rejected the artefact at `README.md`. Every correct kit

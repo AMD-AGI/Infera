@@ -118,7 +118,7 @@ env:
   E2E_INSTRUCTION: '${instruction:-Bring this model up in the requested mode on this host, prove it answers through the router, and hand back a kit somebody else can run.}'
 
   # --- stage 2's load and profiler window (owner: m2) -------------------------
-  # Every default here is the value the 2026-09-02 run on THIS cluster used, not
+  # Every default here is the value the sealed run on THIS cluster used, not
   # the profiling stage's earlier defaults, which were measured on a different machine
   # with 256 cores and a /apps filesystem. Where the two differ the sealed
   # artefact wins: `aiperf_baseline/content/items/env/load.json` is the record.
@@ -242,7 +242,7 @@ env:
   # test of a strong refusal this package has"*, and it is.
   #
   # **But it also means a fully-mocked run can never reach the end**, which is
-  # Brief item 2. Measured 2026-09-05: across **45 runs**, `m5_integration` has
+  # Brief item 2. Measured: across **45 runs**, `m5_integration` has
   # never reached `succeeded` — the best is 4/5 with stage 5 stopped on that
   # refusal. `mock_m5.sh` already builds the way out, swapping the
   # performance rows for the stock control measured under matched load on the
@@ -259,7 +259,7 @@ env:
 
   # ---- Names an agent needed and `runner` never had -------------------------
   #
-  # Added 2026-09-04, after the survey that found no `E2E_*` reaches a
+  # Added, after the survey that found no `E2E_*` reaches a
   # `kind: ai` agent (see `assets/lib/check_agent_env.py`). Declaring a block on
   # each ai agent turned up a second class: names an agent reads that `runner`
   # **also** lacks, so they had never reached *anywhere* — not the ai agent, and
@@ -294,7 +294,7 @@ env:
   # because THIS is the file someone
   # reads to decide whether the var is optional. It is not: `measure_gpu` is
   # required on EVERY rung 0-5, because `build_workset/entry.sh` calls the
-  # container script on the MOCK path too. Omitting it cost rung 1 (2026-09-04):
+  # container script on the MOCK path too. Omitting it cost rung 1:
   # the guard fired, refused, printed the fix, wrote no `evidence/`, and two
   # validators then correctly refused the absence.
   E2E_MEASURE_GPU: '${measure_gpu:-}'
@@ -302,7 +302,7 @@ env:
   E2E_WORKSET_ID: '${workset_id:-workset}'
   # **A literal `unknown` is what every workset this stage ever produced
   # recorded as `produced_by.commit`.** Declaring it does not fix that;
-  # supplying it does. m3, 2026-09-04.
+  # supplying it does. m3.
   E2E_PACKAGE_COMMIT: '${package_commit:-unknown}'
   # **Deliberately empty, and it must stay empty.** The body's fallback is
   # `yihou_m3_measure_$$` — unique per invocation, which no static default can
@@ -312,7 +312,7 @@ env:
 
   # ---- read by shared libs, declared on no agent until now -------------------
   #
-  # m4's find, 2026-09-04. Both are read by `assets/lib/` and were declared
+  # m4's find. Both are read by `assets/lib/` and were declared
   # **nowhere** — surviving on code-level fallbacks (`env_render.py` does
   # `setdefault("E2E_STAGE", "m4")`, `remote.sh` falls back to `$HOME`). They
   # are invisible to `check_agent_env.py` by construction: it compares

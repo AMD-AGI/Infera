@@ -168,7 +168,7 @@ def test_the_server_outlives_the_process_that_started_it(tmp_path, reaper):
     reaper.append(pid)
 
     assert elapsed < 30, (
-        f"the starter took {elapsed:.1f}s to return. Measured 2026-09-04: a server "
+        f"the starter took {elapsed:.1f}s to return. Measured: a server "
         f"inheriting the captured pipes keeps them open for its whole life, and "
         f"`subprocess.run` waits for the pipes rather than the child"
     )

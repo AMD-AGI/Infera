@@ -780,7 +780,7 @@ def test_a_task_waiting_on_a_user_ends_the_run_even_while_another_holds(
 ) -> None:
     """**Two runs died to the absolute deadline because `holding` could not see this.**
 
-    Measured 2026-08-31 on a refused seal: the leaf's body exited 0, its output
+    Measured on a refused seal: the leaf's body exited 0, its output
     was refused, it escalated **to its parent** with no `target`, and its attempt
     thread stayed `is_running=True` for ever. The root then escalated to the
     user. So `holding` was permanently 1 — contributed by a task that was parked

@@ -137,7 +137,7 @@ def recompute(report: dict, args: dict, reasons: list) -> list[str]:
     # set, and it always is here. The report's `bars` are recorded so a reader
     # can see what the producer decided against, and they are checked for being
     # no looser than these (in `check`), because a producer that picks its own
-    # bar can pass anything. The sealed 2026-09-02 report is that case: it
+    # bar can pass anything. The sealed report is that case: it
     # declares 0.35/0.30, widened in response to two arms measured fifteen
     # minutes and one co-tenant apart, and the right response to that was a
     # comparability gate at bring-up (`todo.md` T7) rather than a looser bar.

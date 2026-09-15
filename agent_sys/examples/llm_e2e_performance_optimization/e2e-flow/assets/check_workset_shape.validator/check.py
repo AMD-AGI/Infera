@@ -576,7 +576,7 @@ def _check(content: Path, args: dict, problems: list[str], notes: list[str]) -> 
     # rule is kept anyway, rescoped.** That validator says an absolute path
     # "refuses the whole delivery" at the seal. Measured against the framework
     # rather than inherited: `handoff/store.py` do not call
-    # `locality.check` at all — user-ruled 2026-08-31 after the shape heuristic
+    # `locality.check` at all — user-ruled after the shape heuristic
     # read an HTTP access-log line as a filesystem path and refused a correct
     # artefact, at a measured 97% false-positive rate on a real kit. The sealed
     # `deploy_kit` in the mock set carries `/shared_nfs/...` in five files and
@@ -704,7 +704,7 @@ def main() -> int:
                 verdicts[hid] = _check(content, args, problems, notes)
             except Exception as error:  # noqa: BLE001 — see below
                 # **A crash and a refusal are not the same event, and only the
-                # second is a judgement.** Measured 2026-09-04: a
+                # second is a judgement.** Measured: a
                 # `ModuleNotFoundError` in `_validate_report` killed this body
                 # before `write_verdict`, the phase reported "nothing was
                 # decided", and `operator_workset` came out **invalid** — a

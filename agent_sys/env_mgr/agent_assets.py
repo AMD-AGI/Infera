@@ -67,7 +67,7 @@ PACKAGE_RECIPE_BASENAME = "main.env_recipe.yaml"
 #: Written into the zone's config directory. Nothing else writes this file.
 SETTINGS_FILENAME = "settings.json"
 
-#: What makes a directory a local plugin marketplace. Measured 2026-09-03 on
+#: What makes a directory a local plugin marketplace. Measured on
 #: ``claude`` 2.1.246:
 #: ``claude plugin validate <dir>`` requires it, and it carries
 #: ``{name, owner, plugins: [{name, source, description}]}``.

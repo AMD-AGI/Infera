@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Every `kind: ai` agent must declare the `E2E_*` it reads, and agree with `runner`.
 
-**Why this exists, measured 2026-09-04 on rung 1.** `env_mgr/material.py` calls
+**Why this exists, measured on rung 1.** `env_mgr/material.py` calls
 `_declared_env(agent_spec)` on **the agent that is actually running**, and
 `_declared_env` returns `{}` when the agent has no `env` block. `shared.yaml`
 declares all 36 `E2E_*` on `runner`. So a `kind: ai` agent that declares none
@@ -60,7 +60,7 @@ DELIBERATE: dict[tuple[str, str], str] = {
         "m5 measures TWICE. Two arms at the package's 180000 ms do not fit the "
         "CLI's 1800 s settle budget, and work finishing outside it is discarded. "
         "A one-armed and a two-armed stage cannot share a duration default — "
-        "m5, 2026-09-04, and this is the reason rather than an exemption."
+        "m5, and this is the reason rather than an exemption."
     ),
 }
 
@@ -260,7 +260,7 @@ def _referenced(dirs: list[pathlib.Path], lib: pathlib.Path) -> dict[str, str]:
 def _strip_comments(path: pathlib.Path, text: str) -> str:
     """Drop whole-line `#` comments from code. **Not from markdown.**
 
-    m4, 2026-09-04: their fix removed a reader of `E2E_MEASURE_GPU` and left the
+    m4: their fix removed a reader of `E2E_MEASURE_GPU` and left the
     name in the comment *explaining why they no longer use it* — and this check
     still reported it. **A false problem caused by documentation**, and the
     repair they were pushed into was to reword the comment. Their words: *"the
@@ -284,7 +284,7 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
     pkg = pathlib.Path(a.package).resolve()
 
-    # **Exit 2 when the checker could not run, never 1.** m4, 2026-09-04:
+    # **Exit 2 when the checker could not run, never 1.** m4:
     # run from the repo root without `--package` this died `FileNotFoundError`
     # and still exited 1, so a CI line keying on the code cannot tell *"a
     # declaration is missing"* from *"the checker never ran"*. Worse, they

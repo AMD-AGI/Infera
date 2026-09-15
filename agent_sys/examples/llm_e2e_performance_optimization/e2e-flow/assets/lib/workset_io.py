@@ -48,7 +48,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 #: `handoff/locality.py`'s allow-list, duplicated.
 #:
 #: **Not because the seal enforces it — it does not.** `handoff/store.py`
-#: and `:494` decline to call `locality.check`, user-ruled 2026-08-31 after the
+#: and `:494` decline to call `locality.check`, user-ruled after the
 #: shape heuristic read an HTTP access-log line as a filesystem path and refused
 #: a correct artefact; measured 97% false positive on a real kit. The module is
 #: kept intact and tested, so re-wiring it is one line, and `ROADMAP.md` §6.4

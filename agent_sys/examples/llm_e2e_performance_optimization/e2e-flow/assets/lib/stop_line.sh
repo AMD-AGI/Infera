@@ -32,13 +32,13 @@
 # ## Why agents before containers, which is not cosmetic
 #
 # **An agent outlives its orchestrator and will create NEW containers after you
-# think you have finished.** Measured by m5, 2026-09-05: an orphaned agent
+# think you have finished.** Measured by m5: an orphaned agent
 # re-created an arm at 15:00:09, one minute after its containers were stopped.
 # Stopping containers first is a step the agent undoes.
 #
 # ## The guard on line `PREFIX`, which is somebody else's cost
 #
-# m2, 2026-09-05, in their own words after their teardown script sent SIGTERM to
+# m2, in their own words after their teardown script sent SIGTERM to
 # every agent on the login node — four agents, one intended:
 #
 #     "I let a computed value flow into a destructive predicate without checking
@@ -53,7 +53,7 @@
 #
 # ## What "clean" at the end does and does not mean
 #
-# m4, 2026-09-05: **zero containers is equally consistent with "torn down" and
+# m4: **zero containers is equally consistent with "torn down" and
 # "not yet brought up".** This script therefore reports *nothing of this run is
 # left*, which is what it can support. It does **not** report that the node is
 # idle, and the card readings it prints are context, not a claim of ownership —

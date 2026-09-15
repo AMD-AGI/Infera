@@ -78,7 +78,7 @@ echo "===== 1/6 preflight ====="
 # every real bring-up: m1's kit mounts one rw parent
 # (`<work root>`) and the traces land several levels below it. The
 # directory was writable and the capture aborted anyway — measured on two nodes,
-# runs p4_b (275) and p4_a (088), 2026-09-05.
+# runs p4_b (275) and p4_a (088).
 #
 # So: find the mount that actually governs this path — the **longest**
 # destination that is the path or an ancestor of it — and require *that* one to
@@ -137,7 +137,7 @@ echo "===== 2/6 wait for requests to actually reach the engine ====="
 # "the container is up" and "the engine is busy" can be minutes apart. Warm-up is
 # only meaningful once the second is true.
 #: **Checked once, before the loop, because a missing log is indistinguishable
-#: from an idle engine from inside it.** Measured on 088, 2026-09-05: with the
+#: from an idle engine from inside it.** Measured on 088: with the
 #: path wrong the loop span 39 times over ~195 s, the load finished underneath
 #: it at 209 s, and the abort that came out blamed the load — "exited before
 #: sending anything" — for a replay that had just served 721 requests. The

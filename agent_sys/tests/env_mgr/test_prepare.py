@@ -1213,7 +1213,7 @@ def test_a_declared_skill_reaches_the_zone(ctx, tmp_path: Path) -> None:
     prior.
     So a skill arrives in a zone only if the agent spec declares it.
 
-    None did. Measured 2026-08-31, mid-run: the agent called
+    None did. Measured, mid-run: the agent called
     `Skill{"experiment-result-packup"}` — which its own brief calls *"the
     authority"* for the packup layout, and which the mission names as a
     requirement — got `Unknown skill`, and started hunting the filesystem for

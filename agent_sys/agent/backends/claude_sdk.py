@@ -82,8 +82,7 @@ def _tool_server(tools: Sequence[Any]) -> tuple[Any, list[str]]:
     `remote.tools._inside` raises `PermissionError`, and the SDK catches a
     raising handler and returns `isError` with `str(e)`
     (`claude_agent_sdk/__init__.py`). That is the SDK speaking for its
-    own layer, so it was checked end to end
-: the
+    own layer, so it was checked end to end: the
     text reaches the model verbatim **and the model keeps working afterwards**
     rather than treating the tool as broken. So there is no catch-and-re-wrap
     here — it would only hide the message that already arrives.
@@ -398,7 +397,7 @@ class ClaudeSdkBackend(ExecutorBase):
             servers[_TOOL_SERVER] = server
             options["mcp_servers"] = servers
             # `mcp_servers` makes them *available*; `allowed_tools` makes them
-            # *permitted*, and they are separate gates. Measured 2026-09-01, SDK
+            # *permitted*, and they are separate gates. Measured, SDK
             # 0.2.148: the CLI addresses an in-process tool as
             # `mcp__<server>__<tool>` -- a spelling that appears nowhere in the
             # SDK, because it is the CLI's.

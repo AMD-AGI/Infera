@@ -7,7 +7,7 @@
 emitted `replacement`, and `workset.schema.json`'s `apply_mode` enum had exactly
 one value. So a fragment operator had no way to ask for the path that already
 existed, and m5's applier refused the only shape it could be given. Leader's
-ruling, 2026-09-04, after the user's *"最挫的 apply 方式难道不是找到调用的地方，
+ruling, after the user's *"最挫的 apply 方式难道不是找到调用的地方，
 把那一行替换掉"* — which is a diff, and always was.
 
 **Anchor on the fragment, never on `entry_function_line`.** Measured: the workset

@@ -249,7 +249,7 @@ def probe(run: pathlib.Path) -> int:
     # before it on the same task, and **that event's attributes are where the
     # explanation actually lives.**
     #
-    # Measured 2026-09-04, and it is why this prints everything: four runs died
+    # Measured, and it is why this prints everything: four runs died
     # at `build_workset` and three people spent a day reasoning about the body,
     # the card and the detector. The whole answer was sitting in the store —
     #

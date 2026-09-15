@@ -129,7 +129,7 @@ def test_the_patterns_are_data_and_do_not_trigger_themselves(tmp_path: Path) -> 
 
 
 def test_an_http_request_target_is_not_a_local_path(tmp_path: Path) -> None:
-    """**The check refused a correct handoff, every time, 2026-08-31.**
+    """**The check refused a correct handoff, every time.**
 
     `_URL` already decided that an API path is not a filesystem path, and keys
     on the scheme. An HTTP request-line carries the request-target **bare** —

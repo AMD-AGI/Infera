@@ -968,9 +968,9 @@ requires a sandbox** — §11 is why that is a property and not a limitation.
 
 ### 14.3 What is deliberately not tested here
 
-The confined agent's behaviour. §9's measurements are real and reproducible
-, but a test that starts a
-model call is non-deterministic, costs money, and fails on a fork — the reasons
+The confined agent's behaviour. §9's measurements are real and reproducible, but
+a test that starts a model call is non-deterministic, costs money, and fails on a
+fork — the reasons
 spec §5 gives. The *properties* it demonstrates are CI-enforced in
 `tests/env_mgr`; what `tests/cli` checks is that the demo **reports** them
 correctly, which is a test about the event stream and needs no agent.

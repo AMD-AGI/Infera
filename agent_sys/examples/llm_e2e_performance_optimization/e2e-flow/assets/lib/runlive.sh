@@ -101,7 +101,7 @@ trap 'rm -f "$SNAP" "$UNK"' EXIT
 # ## Match the INVARIANT, not the entry point
 #
 # The pattern was `(-m agent_sys\.cli\.main|/agent-sys) +run\b`, which anchors
-# `run` to a known entry point. **Measured 2026-09-04 19:23: it reported 0 while
+# `run` to a known entry point. **Measured at 19:23: it reported 0 while
 # rung 2e was alive and writing**, because that run is driven by a wrapper:
 #
 #     python3 .../assets/lib/run_with_long_stall.py --stall-after 900 run --package …

@@ -17,7 +17,7 @@ Exit codes are the interface, because the readme branches on them:
      Go to STEP 6 and write the handoff with this verdict in it.
   1  the gate could not be run at all.
 
-**Why an abort rather than a smaller pass.** Measured 2026-09-02: the sealed
+**Why an abort rather than a smaller pass.** Measured: the sealed
 stage-4 run timed `B8_V151936` at 50.18 µs on gfx950 against the workset's
 55.40 µs on gfx942. Divide one by the other and 9.6% of newer silicon appears
 as a speedup, in a comparison that reads as entirely legitimate and that nobody

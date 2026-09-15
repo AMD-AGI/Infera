@@ -388,7 +388,7 @@
     # points `TMPDIR` at `<zone>/tmp` and the zone lives under `--demo-root`;
     # put the run root on this cluster's NFS and every ROCm kernel launch dies
     # with SIGSEGV, on the *first* launch, after `hipGetDeviceCount` and every
-    # device-property query have returned `hipSuccess`. Measured 2026-09-02 on
+    # device-property query have returned `hipSuccess`. Measured on
     # gfx950 five ways: `/tmp` and node-local disk return 0, three different
     # `/shared_nfs` paths return 139 with no output. It cost an agent 25 minutes
     # of bisection down to a hand-written HIP program, because nothing in the

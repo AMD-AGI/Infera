@@ -111,7 +111,7 @@ FLAG = "--cuda-graph-bs-decode"
 #: versions and a bar that silently finds none would be the `items_schema`
 #: shape again — present, and checking nothing.
 #:
-#: **`--cuda-graph-max-bs-decode` added 2026-09-04 by the lead**, from rung 2f
+#: **`--cuda-graph-max-bs-decode` added by the lead**, from rung 2f
 #: (`20260904T225556-55e566`). Matching is exact token membership below, so the
 #: longer spelling does **not** match `--cuda-graph-max-bs` by prefix and the
 #: module would have taken its own "or the flag was renamed again" fallback —

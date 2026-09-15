@@ -289,7 +289,7 @@ def _strip_root_tail(relative: str, entry) -> tuple[int, str] | None:
     `@SGLANG_ROOT@`. So the branch that was told the answer was the one that got
     it wrong, and the branch that had to guess was right.
 
-    Measured 2026-09-04: with the prefix present, STEP 6 refused resolving
+    Measured: with the prefix present, STEP 6 refused resolving
     `base_sha256` against the doubled path; with it stripped by hand, it
     completed. Stripping is safe for a path that is genuinely root-relative —
     it only fires when the root's own tail is actually there.

@@ -17,8 +17,8 @@ between them has no owner. This is the third place in one stage where a caller
 spent one as the other, after `validator.PhaseRunner._targets`' output branch and
 its input branch.
 
-**Measured** on the first full `examples/ok.algorithms_solve_grade.14` run to reach the last task
-, handoff `52c75d0a`, kind `scores`:
+**Measured** on the first full `examples/ok.algorithms_solve_grade.14` run to
+reach the last task, on a handoff of kind `scores`:
 store `v0` a hole, store `v1` published, the non-leaf `grade` pinned v0 and never
 wrote it, its end entry `score` wrote v1 — and `optimise` recorded
 `input_versions: 0`. Thirteen of fourteen tasks had already succeeded.

@@ -81,7 +81,7 @@ def verdict(r: dict, need: int, need_disk: int, need_root: int) -> tuple[str, st
                             f"serves now from {serve[0]['image']} ({cfg})")
     ok = [b["image"] for b in r["bases"] if b["anchor"] == ANCHOR_OK]
     if ok:
-        # **`BUILDABLE`, not `READY`** — m1's correction, 2026-09-04, and it
+        # **`BUILDABLE`, not `READY`** — m1's correction, and it
         # changes what a caller may promise. A base carrying the anchor means
         # `Dockerfile.sglang` *will build* here; it does **not** mean a servable
         # image exists. `006` had one only because a co-tenant left it behind.

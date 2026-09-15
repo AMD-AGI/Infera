@@ -26,7 +26,7 @@ escalation produces.** Raising `stall_after` does not fix that and does not
 pretend to; it buys margin so a run that *does* escalate is not torn down while
 a real stage is mid-flight, and so the failure is legible instead of instant.
 
-Measured on rung 2b, 2026-09-04:
+Measured on rung 2b:
 
     deploy_and_prove            succeeded, 3 strong verdicts, deploy_kit valid
     run_profiling_mode_off      RUNNING
@@ -61,7 +61,7 @@ the entire safety property being traded, and `--timeout` still bounds the run
 (4 h by default). A hang costs one long wait; the 20 s default costs every real
 rung, which is why the trade is worth making *here* and would not be in general.
 
-**The default is 900, not 3600** (changed 2026-09-05). 3600 was measured on this
+**The default is 900, not 3600** (changed). 3600 was measured on this
 effort to hide the escalation-with-no-recipient diagnosis for a full hour, and it
 was this tool's own default, so anyone omitting the flag got the value the
 project's `CLAUDE.md` records as harmful. 900 covers a cold start (measured
@@ -74,7 +74,7 @@ Usage — identical to `python3 -m agent_sys.cli.main`, plus one flag:
 
     python3 assets/lib/run_with_long_stall.py --stall-after 900 run --package … --var …
 
-**Verified before use** (2026-09-04): `_settle` is called at `main.py` with
+**Verified before use**: `_settle` is called at `main.py` with
 only `timeout=`, so `stall_after` genuinely comes from the default; and
 `__kwdefaults__` is externally mutable with the change visible to that caller.
 Both checked by measurement, not by reading.

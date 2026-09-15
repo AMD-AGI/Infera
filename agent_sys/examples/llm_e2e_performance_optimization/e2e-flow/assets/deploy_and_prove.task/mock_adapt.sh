@@ -152,7 +152,7 @@ if ! grep -q 'E2E_KIT_RUN_TAG' "$ENVSH"; then
 : "${E2E_KIT_ENGINE_EXTRA_ARGS:=}"
 : "${E2E_KIT_ENGINE_EXTRA_ENV:=}"
 : "${E2E_KIT_ROUTER_EXTRA_ARGS:=}"
-# The seventh, added 2026-09-04 with the contract entry that requires it. Same
+# The seventh, added with the contract entry that requires it. Same
 # rename-not-new-behaviour rule as the six above: the sealed kit already binds a
 # card, it just bound it as `DK_GPU_ID`, so an unset caller still gets device 4 —
 # the sealed run's own choice, byte for byte.

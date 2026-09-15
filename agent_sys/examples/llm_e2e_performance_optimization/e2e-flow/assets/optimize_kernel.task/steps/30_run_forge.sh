@@ -45,7 +45,7 @@ mkdir -p "$WORKDIR"
 # `TMPDIR` first, and it is the one that fails with a signal rather than a
 # message: pointed at a directory that does not exist, EVERY HIP kernel launch
 # segfaults with no output while `torch.cuda.is_available()` still returns
-# `True`. Measured 2026-09-02 on gfx950; it cost 25 minutes of bisection down to
+# `True`. Measured on gfx950; it cost 25 minutes of bisection down to
 # a hand-written HIP program, because nothing in the failure names a filesystem.
 TMPDIR="${TMPDIR:-$KFO_SCRATCH_ROOT/tmp}"; export TMPDIR
 # `$HOME` on this class of host is NFS with root_squash, so a container's root
@@ -65,7 +65,7 @@ if [ "$KFO_MOCK" = "1" ]; then
   echo "KFO_MOCK=1: no campaign will be run" >&2
   # **The seed is the Definition's `baseline`, NOT `edit_target.source_file`.**
   #
-  # Measured 2026-09-04 on node-217: seeding from the engine's stock
+  # Measured on node-217: seeding from the engine's stock
   # module made STEP 4 refuse with
   #
   #     the Definition's 'candidate:sampler_vocab_softmax' defines no `run`
@@ -368,7 +368,7 @@ cp "$KERNEL" "$WORKDIR/optimized_kernel.py"
 
 # **Against the BASELINE, not against `HEAD`.** This line said `git diff HEAD`
 # when it was written and that is empty on every successful campaign — measured
-# on 275, 2026-09-04, driving the whole chain with a hand edit standing in for
+# on 275, driving the whole chain with a hand edit standing in for
 # forge:
 #
 #     git diff HEAD          0 lines

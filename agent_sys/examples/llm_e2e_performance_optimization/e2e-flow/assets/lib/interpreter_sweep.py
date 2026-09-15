@@ -89,7 +89,7 @@ import sweep_inputs  # noqa: E402  — sits beside this file
 #: would have made the gate silently sweep the wrong tree for anyone else.
 PKG = Path(__file__).resolve().parents[2]
 MOCK = Path(os.environ.get("E2E_MOCK_ROOT", ""))
-#: **Local disk, not `/shared_nfs`.** Measured 2026-09-04: the export is mounted
+#: **Local disk, not `/shared_nfs`.** Measured: the export is mounted
 #: `ro` on this login node (`mount | grep shared_nfs`), so the scratch tree this
 #: harness has always used cannot be written. Reads are unaffected and every
 #: input still comes off `/shared_nfs`. Move this back when the mount returns.

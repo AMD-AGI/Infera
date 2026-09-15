@@ -439,7 +439,7 @@ def main() -> int:
     # directly under `items/` is rejected before anyone reads it. Exactly one
     # packup directory, `<name>.packup_<YYYYMMDD>` with a real eight-digit date.
     #
-    # No explicit mode on any mkdir. Measured 2026-09-01: a run created a
+    # No explicit mode on any mkdir. Measured: a run created a
     # directory at 0644, wrote seven files into it and could not read them
     # back — a directory without its execute bit cannot be traversed by anyone,
     # including its owner.

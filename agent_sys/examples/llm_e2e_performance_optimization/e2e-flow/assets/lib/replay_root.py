@@ -114,7 +114,7 @@ stage N+1 consume stage N's artefact, or stage N's running process?* — recorde
 in `SKIPPABLE` below rather than assumed.
 
 **An engine configuration difference, which is invisible in every compared
-field.** m2's measurement, 2026-09-04, one node, one image, one tp, same cards,
+field.** m2's measurement, one node, one image, one tp, same cards,
 one flag:
 
     --cuda-graph-bs-decode max  8   ITL 42.15 ms    312 tok/s
@@ -178,7 +178,7 @@ STAGE_OF = {
 SKIPPABLE: dict[str, bool | None] = {k: None for k in STAGE_OF}
 
 #: **`deploy_kit` is a recipe, and by construction rather than by intent.**
-#: m1's answer, 2026-09-04, and it is stronger than the question deserved:
+#: m1's answer, and it is stronger than the question deserved:
 #: `deploy_and_prove` writes the kit at STEP 5 and tears the deployment down at
 #: STEP 7, both inside m1's own task — so `runtime.container` names a dead
 #: container **immediately**, on every run, not only after a replay. The kit
@@ -619,7 +619,7 @@ def survey(runs: list[pathlib.Path], kinds: list[str] | None) -> dict[str, list[
             # **A run still being written is not a run with a different
             # validator set**, and telling them apart needs the store.
             #
-            # Measured 2026-09-04: surveying rung 1 *while it was running*
+            # Measured: surveying rung 1 *while it was running*
             # reported `deploy_kit` as `the validator set changed between runs`
             # — two validators in the live run against three in the finished
             # ones. m2 could not reproduce it an hour later and suspected the
@@ -964,7 +964,7 @@ def main() -> int:
     # inherits a `deploy.sh` that binds a port in about a second and answers
     # 404.
     #
-    # Measured 2026-09-05, before the fix: rung 2h's `run_profiling_mode_on`
+    # Measured, before the fix: rung 2h's `run_profiling_mode_on`
     # came up in `1s` against `stub_yihou_e2e_flow_pmon`, probed 404, exited 1,
     # and sat at `running` forever behind an escalation with no recipient. Rung
     # 2g's `mode_off` sealed an `engine_argv.txt` whose entire contents were

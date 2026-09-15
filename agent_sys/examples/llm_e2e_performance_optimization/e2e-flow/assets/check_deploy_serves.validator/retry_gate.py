@@ -24,7 +24,7 @@ Run it from the package root; it takes seconds and needs no node:
     python3 assets/check_deploy_serves.validator/retry_gate.py
 
 **A gate that passes is the weakest evidence in this package**, so this one was
-shown to fail before it was kept. Three mutations on a scratch copy, 2026-09-05,
+shown to fail before it was kept. Three mutations on a scratch copy,
 each caught by the assertion aimed at it and the baseline restored to 4/4 after
 each:
 

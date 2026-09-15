@@ -101,7 +101,7 @@ def _interpreter(problems: list[str], notes: list[str]) -> str | None:
 
     `/usr/bin/python3` has no `torch`, so the measurement died on the import in
     about 0.1 s — faithfully reported as "measurement failed" and folded into a
-    FAIL. Measured 2026-09-01 across three campaigns; the same handoff passed
+    FAIL. Measured across three campaigns; the same handoff passed
     when re-run by hand with the venv interpreter.
 
     The bug record said the package was immune because its bodies import stdlib
@@ -207,7 +207,7 @@ def _transport_env(args: dict, card: str) -> dict[str, str]:
     # **`scratch_dir` is a path on the NODE and is never touched here.** It is
     # where ROCm and Triton write their own temporaries, and it has to be
     # node-local because `TMPDIR` on this cluster's NFS makes every HIP kernel
-    # launch SIGSEGV — the trap that cost the 2026-09-02 run 25 minutes. It is
+    # launch SIGSEGV — the trap that cost the sealed run 25 minutes. It is
     # *not* where the apparatus is staged; that is the zone. See `_remeasure`.
     #
     # Handed across as environment rather than created here, because this
@@ -904,7 +904,7 @@ def _remeasure(
         # **Which container produced the number is part of the number.** The
         # wrapper prefers the container the `deploy_kit` names and falls back to
         # an ephemeral one from the same image when that is not running — the
-        # leader's ruling, 2026-09-04, because in a mock chain nobody brings the
+        # leader's ruling, because in a mock chain nobody brings the
         # deployment up and a check that needs a real one cannot be in the mock
         # e2e. The two are different claims: the first carries the deployment's
         # engine state, the second only the image's. The wrapper writes which it

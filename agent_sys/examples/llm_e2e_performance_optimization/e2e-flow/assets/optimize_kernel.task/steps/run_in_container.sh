@@ -17,7 +17,7 @@
 #
 # ## Why this file exists at all
 #
-# Measured 2026-09-04, standalone against real inputs: every m4 step that needs
+# Measured, standalone against real inputs: every m4 step that needs
 # more than JSON needs the container, and none of them entered one.
 #
 #   * `KFO_PYTHON` defaults to `/opt/venv/bin/python3` — **a path inside the
@@ -265,7 +265,7 @@ echo "run_in_container: record claims started_at=$(_field runtime.started_at)" >
 
 # **The card this exec asks for must be one the container was actually given.**
 #
-# Measured 2026-09-04 in m1's own kit, `start_container.sh`: the container
+# Measured in m1's own kit, `start_container.sh`: the container
 # is started with `--device /dev/kfd --device /dev/dri`, which exposes **every**
 # card on the host, and is pinned only by `--env
 # HIP_VISIBLE_DEVICES=${E2E_KIT_GPU_DEVICES}`. So the pin is an environment
@@ -478,7 +478,7 @@ echo "run_in_container: $_VERB $CONTAINER on ${E2E_NODE:-the node}, GPU $HIP_VIS
 # **An absent `TMPDIR` is not a harmless default here.** A `TMPDIR` naming a
 # directory that does not exist makes every HIP kernel launch SIGSEGV with no
 # output while `torch.cuda.is_available()` still returns `True` — the trap that
-# cost the 2026-09-02 run 25 minutes. So forwarding the variable without
+# cost the sealed run 25 minutes. So forwarding the variable without
 # creating the directory is the worst of the three options: it looks configured
 # and it crashes in the kernel.
 #

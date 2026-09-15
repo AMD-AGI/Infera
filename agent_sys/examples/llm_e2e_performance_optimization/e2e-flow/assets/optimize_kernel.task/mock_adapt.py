@@ -69,7 +69,7 @@ def _hash_from_image(container_path: str, image: str) -> str | None:
     so the fallback below hashes the *replacement* and says so. `apply.py`
     then refuses — correctly — with *"the patch was cut against
     fcd3c924e48d…"*, and the run stops two gates before their compile check and
-    both surface refusals ever see input. Measured 2026-09-04 by driving
+    both surface refusals ever see input. Measured by driving
     `apply.py` standalone against rung 0's own artefact.
 
     **The idiom is m5's, copied rather than re-derived** (`apply.py`,
@@ -179,9 +179,9 @@ def _ensure_impl_entry(packup: Path, workset_root: Path, operator: dict) -> str 
 
     **The sealed candidate predates the contract it now has to satisfy.**
     `_common.py` refuses a candidate whose source defines no top-level
-    `run`, and `results/optimized_kernel.py` from the 2026-09-02 run defines
+    `run`, and `results/optimized_kernel.py` from the sealed run defines
     only `sampler_softmax` — so `run_performance.sh --impl` would have exited
-    *"defines no `run`"* before measuring anything. Found 2026-09-04 by reading
+    *"defines no `run`"* before measuring anything. Found by reading
     the two files against each other rather than by running the campaign.
 
     **Appending is right here and refusing is right in `30_run_forge.sh`**, and
@@ -218,7 +218,7 @@ def _ensure_impl_entry(packup: Path, workset_root: Path, operator: dict) -> str 
     # baseline's shape is evidence *about* it, and inference loses to a
     # declaration whenever both are available.
     #
-    # Measured 2026-09-05 on m3's first real workset, which is what settled it.
+    # Measured on m3's first real workset, which is what settled it.
     # The regex below wants `run` to **return a call**; of four real operators
     # three do and `layernorm_layer_norm_fwd_1pass` returns a bare name:
     #
@@ -397,7 +397,7 @@ def main() -> int:
         lib.die(
             "the workset carries no usable performance report for "
             f"{operator_id}, so there is no measurement made on THIS host to put in "
-            "evidence.performance.measured. Falling back to the sealed 2026-09-02 numbers is "
+            "evidence.performance.measured. Falling back to the sealed numbers is "
             "what rung 0 refused at -17.5% across three cases; a mock that cannot state an "
             "honest measurement should not state one"
         )
@@ -457,7 +457,7 @@ def main() -> int:
     # `apply.py` has run `patch -p1` all along and the producer could
     # never ask for it: the enum had one value, so the only shape m4 could emit
     # was a whole-file overlay, which drops the target's entire public surface
-    # and is what m5's applier refuses by name. Leader's ruling, 2026-09-04.
+    # and is what m5's applier refuses by name. Leader's ruling.
     #
     # **The mock's diff inserts only the marker.** There is no campaign here and
     # the sealed kernel is a standalone module rather than an edited
@@ -632,7 +632,7 @@ def main() -> int:
             },
         },
         "notes": (
-            "MOCK. The bytes of this handoff are the sealed 2026-09-02 stage-4 run's "
+            "MOCK. The bytes of this handoff are the sealed stage-4 run's "
             "(KFO_MOCK=1, no campaign, no optimised kernel, nothing claimed). MOCK-MAP "
             "adaptation (G) rendered `premise`, `apply`, the workset snapshot and the carried "
             "baseline report from the workset staged as this task's input, because the sealed "

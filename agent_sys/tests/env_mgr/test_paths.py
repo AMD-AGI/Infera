@@ -283,8 +283,7 @@ def test_the_root_names_the_user_asked_for_are_not_exported(tmp_path: Path, main
     `agent_handoff_root` and `agent_playground_root`. Each would resolve to a
     registered *domain* root, which sits outside the zone. Measured against a
     real Landlock ruleset built from exactly the policy `prepare` composes, with
-    an in-zone positive control succeeding in the same confined child
-: all four
+    an in-zone positive control succeeding in the same confined child: all four
     give `EACCES`, and all four read cleanly unconfined — a denial, not an
     absence.
 

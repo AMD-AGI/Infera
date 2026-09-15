@@ -169,7 +169,7 @@ entries:
         # **Not by giving the gate's fixture a `gpu_devices`.** That was
         # considered and rejected by the package owner, on the grounds it is changing
         # the test to fit the rule — the same move as widening a bar to make a
-        # measurement pass. The sealed 2026-09-02 record is *evidence*: it was
+        # measurement pass. The sealed record is *evidence*: it was
         # correct when written, and a rule that retroactively invalidates a
         # correct artefact is a rule about our calendar rather than about the
         # artefact.
@@ -560,7 +560,7 @@ runtime_contract:
         was an agent that could read prose; m2's consumer is a **program**, and a
         site fact carried in prose cannot reach a shell script. See `todo.md`
         **T19** and **T27**.
-    # The eighth, added 2026-09-04. Unlike the seven above it is not a
+    # The eighth, added. Unlike the seven above it is not a
     # shared-host identifier — it is here because it is the first value found
     # that **determines every number the flow produces and is bound by nobody**.
     - name: E2E_KIT_CUDA_GRAPH_MAX_BS
@@ -579,7 +579,7 @@ runtime_contract:
       # agent invents a value each bring-up — `16, 16, 8, 32` over four real
       # runs at `tp_size: 4`, the line number moving each time because `env.sh`
       # is regenerated rather than edited. The `:=8` that looked like a default
-      # is `env.sh` of the sealed 2026-09-02 kit — a **`tp_size: 1`** record
+      # is `env.sh` of the sealed kit — a **`tp_size: 1`** record
       # replayed verbatim eighteen times.
       #
       # That is **strictly worse than a wrong default, because a wrong default
@@ -716,7 +716,7 @@ runtime_contract:
       # why it must be node-local — *"on this cluster's NFS every ROCm kernel
       # launch segfaults after the copies and the first round."*
       #
-      # **Seen accepted, not expected to be:** the sealed 2026-09-02 kit runs
+      # **Seen accepted, not expected to be:** the sealed kit runs
       # `--volume "${DK_RUN_DIR}:/workdir"` (`start_container.sh`) with
       # `DK_WORK_ROOT:=<work root>` (`env.sh`), and that
       # kit produced a working deployment. Every kit this package has built

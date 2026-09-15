@@ -647,7 +647,7 @@ def check_runtime_contract(contract: dict, scan_rule: dict, roots: dict[str, Pat
             continue
         # **`err` is the operator-facing one-liner; `brief` is documentation.**
         # A `brief` here runs to paragraphs, and emitting it put an entire essay
-        # into a run's verdict — measured 2026-09-04, on the first run after a
+        # into a run's verdict — measured, on the first run after a
         # seventh parameter was added. A verdict a person has to scroll is a
         # verdict they skim. Falling back to the brief's first sentence keeps the
         # six older parameters, which carry no `err`, readable too.

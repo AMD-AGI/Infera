@@ -1313,7 +1313,7 @@ def _settle(
         # waiting it out buys nothing.
         #
         # **`holding` alone could not see that, and the reason is structural.**
-        # Measured 2026-08-31 on a refused seal: the leaf's body exited 0, its
+        # Measured on a refused seal: the leaf's body exited 0, its
         # output was refused, it escalated *to its parent* — `target` unset — and
         # its attempt thread stayed `is_running=True` for ever. The root then
         # escalated to the user. So `holding` was permanently 1, contributed by a
@@ -1404,7 +1404,7 @@ def _emit_progress(
     """Say, while it is happening, which task moved and where.
 
     **The stream was a record of the setup and the teardown, and nothing in
-    between.** Measured 2026-08-31 across two real runs: `stream.jsonl` carried
+    between.** Measured across two real runs: `stream.jsonl` carried
     five events in the first 150 ms, then **nothing for forty minutes**, then a
     burst at the end — because `_run` emits at `_start` and again at `_report`
     and execution happens between them. The store meanwhile carried

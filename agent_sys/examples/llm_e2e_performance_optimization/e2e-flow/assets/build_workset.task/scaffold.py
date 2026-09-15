@@ -177,7 +177,7 @@ def _package_commit() -> str:
     """The commit of the package tree this body is running from.
 
     **Derived, not defaulted.** `E2E_PACKAGE_COMMIT` has a `--var` and nobody
-    has ever passed it: measured 2026-09-05, *every* workset in circulation
+    has ever passed it: measured, *every* workset in circulation
     recorded `commit: unknown`, including the 11:19:40 artefact that was
     grafted into the mock corpus and consumed by two downstream stages. The
     commit is knowable -- the package is a git tree and this body runs inside
@@ -330,7 +330,7 @@ def main() -> int:
                 # verbatim, and nothing could confirm it had stayed that way:
                 # no phase in this graph stages the identity and the workset
                 # together, so a validator comparing them binds to nothing
-                # (measured 2026-09-04 — the two-kind validator was written and
+                # (measured — the two-kind validator was written and
                 # selected nowhere). Recording the source turns a question that
                 # needs a second handoff into one that needs a comparison,
                 # which is what `base_sha256` already does for the image.
