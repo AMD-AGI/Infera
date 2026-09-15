@@ -62,3 +62,18 @@ mission.md
 .spur_job_*.sh
 .spur_ns_*.sh
 spur-*.out
+
+# --- Experiment scratch: raw traces and compiler caches (yihou) ---
+# These are produced by benchmark runs inside the container and must never be
+# committed: they are either regenerable build artefacts or bulk per-iteration
+# traces. Moved out of the repo on 2026-09-15 to
+# ../glm52_internal_bench_rawdata_yihou_20260915/ (nothing was deleted).
+cache/jit-*/
+cache/torch/
+cache/triton/
+cache/flashinfer/
+**/steps*.jsonl
+**/wave_*steps*.jsonl
+**/benchmark.jsonl
+**/console.log
+**/bench_snapshot/
