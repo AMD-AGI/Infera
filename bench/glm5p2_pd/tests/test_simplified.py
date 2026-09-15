@@ -115,6 +115,29 @@ class ConfigAndTopologyTests(unittest.TestCase):
         self.assertIn("--listen-peer-urls", script)
         self.assertIn("$ETCD_PEER_PORT", script)
 
+    def test_p8d8_profile_fixes_topology_and_default_limits(self):
+        command = (
+            "COMPONENT=test; source lib/common.sh; "
+            "load_config CONFIG=config.p8d8.sh; "
+            "printf '%s' \"$PREFILL_GPU_DEVICES|$PREFILL_TP|$PREFILL_DP|"
+            "$PREFILL_DPA|$DECODE_GPU_DEVICES|$DECODE_TP|$DECODE_DP|"
+            "$DECODE_DPA|$PREFILL_MAX_RUNNING|$PREFILL_GRAPH_MAX_BS|"
+            "$DECODE_MAX_RUNNING|$DECODE_GRAPH_MAX_BS|"
+            "$AGENTX_WARMUP_REQUESTS_PER_LANE\""
+        )
+        result = subprocess.run(
+            ["bash", "-c", command],
+            cwd=ROOT,
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        self.assertEqual(
+            result.stdout,
+            "0,1,2,3,4,5,6,7|8|8|1|0,1,2,3,4,5,6,7|8|8|1|32|32|32|32|10",
+        )
+
     def test_preflight_supports_asymmetric_pd_gpu_counts(self):
         script = (ROOT / "preflight.sh").read_text(encoding="utf-8")
         self.assertIn("prefill_gpu_count < decode_gpu_count", script)
