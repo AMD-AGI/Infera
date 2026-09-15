@@ -4,7 +4,7 @@ An **add-on** is a capability `agent_sys` defines once — an MCP server, a skil
 a hook — so that more than one task package does not carry a private copy.
 
 **There is no declaration key, and that is the design rather than a gap.**
-`agent_sys/docs/spec.provisioning.md` §4 is normative: an add-on is installed by
+`env_mgr/docs/spec.md` §6.6 is normative: an add-on is installed by
 **declaring it in a recipe**, like everything else that is not the agent's own
 `.claude/` tree. A recipe finds this directory by importing `env_mgr` —
 
@@ -44,7 +44,7 @@ touches is outside it.
 | something **this repository** ships — a directory here | the same: a recipe, whose item carries `tags: [internal]` to mark it ours | wherever that recipe copies it |
 | something **one task package** carries for one agent | nothing — auto-detected at `<agent assets>/.claude/` and copied | the zone's `config/` |
 
-Only the third row is a tree copy. `spec.provisioning.md` §3.
+Only the third row is a tree copy. `env_mgr/docs/spec.md` §9.1.
 
 ### `tags: [internal]` marks provenance and does nothing else
 
@@ -76,7 +76,7 @@ lets the recipe's `cp` be a `cp`.
 
 **An `.mcp.json` does not belong here.** A stdio server is spawned by the
 harness from an entry in the *agent's* `.claude/.mcp.json`
-(`spec.provisioning.md` §5), and that entry names `--project`, `HOME` and other
+(`env_mgr/docs/spec.md` §6.7), and that entry names `--project`, `HOME` and other
 values that differ per agent. Both add-ons' `.mcp.json` files were moved into
 `examples/ok.agent_capabilities.2/assets/env_probe.agent/.claude/.mcp.json` for exactly that
 reason. What stays here is the **payload** the entry points at.

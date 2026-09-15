@@ -31,8 +31,8 @@ the same way the agent had to, out of the artefact.
 | `serena` | recipe | salt | the salt is read from `serena_probe.py` |
 
 **There was a third replay and it is gone.** `tooldef` imported the in-process
-`ToolDef` module and invoked `TOOLS[0].call()`; `agent_sys/docs/
-spec.provisioning.md` §6 deleted that route, so this body imports nothing any
+`ToolDef` module and invoked `TOOLS[0].call()`; `env_mgr/docs/spec.md` §9.2
+deleted that route, so this body imports nothing any
 more and the capability is not in the register.
 
 **The replays go through the declaration, not around it.** `TOOLS[0].call()`
@@ -158,7 +158,7 @@ worse than one whose edges are known.
   neither answered. None of that exists now: the package's own recipe layer
   **copies the server into the zone**, so the artefact is one directory from the
   staged package and no variable names anything outside it. The variable itself
-  is deleted (`spec.provisioning.md` §4).
+  is deleted (`env_mgr/docs/spec.md` §6.6).
 
   A note that went with it and is worth keeping: a validation zone is built by
   `validator/environment.py` in a `mkdtemp`, **not** through `env_mgr.prepare`,

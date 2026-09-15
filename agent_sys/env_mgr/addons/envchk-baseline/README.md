@@ -57,7 +57,7 @@ as a server with **no tools** rather than as an error.
 **The declaration lives with the agent, not with the payload.** This server
 reaches a session through the *agent's own* `.claude/.mcp.json` →
 `Prepared.mcp_servers` → `ClaudeAgentOptions.mcp_servers`, which is the route
-`spec.provisioning.md` §5 assigns to every stdio server: the harness spawns it,
+`env_mgr/docs/spec.md` §6.7 assigns to every stdio server: the harness spawns it,
 so the harness has to be told about it in a file it reads.
 
 There used to be a copy of that entry in `.claude/.mcp.json` **here**, reached by

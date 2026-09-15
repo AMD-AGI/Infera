@@ -7,7 +7,7 @@ happen to this directory and they are different:
 
 | | |
 |---|---|
-| `.claude/` | **installed** — auto-detected, never declared, and copied into the zone's `$CLAUDE_CONFIG_DIR`. This is the one copy route `agent_sys/docs/spec.provisioning.md` §3 leaves |
+| `.claude/` | **installed** — auto-detected, never declared, and copied into the zone's `$CLAUDE_CONFIG_DIR`. This is the one copy route `env_mgr/docs/spec.md` §6 and §9 §3 leaves |
 | the whole directory | **copied** to `<zone>/workspace/<dirname>/`, and named by `$AGENT_SYS_AGENT_ASSETS` |
 
 So `serena_probe.py` beside this file is *not* a capability: it is a subject,
@@ -32,7 +32,7 @@ capability goes under `.claude/` and anything that is not, must not.
 ```
 
 **Capability 6 was `tools/envchk_inproc.tooldef.py` and is deleted.** It measured
-the in-process `ToolDef` route, which `spec.provisioning.md` §6 removed for
+the in-process `ToolDef` route, which `env_mgr/docs/spec.md` §9.2 removed for
 component-supplied tools; nothing replaces it, and the number is left unused so
 that the deletion is visible rather than smoothed over by renumbering.
 

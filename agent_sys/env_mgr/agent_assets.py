@@ -8,7 +8,7 @@ directories, an MCP server a process to register. This module handles those,
 keeping `material.py`'s rule that a file is placed, not read, except for the
 three interface documents (``settings.json``, ``.mcp.json``, ``marketplace.json``).
 
-Two routes, per `docs/spec.provisioning.md` (normative): upstream/repo material
+Two routes, per `env_mgr/docs/spec.md` §6 and §9 (normative): upstream/repo material
 installs by recipe; a task package's own material is undeclared, copied from
 ``<agent assets>/.claude/`` after recipes run, so its file outranks a default.
 A recipe runs as a child ``env_mgr`` process, not an import. Raises
@@ -254,7 +254,7 @@ def _assets_dir(agent_spec: Any, *, staged_package: str | None) -> str | None:
 def _addon_trees(agent_spec: Any, *, staged_package: str | None) -> list[tuple[str, str]]:
     """Every ``.claude/`` tree to install, as ``(origin, path)`` -- at most one.
 
-    Per `docs/spec.provisioning.md` section 3 the copy route is the agent's own
+    Per `env_mgr/docs/spec.md` §9.1 the copy route is the agent's own
     assets and nothing else; a missing ``.claude/`` inside it is not an error.
     """
     trees: list[tuple[str, str]] = []
@@ -282,7 +282,7 @@ def _package_recipe_path(*, staged_package: str | None) -> str | None:
 def _recipe_paths(agent_spec: Any, *, staged_package: str | None) -> list[str]:
     """Every recipe YAML to run, in order: default, package, then agent-declared.
 
-    See `docs/spec.provisioning.md` section 9.1. Layers concatenate rather
+    See `env_mgr/docs/spec.md` §6.5.1. Layers concatenate rather
     than override; a version conflict *between* layers is not detected.
     """
     out: list[str] = []

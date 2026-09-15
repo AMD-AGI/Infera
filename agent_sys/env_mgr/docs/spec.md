@@ -77,7 +77,8 @@ internally.
 | 5 | **Work on a copy** | An agent copies a handoff into its playground and works there. §6.3 |
 | 6 | **A mechanism, not a manager** | §1.1 |
 | 7 | **Reuse what shipped** | The recipe and installer machinery is reused, not reimplemented. It is **not frozen**: it may be corrected and extended like any other code, and §9 is where a change to it is argued. §9 |
-| 8 | **Adopt Claude Code's user/project split; invent no levels of our own** | Non-AI installs go system-wide. AI material splits exactly as the harness already splits it: package-declared is *user level*, agent-declared is *project level*. §9.1 |
+| 8 | **Declarative first, and separate processes over shared ones** | A thing is installed by **declaring it in a recipe**, and delivered by a file the harness reads or a process of its own. Python that adds capability to a running agent, and code that runs inside the `agent_sys` process, are both exceptions requiring justification. §6.5, §9.2 |
+| 9 | **Adopt Claude Code's user/project split; invent no levels of our own** | Non-AI installs go system-wide. AI material splits exactly as the harness already splits it: package-declared is *user level*, agent-declared is *project level*. §9.1 |
 
 ---
 
@@ -402,6 +403,96 @@ directional rules (§4.5) apply on both sides.
 
 ---
 
+
+### 6.5 Recipes come in three layers, and the layer is where the file is
+
+| layer | where | how it is found |
+|---|---|---|
+| **default** | `env_mgr/default.env_recipe.yaml` | never named; always applies |
+| **task package** | `<package>/assets/main.env_recipe.yaml` | auto-detected, one fixed spelling |
+| **agent** | `<agent assets>/env_recipe.<agent>.yaml` | auto-detected, any `_stems` permutation |
+
+**There is no `layer` field on an item and there must not be one.** The layer is
+carried by the path, and a field restating it would be a second writer of one
+fact. A recipe carrying a stale `layer:` key is **rejected** with a dated
+migration message (`recipe.py`) rather than silently passed into `Item.spec`.
+
+**`env_mgr/recipes/*.yaml` are demos** — the namespace of things you *name* in
+`recipes: [x]`. The default is the one you never name, which is why it is not in
+that directory.
+
+#### 6.5.1 They concatenate; they do not override
+
+Default → package → agent, in that order, **additive**. A more specific layer
+*adds* items; it does not replace them. Re-running an install is cheap because
+every installer gates on `check` before `install`.
+
+**Nothing detects a version conflict between layers**, and this is a known gap,
+not an oversight: `detect_conflicts` is scoped to one `run()` and `_run_recipe`
+spawns one child process per recipe file, so three layers are three independent
+checks. Closing it means parsing all three in the parent — the in-process
+coupling the subprocess design exists to avoid. Also measured: `detect_conflicts`
+fires only on **incompatible version constraints**, never on a repeated name, so
+two layers both declaring `uv` is not an error and should not be.
+
+#### 6.5.2 Absence
+
+**Declared and absent is an error. Undeclared and absent is simply absent.**
+(`material.py`'s existing rule.) There is no third case. Both agent-level
+systems — its own recipe and its `.claude/` tree — may be absent independently.
+
+### 6.6 Add-ons
+
+`env_mgr/addons/<name>/` — what `agent_sys` itself ships for agents. **Inside
+`env_mgr`, not beside it**, because `package-data` needs an owning package;
+proven by building a wheel and counting members, not by the build succeeding.
+
+**Installed only by recipe.** There is no declaration key on `AgentSpec`. A
+recipe locates an addon by importing `env_mgr` — `PYTHONPATH` is pinned to the
+package root and `run_cmd` inherits it — so no path pointing outside the zone
+needs exporting.
+
+### 6.7 MCP servers and tools
+
+**The transport decides the mechanism**, and it is not a preference:
+
+| transport | who starts it | how it is declared |
+|---|---|---|
+| **stdio** | **the harness spawns it** — that is what stdio means | a `.mcp.json` entry |
+| **port-based (HTTP/SSE)** | **`env_mgr`, via the `run_server` installer** | a recipe item |
+| in-process | — | **see §9.2** |
+
+`run_server` maintains a registry at `<layout.run>/servers.json`, keyed to the
+run's lifetime. A duplicate declaration finds the entry and reports **`warn`**
+without starting anything. Servers are stopped when the run ends.
+
+**The guarantee is *"stopped on normal and handled-error exit"*, not "always".**
+`SIGTERM` has no handler and `SIGKILL` cannot have one. `PR_SET_PDEATHSIG` was
+measured to close the `SIGKILL` case and is the wrong tool at the spawn site,
+because the spawning process is a recipe child that exits within seconds.
+`TODO.md` 4j carries both halves.
+
+A port already held: same binary → `warn`, different → `fail`, **and a holder
+owned by another uid → `fail`**, because its command line cannot be read at all
+and therefore can never be "basically the same". The identity key is the
+**declared program token from the item's own `command`**, matched against the
+holder's `/proc/<pid>/cmdline` — asking *"is this the thing I was about to
+start?"* rather than *"what is this process?"*, which has no answer when every
+candidate reports as `python3`.
+
+### 6.8 How an agent knows it is working remotely
+
+Not from prose. `prepare.py` returns the three remote tools if the zone has a
+far side and `()` if it does not — **whether `env_remote_run` is in the toolbox
+is the answer** — and `AGENT_SYS_*_REMOTE` mirrors every local path name.
+
+The reason this is a tool surface rather than a described procedure is in the
+module's own docstring: *"an agent given a natural-language description of how to
+sync a directory will improvise, and the improvisation will be wrong in a way
+nobody notices."*
+
+---
+
 ## 7. What `env_mgr` does not own
 
 **The runtime environment of the program under test.**
@@ -469,10 +560,9 @@ superseded by §6.1; the other two stand.
 
 ### 9.1 Where an installed thing lands
 
-**There is no layer field and no level vocabulary.** An earlier revision of this
-design had five, then four; both were removed, because the destination is
-*derived* and an author restating it is a second writer of a fact the file path
-already carries. The derivation is two questions.
+**There is no layer field and no level vocabulary.** The destination is
+*derived*, and an author restating it would be a second writer of a fact the
+file path already carries. The derivation is two questions.
 
 > **1. Is it AI material — a `.claude/` tree the agent harness reads as its own
 > configuration?** If not, it installs **system-wide**, once, for everyone.
@@ -498,7 +588,7 @@ behaviour changes, not restatements:
   `main.yaml` is visible to every agent, not copied per agent. That is what user
   scope means; if a skill must be one agent's only, the agent declares it.
 - **User level outlives a run.** The agent_sys root is deliberately not under a
-  run root (PR 154: a resident daemon has to outlive any single run), so
+  run root, because a resident daemon has to outlive any single run, so
   package-declared material persists into the next run. **Left as measured, not
   designed around** — see `../../docs/TODO.md`.
 
@@ -507,12 +597,13 @@ installation every agent uses, and the `.mcp.json` that names it — with that
 agent's own `--project` — is per-agent. They are two things, not one thing in two
 places, and only the second is a copy.
 
-**The shared root is not defined here.** `agent_sys` has exactly one, introduced
-by PR 154: `AGENT_SYS_HOME`, defaulting to `~/.infera_agent_sys` and laid out like
-`~/.local` (`bin/ share/ state/ run/`). This section adds a rule about *which*
-things go there; it does not add a second root, and a module that needs the path
-takes it from that owner rather than recomputing it. Until PR 154 merges, the
-constant does not exist in this tree — see [`../../docs/TODO.md`](../../docs/TODO.md).
+**The shared root is not defined here.** `agent_sys` has exactly one:
+`AGENT_SYS_HOME`, owned by `env_mgr/prefix.py`, defaulting to
+`~/.infera_agent_sys` and laid out like `~/.local` (`bin/ share/ state/ run/`).
+This section adds a rule about *which* things go there; it does not add a second
+root, and a module that needs the path takes it from that owner rather than
+recomputing it. **The per-caller install pins are not yet repointed under it** —
+[`../../docs/TODO.md`](../../docs/TODO.md) item 12.
 
 Two properties follow, and both are the reason the root is a single knob:
 

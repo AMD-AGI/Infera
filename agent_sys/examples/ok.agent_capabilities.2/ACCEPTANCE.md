@@ -130,7 +130,7 @@ where `salt` is the single `ENVCHK_SALT: <32 hex>` tag in the named artefact and
 **The capability is gone, not renumbered.** Section 6 was an in-process
 `ToolDef` — a `.claude/tools/*.tooldef.py` whose module-level `TOOLS`
 `agent_sys` imported into its own supervisor process and published as
-`mcp__env_mgr__envchk_echo_token`. `agent_sys/docs/spec.provisioning.md` §6
+`mcp__env_mgr__envchk_echo_token`. `env_mgr/docs/spec.md` §9.2
 deleted that route for component-supplied tools, on a security argument this
 package does not relitigate: third-party code executing in the process that
 supervises every agent, with its memory, file descriptors and credentials, and

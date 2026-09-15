@@ -2,7 +2,7 @@
 
 One leaf, one handoff kind, two validators, and a subject that is `agent_sys`
 itself: **six Claude Code capabilities, installed per-agent by the two install
-routes `agent_sys/docs/spec.provisioning.md` defines**, each one exercised and
+routes `env_mgr/docs/spec.md` §6 and §9 defines**, each one exercised and
 each one reported with a token that a run which did not install it cannot
 produce.
 
@@ -31,7 +31,7 @@ agent's own `.claude/` tree is **copied** into the zone's config directory.
 
 **Section 6 is absent and the number is not reused.** It was an in-process
 `ToolDef`, published as `mcp__env_mgr__envchk_echo_token`, and
-`spec.provisioning.md` §6 deleted that route for component-supplied tools.
+`env_mgr/docs/spec.md` §9.2 deleted that route for component-supplied tools.
 Renumbering serena to 6 would leave a reader to infer a capability was never
 there.
 
@@ -143,4 +143,4 @@ is the criteria, and it says to open the handoff rather than read the code.
   validator layout and `assets/lib/zone.py` come from.
 - `examples/ok.filetree_grounded_report.4/main.yaml` — the non-leaf root.
 - `agent_sys/env_mgr/addons/README.md` — the add-on contract.
-- `agent_sys/docs/spec.provisioning.md` — normative for the two install routes.
+- `env_mgr/docs/spec.md` §6 and §9 — normative for the two install routes.

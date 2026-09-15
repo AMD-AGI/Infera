@@ -163,7 +163,7 @@ There is no section 6. It was an **in-process `ToolDef`** — a
 `.claude/tools/*.tooldef.py` whose module-level `TOOLS` `agent_sys` imported into
 its own supervisor process and published as `mcp__env_mgr__envchk_echo_token`.
 
-That route is gone (`agent_sys/docs/spec.provisioning.md` §6): it ran
+That route is gone (`env_mgr/docs/spec.md` §9.2): it ran
 third-party code inside the process that supervises every agent, with its
 memory, file descriptors and credentials, and no boundary that could fail
 closed. An add-on now ships a server that runs on its own, which is what

@@ -112,7 +112,7 @@ carry components, not only files.** §4.5a is why that needed new keys instead o
 a longer `skills` list.
 
 **There was a third, `agent_plugins:`, and it is deleted** —
-`docs/spec.provisioning.md` §4: what this repository ships under
+`env_mgr/docs/spec.md` §6.6: what this repository ships under
 `env_mgr/addons/` is installed by a recipe, and no declaration key reaches it.
 
 ### 3.2 Permissions are not here
@@ -407,7 +407,7 @@ a skill is a directory, a plugin marketplace is a directory of directories, and
 an MCP server is a process to register rather than a file to place. Naming every
 file would make a package author restate a layout the harness already fixes.
 
-**Two routes, and only one copies a tree.** `docs/spec.provisioning.md` is
+**Two routes, and only one copies a tree.** `env_mgr/docs/spec.md` §6 and §9 is
 normative here and supersedes both the L1/L2/L3 numbering and the three-origins
 table that replaced it.
 
@@ -421,7 +421,7 @@ table that replaced it.
 `.mcp.json`, and `tools/*.mcp.py`. It is the harness's own layout rather than
 ours, so a file is placed and not converted. (A `tools/*.tooldef.py` was a fourth
 member until recently, when the in-process route it used was deleted —
-`docs/spec.provisioning.md` §6.)
+`env_mgr/docs/spec.md` §9.2.)
 
 **A package's own material is undeclared on purpose.** A declaration would be a
 second statement of what the directory already says, and the two would drift the
@@ -502,6 +502,34 @@ sandbox chain and why the hook alone is insufficient.
 The SDK's session id and this system's `AgentId` are different things; the
 backend records the correspondence. Re-establishing a run's context after a
 restart is the agent's own business.
+
+---
+
+### 5.5 `.claude/` and the SDK overlap, and how that is resolved
+
+Measured from the installed `claude_agent_sdk`:
+
+- **`setting_sources`** defaults to loading **all** filesystem sources (user,
+  project, local). `[]` is *SDK isolation mode*.
+- **`strict_mcp_config=True`** ignores everything the CLI would otherwise load,
+  *"e.g. project `.mcp.json`, user/global settings, plugin-provided servers"*.
+- **Same-name collisions have no SDK-level arbitration.** The fields are plain
+  dicts.
+
+So the overlap is **real, known to the SDK, and resolved by switches rather than
+by precedence** — additive by default. Because the SDK arbitrates nothing,
+**whoever merges two sources owns the collision**: `claude_sdk.py` names
+it and refuses rather than overwriting, since the model addresses servers as
+`mcp__<server>__<tool>` and a silent replacement makes one side's tools vanish.
+
+**Derived, and it resolves a claim that looked contradicted:** `.mcp.json` is a
+**project-scope** filename — the CLI and SDK both say *"project `.mcp.json`"*,
+and `--mcp-config` exists precisely to load one from elsewhere. A zone's
+`$CLAUDE_CONFIG_DIR` is **user** scope. So `agent_assets.py`'s *"placing it
+would put a file in the zone that nothing reads"* and the SDK's *"the CLI would
+otherwise load project `.mcp.json`"* are **about different locations and both
+true**. If the declarative route is ever wanted for MCP, its destination is the
+**workspace root**, not the config directory.
 
 ---
 

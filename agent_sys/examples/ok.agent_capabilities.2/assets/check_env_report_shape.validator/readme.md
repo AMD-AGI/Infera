@@ -59,7 +59,7 @@ shipped under `env_mgr/addons/` and placed by a recipe — and the whole point o
 this example is which route delivered what.
 
 **The key is `installed_by` and it used to be `level`, with `L1`/`L2`/`L3`.**
-Those levels named an install hierarchy `agent_sys/docs/spec.provisioning.md`
+Those levels named an install hierarchy `env_mgr/docs/spec.md` §6 and §9
 supersedes; its middle rung, a declaration key reaching `env_mgr/addons/`, was
 deleted outright. Renaming the key rather than reusing it with new values is
 deliberate: an agent working from an older brief fails on a **missing key**,

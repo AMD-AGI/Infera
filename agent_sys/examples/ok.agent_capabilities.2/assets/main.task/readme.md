@@ -17,8 +17,8 @@ main                        non-leaf: readme, no entry.sh, NO agent
                               check_capabilities_genuine program · minutes · strong
 ```
 
-Six capabilities, two install routes, one run. `agent_sys/docs/
-spec.provisioning.md` owns the routes and there are exactly two: a **recipe**
+Six capabilities, two install routes, one run. `env_mgr/docs/spec.md` §6 and
+§9 own the routes and there are exactly two: a **recipe**
 declares something and `env_mgr` installs it, or the agent's own `.claude/` tree
 is **copied** into the zone config.
 
@@ -33,7 +33,7 @@ is **copied** into the zone config.
 
 **Section 6 is absent and the number is not reused.** It was an in-process
 `ToolDef`, published as `mcp__env_mgr__envchk_echo_token`, and
-`spec.provisioning.md` §6 deleted that route for component-supplied tools.
+`env_mgr/docs/spec.md` §9.2 deleted that route for component-supplied tools.
 Renumbering serena to 6 would leave a reader to infer that a capability was
 never there.
 

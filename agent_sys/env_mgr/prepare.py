@@ -415,7 +415,7 @@ def prepare(
         # **Nothing grants `env_mgr/addons/` and nothing needs to.** An add-on is
         # installed by a recipe, which runs unconfined at step 6b and copies what
         # it needs into the zone, so the confined body never reaches back out
-        # (`spec.provisioning.md` §4). No grant here names a path outside the zone.
+        # (`env_mgr/docs/spec.md` §6.6). No grant here names a path outside the zone.
     )
 
     # 4. **No `repos` is passed, and that is a gap rather than a decision.**

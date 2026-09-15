@@ -17,7 +17,7 @@ Written down rather than left to be discovered.
    first and searched upwards from the package second. Both are gone: the
    package's own recipe layer **copies** section 4's server into the zone, so its
    artefact is one directory from the staged package and no variable names
-   anything outside the zone. `spec.provisioning.md` §4 deleted the variable
+   anything outside the zone. `env_mgr/docs/spec.md` §6.6 deleted the variable
    along with the declaration key it served.
 
    Kept as a numbered entry for gap 4's reason — the argument is worth having
@@ -107,7 +107,7 @@ several copies here.
 The item was: an in-process `ToolDef` runs in the supervisor and cannot see
 `Prepared.environment`, so a tool needing per-run values has no supported route
 to them, and row 6 worked around that rather than fixing it. **The route for
-component-supplied tools is deleted** (`spec.provisioning.md` §6), so there is
+component-supplied tools is deleted** (`env_mgr/docs/spec.md` §9.2), so there is
 nothing to give a per-run value to.
 
 Kept, because the analysis outlives the feature and because one in-process

@@ -1271,7 +1271,7 @@ Claude Code component is a *tree*: a skill is a directory, a plugin marketplace
 is a directory of directories, an MCP server is a process to register. So
 `agent_assets.py` exists and `material.py` calls it.
 
-`docs/spec.provisioning.md` is normative for this and supersedes the L1/L2/L3
+`env_mgr/docs/spec.md` §6 and §9 is normative for this and supersedes the L1/L2/L3
 vocabulary **and** the three-origins table that replaced it:
 
 | what | how | resolved against |
@@ -1314,7 +1314,7 @@ is a named `BackendUnsupported`, never a silent replacement.
 
 `Deployed` carried a fourth field, `tools`, until recently: a component's
 `tools/*.tooldef.py`, imported into the supervisor's own process and appended to
-`Prepared.tools`. That route is **deleted** — spec §6 of `docs/spec.provisioning.md`
+`Prepared.tools`. That route is **deleted** — spec §6 of `env_mgr/docs/spec.md` §6 and §9
 — and a component offering a tool now ships a server that runs on its own.
 `Prepared.tools` remains, carrying `remote/tools.py` alone, which is that
 section's one standing exception.
