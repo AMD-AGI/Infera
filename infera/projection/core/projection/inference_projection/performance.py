@@ -3618,6 +3618,53 @@ class InferencePerformanceProjector:
             latency_us=disagg.resolved_kv_transfer_latency_us(),
         )
 
+    def pool_projectors(
+        self,
+    ) -> tuple[InferencePerformanceProjector, InferencePerformanceProjector]:
+        """One projector per pool, each at its own parallelism and anchor.
+
+        Exposed because the DES needs the same two cost models the closed-form
+        path builds. A simulator handed the disaggregated projector alone would
+        have to price both pools from the parent's parallelism, which is the
+        colocated layout and belongs to neither pool.
+        """
+        from dataclasses import replace
+
+        disagg = self.cfg.disaggregation_config
+        mp = self.cfg.model_parallel_config
+        # Disaggregation is disabled on the sub-configs to avoid recursion.
+        prefill_cfg = replace(
+            self.cfg,
+            model_parallel_config=disagg.prefill_parallel(mp),
+            disaggregation_config=replace(disagg, enabled=False),
+        )
+        decode_cfg = replace(
+            self.cfg,
+            model_parallel_config=disagg.decode_parallel(mp),
+            disaggregation_config=replace(disagg, enabled=False),
+        )
+        return (
+            InferencePerformanceProjector(
+                prefill_cfg,
+                args=self._args_ref,
+                benchmark_layer_times=self._pool_anchor("prefill"),
+            ),
+            InferencePerformanceProjector(
+                decode_cfg,
+                args=self._args_ref,
+                benchmark_layer_times=self._pool_anchor("decode"),
+            ),
+        )
+
+    def kv_handoff_ms(self, decode_proj: InferencePerformanceProjector, context_len: int) -> float:
+        """Prefill→decode KV handoff for one request of ``context_len`` tokens.
+
+        The DES charges this per request at the moment prefill retires, which is
+        where it actually lands; the closed-form path folds the same quantity
+        into TTFT.
+        """
+        return self._kv_transfer_ms(decode_proj, 1, max(1, int(context_len)))
+
     def _pool_anchor(self, pool: str):
         """The measurement a disaggregated pool is calibrated against.
 
@@ -3632,8 +3679,6 @@ class InferencePerformanceProjector:
         return self._pool_benchmarks.get(pool) or self._bench_measured
 
     def _project_disaggregated(self) -> InferencePerfResult:
-        from dataclasses import replace
-
         req = self.cfg.request_config
         # PDD is a continuous serving topology: the load on the two pools is
         # the resolved in-flight concurrency, not the static microbatch field.
@@ -3645,29 +3690,12 @@ class InferencePerformanceProjector:
         input_len = max(1, req.input_seq_len)
         output_len = max(0, req.output_seq_len)
         disagg = self.cfg.disaggregation_config
-        mp = self.cfg.model_parallel_config
 
-        # Build dedicated prefill / decode projectors with per-pool parallelism.
-        # Disable disaggregation on the sub-configs to avoid recursion.
-        prefill_cfg = replace(
-            self.cfg,
-            model_parallel_config=disagg.prefill_parallel(mp),
-            disaggregation_config=replace(disagg, enabled=False),
-        )
-        decode_cfg = replace(
-            self.cfg,
-            model_parallel_config=disagg.decode_parallel(mp),
-            disaggregation_config=replace(disagg, enabled=False),
-        )
         for _pool in ("prefill", "decode"):
             if self._pool_benchmarks.get(_pool):
                 print(f"[inferasim:Inference] {_pool} pool calibrated from its own anchor")
-        prefill_proj = InferencePerformanceProjector(
-            prefill_cfg, args=self._args_ref, benchmark_layer_times=self._pool_anchor("prefill")
-        )
-        decode_proj = InferencePerformanceProjector(
-            decode_cfg, args=self._args_ref, benchmark_layer_times=self._pool_anchor("decode")
-        )
+        prefill_proj, decode_proj = self.pool_projectors()
+        prefill_cfg, decode_cfg = prefill_proj.cfg, decode_proj.cfg
 
         # Decode phase on the decode pool (drives ITL + decode throughput).
         # Computed first because the prefill queue below needs the generation
@@ -3782,6 +3810,30 @@ class InferencePerformanceProjector:
         extras["prefill_replicas"] = float(disagg.prefill_replicas)
         extras["decode_replicas"] = float(disagg.decode_replicas)
         extras["prefill_occupancy"] = float(n_prefill)
+        # The step decomposition, which this path reported as nothing at all.
+        # A disaggregated decode pool is continuously batched -- the load on it
+        # is the resolved in-flight concurrency, sized above -- and no prefill
+        # chunk ever lands in one of its batches, because moving prefill off
+        # these GPUs is the entire point of the topology. So the honest reading
+        # is a mixed-step fraction of exactly zero, not an absent one.
+        #
+        # Reporting nothing dropped ``decode_step_ms_pure``,
+        # ``mixed_step_fraction_pct`` and ``tpot_pollution_pct`` from every
+        # disaggregated row, which are precisely the objectives that show what
+        # the split buys: the colocated projection at the same shape spends
+        # 6.2% of its steps mixed and pays 33% TPOT pollution for it, and the
+        # search could not credit the alternative because the alternative
+        # reported no number to compare.
+        #
+        # The cost of a mixed step is the pure step rather than zero. There is
+        # no such step to price, and a zero would hand the topology a free win
+        # on a minimized objective instead of saying the step never happens.
+        extras["serving_continuous_batching"] = 1.0
+        extras["concurrency"] = float(batch)
+        extras["pure_step_latency_ms"] = step_latency
+        extras["mixed_step_latency_ms"] = step_latency
+        extras["mixed_step_fraction"] = 0.0
+        extras["tpot_pollution_pct"] = 0.0
 
         return InferencePerfResult(
             ttft_ms=ttft,

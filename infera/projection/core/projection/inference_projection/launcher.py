@@ -303,6 +303,14 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
             f"  Decode pool:                     {int(perf.extras.get('decode_replicas', 1))} "
             f"replica(s) x {perf.decode_replica_gpus} GPU"
         )
+        # What a replica of the *service* costs, which for a split is both pools
+        # together. The two pool lines above describe the layout but name no
+        # single figure, so a reader parsing this report got nothing for the
+        # GPUs-per-replica objective and a search comparing topologies could not
+        # score the split on it at all. ``decode_replica_gpus`` alone would be
+        # the wrong answer in the other direction: it bills the topology for one
+        # pool and hides the prefill GPUs it also holds.
+        print(f"  Replica GPUs (both pools):       {fleet_gpus}")
     else:
         print(f"  Replica GPUs (TP×PP):            {perf.replica_gpus}")
     if perf.extras.get("speculative_tokens_per_step", 1.0) > 1.0:
