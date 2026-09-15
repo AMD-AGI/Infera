@@ -373,9 +373,9 @@ def test_instruct_is_still_delivered_while_the_loop_runs() -> None:
 
 
 def test_instruct_before_the_loop_starts_is_still_queued() -> None:
-    """**The second control, and the suite found it before I did.**
+    """**The second control, and the suite is what catches its absence.**
 
-    A first version of the refusal keyed on `_looping`, and
+    A refusal keyed on `_looping` is wrong, and
     `test_claude_sdk.py::test_instruct_does_not_end_run` went red: the shipped
     order `start_async()` → `instruct()` → `mainloop()` — queue the work, then
     lend the loop a thread — has no loop turning at the moment of the call, and

@@ -716,8 +716,8 @@ def _real_run(
     # *decision* to spawn a thread is the entry point's, for `install_excepthook`'s
     # reason, but resolving `monitor:*`, taking a daemon each and knowing that
     # stopping is `stop()` **then** `join()` is four steps an entry point would
-    # otherwise get right or wrong on its own — and this one got it wrong first,
-    # which is how the bug was found. One call now.
+    # otherwise get right or wrong on its own, and getting any one of them wrong
+    # is silent. One call now.
     running = start_monitors(registry)
     try:
         try:
@@ -925,8 +925,7 @@ def _registry(
     # and `inputs.json` — handoff **ids** — in a fresh zone with nothing pointing
     # at the content it must read. F-D5, and `docs/TODO.md` item 26 at its widest.
     #
-    # **`PATH` is not a workaround and my first report of it was wrong.**
-    # Measured: POSIX `sh`
+    # **`PATH` is not a workaround.** Measured: POSIX `sh`
     # substitutes a built-in default when none is inherited, so a body starts
     # with `/usr/local/sbin:...:/bin` and finds `python3` either way. Setting it
     # here is choosing a **policy** — which binaries a validation may reach —

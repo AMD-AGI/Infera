@@ -151,8 +151,8 @@ def test_an_empty_phase_advances_and_records_that_nothing_ran(wired) -> None:
     `["validation_unreached"]` — which was the runner reporting an unplanned
     event and ending the thread, leaving the task in its phase for ever.
     Measured live: `main` sat in `INPUT_VALIDATING` for 300 s. The test was
-    green the whole time, because it had encoded my reading rather than the
-    requirement.
+    green the whole time, because it encoded a reading of the requirement
+    rather than the requirement.
 
     The requirement is `demo` criterion 3: *"Empty is the normal case and must
     be shown to be normal, not degenerate."* An empty phase is not a pass — that

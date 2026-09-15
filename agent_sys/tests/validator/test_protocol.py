@@ -118,7 +118,7 @@ def test_the_validation_zone_stub_matches_the_real_seam() -> None:
     first time it would have shipped.
 
     `env_mgr.ValidationZone.materials` was `tuple[str, ...]` and became
-    `Mapping[HandoffId, str]` (789796d) — at my own request. `phase.py` did
+    `Mapping[HandoffId, str]`. `phase.py` did
     `tuple(placed.materials)`, which over a mapping yields the **keys**, so
     `materials.json` would have contained handoff ids where a body expects paths.
     **Every test passed**, because the stub in `conftest.py` still returned a

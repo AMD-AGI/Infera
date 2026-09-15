@@ -164,7 +164,7 @@ def test_every_declared_constructor_matches_its_implementation(package_name: str
     """The half a Protocol's *methods* do not cover, and `validator` found it.
 
     **It compares exactly one constructor, and that one drifted on its first
-    run** — which I had not expected from a test written as armed-and-empty.
+    run** — which a test written as armed-and-empty does not obviously give.
     `validator.PhaseOutcome` was declared as a dataclass whose five fields had no
     defaults and implemented as one where four of them did, so
     `PhaseOutcome(kind)` was a `TypeError` against the declaration and

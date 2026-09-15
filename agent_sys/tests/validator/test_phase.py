@@ -531,8 +531,8 @@ def test_a_crashed_body_reaches_no_verdict_rather_than_failing(
     says it is **undetermined**, and their analysing dispatcher's whole job is
     telling those apart. A crash is not a judgement.
 
-    Found because `monitor` asked whether a *returned* outcome could mean "no
-    verdict reachable". I had told them it could not. It could.
+    A *returned* outcome **can** mean "no verdict reachable" — the obvious
+    answer is that it cannot, and the obvious answer is wrong.
     """
     package_root = tmp_path / "broken"
     package_root.mkdir()

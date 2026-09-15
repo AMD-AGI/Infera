@@ -100,7 +100,7 @@ class StubTask:
         here and raised in production.
 
         A **permissive stub** is the shape behind four of this week's defects
-        (`agent`'s `set_task` no-ops, my own three `_advance` tests): the double
+        (`agent`'s `set_task` no-ops, and three `_advance` tests here): the double
         that accepts more than the real thing turns its suite into a record of
         what the author expected rather than of what the collaborator promises.
         """

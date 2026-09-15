@@ -451,9 +451,9 @@ class Scheduler:
                 #
                 # **So the task succeeds.** `_main` is
                 # `if not failures: return self._report_planned()`, and with no
-                # gate failures there is nothing to report. I had written that
-                # the gate reports `OUTPUT_ABSENT` naming the wrong cause;
-                # `monitor` measured it and there is no report at all. Three
+                # gate failures there is nothing to report. **Not** an
+                # `OUTPUT_ABSENT` naming the wrong cause — measured, there is no
+                # report at all. Three
                 # locally-justified skips in series turn a task that published
                 # none of its declared outputs into a success.
                 log.warning(

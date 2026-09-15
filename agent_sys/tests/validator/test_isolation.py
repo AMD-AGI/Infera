@@ -170,10 +170,10 @@ def test_an_empty_agent_name_raises_rather_than_reading_as_absent(
     """`""` is **not** absent here: `_bound_environment` branches on `is None`,
     so an empty name falls through to the resolve and raises.
 
-    Pinned because I reported the opposite to `spec-loader` — that this side
-    quietly took the global row — and they measured my code and found it loud.
-    The wrong version made a shared argument look stronger than it was, and it
-    reached a test docstring in a third package before anyone ran it.
+    Pinned because the opposite is easy to believe — that this side quietly
+    takes the global row. It does not; it raises. A belief like that makes a
+    shared argument look stronger than it is, and it travels between packages
+    faster than anyone re-measures it.
 
     Where the belief came from is the part worth keeping. This package briefly
     had **two readers of the same key that disagreed on this input**: the

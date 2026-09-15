@@ -33,8 +33,8 @@ mechanism is coherent on its own, and they share one fact: **the path**.
 
 The shipped `env_mgr` — an environment manager driven by one YAML recipe,
 doing check / dry-run / install / bootstrap — is one of those pieces and is
-reused rather than reimplemented (§9). It is no longer held unchanged: §9's
-table says which modules this round moved and why.
+reused rather than reimplemented (§9). It is not held unchanged: §9's table
+says which modules moved and why.
 
 ### 1.2 In scope
 
@@ -742,8 +742,8 @@ Landlock-capable kernel, or the suite is red.
     out to encode a `claude plugin list` format the CLI does not produce, so the
     byte fence was holding a wrong test in place.
 
-    So the fence is retired, not quietly widened: the owner ruled this round a
-    design-level change, *"没用的测试去掉，该补的测试补上"*. What remains is the
+    So the fence is retired, not quietly widened: a design-level change was
+    ruled, *"没用的测试去掉，该补的测试补上"*. What remains is the
     second clause, which is the property anyone actually wanted — **the tests
     pass**, with the tests themselves corrected where they were wrong.
 

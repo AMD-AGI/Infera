@@ -543,7 +543,7 @@ def _check_validator_agents(regs: Registries) -> list[Problem]:
     — it takes the global row and is no fault at all.
 
     **Present-and-unresolvable is fatal, and the reason is not consistency with
-    check 4.** `validator` put the wrinkle well and then caught themselves on it:
+    check 4.** `validator` put the wrinkle well, and it is easy to get backwards:
     a validator whose agent does not resolve still has a working global-row
     environment, so it is *not* unusable the way a task with no agent is. True —
     and that is an argument about the **absent** case. An author who wrote

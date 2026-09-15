@@ -661,9 +661,9 @@ class TaskAttempt:
         > *No verdict reachable — its `entry.sh` crashed, its agent died, its own
         > inputs were missing. Nothing was decided.*
 
-        That is what `VALIDATION_UNREACHED` was always for, and `monitor` had to
-        tell me so: I had mapped it onto `PhaseOutcome.empty`, which is *"there
-        was nothing to check"* — a different sentence. Removing the wrong
+        That is what `VALIDATION_UNREACHED` was always for. It is **not**
+        `PhaseOutcome.empty`, which is *"there was nothing to check"* — a
+        different sentence, and the two are easy to conflate. Removing the wrong
         producer in F12 left the kind with no right one, and the cost was
         measured rather than argued: `validator/phase.py` raises in seven
         places, nothing here caught it, so it reached `_crash` and was reported
