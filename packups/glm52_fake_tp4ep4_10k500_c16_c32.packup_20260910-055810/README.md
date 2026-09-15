@@ -42,3 +42,11 @@ PYTHONDONTWRITEBYTECODE=1 python3 scripts/recompute_metrics.py
 - `provenance/source_manifest.json`, `MANIFEST.sha256`, [audit.md](audit.md): source mapping, SHA256s, audit scope and gaps.
 
 The source was copied, not moved or modified. All59 non-cache source files are retained, including full logs; compression is lossless. Image layers/archive, model weights and all JIT/Triton/Torch/HF caches are excluded as requested. This is a bounded reproduction kit, not an entire Git repository or the earlier long-run archive.
+
+## MANIFEST note (2026-09-15)
+
+`MANIFEST.sha256` was regenerated so it covers exactly the files actually delivered here, and
+`sha256sum -c MANIFEST.sha256` now passes. It previously listed `CLAUDE.md` and `history/CLAUDE.md`, which the repository-wide
+`.gitignore` kept out of git when this packup was committed — so the file was never present in a
+clone and cold verification always reported FAILED. Nothing was removed from the packup to make this
+pass; only the checksum list was brought in line with the contents.

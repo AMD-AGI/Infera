@@ -3,7 +3,7 @@
 **Ran:** 2026-09-10. **Packaged:** 2026-09-10. **Status:** all ten full points and two smokes passed their execution/count checks. Source unchanged; complete logs gzip-compressed with user approval. No GPU rerun during packaging.
 
 ## Goal
-Sweep TP4/EP4, global concurrency4/8/16/20/24, DPAoff/on, ISL70000, OSL10000, expected bonus-inclusive acceptance3.61. Real target/draft compute, real weights/routing, physical synthetic KV, no Scheduler/PD. Original task is preserved in [history/CLAUDE.md](history/CLAUDE.md), with [plan](evidence/plan.md) and full [process log](evidence/working_process.md).
+Sweep TP4/EP4, global concurrency4/8/16/20/24, DPAoff/on, ISL70000, OSL10000, expected bonus-inclusive acceptance3.61. Real target/draft compute, real weights/routing, physical synthetic KV, no Scheduler/PD. Original task is preserved in [CLAUDE.tp4-ep4-dpa-sweep.20260910-0624.md.bak](CLAUDE.tp4-ep4-dpa-sweep.20260910-0624.md.bak) (the predecessor task is under [history/](history/)), with [plan](evidence/plan.md) and full [process log](evidence/working_process.md).
 
 | Concurrency | DPA off TPOT ms | DPA on TPOT ms | Off output tok/s | On output tok/s |
 |---:|---:|---:|---:|---:|

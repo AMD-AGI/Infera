@@ -100,3 +100,11 @@ Excluded from this packup to keep it committable (671 KB):
 The `noep_dpa_on_c24_orphan_driver_yihou` point is included in `evidence/points/` for completeness:
 it is the driver-killed C=24 run that has a valid result but **no** `launch_status.json`, and is
 therefore excluded from every table. See `notes.md`.
+
+## MANIFEST note (2026-09-15)
+
+`MANIFEST.sha256` was regenerated so it covers exactly the files actually delivered here, and
+`sha256sum -c MANIFEST.sha256` now passes. It previously listed `spec/mission.md`, which the repository-wide
+`.gitignore` kept out of git when this packup was committed — so the file was never present in a
+clone and cold verification always reported FAILED. Nothing was removed from the packup to make this
+pass; only the checksum list was brought in line with the contents.

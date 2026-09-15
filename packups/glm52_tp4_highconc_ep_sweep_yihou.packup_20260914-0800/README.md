@@ -119,3 +119,11 @@ Excluded to keep this packup committable (1.3 MB, largest file 25 KB):
 The user was asked twice whether to package this experiment and did not reply, so a conservative
 default was taken — logs are included **gzipped**, no file exceeds 4 MB, and every exclusion is
 listed above. Say the word and any of it can be changed.
+
+## MANIFEST note (2026-09-15)
+
+`MANIFEST.sha256` was regenerated so it covers exactly the files actually delivered here, and
+`sha256sum -c MANIFEST.sha256` now passes. It previously listed `logs/imgload_254.log`, `logs/imgload_267.log` and `spec/mission.md`, which the repository-wide
+`.gitignore` kept out of git when this packup was committed — so the file was never present in a
+clone and cold verification always reported FAILED. Nothing was removed from the packup to make this
+pass; only the checksum list was brought in line with the contents.
