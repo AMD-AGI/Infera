@@ -257,7 +257,7 @@ replay_root.py --out <dir> --run <run> [--run <run> ...] [--kind K ...]
   平均掉。
 - **曾被当成"免费安全网"的那条，实测不成立。** 这里一度写着
   `check_environment` 的 `compare_fixed_across_inputs` 会让"来自另一台节点的注入
-  handoff"当场被拒。**它不会。** m5 实测（`270710f`、`5458dfd`）：
+  handoff"当场被拒。**它不会。** 实测：
   每个下游 handoff 都用 `env_render --inherit <被 replay 的 kit>` 渲染自己的记录，
   所以 `node`/`gpu_arch`/`image_id`/`model_path` 四个字段**全是从 replay 里拷来的**、
   彼此一致、比对通过——在一台这次运行没有使用的节点上。又一个 §0 §4.6：**比较看不见

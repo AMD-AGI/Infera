@@ -10,9 +10,8 @@ Three jobs, in cost order:
 
 1. **The document validates** against `assets/schemas/kernel_optimization.json`
    — the same file the producer was handed (mission G2, *该 schema 同时暴露给
-   producer & validator*). Most of what a shape check used to hand-roll is a
-   schema problem now, and the parts that stayed are the parts a schema cannot
-   express.
+   producer & validator*). Most of what a shape check would hand-roll is a
+   schema problem, and what is left here is what a schema cannot express.
 2. **The document agrees with the workset it says it came from.** The workset
    travels inside the handoff as `results/workset.snapshot.yaml`, and every
    premise field, entrypoint, protocol figure and integration point in the
@@ -202,14 +201,13 @@ def _same(label: str, expected, actual, problems: list[str]) -> None:
     explain.** This reported that two values differ and nothing else, which is
     exactly enough to know something is wrong and not enough to know what.
 
-    Twice on 2026-09-04 that cost runs. `entry_function`: the producer read
-    `integration.public_symbol` while this compared against
-    `edit_target.entry_function`, and the message said only that `''` differed.
-    `protocol.timing`: `d08047b` widened this schema's enum to five values while
-    m3 narrowed the workset's to one, four hours apart — **neither commit wrong
-    in isolation, and no review of either would have caught it** — so four
-    values validated here and could never match there, reported as two strings
-    differing.
+Two instances, both of which cost runs. `entry_function`: a producer reading
+    `integration.public_symbol` against a check comparing
+    `edit_target.entry_function`, with the message saying only that `''`
+    differed. `protocol.timing`: this schema's enum widened to five values while
+    the workset's narrowed to one — **neither change wrong in isolation, and no
+    review of either would catch it** — so four values validate here and can
+    never match there, reported as two strings differing.
 
     So: name the differing **keys** rather than dumping two dicts, and when both
     ends declare a vocabulary for a differing scalar, print both. A reader
@@ -296,17 +294,16 @@ def _substitution_matches_apply_mode(packup, operator: dict, doc: dict,
     never seen an artefact the graph produced. Refusing here would stop the flow
     at stage 4 and keep it that way — buying an earlier message at the cost of
     the only chance to exercise them on something nobody chose. A gate that has
-    never fired is not a gate, and that argument applies to *theirs* before it
-    applies to mine. Leader's ruling, 2026-09-04: let rung 0 reach m5, then arm
-    this so the failure names the operator's own declaration instead of arriving
-    two stages downstream.
+    never fired is not a gate, and that argument applies to m5's gate before it
+    applies to this one. So: let a run reach m5 first, then arm this so the
+    failure names the operator's own declaration instead of arriving two stages
+    downstream.
 
     **Written now and left inert on purpose**, because *"once they have spoken,
     the gate belongs at m4"* is the kind of intention that dies when the day
     ends. Written-and-disabled survives a handover; a note does not.
 
-    **To arm it:** set `_ENFORCE_SUBSTITUTION_PAIR = True`. Nothing else — the
-    precondition that used to sit here is discharged.
+    **To arm it:** set `_ENFORCE_SUBSTITUTION_PAIR = True`. Nothing else.
 
     **`False` here means *not yet*, not *abandoned*.** If rung 4 is skipped this
     round the work does not expire: the moment M5.1.1 is resolved and the
@@ -317,12 +314,11 @@ def _substitution_matches_apply_mode(packup, operator: dict, doc: dict,
     is worse than one — not because the check is doubted. It has been
     demonstrated firing against a real artefact.
 
-    m3's `51af864` widened `module_symbols` to include module-level assignments
-    (`logger`, `SGLANG_RETURN_ORIGINAL_LOGPROB`, `SYNC_TOKEN_IDS_ACROSS_TP` in
+    `module_symbols` includes module-level assignments (`logger`,
+    `SGLANG_RETURN_ORIGINAL_LOGPROB`, `SYNC_TOKEN_IDS_ACROSS_TP` in
     `sampler.py`), which is what closes m5's 12 against m3's 9. `declared` below
-    now carries those; `defined` is still built from `def`/`async def`/`class`
-    only. **So the two sides of `declared ∩ defined` are extracted by different
-    rules.**
+    carries those; `defined` is built from `def`/`async def`/`class` only. **So
+    the two sides of `declared ∩ defined` are extracted by different rules.**
 
     **Harmless today and not harmless when armed.** m3 checked the direction and
     they are right: adding names to `declared` that `defined` cannot contain can
@@ -339,10 +335,10 @@ def _substitution_matches_apply_mode(packup, operator: dict, doc: dict,
     A gate about imports that ignores importable names is measuring the wrong
     surface.
 
-    **Mirrored, and by import rather than by copy.** m3 lifted the rule to
-    `assets/lib/module_symbols.py` (`eccc65a`), so this file is the third caller
-    of one function instead of the third copy of one idea — §4.1. Their `SNIPPET`
-    is `inspect.getsource` of the same functions, so the text their producers
+    **Mirrored, and by import rather than by copy.** The rule lives in
+    `assets/lib/module_symbols.py`, so this file is the third caller of one
+    function instead of the third copy of one idea — §4.1. `SNIPPET` is
+    `inspect.getsource` of the same functions, so the text the producers
     base64 into a container and the callable this validator imports **cannot
     disagree**: there is no pair to keep in step.
     """
@@ -368,13 +364,12 @@ def _substitution_matches_apply_mode(packup, operator: dict, doc: dict,
         candidate = Path(packup) / relative
         if not candidate.is_file():
             continue
-        # **m3's shared rule, imported rather than re-implemented.** Both
-        # sides of `declared ∩ defined` must count the same things or the
-        # comparison is between two different surfaces — and `51af864` widened
-        # the producer to include module-level assignments while this still
-        # took `def`/`class` only. `eccc65a` lifted the rule to
-        # `assets/lib/module_symbols.py` so the third caller is an import and
-        # not a third copy (§4.1).
+        # **The shared rule, imported rather than re-implemented.** Both sides
+        # of `declared ∩ defined` must count the same things or the comparison is
+        # between two different surfaces — and a producer including module-level
+        # assignments against a check taking `def`/`class` only is exactly that.
+        # `assets/lib/module_symbols.py` holds the rule so the third caller is an
+        # import and not a third copy (§4.1).
         try:
             defined |= set(module_symbols(candidate.read_text(encoding="utf-8")))
         except (OSError, SyntaxError) as error:
@@ -749,10 +744,10 @@ def _check_apply(doc: dict, packup: Path, problems: list[str]) -> None:
         # the part they share rather than by a mapping this body would have to
         # hard-code and keep in step with `container_roots.yaml`.
         #
-        # `_same_file` is the shared reader. It used to be this expression alone
-        # while `integration_point.source_file` was compared strictly, and the
-        # two disagreeing is the fault §4.3 names — so the rule lives in one
-        # function now rather than in one function and one inline expression.
+        # `_same_file` is the shared reader. This expression alone, beside a
+        # strict comparison of `integration_point.source_file`, is the
+        # two-disagreeing fault §4.3 names — so the rule lives in one function
+        # rather than in one function and one inline expression.
         if declared and container_path:
             tail = container_path.split("@", 2)[-1].lstrip("/")
             if not _same_file(declared, tail):
@@ -770,11 +765,11 @@ def _check_apply(doc: dict, packup: Path, problems: list[str]) -> None:
         # above is packup-relative. The two siblings genuinely differ**, because
         # `apply.py` do `apply_dir / "patches" / entry["patch"]`.
         #
-        # This read `packup / patch` and was correct until `0712fbc`, when I
-        # narrowed the schema from `^apply/patches/….patch$` to a bare name so
-        # the producer and the applier would agree. **That fix made two of three
-        # agree and left this one behind** — rung 0 then refused a manifest
-        # whose patch file was present, at
+        # Reading `packup / patch` is correct only while the schema spells the
+        # field `^apply/patches/….patch$`. Narrowing it to a bare name so the
+        # producer and the applier agree **makes two of three agree and leaves
+        # this one behind** — the manifest is then refused with its patch file
+        # present, at
         # `apply/patches/sampler_vocab_softmax.patch`, with *"which is not in
         # the packup"*. The refusal was right about the rule and wrong about the
         # world, which is why it cost a run to find.

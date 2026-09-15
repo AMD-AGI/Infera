@@ -106,9 +106,9 @@ PY
 # This was `: "${E2E_JOBID:=<from record>}"`, so an inherited `E2E_JOBID` won
 # and the measurement could happen on a node the record does not name — with
 # nothing noticing, because the evidence records where it *ran* and the premise
-# records where it *claims*. Found by simulating the post-fix graph: the record
-# said node 061 / job 106250, my producer run carried E2E_JOBID=106253, and it
-# measured on 031 while the artefact said 061.
+# records where it *claims*. Measured by simulating the graph: the record names
+# one node and job, an inherited `E2E_JOBID` names another, and the measurement
+# happens on the second while the artefact says the first.
 #
 # That is the whole failure this script exists to prevent, one level up from
 # the image: evidence about a machine the handoff does not describe. So a
@@ -131,20 +131,19 @@ export E2E_NODE E2E_JOBID E2E_TRANSPORT
 
 # **Every identifier bound on a shared host is a parameter** (CONTRACT §5.2).
 # The card especially: five owners share the held nodes, and which cards are
-# free changes between rungs — this line used to name GPU 0 as m1's, and by the
-# time it was read the held set was 0-3 with 4-7 free. A site fact asserted in a
-# comment is a site fact nothing validates (m1's T19). `rocm-smi` immediately
-# before use is the only reading that is current.
+# free changes between runs — a comment naming GPU 0 as one stage's goes stale
+# the moment the held set moves. A site fact asserted in a comment is a site
+# fact nothing validates (T19). `rocm-smi` immediately before use is the only
+# reading that is current.
 #
-# **No default, and this is T19 closed on my side.** It was `:=4`, and card 4
-# is a real card on every node this package has touched. m4 refused to declare
-# one for the same reason and was right: *a card as a package default makes a
-# consumer's refuse-when-empty guard unreachable*, and mine was the consumer
-# that defaulted where theirs refused.
+# **No default, which is T19 closed on this side.** A `:=4` names a real card on
+# every node this package has touched, and *a card as a package default makes a
+# consumer's refuse-when-empty guard unreachable* — so the consumer refuses and
+# this does not default.
 #
-# The measured cost of defaulting: 2026-09-04, all eight cards on 006 were at
-# 75% under a bring-up that declared no `HIP_VISIBLE_DEVICES`, and this stage
-# would have measured on card 4 regardless. **The bad outcome is the quiet
+# The measured cost of defaulting: with all eight cards at 75% under a bring-up
+# that declared no `HIP_VISIBLE_DEVICES`, this stage would measure on card 4
+# regardless. **The bad outcome is the quiet
 # one** — not an OOM, which is loud, but timings contaminated by a co-tenant.
 # `check_workset_runs` re-measures on the same card, gets the same
 # contamination, and *agrees*: two honest measurements, both wrong, gate green.
@@ -182,11 +181,11 @@ fi
 # also see". A second literal for `/home` would be the same defect with a
 # longer list, so this asks the node.
 #
-# **And the helper already existed.** `remote.sh:require_visible_on_node` has
-# done exactly this since before I wrote the literal, with six callers across
-# four other owners' scripts and a header comment that already says the run root
-# being NFS is "a fact about this cluster, not about agent_sys, so it is checked
-# rather than assumed". CONTRACT §4.1: shared things are shared, not re-solved.
+# **And the helper already exists.** `remote.sh:require_visible_on_node` does
+# exactly this, with six callers across other stages' scripts and a header
+# comment saying the run root being NFS is "a fact about this cluster, not about
+# agent_sys, so it is checked rather than assumed". CONTRACT §4.1: shared things
+# are shared, not re-solved.
 #
 # **Visibility is probed; what may be *mounted* is a measured list**, and the
 # block below says why the two are not the same question. Being able to see a
@@ -194,17 +193,18 @@ fi
 # **Establish the transport before asking it a question**, because
 # `require_visible_on_node` cannot tell the two apart.
 #
-# Measured 2026-09-04: with a deliberately bad `E2E_TRANSPORT`, that helper
-# reports `the workset is not visible on : <home>` — for a path that
+# Measured: with a deliberately bad `E2E_TRANSPORT`, that helper reports
+# `the workset is not visible on : <home>` — for a path that
 # plainly is. It runs `on "test -e …" >/dev/null 2>&1` and treats **any**
 # non-zero as absence, so an unset `E2E_JOBID`, a dead allocation, a spur error
 # and a genuinely missing path all produce the same sentence. That is the day's
 # own pattern one level in: **a plausible explanation attached to a failure it
 # did not produce**, and it is worse than no message, because it sends the
-# reader to fix a run root that is already correct. It sent the package owner there.
+# reader to fix a run root that is already correct.
 #
-# The helper is `assets/lib/remote.sh`, shared with six callers and not mine to
-# change. What is mine is not relaying its guess: a reachability probe first,
+# The helper is `assets/lib/remote.sh`, shared with six callers and not this
+# script's to change. What is this script's is not relaying its guess: a
+# reachability probe first,
 # with the transport's **actual** stderr, so "the node is unreachable" and "the
 # node cannot see this path" are two different messages again.
 if ! _probe=$(on "true" 2>&1); then
@@ -240,37 +240,33 @@ require_visible_on_node "$ROOT" "workset" || exit 1
 # **These two forms are what was measured working, and nothing else is
 # guessed.** Anything outside them refuses here, naming both, rather than
 # arriving as an authorization denial in the middle of a measurement.
-# **Derived from `$ROOT`, never from `$HOME`.** This read
-# `${E2E_REMOTE_HOME:-$HOME}` and the mount came out `-v /home:/home`, the one
-# form the plugin explicitly refuses — and the refusal quoted my own instruction
-# to *extend this case with a form you have seen the daemon accept*.
+# **Derived from `$ROOT`, never from `$HOME`.** Reading
+# `${E2E_REMOTE_HOME:-$HOME}` produces the mount `-v /home:/home`, the one form
+# the plugin explicitly refuses — and the refusal quotes this file's own
+# instruction to *extend this case with a form you have seen the daemon accept*.
 #
-# **This comment used to say `$HOME` is `/home` in a validation zone. That was a
-# fitted parameter, not a measurement**, and it is corrected rather than deleted
-# because the correction is the useful part. I never echoed `$HOME` anywhere; I
-# picked the value that would explain the mount string I had. `HOME=/home` does
-# explain it — and `validator/environment.py` sets a validator's `HOME` to
-# `<zone>/home`, under which this code would have taken the *refusal* branch
-# instead. **So the two do not reconcile and the real value is still unknown**:
-# either that denial came from a task body rather than the validator, or the
-# harness config puts `HOME` back over the zone's. `todo.md` T42 carries the
-# open question.
+# **What `$HOME` actually is in a validation zone is not settled.**
+# `validator/environment.py` sets a validator's `HOME` to `<zone>/home`, under
+# which this code would take the *refusal* branch; a denial quoting `/home`
+# therefore came either from a task body rather than a validator, or from a
+# harness config that puts `HOME` back over the zone's. `todo.md` T42 carries
+# the open question. Fitting a value that explains the observed mount string is
+# not measuring one.
 #
 # None of which changes the fix, and that is the point: the derivation below
 # reads `$ROOT` and no ambient value, so it is correct under every candidate
 # answer. **A fix that does not depend on the disputed fact is worth more than
 # winning the dispute.**
 #
-# **I built a bound identifier out of an ambient value**, which is the mistake
+# **The mistake is building a bound identifier out of an ambient value**, which
 # this file already carries two other corrections for: `_agree_or_die` exists
-# because an ambient `E2E_JOBID` outvoted the record, and the guard above exists
-# because a literal path outlived its mount. `$HOME` is the same class — it
-# describes whoever is running, not the artefact, and a validator runs as
+# because an ambient `E2E_JOBID` can outvote the record, and the guard above
+# exists because a literal path outlives its mount. `$HOME` is the same class —
+# it describes whoever is running, not the artefact, and a validator runs as
 # nobody in particular.
 #
 # `$ROOT` is a fact about the workset and is right in every caller. `/home/<user>`
-# from it is the form measured accepted on 006 (`b9849a7`, `torch 2.9.1` back
-# from inside the container) and again on 234 and 249.
+# derived from it is the form measured accepted.
 #
 # `E2E_REMOTE_HOME` is still honoured when **explicitly set** — an operator
 # naming a home is stating a fact; `$HOME` defaulting to `/home` was not.
@@ -295,16 +291,13 @@ case "$ROOT" in
       # line has to. Marking them keeps the pattern that made this message
       # useful — name the forms you have *seen* accepted — without the half
       # that made it travel wrongly.
-      # **Each row says who established it, and that is checkpoint's finding
-      # rather than mine.** Marking these `ref:` fixed *catalogue vs event*; it
-      # did nothing for *observed vs relayed*, and the phantom `/home` defect
-      # travelled three people precisely because every marker said who reported
-      # a thing and none said whether they had measured it. Two of the three
-      # rows below are somebody else's measurement, and until now the table
-      # said "(measured)" as though they were all mine.
-      echo "    ref: -v \$HOME:\$HOME              accepted   (m3 measured, 006)" >&2
-      echo "    ref: -v /shared_nfs:/shared_nfs   accepted   (relayed: leader measured)" >&2
-      echo "    ref: -v /home:/home               refused    (relayed: leader measured, 243)" >&2
+      # **Each row says whether it was measured here or relayed.** Marking
+      # these `ref:` fixes *catalogue vs event*; it does nothing for *observed
+      # vs relayed*, and a phantom mount claim travels precisely because a
+      # marker says who reported a thing and not whether they measured it.
+      echo "    ref: -v \$HOME:\$HOME              accepted   (measured here)" >&2
+      echo "    ref: -v <shared mount>            accepted   (relayed)" >&2
+      echo "    ref: -v /home:/home               refused    (relayed)" >&2
       echo "    (the three rows above are a catalogue, NOT what this run did)" >&2
       echo "  Point --demo-root at one of the two, or set E2E_REMOTE_HOME, or extend this" >&2
       echo "  case with a form you have SEEN the daemon accept — not one you expect it to." >&2
@@ -358,14 +351,13 @@ fi
 echo "measure_in_container: $IMAGE on GPU $E2E_MEASURE_GPU as $E2E_MEASURE_CONTAINER"
 echo "measure_in_container: starting the container; the next line comes from inside it"
 
-# **`--rm` is not a teardown, and `41c8540` is why.** A cancelled Slurm hold does
-# not reclaim its GPUs: containers talk to the *host* daemon, so they outlive the
-# job. Job 109192 was cancelled 28 minutes into 8 hours and fifteen minutes later
-# all four containers were still `Up` and serving. `--rm` covers the case where
-# docker exits on its own; it covers nothing if this script is killed, if the
-# `spur exec` is interrupted, or if the runner's stall detector ends the task
-# while timing is in progress — and holds were cancelled four times today, at
-# 5 h, 1 h 21 m and 28 minutes. An abandoned measurement container then holds a
+# **`--rm` is not a teardown.** A cancelled scheduler hold does not reclaim its
+# GPUs: containers talk to the *host* daemon, so they outlive the job — measured
+# at fifteen minutes past a cancellation with all four containers still `Up` and
+# serving. `--rm` covers the case where docker exits on its own; it covers
+# nothing if this script is killed, if the remote exec is interrupted, or if the
+# runner's stall detector ends the task while timing is in progress, and a hold
+# can be cancelled at any point. An abandoned measurement container then holds a
 # card for the rest of someone else's reservation.
 #
 # So teardown is a trap and not a following line, and the flag is what keeps the
@@ -458,8 +450,8 @@ CMD_B64=$(printf '%s' "{ $COMMAND ; } ; rc=\$? ; chown -R $(id -u):$(id -g) '$RO
 
 # `PYTHONDONTWRITEBYTECODE=1` keeps root-owned `.pyc` out of the handoff.
 #
-# **`TMPDIR` and `TRITON_CACHE_DIR` are m4's guard, adopted after measuring
-# that I do not currently need it.** Their reason: Triton defaults to
+# **`TMPDIR` and `TRITON_CACHE_DIR` are m4's guard, adopted here after measuring
+# that this image does not currently need it.** Their reason: Triton defaults to
 # `$HOME/.triton`, and on a host where `$HOME` is an NFS mount a container
 # user's writes there fail *silently*; and a `TMPDIR` naming a directory that
 # does not exist segfaults every HIP launch while `torch.cuda.is_available()`
@@ -468,8 +460,8 @@ CMD_B64=$(printf '%s' "{ $COMMAND ; } ; rc=\$? ; chown -R $(id -u):$(id -g) '$RO
 # Measured inside this image: `HOME=/root`, on the container's own overlay,
 # writable — so neither reaches NFS and the failure cannot occur here. **Set
 # anyway, because that is a property of this image and not of the contract.**
-# I mount `/home/<user>`, so an image whose `HOME` sat under that mount would
-# put the Triton cache on NFS and I would find out as unexplained compile time
+# This script mounts `/home/<user>`, so an image whose `HOME` sat under that
+# mount would put the Triton cache on NFS, surfacing as unexplained compile time
 # inside warmup, which is invisible. Two flags cost nothing and remove the
 # dependency on an image's environment.
 #

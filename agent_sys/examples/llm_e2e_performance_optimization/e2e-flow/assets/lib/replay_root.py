@@ -28,9 +28,9 @@ source directory, in a layout `mock.sh` already reads.
 ## What it refuses to do
 
 **Read the store, do not pattern-match paths, and refuse rather than pick.**
-m2's `kit_env.sh` established the idiom this afternoon after the one-liner it
-replaced turned out to be a coin flip between three handoffs; its header has the
-measurements and they are not repeated here. Two consequences copied verbatim:
+`kit_env.sh` establishes the idiom, because the one-line alternative is a coin
+flip between three handoffs; its header has the measurements and they are not
+repeated here. Two consequences copied verbatim:
 
 * the `<run>/handoffs/<id>/v*` glob is structurally the first filter — 14 of 17
   path matches on a full tree are staged copies under `zones/` and validation
@@ -66,9 +66,9 @@ distribution**, never averaged away:
                                      check_workset_shape] | 1x [check_environment]
 
 **The count is what makes it readable**, and it is there because the resolving
-signal does not exist. A 20-to-1 split is an outlier — m2 traced this one to a
-run killed mid-validation, whose partial `validation.yaml` froze permanently —
-and a 10-to-11 split is a real divergence. Telling them apart from the run tree
+signal does not exist. A 20-to-1 split is an outlier — traceable to a run killed
+mid-validation, whose partial `validation.yaml` froze permanently — and a
+10-to-11 split is a real divergence. Telling them apart from the run tree
 is impossible: excluding `invalid` would discard *refused after a full pass*,
 which is the most informative case, and **the task store's `status` is never
 finalised** — measured across 36 runs, every one of them, including clean
@@ -86,9 +86,9 @@ three stages later. It was designed for something else entirely.
 
 ### Two things that guard does NOT cover, and the second is not obvious
 
-**A DIFFERENT NODE, and this corrects what this docstring used to claim.**
-`compare_fixed_across_inputs` was credited above with catching an injected
-handoff from another node. **It does not, for a replayed root** — measured:
+**A DIFFERENT NODE.** `compare_fixed_across_inputs` looks like it catches an
+injected handoff from another node. **It does not, for a replayed root** —
+measured:
 every downstream handoff renders its record with `env_render --inherit <the
 replayed kit>`, so all four compared fields are copied from the replay and
 **agree with each other**, on a node the run is not using:
@@ -121,9 +121,9 @@ one flag:
     --cuda-graph-bs-decode max 16   ITL  9.31 ms   1649 tok/s
 
 **4.5x on decode**, and `node`, `gpu_arch`, `image_id` and `model_path` are all
-identical across those two runs. m1 swept every kit: there is **no default** —
-the producing agent writes the ceiling fresh at each bring-up, and four real runs
-chose 16, 16, 8, 32.
+identical across those two runs. Swept across every kit: there is **no
+default** — the producing agent writes the ceiling fresh at each bring-up, and
+four real runs chose 16, 16, 8, 32.
 
 So **an injected kit can pass `compare_fixed_across_inputs` and still deploy an
 engine 4.5x slower than the one the numbers beside it came from**, which
@@ -224,9 +224,8 @@ def rewrite_environment(record: dict, source_run: str) -> list[str]:
     A replayed kit carries the *old* job id; a debug run has a new one; both
     non-empty, both different — so m3 and m4 refuse with
     *"slurm_jobid is 'X' in the environment and 'Y' in the record"*, which reads
-    as a misconfigured launch and not as an artefact of injection. m1 found this
-    and it is the one failure that would have looked like somebody else's
-    defect.
+    as a misconfigured launch and not as an artefact of injection — the one
+    failure here that would look like somebody else's defect.
 
     **Blanking is the fix, not rewriting.** `_agree_or_die` returns the ambient
     value when the record's is empty, so an absent `slurm_jobid` lets the debug
@@ -236,8 +235,8 @@ def rewrite_environment(record: dict, source_run: str) -> list[str]:
 
     ## `fixed.node` is deliberately NOT rewritten
 
-    m1 suggested rewriting it when the node moves. **Declining, and saying so
-    rather than doing it silently:** the replayed artefact really was produced
+    Rewriting it when the node moves is the obvious move. **Declined, and said
+    so rather than done silently:** the replayed artefact really was produced
     on the old node, and rewriting the field would make the record claim a
     measurement happened somewhere it did not. Letting `_agree_or_die` and
     `check_environment`'s `compare_fixed_across_inputs` refuse is the correct
@@ -246,13 +245,13 @@ def rewrite_environment(record: dict, source_run: str) -> list[str]:
 
     ## `runtime.container` is made unresolvable on purpose
 
-    m1's sharpest point, and the only silent failure in the set. Container names
-    carry a run tag, but not uniformly — one 2026-09-04 kit used a date-only tag
-    — so a replayed name **can resolve to a live container that is a different
+    The sharpest point, and the only silent failure in the set. Container names
+    carry a run tag, but not uniformly — a date-only tag is enough to collide —
+    so a replayed name **can resolve to a live container that is a different
     process**. Then `docker inspect` succeeds, node/jobid/transport all agree,
-    and m4 execs into the wrong container with every field validating. m1 hit
-    exactly that on 2026-09-04 for an unrelated reason: the record said
-    `started_at: 09:03:51Z` while docker reported `StartedAt: 09:37:18Z` with
+    and m4 execs into the wrong container with every field validating. The same
+    shape arises without injection: a record saying
+    `started_at: 09:03:51Z` while docker reports `StartedAt: 09:37:18Z` with
     `RestartCount: 0`.
 
     A name that **cannot** resolve takes m4's ephemeral path
@@ -290,12 +289,11 @@ def rewrite_environment(record: dict, source_run: str) -> list[str]:
     # field rather than a new one.
     #
     # `runtime.additionalProperties` is `true`, so setting it validates —
-    # checked, because an undeclared field under a closed object is the trap m4
-    # hit with `base_sha256_from` this afternoon.
-    # **A replay of a replay must not erase the first one.** Found by running
-    # m1's typo test against a real kit: rung 1's `deploy_kit` *already* carried
-    # `replayed_from: /shared_nfs/…/cheat_for_mock/stage1-deploy/deploy_kit`,
-    # because that run mocked stage 1 from the sealed corpus. Overwriting it
+    # checked, because an undeclared field under a closed object is the trap
+    # `base_sha256_from` walks into.
+    # **A replay of a replay must not erase the first one.** A kit can *already*
+    # carry a `replayed_from` pointing at the sealed corpus, because the run that
+    # produced it mocked stage 1 from there. Overwriting it
     # collapses `sealed corpus -> run X -> here` into `run X -> here`, which
     # tells a reader the numbers came from a real bring-up one hop back when
     # they never came from one at all.
@@ -684,12 +682,12 @@ def stability(rows: list[dict], threshold: int) -> tuple[bool, str]:
         prov += f", {len(unknown)} with no recorded discriminator"
     if not rows:
         # **"cannot tell" and "did not happen" are different sentences**, and
-        # the message used to give the second for both. The package owner caught it:
-        # for `profiling_mode_off.bench_result` *no run executed this for real*
-        # is true — but true because rung 2b exited before sealing, **not
-        # because the discriminator said so**. A reader skimming would take an
-        # inference for a measurement, which is T49 in a new place, in a tool
-        # whose whole subject is telling those apart.
+        # one message for both gives the second. For
+        # `profiling_mode_off.bench_result`, *no run executed this for real* can
+        # be true because a run exited before sealing, **not because the
+        # discriminator said so**. A reader skimming takes an inference for a
+        # measurement, which is T49 in a new place, in a tool whose whole subject
+        # is telling those apart.
         #
         # So: only claim the conclusion where a discriminator produced it.
         if unknown and not mocked:
@@ -715,9 +713,9 @@ def stability(rows: list[dict], threshold: int) -> tuple[bool, str]:
     # **The distribution, not just the distinct sets** — and the reason is a
     # signal that turned out not to exist.
     #
-    # m2 chased the `operator_workset` outlier I flagged: **one run of 21**,
-    # `20260904T075753-e4f7ba`, killed mid-validation so that
-    # `check_environment` recorded and the other two never did. Its partial
+    # The `operator_workset` outlier is **one run of 21**, killed
+    # mid-validation so that `check_environment` recorded and the other two
+    # never did. Its partial
     # `validation.yaml` is frozen that way permanently — the same race as a
     # live run's partial read, except a live one disappears and a killed one
     # looks like a wiring difference forever.
@@ -959,11 +957,12 @@ def main() -> int:
     # **This hazard was real and is fixed at the source; the guard below is a
     # regression tripwire, not a live check.**
     #
-    # `mock_adapt.sh` used to swap `deploy.sh`, `wait_ready.sh` and `teardown.sh`
-    # for `check_deploy_serves`'s stub whenever stage 1 was mocked, keeping the
-    # originals under `scripts/sealed/`. Skip-ahead promotes stage 1 **by**
-    # mocking it, so every kit this tool materialised inherited a `deploy.sh`
-    # that bound a port in about a second and answered 404.
+    # A `mock_adapt.sh` that swaps `deploy.sh`, `wait_ready.sh` and
+    # `teardown.sh` for `check_deploy_serves`'s stub whenever stage 1 is mocked,
+    # keeping the originals under `scripts/sealed/`, poisons every kit this tool
+    # materialises: skip-ahead promotes stage 1 **by** mocking it, so the kit
+    # inherits a `deploy.sh` that binds a port in about a second and answers
+    # 404.
     #
     # Measured 2026-09-05, before the fix: rung 2h's `run_profiling_mode_on`
     # came up in `1s` against `stub_yihou_e2e_flow_pmon`, probed 404, exited 1,
@@ -972,9 +971,9 @@ def main() -> int:
     # `Error response from daemon: No such container: stub_…` — **and passed all
     # three of its validators.**
     #
-    # m1 fixed it at the producer in `8b3c912`, *"the stub goes beside the kit,
-    # not over it"*: the stub now lands in `scripts/stub/` and `mock_adapt.sh`
-    # says **"`scripts/` is untouched and real … byte for byte."** So a replayed
+    # The producer-side fix is *"the stub goes beside the kit, not over it"*:
+    # the stub lands in `scripts/stub/` and `mock_adapt.sh` says
+    # **"`scripts/` is untouched and real … byte for byte."** So a replayed
     # kit's entrypoints are the real ones and there is nothing to warn about.
     #
     # The old detector keyed on `scripts/sealed/`, which no longer exists — so
@@ -994,7 +993,7 @@ def main() -> int:
         sys.stdout.flush()
         print("\nreplay_root: WARNING a replayed kit's `scripts/deploy.sh` sources "
               f"`stub_env.sh`: {', '.join(stubbed)}"
-              "\n  That is the pre-`8b3c912` arrangement, where the stub overwrote the real "
+              "\n  That is the arrangement where the stub overwrites the real "
               "entrypoint. It binds a port in about a second and answers 404; it is NOT the "
               "engine, and a stage that DEPLOYS from this kit will fail in a way that looks "
               "like that stage's defect."

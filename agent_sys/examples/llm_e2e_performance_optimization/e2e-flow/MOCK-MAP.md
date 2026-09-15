@@ -17,10 +17,9 @@ through a model, so the moment m1, m3, m4 and m5 promoted their leaves from the
 skeleton's `agent: runner` to a real AI agent, those four went off the mock path
 entirely — `assets/lib/mock.sh` was still there and was never reached.
 
-Measured, and it is why this section exists: the first full mock run sat at
-`deploy_and_prove: running` while an AI deployment agent prepared to bring a
-model up **for real**, on the node passed in `--var`. Stopped by hand; the node
-was checked and nothing had been created.
+Measured, and it is why this section exists: a full mock run sits at
+`deploy_and_prove: running` while an AI deployment agent prepares to bring a
+model up **for real**, on the node passed in `--var`.
 
 So each of the four declares `agent: '${m<N>_agent:-<the real agent>}'`, and a
 mock run swaps them:
@@ -74,13 +73,12 @@ schema returns eight problems.
 That is the schema doing its job, not an oversight. A mock therefore **renders**
 an `environment.yaml` from the sealed record plus the run's own `--var`s. One
 renderer, `assets/lib/env_render.py`, used by every mock and by every real
-producer — **owner: leader**, since it is the one piece all fifteen kinds share.
+producer — shared, because all fifteen kinds depend on it.
 
 ### (B) the sealed `kernel_table` is `reproducible`; the kind is `structured_text`
 
-**Corrected — the original row here was wrong**, and it named the
-wrong handoff. Found by m2, verified: the sealed
-`stage2-profiling/kernel_table` carries `items/{command,env,logs,result,
+**Named precisely, because the obvious reading names the wrong handoff.** The
+sealed `stage2-profiling/kernel_table` carries `items/{command,env,logs,result,
 watchout}`, which is `reproducible`. CONTRACT §1 declares the kind
 `structured_text`, whose items are `text.json`/`text.yaml`/`text.xml`/`schema`
 plus whatever the kind declares.
@@ -97,9 +95,9 @@ exists to fix.
 
 ### (H) `profiling_evidence` has no mock, and should not have one
 
-m2's call, and a better one than mine. The merge's four inputs are already
-mocked upstream, so `merge_profiling_evidence` can perform **the real merge** in
-every mode — mock, staged and real alike.
+The merge's four inputs are already mocked upstream, so
+`merge_profiling_evidence` can perform **the real merge** in every mode — mock,
+staged and real alike.
 
 Two things that buys, and both matter more than the convenience:
 
@@ -214,9 +212,9 @@ its own threshold.
 
 ### (G) the sealed `kernel_optimization` has no `apply` and no `premise`
 
-Found by m4, and it is structural rather than a detail to patch.
+Structural rather than a detail to patch.
 
-That run was `KFO_MOCK=1`: no campaign, no optimised kernel, `mean_case_speedup:
+That run is `KFO_MOCK=1`: no campaign, no optimised kernel, `mean_case_speedup:
 1.0` by construction. `operator` and the evidence half are there; `workset_ref`
 survives only as a UUID in prose in `README.md`; **`apply` and `premise` do not
 exist in any form**, because there was nothing to apply. And a reconstructed
@@ -284,7 +282,7 @@ both directions" for this package.**
 
 ### (J) 11 of the 14 sealed `command` scripts do not parse — repaired by `mock.sh`
 
-Found by m2, confirmed here first-hand. One cause in every case: an apostrophe
+Confirmed first-hand. One cause in every case: an apostrophe
 inside a `${VAR:?word}` message opens a single-quoted string that runs to end of
 file.
 

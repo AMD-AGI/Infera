@@ -25,7 +25,7 @@
 #     `not found`. (`_shlib.sh:kfo_python` now refuses loudly instead.)
 #   * STEPs 4 and 5 need torch, and `spur exec <job> python3 -c "import torch"`
 #     is `ModuleNotFoundError` — the node's *host* has no torch, only the
-#     containers do. m3 measured that and answered it with their script.
+#     containers do, which is what m3's script answers.
 #   * STEP 3's campaign needs the GPU and the ROCm stack.
 #   * STEP 6 hashes the stock engine file, which is in the container tree.
 #
@@ -120,18 +120,14 @@ CONTAINER=$(_field runtime.container)
 # noise. CONTRACT section 5.2: every identifier bound on a shared host is a var.
 #
 # **One name for the card, and it is `HIP_VISIBLE_DEVICES` (`--var gpu=`).**
-# This used to fall back to m3's `measure_gpu`. Two names for one identifier is
-# CONTRACT section 4.3's shape, and the fallback also made the refusal below
-# unreachable, so it went.
+# There is no fallback to m3's `measure_gpu`. Two names for one identifier is
+# CONTRACT section 4.3's shape, and such a fallback also makes the refusal below
+# unreachable.
 #
-# **The reason I gave at the time has since expired, and the decision has not.**
-# It was: `shared.yaml` declares `${measure_gpu:-4}`, *a real card*, so importing
-# it picks card 4 silently on a shared host. As of `7c2d501` that default is gone
-# — `E2E_MEASURE_GPU: '${measure_gpu:-}'`, empty — so the silent-card-4 argument
-# no longer holds. **The one-name argument does**, and it is the one that was
-# load-bearing. Corrected rather than left standing: a justification that has
-# outlived its premise reads as a live reason and is how the next person
-# re-litigates a settled decision from a false start.
+# **The argument that survives is the one-name one**, not the silent-card-4 one:
+# `E2E_MEASURE_GPU` is `'${measure_gpu:-}'`, empty, so importing it no longer
+# picks a real card by default. Stating the expired premise as if it were live is
+# how the next reader re-litigates a settled decision from a false start.
 : "${HIP_VISIBLE_DEVICES:=}"
 [ -n "$HIP_VISIBLE_DEVICES" ] || {
   echo "run_in_container: HIP_VISIBLE_DEVICES is empty and this host is shared." >&2
@@ -195,10 +191,10 @@ esac
 # whose lifetime is m1's, and *the measurement apparatus*, which belongs to
 # whoever measures and is gone when they finish.
 #
-# m3 hit this first and their shape is copied rather than re-derived
-# (`build_workset.task/measure_in_container.sh`): self-named, `--rm`,
-# started from the image the record names, torn down in a trap, and **never a
-# name we did not create** — `STARTED` gates the teardown so a caller who points
+# The shape is copied rather than re-derived from
+# `build_workset.task/measure_in_container.sh`: self-named, `--rm`, started from
+# the image the record names, torn down in a trap, and **never a name this script
+# did not create** — `STARTED` gates the teardown so a caller who points
 # `KFO_MEASURE_CONTAINER` at an existing name cannot have it removed by us.
 #
 # **The two are not interchangeable and the report must not let a reader guess.**
@@ -218,14 +214,14 @@ if [ "$RECORD_CONTAINER_UP" = 0 ]; then
     # **Print `none` rather than nothing.** An empty line here is
     # indistinguishable from a listing that failed, and the sentence that
     # follows is a conclusion the reader draws from *seeing* what is there.
-    # Same class as `f103fe0`, where a redirection order emptied this list.
+    # Same class as a redirection order that empties this list.
     if [ -n "$PS_OUT" ]; then printf '%s\n' "$PS_OUT" | sed 's/^/    /' >&2
     else echo "    none (the node answered; there are no containers running)" >&2; fi
     exit 1
   }
-  : "${KFO_MEASURE_CONTAINER:=yihou_m4_measure_$$}"
+  : "${KFO_MEASURE_CONTAINER:=e2e_m4_measure_$$}"
   echo "run_in_container: the record's container '$CONTAINER' is not running." >&2
-  echo "  Measuring in an ephemeral container of my own, '$KFO_MEASURE_CONTAINER'," >&2
+  echo "  Measuring in an ephemeral container of its own, '$KFO_MEASURE_CONTAINER'," >&2
   echo "  from the image the record names: $IMAGE" >&2
   echo "  This carries the IMAGE's state, not the deployment's. The handoff records" >&2
   echo "  mode=ephemeral so no reader has to infer which of the two produced the number." >&2
@@ -233,13 +229,13 @@ if [ "$RECORD_CONTAINER_UP" = 0 ]; then
 fi
 
 # **What the record claims and what is on the node are two different facts, and
-# the join between them was unchecked.** m1 found the case on 2026-09-04: their
-# record said `runtime.started_at: 2026-09-04T09:03:51Z` while docker reported
+# the join between them is unchecked.** A record can say
+# `runtime.started_at: 09:03:51Z` while docker reports
 # `Created == StartedAt == 09:37:18Z` with `RestartCount: 0` — a restart keeps
-# its creation time and bumps the counter, so this was a *different container
+# its creation time and bumps the counter, so that is a *different container
 # wearing the same name*. `_agree_or_die` above compares node, jobid and
-# transport and they were all still true; the container is looked up by name and
-# the name resolved. Every field validated and the join was still wrong.
+# transport and all three still hold; the container is looked up by name and the
+# name resolves. Every field validates and the join is still wrong.
 #
 # For the exec it does not bite — the name reached a live container of the right
 # image on the right node. For provenance it does, and this stage's handoff
@@ -255,11 +251,11 @@ fi
 # beside a claim reads as an observation that matched**, which is the one thing
 # `observed_runtime` exists to prevent.
 #
-# Written as `if` rather than `[ … ] && echo` for readability only. **I first
-# claimed that shape was what aborted the ephemeral run; it was not** — bash
-# does not apply `set -e` to a non-final command in an `&&` list, and two
-# pre-existing lines in this file rely on that. The abort was `grep` exiting 1
-# under `pipefail`, twenty lines down. Left corrected rather than deleted,
+# Written as `if` rather than `[ … ] && echo` for readability only. **That shape
+# is not what aborts an ephemeral run** — bash does not apply `set -e` to a
+# non-final command in an `&&` list, and two other lines in this file rely on
+# that. The abort is `grep` exiting 1 under `pipefail`, twenty lines down. Stated
+# here
 # because a plausible wrong cause recorded as fact is how the next reader
 # "fixes" the wrong line.
 if [ "$MODE" = record ]; then
@@ -280,9 +276,9 @@ echo "run_in_container: record claims started_at=$(_field runtime.started_at)" >
 #
 # **That is worse than any refusal chased today, because it produces a value
 # rather than a stop** — and the value lands in a `cost: gpu_hours` validator
-# whose output someone will believe. m1 warned about exactly this on 217
-# (*"the cards you'd get are mine (0-3), not 4-7"*), and until now the only
-# thing standing between that warning and a wrong number was remembering it.
+# whose output someone will believe. A warning that the cards you would get
+# belong to another tenant is worth nothing if the only thing enforcing it is
+# remembering it.
 #
 # **Refuse, never correct.** Silently substituting a card the container does
 # own would be this same defect wearing a fix: the caller asked a question about
@@ -332,8 +328,8 @@ echo "run_in_container: record claims started_at=$(_field runtime.started_at)" >
 # `set -euo pipefail` then killed the whole script *at this assignment*. The
 # symptom was the wrapper announcing the ephemeral fallback and exiting 1 with
 # no message, which reads as the fallback failing rather than as a successful
-# search for something absent. Found by `bash -x`; my first guess was a
-# different line and was wrong.
+# search for something absent. Found by `bash -x`, not by reading: the obvious
+# candidate line is not the one that aborts.
 CPIN_ALL="$(printf '%s' "$CSTATE" | sed -n 's/.*E2E_ENV=//p' \
   | grep -o '"HIP_VISIBLE_DEVICES=[^"]*' | head -1 | sed 's/^"HIP_VISIBLE_DEVICES=//' || true)"
 if [ -n "$CPIN_ALL" ]; then
@@ -364,10 +360,9 @@ fi
 # **The destination has to be writable from HERE, and `KFO_SCRATCH_ROOT` is
 # not.** This wrote to `$KFO_SCRATCH_ROOT/observed_runtime.json` with the mkdir
 # swallowed by `|| true` — and that root is node-local
-# (`/mnt/m2m_nobackup/...`), so on the login node where every caller of this
-# script actually runs, the mkdir failed, the write failed, and **both failures
-# were silent**. The same locality mistake `e747653` fixed one layer up, still
-# sitting here. An observation nobody can read is not a record.
+# (a node-local scratch mount), so on the login node where every caller of this
+# script actually runs, the mkdir fails, the write fails, and **both failures are
+# silent**. An observation nobody can read is not a record.
 #
 # `KFO_OBSERVED_RUNTIME` names the file outright, and the caller picks somewhere
 # it can read back — the validator uses its zone. The old spelling stays as a
@@ -433,7 +428,7 @@ done
 # **`AGENT_SYS_*`, `KFO_*` and `E2E_*` by PREFIX, never by name — and the
 # enumeration that used to be here was itself the defect.**
 #
-# Two failures on this wrapper's first real use, 2026-09-04, both from the same
+# Two failures on this wrapper's first real use, both from the same
 # hand-maintained list:
 #
 #   * `AGENT_SYS_INPUT_<KIND>` / `AGENT_SYS_OUTPUT_<KIND>` were absent, so STEP 1
@@ -554,8 +549,8 @@ else
   # m3 records that getting this backwards is what left root-owned evidence in
   # every workset the stage produced.
   #
-  # The mounts are the three identity forms m1's `runtime_contract`
-  # (`a32f06d`) records the daemon accepting, and identity-mapped for the reason
+  # The mounts are the three identity forms m1's `runtime_contract` records the
+  # daemon accepting, and identity-mapped for the reason
   # `_remeasure` needs: the apparatus path is computed on this host and handed
   # to a shell inside the container, so the two must agree.
   STARTED=0
@@ -580,7 +575,7 @@ else
   #
   # `--workdir` and the kit are the paths this exec genuinely needs to resolve
   # inside, so they are what decide the mounts. Each is reduced to the accepted
-  # top-level form from m1's `runtime_contract.measurement_visible` (`a32f06d`),
+  # top-level form from m1's `runtime_contract.measurement_visible`,
   # identity-mapped because `_remeasure` computes these paths here and hands
   # them to a shell over there.
   #

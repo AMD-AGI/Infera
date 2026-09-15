@@ -222,12 +222,11 @@ cannot import `assets/lib/schema.py`.
 Measured: the body dies with `ModuleNotFoundError` **before writing
 `verdict.json`**, and the phase reports *"nothing was decided"* rather than a
 verdict — **a validator that cannot start looks exactly like one that was never
-asked.** Found by m5 driving their leaves through the graph; twelve of the
-twenty-one validators had it, across all five modules.
+asked.** Twelve of the twenty-one validators are exposed to it, across all five
+stages.
 
 **`${VAR:-default}` and `${VAR-default}` are not the same test, and the colon is
-the one that disarms a guard.** m1's, found while wiring
-`replayed_from`.
+the one that disarms a guard.**
 
 `${VAR:-d}` substitutes when `VAR` is unset **or set-but-empty**. `${VAR-d}`,
 without the colon, substitutes only when it is unset. So a caller that sets a
@@ -249,22 +248,19 @@ deliberate "not set to anything" — use the colonless form, and prefer
 
 #### And **declaring a name with an empty default is not a no-op**
 
-The same distinction one level up, and the package owner shipped it as a live
-regression the same afternoon it was written down.
+The same distinction one level up, and it ships as a live regression easily.
 
-`60bd848` added `E2E_STAGE: '${stage:-}'` to `runner`, to declare a name that
-shared libraries were reading and nobody declared. **A declared-empty variable
-is *present*.** So every body coping with the name's *absence* changed
-behaviour that instant:
+Adding `E2E_STAGE: '${stage:-}'` to `runner` declares a name that shared
+libraries read and nobody declared. **A declared-empty variable is *present*.**
+So every body coping with the name's *absence* changes behaviour that instant:
 
 ```
 unset            environment.setdefault("E2E_STAGE", "m4")  ->  'm4'
 declared empty   environment.setdefault("E2E_STAGE", "m4")  ->  ''
 ```
 
-**Which forms are hazardous, measured — and the first version of this section
-named the wrong one.** m5 checked it rather than accepting it, in both shells
-and Python:
+**Which forms are hazardous, measured** — in both shells and Python, because it
+is easy to name the wrong one:
 
 ```
 bash/dash   unset V; : "${V:=filled}"   ->  filled      SAFE
@@ -274,10 +270,10 @@ python      V=''; environ.setdefault    ->  ''          HAZARD
 ```
 
 **`${VAR:=…}` is safe. The hazards are `${VAR=…}` — no colon — and Python's
-`setdefault`.** This section originally said the opposite, which would have sent
-every owner grepping for the harmless form and past the dangerous one. It is the
-exact sibling of `c69c813` above: **same colon, opposite direction**, and the
-leader got it backwards while writing the section about getting it backwards.
+`setdefault`.** Stated the other way round it sends every reader grepping for the
+harmless form and past the dangerous one — the exact sibling of the colon trap
+above, **same colon, opposite direction**, and easy to get backwards even while
+writing the section about getting it backwards.
 
 So the grep before adding a name to `shared.yaml` is `setdefault("<name>"` and
 `${<name>=` — **not** `${<name>:=`.
@@ -286,8 +282,8 @@ So the grep before adding a name to `shared.yaml` is `setdefault("<name>"` and
 caller in the package setting `E2E_STAGE` at all — 21 other callers of
 `env_render.py` set nothing — so declaring the name **took the one stage that
 stamped `warnings[].stage` correctly and made it match the twenty-one that did
-not.** Found by m4 running the package owner's own new checker against their own agent
-rather than assuming it passed; fixed in `7028275` by guarding on truthiness.
+not.** Found by running the new checker against an agent rather than assuming it
+passed; fixed by guarding on truthiness.
 
 So: **before adding a name to `shared.yaml`, grep for `setdefault("<name>"` and
 `${<name>=` in `assets/` — no colon on the second.** Coping-with-absence is a contract a declaration
@@ -373,8 +369,8 @@ not the integer. Both halves of that have now cost a run:
 - **Truthiness.** `args.get("n") or 3` reads **3** when the spec says `0`,
   because `"0"` is truthy — and the `or` form *silently works* on the `${...}`
   form while failing on a genuine yaml integer `0`, which is the worst
-  combination for ever finding it. Found by m3 on the one knob that can
-  dismantle §4.0's trust chain; the guard refusing it was itself unreachable.
+  combination for ever finding it — and it lands on the one knob that can
+  dismantle §4.0's trust chain, with the guard refusing it itself unreachable.
 - **Arithmetic.** `time.time() + args["bringup_timeout_seconds"]` raises
   `TypeError: unsupported operand type(s) for +: 'float' and 'str'`. Measured in
   `check_deploy_serves` on the full mock run: the validator **crashed after a
@@ -447,10 +443,10 @@ ones that matter most for how to look:
   protocol and divide by a baseline the report recorded under another. **Across
   two protocols that ratio looks entirely normal.**
 
-**And the sharpest lesson is m3's, about the audit rather than the bug.** They
-told the package owner *"nothing else of mine reads one rule from two places"*, then
-audited properly and found those two. **Claiming an audit is not one**, and the
-difference between the two was two live defects that would have surfaced in m4's
+**And the sharpest point is about the audit rather than the bug.** *"Nothing
+else here reads one rule from two places"* is a claim; auditing properly finds
+those two. **Claiming an audit is not one**, and the difference is two live
+defects that would otherwise surface in m4's
 transcript pointing at m3's code.
 
 **What found each of them is the useful part, and it was never review.** A stub
@@ -481,23 +477,21 @@ you removed, not the name you introduced.
 
 #### When a symptom has candidate causes in more than one owner's work, reproduce before attributing
 
-another owner's, and it is the rule I would want the next effort to start with.
-**Inference across an ownership boundary was wrong every time it was tried
-today; measurement was right every time.**
+**Inference across an ownership boundary is wrong every time it is tried here;
+measurement is right every time.**
 
-The expensive instance was the package owner's. Rung 0 refused three times at
-`check_deploy_serves`; the cause was a missing `--var transport_env`, attributed
+The expensive instance: a bring-up refuses three times at
+`check_deploy_serves`; the cause is a missing `--var transport_env`, attributed
 first to m1's GLM deployment holding GPUs, then to a missing `local` branch in
 m2's `remote.sh`. Both readings were coherent, both were about somebody else's
 work, and both were wrong. What settled it was copying the validator's zone and
 running it under `env -i` — one command, and the diagnostic named the cause
 outright.
 
-m3 hit the mirror image within the hour: they inferred a general defect in m1's
-records from a node mismatch **they had created themselves** with an ambient
-`E2E_JOBID`, and flagged it as *worth checking rather than assuming*. The flag is
-why it became a check instead of work handed to the person the ladder was
-waiting on. The record was two commands away and consistent.
+The mirror image: inferring a general defect in m1's records from a node
+mismatch **the reader created themselves** with an ambient `E2E_JOBID`. Flagging
+it as *worth checking rather than assuming* is what makes it a check instead of
+work handed to somebody else. The record is two commands away and consistent.
 
 **The asymmetry is the point.** A wrong guess about your own code costs you a
 few minutes. A wrong guess about a colleague's costs them an audit of work that
@@ -520,11 +514,11 @@ the subject:
 Three of the four were **green**. None was a bug in the ordinary sense; each was
 a working mechanism pointed at nothing.
 
-m3's own correction to what they first proposed as the lesson is worth keeping,
-because it is the difference between the small version and the general one:
+The small version of the rule and the general one differ, and the difference is
+worth keeping:
 
-> I told you the durable lesson was *"a paragraph asserting a behaviour is not
-> one"*. It was the smaller version — that one is about **docstrings**, and
+> The durable form is not *"a paragraph asserting a behaviour is not
+> one"*. That is the smaller version — it is about **docstrings**, and
 > every instance since has been about something **a machine reads**: a JSON
 > field, a flag, a mount, a variable name.
 
@@ -710,11 +704,11 @@ prints a number and dies. In a **mock** chain no deployment container is ever
 brought up, so a check that can only re-measure inside one cannot run at all —
 and the mock e2e is a deliverable.
 
-m3 established the shape first (`measure_in_container.sh`, and read 325–392
-before copying it — the lifecycle notes there were learned the hard way):
+The shape is `measure_in_container.sh`'s — read its lifecycle notes before
+copying it:
 
 ```bash
-: "${E2E_MEASURE_CONTAINER:=yihou_m3_measure_$$}"
+: "${E2E_MEASURE_CONTAINER:=<prefix>_m3_measure_$$}"
 docker run --rm --name "$E2E_MEASURE_CONTAINER" …   # trapped: reclaim, then rm -f
 ```
 
@@ -738,9 +732,8 @@ docker container"*. m5 brings up both arms from the same image and the same
 
 ### 5.0 A container-written output is root-owned, and reading it works
 
-Found by m3 on the first real GPU run of this package, and **every body that
-runs work in a container hits it** — m1, m2, m4 and m5 the moment they run for
-real.
+**Every body that runs work in a container hits this** — m1, m2, m3, m4 and m5
+the moment they run for real.
 
 The container runs as **root**, and it has to: a framework compiling kernels on
 first call cannot write its cache as a user who does not exist inside the image.

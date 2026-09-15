@@ -170,10 +170,10 @@ def recompute(report: dict, args: dict, reasons: list) -> list[str]:
                 f"{row.get('round')} {metric} ({row.get('column')}): the report says "
                 f"{row.get('verdict')!r} and the numbers say {again['verdict']!r}"
             )
-        # **A per-round breach is not a refusal, and this is the fix to a defect
-        # in the gate's shape.** Every row used to refuse, so R rounds were 7R
-        # independent tests at the bar and the gate got less trustworthy the more
-        # evidence it was given: family-wise false refusal 6.8% at R=1, 29.7% at
+        # **A per-round breach is not a refusal, and that is a property of the
+        # gate's shape.** If every row refuses, R rounds are 7R independent tests
+        # at the bar and the gate gets less trustworthy the more evidence it is
+        # given: family-wise false refusal 6.8% at R=1, 29.7% at
         # R=5, 50.5% at R=10, at a 1% per-row rate. Rounds must average, not
         # multiply. The verdict is taken once per (metric, column) below, on the
         # reduction; the per-round rows remain and their arithmetic is still
@@ -356,13 +356,13 @@ def unlisted_findings(report: dict, args: dict) -> list[str]:
     higher_better = {"output_token_throughput_tps", "request_throughput_rps"}
 
     missing: list[str] = []
-    # **`comparison` and not `performance`, and getting this wrong reintroduced
-    # the whole defect through a side door.** This function used to walk the
-    # per-round rows and demand that every REGRESSED one be named in
-    # `verdict.reasons`. Once the verdict moved to the reduction, that turned a
-    # single bad round into a refusal again — measured: 5 rounds with one 1.40x
-    # outlier, the reduced rows all `same`, and this refused anyway on seven
-    # "the report's reasons do not name it" findings. The reduction has to be
+    # **`comparison` and not `performance`, and getting this wrong reintroduces
+    # the whole defect through a side door.** Walking the per-round rows and
+    # demanding that every REGRESSED one be named in `verdict.reasons` turns a
+    # single bad round back into a refusal, now that the verdict is taken on the
+    # reduction — measured: 5 rounds with one 1.40x outlier, the reduced rows all
+    # `same`, and seven "the report's reasons do not name it" findings anyway.
+    # The reduction has to be
     # complete or the inflation comes back invisibly, which is worse than never
     # having reduced.
     #
@@ -569,12 +569,11 @@ def check(content: Path, args: dict, reasons: list) -> bool:
     # did not run and said nothing, while the other five args degrade to safe
     # defaults that still bite (`0.05`, `0.10`, `0.10` at `:145`).
     #
-    # Surfaced by m2's warning that the probe was passing `args={}` to every
-    # validator: mine returned **True** with all six args discarded, which is
-    # not evidence it works — it is `items_schema`'s shape, present and checking
-    # nothing. The probe has since been fixed to pass the real args, which makes
-    # this **invisible precisely when the tooling is working**, so it would not
-    # have been found again.
+    # Surfaced by a probe passing `args={}` to every validator: this one returns
+    # **True** with all six args discarded, which is not evidence it works — it
+    # is `items_schema`'s shape, present and checking nothing. A probe that
+    # passes the real args makes this **invisible precisely when the tooling is
+    # working**.
     #
     # The step file always supplies `schema`, so this is unreachable through the
     # package's own wiring. That is the argument for refusing rather than
@@ -742,8 +741,8 @@ def main() -> int:
 def _report(findings: dict, results: dict) -> None:
     """`workset_io.write_report`, and never a second implementation of it.
 
-    m3 measured that 16 of 21 validators persist nothing, and seven of those are
-    this stage's. That matters most here because **stage 5 has never been
+    Measured: 16 of 21 validators persist nothing, and seven of those are this
+    stage's. That matters most here because **stage 5 has never been
     reached**: every other stage has had refusals to learn from, and m5's first
     one would otherwise arrive with the diagnostics switched off.
 

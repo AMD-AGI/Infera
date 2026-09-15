@@ -113,10 +113,8 @@ def _check_reports(content: Path, document: dict, args: dict, problems: list[str
     # Without it the body grades whatever came back: a harness that silently
     # reported nothing for one shape leaves that shape out of
     # `operators[].shapes`, every remaining row passes, and the verdict is a
-    # clean PASS over a partial measurement. m4 found exactly this in their own
-    # validator and warned me — and they found it with a stub that could
-    # *withhold* a shape on demand, after eight readings of the code had not.
-    # I had the same hole.
+    # clean PASS over a partial measurement. What finds it is a stub that can
+    # *withhold* a shape on demand; reading the code does not.
     #
     # The workset is the authority for what should have been measured, not the
     # report. Anything else lets the thing being audited decide the scope of
@@ -125,8 +123,8 @@ def _check_reports(content: Path, document: dict, args: dict, problems: list[str
     for declared in document["operators"]:
         label = declared["operator_id"]
         # **Every declared shape, not only the ones whose `role` names this
-        # report.** The first version filtered by role and let a withheld shape
-        # through: `evidence/` is produced by a *full* run — no `--shape` — and
+        # report.** Filtering by role lets a withheld shape through:
+        # `evidence/` is produced by a *full* run — no `--shape` — and
         # the harness iterates every shape regardless of role, so a full report
         # that is missing one is missing it for a reason nobody recorded. The
         # role governs what a shape is *for*, not whether the harness touched
@@ -208,7 +206,7 @@ def _check_reports(content: Path, document: dict, args: dict, problems: list[str
 def _transport_env(args: dict) -> dict[str, str]:
     """`os.environ` plus what `spur` needs and a validation zone strips.
 
-    **The bug that cost four rung-0 runs and three of my own non-reproductions.**
+    **The environment a validator actually gets.**
     A validator declares no agent, so it runs in a closed environment: no
     `SPUR_CONTROLLER_ADDR`, and a `PATH` that `sh` fills in as `/usr/bin:/bin`
     while `spur` lives in `/usr/local/bin`. The re-measurement then dies with
@@ -218,12 +216,12 @@ def _transport_env(args: dict) -> dict[str, str]:
     which `require_visible_on_node` reported as *"the workset is not visible on
     the node"* — a filesystem claim for a missing environment variable.
 
-    **Why I could not reproduce it three times:** my shell has
-    `SPUR_CONTROLLER_ADDR`. Every hand-invocation inherited it. I even stripped
-    `E2E_JOBID`, `E2E_NODE`, `E2E_TRANSPORT` and `E2E_MEASURE_GPU` to imitate
-    the zone and **kept the one that mattered**, because it is not an `E2E_*`
-    name and nothing pointed at it. A fixture more convenient than production
-    (§4.4), where the convenience was my own login shell.
+    **Why it does not reproduce by hand:** an interactive shell has
+    `SPUR_CONTROLLER_ADDR`, and every hand-invocation inherits it. Stripping
+    `E2E_JOBID`, `E2E_NODE`, `E2E_TRANSPORT` and `E2E_MEASURE_GPU` to imitate the
+    zone **keeps the one that matters**, because it is not an `E2E_*` name and
+    nothing points at it. A fixture more convenient than production (§4.4), where
+    the convenience is the login shell.
 
     `check_deploy_serves` solved this (`check.py`), where the same hole
     cost three runs and two wrong attributions. This is that hole again here,
@@ -238,10 +236,10 @@ def _transport_env(args: dict) -> dict[str, str]:
         name, _, value = pair.partition("=")
         if name and value:
             env[name] = value
-    # **The measurement card, which the producer now refuses to default.**
-    # `measure_in_container.sh` used to fall back to card 4; it does not, because
-    # a shared card returns *slower numbers rather than an error* and this
-    # validator would re-measure on the same contaminated card and agree. So the
+    # **The measurement card, which the producer refuses to default.**
+    # A fallback to a real card in `measure_in_container.sh` would not error on a
+    # shared card — it returns *slower numbers*, and this validator would
+    # re-measure on the same contaminated card and agree. So the
     # card must be chosen, and a validator gets no `E2E_*` block — same hole as
     # `SPUR_CONTROLLER_ADDR`, same remedy.
     #
@@ -303,7 +301,8 @@ def _reverify(content: Path, document: dict, recorded: list[dict], args: dict,  
     # actually check.
     #
     # The first `wanted` are the highest-ranked, because `operators` is in the
-    # ranker's order — stated because it was previously true by accident.
+    # ranker's order — stated, because relying on it silently makes it an
+    # accident.
     verified, unverified = picked[:wanted], picked[wanted:]
     picked = verified
     for operator_id, case_id in unverified:

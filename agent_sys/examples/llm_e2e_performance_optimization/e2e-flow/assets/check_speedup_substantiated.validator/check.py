@@ -230,14 +230,12 @@ def _measure_env(scratch: Path, python: str | None = None) -> dict[str, str]:
     a container user. `HOME` because several libraries probe it and an unset one
     is not the same as a writable one. `TMPDIR` because a `$TMPDIR` pointing at
     a directory that does not exist makes every HIP kernel launch segfault with
-    no output while `torch.cuda.is_available()` still reports `True` — the trap
-    that cost the 2026-09-02 run 25 minutes.
+    no output while `torch.cuda.is_available()` still reports `True`.
 
-    **`HIP_VISIBLE_DEVICES` — the comment that used to be here was wrong, and
-    wrong in the direction that loses a card.** It read: *"deliberately not
-    defaulted. It arrives from the agent spec's `env:` block through the
-    PRODUCER row, and inventing a default would silently move the measurement
-    onto card 0."*
+    **`HIP_VISIBLE_DEVICES`, and the obvious account of it is wrong in the
+    direction that loses a card.** That account is: *"deliberately not defaulted.
+    It arrives from the agent spec's `env:` block through the PRODUCER row, and
+    inventing a default would silently move the measurement onto card 0."*
 
     A validator declares no agent, so **no agent `env:` block reaches this
     body** — `_interpreter`'s docstring twenty lines up says exactly that about
@@ -262,11 +260,8 @@ def _measure_env(scratch: Path, python: str | None = None) -> dict[str, str]:
     for key in ("TRITON_CACHE_DIR", "TMPDIR"):
         Path(env[key]).mkdir(parents=True, exist_ok=True)
 
-    # **The interpreter `_interpreter()` chose has to reach the entrypoint, and
-    # until m3 asked it did not.** Raised by m3 2026-09-03 as "worth checking
-    # whether you have the same exposure"; checked, and the answer was yes.
-    #
-    # The body this replaced invoked a *Python script* directly, so passing the
+    # **The interpreter `_interpreter()` chose has to reach the entrypoint.**
+    # A body invoking a *Python script* directly passes
     # interpreter was `[python, script, ...]`. The workset's entrypoint is a
     # *shell script*, so the interpreter can only reach it through the
     # environment — and `_interpreter()`'s return value was being used as a
@@ -466,9 +461,10 @@ def _check_ground_truth(doc: dict, snapshot: dict, args: dict, problems: list[st
     # `dtype` is on the mission's abort list and is **not** an environment field.
     # It lives in each flashinfer-bench Definition's `inputs[].dtype`, which this
     # body cannot open — the snapshot is `workset.yaml`, not the whole workset
-    # tree — so this comparison used to print "NOT compared here" and skip.
+    # tree — so without a lift this comparison can only print "NOT compared here"
+    # and skip.
     #
-    # m3 lifted it to `ground_truth.dtypes` on that report, and it is a summary
+    # `ground_truth.dtypes` on that report is the lift, and it is a summary
     # rather than a second source of truth: `check_workset_shape` holds it
     # against the Definitions, so it cannot drift into disagreeing with what it
     # summarises. Both sides here are copies of one declaration, so a difference
@@ -666,8 +662,8 @@ def _run_entrypoint(
         # messages that name the wrong cause, an error that *looks* corrupted
         # costs the same as one that is.
         #
-        # m3 hit the mirror of this: `stderr.splitlines()[-N:]` cuts the
-        # instruction off the *top* of a message whose fix is stated first.
+        # The mirror of it: `stderr.splitlines()[-N:]` cuts the instruction
+        # off the *top* of a message whose fix is stated first.
         # Lines, and an explicit marker so a reader knows the top is missing.
         stderr = proc.stderr.strip().splitlines()
         shown = stderr[-12:]
@@ -681,18 +677,18 @@ def _run_entrypoint(
 
 
 def _impl_read_problem(report: Path, handed: Path) -> str | None:
-    """Did the driver measure the bytes we handed it? m3's `impl_read`, `782bb08`.
+    """Did the driver measure the bytes it was handed? The `impl_read` field.
 
     **This is the enforcement of a dependency that was only a comment.** The
     third-tree workspace (`30_run_forge.sh`) hands forge a copy of the engine
     sources that is on *no interpreter's import path*. That is safe only while
-    m3's `--impl` loader execs the file it was given; the day it resolves a
+    the `--impl` loader execs the file it was given; the day it resolves a
     module instead, forge keeps editing the copy, the driver measures the
     container's untouched tree, and **every ratio comes back ~1.0 with no error
     anywhere** — a wrong answer byte-identical to "the optimiser found nothing".
 
-    m3 guarded the *outcome* rather than the mechanism, which is the stronger
-    choice and not the one I had written: "the loader execs rather than imports"
+    The guard is on the *outcome* rather than the mechanism, which is the
+    stronger choice: "the loader execs rather than imports"
     goes stale the moment someone finds a third way to load a file, while "the
     bytes measured are the bytes at the path you named" survives any rewrite
     that keeps the promise.
@@ -702,9 +698,9 @@ def _impl_read_problem(report: Path, handed: Path) -> str | None:
     of the request that reads identically whether the file was exec'd, imported,
     shadowed by another copy of the same module name, or never opened.
 
-    Absent is **not** a failure. A `null` is what a pre-`782bb08` workset's
-    harness writes and what a baseline run writes, and refusing those would fail
-    correct artefacts for being older than this check.
+    Absent is **not** a failure. A `null` is what a harness predating the field
+    writes, and what a baseline run writes; refusing those would fail correct
+    artefacts for being older than this check.
     """
     try:
         got = (json.loads(report.read_text(encoding="utf-8")) or {}).get("impl_read")
@@ -863,12 +859,13 @@ def _remeasure(
     # whatever context the phase handed the body, which is a validation zone on
     # the login node with no torch. Measured: `no interpreter with torch found`,
     # on a `cost: gpu_hours` check whose entire job is to re-measure. It could
-    # never have graded a real kernel, and my own T30 grep found it:
-    # `check_workset_runs` had three references to a container, this had zero.
+    # never grade a real kernel, and a T30 sweep is what finds it:
+    # `check_workset_runs` carries three references to a container, this carried
+    # zero.
     #
-    # `run_in_container.sh` is m4's `measure_in_container.sh`, and routing
-    # through it is m3's rule — a validator that re-measured through a different
-    # arrangement than the producer used would not be re-measuring the same
+    # `run_in_container.sh` is the `measure_in_container.sh` shape, and routing
+    # through it is the rule — a validator that re-measures through a different
+    # arrangement than the producer used is not re-measuring the same
     # thing. The container, node, job and transport come from the record the
     # handoff carries (CONTRACT §2), so no second declared input is needed.
     package = os.environ.get("AGENT_SYS_TASK_PACKAGE") or os.environ.get("AGENT_SYS_DEMO_PACKAGE")
@@ -1047,13 +1044,13 @@ def _remeasure(
     measured_mean = statistics.fmean(per_case.values())
     claimed_mean = float(claim.get("mean_case_speedup", 0.0))
 
-    # **No default.** An earlier draft fell back to 1.05, and m3 was right to
-    # object: a consumer with a fallback floor is a consumer that silently picks
-    # its own significance threshold on the one occasion the workset failed to
-    # state one. The workset derives it from the measured spread as
+    # **No default.** A fallback floor of 1.05 makes this a consumer that
+    # silently picks its own significance threshold on the one occasion the
+    # workset failed to state one. The workset derives it from the measured
+    # spread as
     # `1 + 2.83 x rsd_max` — the two-sample 2-sigma separation, so a noisy host
-    # correctly demands a bigger win — and the field is required on m3's side,
-    # so its absence means something is wrong upstream and should say so.
+    # correctly demands a bigger win — and the field is required on the producer
+    # side, so its absence means something is wrong upstream and should say so.
     noise_floor = claim.get("noise_floor")
     if not isinstance(noise_floor, (int, float)):
         problems.append(
