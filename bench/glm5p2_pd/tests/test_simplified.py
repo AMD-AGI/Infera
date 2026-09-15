@@ -422,6 +422,19 @@ class SmokeTests(unittest.TestCase):
         self.assertIn("SGLANG_TIMEOUT_KEEP_ALIVE", text)
         self.assertIn("--json-model-override-args", text)
 
+    def test_engine_allocator_gc_hook_is_role_scoped_and_opt_in(self):
+        engine = (ROOT / "engine.sh").read_text(encoding="utf-8")
+        config = (ROOT / "config.sh").read_text(encoding="utf-8")
+        hook = (ROOT / "hooks" / "sitecustomize.py").read_text(encoding="utf-8")
+
+        self.assertIn('${prefix}_PYTORCH_HIP_ALLOC_CONF', engine)
+        self.assertIn('${prefix}_PYTORCH_MEMORY_FRACTION', engine)
+        self.assertIn("INFERA_PYTORCH_MEMORY_FRACTION", engine)
+        self.assertIn("PREFILL_PYTORCH_MEMORY_FRACTION", config)
+        self.assertIn("DECODE_PYTORCH_MEMORY_FRACTION", config)
+        self.assertIn("set_per_process_memory_fraction", hook)
+        self.assertIn("torch.cuda.set_device = _set_device_and_allocator_fraction", hook)
+
 
 if __name__ == "__main__":
     unittest.main()

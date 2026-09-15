@@ -38,6 +38,23 @@ max_running="$(role_value MAX_RUNNING)"
 graph_bs="$(role_value GRAPH_MAX_BS)"
 mem_fraction="$(role_value MEM_FRACTION)"
 hicache="$(bool01 "$(role_value HICACHE)")"
+scratch_reclaim_var="${prefix}_HSA_NO_SCRATCH_RECLAIM"
+scratch_reclaim="${!scratch_reclaim_var:-${HSA_NO_SCRATCH_RECLAIM:-1}}"
+[[ "$scratch_reclaim" == 0 || "$scratch_reclaim" == 1 ]] ||
+    die "$scratch_reclaim_var must be 0 or 1"
+scratch_limit_var="${prefix}_HSA_SCRATCH_SINGLE_LIMIT_ASYNC"
+scratch_limit="${!scratch_limit_var:-}"
+[[ -z "$scratch_limit" || "$scratch_limit" =~ ^[0-9]+$ ]] ||
+    die "$scratch_limit_var must be empty or a non-negative byte count"
+allocator_conf_var="${prefix}_PYTORCH_HIP_ALLOC_CONF"
+allocator_conf="${!allocator_conf_var:-${PYTORCH_HIP_ALLOC_CONF:-}}"
+allocator_fraction_var="${prefix}_PYTORCH_MEMORY_FRACTION"
+allocator_fraction="${!allocator_fraction_var:-}"
+if [[ -n "$allocator_fraction" ]]; then
+    [[ "$allocator_fraction" =~ ^(0?\.[0-9]+|1(\.0+)?)$ &&
+        ! "$allocator_fraction" =~ ^0?\.0+$ ]] ||
+        die "$allocator_fraction_var must be empty or a number in (0, 1]"
+fi
 mtp=0
 [[ "$role" == decode ]] && mtp="$(bool01 "$DECODE_MTP")"
 
@@ -72,7 +89,8 @@ docker_args+=(
     -e "MOONCAKE_DISABLE_HIP_DMABUF=$MOONCAKE_DISABLE_HIP_DMABUF"
     -e "RDMAV_FORK_SAFE=$RDMAV_FORK_SAFE"
     -e NCCL_IB_DISABLE=1 -e NCCL_IGNORE_CPU_AFFINITY=1
-    -e HSA_NO_SCRATCH_RECLAIM=1 -e SGLANG_USE_AITER=1
+    -e "HSA_NO_SCRATCH_RECLAIM=$scratch_reclaim"
+    -e SGLANG_USE_AITER=1
     -e SGLANG_OPT_USE_TOPK_V2=false -e PYTHONNOUSERSITE=1
     -e "SGLANG_TIMEOUT_KEEP_ALIVE=${SGLANG_TIMEOUT_KEEP_ALIVE:-900}"
     -e AITER_USE_FLYDSL_MOE_SORTING=1 -e SAFETENSORS_FAST_GPU=1
@@ -83,6 +101,20 @@ docker_args+=(
     -e "SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT=${BOOTSTRAP_TIMEOUT:-1800}"
     -e "SGLANG_DISAGGREGATION_WAITING_TIMEOUT=${BOOTSTRAP_TIMEOUT:-1800}"
 )
+[[ -n "$scratch_limit" ]] &&
+    docker_args+=(-e "HSA_SCRATCH_SINGLE_LIMIT_ASYNC=$scratch_limit")
+[[ -n "$allocator_conf" ]] &&
+    docker_args+=(-e "PYTORCH_HIP_ALLOC_CONF=$allocator_conf")
+if [[ -n "$allocator_fraction" ]]; then
+    hooks_dir="$DIR/hooks"
+    [[ -r "$hooks_dir/sitecustomize.py" ]] ||
+        die "allocator hook is missing: $hooks_dir/sitecustomize.py"
+    docker_args+=(
+        -v "$hooks_dir:/opt/infera-hooks:ro"
+        -e PYTHONPATH=/opt/infera-hooks
+        -e "INFERA_PYTORCH_MEMORY_FRACTION=$allocator_fraction"
+    )
+fi
 if [[ "$role" == decode && -n "${DECODE_SIMULATE_ACC_LEN:-}" ]]; then
     docker_args+=(
         -e "SGLANG_SIMULATE_ACC_LEN=$DECODE_SIMULATE_ACC_LEN"
