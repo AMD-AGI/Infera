@@ -47,6 +47,7 @@ is a second thing to keep true, and it is always the copy that goes stale.
 | `docs/spec.md` | The whole system: architecture, the four objects, the authority boundaries, system-level criteria, the index of every component's criteria | Anything one module could own alone |
 | `docs/design.md` | How the system is assembled, and the loader | — |
 | `docs/interfaces.md` | **Normative for what crosses a module boundary**, and for nothing else. The composition root, the shared vocabulary, the permitted import edges, and the seams left deliberately open | Anything internal to one module |
+| `docs/spec.<topic>.md` | A **cross-cutting spec**: a property that spans several modules and therefore belongs to none of their `docs/`. Its header names which modules it spans. `spec.provisioning.md` is the one that exists | A property one module could own alone |
 | `docs/ROADMAP.md` | Long-term subsystems and deferred design questions | Near-term work |
 | `docs/TODO.md` | Near-term decisions and pieces, each with what would close it | Long-term subsystems |
 | `spec_loader/schemas/*.json` | The spec of a spec. The only enforcement point | Prose a reader needs |
@@ -83,10 +84,17 @@ A reader who knows one document knows where to look in all of them.
 | N+3 | **Open questions** — always last | Deviations from the spec |
 | N+4 | — | **New open questions** — always last |
 
+**There is no "implementation order" section.** A build plan — *write this
+module first, then that one* — answers a question that stops existing the moment
+the code exists, which is §0.3's test. What is durable about a dependency order
+is the import graph, and that is §2 of every design.
+
 **Section numbers are load-bearing and are not renumbered casually**: roughly 700
 places in this repository cite a document by `§N`. Reordering a *body* section is
-a repo-wide edit; reordering the tail is usually free, and was, because nothing
-cites it.
+a repo-wide edit; reordering or removing a tail section is usually free, and was
+both times, because almost nothing cites the tail. **Check rather than assume** —
+a citation that no longer resolves is silent, so the check is worth writing once
+and re-running.
 
 ### 0.2 A document names a file, and stops there
 

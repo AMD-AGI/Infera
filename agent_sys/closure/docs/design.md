@@ -697,7 +697,7 @@ this is the only moment when every spec is present and nothing has run."* Fixing
 the ordering fixes the import as a side effect — `bootstrap` is already *"the
 only module importing all of them"*.
 
-This is a change to the main design, so §13 D3 records it.
+This is a change to the main design, and its deviations table records it as D8.
 
 **Independent confirmation, from a system that hit this in production.** Dagster
 makes its per-job coverage check *conditional* and defers the mandatory one to
@@ -1144,27 +1144,7 @@ finite declared set; the interesting inputs are named cases, not generated ones.
 
 ---
 
-## 12. Implementation order
-
-| Step | What | Depends on |
-|---|---|---|
-| 1 | `model.py` — the two aliases and the six accessors | — |
-| 2 | The two schemas, in `spec_loader/schemas/` | main design §4 |
-| 3 | `task_registry.py`, `registry.py` without the index | `spec_loader` §5.2 |
-| 4 | `check.py` — checks 2, 4, 5, then 3 | 1–3, `Registries` |
-| 5 | Check 6 and the covering function | 4, and D2's resolution |
-| 6 | The composition-root move (§7.1) | 4, main design §7 |
-| 7 | The index and `query.py` | 3, 6 — the index is built after the pass |
-| 8 | `test_authority.py` and the spy | 7 |
-
-Step 5 is the one that can stall: it needs `Permissions` to hold a kind name
-rather than a `HandoffId` (D2). Until that lands, check 6 is implementable
-against the closure document alone — it reads no registry (§6.5) — so the block
-is on the *shared type*, not on this module's work.
-
----
-
-## 13. Deviations from the spec
+## 12. Deviations from the spec
 
 | # | Where | This design | Why |
 |---|---|---|---|
@@ -1177,7 +1157,7 @@ is on the *shared type*, not on this module's work.
 
 ---
 
-## 14. New open questions
+## 13. New open questions
 
 | # | Question |
 |---|---|

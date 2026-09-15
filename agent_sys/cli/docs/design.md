@@ -979,33 +979,7 @@ correctly, which is a test about the event stream and needs no agent.
 
 ---
 
-## 15. Implementation order
-
-The demo is last for a reason: it needs every other module built. It also needs
-something not yet built inside a module that is: `Task.parent`, `is_start`,
-`is_end`, `closure` and `unfold()` are `task_graph` **design rev. 11**, criteria
-36–54, and the shipped code is rev. 7. Criterion 2 is unreachable until those
-land.
-
-| # | Step | Depends on |
-|---|---|---|
-| 0 | *(precondition)* `task_graph` criteria 36–54 — nesting, `unfold`, `parent` | — |
-| 1 | `events.py` + `stream.py` + the two renderers | nothing. Testable alone, and everything else emits into it |
-| 2 | `examples/ok.filetree_grounded_report.4/` — the specs, `assets/produce.task/collect.py`, the two validator logics | `spec_loader`, `handoff`, `validator`, `agent`, `closure` |
-| 3 | `package.py` + `test_package_loads.py` — **the CI half of §11** | 2 |
-| 4 | `build.py` + `show` | 3, step 0 |
-| 5 | `--dry-run` and the broken-closure case | 4 |
-| 6 | `environment.py` — the context, the granted set, the preflight | `env_mgr` |
-| 7 | `run` end to end | 5, 6, `agent` |
-| 8 | `--resume` | 7 |
-
-Steps 1–5 need no credentials, no sandbox and no model, and they carry ten of the
-sixteen criteria. That is the ordering's payoff: most of the demo is testable
-before the parts that need a machine with an API key exist.
-
----
-
-## 16. Deviations from the spec
+## 15. Deviations from the spec
 
 
 Places where implementing the specification literally does not work. Each names
@@ -1021,7 +995,7 @@ what was measured.
 | **D6** | Spec §5 — *"The demo is not a test, and CI does not run it"* | CI runs `--dry-run` over the demo package on every commit | §11, S1. Not a contradiction, and the distinction is Airflow's: CI **loads** the example, a human **runs** it. `--dry-run` dispatches nothing, needs no credentials, no sandbox and no model. Without it, spec §1's claim that the demo is "the first thing to break when one of them drifts" is guarded by nobody — which is what happened to `jaffle_shop` (S3) |
 | **D7** | Criterion 1 — *"`pip install -e agent_sys` then the run verb"* | Implemented as written, and a **wheel** install produces a working command that refuses to run, naming why | §12, M13. setuptools ships `.py` only, so a wheel carries the runner and not the specs. Packaging the specs as package data would make the example behave differently depending on how it was installed, which is worse than a clear refusal — but the refusal is a deviation from what a reader would expect of an installed command, so it is named |
 
-## 17. New open questions
+## 16. New open questions
 
 Found by this design, and not in spec §7.
 

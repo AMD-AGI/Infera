@@ -1735,30 +1735,10 @@ could not run"*.
 which the denial would *not* happen. Without it, *"it is denied"* and *"it would
 be denied whatever we did"* are the same green — which is how criterion 13's
 separation was held by an accident of location for a week before anyone noticed.
-## 16. Implementation order
-
-Each step leaves the suite green.
-
-| # | Step | Unblocks |
-|---|---|---|
-| 1 | `fs/path.py` and its tests — criteria 3, 4, 5 | everything; it is the bottom of §2's graph |
-| 2 | `isolation/landlock.py` + `probe.py` + `policy.py`, promoting the probe instrument | criteria 6, 7, 12, 14 |
-| 3 | `isolation/apply.py` and the chain — criteria 8, 9 | the §14.3 fixture, which every later confinement test needs |
-| 4 | `fs/domain.py`, `fs/zone.py`, `fs/layout.py` — criteria 1, 2, 13 | §8.3's sibling rule |
-| 5 | `grants.py` — §6, and `canonical_syntax` into the grant schema | criterion 10 |
-| 6 | `workspace.py` — criteria 11, 20 | the module's largest deviation, and the one most worth reviewing early |
-| 7 | `sync.py` — criteria 15, 16 | |
-| 8 | `remote/` — criterion 18 | needs `agent`'s tool surface |
-| 9 | `prepare.py` — criterion 17, and the composition | needs 1–8 |
-| 10 | `cli.py` sub-commands — criterion 22 | last, because it is the only shipped file touched |
-| 11 | The handoff entry — criterion 19 | needs `handoff` implemented |
-
-Steps 1–3 are the safety claims and should land before anything that depends on
-them looks finished.
 
 ---
 
-## 17. Deviations from the spec
+## 16. Deviations from the spec
 
 
 The spec set is agreed and a design does not amend it. Each of these is reported.
@@ -1773,7 +1753,7 @@ The spec set is agreed and a design does not amend it. Each of these is reported
 | **D6** | **The zone is built per attempt, not per task** | Grants resolve to `<root>/<hid>/v<N>/` and `N` lives on `Execution`, not `Task` (M14) | §4.5's "the sandbox is built once, at task start" is true of one attempt. A retry rebuilds |
 | **D7** | **Criteria 9, 17 and 21 are not satisfied as written**, and §14.6 says so rather than approximating | No machine runs criterion 9's three branches; criterion 17's second half is not an observable; criterion 21 has no artefact | Reported. 9 is decomposed, 17 is half-tested, 21 is blocked on the system-level tasks spec §11 already lists as unspecified |
 
-## 18. New open questions
+## 17. New open questions
 
 | # | Question |
 |---|---|

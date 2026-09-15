@@ -1108,30 +1108,7 @@ fail loudly when someone adds a convenience overload.
 
 ---
 
-## 10. Implementation order
-
-Test first, in dependency order. Each step is independently runnable and green
-before the next begins.
-
-| # | Module | Depends on |
-|---|---|---|
-| 1 | `errors` | — |
-| 2 | `validate` + `report` | 1 |
-| 3 | `schemas/` — the five files | 2 (they are tested through it) |
-| 4 | `yaml_source` + `variables` + `assets` | 1 |
-| 5 | `registry` — `SpecRegistry` | 1 |
-| 6 | `package` — `YamlPackage` and `load_package` | 2–5 |
-| 7 | the four subclasses, with their own load-time checks | 5, 6 |
-| 8 | the closure pass | 7 |
-| 9 | `bootstrap` extension | 6–8 |
-
-Steps 1–5 are small and independent; the interesting work is 6–8. Step 3 carries
-more than its size suggests — the schemas *are* the enforcement, so an
-over-permissive one is a hole nothing downstream can close.
-
----
-
-## 11. Deviations from the spec
+## 10. Deviations from the spec
 
 Places where implementing the specification literally does not work. None
 changes an acceptance criterion.
@@ -1149,7 +1126,7 @@ changes an acceptance criterion.
 
 ---
 
-## 12. New open questions
+## 11. New open questions
 
 Found by this design, and **not** in spec §10.
 

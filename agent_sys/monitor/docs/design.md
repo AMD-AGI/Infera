@@ -1023,37 +1023,7 @@ Beyond the criteria:
 
 ---
 
-## 12. Implementation order
-
-Each step leaves the suite green.
-
-| | | Unblocks |
-|---|---|---|
-| 1 | `record.py` — id, kind, `PLANNED`, record, `Recorder` | criteria 5, 9, 13, 14 |
-| 2 | `buffer.py` — both queues | criteria 15, 20, and the invariant test |
-| 3 | `protocols.py` + `.pyi`, and the `interfaces.md` rows | criteria 1, 2 |
-| 4 | `base.py` — `report` + routing, `mainloop`, `_run_guarded`, `_transition`, `_sweep` | criteria 3, 6, 7, 8, 10, 11 |
-| 5 | **`_beat` + `check_liveness` + `install_excepthook`** | criteria 25, 26. **Independent of everything below**, and first because the rest of this module is now on the happy path |
-| 6 | `_advance` (§6.1) | criterion 19 — **blocked on `enter_phase`**, §9.2 |
-| 7 | `_escalate` + `_notify_parent_done` + `NullUserSink` | criteria 17, 22, 23, 24 — **blocked on `Task.parent`**, §9.2 |
-| 8 | `pusher.py` | criterion 12, partially — **the push half is blocked on `attempt_of`**, §9.2 |
-| 9 | `TaskAttempt` + `resume` + `attempt_of`, in `agent` | criteria 21, 22. Not this package |
-| 10 | the gate, in `agent` | criteria 4, 18. Not this package |
-| 11 | the validator's route | criteria 16, 18 |
-
-**Step 5 moved to the front in rev. 2, and the reason is the whole of rev. 2.**
-While the monitor only handled exceptions, its own liveness could follow the
-features it protected. Now that every phase advance runs through this loop, a
-monitor that can die silently is a system that can stop silently — so the two
-mechanisms that make that visible are built before the thing they watch.
-
-Steps 9–11 are in other packages and are listed because criteria 4, 16, 18, 21 and
-22 are not testable without them. They are the propagation set, not this module's
-implementation.
-
----
-
-## 13. Deviations from the spec
+## 12. Deviations from the spec
 
 | | |
 |---|---|
@@ -1067,7 +1037,7 @@ implementation.
 
 ---
 
-## 14. New open questions
+## 13. New open questions
 
 | | |
 |---|---|

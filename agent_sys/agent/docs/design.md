@@ -1375,26 +1375,7 @@ alive at 14 minutes with its transcript quiet for 5. It nearly became a
 
 ---
 
----
-
-## 13. Implementation order
-
-1. `spec.py` and `backend.py`. No dependencies; they unblock everything.
-2. `registry.py` plus check 2. Criterion 1's first half.
-3. `backends/program.py`. A real backend with no extra, so `selection` and
-   `runner` can be built and tested against something.
-4. `selection.py`. Criterion 3.
-5. `runner.py` with the three phases. Criteria 6 and 15's first half.
-6. The knowledge pass and its report. Criterion 2.
-7. `backends/claude_sdk.py`. Criteria 9, 10, 11 and the drain.
-8. `test_records.py`, the projection, and criterion 16.
-
-Step 3 before step 4 is deliberate: building `selection` against two fakes would
-test the chain against nothing that can actually fail to be available.
-
----
-
-## 14. Deviations from the spec
+## 13. Deviations from the spec
 
 | | | | |
 |---|---|---|---|
@@ -1408,7 +1389,7 @@ test the chain against nothing that can actually fail to be available.
 
 ---
 
-## 15. New open questions
+## 14. New open questions
 
 | | |
 |---|---|

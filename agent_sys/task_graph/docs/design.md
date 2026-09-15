@@ -2462,67 +2462,7 @@ is a comment.
 
 ---
 
-## 12. Implementation order
-
-Test first, in dependency order. Each step is independently runnable and green
-before the next begins.
-
-| # | Module | Depends on |
-|---|---|---|
-| 1 | `ids` | — |
-| 2 | `models` | 1 |
-| 3 | `registry` | — |
-| 4 | `store` | 2 (for the round-trip test only) |
-| 5 | `resource` | — |
-| 6 | `handoff` | 1–4 |
-| 7 | `task` | 1–4 |
-| 8 | `agent`, `runner`, `policy` | 1, 2 |
-| 9 | `bootstrap` | 1–8 |
-| 10 | `scheduler` — submit and dispatch | 1–9 |
-| 11 | `scheduler` — lifecycle, completion, expedite | 10 |
-| 12 | `resume_all` and recovery | 10, 11 |
-
-Steps 1–9 are small enough that the interesting work is entirely in 10–12. That
-is the intent: the components are dull so the scheduler can be read in one
-sitting. Step 2 carries more than its size suggests — the state-machine guards
-live there, and everything downstream relies on them holding.
-
-Scratch experiments stay in `agent_sys/scratch/`, which is gitignored. No
-temporary experiment leaves it.
-
-### 12.1 Rev. 11's order — an increment over a green suite
-
-Steps 1–12 are done. **The rule for every step below is that the 358 existing
-tests stay green after it**, not merely at the end; a step that needs them
-changed is a step that has misunderstood something.
-
-| # | Step | Depends on | Why here |
-|---|---|---|---|
-| 13 | `permissions.py`, and `Permissions` on `Task` | 2 | Leaf-most new module, carried and never read. Nothing else needs it, so it cannot break anything |
-| 14 | `ordered.py` + `_move`'s early return | 3, 10 | **Before** anything reads order. Its own test is "two passes preserve promotion order", which fails today and passes after |
-| 15 | `TaskStatus` +2, `PHASES`, the five guard sites | 2, 10 | Mechanical, and the five sites are enumerated in §8.2. The suite catches any missed one |
-| 16 | The structural fields; `TaskMgr.children`; `unfold` | 13, 15 | Structure before behaviour. Criterion 42's blanking test is written here and must pass immediately |
-| 17 | `enter_phase`, `FakeRunner`'s three phases | 15 | Criteria 39–41 become testable only now |
-| 18 | `DepthFirstPolicy`, and the default swapped | 14, 16 | Needs the ordered pool. One existing test is rebuilt — see below |
-| 19 | The registry reference, `_sched`, `cancel` / `restart` / `fail` | 16 | The transitions, before anything cascades |
-| 20 | `TaskMgr.consumers`, the cascade queue, `_drain_cascade` | 19 | Criterion 49, as far as §14 permits |
-| 21 | `graph.py`, wired into the composition root | 16 | Criteria 50 and 53. Last because it checks what the earlier steps made expressible |
-| 22 | `replace_with` | 20, 21 | Needs both the cascade and the closure catalogue |
-
-**Step 18 changes one existing test, and only one.** Measured by overriding the
-default policy and running the suite: **1 of 358 fails**, and it is D15's
-regression test, whose *setup* depends on which task a single dispatch pass
-reaches first — not its assertion. It is rebuilt to pin the order it needs
-explicitly instead of relying on the default. Recorded because "the default
-policy changed and one test moved" is the kind of thing that looks like a
-regression a year later.
-
-Steps 19–22 are where the interesting work is, exactly as 10–12 were in rev. 10.
-13–18 are deliberately dull.
-
----
-
-## 13. Deviations from the spec
+## 12. Deviations from the spec
 
 Each of these is a place where implementing the spec literally does not work.
 None changes an acceptance criterion; several are forced *by* one.
@@ -2558,7 +2498,7 @@ adopted them. They are now specification, not deviation.
 
 ---
 
-## 14. New open questions
+## 13. New open questions
 
 These are found by this design and are **not** in spec §10.
 
@@ -2580,7 +2520,7 @@ is why they were raised here rather than fixed here.
 | **O12** | **`test_authority.py` cannot see `open_next` or `seal`.** Criterion 14 is worded as "no `open_next` or `seal` is called from a scheduler frame", but those are methods on `Handoff` / `HandoffVersion`, and the spy wraps `HandoffMgr`. What is actually enforced is that `persist` only happens inside an agent span. Since the scheduler does hold live `Handoff` objects (through `get` and `latest`), a scheduler that mutated one and did not persist would pass. The inference is strong — an unpersisted mutation is a bug in its own right — but it is an inference. Closing it means wrapping the returned `Handoff` in the spy, or asserting on version-status transitions rather than on `persist`. Raised by review. |
 | **O13** | **`output_versions` is misattributed when two tasks produce the same handoff.** `on_task_done` records `handoff_mgr.latest(h).version`, which is whatever the handoff holds *at completion time* — not what this run's agent wrote. With A and B both outputting `h`: A writes v0, B writes v1, A completes, and A's execution records `{h: 1}` while A's own agent's `handoffs` correctly says `[0]`. Criterion 22's "reconstructible from either end" then disagrees with itself depending on which end you read from. **This is spec-mandated, not an oversight**: criterion 13 requires the scheduler to record `output_versions` "by reading `HandoffMgr`, not from anything the runner passed", and spec §8.2 calls `latest(h)` the authoritative answer. `agent.handoffs` is the accurate source and reading it would not violate the authority rule — it is an agent record, not handoff state — but switching would contradict a criterion, so it is a spec decision. Raised by review; not fixed. |
 
-### 14.1 Raised by revision 11
+### 13.1 Raised by revision 11
 
 **Two criteria this revision cannot close, and it says so rather than inventing
 the spec material.** Both are named in spec §10 already; what is new is that a

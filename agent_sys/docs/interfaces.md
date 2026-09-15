@@ -680,7 +680,7 @@ kind. Two behaviours; the specs describe the first.
 
 **The fix is not "read the closure's list as well" — it is "ask `closures` for
 the set and stop deriving it here."** `closure/query.py` already computes the
-union and `closure` spec §217 states it: *"Every validator that will run, phase
+union and `closure` spec §3 states it: *"Every validator that will run, phase
 validators and per-handoff ones together."* Reading both lists here would make
 `validator` a second computer of something `closure` already computes —
 `engineer_principle.md` §3, whoever owns it does the work.

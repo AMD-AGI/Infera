@@ -1346,31 +1346,7 @@ loudly when someone adds a convenience overload.
 
 ---
 
-## 13. Implementation order
-
-Test first, in dependency order. Each step green before the next.
-
-| # | Module | Depends on |
-|---|---|---|
-| 1 | `errors` | — |
-| 2 | `digest` — the tree walk and the canonical encoder | 1 |
-| 3 | `readme` | 1 |
-| 4 | `pointer` | 1 |
-| 5 | `locality` | 1 |
-| 6 | `content` — the four types, the item split | 2–5 |
-| 7 | `kind` + `registry` — including the reverse index | 6, `spec_loader` |
-| 8 | `verdict` | 1 |
-| 9 | `store` — `FilesystemStore` and `StoreConformance` | 6, 8 |
-| 10 | the closure-pass contribution — the agreement check | 7 |
-
-Steps 2–5 are pure functions and independently testable, which is why §2.1's
-import rule matters: they can all be written before anything else exists. Step 2
-carries the most weight — its reference vectors are checked in, and a change to
-them after the alpha is a `v2` (§4.7), not an edit.
-
----
-
-## 14. Deviations from the spec
+## 13. Deviations from the spec
 
 None changes an acceptance criterion.
 
@@ -1383,7 +1359,7 @@ None changes an acceptance criterion.
 
 ---
 
-## 15. New open questions
+## 14. New open questions
 
 Found by this design, and **not** in spec §10.
 
