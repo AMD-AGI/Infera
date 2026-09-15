@@ -1,0 +1,159 @@
+{
+  "activities": [
+    "CPU",
+    "GPU"
+  ],
+  "cuda_graph_capture_profile_caveat": "--enable-profile-cuda-graph and SGLANG_ENABLE_CUDA_GRAPH_CAPTURE_TRACE profile the graph CAPTURE pass. Kernels are recorded there, not executed: treat that output as a kernel identity/shape inventory, never as timing.",
+  "cuda_graph_enabled": true,
+  "device_timer": {
+    "by_category": {
+      "eagle_draft": {
+        "count": 40,
+        "max_seconds": 0.04043470001220703,
+        "min_seconds": 0.005390029907226562,
+        "seconds": 0.26209150743484494,
+        "share": 0.07002959355703349
+      },
+      "eagle_draft_extend": {
+        "count": 40,
+        "max_seconds": 0.0037459399700164797,
+        "min_seconds": 0.0036346199512481687,
+        "seconds": 0.14679736065864565,
+        "share": 0.03922355059415966
+      },
+      "target_verify": {
+        "count": 40,
+        "max_seconds": 0.08370833587646484,
+        "min_seconds": 0.0831611328125,
+        "seconds": 3.33369329071045,
+        "share": 0.8907468558488069
+      }
+    },
+    "by_runner": {
+      "draft": {
+        "eagle_draft": {
+          "count": 40,
+          "max_seconds": 0.04043470001220703,
+          "min_seconds": 0.005390029907226562,
+          "seconds": 0.26209150743484494
+        },
+        "eagle_draft_extend": {
+          "count": 40,
+          "max_seconds": 0.0037459399700164797,
+          "min_seconds": 0.0036346199512481687,
+          "seconds": 0.14679736065864565
+        }
+      },
+      "target": {
+        "target_verify": {
+          "count": 40,
+          "max_seconds": 0.08370833587646484,
+          "min_seconds": 0.0831611328125,
+          "seconds": 3.33369329071045
+        }
+      }
+    },
+    "categories_known_to_pinned_sglang": [
+      "decode",
+      "extend",
+      "idle",
+      "target_verify",
+      "split_prefill",
+      "eagle_draft",
+      "eagle_draft_extend",
+      "frozen_kv_draft"
+    ],
+    "categories_observed": [
+      "eagle_draft",
+      "eagle_draft_extend",
+      "target_verify"
+    ],
+    "mechanism": "sglang.srt.utils.device_timer.DeviceTimer attached by the bench",
+    "note": "CUDA events bracket the graph replay from outside, so these totals are valid with CUDA graphs both enabled and disabled.",
+    "scope": "whole measured decode loop",
+    "torch_profiler_window_delta": null,
+    "total_seconds": 3.7425821588039407
+  },
+  "emitting_rank": false,
+  "env": {
+    "AITER_ASM_DIR": "/aiter/hsa/",
+    "AITER_COMMIT": "d9e5ef7ce08ee7045d583aed768cff41aa9210fe",
+    "AITER_COMMIT_DEFAULT": "d9e5ef7ce08ee7045d583aed768cff41aa9210fe",
+    "AITER_GPU_ARCHS": "gfx950",
+    "AITER_JIT_DIR": "/tmp/yihou-aiter-b5aa5bd3d828",
+    "AITER_USE_FLYDSL_MOE_SORTING": "1",
+    "AITER_USE_SYSTEM_TRITON": "1",
+    "HIP_FORCE_DEV_KERNARG": "1",
+    "HIP_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+    "SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN": "1",
+    "SGLANG_DISABLE_CUDNN_CHECK": "1",
+    "SGLANG_DISABLE_OUTLINES_DISK_CACHE": "0",
+    "SGLANG_DSA_PREFILL_DENSE_ATTN_KV_LEN_THRESHOLD": "2048",
+    "SGLANG_ENABLE_DETERMINISTIC_INFERENCE": "0",
+    "SGLANG_ENABLE_TORCH_COMPILE": "0",
+    "SGLANG_INT4_WEIGHT": "0",
+    "SGLANG_MOE_PADDING": "1",
+    "SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK": "1",
+    "SGLANG_OPT_USE_TOPK_V2": "False",
+    "SGLANG_ROCM_DISABLE_LINEARQUANT": "0",
+    "SGLANG_ROCM_FUSED_DECODE_MLA": "1",
+    "SGLANG_RUN_ID": "sglang-run-1789379725.661558-46487019",
+    "SGLANG_SET_CPU_AFFINITY": "1",
+    "SGLANG_SIMULATE_ACC_LEN": "3.61",
+    "SGLANG_SIMULATE_ACC_METHOD": "match-expected",
+    "SGLANG_SIMULATE_ACC_TOKEN_MODE": "real-draft-token",
+    "SGLANG_TIMEOUT_KEEP_ALIVE": "900",
+    "SGLANG_TORCH_PROFILER_DIR": "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_profiling_yihou_20260914-0851/iterations/p1_ep8_c256_graphon_yihou/profile",
+    "SGLANG_USE_AITER": "1",
+    "SGLANG_USE_CUDA_IPC_TRANSPORT": "0",
+    "SGLANG_USE_ROCM700A": "1"
+  },
+  "files": [
+    "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_profiling_yihou_20260914-0851/iterations/p1_ep8_c256_graphon_yihou/profile/device_timer_rank_5_yihou.json"
+  ],
+  "is_performance_measurement": false,
+  "measured_elapsed_seconds": 3.8391302070231177,
+  "measured_iterations": 40,
+  "module_source_paths": {
+    "sglang.srt.server_args": "/sglang/python/sglang/srt/server_args.py",
+    "sglang.srt.speculative.eagle_worker_v2": "/sglang/python/sglang/srt/speculative/eagle_worker_v2.py"
+  },
+  "notes": [
+    "rank 5 not in --profile-ranks; torch.profiler not started"
+  ],
+  "pinned_sglang": "402df1e1e453e1e85ec0f5ac4052d36598cc691a",
+  "profile_args": {
+    "device_timer": true,
+    "profile": true,
+    "profile_activities": "CPU,GPU",
+    "profile_dir": null,
+    "profile_graph_capture_trace": false,
+    "profile_num_steps": 5,
+    "profile_ranks": "0",
+    "profile_record_shapes": true,
+    "profile_start_step": 20,
+    "profile_top_n": 10,
+    "profile_with_stack": false
+  },
+  "profile_id": "1789379734.701333",
+  "profile_window_actual": {
+    "start_step": 20,
+    "stop_step": 20
+  },
+  "profile_window_requested": {
+    "num_steps": 5,
+    "start_step": 20
+  },
+  "rank": 5,
+  "result_dir": "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_profiling_yihou_20260914-0851/iterations/p1_ep8_c256_graphon_yihou",
+  "table_sort_key_used": null,
+  "topology": {
+    "dp_size": 8,
+    "enable_dp_attention": true,
+    "ep_size": 8,
+    "global_batch_size": 256,
+    "local_batch_size": 32,
+    "tp_size": 8
+  },
+  "why": "profiling perturbs the decode loop; TPOT from a profiled run is not a performance number. Use the non-profiled packup runs for performance."
+}

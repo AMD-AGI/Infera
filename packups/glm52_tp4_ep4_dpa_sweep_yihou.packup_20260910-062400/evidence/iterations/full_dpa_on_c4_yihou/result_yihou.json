@@ -1,0 +1,130 @@
+{
+  "complete": true,
+  "batch_size": 4,
+  "input_len": 70000,
+  "output_len": 10000,
+  "emitted_per_request": [
+    10000,
+    10000,
+    10000,
+    10000
+  ],
+  "final_seq_lens": [
+    80000,
+    80000,
+    80000,
+    80000
+  ],
+  "verify_iterations": 2768,
+  "useful_output_tokens": 40000,
+  "raw_accept_tokens": 40008,
+  "num_correct_drafts": 28936,
+  "terminal_extra_tokens": 8,
+  "realized_accept_length": 3.6134393063583814,
+  "accept_histogram": {
+    "3": 4280,
+    "4": 6792
+  },
+  "elapsed_seconds": 71.99073620900162,
+  "output_tokens_per_second": 555.6270446224225,
+  "effective_token_latency_ms_per_user": 7.199073620900163,
+  "tp_size": 4,
+  "ep_size": 4,
+  "dp_size": 4,
+  "enable_dp_attention": true,
+  "global_batch_size": 4,
+  "local_batch_size": 1,
+  "expected_accept_length": 3.61,
+  "accept_method": "match-expected",
+  "accept_token_mode": "real-draft-token",
+  "output_tokens_per_second_per_gpu": 138.90676115560564,
+  "target_graph_iterations": 2768,
+  "warmup_steps_excluded": 10,
+  "graph_execution_counts": {
+    "target": 2768,
+    "draft": 2768,
+    "draft_extend": 2768
+  },
+  "bootstrap_tokens_excluded": 4,
+  "report_scope": "global",
+  "graph_execution_counts_scope": "rank_0",
+  "phase_seconds": {
+    "load_pool_capture": 51.42941708800208,
+    "physical_initialization": 0.17337292101001367,
+    "bootstrap": 1.128859589996864,
+    "warmup_and_reset": 2.0888209609984187,
+    "decode": 71.99073620900162,
+    "rank_total_to_result": 126.81391916700522
+  },
+  "moe_a2a_backend": "none",
+  "moe_runner_backend": "auto",
+  "cross_rank_progress_check": "every warmup and measured iteration; included in timing",
+  "synthetic_prefix": true,
+  "simulated_acceptance": true,
+  "real_model_weights": true,
+  "real_moe_routing": true,
+  "scheduler_used": false,
+  "pinned_sglang": "402df1e1e453e1e85ec0f5ac4052d36598cc691a",
+  "module_source_paths": {
+    "sglang.srt.server_args": "/sglang/python/sglang/srt/server_args.py",
+    "sglang.srt.speculative.eagle_worker_v2": "/sglang/python/sglang/srt/speculative/eagle_worker_v2.py"
+  },
+  "timing_boundary": "complete internal speculative loop + synchronization + bookkeeping; excludes bootstrap/warmup/load/capture",
+  "terminal_policy": "count only remaining useful tokens; pay full terminal computation; no subsequent forward",
+  "memory": {
+    "reserved_tokens": 80064,
+    "reserved_tokens_per_request": 80064,
+    "page_size": 64,
+    "speculative_reserve": 12,
+    "target_initialized_bytes": 115301203200,
+    "draft_initialized_bytes": 1711388928
+  },
+  "max_memory_allocated_bytes": 254778018816,
+  "model_path": "/shared_nfs/models/GLM-5.2-MXFP4",
+  "target_backend": "DeepseekSparseAttnBackend",
+  "draft_backend": "DeepseekSparseAttnBackend",
+  "draft_graph_available": true,
+  "draft_extend_graph_available": true,
+  "representative_ranks": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "graph_execution_counts_by_rank": {
+    "0": {
+      "target": 2768,
+      "draft": 2768,
+      "draft_extend": 2768
+    },
+    "1": {
+      "target": 2768,
+      "draft": 2768,
+      "draft_extend": 2768
+    },
+    "2": {
+      "target": 2768,
+      "draft": 2768,
+      "draft_extend": 2768
+    },
+    "3": {
+      "target": 2768,
+      "draft": 2768,
+      "draft_extend": 2768
+    }
+  },
+  "per_dp_useful_output_tokens": [
+    10000,
+    10000,
+    10000,
+    10000
+  ],
+  "phase_seconds_max_rank": {
+    "load_pool_capture": 51.42941708800208,
+    "physical_initialization": 0.17454682401148602,
+    "bootstrap": 1.2763698490016395,
+    "warmup_and_reset": 2.0888948520005215,
+    "decode": 71.99073620900162,
+    "rank_total_to_result": 126.81391916700522
+  }
+}

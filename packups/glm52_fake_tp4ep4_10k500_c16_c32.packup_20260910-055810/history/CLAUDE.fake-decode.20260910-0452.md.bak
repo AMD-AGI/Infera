@@ -1,0 +1,38 @@
+# Task: GLM-5.2 standalone decode with fake prefill
+
+## Deliverable
+Bring up standalone SGLang decode with the previously verified optimization stack, first with unforced MTP. Perform brief real-context correctness smoke separately, then benchmark fake KV with simulated acceptance length3.61 at ISL289652 / OSL774 / client concurrency16. Verify actual running batch and capacity rather than equating submitted concurrency with resident concurrency. No full AgentX replay or additional sweep requested.
+
+## Background
+Reference: /shared_nfs/yihou/playground/glm52_mix_repro_20260908 (READ ONLY). Its TP8/EP1 c1 mix benchmark and full GSM8K are known-good differential reference, not D-only validation. Original reference CLAUDE copied beside this file as CLAUDE.glm52-mix.20260909-1016.md.bak. Approved plan is plan.md. The separate mix-packup teammate packages that old experiment under /shared_nfs/yihou/packups; do not mix its results with this task.
+
+## Context
+- Model /shared_nfs/models/GLM-5.2-MXFP4, 78 layers, 64 heads, native context1048576.
+- Pinned SGLang402df1e1e453e1e85ec0f5ac4052d36598cc691a; AITER2c71811b32c8ce2e1266aedaec199df7d90f597d.
+- Prior image sha256:b9a83742f631d7321c6b75aceb031a8b347c70f97c62ef8c62370c686853de7d. Archive /shared_nfs/yihou/playground/glm52_mix_repro_20260908/image/rocm-llm-bench.tar.zst. Its reload is not yet verified.
+- Previous AgentX median input289652, actual output774, expected output837. Use ACTUAL774. Reference JSON copied into reference/.
+- User-approved filesystem exception: read known previous experiment/repo/model only; write all new experiment files inside THIS workspace. No deletion of pre-existing data. Do not modify original checkout, original CLAUDE or global files.
+- User-approved host scope: one new task-owned allocation; Docker load/pull/build, start and graceful stop of task-owned containers; task-specific caches in workspace or node /tmp. No host driver/daemon/config edits; no other people's process/image/container removal. Release task-owned allocation at completion. Existing job125824 on036 is NOT ours, do not use/cancel it.
+
+## Key references / source facts
+Fake D flags: --disaggregation-mode decode --disaggregation-transfer-backend fake. Client module sglang.benchmark.serving supports --fake-prefill (older sglang.bench_serving is deprecated alias). Requests use bootstrap_host=2.2.2.2 and bootstrap_room=0, sentinel not a real server.
+Fake receiver does not compute or fill valid prompt KV; initialized zeros are not guaranteed re-zeroed on reuse. Health checks are not semantic correctness. Run short actual-prefill mix smoke with simulation off to test stack, NOT to claim fake D correctness.
+HiCache/radix are incompatible with fake; disable HiCache and do not bypass parameter guards. DCP>1 also incompatible. Keep applicable FP8 KV, FlyDSL decode/prefill, EAGLE5/6/topk1, aiter allreduce fusion, QK norm/RoPE fusion, unified grouped topk, MoE sorting.
+First bring-up: all SGLANG_SIMULATE_ACC_* unset. Final measurement only: LEN=3.61, METHOD=match-expected, TOKEN_MODE=real-draft-token. Length includes bonus, batch-shared random3/4 with probabilities0.39/0.61; requires worker restart. Synthetic output is not correctness-valid.
+Capacity minimum16*(289652+774)=4646816 plus page/reserved/draft overhead, prior pool3449728. MLA cache replicated per TP rank. No page aliasing, shortened prompt or unreported queued requests to fake batch16. If capacity cannot meet it, report evidence and ask before changing topology/scope.
+
+## Principles
+1. Follow iterative-debug-loop/systematic-debugging: per-round hypothesis, minimal change, commands, source/log/reference evidence, outcome, next step; index all rounds in working_process.md.
+2. Allow roughly30min for graph/JIT progress; inspect logs/build changes, do not kill healthy compiling work. Preserve compatible JIT caches across restarts.
+3. Stop task server gracefully (docker stop --time300); inspect after exit and wait for HBM release. Never force-kill unknown processes. Namespace /proc absence is NOT host process absence. Docker backing storage cannot be inferred from namespace root df.
+4. Source edits only after a concrete failure and narrow test; large changes require approval. No commits/push requested.
+5. Real UTC timestamps from date/Python, not estimates presented as measurements. Distinguish commands issued, exits verified, and teammate reports.
+6. Working files English; user reports Chinese, concise.
+
+## Team / cadence
+Leader drives experiment; decode-research researches pinned behavior; d-scribe writes append-only checkpoints every30min when invoked by leader timer. Each call writes once then returns; no sleep loops. Independent mix-packup handles older run only.
+Leader10min poll records first non-safety issue without intervention, intervenes if still present next poll. Interpret finished/idle agents correctly. Only allocations recorded as task-owned in state/ may be changed.
+Checkpoint sections: progress%/elapsed/ETA/reliability; current state; code fixed/open; environment issues; unknowns; commits with descriptions; other material notes. Stop timers/agents on completion, no extended idle hold waiting for new scope.
+
+## Layout
+reference/ original copied scripts and AgentX JSON; source/ pinned code inspection; scripts/ local wrappers; rounds/<id>/ isolated iteration inputs/logs/results; results/ final outputs; logs/ operational logs; cache/ persistent version-keyed caches; state/ timestamped progress/job ownership; working_process.md round index.

@@ -62,3 +62,37 @@ mission.md
 .spur_job_*.sh
 .spur_ns_*.sh
 spur-*.out
+
+# --- Experiment scratch: raw traces and compiler caches (yihou) ---
+# These are produced by benchmark runs inside the container and must never be
+# committed: they are either regenerable build artefacts or bulk per-iteration
+# traces.
+#
+# CORRECTION (2026-09-15): an earlier revision of this comment claimed these were
+# "moved out of the repo to ../glm52_internal_bench_rawdata_yihou_20260915/
+# (nothing was deleted)". That directory does not exist and never did -- searched
+# /home/yihou, /var/tmp and the parent directory. The files matching these patterns
+# were removed from the working tree by commit be73937f, not relocated.
+# They are not lost: they were committed before that removal, so every one of them
+# is recoverable with `git show be73937f^:<path>` or `git checkout be73937f^ -- <path>`.
+# Do not go looking for a backup directory; use git history.
+cache/jit-*/
+cache/torch/
+cache/triton/
+cache/flashinfer/
+**/steps*.jsonl
+**/wave_*steps*.jsonl
+**/benchmark.jsonl
+**/console.log
+**/bench_snapshot/
+
+# --- Agent scratch workspaces (yihou) ---
+# Per-experiment working directories: iterations, logs, raw traces, scratch notes.
+# They hold NO code — the shared harness lives in
+# sglang_decode_internal_bench_and_profiling/ and published results live in packups/.
+# Kept on disk for reference, deliberately out of the repo: they are ~390 MB of
+# regenerable artefacts and committing them would grow git history permanently.
+temp_workspace/
+
+# Serena (LSP agent) per-project cache — tool state, not a deliverable.
+.serena/
