@@ -1,0 +1,46 @@
+utput(["nvcc", "--version"])
+  File "/usr/lib/python3.10/subprocess.py", line 421, in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+  File "/usr/lib/python3.10/subprocess.py", line 503, in run
+    with Popen(*popenargs, **kwargs) as process:
+  File "/usr/lib/python3.10/subprocess.py", line 971, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "/usr/lib/python3.10/subprocess.py", line 1863, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+torch._inductor.exc.InductorError: PermissionError: [Errno 13] Permission denied: 'nvcc'
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/opt/venv/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 95, in _wrap
+    fn(i, *args)
+  File "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py", line 305, in run_rank
+    target, worker = create_workers(server_args, port_args, rank, args)
+  File "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py", line 147, in create_workers
+    worker.init_cuda_graphs()
+  File "/sglang/python/sglang/srt/speculative/eagle_worker_v2.py", line 1109, in init_cuda_graphs
+    super().init_cuda_graphs()
+  File "/sglang/python/sglang/srt/speculative/base_spec_worker.py", line 294, in init_cuda_graphs
+    self.draft_worker.init_cuda_graphs()
+  File "/sglang/python/sglang/srt/speculative/eagle_worker_v2.py", line 245, in init_cuda_graphs
+    self._capture_cuda_graphs()
+  File "/sglang/python/sglang/srt/speculative/eagle_worker_v2.py", line 375, in _capture_cuda_graphs
+    self.cuda_graph_runner = Device2DraftCudaGraphRunner[
+  File "/sglang/python/sglang/srt/speculative/eagle_draft_cuda_graph_runner.py", line 272, in __init__
+    raise Exception(
+Exception: Capture cuda graph failed: PermissionError: [Errno 13] Permission denied: 'nvcc'
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+
+Possible solutions:
+1. set --mem-fraction-static to a smaller value (e.g., 0.8 or 0.7)
+2. set --cuda-graph-max-bs-decode to a smaller value (e.g., 16)
+3. disable decode CUDA graph by --cuda-graph-backend-decode=disabled. (Not recommended. Huge performance loss)
+Open an issue on GitHub https://github.com/sgl-project/sglang/issues/new/choose 
+
+
+/usr/lib/python3.10/multiprocessing/resource_tracker.py:224: UserWarning: resource_tracker: There appear to be 1 leaked shared_memory objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '

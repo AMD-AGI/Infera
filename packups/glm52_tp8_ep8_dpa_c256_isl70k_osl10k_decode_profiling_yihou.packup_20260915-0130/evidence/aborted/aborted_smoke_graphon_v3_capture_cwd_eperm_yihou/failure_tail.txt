@@ -1,0 +1,334 @@
+]Multi-thread loading shards:  37% Completed | 105/282 [00:05<00:06, 28.88it/s]Multi-thread loading shards:  39% Completed | 109/282 [00:05<00:07, 23.28it/s]Multi-thread loading shards:  42% Completed | 118/282 [00:05<00:06, 24.76it/s]Multi-thread loading shards:  43% Completed | 121/282 [00:06<00:11, 13.96it/s]Multi-thread loading shards:  46% Completed | 129/282 [00:06<00:08, 17.60it/s]Multi-thread loading shards:  47% Completed | 132/282 [00:06<00:07, 18.95it/s]Multi-thread loading shards:  49% Completed | 137/282 [00:07<00:07, 19.62it/s]Multi-thread loading shards:  51% Completed | 144/282 [00:07<00:05, 26.59it/s]Multi-thread loading shards:  52% Completed | 148/282 [00:07<00:05, 23.39it/s]Multi-thread loading shards:  54% Completed | 152/282 [00:07<00:05, 24.32it/s]Multi-thread loading shards:  56% Completed | 159/282 [00:07<00:03, 32.08it/s]Multi-thread loading shards:  58% Completed | 164/282 [00:08<00:04, 24.34it/s]Multi-thread loading shards:  61% Completed | 171/282 [00:08<00:03, 31.50it/s]Multi-thread loading shards:  62% Completed | 176/282 [00:09<00:07, 13.81it/s]Multi-thread loading shards:  64% Completed | 180/282 [00:09<00:06, 14.94it/s]Multi-thread loading shards:  67% Completed | 188/282 [00:09<00:04, 22.01it/s]Multi-thread loading shards:  68% Completed | 193/282 [00:09<00:04, 20.54it/s]Multi-thread loading shards:  70% Completed | 198/282 [00:09<00:04, 20.16it/s]Multi-thread loading shards:  72% Completed | 202/282 [00:10<00:03, 21.64it/s]Multi-thread loading shards:  74% Completed | 209/282 [00:10<00:03, 22.02it/s]Multi-thread loading shards:  76% Completed | 215/282 [00:10<00:02, 27.09it/s]Multi-thread loading shards:  79% Completed | 222/282 [00:10<00:02, 25.03it/s]Multi-thread loading shards:  81% Completed | 228/282 [00:10<00:01, 30.06it/s]Multi-thread loading shards:  82% Completed | 232/282 [00:11<00:03, 14.03it/s]Multi-thread loading shards:  83% Completed | 235/282 [00:11<00:03, 13.63it/s]Multi-thread loading shards:  85% Completed | 241/282 [00:12<00:02, 15.73it/s]Multi-thread loading shards:  87% Completed | 246/282 [00:12<00:01, 19.62it/s]Multi-thread loading shards:  90% Completed | 253/282 [00:12<00:01, 20.83it/s]Multi-thread loading shards:  91% Completed | 258/282 [00:12<00:00, 24.66it/s]Multi-thread loading shards:  94% Completed | 265/282 [00:12<00:00, 31.93it/s]Multi-thread loading shards:  96% Completed | 270/282 [00:13<00:00, 27.42it/s]Multi-thread loading shards:  97% Completed | 274/282 [00:13<00:00, 27.77it/s]Multi-thread loading shards: 100% Completed | 281/282 [00:13<00:00, 35.61it/s]Multi-thread loading shards: 100% Completed | 282/282 [00:13<00:00, 21.14it/s]
+[2026-09-14 09:33:18 TP6] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0. This may lead to less accurate results!
+[2026-09-14 09:33:18 TP6] Load weight end. elapsed=15.24 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=201.73 GB, mem usage=75.25 GB.
+[2026-09-14 09:33:18 TP4] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0. This may lead to less accurate results!
+[2026-09-14 09:33:18 TP4] Load weight end. elapsed=15.41 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=201.75 GB, mem usage=75.25 GB.
+[2026-09-14 09:33:18 TP0] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0. This may lead to less accurate results!
+[2026-09-14 09:33:18 TP0] Load weight end. elapsed=15.00 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=200.67 GB, mem usage=75.25 GB.
+[2026-09-14 09:33:19 TP1] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0. This may lead to less accurate results!
+[2026-09-14 09:33:19 TP1] Load weight end. elapsed=16.19 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=202.03 GB, mem usage=75.25 GB.
+[2026-09-14 09:33:19 TP7] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0. This may lead to less accurate results!
+[2026-09-14 09:33:19 TP7] Load weight end. elapsed=16.27 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=201.75 GB, mem usage=75.25 GB.
+[2026-09-14 09:33:19 TP5] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0. This may lead to less accurate results!
+[2026-09-14 09:33:19 TP5] Load weight end. elapsed=16.33 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=201.67 GB, mem usage=75.25 GB.
+[2026-09-14 09:33:19 TP3] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0. This may lead to less accurate results!
+[2026-09-14 09:33:19 TP3] Load weight end. elapsed=16.40 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=201.60 GB, mem usage=75.25 GB.
+[2026-09-14 09:33:19 TP2] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0. This may lead to less accurate results!
+[2026-09-14 09:33:19 TP2] Load weight end. elapsed=16.60 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=201.61 GB, mem usage=75.25 GB.
+[INTERNAL-DECODE TP0] loading draft weights
+[INTERNAL-DECODE TP4] loading draft weights[INTERNAL-DECODE TP5] loading draft weights
+
+[INTERNAL-DECODE TP1] loading draft weights
+[INTERNAL-DECODE TP3] loading draft weights
+[INTERNAL-DECODE TP7] loading draft weights
+[INTERNAL-DECODE TP6] loading draft weights[INTERNAL-DECODE TP2] loading draft weights
+
+[2026-09-14 09:33:19 TP5] Init torch distributed begin.
+[2026-09-14 09:33:19 TP0] Init torch distributed begin.
+[2026-09-14 09:33:19 TP4] Init torch distributed begin.
+[2026-09-14 09:33:19 TP6] Init torch distributed begin.
+[2026-09-14 09:33:19 TP3] Init torch distributed begin.
+[2026-09-14 09:33:19 TP1] Init torch distributed begin.
+[2026-09-14 09:33:19 TP2] Init torch distributed begin.
+[2026-09-14 09:33:19 TP7] Init torch distributed begin.
+[2026-09-14 09:33:19 TP0] Init torch distributed ends. elapsed=0.00 s, mem usage=0.00 GB
+[2026-09-14 09:33:19 TP7] Init torch distributed ends. elapsed=0.00 s, mem usage=0.00 GB
+[2026-09-14 09:33:19 TP6] Init torch distributed ends. elapsed=0.00 s, mem usage=0.00 GB
+[2026-09-14 09:33:19 TP5] Init torch distributed ends. elapsed=0.00 s, mem usage=0.00 GB
+[2026-09-14 09:33:19 TP4] Init torch distributed ends. elapsed=0.00 s, mem usage=0.00 GB
+[2026-09-14 09:33:19 TP0] Load weight begin. avail mem=200.67 GB
+[2026-09-14 09:33:19 TP3] Init torch distributed ends. elapsed=0.00 s, mem usage=0.00 GB
+[2026-09-14 09:33:19 TP6] Load weight begin. avail mem=201.73 GB
+[2026-09-14 09:33:19 TP2] Init torch distributed ends. elapsed=0.00 s, mem usage=0.00 GB
+[2026-09-14 09:33:19 TP7] Load weight begin. avail mem=201.75 GB
+[2026-09-14 09:33:19 TP5] Load weight begin. avail mem=201.67 GB
+[2026-09-14 09:33:19 TP1] Init torch distributed ends. elapsed=0.00 s, mem usage=0.00 GB
+[2026-09-14 09:33:19 TP4] Load weight begin. avail mem=201.75 GB
+[2026-09-14 09:33:19 TP3] Load weight begin. avail mem=201.60 GB
+[2026-09-14 09:33:19 TP2] Load weight begin. avail mem=201.61 GB
+[2026-09-14 09:33:19 TP1] Load weight begin. avail mem=202.03 GB
+[2026-09-14 09:33:19 TP0] Shared experts fusion optimization enabled.
+Multi-thread loading shards:   0% Completed | 0/282 [00:00<?, ?it/s]Multi-thread loading shards:   1% Completed | 4/282 [00:00<00:07, 37.73it/s]Multi-thread loading shards:   7% Completed | 19/282 [00:00<00:02, 97.92it/s]Multi-thread loading shards:  12% Completed | 34/282 [00:00<00:02, 117.76it/s]Multi-thread loading shards:  17% Completed | 49/282 [00:00<00:01, 128.51it/s]Multi-thread loading shards:  23% Completed | 64/282 [00:00<00:01, 134.00it/s]Multi-thread loading shards:  28% Completed | 79/282 [00:00<00:01, 135.86it/s]Multi-thread loading shards:  33% Completed | 94/282 [00:00<00:01, 138.93it/s]Multi-thread loading shards:  39% Completed | 109/282 [00:00<00:01, 140.79it/s]Multi-thread loading shards:  44% Completed | 124/282 [00:00<00:01, 142.10it/s]Multi-thread loading shards:  49% Completed | 139/282 [00:01<00:01, 142.99it/s]Multi-thread loading shards:  55% Completed | 154/282 [00:01<00:00, 142.51it/s]Multi-thread loading shards:  60% Completed | 169/282 [00:01<00:00, 142.44it/s]Multi-thread loading shards:  65% Completed | 184/282 [00:01<00:00, 141.41it/s]Multi-thread loading shards:  71% Completed | 199/282 [00:01<00:00, 141.87it/s]Multi-thread loading shards:  76% Completed | 214/282 [00:01<00:00, 141.16it/s]Multi-thread loading shards:  81% Completed | 229/282 [00:01<00:00, 140.89it/s]Multi-thread loading shards:  87% Completed | 244/282 [00:01<00:00, 142.36it/s]Multi-thread loading shards:  92% Completed | 259/282 [00:02<00:00, 62.20it/s] Multi-thread loading shards:  96% Completed | 272/282 [00:02<00:00, 70.80it/s]Multi-thread loading shards: 100% Completed | 282/282 [00:02<00:00, 113.13it/s]
+[2026-09-14 09:33:22 TP0] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0. This may lead to less accurate results!
+[2026-09-14 09:33:22 TP0] Load weight end. elapsed=2.70 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=196.06 GB, mem usage=4.61 GB.
+[2026-09-14 09:33:22 TP5] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0. This may lead to less accurate results!
+[2026-09-14 09:33:22 TP5] Load weight end. elapsed=2.82 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=197.06 GB, mem usage=4.61 GB.
+[2026-09-14 09:33:22 TP6] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0. This may lead to less accurate results!
+[2026-09-14 09:33:22 TP6] Load weight end. elapsed=2.86 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=197.12 GB, mem usage=4.61 GB.
+[2026-09-14 09:33:22 TP3] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0. This may lead to less accurate results!
+[2026-09-14 09:33:22 TP3] Load weight end. elapsed=2.95 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=196.99 GB, mem usage=4.61 GB.
+[2026-09-14 09:33:22 TP7] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0. This may lead to less accurate results!
+[2026-09-14 09:33:22 TP7] Load weight end. elapsed=3.01 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=197.13 GB, mem usage=4.61 GB.
+[2026-09-14 09:33:22 TP1] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0. This may lead to less accurate results!
+[2026-09-14 09:33:22 TP1] Load weight end. elapsed=3.02 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=197.41 GB, mem usage=4.61 GB.
+[2026-09-14 09:33:22 TP2] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0. This may lead to less accurate results!
+[2026-09-14 09:33:22 TP2] Load weight end. elapsed=3.04 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=197.00 GB, mem usage=4.61 GB.
+[2026-09-14 09:33:22 TP4] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0. This may lead to less accurate results!
+[2026-09-14 09:33:22 TP4] Load weight end. elapsed=3.13 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=197.14 GB, mem usage=4.61 GB.
+[INTERNAL-DECODE TP7] allocating target and draft KV pools
+[INTERNAL-DECODE TP2] allocating target and draft KV pools[INTERNAL-DECODE TP4] allocating target and draft KV pools[INTERNAL-DECODE TP0] allocating target and draft KV pools
+
+
+[INTERNAL-DECODE TP1] allocating target and draft KV pools
+[INTERNAL-DECODE TP6] allocating target and draft KV pools
+[INTERNAL-DECODE TP5] allocating target and draft KV pools
+[INTERNAL-DECODE TP3] allocating target and draft KV pools
+[2026-09-14 09:33:22 TP4] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3430592, KV size: 152.40 GB
+[2026-09-14 09:33:22 TP7] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3430592, KV size: 152.40 GB
+[2026-09-14 09:33:22 TP6] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3430592, KV size: 152.40 GB
+[2026-09-14 09:33:22 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3430592, KV size: 152.40 GB
+[2026-09-14 09:33:22 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3430592, KV size: 152.40 GB
+[2026-09-14 09:33:22 TP5] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3430592, KV size: 152.40 GB
+[2026-09-14 09:33:22 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3430592, KV size: 152.40 GB
+[2026-09-14 09:33:22 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3430592, KV size: 152.40 GB
+[2026-09-14 09:33:22 TP2] Memory pool end. avail mem=44.44 GB
+[2026-09-14 09:33:22 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3430592, KV size: 2.26 GB
+[2026-09-14 09:33:22 TP2] Memory pool end. avail mem=42.17 GB
+[2026-09-14 09:33:22 TP0] Memory pool end. avail mem=43.50 GB
+[2026-09-14 09:33:22 TP3] Memory pool end. avail mem=44.43 GB
+[2026-09-14 09:33:22 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3430592, KV size: 2.26 GB
+[2026-09-14 09:33:22 TP0] Memory pool end. avail mem=41.24 GB
+[2026-09-14 09:33:22 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3430592, KV size: 2.26 GB
+[2026-09-14 09:33:22 TP3] Memory pool end. avail mem=42.17 GB
+[2026-09-14 09:33:22 TP6] Memory pool end. avail mem=44.56 GB
+[2026-09-14 09:33:22 TP6] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3430592, KV size: 2.26 GB
+[2026-09-14 09:33:22 TP6] Memory pool end. avail mem=42.29 GB
+[2026-09-14 09:33:22 TP5] Memory pool end. avail mem=44.50 GB
+[2026-09-14 09:33:22 TP5] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3430592, KV size: 2.26 GB
+[2026-09-14 09:33:22 TP5] Memory pool end. avail mem=42.23 GB
+[2026-09-14 09:33:22 TP4] Memory pool end. avail mem=44.58 GB
+[2026-09-14 09:33:22 TP4] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3430592, KV size: 2.26 GB
+[2026-09-14 09:33:22 TP4] Memory pool end. avail mem=42.31 GB
+[2026-09-14 09:33:22 TP1] Memory pool end. avail mem=44.85 GB
+[2026-09-14 09:33:22 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3430592, KV size: 2.26 GB
+[2026-09-14 09:33:22 TP1] Memory pool end. avail mem=42.59 GB
+[2026-09-14 09:33:22 TP7] Memory pool end. avail mem=44.57 GB
+[2026-09-14 09:33:22 TP7] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3430592, KV size: 2.26 GB
+[2026-09-14 09:33:22 TP7] Memory pool end. avail mem=42.31 GB
+[INTERNAL-DECODE TP2] capturing target and required draft graphs (startup may take minutes)
+[2026-09-14 09:33:23 TP2] Disable prefill CUDA graph because cuda_graph_config resolved prefill.backend='disabled' (e.g. via --cuda-graph-backend-prefill=disabled or auto-disable rules).
+[2026-09-14 09:33:23 TP2] Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=6, bs=[1], avail mem=43.71 GB
+[2026-09-14 09:33:23 TP2] [dense-decode] DSA dual-graph enabled: capturing dense (k-only) + sparse (full indexer) decode graphs; dispatch on max_kv_len vs index_topk=2048.
+[INTERNAL-DECODE TP3] capturing target and required draft graphs (startup may take minutes)
+[2026-09-14 09:33:23 TP3] Disable prefill CUDA graph because cuda_graph_config resolved prefill.backend='disabled' (e.g. via --cuda-graph-backend-prefill=disabled or auto-disable rules).
+[2026-09-14 09:33:23 TP3] Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=6, bs=[1], avail mem=43.70 GB
+[2026-09-14 09:33:23 TP3] [dense-decode] DSA dual-graph enabled: capturing dense (k-only) + sparse (full indexer) decode graphs; dispatch on max_kv_len vs index_topk=2048.
+[INTERNAL-DECODE TP6] capturing target and required draft graphs (startup may take minutes)
+[2026-09-14 09:33:23 TP6] Disable prefill CUDA graph because cuda_graph_config resolved prefill.backend='disabled' (e.g. via --cuda-graph-backend-prefill=disabled or auto-disable rules).
+[2026-09-14 09:33:23 TP6] Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=6, bs=[1], avail mem=43.83 GB
+[2026-09-14 09:33:23 TP6] [dense-decode] DSA dual-graph enabled: capturing dense (k-only) + sparse (full indexer) decode graphs; dispatch on max_kv_len vs index_topk=2048.
+[INTERNAL-DECODE TP5] capturing target and required draft graphs (startup may take minutes)
+[2026-09-14 09:33:23 TP5] Disable prefill CUDA graph because cuda_graph_config resolved prefill.backend='disabled' (e.g. via --cuda-graph-backend-prefill=disabled or auto-disable rules).
+[2026-09-14 09:33:23 TP5] Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=6, bs=[1], avail mem=43.77 GB
+[2026-09-14 09:33:23 TP5] [dense-decode] DSA dual-graph enabled: capturing dense (k-only) + sparse (full indexer) decode graphs; dispatch on max_kv_len vs index_topk=2048.
+[INTERNAL-DECODE TP4] capturing target and required draft graphs (startup may take minutes)
+[2026-09-14 09:33:23 TP4] Disable prefill CUDA graph because cuda_graph_config resolved prefill.backend='disabled' (e.g. via --cuda-graph-backend-prefill=disabled or auto-disable rules).
+[2026-09-14 09:33:23 TP4] Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=6, bs=[1], avail mem=43.85 GB
+[2026-09-14 09:33:23 TP4] [dense-decode] DSA dual-graph enabled: capturing dense (k-only) + sparse (full indexer) decode graphs; dispatch on max_kv_len vs index_topk=2048.
+[INTERNAL-DECODE TP0] capturing target and required draft graphs (startup may take minutes)
+[2026-09-14 09:33:23 TP0] Disable prefill CUDA graph because cuda_graph_config resolved prefill.backend='disabled' (e.g. via --cuda-graph-backend-prefill=disabled or auto-disable rules).
+[2026-09-14 09:33:23 TP0] Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=6, bs=[1], avail mem=42.77 GB
+[2026-09-14 09:33:23 TP0] [dense-decode] DSA dual-graph enabled: capturing dense (k-only) + sparse (full indexer) decode graphs; dispatch on max_kv_len vs index_topk=2048.
+[INTERNAL-DECODE TP1] capturing target and required draft graphs (startup may take minutes)
+[2026-09-14 09:33:23 TP1] Disable prefill CUDA graph because cuda_graph_config resolved prefill.backend='disabled' (e.g. via --cuda-graph-backend-prefill=disabled or auto-disable rules).
+[2026-09-14 09:33:23 TP1] Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=6, bs=[1], avail mem=44.12 GB
+[2026-09-14 09:33:23 TP1] [dense-decode] DSA dual-graph enabled: capturing dense (k-only) + sparse (full indexer) decode graphs; dispatch on max_kv_len vs index_topk=2048.
+[INTERNAL-DECODE TP7] capturing target and required draft graphs (startup may take minutes)
+[2026-09-14 09:33:23 TP7] Disable prefill CUDA graph because cuda_graph_config resolved prefill.backend='disabled' (e.g. via --cuda-graph-backend-prefill=disabled or auto-disable rules).
+[2026-09-14 09:33:23 TP7] Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=6, bs=[1], avail mem=43.85 GB
+[2026-09-14 09:33:23 TP7] [dense-decode] DSA dual-graph enabled: capturing dense (k-only) + sparse (full indexer) decode graphs; dispatch on max_kv_len vs index_topk=2048.
+  0%|          | 0/1 [00:00<?, ?it/s]Capturing batches (bs=1 avail_mem=42.70 GB):   0%|          | 0/1 [00:00<?, ?it/s][aiter] import [module_rmsnorm_quant] under /tmp/yihou-aiter-b5aa5bd3d828/module_rmsnorm_quant.so
+[aiter] import [module_rmsnorm_quant] under /tmp/yihou-aiter-b5aa5bd3d828/module_rmsnorm_quant.so
+[aiter] import [module_rmsnorm_quant] under /tmp/yihou-aiter-b5aa5bd3d828/module_rmsnorm_quant.so
+[aiter] import [module_rmsnorm_quant] under /tmp/yihou-aiter-b5aa5bd3d828/module_rmsnorm_quant.so
+[aiter] import [module_rmsnorm_quant] under /tmp/yihou-aiter-b5aa5bd3d828/module_rmsnorm_quant.so
+[aiter] import [module_rmsnorm_quant] under /tmp/yihou-aiter-b5aa5bd3d828/module_rmsnorm_quant.so
+[aiter] import [module_rmsnorm_quant] under /tmp/yihou-aiter-b5aa5bd3d828/module_rmsnorm_quant.so
+[2026-09-14 09:33:24 TP3] Disable CP decode attention TP
+[2026-09-14 09:33:24 TP0] Disable CP decode attention TP
+[aiter] import [module_rmsnorm_quant] under /tmp/yihou-aiter-b5aa5bd3d828/module_rmsnorm_quant.so
+[2026-09-14 09:33:24 TP2] Disable CP decode attention TP
+[2026-09-14 09:33:24 TP6] Disable CP decode attention TP
+[2026-09-14 09:33:24 TP1] Disable CP decode attention TP
+[2026-09-14 09:33:24 TP5] Disable CP decode attention TP
+[2026-09-14 09:33:24 TP7] Disable CP decode attention TP
+[2026-09-14 09:33:24 TP4] Disable CP decode attention TP
+[aiter] import [module_fused_qk_norm_rope_cache_quant_shuffle] under /tmp/yihou-aiter-b5aa5bd3d828/module_fused_qk_norm_rope_cache_quant_shuffle.so
+[aiter] import [module_fused_qk_norm_rope_cache_quant_shuffle] under /tmp/yihou-aiter-b5aa5bd3d828/module_fused_qk_norm_rope_cache_quant_shuffle.so
+[aiter] import [module_fused_qk_norm_rope_cache_quant_shuffle] under /tmp/yihou-aiter-b5aa5bd3d828/module_fused_qk_norm_rope_cache_quant_shuffle.so
+[aiter] import [module_fused_qk_norm_rope_cache_quant_shuffle] under /tmp/yihou-aiter-b5aa5bd3d828/module_fused_qk_norm_rope_cache_quant_shuffle.so
+[aiter] import [module_fused_qk_norm_rope_cache_quant_shuffle] under /tmp/yihou-aiter-b5aa5bd3d828/module_fused_qk_norm_rope_cache_quant_shuffle.so
+[aiter] import [module_fused_qk_norm_rope_cache_quant_shuffle] under /tmp/yihou-aiter-b5aa5bd3d828/module_fused_qk_norm_rope_cache_quant_shuffle.so
+[aiter] import [module_fused_qk_norm_rope_cache_quant_shuffle] under /tmp/yihou-aiter-b5aa5bd3d828/module_fused_qk_norm_rope_cache_quant_shuffle.so
+[aiter] import [module_fused_qk_norm_rope_cache_quant_shuffle] under /tmp/yihou-aiter-b5aa5bd3d828/module_fused_qk_norm_rope_cache_quant_shuffle.so
+[2026-09-14 09:33:25 TP3] Loading tilelang libs from dev root: /opt/tilelang/build
+[2026-09-14 09:33:25 TP0] Loading tilelang libs from dev root: /opt/tilelang/build
+[2026-09-14 09:33:25 TP2] Loading tilelang libs from dev root: /opt/tilelang/build
+[2026-09-14 09:33:25 TP5] Loading tilelang libs from dev root: /opt/tilelang/build
+[2026-09-14 09:33:25 TP6] Loading tilelang libs from dev root: /opt/tilelang/build
+[2026-09-14 09:33:25 TP7] Loading tilelang libs from dev root: /opt/tilelang/build
+[2026-09-14 09:33:25 TP1] Loading tilelang libs from dev root: /opt/tilelang/build
+[2026-09-14 09:33:25 TP4] Loading tilelang libs from dev root: /opt/tilelang/build
+[2026-09-14 09:33:26 TP3] FlyDSL sparse MLA decode declined: q shape (6, 64, 576), need (seq, 8 or 16, 576)
+[2026-09-14 09:33:26 TP0] FlyDSL sparse MLA decode declined: q shape (6, 64, 576), need (seq, 8 or 16, 576)
+[2026-09-14 09:33:26 TP2] FlyDSL sparse MLA decode declined: q shape (6, 64, 576), need (seq, 8 or 16, 576)
+[2026-09-14 09:33:26 TP5] FlyDSL sparse MLA decode declined: q shape (6, 64, 576), need (seq, 8 or 16, 576)
+[2026-09-14 09:33:26 TP6] FlyDSL sparse MLA decode declined: q shape (6, 64, 576), need (seq, 8 or 16, 576)
+[2026-09-14 09:33:26 TP1] FlyDSL sparse MLA decode declined: q shape (6, 64, 576), need (seq, 8 or 16, 576)
+[2026-09-14 09:33:26 TP7] FlyDSL sparse MLA decode declined: q shape (6, 64, 576), need (seq, 8 or 16, 576)
+[2026-09-14 09:33:26 TP4] FlyDSL sparse MLA decode declined: q shape (6, 64, 576), need (seq, 8 or 16, 576)
+[aiter] merge tuned file under model_configs/ and configs/ /aiter/aiter/configs/tuned_fmoe.csv:/aiter/aiter/configs/model_configs/dsv3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_glm5_1.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_glm5.csv:/aiter/aiter/configs/model_configs/glm5_ptpc_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm5_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm47_fp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/mimo_v2_5_pro_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/minimax_m25_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_a16w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm5_mxfp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik3_a8w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_ds_v3.csv:/aiter/aiter/configs/model_configs/kimik3_a4w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/dsv4_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/q3vl_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_235b_bf16_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/minimax_m3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_qwen3_235b.csv:/aiter/aiter/configs/model_configs/qwen3next_80b_fp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_minimax-m2_5.csv:/aiter/aiter/configs/model_configs/qwen3_8_2400b_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_qwen3_5_397b.csv:/aiter/aiter/configs/model_configs/minimax_m3_mxfp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_i4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_vl_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_5_397b_fp4_tuned_fmoe.csv
+[aiter] merge tuned file under model_configs/ and configs/ /aiter/aiter/configs/tuned_fmoe.csv:/aiter/aiter/configs/model_configs/dsv3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_glm5_1.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_glm5.csv:/aiter/aiter/configs/model_configs/glm5_ptpc_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm5_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm47_fp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/mimo_v2_5_pro_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/minimax_m25_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_a16w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm5_mxfp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik3_a8w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_ds_v3.csv:/aiter/aiter/configs/model_configs/kimik3_a4w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/dsv4_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/q3vl_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_235b_bf16_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/minimax_m3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_qwen3_235b.csv:/aiter/aiter/configs/model_configs/qwen3next_80b_fp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_minimax-m2_5.csv:/aiter/aiter/configs/model_configs/qwen3_8_2400b_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_qwen3_5_397b.csv:/aiter/aiter/configs/model_configs/minimax_m3_mxfp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_i4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_vl_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_5_397b_fp4_tuned_fmoe.csv
+[aiter] merge tuned file under model_configs/ and configs/ /aiter/aiter/configs/tuned_fmoe.csv:/aiter/aiter/configs/model_configs/dsv3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_glm5_1.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_glm5.csv:/aiter/aiter/configs/model_configs/glm5_ptpc_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm5_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm47_fp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/mimo_v2_5_pro_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/minimax_m25_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_a16w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm5_mxfp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik3_a8w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_ds_v3.csv:/aiter/aiter/configs/model_configs/kimik3_a4w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/dsv4_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/q3vl_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_235b_bf16_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/minimax_m3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_qwen3_235b.csv:/aiter/aiter/configs/model_configs/qwen3next_80b_fp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_minimax-m2_5.csv:/aiter/aiter/configs/model_configs/qwen3_8_2400b_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_qwen3_5_397b.csv:/aiter/aiter/configs/model_configs/minimax_m3_mxfp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_i4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_vl_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_5_397b_fp4_tuned_fmoe.csv
+[aiter] merge tuned file under model_configs/ and configs/ /aiter/aiter/configs/tuned_fmoe.csv:/aiter/aiter/configs/model_configs/dsv3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_glm5_1.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_glm5.csv:/aiter/aiter/configs/model_configs/glm5_ptpc_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm5_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm47_fp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/mimo_v2_5_pro_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/minimax_m25_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_a16w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm5_mxfp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik3_a8w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_ds_v3.csv:/aiter/aiter/configs/model_configs/kimik3_a4w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/dsv4_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/q3vl_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_235b_bf16_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/minimax_m3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_qwen3_235b.csv:/aiter/aiter/configs/model_configs/qwen3next_80b_fp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_minimax-m2_5.csv:/aiter/aiter/configs/model_configs/qwen3_8_2400b_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_qwen3_5_397b.csv:/aiter/aiter/configs/model_configs/minimax_m3_mxfp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_i4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_vl_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_5_397b_fp4_tuned_fmoe.csv
+[aiter] merge tuned file under model_configs/ and configs/ /aiter/aiter/configs/tuned_fmoe.csv:/aiter/aiter/configs/model_configs/dsv3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_glm5_1.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_glm5.csv:/aiter/aiter/configs/model_configs/glm5_ptpc_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm5_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm47_fp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/mimo_v2_5_pro_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/minimax_m25_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_a16w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm5_mxfp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik3_a8w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_ds_v3.csv:/aiter/aiter/configs/model_configs/kimik3_a4w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/dsv4_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/q3vl_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_235b_bf16_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/minimax_m3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_qwen3_235b.csv:/aiter/aiter/configs/model_configs/qwen3next_80b_fp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_minimax-m2_5.csv:/aiter/aiter/configs/model_configs/qwen3_8_2400b_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_qwen3_5_397b.csv:/aiter/aiter/configs/model_configs/minimax_m3_mxfp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_i4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_vl_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_5_397b_fp4_tuned_fmoe.csv
+[aiter] [pid=131463 pname=SpawnProcess-6] waiting for baton release at /tmp/aiter_configs/tuned_fmoe.csv.lock
+[aiter] [pid=131461 pname=SpawnProcess-4] waiting for baton release at /tmp/aiter_configs/tuned_fmoe.csv.lock
+[aiter] [pid=131458 pname=SpawnProcess-1] waiting for baton release at /tmp/aiter_configs/tuned_fmoe.csv.lock
+[aiter] [pid=131460 pname=SpawnProcess-3] waiting for baton release at /tmp/aiter_configs/tuned_fmoe.csv.lock
+[aiter] [fused_moe] duplicate tuned rows (primary) in /tmp/aiter_configs/tuned_fmoe.csv; keeping first match for 12 rows
+[aiter] [fused_moe] duplicate tuned rows after disabling act_type in /tmp/aiter_configs/tuned_fmoe.csv; keeping first match for 96 rows
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.per_1x32 block_m = 64 use_nt = True, estimated_m_per_expert = 15
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False) 
+[aiter] [fused_moe] no tuned FlyDSL config for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False), using heuristic FlyDSL fallback (kn1='flydsl_moe1_afp4_wfp4_bf16_t32x128x256_w2', kn2='flydsl_moe2_afp4_wfp4_bf16_t32x128x256_atomic_bnt2')
+[aiter] merge tuned file under model_configs/ and configs/ /aiter/aiter/configs/tuned_fmoe.csv:/aiter/aiter/configs/model_configs/dsv3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_glm5_1.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_glm5.csv:/aiter/aiter/configs/model_configs/glm5_ptpc_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm5_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm47_fp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/mimo_v2_5_pro_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/minimax_m25_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_a16w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm5_mxfp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik3_a8w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_ds_v3.csv:/aiter/aiter/configs/model_configs/kimik3_a4w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/dsv4_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/q3vl_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_235b_bf16_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/minimax_m3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_qwen3_235b.csv:/aiter/aiter/configs/model_configs/qwen3next_80b_fp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_minimax-m2_5.csv:/aiter/aiter/configs/model_configs/qwen3_8_2400b_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_qwen3_5_397b.csv:/aiter/aiter/configs/model_configs/minimax_m3_mxfp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_i4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_vl_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_5_397b_fp4_tuned_fmoe.csv
+[aiter] merge tuned file under model_configs/ and configs/ /aiter/aiter/configs/tuned_fmoe.csv:/aiter/aiter/configs/model_configs/dsv3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_glm5_1.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_glm5.csv:/aiter/aiter/configs/model_configs/glm5_ptpc_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm5_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm47_fp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/mimo_v2_5_pro_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/minimax_m25_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_a16w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm5_mxfp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik3_a8w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_ds_v3.csv:/aiter/aiter/configs/model_configs/kimik3_a4w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/dsv4_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/q3vl_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_235b_bf16_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/minimax_m3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_qwen3_235b.csv:/aiter/aiter/configs/model_configs/qwen3next_80b_fp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_minimax-m2_5.csv:/aiter/aiter/configs/model_configs/qwen3_8_2400b_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_qwen3_5_397b.csv:/aiter/aiter/configs/model_configs/minimax_m3_mxfp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_i4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_vl_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_5_397b_fp4_tuned_fmoe.csv
+[aiter] merge tuned file under model_configs/ and configs/ /aiter/aiter/configs/tuned_fmoe.csv:/aiter/aiter/configs/model_configs/dsv3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_glm5_1.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_glm5.csv:/aiter/aiter/configs/model_configs/glm5_ptpc_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm5_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm47_fp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/mimo_v2_5_pro_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/minimax_m25_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_a16w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/glm5_mxfp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik3_a8w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_ds_v3.csv:/aiter/aiter/configs/model_configs/kimik3_a4w4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/dsv4_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/q3vl_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_235b_bf16_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/minimax_m3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_qwen3_235b.csv:/aiter/aiter/configs/model_configs/qwen3next_80b_fp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_minimax-m2_5.csv:/aiter/aiter/configs/model_configs/qwen3_8_2400b_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik3_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/a8w8_blockscale_tuned_fmoe_qwen3_5_397b.csv:/aiter/aiter/configs/model_configs/minimax_m3_mxfp8_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/gptoss_fp8fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/kimik2_i4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_vl_fp4_tuned_fmoe.csv:/aiter/aiter/configs/model_configs/qwen3_5_397b_fp4_tuned_fmoe.csv
+[aiter] [pid=131459 pname=SpawnProcess-2] waiting for baton release at /tmp/aiter_configs/tuned_fmoe.csv.lock
+[aiter] [fused_moe] duplicate tuned rows (primary) in /tmp/aiter_configs/tuned_fmoe.csv; keeping first match for 12 rows
+[aiter] [fused_moe] duplicate tuned rows after disabling act_type in /tmp/aiter_configs/tuned_fmoe.csv; keeping first match for 96 rows
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.per_1x32 block_m = 64 use_nt = True, estimated_m_per_expert = 15
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False) 
+[aiter] [fused_moe] no tuned FlyDSL config for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False), using heuristic FlyDSL fallback (kn1='flydsl_moe1_afp4_wfp4_bf16_t32x128x256_w2', kn2='flydsl_moe2_afp4_wfp4_bf16_t32x128x256_atomic_bnt2')
+[aiter] [fused_moe] duplicate tuned rows (primary) in /tmp/aiter_configs/tuned_fmoe.csv; keeping first match for 12 rows
+[aiter] [fused_moe] duplicate tuned rows after disabling act_type in /tmp/aiter_configs/tuned_fmoe.csv; keeping first match for 96 rows
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.per_1x32 block_m = 64 use_nt = True, estimated_m_per_expert = 15
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False) 
+[aiter] [fused_moe] no tuned FlyDSL config for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False), using heuristic FlyDSL fallback (kn1='flydsl_moe1_afp4_wfp4_bf16_t32x128x256_w2', kn2='flydsl_moe2_afp4_wfp4_bf16_t32x128x256_atomic_bnt2')
+[aiter] import [module_quant] under /tmp/yihou-aiter-b5aa5bd3d828/module_quant.so
+[aiter] import [module_quant] under /tmp/yihou-aiter-b5aa5bd3d828/module_quant.so
+[aiter] [fused_moe] duplicate tuned rows (primary) in /tmp/aiter_configs/tuned_fmoe.csv; keeping first match for 12 rows
+[aiter] [fused_moe] duplicate tuned rows (primary) in /tmp/aiter_configs/tuned_fmoe.csv; keeping first match for 12 rows
+[aiter] [fused_moe] duplicate tuned rows (primary) in /tmp/aiter_configs/tuned_fmoe.csv; keeping first match for 12 rows
+[aiter] [fused_moe] duplicate tuned rows (primary) in /tmp/aiter_configs/tuned_fmoe.csv; keeping first match for 12 rows
+[aiter] [fused_moe] duplicate tuned rows after disabling act_type in /tmp/aiter_configs/tuned_fmoe.csv; keeping first match for 96 rows
+[aiter] [fused_moe] duplicate tuned rows after disabling act_type in /tmp/aiter_configs/tuned_fmoe.csv; keeping first match for 96 rows
+[aiter] [fused_moe] duplicate tuned rows after disabling act_type in /tmp/aiter_configs/tuned_fmoe.csv; keeping first match for 96 rows
+[aiter] [fused_moe] duplicate tuned rows after disabling act_type in /tmp/aiter_configs/tuned_fmoe.csv; keeping first match for 96 rows
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.per_1x32 block_m = 64 use_nt = True, estimated_m_per_expert = 15
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False) 
+[aiter] [fused_moe] no tuned FlyDSL config for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False), using heuristic FlyDSL fallback (kn1='flydsl_moe1_afp4_wfp4_bf16_t32x128x256_w2', kn2='flydsl_moe2_afp4_wfp4_bf16_t32x128x256_atomic_bnt2')
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.per_1x32 block_m = 64 use_nt = True, estimated_m_per_expert = 15
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False) 
+[aiter] [fused_moe] no tuned FlyDSL config for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False), using heuristic FlyDSL fallback (kn1='flydsl_moe1_afp4_wfp4_bf16_t32x128x256_w2', kn2='flydsl_moe2_afp4_wfp4_bf16_t32x128x256_atomic_bnt2')
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.per_1x32 block_m = 64 use_nt = True, estimated_m_per_expert = 15
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False) 
+[aiter] [fused_moe] no tuned FlyDSL config for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False), using heuristic FlyDSL fallback (kn1='flydsl_moe1_afp4_wfp4_bf16_t32x128x256_w2', kn2='flydsl_moe2_afp4_wfp4_bf16_t32x128x256_atomic_bnt2')
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.per_1x32 block_m = 64 use_nt = True, estimated_m_per_expert = 15
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False) 
+[aiter] [fused_moe] no tuned FlyDSL config for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False), using heuristic FlyDSL fallback (kn1='flydsl_moe1_afp4_wfp4_bf16_t32x128x256_w2', kn2='flydsl_moe2_afp4_wfp4_bf16_t32x128x256_atomic_bnt2')
+[aiter] import [module_quant] under /tmp/yihou-aiter-b5aa5bd3d828/module_quant.so
+[aiter] [fused_moe] duplicate tuned rows (primary) in /tmp/aiter_configs/tuned_fmoe.csv; keeping first match for 12 rows
+[aiter] [fused_moe] duplicate tuned rows after disabling act_type in /tmp/aiter_configs/tuned_fmoe.csv; keeping first match for 96 rows
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.per_1x32 block_m = 64 use_nt = True, estimated_m_per_expert = 15
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False) 
+[aiter] [fused_moe] no tuned FlyDSL config for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False), using heuristic FlyDSL fallback (kn1='flydsl_moe1_afp4_wfp4_bf16_t32x128x256_w2', kn2='flydsl_moe2_afp4_wfp4_bf16_t32x128x256_atomic_bnt2')
+[aiter] import [module_quant] under /tmp/yihou-aiter-b5aa5bd3d828/module_quant.so
+[aiter] import [module_quant] under /tmp/yihou-aiter-b5aa5bd3d828/module_quant.so
+[aiter] import [module_quant] under /tmp/yihou-aiter-b5aa5bd3d828/module_quant.so
+[aiter] import [module_quant] under /tmp/yihou-aiter-b5aa5bd3d828/module_quant.so
+[aiter] import [module_quant] under /tmp/yihou-aiter-b5aa5bd3d828/module_quant.so
+[2026-09-14 09:33:30 TP6] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+[2026-09-14 09:33:30 TP3] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+[2026-09-14 09:33:30 TP5] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+[2026-09-14 09:33:30 TP4] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+[2026-09-14 09:33:30 TP2] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+[2026-09-14 09:33:31 TP0] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+[2026-09-14 09:33:31 TP1] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+[2026-09-14 09:33:31 TP7] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+Capturing batches (bs=1 avail_mem=42.70 GB): 100%|██████████| 1/1 [00:09<00:00,  9.97s/it]Capturing batches (bs=1 avail_mem=42.70 GB): 100%|██████████| 1/1 [00:09<00:00,  9.97s/it]
+[rank5]:[W914 09:33:34.701788073 collection.cpp:1133] Warning: ROCTracer produced duplicate flow start: 2 (function operator())
+[rank1]:[W914 09:33:34.731118938 collection.cpp:1133] Warning: ROCTracer produced duplicate flow start: 2 (function operator())
+[rank4]:[W914 09:33:34.733380850 collection.cpp:1133] Warning: ROCTracer produced duplicate flow start: 2 (function operator())
+[rank7]:[W914 09:33:34.759579624 collection.cpp:1133] Warning: ROCTracer produced duplicate flow start: 2 (function operator())
+[rank3]:[W914 09:33:34.784897988 collection.cpp:1133] Warning: ROCTracer produced duplicate flow start: 2 (function operator())
+[rank0]:[W914 09:33:34.801173176 collection.cpp:1133] Warning: ROCTracer produced duplicate flow start: 3 (function operator())
+[rank6]:[W914 09:33:34.805323054 collection.cpp:1133] Warning: ROCTracer produced duplicate flow start: 2 (function operator())
+[rank2]:[W914 09:33:34.860699285 collection.cpp:1133] Warning: ROCTracer produced duplicate flow start: 2 (function operator())
+[aiter] Registering 2 cuda graph addresses
+[aiter] Registering 2 cuda graph addresses
+[aiter] Registering 2 cuda graph addresses
+[aiter] Registering 2 cuda graph addresses
+[aiter] Registering 2 cuda graph addresses
+[aiter] Registering 2 cuda graph addresses
+[aiter] Registering 2 cuda graph addresses
+[aiter] Registering 2 cuda graph addresses
+[rank0]:[W914 09:33:37.311942560 ProcessGroupNCCL.cpp:1524] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[rank3]:[W914 09:33:38.840926236 ProcessGroupNCCL.cpp:1524] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[rank6]:[W914 09:33:38.854340429 ProcessGroupNCCL.cpp:1524] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[rank2]:[W914 09:33:38.025474019 ProcessGroupNCCL.cpp:1524] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[rank1]:[W914 09:33:38.098056956 ProcessGroupNCCL.cpp:1524] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[rank4]:[W914 09:33:38.280971849 TCPStore.cpp:125] [c10d] recvValue failed on SocketImpl(fd=17, addr=[localhost]:57170, remote=[localhost]:40443): Failed to recv, got 0 bytes. Connection was likely closed. Did the remote server shutdown or crash?
+Exception raised from recvBytes at /pytorch/torch/csrc/distributed/c10d/Utils.hpp:682 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x88 (0x7fff557dc978 in /opt/venv/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x5f54d5e (0x7fffe7f7ad5e in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #2: <unknown function> + 0x5f55b00 (0x7fffe7f7bb00 in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: <unknown function> + 0x5f5657a (0x7fffe7f7c57a in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x2a9 (0x7fffe7f778c9 in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x38b (0x7fffcf268feb in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_hip.so)
+frame #6: <unknown function> + 0xdc253 (0x7fff53c33253 in /lib/x86_64-linux-gnu/libstdc++.so.6)
+frame #7: <unknown function> + 0x94a83 (0x7ffff7cdda83 in /lib/x86_64-linux-gnu/libc.so.6)
+frame #8: <unknown function> + 0x126890 (0x7ffff7d6f890 in /lib/x86_64-linux-gnu/libc.so.6)
+
+[rank4]:[W914 09:33:38.284614024 ProcessGroupNCCL.cpp:1771] [PG ID 0 PG GUID 0 Rank 4] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Failed to recv, got 0 bytes. Connection was likely closed. Did the remote server shutdown or crash?
+[rank7]:[W914 09:33:38.308539106 ProcessGroupNCCL.cpp:1524] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[rank5]:[W914 09:33:38.317084869 ProcessGroupNCCL.cpp:1524] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[rank4]:[W914 09:33:39.516100252 ProcessGroupNCCL.cpp:1524] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+W0914 09:33:39.644000 131294 torch/multiprocessing/spawn.py:174] Terminating process 131459 via signal SIGTERM
+W0914 09:33:39.645000 131294 torch/multiprocessing/spawn.py:174] Terminating process 131460 via signal SIGTERM
+W0914 09:33:39.645000 131294 torch/multiprocessing/spawn.py:174] Terminating process 131461 via signal SIGTERM
+W0914 09:33:39.646000 131294 torch/multiprocessing/spawn.py:174] Terminating process 131462 via signal SIGTERM
+W0914 09:33:39.646000 131294 torch/multiprocessing/spawn.py:174] Terminating process 131463 via signal SIGTERM
+W0914 09:33:39.647000 131294 torch/multiprocessing/spawn.py:174] Terminating process 131464 via signal SIGTERM
+W0914 09:33:39.647000 131294 torch/multiprocessing/spawn.py:174] Terminating process 131465 via signal SIGTERM
+Traceback (most recent call last):
+  File "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py", line 508, in <module>
+    main()
+  File "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py", line 504, in main
+    mp.spawn(run_rank, args=(server_args, port_args, args), nprocs=args.tp_size, join=True)
+  File "/opt/venv/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 364, in spawn
+    return start_processes(fn, args, nprocs, join, daemon, start_method="spawn")
+  File "/opt/venv/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 320, in start_processes
+    while not context.join():
+  File "/opt/venv/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 220, in join
+    raise ProcessRaisedException(msg, error_index, failed_process.pid)
+torch.multiprocessing.spawn.ProcessRaisedException: 
+
+-- Process 0 terminated with the following error:
+Traceback (most recent call last):
+  File "/opt/venv/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 95, in _wrap
+    fn(i, *args)
+  File "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py", line 317, in run_rank
+    target, worker = create_workers(server_args, port_args, rank, args)
+  File "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py", line 157, in create_workers
+    target.init_cuda_graphs()
+  File "/sglang/python/sglang/srt/managers/tp_worker.py", line 426, in init_cuda_graphs
+    self.model_runner.init_cuda_graphs(
+  File "/sglang/python/sglang/srt/model_executor/model_runner.py", line 985, in init_cuda_graphs
+    capture = capture_cuda_graphs(
+  File "/sglang/python/sglang/srt/model_executor/model_runner_components/cuda_graph_setup.py", line 179, in capture_cuda_graphs
+    decode = capture_decode_graph(model_runner=model_runner)
+  File "/sglang/python/sglang/srt/model_executor/model_runner_components/cuda_graph_setup.py", line 475, in capture_decode_graph
+    runner = graph_runners[model_runner.device](model_runner)
+  File "/sglang/python/sglang/srt/model_executor/runner/decode_cuda_graph_runner.py", line 461, in __init__
+    self.capture()
+  File "/sglang/python/sglang/srt/model_executor/runner/decode_cuda_graph_runner.py", line 1053, in capture
+    self._post_process_after_profile(prof)
+  File "/sglang/python/sglang/srt/model_executor/runner/decode_cuda_graph_runner.py", line 814, in _post_process_after_profile
+    torch.cuda.memory._dump_snapshot("cuda_graph_runner_memory_usage.pickle")
+  File "/opt/venv/lib/python3.10/site-packages/torch/cuda/memory.py", line 1060, in _dump_snapshot
+    with open(filename, "wb") as f:
+PermissionError: [Errno 13] Permission denied: 'cuda_graph_runner_memory_usage.pickle'
+
+/usr/lib/python3.10/multiprocessing/resource_tracker.py:224: UserWarning: resource_tracker: There appear to be 1 leaked shared_memory objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '

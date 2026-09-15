@@ -1,0 +1,82 @@
+{
+  "by_category": {
+    "eagle_draft": {
+      "count": 40,
+      "max_seconds": 0.006540915966033936,
+      "min_seconds": 0.005442308902740479,
+      "seconds": 0.22791296625137325,
+      "share": 0.06147220310679
+    },
+    "eagle_draft_extend": {
+      "count": 40,
+      "max_seconds": 0.003713259935379028,
+      "min_seconds": 0.0036296598911285402,
+      "seconds": 0.1462597141265869,
+      "share": 0.03944886068138047
+    },
+    "target_verify": {
+      "count": 40,
+      "max_seconds": 0.08365249633789062,
+      "min_seconds": 0.08315109252929688,
+      "seconds": 3.333404968261719,
+      "share": 0.8990789362118294
+    }
+  },
+  "by_runner": {
+    "draft": {
+      "eagle_draft": {
+        "count": 40,
+        "max_seconds": 0.006540915966033936,
+        "min_seconds": 0.005442308902740479,
+        "seconds": 0.22791296625137325
+      },
+      "eagle_draft_extend": {
+        "count": 40,
+        "max_seconds": 0.003713259935379028,
+        "min_seconds": 0.0036296598911285402,
+        "seconds": 0.1462597141265869
+      }
+    },
+    "target": {
+      "target_verify": {
+        "count": 40,
+        "max_seconds": 0.08365249633789062,
+        "min_seconds": 0.08315109252929688,
+        "seconds": 3.333404968261719
+      }
+    }
+  },
+  "categories_known_to_pinned_sglang": [
+    "decode",
+    "extend",
+    "idle",
+    "target_verify",
+    "split_prefill",
+    "eagle_draft",
+    "eagle_draft_extend",
+    "frozen_kv_draft"
+  ],
+  "categories_observed": [
+    "eagle_draft",
+    "eagle_draft_extend",
+    "target_verify"
+  ],
+  "mechanism": "sglang.srt.utils.device_timer.DeviceTimer attached by the bench",
+  "note": "CUDA events bracket the graph replay from outside, so these totals are valid with CUDA graphs both enabled and disabled.",
+  "scope": "whole measured decode loop",
+  "torch_profiler_window_delta": {
+    "eagle_draft": {
+      "count": 5,
+      "seconds": 0.030305285930633516
+    },
+    "eagle_draft_extend": {
+      "count": 5,
+      "seconds": 0.01835801577568054
+    },
+    "target_verify": {
+      "count": 5,
+      "seconds": 0.4176675567626955
+    }
+  },
+  "total_seconds": 3.7075776486396794
+}
