@@ -139,6 +139,14 @@ for role in ("prefill", "decode"):
     assert info.get("max_running_requests") == conc, (
         role, info.get("max_running_requests"), conc
     )
+    expected_cap = os.environ.get("MAX_TOTAL_TOKENS", "")
+    if expected_cap:
+        assert info.get("max_total_tokens") == int(expected_cap), (
+            role,
+            "max_total_tokens",
+            info.get("max_total_tokens"),
+            int(expected_cap),
+        )
 
 served = info_by_role["prefill"].get("served_model_name") or os.environ["SERVED_MODEL"]
 served = served[0] if isinstance(served, list) else served
@@ -213,6 +221,7 @@ PY
     echo "image=$IMAGE"
     echo "concurrency=$CONC"
     echo "duration=$AGENTX_DURATION"
+    echo "max_total_tokens=${MAX_TOTAL_TOKENS:-uncapped}"
     echo "simulate_acc_len=${SIMULATE_ACC_LEN:-off}"
     echo "agentx_cache_root=$REMOTE_CACHE_ROOT"
     echo "hf_dataset_cache_ready=$hf_offline"

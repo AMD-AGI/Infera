@@ -64,6 +64,14 @@ if [[ "$DPA" == "1" ]]; then
     PARALLEL_ARGS+=(--enable-dp-attention)
 fi
 
+ALLREDUCE_ARGS=()
+if [[ "${DISABLE_CUSTOM_ALL_REDUCE:?}" == "1" ]]; then
+    ALLREDUCE_ARGS+=(--disable-custom-all-reduce)
+fi
+if [[ "${ENABLE_AITER_ALLREDUCE_FUSION:?}" == "1" ]]; then
+    ALLREDUCE_ARGS+=(--enable-aiter-allreduce-fusion)
+fi
+
 MTP_ARGS=()
 if [[ "$ROLE" == "decode" && "${ENABLE_MTP:?}" == "1" ]]; then
     MTP_ARGS=(
@@ -98,6 +106,17 @@ CONTEXT_ARGS=()
 if [[ -n "${CONTEXT_LENGTH:-}" ]]; then
     CONTEXT_ARGS=(--context-length "$CONTEXT_LENGTH")
 fi
+TOKEN_CAP_ARGS=()
+if [[ -n "${MAX_TOTAL_TOKENS:-}" ]]; then
+    TOKEN_CAP_ARGS=(--max-total-tokens "$MAX_TOTAL_TOKENS")
+fi
+if [[ -n "${JSON_MODEL_OVERRIDE_ARGS_B64:-}" ]]; then
+    JSON_MODEL_OVERRIDE_ARGS="$(printf '%s' "$JSON_MODEL_OVERRIDE_ARGS_B64" | base64 -d)"
+fi
+MODEL_OVERRIDE_ARGS=()
+if [[ -n "${JSON_MODEL_OVERRIDE_ARGS:-}" ]]; then
+    MODEL_OVERRIDE_ARGS=(--json-model-override-args "$JSON_MODEL_OVERRIDE_ARGS")
+fi
 
 KV_EVENT_ARGS=(--no-enable-kv-events --kv-events off)
 if [[ "${ENABLE_KV_AWARE:?}" == "1" && "$ROLE" == "prefill" ]]; then
@@ -120,6 +139,7 @@ fi
 
 echo "[engine] role=$ROLE node=$NODE_IP port=$PORT tp=$TP_SIZE ep=$EP_SIZE dp=$DP_SIZE dpa=$DPA mtp=${ENABLE_MTP:?}"
 echo "[engine] image=$IMAGE model=$MODEL rdma=$RDMA_DEVICE gid=$MC_GID_INDEX nic=$NIC hicache=$HICACHE_ENABLED simulated_acc=${SIMULATE_ACC_LEN:-off}"
+echo "[engine] json_model_override=${JSON_MODEL_OVERRIDE_ARGS:-none}"
 if [[ "${ENABLE_KV_AWARE:?}" == "1" && "$ROLE" == "prefill" ]]; then
     echo "[engine] kv-aware=on publisher=prefill events=tcp://0.0.0.0:${KV_PUB_PORT:-5557} snapshot_port=${KV_SNAPSHOT_PORT:-8801}"
 elif [[ "${ENABLE_KV_AWARE:?}" == "1" ]]; then
@@ -181,12 +201,14 @@ docker run -d --init --name "$CONTAINER" --network host --ipc host --shm-size 32
         --watchdog-timeout "${WATCHDOG_TIMEOUT:-3600}" \
         --reasoning-parser glm45 --tool-call-parser glm47 \
         --dsa-topk-backend aiter \
-        --enable-aiter-allreduce-fusion \
         --enable-fused-qk-norm-rope \
         --enable-cache-report --enable-metrics \
         "${CONTEXT_ARGS[@]}" \
+        "${TOKEN_CAP_ARGS[@]}" \
+        "${MODEL_OVERRIDE_ARGS[@]}" \
         "${KV_EVENT_ARGS[@]}" \
         "${PARALLEL_ARGS[@]}" \
+        "${ALLREDUCE_ARGS[@]}" \
         "${MTP_ARGS[@]}" \
         "${HICACHE_ARGS[@]}" \
         "${ROLE_ARGS[@]}"

@@ -79,6 +79,10 @@ export DECODE_DP_SIZE="${DECODE_DP_SIZE:-1}"
 # recipe, which caps neither the server nor the replay client.
 export CONTEXT_LENGTH="${CONTEXT_LENGTH:-}"
 export CHUNKED_PREFILL_SIZE="${CHUNKED_PREFILL_SIZE:-32768}"
+# Ionic has dma-buf but no ODP, so its registration pins the KV pool. Empty is
+# valid only for ODP/peer-memory fabrics; ionic campaigns must set an explicit
+# model/topology-specific cap that leaves room for the pinned mapping.
+export MAX_TOTAL_TOKENS="${MAX_TOTAL_TOKENS:-}"
 export MAX_RUNNING_REQUESTS="${MAX_RUNNING_REQUESTS:-32}"
 export CUDA_GRAPH_MAX_BS="${CUDA_GRAPH_MAX_BS:-32}"
 export PREFILL_MEM_FRACTION="${PREFILL_MEM_FRACTION:-0.85}"
@@ -91,6 +95,13 @@ export ENABLE_MTP="${ENABLE_MTP:-1}"
 export SPEC_STEPS="${SPEC_STEPS:-5}"
 export SPEC_DRAFT_TOKENS="${SPEC_DRAFT_TOKENS:-6}"
 export SPEC_TOPK="${SPEC_TOPK:-1}"
+# Optional SGLang model-level compatibility overrides. The TP4/DP4 campaign
+# disables MTP IndexShare after the fork crashes its DPA warmup on idle ranks.
+export JSON_MODEL_OVERRIDE_ARGS="${JSON_MODEL_OVERRIDE_ARGS:-}"
+# The gfx950 1P1D recipe disables custom all-reduce independently of MTP:
+# its speculative-verify path can fault or deadlock on this architecture.
+export DISABLE_CUSTOM_ALL_REDUCE="${DISABLE_CUSTOM_ALL_REDUCE:-1}"
+export ENABLE_AITER_ALLREDUCE_FUSION="${ENABLE_AITER_ALLREDUCE_FUSION:-0}"
 # 5 steps / 6 draft tokens / 3.61 acceptance length are calibrated as a set.
 # Deliberately omit ":" so SIMULATE_ACC_LEN= still disables simulation for correctness runs.
 export SIMULATE_ACC_LEN="${SIMULATE_ACC_LEN-3.61}"
