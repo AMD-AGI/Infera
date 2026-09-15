@@ -1,0 +1,235 @@
+# sampler start 2026-09-15T05:32:23Z
+05:32:23 prefill=<URLError> | decode=<URLError>
+05:32:38 prefill=<URLError> | decode=<URLError>
+05:32:53 prefill=<URLError> | decode=<URLError>
+05:33:08 prefill=<URLError> | decode=<URLError>
+05:33:23 prefill=<URLError> | decode=<URLError>
+05:33:38 prefill=<URLError> | decode=<URLError>
+05:33:53 prefill=<URLError> | decode=<URLError>
+05:34:08 prefill=<URLError> | decode=<URLError>
+05:34:23 prefill=<URLError> | decode=<URLError>
+05:34:38 prefill=<URLError> | decode=<URLError>
+05:34:53 prefill=<URLError> | decode=<URLError>
+05:35:08 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:35:23 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:35:38 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:35:53 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:36:08 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:36:23 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:36:38 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:36:54 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:37:09 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:37:24 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:37:39 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:37:54 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:38:09 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:38:24 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:38:39 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:38:54 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:39:09 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:39:24 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:39:39 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:39:54 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:40:09 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:40:24 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:40:39 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:40:54 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:41:09 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:41:24 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:41:39 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:41:54 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:42:09 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:42:24 prefill run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:42:39 prefill run=4 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:42:54 prefill run=0 q=0 prealloc=0 xfer=0 http=4 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:43:09 prefill run=0 q=0 prealloc=0 xfer=0 http=4 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:43:24 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:43:39 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:43:54 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:44:09 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:44:24 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:44:39 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:44:54 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:45:09 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:45:24 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:45:39 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:45:54 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:46:09 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+05:46:24 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0
+05:46:40 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+05:46:55 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+05:47:10 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+05:47:25 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+05:47:40 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+05:47:55 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+05:48:10 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+05:48:25 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+05:48:40 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+05:48:55 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+05:49:10 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+05:49:25 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+05:49:40 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+05:50:12 prefill=<TimeoutError> | decode=<TimeoutError>
+05:50:27 prefill run=0 q=0 prealloc=0 xfer=0 http=85 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=85 kv=0.000 hit=0.000 gen=0
+05:50:42 prefill run=0 q=0 prealloc=0 xfer=0 http=85 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=85 kv=0.000 hit=0.000 gen=0
+05:50:57 prefill run=0 q=0 prealloc=0 xfer=0 http=85 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=85 kv=0.000 hit=0.000 gen=0
+05:51:12 prefill run=0 q=0 prealloc=0 xfer=0 http=85 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=85 kv=0.000 hit=0.000 gen=0
+05:51:27 prefill run=0 q=0 prealloc=0 xfer=0 http=85 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=85 kv=0.000 hit=0.000 gen=0
+05:51:42 prefill run=0 q=0 prealloc=0 xfer=0 http=85 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=85 kv=0.000 hit=0.000 gen=0
+05:51:57 prefill run=0 q=0 prealloc=0 xfer=0 http=85 kv=0.000 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=85 kv=0.000 hit=0.000 gen=0
+05:52:12 prefill run=10 q=68 prealloc=0 xfer=0 http=82 kv=0.017 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=81 kv=0.000 hit=0.000 gen=0
+05:52:27 prefill run=9 q=64 prealloc=0 xfer=0 http=75 kv=0.020 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=74 kv=0.000 hit=0.000 gen=0
+05:52:43 prefill run=8 q=59 prealloc=0 xfer=0 http=68 kv=0.016 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=68 kv=0.000 hit=0.000 gen=0
+05:52:58 prefill run=8 q=51 prealloc=0 xfer=0 http=63 kv=0.020 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=63 kv=0.000 hit=0.000 gen=0
+05:53:13 prefill run=8 q=50 prealloc=0 xfer=0 http=60 kv=0.029 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=60 kv=0.000 hit=0.000 gen=0
+05:53:28 prefill run=8 q=44 prealloc=0 xfer=0 http=53 kv=0.018 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=53 kv=0.000 hit=0.000 gen=0
+05:53:43 prefill run=8 q=41 prealloc=0 xfer=0 http=51 kv=0.026 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=51 kv=0.000 hit=0.000 gen=0
+05:53:58 prefill run=8 q=39 prealloc=0 xfer=0 http=49 kv=0.035 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=49 kv=0.000 hit=0.000 gen=0
+05:54:14 prefill run=8 q=36 prealloc=0 xfer=0 http=46 kv=0.035 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=46 kv=0.000 hit=0.000 gen=0
+05:54:29 prefill run=8 q=34 prealloc=0 xfer=0 http=43 kv=0.029 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=43 kv=0.000 hit=0.000 gen=0
+05:54:44 prefill run=8 q=32 prealloc=0 xfer=0 http=41 kv=0.035 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=41 kv=0.000 hit=0.000 gen=0
+05:54:59 prefill run=8 q=30 prealloc=0 xfer=0 http=39 kv=0.040 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=39 kv=0.000 hit=0.000 gen=0
+05:55:14 prefill run=8 q=27 prealloc=0 xfer=0 http=37 kv=0.040 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=37 kv=0.000 hit=0.000 gen=0
+05:55:29 prefill run=8 q=24 prealloc=0 xfer=0 http=33 kv=0.028 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=33 kv=0.000 hit=0.000 gen=0
+05:55:44 prefill run=9 q=22 prealloc=0 xfer=0 http=33 kv=0.046 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=33 kv=0.000 hit=0.000 gen=0
+05:55:59 prefill run=8 q=22 prealloc=0 xfer=0 http=31 kv=0.046 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=31 kv=0.000 hit=0.000 gen=0
+05:56:14 prefill run=8 q=19 prealloc=0 xfer=0 http=29 kv=0.046 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=28 kv=0.000 hit=0.000 gen=0
+05:56:30 prefill run=8 q=18 prealloc=0 xfer=0 http=27 kv=0.045 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=27 kv=0.000 hit=0.000 gen=0
+05:56:45 prefill run=8 q=17 prealloc=0 xfer=0 http=26 kv=0.049 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=26 kv=0.000 hit=0.000 gen=0
+05:57:00 prefill run=8 q=16 prealloc=0 xfer=0 http=25 kv=0.051 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=25 kv=0.000 hit=0.000 gen=0
+05:57:15 prefill run=8 q=16 prealloc=0 xfer=0 http=25 kv=0.068 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=25 kv=0.000 hit=0.000 gen=0
+05:57:30 prefill run=9 q=13 prealloc=0 xfer=0 http=24 kv=0.069 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=24 kv=0.000 hit=0.000 gen=0
+05:57:45 prefill run=9 q=12 prealloc=0 xfer=0 http=22 kv=0.064 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=22 kv=0.000 hit=0.000 gen=0
+05:58:00 prefill run=8 q=12 prealloc=0 xfer=0 http=21 kv=0.066 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=21 kv=0.000 hit=0.000 gen=0
+05:58:16 prefill run=8 q=11 prealloc=0 xfer=0 http=20 kv=0.074 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=20 kv=0.000 hit=0.000 gen=0
+05:58:31 prefill run=8 q=11 prealloc=0 xfer=0 http=20 kv=0.085 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=20 kv=0.000 hit=0.000 gen=0
+05:58:46 prefill run=8 q=9 prealloc=0 xfer=0 http=20 kv=0.073 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=18 kv=0.000 hit=0.000 gen=0
+05:59:01 prefill run=8 q=9 prealloc=0 xfer=0 http=18 kv=0.079 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=18 kv=0.000 hit=0.000 gen=0
+05:59:16 prefill run=8 q=9 prealloc=0 xfer=0 http=18 kv=0.079 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=18 kv=0.000 hit=0.000 gen=0
+05:59:31 prefill run=8 q=9 prealloc=0 xfer=0 http=18 kv=0.079 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=18 kv=0.000 hit=0.000 gen=0
+05:59:46 prefill run=8 q=8 prealloc=0 xfer=0 http=17 kv=0.072 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=17 kv=0.000 hit=0.000 gen=0
+06:00:01 prefill run=8 q=7 prealloc=0 xfer=0 http=17 kv=0.085 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=17 kv=0.000 hit=0.000 gen=0
+06:00:16 prefill run=8 q=7 prealloc=0 xfer=0 http=16 kv=0.092 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=16 kv=0.000 hit=0.000 gen=0
+06:00:32 prefill run=9 q=6 prealloc=0 xfer=0 http=16 kv=0.107 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=16 kv=0.000 hit=0.000 gen=0
+06:00:47 prefill run=8 q=5 prealloc=0 xfer=0 http=15 kv=0.094 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=15 kv=0.000 hit=0.000 gen=0
+06:01:02 prefill run=8 q=4 prealloc=0 xfer=0 http=13 kv=0.089 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=13 kv=0.000 hit=0.000 gen=0
+06:01:17 prefill run=8 q=4 prealloc=0 xfer=0 http=13 kv=0.099 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=13 kv=0.000 hit=0.000 gen=0
+06:01:32 prefill run=8 q=3 prealloc=0 xfer=0 http=12 kv=0.107 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=12 kv=0.000 hit=0.000 gen=0
+06:01:47 prefill run=9 q=1 prealloc=0 xfer=0 http=11 kv=0.119 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=11 kv=0.000 hit=0.000 gen=0
+06:02:02 prefill run=8 q=0 prealloc=0 xfer=0 http=10 kv=0.106 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=10 kv=0.000 hit=0.000 gen=0
+06:02:17 prefill run=8 q=0 prealloc=0 xfer=0 http=8 kv=0.086 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=8 kv=0.000 hit=0.000 gen=0
+06:02:32 prefill run=8 q=0 prealloc=0 xfer=0 http=8 kv=0.096 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=8 kv=0.000 hit=0.000 gen=0
+06:02:48 prefill run=8 q=0 prealloc=0 xfer=0 http=8 kv=0.100 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=8 kv=0.000 hit=0.000 gen=0
+06:03:03 prefill run=8 q=0 prealloc=0 xfer=0 http=7 kv=0.111 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=7 kv=0.000 hit=0.000 gen=0
+06:03:18 prefill run=8 q=0 prealloc=0 xfer=0 http=7 kv=0.120 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=7 kv=0.000 hit=0.000 gen=0
+06:03:33 prefill run=8 q=0 prealloc=0 xfer=0 http=5 kv=0.126 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0
+06:03:48 prefill run=8 q=0 prealloc=0 xfer=0 http=4 kv=0.133 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=4 kv=0.000 hit=0.000 gen=0
+06:04:03 prefill run=8 q=0 prealloc=0 xfer=0 http=3 kv=0.136 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+06:04:18 prefill run=8 q=0 prealloc=0 xfer=0 http=3 kv=0.139 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=2 kv=0.000 hit=0.000 gen=0
+06:04:33 prefill run=8 q=0 prealloc=0 xfer=0 http=2 kv=0.141 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=2 kv=0.000 hit=0.000 gen=0
+06:04:48 prefill run=8 q=0 prealloc=0 xfer=0 http=2 kv=0.143 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=2 kv=0.000 hit=0.000 gen=0
+06:05:03 prefill run=8 q=0 prealloc=0 xfer=0 http=2 kv=0.145 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=2 kv=0.000 hit=0.000 gen=0
+06:05:18 prefill run=8 q=0 prealloc=0 xfer=0 http=2 kv=0.146 hit=0.000 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=2 kv=0.000 hit=0.000 gen=0
+06:05:40 prefill run=11 q=31 prealloc=0 xfer=0 http=81 kv=0.106 hit=0.989 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=77 kv=0.000 hit=0.000 gen=0
+06:05:55 prefill run=13 q=26 prealloc=0 xfer=0 http=39 kv=0.121 hit=0.993 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=36 kv=0.000 hit=0.000 gen=0
+06:06:10 prefill run=12 q=15 prealloc=0 xfer=0 http=27 kv=0.198 hit=0.987 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=26 kv=0.000 hit=0.000 gen=0
+06:06:26 prefill run=12 q=6 prealloc=0 xfer=0 http=14 kv=0.215 hit=0.995 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=12 kv=0.000 hit=0.000 gen=0
+06:06:41 prefill run=14 q=4 prealloc=0 xfer=0 http=10 kv=0.244 hit=0.995 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=10 kv=0.000 hit=0.000 gen=0
+06:06:56 prefill run=12 q=2 prealloc=0 xfer=0 http=5 kv=0.244 hit=0.995 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0
+06:07:11 prefill run=12 q=2 prealloc=0 xfer=0 http=5 kv=0.249 hit=0.995 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0
+06:07:26 prefill run=12 q=2 prealloc=0 xfer=0 http=5 kv=0.253 hit=0.995 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0
+06:07:41 prefill run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.283 hit=0.995 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+06:07:56 prefill run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.285 hit=0.995 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+06:08:11 prefill run=5 q=0 prealloc=0 xfer=0 http=7 kv=0.018 hit=0.956 gen=0 | decode run=4 q=0 prealloc=0 xfer=1 http=8 kv=0.013 hit=0.000 gen=84
+06:08:26 prefill run=3 q=0 prealloc=0 xfer=0 http=7 kv=0.035 hit=0.994 gen=0 | decode run=7 q=0 prealloc=0 xfer=4 http=13 kv=0.073 hit=0.000 gen=118
+06:08:42 prefill run=5 q=0 prealloc=0 xfer=0 http=12 kv=0.036 hit=0.976 gen=0 | decode run=9 q=0 prealloc=0 xfer=2 http=18 kv=0.063 hit=0.000 gen=154
+06:08:57 prefill run=8 q=4 prealloc=0 xfer=0 http=14 kv=0.050 hit=0.991 gen=0 | decode run=13 q=0 prealloc=0 xfer=5 http=21 kv=0.117 hit=0.000 gen=137
+06:09:12 prefill run=8 q=6 prealloc=0 xfer=0 http=10 kv=0.044 hit=0.986 gen=0 | decode run=10 q=0 prealloc=0 xfer=4 http=19 kv=0.077 hit=0.000 gen=148
+06:09:27 prefill run=9 q=6 prealloc=0 xfer=0 http=15 kv=0.073 hit=0.983 gen=0 | decode run=11 q=0 prealloc=0 xfer=7 http=22 kv=0.127 hit=0.000 gen=130
+06:09:43 prefill run=9 q=8 prealloc=0 xfer=0 http=21 kv=0.116 hit=0.987 gen=0 | decode run=10 q=0 prealloc=0 xfer=9 http=24 kv=0.120 hit=0.000 gen=147
+06:09:58 prefill run=9 q=8 prealloc=0 xfer=0 http=18 kv=0.058 hit=0.980 gen=0 | decode run=11 q=0 prealloc=0 xfer=10 http=28 kv=0.131 hit=0.000 gen=157
+06:10:13 prefill run=9 q=6 prealloc=0 xfer=0 http=14 kv=0.073 hit=0.983 gen=0 | decode run=17 q=0 prealloc=0 xfer=8 http=28 kv=0.177 hit=0.000 gen=192
+06:10:29 prefill run=8 q=3 prealloc=0 xfer=0 http=11 kv=0.059 hit=0.984 gen=0 | decode run=19 q=0 prealloc=0 xfer=9 http=32 kv=0.180 hit=0.000 gen=227
+06:10:45 prefill run=9 q=0 prealloc=0 xfer=0 http=9 kv=0.068 hit=0.973 gen=0 | decode run=19 q=0 prealloc=0 xfer=3 http=26 kv=0.113 hit=0.000 gen=221
+06:11:00 prefill run=7 q=1 prealloc=0 xfer=0 http=9 kv=0.034 hit=0.970 gen=0 | decode run=18 q=0 prealloc=0 xfer=2 http=27 kv=0.092 hit=0.000 gen=229
+06:11:17 prefill run=8 q=1 prealloc=0 xfer=0 http=15 kv=0.033 hit=0.976 gen=0 | decode run=15 q=0 prealloc=0 xfer=2 http=27 kv=0.066 hit=0.000 gen=184
+06:11:32 prefill run=9 q=2 prealloc=0 xfer=0 http=15 kv=0.039 hit=0.979 gen=0 | decode run=24 q=0 prealloc=0 xfer=4 http=34 kv=0.115 hit=0.000 gen=227
+06:11:47 prefill run=0 q=0 prealloc=0 xfer=0 http=6 kv=0.000 hit=0.990 gen=0 | decode run=26 q=0 prealloc=0 xfer=1 http=32 kv=0.107 hit=0.000 gen=283
+06:12:02 prefill run=0 q=0 prealloc=0 xfer=0 http=4 kv=0.000 hit=0.980 gen=0 | decode run=21 q=0 prealloc=0 xfer=0 http=24 kv=0.103 hit=0.000 gen=234
+06:12:17 prefill run=1 q=0 prealloc=0 xfer=0 http=6 kv=0.110 hit=0.988 gen=0 | decode run=21 q=0 prealloc=0 xfer=1 http=27 kv=0.110 hit=0.000 gen=236
+06:12:34 prefill run=5 q=2 prealloc=0 xfer=0 http=13 kv=0.030 hit=0.985 gen=0 | decode run=19 q=0 prealloc=0 xfer=7 http=30 kv=0.104 hit=0.000 gen=210
+06:12:49 prefill run=8 q=1 prealloc=0 xfer=0 http=14 kv=0.061 hit=0.983 gen=0 | decode run=19 q=0 prealloc=0 xfer=3 http=28 kv=0.113 hit=0.000 gen=227
+06:13:15 prefill run=8 q=0 prealloc=0 xfer=0 http=48 kv=0.101 hit=0.995 gen=0 | decode run=32 q=0 prealloc=0 xfer=6 http=75 kv=0.291 hit=0.000 gen=298
+06:13:30 prefill run=9 q=18 prealloc=0 xfer=0 http=40 kv=0.055 hit=0.991 gen=0 | decode run=30 q=0 prealloc=0 xfer=22 http=67 kv=0.479 hit=0.000 gen=271
+06:13:45 prefill run=8 q=35 prealloc=0 xfer=0 http=45 kv=0.070 hit=0.995 gen=0 | decode run=23 q=0 prealloc=0 xfer=35 http=67 kv=0.515 hit=0.000 gen=192
+06:14:00 prefill run=10 q=32 prealloc=0 xfer=0 http=44 kv=0.101 hit=0.994 gen=0 | decode run=23 q=0 prealloc=0 xfer=33 http=66 kv=0.517 hit=0.000 gen=213
+06:14:16 prefill run=9 q=33 prealloc=0 xfer=0 http=49 kv=0.116 hit=0.992 gen=0 | decode run=22 q=0 prealloc=0 xfer=37 http=72 kv=0.560 hit=0.000 gen=201
+06:14:31 prefill run=9 q=30 prealloc=0 xfer=0 http=40 kv=0.100 hit=0.995 gen=0 | decode run=24 q=0 prealloc=0 xfer=29 http=63 kv=0.431 hit=0.000 gen=206
+06:14:46 prefill run=11 q=24 prealloc=0 xfer=0 http=40 kv=0.130 hit=0.994 gen=0 | decode run=23 q=0 prealloc=0 xfer=25 http=60 kv=0.422 hit=0.000 gen=232
+06:15:02 prefill run=10 q=19 prealloc=0 xfer=0 http=40 kv=0.113 hit=0.990 gen=0 | decode run=26 q=0 prealloc=0 xfer=25 http=59 kv=0.432 hit=0.000 gen=231
+06:15:17 prefill run=9 q=20 prealloc=0 xfer=0 http=37 kv=0.100 hit=0.993 gen=0 | decode run=24 q=0 prealloc=0 xfer=25 http=61 kv=0.366 hit=0.000 gen=247
+06:15:33 prefill run=8 q=22 prealloc=0 xfer=0 http=38 kv=0.136 hit=0.998 gen=0 | decode run=21 q=0 prealloc=0 xfer=24 http=58 kv=0.367 hit=0.000 gen=220
+06:15:48 prefill run=12 q=15 prealloc=0 xfer=0 http=35 kv=0.170 hit=0.987 gen=0 | decode run=25 q=0 prealloc=0 xfer=18 http=54 kv=0.326 hit=0.000 gen=278
+06:16:03 prefill run=9 q=24 prealloc=0 xfer=0 http=36 kv=0.086 hit=0.958 gen=0 | decode run=17 q=0 prealloc=0 xfer=25 http=51 kv=0.333 hit=0.000 gen=174
+06:16:18 prefill run=10 q=21 prealloc=0 xfer=0 http=34 kv=0.096 hit=0.953 gen=0 | decode run=22 q=0 prealloc=0 xfer=22 http=53 kv=0.330 hit=0.000 gen=216
+06:16:33 prefill run=8 q=23 prealloc=0 xfer=0 http=35 kv=0.077 hit=0.993 gen=0 | decode run=22 q=0 prealloc=0 xfer=24 http=55 kv=0.320 hit=0.000 gen=217
+06:16:48 prefill run=11 q=21 prealloc=0 xfer=0 http=44 kv=0.105 hit=0.982 gen=0 | decode run=22 q=0 prealloc=0 xfer=24 http=58 kv=0.305 hit=0.000 gen=222
+06:17:04 prefill run=9 q=11 prealloc=0 xfer=0 http=31 kv=0.155 hit=0.983 gen=0 | decode run=29 q=0 prealloc=0 xfer=19 http=57 kv=0.349 hit=0.000 gen=246
+06:17:19 prefill run=10 q=11 prealloc=0 xfer=0 http=37 kv=0.077 hit=0.983 gen=0 | decode run=32 q=0 prealloc=0 xfer=24 http=60 kv=0.351 hit=0.000 gen=262
+06:17:34 prefill run=8 q=8 prealloc=0 xfer=0 http=24 kv=0.034 hit=0.992 gen=0 | decode run=33 q=0 prealloc=0 xfer=13 http=54 kv=0.320 hit=0.000 gen=322
+06:17:49 prefill run=8 q=18 prealloc=0 xfer=0 http=39 kv=0.050 hit=0.968 gen=0 | decode run=25 q=0 prealloc=0 xfer=25 http=67 kv=0.311 hit=0.000 gen=278
+06:18:05 prefill run=12 q=13 prealloc=0 xfer=0 http=38 kv=0.084 hit=0.946 gen=0 | decode run=27 q=0 prealloc=0 xfer=28 http=61 kv=0.333 hit=0.000 gen=257
+06:18:20 prefill run=12 q=7 prealloc=0 xfer=0 http=30 kv=0.129 hit=0.983 gen=0 | decode run=36 q=0 prealloc=0 xfer=17 http=57 kv=0.323 hit=0.000 gen=309
+06:18:36 prefill run=8 q=4 prealloc=0 xfer=0 http=22 kv=0.049 hit=0.986 gen=0 | decode run=34 q=0 prealloc=0 xfer=12 http=55 kv=0.302 hit=0.000 gen=324
+06:18:51 prefill run=9 q=6 prealloc=0 xfer=0 http=24 kv=0.050 hit=0.978 gen=0 | decode run=42 q=0 prealloc=0 xfer=12 http=58 kv=0.336 hit=0.000 gen=348
+06:19:07 prefill run=9 q=11 prealloc=0 xfer=0 http=35 kv=0.043 hit=0.979 gen=0 | decode run=28 q=0 prealloc=0 xfer=21 http=57 kv=0.263 hit=0.000 gen=254
+06:19:23 prefill run=10 q=18 prealloc=0 xfer=0 http=33 kv=0.065 hit=0.990 gen=0 | decode run=33 q=0 prealloc=0 xfer=25 http=65 kv=0.364 hit=0.000 gen=280
+06:19:38 prefill run=10 q=14 prealloc=0 xfer=0 http=33 kv=0.060 hit=0.981 gen=0 | decode run=37 q=0 prealloc=0 xfer=23 http=66 kv=0.371 hit=0.000 gen=271
+06:19:55 prefill run=9 q=7 prealloc=0 xfer=0 http=33 kv=0.034 hit=0.981 gen=0 | decode run=38 q=0 prealloc=0 xfer=18 http=64 kv=0.383 hit=0.000 gen=352
+06:20:10 prefill run=9 q=8 prealloc=0 xfer=0 http=27 kv=0.100 hit=0.975 gen=0 | decode run=41 q=0 prealloc=0 xfer=14 http=66 kv=0.343 hit=0.000 gen=321
+06:20:25 prefill run=9 q=5 prealloc=0 xfer=0 http=33 kv=0.070 hit=0.973 gen=0 | decode run=32 q=0 prealloc=0 xfer=20 http=63 kv=0.296 hit=0.000 gen=309
+06:20:40 prefill run=11 q=8 prealloc=0 xfer=0 http=32 kv=0.051 hit=0.986 gen=0 | decode run=29 q=0 prealloc=0 xfer=18 http=62 kv=0.285 hit=0.000 gen=305
+06:20:56 prefill run=9 q=0 prealloc=0 xfer=0 http=21 kv=0.117 hit=0.979 gen=0 | decode run=37 q=0 prealloc=0 xfer=10 http=55 kv=0.300 hit=0.000 gen=352
+06:21:11 prefill run=9 q=7 prealloc=0 xfer=0 http=26 kv=0.059 hit=0.969 gen=0 | decode run=33 q=0 prealloc=0 xfer=19 http=60 kv=0.341 hit=0.000 gen=260
+06:21:26 prefill run=10 q=2 prealloc=0 xfer=0 http=20 kv=0.080 hit=0.987 gen=0 | decode run=41 q=0 prealloc=0 xfer=13 http=60 kv=0.341 hit=0.000 gen=310
+06:21:42 prefill run=10 q=1 prealloc=0 xfer=0 http=21 kv=0.059 hit=0.968 gen=0 | decode run=40 q=0 prealloc=0 xfer=11 http=65 kv=0.311 hit=0.000 gen=340
+06:21:58 prefill run=9 q=2 prealloc=0 xfer=0 http=19 kv=0.097 hit=0.979 gen=0 | decode run=44 q=0 prealloc=0 xfer=5 http=59 kv=0.333 hit=0.000 gen=333
+06:22:13 prefill run=10 q=1 prealloc=0 xfer=0 http=20 kv=0.091 hit=0.988 gen=0 | decode run=39 q=0 prealloc=0 xfer=7 http=58 kv=0.305 hit=0.000 gen=350
+06:22:29 prefill run=9 q=3 prealloc=0 xfer=0 http=19 kv=0.094 hit=0.977 gen=0 | decode run=34 q=0 prealloc=0 xfer=12 http=58 kv=0.266 hit=0.000 gen=308
+06:22:44 prefill run=12 q=1 prealloc=0 xfer=0 http=17 kv=0.059 hit=0.971 gen=0 | decode run=34 q=0 prealloc=0 xfer=9 http=56 kv=0.255 hit=0.000 gen=343
+06:22:59 prefill run=8 q=11 prealloc=0 xfer=0 http=22 kv=0.073 hit=0.981 gen=0 | decode run=27 q=0 prealloc=0 xfer=19 http=51 kv=0.294 hit=0.000 gen=264
+06:23:15 prefill run=10 q=0 prealloc=0 xfer=0 http=17 kv=0.062 hit=0.975 gen=0 | decode run=35 q=0 prealloc=0 xfer=6 http=51 kv=0.235 hit=0.000 gen=352
+06:23:30 prefill run=9 q=3 prealloc=0 xfer=0 http=18 kv=0.030 hit=0.781 gen=0 | decode run=39 q=0 prealloc=0 xfer=13 http=57 kv=0.323 hit=0.000 gen=370
+06:23:47 prefill run=9 q=5 prealloc=0 xfer=0 http=26 kv=0.059 hit=0.979 gen=0 | decode run=29 q=0 prealloc=0 xfer=19 http=57 kv=0.340 hit=0.000 gen=304
+06:24:02 prefill run=8 q=13 prealloc=0 xfer=0 http=30 kv=0.052 hit=0.976 gen=0 | decode run=33 q=0 prealloc=0 xfer=22 http=60 kv=0.400 hit=0.000 gen=310
+06:24:18 prefill run=10 q=7 prealloc=0 xfer=0 http=25 kv=0.070 hit=0.987 gen=0 | decode run=29 q=0 prealloc=0 xfer=15 http=55 kv=0.315 hit=0.000 gen=297
+06:24:33 prefill run=13 q=2 prealloc=0 xfer=0 http=30 kv=0.083 hit=0.989 gen=0 | decode run=31 q=0 prealloc=0 xfer=14 http=57 kv=0.330 hit=0.000 gen=297
+06:24:48 prefill run=10 q=4 prealloc=0 xfer=0 http=17 kv=0.068 hit=0.990 gen=0 | decode run=33 q=0 prealloc=0 xfer=4 http=50 kv=0.305 hit=0.000 gen=309
+06:25:04 prefill run=10 q=5 prealloc=0 xfer=0 http=19 kv=0.049 hit=0.973 gen=0 | decode run=35 q=0 prealloc=0 xfer=10 http=50 kv=0.354 hit=0.000 gen=282
+06:25:21 prefill run=7 q=4 prealloc=0 xfer=0 http=24 kv=0.044 hit=0.984 gen=0 | decode run=35 q=0 prealloc=0 xfer=15 http=58 kv=0.343 hit=0.000 gen=333
+06:25:36 prefill run=10 q=4 prealloc=0 xfer=0 http=31 kv=0.113 hit=0.982 gen=0 | decode run=39 q=0 prealloc=0 xfer=15 http=69 kv=0.326 hit=0.000 gen=358
+06:25:52 prefill run=9 q=8 prealloc=0 xfer=0 http=24 kv=0.090 hit=0.991 gen=0 | decode run=41 q=0 prealloc=0 xfer=12 http=66 kv=0.328 hit=0.000 gen=353
+06:26:09 prefill run=8 q=3 prealloc=0 xfer=0 http=23 kv=0.069 hit=0.985 gen=0 | decode run=35 q=4 prealloc=0 xfer=15 http=60 kv=0.329 hit=0.000 gen=317
+06:26:24 prefill run=9 q=7 prealloc=0 xfer=0 http=20 kv=0.060 hit=0.979 gen=0 | decode run=36 q=5 prealloc=0 xfer=15 http=65 kv=0.370 hit=0.000 gen=320
+06:26:39 prefill run=9 q=6 prealloc=0 xfer=0 http=24 kv=0.086 hit=0.981 gen=0 | decode run=44 q=5 prealloc=0 xfer=18 http=71 kv=0.367 hit=0.000 gen=365
+06:26:54 prefill run=11 q=10 prealloc=0 xfer=0 http=35 kv=0.118 hit=0.976 gen=0 | decode run=35 q=0 prealloc=0 xfer=24 http=70 kv=0.351 hit=0.000 gen=316
+06:27:10 prefill run=11 q=14 prealloc=0 xfer=0 http=35 kv=0.090 hit=0.991 gen=0 | decode run=33 q=0 prealloc=0 xfer=28 http=70 kv=0.309 hit=0.000 gen=327
+06:27:26 prefill run=9 q=6 prealloc=0 xfer=0 http=26 kv=0.100 hit=0.983 gen=0 | decode run=40 q=5 prealloc=0 xfer=16 http=71 kv=0.339 hit=0.000 gen=324
+06:27:42 prefill run=10 q=4 prealloc=0 xfer=0 http=20 kv=0.113 hit=0.985 gen=0 | decode run=42 q=0 prealloc=0 xfer=13 http=67 kv=0.352 hit=0.000 gen=352
+06:27:58 prefill run=9 q=6 prealloc=0 xfer=0 http=29 kv=0.061 hit=0.983 gen=0 | decode run=37 q=0 prealloc=0 xfer=17 http=62 kv=0.365 hit=0.000 gen=322
+06:28:14 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.984 gen=0 | decode run=27 q=0 prealloc=0 xfer=0 http=31 kv=0.220 hit=0.000 gen=271
+06:28:29 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.984 gen=0 | decode run=16 q=0 prealloc=0 xfer=0 http=17 kv=0.163 hit=0.000 gen=215
+06:28:44 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.984 gen=0 | decode run=10 q=0 prealloc=0 xfer=0 http=1 kv=0.120 hit=0.000 gen=137
+06:28:59 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.984 gen=0 | decode run=10 q=0 prealloc=0 xfer=0 http=1 kv=0.121 hit=0.000 gen=137
+06:29:14 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.984 gen=0 | decode run=9 q=0 prealloc=0 xfer=0 http=1 kv=0.113 hit=0.000 gen=136
+06:29:29 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.984 gen=0 | decode run=9 q=0 prealloc=0 xfer=0 http=1 kv=0.114 hit=0.000 gen=136
+06:29:44 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.984 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+06:29:59 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.984 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+06:30:14 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.984 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+06:30:29 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.984 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+06:30:45 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.984 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+06:31:00 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.984 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+06:31:15 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.984 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+06:31:30 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.984 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+06:31:45 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.984 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+06:32:00 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.984 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0

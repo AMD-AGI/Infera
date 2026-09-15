@@ -1,0 +1,40 @@
+{
+  "status": "PASS",
+  "topology": "p4d8",
+  "expected": {
+    "conc": 64,
+    "mem_fraction_static": 0.85,
+    "prefill_tp_dp": [
+      4,
+      4
+    ],
+    "decode_tp_dp": [
+      8,
+      8
+    ],
+    "image": "sha256:6ff85f4a43ae4b2773f59e827f230e23a657ae86ebf3d00a73b75bf94d5f9695"
+  },
+  "observed": {
+    "prefill": {
+      "tp_size": 4,
+      "dp_size": 4,
+      "max_running_requests": 64,
+      "cuda_graph_max_bs_decode": 64,
+      "mem_fraction_static": 0.85,
+      "status": "ready"
+    },
+    "decode": {
+      "tp_size": 8,
+      "dp_size": 8,
+      "max_running_requests": 64,
+      "cuda_graph_max_bs_decode": 64,
+      "mem_fraction_static": 0.85,
+      "status": "ready"
+    }
+  },
+  "observed_image_ids": [
+    "sha256:6ff85f4a43ae4b2773f59e827f230e23a657ae86ebf3d00a73b75bf94d5f9695",
+    "sha256:6ff85f4a43ae4b2773f59e827f230e23a657ae86ebf3d00a73b75bf94d5f9695"
+  ],
+  "errors": []
+}

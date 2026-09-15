@@ -1,0 +1,74 @@
+# sampler start 2026-09-15T04:23:20Z
+04:23:20 prefill=<URLError> | decode=<URLError>
+04:23:35 prefill=<URLError> | decode=<URLError>
+04:23:50 prefill=<URLError> | decode=<URLError>
+04:24:05 prefill=<URLError> | decode=<URLError>
+04:24:20 prefill=<URLError> | decode=<URLError>
+04:24:35 prefill=<URLError> | decode=<URLError>
+04:24:50 prefill=<URLError> | decode=<URLError>
+04:25:05 prefill=<URLError> | decode=<URLError>
+04:25:20 prefill=<URLError> | decode=<URLError>
+04:25:35 prefill=<URLError> | decode=<URLError>
+04:25:50 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:26:05 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:26:20 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:26:35 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:26:50 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:27:05 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:27:20 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:27:35 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:27:50 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:28:05 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:28:20 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:28:35 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:28:50 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:29:05 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:29:20 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:29:35 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:29:51 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:30:06 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:30:21 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:30:36 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:30:51 prefill run=0 q=0 prealloc=0 xfer=0 http=4 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:31:06 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:31:21 prefill run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:31:36 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:31:51 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:32:06 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | decode=<URLError>
+04:32:21 prefill=<URLError> | decode=<URLError>
+04:32:36 prefill=<URLError> | decode=<URLError>
+# sampler start 2026-09-15T05:31:43Z
+05:31:43 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.979 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+05:31:58 prefill=<URLError> | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+05:32:13 prefill=<URLError> | decode=<URLError>
+# sampler start 2026-09-15T06:32:06Z
+06:32:06 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.984 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+06:32:21 prefill=<URLError> | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+06:32:36 prefill=<URLError> | decode=<URLError>
+# sampler start 2026-09-15T07:24:49Z
+07:24:49 prefill run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.979 gen=0 | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+07:25:04 prefill=<URLError> | decode run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+07:25:19 prefill=<URLError> | decode=<URLError>
+07:25:34 prefill=<URLError> | decode=<URLError>
+07:25:49 prefill=<URLError> | decode=<URLError>
+07:26:04 prefill=<URLError> | decode=<URLError>
+07:26:19 prefill=<URLError> | decode=<URLError>
+07:26:34 prefill=<URLError> | decode=<URLError>
+07:26:49 prefill=<URLError> | decode=<URLError>
+07:27:04 prefill=<URLError> | decode=<URLError>
+07:27:19 prefill=<URLError> | decode=<URLError>
+07:27:34 prefill=<URLError> | decode=<URLError>
+07:27:49 prefill=<URLError> | decode=<URLError>
+07:28:04 prefill=<URLError> | decode=<URLError>
+07:28:19 prefill=<URLError> | decode=<URLError>
+07:28:34 prefill=<URLError> | decode=<URLError>
+07:28:49 prefill=<URLError> | decode=<URLError>
+07:29:04 prefill=<URLError> | decode=<URLError>
+07:29:19 prefill=<URLError> | decode=<URLError>
+07:29:34 prefill=<URLError> | decode=<URLError>
+07:29:49 prefill=<URLError> | decode=<URLError>
+07:30:04 prefill=<URLError> | decode=<URLError>
+07:30:19 prefill=<URLError> | decode=<URLError>
+07:30:34 prefill=<URLError> | decode=<URLError>
+07:30:49 prefill=<URLError> | decode=<URLError>
+07:31:04 prefill=<URLError> | decode=<URLError>

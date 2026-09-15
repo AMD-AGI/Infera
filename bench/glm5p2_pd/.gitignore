@@ -1,5 +1,11 @@
 config.sh
 topology.tsv
+# A campaign's raw artifacts are tens of GB -- a single aiperf
+# server_metrics_export.json reaches 3.7 GB -- so results stay out by default.
+# A campaign worth keeping is committed with `git add -f`, and only the files a
+# reader needs to recheck the report: the report itself, the point index, the
+# per-point AgentX aggregate, the verdict and args, the live gate evidence, the
+# Prometheus samples the bottleneck analysis reads, and the campaign scripts.
 results/
 logs/
 .cache/

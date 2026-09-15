@@ -1,0 +1,108 @@
+# Track 1 warmup1 sweep plan.  One config family per topology so the curve is
+# internally comparable and matches the existing P8D8 pinned warmup1 points
+# (which ran at mem_fraction_static=0.85, prefill scratch reclaim off, no active
+# GC, rank affinity on -- i.e. plain config defaults + warmup1).
+#
+# phase  topology  conc  mem   extra_args (space separated, empty = -)
+A1	p4d8	32	0.85	-
+A2	p4d8	48	0.85	-
+A3	p4d8	64	0.85	-
+B1	p8d8	96	0.85	-
+B2	p8d8	128	0.85	-
+# Added after A1/A2 showed a real cliff between C32 and C48 (8670.86 -> 3274.57,
+# prefix hit 92-97% -> 69.9%, queue never draining).  The peak is bracketed by
+# those two, so C40 locates it; C24 then tests whether a smaller concurrency
+# already reaches 97% of the max.
+A4	p4d8	40	0.85	-
+# Re-runs and bracketing points added after the first pass.
+#  - A5 C24: the plan needs a point BELOW the current best (C32) to test whether
+#    a smaller concurrency already reaches 97% of the max; without it the
+#    "minimum concurrency" answer cannot be C32 by evidence, only by default.
+#  - A3R C64: first attempt lost its runner.log and its cause is unconfirmed
+#    (report issue 7), so the point is re-measured rather than interpreted.
+#  - B1R C96: first attempt aborted on a warmup drain stall (report issue 9);
+#    C128 later passed at higher concurrency, so C96 is not inherently
+#    unmeasurable and is worth re-running with run-period sampling.
+A5	p4d8	24	0.85	-
+A3R	p4d8	64	0.85	-
+B1R	p8d8	96	0.85	-
+# Added once C96 came back at 13,423.83, BELOW the pinned C64 (14,196.34).
+# That makes C64 the max, 0.97 M = 13,770.45, and C64 the only point that
+# clears it -- C48 (11,485.48) is well under.  The true minimum therefore lies
+# in (C48, C64], which is exactly the "between two already-scanned points"
+# case, so C56 splits it.  If C56 clears 13,770.45 the answer moves to C56 (and
+# C52 would follow); if not, C64 is the answer by evidence rather than by
+# default.
+B3	p8d8	56	0.85	-
+# --- peak-bracketing points, added to fix a real flaw in the earlier analysis --
+#
+# The earlier reading treated the best SAMPLED point as the peak.  It is not: a
+# sampled maximum is only a LOWER BOUND on the true maximum.  P8D8 has C64 at
+# 14,196.34 and C96 at 13,423.83, but nothing was measured in between, so the
+# real peak may sit at, say, C80 and be higher than C64.  That matters more than
+# any crossing-point refinement, because the threshold is 0.97 x M: underestimate
+# M and the threshold is underestimated too, which can wrongly mark a point as
+# clearing it.  P4D8 has the same untested gap between C32 (8,670.86) and C40
+# (8,257.17).
+#
+# These run BEFORE the crossing-point refinement (A6) because the peak sets the
+# threshold that the refinement is measured against.
+# Ordering rule from here on: FINISH ONE TOPOLOGY BEFORE STARTING THE OTHER.
+# The earlier plan alternated between P4D8 and P8D8, which cost no machine time
+# (every point relaunches anyway, since max_running must equal the concurrency)
+# but did force the P4D8 conclusion to be rewritten three times, each rewrite
+# extrapolating a curve shape from scattered points.  A finished curve needs no
+# extrapolation.
+#
+# P8D8 FIRST -- it is the combination under primary review, so its curve gets
+# finished before P4D8 resumes.  Its peak candidate C64 already has a left
+# bracket (C56 = 12,861.91, below it).  What is missing is a right bracket
+# nearer than C96, which sits 32 away.
+#   B5 C72 is the direct counterpart to C56 at +8.  If it comes in below C64,
+#          then C64 is bracketed on both sides at +/-8 and is the peak.
+#   B4 C80 bisects the remaining (C72, C96) gap, and is the point that would
+#          expose a peak sitting further right than C64.
+B5	p8d8	72	0.85	-
+B4	p8d8	80	0.85	-
+# C72 came back at 15,625.18 -- ABOVE C64's 14,196.34.  The peak was never at
+# C64; it sat in the (C64, C96) gap that had no sample, which is exactly the
+# failure mode the peak-bracketing rule above was written to catch.  The
+# consequences: M moves to 15,625.18, the threshold moves to 15,156.42, and C64
+# (90.9%) no longer clears it.  C72 is now the only point that does.
+#   B4 C80 (already queued above) is C72's right bracket at +8.  C64 is its left
+#          bracket.  If C80 lands below C72, the peak is pinned to +/-8.
+#   B6 C68 splits (C64, C72], where the threshold crossing now lies.
+# If C80 instead lands ABOVE C72, the peak is still not bracketed and C88 has to
+# follow -- do not treat C72 as the answer until a point on each side is lower.
+# C80 came back at 16,268.53 -- ABOVE C72's 15,625.18.  The peak moved right a
+# second time.  This is the same failure the C64 episode taught: a sampled
+# maximum whose right-hand neighbour is far away is not a peak.  C80's nearest
+# right-hand sample is still C96, 16 away.
+# Consequences: M = 16,268.53, threshold = 15,780.47, and C72 (96.0%) no longer
+# clears it either.  C80 is the only point that does.
+#   B7 C88 is C80's right bracket at +8.  Only if it lands below C80 is the peak
+#      finally pinned.  If it lands above, C96 (13,423.83) still bounds the
+#      search from the right, so the peak would be in (C88, C96) and C92 follows.
+# C88 came back at 15,253.66 -- BELOW C80.  The P8D8 peak is finally bracketed:
+# C72 (15,625.18) < C80 (16,268.53) > C88 (15,253.66), so the peak is pinned to
+# C80 +/- 8 and M = 16,268.53 / threshold 15,780.47 are now safe to use.
+# Only C80 clears the threshold; C72 (96.0%) and C88 (93.8%) both miss.
+# So the crossing lies in (C72, C80] and B8 C76 splits it -- that is the last
+# point that can still move the P8D8 answer.
+#   B6 C68 is CANCELLED.  It was queued when the crossing was thought to be in
+#      (C64, C72], back when M was C72's value.  With M now at C80, C68 would
+#      have to beat C72's 15,625.18 by 1% while sitting at LOWER concurrency to
+#      matter, which contradicts the clean monotonic rise C64 -> C72 -> C80.
+#      It was killed mid-warmup rather than burn 35 more minutes on a point that
+#      cannot change the answer.
+# P4D8 second, once P8D8 is settled.  It is two points from done.
+#   A7 C36 brackets the C32 peak on the right (C40 is already below it at 8
+#          concurrency away; C36 tightens that to 4).
+#   A6 C28 brackets it on the left (C24 is below at 8 away; C28 tightens to 4).
+# After both, the P4D8 peak is pinned to within +/-4 concurrency and M is final.
+# --- P8D8 remaining (runs first) ---
+B7	p8d8	88	0.85	-
+B8	p8d8	76	0.85	-
+# --- P4D8 remaining ---
+A7	p4d8	36	0.85	-
+A6	p4d8	28	0.85	-
