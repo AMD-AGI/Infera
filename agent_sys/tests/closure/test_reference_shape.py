@@ -3,7 +3,7 @@ closure, and the set loads without error.
 
 **This tests expressibility, not the real workflow, and the distinction is the
 whole of the test.** The six reference steps have no artefact in this repository:
-a concrete workflow's specs live in a task package outside it, and `demo` spec
+a concrete workflow's specs live in a task package outside it, and `cli` spec
 §1.3 puts the reference workflow out of scope while the demo's own graph is three
 tasks. So the fixture below is six closures named for the kickoff report's loop,
 each carrying the handoffs, the phase validators and the body its step needs.

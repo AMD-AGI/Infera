@@ -273,8 +273,7 @@ class FilesystemStore:
         cannot reconstruct it — a producer re-run publishes a new version and
         this returns the new one, with a different digest.
 
-        That is *not* a general hazard, and the narrowing is the honest form of
-        a claim I first made too widely. `task_graph`'s dispatch re-asks its
+        That is *not* a general hazard. `task_graph`'s dispatch re-asks its
         gate immediately before pinning, in the same lock (`scheduler.py`),
         so it has no stale window — and reading the newer version there is
         required rather than wrong, by its criterion 17. The hazard is specific
@@ -391,12 +390,10 @@ class FilesystemStore:
         the agent writes, and **it must exist here because it is the granted
         path.**
 
-        That last part was a defect, and `env_mgr` measured it rather than
-        hitting it in production. This used to create `v<N>/` *and nothing
-        else*, on the premise that `v<N>/` was the agent's grant. `0c2df28`
-        narrowed the grant to `v<N>/content/` — an agent that can write
-        `manifest.yaml` now publishes its own unsealed version, since the
-        manifest became the seal. A granted path must exist when
+        Creating `v<N>/` alone would not be enough. The grant is
+        `v<N>/content/` and not `v<N>/` — an agent that can write
+        `manifest.yaml` publishes its own unsealed version, since the manifest
+        is the seal. A granted path must exist when
         `env_mgr.prepare` builds the ruleset, and neither outcome was
         survivable:
 
@@ -448,8 +445,9 @@ class FilesystemStore:
         branch on. The only caller in prospect is `agent`'s runner, and
         `tests/interfaces/test_import_rules.py` lets it import
         `spec_loader`, `task_graph` and `monitor` — **not this package**. So it
-        cannot name an exception of mine to catch one, and `except Exception`
-        would swallow exactly the wiring bug below. A return value crosses that
+        cannot name an exception of this package's to catch one, and
+        `except Exception` would swallow exactly the wiring bug below. A return
+        value crosses that
         boundary and an exception type does not.
 
         **`NotSealable` is therefore the only thing this raises**, and it means
@@ -555,11 +553,11 @@ class FilesystemStore:
         checks need the kind — the README's required sections come from the
         content type, and `items` is checked against the kind's
         `items_schema` — so a store without one could only ever publish a
-        half-checked artefact. It used to do exactly that: criteria 2 and 3
-        went unenforced and the manifest recorded `kind: ""`, while every test
-        in this package passed because they all inject a resolver.
+        half-checked artefact: criteria 2 and 3 unenforced and the manifest
+        recording `kind: ""`, invisible to every test in this package because
+        they all inject a resolver.
 
-        That was a fallback deciding the absent case was normal. It is not:
+        A fallback here would decide the absent case was normal. It is not:
         reads work without a resolver and publication does not.
         """
         content_dir = Path(content_dir)
@@ -678,17 +676,15 @@ class FilesystemStore:
         answer to a question about `validation.yaml`, which is a sibling of
         `content/` and outside the digest.
 
-        **The gate itself is unchanged, and deliberately.** Since §4.14 a
-        verdict can only be recorded against a sealed version, which is a real
-        coupling I introduced — `b1b356e` changed this from `path.is_dir()`
-        without my noticing that these two call sites shared it. It is **not
-        live**: `agent/runner.py` seals before the gate and
-        `OUTPUT_VALIDATING` is later, so a version is always sealed by the time
-        a verdict is written. `validator` verified that themselves and declined
-        the lifecycle change that would decouple them, on the grounds that
+        **The gate itself is deliberately unchanged.** Since §4.14 a verdict
+        can only be recorded against a sealed version, which is a real coupling:
+        this gate is shared by two call sites. It is **not live**:
+        `agent/runner.py` seals before the gate and `OUTPUT_VALIDATING` is
+        later, so a version is always sealed by the time a verdict is written.
+        The lifecycle change that would decouple them is declined, because
         *what a refusal should be recorded as* is `monitor`'s open question and
-        a second home for that fact would pre-empt it. **It returns the day
-        F-D1 moves the seal after output validation, and not before.**
+        a second home for that fact would pre-empt it. **The coupling becomes
+        live only if the seal moves after output validation.**
         """
         path = self._version_dir(hid, version)
         if not (path / MANIFEST_FILE).is_file():

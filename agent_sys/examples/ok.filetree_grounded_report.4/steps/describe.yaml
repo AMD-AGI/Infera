@@ -72,7 +72,7 @@
 # Trustworthiness: every number in the summary appears in the facts.
 #
 # **This is the validator the demo expects to fail**, and the failure is
-# structural rather than arranged (`demo` design §4.3): the `summary` kind's
+# structural rather than arranged (`cli` design §4.3): the `summary` kind's
 # contract is that its numbers are grounded, `describe`'s goal asks for the
 # wall-clock time the collection took, and `facts` does not carry a duration. The
 # agent is asked in good faith for a figure its input cannot ground.

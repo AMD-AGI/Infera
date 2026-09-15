@@ -72,8 +72,7 @@ __all__ = [
 #: test enumerates channels instead of checking a directory.
 #:
 #: **`PATH` is deliberately not in this list, and not in the block either.**
-#: `demo` F-D5 read that as a script body starting with an empty `PATH`; measured,
-#: it does not — POSIX `sh`
+#: That does not mean a script body starts with an empty `PATH`: POSIX `sh`
 #: substitutes a built-in default when none is inherited, so a body gets
 #: `/usr/local/sbin:…:/bin` and finds `python3`. The residue is real but is the
 #: opposite of the claim: the value comes from the **shell**, not from the
@@ -195,9 +194,8 @@ def assert_standard_unreachable(zone: Path, standards: Sequence[Path]) -> None:
     SWE-bench's answer key was physically absent from the container for two years
     and still leaked: `git remote remove origin` leaves the fix commit reachable
     through `git cat-file --batch-all-objects`, and issue #465 names real cheating
-    trajectories. Their fix is the lesson — `git_clone_timesafe` now ends with a
-    count that must be zero or the clone fails. So the zone is checked, not
-    trusted.
+    trajectories. Their fix is to end `git_clone_timesafe` with a count that must
+    be zero or the clone fails. So the zone is checked, not trusted.
     """
     root = zone.resolve()
     for standard in standards:

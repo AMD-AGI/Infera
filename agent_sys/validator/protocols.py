@@ -46,16 +46,16 @@ class ValidatorInvalid(SpecInvalid):
 
     **A `SpecInvalid`, and that relationship is deliberate rather than
     decorative.** `handoff` and `agent` raise `SpecInvalid` itself out of their
-    registries; this package raises its own type, and for a while that type was a
-    bare `ValueError` — so `load_package`, which caught `SpecInvalid` and
-    `SpecInconsistent`, did not catch it. One package's choice of exception
-    aborted the whole multi-package load, against `load_package`'s first stated
-    property: *one broken spec must not hide the other nine.*
+    registries; this package raises its own type. A bare `ValueError` here would
+    escape a `load_package` that caught only `SpecInvalid` and
+    `SpecInconsistent`, and one package's choice of exception would abort the
+    whole multi-package load, against `load_package`'s first stated property:
+    *one broken spec must not hide the other nine.*
 
-    `spec_loader` fixed it properly by catching `ValueError` (80e2f42), so this
-    is belt-and-braces rather than the repair. It is worth having anyway: the
-    kinship is now stated in the type rather than resting on both happening to
-    descend from `ValueError`, and a reader of either side can see it.
+    `load_package` catches `ValueError`, so this is belt-and-braces rather than
+    the repair. It is worth having anyway: the kinship is stated in the type
+    rather than resting on both happening to descend from `ValueError`, and a
+    reader of either side can see it.
     """
 
 

@@ -81,9 +81,9 @@ __all__ = [
 #: **The switch, and it is on by default.** Truthy — or *absent* — and this run
 #: performs no permission management at all. Spell it `0` to enforce.
 #:
-#: Ruled by the user for a demo bring-up, and **re-ruled 2026-08-30 to make off
-#: the default** rather than something an operator opts into (`interfaces.md`
-#: §4.22f). What it turns off is **confinement and grant enforcement** and
+#: **Off is the default** rather than something an operator opts into
+#: (`interfaces.md` §4.22f). What it turns off is **confinement and grant
+#: enforcement** and
 #: nothing else: staging, the agent spec's material, the workspace,
 #: `staged_package` and the whole of `environment` are *materialisation* — they
 #: make a file appear where a task needs it — and they are unchanged. If
@@ -92,7 +92,7 @@ __all__ = [
 NO_PERMISSIONS_ENV_VAR = "AGENT_SYS_NO_PERMISSIONS"
 
 #: What an **unset** variable reads as. This one constant is the default, and
-#: flipping it is the whole of the 2026-08-30 ruling.
+#: flipping it is the whole of the switch.
 _UNSET_READS_AS = "1"
 
 #: Falsy spellings, so `AGENT_SYS_NO_PERMISSIONS=0` does not read as "on".
@@ -223,13 +223,13 @@ class Prepared(NamedTuple):
     #: `AGENT_SYS_NO_PERMISSIONS`. That is one reason too many, and
     #: `interfaces.md` §4.17a is the rule it breaks: **a fact a reader has to
     #: infer is a fact a reader can miss.** So the switch is *stated* rather than
-    #: recoverable, and `demo` can print it and `agent` can read it without
+    #: recoverable, and the CLI can print it and `agent` can read it without
     #: either of them learning the variable's name.
     #:
-    #: **The default is `False` since 2026-08-30, and it follows the switch's.**
+    #: **The default is `False`, following the switch's.**
     #: `prepare` always passes this explicitly, so the default only answers a
     #: hand-built `Prepared` — and *"claim the ordinary case"* is the rule that
-    #: chose `True` originally (§4.22a). The ordinary case is now unenforced, so
+    #: would choose `True` (§4.22a). The ordinary case is unenforced, so
     #: the same rule now says `False`. It is not merely cosmetic: a `True` here
     #: propagates to `Assignment.permissions_enforced` and leaves the Claude
     #: SDK's own approval layer in ask-mode with no approval channel, which is
@@ -557,9 +557,10 @@ def prepare(
         confinement=conf,
         sync=report,
         environment=MappingProxyType(environment),
-        # **The remote surface, and nothing else.** `deployed` used to append a
-        # component's `tools/*.tooldef.py` here; that route is deleted (spec §6)
-        # and an add-on offering a tool ships a server of its own instead. What
+        # **The remote surface, and nothing else.** A component's
+        # `tools/*.tooldef.py` is not appended here — there is no such route
+        # (spec §6), and an add-on offering a tool ships a server of its own
+        # instead. What
         # is left is the one standing exception, which cannot be installed
         # because it is never written to disk.
         tools=_remote_tools(zone, ctx),

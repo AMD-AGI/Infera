@@ -129,16 +129,14 @@ class ClosureRegistry(BaseSpecRegistry):
     def closures_using_validator(self, name: str) -> tuple[str, ...]:
         """Reverse, for a **phase** validator: which closures name it as one.
 
-        **This docstring used to say `users_of` "structurally cannot see" this
-        edge, and that stopped being true when `check_closures` wired
-        `bind_phase`** — which this package did itself, so the sentence went stale
-        because of a change made here. `validator`'s `users_of` now spans every
-        edge kind and tags each entry with which one, so a validator two closures
-        run in every output phase is no longer reported as used by nothing.
-        Airflow #58058 and dbt#14436 are what that failure looked like elsewhere.
+        **`users_of` can see this edge**, because `check_closures` wires
+        `bind_phase`. It spans every edge kind and tags each entry with which
+        one, so a validator two closures run in every output phase is not
+        reported as used by nothing. Airflow #58058 and dbt#14436 are what that
+        failure looks like elsewhere.
 
-        **So the two are not one fact twice, and the difference is the reason
-        this survived a withdrawal** (`docs/interfaces.md` §4.5): `users_of` is
+        **The two are not one fact twice** (`docs/interfaces.md` §4.5):
+        `users_of` is
         fed from both sides and answers *who names this, and how*, across kinds;
         this answers *which closures name it as a phase validator*, typed, in one
         kind. Recovering the second from the first means one package parsing

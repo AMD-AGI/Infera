@@ -154,7 +154,7 @@ def test_an_empty_phase_advances_and_records_that_nothing_ran(wired) -> None:
     green the whole time, because it encoded a reading of the requirement
     rather than the requirement.
 
-    The requirement is `demo` criterion 3: *"Empty is the normal case and must
+    The requirement is `cli` criterion 3: *"Empty is the normal case and must
     be shown to be normal, not degenerate."* An empty phase is not a pass — that
     stays true, and `evidence` is where it is said — but it is not a failure
     either, and it must advance.
@@ -1598,7 +1598,7 @@ def test_a_non_leaf_gets_a_container_zone_before_it_releases(wired) -> None:
     """`demo` F-D10, live: *"task f2990b0f declares parent 04c8eb73, which has
     no zone"*. A subtask's storage nests inside its parent's, and **a non-leaf
     never reached `prepare`** — `_main` returns before `_deploy`, its only
-    caller — so no nested graph could run, which is the one thing `demo` spec
+    caller — so no nested graph could run, which is the one thing `cli` spec
     §2 exists to prove.
 
     `place_zone`, not `prepare`: confines nothing, cuts no workspace.

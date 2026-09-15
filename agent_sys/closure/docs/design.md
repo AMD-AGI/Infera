@@ -59,7 +59,7 @@ decision — which is §5.1's check sequence and §7.1's placement, and nothing 
 | `task_graph` spec §3.2.2 | **Owning permissions.** They are a versioned *task* attribute. This module reads them for one check and stores none |
 | `validator` design §10.5 | **The reverse index from a validator to its users.** §8.5 contributes an edge to it and does not host it |
 | `spec_loader` | **Rendering, schema validation, and admission.** This module supplies two schemas and two registries into that pipeline |
-| The whole-system CLI — [`../../docs/TODO.md`](../../docs/TODO.md) | **Turning a closure into the root `Task`.** §9.2 says why that is not here; `demo` design §6 and D3 record who does it in the meantime |
+| The whole-system CLI — [`../../docs/TODO.md`](../../docs/TODO.md) | **Turning a closure into the root `Task`.** §9.2 says why that is not here; `cli` design §6 and D3 record who does it in the meantime |
 
 ---
 
@@ -1054,7 +1054,7 @@ reason is spec §1.1's:
 A helper that returns a `Task` would make `closure` import `task_graph`, which
 §2.1 forbids, and would make the closure module the thing that decides what a
 task's initial `permissions`, `is_start` and `is_end` are. The two named callers
-in the spec set are both outside — `demo` spec §4.1's `show` verb, and its
+in the spec set are both outside — `cli` spec §4.1's `show` verb, and its
 `--dry-run` (criterion 11: *"resolves every closure, validates every spec, and
 dispatches nothing"*). Those are also the **only named non-test callers of the
 query helpers anywhere in the spec set**, which is worth knowing when judging how
@@ -1123,7 +1123,7 @@ impossible, and a test that merely observes no mutation would not distinguish
 that from "nobody happened to".
 
 **Criterion 10 has no artefact to check against, and the test says so.** The six
-reference steps live in a task package that does not exist — `demo` spec §1.3
+reference steps live in a task package that does not exist — `cli` spec §1.3
 puts the reference workflow out of scope, and the demo's own graph is three
 tasks. So `test_six_step_shape_loads` builds a **fixture package of six
 closures** named for the kickoff report's loop (prepare e2e, collect, analyse,
@@ -1153,7 +1153,7 @@ finite declared set; the interesting inputs are named cases, not generated ones.
 | **D3** | ~~Main design §3.6 step 5 — the closure pass inside `load_package`~~ | **No longer a deviation.** Main design §3.6 rev. 2 adopts it and D8 there records it | Two defects: `spec_loader` may not import `closure` (§2.3), and `load_package` runs per package, so the pass fires before a second package's specs exist — which §6.1 forbids and §4.3 of the main spec makes a supported case. Dagster hit the same ordering problem and its fix is the same shape (`# Late validate … since they may not be applied until now`). A main-design change; reported |
 | **D4** | Spec §3.2's five queries | **Six.** `closures_using_validator` is added | A closure's phase validators are an edge `ValidatorSpecRegistry.users_of` structurally cannot see — §2.4 says the handoff specs cannot carry them — so without it `users_of` reports a validator two closures run as used by nothing. That is the failure `validator` design §10.5 records from Airflow #58058, and dbt#14436 is a second instance |
 | **D5** | Main design §7 — *"the scheduler is what assembles it"* | **Not implemented, and contradicted** | Criterion 8 forbids the scheduler reading a closure. The clause is almost certainly loose prose about registration order, but it is the only attribution of the job in the design set, and the job is real: nothing owns turning a closure into the root `Task`. §9.2 |
-| **D6** | Criterion 10 — the six reference steps load | Tested against a **fixture package**, not the real workflow | The six closures have no artefact in this repository: `demo` spec §1.3 puts the reference workflow out of scope. The fixture tests expressibility, which is what the criterion says; the test's docstring states which of the two it is. **Also: criterion 10 cites main spec criterion 7, which is "the producing agent cannot reach the validation's context". It means criterion 11.** A cross-reference error in a frozen spec; reported, not edited |
+| **D6** | Criterion 10 — the six reference steps load | Tested against a **fixture package**, not the real workflow | The six closures have no artefact in this repository: `cli` spec §1.3 puts the reference workflow out of scope. The fixture tests expressibility, which is what the criterion says; the test's docstring states which of the two it is. **Also: criterion 10 cites main spec criterion 7, which is "the producing agent cannot reach the validation's context". It means criterion 11.** A cross-reference error in a frozen spec; reported, not edited |
 
 ---
 

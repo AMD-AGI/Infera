@@ -70,11 +70,11 @@ include = [
     # `docs/interfaces.md` §8.
     "spec_loader*", "handoff*", "validator*", "agent*", "closure*", "monitor*",
     # The program's CLI — the single entry point. `examples*` is deliberately
-    # absent and must stay absent: `demo` spec §1.1 says the demo may use
+    # absent and must stay absent: `cli` spec §1.1 says the demo may use
     # nothing an out-of-repository task package could not use, and the moment
     # `examples/ok.filetree_grounded_report.4/` is an installed Python package it stops looking like
     # one. `tests/cli/test_package_loads.py::test_examples_has_no_init` is
-    # the enforcement. Measured (`demo` design §12, M13): setuptools ships
+    # the enforcement. Measured (`cli` design §12, M13): setuptools ships
     # `.py` only, so from a wheel a task package's `.jsonnet` is simply not
     # there — `cli/package.py` refuses and names why.
     "cli*",

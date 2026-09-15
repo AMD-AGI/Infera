@@ -240,9 +240,9 @@ class AttemptRunner(Protocol):
     def carry_on(self, task_id: TaskId) -> str:
         """The phase moved; take this attempt onward. Returns what it did.
 
-        **The whole operation, in place of a predicate a caller had to combine
-        with an action.** `_advance` used to read `is_running` for exactly one
-        purpose — choosing between `wake()` and `resume()` — which is
+        **The whole operation, in place of a predicate a caller must combine
+        with an action.** Reading `is_running` for exactly one purpose —
+        choosing between `wake()` and `resume()` — is
         `engineer_principle.md` §3's stated symptom: *a caller that reads
         `a.b.c`, branches on it, and acts.* §4.4 says offer the computation
         instead, and this is that computation.

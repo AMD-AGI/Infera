@@ -116,29 +116,24 @@ class BaseSpecRegistry:
         long as it is a `ValueError` — which every one in the tree already is.
         `load_package` turns any of them into a `Problem`.
 
-        That sentence used to *enumerate* the two, and the enumeration was the
-        defect. `handoff` put the general form better than the incident does:
-        **a contract naming what callers must raise is a contract that grows a
-        new violation every time somebody adds a class; one naming a base they
-        already inherit cannot.** The enumeration cost a whole multi-package
-        load the day `validator` invented a third type — not because they were
-        careless, but because the set was open and nothing said so.
+        **Naming the base rather than enumerating the types is the point:** a
+        contract naming what callers must raise grows a new violation every time
+        somebody adds a class; one naming a base they already inherit cannot.
+        An enumeration here breaks a whole multi-package load the moment any
+        module invents a type it does not list.
 
-        Do **not** subclass `SpecInvalid` merely to be catchable. `handoff`
-        measured that six of their ~20 `Malformed` raises are load-time spec
-        faults and the rest are runtime artefact faults, so the kinship would
-        assert that a device node in a content tree is a spec that failed its
-        schema. A type that lies to reach a catch clause is the same fault this
-        paragraph is about, pointing the other way.
+        Do **not** subclass `SpecInvalid` merely to be catchable. Of `handoff`'s
+        ~20 `Malformed` raises, six are load-time spec faults and the rest are
+        runtime artefact faults, so the kinship would assert that a device node
+        in a content tree is a spec that failed its schema. A type that lies to
+        reach a catch clause is the same fault this paragraph is about, pointing
+        the other way.
 
         Each module's spec lists its own — `handoff` §8 has five, `validator`
         §9.3 has five. None of them is here, because none of them is shared.
 
         Three properties an override must respect — three traps at one seam
-        rather than one trap three times. Two were found the hard way, by
-        different registries; the third was found by a reader of the paragraph
-        below, before writing anything, which is what a warning like this is
-        for:
+        rather than one trap three times:
 
         **It must be side-effect-free.** It runs before the collision check, so
         a hook that recorded an edge would leave one pointing at a spec that was

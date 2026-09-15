@@ -282,8 +282,9 @@ class HandoffStore(Protocol):
         published. Those say nothing about the content and are wiring bugs, so
         they escape rather than becoming a return value. The prospective
         caller is `agent`'s runner, which `interfaces.md` §4 forbids from
-        importing this package — it cannot name an exception of mine to catch
-        one, and `except Exception` would swallow the wiring bug. A return
+        importing this package — it cannot name an exception of this package's
+        to catch one, and `except Exception` would swallow the wiring bug. A
+        return
         value crosses that boundary; an exception type does not.
         """
         ...

@@ -649,17 +649,17 @@ def check_closures(
     problems: list[Problem] = []
     closures = regs.closures
 
-    # **`origin_of` and `_build_index` are called directly, and the `getattr`
-    # guards that used to be here are gone.** Neither is on the `SpecRegistry`
-    # Protocol — `origin_of` is on the shared registry base, `_build_index` is
-    # intra-package — so a guard looked prudent. It was not.
+    # **`origin_of` and `_build_index` are called directly, with no `getattr`
+    # guard.** Neither is on the `SpecRegistry` Protocol — `origin_of` is on the
+    # shared registry base, `_build_index` is intra-package — so a guard looks
+    # prudent. It is not.
     #
-    # Measured before removing them: no test in this package ever supplied a
-    # `closures` lacking either, so both fallbacks were **dead**. And they were
-    # not harmless dead code. `build_registry` now takes `registries=` from the
-    # caller, so a `closures` without `origin_of` became reachable — and the
-    # fallback silently labelled every `Problem` with the closure's *name* where
-    # a file path belongs, which is indistinguishable from a real origin in a
+    # No caller supplies a `closures` lacking either, so a fallback here is
+    # **dead** — and not harmless dead code. `build_registry` takes
+    # `registries=` from the caller, so a `closures` without `origin_of` is
+    # reachable, and a fallback would silently label every `Problem` with the
+    # closure's *name* where a file path belongs, which is indistinguishable
+    # from a real origin in a
     # message and is the one thing `docs/design.md` §6.2 asks these messages to
     # carry. A degradation nothing raises on, which is the shape this package
     # spent a day removing from other people's code and had two of its own.

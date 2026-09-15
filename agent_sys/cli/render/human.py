@@ -1,4 +1,4 @@
-"""The narration a person reads. `demo` design §7.3.
+"""The narration a person reads. `cli` design §7.3.
 
 Spec §4.2 asks the demo to **teach the taxonomy by using it**, so a verdict line
 spells `trustworthiness / strong` rather than abbreviating it, and an expected

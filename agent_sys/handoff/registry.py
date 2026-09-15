@@ -89,17 +89,16 @@ class HandoffSpecRegistry(BaseSpecRegistry):
     def _admitted(self, name: str, spec: Mapping[str, Any], *, origin: str) -> None:
         """The base's post-store hook: build the indexes here, and only here.
 
-        This class previously overrode `add` and guarded on `len(self)`
-        changing, because `_validate` runs before the collision check and
-        because the base returns as a no-op on a byte-identical
-        re-registration — so indexing in the hook appended twice for one spec,
-        and main spec §4.3 makes the same kind vendored in two packages a real
-        path rather than a hypothetical.
+        Overriding `add` and guarding on `len(self)` changing does not work:
+        `_validate` runs before the collision check, and the base returns as a
+        no-op on a byte-identical re-registration — so indexing outside the hook
+        appends twice for one spec, and main spec §4.3 makes the same kind
+        vendored in two packages a real path rather than a hypothetical.
 
         `_admitted` runs only on the branch that stores, so the double-append
-        is **unrepresentable** rather than guarded against, and the guard is
-        gone. Two registries hit that trap independently, which is why it
-        became a hook rather than a warning in a docstring.
+        is **unrepresentable** rather than guarded against. It is a hook rather
+        than a warning in a docstring because more than one registry can reach
+        the trap.
         """
         built = kind_mod.from_spec(spec, origin=origin)
         self._kinds[name] = built

@@ -181,12 +181,10 @@ class PhaseOutcome:
     def unchecked(self) -> bool:
         """**Nothing checked what this task produced.** `interfaces.md` §4.15.
 
-        Ruled by the user, and it overturns what this class used to say — the
-        docstring below claimed the answer *cannot* be "it blocks", because
-        `NONE` folds every phase to `empty` and criterion 20 forbids the level
-        deciding outcomes. What that missed is that the two `empty`s are
-        different claims, and `verdicts_expected` is what makes them
-        distinguishable:
+        The answer might look like it *cannot* be "it blocks", because `NONE`
+        folds every phase to `empty` and criterion 20 forbids the level deciding
+        outcomes. That misses that the two `empty`s are different claims, and
+        `verdicts_expected` is what makes them distinguishable:
 
         | | `empty` means |
         |---|---|
@@ -212,20 +210,20 @@ class PhaseOutcome:
         """**May the task proceed?** — the runner's question, answered here.
 
         `passed` answers *what the phase found*, and those are the same question
-        only when the phase ran something. `agent.Runner` had only `passed` to
-        ask, so the third state fell into the failure arm and a task whose phase
-        was empty **never advanced past it** — `demo` measured a graph sitting in
-        `INPUT_VALIDATING` for 300 s on the ordinary case, a non-leaf with no
-        validators bound. `engineer_principle.md` §4.4: when a caller seems to
+        only when the phase ran something. With only `passed` to ask, the third
+        state falls into the failure arm and a task whose phase is empty **never
+        advances past it** — a graph sitting in `INPUT_VALIDATING` for 300 s on
+        the ordinary case, a non-leaf with no validators bound.
+        `engineer_principle.md` §4.4: when a caller seems to
         need your properties, work out what it intends to compute and offer that
         computation instead.
 
         **Two arms, and they are different claims about the same phase.** A real
         failure blocks; and, since §5.16 was ruled in §4.15, so does `unchecked`.
         An empty phase that nobody asked anything of still does **not** block —
-        `demo` criterion 3, *"empty is the normal case and must be shown to be
-        normal, not degenerate"*, and F-D9's 300 s deadlock is what that costs
-        when it is got wrong.
+        `cli` criterion 3, *"empty is the normal case and must be shown to be
+        normal, not degenerate"*, and the 300 s deadlock above is what getting it
+        wrong costs.
 
         None of this softens "an empty phase is not a pass". `passed` still
         returns `False` for every empty phase, whether or not it was expected to

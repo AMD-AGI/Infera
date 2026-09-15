@@ -173,11 +173,10 @@ class ProgramExecutor(ExecutorBase):
         """`exit <code>`, and on a failure what the body said before it stopped.
 
         **`exit 1` alone is a true statement that ends the investigation where
-        it starts.** `demo` measured the cost: a body died on a `KeyError` and
-        the run reported only `output_absent`, so a crash on line 1, an exit 0
-        that wrote to the wrong path, and a body never launched all presented
-        identically. The exit code separates the third; its output separates the
-        other two.
+        it starts.** With only `output_absent` travelling, a body that died on a
+        `KeyError` on line 1, a body that exited 0 having written to the wrong
+        path, and a body never launched all present identically. The exit code
+        separates the third; its output separates the other two.
 
         **Only on failure**, because a successful body's stdout is its own
         business and belongs wherever the task's logs go, not in a status field.

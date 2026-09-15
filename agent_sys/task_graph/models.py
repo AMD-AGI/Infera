@@ -326,10 +326,10 @@ def derived_edges(
 ) -> tuple[tuple[DerivedEdge, ...], ...]:
     """The subgraph's edges, derived from handoff wiring plus list order.
 
-    **The single writer of "which entry depends on which".** `Task._instantiate`
-    used to derive this inline while it allocated handoff ids, and `check_graph`
-    now has to ask the same question to cross-check `froms`. Two walks would be
-    two writers of one invariant (`engineer_principle.md` §1), and the copy in
+    **The single writer of "which entry depends on which".** Both
+    `Task._instantiate` and `check_graph` need the answer — the second to
+    cross-check `froms`. Two walks would be two writers of one invariant
+    (`engineer_principle.md` §1), and the copy in
     the checker is the one that would silently stop matching — so the walk lives
     here and `_instantiate` calls it.
 
@@ -480,11 +480,12 @@ class Task(Model):
         """Bind an agent by appending an open record, attempt = len(history).
 
         **Both version maps are pinned here, and that is `interfaces.md`
-        §4.14.** An output used to be recorded when the attempt closed, which
-        made `Execution.output_versions` empty for the whole of the attempt
-        that was supposed to fill it — so `env_mgr`'s kind-named write grant had
-        no ``N`` to build a store path from and raised `UnresolvedGrant` before
-        the body ran. Pinning at dispatch is what lets the agent write into its
+        §4.14.** Recording an output when the attempt closes would leave
+        `Execution.output_versions` empty for the whole of the attempt that is
+        supposed to fill it — so `env_mgr`'s kind-named write grant would have
+        no ``N`` to build a store path from and would raise `UnresolvedGrant`
+        before the body ran. Pinning at dispatch is what lets the agent write
+        into its
         own grant. Which paths under `v<N>/` that grant covers is `env_mgr`'s
         (`grants.py::_version_paths`) and not stated here — it has already
         narrowed once, and a copy of it would go stale where the pointer does
@@ -624,10 +625,10 @@ class Task(Model):
         **Because `submit` dispatches, and a dispatched child creates its own
         zone inside this one.** `submit` ends in `try_dispatch`, so the loop
         below starts an attempt thread per child before this method returns to
-        the monitor; the monitor then wakes *this* task's attempt, which is where
-        the call used to live. So the parent's zone was created **after** every
-        child was already running — the ordering was never in the parent's
-        favour, only in its favour by a margin.
+        the monitor; the monitor then wakes *this* task's attempt. Creating the
+        zone there would put it **after** every child was already running — the
+        ordering never in the parent's favour, only in its favour by a
+        margin.
 
         The margin is one monitor round, and it is not enough. Measured:
         `layout.create` for a non-leaf
@@ -697,9 +698,9 @@ class Task(Model):
             # **Idempotent, for the same reason `HandoffMgr.declare` is.** A
             # resumed non-leaf re-enters its main phase, and a non-leaf's main
             # phase *is* the unfold — so without this a resume builds a second
-            # subgraph beside the first. `demo` measured it end to end: one run
-            # then one `--resume` left 2x every subtask and 2x every handoff
-            # slot, all parented to the one correctly-resumed root.
+            # subgraph beside the first: one run then one `--resume` leaves
+            # 2x every subtask and 2x every handoff slot, all parented to the
+            # one correctly-resumed root.
             #
             # Nothing to submit is the honest answer, not an error: the
             # expansion this task declares already exists, with the attempt
@@ -814,12 +815,12 @@ class Task(Model):
                     is_end=entry.is_end,
                     closure=entry.closure,
                     # **The subtask's own declared permissions**, not the
-                    # parent's. Passing `self.permissions` down discarded what
-                    # the sub-closure declared and gave every subtask the root's
-                    # full set — so a subtask held kind-named grants for kinds it
-                    # has no slot for, and `env_mgr.resolve` treats "no slot has
-                    # that kind" as an error rather than a no-op. `demo`
-                    # measured it: `produce` carrying a `summary` grant.
+                    # parent's. Passing `self.permissions` down would discard
+                    # what the sub-closure declared and give every subtask the
+                    # root's full set — so a subtask would hold kind-named
+                    # grants for kinds it has no slot for, and `env_mgr.resolve`
+                    # treats "no slot has that kind" as an error rather than a
+                    # no-op: a `produce` carrying a `summary` grant.
                     #
                     # Inheriting was never required. `closure` check 6 already
                     # validates at load that a task's declared permissions cover

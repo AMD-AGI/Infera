@@ -57,14 +57,11 @@ class EventId(Id):
     concept, which is the dependency `Pushable` exists to avoid. So the subclass
     lives here and the base is imported.
 
-    **The base is `Id`, and it is public.** This read `_Id` and design §13
-    recorded the private-name import as *"the smaller of two costs"* — a
-    deviation, not a clean choice. `task_graph` has since made the name public,
-    declining the ruling to merely export `_Id` on the ground that a public name
-    spelled with a leading underscore contradicts `interfaces.md` §1.2, where the
-    underscore means *named in one package*. `_Id = Id` remains as an alias with
-    a retirement date; **this no longer uses it**, so the deviation is closed
-    rather than carried.
+    **The base is `Id`, and it is public.** Importing `_Id` instead would be a
+    deviation rather than a clean choice: a public name spelled with a leading
+    underscore contradicts `interfaces.md` §1.2, where the underscore means
+    *named in one package*. `_Id = Id` remains in `task_graph` as an alias with
+    a retirement date; **this does not use it**.
     """
 
     __slots__ = ()

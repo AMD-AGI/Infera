@@ -70,9 +70,9 @@ def build_registry(
     with it.
 
     **Additive on purpose.** Omitting it constructs exactly what this function
-    constructed before, so no caller has to move. The default goes when `demo`
-    passes the five, and not before — changing a signature under the first real
-    caller is the shape §4.11 just named.
+    constructed before, so no caller has to move. The default goes once the
+    composition root passes the five, and not before — changing a signature
+    under the first real caller is the shape §4.11 names.
     """
     r = Registry()
 
@@ -109,12 +109,13 @@ def build_registry(
 
 
 def _bridge_agent_specs(r: Registry) -> None:
-    """Make every admitted agent spec instantiable — `demo` F-D2.
+    """Make every admitted agent spec instantiable.
 
-    Two tables, and until now nothing joined them: `agent_specs` holds the spec
+    Two tables, and this is what joins them: `agent_specs` holds the spec
     *documents* `load_package` admitted, and `AgentMgr`'s table is the vocabulary
-    `Scheduler.submit` checks with `is_registered`. A graph whose spec loaded
-    cleanly still got `unknown agent spec 'collect'; registered: []` at submit.
+    `Scheduler.submit` checks with `is_registered`. Unjoined, a graph whose spec
+    loaded cleanly gets `unknown agent spec 'collect'; registered: []` at
+    submit.
 
     **It belongs here because it is a fact about the catalogue, not about any
     graph.** It does not vary per graph, no graph-builder has an opinion about
@@ -194,8 +195,7 @@ def _wire_specs(
     Both must run after **every** package and before the scheduler, and the
     second kind is the one to watch: a check that is skipped reports nothing and
     looks like a clean catalogue, while an effect that is skipped leaves a system
-    that fails later and elsewhere. Two of this week's defects were the first
-    kind and one was the second.
+    that fails later and elsewhere.
 
     A fourth is expected — `agent.AgentSpecRegistry.check_knowledge`, which
     returns `Problem`s and so belongs with the first kind. It is not called yet:
@@ -261,9 +261,9 @@ def _wire_specs(
         # `merged(reports)` the listing used to call for cannot be written — a
         # `LoadReport` has no `without_validator` to fold.
         #
-        # **A plain call, deliberately.** This was `getattr(..., lambda: None)`,
-        # and the two sides had spelled the accessor differently: the default
-        # produced `None`, `check_closures` returns early on `None`, and an
+        # **A plain call, deliberately.** Under `getattr(..., lambda: None)`
+        # the two sides can spell the accessor differently: the default
+        # produces `None`, `check_closures` returns early on `None`, and an
         # escape-hatch admission went unreported in the assembled system with
         # three suites green. `load_report` is not optional — `handoff_specs` is
         # a registry this root requires and the guard above already refused
@@ -282,15 +282,14 @@ def _wire_specs(
         # the strict half — spec §3.5's run-config knob, which needs a decision
         # about how run configuration reaches this function at all, since
         # `strict_level`, `config_order` and the two roots are the same question
-        # asked four times. Reported; not invented here.
+        # asked four times. Recorded; not invented here.
         #
-        # **A plain call.** This was guarded by `hasattr(..., "check_knowledge")`
-        # — written an hour after I removed the `getattr(..., lambda: None)` two
-        # functions up, for the same defect, and it slipped past the test that
-        # forbids a three-argument `getattr` because `hasattr` is a different
-        # spelling of the same quiet skip. A rename in `agent` would have
-        # stopped the pass silently. The tolerance it bought was for a test
-        # stub, and a stub that wants tolerance answers the method.
+        # **A plain call.** A `hasattr(..., "check_knowledge")` guard is the
+        # same quiet skip as the `getattr(..., lambda: None)` two functions up,
+        # in a spelling the test that forbids a three-argument `getattr` does
+        # not catch — and a rename in `agent` would stop the pass silently. The
+        # tolerance it would buy is for a test stub, and a stub that wants
+        # tolerance answers the method.
         _, knowledge = r.get("agent_specs").check_knowledge(r.get("handoff_specs"))
         problems += knowledge
     skip = failed | rejected(problems)
@@ -303,11 +302,8 @@ def _wire_specs(
     # — `closure`'s check 3, for a closure built from a kind admitted under the
     # escape hatch — and reporting it is what `closure` criterion 6 *is*. This
     # function computed those problems and then filtered them away, so the
-    # escape-hatch admission reached nobody even after `handoff` renamed the
-    # accessor and I removed the `getattr` default that had been swallowing it.
-    # Three fixes on one path, and the value was still going nowhere at the end
-    # of it: a plausible value produced and discarded, which is the same family
-    # as the four.
+    # escape-hatch admission would reach nobody: a plausible value produced and
+    # discarded, which is the same family as the guarded calls above.
     if remaining := [p for p in problems if not p.fatal]:
         log.warning(
             "%d admitted with reservations:\n%s", len(remaining), format_problems(remaining)
@@ -369,9 +365,9 @@ def _wire_monitors(r: Registry, *, monitors: Sequence[Any] | None) -> None:
         # a sibling. `monitor` owns resolving `Task.monitor_spec` — the default
         # name, and the message naming the offending value — so the scheduler
         # asks for the resolver by name and this file never re-implements
-        # `or DEFAULT_MONITOR_NAME`. **Not in `interfaces.md` §2.1's table**;
-        # reported, because a registered name nobody wrote down is how two of
-        # this week's defects started.
+        # `or DEFAULT_MONITOR_NAME`. **Not in `interfaces.md` §2.1's table**,
+        # and recorded here, because a registered name nobody wrote down is a
+        # seam with no owner.
         r.register("monitor_for", parts["monitor_for"])
     if "Budget" in parts:
         r.register("budget", parts["Budget"]())

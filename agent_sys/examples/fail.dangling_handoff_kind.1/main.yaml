@@ -11,7 +11,7 @@
 #
 # Airflow's answer is a skip-list of known-bad files, and that is what a suite
 # grows *after* it has more than one example; with one, a separate package and an
-# explicit flag is smaller and honest about what it is for (`demo` design §8.4).
+# explicit flag is smaller and honest about what it is for (`cli` design §8.4).
 #
 # The fault is a **cross-registry** one, so no schema can catch it: `nonexistent`
 # is a well-formed handoff kind name that is in no loaded package. It is

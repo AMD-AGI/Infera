@@ -1,4 +1,4 @@
-"""One stream, N renderers. `demo` design §7.2.
+"""One stream, N renderers. `cli` design §7.2.
 
 The shape is `logging`'s fan-out without `logging`'s record: a `LogRecord`
 carries a formatted string plus arbitrary `extra`, and criterion 14 needs a
@@ -74,7 +74,7 @@ class Stream:
 
         A question rather than a field to interrogate: every caller that wanted
         `events` in order to filter and count was going to write the same
-        comprehension, and `demo` asserts this over four different kinds.
+        comprehension, and the CLI's own suite asserts this over four kinds.
         """
         return sum(1 for event in self._events if event.kind is kind)
 

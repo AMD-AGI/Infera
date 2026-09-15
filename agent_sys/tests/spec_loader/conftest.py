@@ -84,7 +84,7 @@ class PackageBuilder:
 
         A `${name}.md` asset comes with it, because that is how a body is
         declared now: the fixtures show the convention rather than binding a
-        path by hand, which is what `demo` spec's best practice asks for and
+        path by hand, which is what `cli` spec's best practice asks for and
         what would otherwise make every fixture emit an explicit-binding
         warning.
         """

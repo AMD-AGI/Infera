@@ -1,4 +1,4 @@
-"""JSON Lines. `demo` design §7.4, and criterion 14's whole surface.
+"""JSON Lines. `cli` design §7.4, and criterion 14's whole surface.
 
 **JSON Lines rather than one document**, and criterion 12 is why: a run that is
 interrupted must still have produced valid, complete output for everything that

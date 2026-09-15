@@ -5,7 +5,7 @@ path at all** — only a directory argument, resolved here and handed to
 `spec_loader.YamlPackage` exactly as the whole-system CLI would hand it any
 other package.
 
-The three-step resolution and its refusal are `demo` design §12, and step 3 is
+The three-step resolution and its refusal are `cli` design §12, and step 3 is
 what keeps it honest. Measured: a console script
 pointing into an unpackaged directory is **not an install-time error** — `pip`
 writes the script, the install reports success, and the failure arrives when a
@@ -51,7 +51,7 @@ class PackageNotFound(RuntimeError):
 
 
 def locate(explicit: str | Path | None = None) -> Path:
-    """The demo task package's directory. `demo` design §12's three steps."""
+    """The demo task package's directory. `cli` design §12's three steps."""
     tried: list[Path] = []
 
     if explicit is not None:
@@ -99,8 +99,8 @@ def _is_package(path: Path) -> bool:
     nothing is indistinguishable from a package that loaded — which is
     `docs/interfaces.md` §4.11's rule, applied to discovery.
 
-    **The test is the loader's own, not a demo convention.** It used to look for
-    a `closures/` directory, which was this package's layout and nobody else's;
+    **The test is the loader's own, not a demo convention.** Looking for a
+    `closures/` directory would test one package's layout and nobody else's;
     `main.yaml` and `assets/` are what `YamlPackage._structural_problems` refuses
     a package for, so a directory that passes here is one the loader will accept
     on structure.

@@ -1,7 +1,7 @@
 """Fixtures for `tests/cli`.
 
 **No test in this directory makes a model call, requires credentials, or
-requires a sandbox**, and `demo` design §11 is why that is a property rather
+requires a sandbox**, and `cli` design §11 is why that is a property rather
 than a limitation: CI *loads* the example on every commit and a human *runs* it.
 That is Airflow's arrangement — every one of its shipped-example tests is
 parse-only — and it dissolves the tension between spec §1's *"the first thing to

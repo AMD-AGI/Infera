@@ -110,7 +110,7 @@ PERMITTED_COMPONENTS = {"general_specs", "tests"}
 #: `examples/fail.dangling_handoff_kind.1/` used to be `examples/ok.filetree_grounded_report.4/broken/`, inside the
 #: package. `YamlPackage` scans every `*.yaml` under a root except `assets/`, so a
 #: deliberately-broken document nested inside the good package would be loaded on
-#: every ordinary run — `demo` criterion 13's *"two runs, no hand-editing"* gone.
+#: every ordinary run — `cli` criterion 13's *"two runs, no hand-editing"* gone.
 #: `cli/package.py` records the move; nothing but
 #: `cli.package.broken_package()` reaches it, for `--dry-run --with-broken`.
 #:

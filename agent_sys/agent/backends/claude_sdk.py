@@ -221,8 +221,8 @@ class ClaudeSdkBackend(ExecutorBase):
         self.config = dict(config or {})
         self._loop = asyncio.new_event_loop()
         self._loop_lock = threading.Lock()
-        # Initialised here rather than read with a `getattr` default: "have I
-        # connected?" is a question about my own state and there is exactly one
+        # Initialised here rather than read with a `getattr` default: whether
+        # this client has connected is its own state, and there is exactly one
         # place that can answer it truthfully.
         self._connected = False
         #: The SDK's session id, learned from the messages that carry it. See
@@ -265,13 +265,12 @@ class ClaudeSdkBackend(ExecutorBase):
         runs the CLI `env_mgr` never touched, and an agent would not see the
         plugins its own recipe installed.
 
-        **This is a defect, not a division of labour.** An earlier revision of
-        this docstring closed with *"O2 records that the decision is really
-        `env_mgr`'s"*, which reads as an assignment and is not one: nothing was
-        assigned, nothing is owed, and the silent-wrong-CLI behaviour ships. The
-        two ends disagree about which binary is *the* CLI, and the disagreement
-        is invisible — a recipe installs plugins, the run succeeds, and the
-        agent simply does not have them.
+        **This is a defect, not a division of labour.** Calling it `env_mgr`'s
+        decision would read as an assignment and is not one: nothing is owed,
+        and the silent-wrong-CLI behaviour ships. The two ends disagree about
+        which binary is *the* CLI, and the disagreement is invisible — a recipe
+        installs plugins, the run succeeds, and the agent simply does not have
+        them.
 
         **What it needs:** `env_mgr` reports the CLI it installed into, and this
         backend uses that one or **refuses**. A silent fallback to a different
@@ -549,11 +548,11 @@ class ClaudeSdkBackend(ExecutorBase):
 
         **`get_session_messages` is a module-level function, not a client
         method** — measured against 0.2.148, where `ClaudeSDKClient` exposes
-        fifteen public names and that is not one of them. An earlier revision
-        called `self._client.get_session_messages()`, which raises
-        `AttributeError` against the real SDK on every call; the suite stayed
-        green because the test double defined the method, so the fake ratified
-        the guess instead of checking it (`test_claude_sdk.py`'s `FakeClient`).
+        fifteen public names and that is not one of them.
+        `self._client.get_session_messages()` would raise `AttributeError`
+        against the real SDK on every call while a test double that defines the
+        method keeps the suite green, which is why
+        `test_claude_sdk.py`'s `FakeClient` does not define it.
 
         It reads the session's JSONL transcript, so it is **synchronous** and
         takes the session id plus the project directory — which is the `cwd` we

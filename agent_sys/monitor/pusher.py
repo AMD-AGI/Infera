@@ -53,13 +53,12 @@ def live_handle(runner: AttemptRunner, task_id: TaskId) -> tuple[Pushable | None
     executor is normally set when a gate kind is reported; a non-leaf cannot
     report one at all. Flattening the two into "no live agent" would put a
     surprising state and an ordinary one behind one sentence in the record —
-    the same shape as the `getattr(runner, "attempt_of", None)` that used to be
-    here, one level in.
+    the same shape a `getattr(runner, "attempt_of", None)` fallback would have
+    one level in.
 
-    That fallback was correct while `agent` was declaration-only and **outlived
-    its reason the day `attempt_of` landed**: it made a renamed accessor
-    indistinguishable from "no live agent", which is `interfaces.md` §4.11's
-    first row — *a check that reports nothing is indistinguishable from a check
+    Such a fallback would make a renamed accessor indistinguishable from "no
+    live agent", which is `interfaces.md` §4.11's first row — *a check that
+    reports nothing is indistinguishable from a check
     that found nothing.* A missing accessor now raises, and `_run_guarded`
     records it as `HANDLING_FAILED`.
     """
@@ -76,13 +75,10 @@ def live_handle(runner: AttemptRunner, task_id: TaskId) -> tuple[Pushable | None
         # `instruct` on something that has none: measured as `PUSH_ATTEMPTED`
         # then `HANDLING_FAILED`, an `AttributeError` where a decision belongs.
         #
-        # Reachable **today** through `OUTPUT_ABSENT`, with nothing to do with
-        # `done_by_self_check`. Found answering `agent`'s question about that
-        # field, which is the second time this week a question about a future
-        # change surfaced a present defect.
+        # Reachable through `OUTPUT_ABSENT`, with nothing to do with
+        # `done_by_self_check`.
         #
-        # This is what `Pushable` being `runtime_checkable` was declared for.
-        # Until now the decorator was kept for a check nobody could run.
+        # This is what `Pushable` being `runtime_checkable` is declared for.
         return None, "the executor is a program body: there is no agent to instruct"
     return attempt.executor, ""
 

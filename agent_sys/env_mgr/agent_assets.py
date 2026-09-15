@@ -308,12 +308,12 @@ RECIPE_SCHEMES = ("agent_sys", "package")
 #: bare-name form; can be deleted once no ``recipes:`` list carries one.
 _BARE_RECIPE_REMOVED = (
     "agent {agent!r} declares recipe {declared!r}, which names no root. The bare "
-    "form was removed on 2026-09-04. Write 'agent_sys:{declared}' for a recipe "
+    "form is not accepted. Write 'agent_sys:{declared}' for a recipe "
     "this repository ships under env_mgr/recipes/, or 'package:<relpath>' for one "
-    "this task package carries. It used to resolve by trying the package-relative "
-    "path first and falling back to the shipped directory, so the declaration "
-    "could not be read without knowing the resolution order, and a typo in a "
-    "package path silently ran a different recipe"
+    "this task package carries. A bare name would resolve by trying the "
+    "package-relative path first and falling back to the shipped directory, so "
+    "the declaration could not be read without knowing the resolution order, and "
+    "a typo in a package path would silently run a different recipe"
 )
 
 

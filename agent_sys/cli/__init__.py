@@ -1,7 +1,7 @@
 """`cli` — the program's command-line entry point.
 
 It began as the demo's runner, and the demo is still what it is measured
-against. Two artefacts, and the split is what makes `demo` spec §1.1 checkable:
+against. Two artefacts, and the split is what makes `cli` spec §1.1 checkable:
 
 | | |
 |---|---|

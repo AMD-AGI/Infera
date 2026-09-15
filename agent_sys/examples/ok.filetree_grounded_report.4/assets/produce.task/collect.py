@@ -16,7 +16,7 @@ It writes a `structured_text` content directory: a `README.md` carrying the
 `Purpose` and `Schema` sections that content type requires, and one item,
 `items/text.json`.
 
-**It does not measure how long it took.** `demo` design §4.3: the gap is in the
+**It does not measure how long it took.** `cli` design §4.3: the gap is in the
 specification, not in this program, and it is what makes `check_grounded`'s
 failure structural.
 """

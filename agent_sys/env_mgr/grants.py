@@ -117,7 +117,7 @@ def resolve(
             # permission management is *wide*, and its only job is to stop
             # agents cross-contaminating. Grants are inherited wholesale from a
             # root, so a subgraph member routinely carries grants for kinds its
-            # siblings produce — measured by `demo`, two of three subtasks.
+            # siblings produce.
             #
             # **A wide model that raises on its own width cannot be used with
             # inheritance.** And a permission for something absent grants
@@ -152,7 +152,7 @@ CLAIM_DIR = "claim"
 
 
 def _version_paths(version_dir: str, mode: Mode) -> tuple[Granted, ...]:
-    """One output slot → **two** granted paths. The user's ruling.
+    """One output slot → **two** granted paths.
 
     Not ``v<N>/`` itself, and this is the correction that makes §4.14 safe:
     under it the **manifest is the seal**, so an agent granted the version
@@ -223,10 +223,9 @@ def _why(
 ) -> str:
     """Say **which** of the two conditions was unmet.
 
-    Both branches used to fall into one raise with one message, so a caller who
-    fixed the first and re-ran got a byte-identical error and had to write a
-    probe to discover their fix had worked. One read instead of one run, and the
-    information was already in hand.
+    One raise with one message for both branches gives a caller who fixed the
+    first and re-ran a byte-identical error, so only a probe tells them their fix
+    worked. One read instead of one run, and the information is already in hand.
 
     The same rule as everywhere else here: *an error about something absent
     should name where it looked.*
@@ -242,11 +241,10 @@ def _why(
         )
     # `.get` may miss, and a missing slot is a different fact from an unset
     # kind — so it is spelled out rather than folded into a getattr default.
-    # A third cause, added because `demo` ruled the other two out with a probe
-    # before they could see what was happening: the message named two causes and
-    # the real situation was neither. It is now impossible to reach this branch
-    # with a kind the task does not declare — that returns `()` — so what is left
-    # is a declared kind whose slot did not resolve.
+    # A third cause: naming only the other two leaves a caller ruling both out
+    # and still holding an unexplained failure. It is impossible to reach this
+    # branch with a kind the task does not declare — that returns `()` — so what
+    # is left is a declared kind whose slot did not resolve.
     known = {
         str(h): (handoffs[h].type if h in handoffs else "<no such handoff>") for h in _slots(task)
     }
@@ -312,10 +310,10 @@ def resolve_all(
 
 #: ``AGENT_SYS_OUTPUT_<KIND>`` — where this attempt's output of that kind goes.
 #:
-#: `demo`'s F-D17, and it is `AGENT_SYS_TASK_PACKAGE`'s argument one slot over:
-#: a path known only at prepare time that the body cannot compute and must have.
-#: The granted output directories exist and are granted, and until this they
-#: lived only in `prepared.policy.granted`, which no body ever sees.
+#: `AGENT_SYS_TASK_PACKAGE`'s argument one slot over: a path known only at
+#: prepare time that the body cannot compute and must have. The granted output
+#: directories exist and are granted, and without this they would live only in
+#: `prepared.policy.granted`, which no body ever sees.
 #:
 #: **Keyed by kind because that is the author's only handle.** A closure
 #: declares ``outputs: ['facts']`` — a list of kind names, not slots — so the
@@ -344,8 +342,8 @@ def output_env(task: Any, execution: Any, store_root: str) -> dict[str, str]:
     `HandoffId`, and it would be inventing a naming scheme **no author can write
     against**: the declaration is a list of kind names, so an author with
     ``outputs: ['facts', 'facts']`` has no way to address one of them either.
-    Choosing one silently is the failure `demo` just hit from the other side —
-    an output never written, surfacing as `output_absent` with no cause. Nothing
+    Choosing one silently is the failure seen from the other side — an output
+    never written, surfacing as `output_absent` with no cause. Nothing
     is exported, the body's own refusal fires, and the gap is named here and
     reported rather than papered over.
 
@@ -395,11 +393,10 @@ def output_paths(task: Any, execution: Any, store_root: str) -> dict[Any, str]:
 def input_env(task: Any, staged: Mapping[Any, str]) -> dict[str, str]:
     """The declared name for each **staged input**, for the body that reads it.
 
-    `demo` reported the asymmetry — outputs had a declared name and inputs did
-    not — and asked whether it was deliberate, since an output is a path a body
-    must *create* into while an input might reasonably be handed differently.
-    **It was not deliberate.** It is the same gap one slot over, and the proof
-    was already in the code: `prepare` called `stage_handoffs`, which returns
+    **Outputs and inputs are named symmetrically**, and the asymmetry that
+    would otherwise stand here is not deliberate: an output is a path a body must
+    *create* into, but an input needs a name just as much. `prepare` calls
+    `stage_handoffs`, which returns
     handoff id → staged path, and **threw the mapping away**. That is
     `engineer_principle.md` §4.4's named smell in the direction that hurts —
     discarding an association the module had in hand, leaving the only way to
@@ -421,8 +418,8 @@ def input_env(task: Any, staged: Mapping[Any, str]) -> dict[str, str]:
     ``<zone>/handoffs/<hid>/v<N>`` against ``<store>/<hid>/v<N>/content``. Since
     `stage` narrowed, it copies ``<v>/content`` **to** ``<into>/<hid>/v<N>``, so
     a body finds the artefact's own files directly at the end of either name and
-    there is no ``content/`` hop on the input side. `demo` read the shapes and
-    reported them as one directory apart, which they were before the narrowing;
+    there is no ``content/`` hop on the input side. Read before the narrowing
+    the two shapes are one directory apart, which is why
     `test_the_two_declared_names_point_at_the_same_level` pins the property
     rather than either spelling.
     """

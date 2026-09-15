@@ -135,10 +135,10 @@ def _self_check(hid: HandoffId, manifest: Any) -> list[GateFailure]:
     Absent means `handoff` has not landed the field yet, which is not the
     producing agent's fault; only a present-and-false is a failure.
 
-    **Ruled by `main` 2026-08-29, and not yet buildable here — see the blocker
-    at the bottom.** Recorded now because the reasoning is the part that gets
-    lost: a later reader sees a producer distinction with no branch defending
-    it and "simplifies" it away.
+    **The rule below is settled and not yet buildable here — see the blocker at
+    the bottom.** It is stated because the reasoning is the part that gets lost:
+    a later reader sees a producer distinction with no branch defending it and
+    "simplifies" it away.
 
     | producer | absent means | gate |
     |---|---|---|
@@ -163,26 +163,25 @@ def _self_check(hid: HandoffId, manifest: Any) -> list[GateFailure]:
     side, and it would cost the check on the AI path too, where it is the only
     path it was ever worth anything on.
 
-    **`monitor` checked the mechanism this paragraph used to assert, and it is
-    not today's monitor.** *"A monitor learns to discount it"* was a prediction;
-    `PusherMonitor.decide` is a fixed table — gate kind, pushed-before, live
-    handle — with no frequency and no history beyond this attempt, so it cannot
-    count a kind and cannot discount one. Two real casualties remain, and they
-    are why the concern stands: the analysing dispatcher (`monitor` spec §7.1)
+    **No monitor discounts it, and none can.** `PusherMonitor.decide` is a fixed
+    table — gate kind, pushed-before, live handle — with no frequency and no
+    history beyond this attempt, so it cannot count a kind and cannot discount
+    one. Two real casualties remain, and they are why the concern stands: the
+    analysing dispatcher (`monitor` spec §7.1)
     is the thing that would weigh, and by the time it exists the base rate is
     already in the record it learns from; and **a human reading `read()` is the
     nearer one**, needing no dispatcher at all.
 
-    **`monitor` also ruled out the alternative to the distinction**: for a
-    program body the inapplicable case should not become an event, so there is
-    nothing for the record to distinguish. Their reason is narrower than the
-    base rate and better — §4.1.2 says the field exists to cut round-trips by
-    making an agent look once more, a program cannot benefit, and whether it
-    wrote its outputs is `OUTPUT_ABSENT`'s question and already answered.
+    **The alternative to the distinction is ruled out**: for a program body the
+    inapplicable case should not become an event, so there is nothing for the
+    record to distinguish. That reason is narrower than the base rate and
+    better — §4.1.2 says the field exists to cut round-trips by making an agent
+    look once more, a program cannot benefit, and whether it wrote its outputs
+    is `OUTPUT_ABSENT`'s question and already answered.
 
-    **One constraint on whoever resolves the blocker**, `monitor`'s preference
-    and the shape §5.13 already set: what arrives should say **what the producer
-    is**, not whether this check applies. A `self_check_applies` boolean would
+    **One constraint on whoever resolves the blocker**, and the shape §5.13
+    already sets: what arrives should say **what the producer is**, not whether
+    this check applies. A `self_check_applies` boolean would
     put one consumer's policy in this signature, and the next question about the
     same distinction would need a boolean of its own.
 
@@ -191,9 +190,9 @@ def _self_check(hid: HandoffId, manifest: Any) -> list[GateFailure]:
     `kind` / `producer` / `created_at`, and `producer` is a **`TaskId`, not an
     `AgentId`** (`handoff/protocols.py`); `seal` takes `producer: TaskId`
     too, and `run_gate` has no parameter for it. So *"there was no agent"* is not
-    computable where the check lives. Reported to `main` and `handoff`; until it
-    is resolved the tolerance clause below stays, and it stays **with this note
-    on it** rather than silently.
+    computable where the check lives. Until that is resolved the tolerance
+    clause below stays, and it stays **with this note on it** rather than
+    silently.
     """
     claimed = getattr(manifest, "done_by_self_check", None)
     if claimed is None or claimed:

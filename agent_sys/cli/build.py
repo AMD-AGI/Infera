@@ -14,10 +14,10 @@ is a relocation rather than a rediscovery.
 Three public functions, and one body, because the ordering is the design.
 
 A fourth lived here briefly and does not any more. `register_agent_specs`
-bridged `agent_specs` into `task_graph`'s `AgentMgr`, because nothing did and
-`scheduler.submit` raised `unknown agent spec` on every task (F-D2). Reported,
-and `task_graph` moved it into `build_registry` with the argument that settles
-the general case: **is this fact about *this graph*, or about the catalogue?**
+bridged `agent_specs` into `task_graph`'s `AgentMgr`, without which
+`scheduler.submit` raises `unknown agent spec` on every task. It lives in
+`task_graph`'s `build_registry` now, by the argument that settles the general
+case: **is this fact about *this graph*, or about the catalogue?**
 A registered spec is registry state, so it belongs to the root; a `Task` is
 graph state, so it belongs here. That question is the one to ask of anything
 else this file accumulates.
@@ -68,12 +68,10 @@ def root_task(closure_name: str, registry: Any) -> Task:
     kinds = {ids[kind]: kind for kind in named}
 
     return Task(
-        # **`task_graph`'s own function, not a copy of its rule.** This read
-        # `doc["agent"]` and broke the moment a non-leaf stopped declaring one;
-        # the fix was written here first, as a duplicate, and reported as a
-        # defect — one invariant with two writers. `task_graph` promoted the
-        # original to public in `b6249e6` and the duplicate is gone. The rule
-        # itself stays theirs: a declared agent wins even on a non-leaf, a
+        # **`task_graph`'s own function, not a copy of its rule.** Reading
+        # `doc["agent"]` here breaks the moment a non-leaf stops declaring one,
+        # and a local fix would make one invariant with two writers. The rule
+        # stays `task_graph`'s: a declared agent wins even on a non-leaf, a
         # non-leaf with none gets `SUBGRAPH_AGENT_SPEC`, and **a leaf with none
         # keeps its `KeyError`** — papering that over would dispatch a broken
         # catalogue under a name describing something it is not.

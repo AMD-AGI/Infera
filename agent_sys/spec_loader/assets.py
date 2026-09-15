@@ -83,9 +83,9 @@ class AssetIndex:
             )
         # Package-relative, because that is what `_common.schema.json` says a
         # body path is and what `agent` resolves against the *staged* copy
-        # (`interfaces.md` §4.16). An absolute path here would be the F-D18
-        # regression: `Path(staged) / "/abs"` is `/abs`, so a staged body would
-        # never be reached.
+        # (`interfaces.md` §4.16). An absolute path here would defeat that:
+        # `Path(staged) / "/abs"` is `/abs`, so a staged body would never be
+        # reached.
         return Path(ASSETS_DIRNAME) / found[0].path.relative_to(self._root)
 
     def resolve_folder(self, *, name: str, type_: str | None) -> Path | None:
@@ -107,9 +107,9 @@ class AssetIndex:
                 + "\n".join(f"  {p.name}/" for p in found)
                 + "\n  Merge them, or rename all but one."
             )
-        # Package-relative for `resolve`'s reason, restated because it is the
-        # one that bit (F-D18): `agent` resolves this against the **staged**
-        # copy, and `Path(staged) / "/abs"` is `/abs`.
+        # Package-relative for `resolve`'s reason, restated because this is
+        # the sharp one: `agent` resolves this against the **staged** copy, and
+        # `Path(staged) / "/abs"` is `/abs`.
         return Path(ASSETS_DIRNAME) / found[0].name
 
     # -- matching ----------------------------------------------------------- #

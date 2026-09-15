@@ -132,12 +132,11 @@ def monitor_for(task: Any, registry: Registry) -> Any:
 #: The `attributes` keys this module **writes and another package reads**.
 #:
 #: Declared because `interfaces.md` §1.2 makes a name frozen the moment another
-#: module names it — *"changing it breaks somebody who is not you"* — and `demo`
-#: names this one to tell a task resting at the top of an escalation chain from
-#: a task that is stuck. It was documented as behaviour in design §7.3 and
-#: declared nowhere, which is the same gap `Attempt` and `AttemptRunner` closed
-#: from the other direction: that was what this module *requires*, this is what
-#: it *emits*.
+#: module names it — *"changing it breaks somebody who is not you"* — and the
+#: CLI names this one to tell a task resting at the top of an escalation chain
+#: from a task that is stuck. Documented as behaviour in design §7.3 and
+#: declared here: `Attempt` and `AttemptRunner` are what this module *requires*,
+#: these are what it *emits*.
 ESCALATION_TARGET = "target"
 TARGET_USER = "user"
 
@@ -145,17 +144,19 @@ TARGET_USER = "user"
 def reached_the_user(record: EventRecord) -> bool:
     """Whether this record is an escalation that **ran out of task tree**.
 
-    The question `demo` needs and had to infer. Their stall detector is a
-    heuristic over absence of change, and an escalation resting at the root is
-    not a stall — the system is doing exactly what spec §11 says it does. Both
+    The question a stall detector needs and would otherwise infer. Such a
+    detector is a heuristic over absence of change, and an escalation resting at
+    the root is not a stall — the system is doing exactly what spec §11 says it
+    does. Both
     present as *a task in `running` that stopped changing*, so reporting one as
     the other is a check that reports nothing being indistinguishable from a
     check that found nothing.
 
     **Offered as a question rather than as the two strings it is made of.**
-    `demo` was reading `attributes["target"] == "user"` — correct, documented in
-    design §7.3, and a rename away from silently going false, which would put
-    their stall detector back to calling a resting state a hang. That is
+    A caller reading `attributes["target"] == "user"` would be correct and
+    documented in design §7.3, and one rename away from silently going false —
+    which puts a stall detector back to calling a resting state a hang. That
+    is
     `engineer_principle.md` §4.4: when a caller seems to need one of your
     properties, offer the computation instead.
 
@@ -284,8 +285,8 @@ class RunningMonitors:
     Returned rather than left implicit so that stopping is *possible* to get
     right: `stop()` closes every queue, waits for every loop to return, and
     reports which did not. A caller that forgets it leaks daemon threads; a
-    caller that half-remembers it used to have to know that `stop` and `join`
-    are two steps and which order they go in.
+    caller that half-remembers it would otherwise have to know that `stop` and
+    `join` are two steps and which order they go in.
     """
 
     def __init__(self, monitors: Sequence[Any], threads: Sequence[threading.Thread]) -> None:
@@ -316,11 +317,10 @@ def start_monitors(registry: Registry) -> RunningMonitors:
     **But the assembly is this module's, not the caller's.** Resolving
     `monitor:*`, spawning a daemon thread each, and remembering that stopping is
     `stop()` *then* `join()` is four steps an entry point would otherwise get
-    right or wrong on its own — and `demo` found what wrong looks like: the loop
-    is never started, `report()` still accepts, the queue still fills, and **the
-    task never advances a phase.** That is the failure `interfaces.md` §2.1 rev. 4
-    already names for an unresolvable monitor name, reached from the other
-    direction.
+    right or wrong on its own. Wrong looks like this: the loop is never started,
+    `report()` still accepts, the queue still fills, and **the task never
+    advances a phase** — the failure `interfaces.md` §2.1 already names for an
+    unresolvable monitor name, reached from the other direction.
 
     **A monitor that was never started is detectable and nothing detects it.**
     `last_beat` is stamped at construction and only moved by the loop, so
@@ -598,8 +598,8 @@ class BaseMonitor:
         inherits this unchanged.
         """
         if record.kind is EventKind.SUBGRAPH_DONE and "from_task" not in record.attributes:
-            # It is mine, and it is addressed upward: the is_end subtask's
-            # monitor walks the tree. A record that already carries `from_task`
+            # This monitor's own record, addressed upward: the is_end
+            # subtask's monitor walks the tree. A record carrying `from_task`
             # has had that hop and names the task to advance.
             self._notify_parent_done(record)
             return
@@ -664,15 +664,15 @@ class BaseMonitor:
 
         self._transition(task.id, "enter_phase", phase=next_phase(task.status))
 
-        # **One verb, because the branch that used to be here was this module
-        # reading a neighbour's property and computing with it.** `_advance`
-        # read `is_running` for exactly one purpose — choosing between `wake()`
-        # and `resume()` — which is `engineer_principle.md` §3's stated symptom,
-        # and §4.4's answer is to offer the computation instead of the parts.
+        # **One verb, because a branch here would be this module reading a
+        # neighbour's property and computing with it.** Reading `is_running` for
+        # exactly one purpose — choosing between `wake()` and `resume()` — is
+        # `engineer_principle.md` §3's stated symptom, and §4.4's answer is to
+        # offer the computation instead of the parts.
         #
-        # Design §6.1 argued the opposite, that collapsing them "would hide, at
-        # the one place it matters, which of the two shapes a task is". That is
-        # **withdrawn**: the branch never revealed the shape. It revealed thread
+        # The case for keeping the branch is that collapsing it "would hide, at
+        # the one place it matters, which of the two shapes a task is". It does
+        # not: the branch never revealed the shape. It revealed thread
         # liveness, a *proxy* for leaf-versus-non-leaf — and it is that proxy
         # which was already wrong once, silently, when the absent-attempt branch
         # never fired for a non-leaf.
@@ -767,10 +767,10 @@ class BaseMonitor:
         """Up the **task** tree, never the monitor topology (spec §3.1).
 
         Global monitors are a flat pool; the tree that matters is `task_graph`'s,
-        and `Task.parent` is the edge `unfold` sets. So the target is always *the
-        monitor of my task's parent*, whichever kind either one is — and it
-        always has at least the reporter's scope, because a parent's zone
-        contains its children's.
+        and `Task.parent` is the edge `unfold` sets. So the target is always
+        *the monitor of the reporting task's parent*, whichever kind either one
+        is — and it always has at least the reporter's scope, because a parent's
+        zone contains its children's.
 
         **The walk needs no visited set.** `unfold` sets `parent` on tasks it has
         just created and therefore cannot close a loop; a second guard for one

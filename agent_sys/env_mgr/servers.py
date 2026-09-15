@@ -156,8 +156,8 @@ def records(path: Path) -> list[ServerRecord]:
 def already_running(path: Path, name: str) -> ServerRecord | None:
     """The live entry this run already has for `name`, if there is one.
 
-    Live, not merely present: an entry whose process has since died does not
-    count, using the same `starttime` guard a stop uses.
+    Live, not merely present: an entry whose process has died does not count,
+    using the same `starttime` guard a stop uses.
     """
     found = None
     for record in records(path):

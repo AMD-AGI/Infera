@@ -365,13 +365,12 @@ class ExecutorBase:
         `spawn(argv, **popen_kwargs)` is `env_mgr.Prepared.spawn` — one verb
         over three mechanisms, and the executor branches on none of them.
 
-        **Every mechanism, not just bubblewrap**, since `interfaces.md` split
-        step 7 (`b846c3c`): the runner's own process is deliberately left
-        unconfined, so a child not started through `spawn` is not confined by
-        inheritance either.
+        **Every mechanism, not just bubblewrap** (`interfaces.md` step 7): the
+        runner's own process is deliberately left unconfined, so a child not
+        started through `spawn` is not confined by inheritance either.
 
-        **That is a wider statement and not a lost capability.** Pre-split,
-        Landlock did confine the runner's thread — but only from a
+        **That is a wider statement and not a lost capability.** Confining the
+        runner's thread under Landlock would work only from a
         single-threaded caller, and `apply()` refuses above one thread, which
         this runner always is. So an AI task was never confined in any
         configuration that ran.

@@ -1,4 +1,4 @@
-"""Two renderings of one stream. `demo` design §7.
+"""Two renderings of one stream. `cli` design §7.
 
 Two, not two writers: `Stream.emit` produces the human sentence and the typed
 fields in one call, and each renderer reads the same `Event`. A demo whose

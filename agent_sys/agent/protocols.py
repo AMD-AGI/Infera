@@ -267,8 +267,8 @@ class TaskAttempt(Protocol):
 
         Declared here because `validator` reaches it, for spec §8.2's producer
         row: at `OUTPUT_VALIDATING` a validation's default configuration is the
-        validated task's. `_deploy` used to compute a `Prepared`, read four
-        things off it and discard it, so nothing could reach it afterwards.
+        validated task's. `_deploy` computes a `Prepared` and this keeps what
+        `validator` needs from it, which is otherwise discarded with it.
 
         A `Mapping`, not `env_mgr.Prepared`: `agent` may not import `env_mgr`,
         and the mapping is the whole of what was asked for.
@@ -320,8 +320,8 @@ class Runner(Protocol):
     Resolves `agent_specs`, `env_mgr` and `phase_runner` from the registry by
     name at use time, and imports no backend. Runs three phases for the one task
     the scheduler dispatched, advancing by `task.enter_phase(next)` and **never**
-    by assigning a status — a runner that assigned one would prove `FakeRunner`
-    had been teaching the test suite a lie.
+    by assigning a status — a status assigned here would diverge from what
+    `FakeRunner` teaches the test suite.
 
     **Two of these four are not on `task_graph.TaskRunner`, deliberately.** The
     scheduler holds the narrow protocol and sees neither `carry_on` nor

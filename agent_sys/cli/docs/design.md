@@ -238,7 +238,7 @@ showing rather than only satisfying:
 **That `describe` and `produce` differ by one file is the point.** A reader
 comparing the two folders sees the whole of what "an agent task" versus "a program
 task" means in this system, without reading any design document — which is what
-`demo` spec §4.2 asks the demo to teach.
+`cli` spec §4.2 asks the demo to teach.
 
 `main`, the non-leaf, carries a `readme.md` and no `entry.sh`: its work is its
 subgraph, and the two are mutually exclusive (`closure` spec §2.6). It is the

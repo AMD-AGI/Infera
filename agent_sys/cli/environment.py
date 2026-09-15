@@ -102,7 +102,7 @@ class RepositoryNotPrepared(RuntimeError):
 
 
 class Layout(NamedTuple):
-    """One run's directories. `demo` design §10.1.
+    """One run's directories. `cli` design §10.1.
 
     Criterion 13 — *running twice succeeds without hand-editing* — is a
     statement about naming. Two runs produce two sets of `TaskId`s and
@@ -587,11 +587,11 @@ def build_context(
         # **Staged, not granted — `interfaces.md` §4.16 reversed F19.**
         # `layout.stage_package` copies the package into `<zone>/package/`
         # and `prepare` exports the copy as `AGENT_SYS_TASK_PACKAGE`. The
-        # read-exec grant this module used to add is gone: a staged copy is
-        # inside the zone, so nothing outside it has to be reachable.
+        # module adds no read-exec grant for it: a staged copy is inside the
+        # zone, so nothing outside it has to be reachable.
         #
-        # `package_stage` stays `None` on `env_mgr`'s advice and I agree with
-        # the reasoning: an allow-list of `('bin', 'lib', 'bodies')` would
+        # `package_stage` stays `None`, because an allow-list of
+        # `('bin', 'lib', 'bodies')` would
         # close the demo's package route today and is **a deny-list in
         # allow-list clothing** — a validator directory added later would
         # silently not be excluded. §4.16 accepts that staging *moves*

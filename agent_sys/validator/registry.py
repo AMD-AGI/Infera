@@ -47,12 +47,10 @@ __all__ = ["RunRecord", "RunState", "ValidatorSpecRegistry"]
 #: adds a fourth edge kind adds it here and nowhere else. `docs/interfaces.md`
 #: §5.4 records that nothing yet owns making this derived rather than declared.
 #:
-#: **`closure` was missing until `demo` found it**, and its absence was the exact
-#: bug the paragraph above cites: a validator two closures run reported as used by
-#: nothing. There are three edge kinds — *"a handoff kind naming
-#: a validator; a composite naming a member; a closure naming a phase validator"*
-#: — and this tuple had two. Quoting Airflow #58058 and then committing it is
-#: worth recording rather than quietly correcting.
+#: **All three kinds must be here.** Omitting `closure` reproduces the exact bug
+#: the paragraph above cites: a validator two closures run reported as used by
+#: nothing. The three are *"a handoff kind naming a validator; a composite naming
+#: a member; a closure naming a phase validator"*.
 EDGE_KINDS = ("handoff_kind", "composite", "closure")
 
 
@@ -175,8 +173,8 @@ class ValidatorSpecRegistry(BaseSpecRegistry):
     def users_of(self, name: str) -> list[str]:
         """Static: what names this validator now, across every edge kind.
 
-        The question is *who names this **and how***, which is what "what breaks
-        if I change this" actually wants — a bare list of names cannot say whether
+        The question is *who names this **and how***, which is what *what breaks
+        if this changes* actually wants — a bare list of names cannot say whether
         a closure runs it as a phase validator or a kind binds it to an artefact.
 
         **The tagged string is meant for reading, and it punishes a careless
@@ -190,12 +188,10 @@ class ValidatorSpecRegistry(BaseSpecRegistry):
         parts the fix is to return structured pairs rather than to teach every
         caller which split to reach for.
 
-        **An earlier revision of this docstring called the format lossy and cited
-        it as a reason `closure.closures_using_validator` is not derivable from
-        this. Both were wrong** — `closure` reported the naive parse's behaviour
-        as the format's, I reproduced their snippet instead of measuring
-        `users_of`, and the claim survived into a commit. The two queries are kept
-        apart on a different argument, which `interfaces.md` §4.5 records: this
+        **The format is not lossy**, so that is not why
+        `closure.closures_using_validator` is kept separate — the naive parse's
+        behaviour is not the format's. The two queries are kept apart on a
+        different argument, which `interfaces.md` §4.5 records: this
         one is fed from both edge kinds and answers *who names this and how*
         across them, theirs answers *which closures name it as a phase validator*,
         typed, within one.

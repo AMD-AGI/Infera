@@ -22,10 +22,11 @@ The fourth is what makes this a thin wrapper rather than a layer.
 
 ## YAML 1.2, and the trap that is now closed rather than avoided
 
-`spec_loader/validate.py` used to read specs with PyYAML and argue that *"neither
-the YAML 1.1 `norway: NO` trap nor the duplicate-key trap can reach us — jsonnet
-quotes every string and rejects a duplicate field statically"*. Main spec §7
-rev. 10 records that the argument's premise is gone and hands the question here.
+Reading specs with PyYAML is defensible only behind jsonnet, which quotes every
+string and rejects a duplicate field statically — so neither the YAML 1.1
+`norway: NO` trap nor the duplicate-key trap can reach the loader. Main spec §7
+records that there is no jsonnet step, so that premise is gone and the question
+lands here.
 
 Measured, both parsers over the same eight scalars:
 
@@ -112,7 +113,7 @@ def read_yaml(path: Path, *, origin: str) -> tuple[Any, list[Problem]]:
         tree = YAML().load(text)
     except MarkedYAMLError as exc:
         # `DuplicateKeyError` is one of these, and it is the one worth naming:
-        # it is the trap that jsonnet's static rejection used to close.
+        # it is the trap a jsonnet step would have closed statically.
         at = Position.from_ruamel(
             (exc.problem_mark.line, exc.problem_mark.column) if exc.problem_mark else None
         )

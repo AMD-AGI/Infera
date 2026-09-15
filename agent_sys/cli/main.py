@@ -1,4 +1,4 @@
-"""`show`, `run`, `run --dry-run`. The demo's entry point. `demo` design §8.
+"""`show`, `run`, `run --dry-run`. The demo's entry point. `cli` design §8.
 
 `argparse`, not `click` or `typer`: two verbs and seven flags, and the demo is
 the one artefact whose install must be boring. A dependency bought to parse
@@ -6,7 +6,7 @@ the one artefact whose install must be boring. A dependency bought to parse
 whether anything works.
 
 **This file is a stand-in for the whole-system CLI** (`docs/TODO.md` item 5),
-and `demo` design §8.5 says which parts migrate: `run` and `--dry-run` are that
+and `cli` design §8.5 says which parts migrate: `run` and `--dry-run` are that
 CLI's verbs wearing a demo's name, and when it exists this shrinks to *locate
 the package, call the real CLI, keep `show`*. Recorded so the demo is not later
 mistaken for a second CLI to maintain.
@@ -115,11 +115,11 @@ RESERVED_VARIABLES = frozenset({"outside"})
 def _parse_variables(top: argparse.ArgumentParser, raw: Sequence[str] | None) -> dict[str, str]:
     """`--var K=V`, repeatable, into the map `spec_loader.YamlPackage` expands.
 
-    **What replaced a hardcoded keyword.** `_registry` used to call
-    `package.task_package(root, outside=...)`, and that one word was the whole
-    variable channel: a package could declare `${n_problems:-12}` and had no way
-    to be told otherwise. `examples/ok.algorithms_solve_grade.14` declares three such knobs, and a
-    cheap bring-up run of it is `--var n_problems=2`.
+    **A general channel, not a hardcoded keyword.** With only
+    `package.task_package(root, outside=...)` the one word `outside` would be the
+    whole variable channel: a package could declare `${n_problems:-12}` and have
+    no way to be told otherwise. `examples/ok.algorithms_solve_grade.14` declares
+    three such knobs, and a cheap bring-up run of it is `--var n_problems=2`.
 
     Both faults are `parser.error`, which is argparse's own usage failure: it
     prints usage, names the offending token, and exits 2 — the code an unknown
@@ -712,7 +712,7 @@ def _real_run(
     report_dropped(stream, promises)
 
     registry = _registry(root, layout, stream, resume=args.resume, variables=dict(args.variables))
-    # F-D7 was `demo`'s finding and `monitor`'s to own, and they took it: the
+    # **Starting the loops belongs to `monitor`, not to this entry point:** the
     # *decision* to spawn a thread is the entry point's, for `install_excepthook`'s
     # reason, but resolving `monitor:*`, taking a daemon each and knowing that
     # stopping is `stop()` **then** `join()` is four steps an entry point would
@@ -809,13 +809,10 @@ def _registry(
     # mappings, which are the ones with something to copy, and drops
     # `transport`/`target`, which `transports` below now reads.
     #
-    # **This paragraph used to end differently and had stopped being true.** It
-    # said `transport`/`target` were read by nothing, and that reaching another
-    # host "needs a `Connection` on `Context`, and it is not here" — six lines
-    # above the block that builds exactly that and puts it there. A stale comment
-    # next to the code that refutes it is worse than none: a reader who trusts it
-    # concludes the run path cannot address a second machine, which is the one
-    # thing this stage changed.
+    # **`transport`/`target` are read, and the `Connection` is built six lines
+    # below.** Said otherwise, a comment here would be refuted by the code next
+    # to it — and a reader who trusts it concludes the run path cannot address a
+    # second machine, which it can.
     #
     # No `--meta` flag on `agent-sys`: `$ENV_MGR_META` and the config default are
     # the whole surface for now, and adding a third spelling of one setting to a
@@ -879,7 +876,7 @@ def _registry(
         # catalogue and `PhaseRunner` selects no validator. That is the
         # intended shape rather than a defect — a spec table is configuration
         # and not state, which is `AgentMgr.resume_system`'s own argument one
-        # level up. Measured; F-D2.
+        # level up. Measured.
         packages=[
             package.task_package(
                 root,
@@ -893,14 +890,13 @@ def _registry(
                 **variables,
                 # Criterion 8's leak target, and the only route it has: it is
                 # per-run and absolute, and nothing in `Prepared.environment`
-                # takes a value from here (F-D17). See the `describe` agent's
+                # takes a value from here. See the `describe` agent's
                 # `env` block in `examples/ok.filetree_grounded_report.4/steps/describe.yaml`.
                 #
-                # **The only variable the CLI itself supplies.** `package_root` and
-                # `store_root` used to be passed beside it: the first filled body
-                # paths and the assets convention now finds those, and the second
-                # was referenced by no spec in the package — measured by grep over
-                # every source before it was dropped, not assumed.
+                # **The only variable the CLI itself supplies.** Neither
+                # `package_root` nor `store_root` is passed beside it: the assets
+                # convention finds body paths, and no spec in the package
+                # references a store root.
                 outside=str(layout.outside),
             )
         ],
@@ -923,7 +919,7 @@ def _registry(
     #
     # **The workaround** is the store root: a script body is handed `args.json`
     # and `inputs.json` — handoff **ids** — in a fresh zone with nothing pointing
-    # at the content it must read. F-D5, and `docs/TODO.md` item 26 at its widest.
+    # at the content it must read. `docs/TODO.md` item 26 is this at its widest.
     #
     # **`PATH` is not a workaround.** Measured: POSIX `sh`
     # substitutes a built-in default when none is inherited, so a body starts
@@ -1027,7 +1023,7 @@ def _main_repo(root: Path) -> Path:
     `objects/info/alternates`, and `prepare()` enforces it. It is one reversible
     config key and it is genuinely required, but it happens before anything has
     been demonstrated, so the demo says what it is doing rather than doing it
-    silently. `demo` design O1 is whether it should ask first; this does not
+    silently. `cli` design O1 is whether it should ask first; this does not
     settle that.
     """
     for candidate in (root, *root.parents):
@@ -1187,8 +1183,8 @@ def _validators(handoff_specs: Any, kinds: Sequence[str]) -> list[str]:
     **Read from the handoff kinds, not from the closure**, because that is what
     `validator.PhaseRunner._select` does — and the closure's own `validators`
     list, which both specs call *the phase validators*, has no runtime consumer.
-    F-D4 in `README.md`. Rendering what will actually happen rather than what
-    the specs say should is the only honest choice for a demo.
+    Rendering what will actually happen rather than what the specs say should
+    is the only honest choice for a demo.
     """
     found: list[str] = []
     for kind in kinds:
@@ -1416,12 +1412,11 @@ def _emit_progress(
     with no bridge to here. **The two kind-sets were disjoint: the stream stopped
     three milliseconds before the store started.**
 
-    The cost was not cosmetic. A healthy 40-minute run and a run that deadlocked
-    after four seconds produced *the same file* until the moment one of them
-    ended, so every defect found that day was found by a human reading an agent's
-    transcript. It is also why no liveness check could be built on this file: a
-    watchdog of "no events for N minutes" would have fired on the healthy run
-    too.
+    The cost is not cosmetic. A healthy 40-minute run and a run that deadlocks
+    after four seconds produce *the same file* until the moment one of them ends,
+    so a defect can only be found by a human reading an agent's transcript. It is
+    also why no liveness check can be built on such a file: a watchdog of "no
+    events for N minutes" would fire on the healthy run too.
 
     This is the smaller half of the repair and deliberately so. `_settle` already
     polls the whole graph every tick and already diffs it — it *knew* what had
@@ -1554,8 +1549,8 @@ def _report(
             # `0 == 0` and looks consistent until something re-runs.
             # `docs/TODO.md` item 27: the reference between them has no owner, so
             # this stream names which one it is holding rather than implying
-            # there is one number. Naming them is the whole of what `demo` can
-            # do about §5.12 without inventing the reference.
+            # there is one number. Naming them is the whole this stream can do
+            # about §5.12 without inventing the reference.
             slot_version=handoff.latest.version,
             status=handoff.latest.status.value,
         )
@@ -1795,8 +1790,8 @@ def _awaiting_a_decision(task: Task, registry: Any) -> str:
     """Has an escalation for this task reached the top and found no sink?
 
     **A resting state that looks identical to a hang is not a resting state**,
-    and this is the demo's half of that. `monitor` measured the end state after
-    fixing F-D16: a handled gate failure legitimately leaves the task `running`
+    and this is the demo's half of that. The end state is measured: a handled
+    gate failure legitimately leaves the task `running`
     — criterion 4 says the gate cycle must not move task status — and once the
     escalation reaches the root, *what the alpha does at the top of an
     escalation chain* is `monitor` spec §11, open. `NullUserSink` records the
@@ -1811,15 +1806,14 @@ def _awaiting_a_decision(task: Task, registry: Any) -> str:
     It does not have to be inferred. The escalation that reaches the top is a
     **record**, and the demo already holds a `Recorder`.
 
-    **`monitor.reached_the_user` rather than the two strings this first used.**
-    It read `record.kind.value == "escalated" and attributes["target"] == "user"`
-    — documented in their design §7.3, so nothing was invented, but declared in
-    neither `protocols.py` nor here: two magic strings across a package
-    boundary, which by `interfaces.md` §1.2 became frozen the moment this file
-    read them. A rename would have flipped the check false silently and put a
-    resting state straight back to reading as a hang — **the defect this
-    function exists to prevent, in the mechanism it used to prevent it.** They
-    built the question; this asks it.
+    **`monitor.reached_the_user` rather than two magic strings.** Reading
+    `record.kind.value == "escalated" and attributes["target"] == "user"` here
+    would take two strings across a package boundary — documented in `monitor`
+    design §7.3, but declared in neither `protocols.py` nor here — and by
+    `interfaces.md` §1.2 they freeze the moment this file reads them. A rename
+    would flip the check false silently and put a resting state straight back to
+    reading as a hang, **which is the defect this function exists to prevent.**
+    `monitor` owns the question; this asks it.
     """
     if "recorder" not in registry or task.current is None:
         return ""
@@ -1840,19 +1834,17 @@ def _why_failed(task: Task, registry: Any) -> tuple[str, str]:
 
     **Measured before it was built**, because there were three possibilities.
     `Execution.detail` — the field whose comment says *"from the runner; for a
-    human"* — was empty on every failed task, and `monitor`'s `Recorder` had the
-    answer. Not an oversight in the call: `OnDone` was a `Callable` alias that
-    **could not express a keyword argument**, so a runner holding an exception had
-    the field, the scheduler's parameter and the plumbing in place and no declared
-    way to pass the value. `task_graph` widened it to a Protocol and `agent`
-    passes `detail` now.
+    human"* — is the primary source, and `monitor`'s `Recorder` is the fallback.
+    The field can only carry the reason because `OnDone` is a Protocol: a
+    `Callable` alias **cannot express a keyword argument**, so a runner holding
+    an exception would have the field, the scheduler's parameter and the plumbing
+    in place and no declared way to pass the value.
 
-    **So the recorder read is a real fallback again, and it says when it fires.**
-    It used to be reached on *every* failure, which made it the primary path
-    wearing a fallback's name — and a fallback that is silently load-bearing is
-    the same class of defect as the one this function exists to fix. Returning
-    the source, and putting it in `fields`, is what makes a reappearance a signal
-    rather than a shrug.
+    **The recorder read is a real fallback, and it says when it fires.** Reached
+    on *every* failure it would be the primary path wearing a fallback's name,
+    and a fallback that is silently load-bearing is the same class of defect as
+    the one this function exists to fix. Returning the source, and putting it in
+    `fields`, is what makes a reappearance a signal rather than a shrug.
     """
     detail = task.current.detail if task.current is not None else ""
     if detail:

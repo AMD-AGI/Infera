@@ -378,7 +378,7 @@ class Scheduler:
         are two version numbers for one artefact: `HandoffMgr`'s *slot* version
         and the store's *directory* version. The grant path is built from the
         second, so the second is what belongs in this field. Deriving it from
-        `HandoffMgr.latest` — which is what close used to do — would grant a
+        `HandoffMgr.latest` would grant a
         retry the version the previous attempt already wrote, overwriting an
         artefact criterion 16 promises is byte-identical forever.
 
@@ -400,8 +400,7 @@ class Scheduler:
         ```
 
         So they diverge at **the first dispatch that does not write**, not at
-        the first retry — an earlier revision of this docstring said the latter
-        and it was a code read stated as a fact. A dispatch that never produces
+        the first retry. A dispatch that never produces
         is the ordinary case rather than the exceptional one, because the
         version must exist before `env_mgr.prepare` resolves the grant and a
         refused `prepare` is *"no isolation, no start"* (`env_mgr` §4.6). Every
@@ -425,14 +424,11 @@ class Scheduler:
         """
         if "handoff_store" not in self._r:
             if task.outputs:
-                # **A log, and settled as one** — `monitor` ruled it, and not
-                # for the reason I proposed. I offered "the record is per
-                # attempt and a composition fault is not an attempt fact"; they
-                # rejected it as a true-sounding sentence on a false premise.
-                # The record is *not* per attempt — `NO_TASK` exists for
-                # run-level facts and `THREAD_DIED` / `LOOP_STALLED` both use
-                # it. A per-task record is wrong here for a mechanical reason
-                # instead: `default_fingerprint` includes the task id, so N
+                # **A log, and settled as one.** Not because the record is
+                # per attempt — it is not: `NO_TASK` exists for run-level facts
+                # and `THREAD_DIED` / `LOOP_STALLED` both use it. A per-task
+                # record is wrong here for a mechanical reason instead:
+                # `default_fingerprint` includes the task id, so N
                 # tasks give N fingerprints for one cause and grouping becomes
                 # a no-op exactly where it is needed.
                 #

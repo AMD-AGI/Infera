@@ -1,4 +1,4 @@
-"""The CI half. `demo` design §11, and criteria 1, 6, 11, 13, 15, 16.
+"""The CI half. `cli` design §11, and criteria 1, 6, 11, 13, 15, 16.
 
 Spec §5 says *"the demo is not a test, and CI does not run it"*; spec §1 says the
 demo is *"the first thing to break when one of them drifts"*. Both cannot be
@@ -457,7 +457,7 @@ def test_examples_has_no_init(package_root: Path) -> None:
     looking like what an out-of-repository task package looks like. Main design
     §2's projection — *"`demo/` docs only"* — could not carry a console script
     (measured: it installs and dies with `ModuleNotFoundError` when run), and
-    `demo` design D2 is the split that resolves both.
+    `cli` design D2 is the split that resolves both.
     """
     assert not list(package_root.rglob("__init__.py"))
     assert (package_root.parent.name, package_root.name) == (

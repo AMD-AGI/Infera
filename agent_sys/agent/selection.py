@@ -98,9 +98,7 @@ def select_backend(
     `environment` — a caller that omitted it would build an agent with no
     instruction, no entry point and no zone, and **it would start and do
     nothing**. `_deploy` always supplies one and nothing else calls this, so a
-    default could only ever make a wrong call possible. Rev. 1 had
-    `| None = None`; `closure`'s review found it, and it is the fourth instance
-    of a fallback whose reason had expired.
+    `| None = None` default could only ever make a wrong call possible.
 
     **Nothing is cached.** keyring caches with `@once` and matplotlib resolves
     once and freezes; both are wrong for us for a reason neither of them has —

@@ -159,10 +159,10 @@ def executable_path(policy: Policy) -> str:
 def agent_cli_grants(agent_cli: str | None) -> tuple[Granted, ...]:
     """The agent backend's own CLI, read-execute. **Derived, never hand-written.**
 
-    The install directory rather than the binary, and the depth is adopted from
-    `demo`'s measurement rather than invented: it lives under ``$HOME`` on every
-    ordinary install, ``$HOME`` is granted nowhere, and this is the narrowest
-    grant they found that keeps that true. Narrowing it further would be
+    The install directory rather than the binary, and the depth is measured
+    rather than invented: it lives under ``$HOME`` on every ordinary install,
+    ``$HOME`` is granted nowhere, and this is the narrowest grant that keeps
+    that true. Narrowing it further would be
     guessing at what a self-contained backend reads beside itself, which is
     design O3's *"nothing enumerates what the next tool probes"*.
 

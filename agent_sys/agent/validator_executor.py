@@ -15,10 +15,9 @@ counts:
 
 - It needs no SDK feature, so it works for any backend.
 - It works for a `kind: program` body as well as an AI one.
-- **The identity is real rather than derived.** `validator`'s interim id was
-  `f"{producing_agent_id}:{kind}"` — distinct per phase and *not a distinct
-  agent*, which their own §8.1 says is what criterion 10 wants. They found that
-  weakness while answering this question and recorded it in `40764ea`.
+- **The identity is real rather than derived.** A derived id of the shape
+  `f"{producing_agent_id}:{kind}"` is distinct per phase and *not a distinct
+  agent*, which `validator` §8.1 says is what criterion 10 wants.
 
 **What is still open is not the mechanism.** Whether `fork_session=True` leaves
 the main phase's session interruptible is a measurement nobody has taken, and it
@@ -105,7 +104,7 @@ class ValidatorExecutor:
     def _agent_spec(self, spec: Any) -> str:
         """**Which agent runs this validator** — the spec's, or the wiring's.
 
-        `ValidatorSpec.agent` is optional (`spec-loader` `fe9fd55`,
+        `ValidatorSpec.agent` is optional (`validator.schema.json`,
         `minLength: 1`) and is `None` for the ordinary validator that names
         nobody, which is what makes `or` correct here rather than merely
         convenient: it falls back on *absent*, never on *unresolvable*. A name

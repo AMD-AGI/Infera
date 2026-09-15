@@ -152,25 +152,23 @@ def tools(
         report = conn.pull(_inside_remote(remote_root, remote), _inside(zone, path))
         return report._asdict()
 
-    # **The far side, named.** These three descriptions used to say "the remote
-    # side of this task's mapping" and nothing else — true, and unusable: it
-    # names no machine, so a reader of the tool cannot tell *which* one it is
-    # talking to. Measured, run `20260901T080901-50ecb9`: the agent's first act
-    # was `env_remote_run(["hostname","-f"])`, because the tool surface withheld
-    # something it knew.
+    # **The far side, named.** "The remote side of this task's mapping" is true
+    # and unusable on its own: it names no machine, so a reader of the tool
+    # cannot tell *which* one it is talking to, and an agent's first act becomes
+    # `env_remote_run(["hostname","-f"])` to recover what the tool surface
+    # already knew.
     #
-    # That is the defect this closes, and it is a design one rather than a bug.
-    # The knowledge existed and the only route to it was a package remembering
-    # to write it down — the same shape as the mechanisms in this repository
-    # that were wired, correct, and reached by no production caller.
+    # That is a design defect rather than a bug: the knowledge exists, and
+    # without this the only route to it is a package remembering to write it
+    # down.
     #
     # **What is deliberately not here: whether the work belongs over there.**
     # That is the task's call and not this module's — `env_mgr` cannot know
     # whether a package wants a remote *resource* while working locally, and a
     # claim made here is one the package has no way to contradict. Identity is
     # ours; intent is the package's, keyed on whether these tools exist at all.
-    # `Ssh.describe`'s docstring records the revision in which this line was
-    # crossed and why it was walked back.
+    # `Ssh.describe`'s docstring records why this line is not crossed there
+    # either.
     where = conn.describe()
     return (
         ToolDef(

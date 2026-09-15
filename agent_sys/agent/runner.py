@@ -122,13 +122,10 @@ class Runner:
     `phase_runner`, `handoff_store`, `handoff_mgr`, `budget`, `recorder`, and
     `monitor:<name>`. It imports no backend.
 
-    **`handoff_mgr` is new in §2.1 rev. 6**, and this docstring said *"Not
-    `handoff_mgr`"* until then — correctly, because nothing here used it. What
-    changed is that the **agent-facing write path had no production caller at
-    all**: `open_next`, `HandoffVersion.seal` and `HandoffMgr.persist` were
-    reached only by `FakeRunner.produce`, a test double standing in for this
-    runner. Criterion 14 says `persist` originates only from the agent, so the
-    work could not go anywhere else.
+    **`handoff_mgr` is resolved here because this is the agent-facing write
+    path's only production caller.** `open_next`, `HandoffVersion.seal` and
+    `HandoffMgr.persist` are reached from here; criterion 14 says `persist`
+    originates only from the agent, so the work belongs nowhere else.
     """
 
     def __init__(
@@ -143,11 +140,10 @@ class Runner:
 
         `_common.schema.json` types `entry` as *"package-relative path to the
         entry.sh"*, and nothing else carries the package root into this package.
-        `validator.PhaseRunner` takes it the same way for the same key, and
-        `demo` F-D3 found that the two consumers of one schema key disagreed:
-        theirs joined, mine did not, so a package that wrote the relative path
-        the schema documents failed only under this executor and only at run
-        time.
+        `validator.PhaseRunner` takes it the same way for the same key. **Both
+        consumers of that key must join against the package root**; if one joins
+        and the other does not, a package that writes the relative path the
+        schema documents fails under one executor only, and only at run time.
 
         An absolute path is unaffected — `Path("/a") / "/abs"` is `/abs` — so a
         package that renders its body paths absolute keeps working.
@@ -247,29 +243,25 @@ class Runner:
         `engineer_principle.md` §3's stated symptom: *a caller that reads
         `a.b.c`, branches on it, and acts*. §4.4 says offer the computation.
 
-        **The shape argument stands on its own and the atomicity is a bonus**,
-        which is `monitor`'s own correction to the position they first took. It
-        also closes the dangerous half of the check-then-act race nobody could
-        reproduce: the check and the wake happen under the attempt's lock, so a
-        wake can no longer be lost to a thread that died between them.
+        **The shape argument stands on its own and the atomicity is a bonus.**
+        It also closes the dangerous half of the check-then-act race: the check
+        and the wake happen under the attempt's lock, so a wake can no longer be
+        lost to a thread that died between them.
 
         **The return is an observation, not a value to branch on.** It exists
         because a self-describing verb is what lets either side's tests assert
         which of the two shapes ran without reaching into the runner's threads —
         the only thing left to assert on otherwise, and internals.
 
-        It was asked for so the outcome could go into the `PHASE_DONE` record's
-        attributes, and **that turned out to be unimplementable**: `report()`
-        persists before it enqueues (`monitor` spec §5.2 rule 3), so the record
-        is on disk before this is called, and an append-only store has nothing
-        left to amend. Kept anyway, for the reason above, with the original
-        purpose recorded rather than quietly replaced.
+        **The outcome cannot reach the `PHASE_DONE` record's attributes.**
+        `report()` persists before it enqueues (`monitor` spec §5.2 rule 3), so
+        the record is on disk before this is called, and an append-only store
+        has nothing left to amend. The return exists for the reason above.
 
         **Branching on it would be the proxy trap one step later.** `"resumed"`
         means a thread was taken, which is a stand-in for *this was a non-leaf*
-        — the same stand-in whose failure produced this verb. It is safe to
-        record and unsafe to decide with, and `monitor` design §6.1 is withdrawn
-        rather than satisfied: the visibility it wanted was never in the branch.
+        — the same stand-in this verb exists to replace. It is safe to record
+        and unsafe to decide with.
         """
         attempt = self.attempt_of(task_id)
         if attempt is None:
@@ -299,13 +291,13 @@ class Runner:
     def monitor_for(self, task: Task) -> Any:
         """`Task.monitor_spec`, by name. Absent takes the default.
 
-        **The rule is `monitor`'s and this delegates to it.** Rev. 1 had a
-        second implementation, and the two disagreed about what an absent
-        `monitor_spec` means: `monitor:default` there, `resolve("monitor:*")[0]`
-        — whichever was registered *first* — here. Latent under
-        `build_registry`'s own wiring, where only `default` exists, and live the
-        moment anyone passes `monitors=[...]` with another name first, which it
-        supports.
+        **The rule is `monitor`'s and this delegates to it**, because a second
+        implementation here would disagree with it about what an absent
+        `monitor_spec` means: `monitor:default` there against
+        `resolve("monitor:*")[0]` — whichever was registered *first* — here.
+        The divergence is latent under `build_registry`'s own wiring, where only
+        `default` exists, and live the moment anyone passes `monitors=[...]`
+        with another name first, which it supports.
 
         It matters because the two resolutions are used at the two ends of one
         conversation: this one picks the monitor a phase is **reported to**, and
@@ -489,8 +481,8 @@ class TaskAttempt:
         `KeyError` gives: a second `begin` means somebody believes this attempt
         is idle and it is not, and a silent no-op is how a wrong belief
         survives. The guard also converts one direction of the check-then-act
-        race the same review found — a caller whose `is_running` went stale
-        toward "not running" now gets a raise instead of a second thread.
+        race — a caller whose `is_running` went stale toward "not running" now
+        gets a raise instead of a second thread.
 
         The other direction is not closed here; see `README.md` F11.
         """
@@ -598,7 +590,7 @@ class TaskAttempt:
             self._wake.set()
 
     def join(self, timeout: float | None = None) -> None:
-        """For a caller that wants the thread settled. Tests, and `demo`."""
+        """For a caller that wants the thread settled — tests, and the CLI."""
         thread = self._thread
         if thread is not None:
             thread.join(timeout)
@@ -700,10 +692,9 @@ class TaskAttempt:
 
     # An empty phase advances, and the derivation for that now lives in
     # `validator.PhaseOutcome.blocks_the_task` rather than here — beside the
-    # fold it depends on, where it can be maintained. `demo` argued for that
-    # home and was right: `passed` answers *what the phase found*, this runner's
-    # question is *may the task proceed?*, and the two coincide only when
-    # something ran (`engineer_principle.md` §4.4).
+    # fold it depends on, where it can be maintained: `passed` answers *what the
+    # phase found*, this runner's question is *may the task proceed?*, and the
+    # two coincide only when something ran (`engineer_principle.md` §4.4).
 
     def _main(self) -> bool:
         """The one phase that touches a backend.
@@ -824,22 +815,21 @@ class TaskAttempt:
     def _outputs_brief(self, prepared: Any) -> str:
         """What this task must deliver, named in the one channel a model has.
 
-        **Ruled onto the runner by `main`, with the line it drew:** *the runner
+        **This belongs on the runner, and the line it draws:** *the runner
         states the facts only it possesses and does not author guidance.* The
         contract — what to write, what counts as grounded — stays in the readme.
 
-        **Why not the readme.** `demo`'s first real model call produced nothing
-        because the agent was never told where its output goes. The path is
-        `<store>/<hid>/v<N>/content`, computed at dispatch and different every
-        attempt, so no static text in a package can name it. The nearest a
-        readme could get is naming `AGENT_SYS_OUTPUT_<KIND>` — a variable whose
-        spelling is `env_mgr`'s, in prose nothing validates, that only helps an
-        agent which chooses to run a shell and look. `demo-2`'s sentence is the
-        argument: **an env var cannot instruct an agent.** A conversation is not
-        a process reading `os.environ`.
+        **Why not the readme.** An agent never told where its output goes
+        produces nothing. The path is `<store>/<hid>/v<N>/content`, computed at
+        dispatch and different every attempt, so no static text in a package can
+        name it. The nearest a readme could get is naming
+        `AGENT_SYS_OUTPUT_<KIND>` — a variable whose spelling is `env_mgr`'s, in
+        prose nothing validates, that only helps an agent which chooses to run a
+        shell and look. **An env var cannot instruct an agent**: a conversation
+        is not a process reading `os.environ`.
 
-        **An unresolved path is stated, never omitted** — `main`'s constraint,
-        and it is `interfaces.md` §4.13's family: an agent told about two of
+        **An unresolved path is stated, never omitted**, which is
+        `interfaces.md` §4.13's family: an agent told about two of
         three outputs writes two and finishes successfully, which is today's
         failure repeated one level up. The two cases that reach here without a
         path are a version `task_graph` did not pin and a kind `env_mgr` could
@@ -866,9 +856,9 @@ class TaskAttempt:
         """A body path, resolved against **this attempt's** staged package.
 
         §4.16 copies the package into the zone and leaves the original outside
-        every grant, so the path `Runner.resolve_path` produces now names a file
-        the kernel refuses — `demo` measured `/bin/sh: cannot open …: Permission
-        denied`, and only saw it because a failed body's output travels now.
+        every grant, so the path `Runner.resolve_path` produces names a file the
+        kernel refuses: `/bin/sh: cannot open …: Permission denied`, visible
+        only because a failed body's output travels.
 
         **`resolve_path` could not have been fixed in place.** `package_root` is
         a constructor argument and the staged copy is per *attempt*, so the
@@ -878,9 +868,8 @@ class TaskAttempt:
         the original tree is not confined away from it.
 
         An absolute declared path wins, which is `Path`'s rule and not a policy
-        of mine — worth knowing because `demo`'s bodies were absolute until
-        `086c12e`, and under that fill this resolution is a no-op rather than a
-        wrong answer.
+        of this module — worth knowing because a package whose bodies render
+        absolute makes this resolution a no-op rather than a wrong answer.
         """
         if not declared:
             return None
@@ -895,9 +884,9 @@ class TaskAttempt:
         `backends/claude_sdk.py` hands it to the SDK as `system_prompt`. The
         schema is unambiguous that the declared value is a path
         (`_common.schema.json`: *"Package-relative path to the readme.md. For an
-        agent task this IS the body"*), so a `kind: ai` task's brief was the
-        path to its brief. It never crashed and no AI task has run, which is the
-        whole reason it survived — `demo`'s `readme` note is what surfaced it.
+        agent task this IS the body"*), so passing it through unread would make
+        a `kind: ai` task's brief the path to its brief — a substitution that
+        never crashes and is invisible until an AI task actually runs.
 
         **A missing file raises rather than passing the string through.** The
         alternative is `interfaces.md` §4.11's named failure: the agent would
@@ -928,14 +917,13 @@ class TaskAttempt:
     def _open_outputs(self) -> None:
         """Open this attempt's model slot per declared output — `GENERATING`.
 
-        **The whole agent-facing write path had no production caller.**
-        `open_next`, `HandoffVersion.seal` and `HandoffMgr.persist` were reached
-        only by `FakeRunner.produce`, whose own docstring says it is *"the only
-        thing in the test suite that writes handoff state"* and that it stands
-        in for a real agent. So the model slot was never opened and never
-        sealed, and a consumer waited for ever: `demo` measured the store
-        holding `facts v0: SEALED, published, verdict PASS` while the model
-        held `status=created, verdicts=0`.
+        **This is the agent-facing write path's production caller.**
+        `open_next`, `HandoffVersion.seal` and `HandoffMgr.persist` are
+        otherwise reached only by `FakeRunner.produce`, a test double standing
+        in for a real agent. Without this the model slot is never opened and
+        never sealed, and a consumer waits for ever with the store holding
+        `facts v0: SEALED, published, verdict PASS` while the model holds
+        `status=created, verdicts=0`.
 
         **Two version numbers for one artefact, and this is the other one**
         (`docs/TODO.md` item 27). `_pin_outputs` allocates the *store* directory
@@ -966,11 +954,9 @@ class TaskAttempt:
         > collision exists here, so the disambiguation lives here.
         >
         > `docs/TODO.md` item 27 is the same seam — two version numbers for one
-        > artefact — and the names over them collide the same way. Raised by
-        > `handoff` after checking the ordering **because the name made them**,
-        > and finding nothing wrong: a thing that is correct but re-derived by
-        > everyone who arrives costs more than a defect, which gets found once
-        > and closed.
+        > artefact — and the names over them collide the same way. A thing that
+        > is correct but re-derived by everyone who arrives costs more than a
+        > defect, which gets found once and closed.
 
         **`seal` takes a verdict, so the event that decides it is the
         validation and not the write.** `VALID` is *"sealed, usable"* and
@@ -998,14 +984,14 @@ class TaskAttempt:
             return
         self._model_open = False
         for hid in self.task.outputs:
-            # **Positive evidence, not the absence of a refusal.** `published`
-            # used to mean `hid not in self._store_refusals`, which is true for
-            # an output this attempt never even tried — `_seal_outputs` skips a
-            # hid with no pinned version, and a skip is not a refusal. Measured:
-            # with nothing pinned and a *previous* attempt's version in the
-            # store, the gate passed on that older version, `_close` ran, and
-            # the slot was sealed `VALID` for an attempt that published
-            # nothing. `exists()` is not attempt-scoped; this set is.
+            # **Positive evidence, not the absence of a refusal.** Reading
+            # `hid not in self._store_refusals` would be true for an output this
+            # attempt never even tried — `_seal_outputs` skips a hid with no
+            # pinned version, and a skip is not a refusal. With nothing pinned
+            # and a *previous* attempt's version in the store, the gate passes
+            # on that older version, `_close` runs, and the slot is sealed
+            # `VALID` for an attempt that published nothing. `exists()` is not
+            # attempt-scoped; this set is.
             status = (
                 HandoffStatus.VALID
                 if (passed and hid in self._store_sealed)
@@ -1043,11 +1029,11 @@ class TaskAttempt:
         after the gate**. The gate asks whether an output exists, and
         `FilesystemStore.exists` means *published* — its own docstring says an
         allocated-but-unsealed directory is not a version that exists. So with
-        nothing sealing before the gate, **every successful task reported
-        `OUTPUT_ABSENT`**, which is what `demo` measured.
+        nothing sealing before the gate, **every successful task reports
+        `OUTPUT_ABSENT`**.
 
-        **The caller needs no evidence, and that was the question worth
-        asking.** `seal` is not a rubber stamp: it re-runs `put`'s admission
+        **The caller needs no evidence.** `seal` is not a rubber stamp: it
+        re-runs `put`'s admission
         checks, and it tests `content/` for **emptiness before contents** — so
         a body that exited 0 having written nothing gets back the reason
         *this attempt produced no content at all*, not a manifest. Sealing on
@@ -1060,16 +1046,15 @@ class TaskAttempt:
         truth about the attempt. Raising instead would fail the attempt through
         the outermost handler and the gate would never speak.
 
-        **There is no `try` here, and the absence is the contract.** This
-        wrapped `store.seal` in `except Exception` for one commit, because
-        `agent` may not import `handoff` (`docs/interfaces.md` §4) and there was
-        no type to name. `handoff` answered the constraint by changing the
-        boundary instead (`fd31a6c`): `seal` **returns** the reason and raises
-        `NotSealable` — a wiring bug — and nothing else.
+        **There is no `try` here, and the absence is the contract.** `agent` may
+        not import `handoff` (`docs/interfaces.md` §4), so there is no type to
+        name in an `except`; the boundary answers that instead — `seal`
+        **returns** the reason and raises `NotSealable` — a wiring bug — and
+        nothing else.
 
-        **Against the new contract the catch was exactly backwards**: a refusal
-        no longer raises, so `refused` would have stayed empty and the reason
-        would have reached no record, while `NotSealable` — the one thing that
+        **A blanket catch would be exactly backwards**: a refusal does not
+        raise, so `refused` would stay empty and the reason would reach no
+        record, while `NotSealable` — the one thing that
         must escape — would have been swallowed into it. Both halves silent, on
         a suite that stayed green because no test sealed twice.
 
@@ -1077,13 +1062,12 @@ class TaskAttempt:
         same mistake one type over.** Inside `seal` it is raised in exactly one
         place — a store built without a `KindSource` (`handoff/store.py`) —
         which is a composition error, not a fact about the producer. It escapes
-        for the same reason `NotSealable` does. An earlier version of this
-        docstring called the empty-content refusal a `Malformed`; `monitor`
-        caught that, and it was left over from before `fd31a6c` moved the
-        boundary.
+        for the same reason `NotSealable` does. **The empty-content refusal is
+        not a `Malformed`** — it is a `NotSealable`, on the producer's side of
+        the boundary.
 
-        **Ruled by `monitor`: the attribute is right, and there is no new
-        `EventKind`.** Kinds name the *phase* a body terminated in and causes
+        **The attribute is right, and there is no new `EventKind`.** Kinds name
+        the *phase* a body terminated in and causes
         ride in the payload, so a seal refusal is not a different phase — it is
         *why* the output is missing, the same shape as `exit_status`. The
         implication is one-way, which is what makes payload the correct home:
@@ -1130,12 +1114,12 @@ class TaskAttempt:
         return refused
 
     def _gate(self, result: AgentResult) -> list[GateFailure]:
-        """**No early return on a missing store**, and it cost two checks.
+        """**No early return on a missing store**, because two checks hang off it.
 
-        This used to be `if store is None: return []`, which skipped not only
-        the output questions but `_budget` as well — so a storeless run checked
-        **nothing**, and a task that declared outputs and published none was
-        reported succeeded. The gate decides what a missing store means; the
+        An `if store is None: return []` here would skip not only the output
+        questions but `_budget` as well — so a storeless run would check
+        **nothing**, and a task that declared outputs and published none would
+        be reported succeeded. The gate decides what a missing store means; the
         runner's job is to ask it either way.
         """
         store = self.runner.component("handoff_store")
@@ -1224,18 +1208,16 @@ class TaskAttempt:
     def _crash(self, exc: BaseException) -> None:
         """A dead attempt is reported, and closed **with a reason**.
 
-        `Execution.detail` is *"from the runner; for a human"* and was empty for
-        every failed task in the system — `demo` measured `detail=''` on a real
-        run while the same exception sat complete in the monitor's record.
-        **A failure that is recorded somewhere is not the same as a failure that
-        is reported**, and the gap is paid by whoever holds the artefact rather
-        than the source.
+        `Execution.detail` is *"from the runner; for a human"*, and leaving it
+        empty puts the exception in the monitor's record and nowhere a holder of
+        the artefact will look. **A failure that is recorded somewhere is not
+        the same as a failure that is reported**, and the gap is paid by whoever
+        holds the artefact rather than the source.
 
-        The exception was in hand two lines above and the scheduler had always
-        taken the argument; what was missing was a *type* that could express it.
-        `task_graph` widened `OnDone` from a `Callable` alias to a Protocol
-        (`f1faf74`) rather than my passing an undeclared keyword, which would
-        have worked in production and broken every conforming callback.
+        The reason travels as a declared keyword: `task_graph`'s `OnDone` is a
+        Protocol rather than a `Callable` alias, so the argument is part of the
+        contract. Passing an undeclared keyword instead would work in
+        production and break every conforming callback.
 
         **Reporting is itself allowed to fail** — an unresolvable monitor is
         exactly the case that gets here — and the task must still be closed, or
@@ -1333,38 +1315,35 @@ def _evidence(outcome: Any) -> str | None:
 def _apply_confinement(prepared: Any, executor: Any) -> None:
     """Hand the confinement to the executor, **after selection**, and let it refuse.
 
-    **`interfaces.md` split step 7** (`b846c3c`): `prepare` now *checks* that a
-    mechanism exists and refuses early; `prepared.spawn(argv, **kw)` *applies*
-    it in the child. So the executor is started confined rather than started
-    into a confinement, and the caller branches on no mechanism.
+    **The check and the application are split** (`interfaces.md` step 7):
+    `prepare` *checks* that a mechanism exists and refuses early;
+    `prepared.spawn(argv, **kw)` *applies* it in the child. So the executor is
+    started confined rather than started into a confinement, and the caller
+    branches on no mechanism.
 
-    **That widens the refusal, and the widening is the point.** Rev. 3 asked
-    only about bubblewrap, because on Landlock `prepare` had already confined
-    the runner's thread and a child inherited the domain. It no longer does —
-    deliberately, since confining the supervisor is what the split exists to
-    avoid — so **a child not started through `spawn` is unconfined under every
-    mechanism**, not just rung 1. An AI harness spawns its own CLI, so a
-    `kind: ai` task is now unconfinable under Landlock too. `README.md` F8.
+    **The refusal is wide, and the width is the point.** `prepare` deliberately
+    does not confine the runner's own thread — confining the supervisor is what
+    the split exists to avoid — so **a child not started through `spawn` is
+    unconfined under every mechanism**, not just rung 1. An AI harness spawns
+    its own CLI, so a `kind: ai` task is unconfinable under Landlock.
+    `README.md` F8.
 
-    **Three earlier versions were wrong in the same direction**, and the
-    progression is the record: *"does a wrapper exist?"* (refused the honest
-    case, admitted the dishonest one, and `wrap_argv` landing silently disarmed
-    it because a bound method is truthy); *"is `AgentSpec.kind` ai?"* (the kind
-    is a proxy for the executor and a CLI override breaks the proxy —
-    measured, `probe_r1_override.py`); and now this, which asks the executor.
+    **The question is asked of the executor, not of the spec.** A wrapper's
+    mere existence does not answer it: a bound method is truthy, so `wrap_argv`
+    landing would silently disarm the check. Nor does `AgentSpec.kind`: the kind
+    is a proxy for the executor and a CLI override breaks the proxy.
     `ExecutorBase.accept_confinement` refuses by default — spec §3.3.1's own
     shape, an unimplementable method raising, and not the capability matrix
     §3.3.1 forbids.
 
-    **`bwrap` is absent on this machine and Landlock leaves the process
-    unconfined**, so neither suite exercises the live path either way. Every
-    version of this has been a refusal rather than a warning for that reason.
+    **This is a refusal rather than a warning** because where `bwrap` is absent
+    and Landlock leaves the process unconfined, no suite exercises the live path
+    either way.
     """
     # **Read, not asked for.** `Prepared` declares `confinement`, so a
     # `getattr` default here would answer "no confinement" to a *missing field*
     # — the one answer that must never be guessed, because its consequence is a
-    # task starting unconfined. A probe over the suite showed the default arm
-    # taken 34 times, all of them by a thin stub and none by production.
+    # task starting unconfined.
     if prepared.confinement is None:
         return
     spawn = getattr(prepared, "spawn", None)
@@ -1386,12 +1365,10 @@ _EMPTY: Mapping[str, str] = MappingProxyType({})
 def _output_paths(prepared: Any) -> Mapping[Any, str]:
     """`Prepared.output_paths` — slot → `<store>/<hid>/v<N>/content`.
 
-    **Read, not asked for.** This was a `getattr` default for one commit, while
-    `env_mgr` had not landed the field, and it was defensible only because an
-    absent mapping renders every output as *no resolved path* — louder than the
-    truth rather than quieter. The field exists now (`1e82d13`), so the default
-    would answer *"nothing resolved"* to a **missing field**, which is the shape
-    this package has deleted four times this week.
+    **Read, not asked for.** `Prepared` declares the field, so a `getattr`
+    default would answer *"nothing resolved"* to a **missing field** — a guess
+    in place of the one fact that says whether the environment resolved
+    anything at all.
 
     **Absence within the mapping still means something**, and it is `env_mgr`'s
     statement rather than a gap: a slot with no pinned version is absent rather
@@ -1404,17 +1381,16 @@ def _output_paths(prepared: Any) -> Mapping[Any, str]:
 def _body_outcome(result: AgentResult) -> dict[str, Any]:
     """How the executor's own submission ended, for a gate report's payload.
 
-    **The runner read `result.usage` and nothing else**, so a `kind: program`
-    body that exited 3 with a traceback produced a perfectly good `FAILED`
-    result that no reader ever saw: all that travelled was the gate's
-    `output_absent`, which is the same observation for a body that crashed on
-    line 1, a body that exited 0 having written to the wrong path, and a body
-    never launched. `demo` measured the cost of that at about an hour.
+    **Reading `result.usage` and nothing else loses the body's own ending.** A
+    `kind: program` body that exits 3 with a traceback produces a perfectly good
+    `FAILED` result, and if only the gate's `output_absent` travels then a body
+    that crashed on line 1, a body that exited 0 having written to the wrong
+    path, and a body never launched are one observation.
 
     Two of those three separate here — `exit_status` tells them apart, and
-    `detail` carries what the body said before it stopped (`2d33282`). The third
-    never reaches the gate at all and lands as `HANDLING_FAILED`; it is a
-    different route and not addressed by this.
+    `detail` carries what the body said before it stopped. The third never
+    reaches the gate at all and lands as `HANDLING_FAILED`; it is a different
+    route and not addressed by this.
 
     `status.value` rather than the member, because an attribute is data a reader
     renders and this record is persisted, not logged.
@@ -1425,11 +1401,8 @@ def _body_outcome(result: AgentResult) -> dict[str, Any]:
 def _environment(prepared: Any) -> dict[str, str]:
     """What `material.deploy` computed.
 
-    **F7 is closed and this docstring said otherwise for weeks**: it claimed
-    `Prepared` was a five-field `NamedTuple` awaiting a sixth. Ruling 2 landed
-    `environment`, and the real `Prepared` has all six — so the defensive read
-    was a fallback whose reason had expired, and the empty dict it produced was
-    a legal value that would have hidden the field going away again.
+    **Read, not asked for.** `Prepared` declares `environment`, so a defensive
+    read would turn the field going away into a legal empty dict.
     """
     found = prepared.environment
     return {str(k): str(v) for k, v in found.items()} if found else {}

@@ -278,7 +278,7 @@ class Context(NamedTuple):
     #:
     #: So `prepare` copies this into the zone and tells the body where the copy
     #: went. **A package-relative path resolved against this original root now
-    #: points outside every grant**, which is the seam `demo` and `agent` have
+    #: points outside every grant**, which is the seam the CLI and `agent` have
     #: to meet — see this package's README.
     package: str | None = None
     #: The package-relative paths to stage, or `None` for the whole package.
@@ -348,15 +348,13 @@ class Prepared(NamedTuple):
     workspace: Any
     policy: Policy
     #: **`None` is a value, not an absence** — it is how this says *unconfined*,
-    #: and four sites branch on it: `prepare.py`, `agent/runner.py` and
-    #: `:1343`, and `demo`'s §4.17a banner.
+    #: and four sites branch on it: `prepare.py`, `agent/runner.py`, and the
+    #: CLI's §4.17a banner.
     #:
-    #: It was accurate as `Confinement` until `ad730a2`. Before the kill switch
-    #: `prepare` ended `conf = confinement_for(select(av), …)` and `select`
-    #: **raises** `NoConfinement`, so no `Prepared` this module produced could
-    #: carry `None`; the switch made it reachable and the type did not follow.
-    #: Not drift discovered — a divergence introduced, with a consumer already
-    #: depending on the new value.
+    #: **The type is `| None` because the kill switch makes `None` reachable.**
+    #: Without it `prepare` would end `conf = confinement_for(select(av), …)`
+    #: and `select` **raises** `NoConfinement`, so no `Prepared` this module
+    #: produced could carry `None`.
     #:
     #: The comment nine lines below survived the whole time explaining what
     #: `confinement is None` means, which is the part worth remembering: a

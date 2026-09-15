@@ -1,6 +1,6 @@
 """The event vocabulary. **This is an interface, not a log format.**
 
-`demo` criterion 14 makes the machine-readable stream sufficient to assert
+`cli` criterion 14 makes the machine-readable stream sufficient to assert
 criteria 2–10 without parsing prose, and something a test asserts over is an
 interface whether or not anyone says so. Terraform's answer to owning one is
 adopted whole: a **closed** enumeration of message
@@ -42,11 +42,9 @@ it, which is the only evidence that the obligation is real.
 
 **1.2** — `EXPECTATION_UNREACHED`. A promised failure that **did not happen**
 and one that **never got the chance** are different facts, and the stream had
-one kind for both. `main` spotted it in a run where `produce` failed before
-`describe` could produce a summary: `UNEXPECTED_SUCCESS` was true about what
-was seen and false about what it meant. Three outcomes, two kinds — the same
-shape this package reported to `agent` and `validator` as F-D9, in its own
-code.
+one kind for both. In a run where `produce` fails before `describe` can
+produce a summary, `UNEXPECTED_SUCCESS` is true about what was seen and false
+about what it meant. Three outcomes, two kinds.
 
 **1.3** — `PERMISSIONS_DISABLED` and `VALIDATION_DROPPED`. Both exist because
 **an absence and a decision must not render the same**, which is the one
@@ -88,7 +86,7 @@ class EventKind(str, Enum):
 
     A free-form `logging` record with arbitrary `extra` cannot be asserted over
     without a parser that guesses, which is why `logging` was considered for the
-    stream and rejected (`demo` design §13).
+    stream and rejected (`cli` design §13).
     """
 
     # the run itself

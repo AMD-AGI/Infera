@@ -22,7 +22,7 @@ observed_when, judged_when}]` where the two conditions are expressed in terms
 the loader already has (a closure name and a task status; a validator name, a
 handoff kind and a result). `for_package` then becomes a read of the loaded
 registry instead of a dict lookup, this module keeps only `EMPTY` and the two
-NamedTuples, and the `demo` entry below moves into `examples/ok.filetree_grounded_report.4/main.yaml`.
+NamedTuples, and the entry below moves into `examples/ok.filetree_grounded_report.4/main.yaml`.
 
 **The default is `EMPTY`, and an empty set is a statement rather than a gap.**
 It says *this package promises nothing will fail* — which for `examples/ok.algorithms_solve_grade.14`
@@ -46,20 +46,18 @@ class Expectation(NamedTuple):
     """A promised failure, and how to tell whether the run ever got to test it.
 
     **`was_judged` exists because "did not happen" and "never got the chance"
-    are different facts**, and this accounting had one answer for both. Found by
-    `main` in a run where `produce` failed before `describe` could produce a
-    summary: `UNEXPECTED_SUCCESS` was true about what was observed and false
-    about what it meant — it claimed a safety property had stopped holding when
-    the property had simply never been exercised.
+    are different facts**, and one answer for both is wrong. In a run where
+    `produce` fails before `describe` can produce a summary, `UNEXPECTED_SUCCESS`
+    is true about what was observed and false about what it meant — it claims a
+    safety property stopped holding when the property was never exercised.
 
-    That is F-D9's shape — three outcomes, two branches — in this package's own
-    code, one day after reporting it to `agent` and `validator`. Worth the
-    embarrassment of the comment: the pattern is not other people's.
+    That is the three-outcomes-two-branches shape, and it is **not other
+    people's pattern**: it appears here in this package's own code.
 
-    **And the field was added and then implemented wrongly, which is the second
-    half of the same lesson.** `reachable` was answered by *does the subject
-    exist* rather than *did the judgement happen*, so a `check_grounded` that
-    crashed with a `KeyError` was reported as a property that stopped holding.
+    **The predicate behind the field is as load-bearing as the field.**
+    `reachable` answers *does the subject exist* rather than *did the judgement
+    happen*, so a `check_grounded` that crashes with a `KeyError` is reported as
+    a property that stopped holding.
     **The three-term vocabulary was right and the predicate behind it was not** —
     a distinction is only as good as the question that routes into it.
     """
@@ -69,9 +67,9 @@ class Expectation(NamedTuple):
     #: word invited the reading that sank it: *is there something here to
     #: judge?* rather than *did the judgement happen?* A predicate answering the
     #: first will call a promise tested whenever its subject exists, which is
-    #: how a crashed validator came to be reported as a property that stopped
-    #: holding. `validator` named the rename as the part that stops it
-    #: recurring, and they are right — the wrong implementation now looks wrong.
+    #: how a crashed validator comes to be reported as a property that stopped
+    #: holding. The name is what stops that recurring: under it, the wrong
+    #: implementation looks wrong.
     was_judged: Callable[[Any], bool]
 
 
@@ -81,9 +79,9 @@ class ExpectationSet(NamedTuple):
     The two observation callables return **the expectation name** a fact
     satisfies, or `None`. One place each, because the `expected` field on the
     emitted event and the `observed` accounting that decides the exit code must
-    agree **by construction** rather than by both being edited: they were two
-    copies of the same three-term condition, and a change to one would have been
-    a stream that contradicted its own exit code.
+    agree **by construction** rather than by both being edited: two copies of
+    the same three-term condition means a change to one is a stream that
+    contradicts its own exit code.
     """
 
     #: name -> the promise. Empty means the package promises nothing will fail.
@@ -188,7 +186,7 @@ def _demo_verdict(verdict: Any, handoff: Any) -> str | None:
 
 
 #: What `examples/ok.filetree_grounded_report.4` promises will go wrong, and therefore what it FAILS for
-#: if it does not. `demo` design §7.5, and pytest's vocabulary adopted directly:
+#: if it does not. `cli` design §7.5, and pytest's vocabulary adopted directly:
 #: these are `xfail(strict=True)`, so an expected failure that passes is a
 #: failure.
 #:

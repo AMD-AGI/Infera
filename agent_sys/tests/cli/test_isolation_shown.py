@@ -4,7 +4,7 @@
 test about the event stream and needs no agent. The isolation *properties* are
 `env_mgr`'s and are CI-enforced in `tests/env_mgr` on every commit — criteria
 2–14 there, including the scripted bypass, the three prefix defeats, inheritance
-across `exec`, and fail-closed. `demo` design §1.2 draws that line and §14.3
+across `exec`, and fail-closed. `cli` design §1.2 draws that line and §14.3
 says why the other side of it is deliberately not tested here: a test that
 started a model call is non-deterministic, costs money, and fails on a fork.
 

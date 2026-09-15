@@ -12,11 +12,10 @@ resolves `handoff_mgr`, `validator_specs`, `handoff_store` and `closures` from
 the component `Registry` **at call time, never by import** — the rule
 `task_graph` design §2 establishes and this package does not get to break.
 
-`closures` is the fourth, added after `demo`'s first assembly found that a
-closure's phase validators were read by nothing. It is asked for the whole set
-rather than for the parts to join, which is why `handoff_specs` is no longer
-resolved here at all: that join is `closure`'s, and doing it twice was the
-defect.
+`closures` is the fourth, and without it a closure's phase validators are read
+by nothing. It is asked for the whole set rather than for the parts to join,
+which is why `handoff_specs` is not resolved here at all: that join is
+`closure`'s, and doing it twice is a second writer of one invariant.
 """
 
 from __future__ import annotations
@@ -98,9 +97,9 @@ class BodyRunner(Protocol):
 #: **from which end**. The end is the defect that was here: `[:200]` kept the
 #: *head* of a Python traceback, which is `Traceback (most recent call last):`
 #: followed by the outermost frames — so the file, the line and the exception
-#: type, all of which live at the tail, were the part discarded. Measured by
-#: `demo` against a real body: the recorded message was cut mid-path inside the
-#: zone, before the first frame, and named none of the three.
+#: type, all of which live at the tail, are the part discarded. Measured
+#: against a real body: the recorded message is cut mid-path inside the zone,
+#: before the first frame, and names none of the three.
 #:
 #: A tail rather than a head, and a budget large enough for a few frames. Not
 #: unbounded: this lands in a `monitor` event, and a body that dies inside a
@@ -152,12 +151,10 @@ class ScriptBodyRunner:
         )
         if not env.verdict_file.exists():
             # **A body that reports nothing must not pass — and must not fail
-            # either.** The first half was here from the start; the second was
-            # not, and the asymmetry was the defect. A nonzero exit with no
-            # verdict file used to have `{hid: False}` fabricated for it, and a
-            # fabricated `False` is byte-identical to a considered one. So a
-            # segfaulting validator reported *the validator worked and the answer
-            # is no*, which is the flattening `monitor` spec §2.1 exists to
+            # either.** Fabricating `{hid: False}` for a nonzero exit with no
+            # verdict file produces a `False` byte-identical to a considered
+            # one, so a segfaulting validator reports *the validator worked and
+            # the answer is no* — the flattening `monitor` spec §2.1 exists to
             # prevent: `VALIDATION_FAILED` says a branch is **judged** dead,
             # `VALIDATION_UNREACHED` says it is **undetermined**, and the
             # analysing dispatcher's whole job is telling those apart.
@@ -238,12 +235,12 @@ ZONE_FILES = ("args.json", "inputs.json", "materials.json", "verdict.json")
 def _declare_materials(env: ValidationEnvironment, staged: Mapping[Any, str]) -> None:
     """Name what the body is validating, in its own working directory.
 
-    **This closes `demo`'s F-D5 residue**, and it was one name wide.
-    `env_mgr.prepare_validation` stages copies of the artefacts under
-    `<placed.root>/materials/` — *"so a body handed handoff ids has somewhere to
-    read them from"*, their words — and returns the paths. This module then
-    allocated its fresh zone *inside* that root and **discarded them**, so a body
-    sat in `<placed.root>/validation-XXXX/` with the copies at `../materials`:
+    **The gap this closes is one name wide.** `env_mgr.prepare_validation`
+    stages copies of the artefacts under `<placed.root>/materials/` — so a body
+    handed handoff ids has somewhere to read them from — and returns the paths.
+    Discarding them while allocating the fresh zone *inside* that root leaves a
+    body sitting in `<placed.root>/validation-XXXX/` with the copies at
+    `../materials`:
     reachable, and named by nothing. A body reading `../materials` would be
     relying on a relative path no document declares.
 
@@ -278,26 +275,23 @@ def _declare_materials(env: ValidationEnvironment, staged: Mapping[Any, str]) ->
 #: has a source today. **Two of the four still do not**, and this table exists so
 #: that is visible rather than silent.
 #:
-#: The call site used to be `getattr(spec, "environment", None)` and
-#: `getattr(task, "environment", None)` — which *look* like field accesses and are
-#: not: neither `ValidatorSpec` nor `task_graph.Task` has an `environment` field,
-#: and `ValidatorSpec` sets `extra="forbid"`, so no document can add one. Both
-#: yielded `None` on every call that has ever been made, so **every validation
-#: takes the GLOBAL row** and the chain is dead in the phase runner.
+#: The rows are resolved by named functions and never by
+#: `getattr(spec, "environment", None)` or `getattr(task, "environment", None)`
+#: — which *look* like field accesses and are not: neither `ValidatorSpec` nor
+#: `task_graph.Task` has an `environment` field, and `ValidatorSpec` sets
+#: `extra="forbid"`, so no document can add one. Both would yield `None` on
+#: every call, so **every validation would take the GLOBAL row** and the chain
+#: would be dead in the phase runner while looking live.
 #:
-#: `test_configuration_chain_order` did not catch it because it calls
-#: `choose_configuration` **directly** with the arguments — a correct unit test of
-#: a pure function whose real caller can never supply three of its four inputs.
-#: `test_only_the_global_row_is_reachable_today` is the one that asserts what the
-#: caller can actually do.
-#:
-#: Found by applying `env_mgr`'s `stubs.Task.repos` finding to this package:
-#: a `getattr` with a default is not a field access, and dead code reads as live.
+#: `test_configuration_chain_order` cannot catch that, because it calls
+#: `choose_configuration` **directly** with the arguments — a correct unit test
+#: of a pure function whose real caller may not be able to supply three of its
+#: four inputs. `test_only_the_global_row_is_reachable_today` is the one that
+#: asserts what the caller can actually do.
 CONFIGURATION_SOURCES: tuple[tuple[str, str], ...] = (
     (
         "bound",
-        "the `env` of the agent spec named by `ValidatorSpec.agent` — reachable since "
-        "fe9fd55 and this package's step 3; three packages to land one row",
+        "the `env` of the agent spec named by `ValidatorSpec.agent` — LIVE",
     ),
     (
         "consumer",
@@ -310,7 +304,7 @@ CONFIGURATION_SOURCES: tuple[tuple[str, str], ...] = (
     ),
     (
         "producer",
-        "the producing task's resolved configuration — LIVE since agent 3155ca2: "
+        "the producing task's resolved configuration — LIVE: "
         "`attempt_of(task.id).environment`, a read-only mapping carried on the "
         "TaskAttempt from `_deploy` onwards. Empty reads as absent, because `{}` "
         "means the task never deployed — every non-leaf, whose main phase the "
@@ -328,24 +322,20 @@ def _configuration_sources(task: Any, spec: ValidatorSpec, registry: Any) -> dic
     account — that table is the one to read, and it is kept current because a
     reader trusts it.
 
-    **This paragraph used to say "only `global_`", and it was three commits out
-    of date** — `ec5fbba` landed `bound` and `0b64554` landed `producer`, and
-    neither updated the prose beside them. It was not harmless: `demo` asked
-    which row their validator body had been given, and this docstring is where
-    the wrong answer came from. They had to spend a probe to find that
-    `ConfigSource.PRODUCER` had fired all along. A stale comment is a claim, and
+    Keeping that table current is load-bearing: a stale comment is a claim, and
     a claim next to code outranks the code for anyone reading rather than
-    executing.
+    executing, so a reader asking which row their validator body was given takes
+    the answer from here.
 
     A row that is still absent needs a route, not a `getattr`: `consumer` needs
     the consuming task's resolved configuration, which is `env_mgr`'s
-    `Prepared.environment` rather than anything on `Task` — confirmed by
-    `env_mgr`, who also confirmed that `EnvManager` keeps no per-task state.
+    `Prepared.environment` rather than anything on `Task`, and `EnvManager`
+    keeps no per-task state.
 
-    **The two rows are not one question, and reading them as one was mine to
-    correct.** They are the same *task* — both phases run inside `TaskRunner` for
-    one task — but not the same *moment*, and the configuration exists at one and
-    not the other. Measured: `env.prepare` has exactly one call site,
+    **`consumer` and `producer` are not one question.** They are the same *task*
+    — both phases run inside `TaskRunner` for one task — but not the same
+    *moment*, and the configuration exists at one and not the other. Measured:
+    `env.prepare` has exactly one call site,
     `agent/runner.py`, reached from `_deploy` inside `_main`, and
     `_one_phase` reaches `_main` only in `RUNNING`. So at `INPUT_VALIDATING`
     there is no `Prepared` for this task at all.
@@ -360,8 +350,8 @@ def _configuration_sources(task: Any, spec: ValidatorSpec, registry: Any) -> dic
 def _producer_environment(task: Any, registry: Any) -> Mapping[str, str] | None:
     """§8.2 row 3 — the configuration the task that just ran resolved.
 
-    Built by `agent` on request (`3155ca2`): `TaskAttempt.environment` is a
-    read-only `Mapping[str, str]`, carried from `_deploy` onwards, and
+    `TaskAttempt.environment` is a read-only `Mapping[str, str]`, carried from
+    `_deploy` onwards, and
     `attempt_of(task.id)` is the handle. **`choose_configuration` uses it on the
     output phase only**, which is where the chain's own `kind` test puts it —
     this function reports what exists and does not decide the row.
@@ -404,7 +394,7 @@ def _bound_environment(spec: ValidatorSpec, registry: Any) -> Mapping[str, str] 
     """§8.2 row 1 — the `env` of the agent spec this validator names.
 
     **Absent and unresolvable are different questions and do not share an
-    answer**, which is `closure`'s correction of a conflation of mine. Absent is
+    answer.** Absent is
     the declared way to take the global row and returns `None` quietly.
     Unresolvable **raises**: `closure`'s pass makes such a name fatal at load, so
     reaching one here means that check did not run, and falling back would give
@@ -464,12 +454,12 @@ def read_verdict_file(
     docstring first claimed a single type. Do not narrow it to an inventory of
     what this module raises: theirs would then exclude *"its own inputs were
     missing"*, which is a `KeyError` from `handoff_mgr`, and an inventory goes
-    stale — this one went stale within the hour of being written. Measured, two ways out
-    of five escaped as something else: malformed JSON left as a
+    stale. Measured, two ways out of five escape as something else: malformed
+    JSON left as a
     `json.JSONDecodeError`, and a body writing `null` as a `TypeError` from
     `"x" in None`. Both are a body producing garbage — the exact case — and both
-    would have been reported as *the monitor's own handler raised*, which routes
-    to `GiveUp` instead of escalating. **A crashed validator was the quietest dead
+    would be reported as *the monitor's own handler raised*, which routes to
+    `GiveUp` instead of escalating. **A crashed validator is the quietest dead
     branch in the system.**
     """
     if not env.verdict_file.exists():
@@ -693,13 +683,12 @@ class PhaseRunner:
     def _bound(task: Any, registry: Any) -> Sequence[str]:
         """Every validator this task's closure says will run. **Asked, not derived.**
 
-        This module used to build the set itself, from each handoff kind's own
-        `validators` list — and the closure's `validators`, which
-        `closure.schema.json` calls *"the PHASE validators… a property of the task
-        rather than of any one handoff kind, **which is why the handoff specs
-        cannot carry them**"*, was read by nothing in the tree. A closure
-        declaring `validators: ['check_grounded']` therefore ran nothing. `demo`
-        found it on the first assembly of all eight.
+        Building the set here from each handoff kind's own `validators` list
+        would miss the closure's `validators`, which `closure.schema.json` calls
+        *"the PHASE validators… a property of the task rather than of any one
+        handoff kind, **which is why the handoff specs cannot carry them**"* —
+        so a closure declaring `validators: ['check_grounded']` would run
+        nothing.
 
         Reading **both** lists here was the narrow fix and it is not the one
         taken: `closure` already computes the union — *"every validator that will
@@ -745,8 +734,8 @@ class PhaseRunner:
         An input's is the one the execution **pinned** at dispatch, not whatever
         is latest now.
 
-        An output's used to be `handoff_mgr.get(hid).latest.version`, and that
-        was the slot — a bug that could not show until a package existed whose
+        An output's is **not** `handoff_mgr.get(hid).latest.version` — that is
+        the slot, and the difference cannot show until a package exists whose
         **non-leaf declares an output**. The slot advances on every agent write,
         the store on every dispatch (`task_graph/scheduler.py::_pin_outputs`), so
         with one dispatch that does not write between them the two disagree and
@@ -848,10 +837,10 @@ class PhaseRunner:
                 strength=Strength(spec.strength).value,
                 dimension=spec.dimension.value,
                 task_id=task.id,
-                # `None` when no agent ran, which `handoff` made representable
-                # (f9142aa) after this module had nowhere to put the truth. The
-                # producer's id used to go here, and a record saying the producer
-                # validated its own artefact is the claim §8.1 forbids. There is
+                # `None` when no agent ran, which `handoff` makes
+                # representable. Putting the producer's id here instead would be
+                # a record saying the producer validated its own artefact, the
+                # claim §8.1 forbids. There is
                 # no fallback and no `attributed` side-channel: the field a reader
                 # consults says it directly.
                 agent_id=checker,
