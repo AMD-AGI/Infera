@@ -47,6 +47,8 @@ _ARG_TO_FIELD = {
     "kv_block_size": "kv_block_size",
     "kv_offload_gb_per_gpu": "kv_offload_gb_per_gpu",
     "kv_offload_bw_gbps": "kv_offload_bw_gbps",
+    "workload_resident_tokens": "workload_resident_tokens",
+    "kv_pool_tokens": "kv_pool_tokens",
     "max_num_batched_tokens": "max_num_batched_tokens",
     "ep_load_balance": "ep_load_balance",
     "redundant_experts": "redundant_experts",

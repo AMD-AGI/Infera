@@ -528,6 +528,30 @@ def _add_inference_args(parser):
         help="Host<->device bandwidth for the KV offload tier in GB/s. "
         "PCIe 5 x16 is ~64; a cache-coherent host link is ~900. Default: 64.",
     )
+    parser.add_argument(
+        "--workload-resident-tokens",
+        type=int,
+        default=None,
+        help="Mean KV tokens one request of the target workload holds while "
+        "resident, which sets how many requests the pool can admit at once and "
+        "so where TTFT stops being a service time. For a spread of lengths pass "
+        "E[L^2]/E[L], not the mean: a request holds the pool for a time "
+        "proportional to its length, so the resident set is length-biased. Do "
+        "not discount it by the prefix-cache hit rate -- a cache hit skips "
+        "prefill compute, it does not free the blocks. Default: the configured "
+        "context (input + output/2), exact for a fixed-length workpoint.",
+    )
+    parser.add_argument(
+        "--kv-pool-tokens",
+        type=int,
+        default=None,
+        help="Size of the KV pool the engine allocated, in tokens, as it "
+        "reports at startup (vLLM's \"GPU KV cache size\", SGLang's \"KV Cache "
+        "is allocated. #tokens\"). The admission bound is evaluated against "
+        "this instead of against the memory model's estimate, which is what "
+        "you want when validating against a deployment that is already "
+        "running. Default: unset, and the pool is predicted.",
+    )
     # ---- Feature B: custom collective ops ----
     coll = parser.add_argument_group("inference collectives (feature B)")
     coll.add_argument(
