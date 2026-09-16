@@ -635,9 +635,7 @@ def validate_inference(
             if pool_dp < 1:
                 return False, f"{pool}_attention_dp={pool_dp} must be >= 1"
             if pool_dp > 1 and pool_tp % pool_dp:
-                return False, (
-                    f"{pool}_attention_dp={pool_dp} must divide {pool}_tp={pool_tp}"
-                )
+                return False, (f"{pool}_attention_dp={pool_dp} must divide {pool}_tp={pool_tp}")
         for pool, pool_tp, pool_ep in (
             ("prefill", p_tp, cfg.prefill_ep),
             ("decode", d_tp, cfg.decode_ep),
@@ -648,8 +646,7 @@ def validate_inference(
                 return False, f"{pool}_ep={pool_ep} not in legal EP set {legality.ep}"
             if pool_ep > 1 and (pool_tp * cfg.pp) % pool_ep:
                 return False, (
-                    f"{pool}_ep={pool_ep} must divide the {pool} pool's "
-                    f"{pool_tp * cfg.pp} ranks"
+                    f"{pool}_ep={pool_ep} must divide the {pool} pool's {pool_tp * cfg.pp} ranks"
                 )
         prefill_gpus = p_tp * cfg.pp * cfg.prefill_replicas
         decode_gpus = d_tp * cfg.pp * cfg.decode_replicas

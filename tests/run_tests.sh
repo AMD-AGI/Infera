@@ -178,12 +178,15 @@ SCRATCH_FLAGS+=(-v "$E2E_LOG_DIR":/e2e-logs)
 # the orchestrator, so it needs the path itself, not the container mount above.
 export INFERA_E2E_LOG_DIR="$E2E_LOG_DIR"
 
+_SKIP_DOCKER_CLEANUP=0
 _cleanup_scratch() {
   local img="$IMG_SGLANG"
-  docker image inspect "$IMG_VLLM" >/dev/null 2>&1 && img="$IMG_VLLM"
-  docker image inspect "$img" >/dev/null 2>&1 && timeout -k 10 120 docker run --rm \
-    -v "$SCRATCH":/scratch --entrypoint sh "$img" \
-    -c 'rm -rf /scratch/* /scratch/.[!.]* 2>/dev/null' >/dev/null 2>&1 || true
+  if [ "$_SKIP_DOCKER_CLEANUP" -ne 1 ]; then
+    timeout -k 5 15 docker image inspect "$IMG_VLLM" >/dev/null 2>&1 && img="$IMG_VLLM"
+    timeout -k 5 15 docker image inspect "$img" >/dev/null 2>&1 && timeout -k 10 120 docker run --rm \
+      -v "$SCRATCH":/scratch --entrypoint sh "$img" \
+      -c 'rm -rf /scratch/* /scratch/.[!.]* 2>/dev/null' >/dev/null 2>&1 || true
+  fi
   rm -rf "$SCRATCH" 2>/dev/null || true
 }
 
@@ -785,10 +788,11 @@ _spill_inflight() {
 # Report why the dispatch is still queued (a waiting job prints NOTHING, so a CI
 # run looks hung and gets cancelled), and cancel + flag the wait the caller can
 # act on. Accounting/QoS limits use a distinct flag so the caller can move to
-# the next credential pair. $1=srun-out $2=hold-flag $3=label
+# the next credential pair. $1=srun-out $2=hold-flag $3=label $4=pinned-node
 _watch_job() {
-  local out="$1" hold="$2" label="$3" jid="" state reason waited=0
+  local out="$1" hold="$2" label="$3" pin="${4:-}" jid="" state reason waited=0
   local every="${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}" next="${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}"
+  local pin_wait="${INFERA_E2E_PIN_WAIT:-60}"
   while sleep 5; do
     waited=$((waited + 5))
     # Both srun banners: "Pending job allocation N" (the only one a job that
@@ -812,6 +816,11 @@ _watch_job() {
       JobHoldMaxRequeue* | JobLaunchFailure*)
         printf '%s\n' "${reason%% (*}" > "$hold"; scancel "$jid" >/dev/null 2>&1; return ;;
     esac
+    if [ -n "$pin" ] && [ "$reason" = Resources ] && [ "$waited" -ge "$pin_wait" ]; then
+      printf 'PinnedNodeBusy:%s\n' "$pin" > "$hold"
+      scancel "$jid" >/dev/null 2>&1
+      return
+    fi
     if [ "$waited" -ge "$next" ]; then
       next=$((waited + every))
       echo "[$label] still QUEUED on SLURM after ${waited}s — job $jid, reason=${reason:-unknown}" >&2
@@ -927,7 +936,7 @@ _dispatch_slurm() {
         -J "$jobname" "${xflag[@]}" "${wflag[@]}" "${resv[@]}" ${INFERA_E2E_SRUN_EXTRA:-} \
         "${remote[@]}" > "$out" 2>&1 &
     local srunpid=$!
-    _watch_job "$out" "$holdflag" "$label" &
+    _watch_job "$out" "$holdflag" "$label" "$pin" &
     local holdpid=$!
     wait "$srunpid"; prc=$?
     kill "$holdpid" 2>/dev/null; wait "$holdpid" 2>/dev/null
@@ -960,6 +969,12 @@ _dispatch_slurm() {
         pin="$(_pick_idle_nodes 1 "$exclude" | head -1)"
         echo "[$label] $why — scheduler names no node; pinning ${pin:-nothing free}${exclude:+, excluding $exclude}" >&2
         retryable=1; sleep 5; continue
+      fi
+      if [[ "$why" = PinnedNodeBusy:* ]]; then
+        exclude="${exclude:+$exclude,}${why#PinnedNodeBusy:}"
+        pin="$(_pick_idle_nodes 1 "$exclude" | head -1)"
+        echo "[$label] pinned node stayed busy — pinning ${pin:-nothing free}, excluding $exclude" >&2
+        retryable=1; continue
       fi
       echo "[$label] job ${why:-held} — cancelled, retrying within the $max_attempts-submission limit in 5s" >&2
       retryable=1; sleep 5; continue
@@ -1005,7 +1020,8 @@ _dispatch_slurm() {
         -e 's/^INFERA_E2E_SLURM_NODE=\([A-Za-z0-9._-]*\)$/\1/p' \
         "$out" ${logf:+"$logf"} 2>/dev/null | tail -1
     )"
-    if grep -qiE 'node failure|Cannot connect to the Docker daemon' "$out" ${logf:+"$logf"} 2>/dev/null; then
+    if grep -qiE 'node failure|Cannot connect to the Docker daemon|no space left on device' \
+      "$out" ${logf:+"$logf"} 2>/dev/null; then
       [ -n "$ran" ] && exclude="${exclude:+$exclude,}$ran"
       if [ "$fixed_one_node" -eq 1 ]; then
         echo "[$label] node ${ran:-?} is unusable, but this one-node allocation cannot reselect" >&2
@@ -1403,13 +1419,22 @@ if [ "${INFERA_E2E_EXCLUSIVE:-}" = 1 ] && _run_here; then
     echo "${GPU_DIRTY_NODE_PREFIX}${INFERA_E2E_SLURM_NODE} docker is unavailable" >&2
     exit 75
   fi
+  docker_root="${INFERA_E2E_DOCKER_ROOT:-/var/lib/containerd}"
+  [ -e "$docker_root" ] || docker_root=/
+  docker_free=$(df -Pk "$docker_root" 2>/dev/null | awk 'NR==2{print $4}')
+  docker_min_free="${INFERA_E2E_DOCKER_MIN_FREE_KB:-8388608}"
+  if [[ "$docker_free" =~ ^[0-9]+$ ]] && [ "$docker_free" -lt "$docker_min_free" ]; then
+    _SKIP_DOCKER_CLEANUP=1
+    echo "no space left on device: $INFERA_E2E_SLURM_NODE has $((docker_free / 1024)) MB free under $docker_root" >&2
+    exit 75
+  fi
 fi
 if command -v docker >/dev/null 2>&1 && _run_here; then
   if [ "${INFERA_E2E_EXCLUSIVE:-}" = 1 ]; then
     if ! stale=$(
       {
-        docker ps -a --filter label=infera.e2e.job_tag --format '{{.Names}}' || exit $?
-        docker ps -a --filter name=infera-e2e- --filter name=infera-utest- \
+        timeout -k 5 30 docker ps -a --filter label=infera.e2e.job_tag --format '{{.Names}}' || exit $?
+        timeout -k 5 30 docker ps -a --filter name=infera-e2e- --filter name=infera-utest- \
           --format '{{.Names}} {{.Labels}}' |
           awk '$0 !~ /infera\.e2e\.job_tag=/{print $1}' || exit $?
       } 2>/dev/null | sort -u
@@ -1422,7 +1447,7 @@ if command -v docker >/dev/null 2>&1 && _run_here; then
   fi
   if [ -n "$stale" ]; then
     echo "[cleanup] $(hostname -s): removing stale containers: $(echo $stale | tr '\n' ' ')"
-    if ! docker rm -f $stale >/dev/null 2>&1; then
+    if ! timeout -k 5 60 docker rm -f $stale >/dev/null 2>&1; then
       if [ "${INFERA_E2E_EXCLUSIVE:-}" = 1 ]; then
         echo "${GPU_DIRTY_NODE_PREFIX}${INFERA_E2E_SLURM_NODE} could not remove stale containers" >&2
         exit 75

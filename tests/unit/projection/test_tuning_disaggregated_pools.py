@@ -186,9 +186,7 @@ def test_every_proposed_split_fits_and_spends_the_whole_cluster(world):
     splits = disagg_splits(world, [1, 2, 4, 8])
     assert splits, f"no legal split offered for a {world}-GPU cluster"
     for p_tp, d_tp, reps in splits:
-        assert p_tp + d_tp * reps == world, (
-            f"prefill {p_tp} + decode {d_tp}x{reps} != {world} GPUs"
-        )
+        assert p_tp + d_tp * reps == world, f"prefill {p_tp} + decode {d_tp}x{reps} != {world} GPUs"
 
 
 def test_a_split_is_never_proposed_that_leaves_decode_homeless():
@@ -255,15 +253,11 @@ def test_the_topology_is_scored_at_the_default_seed_budget():
     """
     from infera.projection.agents.tuning_agent.cli import _parse_args
 
-    default_budget = _parse_args(
-        ["--workload", "w.yaml", "--target-cluster", "c.yaml"]
-    ).seed_budget
+    default_budget = _parse_args(["--workload", "w.yaml", "--target-cluster", "c.yaml"]).seed_budget
     plan = _plan(budget=default_budget)
 
     disagg = [c for c in plan.candidates if c.disaggregate]
-    assert disagg, (
-        f"no disaggregated candidate within the default budget of {default_budget}"
-    )
+    assert disagg, f"no disaggregated candidate within the default budget of {default_budget}"
 
 
 def test_the_reserved_slots_do_not_displace_the_head_of_the_plan():
@@ -312,9 +306,7 @@ def test_the_budget_is_spent_on_different_splits_rather_than_one():
     """
     plan = _plan(_Cluster(2, 8), budget=12)
     shapes = {
-        (c.prefill_tp, c.decode_tp, c.decode_replicas)
-        for c in plan.candidates
-        if c.disaggregate
+        (c.prefill_tp, c.decode_tp, c.decode_replicas) for c in plan.candidates if c.disaggregate
     }
     assert len(shapes) > 1, f"only one pool shape priced: {shapes}"
 
@@ -367,7 +359,8 @@ def test_the_per_pool_flags_are_emitted_and_the_projector_accepts_them():
         assert flag in cmd, f"{flag} never reaches the projector"
 
     known = {
-        s for a in build_parser()._subparsers._group_actions[0].choices["inference"]._actions
+        s
+        for a in build_parser()._subparsers._group_actions[0].choices["inference"]._actions
         for s in a.option_strings
     }
     for tok in cmd:

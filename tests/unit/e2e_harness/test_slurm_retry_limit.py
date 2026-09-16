@@ -179,6 +179,70 @@ exit 75
     assert "-x node-1,node-2" in attempts[2]
 
 
+def test_full_node_is_excluded_and_retried(tmp_path):
+    mock_bin = tmp_path / "bin"
+    mock_bin.mkdir()
+    count_file = tmp_path / "srun-count"
+    args_file = tmp_path / "srun-args"
+    count_file.write_text("0\n")
+    _executable(mock_bin / "sleep", "exit 0\n")
+    _executable(
+        mock_bin / "srun",
+        """
+n=$(cat "$COUNT_FILE")
+n=$((n + 1))
+echo "$n" > "$COUNT_FILE"
+printf '%s\n' "$*" >> "$ARGS_FILE"
+for arg in "$@"; do
+  case "$arg" in
+    */dispatch-engine-*.log)
+      echo "INFERA_E2E_SLURM_NODE=node-$n" > "$arg"
+      [ "$n" -eq 1 ] && echo "write /var/lib/containerd/data: no space left on device" >> "$arg"
+      ;;
+  esac
+done
+[ "$n" -gt 1 ]
+""",
+    )
+    env = _runner_env(tmp_path, mock_bin, count_file)
+    env.update({"ARGS_FILE": str(args_file), "CI": "true"})
+
+    result = _run_runner(env, "engine")
+
+    assert result.returncode == 0
+    assert count_file.read_text().strip() == "2"
+    attempts = args_file.read_text().splitlines()
+    assert "-x node-1" in attempts[1]
+    assert "node node-1 unusable" in result.stderr
+
+
+def test_local_worker_rejects_a_full_container_store(tmp_path):
+    mock_bin = tmp_path / "bin"
+    mock_bin.mkdir()
+    count_file = tmp_path / "unused-count"
+    count_file.write_text("0\n")
+    _executable(mock_bin / "docker", "exit 1\n")
+    _executable(
+        mock_bin / "df",
+        "printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\\nmock 1000 900 100 90%% /\\n'\n",
+    )
+    env = _runner_env(tmp_path, mock_bin, count_file)
+    env.update(
+        {
+            "INFERA_E2E_DOCKER_MIN_FREE_KB": "200",
+            "INFERA_E2E_DOCKER_ROOT": str(tmp_path),
+            "INFERA_E2E_EXCLUSIVE": "1",
+            "INFERA_E2E_LOCAL": "1",
+        }
+    )
+
+    result = _run_runner(env, "engine")
+
+    assert result.returncode == 75
+    assert "no space left on device" in result.stderr
+    assert "has 0 MB free" in result.stderr
+
+
 def test_dirty_node_is_not_resubmitted_inside_one_node_allocation(tmp_path):
     mock_bin = tmp_path / "bin"
     mock_bin.mkdir()
@@ -472,3 +536,72 @@ exit 1
     assert "-w node-b" in attempts[2]
     assert "-x node-a" in attempts[2]
     assert "scheduler names no node; pinning node-a" in result.stderr
+
+
+def test_pinned_node_that_becomes_busy_is_replaced(tmp_path):
+    mock_bin = tmp_path / "bin"
+    mock_bin.mkdir()
+    count_file = tmp_path / "srun-count"
+    args_file = tmp_path / "srun-args"
+    count_file.write_text("0\n")
+    _executable(mock_bin / "scancel", "exit 0\n")
+    _executable(mock_bin / "sinfo", "printf 'node-a\\nnode-b\\nnode-c\\n'\n")
+    _executable(
+        mock_bin / "squeue",
+        f"""
+case "$*" in
+  *'%T'*) echo PENDING ;;
+  *'%r'*)
+    [ "$(cat "$COUNT_FILE")" -eq 1 ] && echo "{_LAUNCH_FAILURE}" || echo Resources
+    ;;
+esac
+exit 0
+""",
+    )
+    _executable(
+        mock_bin / "scontrol",
+        """
+if [ "$1 $2" = "show node" ]; then
+  echo "NodeName=$3 State=IDLE CPUAlloc=0 AllocMem=0 AllocTRES="
+fi
+exit 0
+""",
+    )
+    _executable(
+        mock_bin / "srun",
+        """
+n=$(cat "$COUNT_FILE")
+n=$((n + 1))
+echo "$n" > "$COUNT_FILE"
+printf '%s\n' "$*" >> "$ARGS_FILE"
+[ "$n" -ge 3 ] && exit 0
+echo "srun: Pending job allocation 90$n..."
+sleep 7
+exit 1
+""",
+    )
+    env = _runner_env(tmp_path, mock_bin, count_file)
+    env.update(
+        {
+            "ARGS_FILE": str(args_file),
+            "INFERA_E2E_PIN_WAIT": "5",
+            "INFERA_E2E_SLURM_MAX_ATTEMPTS": "3",
+        }
+    )
+
+    result = subprocess.run(
+        ["bash", str(RUN_TESTS), "engine"],
+        cwd=REPO,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=180,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    attempts = args_file.read_text().splitlines()
+    assert "-w node-a" in attempts[1]
+    assert "-w node-b" in attempts[2]
+    assert "-x node-a" in attempts[2]
+    assert "pinned node stayed busy" in result.stderr

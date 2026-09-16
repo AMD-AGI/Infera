@@ -39,7 +39,7 @@ permissions:
 # Hard ceiling per GPU matrix leg. This counts every real srun/sbatch submission,
 # including account/QoS fallback and scheduler-hold resubmissions.
 env:
-  INFERA_E2E_SLURM_MAX_ATTEMPTS: "5"
+  INFERA_E2E_SLURM_MAX_ATTEMPTS: "9"
   # TEMPORARY: containers outlive their job's cgroup and the Spur hooks that
   # would sweep them are pinned off, so a run burns every attempt on `idle`
   # nodes whose GPUs are all taken. Lets the preflight `docker stop` those.
