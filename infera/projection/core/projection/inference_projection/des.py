@@ -1337,6 +1337,19 @@ def simulate_disaggregated(
         """One prefill-only batch on the prefill pool."""
         nonlocal now_p, p_kv, p_busy, p_steps, pk_p_batch, pk_maxbatch, pk_kv_peak
         nonlocal pk_q_tokens
+        # An idle prefill pool advances to meet the next request instead of
+        # holding its clock where its last batch left it. The two stations keep
+        # separate clocks and in a split it is decode that leads: a closed-loop
+        # client retires on the decode clock and submits its replacement stamped
+        # with that time, so a prefill pool that has drained its queue is behind
+        # by however long it sat idle. The decode station already has this rule
+        # -- ``_deliver_handoffs`` moves ``now_d`` up to the handoff it is given
+        # -- and without the match here every request reissued while prefill was
+        # idle stays invisible to it until its clock crawls forward a step at a
+        # time, which is what collapsed a 32-client closed loop to one request
+        # in flight and pinned the decode batch at 1.
+        if not p_running and p_waiting:
+            now_p = max(now_p, p_waiting[0].arrival_ms)
         budget: float = token_budget if token_budget > 0 else math.inf
         scheduled: list[tuple[_Req, int, int]] = []
         for r in p_running:
@@ -1348,6 +1361,11 @@ def simulate_disaggregated(
                 budget -= q
         while p_waiting and budget >= 1 and len(p_running) < max_running:
             head = p_waiting[0]
+            if head.arrival_ms > now_p:
+                # Queued against the simulation clock but not yet submitted on
+                # this station's, so it waits rather than being prefilled before
+                # the client asked for it.
+                break
             # A prefill pool reserves the prompt it is about to compute; it hands
             # the KV off and frees it, so it is not charged for the generation.
             need_kv = head.prompt_len
@@ -1476,7 +1494,12 @@ def simulate_disaggregated(
     bound = 4000 * max(1, n)
     while guard < bound:
         guard += 1
-        moved = _release_arrivals(now_p) + _deliver_handoffs(max([now_p, *now_d]))
+        # Both stations are fed against the simulation clock rather than the
+        # prefill station's own. Gating arrivals on ``now_p`` hid every request
+        # a client reissued at a decode-clock time from the pool that has to
+        # prefill it.
+        now_any = max([now_p, *now_d])
+        moved = _release_arrivals(now_any) + _deliver_handoffs(now_any)
         if moved:
             _unstall()
 
