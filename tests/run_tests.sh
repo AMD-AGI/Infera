@@ -1005,7 +1005,8 @@ _dispatch_slurm() {
         -e 's/^INFERA_E2E_SLURM_NODE=\([A-Za-z0-9._-]*\)$/\1/p' \
         "$out" ${logf:+"$logf"} 2>/dev/null | tail -1
     )"
-    if grep -qiE 'node failure|Cannot connect to the Docker daemon' "$out" ${logf:+"$logf"} 2>/dev/null; then
+    if grep -qiE 'node failure|Cannot connect to the Docker daemon|no space left on device' \
+      "$out" ${logf:+"$logf"} 2>/dev/null; then
       [ -n "$ran" ] && exclude="${exclude:+$exclude,}$ran"
       if [ "$fixed_one_node" -eq 1 ]; then
         echo "[$label] node ${ran:-?} is unusable, but this one-node allocation cannot reselect" >&2

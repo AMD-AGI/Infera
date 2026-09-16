@@ -179,6 +179,43 @@ exit 75
     assert "-x node-1,node-2" in attempts[2]
 
 
+def test_full_node_is_excluded_and_retried(tmp_path):
+    mock_bin = tmp_path / "bin"
+    mock_bin.mkdir()
+    count_file = tmp_path / "srun-count"
+    args_file = tmp_path / "srun-args"
+    count_file.write_text("0\n")
+    _executable(mock_bin / "sleep", "exit 0\n")
+    _executable(
+        mock_bin / "srun",
+        """
+n=$(cat "$COUNT_FILE")
+n=$((n + 1))
+echo "$n" > "$COUNT_FILE"
+printf '%s\n' "$*" >> "$ARGS_FILE"
+for arg in "$@"; do
+  case "$arg" in
+    */dispatch-engine-*.log)
+      echo "INFERA_E2E_SLURM_NODE=node-$n" > "$arg"
+      [ "$n" -eq 1 ] && echo "write /var/lib/containerd/data: no space left on device" >> "$arg"
+      ;;
+  esac
+done
+[ "$n" -gt 1 ]
+""",
+    )
+    env = _runner_env(tmp_path, mock_bin, count_file)
+    env.update({"ARGS_FILE": str(args_file), "CI": "true"})
+
+    result = _run_runner(env, "engine")
+
+    assert result.returncode == 0
+    assert count_file.read_text().strip() == "2"
+    attempts = args_file.read_text().splitlines()
+    assert "-x node-1" in attempts[1]
+    assert "node node-1 unusable" in result.stderr
+
+
 def test_dirty_node_is_not_resubmitted_inside_one_node_allocation(tmp_path):
     mock_bin = tmp_path / "bin"
     mock_bin.mkdir()
