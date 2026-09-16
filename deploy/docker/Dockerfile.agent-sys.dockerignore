@@ -1,0 +1,43 @@
+# Override root .dockerignore for the agent-sys image.
+# .git is required: env_mgr/workspace.py uses git clone --shared against
+# /opt/Infera, which reads objects through .git/objects/info/alternates.
+
+# Python artefacts
+__pycache__
+*.py[cod]
+*.egg-info
+.pytest_cache
+.ruff_cache
+.mypy_cache
+build
+dist
+
+# Virtualenvs
+.venv
+**/.venv
+
+# Serena's per-checkout state.  `.gitignore:69` ignores `.serena/`, so it is a
+# developer's local artefact and never package content -- and `COPY` preserves
+# modes, so baking it in put a **0600, root-owned** `project.yml` inside
+# /opt/Infera.  Measured: the run then died with
+# `[Errno 13] Permission denied: .../.serena/project.yml` when `material.deploy`
+# staged the agent's assets as the container's unprivileged uid.
+.serena
+**/.serena
+
+# Editors / OS
+.vscode
+.idea
+*.swp
+*.log
+.DS_Store
+
+# CI / docs not needed in the image
+.github
+
+# Engine build artefacts
+rust/target
+deploy/docker/third_party
+
+# Slurm logs
+slurm-*.out

@@ -8,14 +8,14 @@ a resource.
 from task_graph.bootstrap import build_registry
 from task_graph.models import HandoffStatus, TaskStatus
 
-from .conftest import gpu, make_task, new_handoffs, token
+from .conftest import DISPATCHED, gpu, make_task, new_handoffs, token
 
 
 def test_an_eligible_task_that_fits_starts(scheduler, task_mgr, runner):
     task = make_task(resources={"gpu": 2})
     scheduler.submit(task)
 
-    assert task_mgr.get(task.id).status is TaskStatus.RUNNING
+    assert task_mgr.get(task.id).status is DISPATCHED
     assert runner.started == [task.id]
 
 
@@ -53,7 +53,7 @@ def test_a_blocked_task_starts_once_the_resource_comes_back(scheduler, task_mgr,
 
     runner.finish(hog.id)
 
-    assert task_mgr.get(blocked.id).status is TaskStatus.RUNNING
+    assert task_mgr.get(blocked.id).status is DISPATCHED
     assert gpu(registry).available == 7
 
 
@@ -61,7 +61,7 @@ def test_a_task_requesting_nothing_always_fits(scheduler, task_mgr):
     scheduler.submit(make_task(resources={"gpu": 8}))
     free = make_task()
     scheduler.submit(free)
-    assert task_mgr.get(free.id).status is TaskStatus.RUNNING
+    assert task_mgr.get(free.id).status is DISPATCHED
 
 
 # ------------------------------------------------------------------ binding
@@ -117,7 +117,7 @@ def test_dispatch_persists_the_running_state(scheduler, store):
     scheduler.submit(task)
 
     record = store.read("task", str(task.id))
-    assert record["status"] == "running"
+    assert record["status"] == "input_validating"
     assert len(record["history"]) == 1
     assert record["history"][0]["ended_at"] is None
 
@@ -144,7 +144,7 @@ def test_dispatch_keeps_trying_later_entries_after_one_does_not_fit(scheduler, t
     scheduler.submit(small)
 
     assert task_mgr.get(big.id).status is TaskStatus.WAITING_RESOURCE
-    assert task_mgr.get(small.id).status is TaskStatus.RUNNING
+    assert task_mgr.get(small.id).status is DISPATCHED
 
 
 def test_a_chain_flows_without_any_external_prompt(scheduler, task_mgr, runner, registry):
@@ -161,11 +161,11 @@ def test_a_chain_flows_without_any_external_prompt(scheduler, task_mgr, runner, 
 
     runner.produce(registry, first.id)
     runner.finish(first.id)
-    assert task_mgr.get(second.id).status is TaskStatus.RUNNING
+    assert task_mgr.get(second.id).status is DISPATCHED
 
     runner.produce(registry, second.id)
     runner.finish(second.id)
-    assert task_mgr.get(third.id).status is TaskStatus.RUNNING
+    assert task_mgr.get(third.id).status is DISPATCHED
 
 
 # ---------------------------------------------------------------- re-entrancy
@@ -264,7 +264,7 @@ def test_one_failed_launch_does_not_abort_the_pass(store):
     scheduler.submit(healthy)
 
     assert registry.get("task_mgr").get(doomed.id).status is TaskStatus.FAILED
-    assert registry.get("task_mgr").get(healthy.id).status is TaskStatus.RUNNING
+    assert registry.get("task_mgr").get(healthy.id).status is DISPATCHED
     assert registry.get("runner").started == [healthy.id]
 
 
@@ -286,7 +286,7 @@ def test_a_failed_launch_is_not_retried_forever(store):
     assert len(registry.get("task_mgr").get(task.id).history) == 1
 
     scheduler.resume_task(task.id)  # the operator's call, once it is fixed
-    assert registry.get("task_mgr").get(task.id).status is TaskStatus.RUNNING
+    assert registry.get("task_mgr").get(task.id).status is DISPATCHED
 
 
 def test_an_agent_factory_that_is_down_releases_the_lease(store):
@@ -320,6 +320,7 @@ def test_an_input_opened_earlier_in_the_same_pass_is_not_dispatched_against(stor
     GENERATING version: an input whose content does not exist yet, recorded in
     the audit trail criterion 18 requires.
     """
+    from task_graph.policy import FifoPolicy
     from task_graph.runner import FakeRunner
 
     (hid,) = new_handoffs(1)
@@ -337,7 +338,10 @@ def test_an_input_opened_earlier_in_the_same_pass_is_not_dispatched_against(stor
                 self.registry.get("handoff_mgr").persist(hid)
 
     runner = OpeningRunner()
-    registry = build_registry(store=store, runner=runner)
+    # FIFO explicitly: the scenario needs the refresher to be started before the
+    # consumer within one pass, and that is a statement about submission order.
+    # The default policy is depth-first and would reverse it.
+    registry = build_registry(store=store, runner=runner, policy=FifoPolicy())
     runner.registry = registry
     registry.get("agent_mgr").register("profiler")
     scheduler, task_mgr = registry.get("scheduler"), registry.get("task_mgr")
