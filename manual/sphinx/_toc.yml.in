@@ -52,6 +52,34 @@ subtrees:
       - file: features/graceful_shutdown.md
         title: Graceful shutdown
 
+  - caption: Simulation
+    entries:
+      - file: simulation/overview.md
+        title: Overview
+        entries:
+          - file: simulation/projection_runs.md
+            title: Projection runs
+          - file: simulation/simulation_runs.md
+            title: Simulation runs
+          - file: simulation/anchors.md
+            title: Anchors and calibration
+          - file: simulation/workloads.md
+            title: Workloads and traces
+          - file: simulation/fleet_and_routing.md
+            title: Fleet and routing
+          - file: simulation/disaggregation.md
+            title: Disaggregated serving
+          - file: simulation/sweeps.md
+            title: Sweeps and tuning
+          - file: simulation/tuning_agent.md
+            title: Tuning agent (inferasim-tune)
+          - file: simulation/modeled_features.md
+            title: Modeled features
+          - file: simulation/environment.md
+            title: Environment variables
+          - file: simulation/boundaries.md
+            title: Boundaries and verification
+
   - caption: Serving
     entries:
       - file: serving/deployment.md

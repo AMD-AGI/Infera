@@ -54,6 +54,183 @@ from .collectives import (
 )
 
 
+def _usable_packed_probe(packed, seq_rate_ms_per_tok=0.0, seq_cost_at=None):
+    """A packed-prefill probe block, or None if it is not a measurement.
+
+    Checked on read rather than trusted, because artifacts already on disk
+    carry blocks written before the harvester validated them. Three vLLM
+    anchors harvested with the probe came back with the widest wave *faster*
+    than the one before it -- 481.6 ms at 2048 tokens, 532.9 at 4096, then
+    334.8 at 8192 -- and least squares still fitted a tidy positive rate
+    through them. A wider step cannot be cheaper, so those points are the
+    scheduler's admission tail rather than one step's cost, and the rate
+    derived from them is not a measurement of anything.
+
+    Rejecting returns the projector to the single-sequence curve and the
+    warning that names the packed term as unmeasured: a worse prediction,
+    honestly labelled, instead of a confident wrong one.
+    """
+    if not packed or not packed.get("ms_per_token"):
+        return None
+    # Diagnostic only: drop the packed term and fall back to the single-
+    # sequence curve, to separate "the probe is wrong" from "the step the
+    # probe measured is not the step the scheduler builds under load".
+    if os.environ.get("INFERASIM_IGNORE_PACKED_PROBE"):
+        return None
+    # Each point's p99 is taken over exactly as many requests as the wave is
+    # wide, so a single pass is the max of a handful of samples and one slow
+    # request sets the point. An early harvest taken that way produced a
+    # monotonic-looking ladder -- 122, 300, 339, 600 ms -- that still put the
+    # S=2 point almost level with S=4, and reading a rate off it moved a
+    # 16384-token step from 827 ms to 1089 in the wrong direction. Monotonicity
+    # alone does not catch that, so the repeat count is checked as well.
+    repeats = int(packed.get("repeats") or 1)
+    if repeats < 2:
+        print(
+            "[inferasim:Inference] WARNING: this anchor's packed-prefill "
+            "probe recorded one pass per point, so each is the p99 of a "
+            "handful of requests rather than a repeatable measurement. "
+            "Ignoring it and falling back to the single-sequence curve; "
+            "re-harvest to measure the packing term."
+        )
+        return None
+    pts = sorted(
+        (int(p.get("step_tokens") or 0), float(p.get("last_ttft_ms") or 0.0))
+        for p in (packed.get("points") or [])
+    )
+    if len(pts) < 2:
+        return None
+    if any(pts[i + 1][1] <= pts[i][1] for i in range(len(pts) - 1)):
+        print(
+            f"[inferasim:Inference] WARNING: this anchor's packed-prefill "
+            f"probe is not monotonic in step width "
+            f"({[round(v, 1) for _, v in pts]} ms across "
+            f"{[n for n, _ in pts]} tokens), so its "
+            f"{packed['ms_per_token'] * 1000:.1f} us/token is a fit through "
+            f"scheduler tail rather than a step cost. Ignoring it and falling "
+            f"back to the single-sequence curve. Re-harvest to measure the "
+            f"packing term."
+        )
+        return None
+    # Monotonic and repeated is still not measured. Going from one sequence to
+    # two adds a step's worth of latency on top of the tokens, so the first
+    # rung is inflated on every probe on file and the rungs above it are the
+    # marginal cost; least squares lets that first rung set the rate whenever
+    # it is large enough to, leaving the packed term describing the scheduler
+    # rather than the step.
+    #
+    # Rejected only when both tests fail, because either alone takes good
+    # probes with it: a rate several times the single-sequence one (packing
+    # cannot do that -- same attention per token, no less efficient a GEMM),
+    # and a first rung that dwarfs the rest. MiniMax-M2.7 at 256 tokens fails
+    # both -- 27.4 us/token against the curve's 10.1 -- and scored +55.9% TTFT.
+    # DeepSeek-R1-0528 at 1024 reads 2.67x but its implied 8192-token step
+    # matches Atom's scheduler logs to 10%; DeepSeek-V4-Flash-0731 has the
+    # steep rung but a rate 1.06x the curve's.
+    pr = float(packed["ms_per_token"])
+    slopes = [(y2 - y1) / (n2 - n1) for (n1, y1), (n2, y2) in zip(pts, pts[1:])]
+    later = sorted(slopes[1:])
+    first_dominates = bool(later and slopes[0] > 5.0 * later[len(later) // 2] > 0.0)
+    # The widest rung is the one the probe exists to measure, and it can be
+    # checked against something independent: a step holding N tokens does about
+    # the work of one sequence of N tokens. Packing changes the GEMM shape and
+    # removes the attention a long context would have cost, so the packed step
+    # should come in a little under the curve, never far over it.
+    #
+    # Across every probe on file the ratio sits between 0.63 and 1.39 when the
+    # measurement is real. The failures are not near that band: a DeepSeek-V4-Pro
+    # probe reads 320.7 ms for an 8192-token step whose single-sequence curve
+    # says 89.3, and one probed at 2048 reads 7.06x. Both are the requests
+    # behind the first one waiting their turn -- serialisation recorded as
+    # packing -- and both pass the rate-and-first-rung test below, because
+    # their rungs are uniformly inflated rather than front-loaded.
+    if seq_cost_at is not None:
+        n_wide, t_wide = pts[-1]
+        expect = float(seq_cost_at(n_wide) or 0.0)
+        if expect > 0.0 and not (0.5 <= t_wide / expect <= 1.5):
+            print(
+                f"[inferasim:Inference] WARNING: this anchor's packed-prefill "
+                f"probe times a {n_wide}-token step at {t_wide:.1f} ms, where "
+                f"the single-sequence curve puts {n_wide} tokens at "
+                f"{expect:.1f} ms ({t_wide / expect:.2f}x). A step does not "
+                f"change what its tokens cost by that much, so the probe is "
+                f"timing queued sequences rather than one step. Ignoring it "
+                f"and falling back to the single-sequence curve; re-harvest "
+                f"with a token budget that admits the whole wave at once."
+            )
+            return None
+    # Last, the combination that will actually be used has to reproduce the
+    # measurement it came from. The projector prices a step as the curve's
+    # intercept plus the packed rate over the step's tokens, and those two
+    # numbers come from different fits: if the probe's intercept is far from
+    # the curve's, the pair prices a step at something neither fit ever saw.
+    #
+    # Qwen3.6-35B-A3B is the case. Its probe times an 8192-token step at 79.0
+    # ms and solves 66.6 ms fixed + 1.5 us/token; the length sweep solves 17.5
+    # ms fixed for a single sequence, because the probe's p99-over-a-wave
+    # method carries about 36 ms the sweep does not. Pairing the sweep's
+    # intercept with the probe's slope prices that same step at 29.6 ms, and
+    # scored -76.9% on TTFT. Taking the probe's intercept instead is not the
+    # fix -- that 36 ms is the measurement, not the step, and substituting it
+    # cost DeepSeek-V4-Flash 42 points. The pair simply cannot be used.
+    if seq_cost_at is not None:
+        n_wide, t_wide = pts[-1]
+        modelled = float(seq_cost_at(0) or 0.0) + pr * n_wide
+        if t_wide > 0.0 and not (0.6 <= modelled / t_wide <= 1.4):
+            print(
+                f"[inferasim:Inference] WARNING: this anchor's packed rate of "
+                f"{pr * 1000:.1f} us/token, on the single-sequence curve's "
+                f"fixed cost, prices a {n_wide}-token step at "
+                f"{modelled:.1f} ms, against the {t_wide:.1f} ms the probe "
+                f"timed for that step ({modelled / t_wide:.2f}x). The slope "
+                f"and the intercept were fitted against different baselines "
+                f"and do not describe one step together. Ignoring the packed "
+                f"term and falling back to the single-sequence curve."
+            )
+            return None
+    if seq_rate_ms_per_tok > 0.0 and pr > 2.0 * seq_rate_ms_per_tok and first_dominates:
+        print(
+            f"[inferasim:Inference] WARNING: this anchor's packed-prefill "
+            f"probe reads {pr * 1000:.1f} us/token against the "
+            f"single-sequence curve's {seq_rate_ms_per_tok * 1000:.1f} at the "
+            f"same sequence length, and its 1->2 rung "
+            f"({slopes[0] * 1000:.1f} us/token) dwarfs the rungs above it "
+            f"({[round(s * 1000, 1) for s in slopes[1:]]}). That is the one-off "
+            f"latency of widening the step, not the cost of the tokens in it. "
+            f"Ignoring it and falling back to the single-sequence curve; "
+            f"re-harvest at a sequence length where the packing signal clears "
+            f"the step's fixed cost."
+        )
+        return None
+    return packed
+
+
+# There is deliberately no tuning knob here for how ``implied_fixed_ms``
+# behaves across parallelism.
+#
+# An earlier revision carried one: a fitted exponent applied as
+# ``fixed * shard ** exp`` when restoring a chord-fitted anchor at a width it
+# was not harvested at. Swept against measured TP8 runs anchored from TP4, the
+# per-model optima came out at 0.4, 1.0 and 0.5 -- spread across the whole
+# range, so no single value described anything and the number was only ever a
+# curve-fit to three models. It has been removed rather than retuned.
+#
+# What replaced it is a measurement. ``_fit_prefill_curve`` fits
+# ``F + a*n + b*n^2`` over four or more probe lengths, which separates the
+# per-step fixed cost from per-token work instead of leaving them mixed in a
+# two-point chord's intercept. ``F`` is then held across parallelism and the
+# per-token terms are sharded, because that is what each one does. The
+# decomposition checks out against hardware: solving ``T(n,TP) = F + S(n)/ratio``
+# from measured DeepSeek-V4-Pro TP4 and TP8 prefill gives F = 146.90 ms at 4096
+# tokens and 145.86 ms at 8192, two independent lengths agreeing to 1%.
+#
+# When an anchor predates that and carries only a chord, the fallback holds the
+# intercept whole -- exponent zero in the old parameterisation. That is the
+# physical reading of the quantity's name and it needs no calibration; it is
+# also, measurably, not as accurate as the curve, which is why the fallback
+# warns and asks for a re-harvest rather than quietly standing in for one.
+
+
 def _safe_forward(profiler, batch: int, seq_len: int) -> float:
     """Forward time of a sub-profiler, or 0 if it does not implement timing.
 
@@ -86,6 +263,18 @@ def _replica_gpus(inference_config: InferenceConfig) -> int:
     pp = max(1, mp.pipeline_model_parallel_size)
     ep = max(1, mp.expert_model_parallel_size)
     return max(tp * pp, ep)
+
+
+def _split_replica_loads(total: int, replicas: int) -> list[int]:
+    """Split an integer population evenly without dropping the remainder.
+
+    Empty replicas are omitted from the returned work list; they are still
+    counted separately when deployment cost is divided by the configured GPU
+    fleet.
+    """
+    replicas = max(1, int(replicas))
+    q, r = divmod(max(1, int(total)), replicas)
+    return [n for n in ([q + 1] * r + [q] * (replicas - r)) if n > 0]
 
 
 @dataclass
@@ -138,6 +327,89 @@ class InferencePerfResult:
     extras: dict[str, float] = field(default_factory=dict)
 
 
+def _prefix_caching_from_server_args(server_args) -> bool | None:
+    """Whether the anchor's server ran with prefix caching, per its own flags.
+
+    Returns None when the flags do not say, which keeps the caller's
+    "untrusted unless proven otherwise" default: a prefill measured against a
+    warm prefix cache is a block lookup, not prompt processing, and using one
+    as if it were the latter under-prices TTFT badly.
+
+    Every engine's spelling has to be listed, because an unrecognised flag
+    reads as "not stated" and therefore as untrusted, and the consequence is
+    not a warning but a discarded measurement: a prefill harvested with
+    caching genuinely off gets thrown away and TTFT falls back to the
+    analytical model. That cost 70% of corpus TTFT until SGLang's spelling was
+    added here -- it calls the feature a radix cache, so
+    --disable-radix-cache is the same statement vLLM makes with
+    --no-enable-prefix-caching.
+    """
+    if not server_args:
+        return None
+    text = server_args if isinstance(server_args, str) else " ".join(server_args)
+    flat = text.replace("_", "-")
+    off = (
+        "--no-enable-prefix-caching",
+        "--disable-prefix-caching",
+        # SGLang. --disable-radix-cache is the documented switch;
+        # --enable-radix-cache does not exist, the cache being on by default.
+        "--disable-radix-cache",
+    )
+    if any(flag in flat for flag in off):
+        return False
+    if "--enable-prefix-caching" in flat:
+        return True
+    return None
+
+
+def _attention_dp_from_server_args(server_args, *, tp: int) -> int | None:
+    """The attention-DP degree the anchor's server actually ran at.
+
+    Unlike prefix caching, this is safe to infer from silence: data-parallel
+    attention is opt-in on every engine, so server flags that do not ask for it
+    describe a run without it. ``None`` is therefore reserved for having no flag
+    string at all -- an artifact that predates this tracking, which may have run
+    either way and must not be assumed to match.
+
+    Each engine spells the same layout differently. SGLang and ATOM gate it
+    behind ``--enable-dp-attention`` and size it with ``--dp-size``, defaulting
+    to the whole tensor-parallel group; vLLM drives it from
+    ``--data-parallel-size`` alongside expert parallelism.
+    """
+    if not server_args:
+        return None
+    text = server_args if isinstance(server_args, str) else " ".join(server_args)
+    flat = text.replace("_", "-")
+    tokens = flat.split()
+
+    def value(flag: str) -> str | None:
+        for i, tok in enumerate(tokens):
+            if tok == flag and i + 1 < len(tokens):
+                return tokens[i + 1]
+            if tok.startswith(flag + "="):
+                return tok.split("=", 1)[1]
+        return None
+
+    def as_degree(flag: str) -> int | None:
+        got = value(flag)
+        try:
+            return max(1, int(got)) if got else None
+        except ValueError:
+            return None
+
+    if "--disable-dp-attention" in flat:
+        return 1
+    if "--enable-dp-attention" in flat or "--enable-dp-attn" in flat:
+        for flag in ("--dp-size", "--attention-dp-size", "--data-parallel-size"):
+            got = as_degree(flag)
+            if got:
+                return got
+        # Sized to the tensor-parallel group when left implicit, which is what
+        # both engines do and how the MLA recipes are actually served.
+        return max(1, int(tp))
+    return as_degree("--data-parallel-size") or 1
+
+
 class InferencePerformanceProjector:
     """Builds the profiler once and answers prefill / decode timing queries."""
 
@@ -148,13 +420,22 @@ class InferencePerformanceProjector:
         benchmark_layer_times=None,
         scaling_benchmarks=None,
         decode_floor=None,
+        pool_benchmarks=None,
     ):
         self.cfg = inference_config
         self._args_ref = args
+        # Optional per-pool anchors {"prefill": artifact, "decode": artifact}
+        # for a disaggregated projection. Each pool prefers its own measurement
+        # and falls back to the shared anchor -- see ``_project_disaggregated``.
+        self._pool_benchmarks = dict(pool_benchmarks or {})
         # Optional measured decode latency floor {batch: ms} from a sharded
         # probe. Applied as decode = max(restored, floor(batch)) — see
         # ``_decode_floor_ms``.
         self._decode_floor = {int(b): float(v) for b, v in (decode_floor or {}).items() if v}
+        # The loaded anchor's own invariant decode floor, filled in from its
+        # batch sweep once one is loaded. Drives the decode restore; 0.0 means
+        # "no sweep, no floor", which falls through to the other scaling laws.
+        self._anchor_decode_floor_ms = 0.0
         gpu_arch = getattr(args, "gpu_arch", None) if args else None
         gpu_clock = getattr(args, "gpu_clock_mhz", None) if args else None
         gemm_name = getattr(args, "gemm_backend", None) if args else None
@@ -336,7 +617,12 @@ class InferencePerformanceProjector:
         self._decode_kv_slope_ms: float = 0.0  # ms per KV token (batch-independent)
         self._decode_ctx_ref: float = 0.0  # context the batch curve was measured at
         self._decode_ctx_max: float = 0.0  # largest measured context (guard)
+        self._decode_kv_slope_by_batch: list = []  # (batch, ms per KV token)
         self._meas_prefill_rate_ms_per_tok: float = 0.0  # for sub-prompt prefill pieces
+        # Fixed per-prefill-step cost measured alongside that rate.
+        self._meas_prefill_fixed_ms: float = 0.0
+        # tp -> the prefill length curve measured at that width.
+        self._bench_prefill_curves: dict = {}
         # True when the benchmark deliberately repeated prompts with prefix
         # caching enabled. Such a curve is a cache-hit lookup curve and is only
         # usable for a target configured as a full prefix hit.
@@ -352,6 +638,20 @@ class InferencePerformanceProjector:
         self._bench_tp = 1
         self._bench_ep = 1
         self._bench_pp = 1
+        # Attention layout the anchor was harvested at. ``None`` means the
+        # artifact never recorded it, which is not the same as 1: it may have
+        # run either way, so it is reported as unverifiable rather than assumed
+        # to match. See ``_setup_restoration``.
+        self._bench_attn_dp: int | None = None
+        # Set by ``_setup_restoration``: the layout the bench view is actually
+        # built at, and whether it differs from the target's.
+        self._bench_attn_dp_eff = 1
+        self._restore_layout_moved = False
+        # Draft depth the anchor itself was harvested at. This decides what a
+        # measured decode number *means*: harvested with speculation it is a
+        # per-output-token time with acceptance already folded in, harvested
+        # without it is a single-token step. 0 = no speculation on the anchor.
+        self._bench_spec_k = 0
         # phase -> batch -> tp -> (ms, ep, pp), and the split fitted from it.
         self._bench_scaling_raw: dict = {}
         self._bench_scaling_fit: dict = {}
@@ -406,23 +706,50 @@ class InferencePerformanceProjector:
         (the grid is only emitted un-restored)."""
         self._decode_ctx_ref = ref_ctx
         self._decode_ctx_max = ref_ctx
-        dec = self._meas_whole.get("decode")
-        if not decode_ctx or not dec or self._restore or ref_ctx <= 0:
+        # Differenced against the sweep as measured, not as restored: the grid
+        # is recorded at the anchor's own parallelism, so the KV term is fitted
+        # there and carried to the target width below.
+        dec = getattr(self, "_meas_decode_bench", None) or self._meas_whole.get("decode")
+        if not decode_ctx or not dec or ref_ctx <= 0:
             return
-        slopes = []
+        slopes, per_batch = [], {}
         for e in decode_ctx:
             try:
                 b, c, ms = int(e["batch"]), float(e["context"]), float(e["decode_ms"])
             except (KeyError, TypeError, ValueError):
                 continue
             self._decode_ctx_max = max(self._decode_ctx_max, c)
-            if b > 0 and c > ref_ctx:
+            # Points on either side of the reference are equally informative:
+            # below it the step is measured cheaper and the numerator turns
+            # negative along with the denominator, so the slope comes out
+            # positive from the same expression. Only points AT the reference
+            # say nothing.
+            if b > 0 and c != ref_ctx:
                 s = (ms - self._bucket_up(b, dec)) / (c - ref_ctx)
                 if s > 0:
                     slopes.append(s)
+                    per_batch.setdefault(b, []).append(s)
+        # Reading the KV of one sequence is work, and work shards: the
+        # attention heads that do the reading divide across ranks like
+        # everything else in the step. So the term moves to the target width by
+        # the same ratio the restore applies to the part of the step above the
+        # floor, which is where this term lives.
+        shard = self._bench_tp / self._tgt_tp if (self._restore and self._tgt_tp > 0) else 1.0
+        # Held per batch rather than as one median over all of them. The step
+        # carries the KV of every resident sequence, so the cost of context
+        # grows with how many are in flight, and measured it does: carrying
+        # DeepSeek-V4-Flash at TP4 from 1024 tokens of context to 8192 costs
+        # 0.15 us per token of context at batch 1, 1.07 at 4, 1.26 at 16 and
+        # 1.92 at 64. One median over that span reproduces none of them, and
+        # collapsing it cost DeepSeek-V4-Pro's ISL-1024 rows 6.0% -> 12.5% on
+        # TPOT against reading their own matched-length sweep directly.
+        if per_batch:
+            self._decode_kv_slope_by_batch = sorted(
+                (b, sorted(v)[len(v) // 2] * shard) for b, v in per_batch.items()
+            )
         if slopes:
             slopes.sort()
-            self._decode_kv_slope_ms = slopes[len(slopes) // 2]
+            self._decode_kv_slope_ms = slopes[len(slopes) // 2] * shard
 
     @staticmethod
     def _bucket_up(batch: int, pts: list) -> float:
@@ -487,6 +814,18 @@ class InferencePerformanceProjector:
 
     # -- measured-time accessors (benchmark-based projection) ------------------
 
+    def _decode_kv_slope_at(self, batch: int) -> float:
+        """Per-token cost of resident context at ``batch``.
+
+        Interpolated across the batches the grid was measured at, the same way
+        the decode sweep itself is, and held flat outside them: the term grows
+        with how many sequences are resident, so one number for every batch
+        fits neither end."""
+        pts = getattr(self, "_decode_kv_slope_by_batch", None)
+        if not pts:
+            return self._decode_kv_slope_ms
+        return self._loglog_transport(batch, pts) if len(pts) >= 2 else pts[0][1]
+
     def _measured_decode_step_ms(self, batch: int, context: float | None = None) -> float:
         """Measured whole-model / composed decode *step* latency at ``batch``.
 
@@ -504,7 +843,24 @@ class InferencePerformanceProjector:
                 and self._decode_kv_slope_ms > 0.0
                 and self._decode_ctx_ref > 0.0
             ):
-                base += self._decode_kv_slope_ms * max(0.0, float(context) - self._decode_ctx_ref)
+                # Signed, not one-sided. The batch sweep is measured at one
+                # context and the attention in it reads exactly that much KV,
+                # so billing it at a shorter context charges for KV that is
+                # not resident -- which is the larger of the two errors here,
+                # because anchors get harvested long and read short. On
+                # MI355X, DeepSeek-V4-Flash at TP4 batch 16 steps in 22.12 ms
+                # at 8192 tokens of context and 15.72 at 1024; holding the
+                # first for ISL-1024 rows is what puts their TPOT +27% out.
+                #
+                # Held above zero because the line is only a local statement
+                # about the KV term: extrapolated far enough below the
+                # reference it eventually crosses the context-free cost of the
+                # step, which is weights and compute and does not go away.
+                slope = self._decode_kv_slope_at(batch)
+                base = max(
+                    base + slope * (float(context) - self._decode_ctx_ref),
+                    self._decode_floor_ms(batch),
+                )
             return base
         # Per-layer schema: restore each layer to the target TP/EP, then sum by
         # layer count. Decode processes 1 token/step.
@@ -541,7 +897,10 @@ class InferencePerformanceProjector:
             return self._forward_times(
                 1, max(1, total_tokens), "prefill", max(1, total_tokens)
             ).total_ms
-        return rate * max(1, total_tokens)
+        # Charged once per step, not per token and not per request: a step
+        # packing eight 1024-token prompts pays it once, which is what makes
+        # short prompts clear in ceil(C*ISL/budget) steps rather than C.
+        return self._meas_prefill_fixed_ms + rate * max(1, total_tokens)
 
     # -- benchmark ingestion ---------------------------------------------------
 
@@ -591,6 +950,9 @@ class InferencePerformanceProjector:
         self._bench_tp = int(meta.get("benchmark_tp") or meta.get("tp") or 1)
         self._bench_ep = int(meta.get("benchmark_ep") or meta.get("ep") or 1)
         self._bench_pp = int(meta.get("benchmark_pp") or meta.get("pp") or 1)
+        _attn_dp = meta.get("attention_data_parallel_size")
+        self._bench_attn_dp = int(_attn_dp) if _attn_dp else None
+        self._bench_spec_k = int(meta.get("speculative_num_tokens") or 0)
         self._decode_pad_to_capture = bool(meta.get("decode_pad_to_capture"))
 
         self._meas_ref_input = ref_input
@@ -610,6 +972,9 @@ class InferencePerformanceProjector:
             if self._restore:
                 for _phase in ("decode", "prefill"):
                     self._fit_tp_scaling(_phase)
+                # Resolved before the report so it can name the law it will use,
+                # and before any restore call consumes it.
+                self._anchor_decode_floor_ms = self._anchor_floor_from(benchmark_layer_times)
                 self._report_tp_scaling()
             sweep = benchmark_layer_times.get("sweep") or []
             pre_pts, dec_pts = [], []
@@ -641,6 +1006,22 @@ class InferencePerformanceProjector:
             # silently moves TTFT onto the simulator, which is usually the number
             # the projection was run for.
             cache_mode = meta.get("prefix_caching")
+            if cache_mode is None:
+                # Older harnesses recorded the launch flags but not the resolved
+                # cache state. The answer is still in the artifact -- an
+                # explicit --no-enable-prefix-caching on the server it measured
+                # settles it -- and reading it there is the difference between
+                # using a measured prefill and silently simulating TTFT, which
+                # is usually the number the projection was run for. Only an
+                # explicit flag counts; a server_args string that never mentions
+                # caching leaves this None and stays untrusted.
+                cache_mode = _prefix_caching_from_server_args(meta.get("server_args"))
+                if cache_mode is not None:
+                    print(
+                        f"[inferasim:Inference] anchor records no prefix_caching "
+                        f"flag; its server_args say prefix caching was "
+                        f"{'ON' if cache_mode else 'OFF'}, using that."
+                    )
             target_hit = self.cfg.request_config.resolved_prefix_cache_hit_rate()
             if pre_pts and cache_mode is True and target_hit >= 0.999:
                 self._meas_prefill_cache_hit = True
@@ -658,15 +1039,119 @@ class InferencePerformanceProjector:
                     "hit fraction to 1.0 for repeated-prefix traffic."
                 )
                 pre_pts = []
+            pre_pts_bench = list(pre_pts)
+            dec_pts_bench = list(dec_pts)
             if self._restore:
                 # Prefill processes ``ref_input`` tokens/seq; decode 1 token/step.
                 pre_pts = [
                     (b, self._restore_whole(ms, b, ref_input, "prefill")) for b, ms in pre_pts
                 ]
                 dec_pts = [(b, self._restore_whole(ms, b, 1, "decode")) for b, ms in dec_pts]
+            # Kept at the width it was measured at. The decode-vs-context grid
+            # is recorded un-restored, so the KV term has to be differenced
+            # against the un-restored sweep and carried across parallelism
+            # afterwards; differencing a raw grid against a restored sweep
+            # would read the width transport as context dependence.
+            self._meas_decode_bench = sorted(dec_pts_bench)
             self._meas_whole = {
                 k: v for k, v in (("prefill", sorted(pre_pts)), ("decode", sorted(dec_pts))) if v
             }
+            # Which decode observable the sweep holds changes what the
+            # scheduler is allowed to add on top of it. An anchor recording
+            # median inter-token latency holds the unblocked decode step, which
+            # is what the simulator wants: it schedules the prefill stalls
+            # itself. One recording mean TPOT already contains those stalls,
+            # so simulating them again bills them twice -- measured at 1.14x
+            # TPOT at 16 concurrent, 1.23x at 32 and 1.41x at 64 on the
+            # DeepSeek-V4-Pro TP8 ladder. Artifacts harvested before the key
+            # existed are the mean-TPOT kind; they are used as-is rather than
+            # corrected by a guess, and the warning says what to re-harvest.
+            observable = meta.get("decode_observable")
+            # "median_itl" without the single-wave qualifier was harvested with
+            # a refilling loop, so on a chunked co-scheduled engine its median
+            # step carries prefill work -- 51% of TPOT on a vLLM harvest, while
+            # the same protocol on an exclusive-prefill engine was within 3%.
+            if observable not in ("median_itl_single_wave", "median_itl"):
+                print(
+                    f"[inferasim:Inference] WARNING: this anchor's decode "
+                    f"sweep is {observable or 'mean TPOT'}, which already "
+                    f"includes the prefill work the scheduler also models. "
+                    f"TPOT will be over-predicted, increasingly so with "
+                    f"concurrency. Re-harvest to record median inter-token "
+                    f"latency instead."
+                )
+            elif observable == "median_itl" and str(self._bench_backend).lower() == "vllm":
+                # Right observable, refilling loop. Harmless where prefill is
+                # exclusive, because a handful of huge stalls do not move a
+                # median; wrong where it is chunked and co-scheduled, because
+                # then the typical step carries prefill and the median carries
+                # it too. Named by engine rather than guessed at, since that is
+                # what decides which of the two applies.
+                print(
+                    "[inferasim:Inference] WARNING: this anchor's decode sweep "
+                    "is median inter-token latency over a refilling loop, and "
+                    "it was harvested on a chunked co-scheduled engine. Every "
+                    "step in such a loop carries part of some prefill, so the "
+                    "median is a mixed step rather than a decode step and the "
+                    "sweep also climbs too steeply with batch. Measured on "
+                    "DeepSeek-V4-Flash-0731 that read 19.71 ms at batch 4 "
+                    "against 13.44 measured, and TPOT 51% high across the "
+                    "corpus. Re-harvest for a single-wave sweep."
+                )
+            # A decode step reads the KV of every sequence in it, so what the
+            # sweep measures depends on the prompt length it was measured at --
+            # but only on engines whose attention actually reads all of it.
+            # Same model, same width, same anchor prompt length of 8192,
+            # applied at 1024: SGLang lands within 3% of the measured step
+            # (10.81 ms against 11.19 at four sequences) because its DeepSeek-V4
+            # backend reads a fixed top-k of the cache and is therefore flat in
+            # context, while vLLM's dense MLA path reads the whole thing and
+            # comes out 41% high (18.96 against 13.44). Across the corpus that
+            # one difference was worth 51% on TPOT.
+            #
+            # Nothing here converts one into the other -- how a step scales with
+            # context is a property of the attention kernel, and a fitted ratio
+            # would be exactly the kind of factor this model does not carry. So
+            # the mismatch is reported and the harvest is named as the fix.
+            bench_isl = meta.get("input_len")
+            target_isl = self.cfg.request_config.input_seq_len
+            if (
+                bench_isl
+                and target_isl
+                and max(bench_isl, target_isl) >= 2 * min(bench_isl, target_isl)
+            ):
+                print(
+                    f"[inferasim:Inference] WARNING: decode sweep was measured "
+                    f"at {int(bench_isl)}-token prompts and is being applied at "
+                    f"{int(target_isl)}. A decode step reads the KV of every "
+                    f"sequence in it, so on an engine whose attention is dense "
+                    f"in context this sweep is the wrong step: the same "
+                    f"{int(bench_isl)}-token anchor read a 1024-token workload's "
+                    f"decode 41% high on vLLM, and within 3% on SGLang, whose "
+                    f"backend reads a fixed top-k instead. Harvest at this "
+                    f"prompt length to remove the question."
+                )
+
+            # Decode's width scaling is restored, not measured, and for some
+            # models the restore assumes a speedup the hardware does not
+            # deliver. GLM-5.2-MXFP4's measured TP8 decode step comes out at
+            # 0.89 to 1.00 of its own TP4 anchor's across concurrency 16 to 64
+            # -- that is, essentially no gain from doubling the width -- while
+            # DeepSeek-V4-Flash-0731, scored against a width-matched anchor,
+            # sits within 3% on TPOT at every concurrency from 2 to 256. A
+            # width-matched anchor is the fix; short of one, the size of this
+            # term is unknown rather than small, so it is said out loud.
+            if self._bench_tp != max(1, self.cfg.model_parallel_config.tensor_model_parallel_size):
+                print(
+                    f"[inferasim:Inference] WARNING: decode sweep was measured "
+                    f"at TP{self._bench_tp} and is being restored to TP"
+                    f"{self.cfg.model_parallel_config.tensor_model_parallel_size}. "
+                    f"How a decode step scales with width is modelled here, "
+                    f"not measured, and it is not the same across models: one "
+                    f"MoE in this corpus gains nothing at all from TP4 to TP8. "
+                    f"Harvest an anchor at the target width before trusting "
+                    f"TPOT from this run."
+                )
             # Batch transport interpolates the MEASURED curve and never falls
             # back to the simulator. That requires a batch sweep (>= 2 points);
             # a single-batch artifact would force a flat hold. Warn so the
@@ -681,8 +1166,312 @@ class InferencePerformanceProjector:
             # Per-token prefill rate (for sub-prompt chunk pieces): full-prompt
             # prefill of ``b`` seqs processes ``b * ref_input`` tokens.
             if pre_pts and ref_input > 0:
-                rates = [ms / (b * ref_input) for b, ms in pre_pts if b > 0]
-                self._meas_prefill_rate_ms_per_tok = sum(rates) / len(rates) if rates else 0.0
+                # Sharded by the parallelism ratio rather than by the
+                # simulator's prefill ratio. Prefill splits into per-token work
+                # that shards and a per-step intercept that does not, and
+                # harvesting this model at both TP4 and TP8 pins each half:
+                # the rate went 0.034373 -> 0.017100 ms/token, a ratio of
+                # 0.4975 against the 0.5 ideal sharding predicts, while the
+                # intercept moved only 204.8 -> 176.4 ms. One multiplicative
+                # ratio applied to the sum cannot honour both, and applying the
+                # simulator's lands between them -- right for a model whose
+                # prefill step is mostly per-token work, badly wrong for one
+                # where the intercept dominates.
+                rates = [ms / (b * ref_input) for b, ms in pre_pts_bench if b > 0]
+                rate_bench = sum(rates) / len(rates) if rates else 0.0
+                _diag = meta.get("prefill_anchor") or {}
+                _probed = sorted(int(p.get("input_len") or 0) for p in (_diag.get("points") or []))
+                # Recorded before the scale is asked for, not after it is used.
+                # A second anchor registers its curve during setup, so leaving
+                # this one until the rate is being written left exactly one
+                # width on file at the moment the ratio between two widths was
+                # wanted, and the floor silently never applied.
+                _curve = _diag.get("curve_fit") or {}
+                if _curve.get("ms_per_token"):
+                    self._bench_prefill_curves[self._bench_tp] = _curve
+                shard, fixed_shard = self._prefill_width_scale(_probed)
+                self._meas_prefill_rate_ms_per_tok = rate_bench * shard
+                # The per-step fixed cost the same probe measured. Its TTFT
+                # difference across two prompt lengths yields a slope AND an
+                # intercept; the sweep's prefill_ms carries only slope*tokens,
+                # so billing a prefill step at rate*tokens drops the intercept
+                # entirely. That is not a rounding error: on the MI355X anchor
+                # it is 204.8 ms against a 281.6 ms marginal cost for an
+                # 8192-token prompt, i.e. 42% of the step, and dropping it
+                # under-read TTFT by a near-constant 0.65x at every measured
+                # concurrency. Transported like the rest of the prefill curve,
+                # since it is prefill work rather than the parallelism-invariant
+                # launch overhead the decode floor describes.
+                # Carried across parallelism unscaled, being the half that does
+                # not shard. 204.8 -> 176.4 ms across TP4 and TP8 is a 14% drop
+                # against a 50% one for the rate, so treating it as fixed costs
+                # a little and treating it as shardable costs a lot. An anchor
+                # harvested at the target TP needs none of this, and
+                # --load-benchmark-scaling with a second parallelism measures
+                # the split outright rather than assuming it.
+                anchor_diag = meta.get("prefill_anchor") or {}
+                curve = anchor_diag.get("curve_fit") or {}
+                if curve:
+                    # Harvested at four or more prompt lengths, so the split
+                    # between fixed cost and per-token work is measured rather
+                    # than guessed.
+                    #
+                    # Both per-token terms shard: they are compute, and the
+                    # quadratic one is attention, whose heads divide across
+                    # ranks like everything else. Only the intercept is held.
+                    #
+                    # Collapsed to one effective rate because the simulator
+                    # bills a prefill step as rate*tokens, and (a + b*n)*n
+                    # reproduces a*n + b*n^2 exactly -- but only at the n it is
+                    # evaluated at, so that has to be the length being asked
+                    # about rather than the length the anchor was harvested at.
+                    # Evaluating at the anchor's 8192 and then billing 1024-token
+                    # prompts charges them the marginal cost of a token arriving
+                    # at position 8192, which for a convex curve is far too
+                    # much: DeepSeek-V4-Flash-0731 came out +61.4% on TTFT at
+                    # ISL 1024 against +2.5% at 8192, from one anchor that
+                    # probed both lengths.
+                    #
+                    # Taken wholly from the probe, not blended with the sweep's
+                    # rate, so the intercept and the slope come from the same
+                    # measurement and cannot double-count each other.
+                    a = float(curve.get("ms_per_token") or 0.0)
+                    b = float(curve.get("ms_per_token_sq") or 0.0)
+                    self._bench_prefill_curves[self._bench_tp] = curve
+                    at_n = float(self.cfg.request_config.input_seq_len or ref_input or 1)
+                    # The curvature is read no further out than it was measured.
+                    # ``b`` carries GEMM efficiency improving with step width,
+                    # so it is routinely negative -- DeepSeek-V4-Pro's TP4
+                    # anchor fits -1.05e-6 over 1024..8192 at R2=0.98, which is
+                    # a good fit and a fine local approximation. Continued as a
+                    # quadratic it crosses zero at about 53.5k tokens, and at
+                    # ISL 130000 the same curve prices prefill at -80.7 us/token:
+                    # negative per-token work, which then reads out as a 2450
+                    # tok/s prefill and a 480-second disaggregated TTFT, and
+                    # ranked that config 31st on a metric where the trace puts
+                    # it first. Past the last probed length the marginal rate is
+                    # therefore held where the measurement left it rather than
+                    # allowed to keep improving, which is the conservative half
+                    # of the choice: it stops crediting efficiency nobody timed,
+                    # and it leaves the fixed cost and the linear term exactly
+                    # as fitted. An anchor that brackets the target length needs
+                    # none of this and the warning below names that re-harvest.
+                    _probed_n = [
+                        int(p.get("input_len") or 0) for p in (anchor_diag.get("points") or [])
+                    ]
+                    _curv_n = at_n
+                    if _probed_n and at_n > max(_probed_n):
+                        _curv_n = float(max(_probed_n))
+                    rate_at_n = a + b * _curv_n
+                    # The length sweep runs at concurrency 1, so every point it
+                    # holds has one sequence in the step and the step's token
+                    # count is that sequence's attention context. GEMM
+                    # efficiency, which improves as the step widens, and
+                    # attention, which grows with context, are therefore the
+                    # same variable in those points and no fit over them can
+                    # separate the two -- ``b`` absorbs whatever narrow-step
+                    # inefficiency is there, and ``a`` settles near the rate at
+                    # the narrow end. Reading the result back for a step that
+                    # packs many short sequences then charges them attention
+                    # they do not have and a GEMM rate they beat.
+                    #
+                    # Which is the corpus error exactly: one anchor, scored at
+                    # ISL 8192 where a 16384-token budget packs two sequences,
+                    # is within 5% on TTFT at every concurrency from 2 to 256;
+                    # at ISL 1024, where the same budget packs sixteen, it
+                    # over-reads by 39% at 8 concurrent and 157% at 256, while
+                    # its TPOT and throughput stay right.
+                    _pk_l0 = float((anchor_diag.get("packed") or {}).get("seq_len") or at_n or 0.0)
+                    packed = _usable_packed_probe(
+                        anchor_diag.get("packed"),
+                        a + b * _pk_l0,
+                        seq_cost_at=lambda n: (
+                            float(curve.get("fixed_ms") or 0.0) + a * n + b * n * n
+                        ),
+                    )
+                    budget = float(
+                        getattr(self.cfg.request_config, "max_num_batched_tokens", 0) or 0
+                    )
+                    seqs = (budget / at_n) if (budget > 0 and at_n > 0) else 1.0
+                    # A packed rate describes a step holding several sequences.
+                    # When the budget admits one -- ISL 8192 against an
+                    # 8192-token budget, which is most of the corpus's long
+                    # prompts -- the step the engine builds is the step the
+                    # length sweep measured, and the packed rate is an answer
+                    # to a question nobody asked. It was being applied anyway:
+                    # GLM-5.2-MXFP4's 39 single-sequence configs were billed
+                    # 290 ms for a step its own curve prices at 446 and the
+                    # server takes about 509.
+                    if seqs < 1.5:
+                        packed = None
+                    # And it describes a step built from sequences of the
+                    # length it probed. Re-centring by the curve's ``b`` below
+                    # adds back the attention a longer context would cost, but
+                    # that is a correction, not a transport: across an 8x
+                    # change in context it does not hold. GLM-5.2-MXFP4's probe
+                    # is taken at 1024 and 32 of its configs run at 8192, where
+                    # the re-centred rate prices a 16384-token step at 696 ms
+                    # against the 1017 the server takes, while simply reading
+                    # two sequences off the curve lands at 892. Every model the
+                    # packed term measurably helps -- MiniMax-M2.7,
+                    # DeepSeek-V4-Flash, Qwen3-14B-FP8, DeepSeek-R1-0528 --
+                    # runs at the length its probe was taken at.
+                    # It also describes steps no wider than the widest it
+                    # timed. The probe fits a rate *because* the rate moves
+                    # with step width, so reading it past the last rung is
+                    # extrapolating the one thing it exists to measure.
+                    if packed and budget > 0:
+                        _wide = max(
+                            (int(q.get("step_tokens") or 0) for q in (packed.get("points") or [])),
+                            default=0,
+                        )
+                        if _wide > 0 and budget > 1.5 * _wide:
+                            print(
+                                f"[inferasim:Inference] WARNING: this config's "
+                                f"token budget builds steps of {int(budget)} "
+                                f"tokens and the packed probe timed nothing "
+                                f"wider than {_wide}. Using the single-"
+                                f"sequence curve rather than reading the "
+                                f"packed rate past its last measured step."
+                            )
+                            packed = None
+                    if packed:
+                        _l0 = float(packed.get("seq_len") or 0.0)
+                        if _l0 > 0 and not (0.5 <= at_n / _l0 <= 2.0):
+                            print(
+                                f"[inferasim:Inference] WARNING: the packed "
+                                f"prefill probe holds {int(_l0)}-token "
+                                f"sequences and this config runs at "
+                                f"{int(at_n)}. Attention per token differs by "
+                                f"{at_n / _l0:.1f}x between them, which is too "
+                                f"far to carry a packed rate across. Using the "
+                                f"single-sequence curve; re-harvest the packed "
+                                f"probe at this prompt length."
+                            )
+                            packed = None
+                    if packed and packed.get("ms_per_token"):
+                        # Measured in the regime being billed. Re-centred on
+                        # this prompt length by the curve's own ``b``, which is
+                        # the only measured statement about context dependence
+                        # available; at the probe's own length the correction
+                        # vanishes and the rate is used as measured.
+                        l0 = float(packed.get("seq_len") or at_n)
+                        p = float(packed["ms_per_token"])
+                        rate_at_n = (p - b * l0) + b * at_n
+                        print(
+                            f"[inferasim:Inference] packed prefill rate "
+                            f"{p * 1000:.1f} us/token measured at {int(l0)}-token "
+                            f"sequences, re-centred to {int(at_n)} as "
+                            f"{rate_at_n * 1000:.1f} us/token (the "
+                            f"single-sequence curve reads "
+                            f"{(a + b * at_n) * 1000:.1f} here)."
+                        )
+                    elif seqs > 2.0:
+                        print(
+                            f"[inferasim:Inference] WARNING: a step of "
+                            f"{int(budget)} tokens packs about "
+                            f"{seqs:.0f} sequences at ISL {int(at_n)}, but this "
+                            f"anchor only probed prefill one sequence at a "
+                            f"time. Its per-token rate therefore carries "
+                            f"attention for a {int(at_n)}-token context and "
+                            f"GEMM efficiency for a {int(at_n)}-token step, and "
+                            f"the second of those is wrong by however much "
+                            f"wider the real step is -- TTFT will be "
+                            f"over-predicted, increasingly so with "
+                            f"concurrency. Re-harvest with "
+                            f"--prefill-packed-points 4 to measure it."
+                        )
+                    # Per-token prefill compute cannot be negative or zero
+                    # however the fit was shaped, so this is a floor on the
+                    # arithmetic rather than a modelling choice. Placed after
+                    # the packed branch because that one re-centres by ``b`` too
+                    # and would otherwise escape it. Held at the rate of the
+                    # shortest length probed: the slowest per-token cost the
+                    # anchor actually measured.
+                    if rate_at_n <= 0.0:
+                        _floor = a + b * float(min(_probed_n)) if _probed_n else a
+                        print(
+                            f"[inferasim:Inference] WARNING: the prefill curve "
+                            f"prices per-token work at {rate_at_n * 1000:.1f} "
+                            f"us/token, which is not physical. Holding it at "
+                            f"{max(1e-9, _floor) * 1000:.1f} us/token, the "
+                            f"slowest rate this anchor measured. Re-harvest a "
+                            f"probe that brackets ISL {int(at_n)}."
+                        )
+                        rate_at_n = max(1e-9, _floor)
+                    self._meas_prefill_rate_ms_per_tok = rate_at_n * shard
+                    # The intercept stays the curve's even when the rate comes
+                    # from the packed probe, which looks like mixing two fits
+                    # and is worth saying why it is not. The probe's own
+                    # intercept carries what it costs to ask: it times p99 TTFT
+                    # over a client-side wave, and reads 68.1 ms for the single
+                    # 1024-token sequence that the length sweep times at 31.8.
+                    # That 36 ms is the measurement, not the step. Substituting
+                    # it moved DeepSeek-V4-Flash from +1.1% to +43.2% on TTFT
+                    # and Qwen3-14B-FP8 from -4.4% to -49.3%.
+                    self._meas_prefill_fixed_ms = float(curve.get("fixed_ms") or 0.0) * fixed_shard
+                    probed = _probed_n
+                    # Said out loud when the curve is being read outside the
+                    # span it was fitted over, where a quadratic stops being a
+                    # local approximation and starts being an extrapolation.
+                    if probed and not (min(probed) <= at_n <= max(probed)):
+                        print(
+                            f"[inferasim:Inference] WARNING: prefill curve was "
+                            f"fitted over {min(probed)}..{max(probed)} tokens "
+                            f"and is being evaluated at {int(at_n)}. Outside "
+                            f"that span the quadratic is an extrapolation; "
+                            f"re-harvest with a probe that brackets this "
+                            f"prompt length."
+                        )
+                    if _curv_n != at_n:
+                        print(
+                            f"[inferasim:Inference] prefill curvature held at "
+                            f"{int(_curv_n)} tokens, the longest prompt the "
+                            f"curve was fitted over, rather than continued to "
+                            f"{int(at_n)}: the quadratic term would read "
+                            f"{(a + b * at_n) * 1000:.1f} us/token there."
+                        )
+                    print(
+                        f"[inferasim:Inference] prefill curve fit: "
+                        f"{self._meas_prefill_fixed_ms:.1f} ms fixed (x{fixed_shard:.3f}) + "
+                        f"{rate_at_n * 1000:.1f} us/token at "
+                        f"{int(_curv_n)} tokens, sharded by {shard:.3f}; "
+                        f"R2={curve.get('r2')}"
+                    )
+                    self._fit_decode_kv_slope(
+                        benchmark_layer_times.get("decode_ctx") or [],
+                        float(ref_input),
+                    )
+                    return
+                fixed = float(anchor_diag.get("implied_fixed_ms") or 0.0)
+                if fixed > 0.0:
+                    # Chord-fitted anchor: this "fixed" is part genuine fixed
+                    # cost and part prefill's curvature in prompt length, which
+                    # a two-point fit cannot tell apart and folds into the
+                    # intercept. It is held whole across parallelism, which is
+                    # what the name claims and what needs no calibration, but
+                    # only the genuine half deserves that -- so the restore is
+                    # biased by however much curvature got swallowed.
+                    # --prefill-anchor-points replaces the whole business with
+                    # a measurement; a same-width restore avoids it too, since
+                    # shard is then 1 and the term is a no-op.
+                    self._meas_prefill_fixed_ms = fixed * fixed_shard
+                    print(
+                        f"[inferasim:Inference] measured prefill: "
+                        f"{self._meas_prefill_rate_ms_per_tok * 1000:.1f} us/token "
+                        f"+ {self._meas_prefill_fixed_ms:.1f} ms fixed per step."
+                    )
+                    if abs(shard - 1.0) > 1e-9:
+                        print(
+                            f"[inferasim:Inference] WARNING: restoring a "
+                            f"chord-fitted anchor across parallelism "
+                            f"(shard={shard:.3f}). Its {fixed:.1f} ms "
+                            f"intercept mixes fixed cost with prompt-length "
+                            f"curvature and is being held whole, which is "
+                            f"right for the first and wrong for the second. "
+                            f"Re-harvest with --prefill-anchor-points 5 to fit "
+                            f"the curve and measure the split."
+                        )
             self._fit_decode_kv_slope(
                 benchmark_layer_times.get("decode_ctx") or [], float(ref_input)
             )
@@ -707,18 +1496,53 @@ class InferencePerformanceProjector:
             self._meas_prefill_rate_ms_per_tok = full_pre / (ref_batch * ref_input)
 
     def _setup_restoration(self) -> None:
-        """Prepare TP/EP restoration when a per-layer benchmark was captured at a
-        reduced parallelism (mirrors training's benchmark-at-fewer-GPUs → target
-        extrapolation). Builds analytical collective models at the benchmark and
-        target TP/EP so ``_restore_per_layer`` can strip the benchmark's comm,
-        scale the sharded compute, and add the target comm back."""
+        """Prepare restoration when a per-layer benchmark was captured at a
+        different parallelism than the target (mirrors training's
+        benchmark-at-fewer-GPUs → target extrapolation). Builds analytical
+        collective models at the benchmark and target layout so
+        ``_restore_per_layer`` can strip the benchmark's comm, scale the sharded
+        compute, and add the target comm back.
+
+        Attention-DP is one of the axes here, and the only one the fallback laws
+        cannot express -- see the refusal at the end."""
         mp = self.cfg.model_parallel_config
         self._tgt_tp = max(1, mp.tensor_model_parallel_size)
         tgt_ep = max(1, getattr(mp, "expert_model_parallel_size", 1) or 1)
         tgt_pp = max(1, mp.pipeline_model_parallel_size)
+        tgt_attn_dp = max(1, getattr(mp, "attention_data_parallel_size", 1) or 1)
+
+        # An anchor that never recorded its attention layout cannot be checked
+        # against a data-parallel target, and neither available guess is free:
+        # calling it non-DP applies a ratio the measurement may already contain,
+        # while calling it a match is precisely how an attn_dp=1 anchor gets
+        # reused at attn_dp=8 unchanged. So it is reported instead, with the
+        # re-harvest named, and the number is left as measured.
+        bench_attn_dp = self._bench_attn_dp
+        if bench_attn_dp is None:
+            if tgt_attn_dp > 1:
+                print(
+                    f"[inferasim:Inference] anchor does not record the attention "
+                    f"layout it was harvested at and the target runs "
+                    f"attention-DP={tgt_attn_dp}; the measured step is being used "
+                    f"as-is and is NOT transported across the layout change. "
+                    f"Re-harvest to record it."
+                )
+            bench_attn_dp = tgt_attn_dp
+        # Attention-DP subdivides the tensor-parallel group, so it cannot exceed
+        # it; a recorded degree wider than the bench TP is a malformed artifact.
+        bench_attn_dp = max(1, min(int(bench_attn_dp), self._bench_tp))
+
+        layout_moved = bench_attn_dp != tgt_attn_dp
         self._restore = (
-            self._bench_tp != self._tgt_tp or self._bench_ep != tgt_ep or self._bench_pp != tgt_pp
+            self._bench_tp != self._tgt_tp
+            or self._bench_ep != tgt_ep
+            or self._bench_pp != tgt_pp
+            or layout_moved
         )
+        # Recorded because the fallback laws below cannot express it: they are
+        # all functions of the GPU count, which attention-DP does not change.
+        self._restore_layout_moved = layout_moved
+        self._bench_attn_dp_eff = bench_attn_dp
         if not self._restore:
             return
         mc = self.cfg.model_config
@@ -727,6 +1551,7 @@ class InferencePerformanceProjector:
             tensor_model_parallel_size=self._bench_tp,
             expert_model_parallel_size=self._bench_ep,
             pipeline_model_parallel_size=self._bench_pp,
+            attention_data_parallel_size=bench_attn_dp,
         )
         self._comm_bench = InferenceCollectiveModel(mc, bench_mp, self._cc)
         self._comm_tgt = InferenceCollectiveModel(mc, mp, self._cc)
@@ -789,6 +1614,37 @@ class InferencePerformanceProjector:
                     "falling back to measured fit / blind TP^-1."
                 )
 
+        # The simulator ratio is the only mechanism here that describes a change
+        # of attention layout. Every other law is a function of the GPU count --
+        # the measured TP fit, the ideal TP^-1 sharding -- and attention-DP does
+        # not change the GPU count, so with the ratio gone they leave the layout
+        # change entirely unpriced and report the result as transported anyway.
+        # That holds whether or not TP also moved, so the refusal is on the
+        # layout alone rather than on it being the only axis.
+        if self._restore_layout_moved and self._lm_ratio_bench is None:
+            if not os.getenv("INFERASIM_ALLOW_LAYOUT_MISMATCH"):
+                raise ValueError(
+                    f"The measured anchor was harvested at attention-DP="
+                    f"{self._bench_attn_dp_eff} but the target runs attention-DP="
+                    f"{tgt_attn_dp}, and the analytical ratio that would transport "
+                    "that change is unavailable here (no simulating GEMM/SDPA "
+                    "backend for this architecture, or INFERASIM_RESTORE_SCALING "
+                    "set away from 'origami'). Data-parallel attention changes the "
+                    "batch a rank holds and removes one all-reduce per layer, and "
+                    "no remaining scaling law describes either. Harvest an anchor "
+                    "at the target attention layout, project this point "
+                    "analytically instead of from the anchor, or set "
+                    "INFERASIM_ALLOW_LAYOUT_MISMATCH=1 to reuse it unchanged and "
+                    "accept the error."
+                )
+            print(
+                f"[inferasim:Inference] attention-DP {self._bench_attn_dp_eff} -> "
+                f"{tgt_attn_dp} is NOT being transported "
+                "(INFERASIM_ALLOW_LAYOUT_MISMATCH set); the measured step is "
+                "reused unchanged and the decode number is wrong by whatever the "
+                "layout change is worth."
+            )
+
     def _comm_model_at_tp(self, tp: int, ep: int, pp: int) -> InferenceCollectiveModel:
         """Collective model at an arbitrary parallelism, for the scaling fit."""
         mp = self.cfg.model_parallel_config
@@ -802,6 +1658,315 @@ class InferencePerformanceProjector:
             ),
             self._cc,
         )
+
+    def _step_tokens(self, at_n):
+        """How many tokens a prefill step actually carries.
+
+        Not the prompt length. The scheduler fills a step to its token budget,
+        so a 16384-token budget puts sixteen 1024-token prompts in one step and
+        only two 8192-token ones -- and a ratio between two measured widths is
+        a statement about steps, so it has to be read at the width of the step
+        the scheduler will build rather than the length of one request in it.
+
+        Getting this wrong is not a detail. Read at the request length instead,
+        the floor lifts GLM-5.2-MXFP4's ISL-1024 TTFT from -34.0% to +0.8% at 8
+        concurrent and then to +56.0% at 128, because at 128 the steps are
+        sixteen prompts wide and dominated by per-token work that does shard,
+        while a single 1024-token prompt looks like almost pure fixed cost.
+        Concurrency caps it at the low end: two requests in flight cannot fill
+        a step past two prompts however large the budget is.
+        """
+        budget = float(getattr(self.cfg.request_config, "max_num_batched_tokens", 0) or 0)
+        # Falling back to batch size the way the rest of the codebase does:
+        # ``max_concurrency`` is optional and means the batch when unset.
+        rc = self.cfg.request_config
+        conc = float(getattr(rc, "max_concurrency", 0) or getattr(rc, "batch_size", 0) or 0)
+        if at_n <= 0:
+            return at_n
+        packed = at_n
+        if conc > 0:
+            packed = conc * at_n
+        if budget > 0:
+            packed = min(packed, budget) if conc > 0 else budget
+        return max(at_n, packed)
+
+    def _measured_ratio_at(self, tokens):
+        """What two measured widths carried a ``tokens``-long prefill step by,
+        or ``None``.
+
+        Only returned when the two anchor widths are the same factor apart as
+        bench is from target, because the two are compared and a ratio over a
+        wider jump is not comparable to one over a narrower jump: four-fold
+        sharding is not two applications of two-fold. Equal factors make it
+        apples to apples -- TP2 -> TP4 against TP4 -> TP8 -- and anything else
+        is declined rather than approximated.
+        """
+        curves = self._bench_prefill_curves
+        if len(curves) < 2 or tokens <= 0:
+            return None
+        lo, hi = min(curves), max(curves)
+        if lo <= 0 or hi <= lo:
+            return None
+        if abs((hi / lo) - (self._tgt_tp / self._bench_tp)) > 1e-9:
+            return None
+
+        def step(c):
+            return (
+                float(c.get("fixed_ms") or 0.0)
+                + float(c.get("ms_per_token") or 0.0) * tokens
+                + float(c.get("ms_per_token_sq") or 0.0) * tokens * tokens
+            )
+
+        at_lo, at_hi = step(curves[lo]), step(curves[hi])
+        if at_lo <= 0.0 or at_hi <= 0.0:
+            return None
+        return at_hi / at_lo, lo, hi
+
+    def _measured_width_ratio(self):
+        """The two-anchor fit's answer for ``bench -> target``, or ``None``.
+
+        Averaged over batch exactly as ``rate_bench`` is, so the ratio being
+        applied describes the same set of points the rate was taken from.
+        """
+        fits = self._bench_scaling_fit.get("prefill") or {}
+        ratios = []
+        for _batch, (shardable, invariant) in sorted(fits.items()):
+            at_bench = shardable / self._bench_tp + invariant
+            at_tgt = shardable / self._tgt_tp + invariant
+            if at_bench > 0.0 and at_tgt > 0.0:
+                ratios.append(at_tgt / at_bench)
+        return sum(ratios) / len(ratios) if ratios else None
+
+    def _prefill_width_scale(self, probed=None) -> tuple:
+        """``(rate_scale, fixed_scale)`` carrying prefill from the anchor's width
+        to the target's.
+
+        Three laws, in the order they are preferred:
+
+        **The simulator's own ratio** (``origami``, the default). Evaluates a
+        prefill step at both widths analytically and moves the measured anchor
+        by ``sim(target) / sim(bench)``. The absolute analytical cost is not
+        trusted anywhere here -- it is several-fold off -- but it cancels in the
+        ratio, leaving a shape that knows what the other two laws cannot: how
+        wide each rank's GEMMs end up and what the collectives cost there.
+
+        **A fit through two measured widths**, if a second anchor was supplied.
+
+        **Ideal sharding**, ``bench_tp / tgt_tp``, with a warning.
+
+        Ideal is preferred by neither and is only a floor, because whether it
+        holds is a property of the model that one anchor width cannot reveal.
+        Measured at TP4 and TP8, DeepSeek's whole prefill step carries at 0.651
+        and GLM-5.2-MXFP4's at 0.825 -- GLM barely gains from the extra width at
+        all, because its per-token work is MXFP4 expert GEMMs already too narrow
+        at TP4 to fill the matrix cores. Against those two:
+
+            law              DeepSeek   GLM-5.2
+            ideal sharding     +9.2%     -32.6%
+            two-width fit         --     -25.8%
+            simulator ratio    -4.4%      -6.9%
+
+        The two-width fit losing to the simulator is not an accident of GLM. Its
+        anchors are at TP2 and TP4, and GLM shards at 0.563 between those before
+        falling off a cliff to 0.825 above them, so every point the fit can see
+        says scaling is healthy. Extrapolating from below the target cannot find
+        a breakdown that only happens above it; evaluating the target width
+        directly can.
+
+        ``fixed_scale`` is 1.0 for the latter two laws, which shard the
+        per-token half and hold the per-step intercept -- right for them,
+        because ideal sharding is a statement about per-token compute.
+
+        The simulator's ratio instead applies to **both** halves, and that is
+        deliberate and hard-won. The prefill probe separates a step cleanly:
+        its slope times the token count reproduces the engine's own prefill
+        time to four figures (DeepSeek-V4-Pro at TP4, 46.68 us/tok x 8192 =
+        382.4 ms against 382.43 measured), so the slope is engine work and the
+        intercept is host and queueing cost outside it. It is tempting to carry
+        those two separately, and the simulator will offer a ratio for each.
+        Do not: it gets the whole step right and the split wrong.
+
+            DeepSeek-V4-Pro, TP4 -> TP8      simulator   measured
+            per-token (engine) work            x0.665     x0.365
+            per-step (host) cost               x0.520     x1.630
+            whole step                         x0.622     x0.648
+
+        Its per-token work shards *better* than ideal while its host cost rises
+        by nearly two thirds, and the simulator has both backwards. The whole
+        step survives because the two errors are opposed and cancel. Carrying
+        only the per-token half and holding the intercept reads +14.7% here,
+        and +20.1% on the earlier whole-prefill observable, against -4.4% for
+        the blended ratio.
+
+        Llama-3.1-8B does not contradict this, it merely cannot see it: its
+        host cost is 8.06 +/- 2.49 ms across TP1..TP8, about 8% of a step, so
+        any split is nearly the same number. Splitting reads +1.6% there
+        against +4.9% blended -- a real but small gain, bought at the price of
+        +14.7% on a model where the intercept is 22% of the step. And on GLM
+        the split costs more still: scored through the scheduler against
+        measured TP8 at ISL 1024, the median error goes 18.2% -> 24.4%.
+
+        A split is the right shape and will be worth having once each half can
+        be calibrated against something. Neither can today: the engine slope is
+        measured only at one sequence per step while the scheduler packs
+        sixteen at ISL 1024, and every anchor's batch sweep is derived by
+        multiplication rather than measured, so nothing on disk constrains the
+        packed regime. That is what ``--prefill-packed-points`` is for.
+        """
+        if not self._restore:
+            return 1.0, 1.0
+        ideal = self._bench_tp / self._tgt_tp
+        at_n = int(self.cfg.request_config.input_seq_len or self._meas_ref_input or 1)
+        measured = self._measured_width_ratio()
+        if self._scaling_mode == "origami":
+            # The ISL probe measures a prefill step as a per-step cost plus a
+            # per-token rate. Those two halves answer to width completely
+            # differently, so they are carried differently: only the per-token
+            # half is scaled, and the simulator is asked for that ratio alone.
+            #
+            # Llama-3.1-8B, measured at every width from one GPU to eight,
+            # shows why. Its per-step cost is 7.3, 5.5, 7.9, 11.5 ms at TP1,
+            # 2, 4 and 8 -- it never shards, and drifts slightly upward as
+            # collectives are added. Its per-token rate is 17.0, 19.3, 11.2
+            # and 7.0 us/tok. Transporting its TP4 anchor to TP8 and checking
+            # against the TP8 anchor actually measured (68.8 ms at 8192 tok):
+            #
+            #     law                                          err
+            #     ideal sharding                             -21.9%
+            #     whole-step ratio on everything              +4.9%
+            #     simulator's split, both halves              +2.0%
+            #     simulator's per-token ratio, cost held      +1.6%
+            #     fitted from measured TP2 + TP4             -11.2%
+            #     fitted from measured TP1 + TP4             +19.7%
+            #
+            # Two things fall out. Holding the per-step cost beats scaling it
+            # by anything, including the simulator's own guess at it -- which
+            # is not even self-consistent across models, claiming 1.034 here
+            # and 0.520 on GLM-5.2-MXFP4 while measurement says it rises.
+            #
+            # And a second measured width does not help: it hurts. Worst of
+            # all is the widest span, TP1 + TP4, because TP1 runs no
+            # collectives whatsoever -- TP1 -> TP2 carries per-token work at
+            # 1.135, costing *more* on two GPUs than on one. A fit through
+            # that reads the one-off arrival of communication as a trend and
+            # extrapolates it forever. TP2 + TP4 avoids that and is still
+            # worse than the simulator, because two points cannot see a
+            # threshold: GLM-5.2-MXFP4 shards near-ideally to TP4 and then
+            # stalls, and nothing measured at TP4 or below contains that.
+            lo, hi = None, None
+            if probed and len(probed) >= 2 and probed[-1] > probed[0]:
+                lo, hi = probed[0], probed[-1]
+            elif at_n > 2048:
+                lo, hi = 1024, at_n
+            if lo is not None:
+                s_lo = self._origami_steps(1, lo, "prefill")
+                s_hi = self._origami_steps(1, hi, "prefill")
+                if s_lo and s_hi:
+                    (t_lo, b_lo), (t_hi, b_hi) = s_lo, s_hi
+                    m_t = (t_hi - t_lo) / (hi - lo)
+                    m_b = (b_hi - b_lo) / (hi - lo)
+                    f_t, f_b = t_lo - m_t * lo, b_lo - m_b * lo
+                    if m_t > 0.0 and m_b > 0.0 and f_b > 0.0:
+                        print(
+                            f"[inferasim:Inference] prefill width split, for "
+                            f"the record only: TP{self._bench_tp} -> "
+                            f"TP{self._tgt_tp} per-token x{m_t / m_b:.3f} "
+                            f"({m_b * 1000:.3f} -> {m_t * 1000:.3f} us/tok), "
+                            f"per-step x{f_t / f_b:.3f} ({f_b:.2f} -> "
+                            f"{f_t:.2f} ms). Neither is used on its own; see "
+                            f"_prefill_width_scale for why."
+                        )
+            steps = self._origami_steps(1, at_n, "prefill")
+            if steps:
+                s_tgt, s_bench = steps
+                if s_bench > 0.0 and s_tgt > 0.0:
+                    r = s_tgt / s_bench
+                    floored = ""
+                    at_len = self._measured_ratio_at(self._step_tokens(at_n))
+                    if at_len is not None and at_len[0] > r:
+                        # The same guard as below, but read at the prompt
+                        # length being asked about instead of wherever the
+                        # anchors were harvested, which is the only way the
+                        # comparison means anything: the measured ratio moves
+                        # from 0.936 to 0.564 across GLM-5.2-MXFP4's length
+                        # range, so a single number for it is right at one
+                        # length and wrong everywhere else.
+                        #
+                        # Verified against Llama-3.1-8B, measured at TP2, TP4
+                        # and TP8. At every length the narrower jump carries
+                        # less than the wider one, with margin:
+                        #
+                        #     tokens   TP2->TP4   TP4->TP8
+                        #       1024      0.711      1.003
+                        #       2048      0.685      0.837
+                        #       4096      0.649      0.724
+                        #       8192      0.603      0.703
+                        #
+                        # Note the top right: at 1024 tokens this model gains
+                        # nothing at all from TP8 over TP4, because the step is
+                        # almost entirely the cost that does not shard. Any law
+                        # that reports sharding there is wrong, and the floor is
+                        # what notices.
+                        rf, lo, hi = at_len
+                        r, floored = (
+                            rf,
+                            (
+                                f" Raised to {rf:.3f}, which is what TP{lo} and "
+                                f"TP{hi} measured for a {at_n}-token step and "
+                                f"sharding cannot beat."
+                            ),
+                        )
+                    elif measured is not None and measured > r:
+                        # Sharding does not improve as a model is spread wider.
+                        # Each doubling adds collectives and halves every GEMM
+                        # again, so the fraction of a step that responds to
+                        # width only falls: measured per-token prefill carries
+                        # at 0.580 from TP2 to TP4 on Llama-3.1-8B and then
+                        # 0.625 from TP4 to TP8, and GLM-5.2-MXFP4 goes 0.507
+                        # and then 0.68 or worse. A ratio below what the anchor
+                        # widths already demonstrated is therefore claiming a
+                        # gain the hardware has never shown, so the measured
+                        # one becomes a floor.
+                        #
+                        # This is a guard, not a correction. On both models
+                        # where two widths exist the simulator is already above
+                        # the floor -- 0.768 against 0.507, 0.676 against 0.580
+                        # -- so it does not bind today. It exists because the
+                        # opposite reduction is tempting and would be a
+                        # disaster: taking the *lower* of the two hands GLM
+                        # 0.507 against a true 0.68 to 0.825, which is the
+                        # ideal-sharding error that read its TTFT 39% low.
+                        r, floored = (
+                            measured,
+                            (
+                                f" Raised to the {measured:.3f} its own anchor "
+                                f"widths measured, which sharding cannot beat."
+                            ),
+                        )
+                    print(
+                        f"[inferasim:Inference] prefill width scaling from the "
+                        f"simulator's whole-step TP{self._bench_tp} -> "
+                        f"TP{self._tgt_tp} ratio: {r:.3f} (ideal sharding would "
+                        f"be {ideal:.3f}).{floored}"
+                    )
+                    return r, r
+        if measured is not None:
+            print(
+                f"[inferasim:Inference] prefill width scaling fitted through "
+                f"two anchor widths: TP{self._bench_tp} -> TP{self._tgt_tp} "
+                f"shards by {measured:.3f} (ideal would be {ideal:.3f})."
+            )
+            return measured, 1.0
+        print(
+            f"[inferasim:Inference] WARNING: per-token prefill work is assumed "
+            f"to shard ideally from TP{self._bench_tp} to TP{self._tgt_tp} (by "
+            f"{ideal:.3f}). That is an assumption, not a measurement, and one "
+            f"anchor width cannot check it: GLM-5.2-MXFP4 actually carries its "
+            f"prefill at 0.825, and assuming ideal read its TTFT 39% low and "
+            f"its throughput 27% high across all 56 of its configs. Neither "
+            f"the simulator ratio nor a second anchor width was available here."
+        )
+        return ideal, 1.0
 
     def _fit_tp_scaling(self, phase: str) -> None:
         """Fit ``compute(tp) = shardable / tp + invariant`` per batch size.
@@ -852,16 +2017,49 @@ class InferencePerformanceProjector:
         if fits:
             self._bench_scaling_fit[phase] = fits
 
+    @staticmethod
+    def _anchor_floor_from(blob: dict) -> float:
+        """The anchor's parallelism-invariant decode floor, from its own sweep.
+
+        A decode step is a fixed per-step cost (kernel dispatch, occupancy,
+        resident collectives) plus work that shards with parallelism. At the
+        smallest batch the shardable part is nearly nothing, so the cheapest
+        step in the sweep is essentially the fixed cost alone -- and being
+        fixed, it is the same at the target parallelism, which is what lets a
+        sub-node anchor reach a full-node target.
+
+        Returns 0.0 unless the sweep has at least two batch points: a single
+        measurement is not a floor, it is just that measurement, and treating
+        it as one would pin the whole curve to it.
+        """
+        pts = [float(e["decode_ms"]) for e in (blob.get("sweep") or []) if e.get("decode_ms")]
+        return min(pts) if len(pts) >= 2 else 0.0
+
     def _report_tp_scaling(self) -> None:
         """Print the TP-scaling law the restore will use."""
+        if self._restore and getattr(self, "_anchor_decode_floor_ms", 0.0) > 0.0:
+            print(
+                f"[inferasim:Inference] TP scaling (decode): floor-preserving — "
+                f"holding the anchor's measured {self._anchor_decode_floor_ms:.2f} ms "
+                f"invariant floor fixed and sharding only the excess from TP="
+                f"{self._bench_tp} to TP={self._tgt_tp}."
+            )
         if (
             self._scaling_mode == "origami"
             and self._restore
             and getattr(self, "_lm_ratio_bench", None) is not None
         ):
+            # Names the phases it still governs: when the decode floor law is
+            # active the origami ratio carries prefill only, and saying
+            # otherwise would credit it for a decode step it never touched.
+            phases = (
+                "prefill"
+                if getattr(self, "_anchor_decode_floor_ms", 0.0) > 0.0
+                else "prefill + decode"
+            )
             print(
-                f"[inferasim:Inference] TP scaling: origami-ratio (simulate vLLM-fused "
-                f"MoE) — scaling measured TP={self._bench_tp} anchor to TP="
+                f"[inferasim:Inference] TP scaling ({phases}): origami-ratio (simulate "
+                f"vLLM-fused MoE) — scaling measured TP={self._bench_tp} anchor to TP="
                 f"{self._tgt_tp} by sim(target)/sim(bench)."
             )
             return
@@ -926,6 +2124,16 @@ class InferencePerformanceProjector:
                     ep,
                     pp,
                 )
+        # The length curve too, not just the step times. A ratio between two
+        # measured widths is strongly prompt-length dependent -- GLM-5.2-MXFP4
+        # carries TP2 -> TP4 at 0.936 for a 1024-token prompt and 0.564 for an
+        # 8192-token one, because a short step is mostly the per-step cost that
+        # does not shard -- so comparing it against anything requires
+        # evaluating it at the length being asked about rather than wherever
+        # the anchors happened to be harvested.
+        curve = ((meta.get("prefill_anchor") or {}).get("curve_fit")) or None
+        if curve and curve.get("ms_per_token"):
+            self._bench_prefill_curves[tp] = curve
 
     def _restore_per_layer(self, ltype: str, ms_bench: float, batch: int, tokens: int) -> float:
         """Restore a per-layer time measured at the benchmark's (reduced) TP/EP to
@@ -1034,7 +2242,50 @@ class InferencePerformanceProjector:
         if not self._restore or ms_bench <= 0.0:
             return ms_bench
 
-        # Origami-ratio (default): scale the measured anchor by the simulator's
+        # Measured-floor sharding (preferred for decode): hold the anchor's own
+        # invariant floor fixed and shard only the excess above it.
+        #
+        #     step(target) = floor + (step(bench) - floor) * bench_tp/target_tp
+        #
+        # This is the physics ``_decode_floor_ms`` already asserts -- above the
+        # roofline knee the step is fixed per-step overhead and does not shrink
+        # with parallelism -- applied as the transport itself rather than only
+        # as a clamp after the fact. It needs nothing but the anchor's own batch
+        # sweep, which is what makes a sub-node warmup worth having: the target
+        # parallelism never has to be measured.
+        #
+        # Measured on MI355X, carrying a TP4 anchor of DeepSeek-V4-Pro (Atom,
+        # ISL 8192) to TP8 against a TP8 ladder, over batches 1..64:
+        #
+        #     blind TP^-1              median 44.1% error   (max 51.7%)
+        #     origami additive delta   median 18.5%         (max 29.3%)
+        #     floor-preserving shard   median  0.9%         (max  3.5%)
+        #
+        # The two weaker laws fail for the same reason from opposite ends: both
+        # let the fixed cost scale. Blind TP^-1 halves the whole step; the
+        # origami delta subtracts a saving computed by a simulator whose own
+        # floor is near zero (batch-1 decode of 4.20 ms at TP4 vs 2.33 at TP8,
+        # near-perfect TP^-1, where the real steps are 15.34 and 15.89 -- flat).
+        # Solving the two measured parallelisms for the split puts the invariant
+        # at 14.4-15.5 ms at every batch from 1 to 64, i.e. 51-99% of the TP8
+        # step, so a law that shrinks it cannot be close.
+        if (
+            phase == "decode"
+            and self._tgt_tp != self._bench_tp
+            and getattr(self, "_anchor_decode_floor_ms", 0.0) > 0.0
+        ):
+            floor = self._anchor_decode_floor_ms
+            excess = max(0.0, ms_bench - floor)
+            restored = floor + excess * (self._bench_tp / self._tgt_tp)
+            if os.getenv("INFERASIM_DEBUG_RESTORE"):
+                print(
+                    f"[dbg-restore] phase=decode b={batch} floor={floor:.3f} "
+                    f"ms_bench={ms_bench:.3f} restored={restored:.3f} "
+                    f"(floor-preserving, TP{self._bench_tp}->TP{self._tgt_tp})"
+                )
+            return restored
+
+        # Origami-ratio: scale the measured anchor by the simulator's
         # whole-step TP-scaling ratio sim(target)/sim(bench). The vLLM-fused MoE
         # cost model captures the saturating decode curve (compute sharding +
         # comm growth) better than a 2-point linear fit; the ~5x absolute origami
@@ -1589,13 +2840,46 @@ class InferencePerformanceProjector:
             return dcf * spec_k * max(0.0, per_token_step_ms)
         return 0.0
 
+    def _measured_verify_step_scale(self) -> float:
+        """Factor turning one measured decode number into one verify-step time.
+
+        What the anchor measured decides this. Harvested *with* speculation, the
+        differenced decode timing is a per-output-token latency with acceptance
+        already folded in -- see the note in ``benchmark_vllm`` where the
+        speculative config is applied -- so a step emitting
+        ``_spec_tokens_per_step()`` tokens costs that many times the
+        measurement.
+
+        Scaling such an anchor by the verify width ``k + 1`` instead charges the
+        draft twice. It inflated decode by ``(k + 1) / tokens_per_step`` -- 1.09x
+        at ``k=1, accept=0.84``, 1.58x at ``k=3, accept=0.7``, exact only at
+        perfect acceptance -- and understated throughput by the same ratio, so
+        speculation read worse the better it was accepted.
+
+        Harvested *without* speculation there is nothing folded in, and a verify
+        pass is not derivable from a single-token step: that is why speculation
+        is regime-defining. The anchor store refuses that pairing, but
+        ``--load-benchmark`` does not, so the old width scaling stays for it
+        rather than inventing a number that would look calibrated.
+        """
+        spec_k = int(self.cfg.request_config.speculative_num_tokens or 0)
+        if spec_k <= 0:
+            return 1.0
+        if self._bench_spec_k > 0:
+            return max(1e-6, self._spec_tokens_per_step())
+        return float(spec_k + 1)
+
     def _decode_step_latency_ms(self, batch: int, kv_len: int, q_len: int = 1) -> float:
         # Benchmark-based: use the measured decode step directly (memory-bound,
         # ~flat in context over a generation, so no simulator context-scaling).
         if self._measured_mode:
             per_token = self._measured_decode_step_ms(batch, kv_len)
-            step = per_token * q_len if q_len > 1 else per_token  # verify q_len tokens/step
-            step = step + self._draft_overhead_ms(per_token) + self._decode_step_overhead_ms()
+            step = per_token * self._measured_verify_step_scale()
+            # A speculation-harvested anchor already paid for the draft pass, so
+            # adding the modelled overhead would bill it a second time.
+            if self._bench_spec_k <= 0:
+                step += self._draft_overhead_ms(per_token)
+            step += self._decode_step_overhead_ms()
             return max(step, self._decode_floor_ms(batch))
         ft = self._forward_times(batch, q_len, "decode", kv_len)
         per_token = ft.total_ms / max(1, q_len)
@@ -1634,7 +2918,10 @@ class InferencePerformanceProjector:
         chunk_tokens = max(1, int(chunk_tokens))
         num_decode = max(0, int(num_decode))
         if self._measured_mode:
-            spec = q_len if q_len > 1 else 1
+            # See ``_measured_verify_step_scale``: a speculation-harvested decode
+            # number is per output token, so the step scales by the tokens it
+            # emits rather than by the verify width ``q_len``.
+            spec = self._measured_verify_step_scale()
             prefill_piece = self._measured_prefill_tokens_ms(chunk_tokens)
             dec_piece = (
                 self._measured_decode_step_ms(num_decode, decode_ctx) * spec
@@ -1765,7 +3052,11 @@ class InferencePerformanceProjector:
             # Benchmark-based: average the pure/mixed step over the context window
             # [ISL, ISL+OSL]. The measured decode step carries its fitted KV term,
             # so this is flat only when that slope is ~0 (prior behaviour).
-            spec = q_len if q_len > 1 else 1
+            # Same anchor semantics as ``_decode_step_latency_ms``: a
+            # speculation-harvested decode number is per output token, so the
+            # step scales by the tokens a step emits, not by the verify width.
+            spec = self._measured_verify_step_scale()
+            draft_billed_by_anchor = self._bench_spec_k > 0
             n_samples = min(8, max(2, int(OSL)))
             # Benchmark mode prices prefill from measured kernels, so the anchor
             # is inert there and the two steps coincide.
@@ -1774,7 +3065,8 @@ class InferencePerformanceProjector:
                 frac = i / (n_samples - 1) if n_samples > 1 else 0.0
                 ctx = int(ISL + frac * OSL)
                 d_pure = self._measured_decode_step_ms(C, ctx)
-                pure.append(d_pure * spec + self._draft_overhead_ms(d_pure) + ov)
+                draft = 0.0 if draft_billed_by_anchor else self._draft_overhead_ms(d_pure)
+                pure.append(d_pure * spec + draft + ov)
                 prefill_piece = self._measured_prefill_tokens_ms(chunk_tokens)
                 dec_piece = self._measured_decode_step_ms(max(1, C - 1), ctx) * spec
                 mixed.append((prefill_piece + dec_piece) * (1.0 + penalty) + ov)
@@ -2271,7 +3563,16 @@ class InferencePerformanceProjector:
             step_latency = self._decode_step_latency_ms(batch, mid_ctx, q_len=q_len)
             itl = (decode_total / output_len) if output_len > 0 else step_latency
             per_req_decode_tps = (1000.0 / itl) if itl > 0 else 0.0
-            decode_tps = (batch * 1000.0 / step_latency) if step_latency > 0 else 0.0
+            # One step emits ``_spec_tokens_per_step()`` tokens per sequence, not
+            # one. ``step_latency`` is already the longer verify step, so without
+            # the matching numerator speculation showed up as a throughput loss
+            # here -- the bug the disaggregated path above was fixed for, which
+            # this static branch kept.
+            decode_tps = (
+                (batch * self._spec_tokens_per_step() * 1000.0 / step_latency)
+                if step_latency > 0
+                else 0.0
+            )
 
         # Per-token detokenization + streaming (client-side host cost). Serving
         # harnesses measure ITL client-side, so it carries this; the GPU decode
@@ -2364,18 +3665,21 @@ class InferencePerformanceProjector:
             latency_us=disagg.resolved_kv_transfer_latency_us(),
         )
 
-    def _project_disaggregated(self) -> InferencePerfResult:
+    def pool_projectors(
+        self,
+    ) -> tuple[InferencePerformanceProjector, InferencePerformanceProjector]:
+        """One projector per pool, each at its own parallelism and anchor.
+
+        Exposed because the DES needs the same two cost models the closed-form
+        path builds. A simulator handed the disaggregated projector alone would
+        have to price both pools from the parent's parallelism, which is the
+        colocated layout and belongs to neither pool.
+        """
         from dataclasses import replace
 
-        req = self.cfg.request_config
-        batch = max(1, req.batch_size)
-        input_len = max(1, req.input_seq_len)
-        output_len = max(0, req.output_seq_len)
         disagg = self.cfg.disaggregation_config
         mp = self.cfg.model_parallel_config
-
-        # Build dedicated prefill / decode projectors with per-pool parallelism.
-        # Disable disaggregation on the sub-configs to avoid recursion.
+        # Disaggregation is disabled on the sub-configs to avoid recursion.
         prefill_cfg = replace(
             self.cfg,
             model_parallel_config=disagg.prefill_parallel(mp),
@@ -2386,12 +3690,59 @@ class InferencePerformanceProjector:
             model_parallel_config=disagg.decode_parallel(mp),
             disaggregation_config=replace(disagg, enabled=False),
         )
-        prefill_proj = InferencePerformanceProjector(
-            prefill_cfg, args=self._args_ref, benchmark_layer_times=self._bench_measured
+        return (
+            InferencePerformanceProjector(
+                prefill_cfg,
+                args=self._args_ref,
+                benchmark_layer_times=self._pool_anchor("prefill"),
+            ),
+            InferencePerformanceProjector(
+                decode_cfg,
+                args=self._args_ref,
+                benchmark_layer_times=self._pool_anchor("decode"),
+            ),
         )
-        decode_proj = InferencePerformanceProjector(
-            decode_cfg, args=self._args_ref, benchmark_layer_times=self._bench_measured
-        )
+
+    def kv_handoff_ms(self, decode_proj: InferencePerformanceProjector, context_len: int) -> float:
+        """Prefill→decode KV handoff for one request of ``context_len`` tokens.
+
+        The DES charges this per request at the moment prefill retires, which is
+        where it actually lands; the closed-form path folds the same quantity
+        into TTFT.
+        """
+        return self._kv_transfer_ms(decode_proj, 1, max(1, int(context_len)))
+
+    def _pool_anchor(self, pool: str):
+        """The measurement a disaggregated pool is calibrated against.
+
+        The two pools are not the same experiment. They run at different
+        parallelism and attention layout, and one is compute-bound on long
+        prompts while the other is memory-bound on single tokens, so the single
+        colocated artifact ``--load-benchmark`` supplies is a compromise that
+        describes neither exactly. A pool that names its own measurement gets
+        it; the shared anchor stays the fallback, so a run without the per-pool
+        flags is unchanged.
+        """
+        return self._pool_benchmarks.get(pool) or self._bench_measured
+
+    def _project_disaggregated(self) -> InferencePerfResult:
+        req = self.cfg.request_config
+        # PDD is a continuous serving topology: the load on the two pools is
+        # the resolved in-flight concurrency, not the static microbatch field.
+        # Using ``batch_size`` here made --max-concurrency a no-op only when
+        # disaggregation was enabled, so the same requested load described two
+        # different experiments on the colocated and PDD paths.
+        conc = self._effective_concurrency()
+        batch = conc["concurrency"]
+        input_len = max(1, req.input_seq_len)
+        output_len = max(0, req.output_seq_len)
+        disagg = self.cfg.disaggregation_config
+
+        for _pool in ("prefill", "decode"):
+            if self._pool_benchmarks.get(_pool):
+                print(f"[inferasim:Inference] {_pool} pool calibrated from its own anchor")
+        prefill_proj, decode_proj = self.pool_projectors()
+        prefill_cfg, decode_cfg = prefill_proj.cfg, decode_proj.cfg
 
         # Decode phase on the decode pool (drives ITL + decode throughput).
         # Computed first because the prefill queue below needs the generation
@@ -2401,7 +3752,11 @@ class InferencePerformanceProjector:
         # ``prefill_replicas``. Sizing the step at the full batch overstated the
         # step latency, and then scaling that step's throughput by the replica
         # count counted the same sequences once per replica.
-        decode_batch = max(1, batch // max(1, disagg.decode_replicas))
+        # A non-divisible population leaves one replica with the ceiling share.
+        # Price that limiting replica; floor division silently dropped requests
+        # and over-stated both latency and throughput scaling.
+        decode_loads = _split_replica_loads(batch, disagg.decode_replicas)
+        decode_batch = max(decode_loads)
         decode_total = decode_proj.decode_total_ms(decode_batch, input_len, output_len)
         mid_ctx = input_len + output_len // 2
         spec_k = int(req.speculative_num_tokens or 0)
@@ -2419,7 +3774,8 @@ class InferencePerformanceProjector:
         # prompt; a prefill-heavy load still batches the people who are
         # actually waiting. Throughput below still prices the offered load --
         # occupancy is a latency quantity, not a capacity one.
-        per_replica = max(1, batch // max(1, disagg.prefill_replicas))
+        prefill_loads = _split_replica_loads(batch, disagg.prefill_replicas)
+        per_replica = max(prefill_loads)
         kv_transfer = self._kv_transfer_ms(decode_proj, batch, input_len)
         s1 = prefill_proj.prefill_latency_ms(1, input_len)
         resp1 = self._closed_loop_wait_ms(s1, decode_total, per_replica)
@@ -2458,21 +3814,21 @@ class InferencePerformanceProjector:
         # extra tokens, and reported speculation as a throughput *loss* even as
         # per-request TPOT improved. The co-located path gets this from the
         # continuous-batching model's ``system_tps``.
-        decode_tps_replica = (
-            (decode_batch * self._spec_tokens_per_step() * 1000.0 / step_latency)
-            if step_latency > 0
-            else 0.0
-        )
-        decode_tps = decode_tps_replica * max(1, disagg.decode_replicas)
+        spec_tokens = self._spec_tokens_per_step()
+        decode_tps = 0.0
+        for load in decode_loads:
+            latency = decode_proj._decode_step_latency_ms(load, mid_ctx, q_len=q_len)
+            if latency > 0:
+                decode_tps += load * spec_tokens * 1000.0 / latency
 
         # Capacity of the prefill pool at the offered load, not at the
         # occupancy that sets TTFT. Using the occupancy batch here would
         # report a nearly-idle station as unable to feed decode.
-        prefill_cap_ms = prefill_proj.prefill_latency_ms(per_replica, input_len)
-        prefill_tps_replica = (
-            (per_replica * input_len * 1000.0 / prefill_cap_ms) if prefill_cap_ms > 0 else 0.0
-        )
-        prefill_tps = prefill_tps_replica * max(1, disagg.prefill_replicas)
+        prefill_tps = 0.0
+        for load in prefill_loads:
+            prefill_cap_ms = prefill_proj.prefill_latency_ms(load, input_len)
+            if prefill_cap_ms > 0:
+                prefill_tps += load * input_len * 1000.0 / prefill_cap_ms
 
         # In steady state the decode pool can only run what the prefill pool
         # hands it, so the system request rate is the smaller of the two.
@@ -2491,13 +3847,40 @@ class InferencePerformanceProjector:
         decode_tps_per_gpu = decode_tps / total_decode_gpus if total_decode_gpus else 0.0
 
         extras = {"speculative_tokens_per_step": self._spec_tokens_per_step()}
-        extras.update(decode_proj._comm_extras(batch, input_len, output_len, prefill_batch=1))
+        extras.update(conc["extras"])
+        extras.update(
+            decode_proj._comm_extras(decode_batch, input_len, output_len, prefill_batch=1)
+        )
         if self.is_benchmark_calibrated:
             extras["benchmark_calibrated"] = 1.0
         extras["prefill_compute_ttft_ms"] = ttft_compute
         extras["prefill_replicas"] = float(disagg.prefill_replicas)
         extras["decode_replicas"] = float(disagg.decode_replicas)
         extras["prefill_occupancy"] = float(n_prefill)
+        # The step decomposition, which this path reported as nothing at all.
+        # A disaggregated decode pool is continuously batched -- the load on it
+        # is the resolved in-flight concurrency, sized above -- and no prefill
+        # chunk ever lands in one of its batches, because moving prefill off
+        # these GPUs is the entire point of the topology. So the honest reading
+        # is a mixed-step fraction of exactly zero, not an absent one.
+        #
+        # Reporting nothing dropped ``decode_step_ms_pure``,
+        # ``mixed_step_fraction_pct`` and ``tpot_pollution_pct`` from every
+        # disaggregated row, which are precisely the objectives that show what
+        # the split buys: the colocated projection at the same shape spends
+        # 6.2% of its steps mixed and pays 33% TPOT pollution for it, and the
+        # search could not credit the alternative because the alternative
+        # reported no number to compare.
+        #
+        # The cost of a mixed step is the pure step rather than zero. There is
+        # no such step to price, and a zero would hand the topology a free win
+        # on a minimized objective instead of saying the step never happens.
+        extras["serving_continuous_batching"] = 1.0
+        extras["concurrency"] = float(batch)
+        extras["pure_step_latency_ms"] = step_latency
+        extras["mixed_step_latency_ms"] = step_latency
+        extras["mixed_step_fraction"] = 0.0
+        extras["tpot_pollution_pct"] = 0.0
 
         return InferencePerfResult(
             ttft_ms=ttft,

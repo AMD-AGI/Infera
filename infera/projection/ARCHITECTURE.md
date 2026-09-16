@@ -24,7 +24,8 @@ hardware is spent only on the shortlist.
 ## What it is
 
 This document describes how it works. For installation and task-oriented usage,
-see [README.md](README.md).
+see [README.md](README.md) or the per-topic knowledge base in the user manual,
+starting at [Simulation overview](../../manual/simulation/overview.md).
 
 InferaSim is a workload-driven simulator and projector for the serving stack.
 It is deliberately two coupled models over one measured foundation:
@@ -111,15 +112,20 @@ distinct shared prefixes of `L` tokens, blockified at the configured block size,
 with a Zipf parameter to skew popularity the way a few hot system prompts
 dominate real traffic.
 
-**Arrival processes** cover closed-loop (no queue, steady state only), Poisson,
-deterministic, and gamma-bursty via a burstiness shape parameter. The open-loop
-processes run the DES for percentiles; all of them still report the analytical
-queueing mean alongside, so the closed form and the simulation stay visible to
-each other rather than being alternatives you pick between. Per-request lengths
-are heterogeneous around the configured ISL/OSL by a range ratio. An
-offered-load sweep re-runs the workload across fractions of the maximum
-sustainable rate and emits a throughput-versus-latency curve, which is how you
-find its knee rather than assuming where it sits.
+**Arrival processes** cover Poisson, deterministic, and gamma-bursty via a
+burstiness shape parameter. These run the DES for percentiles; all of them still
+report the analytical queueing mean alongside, so the closed form and the
+simulation stay visible to each other rather than being alternatives you pick
+between. Per-request lengths are heterogeneous around the configured ISL/OSL by
+a range ratio. An offered-load sweep re-runs the workload across fractions of
+the maximum sustainable rate and emits a throughput-versus-latency curve, which
+is how you find its knee rather than assuming where it sits.
+
+**Closed-loop** is the fourth, and it is not an arrival process at all: a
+benchmark run at a fixed concurrency has no stream, just `C` clients each
+blocking on their own request and resubmitting when it returns. It can be
+answered analytically, and is by default; it can also be simulated, and the
+reason to is time to first token. See below.
 
 ## Single engine: the scheduler is the point
 
@@ -158,15 +164,86 @@ first-class terms rather than ignored:
 - prefix-cache reuse, expressed either as a static hit fraction on the
   analytical path or as an emergent property of the block cache in the DES.
 
+### Time to first token is a step count, not a duration
+
+TTFT is the metric a closed form is worst at, and the reason is a units
+mismatch rather than mispriced prefill. The analytical path computes prefill
+*service* time — how long the forward pass over the prompt takes. A benchmark
+reports *response* time. On a colocated engine those differ structurally,
+because a prefill chunk does not run on an idle GPU: it rides a scheduler step
+that is simultaneously advancing every resident decode, so it waits on steps
+that both dilate and multiply as the batch grows.
+
+Of the two it is the count that moves. Across a closed-loop ladder from one to
+64 clients on MI355X — DeepSeek-V4-Pro under Atom at TP8, 8192-token prompts —
+measured TTFT grew 29x while the decode step it rides dilated only 1.9x, so the
+prefill waited on progressively more steps rather than on proportionally slower
+ones. The count grows because the per-step token budget is shared: 64 clients
+each needing 8192 prefill tokens against an 8192-token budget cannot prefill in
+one step apiece, so prefills contend for prefill bandwidth and queue behind one
+another. Where a prompt is short relative to the budget several fit in a single
+step and the count flattens, leaving dilation as the whole story. That crossover
+sits at `ISL = budget / C`, and sweeping ISL from 256 to 8192 on the same server
+puts it there: at eight clients TTFT is flat from 256 to 1024 tokens (284, 218,
+298 ms) and climbs only past it, while at 32 clients the flat region ends at 256
+tokens and TTFT climbs from there (316, 531, 756, 1258, 2422, 4780 ms). Above
+the crossover `ceil(C * ISL / budget)` prefill steps reproduces every cell to
+within a few percent. Either way a model that prices prefill standalone holds
+TTFT constant in milliseconds and reads earlier and earlier as load rises.
+
+One scheduler property decides how much of this lands in TTFT rather than in
+TPOT, and it has to be declared: whether the engine co-schedules a prefill chunk
+with the resident decodes or gives prefill the whole step. vLLM's chunked
+prefill packs a chunk in beside the decodes; Atom does not, and logged
+`1 reqs, 8192 new tokens` against an 8192-token budget for all 1270 prefills it
+ran here. Blocking decode is what makes a closed-loop population
+re-synchronise: nobody advances while a request prefills, so all `C` clients
+start decoding together, finish together and resubmit together. The queue that
+forms is therefore standing rather than an opening transient — the C=64 run is
+ten bursts of exactly 64 prefills, each an 18 s prefill phase then a 23 s
+decode-only gap, a 41 s round against a 40.8 s measured end-to-end latency — and
+a request landing uniformly inside its burst is why measured TTFT is uniform on
+`[0, 2*median]` at every concurrency (std/mean 0.564 against 0.577 for a
+uniform, p99/median 1.96 against 1.98). Model such an engine as co-scheduling
+and the herd dissolves: the prefill queue drains, TTFT reads an order of
+magnitude early at 64 clients, and the work reappears as inflated TPOT. Use
+`--des-exclusive-prefill`, and read it off the engine's own log rather than off
+the residual.
+
+Running the DES from a closed load is what removes the mismatch, and it removes
+it by construction rather than by adding a term: the step loop already mixes
+prefill chunks with decodes, so once `C` clients are resubmitting on completion,
+TTFT is the gap between two timestamps and carries whatever dilation the packing
+produced. There is no queue model here and there does not need to be — the
+population is capped at the client count, so nothing backs up; what grows is the
+step.
+
+The input this needs is the engine's per-request per-step prefill allowance,
+which decides how many steps a prompt takes. It is declared, not derived:
+solving measured rows for it lands at tens to low hundreds of tokens per step,
+nowhere near the nominal per-step token budget, and it varies by serving stack.
+Left unset a prompt prefills in one step, which reproduces the early reading
+from the other direction. Deriving it from the errors it is meant to explain
+would relocate the problem rather than solve it, so it is read off the server's
+launch flags or left alone.
+
 ## The time axis: measure sparsely, transport analytically
 
 The cost kernel runs in one of three modes: `simulate` (no GPU, analytical
 backends for GEMM and attention), `benchmark` (real GPU measurement), or `both`
 (run each and report side by side).
 
-Pure simulation is the fast path and needs no accelerator at all. Calibration is
-what makes it trustworthy, and the mechanism is the **anchor store**: a
-directory of measured benchmark artifacts indexed by a **regime signature**.
+Pure simulation needs no accelerator at all, but it is not what a run does by
+default. Calibration is what makes a projection trustworthy, and only the
+calibrated path has an established correlation against real serving — so
+`--profiling-mode` defaults to `benchmark` and the uncalibrated analytical path
+is opt-in. A default is a claim, and this is the one the numbers support.
+
+What keeps that from meaning a GPU per question is the **anchor store**: a
+directory of measured benchmark artifacts indexed by a **regime signature**. A
+run resolves its anchor from the store before deciding to measure, so a regime
+that has been warmed up once projects freely thereafter, and a run with neither
+an anchor nor an accelerator stops rather than downgrading.
 
 Recipe parameters split in two. **Regime-defining** parameters swap the
 kernel or execution path — dtype, backend, the graph or attention library in
@@ -179,13 +256,11 @@ lives in one place.
 
 A single-GPU anchor cannot observe cross-GPU communication, which is exactly
 the cost that matters at scale. So a warmup measures on `min(tp, 4)` GPUs —
-enough to see the collectives, cheap enough not to need a full node — and the
-projector restores every target from that one anchor. There is no sweep: four
-was chosen by scoring each degree of a measured TP1/2/4/8 sweep as the anchor
-for the degrees it did not measure, where it won outright, and a second anchor
-never beat it. Targets more than one doubling past their anchor are reported as
-extrapolated rather than restored, which keeps the distinction visible instead
-of silently confident.
+enough to see multi-rank collectives, cheap enough not to require a full node,
+and only one doubling from an eight-GPU target. This is an operational default
+rather than a universal accuracy claim. Targets more than one doubling past
+their anchor are reported as extrapolated, and a scaling anchor or target-width
+confirmation is the appropriate path when the decision needs stronger evidence.
 
 ## Multi-engine: fleet behaviour
 
@@ -220,12 +295,18 @@ the way to study eviction pressure.
 
 ## Disaggregation
 
-Prefill and decode can be modelled as separate worker pools, each with its own
-parallel shape, with the KV-cache transfer cost charged when a request migrates
-from a prefill worker to a decode worker. Disabled, the projector runs the
-standard colocated two-phase model. This is where the decode admission term
-above matters most, since prefill compute is off the critical path and what
-remains visible in TTFT is the waiting.
+The analytical projector can model prefill and decode as separate worker pools,
+each with its own parallel shape and replica count, with the KV-cache transfer
+cost charged when a request migrates from prefill to decode. It divides the
+resolved concurrency across each pool, prices the limiting replica and caps
+steady-state request rate at the slower pool.
+
+This is not an event-driven PDD simulation. The DES currently models colocated
+unified-batch engines and fleets of those engines; it does not run independent
+prefill/decode event queues, transfer-contention events, or role-specific
+schedulers. Consequently the PDD path returns analytical means and capacity,
+not PDD tail distributions. This is where an architecture-level simulator such
+as Frontier has a materially different capability.
 
 ## What comes out
 
@@ -265,7 +346,10 @@ shortlisted by objective.
 Above that sits a tuning agent that uses the projector as an oracle. It starts
 from a deterministic seed sweep for a warm start, then runs an LLM-driven search
 that continues from the warm-started incumbent, proposing recipes and scoring
-them through the projector with no GPU in the default path. The search space is
+them through the projector. A search has to score thousands of candidates, so
+the agent asks for the analytical path explicitly rather than inheriting the
+CLI's measured default; measuring is something it requests per candidate. The
+search space is
 large and awkward to enumerate, so the agent navigates rather than grids.
 
 ## Simulate, then verify
@@ -309,8 +393,11 @@ What a tool does not model matters as much as what it does.
 - **No capacity control.** There is no autoscaler, no SLA-driven replica
   scaling, and no model of worker startup delay. The fleet size is what you set
   it to.
-- **One cache tier.** KV lives in device memory. There is no host-memory or SSD
-  tier, no offload or onboard traffic, and no distributed cache target.
+- **One stateful cache tier in the DES.** The analytical projector can price a
+  bounded host-KV offload allowance and its transfer bandwidth, but the DES has
+  one device-resident block cache. It does not simulate tier promotion,
+  asynchronous prefetch, host/SSD eviction, distributed cache ownership, or
+  contention on the offload link.
 - **Only what enters the serving spec.** The projection is built from parallel
   shape, concurrency, sequence lengths and precision. Server flags that do not
   enter that spec are passed through untouched and project to the same number,

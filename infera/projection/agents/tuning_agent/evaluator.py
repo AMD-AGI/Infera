@@ -551,6 +551,7 @@ def _build_inference_cmd(
     profiling_mode: str | None = None,
     bench_gpus: int | None = None,
     decode_floor: Path | None = None,
+    pool_benchmarks: dict[str, Path] | None = None,
 ) -> list[str]:
     # The inference projector runs single-process and (in --profiling-mode
     # benchmark) drives its OWN serving engine, which shards itself, so the
@@ -664,16 +665,41 @@ def _build_inference_cmd(
             cmd += ["--prefill-tp", str(cfg.prefill_tp)]
         if getattr(cfg, "decode_tp", None):
             cmd += ["--decode-tp", str(cfg.decode_tp)]
+        if getattr(cfg, "prefill_ep", None):
+            cmd += ["--prefill-ep", str(cfg.prefill_ep)]
+        if getattr(cfg, "decode_ep", None):
+            cmd += ["--decode-ep", str(cfg.decode_ep)]
+        # Per-pool attention layout. A single global --attention-dp-size applies
+        # the same degree to both pools, which cannot describe the asymmetric
+        # layouts these models are served in.
+        if getattr(cfg, "prefill_attention_dp", None):
+            cmd += ["--prefill-attention-dp", str(cfg.prefill_attention_dp)]
+        if getattr(cfg, "decode_attention_dp", None):
+            cmd += ["--decode-attention-dp", str(cfg.decode_attention_dp)]
+        if getattr(cfg, "prefill_replicas", 1) and cfg.prefill_replicas > 1:
+            cmd += ["--prefill-replicas", str(cfg.prefill_replicas)]
         if getattr(cfg, "decode_replicas", 1) and cfg.decode_replicas > 1:
             cmd += ["--decode-replicas", str(cfg.decode_replicas)]
         if getattr(cfg, "transfer_backend", None):
             cmd += ["--transfer-backend", str(cfg.transfer_backend)]
+        # Each pool calibrated against a measurement taken at its own shape,
+        # when one exists. The pools run at different parallelism and attention
+        # layout, so the shared anchor is a compromise that describes neither.
+        for pool, path in (pool_benchmarks or {}).items():
+            cmd += [f"--{pool}-benchmark", str(path)]
     if agent_cfg.target_cluster.gpu_clock_mhz:
         cmd += ["--gpu-clock-mhz", str(agent_cfg.target_cluster.gpu_clock_mhz)]
     if load_benchmark is not None:
         cmd += ["--load-benchmark", str(load_benchmark)]
     elif profiling_mode == "benchmark" and bench_gpus:
         cmd += ["--profiling-mode", "benchmark"]
+    else:
+        # Say "simulate" out loud. The projection CLI defaults to measuring, so
+        # omitting the flag here would have the search spawn a serving engine
+        # per candidate -- the opposite of a search that scores thousands of
+        # them on the cost model. Measuring is requested explicitly, by the two
+        # branches above.
+        cmd += ["--profiling-mode", "simulate"]
     if decode_floor is not None:
         cmd += ["--decode-floor-benchmark", str(decode_floor)]
     return cmd
@@ -869,6 +895,29 @@ class Evaluator:
                 best = (gpus, path)
         return best[1] if best else None
 
+    def _resolve_pool_bench_artifacts(self, cfg) -> dict[str, Path] | None:
+        """Cached anchors measured at each disaggregated pool's own shape.
+
+        A pool is only calibrated separately when the cache actually holds a
+        measurement for its shape *and* that shape differs from the trial's --
+        otherwise the shared ``--load-benchmark`` already describes it and a
+        redundant per-pool flag would only obscure which artifact was used.
+        """
+        cache = os.environ.get("INFERASIM_INFER_BENCH_CACHE")
+        if not cache or os.environ.get("INFERASIM_INFER_BENCH_ARTIFACT"):
+            return None
+        is_moe = bool(getattr(self.arch, "is_moe", False))
+        out: dict[str, Path] = {}
+        for pool in ("prefill", "decode"):
+            pool_tp = getattr(cfg, f"{pool}_tp", None)
+            if not pool_tp or pool_tp == cfg.tp:
+                continue
+            pool_ep = getattr(cfg, f"{pool}_ep", None) or (cfg.ep if is_moe else 1)
+            cand = Path(cache) / f"{self.arch.model_name}_tp{pool_tp}_pp{cfg.pp}_ep{pool_ep}.json"
+            if cand.exists():
+                out[pool] = cand
+        return out or None
+
     def _resolve_decode_floor(self, cfg) -> Path | None:
         """Decode latency floor probe for an EP-sharded MoE target.
 
@@ -956,6 +1005,17 @@ class Evaluator:
         # probe's measured curve (no-op below the floor / for pure-TP).
         decode_floor = self._resolve_decode_floor(cfg) if is_bench else None
 
+        # Per-pool anchors for a disaggregated trial. The pools run at different
+        # parallelism, so an anchor measured at one pool's shape describes the
+        # other only by coincidence; where the cache holds a measurement for a
+        # pool's own shape, that pool is calibrated against it instead of the
+        # shared one.
+        pool_benchmarks = (
+            self._resolve_pool_bench_artifacts(cfg)
+            if is_bench and getattr(cfg, "disaggregate", False)
+            else None
+        )
+
         cmd = _build_inference_cmd(
             yaml_path,
             cfg,
@@ -965,6 +1025,7 @@ class Evaluator:
             profiling_mode=profiling_mode,
             bench_gpus=bench_gpus,
             decode_floor=decode_floor,
+            pool_benchmarks=pool_benchmarks,
         )
         rc, out, dur = _run(
             cmd,

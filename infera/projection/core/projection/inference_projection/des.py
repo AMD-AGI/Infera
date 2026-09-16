@@ -15,6 +15,26 @@ the questions the closed-form model structurally cannot:
     real queueing and admission, and
   * **throughput-vs-latency curve** — sweep offered load to find the knee.
 
+**Closed-loop arrivals (``closed_loop_clients``).**  A serving benchmark run
+with ``--max-concurrency C`` is not an open-loop stream: ``C`` clients each
+submit one request, block until it completes, then immediately submit the next.
+Driving the DES that way is what makes **TTFT an observed quantity** — the
+difference between two simulated timestamps — rather than a closed-form prefill
+service time.  It matters because under a colocated engine a prompt's prefill
+chunks ride scheduler steps that are also carrying the resident decodes, so the
+step a prefill waits on *dilates with the decode batch*.  Measured TTFT is
+therefore roughly a constant number of scheduler steps across three decades of
+concurrency, while a model that prices prefill as standalone work holds it
+constant in milliseconds and reads progressively early as load rises.  The step
+loop below already mixes prefill chunks with decodes, so that dilation is
+structural here and needs no separate term.
+
+The per-step prefill allocation is the one input this needs and no export
+records: ``chunked_prefill_size`` is the per-request cap on prefill tokens per
+step (vLLM's ``long_prefill_token_threshold``), and it sets how many steps a
+prompt takes.  It is a *declared* input, not a fitted one — leaving it unset
+lets a prompt prefill in a single step, which is the behaviour that reads early.
+
 **Scheduler fidelity (vLLM V1 unified batch).**  The step scheduler mirrors the
 ``tools/serving_sim`` token-step model: each forward pass first advances every
 already-running request (decodes + in-progress prefill chunks) under a shared
@@ -42,6 +62,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import os
 import random
 from collections import OrderedDict
 from dataclasses import dataclass, field
@@ -185,6 +206,11 @@ class _CostKernel:
         if v is None:
             v = self._p.mixed_step_latency_ms(num_decode, key[1], key[2], key[3], self._q)
             self._mixed[key] = v
+            if os.getenv("INFERASIM_DEBUG_DES_STEPS"):
+                print(
+                    f"[dbg-des] mixed num_decode={key[0]} prefill_tok={key[1]} "
+                    f"ctx={key[2]} prefill_kv={key[3]} -> {v:.2f} ms"
+                )
         return v
 
 
@@ -307,6 +333,9 @@ def simulate_once(
     record_steps: bool = False,
     prebuilt: list[_Req] | None = None,
     return_samples: bool = False,
+    closed_loop_clients: int = 0,
+    prefill_exclusive: bool = False,
+    new_seqs_per_step: int = 0,
 ) -> DESResult:
     """Run one single-engine DES at a fixed offered load.
 
@@ -315,6 +344,13 @@ def simulate_once(
     KV reservation (Phase 2), all sharing a per-step ``max_num_batched_tokens``
     budget; each step's duration comes from the (optionally benchmark-calibrated)
     cost kernel.
+
+    ``closed_loop_clients > 0`` replaces the arrival stream with that many
+    clients, each of which resubmits the moment its previous request finishes,
+    reproducing a fixed-concurrency benchmark harness. All ``C`` start at once,
+    which is what the harness does and what makes its *mean* TTFT carry an
+    opening-burst transient; ``warmup_frac`` decides whether that transient is
+    scored, so match it to whatever the harness reports over.
     """
     req = inference_config.request_config
     input_len = max(1, req.input_seq_len)
@@ -329,9 +365,35 @@ def simulate_once(
     kv_pool = int(kv_cache_tokens or 0)  # 0 = unlimited
 
     rng = random.Random(seed)
+    clients = max(0, int(closed_loop_clients))
+    closed_loop = clients > 0
 
     # ---- workload (arrivals + per-request lengths) ----
-    if prebuilt is not None:
+    if closed_loop:
+        # No arrival process: a client slot releases the next request when its
+        # previous one retires. Everything past the first ``clients`` is issued
+        # from the retirement handler below, so its arrival is unknown up front.
+        #
+        # A caller-supplied request list is kept and only its arrivals are
+        # replaced. That is what lets a trace's real lengths and its
+        # content-addressed cache hits be measured at a fixed concurrency
+        # instead of at the rate the trace happens to have been recorded at: an
+        # under-loaded replay leaves concurrency inert and every configuration
+        # tied on throughput. The hits survive the substitution because
+        # ``_route_and_warm`` derives them from request *order*, which the
+        # retirement handler preserves -- it issues ``pending`` by index -- and
+        # not from arrival timestamps.
+        if prebuilt is not None:
+            pending = prebuilt
+            clients = min(clients, len(pending))
+        else:
+            n_total = max(clients, int(num_requests))
+            pending = _build_workload(
+                n_total, [0.0] * n_total, input_len, output_len, range_ratio, rng
+            )
+        for i, r in enumerate(pending):
+            r.arrival_ms = 0.0 if i < clients else math.inf
+    elif prebuilt is not None:
         # Caller supplied a fully-formed request list (multi-instance router:
         # arrivals, lengths, prefix ids + seeded ``num_computed`` for hits).
         pending = prebuilt
@@ -368,6 +430,10 @@ def simulate_once(
 
     kernel = _CostKernel(projector, q_len)
     next_arrival = 0
+    # Closed loop only: the first request no client slot has issued yet. Every
+    # index below it carries a finite arrival, which is what lets the ingest
+    # pointer above stay a simple in-order scan.
+    next_unissued = clients if closed_loop else n
     waiting: list[_Req] = []
     running: list[_Req] = []
     done: list[_Req] = []
@@ -383,10 +449,16 @@ def simulate_once(
     pk_prefill_steps = 0
     pk_kv_peak = 0
 
-    # Exact worst-case iteration bound (batch=1: every token its own step).
+    # Exact worst-case iteration bound (batch=1: every token its own step). Both
+    # the per-request chunk cap and the shared token budget can split a prefill,
+    # so the bound has to follow whichever is tighter.
+    pf_cap = min(
+        long_prefill if long_prefill > 0 else math.inf,
+        token_budget if token_budget > 0 else math.inf,
+    )
     total_work = 0
     for r in pending:
-        pf = 1 if long_prefill <= 0 else max(1, math.ceil(r.prompt_len / long_prefill))
+        pf = 1 if math.isinf(pf_cap) else max(1, math.ceil(r.prompt_len / pf_cap))
         total_work += pf + r.output_len
     max_steps = total_work + n + 16
 
@@ -400,7 +472,7 @@ def simulate_once(
 
         # 2) Nothing resident and nothing waiting → jump to the next arrival.
         if not running and not waiting:
-            if next_arrival < n:
+            if next_arrival < n and math.isfinite(pending[next_arrival].arrival_ms):
                 now = pending[next_arrival].arrival_ms
                 continue
             break
@@ -425,8 +497,74 @@ def simulate_once(
             need = min(need, max_model_len - 1 - r.num_computed)
             return int(max(need, 0))
 
+        # Phase 0 — exclusive prefill. Some engines do not co-schedule prefill
+        # with decode: a prefill batch takes one request and the whole token
+        # budget, and the resident decodes wait. Atom logs exactly that for
+        # every prefill it ran on MI355X ("Scheduled prefill batch: 1 reqs,
+        # 8192 new tokens" against a budget of 8192, 1270 times out of 1270),
+        # and the consequence is not a small one. Because prefill blocks
+        # decode, a closed-loop population re-synchronises every round: nobody
+        # advances while one request prefills, so all C clients start decoding
+        # together, finish together, and resubmit together. The queue that
+        # forms is therefore a standing one rather than an opening transient,
+        # which is what makes measured TTFT uniform on [0, 2*median] -- the
+        # signature the MI355X ladder shows at every concurrency (std/mean
+        # 0.564 against 0.577 for a uniform, p99/median 1.96 against 1.98).
+        # Chunked co-scheduling dissolves that herd and reads TTFT an order of
+        # magnitude early at high concurrency.
+        # A prefill step excludes decode but is not limited to one request: it
+        # packs as many as the token budget holds, which is why the same engine
+        # logs "1 reqs, 8192 new tokens" for 8192-token prompts and "8 reqs,
+        # 8192" for 1024-token ones. Serialising one per step regardless would
+        # make short prompts queue C-deep when they in fact clear in C*ISL/budget
+        # steps.
+        # How many *new* sequences may enter this step. The token budget is an
+        # upper bound on a prefill batch, not a target: engines admit far fewer
+        # requests than would fill it, because every admission reserves KV for a
+        # prompt whose length they must assume in full, and over-admitting risks
+        # having to retract a running request later. Across 5.4M prefill batches
+        # logged by vLLM and SGLang on MI355X, the median batch takes 1 new
+        # sequence with an empty queue and 2 with a backlog (mean 2.7, p90 4) --
+        # never the 16 that a 16384-token budget would hold at ISL 1024.
+        #
+        # It changes TTFT twice over, which is why the budget alone read it an
+        # order of magnitude early at high concurrency. A wave of C requests
+        # needs C/admit prefill batches instead of C*ISL/budget, and each batch
+        # is small enough to run at a much worse token rate: those same logs put
+        # a 1024-token prefill batch at 9.2k tok/s against 42.7k for a
+        # 16384-token one. Both effects push real TTFT up.
+        admit_cap = new_seqs_per_step if new_seqs_per_step > 0 else (1 << 30)
+        admitted = 0
+
+        prefill_step = False
+        if prefill_exclusive:
+            for r in running:
+                if r.prefill_done or budget < 1:
+                    continue
+                q = _schedule_tokens(r, budget)
+                if q > 0:
+                    scheduled.append((r, q, True, r.kv_len))
+                    budget -= q
+                    prefill_step = True
+            while waiting and len(running) < max_running and budget >= 1 and admitted < admit_cap:
+                head = waiting[0]
+                if kv_pool > 0 and kv_used + head.reserved_kv > kv_pool:
+                    break
+                q = _schedule_tokens(head, budget)
+                if q <= 0:
+                    break
+                waiting.pop(0)
+                head.status = "RUNNING"
+                head.admit_ms = now
+                running.append(head)
+                kv_used += head.reserved_kv
+                scheduled.append((head, q, True, head.kv_len))
+                budget -= q
+                admitted += 1
+                prefill_step = True
+
         # Phase 1 — already-running requests.
-        for r in running:
+        for r in [] if prefill_step else running:
             q = _schedule_tokens(r, budget)
             if q <= 0:
                 continue
@@ -434,7 +572,15 @@ def simulate_once(
             budget -= q
 
         # Phase 2 — admit new waiting requests (full-ISL KV reservation gate).
-        while waiting and len(running) < max_running and budget >= 1:
+        # Under exclusive prefill, admission is Phase 0's job: admitting here
+        # would start a second prefill in a step that is meant to hold one.
+        while (
+            not prefill_exclusive
+            and waiting
+            and len(running) < max_running
+            and budget >= 1
+            and admitted < admit_cap
+        ):
             cand = waiting[0]
             if kv_pool > 0 and kv_used + cand.reserved_kv > kv_pool:
                 break  # head-of-line block until KV frees up
@@ -448,6 +594,7 @@ def simulate_once(
             kv_used += cand.reserved_kv
             scheduled.append((cand, q, True, cand.kv_len))
             budget -= q
+            admitted += 1
 
         if not scheduled:
             # Budget/KV starved this step with nothing runnable; advance to the
@@ -498,12 +645,17 @@ def simulate_once(
                     r.status = "FINISHED"
                     r.finish_ms = now
 
-        # 7) Retire finished requests, free their KV reservation.
+        # 7) Retire finished requests, free their KV reservation. Under a closed
+        #    load the freed client slot immediately submits its next request, so
+        #    the population stays at ``clients`` rather than draining.
         still: list[_Req] = []
         for r in running:
             if r.status == "FINISHED":
                 kv_used -= r.reserved_kv
                 done.append(r)
+                if closed_loop and next_unissued < n:
+                    pending[next_unissued].arrival_ms = now
+                    next_unissued += 1
             else:
                 still.append(r)
         running = still
@@ -593,8 +745,18 @@ def simulate_once(
 
     makespan = max((r.finish_ms for r in done), default=0.0)
     total_out = sum(r.generated for r in done)
-    achieved_rate = (len(done) * 1000.0 / makespan) if makespan > 0 else 0.0
-    sys_tps = (total_out * 1000.0 / makespan) if makespan > 0 else 0.0
+    if closed_loop and len(sample) >= 2:
+        # The tail of a closed run drains: once the last request is issued the
+        # population falls below ``clients`` and throughput with it. Rating the
+        # whole run would charge that drain against the engine, so the rate is
+        # taken over the scored sample's own span, where the population is full.
+        span_ms = max(r.finish_ms for r in sample) - min(r.arrival_ms for r in sample)
+        out_sample = sum(r.generated for r in sample)
+        achieved_rate = (len(sample) * 1000.0 / span_ms) if span_ms > 0 else 0.0
+        sys_tps = (out_sample * 1000.0 / span_ms) if span_ms > 0 else 0.0
+    else:
+        achieved_rate = (len(done) * 1000.0 / makespan) if makespan > 0 else 0.0
+        sys_tps = (total_out * 1000.0 / makespan) if makespan > 0 else 0.0
     utilization = (busy_ms / makespan) if makespan > 0 else 0.0
 
     # Saturation: the waiting queue diverges (grows ~linearly) while arrivals are
@@ -602,9 +764,11 @@ def simulate_once(
     # window because a finite run always drains to empty afterwards. N-invariant,
     # unlike achieved-vs-offered rate (drain-tail biased) or utilisation (~1
     # whenever ≥1 request is resident, common for memory-bound decode).
+    # A closed load has no offered rate to outrun -- the population is bounded by
+    # the client count -- so the test does not apply and the flag stays clear.
     saturated = False
     last_arrival = pending[-1].arrival_ms if pending else 0.0
-    win = [(t, float(d)) for (t, d) in backlog if t <= last_arrival]
+    win = [(t, float(d)) for (t, d) in backlog if t <= last_arrival] if rate_per_s > 0 else []
     if rate_per_s > 0 and len(win) >= 30:
         cut = int(0.2 * len(win))
         bs_win = win[cut:]
@@ -635,6 +799,7 @@ def simulate_once(
         "prefill_step_fraction": (pk_prefill_steps / pk_steps) if pk_steps else 0.0,
         "kv_peak_tokens": float(pk_kv_peak),
         "kv_utilization": (pk_kv_peak / kv_pool) if kv_pool > 0 else 0.0,
+        "closed_loop_clients": float(clients),
     }
 
     samples = None
@@ -947,6 +1112,11 @@ def _aggregate_instances(results: list[DESResult], prefix_summary: dict[str, flo
     Latency distributions are recomputed from the pooled raw samples; system
     throughput / achieved rate sum across instances; makespan is the slowest
     instance; utilization is the per-instance mean.
+
+    Packing is averaged across instances rather than dropped. Every field in it
+    describes one engine's steps -- batch size, prefill-step share, KV
+    utilisation, client count -- so a fleet mean is the meaningful pooling and a
+    single instance passes through unchanged.
     """
 
     def _pool(key: str) -> list[float]:
@@ -966,6 +1136,10 @@ def _aggregate_instances(results: list[DESResult], prefix_summary: dict[str, flo
 
     n_inst = max(1, len(results))
     makespan = max((r.makespan_ms for r in results), default=0.0)
+    packing: dict[str, float] = {}
+    for key in {k for r in results for k in (r.packing or {})}:
+        vals = [float(r.packing[key]) for r in results if r.packing and key in r.packing]
+        packing[key] = sum(vals) / len(vals) if vals else 0.0
     return DESResult(
         arrival_model=results[0].arrival_model if results else "poisson",
         offered_rate=sum(r.offered_rate for r in results),
@@ -981,8 +1155,487 @@ def _aggregate_instances(results: list[DESResult], prefix_summary: dict[str, flo
         tpot=dist(_pool("tpot")),
         itl=dist(_pool("itl")),
         e2e=dist(_pool("e2e")),
-        packing={},
+        packing=packing,
         prefix=prefix_summary,
+    )
+
+
+def simulate_disaggregated(
+    inference_config: InferenceConfig,
+    projector: InferencePerformanceProjector,
+    *,
+    rate_per_s: float,
+    arrival_model: str = "poisson",
+    num_requests: int = 400,
+    warmup_frac: float = 0.1,
+    seed: int = 0,
+    burstiness: float = 1.0,
+    range_ratio: float = 1.0,
+    kv_cache_tokens: int = 0,
+    prebuilt: list[_Req] | None = None,
+    closed_loop_clients: int = 0,
+    return_samples: bool = False,
+) -> DESResult:
+    """Run a prefill pool and a decode pool as two stations on one clock.
+
+    The single-engine loop above cannot represent this topology, and did not try
+    to: it has no notion of pools, so a disaggregated candidate handed to it was
+    scheduled as one unified batch and priced with the parent's parallelism. The
+    result was a colocated schedule wearing disaggregated step costs -- a number
+    for a deployment that does not exist -- which is why the topology was kept
+    out of the trace-driven results rather than reported from that path.
+
+    Two things have to be true at once for the simulation to mean anything, and
+    they pull against each other:
+
+    * **The pools do not share a step.** Moving prefill off the decode GPUs is
+      the entire argument for splitting, so no decode batch here ever carries a
+      prefill chunk. That is the property the colocated path spends 6% of its
+      steps and a third of its TPOT on.
+    * **The pools do not share GPUs either.** They run *concurrently* on
+      disjoint hardware. Time-sharing one engine between prefill-only and
+      decode-only steps would also produce no mixed steps, and would be wrong
+      in the other direction -- it serialises work that overlaps in the real
+      deployment, inflating TTFT and TPOT together. So each station keeps its
+      own clock, and they advance independently.
+
+    A request therefore traverses: arrival, prefill queue, prefill batches on
+    the prefill pool (whose last chunk emits token 1), a KV handoff charged per
+    request, then a decode queue and pure decode steps on one replica of the
+    decode pool. Each station is priced by its own pool's projector, so a TP4
+    prefill pool beside two TP2 decode replicas costs what those shapes cost.
+
+    Under a closed load the loop spans *both* stations: a client slot is
+    released when its request retires from decode, not from prefill. That is
+    what makes this a single event loop rather than two sequential replays --
+    running the stations one after the other cannot represent the feedback,
+    because each one's arrivals are the other's completions.
+    """
+    from .performance import _replica_gpus
+
+    req = inference_config.request_config
+    input_len = max(1, req.input_seq_len)
+    output_len = max(1, req.output_seq_len)
+    max_running = max(1, req.resolved_max_concurrency())
+    token_budget = int(req.max_num_batched_tokens or 0)  # 0 = unlimited
+    long_prefill = int(req.chunked_prefill_size or 0)
+    max_model_len = max(2, int(req.resolved_max_context_len()))
+    spec_k = int(req.speculative_num_tokens or 0)
+    accept = float(req.speculative_acceptance_rate or 0.0)
+    q_len = (spec_k + 1) if spec_k > 0 else 1
+
+    disagg = inference_config.disaggregation_config
+    replicas = max(1, int(getattr(disagg, "decode_replicas", 1) or 1))
+    p_replicas = max(1, int(getattr(disagg, "prefill_replicas", 1) or 1))
+    prefill_proj, decode_proj = projector.pool_projectors()
+    p_kernel = _CostKernel(prefill_proj, q_len)
+    d_kernel = _CostKernel(decode_proj, q_len)
+    p_gpus = _replica_gpus(prefill_proj.cfg) * p_replicas
+    d_gpus = _replica_gpus(decode_proj.cfg) * replicas
+
+    rng = random.Random(seed)
+    clients = max(0, int(closed_loop_clients))
+    closed_loop = clients > 0
+
+    # ---- workload ----
+    if prebuilt is not None:
+        pending = prebuilt
+    else:
+        arrivals = (
+            [0.0] * num_requests
+            if closed_loop
+            else _generate_arrivals(num_requests, rate_per_s, arrival_model, rng, burstiness)
+        )
+        pending = _build_workload(len(arrivals), arrivals, input_len, output_len, range_ratio, rng)
+    n = len(pending)
+    if not n:
+        return DESResult(
+            arrival_model=arrival_model,
+            offered_rate=rate_per_s,
+            achieved_rate=0.0,
+            utilization=0.0,
+            num_requests=0,
+            makespan_ms=0.0,
+            system_throughput_tps=0.0,
+            saturated=False,
+        )
+    if closed_loop:
+        # All C clients start at once and the rest are issued on retirement, so
+        # their arrival is unknown up front. Ordering is preserved, which is what
+        # keeps a trace's content-addressed cache hits intact.
+        clients = min(clients, n)
+        for i, r in enumerate(pending):
+            r.arrival_ms = 0.0 if i < clients else math.inf
+        next_unissued = clients
+    else:
+        pending.sort(key=lambda r: r.arrival_ms)
+        next_unissued = n
+
+    # The KV pool is per *pool*, not per fleet. A prefill pool holds a prompt
+    # only until the handoff, while a decode replica holds the whole sequence
+    # for the generation's duration, so splitting the budget evenly would
+    # mis-state both. Each station is given the pool it would actually have.
+    pool_tokens = int(kv_cache_tokens or 0)
+    p_pool = pool_tokens  # 0 = unlimited
+    d_pool = pool_tokens
+
+    p_waiting: list[_Req] = []
+    p_running: list[_Req] = []
+    p_kv = 0
+    now_p = 0.0
+    p_busy = 0.0
+    xfer: list[tuple[float, _Req]] = []  # (ready_ms, req) in flight over the link
+    d_waiting: list[list[_Req]] = [[] for _ in range(replicas)]
+    d_running: list[list[_Req]] = [[] for _ in range(replicas)]
+    d_kv = [0] * replicas
+    now_d = [0.0] * replicas
+    d_busy = [0.0] * replicas
+    done: list[_Req] = []
+    handoff: dict[int, float] = {}
+    next_arrival = 0
+    p_steps = 0
+    d_steps = 0
+    pk_p_batch = 0
+    pk_d_batch = 0
+    pk_q_tokens = 0
+    pk_maxbatch = 0
+    pk_kv_peak = 0
+    backlog: list[tuple[float, int]] = []
+
+    def _prefill_tokens(r: _Req, budget: float) -> int:
+        need = r.prompt_len - r.num_computed
+        if need <= 0:
+            return 0
+        if long_prefill > 0:
+            need = min(need, long_prefill)
+        need = min(need, budget)
+        need = min(need, max_model_len - 1 - r.num_computed)
+        return int(max(need, 0))
+
+    def _release_arrivals(t: float) -> int:
+        nonlocal next_arrival
+        got = 0
+        while next_arrival < n and pending[next_arrival].arrival_ms <= t:
+            p_waiting.append(pending[next_arrival])
+            next_arrival += 1
+            got += 1
+        return got
+
+    def _deliver_handoffs(t: float) -> int:
+        """KV that has landed by ``t`` joins the least-loaded decode replica."""
+        ready = [(ts, r) for (ts, r) in xfer if ts <= t]
+        if not ready:
+            return 0
+        xfer[:] = [(ts, r) for (ts, r) in xfer if ts > t]
+        for ts, r in sorted(ready, key=lambda x: x[0]):
+            k = min(range(replicas), key=lambda i: (len(d_running[i]) + len(d_waiting[i]), i))
+            d_waiting[k].append(r)
+            now_d[k] = max(now_d[k], ts)
+        return len(ready)
+
+    def _step_prefill() -> bool:
+        """One prefill-only batch on the prefill pool."""
+        nonlocal now_p, p_kv, p_busy, p_steps, pk_p_batch, pk_maxbatch, pk_kv_peak
+        nonlocal pk_q_tokens
+        budget: float = token_budget if token_budget > 0 else math.inf
+        scheduled: list[tuple[_Req, int, int]] = []
+        for r in p_running:
+            if budget < 1:
+                break
+            q = _prefill_tokens(r, budget)
+            if q > 0:
+                scheduled.append((r, q, r.num_computed))
+                budget -= q
+        while p_waiting and budget >= 1 and len(p_running) < max_running:
+            head = p_waiting[0]
+            # A prefill pool reserves the prompt it is about to compute; it hands
+            # the KV off and frees it, so it is not charged for the generation.
+            need_kv = head.prompt_len
+            if p_pool > 0 and p_kv + need_kv > p_pool:
+                break
+            q = _prefill_tokens(head, budget)
+            if q <= 0:
+                break
+            p_waiting.pop(0)
+            head.status = "RUNNING"
+            head.admit_ms = now_p
+            p_running.append(head)
+            p_kv += need_kv
+            pk_kv_peak = max(pk_kv_peak, p_kv)
+            scheduled.append((head, q, head.num_computed))
+            budget -= q
+        if not scheduled:
+            return False
+        prefill_q = sum(q for _, q, _ in scheduled)
+        avg_kv = int(sum(kv + q for _, q, kv in scheduled) / len(scheduled))
+        # num_decode=0: this station never co-schedules a decode, by construction.
+        dt = p_kernel.mixed_step_ms(0, prefill_q, input_len, avg_kv)
+        now_p += dt
+        p_busy += dt
+        p_steps += 1
+        pk_p_batch += len(scheduled)
+        pk_q_tokens += prefill_q
+        pk_maxbatch = max(pk_maxbatch, len(scheduled))
+        finished: list[_Req] = []
+        for r, q, _kv in scheduled:
+            r.num_computed += q
+            if r.num_computed >= r.prompt_len:
+                r.prefill_done = True
+                r.first_token_ms = now_p  # the last prefill chunk emits token 1
+                r.generated = 1
+                r.itls.append(dt)
+                finished.append(r)
+        for r in finished:
+            p_running.remove(r)
+            p_kv -= r.prompt_len
+            if r.generated >= r.output_len:
+                # A one-token request never reaches the decode pool.
+                r.status = "FINISHED"
+                r.finish_ms = now_p
+                done.append(r)
+                if closed_loop:
+                    _reissue(now_p)
+                continue
+            ms = projector.kv_handoff_ms(decode_proj, r.prompt_len)
+            handoff[r.idx] = ms
+            xfer.append((now_p + ms, r))
+        return True
+
+    def _step_decode(k: int) -> bool:
+        """One pure decode step on replica ``k``."""
+        nonlocal d_steps, pk_d_batch, pk_maxbatch, pk_kv_peak, pk_q_tokens
+        while d_waiting[k] and len(d_running[k]) < max_running:
+            head = d_waiting[k][0]
+            need_kv = head.reserved_kv
+            if d_pool > 0 and d_kv[k] + need_kv > d_pool:
+                break
+            d_waiting[k].pop(0)
+            head.status = "RUNNING"
+            d_running[k].append(head)
+            d_kv[k] += need_kv
+            pk_kv_peak = max(pk_kv_peak, d_kv[k])
+        if not d_running[k]:
+            return False
+        ctx = int(sum(r.kv_len for r in d_running[k]) / len(d_running[k]))
+        dt = d_kernel.decode_step_ms(len(d_running[k]), ctx)
+        now_d[k] += dt
+        d_busy[k] += dt
+        d_steps += 1
+        pk_d_batch += len(d_running[k])
+        pk_q_tokens += len(d_running[k]) * q_len
+        pk_maxbatch = max(pk_maxbatch, len(d_running[k]))
+        still: list[_Req] = []
+        for r in d_running[k]:
+            cap = r.output_len - r.generated
+            if cap > 0:
+                acc = _sample_accepted(rng, spec_k, accept, cap)
+                r.generated += acc
+                r.itls.extend([dt / acc] * acc)
+            if r.generated >= r.output_len:
+                r.status = "FINISHED"
+                r.finish_ms = now_d[k]
+                d_kv[k] -= r.reserved_kv
+                done.append(r)
+                if closed_loop:
+                    _reissue(now_d[k])
+            else:
+                still.append(r)
+        d_running[k] = still
+        return True
+
+    def _reissue(t: float) -> None:
+        """A retired request frees its client slot, which submits the next one.
+
+        The slot is released on *decode* retirement. Releasing it at the handoff
+        would let a client hold two requests at once and report a concurrency
+        the harness never ran.
+        """
+        nonlocal next_unissued
+        if next_unissued < n:
+            pending[next_unissued].arrival_ms = t
+            next_unissued += 1
+
+    # ---- event loop ----
+    # A station that cannot move is held out until something changes rather than
+    # re-picked at the same clock, which would spin the loop forever: both step
+    # functions decline to advance their own clock when they schedule nothing,
+    # so "stuck" and "idle" look identical from outside. It happens for real --
+    # a prompt longer than the model's context never finishes prefilling, and a
+    # request whose reservation exceeds the whole KV pool is never admitted --
+    # and the single-engine loop handles the same case by breaking out.
+    stalled_p = False
+    stalled_d = [False] * replicas
+
+    def _unstall() -> None:
+        nonlocal stalled_p
+        stalled_p = False
+        for i in range(replicas):
+            stalled_d[i] = False
+
+    guard = 0
+    bound = 4000 * max(1, n)
+    while guard < bound:
+        guard += 1
+        moved = _release_arrivals(now_p) + _deliver_handoffs(max([now_p, *now_d]))
+        if moved:
+            _unstall()
+
+        runnable: list[tuple[float, int]] = []
+        if (p_running or p_waiting) and not stalled_p:
+            runnable.append((now_p, -1))
+        for k in range(replicas):
+            if (d_running[k] or d_waiting[k]) and not stalled_d[k]:
+                runnable.append((now_d[k], k))
+        if not runnable:
+            # Nothing resident anywhere: jump to the next thing that can happen.
+            nxt = [
+                t
+                for t in (
+                    pending[next_arrival].arrival_ms if next_arrival < n else None,
+                    min((ts for ts, _ in xfer), default=None),
+                )
+                if t is not None and t < math.inf
+            ]
+            if not nxt:
+                break
+            t = min(nxt)
+            now_p = max(now_p, t)
+            for k in range(replicas):
+                now_d[k] = max(now_d[k], t)
+            continue
+        _t, who = min(runnable)
+        did = _step_prefill() if who < 0 else _step_decode(who)
+        if did:
+            # Any progress can unblock the other station -- a retiring decode
+            # frees the KV a waiting prefill needs, and vice versa.
+            _unstall()
+        elif who < 0:
+            stalled_p = True
+        else:
+            stalled_d[who] = True
+        backlog.append((now_p, len(p_waiting)))
+
+    # ---- aggregate ----
+    done.sort(key=lambda r: r.finish_ms)
+    drop = int(len(done) * max(0.0, min(0.9, warmup_frac)))
+    sample = done[drop:] if len(done) - drop >= 8 else done
+    tok_ms_pt = max(0.0, req.tokenize_overhead_us) / 1000.0
+    detok_ms = max(0.0, req.detokenize_overhead_us) / 1000.0
+
+    def _admit(r):
+        return r.admit_ms if r.admit_ms >= 0 else r.arrival_ms
+
+    ttft = [
+        (r.first_token_ms - _admit(r)) + tok_ms_pt * r.prompt_len
+        for r in sample
+        if r.first_token_ms >= 0
+    ]
+    ttft_arrival = [
+        (r.first_token_ms - r.arrival_ms) + tok_ms_pt * r.prompt_len
+        for r in sample
+        if r.first_token_ms >= 0
+    ]
+    queue_wait = [_admit(r) - r.arrival_ms for r in sample if r.first_token_ms >= 0]
+    e2e = [
+        (r.finish_ms - r.arrival_ms) + tok_ms_pt * r.prompt_len + detok_ms * r.generated
+        for r in sample
+        if r.finish_ms >= 0
+    ]
+    # TPOT spans token 1 to the last, so it carries the KV handoff and any wait
+    # for a decode slot. Both are real delays between two tokens the client
+    # sees, and pricing them anywhere else would hide the cost of the handoff.
+    tpot = [
+        (r.finish_ms - r.first_token_ms) / max(1, r.generated - 1) + detok_ms
+        for r in sample
+        if r.finish_ms >= 0 and r.generated > 1
+    ]
+    itl_all: list[float] = []
+    for r in sample:
+        itl_all.extend(x + detok_ms for x in r.itls)
+
+    makespan = max((r.finish_ms for r in done), default=0.0)
+    total_out = sum(r.generated for r in done)
+    if closed_loop and len(sample) >= 2:
+        span_ms = max(r.finish_ms for r in sample) - min(r.arrival_ms for r in sample)
+        out_sample = sum(r.generated for r in sample)
+        achieved_rate = (len(sample) * 1000.0 / span_ms) if span_ms > 0 else 0.0
+        sys_tps = (out_sample * 1000.0 / span_ms) if span_ms > 0 else 0.0
+    else:
+        achieved_rate = (len(done) * 1000.0 / makespan) if makespan > 0 else 0.0
+        sys_tps = (total_out * 1000.0 / makespan) if makespan > 0 else 0.0
+
+    # Fleet utilisation, GPU-weighted. An unweighted mean of the two stations
+    # would rate a 4-GPU prefill pool and a 12-GPU decode pool as equals.
+    total_gpus = max(1, p_gpus + d_gpus)
+    busy_gpu_ms = p_busy * p_gpus + sum(d_busy) * (d_gpus / replicas)
+    utilization = (busy_gpu_ms / (makespan * total_gpus)) if makespan > 0 else 0.0
+
+    saturated = False
+    if rate_per_s > 0 and achieved_rate < 0.5 * rate_per_s:
+        saturated = True
+
+    def dist(xs: list[float]) -> dict[str, float]:
+        return {
+            "mean": (sum(xs) / len(xs)) if xs else 0.0,
+            "p50": _pct(xs, 0.50),
+            "p90": _pct(xs, 0.90),
+            "p99": _pct(xs, 0.99),
+        }
+
+    steps = p_steps + d_steps
+    packing = {
+        "num_steps": float(steps),
+        "avg_batch_size": ((pk_p_batch + pk_d_batch) / steps) if steps else 0.0,
+        "max_batch_size": float(pk_maxbatch),
+        # Per *station*: a prefill batch and a decode batch are different
+        # populations here, unlike the unified loop where one step holds both.
+        "avg_prefill_reqs": (pk_p_batch / p_steps) if p_steps else 0.0,
+        "avg_decode_reqs": (pk_d_batch / d_steps) if d_steps else 0.0,
+        "avg_query_tokens": (pk_q_tokens / steps) if steps else 0.0,
+        # Every prefill step is prefill-only and every decode step is
+        # decode-only, so there is no mixed step to report a fraction of. This
+        # is the topology's defining property, not a missing measurement.
+        "prefill_step_fraction": (p_steps / steps) if steps else 0.0,
+        "mixed_step_fraction": 0.0,
+        "kv_peak_tokens": float(pk_kv_peak),
+        "kv_utilization": (pk_kv_peak / pool_tokens) if pool_tokens > 0 else 0.0,
+        "closed_loop_clients": float(clients),
+        "disaggregated": 1.0,
+        "prefill_utilization": (p_busy / makespan) if makespan > 0 else 0.0,
+        "decode_utilization": ((sum(d_busy) / replicas / makespan) if makespan > 0 else 0.0),
+        "kv_handoff_ms": (sum(handoff.values()) / len(handoff) if handoff else 0.0),
+        "prefill_pool_gpus": float(p_gpus),
+        "decode_pool_gpus": float(d_gpus),
+    }
+
+    samples = None
+    if return_samples:
+        samples = {
+            "ttft": ttft,
+            "ttft_arrival": ttft_arrival,
+            "queue_wait": queue_wait,
+            "tpot": tpot,
+            "itl": itl_all,
+            "e2e": e2e,
+        }
+
+    return DESResult(
+        arrival_model="closed" if closed_loop else arrival_model,
+        offered_rate=rate_per_s,
+        achieved_rate=achieved_rate,
+        utilization=utilization,
+        num_requests=len(done),
+        makespan_ms=makespan,
+        system_throughput_tps=sys_tps,
+        saturated=saturated,
+        ttft=dist(ttft),
+        ttft_arrival=dist(ttft_arrival),
+        queue_wait=dist(queue_wait),
+        tpot=dist(tpot),
+        itl=dist(itl_all),
+        e2e=dist(e2e),
+        packing=packing,
+        samples=samples,
     )
 
 
@@ -1007,6 +1660,7 @@ def simulate_multi_instance(
     block_size: int,
     cache_blocks: int,
     mooncake_rows: list[tuple[float, int, int, list[int]]] | None = None,
+    closed_loop_clients: int = 0,
 ) -> DESResult:
     """Route one arrival stream across ``num_instances`` replicas and pool.
 
@@ -1074,6 +1728,9 @@ def simulate_multi_instance(
                 kv_cache_tokens=kv_cache_tokens,
                 prebuilt=sub,
                 return_samples=True,
+                # Concurrency is per engine, so every replica runs the full
+                # client count rather than a share of it.
+                closed_loop_clients=closed_loop_clients,
             )
         )
     agg = _aggregate_instances(results, prefix_summary)
@@ -1105,6 +1762,9 @@ def run_des(
     block_size: int = 0,
     cache_blocks: int = 0,
     mooncake_trace: str | None = None,
+    prefill_exclusive: bool = False,
+    new_seqs_per_step: int = 0,
+    closed_loop: bool = False,
 ) -> dict[str, object]:
     """Run the DES at the configured load and (optionally) a load sweep.
 
@@ -1112,12 +1772,111 @@ def run_des(
     "max_sustainable_rate": mu}``. The sweep derives the engine's max-sustainable
     rate ``mu`` from the steady-state projection and samples fractions of it to
     trace the throughput-vs-latency knee.
+
+    ``closed_loop`` runs the fixed-concurrency form instead: the resolved
+    concurrency becomes a client count, there is no offered rate, and the load
+    sweep is meaningless (concurrency is the load axis), so it is skipped.
     """
     out: dict[str, object] = {}
     # ``cache_blocks`` is the block-cache capacity; fall back to the legacy
     # ``cache_slots`` flag when the new one is unset.
     eff_cache_blocks = max(0, cache_blocks or cache_slots or 0)
     mooncake_rows = _load_mooncake_trace(mooncake_trace) if mooncake_trace else None
+
+    # A split is a different topology, not a different setting, so it gets the
+    # two-station loop rather than the unified-batch one. Routed before every
+    # other branch because the alternative is not a worse simulation of this
+    # deployment -- it is a simulation of a colocated one, which the single
+    # engine has no way to say it is doing.
+    if getattr(getattr(inference_config, "disaggregation_config", None), "enabled", False):
+        reqs = None
+        if mooncake_rows is not None:
+            hasher = _BlockHasher()
+            bs = int(block_size) if block_size and block_size > 0 else _DEFAULT_BLOCK_SIZE
+            rows = sorted(mooncake_rows, key=lambda x: x[0])
+            reqs = [
+                _Req(idx=i, arrival_ms=a, prompt_len=isl, output_len=osl, blocks=list(hids))
+                for i, (a, isl, osl, hids) in enumerate(rows)
+            ]
+            # The prefill pool is what owns a prefix cache here, so the hits are
+            # warmed against one station rather than routed across a fleet.
+            _route_and_warm(
+                reqs,
+                policy="kv",
+                num_instances=1,
+                block_size=bs,
+                cache_blocks=eff_cache_blocks,
+                rng=random.Random(seed),
+                overlap_weight=overlap_weight,
+            )
+            del hasher
+        eff_rate = rate_per_s
+        if mooncake_rows and not closed_loop:
+            span_s = (max(r[0] for r in mooncake_rows) - min(r[0] for r in mooncake_rows)) / 1000.0
+            eff_rate = (len(mooncake_rows) / span_s) if span_s > 0 else rate_per_s
+        out["point"] = simulate_disaggregated(
+            inference_config,
+            projector,
+            rate_per_s=eff_rate,
+            arrival_model=arrival_model
+            if arrival_model in ("poisson", "deterministic")
+            else "poisson",
+            num_requests=num_requests,
+            seed=seed,
+            warmup_frac=warmup_frac,
+            burstiness=burstiness,
+            range_ratio=range_ratio,
+            kv_cache_tokens=kv_cache_tokens,
+            prebuilt=reqs,
+            closed_loop_clients=(
+                inference_config.request_config.resolved_max_concurrency() if closed_loop else 0
+            ),
+        )
+        return out
+    if closed_loop:
+        clients = inference_config.request_config.resolved_max_concurrency()
+        if mooncake_rows is not None or (num_prefixes or 0) > 0 or (num_instances or 1) > 1:
+            # There is a block cache to model, so the requests have to be built
+            # and warmed before the arrivals are replaced by client slots.
+            out["point"] = simulate_multi_instance(
+                inference_config,
+                projector,
+                rate_per_s=0.0,
+                arrival_model="poisson",
+                num_requests=num_requests,
+                seed=seed,
+                warmup_frac=warmup_frac,
+                burstiness=burstiness,
+                range_ratio=range_ratio,
+                kv_cache_tokens=kv_cache_tokens,
+                num_instances=max(1, num_instances or 1),
+                routing=routing if routing in _ROUTING_POLICIES else "round_robin",
+                overlap_weight=overlap_weight,
+                num_prefixes=max(0, num_prefixes or 0),
+                prefix_len=max(0, prefix_len or 0),
+                prefix_zipf=max(0.0, prefix_zipf or 0.0),
+                block_size=max(0, block_size or 0),
+                cache_blocks=eff_cache_blocks,
+                mooncake_rows=mooncake_rows,
+                closed_loop_clients=clients,
+            )
+            return out
+        out["point"] = simulate_once(
+            inference_config,
+            projector,
+            rate_per_s=0.0,
+            arrival_model="closed",
+            num_requests=num_requests,
+            seed=seed,
+            warmup_frac=warmup_frac,
+            range_ratio=range_ratio,
+            kv_cache_tokens=kv_cache_tokens,
+            record_steps=record_steps,
+            closed_loop_clients=clients,
+            prefill_exclusive=prefill_exclusive,
+            new_seqs_per_step=new_seqs_per_step,
+        )
+        return out
     # A block cache is modelled whenever there is a fleet, a synthetic prefix
     # pool, or a trace to replay.
     multi = (num_instances or 1) > 1 or (num_prefixes or 0) > 0 or mooncake_rows is not None

@@ -1090,6 +1090,16 @@ def run_vllm_benchmark(args) -> dict:
                 getattr(args, "server_args", "") or "", "--attention-backend"
             ),
             "load_format": args.load_format,
+            # The attention layout this run executed under. Data-parallel
+            # attention changes what a rank holds and how often it all-reduces,
+            # so a non-DP anchor describes a different machine than a DP target
+            # and the projector has to be able to tell. The offline engine is a
+            # single process, so the layout is whatever the server-arg string
+            # asked for -- absent that, every rank saw the whole batch.
+            "attention_data_parallel_size": int(
+                _server_arg_value(getattr(args, "server_args", "") or "", "--data-parallel-size")
+                or 1
+            ),
             # Explicitly distinguishes cold prefill from the repeated-prompt
             # cache-hit measurement selected by --prefix-caching.
             "prefix_caching": bool(getattr(args, "prefix_caching", False)),
@@ -1163,6 +1173,12 @@ _CACHE_EXTRA_ARGS = (
     "prefill_anchor",
     "prefill_anchor_short",
     "prefill_anchor_validate",
+    # A curve-fitted artifact is a different measurement from a chord-fitted
+    # one, not a refinement of it, so it must not reuse a two-point cache entry.
+    "prefill_anchor_points",
+    # Likewise the packed probe: an artifact that measured the packing axis
+    # answers a question the one beside it only extrapolated into.
+    "prefill_packed_points",
 )
 
 
@@ -1438,6 +1454,37 @@ def main(argv=None):
         help="Short probe length for --prefill-anchor. The long "
         "probe is always --input-len, so the rate covers the "
         "lengths the anchor is used at. Default: half of it.",
+    )
+    ap.add_argument(
+        "--prefill-anchor-points",
+        type=int,
+        default=0,
+        help="Probe this many prompt lengths instead of two, and "
+        "fit prefill as fixed + per-token + per-token^2. Two "
+        "points can only draw a chord, so all of prefill's "
+        "curvature in prompt length ends up inside the "
+        "intercept -- which is then carried across tensor "
+        "parallelism as if it were fixed cost, the single "
+        "largest error in restoring an anchor at a width it "
+        "was not harvested at. Needs at least 4 to leave a "
+        "residual worth checking. Costs one client run each.",
+    )
+    ap.add_argument(
+        "--prefill-packed-points",
+        type=int,
+        default=4,
+        help="Also probe this many simultaneous-sequence counts at "
+        "a fixed prompt length, so the cost of a step that "
+        "packs many sequences is measured rather than "
+        "inferred. The length probe cannot give it: at "
+        "concurrency 1 the step's token count and the "
+        "sequence's attention context are the same number, so "
+        "GEMM efficiency and attention are confounded and the "
+        "fit charges one for the other. The error that hides "
+        "is invisible at one sequence per step and grows with "
+        "how many pack in -- within 5% at ISL 8192, where a "
+        "16384-token budget holds two, and +157% at ISL 1024 "
+        "where it holds sixteen. 0 disables.",
     )
     ap.add_argument(
         "--prefill-anchor-validate",

@@ -108,6 +108,24 @@ Per-request **TTL** (`infera_ttl_seconds`) is supported by the daemon/wire
 protocol but is **not** currently propagated by the vLLM connector — TTL is a
 daemon-level concern today, not a per-request knob on the vLLM path.
 
+## Simulator — `inferasim`
+
+InferaSim has its own entry points and its own (large) flag surface. They are
+documented by task rather than by flag, starting at
+[Simulation overview](../simulation/overview.md).
+
+| Entry point | Purpose |
+|---|---|
+| `inferasim inference` | project or simulate one serving recipe |
+| `inferasim anchor` | harvest a GPU-calibrated anchor |
+| `inferasim-tune` | LLM-driven recipe search |
+
+`infera-projection` aliases `inferasim` and `infera-tuning` aliases
+`inferasim-tune`; `python -m infera.projection.cli` works if the console scripts
+are not installed. The simulator's environment variables are all
+`INFERASIM_*` — see
+[Boundaries and verification](../simulation/boundaries.md#environment-variables).
+
 ## Important environment variables
 
 | Var | Where | Why |
