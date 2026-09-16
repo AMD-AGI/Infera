@@ -616,6 +616,17 @@ def _add_inference_args(parser):
         "parallelism replicates their compressed KV latent instead of sharding "
         "it, so only splitting by request shrinks the cache a rank holds.",
     )
+    par.add_argument(
+        "--decode-context-parallel-size",
+        type=int,
+        default=None,
+        help="Split each sequence's context across this many ranks during "
+        "decode (vLLM --decode-context-parallel-size, SGLang --dcp-size). The "
+        "other way to shrink an MLA cache: a rank stores context/N of every "
+        "request rather than all of it, so the replica holds N times as many "
+        "tokens. Unlike --attention-dp-size it shrinks a single request's "
+        "footprint, so it raises the concurrency ceiling even at batch 1.",
+    )
     # ---- Feature A: prefill/decode disaggregation ----
     dis = parser.add_argument_group("inference disaggregation (feature A)")
     dis.add_argument(

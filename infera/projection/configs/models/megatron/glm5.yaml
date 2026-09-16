@@ -12,6 +12,19 @@ extends:
 # declared below so tooling does not have to infer it from this comment.
 sparse_attention_topk: 2048
 
+# IndexShare is a memory property as much as a compute one. The indexer stores
+# a 128-wide key per token (``index_head_dim: 128``), but only on the layers
+# that compute one: ``indexer_types`` marks 21 of the 78 layers ``full`` and
+# the other 57 ``shared``, and a shared layer reuses the keys of the full
+# layer above it rather than storing its own. GLM keeps them fp8, unlike
+# MiniMax-M3's bf16, so here the index cache is a 6% correction rather than a
+# third of the footprint: against vLLM at TP8 this predicts 47,616 bytes per
+# token with an fp8 KV cache where the engine allocates 47,805, and 92,544
+# with a bf16 cache where it allocates 92,815.
+sparse_index_head_dim: 128
+sparse_index_layers: 21
+sparse_index_dtype: fp8
+
 tokenizer_type: HuggingFaceTokenizer
 ##### TODO update to GLM-5 tokenizer
 tokenizer_model: THUDM/glm-4-9b  # GLM-5 tokenizer requires newer transformers; use GLM-4 for mock_data testing

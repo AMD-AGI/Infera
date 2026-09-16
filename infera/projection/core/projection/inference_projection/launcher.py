@@ -112,6 +112,10 @@ def _collect_inference_overrides(args) -> dict[str, object]:
     attn_dp = getattr(args, "attention_dp_size", None)
     if attn_dp is not None:
         overrides["attention_data_parallel_size"] = int(attn_dp)
+    # Decode context parallelism is the same kind of serving-only axis.
+    dcp = getattr(args, "decode_context_parallel_size", None)
+    if dcp is not None:
+        overrides["decode_context_parallel_size"] = int(dcp)
     # --comm-model {explicit,builtin} → collective_enabled.
     comm_model = getattr(args, "comm_model", None)
     if comm_model is not None:
