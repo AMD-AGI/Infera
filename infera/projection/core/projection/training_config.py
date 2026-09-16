@@ -28,6 +28,11 @@ class ModelParallelConfig:
     # tensor/expert parallel. Standard for MLA models, whose latent KV is
     # replicated by tensor parallelism rather than sharded by it.
     attention_data_parallel_size: int = 1
+    # Serving-only axis: one sequence's *context* is split across this many
+    # ranks during decode, so a rank stores a slice of each request's KV
+    # instead of all of it. The only axis that shrinks an MLA cache, since
+    # tensor parallelism replicates the latent rather than sharding it.
+    decode_context_parallel_size: int = 1
     use_torch_fsdp2: bool = False
     use_distributed_optimizer: bool = False
     overlap_grad_reduce: bool = True
@@ -79,6 +84,21 @@ class ModelConfig:
     # full-attention), i.e. half the layers.
     sink_sliding_window: int = 0
     sink_window_even_layers_only: bool = False
+    # Hybrid compressed attention (DeepSeek-V4). ``compress_ratios`` is a
+    # per-layer schedule naming which attention branch each layer runs, using
+    # the same 0 / 4 / 128 encoding the reference implementation accepts (see
+    # ``_COMPRESS_RATIO_LAYER_TYPES``). It is a list or the ``"[...]"`` string
+    # form the checkpoint ships. The remaining fields size the branches: a
+    # compressed layer attends over its local window plus a pool of one entry
+    # per ``compress_rate`` source tokens, and a CSA layer additionally runs a
+    # lightning indexer (``index_n_heads`` x ``index_head_dim``) over that whole
+    # pool to pick ``index_topk`` of it.
+    hybrid_attention_enabled: bool = False
+    compress_ratios: object = None
+    index_topk: int = 0
+    index_n_heads: int = 0
+    index_head_dim: int = 0
+    attn_sliding_window: int = 0
     # Hybrid linear attention (Kimi Delta Attention / gated delta net): a
     # count of layers that keep a fixed-size recurrent state instead of a
     # per-token KV cache. ``linear_attention_layers`` is the explicit count
@@ -91,6 +111,29 @@ class ModelConfig:
     linear_attention_head_dim: int = 0
     linear_attention_conv_kernel: int = 0
     linear_attention_freq: int = 0
+    # Native sparse attention's indexer keeps a *second* per-token cache. To
+    # choose which blocks to attend to it scores the query against one small
+    # index key per past token, and that key has to be stored, so a token's
+    # real footprint is the KV cache plus an index cache.
+    #
+    # The key is head-shared, like an MLA latent: ``index_n_heads`` in the
+    # published configs counts the *query* heads that score against it, not
+    # copies of it, so it does not multiply the storage and is not recorded
+    # here. What sets the size is the key width (``index_head_dim``, 128 on
+    # every model that has one), how many layers carry an indexer, and the
+    # dtype the serving stack keeps it in. ``sparse_index_layers`` is 0 for
+    # "all layers"; models that leave the first few layers dense, or that
+    # share one layer's index keys with the layers after it, pay for fewer.
+    #
+    # Leaving this out is not a rounding error. On MiniMax-M3 it is a third of
+    # the footprint: GQA alone predicts 15,360 bytes per token at TP8 with an
+    # fp8 cache where vLLM allocates 30,023. Because the index cache does not
+    # follow ``kv_cache_dtype``, the two terms can be read apart from two runs
+    # of the same model -- with a bf16 cache the same engine allocates 45,398,
+    # and both are matched to under 0.5% once the indexer is charged.
+    sparse_index_head_dim: int = 0
+    sparse_index_layers: int = 0
+    sparse_index_dtype: str = "bf16"
     # FFN & MoE
     swiglu: bool = False
     num_experts: int = 0
@@ -177,6 +220,16 @@ class ModelConfig:
         """
         d = int(self.linear_attention_head_dim or 0) or int(self.kv_channels or 0)
         return max(1, d)
+
+    def sparse_index_layer_count(self) -> int:
+        """How many layers store a sparse-attention index cache."""
+        if self.sparse_index_head_dim <= 0:
+            return 0
+        n = int(self.num_layers or 0)
+        declared = int(self.sparse_index_layers or 0)
+        if declared > 0:
+            return min(declared, n) if n else declared
+        return n
 
     def full_attention_layer_fraction(self) -> float:
         """Fraction of layers that store and read a per-token KV cache."""
@@ -381,6 +434,46 @@ class InferenceRequestConfig:
     # default; a cache-coherent host link runs ~900, and on a part that has one
     # the offload is cheap enough to leave on.
     kv_offload_bw_gbps: float = 64.0
+
+    # Mean KV tokens one request of the target workload occupies while it is
+    # resident, which is what decides how many requests the pool can admit at
+    # once. ``None`` = use the configured context, which is exact for a
+    # fixed-length workpoint and is the only thing a single-point projection
+    # can know.
+    #
+    # For a workload with a spread of lengths this is E[L^2]/E[L] and *not* the
+    # arithmetic mean, because a request holds the pool for a time proportional
+    # to its length: the set resident at a random instant is sampled
+    # proportional to length, so a time-average occupancy is length-biased.
+    # Against the published AgentX rows -- 572 of them, 7 models, 9 hardware
+    # platforms -- predicting occupancy as ``concurrency * this / pool`` matches
+    # the reported ``gpu_kv_cache_usage_pct`` with a slope of 0.91 pooled and a
+    # median of 0.90 across 48 individual curves, against 1.14 and 1.19 for the
+    # arithmetic mean. A statistic that needs no multiplier has slope 1, so this
+    # is the one the model uses and it carries no fitted constant.
+    #
+    # It must NOT be discounted by the prefix-cache hit rate. A 95% block-reuse
+    # rate means 95% of the prefill FLOPs are skipped; it does not mean 95% of
+    # the blocks are free. Cached blocks live in the same pool as active ones
+    # and are held by reference from every request reading them -- used blocks
+    # are total minus free, and a shared prefix is counted once but counted.
+    # Discounting residency that way needs a 6.1x multiplier to match measured
+    # occupancy (interquartile range 2.0 to 13.4) and predicts it worse than
+    # assuming the mean.
+    workload_resident_tokens: int | None = None
+
+    # The KV pool the engine actually allocated, in tokens, when that is known.
+    # Every engine prints it at startup, so anyone validating a projection
+    # against a running deployment -- or against a published benchmark that
+    # reports it -- has the real number and should not have to get it back out
+    # of an HBM figure, a memory fraction and a weight estimate.
+    #
+    # When it is set the admission bound is evaluated against it directly. That
+    # separates the two things that can make the bound wrong, which otherwise
+    # arrive together: the admission law itself, and the memory model's answer
+    # to how many tokens fit. It is left unset for planning, where the whole
+    # point is that no engine has been started yet.
+    kv_pool_tokens: int | None = None
 
     # ---- Precision ----
     weight_dtype: str = "bf16"  # weights kept resident (bf16 | fp8 | ...)
@@ -693,6 +786,18 @@ class InferenceRequestConfig:
             return int(self.max_concurrency)
         return int(self.batch_size)
 
+    def resolved_resident_tokens(self) -> int:
+        """KV tokens one request holds while resident.
+
+        Falls back to the configured context (prompt plus half the generation,
+        the mean over a request's decode span), which is what a fixed-length
+        workpoint occupies. A trace-driven planner passes the workload's
+        ``E[L^2]/E[L]`` instead; see ``workload_resident_tokens``.
+        """
+        if self.workload_resident_tokens:
+            return max(1, int(self.workload_resident_tokens))
+        return max(1, int(self.input_seq_len) + int(self.output_seq_len) // 2)
+
     def resolved_prefix_cache_hit_rate(self) -> float:
         """Prefix-cache hit rate clamped to ``[0, 0.999]``.
 
@@ -906,7 +1011,148 @@ _ATTENTION_BACKEND_PRESETS = {
 }
 
 # Floor on the sparse-attention scale (projections + indexer don't shrink).
+# Only reached by models that declare a top-k without a per-layer schedule;
+# ``hybrid_attention_scale`` supersedes it where a schedule exists, and states
+# in one place why a floor is the wrong shape for the work it stands in for.
 _SPARSE_ATTENTION_FLOOR = 0.15
+
+# Per-layer attention branch, keyed by the compression ratio the checkpoint
+# records for that layer. Mirrors the reference implementation's own mapping so
+# a schedule read here means what it means to the model; an unrecognised ratio
+# is a schedule this cost model has not been taught, and is refused rather than
+# guessed at (see ``hybrid_attention_scale``).
+_COMPRESS_RATIO_LAYER_TYPES = {
+    0: "sliding_attention",
+    4: "compressed_sparse_attention",
+    128: "heavily_compressed_attention",
+}
+
+# Schedules whose length has already been reported as unexplained by the layer
+# count, so the warning is said once per shape rather than once per forward.
+_SCHEDULE_LENGTH_WARNED: set = set()
+
+
+def parse_compress_ratios(model_config) -> list | None:
+    """Per-layer compression schedule as a list of ints, or ``None``.
+
+    Accepts the list form and the ``"[128, 128, 4, ...]"`` string form that the
+    checkpoint ships. Returns ``None`` when the model declares no schedule.
+    """
+    raw = getattr(model_config, "compress_ratios", None)
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        raw = raw.strip().strip("[]")
+        if not raw:
+            return None
+        try:
+            return [int(float(x)) for x in raw.split(",") if x.strip()]
+        except ValueError:
+            return None
+    try:
+        return [int(x) for x in raw]
+    except (TypeError, ValueError):
+        return None
+
+
+def hybrid_attention_scale(model_config, context_len: int) -> float | None:
+    """Fraction of dense attention cost under a per-layer compression schedule.
+
+    ``None`` when the model declares no schedule, or declares one this mapping
+    does not recognise, so the caller keeps its previous behaviour.
+
+    A compressed layer does not attend over its context. It attends over a local
+    window plus a pool holding one entry per ``compress_rate`` source tokens, so
+    what it reads is set by the schedule and the window, not by the prompt. The
+    two branches differ in how they use that pool: HCA has full visibility over
+    it, while CSA runs a lightning indexer across the whole pool to select
+    ``index_topk`` entries and attends to those.
+
+    That selection is why a single top-k scale reads this model wrong at long
+    context. CSA's *attention* stops growing once the pool exceeds the top-k
+    (above 4k context for DeepSeek-V4-Pro, which selects 1024 of ``context/4``),
+    but its *indexer* still has to score every entry in the pool, so the term
+    that keeps growing with context is the indexer rather than the attention.
+    At 8k context the indexer is 9% of a CSA layer and at 130k it is 62%.
+
+    A multiplicative floor cannot express that. The work it stands in for is
+    real -- the indexer genuinely does not shrink with the window -- but it
+    grows like ``context / compress_rate`` scaled by the indexer's much smaller
+    head geometry, whereas flooring the scale makes it grow like dense attention
+    over the full context. On DeepSeek-V4-Pro at 130k the schedule costs 0.0157
+    of dense against the 0.15 floor, a 9.6x over-read, while at the 8k the floor
+    was set against it is only 1.7x and does not show.
+    """
+    sched = parse_compress_ratios(model_config)
+    if not sched:
+        return None
+    if any(cr not in _COMPRESS_RATIO_LAYER_TYPES for cr in sched):
+        return None
+    ctx = int(context_len or 0)
+    if ctx <= 0:
+        return None
+
+    # The schedule covers the MTP head as well as the stack: DeepSeek-V4-Pro
+    # declares 61 layers and schedules 62, Flash declares 43 and schedules 44,
+    # and both carry ``mtp_num_layers: 1``. In both the surplus entry is the
+    # trailing 0, a dense windowed layer, which is what an MTP head is. Only the
+    # stack runs in the forward being costed here, so the average is taken over
+    # that and the speculative head is left to whoever models speculation.
+    declared = int(getattr(model_config, "num_layers", 0) or 0)
+    if declared and len(sched) > declared:
+        mtp = int(getattr(model_config, "mtp_num_layers", 0) or 0)
+        if len(sched) != declared + mtp:
+            key = (declared, len(sched))
+            if key not in _SCHEDULE_LENGTH_WARNED:
+                _SCHEDULE_LENGTH_WARNED.add(key)
+                print(
+                    f"[inferasim:Inference] WARNING: this model's compression "
+                    f"schedule names {len(sched)} layers against {declared} in the "
+                    f"stack and {mtp} predicting ahead of it. The first {declared} "
+                    f"entries are used; the rest are unexplained. Re-transcribe "
+                    f"compress_ratios from the checkpoint's config.json."
+                )
+        sched = sched[:declared]
+    elif declared and len(sched) < declared:
+        key = (declared, len(sched))
+        if key not in _SCHEDULE_LENGTH_WARNED:
+            _SCHEDULE_LENGTH_WARNED.add(key)
+            print(
+                f"[inferasim:Inference] WARNING: this model's compression schedule "
+                f"names only {len(sched)} of {declared} layers. The branch mix is "
+                f"weighted over the entries present, which assumes the rest look "
+                f"like them. Re-transcribe compress_ratios from the checkpoint."
+            )
+
+    heads = int(getattr(model_config, "num_attention_heads", 0) or 0)
+    latent = int(getattr(model_config, "kv_channels", 0) or 0)
+    rope = int(getattr(model_config, "qk_pos_emb_head_dim", 0) or 0)
+    # Absorbed MLA reads the shared latent plus the positional part for the
+    # scores and the latent again for the values, per KV entry.
+    main_per_entry = heads * ((latent + rope) + latent)
+    if main_per_entry <= 0:
+        return None
+    idx_per_entry = int(getattr(model_config, "index_n_heads", 0) or 0) * int(
+        getattr(model_config, "index_head_dim", 0) or 0
+    )
+    window = int(getattr(model_config, "attn_sliding_window", 0) or 0)
+    topk = int(getattr(model_config, "index_topk", 0) or 0)
+
+    local = min(ctx, window) if window > 0 else ctx
+    total = 0.0
+    for cr in sched:
+        kind = _COMPRESS_RATIO_LAYER_TYPES[cr]
+        if kind == "sliding_attention":
+            total += local * main_per_entry
+            continue
+        pool = ctx / cr
+        if kind == "heavily_compressed_attention":
+            # Full visibility over the pool, and no indexer to select with.
+            total += (local + pool) * main_per_entry
+        else:
+            selected = min(topk, pool) if topk > 0 else pool
+            total += (local + selected) * main_per_entry + pool * idx_per_entry
+    return total / (len(sched) * ctx * main_per_entry)
 
 # Representative expert grouped-GEMM compute multipliers by expert dtype.
 _MOE_EXPERT_DTYPE_SPEEDUP = {
@@ -1378,6 +1624,12 @@ def convert_config_to_inference_config(
     )
     if attn_dp is not None:
         mp.attention_data_parallel_size = int(attn_dp)
+    # Decode context parallelism arrives the same way, and for the same reason.
+    dcp = overrides.get(
+        "decode_context_parallel_size", yaml_inf.get("decode_context_parallel_size")
+    )
+    if dcp is not None:
+        mp.decode_context_parallel_size = int(dcp)
 
     return InferenceConfig(
         model_config=training_config.model_config,
