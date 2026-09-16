@@ -178,12 +178,15 @@ SCRATCH_FLAGS+=(-v "$E2E_LOG_DIR":/e2e-logs)
 # the orchestrator, so it needs the path itself, not the container mount above.
 export INFERA_E2E_LOG_DIR="$E2E_LOG_DIR"
 
+_SKIP_DOCKER_CLEANUP=0
 _cleanup_scratch() {
   local img="$IMG_SGLANG"
-  docker image inspect "$IMG_VLLM" >/dev/null 2>&1 && img="$IMG_VLLM"
-  docker image inspect "$img" >/dev/null 2>&1 && timeout -k 10 120 docker run --rm \
-    -v "$SCRATCH":/scratch --entrypoint sh "$img" \
-    -c 'rm -rf /scratch/* /scratch/.[!.]* 2>/dev/null' >/dev/null 2>&1 || true
+  if [ "$_SKIP_DOCKER_CLEANUP" -ne 1 ]; then
+    timeout -k 5 15 docker image inspect "$IMG_VLLM" >/dev/null 2>&1 && img="$IMG_VLLM"
+    timeout -k 5 15 docker image inspect "$img" >/dev/null 2>&1 && timeout -k 10 120 docker run --rm \
+      -v "$SCRATCH":/scratch --entrypoint sh "$img" \
+      -c 'rm -rf /scratch/* /scratch/.[!.]* 2>/dev/null' >/dev/null 2>&1 || true
+  fi
   rm -rf "$SCRATCH" 2>/dev/null || true
 }
 
@@ -1416,13 +1419,22 @@ if [ "${INFERA_E2E_EXCLUSIVE:-}" = 1 ] && _run_here; then
     echo "${GPU_DIRTY_NODE_PREFIX}${INFERA_E2E_SLURM_NODE} docker is unavailable" >&2
     exit 75
   fi
+  docker_root="${INFERA_E2E_DOCKER_ROOT:-/var/lib/containerd}"
+  [ -e "$docker_root" ] || docker_root=/
+  docker_free=$(df -Pk "$docker_root" 2>/dev/null | awk 'NR==2{print $4}')
+  docker_min_free="${INFERA_E2E_DOCKER_MIN_FREE_KB:-8388608}"
+  if [[ "$docker_free" =~ ^[0-9]+$ ]] && [ "$docker_free" -lt "$docker_min_free" ]; then
+    _SKIP_DOCKER_CLEANUP=1
+    echo "no space left on device: $INFERA_E2E_SLURM_NODE has $((docker_free / 1024)) MB free under $docker_root" >&2
+    exit 75
+  fi
 fi
 if command -v docker >/dev/null 2>&1 && _run_here; then
   if [ "${INFERA_E2E_EXCLUSIVE:-}" = 1 ]; then
     if ! stale=$(
       {
-        docker ps -a --filter label=infera.e2e.job_tag --format '{{.Names}}' || exit $?
-        docker ps -a --filter name=infera-e2e- --filter name=infera-utest- \
+        timeout -k 5 30 docker ps -a --filter label=infera.e2e.job_tag --format '{{.Names}}' || exit $?
+        timeout -k 5 30 docker ps -a --filter name=infera-e2e- --filter name=infera-utest- \
           --format '{{.Names}} {{.Labels}}' |
           awk '$0 !~ /infera\.e2e\.job_tag=/{print $1}' || exit $?
       } 2>/dev/null | sort -u
@@ -1435,7 +1447,7 @@ if command -v docker >/dev/null 2>&1 && _run_here; then
   fi
   if [ -n "$stale" ]; then
     echo "[cleanup] $(hostname -s): removing stale containers: $(echo $stale | tr '\n' ' ')"
-    if ! docker rm -f $stale >/dev/null 2>&1; then
+    if ! timeout -k 5 60 docker rm -f $stale >/dev/null 2>&1; then
       if [ "${INFERA_E2E_EXCLUSIVE:-}" = 1 ]; then
         echo "${GPU_DIRTY_NODE_PREFIX}${INFERA_E2E_SLURM_NODE} could not remove stale containers" >&2
         exit 75

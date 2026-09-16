@@ -216,6 +216,33 @@ done
     assert "node node-1 unusable" in result.stderr
 
 
+def test_local_worker_rejects_a_full_container_store(tmp_path):
+    mock_bin = tmp_path / "bin"
+    mock_bin.mkdir()
+    count_file = tmp_path / "unused-count"
+    count_file.write_text("0\n")
+    _executable(mock_bin / "docker", "exit 1\n")
+    _executable(
+        mock_bin / "df",
+        "printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\\nmock 1000 900 100 90%% /\\n'\n",
+    )
+    env = _runner_env(tmp_path, mock_bin, count_file)
+    env.update(
+        {
+            "INFERA_E2E_DOCKER_MIN_FREE_KB": "200",
+            "INFERA_E2E_DOCKER_ROOT": str(tmp_path),
+            "INFERA_E2E_EXCLUSIVE": "1",
+            "INFERA_E2E_LOCAL": "1",
+        }
+    )
+
+    result = _run_runner(env, "engine")
+
+    assert result.returncode == 75
+    assert "no space left on device" in result.stderr
+    assert "has 0 MB free" in result.stderr
+
+
 def test_dirty_node_is_not_resubmitted_inside_one_node_allocation(tmp_path):
     mock_bin = tmp_path / "bin"
     mock_bin.mkdir()
