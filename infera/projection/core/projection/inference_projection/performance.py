@@ -1069,11 +1069,8 @@ class InferencePerformanceProjector:
                 ((meta.get("prefill_anchor") or {}).get("curve_fit") or {}).get("ms_per_token")
             )
             _target_n = int(self.cfg.request_config.input_seq_len or ref_input or 0)
-            if (
-                pre_pts
-                and not _has_curve
-                and _prefill_probed
-                and _target_n > 1.5 * max(_prefill_probed)
+            if pre_pts and not _has_curve and _prefill_probed and _target_n > 1.5 * max(
+                _prefill_probed
             ):
                 print(
                     f"[inferasim:Inference] WARNING: PREFILL IS NOT CALIBRATED. This "
@@ -2540,11 +2537,20 @@ class InferencePerformanceProjector:
         # from 0.53x of measured TPOT to 0.83x on MI355X and 0.94x on GB300,
         # while the fixed-shape 8k sweep, where the floor barely binds, does not
         # move at all.
-        sparse_scale = (
-            1.0
-            if phase == "decode"
-            else self.cfg.request_config.resolved_sparse_attention_scale(kv_len)
-        )
+        # A model that records a per-layer compression schedule is costed from
+        # it, weighting each branch by how many layers actually run it, rather
+        # than from one top-k scale standing for the whole stack. Prefill only,
+        # for the reason just given: decode's measured step does not shrink with
+        # the selection, so the schedule is not what sets its cost either.
+        sparse_scale = 1.0
+        if phase != "decode":
+            from infera.projection.core.projection.training_config import (
+                hybrid_attention_scale,
+            )
+
+            sparse_scale = hybrid_attention_scale(self.cfg.model_config, kv_len)
+            if sparse_scale is None:
+                sparse_scale = self.cfg.request_config.resolved_sparse_attention_scale(kv_len)
         # Attention-DP: the memory model has always known that a rank under DP
         # attention owns a subset of the *requests* rather than a slice of every
         # request's heads, but the time model did not, and charged every rank
@@ -3574,7 +3580,9 @@ class InferencePerformanceProjector:
         except Exception:
             return 0
 
-    def _admission_wait_ms(self, request_latency_ms: float) -> tuple[float, int]:
+    def _admission_wait_ms(
+        self, request_latency_ms: float, per_replica: int = 1
+    ) -> tuple[float, int]:
         """How long a request waits to be admitted, and the bound it waits on.
 
         Below the bound this is zero: the pool holds every concurrent request,
@@ -3604,6 +3612,10 @@ class InferencePerformanceProjector:
         """
         ceiling = self._admission_ceiling()
         requested = self.cfg.request_config.resolved_max_concurrency()
+        # ``per_replica`` spreads the clients over a pool of replicas, so what
+        # competes for one replica's pool is its share of them.
+        if per_replica > 1:
+            requested = max(1, int(math.ceil(requested / per_replica)))
         if ceiling <= 0 or requested <= ceiling:
             return 0.0, ceiling
         return max(0.0, request_latency_ms) * (requested / ceiling - 1.0), ceiling
@@ -3983,6 +3995,32 @@ class InferencePerformanceProjector:
         if output_len > 1:
             itl = decode_total / (output_len - 1)
         request_latency = ttft + decode_total
+
+        # Admission, which this path did not price at all. The KV pool binds on
+        # the decode side -- that is where a sequence's blocks live for the
+        # whole generation, and the memory pass already re-binds to that pool --
+        # so a split is no less capable of over-subscribing it than a colocated
+        # engine is. Charged per decode replica, because the clients are spread
+        # across the pool and it is one replica's residency that binds.
+        #
+        # On the published disaggregated DeepSeek rows this term is identically
+        # zero, and that is the finding rather than a failure of it: moving
+        # prefill off the decode GPUs leaves a pool that admits ~770 sequences
+        # against the 256 ever offered, so the split never reaches its knee.
+        # Their TTFT still grows 9x over that range, which means for a split
+        # the binding queue is the *prefill* pool's and not the KV pool's --
+        # the closed-form knee ranks those seven rows at rho 0.286 where the
+        # replay, which simulates that queue, gets 0.71-0.96. Price a split's
+        # TTFT from the replay; this term is here for the case where the decode
+        # pool is genuinely over-subscribed, which one replica with a small
+        # pool still can be.
+        admission_ms, admission_ceiling = self._admission_wait_ms(
+            request_latency, per_replica=max(1, int(disagg.decode_replicas or 1))
+        )
+        if admission_ms > 0.0:
+            ttft += admission_ms
+            request_latency += admission_ms
+
         per_req_decode_tps = (1000.0 / itl) if itl > 0 else 0.0
 
         # Per-replica decode throughput, scaled by the decode-pool replica count.
@@ -4033,6 +4071,9 @@ class InferencePerformanceProjector:
         if self.is_benchmark_calibrated:
             extras["benchmark_calibrated"] = 1.0
         extras["prefill_compute_ttft_ms"] = ttft_compute
+        extras["admission_ceiling"] = float(admission_ceiling)
+        extras["admission_wait_ms"] = float(admission_ms)
+        extras["resident_tokens_per_request"] = float(req.resolved_resident_tokens())
         extras["prefill_replicas"] = float(disagg.prefill_replicas)
         extras["decode_replicas"] = float(disagg.decode_replicas)
         extras["prefill_occupancy"] = float(n_prefill)
