@@ -1039,6 +1039,54 @@ class InferencePerformanceProjector:
                     "hit fraction to 1.0 for repeated-prefix traffic."
                 )
                 pre_pts = []
+            # A prefill curve also has to be transportable to the prompt length
+            # being asked about, and only the length probe makes it so. Four or
+            # more probed lengths fit a quadratic, which is read at the target
+            # (held at the last probed length past the ladder). Two lengths fit
+            # only a chord, and what survives is the sweep's flat per-token rate
+            # at the anchor's own ``input_len`` -- a number that is then sharded
+            # across TP width and billed unchanged at any prompt length.
+            #
+            # For a 16x reach that is not a small error, because prefill
+            # per-token cost is not context-free: attention grows with context.
+            # DeepSeek-V4-Pro's TP8 MI355X anchor probes 4096 and 8192 only, so
+            # at ISL 130000 it charges the 8192-token rate, which prices the
+            # prompt as very nearly free -- TTFT 531 ms against a measured
+            # 15570, and 108005 tok/s/gpu against a best measured 49370, a 2.2x
+            # over-read on the headline metric. Simulated prefill lands within
+            # 0.3% of the same measurement, so the fallback is strictly better
+            # than the flat rate here.
+            #
+            # Refused rather than scaled: transporting it would mean inventing
+            # the context term from the analytical model and calling the result
+            # measured, which is the fallback's job and is reported as such.
+            # Decode is unaffected and stays calibrated.
+            _prefill_probed = sorted(
+                int(p.get("input_len") or 0)
+                for p in ((meta.get("prefill_anchor") or {}).get("points") or [])
+            )
+            _has_curve = bool(
+                ((meta.get("prefill_anchor") or {}).get("curve_fit") or {}).get("ms_per_token")
+            )
+            _target_n = int(self.cfg.request_config.input_seq_len or ref_input or 0)
+            if (
+                pre_pts
+                and not _has_curve
+                and _prefill_probed
+                and _target_n > 1.5 * max(_prefill_probed)
+            ):
+                print(
+                    f"[inferasim:Inference] WARNING: PREFILL IS NOT CALIBRATED. This "
+                    f"anchor probed prefill at {min(_prefill_probed)}..{max(_prefill_probed)} "
+                    f"tokens, too few lengths to fit a context curve, and the target "
+                    f"runs {_target_n}. Its flat per-token rate carries no context "
+                    f"growth, so billing it here would price a "
+                    f"{_target_n / max(_prefill_probed):.0f}x longer prompt at the same "
+                    f"cost per token. Decode is calibrated as usual; prefill and TTFT "
+                    f"are simulated. Re-harvest with --prefill-anchor-points 4 or more "
+                    f"over a ladder that brackets this prompt length."
+                )
+                pre_pts = []
             pre_pts_bench = list(pre_pts)
             dec_pts_bench = list(dec_pts)
             if self._restore:
@@ -1162,6 +1210,36 @@ class InferencePerformanceProjector:
                         f"[inferasim:Inference] WARNING: {_ph} benchmark has a single "
                         f"batch point — batch transport will hold it flat. Re-run the "
                         f"benchmark with a batch sweep for an accurate {_ph} batch curve."
+                    )
+            # And having a sweep is not the same as having one that reaches the
+            # batch being asked about. Past its widest rung the curve is being
+            # extrapolated, and a decode step's cost per sequence keeps rising
+            # with batch, so reading beyond the last measured point under-costs
+            # the step and over-reads throughput -- by more, the further out it
+            # goes. DeepSeek-V4-Pro's MI355X anchor sweeps batch 1..64 and the
+            # agentic recipe runs concurrency 256: against that anchor's own
+            # engine the projection comes out 1.67x high at concurrency 64,
+            # where the sweep still covers it, and 2.57x high at 256, where it
+            # does not. The growth is the extrapolation; the offset at 64 is
+            # not, and is a separate question about the anchor itself.
+            _tgt_b = max(
+                int(self.cfg.request_config.batch_size or 0),
+                int(getattr(self.cfg.request_config, "max_concurrency", 0) or 0),
+            )
+            for _ph in ("prefill", "decode"):
+                _pts = self._meas_whole.get(_ph, [])
+                if len(_pts) < 2 or _tgt_b <= 0:
+                    continue
+                _widest = max(int(b) for b, _ in _pts)
+                if _tgt_b > _widest:
+                    print(
+                        f"[inferasim:Inference] WARNING: {_ph} was swept to batch "
+                        f"{_widest} and this config runs {_tgt_b}. The curve is being "
+                        f"read {_tgt_b / _widest:.1f}x past its widest measured rung, "
+                        f"which under-costs the step and over-reads throughput. "
+                        f"Harvest with --inference-batch-size {_tgt_b} (or "
+                        f"--benchmark-batches up to {_tgt_b}) before trusting "
+                        f"throughput or TPOT from this run."
                     )
             # Per-token prefill rate (for sub-prompt chunk pieces): full-prompt
             # prefill of ``b`` seqs processes ``b * ref_input`` tokens.
@@ -3445,6 +3523,90 @@ class InferencePerformanceProjector:
         except Exception:
             return None, hbm_gb, source
 
+    def _admission_ceiling(self) -> int:
+        """How many requests of the target workload the KV pool can admit.
+
+        Differs from ``_sustainable_concurrency`` in the context it sizes a
+        resident request at. That one asks "how many sequences fit *at the
+        context ceiling*", which is the right question for whether a config is
+        legal and the wrong one for how many requests are resident under load:
+        on an agentic replay whose prompts run from 400 tokens to 950k, sizing
+        residency at the longest possible request puts the bound around 3-7
+        where the hardware admits tens. This sizes it at what a request
+        actually holds -- see ``resolved_resident_tokens``.
+
+        The pool itself is taken from ``kv_pool_tokens`` when the caller knows
+        what the engine allocated, and otherwise from the memory model.
+        """
+        req = self.cfg.request_config
+        # If the engine told us how big its pool is, believe it rather than
+        # reconstructing it. The bound is a ratio of pool to residency, so this
+        # is the numerator measured instead of predicted.
+        #
+        # A KV offload tier deliberately does *not* raise this. The connectors
+        # these runs use (vLLM's SimpleCPUOffloadConnector, LMCache) put evicted
+        # blocks in host DRAM so a later request can re-read them; a request
+        # being decoded still needs its blocks in HBM. Offload buys cache
+        # capacity, not admission capacity.
+        if req.kv_pool_tokens:
+            resident = max(1, req.resolved_resident_tokens())
+            return max(1, int(req.kv_pool_tokens) // resident)
+
+        hbm_gb, _ = self._resolve_hbm_gb()
+        try:
+            from .kv_cache import max_concurrent_sequences
+            from .memory import project_inference_memory
+
+            mem = project_inference_memory(self.cfg, hbm_capacity_gb=hbm_gb, verbose=False)
+            fraction = req.kv_cache_memory_fraction
+            usable = mem.hbm_capacity_bytes or 0
+            if fraction:
+                usable = int(usable * float(fraction))
+            free_for_kv = usable - mem.weight_bytes - mem.activation_bytes
+            free_for_kv += req.kv_offload_gb_per_gpu * (1024.0**3)
+            return max_concurrent_sequences(
+                self.cfg,
+                mem.layers_on_rank,
+                free_for_kv,
+                context_len=req.resolved_resident_tokens(),
+            )
+        except Exception:
+            return 0
+
+    def _admission_wait_ms(self, request_latency_ms: float) -> tuple[float, int]:
+        """How long a request waits to be admitted, and the bound it waits on.
+
+        Below the bound this is zero: the pool holds every concurrent request,
+        the closed-loop prefill queue already prices the contention, and TTFT is
+        a service time. Above it the engine cannot hold all ``C`` clients, so
+        only ``C_crit`` are resident and the rest wait outside for a resident
+        request to *retire* -- not for a prefill slot to open. What they wait on
+        is therefore a whole request latency, prefill plus the entire decode
+        span, which is why measured TTFT past the knee grows faster than
+        linearly in concurrency: across the published AgentX rows the median
+        local slope ``d(log TTFT)/d(log C)`` climbs 0.18, 0.57, 1.35, 2.33
+        through KV utilization bands of 0.60, 0.90, 0.99 and above.
+
+        Throughput past the bound is pinned at ``C_crit / latency``, so by
+        Little's law a request's sojourn is ``C * latency / C_crit`` and the
+        admission wait is the excess over the latency it would have seen
+        inside. Nothing here is fitted.
+
+        Scored against 176 published AgentX measurements -- 6 models on 16
+        model/stack curves -- this takes median per-curve TTFT rank correlation
+        from 0.44 to 0.76 and the regret of picking on it from 3% to 0%, and it
+        beats the discrete-event replay at 0.62. It does not cost accuracy in
+        either direction: median absolute error is unchanged at ~0.8, because
+        what the term fixes is the shape of TTFT in concurrency rather than its
+        level, and the term is identically zero wherever the pool does not
+        bind, which includes every fixed-sequence workpoint we run.
+        """
+        ceiling = self._admission_ceiling()
+        requested = self.cfg.request_config.resolved_max_concurrency()
+        if ceiling <= 0 or requested <= ceiling:
+            return 0.0, ceiling
+        return max(0.0, request_latency_ms) * (requested / ceiling - 1.0), ceiling
+
     def _effective_concurrency(self) -> dict:
         """Concurrency that drives throughput, reconciled against the KV-feasible
         ceiling (cap + report):
@@ -3592,6 +3754,22 @@ class InferencePerformanceProjector:
             per_req_decode_tps = (1000.0 / itl) if itl > 0 else 0.0
 
         request_latency = ttft + decode_total
+
+        # Admission. Everything above prices the engine's own queue, which
+        # assumes every concurrent request is resident; the KV pool decides
+        # whether it can be. Where the pool binds, the excess clients wait
+        # outside for a resident request to retire, and that wait is the
+        # dominant term in TTFT -- it is not a correction to it.
+        admission_ms, admission_ceiling = self._admission_wait_ms(request_latency)
+        if admission_ms > 0.0:
+            ttft += admission_ms
+            request_latency += admission_ms
+        extras["admission_ceiling"] = float(admission_ceiling)
+        extras["admission_wait_ms"] = float(admission_ms)
+        extras["resident_tokens_per_request"] = float(
+            self.cfg.request_config.resolved_resident_tokens()
+        )
+
         decode_tps_per_gpu = decode_tps / replica_gpus if replica_gpus else 0.0
         prefill_tps = (batch * input_len * 1000.0 / prefill_full_ms) if prefill_full_ms > 0 else 0.0
 
