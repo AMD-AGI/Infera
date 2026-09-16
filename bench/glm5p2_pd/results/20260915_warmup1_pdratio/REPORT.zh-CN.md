@@ -65,6 +65,10 @@ prefill 队列确实从 35 降到 22，但命中率已经到顶（0.987 → 0.98
 41 条 `KVPoll.WaitingForInput` 超时 1800 秒，warmup 零推进 30 分钟，
 而其间两端 KV 都只有 10% 上下、两端队列都是空的。详见 R8 一节。
 
+**并且这两次 OOR 都是在 active GC 关闭、prefill mem 用 0.85（而非当初验收时的
+0.70）的前提下发生的**——上一轮专门为这个 OOR 签名做的缓解措施，本轮一件都没开。
+这是编排时的疏漏，不是该缓解措施失效。重试必须先把它打开。详见 R8 一节的前提说明。
+
 按结论 4，C256 该走的是 2P2D——但四号节点（141）的 docker daemon
 在 campaign 中途变为 `inactive` 且需管理员权限才能重启，
 2P2D 与 3P1D 都无法组网。
@@ -299,6 +303,58 @@ C192 的 59 条全部落在 23:11–23:12，而该点的 profiling 恰好在 23:
 
 **OOR 是终点而不是起点。** 两端 KV 都只有 10% 上下、两端队列都是空的，
 这不是算不过来，是**交接握手停了**。
+
+#### 重要前提：本 campaign **没有开** active GC，prefill 的 mem 也比当初高
+
+上一轮报告（`../20260913_.../REPORT.zh-CN.md` 第 6 节）压住 prefill OOR 靠的是
+**三件叠加措施**：
+
+| 措施 | 上一轮 OOR 验收时 | **本 campaign 实际** |
+|---|---|---|
+| Prefill `HSA_NO_SCRATCH_RECLAIM=0` | 是 | **是** |
+| Prefill `mem_fraction_static` | **0.70** | **0.85** |
+| Prefill active GC（`garbage_collection_threshold:0.8` + `INFERA_PYTORCH_MEMORY_FRACTION=1.0`） | **是** | **否** |
+
+后两件本轮都不在。逐点核对过 `logs/launch.log`：六个点的 `docker run` 里
+`PYTORCH_HIP_ALLOC_CONF`、`INFERA_PYTORCH_MEMORY_FRACTION`、
+`sitecustomize` 挂载**零命中**；`args.txt` 里也没有任何 `PYTORCH_*`。
+原因是 `config.sh` 里这两项默认为空（opt-in），而 `config.p8d8.sh` 与
+`sweep.sh` 都没有设置它们。
+
+**这很要紧，因为上一轮收敛出的根因正好是本轮 OOR 的签名**：
+
+> PyTorch inactive cached segment 与 HSA/AITER 动态 scratch/临时张量共同竞争
+> HBM；外部 HSA 分配无法主动触发 PyTorch failure-path 回收，pressure-aware GC
+> 通过提前返还 inactive segment 消除该资源死角。
+
+本轮两次 OOR 都是 `HSA_STATUS_ERROR_OUT_OF_RESOURCES ... Available Free mem : 0 MB`
+而 KV 池只占 8%–10%——正是"外部 HSA 要不到显存，而 PyTorch 攥着 inactive segment"。
+
+上一轮的 A/B 数据也很直接：
+- C48 no-op 对照：八卡 HBM 全部到 **99%**，跑完仍停在 98%；
+- C48 active GC：全局峰值 **93%**，无 94%–99% 样本，跑完 78%–83%，
+  即**给外部 HSA scratch 留出约 6 个百分点**；代价是吞吐 −2.91%、ITL p50 8.71→8.82 ms；
+- 原强度 C96（96/96）：历史上在 primer 71/101 处 DP0 OOR，开 GC 后
+  1,061/1,061 warmup + 完整 1,200 秒 profiling 全通过，HBM 全局峰值 94%，
+  无 ≥95% 样本，OOR/fatal/transport retry 全为 0。
+
+**所以本轮的两次 C256 OOR，是在明知有效的缓解措施关闭的前提下发生的。**
+这是我的疏漏：该功能是我在本轮之前提交的（commit `a325c0f`），
+但它是 opt-in 且默认为空，我在编排 sweep 时没有打开。
+
+**需要同时说明的两点，以免把它当成"开了就能过"**：
+
+1. 上一轮 GC 验收用的镜像 digest 是 `34909eb3…`，与本 campaign 固定的
+   `6ff85f4a`（`c29bd17-b02ab81`）**不是同一个栈**，当时报告也明确写了
+   "只证明该新栈下 active-GC 能越过 OOR，不进入 intended-commit 性能曲线"。
+2. **GC 对得上 OOR，但对不上停滞。** C256 的 41 条
+   `WaitingForInput` 超时是从 23:37（warmup 刚开始）就开始计时的，
+   比 00:54 的 OOR 早了半个多小时，且停滞期间两端 KV 都只有 10%。
+   开 GC 大概率能消除 OOR 这个**终点**，但没有理由认为它能消除交接停滞这个**起点**。
+
+**因此 C256 重试的正确做法是**：prefill 打开 active GC、mem 回到 0.70，
+先把 OOR 这一层排除掉，再看交接停滞是否独立存在。
+代价是该点与曲线上其余点不再严格同口径（吞吐差约 3%），需在结论中标注。
 
 #### 两个尚未回答的问题
 
