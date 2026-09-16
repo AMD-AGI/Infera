@@ -1212,16 +1212,17 @@ class InferencePerformanceProjector:
                         f"benchmark with a batch sweep for an accurate {_ph} batch curve."
                     )
             # And having a sweep is not the same as having one that reaches the
-            # batch being asked about. Past its widest rung the curve is being
-            # extrapolated, and a decode step's cost per sequence keeps rising
-            # with batch, so reading beyond the last measured point under-costs
-            # the step and over-reads throughput -- by more, the further out it
-            # goes. DeepSeek-V4-Pro's MI355X anchor sweeps batch 1..64 and the
-            # agentic recipe runs concurrency 256: against that anchor's own
-            # engine the projection comes out 1.67x high at concurrency 64,
-            # where the sweep still covers it, and 2.57x high at 256, where it
-            # does not. The growth is the extrapolation; the offset at 64 is
-            # not, and is a separate question about the anchor itself.
+            # batch being asked about. DeepSeek-V4-Pro's MI355X anchor sweeps
+            # batch 1..64 and the agentic recipe runs concurrency 256, so the
+            # curve is read 4x past its widest measured rung.
+            #
+            # The sign of that error is not stated here because it is not a
+            # property of the anchor alone: against the same measured runs, the
+            # closed-form path comes out 2.57x high at concurrency 256 while
+            # trace replay of the same candidate comes out 0.74x, and both use
+            # this curve. What is common to them is that the step cost past
+            # batch 64 is modelled rather than measured. Which is the thing to
+            # say, and the reason the fix is a harvest rather than a factor.
             _tgt_b = max(
                 int(self.cfg.request_config.batch_size or 0),
                 int(getattr(self.cfg.request_config, "max_concurrency", 0) or 0),
@@ -1236,7 +1237,7 @@ class InferencePerformanceProjector:
                         f"[inferasim:Inference] WARNING: {_ph} was swept to batch "
                         f"{_widest} and this config runs {_tgt_b}. The curve is being "
                         f"read {_tgt_b / _widest:.1f}x past its widest measured rung, "
-                        f"which under-costs the step and over-reads throughput. "
+                        f"so the step cost out here is modelled rather than measured. "
                         f"Harvest with --inference-batch-size {_tgt_b} (or "
                         f"--benchmark-batches up to {_tgt_b}) before trusting "
                         f"throughput or TPOT from this run."
