@@ -1,0 +1,30 @@
+# C256 KV 交接停滞证据摘录（完整 decode-0.log 数百 MB，未提交）
+#
+# 273 条 'Decode transfer failed' 必须分两类看：
+#   - 'Aborted by AbortReq.' = 客户端收尾取消，PASS 点（C64/C192）上同样出现，非故障
+#   - 'KVPoll.WaitingForInput' 超时 1800s = 真正的交接失败，只在 C256 出现，共 41 条
+
+## 按分钟分布
+      2 [2026-09-16 00:07
+      4 [2026-09-16 00:09
+      2 [2026-09-16 00:12
+      5 [2026-09-16 00:13
+      3 [2026-09-16 00:14
+      5 [2026-09-16 00:15
+      2 [2026-09-16 00:16
+      3 [2026-09-16 00:17
+      4 [2026-09-16 00:18
+      2 [2026-09-16 00:19
+    241 [2026-09-16 00:49
+
+## 超时相位统计
+     41 in KVPoll.WaitingForInput
+
+## 最早三条（运行期，非收尾）
+[2026-09-16 00:07:21 DP4 TP4] Decode transfer failed for request rank=4 decode_req.req.rid='586401fa072e4f3c882815a2e6e0b151' decode_req.req.bootstrap_room=1753385258151517772 with exception KVTransferError(bootstrap_room=1753385258151517772): Request 1753385258151517772 timed out after 1800.0s in KVPoll.WaitingForInput
+[2026-09-16 00:07:23 DP6 TP6] Decode transfer failed for request rank=6 decode_req.req.rid='2ca3b9cbcb2d416499ef92f44fb0aab0' decode_req.req.bootstrap_room=3258961524212069502 with exception KVTransferError(bootstrap_room=3258961524212069502): Request 3258961524212069502 timed out after 1800.0s in KVPoll.WaitingForInput
+[2026-09-16 00:09:15 DP5 TP5] Decode transfer failed for request rank=5 decode_req.req.rid='73eee1b2433c499e997f038feba9d30a' decode_req.req.bootstrap_room=7100852129509278789 with exception KVTransferError(bootstrap_room=7100852129509278789): Request 7100852129509278789 timed out after 1800.0s in KVPoll.WaitingForInput
+
+## warmup 冻结区间
+23:37:13.754 INFO     Phase warmup progress | returned=0/541 | sent=285 | in_flight=285 | errors=0 | elapsed=30.0s (runner.py:1254)
+00:49:14.308 INFO     Phase warmup progress | returned=285/541 | sent=541 | in_flight=256 | errors=0 | elapsed=4350.6s (runner.py:1254)

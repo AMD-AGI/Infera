@@ -1,0 +1,12 @@
+# C192（PASS）的 59 条 'Decode transfer failed' 全部是收尾取消，用作对照
+
+     38 [2026-09-15 23:11
+     21 [2026-09-15 23:12
+
+## 异常内容（唯一值）
+KVTransferError(bootstrap_room=1016240869306475292): Aborted by AbortReq.
+KVTransferError(bootstrap_room=1050858069455007734): Aborted by AbortReq.
+KVTransferError(bootstrap_room=1061162166054439277): Aborted by AbortReq.
+
+## 该点 profiling 完成时刻
+23:12:07.907 INFO     Server Metrics: Profiling complete, capturing final metrics... (manager.py:355)
