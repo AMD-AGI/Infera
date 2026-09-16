@@ -785,10 +785,11 @@ _spill_inflight() {
 # Report why the dispatch is still queued (a waiting job prints NOTHING, so a CI
 # run looks hung and gets cancelled), and cancel + flag the wait the caller can
 # act on. Accounting/QoS limits use a distinct flag so the caller can move to
-# the next credential pair. $1=srun-out $2=hold-flag $3=label
+# the next credential pair. $1=srun-out $2=hold-flag $3=label $4=pinned-node
 _watch_job() {
-  local out="$1" hold="$2" label="$3" jid="" state reason waited=0
+  local out="$1" hold="$2" label="$3" pin="${4:-}" jid="" state reason waited=0
   local every="${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}" next="${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}"
+  local pin_wait="${INFERA_E2E_PIN_WAIT:-60}"
   while sleep 5; do
     waited=$((waited + 5))
     # Both srun banners: "Pending job allocation N" (the only one a job that
@@ -812,6 +813,11 @@ _watch_job() {
       JobHoldMaxRequeue* | JobLaunchFailure*)
         printf '%s\n' "${reason%% (*}" > "$hold"; scancel "$jid" >/dev/null 2>&1; return ;;
     esac
+    if [ -n "$pin" ] && [ "$reason" = Resources ] && [ "$waited" -ge "$pin_wait" ]; then
+      printf 'PinnedNodeBusy:%s\n' "$pin" > "$hold"
+      scancel "$jid" >/dev/null 2>&1
+      return
+    fi
     if [ "$waited" -ge "$next" ]; then
       next=$((waited + every))
       echo "[$label] still QUEUED on SLURM after ${waited}s — job $jid, reason=${reason:-unknown}" >&2
@@ -927,7 +933,7 @@ _dispatch_slurm() {
         -J "$jobname" "${xflag[@]}" "${wflag[@]}" "${resv[@]}" ${INFERA_E2E_SRUN_EXTRA:-} \
         "${remote[@]}" > "$out" 2>&1 &
     local srunpid=$!
-    _watch_job "$out" "$holdflag" "$label" &
+    _watch_job "$out" "$holdflag" "$label" "$pin" &
     local holdpid=$!
     wait "$srunpid"; prc=$?
     kill "$holdpid" 2>/dev/null; wait "$holdpid" 2>/dev/null
@@ -960,6 +966,12 @@ _dispatch_slurm() {
         pin="$(_pick_idle_nodes 1 "$exclude" | head -1)"
         echo "[$label] $why — scheduler names no node; pinning ${pin:-nothing free}${exclude:+, excluding $exclude}" >&2
         retryable=1; sleep 5; continue
+      fi
+      if [[ "$why" = PinnedNodeBusy:* ]]; then
+        exclude="${exclude:+$exclude,}${why#PinnedNodeBusy:}"
+        pin="$(_pick_idle_nodes 1 "$exclude" | head -1)"
+        echo "[$label] pinned node stayed busy — pinning ${pin:-nothing free}, excluding $exclude" >&2
+        retryable=1; continue
       fi
       echo "[$label] job ${why:-held} — cancelled, retrying within the $max_attempts-submission limit in 5s" >&2
       retryable=1; sleep 5; continue
