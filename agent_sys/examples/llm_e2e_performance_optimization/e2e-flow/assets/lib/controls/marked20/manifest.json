@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "operator_id": "m5_control_marked20",
+  "logical_operator": "m5_control_marked20",
+  "image": "inferaimage/infera:sglang-local",
+  "apply_mode": "overlay_files",
+  "expect": {
+    "source": "degraded_control",
+    "speedup": 0.83,
+    "note": "control: deliberate 20ms/step regression WITH runtime markers. No optimisation claimed."
+  },
+  "runtime_marker": {
+    "import": "M5_CONTROL_IMPORT\\s+sampler\\s+degraded-rev2",
+    "first_call": "M5_CONTROL_FIRST_CALL\\s+sampler\\s+degraded-rev2"
+  },
+  "files": [
+    {
+      "container_path": "@SGLANG_ROOT@/srt/layers/sampler.py",
+      "base_sha256": "6b727fcde1724924c71c1148d89005500195527e827fe7ec8d51eef43d92a762",
+      "change": "modify",
+      "replacement": "results/optimized_kernel.py"
+    }
+  ]
+}

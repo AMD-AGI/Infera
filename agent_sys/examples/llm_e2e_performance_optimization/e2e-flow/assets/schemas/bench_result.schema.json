@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bench_result.schema.json",
+  "title": "AIPerf's machine-readable export — the record a bench_result is built on",
+
+  "description": "Mission M2.2.1: 'bench_result 应该有 jsonl 或者 json，然后有针对该 json 校验的 schema'. AIPerf writes four things at the end of a run — a CSV, a JSON export, a rendered console table, and a gzipped per-request JSONL. **The JSON export is the record and the other three are renderings of it**: the CSV carries the same metrics with the percentile columns blanked out wherever AIPerf did not compute them (measured: `sum` and `p1..p25` are empty strings for every throughput row), the console text is the CSV formatted with box-drawing characters and thousands separators, and the JSONL is the per-request detail the summary was computed from. So this schema is written against `items/result/profile_export_aiperf.json`, which is the only one of the four that is lossless and typed.\n\nWritten against the real sealed artefact at `cheat_for_mock/stage2-profiling/aiperf_baseline/content/items/result/profile_export_aiperf.json` (aiperf 0.12.0, export schema_version 1.4, 721 requests) and cross-checked against `aiperf_profiled/`, which is the same load against a CUDA-graph-off deployment and therefore the same shape with different numbers.\n\n**The one rule from `assets/schemas/README.md` this file departs from is `additionalProperties: false` at the top level, and the departure is argued rather than lazy.** That rule exists because 'an open schema that accepts a typo is never noticed' — but this document is not hand-written, it is a machine export from a third-party tool that adds metrics between releases (0.12.0 already carries 60 top-level metrics, twelve of them `replay_*` and `active_*` names that did not exist in 0.10). A typo is not a failure mode here; a closed schema would be. Every metric the sealed export carries is still enumerated below, so the schema documents the export rather than merely admitting it, and `schema_version` is pinned to a known set so that an incompatible format change stops the pipeline here instead of at whatever reads a renamed field next.",
+
+  "type": "object",
+  "additionalProperties": true,
+
+  "required": [
+    "schema_version",
+    "aiperf_version",
+    "benchmark_id",
+    "start_time",
+    "end_time",
+    "was_cancelled",
+    "error_summary",
+    "request_count",
+    "request_throughput",
+    "request_latency",
+    "time_to_first_token",
+    "inter_token_latency",
+    "output_token_throughput",
+    "output_sequence_length",
+    "input_sequence_length",
+    "benchmark_duration",
+    "input_config",
+    "run_info"
+  ],
+
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["1.4"],
+      "description": "AIPerf's own export format version, pinned. A bump is not automatically wrong, and it is not something a downstream reader may discover by finding a field missing — the schema is where somebody looks at the new format and adds the version deliberately."
+    },
+    "aiperf_version": {"type": "string", "minLength": 1},
+    "benchmark_id": {"type": "string", "minLength": 1},
+
+    "start_time": {"type": "string", "minLength": 1},
+    "end_time": {"type": "string", "minLength": 1},
+
+    "was_cancelled": {
+      "type": "boolean",
+      "description": "Required, and required to be present rather than required to be false. A cancelled run is a legitimate artefact to keep; what is not legitimate is a reader that cannot tell. `check_bench_result` is what refuses it."
+    },
+    "error_summary": {
+      "type": "array",
+      "description": "AIPerf's own error accounting. Present and empty on a clean run. It is deliberately NOT the thing the error rate is computed from — that is read per-request from profile_export.jsonl.gz, because this field's shape has moved between AIPerf releases and a missing key reads as zero errors, which is the one wrong answer that looks like success."
+    },
+
+    "request_count": {"$ref": "#/$defs/scalar_metric"},
+    "request_throughput": {"$ref": "#/$defs/scalar_metric"},
+    "benchmark_duration": {"$ref": "#/$defs/scalar_metric"},
+    "output_token_throughput": {"$ref": "#/$defs/scalar_metric"},
+    "input_token_throughput": {"$ref": "#/$defs/scalar_metric"},
+    "total_token_throughput": {"$ref": "#/$defs/scalar_metric"},
+    "total_output_tokens": {"$ref": "#/$defs/scalar_metric"},
+    "total_isl": {"$ref": "#/$defs/scalar_metric"},
+    "total_osl": {"$ref": "#/$defs/scalar_metric"},
+    "osl_mismatch_count": {"$ref": "#/$defs/scalar_metric"},
+    "replay_sched_lag_p50": {"$ref": "#/$defs/scalar_metric"},
+    "replay_sched_lag_p90": {"$ref": "#/$defs/scalar_metric"},
+    "replay_sched_lag_p99": {"$ref": "#/$defs/scalar_metric"},
+    "replay_sched_degraded": {"$ref": "#/$defs/scalar_metric"},
+
+    "request_latency": {"$ref": "#/$defs/distribution_metric"},
+    "time_to_first_token": {"$ref": "#/$defs/distribution_metric"},
+    "time_to_second_token": {"$ref": "#/$defs/distribution_metric"},
+    "time_to_first_output_token": {"$ref": "#/$defs/distribution_metric"},
+    "inter_token_latency": {"$ref": "#/$defs/distribution_metric"},
+    "inter_chunk_latency": {"$ref": "#/$defs/distribution_metric"},
+    "output_token_throughput_per_user": {"$ref": "#/$defs/distribution_metric"},
+    "output_sequence_length": {"$ref": "#/$defs/distribution_metric"},
+    "input_sequence_length": {"$ref": "#/$defs/distribution_metric"},
+    "output_token_count": {"$ref": "#/$defs/distribution_metric"},
+    "osl_mismatch_diff_pct": {"$ref": "#/$defs/distribution_metric"},
+    "e2e_output_token_throughput": {"$ref": "#/$defs/distribution_metric"},
+    "prefill_throughput_per_user": {"$ref": "#/$defs/distribution_metric"},
+    "decode_duration": {"$ref": "#/$defs/distribution_metric"},
+    "credit_to_start_latency": {"$ref": "#/$defs/distribution_metric"},
+    "effective_latency": {"$ref": "#/$defs/distribution_metric"},
+
+    "http_req_connecting": {"$ref": "#/$defs/distribution_metric"},
+    "http_req_connection_reused": {"$ref": "#/$defs/distribution_metric"},
+    "http_req_connection_overhead": {"$ref": "#/$defs/distribution_metric"},
+    "http_req_chunks_received": {"$ref": "#/$defs/distribution_metric"},
+    "http_req_chunks_sent": {"$ref": "#/$defs/distribution_metric"},
+    "http_req_data_sent": {"$ref": "#/$defs/distribution_metric"},
+    "http_req_data_received": {"$ref": "#/$defs/distribution_metric"},
+    "http_req_duration": {"$ref": "#/$defs/distribution_metric"},
+    "http_req_dns_lookup": {"$ref": "#/$defs/distribution_metric"},
+    "http_req_blocked": {"$ref": "#/$defs/distribution_metric"},
+    "http_req_waiting": {"$ref": "#/$defs/distribution_metric"},
+    "http_req_sending": {"$ref": "#/$defs/distribution_metric"},
+    "http_req_receiving": {"$ref": "#/$defs/distribution_metric"},
+    "http_req_total": {"$ref": "#/$defs/distribution_metric"},
+
+    "effective_concurrency": {"$ref": "#/$defs/sampled_metric"},
+    "effective_decode_concurrency": {"$ref": "#/$defs/sampled_metric"},
+    "effective_prefill_concurrency": {"$ref": "#/$defs/sampled_metric"},
+    "effective_decode_throughput": {"$ref": "#/$defs/sampled_metric"},
+    "effective_prefill_throughput": {"$ref": "#/$defs/sampled_metric"},
+    "effective_total_throughput": {"$ref": "#/$defs/sampled_metric"},
+    "effective_decode_throughput_per_user": {"$ref": "#/$defs/sampled_metric"},
+    "effective_prefill_throughput_per_user": {"$ref": "#/$defs/sampled_metric"},
+    "active_decode_throughput": {"$ref": "#/$defs/sampled_metric"},
+    "active_prefill_throughput": {"$ref": "#/$defs/sampled_metric"},
+    "active_decode_throughput_per_user": {"$ref": "#/$defs/sampled_metric"},
+    "active_prefill_throughput_per_user": {"$ref": "#/$defs/sampled_metric"},
+    "active_total_throughput": {"$ref": "#/$defs/sampled_metric"},
+    "tokens_in_flight": {"$ref": "#/$defs/sampled_metric"},
+
+    "run_info": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["benchmark_id", "cli_command"],
+      "description": "What was actually run. `cli_command` is the whole invocation, and it is required because it is the only field in the export that says which endpoint, which tokenizer and which trace produced these numbers — everything else is the numbers themselves.",
+      "properties": {
+        "benchmark_id": {"type": "string", "minLength": 1},
+        "trial": {"type": "integer", "minimum": 0},
+        "cli_command": {"type": "string", "minLength": 1}
+      }
+    },
+
+    "input_config": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["models", "endpoint", "phases"],
+      "description": "The load's own configuration as AIPerf resolved it — not as the caller wrote it. This is where 'the bench ran against the deployment we think it did' is checkable, and it is the half a summary of the numbers cannot replace.",
+      "properties": {
+        "models": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["items"],
+          "properties": {
+            "items": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": ["name"],
+                "properties": {"name": {"type": "string", "minLength": 1}}
+              }
+            }
+          }
+        },
+        "endpoint": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["urls", "type"],
+          "properties": {
+            "urls": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "string", "pattern": "^https?://"}
+            },
+            "type": {"type": "string", "minLength": 1},
+            "streaming": {
+              "type": "boolean",
+              "description": "Not required, and it matters: with streaming off AIPerf reports no inter-token latency and no TTFT, so a non-streaming export is a legitimate document that cannot answer the questions stage 2 exists to ask. `check_bench_result` is where that becomes a refusal."
+            },
+            "timeout": {"type": "number", "exclusiveMinimum": 0}
+          }
+        },
+        "phases": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["name", "type"],
+            "properties": {
+              "name": {"type": "string", "minLength": 1},
+              "kind": {"type": "string"},
+              "type": {"type": "string", "minLength": 1},
+              "requests": {"type": "integer", "minimum": 0},
+              "concurrency": {"type": "integer", "minimum": 1},
+              "end_offset": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        "datasets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "name": {"type": "string"},
+              "type": {"type": "string"},
+              "path": {"type": "string"},
+              "format": {"type": "string"},
+              "block_size": {"type": "integer", "minimum": 1}
+            }
+          }
+        },
+        "tokenizer": {"type": "object", "additionalProperties": true},
+        "artifacts": {"type": "object", "additionalProperties": true},
+        "runtime": {"type": "object", "additionalProperties": true},
+        "gpu_telemetry": {"type": "object", "additionalProperties": true},
+        "server_metrics": {"type": "object", "additionalProperties": true},
+        "network_latency": {"type": "object", "additionalProperties": true},
+        "otel": {"type": "object", "additionalProperties": true},
+        "mlflow": {"type": "object", "additionalProperties": true},
+        "wandb": {"type": "object", "additionalProperties": true}
+      }
+    }
+  },
+
+  "$defs": {
+    "scalar_metric": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["unit", "avg"],
+      "description": "A metric AIPerf computes once for the whole run — a count, a throughput, a duration. It carries no distribution because there is nothing to distribute over.",
+      "properties": {
+        "unit": {"type": "string", "minLength": 1},
+        "avg": {"type": "number"}
+      }
+    },
+    "sampled_metric": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["unit", "avg", "min", "max", "p50", "p90", "p99", "std"],
+      "description": "A metric sampled over time rather than per request — concurrency, in-flight tokens, instantaneous throughput. It has percentiles and a spread but no `count` and no `sum`, because the sample population is time slices and neither figure would mean anything.",
+      "properties": {
+        "unit": {"type": "string", "minLength": 1},
+        "avg": {"type": "number"},
+        "min": {"type": "number"},
+        "max": {"type": "number"},
+        "p50": {"type": "number"},
+        "p90": {"type": "number"},
+        "p95": {"type": "number"},
+        "p99": {"type": "number"},
+        "std": {"type": "number", "minimum": 0}
+      }
+    },
+    "distribution_metric": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["unit", "avg", "min", "max", "p50", "p90", "p99", "std", "count"],
+      "description": "A per-request metric: every request contributes one observation, so there is a `count` and a `sum` as well as the percentiles.\n\n**`count` is required and it is the load-bearing field.** AIPerf exits 0 when its schedule window turns out to contain nothing, and then every export is present, every file is well-formed, and the whole thing describes zero requests. A shape check passes that. `check_bench_result` reads this count against a floor, and the floor is why the export is worth having a schema for at all.",
+      "properties": {
+        "unit": {"type": "string", "minLength": 1},
+        "avg": {"type": "number"},
+        "min": {"type": "number"},
+        "max": {"type": "number"},
+        "p1": {"type": "number"},
+        "p5": {"type": "number"},
+        "p10": {"type": "number"},
+        "p25": {"type": "number"},
+        "p50": {"type": "number"},
+        "p75": {"type": "number"},
+        "p90": {"type": "number"},
+        "p95": {"type": "number"},
+        "p99": {"type": "number"},
+        "std": {"type": "number", "minimum": 0},
+        "count": {"type": "integer", "minimum": 0},
+        "sum": {"type": "number"}
+      }
+    }
+  }
+}

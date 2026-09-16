@@ -1,0 +1,7 @@
+# The one agent every closure in this package runs under.
+# kind: program because every task is a deterministic script.
+module: agent
+name: runner
+kind: program
+version: '1'
+description: Runs a task's entry.sh. No model call.

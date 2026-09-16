@@ -3,7 +3,7 @@
 Two of them: the **spec table** of what kinds of agent exist, and the
 **instances** of what has been created. Only the instances persist — the spec
 table is configuration, and restoring it would resurrect a spec the operator
-has since removed.
+had removed.
 """
 
 from typing import Any
