@@ -55,6 +55,7 @@ _ARG_TO_FIELD = {
     "request_rate": "request_rate",
     "arrival_model": "arrival_model",
     "attention_backend": "attention_backend",
+    "serving_engine": "serving_engine",
     "sparse_attention_topk": "sparse_attention_topk",
     "sliding_window": "sliding_window",
     "sliding_window_layer_fraction": "sliding_window_layer_fraction",
@@ -201,6 +202,8 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
         feats.append(f"redundant_experts={req.redundant_experts}")
     if getattr(req, "attention_backend", None):
         feats.append(f"attn_backend={req.attention_backend}")
+    if getattr(req, "serving_engine", None):
+        feats.append(f"engine={req.serving_engine}")
     if getattr(req, "sparse_attention_topk", 0):
         feats.append(f"sparse_attn_topk={req.sparse_attention_topk}")
     n_lin = mc.linear_attention_layer_count()

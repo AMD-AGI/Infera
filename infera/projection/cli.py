@@ -1120,6 +1120,17 @@ def _add_inference_args(parser):
         "vs the Triton baseline. Default: engine default (1.0).",
     )
     kern.add_argument(
+        "--serving-engine",
+        type=str,
+        default=None,
+        help="Engine this projection is about (vllm, sglang, atom, or a build "
+        "such as mori-sglang). Simulate mode is unaffected -- it is analytical "
+        "and returns the same number whichever engine is named. This is a "
+        "regime axis, so it decides which measured anchor benchmark mode may "
+        "calibrate from: an anchor harvested on another engine is refused "
+        "rather than substituted. Default: unset (matches as before).",
+    )
+    kern.add_argument(
         "--sparse-attention-topk",
         type=int,
         default=None,

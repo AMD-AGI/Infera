@@ -47,6 +47,16 @@ from typing import Any
 # target that speculates needs its own measurement.
 REGIME_AXES = (
     "model",
+    # The serving engine. Named as regime-defining in the split above and in
+    # the design note, but absent from this tuple until now, so vLLM, SGLang
+    # and Atom anchors for one checkpoint all hashed to one signature: the
+    # bench cache could return a vLLM measurement for an SGLang run, and
+    # ``regime_distance`` called the two a perfect match. They are not one
+    # regime. The engines differ in scheduler, paging and kernel selection --
+    # on this store the same DeepSeek-V4 recipe under `mori-sglang` and
+    # `sglang` reports KV pools 16x apart, because one shards the MLA latent
+    # across ranks and the other replicates it.
+    "engine",
     "weight_dtype",
     "kv_cache_dtype",
     "moe_expert_dtype",
@@ -258,7 +268,9 @@ def aiter_ops_axis(env: dict[str, str] | None) -> str | None:
 # --------------------------------------------------------------------------
 
 
-def recipe_from_meta(meta: dict[str, Any], *, model: str | None = None) -> dict[str, Any]:
+def recipe_from_meta(
+    meta: dict[str, Any], *, model: str | None = None, engine: str | None = None
+) -> dict[str, Any]:
     """Canonical recipe from a benchmark artifact's ``meta`` block.  The
     *benchmark* parallelism (what it actually ran at) is recorded on the
     transport axes so the anchor's coverage is described in benchmark space;
@@ -278,6 +290,10 @@ def recipe_from_meta(meta: dict[str, Any], *, model: str | None = None) -> dict[
     quant = meta.get("weight_dtype") or meta.get("quantization")
     return {
         "model": model or meta.get("model"),
+        # The engine lives on the artifact rather than in ``meta``, so the
+        # caller that opened the artifact passes it; the ``meta`` keys are read
+        # as a fallback for harnesses that record it inline.
+        "engine": engine or meta.get("engine") or meta.get("backend"),
         "weight_dtype": quant if quant else None,
         "kv_cache_dtype": meta.get("kv_cache_dtype") or "bf16",
         "moe_expert_dtype": meta.get("moe_expert_dtype"),
@@ -322,6 +338,9 @@ def recipe_from_bench_args(args: Any, env: dict[str, str] | None = None) -> dict
     ep = int(getattr(args, "tp", 1) or 1) if getattr(args, "enable_expert_parallel", False) else 1
     return {
         "model": getattr(args, "model", None),
+        # ``benchmark_serving`` names the engine it drove; the in-container
+        # vLLM harness has no such flag because it is only ever vLLM.
+        "engine": getattr(args, "serving_backend", None) or "vllm",
         "weight_dtype": getattr(args, "quantization", None) or "bf16",
         "kv_cache_dtype": getattr(args, "kv_cache_dtype", None) or "bf16",
         "moe_expert_dtype": None,
@@ -366,6 +385,12 @@ def recipe_from_inference_config(cfg: Any) -> dict[str, Any]:
     ep = int(g(mp, "expert_model_parallel_size", 1) or 1)
     return {
         "model": None,
+        # Unknown unless the target says so. A projection has no engine of its
+        # own -- it is asking what some engine would do -- so the recipe has to
+        # state which one, and ``--serving-engine`` is how. Left unset the axis
+        # is skipped, which keeps every existing caller matching the anchors it
+        # matched before.
+        "engine": g(req, "serving_engine"),
         "weight_dtype": g(req, "weight_dtype", "bf16"),
         "kv_cache_dtype": g(req, "kv_cache_dtype", "bf16"),
         "moe_expert_dtype": g(req, "moe_expert_dtype"),
