@@ -138,8 +138,7 @@ def test_the_held_rate_is_the_one_the_anchor_measured_at_its_longest_probe(tmp_p
     want_tok_s = 1000.0 / (a + b * max(PROBED))
     got = _project(tmp_path, input_len=130000)["prefill_throughput_tps"]
     assert got == pytest.approx(want_tok_s, rel=0.05), (
-        f"expected the fit's rate at {max(PROBED)} tokens (~{want_tok_s:.0f} "
-        f"tok/s), got {got:.0f}"
+        f"expected the fit's rate at {max(PROBED)} tokens (~{want_tok_s:.0f} tok/s), got {got:.0f}"
     )
 
 
