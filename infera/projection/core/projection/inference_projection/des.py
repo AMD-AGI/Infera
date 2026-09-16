@@ -1069,22 +1069,36 @@ def _route_and_warm(
     cache_blocks: int,
     rng: random.Random,
     overlap_weight: float = 1.0,
+    waiting_depth: int = 0,
 ) -> tuple[list[list[_Req]], dict[str, float]]:
     """Route requests across instances and derive per-request prefix-cache hits
     from a content-addressed block cache (as real serving engines do).
 
-    Each instance owns a :class:`_BlockCache`. Requests are processed in arrival
-    order; for each one the router picks a target, the number of resident leading
-    blocks (longest contiguous prefix match) becomes the cache hit -- its
-    ``cached_prefix`` tokens are seeded into ``num_computed`` so the scheduler
-    only prefills the uncached suffix -- and the request's blocks are then warmed
-    into that instance (LRU-evicted under ``cache_blocks`` capacity).
+    Each instance owns a :class:`_BlockCache`. For each request the router picks
+    a target, the number of resident leading blocks (longest contiguous prefix
+    match) becomes the cache hit -- its ``cached_prefix`` tokens are seeded into
+    ``num_computed`` so the scheduler only prefills the uncached suffix -- and
+    the request's blocks are then warmed into that instance (evicted under
+    ``cache_blocks`` capacity).
 
     Routing policies: ``kv`` trades cache overlap against load by the serving
     router's own cost function, with ``overlap_weight`` as the dial between them
     (``0`` routes purely by load); ``prefix_aware`` consistently hashes the
     leading block so same-prefix requests co-locate; ``round_robin``/``random``
     ignore locality.
+
+    ``waiting_depth`` is how many requests the engine has outstanding at once,
+    and it sets the order they are resolved in. With it unset they are resolved
+    oldest-first, which is only the order an engine admits in while everything
+    offered fits; once the waiting queue is deep a scheduler chooses from it by
+    longest resident prefix rather than by age (SGLang's default policy, and
+    what vLLM's prefix-caching scheduler approximates). The distinction does
+    not matter below the pressure point -- with room for every outstanding
+    context both orders touch the same blocks -- but above it the two diverge
+    completely: oldest-first walks the offered lanes round-robin, so a lane's
+    context is always evicted before its next turn and every request pays a
+    full reprefill, while prefix-first keeps working on what is already
+    resident and reuse falls off gradually instead of to zero.
     """
     per_inst: list[list[_Req]] = [[] for _ in range(num_instances)]
     caches = [_BlockCache(cache_blocks) for _ in range(num_instances)]
@@ -1100,7 +1114,39 @@ def _route_and_warm(
     inst_hits = [0] * num_instances
     inst_reqs = [0] * num_instances
 
-    for r in sorted(reqs, key=lambda x: (x.arrival_ms, x.idx)):
+    ordered = sorted(reqs, key=lambda x: (x.arrival_ms, x.idx))
+
+    def _admission_order():
+        """The order the engine takes requests off its waiting queue.
+
+        A closed loop holds one request per client, so the stream is the
+        clients interleaved: client ``i`` owns arrival positions ``i``,
+        ``i + depth``, ``i + 2 * depth``. Serving a request frees its own
+        client, and the turn that client issues next is the one continuing the
+        context just served -- the whole reason its prefix is worth keeping.
+        Refilling the slot from a global pointer instead hands it to some other
+        client and quietly turns the loop into a sliding window over arrival
+        order, which throws that reuse away.
+        """
+        depth = int(waiting_depth or 0)
+        if depth <= 1:
+            yield from ordered
+            return
+        window = list(range(min(depth, len(ordered))))
+        while window:
+            # Longest resident prefix anywhere in the fleet: the scheduler is
+            # choosing what to run next, not where to run it, so the routing
+            # decision below is still the router's to make.
+            pick = max(
+                window,
+                key=lambda i: max(c.prefix_match(ordered[i].blocks or []) for c in caches),
+            )
+            window.remove(pick)
+            if pick + depth < len(ordered):
+                window.append(pick + depth)
+            yield ordered[pick]
+
+    for r in _admission_order():
         blocks = r.blocks or []
         if num_instances <= 1:
             inst = 0
@@ -1144,6 +1190,12 @@ def _route_and_warm(
         blocks_hit += matched
         caches[inst].insert(blocks)
         per_inst[inst].append(r)
+
+    # Resolving prefixes in schedule order says how much each request has to
+    # prefill; it does not say when each one arrived. The per-instance loops
+    # below are arrival-driven, so hand them back the stream they expect.
+    for sub in per_inst:
+        sub.sort(key=lambda x: (x.arrival_ms, x.idx))
 
     n = len(reqs)
     summary = {
@@ -1792,6 +1844,7 @@ def simulate_multi_instance(
         cache_blocks=cache_blocks,
         rng=rng,
         overlap_weight=overlap_weight,
+        waiting_depth=closed_loop_clients,
     )
     prefix_summary["routing"] = (
         float(_ROUTING_POLICIES.index(routing)) if routing in _ROUTING_POLICIES else -1.0
@@ -1896,6 +1949,11 @@ def run_des(
                 cache_blocks=eff_cache_blocks,
                 rng=random.Random(seed),
                 overlap_weight=overlap_weight,
+                waiting_depth=(
+                    inference_config.request_config.resolved_max_concurrency()
+                    if closed_loop
+                    else 0
+                ),
             )
             prefix_summary["routing"] = float(_ROUTING_POLICIES.index("kv"))
             prefix_summary["trace_driven"] = 1.0

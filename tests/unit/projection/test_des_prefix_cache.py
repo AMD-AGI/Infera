@@ -141,6 +141,134 @@ def test_an_unbounded_cache_evicts_nothing():
     assert cache.prefix_match([0, 1, 2]) == 3
 
 
+def _lanes(n_lanes: int, turns: int, blocks_per_turn: int = 6):
+    """A closed-loop corpus: ``n_lanes`` conversations taking turns round-robin.
+
+    Each lane extends its own context every turn, so turn ``t`` of a lane can
+    reuse everything that lane wrote at ``t - 1`` -- if it is still resident a
+    full sweep of the other lanes later. This is the shape of every agentic
+    trace, and the distance between a lane's turns is the offered concurrency.
+    """
+    reqs = []
+    for t in range(turns):
+        for lane in range(n_lanes):
+            blocks = [lane * 10_000 + b for b in range((t + 1) * blocks_per_turn)]
+            reqs.append(
+                des_mod._Req(
+                    idx=len(reqs),
+                    arrival_ms=float(len(reqs)),
+                    prompt_len=len(blocks) * 16,
+                    output_len=16,
+                    blocks=blocks,
+                )
+            )
+    return reqs
+
+
+def _warm(reqs, capacity: int, depth: int) -> float:
+    import random
+
+    _, summary = des_mod._route_and_warm(
+        [
+            des_mod._Req(
+                idx=r.idx,
+                arrival_ms=r.arrival_ms,
+                prompt_len=r.prompt_len,
+                output_len=r.output_len,
+                blocks=list(r.blocks),
+            )
+            for r in reqs
+        ],
+        policy="kv",
+        num_instances=1,
+        block_size=16,
+        cache_blocks=capacity,
+        rng=random.Random(0),
+        waiting_depth=depth,
+    )
+    return summary["block_hit_rate"]
+
+
+def test_reuse_does_not_fall_off_a_cliff_once_the_offered_load_stops_fitting():
+    """Oldest-first admission turns "does not fit" into "reuses nothing".
+
+    Past the point where the pool cannot hold every outstanding context, taking
+    the oldest waiting request walks the lanes round-robin, which guarantees a
+    lane's context is evicted before its next turn: every request then pays a
+    full reprefill and reuse is not merely degraded, it is exactly zero. Real
+    hardware degrades gradually instead, because a scheduler picks off its
+    waiting queue by longest resident prefix and keeps working on whatever is
+    still resident. The measured ladders show exactly that -- reuse holding
+    near 0.93 up to the admission ceiling and never collapsing past it.
+    """
+    reqs = _lanes(n_lanes=24, turns=6)
+    # Room for a few lanes' contexts, nowhere near all 24.
+    capacity = 6 * 21
+
+    oldest_first = _warm(reqs, capacity, depth=0)
+    prefix_first = _warm(reqs, capacity, depth=24)
+
+    assert oldest_first == 0.0, "the cliff being fixed; if this moves, re-derive it"
+    assert prefix_first > 0.6, prefix_first
+
+
+def test_admission_order_changes_nothing_while_the_load_still_fits():
+    """The correction has to be invisible below the pressure point.
+
+    With room for every outstanding context nothing is evicted between a lane's
+    turns, so both orders touch the same blocks and must score identically.
+    Were that not so this would be a tuning knob rather than a missing
+    behaviour, and it would be moving results in regimes it has no business in.
+    """
+    reqs = _lanes(n_lanes=8, turns=6)
+    capacity = 0  # unbounded: everything offered fits
+
+    assert _warm(reqs, capacity, depth=0) == _warm(reqs, capacity, depth=8)
+
+
+def test_the_slot_a_served_request_frees_goes_back_to_its_own_client():
+    """Which client gets the freed slot is most of the correction.
+
+    Serving a request frees the client that issued it, and that client's next
+    turn continues the context just served. Hand the slot to whichever request
+    is next in arrival order instead and the closed loop degrades into a
+    sliding window: the reuse that was about to be collected is dropped, and
+    on the dsv4 ladder that is the difference between reproducing the measured
+    0.93 at C=128 and reporting 0.83.
+    """
+    reqs = _lanes(n_lanes=24, turns=6)
+    capacity = 6 * 21
+
+    # Same policy, same capacity; the only difference is that a depth which
+    # does not match the interleave misattributes the freed slot.
+    tied = _warm(reqs, capacity, depth=24)
+    untied = _warm(reqs, capacity, depth=23)
+
+    assert tied > untied, (tied, untied)
+
+
+def test_the_arrival_stream_each_instance_replays_is_still_in_arrival_order():
+    """Schedule order says how much to prefill, not when a request showed up.
+
+    The per-instance loops downstream are arrival-driven, so resolving prefixes
+    in a different order must not leak into the stream they replay.
+    """
+    import random
+
+    reqs = _lanes(n_lanes=8, turns=4)
+    per_inst, _ = des_mod._route_and_warm(
+        reqs,
+        policy="kv",
+        num_instances=1,
+        block_size=16,
+        cache_blocks=32,
+        rng=random.Random(0),
+        waiting_depth=8,
+    )
+    arrivals = [r.arrival_ms for r in per_inst[0]]
+    assert arrivals == sorted(arrivals)
+
+
 def test_a_split_reports_the_prefix_cache_it_actually_warmed(tmp_path):
     """The disaggregated branch warmed a cache and threw the summary away.
 
