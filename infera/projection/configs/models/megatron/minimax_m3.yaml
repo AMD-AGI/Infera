@@ -16,6 +16,18 @@ extends:
 # as a serving default rather than as an architectural dimension.
 sparse_attention_topk: 2048
 
+# Choosing those 16 blocks has a memory cost, and on this model it is a third
+# of the footprint. The indexer stores a 128-wide key per token
+# (``sparse_index_dim: 128``) on each of the 57 layers where
+# ``sparse_attention_freq`` is set -- the first three are dense and have no
+# indexer -- and keeps them in bf16, so unlike the KV cache they do not shrink
+# when it is quantized. Against vLLM at TP8 this predicts 29,952 bytes per
+# token with an fp8 cache where the engine allocates 30,023, and 45,312 with a
+# bf16 cache where it allocates 45,398.
+sparse_index_head_dim: 128
+sparse_index_layers: 57
+sparse_index_dtype: bf16
+
 tokenizer_type: HuggingFaceTokenizer
 tokenizer_model: MiniMaxAI/MiniMax-M3
 
