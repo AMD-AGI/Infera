@@ -1,0 +1,783 @@
+# sampler start 2026-09-15T22:09:02Z endpoints=p0,p1,d0
+22:09:02 p0=<URLError> | p1=<URLError> | d0=<URLError>
+# sampler start 2026-09-15T22:09:03Z endpoints=p0,p1,d0
+22:09:03 p0=<URLError> | p1=<URLError> | d0=<URLError>
+# sampler start 2026-09-15T22:09:12Z endpoints=p0,p1,d0
+22:09:12 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:09:17 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:09:18 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:09:27 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:09:32 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:09:33 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:09:42 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:09:47 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:09:48 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:09:57 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:10:02 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:10:03 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:10:12 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:10:17 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:10:18 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:10:27 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:10:32 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:10:33 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:10:42 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:10:47 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:10:48 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:10:57 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:11:02 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:11:03 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:11:12 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:11:17 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:11:18 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:11:27 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:11:32 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:11:33 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:11:42 p0=<URLError> | p1=<URLError> | d0=<URLError>
+22:11:47 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:11:48 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:11:57 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:12:02 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:12:03 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:12:12 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:12:17 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:12:18 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:12:28 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:12:32 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:12:33 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:12:43 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:12:47 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:12:48 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:12:58 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:13:02 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:13:03 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:13:13 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:13:17 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:13:18 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:13:28 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:13:32 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:13:33 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:13:43 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:13:47 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:13:48 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:13:58 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:14:02 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:14:03 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:14:13 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:14:17 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:14:18 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:14:28 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:14:32 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:14:33 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:14:43 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:14:47 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:14:48 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:14:58 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:15:02 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:15:03 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:15:13 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:15:17 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:15:18 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:15:28 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:15:32 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:15:33 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:15:43 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:15:47 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:15:48 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:15:58 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:16:02 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:16:03 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:16:13 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:16:17 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:16:18 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:16:28 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:16:32 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:16:33 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:16:43 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:16:48 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:16:48 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:16:58 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:17:03 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:17:03 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:17:13 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:17:18 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:17:18 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:17:28 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:17:33 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:17:34 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:17:43 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:17:48 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:17:49 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:17:58 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:18:03 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:18:04 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:18:13 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:18:18 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:18:19 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:18:28 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:18:33 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:18:34 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:18:43 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:18:48 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:18:49 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:18:58 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:19:03 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:19:04 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:19:14 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:19:18 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:19:19 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:19:29 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:19:33 p0 run=0 q=0 prealloc=0 xfer=0 http=2 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:19:34 p0 run=0 q=0 prealloc=0 xfer=0 http=2 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:19:44 p0 run=0 q=0 prealloc=0 xfer=0 http=4 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=2 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:19:48 p0 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:19:49 p0 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=4 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:19:59 p0 run=0 q=0 prealloc=0 xfer=0 http=4 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:20:03 p0 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=6 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:20:04 p0 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=6 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:20:14 p0 run=0 q=0 prealloc=0 xfer=0 http=6 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:20:18 p0 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=6 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:20:19 p0 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=6 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:20:29 p0 run=0 q=0 prealloc=0 xfer=0 http=6 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:20:33 p0 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=6 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:20:34 p0 run=0 q=0 prealloc=0 xfer=0 http=4 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=6 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:20:44 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:20:48 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:20:49 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=2 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:20:59 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:21:03 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:21:04 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:21:14 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:21:18 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:21:19 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:21:29 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:21:33 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:21:34 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:21:44 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:21:48 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:21:49 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:21:59 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:22:04 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:22:04 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:22:14 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:22:19 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:22:19 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:22:29 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:22:34 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:22:35 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:22:44 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:22:49 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:22:50 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:22:59 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:23:04 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:23:05 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:23:14 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:23:19 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:23:20 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:23:30 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:23:34 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:23:35 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:23:45 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:23:49 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:23:50 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:24:00 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:24:04 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:24:05 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+22:24:15 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0
+22:24:19 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:24:20 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:24:30 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:24:34 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:24:35 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:24:45 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:24:49 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:24:50 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:25:00 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:25:04 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:25:05 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:25:15 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:25:20 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:25:20 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:25:30 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:25:35 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:25:35 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:25:45 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:25:50 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:25:51 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:26:00 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:26:05 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:26:06 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:26:16 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:26:20 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:26:21 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:26:31 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:26:35 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:26:36 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:26:46 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:26:50 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:26:51 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:27:01 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:27:05 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:27:06 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:27:16 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:27:20 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:27:21 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:27:31 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:27:35 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:27:36 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+22:28:10 p0=<TimeoutError> | p1=<TimeoutError> | d0=<TimeoutError>
+22:28:14 p0=<TimeoutError> | p1=<TimeoutError> | d0=<TimeoutError>
+22:28:15 p0=<TimeoutError> | p1=<TimeoutError> | d0=<TimeoutError>
+22:28:33 p0 run=0 q=0 prealloc=0 xfer=0 http=107 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=103 kv=0.000 hit=0.000 gen=0 | d0=<TimeoutError>
+22:28:37 p0 run=0 q=0 prealloc=0 xfer=0 http=107 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=103 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=209 kv=0.000 hit=0.000 gen=0
+22:28:37 p0 run=0 q=0 prealloc=0 xfer=0 http=107 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=103 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=209 kv=0.000 hit=0.000 gen=0
+22:28:49 p0 run=0 q=0 prealloc=0 xfer=0 http=107 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=103 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=209 kv=0.000 hit=0.000 gen=0
+22:28:53 p0 run=0 q=0 prealloc=0 xfer=0 http=107 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=103 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=209 kv=0.000 hit=0.000 gen=0
+22:28:53 p0 run=0 q=0 prealloc=0 xfer=0 http=107 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=103 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=209 kv=0.000 hit=0.000 gen=0
+22:29:04 p0 run=0 q=0 prealloc=0 xfer=0 http=107 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=103 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=209 kv=0.000 hit=0.000 gen=0
+22:29:08 p0 run=0 q=0 prealloc=0 xfer=0 http=107 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=103 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=209 kv=0.000 hit=0.000 gen=0
+22:29:08 p0 run=0 q=0 prealloc=0 xfer=0 http=107 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=103 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=209 kv=0.000 hit=0.000 gen=0
+22:29:19 p0 run=0 q=0 prealloc=0 xfer=0 http=107 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=103 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=209 kv=0.000 hit=0.000 gen=0
+22:29:24 p0 run=0 q=0 prealloc=0 xfer=0 http=107 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=103 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=209 kv=0.000 hit=0.000 gen=0
+22:29:24 p0 run=0 q=0 prealloc=0 xfer=0 http=107 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=103 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=209 kv=0.000 hit=0.000 gen=0
+22:29:35 p0 run=0 q=0 prealloc=0 xfer=0 http=107 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=103 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=209 kv=0.000 hit=0.000 gen=0
+22:29:39 p0 run=0 q=0 prealloc=0 xfer=0 http=107 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=103 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=209 kv=0.000 hit=0.000 gen=0
+22:29:39 p0 run=0 q=0 prealloc=0 xfer=0 http=107 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=103 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=209 kv=0.000 hit=0.000 gen=0
+22:29:50 p0 run=0 q=0 prealloc=0 xfer=0 http=107 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=103 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=209 kv=0.000 hit=0.000 gen=0
+22:29:54 p0 run=1 q=11 prealloc=0 xfer=0 http=107 kv=0.000 hit=0.000 gen=0 | p1 run=8 q=71 prealloc=0 xfer=0 http=103 kv=0.010 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=209 kv=0.000 hit=0.000 gen=0
+22:29:54 p0 run=1 q=11 prealloc=0 xfer=0 http=107 kv=0.000 hit=0.000 gen=0 | p1 run=8 q=71 prealloc=0 xfer=0 http=103 kv=0.010 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=209 kv=0.000 hit=0.000 gen=0
+22:30:06 p0 run=11 q=66 prealloc=0 xfer=0 http=105 kv=0.016 hit=0.000 gen=0 | p1 run=8 q=65 prealloc=0 xfer=0 http=97 kv=0.014 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=199 kv=0.000 hit=0.000 gen=0
+22:30:09 p0 run=8 q=65 prealloc=0 xfer=0 http=99 kv=0.011 hit=0.000 gen=0 | p1 run=8 q=64 prealloc=0 xfer=0 http=96 kv=0.016 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=194 kv=0.000 hit=0.000 gen=0
+22:30:09 p0 run=8 q=65 prealloc=0 xfer=0 http=99 kv=0.011 hit=0.000 gen=0 | p1 run=8 q=64 prealloc=0 xfer=0 http=96 kv=0.016 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=194 kv=0.000 hit=0.000 gen=0
+22:30:21 p0 run=8 q=60 prealloc=0 xfer=0 http=95 kv=0.016 hit=0.000 gen=0 | p1 run=8 q=61 prealloc=0 xfer=0 http=90 kv=0.018 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=182 kv=0.000 hit=0.000 gen=0
+22:30:25 p0 run=9 q=58 prealloc=0 xfer=0 http=93 kv=0.016 hit=0.000 gen=0 | p1 run=9 q=59 prealloc=0 xfer=0 http=90 kv=0.018 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=182 kv=0.000 hit=0.000 gen=0
+22:30:25 p0 run=9 q=58 prealloc=0 xfer=0 http=93 kv=0.016 hit=0.000 gen=0 | p1 run=9 q=59 prealloc=0 xfer=0 http=90 kv=0.018 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=182 kv=0.000 hit=0.000 gen=0
+22:30:36 p0 run=9 q=55 prealloc=0 xfer=0 http=89 kv=0.020 hit=0.000 gen=0 | p1 run=8 q=56 prealloc=0 xfer=0 http=85 kv=0.020 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=171 kv=0.000 hit=0.000 gen=0
+22:30:40 p0 run=8 q=55 prealloc=0 xfer=0 http=86 kv=0.018 hit=0.000 gen=0 | p1 run=8 q=56 prealloc=0 xfer=0 http=84 kv=0.020 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=169 kv=0.000 hit=0.000 gen=0
+22:30:40 p0 run=8 q=55 prealloc=0 xfer=0 http=86 kv=0.018 hit=0.000 gen=0 | p1 run=8 q=56 prealloc=0 xfer=0 http=84 kv=0.020 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=169 kv=0.000 hit=0.000 gen=0
+22:30:52 p0 run=9 q=51 prealloc=0 xfer=0 http=83 kv=0.020 hit=0.000 gen=0 | p1 run=8 q=54 prealloc=0 xfer=0 http=81 kv=0.019 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=162 kv=0.000 hit=0.000 gen=0
+22:30:56 p0 run=8 q=52 prealloc=0 xfer=0 http=82 kv=0.021 hit=0.000 gen=0 | p1 run=8 q=52 prealloc=0 xfer=0 http=80 kv=0.021 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=159 kv=0.000 hit=0.000 gen=0
+22:30:56 p0 run=8 q=52 prealloc=0 xfer=0 http=82 kv=0.021 hit=0.000 gen=0 | p1 run=8 q=52 prealloc=0 xfer=0 http=80 kv=0.021 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=159 kv=0.000 hit=0.000 gen=0
+22:31:07 p0 run=8 q=47 prealloc=0 xfer=0 http=78 kv=0.019 hit=0.000 gen=0 | p1 run=9 q=50 prealloc=0 xfer=0 http=76 kv=0.021 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=152 kv=0.000 hit=0.000 gen=0
+22:31:11 p0 run=8 q=47 prealloc=0 xfer=0 http=76 kv=0.020 hit=0.000 gen=0 | p1 run=8 q=50 prealloc=0 xfer=0 http=75 kv=0.020 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=149 kv=0.000 hit=0.000 gen=0
+22:31:11 p0 run=8 q=47 prealloc=0 xfer=0 http=76 kv=0.020 hit=0.000 gen=0 | p1 run=8 q=50 prealloc=0 xfer=0 http=75 kv=0.020 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=149 kv=0.000 hit=0.000 gen=0
+22:31:22 p0 run=8 q=46 prealloc=0 xfer=0 http=72 kv=0.019 hit=0.000 gen=0 | p1 run=8 q=46 prealloc=0 xfer=0 http=71 kv=0.020 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=142 kv=0.000 hit=0.000 gen=0
+22:31:27 p0 run=9 q=44 prealloc=0 xfer=0 http=71 kv=0.022 hit=0.000 gen=0 | p1 run=8 q=45 prealloc=0 xfer=0 http=71 kv=0.022 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=139 kv=0.000 hit=0.000 gen=0
+22:31:27 p0 run=9 q=44 prealloc=0 xfer=0 http=71 kv=0.022 hit=0.000 gen=0 | p1 run=8 q=45 prealloc=0 xfer=0 http=71 kv=0.022 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=139 kv=0.000 hit=0.000 gen=0
+22:31:37 p0 run=8 q=43 prealloc=0 xfer=0 http=67 kv=0.020 hit=0.000 gen=0 | p1 run=8 q=42 prealloc=0 xfer=0 http=67 kv=0.025 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=133 kv=0.000 hit=0.000 gen=0
+22:31:42 p0 run=8 q=43 prealloc=0 xfer=0 http=67 kv=0.025 hit=0.000 gen=0 | p1 run=8 q=41 prealloc=0 xfer=0 http=66 kv=0.020 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=131 kv=0.000 hit=0.000 gen=0
+22:31:42 p0 run=8 q=43 prealloc=0 xfer=0 http=67 kv=0.025 hit=0.000 gen=0 | p1 run=8 q=41 prealloc=0 xfer=0 http=66 kv=0.020 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=131 kv=0.000 hit=0.000 gen=0
+22:31:53 p0 run=9 q=40 prealloc=0 xfer=0 http=65 kv=0.029 hit=0.000 gen=0 | p1 run=8 q=39 prealloc=0 xfer=0 http=63 kv=0.025 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=127 kv=0.000 hit=0.000 gen=0
+22:31:57 p0 run=9 q=38 prealloc=0 xfer=0 http=64 kv=0.026 hit=0.000 gen=0 | p1 run=8 q=39 prealloc=0 xfer=0 http=63 kv=0.029 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=125 kv=0.000 hit=0.000 gen=0
+22:31:57 p0 run=8 q=38 prealloc=0 xfer=0 http=64 kv=0.029 hit=0.000 gen=0 | p1 run=8 q=39 prealloc=0 xfer=0 http=63 kv=0.029 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=125 kv=0.000 hit=0.000 gen=0
+22:32:08 p0 run=8 q=37 prealloc=0 xfer=0 http=60 kv=0.027 hit=0.000 gen=0 | p1 run=9 q=37 prealloc=0 xfer=0 http=60 kv=0.030 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=118 kv=0.000 hit=0.000 gen=0
+22:32:13 p0 run=9 q=36 prealloc=0 xfer=0 http=58 kv=0.021 hit=0.000 gen=0 | p1 run=9 q=36 prealloc=0 xfer=0 http=59 kv=0.029 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=116 kv=0.000 hit=0.000 gen=0
+22:32:13 p0 run=9 q=36 prealloc=0 xfer=0 http=58 kv=0.021 hit=0.000 gen=0 | p1 run=9 q=36 prealloc=0 xfer=0 http=59 kv=0.029 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=116 kv=0.000 hit=0.000 gen=0
+22:32:23 p0 run=8 q=36 prealloc=0 xfer=0 http=57 kv=0.026 hit=0.000 gen=0 | p1 run=8 q=34 prealloc=0 xfer=0 http=56 kv=0.024 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=112 kv=0.000 hit=0.000 gen=0
+22:32:28 p0 run=8 q=36 prealloc=0 xfer=0 http=57 kv=0.035 hit=0.000 gen=0 | p1 run=8 q=35 prealloc=0 xfer=0 http=55 kv=0.025 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=111 kv=0.000 hit=0.000 gen=0
+22:32:28 p0 run=8 q=36 prealloc=0 xfer=0 http=57 kv=0.035 hit=0.000 gen=0 | p1 run=8 q=35 prealloc=0 xfer=0 http=55 kv=0.025 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=111 kv=0.000 hit=0.000 gen=0
+22:32:39 p0 run=9 q=32 prealloc=0 xfer=0 http=55 kv=0.031 hit=0.000 gen=0 | p1 run=8 q=34 prealloc=0 xfer=0 http=55 kv=0.037 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=108 kv=0.000 hit=0.000 gen=0
+22:32:43 p0 run=8 q=32 prealloc=0 xfer=0 http=53 kv=0.024 hit=0.000 gen=0 | p1 run=8 q=32 prealloc=0 xfer=0 http=54 kv=0.037 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=104 kv=0.000 hit=0.000 gen=0
+22:32:43 p0 run=8 q=32 prealloc=0 xfer=0 http=53 kv=0.024 hit=0.000 gen=0 | p1 run=8 q=32 prealloc=0 xfer=0 http=54 kv=0.037 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=104 kv=0.000 hit=0.000 gen=0
+22:32:54 p0 run=8 q=32 prealloc=0 xfer=0 http=51 kv=0.030 hit=0.000 gen=0 | p1 run=8 q=31 prealloc=0 xfer=0 http=52 kv=0.036 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=101 kv=0.000 hit=0.000 gen=0
+22:32:59 p0 run=9 q=32 prealloc=0 xfer=0 http=51 kv=0.035 hit=0.000 gen=0 | p1 run=9 q=29 prealloc=0 xfer=0 http=51 kv=0.037 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=101 kv=0.000 hit=0.000 gen=0
+22:32:59 p0 run=9 q=32 prealloc=0 xfer=0 http=51 kv=0.035 hit=0.000 gen=0 | p1 run=9 q=29 prealloc=0 xfer=0 http=51 kv=0.037 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=100 kv=0.000 hit=0.000 gen=0
+22:33:09 p0 run=8 q=34 prealloc=0 xfer=0 http=50 kv=0.037 hit=0.000 gen=0 | p1 run=8 q=29 prealloc=0 xfer=0 http=48 kv=0.024 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=96 kv=0.000 hit=0.000 gen=0
+22:33:14 p0 run=8 q=33 prealloc=0 xfer=0 http=50 kv=0.040 hit=0.000 gen=0 | p1 run=8 q=29 prealloc=0 xfer=0 http=47 kv=0.028 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=95 kv=0.000 hit=0.000 gen=0
+22:33:14 p0 run=8 q=33 prealloc=0 xfer=0 http=50 kv=0.040 hit=0.000 gen=0 | p1 run=8 q=29 prealloc=0 xfer=0 http=47 kv=0.028 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=95 kv=0.000 hit=0.000 gen=0
+22:33:24 p0 run=8 q=31 prealloc=0 xfer=0 http=47 kv=0.036 hit=0.000 gen=0 | p1 run=8 q=29 prealloc=0 xfer=0 http=46 kv=0.033 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=92 kv=0.000 hit=0.000 gen=0
+22:33:29 p0 run=9 q=30 prealloc=0 xfer=0 http=47 kv=0.041 hit=0.000 gen=0 | p1 run=8 q=29 prealloc=0 xfer=0 http=46 kv=0.041 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=92 kv=0.000 hit=0.000 gen=0
+22:33:29 p0 run=9 q=30 prealloc=0 xfer=0 http=47 kv=0.041 hit=0.000 gen=0 | p1 run=8 q=29 prealloc=0 xfer=0 http=46 kv=0.041 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=92 kv=0.000 hit=0.000 gen=0
+22:33:39 p0 run=10 q=28 prealloc=0 xfer=0 http=46 kv=0.043 hit=0.000 gen=0 | p1 run=8 q=27 prealloc=0 xfer=0 http=45 kv=0.044 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=90 kv=0.000 hit=0.000 gen=0
+22:33:45 p0 run=8 q=29 prealloc=0 xfer=0 http=43 kv=0.028 hit=0.000 gen=0 | p1 run=8 q=28 prealloc=0 xfer=0 http=44 kv=0.043 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=86 kv=0.000 hit=0.000 gen=0
+22:33:45 p0 run=8 q=29 prealloc=0 xfer=0 http=43 kv=0.028 hit=0.000 gen=0 | p1 run=8 q=28 prealloc=0 xfer=0 http=44 kv=0.043 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=86 kv=0.000 hit=0.000 gen=0
+22:33:55 p0 run=8 q=30 prealloc=0 xfer=0 http=43 kv=0.037 hit=0.000 gen=0 | p1 run=8 q=26 prealloc=0 xfer=0 http=43 kv=0.046 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=85 kv=0.000 hit=0.000 gen=0
+22:34:00 p0 run=9 q=30 prealloc=0 xfer=0 http=43 kv=0.045 hit=0.000 gen=0 | p1 run=8 q=26 prealloc=0 xfer=0 http=41 kv=0.034 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=83 kv=0.000 hit=0.000 gen=0
+22:34:00 p0 run=9 q=30 prealloc=0 xfer=0 http=43 kv=0.045 hit=0.000 gen=0 | p1 run=8 q=26 prealloc=0 xfer=0 http=41 kv=0.034 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=83 kv=0.000 hit=0.000 gen=0
+22:34:10 p0 run=8 q=30 prealloc=0 xfer=0 http=42 kv=0.046 hit=0.000 gen=0 | p1 run=8 q=25 prealloc=0 xfer=0 http=40 kv=0.040 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=81 kv=0.000 hit=0.000 gen=0
+22:34:16 p0 run=8 q=30 prealloc=0 xfer=0 http=42 kv=0.049 hit=0.000 gen=0 | p1 run=8 q=25 prealloc=0 xfer=0 http=39 kv=0.034 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=79 kv=0.000 hit=0.000 gen=0
+22:34:16 p0 run=8 q=30 prealloc=0 xfer=0 http=42 kv=0.049 hit=0.000 gen=0 | p1 run=9 q=25 prealloc=0 xfer=0 http=39 kv=0.034 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=79 kv=0.000 hit=0.000 gen=0
+22:34:25 p0 run=8 q=28 prealloc=0 xfer=0 http=39 kv=0.043 hit=0.000 gen=0 | p1 run=8 q=25 prealloc=0 xfer=0 http=38 kv=0.034 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=76 kv=0.000 hit=0.000 gen=0
+22:34:31 p0 run=8 q=27 prealloc=0 xfer=0 http=38 kv=0.040 hit=0.000 gen=0 | p1 run=8 q=25 prealloc=0 xfer=0 http=38 kv=0.041 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=75 kv=0.000 hit=0.000 gen=0
+22:34:31 p0 run=8 q=27 prealloc=0 xfer=0 http=38 kv=0.040 hit=0.000 gen=0 | p1 run=8 q=25 prealloc=0 xfer=0 http=38 kv=0.041 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=75 kv=0.000 hit=0.000 gen=0
+22:34:40 p0 run=8 q=26 prealloc=0 xfer=0 http=36 kv=0.030 hit=0.000 gen=0 | p1 run=8 q=25 prealloc=0 xfer=0 http=38 kv=0.051 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=73 kv=0.000 hit=0.000 gen=0
+22:34:46 p0 run=8 q=26 prealloc=0 xfer=0 http=36 kv=0.035 hit=0.000 gen=0 | p1 run=8 q=25 prealloc=0 xfer=0 http=38 kv=0.060 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=73 kv=0.000 hit=0.000 gen=0
+22:34:46 p0 run=8 q=26 prealloc=0 xfer=0 http=36 kv=0.035 hit=0.000 gen=0 | p1 run=8 q=25 prealloc=0 xfer=0 http=38 kv=0.060 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=73 kv=0.000 hit=0.000 gen=0
+22:34:56 p0 run=8 q=26 prealloc=0 xfer=0 http=36 kv=0.045 hit=0.000 gen=0 | p1 run=9 q=23 prealloc=0 xfer=0 http=37 kv=0.060 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=72 kv=0.000 hit=0.000 gen=0
+22:35:01 p0 run=9 q=25 prealloc=0 xfer=0 http=36 kv=0.050 hit=0.000 gen=0 | p1 run=9 q=22 prealloc=0 xfer=0 http=36 kv=0.051 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=70 kv=0.000 hit=0.000 gen=0
+22:35:01 p0 run=9 q=25 prealloc=0 xfer=0 http=36 kv=0.050 hit=0.000 gen=0 | p1 run=9 q=22 prealloc=0 xfer=0 http=36 kv=0.051 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=70 kv=0.000 hit=0.000 gen=0
+22:35:11 p0 run=8 q=25 prealloc=0 xfer=0 http=35 kv=0.049 hit=0.000 gen=0 | p1 run=8 q=20 prealloc=0 xfer=0 http=32 kv=0.029 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=66 kv=0.000 hit=0.000 gen=0
+22:35:17 p0 run=9 q=24 prealloc=0 xfer=0 http=35 kv=0.059 hit=0.000 gen=0 | p1 run=8 q=20 prealloc=0 xfer=0 http=32 kv=0.035 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=66 kv=0.000 hit=0.000 gen=0
+22:35:17 p0 run=9 q=24 prealloc=0 xfer=0 http=35 kv=0.059 hit=0.000 gen=0 | p1 run=8 q=20 prealloc=0 xfer=0 http=32 kv=0.035 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=66 kv=0.000 hit=0.000 gen=0
+22:35:26 p0 run=8 q=23 prealloc=0 xfer=0 http=34 kv=0.058 hit=0.000 gen=0 | p1 run=8 q=20 prealloc=0 xfer=0 http=32 kv=0.036 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=64 kv=0.000 hit=0.000 gen=0
+22:35:32 p0 run=8 q=23 prealloc=0 xfer=0 http=33 kv=0.055 hit=0.000 gen=0 | p1 run=8 q=21 prealloc=0 xfer=0 http=31 kv=0.037 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=63 kv=0.000 hit=0.000 gen=0
+22:35:32 p0 run=8 q=23 prealloc=0 xfer=0 http=33 kv=0.055 hit=0.000 gen=0 | p1 run=8 q=21 prealloc=0 xfer=0 http=31 kv=0.037 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=63 kv=0.000 hit=0.000 gen=0
+22:35:41 p0 run=9 q=21 prealloc=0 xfer=0 http=32 kv=0.051 hit=0.000 gen=0 | p1 run=8 q=22 prealloc=0 xfer=0 http=31 kv=0.046 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=61 kv=0.000 hit=0.000 gen=0
+22:35:47 p0 run=8 q=21 prealloc=0 xfer=0 http=30 kv=0.039 hit=0.000 gen=0 | p1 run=8 q=22 prealloc=0 xfer=0 http=31 kv=0.056 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=60 kv=0.000 hit=0.000 gen=0
+22:35:47 p0 run=8 q=21 prealloc=0 xfer=0 http=30 kv=0.039 hit=0.000 gen=0 | p1 run=8 q=22 prealloc=0 xfer=0 http=31 kv=0.056 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=60 kv=0.000 hit=0.000 gen=0
+22:35:56 p0 run=8 q=21 prealloc=0 xfer=0 http=30 kv=0.048 hit=0.000 gen=0 | p1 run=8 q=21 prealloc=0 xfer=0 http=31 kv=0.059 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=59 kv=0.000 hit=0.000 gen=0
+22:36:03 p0 run=8 q=21 prealloc=0 xfer=0 http=30 kv=0.054 hit=0.000 gen=0 | p1 run=8 q=20 prealloc=0 xfer=0 http=29 kv=0.053 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=58 kv=0.000 hit=0.000 gen=0
+22:36:03 p0 run=8 q=21 prealloc=0 xfer=0 http=30 kv=0.054 hit=0.000 gen=0 | p1 run=8 q=20 prealloc=0 xfer=0 http=29 kv=0.053 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=58 kv=0.000 hit=0.000 gen=0
+22:36:11 p0 run=9 q=20 prealloc=0 xfer=0 http=30 kv=0.061 hit=0.000 gen=0 | p1 run=8 q=20 prealloc=0 xfer=0 http=29 kv=0.056 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=58 kv=0.000 hit=0.000 gen=0
+22:36:18 p0 run=8 q=20 prealloc=0 xfer=0 http=29 kv=0.052 hit=0.000 gen=0 | p1 run=8 q=19 prealloc=0 xfer=0 http=29 kv=0.065 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=57 kv=0.000 hit=0.000 gen=0
+22:36:18 p0 run=8 q=20 prealloc=0 xfer=0 http=29 kv=0.052 hit=0.000 gen=0 | p1 run=8 q=19 prealloc=0 xfer=0 http=29 kv=0.065 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=57 kv=0.000 hit=0.000 gen=0
+22:36:27 p0 run=8 q=20 prealloc=0 xfer=0 http=29 kv=0.062 hit=0.000 gen=0 | p1 run=8 q=19 prealloc=0 xfer=0 http=28 kv=0.064 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=56 kv=0.000 hit=0.000 gen=0
+22:36:33 p0 run=8 q=19 prealloc=0 xfer=0 http=29 kv=0.066 hit=0.000 gen=0 | p1 run=8 q=18 prealloc=0 xfer=0 http=28 kv=0.069 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=56 kv=0.000 hit=0.000 gen=0
+22:36:33 p0 run=8 q=19 prealloc=0 xfer=0 http=29 kv=0.066 hit=0.000 gen=0 | p1 run=8 q=18 prealloc=0 xfer=0 http=28 kv=0.069 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=55 kv=0.000 hit=0.000 gen=0
+22:36:42 p0 run=8 q=19 prealloc=0 xfer=0 http=28 kv=0.064 hit=0.000 gen=0 | p1 run=8 q=17 prealloc=0 xfer=0 http=27 kv=0.064 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=54 kv=0.000 hit=0.000 gen=0
+22:36:49 p0 run=8 q=19 prealloc=0 xfer=0 http=28 kv=0.070 hit=0.000 gen=0 | p1 run=8 q=16 prealloc=0 xfer=0 http=25 kv=0.048 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=52 kv=0.000 hit=0.000 gen=0
+22:36:49 p0 run=8 q=19 prealloc=0 xfer=0 http=28 kv=0.070 hit=0.000 gen=0 | p1 run=8 q=16 prealloc=0 xfer=0 http=25 kv=0.048 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=52 kv=0.000 hit=0.000 gen=0
+22:36:57 p0 run=8 q=18 prealloc=0 xfer=0 http=27 kv=0.061 hit=0.000 gen=0 | p1 run=8 q=16 prealloc=0 xfer=0 http=25 kv=0.054 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=51 kv=0.000 hit=0.000 gen=0
+22:37:04 p0 run=8 q=18 prealloc=0 xfer=0 http=27 kv=0.065 hit=0.000 gen=0 | p1 run=9 q=15 prealloc=0 xfer=0 http=25 kv=0.059 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=51 kv=0.000 hit=0.000 gen=0
+22:37:04 p0 run=8 q=18 prealloc=0 xfer=0 http=27 kv=0.065 hit=0.000 gen=0 | p1 run=9 q=15 prealloc=0 xfer=0 http=25 kv=0.059 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=51 kv=0.000 hit=0.000 gen=0
+22:37:12 p0 run=8 q=18 prealloc=0 xfer=0 http=27 kv=0.075 hit=0.000 gen=0 | p1 run=8 q=15 prealloc=0 xfer=0 http=24 kv=0.055 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=50 kv=0.000 hit=0.000 gen=0
+22:37:19 p0 run=8 q=17 prealloc=0 xfer=0 http=26 kv=0.068 hit=0.000 gen=0 | p1 run=9 q=14 prealloc=0 xfer=0 http=24 kv=0.059 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=49 kv=0.000 hit=0.000 gen=0
+22:37:19 p0 run=8 q=17 prealloc=0 xfer=0 http=26 kv=0.068 hit=0.000 gen=0 | p1 run=9 q=14 prealloc=0 xfer=0 http=24 kv=0.059 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=49 kv=0.000 hit=0.000 gen=0
+22:37:27 p0 run=8 q=17 prealloc=0 xfer=0 http=26 kv=0.074 hit=0.000 gen=0 | p1 run=8 q=14 prealloc=0 xfer=0 http=23 kv=0.051 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=48 kv=0.000 hit=0.000 gen=0
+22:37:34 p0 run=8 q=16 prealloc=0 xfer=0 http=26 kv=0.081 hit=0.000 gen=0 | p1 run=8 q=13 prealloc=0 xfer=0 http=23 kv=0.059 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=48 kv=0.000 hit=0.000 gen=0
+22:37:34 p0 run=8 q=16 prealloc=0 xfer=0 http=26 kv=0.081 hit=0.000 gen=0 | p1 run=8 q=13 prealloc=0 xfer=0 http=23 kv=0.059 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=48 kv=0.000 hit=0.000 gen=0
+22:37:42 p0 run=8 q=15 prealloc=0 xfer=0 http=24 kv=0.071 hit=0.000 gen=0 | p1 run=8 q=12 prealloc=0 xfer=0 http=22 kv=0.061 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=44 kv=0.000 hit=0.000 gen=0
+22:37:50 p0 run=9 q=14 prealloc=0 xfer=0 http=24 kv=0.065 hit=0.000 gen=0 | p1 run=8 q=12 prealloc=0 xfer=0 http=21 kv=0.052 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=44 kv=0.000 hit=0.000 gen=0
+22:37:50 p0 run=9 q=14 prealloc=0 xfer=0 http=24 kv=0.065 hit=0.000 gen=0 | p1 run=8 q=12 prealloc=0 xfer=0 http=21 kv=0.052 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=44 kv=0.000 hit=0.000 gen=0
+22:37:58 p0 run=8 q=13 prealloc=0 xfer=0 http=22 kv=0.056 hit=0.000 gen=0 | p1 run=8 q=11 prealloc=0 xfer=0 http=20 kv=0.060 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=41 kv=0.000 hit=0.000 gen=0
+22:38:05 p0 run=8 q=12 prealloc=0 xfer=0 http=22 kv=0.062 hit=0.000 gen=0 | p1 run=8 q=10 prealloc=0 xfer=0 http=19 kv=0.061 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=40 kv=0.000 hit=0.000 gen=0
+22:38:05 p0 run=8 q=12 prealloc=0 xfer=0 http=22 kv=0.062 hit=0.000 gen=0 | p1 run=8 q=10 prealloc=0 xfer=0 http=19 kv=0.061 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=40 kv=0.000 hit=0.000 gen=0
+22:38:13 p0 run=8 q=12 prealloc=0 xfer=0 http=21 kv=0.064 hit=0.000 gen=0 | p1 run=8 q=9 prealloc=0 xfer=0 http=18 kv=0.055 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=38 kv=0.000 hit=0.000 gen=0
+22:38:20 p0 run=8 q=11 prealloc=0 xfer=0 http=21 kv=0.071 hit=0.000 gen=0 | p1 run=8 q=8 prealloc=0 xfer=0 http=18 kv=0.060 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=38 kv=0.000 hit=0.000 gen=0
+22:38:20 p0 run=8 q=11 prealloc=0 xfer=0 http=21 kv=0.071 hit=0.000 gen=0 | p1 run=8 q=8 prealloc=0 xfer=0 http=18 kv=0.060 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=37 kv=0.000 hit=0.000 gen=0
+22:38:28 p0 run=8 q=11 prealloc=0 xfer=0 http=20 kv=0.059 hit=0.000 gen=0 | p1 run=8 q=7 prealloc=0 xfer=0 http=17 kv=0.053 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=36 kv=0.000 hit=0.000 gen=0
+22:38:35 p0 run=8 q=10 prealloc=0 xfer=0 http=19 kv=0.073 hit=0.000 gen=0 | p1 run=8 q=7 prealloc=0 xfer=0 http=16 kv=0.056 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=34 kv=0.000 hit=0.000 gen=0
+22:38:35 p0 run=8 q=10 prealloc=0 xfer=0 http=19 kv=0.073 hit=0.000 gen=0 | p1 run=8 q=7 prealloc=0 xfer=0 http=16 kv=0.056 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=34 kv=0.000 hit=0.000 gen=0
+22:38:43 p0 run=8 q=9 prealloc=0 xfer=0 http=19 kv=0.071 hit=0.000 gen=0 | p1 run=8 q=7 prealloc=0 xfer=0 http=16 kv=0.061 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=34 kv=0.000 hit=0.000 gen=0
+22:38:51 p0 run=8 q=9 prealloc=0 xfer=0 http=18 kv=0.061 hit=0.000 gen=0 | p1 run=8 q=7 prealloc=0 xfer=0 http=16 kv=0.066 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=33 kv=0.000 hit=0.000 gen=0
+22:38:51 p0 run=8 q=9 prealloc=0 xfer=0 http=18 kv=0.061 hit=0.000 gen=0 | p1 run=8 q=7 prealloc=0 xfer=0 http=16 kv=0.066 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=33 kv=0.000 hit=0.000 gen=0
+22:38:58 p0 run=8 q=9 prealloc=0 xfer=0 http=18 kv=0.066 hit=0.000 gen=0 | p1 run=8 q=7 prealloc=0 xfer=0 http=16 kv=0.076 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=33 kv=0.000 hit=0.000 gen=0
+22:39:06 p0 run=8 q=9 prealloc=0 xfer=0 http=18 kv=0.074 hit=0.000 gen=0 | p1 run=8 q=7 prealloc=0 xfer=0 http=16 kv=0.080 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=33 kv=0.000 hit=0.000 gen=0
+22:39:06 p0 run=8 q=9 prealloc=0 xfer=0 http=18 kv=0.074 hit=0.000 gen=0 | p1 run=8 q=7 prealloc=0 xfer=0 http=16 kv=0.080 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=33 kv=0.000 hit=0.000 gen=0
+22:39:13 p0 run=8 q=9 prealloc=0 xfer=0 http=18 kv=0.081 hit=0.000 gen=0 | p1 run=8 q=6 prealloc=0 xfer=0 http=16 kv=0.086 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=33 kv=0.000 hit=0.000 gen=0
+22:39:21 p0 run=8 q=9 prealloc=0 xfer=0 http=18 kv=0.086 hit=0.000 gen=0 | p1 run=8 q=6 prealloc=0 xfer=0 http=15 kv=0.076 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=32 kv=0.000 hit=0.000 gen=0
+22:39:21 p0 run=8 q=9 prealloc=0 xfer=0 http=18 kv=0.086 hit=0.000 gen=0 | p1 run=8 q=6 prealloc=0 xfer=0 http=15 kv=0.076 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=32 kv=0.000 hit=0.000 gen=0
+22:39:29 p0 run=8 q=9 prealloc=0 xfer=0 http=18 kv=0.094 hit=0.000 gen=0 | p1 run=8 q=6 prealloc=0 xfer=0 http=15 kv=0.080 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=32 kv=0.000 hit=0.000 gen=0
+22:39:37 p0 run=9 q=7 prealloc=0 xfer=0 http=17 kv=0.080 hit=0.000 gen=0 | p1 run=8 q=6 prealloc=0 xfer=0 http=15 kv=0.089 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=31 kv=0.000 hit=0.000 gen=0
+22:39:37 p0 run=9 q=7 prealloc=0 xfer=0 http=17 kv=0.080 hit=0.000 gen=0 | p1 run=8 q=6 prealloc=0 xfer=0 http=15 kv=0.089 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=31 kv=0.000 hit=0.000 gen=0
+22:39:44 p0 run=9 q=6 prealloc=0 xfer=0 http=16 kv=0.068 hit=0.000 gen=0 | p1 run=9 q=5 prealloc=0 xfer=0 http=15 kv=0.092 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=30 kv=0.000 hit=0.000 gen=0
+22:39:52 p0 run=8 q=6 prealloc=0 xfer=0 http=15 kv=0.064 hit=0.000 gen=0 | p1 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.094 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=28 kv=0.000 hit=0.000 gen=0
+22:39:52 p0 run=8 q=6 prealloc=0 xfer=0 http=15 kv=0.064 hit=0.000 gen=0 | p1 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.094 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=28 kv=0.000 hit=0.000 gen=0
+22:39:59 p0 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.058 hit=0.000 gen=0 | p1 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.094 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=27 kv=0.000 hit=0.000 gen=0
+22:40:07 p0 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.061 hit=0.000 gen=0 | p1 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.094 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=27 kv=0.000 hit=0.000 gen=0
+22:40:07 p0 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.061 hit=0.000 gen=0 | p1 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.094 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=27 kv=0.000 hit=0.000 gen=0
+22:40:14 p0 run=9 q=4 prealloc=0 xfer=0 http=14 kv=0.069 hit=0.000 gen=0 | p1 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.095 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=27 kv=0.000 hit=0.000 gen=0
+22:40:22 p0 run=8 q=4 prealloc=0 xfer=0 http=13 kv=0.069 hit=0.000 gen=0 | p1 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.083 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=26 kv=0.000 hit=0.000 gen=0
+22:40:22 p0 run=8 q=4 prealloc=0 xfer=0 http=13 kv=0.069 hit=0.000 gen=0 | p1 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.083 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=26 kv=0.000 hit=0.000 gen=0
+22:40:29 p0 run=8 q=4 prealloc=0 xfer=0 http=13 kv=0.075 hit=0.000 gen=0 | p1 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.090 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=26 kv=0.000 hit=0.000 gen=0
+22:40:38 p0 run=8 q=4 prealloc=0 xfer=0 http=13 kv=0.075 hit=0.000 gen=0 | p1 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.094 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=26 kv=0.000 hit=0.000 gen=0
+22:40:38 p0 run=8 q=4 prealloc=0 xfer=0 http=13 kv=0.075 hit=0.000 gen=0 | p1 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.094 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=26 kv=0.000 hit=0.000 gen=0
+22:40:44 p0 run=8 q=4 prealloc=0 xfer=0 http=13 kv=0.075 hit=0.000 gen=0 | p1 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.101 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=26 kv=0.000 hit=0.000 gen=0
+22:40:53 p0 run=8 q=4 prealloc=0 xfer=0 http=13 kv=0.076 hit=0.000 gen=0 | p1 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.106 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=26 kv=0.000 hit=0.000 gen=0
+22:40:53 p0 run=8 q=4 prealloc=0 xfer=0 http=13 kv=0.076 hit=0.000 gen=0 | p1 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.106 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=26 kv=0.000 hit=0.000 gen=0
+22:40:59 p0 run=8 q=3 prealloc=0 xfer=0 http=12 kv=0.086 hit=0.000 gen=0 | p1 run=8 q=4 prealloc=0 xfer=0 http=13 kv=0.089 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=24 kv=0.000 hit=0.000 gen=0
+22:41:08 p0 run=8 q=3 prealloc=0 xfer=0 http=12 kv=0.085 hit=0.000 gen=0 | p1 run=9 q=3 prealloc=0 xfer=0 http=13 kv=0.098 hit=0.850 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=24 kv=0.000 hit=0.000 gen=0
+22:41:08 p0 run=8 q=3 prealloc=0 xfer=0 http=12 kv=0.085 hit=0.000 gen=0 | p1 run=9 q=3 prealloc=0 xfer=0 http=13 kv=0.098 hit=0.850 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=24 kv=0.000 hit=0.000 gen=0
+22:41:15 p0 run=8 q=3 prealloc=0 xfer=0 http=12 kv=0.089 hit=0.000 gen=0 | p1 run=8 q=3 prealloc=0 xfer=0 http=12 kv=0.086 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=23 kv=0.000 hit=0.000 gen=0
+22:41:23 p0 run=8 q=2 prealloc=0 xfer=0 http=12 kv=0.095 hit=0.000 gen=0 | p1 run=8 q=2 prealloc=0 xfer=0 http=11 kv=0.092 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=22 kv=0.000 hit=0.000 gen=0
+22:41:23 p0 run=8 q=2 prealloc=0 xfer=0 http=12 kv=0.095 hit=0.000 gen=0 | p1 run=8 q=2 prealloc=0 xfer=0 http=11 kv=0.092 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=22 kv=0.000 hit=0.000 gen=0
+22:41:30 p0 run=8 q=1 prealloc=0 xfer=0 http=10 kv=0.089 hit=0.000 gen=0 | p1 run=8 q=2 prealloc=0 xfer=0 http=11 kv=0.096 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=20 kv=0.000 hit=0.000 gen=0
+22:41:39 p0 run=8 q=1 prealloc=0 xfer=0 http=10 kv=0.080 hit=0.000 gen=0 | p1 run=8 q=2 prealloc=0 xfer=0 http=11 kv=0.105 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=20 kv=0.000 hit=0.000 gen=0
+22:41:39 p0 run=8 q=1 prealloc=0 xfer=0 http=10 kv=0.080 hit=0.000 gen=0 | p1 run=8 q=2 prealloc=0 xfer=0 http=11 kv=0.105 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=20 kv=0.000 hit=0.000 gen=0
+22:41:45 p0 run=8 q=1 prealloc=0 xfer=0 http=10 kv=0.089 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=11 kv=0.110 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=20 kv=0.000 hit=0.000 gen=0
+22:41:54 p0 run=8 q=0 prealloc=0 xfer=0 http=9 kv=0.095 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=10 kv=0.095 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=18 kv=0.000 hit=0.000 gen=0
+22:41:54 p0 run=8 q=0 prealloc=0 xfer=0 http=9 kv=0.095 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=10 kv=0.095 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=18 kv=0.000 hit=0.000 gen=0
+22:42:00 p0 run=8 q=0 prealloc=0 xfer=0 http=9 kv=0.098 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=10 kv=0.100 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=18 kv=0.000 hit=0.000 gen=0
+22:42:09 p0 run=8 q=0 prealloc=0 xfer=0 http=9 kv=0.107 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=10 kv=0.106 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=18 kv=0.000 hit=0.000 gen=0
+22:42:09 p0 run=8 q=0 prealloc=0 xfer=0 http=9 kv=0.107 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=10 kv=0.106 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=18 kv=0.000 hit=0.000 gen=0
+22:42:15 p0 run=8 q=0 prealloc=0 xfer=0 http=9 kv=0.107 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=9 kv=0.111 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=17 kv=0.000 hit=0.000 gen=0
+22:42:24 p0 run=8 q=0 prealloc=0 xfer=0 http=9 kv=0.118 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=9 kv=0.119 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=17 kv=0.000 hit=0.000 gen=0
+22:42:24 p0 run=8 q=0 prealloc=0 xfer=0 http=9 kv=0.118 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=9 kv=0.119 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=17 kv=0.000 hit=0.000 gen=0
+22:42:30 p0 run=8 q=0 prealloc=0 xfer=0 http=8 kv=0.118 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=9 kv=0.121 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=16 kv=0.000 hit=0.000 gen=0
+22:42:40 p0 run=8 q=0 prealloc=0 xfer=0 http=7 kv=0.124 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=8 kv=0.128 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=14 kv=0.000 hit=0.000 gen=0
+22:42:40 p0 run=8 q=0 prealloc=0 xfer=0 http=7 kv=0.124 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=8 kv=0.128 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=14 kv=0.000 hit=0.000 gen=0
+22:42:45 p0 run=8 q=0 prealloc=0 xfer=0 http=7 kv=0.124 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=8 kv=0.130 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=14 kv=0.000 hit=0.000 gen=0
+22:42:55 p0 run=8 q=0 prealloc=0 xfer=0 http=5 kv=0.125 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=8 kv=0.136 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=12 kv=0.000 hit=0.000 gen=0
+22:42:55 p0 run=8 q=0 prealloc=0 xfer=0 http=5 kv=0.125 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=8 kv=0.136 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=12 kv=0.000 hit=0.000 gen=0
+22:43:01 p0 run=8 q=0 prealloc=0 xfer=0 http=5 kv=0.129 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=8 kv=0.139 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=12 kv=0.000 hit=0.000 gen=0
+22:43:10 p0 run=8 q=0 prealloc=0 xfer=0 http=5 kv=0.134 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=5 kv=0.141 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0
+22:43:10 p0 run=8 q=0 prealloc=0 xfer=0 http=5 kv=0.134 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=5 kv=0.141 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0
+22:43:16 p0 run=8 q=0 prealloc=0 xfer=0 http=5 kv=0.134 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=5 kv=0.144 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0
+22:43:25 p0 run=8 q=0 prealloc=0 xfer=0 http=5 kv=0.139 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=5 kv=0.147 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0
+22:43:25 p0 run=8 q=0 prealloc=0 xfer=0 http=5 kv=0.139 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=5 kv=0.147 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0
+22:43:31 p0 run=8 q=0 prealloc=0 xfer=0 http=5 kv=0.144 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=5 kv=0.149 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0
+22:43:41 p0 run=8 q=0 prealloc=0 xfer=0 http=5 kv=0.144 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=5 kv=0.152 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0
+22:43:41 p0 run=8 q=0 prealloc=0 xfer=0 http=5 kv=0.144 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=5 kv=0.152 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0
+22:43:46 p0 run=8 q=0 prealloc=0 xfer=0 http=4 kv=0.147 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=5 kv=0.155 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=8 kv=0.000 hit=0.000 gen=0
+22:43:56 p0 run=8 q=0 prealloc=0 xfer=0 http=4 kv=0.151 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=5 kv=0.158 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=8 kv=0.000 hit=0.000 gen=0
+22:43:56 p0 run=8 q=0 prealloc=0 xfer=0 http=4 kv=0.151 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=5 kv=0.158 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=8 kv=0.000 hit=0.000 gen=0
+22:44:01 p0 run=8 q=0 prealloc=0 xfer=0 http=4 kv=0.151 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=5 kv=0.159 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=8 kv=0.000 hit=0.000 gen=0
+22:44:11 p0 run=8 q=0 prealloc=0 xfer=0 http=3 kv=0.155 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=5 kv=0.163 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=7 kv=0.000 hit=0.000 gen=0
+22:44:11 p0 run=8 q=0 prealloc=0 xfer=0 http=3 kv=0.155 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=5 kv=0.163 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=7 kv=0.000 hit=0.000 gen=0
+22:44:16 p0 run=8 q=0 prealloc=0 xfer=0 http=3 kv=0.158 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=5 kv=0.164 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=7 kv=0.000 hit=0.000 gen=0
+22:44:26 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=5 kv=0.168 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0
+22:44:26 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=5 kv=0.168 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0
+22:44:31 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=5 kv=0.170 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0
+22:44:41 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=4 kv=0.151 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=4 kv=0.000 hit=0.000 gen=0
+22:44:41 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=4 kv=0.151 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=4 kv=0.000 hit=0.000 gen=0
+22:44:47 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=4 kv=0.151 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=4 kv=0.000 hit=0.000 gen=0
+22:44:57 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=3 kv=0.154 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:44:57 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=3 kv=0.154 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:45:02 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=3 kv=0.155 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=2 kv=0.000 hit=0.000 gen=0
+22:45:12 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=2 kv=0.158 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=2 kv=0.000 hit=0.000 gen=0
+22:45:12 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=2 kv=0.158 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=2 kv=0.000 hit=0.000 gen=0
+22:45:17 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=2 kv=0.159 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=2 kv=0.000 hit=0.000 gen=0
+22:45:51 p0=<TimeoutError> | p1=<TimeoutError> | d0=<TimeoutError>
+22:45:51 p0=<TimeoutError> | p1=<TimeoutError> | d0=<TimeoutError>
+22:45:54 p0 run=10 q=11 prealloc=0 xfer=0 http=86 kv=0.056 hit=0.968 gen=0 | p1 run=8 q=24 prealloc=0 xfer=0 http=88 kv=0.096 hit=0.987 gen=0 | d0=<TimeoutError>
+22:46:08 p0 run=16 q=6 prealloc=0 xfer=0 http=34 kv=0.111 hit=0.963 gen=0 | p1 run=9 q=22 prealloc=0 xfer=0 http=31 kv=0.136 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=130 kv=0.000 hit=0.000 gen=0
+22:46:08 p0 run=16 q=6 prealloc=0 xfer=0 http=34 kv=0.111 hit=0.963 gen=0 | p1 run=9 q=22 prealloc=0 xfer=0 http=31 kv=0.136 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=130 kv=0.000 hit=0.000 gen=0
+22:46:09 p0 run=11 q=11 prealloc=0 xfer=0 http=33 kv=0.157 hit=0.993 gen=0 | p1 run=10 q=17 prealloc=0 xfer=0 http=31 kv=0.147 hit=0.992 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=129 kv=0.000 hit=0.000 gen=0
+22:46:23 p0 run=10 q=9 prealloc=0 xfer=0 http=15 kv=0.142 hit=0.998 gen=0 | p1 run=9 q=6 prealloc=0 xfer=0 http=19 kv=0.224 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=31 kv=0.000 hit=0.000 gen=0
+22:46:23 p0 run=10 q=9 prealloc=0 xfer=0 http=15 kv=0.142 hit=0.998 gen=0 | p1 run=9 q=6 prealloc=0 xfer=0 http=19 kv=0.224 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=31 kv=0.000 hit=0.000 gen=0
+22:46:24 p0 run=10 q=10 prealloc=0 xfer=0 http=15 kv=0.142 hit=0.998 gen=0 | p1 run=11 q=6 prealloc=0 xfer=0 http=14 kv=0.224 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=26 kv=0.000 hit=0.000 gen=0
+22:46:39 p0 run=10 q=8 prealloc=0 xfer=0 http=14 kv=0.163 hit=0.998 gen=0 | p1 run=15 q=1 prealloc=0 xfer=0 http=3 kv=0.291 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=16 kv=0.000 hit=0.000 gen=0
+22:46:39 p0 run=10 q=8 prealloc=0 xfer=0 http=14 kv=0.152 hit=0.998 gen=0 | p1 run=15 q=1 prealloc=0 xfer=0 http=3 kv=0.291 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=16 kv=0.000 hit=0.000 gen=0
+22:46:40 p0 run=10 q=8 prealloc=0 xfer=0 http=13 kv=0.145 hit=0.998 gen=0 | p1 run=15 q=1 prealloc=0 xfer=0 http=3 kv=0.291 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=15 kv=0.000 hit=0.000 gen=0
+22:46:54 p0 run=10 q=8 prealloc=0 xfer=0 http=13 kv=0.155 hit=0.998 gen=0 | p1 run=15 q=1 prealloc=0 xfer=0 http=3 kv=0.295 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=15 kv=0.000 hit=0.000 gen=0
+22:46:54 p0 run=10 q=8 prealloc=0 xfer=0 http=13 kv=0.155 hit=0.998 gen=0 | p1 run=15 q=1 prealloc=0 xfer=0 http=3 kv=0.295 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=15 kv=0.000 hit=0.000 gen=0
+22:46:55 p0 run=10 q=8 prealloc=0 xfer=0 http=13 kv=0.155 hit=0.998 gen=0 | p1 run=15 q=1 prealloc=0 xfer=0 http=3 kv=0.295 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=15 kv=0.000 hit=0.000 gen=0
+22:47:09 p0 run=10 q=5 prealloc=0 xfer=0 http=10 kv=0.171 hit=0.998 gen=0 | p1 run=15 q=1 prealloc=0 xfer=0 http=3 kv=0.297 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=12 kv=0.000 hit=0.000 gen=0
+22:47:09 p0 run=10 q=5 prealloc=0 xfer=0 http=10 kv=0.171 hit=0.998 gen=0 | p1 run=15 q=1 prealloc=0 xfer=0 http=3 kv=0.297 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=12 kv=0.000 hit=0.000 gen=0
+22:47:10 p0 run=10 q=5 prealloc=0 xfer=0 http=10 kv=0.171 hit=0.998 gen=0 | p1 run=15 q=1 prealloc=0 xfer=0 http=3 kv=0.297 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=12 kv=0.000 hit=0.000 gen=0
+22:47:24 p0 run=10 q=5 prealloc=0 xfer=0 http=10 kv=0.177 hit=0.998 gen=0 | p1 run=15 q=1 prealloc=0 xfer=0 http=3 kv=0.300 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=12 kv=0.000 hit=0.000 gen=0
+22:47:24 p0 run=10 q=5 prealloc=0 xfer=0 http=10 kv=0.177 hit=0.998 gen=0 | p1 run=15 q=1 prealloc=0 xfer=0 http=3 kv=0.300 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=12 kv=0.000 hit=0.000 gen=0
+22:47:25 p0 run=10 q=5 prealloc=0 xfer=0 http=10 kv=0.179 hit=0.998 gen=0 | p1 run=15 q=1 prealloc=0 xfer=0 http=3 kv=0.300 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=12 kv=0.000 hit=0.000 gen=0
+22:47:40 p0 run=11 q=4 prealloc=0 xfer=0 http=8 kv=0.207 hit=0.998 gen=0 | p1 run=15 q=1 prealloc=0 xfer=0 http=3 kv=0.301 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=10 kv=0.000 hit=0.000 gen=0
+22:47:40 p0 run=11 q=4 prealloc=0 xfer=0 http=8 kv=0.207 hit=0.998 gen=0 | p1 run=15 q=1 prealloc=0 xfer=0 http=3 kv=0.301 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=10 kv=0.000 hit=0.000 gen=0
+22:47:40 p0 run=11 q=4 prealloc=0 xfer=0 http=8 kv=0.207 hit=0.998 gen=0 | p1 run=15 q=1 prealloc=0 xfer=0 http=3 kv=0.301 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=10 kv=0.000 hit=0.000 gen=0
+22:47:55 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.268 hit=0.998 gen=0 | p1 run=15 q=1 prealloc=0 xfer=0 http=3 kv=0.304 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0
+22:47:55 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.268 hit=0.998 gen=0 | p1 run=15 q=1 prealloc=0 xfer=0 http=3 kv=0.304 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0
+22:47:55 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.268 hit=0.998 gen=0 | p1 run=15 q=1 prealloc=0 xfer=0 http=3 kv=0.304 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.000 gen=0
+22:48:10 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.270 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:48:10 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.270 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:48:10 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.270 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:48:25 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.273 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:48:25 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.273 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:48:25 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.273 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:48:40 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.274 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:48:40 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.274 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:48:41 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.275 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:48:56 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.276 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:48:56 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.276 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:48:56 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.276 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:49:11 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.279 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:49:11 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.279 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:49:11 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.279 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:49:26 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.280 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:49:26 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.280 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:49:26 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.280 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:49:41 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.282 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:49:41 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.282 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:49:41 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.282 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:49:56 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.284 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:49:57 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.284 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:49:57 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.284 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:50:11 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.286 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:50:12 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.286 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:50:12 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.286 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:50:27 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.287 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:50:27 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.287 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:50:27 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.287 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:50:42 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.289 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:50:42 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.289 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:50:42 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.290 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:50:57 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.291 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:50:58 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.291 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:50:58 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.291 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:51:12 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.292 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:51:13 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.292 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:51:13 p0 run=12 q=1 prealloc=0 xfer=0 http=3 kv=0.292 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:51:27 p0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=3 kv=0.000 hit=0.000 gen=0
+22:51:28 p0 run=0 q=0 prealloc=0 xfer=0 http=8 kv=0.000 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=6 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=13 kv=0.000 hit=0.000 gen=0
+22:51:28 p0 run=0 q=0 prealloc=0 xfer=0 http=8 kv=0.000 hit=0.998 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=6 kv=0.000 hit=0.997 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=13 kv=0.000 hit=0.000 gen=0
+22:51:42 p0 run=7 q=1 prealloc=0 xfer=0 http=6 kv=0.033 hit=0.989 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=15 kv=0.016 hit=0.978 gen=0 | d0 run=7 q=0 prealloc=0 xfer=7 http=29 kv=0.085 hit=0.000 gen=221
+22:51:43 p0 run=7 q=1 prealloc=0 xfer=0 http=5 kv=0.033 hit=0.989 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=15 kv=0.016 hit=0.978 gen=0 | d0 run=5 q=0 prealloc=0 xfer=7 http=26 kv=0.080 hit=0.000 gen=192
+22:51:43 p0 run=7 q=1 prealloc=0 xfer=0 http=5 kv=0.033 hit=0.989 gen=0 | p1 run=8 q=1 prealloc=0 xfer=0 http=15 kv=0.016 hit=0.978 gen=0 | d0 run=5 q=0 prealloc=0 xfer=7 http=26 kv=0.080 hit=0.000 gen=192
+22:51:58 p0 run=8 q=1 prealloc=0 xfer=0 http=15 kv=0.027 hit=0.972 gen=0 | p1 run=9 q=6 prealloc=0 xfer=0 http=18 kv=0.084 hit=0.986 gen=0 | d0 run=16 q=0 prealloc=0 xfer=21 http=46 kv=0.138 hit=0.000 gen=210
+22:51:59 p0 run=8 q=0 prealloc=0 xfer=0 http=14 kv=0.037 hit=0.971 gen=0 | p1 run=8 q=7 prealloc=0 xfer=0 http=19 kv=0.053 hit=0.972 gen=0 | d0 run=19 q=0 prealloc=0 xfer=23 http=44 kv=0.158 hit=0.000 gen=222
+22:51:59 p0 run=8 q=0 prealloc=0 xfer=0 http=14 kv=0.037 hit=0.971 gen=0 | p1 run=8 q=7 prealloc=0 xfer=0 http=19 kv=0.053 hit=0.972 gen=0 | d0 run=19 q=0 prealloc=0 xfer=23 http=44 kv=0.158 hit=0.000 gen=222
+22:52:14 p0 run=2 q=0 prealloc=0 xfer=0 http=6 kv=0.035 hit=0.977 gen=0 | p1 run=8 q=3 prealloc=0 xfer=0 http=19 kv=0.044 hit=0.943 gen=0 | d0 run=27 q=0 prealloc=0 xfer=12 http=50 kv=0.160 hit=0.000 gen=246
+22:52:15 p0 run=2 q=0 prealloc=0 xfer=0 http=6 kv=0.035 hit=0.980 gen=0 | p1 run=9 q=2 prealloc=0 xfer=0 http=18 kv=0.049 hit=0.971 gen=0 | d0 run=27 q=0 prealloc=0 xfer=13 http=46 kv=0.161 hit=0.000 gen=252
+22:52:15 p0 run=2 q=0 prealloc=0 xfer=0 http=6 kv=0.035 hit=0.980 gen=0 | p1 run=9 q=2 prealloc=0 xfer=0 http=18 kv=0.049 hit=0.971 gen=0 | d0 run=27 q=0 prealloc=0 xfer=13 http=46 kv=0.161 hit=0.000 gen=252
+22:52:29 p0 run=8 q=4 prealloc=0 xfer=0 http=14 kv=0.048 hit=0.975 gen=0 | p1 run=11 q=3 prealloc=0 xfer=0 http=15 kv=0.059 hit=0.981 gen=0 | d0 run=25 q=0 prealloc=0 xfer=16 http=51 kv=0.221 hit=0.000 gen=245
+22:52:30 p0 run=7 q=4 prealloc=0 xfer=0 http=13 kv=0.068 hit=0.990 gen=0 | p1 run=9 q=4 prealloc=0 xfer=0 http=17 kv=0.059 hit=0.978 gen=0 | d0 run=25 q=0 prealloc=0 xfer=18 http=53 kv=0.235 hit=0.000 gen=231
+22:52:30 p0 run=7 q=4 prealloc=0 xfer=0 http=13 kv=0.068 hit=0.990 gen=0 | p1 run=9 q=4 prealloc=0 xfer=0 http=17 kv=0.059 hit=0.978 gen=0 | d0 run=25 q=0 prealloc=0 xfer=18 http=55 kv=0.235 hit=0.000 gen=231
+22:52:44 p0 run=8 q=4 prealloc=0 xfer=0 http=14 kv=0.043 hit=0.973 gen=0 | p1 run=9 q=4 prealloc=0 xfer=0 http=13 kv=0.052 hit=0.961 gen=0 | d0 run=23 q=0 prealloc=0 xfer=20 http=54 kv=0.216 hit=0.000 gen=265
+22:52:45 p0 run=9 q=4 prealloc=0 xfer=0 http=16 kv=0.038 hit=0.975 gen=0 | p1 run=9 q=5 prealloc=0 xfer=0 http=17 kv=0.052 hit=0.970 gen=0 | d0 run=26 q=0 prealloc=0 xfer=18 http=54 kv=0.215 hit=0.000 gen=240
+22:52:45 p0 run=9 q=4 prealloc=0 xfer=0 http=15 kv=0.038 hit=0.975 gen=0 | p1 run=9 q=5 prealloc=0 xfer=0 http=17 kv=0.052 hit=0.970 gen=0 | d0 run=26 q=0 prealloc=0 xfer=19 http=53 kv=0.214 hit=0.000 gen=242
+22:52:59 p0 run=8 q=6 prealloc=0 xfer=0 http=16 kv=0.044 hit=0.990 gen=0 | p1 run=9 q=1 prealloc=0 xfer=0 http=19 kv=0.072 hit=0.976 gen=0 | d0 run=30 q=0 prealloc=0 xfer=19 http=64 kv=0.264 hit=0.000 gen=319
+22:53:01 p0 run=8 q=4 prealloc=0 xfer=0 http=16 kv=0.044 hit=0.990 gen=0 | p1 run=11 q=0 prealloc=0 xfer=0 http=21 kv=0.076 hit=0.976 gen=0 | d0 run=31 q=0 prealloc=0 xfer=19 http=60 kv=0.270 hit=0.000 gen=294
+22:53:01 p0 run=11 q=4 prealloc=0 xfer=0 http=16 kv=0.046 hit=0.961 gen=0 | p1 run=11 q=0 prealloc=0 xfer=0 http=22 kv=0.076 hit=0.976 gen=0 | d0 run=31 q=0 prealloc=0 xfer=19 http=61 kv=0.270 hit=0.000 gen=294
+22:53:15 p0 run=9 q=5 prealloc=0 xfer=0 http=17 kv=0.059 hit=0.902 gen=0 | p1 run=12 q=9 prealloc=0 xfer=0 http=25 kv=0.066 hit=0.986 gen=0 | d0 run=24 q=0 prealloc=0 xfer=35 http=61 kv=0.283 hit=0.000 gen=223
+22:53:16 p0 run=10 q=2 prealloc=0 xfer=0 http=17 kv=0.083 hit=0.904 gen=0 | p1 run=11 q=7 prealloc=0 xfer=0 http=25 kv=0.061 hit=0.983 gen=0 | d0 run=36 q=0 prealloc=0 xfer=21 http=65 kv=0.273 hit=0.000 gen=276
+22:53:16 p0 run=10 q=2 prealloc=0 xfer=0 http=17 kv=0.083 hit=0.904 gen=0 | p1 run=11 q=7 prealloc=0 xfer=0 http=25 kv=0.061 hit=0.983 gen=0 | d0 run=36 q=0 prealloc=0 xfer=21 http=65 kv=0.273 hit=0.000 gen=276
+22:53:32 p0 run=9 q=0 prealloc=0 xfer=0 http=13 kv=0.077 hit=0.989 gen=0 | p1 run=9 q=1 prealloc=0 xfer=0 http=19 kv=0.079 hit=0.974 gen=0 | d0 run=32 q=0 prealloc=0 xfer=20 http=61 kv=0.311 hit=0.000 gen=292
+22:53:32 p0 run=8 q=0 prealloc=0 xfer=0 http=11 kv=0.066 hit=0.994 gen=0 | p1 run=10 q=1 prealloc=0 xfer=0 http=22 kv=0.083 hit=0.983 gen=0 | d0 run=32 q=0 prealloc=0 xfer=20 http=63 kv=0.311 hit=0.000 gen=292
+22:53:32 p0 run=8 q=0 prealloc=0 xfer=0 http=11 kv=0.066 hit=0.994 gen=0 | p1 run=10 q=1 prealloc=0 xfer=0 http=22 kv=0.083 hit=0.983 gen=0 | d0 run=32 q=0 prealloc=0 xfer=20 http=63 kv=0.311 hit=0.000 gen=292
+22:53:49 p0 run=3 q=0 prealloc=0 xfer=0 http=19 kv=0.035 hit=0.982 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=16 kv=0.033 hit=0.987 gen=0 | d0 run=25 q=0 prealloc=0 xfer=28 http=65 kv=0.314 hit=0.000 gen=283
+22:53:49 p0 run=3 q=0 prealloc=0 xfer=0 http=19 kv=0.035 hit=0.982 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=16 kv=0.033 hit=0.987 gen=0 | d0 run=25 q=0 prealloc=0 xfer=28 http=65 kv=0.314 hit=0.000 gen=283
+22:53:49 p0 run=3 q=0 prealloc=0 xfer=0 http=19 kv=0.035 hit=0.982 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=17 kv=0.033 hit=0.987 gen=0 | d0 run=25 q=0 prealloc=0 xfer=28 http=65 kv=0.314 hit=0.000 gen=283
+22:54:05 p0 run=8 q=1 prealloc=0 xfer=0 http=15 kv=0.056 hit=0.980 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=11 kv=0.000 hit=0.990 gen=0 | d0 run=52 q=0 prealloc=0 xfer=6 http=70 kv=0.366 hit=0.000 gen=330
+22:54:05 p0 run=8 q=1 prealloc=0 xfer=0 http=15 kv=0.056 hit=0.980 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=11 kv=0.000 hit=0.990 gen=0 | d0 run=52 q=0 prealloc=0 xfer=6 http=69 kv=0.366 hit=0.000 gen=330
+22:54:05 p0 run=8 q=1 prealloc=0 xfer=0 http=16 kv=0.056 hit=0.980 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=11 kv=0.000 hit=0.990 gen=0 | d0 run=52 q=0 prealloc=0 xfer=6 http=68 kv=0.366 hit=0.000 gen=330
+22:54:20 p0 run=6 q=1 prealloc=0 xfer=0 http=11 kv=0.015 hit=0.932 gen=0 | p1 run=2 q=0 prealloc=0 xfer=0 http=6 kv=0.025 hit=0.976 gen=0 | d0 run=41 q=0 prealloc=0 xfer=9 http=57 kv=0.276 hit=0.000 gen=349
+22:54:20 p0 run=6 q=1 prealloc=0 xfer=0 http=11 kv=0.015 hit=0.932 gen=0 | p1 run=2 q=0 prealloc=0 xfer=0 http=6 kv=0.025 hit=0.976 gen=0 | d0 run=41 q=0 prealloc=0 xfer=9 http=57 kv=0.276 hit=0.000 gen=349
+22:54:20 p0 run=6 q=1 prealloc=0 xfer=0 http=11 kv=0.015 hit=0.932 gen=0 | p1 run=2 q=0 prealloc=0 xfer=0 http=6 kv=0.025 hit=0.976 gen=0 | d0 run=41 q=0 prealloc=0 xfer=9 http=57 kv=0.276 hit=0.000 gen=349
+22:54:36 p0 run=0 q=0 prealloc=0 xfer=0 http=2 kv=0.000 hit=0.994 gen=0 | p1 run=1 q=0 prealloc=0 xfer=0 http=4 kv=0.030 hit=0.991 gen=0 | d0 run=52 q=0 prealloc=0 xfer=2 http=60 kv=0.326 hit=0.000 gen=344
+22:54:36 p0 run=0 q=0 prealloc=0 xfer=0 http=2 kv=0.000 hit=0.994 gen=0 | p1 run=1 q=0 prealloc=0 xfer=0 http=5 kv=0.030 hit=0.991 gen=0 | d0 run=52 q=0 prealloc=0 xfer=2 http=59 kv=0.326 hit=0.000 gen=344
+22:54:36 p0 run=0 q=0 prealloc=0 xfer=0 http=2 kv=0.000 hit=0.994 gen=0 | p1 run=1 q=0 prealloc=0 xfer=0 http=4 kv=0.030 hit=0.991 gen=0 | d0 run=52 q=0 prealloc=0 xfer=2 http=59 kv=0.326 hit=0.000 gen=344
+22:54:55 p0 run=12 q=3 prealloc=0 xfer=0 http=17 kv=0.027 hit=0.967 gen=0 | p1 run=1 q=0 prealloc=0 xfer=0 http=7 kv=0.020 hit=0.985 gen=0 | d0 run=46 q=0 prealloc=0 xfer=5 http=65 kv=0.339 hit=0.000 gen=326
+22:54:55 p0 run=12 q=3 prealloc=0 xfer=0 http=17 kv=0.027 hit=0.967 gen=0 | p1 run=1 q=0 prealloc=0 xfer=0 http=7 kv=0.090 hit=0.986 gen=0 | d0 run=46 q=0 prealloc=0 xfer=5 http=65 kv=0.339 hit=0.000 gen=326
+22:54:55 p0 run=12 q=3 prealloc=0 xfer=0 http=17 kv=0.027 hit=0.967 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=7 kv=0.000 hit=0.986 gen=0 | d0 run=46 q=0 prealloc=0 xfer=5 http=65 kv=0.339 hit=0.000 gen=326
+22:55:11 p0 run=10 q=5 prealloc=0 xfer=0 http=15 kv=0.034 hit=0.979 gen=0 | p1 run=4 q=0 prealloc=0 xfer=0 http=8 kv=0.040 hit=0.987 gen=0 | d0 run=38 q=0 prealloc=0 xfer=15 http=65 kv=0.274 hit=0.000 gen=344
+22:55:11 p0 run=10 q=6 prealloc=0 xfer=0 http=16 kv=0.034 hit=0.979 gen=0 | p1 run=5 q=0 prealloc=0 xfer=0 http=9 kv=0.038 hit=0.981 gen=0 | d0 run=39 q=0 prealloc=0 xfer=13 http=64 kv=0.273 hit=0.000 gen=343
+22:55:11 p0 run=10 q=5 prealloc=0 xfer=0 http=16 kv=0.034 hit=0.979 gen=0 | p1 run=5 q=0 prealloc=0 xfer=0 http=9 kv=0.038 hit=0.981 gen=0 | d0 run=39 q=0 prealloc=0 xfer=13 http=61 kv=0.273 hit=0.000 gen=343
+22:55:27 p0 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.054 hit=0.988 gen=0 | p1 run=10 q=0 prealloc=0 xfer=0 http=8 kv=0.057 hit=0.989 gen=0 | d0 run=39 q=0 prealloc=0 xfer=14 http=64 kv=0.292 hit=0.000 gen=374
+22:55:27 p0 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.054 hit=0.988 gen=0 | p1 run=11 q=0 prealloc=0 xfer=0 http=9 kv=0.057 hit=0.977 gen=0 | d0 run=37 q=0 prealloc=0 xfer=14 http=63 kv=0.270 hit=0.000 gen=369
+22:55:27 p0 run=8 q=5 prealloc=0 xfer=0 http=14 kv=0.054 hit=0.988 gen=0 | p1 run=11 q=0 prealloc=0 xfer=0 http=9 kv=0.057 hit=0.977 gen=0 | d0 run=36 q=0 prealloc=0 xfer=16 http=63 kv=0.281 hit=0.000 gen=364
+22:55:42 p0 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.971 gen=0 | p1 run=5 q=1 prealloc=0 xfer=0 http=10 kv=0.070 hit=0.984 gen=0 | d0 run=44 q=0 prealloc=0 xfer=4 http=59 kv=0.259 hit=0.000 gen=390
+22:55:42 p0 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.971 gen=0 | p1 run=5 q=1 prealloc=0 xfer=0 http=10 kv=0.070 hit=0.984 gen=0 | d0 run=45 q=0 prealloc=0 xfer=5 http=59 kv=0.269 hit=0.000 gen=385
+22:55:42 p0 run=0 q=0 prealloc=0 xfer=0 http=5 kv=0.000 hit=0.971 gen=0 | p1 run=5 q=1 prealloc=0 xfer=0 http=10 kv=0.070 hit=0.984 gen=0 | d0 run=45 q=0 prealloc=0 xfer=5 http=59 kv=0.276 hit=0.000 gen=381
+22:55:58 p0 run=2 q=0 prealloc=0 xfer=0 http=6 kv=0.010 hit=0.980 gen=0 | p1 run=5 q=0 prealloc=0 xfer=0 http=12 kv=0.064 hit=0.987 gen=0 | d0 run=34 q=0 prealloc=0 xfer=10 http=52 kv=0.269 hit=0.000 gen=338
+22:55:59 p0 run=2 q=0 prealloc=0 xfer=0 http=6 kv=0.010 hit=0.980 gen=0 | p1 run=5 q=0 prealloc=0 xfer=0 http=12 kv=0.064 hit=0.987 gen=0 | d0 run=34 q=0 prealloc=0 xfer=10 http=51 kv=0.269 hit=0.000 gen=341
+22:55:59 p0 run=2 q=0 prealloc=0 xfer=0 http=6 kv=0.010 hit=0.980 gen=0 | p1 run=5 q=0 prealloc=0 xfer=0 http=12 kv=0.064 hit=0.987 gen=0 | d0 run=34 q=0 prealloc=0 xfer=10 http=50 kv=0.269 hit=0.000 gen=341
+22:56:15 p0 run=0 q=0 prealloc=0 xfer=0 http=10 kv=0.000 hit=0.984 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=7 kv=0.000 hit=0.977 gen=0 | d0 run=51 q=0 prealloc=0 xfer=5 http=64 kv=0.339 hit=0.000 gen=373
+22:56:15 p0 run=0 q=0 prealloc=0 xfer=0 http=10 kv=0.000 hit=0.984 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=7 kv=0.000 hit=0.977 gen=0 | d0 run=51 q=0 prealloc=0 xfer=5 http=64 kv=0.339 hit=0.000 gen=373
+22:56:15 p0 run=0 q=0 prealloc=0 xfer=0 http=11 kv=0.000 hit=0.984 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=7 kv=0.000 hit=0.977 gen=0 | d0 run=51 q=0 prealloc=0 xfer=5 http=64 kv=0.339 hit=0.000 gen=373
+22:56:51 p0=<TimeoutError> | p1 run=8 q=11 prealloc=0 xfer=0 http=69 kv=0.035 hit=0.987 gen=0 | d0=<TimeoutError>
+22:56:52 p0=<TimeoutError> | p1 run=8 q=11 prealloc=0 xfer=0 http=69 kv=0.035 hit=0.987 gen=0 | d0=<TimeoutError>
+22:56:52 p0=<TimeoutError> | p1 run=8 q=12 prealloc=0 xfer=0 http=69 kv=0.035 hit=0.987 gen=0 | d0=<TimeoutError>
+22:57:13 p0 run=8 q=6 prealloc=0 xfer=0 http=31 kv=0.091 hit=0.995 gen=0 | p1 run=8 q=5 prealloc=0 xfer=0 http=23 kv=0.100 hit=0.993 gen=0 | d0 run=33 q=0 prealloc=6 xfer=30 http=196 kv=0.609 hit=0.000 gen=356
+22:57:14 p0 run=8 q=6 prealloc=0 xfer=0 http=31 kv=0.091 hit=0.995 gen=0 | p1 run=8 q=5 prealloc=0 xfer=0 http=23 kv=0.100 hit=0.993 gen=0 | d0 run=33 q=0 prealloc=6 xfer=30 http=197 kv=0.609 hit=0.000 gen=356
+22:57:15 p0 run=8 q=6 prealloc=0 xfer=0 http=31 kv=0.091 hit=0.995 gen=0 | p1 run=8 q=5 prealloc=0 xfer=0 http=23 kv=0.100 hit=0.993 gen=0 | d0 run=32 q=0 prealloc=7 xfer=31 http=197 kv=0.589 hit=0.000 gen=338
+22:57:33 p0 run=8 q=26 prealloc=0 xfer=0 http=57 kv=0.052 hit=0.998 gen=0 | p1 run=10 q=11 prealloc=0 xfer=0 http=41 kv=0.114 hit=0.989 gen=0 | d0 run=33 q=0 prealloc=19 xfer=61 http=167 kv=0.819 hit=0.000 gen=261
+22:57:34 p0 run=8 q=26 prealloc=0 xfer=0 http=60 kv=0.052 hit=0.998 gen=0 | p1 run=10 q=11 prealloc=0 xfer=0 http=41 kv=0.114 hit=0.989 gen=0 | d0 run=36 q=0 prealloc=19 xfer=61 http=174 kv=0.843 hit=0.000 gen=276
+22:57:34 p0 run=9 q=28 prealloc=0 xfer=0 http=61 kv=0.053 hit=0.998 gen=0 | p1 run=8 q=11 prealloc=0 xfer=0 http=41 kv=0.130 hit=0.988 gen=0 | d0 run=41 q=0 prealloc=23 xfer=57 http=174 kv=0.845 hit=0.000 gen=290
+22:57:49 p0 run=8 q=41 prealloc=0 xfer=0 http=77 kv=0.036 hit=0.000 gen=0 | p1 run=8 q=18 prealloc=0 xfer=0 http=61 kv=0.071 hit=0.993 gen=0 | d0 run=27 q=0 prealloc=47 xfer=87 http=198 kv=0.876 hit=0.000 gen=262
+22:57:50 p0 run=8 q=41 prealloc=0 xfer=0 http=80 kv=0.039 hit=0.000 gen=0 | p1 run=9 q=23 prealloc=0 xfer=0 http=62 kv=0.092 hit=0.994 gen=0 | d0 run=27 q=0 prealloc=50 xfer=87 http=196 kv=0.872 hit=0.000 gen=262
+22:57:50 p0 run=8 q=41 prealloc=0 xfer=0 http=81 kv=0.039 hit=0.000 gen=0 | p1 run=9 q=23 prealloc=0 xfer=0 http=62 kv=0.092 hit=0.994 gen=0 | d0 run=27 q=0 prealloc=50 xfer=87 http=197 kv=0.872 hit=0.000 gen=262
+22:58:04 p0 run=8 q=60 prealloc=0 xfer=0 http=100 kv=0.046 hit=0.000 gen=0 | p1 run=10 q=37 prealloc=0 xfer=0 http=86 kv=0.098 hit=0.989 gen=0 | d0 run=26 q=0 prealloc=62 xfer=116 http=209 kv=0.884 hit=0.000 gen=231
+22:58:06 p0 run=8 q=60 prealloc=0 xfer=0 http=101 kv=0.048 hit=0.000 gen=0 | p1 run=11 q=35 prealloc=0 xfer=0 http=86 kv=0.096 hit=0.960 gen=0 | d0 run=27 q=0 prealloc=63 xfer=115 http=207 kv=0.884 hit=0.000 gen=254
+22:58:06 p0 run=8 q=60 prealloc=0 xfer=0 http=101 kv=0.048 hit=0.000 gen=0 | p1 run=11 q=35 prealloc=0 xfer=0 http=86 kv=0.096 hit=0.960 gen=0 | d0 run=27 q=0 prealloc=63 xfer=115 http=207 kv=0.884 hit=0.000 gen=253
+22:58:20 p0 run=8 q=64 prealloc=0 xfer=0 http=102 kv=0.067 hit=0.000 gen=0 | p1 run=8 q=34 prealloc=0 xfer=0 http=90 kv=0.090 hit=0.991 gen=0 | d0 run=29 q=0 prealloc=76 xfer=112 http=219 kv=0.916 hit=0.000 gen=259
+22:58:21 p0 run=8 q=64 prealloc=0 xfer=0 http=101 kv=0.060 hit=0.000 gen=0 | p1 run=8 q=33 prealloc=0 xfer=0 http=91 kv=0.084 hit=0.991 gen=0 | d0 run=30 q=0 prealloc=77 xfer=111 http=220 kv=0.916 hit=0.000 gen=266
+22:58:21 p0 run=8 q=64 prealloc=0 xfer=0 http=101 kv=0.060 hit=0.000 gen=0 | p1 run=8 q=33 prealloc=0 xfer=0 http=91 kv=0.084 hit=0.991 gen=0 | d0 run=30 q=0 prealloc=77 xfer=111 http=220 kv=0.916 hit=0.000 gen=266
+22:58:35 p0 run=8 q=65 prealloc=0 xfer=0 http=104 kv=0.065 hit=0.000 gen=0 | p1 run=8 q=28 prealloc=0 xfer=0 http=93 kv=0.088 hit=0.991 gen=0 | d0 run=25 q=0 prealloc=82 xfer=108 http=217 kv=0.945 hit=0.000 gen=250
+22:58:36 p0 run=8 q=65 prealloc=0 xfer=0 http=102 kv=0.065 hit=0.000 gen=0 | p1 run=8 q=32 prealloc=0 xfer=0 http=94 kv=0.090 hit=0.953 gen=0 | d0 run=23 q=0 prealloc=84 xfer=108 http=217 kv=0.944 hit=0.000 gen=246
+22:58:36 p0 run=8 q=65 prealloc=0 xfer=0 http=102 kv=0.065 hit=0.000 gen=0 | p1 run=8 q=32 prealloc=0 xfer=0 http=94 kv=0.090 hit=0.953 gen=0 | d0 run=23 q=0 prealloc=84 xfer=108 http=217 kv=0.944 hit=0.000 gen=247
+22:58:51 p0 run=11 q=48 prealloc=0 xfer=0 http=90 kv=0.098 hit=0.989 gen=0 | p1 run=11 q=29 prealloc=0 xfer=0 http=96 kv=0.100 hit=0.950 gen=0 | d0 run=38 q=0 prealloc=77 xfer=97 http=215 kv=0.934 hit=0.000 gen=246
+22:58:52 p0 run=11 q=43 prealloc=0 xfer=0 http=90 kv=0.119 hit=0.959 gen=0 | p1 run=11 q=33 prealloc=0 xfer=0 http=97 kv=0.100 hit=0.951 gen=0 | d0 run=39 q=0 prealloc=75 xfer=98 http=214 kv=0.936 hit=0.000 gen=238
+22:58:52 p0 run=11 q=43 prealloc=0 xfer=0 http=91 kv=0.119 hit=0.959 gen=0 | p1 run=11 q=33 prealloc=0 xfer=0 http=97 kv=0.100 hit=0.951 gen=0 | d0 run=37 q=0 prealloc=75 xfer=100 http=214 kv=0.936 hit=0.000 gen=237
+22:59:06 p0 run=9 q=28 prealloc=0 xfer=0 http=75 kv=0.079 hit=0.920 gen=0 | p1 run=8 q=33 prealloc=0 xfer=0 http=94 kv=0.109 hit=0.990 gen=0 | d0 run=50 q=0 prealloc=80 xfer=78 http=215 kv=0.960 hit=0.000 gen=307
+22:59:07 p0 run=10 q=27 prealloc=0 xfer=0 http=77 kv=0.092 hit=0.979 gen=0 | p1 run=10 q=33 prealloc=0 xfer=0 http=95 kv=0.109 hit=0.992 gen=0 | d0 run=47 q=0 prealloc=86 xfer=78 http=215 kv=0.959 hit=0.000 gen=280
+22:59:07 p0 run=10 q=27 prealloc=0 xfer=0 http=77 kv=0.092 hit=0.979 gen=0 | p1 run=10 q=33 prealloc=0 xfer=0 http=95 kv=0.109 hit=0.992 gen=0 | d0 run=47 q=0 prealloc=86 xfer=78 http=215 kv=0.959 hit=0.000 gen=280
+22:59:21 p0 run=8 q=24 prealloc=0 xfer=0 http=75 kv=0.106 hit=0.990 gen=0 | p1 run=10 q=27 prealloc=0 xfer=0 http=96 kv=0.056 hit=0.853 gen=0 | d0 run=44 q=0 prealloc=93 xfer=71 http=213 kv=0.940 hit=0.000 gen=288
+22:59:23 p0 run=8 q=22 prealloc=0 xfer=0 http=75 kv=0.125 hit=0.990 gen=0 | p1 run=10 q=24 prealloc=0 xfer=0 http=96 kv=0.076 hit=0.955 gen=0 | d0 run=44 q=0 prealloc=89 xfer=74 http=209 kv=0.950 hit=0.000 gen=278
+22:59:23 p0 run=8 q=22 prealloc=0 xfer=0 http=75 kv=0.125 hit=0.990 gen=0 | p1 run=10 q=24 prealloc=0 xfer=0 http=96 kv=0.076 hit=0.955 gen=0 | d0 run=44 q=0 prealloc=89 xfer=74 http=209 kv=0.950 hit=0.000 gen=278
+22:59:36 p0 run=8 q=18 prealloc=0 xfer=0 http=62 kv=0.090 hit=0.986 gen=0 | p1 run=9 q=14 prealloc=0 xfer=0 http=85 kv=0.091 hit=0.980 gen=0 | d0 run=65 q=0 prealloc=99 xfer=44 http=214 kv=0.939 hit=0.000 gen=320
+22:59:38 p0 run=8 q=18 prealloc=0 xfer=0 http=62 kv=0.091 hit=0.986 gen=0 | p1 run=9 q=14 prealloc=0 xfer=0 http=88 kv=0.114 hit=0.996 gen=0 | d0 run=65 q=0 prealloc=98 xfer=46 http=216 kv=0.953 hit=0.000 gen=330
+22:59:38 p0 run=8 q=18 prealloc=0 xfer=0 http=62 kv=0.091 hit=0.986 gen=0 | p1 run=9 q=14 prealloc=0 xfer=0 http=88 kv=0.114 hit=0.996 gen=0 | d0 run=65 q=0 prealloc=98 xfer=46 http=216 kv=0.953 hit=0.000 gen=330
+22:59:52 p0 run=9 q=18 prealloc=0 xfer=0 http=61 kv=0.110 hit=0.994 gen=0 | p1 run=10 q=24 prealloc=0 xfer=0 http=91 kv=0.131 hit=0.988 gen=0 | d0 run=61 q=0 prealloc=82 xfer=63 http=209 kv=0.979 hit=0.000 gen=343
+22:59:54 p0 run=9 q=21 prealloc=0 xfer=0 http=61 kv=0.107 hit=0.990 gen=0 | p1 run=8 q=24 prealloc=0 xfer=0 http=90 kv=0.073 hit=0.980 gen=0 | d0 run=61 q=0 prealloc=84 xfer=61 http=209 kv=0.972 hit=0.000 gen=350
+22:59:54 p0 run=9 q=21 prealloc=0 xfer=0 http=61 kv=0.107 hit=0.990 gen=0 | p1 run=8 q=24 prealloc=0 xfer=0 http=90 kv=0.073 hit=0.980 gen=0 | d0 run=61 q=0 prealloc=84 xfer=61 http=210 kv=0.972 hit=0.000 gen=350
+23:00:08 p0 run=11 q=15 prealloc=0 xfer=0 http=53 kv=0.129 hit=0.993 gen=0 | p1 run=9 q=23 prealloc=0 xfer=0 http=90 kv=0.101 hit=0.984 gen=0 | d0 run=57 q=0 prealloc=79 xfer=56 http=202 kv=0.941 hit=0.000 gen=388
+23:00:09 p0 run=10 q=15 prealloc=0 xfer=0 http=54 kv=0.152 hit=0.989 gen=0 | p1 run=9 q=24 prealloc=0 xfer=0 http=91 kv=0.090 hit=0.986 gen=0 | d0 run=54 q=0 prealloc=60 xfer=75 http=200 kv=0.959 hit=0.000 gen=386
+23:00:09 p0 run=10 q=15 prealloc=0 xfer=0 http=54 kv=0.136 hit=0.991 gen=0 | p1 run=9 q=24 prealloc=0 xfer=0 http=91 kv=0.090 hit=0.986 gen=0 | d0 run=54 q=0 prealloc=60 xfer=75 http=200 kv=0.959 hit=0.000 gen=386
+23:00:24 p0 run=9 q=15 prealloc=0 xfer=0 http=55 kv=0.102 hit=0.950 gen=0 | p1 run=8 q=48 prealloc=0 xfer=0 http=95 kv=0.146 hit=0.985 gen=0 | d0 run=61 q=0 prealloc=52 xfer=84 http=211 kv=0.900 hit=0.000 gen=340
+23:00:25 p0 run=9 q=14 prealloc=0 xfer=0 http=59 kv=0.121 hit=0.950 gen=0 | p1 run=8 q=48 prealloc=0 xfer=0 http=95 kv=0.146 hit=0.985 gen=0 | d0 run=64 q=0 prealloc=49 xfer=83 http=209 kv=0.900 hit=0.000 gen=365
+23:00:25 p0 run=9 q=14 prealloc=0 xfer=0 http=59 kv=0.121 hit=0.950 gen=0 | p1 run=8 q=48 prealloc=0 xfer=0 http=95 kv=0.146 hit=0.985 gen=0 | d0 run=64 q=0 prealloc=49 xfer=83 http=209 kv=0.900 hit=0.000 gen=365
+23:00:40 p0 run=15 q=8 prealloc=0 xfer=0 http=56 kv=0.177 hit=0.985 gen=0 | p1 run=9 q=42 prealloc=0 xfer=0 http=86 kv=0.160 hit=0.978 gen=0 | d0 run=64 q=0 prealloc=48 xfer=76 http=204 kv=0.912 hit=0.000 gen=356
+23:00:41 p0 run=11 q=8 prealloc=0 xfer=0 http=57 kv=0.120 hit=0.968 gen=0 | p1 run=9 q=42 prealloc=0 xfer=0 http=84 kv=0.160 hit=0.978 gen=0 | d0 run=64 q=0 prealloc=48 xfer=76 http=204 kv=0.912 hit=0.000 gen=356
+23:00:41 p0 run=11 q=8 prealloc=0 xfer=0 http=57 kv=0.120 hit=0.968 gen=0 | p1 run=9 q=42 prealloc=0 xfer=0 http=84 kv=0.160 hit=0.978 gen=0 | d0 run=64 q=0 prealloc=48 xfer=76 http=204 kv=0.912 hit=0.000 gen=356
+23:00:56 p0 run=8 q=10 prealloc=0 xfer=0 http=46 kv=0.052 hit=0.985 gen=0 | p1 run=8 q=47 prealloc=0 xfer=0 http=86 kv=0.087 hit=0.988 gen=0 | d0 run=65 q=0 prealloc=41 xfer=83 http=200 kv=0.887 hit=0.000 gen=406
+23:00:57 p0 run=8 q=11 prealloc=0 xfer=0 http=46 kv=0.060 hit=0.985 gen=0 | p1 run=8 q=47 prealloc=0 xfer=0 http=88 kv=0.087 hit=0.988 gen=0 | d0 run=68 q=0 prealloc=40 xfer=80 http=201 kv=0.886 hit=0.000 gen=424
+23:00:57 p0 run=8 q=11 prealloc=0 xfer=0 http=46 kv=0.060 hit=0.985 gen=0 | p1 run=8 q=47 prealloc=0 xfer=0 http=88 kv=0.087 hit=0.988 gen=0 | d0 run=68 q=0 prealloc=40 xfer=80 http=203 kv=0.886 hit=0.000 gen=424
+23:01:12 p0 run=11 q=8 prealloc=0 xfer=0 http=53 kv=0.081 hit=0.991 gen=0 | p1 run=12 q=42 prealloc=0 xfer=0 http=84 kv=0.100 hit=0.992 gen=0 | d0 run=81 q=0 prealloc=45 xfer=67 http=210 kv=0.938 hit=0.000 gen=418
+23:01:13 p0 run=8 q=6 prealloc=0 xfer=0 http=48 kv=0.080 hit=0.991 gen=0 | p1 run=11 q=43 prealloc=0 xfer=0 http=81 kv=0.089 hit=0.992 gen=0 | d0 run=81 q=0 prealloc=48 xfer=67 http=211 kv=0.932 hit=0.000 gen=416
+23:01:13 p0 run=8 q=6 prealloc=0 xfer=0 http=48 kv=0.080 hit=0.991 gen=0 | p1 run=11 q=43 prealloc=0 xfer=0 http=76 kv=0.089 hit=0.992 gen=0 | d0 run=81 q=0 prealloc=48 xfer=67 http=211 kv=0.932 hit=0.000 gen=416
+23:01:28 p0 run=10 q=19 prealloc=0 xfer=0 http=49 kv=0.068 hit=0.985 gen=0 | p1 run=14 q=32 prealloc=0 xfer=0 http=70 kv=0.091 hit=0.976 gen=0 | d0 run=80 q=0 prealloc=39 xfer=68 http=194 kv=0.886 hit=0.000 gen=421
+23:01:31 p0 run=8 q=18 prealloc=0 xfer=0 http=49 kv=0.072 hit=0.992 gen=0 | p1 run=9 q=31 prealloc=0 xfer=0 http=71 kv=0.085 hit=0.957 gen=0 | d0 run=82 q=0 prealloc=40 xfer=65 http=198 kv=0.877 hit=0.000 gen=427
+23:01:31 p0 run=8 q=18 prealloc=0 xfer=0 http=49 kv=0.072 hit=0.992 gen=0 | p1 run=9 q=31 prealloc=0 xfer=0 http=71 kv=0.085 hit=0.957 gen=0 | d0 run=89 q=0 prealloc=42 xfer=54 http=198 kv=0.885 hit=0.000 gen=472
+23:01:44 p0 run=9 q=23 prealloc=0 xfer=0 http=62 kv=0.056 hit=0.995 gen=0 | p1 run=11 q=30 prealloc=0 xfer=0 http=59 kv=0.081 hit=0.991 gen=0 | d0 run=76 q=0 prealloc=39 xfer=72 http=197 kv=0.884 hit=0.000 gen=441
+23:01:48 p0 run=12 q=19 prealloc=0 xfer=0 http=63 kv=0.056 hit=0.979 gen=0 | p1 run=9 q=30 prealloc=0 xfer=0 http=65 kv=0.072 hit=0.995 gen=0 | d0 run=85 q=0 prealloc=42 xfer=62 http=197 kv=0.915 hit=0.000 gen=453
+23:01:48 p0 run=13 q=21 prealloc=0 xfer=0 http=64 kv=0.050 hit=0.970 gen=0 | p1 run=9 q=30 prealloc=0 xfer=0 http=64 kv=0.072 hit=0.995 gen=0 | d0 run=85 q=0 prealloc=42 xfer=62 http=197 kv=0.915 hit=0.000 gen=453
+23:01:59 p0 run=10 q=15 prealloc=0 xfer=0 http=49 kv=0.061 hit=0.956 gen=0 | p1 run=9 q=32 prealloc=0 xfer=0 http=69 kv=0.068 hit=0.988 gen=0 | d0 run=85 q=0 prealloc=51 xfer=56 http=195 kv=0.919 hit=0.000 gen=468
+23:02:03 p0 run=14 q=14 prealloc=0 xfer=0 http=48 kv=0.116 hit=0.976 gen=0 | p1 run=9 q=35 prealloc=0 xfer=0 http=67 kv=0.074 hit=0.990 gen=0 | d0 run=81 q=0 prealloc=39 xfer=68 http=190 kv=0.940 hit=0.000 gen=461
+23:02:04 p0 run=14 q=14 prealloc=0 xfer=0 http=48 kv=0.116 hit=0.976 gen=0 | p1 run=9 q=35 prealloc=0 xfer=0 http=67 kv=0.074 hit=0.990 gen=0 | d0 run=84 q=0 prealloc=34 xfer=66 http=192 kv=0.932 hit=0.000 gen=447
+23:02:15 p0 run=13 q=18 prealloc=0 xfer=0 http=53 kv=0.076 hit=0.982 gen=0 | p1 run=11 q=42 prealloc=0 xfer=0 http=77 kv=0.069 hit=0.992 gen=0 | d0 run=78 q=0 prealloc=26 xfer=84 http=192 kv=0.969 hit=0.000 gen=438
+23:02:20 p0 run=15 q=16 prealloc=0 xfer=0 http=51 kv=0.077 hit=0.972 gen=0 | p1 run=14 q=35 prealloc=0 xfer=0 http=65 kv=0.065 hit=0.958 gen=0 | d0 run=95 q=0 prealloc=28 xfer=64 http=194 kv=0.936 hit=0.000 gen=462
+23:02:20 p0 run=15 q=16 prealloc=0 xfer=0 http=53 kv=0.077 hit=0.972 gen=0 | p1 run=16 q=33 prealloc=0 xfer=0 http=65 kv=0.065 hit=0.958 gen=0 | d0 run=94 q=0 prealloc=27 xfer=63 http=196 kv=0.932 hit=0.000 gen=452
+23:02:31 p0 run=8 q=31 prealloc=0 xfer=0 http=59 kv=0.046 hit=0.992 gen=0 | p1 run=9 q=25 prealloc=0 xfer=0 http=46 kv=0.054 hit=0.987 gen=0 | d0 run=88 q=0 prealloc=25 xfer=72 http=196 kv=0.900 hit=0.000 gen=542
+23:02:37 p0 run=10 q=33 prealloc=0 xfer=0 http=66 kv=0.066 hit=0.981 gen=0 | p1 run=13 q=16 prealloc=0 xfer=0 http=46 kv=0.046 hit=0.983 gen=0 | d0 run=84 q=0 prealloc=25 xfer=72 http=197 kv=0.891 hit=0.000 gen=503
+23:02:37 p0 run=10 q=33 prealloc=0 xfer=0 http=67 kv=0.066 hit=0.981 gen=0 | p1 run=13 q=16 prealloc=0 xfer=0 http=46 kv=0.046 hit=0.983 gen=0 | d0 run=84 q=0 prealloc=25 xfer=72 http=200 kv=0.891 hit=0.000 gen=503
+23:02:47 p0 run=9 q=34 prealloc=0 xfer=0 http=65 kv=0.071 hit=0.994 gen=0 | p1 run=9 q=16 prealloc=0 xfer=0 http=47 kv=0.063 hit=0.983 gen=0 | d0 run=91 q=0 prealloc=30 xfer=62 http=195 kv=0.964 hit=0.000 gen=494
+23:02:52 p0 run=8 q=36 prealloc=0 xfer=0 http=66 kv=0.070 hit=0.990 gen=0 | p1 run=9 q=19 prealloc=0 xfer=0 http=50 kv=0.060 hit=0.979 gen=0 | d0 run=82 q=0 prealloc=36 xfer=69 http=198 kv=0.970 hit=0.000 gen=479
+23:02:52 p0 run=8 q=36 prealloc=0 xfer=0 http=66 kv=0.070 hit=0.990 gen=0 | p1 run=9 q=19 prealloc=0 xfer=0 http=50 kv=0.060 hit=0.979 gen=0 | d0 run=82 q=0 prealloc=36 xfer=69 http=198 kv=0.970 hit=0.000 gen=479
+23:03:04 p0 run=10 q=39 prealloc=0 xfer=0 http=74 kv=0.045 hit=0.982 gen=0 | p1 run=9 q=22 prealloc=0 xfer=0 http=53 kv=0.070 hit=0.977 gen=0 | d0 run=72 q=0 prealloc=31 xfer=77 http=194 kv=0.948 hit=0.000 gen=436
+23:03:07 p0 run=8 q=39 prealloc=0 xfer=0 http=81 kv=0.046 hit=0.975 gen=0 | p1 run=9 q=21 prealloc=0 xfer=0 http=48 kv=0.069 hit=0.987 gen=0 | d0 run=71 q=0 prealloc=34 xfer=77 http=209 kv=0.958 hit=0.000 gen=424
+23:03:07 p0 run=8 q=40 prealloc=0 xfer=0 http=81 kv=0.046 hit=0.975 gen=0 | p1 run=9 q=21 prealloc=0 xfer=0 http=48 kv=0.069 hit=0.987 gen=0 | d0 run=71 q=0 prealloc=34 xfer=77 http=209 kv=0.958 hit=0.000 gen=424
+23:03:19 p0 run=8 q=40 prealloc=0 xfer=0 http=70 kv=0.076 hit=0.991 gen=0 | p1 run=10 q=20 prealloc=0 xfer=0 http=47 kv=0.068 hit=0.992 gen=0 | d0 run=69 q=0 prealloc=30 xfer=78 http=186 kv=0.946 hit=0.000 gen=393
+23:03:22 p0 run=9 q=40 prealloc=0 xfer=0 http=75 kv=0.084 hit=0.956 gen=0 | p1 run=9 q=17 prealloc=0 xfer=0 http=48 kv=0.089 hit=0.982 gen=0 | d0 run=66 q=0 prealloc=29 xfer=83 http=188 kv=0.951 hit=0.000 gen=377
+23:03:23 p0 run=9 q=43 prealloc=0 xfer=0 http=76 kv=0.081 hit=0.993 gen=0 | p1 run=9 q=17 prealloc=0 xfer=0 http=49 kv=0.089 hit=0.982 gen=0 | d0 run=66 q=0 prealloc=29 xfer=83 http=190 kv=0.951 hit=0.000 gen=377
+23:03:35 p0 run=9 q=54 prealloc=0 xfer=0 http=76 kv=0.050 hit=0.961 gen=0 | p1 run=9 q=24 prealloc=0 xfer=0 http=60 kv=0.100 hit=0.984 gen=0 | d0 run=59 q=0 prealloc=31 xfer=94 http=191 kv=0.931 hit=0.000 gen=357
+23:03:38 p0 run=9 q=53 prealloc=0 xfer=0 http=74 kv=0.074 hit=0.954 gen=0 | p1 run=10 q=21 prealloc=0 xfer=0 http=60 kv=0.060 hit=0.971 gen=0 | d0 run=62 q=0 prealloc=31 xfer=92 http=191 kv=0.920 hit=0.000 gen=387
+23:03:38 p0 run=9 q=53 prealloc=0 xfer=0 http=74 kv=0.074 hit=0.954 gen=0 | p1 run=10 q=21 prealloc=0 xfer=0 http=60 kv=0.060 hit=0.971 gen=0 | d0 run=62 q=0 prealloc=32 xfer=92 http=192 kv=0.920 hit=0.000 gen=386
+23:03:50 p0 run=12 q=49 prealloc=0 xfer=0 http=70 kv=0.159 hit=0.996 gen=0 | p1 run=10 q=29 prealloc=0 xfer=0 http=65 kv=0.048 hit=0.949 gen=0 | d0 run=57 q=0 prealloc=27 xfer=94 http=188 kv=0.916 hit=0.000 gen=372
+23:03:53 p0 run=9 q=49 prealloc=0 xfer=0 http=70 kv=0.120 hit=0.962 gen=0 | p1 run=10 q=29 prealloc=0 xfer=0 http=68 kv=0.058 hit=0.961 gen=0 | d0 run=57 q=0 prealloc=26 xfer=100 http=189 kv=0.968 hit=0.000 gen=354
+23:03:54 p0 run=9 q=49 prealloc=0 xfer=0 http=70 kv=0.120 hit=0.962 gen=0 | p1 run=10 q=29 prealloc=0 xfer=0 http=69 kv=0.058 hit=0.961 gen=0 | d0 run=57 q=0 prealloc=26 xfer=100 http=190 kv=0.968 hit=0.000 gen=354
+23:04:06 p0 run=10 q=35 prealloc=0 xfer=0 http=57 kv=0.114 hit=0.983 gen=0 | p1 run=9 q=24 prealloc=0 xfer=0 http=63 kv=0.083 hit=0.987 gen=0 | d0 run=75 q=0 prealloc=31 xfer=76 http=188 kv=0.944 hit=0.000 gen=406
+23:04:09 p0 run=10 q=32 prealloc=0 xfer=0 http=52 kv=0.135 hit=0.990 gen=0 | p1 run=10 q=33 prealloc=0 xfer=0 http=73 kv=0.051 hit=0.977 gen=0 | d0 run=68 q=0 prealloc=27 xfer=87 http=196 kv=0.927 hit=0.000 gen=413
+23:04:09 p0 run=10 q=32 prealloc=0 xfer=0 http=53 kv=0.135 hit=0.990 gen=0 | p1 run=10 q=33 prealloc=0 xfer=0 http=73 kv=0.051 hit=0.977 gen=0 | d0 run=68 q=0 prealloc=27 xfer=87 http=196 kv=0.927 hit=0.000 gen=413
+23:04:21 p0 run=11 q=28 prealloc=0 xfer=0 http=52 kv=0.111 hit=0.993 gen=0 | p1 run=10 q=34 prealloc=0 xfer=0 http=85 kv=0.053 hit=0.932 gen=0 | d0 run=61 q=0 prealloc=39 xfer=92 http=196 kv=0.941 hit=0.000 gen=349
+23:04:24 p0 run=9 q=19 prealloc=0 xfer=0 http=51 kv=0.145 hit=0.999 gen=0 | p1 run=11 q=29 prealloc=0 xfer=0 http=85 kv=0.076 hit=0.975 gen=0 | d0 run=78 q=0 prealloc=40 xfer=73 http=195 kv=0.932 hit=0.000 gen=407
+23:04:25 p0 run=9 q=19 prealloc=0 xfer=0 http=51 kv=0.145 hit=0.999 gen=0 | p1 run=11 q=29 prealloc=0 xfer=0 http=86 kv=0.076 hit=0.975 gen=0 | d0 run=80 q=0 prealloc=38 xfer=69 http=197 kv=0.922 hit=0.000 gen=425
+23:04:36 p0 run=9 q=16 prealloc=0 xfer=0 http=36 kv=0.070 hit=0.990 gen=0 | p1 run=9 q=35 prealloc=0 xfer=0 http=75 kv=0.079 hit=0.987 gen=0 | d0 run=92 q=0 prealloc=30 xfer=67 http=204 kv=0.958 hit=0.000 gen=484
+23:04:40 p0 run=9 q=14 prealloc=0 xfer=0 http=41 kv=0.055 hit=0.961 gen=0 | p1 run=11 q=33 prealloc=0 xfer=0 http=73 kv=0.074 hit=0.943 gen=0 | d0 run=86 q=0 prealloc=31 xfer=70 http=202 kv=0.929 hit=0.000 gen=485
+23:04:41 p0 run=9 q=16 prealloc=0 xfer=0 http=41 kv=0.059 hit=0.973 gen=0 | p1 run=10 q=30 prealloc=0 xfer=0 http=74 kv=0.064 hit=0.968 gen=0 | d0 run=88 q=0 prealloc=32 xfer=66 http=203 kv=0.935 hit=0.000 gen=494
+23:04:52 p0 run=10 q=9 prealloc=0 xfer=0 http=28 kv=0.085 hit=0.958 gen=0 | p1 run=11 q=41 prealloc=0 xfer=0 http=74 kv=0.058 hit=0.982 gen=0 | d0 run=92 q=0 prealloc=27 xfer=66 http=202 kv=0.917 hit=0.000 gen=469
+23:04:57 p0 run=8 q=7 prealloc=0 xfer=0 http=33 kv=0.096 hit=0.997 gen=0 | p1 run=9 q=38 prealloc=0 xfer=0 http=73 kv=0.051 hit=0.978 gen=0 | d0 run=98 q=0 prealloc=29 xfer=61 http=194 kv=0.927 hit=0.000 gen=482
+23:04:57 p0 run=11 q=8 prealloc=0 xfer=0 http=33 kv=0.100 hit=0.982 gen=0 | p1 run=9 q=38 prealloc=0 xfer=0 http=77 kv=0.051 hit=0.978 gen=0 | d0 run=98 q=0 prealloc=29 xfer=61 http=206 kv=0.927 hit=0.000 gen=482
+23:05:07 p0 run=11 q=8 prealloc=0 xfer=0 http=38 kv=0.066 hit=0.957 gen=0 | p1 run=9 q=42 prealloc=0 xfer=0 http=78 kv=0.090 hit=0.998 gen=0 | d0 run=84 q=0 prealloc=29 xfer=68 http=199 kv=0.855 hit=0.000 gen=493
+23:05:13 p0 run=12 q=3 prealloc=0 xfer=0 http=35 kv=0.056 hit=0.958 gen=0 | p1 run=12 q=48 prealloc=0 xfer=0 http=87 kv=0.091 hit=0.979 gen=0 | d0 run=86 q=0 prealloc=22 xfer=73 http=205 kv=0.906 hit=0.000 gen=475
+23:05:13 p0 run=12 q=3 prealloc=0 xfer=0 http=35 kv=0.056 hit=0.958 gen=0 | p1 run=12 q=48 prealloc=0 xfer=0 http=87 kv=0.091 hit=0.979 gen=0 | d0 run=86 q=0 prealloc=22 xfer=73 http=202 kv=0.906 hit=0.000 gen=475
+23:05:23 p0 run=9 q=7 prealloc=0 xfer=0 http=46 kv=0.050 hit=0.929 gen=0 | p1 run=8 q=50 prealloc=0 xfer=0 http=82 kv=0.062 hit=0.990 gen=0 | d0 run=80 q=0 prealloc=23 xfer=79 http=208 kv=0.927 hit=0.000 gen=458
+23:05:29 p0 run=8 q=3 prealloc=0 xfer=0 http=34 kv=0.071 hit=0.965 gen=0 | p1 run=11 q=53 prealloc=0 xfer=0 http=87 kv=0.054 hit=0.977 gen=0 | d0 run=86 q=0 prealloc=28 xfer=74 http=208 kv=0.929 hit=0.000 gen=449
+23:05:29 p0 run=8 q=3 prealloc=0 xfer=0 http=35 kv=0.071 hit=0.965 gen=0 | p1 run=11 q=53 prealloc=0 xfer=0 http=87 kv=0.054 hit=0.977 gen=0 | d0 run=86 q=0 prealloc=28 xfer=74 http=208 kv=0.929 hit=0.000 gen=449
+23:05:39 p0 run=9 q=18 prealloc=0 xfer=0 http=40 kv=0.034 hit=0.920 gen=0 | p1 run=9 q=58 prealloc=0 xfer=0 http=80 kv=0.053 hit=0.970 gen=0 | d0 run=79 q=0 prealloc=22 xfer=94 http=199 kv=0.912 hit=0.000 gen=448
+23:05:46 p0 run=10 q=19 prealloc=0 xfer=0 http=54 kv=0.056 hit=0.950 gen=0 | p1 run=9 q=52 prealloc=0 xfer=0 http=85 kv=0.121 hit=0.970 gen=0 | d0 run=65 q=0 prealloc=27 xfer=98 http=207 kv=0.922 hit=0.000 gen=400
+23:05:46 p0 run=10 q=19 prealloc=0 xfer=0 http=54 kv=0.056 hit=0.950 gen=0 | p1 run=9 q=52 prealloc=0 xfer=0 http=85 kv=0.121 hit=0.970 gen=0 | d0 run=67 q=0 prealloc=27 xfer=99 http=207 kv=0.917 hit=0.000 gen=408
+23:05:54 p0 run=10 q=17 prealloc=0 xfer=0 http=60 kv=0.055 hit=0.973 gen=0 | p1 run=10 q=42 prealloc=0 xfer=0 http=78 kv=0.111 hit=0.974 gen=0 | d0 run=79 q=0 prealloc=51 xfer=75 http=212 kv=0.902 hit=0.000 gen=441
+23:06:02 p0 run=11 q=17 prealloc=0 xfer=0 http=68 kv=0.080 hit=0.983 gen=0 | p1 run=11 q=33 prealloc=0 xfer=0 http=65 kv=0.139 hit=0.985 gen=0 | d0 run=76 q=0 prealloc=52 xfer=69 http=207 kv=0.915 hit=0.000 gen=435
+23:06:02 p0 run=11 q=17 prealloc=0 xfer=0 http=68 kv=0.080 hit=0.983 gen=0 | p1 run=11 q=33 prealloc=0 xfer=0 http=65 kv=0.139 hit=0.985 gen=0 | d0 run=76 q=0 prealloc=52 xfer=69 http=207 kv=0.915 hit=0.000 gen=435
+23:06:09 p0 run=12 q=15 prealloc=0 xfer=0 http=60 kv=0.094 hit=0.976 gen=0 | p1 run=11 q=20 prealloc=0 xfer=0 http=53 kv=0.120 hit=0.972 gen=0 | d0 run=94 q=0 prealloc=34 xfer=66 http=202 kv=0.949 hit=0.000 gen=521
+23:06:18 p0 run=9 q=17 prealloc=0 xfer=0 http=51 kv=0.067 hit=0.960 gen=0 | p1 run=10 q=24 prealloc=0 xfer=0 http=49 kv=0.079 hit=0.992 gen=0 | d0 run=104 q=0 prealloc=40 xfer=45 http=204 kv=0.953 hit=0.000 gen=527
+23:06:18 p0 run=9 q=17 prealloc=0 xfer=0 http=51 kv=0.067 hit=0.960 gen=0 | p1 run=10 q=24 prealloc=0 xfer=0 http=49 kv=0.079 hit=0.992 gen=0 | d0 run=104 q=0 prealloc=40 xfer=45 http=203 kv=0.953 hit=0.000 gen=527
+23:06:25 p0 run=8 q=24 prealloc=0 xfer=0 http=56 kv=0.075 hit=0.996 gen=0 | p1 run=12 q=25 prealloc=0 xfer=0 http=60 kv=0.099 hit=0.981 gen=0 | d0 run=78 q=0 prealloc=32 xfer=70 http=194 kv=0.915 hit=0.000 gen=443
+23:06:33 p0 run=11 q=31 prealloc=0 xfer=0 http=63 kv=0.115 hit=0.982 gen=0 | p1 run=10 q=41 prealloc=0 xfer=0 http=65 kv=0.066 hit=0.957 gen=0 | d0 run=73 q=0 prealloc=27 xfer=91 http=206 kv=0.930 hit=0.000 gen=428
+23:06:33 p0 run=11 q=31 prealloc=0 xfer=0 http=63 kv=0.115 hit=0.982 gen=0 | p1 run=10 q=41 prealloc=0 xfer=0 http=66 kv=0.066 hit=0.957 gen=0 | d0 run=73 q=0 prealloc=27 xfer=91 http=206 kv=0.930 hit=0.000 gen=428
+23:06:41 p0 run=13 q=29 prealloc=0 xfer=0 http=59 kv=0.109 hit=0.948 gen=0 | p1 run=14 q=34 prealloc=0 xfer=0 http=71 kv=0.086 hit=0.964 gen=0 | d0 run=83 q=0 prealloc=35 xfer=76 http=205 kv=0.944 hit=0.000 gen=443
+23:06:49 p0 run=10 q=26 prealloc=0 xfer=0 http=50 kv=0.094 hit=0.989 gen=0 | p1 run=11 q=35 prealloc=0 xfer=0 http=79 kv=0.084 hit=0.993 gen=0 | d0 run=77 q=0 prealloc=45 xfer=74 http=204 kv=0.943 hit=0.000 gen=420
+23:06:49 p0 run=10 q=26 prealloc=0 xfer=0 http=50 kv=0.094 hit=0.989 gen=0 | p1 run=11 q=35 prealloc=0 xfer=0 http=79 kv=0.084 hit=0.993 gen=0 | d0 run=77 q=0 prealloc=45 xfer=74 http=204 kv=0.943 hit=0.000 gen=420
+23:06:57 p0 run=9 q=29 prealloc=0 xfer=0 http=57 kv=0.061 hit=0.990 gen=0 | p1 run=11 q=43 prealloc=0 xfer=0 http=70 kv=0.055 hit=0.968 gen=0 | d0 run=73 q=0 prealloc=33 xfer=87 http=206 kv=0.925 hit=0.000 gen=418
+23:07:05 p0 run=8 q=43 prealloc=0 xfer=0 http=76 kv=0.076 hit=0.989 gen=0 | p1 run=10 q=34 prealloc=0 xfer=0 http=60 kv=0.054 hit=0.980 gen=0 | d0 run=66 q=0 prealloc=19 xfer=101 http=202 kv=0.939 hit=0.000 gen=412
+23:07:05 p0 run=8 q=43 prealloc=0 xfer=0 http=76 kv=0.076 hit=0.989 gen=0 | p1 run=10 q=34 prealloc=0 xfer=0 http=60 kv=0.054 hit=0.980 gen=0 | d0 run=66 q=0 prealloc=19 xfer=101 http=202 kv=0.939 hit=0.000 gen=412
+23:07:13 p0 run=11 q=38 prealloc=0 xfer=0 http=65 kv=0.106 hit=0.992 gen=0 | p1 run=10 q=19 prealloc=0 xfer=0 http=45 kv=0.053 hit=0.972 gen=0 | d0 run=87 q=0 prealloc=19 xfer=81 http=194 kv=0.964 hit=0.000 gen=465
+23:07:21 p0 run=11 q=36 prealloc=0 xfer=0 http=60 kv=0.061 hit=0.939 gen=0 | p1 run=12 q=24 prealloc=0 xfer=0 http=52 kv=0.070 hit=0.984 gen=0 | d0 run=85 q=0 prealloc=13 xfer=83 http=192 kv=0.932 hit=0.000 gen=472
+23:07:21 p0 run=11 q=36 prealloc=0 xfer=0 http=60 kv=0.061 hit=0.939 gen=0 | p1 run=12 q=24 prealloc=0 xfer=0 http=52 kv=0.070 hit=0.984 gen=0 | d0 run=85 q=0 prealloc=13 xfer=83 http=192 kv=0.932 hit=0.000 gen=472
+23:07:28 p0 run=11 q=29 prealloc=0 xfer=0 http=61 kv=0.071 hit=0.902 gen=0 | p1 run=11 q=23 prealloc=0 xfer=0 http=44 kv=0.071 hit=0.985 gen=0 | d0 run=85 q=0 prealloc=19 xfer=73 http=186 kv=0.922 hit=0.000 gen=474
+23:07:36 p0 run=12 q=32 prealloc=0 xfer=0 http=63 kv=0.074 hit=0.954 gen=0 | p1 run=12 q=12 prealloc=0 xfer=0 http=49 kv=0.067 hit=0.985 gen=0 | d0 run=88 q=0 prealloc=37 xfer=62 http=195 kv=0.927 hit=0.000 gen=500
+23:07:37 p0 run=12 q=32 prealloc=0 xfer=0 http=63 kv=0.074 hit=0.954 gen=0 | p1 run=12 q=12 prealloc=0 xfer=0 http=49 kv=0.067 hit=0.985 gen=0 | d0 run=87 q=0 prealloc=36 xfer=61 http=196 kv=0.917 hit=0.000 gen=495
+23:07:43 p0 run=9 q=40 prealloc=0 xfer=0 http=65 kv=0.071 hit=0.853 gen=0 | p1 run=10 q=11 prealloc=0 xfer=0 http=55 kv=0.059 hit=0.971 gen=0 | d0 run=67 q=0 prealloc=34 xfer=77 http=195 kv=0.886 hit=0.000 gen=434
+23:07:52 p0 run=12 q=37 prealloc=0 xfer=0 http=62 kv=0.100 hit=0.980 gen=0 | p1 run=9 q=11 prealloc=0 xfer=0 http=69 kv=0.039 hit=0.946 gen=0 | d0 run=74 q=0 prealloc=42 xfer=73 http=208 kv=0.966 hit=0.000 gen=436
+23:07:52 p0 run=12 q=37 prealloc=0 xfer=0 http=63 kv=0.100 hit=0.980 gen=0 | p1 run=10 q=12 prealloc=0 xfer=0 http=68 kv=0.039 hit=0.973 gen=0 | d0 run=74 q=0 prealloc=42 xfer=73 http=203 kv=0.966 hit=0.000 gen=436
+23:08:00 p0 run=10 q=37 prealloc=0 xfer=0 http=64 kv=0.068 hit=0.901 gen=0 | p1 run=9 q=11 prealloc=0 xfer=0 http=69 kv=0.028 hit=0.907 gen=0 | d0 run=75 q=0 prealloc=47 xfer=74 http=205 kv=0.935 hit=0.000 gen=428
+23:08:07 p0 run=14 q=35 prealloc=0 xfer=0 http=61 kv=0.114 hit=0.993 gen=0 | p1 run=8 q=23 prealloc=0 xfer=0 http=63 kv=0.041 hit=0.990 gen=0 | d0 run=81 q=0 prealloc=39 xfer=72 http=205 kv=0.920 hit=0.000 gen=478
+23:08:08 p0 run=14 q=35 prealloc=0 xfer=0 http=56 kv=0.114 hit=0.993 gen=0 | p1 run=8 q=24 prealloc=0 xfer=0 http=66 kv=0.043 hit=0.990 gen=0 | d0 run=79 q=0 prealloc=36 xfer=75 http=202 kv=0.919 hit=0.000 gen=501
+23:08:15 p0 run=9 q=38 prealloc=0 xfer=0 http=54 kv=0.070 hit=0.990 gen=0 | p1 run=8 q=25 prealloc=0 xfer=0 http=77 kv=0.074 hit=0.994 gen=0 | d0 run=73 q=0 prealloc=39 xfer=84 http=217 kv=0.921 hit=0.000 gen=470
+23:08:23 p0 run=11 q=30 prealloc=0 xfer=0 http=53 kv=0.064 hit=0.981 gen=0 | p1 run=9 q=35 prealloc=0 xfer=0 http=81 kv=0.049 hit=0.998 gen=0 | d0 run=80 q=0 prealloc=36 xfer=83 http=204 kv=0.926 hit=0.000 gen=453
+23:08:24 p0 run=8 q=30 prealloc=0 xfer=0 http=49 kv=0.066 hit=0.981 gen=0 | p1 run=10 q=32 prealloc=0 xfer=0 http=81 kv=0.069 hit=0.960 gen=0 | d0 run=80 q=0 prealloc=38 xfer=83 http=206 kv=0.930 hit=0.000 gen=453
+23:08:31 p0 run=9 q=28 prealloc=0 xfer=0 http=47 kv=0.096 hit=0.988 gen=0 | p1 run=12 q=35 prealloc=0 xfer=0 http=88 kv=0.045 hit=0.957 gen=0 | d0 run=80 q=0 prealloc=39 xfer=77 http=208 kv=0.889 hit=0.000 gen=432
+23:08:39 p0 run=10 q=22 prealloc=0 xfer=0 http=39 kv=0.085 hit=0.941 gen=0 | p1 run=11 q=41 prealloc=0 xfer=0 http=89 kv=0.041 hit=0.930 gen=0 | d0 run=75 q=0 prealloc=33 xfer=82 http=198 kv=0.846 hit=0.000 gen=474
+23:08:40 p0 run=11 q=20 prealloc=0 xfer=0 http=38 kv=0.090 hit=0.964 gen=0 | p1 run=11 q=39 prealloc=0 xfer=0 http=92 kv=0.046 hit=0.934 gen=0 | d0 run=71 q=0 prealloc=32 xfer=83 http=202 kv=0.849 hit=0.000 gen=461
+23:08:48 p0 run=10 q=9 prealloc=0 xfer=0 http=34 kv=0.105 hit=0.989 gen=0 | p1 run=9 q=39 prealloc=0 xfer=0 http=86 kv=0.046 hit=0.966 gen=0 | d0 run=82 q=0 prealloc=30 xfer=70 http=197 kv=0.885 hit=0.000 gen=485
+23:08:55 p0 run=10 q=10 prealloc=0 xfer=0 http=29 kv=0.100 hit=0.986 gen=0 | p1 run=10 q=54 prealloc=0 xfer=0 http=84 kv=0.054 hit=0.991 gen=0 | d0 run=89 q=0 prealloc=15 xfer=80 http=205 kv=0.939 hit=0.000 gen=493
+23:08:55 p0 run=9 q=11 prealloc=0 xfer=0 http=29 kv=0.099 hit=0.965 gen=0 | p1 run=11 q=56 prealloc=0 xfer=0 http=85 kv=0.068 hit=0.988 gen=0 | d0 run=86 q=0 prealloc=16 xfer=82 http=197 kv=0.927 hit=0.000 gen=492
+23:09:04 p0 run=9 q=15 prealloc=0 xfer=0 http=35 kv=0.086 hit=0.958 gen=0 | p1 run=13 q=41 prealloc=0 xfer=0 http=83 kv=0.106 hit=0.970 gen=0 | d0 run=101 q=0 prealloc=11 xfer=80 http=212 kv=0.946 hit=0.000 gen=549
+23:09:11 p0 run=11 q=4 prealloc=0 xfer=0 http=27 kv=0.113 hit=0.978 gen=0 | p1 run=15 q=42 prealloc=0 xfer=0 http=72 kv=0.113 hit=0.971 gen=0 | d0 run=103 q=0 prealloc=13 xfer=68 http=210 kv=0.924 hit=0.000 gen=558
+23:09:11 p0 run=11 q=4 prealloc=0 xfer=0 http=27 kv=0.113 hit=0.978 gen=0 | p1 run=13 q=41 prealloc=0 xfer=0 http=72 kv=0.104 hit=0.971 gen=0 | d0 run=103 q=0 prealloc=13 xfer=68 http=210 kv=0.924 hit=0.000 gen=558
+23:09:20 p0 run=13 q=10 prealloc=0 xfer=0 http=32 kv=0.071 hit=0.983 gen=0 | p1 run=13 q=26 prealloc=0 xfer=0 http=65 kv=0.108 hit=0.984 gen=0 | d0 run=115 q=0 prealloc=15 xfer=61 http=203 kv=0.892 hit=0.000 gen=575
+23:09:27 p0 run=8 q=20 prealloc=0 xfer=0 http=38 kv=0.058 hit=0.988 gen=0 | p1 run=9 q=27 prealloc=0 xfer=0 http=54 kv=0.051 hit=0.955 gen=0 | d0 run=108 q=0 prealloc=12 xfer=61 http=203 kv=0.871 hit=0.000 gen=582
+23:09:27 p0 run=8 q=20 prealloc=0 xfer=0 http=39 kv=0.058 hit=0.988 gen=0 | p1 run=9 q=27 prealloc=0 xfer=0 http=55 kv=0.051 hit=0.955 gen=0 | d0 run=108 q=0 prealloc=12 xfer=61 http=203 kv=0.871 hit=0.000 gen=582
+23:09:37 p0 run=9 q=20 prealloc=0 xfer=0 http=48 kv=0.087 hit=0.949 gen=0 | p1 run=13 q=27 prealloc=0 xfer=0 http=54 kv=0.068 hit=0.963 gen=0 | d0 run=109 q=0 prealloc=8 xfer=70 http=203 kv=0.905 hit=0.000 gen=575
+23:09:45 p0 run=10 q=30 prealloc=0 xfer=0 http=60 kv=0.087 hit=0.962 gen=0 | p1 run=9 q=27 prealloc=0 xfer=0 http=52 kv=0.065 hit=0.963 gen=0 | d0 run=86 q=0 prealloc=16 xfer=83 http=202 kv=0.917 hit=0.000 gen=519
+23:09:45 p0 run=10 q=30 prealloc=0 xfer=0 http=60 kv=0.087 hit=0.962 gen=0 | p1 run=9 q=27 prealloc=0 xfer=0 http=51 kv=0.065 hit=0.963 gen=0 | d0 run=84 q=0 prealloc=15 xfer=88 http=204 kv=0.920 hit=0.000 gen=503
+23:09:52 p0 run=9 q=39 prealloc=0 xfer=0 http=63 kv=0.098 hit=0.988 gen=0 | p1 run=9 q=15 prealloc=0 xfer=0 http=47 kv=0.051 hit=0.985 gen=0 | d0 run=85 q=0 prealloc=24 xfer=74 http=221 kv=0.901 hit=0.000 gen=506
+23:10:01 p0 run=9 q=39 prealloc=0 xfer=0 http=64 kv=0.095 hit=0.981 gen=0 | p1 run=13 q=20 prealloc=0 xfer=0 http=49 kv=0.080 hit=0.979 gen=0 | d0 run=96 q=0 prealloc=20 xfer=73 http=208 kv=0.948 hit=0.000 gen=513
+23:10:01 p0 run=9 q=39 prealloc=0 xfer=0 http=64 kv=0.095 hit=0.981 gen=0 | p1 run=13 q=20 prealloc=0 xfer=0 http=49 kv=0.080 hit=0.979 gen=0 | d0 run=96 q=0 prealloc=20 xfer=73 http=208 kv=0.948 hit=0.000 gen=513
+23:10:08 p0 run=10 q=28 prealloc=0 xfer=0 http=58 kv=0.056 hit=0.959 gen=0 | p1 run=9 q=22 prealloc=0 xfer=0 http=47 kv=0.049 hit=0.983 gen=0 | d0 run=93 q=0 prealloc=28 xfer=64 http=216 kv=0.892 hit=0.000 gen=534
+23:10:17 p0 run=8 q=23 prealloc=0 xfer=0 http=56 kv=0.040 hit=0.979 gen=0 | p1 run=11 q=18 prealloc=0 xfer=0 http=52 kv=0.089 hit=0.991 gen=0 | d0 run=99 q=0 prealloc=38 xfer=50 http=206 kv=0.906 hit=0.000 gen=568
+23:10:17 p0 run=8 q=23 prealloc=0 xfer=0 http=56 kv=0.040 hit=0.979 gen=0 | p1 run=11 q=18 prealloc=0 xfer=0 http=52 kv=0.089 hit=0.991 gen=0 | d0 run=99 q=0 prealloc=38 xfer=50 http=208 kv=0.906 hit=0.000 gen=568
+23:10:24 p0 run=9 q=19 prealloc=0 xfer=0 http=54 kv=0.043 hit=0.967 gen=0 | p1 run=10 q=29 prealloc=0 xfer=0 http=60 kv=0.059 hit=0.991 gen=0 | d0 run=86 q=0 prealloc=38 xfer=71 http=200 kv=0.966 hit=0.000 gen=538
+23:10:32 p0 run=9 q=24 prealloc=0 xfer=0 http=53 kv=0.056 hit=0.982 gen=0 | p1 run=11 q=40 prealloc=0 xfer=0 http=72 kv=0.061 hit=0.962 gen=0 | d0 run=80 q=0 prealloc=30 xfer=83 http=204 kv=0.964 hit=0.000 gen=442
+23:10:32 p0 run=9 q=24 prealloc=0 xfer=0 http=53 kv=0.056 hit=0.982 gen=0 | p1 run=11 q=40 prealloc=0 xfer=0 http=72 kv=0.061 hit=0.962 gen=0 | d0 run=80 q=0 prealloc=30 xfer=83 http=204 kv=0.964 hit=0.000 gen=442
+23:10:40 p0 run=8 q=18 prealloc=0 xfer=0 http=63 kv=0.090 hit=0.990 gen=0 | p1 run=12 q=44 prealloc=0 xfer=0 http=77 kv=0.060 hit=0.918 gen=0 | d0 run=77 q=0 prealloc=38 xfer=80 http=207 kv=0.974 hit=0.000 gen=398
+23:10:48 p0 run=10 q=18 prealloc=0 xfer=0 http=56 kv=0.049 hit=0.948 gen=0 | p1 run=10 q=56 prealloc=0 xfer=0 http=76 kv=0.049 hit=0.961 gen=0 | d0 run=74 q=0 prealloc=26 xfer=92 http=204 kv=0.955 hit=0.000 gen=383
+23:10:48 p0 run=10 q=18 prealloc=0 xfer=0 http=56 kv=0.049 hit=0.948 gen=0 | p1 run=10 q=56 prealloc=0 xfer=0 http=78 kv=0.049 hit=0.961 gen=0 | d0 run=73 q=0 prealloc=28 xfer=95 http=206 kv=0.956 hit=0.000 gen=378
+23:10:56 p0 run=9 q=26 prealloc=0 xfer=0 http=62 kv=0.060 hit=0.987 gen=0 | p1 run=10 q=59 prealloc=0 xfer=0 http=80 kv=0.062 hit=0.983 gen=0 | d0 run=64 q=0 prealloc=31 xfer=101 http=203 kv=0.941 hit=0.000 gen=362
+23:11:04 p0 run=9 q=24 prealloc=0 xfer=0 http=66 kv=0.062 hit=0.987 gen=0 | p1 run=10 q=53 prealloc=0 xfer=0 http=87 kv=0.059 hit=0.963 gen=0 | d0 run=63 q=0 prealloc=45 xfer=90 http=210 kv=0.925 hit=0.000 gen=374
+23:11:05 p0 run=9 q=23 prealloc=0 xfer=0 http=69 kv=0.077 hit=0.977 gen=0 | p1 run=11 q=53 prealloc=0 xfer=0 http=80 kv=0.051 hit=0.853 gen=0 | d0 run=62 q=0 prealloc=48 xfer=88 http=212 kv=0.926 hit=0.000 gen=382
+23:11:11 p0 run=10 q=10 prealloc=0 xfer=0 http=70 kv=0.121 hit=0.986 gen=0 | p1 run=9 q=51 prealloc=0 xfer=0 http=82 kv=0.046 hit=0.963 gen=0 | d0 run=69 q=0 prealloc=56 xfer=81 http=212 kv=0.916 hit=0.000 gen=409
+23:11:20 p0 run=8 q=10 prealloc=0 xfer=0 http=65 kv=0.056 hit=0.970 gen=0 | p1 run=10 q=50 prealloc=0 xfer=0 http=80 kv=0.094 hit=0.991 gen=0 | d0 run=72 q=0 prealloc=49 xfer=79 http=213 kv=0.931 hit=0.000 gen=405
+23:11:21 p0 run=8 q=9 prealloc=0 xfer=0 http=64 kv=0.055 hit=0.988 gen=0 | p1 run=10 q=49 prealloc=0 xfer=0 http=76 kv=0.089 hit=0.971 gen=0 | d0 run=72 q=0 prealloc=49 xfer=79 http=213 kv=0.931 hit=0.000 gen=405
+23:11:26 p0 run=8 q=14 prealloc=0 xfer=0 http=66 kv=0.053 hit=0.973 gen=0 | p1 run=12 q=47 prealloc=0 xfer=0 http=74 kv=0.051 hit=0.936 gen=0 | d0 run=73 q=0 prealloc=38 xfer=85 http=212 kv=0.950 hit=0.000 gen=417
+23:11:36 p0 run=10 q=9 prealloc=0 xfer=0 http=52 kv=0.113 hit=0.982 gen=0 | p1 run=8 q=54 prealloc=0 xfer=0 http=69 kv=0.046 hit=0.000 gen=0 | d0 run=68 q=0 prealloc=30 xfer=84 http=184 kv=0.902 hit=0.000 gen=400
+23:11:36 p0 run=12 q=7 prealloc=0 xfer=0 http=50 kv=0.110 hit=0.982 gen=0 | p1 run=8 q=54 prealloc=0 xfer=0 http=68 kv=0.046 hit=0.000 gen=0 | d0 run=68 q=0 prealloc=30 xfer=82 http=182 kv=0.900 hit=0.000 gen=391
+23:11:41 p0 run=11 q=6 prealloc=0 xfer=0 http=33 kv=0.083 hit=0.982 gen=0 | p1 run=9 q=51 prealloc=0 xfer=0 http=67 kv=0.060 hit=0.949 gen=0 | d0 run=75 q=0 prealloc=22 xfer=72 http=171 kv=0.895 hit=0.000 gen=422
+23:11:51 p0 run=11 q=2 prealloc=0 xfer=0 http=15 kv=0.056 hit=0.953 gen=0 | p1 run=8 q=49 prealloc=0 xfer=0 http=61 kv=0.057 hit=0.000 gen=0 | d0 run=67 q=0 prealloc=11 xfer=61 http=141 kv=0.815 hit=0.000 gen=429
+23:11:51 p0 run=11 q=2 prealloc=0 xfer=0 http=14 kv=0.056 hit=0.953 gen=0 | p1 run=8 q=47 prealloc=0 xfer=0 http=61 kv=0.059 hit=0.000 gen=0 | d0 run=66 q=0 prealloc=11 xfer=59 http=140 kv=0.809 hit=0.000 gen=439
+23:11:57 p0 run=10 q=1 prealloc=0 xfer=0 http=10 kv=0.050 hit=0.953 gen=0 | p1 run=8 q=47 prealloc=0 xfer=0 http=58 kv=0.070 hit=0.000 gen=0 | d0 run=58 q=0 prealloc=8 xfer=57 http=127 kv=0.782 hit=0.000 gen=395
+23:12:06 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=8 kv=0.067 hit=0.000 gen=0 | d0 run=43 q=0 prealloc=0 xfer=0 http=1 kv=0.357 hit=0.000 gen=394
+23:12:06 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=8 kv=0.067 hit=0.000 gen=0 | d0 run=43 q=0 prealloc=0 xfer=0 http=1 kv=0.357 hit=0.000 gen=394
+23:12:12 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=7 kv=0.073 hit=0.000 gen=0 | d0 run=35 q=0 prealloc=0 xfer=0 http=1 kv=0.315 hit=0.000 gen=358
+23:12:21 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=6 kv=0.079 hit=0.000 gen=0 | d0 run=27 q=0 prealloc=0 xfer=0 http=1 kv=0.275 hit=0.000 gen=283
+23:12:22 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=6 kv=0.079 hit=0.000 gen=0 | d0 run=27 q=0 prealloc=0 xfer=0 http=1 kv=0.275 hit=0.000 gen=285
+23:12:27 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=6 kv=0.081 hit=0.000 gen=0 | d0 run=23 q=0 prealloc=0 xfer=0 http=1 kv=0.238 hit=0.000 gen=252
+23:12:36 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=3 kv=0.084 hit=0.000 gen=0 | d0 run=15 q=0 prealloc=0 xfer=0 http=1 kv=0.173 hit=0.000 gen=193
+23:12:37 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=3 kv=0.084 hit=0.000 gen=0 | d0 run=14 q=0 prealloc=0 xfer=0 http=1 kv=0.154 hit=0.000 gen=182
+23:12:42 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=3 kv=0.086 hit=0.000 gen=0 | d0 run=13 q=0 prealloc=0 xfer=0 http=1 kv=0.145 hit=0.000 gen=188
+23:12:51 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=2 kv=0.089 hit=0.000 gen=0 | d0 run=10 q=0 prealloc=0 xfer=0 http=1 kv=0.113 hit=0.000 gen=148
+23:12:52 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=2 kv=0.089 hit=0.000 gen=0 | d0 run=10 q=0 prealloc=0 xfer=0 http=1 kv=0.113 hit=0.000 gen=148
+23:12:57 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=2 kv=0.089 hit=0.000 gen=0 | d0 run=10 q=0 prealloc=0 xfer=0 http=1 kv=0.113 hit=0.000 gen=148
+23:13:06 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=2 kv=0.090 hit=0.000 gen=0 | d0 run=9 q=0 prealloc=0 xfer=0 http=1 kv=0.107 hit=0.000 gen=136
+23:13:07 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=2 kv=0.090 hit=0.000 gen=0 | d0 run=9 q=0 prealloc=0 xfer=0 http=1 kv=0.107 hit=0.000 gen=135
+23:13:12 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=2 kv=0.091 hit=0.000 gen=0 | d0 run=9 q=0 prealloc=0 xfer=0 http=1 kv=0.107 hit=0.000 gen=133
+23:13:22 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=2 kv=0.093 hit=0.000 gen=0 | d0 run=9 q=0 prealloc=0 xfer=0 http=1 kv=0.107 hit=0.000 gen=136
+23:13:22 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=2 kv=0.093 hit=0.000 gen=0 | d0 run=9 q=0 prealloc=0 xfer=0 http=1 kv=0.107 hit=0.000 gen=134
+23:13:27 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=2 kv=0.093 hit=0.000 gen=0 | d0 run=9 q=0 prealloc=0 xfer=0 http=1 kv=0.109 hit=0.000 gen=133
+23:13:37 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=2 kv=0.094 hit=0.000 gen=0 | d0 run=9 q=0 prealloc=0 xfer=0 http=1 kv=0.110 hit=0.000 gen=134
+23:13:37 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=8 q=0 prealloc=0 xfer=0 http=2 kv=0.094 hit=0.000 gen=0 | d0 run=9 q=0 prealloc=0 xfer=0 http=1 kv=0.110 hit=0.000 gen=134
+23:13:43 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=2 kv=0.000 hit=0.000 gen=0 | d0 run=9 q=0 prealloc=0 xfer=0 http=1 kv=0.111 hit=0.000 gen=132
+23:13:52 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=9 q=0 prealloc=0 xfer=0 http=1 kv=0.111 hit=0.000 gen=134
+23:13:52 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=9 q=0 prealloc=0 xfer=0 http=1 kv=0.111 hit=0.000 gen=134
+23:13:58 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=9 q=0 prealloc=0 xfer=0 http=1 kv=0.111 hit=0.000 gen=134
+23:14:07 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=8 q=0 prealloc=0 xfer=0 http=1 kv=0.106 hit=0.000 gen=127
+23:14:07 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=8 q=0 prealloc=0 xfer=0 http=1 kv=0.106 hit=0.000 gen=127
+23:14:13 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=8 q=0 prealloc=0 xfer=0 http=1 kv=0.106 hit=0.000 gen=127
+23:14:22 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=8 q=0 prealloc=0 xfer=0 http=1 kv=0.106 hit=0.000 gen=132
+23:14:22 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=8 q=0 prealloc=0 xfer=0 http=1 kv=0.106 hit=0.000 gen=132
+23:14:28 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=8 q=0 prealloc=0 xfer=0 http=1 kv=0.106 hit=0.000 gen=133
+23:14:37 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=8 q=0 prealloc=0 xfer=0 http=1 kv=0.106 hit=0.000 gen=133
+23:14:38 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=8 q=0 prealloc=0 xfer=0 http=1 kv=0.106 hit=0.000 gen=133
+23:14:43 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=8 q=0 prealloc=0 xfer=0 http=1 kv=0.106 hit=0.000 gen=136
+23:14:52 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:14:53 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:14:58 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:15:07 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:15:08 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:15:13 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:15:22 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:15:23 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:15:28 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:15:38 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:15:38 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:15:44 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:15:53 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:15:53 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:15:59 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:16:08 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:16:08 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:16:14 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:16:23 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:16:23 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:16:29 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:16:38 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:16:38 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:16:44 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:16:53 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0
+23:16:54 p0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.976 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=1 kv=0.000 hit=0.000 gen=0

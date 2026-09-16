@@ -1,0 +1,2 @@
+#phase	topology	conc	mem	extra
+R8	p8x2d8	256	0.85	PREFILL_MAX_RUNNING=128 PREFILL_GRAPH_MAX_BS=128

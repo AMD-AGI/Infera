@@ -1,0 +1,35 @@
+# sampler start 2026-09-15T18:47:13Z endpoints=p0,p1,p2,d0
+18:47:13 p0=<URLError> | p1=<URLError> | p2=<URLError> | d0=<URLError>
+18:47:28 p0=<URLError> | p1=<URLError> | p2=<URLError> | d0=<URLError>
+18:47:43 p0=<URLError> | p1=<URLError> | p2=<URLError> | d0=<URLError>
+18:47:58 p0=<URLError> | p1=<URLError> | p2=<URLError> | d0=<URLError>
+18:48:13 p0=<URLError> | p1=<URLError> | p2=<URLError> | d0=<URLError>
+18:48:28 p0=<URLError> | p1=<URLError> | p2=<URLError> | d0=<URLError>
+18:48:43 p0=<URLError> | p1=<URLError> | p2=<URLError> | d0=<URLError>
+18:48:58 p0=<URLError> | p1=<URLError> | p2=<URLError> | d0=<URLError>
+18:49:13 p0=<URLError> | p1=<URLError> | p2=<URLError> | d0=<URLError>
+18:49:28 p0=<URLError> | p1=<URLError> | p2=<URLError> | d0=<URLError>
+18:49:43 p0=<URLError> | p1=<URLError> | p2=<URLError> | d0=<URLError>
+18:49:58 p0=<URLError> | p1=<URLError> | p2=<URLError> | d0=<URLError>
+18:50:13 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2=<URLError> | d0=<URLError>
+18:50:28 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2=<URLError> | d0=<URLError>
+18:50:43 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2=<URLError> | d0=<URLError>
+18:50:58 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2=<URLError> | d0=<URLError>
+18:51:13 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2=<URLError> | d0=<URLError>
+18:51:28 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2=<URLError> | d0=<URLError>
+18:51:43 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2=<URLError> | d0=<URLError>
+18:51:58 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2=<URLError> | d0=<URLError>
+18:52:13 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2=<URLError> | d0=<URLError>
+18:52:28 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2=<URLError> | d0=<URLError>
+18:52:43 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2=<URLError> | d0=<URLError>
+18:52:58 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2=<URLError> | d0=<URLError>
+18:53:13 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2=<URLError> | d0=<URLError>
+18:53:28 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2=<URLError> | d0=<URLError>
+18:53:43 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2=<URLError> | d0=<URLError>
+18:53:58 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+18:54:13 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+18:54:28 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+18:54:43 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+18:54:58 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+18:55:14 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>
+18:55:29 p0 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p1 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | p2 run=0 q=0 prealloc=0 xfer=0 http=9 kv=0.000 hit=0.000 gen=0 | d0=<URLError>

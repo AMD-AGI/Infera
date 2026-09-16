@@ -1,0 +1,10 @@
+CONFIG=/home/liyingli/bench_agentx/Infera/bench/glm5p2_pd/config.p8d8.sh
+TOPOLOGY=/home/liyingli/bench_agentx/Infera/bench/glm5p2_pd/results/20260915_warmup1_pdratio/topology.2p1d.tsv
+CONTAINER_PREFIX=glm52-pd-p8x2-d8-v518
+PREFILL_MEM_FRACTION=0.85
+DECODE_MEM_FRACTION=0.85
+PREFILL_MAX_RUNNING=128
+PREFILL_GRAPH_MAX_BS=128
+DECODE_MAX_RUNNING=128
+DECODE_GRAPH_MAX_BS=128
+AGENTX_WARMUP_REQUESTS_PER_LANE=1

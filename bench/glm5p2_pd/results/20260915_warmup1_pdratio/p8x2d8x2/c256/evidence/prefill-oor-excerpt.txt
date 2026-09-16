@@ -1,0 +1,14 @@
+# prefill OOR 摘录：崩溃时 KV 池仅 8-10%，而 HSA 报告 0 MB 可用。
+# 完整引擎日志（数百 MB）未提交，这里是判定所依据的原始行。
+
+## HSA 错误（logs/prefill-1.log）
+:0:rocdevice.cpp            :3582: 1698129026753 us:  Callback: Queue 0x73d603000000 Aborting with error : HSA_STATUS_ERROR_OUT_OF_RESOURCES: The runtime failed to allocate the necessary resources. This error may also occur when the core runtime library needs to spawn threads or create internal OS-specific events. Code: 0x1008 Available Free mem : 0 MB
+
+## KV 池容量（logs/prefill-1.log）
+max_total_num_tokens=3143744
+
+## 崩溃前最后四个运行期采样（metrics_sample.log）
+21:42:13 p0 run=8 q=0 prealloc=0 xfer=0 http=6 kv=0.064 hit=0.000 gen=0 | p1 run=8 q=11 prealloc=0 xfer=0 http=20 kv=0.101 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=15 kv=0.000 hit=0.000 gen=0 | d1 run=0 q=0 prealloc=0 xfer=0 http=11 kv=0.000 hit=0.000 gen=0
+21:42:28 p0 run=8 q=0 prealloc=0 xfer=0 http=6 kv=0.070 hit=0.000 gen=0 | p1 run=8 q=11 prealloc=0 xfer=0 http=20 kv=0.101 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=15 kv=0.000 hit=0.000 gen=0 | d1 run=0 q=0 prealloc=0 xfer=0 http=11 kv=0.000 hit=0.000 gen=0
+21:42:43 p0 run=8 q=0 prealloc=0 xfer=0 http=5 kv=0.074 hit=0.000 gen=0 | p1 run=8 q=11 prealloc=0 xfer=0 http=20 kv=0.101 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=15 kv=0.000 hit=0.000 gen=0 | d1 run=0 q=0 prealloc=0 xfer=0 http=10 kv=0.000 hit=0.000 gen=0
+21:42:59 p0 run=8 q=0 prealloc=0 xfer=0 http=5 kv=0.081 hit=0.000 gen=0 | p1 run=8 q=11 prealloc=0 xfer=0 http=20 kv=0.101 hit=0.000 gen=0 | d0 run=0 q=0 prealloc=0 xfer=0 http=15 kv=0.000 hit=0.000 gen=0 | d1 run=0 q=0 prealloc=0 xfer=0 http=10 kv=0.000 hit=0.000 gen=0

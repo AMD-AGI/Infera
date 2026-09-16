@@ -1,0 +1,25 @@
+#phase	topology	conc	mem	extra
+# C64 and C128 on both ratios first: C64 is the 1P1D P8D8 curve's mid-slope
+# point and C128 is past its peak (C80), so the pair shows both whether extra
+# prefill lifts the curve and whether it moves the peak right.
+R1	p8x2d8	64	0.85	-
+R2	p8x2d8	128	0.85	-
+R4	p8x3d8	128	0.85	-
+R5	p8x2d8x2	256	0.85	-
+# Node 141's docker daemon went inactive at 21:46 and cannot be restarted from
+# here, which takes 3P1D and 2P2D off the table -- both place a worker on it.
+# What is left is 137 + 140 prefill, 138 decode, so C256 goes to 2P1D.
+#
+# Prefill is capped at 128 because that is what killed R5: the worker died with
+# its KV pool 10% full and HSA reporting 0 MB free, i.e. the cuda graphs for
+# batch 256 took the memory, not the cache.  Prefill's running count is pinned
+# at the DP width (8) at every point in this campaign, so graphs above that are
+# reserved for batches prefill never forms.  128 is the largest value proven to
+# launch on this shape.  The cap is declared to the live gate, which still
+# fails closed against it.
+#
+# R9 is the fallback: 2P1D C128 was plainly short of its peak (decode KV 0.82,
+# prefill queue 35, decode running 65 of 128), so C192 should land on the curve
+# whatever C256 does, and it brackets the peak from above.
+R8	p8x2d8	256	0.85	PREFILL_MAX_RUNNING=128 PREFILL_GRAPH_MAX_BS=128
+R9	p8x2d8	192	0.85	PREFILL_MAX_RUNNING=128 PREFILL_GRAPH_MAX_BS=128

@@ -1,0 +1,10 @@
+phase	topology	conc	mem	verdict	per_gpu_tps	note
+R1	p8x2d8	64	0.85	PASS	10059.03	
+R2	p8x2d8	128	0.85	PASS	14536.83	首次尝试被写满的 /home 杀死，见 c128.attempt1-disk-full
+R3	p8x3d8	64	0.85	BLOCKED		尝试1 端口冲突（已修）；尝试2/3 节点 141 docker daemon inactive
+R4	p8x3d8	128	0.85	PASS	11344.35	首次尝试端口冲突
+R5	p8x2d8x2	256	0.85	BENCH_FAILED		prefill-OOR
+R6	p8x2d8x2	128	0.85	BLOCKED		节点 141 docker daemon inactive，2P2D 无法组网
+R9	p8x2d8	192	0.85	PASS	14198.52	
+R8	p8x2d8	256	0.85	LIVE_GATE_FAILED		尝试1：gate.py 自身的解包 bug（已修），见 c256.attempt1-gate-bug
+R8	p8x2d8	256	0.85	BENCH_FAILED		prefill-OOR

@@ -1,0 +1,52 @@
+{
+  "status": "PASS",
+  "topology": "p8x2d8",
+  "expected": {
+    "conc": 256,
+    "prefill_conc": 128,
+    "mem_fraction_static": 0.85,
+    "prefill_instances_tp_dp": [
+      2,
+      8,
+      8
+    ],
+    "decode_instances_tp_dp": [
+      1,
+      8,
+      8
+    ],
+    "image": "sha256:6ff85f4a43ae4b2773f59e827f230e23a657ae86ebf3d00a73b75bf94d5f9695"
+  },
+  "observed": {
+    "prefill-0": {
+      "tp_size": 8,
+      "dp_size": 8,
+      "max_running_requests": 128,
+      "cuda_graph_max_bs_decode": 128,
+      "mem_fraction_static": 0.85,
+      "status": "ready"
+    },
+    "prefill-1": {
+      "tp_size": 8,
+      "dp_size": 8,
+      "max_running_requests": 128,
+      "cuda_graph_max_bs_decode": 128,
+      "mem_fraction_static": 0.85,
+      "status": "ready"
+    },
+    "decode-0": {
+      "tp_size": 8,
+      "dp_size": 8,
+      "max_running_requests": 256,
+      "cuda_graph_max_bs_decode": 256,
+      "mem_fraction_static": 0.85,
+      "status": "ready"
+    }
+  },
+  "observed_image_ids": [
+    "sha256:6ff85f4a43ae4b2773f59e827f230e23a657ae86ebf3d00a73b75bf94d5f9695",
+    "sha256:6ff85f4a43ae4b2773f59e827f230e23a657ae86ebf3d00a73b75bf94d5f9695",
+    "sha256:6ff85f4a43ae4b2773f59e827f230e23a657ae86ebf3d00a73b75bf94d5f9695"
+  ],
+  "errors": []
+}
