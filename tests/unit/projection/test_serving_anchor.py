@@ -21,6 +21,8 @@ import pytest
 from infera.projection.core.projection.inference_projection import benchmark_serving
 from infera.projection.core.projection.inference_projection.benchmark_serving import (
     _engine_argv,
+    _fit_prefill_curve,
+    prefill_probe_lengths,
     resolved_kernels,
 )
 
@@ -59,6 +61,98 @@ def test_the_two_entrypoints_do_not_run_the_same_kernels():
     assert served["resolved_attention_backend"] == "ROCM_AITER_UNIFIED_ATTN"
     assert served["resolved_moe_backend"] == "TRITON"
     assert offline != served
+
+
+@pytest.mark.parametrize(
+    "backend, expected",
+    [
+        ("vllm", ["--load-format", "dummy"]),
+        ("sglang", ["--load-format", "dummy"]),
+        # ATOM names the fill, not the loader, and rejects the vLLM spelling hard
+        # enough that the server dies during argv parsing. The fill is "empty"
+        # because zero-filling a packed-MXFP4 checkpoint has no torch kernel.
+        ("atom", ["--load_dummy", "empty"]),
+    ],
+)
+def test_random_weights_are_requested_the_way_each_engine_spells_it(backend, expected):
+    argv = _engine_argv(spec(serving_backend=backend, load_format="dummy"), port=8000, tp=4)
+    assert "--load-format" not in argv or backend != "atom"
+    for i in range(len(argv) - 1):
+        if argv[i] == expected[0]:
+            assert argv[i + 1] == expected[1]
+            break
+    else:
+        raise AssertionError(f"{expected[0]} absent from {argv}")
+
+
+def probe_spec(**over) -> Namespace:
+    base = dict(
+        input_len=8192,
+        prefill_anchor_short=1024,
+        prefill_anchor_points=0,
+        prefill_anchor_validate=False,
+    )
+    base.update(over)
+    return Namespace(**base)
+
+
+def test_two_probe_points_are_the_default_and_bracket_the_anchor_length():
+    """The long point is the anchor's own length, so the rate is interpolated."""
+    assert prefill_probe_lengths(probe_spec()) == [1024, 8192]
+
+
+def test_asking_for_more_points_spaces_them_evenly_to_the_anchor_length():
+    """Evenly, not geometrically: the quadratic term needs leverage at the long
+    end, and a geometric ladder puts almost nothing there."""
+    lengths = prefill_probe_lengths(probe_spec(prefill_anchor_points=5))
+    assert lengths == [1024, 2816, 4608, 6400, 8192]
+    gaps = {b - a for a, b in zip(lengths, lengths[1:])}
+    assert gaps == {1792}
+
+
+def test_a_ladder_too_tight_to_resolve_falls_back_rather_than_measuring_noise():
+    """Adjacent points closer than the noise floor measure the noise floor."""
+    lengths = prefill_probe_lengths(
+        probe_spec(input_len=1024, prefill_anchor_short=512, prefill_anchor_points=6)
+    )
+    assert lengths == [512, 1024]
+
+
+def test_the_curve_fit_recovers_coefficients_it_was_given():
+    """Fixed cost, per-token and per-token^2 are separable when the probe has
+    enough points; this is the whole reason for taking more than two."""
+    fixed, a, b = 180.0, 0.012, 1.5e-6
+    pts = [(n, fixed + a * n + b * n * n) for n in (1024, 2816, 4608, 6400, 8192)]
+    fit = _fit_prefill_curve(pts)
+    assert fit["fixed_ms"] == pytest.approx(fixed, abs=1e-3)
+    assert fit["ms_per_token"] == pytest.approx(a, rel=1e-6)
+    assert fit["ms_per_token_sq"] == pytest.approx(b, rel=1e-6)
+    assert fit["r2"] == pytest.approx(1.0)
+
+
+def test_three_points_are_refused_because_a_parabola_through_them_is_exact():
+    """With no residual left there is nothing to judge the fit by, and noise in
+    any one point can put the intercept anywhere."""
+    pts = [(n, 180.0 + 0.012 * n) for n in (1024, 4608, 8192)]
+    assert _fit_prefill_curve(pts) is None
+
+
+def test_a_two_point_chord_hides_curvature_in_its_intercept():
+    """Why the extra probes are worth their runtime. The chord through two
+    points of a curved prefill reports an intercept that is nowhere near the
+    real fixed cost, and that intercept is what gets carried across tensor
+    parallelism as though it did not shard."""
+    fixed, a, b = 146.4, 0.0558, -1.74e-6
+
+    def truth(n):
+        return fixed + a * n + b * n * n
+
+    lo, hi = 4096, 8192
+    chord_rate = (truth(hi) - truth(lo)) / (hi - lo)
+    chord_fixed = truth(lo) - chord_rate * lo
+    assert chord_fixed > fixed * 1.3
+    pts = [(n, truth(n)) for n in (1024, 2816, 4608, 6400, 8192)]
+    assert _fit_prefill_curve(pts)["fixed_ms"] == pytest.approx(fixed, abs=1e-3)
 
 
 def test_kernels_are_absent_rather_than_wrong_for_another_engine():
@@ -270,3 +364,95 @@ def test_each_client_is_read_the_way_it_writes(tmp_path):
     with pytest.raises(RuntimeError, match="no result"):
         (tmp_path / "empty.jsonl").write_text("")
         benchmark_serving._client_result(str(tmp_path / "empty.jsonl"), "sglang")
+
+
+def test_the_packed_probe_varies_how_many_sequences_share_a_step(monkeypatch):
+    """The axis the length sweep cannot supply, and the guards around it.
+
+    At concurrency 1 the step's token count and the sequence's attention
+    context are the same number, so widening the step and lengthening the
+    context are indistinguishable and the curve fit charges one for the other.
+    This probe holds the length fixed and varies how many arrive together,
+    which is the only way to separate them.
+    """
+    calls = []
+
+    def fake_client(port, args, out_dir, tag, *, batch, input_len, output_len, num_prompts):
+        calls.append((tag, batch, input_len, num_prompts))
+        # 80 ms floor plus 20 us per token in the step: a clean packed curve.
+        return {"p99_ttft_ms": 80.0 + 0.020 * batch * input_len}
+
+    monkeypatch.setattr(benchmark_serving, "_run_client", fake_client)
+
+    args = Namespace(prefill_packed_points=4, max_num_batched_tokens=16384)
+    got = benchmark_serving.packed_prefill_probe(0, args, "/tmp", 1024)
+
+    assert got["seq_len"] == 1024
+    # Powers of two while the wave still fits one step; 16 x 1024 is the last.
+    assert [p["seqs"] for p in got["points"]] == [1, 2, 4, 8]
+    assert got["ms_per_token"] == pytest.approx(0.020)
+    # The floor the difference throws away is recovered as the intercept, which
+    # is the check that the slope really is marginal cost and nothing else.
+    assert got["implied_fixed_ms"] == pytest.approx(80.0)
+    # One discarded warmup at the widest wave, then each count repeated so its
+    # p99 is a median over waves rather than one draw from the tail.
+    assert calls[0][0] == "packed_warmup"
+    assert len(calls) == 1 + 4 * benchmark_serving._PACKED_PROBE_REPEATS
+    # Every measured wave is exactly as wide as the point it measures; refilling
+    # the loop would put steady-state queueing into the same number.
+    for tag, batch, input_len, num_prompts in calls[1:]:
+        assert batch == num_prompts and input_len == 1024
+
+
+def test_a_wider_step_cannot_be_cheaper(monkeypatch):
+    """Non-monotonic points are discarded, not fitted through.
+
+    Least squares reports a tidy positive rate through points that are not a
+    curve at all. Three vLLM harvests came back with the widest wave *faster*
+    than the one before it and still fitted a clean slope, which would have
+    been used as a measurement of step cost.
+    """
+    ladder = {1024: 114.7, 2048: 481.6, 4096: 532.9, 8192: 334.8}
+
+    monkeypatch.setattr(
+        benchmark_serving,
+        "_run_client",
+        lambda port, args, out_dir, tag, *, batch, input_len, output_len, num_prompts: {
+            "p99_ttft_ms": ladder[batch * input_len]
+        },
+    )
+
+    args = Namespace(prefill_packed_points=4, max_num_batched_tokens=16384)
+    assert benchmark_serving.packed_prefill_probe(0, args, "/tmp", 1024) is None
+
+
+def test_the_packed_probe_declines_rather_than_measuring_nothing(monkeypatch):
+    """Three ways it can have nothing to say, each said rather than guessed."""
+    monkeypatch.setattr(benchmark_serving, "_run_client", lambda *a, **k: {"p99_ttft_ms": 100.0})
+
+    # Off by request.
+    assert (
+        benchmark_serving.packed_prefill_probe(
+            0, Namespace(prefill_packed_points=0, max_num_batched_tokens=16384), "/tmp", 1024
+        )
+        is None
+    )
+
+    # A prompt as long as the budget cannot be packed with anything, so there
+    # is no packing axis here to measure.
+    assert (
+        benchmark_serving.packed_prefill_probe(
+            0, Namespace(prefill_packed_points=4, max_num_batched_tokens=16384), "/tmp", 16384
+        )
+        is None
+    )
+
+    # A flat or falling wave is not a prefill curve; returning None leaves the
+    # projector on the single-sequence curve and warning about it, rather than
+    # anchoring on noise.
+    assert (
+        benchmark_serving.packed_prefill_probe(
+            0, Namespace(prefill_packed_points=4, max_num_batched_tokens=16384), "/tmp", 1024
+        )
+        is None
+    )

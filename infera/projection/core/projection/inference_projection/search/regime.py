@@ -72,10 +72,18 @@ _AITER_OP_PREFIX = "VLLM_ROCM_USE_AITER_"
 
 # Transportable axes: reconstructed analytically from an anchor in the same
 # regime (the projector's restore + interpolation already implement these).
+# ``attn_dp`` is transportable rather than regime-defining because the
+# analytical model already describes it: data-parallel attention divides the
+# in-flight batch across dp groups and tensor-parallelises attention only inside
+# one, and it drops one of the two per-layer all-reduces. Both are structural,
+# so the restore's ``sim(target)/sim(bench)`` ratio carries the change for the
+# same reason it carries TP -- but only when the ratio is available, which is
+# why ``_setup_restoration`` refuses the anchor outright when it is not.
 TRANSPORT_AXES = (
     "tp",
     "pp",
     "ep",
+    "attn_dp",
     "num_layers",
     "batch",
     "input_len",
@@ -291,6 +299,11 @@ def recipe_from_meta(meta: dict[str, Any], *, model: str | None = None) -> dict[
         "tp": meta.get("benchmark_tp") or meta.get("tp"),
         "pp": meta.get("benchmark_pp") or meta.get("pp"),
         "ep": meta.get("benchmark_ep") or meta.get("ep"),
+        # Absent key => unknown (pre-tracking artifact), not 1. An anchor that
+        # never recorded its attention layout may have run either way, and
+        # reading silence as "no DP" is exactly how a non-DP measurement gets
+        # handed to a DP target unchanged.
+        "attn_dp": meta.get("attention_data_parallel_size"),
         "num_layers": meta.get("num_hidden_layers"),
         "batch": meta.get("batch"),
         "input_len": meta.get("input_len"),
@@ -327,6 +340,7 @@ def recipe_from_bench_args(args: Any, env: dict[str, str] | None = None) -> dict
         "tp": getattr(args, "tp", 1),
         "pp": getattr(args, "pp", 1),
         "ep": ep,
+        "attn_dp": getattr(args, "attention_data_parallel_size", None),
         "num_layers": getattr(args, "num_hidden_layers", None),
         "batch": getattr(args, "batch", None),
         "input_len": getattr(args, "input_len", None),
@@ -367,6 +381,7 @@ def recipe_from_inference_config(cfg: Any) -> dict[str, Any]:
         "tp": tp,
         "pp": int(g(mp, "pipeline_model_parallel_size", 1) or 1),
         "ep": ep,
+        "attn_dp": int(g(mp, "attention_data_parallel_size", 1) or 1),
         "num_layers": g(mc, "num_layers"),
         "batch": g(req, "batch_size"),
         "input_len": g(req, "input_seq_len"),

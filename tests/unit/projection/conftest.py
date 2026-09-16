@@ -104,8 +104,6 @@ def project_spec(**overrides):
         _workload_file(),
         "--inference-mode",
         "both",
-        "--profiling-mode",
-        "simulate",
         "--input-len",
         str(spec["input_len"]),
         "--output-len",
@@ -123,6 +121,12 @@ def project_spec(**overrides):
         "--hbm-capacity-gb",
         str(spec["hbm_gb"]),
     ]
+    # An artifact calibrates the projection instead of simulating it, which is
+    # the only way to reach the measured-anchor paths from a test.
+    if spec.get("load_benchmark"):
+        argv += ["--load-benchmark", str(spec["load_benchmark"])]
+    else:
+        argv += ["--profiling-mode", "simulate"]
     for flag, key in (
         ("--sliding-window", "sliding_window"),
         ("--max-num-batched-tokens", "max_num_batched_tokens"),
@@ -202,6 +206,7 @@ def project_spec(**overrides):
         "decode_step_ms": extras.get(
             "pure_step_latency_ms", getattr(perf, "decode_step_latency_ms", None)
         ),
+        "prefill_throughput_tps": getattr(perf, "prefill_throughput_tps", None),
         "replica_gpus": getattr(perf, "replica_gpus", None),
         "max_concurrent_sequences": getattr(mem, "max_concurrent_sequences", None),
         "comm_decode_tp_allreduce_ms": extras.get("comm_decode_tp_allreduce_ms"),

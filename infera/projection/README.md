@@ -3,8 +3,8 @@
 **InferaSim** answers "how would this serving configuration behave?" without
 standing up the configuration. It projects TTFT, inter-token latency,
 throughput and KV-cache footprint for a serving recipe, and simulates a fleet
-of engines under an arrival-driven load — on a laptop, with no GPU in the
-default path.
+of engines under an arrival-driven load — from one measured anchor per
+execution regime, rather than a GPU per question.
 
 The point is to make the search cheap. Screen thousands of candidate
 deployments in simulation, then spend GPU time only on the shortlist.
@@ -23,6 +23,11 @@ one cheap sub-scale anchor on a single GPU, then project every other recipe
 For how the pieces work internally — the cost kernel, the scheduler model,
 anchors and regimes, and what the tool deliberately does not model — see
 [ARCHITECTURE.md](ARCHITECTURE.md).
+
+The same material is also published as a task-oriented knowledge base in the
+user manual, one page per topic, starting at
+[Simulation overview](../../manual/simulation/overview.md). Use that if you would
+rather navigate than scroll.
 
 ## Install
 
@@ -75,24 +80,38 @@ the other. The DES report is printed *in addition to* the analytical one.
 
 **Three fidelity sources**, selected with `--profiling-mode`:
 
-| Mode          | Needs a GPU | Meaning                                          |
-| ------------- | ----------- | ------------------------------------------------ |
-| `simulate`  | no          | analytical kernel models (default for sweeps)    |
-| `benchmark` | yes         | measure on real hardware, then project from that |
-| `both`      | yes         | run each and report side by side                 |
+| Mode          | Needs a GPU                       | Meaning                                          |
+| ------------- | --------------------------------- | ------------------------------------------------ |
+| `benchmark` | yes, unless an anchor already matches | **default** — measure on real hardware, then project from that |
+| `simulate`  | no                                | analytical kernel models, uncalibrated (opt-in; forced for sweeps) |
+| `both`      | yes                               | run each and report side by side                 |
+
+**Measuring is the default deliberately.** Correlation against real serving has
+been established for the calibrated path, not for the bare analytical kernel
+models, so the mode you get for saying nothing is the defensible one and the
+uncalibrated projection is something you ask for.
 
 `benchmark` measures by serving the model for real, so it also needs a serving
 engine and `--bench-model` (a structural config names an architecture, not a
 checkpoint). It never silently degrades to `simulate`: if it cannot measure, it
 says so and stops.
 
-Sitting between them is the **anchor**: a saved artifact from one cheap
-measured run that calibrates the analytical path. See
+That does not mean a GPU per run. The **anchor** is what makes the default
+affordable: a saved artifact from one cheap measured run that calibrates the
+analytical path afterwards. A matching anchor in `--anchor-store` satisfies
+`benchmark` with no hardware in play, so the working pattern is one harvest per
+regime followed by any number of GPU-free projections. See
 [Calibrate against a GPU](#calibrate-against-a-gpu-anchors).
+
+On a host with neither an anchor nor an accelerator, the run stops and names the
+three ways forward: `--load-benchmark`, `--anchor-store`, or
+`--profiling-mode simulate`.
 
 ## Quickstart: your first projection
 
-No GPU required.
+The `--profiling-mode simulate` below is what makes this runnable with no GPU:
+the default is to measure. Treat the result as a shape to compare, not a number
+to quote, until you have [an anchor](#calibrate-against-a-gpu-anchors).
 
 ```bash
 INFERASIM_MODEL=gpt_oss_120B INFERASIM_TP=2 INFERASIM_EP=2 \
@@ -299,14 +318,12 @@ GPU — but only up to a point. The rule is a single line: `min(tp, 4)`, stepped
 down to a degree that divides `tp`. There is no sweep and no rung to climb; one
 anchor is measured and the projector restores every target from it.
 
-Four is measured, not assumed. Scoring each degree of a TP1/2/4/8 sweep as the
-anchor for the degrees it did *not* measure, the four-GPU anchor was the best
-single choice at 6.6% — better than the full-node eight-GPU anchor at 7.6%,
-because it interpolates in both directions where an end rung has to
-extrapolate. A second anchor tied or lost against it on every target, which is
-why the multi-anchor path (`--load-benchmark-scaling`) is an escape hatch
-rather than the default. Capping at four also means a warmup never waits on a
-full node.
+Four is the operational default, not a universal accuracy guarantee. It is
+large enough to observe multi-rank collectives, remains only one doubling from
+an eight-GPU target, and avoids making every warmup wait on a full node.
+Targets more than one doubling from their anchor are marked extrapolated.
+Use `--load-benchmark-scaling` or a target-width confirmation when the
+parallelism hop, topology, or decision risk warrants another measurement.
 
 ### Model prefix reuse
 
@@ -368,12 +385,49 @@ Reading it:
 - **Batch packing** shows what the scheduler actually assembled, which is how
   you tell a latency problem caused by batching from one caused by queueing.
 
-Arrival options: `--arrival-model` takes `closed` (no queue, steady state
-only), `poisson`, or `deterministic`; `--des-burstiness` makes arrivals gamma-
-distributed (1.0 = Poisson, lower = burstier); `--des-range-ratio` spreads
-per-request lengths around the configured ISL/OSL. Add `--des-sweep` to sweep
-offered load and emit a throughput-versus-latency curve rather than a single
-point.
+Arrival options: `--arrival-model` takes `closed` (no arrival stream; see
+`--des-closed-loop` below), `poisson`, or `deterministic`; `--des-burstiness`
+makes arrivals gamma-distributed (1.0 = Poisson, lower = burstier);
+`--des-range-ratio` spreads per-request lengths around the configured ISL/OSL.
+Add `--des-sweep` to sweep offered load and emit a throughput-versus-latency
+curve rather than a single point.
+
+### Reproduce a fixed-concurrency benchmark
+
+A harness run with `--max-concurrency C` has no arrival stream: `C` clients each
+submit one request, block until it completes, then submit the next.
+`--des-closed-loop` simulates exactly that, which makes TTFT the difference
+between two simulated timestamps rather than a closed-form prefill time:
+
+```bash
+inferasim inference ... --max-concurrency 256 \
+  --max-num-batched-tokens 8192 --chunked-prefill-size 256 \
+  --des-closed-loop --des-num-requests 1024
+```
+
+This matters because the analytical path prices TTFT as prefill *service* time
+— how long the forward pass over the prompt takes — while a harness reports
+*response* time. Under a colocated engine a prefill chunk rides a scheduler step
+that is simultaneously carrying the resident decodes, so the step it waits on
+dilates with the decode batch. Measured TTFT is close to a constant number of
+steps across three decades of concurrency; a standalone-prefill model holds it
+constant in milliseconds and therefore reads progressively early as load rises.
+The step loop already mixes prefill chunks with decodes, so driving it from a
+closed load puts that dilation in the answer without a separate queue term.
+
+**Set `--chunked-prefill-size`.** It is the engine's per-request per-step prefill
+allowance (vLLM's `long_prefill_token_threshold`) and it decides how many steps a
+prompt takes, so it is the one input this needs. Left unset, a prompt prefills in
+a single step and TTFT reads early for that reason instead. It is a *declared*
+input: read it off the server's launch flags rather than fitting it, or the
+simulation just relocates the error it was meant to remove.
+
+Concurrency is the load axis here, so there is no offered rate, no saturation
+flag (the population is bounded by the client count) and no `--des-sweep`. All
+`C` clients start together, which is what the harness does and why its *mean*
+TTFT carries an opening-burst transient — `mean/p50` reaches 3–5.6x at high
+concurrency on real runs. Match `--des-num-requests` and the warmup you score
+against to whatever the harness reports over.
 
 ### Simulate a fleet
 
@@ -451,6 +505,12 @@ This is where `--decode-admission-steps` matters most: with prefill off the
 critical path, what remains visible in TTFT is how long a finished prefill waits
 to join a decode batch.
 
+This path is an analytical pool model: it reports mean latency, capacity and
+throughput with the request rate capped by the slower pool. The current DES does
+not run separate prefill/decode event queues, transfer contention, or PDD tail
+latency. Use hardware validation or an architecture-level DES for those
+questions.
+
 ### Sweep the configuration space
 
 From Python, for scripted searches:
@@ -460,17 +520,27 @@ from infera.projection.core.projection.inference_projection.sweep import sweep
 
 res = sweep(
     "gpt_oss_120B",
-    tp=[1, 2, 4, 8], ep=[1, 2, 4, 8], pp=[1],
+    tp=[1, 2, 4, 8],
+    ep=[1, 2, 4, 8],
+    pp=[1],
     concurrency=[1, 8, 32, 128],
-    isl=1024, osl=1024,
-    gpu_arch="mi355x", hbm_gb=288.0,
-    valid=lambda tp, ep, pp: ep <= tp,      # your own legality rules
+    isl=1024,
+    osl=1024,
+    gpu_arch="mi355x",
+    hbm_gb=288.0,
+    valid=lambda tp, ep, pp: ep <= tp,  # your own legality rules
 )
 
 for p in res.points:
     if p.feasible:
-        print(p.tp, p.ep, p.concurrency, round(p.ttft_ms, 1),
-              round(p.tpot_ms, 2), round(p.decode_tps_per_gpu, 1))
+        print(
+            p.tp,
+            p.ep,
+            p.concurrency,
+            round(p.ttft_ms, 1),
+            round(p.tpot_ms, 2),
+            round(p.decode_tps_per_gpu, 1),
+        )
 ```
 
 Sweeps force `--profiling-mode simulate`, so they need **zero GPUs**.
@@ -481,14 +551,29 @@ project against your own experiment config instead of the packaged default.
 ### Search with the tuning agent
 
 ```bash
-inferasim-tune --workload <workload.yaml> --target-cluster <cluster.yaml>
+inferasim-tune --inference \
+  --workload <workload.yaml> \
+  --target-cluster examples/tuning/target_cluster_mi355x_inference.yaml
 ```
 
 Two stages: a deterministic seed sweep for a warm start, then an LLM-driven
 search that continues from the warm-started incumbent, proposing recipes and
-scoring them through the projector. No GPU in the default path. Use
-`--seed-only` to run just the deterministic stage. See
-`agents/tuning_agent/` for configuration.
+scoring them through the projector. The agent scores candidates on the cost
+model and needs no GPU unless asked to measure via its own
+`--profiling-mode benchmark`. Use `--seed-only` to run just the deterministic
+stage.
+
+**`--inference` is required** (or `optimization.mode: inference` in the
+target-cluster YAML, which the packaged example sets): the agent tunes *training*
+configurations by default.
+
+It searches 36 serving levers against any of 24 projected metrics — throughput
+per GPU, TTFT, TPOT, end-to-end latency, sustainable concurrency, KV and weight
+footprint, interference and per-phase collective time — and enforces latency
+budgets from `optimization.slo` as hard constraints, so a throughput objective
+returns the fastest config that keeps the promise rather than the largest batch
+that fits. See `agents/tuning_agent/` and
+[the manual page](../../manual/simulation/tuning_agent.md) for configuration.
 
 ## Environment variables
 
@@ -510,6 +595,14 @@ Further `INFERASIM_*` variables exist for kernel-model and benchmark internals
 their read sites.
 
 ## Troubleshooting
+
+**It says no GPUs are visible and refuses to run.** `--profiling-mode` defaults
+to `benchmark`, so a projection on a machine without an accelerator has nothing
+to measure on. Either give it a measurement — `--load-benchmark anchor.json`, or
+`--anchor-store <dir>` so it finds one for this regime itself — or ask for the
+uncalibrated analytical path explicitly with `--profiling-mode simulate`. It
+refuses rather than downgrading because a silently analytical number reads
+exactly like a measured one.
 
 **Concurrency is far higher than I asked for.** Pass `--max-concurrency`.
 `--inference-batch-size` does not cap serving concurrency; see

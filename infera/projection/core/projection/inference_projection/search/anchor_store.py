@@ -197,6 +197,7 @@ class AnchorStore:
                 "tp": meta.get("benchmark_tp") or meta.get("tp"),
                 "ep": meta.get("benchmark_ep") or meta.get("ep"),
                 "pp": meta.get("benchmark_pp") or meta.get("pp"),
+                "attn_dp": meta.get("attention_data_parallel_size"),
                 "target_tp": meta.get("tp"),
                 "target_ep": meta.get("ep"),
                 "target_pp": meta.get("pp"),

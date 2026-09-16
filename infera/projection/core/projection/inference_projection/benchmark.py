@@ -23,6 +23,35 @@ import os
 import tempfile
 
 
+def assert_measurable() -> None:
+    """Refuse to start a measurement on a host that has no accelerator.
+
+    Measuring is the default mode, so an ordinary projection on a laptop
+    arrives here -- and it should arrive at an instruction rather than at
+    whatever an engine says when it cannot find a device. Which way out is
+    right depends on what the caller actually has, so all three are named.
+    """
+    try:
+        import torch
+
+        if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+            return
+    except Exception:  # noqa: BLE001 - no torch at all is the laptop case
+        pass
+    raise RuntimeError(
+        "[inferasim:Inference] --profiling-mode benchmark measures on real "
+        "GPUs, and none are visible on this host. Measuring is the default "
+        "because a calibrated kernel is the only one whose correlation "
+        "against real serving has been established. Pick one:\n"
+        "  --load-benchmark <anchor.json>  project from an anchor harvested "
+        "earlier, on any host (no GPU)\n"
+        "  --anchor-store <dir>            let the run find a matching anchor "
+        "for this regime itself (no GPU)\n"
+        "  --profiling-mode simulate       accept the uncalibrated analytical "
+        "projection, on purpose"
+    )
+
+
 def _resolve_bench_model(args) -> str:
     """Which checkpoint to serve while measuring."""
     model = getattr(args, "bench_model", None) or os.environ.get("INFERASIM_BENCH_MODEL")
