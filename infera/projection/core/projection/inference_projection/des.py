@@ -60,11 +60,11 @@ path: at low utilisation the DES means should agree with it.
 from __future__ import annotations
 
 import csv
+import heapq
 import json
 import math
 import os
 import random
-from collections import OrderedDict
 from dataclasses import dataclass, field
 
 from infera.projection.core.projection.training_config import InferenceConfig
@@ -842,45 +842,109 @@ _DEFAULT_BLOCK_SIZE = 512
 
 
 class _BlockCache:
-    """Per-instance paged-KV block store (content-addressed, LRU-evicted).
+    """Per-instance paged-KV block store (content-addressed, leaf-first eviction).
 
     Models engine-style automatic prefix caching: a prompt is an ordered
     sequence of block-hash ids; a **hit** is the longest *contiguous prefix* of
     that sequence already resident (prefix caching only reuses a leading run of
-    matching blocks). Capacity is finite in blocks; least-recently-used blocks
-    are evicted under pressure. This is the reuse store the KV-aware router scores
-    routes against, and what a single engine hits across a sequential stream.
+    matching blocks). This is the reuse store the KV-aware router scores routes
+    against, and what a single engine hits across a sequential stream.
+
+    Eviction is leaf-first, least-recently-used among the leaves, which is what
+    a radix prefix cache does -- a block cannot be dropped while a resident
+    block continues from it, so the shared head of a corpus survives pressure
+    and only the divergent tails are reclaimed.
+
+    Modelling it as a flat LRU instead was not a smaller approximation of that,
+    it was the LRU pathology. Blocks are touched in prefix order, so a corpus
+    whose working set exceeds the pool is a cyclic sweep, and a cyclic sweep
+    evicts every block exactly before it is reused. Replaying the AgentX c256
+    trace against DeepSeek-V4's real 231,336-block pool, flat LRU returned a
+    0.0% hit rate over 10.5M evictions -- not a degraded rate, every single
+    access -- where the same trace and pool under leaf-first eviction return
+    90.6%, against the corpus's own published reuse of ~92%. Downstream that
+    was throughput at 0.08x of measured on MI355X/SGLang at C=256, and a
+    throughput rank correlation of 0.11 on a curve that otherwise orders at
+    0.93.
+
+    Blocks are content-addressed over their prefix, so a block id implies its
+    predecessor and the parent recorded on first insert is stable.
     """
 
     def __init__(self, capacity_blocks: int = 0) -> None:
         self.capacity = int(capacity_blocks or 0)  # 0 = unbounded
-        self._lru: OrderedDict[int, None] = OrderedDict()
+        self._parent: dict[int, int | None] = {}
+        self._children: dict[int, int] = {}  # resident children; 0 => a leaf
+        self._access: dict[int, int] = {}
+        # Candidate leaves by access time. Entries go stale when a block is
+        # touched again or stops being a leaf, so they are filtered on pop
+        # rather than removed in place.
+        self._leaves: list[tuple[int, int]] = []
+        self._tick = 0
         self.evictions = 0
 
     def prefix_match(self, blocks: list[int]) -> int:
         """Number of leading blocks already resident (contiguous from the head)."""
         m = 0
         for b in blocks:
-            if b in self._lru:
+            if b in self._children:
                 m += 1
             else:
                 break
         return m
 
     def insert(self, blocks: list[int]) -> None:
-        """Warm a request's blocks (mark MRU); evict LRU beyond capacity."""
+        """Warm a request's blocks, then reclaim leaves beyond capacity."""
+        prev: int | None = None
         for b in blocks:
-            if b in self._lru:
-                self._lru.move_to_end(b)
+            self._tick += 1
+            if b in self._children:
+                self._access[b] = self._tick
+                # Only leaves are eviction candidates, so only a leaf's touch
+                # needs re-filing; an interior block is not reclaimable anyway.
+                if self._children[b] == 0:
+                    heapq.heappush(self._leaves, (self._tick, b))
             else:
-                self._lru[b] = None
-        if self.capacity > 0:
-            while len(self._lru) > self.capacity:
-                self._lru.popitem(last=False)
-                self.evictions += 1
+                self._parent[b] = prev
+                self._children[b] = 0
+                self._access[b] = self._tick
+                if prev is not None and prev in self._children:
+                    self._children[prev] += 1
+                heapq.heappush(self._leaves, (self._tick, b))
+            prev = b
+        self._evict()
+
+    def _evict(self) -> None:
+        if self.capacity <= 0:
+            return
+        while len(self._children) > self.capacity:
+            victim = None
+            while self._leaves:
+                t, b = heapq.heappop(self._leaves)
+                if b not in self._children:
+                    continue  # already reclaimed
+                if self._access[b] != t:
+                    continue  # touched since; a newer entry stands
+                if self._children[b]:
+                    continue  # no longer a leaf
+                victim = b
+                break
+            if victim is None:
+                # Every resident block is interior. Nothing is reclaimable
+                # without orphaning a continuation, which is the one thing a
+                # radix cache will not do.
+                return
+            p = self._parent.pop(victim)
+            del self._children[victim]
+            del self._access[victim]
+            self.evictions += 1
+            if p is not None and p in self._children:
+                self._children[p] -= 1
+                if self._children[p] == 0:
+                    heapq.heappush(self._leaves, (self._access[p], p))
 
     def __len__(self) -> int:  # pragma: no cover - trivial
-        return len(self._lru)
+        return len(self._children)
 
 
 class _BlockHasher:
@@ -1813,6 +1877,7 @@ def run_des(
     # engine has no way to say it is doing.
     if getattr(getattr(inference_config, "disaggregation_config", None), "enabled", False):
         reqs = None
+        prefix_summary: dict[str, float] | None = None
         if mooncake_rows is not None:
             hasher = _BlockHasher()
             bs = int(block_size) if block_size and block_size > 0 else _DEFAULT_BLOCK_SIZE
@@ -1823,7 +1888,7 @@ def run_des(
             ]
             # The prefill pool is what owns a prefix cache here, so the hits are
             # warmed against one station rather than routed across a fleet.
-            _route_and_warm(
+            _, prefix_summary = _route_and_warm(
                 reqs,
                 policy="kv",
                 num_instances=1,
@@ -1832,6 +1897,8 @@ def run_des(
                 rng=random.Random(seed),
                 overlap_weight=overlap_weight,
             )
+            prefix_summary["routing"] = float(_ROUTING_POLICIES.index("kv"))
+            prefix_summary["trace_driven"] = 1.0
             del hasher
         eff_rate = rate_per_s
         if mooncake_rows and not closed_loop:
@@ -1855,6 +1922,12 @@ def run_des(
                 inference_config.request_config.resolved_max_concurrency() if closed_loop else 0
             ),
         )
+        # The split warms a prefix cache exactly as the colocated path does,
+        # but discarded the summary, so every disaggregated row reported no
+        # hit rate at all -- indistinguishable, to anyone reading the output,
+        # from a split that never reuses anything.
+        if prefix_summary is not None:
+            out["point"].prefix = prefix_summary
         return out
     if closed_loop:
         clients = inference_config.request_config.resolved_max_concurrency()

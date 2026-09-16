@@ -81,3 +81,102 @@ def test_the_scheduler_only_charges_for_the_uncached_suffix():
     assert need == 10400
     # And the cache blocks count as resident context immediately.
     assert r.kv_len == 119600
+
+
+def _sweep(cache: des_mod._BlockCache, n_convs: int, depth: int, rounds: int):
+    """Interleave ``n_convs`` conversations that share a head and diverge.
+
+    The shape every long-context corpus has: a common prefix, then per-thread
+    continuation. Each round revisits every thread, so a thread's own blocks
+    are reused a full sweep after they were written.
+    """
+    head = [0, 1, 2]
+    hits = 0
+    for _ in range(rounds):
+        for c in range(n_convs):
+            blocks = head + [1000 + c * depth + d for d in range(depth)]
+            hits += cache.prefix_match(blocks)
+            cache.insert(blocks)
+    return hits
+
+
+def test_the_shared_head_of_a_corpus_survives_a_working_set_it_cannot_hold():
+    """Leaf-first eviction is the whole difference between 0% reuse and most of it.
+
+    Blocks are touched in prefix order, so a corpus larger than the pool is a
+    cyclic sweep -- the access pattern that makes a flat LRU evict every block
+    exactly before it is reused. A radix cache cannot do that: it may only
+    reclaim a block no resident block continues from, so the shared head stays
+    and the divergent tails are what go.
+    """
+    # Room for the head and roughly half the threads, so the sweep cannot fit.
+    cache = des_mod._BlockCache(capacity_blocks=3 + 10 * 4)
+    hits = _sweep(cache, n_convs=20, depth=4, rounds=4)
+
+    assert hits > 0, "a flat LRU scores exactly zero here; that was the bug"
+    assert cache.prefix_match([0, 1, 2]) == 3, "the shared head must still be resident"
+
+
+def test_a_block_is_never_dropped_while_something_continues_from_it():
+    """The invariant that makes it a radix cache rather than a priority order."""
+    cache = des_mod._BlockCache(capacity_blocks=4)
+    cache.insert([0, 1, 2, 3])
+    cache.insert([0, 1, 2, 4])  # diverges at the last block, forcing eviction
+
+    assert cache.prefix_match([0, 1, 2]) == 3, "an interior block was reclaimed"
+    assert len(cache) <= 4
+
+
+def test_the_cache_still_honours_its_capacity():
+    """Protecting interior blocks must not become "never evict"."""
+    cache = des_mod._BlockCache(capacity_blocks=8)
+    _sweep(cache, n_convs=30, depth=4, rounds=2)
+    assert len(cache) <= 8
+
+
+def test_an_unbounded_cache_evicts_nothing():
+    cache = des_mod._BlockCache(capacity_blocks=0)
+    _sweep(cache, n_convs=10, depth=4, rounds=2)
+    assert cache.evictions == 0
+    assert cache.prefix_match([0, 1, 2]) == 3
+
+
+def test_a_split_reports_the_prefix_cache_it_actually_warmed(tmp_path):
+    """The disaggregated branch warmed a cache and threw the summary away.
+
+    Every split row then reported no hit rate, which reads as a split that
+    reuses nothing rather than one whose reuse was never recorded -- and it
+    was the disaggregated rows that the reuse question was being asked about.
+    """
+    import json
+
+    from .test_des_disaggregated import _Cfg, _Pool, _Projector, _Req
+
+    # Two passes over the same prompts, so there is reuse to find.
+    trace = tmp_path / "trace.jsonl"
+    with trace.open("w") as f:
+        for turn in range(2):
+            for lane in range(4):
+                f.write(json.dumps({
+                    "timestamp": turn * 1000 + lane,
+                    "input_length": 2048,
+                    "output_length": 64,
+                    "hash_ids": [0, 1, 2, 100 + lane, 200 + lane],
+                }) + "\n")
+
+    point = des_mod.run_des(
+        _Cfg(_Req(max_concurrency=4, chunked_prefill_size=256, output_seq_len=64)),
+        _Projector(_Pool(), _Pool()),
+        arrival_model="closed",
+        rate_per_s=0.0,
+        num_requests=8,
+        warmup_frac=0.0,
+        closed_loop=True,
+        mooncake_trace=str(trace),
+        block_size=512,
+        cache_blocks=64,
+    )["point"]
+
+    assert point.packing["disaggregated"] == 1.0, "this must be the split path"
+    assert point.prefix, "a split reported no prefix-cache summary at all"
+    assert point.prefix["hit_rate"] > 0.0
