@@ -1,0 +1,91 @@
+extends:
+  - qwen2.5_base.yaml
+
+# Qwen3.5-397B-A17B — text stack of `Qwen3_5MoeForConditionalGeneration`
+# (HF `text_config`). 397B total, ~17B active.
+# https://huggingface.co/Qwen/Qwen3.5-397B-A17B
+#
+# The vision tower in the published checkpoint is not described here: every
+# AgentX run behind this model is text, so nothing drives it.
+#
+# What makes this checkpoint serve the way it does is the attention layout.
+# `full_attention_interval: 4` means only every fourth layer keeps a per-token
+# KV cache -- 15 of 60 -- and the other 45 run a gated-delta linear-attention
+# layer whose state is a fixed d x d matrix per head. So a token costs a
+# quarter of the KV a 60-layer GQA model would store, and three quarters of
+# the attention layers cost the same at 200k context as at 1k. At the context
+# these runs use (AgentX averages well over 100k) that is not a correction,
+# it is most of the model's serving behaviour, and it is why this model holds
+# roughly four times the concurrency its parameter count suggests.
+#
+# Both halves are charged. `linear_attention_freq` derives the 15/45 split,
+# and `linear_attention_head_dim` is the state extent (`linear_key_head_dim`
+# in HF), which sets both the recurrent state's bytes and the FLOP-equivalent
+# KV length of those layers. Sizing the memory without the arithmetic would
+# let a search fit batches whose attention was still priced as 60-layer GQA.
+
+tokenizer_type: HuggingFaceTokenizer
+tokenizer_model: Qwen/Qwen3.5-397B-A17B
+
+# model architecture
+num_layers: 60
+hidden_size: 4096
+num_attention_heads: 32
+
+# Every layer is MoE (`mlp_only_layers` is empty), so no dense FFN width is
+# ever used. The key is required by the schema; it is set to the expert width
+# rather than a made-up number so that a misread never inflates a layer.
+ffn_hidden_size: 1024
+
+# MoE — 512 experts, 10 routed + 1 shared, expert intermediate 1024.
+# 60 x 512 x 3 x 4096 x 1024 = 386.5B, which with attention and the two
+# untied embedding matrices reproduces the published 397B.
+moe_layer_freq: "1"
+num_experts: 512
+moe_router_topk: 10
+moe_ffn_hidden_size: 1024
+moe_shared_expert_intermediate_size: 1024
+moe_shared_expert_gate: true
+moe_router_load_balancing_type: global_aux_loss
+moe_aux_loss_coeff: 0.001
+moe_router_dtype: fp32
+
+# GQA on the full-attention layers: 32 Q heads, 2 KV heads, head_dim 256.
+# The head dim is twice the usual 128, so the per-token cache of one of these
+# layers is what a 4-KV-head 128-dim layer would store -- the saving is the
+# layer count, not the head size.
+group_query_attention: true
+num_query_groups: 2
+qk_layernorm: true
+kv_channels: 256
+attention_output_gate: true          # attn_output_gate
+
+# Hybrid attention: full attention every 4th layer (15 of 60), the rest are
+# gated-delta linear layers keeping a 128 x 128 state per head.
+experimental_attention_variant: gated_delta_net
+linear_attention_freq: 4
+linear_attention_head_dim: 128       # linear_key_head_dim
+linear_attention_conv_kernel: 4      # linear_conv_kernel_dim
+linear_conv_kernel_dim: 4
+linear_key_head_dim: 128
+linear_value_head_dim: 128
+linear_num_key_heads: 16
+linear_num_value_heads: 64
+
+# One next-token-prediction head ships with the checkpoint.
+mtp_num_layers: 1
+
+# partial rotary embedding (partial_rotary_factor 0.25) on the full layers
+rotary_base: 10000000
+rotary_percent: 0.25
+
+# other settings
+vocab_size: 248320
+make_vocab_size_divisible_by: 64
+max_position_embeddings: 262144
+norm_epsilon: 1.0e-6
+init_method_std: 0.02
+untie_embeddings_and_output_weights: true   # tie_word_embeddings: false
+apply_layernorm_1p: true
+apply_wd_to_qk_layernorm: true
+bias_swiglu_fusion: false
