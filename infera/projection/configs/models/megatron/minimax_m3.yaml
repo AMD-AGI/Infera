@@ -1,4 +1,4 @@
-bases:
+extends:
   - language_model.yaml
 
 # MiniMax-M3 (GQA + sparse attention + MoE)
