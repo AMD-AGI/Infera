@@ -327,3 +327,89 @@ def test_the_loop_stops_instead_of_spinning_when_nothing_can_progress():
     )
     assert res.num_requests == 0
     assert res.makespan_ms == 0.0
+
+
+def _run_split(concurrency: int, *, requests_per_client: int = 4,
+               prefill_scale: float = 0.1, chunk: int = 256,
+               output_len: int = 512, range_ratio: float = 0.0):
+    """A split whose prefill pool finishes well ahead of its decode pool.
+
+    That ordering is the one that matters below: prefill drains its queue and
+    goes idle while decode is still working, which is exactly when the two
+    stations' clocks come apart.
+    """
+    cfg = _Cfg(
+        _Req(max_concurrency=concurrency, chunked_prefill_size=chunk,
+             output_seq_len=output_len),
+        _Disagg(decode_replicas=1),
+    )
+    proj = _Projector(_Pool(prefill_scale), _Pool(1.0), handoff_ms=1.0)
+    return des_mod.simulate_disaggregated(
+        cfg,
+        proj,
+        rate_per_s=0.0,
+        num_requests=concurrency * requests_per_client,
+        warmup_frac=0.0,
+        range_ratio=range_ratio,
+        closed_loop_clients=concurrency,
+        seed=7,
+    )
+
+
+def test_a_closed_loop_keeps_its_clients_in_flight():
+    """The two stations keep separate clocks, and only one was feeding itself.
+
+    A closed-loop client retires on the *decode* clock and submits its
+    replacement stamped with that time, but arrivals were released against the
+    *prefill* clock. Whenever prefill drained its queue its clock stopped while
+    decode's kept moving, so every request reissued in that window was invisible
+    to the pool that has to prefill it. The population in flight collapsed from
+    C to about one, and with nothing to batch with the decode pool ran at batch
+    1 however many clients were offered -- which reads as a split that cannot
+    use concurrency rather than as a bug in the loop.
+    """
+    res = _run_split(32)
+    # Nearly all of a request's life is decode here, so most of the 32 clients
+    # should be resident there at any moment. This was 1.29.
+    assert res.packing["avg_decode_reqs"] > 16.0
+    assert res.packing["closed_loop_clients"] == 32.0
+
+
+def test_the_decode_batch_grows_with_the_client_count():
+    """Offering more clients has to put more of them in the batch.
+
+    The failure this guards is specifically a *flat* response: the collapsed
+    loop returned about the same batch, and so about the same throughput, at
+    every concurrency, which is indistinguishable from a deployment that is
+    genuinely saturated. Before the fix a fourfold rise in clients moved the
+    batch from 1.08 to 1.29.
+    """
+    few = _run_split(8)
+    many = _run_split(32)
+    assert many.packing["avg_decode_reqs"] > 2.5 * few.packing["avg_decode_reqs"]
+    assert many.system_throughput_tps > 2.0 * few.system_throughput_tps
+
+
+def test_the_stall_does_not_depend_on_the_lengths_being_uniform():
+    """Staggered lengths keep decode occupied, which is the harder case.
+
+    With every request the same size the pools empty together, and an empty
+    system takes the loop's "nothing can run" branch, which jumps both clocks
+    forward and hides the drift. A spread of lengths keeps decode busy across
+    the gap, so the drift never gets collected.
+    """
+    res = _run_split(32, range_ratio=0.8)
+    assert res.packing["avg_decode_reqs"] > 16.0
+
+
+def test_no_request_is_prefilled_before_its_client_submitted_it():
+    """Feeding prefill from the simulation clock must not outrun arrival.
+
+    Releasing against the global clock is what fixes the stall, and the risk it
+    introduces is the mirror image: serving a request at a time the prefill pool
+    has not reached yet, which would surface as a negative queue wait and an
+    understated TTFT.
+    """
+    res = _run_split(8)
+    assert res.queue_wait["p50"] >= 0.0
+    assert res.queue_wait["p99"] >= 0.0
