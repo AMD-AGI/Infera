@@ -707,6 +707,20 @@ class InferenceRequestConfig:
     # baseline, 1.0). Values: aiter | triton | ck | hip.
     attention_backend: str | None = None
 
+    # ---- Serving engine ----
+    # Which engine this projection is asking about: vllm | sglang | atom, or a
+    # build of one (`mori-sglang`). Distinct from ``attention_backend``, which
+    # names a kernel library inside an engine.
+    #
+    # Nothing in the analytical model reads this -- simulate mode prices an
+    # architecture on a device and returns the same number whichever engine is
+    # named. It is a regime axis, so what it decides is which measured anchor
+    # benchmark mode is allowed to calibrate from, and there the engine is the
+    # whole question: an SGLang anchor does not describe vLLM's scheduler or
+    # its paging. Left unset the axis is unknown and matching behaves as it did
+    # before, which is why it is optional rather than required.
+    serving_engine: str | None = None
+
     # ---- Native sparse attention (DeepSeek V3.2 / V4 NSA) ----
     # Number of KV tokens each query attends to under native sparse attention
     # (NSA + indexer top-k selection). ``0`` = dense attention (legacy). When
