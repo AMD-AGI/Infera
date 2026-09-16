@@ -404,3 +404,71 @@ def test_qos_refusal_still_walks_the_account_qos_ladder(tmp_path):
     assert result.returncode == 1
     assert "trying the next SLURM account/QoS pair" in result.stderr
     assert "qos=qos-burst" in result.stdout + result.stderr
+
+
+_LAUNCH_FAILURE = "JobLaunchFailure (dispatch confirmation failed (0/1 confirmed))"
+
+
+def test_job_launch_failure_pins_a_node_so_the_next_one_is_attributable(tmp_path):
+    """The scheduler names no node, so every retry lands on the same broken one."""
+    mock_bin = tmp_path / "bin"
+    mock_bin.mkdir()
+    count_file = tmp_path / "srun-count"
+    args_file = tmp_path / "srun-args"
+    count_file.write_text("0\n")
+    _executable(mock_bin / "scancel", "exit 0\n")
+    _executable(mock_bin / "sinfo", "printf 'node-a\\nnode-b\\nnode-c\\n'\n")
+    _executable(
+        mock_bin / "squeue",
+        f"""
+case "$*" in
+  *'%T'*) echo PENDING ;;
+  *'%r'*) echo "{_LAUNCH_FAILURE}" ;;
+esac
+exit 0
+""",
+    )
+    _executable(
+        mock_bin / "scontrol",
+        """
+if [ "$1 $2" = "show node" ]; then
+  echo "NodeName=$3 State=IDLE CPUAlloc=0 AllocMem=0 AllocTRES="
+fi
+exit 0
+""",
+    )
+    # Outlive one watchdog poll (5s), then exit like a job the watchdog cancelled.
+    _executable(
+        mock_bin / "srun",
+        """
+n=$(cat "$COUNT_FILE")
+n=$((n + 1))
+echo "$n" > "$COUNT_FILE"
+printf '%s\n' "$*" >> "$ARGS_FILE"
+echo "srun: Pending job allocation 90$n..."
+sleep 7
+exit 1
+""",
+    )
+    env = _runner_env(tmp_path, mock_bin, count_file)
+    env.update({"ARGS_FILE": str(args_file), "INFERA_E2E_SLURM_MAX_ATTEMPTS": "3"})
+
+    result = subprocess.run(
+        ["bash", str(RUN_TESTS), "engine"],
+        cwd=REPO,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=180,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    attempts = args_file.read_text().splitlines()
+    assert len(attempts) == 3
+    # 1: the scheduler's own pick, unattributable. 2: our pin. 3: that pin excluded.
+    assert " -w " not in f" {attempts[0]} "
+    assert "-w node-a" in attempts[1]
+    assert "-w node-b" in attempts[2]
+    assert "-x node-a" in attempts[2]
+    assert "scheduler names no node; pinning node-a" in result.stderr
