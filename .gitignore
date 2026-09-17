@@ -41,6 +41,8 @@ bench/**/results/*.svg
 bench/**/results/*.md
 bench/**/results/*.json
 bench/kv_cache_cliff/results/
+bench/glm5p2_pd/.cache/
+bench/glm5p2_pd/results/
 
 # Vendored third-party sources (UCX / RIXL) — too large, fetch/build on demand
 deploy/docker/third_party/
