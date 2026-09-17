@@ -28,6 +28,7 @@ from infera.common.disagg_preflight import (
     validate_advertise_host,
     validate_sglang_transport,
 )
+from infera.common.k8s_client import make_client
 from infera.common.registration import RegistrationClient
 from infera.engine.base import EngineDeath, watch_engine_death
 from infera.engine.decode_barrier import (
@@ -76,10 +77,36 @@ def _kill_process_group_safely() -> None:
         pass
 
 
+def _multinode_node_rank(args: SglangWorkerArgs) -> int:
+    """This worker's node rank in a multi-node (LeaderWorkerSet) TP group.
+
+    From sglang ServerArgs (set via the injected --node-rank
+    $LWS_WORKER_INDEX), with the LWS env as a fallback.
+    """
+    node_rank = int(getattr(args.server_args, "node_rank", 0) or 0)
+    if node_rank <= 0:
+        try:
+            node_rank = int(os.environ.get("LWS_WORKER_INDEX", "0") or "0")
+        except ValueError:
+            node_rank = 0
+    return node_rank
+
+
 async def _maybe_wait_for_decode(args: SglangWorkerArgs) -> None:
     """Block a PD prefill worker until a compatible decode worker is registered."""
     mode = getattr(args.server_args, "disaggregation_mode", None)
     if not should_wait_for_decode(mode, args.wait_for_decode):
+        return
+    # A multi-node TP follower neither registers nor serves, so it has no KV
+    # session to poison and nothing downstream waits on its warmup. Gating it
+    # would only delay the leader's TP group -- and kill the follower outright
+    # if the barrier timed out.
+    node_rank = _multinode_node_rank(args)
+    if node_rank > 0:
+        logger.info(
+            "decode barrier: skipped on multinode follower (node-rank %d)",
+            node_rank,
+        )
         return
     model_name = (
         getattr(args.server_args, "served_model_name", None)
@@ -88,26 +115,44 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs) -> None:
     )
     timeout = decode_ready_timeout_seconds(args.decode_ready_timeout)
 
-    async def _list() -> list:
+    # One client for the whole wait: this polls for hours, and rebuilding it
+    # per poll would re-read the token and redo the TLS handshake every time.
+    # list_k8s_worker_payloads re-reads the token onto a borrowed client, so a
+    # rotated ServiceAccount token does not turn the wait into 401s.
+    http = make_client(timeout=10.0) if args.discovery_backend == "kubernetes" else None
+    selector: str | None = None
+    try:
         if args.discovery_backend == "kubernetes":
-            return await list_k8s_worker_payloads(
+            selector = await resolve_k8s_label_selector(
+                args.k8s_label_selector,
                 namespace=args.k8s_namespace,
-                label_selector=resolve_k8s_label_selector(args.k8s_label_selector),
+                http=http,
             )
-        if not args.etcd_endpoint:
+        elif not args.etcd_endpoint:
             raise RuntimeError(
                 "--wait-for-decode with --discovery-backend=etcd requires --etcd-endpoint"
             )
-        return await list_etcd_worker_payloads(args.etcd_endpoint, args.etcd_prefix)
 
-    logger.info(
-        "decode barrier: prefill waiting up to %.0fs for a registered decode worker "
-        "(model=%s, discovery=%s)",
-        timeout,
-        model_name,
-        args.discovery_backend,
-    )
-    await wait_for_decode(_list, model_name=str(model_name), timeout=timeout)
+        async def _list() -> list:
+            if args.discovery_backend == "kubernetes":
+                return await list_k8s_worker_payloads(
+                    namespace=args.k8s_namespace,
+                    label_selector=selector,
+                    http=http,
+                )
+            return await list_etcd_worker_payloads(args.etcd_endpoint, args.etcd_prefix)
+
+        logger.info(
+            "decode barrier: prefill waiting up to %.0fs for a registered decode worker "
+            "(model=%s, discovery=%s)",
+            timeout,
+            model_name,
+            args.discovery_backend,
+        )
+        await wait_for_decode(_list, model_name=str(model_name), timeout=timeout)
+    finally:
+        if http is not None:
+            await http.aclose()
 
 
 logging.basicConfig(level=logging.INFO)
@@ -371,12 +416,7 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
     # skips the KV plane + registration and just keeps its sglang subprocess
     # alive until shutdown. node-rank comes from sglang ServerArgs (set via the
     # injected --node-rank $LWS_WORKER_INDEX), with the LWS env as a fallback.
-    node_rank = int(getattr(args.server_args, "node_rank", 0) or 0)
-    if node_rank <= 0:
-        try:
-            node_rank = int(os.environ.get("LWS_WORKER_INDEX", "0") or "0")
-        except ValueError:
-            node_rank = 0
+    node_rank = _multinode_node_rank(args)
     if node_rank > 0:
         logger.info(
             "multinode follower (node-rank %d): TP worker only; skipping KV plane "

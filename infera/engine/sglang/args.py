@@ -111,8 +111,9 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
         "--k8s-label-selector",
         default=None,
         help="Label selector used by a PD prefill worker to find decode Pods "
-        "(--wait-for-decode). Default: $INFERA_K8S_LABEL_SELECTOR, else "
-        "infera.amd.com/deployment=$WORKLOAD_ID when that env is set.",
+        "(--wait-for-decode). Default: $INFERA_K8S_LABEL_SELECTOR, else this "
+        "Pod's own infera.amd.com/deployment label, else that label with "
+        "$WORKLOAD_ID. The barrier refuses to run unscoped.",
     )
     parser.add_argument(
         "--wait-for-decode",
@@ -127,8 +128,8 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
         type=float,
         default=None,
         help="Seconds a PD prefill worker waits for a registered decode peer. "
-        "Default $INFERA_DECODE_READY_TIMEOUT, else $INFERA_ENGINE_READY_TIMEOUT, "
-        "else 14400.",
+        "Default $INFERA_DECODE_READY_TIMEOUT, else 14400. Separate from "
+        "$INFERA_ENGINE_READY_TIMEOUT, which is the engine's own /health budget.",
     )
     parser.add_argument(
         "--request-transport",
