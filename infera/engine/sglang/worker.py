@@ -17,7 +17,7 @@ from typing import Any
 import httpx
 from sglang.srt.server_args import ServerArgs
 
-from infera.common.net import free_tcp_port, free_tcp_port_block
+from infera.common.net import free_tcp_port_block
 from infera.common.worker_pool import DisaggMode, EngineType
 from infera.engine.base import BaseEngine, EngineConfig
 
@@ -101,7 +101,10 @@ class SglangEngine(BaseEngine):
 
         if self.enable_kv_events:
             dp_size = int(getattr(self.server_args, "dp_size", 1) or 1)
-            self._kv_events_port = free_tcp_port_block(dp_size) if dp_size > 1 else free_tcp_port()
+            # The scheduler creates its publisher only after model loading. Use
+            # the non-ephemeral block allocator even for DP=1 so the released
+            # probe port is not recycled during that potentially long window.
+            self._kv_events_port = free_tcp_port_block(dp_size)
             kv_cfg = json.dumps(
                 {
                     "publisher": "zmq",
