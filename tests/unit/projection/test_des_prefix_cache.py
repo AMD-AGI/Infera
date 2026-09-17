@@ -83,6 +83,25 @@ def test_the_scheduler_only_charges_for_the_uncached_suffix():
     assert r.kv_len == 119600
 
 
+def test_a_shared_prefix_is_charged_to_the_pool_once_and_not_per_sharer():
+    """Admission has to read the hit too, not just prefill.
+
+    The pool gate charged every request its whole context, so a corpus whose
+    requests all continue from the same conversation paid for the one resident
+    copy of that prefix once per sharer. At the 96-98% reuse an agentic replay
+    carries that inflates a request's footprint 25-50x: a measured 7.67M-token
+    pool looked full at ~19 concurrent and the replay queued from there, while
+    the MI355X ladder reports its pool at 0.1-0.8% utilization at every
+    concurrency and never binds. The uncached suffix plus what the request
+    generates is what it actually adds.
+    """
+    r = _seed(0.92)[0]
+    assert r.reserved_kv == (r.prompt_len - r.cached_prefix) + r.output_len == 11300
+    # A cold request is untouched, which is every fixed-sequence workpoint.
+    cold = _seed(0.0)[0]
+    assert cold.reserved_kv == cold.prompt_len + cold.output_len
+
+
 def _sweep(cache: des_mod._BlockCache, n_convs: int, depth: int, rounds: int):
     """Interleave ``n_convs`` conversations that share a head and diverge.
 
