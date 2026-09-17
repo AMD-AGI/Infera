@@ -214,6 +214,55 @@ class _CostKernel:
         return v
 
 
+def _resident_cap(reqs: list[_Req], kv_cache_tokens: int, max_running: int) -> int:
+    """How many of these requests the KV pool holds at once.
+
+    Length-biased, not the arithmetic mean: a request occupies the pool for a
+    time proportional to its own length, so the set resident at any instant is
+    sampled in proportion to length and the plain mean overstates how many
+    fit. Zero when there is no pool to divide, which leaves the caller's
+    ordering policy unconstrained as before.
+    """
+    if kv_cache_tokens <= 0 or not reqs:
+        return 0
+    ctx = [max(1, r.prompt_len + r.output_len) for r in reqs]
+    biased = sum(c * c for c in ctx) / max(1, sum(ctx))
+    fits = int(kv_cache_tokens / max(1.0, biased))
+    return max(1, min(fits, max_running if max_running > 0 else fits))
+
+
+def _scored_sample(
+    done: list[_Req], warmup_frac: float, warmup_requests: int
+) -> list[_Req]:
+    """The requests whose latencies get reported.
+
+    ``warmup_requests`` drops the opening transient by *issue* order, which is
+    the only order that removes it. A closed loop starts every one of its C
+    clients at once, so the first C requests queue against each other and wait
+    far longer than anything that follows -- a mean of 17 s against a run
+    median of 0 on glm5.2 at C=8, and 16% of all the queue wait in the run.
+    Dropping a fraction of the *earliest completions* instead, as
+    ``warmup_frac`` does, keeps every one of them: a request that waited 40 s
+    for a slot is among the last to finish, not the first.
+
+    The harness has the same transient and excludes it the same way -- it
+    advances each lane by ``AIPERF_WARMUP_REQUESTS_PER_LANE`` requests, waits
+    for them to drain, and only then starts profiling -- so matching it is a
+    matter of dropping the same requests rather than a comparable number of
+    them. At least half the run is always kept, so a short trace still reports
+    over something.
+    """
+    keep = done
+    if warmup_requests > 0:
+        cut = min(int(warmup_requests), len(done) // 2)
+        keep = [r for r in done if r.idx >= cut]
+        if len(keep) >= 8:
+            return keep
+        keep = done
+    drop = int(len(keep) * max(0.0, min(0.9, warmup_frac)))
+    return keep[drop:] if len(keep) - drop >= 8 else keep
+
+
 def _generate_arrivals(
     n: int, rate_per_s: float, model: str, rng: random.Random, burstiness: float = 1.0
 ) -> list[float]:
@@ -324,6 +373,7 @@ def simulate_once(
     arrival_model: str = "poisson",
     num_requests: int = 400,
     warmup_frac: float = 0.1,
+    warmup_requests: int = 0,
     seed: int = 0,
     arrivals: list[float] | None = None,
     burstiness: float = 1.0,
@@ -336,6 +386,7 @@ def simulate_once(
     closed_loop_clients: int = 0,
     prefill_exclusive: bool = False,
     new_seqs_per_step: int = 0,
+    duration_ms: float = 0.0,
 ) -> DESResult:
     """Run one single-engine DES at a fixed offered load.
 
@@ -351,6 +402,18 @@ def simulate_once(
     which is what the harness does and what makes its *mean* TTFT carry an
     opening-burst transient; ``warmup_frac`` decides whether that transient is
     scored, so match it to whatever the harness reports over.
+
+    ``duration_ms`` stops the run on the clock instead of on a request count,
+    which is how a fixed-concurrency harness is actually bounded: it runs for
+    a set wall time and reports whatever completed. The distinction is not
+    cosmetic under a closed loop. A request budget split across ``C`` lanes
+    fixes how far *each lane* walks into its conversation -- 400 turns deep at
+    C=1 against 40 at C=16 for the same budget -- and an agentic turn's prompt
+    grows with its position in the conversation, so a budget-bounded replay
+    offers systematically different prompt lengths at each concurrency than
+    the run it is being compared against. A clock-bounded one lets the lane
+    depth fall out of how fast the engine actually is, which is the same thing
+    that decided it on the hardware.
     """
     req = inference_config.request_config
     input_len = max(1, req.input_seq_len)
@@ -463,7 +526,8 @@ def simulate_once(
     max_steps = total_work + n + 16
 
     steps = 0
-    while len(done) < n and steps < max_steps:
+    horizon = duration_ms if duration_ms and duration_ms > 0 else math.inf
+    while len(done) < n and steps < max_steps and now < horizon:
         steps += 1
         # 1) Ingest arrivals due by ``now`` into the FCFS waiting queue.
         while next_arrival < n and pending[next_arrival].arrival_ms <= now + 1e-9:
@@ -694,10 +758,9 @@ def simulate_once(
                 }
             )
 
-    # ---- aggregate latency metrics (drop warmup by completion order) ----
+    # ---- aggregate latency metrics (drop the opening transient) ----
     done.sort(key=lambda r: r.finish_ms)
-    drop = int(len(done) * max(0.0, min(0.9, warmup_frac)))
-    sample = done[drop:] if len(done) - drop >= 8 else done
+    sample = _scored_sample(done, warmup_frac, warmup_requests)
 
     # TTFT is measured from *admission* (server start), not arrival, so the
     # client-side wait for a concurrency slot is excluded -- matching the vLLM /
@@ -1070,6 +1133,7 @@ def _route_and_warm(
     rng: random.Random,
     overlap_weight: float = 1.0,
     waiting_depth: int = 0,
+    resident_cap: int = 0,
 ) -> tuple[list[list[_Req]], dict[str, float]]:
     """Route requests across instances and derive per-request prefix-cache hits
     from a content-addressed block cache (as real serving engines do).
@@ -1099,6 +1163,19 @@ def _route_and_warm(
     context is always evicted before its next turn and every request pays a
     full reprefill, while prefix-first keeps working on what is already
     resident and reuse falls off gradually instead of to zero.
+
+    ``resident_cap`` is how many of those requests fit in the KV pool at once,
+    and it is what the reordering window has to be measured against: a
+    scheduler can only reorder requests that are actually queued. Below the
+    cap nothing waits, so there is no choice to make and admission is just the
+    order the lanes arrived in -- which is the regime where reuse degrades,
+    because C lanes all resident at once evict each other. Handing the policy
+    the full client count instead let it reorder an empty queue and kept reuse
+    high everywhere: on kimik3 at C=14 the hardware thrashed to 0.67 and the
+    replay reported 0.93, and the band where that happens is exactly where C
+    meets the cap. Above the cap the queue is genuinely deep, prefix-first is
+    the real policy, and measured reuse recovers -- 0.92 by C=44 -- which the
+    replay only gets right if the window grows with the queue and not with C.
     """
     per_inst: list[list[_Req]] = [[] for _ in range(num_instances)]
     caches = [_BlockCache(cache_blocks) for _ in range(num_instances)]
@@ -1128,7 +1205,9 @@ def _route_and_warm(
         client and quietly turns the loop into a sliding window over arrival
         order, which throws that reuse away.
         """
-        depth = int(waiting_depth or 0)
+        # Only the backlog is reorderable: what fits in the pool is already
+        # running and was admitted in the order it arrived.
+        depth = int(waiting_depth or 0) - max(0, int(resident_cap or 0))
         if depth <= 1:
             yield from ordered
             return
@@ -1284,6 +1363,7 @@ def simulate_disaggregated(
     arrival_model: str = "poisson",
     num_requests: int = 400,
     warmup_frac: float = 0.1,
+    warmup_requests: int = 0,
     seed: int = 0,
     burstiness: float = 1.0,
     range_ratio: float = 1.0,
@@ -1291,6 +1371,7 @@ def simulate_disaggregated(
     prebuilt: list[_Req] | None = None,
     closed_loop_clients: int = 0,
     return_samples: bool = False,
+    duration_ms: float = 0.0,
 ) -> DESResult:
     """Run a prefill pool and a decode pool as two stations on one clock.
 
@@ -1608,6 +1689,7 @@ def simulate_disaggregated(
 
     guard = 0
     bound = 4000 * max(1, n)
+    horizon = duration_ms if duration_ms and duration_ms > 0 else math.inf
     while guard < bound:
         guard += 1
         # Both stations are fed against the simulation clock rather than the
@@ -1615,6 +1697,8 @@ def simulate_disaggregated(
         # a client reissued at a decode-clock time from the pool that has to
         # prefill it.
         now_any = max([now_p, *now_d])
+        if now_any >= horizon:
+            break
         moved = _release_arrivals(now_any) + _deliver_handoffs(now_any)
         if moved:
             _unstall()
@@ -1656,8 +1740,7 @@ def simulate_disaggregated(
 
     # ---- aggregate ----
     done.sort(key=lambda r: r.finish_ms)
-    drop = int(len(done) * max(0.0, min(0.9, warmup_frac)))
-    sample = done[drop:] if len(done) - drop >= 8 else done
+    sample = _scored_sample(done, warmup_frac, warmup_requests)
     tok_ms_pt = max(0.0, req.tokenize_overhead_us) / 1000.0
     detok_ms = max(0.0, req.detokenize_overhead_us) / 1000.0
 
@@ -1787,6 +1870,7 @@ def simulate_multi_instance(
     num_requests: int,
     seed: int,
     warmup_frac: float,
+    warmup_requests: int = 0,
     burstiness: float,
     range_ratio: float,
     kv_cache_tokens: int,
@@ -1845,6 +1929,11 @@ def simulate_multi_instance(
         rng=rng,
         overlap_weight=overlap_weight,
         waiting_depth=closed_loop_clients,
+        resident_cap=_resident_cap(
+            reqs,
+            kv_cache_tokens,
+            inference_config.request_config.resolved_max_concurrency(),
+        ),
     )
     prefix_summary["routing"] = (
         float(_ROUTING_POLICIES.index(routing)) if routing in _ROUTING_POLICIES else -1.0
@@ -1865,6 +1954,7 @@ def simulate_multi_instance(
                 arrival_model=arrival_model,
                 seed=seed + i,
                 warmup_frac=warmup_frac,
+                warmup_requests=warmup_requests,
                 kv_cache_tokens=kv_cache_tokens,
                 prebuilt=sub,
                 return_samples=True,
@@ -1886,6 +1976,7 @@ def run_des(
     num_requests: int = 400,
     seed: int = 0,
     warmup_frac: float = 0.1,
+    warmup_requests: int = 0,
     sweep: bool = False,
     burstiness: float = 1.0,
     range_ratio: float = 1.0,
@@ -1902,6 +1993,7 @@ def run_des(
     block_size: int = 0,
     cache_blocks: int = 0,
     mooncake_trace: str | None = None,
+    duration_ms: float = 0.0,
     prefill_exclusive: bool = False,
     new_seqs_per_step: int = 0,
     closed_loop: bool = False,
@@ -1954,6 +2046,11 @@ def run_des(
                     if closed_loop
                     else 0
                 ),
+                resident_cap=_resident_cap(
+                    reqs,
+                    kv_cache_tokens,
+                    inference_config.request_config.resolved_max_concurrency(),
+                ),
             )
             prefix_summary["routing"] = float(_ROUTING_POLICIES.index("kv"))
             prefix_summary["trace_driven"] = 1.0
@@ -1972,6 +2069,7 @@ def run_des(
             num_requests=num_requests,
             seed=seed,
             warmup_frac=warmup_frac,
+            warmup_requests=warmup_requests,
             burstiness=burstiness,
             range_ratio=range_ratio,
             kv_cache_tokens=kv_cache_tokens,
@@ -2000,6 +2098,7 @@ def run_des(
                 num_requests=num_requests,
                 seed=seed,
                 warmup_frac=warmup_frac,
+                warmup_requests=warmup_requests,
                 burstiness=burstiness,
                 range_ratio=range_ratio,
                 kv_cache_tokens=kv_cache_tokens,
@@ -2023,6 +2122,7 @@ def run_des(
             num_requests=num_requests,
             seed=seed,
             warmup_frac=warmup_frac,
+            warmup_requests=warmup_requests,
             range_ratio=range_ratio,
             kv_cache_tokens=kv_cache_tokens,
             record_steps=record_steps,
@@ -2049,6 +2149,7 @@ def run_des(
             num_requests=num_requests,
             seed=seed,
             warmup_frac=warmup_frac,
+            warmup_requests=warmup_requests,
             burstiness=burstiness,
             range_ratio=range_ratio,
             kv_cache_tokens=kv_cache_tokens,
@@ -2071,6 +2172,7 @@ def run_des(
         num_requests=num_requests,
         seed=seed,
         warmup_frac=warmup_frac,
+        warmup_requests=warmup_requests,
         burstiness=burstiness,
         range_ratio=range_ratio,
         kv_cache_tokens=kv_cache_tokens,
@@ -2099,6 +2201,7 @@ def run_des(
                         num_requests=sweep_n,
                         seed=seed,
                         warmup_frac=warmup_frac,
+                        warmup_requests=warmup_requests,
                         burstiness=burstiness,
                         range_ratio=range_ratio,
                         kv_cache_tokens=kv_cache_tokens,

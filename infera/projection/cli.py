@@ -975,6 +975,35 @@ def _add_inference_args(parser):
         "carries the highest TTFT of any request in it. Default: 0.1.",
     )
     serv.add_argument(
+        "--des-warmup-requests",
+        type=int,
+        default=0,
+        help="DES: exclude this many requests, in the order the clients issued "
+        "them, from the reported latency distribution. Prefer this to "
+        "--des-warmup-frac for a closed loop: all C clients fire at once, so "
+        "the first C requests queue against each other and wait far longer "
+        "than anything after them, and dropping the earliest *completions* "
+        "keeps every one of them -- a request that waited 40s for a slot is "
+        "among the last to finish. The harness excludes the same transient by "
+        "advancing each lane AIPERF_WARMUP_REQUESTS_PER_LANE requests and "
+        "draining before it starts profiling, so the matching value is that "
+        "many per client. Default: 0 (use --des-warmup-frac).",
+    )
+    serv.add_argument(
+        "--des-duration-s",
+        type=float,
+        default=0.0,
+        help="DES: stop the run after this many seconds of simulated time and "
+        "report over whatever completed, instead of running to "
+        "--des-num-requests. This is how a fixed-concurrency harness is "
+        "actually bounded, and under a closed loop the two are not "
+        "interchangeable: a request budget divided among C lanes fixes how "
+        "far each lane walks into its conversation, and an agentic turn's "
+        "prompt grows with its position, so a budget-bounded run offers "
+        "different prompt lengths at each concurrency than the measured run "
+        "it is compared against. Default: 0 (run to the request count).",
+    )
+    serv.add_argument(
         "--des-seed",
         type=int,
         default=0,
