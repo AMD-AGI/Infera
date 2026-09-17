@@ -24,12 +24,26 @@ import logging
 import os
 import signal
 
+import httpx
+
 from infera.common.disagg_preflight import (
     validate_advertise_host,
     validate_sglang_transport,
 )
+from infera.common.discovery import _normalize_endpoint
+from infera.common.k8s_client import make_client
 from infera.common.registration import RegistrationClient
 from infera.engine.base import EngineDeath, watch_engine_death
+from infera.engine.decode_barrier import (
+    decode_ready_timeout_seconds,
+    ensure_skip_server_warmup,
+    list_etcd_worker_payloads,
+    list_k8s_worker_payloads,
+    resolve_k8s_label_selector,
+    run_disaggregation_warmup,
+    should_wait_for_decode,
+    wait_for_decode,
+)
 from infera.engine.drain import drain_engine_inflight
 from infera.engine.flush import anchor_kv_chain
 from infera.engine.sglang.args import (
@@ -66,6 +80,91 @@ def _kill_process_group_safely() -> None:
         os.killpg(pgid, signal.SIGKILL)
     except (ProcessLookupError, PermissionError):
         pass
+
+
+def _multinode_node_rank(args: SglangWorkerArgs) -> int:
+    """This worker's node rank in a multi-node (LeaderWorkerSet) TP group.
+
+    From sglang ServerArgs (set via the injected --node-rank
+    $LWS_WORKER_INDEX), with the LWS env as a fallback.
+    """
+    node_rank = int(getattr(args.server_args, "node_rank", 0) or 0)
+    if node_rank <= 0:
+        try:
+            node_rank = int(os.environ.get("LWS_WORKER_INDEX", "0") or "0")
+        except ValueError:
+            node_rank = 0
+    return node_rank
+
+
+async def _maybe_wait_for_decode(args: SglangWorkerArgs) -> None:
+    """Block until a compatible decode worker is registered, then PD-warmup.
+
+    Weight load already happened: launch_server ran with --skip-server-warmup.
+    """
+    mode = getattr(args.server_args, "disaggregation_mode", None)
+    if not should_wait_for_decode(mode, args.wait_for_decode):
+        return
+    # After engine.start() the TP group has already rendezvoused. Only the
+    # serving rank issues warmup /generate and needs decode to be registered.
+    if _multinode_node_rank(args) > 0:
+        logger.info("decode barrier: skipped wait+warmup on multinode follower")
+        return
+    model_name = (
+        getattr(args.server_args, "served_model_name", None)
+        or getattr(args.server_args, "model_path", None)
+        or ""
+    )
+    timeout = decode_ready_timeout_seconds(args.decode_ready_timeout)
+
+    # One client for the whole wait on either backend. The k8s path also
+    # re-reads the ServiceAccount token per request so a rotation is not a 401.
+    http: httpx.AsyncClient | None = None
+    selector: str | None = None
+    try:
+        if args.discovery_backend == "kubernetes":
+            http = make_client(timeout=10.0)
+            selector = await resolve_k8s_label_selector(
+                args.k8s_label_selector,
+                namespace=args.k8s_namespace,
+                http=http,
+            )
+        elif not args.etcd_endpoint:
+            raise RuntimeError(
+                "--wait-for-decode with --discovery-backend=etcd requires --etcd-endpoint"
+            )
+        else:
+            http = httpx.AsyncClient(base_url=_normalize_endpoint(args.etcd_endpoint), timeout=10.0)
+
+        async def _list() -> list:
+            if args.discovery_backend == "kubernetes":
+                return await list_k8s_worker_payloads(
+                    namespace=args.k8s_namespace,
+                    label_selector=selector,
+                    http=http,
+                )
+            return await list_etcd_worker_payloads(args.etcd_endpoint, args.etcd_prefix, http=http)
+
+        logger.info(
+            "decode barrier: prefill waiting up to %.0fs for a registered decode worker "
+            "(model=%s, discovery=%s)",
+            timeout,
+            model_name,
+            args.discovery_backend,
+        )
+        await wait_for_decode(_list, model_name=str(model_name), timeout=timeout)
+        probe_host = args.advertise_host or args.server_args.host
+        if probe_host in ("0.0.0.0", "", None):
+            probe_host = "127.0.0.1"
+        port = int(getattr(args.server_args, "port", 30000) or 30000)
+        dp_size = int(getattr(args.server_args, "dp_size", 1) or 1)
+        await run_disaggregation_warmup(
+            f"http://{probe_host}:{port}",
+            dp_size=dp_size,
+        )
+    finally:
+        if http is not None:
+            await http.aclose()
 
 
 logging.basicConfig(level=logging.INFO)
@@ -272,6 +371,13 @@ async def main() -> None:
     # only set the one documented knob (else sglang asserts on the prefill engine).
     _wire_mori_dispatch_buffer(args.server_args)
 
+    # Prefill PD warmup is a /generate during FastAPI startup. Load weights
+    # in parallel with decode; skip that warmup until decode has registered.
+    if should_wait_for_decode(
+        getattr(args.server_args, "disaggregation_mode", None), args.wait_for_decode
+    ):
+        args.sglang_argv = ensure_skip_server_warmup(args.sglang_argv)
+
     engine = SglangEngine(
         args.server_args,
         sglang_argv=args.sglang_argv,
@@ -302,6 +408,7 @@ async def main() -> None:
     # otherwise an exception (e.g. --kv-events on failing the KV plane) escapes
     # without reaping the sglang subprocess tree, orphaning it (holds ports/GPUs).
     try:
+        await _maybe_wait_for_decode(args)
         await _run_after_start(args, engine, config)
     except Exception:
         logger.exception("worker failed after engine start; tearing down")
@@ -325,12 +432,7 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
     # skips the KV plane + registration and just keeps its sglang subprocess
     # alive until shutdown. node-rank comes from sglang ServerArgs (set via the
     # injected --node-rank $LWS_WORKER_INDEX), with the LWS env as a fallback.
-    node_rank = int(getattr(args.server_args, "node_rank", 0) or 0)
-    if node_rank <= 0:
-        try:
-            node_rank = int(os.environ.get("LWS_WORKER_INDEX", "0") or "0")
-        except ValueError:
-            node_rank = 0
+    node_rank = _multinode_node_rank(args)
     if node_rank > 0:
         logger.info(
             "multinode follower (node-rank %d): TP worker only; skipping KV plane "

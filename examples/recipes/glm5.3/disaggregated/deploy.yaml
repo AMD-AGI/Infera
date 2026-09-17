@@ -207,10 +207,14 @@ spec:
               httpGet: {path: /health, port: 30000}
               periodSeconds: 15
               timeoutSeconds: 10
-              # 90 min. The weights are 408 GB on NFS, and the repo records a
-              # shared NFS mount turning an 8-minute load into ~95 minutes. A warm
-              # page cache loads in seconds — do not size this from that.
-              failureThreshold: 360
+              # 180 min: the decode leg's 90 plus this leg's own 90. Prefill
+              # blocks until a decode worker has registered before it starts
+              # SGLang, so one probe budget has to span both loads.
+              #
+              # The weights are 408 GB on NFS, and the repo records a shared NFS
+              # mount turning an 8-minute load into ~95 minutes. A warm page
+              # cache loads in seconds — do not size this from that.
+              failureThreshold: 720
             resources:
               requests: {cpu: "32", memory: 512Gi}
               limits:   {cpu: "32", memory: 512Gi}
