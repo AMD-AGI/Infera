@@ -52,9 +52,7 @@ def test_compatible_decode_worker_matches_sglang_bootstrap():
     ],
 )
 def test_incompatible_decode_worker_is_rejected(overrides):
-    assert not is_compatible_decode_worker(
-        _decode_payload(**overrides), model_name="glm-5-3"
-    )
+    assert not is_compatible_decode_worker(_decode_payload(**overrides), model_name="glm-5-3")
 
 
 def test_should_wait_for_decode_defaults_on_for_prefill_only():
@@ -69,10 +67,7 @@ def test_should_wait_for_decode_defaults_on_for_prefill_only():
 def test_resolve_k8s_label_selector_uses_workload_id(monkeypatch):
     monkeypatch.delenv("INFERA_K8S_LABEL_SELECTOR", raising=False)
     monkeypatch.setenv("WORKLOAD_ID", "infera-glm53-1p1d-fhl7t")
-    assert (
-        resolve_k8s_label_selector(None)
-        == "infera.amd.com/deployment=infera-glm53-1p1d-fhl7t"
-    )
+    assert resolve_k8s_label_selector(None) == "infera.amd.com/deployment=infera-glm53-1p1d-fhl7t"
     assert resolve_k8s_label_selector("app=x") == "app=x"
 
 
