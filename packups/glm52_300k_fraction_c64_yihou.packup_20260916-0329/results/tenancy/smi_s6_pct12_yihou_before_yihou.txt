@@ -1,0 +1,41 @@
+2026-09-15T13:15:04Z
+
+
+============================ ROCm System Management Interface ============================
+===================================== KFD Processes ======================================
+No KFD PIDs currently running
+==========================================================================================
+================================== End of ROCm SMI Log ===================================
+--- temp/power ---
+
+
+============================ ROCm System Management Interface ============================
+====================================== Temperature =======================================
+GPU[0]		: Temperature (Sensor junction) (C): 41.0
+GPU[0]		: Temperature (Sensor memory) (C): 28.0
+GPU[1]		: Temperature (Sensor junction) (C): 40.0
+GPU[1]		: Temperature (Sensor memory) (C): 34.0
+GPU[2]		: Temperature (Sensor junction) (C): 39.0
+GPU[2]		: Temperature (Sensor memory) (C): 30.0
+GPU[3]		: Temperature (Sensor junction) (C): 39.0
+GPU[3]		: Temperature (Sensor memory) (C): 29.0
+GPU[4]		: Temperature (Sensor junction) (C): 42.0
+GPU[4]		: Temperature (Sensor memory) (C): 27.0
+GPU[5]		: Temperature (Sensor junction) (C): 40.0
+GPU[5]		: Temperature (Sensor memory) (C): 29.0
+GPU[6]		: Temperature (Sensor junction) (C): 38.0
+GPU[6]		: Temperature (Sensor memory) (C): 28.0
+GPU[7]		: Temperature (Sensor junction) (C): 39.0
+GPU[7]		: Temperature (Sensor memory) (C): 29.0
+==========================================================================================
+=================================== Power Consumption ====================================
+GPU[0]		: Current Socket Graphics Package Power (W): 231.0
+GPU[1]		: Current Socket Graphics Package Power (W): 234.0
+GPU[2]		: Current Socket Graphics Package Power (W): 236.0
+GPU[3]		: Current Socket Graphics Package Power (W): 235.0
+GPU[4]		: Current Socket Graphics Package Power (W): 243.0
+GPU[5]		: Current Socket Graphics Package Power (W): 236.0
+GPU[6]		: Current Socket Graphics Package Power (W): 236.0
+GPU[7]		: Current Socket Graphics Package Power (W): 232.0
+==========================================================================================
+================================== End of ROCm SMI Log ===================================

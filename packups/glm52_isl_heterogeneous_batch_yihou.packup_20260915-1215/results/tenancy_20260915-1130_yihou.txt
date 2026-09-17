@@ -1,0 +1,60 @@
+captured 2026-09-15T11:27:32Z on smci355-ccs-aus-n10-29
+
+### squeue (ours)
+30723 9:41:12 yihou-hold
+
+### rocm-smi --showpids
+
+
+============================ ROCm System Management Interface ============================
+===================================== KFD Processes ======================================
+KFD process information:
+PID    	PROCESS NAME	GPU(s)	VRAM USED   	SDMA USED     	CU OCCUPANCY	
+3820477	python3     	1     	163554095104	2808842276864 	0           	
+3820410	python3     	1     	163470209024	2808842276864 	0           	
+3726356	python      	0     	0           	0             	0           	
+3817520	python3     	0     	0           	0             	0           	
+3722786	python      	1     	129908559872	22474616177172	2           	
+3722784	python      	1     	129958723584	22474660615987	1           	
+3726342	python      	0     	0           	0             	0           	
+3722782	python      	1     	129984147456	22474651069112	2           	
+3820085	python3     	1     	163174510592	2808842276864 	0           	
+3726312	python      	0     	0           	0             	0           	
+3722780	python      	1     	129889816576	22474564904386	3           	
+3820280	python3     	1     	163627495424	2808846583767 	0           	
+3726310	python      	0     	0           	0             	0           	
+3726282	python      	0     	0           	0             	0           	
+3722787	python      	1     	129910280192	22474459282718	2           	
+3820778	python3     	1     	163474403328	2808837722112 	0           	
+3726307	python      	0     	0           	0             	0           	
+3820625	python3     	1     	163489083392	2808846789591 	0           	
+3722785	python      	1     	129915887616	22474483032391	0           	
+3820021	python3     	1     	163602329600	2808842275921 	0           	
+3722783	python      	1     	129947635712	22474698282106	9           	
+3726295	python      	0     	0           	0             	0           	
+3820150	python3     	1     	163621203968	2808842276864 	0           	
+3726331	python      	0     	0           	0             	0           	
+3722781	python      	1     	130473918464	22474580426342	9           	
+3722713	pt_elastic  	0     	0           	0             	0           	
+==========================================================================================
+================================== End of ROCm SMI Log ===================================
+
+### distinct cmdlines on the GPUs
+      8 /opt/venv/bin/python /opt/venv/lib/python3.12/site-packages/torch/_inductor/compile_worker/__main__.py --pickler=torch._
+      8 /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+      1 python3 profile_decode.py --model /perf_apps/xiaobo/models/GLM-5.2-MXFP4 --tp-size 8 --ISL 8192 --CONC 1 --reps 5 --load
+      1 /opt/venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=15, pipe_handle=31) --multi
+      1 /opt/venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=15, pipe_handle=29) --multi
+      1 /opt/venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=15, pipe_handle=27) --multi
+      1 /opt/venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=15, pipe_handle=25) --multi
+      1 /opt/venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=15, pipe_handle=23) --multi
+      1 /opt/venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=15, pipe_handle=21) --multi
+      1 /opt/venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=15, pipe_handle=19) --multi
+      1 /opt/venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=15, pipe_handle=17) --multi
+      1 /opt/venv/bin/python /opt/venv/bin/torchrun --nnodes=4 --node_rank=3 --nproc_per_node=8 --master_addr=10.235.192.137 --m
+
+### our containers
+yihou-glm52-tp8ep1-round2-ptpc1	Up 3 hours
+yihou-glm52-tp8ep1-pr50-51-ptpc1	Up 5 hours
+yihou-glm52-tp8ep1-pr50-51	Up 5 hours
+yihou-glm52-tp8ep1-oldpin	Up 5 hours

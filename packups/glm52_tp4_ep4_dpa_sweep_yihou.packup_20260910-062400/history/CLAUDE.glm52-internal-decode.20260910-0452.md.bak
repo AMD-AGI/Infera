@@ -1,0 +1,25 @@
+# GLM-5.2 scheduler-free internal decode benchmark
+
+## Task
+Implement and run a configurable SGLang internal-forward benchmark: concurrency 16, ISL 70000, OSL 10000, expected accept length 3.61 (including bonus). Execute real draft/verify/draft-extension; do not instantiate Scheduler, serving endpoints or PD workers. Produce reproducible performance evidence.
+
+## Background
+Approved design is in design.md. SIKL's profile_decode.py is a fixed-context non-MTP reference, not a complete solution. Real model weights and routing; physically populated synthetic prefix KV/index state; simulated acceptance is not correctness-valid generation.
+
+## Context
+Workspace created 2026-09-09T12:06Z (directory suffix was selected during planning). All task writes remain here. No CLAUDE.md previously existed here or at the original repository root, so no backup was needed. Preserve original repo, packup, models, other experiments and other users' containers.
+
+## References
+- /home/yihou/dev/git/sglang/mission.md
+- /home/yihou/dev/git/SIKL/sikl/benchmarks/models/glm52/profile_decode.py
+- /shared_nfs/yihou/packups/glm52_mix_repro.packup_20260909-100729
+- Image sha256:b9a83742f631d7321c6b75aceb031a8b347c70f97c62ef8c62370c686853de7d
+- SGLang 402df1e1e453e1e85ec0f5ac4052d36598cc691a; AITER 2c71811b32c8ce2e1266aedaec199df7d90f597d
+
+## Principles
+Use only an existing authorized yihou allocation; revalidate job126175/node055 before use. NEVER use crsuse2-m2m-234 or crsuse2-m2m-036. NEVER submit/request/cancel allocations. Inspect ownership before stopping any task; preserve other users' work and supervisors. Use own Docker container with yihou in its name. Do not delete any file whose name lacks yihou. No host dependency installation or daemon changes. No commits/pushes.
+
+Use iterative-debug-loop; every experiment has an iterations/ directory and working_process.md entry. At least three evidence sources for serious diagnosis, including reference comparison when applicable. Read runtime/speculative/env-var skills before editing those areas. Use LSP/Serena where available, inspect pinned source rather than assume latest APIs. Ask before large core-library changes. English work files, Chinese user reports.
+
+## Team and checks
+Leader owns environment, launch and integration. decode-research owns bench implementation and CPU tests. No subagent verification of leader work. Session timers: mission every10min, team checkpoint every20min; log new issues first, intervene on next checkpoint if unresolved. Allow about30min for graph/JIT compilation with progress evidence.

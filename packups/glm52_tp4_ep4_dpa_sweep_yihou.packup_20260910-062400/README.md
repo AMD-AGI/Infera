@@ -1,0 +1,52 @@
+# TP4/EP4 DPA decode sweep reproduction kit
+
+**Ran:** 2026-09-10. **Packaged:** 2026-09-10. **Status:** all ten full points and two smokes passed their execution/count checks. Source unchanged; complete logs gzip-compressed with user approval. No GPU rerun during packaging.
+
+## Goal
+Sweep TP4/EP4, global concurrency4/8/16/20/24, DPAoff/on, ISL70000, OSL10000, expected bonus-inclusive acceptance3.61. Real target/draft compute, real weights/routing, physical synthetic KV, no Scheduler/PD. Original task is preserved in [CLAUDE.tp4-ep4-dpa-sweep.20260910-0624.md.bak](CLAUDE.tp4-ep4-dpa-sweep.20260910-0624.md.bak) (the predecessor task is under [history/](history/)), with [plan](evidence/plan.md) and full [process log](evidence/working_process.md).
+
+| Concurrency | DPA off TPOT ms | DPA on TPOT ms | Off output tok/s | On output tok/s |
+|---:|---:|---:|---:|---:|
+|4|6.150486|7.199074|650.355|555.627|
+|8|7.999084|8.870461|1000.115|901.870|
+|16|10.286111|10.980857|1555.496|1457.081|
+|20|11.667059|11.807833|1714.228|1693.791|
+|24|12.632195|12.276834|1899.907|1954.901|
+
+All points emitted exactlyC*10000 useful tokens; all four ranks executed2768 target/draft/draft-extension graphs. Realized acceptance3.613439306. Full single-point wall time153–217s; ten-point sum1850s (~30min50s), excluding setup/smokes. First cold smoke891s.
+
+**Important:** DPAon uses64Qheads, unsupported by this pinned FlyDSL sparse MLA path, so **all DPAon cases fall back**. DPAoffC20/C24 verify also falls back because120/144rows exceed96. Thus these compare the fixed stack's dispatch/fallback behavior, not pure DPA under an identical attention kernel. TPOT is average complete internal-loop cost, not client ITL/P50/P90. Synthetic acceptance is not correctness-valid output generation.
+
+## Contents
+- [REPRODUCE.md](REPRODUCE.md): fresh output directory, explicit existing allocation/container, exact image/model validation, smoke+sweep commands.
+- [environment.md](environment.md): pins, hardware evidence and external inputs/gaps.
+- [evidence/report.md](evidence/report.md): complete original result report; [summary.csv](evidence/summary.csv): machine-readable table.
+- [evidence/iterations](evidence/iterations): ten full points, two smokes and setup logs; per-rank result JSON, config, source snapshots, code diffs and timing. **Per-step JSONL traces were removed on 2026-09-15 — see "Removed after packing" below.**
+- [scripts/original](scripts/original): exact runnable bench, scripts and tests; no dependency on old scratch source.
+- [notes.md](notes.md), [patches/README.md](patches/README.md): semantics, failures and changes.
+- [provenance/source-files.json](provenance/source-files.json): original paths, hashes, byte counts, mtimes; Git HEAD/branch/diff also retained.
+- [audit.md](audit.md): offline verification; MANIFEST.sha256: complete delivered-byte checksums.
+
+Image archive and model weights are deliberately external and not copied. Generated Python caches are excluded; all source, result JSON and original log streams retained.
+
+## Removed after packing (2026-09-15)
+
+**60 per-step JSONL traces** (`steps_yihou.jsonl` + `steps_rank_{0..3}_yihou.jsonl` in each of the
+12 iteration directories, **34.98 MB**) were deleted. This packup was the only one that shipped
+them; every later packup excludes this class of file for the stated reason that it is *"needed only
+for per-iteration forensics, not to reproduce or check the result"*. Keeping them here made this
+packup 37 MB against 0.7–1.7 MB for its siblings.
+
+**What still works without them:** every iteration retains `result_yihou.json`, the per-rank
+`rank_N_yihou.json`, `config_yihou.json`, `command.txt`, `code_hashes.sha256`, `code.diff`,
+`git_head.txt`, `launch_status.json`, `bench_snapshot/`, and the gzipped `runtime.log` /
+`console.log`. `audit.md` and every script in `scripts/` were checked and reference none of the
+deleted files, so offline verification is unaffected.
+
+**What is lost:** per-iteration forensics — the acceptance count and wall time of each individual
+decode step. If you need those, re-run the point; `REPRODUCE.md` is unchanged and still produces them.
+
+**Recovery:** the files were committed before removal, so each is recoverable from git history:
+`git show <commit-before-removal>:<path>`.
+
+`MANIFEST.sha256` was regenerated after the removal and covers the current contents exactly.
