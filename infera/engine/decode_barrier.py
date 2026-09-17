@@ -108,14 +108,16 @@ async def resolve_k8s_label_selector(
     namespace: str | None = None,
     pod_name: str | None = None,
     http: httpx.AsyncClient | None = None,
+    retries: int = 3,
+    retry_sleep: float = 1.0,
 ) -> str:
     """Label selector scoping the peer list to this deployment's workers.
 
     Flag, then INFERA_K8S_LABEL_SELECTOR, then this Pod's own
     ``infera.amd.com/deployment`` label, then WORKLOAD_ID (set by SaFE, not by
-    the operator). Raises when none of them resolve: listing the whole
-    namespace would accept a decode belonging to another deployment, which is
-    a barrier that reports success without having gated anything.
+    the operator). A failed GET of this Pod is retried and then raised -- it
+    must not fall through to WORKLOAD_ID, which can name a different
+    deployment. Raises when none of the sources resolve.
     """
     if explicit:
         return explicit
@@ -123,7 +125,13 @@ async def resolve_k8s_label_selector(
     if env:
         return env
 
-    own = await own_pod_deployment_label(namespace=namespace, pod_name=pod_name, http=http)
+    own = await own_pod_deployment_label(
+        namespace=namespace,
+        pod_name=pod_name,
+        http=http,
+        retries=retries,
+        retry_sleep=retry_sleep,
+    )
     if own:
         return f"{DEPLOYMENT_LABEL}={own}"
 
@@ -144,25 +152,48 @@ async def own_pod_deployment_label(
     namespace: str | None = None,
     pod_name: str | None = None,
     http: httpx.AsyncClient | None = None,
+    retries: int = 3,
+    retry_sleep: float = 1.0,
 ) -> str | None:
-    """Read this Pod's deployment label (the operator stamps it on every role)."""
+    """Read this Pod's deployment label (the operator stamps it on every role).
+
+    A missing Pod name is not an error (caller may fall back to WORKLOAD_ID).
+    A failed GET after retries is: swallowing it would drop through to a
+    selector that does not match this deployment.
+    """
     name = pod_name if pod_name is not None else os.environ.get("POD_NAME", "")
     if not name:
         return None
     ns = k8s_namespace(namespace)
     owns_client = http is None
     client = http if http is not None else make_client(timeout=10.0)
+    last_exc: Exception | None = None
     try:
-        resp = await client.get(f"/api/v1/namespaces/{ns}/pods/{name}")
-        resp.raise_for_status()
-        labels = ((resp.json().get("metadata") or {}).get("labels")) or {}
-    except Exception as exc:  # noqa: BLE001 - fall through to the other sources
-        logger.warning("could not read this Pod's labels (%s/%s): %s", ns, name, exc)
-        return None
+        attempts = max(1, retries)
+        for attempt in range(attempts):
+            try:
+                resp = await client.get(f"/api/v1/namespaces/{ns}/pods/{name}")
+                resp.raise_for_status()
+                labels = ((resp.json().get("metadata") or {}).get("labels")) or {}
+                return labels.get(DEPLOYMENT_LABEL) or None
+            except Exception as exc:  # noqa: BLE001 - retried below
+                last_exc = exc
+                logger.warning(
+                    "could not read this Pod's labels (%s/%s, attempt %d/%d): %s",
+                    ns,
+                    name,
+                    attempt + 1,
+                    attempts,
+                    exc,
+                )
+                if attempt + 1 < attempts:
+                    await asyncio.sleep(retry_sleep)
+        raise RuntimeError(
+            f"could not read this Pod's labels ({ns}/{name}) after {attempts} attempts"
+        ) from last_exc
     finally:
         if owns_client:
             await client.aclose()
-    return labels.get(DEPLOYMENT_LABEL) or None
 
 
 def is_compatible_decode_worker(

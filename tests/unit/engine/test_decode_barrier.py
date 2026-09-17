@@ -102,6 +102,58 @@ async def test_resolve_k8s_label_selector_reads_own_pod_label(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_resolve_k8s_label_selector_retries_own_pod_get(monkeypatch):
+    _clear_selector_env(monkeypatch)
+    monkeypatch.setenv("WORKLOAD_ID", "wrong-deployment")
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] < 3:
+            return httpx.Response(500, text="unavailable")
+        return httpx.Response(
+            200,
+            json={"metadata": {"labels": {"infera.amd.com/deployment": "idep-a"}}},
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport, base_url="https://k8s") as client:
+        got = await resolve_k8s_label_selector(
+            None,
+            namespace="ns0",
+            pod_name="prefill-0",
+            http=client,
+            retry_sleep=0.0,
+        )
+    assert got == "infera.amd.com/deployment=idep-a"
+    assert calls["n"] == 3
+
+
+@pytest.mark.asyncio
+async def test_resolve_k8s_label_selector_does_not_use_workload_id_after_get_error(
+    monkeypatch,
+):
+    """A blip talking to the apiserver must not silently pick another deployment."""
+    _clear_selector_env(monkeypatch)
+    monkeypatch.setenv("WORKLOAD_ID", "wrong-deployment")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="unavailable")
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport, base_url="https://k8s") as client:
+        with pytest.raises(RuntimeError, match="could not read this Pod's labels"):
+            await resolve_k8s_label_selector(
+                None,
+                namespace="ns0",
+                pod_name="prefill-0",
+                http=client,
+                retries=2,
+                retry_sleep=0.0,
+            )
+
+
+@pytest.mark.asyncio
 async def test_resolve_k8s_label_selector_falls_back_to_workload_id(monkeypatch):
     _clear_selector_env(monkeypatch)
     monkeypatch.setenv("WORKLOAD_ID", "infera-glm53-1p1d-fhl7t")

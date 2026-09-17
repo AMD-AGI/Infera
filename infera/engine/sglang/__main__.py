@@ -24,10 +24,13 @@ import logging
 import os
 import signal
 
+import httpx
+
 from infera.common.disagg_preflight import (
     validate_advertise_host,
     validate_sglang_transport,
 )
+from infera.common.discovery import _normalize_endpoint
 from infera.common.k8s_client import make_client
 from infera.common.registration import RegistrationClient
 from infera.engine.base import EngineDeath, watch_engine_death
@@ -97,17 +100,9 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs) -> None:
     mode = getattr(args.server_args, "disaggregation_mode", None)
     if not should_wait_for_decode(mode, args.wait_for_decode):
         return
-    # A multi-node TP follower neither registers nor serves, so it has no KV
-    # session to poison and nothing downstream waits on its warmup. Gating it
-    # would only delay the leader's TP group -- and kill the follower outright
-    # if the barrier timed out.
-    node_rank = _multinode_node_rank(args)
-    if node_rank > 0:
-        logger.info(
-            "decode barrier: skipped on multinode follower (node-rank %d)",
-            node_rank,
-        )
-        return
+    # Followers wait here too. Skipping them lets engine.start() run NCCL
+    # rendezvous while the leader is still in this barrier, and the follower
+    # then dies on torch's 10-30 min timeout.
     model_name = (
         getattr(args.server_args, "served_model_name", None)
         or getattr(args.server_args, "model_path", None)
@@ -115,14 +110,13 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs) -> None:
     )
     timeout = decode_ready_timeout_seconds(args.decode_ready_timeout)
 
-    # One client for the whole wait: this polls for hours, and rebuilding it
-    # per poll would re-read the token and redo the TLS handshake every time.
-    # list_k8s_worker_payloads re-reads the token onto a borrowed client, so a
-    # rotated ServiceAccount token does not turn the wait into 401s.
-    http = make_client(timeout=10.0) if args.discovery_backend == "kubernetes" else None
+    # One client for the whole wait on either backend. The k8s path also
+    # re-reads the ServiceAccount token per request so a rotation is not a 401.
+    http: httpx.AsyncClient | None = None
     selector: str | None = None
     try:
         if args.discovery_backend == "kubernetes":
+            http = make_client(timeout=10.0)
             selector = await resolve_k8s_label_selector(
                 args.k8s_label_selector,
                 namespace=args.k8s_namespace,
@@ -132,6 +126,8 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs) -> None:
             raise RuntimeError(
                 "--wait-for-decode with --discovery-backend=etcd requires --etcd-endpoint"
             )
+        else:
+            http = httpx.AsyncClient(base_url=_normalize_endpoint(args.etcd_endpoint), timeout=10.0)
 
         async def _list() -> list:
             if args.discovery_backend == "kubernetes":
@@ -140,7 +136,7 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs) -> None:
                     label_selector=selector,
                     http=http,
                 )
-            return await list_etcd_worker_payloads(args.etcd_endpoint, args.etcd_prefix)
+            return await list_etcd_worker_payloads(args.etcd_endpoint, args.etcd_prefix, http=http)
 
         logger.info(
             "decode barrier: prefill waiting up to %.0fs for a registered decode worker "
