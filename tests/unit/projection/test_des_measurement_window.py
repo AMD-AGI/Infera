@@ -106,6 +106,39 @@ def test_a_duration_stops_the_run_before_the_request_budget_does():
     assert cut.makespan_ms <= horizon + 1e-6, (cut.makespan_ms, horizon)
 
 
+def test_the_horizon_reaches_the_path_the_harness_runs_on():
+    """The clock has to survive the trip through ``run_des``.
+
+    The horizon is read in ``simulate_once``, but a closed-loop run with a
+    block cache to model is dispatched through ``simulate_multi_instance``,
+    and a parameter that stops at the driver is indistinguishable from one
+    that was never passed: every replay reported over its whole trace while
+    the flag that was supposed to bound it sat unused two frames up. Assert
+    the effect at the entry point the harness calls, not at the loop that
+    implements it.
+    """
+    clients = 4
+    kw = dict(
+        arrival_model="closed",
+        rate_per_s=0.0,
+        num_requests=clients * 40,
+        closed_loop=True,
+        num_prefixes=4,
+        prefix_len=256,
+        block_size=16,
+        cache_blocks=1 << 14,
+        warmup_frac=0.0,
+    )
+    cfg = _Cfg(_Req(max_concurrency=clients))
+    full = des_mod.run_des(cfg, _Kernel(), **kw)["point"]
+    cut = des_mod.run_des(
+        cfg, _Kernel(), duration_ms=full.makespan_ms / 4.0, **kw
+    )["point"]
+    assert cut.num_requests < full.num_requests, (
+        cut.num_requests, full.num_requests
+    )
+
+
 def test_a_horizon_longer_than_the_run_changes_nothing():
     """The clock is a bound, not a target: a slack horizon is inert."""
     full = _run()

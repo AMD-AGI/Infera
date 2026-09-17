@@ -1898,6 +1898,8 @@ def simulate_multi_instance(
     admit_backlog_only: bool = False,
     mooncake_rows: list[tuple[float, int, int, list[int]]] | None = None,
     closed_loop_clients: int = 0,
+    duration_ms: float = 0.0,
+    prefill_exclusive: bool = False,
 ) -> DESResult:
     """Route one arrival stream across ``num_instances`` replicas and pool.
 
@@ -1976,6 +1978,13 @@ def simulate_multi_instance(
                 # Concurrency is per engine, so every replica runs the full
                 # client count rather than a share of it.
                 closed_loop_clients=closed_loop_clients,
+                # Every replica stops on the same clock: the window is the
+                # harness's, so it is not divided across instances the way
+                # the request stream is.
+                duration_ms=duration_ms,
+                # Whether prefill excludes decode is a property of the engine,
+                # so every replica schedules the same way.
+                prefill_exclusive=prefill_exclusive,
             )
         )
     agg = _aggregate_instances(results, prefix_summary)
@@ -2094,6 +2103,7 @@ def run_des(
             closed_loop_clients=(
                 inference_config.request_config.resolved_max_concurrency() if closed_loop else 0
             ),
+            duration_ms=duration_ms,
         )
         # The split warms a prefix cache exactly as the colocated path does,
         # but discarded the summary, so every disaggregated row reported no
@@ -2130,6 +2140,8 @@ def run_des(
                 admit_backlog_only=admit_backlog_only,
                 mooncake_rows=mooncake_rows,
                 closed_loop_clients=clients,
+                duration_ms=duration_ms,
+                prefill_exclusive=prefill_exclusive,
             )
             return out
         out["point"] = simulate_once(
@@ -2147,6 +2159,7 @@ def run_des(
             closed_loop_clients=clients,
             prefill_exclusive=prefill_exclusive,
             new_seqs_per_step=new_seqs_per_step,
+            duration_ms=duration_ms,
         )
         return out
     # A block cache is modelled whenever there is a fleet, a synthetic prefix
@@ -2181,6 +2194,8 @@ def run_des(
             cache_blocks=eff_cache_blocks,
             admit_backlog_only=admit_backlog_only,
             mooncake_rows=mooncake_rows,
+            duration_ms=duration_ms,
+            prefill_exclusive=prefill_exclusive,
         )
         return out
     out["point"] = simulate_once(
@@ -2197,6 +2212,7 @@ def run_des(
         kv_cache_tokens=kv_cache_tokens,
         workload_file=workload_file,
         record_steps=record_steps,
+        duration_ms=duration_ms,
     )
 
     if sweep and not workload_file:

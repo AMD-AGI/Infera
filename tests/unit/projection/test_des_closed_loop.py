@@ -321,3 +321,40 @@ def test_run_des_takes_the_client_count_from_the_configured_concurrency():
     assert point.arrival_model == "closed"
     assert point.packing["closed_loop_clients"] == 32.0
     assert point.ttft["mean"] > 0.0
+
+
+def test_exclusive_prefill_reaches_the_path_a_block_cache_dispatches_to():
+    """Whether prefill excludes decode has to survive the trip through ``run_des``.
+
+    The mechanism is implemented in ``simulate_once``, but a closed-loop run
+    with a block cache to model -- a prefix pool or a trace to replay, which is
+    every agentic replay -- is dispatched through ``simulate_multi_instance``,
+    and that driver did not take the flag at all. A parameter dropped one frame
+    up is indistinguishable from one that was never passed: SGLang and Atom
+    replays scheduled a unified batch while the flag that was meant to
+    serialise them sat unused, which dissolves the herd a closed-loop
+    population forms and reads TTFT early. Assert the effect at the entry point
+    the harness calls, not at the loop that implements it.
+    """
+    clients = 8
+    kw = dict(
+        arrival_model="closed",
+        rate_per_s=0.0,
+        num_requests=clients * 8,
+        closed_loop=True,
+        warmup_frac=0.0,
+        # Enough of a prefix pool to put the run on the multi-instance path.
+        num_prefixes=4,
+        prefix_len=256,
+        block_size=16,
+        cache_blocks=1 << 14,
+    )
+    cfg = _Cfg(_Req(max_concurrency=clients, chunked_prefill_size=256))
+    unified = des_mod.run_des(cfg, _Kernel(), **kw)["point"]
+    exclusive = des_mod.run_des(cfg, _Kernel(), prefill_exclusive=True, **kw)["point"]
+
+    # Serialising prefill against the resident decodes can only make a request
+    # wait longer for its first token.
+    assert exclusive.ttft["mean"] > unified.ttft["mean"], (
+        exclusive.ttft["mean"], unified.ttft["mean"]
+    )
