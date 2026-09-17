@@ -955,6 +955,9 @@ def launch_projection_from_cli(args, overrides):
                 seed=int(getattr(args, "des_seed", 0) or 0),
                 warmup_frac=float(getattr(args, "des_warmup_frac", 0.1) or 0.0),
                 warmup_requests=int(getattr(args, "des_warmup_requests", 0) or 0),
+                admit_backlog_only=bool(
+                    getattr(args, "des_admit_backlog_only", False)
+                ),
                 sweep=bool(getattr(args, "des_sweep", False)),
                 burstiness=float(getattr(args, "des_burstiness", 1.0) or 1.0),
                 range_ratio=float(getattr(args, "des_range_ratio", 1.0) or 1.0),

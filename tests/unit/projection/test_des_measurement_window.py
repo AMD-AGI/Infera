@@ -6,7 +6,7 @@
 """What the replay reports over, and what it is allowed to reorder.
 
 Three decisions about the *measurement window* rather than about physics, each
-of which moved a validated result more than any cost-model change did.
+of which moved a validated result further than any cost-model change did.
 
 1. A fixed-concurrency run is bounded by a clock, not by a request count. The
    distinction bites under a closed loop because a request budget divided
@@ -15,22 +15,25 @@ of which moved a validated result more than any cost-model change did.
    with its position, so a budget-bounded replay offers a prompt-length trend
    with concurrency that the hardware never had.
 
-2. The opening transient has to be dropped by *issue* order. Every client
-   fires at once, so the first C requests queue against each other and wait
-   far longer than anything after them; dropping the earliest *completions*
-   keeps every one of them, because a request that waited a long time for a
-   slot is among the last to finish, not the first.
+2. If the opening transient is dropped at all, it has to be dropped by
+   *issue* order. Every client fires at once, so the first C requests queue
+   against each other and carry the run's longest waits; because they waited,
+   they are also the last to retire, so dropping a fraction of the earliest
+   *completions* keeps every one of them. (Whether to drop it is a separate
+   question, and for this harness the answer is no -- its lane-advance
+   requests are one-token requests, so the profiled window still opens with
+   every lane firing together and the burst is in the reported average.)
 
 3. A scheduler can only reorder requests that are queued. Admitting by
    longest resident prefix is the right policy for a deep queue and the wrong
-   one for an empty one, and the difference decides whether modelled reuse
-   collapses where measured reuse collapses.
+   one for an empty one.
 
 The cost kernel is a stub so that every number below follows from it.
 """
 
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass
 
 from infera.projection.core.projection.inference_projection import des as des_mod
@@ -126,7 +129,7 @@ def test_the_lane_walk_is_what_a_request_budget_fixes():
     assert depths[1] / depths[64] > 60
 
 
-# --- 2. dropping the opening transient ------------------------------------
+# --- 2. if the opening transient is dropped, drop it by issue order --------
 
 
 def _done(n: int, opening: int, opening_wait: float = 500.0):
@@ -191,10 +194,9 @@ def test_the_two_drops_report_very_different_queue_waits():
 
 def test_the_issue_order_drop_keeps_at_least_half_the_run():
     """A trace shorter than the requested warmup still reports over something."""
-    res = _run(concurrency=8, requests_per_client=4, warmup_requests=10_000,
-               pool_tokens=4 * 1088)
-    assert res.num_requests > 0
-    assert res.ttft["mean"] > 0.0
+    done = _done(n=20, opening=4)
+    kept = des_mod._scored_sample(done, warmup_frac=0.0, warmup_requests=10_000)
+    assert len(kept) >= 10
 
 
 # --- 3. only a real queue is reorderable ----------------------------------
@@ -225,7 +227,7 @@ def _reuse(waiting_depth: int, resident_cap: int, blocks_per_req: int = 4):
         num_instances=1,
         block_size=64,
         cache_blocks=blocks_per_req + 1,
-        rng=__import__("random").Random(0),
+        rng=random.Random(0),
         overlap_weight=1.0,
         waiting_depth=waiting_depth,
         resident_cap=resident_cap,
@@ -257,6 +259,8 @@ def test_the_cap_counts_what_the_pool_holds():
     reqs = [des_mod._Req(idx=i, arrival_ms=0.0, prompt_len=n, output_len=0)
             for i, n in enumerate([100] * 9 + [900])]
     # Plain mean is 180, so 1800 tokens would look like room for 10.
-    assert des_mod._resident_cap(reqs, 1800, 0) < 10
+    assert des_mod._resident_cap(reqs, 1800, 0, enabled=True) < 10
     # No pool to divide leaves the policy unconstrained.
-    assert des_mod._resident_cap(reqs, 0, 0) == 0
+    assert des_mod._resident_cap(reqs, 0, 0, enabled=True) == 0
+    # And it is opt-in: by default the window is not constrained at all.
+    assert des_mod._resident_cap(reqs, 1800, 0) == 0
