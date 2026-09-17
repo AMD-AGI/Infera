@@ -137,7 +137,11 @@ spec:
               httpGet: {path: /health, port: 30000}
               periodSeconds: 10
               timeoutSeconds: 10
-              failureThreshold: 180     # weight load is slow; do not use a readinessProbe here
+              # 60 min: the decode leg's 30 plus this leg's own 30. Prefill
+              # blocks until a decode worker has registered before it starts
+              # SGLang, so one probe budget has to span both loads. Weight load
+              # is slow; do not use a readinessProbe here.
+              failureThreshold: 360
             resources:
               requests: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
               limits: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}

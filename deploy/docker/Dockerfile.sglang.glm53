@@ -143,10 +143,21 @@ RUN set -eux; \
 # ---- platform knobs (mi355x default; mi325x via --build-arg GPU_PLATFORM) ---
 # Resolved once into /etc/glm53-platform.env so Mooncake / libionic / disagg
 # patch layers share one mapping without a sidecar script.
+#
+# GPU_PLATFORM is NOT validated here, deliberately: it selects the build stage
+# at the FROM above, so docker has already rejected anything that is not one of
+# those four names ("pull access denied" on the unknown value) long before this
+# layer runs. A check here would be unreachable code that reads like a guard.
+#
+# The knobs below take the platform default only when the build did not set
+# them. `unset` is a sentinel rather than an empty default because an EMPTY
+# LIBIONIC_REQUIRE_ABI is itself meaningful -- it is the documented way to skip
+# the ABI gate for an offline build (see the error text further down) -- so
+# "not given" and "given as empty" must not collapse into the same value.
 ARG GPU_PLATFORM=mi355x
 ARG MC_GPU_ARCH=
 ARG INSTALL_LIBIONIC=
-ARG LIBIONIC_REQUIRE_ABI=
+ARG LIBIONIC_REQUIRE_ABI=unset
 ARG REANCHOR_SGLANG_DISAGG=
 RUN set -eu; \
     p="$(printf '%s' "${GPU_PLATFORM}" | tr '[:upper:]' '[:lower:]')"; \
@@ -155,10 +166,12 @@ RUN set -eu; \
     abi="${LIBIONIC_REQUIRE_ABI}"; \
     reanchor="${REANCHOR_SGLANG_DISAGG}"; \
     case "$p" in \
-        mi325x|gfx942) p=mi325x ;; \
-        mi355x|gfx950|"") p=mi355x ;; \
-        *) echo "ERROR: GPU_PLATFORM=${GPU_PLATFORM} is not mi355x or mi325x" >&2; exit 1 ;; \
+        gfx942) p=mi325x ;; \
+        gfx950) p=mi355x ;; \
     esac; \
+    if [ "$abi" = unset ]; then \
+        if [ "$p" = mi325x ]; then abi=; else abi=4; fi; \
+    fi; \
     if [ "$p" = mi325x ]; then \
         [ -n "$mc" ] || mc=gfx942; \
         [ -n "$ionic" ] || ionic=0; \
@@ -167,7 +180,6 @@ RUN set -eu; \
         [ -n "$mc" ] || mc=gfx950; \
         [ -n "$ionic" ] || ionic=1; \
         [ -n "$reanchor" ] || reanchor=1; \
-        [ -n "$abi" ] || abi=4; \
     fi; \
     printf 'MC_GPU_ARCH=%s\nINSTALL_LIBIONIC=%s\nLIBIONIC_REQUIRE_ABI=%s\nREANCHOR_SGLANG_DISAGG=%s\n' \
         "$mc" "$ionic" "$abi" "$reanchor" > /etc/glm53-platform.env; \

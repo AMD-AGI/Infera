@@ -160,7 +160,11 @@ spec:
               httpGet: {path: /health, port: 30001}
               periodSeconds: 15
               timeoutSeconds: 10
-              failureThreshold: 360   # 90 min, matching INFERA_ENGINE_READY_TIMEOUT
+              # 180 min: 90 for the decode leg and 90 for this one, each
+              # matching INFERA_ENGINE_READY_TIMEOUT. Prefill blocks until a
+              # decode worker has registered before it starts SGLang, so one
+              # probe budget has to span both loads.
+              failureThreshold: 720
             resources:
               # No hicache host tier on this arm, so this is the decode leg's
               # figure rather than the kvd arm's 512Gi: weight-load buffers and
