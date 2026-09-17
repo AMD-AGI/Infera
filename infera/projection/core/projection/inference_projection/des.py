@@ -214,15 +214,28 @@ class _CostKernel:
         return v
 
 
-def _resident_cap(reqs: list[_Req], kv_cache_tokens: int, max_running: int) -> int:
+def _resident_cap(
+    reqs: list[_Req], kv_cache_tokens: int, max_running: int, enabled: bool = False
+) -> int:
     """How many of these requests the KV pool holds at once.
 
     Length-biased, not the arithmetic mean: a request occupies the pool for a
     time proportional to its own length, so the set resident at any instant is
     sampled in proportion to length and the plain mean overstates how many
     fit. Zero when there is no pool to divide, which leaves the caller's
-    ordering policy unconstrained as before.
+    ordering policy unconstrained.
+
+    Off unless ``enabled``, because measuring the reordering window against
+    this is a modelling choice that did not pay for itself on the AgentX
+    corpus. It is the right account of what a scheduler can reorder, and it
+    does improve ITL ordering (8 of 11 model-engine pairs at 0.90 or better,
+    against 9), but it costs more than that in throughput (8 pairs to 7) --
+    reuse at the low rungs falls further than the hardware's did. Kept
+    available because the effect it describes is real and the band it applies
+    to is narrow; a caller that wants it has to ask.
     """
+    if not enabled:
+        return 0
     if kv_cache_tokens <= 0 or not reqs:
         return 0
     ctx = [max(1, r.prompt_len + r.output_len) for r in reqs]
@@ -1870,7 +1883,7 @@ def simulate_multi_instance(
     num_requests: int,
     seed: int,
     warmup_frac: float,
-    warmup_requests: int = 0,
+    warmup_requests: int,
     burstiness: float,
     range_ratio: float,
     kv_cache_tokens: int,
@@ -1882,6 +1895,7 @@ def simulate_multi_instance(
     prefix_zipf: float,
     block_size: int,
     cache_blocks: int,
+    admit_backlog_only: bool = False,
     mooncake_rows: list[tuple[float, int, int, list[int]]] | None = None,
     closed_loop_clients: int = 0,
 ) -> DESResult:
@@ -1933,6 +1947,7 @@ def simulate_multi_instance(
             reqs,
             kv_cache_tokens,
             inference_config.request_config.resolved_max_concurrency(),
+            admit_backlog_only,
         ),
     )
     prefix_summary["routing"] = (
@@ -1994,6 +2009,7 @@ def run_des(
     cache_blocks: int = 0,
     mooncake_trace: str | None = None,
     duration_ms: float = 0.0,
+    admit_backlog_only: bool = False,
     prefill_exclusive: bool = False,
     new_seqs_per_step: int = 0,
     closed_loop: bool = False,
@@ -2050,6 +2066,7 @@ def run_des(
                     reqs,
                     kv_cache_tokens,
                     inference_config.request_config.resolved_max_concurrency(),
+                    admit_backlog_only,
                 ),
             )
             prefix_summary["routing"] = float(_ROUTING_POLICIES.index("kv"))
@@ -2110,6 +2127,7 @@ def run_des(
                 prefix_zipf=max(0.0, prefix_zipf or 0.0),
                 block_size=max(0, block_size or 0),
                 cache_blocks=eff_cache_blocks,
+                admit_backlog_only=admit_backlog_only,
                 mooncake_rows=mooncake_rows,
                 closed_loop_clients=clients,
             )
@@ -2161,6 +2179,7 @@ def run_des(
             prefix_zipf=max(0.0, prefix_zipf or 0.0),
             block_size=max(0, block_size or 0),
             cache_blocks=eff_cache_blocks,
+            admit_backlog_only=admit_backlog_only,
             mooncake_rows=mooncake_rows,
         )
         return out

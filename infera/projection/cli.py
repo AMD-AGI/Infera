@@ -975,6 +975,19 @@ def _add_inference_args(parser):
         "carries the highest TTFT of any request in it. Default: 0.1.",
     )
     serv.add_argument(
+        "--des-admit-backlog-only",
+        action="store_true",
+        help="DES: measure the longest-prefix admission window against the "
+        "backlog rather than the client count, so that below what the KV pool "
+        "holds -- where nothing is queued and there is no choice for a policy "
+        "to make -- admission is the order the lanes arrived in. This is the "
+        "correct account of what a scheduler can reorder, and it is the band "
+        "where measured reuse collapses (kimik3 at C=14 thrashed to 0.67 "
+        "against 0.93 modelled), but on the AgentX corpus it improves ITL "
+        "ordering by one model-engine pair and costs one on throughput, so it "
+        "is off by default.",
+    )
+    serv.add_argument(
         "--des-warmup-requests",
         type=int,
         default=0,
