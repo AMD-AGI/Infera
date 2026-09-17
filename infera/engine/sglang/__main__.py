@@ -36,9 +36,11 @@ from infera.common.registration import RegistrationClient
 from infera.engine.base import EngineDeath, watch_engine_death
 from infera.engine.decode_barrier import (
     decode_ready_timeout_seconds,
+    ensure_skip_server_warmup,
     list_etcd_worker_payloads,
     list_k8s_worker_payloads,
     resolve_k8s_label_selector,
+    run_disaggregation_warmup,
     should_wait_for_decode,
     wait_for_decode,
 )
@@ -96,13 +98,18 @@ def _multinode_node_rank(args: SglangWorkerArgs) -> int:
 
 
 async def _maybe_wait_for_decode(args: SglangWorkerArgs) -> None:
-    """Block a PD prefill worker until a compatible decode worker is registered."""
+    """Block until a compatible decode worker is registered, then PD-warmup.
+
+    Weight load already happened: launch_server ran with --skip-server-warmup.
+    """
     mode = getattr(args.server_args, "disaggregation_mode", None)
     if not should_wait_for_decode(mode, args.wait_for_decode):
         return
-    # Followers wait here too. Skipping them lets engine.start() run NCCL
-    # rendezvous while the leader is still in this barrier, and the follower
-    # then dies on torch's 10-30 min timeout.
+    # After engine.start() the TP group has already rendezvoused. Only the
+    # serving rank issues warmup /generate and needs decode to be registered.
+    if _multinode_node_rank(args) > 0:
+        logger.info("decode barrier: skipped wait+warmup on multinode follower")
+        return
     model_name = (
         getattr(args.server_args, "served_model_name", None)
         or getattr(args.server_args, "model_path", None)
@@ -146,6 +153,15 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs) -> None:
             args.discovery_backend,
         )
         await wait_for_decode(_list, model_name=str(model_name), timeout=timeout)
+        probe_host = args.advertise_host or args.server_args.host
+        if probe_host in ("0.0.0.0", "", None):
+            probe_host = "127.0.0.1"
+        port = int(getattr(args.server_args, "port", 30000) or 30000)
+        dp_size = int(getattr(args.server_args, "dp_size", 1) or 1)
+        await run_disaggregation_warmup(
+            f"http://{probe_host}:{port}",
+            dp_size=dp_size,
+        )
     finally:
         if http is not None:
             await http.aclose()
@@ -355,9 +371,12 @@ async def main() -> None:
     # only set the one documented knob (else sglang asserts on the prefill engine).
     _wire_mori_dispatch_buffer(args.server_args)
 
-    # Prefill PD warmup issues a real KV transfer. Start SGLang only after a
-    # matching decode worker has registered (its /health is already 200).
-    await _maybe_wait_for_decode(args)
+    # Prefill PD warmup is a /generate during FastAPI startup. Load weights
+    # in parallel with decode; skip that warmup until decode has registered.
+    if should_wait_for_decode(
+        getattr(args.server_args, "disaggregation_mode", None), args.wait_for_decode
+    ):
+        args.sglang_argv = ensure_skip_server_warmup(args.sglang_argv)
 
     engine = SglangEngine(
         args.server_args,
@@ -389,6 +408,7 @@ async def main() -> None:
     # otherwise an exception (e.g. --kv-events on failing the KV plane) escapes
     # without reaping the sglang subprocess tree, orphaning it (holds ports/GPUs).
     try:
+        await _maybe_wait_for_decode(args)
         await _run_after_start(args, engine, config)
     except Exception:
         logger.exception("worker failed after engine start; tearing down")
