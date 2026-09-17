@@ -30,6 +30,14 @@ from infera.common.disagg_preflight import (
 )
 from infera.common.registration import RegistrationClient
 from infera.engine.base import EngineDeath, watch_engine_death
+from infera.engine.decode_barrier import (
+    decode_ready_timeout_seconds,
+    list_etcd_worker_payloads,
+    list_k8s_worker_payloads,
+    resolve_k8s_label_selector,
+    should_wait_for_decode,
+    wait_for_decode,
+)
 from infera.engine.drain import drain_engine_inflight
 from infera.engine.flush import anchor_kv_chain
 from infera.engine.sglang.args import (
@@ -66,6 +74,40 @@ def _kill_process_group_safely() -> None:
         os.killpg(pgid, signal.SIGKILL)
     except (ProcessLookupError, PermissionError):
         pass
+
+
+async def _maybe_wait_for_decode(args: SglangWorkerArgs) -> None:
+    """Block a PD prefill worker until a compatible decode worker is registered."""
+    mode = getattr(args.server_args, "disaggregation_mode", None)
+    if not should_wait_for_decode(mode, args.wait_for_decode):
+        return
+    model_name = (
+        getattr(args.server_args, "served_model_name", None)
+        or getattr(args.server_args, "model_path", None)
+        or ""
+    )
+    timeout = decode_ready_timeout_seconds(args.decode_ready_timeout)
+
+    async def _list() -> list:
+        if args.discovery_backend == "kubernetes":
+            return await list_k8s_worker_payloads(
+                namespace=args.k8s_namespace,
+                label_selector=resolve_k8s_label_selector(args.k8s_label_selector),
+            )
+        if not args.etcd_endpoint:
+            raise RuntimeError(
+                "--wait-for-decode with --discovery-backend=etcd requires --etcd-endpoint"
+            )
+        return await list_etcd_worker_payloads(args.etcd_endpoint, args.etcd_prefix)
+
+    logger.info(
+        "decode barrier: prefill waiting up to %.0fs for a registered decode worker "
+        "(model=%s, discovery=%s)",
+        timeout,
+        model_name,
+        args.discovery_backend,
+    )
+    await wait_for_decode(_list, model_name=str(model_name), timeout=timeout)
 
 
 logging.basicConfig(level=logging.INFO)
@@ -271,6 +313,10 @@ async def main() -> None:
     # Auto-size the mori-MoE dispatch buffer from --chunked-prefill-size so operators
     # only set the one documented knob (else sglang asserts on the prefill engine).
     _wire_mori_dispatch_buffer(args.server_args)
+
+    # Prefill PD warmup issues a real KV transfer. Start SGLang only after a
+    # matching decode worker has registered (its /health is already 200).
+    await _maybe_wait_for_decode(args)
 
     engine = SglangEngine(
         args.server_args,

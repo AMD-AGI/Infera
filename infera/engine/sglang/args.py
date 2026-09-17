@@ -68,6 +68,12 @@ class SglangWorkerArgs:
     # the SGLang flags that select our backend.
     infera_kvd_socket: str | None  # UDS path the kvd daemon listens on
 
+    # PD prefill waits for a registered decode worker before SGLang warmup.
+    # None means default-on for --disaggregation-mode prefill.
+    wait_for_decode: bool | None
+    decode_ready_timeout: float | None
+    k8s_label_selector: str | None
+
 
 def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
     parser = argparse.ArgumentParser(add_help=True)
@@ -100,6 +106,29 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
         default=None,
         help="Namespace of this worker's Pod for --discovery-backend=kubernetes "
         "(default: POD_NAMESPACE env / the Pod's mounted ServiceAccount namespace).",
+    )
+    parser.add_argument(
+        "--k8s-label-selector",
+        default=None,
+        help="Label selector used by a PD prefill worker to find decode Pods "
+        "(--wait-for-decode). Default: $INFERA_K8S_LABEL_SELECTOR, else "
+        "infera.amd.com/deployment=$WORKLOAD_ID when that env is set.",
+    )
+    parser.add_argument(
+        "--wait-for-decode",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="On --disaggregation-mode prefill, wait until a matching decode "
+        "worker has registered before starting SGLang (so PD warmup does not "
+        "poison Mooncake). Default on for prefill; --no-wait-for-decode skips it.",
+    )
+    parser.add_argument(
+        "--decode-ready-timeout",
+        type=float,
+        default=None,
+        help="Seconds a PD prefill worker waits for a registered decode peer. "
+        "Default $INFERA_DECODE_READY_TIMEOUT, else $INFERA_ENGINE_READY_TIMEOUT, "
+        "else 14400.",
     )
     parser.add_argument(
         "--request-transport",
@@ -359,6 +388,9 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
         kv_event_transport=known.kv_event_transport,
         nats_server=known.nats_server,
         infera_kvd_socket=known.infera_kvd_socket,
+        wait_for_decode=known.wait_for_decode,
+        decode_ready_timeout=known.decode_ready_timeout,
+        k8s_label_selector=known.k8s_label_selector,
     )
 
 
