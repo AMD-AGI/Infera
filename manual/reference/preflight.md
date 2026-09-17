@@ -72,6 +72,37 @@ Storage throughput tests the largest local NVMe mount by default. `--storage-pat
 <dir>` picks a directory; `INFERA_PREFLIGHT_STORAGE_GB` sets the volume (default 4,
 `0` skips). The NVMe↔HBM part needs torch and a GPU and is skipped otherwise.
 
+### Mooncake READ and WRITE validation
+
+Mooncake tests READ by default. To check the WRITE path used for PD KV transfer,
+set `INFERA_PREFLIGHT_MOONCAKE_OPCODE=write` on every participating rank, inside
+the engine containers. Run READ and WRITE as separate invocations:
+
+```bash
+# Run concurrently on both nodes, with the rank variables described below.
+INFERA_PREFLIGHT_MOONCAKE_OPCODE=write \
+INFERA_PREFLIGHT_RUN_ID=write-check-001 \
+  python -m infera.tools.preflight --mooncake --dump-path /shared/preflight/write-check-001
+```
+
+For READ, the initiator verifies the bytes it receives. For WRITE, the target
+verifies its buffer after the initiator finishes. Both check every segment;
+missing, malformed or negative verification results fail the probe even if it
+measured bandwidth. The report records the operation and actual data direction.
+Ranks must agree on one operation (`read` or `write`); invalid or mixed values
+fail before the transfer matrix starts.
+
+Use the same `INFERA_PREFLIGHT_RUN_ID` on all ranks, and a new value for every
+invocation. It accepts letters, digits, dots, underscores and hyphens, except
+`.` and `..`. Mooncake uses this ID beneath its rendezvous directory, falling
+back to `SLURM_JOB_ID` when unset. Repeating a probe within one Slurm job needs a
+new explicit ID or a fresh dump path. This isolation applies only to Mooncake;
+keep using a fresh dump path for the overall preflight report and other probes.
+
+`INFERA_PREFLIGHT_RDMA_DEVICE` accepts a comma-separated HCA list. GPU variants
+preserve the complete list for Mooncake's device selection; the pinned CPU
+baseline uses its first device. No fixed GPU-to-HCA numbering is required.
+
 ### Multi-node
 
 SLURM is the main path — one command runs one task per node in parallel into a
