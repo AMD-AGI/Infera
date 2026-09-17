@@ -131,8 +131,26 @@ class _Req:
 
     @property
     def reserved_kv(self) -> int:
-        # Full-ISL reservation: the whole sequence is reserved up front.
-        return self.prompt_len + self.output_len
+        # Full-ISL reservation: the whole sequence is reserved up front, less
+        # the leading blocks that are already resident. A prefix-cache hit
+        # means those blocks are *in* the pool -- some earlier request put them
+        # there and this one attends to the same physical KV -- so charging
+        # them again per request double-counts the one copy the engine keeps.
+        # On an agentic replay that is not a small correction: at the 96-98%
+        # block reuse these corpora carry it inflates a request's footprint
+        # 25-50x, so a measured 7.67M-token pool looks full at ~19 concurrent
+        # and the replay queues from there, while the MI355X ladder reports its
+        # pool at 0.1-0.8% utilization at every concurrency it was run at and
+        # never binds at all.
+        #
+        # The credit is not refcounted: when the request that warmed a block
+        # retires, its reservation is released even though the block stays
+        # resident for reuse. Both directions are approximations of a
+        # refcounted pool, and undercharging shared blocks lands far nearer the
+        # measured occupancy than charging every sharer in full. A cold run is
+        # untouched -- ``cached_prefix`` is zero without a cache to hit, which
+        # is every fixed-sequence workpoint.
+        return self.prompt_len - self.cached_prefix + self.output_len
 
     @property
     def in_prefill(self) -> bool:
