@@ -7,10 +7,12 @@
 #
 # TWO ARMS, because the set is not uniformly portable across our engine bases:
 #
-#   DSA_PATCH_SET=full     (default; Dockerfile.sglang, mi35x / v0.5.18)
+#   DSA_PATCH_SET=full     (default; Dockerfile.sglang, mi35x / v0.5.19)
 #         patch 01 + dsa_dp_sync + dsa_page_table_rows + draft_cuda_graph_dp_vote.
 #         The three diffs are `--fuzz=0` against that one release, so this arm
-#         only works there.
+#         only works there.  draft_cuda_graph_dp_vote was re-cut for v0.5.19:
+#         upstream took the DP-sync slot the vote used, so it now rides slot 8,
+#         and the two `can_run_dp_*` fields it reads were renamed.
 #   DSA_PATCH_SET=indexer  (Dockerfile.sglang.gfx942, mi30x / v0.5.16)
 #         patch 01 only.  02b is substituted at RUNTIME by
 #         `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`

@@ -118,14 +118,15 @@ UPSTREAM STATUS (re-checked 2026-09-03)
   applying on top of the fix -- without crashing, because both gates read False
   again, and therefore without anyone noticing that the staged kernel #30350 enabled
   on ROCm had been given back. `check_group_still_poisoned` closes that: it reads
-  `DSAIndexerPoolHost` in `memory_pool_host.py` and refuses to apply once that pool
-  stops gating on `_is_cuda` alone (line 1777 at v0.5.16, 1830 on main).
+  `DSAIndexerPoolHost` and refuses to apply once that pool stops gating on
+  `_is_cuda` alone. The pool lives in `memory_pool_host.py` up to v0.5.18 and in
+  `pool_host/dsa.py` from v0.5.19; both layouts are accepted.
 
 THE TWO IMAGES THAT RUN THIS
   `Dockerfile.sglang.gfx942` (MI300X / MI325X, base v0.5.16) needs the
   correctness fix.
 
-  `Dockerfile.sglang` (MI355X, base v0.5.18) retains the same shared safe gate,
+  `Dockerfile.sglang` (MI355X, base v0.5.19) retains the same shared safe gate,
   but its controller already has per-pool index handling. Treat the impact there
   as a possible MLA write-back performance trade-off, not an unverified V4
   correctness dependency. A base predating staged write-back exits 0 because
@@ -140,7 +141,7 @@ EXIT CODES
          this base and the gate would silently not be applied;
        * `DSAIndexerPoolHost` no longer gates on `_is_cuda` alone -- upstream fixed
          it, so this patch must be dropped rather than applied;
-       * that pool, or `memory_pool_host.py`, cannot be found to check at all.
+       * that pool, or every file it could live in, cannot be found to check at all.
 
 Idempotent and self-locating. Run inside the container, then delete stale .pyc.
 """
@@ -172,7 +173,12 @@ NEW = f"""        # {MARKER}: WHY the ROCm build of this kernel wants
 # The precondition this patch exists for: a CUDA-only pool in the same
 # HostPoolGroup dragging the group's AND to False on ROCm. Checked against the
 # pool that does it for every DSA model, in the file it lives in.
-MPH_REL = ("srt", "mem_cache", "memory_pool_host.py")
+# v0.5.19 split this pool out of memory_pool_host.py into pool_host/dsa.py, so
+# both layouts are accepted and whichever one declares the pool is the one read.
+MPH_RELS = (
+    ("srt", "mem_cache", "pool_host", "dsa.py"),
+    ("srt", "mem_cache", "memory_pool_host.py"),
+)
 GROUP_MEMBER = "class DSAIndexerPoolHost"
 POISON_GATE = "self.can_use_write_back_jit = _is_cuda and can_use_write_back_jit_kernel("
 
@@ -201,27 +207,29 @@ def check_group_still_poisoned(root: str) -> int:
     crash; it silently gates the anchor back down, makes the group read False
     again, and forfeits the staged kernel #30350 just enabled on ROCm.
     """
-    path = os.path.join(root, *MPH_REL)
-    if not os.path.isfile(path):
+    present = [p for p in (os.path.join(root, *rel) for rel in MPH_RELS) if os.path.isfile(p)]
+    if not present:
         print(
-            "[patch] ERROR: mla.py carries the staged write-back but there is no\n"
-            f"        {path}\n"
-            "        to check the group's other members against. Refusing to\n"
-            "        apply a gate whose precondition cannot be verified."
+            "[patch] ERROR: mla.py carries the staged write-back but none of\n"
+            + "".join(f"        {os.path.join(root, *rel)}\n" for rel in MPH_RELS)
+            + "        exists to check the group's other members against. Refusing\n"
+            "        to apply a gate whose precondition cannot be verified."
         )
         return 1
 
-    src = open(path).read()
-    start = src.find(GROUP_MEMBER)
-    if start < 0:
+    path = next((p for p in present if GROUP_MEMBER in open(p).read()), None)
+    if path is None:
         print(
             f"[patch] ERROR: no `{GROUP_MEMBER}` to check. It has moved or been\n"
             "        renamed, so whether the HostPoolGroup AND still reads False on\n"
             "        ROCm is unknown. Re-derive before shipping — see this script's\n"
             "        UPSTREAM STATUS section.\n"
-            f"        Checked: {path}"
+            f"        Checked: {', '.join(present)}"
         )
         return 1
+
+    src = open(path).read()
+    start = src.find(GROUP_MEMBER)
 
     end = src.find("\nclass ", start + 1)
     block = src[start:] if end < 0 else src[start:end]

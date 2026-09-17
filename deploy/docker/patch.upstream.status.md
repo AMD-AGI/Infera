@@ -5,14 +5,33 @@ project it patches. Kept here so "why do we still carry this?" has one answer
 per row, and so a patch that upstream has since merged gets dropped instead of
 quietly outliving its reason.
 
-**PR states and pinned source re-verified on 2026-09-02**, when the sglang mi35x
-base moved to v0.5.18. The DSA, PD, Responses and ROCm defects below were checked
-directly in image digest `sha256:6d68cd19206716cb3f1e31e2ad89cd0852d7ae614a792773c30a4277f8955c72`;
-an anchor drift is recorded as a re-cut, not mistaken for an upstream fix.
+**PR states and pinned source re-verified on 2026-09-17**, when the sglang mi35x
+base moved to `lmsysorg/sglang-rocm:v0.5.19-rocm720-mi35x-20260916`
+(`sha256:eef7b70e015c94435d68dd92612229d52324b9e8d5edaac741802e7e78e66eb6`). Every
+defect below was checked by reading that image's own sglang tree, and every
+verdict was then confirmed by running the patch against it: applies, is
+idempotent on re-run, and passes bytecode verification where the applier has a
+marker. An anchor drift is recorded as a re-cut, not mistaken for an upstream fix.
 State drifts; re-check before relying on a row. `gh search`
 matches titles and bodies, **not diff content**, so "no upstream PR" means "none
 found by search", not "none exists" — where a row could be checked by reading
 upstream source instead, it says so.
+
+**THE mi35x BASE IS A DATED NIGHTLY, NOT THE v0.5.19 RELEASE.** It reports
+`0.5.19.dev20260916+ge7f7447333`, which is `main` several hundred commits past the
+`release/v0.5.19` branch point. Some anchors below match the `v0.5.19` *tag* but
+not this image, and the reverse also happens, so "verified on v0.5.19" is not a
+statement about this base. Verdicts here are against the digest named above.
+
+**THREE BASES ARE LIVE, AND THEY NO LONGER SHARE ONE PATCH SET.** `Dockerfile.sglang`
+is on the nightly above; `Dockerfile.sglang.glm53` is on v0.5.18; and
+`Dockerfile.sglang.gfx942` is on v0.5.16. Where a patch is needed on some bases
+and fixed on others, the file stays put and the *image* stops copying it — see
+the "applied by" note on each row. Where the anchor itself differs, the newer cut
+lives in a `v0519/` subdirectory, which the older recipes' `*.py` globs do not
+descend into, so those two images keep their exact previous patch set without
+being edited. Both properties were re-checked on 2026-09-17 by running each
+image's file list against its own base.
 
 Column meanings:
 
@@ -22,15 +41,33 @@ Column meanings:
 
 ## sglang — `patches/sglang_dsa/` (baked by `Dockerfile.sglang` and `Dockerfile.sglang.gfx942`, `APPLY_SGLANG_DSA_PATCHES=1`)
 
+**Upstream fixed none of these four.** All are still needed on the nightly base.
+
 Patch 01 is an anchor script and is baked by both images. The other three are
-`--fuzz=0` diffs verified against the mi35x base (v0.5.18) and are not applied by the
+`--fuzz=0` diffs verified against the mi35x base and are not applied by the
 gfx942 image, which substitutes `dsa_page_table_rows` and `draft_cuda_graph_dp_vote`
 at runtime with `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`
 — `patches/sglang_dsa/README.md` carries the reasoning.
 The apply script dry-runs both directions before mutation, so rerunning it skips
 an applied diff instead of allowing GNU patch to auto-reverse the fix.
-Patch 01 was freshly applied and bytecode-verified on both supported release
-trees: v0.5.16 (`indexer`) and v0.5.18 (`full`).
+
+Two of the four moved at the nightly, neither because the defect changed:
+
+- **Patch 01 was re-anchored onto deliberately loose context.** The typing line it
+  used lost `List`, and a nested helper was inserted between `weights.squeeze(2)`
+  and the aiter branch. The replacements — the `contextlib`/`logging` import head,
+  and the bare `if …is_aiter():` line — are unique on v0.5.16, v0.5.18 *and* the
+  nightly, so one script still covers every base and the directory did **not**
+  have to be split. Do not re-tighten them onto the adjacent code.
+- **`draft_cuda_graph_dp_vote.diff` was re-cut, and the interesting part is not the
+  rename.** Upstream took DP-sync slot 7 for `prefill_cuda_graph_max_prefix_len`,
+  so the vote now rides slot 8; a mechanical re-anchor that kept slot 7 would have
+  read a prefix length as a boolean and passed both compile and bytecode checks.
+  The two `can_run_dp_*` fields it reads were also renamed. Only the `full` arm
+  uses this diff, so no other image is affected.
+
+Applied and bytecode-verified on 2026-09-17 against both trees each arm serves:
+v0.5.16 (`indexer`, patch 01 only) and the nightly (`full`, all four).
 
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
 |---|---|---|---|---|---|
@@ -52,7 +89,7 @@ regression in this baseline, not a legacy wart.
 [#32722](https://github.com/sgl-project/sglang/pull/32722) (OPEN) adds a test for
 PD + DP-attention + MTP, i.e. **no CI covers this topology today**.
 
-## sglang PD — `patches/sglang_disagg/` (baked by `Dockerfile.sglang` and `Dockerfile.sglang.gfx942`)
+## sglang PD — `patches/sglang_disagg/` (baked by all three SGLang recipes; `v0519/` only by `Dockerfile.sglang`)
 
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
 |---|---|---|---|---|---|
@@ -70,6 +107,43 @@ PD + DP-attention + MTP, i.e. **no CI covers this topology today**.
 > The import differs between supported bases (`Set` is added in v0.5.18), so the
 > script accepts explicit v0.5.16 and v0.5.18 source shapes. Both apply and
 > second-run idempotence checks pass.
+>
+> **Re-anchored at the nightly, and the defect is untouched:** `mooncake/conn.py`
+> still contains no `wait_event` or `synchronize()` of its own, while `mori` has
+> carried the full barrier since v0.5.18. Only Black moved — it reformatted the
+> `assert` that used to anchor the `prefill.py` edit. That edit now anchors on the
+> bare `send_kv_chunk(..., end_idx=req.tmp_end_idx)` call, which is unique on all
+> three bases and immune to the next reformat.
+>
+> **One half of this patch has landed upstream, for the other backend.** The
+> nightly declares `TransferKVChunk.wait_event` for `mori`'s benefit, so applying
+> our field edit there would declare it twice. `_ALREADY_UPSTREAM` in the script
+> skips `common/utils.py` when the field is present; the mooncake consumer edits,
+> which are the ones that actually fix anything, still apply.
+
+### PD decode vs the nightly's implicit ROCm rejection sampling
+
+| patch | fixes | upstream issue | upstream PR | ours? | PR state |
+|---|---|---|---|---|---|
+| `sglang_disagg/v0519/patch_pd_disable_implicit_rocm_rejection_sampling.py` | the nightly auto-enables `speculative_use_rejection_sampling` on HIP for any plain-EAGLE run. A PD **decode** worker cannot take that path: the handoff rebuilds `EagleDraftInput` without `draft_probs`, so `draft()` seeds `draft_probs_list` with `None` and dies at `torch.stack` during startup warmup | none found | none found | — | — |
+
+**Applied only by `Dockerfile.sglang`**, from the `v0519/` subdirectory, because
+only that base has the defect. This patch was first cut against the xiaobochen
+GLM-5.2 fork and kept out of the shared glob as fork-specific; **that label is now
+obsolete.** Official v0.5.18 has no implicit enable at all — `is_hip()` appears
+once in its speculative hook, to choose a draft attention backend — but the
+nightly adopted the same auto-enable via `_should_auto_enable_hip_rejection_sampling`,
+whose guard list (EAGLE3, draft token map, topk != 1, non-default accept
+thresholds, deterministic inference) omits PD decode. Confirmed absent from
+upstream `main` too, so **this one is worth filing rather than only carrying.**
+
+Costs nothing on a greedy deployment: rejection sampling exists so EAGLE verify
+can honour temperature and top_p, and ROCm has no sampling-verify kernel, so
+verify already falls back to argmax — which is exactly right at temperature 0.
+`--speculative-use-rejection-sampling` still works if asked for explicitly.
+**Drop it** when a base guards the auto-enable on `disaggregation_mode` or
+transfers `draft_probs` across the handoff; the anchor stops matching in the
+first case, so the drop is not silent.
 
 ## sglang Responses API — `patches/sglang_disagg/` and `patches/sglang_responses/`
 
@@ -79,22 +153,63 @@ PD + DP-attention + MTP, i.e. **no CI covers this topology today**.
 | `sglang_responses/patch_responses_custom_encoder_prompt.py` | Responses takes empty prompt text instead of the authoritative prompt IDs for `kimi_k3`/`inkling`, so every request returns 400 | none found | none found | — | — |
 
 Both defects are present in v0.5.16 and v0.5.18. The PD bootstrap script accepts
-the explicit GenerateReqInput tail from each release; the custom-encoder anchor
-is shared unchanged. Both release trees apply and re-run idempotently. Drop
-either only when the corresponding fields/forwarding or shared prompt-selection
-helper is present in the pinned source.
+the explicit GenerateReqInput tail from each release and **still applies cleanly
+to the nightly**, which is useful evidence in itself: the Responses area was not
+fixed wholesale, so the two verdicts below are about their own defects.
 
-## sglang ROCm — `patches/sglang_rocm/` (baked by `Dockerfile.sglang`, `Dockerfile.sglang.gfx942`)
+**`patch_responses_custom_encoder_prompt.py` — DROPPED on the nightly, still
+applied on v0.5.16 and v0.5.18.** Its own header set the exit criterion as "base
+sglang routes both through one helper", and that is exactly what happened:
+`OpenAIServingChat._engine_prompt` is new in the nightly and both Chat
+(`serving_chat.py`) and Responses (`serving_responses.py`) now call it, so a
+custom encoder's `prompt_ids` reach `GenerateReqInput` instead of an empty
+`prompt`. `Dockerfile.sglang` no longer copies the file; the other two recipes
+still glob it, so it stays where it is rather than moving to **Retired**.
+
+**`patch_responses_unstreamed_tool_args.py` — RE-ANCHORED, and isolated by
+directory.** The defect is untouched: `prev_tool_call_arr`, `streamed_args_for_tool`
+and `_check_for_unstreamed_tool_args` are still absent from `serving_responses.py`,
+which still treats the accumulated deltas as authoritative. But the nightly
+restructured `_close_tool_call_state` for custom tool calls — `events` is now
+initialised empty before a custom/function branch instead of being built as one
+list literal after it — so the older shape needs two splices and the newer one
+needs a single insertion. Rather than carry two anchor sets and two splice counts
+in one script, whose error reporting could then no longer name which shape
+drifted, the newer cut lives in `sglang_responses/v0519/`. It reconciles only the
+function-call arm; the custom arm decodes through `decode_custom_tool_input` and
+diffs its own remainder, so it neither needs nor wants a second delta.
+
+## sglang ROCm — `patches/sglang_rocm/` (`host_alloc` by `gfx942`/`glm53` only; `staged_write_back` by `Dockerfile.sglang`/`gfx942`)
 
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
 |---|---|---|---|---|---|
 | `sglang_rocm/patch_hicache_rocm_host_alloc.py` | hicache allocates host pools with `mmap` + `hipHostRegister`, which on ROCm maps the pages at a device address ≠ the host VA, but the pools hand raw host `data_ptr()`s to GPU kernels via device-side pointer tables → `Memory access fault by GPU node-N on address <host VA>` on the first kvd write-back | none found | [sglang#33968](https://github.com/sgl-project/sglang/pull/33968) | **yes** (`dorado269`) | OPEN |
 | `sglang_rocm/patch_hicache_rocm_staged_write_back.py` | On the v0.5.16 controller, `pool_host/mla.py` enables the staged write-back JIT on HIP while `DSAIndexerPoolHost` gates it on `_is_cuda`; group-level index movement then sends GPU indices to a JIT kernel requiring CPU/ROCm-host indices → scheduler exit −3. v0.5.18 adds per-pool index movement and no longer has that exact failure mode, but the shared patch keeps MLA on the conservative non-JIT path. | none found | [sglang#28534](https://github.com/sgl-project/sglang/pull/28534) `[AMD] Enable JIT staged HiCache write-back and fix CPU-index crash` | no (`AMD-yanfeiwang`) | **MERGED** 2026-07-09 |
 
-**`patch_hicache_rocm_host_alloc.py`** — the fault is **gfx950-only so far**: MI300X
-(amdgpu 6.14.14, ROCm 7.2.0) measures the two addresses equal, so
-`Dockerfile.sglang.gfx942` carries this one preventively rather than to fix a crash.
-Don't read its row above as evidence the fault was seen on both arches.
+**`patch_hicache_rocm_host_alloc.py` — DROPPED on the nightly, still applied on
+v0.5.16 and v0.5.18. This is the one row where "it still applies" is a trap.** The
+script exits 0 against the nightly, because its anchor sits in `ALLOC_MEMORY_FUNCS`,
+a dict upstream never had to touch — the repair landed at the ~10 call sites this
+patch's own header called "the more thorough shape".
+[sglang#35233](https://github.com/sgl-project/sglang/pull/35233) `[AMD] Fix registered
+HiCache host pointer aliases` (**MERGED 2026-09-14**, two days before this base was
+cut) adds `make_kernel_ptr_table`, which translates every host-pool pointer table
+through `hipHostGetDevicePointer`; its stated motivation is our fault verbatim, on
+MI355X. [#39516](https://github.com/sgl-project/sglang/pull/39516) (**MERGED**) added
+the guard that raises when the kernel op is missing. Confirmed in the image itself:
+`torch.ops.sgl_kernel.get_device_accessible_ptr` is present. Our own
+[#33968](https://github.com/sgl-project/sglang/pull/33968) is superseded in substance.
+
+Keeping it would not crash — it would silently cost something. `alloc_with_pin_memory`
+ignores the `allocator` argument, so a ROCm deployment configuring a mooncake / mori /
+umbp storage backend would quietly get `torch.empty` instead, and teardown would warn
+per buffer on an unregister that never registered. That is why `Dockerfile.sglang`
+uses an explicit file list here instead of a directory glob.
+
+The fault it fixed is **gfx950-only so far**: MI300X (amdgpu 6.14.14, ROCm 7.2.0)
+measures the two addresses equal, so `Dockerfile.sglang.gfx942` carries it
+preventively rather than to fix a crash. Don't read its row above as evidence the
+fault was seen on both arches.
 
 > Verified on 2026-08-03 by **reading upstream `main` directly** (contents API,
 > `pool_host/common.py`): `ALLOC_MEMORY_FUNCS` still overrides only `"npu"` and
@@ -110,7 +225,24 @@ Don't read its row above as evidence the fault was seen on both arches.
 > [#32792](https://github.com/sgl-project/sglang/pull/32792) (OPEN, Intel XPU
 > HiCache) touch this same dict — expect an anchor conflict, not a fix.
 
-**`patch_hicache_rocm_staged_write_back.py`** — **not preventive on v0.5.16**:
+**`patch_hicache_rocm_staged_write_back.py` — RE-ANCHORED, still needed.** The
+precondition it guards is intact on the nightly: `pool_host/mla.py` still opts HIP
+into the staged JIT with `_is_cuda or _is_hip`, `DSAIndexerPoolHost` still gates on
+`_is_cuda` alone, and `HostPoolGroup` still ANDs over its members, so the group
+still reads False on ROCm. sglang#30350 is still **CLOSED unmerged** and, checked
+in the source rather than from the PR page, still absent: `_is_cuda_alike` appears
+nowhere in `mem_cache/`. What moved is only the file — the pool was split out of
+`mem_cache/memory_pool_host.py` into `mem_cache/pool_host/dsa.py` — so the script
+now accepts both layouts and reads whichever one declares the pool. Its designed
+drop signal still fires from the new location: simulating #30350 there makes it
+refuse with exit 1 and leave `mla.py` byte-identical.
+
+Whether to retire it is still the **GPU A/B that v0.5.18 already owed**, not an
+anchor question, and it is now more worth running: #35233's thread reports the
+kernel HiCache path measuring +16% AgentX throughput over `direct` on MI355X
+GLM-5.2-MXFP4, so the staged path this patch forgoes is no longer hypothetical.
+
+**Historical, on v0.5.16** — **not preventive there**:
 without it the gfx942 prefill scheduler dies on the first reused prefix, so that
 image needs it to run kvd. v0.5.18 still has the mixed pool gates, but its
 `HybridCacheController._move_write_operation()` checks

@@ -11,23 +11,30 @@ import importlib.util
 import json
 from pathlib import Path
 
-_PATCH = (
-    Path(__file__).resolve().parents[3]
-    / "deploy"
-    / "docker"
-    / "patches"
-    / "sglang_responses"
-    / "patch_responses_unstreamed_tool_args.py"
+_PATCHES = (
+    Path(__file__).resolve().parents[3] / "deploy" / "docker" / "patches" / "sglang_responses"
 )
+_PATCH = _PATCHES / "patch_responses_unstreamed_tool_args.py"
+# Same defect and same helper, spliced into the shape v0.5.19 restructured
+# `_close_tool_call_state` into. Applied only by the image on that base.
+_PATCH_V0519 = _PATCHES / "v0519" / "patch_responses_unstreamed_tool_args.py"
 _MARKER = "_infera_responses_unstreamed_tool_args"
 
 
-def _load_patch():
-    spec = importlib.util.spec_from_file_location("patch_responses_unstreamed_tool_args", _PATCH)
+def _load(path: Path):
+    spec = importlib.util.spec_from_file_location(f"patch_{path.parent.name}", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _load_patch():
+    return _load(_PATCH)
+
+
+def _load_v0519():
+    return _load(_PATCH_V0519)
 
 
 def _load_helper(mod):
@@ -167,4 +174,56 @@ def test_apply_reports_missing_events_anchor() -> None:
     patched, reason = mod.apply_to_source(src)
     assert patched is None
     assert reason == "done events anchor is gone"
+    assert reason not in mod._BENIGN
+
+
+def _fixture_v0519(mod, close: str | None = None) -> str:
+    """The v0.5.19 close shape: `events` initialised before a custom/function branch."""
+    return (
+        "import json\n"
+        "import logging\n\n"
+        "logger = logging.getLogger(__name__)\n"
+        "class ServingResponses:\n"
+        "    def _stream(self):\n"
+        "        def _close_tool_call_state(tool_index: int):\n"
+        "            state = tool_call_states.get(tool_index)\n"
+        '            if state is None or state.get("done"):\n'
+        "                return []\n"
+        f"{mod._OLD_CLOSE if close is None else close}"
+        "                pass\n"
+        "            return events\n"
+    )
+
+
+def test_v0519_helper_has_not_drifted_from_the_shared_one() -> None:
+    """The two splices differ by design; the reconciliation must not."""
+    assert _load_v0519()._HELPER == _load_patch()._HELPER
+
+
+def test_v0519_apply_inserts_helper_and_is_idempotent() -> None:
+    mod = _load_v0519()
+    patched, reason = mod.apply_to_source(_fixture_v0519(mod))
+    assert patched is not None
+    assert "helper" in reason
+    assert _MARKER in patched
+    # Only the function-call arm is reconciled; the custom arm diffs its own.
+    assert 'if not state["custom"]:' in patched
+    again, reason2 = mod.apply_to_source(patched)
+    assert again is None
+    assert reason2 == "already present"
+
+
+def test_v0519_patched_fixture_still_compiles() -> None:
+    mod = _load_v0519()
+    patched, _ = mod.apply_to_source(_fixture_v0519(mod))
+    assert patched is not None
+    compile(patched, "serving_responses.py", "exec")
+
+
+def test_v0519_reports_missing_close_anchor() -> None:
+    mod = _load_v0519()
+    src = _fixture_v0519(mod, close="            arguments = state.pop('arguments')\n")
+    patched, reason = mod.apply_to_source(src)
+    assert patched is None
+    assert reason == "close state anchor is gone"
     assert reason not in mod._BENIGN

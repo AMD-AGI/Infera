@@ -41,10 +41,15 @@ VERIFIED: 2x 8xMI325X (gfx942), ROCm 7.2.0, sglang v0.5.16, GLM-5.2-FP8 1P1D ove
 mooncake RDMA, overlap scheduling ON, `chunked-prefill-size 131072` with
 `--enable-dp-attention`: needle 5/9 -> 9/9, a 29k depth sweep 4/9 -> 9/9, and the
 logs confirm the failing prompt is still really split into 4 chunks afterwards. The
-anchors below were re-checked against both supported bases on 2026-09-02:
-v0.5.16 has no `Set` in mooncake/conn.py's typing import, while v0.5.18 adds it.
-The functional anchors and the defect are otherwise unchanged, so the import
-edit accepts exactly those two source shapes.
+anchors below were re-checked against every supported base on 2026-09-17:
+v0.5.16 has no `Set` in mooncake/conn.py's typing import, while v0.5.18 and
+v0.5.19 add it, so the import edit accepts exactly those two source shapes. The
+defect itself is unchanged on all three -- mooncake/conn.py still contains no
+`wait_event`/`synchronize` of its own, while mori has carried the full barrier
+since v0.5.18. Only two things moved at v0.5.19: Black reformatted the assert
+that used to anchor the prefill.py edit (so that edit now anchors on the bare
+`send_kv_chunk` call, which is unique on all three bases), and upstream landed
+the dataclass field for mori -- see `_ALREADY_UPSTREAM` below.
 
 UPSTREAM: sgl-project/sglang#33970 carries this fix and was still OPEN on
 2026-09-02. The closest older report, #25583 (GLM-5-FP8 + NSA + 70k prompt,
@@ -83,6 +88,13 @@ _TYPING_IMPORT_VARIANTS: tuple[tuple[str, str], ...] = (
         "from typing import Any, List, Optional, Set, Tuple, Union",
     ),
 )
+
+# A file whose edits upstream has since landed on its own. v0.5.19 declares
+# TransferKVChunk.wait_event for the mori backend, so only the mooncake consumer
+# below is still missing — applying our field edit there would declare it twice.
+_ALREADY_UPSTREAM: dict[str, str] = {
+    "disaggregation/common/utils.py": "\n    wait_event:",
+}
 
 _EDITS: dict[str, list[tuple[str, str, int]]] = {
     "disaggregation/common/utils.py": [
@@ -173,11 +185,9 @@ _EDITS: dict[str, list[tuple[str, str, int]]] = {
     ],
     "disaggregation/prefill.py": [
         (
-            """                    ), f"Req {req.rid} does not have metadata buffer allocated"
-                    self.send_kv_chunk(req, last_chunk=False, end_idx=req.tmp_end_idx)
+            """                    self.send_kv_chunk(req, last_chunk=False, end_idx=req.tmp_end_idx)
 """,
-            """                    ), f"Req {req.rid} does not have metadata buffer allocated"
-                    # Non-final chunks are handed over while later chunks are
+            """                    # Non-final chunks are handed over while later chunks are
                     # already running on forward_stream, and the transfer worker
                     # reads device memory outside the CUDA stream. Gate the read
                     # on this chunk's writes completing.
@@ -213,6 +223,9 @@ def main():
             print(f"{_TAG} {f} is missing — sglang layout changed, re-anchor the patch")
             return 1
         src = out = f.read_text()
+        upstream = _ALREADY_UPSTREAM.get(rel)
+        if upstream and upstream in src:
+            continue
         if rel == "disaggregation/mooncake/conn.py":
             if not any(new in out for _, new in _TYPING_IMPORT_VARIANTS):
                 matches = [

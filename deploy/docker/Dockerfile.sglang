@@ -7,11 +7,23 @@
 # sglang release. Bumping the base fails the build there rather than silently
 # mis-applying. Build with APPLY_SGLANG_DSA_PATCHES=0 if you need a newer base.
 #
+# ⚠️ The pin is a DATED NIGHTLY, not the v0.5.19 release: it reports
+# 0.5.19.dev20260916+ge7f7447333, which is main well past the release branch
+# point. Several anchors below match the v0.5.19 tag but not this image, and
+# vice versa, so "verified on v0.5.19" is not a statement about this base.
+# Patch verdicts in patch.upstream.status.md are recorded against this digest.
+#
+# ⚠️ The patch directories below are consumed by EXPLICIT file lists, not by a
+# whole-directory glob, because this base and the other two SGLang recipes no
+# longer need the same set. Two patches here would still APPLY cleanly to this
+# base while fixing nothing -- see the Responses and ROCm blocks for which, and
+# what upstream replaced them with. A glob would re-apply them silently.
+#
 # GLM-5.3 and GLM-5.3-MXFP4 need NO new model source here: they are model_type
 # `glm_moe_dsa` / GlmMoeDsaForCausalLM, and their config.json is field-for-field
 # identical to GLM-5.2's except `transformers_version`, so the released engine
 # already serves them through glm4_moe.py.
-ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.18-rocm720-mi35x
+ARG SGLANG_BASE_IMAGE=lmsysorg/sglang-rocm:v0.5.19-rocm720-mi35x-20260916
 FROM ${SGLANG_BASE_IMAGE}
 
 WORKDIR /opt/infera
@@ -118,9 +130,17 @@ RUN if [ "${APPLY_SGLANG_DSA_PATCHES}" = "1" ]; then \
 # prefill.py / mooncake/conn.py, which no DSA diff does. A script here exits non-zero
 # when its anchors drifted, i.e. when the fix did not go in — an engine image that
 # silently corrupts long prompts is worse than a failed build.
+#
+# The v0519/ subdirectory holds patches only this base needs. Today that is the
+# PD rejection-sampling guard: v0.5.19 started auto-enabling EAGLE rejection
+# sampling on HIP without excluding PD decode, which cannot supply draft_probs,
+# so the decode worker dies at startup warmup. Older bases never auto-enable it
+# and must not receive the patch, which is why it is not in the glob above.
 COPY deploy/docker/patches/sglang_disagg/ /tmp/sglang-disagg-patches/
 RUN set -eu; \
-    for f in /tmp/sglang-disagg-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    for f in /tmp/sglang-disagg-patches/*.py /tmp/sglang-disagg-patches/v0519/*.py; do \
+        echo "[sglang-patch] $f"; python "$f"; \
+    done; \
     rm -rf /tmp/sglang-disagg-patches
 
 # ---- sglang Responses API patches (not PD-specific) ------------------------
@@ -144,36 +164,40 @@ RUN set -eu; \
 # drifted. An image whose Responses endpoint 400s on every request should not
 # ship quietly. Reports "already present" once base sglang routes both paths
 # through one helper.
-COPY deploy/docker/patches/sglang_responses/ /tmp/sglang-responses-patches/
+#
+# Only the v0519/ set is copied here. The sibling
+# patch_responses_custom_encoder_prompt.py is NOT applied to this base and is
+# not a regression: v0.5.19 added OpenAIServingChat._engine_prompt and routes
+# both Chat and Responses through it, which is the shared prompt-selection
+# helper that patch named as its own exit criterion. It is still applied by the
+# two recipes on older bases, which is why the file stays where it is.
+COPY deploy/docker/patches/sglang_responses/v0519/ /tmp/sglang-responses-patches/
 RUN set -eu; \
     for f in /tmp/sglang-responses-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
     rm -rf /tmp/sglang-responses-patches
 
-# ---- sglang ROCm patches (hicache host allocator, staged write-back) --------
-# REQUIRED FOR CORRECTNESS on ROCm whenever hierarchical cache / kvd is enabled:
-# hipHostRegister maps host pages at a device VA that differs from the host VA,
-# but sglang's hicache stores raw host data_ptr()s in device-side pointer tables
-# that a GPU kernel dereferences. The kernel then dereferences an unmapped
-# address and the process aborts with "Memory access fault by GPU node-N on
-# address <host VA>". gfx950 is xnack-, so there is no page-migration fallback.
-# Routes ALLOC_MEMORY_FUNCS to pin_memory (hipHostMalloc) on HIP, exactly as the
-# "npu" and "musa" entries already do for the same reason.
+# ---- sglang ROCm patch (staged write-back gate) -----------------------------
+# Resyncs two gates that disagree about the staged write-back JIT on ROCm: MLA
+# enables it on HIP while DSAIndexerPoolHost still gates it on _is_cuda, which
+# poisons the pool group's capability AND. The patch gates MLA back down to the
+# safe non-JIT path until the full ROCm parity repair lands upstream. It checks
+# that precondition rather than its own anchor, so it refuses and tells the
+# operator to drop it once the group stops reading False -- anchor drift alone
+# would leave it silently forfeiting a kernel upstream had just enabled.
 #
-# Order-independent w.r.t. everything above: it touches
-# mem_cache/pool_host/common.py, which no other patch here does.
-#
-# NOT tolerant, like the disagg loop above: an image that GPU-faults the moment
-# kvd writes back is worse than a failed build. Self-locating, idempotent, and
-# it plants a real module-level string literal so the fix can be proven in the
-# BYTECODE rather than in the source.
-#
-# The directory also carries patch_hicache_rocm_staged_write_back.py, which
-# resyncs two gates that disagree about the staged write-back JIT on ROCm. This
-# v0.5.18 base is affected: MLA enables the staged JIT on HIP while
-# DSAIndexerPoolHost still gates it on _is_cuda, poisoning the pool group's
-# capability AND and crashing the first write-back. The patch gates MLA back
-# down to the safe non-JIT path until the complete ROCm parity repair lands.
-COPY deploy/docker/patches/sglang_rocm/ /tmp/sglang-rocm-patches/
+# ONLY this file is copied. The sibling patch_hicache_rocm_host_alloc.py is
+# deliberately NOT applied to this base, and it is the reason this block uses a
+# file list instead of a glob: it still applies cleanly here, so a glob would
+# keep it with no complaint, but its defect is fixed. It rerouted hicache host
+# pools to hipHostMalloc because registered host pages carry a device address
+# that differs from the host VA on gfx950, and the pointer tables handed raw
+# host data_ptr()s to GPU kernels. sglang#35233 (merged 2026-09-14, in this
+# base) instead translates every such table through hipHostGetDevicePointer,
+# which is the more thorough shape our own PR conceded to. Keeping our version
+# on top would cost the storage-backend allocators on ROCm -- alloc_with_pin_
+# memory ignores the allocator argument -- and warn on every buffer at teardown.
+# Older bases lack #35233 and still apply it; that is why the file stays put.
+COPY deploy/docker/patches/sglang_rocm/patch_hicache_rocm_staged_write_back.py /tmp/sglang-rocm-patches/
 RUN set -eu; \
     for f in /tmp/sglang-rocm-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
     rm -rf /tmp/sglang-rocm-patches
