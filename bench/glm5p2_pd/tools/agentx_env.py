@@ -139,6 +139,12 @@ def expected(env, role: str) -> dict:
         "mtp": role == "decode" and bool_value(env["DECODE_MTP"]),
         "max_running": int(env[f"{prefix}_MAX_RUNNING"]),
         "graph_max_bs": int(env[f"{prefix}_GRAPH_MAX_BS"]),
+        "dsa_prefill_backend": env.get("DSA_PREFILL_BACKEND", "tilelang"),
+        "dsa_decode_backend": env.get("DSA_DECODE_BACKEND", "tilelang"),
+        "dsa_topk_backend": env.get("DSA_TOPK_BACKEND", ""),
+        "jit_grouped_topk": bool_value(
+            env.get("SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK", "0")
+        ),
         "model_override": env.get("JSON_MODEL_OVERRIDE_ARGS", ""),
     }
 
@@ -164,6 +170,12 @@ def actual(row: dict, info: dict, container: dict, env) -> dict:
         "mtp": "--speculative-algorithm" in command,
         "max_running": int(command_value(command, "--max-running-requests")),
         "graph_max_bs": int(command_value(command, graph_option)),
+        "dsa_prefill_backend": command_value(command, "--dsa-prefill-backend"),
+        "dsa_decode_backend": command_value(command, "--dsa-decode-backend"),
+        "dsa_topk_backend": command_value(command, "--dsa-topk-backend"),
+        "jit_grouped_topk": bool_value(
+            container_env.get("SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK", "0")
+        ),
         "kv_transfer": command_value(command, "--disaggregation-transfer-backend"),
         "model_path": command_value(command, "--model-path"),
         "simulate_acc_len": container_env.get("SGLANG_SIMULATE_ACC_LEN", ""),
@@ -295,6 +307,12 @@ def main() -> int:
             "PREFILL_HARDWARE": hardware, "DECODE_HARDWARE": hardware,
             "IMAGE": env["IMAGE"],
             "IMAGE_IDS": json.dumps(image_ids, sort_keys=True, separators=(",", ":")),
+            "DSA_PREFILL_BACKEND": p["dsa_prefill_backend"],
+            "DSA_DECODE_BACKEND": p["dsa_decode_backend"],
+            "DSA_TOPK_BACKEND": p["dsa_topk_backend"],
+            "SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK": str(
+                p["jit_grouped_topk"]
+            ).lower(),
             "PORT": str(parsed.port or 80), "AIPERF_SERVER_URL": args.router_url.rstrip("/"),
             "AIPERF_SERVER_METRICS_URLS": ",".join(metrics),
             "AIPERF_REQUIRED_SERVER_METRIC_PREFIX": "sglang:",

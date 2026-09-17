@@ -25,20 +25,29 @@
 cd bench/glm5p2_pd
 ```
 
-本目录只保留一个自包含的 `config.sh` 和一个 `topology.tsv`，不再通过
-example、local override、profile 多层 source 合并配置。直接编辑
-`config.sh` 中的 `MODEL`、`CONTROL_NODE`、镜像、GPU、端口与 RDMA 设置。
-最小 topology 是一台 Prefill 和一台 Decode：
+本目录只保留一个 2P1D `topology.tsv`。配置有两个自包含文件，不通过
+source/profile 多层合并：
+
+- `config.sh`：已经测过的回归配置；
+- `config.full.sh`：C128、warmup 10、3,600 秒、Prefill HiCache 和三项优化
+  对齐全部打开的待跑通目标。
+
+`config.full.sh` 当前会请求尚未移植完成的 FlyDSL DSA 和 AITER DSA top-k；
+它是验收目标，不是可直接替代 `config.sh` 的已知良好配置。具体 TODO 和 commit
+见 `issue.md`。
+
+直接编辑所选配置中的模型、镜像、GPU、端口与 RDMA 设置。当前 topology 为：
 
 ```text
 role	node	data_ip
-prefill	worker-01	10.245.0.11
-decode	worker-02	10.245.0.12
+prefill	crsuse2-m2m-136	10.245.154.168
+prefill	crsuse2-m2m-137	10.245.153.247
+decode	crsuse2-m2m-140	10.245.159.30
 ```
 
 每个 node 和 data IP 只能出现一次；行号决定 worker 实例名和端口偏移。
-`CONTROL_NODE` 必须出现在 topology 中。当前 `config.sh` 直接包含
-P8+DPA / D8+DPA 配置。`tools/topology.py` 只校验这三列并提供
+`CONTROL_NODE` 必须出现在 topology 中。两个 config 都使用
+P8+DPA / D8+DPA。`tools/topology.py` 只校验这三列并提供
 `rows`、`nodes`、`count`、`node-ip` 查询；GPU、端口和容器参数由实际使用
 它们的部署脚本计算。
 
@@ -51,9 +60,9 @@ P8+DPA / D8+DPA 配置。`tools/topology.py` 只校验这三列并提供
 ### 1. 检查节点
 
 ```bash
-./check_nodes.sh crsuse2-m2m-136 crsuse2-m2m-140
+./check_nodes.sh crsuse2-m2m-136 crsuse2-m2m-137 crsuse2-m2m-140
 # 也可以传逗号分隔列表
-./check_nodes.sh crsuse2-m2m-136,crsuse2-m2m-140
+./check_nodes.sh crsuse2-m2m-136,crsuse2-m2m-137,crsuse2-m2m-140
 ```
 
 `check_nodes.sh` 是完全独立的只读检查，不读取 `config.sh`、`topology.tsv`
@@ -92,7 +101,7 @@ base，也不依赖其他 benchmark 仓库。
 
 ```bash
 IMAGE=infera-sglang:v0519-baseline \
-  ./preflight.sh crsuse2-m2m-136 crsuse2-m2m-140
+  ./preflight.sh crsuse2-m2m-136 crsuse2-m2m-137 crsuse2-m2m-140
 ```
 
 `preflight.sh` 不读取 benchmark 配置/topology，也不调用 `check_nodes.sh`。
@@ -256,7 +265,7 @@ REMOTE_CACHE="/mnt/m2m_nobackup/$USER/agentx-cache"
 cd "$BENCH_DIR"
 mkdir -p "$SHARED_OUT"
 
-# topology.2p1d.tsv:
+# topology.tsv:
 # prefill crsuse2-m2m-136 10.245.154.168
 # prefill crsuse2-m2m-137 10.245.153.247
 # decode  crsuse2-m2m-140 10.245.159.30
@@ -276,7 +285,6 @@ OUT_DIR="$SHARED_OUT/preflight-137-140" \
   ./preflight.sh crsuse2-m2m-137 crsuse2-m2m-140
 
 ./launch.sh \
-  TOPOLOGY=topology.2p1d.tsv \
   OUT_DIR="$SHARED_OUT/launch" \
   PREFILL_MAX_RUNNING=64 \
   PREFILL_GRAPH_MAX_BS=64 \
@@ -290,7 +298,6 @@ OUT_DIR="$SHARED_OUT/preflight-137-140" \
 cleanup() {
   if [[ ! -e "$SHARED_OUT/stop" ]]; then
     ./stop.sh \
-      TOPOLOGY=topology.2p1d.tsv \
       OUT_DIR="$SHARED_OUT/stop"
   fi
 }
@@ -308,7 +315,6 @@ remote_out="$2"
 remote_cache="$3"
 cd "$bench_dir"
 ./agentx_bench.sh \
-  TOPOLOGY=topology.2p1d.tsv \
   CONC=8 \
   DURATION=1200 \
   OUT_DIR="$remote_out" \

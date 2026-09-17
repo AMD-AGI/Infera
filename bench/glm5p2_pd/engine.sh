@@ -117,6 +117,7 @@ docker_args+=(
     -e "HSA_NO_SCRATCH_RECLAIM=$scratch_reclaim"
     -e SGLANG_USE_AITER=1
     -e "SGLANG_OPT_USE_TOPK_V2=$SGLANG_OPT_USE_TOPK_V2"
+    -e "SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=$SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK"
     -e PYTHONNOUSERSITE=1
     -e "SGLANG_TIMEOUT_KEEP_ALIVE=$SGLANG_TIMEOUT_KEEP_ALIVE"
     -e AITER_USE_FLYDSL_MOE_SORTING=1 -e SAFETENSORS_FAST_GPU=1
@@ -161,6 +162,8 @@ engine_args=(
 )
 [[ "$dp" -gt 1 ]] && engine_args+=(--dp-size "$dp")
 [[ "$dpa" == 1 ]] && engine_args+=(--enable-dp-attention)
+[[ -n "${DSA_TOPK_BACKEND:-}" ]] &&
+    engine_args+=(--dsa-topk-backend "$DSA_TOPK_BACKEND")
 [[ -n "${JSON_MODEL_OVERRIDE_ARGS:-}" ]] &&
     engine_args+=(--json-model-override-args "$JSON_MODEL_OVERRIDE_ARGS")
 [[ -n "$RDMA_DEVICE" ]] && engine_args+=(--disaggregation-ib-device "$RDMA_DEVICE")
