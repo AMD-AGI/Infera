@@ -57,21 +57,22 @@ property that is identical across GPUs, so 1-2 GPUs already reproduce it; reserv
 the full sweep for when you need to confirm every GPU's affinity path individually.
 
 Coordination reuses netperf's shared-dir rendezvous: each ordered node pair is
-tested both directions; the target registers a buffer stamped with a
-per-(gpu,segment) pattern (numpy/torch + register_memory -- allocate_managed_buffer
-yields a non-registered address that fails remote reads) and publishes its
-address; the initiator batch-reads it (a batch of outstanding requests in
-flight, enough to saturate the link on the VRAM path), reports the average
-bandwidth, and verifies the bytes it
-pulled back match the pattern so an offset/mis-routed-NIC bug is caught rather
-than reported green. Runs in-container where Mooncake + the injected host
-libionic live.
+tested both directions. INFERA_PREFLIGHT_MOONCAKE_OPCODE selects ``read`` (the
+default) or ``write``. For a read, the target stamps the pattern and the
+initiator verifies its local buffer. For a write, the initiator stamps the
+pattern and the target verifies its buffer before publishing the result. Both
+paths use batches of outstanding requests, report average bandwidth, and
+byte-check every segment so an offset/mis-routed-NIC bug cannot be reported
+green. ``INFERA_PREFLIGHT_RUN_ID`` (or a SLURM job ID) isolates rendezvous files
+from earlier runs; callers without one must use a fresh dump path. Runs in-container
+where Mooncake + the injected host libionic live.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -89,6 +90,7 @@ from .netperf import (
     _nics,
     _parse_rdma_errno,
     _touch,
+    _wait_count,
     _wait_file,
 )
 
@@ -120,6 +122,46 @@ _STEP_TIMEOUT = 240.0  # hard cap on one endpoint subprocess
 
 
 _GID_CACHE: int | None = None
+
+
+def _run_root(dump_path: str) -> str | None:
+    """Shared directory for this invocation, isolated when a run ID is available."""
+    run_id = (
+        os.environ.get("INFERA_PREFLIGHT_RUN_ID")
+        or os.environ.get("SLURM_JOB_ID")
+        or ""
+    ).strip()
+    base = os.path.join(dump_path, "mooncakeperf")
+    if not run_id:
+        return base
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+", run_id):
+        return None
+    return os.path.join(base, run_id)
+
+
+def _agree_operation(
+    exchange_dir: str, rank: int, world: int, operation: str
+) -> tuple[str | None, list[str]]:
+    """Exchange the requested opcode so every rank takes the same protocol path."""
+    os.makedirs(exchange_dir, exist_ok=True)
+    dst = os.path.join(exchange_dir, str(rank))
+    with open(dst + ".tmp", "w", encoding="utf-8") as stream:
+        stream.write(operation)
+    os.replace(dst + ".tmp", dst)
+    if not _wait_count(exchange_dir, world, _TARGET_TIMEOUT):
+        return None, []
+
+    values = []
+    for peer in range(world):
+        try:
+            with open(os.path.join(exchange_dir, str(peer)), encoding="utf-8") as stream:
+                values.append(stream.read().strip().lower())
+        except OSError:
+            return None, []
+    unique = sorted(set(values))
+    if len(unique) != 1 or unique[0] not in {"read", "write"}:
+        return None, unique
+    return unique[0], unique
 
 
 def _ref_gid() -> int:
@@ -168,11 +210,13 @@ def _variants(ngpu: int) -> list[tuple]:
     explicitly selected a preflight device. ngpu is the cross-rank-agreed GPU
     count (see run) so every rank matches."""
     nics = _nics()
+    selected = os.environ.get("INFERA_PREFLIGHT_RDMA_DEVICE", "").strip()
     # Pin the CPU rdma baseline to one fixed NIC (same index on both ends -> same
     # rail). GPU variants normally auto-route to each GPU's affine NIC, but a
-    # selected production mode must measure that exact device.
-    cpu_dev = nics[0] if nics else ""
-    gpu_dev = cpu_dev if os.environ.get("INFERA_PREFLIGHT_RDMA_DEVICE") else ""
+    # selected production device list must be preserved in full so Mooncake can
+    # still choose the affine rail within that whitelist.
+    cpu_dev = selected.split(",", 1)[0] if selected else (nics[0] if nics else "")
+    gpu_dev = selected
     variants: list[tuple] = [
         ("rdma", "rdma", "gid", "cpu", -1, cpu_dev),
         ("rdma-default", "rdma", "none", "cpu", -1, ""),
@@ -298,19 +342,39 @@ def _register(eng, ptr: int, size: int) -> bool:
     return not (isinstance(ret, int) and ret != 0)
 
 
-def _batch_read(eng, target_hostname: str, local: int, peer: int, chunk: int, nchunk: int) -> bool:
-    # One batch of `nchunk` outstanding reads; success is >=0 (matching sglang).
+def _batch_transfer(
+    eng,
+    operation: str,
+    target_hostname: str,
+    local: int,
+    peer: int,
+    chunk: int,
+    nchunk: int,
+) -> bool:
+    # One batch of `nchunk` outstanding transfers; success is >=0 (matching sglang).
     srcs = [local + i * chunk for i in range(nchunk)]
     dsts = [peer + i * chunk for i in range(nchunk)]
     lens = [chunk] * nchunk
     try:
-        return eng.batch_transfer_sync_read(target_hostname, srcs, dsts, lens) >= 0
+        method = (
+            eng.batch_transfer_sync_write
+            if operation == "write"
+            else eng.batch_transfer_sync_read
+        )
+        return method(target_hostname, srcs, dsts, lens) >= 0
     except Exception:
         return False
 
 
 def _target(
-    sig: str, hostname: str, host: str, protocol: str, loc: str, gpu_id: int, device: str = ""
+    sig: str,
+    hostname: str,
+    host: str,
+    protocol: str,
+    operation: str,
+    loc: str,
+    gpu_id: int,
+    device: str = "",
 ) -> None:
     eng = _engine(hostname, protocol, device)
     info = {"ok": False, "host": host, "loc": loc, "gpu": gpu_id}
@@ -320,7 +384,10 @@ def _target(
         if buf is None:
             info["reason"] = "no_gpu"
         else:
-            buf.fill_pattern()  # the initiator reads this back and verifies it
+            if operation == "read":
+                buf.fill_pattern()
+            else:
+                buf.fill(0)
             if not _register(eng, buf.ptr, buf.size):
                 info["reason"] = "register_failed"
             else:
@@ -339,11 +406,26 @@ def _target(
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(info, fh)
     os.replace(tmp, os.path.join(sig, "target.json"))
-    _wait_file(os.path.join(sig, "done"), _DONE_TIMEOUT)
+    finished = _wait_file(os.path.join(sig, "done"), _DONE_TIMEOUT)
+    if operation == "write" and finished and buf is not None and info.get("ok"):
+        verify_tmp = os.path.join(sig, "verify.json.tmp")
+        with open(verify_tmp, "w", encoding="utf-8") as fh:
+            json.dump(
+                {"verified": _verify(buf.host_bytes(), gpu_id, buf.chunk, buf.nchunk)},
+                fh,
+            )
+        os.replace(verify_tmp, os.path.join(sig, "verify.json"))
     del buf  # keep the buffer registered until the initiator is done
 
 
-def _initiator(sig: str, protocol: str, loc: str, gpu_id: int, device: str = "") -> dict:
+def _initiator(
+    sig: str,
+    protocol: str,
+    operation: str,
+    loc: str,
+    gpu_id: int,
+    device: str = "",
+) -> dict:
     rec: dict = {
         "gb_s": None,
         "gib": 0.0,
@@ -353,6 +435,7 @@ def _initiator(sig: str, protocol: str, loc: str, gpu_id: int, device: str = "")
         "verified": None,
         "reason": None,
         "dev": device,
+        "operation": operation,
     }
     if _wait_file(os.path.join(sig, "target.json"), _TARGET_TIMEOUT):
         with open(os.path.join(sig, "target.json"), encoding="utf-8") as fh:
@@ -370,15 +453,30 @@ def _initiator(sig: str, protocol: str, loc: str, gpu_id: int, device: str = "")
             elif not _register(eng, buf.ptr, buf.size):
                 rec["reason"] = "register_failed"
             else:
-                batch = buf.chunk * buf.nchunk  # bytes moved per batch_read
-                buf.fill(0)  # sentinel; a successful read overwrites it with the pattern
-                if _batch_read(
-                    eng, tgt["hostname"], buf.ptr, tgt["addr"], buf.chunk, buf.nchunk
+                batch = buf.chunk * buf.nchunk
+                if operation == "write":
+                    buf.fill_pattern()
+                else:
+                    buf.fill(0)
+                if _batch_transfer(
+                    eng,
+                    operation,
+                    tgt["hostname"],
+                    buf.ptr,
+                    tgt["addr"],
+                    buf.chunk,
+                    buf.nchunk,
                 ):  # warm up
                     moved, t0 = 0, time.monotonic()
                     while time.monotonic() - t0 < _MIN_SECONDS:
-                        if not _batch_read(
-                            eng, tgt["hostname"], buf.ptr, tgt["addr"], buf.chunk, buf.nchunk
+                        if not _batch_transfer(
+                            eng,
+                            operation,
+                            tgt["hostname"],
+                            buf.ptr,
+                            tgt["addr"],
+                            buf.chunk,
+                            buf.nchunk,
                         ):
                             moved = 0
                             break
@@ -387,12 +485,25 @@ def _initiator(sig: str, protocol: str, loc: str, gpu_id: int, device: str = "")
                     if moved > 0 and dt > 0:
                         rec["gb_s"] = round(moved / dt / 1e9, 2)
                         rec["gib"] = round(moved / (1 << 30), 1)
-                        rec["verified"] = _verify(buf.host_bytes(), gpu_id, buf.chunk, buf.nchunk)
+                        if operation == "read":
+                            rec["verified"] = _verify(
+                                buf.host_bytes(), gpu_id, buf.chunk, buf.nchunk
+                            )
                     else:
                         rec["reason"] = "transfer_failed"
                 else:
                     rec["reason"] = "transfer_failed"
     _touch(os.path.join(sig, "done"))
+    if operation == "write" and rec["gb_s"] is not None:
+        verify_path = os.path.join(sig, "verify.json")
+        if _wait_file(verify_path, _TARGET_TIMEOUT):
+            try:
+                with open(verify_path, encoding="utf-8") as fh:
+                    rec["verified"] = json.load(fh).get("verified")
+            except (OSError, ValueError):
+                rec["reason"] = "target_verification_invalid"
+        else:
+            rec["reason"] = "target_verification_timeout"
     return rec
 
 
@@ -403,6 +514,7 @@ def _spawn(
     host: str,
     protocol: str,
     env_kind: str,
+    operation: str,
     loc: str,
     gpu_id: int,
     dev: str = "",
@@ -447,6 +559,7 @@ def _spawn(
         "hostname": hostname,
         "host": host,
         "protocol": protocol,
+        "operation": operation,
         "loc": loc,
         "gpu": gpu_id,
         "dev": dev,
@@ -482,8 +595,30 @@ def run(dump_path: str, rank: int, world: int, host: str) -> list[Finding]:
     except ImportError:
         return [Finding("warn", "mooncake skipped (python bindings not importable)", {})]
 
+    root = _run_root(dump_path)
+    if root is None:
+        return [
+            Finding(
+                "fail",
+                "mooncake preflight run ID is invalid",
+                {"env": "INFERA_PREFLIGHT_RUN_ID (or SLURM_JOB_ID)"},
+            )
+        ]
+    requested_operation = os.environ.get(
+        "INFERA_PREFLIGHT_MOONCAKE_OPCODE", "read"
+    ).strip().lower()
+    operation, operations = _agree_operation(
+        os.path.join(root, "operation"), rank, world, requested_operation
+    )
+    if operation is None:
+        return [
+            Finding(
+                "fail",
+                "mooncake ranks did not agree on one valid operation",
+                {"operations": operations},
+            )
+        ]
     mgmt = _mgmt_ip()
-    root = os.path.join(dump_path, "mooncakeperf")
     # Agree the per-GPU sweep count across ranks (min) so every rank iterates the
     # SAME variant set -- otherwise the per-pair barriers desync and hang.
     ngpu = _agree_min(os.path.join(root, "kvgpus"), rank, world, _kv_gpus(), _TARGET_TIMEOUT)
@@ -499,12 +634,34 @@ def run(dump_path: str, rank: int, world: int, host: str) -> list[Finding]:
                 os.makedirs(sig, exist_ok=True)
                 hostname = f"{mgmt}:{_PORT_BASE + idx}"
                 if rank == s:
-                    _spawn("target", sig, hostname, host, protocol, env_kind, loc, gpu_id, dev)
+                    _spawn(
+                        "target",
+                        sig,
+                        hostname,
+                        host,
+                        protocol,
+                        env_kind,
+                        operation,
+                        loc,
+                        gpu_id,
+                        dev,
+                    )
                 elif rank == c:
                     rc, out = _spawn(
-                        "initiator", sig, hostname, host, protocol, env_kind, loc, gpu_id, dev
+                        "initiator",
+                        sig,
+                        hostname,
+                        host,
+                        protocol,
+                        env_kind,
+                        operation,
+                        loc,
+                        gpu_id,
+                        dev,
                     )
-                    recs.append(_load_result(sig, label, loc, gpu_id, s, rc, out, dev))
+                    recs.append(
+                        _load_result(sig, label, operation, loc, gpu_id, s, rc, out, dev)
+                    )
                 _barrier(os.path.join(root, "bar", f"{s}_{c}_{label}"), rank, world)
                 idx += 1
 
@@ -516,6 +673,7 @@ def run(dump_path: str, rank: int, world: int, host: str) -> list[Finding]:
 def _load_result(
     sig: str,
     label: str,
+    operation: str,
     loc: str,
     gpu_id: int,
     target_rank: int,
@@ -536,6 +694,7 @@ def _load_result(
             "verified": None,
             "reason": _exit_reason(rc, out),
             "dev": dev,
+            "operation": operation,
         }
     # Enrich a register/transfer failure reason with any errno scraped from the
     # child's output (EFAULT vs ENOMEM etc.), same as the mori path.
@@ -551,6 +710,7 @@ def _load_result(
     if rec.get("gb_s") is not None and rec.get("verified") is False:
         rec["reg_error"] = _parse_rdma_errno(out)
     rec["label"] = label
+    rec["operation"] = rec.get("operation") or operation
     rec["loc"] = rec.get("loc") or loc
     rec["dev"] = rec.get("dev") or dev
     rec["target"] = rec.get("target") or f"rank{target_rank}"
@@ -563,7 +723,11 @@ def _is_pinned_rdma(label: str) -> bool:
 
 def _finding(r: dict, host: str) -> Finding:
     label = r["label"]
-    msg = f"{r['target']} -> {host} {label}"
+    operation = r.get("operation") or "read"
+    if operation == "write":
+        msg = f"{host} -> {r['target']} {label}"
+    else:
+        msg = f"{r['target']} -> {host} {label}"
     if r["gb_s"] is not None:
         if _is_pinned_rdma(label):
             env = f"MC_GID_INDEX={_ref_gid()}"
@@ -577,11 +741,16 @@ def _finding(r: dict, host: str) -> Finding:
             "gpu": r.get("gpu"),
             "env": env,
             "verified": verified,
+            "operation": operation,
         }
         if r.get("dev"):
             detail["dev"] = r["dev"]
-        if verified is False:
-            reason = "data mismatch after transfer"
+        if verified is not True:
+            reason = (
+                "data mismatch after transfer"
+                if verified is False
+                else r.get("reason") or "byte verification unavailable"
+            )
             if r.get("reg_error"):
                 reason += (
                     f"; likely cause: {r['reg_error']} -- register_memory reported "
@@ -601,6 +770,7 @@ def _finding(r: dict, host: str) -> Finding:
     fail_detail = {
         "loc": r.get("loc"),
         "gpu": r.get("gpu"),
+        "operation": operation,
         "reason": r.get("reason") or "unreachable",
     }
     if r.get("dev"):
@@ -616,13 +786,19 @@ def _worker() -> None:
             spec["hostname"],
             spec["host"],
             spec["protocol"],
+            spec.get("operation", "read"),
             spec["loc"],
             spec["gpu"],
             spec.get("dev", ""),
         )
     else:
         rec = _initiator(
-            spec["sig"], spec["protocol"], spec["loc"], spec["gpu"], spec.get("dev", "")
+            spec["sig"],
+            spec["protocol"],
+            spec.get("operation", "read"),
+            spec["loc"],
+            spec["gpu"],
+            spec.get("dev", ""),
         )
         tmp = os.path.join(spec["sig"], "result.json.tmp")
         with open(tmp, "w", encoding="utf-8") as fh:

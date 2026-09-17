@@ -53,6 +53,7 @@ def _mismatch_rec(label: str, reg_error):
     return {
         "label": label,
         "target": "nodeB",
+        "operation": "read",
         "gb_s": 40.0,
         "gib": 3.0,
         "loc": "cpu",
@@ -83,6 +84,70 @@ def test_finding_plain_mismatch_when_no_register_error():
     rec = _mismatch_rec("rdma", None)
     f = mooncakeperf._finding(rec, "nodeA")
     assert f.details["reason"] == "data mismatch after transfer"
+
+
+def test_mooncake_write_finding_reports_source_to_target():
+    rec = _mismatch_rec("rdma", None)
+    rec.update(operation="write", verified=True)
+    finding = mooncakeperf._finding(rec, "nodeA")
+
+    assert finding.message == "nodeA -> nodeB rdma"
+    assert finding.details["operation"] == "write"
+
+
+def test_mooncake_batch_transfer_selects_requested_opcode():
+    class Engine:
+        def __init__(self):
+            self.calls = []
+
+        def batch_transfer_sync_read(self, *args):
+            self.calls.append(("read", args))
+            return 0
+
+        def batch_transfer_sync_write(self, *args):
+            self.calls.append(("write", args))
+            return 0
+
+    engine = Engine()
+    assert mooncakeperf._batch_transfer(engine, "write", "peer", 100, 200, 4, 2)
+    assert engine.calls == [("write", ("peer", [100, 104], [200, 204], [4, 4]))]
+
+
+def test_mooncake_run_root_uses_id_when_available(monkeypatch, tmp_path):
+    monkeypatch.delenv("SLURM_JOB_ID", raising=False)
+    monkeypatch.delenv("INFERA_PREFLIGHT_RUN_ID", raising=False)
+    assert mooncakeperf._run_root(str(tmp_path)) == str(tmp_path / "mooncakeperf")
+
+    monkeypatch.setenv("INFERA_PREFLIGHT_RUN_ID", "run-42")
+    assert mooncakeperf._run_root(str(tmp_path)) == str(
+        tmp_path / "mooncakeperf" / "run-42"
+    )
+
+
+def test_mooncake_operation_agreement_rejects_rank_mismatch(tmp_path):
+    exchange = tmp_path / "operation"
+    exchange.mkdir()
+    (exchange / "1").write_text("write", encoding="utf-8")
+
+    operation, values = mooncakeperf._agree_operation(
+        str(exchange), rank=0, world=2, operation="read"
+    )
+
+    assert operation is None
+    assert values == ["read", "write"]
+
+
+def test_mooncake_operation_agreement_accepts_one_opcode(tmp_path):
+    exchange = tmp_path / "operation"
+    exchange.mkdir()
+    (exchange / "1").write_text("write", encoding="utf-8")
+
+    operation, values = mooncakeperf._agree_operation(
+        str(exchange), rank=0, world=2, operation="write"
+    )
+
+    assert operation == "write"
+    assert values == ["write"]
 
 
 # The CPU (host-DRAM) baseline must mirror the aux/metadata buffers PD actually
@@ -133,6 +198,7 @@ def test_mooncake_spawn_replaces_non_utf8_native_logs(monkeypatch, tmp_path):
         "node-a",
         "tcp",
         "tcp",
+        "read",
         "cpu",
         -1,
         "",
@@ -174,3 +240,15 @@ def test_mooncake_selected_device_pins_gpu_variants(monkeypatch):
         ("rdma-gpu0", "rdma", "gid", "gpu", 0, "mlx5_0"),
         ("rdma-gpu1", "rdma", "gid", "gpu", 1, "mlx5_0"),
     ]
+
+
+def test_mooncake_selected_device_list_is_not_collapsed(monkeypatch):
+    monkeypatch.setattr(mooncakeperf, "_nics", lambda: ["ionic_0", "ionic_1"])
+    monkeypatch.setenv(
+        "INFERA_PREFLIGHT_RDMA_DEVICE", "ionic_0,ionic_1,ionic_2,ionic_3"
+    )
+
+    variants = mooncakeperf._variants(1)
+
+    assert variants[0][-1] == "ionic_0"
+    assert variants[-1][-1] == "ionic_0,ionic_1,ionic_2,ionic_3"
