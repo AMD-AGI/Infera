@@ -68,6 +68,14 @@
 # re-anchoring (they may have landed upstream), and the two hicache ROCm gates
 # behind the patch_hicache_rocm_staged_write_back.py exclusion below.
 # ---------------------------------------------------------------------------
+# GPU_PLATFORM picks the base: mi355x (gfx950) or mi325x (gfx942), with the
+# arch names accepted as aliases. An unknown value fails here, as a pull of
+# that name, before any layer below runs.
+#
+# BuildKit resolves only the stage it needs. The legacy builder
+# (DOCKER_BUILDKIT=0) resolves every FROM in the file, so behind a mirror give
+# it BOTH base args -- the unselected one still has to be pullable even though
+# nothing is built from it.
 ARG GPU_PLATFORM=mi355x
 ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.18-rocm720-mi35x
 ARG MI355X_BASE_IMAGE=${SGLANG_BASE_IMAGE}
