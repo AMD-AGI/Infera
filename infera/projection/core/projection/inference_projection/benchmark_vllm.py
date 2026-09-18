@@ -1372,6 +1372,19 @@ def main(argv=None):
         "checkpoint (unused for 'deepseek_mtp')",
     )
     ap.add_argument(
+        "--speculative-acceptance-length",
+        type=float,
+        default=None,
+        help="pin the mean accepted length per step instead of letting the "
+        "draft head earn it. An anchor is harvested under --load-format "
+        "dummy, and acceptance is a property of the weights: random ones "
+        "accept at chance, so an unpinned speculative harvest measures a "
+        "draft head that never hits and reports the non-speculative decode "
+        "rate under a speculative label. The deployments pin the same "
+        "committed golden acceptance for their throughput runs, so passing "
+        "it here measures the regime they serve in",
+    )
+    ap.add_argument(
         "--no-aiter",
         action="store_true",
         help="disable AMD AITER kernels (default: enabled on ROCm)",
