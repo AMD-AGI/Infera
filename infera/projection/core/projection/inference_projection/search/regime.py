@@ -103,6 +103,27 @@ TRANSPORT_AXES = (
 )
 
 
+# Engine spellings of an attention backend, folded onto the kernel family the
+# axis is actually about. AITER ships its MLA, unified-attention and
+# DeepSeek-V4 backends under separate flag values, and an engine records
+# whichever one its command line named -- so an anchor harvested with
+# ``--attention-backend dsv4`` and a target the projector describes as
+# ``aiter`` are the same kernels under two names. Compared raw, that pair is a
+# regime mismatch that no harvest can clear: the anchor is refused, the
+# projection silently falls back to analytical, and the axis rejects the very
+# measurement it asked for. The projector has always modelled these as one
+# family (ix_recipe.ATTENTION_BACKEND maps all three onto "aiter"); this is
+# where the store learns the same thing.
+_ATTENTION_FAMILY = {
+    "dsv4": "aiter",
+    "aiter": "aiter",
+    "rocm_aiter_mla": "aiter",
+    "rocm_aiter_unified_attn": "aiter",
+    "triton_attn": "triton",
+    "triton": "triton",
+}
+
+
 def _canon(v: Any) -> str:
     """Canonical, comparison-stable string for a single axis value."""
     if v is None:
@@ -117,6 +138,19 @@ def _canon(v: Any) -> str:
     if isinstance(v, (int,)):
         return str(v)
     return str(v).strip().lower()
+
+
+def _canon_axis(k: str, v: Any) -> str:
+    """Canonical value for axis ``k``, folding engine spellings onto families.
+
+    Kept separate from ``_canon`` because the folding is per-axis: only the
+    attention backend has several names for one kernel family, and applying a
+    rename table to every axis would let unrelated values collide.
+    """
+    s = _canon(v)
+    if k == "attention_backend" and s:
+        return _ATTENTION_FAMILY.get(s, s)
+    return s
 
 
 def normalise_model_id(name: Any) -> str:
@@ -154,7 +188,7 @@ def models_match(a: Any, b: Any) -> bool:
 
 
 def _sig(recipe: dict[str, Any], axes: Iterable[str]) -> str:
-    payload = {k: _canon(recipe.get(k)) for k in axes}
+    payload = {k: _canon_axis(k, recipe.get(k)) for k in axes}
     blob = json.dumps(payload, sort_keys=True)
     return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
@@ -169,7 +203,7 @@ def config_key(recipe: dict[str, Any], extra: dict[str, Any] | None = None) -> s
     """Exact-run identity: hash over regime + transport axes, plus any ``extra``
     (measurement knobs that change the number but not the regime, e.g.
     decode-steps).  Used by the benchmark result cache."""
-    payload = {k: _canon(recipe.get(k)) for k in (*REGIME_AXES, *TRANSPORT_AXES)}
+    payload = {k: _canon_axis(k, recipe.get(k)) for k in (*REGIME_AXES, *TRANSPORT_AXES)}
     if extra:
         for k, v in extra.items():
             payload[f"x_{k}"] = _canon(v)
@@ -212,7 +246,7 @@ def regime_distance(a: dict[str, Any], b: dict[str, Any], *, ignore_missing: boo
             continue
         if ignore_missing and missing:
             continue
-        if _canon(av) != _canon(bv):
+        if _canon_axis(k, av) != _canon_axis(k, bv):
             d += 1
     return d
 
