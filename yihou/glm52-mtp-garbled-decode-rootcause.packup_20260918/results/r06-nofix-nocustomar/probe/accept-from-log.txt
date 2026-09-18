@@ -1,0 +1,8 @@
+accept len: 2.17, accept rate: 0.23
+accept len: 3.46, accept rate: 0.49
+accept len: 3.19, accept rate: 0.44
+accept len: 3.15, accept rate: 0.43
+accept len: 3.29, accept rate: 0.46
+accept len: 2.70, accept rate: 0.34
+accept len: 3.15, accept rate: 0.43
+accept len: 2.66, accept rate: 0.33

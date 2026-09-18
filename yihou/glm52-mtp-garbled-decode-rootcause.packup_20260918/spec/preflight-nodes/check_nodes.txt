@@ -1,0 +1,32 @@
+== crsuse2-m2m-135 ==
+bind [127.0.0.1]:18080: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 18080
+Could not request local forwarding.
+PASS ssh
+PASS docker
+PASS containers: no prefill/decode/router/etcd names found
+PASS gpu[0]: idle (VRAM=0%, utilization=0%)
+ERROR gpu[1]: busy (VRAM=31%, utilization=0%; limits 2%/5%)
+PASS gpu[2]: idle (VRAM=0%, utilization=0%)
+PASS gpu[3]: idle (VRAM=0%, utilization=0%)
+PASS gpu[4]: idle (VRAM=0%, utilization=0%)
+PASS gpu[5]: idle (VRAM=0%, utilization=0%)
+PASS gpu[6]: idle (VRAM=0%, utilization=0%)
+PASS gpu[7]: idle (VRAM=0%, utilization=0%)
+ERROR crsuse2-m2m-135: one or more checks failed
+== crsuse2-m2m-138 ==
+bind [127.0.0.1]:18080: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 18080
+Could not request local forwarding.
+PASS ssh
+PASS docker
+WARNING existing prefill/decode/router/etcd containers; check before running:
+  glm52pd-decode-0-limou|Exited (0) 5 hours ago|infera/engine-sglang:sgl-sep01-aiter-sep06
+PASS gpu[0]: idle (VRAM=0%, utilization=0%)
+PASS gpu[1]: idle (VRAM=0%, utilization=0%)
+PASS gpu[2]: idle (VRAM=0%, utilization=0%)
+PASS gpu[3]: idle (VRAM=0%, utilization=0%)
+PASS gpu[4]: idle (VRAM=0%, utilization=0%)
+PASS gpu[5]: idle (VRAM=0%, utilization=0%)
+PASS gpu[6]: idle (VRAM=0%, utilization=0%)
+PASS gpu[7]: idle (VRAM=0%, utilization=0%)

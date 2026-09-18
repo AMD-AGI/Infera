@@ -1,0 +1,2 @@
+Point,Model,Hardware,Framework,Topology,Prefill Workers,Prefill TP,Prefill EP,Prefill GPUs,Decode Workers,Decode TP,Decode EP,Decode GPUs,Total GPUs,DP Attention,Concurrency,Token Throughput per Chip (tok/s/chip),P90 Interactivity (tok/s/user),Output Throughput/Chip (tok/s),Input Throughput/Chip (tok/s),Median ITL (s),P90 ITL (s),Median TTFT (s),Records Profiled,Records Total,Records Errored
+c32,GLM-5.2-MXFP4,mi355x,sglang,1P1D pTP4/EP1 dTP4/EP1 DPA,1,4,1,4,1,4,1,4,8,true,32,12448.112125,74.1839762611276,89.5934425,12358.5186825,0.01115,0.01348,5.5678,1150,1216,0

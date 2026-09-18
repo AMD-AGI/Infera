@@ -1,0 +1,33 @@
+=================================== % time GPU is busy ===================================
+GPU[0]		: GPU use (%): 0
+GPU[0]		: GFX Activity: 3926668980
+GPU[1]		: GPU use (%): 0
+GPU[1]		: GFX Activity: 4026105833
+GPU[2]		: GPU use (%): 0
+GPU[2]		: GFX Activity: 397138123
+GPU[3]		: GPU use (%): 0
+GPU[3]		: GFX Activity: 472035051
+GPU[4]		: GPU use (%): 0
+GPU[4]		: GFX Activity: 2595675283
+GPU[5]		: GPU use (%): 0
+GPU[5]		: GFX Activity: 2603364481
+GPU[6]		: GPU use (%): 0
+GPU[6]		: GFX Activity: 2118748554
+GPU[7]		: GPU use (%): 0
+GPU[7]		: GFX Activity: 2103009240
+GPU[0]		: VRAM Total Memory (B): 309220868096
+GPU[0]		: VRAM Total Used Memory (B): 297754624
+GPU[1]		: VRAM Total Memory (B): 309220868096
+GPU[1]		: VRAM Total Used Memory (B): 297754624
+GPU[2]		: VRAM Total Memory (B): 309220868096
+GPU[2]		: VRAM Total Used Memory (B): 297754624
+GPU[3]		: VRAM Total Memory (B): 309220868096
+GPU[3]		: VRAM Total Used Memory (B): 297754624
+GPU[4]		: VRAM Total Memory (B): 309220868096
+GPU[4]		: VRAM Total Used Memory (B): 297754624
+GPU[5]		: VRAM Total Memory (B): 309220868096
+GPU[5]		: VRAM Total Used Memory (B): 297754624
+GPU[6]		: VRAM Total Memory (B): 309220868096
+GPU[6]		: VRAM Total Used Memory (B): 297754624
+GPU[7]		: VRAM Total Memory (B): 309220868096
+GPU[7]		: VRAM Total Used Memory (B): 297754624

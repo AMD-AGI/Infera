@@ -1,0 +1,50 @@
+diff --git a/bench/glm5p2_pd/config.full.sh b/bench/glm5p2_pd/config.full.sh
+index aeaa5f85..984468a7 100644
+--- a/bench/glm5p2_pd/config.full.sh
++++ b/bench/glm5p2_pd/config.full.sh
+@@ -102,6 +102,9 @@ SGLANG_OPT_USE_TOPK_V2="${SGLANG_OPT_USE_TOPK_V2:-false}"
+ SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK="${SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK:-1}"
+ KV_P2P_TRANSFER="${KV_P2P_TRANSFER:-mooncake}"
+ ENABLE_KV_AWARE="${ENABLE_KV_AWARE:-1}"
++# Keep Decode on the Prefill-selected rank so same-name rail and target GPU
++# affinity agree in symmetric DPA deployments.
++PD_DP_RANK_AFFINITY="${PD_DP_RANK_AFFINITY:-1}"
+ KV_PREFILL_OVERLAP_WEIGHT="${KV_PREFILL_OVERLAP_WEIGHT:-20.0}"
+ KV_DECODE_OVERLAP_WEIGHT="${KV_DECODE_OVERLAP_WEIGHT:-2.0}"
+ SGLANG_ENABLE_FAILED_SESSION_PROBE="${SGLANG_ENABLE_FAILED_SESSION_PROBE:-1}"
+diff --git a/bench/glm5p2_pd/config.sh b/bench/glm5p2_pd/config.sh
+index b555dd06..9eef00f2 100644
+--- a/bench/glm5p2_pd/config.sh
++++ b/bench/glm5p2_pd/config.sh
+@@ -94,6 +94,9 @@ SGLANG_OPT_USE_TOPK_V2="${SGLANG_OPT_USE_TOPK_V2:-false}"
+ SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK="${SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK:-0}"
+ KV_P2P_TRANSFER="${KV_P2P_TRANSFER:-mooncake}"
+ ENABLE_KV_AWARE="${ENABLE_KV_AWARE:-1}"
++# Keep Decode on the Prefill-selected rank so same-name rail and target GPU
++# affinity agree in symmetric DPA deployments.
++PD_DP_RANK_AFFINITY="${PD_DP_RANK_AFFINITY:-1}"
+ KV_PREFILL_OVERLAP_WEIGHT="${KV_PREFILL_OVERLAP_WEIGHT:-20.0}"
+ KV_DECODE_OVERLAP_WEIGHT="${KV_DECODE_OVERLAP_WEIGHT:-2.0}"
+ SGLANG_ENABLE_FAILED_SESSION_PROBE="${SGLANG_ENABLE_FAILED_SESSION_PROBE:-1}"
+diff --git a/bench/glm5p2_pd/launch.sh b/bench/glm5p2_pd/launch.sh
+index e95e05a8..660a7597 100755
+--- a/bench/glm5p2_pd/launch.sh
++++ b/bench/glm5p2_pd/launch.sh
+@@ -123,9 +123,17 @@ if [[ "$ENABLE_KV_AWARE" == 1 ]]; then
+ else
+     router_args+=(--router-policy round-robin)
+ fi
++# The router's clap uses ArgAction::Set: INFERA_PD_DP_RANK_AFFINITY accepts only
++# true/false, never 1/0, so translate the numeric knob here.
++if [[ "$PD_DP_RANK_AFFINITY" == 1 ]]; then
++    pd_dp_rank_affinity=true
++else
++    pd_dp_rank_affinity=false
++fi
+ echo "starting router on $CONTROL_NODE"
+ ssh_run "$CONTROL_NODE" docker run -d --init \
+     --name "$router_container" --network host \
++    -e "INFERA_PD_DP_RANK_AFFINITY=$pd_dp_rank_affinity" \
+     -v "$MODEL:$MODEL:ro" "$IMAGE" "${router_args[@]}"
+ 
+ python3 "$DIR/tools/wait_healthy.py" \

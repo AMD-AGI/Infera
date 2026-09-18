@@ -1,0 +1,8 @@
+ionic_2: 			state:			PORT_ACTIVE (4)
+			link_layer:		Ethernet
+ionic_3: 			state:			PORT_ACTIVE (4)
+			link_layer:		Ethernet
+ionic_4: 			state:			PORT_ACTIVE (4)
+			link_layer:		Ethernet
+ionic_5: 			state:			PORT_ACTIVE (4)
+			link_layer:		Ethernet

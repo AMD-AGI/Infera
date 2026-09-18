@@ -1,0 +1,161 @@
+{
+ "host": "crsuse2-m2m-135",
+ "image": "infera-sglang:v0519-yihou-0917",
+ "generated": "2026-09-18 05:14:56",
+ "sections": {
+  "mooncake": [
+   {
+    "level": "info",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma",
+    "details": {
+     "GB/s": 7.18,
+     "moved_GiB": 20.1,
+     "loc": "cpu",
+     "gpu": -1,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write",
+     "dev": "ionic_3"
+    }
+   },
+   {
+    "level": "info",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma-default",
+    "details": {
+     "GB/s": 9.23,
+     "moved_GiB": 25.8,
+     "loc": "cpu",
+     "gpu": -1,
+     "env": "none",
+     "verified": true,
+     "operation": "write"
+    }
+   },
+   {
+    "level": "info",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 tcp",
+    "details": {
+     "GB/s": 0.09,
+     "moved_GiB": 0.2,
+     "loc": "cpu",
+     "gpu": -1,
+     "env": "MC_FORCE_TCP=1",
+     "verified": true,
+     "operation": "write"
+    }
+   },
+   {
+    "level": "info",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma-gpu0",
+    "details": {
+     "GB/s": 29.63,
+     "moved_GiB": 83.0,
+     "loc": "gpu",
+     "gpu": 0,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write",
+     "dev": "ionic_3"
+    }
+   },
+   {
+    "level": "info",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma-gpu1",
+    "details": {
+     "GB/s": 29.55,
+     "moved_GiB": 83.0,
+     "loc": "gpu",
+     "gpu": 1,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write",
+     "dev": "ionic_3"
+    }
+   },
+   {
+    "level": "info",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma-gpu2",
+    "details": {
+     "GB/s": 38.38,
+     "moved_GiB": 108.0,
+     "loc": "gpu",
+     "gpu": 2,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write",
+     "dev": "ionic_3"
+    }
+   },
+   {
+    "level": "info",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma-gpu3",
+    "details": {
+     "GB/s": 38.86,
+     "moved_GiB": 109.0,
+     "loc": "gpu",
+     "gpu": 3,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write",
+     "dev": "ionic_3"
+    }
+   },
+   {
+    "level": "info",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma-gpu4",
+    "details": {
+     "GB/s": 27.88,
+     "moved_GiB": 78.0,
+     "loc": "gpu",
+     "gpu": 4,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write",
+     "dev": "ionic_3"
+    }
+   },
+   {
+    "level": "info",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma-gpu5",
+    "details": {
+     "GB/s": 28.33,
+     "moved_GiB": 80.0,
+     "loc": "gpu",
+     "gpu": 5,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write",
+     "dev": "ionic_3"
+    }
+   },
+   {
+    "level": "info",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma-gpu6",
+    "details": {
+     "GB/s": 28.31,
+     "moved_GiB": 80.0,
+     "loc": "gpu",
+     "gpu": 6,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write",
+     "dev": "ionic_3"
+    }
+   },
+   {
+    "level": "info",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma-gpu7",
+    "details": {
+     "GB/s": 28.64,
+     "moved_GiB": 81.0,
+     "loc": "gpu",
+     "gpu": 7,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write",
+     "dev": "ionic_3"
+    }
+   }
+  ]
+ }
+}

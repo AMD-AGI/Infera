@@ -1,0 +1,5 @@
+crusoe-vector	Up 8 days	ghcr.io/vectordotdev/vector:0.55.0-debian
+glm52-server	Exited (0) 9 days ago	lmsysorg/sglang-rocm:v0.5.19-rocm724-mi35x-20260908
+glm52-main-prstack-c8	Exited (1) 10 days ago	rocm-llm-bench:sgl-main-dcebe8c-pr35233-pr37152-pr38318
+topk-dev	Exited (137) 11 days ago	lmsysorg/sglang-rocm:v0.5.17-rocm724-mi35x-20260821
+glm52-qr_int4	Exited (0) 2 weeks ago	lmsysorg/sglang-rocm:v0.5.17-rocm724-mi35x-20260821

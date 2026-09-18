@@ -1,0 +1,11 @@
+# r05-nocustomar -- every reply, verbatim, temperature=0, max_tokens=12
+# prompt: What is 2+2? Answer with a single digit.
+
+r1.json    '1.  **Analyze the Request:**\n    *'
+r2.json    '1.  **Analyze the Request:**\n    *'
+r3.json    '1.  **Analyze the Request:**\n    *'
+r4.json    '1.  **Analyze the Request:**\n    *'
+r5.json    '1.  **Analyze the Request:**\n    *'
+r6.json    '1.  **Analyze the Request:** The user asks'
+r7.json    '1.  **Analyze the Request:** The user is'
+r8.json    '1.  Identify the core question: "What is '

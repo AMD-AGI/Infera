@@ -1,0 +1,292 @@
+{
+ "host": "crsuse2-m2m-135",
+ "image": "infera-sglang:v0519-yihou-0917",
+ "generated": "2026-09-18 04:34:25",
+ "sections": {
+  "network": [
+   {
+    "level": "info",
+    "message": "NIC inventory",
+    "details": {
+     "nics": [
+      "cali0480c64f7b6",
+      "cali05a4f43100b",
+      "cali05f6b064479",
+      "cali160ea88ea1b",
+      "cali16365b5c73a",
+      "cali169a1deeee4",
+      "cali1f7d540dc0b",
+      "cali21525a0c4c2",
+      "cali23c6e4e85d2",
+      "cali349a56df1e1",
+      "cali358204fe4aa",
+      "cali3b3b552c6b3",
+      "cali3ca7c31687b",
+      "cali43a8fa570bf",
+      "cali47b22a68ad7",
+      "cali4974ae402eb",
+      "cali4e22252888d",
+      "cali4ed8cf42277",
+      "cali51e169bdcf1",
+      "cali5b9e5e8b549",
+      "cali5c6939b8c28",
+      "cali5d29a879838",
+      "cali5effe8d8152",
+      "cali61a9554ce92",
+      "cali658962d5ae7",
+      "cali67e215df731",
+      "cali6fdf95d7f5f",
+      "cali74bd20854a7",
+      "cali79ebd7778df",
+      "cali80e855aed1d",
+      "cali82fde4e4b3d",
+      "cali83e25796c7d",
+      "cali84dfdc25e6f",
+      "cali91c6188dab9",
+      "cali94ff0680119",
+      "cali962ab0c9c91",
+      "calia86d40e3a9e",
+      "calia96bc41e399",
+      "calib353bc35d0e",
+      "calib605a85a7c7",
+      "calib792f133cb4",
+      "calib7b2d1c4a55",
+      "calib82d8f33b5e",
+      "calib9b5baaf61d",
+      "calibc526de95ee",
+      "calicd42a499b4a",
+      "calicec714a22c0",
+      "calicfac1267044",
+      "calid0655a899ad",
+      "calidcc3fd72d04",
+      "calide6fa0e7436",
+      "calidef1dd0cef8",
+      "calie36efce13fa",
+      "calie4a2a176d2f",
+      "calie8e86ded852",
+      "calif316d889945",
+      "calif37cd5947ed",
+      "docker0",
+      "enP2p0s10",
+      "enP2p0s11",
+      "enP2p0s12",
+      "enP2p0s9",
+      "enP3p0s10",
+      "enP3p0s11",
+      "enP3p0s9",
+      "ens3",
+      "lo",
+      "spur0",
+      "tunl0"
+     ],
+     "rdma_devices": [
+      "ionic_0",
+      "ionic_1",
+      "ionic_2",
+      "ionic_3",
+      "ionic_4",
+      "ionic_5",
+      "ionic_6",
+      "ionic_7",
+      "mlx5_0"
+     ],
+     "ipv4": {
+      "lo": [
+       "127.0.0.1/8"
+      ],
+      "ens3": [
+       "10.245.148.209/20"
+      ],
+      "docker0": [
+       "172.17.0.1/16"
+      ],
+      "tunl0": [
+       "10.42.205.65/32"
+      ],
+      "spur0": [
+       "10.44.0.2/16"
+      ]
+     }
+    }
+   },
+   {
+    "level": "info",
+    "message": "RDMA device map",
+    "details": {
+     "devices": {
+      "ionic_0": {
+       "netdev": "enP2p0s9",
+       "state": "ACTIVE"
+      },
+      "ionic_1": {
+       "netdev": "enP2p0s10",
+       "state": "ACTIVE"
+      },
+      "ionic_2": {
+       "netdev": "enP2p0s11",
+       "state": "ACTIVE"
+      },
+      "ionic_3": {
+       "netdev": "enP2p0s12",
+       "state": "ACTIVE"
+      },
+      "ionic_4": {
+       "netdev": "enP3p0s9",
+       "state": "ACTIVE"
+      },
+      "ionic_5": {
+       "netdev": "enP3p0s10",
+       "state": "ACTIVE"
+      },
+      "ionic_6": {
+       "netdev": "enP3p0s11",
+       "state": "ACTIVE"
+      },
+      "ionic_7": {
+       "netdev": "?",
+       "state": "ACTIVE"
+      },
+      "mlx5_0": {
+       "netdev": "?",
+       "state": "ACTIVE"
+      }
+     }
+    }
+   }
+  ],
+  "mooncake": [
+   {
+    "level": "info",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma",
+    "details": {
+     "GB/s": 7.46,
+     "moved_GiB": 20.8,
+     "loc": "cpu",
+     "gpu": -1,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write",
+     "dev": "ionic_0"
+    }
+   },
+   {
+    "level": "info",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma-default",
+    "details": {
+     "GB/s": 8.26,
+     "moved_GiB": 23.1,
+     "loc": "cpu",
+     "gpu": -1,
+     "env": "none",
+     "verified": true,
+     "operation": "write"
+    }
+   },
+   {
+    "level": "info",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 tcp",
+    "details": {
+     "GB/s": 0.08,
+     "moved_GiB": 0.2,
+     "loc": "cpu",
+     "gpu": -1,
+     "env": "MC_FORCE_TCP=1",
+     "verified": true,
+     "operation": "write"
+    }
+   },
+   {
+    "level": "info",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma-gpu0",
+    "details": {
+     "GB/s": 45.78,
+     "moved_GiB": 128.0,
+     "loc": "gpu",
+     "gpu": 0,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write"
+    }
+   },
+   {
+    "level": "info",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma-gpu1",
+    "details": {
+     "GB/s": 45.1,
+     "moved_GiB": 127.0,
+     "loc": "gpu",
+     "gpu": 1,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write"
+    }
+   },
+   {
+    "level": "info",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma-gpu2",
+    "details": {
+     "GB/s": 45.83,
+     "moved_GiB": 129.0,
+     "loc": "gpu",
+     "gpu": 2,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write"
+    }
+   },
+   {
+    "level": "info",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma-gpu3",
+    "details": {
+     "GB/s": 45.89,
+     "moved_GiB": 129.0,
+     "loc": "gpu",
+     "gpu": 3,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write"
+    }
+   },
+   {
+    "level": "fail",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma-gpu4",
+    "details": {
+     "loc": "gpu",
+     "gpu": 4,
+     "operation": "write",
+     "reason": "transfer_failed"
+    }
+   },
+   {
+    "level": "fail",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma-gpu5",
+    "details": {
+     "loc": "gpu",
+     "gpu": 5,
+     "operation": "write",
+     "reason": "transfer_failed"
+    }
+   },
+   {
+    "level": "fail",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma-gpu6",
+    "details": {
+     "loc": "gpu",
+     "gpu": 6,
+     "operation": "write",
+     "reason": "transfer_failed"
+    }
+   },
+   {
+    "level": "fail",
+    "message": "crsuse2-m2m-135 -> crsuse2-m2m-138 rdma-gpu7",
+    "details": {
+     "loc": "gpu",
+     "gpu": 7,
+     "operation": "write",
+     "reason": "transfer_failed"
+    }
+   }
+  ]
+ }
+}

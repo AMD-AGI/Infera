@@ -1,0 +1,19 @@
+# r03-fusion-fix -- every reply, verbatim, temperature=0, max_tokens=12
+# prompt: What is 2+2? Answer with a single digit.
+
+r1.json    '1engaalog8效专用curaereziTlutuga8'
+r2.json    '1!!!!!!!!!!!'
+r3.json    '1!!!!!!!!!!!'
+r4.json    '1reis0obuf Erect bufferreisangan legacyuns Willis Op'
+r5.json    '1owl灵魂Sp_compat Competition8 Wingobs8扁8'
+r6.json    '1!!!!!!!!!!!'
+r7.json    '1!!!!!!!!!!!'
+r8.json    '1reisreis锚无疑301 Rosenbergreis rangesuns139 Erect'
+r9.json    '10owl8yclurn8 bandwidth causal1效8'
+r10.json   '1!!!!!!!!!!!'
+r11.json   '1!!!!!!!!!!!'
+r12.json   '1reis所处的reis无疑 bufferreis toilethausenarus Erect buffer'
+r13.json   '1ARI这篇文章結 lod schem8是天acs8效etting'
+r14.json   '1!!!!!!!!!!!'
+r15.json   '1!!!!!!!!!!!'
+r16.json   '1reis legacyogos71reisreisreisreis耗 Braun难免'

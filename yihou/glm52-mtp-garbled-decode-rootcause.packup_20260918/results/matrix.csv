@@ -1,0 +1,5 @@
+round,custom_all_reduce,nextn_fusion_fix,speculative,requests_total,requests_coherent,accept_len_active_ranks,accept_len_min,accept_bar,verdict
+r03-fusion-fix,on,in,EAGLE,16,0,dp0:1.0000 dp1:1.0000 dp2:2.8125 dp3:1.0000,1.0000,2.0,FAIL
+r04-no-mtp,on,in,off,16,16,n/a (MTP off),n/a,2.0,PASS
+r05-nocustomar,off,in,EAGLE,8,8,dp0:2.8875 dp1:3.0500 dp2:2.8684 dp3:2.8625,2.8625,2.0,PASS
+r06-nofix-nocustomar,off,out,EAGLE,8,8,dp0:2.8000 dp1:2.8125 dp2:2.5500 dp3:2.6250,2.5500,2.0,PASS

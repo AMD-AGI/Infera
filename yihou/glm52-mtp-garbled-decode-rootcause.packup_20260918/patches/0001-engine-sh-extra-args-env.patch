@@ -1,0 +1,55 @@
+diff --git a/bench/glm5p2_pd/engine.sh b/bench/glm5p2_pd/engine.sh
+index 7cbefaf7..e11c4c0c 100755
+--- a/bench/glm5p2_pd/engine.sh
++++ b/bench/glm5p2_pd/engine.sh
+@@ -47,6 +47,8 @@ case "$role" in
+         hicache_backend="$PREFILL_HICACHE_IO_BACKEND"
+         hicache_layout="$PREFILL_HICACHE_MEM_LAYOUT"
+         scratch_reclaim="$PREFILL_HSA_NO_SCRATCH_RECLAIM"
++        extra_args="${PREFILL_EXTRA_ARGS:-}"
++        extra_env="${PREFILL_EXTRA_ENV:-}"
+         ;;
+     decode)
+         tp="$DECODE_TP"; ep="$DECODE_EP"; dp="$DECODE_DP"; dpa="$DECODE_DPA"
+@@ -58,6 +60,8 @@ case "$role" in
+         hicache_backend="$DECODE_HICACHE_IO_BACKEND"
+         hicache_layout="$DECODE_HICACHE_MEM_LAYOUT"
+         scratch_reclaim="$DECODE_HSA_NO_SCRATCH_RECLAIM"
++        extra_args="${DECODE_EXTRA_ARGS:-}"
++        extra_env="${DECODE_EXTRA_ENV:-}"
+         ;;
+ esac
+ for integer in tp ep dp chunk max_running graph_bs; do
+@@ -130,6 +134,18 @@ docker_args+=(
+     -e "SGLANG_ENABLE_FAILED_SESSION_PROBE=$SGLANG_ENABLE_FAILED_SESSION_PROBE"
+     -e "SGLANG_FAILED_SESSION_PROBE_INTERVAL_S=$SGLANG_FAILED_SESSION_PROBE_INTERVAL_S"
+ )
++# Role-scoped escape hatch for one-off container env during bring-up and
++# debugging, so a config that differs from the default recipe does not need this
++# script edited. Space-separated KEY=VALUE items; empty by default, so unused it
++# is a no-op.
++if [[ -n "${extra_env:-}" ]]; then
++    read -r -a extra_env_items <<< "$extra_env"
++    for item in "${extra_env_items[@]}"; do
++        [[ "$item" =~ ^[A-Za-z_][A-Za-z0-9_]*=.*$ ]] ||
++            { echo "invalid EXTRA_ENV item: $item" >&2; exit 2; }
++        docker_args+=(-e "$item")
++    done
++fi
+ if [[ "$role" == decode && -n "${DECODE_SIMULATE_ACC_LEN:-}" ]]; then
+     docker_args+=(
+         -e "SGLANG_SIMULATE_ACC_LEN=$DECODE_SIMULATE_ACC_LEN"
+@@ -198,6 +214,13 @@ if [[ "$hicache" == 1 ]]; then
+     )
+ fi
+ [[ -n "${CONTEXT_LENGTH:-}" ]] && engine_args+=(--context-length "$CONTEXT_LENGTH")
++# Role-scoped escape hatch for one-off engine flags during bring-up and
++# debugging, so an experiment does not have to edit this script. Word-split on
++# whitespace; quote nothing fancier than that. Empty by default.
++if [[ -n "${extra_args:-}" ]]; then
++    read -r -a extra_arg_items <<< "$extra_args"
++    engine_args+=("${extra_arg_items[@]}")
++fi
+ 
+ echo "$instance role=$role ip=$node_ip port=$engine_port GPUs=$gpus TP=$tp EP=$ep DP=$dp DPA=$dpa HiCache=$hicache"
+ echo "AITER JIT cache: $aiter_jit_cache"
