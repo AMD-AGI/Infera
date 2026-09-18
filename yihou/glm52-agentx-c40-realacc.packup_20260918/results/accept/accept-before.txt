@@ -1,0 +1,12 @@
+# HELP sglang:spec_accept_length Mean acceptance length of speculative decoding (accepted drafts + bonus token per forward).
+# TYPE sglang:spec_accept_length gauge
+sglang:spec_accept_length{dp_rank="3",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="3"} 0.0
+sglang:spec_accept_length{dp_rank="1",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="1"} 0.0
+sglang:spec_accept_length{dp_rank="2",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="2"} 0.0
+sglang:spec_accept_length{dp_rank="0",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="0"} 0.0
+# HELP sglang:spec_accept_rate Speculative acceptance rate (`accepted drafts / proposed drafts` in batch).
+# TYPE sglang:spec_accept_rate gauge
+sglang:spec_accept_rate{dp_rank="3",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="3"} 0.0
+sglang:spec_accept_rate{dp_rank="1",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="1"} 0.0
+sglang:spec_accept_rate{dp_rank="2",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="2"} 0.0
+sglang:spec_accept_rate{dp_rank="0",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="0"} 0.0

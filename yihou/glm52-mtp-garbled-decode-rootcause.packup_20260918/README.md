@@ -1,6 +1,6 @@
 # GLM-5.2 MTP garbled decode on P4D4 — root cause — 2026-09-18
 
-A four-round A/B that found why GLM-5.2 MXFP4 produced **garbled decode output**
+A five-round A/B that found why GLM-5.2 MXFP4 produced **garbled decode output**
 under EAGLE MTP in a 1-Prefill/1-Decode disaggregated deployment, and fixed it.
 
 **Finding: custom all-reduce on the decode leg corrupts the speculative path.**
@@ -26,12 +26,13 @@ healthy ~3.
 
 ## The result
 
-| round | custom all-reduce | NextN fusion fix | MTP | coherent | `spec_accept_length` per rank | verdict |
-|---|---|---|---|---|---|---|
-| R03 | on | in | EAGLE | **0/16** | 1.00 / 1.00 / **2.81** / 1.00 | FAIL |
-| R04 | on | in | **off** | 16/16 | n/a | PASS |
-| R05 | **off** | in | EAGLE | **8/8** | 2.89 / 3.05 / 2.87 / 2.86 | PASS |
-| R06 | **off** | **out** | EAGLE | **8/8** | 2.80 / 2.81 / 2.55 / 2.63 | PASS |
+| round | custom all-reduce | AITER fusion | NextN fusion fix | MTP | coherent | `spec_accept_length` per rank | verdict |
+|---|---|---|---|---|---|---|---|
+| R03 | on | on | in | EAGLE | **0/16** | 1.00 / 1.00 / **2.81** / 1.00 | FAIL |
+| R04 | on | on | in | **off** | 16/16 | n/a | PASS |
+| R05 | **off** | on | in | EAGLE | **8/8** | 2.89 / 3.05 / 2.87 / 2.86 | PASS |
+| R06 | **off** | on | **out** | EAGLE | **8/8** | 2.80 / 2.81 / 2.55 / 2.63 | PASS |
+| R07 | on | **off** | in | EAGLE | **0/16** | 2.51 / 3.65 / 1.00 / 1.00 | FAIL |
 
 Machine-readable in `results/matrix.csv`. Custom all-reduce is the discriminator
 in every row.
@@ -53,9 +54,23 @@ patch set, P4D4 with DP attention, EAGLE 5 steps / topk 1 / 6 draft tokens),
 custom all-reduce on the decode leg corrupts output, and disabling it fixes both
 the text and the acceptance rate.
 
-`enable_aiter_allreduce_fusion` was **True in all four rounds** — verified per
-round from each round's own `server-info/decode-0.json`, see
-`results/flags-by-round.txt`. Held constant, so it cannot be the discriminator.
+**Established — custom all-reduce misbehaves on its own.** `engine.sh` also
+passes `--enable-aiter-allreduce-fusion` unconditionally, so the first four
+rounds could not tell "custom all-reduce is broken" from "the two interact".
+R07 closes that: with the AITER fusion path **off** and custom all-reduce back
+**on**, the failure reproduces exactly — 0/16, same two modes, same period-4
+alternation, `spec_accept_length` min 1.0. The 2×2:
+
+| custom all-reduce | AITER fusion | output |
+|---|---|---|
+| on | on | garbled (R03) |
+| on | **off** | **garbled (R07)** |
+| off | on | correct (R05, R06) |
+
+The fourth cell is unnecessary: custom all-reduce off already passes with AITER
+fusion on, and custom all-reduce on fails either way. So disabling the AITER
+path is neither necessary nor sufficient, and **there is no narrower knob on
+this axis** — `--disable-custom-all-reduce` is the fix.
 
 **Not established — the mechanism.** We have the A/B, not the mechanism. A
 plausible shape is the size-gated branching in `custom_all_reduce.py`
@@ -64,10 +79,6 @@ verify runs at `num_draft_tokens=6`, so speculative decoding drives all-reduce a
 message sizes the plain decode path never produces — which would explain R04
 being clean with the same all-reduce enabled. **This is a hypothesis. Do not
 write it up as the cause.**
-
-**Not established — that this is the narrowest fix.** `engine.sh` also passes
-`--enable-aiter-allreduce-fusion` unconditionally. The culprit could be that path,
-or the interaction. Disabling custom all-reduce is a blunt instrument.
 
 **Unmeasured — the throughput cost.** Custom all-reduce is an optimisation and
 turning it off gives it up. Performance re-runs were out of scope. **No number in
@@ -92,15 +103,15 @@ cause of this failure. The patch and its verification are kept in `patches/` and
 
 | path | what |
 |---|---|
-| `REPRODUCE.md` | ordered, copy-pasteable reproduction of all four rounds |
+| `REPRODUCE.md` | ordered, copy-pasteable reproduction of all five rounds |
 | `notes.md` | wrong turns, ruled-out hypotheses, open questions — **the most re-read file** |
 | `environment.md` | hardware, fabric, image digests, git SHA, in-image versions |
-| `scripts/` | all five configs, topology, probe, Dockerfile, applier — verbatim |
+| `scripts/` | all six configs, topology, probe, Dockerfile, applier, env collector — verbatim |
 | `patches/` | the two patches, each with what / why / how / context |
 | `results/` | `matrix.csv`, `flags-by-round.txt`, then per-round raw evidence |
 | `spec/` | mission, full `working_process.md` debug log, node preflight |
 | `env/` | raw `collect_env.sh` output per node |
-| `logs/` | all four rounds, both legs, gzipped |
+| `logs/` | all five rounds, both legs, gzipped |
 
 ## Provenance
 

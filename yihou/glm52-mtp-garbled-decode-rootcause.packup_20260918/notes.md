@@ -206,13 +206,41 @@ speculative decoding drives all-reduce at message sizes the plain decode path
 never produces — which would explain R04 being clean with the same all-reduce
 enabled. **Hypothesis. Not demonstrated.**
 
-### 7b. This may not be the narrowest fix
+### 7b. CLOSED — custom all-reduce misbehaves alone; no narrower knob on this axis
+
+*Was open; settled by R07.*
 
 `engine.sh` passes `--enable-aiter-allreduce-fusion` unconditionally, and it was
-`True` in all four rounds (`results/flags-by-round.txt`). Held constant, so it
-cannot be the discriminator — but the culprit could be custom all-reduce alone,
-or only its interaction with the aiter fusion path. A narrower knob might cost
-less throughput. Untested.
+`True` in R03-R06 (`results/flags-by-round.txt`). Held constant, that established
+custom all-reduce as the discriminator but could not separate "custom all-reduce
+is broken" from "the two interact".
+
+R07 filled the missing 2×2 cell — AITER fusion **off**, custom all-reduce back
+**on** — and the failure reproduced exactly: 0/16 coherent, the same two modes
+alternating with the same period 4, `degenerate-tail: True`, nonce not
+reproduced, `spec_accept_length` min 1.0 with the same bimodal decode-log series.
+Indistinguishable from R03.
+
+| custom all-reduce | AITER fusion | output |
+|---|---|---|
+| on | on | garbled (R03) |
+| on | **off** | **garbled (R07)** |
+| off | on | correct (R05, R06) |
+
+Fourth cell not needed: custom all-reduce off already passes with AITER fusion
+on, and custom all-reduce on fails either way. **Disabling the AITER path is
+neither necessary nor sufficient**, so `--disable-custom-all-reduce` is the fix
+and there is no cheaper knob here.
+
+**Getting the flag off took a repo change**, because sglang's CLI exposes only
+the positive `--enable-aiter-allreduce-fusion` (store_true, no `--no-` form) and
+the only code path that disables it is `--enable-deterministic-inference`
+(`arg_groups/attention_hook.py:510-520`), which changes much more besides. So
+`engine.sh`'s unconditional emission was made conditional on
+`AITER_ALLREDUCE_FUSION`, defaulting to `1` — a no-op unless a config sets `0`.
+It is part of `patches/0001-engine-sh-extra-args-env.patch`. The result was
+confirmed from the engine's own dump, not the launcher's intent:
+`disable_custom_all_reduce=False`, `enable_aiter_allreduce_fusion=False`.
 
 ### 7c. The throughput cost is unmeasured
 
@@ -266,4 +294,4 @@ See §6. Unexplained.
   garbled mode is pure ASCII word-salad (`1reis0obuf Erect bufferreisangan
   legacyu`) that no simple rule separates from prose. The counts in
   `results/matrix.csv` are **human-classified**, with every reply dumped to
-  `results/<round>/rank-test-replies.txt` so a reader can check all 48 by eye.
+  `results/<round>/rank-test-replies.txt` so a reader can check all 64 by eye.

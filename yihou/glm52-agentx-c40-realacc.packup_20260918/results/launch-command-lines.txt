@@ -1,0 +1,382 @@
+# Launcher-emitted docker run command lines, T1 (config.yihou.fast.sh).
+# Extracted verbatim from the launch log, one token per line.
+# This is the authoritative record of the container ENV, which
+# results/server-info/ does NOT carry (it dumps server_args only).
+
+control=crsuse2-m2m-135 etcd=10.245.148.209:22379 router=http://10.245.148.209:28000
+bind [127.0.0.1]:18080: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 18080
+Could not request local forwarding.
+e6993256e0964a7e2df5ed7cd83a08bd3c56ac7331bad15c710d1d49aea67c6a
+starting prefill-0 on crsuse2-m2m-135
+bind [127.0.0.1]:18080: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 18080
+Could not request local forwarding.
+prefill-0 role=prefill ip=10.245.148.209 port=29001 GPUs=2,3,4,5 TP=4 EP=1 DP=4 DPA=1 HiCache=0
+AITER JIT cache: /tmp/aiter-jit-50112975/fd7220a57b7d3b58efd875c41f7a9ef46b93469581102d96cbeb6f5451e91d35
+ docker
+ run
+ -d
+ --init
+ --name
+ glm52-pd-yihou-agentx-fast-prefill-0
+ --network
+ host
+ --ipc
+ host
+ --shm-size
+ 32g
+ --device
+ /dev/kfd
+ --device
+ /dev/dri
+ --device
+ /dev/infiniband
+ --group-add
+ video
+ --group-add
+ render
+ --cap-add
+ SYS_PTRACE
+ --cap-add
+ IPC_LOCK
+ --security-opt
+ seccomp=unconfined
+ --ulimit
+ memlock=-1:-1
+ --ulimit
+ nofile=65536:65536
+ -v
+ /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4:/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4:ro
+ -v
+ /tmp/aiter-jit-50112975/fd7220a57b7d3b58efd875c41f7a9ef46b93469581102d96cbeb6f5451e91d35:/aiter-jit
+ -e
+ AITER_JIT_DIR=/aiter-jit
+ -v
+ /lib/x86_64-linux-gnu/libionic.so:/host-libionic/libionic.so:ro
+ -e
+ HIP_VISIBLE_DEVICES=2\,3\,4\,5
+ -e
+ SGLANG_HOST_IP=10.245.148.209
+ -e
+ HOST_IP=10.245.148.209
+ -e
+ SGLANG_LOCAL_IP_NIC=ens3
+ -e
+ GLOO_SOCKET_IFNAME=ens3
+ -e
+ MC_GID_INDEX=1
+ -e
+ MC_TE_FILTERS=ionic_2\,ionic_3\,ionic_4\,ionic_5
+ -e
+ MC_DISABLE_HIP_TRANSPORT=1
+ -e
+ MC_ENABLE_DEST_DEVICE_AFFINITY=1
+ -e
+ MOONCAKE_DISABLE_HIP_DMABUF=0
+ -e
+ RDMAV_FORK_SAFE=1
+ -e
+ NCCL_IB_DISABLE=1
+ -e
+ NCCL_IGNORE_CPU_AFFINITY=1
+ -e
+ HSA_NO_SCRATCH_RECLAIM=0
+ -e
+ SGLANG_USE_AITER=1
+ -e
+ SGLANG_OPT_USE_TOPK_V2=false
+ -e
+ SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=0
+ -e
+ PYTHONNOUSERSITE=1
+ -e
+ SGLANG_TIMEOUT_KEEP_ALIVE=900
+ -e
+ AITER_USE_FLYDSL_MOE_SORTING=1
+ -e
+ SAFETENSORS_FAST_GPU=1
+ -e
+ HIP_FORCE_DEV_KERNARG=1
+ -e
+ PYTHONHASHSEED=0
+ -e
+ SGLANG_DP_USE_GATHERV=1
+ -e
+ INFERA_ENGINE_READY_TIMEOUT=3600
+ -e
+ INFERA_NODEPORT_RANGE=30000-32767
+ -e
+ SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT=1800
+ -e
+ SGLANG_DISAGGREGATION_WAITING_TIMEOUT=1800
+ -e
+ SGLANG_ENABLE_FAILED_SESSION_PROBE=1
+ -e
+ SGLANG_FAILED_SESSION_PROBE_INTERVAL_S=30
+ infera-sglang:v0519-yihou-0917-nextnfix-hicache
+ python3
+ -m
+ infera.engine.sglang
+ --model-path
+ /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4
+ --served-model-name
+ glm5.2-mxfp4
+ --host
+ 10.245.148.209
+ --port
+ 29001
+ --advertise-host
+ 10.245.148.209
+ --etcd-endpoint
+ 10.245.148.209:22379
+ --discovery-backend
+ etcd
+ --request-transport
+ http
+ --kv-event-transport
+ zmq
+ --tp-size
+ 4
+ --ep-size
+ 1
+ --trust-remote-code
+ --dsa-prefill-backend
+ tilelang
+ --dsa-decode-backend
+ tilelang
+ --kv-cache-dtype
+ fp8_e4m3
+ --mem-fraction-static
+ 0.85
+ --chunked-prefill-size
+ 32768
+ --cuda-graph-max-bs-prefill
+ 64
+ --max-running-requests
+ 64
+ --watchdog-timeout
+ 3600
+ --reasoning-parser
+ glm45
+ --tool-call-parser
+ glm47
+ --enable-fused-qk-norm-rope
+ --enable-cache-report
+ --enable-metrics
+ --disaggregation-mode
+ prefill
+ --disaggregation-transfer-backend
+ mooncake
+ --dp-size
+ 4
+ --enable-dp-attention
+ --json-model-override-args
+ \{\"index_share_for_mtp_iteration\":false\}
+ --disaggregation-ib-device
+ \{\"0\":\"ionic_2\"\,\"1\":\"ionic_3\"\,\"2\":\"ionic_4\"\,\"3\":\"ionic_5\"\}
+ --disaggregation-bootstrap-port
+ 28998
+ --enable-kv-events
+ --kv-events
+ on
+ --kv-events-bind
+ tcp://0.0.0.0:25557
+ --kv-snapshot-port
+ 28801
+ --enable-aiter-allreduce-fusion
+dbeba10442785a515a0e27e435427703f4278d11fc72a9c00ca2b0db0170acde
+server log: /home/yihou/dev/git/infera.glm52.pd/bench/glm5p2_pd/results/yihou-agentx-hicache/t1-launch/server-logs/prefill-0.log
+starting decode-0 on crsuse2-m2m-138
+bind [127.0.0.1]:18080: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 18080
+Could not request local forwarding.
+decode-0 role=decode ip=10.245.157.237 port=29002 GPUs=2,3,4,5 TP=4 EP=1 DP=4 DPA=1 HiCache=0
+AITER JIT cache: /tmp/aiter-jit-50112975/972d8fd952e97b3915d742072874b57a1796c10de1dc0cdcc85e92123167f5d8
+ docker
+ run
+ -d
+ --init
+ --name
+ glm52-pd-yihou-agentx-fast-decode-0
+ --network
+ host
+ --ipc
+ host
+ --shm-size
+ 32g
+ --device
+ /dev/kfd
+ --device
+ /dev/dri
+ --device
+ /dev/infiniband
+ --group-add
+ video
+ --group-add
+ render
+ --cap-add
+ SYS_PTRACE
+ --cap-add
+ IPC_LOCK
+ --security-opt
+ seccomp=unconfined
+ --ulimit
+ memlock=-1:-1
+ --ulimit
+ nofile=65536:65536
+ -v
+ /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4:/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4:ro
+ -v
+ /tmp/aiter-jit-50112975/972d8fd952e97b3915d742072874b57a1796c10de1dc0cdcc85e92123167f5d8:/aiter-jit
+ -e
+ AITER_JIT_DIR=/aiter-jit
+ -v
+ /lib/x86_64-linux-gnu/libionic.so:/host-libionic/libionic.so:ro
+ -e
+ HIP_VISIBLE_DEVICES=2\,3\,4\,5
+ -e
+ SGLANG_HOST_IP=10.245.157.237
+ -e
+ HOST_IP=10.245.157.237
+ -e
+ SGLANG_LOCAL_IP_NIC=ens3
+ -e
+ GLOO_SOCKET_IFNAME=ens3
+ -e
+ MC_GID_INDEX=1
+ -e
+ MC_TE_FILTERS=ionic_2\,ionic_3\,ionic_4\,ionic_5
+ -e
+ MC_DISABLE_HIP_TRANSPORT=1
+ -e
+ MC_ENABLE_DEST_DEVICE_AFFINITY=1
+ -e
+ MOONCAKE_DISABLE_HIP_DMABUF=0
+ -e
+ RDMAV_FORK_SAFE=1
+ -e
+ NCCL_IB_DISABLE=1
+ -e
+ NCCL_IGNORE_CPU_AFFINITY=1
+ -e
+ HSA_NO_SCRATCH_RECLAIM=1
+ -e
+ SGLANG_USE_AITER=1
+ -e
+ SGLANG_OPT_USE_TOPK_V2=false
+ -e
+ SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=0
+ -e
+ PYTHONNOUSERSITE=1
+ -e
+ SGLANG_TIMEOUT_KEEP_ALIVE=900
+ -e
+ AITER_USE_FLYDSL_MOE_SORTING=1
+ -e
+ SAFETENSORS_FAST_GPU=1
+ -e
+ HIP_FORCE_DEV_KERNARG=1
+ -e
+ PYTHONHASHSEED=0
+ -e
+ SGLANG_DP_USE_GATHERV=1
+ -e
+ INFERA_ENGINE_READY_TIMEOUT=3600
+ -e
+ INFERA_NODEPORT_RANGE=30000-32767
+ -e
+ SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT=1800
+ -e
+ SGLANG_DISAGGREGATION_WAITING_TIMEOUT=1800
+ -e
+ SGLANG_ENABLE_FAILED_SESSION_PROBE=1
+ -e
+ SGLANG_FAILED_SESSION_PROBE_INTERVAL_S=30
+ infera-sglang:v0519-yihou-0917-nextnfix-hicache
+ python3
+ -m
+ infera.engine.sglang
+ --model-path
+ /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4
+ --served-model-name
+ glm5.2-mxfp4
+ --host
+ 10.245.157.237
+ --port
+ 29002
+ --advertise-host
+ 10.245.157.237
+ --etcd-endpoint
+ 10.245.148.209:22379
+ --discovery-backend
+ etcd
+ --request-transport
+ http
+ --kv-event-transport
+ zmq
+ --tp-size
+ 4
+ --ep-size
+ 1
+ --trust-remote-code
+ --dsa-prefill-backend
+ tilelang
+ --dsa-decode-backend
+ tilelang
+ --kv-cache-dtype
+ fp8_e4m3
+ --mem-fraction-static
+ 0.85
+ --chunked-prefill-size
+ 32768
+ --cuda-graph-max-bs-decode
+ 64
+ --max-running-requests
+ 64
+ --watchdog-timeout
+ 3600
+ --reasoning-parser
+ glm45
+ --tool-call-parser
+ glm47
+ --enable-fused-qk-norm-rope
+ --enable-cache-report
+ --enable-metrics
+ --disaggregation-mode
+ decode
+ --disaggregation-transfer-backend
+ mooncake
+ --dp-size
+ 4
+ --enable-dp-attention
+ --json-model-override-args
+ \{\"index_share_for_mtp_iteration\":false\}
+ --disaggregation-ib-device
+ \{\"0\":\"ionic_2\"\,\"1\":\"ionic_3\"\,\"2\":\"ionic_4\"\,\"3\":\"ionic_5\"\}
+ --no-enable-kv-events
+ --kv-events
+ off
+ --speculative-algorithm
+ EAGLE
+ --speculative-num-steps
+ 5
+ --speculative-eagle-topk
+ 1
+ --speculative-num-draft-tokens
+ 6
+ --enable-aiter-allreduce-fusion
+ --disable-custom-all-reduce
+5c5492e8eb503543d86708f9f3490c0509d4f38e3d2a5f59dd3c2d14d136533a
+server log: /home/yihou/dev/git/infera.glm52.pd/bench/glm5p2_pd/results/yihou-agentx-hicache/t1-launch/server-logs/decode-0.log
+prefill-0 on crsuse2-m2m-135: healthy
+decode-0 on crsuse2-m2m-138: healthy
+starting router on crsuse2-m2m-135
+bind [127.0.0.1]:18080: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 18080
+Could not request local forwarding.
+ad0ab3ac73a6d43291ae2328859b1e4510630aa4cab1a68e29b7b647e955b443
+router on crsuse2-m2m-135: healthy
+router ready: http://10.245.148.209:28000
+inspection files: /home/yihou/dev/git/infera.glm52.pd/bench/glm5p2_pd/results/yihou-agentx-hicache/t1-launch
+use ./stop.sh when finished

@@ -14,7 +14,7 @@
 ## How the coherence counts were produced
 
 **By reading every reply.** Not by a heuristic. `matrix.csv`'s
-`requests_coherent` column is a human judgement over all 48 replies, and every
+`requests_coherent` column is a human judgement over all 64 replies, and every
 one of them is dumped verbatim in `<round>/rank-test-replies.txt` so the
 judgement is checkable in about a minute.
 
@@ -27,7 +27,7 @@ separates from prose. A wrong number in a deliverable is worse than no number.
 ## Per-round directories
 
 Each of `r03-fusion-fix/`, `r04-no-mtp/`, `r05-nocustomar/`,
-`r06-nofix-nocustomar/` holds:
+`r06-nofix-nocustomar/`, `r07-noaiterfusion/` holds:
 
 | path | what |
 |---|---|
@@ -53,6 +53,11 @@ pinning and router DP-rank affinity, the plain decode attention path, and the
 removed, custom all-reduce still off. Still 8/8. So custom all-reduce alone is
 the whole cure and the fusion fix is not required.
 
+**R07 is the 2x2 cell that rules out an interaction**: AITER all-reduce fusion
+off, custom all-reduce back on. 0/16, indistinguishable from R03. So custom
+all-reduce misbehaves on its own and the AITER path is not involved --
+`flags-by-round.txt` carries the per-round flag values this rests on.
+
 ### Two traps
 
 1. `probe/metrics-idle.txt` shows `spec_accept_length 0.0` on ranks that have
@@ -70,6 +75,7 @@ the whole cure and the fusion fix is not required.
 | R04 | 16/16 | n/a — MTP off | n/a | PASS |
 | R05 | 8/8 | 2.8875 / 3.0500 / 2.8684 / 2.8625 | 2.8625 | PASS |
 | R06 | 8/8 | 2.8000 / 2.8125 / 2.5500 / 2.6250 | 2.5500 | PASS |
+| R07 | 0/16 | 2.5125 / 3.6456 / 1.00 / 1.00 | 1.0000 | FAIL |
 
 R03's split — one healthy rank, three reading *exactly* 1.00/0.00 — is the
 bimodality that disappears in R05 and R06, where all four ranks land in a tight

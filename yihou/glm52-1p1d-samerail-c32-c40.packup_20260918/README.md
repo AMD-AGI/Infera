@@ -78,12 +78,21 @@ runs — zero 503s and zero cross-rail failures in each.
 ## Scope limits — read before quoting the numbers
 
 **1. These are timing measurements under simulated MTP acceptance, not
-correctness evidence.** Both runs used `DECODE_SIMULATE_ACC_LEN=3.61`, which
+correctness evidence — and the configuration they were taken in is now known to
+decode incorrectly.** Both runs used `DECODE_SIMULATE_ACC_LEN=3.61`, which
 *forces* the acceptance length. With simulation off, this P4D4 shape produces
 **garbled decode output** (first token correct, all later tokens degenerate;
 measured real accept rate 0.05). Correctness was explicitly waived by the user.
 Valid for comparison against other runs using the same simulation — the bench's
-own alignment point — and nothing more. See `notes.md` §3.
+own alignment point — and nothing more.
+
+> **Root-caused after this packup was written.** The cause is **custom
+> all-reduce on the decode leg**, which corrupts the speculative path;
+> `--disable-custom-all-reduce` fixes it. Every number in this packup was taken
+> with custom all-reduce **on**, so none of them describes the corrected
+> configuration, and the fix's throughput cost is unmeasured. Evidence and
+> reproduction: `yihou/glm52-mtp-garbled-decode-rootcause.packup_20260918/`.
+> See `notes.md` §3.
 
 **2. C40 is "full minus two items", not full.** `config.full.sh` requests
 `flydsl` DSA backends and an `aiter` fused top-k that **the pinned nightly does

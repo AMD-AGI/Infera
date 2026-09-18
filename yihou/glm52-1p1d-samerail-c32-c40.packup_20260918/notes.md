@@ -83,7 +83,27 @@ docker run --rm --entrypoint /bin/bash <image> -lc \
 the unpack must read `[:, 7].max()` and `[:, 8].min()` respectively. Verified
 correct on 20260917.
 
-## 3. OPEN — garbled decode output on P4D4 (not root-caused)
+## 3. RESOLVED — garbled decode output on P4D4
+
+> **Closed on 2026-09-18, after this packup was written.** Root cause: **custom
+> all-reduce on the decode leg corrupts the speculative path.** Passing
+> `--disable-custom-all-reduce` to the decode engine restores correct text and
+> healthy MTP acceptance (`spec_accept_length` 2.55-3.05 on all four DP ranks,
+> against the 1.25 recorded below). Full five-round A/B, evidence and
+> reproduction kit:
+> `yihou/glm52-mtp-garbled-decode-rootcause.packup_20260918/`.
+>
+> **What that means for the numbers in this packup.** Every measurement here was
+> taken with custom all-reduce **on** — i.e. in the configuration now known to
+> decode incorrectly — and with `DECODE_SIMULATE_ACC_LEN=3.61` forcing the
+> acceptance length, which masked it. The timings remain valid *as timings
+> against other runs using the same simulation*, which is what §1 of the README
+> already says. They are **not** measurements of the fixed configuration, and the
+> throughput cost of the fix is unmeasured. Do not carry these numbers across.
+>
+> The section below is left exactly as written. Its evidence was all correct and
+> it is the trail that led to the answer; only its final "open" verdict is
+> superseded.
 
 **What.** With `DECODE_SIMULATE_ACC_LEN=` (simulation off), a trivial prompt at
 `temperature=0` returns real tokens in nonsense order. Probing by `max_tokens`:
@@ -118,6 +138,17 @@ that splits "MTP path" from "plain decode path". It was launched and then stoppe
 when the user waived correctness for this delivery. P4D4 is a new shape; the
 bench's validated baseline is TP8/DP8, which cannot be run on these two nodes
 because 135's GPU[1] is occupied. Raw evidence: `spec/debug_working_process.md`.
+
+**How it actually went** (added 2026-09-18, after the fact). That `DECODE_MTP=0`
+experiment was the right call and did decide the question — 16/16 coherent with
+MTP off against 0/16 with it on, which exonerated the target model at TP4/DP4,
+the PD KV handoff including this packup's same-rail work, and the plain decode
+path. The paragraph above marked "NOT established" was also right to refuse the
+inference: the low accept rate genuinely was a *symptom* rather than the cause,
+and the cause turned out to sit in the all-reduce path, which nothing here had
+suspected. Two further rounds then showed the NextN shared-experts-fusion defect
+— the lead that looked most promising — is real but **not** the cause, and one
+more showed the AITER fusion path is not involved either.
 
 ## 4. crsuse2-m2m-135 has two permanent constraints
 
@@ -227,6 +258,21 @@ hiccups, trajectory-replay edge cases, or truncation. No per-request evidence
 was captured. **This is recorded, not concluded.** To close it: re-run C40 with
 `JSON_MODEL_OVERRIDE_ARGS='{"index_share_for_mtp_iteration":false}'` restored as
 the single changed variable and see whether the count goes to zero.
+
+**A second candidate, added 2026-09-18 after §3 was root-caused.** Both C32 and
+C40 ran with custom all-reduce **on**, now known to corrupt the speculative path
+on this stack. That does not obviously explain why C40 erred and C32 did not —
+the flag was identical in both — but it does undercut the IndexShare framing as
+the *only* live hypothesis, and it raises a specific question worth checking
+before re-running anything: `DECODE_SIMULATE_ACC_LEN=3.61` forces the acceptance
+length, so draft tokens are taken without the verification that would normally
+reject corrupted ones. If that is what the flag does here, then **both** runs may
+have been emitting degraded text throughout and the three errors are the tip of
+it rather than an anomaly. Neither the flag's exact semantics nor the output
+quality of those runs was examined. Unverified, and it would change how §1's
+"valid as timings" caveat should be read — check it before treating either run's
+output as sane. The C40 re-run proposed above should carry
+`--disable-custom-all-reduce` as well, or it reproduces the same unknown.
 
 **Context.** Also seen in C40 and left unexplained: 15 `OSL mismatch` warnings
 (delivered output length below requested, e.g. −29.5%). Frequency noted; effect

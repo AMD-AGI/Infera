@@ -1,0 +1,19 @@
+# r07-noaiterfusion -- every reply, verbatim, temperature=0, max_tokens=12
+# prompt: What is 2+2? Answer with a single digit.
+
+r1.json    '1反转灵魂FT dilevere7erezordingouro iovIMIT'
+r2.json    '1reis0aben bufferreis stagingarges tel免 Erect0'
+r3.json    '1!!!!!!!!!!!'
+r4.json    '1!!!!!!!!!!!'
+r5.json    '1owl一团8echa88owlobs车队效IMIT'
+r6.json    '1isz legacyogosubs bufferreisreis Brewer presentations71reis'
+r7.json    '1!!!!!!!!!!!'
+r8.json    '1!!!!!!!!!!!'
+r9.json    '1 mirrorims6echa dile Coinacsoma889'
+r10.json   '1reisangenreisangan妖无疑 buffer耗aca tel buffer'
+r11.json   '1!!!!!!!!!!!'
+r12.json   '1!!!!!!!!!!!'
+r13.json   '1 Femme这段 reform88吨 Naz computoyo88'
+r14.json   '1reis耗 toiletanganreisreisreisangenerryerry buffer'
+r15.json   '1!!!!!!!!!!!'
+r16.json   '1!!!!!!!!!!!'

@@ -1,0 +1,7 @@
+profiling records: 1067
+osl_mismatch_diff_pct == 0.0 exactly: 884/1067 (82.8%)
+negative (short) requests: 183 (17.15%)   worst five: [-96.2, -94.8, -94.4, -94.1, -93.5]
+positive (over-long) requests: 0
+sum(requested)=919,893  sum(actual)=543,225  deficit=376,668 tokens = 40.95%
+top-10 requests carry 30.0% of the deficit
+top-50 requests carry 72.5% of the deficit

@@ -1,0 +1,12 @@
+{
+  "targets": [
+    {
+      "container": "glm52-pd-yihou-agentx-fast-router",
+      "elapsed_seconds": 0.669,
+      "health_url": "http://10.245.148.209:28000/health",
+      "healthy": true,
+      "name": "router",
+      "node": "crsuse2-m2m-135"
+    }
+  ]
+}

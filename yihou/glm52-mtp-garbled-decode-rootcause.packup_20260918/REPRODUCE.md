@@ -159,9 +159,10 @@ Tear down before the next round — each round must start from idle GPUs, and
 | R04 | `config.yihou.mtp0.sh` | `r04-no-mtp` | `DECODE_MTP=0` only |
 | R05 | `config.yihou.nocustomar.sh` | `r05-nocustomar` | `DECODE_EXTRA_ARGS=--disable-custom-all-reduce` only |
 | R06 | `config.yihou.nocustomar.nofix.sh` | `r06-nofix-nocustomar` | `IMAGE` back to the un-patched build only |
+| R07 | `config.yihou.noaiterfusion.sh` | `r07-noaiterfusion` | `AITER_ALLREDUCE_FUSION=0` only, against R03 — custom all-reduce back on |
 
-R04 and R06 use the 16-request test only (no `probe.yihou.sh` acceptance read is
-meaningful for R04 — MTP is off).
+R04 uses the 16-request test only: with MTP off the spec gauges are meaningless,
+so `probe.yihou.sh`'s acceptance read has nothing to say.
 
 ## 5. What you should see
 
@@ -171,6 +172,7 @@ meaningful for R04 — MTP is off).
 | R04 | all coherent | n/a |
 | R05 | all coherent, nonce exact | 2.86-3.05, all four ranks |
 | R06 | all coherent, nonce exact | 2.55-2.81, all four ranks |
+| R07 | **all garbled**, indistinguishable from R03 | 2.51 / 3.65 / 1.00 / 1.00 |
 
 Reference copies of every reply are in `results/<round>/rank-test-replies.txt` —
 48 short strings, checkable by eye in a minute.

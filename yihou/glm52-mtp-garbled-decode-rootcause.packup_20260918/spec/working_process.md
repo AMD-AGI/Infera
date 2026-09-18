@@ -442,3 +442,48 @@ Custom all-reduce is the discriminator in every row.
    explicitly out of scope for this task. Every number in the previous
    packup was taken with custom all-reduce ON and simulated acceptance ON, so
    none of them describes this configuration.
+
+---
+
+### R07 — the missing 2x2 cell: custom all-reduce ON, AITER fusion OFF (`r07-noaiterfusion/`)
+
+**Single variable against R03: `AITER_ALLREDUCE_FUSION=0`.** Same nextnfix image,
+MTP on, real acceptance, `DECODE_EXTRA_ARGS` empty so custom all-reduce is
+enabled exactly as it was in R03.
+
+**Why it was needed.** R03 (custom AR on, aiter on) failed and R05 (custom AR
+off, aiter on) passed, with aiter fusion held constant across that A/B. That
+establishes custom all-reduce as the discriminator but says nothing about whether
+it misbehaves alone or only alongside the aiter fusion path — §7b of the packup's
+notes, left open. This round decides it.
+
+**How the flag was turned off.** sglang's CLI exposes only the positive
+`--enable-aiter-allreduce-fusion` (store_true, no `--no-` form), and the only
+code path that disables it is `--enable-deterministic-inference`
+(`arg_groups/attention_hook.py:510-520`), which changes far more besides. So
+`engine.sh`'s unconditional emission was made conditional on
+`AITER_ALLREDUCE_FUSION`, defaulting to 1 — a no-op unless a config sets 0.
+Verified from the engine's own dump: `disable_custom_all_reduce=False`,
+`enable_aiter_allreduce_fusion=False`.
+
+**Result: 0/16 coherent — still garbled**, same two modes alternating with the
+same period 4. `degenerate-tail: True`, nonce not reproduced, `spec_accept_length`
+min 1.0 with the same bimodal decode-log series (1.00/0.00 punctuated by
+2.51-3.65). Indistinguishable from R03.
+
+**Conclusion: custom all-reduce misbehaves on its own.** It does not need the
+AITER fusion path. The 2x2 now reads:
+
+| custom all-reduce | AITER fusion | output |
+|---|---|---|
+| on | on | garbled (R03) |
+| on | **off** | **garbled (R07)** |
+| off | on | correct (R05, R06) |
+
+The fourth cell (both off) is not needed: custom all-reduce off is already
+sufficient with aiter fusion on, and custom all-reduce on fails either way.
+
+**This closes §7b.** Disabling the AITER fusion path is neither necessary nor
+sufficient; `--disable-custom-all-reduce` is the correct fix, and there is no
+narrower knob on this axis. §7a (the mechanism) and §7c (the throughput cost)
+remain open and untouched by this round.

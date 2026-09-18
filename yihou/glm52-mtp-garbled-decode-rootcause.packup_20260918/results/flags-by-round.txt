@@ -1,9 +1,13 @@
-Extracted from each round's own results/<round>/server-info/decode-0.json.
-enable_aiter_allreduce_fusion is TRUE in every round -- held constant across
-the A/B, so custom all-reduce is the discriminator. What stays open is whether
-it misbehaves alone or only in interaction with the aiter fusion path.
+Extracted from each round's own results/<round>/server-info/decode-0.json --
+the engine's own record of what it ran, not the launcher's intent.
+
+R03/R05 hold enable_aiter_allreduce_fusion constant at True, which establishes
+custom all-reduce as the discriminator. R07 then turns the aiter path OFF with
+custom all-reduce back ON and still fails, which shows custom all-reduce
+misbehaves on its own -- the aiter fusion path is not required.
 
 r03-fusion-fix           disable_custom_all_reduce=False enable_aiter_allreduce_fusion=True  speculative_algorithm=EAGLE
 r04-no-mtp               disable_custom_all_reduce=False enable_aiter_allreduce_fusion=True  speculative_algorithm=None
 r05-nocustomar           disable_custom_all_reduce=True  enable_aiter_allreduce_fusion=True  speculative_algorithm=EAGLE
 r06-nofix-nocustomar     disable_custom_all_reduce=True  enable_aiter_allreduce_fusion=True  speculative_algorithm=EAGLE
+r07-noaiterfusion        disable_custom_all_reduce=False enable_aiter_allreduce_fusion=False speculative_algorithm=EAGLE
