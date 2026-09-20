@@ -134,6 +134,14 @@ class ModelConfig:
     sparse_index_head_dim: int = 0
     sparse_index_layers: int = 0
     sparse_index_dtype: str = "bf16"
+    # The query-head count above, recorded for *time* rather than memory. It
+    # does not size the cache -- one key per token serves every head -- but it
+    # does set the indexer's arithmetic, because each head scores the whole
+    # pool. Published values differ by a factor of sixteen (64 on
+    # DeepSeek-V4-Pro, 32 on GLM-5.2, 4 on MiniMax-M3), so a model priced
+    # without it is not merely missing a constant, it is missing the term that
+    # separates these three.
+    sparse_index_n_heads: int = 0
     # FFN & MoE
     swiglu: bool = False
     num_experts: int = 0
@@ -729,6 +737,17 @@ class InferenceRequestConfig:
     # attention roughly constant in context length.
     sparse_attention_topk: int = 0
 
+    # What the indexer's selection costs on this stack relative to a fused
+    # kernel. The arithmetic is fixed by the model, but the kernel is not:
+    # the same GLM-5.2 top-k runs fused through aiter on gfx950 and unfused
+    # through Torch on gfx942, and the selection is parallelism-starved at
+    # the batch sizes a latency-band run uses, so the fallback costs a
+    # multiple rather than a margin. 1.0 prices the fused path; raise it to
+    # charge a stack serving without one. Only reaches models priced by
+    # ``uniform_sparse_attention_scale`` -- a schedule-priced model carries
+    # its indexer per layer and is not governed by one number.
+    sparse_indexer_cost_scale: float = 1.0
+
     # ---- Sliding-window / local attention ----
     # Override the model's sliding-window size (KV tokens each query attends to;
     # 0 = full attention). ``None`` follows the model config's
@@ -1167,6 +1186,122 @@ def hybrid_attention_scale(model_config, context_len: int) -> float | None:
             selected = min(topk, pool) if topk > 0 else pool
             total += (local + selected) * main_per_entry + pool * idx_per_entry
     return total / (len(sched) * ctx * main_per_entry)
+
+
+def uniform_sparse_attention_scale(
+    model_config,
+    context_len: int,
+    topk: int,
+    indexer_cost_scale: float = 1.0,
+) -> float | None:
+    """Fraction of dense prefill attention for a uniform top-k sparse model.
+
+    The counterpart to ``hybrid_attention_scale`` for the models that select
+    the same way on every layer instead of running a per-layer compression
+    schedule: GLM-5.2 and MiniMax-M3 both keep one window, ``index_topk``,
+    and differ only in how many layers compute an index and how wide the
+    indexer is.
+
+    Two terms, and the reason to spend a function on this rather than a scale
+    is that they move in opposite directions. *Selection* is what attention
+    reads once the indexer has chosen -- ``topk`` entries regardless of how
+    long the prompt is -- so as a fraction of dense it falls away like
+    ``topk / context``. *Indexing* is what choosing costs: every head scores
+    every token in the pool, on the layers that carry an indexer, so it grows
+    with context exactly as dense attention does and its fraction is flat.
+    Past a few times the window the second term is the whole cost, and it is
+    the one a top-k scale cannot express.
+
+    That is not a small correction on this workload. GLM-5.2 served the
+    agentic corpus between 136k and 365k tokens, where the floored top-k
+    charges a constant 0.15 of dense: nine to twenty-seven times the
+    selection it stands for, while the indexer it is standing in for is
+    charged nothing. Pricing the terms apart puts GLM at 0.032 of dense at
+    131k falling to 0.021 at 365k -- and, unlike the floor, it moves with the
+    prompt, which is what a ladder whose context swings by 2.7x needs.
+
+    ``indexer_cost_scale`` prices the kernel rather than the arithmetic. The
+    indexer's top-k is fused on some stacks and not others -- SGLang runs it
+    through aiter's one-block kernel on gfx950 but falls back to an unfused
+    Torch path on gfx942 -- and the selection is parallelism-starved at low
+    concurrency (batch 4 with 4 draft tokens is 16 workgroups on a 256-CU
+    MI355X), so the same arithmetic costs several times more on the fallback.
+    1.0 is the fused path; raise it to charge a stack that does not have one.
+
+    Returns ``None`` when the model is not a uniform top-k sparse model, so
+    the caller can fall through to whatever it did before.
+    """
+    ctx = int(context_len or 0)
+    topk = int(topk or 0)
+    if ctx <= 0 or topk <= 0:
+        return None
+    layers = int(getattr(model_config, "num_layers", 0) or 0)
+    idx_width = int(getattr(model_config, "sparse_index_head_dim", 0) or 0)
+    idx_heads = int(getattr(model_config, "sparse_index_n_heads", 0) or 0)
+    if layers <= 0 or idx_width <= 0 or idx_heads <= 0:
+        return None
+
+    heads = int(getattr(model_config, "num_attention_heads", 0) or 0)
+    if heads <= 0:
+        return None
+    if getattr(model_config, "multi_latent_attention", False):
+        # Absorbed MLA reads the latent plus the positional part for the
+        # scores and the latent again for the values, per KV entry.
+        latent = int(getattr(model_config, "kv_lora_rank", 0) or 0) or int(
+            getattr(model_config, "kv_channels", 0) or 0
+        )
+        rope = int(getattr(model_config, "qk_pos_emb_head_dim", 0) or 0)
+        main_per_token = heads * ((latent + rope) + latent)
+    else:
+        # GQA reads a head-width key and a head-width value per query head.
+        width = int(getattr(model_config, "kv_channels", 0) or 0)
+        main_per_token = heads * 2 * width
+    if main_per_token <= 0:
+        return None
+
+    # ``sparse_index_layers`` is 0 for "every layer"; models that leave the
+    # first few dense, or that share one layer's index across the layers
+    # after it, run the indexer on fewer than they have.
+    indexed = int(getattr(model_config, "sparse_index_layers", 0) or 0) or layers
+    indexed = min(indexed, layers)
+
+    selection = min(topk, ctx) / ctx
+    indexing = (indexed / layers) * (idx_heads * idx_width) / main_per_token
+    return selection + indexing * max(0.0, float(indexer_cost_scale))
+
+
+def sparse_indexer_decode_overhead(
+    model_config, topk: int, indexer_cost_scale: float = 1.0
+) -> float:
+    """Extra decode attention a stack pays for an unfused indexer selection.
+
+    Decode is charged dense, and that charge is calibrated: withdrawing the
+    top-k discount is what moved DeepSeek-V4 from 0.53x of measured TPOT to
+    0.83-0.94x. So the fused path must stay exactly where that calibration
+    left it, and only the excess over it is added here -- 0.0 at a cost scale
+    of 1.0, by construction.
+
+    What the excess is proportional to is the indexer's share of the layer,
+    not the whole step, because the selection is the only part a different
+    top-k kernel changes. Bounded by construction too: GLM-5.2's indexer is
+    1.6% of its attention arithmetic, so even an eight-fold slower kernel is
+    a ninth of the step rather than a multiple of it. That agrees with the
+    only end-to-end number available -- routing the ROCm decode top-k through
+    aiter's one-block kernel is 3.3x on the kernel and 5.6% on the trace --
+    and it is worth stating plainly that a term this size cannot be what
+    separates a 4x throughput miss from a correct one.
+    """
+    over = max(0.0, float(indexer_cost_scale) - 1.0)
+    if over <= 0.0:
+        return 0.0
+    # Reuse the geometry by asking for the scale at a context long enough
+    # that selection has fallen away and only the indexing term is left.
+    ctx = max(1, int(topk or 0)) * 4096
+    fused = uniform_sparse_attention_scale(model_config, ctx, topk, 1.0)
+    if fused is None:
+        return 0.0
+    return max(0.0, fused - min(int(topk or 0), ctx) / ctx) * over
+
 
 # Representative expert grouped-GEMM compute multipliers by expert dtype.
 _MOE_EXPERT_DTYPE_SPEEDUP = {

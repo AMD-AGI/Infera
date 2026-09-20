@@ -28,6 +28,13 @@ sparse_index_head_dim: 128
 sparse_index_layers: 57
 sparse_index_dtype: bf16
 
+# The indexer's query heads (HF ``sparse_num_index_heads: 4``). Eight times
+# narrower than GLM-5.2's 32 against attention layers that are themselves
+# four times cheaper -- GQA over 64 heads of 128 rather than absorbed MLA --
+# so M3's indexer lands at a comparable fraction of its own attention from
+# very different parts. Both are invisible without this field.
+sparse_index_n_heads: 4
+
 tokenizer_type: HuggingFaceTokenizer
 tokenizer_model: MiniMaxAI/MiniMax-M3
 

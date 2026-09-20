@@ -57,6 +57,7 @@ _ARG_TO_FIELD = {
     "attention_backend": "attention_backend",
     "serving_engine": "serving_engine",
     "sparse_attention_topk": "sparse_attention_topk",
+    "sparse_indexer_cost_scale": "sparse_indexer_cost_scale",
     "sliding_window": "sliding_window",
     "sliding_window_layer_fraction": "sliding_window_layer_fraction",
     "moe_expert_dtype": "moe_expert_dtype",
@@ -206,6 +207,14 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
         feats.append(f"engine={req.serving_engine}")
     if getattr(req, "sparse_attention_topk", 0):
         feats.append(f"sparse_attn_topk={req.sparse_attention_topk}")
+        idx_heads = int(getattr(mc, "sparse_index_n_heads", 0) or 0)
+        if idx_heads:
+            cost = float(getattr(req, "sparse_indexer_cost_scale", 1.0) or 1.0)
+            feats.append(
+                f"indexer={idx_heads}x{mc.sparse_index_head_dim}"
+                f"@{mc.sparse_index_layers or mc.num_layers}L"
+                + (f"(cost={cost:g}x)" if cost != 1.0 else "")
+            )
     n_lin = mc.linear_attention_layer_count()
     if n_lin:
         feats.append(
@@ -664,7 +673,9 @@ def _anchor_from_store(args, inference_config):
         from .search.regime import recipe_from_inference_config
 
         store = AnchorStore(root)
-        recipe = recipe_from_inference_config(inference_config)
+        recipe = recipe_from_inference_config(
+            inference_config, getattr(args, "gpu_arch", None)
+        )
         model = _anchor_model_filter(store, args)
         entry, distance = store.nearest(recipe, model=model)
     except Exception as exc:  # noqa: BLE001 - a broken store must not fail a projection
@@ -976,6 +987,15 @@ def launch_projection_from_cli(args, overrides):
                 mooncake_trace=mooncake_trace,
                 duration_ms=float(getattr(args, "des_duration_s", 0.0) or 0.0) * 1000.0,
                 closed_loop=closed_loop,
+                closed_loop_think_ms=float(
+                    getattr(args, "des_client_think_ms", 0.0) or 0.0
+                ),
+                cache_shares_pool=bool(
+                    getattr(args, "des_cache_shares_pool", False)
+                ),
+                whole_context_residency=bool(
+                    getattr(args, "des_whole_context_residency", False)
+                ),
                 prefill_exclusive=bool(getattr(args, "des_exclusive_prefill", False)),
                 new_seqs_per_step=int(getattr(args, "des_new_seqs_per_step", 0) or 0),
             )

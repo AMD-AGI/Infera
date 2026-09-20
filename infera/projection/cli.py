@@ -975,6 +975,23 @@ def _add_inference_args(parser):
         "carries the highest TTFT of any request in it. Default: 0.1.",
     )
     serv.add_argument(
+        "--des-client-think-ms",
+        type=float,
+        default=0.0,
+        help="DES: how long a closed-loop client waits after its last token "
+        "before issuing its next request. Zero re-issues immediately, which "
+        "is a load generator saturating the server and not what an agentic "
+        "harness does: a turn ends, the agent runs a tool, and the next turn "
+        "is sent when that returns. It is a property of the workload, like "
+        "the prompt lengths and the prefix reuse, and leaving it out does not "
+        "leave the replay neutral -- it holds every client permanently "
+        "resident. On the AgentX ladders the hardware's clients are idle for "
+        "50-74% of each turn's cycle below saturation and ~0% above it, so "
+        "omitting it overstates throughput several-fold at the low rungs and "
+        "not at all at the high ones, which bends the curve rather than "
+        "shifting it.",
+    )
+    serv.add_argument(
         "--des-admit-backlog-only",
         action="store_true",
         help="DES: measure the longest-prefix admission window against the "
@@ -1142,6 +1159,34 @@ def _add_inference_args(parser):
         "LRU-evicted under pressure). 0 = unbounded within the run. Default: 0.",
     )
     serv.add_argument(
+        "--des-whole-context-residency",
+        action="store_true",
+        help="DES: charge a running request the whole context it attends to, "
+        "not just the part of it that was not already cached. The discount is "
+        "an account of one physical copy, and it is only that where the "
+        "sharers are running at the same time. Under a closed loop on "
+        "conversational traffic they are not: each client has one turn in "
+        "flight, reuse is a conversation hitting its own previous turn, and "
+        "the turns running together belong to different conversations whose "
+        "histories do not overlap. Discounted anyway, a pool holding five of "
+        "these conversations reports room for hundreds, never fills, and so "
+        "never shows reuse falling away or the queue that follows it.",
+    )
+    serv.add_argument(
+        "--des-cache-shares-pool",
+        action="store_true",
+        help="DES: size the prefix cache to what the running requests leave "
+        "free, instead of to the whole pool. A request is already not charged "
+        "for the blocks it hit on, because something else is holding them; "
+        "that something is this cache, and giving it the pool as well books "
+        "the same memory twice. Where the pool is roomy the correction is "
+        "nothing, and where it is not it is the whole behaviour: a pool with "
+        "space for five of these conversations cannot also hold their history, "
+        "so reuse falls away as concurrency climbs and TTFT leaves the scale "
+        "the low rungs were on. Double-booked, the replay reports reuse near "
+        "its ceiling and a flat TTFT straight through that.",
+    )
+    serv.add_argument(
         "--des-mooncake-trace",
         type=str,
         default=None,
@@ -1179,6 +1224,18 @@ def _add_inference_args(parser):
         help="Native sparse attention (DeepSeek V3.2/V4 NSA) top-k KV tokens per "
         "query. Attention scales toward topk/context for long contexts. "
         "Default: 0 (dense).",
+    )
+    kern.add_argument(
+        "--sparse-indexer-cost-scale",
+        type=float,
+        default=None,
+        help="What the sparse indexer's top-k selection costs on this stack "
+        "relative to a fused kernel. The arithmetic is the model's, the kernel "
+        "is the serving stack's: the same selection runs fused through aiter "
+        "on gfx950 and unfused through Torch on gfx942. 1.0 prices the fused "
+        "path; raise it to charge a stack serving without one. Only reaches "
+        "models priced from an indexer geometry (GLM-5.2, MiniMax-M3), not "
+        "ones carrying a per-layer compression schedule. Default: 1.0.",
     )
     kern.add_argument(
         "--sliding-window",
