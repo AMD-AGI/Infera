@@ -128,6 +128,9 @@ class _Req:
     first_token_ms: float = -1.0
     finish_ms: float = -1.0
     itls: list[float] = field(default_factory=list)
+    # Whether the credit below applies. It is a property of *who the sharers
+    # are*, not of the engine: see ``reserved_kv``.
+    shared_prefix_credit: bool = True
 
     @property
     def reserved_kv(self) -> int:
@@ -150,6 +153,19 @@ class _Req:
         # measured occupancy than charging every sharer in full. A cold run is
         # untouched -- ``cached_prefix`` is zero without a cache to hit, which
         # is every fixed-sequence workpoint.
+        #
+        # The credit accounts for one physical copy only where the sharers are
+        # resident *at the same time*. On the agentic corpora they are not:
+        # reuse there is a conversation hitting its own previous turn, and a
+        # closed loop gives each client one turn in flight, so the requests
+        # running together are always different conversations whose contexts
+        # are disjoint past a short shared head. Credited anyway, C concurrent
+        # 200k-token histories cost a few thousand tokens each and the pool
+        # never binds at any concurrency these ladders reach -- which is why
+        # reuse holds at its ceiling in the replay and degrades on every one
+        # of these systems as C approaches what the pool holds.
+        if not self.shared_prefix_credit:
+            return self.prompt_len + self.output_len
         return self.prompt_len - self.cached_prefix + self.output_len
 
     @property
@@ -260,6 +276,45 @@ def _resident_cap(
     biased = sum(c * c for c in ctx) / max(1, sum(ctx))
     fits = int(kv_cache_tokens / max(1.0, biased))
     return max(1, min(fits, max_running if max_running > 0 else fits))
+
+
+def _free_cache_blocks(
+    kv_cache_tokens: int, live_tokens: float, block_size: int, cap_blocks: int
+) -> int:
+    """Block-cache capacity left over once the running set has its KV.
+
+    There is one pool. ``_Req.reserved_kv`` already declines to charge a
+    request for the leading blocks it hit on, on the grounds that an earlier
+    request is holding them -- which is right, and which only balances if
+    whatever *is* holding them is charged instead. The block cache is that
+    holder, and it was being handed the whole pool at the same time as the
+    running set, so both structures booked the same memory and neither ever
+    saw it run out.
+
+    The error is invisible wherever the pool is large against the working set
+    and total wherever it is not. On the AgentX ladders DeepSeek-V4 has room
+    for 44-132 conversations and reuse holds near its ceiling at every
+    concurrency run; GLM-5.2 on MI325X has room for 5.5, and the hardware's
+    reuse falls 0.79 -> 0.30 -> 0.12 across C=4,5,6 as the live contexts crowd
+    the cached prefixes out, taking TTFT from 3s to 198s. Double-booked, the
+    replay kept reporting a 0.96 hit rate and a flat TTFT through the whole
+    collapse.
+
+    Residency does not depend on reuse -- a hit skips prefill compute, it does
+    not free blocks -- so the live figure measured with the cache at one
+    capacity is still the live figure at another, and a single corrective pass
+    lands on the answer rather than approaching it.
+
+    Never returns zero: ``_BlockStore`` reads a zero capacity as unbounded, and
+    a pool with no room left is the opposite of that.
+    """
+    if kv_cache_tokens <= 0 or block_size <= 0:
+        return cap_blocks
+    free = max(0, int(kv_cache_tokens) - int(max(0.0, live_tokens)))
+    blocks = free // int(block_size)
+    if cap_blocks > 0:
+        blocks = min(blocks, cap_blocks)
+    return max(1, int(blocks))
 
 
 def _scored_sample(
@@ -415,6 +470,8 @@ def simulate_once(
     prebuilt: list[_Req] | None = None,
     return_samples: bool = False,
     closed_loop_clients: int = 0,
+    closed_loop_think_ms: float = 0.0,
+    whole_context_residency: bool = False,
     prefill_exclusive: bool = False,
     new_seqs_per_step: int = 0,
     duration_ms: float = 0.0,
@@ -461,6 +518,7 @@ def simulate_once(
     rng = random.Random(seed)
     clients = max(0, int(closed_loop_clients))
     closed_loop = clients > 0
+    think_ms = max(0.0, float(closed_loop_think_ms))
 
     # ---- workload (arrivals + per-request lengths) ----
     if closed_loop:
@@ -519,6 +577,9 @@ def simulate_once(
                 if cached > 0:
                     r.cached_prefix = cached
                     r.num_computed = cached
+    if whole_context_residency:
+        for r in pending:
+            r.shared_prefix_credit = False
     pending.sort(key=lambda r: (r.arrival_ms, r.idx))
     n = len(pending)
 
@@ -542,6 +603,7 @@ def simulate_once(
     pk_qtokens = 0
     pk_prefill_steps = 0
     pk_kv_peak = 0
+    pk_kv_sum = 0
 
     # Exact worst-case iteration bound (batch=1: every token its own step). Both
     # the per-request chunk cap and the shared token budget can split a prefill,
@@ -749,7 +811,7 @@ def simulate_once(
                 kv_used -= r.reserved_kv
                 done.append(r)
                 if closed_loop and next_unissued < n:
-                    pending[next_unissued].arrival_ms = now
+                    pending[next_unissued].arrival_ms = now + think_ms
                     next_unissued += 1
             else:
                 still.append(r)
@@ -766,6 +828,7 @@ def simulate_once(
         pk_qtokens += prefill_q + num_decode * q_len
         pk_prefill_steps += 1 if pref else 0
         pk_kv_peak = max(pk_kv_peak, kv_used)
+        pk_kv_sum += kv_used
         if record_steps:
             step_records.append(
                 {
@@ -893,6 +956,13 @@ def simulate_once(
         "prefill_step_fraction": (pk_prefill_steps / pk_steps) if pk_steps else 0.0,
         "kv_peak_tokens": float(pk_kv_peak),
         "kv_utilization": (pk_kv_peak / kv_pool) if kv_pool > 0 else 0.0,
+        # Occupancy averaged over steps, not the high-water mark. The peak is
+        # set by the opening transient: the cache is cold, nothing is a hit,
+        # and the first batch reserves whole prompts, so the peak pins to the
+        # pool on any run whose cold working set exceeds it and says nothing
+        # about the run that follows. What the cache has to live alongside is
+        # the steady occupancy.
+        "kv_mean_tokens": (pk_kv_sum / pk_steps) if pk_steps else 0.0,
         "closed_loop_clients": float(clients),
     }
 
@@ -1401,6 +1471,7 @@ def simulate_disaggregated(
     kv_cache_tokens: int = 0,
     prebuilt: list[_Req] | None = None,
     closed_loop_clients: int = 0,
+    closed_loop_think_ms: float = 0.0,
     return_samples: bool = False,
     duration_ms: float = 0.0,
 ) -> DESResult:
@@ -1464,6 +1535,7 @@ def simulate_disaggregated(
     rng = random.Random(seed)
     clients = max(0, int(closed_loop_clients))
     closed_loop = clients > 0
+    think_ms = max(0.0, float(closed_loop_think_ms))
 
     # ---- workload ----
     if prebuilt is not None:
@@ -1698,7 +1770,7 @@ def simulate_disaggregated(
         """
         nonlocal next_unissued
         if next_unissued < n:
-            pending[next_unissued].arrival_ms = t
+            pending[next_unissued].arrival_ms = t + think_ms
             next_unissued += 1
 
     # ---- event loop ----
@@ -1918,6 +1990,9 @@ def simulate_multi_instance(
     closed_loop_clients: int = 0,
     duration_ms: float = 0.0,
     prefill_exclusive: bool = False,
+    cache_shares_pool: bool = False,
+    closed_loop_think_ms: float = 0.0,
+    whole_context_residency: bool = False,
 ) -> DESResult:
     """Route one arrival stream across ``num_instances`` replicas and pool.
 
@@ -1936,13 +2011,16 @@ def simulate_multi_instance(
     bs = int(block_size) if block_size and block_size > 0 else _DEFAULT_BLOCK_SIZE
     hasher = _BlockHasher()
 
-    if mooncake_rows is not None:
-        # Trace-driven: arrivals, lengths and block hashes all come from the file.
-        rows = sorted(mooncake_rows, key=lambda x: x[0])
-        reqs = [
+    def _trace_requests() -> list[_Req]:
+        rows = sorted(mooncake_rows or [], key=lambda x: x[0])
+        return [
             _Req(idx=i, arrival_ms=a, prompt_len=isl, output_len=osl, blocks=list(hids))
             for i, (a, isl, osl, hids) in enumerate(rows)
         ]
+
+    if mooncake_rows is not None:
+        # Trace-driven: arrivals, lengths and block hashes all come from the file.
+        reqs = _trace_requests()
     else:
         arrivals = _generate_arrivals(num_requests, rate_per_s, arrival_model, rng, burstiness)
         reqs = _build_workload(len(arrivals), arrivals, input_len, output_len, range_ratio, rng)
@@ -1954,58 +2032,74 @@ def simulate_multi_instance(
             r.prefix_id = pid
             r.blocks = _blocks_from_prefix(r.idx, r.prompt_len, pid, eff_prefix_len, bs, hasher)
 
-    per_inst, prefix_summary = _route_and_warm(
-        reqs,
-        policy=routing,
-        num_instances=num_instances,
-        block_size=bs,
-        cache_blocks=cache_blocks,
-        rng=rng,
-        overlap_weight=overlap_weight,
-        waiting_depth=closed_loop_clients,
-        resident_cap=_resident_cap(
-            reqs,
-            kv_cache_tokens,
-            inference_config.request_config.resolved_max_concurrency(),
-            admit_backlog_only,
-        ),
-    )
-    prefix_summary["routing"] = (
-        float(_ROUTING_POLICIES.index(routing)) if routing in _ROUTING_POLICIES else -1.0
-    )
-    prefix_summary["trace_driven"] = 1.0 if mooncake_rows is not None else 0.0
-
-    results: list[DESResult] = []
-    for i, sub in enumerate(per_inst):
-        if not sub:
-            continue
-        # Per-instance offered rate ≈ its share of the global stream.
-        inst_rate = rate_per_s * (len(sub) / len(reqs)) if reqs else rate_per_s
-        results.append(
-            simulate_once(
-                inference_config,
-                projector,
-                rate_per_s=inst_rate,
-                arrival_model=arrival_model,
-                seed=seed + i,
-                warmup_frac=warmup_frac,
-                warmup_requests=warmup_requests,
-                kv_cache_tokens=kv_cache_tokens,
-                prebuilt=sub,
-                return_samples=True,
-                # Concurrency is per engine, so every replica runs the full
-                # client count rather than a share of it.
-                closed_loop_clients=closed_loop_clients,
-                # Every replica stops on the same clock: the window is the
-                # harness's, so it is not divided across instances the way
-                # the request stream is.
-                duration_ms=duration_ms,
-                # Whether prefill excludes decode is a property of the engine,
-                # so every replica schedules the same way.
-                prefill_exclusive=prefill_exclusive,
-            )
+    def _warm_and_run(pool_reqs: list[_Req], cap_blocks: int) -> DESResult:
+        per_inst, prefix_summary = _route_and_warm(
+            pool_reqs,
+            policy=routing,
+            num_instances=num_instances,
+            block_size=bs,
+            cache_blocks=cap_blocks,
+            rng=random.Random(seed),
+            overlap_weight=overlap_weight,
+            waiting_depth=closed_loop_clients,
+            resident_cap=_resident_cap(
+                pool_reqs,
+                kv_cache_tokens,
+                inference_config.request_config.resolved_max_concurrency(),
+                admit_backlog_only,
+            ),
         )
-    agg = _aggregate_instances(results, prefix_summary)
+        prefix_summary["routing"] = (
+            float(_ROUTING_POLICIES.index(routing)) if routing in _ROUTING_POLICIES else -1.0
+        )
+        prefix_summary["trace_driven"] = 1.0 if mooncake_rows is not None else 0.0
+
+        results: list[DESResult] = []
+        for i, sub in enumerate(per_inst):
+            if not sub:
+                continue
+            # Per-instance offered rate ≈ its share of the global stream.
+            inst_rate = rate_per_s * (len(sub) / len(pool_reqs)) if pool_reqs else rate_per_s
+            results.append(
+                simulate_once(
+                    inference_config,
+                    projector,
+                    rate_per_s=inst_rate,
+                    arrival_model=arrival_model,
+                    seed=seed + i,
+                    warmup_frac=warmup_frac,
+                    warmup_requests=warmup_requests,
+                    kv_cache_tokens=kv_cache_tokens,
+                    prebuilt=sub,
+                    return_samples=True,
+                    # Concurrency is per engine, so every replica runs the full
+                    # client count rather than a share of it.
+                    closed_loop_clients=closed_loop_clients,
+                    closed_loop_think_ms=closed_loop_think_ms,
+                    whole_context_residency=whole_context_residency,
+                    # Every replica stops on the same clock: the window is the
+                    # harness's, so it is not divided across instances the way
+                    # the request stream is.
+                    duration_ms=duration_ms,
+                    # Whether prefill excludes decode is a property of the engine,
+                    # so every replica schedules the same way.
+                    prefill_exclusive=prefill_exclusive,
+                )
+            )
+        return _aggregate_instances(results, prefix_summary)
+
+    agg = _warm_and_run(reqs, cache_blocks)
+    # The cache and the running set are the same memory, and the warm pass runs
+    # before there is a running set to measure. So measure one, then re-warm
+    # against what it left free. Residency is independent of reuse, so the
+    # second pass is the answer and not a step towards it.
+    if cache_shares_pool and mooncake_rows is not None and kv_cache_tokens > 0:
+        live = float((agg.packing or {}).get("kv_mean_tokens") or 0.0)
+        free_blocks = _free_cache_blocks(kv_cache_tokens, live, bs, cache_blocks)
+        if free_blocks != cache_blocks:
+            agg = _warm_and_run(_trace_requests(), free_blocks)
+            agg.prefix["cache_shares_pool"] = 1.0
+            agg.prefix["cache_free_tokens"] = float(max(0.0, kv_cache_tokens - live))
     return agg
 
 
@@ -2040,6 +2134,9 @@ def run_des(
     prefill_exclusive: bool = False,
     new_seqs_per_step: int = 0,
     closed_loop: bool = False,
+    closed_loop_think_ms: float = 0.0,
+    cache_shares_pool: bool = False,
+    whole_context_residency: bool = False,
 ) -> dict[str, object]:
     """Run the DES at the configured load and (optionally) a load sweep.
 
@@ -2121,6 +2218,7 @@ def run_des(
             closed_loop_clients=(
                 inference_config.request_config.resolved_max_concurrency() if closed_loop else 0
             ),
+            closed_loop_think_ms=closed_loop_think_ms,
             duration_ms=duration_ms,
         )
         # The split warms a prefix cache exactly as the colocated path does,
@@ -2158,8 +2256,11 @@ def run_des(
                 admit_backlog_only=admit_backlog_only,
                 mooncake_rows=mooncake_rows,
                 closed_loop_clients=clients,
+                closed_loop_think_ms=closed_loop_think_ms,
                 duration_ms=duration_ms,
                 prefill_exclusive=prefill_exclusive,
+                cache_shares_pool=cache_shares_pool,
+                whole_context_residency=whole_context_residency,
             )
             return out
         out["point"] = simulate_once(
@@ -2175,6 +2276,8 @@ def run_des(
             kv_cache_tokens=kv_cache_tokens,
             record_steps=record_steps,
             closed_loop_clients=clients,
+            closed_loop_think_ms=closed_loop_think_ms,
+            whole_context_residency=whole_context_residency,
             prefill_exclusive=prefill_exclusive,
             new_seqs_per_step=new_seqs_per_step,
             duration_ms=duration_ms,
@@ -2214,6 +2317,8 @@ def run_des(
             mooncake_rows=mooncake_rows,
             duration_ms=duration_ms,
             prefill_exclusive=prefill_exclusive,
+            cache_shares_pool=cache_shares_pool,
+            whole_context_residency=whole_context_residency,
         )
         return out
     out["point"] = simulate_once(
