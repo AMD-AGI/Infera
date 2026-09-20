@@ -65,6 +65,25 @@ REGIME_AXES = (
     "aiter",
     "aiter_ops",
     "speculative",
+    # The accelerator the anchor was measured on. Absent from this tuple until
+    # now, and absent from the anchors themselves, which is the more serious
+    # half: nothing in the store records which GPU produced a timing, so the
+    # restore cannot form the sim(target)/sim(bench) ratio that would carry
+    # the change, and does not try. A measurement is simply reused. On this
+    # store every anchor is gfx950 -- the GLM-5.2-MXFP4 Quark build only
+    # loads there -- and one target, GLM-5.2 on MI325X, is gfx942, so it was
+    # priced on kernels from a part with roughly twice the compute and a
+    # third more bandwidth. It read 4.3x the measured throughput and a
+    # twentieth of the measured TTFT, the worst curve in the matrix, while
+    # reporting itself calibrated.
+    #
+    # Regime-defining rather than transportable, which is the conservative
+    # of the two readings. Hardware is transportable in principle -- the
+    # analytical model knows both parts -- but only once the anchor says
+    # which part it ran on, and until a harvest records that, refusing is
+    # the honest answer. ``IX_RELAX_AXES`` can still relax it deliberately,
+    # which is the difference between a known approximation and a silent one.
+    "gpu_arch",
 )
 
 # Canonical value of the ``speculative`` axis when speculation is off. Distinct
@@ -345,6 +364,15 @@ def recipe_from_meta(
             if "speculative_method" in meta
             else None
         ),
+        # Absent key => unknown (pre-tracking artifact), which
+        # ``regime_distance`` skips. That is the permissive reading and it is
+        # deliberate: the alternative refuses every anchor harvested before
+        # the axis existed. What makes it safe is that a store can be told
+        # which part it ran on after the fact -- see ``ix_anchor_store`` --
+        # so an unknown here means "nobody has said yet", not "any part".
+        "gpu_arch": (
+            str(meta.get("gpu_arch") or meta.get("gpu") or "").lower().strip() or None
+        ),
         # transport (benchmark space)
         "tp": meta.get("benchmark_tp") or meta.get("tp"),
         "pp": meta.get("benchmark_pp") or meta.get("pp"),
@@ -390,6 +418,9 @@ def recipe_from_bench_args(args: Any, env: dict[str, str] | None = None) -> dict
             getattr(args, "speculative_method", None) or "",
             getattr(args, "speculative_num_tokens", None),
         ),
+        "gpu_arch": (
+            str(getattr(args, "gpu_arch", "") or "").lower().strip() or None
+        ),
         "tp": getattr(args, "tp", 1),
         "pp": getattr(args, "pp", 1),
         "ep": ep,
@@ -401,7 +432,7 @@ def recipe_from_bench_args(args: Any, env: dict[str, str] | None = None) -> dict
     }
 
 
-def recipe_from_inference_config(cfg: Any) -> dict[str, Any]:
+def recipe_from_inference_config(cfg: Any, gpu_arch: Any = None) -> dict[str, Any]:
     """Canonical recipe from an ``InferenceConfig`` (the reconstruction target).
 
     Structural configs carry no HF model *name*, so ``model`` is left ``None``
@@ -437,6 +468,11 @@ def recipe_from_inference_config(cfg: Any) -> dict[str, Any]:
             "spec" if g(req, "speculative_num_tokens") else "",
             g(req, "speculative_num_tokens"),
         ),
+        # The target always knows its part; the caller has to pass it,
+        # because it arrives on the command line rather than on the config.
+        # Left None the axis is skipped, which keeps a caller that does not
+        # know its hardware matching the anchors it matched before.
+        "gpu_arch": str(gpu_arch).lower().strip() if gpu_arch else None,
         "tp": tp,
         "pp": int(g(mp, "pipeline_model_parallel_size", 1) or 1),
         "ep": ep,

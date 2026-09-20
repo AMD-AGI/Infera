@@ -442,3 +442,34 @@ def test_discovery_stops_before_walking_an_entire_filesystem(tmp_path):
     deep = "a/b/c/d/e"
     _artifact(tmp_path, "far.json", sub=deep)
     assert AnchorStore(str(tmp_path)).entries() == []
+
+
+def test_an_anchor_from_another_part_is_not_the_same_regime():
+    """gfx950 timings do not describe a gfx942 deployment.
+
+    Nothing in the store recorded which accelerator produced a timing, so the
+    axis could not be compared and every anchor matched every target. The one
+    place that bit in this matrix is GLM-5.2: its only anchors are the
+    MXFP4 Quark build, which loads on gfx950 alone, and they were being used
+    to price an MI325X deployment -- a part with roughly half the compute.
+    It read 4.3x the measured throughput while reporting itself calibrated.
+    """
+    anchor = recipe_from_meta(
+        {"model": "/models/GLM-5.2-MXFP4", "gpu_arch": "mi355x"}, engine="sglang"
+    )
+    assert anchor["gpu_arch"] == "mi355x"
+    assert regime_distance(anchor, dict(anchor, gpu_arch="mi325x")) == 1
+    assert regime_distance(anchor, dict(anchor, gpu_arch="mi355x")) == 0
+
+
+def test_an_anchor_that_never_recorded_its_part_is_still_usable():
+    """Adding the axis must not retire every anchor harvested before it.
+
+    An unrecorded part is unknown rather than wrong, and ``regime_distance``
+    skips an axis neither side pins. The store is what closes the gap, by
+    stamping the part at build time for the pairs whose part can be argued
+    for -- so silence here means "nobody has said yet".
+    """
+    legacy = recipe_from_meta({"model": "/models/DeepSeek-V4-Pro"}, engine="vllm")
+    assert legacy["gpu_arch"] is None
+    assert regime_distance(legacy, dict(legacy, gpu_arch="mi300x")) == 0
