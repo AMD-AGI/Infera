@@ -174,6 +174,37 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs, config) -> None:
             await http.aclose()
 
 
+def _supervise_engine(engine: SglangEngine) -> tuple[asyncio.Event, EngineDeath, asyncio.Task]:
+    """Watch SIGTERM and subprocess death for the whole post-start lifetime."""
+    stop = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, stop.set)
+    death = EngineDeath()
+    death_task = watch_engine_death(engine, stop, death)
+    return stop, death, death_task
+
+
+async def _wait_for_decode_until_stop(args: SglangWorkerArgs, config, stop: asyncio.Event) -> bool:
+    """Run the decode barrier unless shutdown or engine death wins the race."""
+    wait_task = asyncio.create_task(_maybe_wait_for_decode(args, config))
+    stop_task = asyncio.create_task(stop.wait())
+    try:
+        await asyncio.wait({wait_task, stop_task}, return_when=asyncio.FIRST_COMPLETED)
+        if wait_task.done() and not wait_task.cancelled():
+            wait_task.result()
+            return not stop.is_set()
+        return False
+    finally:
+        for task in (wait_task, stop_task):
+            if not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+
+
 logging.basicConfig(level=logging.INFO)
 # httpx logs every etcd lease keepalive (~ every ttl/3 seconds). That's
 # pure noise in the worker log; surface only warnings/errors.
@@ -424,25 +455,45 @@ async def main() -> None:
         config.disagg_meta,
     )
 
-    # Everything past engine.start() must tear the engine down on failure;
-    # otherwise an exception (e.g. --kv-events on failing the KV plane) escapes
-    # without reaping the sglang subprocess tree, orphaning it (holds ports/GPUs).
+    # Everything past engine.start() must tear the engine down on failure or
+    # shutdown, including the decode barrier window: signal handlers and the
+    # subprocess death watch start here, before any wait.
+    stop, death, death_task = _supervise_engine(engine)
+    failed = False
     try:
-        await _maybe_wait_for_decode(args, config)
-        await _run_after_start(args, engine, config)
+        if await _wait_for_decode_until_stop(args, config, stop):
+            await _run_after_start(args, engine, config, stop)
     except Exception:
+        failed = True
         logger.exception("worker failed after engine start; tearing down")
+        raise
+    finally:
+        death_task.cancel()
+        try:
+            await death_task
+        except asyncio.CancelledError:
+            pass
         try:
             await engine.stop()
         finally:
-            _kill_process_group_safely()
-        raise
+            if failed:
+                _kill_process_group_safely()
+        if not failed and death.exit_status is not None:
+            raise SystemExit(death.exit_status)
 
 
-async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config) -> None:
+async def _run_after_start(
+    args: SglangWorkerArgs,
+    engine: SglangEngine,
+    config,
+    stop: asyncio.Event,
+) -> None:
     """Worker lifecycle once the sglang subprocess is up: KV plane,
     registration, then serve until shutdown. Raises on any setup failure so
     ``main`` can tear the engine down (avoids orphaning the subprocess tree).
+
+    ``stop`` is already armed (signals + engine-death watch) before the
+    decode barrier, so this function does not install a second watcher.
     """
     # --- Multinode follower gate ---
     # In a multi-node (LeaderWorkerSet) TP group only node-rank 0 runs the
@@ -459,21 +510,7 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
             "+ registration (node-rank 0 serves and registers).",
             node_rank,
         )
-        stop = asyncio.Event()
-        loop = asyncio.get_running_loop()
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, stop.set)
-        death = EngineDeath()
-        death_task = watch_engine_death(engine, stop, death)
         await stop.wait()
-        death_task.cancel()
-        try:
-            await death_task
-        except asyncio.CancelledError:
-            pass
-        await engine.stop()
-        if death.exit_status is not None:
-            raise SystemExit(death.exit_status)
         return
 
     # --- KV plane (best-effort under auto, fatal under on, skipped under off) ---
@@ -591,23 +628,7 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
     await reg_client.register(config)
     hb_task = asyncio.create_task(reg_client.heartbeat_loop(), name="worker-heartbeat")
 
-    # --- Wait for shutdown signal (or engine subprocess death) ---
-    stop = asyncio.Event()
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, stop.set)
-
-    death = EngineDeath()
-    death_task = watch_engine_death(engine, stop, death)
-
     await stop.wait()
-
-    # --- Graceful shutdown ---
-    death_task.cancel()
-    try:
-        await death_task
-    except asyncio.CancelledError:
-        pass
 
     # Stop the heartbeat before touching the record: it re-asserts registration
     # from config, so a refresh landing after deregistration would put the
@@ -656,10 +677,6 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
 
     if kv_wiring is not None:
         await kv_wiring.stop()
-
-    await engine.stop()
-    if death.exit_status is not None:
-        raise SystemExit(death.exit_status)
 
 
 if __name__ == "__main__":

@@ -58,11 +58,14 @@ async def test_abort_engine_request_posts_rid():
 
 
 class _FakePolicy:
+    def __init__(self):
+        self.finished = 0
+
     def on_request_started(self, route_key, blocks):
         pass
 
     def on_request_finished(self, route_key, blocks):
-        pass
+        self.finished += 1
 
 
 class _FakePool:
@@ -131,4 +134,20 @@ async def test_stream_dual_aborts_on_client_cancel(monkeypatch):
     with pytest.raises(asyncio.CancelledError):
         await task
     assert aborted.count("infera-9") >= 2, aborted
+    assert r.policy.finished == 2
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_finish_prefill_records_breaker_on_transport_error():
+    r = DisaggRouter(_FakePool(), _FakePolicy())
+
+    async def _boom():
+        raise httpx.ConnectError("refused")
+
+    task = asyncio.create_task(_boom())
+    await r._finish_prefill(
+        task, "http://p:8000", "http://d:8000", "infera-1", "p1", abort=False
+    )
+    assert r.breaker._entries["p1"].consecutive_failures == 1
     await r.aclose()

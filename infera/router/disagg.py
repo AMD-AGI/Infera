@@ -24,13 +24,13 @@ from infera.router.disagg_protocols import (
     UnknownProtocol,
     resolve_protocol,
 )
-from infera.router.pd_abort import abort_engine_request, prefill_drain_timeout_s
 from infera.router.dp_routing import (
     align_room_to_prefill_rank,
     dp_rank_header,
     inject_disagg_prefill_dp_rank,
 )
 from infera.router.engine_priority import inject_engine_priority
+from infera.router.pd_abort import abort_engine_request, prefill_drain_timeout_s
 from infera.router.policy.target import RouteTarget
 from infera.server import metrics
 
@@ -133,9 +133,7 @@ class DisaggRouter(BaseRouter):
             else:
                 p_resp = await p_task
         except asyncio.TimeoutError:
-            logger.warning(
-                "prefill drain timed out after %.0fs; aborting rid=%s", timeout, rid
-            )
+            logger.warning("prefill drain timed out after %.0fs; aborting rid=%s", timeout, rid)
             p_task.cancel()
             await abort_engine_request(self._client, prefill_url, rid)
             await abort_engine_request(self._client, decode_url, rid)
@@ -153,6 +151,7 @@ class DisaggRouter(BaseRouter):
                 exc or "<no message>",
             )
             metrics.pd_bootstrap_failures_total.labels(reason="prefill_exception").inc()
+            self.breaker.record_failure(p_worker_id)
             return
         p_status = getattr(p_resp, "status_code", None)
         if p_status is None:
@@ -166,6 +165,27 @@ class DisaggRouter(BaseRouter):
             metrics.pd_bootstrap_failures_total.labels(reason="prefill_5xx").inc()
         self._score_leg(p_worker_id, p_status)
 
+    async def _release_prefill_drain(
+        self,
+        p_task: asyncio.Task,
+        prefill_url: str,
+        decode_url: str,
+        rid: str | None,
+        p_worker_id: str,
+        *,
+        abort: bool,
+    ) -> None:
+        """Run ``_finish_prefill`` without skipping ``on_request_finished``.
+
+        ``CancelledError`` is a ``BaseException``; leaving it uncaught in
+        ``finally`` would skip inflight accounting.
+        """
+        try:
+            await self._finish_prefill(
+                p_task, prefill_url, decode_url, rid, p_worker_id, abort=abort
+            )
+        except (asyncio.CancelledError, Exception):
+            pass
 
     async def dispatch(
         self,
@@ -569,7 +589,13 @@ class DisaggRouter(BaseRouter):
             obs.claim_stream()
             return StreamingResponse(
                 self._stream_dual_nats(
-                    obs, p_target, p_blocks, d_target, d_blocks, d_payload, p_task,
+                    obs,
+                    p_target,
+                    p_blocks,
+                    d_target,
+                    d_blocks,
+                    d_payload,
+                    p_task,
                     rid=p_body.get("rid"),
                 ),
                 media_type="text/event-stream",
@@ -613,17 +639,14 @@ class DisaggRouter(BaseRouter):
             obs.observe_usage(payload)
             return JSONResponse(content=payload, status_code=status)
         finally:
-            try:
-                await self._finish_prefill(
-                    p_task,
-                    p.url,
-                    d.url,
-                    p_body.get("rid"),
-                    p.worker_id,
-                    abort=False,
-                )
-            except (asyncio.CancelledError, Exception):
-                pass
+            await self._release_prefill_drain(
+                p_task,
+                p.url,
+                d.url,
+                p_body.get("rid"),
+                p.worker_id,
+                abort=False,
+            )
             self.policy.on_request_finished(p_target.route_key, p_blocks)
             self.policy.on_request_finished(d_target.route_key, d_blocks)
 
@@ -662,7 +685,7 @@ class DisaggRouter(BaseRouter):
             client_disconnected = True
             raise
         finally:
-            await self._finish_prefill(
+            await self._release_prefill_drain(
                 p_task, p.url, d.url, rid, p.worker_id, abort=client_disconnected
             )
             self.policy.on_request_finished(p_target.route_key, p_blocks)
@@ -1116,7 +1139,7 @@ class DisaggRouter(BaseRouter):
                     await d_resp.aclose()
                 except Exception:
                     pass
-            await self._finish_prefill(
+            await self._release_prefill_drain(
                 p_task,
                 p.url,
                 d.url,

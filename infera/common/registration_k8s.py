@@ -95,7 +95,11 @@ class K8sRegistrationClient:
         return worker_id
 
     async def clear_stale_registration(self) -> None:
-        """Remove worker metadata left by an earlier container process."""
+        """Remove worker metadata left by an earlier container process.
+
+        Failure is logged and ignored: a leftover annotation is worse than none,
+        but it must not prevent the engine from starting.
+        """
         try:
             await self._patch_annotation(None)
             logger.info(
@@ -103,8 +107,18 @@ class K8sRegistrationClient:
                 self._namespace,
                 self._pod_name,
             )
+        except Exception as exc:  # noqa: BLE001 - startup must continue
+            logger.warning(
+                "could not clear stale worker annotation for pod=%s/%s (%s); continuing",
+                self._namespace,
+                self._pod_name,
+                exc,
+            )
         finally:
-            await self._http.aclose()
+            try:
+                await self._http.aclose()
+            except Exception:
+                pass
 
     async def deregister(self) -> bool:
         """Clear the annotation, reporting whether the record is actually gone.

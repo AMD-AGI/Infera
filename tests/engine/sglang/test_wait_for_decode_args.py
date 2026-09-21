@@ -7,11 +7,15 @@
 
 from __future__ import annotations
 
+import asyncio
+from types import SimpleNamespace
+
 import pytest
 
 pytest.importorskip("sglang")
 
 from infera.engine.sglang.args import parse_sglang_args  # noqa: E402
+from infera.engine.sglang.__main__ import _wait_for_decode_until_stop  # noqa: E402
 
 _PREFILL = [
     "--model-path",
@@ -49,3 +53,31 @@ def test_wait_for_decode_timeout_and_selector():
     assert args.wait_for_decode is True
     assert args.decode_ready_timeout == 90.0
     assert args.k8s_label_selector == "infera.amd.com/deployment=x"
+
+
+@pytest.mark.asyncio
+async def test_wait_for_decode_until_stop_aborts_when_engine_dies(monkeypatch):
+    async def _hang(*_a, **_k):
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr("infera.engine.sglang.__main__._maybe_wait_for_decode", _hang)
+    stop = asyncio.Event()
+
+    async def _trip():
+        await asyncio.sleep(0.01)
+        stop.set()
+
+    asyncio.create_task(_trip())
+    assert await _wait_for_decode_until_stop(SimpleNamespace(), SimpleNamespace(), stop) is False
+
+
+@pytest.mark.asyncio
+async def test_wait_for_decode_until_stop_returns_true_on_success(monkeypatch):
+    async def _ok(*_a, **_k):
+        return None
+
+    monkeypatch.setattr("infera.engine.sglang.__main__._maybe_wait_for_decode", _ok)
+    assert (
+        await _wait_for_decode_until_stop(SimpleNamespace(), SimpleNamespace(), asyncio.Event())
+        is True
+    )

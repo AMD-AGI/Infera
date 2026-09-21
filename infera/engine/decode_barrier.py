@@ -23,6 +23,9 @@ Two things make the record alone insufficient, and both are handled below:
 * An unscoped Pod list would accept a decode from a *different* deployment
   that happens to serve the same model, which is not a Mooncake peer. The
   label selector must resolve to something, or this module refuses to gate.
+  The etcd path has no equivalent label: isolation is ``--etcd-prefix``,
+  which must be unique per deployment. A shared default prefix can match
+  another deployment's decode worker.
 """
 
 from __future__ import annotations
@@ -312,7 +315,11 @@ async def list_etcd_worker_payloads(
     *,
     http: httpx.AsyncClient | None = None,
 ) -> list[dict[str, Any]]:
-    """List worker registration payloads under an etcd prefix."""
+    """List worker registration payloads under an etcd prefix.
+
+    Unlike the Kubernetes path, this listing is not deployment-scoped.
+    Operators must give each deployment its own ``--etcd-prefix``.
+    """
     if not prefix.endswith("/"):
         prefix = prefix + "/"
     base = _normalize_endpoint(endpoint)

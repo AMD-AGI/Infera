@@ -217,11 +217,7 @@ spec:
               httpGet: {path: /health, port: 30001}
               periodSeconds: 15
               timeoutSeconds: 10
-              # 180 min: 90 for the decode leg and 90 for this one, each
-              # matching INFERA_ENGINE_READY_TIMEOUT. Prefill blocks until a
-              # decode worker has registered before it starts SGLang, so one
-              # probe budget has to span both loads.
-              failureThreshold: 720
+              failureThreshold: 360   # 90 min, matching INFERA_ENGINE_READY_TIMEOUT
             resources:
               # memory > 256 GiB of hicache host tier (32 GB x 8 DP ranks) plus
               # the weight-load buffers. cpu matches num_threads in

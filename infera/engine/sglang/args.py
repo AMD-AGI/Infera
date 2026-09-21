@@ -99,7 +99,10 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
     parser.add_argument(
         "--etcd-prefix",
         default="/infera/workers/",
-        help="Etcd key prefix (default: /infera/workers/)",
+        help="Etcd key prefix (default: /infera/workers/). Must be unique per "
+        "deployment: the PD decode barrier lists this prefix with no extra "
+        "selector, so a shared prefix can unblock prefill using another "
+        "deployment's decode worker.",
     )
     parser.add_argument(
         "--k8s-namespace",
