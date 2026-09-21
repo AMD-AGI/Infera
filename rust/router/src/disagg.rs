@@ -6,14 +6,17 @@
 //! PD dual-dispatch for SGLang bootstrap (concurrent topology).
 //!
 //! Both legs get the same bootstrap fields and are POSTed concurrently; the
-//! decode leg streams back to the client while the prefill leg runs to
-//! completion in a detached task. The prefill task is NEVER cancelled — if its
-//! request is dropped the bootstrap_room handoff is lost and decode hangs on
-//! KVPoll until a ~300s timeout. A detached `tokio::spawn` gives us exactly
-//! that: it outlives the client connection.
+//! decode leg streams back to the client while the prefill leg drains in a
+//! background task. If the client disconnects before the stream completes, or
+//! the prefill POST exceeds `pd_prefill_drain_timeout`, the router aborts the
+//! engine request (`/abort_request`) so a hung Mooncake session cannot occupy
+//! an inflight slot forever.
 
 use std::sync::Arc;
 use std::time::Duration;
+
+use tokio::sync::oneshot;
+use tokio::task::AbortHandle;
 
 use axum::body::{Body, Bytes};
 use axum::http::{header, StatusCode};
@@ -152,13 +155,31 @@ async fn stream_dual(
     d_body: Map<String, Value>,
     guard: ActiveGuard,
 ) -> Response {
-    spawn_prefill_drain(
+    let rid = p_body
+        .get("rid")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .unwrap_or_default();
+    let (incomplete_tx, incomplete_rx) = oneshot::channel();
+    let drain_handle = spawn_prefill_drain(
         state.http.clone(),
         state.breaker.clone(),
         p.worker.worker_id.clone(),
+        p.worker.url.clone(),
+        d.worker.url.clone(),
         p_url,
         p_body,
         p.dp_rank,
+        state.pd_prefill_drain_timeout,
+        rid.clone(),
+    );
+    watch_incomplete_abort(
+        incomplete_rx,
+        drain_handle,
+        state.http.clone(),
+        p.worker.url.clone(),
+        d.worker.url.clone(),
+        rid,
     );
 
     match open_decode(state, d, &d_url, &d_body).await {
@@ -166,12 +187,16 @@ async fn stream_dual(
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, "text/event-stream")
             // guard drops when the decode stream ends -> on_request_finished.
-            .body(Body::from_stream(GuardedStream::new(
+            .body(Body::from_stream(GuardedStream::new_with_incomplete_abort(
                 resp.bytes_stream(),
                 guard,
+                Some(incomplete_tx),
             )))
             .expect("stream response is valid"),
-        Err(msg) => json_error(StatusCode::BAD_GATEWAY, &msg),
+        Err(msg) => {
+            let _ = incomplete_tx.send(());
+            json_error(StatusCode::BAD_GATEWAY, &msg)
+        }
     }
 }
 
@@ -266,16 +291,33 @@ async fn dual_nats(
     stream: bool,
     guard: ActiveGuard,
 ) -> Response {
-    // Prefill is never streamed: its output is discarded, only its effect on
-    // the KV plane matters.
+    let rid = p_body
+        .get("rid")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .unwrap_or_default();
     let p_payload = leg_payload(path, false, p.dp_rank, p_body);
     let d_payload = leg_payload(path, stream, d.dp_rank, d_body);
 
-    spawn_prefill_drain_nats(
+    let (incomplete_tx, incomplete_rx) = oneshot::channel();
+    let drain_handle = spawn_prefill_drain_nats(
         nats.clone(),
         state.breaker.clone(),
         p.worker.worker_id.clone(),
+        p.worker.url.clone(),
+        d.worker.url.clone(),
         p_payload,
+        state.pd_prefill_drain_timeout,
+        rid.clone(),
+        state.http.clone(),
+    );
+    watch_incomplete_abort(
+        incomplete_rx,
+        drain_handle,
+        state.http.clone(),
+        p.worker.url.clone(),
+        d.worker.url.clone(),
+        rid,
     );
 
     let wid = d.worker.worker_id.clone();
@@ -283,6 +325,7 @@ async fn dual_nats(
         Ok(r) => r,
         Err(e) => {
             state.breaker.record_failure(&wid);
+            let _ = incomplete_tx.send(());
             return json_error(
                 StatusCode::BAD_GATEWAY,
                 &format!("decode {wid} unreachable over nats: {e}"),
@@ -291,6 +334,7 @@ async fn dual_nats(
     };
 
     if !stream {
+        let mut abort_unless_done = FireOnDrop(Some(incomplete_tx));
         let mut buf: Vec<u8> = Vec::new();
         let mut status = StatusCode::OK;
         let mut done_seen = false;
@@ -330,6 +374,7 @@ async fn dual_nats(
         }
         score_leg(&state.breaker, &wid, status.as_u16());
         drop(guard);
+        abort_unless_done.disarm();
         return Response::builder()
             .status(status)
             .header(header::CONTENT_TYPE, "application/json")
@@ -378,7 +423,11 @@ async fn dual_nats(
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "text/event-stream")
-        .body(Body::from_stream(crate::proxy::guarded(body, guard)))
+        .body(Body::from_stream(crate::proxy::guarded_with_incomplete_abort(
+            body,
+            guard,
+            Some(incomplete_tx),
+        )))
         .expect("stream response is valid")
 }
 
@@ -406,53 +455,73 @@ fn leg_payload(
     .expect("the envelope is serialisable")
 }
 
-/// Detached prefill over NATS: must run to completion, because the prefill
-/// engine needs the whole request to register the bootstrap_room and push KV to
-/// decode. Spawned rather than awaited, so a client disconnect cannot cancel it.
+/// Detached prefill over NATS. Client disconnect or drain timeout aborts it.
 fn spawn_prefill_drain_nats(
+    nats: Arc<NatsRequestClient>,
+    breaker: Arc<CircuitBreaker>,
+    worker_id: String,
+    worker_url: String,
+    decode_url: String,
+    payload: Vec<u8>,
+    timeout: Duration,
+    rid: String,
+    http: reqwest::Client,
+) -> AbortHandle {
+    let handle = tokio::spawn(async move {
+        let work = drain_prefill_nats(nats, breaker, worker_id, payload);
+        if timeout.is_zero() {
+            work.await;
+            return;
+        }
+        if tokio::time::timeout(timeout, work).await.is_err() {
+            tracing::warn!(
+                "prefill nats drain timed out after {:?}; aborting rid={rid}",
+                timeout
+            );
+            abort_sglang_request(http.clone(), worker_url, rid.clone());
+            abort_sglang_request(http, decode_url, rid);
+        }
+    });
+    handle.abort_handle()
+}
+
+async fn drain_prefill_nats(
     nats: Arc<NatsRequestClient>,
     breaker: Arc<CircuitBreaker>,
     worker_id: String,
     payload: Vec<u8>,
 ) {
-    tokio::spawn(async move {
-        let mut reply = match nats.dispatch(&worker_id, &payload).await {
-            Ok(r) => r,
-            Err(e) => {
+    let mut reply = match nats.dispatch(&worker_id, &payload).await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("prefill (nats) {worker_id} failed: {e} (decode may hang on KVPoll)");
+            breaker.record_failure(&worker_id);
+            return;
+        }
+    };
+    loop {
+        match reply.next().await {
+            Some(Frame::Data(_)) => {}
+            Some(Frame::Done { status }) => {
+                if !StatusCode::from_u16(status).is_ok_and(|s| s.is_success()) {
+                    tracing::warn!(
+                        "prefill (nats) {worker_id} returned {status} (decode may hang on KVPoll)"
+                    );
+                }
+                score_leg(&breaker, &worker_id, status);
+                return;
+            }
+            Some(Frame::Error { message, .. }) => {
                 tracing::warn!(
-                    "prefill (nats) {worker_id} failed: {e} (decode may hang on KVPoll)"
+                    "prefill (nats) {worker_id} failed: {} (decode may hang on KVPoll)",
+                    truncate_chars(&message, 200)
                 );
                 breaker.record_failure(&worker_id);
                 return;
             }
-        };
-        loop {
-            match reply.next().await {
-                Some(Frame::Data(_)) => {}
-                Some(Frame::Done { status }) => {
-                    // Detached, so this never reaches the client -- but a
-                    // prefill that fails still leaves decode hanging on KVPoll,
-                    // which is exactly the failure worth remembering.
-                    if !StatusCode::from_u16(status).is_ok_and(|s| s.is_success()) {
-                        tracing::warn!(
-                            "prefill (nats) {worker_id} returned {status} (decode may hang on KVPoll)"
-                        );
-                    }
-                    score_leg(&breaker, &worker_id, status);
-                    return;
-                }
-                Some(Frame::Error { message, .. }) => {
-                    tracing::warn!(
-                        "prefill (nats) {worker_id} failed: {} (decode may hang on KVPoll)",
-                        truncate_chars(&message, 200)
-                    );
-                    breaker.record_failure(&worker_id);
-                    return;
-                }
-                None => return,
-            }
+            None => return,
         }
-    });
+    }
 }
 
 /// One leg's outcome against the worker that produced it. The two legs are
@@ -473,9 +542,40 @@ fn score_leg(breaker: &Arc<CircuitBreaker>, worker_id: &str, status: u16) {
     }
 }
 
-/// Detached prefill POST: runs to completion so the KV transfer isn't aborted.
-/// Never awaited by the request path, so a client disconnect can't cancel it.
+/// Detached prefill POST. Client disconnect or drain timeout aborts the engine
+/// request so a hung Mooncake session cannot occupy an inflight slot.
 fn spawn_prefill_drain(
+    http: reqwest::Client,
+    breaker: Arc<CircuitBreaker>,
+    worker_id: String,
+    worker_url: String,
+    decode_url: String,
+    url: String,
+    body: Map<String, Value>,
+    dp_rank: Option<i64>,
+    timeout: Duration,
+    rid: String,
+) -> AbortHandle {
+    let handle = tokio::spawn(async move {
+        let abort_http = http.clone();
+        let work = drain_prefill_http(http, breaker, worker_id, url, body, dp_rank);
+        if timeout.is_zero() {
+            work.await;
+            return;
+        }
+        if tokio::time::timeout(timeout, work).await.is_err() {
+            tracing::warn!(
+                "prefill drain timed out after {:?}; aborting rid={rid}",
+                timeout
+            );
+            abort_sglang_request(abort_http.clone(), worker_url, rid.clone());
+            abort_sglang_request(abort_http, decode_url, rid);
+        }
+    });
+    handle.abort_handle()
+}
+
+async fn drain_prefill_http(
     http: reqwest::Client,
     breaker: Arc<CircuitBreaker>,
     worker_id: String,
@@ -483,38 +583,90 @@ fn spawn_prefill_drain(
     body: Map<String, Value>,
     dp_rank: Option<i64>,
 ) {
-    tokio::spawn(async move {
-        let mut req = http.post(&url).json(&Value::Object(body));
-        if let Some(r) = dp_rank {
-            req = req.header(dp::DP_RANK_HEADER, r.to_string());
-        }
-        match req.send().await {
-            Ok(resp) => {
-                let st = resp.status();
-                let _ = resp.bytes().await; // drain to keep the connection open
-                if st.is_client_error() || st.is_server_error() {
-                    tracing::warn!(
-                        "prefill {url} returned {} (decode may hang on KVPoll)",
-                        st.as_u16()
-                    );
-                }
-                // This leg is detached, so its outcome never reaches the client
-                // — but a prefill that 5xx's still leaves decode hanging on
-                // KVPoll, which is exactly the failure worth remembering.
-                if is_worker_fault(st.as_u16()) {
-                    breaker.record_failure(&worker_id);
-                } else if st.is_success() {
-                    breaker.record_success(&worker_id);
-                } else {
-                    breaker.record_neutral(&worker_id);
-                }
+    let mut req = http.post(&url).json(&Value::Object(body));
+    if let Some(r) = dp_rank {
+        req = req.header(dp::DP_RANK_HEADER, r.to_string());
+    }
+    match req.send().await {
+        Ok(resp) => {
+            let st = resp.status();
+            let _ = resp.bytes().await;
+            if st.is_client_error() || st.is_server_error() {
+                tracing::warn!(
+                    "prefill {url} returned {} (decode may hang on KVPoll)",
+                    st.as_u16()
+                );
             }
-            Err(e) => {
-                tracing::warn!("prefill {url} failed: {e} (decode may hang on KVPoll)");
+            if is_worker_fault(st.as_u16()) {
                 breaker.record_failure(&worker_id);
+            } else if st.is_success() {
+                breaker.record_success(&worker_id);
+            } else {
+                breaker.record_neutral(&worker_id);
             }
+        }
+        Err(e) => {
+            tracing::warn!("prefill {url} failed: {e} (decode may hang on KVPoll)");
+            breaker.record_failure(&worker_id);
+        }
+    }
+}
+
+fn watch_incomplete_abort(
+    rx: oneshot::Receiver<()>,
+    drain: AbortHandle,
+    http: reqwest::Client,
+    prefill_url: String,
+    decode_url: String,
+    rid: String,
+) {
+    tokio::spawn(async move {
+        if rx.await.is_err() {
+            return;
+        }
+        drain.abort();
+        abort_sglang_request(http.clone(), prefill_url, rid.clone());
+        abort_sglang_request(http, decode_url, rid);
+    });
+}
+
+fn abort_sglang_request(http: reqwest::Client, worker_url: String, rid: String) {
+    if rid.is_empty() {
+        return;
+    }
+    tokio::spawn(async move {
+        let url = format!("{}/abort_request", worker_url.trim_end_matches('/'));
+        match http
+            .post(&url)
+            .timeout(Duration::from_secs(5))
+            .json(&serde_json::json!({ "rid": rid }))
+            .send()
+            .await
+        {
+            Ok(resp) if !resp.status().is_success() => {
+                tracing::warn!("PD abort {url} rid={rid} returned {}", resp.status());
+            }
+            Ok(_) => tracing::info!("PD abort {url} rid={rid}"),
+            Err(e) => tracing::warn!("PD abort {url} rid={rid} failed: {e}"),
         }
     });
+}
+
+/// Sends on drop unless `disarm` is called first (unary client cancel).
+struct FireOnDrop(Option<oneshot::Sender<()>>);
+
+impl FireOnDrop {
+    fn disarm(&mut self) {
+        self.0.take();
+    }
+}
+
+impl Drop for FireOnDrop {
+    fn drop(&mut self) {
+        if let Some(tx) = self.0.take() {
+            let _ = tx.send(());
+        }
+    }
 }
 
 /// POST the decode leg, retrying on pre-flight transport errors (the engine

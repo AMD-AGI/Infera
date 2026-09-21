@@ -79,6 +79,7 @@ class TestSglangBootstrapProtocol:
         assert out["bootstrap_host"] == "10.0.0.5"
         assert out["bootstrap_port"] == 8998
         assert out["bootstrap_room"] == 42
+        assert out["rid"] == "infera-42"
         # Original body fields are preserved.
         assert out["model"] == "x"
         assert out["messages"] == body["messages"]
@@ -127,3 +128,6 @@ class TestSglangBootstrapProtocol:
         # Concurrent topology — handoff extraction is never called by the router,
         # but the method must exist and return a safe value.
         assert self.proto.extract_handoff({"any": "payload"}) == {}
+
+    def test_request_id_for_matches_injected_rid(self):
+        assert self.proto.request_id_for(self.p, self.d, 42) == "infera-42"

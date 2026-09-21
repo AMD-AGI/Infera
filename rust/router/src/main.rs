@@ -157,6 +157,7 @@ async fn main() -> anyhow::Result<()> {
         retries: cfg.request_max_retries,
         breaker,
         nats,
+        pd_prefill_drain_timeout: Duration::from_secs_f64(cfg.pd_prefill_drain_timeout_s.max(0.0)),
     };
 
     // A worker that reached the broker registers itself as `nats`, and one that

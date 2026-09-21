@@ -79,7 +79,14 @@ pub fn annotate_sglang(
     body.insert("bootstrap_host".into(), Value::from(host));
     body.insert("bootstrap_port".into(), Value::from(port));
     body.insert("bootstrap_room".into(), Value::from(room));
+    // SGLang /abort_request matches this rid; both legs share it.
+    body.insert("rid".into(), Value::from(sglang_rid(room)));
     Ok(())
+}
+
+/// Request id posted to SGLang ``/abort_request`` for this bootstrap room.
+pub fn sglang_rid(room: u64) -> String {
+    format!("infera-{room}")
 }
 
 // --- vLLM Mooncake ---------------------------------------------------------
@@ -334,6 +341,7 @@ mod tests {
         assert_eq!(body["bootstrap_host"], "10.0.0.1");
         assert_eq!(body["bootstrap_port"], 9000);
         assert_eq!(body["bootstrap_room"], 42);
+        assert_eq!(body["rid"], "infera-42");
     }
 
     #[test]

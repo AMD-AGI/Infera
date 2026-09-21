@@ -6,7 +6,7 @@
 //! axum HTTP surface + shared app state.
 
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use axum::body::{to_bytes, Body, Bytes};
 use axum::extract::{DefaultBodyLimit, State};
@@ -42,6 +42,8 @@ pub struct AppState {
     /// registers itself as `http` and is dialled directly, exactly as on the
     /// Python side.
     pub nats: Option<Arc<crate::nats_request::NatsRequestClient>>,
+    /// Wall-clock cap on a detached PD prefill POST. 0 means no cap.
+    pub pd_prefill_drain_timeout: Duration,
 }
 
 pub fn app(state: AppState) -> Router {

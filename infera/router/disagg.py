@@ -24,6 +24,7 @@ from infera.router.disagg_protocols import (
     UnknownProtocol,
     resolve_protocol,
 )
+from infera.router.pd_abort import abort_engine_request, prefill_drain_timeout_s
 from infera.router.dp_routing import (
     align_room_to_prefill_rank,
     dp_rank_header,
@@ -108,6 +109,63 @@ class DisaggRouter(BaseRouter):
 
     async def aclose(self) -> None:
         await self._client.aclose()
+
+    async def _finish_prefill(
+        self,
+        p_task: asyncio.Task,
+        prefill_url: str,
+        decode_url: str,
+        rid: str | None,
+        p_worker_id: str,
+        *,
+        abort: bool,
+    ) -> None:
+        """Wait for the prefill POST, or abort it on client drop / timeout."""
+        if abort:
+            p_task.cancel()
+            await abort_engine_request(self._client, prefill_url, rid)
+            await abort_engine_request(self._client, decode_url, rid)
+            return
+        timeout = prefill_drain_timeout_s()
+        try:
+            if timeout > 0:
+                p_resp = await asyncio.wait_for(p_task, timeout=timeout)
+            else:
+                p_resp = await p_task
+        except asyncio.TimeoutError:
+            logger.warning(
+                "prefill drain timed out after %.0fs; aborting rid=%s", timeout, rid
+            )
+            p_task.cancel()
+            await abort_engine_request(self._client, prefill_url, rid)
+            await abort_engine_request(self._client, decode_url, rid)
+            return
+        except asyncio.CancelledError:
+            p_task.cancel()
+            await abort_engine_request(self._client, prefill_url, rid)
+            await abort_engine_request(self._client, decode_url, rid)
+            raise
+        except Exception as exc:
+            logger.warning(
+                "prefill leg %s failed: %s: %s",
+                prefill_url,
+                type(exc).__name__,
+                exc or "<no message>",
+            )
+            metrics.pd_bootstrap_failures_total.labels(reason="prefill_exception").inc()
+            return
+        p_status = getattr(p_resp, "status_code", None)
+        if p_status is None:
+            return
+        if p_status >= 400:
+            logger.warning(
+                "prefill leg %s returned %d (decode will hang on KVPoll)",
+                prefill_url,
+                p_status,
+            )
+            metrics.pd_bootstrap_failures_total.labels(reason="prefill_5xx").inc()
+        self._score_leg(p_worker_id, p_status)
+
 
     async def dispatch(
         self,
@@ -511,7 +569,8 @@ class DisaggRouter(BaseRouter):
             obs.claim_stream()
             return StreamingResponse(
                 self._stream_dual_nats(
-                    obs, p_target, p_blocks, d_target, d_blocks, d_payload, p_task
+                    obs, p_target, p_blocks, d_target, d_blocks, d_payload, p_task,
+                    rid=p_body.get("rid"),
                 ),
                 media_type="text/event-stream",
             )
@@ -555,18 +614,27 @@ class DisaggRouter(BaseRouter):
             return JSONResponse(content=payload, status_code=status)
         finally:
             try:
-                await asyncio.shield(p_task)
+                await self._finish_prefill(
+                    p_task,
+                    p.url,
+                    d.url,
+                    p_body.get("rid"),
+                    p.worker_id,
+                    abort=False,
+                )
             except (asyncio.CancelledError, Exception):
                 pass
             self.policy.on_request_finished(p_target.route_key, p_blocks)
             self.policy.on_request_finished(d_target.route_key, d_blocks)
 
     async def _stream_dual_nats(
-        self, obs, p_target, p_blocks, d_target, d_blocks, d_payload, p_task
+        self, obs, p_target, p_blocks, d_target, d_blocks, d_payload, p_task, *, rid=None
     ):
         """Stream decode's reply over NATS while prefill drains in background."""
         d = d_target.worker
+        p = p_target.worker
         served = False
+        client_disconnected = False
         try:
             async for kind, _st, data in self.nats_client.stream(d.worker_id, d_payload):
                 if kind == TYPE_DATA:
@@ -590,13 +658,13 @@ class DisaggRouter(BaseRouter):
                     return
                 else:  # done
                     return
+        except asyncio.CancelledError:
+            client_disconnected = True
+            raise
         finally:
-            try:
-                await asyncio.shield(p_task)
-            except asyncio.CancelledError:
-                logger.debug("prefill nats task cancelled (parent torn down)")
-            except Exception:
-                pass
+            await self._finish_prefill(
+                p_task, p.url, d.url, rid, p.worker_id, abort=client_disconnected
+            )
             self.policy.on_request_finished(p_target.route_key, p_blocks)
             self.policy.on_request_finished(d_target.route_key, d_blocks)
             obs.close()
@@ -934,12 +1002,12 @@ class DisaggRouter(BaseRouter):
         d_body differ only in engine-specific priority injection.
         """
         p = p_target.worker
-        # Never cancel p_task: closing the body drops the bootstrap_room
-        # handoff → decode stuck on KVPoll 300s. Strong ref + shield guard
-        # against GC and parent cancellation.
+        d = d_target.worker
+        rid = p_body.get("rid") if isinstance(p_body, dict) else None
         p_task = asyncio.create_task(self._client.post(p_url, json=p_body, headers=p_headers))
         self._pending_prefill_tasks.add(p_task)
         p_task.add_done_callback(self._pending_prefill_tasks.discard)
+        client_disconnected = False
         # Once we've forwarded "data: [DONE]" downstream, any subsequent
         # httpx.ReadError is the client closing its half of a successful
         # response — drop silently instead of warning.
@@ -1016,6 +1084,9 @@ class DisaggRouter(BaseRouter):
                         tail = window[-_TAIL_KEEP:]
                     obs.observe_stream_chunk(chunk)
                     yield chunk
+            except asyncio.CancelledError:
+                client_disconnected = True
+                raise
             except httpx.HTTPError as exc:
                 if done_seen:
                     # Engine has already sent [DONE]; this is the client
@@ -1045,40 +1116,14 @@ class DisaggRouter(BaseRouter):
                     await d_resp.aclose()
                 except Exception:
                     pass
-            # Await p_task (never cancel; shield from parent cancel). Log
-            # outcomes since a silent prefill drop costs 300s: parent
-            # cancel→DEBUG, raise/4xx-5xx→WARN.
-            try:
-                p_resp = await asyncio.shield(p_task)
-            except asyncio.CancelledError:
-                # The request was torn down from above, so the prefill worker
-                # was never given the chance to answer. That is not evidence
-                # about it either way, and scoring it would be inventing one.
-                logger.debug("prefill task cancelled (parent torn down)")
-            except Exception as exc:
-                logger.warning(
-                    "prefill leg %s for %s failed: %s: %s",
-                    p.worker_id,
-                    p_url,
-                    type(exc).__name__,
-                    exc or "<no message>",
-                )
-                metrics.pd_bootstrap_failures_total.labels(reason="prefill_exception").inc()
-                self.breaker.record_failure(p.worker_id)
-            else:
-                # The prefill leg is scored here rather than beside the decode
-                # leg above because this is where its own answer arrives: it
-                # runs concurrently, so nothing about it is known until now.
-                p_status = getattr(p_resp, "status_code", None)
-                if p_status is not None:
-                    self._score_leg(p.worker_id, p_status)
-                if p_status is not None and p_status >= 400:
-                    logger.warning(
-                        "prefill leg %s returned %d (decode will hang on KVPoll)",
-                        p.worker_id,
-                        p_resp.status_code,
-                    )
-                    metrics.pd_bootstrap_failures_total.labels(reason="prefill_5xx").inc()
+            await self._finish_prefill(
+                p_task,
+                p.url,
+                d.url,
+                rid,
+                p.worker_id,
+                abort=client_disconnected,
+            )
             self.policy.on_request_finished(p_target.route_key, p_blocks)
             self.policy.on_request_finished(d_target.route_key, d_blocks)
             obs.close()

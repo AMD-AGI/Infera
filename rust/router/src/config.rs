@@ -100,6 +100,12 @@ pub struct Config {
     #[arg(long, default_value_t = 0, env = "INFERA_NATS_REQ_MAX_PENDING")]
     pub nats_req_max_pending: usize,
 
+    /// Seconds to wait for a detached PD prefill POST before aborting it.
+    /// Matches the Mooncake KVPoll window. 0 disables the wall-clock cap;
+    /// client-disconnect abort still runs.
+    #[arg(long, default_value_t = 300.0, env = "INFERA_PD_PREFILL_DRAIN_TIMEOUT")]
+    pub pd_prefill_drain_timeout_s: f64,
+
     /// kv-aware only: path to the model's HF fast tokenizer (`tokenizer.json` or
     /// its dir). Required for cache locality — without it kv-aware degrades to
     /// pure load balancing (block hashes can't be computed).
