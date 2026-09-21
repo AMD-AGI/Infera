@@ -131,9 +131,7 @@ def index_bytes_per_token_per_layer(inference_config: InferenceConfig) -> float:
     mc = inference_config.model_config
     if not mc.sparse_index_layer_count():
         return 0.0
-    return int(mc.sparse_index_head_dim) * dtype_num_bytes(
-        mc.sparse_index_dtype or "bf16"
-    )
+    return int(mc.sparse_index_head_dim) * dtype_num_bytes(mc.sparse_index_dtype or "bf16")
 
 
 def linear_state_bytes_per_layer(inference_config: InferenceConfig) -> float:
@@ -229,15 +227,11 @@ def estimate_kv_cache(
     if n_index:
         index_frac = n_index / max(1, int(mc.num_layers or 0) or n_index)
         per_token += (
-            index_bytes_per_token_per_layer(inference_config)
-            * max(1, layers_on_rank)
-            * index_frac
+            index_bytes_per_token_per_layer(inference_config) * max(1, layers_on_rank) * index_frac
         )
     # Decode context parallelism splits the tokens of one sequence across
     # ranks, so a rank holds its slice of the context rather than all of it.
-    per_sequence = per_token * effective_context / decode_context_parallel_size(
-        inference_config
-    )
+    per_sequence = per_token * effective_context / decode_context_parallel_size(inference_config)
     lin_frac = 1.0 - full_frac
     if lin_frac > 0.0:
         per_sequence += (

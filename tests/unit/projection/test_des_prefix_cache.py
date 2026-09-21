@@ -304,12 +304,17 @@ def test_a_split_reports_the_prefix_cache_it_actually_warmed(tmp_path):
     with trace.open("w") as f:
         for turn in range(2):
             for lane in range(4):
-                f.write(json.dumps({
-                    "timestamp": turn * 1000 + lane,
-                    "input_length": 2048,
-                    "output_length": 64,
-                    "hash_ids": [0, 1, 2, 100 + lane, 200 + lane],
-                }) + "\n")
+                f.write(
+                    json.dumps(
+                        {
+                            "timestamp": turn * 1000 + lane,
+                            "input_length": 2048,
+                            "output_length": 64,
+                            "hash_ids": [0, 1, 2, 100 + lane, 200 + lane],
+                        }
+                    )
+                    + "\n"
+                )
 
     point = des_mod.run_des(
         _Cfg(_Req(max_concurrency=4, chunked_prefill_size=256, output_seq_len=64)),

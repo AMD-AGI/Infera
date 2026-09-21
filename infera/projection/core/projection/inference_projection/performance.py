@@ -830,9 +830,7 @@ class InferencePerformanceProjector:
         shape = self._batch_shape_ratio(batch, b0, phase)
         return v0 if shape is None else v0 * shape
 
-    def _batch_shape_ratio(
-        self, batch: int, ref_batch: int, phase: str
-    ) -> float | None:
+    def _batch_shape_ratio(self, batch: int, ref_batch: int, phase: str) -> float | None:
         """How a step at ``batch`` compares with one at ``ref_batch``, modelled.
 
         Used only to give a single-point anchor a slope. ``None`` when the
@@ -842,9 +840,7 @@ class InferencePerformanceProjector:
         b, b0 = max(1, int(batch)), max(1, int(ref_batch))
         if b == b0:
             return 1.0
-        kv = max(
-            1, int(self._meas_ref_input or self.cfg.request_config.input_seq_len or 1024)
-        )
+        kv = max(1, int(self._meas_ref_input or self.cfg.request_config.input_seq_len or 1024))
         key = (b, b0, kv, phase)
         if key in self._batch_shape_cache:
             return self._batch_shape_cache[key]
@@ -1124,8 +1120,11 @@ class InferencePerformanceProjector:
                 ((meta.get("prefill_anchor") or {}).get("curve_fit") or {}).get("ms_per_token")
             )
             _target_n = int(self.cfg.request_config.input_seq_len or ref_input or 0)
-            if pre_pts and not _has_curve and _prefill_probed and _target_n > 1.5 * max(
-                _prefill_probed
+            if (
+                pre_pts
+                and not _has_curve
+                and _prefill_probed
+                and _target_n > 1.5 * max(_prefill_probed)
             ):
                 print(
                     f"[inferasim:Inference] WARNING: PREFILL IS NOT CALIBRATED. This "
@@ -3072,12 +3071,7 @@ class InferencePerformanceProjector:
         b = max(1, int(batch or 1))
         kv = max(
             1,
-            int(
-                context
-                or self._meas_ref_input
-                or self.cfg.request_config.input_seq_len
-                or 1024
-            ),
+            int(context or self._meas_ref_input or self.cfg.request_config.input_seq_len or 1024),
         )
         key = (b, kv, int(width))
         if key in self._verify_ratio_cache:

@@ -329,9 +329,15 @@ def test_the_loop_stops_instead_of_spinning_when_nothing_can_progress():
     assert res.makespan_ms == 0.0
 
 
-def _run_split(concurrency: int, *, requests_per_client: int = 4,
-               prefill_scale: float = 0.1, chunk: int = 256,
-               output_len: int = 512, range_ratio: float = 0.0):
+def _run_split(
+    concurrency: int,
+    *,
+    requests_per_client: int = 4,
+    prefill_scale: float = 0.1,
+    chunk: int = 256,
+    output_len: int = 512,
+    range_ratio: float = 0.0,
+):
     """A split whose prefill pool finishes well ahead of its decode pool.
 
     That ordering is the one that matters below: prefill drains its queue and
@@ -339,8 +345,7 @@ def _run_split(concurrency: int, *, requests_per_client: int = 4,
     stations' clocks come apart.
     """
     cfg = _Cfg(
-        _Req(max_concurrency=concurrency, chunked_prefill_size=chunk,
-             output_seq_len=output_len),
+        _Req(max_concurrency=concurrency, chunked_prefill_size=chunk, output_seq_len=output_len),
         _Disagg(decode_replicas=1),
     )
     proj = _Projector(_Pool(prefill_scale), _Pool(1.0), handoff_ms=1.0)

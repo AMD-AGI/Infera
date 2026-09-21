@@ -363,7 +363,8 @@ def test_exclusive_prefill_reaches_the_path_a_block_cache_dispatches_to():
     # Serialising prefill against the resident decodes can only make a request
     # wait longer for its first token.
     assert exclusive.ttft["mean"] > unified.ttft["mean"], (
-        exclusive.ttft["mean"], unified.ttft["mean"]
+        exclusive.ttft["mean"],
+        unified.ttft["mean"],
     )
 
 

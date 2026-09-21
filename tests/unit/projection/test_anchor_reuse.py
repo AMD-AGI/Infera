@@ -221,12 +221,14 @@ def test_the_store_rehashes_rather_than_trusting_a_recorded_signature(tmp_path):
     for engine in ("sglang", "vllm"):
         p = tmp_path / f"{engine}.json"
         p.write_text(
-            json.dumps({
-                "backend": engine,
-                # The same stale hash on both, as the real artifacts carry.
-                "meta": {"model": "m", "regime_signature": "staleaaaaaaaaaaa"},
-                "sweep": [{"batch": 1, "decode_ms": 1.0}],
-            })
+            json.dumps(
+                {
+                    "backend": engine,
+                    # The same stale hash on both, as the real artifacts carry.
+                    "meta": {"model": "m", "regime_signature": "staleaaaaaaaaaaa"},
+                    "sweep": [{"batch": 1, "decode_ms": 1.0}],
+                }
+            )
         )
         paths.append(str(p))
 

@@ -78,8 +78,13 @@ class _Kernel:
         return _BASE_MS + _PER_SEQ_MS * num_decode + _PER_PREFILL_TOKEN_MS * prefill_tokens
 
 
-def _run(concurrency: int = 8, requests_per_client: int = 20,
-         warmup_frac: float = 0.0, pool_tokens: int = 0, **kw):
+def _run(
+    concurrency: int = 8,
+    requests_per_client: int = 20,
+    warmup_frac: float = 0.0,
+    pool_tokens: int = 0,
+    **kw,
+):
     cfg = _Cfg(_Req(max_concurrency=concurrency))
     return des_mod.simulate_once(
         cfg,
@@ -131,12 +136,8 @@ def test_the_horizon_reaches_the_path_the_harness_runs_on():
     )
     cfg = _Cfg(_Req(max_concurrency=clients))
     full = des_mod.run_des(cfg, _Kernel(), **kw)["point"]
-    cut = des_mod.run_des(
-        cfg, _Kernel(), duration_ms=full.makespan_ms / 4.0, **kw
-    )["point"]
-    assert cut.num_requests < full.num_requests, (
-        cut.num_requests, full.num_requests
-    )
+    cut = des_mod.run_des(cfg, _Kernel(), duration_ms=full.makespan_ms / 4.0, **kw)["point"]
+    assert cut.num_requests < full.num_requests, (cut.num_requests, full.num_requests)
 
 
 def test_a_horizon_longer_than_the_run_changes_nothing():
@@ -215,12 +216,8 @@ def test_the_two_drops_report_very_different_queue_waits():
     def mean_wait(sample):
         return sum(r.admit_ms - r.arrival_ms for r in sample) / len(sample)
 
-    by_completion = mean_wait(
-        des_mod._scored_sample(done, warmup_frac=0.25, warmup_requests=0)
-    )
-    by_issue = mean_wait(
-        des_mod._scored_sample(done, warmup_frac=0.0, warmup_requests=8)
-    )
+    by_completion = mean_wait(des_mod._scored_sample(done, warmup_frac=0.25, warmup_requests=0))
+    by_issue = mean_wait(des_mod._scored_sample(done, warmup_frac=0.0, warmup_requests=8))
     assert by_issue == 0.0
     assert by_completion > 60.0, by_completion
 
@@ -289,8 +286,10 @@ def test_the_cap_counts_what_the_pool_holds():
     is sampled in proportion to length, and the arithmetic mean overstates how
     many fit.
     """
-    reqs = [des_mod._Req(idx=i, arrival_ms=0.0, prompt_len=n, output_len=0)
-            for i, n in enumerate([100] * 9 + [900])]
+    reqs = [
+        des_mod._Req(idx=i, arrival_ms=0.0, prompt_len=n, output_len=0)
+        for i, n in enumerate([100] * 9 + [900])
+    ]
     # Plain mean is 180, so 1800 tokens would look like room for 10.
     assert des_mod._resident_cap(reqs, 1800, 0, enabled=True) < 10
     # No pool to divide leaves the policy unconstrained.

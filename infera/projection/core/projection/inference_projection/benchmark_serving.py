@@ -140,10 +140,14 @@ def _speculative_argv(args) -> list[str]:
         # num-steps is the chain depth; the draft-token count includes the
         # verified token, hence k + 1.
         argv = [
-            "--speculative-algorithm", "EAGLE",
-            "--speculative-num-steps", str(k),
-            "--speculative-eagle-topk", "1",
-            "--speculative-num-draft-tokens", str(k + 1),
+            "--speculative-algorithm",
+            "EAGLE",
+            "--speculative-num-steps",
+            str(k),
+            "--speculative-eagle-topk",
+            "1",
+            "--speculative-num-draft-tokens",
+            str(k + 1),
         ]
         # SGLang has no acceptance flag; it reads the simulation from the
         # environment. Set here rather than asked of the caller so the anchor
@@ -1107,9 +1111,7 @@ def run_serving_benchmark(args) -> dict:
             # for a speculating target rather than assumed compatible.
             "speculative_method": getattr(args, "speculative_method", None),
             "speculative_num_tokens": getattr(args, "speculative_num_tokens", None),
-            "speculative_acceptance_length": getattr(
-                args, "speculative_acceptance_length", None
-            ),
+            "speculative_acceptance_length": getattr(args, "speculative_acceptance_length", None),
             "server_args": args.server_args or None,
             # Recorded explicitly, not left to be re-derived from the flag
             # string by every reader. A prefill measured against a warm prefix

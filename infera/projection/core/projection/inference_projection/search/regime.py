@@ -370,9 +370,7 @@ def recipe_from_meta(
         # the axis existed. What makes it safe is that a store can be told
         # which part it ran on after the fact -- see ``ix_anchor_store`` --
         # so an unknown here means "nobody has said yet", not "any part".
-        "gpu_arch": (
-            str(meta.get("gpu_arch") or meta.get("gpu") or "").lower().strip() or None
-        ),
+        "gpu_arch": (str(meta.get("gpu_arch") or meta.get("gpu") or "").lower().strip() or None),
         # transport (benchmark space)
         "tp": meta.get("benchmark_tp") or meta.get("tp"),
         "pp": meta.get("benchmark_pp") or meta.get("pp"),
@@ -418,9 +416,7 @@ def recipe_from_bench_args(args: Any, env: dict[str, str] | None = None) -> dict
             getattr(args, "speculative_method", None) or "",
             getattr(args, "speculative_num_tokens", None),
         ),
-        "gpu_arch": (
-            str(getattr(args, "gpu_arch", "") or "").lower().strip() or None
-        ),
+        "gpu_arch": (str(getattr(args, "gpu_arch", "") or "").lower().strip() or None),
         "tp": getattr(args, "tp", 1),
         "pp": getattr(args, "pp", 1),
         "ep": ep,

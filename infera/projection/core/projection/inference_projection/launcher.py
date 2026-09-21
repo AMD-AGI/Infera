@@ -673,9 +673,7 @@ def _anchor_from_store(args, inference_config):
         from .search.regime import recipe_from_inference_config
 
         store = AnchorStore(root)
-        recipe = recipe_from_inference_config(
-            inference_config, getattr(args, "gpu_arch", None)
-        )
+        recipe = recipe_from_inference_config(inference_config, getattr(args, "gpu_arch", None))
         model = _anchor_model_filter(store, args)
         entry, distance = store.nearest(recipe, model=model)
     except Exception as exc:  # noqa: BLE001 - a broken store must not fail a projection
@@ -966,9 +964,7 @@ def launch_projection_from_cli(args, overrides):
                 seed=int(getattr(args, "des_seed", 0) or 0),
                 warmup_frac=float(getattr(args, "des_warmup_frac", 0.1) or 0.0),
                 warmup_requests=int(getattr(args, "des_warmup_requests", 0) or 0),
-                admit_backlog_only=bool(
-                    getattr(args, "des_admit_backlog_only", False)
-                ),
+                admit_backlog_only=bool(getattr(args, "des_admit_backlog_only", False)),
                 sweep=bool(getattr(args, "des_sweep", False)),
                 burstiness=float(getattr(args, "des_burstiness", 1.0) or 1.0),
                 range_ratio=float(getattr(args, "des_range_ratio", 1.0) or 1.0),
@@ -987,15 +983,9 @@ def launch_projection_from_cli(args, overrides):
                 mooncake_trace=mooncake_trace,
                 duration_ms=float(getattr(args, "des_duration_s", 0.0) or 0.0) * 1000.0,
                 closed_loop=closed_loop,
-                closed_loop_think_ms=float(
-                    getattr(args, "des_client_think_ms", 0.0) or 0.0
-                ),
-                cache_shares_pool=bool(
-                    getattr(args, "des_cache_shares_pool", False)
-                ),
-                whole_context_residency=bool(
-                    getattr(args, "des_whole_context_residency", False)
-                ),
+                closed_loop_think_ms=float(getattr(args, "des_client_think_ms", 0.0) or 0.0),
+                cache_shares_pool=bool(getattr(args, "des_cache_shares_pool", False)),
+                whole_context_residency=bool(getattr(args, "des_whole_context_residency", False)),
                 prefill_exclusive=bool(getattr(args, "des_exclusive_prefill", False)),
                 new_seqs_per_step=int(getattr(args, "des_new_seqs_per_step", 0) or 0),
             )

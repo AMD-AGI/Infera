@@ -173,16 +173,12 @@ def test_a_non_speculative_anchor_prices_the_widening_from_the_model(spec_k, acc
 
 
 @pytest.mark.parametrize("wide_ms,expected", [(5.0, 1.0), (1000.0, 4.0)])
-def test_the_modelled_widening_stays_between_one_step_and_one_per_position(
-    wide_ms, expected
-):
+def test_the_modelled_widening_stays_between_one_step_and_one_per_position(wide_ms, expected):
     """A verify pass cannot beat the single-token step inside it, and cannot
     cost more than running that step once per position. A model that says
     otherwise is answering about a different shape than the one being priced.
     """
-    p = _Anchored(
-        spec_k=3, accept=0.8, anchor_spec_k=0, step_ms={1: 10.0, 4: wide_ms}
-    )
+    p = _Anchored(spec_k=3, accept=0.8, anchor_spec_k=0, step_ms={1: 10.0, 4: wide_ms})
     assert p._measured_verify_step_scale() == pytest.approx(expected)
 
 

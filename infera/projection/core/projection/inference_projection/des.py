@@ -317,9 +317,7 @@ def _free_cache_blocks(
     return max(1, int(blocks))
 
 
-def _scored_sample(
-    done: list[_Req], warmup_frac: float, warmup_requests: int
-) -> list[_Req]:
+def _scored_sample(done: list[_Req], warmup_frac: float, warmup_requests: int) -> list[_Req]:
     """The requests whose latencies get reported.
 
     ``warmup_requests`` drops the opening transient by *issue* order, which is
@@ -2182,9 +2180,7 @@ def run_des(
                 rng=random.Random(seed),
                 overlap_weight=overlap_weight,
                 waiting_depth=(
-                    inference_config.request_config.resolved_max_concurrency()
-                    if closed_loop
-                    else 0
+                    inference_config.request_config.resolved_max_concurrency() if closed_loop else 0
                 ),
                 resident_cap=_resident_cap(
                     reqs,

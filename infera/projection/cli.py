@@ -546,8 +546,8 @@ def _add_inference_args(parser):
         type=int,
         default=None,
         help="Size of the KV pool the engine allocated, in tokens, as it "
-        "reports at startup (vLLM's \"GPU KV cache size\", SGLang's \"KV Cache "
-        "is allocated. #tokens\"). The admission bound is evaluated against "
+        'reports at startup (vLLM\'s "GPU KV cache size", SGLang\'s "KV Cache '
+        'is allocated. #tokens"). The admission bound is evaluated against '
         "this instead of against the memory model's estimate, which is what "
         "you want when validating against a deployment that is already "
         "running. Default: unset, and the pool is predicted.",
