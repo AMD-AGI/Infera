@@ -1,0 +1,32 @@
+control=crsuse2-m2m-137 etcd=10.245.153.247:22379 router=http://10.245.153.247:28000
+bind [127.0.0.1]:18080: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 18080
+Could not request local forwarding.
+8a657034400f65632fe55aa7b5b978b779e96efaaaa9967b534058dc8b2ecf15
+starting prefill-0 on crsuse2-m2m-137
+bind [127.0.0.1]:18080: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 18080
+Could not request local forwarding.
+prefill-0 role=prefill ip=10.245.153.247 port=29001 GPUs=0,1,2,3,4,5,6,7 TP=8 EP=1 DP=8 DPA=1 HiCache=1
+AITER JIT cache: /tmp/aiter-jit-50112975/fd7220a57b7d3b58efd875c41f7a9ef46b93469581102d96cbeb6f5451e91d35
+d895d580cefe9a9e0d7db63516b83cd115e9696b89dae0e310627f98c6b767f4
+server log: /mnt/m2m_nobackup/yihou_p8p4/launch/sweep-20260919T113947Z/server-logs/prefill-0.log
+starting decode-0 on crsuse2-m2m-136
+bind [127.0.0.1]:18080: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 18080
+Could not request local forwarding.
+decode-0 role=decode ip=10.245.154.168 port=29002 GPUs=0,1,2,3,4,5,6,7 TP=8 EP=1 DP=8 DPA=1 HiCache=0
+AITER JIT cache: /tmp/aiter-jit-50112975/fd7220a57b7d3b58efd875c41f7a9ef46b93469581102d96cbeb6f5451e91d35
+673caa260b2a99f61bf83b1e1233ee9decb330aecec1494ddc4350119db966ea
+server log: /mnt/m2m_nobackup/yihou_p8p4/launch/sweep-20260919T113947Z/server-logs/decode-0.log
+decode-0 on crsuse2-m2m-136: healthy
+prefill-0 on crsuse2-m2m-137: healthy
+starting router on crsuse2-m2m-137
+bind [127.0.0.1]:18080: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 18080
+Could not request local forwarding.
+4820e7cc732c45fbe128d29db5e6a3dc9e216efb39947d148f6c67fd75a53083
+router on crsuse2-m2m-137: healthy
+router ready: http://10.245.153.247:28000
+inspection files: /mnt/m2m_nobackup/yihou_p8p4/launch/sweep-20260919T113947Z
+use ./stop.sh when finished

@@ -1,0 +1,6 @@
+Point,Concurrency,Model,Hardware,Framework,Precision,PrefillTP,DecodeTP,PrefillGPUs,DecodeGPUs,SpecDecoding,DPAttention,DurationS,TokenThroughputPerChip,InputPerChip,OutputPerChip,TotalTokensPerSec,TTFT_p50_s,TTFT_p90_s,ITL_p50_ms,ITL_p90_ms,Interactivity_p50,RecordsProfiled,RecordsTotal,RecordsErrorDropped,TheoreticalCacheHit,RailFaultsBeforeAfter
+c080,80,GLM-5.2-MXFP4,mi355x,sglang,fp4,8,8,8,8,mtp,true,3629.3,19513.2,19355.6,157.66,312211.6,5.694,22.124,14.89,21.28,67.18,9483,10367,3,0.96445,0/0
+c112,112,GLM-5.2-MXFP4,mi355x,sglang,fp4,8,8,8,8,mtp,true,3629.7,19013.5,18857.2,156.3,304216.5,11.301,64.47,15.92,21.75,62.82,9536,10779,5,0.96448,0/0
+c144,144,GLM-5.2-MXFP4,mi355x,sglang,fp4,8,8,8,8,mtp,true,3628.0,12554.9,12441.5,113.45,200879.1,52.452,209.331,14.4,19.88,69.44,6862,8460,32,0.95847,0/0
+c192,192,GLM-5.2-MXFP4,mi355x,sglang,fp4,8,8,8,8,mtp,true,3629.6,7409.2,7337.6,71.59,118547.2,132.823,443.827,11.23,15.75,89.05,4339,6485,185,0.95526,0/0
+c256,256,GLM-5.2-MXFP4,mi355x,sglang,fp4,8,8,8,8,mtp,true,3627.3,5328.9,5273.7,55.13,85262.0,159.511,510.12,10.18,13.82,98.24,3659,6555,487,0.94765,0/0

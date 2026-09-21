@@ -1,0 +1,4 @@
+GPU[2]		: VRAM Total Used Memory (B): 282246553600
+GPU[3]		: VRAM Total Used Memory (B): 282082807808
+GPU[4]		: VRAM Total Used Memory (B): 283871645696
+GPU[5]		: VRAM Total Used Memory (B): 281679941632

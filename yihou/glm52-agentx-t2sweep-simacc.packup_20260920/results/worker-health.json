@@ -1,0 +1,20 @@
+{
+  "targets": [
+    {
+      "container": "glm52-pd-yihou-agentx-full-decode-0",
+      "elapsed_seconds": 250.339,
+      "health_url": "http://10.245.157.237:29002/health",
+      "healthy": true,
+      "name": "decode-0",
+      "node": "crsuse2-m2m-138"
+    },
+    {
+      "container": "glm52-pd-yihou-agentx-full-prefill-0",
+      "elapsed_seconds": 186.138,
+      "health_url": "http://10.245.148.209:29001/health",
+      "healthy": true,
+      "name": "prefill-0",
+      "node": "crsuse2-m2m-135"
+    }
+  ]
+}

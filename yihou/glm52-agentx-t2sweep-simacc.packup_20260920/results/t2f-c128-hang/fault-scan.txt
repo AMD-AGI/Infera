@@ -1,0 +1,2 @@
+decode fault count: 0
+prefill fault count: 0

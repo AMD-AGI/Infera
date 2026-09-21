@@ -1,0 +1,2 @@
+Filesystem                                                  Size  Used Avail Use% Mounted on
+172.27.255.2:/volumes/b0a55a09-d57d-4ab3-9c68-05366b6233d1   10T  9.4T  665G  94% /home

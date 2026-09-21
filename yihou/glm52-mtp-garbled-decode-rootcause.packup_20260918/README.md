@@ -7,6 +7,33 @@ under EAGLE MTP in a 1-Prefill/1-Decode disaggregated deployment, and fixed it.
 Passing `--disable-custom-all-reduce` to the decode engine restores correct text
 and healthy MTP acceptance. Nothing else was needed.
 
+> **Scope correction, added 2026-09-19.** This finding is **conditional on two
+> things this pack-up did not vary**, and the headline above states it too
+> broadly.
+>
+> 1. **All five rounds ran with `index_share_for_mtp_iteration=false`** —
+>    verified after the fact from each round's own
+>    `results/r0*/server-info/decode-0.json`, every one of which carries
+>    `json_model_override_args='{"index_share_for_mtp_iteration":false}'`.
+>    GLM-5.2's `config.json` defaults that flag to **true**, so this is a
+>    non-default setting inherited from `config.sh:82`, not a neutral baseline.
+>    **TP4 with IndexShare ON was never tested for correctness here.**
+> 2. **All five rounds were TP4/DP4.** A parallel session running the same image
+>    at **TP8/DP8** with IndexShare ON and custom all-reduce **ON** measured
+>    coherent output over 16/16 temperature-0 probes at real
+>    `spec_accept_length` **4.69** — i.e. the failure this pack-up documents did
+>    not appear there.
+>
+> Two variables differ between those results, so neither refutes the other. The
+> defensible statement is: *with IndexShare off, on TP4/DP4, custom all-reduce on
+> the decode leg corrupts output, and disabling it fixes both the text and the
+> acceptance rate.* Do not quote the unconditional form.
+>
+> Related and also worth knowing before reusing this kit: the same stack has a
+> separate, unfixed **GPU memory access fault** in the DSA indexer path that
+> appears only when IndexShare is ON — four faults in five runs, upstream
+> #39517/#37648 open. See `yihou/dsa.topk.indexer.bug.analysis.md`.
+
 Run on **crsuse2-m2m-135** (prefill) and **crsuse2-m2m-138** (decode),
 MI355X ×4 each (devices 2,3,4,5), 2026-09-18 09:05–10:00 UTC.
 

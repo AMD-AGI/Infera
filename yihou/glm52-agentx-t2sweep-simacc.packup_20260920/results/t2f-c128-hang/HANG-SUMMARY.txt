@@ -1,0 +1,27 @@
+CONC=128 (t2f, 3rd data point attempt) — decode-leg HANG, not a GPU fault.
+
+Timeline (UTC 2026-09-20):
+  00:53:59  last normal "POST /v1/chat/completions 200 OK" on decode. Client
+            counters freeze here: returned=345 sent=494 in_flight=149 errors=0.
+  01:12:50  decode begins logging "Decode handshake failed for request
+            rid=HEALTH_CHECK_..." — the /health probe's own PD handshake fails,
+            which is why decode /health returns 000 (times out).
+  01:13:36+ "Decode transfer failed for request rank=0/1/2 bootstrap_room=..."
+            recurring — Mooncake KV transfers from prefill to decode not completing.
+
+State at capture (~01:14-01:15):
+  decode /health   000 (5s timeout);  router/prefill /health 200
+  decode container Up 13h, answering only GET /metrics 200 (HTTP thread alive,
+                   scheduler wedged)
+  decode GPU       VRAM ~269 GB (~87%) held but read/write activity 0
+  GPU faults       0 on BOTH legs (live `docker logs` scan, not the dead file)
+  /home            665 G free — NOT the NFS-full cause of the earlier death
+  NCCL watchdog    silent (no stuck-collective abort)
+
+Classification: PD (prefill->decode) KV-transfer / handshake wedge on the decode
+leg. NOT "Memory access fault by GPU node-N", so NOT the ladder's trigger; no
+rung changed. Distinct from the 1st CONC=128 death (shared /home NFS hit 0 bytes,
+preserved in ../t2f-agentx-c128-nfsfull/). Two CONC=128 attempts, two unrelated
+infra/transport failures, ~1 h each.
+
+Cause not established. Recorded as "CONC=128 not obtained".
