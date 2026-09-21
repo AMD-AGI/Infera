@@ -94,6 +94,18 @@ class K8sRegistrationClient:
         )
         return worker_id
 
+    async def clear_stale_registration(self) -> None:
+        """Remove worker metadata left by an earlier container process."""
+        try:
+            await self._patch_annotation(None)
+            logger.info(
+                "cleared stale worker annotation before startup: pod=%s/%s",
+                self._namespace,
+                self._pod_name,
+            )
+        finally:
+            await self._http.aclose()
+
     async def deregister(self) -> bool:
         """Clear the annotation, reporting whether the record is actually gone.
 

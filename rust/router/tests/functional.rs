@@ -20,6 +20,7 @@ use axum::routing::post;
 use axum::{Json, Router};
 use serde_json::{json, Value};
 
+use futures::StreamExt;
 use infera_router::block_hasher::BlockHasher;
 use infera_router::breaker::CircuitBreaker;
 use infera_router::handlers::{app, AppState};
@@ -27,7 +28,6 @@ use infera_router::kv_event::KvEventClient;
 use infera_router::policy::{KvEventAwarePolicy, RoundRobin};
 use infera_router::pool::{Snapshot, Worker};
 use infera_router::proxy;
-use futures::StreamExt;
 
 // ---------------------------------------------------------------------------
 // Mock upstream worker
@@ -90,7 +90,8 @@ async fn mock_handle(
         return (StatusCode::from_u16(s.status).unwrap(), "upstream error").into_response();
     }
     if s.sse {
-        let first = Bytes::from_static(b"data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n");
+        let first =
+            Bytes::from_static(b"data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n");
         if s.hang_stream {
             let s = futures::stream::once(async move { Ok::<_, std::io::Error>(first) })
                 .chain(futures::stream::pending());
@@ -832,6 +833,40 @@ async fn pd_prefill_drain_timeout_posts_abort_request() {
         !d.abort_rids.lock().unwrap().is_empty(),
         "drain timeout must abort the decode KV waiter"
     );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_unary_worker_failure_aborts_both_engine_requests() {
+    let (p_url, p) = spawn_mock(500, false, json!({"error": "KVTransferError"})).await;
+    let (d_url, d) = spawn_mock(500, false, json!({"error": "KVTransferError"})).await;
+    let state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    let router = spawn_router(state).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": false}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 500);
+
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while (p.abort_rids.lock().unwrap().is_empty() || d.abort_rids.lock().unwrap().is_empty())
+        && Instant::now() < deadline
+    {
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+    let p_rids = p.abort_rids.lock().unwrap().clone();
+    let d_rids = d.abort_rids.lock().unwrap().clone();
+    assert!(
+        !p_rids.is_empty(),
+        "prefill failure must abort its inflight request"
+    );
+    assert!(
+        !d_rids.is_empty(),
+        "prefill failure must abort the decode KV waiter"
+    );
+    assert_eq!(p_rids[0], d_rids[0]);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

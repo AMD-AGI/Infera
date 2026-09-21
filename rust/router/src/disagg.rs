@@ -214,9 +214,15 @@ async fn unary_dual(
 ) -> Response {
     // Held until both legs finish (dropped at fn end) -> on_request_finished.
     let _guard = guard;
+    let rid = p_body
+        .get("rid")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .unwrap_or_default();
     let p_fut = post_leg(state, &p_url, p_body, p.dp_rank);
     let d_fut = post_leg(state, &d_url, d_body, d.dp_rank);
     let (p_res, d_res) = tokio::join!(p_fut, d_fut);
+    let mut pair_failed = false;
 
     // Prefill: drain + log; its output is discarded (KV goes engine→engine).
     match p_res {
@@ -231,6 +237,7 @@ async fn unary_dual(
                 );
             }
             if is_worker_fault(st.as_u16()) {
+                pair_failed = true;
                 state.breaker.record_failure(&p.worker.worker_id);
             } else if st.is_success() {
                 state.breaker.record_success(&p.worker.worker_id);
@@ -240,14 +247,16 @@ async fn unary_dual(
         }
         Err(e) => {
             tracing::warn!("prefill {} failed: {e}", p_url);
+            pair_failed = true;
             state.breaker.record_failure(&p.worker.worker_id);
         }
     }
 
-    match d_res {
+    let response = match d_res {
         Ok(resp) => {
             let st = resp.status();
             if is_worker_fault(st.as_u16()) {
+                pair_failed = true;
                 state.breaker.record_failure(&d.worker.worker_id);
             } else if st.is_success() {
                 state.breaker.record_success(&d.worker.worker_id);
@@ -268,13 +277,20 @@ async fn unary_dual(
             }
         }
         Err(e) => {
+            pair_failed = true;
             state.breaker.record_failure(&d.worker.worker_id);
             json_error(
                 StatusCode::BAD_GATEWAY,
                 &format!("decode {} unreachable: {e}", d.worker.worker_id),
             )
         }
+    };
+    if pair_failed {
+        tracing::warn!("PD unary pair failed; aborting rid={rid}");
+        abort_sglang_request(state.http.clone(), p.worker.url.clone(), rid.clone());
+        abort_sglang_request(state.http.clone(), d.worker.url.clone(), rid);
     }
+    response
 }
 
 /// Both legs over NATS. Prefill is published and drained detached; decode's
@@ -423,11 +439,9 @@ async fn dual_nats(
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "text/event-stream")
-        .body(Body::from_stream(crate::proxy::guarded_with_incomplete_abort(
-            body,
-            guard,
-            Some(incomplete_tx),
-        )))
+        .body(Body::from_stream(
+            crate::proxy::guarded_with_incomplete_abort(body, guard, Some(incomplete_tx)),
+        ))
         .expect("stream response is valid")
 }
 

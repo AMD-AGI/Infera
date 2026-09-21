@@ -31,6 +31,7 @@ import asyncio
 import json
 import logging
 import os
+import secrets
 import time
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -54,6 +55,10 @@ logger = logging.getLogger(__name__)
 SGLANG_BOOTSTRAP_PROTOCOL = "sglang-bootstrap"
 
 SKIP_SERVER_WARMUP_FLAG = "--skip-server-warmup"
+DEFAULT_PD_PROBE_TIMEOUT = 300.0
+DEFAULT_PD_PROBE_ATTEMPTS = 3
+DEFAULT_PD_PROBE_STABILIZATION_SLEEP = 35.0
+DEFAULT_PD_PROBE_RETRY_SLEEP = 35.0
 
 # Every Pod of an InferaDeployment carries this (operator: builders.go
 # labelKeyDeployment), which is what scopes the list to real Mooncake peers.
@@ -404,3 +409,143 @@ def ensure_skip_server_warmup(argv: list[str]) -> list[str]:
     if SKIP_SERVER_WARMUP_FLAG in argv:
         return argv
     return [*argv, SKIP_SERVER_WARMUP_FLAG]
+
+
+def apply_pd_probe_recovery_defaults(
+    disaggregation_mode: str | None,
+    transfer_backend: str | None,
+) -> dict[str, str]:
+    """Enable Mooncake session recovery required by delayed probe retries."""
+    if disaggregation_mode != "prefill" or transfer_backend != "mooncake":
+        return {}
+    defaults = {
+        "SGLANG_ENABLE_FAILED_SESSION_PROBE": "1",
+        "SGLANG_FAILED_SESSION_PROBE_INTERVAL_S": "5",
+    }
+    applied: dict[str, str] = {}
+    for key, value in defaults.items():
+        if key not in os.environ:
+            os.environ[key] = value
+            applied[key] = value
+    return applied
+
+
+def pd_peer_probe_payload(
+    *,
+    bootstrap_host: str,
+    bootstrap_port: int,
+    room: int,
+    dp_rank: int,
+) -> dict[str, Any]:
+    """Build a real-peer SGLang request that verifies KV transfer readiness."""
+    return {
+        "sampling_params": {
+            "temperature": 0.0,
+            "max_new_tokens": 1,
+            "ignore_eos": True,
+        },
+        "bootstrap_host": bootstrap_host,
+        "bootstrap_port": int(bootstrap_port),
+        "bootstrap_room": room,
+        "input_ids": [10, 11, 12, 13],
+        "routed_dp_rank": dp_rank,
+        "rid": f"infera-probe-{room}",
+    }
+
+
+def _probe_failure_details(failed: list[Any]) -> str:
+    return ", ".join(
+        f"{type(result).__name__}: {result}"
+        if isinstance(result, BaseException)
+        else f"HTTP {result.status_code}: {result.text[:200]}"
+        for result in failed
+    )
+
+
+async def verify_pd_peer(
+    *,
+    prefill_url: str,
+    decode_url: str,
+    bootstrap_host: str,
+    bootstrap_port: int,
+    dp_size: int = 1,
+    timeout: float = DEFAULT_PD_PROBE_TIMEOUT,
+    attempts: int = DEFAULT_PD_PROBE_ATTEMPTS,
+    stabilization_sleep: float = DEFAULT_PD_PROBE_STABILIZATION_SLEEP,
+    retry_sleep: float = DEFAULT_PD_PROBE_RETRY_SLEEP,
+    room_seed: int | None = None,
+    http: httpx.AsyncClient | None = None,
+    sleep: Callable[[float], Awaitable[None]] | None = None,
+) -> None:
+    """Transfer one real KV block per DP rank before advertising the prefill.
+
+    A failed transfer aborts both legs and retries with a new room so a
+    transient RDMA/Mooncake error does not permanently block registration.
+    """
+    ranks = max(1, int(dp_size))
+    tries = max(1, int(attempts))
+    sleeper = sleep or asyncio.sleep
+    base_room = room_seed if room_seed is not None else secrets.randbits(63)
+    base_room -= base_room % ranks
+    owns_client = http is None
+    client = http if http is not None else httpx.AsyncClient(timeout=timeout)
+    try:
+        if stabilization_sleep > 0:
+            logger.info(
+                "decode barrier: waiting %.0fs for RDMA contexts to stabilize",
+                stabilization_sleep,
+            )
+            await sleeper(stabilization_sleep)
+        for dp_rank in range(ranks):
+            last_details = ""
+            for attempt in range(tries):
+                room = base_room + dp_rank + attempt * ranks
+                body = pd_peer_probe_payload(
+                    bootstrap_host=bootstrap_host,
+                    bootstrap_port=bootstrap_port,
+                    room=room,
+                    dp_rank=dp_rank,
+                )
+                results = await asyncio.gather(
+                    client.post(f"{prefill_url.rstrip('/')}/generate", json=body),
+                    client.post(f"{decode_url.rstrip('/')}/generate", json=body),
+                    return_exceptions=True,
+                )
+                failed = [
+                    result
+                    for result in results
+                    if isinstance(result, BaseException) or result.status_code >= 400
+                ]
+                if not failed:
+                    break
+
+                abort_body = {"rid": body["rid"]}
+                await asyncio.gather(
+                    client.post(f"{prefill_url.rstrip('/')}/abort_request", json=abort_body),
+                    client.post(f"{decode_url.rstrip('/')}/abort_request", json=abort_body),
+                    return_exceptions=True,
+                )
+                last_details = _probe_failure_details(failed)
+                if attempt + 1 >= tries:
+                    raise RuntimeError(
+                        f"PD peer verification failed for dp_rank={dp_rank} "
+                        f"after {tries} attempts: {last_details}"
+                    )
+                logger.warning(
+                    "decode barrier: PD peer probe failed for dp_rank=%d "
+                    "attempt %d/%d; aborting and retrying: %s",
+                    dp_rank,
+                    attempt + 1,
+                    tries,
+                    last_details,
+                )
+                if retry_sleep > 0:
+                    await sleeper(retry_sleep)
+        logger.info(
+            "decode barrier: verified real KV transfer to %s for %d DP rank(s)",
+            decode_url,
+            ranks,
+        )
+    finally:
+        if owns_client:
+            await client.aclose()

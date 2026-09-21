@@ -33,14 +33,17 @@ from infera.common.disagg_preflight import (
 from infera.common.discovery import _normalize_endpoint
 from infera.common.k8s_client import make_client
 from infera.common.registration import RegistrationClient
+from infera.common.registration_k8s import K8sRegistrationClient
 from infera.engine.base import EngineDeath, watch_engine_death
 from infera.engine.decode_barrier import (
+    apply_pd_probe_recovery_defaults,
     decode_ready_timeout_seconds,
     ensure_skip_server_warmup,
     list_etcd_worker_payloads,
     list_k8s_worker_payloads,
     resolve_k8s_label_selector,
     should_wait_for_decode,
+    verify_pd_peer,
     wait_for_decode,
 )
 from infera.engine.drain import drain_engine_inflight
@@ -96,11 +99,11 @@ def _multinode_node_rank(args: SglangWorkerArgs) -> int:
     return node_rank
 
 
-async def _maybe_wait_for_decode(args: SglangWorkerArgs) -> None:
-    """Block until a compatible decode worker is registered, then return.
+async def _maybe_wait_for_decode(args: SglangWorkerArgs, config) -> None:
+    """Verify a compatible decode worker and its real KV path.
 
     Weight load already happened: launch_server ran with --skip-server-warmup.
-    Fake-bootstrap PD warmup is not replayed.
+    Fake-bootstrap PD warmup is replaced by a real peer-to-peer transfer.
     """
     mode = getattr(args.server_args, "disaggregation_mode", None)
     if not should_wait_for_decode(mode, args.wait_for_decode):
@@ -152,9 +155,19 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs) -> None:
             model_name,
             args.discovery_backend,
         )
-        await wait_for_decode(_list, model_name=str(model_name), timeout=timeout)
-        logger.info(
-            "decode barrier: decode registered; skipping fake-bootstrap PD warmup"
+        decode = await wait_for_decode(_list, model_name=str(model_name), timeout=timeout)
+        decode_url = str(decode.get("url") or "").rstrip("/")
+        if not decode_url:
+            raise RuntimeError("registered decode worker has no URL")
+        bootstrap_host = str(config.host)
+        if bootstrap_host in ("0.0.0.0", ""):
+            raise RuntimeError("prefill has no routable bootstrap host")
+        await verify_pd_peer(
+            prefill_url=f"http://{config.host}:{config.port}",
+            decode_url=decode_url,
+            bootstrap_host=bootstrap_host,
+            bootstrap_port=int(args.server_args.disaggregation_bootstrap_port),
+            dp_size=int(getattr(args.server_args, "dp_size", 1) or 1),
         )
     finally:
         if http is not None:
@@ -348,6 +361,15 @@ async def main() -> None:
     )
 
     apply_rocm_rdma_env_defaults()
+    recovery_defaults = apply_pd_probe_recovery_defaults(
+        getattr(args.server_args, "disaggregation_mode", None),
+        getattr(args.server_args, "disaggregation_transfer_backend", None),
+    )
+    if recovery_defaults:
+        logger.info(
+            "Mooncake probe recovery defaults applied: %s",
+            recovery_defaults,
+        )
     # Disable sglang's CUDA-only DSA topk_v2 JIT on ROCm (set-if-unset), else every
     # non-DeepseekV4 DSA arch dies in CUDA-graph capture. See rocm_dsa_env.py.
     apply_rocm_dsa_env_defaults()
@@ -371,6 +393,10 @@ async def main() -> None:
         getattr(args.server_args, "disaggregation_mode", None), args.wait_for_decode
     ):
         args.sglang_argv = ensure_skip_server_warmup(args.sglang_argv)
+
+    if args.discovery_backend == "kubernetes":
+        stale_registration = K8sRegistrationClient(namespace=args.k8s_namespace)
+        await stale_registration.clear_stale_registration()
 
     engine = SglangEngine(
         args.server_args,
@@ -402,7 +428,7 @@ async def main() -> None:
     # otherwise an exception (e.g. --kv-events on failing the KV plane) escapes
     # without reaping the sglang subprocess tree, orphaning it (holds ports/GPUs).
     try:
-        await _maybe_wait_for_decode(args)
+        await _maybe_wait_for_decode(args, config)
         await _run_after_start(args, engine, config)
     except Exception:
         logger.exception("worker failed after engine start; tearing down")
@@ -520,8 +546,6 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
 
     # --- Auto-registration (etcd or kubernetes) ---
     if args.discovery_backend == "kubernetes":
-        from infera.common.registration_k8s import K8sRegistrationClient
-
         logger.info("using kubernetes registration: namespace=%s", args.k8s_namespace or "<pod>")
         reg_client = K8sRegistrationClient(namespace=args.k8s_namespace)
     else:

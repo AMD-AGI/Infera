@@ -14,6 +14,7 @@ import pytest
 
 from infera.common.discovery_k8s import WORKER_INFO_ANNOTATION
 from infera.engine.decode_barrier import (
+    apply_pd_probe_recovery_defaults,
     decode_ready_timeout_seconds,
     ensure_skip_server_warmup,
     is_compatible_decode_worker,
@@ -21,6 +22,7 @@ from infera.engine.decode_barrier import (
     list_k8s_worker_payloads,
     resolve_k8s_label_selector,
     should_wait_for_decode,
+    verify_pd_peer,
     wait_for_decode,
 )
 
@@ -324,3 +326,177 @@ def test_ensure_skip_server_warmup_is_idempotent():
     ]
     already = ["--skip-server-warmup", "--tp-size", "8"]
     assert ensure_skip_server_warmup(already) is already
+
+
+@pytest.mark.asyncio
+async def test_verify_pd_peer_transfers_real_kv_before_registration():
+    requests: list[tuple[str, dict]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append((f"{request.url.host}{request.url.path}", body))
+        return httpx.Response(200, json={"text": "ok"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        await verify_pd_peer(
+            prefill_url="http://prefill:30000",
+            decode_url="http://decode:30000",
+            bootstrap_host="prefill",
+            bootstrap_port=30001,
+            room_seed=100,
+            stabilization_sleep=0.0,
+            http=client,
+        )
+
+    assert [path for path, _ in requests] == [
+        "prefill/generate",
+        "decode/generate",
+    ]
+    assert requests[0][1] == requests[1][1]
+    assert requests[0][1]["bootstrap_host"] == "prefill"
+    assert requests[0][1]["bootstrap_port"] == 30001
+    assert requests[0][1]["bootstrap_room"] == 100
+    assert requests[0][1]["rid"] == "infera-probe-100"
+
+
+@pytest.mark.asyncio
+async def test_verify_pd_peer_aborts_both_legs_on_transfer_failure():
+    aborts: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/abort_request":
+            aborts.append(request.url.host)
+            return httpx.Response(200)
+        if request.url.host == "decode":
+            return httpx.Response(500, text="KVTransferError")
+        return httpx.Response(200, json={"text": "ok"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        with pytest.raises(RuntimeError, match="PD peer verification failed"):
+            await verify_pd_peer(
+                prefill_url="http://prefill:30000",
+                decode_url="http://decode:30000",
+                bootstrap_host="prefill",
+                bootstrap_port=30001,
+                room_seed=101,
+                attempts=1,
+                stabilization_sleep=0.0,
+                http=client,
+            )
+
+    assert sorted(aborts) == ["decode", "prefill"]
+
+
+@pytest.mark.asyncio
+async def test_verify_pd_peer_retries_after_abort_then_succeeds():
+    generate_calls = {"n": 0}
+    aborts: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/abort_request":
+            aborts.append(request.url.host)
+            return httpx.Response(200)
+        generate_calls["n"] += 1
+        if generate_calls["n"] <= 2:
+            return httpx.Response(500, text="KVTransferError")
+        return httpx.Response(200, json={"text": "ok"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        await verify_pd_peer(
+            prefill_url="http://prefill:30000",
+            decode_url="http://decode:30000",
+            bootstrap_host="prefill",
+            bootstrap_port=30001,
+            room_seed=200,
+            attempts=3,
+            retry_sleep=0.0,
+            stabilization_sleep=0.0,
+            http=client,
+        )
+
+    assert generate_calls["n"] == 4
+    assert sorted(aborts) == ["decode", "prefill"]
+
+
+@pytest.mark.asyncio
+async def test_verify_pd_peer_gives_up_after_retry_budget():
+    generate_calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/abort_request":
+            return httpx.Response(200)
+        generate_calls["n"] += 1
+        return httpx.Response(500, text="KVTransferError")
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        with pytest.raises(RuntimeError, match="after 3 attempts"):
+            await verify_pd_peer(
+                prefill_url="http://prefill:30000",
+                decode_url="http://decode:30000",
+                bootstrap_host="prefill",
+                bootstrap_port=30001,
+                room_seed=300,
+                attempts=3,
+                retry_sleep=0.0,
+                stabilization_sleep=0.0,
+                http=client,
+            )
+
+    assert generate_calls["n"] == 6
+
+
+def test_apply_pd_probe_recovery_defaults_for_mooncake_prefill(monkeypatch):
+    monkeypatch.delenv("SGLANG_ENABLE_FAILED_SESSION_PROBE", raising=False)
+    monkeypatch.delenv("SGLANG_FAILED_SESSION_PROBE_INTERVAL_S", raising=False)
+
+    applied = apply_pd_probe_recovery_defaults("prefill", "mooncake")
+
+    assert applied == {
+        "SGLANG_ENABLE_FAILED_SESSION_PROBE": "1",
+        "SGLANG_FAILED_SESSION_PROBE_INTERVAL_S": "5",
+    }
+
+
+def test_apply_pd_probe_recovery_defaults_preserves_overrides(monkeypatch):
+    monkeypatch.setenv("SGLANG_ENABLE_FAILED_SESSION_PROBE", "0")
+    monkeypatch.setenv("SGLANG_FAILED_SESSION_PROBE_INTERVAL_S", "12")
+
+    applied = apply_pd_probe_recovery_defaults("prefill", "mooncake")
+
+    assert applied == {}
+
+
+@pytest.mark.asyncio
+async def test_verify_pd_peer_waits_for_rdma_recovery_before_probe_and_retry():
+    sleeps: list[float] = []
+    generate_calls = {"n": 0}
+
+    async def fake_sleep(delay: float) -> None:
+        sleeps.append(delay)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/abort_request":
+            return httpx.Response(200)
+        generate_calls["n"] += 1
+        if generate_calls["n"] <= 2:
+            return httpx.Response(500, text="KVTransferError")
+        return httpx.Response(200, json={"text": "ok"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        await verify_pd_peer(
+            prefill_url="http://prefill:30000",
+            decode_url="http://decode:30000",
+            bootstrap_host="prefill",
+            bootstrap_port=30001,
+            room_seed=400,
+            attempts=3,
+            http=client,
+            sleep=fake_sleep,
+        )
+
+    assert sleeps == [35.0, 35.0]
