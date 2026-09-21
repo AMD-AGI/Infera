@@ -108,9 +108,7 @@ def test_indexer_width_separates_two_models_the_floor_could_not():
 def test_index_share_is_cheaper_than_indexing_every_layer():
     """Reusing one layer's index across the next three is 21 layers, not 78."""
     shared = uniform_sparse_attention_scale(_GLM(), 131072, 2048)
-    every = uniform_sparse_attention_scale(
-        _GLM(sparse_index_layers=78), 131072, 2048
-    )
+    every = uniform_sparse_attention_scale(_GLM(sparse_index_layers=78), 131072, 2048)
     assert shared < every
 
 
