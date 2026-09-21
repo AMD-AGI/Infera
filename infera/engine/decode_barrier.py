@@ -3,14 +3,15 @@
 #
 # SPDX-License-Identifier: MIT
 ###############################################################################
-"""Gate PD prefill warmup on a registered decode worker, not engine start.
+"""Gate PD prefill registration on a decode worker, not engine start.
 
 Prefill and decode load weights in parallel. SGLang's PD warmup is a
-``/generate`` issued during FastAPI startup; if it runs before decode is
-listening, the Mooncake session cache can be poisoned. The barrier therefore
-passes ``--skip-server-warmup`` into launch_server, waits for decode to
-register (``/health`` 200 + worker-info), then replays the same warmup
-request SGLang would have sent.
+``/generate`` to bootstrap host 2.2.2.2 during FastAPI startup; that fake
+session stays inflight on Mooncake and later real KV transfers fail. The
+barrier therefore passes ``--skip-server-warmup`` into launch_server and
+waits for decode to register (``/health`` 200 + worker-info) before this
+process advertises itself. It does not replay the fake warmup; the first
+real request owns the Mooncake session.
 
 Two things make the record alone insufficient, and both are handled below:
 
@@ -52,12 +53,7 @@ logger = logging.getLogger(__name__)
 
 SGLANG_BOOTSTRAP_PROTOCOL = "sglang-bootstrap"
 
-# SGLang's PD warmup uses this sentinel so the transfer backend is FAKE
-# (sglang.srt.disaggregation.utils.FAKE_BOOTSTRAP_HOST). Keep the payload
-# identical to launch_server so we replay the same warmup after decode is up.
-SGLANG_FAKE_BOOTSTRAP_HOST = "2.2.2.2"
 SKIP_SERVER_WARMUP_FLAG = "--skip-server-warmup"
-DEFAULT_PD_WARMUP_TIMEOUT = 1800.0
 
 # Every Pod of an InferaDeployment carries this (operator: builders.go
 # labelKeyDeployment), which is what scopes the list to real Mooncake peers.
@@ -408,45 +404,3 @@ def ensure_skip_server_warmup(argv: list[str]) -> list[str]:
     if SKIP_SERVER_WARMUP_FLAG in argv:
         return argv
     return [*argv, SKIP_SERVER_WARMUP_FLAG]
-
-
-def pd_warmup_payload(dp_rank: int = 0) -> dict[str, Any]:
-    """The /generate body SGLang sends for PD disaggregation warmup."""
-    return {
-        "sampling_params": {
-            "temperature": 0.0,
-            "max_new_tokens": 8,
-            "ignore_eos": True,
-        },
-        "bootstrap_host": SGLANG_FAKE_BOOTSTRAP_HOST,
-        "bootstrap_room": dp_rank,
-        "input_ids": [10, 11, 12, 13],
-        "routed_dp_rank": dp_rank,
-    }
-
-
-async def run_disaggregation_warmup(
-    url: str,
-    *,
-    dp_size: int = 1,
-    timeout: float = DEFAULT_PD_WARMUP_TIMEOUT,
-    http: httpx.AsyncClient | None = None,
-) -> None:
-    """Replay SGLang's PD warmup /generate against a server that skipped it."""
-    base = url.rstrip("/")
-    ranks = max(1, int(dp_size))
-    owns_client = http is None
-    client = http if http is not None else httpx.AsyncClient(timeout=timeout)
-    try:
-        logger.info("decode barrier: running PD warmup on %s (dp_size=%d)", base, ranks)
-        for dp_rank in range(ranks):
-            resp = await client.post(f"{base}/generate", json=pd_warmup_payload(dp_rank))
-            if resp.status_code != 200:
-                raise RuntimeError(
-                    f"PD warmup /generate failed for dp_rank={dp_rank}: "
-                    f"HTTP {resp.status_code} {resp.text[:500]}"
-                )
-        logger.info("decode barrier: PD warmup completed for %d DP rank(s)", ranks)
-    finally:
-        if owns_client:
-            await client.aclose()

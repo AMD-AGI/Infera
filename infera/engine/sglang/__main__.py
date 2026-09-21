@@ -40,7 +40,6 @@ from infera.engine.decode_barrier import (
     list_etcd_worker_payloads,
     list_k8s_worker_payloads,
     resolve_k8s_label_selector,
-    run_disaggregation_warmup,
     should_wait_for_decode,
     wait_for_decode,
 )
@@ -98,9 +97,10 @@ def _multinode_node_rank(args: SglangWorkerArgs) -> int:
 
 
 async def _maybe_wait_for_decode(args: SglangWorkerArgs) -> None:
-    """Block until a compatible decode worker is registered, then PD-warmup.
+    """Block until a compatible decode worker is registered, then return.
 
     Weight load already happened: launch_server ran with --skip-server-warmup.
+    Fake-bootstrap PD warmup is not replayed.
     """
     mode = getattr(args.server_args, "disaggregation_mode", None)
     if not should_wait_for_decode(mode, args.wait_for_decode):
@@ -108,7 +108,7 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs) -> None:
     # After engine.start() the TP group has already rendezvoused. Only the
     # serving rank issues warmup /generate and needs decode to be registered.
     if _multinode_node_rank(args) > 0:
-        logger.info("decode barrier: skipped wait+warmup on multinode follower")
+        logger.info("decode barrier: skipped wait on multinode follower")
         return
     model_name = (
         getattr(args.server_args, "served_model_name", None)
@@ -153,14 +153,8 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs) -> None:
             args.discovery_backend,
         )
         await wait_for_decode(_list, model_name=str(model_name), timeout=timeout)
-        probe_host = args.advertise_host or args.server_args.host
-        if probe_host in ("0.0.0.0", "", None):
-            probe_host = "127.0.0.1"
-        port = int(getattr(args.server_args, "port", 30000) or 30000)
-        dp_size = int(getattr(args.server_args, "dp_size", 1) or 1)
-        await run_disaggregation_warmup(
-            f"http://{probe_host}:{port}",
-            dp_size=dp_size,
+        logger.info(
+            "decode barrier: decode registered; skipping fake-bootstrap PD warmup"
         )
     finally:
         if http is not None:
@@ -371,8 +365,8 @@ async def main() -> None:
     # only set the one documented knob (else sglang asserts on the prefill engine).
     _wire_mori_dispatch_buffer(args.server_args)
 
-    # Prefill PD warmup is a /generate during FastAPI startup. Load weights
-    # in parallel with decode; skip that warmup until decode has registered.
+    # Prefill PD warmup is a /generate to 2.2.2.2 during FastAPI startup.
+    # Load weights in parallel with decode and skip that warmup entirely.
     if should_wait_for_decode(
         getattr(args.server_args, "disaggregation_mode", None), args.wait_for_decode
     ):

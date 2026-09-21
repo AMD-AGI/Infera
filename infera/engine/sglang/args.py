@@ -69,8 +69,7 @@ class SglangWorkerArgs:
     infera_kvd_socket: str | None  # UDS path the kvd daemon listens on
 
     # PD prefill loads weights immediately, then waits for decode before
-    # replaying SGLang's PD warmup /generate. None means default-on for
-    # --disaggregation-mode prefill.
+    # advertising the worker. None means default-on for prefill.
     wait_for_decode: bool | None
     decode_ready_timeout: float | None
     k8s_label_selector: str | None
@@ -120,10 +119,10 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
         "--wait-for-decode",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help="On --disaggregation-mode prefill, load weights immediately and wait "
-        "until a matching decode worker has registered before PD warmup (so "
-        "warmup does not poison Mooncake). Default on for prefill; "
-        "--no-wait-for-decode skips the wait and uses SGLang's own startup warmup.",
+        help="On --disaggregation-mode prefill, load weights immediately, skip "
+        "SGLang's fake-bootstrap PD warmup, and wait until a matching decode "
+        "worker has registered before advertising this worker. Default on for "
+        "prefill; --no-wait-for-decode uses SGLang's own startup warmup.",
     )
     parser.add_argument(
         "--decode-ready-timeout",

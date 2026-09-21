@@ -14,15 +14,12 @@ import pytest
 
 from infera.common.discovery_k8s import WORKER_INFO_ANNOTATION
 from infera.engine.decode_barrier import (
-    SGLANG_FAKE_BOOTSTRAP_HOST,
     decode_ready_timeout_seconds,
     ensure_skip_server_warmup,
     is_compatible_decode_worker,
     k8s_namespace,
     list_k8s_worker_payloads,
-    pd_warmup_payload,
     resolve_k8s_label_selector,
-    run_disaggregation_warmup,
     should_wait_for_decode,
     wait_for_decode,
 )
@@ -327,28 +324,3 @@ def test_ensure_skip_server_warmup_is_idempotent():
     ]
     already = ["--skip-server-warmup", "--tp-size", "8"]
     assert ensure_skip_server_warmup(already) is already
-
-
-def test_pd_warmup_payload_matches_sglang():
-    body = pd_warmup_payload(3)
-    assert body["bootstrap_host"] == SGLANG_FAKE_BOOTSTRAP_HOST
-    assert body["bootstrap_room"] == 3
-    assert body["routed_dp_rank"] == 3
-    assert body["input_ids"] == [10, 11, 12, 13]
-
-
-@pytest.mark.asyncio
-async def test_run_disaggregation_warmup_posts_one_generate_per_dp_rank():
-    seen: list[int] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        payload = json.loads(request.content)
-        seen.append(payload["routed_dp_rank"])
-        assert request.url.path == "/generate"
-        assert payload["bootstrap_host"] == SGLANG_FAKE_BOOTSTRAP_HOST
-        return httpx.Response(200, json={"text": "ok"})
-
-    transport = httpx.MockTransport(handler)
-    async with httpx.AsyncClient(transport=transport, base_url="http://prefill") as client:
-        await run_disaggregation_warmup("http://prefill:30000", dp_size=2, http=client)
-    assert seen == [0, 1]
