@@ -6,11 +6,18 @@ import time
 
 _streams = {}
 _lock = threading.Lock()
+_chunk_level_ready = False
 
 def emit(obj, event, **fields):
+    global _chunk_level_ready
     directory = os.environ.get("AUS_DIAG_DIR")
     if not directory:
         return
+    if not _chunk_level_ready:
+        from sglang.srt.observability.req_time_stats import RequestStage
+        # Retain chunk envelopes without enabling per-token decode/spec spans.
+        RequestStage.PREFILL_CHUNKED_FORWARD.level = 1
+        _chunk_level_ready = True
     from sglang.srt.observability.trace import threads_info
     info = threads_info.get(threading.get_native_id())
     ts = getattr(obj, "time_stats", obj)

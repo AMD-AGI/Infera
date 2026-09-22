@@ -16,7 +16,7 @@ def request(index):
     trace_id, span_id = uuid.uuid4().hex, uuid.uuid4().hex[:16]
     body = dict(rid=f"aus-smoke-{index}", model="glm5.2-mxfp4", messages=[dict(role="user", content=
         "Read these measurements and report their count briefly.\n" +
-        (f"measurement {index}: temperature 20 pressure 100.\n" * 400))],
+        (f"measurement {index}: temperature 20 pressure 100.\n" * (4000 if index==0 else 400)))],
         max_tokens=32, temperature=0, stream=False)
     start = time.time_ns()
     req = urllib.request.Request("http://10.235.192.136:28000/v1/chat/completions",

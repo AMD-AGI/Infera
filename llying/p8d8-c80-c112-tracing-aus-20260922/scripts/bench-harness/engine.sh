@@ -102,6 +102,7 @@ docker_args=(
     -v "$MODEL:$MODEL:ro"
     -v "$aiter_jit_cache:/aiter-jit"
     -v "/tmp/aus-diag-$RUN_ID/$role:/aus-diag"
+    -v "$TRACE_RUNTIME/docker/aus_diag.py:/sgl-workspace/sglang/python/sglang/srt/observability/aus_diag.py:ro"
     -e AITER_JIT_DIR=/aiter-jit
 )
 if [[ -n "${HOST_RDMA_LIB:-}" ]]; then

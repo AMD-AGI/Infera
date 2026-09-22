@@ -49,7 +49,7 @@ with (out/'span-timelines.jsonl').open('w') as stream:
         if duration<0:
             counts['negative_duration']+=1;continue
         name=row['name']; counts['matched_spans']+=1
-        if name.startswith(('prefill_','decode_','mooncake_')) or name=='tokenize':
+        if name.startswith(('prefill_','decode_','mooncake_')) or name in ('tokenize','chunked_prefill'):
             stage[f'C{c}/{phase}/{role}/{name}'].append(duration)
             coverage[f'C{c}/{phase}/{role}/{name}'].add(rid)
         stream.write(json.dumps(dict(concurrency=c,phase=phase,rid=rid,role=role,
