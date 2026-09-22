@@ -3,11 +3,20 @@
 set -Eeuo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 set -a; source "$ROOT/config/config.sh"; set +a
-[[ ! -e "$RUN/STATUS" ]] || { echo "run exists: $RUN"; exit 1; }
+resume_after_smoke=0
+if [[ "${1:-}" == --resume-after-smoke ]]; then
+    resume_after_smoke=1
+    [[ -f "$RUN/smoke-validation.json" && ! -e "$RUN/c80-started.txt" && ! -e "$RUN/c112-started.txt" ]]
+    [[ "$(cat "$RUN/STATUS")" == *FAILED* ]]
+    cp "$RUN/STATUS" "$RUN/STATUS.before-smoke-recovery"
+else
+    [[ ! -e "$RUN/STATUS" ]] || { echo "run exists: $RUN"; exit 1; }
+fi
 mkdir -p "$RUN/logs" "$RUN/sampling" "$RUN/traces" "$RUN/snapshot"
 state() { printf '%s %s\n' "$(date -u --iso-8601=seconds)" "$*" | tee "$RUN/STATUS"; }
 failure() { code=$?; state "FAILED rc=$code line=$1; preserve service and artifacts"; bash "$ROOT/scripts/capture_live.sh" || true; exit "$code"; }
 trap 'failure $LINENO' ERR
+if (( ! resume_after_smoke )); then
 cp -a "$ROOT/config" "$ROOT/docker" "$ROOT/scripts" "$RUN/snapshot/"
 read -r -a opts <<< "$SSH_OPTS"
 state WAITING_GPU_RELEASE
@@ -29,6 +38,11 @@ bash "$BENCH_DIR/launch.sh" "CONFIG=$ROOT/config/config.sh" "TOPOLOGY=$TOPOLOGY"
 state SMOKE
 python3 "$ROOT/scripts/smoke.py" --output "$RUN/smoke.json"
 bash "$ROOT/scripts/capture_live.sh"
+else
+state RECOVERING_AFTER_SMOKE_VALIDATOR_FIX
+mkdir -p "$RUN/snapshot/smoke-recovery"
+cp "$ROOT/scripts/run.sh" "$ROOT/scripts/validate_smoke.py" "$RUN/snapshot/smoke-recovery/"
+fi
 python3 "$ROOT/scripts/validate_smoke.py" "$RUN"
 python3 "$ROOT/scripts/sample_engine_metrics.py" \
     --endpoint "prefill=http://$PREFILL_IP:29001/metrics" \

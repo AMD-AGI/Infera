@@ -34,4 +34,7 @@ with tempfile.TemporaryDirectory() as temp:
     assert profile['stages_ms']['decode/alloc_wait_ms']['p50']==2000
     assert profile['cache']['input_tokens']==200
     assert profile['rank_totals']['prefill']=={'2':2}
+    assert profile['minute_stage_ms']['0/decode/alloc_wait_ms']['p50']==2000
+    assert profile['minute_prefill_work']['0/2']['miss_tokens']==60
+    assert [(r['rid'],r['role']) for r in profile['incomplete_requests']]==[('missing','decode')]
     print('PASS: phase isolation, missing denominator, rank accounting, decode allocation timing')

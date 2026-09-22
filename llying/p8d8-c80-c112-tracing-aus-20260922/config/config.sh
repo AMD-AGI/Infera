@@ -4,6 +4,8 @@ BASE_RUNTIME=/perf_apps/liyingli/bench_agentx/glm52-c80-20260922
 MODEL=/perf_apps/data/models/GLM-5.2-MXFP4
 IMAGE=infera-sglang:aus-0922-reqtrace
 source "$BASE_RUNTIME/scripts/config.phase-c-aligned.sh"
+# Keep JSON stable when inherited config is sourced again by the harness.
+JSON_MODEL_OVERRIDE_ARGS='{"index_share_for_mtp_iteration":false}'
 RUN_ID="${RUN_ID:-main-20260922}"
 RUN="$TRACE_RUNTIME/runs/$RUN_ID"
 BENCH_DIR="$TRACE_RUNTIME/scripts/bench-harness"
