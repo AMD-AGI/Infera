@@ -11,6 +11,10 @@ while true; do
     status=$(cat "$RUN/STATUS" 2>/dev/null || true)
     if [[ "$status" == *BENCHMARKS_COMPLETED_ANALYSIS_PENDING* ]]; then
         python3 "$ROOT/scripts/analyze_spans.py" "$RUN" > "$RUN/logs/analyze-spans.log" 2>&1
+        span_status=$?
+        python3 "$ROOT/scripts/analyze_runtime.py" "$RUN" > "$RUN/logs/analyze-runtime.log" 2>&1
+        runtime_status=$?
+        (( span_status == 0 && runtime_status == 0 ))
         exit $?
     fi
     [[ "$status" != *FAILED* ]] || exit 1
