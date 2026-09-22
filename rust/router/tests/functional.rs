@@ -836,6 +836,32 @@ async fn pd_prefill_drain_timeout_posts_abort_request() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_prefill_drain_timeout_starts_after_decode_stream_ends() {
+    let (p_url, p) = spawn_mock_cfg(200, false, json!(null), true, false).await;
+    let (d_url, d) = spawn_mock_cfg(200, true, json!(null), false, true).await;
+    let mut state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    state.pd_prefill_drain_timeout = Duration::from_millis(80);
+    let router = spawn_router(state).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": true}))
+        .send()
+        .await
+        .unwrap();
+    let mut stream = resp.bytes_stream();
+    assert!(stream.next().await.is_some());
+    tokio::time::sleep(Duration::from_millis(160)).await;
+
+    assert!(
+        p.abort_rids.lock().unwrap().is_empty(),
+        "drain timeout must not run while decode is still streaming"
+    );
+    assert!(d.abort_rids.lock().unwrap().is_empty());
+    drop(stream);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pd_unary_worker_failure_aborts_both_engine_requests() {
     let (p_url, p) = spawn_mock(500, false, json!({"error": "KVTransferError"})).await;
     let (d_url, d) = spawn_mock(500, false, json!({"error": "KVTransferError"})).await;

@@ -24,6 +24,7 @@ from infera.engine.decode_barrier import (
     should_wait_for_decode,
     verify_pd_peer,
     wait_for_decode,
+    wait_for_k8s_label_selector,
 )
 
 
@@ -154,6 +155,35 @@ async def test_resolve_k8s_label_selector_does_not_use_workload_id_after_get_err
                 retries=2,
                 retry_sleep=0.0,
             )
+
+
+@pytest.mark.asyncio
+async def test_wait_for_k8s_label_selector_uses_barrier_budget(monkeypatch):
+    _clear_selector_env(monkeypatch)
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] < 5:
+            return httpx.Response(503, text="unavailable")
+        return httpx.Response(
+            200,
+            json={"metadata": {"labels": {"infera.amd.com/deployment": "idep-a"}}},
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport, base_url="https://k8s") as client:
+        got = await wait_for_k8s_label_selector(
+            None,
+            namespace="ns0",
+            pod_name="prefill-0",
+            http=client,
+            timeout=1.0,
+            poll_interval=0.0,
+        )
+
+    assert got == "infera.amd.com/deployment=idep-a"
+    assert calls["n"] == 5
 
 
 @pytest.mark.asyncio

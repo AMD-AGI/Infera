@@ -49,22 +49,36 @@ def abort_url(worker_url: str) -> str:
     return f"{worker_url.rstrip('/')}{ABORT_PATH}"
 
 
+def abort_request_ids(rid: str | None, n: int = 1) -> list[str]:
+    """Return the request ids SGLang stores for one OpenAI request."""
+    if not rid:
+        return []
+    count = max(1, int(n))
+    if count == 1:
+        return [rid]
+    return [f"{rid}_{index}" for index in range(count)]
+
+
 async def abort_engine_request(
     http: httpx.AsyncClient,
     worker_url: str,
     rid: str | None,
+    *,
+    n: int = 1,
 ) -> None:
     """POST ``/abort_request``; errors are logged and swallowed."""
-    if not rid:
-        return
     url = abort_url(worker_url)
-    try:
-        resp = await http.post(url, json={"rid": rid}, timeout=5.0)
-        if resp.status_code >= 400:
-            logger.warning(
-                "PD abort %s rid=%s returned %s", url, rid, resp.status_code
-            )
-        else:
-            logger.info("PD abort %s rid=%s", url, rid)
-    except Exception as exc:
-        logger.warning("PD abort %s rid=%s failed: %s", url, rid, exc)
+    for request_id in abort_request_ids(rid, n):
+        try:
+            resp = await http.post(url, json={"rid": request_id}, timeout=5.0)
+            if resp.status_code >= 400:
+                logger.warning(
+                    "PD abort %s rid=%s returned %s",
+                    url,
+                    request_id,
+                    resp.status_code,
+                )
+            else:
+                logger.info("PD abort %s rid=%s", url, request_id)
+        except Exception as exc:
+            logger.warning("PD abort %s rid=%s failed: %s", url, request_id, exc)

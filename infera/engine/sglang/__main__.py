@@ -41,10 +41,10 @@ from infera.engine.decode_barrier import (
     ensure_skip_server_warmup,
     list_etcd_worker_payloads,
     list_k8s_worker_payloads,
-    resolve_k8s_label_selector,
     should_wait_for_decode,
     verify_pd_peer,
     wait_for_decode,
+    wait_for_k8s_label_selector,
 )
 from infera.engine.drain import drain_engine_inflight
 from infera.engine.flush import anchor_kv_chain
@@ -119,6 +119,7 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs, config) -> None:
         or ""
     )
     timeout = decode_ready_timeout_seconds(args.decode_ready_timeout)
+    deadline = asyncio.get_running_loop().time() + timeout
 
     # One client for the whole wait on either backend. The k8s path also
     # re-reads the ServiceAccount token per request so a rotation is not a 401.
@@ -127,10 +128,11 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs, config) -> None:
     try:
         if args.discovery_backend == "kubernetes":
             http = make_client(timeout=10.0)
-            selector = await resolve_k8s_label_selector(
+            selector = await wait_for_k8s_label_selector(
                 args.k8s_label_selector,
                 namespace=args.k8s_namespace,
                 http=http,
+                timeout=timeout,
             )
         elif not args.etcd_endpoint:
             raise RuntimeError(
@@ -155,7 +157,8 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs, config) -> None:
             model_name,
             args.discovery_backend,
         )
-        decode = await wait_for_decode(_list, model_name=str(model_name), timeout=timeout)
+        remaining = max(0.0, deadline - asyncio.get_running_loop().time())
+        decode = await wait_for_decode(_list, model_name=str(model_name), timeout=remaining)
         decode_url = str(decode.get("url") or "").rstrip("/")
         if not decode_url:
             raise RuntimeError("registered decode worker has no URL")

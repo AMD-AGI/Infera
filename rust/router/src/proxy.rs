@@ -37,7 +37,14 @@ pub(crate) struct GuardedStream {
     inner: Pin<Box<dyn Stream<Item = reqwest::Result<Bytes>> + Send>>,
     _guard: ActiveGuard,
     completed: bool,
-    on_incomplete: Option<oneshot::Sender<()>>,
+    failed: bool,
+    on_end: Option<oneshot::Sender<StreamEnd>>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum StreamEnd {
+    Complete,
+    Incomplete,
 }
 
 impl GuardedStream {
@@ -51,13 +58,14 @@ impl GuardedStream {
     pub(crate) fn new_with_incomplete_abort(
         inner: impl Stream<Item = reqwest::Result<Bytes>> + Send + 'static,
         guard: ActiveGuard,
-        on_incomplete: Option<oneshot::Sender<()>>,
+        on_end: Option<oneshot::Sender<StreamEnd>>,
     ) -> Self {
         GuardedStream {
             inner: Box::pin(inner),
             _guard: guard,
             completed: false,
-            on_incomplete,
+            failed: false,
+            on_end,
         }
     }
 }
@@ -68,8 +76,10 @@ impl Stream for GuardedStream {
         // GuardedStream is Unpin (Pin<Box<..>> + ActiveGuard are both Unpin).
         let this = self.get_mut();
         let out = this.inner.as_mut().poll_next(cx);
-        if matches!(out, Poll::Ready(None)) {
-            this.completed = true;
+        match &out {
+            Poll::Ready(Some(Err(_))) => this.failed = true,
+            Poll::Ready(None) => this.completed = !this.failed,
+            _ => {}
         }
         out
     }
@@ -77,10 +87,13 @@ impl Stream for GuardedStream {
 
 impl Drop for GuardedStream {
     fn drop(&mut self) {
-        if !self.completed {
-            if let Some(tx) = self.on_incomplete.take() {
-                let _ = tx.send(());
-            }
+        if let Some(tx) = self.on_end.take() {
+            let end = if self.completed {
+                StreamEnd::Complete
+            } else {
+                StreamEnd::Incomplete
+            };
+            let _ = tx.send(end);
         }
     }
 }
@@ -316,7 +329,8 @@ pub(crate) struct GuardedBody {
     inner: Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>>,
     _guard: ActiveGuard,
     completed: bool,
-    on_incomplete: Option<oneshot::Sender<()>>,
+    failed: bool,
+    on_end: Option<oneshot::Sender<StreamEnd>>,
 }
 
 /// Tie a byte stream to an `ActiveGuard`, so the policy's in-flight count is
@@ -331,13 +345,14 @@ pub(crate) fn guarded(
 pub(crate) fn guarded_with_incomplete_abort(
     inner: impl Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static,
     guard: ActiveGuard,
-    on_incomplete: Option<oneshot::Sender<()>>,
+    on_end: Option<oneshot::Sender<StreamEnd>>,
 ) -> GuardedBody {
     GuardedBody {
         inner: Box::pin(inner),
         _guard: guard,
         completed: false,
-        on_incomplete,
+        failed: false,
+        on_end,
     }
 }
 
@@ -346,8 +361,10 @@ impl Stream for GuardedBody {
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
         let out = this.inner.as_mut().poll_next(cx);
-        if matches!(out, Poll::Ready(None)) {
-            this.completed = true;
+        match &out {
+            Poll::Ready(Some(Err(_))) => this.failed = true,
+            Poll::Ready(None) => this.completed = !this.failed,
+            _ => {}
         }
         out
     }
@@ -355,10 +372,13 @@ impl Stream for GuardedBody {
 
 impl Drop for GuardedBody {
     fn drop(&mut self) {
-        if !self.completed {
-            if let Some(tx) = self.on_incomplete.take() {
-                let _ = tx.send(());
-            }
+        if let Some(tx) = self.on_end.take() {
+            let end = if self.completed {
+                StreamEnd::Complete
+            } else {
+                StreamEnd::Incomplete
+            };
+            let _ = tx.send(end);
         }
     }
 }

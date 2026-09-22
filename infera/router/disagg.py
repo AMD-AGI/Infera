@@ -31,7 +31,11 @@ from infera.router.dp_routing import (
     inject_disagg_prefill_dp_rank,
 )
 from infera.router.engine_priority import inject_engine_priority
-from infera.router.pd_abort import abort_engine_request, prefill_drain_timeout_s
+from infera.router.pd_abort import (
+    abort_engine_request,
+    abort_request_ids,
+    prefill_drain_timeout_s,
+)
 from infera.router.policy.target import RouteTarget
 from infera.server import metrics
 
@@ -63,6 +67,12 @@ def _leg_headers(forged_id: str | None, target: RouteTarget) -> dict[str, str] |
         headers["X-Request-Id"] = forged_id
     headers.update(dp_rank_header(target) or {})
     return headers or None
+
+
+def _sample_count(body: dict) -> int:
+    """Return the positive OpenAI parallel-sampling count."""
+    value = body.get("n", 1)
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else 1
 
 
 class DisaggRouter(BaseRouter):
@@ -111,48 +121,122 @@ class DisaggRouter(BaseRouter):
     async def aclose(self) -> None:
         await self._client.aclose()
 
+    def _track_prefill_task(self, task: asyncio.Task) -> asyncio.Task:
+        """Keep a detached prefill alive and consume an unobserved exception."""
+        self._pending_prefill_tasks.add(task)
+
+        def _done(done: asyncio.Task) -> None:
+            self._pending_prefill_tasks.discard(done)
+            if not done.cancelled():
+                done.exception()
+
+        task.add_done_callback(_done)
+        return task
+
+    async def _abort_worker_request(self, worker, rid: str | None, n: int) -> None:
+        """Abort one SGLang worker over its registered request transport."""
+        if not rid:
+            return
+        if worker.request_transport != "nats":
+            await abort_engine_request(self._client, worker.url, rid, n=n)
+            return
+        if self.nats_client is None:
+            logger.warning("cannot abort NATS worker %s without a NATS client", worker.worker_id)
+            return
+        for request_id in abort_request_ids(rid, n):
+            payload = {
+                "path": "/abort_request",
+                "stream": False,
+                "headers": None,
+                "body": {"rid": request_id},
+            }
+            try:
+                async for kind, status, data in self.nats_client.stream(
+                    worker.worker_id, payload
+                ):
+                    if kind == TYPE_ERROR:
+                        logger.warning(
+                            "PD abort over NATS worker=%s rid=%s failed: %s",
+                            worker.worker_id,
+                            request_id,
+                            data[:200],
+                        )
+                    elif kind == TYPE_DONE and status and status >= 400:
+                        logger.warning(
+                            "PD abort over NATS worker=%s rid=%s returned %d",
+                            worker.worker_id,
+                            request_id,
+                            status,
+                        )
+            except Exception as exc:
+                logger.warning(
+                    "PD abort over NATS worker=%s rid=%s failed: %s",
+                    worker.worker_id,
+                    request_id,
+                    exc,
+                )
+
+    async def _abort_pair(self, p, d, rid: str | None, n: int) -> None:
+        """Abort both SGLang legs without assuming their request transport."""
+        if not rid:
+            return
+        await asyncio.gather(
+            self._abort_worker_request(p, rid, n),
+            self._abort_worker_request(d, rid, n),
+        )
+
     async def _finish_prefill(
         self,
         p_task: asyncio.Task,
-        prefill_url: str,
-        decode_url: str,
+        p,
+        d,
         rid: str | None,
-        p_worker_id: str,
+        n: int,
         *,
         abort: bool,
     ) -> None:
         """Wait for the prefill POST, or abort it on client drop / timeout."""
         if abort:
-            p_task.cancel()
-            await abort_engine_request(self._client, prefill_url, rid)
-            await abort_engine_request(self._client, decode_url, rid)
+            if rid:
+                p_task.cancel()
+                await self._abort_pair(p, d, rid, n)
             return
         timeout = prefill_drain_timeout_s()
         try:
             if timeout > 0:
-                p_resp = await asyncio.wait_for(p_task, timeout=timeout)
+                p_resp = await asyncio.wait_for(asyncio.shield(p_task), timeout=timeout)
             else:
-                p_resp = await p_task
+                p_resp = await asyncio.shield(p_task)
         except asyncio.TimeoutError:
-            logger.warning("prefill drain timed out after %.0fs; aborting rid=%s", timeout, rid)
-            p_task.cancel()
-            await abort_engine_request(self._client, prefill_url, rid)
-            await abort_engine_request(self._client, decode_url, rid)
+            if rid:
+                logger.warning(
+                    "prefill drain timed out after %.0fs; aborting rid=%s",
+                    timeout,
+                    rid,
+                )
+                p_task.cancel()
+                await self._abort_pair(p, d, rid, n)
+            else:
+                logger.warning(
+                    "prefill drain timed out after %.0fs; protocol has no abort "
+                    "request id, leaving drain running",
+                    timeout,
+                )
             return
         except asyncio.CancelledError:
-            p_task.cancel()
-            await abort_engine_request(self._client, prefill_url, rid)
-            await abort_engine_request(self._client, decode_url, rid)
+            if rid:
+                p_task.cancel()
+                await self._abort_pair(p, d, rid, n)
             raise
         except Exception as exc:
             logger.warning(
                 "prefill leg %s failed: %s: %s",
-                prefill_url,
+                p.url,
                 type(exc).__name__,
                 exc or "<no message>",
             )
             metrics.pd_bootstrap_failures_total.labels(reason="prefill_exception").inc()
-            self.breaker.record_failure(p_worker_id)
+            self.breaker.record_failure(p.worker_id)
             return
         p_status = getattr(p_resp, "status_code", None)
         if p_status is None:
@@ -160,19 +244,19 @@ class DisaggRouter(BaseRouter):
         if p_status >= 400:
             logger.warning(
                 "prefill leg %s returned %d (decode will hang on KVPoll)",
-                prefill_url,
+                p.url,
                 p_status,
             )
             metrics.pd_bootstrap_failures_total.labels(reason="prefill_5xx").inc()
-        self._score_leg(p_worker_id, p_status)
+        self._score_leg(p.worker_id, p_status)
 
     async def _release_prefill_drain(
         self,
         p_task: asyncio.Task,
-        prefill_url: str,
-        decode_url: str,
+        p,
+        d,
         rid: str | None,
-        p_worker_id: str,
+        n: int,
         *,
         abort: bool,
     ) -> None:
@@ -182,9 +266,7 @@ class DisaggRouter(BaseRouter):
         ``finally`` would skip inflight accounting.
         """
         try:
-            await self._finish_prefill(
-                p_task, prefill_url, decode_url, rid, p_worker_id, abort=abort
-            )
+            await self._finish_prefill(p_task, p, d, rid, n, abort=abort)
         except (asyncio.CancelledError, Exception):
             pass
 
@@ -483,6 +565,17 @@ class DisaggRouter(BaseRouter):
                         failed = (leg, result)
                 else:
                     self._score_leg(worker_id, result.status_code)
+            pair_failed = failed is not None or any(
+                not isinstance(result, BaseException) and result.status_code >= 500
+                for result in (p_resp, d_resp)
+            )
+            if pair_failed:
+                await self._abort_pair(
+                    p,
+                    d,
+                    p_body.get("rid"),
+                    _sample_count(p_body),
+                )
             if failed is not None:
                 leg, exc = failed
                 if not isinstance(exc, httpx.HTTPError):
@@ -556,10 +649,9 @@ class DisaggRouter(BaseRouter):
                 logger.warning("prefill nats drain %s failed: %s", p.worker_id, exc)
                 self.breaker.record_failure(p.worker_id)
 
-        task = asyncio.create_task(_drain(), name="nats-prefill-drain")
-        self._pending_prefill_tasks.add(task)
-        task.add_done_callback(self._pending_prefill_tasks.discard)
-        return task
+        return self._track_prefill_task(
+            asyncio.create_task(_drain(), name="nats-prefill-drain")
+        )
 
     async def _concurrent_nats(
         self,
@@ -584,6 +676,7 @@ class DisaggRouter(BaseRouter):
         p_payload = {"path": path, "stream": False, "headers": p_headers, "body": p_body}
         d_payload = {"path": path, "stream": stream, "headers": d_headers, "body": d_body}
         p_task = self._start_prefill_drain_nats(p, p_payload)
+        n = _sample_count(p_body)
 
         if stream:
             obs["outcome"] = "ok"
@@ -598,10 +691,12 @@ class DisaggRouter(BaseRouter):
                     d_payload,
                     p_task,
                     rid=p_body.get("rid"),
+                    n=n,
                 ),
                 media_type="text/event-stream",
             )
 
+        pair_failed = False
         try:
             chunks: list[bytes] = []
             status = 200
@@ -611,6 +706,7 @@ class DisaggRouter(BaseRouter):
                 elif kind == TYPE_ERROR:
                     # st carries 504 on inactivity timeout; worker errors -> 502.
                     code = st or 502
+                    pair_failed = True
                     self._score_leg(d.worker_id, code)
                     obs["outcome"] = str(code)
                     return JSONResponse(
@@ -622,11 +718,13 @@ class DisaggRouter(BaseRouter):
                     )
                 else:  # done
                     status = st or 200
+                    pair_failed = status >= 500
                     break
             raw = b"".join(chunks)
             try:
                 payload = json.loads(raw) if raw else {}
             except ValueError:
+                pair_failed = True
                 obs["outcome"] = "502"
                 return JSONResponse(
                     content={
@@ -640,25 +738,37 @@ class DisaggRouter(BaseRouter):
             obs.observe_usage(payload)
             return JSONResponse(content=payload, status_code=status)
         finally:
+            if pair_failed:
+                await self._abort_pair(p, d, p_body.get("rid"), n)
             await self._release_prefill_drain(
                 p_task,
-                p.url,
-                d.url,
+                p,
+                d,
                 p_body.get("rid"),
-                p.worker_id,
+                n,
                 abort=False,
             )
             self.policy.on_request_finished(p_target.route_key, p_blocks)
             self.policy.on_request_finished(d_target.route_key, d_blocks)
 
     async def _stream_dual_nats(
-        self, obs, p_target, p_blocks, d_target, d_blocks, d_payload, p_task, *, rid=None
+        self,
+        obs,
+        p_target,
+        p_blocks,
+        d_target,
+        d_blocks,
+        d_payload,
+        p_task,
+        *,
+        rid=None,
+        n=1,
     ):
         """Stream decode's reply over NATS while prefill drains in background."""
         d = d_target.worker
         p = p_target.worker
         served = False
-        client_disconnected = False
+        completed = False
         try:
             async for kind, _st, data in self.nats_client.stream(d.worker_id, d_payload):
                 if kind == TYPE_DATA:
@@ -681,14 +791,12 @@ class DisaggRouter(BaseRouter):
                     ).encode()
                     return
                 else:  # done
+                    completed = True
                     return
-        except asyncio.CancelledError:
-            client_disconnected = True
-            raise
         finally:
             with anyio.CancelScope(shield=True):
                 await self._release_prefill_drain(
-                    p_task, p.url, d.url, rid, p.worker_id, abort=client_disconnected
+                    p_task, p, d, rid, n, abort=not completed
                 )
                 self.policy.on_request_finished(p_target.route_key, p_blocks)
                 self.policy.on_request_finished(d_target.route_key, d_blocks)
@@ -971,13 +1079,11 @@ class DisaggRouter(BaseRouter):
         d_body: dict,
         headers: dict[str, str] | None = None,
     ) -> httpx.Response:
-        """POST the decode leg, retrying on pre-flight transport errors.
+        """POST the decode leg, retrying only connection-establishment errors.
 
         Returns the streaming Response; caller must aclose() it exactly
-        once. Pre-flight errors (ConnectError / ReadError on headers /
-        WriteError mid-body / RemoteProtocolError) mean the engine has
-        NOT begun processing the request, so re-sending the same body
-        with the same bootstrap_room is idempotent.
+        once. Read, write, and protocol errors are ambiguous: the engine may
+        already own the request id, so replaying would hit duplicate-id checks.
         """
         backoff = self._DECODE_OPEN_INITIAL_BACKOFF_S
         last_exc: BaseException | None = None
@@ -985,7 +1091,7 @@ class DisaggRouter(BaseRouter):
             req = self._client.build_request("POST", d_url, json=d_body, headers=headers)
             try:
                 resp = await self._client.send(req, stream=True)
-            except (httpx.TransportError, httpx.RemoteProtocolError) as exc:
+            except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout) as exc:
                 last_exc = exc
                 if attempt >= self._DECODE_OPEN_MAX_RETRIES:
                     raise
@@ -1029,10 +1135,10 @@ class DisaggRouter(BaseRouter):
         p = p_target.worker
         d = d_target.worker
         rid = p_body.get("rid") if isinstance(p_body, dict) else None
-        p_task = asyncio.create_task(self._client.post(p_url, json=p_body, headers=p_headers))
-        self._pending_prefill_tasks.add(p_task)
-        p_task.add_done_callback(self._pending_prefill_tasks.discard)
-        client_disconnected = False
+        p_task = self._track_prefill_task(
+            asyncio.create_task(self._client.post(p_url, json=p_body, headers=p_headers))
+        )
+        n = _sample_count(p_body)
         # Once we've forwarded "data: [DONE]" downstream, any subsequent
         # httpx.ReadError is the client closing its half of a successful
         # response — drop silently instead of warning.
@@ -1109,9 +1215,6 @@ class DisaggRouter(BaseRouter):
                         tail = window[-_TAIL_KEEP:]
                     obs.observe_stream_chunk(chunk)
                     yield chunk
-            except asyncio.CancelledError:
-                client_disconnected = True
-                raise
             except httpx.HTTPError as exc:
                 if done_seen:
                     # Engine has already sent [DONE]; this is the client
@@ -1144,11 +1247,11 @@ class DisaggRouter(BaseRouter):
                         pass
                 await self._release_prefill_drain(
                     p_task,
-                    p.url,
-                    d.url,
+                    p,
+                    d,
                     rid,
-                    p.worker_id,
-                    abort=client_disconnected,
+                    n,
+                    abort=not done_seen,
                 )
                 self.policy.on_request_finished(p_target.route_key, p_blocks)
                 self.policy.on_request_finished(d_target.route_key, d_blocks)

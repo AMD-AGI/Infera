@@ -73,6 +73,10 @@ DEFAULT_DECODE_READY_TIMEOUT = 14400.0
 ListWorkers = Callable[[], Awaitable[list[dict[str, Any]]]]
 
 
+class K8sLabelLookupError(RuntimeError):
+    """A transient failure reading this Pod from the Kubernetes API."""
+
+
 def decode_ready_timeout_seconds(explicit: float | None) -> float:
     """Resolve the decode-wait budget: flag, then env, then the default.
 
@@ -183,6 +187,8 @@ async def own_pod_deployment_label(
         attempts = max(1, retries)
         for attempt in range(attempts):
             try:
+                if not owns_client:
+                    refresh_k8s_auth(client)
                 resp = await client.get(f"/api/v1/namespaces/{ns}/pods/{name}")
                 resp.raise_for_status()
                 labels = ((resp.json().get("metadata") or {}).get("labels")) or {}
@@ -199,12 +205,39 @@ async def own_pod_deployment_label(
                 )
                 if attempt + 1 < attempts:
                     await asyncio.sleep(retry_sleep)
-        raise RuntimeError(
+        raise K8sLabelLookupError(
             f"could not read this Pod's labels ({ns}/{name}) after {attempts} attempts"
         ) from last_exc
     finally:
         if owns_client:
             await client.aclose()
+
+
+async def wait_for_k8s_label_selector(
+    explicit: str | None,
+    *,
+    namespace: str | None = None,
+    pod_name: str | None = None,
+    http: httpx.AsyncClient | None = None,
+    timeout: float,
+    poll_interval: float = 5.0,
+) -> str:
+    """Resolve a scoped selector while tolerating transient API failures."""
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            return await resolve_k8s_label_selector(
+                explicit,
+                namespace=namespace,
+                pod_name=pod_name,
+                http=http,
+                retries=1,
+            )
+        except K8sLabelLookupError:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise
+            await asyncio.sleep(min(poll_interval, remaining))
 
 
 def is_compatible_decode_worker(
