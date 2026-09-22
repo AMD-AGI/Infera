@@ -16,6 +16,7 @@ pytest.importorskip("sglang")
 
 from infera.engine.base import EngineDeath  # noqa: E402
 from infera.engine.sglang.__main__ import (  # noqa: E402
+    _maybe_wait_for_decode,
     _run_started_engine,
     _wait_for_decode_until_stop,
 )
@@ -57,6 +58,44 @@ def test_wait_for_decode_timeout_and_selector():
     assert args.wait_for_decode is True
     assert args.decode_ready_timeout == 90.0
     assert args.k8s_label_selector == "infera.amd.com/deployment=x"
+
+
+@pytest.mark.asyncio
+async def test_maybe_wait_for_decode_bounds_the_probe_with_the_shared_deadline(monkeypatch):
+    """The KV probe spends the decode-ready budget, it does not extend it."""
+
+    async def _found(*_a, **_k):
+        return {"url": "http://decode:30000", "dp_size": 1}
+
+    async def _hang(*_a, **_k):
+        await asyncio.Event().wait()
+
+    monkeypatch.delenv("LWS_WORKER_INDEX", raising=False)
+    monkeypatch.setattr("infera.engine.sglang.__main__.wait_for_decode", _found)
+    monkeypatch.setattr("infera.engine.sglang.__main__.verify_pd_peer", _hang)
+
+    args = SimpleNamespace(
+        server_args=SimpleNamespace(
+            disaggregation_mode="prefill",
+            node_rank=0,
+            served_model_name="glm-5-3",
+            dp_size=1,
+            disaggregation_bootstrap_port=8998,
+        ),
+        wait_for_decode=True,
+        decode_ready_timeout=0.05,
+        discovery_backend="etcd",
+        etcd_endpoint="host:2379",
+        etcd_prefix="/infera/",
+        k8s_namespace=None,
+        k8s_label_selector=None,
+    )
+    config = SimpleNamespace(host="10.0.0.1", port=30000)
+
+    started = asyncio.get_running_loop().time()
+    with pytest.raises(asyncio.TimeoutError):
+        await asyncio.wait_for(_maybe_wait_for_decode(args, config), timeout=5.0)
+    assert asyncio.get_running_loop().time() - started < 1.0
 
 
 @pytest.mark.asyncio

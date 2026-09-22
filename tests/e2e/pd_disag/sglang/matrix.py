@@ -35,9 +35,8 @@ CASES = [
         False,
         {
             "env": {"SGLANG_USE_AITER": "1"},
-            # Both legs are launched at once, but the prefill worker holds
-            # until decode has registered, so this budget covers the two loads
-            # back to back rather than the slower of them.
+            # Both legs load in parallel; prefill then waits for decode
+            # registration and peer verification.
             "server_ready_timeout": 3600,
             # triton, not the default aiter backend: the CK batch_prefill instance
             # this case needs (page_size < kN0 over a >2GB KV cache, gfx950) is
@@ -125,8 +124,8 @@ CASES = [
                 # gives up long before two legs of this size are both up.
                 "SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT": "3600",
             },
-            # Two loads back to back: the prefill worker holds until decode has
-            # registered, so this is not the slower leg but the sum.
+            # Both legs load in parallel; prefill then waits for decode
+            # registration and peer verification.
             "server_ready_timeout": 10800,
             "gfx950": _GFX950_UNMEASURED,
         },
@@ -193,8 +192,8 @@ CASES = [
                 "SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT": "3600",
                 "INFERA_ENGINE_READY_TIMEOUT": "3600",
             },
-            # Two loads back to back: the prefill worker holds until decode has
-            # registered, so this is not the slower leg but the sum.
+            # Both legs load in parallel; prefill then waits for decode
+            # registration and peer verification.
             "server_ready_timeout": 7200,
             "gfx950": _GFX950_UNMEASURED,
         },

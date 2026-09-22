@@ -14,6 +14,7 @@ import anyio
 import httpx
 import pytest
 
+from infera.common.nats_request import TYPE_DATA, TYPE_DONE
 from infera.common.worker_pool import DisaggMode, EngineType, WorkerInfo
 from infera.router.disagg import DisaggRouter
 from infera.router.pd_abort import (
@@ -24,6 +25,7 @@ from infera.router.pd_abort import (
     rid_for_room,
 )
 from infera.router.policy.target import RouteTarget
+from infera.server import metrics
 from infera.server.metrics import RequestObserver
 
 
@@ -377,4 +379,144 @@ async def test_unary_worker_failure_aborts_both_sglang_legs():
 
     assert response.status_code == 200
     assert sorted(host for host, _ in aborted) == ["d1", "p1"]
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_unary_client_cancel_aborts_both_legs():
+    """A client that drops mid-dispatch leaves both engines holding the
+    request: the POSTs are cancelled, but neither engine hears about it, so
+    the prefill slot stays busy until the transfer timeout."""
+    aborted = []
+    dispatched = asyncio.Event()
+
+    class _Pool:
+        def list_active(self, model=None, mode=None):
+            return [_w("p1")] if mode == DisaggMode.PREFILL else [_w("d1")]
+
+    async def _handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/abort_request":
+            aborted.append((request.url.host, json.loads(request.content)["rid"]))
+            return httpx.Response(200, json={})
+        dispatched.set()
+        await asyncio.Event().wait()
+        return httpx.Response(200, json={})
+
+    r = DisaggRouter(_Pool(), _FakePolicy())
+    r._client = httpx.AsyncClient(transport=httpx.MockTransport(_handler))
+
+    task = asyncio.create_task(r.dispatch({"model": "m", "n": 3}, stream=False))
+    await dispatched.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert sorted({host for host, _ in aborted}) == ["d1", "p1"], aborted
+    assert sorted({rid.rsplit("_", 1)[1] for _, rid in aborted}) == ["0", "1", "2"], aborted
+    assert r.policy.finished == 2
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_prefill_drain_timeout_scores_the_prefill_worker(monkeypatch):
+    """A drain that never lands is the wedged-prefill signal the breaker is
+    for, with or without a request id to abort by."""
+    monkeypatch.setenv("INFERA_PD_PREFILL_DRAIN_TIMEOUT", "0.01")
+    reason = "prefill_drain_timeout"
+    before = metrics.pd_bootstrap_failures_total.labels(reason=reason)._value.get()
+
+    r = DisaggRouter(_FakePool(), _FakePolicy())
+    r._client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={}))
+    )
+    hung = [asyncio.create_task(asyncio.Event().wait()) for _ in range(2)]
+
+    await r._finish_prefill(hung[0], _w("p1"), _w("d1"), "infera-12", 1, abort=False)
+    assert r.breaker._entries["p1"].consecutive_failures == 1
+
+    await r._finish_prefill(hung[1], _w("p1"), _w("d1"), None, 1, abort=False)
+    assert r.breaker._entries["p1"].consecutive_failures == 2, (
+        "a wedged drain is the worker's fault even when the protocol has no rid"
+    )
+
+    after = metrics.pd_bootstrap_failures_total.labels(reason=reason)._value.get()
+    assert after - before == 2
+
+    for task in hung:
+        task.cancel()
+    await asyncio.gather(*hung, return_exceptions=True)
+    await r.aclose()
+
+
+class _ScriptedNats:
+    """NATS transport replaying one decode chunk then a done frame."""
+
+    def __init__(self, status: int):
+        self._status = status
+
+    async def admit(self, worker_id):
+        return True
+
+    async def stream(self, worker_id, payload):
+        yield (TYPE_DATA, None, b'data: {"id":"x"}\n\n')
+        yield (TYPE_DONE, self._status, b"")
+
+
+async def _drain_nats_stream(r, rid="infera-13", n=2):
+    """Run _stream_dual_nats against a finished prefill task."""
+    p_task = asyncio.create_task(asyncio.sleep(0))
+    chunks = []
+    async for chunk in r._stream_dual_nats(
+        RequestObserver("disagg"),
+        RouteTarget(_w("p1", transport="nats")),
+        [],
+        RouteTarget(_w("d1", transport="nats")),
+        [],
+        {"path": "/v1/chat/completions", "stream": True, "headers": None, "body": {}},
+        p_task,
+        rid=rid,
+        n=n,
+    ):
+        chunks.append(chunk)
+    return chunks
+
+
+@pytest.mark.asyncio
+async def test_nats_stream_done_5xx_aborts_the_pair(monkeypatch):
+    """A done frame reports that the request finished, not that it succeeded:
+    a 5xx there is a failed decode whose pair still holds engine slots."""
+    monkeypatch.setenv("INFERA_PD_PREFILL_DRAIN_TIMEOUT", "0")
+    aborted = []
+
+    r = DisaggRouter(_FakePool(), _FakePolicy(), nats_client=_ScriptedNats(500))
+
+    async def _abort_pair(p, d, rid, n):
+        aborted.append((p.worker_id, d.worker_id, rid, n))
+
+    r._abort_pair = _abort_pair  # type: ignore[method-assign]
+
+    assert await _drain_nats_stream(r)
+
+    assert aborted == [("p1", "d1", "infera-13", 2)]
+    assert r.breaker._entries["d1"].consecutive_failures == 1
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_nats_stream_done_4xx_does_not_abort_the_pair(monkeypatch):
+    """A 4xx is the request's fault, and the unary path does not abort on it."""
+    monkeypatch.setenv("INFERA_PD_PREFILL_DRAIN_TIMEOUT", "0")
+    aborted = []
+
+    r = DisaggRouter(_FakePool(), _FakePolicy(), nats_client=_ScriptedNats(400))
+
+    async def _abort_pair(p, d, rid, n):
+        aborted.append((p.worker_id, d.worker_id, rid, n))
+
+    r._abort_pair = _abort_pair  # type: ignore[method-assign]
+
+    assert await _drain_nats_stream(r)
+
+    assert aborted == []
+    assert r.breaker.snapshot().get("d1", {}).get("consecutive_failures", 0) == 0
     await r.aclose()

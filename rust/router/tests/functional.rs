@@ -47,6 +47,8 @@ struct MockState {
     abort_rids: Mutex<Vec<String>>,
     hang: bool,
     hang_stream: bool,
+    /// End the SSE body after one event, with no `data: [DONE]`.
+    truncated_sse: bool,
 }
 
 impl MockState {
@@ -101,6 +103,13 @@ async fn mock_handle(
                 .body(Body::from_stream(s))
                 .unwrap();
         }
+        if s.truncated_sse {
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header(CONTENT_TYPE, "text/event-stream")
+                .body(Body::from(first))
+                .unwrap();
+        }
         let sse = [first.as_ref(), b"data: [DONE]\n\n".as_ref()].concat();
         return Response::builder()
             .status(StatusCode::OK)
@@ -121,6 +130,7 @@ async fn spawn_mock(status: u16, sse: bool, reply: Value) -> (String, Arc<MockSt
         abort_rids: Mutex::new(Vec::new()),
         hang: false,
         hang_stream: false,
+        truncated_sse: false,
     });
     let router = Router::new()
         .route("/v1/chat/completions", post(mock_handle))
@@ -154,7 +164,28 @@ async fn spawn_mock_cfg(
         abort_rids: Mutex::new(Vec::new()),
         hang,
         hang_stream,
+        truncated_sse: false,
     });
+    serve_mock(state).await
+}
+
+/// A worker whose SSE body ends cleanly one event in, the way an engine that
+/// dies mid-generation looks to the router.
+async fn spawn_mock_truncated_sse() -> (String, Arc<MockState>) {
+    let state = Arc::new(MockState {
+        status: 200,
+        sse: true,
+        reply: json!(null),
+        hits: Mutex::new(Vec::new()),
+        abort_rids: Mutex::new(Vec::new()),
+        hang: false,
+        hang_stream: false,
+        truncated_sse: true,
+    });
+    serve_mock(state).await
+}
+
+async fn serve_mock(state: Arc<MockState>) -> (String, Arc<MockState>) {
     let router = Router::new()
         .route("/v1/chat/completions", post(mock_handle))
         .route("/v1/completions", post(mock_handle))
@@ -893,6 +924,135 @@ async fn pd_unary_worker_failure_aborts_both_engine_requests() {
         "prefill failure must abort the decode KV waiter"
     );
     assert_eq!(p_rids[0], d_rids[0]);
+}
+
+/// A decode leg that dies mid-generation closes its SSE body without an error
+/// and without the terminator. Reading that clean EOF as a finished generation
+/// leaves the prefill leg draining against a decode that will never pull the KV.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_streaming_decode_eof_without_done_aborts_the_pair() {
+    let (p_url, p) = spawn_mock_cfg(200, false, json!(null), true, false).await;
+    let (d_url, d) = spawn_mock_truncated_sse().await;
+    let state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    let router = spawn_router(state).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": true}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let text = resp.text().await.unwrap();
+    assert!(!text.contains("[DONE]"), "the mock decode stops early");
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while (p.abort_rids.lock().unwrap().is_empty() || d.abort_rids.lock().unwrap().is_empty())
+        && Instant::now() < deadline
+    {
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+    assert!(
+        !p.abort_rids.lock().unwrap().is_empty(),
+        "a truncated decode stream must abort the hung prefill"
+    );
+    assert!(
+        !d.abort_rids.lock().unwrap().is_empty(),
+        "a truncated decode stream must abort the decode leg too"
+    );
+}
+
+/// A non-streaming PD request has no response body to drop, so the disconnect
+/// only shows up as the handler future being cancelled while both legs are
+/// still generating. Nothing reads them after that, and both engines keep the
+/// inflight slot until someone aborts the request id.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_unary_client_disconnect_posts_abort_request() {
+    let (p_url, p) = spawn_mock_cfg(200, false, json!(null), true, false).await;
+    let (d_url, d) = spawn_mock_cfg(200, false, json!(null), true, false).await;
+    let state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    let router = spawn_router(state).await;
+
+    let pending = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": false}))
+        .send();
+    // Both legs hang, so the client gives up on a request still in flight.
+    assert!(
+        tokio::time::timeout(Duration::from_millis(200), pending)
+            .await
+            .is_err(),
+        "the mock legs must still be generating when the client leaves"
+    );
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while (p.abort_rids.lock().unwrap().is_empty() || d.abort_rids.lock().unwrap().is_empty())
+        && Instant::now() < deadline
+    {
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+    let p_rids = p.abort_rids.lock().unwrap().clone();
+    let d_rids = d.abort_rids.lock().unwrap().clone();
+    assert!(
+        !p_rids.is_empty(),
+        "a dropped unary request must abort the prefill leg"
+    );
+    assert!(
+        !d_rids.is_empty(),
+        "a dropped unary request must abort the decode leg"
+    );
+    assert!(p_rids[0].starts_with("infera-"));
+    assert_eq!(p_rids[0], d_rids[0]);
+}
+
+/// Parallel sampling splits one router request id into `n` engine ids, so a
+/// disconnect has to abort every one of them.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_unary_client_disconnect_aborts_every_sample() {
+    let (p_url, p) = spawn_mock_cfg(200, false, json!(null), true, false).await;
+    let (d_url, _d) = spawn_mock_cfg(200, false, json!(null), true, false).await;
+    let state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    let router = spawn_router(state).await;
+
+    let pending = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": false, "n": 3}))
+        .send();
+    assert!(tokio::time::timeout(Duration::from_millis(200), pending)
+        .await
+        .is_err());
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while p.abort_rids.lock().unwrap().len() < 3 && Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+    let mut rids = p.abort_rids.lock().unwrap().clone();
+    rids.sort();
+    assert_eq!(rids.len(), 3, "each sample carries its own engine rid");
+    assert!(rids[0].ends_with("_0") && rids[2].ends_with("_2"));
+}
+
+/// The completed unary pair owns its own abort decision; the drop guard must
+/// not fire a second one behind it.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_unary_success_does_not_abort() {
+    let (p_url, p) = spawn_mock(200, false, json!(null)).await;
+    let (d_url, d) = spawn_mock(200, false, json!({"answer": 42})).await;
+    let state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    let router = spawn_router(state).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": false}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    assert_eq!(resp.json::<Value>().await.unwrap()["answer"], 42);
+
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    assert!(p.abort_rids.lock().unwrap().is_empty());
+    assert!(d.abort_rids.lock().unwrap().is_empty());
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

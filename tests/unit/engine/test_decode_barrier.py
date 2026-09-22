@@ -277,6 +277,25 @@ async def test_wait_for_decode_retries_a_failed_lookup():
 
 
 @pytest.mark.asyncio
+async def test_wait_for_decode_looks_up_once_on_an_exhausted_budget():
+    """Selector resolution can eat the shared budget; one lookup must still run."""
+    calls = {"n": 0}
+
+    async def list_workers():
+        calls["n"] += 1
+        return [_decode_payload()]
+
+    found = await wait_for_decode(
+        list_workers,
+        model_name="glm-5-3",
+        timeout=0.0,
+        poll_interval=0.01,
+    )
+    assert calls["n"] == 1
+    assert found["worker_id"] == "10.235.192.141:30000"
+
+
+@pytest.mark.asyncio
 async def test_wait_for_decode_times_out_without_decode():
     async def list_workers():
         return []
@@ -423,6 +442,98 @@ async def test_verify_pd_peer_maps_prefill_ranks_to_smaller_decode_dp():
     assert [body["routed_dp_rank"] for body in prefill] == [0, 1, 2, 3]
     assert [body["routed_dp_rank"] for body in decode] == [0, 0, 0, 0]
     assert [body["bootstrap_room"] % 4 for body in prefill] == [0, 1, 2, 3]
+
+
+@pytest.mark.asyncio
+async def test_verify_pd_peer_covers_every_decode_dp_rank():
+    """A decode leg wider than prefill still needs every rank exercised."""
+    requests: list[tuple[str, dict]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append((request.url.host, body))
+        return httpx.Response(200, json={"text": "ok"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        await verify_pd_peer(
+            prefill_url="http://prefill:30000",
+            decode_url="http://decode:30000",
+            bootstrap_host="prefill",
+            bootstrap_port=30001,
+            dp_size=2,
+            decode_dp_size=4,
+            room_seed=100,
+            http=client,
+        )
+
+    prefill = [body for host, body in requests if host == "prefill"]
+    decode = [body for host, body in requests if host == "decode"]
+    assert [body["routed_dp_rank"] for body in prefill] == [0, 1, 0, 1]
+    assert [body["routed_dp_rank"] for body in decode] == [0, 1, 2, 3]
+    assert [body["bootstrap_room"] % 2 for body in prefill] == [0, 1, 0, 1]
+    assert len({body["bootstrap_room"] for body in prefill}) == 4
+
+
+@pytest.mark.asyncio
+async def test_verify_pd_peer_keeps_rooms_aligned_and_unique_across_retries():
+    generate_calls = {"n": 0}
+    prefill_bodies: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/abort_request":
+            return httpx.Response(200)
+        generate_calls["n"] += 1
+        if request.url.host == "prefill":
+            prefill_bodies.append(json.loads(request.content))
+        if generate_calls["n"] <= 2:
+            return httpx.Response(500, text="KVTransferError")
+        return httpx.Response(200, json={"text": "ok"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        await verify_pd_peer(
+            prefill_url="http://prefill:30000",
+            decode_url="http://decode:30000",
+            bootstrap_host="prefill",
+            bootstrap_port=30001,
+            dp_size=2,
+            decode_dp_size=3,
+            room_seed=100,
+            attempts=2,
+            retry_sleep=0.0,
+            http=client,
+        )
+
+    rooms = [body["bootstrap_room"] for body in prefill_bodies]
+    assert len(rooms) == len(set(rooms)) == 4
+    for body in prefill_bodies:
+        assert body["bootstrap_room"] % 2 == body["routed_dp_rank"]
+
+
+@pytest.mark.asyncio
+async def test_verify_pd_peer_overrides_the_injected_client_timeout():
+    """An injected client carries its own timeout; the probe budget must win."""
+    timeouts: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/generate":
+            timeouts.append(request.extensions["timeout"])
+        return httpx.Response(200, json={"text": "ok"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport, timeout=10.0) as client:
+        await verify_pd_peer(
+            prefill_url="http://prefill:30000",
+            decode_url="http://decode:30000",
+            bootstrap_host="prefill",
+            bootstrap_port=30001,
+            timeout=42.0,
+            room_seed=100,
+            http=client,
+        )
+
+    assert timeouts and all(entry["read"] == 42.0 for entry in timeouts)
 
 
 @pytest.mark.asyncio

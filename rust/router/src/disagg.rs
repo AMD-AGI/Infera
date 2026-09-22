@@ -233,6 +233,15 @@ async fn unary_dual(
         .map(str::to_string)
         .unwrap_or_default();
     let n = sample_count(&p_body);
+    let transport = AbortTransport::Http {
+        http: state.http.clone(),
+        prefill_url: p.worker.url.clone(),
+        decode_url: d.worker.url.clone(),
+    };
+    // A client disconnect drops this future, cancelling both POSTs without the
+    // engines hearing about it: they keep generating and hold their inflight
+    // slots. The guard turns that drop into the abort the legs never got.
+    let mut abort_on_disconnect = AbortPairOnDrop::arm(transport.clone(), rid.clone(), n);
     let p_fut = post_leg(state, &p_url, p_body, p.dp_rank);
     let d_fut = post_leg(state, &d_url, d_body, d.dp_rank);
     let (p_res, d_res) = tokio::join!(p_fut, d_fut);
@@ -299,17 +308,12 @@ async fn unary_dual(
             )
         }
     };
+    // Both legs answered, so nothing is left running that this guard has to
+    // clean up; a failed pair is aborted below with its own reason logged.
+    abort_on_disconnect.disarm();
     if pair_failed {
         tracing::warn!("PD unary pair failed; aborting rid={rid}");
-        abort_sglang_pair(
-            AbortTransport::Http {
-                http: state.http.clone(),
-                prefill_url: p.worker.url.clone(),
-                decode_url: d.worker.url.clone(),
-            },
-            &rid,
-            n,
-        );
+        abort_sglang_pair(transport, &rid, n);
     }
     response
 }
@@ -411,7 +415,7 @@ async fn dual_nats(
         }
         score_leg(&state.breaker, &wid, status.as_u16());
         drop(guard);
-        abort_unless_done.complete();
+        abort_unless_done.settle(unary_nats_end(status.as_u16()));
         return Response::builder()
             .status(status)
             .header(header::CONTENT_TYPE, "application/json")
@@ -758,13 +762,24 @@ fn abort_sglang_request_nats(nats: Arc<NatsRequestClient>, worker_id: String, ri
     });
 }
 
+/// How a unary NATS decode reply ends for the prefill watcher. A 5xx decode
+/// never consumed the KV it was sent, so the prefill leg is left holding the
+/// bootstrap room: that pair has to be aborted, not drained.
+fn unary_nats_end(status: u16) -> StreamEnd {
+    if status >= 500 {
+        StreamEnd::Incomplete
+    } else {
+        StreamEnd::Complete
+    }
+}
+
 /// Reports an incomplete stream on drop until ownership is handed off.
 struct FireOnDrop(Option<oneshot::Sender<StreamEnd>>);
 
 impl FireOnDrop {
-    fn complete(&mut self) {
+    fn settle(&mut self, end: StreamEnd) {
         if let Some(tx) = self.0.take() {
-            let _ = tx.send(StreamEnd::Complete);
+            let _ = tx.send(end);
         }
     }
 
@@ -778,6 +793,44 @@ impl Drop for FireOnDrop {
         if let Some(tx) = self.0.take() {
             let _ = tx.send(StreamEnd::Incomplete);
         }
+    }
+}
+
+/// Aborts an engine pair when the request future is dropped before both legs
+/// were answered, which is what a client disconnect looks like on the unary
+/// path: nothing ever reads the responses, so nothing else would notice.
+struct AbortPairOnDrop {
+    transport: Option<AbortTransport>,
+    rid: String,
+    n: usize,
+}
+
+impl AbortPairOnDrop {
+    fn arm(transport: AbortTransport, rid: String, n: usize) -> Self {
+        AbortPairOnDrop {
+            transport: Some(transport),
+            rid,
+            n,
+        }
+    }
+
+    /// Hand the pair back: the caller reached a point where it owns the abort.
+    fn disarm(&mut self) {
+        self.transport = None;
+    }
+}
+
+impl Drop for AbortPairOnDrop {
+    fn drop(&mut self) {
+        let Some(transport) = self.transport.take() else {
+            return;
+        };
+        // Without a request id the protocol has nothing to abort with.
+        if self.rid.is_empty() {
+            return;
+        }
+        tracing::warn!("PD unary request dropped; aborting rid={}", self.rid);
+        abort_sglang_pair(transport, &self.rid, self.n);
     }
 }
 
@@ -932,6 +985,61 @@ mod tests {
             rx.await.is_err(),
             "dropping the transferred sender closes the channel"
         );
+    }
+
+    #[tokio::test]
+    async fn fire_on_drop_settles_with_the_reported_end() {
+        let (tx, rx) = oneshot::channel();
+        let mut guard = FireOnDrop(Some(tx));
+        guard.settle(StreamEnd::Incomplete);
+        drop(guard);
+        assert_eq!(rx.await.unwrap(), StreamEnd::Incomplete);
+    }
+
+    #[tokio::test]
+    async fn a_failed_unary_nats_decode_cancels_the_prefill_drain() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        // A drain that is still running when the decode leg fails: reporting
+        // completion would leave it waiting out the whole drain timeout on a
+        // pair nobody is going to finish.
+        let drained = Arc::new(AtomicBool::new(false));
+        let drained_by_task = drained.clone();
+        let drain = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(40)).await;
+            drained_by_task.store(true, Ordering::SeqCst);
+        });
+        let (tx, rx) = oneshot::channel();
+        watch_prefill_after_decode(
+            rx,
+            drain,
+            Duration::from_secs(300),
+            AbortTransport::Http {
+                http: reqwest::Client::new(),
+                prefill_url: "http://prefill.invalid".into(),
+                decode_url: "http://decode.invalid".into(),
+            },
+            "infera-1".into(),
+            1,
+        );
+
+        FireOnDrop(Some(tx)).settle(unary_nats_end(500));
+        tokio::time::sleep(Duration::from_millis(80)).await;
+        assert!(
+            !drained.load(Ordering::SeqCst),
+            "a 5xx decode must abort the pair instead of draining prefill"
+        );
+    }
+
+    #[test]
+    fn a_failed_unary_nats_decode_does_not_complete_the_pair() {
+        // The `done` frame carries the engine's status, so a 500 arrives on the
+        // same frame a success does. Reading the frame as completion lets the
+        // prefill leg drain against a decode that never took the KV.
+        assert_eq!(unary_nats_end(500), StreamEnd::Incomplete);
+        assert_eq!(unary_nats_end(503), StreamEnd::Incomplete);
+        assert_eq!(unary_nats_end(200), StreamEnd::Complete);
+        assert_eq!(unary_nats_end(400), StreamEnd::Complete);
     }
 
     #[test]

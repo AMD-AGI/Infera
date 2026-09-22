@@ -30,14 +30,53 @@ use crate::util::{json_error, truncate_chars};
 
 type AttemptResult = Result<Response, Box<Response>>;
 
+/// Terminator an OpenAI-compatible SSE stream ends with. An upstream body that
+/// reaches EOF without it stopped early, however clean the byte stream looked.
+const SSE_DONE_MARKER: &[u8] = b"data: [DONE]";
+
+/// Rolling match for `SSE_DONE_MARKER`, which may straddle two chunks.
+#[derive(Default)]
+struct DoneMarker {
+    matched: usize,
+    seen: bool,
+}
+
+impl DoneMarker {
+    fn feed(&mut self, chunk: &[u8]) {
+        if self.seen {
+            return;
+        }
+        for &byte in chunk {
+            // The marker has no proper border, so a mismatch can only restart
+            // the match at the byte that failed it.
+            self.matched = if byte == SSE_DONE_MARKER[self.matched] {
+                self.matched + 1
+            } else {
+                usize::from(byte == SSE_DONE_MARKER[0])
+            };
+            if self.matched == SSE_DONE_MARKER.len() {
+                self.seen = true;
+                return;
+            }
+        }
+    }
+}
+
 /// A byte stream that owns an `ActiveGuard`: when the streamed body ends (client
 /// done, disconnect, or drop), the guard drops and fires `on_request_finished`,
 /// so a cost-aware policy's in-flight load stays balanced for streamed requests.
+///
+/// With an `on_end` channel the stream also reports how it ended. Completion is
+/// then the SSE terminator, not EOF: an upstream that closes mid-generation
+/// ends the body without error, and reading that as success would leave the
+/// other PD leg holding the bootstrap room with nobody aborting it.
 pub(crate) struct GuardedStream {
     inner: Pin<Box<dyn Stream<Item = reqwest::Result<Bytes>> + Send>>,
     _guard: ActiveGuard,
     completed: bool,
     failed: bool,
+    // Only tracked for an `on_end` stream; `None` keeps EOF meaning completion.
+    done: Option<DoneMarker>,
     on_end: Option<oneshot::Sender<StreamEnd>>,
 }
 
@@ -65,6 +104,7 @@ impl GuardedStream {
             _guard: guard,
             completed: false,
             failed: false,
+            done: on_end.as_ref().map(|_| DoneMarker::default()),
             on_end,
         }
     }
@@ -77,8 +117,16 @@ impl Stream for GuardedStream {
         let this = self.get_mut();
         let out = this.inner.as_mut().poll_next(cx);
         match &out {
+            Poll::Ready(Some(Ok(chunk))) => {
+                if let Some(done) = this.done.as_mut() {
+                    done.feed(chunk);
+                }
+            }
             Poll::Ready(Some(Err(_))) => this.failed = true,
-            Poll::Ready(None) => this.completed = !this.failed,
+            Poll::Ready(None) => {
+                let terminated = this.done.as_ref().is_none_or(|d| d.seen);
+                this.completed = !this.failed && terminated;
+            }
             _ => {}
         }
         out
@@ -623,5 +671,93 @@ async fn attempt(
                 &format!("worker {} read failed: {e}", worker.worker_id),
             ))),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::policy::RoundRobin;
+    use futures::StreamExt;
+
+    fn guard() -> ActiveGuard {
+        ActiveGuard::start(Arc::new(RoundRobin::new()), Vec::new())
+    }
+
+    fn sse(chunks: &[&'static str]) -> impl Stream<Item = reqwest::Result<Bytes>> + Send + 'static {
+        let items: Vec<reqwest::Result<Bytes>> = chunks
+            .iter()
+            .map(|c| Ok(Bytes::from_static(c.as_bytes())))
+            .collect();
+        futures::stream::iter(items)
+    }
+
+    /// Drain a guarded PD stream and report what it told the abort watcher.
+    async fn end_of(chunks: &[&'static str]) -> StreamEnd {
+        let (tx, rx) = oneshot::channel();
+        let mut stream = GuardedStream::new_with_incomplete_abort(sse(chunks), guard(), Some(tx));
+        while stream.next().await.is_some() {}
+        drop(stream);
+        rx.await.expect("the guarded stream reports its end")
+    }
+
+    #[tokio::test]
+    async fn a_terminated_sse_stream_completes() {
+        assert_eq!(
+            end_of(&["data: {\"x\":1}\n\n", "data: [DONE]\n\n"]).await,
+            StreamEnd::Complete
+        );
+    }
+
+    #[tokio::test]
+    async fn an_upstream_eof_without_the_terminator_is_incomplete() {
+        // The decode leg closed mid-generation. The byte stream ended without
+        // an error, so only the missing terminator separates this from a
+        // finished request -- and the prefill leg still has to be aborted.
+        assert_eq!(
+            end_of(&["data: {\"x\":1}\n\n"]).await,
+            StreamEnd::Incomplete
+        );
+    }
+
+    #[tokio::test]
+    async fn a_terminator_split_across_chunks_still_completes() {
+        assert_eq!(
+            end_of(&["data: {\"x\":1}\n\ndata: [DO", "NE]\n\n"]).await,
+            StreamEnd::Complete
+        );
+    }
+
+    #[tokio::test]
+    async fn a_truncated_terminator_is_incomplete() {
+        assert_eq!(end_of(&["data: [DON"]).await, StreamEnd::Incomplete);
+    }
+
+    #[tokio::test]
+    async fn a_terminator_lookalike_does_not_complete() {
+        // A generated token may spell the sentinel; only the SSE field does.
+        assert_eq!(
+            end_of(&["data: {\"content\":\"[DONE]\"}\n\n"]).await,
+            StreamEnd::Incomplete
+        );
+    }
+
+    #[tokio::test]
+    async fn a_restarted_match_still_finds_the_terminator() {
+        // The first attempt fails nine bytes in and the real marker begins at
+        // the byte that broke it, so a matcher that only ever moves forward
+        // would miss it.
+        assert_eq!(
+            end_of(&["data: [DOdata: [DON", "E]\n\n"]).await,
+            StreamEnd::Complete
+        );
+    }
+
+    #[tokio::test]
+    async fn a_stream_without_an_abort_watcher_completes_on_eof() {
+        // Mixed (non-PD) traffic has no pair to abort, so EOF stays completion.
+        let mut stream = GuardedStream::new(sse(&["data: {\"x\":1}\n\n"]), guard());
+        while stream.next().await.is_some() {}
+        assert!(stream.completed);
     }
 }

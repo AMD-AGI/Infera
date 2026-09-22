@@ -165,13 +165,19 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs, config) -> None:
         bootstrap_host = str(config.host)
         if bootstrap_host in ("0.0.0.0", ""):
             raise RuntimeError("prefill has no routable bootstrap host")
-        await verify_pd_peer(
-            prefill_url=f"http://{config.host}:{config.port}",
-            decode_url=decode_url,
-            bootstrap_host=bootstrap_host,
-            bootstrap_port=int(args.server_args.disaggregation_bootstrap_port),
-            dp_size=int(getattr(args.server_args, "dp_size", 1) or 1),
-            decode_dp_size=int(decode.get("dp_size") or 1),
+        # The probe spends what is left of the decode-ready budget rather than
+        # extending it: its own retry schedule is otherwise unbounded here.
+        probe_timeout = max(0.0, deadline - asyncio.get_running_loop().time())
+        await asyncio.wait_for(
+            verify_pd_peer(
+                prefill_url=f"http://{config.host}:{config.port}",
+                decode_url=decode_url,
+                bootstrap_host=bootstrap_host,
+                bootstrap_port=int(args.server_args.disaggregation_bootstrap_port),
+                dp_size=int(getattr(args.server_args, "dp_size", 1) or 1),
+                decode_dp_size=int(decode.get("dp_size") or 1),
+            ),
+            timeout=probe_timeout,
         )
     finally:
         if http is not None:

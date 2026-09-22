@@ -208,6 +208,11 @@ class DisaggRouter(BaseRouter):
             else:
                 p_resp = await asyncio.shield(p_task)
         except asyncio.TimeoutError:
+            # A drain that never lands is the wedged prefill this breaker
+            # exists for, whether or not the protocol gave us a rid to abort
+            # by: with no rid the request cannot even be reclaimed.
+            metrics.pd_bootstrap_failures_total.labels(reason="prefill_drain_timeout").inc()
+            self.breaker.record_failure(p.worker_id)
             if rid:
                 logger.warning(
                     "prefill drain timed out after %.0fs; aborting rid=%s",
@@ -605,6 +610,14 @@ class DisaggRouter(BaseRouter):
             obs["outcome"] = "ok" if d_resp.status_code < 400 else f"{d_resp.status_code // 100}xx"
             obs.observe_usage(payload)
             return JSONResponse(content=payload, status_code=d_resp.status_code)
+        except asyncio.CancelledError:
+            # The client dropped: cancelling the POSTs closes our sockets but
+            # tells neither engine, so both keep the request inflight (prefill
+            # until its KV transfer timeout). Abort under a shield, since the
+            # cleanup itself is an await on a cancelled path.
+            with anyio.CancelScope(shield=True):
+                await self._abort_pair(p, d, p_body.get("rid"), _sample_count(p_body))
+            raise
         finally:
             self.policy.on_request_finished(p_target.route_key, p_blocks)
             self.policy.on_request_finished(d_target.route_key, d_blocks)
@@ -770,7 +783,7 @@ class DisaggRouter(BaseRouter):
         served = False
         completed = False
         try:
-            async for kind, _st, data in self.nats_client.stream(d.worker_id, d_payload):
+            async for kind, st, data in self.nats_client.stream(d.worker_id, d_payload):
                 if kind == TYPE_DATA:
                     if data:
                         if not served:
@@ -791,7 +804,20 @@ class DisaggRouter(BaseRouter):
                     ).encode()
                     return
                 else:  # done
-                    completed = True
+                    # `done` means the request finished, not that it
+                    # succeeded. A 5xx is the decode worker's fault and its
+                    # pair still holds engine slots, so it is not a completion:
+                    # the finally below aborts both legs. A 4xx is the
+                    # request's fault and aborts nothing, as on the unary path.
+                    status = st or 200
+                    completed = status < 500
+                    if not completed:
+                        logger.warning(
+                            "decode (nats) %s returned %d mid-stream",
+                            d.worker_id,
+                            status,
+                        )
+                        self._score_leg(d.worker_id, status)
                     return
         finally:
             with anyio.CancelScope(shield=True):

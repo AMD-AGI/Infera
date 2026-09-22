@@ -400,12 +400,16 @@ async def wait_for_decode(
     ``engine.start()`` for hours at a time, so one transient apiserver or etcd
     error would otherwise kill a prefill worker that has nothing wrong with
     it; the deadline is the only thing that gives up.
+
+    One lookup always runs, even on an exhausted budget: callers share their
+    deadline with earlier steps, and a decode that is already registered must
+    not be reported as missing. The budget still bounds every sleep.
     """
     sleeper = sleep or asyncio.sleep
     deadline = time.monotonic() + timeout
     last_log = 0.0
     started = time.monotonic()
-    while time.monotonic() < deadline:
+    while True:
         try:
             workers = await list_workers()
         except Exception as exc:  # noqa: BLE001 - transient lookup failures are retried
@@ -518,23 +522,34 @@ async def verify_pd_peer(
 ) -> None:
     """Transfer one real KV block per DP rank before advertising the prefill.
 
+    Probes cover ``max(dp_size, decode_dp_size)`` pairs so neither leg keeps an
+    unexercised rank, and each endpoint is addressed with its own local rank.
+    The bootstrap room stays aligned to the producing prefill rank and is
+    unique per attempt.
+
     A failed transfer aborts both legs and retries with a new room so a
     transient RDMA/Mooncake error does not permanently block registration.
     The first probe is issued immediately; retry_sleep applies only after abort.
     """
     ranks = max(1, int(dp_size))
     decode_ranks = max(1, int(decode_dp_size))
+    pairs = max(ranks, decode_ranks)
     tries = max(1, int(attempts))
     sleeper = sleep or asyncio.sleep
     base_room = room_seed if room_seed is not None else secrets.randbits(63)
     base_room -= base_room % ranks
+    # A multiple of ranks, so a retry moves to a fresh room without breaking
+    # the room -> prefill rank alignment.
+    attempt_stride = pairs * ranks
     owns_client = http is None
     client = http if http is not None else httpx.AsyncClient(timeout=timeout)
     try:
-        for dp_rank in range(ranks):
+        for pair in range(pairs):
+            dp_rank = pair % ranks
+            decode_dp_rank = pair % decode_ranks
             last_details = ""
             for attempt in range(tries):
-                room = base_room + dp_rank + attempt * ranks
+                room = base_room + pair + attempt * attempt_stride
                 prefill_body = pd_peer_probe_payload(
                     bootstrap_host=bootstrap_host,
                     bootstrap_port=bootstrap_port,
@@ -547,11 +562,21 @@ async def verify_pd_peer(
                     bootstrap_host=bootstrap_host,
                     bootstrap_port=bootstrap_port,
                     room=room,
-                    dp_rank=dp_rank % decode_ranks,
+                    dp_rank=decode_dp_rank,
                 )
+                # An injected client carries the caller's timeout; the probe
+                # budget is passed per request so it is the one that applies.
                 results = await asyncio.gather(
-                    client.post(f"{prefill_url.rstrip('/')}/generate", json=prefill_body),
-                    client.post(f"{decode_url.rstrip('/')}/generate", json=decode_body),
+                    client.post(
+                        f"{prefill_url.rstrip('/')}/generate",
+                        json=prefill_body,
+                        timeout=timeout,
+                    ),
+                    client.post(
+                        f"{decode_url.rstrip('/')}/generate",
+                        json=decode_body,
+                        timeout=timeout,
+                    ),
                     return_exceptions=True,
                 )
                 failed = [
@@ -571,7 +596,8 @@ async def verify_pd_peer(
                 last_details = _probe_failure_details(failed)
                 if attempt + 1 >= tries:
                     raise RuntimeError(
-                        f"PD peer verification failed for dp_rank={dp_rank} "
+                        f"PD peer verification failed for prefill dp_rank={dp_rank} "
+                        f"/ decode dp_rank={decode_dp_rank} "
                         f"after {tries} attempts: {last_details}"
                     )
                 logger.warning(
@@ -585,9 +611,9 @@ async def verify_pd_peer(
                 if retry_sleep > 0:
                     await sleeper(retry_sleep)
         logger.info(
-            "decode barrier: verified real KV transfer to %s for %d DP rank(s)",
+            "decode barrier: verified real KV transfer to %s for %d DP rank pair(s)",
             decode_url,
-            ranks,
+            pairs,
         )
     finally:
         if owns_client:
