@@ -24,6 +24,8 @@ with tempfile.TemporaryDirectory() as temp:
                     wait_queue_entry_time=9,forward_entry_time=10,prefill_finished_time=11,
                     completion_time=12)))
     (root/'c80/aiperf_artifacts/profile_export.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in records))
+    (root/'c80/runner.log').write_text('Phase profiling (profiling) sending complete | sent=3\n'
+        'Phase profiling (profiling) complete | completed=2, cancelled=1, errors=0\n')
     (root/'diagnostics/prefill/events.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in events))
     subprocess.run([sys.executable,str(Path(__file__).with_name('analyze.py')),str(root)],check=True)
     summary=json.loads((root/'analysis/summary.json').read_text())
@@ -31,6 +33,9 @@ with tempfile.TemporaryDirectory() as temp:
     assert profile['coverage']['client_records']==2
     assert profile['coverage']['paired']==1
     assert profile['coverage']['missing_decode']==1
+    assert profile['coverage']['sent_by_runner']==3
+    assert profile['coverage']['unexported_requests']==1
+    assert profile['coverage']['paired_fraction_of_sent']==1/3
     assert profile['stages_ms']['decode/alloc_wait_ms']['p50']==2000
     assert profile['cache']['input_tokens']==200
     assert profile['rank_totals']['prefill']=={'2':2}

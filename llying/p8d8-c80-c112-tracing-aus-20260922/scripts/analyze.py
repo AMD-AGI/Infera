@@ -9,6 +9,7 @@ import collections
 import datetime as dt
 import json
 import math
+import re
 import statistics
 from pathlib import Path
 
@@ -86,6 +87,17 @@ def main():
             if not point.exists():continue
             records=list(jsonl(point/'aiperf_artifacts/profile_export.jsonl'))
             point_result={'raw_records':len(records),'phases':{}}
+            runner_text=(point/'runner.log').read_text(errors='replace') if (point/'runner.log').exists() else ''
+            runner_accounting={}
+            for name in ('warmup','profiling'):
+                sent=re.search(rf'Phase {name} \({name}\) sending complete \| sent=([\d,]+)',runner_text)
+                done=re.search(rf'Phase {name} \({name}\) complete \| completed=([\d,]+), cancelled=([\d,]+), errors=([\d,]+)',runner_text)
+                if sent:
+                    runner_accounting[name]={'sent':int(sent[1].replace(',',''))}
+                    if done:
+                        runner_accounting[name].update(zip(('completed','cancelled','errors'),
+                            (int(v.replace(',','')) for v in done.groups())))
+            point_result['runner_accounting']=runner_accounting
             aggregate=point/f'agentx_conc{c}.json'
             if aggregate.exists():
                 data=json.loads(aggregate.read_text())
@@ -175,6 +187,11 @@ def main():
                     minute_prefill_work={k:dict(v) for k,v in window_work.items()},
                     incomplete_requests=incomplete,
                     minute_arrivals={f'{k[0]}/{k[1]}':dict(v) for k,v in windows.items()})
+                if phase in runner_accounting:
+                    accounting=runner_accounting[phase]
+                    phase_result['coverage'].update(sent_by_runner=accounting['sent'],
+                        unexported_requests=max(0,accounting['sent']-len(cohort)))
+                    phase_result['coverage']['paired_fraction_of_sent']=counts['paired']/accounting['sent'] if accounting['sent'] else None
                 if cache['input_tokens']:
                     phase_result['cache']['hit_rate']=1-cache['miss_tokens']/cache['input_tokens']
                 point_result['phases'][phase]=phase_result
