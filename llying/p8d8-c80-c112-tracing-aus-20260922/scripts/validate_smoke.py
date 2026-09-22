@@ -4,9 +4,24 @@ import collections
 import json
 import sys
 import urllib.request
+import subprocess
 from pathlib import Path
 
 root = Path(sys.argv[1])
+live={}
+for role,node in (('prefill','smci355-ccs-aus-n01-33'),('decode','smci355-ccs-aus-n02-21')):
+    container=json.loads(subprocess.check_output(['ssh','-F','/dev/null','-o','BatchMode=yes',
+        '-o','UserKnownHostsFile=/tmp/agentx_known_hosts',node,'docker','inspect',f'llying-aus-trace-{role}-0'],text=True))[0]
+    env=dict(x.split('=',1) for x in container['Config']['Env'] if '=' in x)
+    assert env.get('AUS_DIAG_ROLE')==role
+    assert env.get('SGLANG_TRACE_ASYNC')=='1'
+    assert env.get('SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK')=='1'
+    argv=container['Config']['Cmd']
+    assert '--enable-trace' in argv and '--enable-request-time-stats-logging' in argv
+    assert argv[argv.index('--max-running-requests')+1]=='256'
+    assert ('--enable-hierarchical-cache' in argv)==(role=='prefill')
+    live[role]=container
+(root/'live-containers.json').write_text(json.dumps(live,indent=2)+'\n')
 rows=[]
 for path in (root/'diagnostics').glob('*/*.jsonl'):
     for line in path.read_text().splitlines():

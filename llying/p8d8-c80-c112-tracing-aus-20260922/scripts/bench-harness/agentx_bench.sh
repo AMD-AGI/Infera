@@ -62,7 +62,7 @@ mkdir -p "$cache/aiperf" "$cache/hf"
 
 python3 "$DIR/tools/agentx_env.py" \
     --topology "$TOPOLOGY" --router-url "$router_url" --output-dir "$OUT_DIR" \
-    --runtime-dir "$cache/aiperf" --hf-home "$cache/hf" \
+    --runtime-dir "$cache/aiperf-$RUN_ID-c$CONC" --hf-home "$cache/hf" \
     --concurrency "$CONC" --duration "$DURATION" \
     --ssh-options "${SSH_OPTS:--o BatchMode=yes -o ConnectTimeout=10}"
 runtime_model="$(awk -F= '$1=="MODEL"{sub("^[^=]*=",""); print; exit}' "$OUT_DIR/runtime.env")"
@@ -98,7 +98,7 @@ ssh_run "$CONTROL_NODE" docker run --rm --name "$name" \
         trap "chown -R $HOST_UID:$HOST_GID \"$out\" \"$AIPERF_RUNTIME_DIR\" \"$HF_HOME\"" EXIT
         source "$INFMAX_CONTAINER_WORKSPACE/benchmarks/benchmark_lib.sh"
         install_agentic_deps
-        python3 "$2"
+        "$AIPERF_PYTHON" "$2"
         export PYTHONPATH="/tmp/aus-client-overlay${PYTHONPATH:+:$PYTHONPATH}"
         resolve_trace_source
         build_replay_cmd "$out"
