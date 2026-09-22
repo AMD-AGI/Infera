@@ -1,0 +1,38 @@
+{
+  "errors": [],
+  "nodes": {
+    "crsuse2-m2m-136": {
+      "active_hcas": [
+        "ionic_0",
+        "ionic_1",
+        "ionic_2",
+        "ionic_3",
+        "ionic_4",
+        "ionic_5",
+        "ionic_6",
+        "ionic_7"
+      ],
+      "blocking_containers": [],
+      "busy_gpus": {},
+      "data_ip": "10.245.154.168",
+      "image": "sha256:fd7220a57b7d3b58efd875c41f7a9ef46b93469581102d96cbeb6f5451e91d35"
+    },
+    "crsuse2-m2m-138": {
+      "active_hcas": [
+        "ionic_0",
+        "ionic_1",
+        "ionic_2",
+        "ionic_3",
+        "ionic_4",
+        "ionic_5",
+        "ionic_6",
+        "ionic_7"
+      ],
+      "blocking_containers": [],
+      "busy_gpus": {},
+      "data_ip": "10.245.157.237",
+      "image": "sha256:fd7220a57b7d3b58efd875c41f7a9ef46b93469581102d96cbeb6f5451e91d35"
+    }
+  },
+  "passed": true
+}

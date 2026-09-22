@@ -1,0 +1,11 @@
+# infera-router (rust)
+infera_router_active_workers 2
+infera_router_uptime_seconds 7
+# HELP infera_router_render_parity 1 = this worker confirmed the router renders the prompt it does, 0 = DIVERGED (kv-aware is off for it), -1 = not checkable
+# TYPE infera_router_render_parity gauge
+infera_router_render_parity{worker_id="10.245.154.168:29002",model="glm5.2-mxfp4"} 1
+infera_router_render_parity{worker_id="10.245.157.237:29001",model="glm5.2-mxfp4"} 1
+# HELP infera_router_render_variant the --default-chat-template-kwargs this worker reported, which the router renders its requests with
+# TYPE infera_router_render_variant gauge
+infera_router_render_variant{worker_id="10.245.154.168:29002",variant="default"} 1
+infera_router_render_variant{worker_id="10.245.157.237:29001",variant="default"} 1

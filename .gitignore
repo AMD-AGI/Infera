@@ -64,3 +64,9 @@ mission.md
 .spur_job_*.sh
 .spur_ns_*.sh
 spur-*.out
+
+# Large generated benchmark artifacts
+/llying/p8d8-c144-runtime-rca-20260922/runs/*/sampling/live/
+/llying/p8d8-c144-runtime-rca-20260922/runs/*/bench/aiperf_artifacts/server_metrics_export.json
+/llying/p8d8-c144-runtime-rca-20260922/runs/*/bench/aiperf_artifacts/profile_export.jsonl
+/llying/p8d8-c144-runtime-rca-20260922/runs/*/bench/aiperf_artifacts/profile_export_aiperf_timeslices.*

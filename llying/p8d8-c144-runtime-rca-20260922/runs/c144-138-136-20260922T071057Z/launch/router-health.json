@@ -1,0 +1,12 @@
+{
+  "targets": [
+    {
+      "container": "glm52-pd-c144-runtime-rca-router",
+      "elapsed_seconds": 6.066,
+      "health_url": "http://10.245.157.237:28000/health",
+      "healthy": true,
+      "name": "router",
+      "node": "crsuse2-m2m-138"
+    }
+  ]
+}

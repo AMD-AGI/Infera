@@ -1,0 +1,42 @@
+{
+  "router_affinity": true,
+  "router_workers": 2,
+  "workers": {
+    "glm52-pd-c144-runtime-rca-decode-0": {
+      "graph_max_bs": 256,
+      "hicache": false,
+      "image": "sha256:fd7220a57b7d3b58efd875c41f7a9ef46b93469581102d96cbeb6f5451e91d35",
+      "max_running": 256,
+      "node": "crsuse2-m2m-136",
+      "rdma_map": {
+        "0": "ionic_0",
+        "1": "ionic_1",
+        "2": "ionic_2",
+        "3": "ionic_3",
+        "4": "ionic_4",
+        "5": "ionic_5",
+        "6": "ionic_6",
+        "7": "ionic_7"
+      },
+      "role": "decode"
+    },
+    "glm52-pd-c144-runtime-rca-prefill-0": {
+      "graph_max_bs": 256,
+      "hicache": true,
+      "image": "sha256:fd7220a57b7d3b58efd875c41f7a9ef46b93469581102d96cbeb6f5451e91d35",
+      "max_running": 256,
+      "node": "crsuse2-m2m-138",
+      "rdma_map": {
+        "0": "ionic_0",
+        "1": "ionic_1",
+        "2": "ionic_2",
+        "3": "ionic_3",
+        "4": "ionic_4",
+        "5": "ionic_5",
+        "6": "ionic_6",
+        "7": "ionic_7"
+      },
+      "role": "prefill"
+    }
+  }
+}

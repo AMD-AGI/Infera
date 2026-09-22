@@ -180,6 +180,30 @@ def test_verify_respects_passed_geometry():
     assert mooncakeperf._verify(arr, -1, chunk * 2, nchunk) is False
 
 
+def test_cross_rank_geometry_and_source_pattern():
+    geometry = {"size": 256 << 10, "chunk": 64 << 10, "nchunk": 4, "seconds": 0}
+    buf = mooncakeperf._Buf("cpu", -1, geometry)
+
+    buf.fill_pattern(pattern_id=2)
+
+    assert (buf.size, buf.chunk, buf.nchunk, buf.seconds) == (
+        256 << 10,
+        64 << 10,
+        4,
+        0,
+    )
+    assert mooncakeperf._verify(buf.host_bytes(), 2, buf.chunk, buf.nchunk)
+    assert not mooncakeperf._verify(buf.host_bytes(), 5, buf.chunk, buf.nchunk)
+
+
+def test_cross_rank_rail_policies_keep_both_endpoints_on_one_rail():
+    shared = "ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7"
+
+    assert mooncakeperf._pair_rail_device("source-local", 2, 6, shared) == "ionic_2"
+    assert mooncakeperf._pair_rail_device("destination-local", 2, 6, shared) == "ionic_6"
+    assert mooncakeperf._pair_rail_device("auto", 2, 6, shared) == shared
+
+
 def test_mooncake_spawn_replaces_non_utf8_native_logs(monkeypatch, tmp_path):
     from types import SimpleNamespace
 

@@ -236,18 +236,56 @@ def _geom(loc: str) -> tuple[int, int, int]:
     return _CPU_SIZE, _CPU_CHUNK, _CPU_NCHUNK
 
 
-def _chunk_byte(gpu_id: int, i: int) -> int:
+def _geometry(loc: str, override: dict | None = None) -> tuple[int, int, int, float]:
+    """Resolve transfer geometry, allowing RCA workers to request one exact load.
+
+    The production preflight uses the module defaults. Cross-rank RCA workers pass
+    an explicit JSON geometry so single-slice, batch, and soak runs exercise the
+    same endpoint code without changing module globals.
+    """
+    size, chunk, nchunk = _geom(loc)
+    seconds = _MIN_SECONDS
+    if override:
+        size = int(override.get("size", size))
+        chunk = int(override.get("chunk", chunk))
+        nchunk = int(override.get("nchunk", nchunk))
+        seconds = float(override.get("seconds", seconds))
+    if size <= 0 or chunk <= 0 or nchunk <= 0 or seconds < 0:
+        raise ValueError("invalid Mooncake transfer geometry")
+    if chunk * nchunk > size:
+        raise ValueError("Mooncake transfer geometry exceeds registered buffer")
+    return size, chunk, nchunk, seconds
+
+
+def _pair_rail_device(
+    policy: str, source_gpu: int, destination_gpu: int, shared_devices: str
+) -> str:
+    """Return the symmetric HCA filter for one independent GPU pair."""
+    if source_gpu < 0 or destination_gpu < 0:
+        raise ValueError("GPU pair indices must be non-negative")
+    if policy == "source-local":
+        return f"ionic_{source_gpu}"
+    if policy == "destination-local":
+        return f"ionic_{destination_gpu}"
+    if policy == "auto":
+        if not shared_devices:
+            raise ValueError("auto rail policy requires the production HCA list")
+        return shared_devices
+    raise ValueError(f"unknown rail policy: {policy}")
+
+
+def _chunk_byte(pattern_id: int, i: int) -> int:
     """Distinct byte per (gpu, segment): encodes the GPU tag so a buffer read via
     the wrong NIC, or a segment at the wrong offset, shows up as a mismatch."""
-    return ((gpu_id & 0xFF) * 131 + i * 7 + 1) & 0xFF
+    return ((pattern_id & 0xFF) * 131 + i * 7 + 1) & 0xFF
 
 
-def _verify(host_arr, gpu_id: int, chunk: int, nchunk: int) -> bool:
+def _verify(host_arr, pattern_id: int, chunk: int, nchunk: int) -> bool:
     import numpy as np
 
     for i in range(nchunk):
         seg = host_arr[i * chunk : (i + 1) * chunk]
-        if not bool(np.all(seg == _chunk_byte(gpu_id, i))):
+        if not bool(np.all(seg == _chunk_byte(pattern_id, i))):
             return False
     return True
 
@@ -258,10 +296,10 @@ class _Buf:
     _geom(loc). Exposes the raw pointer for register_memory plus pattern stamp /
     readback."""
 
-    def __init__(self, loc: str, gpu_id: int) -> None:
+    def __init__(self, loc: str, gpu_id: int, geometry: dict | None = None) -> None:
         self.loc = loc
         self.gpu_id = gpu_id if loc == "gpu" else -1
-        self.size, self.chunk, self.nchunk = _geom(loc)
+        self.size, self.chunk, self.nchunk, self.seconds = _geometry(loc, geometry)
         if loc == "gpu":
             import torch
 
@@ -281,9 +319,10 @@ class _Buf:
         else:
             self._a[:] = value
 
-    def fill_pattern(self) -> None:
+    def fill_pattern(self, pattern_id: int | None = None) -> None:
+        pattern_id = self.gpu_id if pattern_id is None else pattern_id
         for i in range(self.nchunk):
-            v = _chunk_byte(self.gpu_id, i)
+            v = _chunk_byte(pattern_id, i)
             if self.loc == "gpu":
                 self._t[i * self.chunk : (i + 1) * self.chunk].fill_(v)
             else:
@@ -297,9 +336,9 @@ class _Buf:
         return self._a
 
 
-def _make_buffer(loc: str, gpu_id: int):
+def _make_buffer(loc: str, gpu_id: int, geometry: dict | None = None):
     try:
-        return _Buf(loc, gpu_id)
+        return _Buf(loc, gpu_id, geometry)
     except Exception:
         return None
 
@@ -375,17 +414,28 @@ def _target(
     loc: str,
     gpu_id: int,
     device: str = "",
+    pattern_id: int | None = None,
+    geometry: dict | None = None,
+    metadata: dict | None = None,
 ) -> None:
+    pattern_id = gpu_id if pattern_id is None else pattern_id
     eng = _engine(hostname, protocol, device)
-    info = {"ok": False, "host": host, "loc": loc, "gpu": gpu_id}
+    info = {
+        "ok": False,
+        "host": host,
+        "loc": loc,
+        "gpu": gpu_id,
+        "pattern_id": pattern_id,
+        **(metadata or {}),
+    }
     buf = None
     if eng is not None:
-        buf = _make_buffer(loc, gpu_id)
+        buf = _make_buffer(loc, gpu_id, geometry)
         if buf is None:
             info["reason"] = "no_gpu"
         else:
             if operation == "read":
-                buf.fill_pattern()
+                buf.fill_pattern(pattern_id)
             else:
                 buf.fill(0)
             if not _register(eng, buf.ptr, buf.size):
@@ -399,19 +449,29 @@ def _target(
                     "host": host,
                     "loc": loc,
                     "gpu": gpu_id,
+                    "pattern_id": pattern_id,
                     "hostname": f"{mgmt}:{eng.get_rpc_port()}",
                     "addr": buf.ptr,
+                    **(metadata or {}),
                 }
     tmp = os.path.join(sig, "target.json.tmp")
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(info, fh)
     os.replace(tmp, os.path.join(sig, "target.json"))
-    finished = _wait_file(os.path.join(sig, "done"), _DONE_TIMEOUT)
+    done_timeout = max(
+        _DONE_TIMEOUT,
+        (buf.seconds if buf is not None else _MIN_SECONDS) + _TARGET_TIMEOUT,
+    )
+    finished = _wait_file(os.path.join(sig, "done"), done_timeout)
     if operation == "write" and finished and buf is not None and info.get("ok"):
         verify_tmp = os.path.join(sig, "verify.json.tmp")
         with open(verify_tmp, "w", encoding="utf-8") as fh:
             json.dump(
-                {"verified": _verify(buf.host_bytes(), gpu_id, buf.chunk, buf.nchunk)},
+                {
+                    "verified": _verify(
+                        buf.host_bytes(), pattern_id, buf.chunk, buf.nchunk
+                    )
+                },
                 fh,
             )
         os.replace(verify_tmp, os.path.join(sig, "verify.json"))
@@ -425,7 +485,11 @@ def _initiator(
     loc: str,
     gpu_id: int,
     device: str = "",
+    pattern_id: int | None = None,
+    geometry: dict | None = None,
+    metadata: dict | None = None,
 ) -> dict:
+    pattern_id = gpu_id if pattern_id is None else pattern_id
     rec: dict = {
         "gb_s": None,
         "gib": 0.0,
@@ -436,6 +500,8 @@ def _initiator(
         "reason": None,
         "dev": device,
         "operation": operation,
+        "pattern_id": pattern_id,
+        **(metadata or {}),
     }
     if _wait_file(os.path.join(sig, "target.json"), _TARGET_TIMEOUT):
         with open(os.path.join(sig, "target.json"), encoding="utf-8") as fh:
@@ -447,7 +513,7 @@ def _initiator(
         elif not tgt.get("ok"):
             rec["reason"] = tgt.get("reason") or "target_unavailable"
         else:
-            buf = _make_buffer(loc, gpu_id)
+            buf = _make_buffer(loc, gpu_id, geometry)
             if buf is None:
                 rec["reason"] = "no_gpu"
             elif not _register(eng, buf.ptr, buf.size):
@@ -455,7 +521,7 @@ def _initiator(
             else:
                 batch = buf.chunk * buf.nchunk
                 if operation == "write":
-                    buf.fill_pattern()
+                    buf.fill_pattern(pattern_id)
                 else:
                     buf.fill(0)
                 if _batch_transfer(
@@ -468,7 +534,7 @@ def _initiator(
                     buf.nchunk,
                 ):  # warm up
                     moved, t0 = 0, time.monotonic()
-                    while time.monotonic() - t0 < _MIN_SECONDS:
+                    while moved == 0 or time.monotonic() - t0 < buf.seconds:
                         if not _batch_transfer(
                             eng,
                             operation,
@@ -487,7 +553,7 @@ def _initiator(
                         rec["gib"] = round(moved / (1 << 30), 1)
                         if operation == "read":
                             rec["verified"] = _verify(
-                                buf.host_bytes(), gpu_id, buf.chunk, buf.nchunk
+                                buf.host_bytes(), pattern_id, buf.chunk, buf.nchunk
                             )
                     else:
                         rec["reason"] = "transfer_failed"
@@ -518,6 +584,9 @@ def _spawn(
     loc: str,
     gpu_id: int,
     dev: str = "",
+    pattern_id: int | None = None,
+    geometry: dict | None = None,
+    metadata: dict | None = None,
 ) -> tuple[int | None, str]:
     """Run one endpoint (target/initiator) in a clean subprocess so Mooncake's
     once-cached global config sees the right env for this variant. Returns
@@ -563,16 +632,25 @@ def _spawn(
         "loc": loc,
         "gpu": gpu_id,
         "dev": dev,
+        "pattern_id": pattern_id,
+        "geometry": geometry,
+        "metadata": metadata,
     }
     cmd = [sys.executable, "-m", "infera.tools.preflight.network.mooncakeperf", json.dumps(spec)]
     try:
         # Capture (rather than DEVNULL) Mooncake's verbose GID-probe logging: it is
         # not shown, but lets us scrape a register errno on failure. The result
         # itself still travels via result.json.
+        step_timeout = _STEP_TIMEOUT
+        if geometry:
+            step_timeout = max(
+                step_timeout,
+                float(geometry.get("seconds", 0)) + _TARGET_TIMEOUT + 30,
+            )
         cp = subprocess.run(
             cmd,
             env=env,
-            timeout=_STEP_TIMEOUT,
+            timeout=step_timeout,
             check=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -743,6 +821,9 @@ def _finding(r: dict, host: str) -> Finding:
             "verified": verified,
             "operation": operation,
         }
+        for key in ("source_gpu", "destination_gpu", "rail_policy", "pattern_id"):
+            if r.get(key) is not None:
+                detail[key] = r[key]
         if r.get("dev"):
             detail["dev"] = r["dev"]
         if verified is not True:
@@ -773,6 +854,9 @@ def _finding(r: dict, host: str) -> Finding:
         "operation": operation,
         "reason": r.get("reason") or "unreachable",
     }
+    for key in ("source_gpu", "destination_gpu", "rail_policy", "pattern_id"):
+        if r.get(key) is not None:
+            fail_detail[key] = r[key]
     if r.get("dev"):
         fail_detail["dev"] = r["dev"]
     return Finding("fail", msg, fail_detail)
@@ -790,6 +874,9 @@ def _worker() -> None:
             spec["loc"],
             spec["gpu"],
             spec.get("dev", ""),
+            spec.get("pattern_id"),
+            spec.get("geometry"),
+            spec.get("metadata"),
         )
     else:
         rec = _initiator(
@@ -799,6 +886,9 @@ def _worker() -> None:
             spec["loc"],
             spec["gpu"],
             spec.get("dev", ""),
+            spec.get("pattern_id"),
+            spec.get("geometry"),
+            spec.get("metadata"),
         )
         tmp = os.path.join(spec["sig"], "result.json.tmp")
         with open(tmp, "w", encoding="utf-8") as fh:
