@@ -379,13 +379,27 @@ class InferenceCollectiveModel:
         count = 1.0 if self.attn_dp > 1 else 2.0
         return count * (us / 1000.0) * eff
 
+    def _tokens_on_rank(self, batch: int) -> int:
+        """Sequences this rank owns after attention-DP splits the replica batch.
+
+        Attention-DP partitions running requests, not heads: a rank under DP=8
+        holds 1/8 of the sequences and dispatches those tokens to experts.
+        Using the replica-global ``batch`` here prices an 8x AllToAll.
+        Tensor-parallel ranks (DP=1) still hold the whole token axis.
+        """
+        dp = max(1, self.attn_dp)
+        if dp <= 1:
+            return max(1, int(batch))
+        return max(1, (int(batch) + dp - 1) // dp)
+
     # -- EP AllToAll -----------------------------------------------------------
 
     def ep_a2a_ms(self, batch: int, tokens: int) -> float:
         """Dispatch + combine AllToAll per MoE layer, forward only."""
         if self.ep <= 1:
             return 0.0
-        msg = max(1, batch * tokens * self.hidden * self.topk * 2)
+        rank_batch = self._tokens_on_rank(batch)
+        msg = max(1, rank_batch * tokens * self.hidden * self.topk * 2)
         algo = (self.cc.ep_a2a_algo or "auto").lower()
         if algo == "auto":
             # cm.alltoall already includes the fixed RCCL/peer overheads.
