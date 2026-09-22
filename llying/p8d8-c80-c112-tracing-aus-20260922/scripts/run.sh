@@ -42,6 +42,11 @@ else
 state RECOVERING_AFTER_SMOKE_VALIDATOR_FIX
 mkdir -p "$RUN/snapshot/smoke-recovery"
 cp "$ROOT/scripts/run.sh" "$ROOT/scripts/validate_smoke.py" "$RUN/snapshot/smoke-recovery/"
+archive="$RUN/recovery/sampling-$(date -u +%Y%m%dT%H%M%SZ)"
+mkdir -p "$archive"
+for file in engine.jsonl nodes.jsonl preflight.json; do
+    [[ ! -f "$RUN/sampling/$file" ]] || mv "$RUN/sampling/$file" "$archive/$file"
+done
 fi
 python3 "$ROOT/scripts/validate_smoke.py" "$RUN"
 python3 "$ROOT/scripts/sample_engine_metrics.py" \
@@ -57,6 +62,7 @@ node_pid=$!
 capture_pid=$!
 printf '%s\n' "$engine_pid $node_pid $capture_pid" > "$RUN/monitor-pids.txt"
 sleep 8
+kill -0 "$engine_pid" "$node_pid" "$capture_pid"
 python3 "$ROOT/scripts/validate_live_samples.py" --engine "$RUN/sampling/engine.jsonl" --nodes "$RUN/sampling/nodes.jsonl" > "$RUN/sampling/preflight.json"
 for c in 80 112; do
     state "BENCHMARK_C$c"

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 from pathlib import Path
 from typing import Any
@@ -42,6 +43,13 @@ def main() -> int:
     warnings: list[str] = []
     engine = latest_by(records(args.engine), "endpoint")
     nodes = latest_by(records(args.nodes), "role")
+    now = dt.datetime.now(dt.timezone.utc)
+    for kind, samples in (("engine", engine), ("node", nodes)):
+        for role, row in samples.items():
+            captured = dt.datetime.fromisoformat(row['captured_at'])
+            age = (now - captured).total_seconds()
+            if age > 30 or age < -5:
+                errors.append(f"{role} {kind} sample is stale or future-dated: age={age:.1f}s")
 
     required_metrics = {
         "sglang:num_queue_reqs",
@@ -83,7 +91,7 @@ def main() -> int:
                 f"{role} exposes only {len(label_sets)} labelled "
                 "num_running_reqs series; expected at least 8"
             )
-        if "sglang:cuda_graph_passes" not in names:
+        if not {"sglang:cuda_graph_passes", "sglang:cuda_graph_passes_total"} & names:
             warnings.append(
                 f"{role} has no cuda_graph_passes yet; recheck after load starts"
             )

@@ -1,5 +1,15 @@
 # 实验现场
 
+19:22 UTC：C80在19:13:48开始warmup（884请求），当前72返回、0 runner错误。
+客户端RID注入已在真实请求验证，存在跨rank P/D配对。依赖安装较慢，已让
+C112的uv-cache指向C80下载缓存，venv仍隔离。
+发现恢复后的采样器拒绝覆盖旧JSONL，原门禁未检查时间而误用旧数据。
+已归档旧采样、启动独立采样恢复监督进程，19:22重新通过实时样本验收。
+门禁新增样本年龄检查，runner新增采样进程存活检查与恢复归档。
+warmup开始至约19:22的engine/node采样缺失，不能用于该段资源归因；
+request diagnostics与OTLP/capture连续保留。正式profiling尚未开始。
+原始host插桩未覆盖实际Unified Radix Cache，详见OBSERVATION-LIMITS.zh-CN.md。
+
 18:54 UTC：持续接手后发现两次正式负载前的脚本门禁失败并修复。
 1. smoke validator 错将内部启动/健康请求纳入关联检查；现按 smoke.json
    的8个RID筛选，并逐请求核验P/D room、独立trace roots与关键阶段。
