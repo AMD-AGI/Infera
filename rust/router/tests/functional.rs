@@ -69,6 +69,7 @@ async fn mock_handle(
         .and_then(|h| h.to_str().ok())
         .map(str::to_string);
     let path = uri.path().to_string();
+    let is_responses = path == "/v1/responses";
     if path == "/abort_request" {
         let rid = body
             .get("rid")
@@ -110,7 +111,12 @@ async fn mock_handle(
                 .body(Body::from(first))
                 .unwrap();
         }
-        let sse = [first.as_ref(), b"data: [DONE]\n\n".as_ref()].concat();
+        let terminal = if is_responses {
+            b"event: response.completed\ndata: {\"type\":\"response.completed\"}\n\n".as_ref()
+        } else {
+            b"data: [DONE]\n\n".as_ref()
+        };
+        let sse = [first.as_ref(), terminal].concat();
         return Response::builder()
             .status(StatusCode::OK)
             .header(CONTENT_TYPE, "text/event-stream")
@@ -709,6 +715,43 @@ async fn pd_unary_injects_matching_bootstrap_room() {
     assert_eq!(p_hit["rid"], d_hit["rid"]);
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_mixed_request_transports_reject_before_dispatch() {
+    let (p_url, p) = spawn_mock(200, false, json!({"who": "prefill"})).await;
+    let (d_url, d) = spawn_mock(200, false, json!({"who": "decode"})).await;
+    let p_worker = worker(json!({
+        "worker_id": "p",
+        "url": p_url,
+        "model_name": "m",
+        "disagg_mode": "prefill",
+        "disagg_meta": {
+            "protocol": "sglang-bootstrap",
+            "params": {"bootstrap_addr": "10.0.0.1:9000"}
+        },
+        "request_transport": "http"
+    }));
+    let d_worker = worker(json!({
+        "worker_id": "d",
+        "url": d_url,
+        "model_name": "m",
+        "disagg_mode": "decode",
+        "disagg_meta": {"protocol": "sglang-bootstrap"},
+        "request_transport": "nats"
+    }));
+    let router = spawn_router(make_state(vec![p_worker, d_worker], 0)).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": false}))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(p.hit_count(), 0);
+    assert_eq!(d.hit_count(), 0);
+}
+
 /// PD dual-dispatch is path-generic: a Responses request must reach both legs on
 /// `/v1/responses` with the same bootstrap trio as a chat request gets. (The
 /// engine side needs a patch to stop dropping those fields — see
@@ -739,6 +782,9 @@ async fn pd_responses_injects_bootstrap_on_both_legs() {
     assert_eq!(d_hit.body["bootstrap_port"], 9000);
     assert!(p_hit.body["bootstrap_room"].is_number());
     assert_eq!(p_hit.body["bootstrap_room"], d_hit.body["bootstrap_room"]);
+    assert_eq!(p_hit.body["request_id"], p_hit.body["rid"]);
+    assert_eq!(d_hit.body["request_id"], d_hit.body["rid"]);
+    assert_eq!(p_hit.body["request_id"], d_hit.body["request_id"]);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -800,6 +846,28 @@ async fn pd_streaming_relays_decode_and_fires_prefill() {
         p.abort_rids.lock().unwrap().is_empty(),
         "a completed stream must not abort the engine request"
     );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_responses_completed_stream_does_not_abort() {
+    let (p_url, p) = spawn_mock(200, false, json!(null)).await;
+    let (d_url, d) = spawn_mock(200, true, json!(null)).await;
+    let state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    let router = spawn_router(state).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/responses"))
+        .json(&json!({"model": "m", "input": "hello", "stream": true}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let text = resp.text().await.unwrap();
+    assert!(text.contains("event: response.completed"));
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(p.abort_rids.lock().unwrap().is_empty());
+    assert!(d.abort_rids.lock().unwrap().is_empty());
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -926,11 +994,9 @@ async fn pd_unary_worker_failure_aborts_both_engine_requests() {
     assert_eq!(p_rids[0], d_rids[0]);
 }
 
-/// A decode leg that dies mid-generation closes its SSE body without an error
-/// and without the terminator. Reading that clean EOF as a finished generation
-/// leaves the prefill leg draining against a decode that will never pull the KV.
+/// A chat decode leg that closes cleanly without `[DONE]` is incomplete.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn pd_streaming_decode_eof_without_done_aborts_the_pair() {
+async fn pd_chat_eof_without_done_aborts_the_pair() {
     let (p_url, p) = spawn_mock_cfg(200, false, json!(null), true, false).await;
     let (d_url, d) = spawn_mock_truncated_sse().await;
     let state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
@@ -945,6 +1011,43 @@ async fn pd_streaming_decode_eof_without_done_aborts_the_pair() {
     assert_eq!(resp.status(), 200);
     let text = resp.text().await.unwrap();
     assert!(!text.contains("[DONE]"), "the mock decode stops early");
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while (p.abort_rids.lock().unwrap().is_empty() || d.abort_rids.lock().unwrap().is_empty())
+        && Instant::now() < deadline
+    {
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+    assert!(
+        !p.abort_rids.lock().unwrap().is_empty(),
+        "a truncated chat stream must abort the hung prefill"
+    );
+    assert!(
+        !d.abort_rids.lock().unwrap().is_empty(),
+        "a truncated chat stream must abort the decode leg too"
+    );
+}
+
+/// A Responses decode leg that closes without `response.completed` is incomplete.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_responses_eof_without_completed_aborts_the_pair() {
+    let (p_url, p) = spawn_mock_cfg(200, false, json!(null), true, false).await;
+    let (d_url, d) = spawn_mock_truncated_sse().await;
+    let state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    let router = spawn_router(state).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/responses"))
+        .json(&json!({"model": "m", "input": "hello", "stream": true}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let text = resp.text().await.unwrap();
+    assert!(
+        !text.contains("event: response.completed"),
+        "the mock decode stops early"
+    );
 
     let deadline = Instant::now() + Duration::from_secs(5);
     while (p.abort_rids.lock().unwrap().is_empty() || d.abort_rids.lock().unwrap().is_empty())

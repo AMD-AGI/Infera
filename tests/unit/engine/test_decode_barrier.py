@@ -14,12 +14,16 @@ import pytest
 
 from infera.common.discovery_k8s import WORKER_INFO_ANNOTATION
 from infera.engine.decode_barrier import (
+    DEFAULT_DECODE_READY_TIMEOUT,
+    DEFAULT_PD_PROBE_TIMEOUT,
     apply_pd_probe_recovery_defaults,
     decode_ready_timeout_seconds,
+    discovery_budget_seconds,
     ensure_skip_server_warmup,
     is_compatible_decode_worker,
     k8s_namespace,
     list_k8s_worker_payloads,
+    pd_probe_reserve_seconds,
     resolve_k8s_label_selector,
     should_wait_for_decode,
     verify_pd_peer,
@@ -232,6 +236,24 @@ def test_decode_ready_timeout_survives_a_malformed_value(monkeypatch):
     assert decode_ready_timeout_seconds(None) == 14400.0
 
 
+def test_probe_reserve_is_carved_out_of_the_decode_ready_budget():
+    """Discovery must leave the KV probe its own slice of the shared deadline."""
+    assert pd_probe_reserve_seconds(DEFAULT_DECODE_READY_TIMEOUT) == DEFAULT_PD_PROBE_TIMEOUT
+    assert discovery_budget_seconds(DEFAULT_DECODE_READY_TIMEOUT) == (
+        DEFAULT_DECODE_READY_TIMEOUT - DEFAULT_PD_PROBE_TIMEOUT
+    )
+
+
+def test_probe_reserve_never_exceeds_the_total_budget():
+    """A short budget goes entirely to the probe; discovery keeps its one shot."""
+    assert pd_probe_reserve_seconds(DEFAULT_PD_PROBE_TIMEOUT) == DEFAULT_PD_PROBE_TIMEOUT
+    assert discovery_budget_seconds(DEFAULT_PD_PROBE_TIMEOUT) == 0.0
+    assert pd_probe_reserve_seconds(60.0) == 60.0
+    assert discovery_budget_seconds(60.0) == 0.0
+    assert pd_probe_reserve_seconds(0.0) == 0.0
+    assert discovery_budget_seconds(-5.0) == 0.0
+
+
 # --- polling -----------------------------------------------------------------
 
 
@@ -408,7 +430,8 @@ async def test_verify_pd_peer_transfers_real_kv_before_registration():
         "prefill/generate",
         "decode/generate",
     ]
-    assert requests[0][1] == requests[1][1]
+    # The decode body is the prefill body plus the producing prefill rank.
+    assert requests[1][1] == {**requests[0][1], "disagg_prefill_dp_rank": 0}
     assert requests[0][1]["bootstrap_host"] == "prefill"
     assert requests[0][1]["bootstrap_port"] == 30001
     assert requests[0][1]["bootstrap_room"] == 100
@@ -442,6 +465,10 @@ async def test_verify_pd_peer_maps_prefill_ranks_to_smaller_decode_dp():
     assert [body["routed_dp_rank"] for body in prefill] == [0, 1, 2, 3]
     assert [body["routed_dp_rank"] for body in decode] == [0, 0, 0, 0]
     assert [body["bootstrap_room"] % 4 for body in prefill] == [0, 1, 2, 3]
+    # Decode is told the producing prefill rank, which is the room residue.
+    assert [body["disagg_prefill_dp_rank"] for body in decode] == [0, 1, 2, 3]
+    assert all(body["disagg_prefill_dp_rank"] == body["bootstrap_room"] % 4 for body in decode)
+    assert all("disagg_prefill_dp_rank" not in body for body in prefill)
 
 
 @pytest.mark.asyncio
@@ -473,6 +500,10 @@ async def test_verify_pd_peer_covers_every_decode_dp_rank():
     assert [body["routed_dp_rank"] for body in decode] == [0, 1, 2, 3]
     assert [body["bootstrap_room"] % 2 for body in prefill] == [0, 1, 0, 1]
     assert len({body["bootstrap_room"] for body in prefill}) == 4
+    # The named prefill rank is the producer's, never the decode leg's own rank.
+    assert [body["disagg_prefill_dp_rank"] for body in decode] == [0, 1, 0, 1]
+    assert all(body["disagg_prefill_dp_rank"] == body["bootstrap_room"] % 2 for body in decode)
+    assert all("disagg_prefill_dp_rank" not in body for body in prefill)
 
 
 @pytest.mark.asyncio

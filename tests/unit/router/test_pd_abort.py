@@ -16,8 +16,10 @@ import pytest
 
 from infera.common.nats_request import TYPE_DATA, TYPE_DONE
 from infera.common.worker_pool import DisaggMode, EngineType, WorkerInfo
+from infera.router.cache_control import parse_cache_hints
 from infera.router.disagg import DisaggRouter
 from infera.router.pd_abort import (
+    ABORT_PATH,
     abort_engine_request,
     abort_request_ids,
     abort_url,
@@ -297,7 +299,7 @@ async def test_finish_prefill_records_breaker_on_transport_error():
 
 
 @pytest.mark.asyncio
-async def test_finish_prefill_never_cancels_protocol_without_request_id(monkeypatch):
+async def test_finish_prefill_drain_timeout_cancels_task_without_request_id(monkeypatch):
     monkeypatch.setenv("INFERA_PD_PREFILL_DRAIN_TIMEOUT", "0.01")
     release = asyncio.Event()
 
@@ -306,11 +308,71 @@ async def test_finish_prefill_never_cancels_protocol_without_request_id(monkeypa
 
     r = DisaggRouter(_FakePool(), _FakePolicy())
     task = asyncio.create_task(_pending())
-    await r._finish_prefill(task, _w("p1"), _w("d1"), None, 1, abort=True)
-    assert not task.cancelled()
-    assert not task.done()
 
     await r._finish_prefill(task, _w("p1"), _w("d1"), None, 1, abort=False)
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert task.cancelled()
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_finish_prefill_abort_cancels_task_without_request_id():
+    """The vLLM and ATOM connectors have no remote abort endpoint, so closing
+    the prefill POST is the only way to drop the request there: an abort must
+    cancel the task even when the protocol forged no rid to abort by."""
+    aborted = []
+    release = asyncio.Event()
+
+    async def _pending():
+        await release.wait()
+
+    r = DisaggRouter(_FakePool(), _FakePolicy())
+
+    async def _abort_pair(*args):
+        aborted.append(args)
+
+    r._abort_pair = _abort_pair  # type: ignore[method-assign]
+    task = asyncio.create_task(_pending())
+
+    await r._finish_prefill(task, _w("p1"), _w("d1"), None, 1, abort=True)
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(task, timeout=1)
+
+    assert task.cancelled()
+    assert aborted == [], "no rid means nothing to abort by request id"
+    release.set()
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_finish_prefill_cancel_during_drain_does_not_abort():
+    """abort=False means the decode stream already finished: a cancel of the
+    waiter must not POST /abort_request or cancel the shielded prefill task."""
+    aborted = []
+    release = asyncio.Event()
+
+    async def _pending():
+        await release.wait()
+
+    r = DisaggRouter(_FakePool(), _FakePolicy())
+
+    async def _abort_pair(*args):
+        aborted.append(args)
+
+    r._abort_pair = _abort_pair  # type: ignore[method-assign]
+    task = asyncio.create_task(_pending())
+
+    async def _drain():
+        await r._finish_prefill(task, _w("p1"), _w("d1"), "infera-21", 1, abort=False)
+
+    drain = asyncio.create_task(_drain())
+    await asyncio.sleep(0)
+    drain.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await drain
+
+    assert aborted == []
     assert not task.cancelled()
     assert not task.done()
     release.set()
@@ -519,4 +581,480 @@ async def test_nats_stream_done_4xx_does_not_abort_the_pair(monkeypatch):
 
     assert aborted == []
     assert r.breaker.snapshot().get("d1", {}).get("consecutive_failures", 0) == 0
+    await r.aclose()
+
+
+class _ScriptedDecode:
+    """Decode leg replaying raw SSE chunks, then EOF."""
+
+    status_code = 200
+
+    def __init__(self, chunks):
+        self._chunks = chunks
+
+    async def aiter_raw(self):
+        for chunk in self._chunks:
+            yield chunk
+
+    async def aclose(self):
+        pass
+
+
+class _RolePool:
+    """Hands back the pool the caller asked for, so a dispatch gets a pair."""
+
+    def __init__(self, transport="http"):
+        self._transport = transport
+
+    def list_active(self, model=None, mode=None):
+        wid = "p1" if mode == DisaggMode.PREFILL else "d1"
+        return [_w(wid, transport=self._transport)]
+
+
+@pytest.mark.asyncio
+async def test_responses_stream_completion_event_is_not_aborted(monkeypatch):
+    """SGLang ends a /v1/responses stream with `event: response.completed`,
+    never `data: [DONE]`, and the raw chunking can split it. Matching only the
+    chat sentinel reads a finished Responses stream as truncated and aborts a
+    pair that already answered."""
+    monkeypatch.setenv("INFERA_PD_PREFILL_DRAIN_TIMEOUT", "0")
+    aborted = []
+
+    r = DisaggRouter(_FakePool(), _FakePolicy())
+    r._client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={}))
+    )
+
+    async def _open(*_a, **_k):
+        return _ScriptedDecode(
+            [
+                b"event: response.in_progress\ndata: {}\n\n",
+                b"event: response.comp",
+                b'leted\ndata: {"id":"resp_1"}\n\n',
+            ]
+        )
+
+    async def _abort_pair(p, d, rid, n):
+        aborted.append((rid, n))
+
+    r._open_decode_stream = _open  # type: ignore[method-assign]
+    r._abort_pair = _abort_pair  # type: ignore[method-assign]
+
+    chunks = [
+        chunk
+        async for chunk in r._stream_dual(
+            RequestObserver("disagg"),
+            RouteTarget(_w("p1")),
+            [],
+            RouteTarget(_w("d1")),
+            [],
+            "http://p1/v1/responses",
+            "http://d1/v1/responses",
+            {"model": "m", "rid": "infera-20"},
+            {"model": "m", "rid": "infera-20"},
+            path="/v1/responses",
+        )
+    ]
+
+    assert len(chunks) == 3
+    assert aborted == []
+    assert r.policy.finished == 2
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_responses_bodies_carry_request_id_for_sglang():
+    """SGLang's ResponsesRequest drops an unknown `rid`, but keeps
+    `request_id`, which serving_responses passes to the scheduler as the id
+    /abort_request matches. Without it the forged rid aborts nothing."""
+    bodies = []
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        bodies.append((request.url.path, json.loads(request.content)))
+        return httpx.Response(200, json={"id": "x"})
+
+    r = DisaggRouter(_RolePool(), _FakePolicy())
+    r._client = httpx.AsyncClient(transport=httpx.MockTransport(_handler))
+
+    await r.dispatch({"model": "m"}, stream=False, path="/v1/responses")
+    await r.dispatch({"model": "m"}, stream=False, path="/v1/chat/completions")
+
+    responses_bodies = [body for path, body in bodies if path == "/v1/responses"]
+    assert len(responses_bodies) == 2, "both legs must be annotated"
+    assert all(body["request_id"] == body["rid"] for body in responses_bodies)
+    chat_bodies = [body for path, body in bodies if path == "/v1/chat/completions"]
+    assert chat_bodies and all("request_id" not in body for body in chat_bodies)
+    await r.aclose()
+
+
+class _HangingNats:
+    """Decode never answers; abort requests are recorded and acknowledged."""
+
+    def __init__(self):
+        self.aborted = []
+        self.decode_open = asyncio.Event()
+
+    async def admit(self, worker_id):
+        return True
+
+    async def stream(self, worker_id, payload):
+        if payload["path"] == ABORT_PATH:
+            self.aborted.append((worker_id, payload["body"]["rid"]))
+            yield (TYPE_DONE, 200, b"")
+            return
+        if worker_id == "d1":
+            self.decode_open.set()
+        await asyncio.Event().wait()
+        yield (TYPE_DONE, 200, b"")  # unreachable
+
+
+@pytest.mark.asyncio
+async def test_nats_unary_client_cancel_aborts_both_legs():
+    """The cancellation that drops the client also cancels the cleanup awaits,
+    so the abort has to run shielded; otherwise both NATS legs stay inflight
+    holding engine slots."""
+    nats = _HangingNats()
+    r = DisaggRouter(_RolePool(transport="nats"), _FakePolicy(), nats_client=nats)
+    holder = {}
+
+    async def _run():
+        with anyio.CancelScope() as scope:
+            holder["scope"] = scope
+            await r.dispatch({"model": "m", "n": 2}, stream=False)
+
+    task = asyncio.create_task(_run())
+    await nats.decode_open.wait()
+    holder["scope"].cancel()
+    await asyncio.wait_for(task, timeout=5)
+    await asyncio.sleep(0)
+
+    assert sorted(worker_id for worker_id, _ in nats.aborted) == ["d1", "d1", "p1", "p1"]
+    assert sorted(rid.rsplit("_", 1)[1] for _, rid in nats.aborted) == ["0", "0", "1", "1"]
+    assert r.policy.finished == 2
+    assert not r._pending_prefill_tasks, "the prefill drain must not outlive the cancel"
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_completed_stream_cancel_does_not_wait_for_prefill_drain(monkeypatch):
+    """A cancel arriving after the terminal marker must release the policy
+    slots immediately: the client already has the full response, so waiting out
+    the prefill drain inside the shield only pins capacity."""
+    monkeypatch.setenv("INFERA_PD_PREFILL_DRAIN_TIMEOUT", "300")
+    holder = {}
+
+    async def _handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == ABORT_PATH:
+            return httpx.Response(200, json={})
+        await asyncio.Event().wait()  # prefill never lands
+        return httpx.Response(200, json={})
+
+    r = DisaggRouter(_FakePool(), _FakePolicy())
+    r._client = httpx.AsyncClient(transport=httpx.MockTransport(_handler))
+
+    class _DoneThenIdle(_ScriptedDecode):
+        """Terminal marker delivered, then the socket sits idle -- where a
+        client that got its answer and went away leaves the generator."""
+
+        async def aiter_raw(self):
+            yield b'data: {"id":"x"}\n\n'
+            yield b"data: [DONE]\n\n"
+            await asyncio.Event().wait()
+
+    async def _open(*_a, **_k):
+        return _DoneThenIdle([])
+
+    r._open_decode_stream = _open  # type: ignore[method-assign]
+    aborted = []
+
+    async def _abort_pair(*args):
+        aborted.append(args)
+
+    r._abort_pair = _abort_pair  # type: ignore[method-assign]
+
+    async def _consume():
+        with anyio.CancelScope() as scope:
+            holder["scope"] = scope
+            async for _chunk in r._stream_dual(
+                RequestObserver("disagg"),
+                RouteTarget(_w("p1")),
+                [],
+                RouteTarget(_w("d1")),
+                [],
+                "http://p1/v1/chat/completions",
+                "http://d1/v1/chat/completions",
+                {"model": "m", "rid": "infera-21"},
+                {"model": "m", "rid": "infera-21"},
+            ):
+                pass
+
+    task = asyncio.create_task(_consume())
+    await asyncio.sleep(0.05)
+    holder["scope"].cancel()
+    for _ in range(50):
+        await asyncio.sleep(0.01)
+        if r.policy.finished == 2:
+            break
+
+    assert r.policy.finished == 2, (
+        "the prefill is still hanging, so the slots were held for the drain timeout"
+    )
+    assert aborted == []
+    await asyncio.wait_for(task, timeout=5)
+    for pending in list(r._pending_prefill_tasks):
+        pending.cancel()
+    await r.aclose()
+
+
+class _SerialProto:
+    """Minimal serial-pull protocol: bodies pass through, handoff is empty."""
+
+    name = "vllm-mori-read"
+    topology = "serial-pull"
+
+    def annotate_prefill(self, base, p, d, room_id):
+        return dict(base)
+
+    def annotate_decode(self, base, p, d, room_id, handoff):
+        return dict(base)
+
+    def extract_handoff(self, payload):
+        return {}
+
+
+async def _run_serial(r, *, stream=False):
+    """Drive _dispatch_serial with a pass-through serial-pull protocol."""
+    return await r._dispatch_serial(
+        RequestObserver("disagg"),
+        _SerialProto(),
+        {"model": "m"},
+        parse_cache_hints({}),
+        RouteTarget(_w("p1")),
+        [],
+        "http://p1/v1/chat/completions",
+        RouteTarget(_w("d1")),
+        [],
+        "http://d1/v1/chat/completions",
+        7,
+        stream,
+        None,
+    )
+
+
+@pytest.mark.asyncio
+async def test_serial_prefill_cancel_releases_both_policy_slots():
+    """Serial-pull holds the prefill and decode slots until the prefill
+    response lands. A client drop during that POST must release both exactly
+    once; the cancelled request closes the prefill connection, which is what
+    drops the request on connectors without an abort endpoint."""
+    paths = []
+    prefill_open = asyncio.Event()
+
+    async def _handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        prefill_open.set()
+        await asyncio.Event().wait()
+        return httpx.Response(200, json={})
+
+    r = DisaggRouter(_FakePool(), _FakePolicy())
+    r._client = httpx.AsyncClient(transport=httpx.MockTransport(_handler))
+    holder = {}
+
+    async def _run():
+        with anyio.CancelScope() as scope:
+            holder["scope"] = scope
+            await _run_serial(r)
+
+    task = asyncio.create_task(_run())
+    await prefill_open.wait()
+    holder["scope"].cancel()
+    await asyncio.wait_for(task, timeout=5)
+
+    assert r.policy.finished == 2, "both legs were accounted for before the POST"
+    assert paths == ["/v1/chat/completions"], "no abort endpoint on this protocol"
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_decode_only_stream_cancel_closes_the_decode_response():
+    """The cancellation that drops the client also cancels the cleanup await,
+    so aclose() has to run shielded: otherwise the decode connection stays
+    open and the engine keeps the request inflight."""
+    closed = []
+
+    class _HangingDecode:
+        status_code = 200
+
+        async def aiter_raw(self):
+            yield b'data: {"id":"x"}\n\n'
+            await asyncio.Event().wait()
+
+        async def aclose(self):
+            # Closing a real connection awaits I/O, so it is a cancellation
+            # point: an unshielded teardown never gets this far.
+            await asyncio.sleep(0.01)
+            closed.append(True)
+
+    r = DisaggRouter(_FakePool(), _FakePolicy())
+
+    async def _open(*_a, **_k):
+        return _HangingDecode()
+
+    r._open_decode_stream = _open  # type: ignore[method-assign]
+    holder = {}
+
+    async def _consume():
+        with anyio.CancelScope() as scope:
+            holder["scope"] = scope
+            async for _chunk in r._stream_decode_only(
+                RequestObserver("disagg"),
+                RouteTarget(_w("d1")),
+                [],
+                "http://d1/v1/chat/completions",
+                {"model": "m"},
+            ):
+                pass
+
+    task = asyncio.create_task(_consume())
+    await asyncio.sleep(0.05)
+    holder["scope"].cancel()
+    await asyncio.wait_for(task, timeout=5)
+
+    assert closed == [True]
+    assert r.policy.finished == 1
+    await r.aclose()
+
+
+class _ConcurrentProto:
+    """Minimal sglang-bootstrap protocol: rid only, no bootstrap rewriting."""
+
+    name = "sglang-bootstrap"
+    topology = "concurrent"
+
+    def annotate_prefill(self, base, p, d, room_id):
+        return {**base, "rid": rid_for_room(room_id)}
+
+    def annotate_decode(self, base, p, d, room_id, handoff):
+        return self.annotate_prefill(base, p, d, room_id)
+
+    def extract_handoff(self, payload):
+        return {}
+
+
+def _header_capture_router():
+    """Router whose HTTP client records the headers each leg was POSTed with."""
+    seen: dict[str, dict[str, str]] = {}
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        seen[request.url.host] = dict(request.headers)
+        return httpx.Response(200, json={})
+
+    r = DisaggRouter(_FakePool(), _FakePolicy())
+    r._client = httpx.AsyncClient(transport=httpx.MockTransport(_handler))
+    return r, seen
+
+
+@pytest.mark.asyncio
+async def test_concurrent_legs_carry_the_sglang_rid_override_header():
+    """SGLang adopts the forged rid from ``x-override-rid``; ``X-Request-Id``
+    is ignored there, so an abort by that id would never match."""
+    r, seen = _header_capture_router()
+    resp = await r._dispatch_concurrent(
+        RequestObserver("disagg"),
+        _ConcurrentProto(),
+        {"model": "m"},
+        parse_cache_hints({}),
+        RouteTarget(_w("p1")),
+        [],
+        "http://p1/v1/chat/completions",
+        RouteTarget(_w("d1")),
+        [],
+        "http://d1/v1/chat/completions",
+        7,
+        False,
+        "infera-7",
+    )
+
+    assert resp.status_code == 200
+    for leg in ("p1", "d1"):
+        assert seen[leg]["x-override-rid"] == "infera-7"
+        assert "x-request-id" not in seen[leg]
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_serial_legs_keep_the_generic_request_id_header():
+    """Non-SGLang connectors read the forged id from ``X-Request-Id``."""
+    r, seen = _header_capture_router()
+    await r._dispatch_serial(
+        RequestObserver("disagg"),
+        _SerialProto(),
+        {"model": "m"},
+        parse_cache_hints({}),
+        RouteTarget(_w("p1")),
+        [],
+        "http://p1/v1/chat/completions",
+        RouteTarget(_w("d1")),
+        [],
+        "http://d1/v1/chat/completions",
+        7,
+        False,
+        "infera-7",
+    )
+
+    for leg in ("p1", "d1"):
+        assert seen[leg]["x-request-id"] == "infera-7"
+        assert "x-override-rid" not in seen[leg]
+    await r.aclose()
+
+
+class _MixedTransportPool:
+    """Prefill registered for NATS, decode for HTTP."""
+
+    def __init__(self):
+        self._p = _w("p1", transport="nats")
+        self._d = _w("d1", transport="http")
+
+    def list_active(self, model=None, mode=None):
+        return [self._p if mode == DisaggMode.PREFILL else self._d]
+
+    def get(self, worker_id):
+        return self._p if worker_id == "p1" else self._d
+
+
+@pytest.mark.asyncio
+async def test_mixed_request_transport_pair_is_refused():
+    """A pair whose legs registered for different request transports cannot be
+    dispatched: refuse before either leg is sent or accounted for, on both the
+    policy-driven and the gateway-driven entry point."""
+    sent = []
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        sent.append(str(request.url))
+        return httpx.Response(200, json={})
+
+    class _Nats:
+        async def admit(self, worker_id):
+            return True
+
+        async def stream(self, worker_id, payload):
+            sent.append(worker_id)
+            yield (TYPE_DONE, 200, b"")
+
+    r = DisaggRouter(_MixedTransportPool(), _FakePolicy(), nats_client=_Nats())
+    r._client = httpx.AsyncClient(transport=httpx.MockTransport(_handler))
+
+    resp = await r.dispatch({"model": "m"}, stream=False)
+    direct = await r.dispatch_direct(
+        {"model": "m"},
+        stream=False,
+        path="/v1/chat/completions",
+        prefill_id="p1",
+        decode_id="d1",
+    )
+
+    assert resp.status_code == 503
+    assert direct.status_code == 503
+    assert sent == []
+    assert r.policy.finished == 0
     await r.aclose()

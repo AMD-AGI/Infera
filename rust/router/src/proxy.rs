@@ -30,18 +30,29 @@ use crate::util::{json_error, truncate_chars};
 
 type AttemptResult = Result<Response, Box<Response>>;
 
-/// Terminator an OpenAI-compatible SSE stream ends with. An upstream body that
-/// reaches EOF without it stopped early, however clean the byte stream looked.
 const SSE_DONE_MARKER: &[u8] = b"data: [DONE]";
+const RESPONSES_DONE_MARKER: &[u8] = b"event: response.completed";
 
-/// Rolling match for `SSE_DONE_MARKER`, which may straddle two chunks.
-#[derive(Default)]
+/// Rolling match for an SSE success marker, which may straddle two chunks.
 struct DoneMarker {
+    marker: &'static [u8],
     matched: usize,
     seen: bool,
 }
 
 impl DoneMarker {
+    fn for_path(path: &str) -> Self {
+        DoneMarker {
+            marker: if path == "/v1/responses" {
+                RESPONSES_DONE_MARKER
+            } else {
+                SSE_DONE_MARKER
+            },
+            matched: 0,
+            seen: false,
+        }
+    }
+
     fn feed(&mut self, chunk: &[u8]) {
         if self.seen {
             return;
@@ -49,12 +60,12 @@ impl DoneMarker {
         for &byte in chunk {
             // The marker has no proper border, so a mismatch can only restart
             // the match at the byte that failed it.
-            self.matched = if byte == SSE_DONE_MARKER[self.matched] {
+            self.matched = if byte == self.marker[self.matched] {
                 self.matched + 1
             } else {
-                usize::from(byte == SSE_DONE_MARKER[0])
+                usize::from(byte == self.marker[0])
             };
-            if self.matched == SSE_DONE_MARKER.len() {
+            if self.matched == self.marker.len() {
                 self.seen = true;
                 return;
             }
@@ -91,12 +102,13 @@ impl GuardedStream {
         inner: impl Stream<Item = reqwest::Result<Bytes>> + Send + 'static,
         guard: ActiveGuard,
     ) -> Self {
-        Self::new_with_incomplete_abort(inner, guard, None)
+        Self::new_with_incomplete_abort(inner, guard, "", None)
     }
 
     pub(crate) fn new_with_incomplete_abort(
         inner: impl Stream<Item = reqwest::Result<Bytes>> + Send + 'static,
         guard: ActiveGuard,
+        path: &str,
         on_end: Option<oneshot::Sender<StreamEnd>>,
     ) -> Self {
         GuardedStream {
@@ -104,7 +116,7 @@ impl GuardedStream {
             _guard: guard,
             completed: false,
             failed: false,
-            done: on_end.as_ref().map(|_| DoneMarker::default()),
+            done: on_end.as_ref().map(|_| DoneMarker::for_path(path)),
             on_end,
         }
     }
@@ -120,9 +132,18 @@ impl Stream for GuardedStream {
             Poll::Ready(Some(Ok(chunk))) => {
                 if let Some(done) = this.done.as_mut() {
                     done.feed(chunk);
+                    // The client holds the whole answer as soon as the
+                    // terminator reaches it, and may drop the body without
+                    // ever polling for EOF.
+                    this.completed = done.seen;
                 }
             }
-            Poll::Ready(Some(Err(_))) => this.failed = true,
+            // A break after the terminator still leaves the client short of
+            // the bytes it was about to read.
+            Poll::Ready(Some(Err(_))) => {
+                this.failed = true;
+                this.completed = false;
+            }
             Poll::Ready(None) => {
                 let terminated = this.done.as_ref().is_none_or(|d| d.seen);
                 this.completed = !this.failed && terminated;
@@ -378,6 +399,9 @@ pub(crate) struct GuardedBody {
     _guard: ActiveGuard,
     completed: bool,
     failed: bool,
+    // Only tracked for an `on_end` body; the frame protocol carries its own
+    // terminator, so the marker only makes completion observable earlier.
+    done: Option<DoneMarker>,
     on_end: Option<oneshot::Sender<StreamEnd>>,
 }
 
@@ -387,12 +411,13 @@ pub(crate) fn guarded(
     inner: impl Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static,
     guard: ActiveGuard,
 ) -> GuardedBody {
-    guarded_with_incomplete_abort(inner, guard, None)
+    guarded_with_incomplete_abort(inner, guard, "", None)
 }
 
 pub(crate) fn guarded_with_incomplete_abort(
     inner: impl Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static,
     guard: ActiveGuard,
+    path: &str,
     on_end: Option<oneshot::Sender<StreamEnd>>,
 ) -> GuardedBody {
     GuardedBody {
@@ -400,6 +425,7 @@ pub(crate) fn guarded_with_incomplete_abort(
         _guard: guard,
         completed: false,
         failed: false,
+        done: on_end.as_ref().map(|_| DoneMarker::for_path(path)),
         on_end,
     }
 }
@@ -410,7 +436,18 @@ impl Stream for GuardedBody {
         let this = self.get_mut();
         let out = this.inner.as_mut().poll_next(cx);
         match &out {
-            Poll::Ready(Some(Err(_))) => this.failed = true,
+            Poll::Ready(Some(Ok(chunk))) => {
+                if let Some(done) = this.done.as_mut() {
+                    done.feed(chunk);
+                    // Same race as the HTTP leg: the client can drop the body
+                    // between the terminal bytes and the done frame.
+                    this.completed = done.seen;
+                }
+            }
+            Poll::Ready(Some(Err(_))) => {
+                this.failed = true;
+                this.completed = false;
+            }
             Poll::Ready(None) => this.completed = !this.failed,
             _ => {}
         }
@@ -695,7 +732,25 @@ mod tests {
     /// Drain a guarded PD stream and report what it told the abort watcher.
     async fn end_of(chunks: &[&'static str]) -> StreamEnd {
         let (tx, rx) = oneshot::channel();
-        let mut stream = GuardedStream::new_with_incomplete_abort(sse(chunks), guard(), Some(tx));
+        let mut stream = GuardedStream::new_with_incomplete_abort(
+            sse(chunks),
+            guard(),
+            "/v1/chat/completions",
+            Some(tx),
+        );
+        while stream.next().await.is_some() {}
+        drop(stream);
+        rx.await.expect("the guarded stream reports its end")
+    }
+
+    async fn responses_end_of(chunks: &[&'static str]) -> StreamEnd {
+        let (tx, rx) = oneshot::channel();
+        let mut stream = GuardedStream::new_with_incomplete_abort(
+            sse(chunks),
+            guard(),
+            "/v1/responses",
+            Some(tx),
+        );
         while stream.next().await.is_some() {}
         drop(stream);
         rx.await.expect("the guarded stream reports its end")
@@ -724,6 +779,19 @@ mod tests {
     async fn a_terminator_split_across_chunks_still_completes() {
         assert_eq!(
             end_of(&["data: {\"x\":1}\n\ndata: [DO", "NE]\n\n"]).await,
+            StreamEnd::Complete
+        );
+    }
+
+    #[tokio::test]
+    async fn a_responses_terminator_split_across_chunks_still_completes() {
+        assert_eq!(
+            responses_end_of(&[
+                "event: response.cre",
+                "ated\ndata: {}\n\nevent: response.com",
+                "pleted\ndata: {}\n\n"
+            ])
+            .await,
             StreamEnd::Complete
         );
     }
@@ -759,5 +827,157 @@ mod tests {
         let mut stream = GuardedStream::new(sse(&["data: {\"x\":1}\n\n"]), guard());
         while stream.next().await.is_some() {}
         assert!(stream.completed);
+    }
+
+    /// A transport error, built without opening a socket: reqwest rejects the
+    /// scheme before it dials.
+    async fn transport_error() -> reqwest::Error {
+        reqwest::Client::new()
+            .get("ftp://127.0.0.1/")
+            .send()
+            .await
+            .expect_err("reqwest refuses a non-http scheme")
+    }
+
+    #[tokio::test]
+    async fn a_delivered_terminator_completes_a_dropped_stream() {
+        // The client holds the whole answer once `data: [DONE]` reaches it and
+        // may drop the body there, never polling the stream to EOF. Reading
+        // that as incomplete would abort a request that already succeeded.
+        let (tx, rx) = oneshot::channel();
+        let mut stream = GuardedStream::new_with_incomplete_abort(
+            sse(&["data: {\"x\":1}\n\n", "data: [DONE]\n\n"]),
+            guard(),
+            "/v1/chat/completions",
+            Some(tx),
+        );
+        stream
+            .next()
+            .await
+            .expect("the first chunk")
+            .expect("a chunk");
+        stream
+            .next()
+            .await
+            .expect("the terminal chunk")
+            .expect("a chunk");
+        drop(stream);
+        assert_eq!(
+            rx.await.expect("the guarded stream reports its end"),
+            StreamEnd::Complete
+        );
+    }
+
+    #[tokio::test]
+    async fn an_error_after_the_terminator_is_incomplete() {
+        // The terminator was seen, but the body then broke before the client
+        // could read it out, so the pair still has to be aborted.
+        let (tx, rx) = oneshot::channel();
+        let items: Vec<reqwest::Result<Bytes>> = vec![
+            Ok(Bytes::from_static(b"data: [DONE]\n\n")),
+            Err(transport_error().await),
+        ];
+        let mut stream = GuardedStream::new_with_incomplete_abort(
+            futures::stream::iter(items),
+            guard(),
+            "/v1/chat/completions",
+            Some(tx),
+        );
+        stream
+            .next()
+            .await
+            .expect("the terminal chunk")
+            .expect("a chunk");
+        stream
+            .next()
+            .await
+            .expect("the failure")
+            .expect_err("a transport error");
+        drop(stream);
+        assert_eq!(
+            rx.await.expect("the guarded stream reports its end"),
+            StreamEnd::Incomplete
+        );
+    }
+
+    fn nats_sse(
+        chunks: &[&'static str],
+    ) -> impl Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static {
+        let items: Vec<Result<Bytes, std::io::Error>> = chunks
+            .iter()
+            .map(|c| Ok(Bytes::from_static(c.as_bytes())))
+            .collect();
+        futures::stream::iter(items)
+    }
+
+    #[tokio::test]
+    async fn a_delivered_terminator_completes_a_dropped_nats_body() {
+        // Same race on the NATS PD leg: the client can drop the body between
+        // the terminal bytes and the `Frame::Done` that ends the stream.
+        let (tx, rx) = oneshot::channel();
+        let mut body = guarded_with_incomplete_abort(
+            nats_sse(&["event: response.completed\ndata: {}\n\n"]),
+            guard(),
+            "/v1/responses",
+            Some(tx),
+        );
+        body.next()
+            .await
+            .expect("the terminal chunk")
+            .expect("a chunk");
+        drop(body);
+        assert_eq!(
+            rx.await.expect("the guarded body reports its end"),
+            StreamEnd::Complete
+        );
+    }
+
+    #[tokio::test]
+    async fn a_nats_error_after_the_terminator_is_incomplete() {
+        // `Frame::Done` with a 5xx, or a missing done frame, surfaces as an
+        // error item after the terminal bytes; it still means incomplete.
+        let (tx, rx) = oneshot::channel();
+        let items: Vec<Result<Bytes, std::io::Error>> = vec![
+            Ok(Bytes::from_static(b"data: [DONE]\n\n")),
+            Err(std::io::Error::other("decode NATS stream ended with 503")),
+        ];
+        let mut body = guarded_with_incomplete_abort(
+            futures::stream::iter(items),
+            guard(),
+            "/v1/chat/completions",
+            Some(tx),
+        );
+        body.next()
+            .await
+            .expect("the terminal chunk")
+            .expect("a chunk");
+        body.next()
+            .await
+            .expect("the failure")
+            .expect_err("a stream error");
+        drop(body);
+        assert_eq!(
+            rx.await.expect("the guarded body reports its end"),
+            StreamEnd::Incomplete
+        );
+    }
+
+    #[tokio::test]
+    async fn a_nats_body_without_a_terminator_still_completes_on_eof() {
+        // NATS carries its own terminator: a clean `Frame::Done` ends the
+        // stream, so EOF stays completion even with no marker in the bytes.
+        let (tx, rx) = oneshot::channel();
+        let mut body = guarded_with_incomplete_abort(
+            nats_sse(&["data: {\"x\":1}\n\n"]),
+            guard(),
+            "/v1/chat/completions",
+            Some(tx),
+        );
+        while body.next().await.is_some() {}
+        drop(body);
+        assert_eq!(
+            rx.await.expect("the guarded body reports its end"),
+            StreamEnd::Complete
+        );
     }
 }

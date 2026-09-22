@@ -99,6 +99,24 @@ def decode_ready_timeout_seconds(explicit: float | None) -> float:
     return DEFAULT_DECODE_READY_TIMEOUT
 
 
+def pd_probe_reserve_seconds(total_timeout: float) -> float:
+    """Slice of the decode-ready budget held back for the KV probe.
+
+    Discovery (selector plus worker lookup) can otherwise poll until the shared
+    deadline and hand the probe a budget of zero, turning a healthy peer into a
+    timeout. The reserve is capped by the total so it can never exceed it.
+    """
+    return min(max(0.0, float(total_timeout)), DEFAULT_PD_PROBE_TIMEOUT)
+
+
+def discovery_budget_seconds(total_timeout: float) -> float:
+    """Decode-ready budget left for discovery once the probe reserve is taken.
+
+    Zero means discovery still runs its one immediate lookup, but never sleeps.
+    """
+    return max(0.0, float(total_timeout) - pd_probe_reserve_seconds(total_timeout))
+
+
 def refresh_k8s_auth(client: httpx.AsyncClient) -> None:
     """Re-read the mounted ServiceAccount token onto an existing client.
 
@@ -479,9 +497,16 @@ def pd_peer_probe_payload(
     bootstrap_port: int,
     room: int,
     dp_rank: int,
+    prefill_dp_rank: int | None = None,
 ) -> dict[str, Any]:
-    """Build a real-peer SGLang request that verifies KV transfer readiness."""
-    return {
+    """Build a real-peer SGLang request that verifies KV transfer readiness.
+
+    ``prefill_dp_rank`` names the prefill rank holding the KV for this room and
+    belongs on the decode leg only: the decode scheduler needs the producer's
+    rank, which is not derivable from its own ``routed_dp_rank`` once the two
+    legs run different DP sizes.
+    """
+    payload: dict[str, Any] = {
         "sampling_params": {
             "temperature": 0.0,
             "max_new_tokens": 1,
@@ -494,6 +519,9 @@ def pd_peer_probe_payload(
         "routed_dp_rank": dp_rank,
         "rid": f"infera-probe-{room}",
     }
+    if prefill_dp_rank is not None:
+        payload["disagg_prefill_dp_rank"] = int(prefill_dp_rank)
+    return payload
 
 
 def _probe_failure_details(failed: list[Any]) -> str:
@@ -557,12 +585,14 @@ async def verify_pd_peer(
                     dp_rank=dp_rank,
                 )
                 # routed_dp_rank is local to each endpoint. The bootstrap room
-                # remains aligned to the producing prefill rank.
+                # remains aligned to the producing prefill rank, which decode
+                # is told explicitly so it does not assume its own rank.
                 decode_body = pd_peer_probe_payload(
                     bootstrap_host=bootstrap_host,
                     bootstrap_port=bootstrap_port,
                     room=room,
                     dp_rank=decode_dp_rank,
+                    prefill_dp_rank=dp_rank,
                 )
                 # An injected client carries the caller's timeout; the probe
                 # budget is passed per request so it is the one that applies.

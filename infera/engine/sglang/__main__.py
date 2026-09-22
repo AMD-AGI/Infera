@@ -38,6 +38,7 @@ from infera.engine.base import EngineDeath, watch_engine_death
 from infera.engine.decode_barrier import (
     apply_pd_probe_recovery_defaults,
     decode_ready_timeout_seconds,
+    discovery_budget_seconds,
     ensure_skip_server_warmup,
     list_etcd_worker_payloads,
     list_k8s_worker_payloads,
@@ -119,7 +120,11 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs, config) -> None:
         or ""
     )
     timeout = decode_ready_timeout_seconds(args.decode_ready_timeout)
-    deadline = asyncio.get_running_loop().time() + timeout
+    started = asyncio.get_running_loop().time()
+    deadline = started + timeout
+    # Discovery stops early so the KV probe keeps a reserve of the shared
+    # budget; it still runs one immediate lookup when nothing is left.
+    discovery_deadline = started + discovery_budget_seconds(timeout)
 
     # One client for the whole wait on either backend. The k8s path also
     # re-reads the ServiceAccount token per request so a rotation is not a 401.
@@ -132,7 +137,7 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs, config) -> None:
                 args.k8s_label_selector,
                 namespace=args.k8s_namespace,
                 http=http,
-                timeout=timeout,
+                timeout=max(0.0, discovery_deadline - asyncio.get_running_loop().time()),
             )
         elif not args.etcd_endpoint:
             raise RuntimeError(
@@ -157,7 +162,7 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs, config) -> None:
             model_name,
             args.discovery_backend,
         )
-        remaining = max(0.0, deadline - asyncio.get_running_loop().time())
+        remaining = max(0.0, discovery_deadline - asyncio.get_running_loop().time())
         decode = await wait_for_decode(_list, model_name=str(model_name), timeout=remaining)
         decode_url = str(decode.get("url") or "").rstrip("/")
         if not decode_url:
