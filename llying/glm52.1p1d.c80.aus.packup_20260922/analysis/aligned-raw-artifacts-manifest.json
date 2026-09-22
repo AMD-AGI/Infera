@@ -1,0 +1,60 @@
+{
+  "runtime_root": "/perf_apps/liyingli/bench_agentx/glm52-c80-20260922",
+  "files": [
+    {
+      "path": "results/agentx-c80-aligned/aiperf_artifacts/logs/aiperf.log",
+      "bytes": 406667,
+      "sha256": "1deb9efaa92a00d5c275bcedae4fb0bb5fe522fe71bd1cfcefc263aa2301d66a"
+    },
+    {
+      "path": "results/agentx-c80-aligned/aiperf_artifacts/profile_export.jsonl",
+      "bytes": 61567420,
+      "sha256": "4e97c760431f48e8d3ddf1359e5820899f7feb236e3e3a21eaba767e0dc3896d"
+    },
+    {
+      "path": "results/agentx-c80-aligned/aiperf_artifacts/profile_export_aiperf.csv",
+      "bytes": 7231,
+      "sha256": "e1cd921d65115ba42b8554a9f9eff4a56629da7f93316a975dc8f0428558d6da"
+    },
+    {
+      "path": "results/agentx-c80-aligned/aiperf_artifacts/profile_export_aiperf.json",
+      "bytes": 45324,
+      "sha256": "8acf9678fe5618a9eddc21889e06d3c33ba887829878494aeb9e6d18ae76054b"
+    },
+    {
+      "path": "results/agentx-c80-aligned/aiperf_artifacts/profile_export_aiperf_timeslices.csv",
+      "bytes": 169520743,
+      "sha256": "8e0bce2d25e64dec7552b5f9785d0aeb3447dd970ca44069d31ec32c4cdefcdc"
+    },
+    {
+      "path": "results/agentx-c80-aligned/aiperf_artifacts/profile_export_aiperf_timeslices.json",
+      "bytes": 71956306,
+      "sha256": "9250275ee5e0c33f4c8992d81a1a937e04f74b099c0c52a89eb6a90110ccffdf"
+    },
+    {
+      "path": "results/agentx-c80-aligned/aiperf_artifacts/profile_export_console.txt",
+      "bytes": 18983,
+      "sha256": "73b0f08ad439ab59d08539f88bf960c4c0c634d8d234f12c91b721a09f2db5c9"
+    },
+    {
+      "path": "results/agentx-c80-aligned/aiperf_artifacts/server_metrics_export.csv",
+      "bytes": 554793,
+      "sha256": "14963b576e1b34269f79080036d5558c382f858ee85dc72b1d9d26c0dec9393c"
+    },
+    {
+      "path": "results/agentx-c80-aligned/aiperf_artifacts/server_metrics_export.json",
+      "bytes": 2709095022,
+      "sha256": "1aac324eb58456ad642247710851c02bc233186eb1965f01782846ef9846e7bc"
+    },
+    {
+      "path": "results/launch-aligned/server-logs/decode-0.log",
+      "bytes": 26385840,
+      "sha256": "ad7434f1c126a1c34cce210d94c8e668a90a760f1f39a4f6ad8967c5f44520fe"
+    },
+    {
+      "path": "results/launch-aligned/server-logs/prefill-0.log",
+      "bytes": 28414105,
+      "sha256": "27467b17d4a7d60bf0515af753f9100ffa9a8fb3404d89c7e79ac998fd52df92"
+    }
+  ]
+}

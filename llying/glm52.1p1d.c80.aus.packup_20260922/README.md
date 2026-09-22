@@ -1,5 +1,7 @@
 # AUS GLM-5.2 1P1D C80 benchmark — 2026-09-22
 
+**对齐yihou设置的60分钟C80已完成，保留跨rank。** 单卡总吞吐20517 token/s（相对yihou +5.14%）、输出2610 token/s（+3.47%）；9724条正式有效完成、0正式错误、13条收尾取消。完整设置、延迟对比、warmup错误核对及剩余环境差异见[对齐轮报告](analysis/aligned-comparison.md)。
+
 从新checkout运行请先看[复现步骤](REPRODUCE.md)。Git仅保存可复现代码、汇总和关键证据；大体积原始导出与worker日志的位置、校验值及取回方式见[产物说明](ARTIFACTS.md)。
 
 **后续HiCache workflow已完成。** 按用户选择保留跨rank，仅开启prefill HiCache；实际备份与回读已验证，C80 profiling完成2688条有效请求、0请求错误、12条收尾取消。见[HiCache对比报告](analysis/hicache-results.md)。以下正文保留首次HiCache-off测试结果。

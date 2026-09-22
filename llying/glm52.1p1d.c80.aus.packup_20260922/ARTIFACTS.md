@@ -1,5 +1,7 @@
 # Git内容与原始产物
 
+新增对齐轮的完整原始导出位于同一共享root下的 `results/agentx-c80-aligned/aiperf_artifacts/`。工作区只回收其汇总和小体积指标；该轮完整校验清单为 `analysis/aligned-raw-artifacts-manifest.json`。
+
 Git提交保留配置、构建源码/补丁、harness、固定依赖版本、复现步骤、报告、聚合JSON/CSV、指标快照、启动参数和少量关键日志。历史运行的第三方checkout不会作为嵌套Git仓库提交。
 
 大体积AIPerf原始导出和完整worker日志不加入Git。它们仍保留在共享运行目录：

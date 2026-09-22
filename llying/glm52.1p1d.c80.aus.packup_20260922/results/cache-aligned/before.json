@@ -1,0 +1,8 @@
+{
+  "url": "http://10.235.192.136:29001/metrics",
+  "totals_across_ranks": {
+    "sglang:hicache_host_used_tokens": 0.0,
+    "sglang:hicache_host_total_tokens": 37721600.0,
+    "sglang:hicache_dropped_tokens_total": 0.0
+  }
+}

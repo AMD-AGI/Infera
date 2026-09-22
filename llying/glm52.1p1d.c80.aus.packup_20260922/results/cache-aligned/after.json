@@ -1,0 +1,14 @@
+{
+  "url": "http://10.235.192.136:29001/metrics",
+  "totals_across_ranks": {
+    "sglang:hicache_host_used_tokens": 37711808.0,
+    "sglang:hicache_host_total_tokens": 37721600.0,
+    "sglang:hicache_backup_duration_seconds_sum": 225.1492923584576,
+    "sglang:load_back_duration_seconds_sum": 8.315987303256989,
+    "sglang:hicache_dropped_tokens_total": 0.0,
+    "sglang:hicache_backup_tokens_total": 84619392.0,
+    "sglang:hicache_backup_bytes_total": 4673021303808.0,
+    "sglang:load_back_tokens_total": 5942336.0,
+    "sglang:load_back_bytes_total": 328159563264.0
+  }
+}

@@ -1,0 +1,40 @@
+{
+    "workers": [
+        {
+            "worker_id": "10.235.192.136:29001",
+            "url": "http://10.235.192.136:29001",
+            "model_name": "glm5.2-mxfp4",
+            "engine": "sglang",
+            "status": "active",
+            "disagg_mode": "prefill",
+            "disagg_meta": {
+                "protocol": "sglang-bootstrap",
+                "params": {
+                    "bootstrap_addr": "10.235.192.136:28998"
+                }
+            },
+            "kv_events_endpoint": "tcp://10.235.192.136:20842",
+            "kv_block_size": 64,
+            "dp_rank": null,
+            "dp_size": 8,
+            "request_transport": "http"
+        },
+        {
+            "worker_id": "10.235.192.128:29002",
+            "url": "http://10.235.192.128:29002",
+            "model_name": "glm5.2-mxfp4",
+            "engine": "sglang",
+            "status": "active",
+            "disagg_mode": "decode",
+            "disagg_meta": {
+                "protocol": "sglang-bootstrap",
+                "params": {}
+            },
+            "kv_events_endpoint": null,
+            "kv_block_size": null,
+            "dp_rank": null,
+            "dp_size": 8,
+            "request_transport": "http"
+        }
+    ]
+}

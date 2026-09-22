@@ -1,0 +1,41 @@
+{
+  "note": "Static config comparison, MODEL normalized for sourcing; image runtime versions and topology differ independently. Runtime CLI CONC=80 is checked separately.",
+  "differences": {
+    "BUILDER_NODE": {
+      "yihou_config": "crsuse2-m2m-137",
+      "aus_aligned_config": "smci355-ccs-aus-n01-33"
+    },
+    "CONTAINER_PREFIX": {
+      "yihou_config": "glm52-pd-yihou-p8d8",
+      "aus_aligned_config": "llying-aus-1p1d"
+    },
+    "CONTROL_NODE": {
+      "yihou_config": "crsuse2-m2m-137",
+      "aus_aligned_config": "smci355-ccs-aus-n01-33"
+    },
+    "DIR": {
+      "yihou_config": "/home/liyingli/code/bench_agentx/Infera/yihou/glm52.p8d8.agentx-sweep.packup_20260920/scripts/bench-harness",
+      "aus_aligned_config": "/home/liyingli/code/bench_agentx/Infera/llying/glm52.1p1d.c80.aus.packup_20260922/scripts/bench-harness"
+    },
+    "IMAGE": {
+      "yihou_config": "infera-sglang:v0519-yihou-0917-nextnfix-hicache",
+      "aus_aligned_config": "infera-sglang:v0519-llying-aus-0922-nextnfix-hicache"
+    },
+    "MOONCAKE_DISABLE_HIP_DMABUF": {
+      "yihou_config": "0",
+      "aus_aligned_config": "1"
+    },
+    "PD_DP_RANK_AFFINITY": {
+      "yihou_config": "1",
+      "aus_aligned_config": "0"
+    },
+    "REMOTE_BENCH_DIR": {
+      "yihou_config": "/home/liyingli/code/bench_agentx/Infera/yihou/glm52.p8d8.agentx-sweep.packup_20260920/scripts/bench-harness",
+      "aus_aligned_config": "/home/liyingli/code/bench_agentx/Infera/llying/glm52.1p1d.c80.aus.packup_20260922/scripts/bench-harness"
+    },
+    "SSH_OPTS": {
+      "yihou_config": "-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no",
+      "aus_aligned_config": "-F /dev/null -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/tmp/agentx_known_hosts"
+    }
+  }
+}

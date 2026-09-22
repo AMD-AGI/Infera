@@ -1,0 +1,20 @@
+{
+  "targets": [
+    {
+      "container": "llying-aus-1p1d-decode-0",
+      "elapsed_seconds": 248.748,
+      "health_url": "http://10.235.192.128:29002/health",
+      "healthy": true,
+      "name": "decode-0",
+      "node": "smci355-ccs-aus-n02-21"
+    },
+    {
+      "container": "llying-aus-1p1d-prefill-0",
+      "elapsed_seconds": 537.367,
+      "health_url": "http://10.235.192.136:29001/health",
+      "healthy": true,
+      "name": "prefill-0",
+      "node": "smci355-ccs-aus-n01-33"
+    }
+  ]
+}

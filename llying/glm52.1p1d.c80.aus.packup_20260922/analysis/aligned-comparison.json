@@ -1,0 +1,79 @@
+{
+  "sources": {
+    "yihou": "yihou/glm52.p8d8.agentx-sweep.packup_20260920/results/c080/agentx_conc80.json",
+    "aus_hicache_1200s": "llying/glm52.1p1d.c80.aus.packup_20260922/results/agentx-c80-hicache/agentx_conc80.json",
+    "aus_aligned_3600s": "llying/glm52.1p1d.c80.aus.packup_20260922/results/agentx-c80-aligned/agentx_conc80.json"
+  },
+  "metrics": {
+    "total_tps_per_gpu": {
+      "yihou": 19513.22563,
+      "aus_hicache_1200s": 16891.11834,
+      "aus_aligned_3600s": 20517.13777,
+      "aligned_vs_yihou_pct": 5.14477800357398,
+      "aligned_vs_previous_pct": 21.467018092065548
+    },
+    "input_tps": {
+      "yihou": 309689.01146,
+      "aus_hicache_1200s": 268271.40162,
+      "aus_aligned_3600s": 325664.13516,
+      "aligned_vs_yihou_pct": 5.1584405997122,
+      "aligned_vs_previous_pct": 21.393534008256097
+    },
+    "output_tps": {
+      "yihou": 2522.5986,
+      "aus_hicache_1200s": 1986.49188,
+      "aus_aligned_3600s": 2610.06918,
+      "aligned_vs_yihou_pct": 3.4674791304490693,
+      "aligned_vs_previous_pct": 31.39088089300419
+    },
+    "qps": {
+      "yihou": 2.61329,
+      "aus_hicache_1200s": 2.1873,
+      "aus_aligned_3600s": 2.68147,
+      "aligned_vs_yihou_pct": 2.608971832441087,
+      "aligned_vs_previous_pct": 22.592694189183014
+    },
+    "ttft_p50_s": {
+      "yihou": 5.69374,
+      "aus_hicache_1200s": 4.3109,
+      "aus_aligned_3600s": 5.46158,
+      "aligned_vs_yihou_pct": -4.077460509261055,
+      "aligned_vs_previous_pct": 26.692338026862128
+    },
+    "ttft_p90_s": {
+      "yihou": 22.1236,
+      "aus_hicache_1200s": 19.05189,
+      "aus_aligned_3600s": 23.07297,
+      "aligned_vs_yihou_pct": 4.291209387260664,
+      "aligned_vs_previous_pct": 21.105937521159323
+    },
+    "itl_p50_s": {
+      "yihou": 0.01488,
+      "aus_hicache_1200s": 0.01196,
+      "aus_aligned_3600s": 0.01333,
+      "aligned_vs_yihou_pct": -10.416666666666675,
+      "aligned_vs_previous_pct": 11.454849498327757
+    },
+    "itl_p90_s": {
+      "yihou": 0.02127,
+      "aus_hicache_1200s": 0.01619,
+      "aus_aligned_3600s": 0.0182,
+      "aligned_vs_yihou_pct": -14.433474377056887,
+      "aligned_vs_previous_pct": 12.415071031500947
+    },
+    "e2e_p50_s": {
+      "yihou": 16.23218,
+      "aus_hicache_1200s": 11.71181,
+      "aus_aligned_3600s": 15.15837,
+      "aligned_vs_yihou_pct": -6.615315995756577,
+      "aligned_vs_previous_pct": 29.428073030556344
+    },
+    "full_response_itl_p90_s": {
+      "yihou": 0.02128,
+      "aus_hicache_1200s": 0.01626,
+      "aus_aligned_3600s": 0.01828,
+      "aligned_vs_yihou_pct": -14.097744360902254,
+      "aligned_vs_previous_pct": 12.423124231242323
+    }
+  }
+}

@@ -1,7 +1,8 @@
 # AUS 1P1D C80 复现步骤
 
-本目录包含两轮测试：phase A 关闭 HiCache，phase B 仅开启 prefill HiCache。
-两轮都采用跨 rank 路由、decode MTP 模拟接受长度 3.61；不是回答正确性测试。
+本目录包含三轮测试：phase A 关闭 HiCache，phase B 仅开启 prefill HiCache，
+phase C在HiCache基础上对齐yihou的3600秒、10次预热、256上限和grouped-topk=1。
+三轮都采用跨 rank 路由、decode MTP 模拟接受长度 3.61；不是回答正确性测试。
 结果和限制见 README.md 与 analysis/hicache-results.md。
 
 ## 前提与固定版本
@@ -55,6 +56,8 @@ set +a
 
 phase A改选`config.phase-a.sh`，同样重新source配置。phase A保留历史`PD_DP_RANK_AFFINITY=1`设置作为记录，但该镜像不实现它；phase B显式写0，两者实际均为独立P/D rank选择。
 
+对齐轮改选`config.phase-c-aligned.sh`并重新source，预热为10/lane、测量3600秒、P/D上限256、grouped-topk=1，跨rank不变。
+
 ## 3. 检查节点、预检和启动
 
 先检查同名服务。配置使用`llying-aus-1p1d-*`容器名；已有本任务服务时，在确认没有运行中的benchmark后用同一CONFIG停止，再启动新一轮。不要停止其他用户的容器。
@@ -63,6 +66,8 @@ phase A改选`config.phase-a.sh`，同样重新source配置。phase A保留历�
 # 仅当需要替换本任务的已有服务时执行：
 # bash "$RUN_ROOT/scripts/bench-harness/stop.sh" "CONFIG=$CONFIG" "MODEL=$MODEL"
 
+python3 "$RUN_ROOT/scripts/wait_nodes_idle.py" \
+  smci355-ccs-aus-n01-33 smci355-ccs-aus-n02-21 --timeout 5400
 bash "$RUN_ROOT/scripts/bench-harness/check_nodes.sh" \
   smci355-ccs-aus-n01-33 smci355-ccs-aus-n02-21
 OUT_DIR="$RUN_ROOT/results/preflight" \
@@ -74,23 +79,25 @@ bash "$RUN_ROOT/scripts/bench-harness/launch.sh" \
 
 等待P/D/router全部healthy。首次模型加载、AITER JIT和HiCache host pool分配可能耗时十多分钟。HiCache版每rank约211.84 GB KV host pool加48.55 GB indexer，需确保足够CPU内存。禁止decode HiCache与当前MTP配置同时开启。
 
+HiCache停止后显存可能延迟释放：容器已消失、CPU内存已归还也不能认为GPU空闲。必须等两节点全部GPU通过显存和利用率检查再launch；缺失或不可读的指标按未就绪处理。
+
 本次历史phase B只替换prefill，保留decode/router；新环境按上面的完整启动过程即可建立同配置。
 
 ## 4. 运行AgentX并记录HiCache活动
 
 ```bash
-POINT="$RUN_ROOT/results/agentx-c80-hicache"
+POINT="$RUN_ROOT/results/agentx-c80"
 mkdir -p "$RUN_ROOT/results/cache-snapshots"
 python3 "$RUN_ROOT/scripts/capture_hicache_metrics.py" \
   --output "$RUN_ROOT/results/cache-snapshots/before.prom"
 bash "$RUN_ROOT/scripts/bench-harness/agentx_bench.sh" \
-  "CONFIG=$CONFIG" "MODEL=$MODEL" CONC=80 DURATION=1200 "OUT_DIR=$POINT"
+  "CONFIG=$CONFIG" "MODEL=$MODEL" CONC=80 "DURATION=$AGENTX_DURATION" "OUT_DIR=$POINT"
 python3 "$RUN_ROOT/scripts/capture_hicache_metrics.py" \
   --output "$RUN_ROOT/results/cache-snapshots/after.prom"
 python3 "$RUN_ROOT/scripts/bench-harness/tools/collect_agentx.py" "$RUN_ROOT/results"
 ```
 
-输出目录必须不存在；重跑使用新目录。1200秒是profiling发送窗口，不含数据准备和预热，结束后还有收尾。检查runner退出码、原始records的phase/error、收尾取消、HiCache backup/load-back增量；仅healthy或命令退出0不代表所有记录均有效。
+输出目录必须不存在；重跑使用新目录。AGENTX_DURATION为profiling发送窗口（A/B 1200秒、C 3600秒），不含数据准备和预热，结束后还有收尾。检查runner退出码、原始records的phase/error、收尾取消、HiCache backup/load-back增量；仅healthy或命令退出0不代表所有记录均有效。
 
 语义`eval/smoke.sh`可用于真实接受率配置；当前强制模拟接受率可能生成重复文本，历史phase A该检查失败。不能把此性能流程宣传为正确性验证。
 

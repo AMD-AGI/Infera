@@ -1,0 +1,89 @@
+{
+  "raw_records": {
+    "warmup:valid": 877,
+    "warmup:error": 7,
+    "profiling:valid": 9724
+  },
+  "errors": [
+    {
+      "phase": "warmup",
+      "request_id": "3bc9acd4-768b-4d18-b9b4-b38b30ce5f9d",
+      "error": {
+        "type": "InvalidInferenceResultError",
+        "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+        "cause_chain": [
+          "InvalidInferenceResultError"
+        ]
+      }
+    },
+    {
+      "phase": "warmup",
+      "request_id": "0663b909-e104-4f2a-acea-311ae0214a2d",
+      "error": {
+        "type": "InvalidInferenceResultError",
+        "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+        "cause_chain": [
+          "InvalidInferenceResultError"
+        ]
+      }
+    },
+    {
+      "phase": "warmup",
+      "request_id": "8183b40f-66e3-4b56-88d0-1ec43aeb94b5",
+      "error": {
+        "type": "InvalidInferenceResultError",
+        "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+        "cause_chain": [
+          "InvalidInferenceResultError"
+        ]
+      }
+    },
+    {
+      "phase": "warmup",
+      "request_id": "6071b1dc-4b12-4c43-9edb-95105b7ce788",
+      "error": {
+        "type": "InvalidInferenceResultError",
+        "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+        "cause_chain": [
+          "InvalidInferenceResultError"
+        ]
+      }
+    },
+    {
+      "phase": "warmup",
+      "request_id": "ec3603fe-eac3-4771-82e2-6ce7ee53ea5b",
+      "error": {
+        "type": "InvalidInferenceResultError",
+        "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+        "cause_chain": [
+          "InvalidInferenceResultError"
+        ]
+      }
+    },
+    {
+      "phase": "warmup",
+      "request_id": "3ef4281c-15c1-4361-a1e8-c56aeff7d0ae",
+      "error": {
+        "type": "InvalidInferenceResultError",
+        "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+        "cause_chain": [
+          "InvalidInferenceResultError"
+        ]
+      }
+    },
+    {
+      "phase": "warmup",
+      "request_id": "de573a8c-d1cd-46aa-be48-83275da32fae",
+      "error": {
+        "type": "InvalidInferenceResultError",
+        "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+        "cause_chain": [
+          "InvalidInferenceResultError"
+        ]
+      }
+    }
+  ],
+  "profiling_sent": 9737,
+  "profiling_completed": 9724,
+  "profiling_cancelled": 13
+}

@@ -1,3 +1,4 @@
 Point,Model,Hardware,Framework,Topology,Prefill Workers,Prefill TP,Prefill EP,Prefill GPUs,Decode Workers,Decode TP,Decode EP,Decode GPUs,Total GPUs,DP Attention,Concurrency,Token Throughput per Chip (tok/s/chip),P90 Interactivity (tok/s/user),Output Throughput/Chip (tok/s),Input Throughput/Chip (tok/s),Median ITL (s),P90 ITL (s),Median TTFT (s),Records Profiled,Records Total,Records Errored
 agentx-c80,GLM-5.2-MXFP4,mi355x,sglang,1P1D pTP8/EP1 dTP8/EP1 DPA,1,8,1,8,1,8,1,8,16,true,80,15518.7094875,60.753341433778864,122.940175,15395.7693125,0.01185,0.01646,4.96339,2465,2629,0
+agentx-c80-aligned,GLM-5.2-MXFP4,mi355x,sglang,1P1D pTP8/EP1 dTP8/EP1 DPA,1,8,1,8,1,8,1,8,16,true,80,20517.13777125,54.70459518599562,163.12932375,20354.0084475,0.01335,0.01828,5.46158,9724,10608,7
 agentx-c80-hicache,GLM-5.2-MXFP4,mi355x,sglang,1P1D pTP8/EP1 dTP8/EP1 DPA,1,8,1,8,1,8,1,8,16,true,80,16891.11834375,61.50061500615006,124.1557425,16766.96260125,0.01197,0.01626,4.3109,2688,2852,2
