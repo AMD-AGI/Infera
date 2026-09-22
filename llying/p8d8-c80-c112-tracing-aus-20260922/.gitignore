@@ -1,0 +1,5 @@
+source-snapshot/
+logs/
+runs/
+*.tgz
+image-id.txt
