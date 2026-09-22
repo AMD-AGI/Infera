@@ -55,6 +55,8 @@ OUT_DIR="${OUT_DIR:-$DIR/results/$(date -u +%Y%m%dT%H%M%SZ)-agentx-c$CONC}"
 [[ ! -e "$OUT_DIR" ]] || { echo "output path already exists: $OUT_DIR" >&2; exit 1; }
 mkdir -p "$OUT_DIR"
 OUT_DIR="$(cd "$OUT_DIR" && pwd)"
+cp "$0" "$OUT_DIR/executed-agentx-bench.sh"
+cp "$TRACE_RUNTIME/scripts/patch_client.py" "$OUT_DIR/executed-client-patch.py"
 cache="${AGENTX_CACHE_DIR:-$DIR/.cache/agentx}"
 mkdir -p "$cache/aiperf" "$cache/hf"
 
@@ -96,10 +98,12 @@ ssh_run "$CONTROL_NODE" docker run --rm --name "$name" \
         trap "chown -R $HOST_UID:$HOST_GID \"$out\" \"$AIPERF_RUNTIME_DIR\" \"$HF_HOME\"" EXIT
         source "$INFMAX_CONTAINER_WORKSPACE/benchmarks/benchmark_lib.sh"
         install_agentic_deps
+        python3 "$2"
+        export PYTHONPATH="/tmp/aus-client-overlay${PYTHONPATH:+:$PYTHONPATH}"
         resolve_trace_source
         build_replay_cmd "$out"
         run_agentic_replay_and_write_outputs "$out"
-    ' _ "$OUT_DIR" 2>&1 | tee "$OUT_DIR/runner.log"
+    ' _ "$OUT_DIR" "$TRACE_RUNTIME/scripts/patch_client.py" 2>&1 | tee "$OUT_DIR/runner.log"
 trap - EXIT INT TERM
 result="$OUT_DIR/agentx_conc$CONC.json"
 [[ -s "$result" ]] || { echo "AgentX result is missing: $result" >&2; exit 1; }

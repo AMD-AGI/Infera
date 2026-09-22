@@ -12,4 +12,6 @@ for role in prefill decode; do
     ssh "${opts[@]}" "$node" docker logs --timestamps "$CONTAINER_PREFIX-$role-0" \
         > "$RUN/server-logs/$role.log" 2>&1
 done
+ssh "${opts[@]}" "$PREFILL_NODE" docker logs --timestamps "$CONTAINER_PREFIX-router" \
+    > "$RUN/server-logs/router.log" 2>&1
 date -u --iso-8601=ns > "$RUN/last-capture.txt"
