@@ -331,6 +331,10 @@ def test_ensure_skip_server_warmup_is_idempotent():
 @pytest.mark.asyncio
 async def test_verify_pd_peer_transfers_real_kv_before_registration():
     requests: list[tuple[str, dict]] = []
+    sleeps: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:
+        sleeps.append(delay)
 
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
@@ -345,9 +349,11 @@ async def test_verify_pd_peer_transfers_real_kv_before_registration():
             bootstrap_host="prefill",
             bootstrap_port=30001,
             room_seed=100,
-            stabilization_sleep=0.0,
             http=client,
+            sleep=fake_sleep,
         )
+
+    assert sleeps == []
 
     assert [path for path, _ in requests] == [
         "prefill/generate",
@@ -382,7 +388,6 @@ async def test_verify_pd_peer_aborts_both_legs_on_transfer_failure():
                 bootstrap_port=30001,
                 room_seed=101,
                 attempts=1,
-                stabilization_sleep=0.0,
                 http=client,
             )
 
@@ -413,7 +418,6 @@ async def test_verify_pd_peer_retries_after_abort_then_succeeds():
             room_seed=200,
             attempts=3,
             retry_sleep=0.0,
-            stabilization_sleep=0.0,
             http=client,
         )
 
@@ -442,7 +446,6 @@ async def test_verify_pd_peer_gives_up_after_retry_budget():
                 room_seed=300,
                 attempts=3,
                 retry_sleep=0.0,
-                stabilization_sleep=0.0,
                 http=client,
             )
 
@@ -471,7 +474,7 @@ def test_apply_pd_probe_recovery_defaults_preserves_overrides(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_verify_pd_peer_waits_for_rdma_recovery_before_probe_and_retry():
+async def test_verify_pd_peer_waits_between_retries_for_rdma_recovery():
     sleeps: list[float] = []
     generate_calls = {"n": 0}
 
@@ -499,4 +502,4 @@ async def test_verify_pd_peer_waits_for_rdma_recovery_before_probe_and_retry():
             sleep=fake_sleep,
         )
 
-    assert sleeps == [35.0, 35.0]
+    assert sleeps == [35.0]

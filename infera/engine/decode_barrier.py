@@ -60,7 +60,6 @@ SGLANG_BOOTSTRAP_PROTOCOL = "sglang-bootstrap"
 SKIP_SERVER_WARMUP_FLAG = "--skip-server-warmup"
 DEFAULT_PD_PROBE_TIMEOUT = 300.0
 DEFAULT_PD_PROBE_ATTEMPTS = 3
-DEFAULT_PD_PROBE_STABILIZATION_SLEEP = 35.0
 DEFAULT_PD_PROBE_RETRY_SLEEP = 35.0
 
 # Every Pod of an InferaDeployment carries this (operator: builders.go
@@ -478,7 +477,6 @@ async def verify_pd_peer(
     dp_size: int = 1,
     timeout: float = DEFAULT_PD_PROBE_TIMEOUT,
     attempts: int = DEFAULT_PD_PROBE_ATTEMPTS,
-    stabilization_sleep: float = DEFAULT_PD_PROBE_STABILIZATION_SLEEP,
     retry_sleep: float = DEFAULT_PD_PROBE_RETRY_SLEEP,
     room_seed: int | None = None,
     http: httpx.AsyncClient | None = None,
@@ -488,6 +486,7 @@ async def verify_pd_peer(
 
     A failed transfer aborts both legs and retries with a new room so a
     transient RDMA/Mooncake error does not permanently block registration.
+    The first probe is issued immediately; retry_sleep applies only after abort.
     """
     ranks = max(1, int(dp_size))
     tries = max(1, int(attempts))
@@ -497,12 +496,6 @@ async def verify_pd_peer(
     owns_client = http is None
     client = http if http is not None else httpx.AsyncClient(timeout=timeout)
     try:
-        if stabilization_sleep > 0:
-            logger.info(
-                "decode barrier: waiting %.0fs for RDMA contexts to stabilize",
-                stabilization_sleep,
-            )
-            await sleeper(stabilization_sleep)
         for dp_rank in range(ranks):
             last_details = ""
             for attempt in range(tries):
