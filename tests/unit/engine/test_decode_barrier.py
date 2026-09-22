@@ -367,6 +367,35 @@ async def test_verify_pd_peer_transfers_real_kv_before_registration():
 
 
 @pytest.mark.asyncio
+async def test_verify_pd_peer_maps_prefill_ranks_to_smaller_decode_dp():
+    requests: list[tuple[str, dict]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append((request.url.host, body))
+        return httpx.Response(200, json={"text": "ok"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        await verify_pd_peer(
+            prefill_url="http://prefill:30000",
+            decode_url="http://decode:30000",
+            bootstrap_host="prefill",
+            bootstrap_port=30001,
+            dp_size=4,
+            decode_dp_size=1,
+            room_seed=100,
+            http=client,
+        )
+
+    prefill = [body for host, body in requests if host == "prefill"]
+    decode = [body for host, body in requests if host == "decode"]
+    assert [body["routed_dp_rank"] for body in prefill] == [0, 1, 2, 3]
+    assert [body["routed_dp_rank"] for body in decode] == [0, 0, 0, 0]
+    assert [body["bootstrap_room"] % 4 for body in prefill] == [0, 1, 2, 3]
+
+
+@pytest.mark.asyncio
 async def test_verify_pd_peer_aborts_both_legs_on_transfer_failure():
     aborts: list[str] = []
 

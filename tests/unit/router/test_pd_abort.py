@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 
+import anyio
 import httpx
 import pytest
 
@@ -134,6 +135,67 @@ async def test_stream_dual_aborts_on_client_cancel(monkeypatch):
     with pytest.raises(asyncio.CancelledError):
         await task
     assert aborted.count("infera-9") >= 2, aborted
+    assert r.policy.finished == 2
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_stream_dual_cleanup_is_shielded_from_anyio_cancel_scope(monkeypatch):
+    monkeypatch.setenv("INFERA_PD_PREFILL_DRAIN_TIMEOUT", "0")
+    aborted = []
+    first_chunk = asyncio.Event()
+    scope_ready = asyncio.Event()
+    scope_holder = {}
+
+    class _HangDecode:
+        status_code = 200
+
+        async def aiter_raw(self):
+            yield b'data: {"choices":[{"delta":{"content":"x"}}]}\n\n'
+            await asyncio.Event().wait()
+
+        async def aclose(self):
+            await asyncio.sleep(0)
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/abort_request"):
+            aborted.append(json.loads(request.content)["rid"])
+            return httpx.Response(200, json={})
+        return httpx.Response(200, json={"id": "prefill"})
+
+    r = DisaggRouter(_FakePool(), _FakePolicy())
+    r._client = httpx.AsyncClient(transport=httpx.MockTransport(_handler))
+    r._DECODE_OPEN_MAX_RETRIES = 0
+
+    async def _open(*_a, **_k):
+        return _HangDecode()
+
+    r._open_decode_stream = _open  # type: ignore[method-assign]
+
+    async def _consume():
+        with anyio.CancelScope() as scope:
+            scope_holder["scope"] = scope
+            scope_ready.set()
+            async for _chunk in r._stream_dual(
+                RequestObserver("disagg"),
+                RouteTarget(_w("p1")),
+                [],
+                RouteTarget(_w("d1")),
+                [],
+                "http://p1/v1/chat/completions",
+                "http://d1/v1/chat/completions",
+                {"model": "m", "rid": "infera-10"},
+                {"model": "m", "rid": "infera-10"},
+            ):
+                first_chunk.set()
+
+    task = asyncio.create_task(_consume())
+    await scope_ready.wait()
+    await first_chunk.wait()
+    scope_holder["scope"].cancel()
+    await task
+
+    assert aborted.count("infera-10") >= 2, aborted
     assert r.policy.finished == 2
     await r.aclose()
 

@@ -10,6 +10,7 @@ import json
 import logging
 import random
 
+import anyio
 import httpx
 from fastapi import Response
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -685,12 +686,13 @@ class DisaggRouter(BaseRouter):
             client_disconnected = True
             raise
         finally:
-            await self._release_prefill_drain(
-                p_task, p.url, d.url, rid, p.worker_id, abort=client_disconnected
-            )
-            self.policy.on_request_finished(p_target.route_key, p_blocks)
-            self.policy.on_request_finished(d_target.route_key, d_blocks)
-            obs.close()
+            with anyio.CancelScope(shield=True):
+                await self._release_prefill_drain(
+                    p_task, p.url, d.url, rid, p.worker_id, abort=client_disconnected
+                )
+                self.policy.on_request_finished(p_target.route_key, p_blocks)
+                self.policy.on_request_finished(d_target.route_key, d_blocks)
+                obs.close()
 
     async def _dispatch_serial(
         self,
@@ -1134,19 +1136,20 @@ class DisaggRouter(BaseRouter):
                 obs.mark_failed()
                 yield f"data: {err}\n\n".encode()
         finally:
-            if d_resp is not None:
-                try:
-                    await d_resp.aclose()
-                except Exception:
-                    pass
-            await self._release_prefill_drain(
-                p_task,
-                p.url,
-                d.url,
-                rid,
-                p.worker_id,
-                abort=client_disconnected,
-            )
-            self.policy.on_request_finished(p_target.route_key, p_blocks)
-            self.policy.on_request_finished(d_target.route_key, d_blocks)
-            obs.close()
+            with anyio.CancelScope(shield=True):
+                if d_resp is not None:
+                    try:
+                        await d_resp.aclose()
+                    except (asyncio.CancelledError, Exception):
+                        pass
+                await self._release_prefill_drain(
+                    p_task,
+                    p.url,
+                    d.url,
+                    rid,
+                    p.worker_id,
+                    abort=client_disconnected,
+                )
+                self.policy.on_request_finished(p_target.route_key, p_blocks)
+                self.policy.on_request_finished(d_target.route_key, d_blocks)
+                obs.close()

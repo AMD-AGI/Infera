@@ -181,6 +181,7 @@ async fn stream_dual(
         d.worker.url.clone(),
         rid,
     );
+    let mut abort_unless_stream_owns_it = FireOnDrop(Some(incomplete_tx));
 
     match open_decode(state, d, &d_url, &d_body).await {
         Ok(resp) => Response::builder()
@@ -190,13 +191,10 @@ async fn stream_dual(
             .body(Body::from_stream(GuardedStream::new_with_incomplete_abort(
                 resp.bytes_stream(),
                 guard,
-                Some(incomplete_tx),
+                abort_unless_stream_owns_it.take(),
             )))
             .expect("stream response is valid"),
-        Err(msg) => {
-            let _ = incomplete_tx.send(());
-            json_error(StatusCode::BAD_GATEWAY, &msg)
-        }
+        Err(msg) => json_error(StatusCode::BAD_GATEWAY, &msg),
     }
 }
 
@@ -673,6 +671,10 @@ impl FireOnDrop {
     fn disarm(&mut self) {
         self.0.take();
     }
+
+    fn take(&mut self) -> Option<oneshot::Sender<()>> {
+        self.0.take()
+    }
 }
 
 impl Drop for FireOnDrop {
@@ -810,5 +812,25 @@ mod tests {
         }
         assert_eq!(b.state_of("p1").as_str(), "open");
         assert_eq!(b.state_of("d1").as_str(), "closed");
+    }
+
+    #[tokio::test]
+    async fn fire_on_drop_can_transfer_abort_ownership() {
+        let (tx, rx) = oneshot::channel();
+        drop(FireOnDrop(Some(tx)));
+        assert!(rx.await.is_ok(), "dropping the guard must signal abort");
+
+        let (tx, mut rx) = oneshot::channel();
+        let transferred = {
+            let mut guard = FireOnDrop(Some(tx));
+            guard.take()
+        };
+
+        assert!(rx.try_recv().is_err(), "handoff must not signal abort");
+        drop(transferred);
+        assert!(
+            rx.await.is_err(),
+            "dropping the transferred sender closes the channel"
+        );
     }
 }

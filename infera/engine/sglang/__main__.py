@@ -168,6 +168,7 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs, config) -> None:
             bootstrap_host=bootstrap_host,
             bootstrap_port=int(args.server_args.disaggregation_bootstrap_port),
             dp_size=int(getattr(args.server_args, "dp_size", 1) or 1),
+            decode_dp_size=int(decode.get("dp_size") or 1),
         )
     finally:
         if http is not None:
@@ -455,15 +456,17 @@ async def main() -> None:
         config.disagg_meta,
     )
 
-    # Everything past engine.start() must tear the engine down on failure or
-    # shutdown, including the decode barrier window: signal handlers and the
-    # subprocess death watch start here, before any wait.
+    await _run_started_engine(args, engine, config)
+
+
+async def _run_started_engine(args: SglangWorkerArgs, engine: SglangEngine, config) -> None:
+    """Supervise and tear down an engine that completed startup."""
     stop, death, death_task = _supervise_engine(engine)
     failed = False
     try:
         if await _wait_for_decode_until_stop(args, config, stop):
             await _run_after_start(args, engine, config, stop)
-    except Exception:
+    except BaseException:
         failed = True
         logger.exception("worker failed after engine start; tearing down")
         raise

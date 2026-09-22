@@ -14,8 +14,12 @@ import pytest
 
 pytest.importorskip("sglang")
 
+from infera.engine.base import EngineDeath  # noqa: E402
+from infera.engine.sglang.__main__ import (  # noqa: E402
+    _run_started_engine,
+    _wait_for_decode_until_stop,
+)
 from infera.engine.sglang.args import parse_sglang_args  # noqa: E402
-from infera.engine.sglang.__main__ import _wait_for_decode_until_stop  # noqa: E402
 
 _PREFILL = [
     "--model-path",
@@ -81,3 +85,39 @@ async def test_wait_for_decode_until_stop_returns_true_on_success(monkeypatch):
         await _wait_for_decode_until_stop(SimpleNamespace(), SimpleNamespace(), asyncio.Event())
         is True
     )
+
+
+@pytest.mark.asyncio
+async def test_started_engine_keeps_cancelled_error_and_forces_cleanup(monkeypatch):
+    stopped = []
+    killed = []
+
+    class _Engine:
+        async def stop(self):
+            stopped.append(True)
+
+    async def _cancelled(*_args):
+        raise asyncio.CancelledError
+
+    async def _watch():
+        await asyncio.Event().wait()
+
+    death_task = asyncio.create_task(_watch())
+    monkeypatch.setattr(
+        "infera.engine.sglang.__main__._supervise_engine",
+        lambda _engine: (asyncio.Event(), EngineDeath(exit_status=9), death_task),
+    )
+    monkeypatch.setattr(
+        "infera.engine.sglang.__main__._wait_for_decode_until_stop",
+        _cancelled,
+    )
+    monkeypatch.setattr(
+        "infera.engine.sglang.__main__._kill_process_group_safely",
+        lambda: killed.append(True),
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        await _run_started_engine(SimpleNamespace(), _Engine(), SimpleNamespace())
+
+    assert stopped == [True]
+    assert killed == [True]

@@ -475,6 +475,7 @@ async def verify_pd_peer(
     bootstrap_host: str,
     bootstrap_port: int,
     dp_size: int = 1,
+    decode_dp_size: int = 1,
     timeout: float = DEFAULT_PD_PROBE_TIMEOUT,
     attempts: int = DEFAULT_PD_PROBE_ATTEMPTS,
     retry_sleep: float = DEFAULT_PD_PROBE_RETRY_SLEEP,
@@ -489,6 +490,7 @@ async def verify_pd_peer(
     The first probe is issued immediately; retry_sleep applies only after abort.
     """
     ranks = max(1, int(dp_size))
+    decode_ranks = max(1, int(decode_dp_size))
     tries = max(1, int(attempts))
     sleeper = sleep or asyncio.sleep
     base_room = room_seed if room_seed is not None else secrets.randbits(63)
@@ -500,15 +502,23 @@ async def verify_pd_peer(
             last_details = ""
             for attempt in range(tries):
                 room = base_room + dp_rank + attempt * ranks
-                body = pd_peer_probe_payload(
+                prefill_body = pd_peer_probe_payload(
                     bootstrap_host=bootstrap_host,
                     bootstrap_port=bootstrap_port,
                     room=room,
                     dp_rank=dp_rank,
                 )
+                # routed_dp_rank is local to each endpoint. The bootstrap room
+                # remains aligned to the producing prefill rank.
+                decode_body = pd_peer_probe_payload(
+                    bootstrap_host=bootstrap_host,
+                    bootstrap_port=bootstrap_port,
+                    room=room,
+                    dp_rank=dp_rank % decode_ranks,
+                )
                 results = await asyncio.gather(
-                    client.post(f"{prefill_url.rstrip('/')}/generate", json=body),
-                    client.post(f"{decode_url.rstrip('/')}/generate", json=body),
+                    client.post(f"{prefill_url.rstrip('/')}/generate", json=prefill_body),
+                    client.post(f"{decode_url.rstrip('/')}/generate", json=decode_body),
                     return_exceptions=True,
                 )
                 failed = [
@@ -519,7 +529,7 @@ async def verify_pd_peer(
                 if not failed:
                     break
 
-                abort_body = {"rid": body["rid"]}
+                abort_body = {"rid": prefill_body["rid"]}
                 await asyncio.gather(
                     client.post(f"{prefill_url.rstrip('/')}/abort_request", json=abort_body),
                     client.post(f"{decode_url.rstrip('/')}/abort_request", json=abort_body),
