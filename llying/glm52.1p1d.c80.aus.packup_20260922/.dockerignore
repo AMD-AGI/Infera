@@ -1,0 +1,8 @@
+# Overlay context: only its Dockerfile, applier and two source patches.
+**
+!build/
+!build/Dockerfile.yihou-overlay
+!build/apply_nextn_patch.py
+!patches/
+!patches/pr37152.sources.yihou.diff
+!patches/nextn-fusion-fork-4350d37c5.patch

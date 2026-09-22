@@ -1,0 +1,24 @@
+# Keep the source required to rebuild the image (root ignores build/).
+!/build/
+!/build/Dockerfile.yihou-overlay
+!/build/apply_nextn_patch.py
+
+# Fetch the pinned dependency; never vendor its nested Git repository.
+/scripts/bench-harness/.cache/
+
+# Raw exports remain in the shared artifact directory; see ARTIFACTS.md.
+/results/**/aiperf_artifacts/
+/results/**/server-logs/
+
+# Internal progress notes; final reports and runtime snapshots are retained.
+/analysis/resume.md
+/analysis/hicache-progress.md
+/analysis/agentx-runtime.env
+
+# Small logs cited by the reports are intentional evidence.
+!/logs/build-base.log
+!/logs/build-overlay.log
+!/analysis/router-rank-picks-20260922T0936Z.log
+!/results/**/runner.log
+!/results/preflight/*.log
+!/results/preflight-resume/*.log

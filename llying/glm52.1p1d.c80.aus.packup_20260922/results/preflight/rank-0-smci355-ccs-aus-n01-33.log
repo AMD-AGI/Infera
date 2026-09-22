@@ -1,0 +1,6 @@
+[preflight] [smci355-ccs-aus-n01-33] running network...
+[preflight] [smci355-ccs-aus-n01-33]   network: OK
+[preflight] [smci355-ccs-aus-n01-33] running mooncake...
+[preflight] host=smci355-ccs-aus-n01-33 rank=0/2 sections=network status=OK
+[preflight] wrote /perf_apps/liyingli/bench_agentx/glm52-c80-20260922/results/preflight/smci355-ccs-aus-n01-33.json
+[preflight] report (2 host(s)): /perf_apps/liyingli/bench_agentx/glm52-c80-20260922/results/preflight/infera_preflight_report.html

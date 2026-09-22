@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Infera Preflight Report</title>
+<style>
+:root { color-scheme: light dark; }
+body { font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+       margin: 2rem auto; max-width: 1100px; padding: 0 1rem; line-height: 1.5; }
+h1 { margin-bottom: .3rem; }
+.meta { color: #666; margin-bottom: 1.5rem; }
+.meta code { background: rgba(127,127,127,.15); padding: .1rem .35rem; border-radius: 4px; }
+h2 { margin-top: 2rem; border-bottom: 1px solid rgba(127,127,127,.3); padding-bottom: .3rem; }
+h3 { margin-top: 1.4rem; margin-bottom: .2rem; }
+h4 { margin: 1rem 0 .2rem; }
+table { border-collapse: collapse; width: 100%; margin-top: .5rem; font-size: .92rem; }
+th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid rgba(127,127,127,.2); vertical-align: top; }
+th { background: rgba(127,127,127,.1); }
+tr:hover td { background: rgba(127,127,127,.06); }
+td.details { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82rem;
+             color: #555; word-break: break-word; }
+table.matrix th, table.matrix td { text-align: center; }
+table.matrix td:first-child, table.matrix th:first-child { text-align: left; }
+.na { color: #999; }
+.badge { display: inline-block; padding: .12rem .5rem; border-radius: 999px; font-size: .78rem;
+         font-weight: 600; color: #fff; }
+.ok   { background: #2e9e5b; }
+.warn { background: #d99400; }
+.fail { background: #d64545; }
+.info { background: #8a8f98; }
+a { color: #3b82f6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+</style></head><body>
+<h1>Infera Preflight Report</h1>
+<div class="meta">
+Nodes <code>2</code> &nbsp;·&nbsp; Generated <code>2026-09-22 08:42:31</code>
+</div>
+<h2>Nodes</h2>
+<table><thead><tr><th>Node</th><th>Image</th><th>Collected</th></tr></thead><tbody>
+<tr><td>smci355-ccs-aus-n01-33</td><td class="details">infera-sglang:v0519-llying-aus-0922-nextnfix-hicache</td><td>2026-09-22 08:42:31</td></tr>
+<tr><td>smci355-ccs-aus-n02-21</td><td class="details">infera-sglang:v0519-llying-aus-0922-nextnfix-hicache</td><td>2026-09-22 08:42:31</td></tr>
+</tbody></table>
+<h2>0. Cluster overview</h2>
+<h3>0.1 Base info</h3>
+<table class="matrix"><thead><tr><th>Node</th><th title="Plain NICs, RDMA (ionic) devices and their link state, and each RDMA device&#x27;s backing netdev and IP.">1.1 Network</th></tr></thead><tbody>
+<tr><td>smci355-ccs-aus-n01-33</td><td><a href="#network--smci355-ccs-aus-n01-33"><span class="badge ok">OK</span></a></td></tr>
+<tr><td>smci355-ccs-aus-n02-21</td><td><a href="#network--smci355-ccs-aus-n02-21"><span class="badge ok">OK</span></a></td></tr>
+</tbody></table>
+<h3>0.2 Multi-node / PD</h3>
+<table class="matrix"><thead><tr><th>Node</th><th title="Measured cross-node KV-move bandwidth via Mooncake TransferEngine (GB/s): rdma (MC_GID_INDEX set, correct deployment), rdma-default (unset, simulates an operator who forgot the knob -&gt; cross-node unreachable), tcp (MC_FORCE_TCP). Each row states the env it needed.">2.1 Mooncake KV transfer</th></tr></thead><tbody>
+<tr><td>smci355-ccs-aus-n01-33</td><td><a href="#mooncake--smci355-ccs-aus-n01-33">RDMA: <span class="badge ok">OK</span> &nbsp; RDMA(default): <span class="badge ok">OK</span> &nbsp; TCP: <span class="badge ok">OK</span></a></td></tr>
+<tr><td>smci355-ccs-aus-n02-21</td><td><a href="#mooncake--smci355-ccs-aus-n02-21">RDMA: <span class="badge ok">OK</span> &nbsp; RDMA(default): <span class="badge ok">OK</span> &nbsp; TCP: <span class="badge ok">OK</span></a></td></tr>
+</tbody></table>
+<h2>1. Base info</h2>
+<h3>1.1 Network</h3>
+<p class="meta">Plain NICs, RDMA (ionic) devices and their link state, and each RDMA device&#x27;s backing netdev and IP.</p>
+<h4 id="network--smci355-ccs-aus-n01-33">smci355-ccs-aus-n01-33 <span class="badge ok">OK</span></h4>
+<table><thead><tr><th>level</th><th>check</th><th>details</th></tr></thead><tbody>
+<tr><td><span class="badge info">info</span></td><td>NIC inventory</td><td class="details">{&quot;ipv4&quot;: {&quot;benic1p1&quot;: [&quot;192.168.1.70/31&quot;], &quot;benic2p1&quot;: [&quot;192.168.2.70/31&quot;], &quot;benic3p1&quot;: [&quot;192.168.3.70/31&quot;], &quot;benic4p1&quot;: [&quot;192.168.4.70/31&quot;], &quot;benic5p1&quot;: [&quot;192.168.5.70/31&quot;], &quot;benic6p1&quot;: [&quot;192.168.6.70/31&quot;], &quot;benic7p1&quot;: [&quot;192.168.7.70/31&quot;], &quot;benic8p1&quot;: [&quot;192.168.8.70/31&quot;], &quot;docker0&quot;: [&quot;172.17.0.1/16&quot;], &quot;fenic&quot;: [&quot;10.235.192.136/22&quot;], &quot;lo&quot;: [&quot;127.0.0.1/8&quot;]}, &quot;nics&quot;: [&quot;benic1p1&quot;, &quot;benic2p1&quot;, &quot;benic3p1&quot;, &quot;benic4p1&quot;, &quot;benic5p1&quot;, &quot;benic6p1&quot;, &quot;benic7p1&quot;, &quot;benic8p1&quot;, &quot;docker0&quot;, &quot;enp193s0f0&quot;, &quot;enp193s0f1&quot;, &quot;enp81s0f0&quot;, &quot;fenic&quot;, &quot;lo&quot;], &quot;rdma_devices&quot;: [&quot;ionic_0&quot;, &quot;ionic_1&quot;, &quot;ionic_2&quot;, &quot;ionic_3&quot;, &quot;ionic_4&quot;, &quot;ionic_5&quot;, &quot;ionic_6&quot;, &quot;ionic_7&quot;]}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>RDMA device map</td><td class="details">{&quot;devices&quot;: {&quot;ionic_0&quot;: {&quot;netdev&quot;: &quot;benic1p1&quot;, &quot;state&quot;: &quot;ACTIVE&quot;}, &quot;ionic_1&quot;: {&quot;netdev&quot;: &quot;benic2p1&quot;, &quot;state&quot;: &quot;ACTIVE&quot;}, &quot;ionic_2&quot;: {&quot;netdev&quot;: &quot;benic4p1&quot;, &quot;state&quot;: &quot;ACTIVE&quot;}, &quot;ionic_3&quot;: {&quot;netdev&quot;: &quot;benic3p1&quot;, &quot;state&quot;: &quot;ACTIVE&quot;}, &quot;ionic_4&quot;: {&quot;netdev&quot;: &quot;benic5p1&quot;, &quot;state&quot;: &quot;ACTIVE&quot;}, &quot;ionic_5&quot;: {&quot;netdev&quot;: &quot;benic6p1&quot;, &quot;state&quot;: &quot;ACTIVE&quot;}, &quot;ionic_6&quot;: {&quot;netdev&quot;: &quot;benic8p1&quot;, &quot;state&quot;: &quot;ACTIVE&quot;}, &quot;ionic_7&quot;: {&quot;netdev&quot;: &quot;benic7p1&quot;, &quot;state&quot;: &quot;ACTIVE&quot;}}}</td></tr>
+</tbody></table>
+<h4 id="network--smci355-ccs-aus-n02-21">smci355-ccs-aus-n02-21 <span class="badge ok">OK</span></h4>
+<table><thead><tr><th>level</th><th>check</th><th>details</th></tr></thead><tbody>
+<tr><td><span class="badge info">info</span></td><td>NIC inventory</td><td class="details">{&quot;ipv4&quot;: {&quot;benic1p1&quot;: [&quot;192.168.1.40/31&quot;], &quot;benic2p1&quot;: [&quot;192.168.2.40/31&quot;], &quot;benic3p1&quot;: [&quot;192.168.3.40/31&quot;], &quot;benic4p1&quot;: [&quot;192.168.4.40/31&quot;], &quot;benic5p1&quot;: [&quot;192.168.5.40/31&quot;], &quot;benic6p1&quot;: [&quot;192.168.6.40/31&quot;], &quot;benic7p1&quot;: [&quot;192.168.7.40/31&quot;], &quot;benic8p1&quot;: [&quot;192.168.8.40/31&quot;], &quot;docker0&quot;: [&quot;172.17.0.1/16&quot;], &quot;fenic&quot;: [&quot;10.235.192.128/22&quot;], &quot;lo&quot;: [&quot;127.0.0.1/8&quot;]}, &quot;nics&quot;: [&quot;benic1p1&quot;, &quot;benic2p1&quot;, &quot;benic3p1&quot;, &quot;benic4p1&quot;, &quot;benic5p1&quot;, &quot;benic6p1&quot;, &quot;benic7p1&quot;, &quot;benic8p1&quot;, &quot;docker0&quot;, &quot;enp193s0f0&quot;, &quot;enp193s0f1&quot;, &quot;enp81s0f0&quot;, &quot;fenic&quot;, &quot;lo&quot;], &quot;rdma_devices&quot;: [&quot;ionic_0&quot;, &quot;ionic_1&quot;, &quot;ionic_2&quot;, &quot;ionic_3&quot;, &quot;ionic_4&quot;, &quot;ionic_5&quot;, &quot;ionic_6&quot;, &quot;ionic_7&quot;]}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>RDMA device map</td><td class="details">{&quot;devices&quot;: {&quot;ionic_0&quot;: {&quot;netdev&quot;: &quot;benic1p1&quot;, &quot;state&quot;: &quot;ACTIVE&quot;}, &quot;ionic_1&quot;: {&quot;netdev&quot;: &quot;benic2p1&quot;, &quot;state&quot;: &quot;ACTIVE&quot;}, &quot;ionic_2&quot;: {&quot;netdev&quot;: &quot;benic4p1&quot;, &quot;state&quot;: &quot;ACTIVE&quot;}, &quot;ionic_3&quot;: {&quot;netdev&quot;: &quot;benic3p1&quot;, &quot;state&quot;: &quot;ACTIVE&quot;}, &quot;ionic_4&quot;: {&quot;netdev&quot;: &quot;benic5p1&quot;, &quot;state&quot;: &quot;ACTIVE&quot;}, &quot;ionic_5&quot;: {&quot;netdev&quot;: &quot;benic6p1&quot;, &quot;state&quot;: &quot;ACTIVE&quot;}, &quot;ionic_6&quot;: {&quot;netdev&quot;: &quot;benic8p1&quot;, &quot;state&quot;: &quot;ACTIVE&quot;}, &quot;ionic_7&quot;: {&quot;netdev&quot;: &quot;benic7p1&quot;, &quot;state&quot;: &quot;ACTIVE&quot;}}}</td></tr>
+</tbody></table>
+<h2>2. Multi-node / PD</h2>
+<h3>2.1 Mooncake KV transfer</h3>
+<p class="meta">Measured cross-node KV-move bandwidth via Mooncake TransferEngine (GB/s): rdma (MC_GID_INDEX set, correct deployment), rdma-default (unset, simulates an operator who forgot the knob -&gt; cross-node unreachable), tcp (MC_FORCE_TCP). Each row states the env it needed.</p>
+<h4 id="mooncake--smci355-ccs-aus-n01-33">smci355-ccs-aus-n01-33 <span class="badge ok">OK</span></h4>
+<table><thead><tr><th>level</th><th>check</th><th>details</th></tr></thead><tbody>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n01-33 -&gt; smci355-ccs-aus-n02-21 rdma</td><td class="details">{&quot;GB/s&quot;: 8.42, &quot;dev&quot;: &quot;ionic_0&quot;, &quot;env&quot;: &quot;MC_GID_INDEX=1&quot;, &quot;gpu&quot;: -1, &quot;loc&quot;: &quot;cpu&quot;, &quot;moved_GiB&quot;: 23.5, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n01-33 -&gt; smci355-ccs-aus-n02-21 rdma-default</td><td class="details">{&quot;GB/s&quot;: 12.8, &quot;env&quot;: &quot;none&quot;, &quot;gpu&quot;: -1, &quot;loc&quot;: &quot;cpu&quot;, &quot;moved_GiB&quot;: 35.8, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n01-33 -&gt; smci355-ccs-aus-n02-21 tcp</td><td class="details">{&quot;GB/s&quot;: 0.11, &quot;env&quot;: &quot;MC_FORCE_TCP=1&quot;, &quot;gpu&quot;: -1, &quot;loc&quot;: &quot;cpu&quot;, &quot;moved_GiB&quot;: 0.3, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n01-33 -&gt; smci355-ccs-aus-n02-21 rdma-gpu0</td><td class="details">{&quot;GB/s&quot;: 38.68, &quot;env&quot;: &quot;MC_GID_INDEX=1&quot;, &quot;gpu&quot;: 0, &quot;loc&quot;: &quot;gpu&quot;, &quot;moved_GiB&quot;: 109.0, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n01-33 -&gt; smci355-ccs-aus-n02-21 rdma-gpu1</td><td class="details">{&quot;GB/s&quot;: 38.43, &quot;env&quot;: &quot;MC_GID_INDEX=1&quot;, &quot;gpu&quot;: 1, &quot;loc&quot;: &quot;gpu&quot;, &quot;moved_GiB&quot;: 108.0, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n01-33 -&gt; smci355-ccs-aus-n02-21 rdma-gpu2</td><td class="details">{&quot;GB/s&quot;: 38.4, &quot;env&quot;: &quot;MC_GID_INDEX=1&quot;, &quot;gpu&quot;: 2, &quot;loc&quot;: &quot;gpu&quot;, &quot;moved_GiB&quot;: 108.0, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n01-33 -&gt; smci355-ccs-aus-n02-21 rdma-gpu3</td><td class="details">{&quot;GB/s&quot;: 38.45, &quot;env&quot;: &quot;MC_GID_INDEX=1&quot;, &quot;gpu&quot;: 3, &quot;loc&quot;: &quot;gpu&quot;, &quot;moved_GiB&quot;: 108.0, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n01-33 -&gt; smci355-ccs-aus-n02-21 rdma-gpu4</td><td class="details">{&quot;GB/s&quot;: 41.15, &quot;env&quot;: &quot;MC_GID_INDEX=1&quot;, &quot;gpu&quot;: 4, &quot;loc&quot;: &quot;gpu&quot;, &quot;moved_GiB&quot;: 115.0, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n01-33 -&gt; smci355-ccs-aus-n02-21 rdma-gpu5</td><td class="details">{&quot;GB/s&quot;: 41.1, &quot;env&quot;: &quot;MC_GID_INDEX=1&quot;, &quot;gpu&quot;: 5, &quot;loc&quot;: &quot;gpu&quot;, &quot;moved_GiB&quot;: 115.0, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n01-33 -&gt; smci355-ccs-aus-n02-21 rdma-gpu6</td><td class="details">{&quot;GB/s&quot;: 38.42, &quot;env&quot;: &quot;MC_GID_INDEX=1&quot;, &quot;gpu&quot;: 6, &quot;loc&quot;: &quot;gpu&quot;, &quot;moved_GiB&quot;: 108.0, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n01-33 -&gt; smci355-ccs-aus-n02-21 rdma-gpu7</td><td class="details">{&quot;GB/s&quot;: 40.95, &quot;env&quot;: &quot;MC_GID_INDEX=1&quot;, &quot;gpu&quot;: 7, &quot;loc&quot;: &quot;gpu&quot;, &quot;moved_GiB&quot;: 115.0, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+</tbody></table>
+<h4 id="mooncake--smci355-ccs-aus-n02-21">smci355-ccs-aus-n02-21 <span class="badge ok">OK</span></h4>
+<table><thead><tr><th>level</th><th>check</th><th>details</th></tr></thead><tbody>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n02-21 -&gt; smci355-ccs-aus-n01-33 rdma</td><td class="details">{&quot;GB/s&quot;: 8.6, &quot;dev&quot;: &quot;ionic_0&quot;, &quot;env&quot;: &quot;MC_GID_INDEX=1&quot;, &quot;gpu&quot;: -1, &quot;loc&quot;: &quot;cpu&quot;, &quot;moved_GiB&quot;: 24.0, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n02-21 -&gt; smci355-ccs-aus-n01-33 rdma-default</td><td class="details">{&quot;GB/s&quot;: 12.1, &quot;env&quot;: &quot;none&quot;, &quot;gpu&quot;: -1, &quot;loc&quot;: &quot;cpu&quot;, &quot;moved_GiB&quot;: 33.8, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n02-21 -&gt; smci355-ccs-aus-n01-33 tcp</td><td class="details">{&quot;GB/s&quot;: 0.11, &quot;env&quot;: &quot;MC_FORCE_TCP=1&quot;, &quot;gpu&quot;: -1, &quot;loc&quot;: &quot;cpu&quot;, &quot;moved_GiB&quot;: 0.3, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n02-21 -&gt; smci355-ccs-aus-n01-33 rdma-gpu0</td><td class="details">{&quot;GB/s&quot;: 38.4, &quot;env&quot;: &quot;MC_GID_INDEX=1&quot;, &quot;gpu&quot;: 0, &quot;loc&quot;: &quot;gpu&quot;, &quot;moved_GiB&quot;: 108.0, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n02-21 -&gt; smci355-ccs-aus-n01-33 rdma-gpu1</td><td class="details">{&quot;GB/s&quot;: 38.5, &quot;env&quot;: &quot;MC_GID_INDEX=1&quot;, &quot;gpu&quot;: 1, &quot;loc&quot;: &quot;gpu&quot;, &quot;moved_GiB&quot;: 108.0, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n02-21 -&gt; smci355-ccs-aus-n01-33 rdma-gpu2</td><td class="details">{&quot;GB/s&quot;: 38.39, &quot;env&quot;: &quot;MC_GID_INDEX=1&quot;, &quot;gpu&quot;: 2, &quot;loc&quot;: &quot;gpu&quot;, &quot;moved_GiB&quot;: 108.0, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n02-21 -&gt; smci355-ccs-aus-n01-33 rdma-gpu3</td><td class="details">{&quot;GB/s&quot;: 38.49, &quot;env&quot;: &quot;MC_GID_INDEX=1&quot;, &quot;gpu&quot;: 3, &quot;loc&quot;: &quot;gpu&quot;, &quot;moved_GiB&quot;: 108.0, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n02-21 -&gt; smci355-ccs-aus-n01-33 rdma-gpu4</td><td class="details">{&quot;GB/s&quot;: 41.27, &quot;env&quot;: &quot;MC_GID_INDEX=1&quot;, &quot;gpu&quot;: 4, &quot;loc&quot;: &quot;gpu&quot;, &quot;moved_GiB&quot;: 116.0, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n02-21 -&gt; smci355-ccs-aus-n01-33 rdma-gpu5</td><td class="details">{&quot;GB/s&quot;: 41.05, &quot;env&quot;: &quot;MC_GID_INDEX=1&quot;, &quot;gpu&quot;: 5, &quot;loc&quot;: &quot;gpu&quot;, &quot;moved_GiB&quot;: 115.0, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n02-21 -&gt; smci355-ccs-aus-n01-33 rdma-gpu6</td><td class="details">{&quot;GB/s&quot;: 40.85, &quot;env&quot;: &quot;MC_GID_INDEX=1&quot;, &quot;gpu&quot;: 6, &quot;loc&quot;: &quot;gpu&quot;, &quot;moved_GiB&quot;: 115.0, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+<tr><td><span class="badge info">info</span></td><td>smci355-ccs-aus-n02-21 -&gt; smci355-ccs-aus-n01-33 rdma-gpu7</td><td class="details">{&quot;GB/s&quot;: 40.83, &quot;env&quot;: &quot;MC_GID_INDEX=1&quot;, &quot;gpu&quot;: 7, &quot;loc&quot;: &quot;gpu&quot;, &quot;moved_GiB&quot;: 115.0, &quot;operation&quot;: &quot;write&quot;, &quot;verified&quot;: true}</td></tr>
+</tbody></table>
+</body></html>

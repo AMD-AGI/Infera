@@ -1,0 +1,6 @@
+# Preserve historical patch context and raw log whitespace verbatim.
+*.patch -whitespace
+*.diff -whitespace
+*.log -whitespace
+# csv.writer emits standard CRLF records.
+*.csv whitespace=cr-at-eol

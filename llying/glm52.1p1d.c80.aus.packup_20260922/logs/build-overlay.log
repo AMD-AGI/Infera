@@ -1,0 +1,59 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.yihou-overlay
+#1 transferring dockerfile: 2.02kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/infera-sglang:v0519-llying-aus-base-83e0f6c8
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [internal] load build context
+#4 transferring context: 19.57kB done
+#4 DONE 0.0s
+
+#5 [1/5] FROM docker.io/library/infera-sglang:v0519-llying-aus-base-83e0f6c8
+#5 DONE 0.0s
+
+#6 [2/5] COPY patches/pr37152.sources.yihou.diff /tmp/pr37152.sources.yihou.diff
+#6 DONE 0.0s
+
+#7 [3/5] COPY patches/nextn-fusion-fork-4350d37c5.patch /tmp/nextn-fusion-fork-4350d37c5.patch
+#7 DONE 0.0s
+
+#8 [4/5] COPY build/apply_nextn_patch.py /tmp/apply_nextn_patch.py
+#8 DONE 0.0s
+
+#9 [5/5] RUN set -eux;     cd /sgl-workspace/sglang;     python3 /tmp/apply_nextn_patch.py;     if grep -q 'pick_group_bytes' python/sglang/kernels/jit/csrc/kvcacheio/hicache.cuh        && grep -q '_tiles_across_lanes' python/sglang/kernels/ops/kvcache/hicache.py        && grep -q 'can_use_jit = (_is_cuda or _is_hip)' python/sglang/srt/mem_cache/pool_host/mha.py; then         echo '[hicache] PR #37152 already present';     else         patch -p1 --fuzz=0 --batch --forward --dry-run < /tmp/pr37152.sources.yihou.diff;         patch -p1 --fuzz=0 --batch --forward < /tmp/pr37152.sources.yihou.diff;     fi;     find python/sglang -type d -name __pycache__ -prune -exec rm -rf {} +;     python3 -m py_compile         python/sglang/srt/models/glm4_moe.py         python/sglang/kernels/ops/kvcache/hicache.py         python/sglang/srt/mem_cache/pool_host/mha.py;     grep -q 'fused_shared_experts_architecture = "GlmMoeDsaForCausalLMNextN"'         python/sglang/srt/models/glm4_moe.py;     grep -q 'pick_group_bytes' python/sglang/kernels/jit/csrc/kvcacheio/hicache.cuh;     grep -q '_tiles_across_lanes' python/sglang/kernels/ops/kvcache/hicache.py;     grep -q 'can_use_jit = (_is_cuda or _is_hip)' python/sglang/srt/mem_cache/pool_host/mha.py;     /usr/local/bin/infera-router --help >/dev/null;     rm -f /tmp/pr37152.sources.yihou.diff         /tmp/nextn-fusion-fork-4350d37c5.patch         /tmp/apply_nextn_patch.py
+#9 0.054 + cd /sgl-workspace/sglang
+#9 0.054 + python3 /tmp/apply_nextn_patch.py
+#9 0.070 [nextn] applied: /sgl-workspace/sglang/python/sglang/srt/models/glm4_moe.py
+#9 0.073 + grep -q pick_group_bytes python/sglang/kernels/jit/csrc/kvcacheio/hicache.cuh
+#9 0.074 + patch -p1 --fuzz=0 --batch --forward --dry-run
+#9 0.075 checking file python/sglang/kernels/jit/csrc/kvcacheio/hicache.cuh
+#9 0.075 checking file python/sglang/kernels/ops/kvcache/hicache.py
+#9 0.075 checking file python/sglang/srt/mem_cache/pool_host/mha.py
+#9 0.075 Hunk #1 succeeded at 761 (offset -16 lines).
+#9 0.075 + patch -p1 --fuzz=0 --batch --forward
+#9 0.076 patching file python/sglang/kernels/jit/csrc/kvcacheio/hicache.cuh
+#9 0.077 patching file python/sglang/kernels/ops/kvcache/hicache.py
+#9 0.077 patching file python/sglang/srt/mem_cache/pool_host/mha.py
+#9 0.077 Hunk #1 succeeded at 761 (offset -16 lines).
+#9 0.077 + find python/sglang -type d -name __pycache__ -prune -exec rm -rf {} +
+#9 0.086 + python3 -m py_compile python/sglang/srt/models/glm4_moe.py python/sglang/kernels/ops/kvcache/hicache.py python/sglang/srt/mem_cache/pool_host/mha.py
+#9 0.115 + grep -q fused_shared_experts_architecture = "GlmMoeDsaForCausalLMNextN" python/sglang/srt/models/glm4_moe.py
+#9 0.116 + grep -q pick_group_bytes python/sglang/kernels/jit/csrc/kvcacheio/hicache.cuh
+#9 0.116 + grep -q _tiles_across_lanes python/sglang/kernels/ops/kvcache/hicache.py
+#9 0.117 + grep -q can_use_jit = (_is_cuda or _is_hip) python/sglang/srt/mem_cache/pool_host/mha.py
+#9 0.118 + /usr/local/bin/infera-router --help
+#9 0.132 + rm -f /tmp/pr37152.sources.yihou.diff /tmp/nextn-fusion-fork-4350d37c5.patch /tmp/apply_nextn_patch.py
+#9 DONE 0.2s
+
+#10 exporting to image
+#10 exporting layers 0.0s done
+#10 writing image sha256:5c2716ea18a792b2c1c87e688e0e00afe1d20329cf45640a162a04e2c443160e done
+#10 naming to docker.io/library/infera-sglang:v0519-llying-aus-0922-nextnfix-hicache done
+#10 DONE 0.0s

@@ -1,0 +1,12 @@
+{
+  "targets": [
+    {
+      "container": "llying-aus-1p1d-router",
+      "elapsed_seconds": 6.188,
+      "health_url": "http://10.235.192.136:28000/health",
+      "healthy": true,
+      "name": "router",
+      "node": "smci355-ccs-aus-n01-33"
+    }
+  ]
+}

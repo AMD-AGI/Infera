@@ -1,0 +1,110 @@
+{
+  "runtime_root": "/perf_apps/liyingli/bench_agentx/glm52-c80-20260922",
+  "files": [
+    {
+      "path": "results/agentx-c80/aiperf_artifacts/logs/aiperf.log",
+      "bytes": 218993,
+      "sha256": "2c1b3795f577ccae938a510158304ea53e447037a493a58e154dd4b0fb4ec957"
+    },
+    {
+      "path": "results/agentx-c80/aiperf_artifacts/profile_export.jsonl",
+      "bytes": 15517143,
+      "sha256": "21704a6d637298735ff7c988a7abe5176384775f6f927bb8e133dad5cc73b626"
+    },
+    {
+      "path": "results/agentx-c80/aiperf_artifacts/profile_export_aiperf.csv",
+      "bytes": 7212,
+      "sha256": "6066525534cca5828ac645eb9d483b77d46dbc037239af48c3a2577292e123bb"
+    },
+    {
+      "path": "results/agentx-c80/aiperf_artifacts/profile_export_aiperf.json",
+      "bytes": 43263,
+      "sha256": "58aa4e416b548db6c192bd06d03d191e892b32841976ad041d375e54ab0d8519"
+    },
+    {
+      "path": "results/agentx-c80/aiperf_artifacts/profile_export_aiperf_timeslices.csv",
+      "bytes": 51243196,
+      "sha256": "7f6f3e41ca1ba8d3e8515118ef292f7bd15ebe01b373c8b04c0c4cc76085d5e7"
+    },
+    {
+      "path": "results/agentx-c80/aiperf_artifacts/profile_export_aiperf_timeslices.json",
+      "bytes": 21882578,
+      "sha256": "fc9dc263c51d93e3e68a8ed2e4bc4e82414df850f3263174fbfd8479e406a018"
+    },
+    {
+      "path": "results/agentx-c80/aiperf_artifacts/profile_export_console.txt",
+      "bytes": 18918,
+      "sha256": "512273617b71456bce99e2f1348810eed804993c4390bebe95f051299525050d"
+    },
+    {
+      "path": "results/agentx-c80/aiperf_artifacts/server_metrics_export.csv",
+      "bytes": 513571,
+      "sha256": "a15793a4cd5f40d066555a1bb86fc6a4933de46254d2ec7f3345106764ed0574"
+    },
+    {
+      "path": "results/agentx-c80/aiperf_artifacts/server_metrics_export.json",
+      "bytes": 1299004601,
+      "sha256": "84e505e21fda0c0a7d3501bb059a2bdb949f74efe97f39c2cef68a5b8bcd07a1"
+    },
+    {
+      "path": "results/agentx-c80-hicache/aiperf_artifacts/logs/aiperf.log",
+      "bytes": 218248,
+      "sha256": "9187d834c50269932f3f291adbdecaa9e37af6b9d0a9f9ae33f06a60c30550cd"
+    },
+    {
+      "path": "results/agentx-c80-hicache/aiperf_artifacts/profile_export.jsonl",
+      "bytes": 16281391,
+      "sha256": "3b7352493b20d6669aded8e550f23924274272b4be12d77b17c245b7562c6747"
+    },
+    {
+      "path": "results/agentx-c80-hicache/aiperf_artifacts/profile_export_aiperf.csv",
+      "bytes": 7196,
+      "sha256": "b03035410424ac85d2cd1ee1dd5381f0a76c750422c46e2ac2d2a4abc4d95a9d"
+    },
+    {
+      "path": "results/agentx-c80-hicache/aiperf_artifacts/profile_export_aiperf.json",
+      "bytes": 45549,
+      "sha256": "bebb8982d7e759e797dbde3448af588d1e0b25c87a2ef9166f85cf9b41c55275"
+    },
+    {
+      "path": "results/agentx-c80-hicache/aiperf_artifacts/profile_export_aiperf_timeslices.csv",
+      "bytes": 52417839,
+      "sha256": "d5e4e66f2e877bd1a9c25c94b1e47bc645929414475ed9fe11cf1c1f5919cbcf"
+    },
+    {
+      "path": "results/agentx-c80-hicache/aiperf_artifacts/profile_export_aiperf_timeslices.json",
+      "bytes": 22404374,
+      "sha256": "315efc9aa7f8e4146f79253546057cbab8494f3450f55d43c463bc7f103d8690"
+    },
+    {
+      "path": "results/agentx-c80-hicache/aiperf_artifacts/profile_export_console.txt",
+      "bytes": 18939,
+      "sha256": "5c2b2601571a5d9cba0aa4844885e11de0e776a9e45c86a6a37ca233447329af"
+    },
+    {
+      "path": "results/agentx-c80-hicache/aiperf_artifacts/server_metrics_export.csv",
+      "bytes": 547857,
+      "sha256": "ee47be89d3fdf2414eac12a7891c567aa6db8470ad2e16d7cb52cc9827a3f6af"
+    },
+    {
+      "path": "results/agentx-c80-hicache/aiperf_artifacts/server_metrics_export.json",
+      "bytes": 1239333447,
+      "sha256": "cbb6b3e233f0eb86bfba62f5dc2afdb7458f1266a1754fabfc0ffe670818ec1c"
+    },
+    {
+      "path": "results/launch/server-logs/decode-0.log",
+      "bytes": 7712663,
+      "sha256": "a49e53173d9bc34ab8becd61ea9cdddad1578ac1be3ef8229d182777d4399e80"
+    },
+    {
+      "path": "results/launch/server-logs/prefill-0.log",
+      "bytes": 9667510,
+      "sha256": "7f7c273ac2e26f1d39969078f49ccdda0e31ab3edc40873b09b358d2fb9f23d7"
+    },
+    {
+      "path": "results/launch-hicache/server-logs/prefill-0.log",
+      "bytes": 10327019,
+      "sha256": "66464eb4d5e0e264d0372970513f5b6b452312a0345823ba003760ebc3a9264f"
+    }
+  ]
+}

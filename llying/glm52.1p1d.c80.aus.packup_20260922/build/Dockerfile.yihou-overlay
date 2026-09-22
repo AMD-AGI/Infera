@@ -1,0 +1,34 @@
+ARG BASE_IMAGE=infera-sglang:v0519-llying-aus-base-83e0f6c8
+FROM ${BASE_IMAGE}
+
+COPY patches/pr37152.sources.yihou.diff /tmp/pr37152.sources.yihou.diff
+COPY patches/nextn-fusion-fork-4350d37c5.patch /tmp/nextn-fusion-fork-4350d37c5.patch
+COPY build/apply_nextn_patch.py /tmp/apply_nextn_patch.py
+
+RUN set -eux; \
+    cd /sgl-workspace/sglang; \
+    python3 /tmp/apply_nextn_patch.py; \
+    if grep -q 'pick_group_bytes' python/sglang/kernels/jit/csrc/kvcacheio/hicache.cuh \
+       && grep -q '_tiles_across_lanes' python/sglang/kernels/ops/kvcache/hicache.py \
+       && grep -q 'can_use_jit = (_is_cuda or _is_hip)' python/sglang/srt/mem_cache/pool_host/mha.py; then \
+        echo '[hicache] PR #37152 already present'; \
+    else \
+        patch -p1 --fuzz=0 --batch --forward --dry-run < /tmp/pr37152.sources.yihou.diff; \
+        patch -p1 --fuzz=0 --batch --forward < /tmp/pr37152.sources.yihou.diff; \
+    fi; \
+    find python/sglang -type d -name __pycache__ -prune -exec rm -rf {} +; \
+    python3 -m py_compile \
+        python/sglang/srt/models/glm4_moe.py \
+        python/sglang/kernels/ops/kvcache/hicache.py \
+        python/sglang/srt/mem_cache/pool_host/mha.py; \
+    grep -q 'fused_shared_experts_architecture = "GlmMoeDsaForCausalLMNextN"' \
+        python/sglang/srt/models/glm4_moe.py; \
+    grep -q 'pick_group_bytes' python/sglang/kernels/jit/csrc/kvcacheio/hicache.cuh; \
+    grep -q '_tiles_across_lanes' python/sglang/kernels/ops/kvcache/hicache.py; \
+    grep -q 'can_use_jit = (_is_cuda or _is_hip)' python/sglang/srt/mem_cache/pool_host/mha.py; \
+    /usr/local/bin/infera-router --help >/dev/null; \
+    rm -f /tmp/pr37152.sources.yihou.diff \
+        /tmp/nextn-fusion-fork-4350d37c5.patch \
+        /tmp/apply_nextn_patch.py
+
+LABEL org.opencontainers.image.description="Infera GLM-5.2 AUS build with yihou NextN and HiCache patches"

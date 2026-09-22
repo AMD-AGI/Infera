@@ -1,0 +1,262 @@
+{
+ "host": "smci355-ccs-aus-n01-33",
+ "image": "infera-sglang:v0519-llying-aus-0922-nextnfix-hicache",
+ "generated": "2026-09-22 08:42:31",
+ "sections": {
+  "network": [
+   {
+    "level": "info",
+    "message": "NIC inventory",
+    "details": {
+     "nics": [
+      "benic1p1",
+      "benic2p1",
+      "benic3p1",
+      "benic4p1",
+      "benic5p1",
+      "benic6p1",
+      "benic7p1",
+      "benic8p1",
+      "docker0",
+      "enp193s0f0",
+      "enp193s0f1",
+      "enp81s0f0",
+      "fenic",
+      "lo"
+     ],
+     "rdma_devices": [
+      "ionic_0",
+      "ionic_1",
+      "ionic_2",
+      "ionic_3",
+      "ionic_4",
+      "ionic_5",
+      "ionic_6",
+      "ionic_7"
+     ],
+     "ipv4": {
+      "lo": [
+       "127.0.0.1/8"
+      ],
+      "fenic": [
+       "10.235.192.136/22"
+      ],
+      "benic3p1": [
+       "192.168.3.70/31"
+      ],
+      "benic1p1": [
+       "192.168.1.70/31"
+      ],
+      "benic4p1": [
+       "192.168.4.70/31"
+      ],
+      "benic2p1": [
+       "192.168.2.70/31"
+      ],
+      "benic7p1": [
+       "192.168.7.70/31"
+      ],
+      "benic5p1": [
+       "192.168.5.70/31"
+      ],
+      "benic8p1": [
+       "192.168.8.70/31"
+      ],
+      "benic6p1": [
+       "192.168.6.70/31"
+      ],
+      "docker0": [
+       "172.17.0.1/16"
+      ]
+     }
+    }
+   },
+   {
+    "level": "info",
+    "message": "RDMA device map",
+    "details": {
+     "devices": {
+      "ionic_0": {
+       "netdev": "benic1p1",
+       "state": "ACTIVE"
+      },
+      "ionic_1": {
+       "netdev": "benic2p1",
+       "state": "ACTIVE"
+      },
+      "ionic_2": {
+       "netdev": "benic4p1",
+       "state": "ACTIVE"
+      },
+      "ionic_3": {
+       "netdev": "benic3p1",
+       "state": "ACTIVE"
+      },
+      "ionic_4": {
+       "netdev": "benic5p1",
+       "state": "ACTIVE"
+      },
+      "ionic_5": {
+       "netdev": "benic6p1",
+       "state": "ACTIVE"
+      },
+      "ionic_6": {
+       "netdev": "benic8p1",
+       "state": "ACTIVE"
+      },
+      "ionic_7": {
+       "netdev": "benic7p1",
+       "state": "ACTIVE"
+      }
+     }
+    }
+   }
+  ],
+  "mooncake": [
+   {
+    "level": "info",
+    "message": "smci355-ccs-aus-n01-33 -> smci355-ccs-aus-n02-21 rdma",
+    "details": {
+     "GB/s": 8.42,
+     "moved_GiB": 23.5,
+     "loc": "cpu",
+     "gpu": -1,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write",
+     "dev": "ionic_0"
+    }
+   },
+   {
+    "level": "info",
+    "message": "smci355-ccs-aus-n01-33 -> smci355-ccs-aus-n02-21 rdma-default",
+    "details": {
+     "GB/s": 12.8,
+     "moved_GiB": 35.8,
+     "loc": "cpu",
+     "gpu": -1,
+     "env": "none",
+     "verified": true,
+     "operation": "write"
+    }
+   },
+   {
+    "level": "info",
+    "message": "smci355-ccs-aus-n01-33 -> smci355-ccs-aus-n02-21 tcp",
+    "details": {
+     "GB/s": 0.11,
+     "moved_GiB": 0.3,
+     "loc": "cpu",
+     "gpu": -1,
+     "env": "MC_FORCE_TCP=1",
+     "verified": true,
+     "operation": "write"
+    }
+   },
+   {
+    "level": "info",
+    "message": "smci355-ccs-aus-n01-33 -> smci355-ccs-aus-n02-21 rdma-gpu0",
+    "details": {
+     "GB/s": 38.68,
+     "moved_GiB": 109.0,
+     "loc": "gpu",
+     "gpu": 0,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write"
+    }
+   },
+   {
+    "level": "info",
+    "message": "smci355-ccs-aus-n01-33 -> smci355-ccs-aus-n02-21 rdma-gpu1",
+    "details": {
+     "GB/s": 38.43,
+     "moved_GiB": 108.0,
+     "loc": "gpu",
+     "gpu": 1,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write"
+    }
+   },
+   {
+    "level": "info",
+    "message": "smci355-ccs-aus-n01-33 -> smci355-ccs-aus-n02-21 rdma-gpu2",
+    "details": {
+     "GB/s": 38.4,
+     "moved_GiB": 108.0,
+     "loc": "gpu",
+     "gpu": 2,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write"
+    }
+   },
+   {
+    "level": "info",
+    "message": "smci355-ccs-aus-n01-33 -> smci355-ccs-aus-n02-21 rdma-gpu3",
+    "details": {
+     "GB/s": 38.45,
+     "moved_GiB": 108.0,
+     "loc": "gpu",
+     "gpu": 3,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write"
+    }
+   },
+   {
+    "level": "info",
+    "message": "smci355-ccs-aus-n01-33 -> smci355-ccs-aus-n02-21 rdma-gpu4",
+    "details": {
+     "GB/s": 41.15,
+     "moved_GiB": 115.0,
+     "loc": "gpu",
+     "gpu": 4,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write"
+    }
+   },
+   {
+    "level": "info",
+    "message": "smci355-ccs-aus-n01-33 -> smci355-ccs-aus-n02-21 rdma-gpu5",
+    "details": {
+     "GB/s": 41.1,
+     "moved_GiB": 115.0,
+     "loc": "gpu",
+     "gpu": 5,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write"
+    }
+   },
+   {
+    "level": "info",
+    "message": "smci355-ccs-aus-n01-33 -> smci355-ccs-aus-n02-21 rdma-gpu6",
+    "details": {
+     "GB/s": 38.42,
+     "moved_GiB": 108.0,
+     "loc": "gpu",
+     "gpu": 6,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write"
+    }
+   },
+   {
+    "level": "info",
+    "message": "smci355-ccs-aus-n01-33 -> smci355-ccs-aus-n02-21 rdma-gpu7",
+    "details": {
+     "GB/s": 40.95,
+     "moved_GiB": 115.0,
+     "loc": "gpu",
+     "gpu": 7,
+     "env": "MC_GID_INDEX=1",
+     "verified": true,
+     "operation": "write"
+    }
+   }
+  ]
+ }
+}
