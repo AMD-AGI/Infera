@@ -1,0 +1,4 @@
+point=c144 rail_faults_before=0 rail_faults_after=0 exit=0
+prefill-0 before={"fatal_python": 0, "memory_fault": 0, "oom": 0, "rail": 0} after={"fatal_python": 0, "memory_fault": 0, "oom": 0, "rail": 0}
+prefill-1 before={"fatal_python": 0, "memory_fault": 0, "oom": 0, "rail": 0} after={"fatal_python": 0, "memory_fault": 0, "oom": 0, "rail": 0}
+decode-0 before={"fatal_python": 0, "memory_fault": 0, "oom": 0, "rail": 0} after={"fatal_python": 0, "memory_fault": 0, "oom": 0, "rail": 0}

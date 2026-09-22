@@ -1,0 +1,6 @@
+Point,Concurrency,UsagePromptCacheHitPct,TheoreticalCacheHitPct,DecodeRunningMean,DecodeRunningMeanPerDP,ClientEffectiveDecodeMean,ClientEffectiveDecodeP50,ClientEffectiveDecodeP90,ServerMetricsPhase,ServerMetricsWindowS,ServerMetricsSource
+c080,80,95.95,96.60300000000001,43.046,5.38075,42.84,44.0,60.0,profiling,3640.00226541,.tmp/raw/2p1d-20260921T151735Z/c080/aiperf_artifacts/server_metrics_export.csv
+c112,112,95.72,96.506,58.6348,7.32935,57.83,60.0,81.0,profiling,3640.00202317,.tmp/raw/2p1d-20260921T151735Z/c112/aiperf_artifacts/server_metrics_export.csv
+c144,144,94.95,96.453,69.245,8.65563,68.4,69.0,94.0,profiling,3640.001653279,.tmp/raw/2p1d-20260921T151735Z/c144/aiperf_artifacts/server_metrics_export.csv
+c192,192,93.09,96.47200000000001,62.3943,7.79929,62.56,64.0,85.0,profiling,3640.001893766,.tmp/raw/2p1d-20260921T151735Z/c192/aiperf_artifacts/server_metrics_export.csv
+c256,256,89.15,96.272,48.8695,6.10869,48.94,49.0,68.0,profiling,3640.002635121,.tmp/raw/2p1d-20260921T151735Z/c256/aiperf_artifacts/server_metrics_export.csv

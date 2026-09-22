@@ -1,0 +1,6 @@
+ConcurrencySessionTrees,DecodeRunning,DecodePreallocQueue,DecodeTransferQueue,DecodeReadyQueue,DecodeTokenUsageMeanPct,PrefillQueue,PrefillBootstrapQueue,PrefillHostKVUsageMeanPct,Source
+80,43.046,0.0,8.3046,0.0,32.46875,1.9495,0.138,66.67417224489056,.tmp/raw/2p1d-20260921T151735Z/c080/aiperf_artifacts/server_metrics_export.csv
+112,58.6348,0.023,13.6774,0.0078,44.8425,4.9328,0.4022,99.96140587610675,.tmp/raw/2p1d-20260921T151735Z/c112/aiperf_artifacts/server_metrics_export.csv
+144,69.245,1.2399,22.8788,0.0,57.5425,10.9812,1.8719000000000001,99.9619240954567,.tmp/raw/2p1d-20260921T151735Z/c144/aiperf_artifacts/server_metrics_export.csv
+192,62.3943,13.8407,52.9128,0.0,72.76374999999999,36.5326,12.6107,99.96031084113865,.tmp/raw/2p1d-20260921T151735Z/c192/aiperf_artifacts/server_metrics_export.csv
+256,48.8695,134.1363,93.7398,0.0,87.945,73.53999999999999,124.2264,99.95838979249442,.tmp/raw/2p1d-20260921T151735Z/c256/aiperf_artifacts/server_metrics_export.csv

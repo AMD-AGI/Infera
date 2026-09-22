@@ -1,0 +1,68 @@
+{
+  "run_id": "2p1d-20260921T151735Z",
+  "intermediate_dir": "/mnt/m2m_nobackup/xiaobche/2p1d-sweep/shared-kit/.tmp/results/2p1d-20260921T151735Z",
+  "topology": [
+    {
+      "role": "prefill",
+      "node": "crsuse2-m2m-137",
+      "data_ip": "10.245.153.247"
+    },
+    {
+      "role": "prefill",
+      "node": "crsuse2-m2m-138",
+      "data_ip": "10.245.157.237"
+    },
+    {
+      "role": "decode",
+      "node": "crsuse2-m2m-136",
+      "data_ip": "10.245.154.168"
+    }
+  ],
+  "updated_at": "2026-09-22T00:19:32.146983+00:00",
+  "status": "complete",
+  "simulation_accept_length": "3.61",
+  "requested_duration_s": "3600",
+  "warmup_requests_per_lane": "10",
+  "reused_preflight_run_id": "2p1d-20260921T140351Z",
+  "image": "infera-sglang:v0519-yihou-0917-nextnfix-hicache",
+  "image_id": "sha256:fd7220a57b7d3b58efd875c41f7a9ef46b93469581102d96cbeb6f5451e91d35",
+  "measurement_events": [
+    {
+      "point": "c256",
+      "phase": "warmup",
+      "kind": "client_retry",
+      "time": "2026-09-21T22:06:50Z",
+      "description": "First C256 warmup manually interrupted after 8 Prefill HTTP send failures and long KV waits; retry used unchanged config and deployment. No profiling data from the interrupted attempt."
+    },
+    {
+      "point": "c256",
+      "phase": "warmup",
+      "stage": "snapshot primers",
+      "kind": "manual_abort_failed_requests",
+      "time": "2026-09-21T22:43:33.870426+00:00",
+      "requests_aborted": 8,
+      "action": "abort only remaining snapshot warmup requests after normal timeout window; CPU issuer paused to protect later traffic",
+      "http_status": 200,
+      "client_resumed_at": "2026-09-21T22:43:38.285047+00:00",
+      "evidence": ".tmp/validation/c256-warmup-recovery.json",
+      "engine_restart": false,
+      "engine_config_changed": false,
+      "profiling_intervention": false
+    },
+    {
+      "point": "c256",
+      "phase": "warmup",
+      "stage": "pressure warmup",
+      "kind": "manual_abort_failed_requests",
+      "time": "2026-09-21T23:00:09.088629+00:00",
+      "requests_aborted": 10,
+      "action": "abort only remaining pressure warmup requests after all valid P work drained; CPU issuer paused to protect later traffic",
+      "http_status": 200,
+      "client_resumed_at": "2026-09-21T23:00:13.551009+00:00",
+      "evidence": ".tmp/validation/c256-pressure-recovery.json",
+      "engine_restart": false,
+      "engine_config_changed": false,
+      "profiling_intervention": false
+    }
+  ]
+}
