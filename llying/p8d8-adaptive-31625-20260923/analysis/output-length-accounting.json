@@ -16,6 +16,13 @@
       "inferred_requested_output": 9732647,
       "actual_to_requested_ratio": 0.964545410924695,
       "max_target_rounding_error": 3.728928277269006e-10
+    },
+    "g0": {
+      "n": 10033,
+      "nonzero_mismatch": 166,
+      "actual_output": 9797127,
+      "inferred_requested_output": 10037893,
+      "actual_to_requested_ratio": 0.9760142890544858
     }
   }
 }

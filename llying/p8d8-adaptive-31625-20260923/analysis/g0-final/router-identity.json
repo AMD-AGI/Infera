@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "mode": "completion",
+  "binary_sha256": "3dfa3bd882d63ed0b5451d147efa2c62781fd429b222ab9bce45f90a7d9b8e95",
+  "container": {
+    "Id": "ea692562375f2b3c554798c26eaba816398307b9a6b24513d197afe638d07db4",
+    "Created": "2026-09-23T17:33:28.245913781Z",
+    "Image": "sha256:4f125ff9096f75611fa24caad4c01c3707dd0892251680a6483b99ffaa2a88bb",
+    "State": {
+      "Status": "running",
+      "Running": true,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 157990,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-09-23T17:33:28.259948628Z",
+      "FinishedAt": "0001-01-01T00:00:00Z"
+    },
+    "RestartCount": 0
+  },
+  "smoke_completion_log_present": true
+}

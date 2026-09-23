@@ -1,0 +1,8 @@
+{
+  "action": "run_a1",
+  "decided_utc": "2026-09-23T19:09:37.537410+00:00",
+  "reason": "G0 passed audit and shows +5.44% total/GPU, +4.36% output/GPU, -23.13% mean TTFT. 9091 matched equal-output turns show -43.78% P queue, -5.41% miss, -4.23% P forward. Actual/requested output ratio rose, not fell. Confirm with rollback on identical P/D services before declaring stable gain.",
+  "warmup_export_invalid_records": 3,
+  "profiling_export_errors": 0,
+  "next_decision": "After A1, choose G1 repetition versus capacity based on reversal and remaining time; no automatic capacity launch."
+}

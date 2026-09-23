@@ -40,6 +40,8 @@ out=root/'events'/('retire-'+r.name);out.mkdir(parents=True,exist_ok=True)
 (out/('execute-plan.json' if a.execute else 'dry-run-plan.json')).write_text(json.dumps(plan,indent=2)+'\n')
 print(json.dumps({'execute':a.execute,'plan':str(out),'containers':[(x['node'],x['name']) for x in plan['containers']]}),flush=True)
 if not a.execute:raise SystemExit(0)
+for role in ('prefill','decode'):
+ (out/(role+'-meminfo-before.txt')).write_text(ssh(os.environ[role.upper()+'_NODE'],['cat','/proc/meminfo']))
 for c in plan['containers']:
  started=time.time();result=ssh(c['node'],['docker','stop','--timeout','90',c['id']])
  ssh(c['node'],['docker','rename',c['id'],c['retired_name']])
@@ -47,5 +49,7 @@ for c in plan['containers']:
 print('Containers stopped; waiting for actual VRAM release, not just process exit.',flush=True)
 with (out/'release-monitor.jsonl').open('w') as f:
  subprocess.run(['python3',str(root/'scripts/wait_nodes_idle.py'),os.environ['PREFILL_NODE'],os.environ['DECODE_NODE'],'--timeout','5400','--interval','30'],stdout=f,stderr=subprocess.STDOUT,check=True)
+for role in ('prefill','decode'):
+ (out/(role+'-meminfo-after.txt')).write_text(ssh(os.environ[role.upper()+'_NODE'],['cat','/proc/meminfo']))
 (out/'RESOURCE_RELEASED').write_text(datetime.datetime.now(datetime.timezone.utc).isoformat()+'\n')
 print('RESOURCE_RELEASED',flush=True)

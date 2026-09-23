@@ -1,0 +1,681 @@
+{
+  "run": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g0-guard-completion",
+  "profile_window_epoch_s": [
+    1790186436.8539793,
+    1790190036.8539793
+  ],
+  "groups": {
+    "Prefill": {
+      "picks": 10049,
+      "metrics": {
+        "cache_hits": {
+          "n": 10049,
+          "mean": 1809.4533784456164,
+          "p50": 1103.0,
+          "p90": 4235.0,
+          "max": 13115.0
+        },
+        "request_blocks": {
+          "n": 10049,
+          "mean": 1910.1158324211365,
+          "p50": 1196.0,
+          "p90": 4292.0,
+          "max": 13142.0
+        },
+        "active_blocks": {
+          "n": 10049,
+          "mean": 3200.864663150562,
+          "p50": 1704.0,
+          "p90": 8652.0,
+          "max": 45041.0
+        },
+        "w_overlap": {
+          "n": 10049,
+          "mean": 20.0,
+          "p50": 20.0,
+          "p90": 20.0,
+          "max": 20.0
+        }
+      },
+      "zero_hit_picks": 1627,
+      "zero_block_picks": 0,
+      "sum_hits": 18183197.0,
+      "sum_request_blocks": 19194754.0
+    },
+    "Prefill/10.235.192.140:29001#dp7": {
+      "picks": 1188,
+      "metrics": {
+        "cache_hits": {
+          "n": 1188,
+          "mean": 2153.7954545454545,
+          "p50": 1269.0,
+          "p90": 6194.0,
+          "max": 10052.0
+        },
+        "request_blocks": {
+          "n": 1188,
+          "mean": 2257.247474747475,
+          "p50": 1358.0,
+          "p90": 6234.0,
+          "max": 10061.0
+        },
+        "active_blocks": {
+          "n": 1188,
+          "mean": 3551.8021885521885,
+          "p50": 1691.5,
+          "p90": 10690.0,
+          "max": 27424.0
+        },
+        "w_overlap": {
+          "n": 1188,
+          "mean": 20.0,
+          "p50": 20.0,
+          "p90": 20.0,
+          "max": 20.0
+        }
+      },
+      "zero_hit_picks": 191,
+      "zero_block_picks": 0,
+      "sum_hits": 2558709.0,
+      "sum_request_blocks": 2681610.0
+    },
+    "Decode": {
+      "picks": 10049,
+      "metrics": {
+        "cache_hits": {
+          "n": 10049,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "request_blocks": {
+          "n": 10049,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "active_blocks": {
+          "n": 10049,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "w_overlap": {
+          "n": 10049,
+          "mean": 2.0,
+          "p50": 2.0,
+          "p90": 2.0,
+          "max": 2.0
+        }
+      },
+      "zero_hit_picks": 10049,
+      "zero_block_picks": 10049,
+      "sum_hits": 0.0,
+      "sum_request_blocks": 0.0
+    },
+    "Decode/10.235.192.128:29002#dp5": {
+      "picks": 1256,
+      "metrics": {
+        "cache_hits": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "request_blocks": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "active_blocks": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "w_overlap": {
+          "n": 1256,
+          "mean": 2.0,
+          "p50": 2.0,
+          "p90": 2.0,
+          "max": 2.0
+        }
+      },
+      "zero_hit_picks": 1256,
+      "zero_block_picks": 1256,
+      "sum_hits": 0.0,
+      "sum_request_blocks": 0.0
+    },
+    "Prefill/10.235.192.140:29001#dp1": {
+      "picks": 1551,
+      "metrics": {
+        "cache_hits": {
+          "n": 1551,
+          "mean": 1153.779497098646,
+          "p50": 927.0,
+          "p90": 2396.0,
+          "max": 4456.0
+        },
+        "request_blocks": {
+          "n": 1551,
+          "mean": 1224.8181818181818,
+          "p50": 978.0,
+          "p90": 2458.0,
+          "max": 4487.0
+        },
+        "active_blocks": {
+          "n": 1551,
+          "mean": 2708.223726627982,
+          "p50": 2126.0,
+          "p90": 6165.0,
+          "max": 21525.0
+        },
+        "w_overlap": {
+          "n": 1551,
+          "mean": 20.0,
+          "p50": 20.0,
+          "p90": 20.0,
+          "max": 20.0
+        }
+      },
+      "zero_hit_picks": 174,
+      "zero_block_picks": 0,
+      "sum_hits": 1789512.0,
+      "sum_request_blocks": 1899693.0
+    },
+    "Decode/10.235.192.128:29002#dp6": {
+      "picks": 1256,
+      "metrics": {
+        "cache_hits": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "request_blocks": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "active_blocks": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "w_overlap": {
+          "n": 1256,
+          "mean": 2.0,
+          "p50": 2.0,
+          "p90": 2.0,
+          "max": 2.0
+        }
+      },
+      "zero_hit_picks": 1256,
+      "zero_block_picks": 1256,
+      "sum_hits": 0.0,
+      "sum_request_blocks": 0.0
+    },
+    "Decode/10.235.192.128:29002#dp7": {
+      "picks": 1257,
+      "metrics": {
+        "cache_hits": {
+          "n": 1257,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "request_blocks": {
+          "n": 1257,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "active_blocks": {
+          "n": 1257,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "w_overlap": {
+          "n": 1257,
+          "mean": 2.0,
+          "p50": 2.0,
+          "p90": 2.0,
+          "max": 2.0
+        }
+      },
+      "zero_hit_picks": 1257,
+      "zero_block_picks": 1257,
+      "sum_hits": 0.0,
+      "sum_request_blocks": 0.0
+    },
+    "Decode/10.235.192.128:29002#dp0": {
+      "picks": 1256,
+      "metrics": {
+        "cache_hits": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "request_blocks": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "active_blocks": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "w_overlap": {
+          "n": 1256,
+          "mean": 2.0,
+          "p50": 2.0,
+          "p90": 2.0,
+          "max": 2.0
+        }
+      },
+      "zero_hit_picks": 1256,
+      "zero_block_picks": 1256,
+      "sum_hits": 0.0,
+      "sum_request_blocks": 0.0
+    },
+    "Prefill/10.235.192.140:29001#dp2": {
+      "picks": 1301,
+      "metrics": {
+        "cache_hits": {
+          "n": 1301,
+          "mean": 1145.0384319754035,
+          "p50": 711.0,
+          "p90": 2864.0,
+          "max": 9455.0
+        },
+        "request_blocks": {
+          "n": 1301,
+          "mean": 1233.4419677171406,
+          "p50": 790.0,
+          "p90": 2917.0,
+          "max": 9474.0
+        },
+        "active_blocks": {
+          "n": 1301,
+          "mean": 2179.280553420446,
+          "p50": 1265.0,
+          "p90": 5613.0,
+          "max": 21129.0
+        },
+        "w_overlap": {
+          "n": 1301,
+          "mean": 20.0,
+          "p50": 20.0,
+          "p90": 20.0,
+          "max": 20.0
+        }
+      },
+      "zero_hit_picks": 224,
+      "zero_block_picks": 0,
+      "sum_hits": 1489695.0,
+      "sum_request_blocks": 1604708.0
+    },
+    "Decode/10.235.192.128:29002#dp1": {
+      "picks": 1256,
+      "metrics": {
+        "cache_hits": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "request_blocks": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "active_blocks": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "w_overlap": {
+          "n": 1256,
+          "mean": 2.0,
+          "p50": 2.0,
+          "p90": 2.0,
+          "max": 2.0
+        }
+      },
+      "zero_hit_picks": 1256,
+      "zero_block_picks": 1256,
+      "sum_hits": 0.0,
+      "sum_request_blocks": 0.0
+    },
+    "Decode/10.235.192.128:29002#dp2": {
+      "picks": 1256,
+      "metrics": {
+        "cache_hits": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "request_blocks": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "active_blocks": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "w_overlap": {
+          "n": 1256,
+          "mean": 2.0,
+          "p50": 2.0,
+          "p90": 2.0,
+          "max": 2.0
+        }
+      },
+      "zero_hit_picks": 1256,
+      "zero_block_picks": 1256,
+      "sum_hits": 0.0,
+      "sum_request_blocks": 0.0
+    },
+    "Prefill/10.235.192.140:29001#dp3": {
+      "picks": 1428,
+      "metrics": {
+        "cache_hits": {
+          "n": 1428,
+          "mean": 1351.8088235294117,
+          "p50": 1056.0,
+          "p90": 2837.0,
+          "max": 8780.0
+        },
+        "request_blocks": {
+          "n": 1428,
+          "mean": 1424.8816526610644,
+          "p50": 1115.0,
+          "p90": 2887.0,
+          "max": 8789.0
+        },
+        "active_blocks": {
+          "n": 1428,
+          "mean": 2764.641456582633,
+          "p50": 1914.0,
+          "p90": 6675.0,
+          "max": 26104.0
+        },
+        "w_overlap": {
+          "n": 1428,
+          "mean": 20.0,
+          "p50": 20.0,
+          "p90": 20.0,
+          "max": 20.0
+        }
+      },
+      "zero_hit_picks": 222,
+      "zero_block_picks": 0,
+      "sum_hits": 1930383.0,
+      "sum_request_blocks": 2034731.0
+    },
+    "Decode/10.235.192.128:29002#dp3": {
+      "picks": 1256,
+      "metrics": {
+        "cache_hits": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "request_blocks": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "active_blocks": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "w_overlap": {
+          "n": 1256,
+          "mean": 2.0,
+          "p50": 2.0,
+          "p90": 2.0,
+          "max": 2.0
+        }
+      },
+      "zero_hit_picks": 1256,
+      "zero_block_picks": 1256,
+      "sum_hits": 0.0,
+      "sum_request_blocks": 0.0
+    },
+    "Prefill/10.235.192.140:29001#dp6": {
+      "picks": 1434,
+      "metrics": {
+        "cache_hits": {
+          "n": 1434,
+          "mean": 1884.2036262203626,
+          "p50": 1180.0,
+          "p90": 4516.0,
+          "max": 9632.0
+        },
+        "request_blocks": {
+          "n": 1434,
+          "mean": 1985.5871687587169,
+          "p50": 1255.0,
+          "p90": 4613.0,
+          "max": 9639.0
+        },
+        "active_blocks": {
+          "n": 1434,
+          "mean": 3518.6297071129707,
+          "p50": 1786.0,
+          "p90": 9473.0,
+          "max": 28980.0
+        },
+        "w_overlap": {
+          "n": 1434,
+          "mean": 20.0,
+          "p50": 20.0,
+          "p90": 20.0,
+          "max": 20.0
+        }
+      },
+      "zero_hit_picks": 172,
+      "zero_block_picks": 0,
+      "sum_hits": 2701948.0,
+      "sum_request_blocks": 2847332.0
+    },
+    "Decode/10.235.192.128:29002#dp4": {
+      "picks": 1256,
+      "metrics": {
+        "cache_hits": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "request_blocks": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "active_blocks": {
+          "n": 1256,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "w_overlap": {
+          "n": 1256,
+          "mean": 2.0,
+          "p50": 2.0,
+          "p90": 2.0,
+          "max": 2.0
+        }
+      },
+      "zero_hit_picks": 1256,
+      "zero_block_picks": 1256,
+      "sum_hits": 0.0,
+      "sum_request_blocks": 0.0
+    },
+    "Prefill/10.235.192.140:29001#dp5": {
+      "picks": 1051,
+      "metrics": {
+        "cache_hits": {
+          "n": 1051,
+          "mean": 2486.3349191246434,
+          "p50": 1539.0,
+          "p90": 7168.0,
+          "max": 12178.0
+        },
+        "request_blocks": {
+          "n": 1051,
+          "mean": 2625.4833491912464,
+          "p50": 1686.0,
+          "p90": 7281.0,
+          "max": 12227.0
+        },
+        "active_blocks": {
+          "n": 1051,
+          "mean": 3816.2254995242624,
+          "p50": 1539.0,
+          "p90": 11640.0,
+          "max": 45041.0
+        },
+        "w_overlap": {
+          "n": 1051,
+          "mean": 20.0,
+          "p50": 20.0,
+          "p90": 20.0,
+          "max": 20.0
+        }
+      },
+      "zero_hit_picks": 237,
+      "zero_block_picks": 0,
+      "sum_hits": 2613138.0,
+      "sum_request_blocks": 2759383.0
+    },
+    "Prefill/10.235.192.140:29001#dp4": {
+      "picks": 1012,
+      "metrics": {
+        "cache_hits": {
+          "n": 1012,
+          "mean": 2306.5167984189725,
+          "p50": 1630.5,
+          "p90": 4519.0,
+          "max": 11678.0
+        },
+        "request_blocks": {
+          "n": 1012,
+          "mean": 2428.0573122529645,
+          "p50": 1783.5,
+          "p90": 4543.0,
+          "max": 11704.0
+        },
+        "active_blocks": {
+          "n": 1012,
+          "mean": 3607.3073122529645,
+          "p50": 1616.5,
+          "p90": 10846.0,
+          "max": 32561.0
+        },
+        "w_overlap": {
+          "n": 1012,
+          "mean": 20.0,
+          "p50": 20.0,
+          "p90": 20.0,
+          "max": 20.0
+        }
+      },
+      "zero_hit_picks": 241,
+      "zero_block_picks": 0,
+      "sum_hits": 2334195.0,
+      "sum_request_blocks": 2457194.0
+    },
+    "Prefill/10.235.192.140:29001#dp0": {
+      "picks": 1084,
+      "metrics": {
+        "cache_hits": {
+          "n": 1084,
+          "mean": 2551.3071955719556,
+          "p50": 1408.5,
+          "p90": 8283.0,
+          "max": 13115.0
+        },
+        "request_blocks": {
+          "n": 1084,
+          "mean": 2684.5968634686346,
+          "p50": 1536.0,
+          "p90": 8618.0,
+          "max": 13142.0
+        },
+        "active_blocks": {
+          "n": 1084,
+          "mean": 3925.440959409594,
+          "p50": 1486.5,
+          "p90": 13025.0,
+          "max": 28337.0
+        },
+        "w_overlap": {
+          "n": 1084,
+          "mean": 20.0,
+          "p50": 20.0,
+          "p90": 20.0,
+          "max": 20.0
+        }
+      },
+      "zero_hit_picks": 166,
+      "zero_block_picks": 0,
+      "sum_hits": 2765617.0,
+      "sum_request_blocks": 2910103.0
+    }
+  },
+  "limitations": [
+    "Pick window includes dispatched requests that may finish after the window; it is not the completed-request cohort.",
+    "Only chosen-rank active blocks are logged, before on_request_started; this is not the sum of all ranks or per-request held block-time.",
+    "Router hit estimates are not measured GPU/host cache hits.",
+    "Winner-only observations cannot reconstruct scores for alternative ranks or establish a routing counterfactual."
+  ]
+}

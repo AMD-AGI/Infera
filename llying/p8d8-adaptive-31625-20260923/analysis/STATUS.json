@@ -1,10 +1,10 @@
 {
-  "updated_utc": "2026-09-23T18:03:54.036244+00:00",
+  "updated_utc": "2026-09-23T19:11:59.091067+00:00",
   "job_id": 31644,
   "prefill": "smci355-ccs-aus-n10-29",
   "decode": "smci355-ccs-aus-n02-21",
-  "current_case": "g0-guard-completion",
-  "stage": "G0_PROFILING",
+  "current_case": "a1-guard-decode",
+  "stage": "A1_STARTUP",
   "next_cases": [
     "g0-guard-completion",
     "a1-guard-decode"
@@ -12,12 +12,23 @@
   "decision": "Evaluate guarded P accounting lifecycle before capacity restarts; retain only useful experiments.",
   "deadline_review_approx_utc": "2026-09-24T00:43:00Z",
   "manager_pid": 3840880,
-  "next_decision": "After G0, analyze then choose A1 or cut branch",
+  "next_decision": "After A1, prioritize confirming any gain; consider capacity only with adequate confidence and time",
   "a0_result": {
     "total_tokens_s_gpu": 20166.29907,
     "completed": 9727,
     "audit_passed": true
   },
-  "profiling_started_utc": "2026-09-23T18:00:36Z",
-  "profiling_expected_end_utc": "2026-09-23T19:00:36Z"
+  "g0_provisional_accounting": {
+    "completed": 10033,
+    "cancelled": 16,
+    "runner_errors": 0
+  },
+  "g0_result": {
+    "completed": 10033,
+    "cancelled": 16,
+    "total_tokens_s_gpu": 21264.17935,
+    "output_tokens_s_gpu": 168.69853,
+    "audit_passed": true,
+    "status": "PROMISING_AWAITING_ROLLBACK"
+  }
 }

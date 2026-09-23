@@ -1,0 +1,37 @@
+{
+  "analysis/joined-requests.jsonl": {
+    "path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g0-guard-completion/analysis/joined-requests.jsonl",
+    "bytes": 86075714,
+    "sha256": "213f0349dd390221cd6737c432ec18c396635afa165304aa2ed3024819124314"
+  },
+  "analysis/span-timelines.jsonl": {
+    "path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g0-guard-completion/analysis/span-timelines.jsonl",
+    "bytes": 105061596,
+    "sha256": "8e2d40a5d70842cd9dc0c71dfb70c4d569676efb6aff4f11bafa328ba73b109f"
+  },
+  "analysis/runtime-summary.json": {
+    "path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g0-guard-completion/analysis/runtime-summary.json",
+    "bytes": 4559423,
+    "sha256": "b6ca47b205da799f8b3ce22eea05e5705182780fa59a41426aa55d8415872971"
+  },
+  "analysis/guard-lifecycle-joined.jsonl": {
+    "path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g0-guard-completion/analysis/guard-lifecycle-joined.jsonl",
+    "bytes": 2051401,
+    "sha256": "03f7e181c8fc839a66218673949b4d708ea5604aa0ea14e2837e331398760c9c"
+  },
+  "c80/aiperf_artifacts/profile_export.jsonl": {
+    "path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g0-guard-completion/c80/aiperf_artifacts/profile_export.jsonl",
+    "bytes": 63503423,
+    "sha256": "c680c0848539b7ac5714e5bf4bf10571ca3ed6d08832d75733b7babbd7adb2df"
+  },
+  "server-logs/router.log": {
+    "path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g0-guard-completion/server-logs/router.log",
+    "bytes": 13762962,
+    "sha256": "ed0d95117e2697406363fc3a8aed0eb7c56b2cfbfec1f09a90c0acb21b47f1b5"
+  },
+  "sampling/gpu-ownership.jsonl": {
+    "path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g0-guard-completion/sampling/gpu-ownership.jsonl",
+    "bytes": 1842858,
+    "sha256": "c3584e3ae076d0e802aac95c233f7eacd535331bf4a257a450d1aea36133e75e"
+  }
+}

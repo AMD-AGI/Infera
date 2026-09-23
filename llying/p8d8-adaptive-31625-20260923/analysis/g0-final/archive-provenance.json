@@ -1,0 +1,6 @@
+{
+  "source": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g0-guard-completion",
+  "archived_utc": "2026-09-23T19:09:39.824099+00:00",
+  "status": "completed_and_audited",
+  "large_artifacts": "Retained at shared paths listed in manifest; not copied into git."
+}
