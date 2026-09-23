@@ -1,0 +1,88 @@
+{
+  "status": "PREPARED_NOT_STARTED_NETWORK_BLOCKED",
+  "allocation_job_id": 31609,
+  "user_execution_order": "C80 8K first; repeat 4K on the same nodes only if results warrant it",
+  "baseline_run": "/perf_apps/liyingli/bench_agentx/p8d8-tracing-aus-20260922/runs/main-20260922",
+  "image_ids": {
+    "decode-0": "sha256:4f125ff9096f75611fa24caad4c01c3707dd0892251680a6483b99ffaa2a88bb",
+    "prefill-0": "sha256:4f125ff9096f75611fa24caad4c01c3707dd0892251680a6483b99ffaa2a88bb"
+  },
+  "benchmark_baseline": {
+    "CONC": "80",
+    "DURATION": "3600",
+    "AIPERF_WARMUP_REQUESTS_PER_LANE": "10",
+    "INFERENCEX_COMMIT": "918524ff94045b3f091115f1051c22a8588edf2b",
+    "INFERENCEX_DIRTY": "false",
+    "MODEL": "/perf_apps/data/models/GLM-5.2-MXFP4",
+    "SIMULATE_ACC_LEN": "3.61",
+    "SCENARIO_TYPE": "agentic-coding"
+  },
+  "intended_parameter_change": {
+    "PREFILL_CHUNK_SIZE": {
+      "before": 32768,
+      "after": 65536
+    },
+    "effective_prefill_chunked_prefill_size": {
+      "before": 4096,
+      "after": 8192
+    }
+  },
+  "expected_selected_server_config": {
+    "prefill": {
+      "version": "0.5.19.dev20260916+ge7f7447333",
+      "mem_fraction_static": 0.85,
+      "max_running_requests": 256,
+      "max_total_num_tokens": 3143424,
+      "chunked_prefill_size": 8192,
+      "max_prefill_tokens": 16384,
+      "page_size": 64,
+      "tp_size": 8,
+      "dp_size": 8,
+      "ep_size": 1,
+      "schedule_policy": "fcfs",
+      "disable_radix_cache": false,
+      "disable_chunked_prefix_cache": false,
+      "enable_hierarchical_cache": true,
+      "hicache_ratio": 1.5,
+      "hicache_size": 0,
+      "hicache_write_policy": "write_through",
+      "hicache_io_backend": "kernel",
+      "hicache_host_memory_mode": "cache",
+      "num_reserved_decode_tokens": 512,
+      "optimistic_prefill_attempts": 0,
+      "disaggregation_decode_enable_radix_cache": false
+    },
+    "decode": {
+      "version": "0.5.19.dev20260916+ge7f7447333",
+      "mem_fraction_static": 0.85,
+      "max_running_requests": 256,
+      "max_total_num_tokens": 3003264,
+      "chunked_prefill_size": 4096,
+      "max_prefill_tokens": 16384,
+      "page_size": 64,
+      "tp_size": 8,
+      "dp_size": 8,
+      "ep_size": 1,
+      "schedule_policy": "fcfs",
+      "disable_radix_cache": true,
+      "disable_chunked_prefix_cache": false,
+      "enable_hierarchical_cache": false,
+      "hicache_ratio": null,
+      "hicache_size": 0,
+      "hicache_write_policy": "write_through",
+      "hicache_io_backend": "kernel",
+      "hicache_host_memory_mode": "cache",
+      "num_reserved_decode_tokens": 512,
+      "optimistic_prefill_attempts": 0,
+      "disaggregation_decode_enable_radix_cache": false
+    }
+  },
+  "required_live_checks": [
+    "Verify job 31609 current allocation and both node identities",
+    "Verify image IDs and mounted diagnostic code against baseline",
+    "Compare full server args, container environment and benchmark settings with baseline; explain topology/path changes and any derived capacity differences before load",
+    "Verify actual Prefill chunk 8192 and Decode chunk 4096",
+    "Verify identical workload source/revision and client patch, warmup procedure, smoke correlation and fresh samplers"
+  ],
+  "observed_blocker": "Slurm and SSH socket: Operation not permitted; no new remote experiment started"
+}

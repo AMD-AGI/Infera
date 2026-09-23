@@ -65,6 +65,9 @@ python3 "$DIR/tools/agentx_env.py" \
     --runtime-dir "$cache/aiperf-$RUN_ID-c$CONC" --hf-home "$cache/hf" \
     --concurrency "$CONC" --duration "$DURATION" \
     --ssh-options "${SSH_OPTS:--o BatchMode=yes -o ConnectTimeout=10}"
+if [[ -n "${AGENTX_RUNTIME_VALIDATOR:-}" ]]; then
+    python3 "$AGENTX_RUNTIME_VALIDATOR" "$OUT_DIR"
+fi
 runtime_model="$(awk -F= '$1=="MODEL"{sub("^[^=]*=",""); print; exit}' "$OUT_DIR/runtime.env")"
 [[ -n "$runtime_model" ]] || { echo "runtime.env has no MODEL" >&2; exit 1; }
 ssh_run "$CONTROL_NODE" test -r "$runtime_model/tokenizer_config.json" ||
@@ -92,6 +95,7 @@ echo "running AgentX C$CONC for ${DURATION}s via $router_url"
 ssh_run "$CONTROL_NODE" docker run --rm --name "$name" \
     --network host --ipc host --shm-size "${CLIENT_SHM_SIZE:-32g}" \
     "${mounts[@]}" --env-file "$OUT_DIR/runtime.env" \
+    -e "AGENTX_DATASET_DOWNLOAD_OFFLINE=${AGENTX_DATASET_DOWNLOAD_OFFLINE:-0}" \
     "$IMAGE" bash -c '
         set -euo pipefail
         out="$1"
@@ -99,11 +103,16 @@ ssh_run "$CONTROL_NODE" docker run --rm --name "$name" \
         source "$INFMAX_CONTAINER_WORKSPACE/benchmarks/benchmark_lib.sh"
         install_agentic_deps
         "$AIPERF_PYTHON" "$2"
+        if [[ -n "$3" ]]; then "$AIPERF_PYTHON" "$3"; fi
         export PYTHONPATH="/tmp/aus-client-overlay${PYTHONPATH:+:$PYTHONPATH}"
-        resolve_trace_source
+        if [[ "$AGENTX_DATASET_DOWNLOAD_OFFLINE" == 1 ]]; then
+            HF_HUB_OFFLINE=1 resolve_trace_source
+        else
+            resolve_trace_source
+        fi
         build_replay_cmd "$out"
         run_agentic_replay_and_write_outputs "$out"
-    ' _ "$OUT_DIR" "$TRACE_RUNTIME/scripts/patch_client.py" 2>&1 | tee "$OUT_DIR/runner.log"
+    ' _ "$OUT_DIR" "$TRACE_RUNTIME/scripts/patch_client.py" "${AGENTX_DATASET_PINNER:-}" 2>&1 | tee "$OUT_DIR/runner.log"
 trap - EXIT INT TERM
 result="$OUT_DIR/agentx_conc$CONC.json"
 [[ -s "$result" ]] || { echo "AgentX result is missing: $result" >&2; exit 1; }

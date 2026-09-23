@@ -1,0 +1,35 @@
+{
+  "matched_prefill": {
+    "queue_ms": {
+      "bins": 22,
+      "weight": 9367,
+      "baseline_ms": 5541.595675088732,
+      "current_ms": 4431.7079610263945,
+      "change_pct": -20.02830554837557
+    },
+    "forward_envelope_ms": {
+      "bins": 22,
+      "weight": 9367,
+      "baseline_ms": 2972.3322660195613,
+      "current_ms": 4413.273733099438,
+      "change_pct": 48.47847878761995
+    },
+    "transfer_tail_ms": {
+      "bins": 22,
+      "weight": 9367,
+      "baseline_ms": 924.4556373969342,
+      "current_ms": 1691.5775111447965,
+      "change_pct": 82.98092874504076
+    }
+  },
+  "weighting": "same context/miss/host bins with >=20 requests in each run; weight=min(n4k,n8k)",
+  "exported_error_records_by_phase": {
+    "warmup": 2
+  },
+  "profiling_runner": {
+    "sent": 9597,
+    "completed": 9584,
+    "cancelled": 13,
+    "errors": 0
+  }
+}

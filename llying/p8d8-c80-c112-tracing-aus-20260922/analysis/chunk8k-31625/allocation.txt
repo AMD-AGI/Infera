@@ -1,0 +1,26 @@
+JobId=31625 JobName=llying_inference
+   UserId=liyingli(100078) GroupId=liyingli(100078) MCS_label=N/A
+   Priority=2071 Nice=0 Account=emad QOS=batch
+   JobState=RUNNING Reason=None Dependency=(null)
+   Requeue=1 Restarts=0 BatchFlag=0 Reboot=0 ExitCode=0:0
+   RunTime=00:29:34 TimeLimit=1-00:00:00 TimeMin=N/A
+   SubmitTime=2026-09-23T08:56:16 EligibleTime=2026-09-23T08:56:16
+   AccrueTime=2026-09-23T08:56:16
+   StartTime=2026-09-23T09:01:42 EndTime=2026-09-24T09:01:42 Deadline=N/A
+   PreemptEligibleTime=2026-09-23T09:31:42 PreemptTime=None
+   SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-09-23T09:01:42 Scheduler=Main
+   Partition=Compute-DCPT AllocNode:Sid=dccs-1334-slurm:171242
+   ReqNodeList=(null) ExcNodeList=(null)
+   NodeList=smci355-ccs-aus-n02-21,smci355-ccs-aus-n03-33
+   BatchHost=smci355-ccs-aus-n02-21
+   NumNodes=2 NumCPUs=512 NumTasks=2 CPUs/Task=1 ReqB:S:C:T=0:0:*:*
+   ReqTRES=cpu=2,mem=6000000M,node=2,billing=2
+   AllocTRES=cpu=512,mem=6000000M,node=2,billing=1024,gres/gpu=16
+   Socks/Node=* NtasksPerN:B:S:C=1:0:*:* CoreSpec=*
+   MinCPUsNode=1 MinMemoryNode=0 MinTmpDiskNode=0
+   Features=(null) DelayBoot=00:00:00
+   OverSubscribe=NO Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null)
+   Command=/bin/bash
+   SubmitLine=salloc -N 2 --partition=Compute-DCPT --qos=batch --exclusive --ntasks-per-node=1 --time=24:00:00 --job-name=llying_inference
+   WorkDir=/home/liyingli
+

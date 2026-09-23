@@ -150,6 +150,8 @@ B ≈ free_KV - max(512 × active_requests, single_request_growth_reserve)
 
 ### 3.3 P admission、cache 和 chunk
 
+逐步解读见 [调度问答第 7 节](SCHEDULING-QA.zh-CN.md#q7)：展开缓存匹配、本轮预算、host 回读与完成同步、chunk 续跑，并用示例区分“缓存命中”“通过准入”和“真正开始计算”。
+
 镜像 `scheduler.py` 先对现有 `chunked_req` 调用 `add_chunked_req`，再遍历 waiting queue。`PrefillAdder` 同时管理 KV、input 和 chunk 预算；`add_one_req` 在选定 admission 后调用 `init_load_back`，再提交请求。遇到非 CONTINUE 结果会停止当前候选遍历。
 
 因此“fcfs + chunked prefill”并不保证新请求每轮都能获得公平份额。一个长 miss 请求可以连续占用该 rank 的 chunk 预算，让后续短请求等待；是否发生全局空转还取决于其他 rank 和 TP/DP 协同，不能从本地队列长度直接推断。
@@ -157,6 +159,8 @@ B ≈ free_KV - max(512 × active_requests, single_request_growth_reserve)
 Unified Radix Cache 的 `_load_back_transfers` 在空闲页不足时驱逐可回收缓存，再提交 H→D load；`loading_check` 轮询 ack、同步完成事件、解除锁。host 操作可能消耗资源并影响其他请求，即使那些请求自己没有 host-hit。
 
 ### 3.4 P handoff 与解锁
+
+逐步解读见 [调度问答第 8 节](SCHEDULING-QA.zh-CN.md#q8)：展开缓存前缀/中间/最后 chunk 发送、P/D 各自的完成观察、KV 解锁与缓存驱逐的区别，以及 transfer tail 与 D transfer wait 的时间线。
 
 `prefill.py` 可以发送缓存 prefix、中间 chunk 和最后 chunk。P 在 transfer poll 成功后调用 `release_kv_cache` 解锁；D 则在接收完成后推进 generation。这意味着 P transfer tail 可能延长 P 页锁定，但它不是完整 RDMA 数据搬运时间，也不能与 D transfer wait 相加。
 

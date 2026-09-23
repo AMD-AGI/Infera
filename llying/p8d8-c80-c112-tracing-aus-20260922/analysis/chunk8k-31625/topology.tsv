@@ -1,0 +1,3 @@
+role	node	data_ip
+prefill	smci355-ccs-aus-n03-33	10.235.192.56
+decode	smci355-ccs-aus-n02-21	10.235.192.128

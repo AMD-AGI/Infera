@@ -1,0 +1,13 @@
+smci355-ccs-aus-n03-33.prov.aus.ccs.cpe.ice.amd.com
+6.8.0-107-generic
+driver: ionic
+version: 26.03.3.001
+firmware-version: 1.117.5-a-77
+expansion-rom-version: 
+bus-info: 0000:09:00.0
+supports-statistics: yes
+supports-test: no
+supports-eeprom-access: no
+supports-register-dump: yes
+supports-priv-flags: yes
+1ab5ac7f6dda070f9ce3e93082193d2d455f749b8454ed49cf2fe12ded959b78  /lib/x86_64-linux-gnu/libionic.so

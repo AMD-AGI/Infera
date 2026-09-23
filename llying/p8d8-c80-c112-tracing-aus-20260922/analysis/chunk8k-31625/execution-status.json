@@ -1,0 +1,18 @@
+{
+  "observed_at_utc": "2026-09-23T11:42:10.578314+00:00",
+  "job_id": 31625,
+  "status": "COMPLETED_ANALYSIS_REVIEWED",
+  "run": "/perf_apps/liyingli/bench_agentx/p8d8-chunk8k-31625-20260923/runs/chunk8k-c80-31625",
+  "config_validation_passed": true,
+  "smoke_paired_requests": 8,
+  "sampling_preflight_passed": true,
+  "benchmark_runtime_validation_passed": true,
+  "result_available": true,
+  "client_recovery_pid": 281045,
+  "automatic_analysis_pid": 293945,
+  "driver_status": "2026-09-23T10:01:02+00:00 BENCHMARK_C80",
+  "warmup_started_utc": "2026-09-23T10:03:53Z",
+  "latest_warmup_progress": "10:05:23.905 INFO     Phase warmup progress | returned=29/884 | sent=84 | in_flight=55 | errors=0 | elapsed=90.0s (runner.py:1254)",
+  "analysis_completed_utc": "2026-09-23T11:33:20Z",
+  "conclusion": "No observed throughput benefit in historical comparison; same-node 4K control recommended"
+}

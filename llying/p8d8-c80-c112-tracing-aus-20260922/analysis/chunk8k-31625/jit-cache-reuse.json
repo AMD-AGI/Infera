@@ -1,0 +1,52 @@
+{
+  "source_node": "smci355-ccs-aus-n02-21",
+  "image_sha256": "4f125ff9096f75611fa24caad4c01c3707dd0892251680a6483b99ffaa2a88bb",
+  "files": {
+    "module_gemm_a16w16_asm.so": {
+      "action": "installed_missing",
+      "sha256": "be21f671effeef1b74a548ebec627d57cfb1ab1176e25fecee67d97556f5763d"
+    },
+    "module_cache.so": {
+      "action": "skipped_existing_or_building"
+    },
+    "module_quant.so": {
+      "action": "skipped_existing_or_building"
+    },
+    "module_rmsnorm_quant.so": {
+      "action": "skipped_existing_or_building"
+    },
+    "module_aiter_core.so": {
+      "action": "skipped_existing_or_building"
+    },
+    "module_moe_mxfp4_aux.so": {
+      "action": "skipped_existing_or_building"
+    },
+    "module_moe_asm.so": {
+      "action": "installed_missing",
+      "sha256": "6f64005ba6e01e9368e524a69092560dee6363075b46c558c6c69b224b385c4d"
+    },
+    "module_custom.so": {
+      "action": "skipped_existing_or_building"
+    },
+    "module_norm.so": {
+      "action": "skipped_existing_or_building"
+    },
+    "module_gemm_common.so": {
+      "action": "skipped_existing_or_building"
+    },
+    "module_fused_qk_norm_rope_cache_quant_shuffle.so": {
+      "action": "installed_missing",
+      "sha256": "1121a2c77eb06bea981bedcd0767682740f39d71335a8aab2a2b9547176362e9"
+    },
+    "module_rope_2c_cached_positions_fwd.so": {
+      "action": "skipped_existing_or_building"
+    },
+    "module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2.so": {
+      "action": "installed_missing",
+      "sha256": "971b5434f3c4a3fdd99e88a9cafed7ef3b3c1e2b829bf67123b04052383921d2"
+    },
+    "module_custom_all_reduce.so": {
+      "action": "skipped_existing_or_building"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "observed_at_utc": "2026-09-23T08:41:00.231156+00:00",
+  "status": "PREEMPTION_DURING_STARTUP_SSH_DENIED",
+  "job_id": 31609,
+  "preempt_time_utc": "2026-09-23T08:40:02Z",
+  "new_end_time_utc": "2026-09-23T08:45:02Z",
+  "last_driver_status": "2026-09-23T08:33:27+00:00 LAUNCHING",
+  "benchmark_started": false,
+  "smoke_completed": false,
+  "run_root": "/perf_apps/liyingli/bench_agentx/p8d8-chunk8k-31609-20260923/runs/chunk8k-c80-31609",
+  "remote_cleanup_confirmed": false
+}

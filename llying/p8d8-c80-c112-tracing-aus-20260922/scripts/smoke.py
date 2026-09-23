@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise long-context PD requests with externally assigned trace IDs."""
 import argparse
+import os
 import concurrent.futures
 import json
 import time
@@ -19,7 +20,7 @@ def request(index):
         (f"measurement {index}: temperature 20 pressure 100.\n" * (4000 if index==0 else 400)))],
         max_tokens=32, temperature=0, stream=False)
     start = time.time_ns()
-    req = urllib.request.Request("http://10.235.192.136:28000/v1/chat/completions",
+    req = urllib.request.Request(f"http://{os.environ.get('PREFILL_IP', '10.235.192.136')}:28000/v1/chat/completions",
         json.dumps(body).encode(), {"Content-Type":"application/json", "traceparent":f"00-{trace_id}-{span_id}-01"})
     with urllib.request.urlopen(req, timeout=240) as response:
         result = json.load(response)

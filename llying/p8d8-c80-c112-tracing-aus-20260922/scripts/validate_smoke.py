@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Require paired P/D summaries, actual ranks, admission and OTLP stage spans."""
 import collections
+import os
 import json
 import sys
 import urllib.request
@@ -10,9 +11,9 @@ from pathlib import Path
 
 root = Path(sys.argv[1])
 live={}
-for role,node in (('prefill','smci355-ccs-aus-n01-33'),('decode','smci355-ccs-aus-n02-21')):
+for role,node in (('prefill',os.environ.get('PREFILL_NODE','smci355-ccs-aus-n01-33')),('decode',os.environ.get('DECODE_NODE','smci355-ccs-aus-n02-21'))):
     container=json.loads(subprocess.check_output(['ssh','-F','/dev/null','-o','BatchMode=yes',
-        '-o','UserKnownHostsFile=/tmp/agentx_known_hosts',node,'docker','inspect',f'llying-aus-trace-{role}-0'],text=True))[0]
+        '-o','UserKnownHostsFile=/tmp/agentx_known_hosts',node,'docker','inspect',f"{os.environ.get('CONTAINER_PREFIX','llying-aus-trace')}-{role}-0"],text=True))[0]
     env=dict(x.split('=',1) for x in container['Config']['Env'] if '=' in x)
     assert env.get('AUS_DIAG_ROLE')==role
     assert env.get('SGLANG_TRACE_ASYNC')=='1'
@@ -74,7 +75,7 @@ result=dict(paired_requests=len(paired), request_trace_ids=dict(trace_roles), ev
 print(json.dumps(result))
 # Clear the small smoke prefixes before the fresh C80 workload. Keep the
 # collector running so flush boundaries remain part of the same trace capture.
-for role,ip,port in (('prefill','10.235.192.136',29001),('decode','10.235.192.128',29002)):
+for role,ip,port in (('prefill',os.environ.get('PREFILL_IP','10.235.192.136'),29001),('decode',os.environ.get('DECODE_IP','10.235.192.128'),29002)):
     request=urllib.request.Request(f'http://{ip}:{port}/flush_cache',data=b'',method='POST')
     with urllib.request.urlopen(request,timeout=30) as response:
         (root/f'smoke-flush-{role}.txt').write_bytes(response.read())

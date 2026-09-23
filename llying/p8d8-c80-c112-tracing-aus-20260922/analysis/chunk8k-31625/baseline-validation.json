@@ -1,0 +1,59 @@
+{
+  "passed": true,
+  "errors": [],
+  "runtime_differences": {
+    "AIPERF_SERVER_METRICS_URLS": {
+      "baseline": "http://10.235.192.136:28000/metrics,http://10.235.192.136:29001/metrics,http://10.235.192.128:29002/metrics",
+      "current": "http://10.235.192.56:28000/metrics,http://10.235.192.56:29001/metrics,http://10.235.192.128:29002/metrics"
+    },
+    "AIPERF_SERVER_URL": {
+      "baseline": "http://10.235.192.136:28000",
+      "current": "http://10.235.192.56:28000"
+    },
+    "AIPERF_RUNTIME_DIR": {
+      "baseline": "/perf_apps/liyingli/bench_agentx/p8d8-tracing-aus-20260922/cache/agentx/aiperf-main-20260922-c80",
+      "current": "/perf_apps/liyingli/bench_agentx/p8d8-tracing-aus-20260922/cache/agentx/aiperf-chunk8k-c80-31625-c80"
+    },
+    "AGENTIC_OUTPUT_DIR": {
+      "baseline": "/perf_apps/liyingli/bench_agentx/p8d8-tracing-aus-20260922/runs/main-20260922/c80",
+      "current": "/perf_apps/liyingli/bench_agentx/p8d8-chunk8k-31625-20260923/runs/chunk8k-c80-31625/c80"
+    }
+  },
+  "dataset_revision": "23f152f6f0f9399a85901b89a6458def0ef16729",
+  "workload_manifest": {
+    ".gitattributes": {
+      "sha256": "f20332442d15fbca766cca2802388ee04a91dfe1f2b428b23c68872c84673934",
+      "bytes": 2553
+    },
+    "README.md": {
+      "sha256": "c5358865e47321e50b89e7c04168cb3e7601307c48541149462bc217853e9fcf",
+      "bytes": 3577
+    },
+    "plots/distributions_linear.png": {
+      "sha256": "8d7e5a8ab9a6022354e507b7c3a73020cac815c46b8cc8b92487d086f357b213",
+      "bytes": 212749
+    },
+    "plots/distributions_log.png": {
+      "sha256": "725fe3e4df8f40dd7ade07a9e40fdf3c8d218c09bfe50c8cf4eb3c5fa2c6572d",
+      "bytes": 211604
+    },
+    "plots/subagent_distributions_linear.png": {
+      "sha256": "fa2184b0806d96e4fa2afa537492030827a10f314499607e76b1ce1092f1f11c",
+      "bytes": 199155
+    },
+    "plots/subagent_distributions_log.png": {
+      "sha256": "5b3ba49085e6fb465131c09168dcf96541db294a38f3ca97ed1eb9381ee60e0a",
+      "bytes": 200595
+    },
+    "stats.txt": {
+      "sha256": "c939ba2930d56525331b331cf9419e0ccd4ced9481d3856ef191e92a1b8945a9",
+      "bytes": 237
+    },
+    "traces.jsonl": {
+      "sha256": "29b6a19e751ff5230771519aab755f80a0f43a4ba9cf96b72d3a6a437ec99276",
+      "bytes": 1847151435
+    }
+  },
+  "dataset_download_offline": "1",
+  "dataset_pinner": "/perf_apps/liyingli/bench_agentx/p8d8-chunk8k-31625-20260923/scripts/pin_chunk8k_dataset.py"
+}
