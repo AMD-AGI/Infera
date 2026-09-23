@@ -1,0 +1,26 @@
+JobId=31639 JobName=primus-cli-slurm-entry.sh
+   UserId=jabowden(100170) GroupId=jabowden(100170) MCS_label=N/A
+   Priority=6749 Nice=0 Account=swammy QOS=dcgpu-test
+   JobState=NODE_FAIL Reason=NodeDown FailedNode=smci355-ccs-aus-n05-29 Dependency=(null)
+   Requeue=1 Restarts=0 BatchFlag=0 Reboot=0 ExitCode=0:1
+   RunTime=00:08:19 TimeLimit=00:20:00 TimeMin=N/A
+   SubmitTime=2026-09-23T14:48:44 EligibleTime=2026-09-23T14:48:44
+   AccrueTime=2026-09-23T14:48:44
+   StartTime=2026-09-23T14:55:43 EndTime=2026-09-23T15:04:02 Deadline=N/A
+   PreemptEligibleTime=2026-09-23T15:25:43 PreemptTime=None
+   SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-09-23T14:55:43 Scheduler=Main
+   Partition=Compute-DCPT AllocNode:Sid=dccs-1334-slurm:892045
+   ReqNodeList=(null) ExcNodeList=smci355-ccs-aus-n02-21,smci355-ccs-aus-n10-29
+   NodeList=smci355-ccs-aus-n02-[25,33],smci355-ccs-aus-n03-33,smci355-ccs-aus-n04-33,smci355-ccs-aus-n05-[29,33],smci355-ccs-aus-n06-[25,33]
+   BatchHost=smci355-ccs-aus-n02-25
+   NumNodes=8 NumCPUs=16 NumTasks=8 CPUs/Task=1 ReqB:S:C:T=0:0:*:*
+   ReqTRES=cpu=8,mem=23437.50G,node=8,billing=8
+   AllocTRES=cpu=16,mem=23437.50G,node=8,billing=16
+   Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=*
+   MinCPUsNode=1 MinMemoryNode=0 MinTmpDiskNode=0
+   Features=(null) DelayBoot=00:00:00
+   OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null)
+   Command=/apps/gpuperf/jared/repos/dsv3_26_6/runner/primus-cli-slurm-entry.sh
+   SubmitLine=srun -N 8 -p Compute-DCPT -x smci355-ccs-aus-n02-21,smci355-ccs-aus-n10-29 -t 0:20:00 /apps/gpuperf/jared/repos/dsv3_26_6/runner/primus-cli-slurm-entry.sh -- container --env NCCL_SOCKET_IFNAME=fenic --env GLOO_SOCKET_IFNAME=fenic --env USING_AINIC=1 --env NCCL_IB_GID_INDEX=1 --env NCCL_PXN_DISABLE=0 --env NCCL_DEBUG=INFO --env NCCL_DEBUG_SUBSYS=INIT,COLL -- train pretrain --config examples/megatron/configs/MI355X/deepseek_v3-FP8-pretrain.yaml --train_iters 30 --micro_batch_size 2 --global_batch_size 1024 --pipeline_model_parallel_size 8 --pipeline_model_parallel_layout Et*3|t*4|t*4|t*4|t*4|t*4|t*4|t*4|t*4|t*4|t*4|t*4|t*4|t*4|t*4|t*2,L --mtp_num_layers 0 --recompute_granularity full --recompute_method block --recompute_num_layers 2 --recompute_layer_ids null --distributed_timeout_minutes 5
+   WorkDir=/apps/gpuperf/jared/repos/dsv3_26_6
+

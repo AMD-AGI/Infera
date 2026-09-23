@@ -1,0 +1,9 @@
+{
+  "commit": "ff3ac59e83c73e03b98a5d0ec192ec28847130f7",
+  "sha256": {
+    "lib/kv-router/src/scheduling/selector/reference.rs": "192d3a741cab16714c75feffce6092e7e33fcfe0b0e445b27d576569627703c4",
+    "lib/kv-router/src/scheduling/selector/policy.rs": "122f74bbb0b26c214f40d0988f76e082e93d9981115854964cfa92f7311a2a97",
+    "lib/kv-router/src/protocols.rs": "f334d33aa5937fcf478cc60a9c95ce66e1ad37f75a67bca5b0b336a111eb42e5",
+    "lib/llm/src/kv_router/routing_host/request_guard.rs": "e0497261d4be22f9f6bb349dbc36d158acd93173171671ca0ddc430b0c3dce18"
+  }
+}
