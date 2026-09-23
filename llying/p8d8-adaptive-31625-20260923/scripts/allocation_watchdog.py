@@ -16,7 +16,8 @@ def cleanup(reason):
  record({'event':'cleanup_requested','reason':reason})
  if a.active_run_file and a.active_run_file.exists():
   active=Path(a.active_run_file.read_text().strip())
-  if active.is_dir() and active.parent.name=='runs' and 'COMPLETE_REVIEW_PENDING' not in (active/'STATUS').read_text():
+  phase=(active/'STATUS').read_text() if (active/'STATUS').exists() else ''
+  if active.is_dir() and active.parent.name=='runs' and 'COMPLETE_REVIEW_PENDING' not in phase:
    (active/'INVALID').write_text('Allocation cleanup: '+reason+'\n')
  names=subprocess.check_output(['docker','ps','--format','{{.Names}}'],text=True).splitlines()
  names=[n for n in names if n.startswith(a.prefix+'-')]
@@ -28,6 +29,7 @@ def cleanup(reason):
   image= 'sha256:13b135926ee29192305a1ab42861eca50d3b1b862869b8f4339743ad2fa7cc8e' if name==a.prefix+'-etcd' else expected
   if c['Image']!=image:record({'event':'unexpected_image_refuse_cleanup','container':name});continue
   selected.append((name,c['Id']))
+  record({'event':'container_stop_requested','container':name,'id':c['Id'],'timeout_s':5})
  # Preemption can revoke extern processes within seconds: submit all owned stops promptly.
  def stop_container(item):
   name,cid=item
@@ -36,18 +38,19 @@ def cleanup(reason):
    return {'event':'container_stopped','container':name,'id':cid,'returncode':x.returncode,'stdout':x.stdout,'stderr':x.stderr}
   except Exception as e:return {'event':'container_stop_error','container':name,'error':str(e)}
  with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-  for result in pool.map(stop_container,selected):record(result)
+  futures=[pool.submit(stop_container,item) for item in selected]
+  for future in concurrent.futures.as_completed(futures):record(future.result())
 
 while True:
  if requested:cleanup(requested);break
  try:
-  text=subprocess.check_output(['scontrol','show','job',a.job],text=True,timeout=15)
+  text=subprocess.check_output(['scontrol','show','job',a.job],text=True,timeout=5)
   fields=dict(re.findall(r'(\w+)=([^\s]+)',text))
   if fields.get('EndTime') not in (None,'Unknown'):
    end=datetime.datetime.fromisoformat(fields['EndTime']).replace(tzinfo=datetime.timezone.utc).timestamp()
   reason=None
   if a.allocation_start and fields.get('StartTime')!=a.allocation_start:reason='allocation_restarted'
-  elif a.node and a.node not in subprocess.check_output(['scontrol','show','hostnames',fields['NodeList']],text=True,timeout=15).split():reason='node_no_longer_allocated'
+  elif a.node and a.node not in subprocess.check_output(['scontrol','show','hostnames',fields['NodeList']],text=True,timeout=5).split():reason='node_no_longer_allocated'
   elif fields.get('PreemptTime') not in (None,'None'):reason='preemption_announced'
   elif fields.get('JobState') not in ('RUNNING','COMPLETING'):reason='allocation_not_running'
   elif end and time.time()>=end-2400:reason='lease_cleanup_margin_40_minutes'
@@ -55,6 +58,6 @@ while True:
  except Exception as e:
   record({'event':'controller_query_error','error':str(e)})
   if end and time.time()>=end-2400:cleanup('cached_lease_cleanup_margin');break
- for _ in range(15):
+ for _ in range(5):
   if requested:break
   time.sleep(1)

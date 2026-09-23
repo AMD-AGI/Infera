@@ -71,3 +71,13 @@ A1正式段无效，但其884条warmup完成于抢占之前，P/D关联完整。
 ## G1启动阶段再次抢占
 
 第二次分配于20:24:43 UTC被抢占（保护期到20:24:31），extern于20:25:14结束。G1还在首次AITER算子编译，未进入warmup/profiling；INVALID已由watchdog写入共享run，不能当性能结果。P watchdog记录etcd已停止；其他停止没有完成确认，不能声称显存全部释放。job31644再次重排队。账户QOS可用batch/debug/normal/shared-low；本集群preempt/qos规则中batch优先级高于normal，切normal不提供更强保护；更高perf等不在当前账户授权列表。继续只准备优化配置，不重复基线。
+
+## 第三次分配与缓存复用准备
+
+job31644 restart2于20:32:32 UTC实际分配n04-29(P,10.235.192.57)/n04-25(D,10.235.192.131)，早于之前22:29的调度估计，结束01:02:32。G2仅开启现有路由优化，沿用A0历史基线，不启动A任务。
+
+n04-29已有固定诊断镜像和13个完成AITER库，已保存92 MiB共享bundle，并验证hash安装到两节点新的本地cache根/tmp/aiter-jit-100078-g2。未复制build locks或覆盖已有库；bundle/manifest使本次准备不会随节点访问丢失。源库与A0当时复制库的逐文件hash比较另存，不能把不同hash自动视为性能等价。
+
+两节点GPU初查均空闲、无运行容器。网络驱动存在差异：P ionic26.07.9.001/firmware1.117.5-a-147，D ionic26.03.3.001/firmware1.117.5-a-77；旧A0/G0两端为26.03.3.001。镜像和模型相同不能消除这个跨节点网络差异，后续结果明确记录该限制，不追加baseline。
+
+D镜像仍在导入时已安排G2 driver等待固定image ID就绪后启动；PID2757312。当前状态不等于已经开始正式benchmark。

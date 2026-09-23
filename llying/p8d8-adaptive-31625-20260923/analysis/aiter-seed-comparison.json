@@ -1,0 +1,67 @@
+{
+  "module_aiter_core.so": {
+    "current_sha256": "b2b27268892f4d92608b110bc1b2de1042f07f9c391d2838dddca19817548bf8",
+    "a0_seed_sha256": null,
+    "same_as_a0_seed": false
+  },
+  "module_cache.so": {
+    "current_sha256": "961986c3b46cc66cf72c3d3204730a7be0bfcdb44c9e551a926f51296f9d06d7",
+    "a0_seed_sha256": "961986c3b46cc66cf72c3d3204730a7be0bfcdb44c9e551a926f51296f9d06d7",
+    "same_as_a0_seed": true
+  },
+  "module_custom.so": {
+    "current_sha256": "701c5f84fa0304d07fd8c8e32c3f12da97d4d3858bf30fa8ee0527d3726afdbe",
+    "a0_seed_sha256": "701c5f84fa0304d07fd8c8e32c3f12da97d4d3858bf30fa8ee0527d3726afdbe",
+    "same_as_a0_seed": true
+  },
+  "module_custom_all_reduce.so": {
+    "current_sha256": "d8957cdc6ec3617a4b8464b1910ea3dfae777e56733e0f038028d7571f721e4f",
+    "a0_seed_sha256": null,
+    "same_as_a0_seed": false
+  },
+  "module_fused_qk_norm_rope_cache_quant_shuffle.so": {
+    "current_sha256": "1121a2c77eb06bea981bedcd0767682740f39d71335a8aab2a2b9547176362e9",
+    "a0_seed_sha256": "1121a2c77eb06bea981bedcd0767682740f39d71335a8aab2a2b9547176362e9",
+    "same_as_a0_seed": true
+  },
+  "module_gemm_a16w16_asm.so": {
+    "current_sha256": "be21f671effeef1b74a548ebec627d57cfb1ab1176e25fecee67d97556f5763d",
+    "a0_seed_sha256": "be21f671effeef1b74a548ebec627d57cfb1ab1176e25fecee67d97556f5763d",
+    "same_as_a0_seed": true
+  },
+  "module_gemm_common.so": {
+    "current_sha256": "056227006e09d74a73b7552c76059cf47299909fa0583e389d0566c5fb9d5663",
+    "a0_seed_sha256": "056227006e09d74a73b7552c76059cf47299909fa0583e389d0566c5fb9d5663",
+    "same_as_a0_seed": true
+  },
+  "module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2.so": {
+    "current_sha256": "971b5434f3c4a3fdd99e88a9cafed7ef3b3c1e2b829bf67123b04052383921d2",
+    "a0_seed_sha256": "971b5434f3c4a3fdd99e88a9cafed7ef3b3c1e2b829bf67123b04052383921d2",
+    "same_as_a0_seed": true
+  },
+  "module_moe_mxfp4_aux.so": {
+    "current_sha256": "af85bb8dcbc8794b3ffb8eefe8284b51cbcd4ef473d8887fc5fa07768fa6e12d",
+    "a0_seed_sha256": "af85bb8dcbc8794b3ffb8eefe8284b51cbcd4ef473d8887fc5fa07768fa6e12d",
+    "same_as_a0_seed": true
+  },
+  "module_norm.so": {
+    "current_sha256": "74ffd870955e6d2af0904806c362a93f94a50a09d18278157a93c3ade503972c",
+    "a0_seed_sha256": "74ffd870955e6d2af0904806c362a93f94a50a09d18278157a93c3ade503972c",
+    "same_as_a0_seed": true
+  },
+  "module_quant.so": {
+    "current_sha256": "8ac7b26b2e2bce0b25318fe9b2000a498247f4c4cb390331542ed758c5703d5a",
+    "a0_seed_sha256": "8ac7b26b2e2bce0b25318fe9b2000a498247f4c4cb390331542ed758c5703d5a",
+    "same_as_a0_seed": true
+  },
+  "module_rmsnorm_quant.so": {
+    "current_sha256": "589898d4397703bc398256bf409a26d0a1df7919bd2cc517e463fb51076ac79f",
+    "a0_seed_sha256": "589898d4397703bc398256bf409a26d0a1df7919bd2cc517e463fb51076ac79f",
+    "same_as_a0_seed": true
+  },
+  "module_rope_2c_cached_positions_fwd.so": {
+    "current_sha256": "c491c94c0a4e8085b28c1a14f2cab920f4a0bc3fe808f3796c815797100e3c4b",
+    "a0_seed_sha256": "c491c94c0a4e8085b28c1a14f2cab920f4a0bc3fe808f3796c815797100e3c4b",
+    "same_as_a0_seed": true
+  }
+}
