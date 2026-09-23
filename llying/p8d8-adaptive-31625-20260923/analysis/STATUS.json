@@ -1,10 +1,10 @@
 {
-  "updated_utc": "2026-09-23T19:50:05.135369+00:00",
+  "updated_utc": "2026-09-23T19:53:01.593104+00:00",
   "job_id": 31644,
   "prefill": "smci355-ccs-aus-n10-29",
   "decode": "smci355-ccs-aus-n02-21",
   "current_case": "a1-guard-decode",
-  "stage": "A1_PROFILING",
+  "stage": "A1_INVALID_PREEMPTED",
   "next_cases": [
     "g0-guard-completion",
     "a1-guard-decode"
@@ -12,7 +12,7 @@
   "decision": "Evaluate guarded P accounting lifecycle before capacity restarts; retain only useful experiments.",
   "deadline_review_approx_utc": "2026-09-24T00:43:00Z",
   "manager_pid": 3840880,
-  "next_decision": "After A1, prioritize confirming any gain; consider capacity only with adequate confidence and time",
+  "next_decision": "Inspect requeue/resources; preserve completed A0/G0, do not use interrupted A1.",
   "a0_result": {
     "total_tokens_s_gpu": 20166.29907,
     "completed": 9727,
@@ -33,5 +33,5 @@
   },
   "a1_warmup_started_utc": "2026-09-23T19:22:40Z",
   "profiling_started_utc": "2026-09-23T19:43:36.868Z",
-  "profiling_expected_end_utc": "2026-09-23T20:43:36.868Z"
+  "a1_invalid_reason": "Slurm preemption at 19:46:58Z; extern step ended 19:47:29Z; SSH denied."
 }

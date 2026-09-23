@@ -1,0 +1,42 @@
+{
+  "STATUS": {
+    "shared_path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/a1-guard-decode/STATUS",
+    "bytes": 40,
+    "sha256": "2a66f6600efeeec6c42500ffac14ce6a0d71fb29aa4e32b3f4692943f76c5790"
+  },
+  "c80-started.txt": {
+    "shared_path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/a1-guard-decode/c80-started.txt",
+    "bytes": 36,
+    "sha256": "01f10a7cad07c6e2c67420807f3bc709e95ac70266d63b66336cefb1255b5b3c"
+  },
+  "c80/runner.log": {
+    "shared_path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/a1-guard-decode/c80/runner.log",
+    "bytes": 55261,
+    "sha256": "0a3752743671361ad74c5095f462a62bc2b62603f163947c7ed98ca48b56ee11"
+  },
+  "c80/aiperf_artifacts/profile_export.jsonl": {
+    "shared_path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/a1-guard-decode/c80/aiperf_artifacts/profile_export.jsonl",
+    "bytes": 4241253,
+    "sha256": "38b9b3875da96f11af5fe578498947437fdfcea17d5953213a1114690069f781"
+  },
+  "snapshot/config.sh": {
+    "shared_path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/a1-guard-decode/snapshot/config.sh",
+    "bytes": 4844,
+    "sha256": "4e7facb380a033c22ca6b2bbbfd105354ef21f3012fb7309b300eef7ea3f2fb6"
+  },
+  "snapshot/router-mode-validation.json": {
+    "shared_path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/a1-guard-decode/snapshot/router-mode-validation.json",
+    "bytes": 16962,
+    "sha256": "2f03b13a1c535dbc798081bc0d0cf98308a1015dd8c5afd1ef17225984068c58"
+  },
+  "snapshot/reuse-reset-validation.json": {
+    "shared_path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/a1-guard-decode/snapshot/reuse-reset-validation.json",
+    "bytes": 1089131,
+    "sha256": "ea2c3ed571e4b30ef047ab694b664e0c5c5de79e23abaa43426ac64e61f325e7"
+  },
+  "sampling/gpu-ownership.jsonl": {
+    "shared_path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/a1-guard-decode/sampling/gpu-ownership.jsonl",
+    "bytes": 710741,
+    "sha256": "05ee748498d3e565e004261a004676b0f953a55107565be2e56718eba3cdae71"
+  }
+}

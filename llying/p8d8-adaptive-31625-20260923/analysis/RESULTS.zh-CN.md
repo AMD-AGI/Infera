@@ -1,6 +1,6 @@
 # 自主验证结果（持续更新）
 
-更新：2026-09-23 19:12 UTC。当前结论：**G0出现有机制支持的收益，已启动A1回滚，尚未认定稳定收益或修改默认行为。**
+更新：2026-09-23 19:52 UTC。当前结论：**G0出现有机制支持的收益；A1在19:46:58被调度抢占，正式窗口仅约3分钟，作废。回滚确认未完成，尚未认定稳定收益或修改默认行为。**
 
 ## 1. 已完成的直接对照
 
@@ -51,3 +51,7 @@ G0通过审计且收益/机制一致，因此19:09:37 UTC选择run_a1：恢复de
 - 自动对照：`g0-vs-a0/`；严格及容差配对：`g0-vs-a0-matched/`、`g0-vs-a0-matched-tolerance8/`。
 - 路由候选patch、固定二进制hash和镜像源代码一致性记录在本campaign的patches/及analysis/router-*。候选默认关闭，只改变HTTP streaming路径；单元测试已通过，生产Rust源码/默认模式尚未改动。
 - 缓存重置的host gauge限制与源码证明见CACHE-RESET-VALIDATION.zh-CN.md；输入cache-bust配对口径见REQUEST-MATCHING.zh-CN.md。
+
+## 抢占更新
+
+job31644 PreemptTime=19:46:58 UTC，extern于19:47:29完成。A1的P/D采样停止、SSH被pam_slurm_adopt拒绝，正式窗口未完成；本地a1-interrupted/INVALID和Slurm证据已保存。远端STATUS仍停留BENCHMARK_C80，不能误当正常进行。D watchdog记录了cleanup_requested，但没有成功停止完成记录；P watchdog无事件文件，不能声称全部容器/显存已清理。此前A0/G0完成窗口与审计均早于抢占，已提交结果保留。原A1预计20:51完成的时间不再适用。

@@ -1,0 +1,2 @@
+JobID|State|Start|End|Elapsed|ExitCode|NodeList
+31644|PENDING|Unknown|Unknown|00:00:00|0:0|None assigned
