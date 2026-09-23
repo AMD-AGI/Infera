@@ -54,8 +54,8 @@ const (
 	// has registered -- so a surge rollout keyed on /health retires the pod
 	// that is serving in favour of one the router cannot reach yet. The worker
 	// opens this port after registering and closes it when shutdown begins.
-	workerReadinessPort    int32 = 30090
-	readinessPortEnvVar          = "INFERA_READINESS_PORT"
+	workerReadinessPort int32 = 30090
+	readinessPortEnvVar       = "INFERA_READINESS_PORT"
 )
 
 // drainSeconds parses a worker --drain-timeout value. The worker takes a

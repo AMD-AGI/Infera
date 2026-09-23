@@ -26,9 +26,7 @@ def _port_of(server: asyncio.AbstractServer) -> int:
 
 async def _probe(port: int, *, timeout: float = 5.0) -> bytes:
     """One kubelet-shaped probe. Raises if the port refuses the connection."""
-    reader, writer = await asyncio.wait_for(
-        asyncio.open_connection("127.0.0.1", port), timeout
-    )
+    reader, writer = await asyncio.wait_for(asyncio.open_connection("127.0.0.1", port), timeout)
     try:
         writer.write(b"GET /ready HTTP/1.1\r\nHost: localhost\r\n\r\n")
         await writer.drain()

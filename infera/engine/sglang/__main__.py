@@ -252,7 +252,9 @@ async def _maybe_verify_prefill_peer(args: SglangWorkerArgs, config) -> None:
         return
 
     peers = [
-        payload for payload in workers if is_compatible_prefill_worker(payload, model_name=model_name)
+        payload
+        for payload in workers
+        if is_compatible_prefill_worker(payload, model_name=model_name)
     ]
     if not peers:
         logger.info(
