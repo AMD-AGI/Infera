@@ -66,6 +66,13 @@ DEFAULT_PD_PROBE_RETRY_SLEEP = 35.0
 # labelKeyDeployment), which is what scopes the list to real Mooncake peers.
 DEPLOYMENT_LABEL = "infera.amd.com/deployment"
 
+UNSCOPED_BARRIER_ERROR = (
+    "cannot scope the decode barrier: this Pod carries no "
+    f"{DEPLOYMENT_LABEL} label and neither INFERA_K8S_LABEL_SELECTOR nor "
+    "WORKLOAD_ID is set. Pass --k8s-label-selector, or --no-wait-for-decode "
+    "to start without the barrier."
+)
+
 # Decode legs of this size load for tens of minutes; the budget is deliberately
 # generous because the alternative to waiting is a poisoned session cache.
 DEFAULT_DECODE_READY_TIMEOUT = 14400.0
@@ -172,12 +179,23 @@ async def resolve_k8s_label_selector(
     if workload_id:
         return f"{DEPLOYMENT_LABEL}={workload_id}"
 
-    raise RuntimeError(
-        "cannot scope the decode barrier: this Pod carries no "
-        f"{DEPLOYMENT_LABEL} label and neither INFERA_K8S_LABEL_SELECTOR nor "
-        "WORKLOAD_ID is set. Pass --k8s-label-selector, or --no-wait-for-decode "
-        "to start without the barrier."
-    )
+    raise RuntimeError(UNSCOPED_BARRIER_ERROR)
+
+
+def ensure_k8s_label_selector_source(explicit: str | None) -> None:
+    """Refuse a barrier that can never scope itself, before the weight load.
+
+    Only the sources readable without the apiserver are decided here: a
+    ``POD_NAME`` leaves the answer to :func:`resolve_k8s_label_selector`,
+    which is the only place that can see the Pod's own label. Raising there
+    instead costs a full weight load per restart, since the barrier runs
+    after ``engine.start()``.
+    """
+    if explicit or os.environ.get("INFERA_K8S_LABEL_SELECTOR"):
+        return
+    if os.environ.get("POD_NAME") or os.environ.get("WORKLOAD_ID"):
+        return
+    raise RuntimeError(UNSCOPED_BARRIER_ERROR)
 
 
 async def own_pod_deployment_label(

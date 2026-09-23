@@ -39,6 +39,7 @@ from infera.engine.decode_barrier import (
     apply_pd_probe_recovery_defaults,
     decode_ready_timeout_seconds,
     discovery_budget_seconds,
+    ensure_k8s_label_selector_source,
     ensure_skip_server_warmup,
     list_etcd_worker_payloads,
     list_k8s_worker_payloads,
@@ -439,6 +440,10 @@ async def main() -> None:
         getattr(args.server_args, "disaggregation_mode", None), args.wait_for_decode
     ):
         args.sglang_argv = ensure_skip_server_warmup(args.sglang_argv)
+        # The barrier itself runs after the weights are in, so a selector it
+        # could never resolve would cost one full load per restart.
+        if args.discovery_backend == "kubernetes" and _multinode_node_rank(args) == 0:
+            ensure_k8s_label_selector_source(args.k8s_label_selector)
 
     if args.discovery_backend == "kubernetes":
         stale_registration = K8sRegistrationClient(namespace=args.k8s_namespace)

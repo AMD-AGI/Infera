@@ -19,6 +19,7 @@ from infera.engine.decode_barrier import (
     apply_pd_probe_recovery_defaults,
     decode_ready_timeout_seconds,
     discovery_budget_seconds,
+    ensure_k8s_label_selector_source,
     ensure_skip_server_warmup,
     is_compatible_decode_worker,
     k8s_namespace,
@@ -252,6 +253,37 @@ def test_probe_reserve_never_exceeds_the_total_budget():
     assert discovery_budget_seconds(60.0) == 0.0
     assert pd_probe_reserve_seconds(0.0) == 0.0
     assert discovery_budget_seconds(-5.0) == 0.0
+
+
+def _clear_selector_sources(monkeypatch):
+    for key in ("INFERA_K8S_LABEL_SELECTOR", "POD_NAME", "WORKLOAD_ID"):
+        monkeypatch.delenv(key, raising=False)
+
+
+def test_a_barrier_with_no_selector_source_is_refused_before_the_weight_load(monkeypatch):
+    """Resolution would raise anyway, but only after a full load: a hand-written
+    Deployment that sets none of the sources would pay that load per restart."""
+    _clear_selector_sources(monkeypatch)
+    with pytest.raises(RuntimeError, match="--k8s-label-selector"):
+        ensure_k8s_label_selector_source(None)
+
+
+@pytest.mark.parametrize(
+    ("explicit", "env"),
+    [
+        ("infera.amd.com/deployment=x", None),
+        (None, ("INFERA_K8S_LABEL_SELECTOR", "infera.amd.com/deployment=x")),
+        (None, ("WORKLOAD_ID", "idep-a")),
+        # The Pod's own label is only readable from the apiserver, so a name
+        # keeps the question open rather than answering it up front.
+        (None, ("POD_NAME", "prefill-0")),
+    ],
+)
+def test_any_selector_source_leaves_the_barrier_to_resolution(monkeypatch, explicit, env):
+    _clear_selector_sources(monkeypatch)
+    if env:
+        monkeypatch.setenv(*env)
+    ensure_k8s_label_selector_source(explicit)
 
 
 # --- polling -----------------------------------------------------------------
