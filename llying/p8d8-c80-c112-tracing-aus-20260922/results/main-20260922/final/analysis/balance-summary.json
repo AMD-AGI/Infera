@@ -1,0 +1,38 @@
+{
+  "counts": {
+    "C80/prefill": {
+      "successful_scrapes": 1784,
+      "complete_rank_scrapes": 1784,
+      "any_queue": 1609,
+      "queue_and_other_rank_zero_queue": 1609,
+      "queue_and_other_rank_zero_queue_zero_running": 31
+    },
+    "C80/decode": {
+      "successful_scrapes": 1781,
+      "complete_rank_scrapes": 1781,
+      "some_rank_kv_ge_90pct": 189,
+      "kv_ge_90pct_and_other_rank_lt_70pct": 189
+    },
+    "C112/prefill": {
+      "successful_scrapes": 1771,
+      "complete_rank_scrapes": 1771,
+      "any_queue": 1721,
+      "queue_and_other_rank_zero_queue": 1465,
+      "queue_and_other_rank_zero_queue_zero_running": 14,
+      "all_ranks_queued": 256
+    },
+    "C112/decode": {
+      "successful_scrapes": 1773,
+      "complete_rank_scrapes": 1773,
+      "some_rank_kv_ge_90pct": 922,
+      "kv_ge_90pct_and_other_rank_lt_70pct": 922
+    }
+  },
+  "limitations": [
+    "Sample counts, not time-weighted durations; errors and incomplete rank scrapes excluded.",
+    "Zero queue/running does not establish GPU idle or available TP collective capacity.",
+    "KV skew does not establish that another rank can admit a specific blocked request.",
+    "Thresholds are descriptive (90%/70%), not validated admission constraints.",
+    "Profiling window starts at earliest exported request and lasts 3600 seconds."
+  ]
+}

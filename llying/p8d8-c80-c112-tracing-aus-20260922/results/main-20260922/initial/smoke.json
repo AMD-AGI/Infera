@@ -1,0 +1,346 @@
+[
+  {
+    "index": 0,
+    "trace_id": "1e82e78446464c5f934f3763dba46118",
+    "start_ns": 1790102917227142317,
+    "end_ns": 1790102961969445400,
+    "response": {
+      "id": "aus-smoke-0",
+      "object": "chat.completion",
+      "created": 1790102961,
+      "model": "glm5.2-mxfp4",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "The!au0thotell>!_0. 1. \u044b is 1,2. \u044b is 1. \u044b is",
+            "tool_calls": null
+          },
+          "logprobs": null,
+          "finish_reason": "length",
+          "matched_stop": null
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 44021,
+        "total_tokens": 44053,
+        "completion_tokens": 32,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 34
+      },
+      "metadata": {
+        "weight_version": "default",
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 32
+          }
+        ]
+      }
+    }
+  },
+  {
+    "index": 1,
+    "trace_id": "aa2f19ca107348299ea85c010547ee98",
+    "start_ns": 1790102917228601729,
+    "end_ns": 1790102951961504388,
+    "response": {
+      "id": "aus-smoke-1",
+      "object": "chat.completion",
+      "created": 1790102951,
+      "model": "glm5.2-mxfp4",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "1!au\nI need to count the number of measurements. In the1 60 lines, I need to count the number of \" I can count the",
+            "tool_calls": null
+          },
+          "logprobs": null,
+          "finish_reason": "length",
+          "matched_stop": null
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 4421,
+        "total_tokens": 4453,
+        "completion_tokens": 32,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 34
+      },
+      "metadata": {
+        "weight_version": "default",
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 32
+          }
+        ]
+      }
+    }
+  },
+  {
+    "index": 2,
+    "trace_id": "e4eee2699b8e4750aee66dd4b075e37e",
+    "start_ns": 1790102917229463134,
+    "end_ns": 1790102951960748229,
+    "response": {
+      "id": "aus-smoke-2",
+      "object": "chat.completion",
+      "created": 1790102951,
+      "model": "glm5.2-mxfp4",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "1!auI need to write a thinking process and derivation. The user's prompt is a sequence of instructions to be a good AI, I need to think",
+            "tool_calls": null
+          },
+          "logprobs": null,
+          "finish_reason": "length",
+          "matched_stop": null
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 4421,
+        "total_tokens": 4453,
+        "completion_tokens": 32,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 34
+      },
+      "metadata": {
+        "weight_version": "default",
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 32
+          }
+        ]
+      }
+    }
+  },
+  {
+    "index": 3,
+    "trace_id": "04cc71000f664c83ad28cf41466f05bf",
+    "start_ns": 1790102917230032313,
+    "end_ns": 1790102951475356092,
+    "response": {
+      "id": "aus-smoke-3",
+      "object": "chat.completion",
+      "created": 1790102949,
+      "model": "glm5.2-mxfp4",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "The!Sans-IOpensamentos: I have to count the number of measurements. The user prompt is a list of 3292,3292",
+            "tool_calls": null
+          },
+          "logprobs": null,
+          "finish_reason": "length",
+          "matched_stop": null
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 4421,
+        "total_tokens": 4453,
+        "completion_tokens": 32,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 34
+      },
+      "metadata": {
+        "weight_version": "default",
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 32
+          }
+        ]
+      }
+    }
+  },
+  {
+    "index": 4,
+    "trace_id": "977cf742ffa643899aea96578c5760c4",
+    "start_ns": 1790102951475419350,
+    "end_ns": 1790102960011674561,
+    "response": {
+      "id": "aus-smoke-4",
+      "object": "chat.completion",
+      "created": 1790102959,
+      "model": "glm5.2-mxfp4",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "The!au!thorita!tively! the!au!thorita!tively. The user is asking me to count the measurements.",
+            "tool_calls": null
+          },
+          "logprobs": null,
+          "finish_reason": "length",
+          "matched_stop": null
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 4421,
+        "total_tokens": 4453,
+        "completion_tokens": 32,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 34
+      },
+      "metadata": {
+        "weight_version": "default",
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 32
+          }
+        ]
+      }
+    }
+  },
+  {
+    "index": 5,
+    "trace_id": "ff091711cc6d4077a134d63e8d3fa5fa",
+    "start_ns": 1790102951960907523,
+    "end_ns": 1790102960582961343,
+    "response": {
+      "id": "aus-smoke-5",
+      "object": "chat.completion",
+      "created": 1790102960,
+      "model": "glm5.2-mxfp4",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "1!auit 0.501.5, ,0000.5,0.5,0.5, , , ,0, ,",
+            "tool_calls": null
+          },
+          "logprobs": null,
+          "finish_reason": "length",
+          "matched_stop": null
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 4421,
+        "total_tokens": 4453,
+        "completion_tokens": 32,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 34
+      },
+      "metadata": {
+        "weight_version": "default",
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 32
+          }
+        ]
+      }
+    }
+  },
+  {
+    "index": 6,
+    "trace_id": "194b1a79151543ea85fa59243940ec2e",
+    "start_ns": 1790102951961562946,
+    "end_ns": 1790102960582724352,
+    "response": {
+      "id": "aus-smoke-6",
+      "object": "chat.completion",
+      "created": 1790102960,
+      "model": "glm5.2-mxfp4",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "1!auit  3 1.  **, .  . . . . . . . . . . . . . . . . .",
+            "tool_calls": null
+          },
+          "logprobs": null,
+          "finish_reason": "length",
+          "matched_stop": null
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 4421,
+        "total_tokens": 4453,
+        "completion_tokens": 32,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 34
+      },
+      "metadata": {
+        "weight_version": "default",
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 32
+          }
+        ]
+      }
+    }
+  },
+  {
+    "index": 7,
+    "trace_id": "fe18debf40344699ae328549696514c5",
+    "start_ns": 1790102960011756938,
+    "end_ns": 1790102965401585941,
+    "response": {
+      "id": "aus-smoke-7",
+      "object": "chat.completion",
+      "created": 1790102965,
+      "model": "glm5.2-mxfp4",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "The!au!or.) Is there a way to count the number of measurements? The user is asking me to count the number of measurements. Let's count",
+            "tool_calls": null
+          },
+          "logprobs": null,
+          "finish_reason": "length",
+          "matched_stop": null
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 4421,
+        "total_tokens": 4453,
+        "completion_tokens": 32,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 34
+      },
+      "metadata": {
+        "weight_version": "default",
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 32
+          }
+        ]
+      }
+    }
+  }
+]

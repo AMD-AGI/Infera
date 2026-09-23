@@ -46,8 +46,10 @@ def main():
         ns = int(dt.datetime.fromisoformat(row['captured_at']).timestamp() * 1e9)
         group = cohort(ns)
         role = row['endpoint']
+        if group: counts[f'{group[0]}/{role}/scrape_samples'] += 1
         if row.get('error'):
             counts[f'{role}/scrape_errors'] += 1
+            if group: counts[f'{group[0]}/{role}/scrape_errors'] += 1
             continue
         gauge = collections.defaultdict(list)
         rates = collections.defaultdict(float)
@@ -83,6 +85,7 @@ def main():
             continue
         ns = int(dt.datetime.fromisoformat(row['captured_at']).timestamp() * 1e9)
         group, role = cohort(ns), row['role']
+        if group: counts[f'{group[0]}/{role}/node_samples'] += 1
         if row.get('error'):
             counts[f'{role}/node_errors'] += 1
             continue
@@ -94,7 +97,10 @@ def main():
                 except (ValueError, KeyError):
                     pass
         for rail, fields in sample.get('hcas', {}).items():
-            for metric, value in fields.get('counters', {}).items():
+            rail_counters = dict(fields.get('counters', {}), **fields.get('hw_counters', {}))
+            for metric, value in rail_counters.items():
+                if metric == 'lifespan':
+                    continue
                 if not isinstance(value, (int, float)):
                     continue
                 key = role, rail, metric
@@ -103,6 +109,8 @@ def main():
                     delta = value - old[1]
                     if metric in ('port_xmit_data', 'port_rcv_data'):
                         add(group, f'{role}/{rail}/{metric}/GBps', delta * 4 / (ns - old[0]))
+                    elif metric in ('tx_rdma_ucast_bytes', 'rx_rdma_ucast_bytes', 'tx_rdma_retx_bytes'):
+                        add(group, f'{role}/{rail}/{metric}/GBps', delta / (ns - old[0]))
                     elif delta and group:
                         counts[f'{group[0]}/{role}/{rail}/{metric}/delta'] += delta
                 previous_nodes[key] = ns, value
@@ -135,6 +143,7 @@ def main():
                       'Counter rates use sample deltas; boundary samples can straddle a phase boundary.',
                       'Host ack is a CPU completion observation, not a pure DMA measurement.',
                       'Port data counters use the InfiniBand four-byte unit; GB/s is decimal.',
+                      'Ionic hardware *_bytes counters use bytes directly; standard port data counters may be absent.',
                       'Metric sums are across exported rank series; use max_rank for fractional occupancy.'])
     (root / 'analysis/runtime-summary.json').write_text(json.dumps(result, indent=2) + '\n')
     print(root / 'analysis/runtime-summary.json')

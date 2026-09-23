@@ -59,6 +59,17 @@ def bin_tokens(n):
         if n<limit:return f'lt{limit}'
     return 'ge524288'
 
+def bin_work(n):
+    if n==0:return 'zero'
+    for limit in (1024,8192,32768,131072,524288):
+        if n<limit:return f'lt{limit}'
+    return 'ge524288'
+
+def bin_output(n):
+    for limit in (128,512,2048,8192,32768):
+        if n<limit:return f'lt{limit}'
+    return 'ge32768'
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('run',type=Path)
@@ -147,9 +158,9 @@ def main():
                             work=window_work[f'{bucket}/{rank}']
                             work.update(input_tokens=row['input_tokens'],miss_tokens=miss,
                                 host_tokens=row['cached_host'],requests=1)
-                            stratum=f"{bin_tokens(row['input_tokens'])}/miss-{bin_tokens(miss)}/host-{bin_tokens(row['cached_host'])}"
+                            stratum=f"{bin_tokens(row['input_tokens'])}/miss-{bin_work(miss)}/host-{bin_work(row['cached_host'])}"
                         else:
-                            stratum=f"{bin_tokens(row['input_tokens'])}/output-{bin_tokens(row['output_tokens'])}"
+                            stratum=f"{bin_tokens(row['input_tokens'])}/output-{bin_output(row['output_tokens'])}"
                             ranks['decode_input_tokens'][rank]+=row['input_tokens']
                             ranks['decode_output_tokens'][rank]+=row['output_tokens']
                         windows[(role,bucket)][rank]+=1

@@ -1,0 +1,55 @@
+{
+  "source": "/perf_apps/liyingli/bench_agentx/p8d8-tracing-aus-20260922/runs/main-20260922",
+  "files": [
+    {
+      "path": "STATUS",
+      "bytes": 64,
+      "sha256": "f46df639ba3d55c99ba242fe19ffd20016f2ba49b2c17df530e0111ae5061962"
+    },
+    {
+      "path": "c80-completed.txt",
+      "bytes": 36,
+      "sha256": "767b96ce0265322bd368410d8314c5af0d23f508c904559d898b6d3db83d4971"
+    },
+    {
+      "path": "c112-completed.txt",
+      "bytes": 36,
+      "sha256": "fac8a350ec85664455585e1572906e51362d0518445d8d377b6c96f4dbef3c94"
+    },
+    {
+      "path": "analysis/summary.json",
+      "bytes": 1145821,
+      "sha256": "b5c661852e6c64e2569d6b82b5b0ef68cc047b284e125afbcaf9ca5641048d76"
+    },
+    {
+      "path": "analysis/comparison.json",
+      "bytes": 18937,
+      "sha256": "f324ac0b054b2e8b868934e1e7c784cf0bce5f55692850485647ee77e8eb52c5"
+    },
+    {
+      "path": "analysis/runtime-summary.json",
+      "bytes": 8940524,
+      "sha256": "c03e9827744f643237b2b215e6cdf99f39f6c0acca2227f3d72467396003f2b4"
+    },
+    {
+      "path": "analysis/span-summary.json",
+      "bytes": 13763,
+      "sha256": "99bdf9b2758223d63aa5243e48c441a4b0c587000eb1e43c1dc955a9bac64758"
+    },
+    {
+      "path": "analysis/REPORT.zh-CN.md",
+      "bytes": 3017,
+      "sha256": "25ca149e933e65d923e5a8b573393c165df64f53353934b7952ef7a614c36df8"
+    },
+    {
+      "path": "c80/agentx_conc80.json",
+      "bytes": 5774,
+      "sha256": "cfee99d04f9d1e62db05d606d28711d5ce7a5a5fbb7d11d9f096f2c30ae31dab"
+    },
+    {
+      "path": "c112/agentx_conc112.json",
+      "bytes": 5774,
+      "sha256": "73b7e55dea701a2f284c42788dea898f83894241fa77b7d06028b2e2caed242d"
+    }
+  ]
+}

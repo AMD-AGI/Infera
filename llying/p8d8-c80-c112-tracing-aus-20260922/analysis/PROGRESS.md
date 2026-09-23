@@ -1,5 +1,38 @@
 # 实验现场
 
+2026-09-23 恢复：已读取旧会话、核对 git status/log/diff 与共享盘最终状态。
+两档正式实验实际已于 09-22 22:15:42 完成；C112 sent=9354、有效完成=9321、
+drain取消=33、profiling runner errors=0；9321条有效记录P/D全关联。
+总吞吐18203.50 token/s/GPU，较C80下降9.51%；输出吞吐下降2.73%。
+最终汇总、客户端结果、完成标记和SHA256已回收到results/main-20260922/final。
+新增同时刻8-rank采样分析：C112有922/1773次D采样出现某rank KV≥90%
+且另一个<70%，但尚未证明替代rank可以接纳特定阻塞请求。
+主要新增等待为P queue；缓存miss工作量增加，不能将全部回落归因于路由。
+恢复报告：RECOVERY-AND-FINDINGS.zh-CN.md，包含证据、限制及后续干预计划。
+测试：phase/accounting、runtime单位与阶段、同时刻分析缺失/错误样本排除通过。
+当前环境SSH和Slurm网络socket被禁止（Operation not permitted），无法进行远程
+策略干预或刷新job状态；job31526日志最后01:51:18 UTC仍PENDING，非实时结论。
+任务状态：正式采集完成、离线报告已回收并补充；因果/策略收益验证仍待完成。
+
+21:10 UTC：C112 warmup完成，1516.22秒，1243返回，原始审计1240有效+
+3无效，0取消。21:09:40.039开始正式profiling，预计22:09:40结束发送。
+早期138条profiling记录均有效。服务和collector持续运行，没有清理缓存。
+
+20:45 UTC：C80完成并导出，runner正常切换C112，服务/collector未重启。
+C80 profiling发送9662，9651有效完成、11 drain取消、0错误；原始JSONL
+只含9651有效profiling记录，取消未导出，已修正分析分母为runner sent。
+9651/9651有效记录P/D全部关联。吞吐20115.59101 token/s/GPU，
+TTFT p50=5.676s，p90=25.0874s。AIPerf导出出现大量counter-reset警告，
+独立endpoint直接采样未发现counter reset；容器ID保持一致，Prefill restart=0。
+C112 warmup于20:44:23开始，目标1243；依赖缓存复用成功。
+实时采样恢复监督进程仍运行至整体实验结束。C80资源阶段汇总已初步生成。
+
+19:36 UTC：C80 warmup在19:35:44完成，1316.59秒，884返回；原始审计
+881有效+3空内容InvalidInferenceResultError，0取消。19:35:44.979开始
+正式profiling，3600秒发送窗口预计20:35:44.979结束后drain。
+实时资源采样已恢复且门禁复查通过，正式阶段起始前已持续采集约14分钟。
+初期126条profiling记录均有效。后续必须完成C80导出、C112及最终关联/资源报告。
+
 19:22 UTC：C80在19:13:48开始warmup（884请求），当前72返回、0 runner错误。
 客户端RID注入已在真实请求验证，存在跨rank P/D配对。依赖安装较慢，已让
 C112的uv-cache指向C80下载缓存，venv仍隔离。

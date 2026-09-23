@@ -1,0 +1,9 @@
+{
+  "errors": [],
+  "passed": true,
+  "schema_version": 1,
+  "warnings": [
+    "prefill has no cuda_graph_passes yet; recheck after load starts",
+    "decode has no cuda_graph_passes yet; recheck after load starts"
+  ]
+}

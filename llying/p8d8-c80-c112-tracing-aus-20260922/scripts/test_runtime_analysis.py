@@ -18,7 +18,8 @@ with tempfile.TemporaryDirectory() as tmp:
         engines.append(dict(base, endpoint='decode', series=[dict(metric='sglang:generation_tokens_total',
             labels={'dp_rank': '0'}, value=value)]))
         nodes.append(dict(base, role='prefill', sample={'hcas': {'ionic_0': {
-            'counters': {'port_xmit_data': value * 250_000_000}}}}))
+            'counters': {'port_xmit_data': value * 250_000_000},
+            'hw_counters': {'tx_rdma_ucast_bytes': value * 1_000_000_000}}}}))
     for name, rows in [('engine', engines), ('nodes', nodes)]:
         (root / f'sampling/{name}.jsonl').write_text(''.join(json.dumps(x)+'\n' for x in rows))
     host = [dict(event=event, pid=1, node_id=2, wall_ns=wall, mono_ns=mono)
@@ -30,6 +31,7 @@ with tempfile.TemporaryDirectory() as tmp:
     resources = data['resources']
     assert resources['C80/profiling/decode/sglang:generation_tokens_total/per_second']['p50'] == 10
     assert resources['C80/profiling/prefill/ionic_0/port_xmit_data/GBps']['p50'] == 10
+    assert resources['C80/profiling/prefill/ionic_0/tx_rdma_ucast_bytes/GBps']['p50'] == 10
     assert resources['C80/profiling/prefill/host_load_submit_to_cpu_ack_ms']['p50'] == 10
     assert data['intervals'][0][2] == 3_601_000_000_000
     print('PASS: counter rates, four-byte units, phase duration and monotonic host ack')
