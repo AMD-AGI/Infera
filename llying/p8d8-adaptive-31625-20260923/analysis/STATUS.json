@@ -1,15 +1,18 @@
 {
-  "updated_utc": "2026-09-23T16:05:17.957572+00:00",
+  "updated_utc": "2026-09-23T16:50:25.186676+00:00",
   "job_id": 31644,
   "prefill": "smci355-ccs-aus-n10-29",
   "decode": "smci355-ccs-aus-n02-21",
   "current_case": "a0-guard-decode",
-  "stage": "2026-09-23T16:01:57+00:00 BENCHMARK_C80",
+  "stage": "A0_PROFILING",
   "next_cases": [
     "g0-guard-completion",
     "a1-guard-decode"
   ],
   "decision": "Evaluate guarded P accounting lifecycle before capacity restarts; retain only useful experiments.",
   "driver_pid": 3637787,
-  "deadline_review_approx_utc": "2026-09-24T00:43:00Z"
+  "deadline_review_approx_utc": "2026-09-24T00:43:00Z",
+  "profiling_started_utc": "2026-09-23T16:26:10Z",
+  "manager_pid": 3840880,
+  "next_decision": "After G0, analyze then choose A1 or cut branch"
 }

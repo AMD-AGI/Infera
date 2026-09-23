@@ -1,0 +1,19 @@
+{
+  "actual_device_tokens": 3400000,
+  "target_host_tokens": 4715200,
+  "hicache_ratio": 1.3868141176470588,
+  "verified_allocated_host_tokens": 4715200,
+  "host_bytes": 211844505600,
+  "host_decimal_gb": 211.8445056,
+  "integer_hicache_size_alternatives": {
+    "211": {
+      "allocated_tokens": 4696448,
+      "delta_tokens": -18752
+    },
+    "212": {
+      "allocated_tokens": 4718720,
+      "delta_tokens": 3520
+    }
+  },
+  "status": "PLAN_ONLY_VERIFY_LIVE_CAPACITY_BEFORE_LOAD"
+}

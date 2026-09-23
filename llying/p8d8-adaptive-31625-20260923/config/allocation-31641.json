@@ -1,1 +1,10 @@
-{"job_id":31641,"prefill_node":"smci355-ccs-aus-n05-33","prefill_ip":"10.235.192.58","decode_node":"smci355-ccs-aus-n06-25","decode_ip":"10.235.192.59","status":"ALLOCATED_WAITING_PREVIOUS_WORKLOAD_RELEASE","prefill_seed":823508857,"decode_seed":19197414}
+{
+  "job_id": 31641,
+  "prefill_node": "smci355-ccs-aus-n05-33",
+  "prefill_ip": "10.235.192.58",
+  "decode_node": "smci355-ccs-aus-n06-25",
+  "decode_ip": "10.235.192.59",
+  "status": "RELEASED_UNUSABLE_FOREIGN_GPU_WORKLOAD",
+  "prefill_seed": 823508857,
+  "decode_seed": 19197414
+}

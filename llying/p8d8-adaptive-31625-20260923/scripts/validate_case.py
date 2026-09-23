@@ -46,11 +46,13 @@ for role in ('prefill', 'decode'):
         if old_events == new_events and all(re.fullmatch(r'tcp://\*:[0-9]+', endpoint) for endpoint in endpoints):
             dynamic_fields.add('kv_events_config')
     permitted = {'chunked_prefill_size', 'mem_fraction_static', 'random_seed'}
-    if role == 'prefill': permitted.add('hicache_ratio')
+    if role == 'prefill': permitted.update({'hicache_ratio','max_total_tokens'})
     unexpected = set(differences) - runtime_keys - dynamic_fields - permitted
     if new.get('mem_fraction_static') != float(os.environ[f'{role.upper()}_MEM_FRACTION']): errors.append(f'{role}: wrong memory fraction')
     if new.get('random_seed') != int(os.environ[f'{role.upper()}_SEED']): errors.append(f'{role}: wrong seed')
     if role == 'prefill' and new.get('hicache_ratio') != float(os.environ['PREFILL_HICACHE_RATIO']): errors.append('prefill: wrong host ratio')
+    cap=int(os.environ.get('PREFILL_MAX_TOTAL_TOKENS','0')) if role=='prefill' else 0
+    if new.get('max_total_tokens') != (cap or None):errors.append(f'{role}: unexpected explicit capacity limit')
     if unexpected:
         errors.append(f'{role}: unexpected server fields {sorted(unexpected)}')
     # Large capacity differences require explicit review before any workload.
@@ -58,6 +60,8 @@ for role in ('prefill', 'decode'):
     expected_capacity = int(os.environ.get(f'EXPECTED_{role.upper()}_TOKENS','0'))
     if not b or (expected_capacity and b != expected_capacity):
         errors.append(f'{role}: unexpected KV capacity {b}; expected {expected_capacity}')
+    states=new.get('internal_states',[])
+    if len(states)!=8 or any(v.get('memory_usage',{}).get('token_capacity')!=b for v in states):errors.append(f'{role}: per-rank capacities disagree')
     node = os.environ[f'{role.upper()}_NODE']
     container = json.loads(subprocess.check_output(
         ['ssh', *shlex.split(os.environ['SSH_OPTS']), node, 'docker', 'inspect',
@@ -71,6 +75,9 @@ for role in ('prefill', 'decode'):
     if role == 'prefill':old_cmd[old_cmd.index('--hicache-ratio')+1] = os.environ['PREFILL_HICACHE_RATIO']
     if '--random-seed' in old_cmd:old_cmd[old_cmd.index('--random-seed')+1] = os.environ[f'{role.upper()}_SEED']
     else:old_cmd += ['--random-seed',os.environ[f'{role.upper()}_SEED']]
+    if cap:
+        if '--max-total-tokens' in old_cmd:old_cmd[old_cmd.index('--max-total-tokens')+1]=str(cap)
+        else:old_cmd += ['--max-total-tokens',str(cap)]
     if old_cmd != container['Config']['Cmd']:
         errors.append(f'{role}: unexpected container command')
     env = lambda c: dict(x.split('=', 1) for x in c['Config']['Env'] if '=' in x)

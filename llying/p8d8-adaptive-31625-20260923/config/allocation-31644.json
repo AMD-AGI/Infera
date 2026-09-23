@@ -1,0 +1,10 @@
+{
+  "job_id": 31644,
+  "prefill_node": "smci355-ccs-aus-n10-29",
+  "prefill_ip": "10.235.192.140",
+  "decode_node": "smci355-ccs-aus-n02-21",
+  "decode_ip": "10.235.192.128",
+  "status": "ACTIVE_A0_PROFILING",
+  "prefill_seed": 823508857,
+  "decode_seed": 19197414
+}

@@ -36,3 +36,13 @@
 先 A0(decode) → G(completion) → A1(decode)，每轮清空 GPU/host 逻辑缓存并重新建立 router/collector、统一 warmup。P/D 服务可复用的前提是 PID/容量不变、缓存/队列全空、无外部 GPU 活动。依据结果再决定重复 G 或进入 P 容量测试，避免为低价值参数反复等待 HiCache 释放。
 
 预言：减少 P 已完成但仍占 active 记账的时间，若这种偏差实际损害路由，应减少 miss/服务时间或提高完成率。否定：仅改变记账日志，miss/服务/吞吐无改善，或更强亲和造成排队恶化。不能只凭账目修正就宣称性能修复。
+
+## 容量候选的低重启实现（仅准备，未发压）
+
+已核对实际镜像的 KVCacheConfigurator._profile_available_bytes 和 _apply_token_constraints：mem_fraction 提供 KV 预算上限，max_total_tokens 对最终 token capacity 取 min；随后按页对齐。当前 P 的权重约73.645 GiB、KV约161.674 GiB、startup available约41.01 GiB。
+
+候选 C 可显式设 P max_total_tokens=3,400,000（64 对齐，比3,143,424约+8.16%），P mem_fraction_static=0.90；通过 plan_host_capacity 的 ratio 精确保持 host=4,715,200 tokens。实际全rank容量必须等于目标，否则不开始负载。D、chunk、max-running、host backend/layout和路由模式保持相应控制组一致。P graph本来禁用，token cap远大于显式graph batch上限，不触发其额外裁剪。
+
+这是一项 P KV 容量干预，配置中的 budget/cap/ratio 是共同实现及补偿手段；额外占用GPU内存会减少workspace余量，这是容量干预的成本，必须监控OOM、retraction与服务时间。不能仅凭profile预算计算就认定没有内存风险。
+
+此方案可避免一轮无HiCache标定启动，仍需重新launch P。是否执行及是否重复，取决于 G0/回退控制的收益、剩余时间和资源稳定性。
