@@ -1,10 +1,10 @@
 {
-  "updated_utc": "2026-09-23T20:31:39.495975+00:00",
+  "updated_utc": "2026-09-23T20:37:46.792275+00:00",
   "job_id": 31644,
   "prefill": "smci355-ccs-aus-n02-29",
   "decode": "smci355-ccs-aus-n02-33",
-  "current_case": "g1-guard-completion",
-  "stage": "G1_INVALID_PREEMPTED_DURING_STARTUP",
+  "current_case": null,
+  "stage": "WAITING_BATCH_REALLOCATION",
   "next_cases": [],
   "decision": "Evaluate guarded P accounting lifecycle before capacity restarts; retain only useful experiments.",
   "deadline_review_approx_utc": "2026-09-24T00:43:00Z",
@@ -32,5 +32,7 @@
   "a1_invalid_reason": "Slurm preemption at 19:46:58Z; extern step ended 19:47:29Z; SSH denied.",
   "allocation_restart": 2,
   "driver_pid": 2180757,
-  "baseline_repeats_enabled": false
+  "baseline_repeats_enabled": false,
+  "scheduled_start_estimate_utc": "2026-09-23T22:29:53Z",
+  "scheduled_start_is_guaranteed": false
 }

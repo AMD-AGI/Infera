@@ -1,0 +1,72 @@
+ROLE prefill
+2026-09-23T20:24:32.782204262Z [aiter] Current hipcc not support: -mllvm -amdgpu-coerce-illegal-types=1, skip it.
+2026-09-23T20:24:33.145186613Z mxfp4_moe aux codegen: 230 instances under /aiter-jit/build/module_moe_mxfp4_aux/blob/instances/
+2026-09-23T20:24:33.401803141Z [2026-09-23 20:24:33] INFO:     10.235.192.61:40956 - "GET /health HTTP/1.1" 503 Service Unavailable
+2026-09-23T20:24:33.688670078Z [2026-09-23 20:24:33] INFO:     10.235.192.61:40286 - "GET /health HTTP/1.1" 503 Service Unavailable
+2026-09-23T20:24:35.691492493Z [2026-09-23 20:24:35] INFO:     10.235.192.61:40286 - "GET /health HTTP/1.1" 503 Service Unavailable
+2026-09-23T20:24:37.695175551Z [2026-09-23 20:24:37] INFO:     10.235.192.61:40286 - "GET /health HTTP/1.1" 503 Service Unavailable
+2026-09-23T20:24:39.449227794Z [aiter] [pid=2510 pname=Process-1:8] [32mfinish build [module_rmsnorm_quant], cost 15.2s [0m
+2026-09-23T20:24:39.453003380Z [aiter] import [module_rmsnorm_quant] under /aiter-jit/module_rmsnorm_quant.so
+2026-09-23T20:24:39.699143003Z [2026-09-23 20:24:39] INFO:     10.235.192.61:40286 - "GET /health HTTP/1.1" 503 Service Unavailable
+2026-09-23T20:24:39.857494800Z [2026-09-23 20:24:39 DP6 TP6] Loading tilelang libs from dev root: /opt/tilelang/build
+2026-09-23T20:24:40.640039717Z [aiter] [pid=2510 pname=Process-1:8] start build [module_norm] under /aiter-jit/build/module_norm
+2026-09-23T20:24:41.705842002Z [2026-09-23 20:24:41] INFO:     10.235.192.61:40286 - "GET /health HTTP/1.1" 503 Service Unavailable
+2026-09-23T20:24:43.708525869Z [2026-09-23 20:24:43] INFO:     10.235.192.61:40286 - "GET /health HTTP/1.1" 503 Service Unavailable
+2026-09-23T20:24:43.708931161Z INFO:infera.engine.sglang.worker:waiting for SGLang HTTP on port 29001 ... (elapsed 691s)
+2026-09-23T20:24:45.711428122Z [2026-09-23 20:24:45] INFO:     10.235.192.61:40286 - "GET /health HTTP/1.1" 503 Service Unavailable
+2026-09-23T20:24:47.714870095Z [2026-09-23 20:24:47] INFO:     10.235.192.61:40286 - "GET /health HTTP/1.1" 503 Service Unavailable
+2026-09-23T20:24:47.832156794Z [aiter] [pid=2822 pname=Process-1:9] [32mfinish build [module_moe_mxfp4_aux], cost 17.1s [0m
+2026-09-23T20:24:47.862466982Z [aiter] import [module_moe_mxfp4_aux] under /aiter-jit/module_moe_mxfp4_aux.so
+2026-09-23T20:24:47.904328135Z [aiter] import [module_moe_mxfp4_aux] under /aiter-jit/module_moe_mxfp4_aux.so
+2026-09-23T20:24:47.981262892Z [aiter] import [module_moe_mxfp4_aux] under /aiter-jit/module_moe_mxfp4_aux.so
+2026-09-23T20:24:48.048812323Z [2026-09-23 20:24:48 DP7 TP7] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+2026-09-23T20:24:48.079561252Z [2026-09-23 20:24:48 DP2 TP2] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+2026-09-23T20:24:48.157929742Z [2026-09-23 20:24:48 DP0 TP0] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+2026-09-23T20:24:48.758944954Z [aiter] import [module_moe_mxfp4_aux] under /aiter-jit/module_moe_mxfp4_aux.so
+2026-09-23T20:24:48.932987985Z [2026-09-23 20:24:48 DP4 TP4] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+2026-09-23T20:24:48.939298792Z [aiter] import [module_moe_mxfp4_aux] under /aiter-jit/module_moe_mxfp4_aux.so
+2026-09-23T20:24:49.116638868Z [2026-09-23 20:24:49 DP1 TP1] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+2026-09-23T20:24:49.706795582Z [aiter] import [module_moe_mxfp4_aux] under /aiter-jit/module_moe_mxfp4_aux.so
+2026-09-23T20:24:49.718322627Z [2026-09-23 20:24:49] INFO:     10.235.192.61:40286 - "GET /health HTTP/1.1" 503 Service Unavailable
+2026-09-23T20:24:49.881155167Z [2026-09-23 20:24:49 DP3 TP3] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+2026-09-23T20:24:50.190160892Z [aiter] import [module_moe_mxfp4_aux] under /aiter-jit/module_moe_mxfp4_aux.so
+2026-09-23T20:24:50.363705393Z [2026-09-23 20:24:50 DP5 TP5] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+2026-09-23T20:24:51.721685241Z [2026-09-23 20:24:51] INFO:     10.235.192.61:40286 - "GET /health HTTP/1.1" 503 Service Unavailable
+2026-09-23T20:24:53.725114954Z [2026-09-23 20:24:53] INFO:     10.235.192.61:40286 - "GET /health HTTP/1.1" 503 Service Unavailable
+2026-09-23T20:24:55.727465128Z [2026-09-23 20:24:55] INFO:     10.235.192.61:40286 - "GET /health HTTP/1.1" 503 Service Unavailable
+ROLE decode
+2026-09-23T20:24:26.597924012Z [2026-09-23 20:24:26 DP3 TP3] Disable prefill CUDA graph because cuda_graph_config resolved prefill.backend='disabled' (e.g. via --cuda-graph-backend-prefill=disabled or auto-disable rules).
+2026-09-23T20:24:27.484116593Z 
+  0%|          | 0/20 [00:00<?, ?it/s]
+Capturing batches (bs=32 avail_mem=39.30 GB):   0%|          | 0/20 [00:00<?, ?it/s][aiter] shape is M:32, N:6144, K:16384 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+2026-09-23T20:24:27.485287665Z [aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.No block_m = 32 use_nt = True, estimated_m_per_expert = 8
+2026-09-23T20:24:27.485300745Z [aiter] [fused_moe] using 2stage default for ('gfx950', 256, 256, 6144, 256, 257, 9, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16', 'QuantType.No', True, False) 
+2026-09-23T20:24:27.486688954Z [aiter] shape is M:32, N:6144, K:16384 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+2026-09-23T20:24:27.486983499Z [aiter] [pid=1852 pname=Process-1:6] start build [module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2] under /aiter-jit/build/module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2
+2026-09-23T20:24:27.486989959Z [aiter] shape is M:32, N:6144, K:16384 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+2026-09-23T20:24:27.487129377Z [aiter] shape is M:32, N:6144, K:16384 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+2026-09-23T20:24:27.487716778Z [aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.No block_m = 32 use_nt = True, estimated_m_per_expert = 8
+2026-09-23T20:24:27.487754457Z [aiter] [fused_moe] using 2stage default for ('gfx950', 256, 256, 6144, 256, 257, 9, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16', 'QuantType.No', True, False) 
+2026-09-23T20:24:27.488111981Z [aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.No block_m = 32 use_nt = True, estimated_m_per_expert = 8
+2026-09-23T20:24:27.488123611Z [aiter] [fused_moe] using 2stage default for ('gfx950', 256, 256, 6144, 256, 257, 9, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16', 'QuantType.No', True, False) 
+2026-09-23T20:24:27.488273149Z [aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.No block_m = 32 use_nt = True, estimated_m_per_expert = 8
+2026-09-23T20:24:27.488281479Z [aiter] [fused_moe] using 2stage default for ('gfx950', 256, 256, 6144, 256, 257, 9, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16', 'QuantType.No', True, False) 
+2026-09-23T20:24:27.488970648Z [aiter] [pid=2162 pname=Process-1:7] waiting for baton release at /aiter-jit/build/lock_module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2
+2026-09-23T20:24:27.489370462Z [aiter] [pid=2821 pname=Process-1:9] waiting for baton release at /aiter-jit/build/lock_module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2
+2026-09-23T20:24:27.489628438Z [aiter] [pid=2509 pname=Process-1:8] waiting for baton release at /aiter-jit/build/lock_module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2
+2026-09-23T20:24:27.491218213Z [aiter] shape is M:32, N:6144, K:16384 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+2026-09-23T20:24:27.491271182Z [aiter] shape is M:32, N:6144, K:16384 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+2026-09-23T20:24:27.492341246Z [aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.No block_m = 32 use_nt = True, estimated_m_per_expert = 8
+2026-09-23T20:24:27.492363836Z [aiter] [fused_moe] using 2stage default for ('gfx950', 256, 256, 6144, 256, 257, 9, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16', 'QuantType.No', True, False) 
+2026-09-23T20:24:27.492390935Z [aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.No block_m = 32 use_nt = True, estimated_m_per_expert = 8
+2026-09-23T20:24:27.492401325Z [aiter] [fused_moe] using 2stage default for ('gfx950', 256, 256, 6144, 256, 257, 9, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16', 'QuantType.No', True, False) 
+2026-09-23T20:24:27.492988756Z [aiter] shape is M:32, N:6144, K:16384 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+2026-09-23T20:24:27.493681755Z [aiter] [pid=1037 pname=Process-1:2] waiting for baton release at /aiter-jit/build/lock_module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2
+2026-09-23T20:24:27.493831033Z [aiter] [pid=1480 pname=Process-1:4] waiting for baton release at /aiter-jit/build/lock_module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2
+2026-09-23T20:24:27.494187347Z [aiter] shape is M:32, N:6144, K:16384 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+2026-09-23T20:24:27.494204457Z [aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.No block_m = 32 use_nt = True, estimated_m_per_expert = 8
+2026-09-23T20:24:27.494206117Z [aiter] [fused_moe] using 2stage default for ('gfx950', 256, 256, 6144, 256, 257, 9, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16', 'QuantType.No', True, False) 
+2026-09-23T20:24:27.495425468Z [aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.No block_m = 32 use_nt = True, estimated_m_per_expert = 8
+2026-09-23T20:24:27.495443868Z [aiter] [fused_moe] using 2stage default for ('gfx950', 256, 256, 6144, 256, 257, 9, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16', 'QuantType.No', True, False) 
+2026-09-23T20:24:27.495546636Z [aiter] [pid=1641 pname=Process-1:5] waiting for baton release at /aiter-jit/build/lock_module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2
+2026-09-23T20:24:27.496909855Z [aiter] [pid=1311 pname=Process-1:3] waiting for baton release at /aiter-jit/build/lock_module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2
