@@ -19,6 +19,7 @@ trap 'failure $LINENO' ERR
 python3 "$ROOT/scripts/validate_allocation.py"
 if (( ! resume_after_smoke )); then
 cp -a "$ROOT/config" "$ROOT/docker" "$ROOT/scripts" "$RUN/snapshot/"
+python3 "$ROOT/scripts/capture_model_identity.py" "$RUN/snapshot/model-identity.json"
 read -r -a opts <<< "$SSH_OPTS"
 state WAITING_GPU_RELEASE
 python3 "$ROOT/scripts/wait_nodes_idle.py" "$PREFILL_NODE" "$DECODE_NODE" --timeout 5400 --interval 30 > "$RUN/logs/wait-idle.log"

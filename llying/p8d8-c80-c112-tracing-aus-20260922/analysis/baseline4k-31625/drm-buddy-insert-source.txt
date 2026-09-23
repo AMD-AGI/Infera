@@ -1,0 +1,19 @@
+static void list_insert_sorted(struct drm_buddy *mm,
+			       struct drm_buddy_block *block)
+{
+	struct drm_buddy_block *node;
+	struct list_head *head;
+
+	head = &mm->free_list[drm_buddy_block_order(block)];
+	if (list_empty(head)) {
+		list_add(&block->link, head);
+		return;
+	}
+
+	list_for_each_entry(node, head, link)
+		if (drm_buddy_block_offset(block) < drm_buddy_block_offset(node))
+			break;
+
+	__list_add(&block->link, node->link.prev, &node->link);
+}
+

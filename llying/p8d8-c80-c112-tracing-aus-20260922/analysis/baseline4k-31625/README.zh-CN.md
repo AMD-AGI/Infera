@@ -31,3 +31,11 @@
 ## 后续准备
 
 `preparation/PLAN.zh-CN.md` 和 `cases.json` 保存第 2～6 项的参数、预言、否定条件与前置检查。其中 2 的 host 容量精确锁定、3b 的 backend/layout 兼容性、5/6 的新插桩和完整 admission 信息仍需专项验证；不因有了基础 4K 结果就假定这些条件已满足。
+
+## 显存释放慢的内核证据
+
+约 12:30 UTC，对活跃回收线程 kworker/26:2+events 做了 3 秒、99 Hz CPU perf 采样，298 个样本、无丢失。98.64% 样本在 `list_insert_sorted.isra.0`；调用链是 `__drm_buddy_free → amdgpu_vram_mgr_del → ttm_bo_release → amdgpu_vm_fini → drm_release → delayed_fput`。采样发生在旧服务退出后、4K 启动前，不计入性能窗口。
+
+已安装驱动 `/usr/src/amdgpu-6.14.14-2212064.22.04/drm_buddy.c` 的该函数遍历同阶 free list，按 block offset 顺序插入。大量块释放时反复线性遍历可能带来高开销；本次采样证明回收线程的主要 CPU 时间在该路径，但没有测量 free-list 长度，不能据此给出剩余时间或断言全部退出延迟都来自同一原因。
+
+文本证据见 release-perf-report.txt、drm-buddy-insert-source.txt、driver-release-evidence.txt；原始 perf.data 保存在 8K run 的 shutdown/release-perf.data。当前不修改驱动、不重置 GPU，继续以实际显存释放状态作为启动门槛。

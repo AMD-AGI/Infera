@@ -1,0 +1,191 @@
+{
+  "source_run": "/perf_apps/liyingli/bench_agentx/p8d8-chunk8k-31625-20260923/runs/chunk8k-c80-31625",
+  "events": {
+    "decode/admission": {
+      "count": 10596,
+      "fields": [
+        "budget",
+        "dp_rank",
+        "event",
+        "free_metadata",
+        "free_requests",
+        "input_tokens",
+        "mono_ns",
+        "pid",
+        "prealloc",
+        "reason",
+        "required",
+        "rid",
+        "role",
+        "room",
+        "running",
+        "tp_rank",
+        "transfer",
+        "waiting",
+        "wall_ns"
+      ]
+    },
+    "decode/decode_prealloc_queue_entry_time": {
+      "count": 10499,
+      "fields": [
+        "dp_rank",
+        "event",
+        "mono_ns",
+        "pid",
+        "rid",
+        "role",
+        "room",
+        "tp_rank",
+        "wall_ns"
+      ]
+    },
+    "decode/decode_transfer_queue_entry_time": {
+      "count": 10499,
+      "fields": [
+        "dp_rank",
+        "event",
+        "mono_ns",
+        "pid",
+        "rid",
+        "role",
+        "room",
+        "tp_rank",
+        "wall_ns"
+      ]
+    },
+    "decode/request_summary": {
+      "count": 10499,
+      "fields": [
+        "attempts",
+        "cached_device",
+        "cached_host",
+        "cached_storage",
+        "dp_rank",
+        "event",
+        "input_tokens",
+        "mono_ns",
+        "output_tokens",
+        "pid",
+        "prefill_dp_rank",
+        "rid",
+        "role",
+        "room",
+        "times",
+        "tp_rank",
+        "wall_ns"
+      ]
+    },
+    "decode/scheduler_recv_time": {
+      "count": 10499,
+      "fields": [
+        "dp_rank",
+        "event",
+        "mono_ns",
+        "pid",
+        "rid",
+        "role",
+        "room",
+        "tp_rank",
+        "wall_ns"
+      ]
+    },
+    "prefill/cache": {
+      "count": 10499,
+      "fields": [
+        "cached_device",
+        "cached_host",
+        "cached_storage",
+        "dp_rank",
+        "event",
+        "host_node_id",
+        "input_tokens",
+        "mono_ns",
+        "pid",
+        "prefill_dp_rank",
+        "rid",
+        "role",
+        "room",
+        "tp_rank",
+        "wall_ns"
+      ]
+    },
+    "prefill/prefill_bootstrap_queue_entry_time": {
+      "count": 10499,
+      "fields": [
+        "dp_rank",
+        "event",
+        "mono_ns",
+        "pid",
+        "rid",
+        "role",
+        "room",
+        "tp_rank",
+        "wall_ns"
+      ]
+    },
+    "prefill/prefill_kv_transfer_finish_time": {
+      "count": 10499,
+      "fields": [
+        "dp_rank",
+        "event",
+        "mono_ns",
+        "pid",
+        "rid",
+        "role",
+        "room",
+        "tp_rank",
+        "wall_ns"
+      ]
+    },
+    "prefill/prefill_transfer_queue_entry_time": {
+      "count": 10499,
+      "fields": [
+        "dp_rank",
+        "event",
+        "mono_ns",
+        "pid",
+        "rid",
+        "role",
+        "room",
+        "tp_rank",
+        "wall_ns"
+      ]
+    },
+    "prefill/request_summary": {
+      "count": 10499,
+      "fields": [
+        "attempts",
+        "cached_device",
+        "cached_host",
+        "cached_storage",
+        "dp_rank",
+        "event",
+        "input_tokens",
+        "mono_ns",
+        "output_tokens",
+        "pid",
+        "prefill_dp_rank",
+        "rid",
+        "role",
+        "room",
+        "times",
+        "tp_rank",
+        "wall_ns"
+      ]
+    },
+    "prefill/scheduler_recv_time": {
+      "count": 10499,
+      "fields": [
+        "dp_rank",
+        "event",
+        "mono_ns",
+        "pid",
+        "rid",
+        "role",
+        "room",
+        "tp_rank",
+        "wall_ns"
+      ]
+    }
+  }
+}

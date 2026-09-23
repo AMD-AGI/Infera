@@ -26,7 +26,7 @@ with (r/'c80/aiperf_artifacts/profile_export.jsonl').open() as f:
   x=json.loads(l);phase=x.get('metadata',{}).get('benchmark_phase','unknown');phases[phase]+=1
   if x.get('error'):errors[phase]+=1
 files={}
-for name in ['c80/runtime.env','c80/executed-agentx-bench.sh','c80/executed-client-patch.py','c80/benchmark_command.txt','c80/agentx_conc80.json','c80/aiperf_artifacts/profile_export.jsonl','snapshot/config/config.sh','snapshot/scripts/pin_chunk8k_dataset.py','snapshot/docker/aus_diag.py','live-containers.json','chunk-config-validation.json','smoke-validation.json','sampling/preflight.json','snapshot/resource-release.passed.json']:
+for name in ['c80/runtime.env','c80/executed-agentx-bench.sh','c80/executed-client-patch.py','c80/benchmark_command.txt','c80/agentx_conc80.json','c80/aiperf_artifacts/profile_export.jsonl','snapshot/config/config.sh','snapshot/scripts/pin_chunk8k_dataset.py','snapshot/docker/aus_diag.py','live-containers.json','chunk-config-validation.json','smoke-validation.json','sampling/preflight.json','snapshot/resource-release.passed.json','snapshot/model-identity.json']:
  path=r/name
  if path.exists():files[name]=digest(path)
 model=Path(env['MODEL'])
@@ -34,7 +34,8 @@ model_metadata={}
 for name in ['config.json','tokenizer.json','tokenizer_config.json','model.safetensors.index.json']:
  if (model/name).exists():model_metadata[name]=digest(model/name)
 server={role:read(r/f'launch/server-info/{role}-0.json') for role in ['prefill','decode']}
-checks={'chunk_4k_both_roles':all(x['chunked_prefill_size']==4096 for x in server.values()),
+checks={'model_metadata_unchanged':read(r/'snapshot/model-identity.json')==model_metadata,
+ 'chunk_4k_both_roles':all(x['chunked_prefill_size']==4096 for x in server.values()),
  'config_validation':read(r/'chunk-config-validation.json')['passed'],
  'resource_release':read(r/'snapshot/resource-release.passed.json')['passed'],
  'smoke_8_pairs':read(r/'smoke-validation.json')['paired_requests']==8,

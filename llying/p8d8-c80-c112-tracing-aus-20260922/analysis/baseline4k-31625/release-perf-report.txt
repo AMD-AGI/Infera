@@ -1,0 +1,45 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 298  of event 'cycles:P'
+# Event count (approx.): 14958947049
+#
+# Overhead  Command          Shared Object      Symbol                                        IPC   [IPC Coverage]
+# ........  ...............  .................  ............................................  ....................
+#
+    98.64%  kworker/26:2+ev  [kernel.kallsyms]  [k] list_insert_sorted.isra.0                 -      -            
+            |
+            ---list_insert_sorted.isra.0
+               __drm_buddy_free
+               amddrm_buddy_free_block
+               __drm_buddy_free_list
+               amddrm_buddy_free_list
+               amdgpu_vram_mgr_del
+               amdttm_resource_free
+               ttm_bo_cleanup_memtype_use
+               ttm_bo_release
+               amdttm_bo_put
+               amdgpu_gem_object_free
+               drm_gem_object_free
+               amdgpu_bo_unref
+               amdgpu_vm_pt_free
+               amdgpu_vm_pt_free_root
+               amdgpu_vm_fini
+               amdgpu_driver_postclose_kms
+               drm_file_free
+               drm_release
+               __fput
+               delayed_fput
+               process_one_work
+               worker_thread
+               kthread
+               ret_from_fork
+               ret_from_fork_asm
+
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#
