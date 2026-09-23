@@ -30,6 +30,14 @@ ownership=[]
 with (r/'sampling/gpu-ownership.jsonl').open() as f:
  for line in f:ownership.append(json.loads(line))
 checks['ownership_evidence']=bool(ownership) and not any(x['interference'] or x['consecutive_probe_errors']>=3 for x in ownership)
-result={'passed':all(checks.values()),'checks':checks,'coverage':cov,'engine_identities':identities,'ownership_samples':len(ownership),'runner_accounting':s['runner_accounting'],'guard_mode':mode,'sampling_accounting':read(r/'analysis/runtime-summary.json')['accounting'],'limitations':['Single-run acceptance is not a confidence interval.','Counters with scrape errors are missing observations, not zeros.','Model metadata hashes do not hash all weight shards.']}
+runtime=read(r/'analysis/runtime-summary.json')
+windows=[(start/1e9,end/1e9) for label,start,end in runtime['intervals'] if label=='C80/profiling']
+assert len(windows)==1
+start,end=windows[0];times=[x['time'] for x in ownership]
+gaps=[b-a for a,b in zip(times,times[1:])]
+ownership_window={'profile_start_s':start,'profile_end_s':end,'first_sample_s':times[0] if times else None,'last_sample_s':times[-1] if times else None,'max_gap_s':max(gaps) if gaps else None,'allowed_gap_s':60}
+checks['ownership_window_covered']=len(times)>=2 and times[0]<=start and times[-1]>=end-60 and all(0<gap<=60 for gap in gaps)
+checks['no_runner_profile_errors']=s['runner_accounting']['profiling']['errors']==0
+result={'passed':all(checks.values()),'checks':checks,'coverage':cov,'engine_identities':identities,'ownership_samples':len(ownership),'ownership_window':ownership_window,'runner_accounting':s['runner_accounting'],'guard_mode':mode,'sampling_accounting':read(r/'analysis/runtime-summary.json')['accounting'],'limitations':['Single-run acceptance is not a confidence interval.','Counters with scrape errors are missing observations, not zeros.','Model metadata hashes do not hash all weight shards.']}
 (r/'analysis/case-audit.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps({'passed':result['passed'],'checks':checks}))
 if not result['passed']:raise SystemExit(1)

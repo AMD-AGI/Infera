@@ -12,7 +12,9 @@
     "prefill_unchanged": true,
     "decode_unchanged": true,
     "model_metadata_unchanged": true,
-    "ownership_evidence": true
+    "ownership_evidence": true,
+    "ownership_window_covered": true,
+    "no_runner_profile_errors": true
   },
   "coverage": {
     "client_records": 9727,
@@ -72,6 +74,14 @@
     }
   },
   "ownership_samples": 353,
+  "ownership_window": {
+    "profile_start_s": 1790180770.0694077,
+    "profile_end_s": 1790184370.0694077,
+    "first_sample_s": 1790179310.3211002,
+    "last_sample_s": 1790184735.6537247,
+    "max_gap_s": 17.79205346107483,
+    "allowed_gap_s": 60
+  },
   "runner_accounting": {
     "warmup": {
       "sent": 884,

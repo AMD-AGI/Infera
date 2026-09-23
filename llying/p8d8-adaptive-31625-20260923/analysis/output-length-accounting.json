@@ -1,0 +1,21 @@
+{
+  "method": "Requested output budget inferred from exported OSL mismatch percentage and actual output; rounding error checked. Not a directly captured request-body budget.",
+  "cases": {
+    "old4k": {
+      "n": 9782,
+      "nonzero_mismatch": 295,
+      "actual_output": 9468022,
+      "inferred_requested_output": 9847765,
+      "actual_to_requested_ratio": 0.9614386614627786,
+      "max_target_rounding_error": 6.803020369261503e-10
+    },
+    "a0": {
+      "n": 9727,
+      "nonzero_mismatch": 279,
+      "actual_output": 9387580,
+      "inferred_requested_output": 9732647,
+      "actual_to_requested_ratio": 0.964545410924695,
+      "max_target_rounding_error": 3.728928277269006e-10
+    }
+  }
+}
