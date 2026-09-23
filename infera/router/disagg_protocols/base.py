@@ -62,9 +62,10 @@ class DisaggProtocol(Protocol):
         d: WorkerInfo,
         room_id: int,
     ) -> str | None:
-        """Forged ``X-Request-Id`` for both P and D POSTs, or ``None`` to
-        let the engine assign its own. MoRIIO needs this because its
-        connector parses peer addressing out of the request_id."""
+        """Forged request id for both P and D POSTs, or ``None`` to let the
+        engine assign its own. The router carries it in the header the
+        protocol's engine reads. MoRIIO needs this because its connector
+        parses peer addressing out of the request_id."""
         ...
 
 

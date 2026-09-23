@@ -7,6 +7,7 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "httpx>=0.28",
+    "anyio>=4.0",
     "xxhash>=3.4",
     "pyzmq>=26",
     "msgspec>=0.18",

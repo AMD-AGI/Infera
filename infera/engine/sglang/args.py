@@ -68,6 +68,12 @@ class SglangWorkerArgs:
     # the SGLang flags that select our backend.
     infera_kvd_socket: str | None  # UDS path the kvd daemon listens on
 
+    # PD prefill loads weights immediately, then waits for decode before
+    # advertising the worker. None means default-on for prefill.
+    wait_for_decode: bool | None
+    decode_ready_timeout: float | None
+    k8s_label_selector: str | None
+
 
 def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
     parser = argparse.ArgumentParser(add_help=True)
@@ -93,13 +99,41 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
     parser.add_argument(
         "--etcd-prefix",
         default="/infera/workers/",
-        help="Etcd key prefix (default: /infera/workers/)",
+        help="Etcd key prefix (default: /infera/workers/). Must be unique per "
+        "deployment: the PD decode barrier lists this prefix with no extra "
+        "selector, so a shared prefix can unblock prefill using another "
+        "deployment's decode worker.",
     )
     parser.add_argument(
         "--k8s-namespace",
         default=None,
         help="Namespace of this worker's Pod for --discovery-backend=kubernetes "
         "(default: POD_NAMESPACE env / the Pod's mounted ServiceAccount namespace).",
+    )
+    parser.add_argument(
+        "--k8s-label-selector",
+        default=None,
+        help="Label selector used by a PD prefill worker to find decode Pods "
+        "(--wait-for-decode). Default: $INFERA_K8S_LABEL_SELECTOR, else this "
+        "Pod's own infera.amd.com/deployment label, else that label with "
+        "$WORKLOAD_ID. The barrier refuses to run unscoped.",
+    )
+    parser.add_argument(
+        "--wait-for-decode",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="On --disaggregation-mode prefill, load weights immediately, skip "
+        "SGLang's fake-bootstrap PD warmup, and wait until a matching decode "
+        "worker has registered before advertising this worker. Default on for "
+        "prefill; --no-wait-for-decode uses SGLang's own startup warmup.",
+    )
+    parser.add_argument(
+        "--decode-ready-timeout",
+        type=float,
+        default=None,
+        help="Seconds a PD prefill worker waits for a registered decode peer. "
+        "Default $INFERA_DECODE_READY_TIMEOUT, else 14400. Separate from "
+        "$INFERA_ENGINE_READY_TIMEOUT, which is the engine's own /health budget.",
     )
     parser.add_argument(
         "--request-transport",
@@ -359,6 +393,9 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
         kv_event_transport=known.kv_event_transport,
         nats_server=known.nats_server,
         infera_kvd_socket=known.infera_kvd_socket,
+        wait_for_decode=known.wait_for_decode,
+        decode_ready_timeout=known.decode_ready_timeout,
+        k8s_label_selector=known.k8s_label_selector,
     )
 
 

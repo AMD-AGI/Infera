@@ -24,12 +24,30 @@ import logging
 import os
 import signal
 
+import httpx
+
 from infera.common.disagg_preflight import (
     validate_advertise_host,
     validate_sglang_transport,
 )
+from infera.common.discovery import _normalize_endpoint
+from infera.common.k8s_client import make_client
 from infera.common.registration import RegistrationClient
+from infera.common.registration_k8s import K8sRegistrationClient
 from infera.engine.base import EngineDeath, watch_engine_death
+from infera.engine.decode_barrier import (
+    apply_pd_probe_recovery_defaults,
+    decode_ready_timeout_seconds,
+    discovery_budget_seconds,
+    ensure_barrier_discovery_is_reachable,
+    ensure_skip_server_warmup,
+    list_etcd_worker_payloads,
+    list_k8s_worker_payloads,
+    should_wait_for_decode,
+    verify_pd_peer,
+    wait_for_decode,
+    wait_for_k8s_label_selector,
+)
 from infera.engine.drain import drain_engine_inflight
 from infera.engine.flush import anchor_kv_chain
 from infera.engine.sglang.args import (
@@ -66,6 +84,137 @@ def _kill_process_group_safely() -> None:
         os.killpg(pgid, signal.SIGKILL)
     except (ProcessLookupError, PermissionError):
         pass
+
+
+def _multinode_node_rank(args: SglangWorkerArgs) -> int:
+    """This worker's node rank in a multi-node (LeaderWorkerSet) TP group.
+
+    From sglang ServerArgs (set via the injected --node-rank
+    $LWS_WORKER_INDEX), with the LWS env as a fallback.
+    """
+    node_rank = int(getattr(args.server_args, "node_rank", 0) or 0)
+    if node_rank <= 0:
+        try:
+            node_rank = int(os.environ.get("LWS_WORKER_INDEX", "0") or "0")
+        except ValueError:
+            node_rank = 0
+    return node_rank
+
+
+async def _maybe_wait_for_decode(args: SglangWorkerArgs, config) -> None:
+    """Verify a compatible decode worker and its real KV path.
+
+    Weight load already happened: launch_server ran with --skip-server-warmup.
+    Fake-bootstrap PD warmup is replaced by a real peer-to-peer transfer.
+    """
+    mode = getattr(args.server_args, "disaggregation_mode", None)
+    if not should_wait_for_decode(mode, args.wait_for_decode):
+        return
+    # After engine.start() the TP group has already rendezvoused. Only the
+    # serving rank issues warmup /generate and needs decode to be registered.
+    if _multinode_node_rank(args) > 0:
+        logger.info("decode barrier: skipped wait on multinode follower")
+        return
+    model_name = (
+        getattr(args.server_args, "served_model_name", None)
+        or getattr(args.server_args, "model_path", None)
+        or ""
+    )
+    timeout = decode_ready_timeout_seconds(args.decode_ready_timeout)
+    started = asyncio.get_running_loop().time()
+    deadline = started + timeout
+    # Discovery stops early so the KV probe keeps a reserve of the shared
+    # budget; it still runs one immediate lookup when nothing is left.
+    discovery_deadline = started + discovery_budget_seconds(timeout)
+
+    # One client for the whole wait on either backend. The k8s path also
+    # re-reads the ServiceAccount token per request so a rotation is not a 401.
+    http: httpx.AsyncClient | None = None
+    selector: str | None = None
+    try:
+        if args.discovery_backend == "kubernetes":
+            http = make_client(timeout=10.0)
+            selector = await wait_for_k8s_label_selector(
+                args.k8s_label_selector,
+                namespace=args.k8s_namespace,
+                http=http,
+                timeout=max(0.0, discovery_deadline - asyncio.get_running_loop().time()),
+            )
+        else:
+            http = httpx.AsyncClient(base_url=_normalize_endpoint(args.etcd_endpoint), timeout=10.0)
+
+        async def _list() -> list:
+            if args.discovery_backend == "kubernetes":
+                return await list_k8s_worker_payloads(
+                    namespace=args.k8s_namespace,
+                    label_selector=selector,
+                    http=http,
+                )
+            return await list_etcd_worker_payloads(args.etcd_endpoint, args.etcd_prefix, http=http)
+
+        logger.info(
+            "decode barrier: prefill waiting up to %.0fs for a registered decode worker "
+            "(model=%s, discovery=%s)",
+            timeout,
+            model_name,
+            args.discovery_backend,
+        )
+        remaining = max(0.0, discovery_deadline - asyncio.get_running_loop().time())
+        decode = await wait_for_decode(_list, model_name=str(model_name), timeout=remaining)
+        decode_url = str(decode.get("url") or "").rstrip("/")
+        if not decode_url:
+            raise RuntimeError("registered decode worker has no URL")
+        bootstrap_host = str(config.host)
+        if bootstrap_host in ("0.0.0.0", ""):
+            raise RuntimeError("prefill has no routable bootstrap host")
+        # The probe spends what is left of the decode-ready budget rather than
+        # extending it: its own retry schedule is otherwise unbounded here.
+        probe_timeout = max(0.0, deadline - asyncio.get_running_loop().time())
+        await asyncio.wait_for(
+            verify_pd_peer(
+                prefill_url=f"http://{config.host}:{config.port}",
+                decode_url=decode_url,
+                bootstrap_host=bootstrap_host,
+                bootstrap_port=int(args.server_args.disaggregation_bootstrap_port),
+                dp_size=int(getattr(args.server_args, "dp_size", 1) or 1),
+                decode_dp_size=int(decode.get("dp_size") or 1),
+            ),
+            timeout=probe_timeout,
+        )
+    finally:
+        if http is not None:
+            await http.aclose()
+
+
+def _supervise_engine(engine: SglangEngine) -> tuple[asyncio.Event, EngineDeath, asyncio.Task]:
+    """Watch SIGTERM and subprocess death for the whole post-start lifetime."""
+    stop = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, stop.set)
+    death = EngineDeath()
+    death_task = watch_engine_death(engine, stop, death)
+    return stop, death, death_task
+
+
+async def _wait_for_decode_until_stop(args: SglangWorkerArgs, config, stop: asyncio.Event) -> bool:
+    """Run the decode barrier unless shutdown or engine death wins the race."""
+    wait_task = asyncio.create_task(_maybe_wait_for_decode(args, config))
+    stop_task = asyncio.create_task(stop.wait())
+    try:
+        await asyncio.wait({wait_task, stop_task}, return_when=asyncio.FIRST_COMPLETED)
+        if wait_task.done() and not wait_task.cancelled():
+            wait_task.result()
+            return not stop.is_set()
+        return False
+    finally:
+        for task in (wait_task, stop_task):
+            if not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
 
 
 logging.basicConfig(level=logging.INFO)
@@ -255,6 +404,15 @@ async def main() -> None:
     )
 
     apply_rocm_rdma_env_defaults()
+    recovery_defaults = apply_pd_probe_recovery_defaults(
+        getattr(args.server_args, "disaggregation_mode", None),
+        getattr(args.server_args, "disaggregation_transfer_backend", None),
+    )
+    if recovery_defaults:
+        logger.info(
+            "Mooncake probe recovery defaults applied: %s",
+            recovery_defaults,
+        )
     # Disable sglang's CUDA-only DSA topk_v2 JIT on ROCm (set-if-unset), else every
     # non-DeepseekV4 DSA arch dies in CUDA-graph capture. See rocm_dsa_env.py.
     apply_rocm_dsa_env_defaults()
@@ -271,6 +429,25 @@ async def main() -> None:
     # Auto-size the mori-MoE dispatch buffer from --chunked-prefill-size so operators
     # only set the one documented knob (else sglang asserts on the prefill engine).
     _wire_mori_dispatch_buffer(args.server_args)
+
+    # Prefill PD warmup is a /generate to 2.2.2.2 during FastAPI startup.
+    # Load weights in parallel with decode and skip that warmup entirely.
+    if should_wait_for_decode(
+        getattr(args.server_args, "disaggregation_mode", None), args.wait_for_decode
+    ):
+        args.sglang_argv = ensure_skip_server_warmup(args.sglang_argv)
+        # The barrier itself runs after the weights are in, so a discovery
+        # config it could never resolve would cost one full load per restart.
+        if _multinode_node_rank(args) == 0:
+            ensure_barrier_discovery_is_reachable(
+                args.discovery_backend,
+                k8s_label_selector=args.k8s_label_selector,
+                etcd_endpoint=args.etcd_endpoint,
+            )
+
+    if args.discovery_backend == "kubernetes":
+        stale_registration = K8sRegistrationClient(namespace=args.k8s_namespace)
+        await stale_registration.clear_stale_registration()
 
     engine = SglangEngine(
         args.server_args,
@@ -298,24 +475,47 @@ async def main() -> None:
         config.disagg_meta,
     )
 
-    # Everything past engine.start() must tear the engine down on failure;
-    # otherwise an exception (e.g. --kv-events on failing the KV plane) escapes
-    # without reaping the sglang subprocess tree, orphaning it (holds ports/GPUs).
+    await _run_started_engine(args, engine, config)
+
+
+async def _run_started_engine(args: SglangWorkerArgs, engine: SglangEngine, config) -> None:
+    """Supervise and tear down an engine that completed startup."""
+    stop, death, death_task = _supervise_engine(engine)
+    failed = False
     try:
-        await _run_after_start(args, engine, config)
-    except Exception:
+        if await _wait_for_decode_until_stop(args, config, stop):
+            await _run_after_start(args, engine, config, stop)
+    except BaseException:
+        failed = True
         logger.exception("worker failed after engine start; tearing down")
+        raise
+    finally:
+        death_task.cancel()
+        try:
+            await death_task
+        except asyncio.CancelledError:
+            pass
         try:
             await engine.stop()
         finally:
-            _kill_process_group_safely()
-        raise
+            if failed:
+                _kill_process_group_safely()
+        if not failed and death.exit_status is not None:
+            raise SystemExit(death.exit_status)
 
 
-async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config) -> None:
+async def _run_after_start(
+    args: SglangWorkerArgs,
+    engine: SglangEngine,
+    config,
+    stop: asyncio.Event,
+) -> None:
     """Worker lifecycle once the sglang subprocess is up: KV plane,
     registration, then serve until shutdown. Raises on any setup failure so
     ``main`` can tear the engine down (avoids orphaning the subprocess tree).
+
+    ``stop`` is already armed (signals + engine-death watch) before the
+    decode barrier, so this function does not install a second watcher.
     """
     # --- Multinode follower gate ---
     # In a multi-node (LeaderWorkerSet) TP group only node-rank 0 runs the
@@ -325,33 +525,14 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
     # skips the KV plane + registration and just keeps its sglang subprocess
     # alive until shutdown. node-rank comes from sglang ServerArgs (set via the
     # injected --node-rank $LWS_WORKER_INDEX), with the LWS env as a fallback.
-    node_rank = int(getattr(args.server_args, "node_rank", 0) or 0)
-    if node_rank <= 0:
-        try:
-            node_rank = int(os.environ.get("LWS_WORKER_INDEX", "0") or "0")
-        except ValueError:
-            node_rank = 0
+    node_rank = _multinode_node_rank(args)
     if node_rank > 0:
         logger.info(
             "multinode follower (node-rank %d): TP worker only; skipping KV plane "
             "+ registration (node-rank 0 serves and registers).",
             node_rank,
         )
-        stop = asyncio.Event()
-        loop = asyncio.get_running_loop()
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, stop.set)
-        death = EngineDeath()
-        death_task = watch_engine_death(engine, stop, death)
         await stop.wait()
-        death_task.cancel()
-        try:
-            await death_task
-        except asyncio.CancelledError:
-            pass
-        await engine.stop()
-        if death.exit_status is not None:
-            raise SystemExit(death.exit_status)
         return
 
     # --- KV plane (best-effort under auto, fatal under on, skipped under off) ---
@@ -424,8 +605,6 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
 
     # --- Auto-registration (etcd or kubernetes) ---
     if args.discovery_backend == "kubernetes":
-        from infera.common.registration_k8s import K8sRegistrationClient
-
         logger.info("using kubernetes registration: namespace=%s", args.k8s_namespace or "<pod>")
         reg_client = K8sRegistrationClient(namespace=args.k8s_namespace)
     else:
@@ -471,23 +650,7 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
     await reg_client.register(config)
     hb_task = asyncio.create_task(reg_client.heartbeat_loop(), name="worker-heartbeat")
 
-    # --- Wait for shutdown signal (or engine subprocess death) ---
-    stop = asyncio.Event()
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, stop.set)
-
-    death = EngineDeath()
-    death_task = watch_engine_death(engine, stop, death)
-
     await stop.wait()
-
-    # --- Graceful shutdown ---
-    death_task.cancel()
-    try:
-        await death_task
-    except asyncio.CancelledError:
-        pass
 
     # Stop the heartbeat before touching the record: it re-asserts registration
     # from config, so a refresh landing after deregistration would put the
@@ -536,10 +699,6 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
 
     if kv_wiring is not None:
         await kv_wiring.stop()
-
-    await engine.stop()
-    if death.exit_status is not None:
-        raise SystemExit(death.exit_status)
 
 
 if __name__ == "__main__":

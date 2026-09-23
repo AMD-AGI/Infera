@@ -20,6 +20,7 @@ use axum::routing::post;
 use axum::{Json, Router};
 use serde_json::{json, Value};
 
+use futures::StreamExt;
 use infera_router::block_hasher::BlockHasher;
 use infera_router::breaker::CircuitBreaker;
 use infera_router::handlers::{app, AppState};
@@ -43,6 +44,11 @@ struct MockState {
     sse: bool,
     reply: Value,
     hits: Mutex<Vec<Hit>>,
+    abort_rids: Mutex<Vec<String>>,
+    hang: bool,
+    hang_stream: bool,
+    /// End the SSE body after one event, with no `data: [DONE]`.
+    truncated_sse: bool,
 }
 
 impl MockState {
@@ -63,17 +69,54 @@ async fn mock_handle(
         .and_then(|h| h.to_str().ok())
         .map(str::to_string);
     let path = uri.path().to_string();
+    let is_responses = path == "/v1/responses";
+    if path == "/abort_request" {
+        let rid = body
+            .get("rid")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        s.abort_rids.lock().unwrap().push(rid);
+        return StatusCode::OK.into_response();
+    }
     s.hits.lock().unwrap().push(Hit {
         body,
         dp_rank,
         path,
     });
 
+    if s.hang {
+        std::future::pending::<()>().await;
+    }
+
     if s.status != 200 {
         return (StatusCode::from_u16(s.status).unwrap(), "upstream error").into_response();
     }
     if s.sse {
-        let sse = "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n";
+        let first =
+            Bytes::from_static(b"data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n");
+        if s.hang_stream {
+            let s = futures::stream::once(async move { Ok::<_, std::io::Error>(first) })
+                .chain(futures::stream::pending());
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header(CONTENT_TYPE, "text/event-stream")
+                .body(Body::from_stream(s))
+                .unwrap();
+        }
+        if s.truncated_sse {
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header(CONTENT_TYPE, "text/event-stream")
+                .body(Body::from(first))
+                .unwrap();
+        }
+        let terminal = if is_responses {
+            b"event: response.completed\ndata: {\"type\":\"response.completed\"}\n\n".as_ref()
+        } else {
+            b"data: [DONE]\n\n".as_ref()
+        };
+        let sse = [first.as_ref(), terminal].concat();
         return Response::builder()
             .status(StatusCode::OK)
             .header(CONTENT_TYPE, "text/event-stream")
@@ -90,13 +133,70 @@ async fn spawn_mock(status: u16, sse: bool, reply: Value) -> (String, Arc<MockSt
         sse,
         reply,
         hits: Mutex::new(Vec::new()),
+        abort_rids: Mutex::new(Vec::new()),
+        hang: false,
+        hang_stream: false,
+        truncated_sse: false,
     });
     let router = Router::new()
         .route("/v1/chat/completions", post(mock_handle))
         .route("/v1/completions", post(mock_handle))
         .route("/v1/responses", post(mock_handle))
+        .route("/abort_request", post(mock_handle))
         // Stand in for a real engine, which caps a prompt by context length
         // rather than by request bytes.
+        .layer(DefaultBodyLimit::disable())
+        .with_state(state.clone());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    (format!("http://127.0.0.1:{port}"), state)
+}
+
+async fn spawn_mock_cfg(
+    status: u16,
+    sse: bool,
+    reply: Value,
+    hang: bool,
+    hang_stream: bool,
+) -> (String, Arc<MockState>) {
+    let state = Arc::new(MockState {
+        status,
+        sse,
+        reply,
+        hits: Mutex::new(Vec::new()),
+        abort_rids: Mutex::new(Vec::new()),
+        hang,
+        hang_stream,
+        truncated_sse: false,
+    });
+    serve_mock(state).await
+}
+
+/// A worker whose SSE body ends cleanly one event in, the way an engine that
+/// dies mid-generation looks to the router.
+async fn spawn_mock_truncated_sse() -> (String, Arc<MockState>) {
+    let state = Arc::new(MockState {
+        status: 200,
+        sse: true,
+        reply: json!(null),
+        hits: Mutex::new(Vec::new()),
+        abort_rids: Mutex::new(Vec::new()),
+        hang: false,
+        hang_stream: false,
+        truncated_sse: true,
+    });
+    serve_mock(state).await
+}
+
+async fn serve_mock(state: Arc<MockState>) -> (String, Arc<MockState>) {
+    let router = Router::new()
+        .route("/v1/chat/completions", post(mock_handle))
+        .route("/v1/completions", post(mock_handle))
+        .route("/v1/responses", post(mock_handle))
+        .route("/abort_request", post(mock_handle))
         .layer(DefaultBodyLimit::disable())
         .with_state(state.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -119,11 +219,16 @@ fn make_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
     AppState {
         pool: Arc::new(ArcSwap::from_pointee(Snapshot::build(workers))),
         policy: Arc::new(RoundRobin::new()),
-        http: proxy::build_upstream_client().unwrap(),
+        http: proxy::build_upstream_client(0.0).unwrap(),
         started: Instant::now(),
         retries,
         breaker: Arc::new(CircuitBreaker::default()),
         nats: None,
+        pd_prefill_drain_timeout: Duration::from_secs(300),
+        stream_stall_warn: infera_router::proxy::StallWarn {
+            before_first_byte: Duration::from_secs(240),
+            mid_stream: Duration::from_secs(60),
+        },
     }
 }
 
@@ -273,11 +378,16 @@ fn make_kv_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
             None,
             None,
         )),
-        http: proxy::build_upstream_client().unwrap(),
+        http: proxy::build_upstream_client(0.0).unwrap(),
         started: Instant::now(),
         retries,
         breaker: Arc::new(CircuitBreaker::default()),
         nats: None,
+        pd_prefill_drain_timeout: Duration::from_secs(300),
+        stream_stall_warn: infera_router::proxy::StallWarn {
+            before_first_byte: Duration::from_secs(240),
+            mid_stream: Duration::from_secs(60),
+        },
     }
 }
 
@@ -608,6 +718,46 @@ async fn pd_unary_injects_matching_bootstrap_room() {
     // Both legs must carry the SAME room or the KV handoff can't rendezvous.
     assert!(p_hit["bootstrap_room"].is_number());
     assert_eq!(p_hit["bootstrap_room"], d_hit["bootstrap_room"]);
+    let room = p_hit["bootstrap_room"].as_u64().unwrap();
+    assert_eq!(p_hit["rid"], format!("infera-{room}"));
+    assert_eq!(p_hit["rid"], d_hit["rid"]);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_mixed_request_transports_reject_before_dispatch() {
+    let (p_url, p) = spawn_mock(200, false, json!({"who": "prefill"})).await;
+    let (d_url, d) = spawn_mock(200, false, json!({"who": "decode"})).await;
+    let p_worker = worker(json!({
+        "worker_id": "p",
+        "url": p_url,
+        "model_name": "m",
+        "disagg_mode": "prefill",
+        "disagg_meta": {
+            "protocol": "sglang-bootstrap",
+            "params": {"bootstrap_addr": "10.0.0.1:9000"}
+        },
+        "request_transport": "http"
+    }));
+    let d_worker = worker(json!({
+        "worker_id": "d",
+        "url": d_url,
+        "model_name": "m",
+        "disagg_mode": "decode",
+        "disagg_meta": {"protocol": "sglang-bootstrap"},
+        "request_transport": "nats"
+    }));
+    let router = spawn_router(make_state(vec![p_worker, d_worker], 0)).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": false}))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(p.hit_count(), 0);
+    assert_eq!(d.hit_count(), 0);
 }
 
 /// PD dual-dispatch is path-generic: a Responses request must reach both legs on
@@ -640,6 +790,9 @@ async fn pd_responses_injects_bootstrap_on_both_legs() {
     assert_eq!(d_hit.body["bootstrap_port"], 9000);
     assert!(p_hit.body["bootstrap_room"].is_number());
     assert_eq!(p_hit.body["bootstrap_room"], d_hit.body["bootstrap_room"]);
+    assert_eq!(p_hit.body["request_id"], p_hit.body["rid"]);
+    assert_eq!(d_hit.body["request_id"], d_hit.body["rid"]);
+    assert_eq!(p_hit.body["request_id"], d_hit.body["request_id"]);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -684,6 +837,15 @@ async fn pd_streaming_relays_decode_and_fires_prefill() {
         .await
         .unwrap();
     assert_eq!(resp.status(), 200);
+    // An nginx hop with `proxy_buffering on` would otherwise accumulate the
+    // events and hand the client silence while the worker streams normally.
+    assert_eq!(
+        resp.headers()
+            .get("x-accel-buffering")
+            .and_then(|v| v.to_str().ok()),
+        Some("no"),
+        "an SSE reply must tell a proxy not to buffer it"
+    );
     let text = resp.text().await.unwrap();
     assert!(text.contains("[DONE]"), "expected decode SSE, got {text:?}");
 
@@ -697,6 +859,320 @@ async fn pd_streaming_relays_decode_and_fires_prefill() {
         1,
         "prefill leg must run even while streaming"
     );
+    assert!(
+        p.abort_rids.lock().unwrap().is_empty(),
+        "a completed stream must not abort the engine request"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_responses_completed_stream_does_not_abort() {
+    let (p_url, p) = spawn_mock(200, false, json!(null)).await;
+    let (d_url, d) = spawn_mock(200, true, json!(null)).await;
+    let state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    let router = spawn_router(state).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/responses"))
+        .json(&json!({"model": "m", "input": "hello", "stream": true}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let text = resp.text().await.unwrap();
+    assert!(text.contains("event: response.completed"));
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(p.abort_rids.lock().unwrap().is_empty());
+    assert!(d.abort_rids.lock().unwrap().is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_client_disconnect_posts_abort_request() {
+    let (p_url, p) = spawn_mock_cfg(200, false, json!(null), true, false).await;
+    let (d_url, d) = spawn_mock_cfg(200, true, json!(null), false, true).await;
+    let state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    let router = spawn_router(state).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": true}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let mut stream = resp.bytes_stream();
+    let first = stream.next().await;
+    assert!(first.is_some());
+    drop(stream);
+
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while p.abort_rids.lock().unwrap().is_empty() && Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+    let p_rids = p.abort_rids.lock().unwrap().clone();
+    let d_rids = d.abort_rids.lock().unwrap().clone();
+    assert!(
+        !p_rids.is_empty(),
+        "dropped client must abort the hung prefill"
+    );
+    assert!(p_rids[0].starts_with("infera-"));
+    assert_eq!(p_rids[0], d_rids[0]);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_prefill_drain_timeout_posts_abort_request() {
+    let (p_url, p) = spawn_mock_cfg(200, false, json!(null), true, false).await;
+    let (d_url, d) = spawn_mock(200, true, json!(null)).await;
+    let mut state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    state.pd_prefill_drain_timeout = Duration::from_millis(80);
+    let router = spawn_router(state).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": true}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let _ = resp.text().await.unwrap();
+
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while p.abort_rids.lock().unwrap().is_empty() && Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+    assert!(
+        !p.abort_rids.lock().unwrap().is_empty(),
+        "drain timeout must abort hung prefill"
+    );
+    assert!(
+        !d.abort_rids.lock().unwrap().is_empty(),
+        "drain timeout must abort the decode KV waiter"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_prefill_drain_timeout_starts_after_decode_stream_ends() {
+    let (p_url, p) = spawn_mock_cfg(200, false, json!(null), true, false).await;
+    let (d_url, d) = spawn_mock_cfg(200, true, json!(null), false, true).await;
+    let mut state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    state.pd_prefill_drain_timeout = Duration::from_millis(80);
+    let router = spawn_router(state).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": true}))
+        .send()
+        .await
+        .unwrap();
+    let mut stream = resp.bytes_stream();
+    assert!(stream.next().await.is_some());
+    tokio::time::sleep(Duration::from_millis(160)).await;
+
+    assert!(
+        p.abort_rids.lock().unwrap().is_empty(),
+        "drain timeout must not run while decode is still streaming"
+    );
+    assert!(d.abort_rids.lock().unwrap().is_empty());
+    drop(stream);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_unary_worker_failure_aborts_both_engine_requests() {
+    let (p_url, p) = spawn_mock(500, false, json!({"error": "KVTransferError"})).await;
+    let (d_url, d) = spawn_mock(500, false, json!({"error": "KVTransferError"})).await;
+    let state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    let router = spawn_router(state).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": false}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 500);
+
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while (p.abort_rids.lock().unwrap().is_empty() || d.abort_rids.lock().unwrap().is_empty())
+        && Instant::now() < deadline
+    {
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+    let p_rids = p.abort_rids.lock().unwrap().clone();
+    let d_rids = d.abort_rids.lock().unwrap().clone();
+    assert!(
+        !p_rids.is_empty(),
+        "prefill failure must abort its inflight request"
+    );
+    assert!(
+        !d_rids.is_empty(),
+        "prefill failure must abort the decode KV waiter"
+    );
+    assert_eq!(p_rids[0], d_rids[0]);
+}
+
+/// A chat decode leg that closes cleanly without `[DONE]` is incomplete.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_chat_eof_without_done_aborts_the_pair() {
+    let (p_url, p) = spawn_mock_cfg(200, false, json!(null), true, false).await;
+    let (d_url, d) = spawn_mock_truncated_sse().await;
+    let state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    let router = spawn_router(state).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": true}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let text = resp.text().await.unwrap();
+    assert!(!text.contains("[DONE]"), "the mock decode stops early");
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while (p.abort_rids.lock().unwrap().is_empty() || d.abort_rids.lock().unwrap().is_empty())
+        && Instant::now() < deadline
+    {
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+    assert!(
+        !p.abort_rids.lock().unwrap().is_empty(),
+        "a truncated chat stream must abort the hung prefill"
+    );
+    assert!(
+        !d.abort_rids.lock().unwrap().is_empty(),
+        "a truncated chat stream must abort the decode leg too"
+    );
+}
+
+/// A Responses decode leg that closes without `response.completed` is incomplete.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_responses_eof_without_completed_aborts_the_pair() {
+    let (p_url, p) = spawn_mock_cfg(200, false, json!(null), true, false).await;
+    let (d_url, d) = spawn_mock_truncated_sse().await;
+    let state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    let router = spawn_router(state).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/responses"))
+        .json(&json!({"model": "m", "input": "hello", "stream": true}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let text = resp.text().await.unwrap();
+    assert!(
+        !text.contains("event: response.completed"),
+        "the mock decode stops early"
+    );
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while (p.abort_rids.lock().unwrap().is_empty() || d.abort_rids.lock().unwrap().is_empty())
+        && Instant::now() < deadline
+    {
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+    assert!(
+        !p.abort_rids.lock().unwrap().is_empty(),
+        "a truncated decode stream must abort the hung prefill"
+    );
+    assert!(
+        !d.abort_rids.lock().unwrap().is_empty(),
+        "a truncated decode stream must abort the decode leg too"
+    );
+}
+
+/// A non-streaming PD request has no response body to drop, so the disconnect
+/// only shows up as the handler future being cancelled while both legs are
+/// still generating. Nothing reads them after that, and both engines keep the
+/// inflight slot until someone aborts the request id.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_unary_client_disconnect_posts_abort_request() {
+    let (p_url, p) = spawn_mock_cfg(200, false, json!(null), true, false).await;
+    let (d_url, d) = spawn_mock_cfg(200, false, json!(null), true, false).await;
+    let state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    let router = spawn_router(state).await;
+
+    let pending = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": false}))
+        .send();
+    // Both legs hang, so the client gives up on a request still in flight.
+    assert!(
+        tokio::time::timeout(Duration::from_millis(200), pending)
+            .await
+            .is_err(),
+        "the mock legs must still be generating when the client leaves"
+    );
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while (p.abort_rids.lock().unwrap().is_empty() || d.abort_rids.lock().unwrap().is_empty())
+        && Instant::now() < deadline
+    {
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+    let p_rids = p.abort_rids.lock().unwrap().clone();
+    let d_rids = d.abort_rids.lock().unwrap().clone();
+    assert!(
+        !p_rids.is_empty(),
+        "a dropped unary request must abort the prefill leg"
+    );
+    assert!(
+        !d_rids.is_empty(),
+        "a dropped unary request must abort the decode leg"
+    );
+    assert!(p_rids[0].starts_with("infera-"));
+    assert_eq!(p_rids[0], d_rids[0]);
+}
+
+/// Parallel sampling splits one router request id into `n` engine ids, so a
+/// disconnect has to abort every one of them.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_unary_client_disconnect_aborts_every_sample() {
+    let (p_url, p) = spawn_mock_cfg(200, false, json!(null), true, false).await;
+    let (d_url, _d) = spawn_mock_cfg(200, false, json!(null), true, false).await;
+    let state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    let router = spawn_router(state).await;
+
+    let pending = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": false, "n": 3}))
+        .send();
+    assert!(tokio::time::timeout(Duration::from_millis(200), pending)
+        .await
+        .is_err());
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while p.abort_rids.lock().unwrap().len() < 3 && Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+    let mut rids = p.abort_rids.lock().unwrap().clone();
+    rids.sort();
+    assert_eq!(rids.len(), 3, "each sample carries its own engine rid");
+    assert!(rids[0].ends_with("_0") && rids[2].ends_with("_2"));
+}
+
+/// The completed unary pair owns its own abort decision; the drop guard must
+/// not fire a second one behind it.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_unary_success_does_not_abort() {
+    let (p_url, p) = spawn_mock(200, false, json!(null)).await;
+    let (d_url, d) = spawn_mock(200, false, json!({"answer": 42})).await;
+    let state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    let router = spawn_router(state).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": false}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    assert_eq!(resp.json::<Value>().await.unwrap()["answer"], 42);
+
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    assert!(p.abort_rids.lock().unwrap().is_empty());
+    assert!(d.abort_rids.lock().unwrap().is_empty());
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -827,7 +1303,7 @@ async fn spawn_flush_mock() -> (String, Arc<Mutex<Vec<String>>>) {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_flush_request_reaches_the_worker_over_http() {
     let (url, seen) = spawn_flush_mock().await;
-    let flush = infera_router::kv_selfheal::spawn(proxy::build_upstream_client().unwrap());
+    let flush = infera_router::kv_selfheal::spawn(proxy::build_upstream_client(0.0).unwrap());
 
     let w = worker(json!({
         "worker_id": "a", "url": url, "model_name": "m", "engine": "sglang",
@@ -857,7 +1333,7 @@ async fn a_flush_request_reaches_the_worker_over_http() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_worker_reachable_only_over_nats_is_not_flushed_over_http() {
     let (url, seen) = spawn_flush_mock().await;
-    let flush = infera_router::kv_selfheal::spawn(proxy::build_upstream_client().unwrap());
+    let flush = infera_router::kv_selfheal::spawn(proxy::build_upstream_client(0.0).unwrap());
 
     // Its `url` may not be routable from here at all, so an HTTP POST would
     // fail on every retry while looking like an unreachable worker.

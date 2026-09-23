@@ -6,7 +6,7 @@
 //! axum HTTP surface + shared app state.
 
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use axum::body::{to_bytes, Body, Bytes};
 use axum::extract::{DefaultBodyLimit, State};
@@ -42,6 +42,11 @@ pub struct AppState {
     /// registers itself as `http` and is dialled directly, exactly as on the
     /// Python side.
     pub nats: Option<Arc<crate::nats_request::NatsRequestClient>>,
+    /// Wall-clock cap on a detached PD prefill POST. 0 means no cap.
+    pub pd_prefill_drain_timeout: Duration,
+    /// Windows after which a silent stream is reported. Observability only:
+    /// the stream keeps waiting, because ending it is the caller's decision.
+    pub stream_stall_warn: crate::proxy::StallWarn,
 }
 
 pub fn app(state: AppState) -> Router {
@@ -255,8 +260,8 @@ fn translate_anthropic_stream(upstream: Response, model: &str, request_id: &str)
     let source = body.into_data_stream();
     let translator = SseTranslator::new(model, Some(request_id));
     let translated = futures::stream::unfold(
-        (source, translator, false),
-        |(mut source, mut translator, finished)| async move {
+        (source, translator, false, request_id.to_string()),
+        |(mut source, mut translator, finished, rid)| async move {
             if finished {
                 return None;
             }
@@ -267,15 +272,23 @@ fn translate_anthropic_stream(upstream: Response, model: &str, request_id: &str)
                         if !output.is_empty() {
                             return Some((
                                 Ok::<Bytes, axum::Error>(Bytes::from(output)),
-                                (source, translator, false),
+                                (source, translator, false, rid),
                             ));
                         }
                     }
                     Some(Err(error)) => {
+                        // The client is mid-body, so the only place left to
+                        // report this is inside the stream -- which leaves no
+                        // trace on this side unless it is logged here.
+                        tracing::warn!(
+                            request_id = %rid,
+                            %error,
+                            "anthropic stream failed mid-body"
+                        );
                         let output = translator.error(&format!("worker stream failed: {error}"));
                         return Some((
                             Ok::<Bytes, axum::Error>(Bytes::from(output)),
-                            (source, translator, true),
+                            (source, translator, true, rid),
                         ));
                     }
                     None => {
@@ -283,15 +296,13 @@ fn translate_anthropic_stream(upstream: Response, model: &str, request_id: &str)
                         if output.is_empty() {
                             return None;
                         }
-                        return Some((Ok(Bytes::from(output)), (source, translator, true)));
+                        return Some((Ok(Bytes::from(output)), (source, translator, true, rid)));
                     }
                 }
             }
         },
     );
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "text/event-stream")
+    proxy::sse_response()
         .header(REQUEST_ID_HEADER, request_id)
         .body(Body::from_stream(translated))
         .expect("Anthropic SSE response is valid")

@@ -109,8 +109,16 @@ MAX_PENDING_ENV = "INFERA_NATS_REQ_MAX_PENDING"
 # for the *next* reply chunk (covers first-byte / TTFT and inter-chunk stalls;
 # reset on every chunk, so a steadily-streaming long request never trips it —
 # this is NOT an overall request deadline, see MAX_DURATION_ENV for that). On
-# expiry the router returns 504 and signals the worker to abort. Default 900s
-# (15 min); set 0 to disable (wait forever).
+# expiry the router returns 504 and signals the worker to abort.
+#
+# A backstop rather than a policy. This transport has no connection to lose: a
+# worker that dies mid-stream simply stops publishing, and the router would
+# wait on a reply nobody will ever send, where an HTTP peer in the same state
+# resets the socket. So the default stays long -- long enough that it never
+# decides the fate of a request a caller is still waiting on, since the wait
+# before the first chunk covers admission and a caller that gives up
+# disconnects, which already reclaims the slot. Reporting a stall is the Rust
+# router's INFERA_STREAM_ADMISSION_WARN / INFERA_STREAM_STALL_WARN.
 IDLE_TIMEOUT_ENV = "INFERA_NATS_REQ_IDLE_TIMEOUT"
 DEFAULT_IDLE_TIMEOUT_S = 900
 
