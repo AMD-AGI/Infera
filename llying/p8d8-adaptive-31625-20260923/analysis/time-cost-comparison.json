@@ -1,0 +1,18 @@
+{
+  "comparison_origin": "After the common A0 is complete; final cleanup excluded equally",
+  "reuse_g0_minutes_actual": 94.85,
+  "a1_minutes_projected": 101.333,
+  "full_restart_observed_release_minutes": 29.733,
+  "full_restart_observed_launch_to_config_verified_minutes": 4.35,
+  "full_restart_then_one_case_estimated_minutes": [
+    125,
+    135
+  ],
+  "reuse_g0_then_a1_estimated_minutes": [
+    195,
+    200
+  ],
+  "a1_profile_actual_start": "2026-09-23T19:43:36.868Z",
+  "a1_expected_complete_approx": "2026-09-23T20:51:00Z",
+  "limitation": "One historical teardown measurement; release can vary. A1 completion still projected."
+}
